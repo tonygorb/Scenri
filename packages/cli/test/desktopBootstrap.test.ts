@@ -89,6 +89,13 @@ describe('the desktop bootstrap', () => {
     expect(got.home).toBe(home);
     expect(got.port).toBe('4801');
     expect(launcherLog()).toMatch(/bootstrap v1: handing off to .*0\.8\.4/);
+    // the first line says which node ran it, on what, and for which home: a
+    // log alone has to explain a click nobody watched
+    expect(launcherLog().split('\n')[0]).toMatch(
+      new RegExp(
+        `bootstrap v1: invoked from .* by .*node.* \\(node v\\d+\\.\\d+\\.\\d+, ${process.platform}\\), home `,
+      ),
+    );
   });
 
   it('on macOS stays alive until open is done, so the Dock icon bounces meanwhile; elsewhere it returns at once', async () => {

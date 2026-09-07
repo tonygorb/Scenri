@@ -22,7 +22,9 @@ const record = readJson(join(here, 'launcher.json'));
 const home = typeof record?.home === 'string' && record.home ? record.home : join(homedir(), '.scenri');
 const logPath = join(home, 'logs', 'launcher.log');
 
-log(`bootstrap v${SCHEMA}: invoked from ${here}`);
+log(
+  `bootstrap v${SCHEMA}: invoked from ${here} by ${process.execPath} (node ${process.version}, ${process.platform}), home ${home}`,
+);
 const version = newestVersion(home);
 if (!version) {
   log(`bootstrap v${SCHEMA}: no valid version under ${join(home, 'app', 'versions')}`);
@@ -49,6 +51,13 @@ const child = spawn(process.execPath, [entry, 'open'], {
   env,
 });
 if (fd !== null) closeSync(fd);
+// A node that cannot be executed arrives as an event, not an exit, and unhandled
+// it would end this process with nothing on screen.
+child.on('error', (err) => {
+  log(`bootstrap v${SCHEMA}: could not start ${entry} (${err.message})`);
+  dialog(`Scenri could not start (${err.message}). Open a terminal and run: npx scenri`);
+  process.exit(1);
+});
 log(`bootstrap v${SCHEMA}: handing off to ${entry} (pid ${child.pid ?? 'unknown'})`);
 if (wait) {
   child.on('exit', (code) => process.exit(code ?? 1));
@@ -127,18 +136,27 @@ function dialog(message) {
         { stdio: 'ignore' },
       );
     } else if (process.platform === 'win32') {
+      // Detached: no console to flash, and no SW_HIDE hint, which would hide
+      // the box itself (the first window that process shows).
       spawnSync(
-        'powershell.exe',
+        powershell(),
         [
           '-NoProfile',
           '-NonInteractive',
           '-Command',
           "Add-Type -AssemblyName System.Windows.Forms | Out-Null; [System.Windows.Forms.MessageBox]::Show($env:SCENRI_MESSAGE, 'Scenri') | Out-Null",
         ],
-        { stdio: 'ignore', windowsHide: true, env: { ...process.env, SCENRI_MESSAGE: message } },
+        { stdio: 'ignore', detached: true, env: { ...process.env, SCENRI_MESSAGE: message } },
       );
     }
   } catch {
     /* the log line above is the record */
   }
+}
+
+/** Windows PowerShell 5.1 by its absolute path: a Desktop click has Explorer's PATH, not the terminal's. */
+function powershell() {
+  const root = process.env.SystemRoot || process.env.windir || 'C:\\Windows';
+  const absolute = join(root, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  return existsSync(absolute) ? absolute : 'powershell.exe';
 }

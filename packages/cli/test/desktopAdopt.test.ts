@@ -1,5 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdtempSync,
+  rmSync,
+  mkdirSync,
+  writeFileSync,
+  existsSync,
+  readdirSync,
+  readFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { adoptRunningInstall } from '../src/desktop/adopt.js';
@@ -148,4 +157,32 @@ describe('adoptRunningInstall', () => {
     expect(existsSync(join(versionsDir(home), '0.8.4'))).toBe(false);
     expect(existsSync(stagingDir(home)) ? readdirSync(stagingDir(home)) : []).toEqual([]);
   });
+
+  it('replaces a copy already present when forced: the Node underneath it changed, the version did not', async () => {
+    const ownEntry = plantNpx('0.8.4');
+    const deps = { home, pkg: PKG, version: '0.8.4', ownEntry, installKind: 'npx' as const, verifyImpl: yes };
+    expect(await adoptRunningInstall(deps)).toEqual({ adopted: true });
+    writeFileSync(entryOf(home, PKG, '0.8.4'), '// built for an older node');
+    expect(await adoptRunningInstall(deps)).toEqual({ adopted: false, reason: 'present' });
+    expect(await adoptRunningInstall({ ...deps, force: true })).toEqual({ adopted: true });
+    expect(readFileSync(entryOf(home, PKG, '0.8.4'), 'utf8')).toBe('// entry');
+    // nothing of the replaced copy lingers in the workbench
+    expect(existsSync(stagingDir(home)) ? readdirSync(stagingDir(home)) : []).toEqual([]);
+  });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'reports busy instead of throwing when the present copy cannot be replaced',
+    async () => {
+      const ownEntry = plantNpx('0.8.4');
+      const deps = { home, pkg: PKG, version: '0.8.4', ownEntry, installKind: 'npx' as const, verifyImpl: yes };
+      expect(await adoptRunningInstall(deps)).toEqual({ adopted: true });
+      chmodSync(versionsDir(home), 0o555);
+      try {
+        expect(await adoptRunningInstall({ ...deps, force: true })).toEqual({ adopted: false, reason: 'busy' });
+      } finally {
+        chmodSync(versionsDir(home), 0o755);
+      }
+      expect(existsSync(entryOf(home, PKG, '0.8.4'))).toBe(true);
+    },
+  );
 });

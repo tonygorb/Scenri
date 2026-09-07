@@ -1,9 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync, statSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { installDesktop, removeDesktop, desktopStatus, type InstallDeps } from '../src/desktop/install.js';
+import {
+  installDesktop,
+  removeDesktop,
+  desktopStatus,
+  stableExecPath,
+  type InstallDeps,
+} from '../src/desktop/install.js';
 import { LAUNCHER_SCHEMA, launcherDir, readLauncherRecord } from '../src/desktop/paths.js';
 
 /**
@@ -154,7 +160,7 @@ describe('installDesktop on Windows', () => {
     expect(res).toEqual({ ok: true, kind: 'windows-lnk', path: join(desktop, 'Scenri.lnk') });
     const create = d.calls.find((c) => c.args.join(' ').includes('CreateShortcut'));
     expect(create).toBeDefined();
-    expect(create?.cmd).toBe('powershell.exe');
+    expect(basename(create?.cmd ?? '').toLowerCase()).toBe('powershell.exe');
     expect(create?.args).toContain('-NoProfile');
     expect(create?.args).toContain('-NonInteractive');
     expect(create?.args).not.toContain('-EncodedCommand');
@@ -189,6 +195,10 @@ describe('installDesktop on Windows', () => {
     expect(res).toMatchObject({ ok: false, reason: 'collision' });
     expect(readFileSync(join(desktop, 'Scenri.lnk'), 'utf8')).toBe('theirs');
     expect(d.calls.some((c) => c.env.SCENRI_TARGET)).toBe(false);
+    // The read-back travels through a redirected stdout, which PowerShell 5.1
+    // writes in the OEM code page unless told otherwise.
+    const read = d.calls.find((c) => c.args.join(' ').includes('CreateShortcut') && !c.env.SCENRI_TARGET);
+    expect(read?.args.at(-1)).toMatch(/^\[Console\]::OutputEncoding=\[System\.Text\.Encoding\]::UTF8; /);
   });
 
   it('replaces a Scenri.lnk that points at our bootstrap', async () => {
@@ -265,5 +275,29 @@ describe('desktopStatus', () => {
     const d = deps('darwin');
     await installDesktop(d);
     expect((await desktopStatus({ ...d, execPath: join(root, 'elsewhere', 'node') })).current).toBe(false);
+  });
+});
+
+describe('stableExecPath', () => {
+  it('resolves junctions and version-manager shims on Windows, so the icon keeps the node it was built with', () => {
+    const real = (p: string) =>
+      p === 'C:\\Program Files\\nodejs\\node.exe' ? 'C:\\Users\\t\\AppData\\Roaming\\nvm\\v22.19.0\\node.exe' : p;
+    expect(stableExecPath('C:\\Program Files\\nodejs\\node.exe', 'win32', real)).toBe(
+      'C:\\Users\\t\\AppData\\Roaming\\nvm\\v22.19.0\\node.exe',
+    );
+  });
+
+  it('keeps the path as given when it cannot be resolved', () => {
+    expect(
+      stableExecPath('C:\\x\\node.exe', 'win32', () => {
+        throw new Error('ENOENT');
+      }),
+    ).toBe('C:\\x\\node.exe');
+  });
+
+  it('is the identity on macOS, where the script records the symlink on purpose', () => {
+    expect(stableExecPath('/opt/homebrew/bin/node', 'darwin', () => '/opt/homebrew/Cellar/node/22.1/bin/node')).toBe(
+      '/opt/homebrew/bin/node',
+    );
   });
 });

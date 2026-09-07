@@ -11,7 +11,9 @@ import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync } from 
 import { dirname, join } from 'node:path';
 import { isValidVersionDir, pruneStaged, stagingDir, versionsDir } from '../update/versionsDir.js';
 
-export type AdoptResult = { adopted: true } | { adopted: false; reason: 'dev' | 'managed' | 'present' | 'no-source' };
+export type AdoptResult =
+  | { adopted: true }
+  | { adopted: false; reason: 'dev' | 'managed' | 'present' | 'no-source' | 'busy' };
 
 export type VerifyImpl = (entry: string) => Promise<boolean>;
 
@@ -24,10 +26,12 @@ export async function adoptRunningInstall(deps: {
   installKind: 'dev' | 'managed' | 'npx' | 'global' | 'unknown';
   /** Proves the copy loads under this node; the updater's own hop by default. */
   verifyImpl?: VerifyImpl;
+  /** Replace a copy that is already there: the Node underneath it changed, the version did not. */
+  force?: boolean;
 }): Promise<AdoptResult> {
   if (deps.installKind === 'dev') return { adopted: false, reason: 'dev' };
   if (deps.installKind === 'managed') return { adopted: false, reason: 'managed' };
-  if (isValidVersionDir(deps.home, deps.pkg, deps.version)) return { adopted: false, reason: 'present' };
+  if (!deps.force && isValidVersionDir(deps.home, deps.pkg, deps.version)) return { adopted: false, reason: 'present' };
 
   const pkgRoot = dirname(dirname(deps.ownEntry));
   if (!existsSync(deps.ownEntry) || manifestVersion(pkgRoot) !== deps.version) {
@@ -52,8 +56,18 @@ export async function adoptRunningInstall(deps: {
     if (!(await (deps.verifyImpl ?? verifyEntry)(copied))) return { adopted: false, reason: 'no-source' };
     const target = join(versionsDir(deps.home), deps.version);
     mkdirSync(dirname(target), { recursive: true });
-    rmSync(target, { recursive: true, force: true });
-    renameSync(work, target);
+    // A copy already there is moved aside whole, never deleted in place: a
+    // server running from it holds its native modules open, and a recursive
+    // delete that stops halfway would leave a gutted copy behind the icon.
+    const aside = join(stagingDir(deps.home), `replaced-${deps.version}`);
+    rmSync(aside, { recursive: true, force: true });
+    try {
+      if (existsSync(target)) renameSync(target, aside);
+      renameSync(work, target);
+    } catch {
+      return { adopted: false, reason: 'busy' };
+    }
+    rmSync(aside, { recursive: true, force: true });
   } finally {
     rmSync(work, { recursive: true, force: true });
   }

@@ -5,7 +5,7 @@
  * it is ours, removed only when it is ours, and a name clash is reported, not
  * resolved by renaming anything.
  */
-import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   LAUNCHER_SCHEMA,
@@ -78,7 +78,8 @@ export async function installDesktop(deps: InstallDeps): Promise<InstallResult> 
   }
 
   const nodeMajor = runningNodeMajor();
-  writeSupportFiles({ ...deps, nodeMajor }, support);
+  const nodePath = stableExecPath(deps.execPath, deps.platform);
+  writeSupportFiles({ ...deps, execPath: nodePath, nodeMajor }, support);
   try {
     if (darwin) {
       writeMacBundle({
@@ -90,7 +91,7 @@ export async function installDesktop(deps: InstallDeps): Promise<InstallResult> 
     } else {
       await writeLnk(deps.runImpl, {
         path: artifact,
-        target: deps.execPath,
+        target: nodePath,
         args: `"${bootstrap}"`,
         workdir: support,
         icon: `${join(support, 'scenri.ico')},0`,
@@ -108,7 +109,7 @@ export async function installDesktop(deps: InstallDeps): Promise<InstallResult> 
     schema: LAUNCHER_SCHEMA,
     createdBy: deps.version,
     home: deps.home,
-    nodePath: deps.execPath,
+    nodePath,
     nodeMajor,
     env: recordedEnv(deps.env),
     artifact: { kind, path: artifact },
@@ -118,6 +119,27 @@ export async function installDesktop(deps: InstallDeps): Promise<InstallResult> 
 
 /** The support files are ours alone, so they are always rewritten in full. */
 export const runningNodeMajor = (): number => Number(process.versions.node.split('.')[0]);
+
+/**
+ * The node the icon should remember. Node never resolves process.execPath, and
+ * on Windows that path is often a junction or a shim (nvm-windows, scoop, fnm's
+ * per-shell directory) that changes major underneath or disappears with the
+ * shell: the resolved path is the versioned install, which stays what it was.
+ * macOS keeps the symlink on purpose: the bundle's script reads it and a
+ * Homebrew symlink outlives the Cellar directory behind it.
+ */
+export function stableExecPath(
+  execPath: string,
+  platform: NodeJS.Platform,
+  realpath: (path: string) => string = realpathSync,
+): string {
+  if (platform !== 'win32') return execPath;
+  try {
+    return realpath(execPath);
+  } catch {
+    return execPath;
+  }
+}
 
 export function writeSupportFiles(
   deps: Pick<InstallDeps, 'assetsDir' | 'execPath' | 'platform'> & { nodeMajor: number },

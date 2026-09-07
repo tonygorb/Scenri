@@ -49,9 +49,12 @@
   var bar = document.getElementById('bar');
   var deadline = Date.now() + 90000;
   var done = false;
+  var failed = false;
   function go() { if (done) return; done = true; location.replace(target); }
+  // The fail text is a verdict on the wait, not on the server: a start that
+  // finishes late (a first Defender scan of a fresh install) still hands over.
   function fail(message) {
-    if (done) return; done = true;
+    if (done || failed) return; failed = true;
     title.textContent = 'Scenri did not start';
     text.innerHTML = message;
     bar.hidden = true;
@@ -59,7 +62,7 @@
   if (!ok) { fail('This page needs to be opened by Scenri itself. Open a terminal and run: <code>npx scenri</code>'); return; }
   function probe() {
     if (done) return;
-    if (Date.now() > deadline) { fail('Open a terminal and run <code>npx scenri</code> to see why.'); return; }
+    if (Date.now() > deadline) fail('Open a terminal and run <code>npx scenri</code> to see why.');
     // An image load needs no CORS and works from a file: URL in every browser;
     // the opaque fetch is the second opinion for browsers that block images
     // from a local page.
@@ -69,7 +72,7 @@
     if (window.fetch) {
       fetch(target + 'api/version', { mode: 'no-cors', cache: 'no-store' }).then(go, () => {});
     }
-    setTimeout(probe, 500);
+    setTimeout(probe, failed ? 2000 : 500);
   }
   probe();
 })();

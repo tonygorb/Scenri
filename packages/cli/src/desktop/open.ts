@@ -10,15 +10,18 @@
  * Node builtins only, so it loads before anything native has a chance to fail.
  */
 import type { SpawnOptions } from 'node:child_process';
-import { closeSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { openLogFd } from './log.js';
+import type { StartingServer } from './startingPage.js';
+
+export type { StartingServer } from './startingPage.js';
 
 export interface SpawnedChild {
   pid?: number;
   unref(): void;
   on(event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
+  on(event: 'error', listener: (err: Error) => void): unknown;
 }
 
 export interface OpenDeps {
@@ -45,8 +48,8 @@ export interface OpenDeps {
   readLogTail: () => string;
   /** The package's starting.html template, or null when there is none to show. */
   startingTemplate: string | null;
-  /** Where the rendered "Starting Scenri" page is written before it is opened. */
-  startingPage: string;
+  /** Serves the rendered page over loopback http for the seconds the start takes. */
+  startingServer?: (html: string) => Promise<StartingServer>;
   /** Older valid versions' entries, newest first, for the quick-death fallback. */
   previousEntries: string[];
   readyTimeoutMs?: number;
@@ -55,6 +58,10 @@ export interface OpenDeps {
 
 /** A second double-click inside this window joins the first instead of racing it. */
 const LOCK_FRESH_MS = 60_000;
+/** A cold first start on a laptop, Defender's first-touch scan of node_modules included. */
+const READY_TIMEOUT_MS = 180_000;
+/** How long a browser gets to come for the page once the studio is up, before the studio is opened for it. */
+const PAGE_FETCH_GRACE_MS = 15_000;
 /** The supervisor's own rule: a version that dies this fast is broken, not slow. */
 const QUICK_DEATH_MS = 10_000;
 
@@ -76,9 +83,23 @@ export async function openScenri(deps: OpenDeps): Promise<number> {
   const port = Number(deps.env.SCENRI_PORT || 4747);
   const url = `http://127.0.0.1:${port}/`;
   const noOpen = deps.env.SCENRI_NO_OPEN === '1';
-  deps.log(`open: invoked by ${deps.version} for port ${port}`);
+  // Everything a log alone has to say about what ran: the version, the node
+  // the icon chose, and where it stood.
+  deps.log(
+    `open: invoked by ${deps.version} (${deps.execPath}, node ${process.version}, ${process.platform}, cwd ${process.cwd()}) for port ${port}`,
+  );
 
+  let page: StartingServer | null = null;
   if (!takeLock(deps)) {
+    // A second click during a launch joins it. When the server is already
+    // answering, joining means the browser; only a start still in progress
+    // has nothing to show yet.
+    const running = await deps.probe(`${url}api/version`, 2000);
+    if (running?.name === deps.pkg) {
+      deps.log('open: another launch is in progress and Scenri already answers, opening the browser');
+      if (!noOpen) await showBrowser(deps, url);
+      return 0;
+    }
     deps.log('open: another launch is in progress, stepping aside');
     return 0;
   }
@@ -91,38 +112,52 @@ export async function openScenri(deps: OpenDeps): Promise<number> {
     }
 
     const fd = openLogFd(deps.serverLogPath);
-    const child = deps.spawnImpl(deps.execPath, [deps.ownEntry], {
-      detached: true,
-      stdio: ['ignore', fd, fd],
-      windowsHide: true,
-      env: {
-        ...deps.env,
-        SCENRI_NO_OPEN: '1',
-        SCENRI_HEADLESS: '1',
-        // npm sits beside node for nvm, fnm, Volta, Homebrew and the installer,
-        // and a Finder or Explorer PATH has none of them: without this the
-        // server boots but one-click updates report no npm.
-        PATH: [dirname(deps.execPath), deps.env.PATH].filter(Boolean).join(delimiter),
-      },
-    });
-    child.unref();
-    closeSync(fd);
     const started = deps.now();
     let exit: { code: number | null } | null = null;
+    let spawnError: Error | null = null;
+    let child: SpawnedChild;
+    try {
+      child = deps.spawnImpl(deps.execPath, [deps.ownEntry], {
+        detached: true,
+        stdio: ['ignore', fd, fd],
+        windowsHide: true,
+        env: {
+          ...deps.env,
+          SCENRI_NO_OPEN: '1',
+          SCENRI_HEADLESS: '1',
+          // npm sits beside node for nvm, fnm, Volta, Homebrew and the installer,
+          // and a Finder or Explorer PATH has none of them: without this the
+          // server boots but one-click updates report no npm.
+          PATH: [dirname(deps.execPath), deps.env.PATH].filter(Boolean).join(delimiter),
+        },
+      });
+    } catch (err) {
+      closeSync(fd);
+      return await couldNotStart(deps, err);
+    }
+    child.unref();
+    closeSync(fd);
+    // A node that cannot be executed at all arrives as an event, not an exit;
+    // unhandled it would take this process down with it.
+    child.on('error', (err) => {
+      spawnError = err;
+      exit = { code: null };
+    });
     child.on('exit', (code) => {
       exit = { code };
     });
     deps.log(`open: started the supervisor, pid ${child.pid ?? 'unknown'}, log ${deps.serverLogPath}`);
 
     let shown = false;
-    if (!noOpen && deps.startingTemplate && existsSync(deps.startingTemplate)) {
-      // Rendered per launch: open(1) on macOS and Start-Process on Windows turn
-      // a file URL into a path and drop its fragment, so the studio URL has to
-      // travel inside the page. The only thing that changes is that one meta.
+    if (!noOpen && deps.startingTemplate && existsSync(deps.startingTemplate) && deps.startingServer) {
+      // Served over loopback http for the seconds a cold start takes: an http
+      // URL lands in the default browser on every OS, where a file would land
+      // in whatever owns .html and, on Windows, lose its fragment on the way.
+      // The studio URL rides inside the page all the same, in its one meta.
       try {
-        mkdirSync(dirname(deps.startingPage), { recursive: true });
-        writeFileSync(deps.startingPage, renderStartingPage(readFileSync(deps.startingTemplate, 'utf8'), url));
-        await deps.openBrowser(pathToFileURL(deps.startingPage).href);
+        page = await deps.startingServer(renderStartingPage(readFileSync(deps.startingTemplate, 'utf8'), url));
+        deps.log(`open: serving the starting page at ${page.url}`);
+        await deps.openBrowser(page.url);
         shown = true;
         deps.log('open: showing the starting page');
       } catch (err) {
@@ -130,12 +165,12 @@ export async function openScenri(deps: OpenDeps): Promise<number> {
       }
     }
 
-    const deadline = started + (deps.readyTimeoutMs ?? 90_000);
+    const deadline = started + (deps.readyTimeoutMs ?? READY_TIMEOUT_MS);
     for (;;) {
       const info = await deps.probe(`${url}api/version`, 1000);
       if (info?.name === deps.pkg) {
         deps.log(`open: ready in ${deps.now() - started}ms`);
-        if (!noOpen && !shown) await showBrowser(deps, url);
+        if (!noOpen) await handOver(deps, url, shown ? page : null);
         return 0;
       }
       if (exit) break;
@@ -148,6 +183,7 @@ export async function openScenri(deps: OpenDeps): Promise<number> {
       await deps.sleep(deps.pollMs ?? 250);
     }
 
+    if (spawnError) return await couldNotStart(deps, spawnError);
     const lived = deps.now() - started;
     deps.log(`open: the server exited with ${(exit as { code: number | null }).code} after ${lived}ms`);
     const previous = deps.previousEntries[0];
@@ -156,6 +192,9 @@ export async function openScenri(deps: OpenDeps): Promise<number> {
       releaseLock(deps.lockPath);
       const fallback = deps.spawnImpl(deps.execPath, [previous, 'open'], {
         stdio: 'inherit',
+        // This process has no console; without the hint Windows would give
+        // the fallback a visible one.
+        windowsHide: true,
         env: {
           ...deps.env,
           SCENRI_DESKTOP_FALLBACK: deps.version,
@@ -163,15 +202,41 @@ export async function openScenri(deps: OpenDeps): Promise<number> {
           ...(shown ? { SCENRI_NO_OPEN: '1' } : {}),
         },
       });
-      return await new Promise<number>((resolve) => fallback.on('exit', (code) => resolve(code ?? 1)));
+      return await new Promise<number>((resolve) => {
+        fallback.on('error', (err) => {
+          deps.log(`open: could not start the fallback (${err.message})`);
+          resolve(1);
+        });
+        fallback.on('exit', (code) => resolve(code ?? 1));
+      });
     }
     const message = explain(deps.readLogTail(), port);
     deps.log(`open: dialog: ${message}`);
     await deps.showDialog(message);
     return 1;
   } finally {
+    // After the fallback too: its server is what the page is polling for.
+    page?.close();
     releaseLock(deps.lockPath);
   }
+}
+
+/**
+ * The page redirects itself the moment the studio answers, so a browser that
+ * fetched it needs nothing more. One that never came within the grace period
+ * (a helper that lied about succeeding, a browser that took too long) gets the
+ * studio opened for it, which is the same call as having had no page at all.
+ */
+async function handOver(deps: OpenDeps, url: string, page: StartingServer | null): Promise<void> {
+  if (!page) return showBrowser(deps, url);
+  const until = deps.now() + PAGE_FETCH_GRACE_MS;
+  while (!page.wasFetched() && deps.now() < until) await deps.sleep(deps.pollMs ?? 250);
+  if (page.wasFetched()) {
+    deps.log(`open: the browser fetched the starting page (${page.userAgent() ?? 'unknown browser'})`);
+    return;
+  }
+  deps.log('open: the browser never fetched the starting page, opening the studio directly');
+  await showBrowser(deps, url);
 }
 
 const STUDIO_URL = /^http:\/\/127\.0\.0\.1:\d{2,5}\/$/;
@@ -194,10 +259,17 @@ export function explain(tail: string, port: number): string {
   if (tail.includes('a native component failed to load') || NATIVE_MARKERS.some((m) => tail.includes(m))) {
     return 'Node.js changed since Scenri was installed. Open Terminal and run: npx scenri@latest';
   }
-  if (NATIVE_MARKERS.some((m) => tail.includes(m))) {
-    return 'Scenri’s files do not match this Node.js. Open Terminal and run: npx scenri';
-  }
   return 'Scenri could not start. Open Terminal and run npx scenri to see why.';
+}
+
+/** The supervisor never became a process: the node itself is the problem, so no fallback and one sentence. */
+async function couldNotStart(deps: OpenDeps, err: unknown): Promise<number> {
+  const reason = err instanceof Error ? err.message : String(err);
+  deps.log(`open: could not start the supervisor (${reason})`);
+  const message = `Scenri could not start (${reason}). Open Terminal and run npx scenri to see why.`;
+  deps.log(`open: dialog: ${message}`);
+  await deps.showDialog(message);
+  return 1;
 }
 
 function takeLock(deps: OpenDeps): boolean {
