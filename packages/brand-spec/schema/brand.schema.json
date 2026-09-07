@@ -217,6 +217,10 @@
                 "locked": {
                   "type": "boolean",
                   "default": false
+                },
+                "source": {
+                  "enum": ["photo", "derived"],
+                  "description": "Where this reference came from. Absent means a photograph. `derived` marks a view Scenri drew from the photographs: shape evidence only, never authority for colour, finish or any mark."
                 }
               }
             }
@@ -227,6 +231,34 @@
           "category": {
             "type": "string",
             "description": "One of productCategories.ts's keys. Drives the reference-angle checklist a product's page shows."
+          },
+          "promptName": {
+            "type": "string",
+            "description": "The frozen noun phrase a generator is handed. `name` is the label a person reads."
+          },
+          "description": {
+            "type": "string",
+            "description": "One sentence saying what the object physically is. Anchors real-world scale when `dimensions` is absent."
+          },
+          "materials": {
+            "type": "string"
+          },
+          "primaryColors": {
+            "type": "string"
+          },
+          "preservationNotes": {
+            "type": "string"
+          },
+          "negativeConstraints": {
+            "type": "string"
+          },
+          "colorways": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "cover": {
+            "$ref": "#/$defs/assetRef",
+            "description": "Display only: the reference every card and chip shows. Never read by the compiler."
           },
           "variant": {
             "type": "string",

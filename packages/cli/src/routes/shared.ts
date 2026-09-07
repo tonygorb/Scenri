@@ -1,7 +1,8 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import sharp from 'sharp';
-import type { BrandContext, Core, GenerateRequest } from '@scenri/core';
+import type { BrandContext, Core, EngineAdapter, GenerateRequest } from '@scenri/core';
+import type { EngineRegistry } from '../engines.js';
 import { fileSize, isThumbWidth, THUMB_WIDTH_LIST, type ThumbStore } from '../thumbs.js';
 
 /** Human-readable "A", "A and B", "A, B and C" for error copy. */
@@ -9,6 +10,28 @@ export function joinNames(labels: string[]): string {
   const uniq = [...new Set(labels)];
   if (uniq.length <= 1) return uniq[0] ?? '';
   return `${uniq.slice(0, -1).join(', ')} and ${uniq[uniq.length - 1]}`;
+}
+
+/**
+ * Which engine draws a person's studio views, a scene's preview and a
+ * product's drawn views.
+ *
+ * Prefers codex-cli: it is local, adds no bill of ours on top of the plan the
+ * user already pays for, and carries five references, which is what a chained
+ * identity plan needs. Any available engine that can take a reference at all
+ * will do; one that takes none could not hold a likeness, so it is not offered.
+ */
+export async function pickBuildEngine(engines: EngineRegistry): Promise<EngineAdapter | null> {
+  const ordered = [...engines.all()].sort((a, b) => {
+    const rank = (e: EngineAdapter) => (e.capabilities().id === 'codex-cli' ? 0 : 1);
+    return rank(a) - rank(b);
+  });
+  for (const engine of ordered) {
+    const caps = engine.capabilities();
+    if (!caps.maxReferenceImages || caps.placeholder) continue;
+    if ((await engine.isAvailable()).ok) return engine;
+  }
+  return null;
 }
 
 export function brandContext(core: Core, brandId: string): BrandContext {

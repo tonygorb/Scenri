@@ -5,9 +5,14 @@ import { Spinner } from '@radix-ui/themes';
 export interface ProductRef {
   /** The stored `asset:<hash>` this reference is, and the handle every write uses. */
   file: string;
+  /** The original, for the stage. */
   url: string;
+  /** A derivative for the rail; the stage never shows it. Falls back to `url` for curated frames. */
+  thumb?: string | null;
   /** Semantic slot when we know it — "front", "side". Never guessed from position. */
   angle?: string | null;
+  /** A photograph, or a view Scenri drew from the photographs. */
+  source?: 'photo' | 'derived';
 }
 
 /**
@@ -201,11 +206,12 @@ export function ProductReferences({
                   className="sc-refrail-item"
                   data-on={current?.file === r.file ? '' : undefined}
                   data-spare={i >= cap ? '' : undefined}
-                  aria-label={`Reference ${i + 1}`}
+                  data-source={r.source === 'derived' ? 'derived' : undefined}
+                  aria-label={r.source === 'derived' ? `Drawn view ${i + 1}` : `Reference ${i + 1}`}
                   aria-pressed={current?.file === r.file}
                   onClick={() => setSelected(r.file)}
                 >
-                  <img src={r.url} alt="" loading="lazy" />
+                  <img src={r.thumb ?? r.url} alt="" loading="lazy" />
                 </button>
               ))}
             </div>

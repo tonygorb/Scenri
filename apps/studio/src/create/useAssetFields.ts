@@ -16,10 +16,9 @@ export interface AssetFields {
   instruction: string;
   facets: string[];
   imageHashes: string[];
-  importUrl: string;
 }
 
-const EMPTY: AssetFields = { name: '', instruction: '', facets: [], imageHashes: [], importUrl: '' };
+const EMPTY: AssetFields = { name: '', instruction: '', facets: [], imageHashes: [] };
 
 /**
  * The fields of one creation form, the uploads behind them, and the draft that
@@ -119,7 +118,6 @@ export function useAssetFields(
         instruction: draft.instruction,
         facets: draft.facets,
         imageHashes: draft.imageHashes,
-        importUrl: draft.importUrl,
       });
     }
   }, [brandId, kind, restore]);

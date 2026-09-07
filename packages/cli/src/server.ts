@@ -85,6 +85,8 @@ import { registerCatalogImportRoutes } from './routes/catalogImport.js';
 import { registerSceneRoutes } from './routes/scenes.js';
 import { registerPresenterRoutes } from './routes/presenters.js';
 import { registerAssetBuildRoutes } from './routes/assetBuilds.js';
+import { registerProductStudioRoutes } from './routes/productStudio.js';
+import { consumeDraft, keptCandidateHashes } from './productCandidates.js';
 import { registerDemoProductRoutes } from './routes/demoProducts.js';
 import { registerShowcaseRoutes } from './routes/showcase.js';
 import { registerProjectRoutes } from './routes/projects.js';
@@ -260,14 +262,50 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     let name: string;
     let hashes: string[];
     let category: string | undefined;
+    /** The studio's shape: one entry per reference, with its angle and provenance. */
+    let shots: { file: string; angle?: string; locked: true; source?: 'derived' }[] | null = null;
+    /** What the studio learned and chose: the identity sheet, a cover, a size. All optional. */
+    let extra: Record<string, unknown> = {};
+    let draftId: string | null = null;
 
     if (isJson) {
       const body = (req.body ?? {}) as any;
-      hashes = Array.isArray(body.imageHashes) ? body.imageHashes.map((h: unknown) => String(h)) : [];
-      if (hashes.length === 0) return reply.status(400).send({ error: 'at least one image is required' });
-      for (const h of hashes) {
-        if (!/^[a-f0-9]{32}$/.test(h) || !core.images.has(h))
-          return reply.status(400).send({ error: `unknown image ${h}` });
+      const text = (v: unknown, max: number) =>
+        typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined;
+      if (Array.isArray(body.shots)) {
+        // The product studio's write. A drawn view is accepted only when this
+        // brand kept it as a candidate, so nothing can launder an arbitrary
+        // image into "derived"; and a product is at least one photograph.
+        const kept = keptCandidateHashes(brand.id);
+        const rows = body.shots.map((s: any) => ({
+          hash: String(s?.hash ?? ''),
+          angle: text(s?.angle, 60),
+          derived: s?.source === 'derived',
+        }));
+        if (!rows.length) return reply.status(400).send({ error: 'at least one image is required' });
+        for (const r of rows) {
+          if (!/^[a-f0-9]{32}$/.test(r.hash) || !core.images.has(r.hash))
+            return reply.status(400).send({ error: `unknown image ${r.hash}` });
+          if (r.derived && !kept.has(r.hash))
+            return reply.status(400).send({ error: 'a drawn view must be one this product kept' });
+        }
+        if (!rows.some((r: any) => !r.derived))
+          return reply.status(400).send({ error: 'a product needs at least one photograph' });
+        hashes = rows.map((r: any) => r.hash);
+        shots = rows.map((r: any) => ({
+          file: `asset:${r.hash}`,
+          ...(r.angle ? { angle: r.angle } : {}),
+          locked: true as const,
+          ...(r.derived ? { source: 'derived' as const } : {}),
+        }));
+        draftId = text(body.draftId, 80) ?? null;
+      } else {
+        hashes = Array.isArray(body.imageHashes) ? body.imageHashes.map((h: unknown) => String(h)) : [];
+        if (hashes.length === 0) return reply.status(400).send({ error: 'at least one image is required' });
+        for (const h of hashes) {
+          if (!/^[a-f0-9]{32}$/.test(h) || !core.images.has(h))
+            return reply.status(400).send({ error: `unknown image ${h}` });
+        }
       }
       name =
         String(body.name ?? '')
@@ -275,6 +313,23 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
           .slice(0, 80) || spec.fallback;
       const raw = body.category == null ? '' : String(body.category).slice(0, 500);
       category = raw || undefined;
+      const sheet = body.sheet && typeof body.sheet === 'object' ? body.sheet : {};
+      const cover = text(body.cover, 32);
+      extra = {
+        ...(text(sheet.promptName, 240) ? { promptName: text(sheet.promptName, 240) } : {}),
+        ...(text(sheet.description, 600) ? { description: text(sheet.description, 600) } : {}),
+        ...(text(sheet.materials, 300) ? { materials: text(sheet.materials, 300) } : {}),
+        ...(text(sheet.primaryColors, 200) ? { primaryColors: text(sheet.primaryColors, 200) } : {}),
+        ...(text(sheet.preservationNotes, 400) ? { preservationNotes: text(sheet.preservationNotes, 400) } : {}),
+        ...(text(sheet.negativeConstraints, 400) ? { negativeConstraints: text(sheet.negativeConstraints, 400) } : {}),
+        ...(Array.isArray(sheet.colorways) && sheet.colorways.length
+          ? { colorways: sheet.colorways.map((c: unknown) => String(c).slice(0, 60)).slice(0, 12) }
+          : {}),
+        ...(text(body.dimensions, 120) ? { dimensions: text(body.dimensions, 120) } : {}),
+        ...(text(body.variant, 120) ? { variant: text(body.variant, 120) } : {}),
+        // display only, and only one of the product's own pictures
+        ...(cover && hashes.includes(cover) ? { cover: `asset:${cover}` } : {}),
+      };
     } else {
       const part = await readImagePart(core, req, toPng);
       if ('error' in part) return reply.status(400).send({ error: part.error });
@@ -307,12 +362,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         id,
         name,
         ...(category ? { category } : {}),
-        shots: hashes.map((h) => ({ file: `asset:${h}`, locked: true })),
+        ...extra,
+        shots: shots ?? hashes.map((h) => ({ file: `asset:${h}`, locked: true })),
       },
     ];
     const v = validateBrand(json);
     if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
     const saved = core.store.updateBrand(brand.id, json);
+    // The draft's kept views are the product's now; the candidates are forgotten without touching a byte.
+    if (draftId) consumeDraft(brand.id, draftId);
     return isJson ? { ...saved, productId: id } : saved;
   };
   const removeAsset = (kind: keyof typeof ASSETS) => async (req: any, reply: any) => {
@@ -495,6 +553,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // already prefers `characters[]` over the presenter catalog, and the scene
   // resolver below prefers `scenes[]` over the scene catalog.
   registerAssetBuildRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters });
+  // ---- the product studio: photographs read into an identity sheet before a product exists
+  registerProductStudioRoutes(app, { core, engines, analyzer: opts.analyzer, thumbs });
 
   // ---- demo products (curated, fictional-but-premium product catalog). A
   // demo product attaches straight into a brief like a Presenter does — see
@@ -695,6 +755,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       inheritedAttachments = identity.attachments
         .filter((a) => {
           if (a.role === 'product') {
+            // Photographs only. A refine already has the real object in the
+            // frame; a drawn view beside it is a second, weaker geometry
+            // claim, and the label edit the extra angle exists for needs a
+            // photograph of that face, not an estimate of it.
+            if (a.source === 'derived') return false;
             const n = (productAngles.get(String(a.id ?? a.hash)) ?? 0) + 1;
             productAngles.set(String(a.id ?? a.hash), n);
             return n <= 2;
@@ -1571,6 +1636,17 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             engine: engine.capabilities().id,
             cap,
             sent,
+            // Per picture, so a benchmark can prove which references rode:
+            // the per-role count above cannot tell a photograph from a drawn
+            // view, or which angle led.
+            kept: (compiled?.attachments ?? []).map((a) => ({
+              role: a.role,
+              id: a.id ?? null,
+              angle: a.angle ?? null,
+              source: a.source ?? null,
+              essential: !!a.essential,
+              hash: a.hash,
+            })),
             dropped: (compiled?.dropped ?? []).map((d) => `${d.role}:${d.label} (${d.reason ?? 'budget'})`),
           },
           'reference transport',
@@ -1651,6 +1727,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             cap: Math.max(0, engine.capabilities().maxReferenceImages - 1),
             sourceFrame: true,
             sent,
+            kept: (mergedEdit?.kept ?? []).map((a) => ({
+              role: a.role,
+              id: a.id ?? null,
+              angle: a.angle ?? null,
+              source: a.source ?? null,
+              essential: !!a.essential,
+              inherited: !!a.inherited,
+              hash: a.hash,
+            })),
             dropped: (mergedEdit?.dropped ?? []).map((d) => `${d.role}:${d.label} (${d.reason ?? 'budget'})`),
           },
           'reference transport',

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { api, assetUrl, addProductShot, deleteProduct, type DemoProduct, type Product } from '../api.js';
+import { api, assetThumbUrl, assetUrl, addProductShot, deleteProduct, type DemoProduct, type Product } from '../api.js';
 import { Confirm } from '../Confirm.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -15,10 +15,7 @@ import { ProductCard } from '../layout/ProductCard.js';
 import { ProductReferences, type ProductRef } from '../layout/ProductReferences.js';
 import { ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
-import { categoryLabel, effectiveCategory } from '../productCategories.js';
-
-/** Mirrors PRODUCT_REF_MAX in packages/cli/src/brief.ts — the number of product images a brief actually attaches. */
-const PRODUCT_REF_MAX = 3;
+import { categoryLabel, effectiveCategory, PRODUCT_REF_MAX } from '../productCategories.js';
 
 type Editable = 'full' | 'fields' | 'none';
 
@@ -236,9 +233,11 @@ export function ProductPage() {
   const categoryKey = product ? effectiveCategory(product) : (demoProduct?.category ?? null);
   const house = displayBrand(subject);
 
-  const toRef = (shot: { file: string; angle?: string | null }): ProductRef[] => {
+  const toRef = (shot: { file: string; angle?: string | null; source?: 'photo' | 'derived' }): ProductRef[] => {
     const url = assetUrl(shot.file);
-    return url ? [{ file: shot.file, url, angle: shot.angle }] : [];
+    // the stage shows the original; the rail shows each reference small
+    const thumb = assetThumbUrl(shot.file, 'micro');
+    return url ? [{ file: shot.file, url, thumb, angle: shot.angle, source: shot.source }] : [];
   };
   const refs: ProductRef[] = demoProduct
     ? demoFrames.map((f) => ({ file: f.angle, url: f.url, angle: f.angle }))

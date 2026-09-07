@@ -12,11 +12,20 @@ export function libraryMethods(db: DB) {
         variant: p.variant ?? null,
         material: p.material ?? null,
         dimensions: p.dimensions ?? null,
+        promptName: p.promptName ?? null,
+        description: p.description ?? null,
+        materials: p.materials ?? null,
+        primaryColors: p.primaryColors ?? null,
+        preservationNotes: p.preservationNotes ?? null,
+        negativeConstraints: p.negativeConstraints ?? null,
+        ...(Array.isArray(p.colorways) && p.colorways.length ? { colorways: p.colorways.map(String) } : {}),
+        cover: p.cover ?? null,
         shots: (p.shots ?? []).map((s: any) => ({
           file: s.file,
           locked: s.locked ?? true,
           angle: s.angle ?? null,
           alt: s.alt ?? s.angle ?? null,
+          source: s.source === 'derived' ? ('derived' as const) : ('photo' as const),
         })),
       }));
 
@@ -34,6 +43,10 @@ export function libraryMethods(db: DB) {
           angle: i.angle,
           alt: i.alt,
           local: String(i.sourceUrl).startsWith('local:'),
+          // A store's images are photographs. The prefix is read here so a
+          // drawn view could one day be kept on an imported product through
+          // the same row; nothing writes it yet.
+          source: String(i.sourceUrl).startsWith('derived:') ? ('derived' as const) : ('photo' as const),
         });
         // One picture, one reference. Images are content-addressed, so a store
         // that lists the same file twice arrives as two rows pointing at one

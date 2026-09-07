@@ -23,7 +23,7 @@ import type { EngineAvailability } from '@scenri/core';
 import { createRunner, execArgs, type CodexRunner, type RunnerOptions } from './run.js';
 
 export interface AnalyzeRequest {
-  kind: 'presenter' | 'scene';
+  kind: 'presenter' | 'scene' | 'product';
   /** Absolute paths to the user's references. May be empty for a scene built from words alone. */
   imagePaths: string[];
   /** What the user calls this asset. Never sent as the generator's name for it. */
@@ -35,7 +35,14 @@ export interface AnalyzeRequest {
   /** The record being corrected, so a re-analysis revises rather than restarts. */
   priorDraft?: unknown;
   /** Allowed facet values, so a new asset lands in the filters that already exist. */
-  vocabulary?: { collections?: string[]; verticals?: string[]; categories?: string[] };
+  vocabulary?: {
+    collections?: string[];
+    verticals?: string[];
+    categories?: string[];
+    /** Product only: the category keys the studio files under, and every angle key the table knows. */
+    productCategories?: string[];
+    angleKeys?: string[];
+  };
 }
 
 export interface PresenterDraft {
@@ -93,9 +100,33 @@ export interface SceneDraft {
   coverage: string[];
 }
 
+/**
+ * A product, read into the sheet demo products have always shipped. What the
+ * object IS, for a generator: never how it was photographed, and never a word
+ * of its lettering, which no reading can be trusted to transcribe.
+ */
+export interface ProductDraft {
+  promptName: string;
+  description: string;
+  materials: string;
+  primaryColors: string;
+  preservationNotes: string;
+  negativeConstraints: string;
+  /** One of the studio's category keys, else "other". */
+  category: string;
+  /** One entry per attached photograph, in order: an angle key or "other". */
+  angles: string[];
+  /** Empty when every photograph shows the same item, else one sentence saying which does not. */
+  conflict: string;
+  /** Non-blocking notes on what a further photograph would buy. Photographs only, never drawn views. */
+  coverage: string[];
+}
+
+export type AnalyzerDraft = PresenterDraft | SceneDraft | ProductDraft;
+
 export interface CodexAnalyzer {
   isAvailable(): Promise<EngineAvailability>;
-  analyze(req: AnalyzeRequest, signal?: AbortSignal): Promise<PresenterDraft | SceneDraft>;
+  analyze(req: AnalyzeRequest, signal?: AbortSignal): Promise<AnalyzerDraft>;
 }
 
 export interface CodexAnalyzerOptions extends RunnerOptions {
@@ -112,7 +143,7 @@ export function createCodexAnalyzer(opts: CodexAnalyzerOptions = {}): CodexAnaly
   return {
     isAvailable: () => runner.probe(),
 
-    async analyze(req: AnalyzeRequest, signal?: AbortSignal): Promise<PresenterDraft | SceneDraft> {
+    async analyze(req: AnalyzeRequest, signal?: AbortSignal): Promise<AnalyzerDraft> {
       return runner.withWorkDir(async (dir) => {
         const refs: string[] = [];
         for (const [i, src] of req.imagePaths.entries()) {
@@ -162,7 +193,12 @@ function buildPrompt(req: AnalyzeRequest, refCount: number, problems: string[]):
       : refCount === 1
         ? 'One reference image is attached.'
         : `${refCount} reference images are attached.`;
-  const body = req.kind === 'presenter' ? presenterBody(req, refCount) : sceneBody(req);
+  const body =
+    req.kind === 'presenter'
+      ? presenterBody(req, refCount)
+      : req.kind === 'product'
+        ? productBody(req, refCount)
+        : sceneBody(req);
   const revision = req.priorDraft
     ? ` You are revising an existing record, not starting over: keep everything that is not being corrected. Current record: ${JSON.stringify(req.priorDraft)}.`
     : '';
@@ -295,9 +331,49 @@ function sceneBody(req: AnalyzeRequest): string {
   );
 }
 
+/**
+ * The product sheet. Two rules shape it, the same way the other two prompts
+ * are shaped: the object is described, never its photograph; and nothing is
+ * transcribed, completed or invented. Lettering on a product surface is the
+ * one thing a model reads wrong most often, so a reading records that a mark
+ * is there and where it sits, never what it says.
+ */
+function productBody(req: AnalyzeRequest, refCount: number): string {
+  const same =
+    refCount > 1
+      ? ' Every attached photograph should show the same physical item; say so plainly if one does not.'
+      : '';
+  const ask = req.instruction ? ` The person who supplied these adds: ${req.instruction}.` : '';
+  const categories = req.vocabulary?.productCategories?.length
+    ? ` Choose "category" only from this list: ${req.vocabulary.productCategories.join(', ')}.`
+    : '';
+  const angles = req.vocabulary?.angleKeys?.length ? req.vocabulary.angleKeys.join(', ') : 'three-quarter, front, side';
+  return (
+    `These are photographs of one product, supplied by the person who sells it.${same}${ask}` +
+    ' Write the product sheet a photographer would need to show this exact object again in a different picture:' +
+    ' what it physically is, its materials and finish, its colours, its construction, closure and proportions,' +
+    ' whether its surfaces are transparent, reflective or matte, and the size cue that tells a reader how big it is.' +
+    ' Describe the object, not the photograph: the background, the surface it sits on, the light and the crop belong to a shoot and must be left out.' +
+    ' Say only what the photographs show. Where lettering, a logo or a mark is present, record that it is there and where it sits,' +
+    ' but never transcribe, complete or invent lettering, and never guess what a face you cannot see looks like.' +
+    ' Never name a real brand, and do not use any proper name anywhere in your answer.' +
+    ` ${OUT_FILE} must be a JSON object with exactly these keys:` +
+    ' "promptName": a short noun phrase a generator can be handed, such as "amber glass dropper bottle with a black bulb";' +
+    ' "description": one sentence saying what the object physically is, including its approximate size or what it is sized for;' +
+    ' "materials": its materials and finish, named rather than described in colours;' +
+    ' "primaryColors": its actual colours, separated by semicolons;' +
+    ' "preservationNotes": one sentence naming the two or three things that must survive every generation, drawn from its shape, proportions, closure, label placement and construction;' +
+    ' "negativeConstraints": one sentence of refusals for the drift these photographs invite, always including that no lettering, logo, mark or detail may be invented on any surface;' +
+    ` "category": the kind of object this is.${categories}` +
+    ` "angles": an array with exactly one entry per attached photograph, in order, naming the view it shows from this list: ${angles}, or "other" when none fits;` +
+    ' "conflict": an empty string when every photograph shows the same item, else one sentence saying which photograph shows a different colour, size, packaging or variant;' +
+    ' "coverage": an array of at most two short sentences naming what a further photograph would buy, such as "A photograph of the label would pin the lettering." Ask for photographs only. Use an empty array when the coverage is already good.'
+  );
+}
+
 /* --------------------------------------------------------------- parsing */
 
-type ParseResult = { ok: true; draft: PresenterDraft | SceneDraft } | { ok: false; problems: string[] };
+type ParseResult = { ok: true; draft: AnalyzerDraft } | { ok: false; problems: string[] };
 
 /** Tolerate a fenced or padded file; refuse anything that is not the contract. */
 function parseDraft(req: AnalyzeRequest, raw: string): ParseResult {
@@ -315,9 +391,48 @@ function parseDraft(req: AnalyzeRequest, raw: string): ParseResult {
   if (!json || typeof json !== 'object' || Array.isArray(json)) {
     return { ok: false, problems: [`${OUT_FILE} must hold a JSON object.`] };
   }
+  const o = json as Record<string, unknown>;
   return req.kind === 'presenter'
-    ? parsePresenter(req, json as Record<string, unknown>)
-    : parseScene(req, json as Record<string, unknown>);
+    ? parsePresenter(req, o)
+    : req.kind === 'product'
+      ? parseProduct(req, o)
+      : parseScene(req, o);
+}
+
+/**
+ * Only the two strings the compiler cannot do without earn the single retry.
+ * Everything else is coerced or dropped: a category the studio has no tab for
+ * files under "other", an angle the table does not know is "other", and a
+ * photograph the model forgot to label is labelled "other" so the list is
+ * always one entry per picture.
+ */
+function parseProduct(req: AnalyzeRequest, o: Record<string, unknown>): ParseResult {
+  const problems: string[] = [];
+  const promptName = str(o.promptName);
+  const description = str(o.description);
+  if (!promptName) problems.push('"promptName" was missing or empty.');
+  if (!description) problems.push('"description" was missing or empty.');
+  if (problems.length) return { ok: false, problems };
+  const category = pick([o.category], req.vocabulary?.productCategories, 1)[0] ?? 'other';
+  const keys = [...(req.vocabulary?.angleKeys ?? []), 'other'];
+  const rawAngles = Array.isArray(o.angles) ? o.angles : [];
+  const angles = req.imagePaths.map((_, i) => pick([rawAngles[i]], keys, 1)[0] ?? 'other');
+  const conflict = oneLine(o.conflict, 200);
+  return {
+    ok: true,
+    draft: {
+      promptName: cap(promptName, 240),
+      description: cap(description, 600),
+      materials: cap(str(o.materials), 300),
+      primaryColors: cap(str(o.primaryColors), 200),
+      preservationNotes: cap(str(o.preservationNotes), 400),
+      negativeConstraints: cap(str(o.negativeConstraints), 400),
+      category,
+      angles,
+      conflict: /^(none|no|n\/a|-)\.?$/i.test(conflict) ? '' : conflict,
+      coverage: list(o.coverage, 2, 160),
+    },
+  };
 }
 
 function parsePresenter(req: AnalyzeRequest, o: Record<string, unknown>): ParseResult {

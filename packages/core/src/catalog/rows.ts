@@ -118,6 +118,20 @@ export interface LibraryProduct {
   variant?: string | null;
   material?: string | null;
   dimensions?: string | null;
+  /**
+   * The identity sheet: what the object is, written for a generator. Demo
+   * products have always shipped these; a product added through the studio
+   * gets them from one read of its photographs. Absent on older records.
+   */
+  promptName?: string | null;
+  description?: string | null;
+  materials?: string | null;
+  primaryColors?: string | null;
+  preservationNotes?: string | null;
+  negativeConstraints?: string | null;
+  colorways?: string[];
+  /** Display only: the reference the cards and chips show. */
+  cover?: string | null;
   price?: number | null;
   compareAtPrice?: number | null;
   currency?: string | null;
@@ -137,6 +151,12 @@ export interface LibraryProduct {
     alt?: string | null;
     /** Added here rather than crawled — the only kind of imported image that is ours to delete. */
     local?: boolean;
+    /**
+     * A photograph, or a view Scenri drew from the photographs. Always
+     * resolved here: a stored shot without the field is a photograph, because
+     * nothing older than the field was ever generated.
+     */
+    source: 'photo' | 'derived';
   }[];
   /**
    * Store images the user took out of the set. Never sent to an engine, kept

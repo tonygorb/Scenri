@@ -2338,6 +2338,31 @@ describe('a refinement chain keeps the whole identity record', () => {
     }
   });
 
+  it('a refinement carries photographs only, never a drawn view', { timeout: 20_000 }, async () => {
+    const { engine, edits } = capture(6);
+    const local = buildServer({ core, engines: registryWith(engine) });
+    try {
+      const { projectId, genNode, productHash, angleHash } = await seedChain(local, 2);
+      // the second reference was drawn by Scenri, not photographed: the room
+      // the budget has for it goes unused rather than to an estimate
+      const brands = (await local.inject({ method: 'GET', url: '/api/brands' })).json() as any[];
+      const brand = core.store.getBrand(brands[0].id)!;
+      const json = { ...(brand.json as any) };
+      json.products = json.products.map((p: any) => ({
+        ...p,
+        shots: p.shots.map((s: any) => (s.angle === 'back' ? { ...s, source: 'derived' } : s)),
+      }));
+      core.store.updateBrand(brand.id, json);
+
+      await refineOf(local, projectId, genNode, 'a more editorial and cinematic feel');
+      expect(edits[0].referenceImages).toContain(core.images.pathFor(productHash));
+      expect(edits[0].referenceImages).not.toContain(core.images.pathFor(angleHash));
+      expect(edits[0].referenceRoles?.filter((r) => r === 'product')).toHaveLength(1);
+    } finally {
+      await local.close();
+    }
+  });
+
   it('a full frame on a tight budget degrades the extra angle quietly', { timeout: 20_000 }, async () => {
     // Four images total, the source frame keeps one: product essential, mark
     // and reference are seated, the corroboration angle is not - and the

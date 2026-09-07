@@ -1,15 +1,7 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { productLabel, sceneLabel } from '../displayName.js';
-import {
-  imgUrl,
-  type Brand,
-  type Scene,
-  type Presenter,
-  type DemoProduct,
-  thumbUrl,
-  assetThumbUrl,
-  thumbOf,
-} from '../api.js';
+import { imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, thumbUrl, thumbOf } from '../api.js';
+import { productCoverUrl } from '../productCover.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';
 import { characterAvatar, presenterAvatar } from '../presenterVisual.js';
@@ -299,9 +291,7 @@ export const BriefInput = forwardRef<
         // product name — the brand is context the sentence already carries.
         const attached = found.product ?? found.demo;
         label = attached ? productLabel(attached, 'chip') : 'missing product';
-        thumb = found.product
-          ? assetThumbUrl(found.product.shots?.[0]?.file, 'micro')
-          : (found.demo?.previewUrl ?? null);
+        thumb = found.product ? productCoverUrl(found.product, 'micro') : (found.demo?.previewUrl ?? null);
       } else if (found?.kind === 'presenter') {
         const { character: c, presenter: p } = found;
         label = c?.name ?? p?.name ?? 'missing person';

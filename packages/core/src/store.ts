@@ -436,6 +436,23 @@ export function createStore(db: DB) {
       );
       return this.getBrand(id);
     },
+    /**
+     * Does anything still point at this picture: a brand document (products,
+     * presenters, scenes, logos, imagery), a shot, or an imported catalog
+     * image. The guard in front of the one deletion the store allows.
+     */
+    imageReferenced(hash: string): boolean {
+      if (!/^[a-f0-9]{32}$/.test(hash)) return false;
+      const like = `%${hash}%`;
+      const row = db
+        .prepare(
+          `SELECT EXISTS(SELECT 1 FROM brands WHERE json LIKE ?)
+             OR EXISTS(SELECT 1 FROM nodes WHERE images LIKE ?)
+             OR EXISTS(SELECT 1 FROM catalog_images WHERE asset_ref LIKE ?) AS hit`,
+        )
+        .get(like, like, like) as { hit: number };
+      return !!row?.hit;
+    },
     deleteBrand(id: string): void {
       db.prepare('DELETE FROM brands WHERE id=?').run(id);
     },

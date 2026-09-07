@@ -125,6 +125,14 @@ export interface Attachment {
    */
   angle?: string;
   /**
+   * Whether this product image is a photograph or a view Scenri drew from the
+   * photographs. Set on every product attachment: a record without the field
+   * is all photographs. The compiler orders photographs first, so the essential
+   * slot and the colour authority always land on one, and a tight cap sheds
+   * the drawn views before any photograph.
+   */
+  source?: 'photo' | 'derived';
+  /**
    * Why a `dropped` entry did not ride, so callers can act on the cause:
    * `budget` lost the engine-cap allocation; `missing` never had a usable
    * image at all — its record exists but every photo is gone from the store.
@@ -367,28 +375,49 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         // A specific angle (e.g. "detail" for a macro shot, "worn-scale" for
         // an on-body shot) beats the default first shot when the recipe asks
         // for one; falls back silently if that angle isn't available.
-        const primary = (tok.angle && p.shots?.find((s: any) => s.angle === tok.angle)) || p.shots?.[0];
+        //
+        // Photographs before drawn views, whatever order the record holds
+        // them in. A photograph is a fact about the product and a drawn view
+        // is Scenri's own estimate of it from another side, so the essential
+        // slot and the colour authority always land on a photograph, and a
+        // tight cap sheds the estimates first (the allocator hands a group's
+        // extra seats out in this order). A requested angle leads only within
+        // its own kind: a drawn view asked for by name rides first among the
+        // drawn, never first of all. A record without the field is all
+        // photographs, so nothing moves for a product that predates it.
+        //
         // Geometry, proportions and label placement need more than one view —
         // a single frontal shot leaves the model guessing at depth and at any
         // face of the product it cannot see. Send the requested angle first
         // (it is the one the recipe cares about), then up to PRODUCT_REF_MAX-1
         // further distinct angles for corroboration.
-        const orderedShots = [primary, ...(p.shots ?? []).filter((s: any) => s && s !== primary)];
-        const pshots: { h: string; angle?: string }[] = [];
+        const isDerived = (s: any) => s?.source === 'derived';
+        const lead = (rows: any[]) => {
+          const hit = tok.angle ? rows.find((s: any) => s.angle === tok.angle) : undefined;
+          return hit ? [hit, ...rows.filter((s) => s !== hit)] : rows;
+        };
+        const stored = (p.shots ?? []).filter(Boolean);
+        const orderedShots = [...lead(stored.filter((s: any) => !isDerived(s))), ...lead(stored.filter(isDerived))];
+        const pshots: { h: string; angle?: string; source: 'photo' | 'derived' }[] = [];
         for (const s of orderedShots) {
           if (pshots.length >= PRODUCT_REF_MAX) break;
           const h = assetHash(s?.file);
           if (h && ctx.images.has(h) && !pshots.some((x) => x.h === h))
-            pshots.push({ h, ...(s?.angle ? { angle: String(s.angle) } : {}) });
+            pshots.push({
+              h,
+              source: isDerived(s) ? 'derived' : 'photo',
+              ...(s?.angle ? { angle: String(s.angle) } : {}),
+            });
         }
         if (pshots.length) {
-          pshots.forEach(({ h, angle }, i) => {
+          pshots.forEach(({ h, angle, source }, i) => {
             attachments.push({
               role: 'product',
               id: p.id,
               label: p.name,
               hash: h,
               essential: i === 0,
+              source,
               ...(angle ? { angle } : {}),
             });
           });
@@ -767,10 +796,14 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const resolveDirective = (d: DeferredDirective): string | null => {
     if (typeof d === 'string') return d;
     if (d.need === 'fidelity') {
-      const n = attachments.filter(
+      // Counted by kind, against what rides: the tier is keyed on the
+      // photographs alone, and the drawn-view clause speaks only when a drawn
+      // view actually reached the engine.
+      const riding = attachments.filter(
         (a) => a.role === 'product' && a.id === d.id && presentKeys.has(`product:${a.hash}`),
-      ).length;
-      return n > 0 ? productFidelityDirective(n) : null;
+      );
+      const derived = riding.filter((a) => a.source === 'derived').length;
+      return riding.length > 0 ? productFidelityDirective(riding.length - derived, derived) : null;
     }
     return presentKeys.has(`${d.role}:${d.hash}`) ? d.text : null;
   };

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { isolate } from './harness.js';
+import { currentBrand, isolate, seedProduct } from './harness.js';
 
 /**
  * One product, and the set of pictures a shot is built from.
@@ -17,54 +17,6 @@ import { isolate } from './harness.js';
 
 // A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
-
-async function currentBrand(p: Page): Promise<{ slug: string; id: string }> {
-  await p.goto('/');
-  await p.waitForURL((u) => {
-    const seg = u.pathname.split('/').filter(Boolean);
-    return seg.length === 1 && seg[0] !== 'setup';
-  });
-  const slug = decodeURIComponent(new URL(p.url()).pathname.split('/')[1]);
-  const brands = (await p.evaluate(async () => (await fetch('/api/brands')).json())) as any[];
-  return { slug, id: brands.find((b) => b.slug === slug).id };
-}
-
-/**
- * A product with `count` distinct references, made the way the app makes one:
- * images into the content store, then one create call carrying their hashes.
- * The fills differ so the hashes differ — content addressing would otherwise
- * collapse five identical swatches into a single reference.
- */
-async function seedProduct(p: Page, brandId: string, name: string, count: number): Promise<string> {
-  return p.evaluate(
-    async ([id, productName, n]) => {
-      const shot = (i: number) =>
-        new Promise<Blob>((res) => {
-          const c = document.createElement('canvas');
-          c.width = 40;
-          c.height = 50;
-          const ctx = c.getContext('2d')!;
-          ctx.fillStyle = `hsl(${i * 47}, 70%, 45%)`;
-          ctx.fillRect(0, 0, 40, 50);
-          c.toBlob((b) => res(b!), 'image/png');
-        });
-      const hashes: string[] = [];
-      for (let i = 0; i < (n as number); i++) {
-        const fd = new FormData();
-        fd.append('file', await shot(i), `angle-${i}.png`);
-        const r = await fetch('/api/images', { method: 'POST', body: fd });
-        hashes.push((await r.json()).hash);
-      }
-      const made = await fetch(`/api/brands/${id}/products`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: productName, imageHashes: hashes }),
-      });
-      return (await made.json()).productId as string;
-    },
-    [brandId, name, count] as const,
-  );
-}
 
 const productsLibrary = (p: Page, brandId: string) =>
   p.evaluate(async (id) => (await fetch(`/api/brands/${id}/products-library`)).json(), brandId) as Promise<{

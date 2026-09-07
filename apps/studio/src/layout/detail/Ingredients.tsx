@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
-import { type Brand, type FeedNode, thumbUrl, assetThumbUrl, thumbOf } from '../../api.js';
+import { type Brand, type FeedNode, thumbUrl, thumbOf } from '../../api.js';
+import { productCoverUrl } from '../../productCover.js';
 import { useAppData } from '../../app/AppShell.js';
 import { attachableMarks, markLabel } from '../../brand/marks.js';
 import { customScenesOf } from '../../brandAssets.js';
@@ -101,7 +102,7 @@ export function BriefLine({
         key: `p${t.id}`,
         kind: 'product',
         label: p?.name ?? demo?.name ?? 'product',
-        thumb: p ? assetThumbUrl(p?.shots?.[0]?.file, 'micro') : (demo?.previewUrl ?? null),
+        thumb: p ? productCoverUrl(p, 'micro') : (demo?.previewUrl ?? null),
         // ProductPage resolves demo ids too, so a library product is as
         // openable as one of the brand's own.
         to: brand && (p || demo) ? productPath(brand, t.id) : undefined,

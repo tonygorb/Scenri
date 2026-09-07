@@ -3,7 +3,7 @@ import { productLabel, sceneLabel, showcaseSearchText } from '../displayName.js'
 import { Link, useNavigate } from 'react-router';
 import { Badge } from '@radix-ui/themes';
 import { Aperture, Mountains, Package, User } from '@phosphor-icons/react';
-import { assetUrl, type ShowcaseEntry, thumbOf } from '../api.js';
+import { type ShowcaseEntry, thumbOf } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { useApplyScene } from '../app/useApplyScene.js';
@@ -11,6 +11,7 @@ import { showcaseBrief, useApplyShowcase } from '../app/useApplyShowcase.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { hubPath, presenterPath, presentersPath, productPath, scenePath, scenesPath } from '../routes.js';
+import { productCoverUrl } from '../productCover.js';
 import { customScenesOf, withCustomFirst } from '../brandAssets.js';
 import { bookmarkedScenes } from '../bookmarks.js';
 import { PREF, useLocalPref } from '../prefs.js';
@@ -250,12 +251,12 @@ export function HomeView() {
       return null;
     };
 
-    const libraryShot = products.find((p: any) => assetUrl(p?.shots?.[0]?.file));
+    const libraryShot = products.find((p: any) => productCoverUrl(p, 'tile'));
 
     return {
       // Was the product card hero — serum still reads as “make a shot”
       compose:
-        claim(libraryShot ? assetUrl(libraryShot.shots?.[0]?.file) : null) ??
+        claim(libraryShot ? productCoverUrl(libraryShot, 'tile') : null) ??
         fromShowcaseIds([
           'aurelia-serum-succulent-dew',
           'verity-pearls-suspended-silk',

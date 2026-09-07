@@ -475,3 +475,55 @@ describe('chargeNode', () => {
     expect(core.store.getNode(failed.id)!.costUsd).toBe(0);
   });
 });
+
+/**
+ * The two halves of removing a picture safely: knowing whether anything still
+ * points at it, and unlinking it when nothing does. Only the product studio's
+ * candidate path uses them, for the bytes a rejected drawn view left behind;
+ * no route ever reaches either directly.
+ */
+describe('image references and removal', () => {
+  const H = (c: string) => c.repeat(32);
+
+  it('sees a picture referenced by a brand, a shot or a catalog image', () => {
+    const b = core.store.createBrand({
+      ...brandJson,
+      products: [{ id: 'p', name: 'P', shots: [{ file: `asset:${H('a')}`, locked: true }] }],
+    } as any);
+    expect(core.store.imageReferenced(H('a'))).toBe(true);
+
+    const { project, root } = core.store.createProject(b.id, 'Shots');
+    const [n] = core.store.addNodes({
+      projectId: project.id,
+      parentId: root.id,
+      kind: 'generation',
+      prompt: 'a bottle',
+      engineId: 'demo',
+      count: 1,
+    });
+    core.store.completeNode(n.id, { images: [H('b')], costUsd: 0 });
+    expect(core.store.imageReferenced(H('b'))).toBe(true);
+
+    const source = core.catalog.upsertSource(b.id, 'https://acme.example', 'shopify');
+    core.catalog.upsertProduct({
+      sourceId: source.id,
+      brandId: b.id,
+      externalKey: '1',
+      title: 'Candle',
+      url: 'https://acme.example/products/candle',
+      images: [{ sourceUrl: 'https://img/candle.jpg', position: 0, assetRef: `asset:${H('c')}` }],
+    });
+    expect(core.store.imageReferenced(H('c'))).toBe(true);
+
+    expect(core.store.imageReferenced(H('d'))).toBe(false);
+  });
+
+  it('removes a picture and its absence is visible; a bad hash never reaches the disk', () => {
+    const hash = core.images.save(Buffer.from('candidate-bytes'));
+    expect(core.images.has(hash)).toBe(true);
+    expect(core.images.remove(hash)).toBe(true);
+    expect(core.images.has(hash)).toBe(false);
+    expect(core.images.remove(hash)).toBe(false);
+    expect(() => core.images.remove('../etc/passwd')).toThrow(/invalid image hash/);
+  });
+});

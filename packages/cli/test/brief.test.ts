@@ -193,7 +193,7 @@ describe('compileBrief', () => {
     // `essential: true` marks the identity-carrying reference — the one a
     // tight engine cap must never shed.
     expect(r.attachments).toEqual([
-      { role: 'product', id: 'p1', label: 'House Blend', hash: productHash, essential: true },
+      { role: 'product', id: 'p1', label: 'House Blend', hash: productHash, essential: true, source: 'photo' },
     ]);
     expect(r.referenceImages).toEqual([core.images.pathFor(productHash)]);
     expect(r.productId).toBe('p1');
@@ -616,6 +616,121 @@ describe('a product reference set is ordered, and the order is the contract', ()
     // count is not evidence that every side is covered.
     expect(r.prompt).not.toMatch(/cover the object from every side/i);
     expect(r.prompt).toMatch(/Any face not visible in them is unknown/i);
+  });
+});
+
+/**
+ * A photograph is a fact about the product; a drawn view is Scenri's own
+ * estimate of it from another side. The record may hold them in any order the
+ * page left them in, so the order the engine reads is decided here, by
+ * provenance, never by array position.
+ */
+describe('a drawn view is evidence of shape, never authority', () => {
+  const photosAndViews = () => {
+    const hashes = ['a', 'b', 'c', 'd'].map((n) => core.images.save(Buffer.from(`view-${n}`)));
+    const [a, b, c, d] = hashes;
+    return {
+      hashes,
+      brand: {
+        meta: { name: 'Acme' },
+        products: [
+          {
+            id: 'p1',
+            name: 'House Blend',
+            // stored with a drawn view first, as a reorder on the page could leave it
+            shots: [
+              { file: `asset:${a}`, angle: 'three-quarter', source: 'derived' },
+              { file: `asset:${b}`, angle: 'front' },
+              { file: `asset:${c}`, angle: 'side', source: 'derived' },
+              { file: `asset:${d}`, angle: 'label' },
+            ],
+          },
+        ],
+      },
+    };
+  };
+
+  it('sends the photographs first whatever the stored order, and the essential one is a photograph', () => {
+    const { hashes, brand } = photosAndViews();
+    const r = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand, engineCaps: caps(6) }));
+
+    expect(r.attachments.map((a) => a.hash)).toEqual([hashes[1], hashes[3], hashes[0]]);
+    expect(r.attachments[0]).toMatchObject({ hash: hashes[1], essential: true, source: 'photo' });
+    expect(r.attachments.map((a) => a.source)).toEqual(['photo', 'photo', 'derived']);
+  });
+
+  it('a requested photograph leads; a requested drawn view rides first among the drawn, never first of all', () => {
+    const { hashes, brand } = photosAndViews();
+    const photo = compileBrief(
+      { tokens: [{ t: 'product', id: 'p1', angle: 'label' }] },
+      ctx({ brand, engineCaps: caps(6) }),
+    );
+    expect(photo.attachments[0]).toMatchObject({ hash: hashes[3], essential: true });
+
+    const drawn = compileBrief(
+      { tokens: [{ t: 'product', id: 'p1', angle: 'side' }] },
+      ctx({ brand, engineCaps: caps(6) }),
+    );
+    expect(drawn.attachments[0]).toMatchObject({ hash: hashes[1], essential: true });
+    expect(drawn.attachments.map((a) => a.hash)).toEqual([hashes[1], hashes[3], hashes[2]]);
+  });
+
+  it('keys the fidelity tier on photographs: one photograph with drawn views still forbids inventing unseen faces', () => {
+    const hashes = ['a', 'b', 'c'].map((n) => core.images.save(Buffer.from(`one-${n}`)));
+    const brand = {
+      meta: { name: 'Acme' },
+      products: [
+        {
+          id: 'p1',
+          name: 'House Blend',
+          shots: [
+            { file: `asset:${hashes[0]}`, angle: 'front' },
+            { file: `asset:${hashes[1]}`, angle: 'three-quarter', source: 'derived' },
+            { file: `asset:${hashes[2]}`, angle: 'side', source: 'derived' },
+          ],
+        },
+      ],
+    };
+    const r = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand, engineCaps: caps(6) }));
+
+    expect(r.attachments).toHaveLength(3);
+    expect(r.prompt).toMatch(/do not invent hardware, text, seams, closures/i);
+    expect(r.prompt).toMatch(/the only photograph of this product that exists/i);
+    // three images ride, but two of them are estimates: the one-photograph
+    // tier stays, and the colorway language for several photographs never fires
+    expect(r.prompt).not.toMatch(/the only view of this product that exists/i);
+    expect(r.prompt).not.toMatch(/never blend colorways/i);
+    expect(r.prompt).toMatch(/the last 2 are views Scenri drew/i);
+  });
+
+  it('names the split it actually sent, and says nothing when no drawn view rides', () => {
+    const { hashes, brand } = photosAndViews();
+    const three = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand, engineCaps: caps(6) }));
+    expect(three.prompt).toMatch(/the first 2 are photographs/i);
+    expect(three.prompt).toMatch(/the last one is a view Scenri drew/i);
+    expect(three.prompt).toMatch(/never blend colorways/i);
+
+    // a tight cap seats the photographs and sheds the drawn view first
+    const two = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand, engineCaps: caps(2) }));
+    expect(two.attachments.map((a) => a.hash)).toEqual([hashes[1], hashes[3]]);
+    expect(two.prompt).not.toMatch(/Scenri drew/i);
+    expect(two.dropped.map((a) => a.hash)).toEqual([hashes[0]]);
+
+    const one = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand, engineCaps: caps(1) }));
+    expect(one.attachments.map((a) => a.hash)).toEqual([hashes[1]]);
+    expect(one.prompt).not.toMatch(/Scenri drew/i);
+  });
+
+  it('a record without the field is all photographs, byte for byte as before', () => {
+    const hashes = ['a', 'b'].map((n) => core.images.save(Buffer.from(`legacy-${n}`)));
+    const brand = {
+      meta: { name: 'Acme' },
+      products: [{ id: 'p1', name: 'House Blend', shots: hashes.map((h) => ({ file: `asset:${h}` })) }],
+    };
+    const r = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand, engineCaps: caps(6) }));
+    expect(r.attachments.map((a) => a.source)).toEqual(['photo', 'photo']);
+    expect(r.prompt).not.toMatch(/Scenri drew/i);
+    expect(r.prompt).toMatch(/The first product image is the authority for its color, finish and material/);
   });
 });
 
