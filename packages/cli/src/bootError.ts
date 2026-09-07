@@ -4,6 +4,9 @@
  * thing that broke.
  */
 
+import { realpathSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 export const INSTALL_GUIDE = 'https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md';
 
 // The three shapes a broken better-sqlite3 or sharp install actually takes:
@@ -38,5 +41,35 @@ export function bootErrorLines(err: unknown): string[] {
     'If this keeps happening, run npx scenri@latest, or see the install guide:',
     INSTALL_GUIDE,
     'Set SCENRI_DEBUG=1 to see the full error.',
+  ];
+}
+
+/**
+ * A busy port answered as Scenri. Adopting it (open the browser there, exit 0)
+ * is right when it is this library already running. A source checkout with a
+ * different home would otherwise appear to start while serving another
+ * checkout's library, so it refuses instead. Built installs keep adopting: one
+ * Scenri per machine is their normal case, and an older server that reports no
+ * home is treated as ours.
+ */
+export function shouldAdoptRunning(input: { installKind: string; ourHome: string; theirHome?: string }): boolean {
+  if (input.installKind !== 'dev' || !input.theirHome) return true;
+  return realDir(input.theirHome) === realDir(input.ourHome);
+}
+
+function realDir(p: string): string {
+  try {
+    return realpathSync(p);
+  } catch {
+    return resolve(p);
+  }
+}
+
+export function anotherScenriLines(port: number, theirs: string, ours: string): string[] {
+  return [
+    `Port ${port} is held by another Scenri, serving ${theirs}.`,
+    `This checkout would serve ${ours}, so it did not start.`,
+    'Stop that server, or start this checkout on a different port:',
+    `  SCENRI_PORT=${port + 1} pnpm dev`,
   ];
 }
