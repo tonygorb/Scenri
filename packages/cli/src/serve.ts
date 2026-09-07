@@ -117,7 +117,7 @@ async function run(): Promise<void> {
             if (!shouldAdoptRunning({ installKind, ourHome: core.home, theirHome: info.home })) {
               console.error('');
               for (const line of anotherScenriLines(PORT, info.home ?? 'another library', core.home)) {
-                console.error(`  `);
+                console.error(`  ${line}`);
               }
               console.error('');
               process.exit(1);
