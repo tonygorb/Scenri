@@ -31,8 +31,10 @@ coverage/
 .npmrc
 
 # agent and editor tooling. These write machine-local state into the repo, so
-# they stay out wholesale.
-.claude/*
+# they stay out wholesale. No trailing slash or star on .claude: in a linked
+# worktree it is a symlink to the primary checkout's directory, and only the
+# bare name matches a symlink (see docs/design below for the same rule).
+.claude
 .serena/
 .cursor/
 .remember/
@@ -63,6 +65,10 @@ docs/product/
 
 # disposable local bundles, rebuilt on demand, never committed
 .context/
+
+# a linked worktree's own Scenri library, made by `pnpm worktree add`; the
+# primary checkout uses ~/.scenri and never has one
+.scenri-home/
 
 # shape-probe output (manual-shape-probe.mts writes beside its cwd)
 packages/cli/shape-probe-out/

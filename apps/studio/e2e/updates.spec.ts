@@ -27,6 +27,9 @@ const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 // crossed 20s and this file's `beforeAll` timed out while the shared harness's
 // identical work did not, purely because the harness asks for 120s and this
 // file never did.
+// The fixtures sit ten above the harness base (4767 when that is 4757), so a
+// linked worktree on its own e2e lane keeps them inside that lane too.
+const UPDATES_BASE = Number(process.env.SCENRI_E2E_PORT ?? 4757) + 10;
 const SLOT = Number(process.env.TEST_PARALLEL_INDEX ?? 0) * 20;
 
 /**
@@ -183,7 +186,7 @@ const aboutRows = (p: Page) => p.locator('.sc-set .sc-set-row');
 
 test.describe
   .serial('an update is available', () => {
-    const fx = new Fixture(4767 + SLOT, 4768 + SLOT, '0.99.0');
+    const fx = new Fixture(UPDATES_BASE + SLOT, UPDATES_BASE + 1 + SLOT, '0.99.0');
     test.beforeAll(async () => {
       test.setTimeout(120_000);
       await fx.start();
@@ -276,7 +279,7 @@ test.describe
     // The tester's exact dead button: with the kill switch set, clicking
     // "Check for updates" used to be swallowed server-side and change nothing
     // on screen. The switch silences the cadence, never the person.
-    const fx = new Fixture(4771 + SLOT, 4772 + SLOT, '0.0.1', { SCENRI_NO_UPDATE_CHECK: '1' });
+    const fx = new Fixture(UPDATES_BASE + 4 + SLOT, UPDATES_BASE + 5 + SLOT, '0.0.1', { SCENRI_NO_UPDATE_CHECK: '1' });
     test.beforeAll(async () => {
       test.setTimeout(120_000);
       await fx.start();
@@ -299,7 +302,7 @@ test.describe
 
 test.describe
   .serial('the registry cannot be reached', () => {
-    const fx = new Fixture(4769 + SLOT, 4770 + SLOT, '0.99.0');
+    const fx = new Fixture(UPDATES_BASE + 2 + SLOT, UPDATES_BASE + 3 + SLOT, '0.99.0');
     test.beforeAll(async () => {
       test.setTimeout(120_000);
       fx.down = true;
