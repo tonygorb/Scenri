@@ -36,4 +36,8 @@ and removed.
 9. Claude Code: do not create worktrees with its own worktree tool; `pnpm worktree add` is the
    convention, and entering a worktree that already exists by its path is fine.
 
+Skills (the repo's own how-to files, one `SKILL.md` per topic) are the same set for every agent: Claude
+Code reads `.claude/skills/`, Codex and Cursor read `.agents/skills/`, and in a worktree both are links to
+the primary's copy.
+
 Everything else, from setup to what CI runs, is in `CONTRIBUTING.md`.

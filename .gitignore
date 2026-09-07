@@ -35,6 +35,7 @@ coverage/
 # worktree it is a symlink to the primary checkout's directory, and only the
 # bare name matches a symlink (see docs/design below for the same rule).
 .claude
+.agents
 .serena/
 .cursor/
 .remember/
