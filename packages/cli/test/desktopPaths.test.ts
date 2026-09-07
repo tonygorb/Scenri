@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import {
   LAUNCHER_SCHEMA,
   launcherDir,
@@ -10,6 +10,8 @@ import {
   writeLauncherRecord,
   recordedEnv,
   desktopDir,
+  powershellPath,
+  PS_UTF8,
   type LauncherRecord,
 } from '../src/desktop/paths.js';
 
@@ -90,9 +92,14 @@ describe('desktopDir', () => {
     const dir = await desktopDir({ platform: 'win32', env: {}, homedir: 'C:\\Users\\t', runImpl });
     expect(dir).toBe('C:\\Users\\t\\OneDrive\\Desktop');
     expect(calls).toHaveLength(1);
-    expect(calls[0].cmd).toBe('powershell.exe');
+    // The absolute System32 path when it exists (a Desktop click has Explorer's PATH,
+    // not the terminal's), the bare name elsewhere; both end in powershell.exe.
+    expect(basename(calls[0].cmd).toLowerCase()).toBe('powershell.exe');
     expect(calls[0].args).toContain('-NoProfile');
     expect(calls[0].args.join(' ')).toContain("GetFolderPath('Desktop')");
+    // PowerShell 5.1 writes OEM bytes to a redirected stdout; a Desktop under
+    // a non-ASCII profile only survives the trip as UTF-8.
+    expect(calls[0].args.at(-1)?.startsWith(PS_UTF8)).toBe(true);
   });
 
   it('lets SCENRI_DESKTOP_DIR override the lookup, for tests and odd setups', async () => {
@@ -103,5 +110,26 @@ describe('desktopDir', () => {
 
   it('is null on an unsupported platform', async () => {
     expect(await desktopDir({ platform: 'linux', env: {}, homedir: '/h', runImpl: never })).toBeNull();
+  });
+});
+
+describe('powershellPath', () => {
+  const v1 = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
+
+  it('is the absolute Windows PowerShell 5.1 under SystemRoot when it exists, whatever PATH says', () => {
+    expect(powershellPath({ SystemRoot: 'C:\\Windows' }, (p) => p === v1)).toBe(v1);
+  });
+
+  it('assumes C:\\Windows when SystemRoot is unset', () => {
+    const seen: string[] = [];
+    powershellPath({}, (p) => {
+      seen.push(p);
+      return true;
+    });
+    expect(seen[0]).toBe(v1);
+  });
+
+  it('falls back to the bare name when the absolute one is missing', () => {
+    expect(powershellPath({ SystemRoot: 'D:\\Win' }, () => false)).toBe('powershell.exe');
   });
 });

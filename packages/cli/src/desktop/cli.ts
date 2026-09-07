@@ -16,6 +16,7 @@ import { showDialog } from './dialog.js';
 import { type InstallDeps, type InstallResult, installDesktop, removeDesktop } from './install.js';
 import { appendLog } from './log.js';
 import { openScenri } from './open.js';
+import { serveStartingPage } from './startingPage.js';
 import { type RunImpl, launcherDir, logsDir } from './paths.js';
 
 /** The package's launcher/ dir sits beside dist/, in a checkout and in the tarball alike. */
@@ -156,7 +157,7 @@ export async function runOpenCommand(ownEntry: string): Promise<number> {
     serverLogPath,
     readLogTail: () => tail(serverLogPath),
     startingTemplate: join(assetsDirFor(ownEntry), 'starting.html'),
-    startingPage: join(support, 'starting.html'),
+    startingServer: serveStartingPage,
     previousEntries: previous,
   });
 }

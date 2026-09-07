@@ -12,7 +12,7 @@
  * but the same layout is spelled out there. Node builtins only.
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, win32 } from 'node:path';
 
 /** Bump when launch.mjs, the record shape, or the artifact templates change. */
 export const LAUNCHER_SCHEMA = 1;
@@ -80,6 +80,25 @@ export type RunImpl = (cmd: string, args: string[], opts?: { env?: NodeJS.Proces
 const KNOWN_FOLDER_DESKTOP = "[Environment]::GetFolderPath('Desktop')";
 
 /**
+ * PowerShell 5.1 writes a redirected stdout in the OEM code page, so a Desktop
+ * under a non-ASCII profile comes back mangled unless the command says UTF-8
+ * first. Prefixed to every command whose output is read.
+ */
+export const PS_UTF8 = '[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; ';
+
+/**
+ * Windows PowerShell 5.1 by its absolute path. A Desktop click runs with
+ * Explorer's PATH, not the terminal's, and the one thing every supported
+ * Windows guarantees is %SystemRoot%\System32\WindowsPowerShell\v1.0. The
+ * bare name is the fallback for a Windows that hides it.
+ */
+export function powershellPath(env: NodeJS.ProcessEnv, exists: (path: string) => boolean = existsSync): string {
+  const root = env.SystemRoot || env.SYSTEMROOT || env.windir || 'C:\\Windows';
+  const absolute = win32.join(root, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  return exists(absolute) ? absolute : 'powershell.exe';
+}
+
+/**
  * The user's Desktop folder. macOS keeps it at ~/Desktop (the display name is
  * localised, the path is not). Windows may redirect it, localise it or move it
  * into OneDrive, and only the Known Folder API knows where it went.
@@ -93,11 +112,11 @@ export async function desktopDir(deps: {
   if (deps.env.SCENRI_DESKTOP_DIR) return deps.env.SCENRI_DESKTOP_DIR;
   if (deps.platform === 'darwin') return join(deps.homedir, 'Desktop');
   if (deps.platform === 'win32') {
-    const out = await deps.runImpl('powershell.exe', [
+    const out = await deps.runImpl(powershellPath(deps.env), [
       '-NoProfile',
       '-NonInteractive',
       '-Command',
-      KNOWN_FOLDER_DESKTOP,
+      PS_UTF8 + KNOWN_FOLDER_DESKTOP,
     ]);
     const dir = out.trim();
     return dir || null;

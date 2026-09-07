@@ -6,9 +6,10 @@
  * PowerShell syntax. Inline -Command is not gated by the script execution
  * policy, and nothing is encoded, downloaded or written to the registry.
  */
-import type { RunImpl } from './paths.js';
+import { PS_UTF8, type RunImpl, powershellPath } from './paths.js';
 
-export const POWERSHELL = 'powershell.exe';
+/** Absolute under %SystemRoot% when it exists: a Desktop click has Explorer's PATH, not the terminal's. */
+export const POWERSHELL = powershellPath(process.env);
 export const POWERSHELL_ARGS = ['-NoProfile', '-NonInteractive', '-Command'];
 
 /** WindowStyle 7 is "run minimised": the console the .lnk opens never lands on screen. */
@@ -19,7 +20,7 @@ export const CREATE_LNK_COMMAND =
 
 /** CreateShortcut on an existing .lnk loads it, which is how we ask what it points at. */
 export const READ_LNK_COMMAND =
-  '$s = New-Object -ComObject WScript.Shell; $l = $s.CreateShortcut($env:SCENRI_LNK); ' +
+  `${PS_UTF8}$s = New-Object -ComObject WScript.Shell; $l = $s.CreateShortcut($env:SCENRI_LNK); ` +
   'Write-Output $l.TargetPath; Write-Output $l.Arguments';
 
 export async function readLnk(runImpl: RunImpl, path: string): Promise<{ target: string; args: string }> {

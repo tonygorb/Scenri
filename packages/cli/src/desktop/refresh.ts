@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import type { InstallKind } from '../installKind.js';
 import { compareSemver, newestStaged } from '../update/versionsDir.js';
 import { adoptRunningInstall, type VerifyImpl } from './adopt.js';
-import { type InstallDeps, runningNodeMajor, writeSupportFiles } from './install.js';
+import { type InstallDeps, runningNodeMajor, stableExecPath, writeSupportFiles } from './install.js';
 import { MAC_SCRIPT, isOurMacBundle, macPlist, writeMacBundle } from './macos.js';
 import { LAUNCHER_SCHEMA, launcherDir, readLauncherRecord, writeLauncherRecord } from './paths.js';
 import { writeLnk } from './windows.js';
@@ -31,9 +31,27 @@ export async function refreshLauncher(
   if (!record) return {};
   const out: { adopted?: true; refreshed?: true } = {};
 
+  const running = runningNodeMajor();
+  const ownNode = stableExecPath(deps.execPath, deps.platform);
+  const nodeGone = !existsSync(record.nodePath);
+  // The icon runs on the recorded node. When that is the node running now, or
+  // it is gone and this one takes over, a different major means the copy's
+  // native modules were built for a node that is no longer there: rebuild the
+  // copy from the running build. A different node that still exists is left
+  // alone, because the icon's node and its copy still agree.
+  const majorChanged =
+    (nodeGone ||
+      samePath(record.nodePath, ownNode, deps.platform) ||
+      samePath(record.nodePath, deps.execPath, deps.platform)) &&
+    record.nodeMajor !== undefined &&
+    record.nodeMajor !== running;
+
+  let rebuilt = false;
   if (deps.installKind === 'npx' || deps.installKind === 'global') {
     const newest = newestStaged(deps.home, deps.pkg);
-    if (!newest || compareSemver(deps.version, newest) > 0) {
+    const newer = !newest || compareSemver(deps.version, newest) > 0;
+    const rebuild = majorChanged && newest !== null && compareSemver(deps.version, newest) >= 0;
+    if (newer || rebuild) {
       const r = await adoptRunningInstall({
         home: deps.home,
         pkg: deps.pkg,
@@ -41,8 +59,12 @@ export async function refreshLauncher(
         ownEntry: deps.ownEntry,
         installKind: deps.installKind,
         verifyImpl: deps.verifyImpl,
+        force: rebuild,
       });
-      if (r.adopted) out.adopted = true;
+      if (r.adopted) {
+        out.adopted = true;
+        rebuilt = rebuild;
+      }
     }
   }
 
@@ -50,9 +72,10 @@ export async function refreshLauncher(
   const artifact = record.artifact.path;
   const ours = existsSync(artifact) && (record.artifact.kind === 'macos-app' ? isOurMacBundle(artifact) : true);
   const schemaStale = record.schema !== LAUNCHER_SCHEMA;
-  const nodeGone = !existsSync(record.nodePath);
-  const nodePath = nodeGone ? deps.execPath : record.nodePath;
-  const nodeMajor = nodeGone ? runningNodeMajor() : (record.nodeMajor ?? runningNodeMajor());
+  const nodePath = nodeGone ? ownNode : record.nodePath;
+  // The recorded major describes the copy; it moves only with the copy, or
+  // with the node when the recorded one is gone and there is nothing to keep.
+  const nodeMajor = nodeGone || rebuilt ? running : (record.nodeMajor ?? running);
   // The two files the .app script reads must agree with the record; a file
   // edited or lost by hand is healed here rather than at the next click.
   const nodeFilesStale =
@@ -91,7 +114,7 @@ export async function refreshLauncher(
       icon: `${join(support, 'scenri.ico')},0`,
     });
   }
-  if (schemaStale || supportStale || nodeGone || iconStale || bundleStale) {
+  if (schemaStale || supportStale || nodeGone || iconStale || bundleStale || rebuilt) {
     writeLauncherRecord(deps.homedir, {
       ...record,
       schema: LAUNCHER_SCHEMA,
@@ -102,6 +125,11 @@ export async function refreshLauncher(
     out.refreshed = true;
   }
   return out;
+}
+
+/** Windows paths differ in case alone; everywhere else a path is its bytes. */
+function samePath(a: string, b: string, platform: NodeJS.Platform): boolean {
+  return platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
 }
 
 function readText(path: string): string | null {

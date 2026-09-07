@@ -2,18 +2,35 @@
  * One native sentence when there is no terminal to print to. The message is
  * always data: an osascript argument, or an environment variable PowerShell
  * reads. SCENRI_NO_DIALOG=1 keeps harnesses quiet.
+ *
+ * On Windows the helper runs with windowsHide: CREATE_NO_WINDOW keeps its
+ * console off screen and the box still shows. Probed on a real windows-latest
+ * desktop (2026-09-07): this mode shows the box; a detached PowerShell (no
+ * console at all) shows nothing, so that is not an option.
  */
-import { spawn } from 'node:child_process';
-import { POWERSHELL, POWERSHELL_ARGS } from './windows.js';
+import { type SpawnOptions, spawn } from 'node:child_process';
+import { powershellPath } from './paths.js';
+import { POWERSHELL_ARGS } from './windows.js';
 
 const MESSAGE_BOX =
   "Add-Type -AssemblyName System.Windows.Forms | Out-Null; [System.Windows.Forms.MessageBox]::Show($env:SCENRI_MESSAGE, 'Scenri') | Out-Null";
 
-export function showDialog(platform: NodeJS.Platform, message: string, env: NodeJS.ProcessEnv): Promise<void> {
+export interface DialogChild {
+  once(event: 'error', listener: (err: Error) => void): unknown;
+  once(event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
+}
+export type DialogSpawn = (cmd: string, args: string[], opts: SpawnOptions) => DialogChild;
+
+export function showDialog(
+  platform: NodeJS.Platform,
+  message: string,
+  env: NodeJS.ProcessEnv,
+  spawnImpl: DialogSpawn = spawn,
+): Promise<void> {
   if (env.SCENRI_NO_DIALOG === '1') return Promise.resolve();
   let cmd: string;
   let args: string[];
-  let childEnv: NodeJS.ProcessEnv | undefined;
+  let opts: SpawnOptions;
   if (platform === 'darwin') {
     cmd = '/usr/bin/osascript';
     args = [
@@ -26,17 +43,18 @@ export function showDialog(platform: NodeJS.Platform, message: string, env: Node
       '--',
       message,
     ];
+    opts = { stdio: 'ignore' };
   } else if (platform === 'win32') {
-    cmd = POWERSHELL;
+    cmd = powershellPath(env);
     args = [...POWERSHELL_ARGS, MESSAGE_BOX];
-    childEnv = { ...env, SCENRI_MESSAGE: message };
+    opts = { stdio: 'ignore', windowsHide: true, env: { ...env, SCENRI_MESSAGE: message } };
   } else {
     console.error(`\n  ${message}\n`);
     return Promise.resolve();
   }
   return new Promise((resolve) => {
     try {
-      const child = spawn(cmd, args, { stdio: 'ignore', windowsHide: true, env: childEnv });
+      const child = spawnImpl(cmd, args, opts);
       child.once('error', () => resolve());
       child.once('exit', () => resolve());
     } catch {

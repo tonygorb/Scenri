@@ -216,8 +216,10 @@ as frozen as the launcher's:
    rule as the launcher, and hands off to `node <entry> open`, detached, with
    its output in `<home>/logs/scenri.log`. `open` must exist in every future
    version: it holds every decision (reuse a running server, start the
-   supervising launcher hidden, wait for readiness, show the browser) and is
-   versioned with the app.
+   supervising launcher hidden, serve the "Starting Scenri" page over loopback
+   http while it waits for readiness, show the browser, explain a death in one
+   native dialog) and is versioned with the app. Every step writes a line to
+   `<home>/logs/launcher.log`, which is what support reads.
 3. No valid version means one dialog and exit 1, never a start through npx.
 
 Adding the icon copies the running build into `app/versions/<v>/` once, after

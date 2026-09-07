@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -197,7 +197,8 @@ describe('refreshLauncher', () => {
     writeFileSync(other, '');
     expect(await refreshLauncher({ ...d, execPath: other })).toEqual({ refreshed: true });
     expect(writes()).toHaveLength(2);
-    expect(writes()[1].env.SCENRI_TARGET).toBe(other);
+    // resolved, as a Windows junction or shim would be: the versioned install, not the alias
+    expect(writes()[1].env.SCENRI_TARGET).toBe(realpathSync(other));
   });
 
   it('adopts a newer build that runs from the npx cache', async () => {
@@ -216,5 +217,71 @@ describe('refreshLauncher', () => {
     expect(await refreshLauncher(d)).toEqual({ adopted: true });
     expect(existsSync(entryOf(d.home, 'scenri', '0.8.4'))).toBe(true);
     expect(await refreshLauncher(d)).toEqual({});
+  });
+
+  /** An npx cache holding this very version, the shape a terminal start has. */
+  function plantNpx(version = '0.8.4', body = '// fresh build') {
+    const nm = join(root, '_npx', 'h', 'node_modules');
+    mkdirSync(join(nm, 'scenri', 'dist'), { recursive: true });
+    mkdirSync(join(nm, 'fastify'), { recursive: true });
+    writeFileSync(join(nm, 'scenri', 'package.json'), JSON.stringify({ name: 'scenri', version }));
+    writeFileSync(join(nm, 'scenri', 'dist', 'index.js'), body);
+    return join(nm, 'scenri', 'dist', 'index.js');
+  }
+
+  it('rebuilds the icon\u2019s copy when the node at the recorded path changed major underneath it', async () => {
+    // The MSI upgraded Node in place, or nvm-windows retargeted its junction:
+    // same path, another major, and the copy's native modules no longer load.
+    const d = deps({ installKind: 'npx', ownEntry: plantNpx(), verifyImpl: async () => true });
+    await installDesktop(d);
+    expect(await refreshLauncher(d)).toEqual({ adopted: true });
+    const record = readLauncherRecord(root);
+    if (!record) throw new Error('no record');
+    writeLauncherRecord(root, { ...record, nodeMajor: 7 });
+    writeFileSync(supportFile('node-major'), '7\n');
+    writeFileSync(entryOf(d.home, 'scenri', '0.8.4'), '// built for node 7');
+    expect(await refreshLauncher(d)).toEqual({ adopted: true, refreshed: true });
+    expect(readFileSync(entryOf(d.home, 'scenri', '0.8.4'), 'utf8')).toBe('// fresh build');
+    expect(readLauncherRecord(root)?.nodeMajor).toBe(Number(process.versions.node.split('.')[0]));
+    expect(readFileSync(supportFile('node-major'), 'utf8')).toBe(`${process.versions.node.split('.')[0]}\n`);
+    expect(await refreshLauncher(d)).toEqual({});
+  });
+
+  it('leaves the copy alone when the recorded node still exists and this start runs another one', async () => {
+    // nvm use 24 from a terminal while the icon keeps its 22: both nodes exist,
+    // the icon's copy matches the icon's node, nothing to rebuild.
+    const d = deps({ installKind: 'npx', ownEntry: plantNpx(), verifyImpl: async () => true });
+    await installDesktop(d);
+    await refreshLauncher(d);
+    const record = readLauncherRecord(root);
+    if (!record) throw new Error('no record');
+    writeLauncherRecord(root, { ...record, nodeMajor: 7 });
+    writeFileSync(supportFile('node-major'), '7\n');
+    writeFileSync(entryOf(d.home, 'scenri', '0.8.4'), '// built for node 7');
+    const other = join(root, 'bin', 'node2');
+    writeFileSync(other, '');
+    expect(await refreshLauncher({ ...d, execPath: other })).toEqual({});
+    expect(readFileSync(entryOf(d.home, 'scenri', '0.8.4'), 'utf8')).toBe('// built for node 7');
+    expect(readLauncherRecord(root)?.nodeMajor).toBe(7);
+  });
+
+  it('rebuilds the copy for the node that takes over when the recorded one is gone', async () => {
+    const d = deps({ installKind: 'npx', ownEntry: plantNpx(), verifyImpl: async () => true });
+    await installDesktop(d);
+    await refreshLauncher(d);
+    const record = readLauncherRecord(root);
+    if (!record) throw new Error('no record');
+    writeLauncherRecord(root, { ...record, nodeMajor: 7 });
+    writeFileSync(supportFile('node-major'), '7\n');
+    writeFileSync(entryOf(d.home, 'scenri', '0.8.4'), '// built for node 7');
+    rmSync(d.execPath);
+    const other = join(root, 'bin', 'node2');
+    writeFileSync(other, '');
+    expect(await refreshLauncher({ ...d, execPath: other })).toEqual({ adopted: true, refreshed: true });
+    expect(readFileSync(entryOf(d.home, 'scenri', '0.8.4'), 'utf8')).toBe('// fresh build');
+    expect(readLauncherRecord(root)).toMatchObject({
+      nodePath: other,
+      nodeMajor: Number(process.versions.node.split('.')[0]),
+    });
   });
 });
