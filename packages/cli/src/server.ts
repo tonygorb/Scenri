@@ -126,6 +126,8 @@ export interface ServerOptions {
   nodeTimeoutMs?: number;
   /** Reads a brand's own references into structured records. Injected in tests. */
   analyzer?: Analyzer;
+  /** Draws asset builds ahead of the registry's engines. The e2e seam; serve.ts sets it under a flag. */
+  buildEngine?: EngineAdapter;
   /** Installs and signs in the local Codex CLI for the setup wizard. Injected in tests. */
   codexSetup?: CodexSetup;
 }
@@ -494,7 +496,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // this point treats them identically to the curated ones: compileBrief
   // already prefers `characters[]` over the presenter catalog, and the scene
   // resolver below prefers `scenes[]` over the scene catalog.
-  registerAssetBuildRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters });
+  registerAssetBuildRoutes(app, {
+    core,
+    engines,
+    analyzer: opts.analyzer,
+    scenes,
+    presenters,
+    thumbs,
+    buildEngine: opts.buildEngine,
+  });
 
   // ---- demo products (curated, fictional-but-premium product catalog). A
   // demo product attaches straight into a brief like a Presenter does — see

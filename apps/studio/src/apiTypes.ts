@@ -334,12 +334,50 @@ export interface AssetBuildCapabilities {
   free: boolean;
 }
 
+export type AssetBuildStage =
+  | 'queued'
+  | 'analyzing'
+  | 'building'
+  | 'saving'
+  | 'done'
+  | 'failed'
+  | 'cancelled'
+  // the staged scene build only
+  | 'seeding'
+  | 'awaiting'
+  | 'viewing'
+  | 'reviewing'
+  | 'consensus';
+
+/** One frame on a scene build's board. */
+export interface AssetBuildFrame {
+  /** Null while it is still being drawn. */
+  hash: string | null;
+  /** System-internal; never rendered. */
+  purpose: string;
+  status: 'drawing' | 'landed' | 'rejected';
+  origin: 'seed' | 'view' | 'upload';
+  ms?: number;
+  attempt?: number;
+}
+
+/** The scene as a build has read it so far. Enough to caption the review. */
+export interface SceneBuildRecord {
+  id?: string;
+  name?: string;
+  lighting?: string;
+  description?: string;
+  prompt?: string;
+  figure?: string;
+  figureTreatment?: string;
+}
+
 export interface AssetBuild {
   id: string;
   brandId: string;
   kind: 'presenter' | 'scene';
   name: string;
-  stage: 'queued' | 'analyzing' | 'building' | 'saving' | 'done' | 'failed' | 'cancelled';
+  stage: AssetBuildStage;
   step: number;
   steps: number;
   message: string | null;
@@ -354,6 +392,14 @@ export interface AssetBuild {
   error: string | null;
   startedAt: string;
   finished: boolean;
+  /* ---- the staged scene build only; a presenter build never carries these */
+  frames?: AssetBuildFrame[];
+  record?: SceneBuildRecord | null;
+  suggestedName?: string | null;
+  cover?: string | null;
+  target?: number;
+  consensus?: boolean;
+  stageAt?: Record<string, string>;
 }
 
 export interface PresenterPatch {

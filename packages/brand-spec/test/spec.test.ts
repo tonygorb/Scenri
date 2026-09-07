@@ -85,7 +85,7 @@ describe('validateBrand', () => {
           verticals: ['Beauty'],
           keywords: ['volcanic', 'shore'],
           instruction: 'like these rocks but less orange',
-          refs: [{ file: 'asset:deadbeef' }],
+          refs: [{ file: 'asset:deadbeef' }, { file: 'asset:cafe1234', drawn: true }],
           preview: 'asset:cafe1234',
           width: 1024,
           height: 1280,
@@ -116,6 +116,13 @@ describe('validateBrand', () => {
       false,
     );
     expect(validateBrand({ ...base, scenes: [{ ...ok, id: 'Us_3AB' }] }).valid).toBe(false);
+    // a ref says only where it is and whether the tool drew it; nothing else rides on it
+    expect(
+      validateBrand({ ...base, scenes: [{ ...ok, refs: [{ file: 'asset:deadbeef', drawn: 'yes' }] }] }).valid,
+    ).toBe(false);
+    expect(
+      validateBrand({ ...base, scenes: [{ ...ok, refs: [{ file: 'asset:deadbeef', role: 'wide' }] }] }).valid,
+    ).toBe(false);
   });
   it('pins specVersion to the 0.1 const', () => {
     expect(validateBrand({ specVersion: '0.2', meta: { name: 'Acme' } }).valid).toBe(false);

@@ -274,6 +274,7 @@ export function ScenesView() {
                     onCancel={(id) => void api.cancelAssetBuild(brand.id, id).then(refreshBuilds)}
                     onDismiss={(id) => void api.deleteAssetBuild(brand.id, id).then(refreshBuilds)}
                     onRetry={() => createAsset('scene')}
+                    onResume={(b) => createAsset('scene', { build: b.id })}
                   />
                 ))}
                 {mineShown.map((s) => (

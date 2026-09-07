@@ -5,10 +5,14 @@ import type { EngineRegistry } from '../engines.js';
 import { facetsOf, type Scene } from '../scenes.js';
 import { presenterFacetsOf, type Presenter } from '../presenters.js';
 import {
+  addSceneView,
+  adjustSceneBuild,
+  approveSceneBuild,
   brandCharacters,
   brandScenes,
   cancelAssetBuild,
   commit,
+  finishSceneBuild,
   forgetAssetBuild,
   getAssetBuild,
   isCustomPresenter,
@@ -16,16 +20,20 @@ import {
   listAssetBuilds,
   presenterCrops,
   presenterRecordFrom,
+  removeSceneFrame,
+  retrySceneFrame,
   sceneBuildRunning,
   sceneRecordFrom,
   scenePreviewPrompt,
   startAssetBuild,
   trimEdgeBars,
   type Analyzer,
+  type AssetBuild,
   type AssetBuildDeps,
   type CustomScene,
 } from '../customAssets.js';
 import { presenterCropMode } from '../presenterRepair.js';
+import type { ThumbStore } from '../thumbs.js';
 import { brandContext, COST_PROBE } from './shared.js';
 
 export function registerAssetBuildRoutes(
@@ -36,9 +44,13 @@ export function registerAssetBuildRoutes(
     analyzer?: Analyzer;
     scenes: Scene[];
     presenters: Presenter[];
+    /** So a frame a build drew and dropped loses its derivatives too. */
+    thumbs?: ThumbStore;
+    /** An engine that draws builds ahead of the registry's. The e2e seam; never set in production. */
+    buildEngine?: EngineAdapter;
   },
 ): void {
-  const { core, engines, scenes, presenters } = deps;
+  const { core, engines, scenes, presenters, thumbs } = deps;
   const analyzer: Analyzer | null = deps.analyzer ?? createCodexAnalyzer({ runner: engines.codexRunner });
 
   /**
@@ -51,6 +63,7 @@ export function registerAssetBuildRoutes(
    * none could not hold a face, so it is not offered.
    */
   const buildEngine = async (): Promise<EngineAdapter | null> => {
+    if (deps.buildEngine && (await deps.buildEngine.isAvailable()).ok) return deps.buildEngine;
     const ordered = [...engines.all()].sort((a, b) => {
       const rank = (e: EngineAdapter) => (e.capabilities().id === 'codex-cli' ? 0 : 1);
       return rank(a) - rank(b);
@@ -71,6 +84,11 @@ export function registerAssetBuildRoutes(
     // The filters that already exist, so a new asset lands under a tab a
     // person can actually click rather than inventing a category of one.
     vocabulary: { ...facetsOf(scenes), categories: presenterFacetsOf(presenters).categories },
+    discard: async (hash) => {
+      await thumbs?.remove(hash);
+      core.images.remove(hash);
+    },
+    ...(process.env.SCENRI_DEBUG ? { log: (fields, msg) => app.log.info(fields, msg) } : {}),
   });
 
   /** What a creation flow needs to know before it promises anything. */
@@ -117,9 +135,16 @@ export function registerAssetBuildRoutes(
         instruction: body.instruction == null ? undefined : String(body.instruction),
         imageHashes: Array.isArray(body.imageHashes) ? body.imageHashes.map((h: unknown) => String(h)) : [],
         facets: Array.isArray(body.facets) ? body.facets.map((f: unknown) => String(f)) : [],
+        ...(body.target !== undefined ? { target: Number(body.target) } : {}),
+        ...(typeof body.consensus === 'boolean' ? { consensus: body.consensus } : {}),
+        ...(Array.isArray(body.drawnHashes) ? { drawnHashes: body.drawnHashes.map((h: unknown) => String(h)) } : {}),
       });
     } catch (err: any) {
-      return reply.status(err.statusCode ?? 500).send({ error: err.message ?? 'could not start' });
+      // A scene already being built for this brand is handed back, so the
+      // dialog that asked can attach to it instead of starting a second one.
+      return reply
+        .status(err.statusCode ?? 500)
+        .send({ error: err.message ?? 'could not start', ...(err.jobId ? { jobId: err.jobId } : {}) });
     }
   });
   app.get('/api/brands/:id/asset-builds', async (req, reply) => {
@@ -155,6 +180,56 @@ export function registerAssetBuildRoutes(
     cancelAssetBuild(job.id);
     return { ok: true };
   });
+
+  /*
+   * What a person does to a staged scene build. Each route is one decision:
+   * the job answers with its new stage and itself, so the dialog can paint
+   * without waiting for the next poll. A build that is busy or not at the
+   * stage a decision belongs to says so with a 409, never by doing it anyway.
+   */
+  const sceneAction =
+    (act: (job: AssetBuild, body: any, params: any) => Record<string, unknown> | void) =>
+    async (req: any, reply: any) => {
+      const brand = brandOr404(req, reply);
+      if (!brand) return;
+      const job = getAssetBuild(String(req.params.jobId));
+      if (!job || job.brandId !== brand.id) return reply.status(404).send({ error: 'build not found' });
+      if (job.kind !== 'scene' || !job.frames) return reply.status(400).send({ error: 'not a staged scene build' });
+      try {
+        const extra = act(job, req.body ?? {}, req.params) ?? {};
+        return { ok: true, stage: job.stage, job, ...extra };
+      } catch (err: any) {
+        return reply
+          .status(err.statusCode ?? 500)
+          .send({ error: err.message ?? 'could not do that', stage: job.stage });
+      }
+    };
+  app.post(
+    '/api/brands/:id/asset-builds/:jobId/approve',
+    sceneAction((job) => approveSceneBuild(job)),
+  );
+  app.post(
+    '/api/brands/:id/asset-builds/:jobId/retry',
+    sceneAction((job, body) => retrySceneFrame(job, body.frame ? String(body.frame) : undefined)),
+  );
+  app.post(
+    '/api/brands/:id/asset-builds/:jobId/adjust',
+    sceneAction((job, body) => adjustSceneBuild(job, String(body.note ?? ''))),
+  );
+  app.delete(
+    '/api/brands/:id/asset-builds/:jobId/frame/:hash',
+    sceneAction((job, _body, params) => removeSceneFrame(job, String(params.hash))),
+  );
+  app.post(
+    '/api/brands/:id/asset-builds/:jobId/add-view',
+    sceneAction((job) => addSceneView(job)),
+  );
+  app.post(
+    '/api/brands/:id/asset-builds/:jobId/finish',
+    sceneAction((job, body) =>
+      finishSceneBuild(job, { name: body.name, cover: body.cover, facets: body.facets, consensus: body.consensus }),
+    ),
+  );
 
   /**
    * Write a presenter directly, without a build.
@@ -295,6 +370,11 @@ export function registerAssetBuildRoutes(
         // word means the stored word.
         instruction: String(body.correction ?? '').trim() || scene.instruction || undefined,
         imageHashes: [],
+        // A note reads the same references with the Direction kept as it is;
+        // `frames` reads a subset in a given order; `draw: false` keeps the card.
+        ...(body.note ? { correction: String(body.note) } : {}),
+        ...(Array.isArray(body.frames) ? { frames: body.frames.map((h: unknown) => String(h)) } : {}),
+        ...(body.draw === false ? { draw: false } : {}),
       });
     } catch (err: any) {
       return reply.status(err.statusCode ?? 500).send({ error: err.message ?? 'could not start' });

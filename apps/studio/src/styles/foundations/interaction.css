@@ -45,7 +45,8 @@
 .sc-icon-btn,
 .sc-chip,
 .sc-btn,
-.sc-thumb {
+.sc-thumb,
+.sc-sb-tile {
   /* Colour eases; the press does not move. Geometry is deliberately absent
      from this list because it is absent from the press itself. */
   transition:
@@ -77,14 +78,16 @@
 }
 /* A thumbnail is its own image, so a background never shows through it.
    Opacity is the only paint step it has. */
-.sc-thumb:active {
+.sc-thumb:active,
+.sc-sb-tile:active {
   opacity: 0.86;
 }
 /* Which shot you are looking at: the feed's own ring, the inverse fill, the
    one on-state this system has, drawn inside the tile's edge. This had no
    selected state anywhere once: the strip marked it with data-active and
    nothing in the stylesheet read it. */
-.sc-thumb[data-active="true"] {
+.sc-thumb[data-active="true"],
+.sc-sb-tile[data-active="true"] {
   outline: 2px solid var(--sc-inv-bg);
   outline-offset: -2px;
 }

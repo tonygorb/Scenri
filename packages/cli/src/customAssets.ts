@@ -58,7 +58,41 @@ import {
   type CustomScene,
 } from './assetRecords.js';
 
-export type AssetBuildStage = 'queued' | 'analyzing' | 'building' | 'saving' | 'done' | 'failed' | 'cancelled';
+export type AssetBuildStage =
+  | 'queued'
+  | 'analyzing'
+  | 'building'
+  | 'saving'
+  | 'done'
+  | 'failed'
+  | 'cancelled'
+  // The staged scene build only. A seed is drawn, the person decides, views
+  // are drawn, the person reviews the set, the set is read back once, saved.
+  | 'seeding'
+  | 'awaiting'
+  | 'viewing'
+  | 'reviewing'
+  | 'consensus';
+
+/**
+ * What a frame is for. System-internal: a person sees frames, never purposes.
+ * The order of VIEW_LADDER below is the order views are drawn in.
+ */
+export type FramePurpose = 'seed' | 'wide' | 'surface' | 'angle' | 'light' | 'zone' | 'upload';
+export type FrameOrigin = 'seed' | 'view' | 'upload';
+
+export interface BuildFrame {
+  /** Null while the engine is still drawing it. */
+  hash: string | null;
+  purpose: FramePurpose;
+  status: 'drawing' | 'landed' | 'rejected';
+  origin: FrameOrigin;
+  /** The hashes attached to the draw, in the order they were handed over. */
+  drawnFrom?: string[];
+  /** Wall clock of the draw, and which attempt at this purpose it was. */
+  ms?: number;
+  attempt?: number;
+}
 
 export interface AssetBuild {
   id: string;
@@ -84,6 +118,21 @@ export interface AssetBuild {
   error: string | null;
   startedAt: string;
   finished: boolean;
+  /* ---- the staged scene build only; a presenter job never carries these */
+  /** Every frame on the board, uploads included, in the order they arrived. */
+  frames?: BuildFrame[];
+  /** The scene as read so far; canonical once the seed is approved. */
+  record?: CustomScene | null;
+  /** What the analyzer would call this place, offered at review, never imposed. */
+  suggestedName?: string | null;
+  /** The frame the card will show. Defaults to the seed. */
+  cover?: string | null;
+  /** How many frames the set is built to, uploads counted. */
+  target?: number;
+  /** Whether the set is read back once before saving. */
+  consensus?: boolean;
+  /** When each stage was entered, for the timing report. */
+  stageAt?: Record<string, string>;
 }
 
 export interface Analyzer {
@@ -111,6 +160,10 @@ export interface AssetBuildDeps {
   brandContext: (brandId: string) => BrandContext;
   /** Facet values already in use, so a new asset lands in an existing filter. */
   vocabulary: { collections: string[]; verticals: string[]; categories: string[] };
+  /** Take a frame this build drew and then decided against back off disk. */
+  discard?: (hash: string) => Promise<void>;
+  /** A debug line per draw, when the server is asked for one. */
+  log?: (fields: Record<string, unknown>, msg: string) => void;
 }
 
 export interface StartBuildInput {
@@ -133,7 +186,67 @@ export interface StartBuildInput {
    * every shot that already names this scene keeps resolving.
    */
   sceneId?: string;
+  /**
+   * Re-read only: read these of the scene's refs, in this order, instead of
+   * all of them in stored order; and the note to read them with, kept apart
+   * from the Direction. The benchmark's prefix and rotation arms, and a
+   * "read again with a note" that keeps the Direction.
+   */
+  frames?: string[];
+  correction?: string;
+  /** Re-read only: keep the preview as it is. */
+  draw?: boolean;
+  /** Scene only: how many frames the set is built to, four to six. */
+  target?: number;
+  /** Scene only: read the finished set back once before saving. */
+  consensus?: boolean;
+  /**
+   * Scene only: which of `imageHashes` this app drew in an earlier attempt.
+   * A resumed build hands its approved frames back as images; this keeps them
+   * marked as drawn, which is what lets one be a figure-led scene's cover.
+   */
+  drawnHashes?: string[];
 }
+
+/* ------------------------------------------------------------- registry */
+
+export const SCENE_SET_MIN = 4;
+export const SCENE_SET_MAX = 6;
+/** The default size of a scene's set, seed and uploads counted. */
+export function defaultSceneTarget(): number {
+  const n = Number(process.env.SCENRI_SCENE_TARGET);
+  return Number.isInteger(n) && n >= SCENE_SET_MIN && n <= SCENE_SET_MAX ? n : 4;
+}
+/** Whether a finished set is read back once before saving, until the benchmark settles it. */
+export function defaultSceneConsensus(): boolean {
+  return process.env.SCENRI_SCENE_CONSENSUS !== '0';
+}
+/** A build left waiting for a person this long is over. */
+const PAUSE_TTL_MS = 30 * 60_000;
+const PAUSED = new Set<AssetBuildStage>(['awaiting', 'reviewing']);
+
+/**
+ * What a staged scene build keeps beside its job: never serialised, gone when
+ * the job finishes. The job is what a poll returns; this is what the steps
+ * need to run.
+ */
+interface SceneJobContext {
+  deps: AssetBuildDeps;
+  instruction: string;
+  /** What the person uploaded. Never cleaned, never redrawn. */
+  uploads: string[];
+  /** Uploads this app drew in an earlier attempt: eligible as a figure scene's cover. */
+  priorDrawn: Set<string>;
+  /** The seed is approved: the record is the canonical world now. */
+  locked: boolean;
+  /** Every hash this build drew, and the untrimmed originals it superseded. */
+  drawn: Set<string>;
+  raw: Set<string>;
+  /** Purposes that failed to draw, so the loop does not retry them forever. */
+  failedPurposes: Set<FramePurpose>;
+  idle: NodeJS.Timeout | null;
+}
+const contexts = new Map<string, SceneJobContext>();
 
 const builds = new Map<string, AssetBuild>();
 const running = new Map<string, AbortController>();
@@ -150,9 +263,17 @@ export function listAssetBuilds(brandId: string): AssetBuild[] {
 
 export function cancelAssetBuild(id: string): boolean {
   const ctrl = running.get(id);
-  if (!ctrl) return false;
-  ctrl.abort();
-  return true;
+  if (ctrl) {
+    ctrl.abort();
+    return true;
+  }
+  // A paused scene build has no promise to abort; it is ended by hand.
+  const job = builds.get(id);
+  if (job && !job.finished && contexts.has(job.id)) {
+    void finishJob(job, 'cancelled');
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -169,6 +290,8 @@ export function forgetAssetBuild(id: string): boolean {
 /** Test seam: the module-level registry outlives a test server otherwise. */
 export function resetAssetBuilds(): void {
   for (const ctrl of running.values()) ctrl.abort();
+  for (const ctx of contexts.values()) if (ctx.idle) clearTimeout(ctx.idle);
+  contexts.clear();
   running.clear();
   builds.clear();
 }
@@ -181,9 +304,14 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
   const prior = input.sceneId ? brandSceneById(brand.json, input.sceneId) : undefined;
   if (input.sceneId && !prior) throw Object.assign(new Error('scene not found'), { statusCode: 404 });
   // A re-read is filed with no new uploads: its evidence is what it was built from.
+  const stored = ((prior as CustomScene | undefined)?.refs ?? []).map((r) =>
+    String(r?.file ?? '').replace(/^asset:/, ''),
+  );
   const supplied = input.imageHashes.length
     ? input.imageHashes
-    : ((prior as CustomScene | undefined)?.refs ?? []).map((r) => String(r?.file ?? '').replace(/^asset:/, ''));
+    : input.frames?.length
+      ? input.frames.filter((h) => stored.includes(h))
+      : stored;
   const hashes = supplied.filter((h) => /^[a-f0-9]{32}$/.test(h) && core.images.has(h));
   if (input.kind === 'presenter' && !hashes.length) {
     throw Object.assign(new Error('add at least one photo of this person'), { statusCode: 400 });
@@ -191,15 +319,39 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
   if (input.kind === 'scene' && !hashes.length && !input.instruction?.trim()) {
     throw Object.assign(new Error('add a reference image, or describe the place in a sentence'), { statusCode: 400 });
   }
+  // A new scene is built in stages the person steers; a re-read stays linear.
+  const staged = input.kind === 'scene' && !input.sceneId;
+  if (staged) {
+    // One at a time per brand: the local engine rate-limits parallel draws into
+    // silence, and two boards steered from one dialog would be two dialogs.
+    const live = [...builds.values()].find((b) => b.brandId === brand.id && b.kind === 'scene' && !b.finished);
+    if (live) {
+      throw Object.assign(new Error('a scene is already being built for this brand'), {
+        statusCode: 409,
+        jobId: live.id,
+      });
+    }
+    if (input.target !== undefined) {
+      const t = Number(input.target);
+      if (!Number.isInteger(t) || t < SCENE_SET_MIN || t > SCENE_SET_MAX) {
+        throw Object.assign(new Error(`a set holds ${SCENE_SET_MIN} to ${SCENE_SET_MAX} frames`), { statusCode: 400 });
+      }
+    }
+  }
+  const target = staged ? (input.target ?? defaultSceneTarget()) : 1;
+  const instruction = str(input.instruction, 400);
 
   const job: AssetBuild = {
     id: `ab-${randomUUID().slice(0, 8)}`,
     brandId: brand.id,
     kind: input.kind,
-    name: str(input.name, 60) || (input.kind === 'presenter' ? 'New presenter' : 'New scene'),
+    // A staged scene is named at the end, once there is something to name.
+    name: staged
+      ? str(input.name, 60)
+      : str(input.name, 60) || (input.kind === 'presenter' ? 'New presenter' : 'New scene'),
     stage: 'queued',
     step: 0,
-    steps: input.kind === 'presenter' ? STUDIO_FRAMES.length : 1,
+    steps: input.kind === 'presenter' ? STUDIO_FRAMES.length : target,
     message: null,
     assetId: null,
     previewHash: null,
@@ -210,13 +362,49 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
     error: null,
     startedAt: new Date().toISOString(),
     finished: false,
+    ...(staged
+      ? {
+          frames: hashes.map((hash) => ({
+            hash,
+            purpose: 'upload' as const,
+            status: 'landed' as const,
+            origin: 'upload' as const,
+          })),
+          record: null,
+          suggestedName: null,
+          cover: null,
+          target,
+          consensus: input.consensus ?? defaultSceneConsensus(),
+          stageAt: {},
+        }
+      : {}),
   };
   builds.set(job.id, job);
   prune(brand.id);
 
+  if (staged) {
+    const priorDrawn = new Set(strList(input.drawnHashes, 8, 64).filter((h) => hashes.includes(h)));
+    contexts.set(job.id, {
+      deps,
+      instruction,
+      uploads: hashes,
+      priorDrawn,
+      locked: false,
+      drawn: new Set(),
+      raw: new Set(),
+      failedPurposes: new Set(),
+      idle: null,
+    });
+    void advance(job, (signal) => analyzeAndSeed(job, signal));
+    return { jobId: job.id };
+  }
+
   const ctrl = new AbortController();
   running.set(job.id, ctrl);
-  void runBuild(deps, job, hashes, str(input.instruction, 400), ctrl.signal).finally(() => running.delete(job.id));
+  void runBuild(deps, job, hashes, instruction, ctrl.signal, {
+    correction: input.correction ? str(input.correction, 600) : undefined,
+    draw: input.draw ?? true,
+  }).finally(() => running.delete(job.id));
   return { jobId: job.id };
 }
 
@@ -235,10 +423,11 @@ async function runBuild(
   hashes: string[],
   instruction: string,
   signal: AbortSignal,
+  reread: { correction?: string; draw: boolean } = { draw: true },
 ): Promise<void> {
   try {
     if (job.kind === 'presenter') await runPresenterBuild(deps, job, hashes, instruction, signal);
-    else await runSceneBuild(deps, job, hashes, instruction, signal);
+    else await runSceneBuild(deps, job, hashes, instruction, signal, reread);
   } catch (err: any) {
     if (signal.aborted) {
       patch(job, { stage: 'cancelled', message: null, finished: true });
@@ -952,6 +1141,7 @@ async function runSceneBuild(
   hashes: string[],
   instruction: string,
   signal: AbortSignal,
+  reread: { correction?: string; draw: boolean } = { draw: true },
 ): Promise<void> {
   const { core } = deps;
   // A re-read revises the record it already has, so a scene built before the
@@ -969,7 +1159,10 @@ async function runSceneBuild(
         imagePaths: hashes.map((h) => core.images.pathFor(h)),
         name: job.name,
         instruction: instruction || undefined,
-        ...(prior ? { priorDraft: prior, correction: instruction || undefined } : {}),
+        // A re-read revises with the Direction as the correction, unless a
+        // note of its own was given, in which case the Direction stays the
+        // Direction and the note is what changes.
+        ...(prior ? { priorDraft: prior, correction: reread.correction ?? (instruction || undefined) } : {}),
         vocabulary: deps.vocabulary,
       },
       signal,
@@ -994,7 +1187,8 @@ async function runSceneBuild(
       verticals: job.facets.length ? job.facets : draft?.verticals,
       keywords: draft?.keywords,
       instruction,
-      refHashes: hashes,
+      // A re-read keeps every reference it has, whatever subset it read.
+      refHashes: prior ? (prior.refs ?? []).map((r) => String(r.file).replace(/^asset:/, '')) : hashes,
     },
     prior,
   );
@@ -1006,7 +1200,7 @@ async function runSceneBuild(
   if (draft?.coverage?.length) patch(job, { coverage: draft.coverage });
 
   let previewHash: string | null = null;
-  if (deps.engine) {
+  if (deps.engine && reread.draw) {
     patch(job, { stage: 'building', steps: 1, message: 'Drawing the place' });
     try {
       // The one place a scene's own references can be spent for free: this
@@ -1042,6 +1236,8 @@ async function runSceneBuild(
   patch(job, { stage: 'saving', message: null });
   const brand = core.store.getBrand(job.brandId);
   const warnings = [...job.warnings, ...lintSceneProse(brand?.json ?? {}, scene)];
+  // A re-read that did not draw keeps the card it had.
+  if (!previewHash && prior?.preview) scene.preview = prior.preview;
   commit(core, job.brandId, (json) => {
     const rows = brandScenes(json);
     const at = rows.findIndex((s) => s?.id === scene.id);
@@ -1104,6 +1300,616 @@ export function scenePreviewPrompt(scene: CustomScene): string {
   );
 }
 
+/* ------------------------------------------------- staged scene pipeline */
+
+/**
+ * A scene built in stages a person steers.
+ *
+ * The seed is one frame of the world as read; the person says yes to it, or
+ * asks again, or adjusts the reading. Yes locks the record. Views are then
+ * drawn from that record with the seed attached, each for a purpose the
+ * ladder below names, until the set is the size it was built to. The person
+ * reviews the set, picks a cover, names it, saves. Between those moments the
+ * job is paused: no promise, no controller, a timer that ends it if nobody
+ * comes back.
+ *
+ * Nothing here reaches a shot. The frames are evidence for the person and,
+ * read back once at the end, for the record; the cover is the card, and for a
+ * figure-led scene the plate the compiler already attaches beside a presenter.
+ */
+
+const need = (job: AssetBuild): SceneJobContext => {
+  const ctx = contexts.get(job.id);
+  if (!ctx) throw Object.assign(new Error('this build is over'), { statusCode: 409 });
+  return ctx;
+};
+
+function fail(message: string, statusCode: number): never {
+  throw Object.assign(new Error(message), { statusCode });
+}
+
+function setStage(job: AssetBuild, stage: AssetBuildStage, message: string | null): void {
+  patch(job, { stage, message });
+  if (job.stageAt) job.stageAt[stage] = new Date().toISOString();
+}
+
+function clearIdle(job: AssetBuild): void {
+  const ctx = contexts.get(job.id);
+  if (ctx?.idle) {
+    clearTimeout(ctx.idle);
+    ctx.idle = null;
+  }
+}
+
+function armIdle(job: AssetBuild): void {
+  const ctx = contexts.get(job.id);
+  if (!ctx) return;
+  clearIdle(job);
+  ctx.idle = setTimeout(() => {
+    if (job.finished || !PAUSED.has(job.stage)) return;
+    patch(job, { warnings: [...job.warnings, 'Left unattended for 30 minutes.'] });
+    void finishJob(job, 'cancelled');
+  }, PAUSE_TTL_MS);
+  ctx.idle.unref?.();
+}
+
+/**
+ * Run one step of a staged build to its next pause. The controller lives only
+ * for the step, so a paused job has nothing to abort and cancel ends it by
+ * hand; a step that throws ends the job the way `runBuild` always has.
+ */
+async function advance(job: AssetBuild, step: (signal: AbortSignal) => Promise<void>): Promise<void> {
+  const ctrl = new AbortController();
+  running.set(job.id, ctrl);
+  clearIdle(job);
+  try {
+    await step(ctrl.signal);
+  } catch (err: any) {
+    if (ctrl.signal.aborted) await finishJob(job, 'cancelled');
+    else {
+      // A failure keeps what had landed: the person can pick the build up
+      // from those frames. A stop keeps nothing; that was the point of it.
+      const landed = new Set(landedFrames(job).map((f) => f.hash as string));
+      await finishJob(job, 'failed', err?.message ?? 'build failed', landed);
+    }
+  } finally {
+    running.delete(job.id);
+    if (!job.finished && PAUSED.has(job.stage)) armIdle(job);
+  }
+}
+
+const finishing = new Set<string>();
+async function finishJob(
+  job: AssetBuild,
+  stage: 'done' | 'failed' | 'cancelled',
+  error?: string,
+  keep: Set<string> = new Set(),
+): Promise<void> {
+  if (job.finished || finishing.has(job.id)) return;
+  finishing.add(job.id);
+  try {
+    // Clean before the job reads as finished: whoever polls "done" and then
+    // looks at the disk must find the frames already gone.
+    const ctx = contexts.get(job.id);
+    if (ctx) {
+      clearIdle(job);
+      contexts.delete(job.id);
+      await cleanupSceneJob(ctx, keep).catch(() => {});
+    }
+    setStage(job, stage, null);
+    patch(job, { finished: true, error: error ?? null });
+  } finally {
+    finishing.delete(job.id);
+  }
+}
+
+/**
+ * Take back what this build drew and nobody kept. Uploads are never touched,
+ * nor anything a brand document points at, nor the frames a resumed build
+ * was handed. Best effort: a file that will not go is a file that stays.
+ */
+async function cleanupSceneJob(ctx: SceneJobContext, keep: Set<string>): Promise<void> {
+  if (!ctx.deps.discard) return;
+  const candidates = new Set([...ctx.drawn, ...ctx.raw]);
+  for (const h of keep) candidates.delete(h);
+  for (const h of ctx.uploads) candidates.delete(h);
+  for (const h of ctx.priorDrawn) candidates.delete(h);
+  if (!candidates.size) return;
+  const referenced = ctx.deps.core.store
+    .listBrands()
+    .map((b) => JSON.stringify(b.json ?? ''))
+    .join('\n');
+  for (const h of candidates) {
+    if (referenced.includes(`asset:${h}`)) continue;
+    await ctx.deps.discard(h).catch(() => {});
+  }
+}
+
+const landedFrames = (job: AssetBuild): BuildFrame[] => (job.frames ?? []).filter((f) => f.status === 'landed');
+const seedFrame = (job: AssetBuild): BuildFrame | undefined => landedFrames(job).find((f) => f.origin === 'seed');
+const frameByHash = (job: AssetBuild, hash: string): BuildFrame | undefined =>
+  landedFrames(job).find((f) => f.hash === hash);
+const isBusy = (job: AssetBuild): boolean => running.has(job.id);
+
+/** Uploads first in the order they came, then what was drawn, seed first, in ladder order. */
+function boardOrder(job: AssetBuild): BuildFrame[] {
+  const landed = landedFrames(job);
+  const rank = (f: BuildFrame) => (f.origin === 'seed' ? 0 : VIEW_LADDER.findIndex((v) => v.purpose === f.purpose) + 1);
+  return [
+    ...landed.filter((f) => f.origin === 'upload'),
+    ...landed.filter((f) => f.origin !== 'upload').sort((a, b) => rank(a) - rank(b)),
+  ];
+}
+
+/** Turn what the analyzer read into the job's record. `base` keeps the id across a revision. */
+function adoptDraft(job: AssetBuild, ctx: SceneJobContext, draft: SceneDraft | null, base?: CustomScene): void {
+  const built = sceneRecordFrom(
+    {
+      name: job.name || draft?.name || base?.name || 'New scene',
+      promptName: draft?.promptName,
+      lighting: draft?.lighting,
+      description: draft?.description ?? ctx.instruction,
+      subject: draft?.subject ?? base?.subject ?? 'either',
+      prompt: draft?.prompt ?? ctx.instruction,
+      camera: draft?.camera,
+      figure: draft?.figure,
+      figureTreatment: draft?.figureTreatment,
+      collections: draft?.collections,
+      verticals: job.facets.length ? job.facets : draft?.verticals,
+      keywords: draft?.keywords,
+      instruction: ctx.instruction,
+      refHashes: ctx.uploads,
+      drawnHashes: [...ctx.priorDrawn],
+    },
+    base,
+  );
+  if (!built.ok) throw new Error(built.error);
+  patch(job, { record: built.scene, suggestedName: draft?.name ?? job.suggestedName ?? null });
+  if (draft?.coverage?.length) patch(job, { coverage: draft.coverage });
+}
+
+async function readScene(
+  job: AssetBuild,
+  ctx: SceneJobContext,
+  signal: AbortSignal,
+  revision?: { priorDraft: CustomScene; correction: string; imagePaths?: string[] },
+): Promise<SceneDraft> {
+  const { core } = ctx.deps;
+  if (!ctx.deps.analyzer)
+    throw new Error('describe the place in a sentence, or install the Codex CLI to read the references');
+  return (await ctx.deps.analyzer.analyze(
+    {
+      kind: 'scene',
+      imagePaths: revision?.imagePaths ?? ctx.uploads.map((h) => core.images.pathFor(h)),
+      name: job.name,
+      instruction: ctx.instruction || undefined,
+      ...(revision ? { priorDraft: revision.priorDraft, correction: revision.correction } : {}),
+      vocabulary: ctx.deps.vocabulary,
+    },
+    signal,
+  )) as SceneDraft;
+}
+
+/** Stage one: read, then either draw the seed or, with enough uploads, go straight to review. */
+async function analyzeAndSeed(job: AssetBuild, signal: AbortSignal): Promise<void> {
+  const ctx = need(job);
+  let draft: SceneDraft | null = null;
+  if (ctx.deps.analyzer) {
+    setStage(job, 'analyzing', ctx.uploads.length ? 'Reading the references' : 'Reading the direction');
+    draft = await readScene(job, ctx, signal);
+  } else if (!ctx.instruction) {
+    throw new Error('describe the place in a sentence, or install the Codex CLI to read the references');
+  }
+  if (signal.aborted) throw new Error('cancelled');
+  adoptDraft(job, ctx, draft);
+  if (!ctx.deps.engine) {
+    patch(job, { warnings: [...job.warnings, 'No engine here can draw, so the set is what you uploaded.'] });
+    ctx.locked = true;
+    setStage(job, 'reviewing', null);
+    return;
+  }
+  // Enough uploads make a set on their own. A figure-led scene still draws its
+  // seed: the plate a presenter is shown beside is never a raw upload.
+  if (ctx.uploads.length >= 3 && !job.record?.figure) {
+    ctx.locked = true;
+    setStage(job, 'reviewing', null);
+    return;
+  }
+  await drawSeed(job, ctx, signal);
+}
+
+async function drawFrame(
+  job: AssetBuild,
+  ctx: SceneJobContext,
+  opts: { purpose: FramePurpose; origin: FrameOrigin; prompt: string; refs: string[]; signal: AbortSignal },
+): Promise<BuildFrame> {
+  const { core } = ctx.deps;
+  const frames = job.frames ?? [];
+  const attempt = frames.filter((f) => f.purpose === opts.purpose && f.origin !== 'upload').length + 1;
+  const frame: BuildFrame = {
+    hash: null,
+    purpose: opts.purpose,
+    status: 'drawing',
+    origin: opts.origin,
+    drawnFrom: opts.refs,
+    attempt,
+  };
+  patch(job, { frames: [...frames, frame] });
+  const t0 = Date.now();
+  try {
+    const raw = await draw(ctx.deps, {
+      prompt: opts.prompt,
+      brandId: job.brandId,
+      ...(opts.refs.length
+        ? {
+            referenceImages: opts.refs.map((h) => core.images.pathFor(h)),
+            referenceRoles: opts.refs.map(() => 'scene' as const),
+          }
+        : {}),
+      signal: opts.signal,
+      label: opts.purpose,
+    });
+    const hash = await trimEdgeBars(core, raw);
+    if (hash !== raw) ctx.raw.add(raw);
+    ctx.drawn.add(hash);
+    Object.assign(frame, { hash, status: 'landed', ms: Date.now() - t0 });
+    patch(job, { frames: [...(job.frames ?? [])] });
+    return frame;
+  } catch (err) {
+    patch(job, { frames: (job.frames ?? []).filter((f) => f !== frame) });
+    throw err;
+  }
+}
+
+/** The seed: the world as read, drawn the way the card always was, from the uploads. */
+async function drawSeed(job: AssetBuild, ctx: SceneJobContext, signal: AbortSignal): Promise<void> {
+  const record = job.record;
+  if (!record || !ctx.deps.engine) throw new Error('nothing to draw from');
+  setStage(job, 'seeding', 'Drawing the world');
+  const refs = ctx.uploads.slice(0, ctx.deps.engine.capabilities().maxReferenceImages);
+  const frame = await drawFrame(job, ctx, {
+    purpose: 'seed',
+    origin: 'seed',
+    prompt: scenePreviewPrompt(record),
+    refs,
+    signal,
+  });
+  patch(job, { cover: frame.hash, previewHash: frame.hash, step: landedFrames(job).length });
+  setStage(job, 'awaiting', null);
+}
+
+/**
+ * What a view is drawn from: the seed always first, then up to three other
+ * drawn frames in ladder order, never an upload. The world reached the seed
+ * through the uploads; attaching them again would hand the person or product
+ * in them straight back. A set that has no seed (enough uploads, then "add a
+ * view") draws from the uploads the way the seed would have.
+ */
+function viewRefs(job: AssetBuild, ctx: SceneJobContext): string[] {
+  const cap = ctx.deps.engine?.capabilities().maxReferenceImages ?? 0;
+  const seed = seedFrame(job)?.hash;
+  if (!seed) return ctx.uploads.slice(0, cap);
+  const others = boardOrder(job)
+    .filter((f) => f.origin === 'view' && f.hash && f.hash !== seed)
+    .map((f) => f.hash as string);
+  return [seed, ...others.slice(0, Math.max(0, Math.min(3, cap - 1)))];
+}
+
+function nextPurpose(job: AssetBuild, ctx: SceneJobContext): FramePurpose | null {
+  return (
+    viewLadder(job.target ?? SCENE_SET_MIN).find(
+      (p) => !ctx.failedPurposes.has(p) && !(job.frames ?? []).some((f) => f.purpose === p && f.status !== 'rejected'),
+    ) ?? null
+  );
+}
+
+/** Views, one at a time, until the set is the size it was built to. */
+async function drawViews(job: AssetBuild, ctx: SceneJobContext, signal: AbortSignal): Promise<void> {
+  const target = job.target ?? SCENE_SET_MIN;
+  setStage(job, 'viewing', null);
+  for (;;) {
+    if (signal.aborted) throw new Error('cancelled');
+    const count = landedFrames(job).length;
+    patch(job, { step: count, steps: target });
+    if (count >= target) break;
+    const purpose = nextPurpose(job, ctx);
+    if (!purpose) break;
+    patch(job, { message: `Drawing the world (${count + 1} of ${target})` });
+    try {
+      await drawFrame(job, ctx, {
+        purpose,
+        origin: 'view',
+        prompt: sceneViewPrompt(job.record as CustomScene, purpose),
+        refs: viewRefs(job, ctx),
+        signal,
+      });
+    } catch (err) {
+      if (signal.aborted) throw err;
+      ctx.failedPurposes.add(purpose);
+      patch(job, { warnings: [...job.warnings, 'A view could not be drawn. The set goes on without it.'] });
+    }
+  }
+  patch(job, { step: landedFrames(job).length, message: null });
+  setStage(job, 'reviewing', null);
+}
+
+/** Read the finished set back once, then write the scene. */
+async function saveScene(job: AssetBuild, ctx: SceneJobContext, signal: AbortSignal): Promise<void> {
+  const { core } = ctx.deps;
+  const record = job.record as CustomScene;
+  const board = boardOrder(job);
+  if (job.consensus && board.length >= 2 && ctx.deps.analyzer) {
+    setStage(job, 'consensus', 'Reading the set');
+    try {
+      // Seed first, then the views, then the uploads: the drawn frames are the
+      // record's own evidence; the uploads are what it was read from.
+      const ordered = [...board.filter((f) => f.origin !== 'upload'), ...board.filter((f) => f.origin === 'upload')];
+      const draft = await readScene(job, ctx, signal, {
+        priorDraft: record,
+        correction: CONSENSUS_NOTE,
+        imagePaths: ordered.map((f) => core.images.pathFor(f.hash as string)),
+      });
+      // Only what the set can teach: how the place reads and how the camera
+      // moves across it. The figure, its treatment and the subject were settled
+      // when the seed was approved, and a drawn frame must not re-derive them.
+      const merged = sceneRecordFrom(
+        {
+          prompt: draft.prompt,
+          lighting: draft.lighting,
+          camera: draft.camera,
+          description: draft.description,
+          keywords: draft.keywords,
+        },
+        record,
+      );
+      if (merged.ok) patch(job, { record: merged.scene });
+    } catch (err) {
+      if (signal.aborted) throw err;
+      patch(job, { warnings: [...job.warnings, 'The set could not be read back. The first reading stands.'] });
+    }
+  }
+  if (signal.aborted) throw new Error('cancelled');
+  setStage(job, 'saving', null);
+  const uploads = board.filter((f) => f.origin === 'upload').map((f) => f.hash as string);
+  const drawn = board.filter((f) => f.origin !== 'upload').map((f) => f.hash as string);
+  const built = sceneRecordFrom(
+    {
+      name: job.name,
+      ...(job.facets.length ? { verticals: job.facets } : {}),
+      refHashes: [...uploads, ...drawn],
+      drawnHashes: [...drawn, ...ctx.priorDrawn],
+      previewHash: job.cover,
+    },
+    job.record as CustomScene,
+  );
+  if (!built.ok) throw new Error(built.error);
+  const scene = built.scene;
+  const brand = core.store.getBrand(job.brandId);
+  const warnings = [...job.warnings, ...lintSceneProse(brand?.json ?? {}, scene)];
+  commit(core, job.brandId, (json) => {
+    json.scenes = [...brandScenes(json), scene];
+  });
+  patch(job, { record: scene, assetId: scene.id, previewHash: job.cover, warnings, step: job.steps });
+  const keep = new Set<string>([...uploads, ...drawn]);
+  if (job.cover) keep.add(job.cover);
+  await finishJob(job, 'done', undefined, keep);
+}
+
+/* ----- what a person can do to a staged build, one function per route */
+
+const wantStage = (job: AssetBuild, allowed: AssetBuildStage[]): void => {
+  if (job.finished || !allowed.includes(job.stage)) fail('the build is not waiting for that', 409);
+};
+const wantIdle = (job: AssetBuild): void => {
+  if (isBusy(job)) fail('the build is busy', 409);
+};
+
+/** Yes, this world: the record is canonical, the views begin. */
+export function approveSceneBuild(job: AssetBuild): void {
+  const ctx = need(job);
+  wantIdle(job);
+  wantStage(job, ['awaiting']);
+  ctx.locked = true;
+  if (ctx.uploads.length >= 3) {
+    setStage(job, 'reviewing', null);
+    armIdle(job);
+    return;
+  }
+  void advance(job, (signal) => drawViews(job, ctx, signal));
+}
+
+/**
+ * Draw the seed again, or one view again. A view rejected while views are
+ * still being drawn is picked up by that loop; otherwise the loop is started.
+ */
+export function retrySceneFrame(job: AssetBuild, hash?: string): { queued: boolean } {
+  const ctx = need(job);
+  if (!ctx.deps.engine) fail('no engine here can draw', 409);
+  if (!hash) {
+    wantIdle(job);
+    wantStage(job, ['awaiting']);
+    const seed = seedFrame(job);
+    if (seed) seed.status = 'rejected';
+    void advance(job, (signal) => drawSeed(job, ctx, signal));
+    return { queued: false };
+  }
+  const frame = frameByHash(job, hash);
+  if (!frame) fail('no such frame on this build', 404);
+  if (frame.origin === 'upload') fail('uploads are not redrawn', 400);
+  if (frame.origin === 'seed') {
+    if (job.stage !== 'awaiting') fail('the seed is approved; redraw a view, or stop and start again', 400);
+    return retrySceneFrame(job);
+  }
+  wantStage(job, ['viewing', 'reviewing']);
+  frame.status = 'rejected';
+  if (job.cover === hash) patch(job, { cover: seedFrame(job)?.hash ?? landedFrames(job)[0]?.hash ?? null });
+  patch(job, { frames: [...(job.frames ?? [])] });
+  if (isBusy(job)) return { queued: true };
+  void advance(job, (signal) => drawViews(job, ctx, signal));
+  return { queued: false };
+}
+
+/** One line of correction to the reading, then the seed again. */
+export function adjustSceneBuild(job: AssetBuild, note: string): void {
+  const ctx = need(job);
+  wantIdle(job);
+  wantStage(job, ['awaiting']);
+  const line = str(note, 400);
+  if (!line) fail('say what to change', 400);
+  if (!ctx.deps.analyzer) fail('no analyzer here can read a correction', 409);
+  const seed = seedFrame(job);
+  if (seed) seed.status = 'rejected';
+  void advance(job, async (signal) => {
+    setStage(job, 'analyzing', 'Reading it again');
+    const draft = await readScene(job, ctx, signal, { priorDraft: job.record as CustomScene, correction: line });
+    if (signal.aborted) throw new Error('cancelled');
+    adoptDraft(job, ctx, draft, job.record as CustomScene);
+    await drawSeed(job, ctx, signal);
+  });
+}
+
+/** Take a frame off the board. Below the target, a replacement is drawn. */
+export function removeSceneFrame(job: AssetBuild, hash: string): void {
+  const ctx = need(job);
+  wantStage(job, ['viewing', 'reviewing']);
+  const frame = frameByHash(job, hash);
+  if (!frame) fail('no such frame on this build', 404);
+  if (frame.origin === 'seed') fail('the first frame stays; redraw a view, or stop and start again', 400);
+  frame.status = 'rejected';
+  if (job.cover === hash) patch(job, { cover: seedFrame(job)?.hash ?? landedFrames(job)[0]?.hash ?? null });
+  patch(job, { frames: [...(job.frames ?? [])] });
+  if (isBusy(job) || job.stage !== 'reviewing') return;
+  if (landedFrames(job).length < (job.target ?? SCENE_SET_MIN) && ctx.deps.engine) {
+    void advance(job, (signal) => drawViews(job, ctx, signal));
+  } else armIdle(job);
+}
+
+/** One more view, up to six frames on the board. */
+export function addSceneView(job: AssetBuild): void {
+  const ctx = need(job);
+  wantIdle(job);
+  wantStage(job, ['reviewing']);
+  if (!ctx.deps.engine) fail('no engine here can draw', 409);
+  const count = landedFrames(job).length;
+  if (count >= SCENE_SET_MAX) fail(`${SCENE_SET_MAX} frames is the most a set holds`, 409);
+  patch(job, { target: Math.min(SCENE_SET_MAX, count + 1) });
+  void advance(job, (signal) => drawViews(job, ctx, signal));
+}
+
+/** Name it, pick the cover, save. */
+export function finishSceneBuild(
+  job: AssetBuild,
+  input: { name?: unknown; cover?: unknown; facets?: unknown; consensus?: unknown },
+): void {
+  const ctx = need(job);
+  wantIdle(job);
+  wantStage(job, ['reviewing']);
+  const name = str(input.name, 60);
+  if (!name) fail('name this scene', 400);
+  const landed = landedFrames(job);
+  if (!landed.length) fail('there is no frame to save', 400);
+  const wanted = input.cover === undefined || input.cover === null ? null : String(input.cover);
+  const cover = wanted ?? job.cover ?? seedFrame(job)?.hash ?? landed[0]?.hash ?? null;
+  const coverFrame = cover ? frameByHash(job, cover) : undefined;
+  if (!coverFrame) fail('the cover has to be a frame on the board', 400);
+  if (job.record?.figure && coverFrame.origin === 'upload' && !ctx.priorDrawn.has(cover as string)) {
+    fail("a figure-led scene's cover is its plate, so it has to be a drawn frame", 400);
+  }
+  const facets = Array.isArray(input.facets) ? strList(input.facets, 8, 40) : null;
+  patch(job, {
+    name,
+    cover,
+    ...(facets ? { facets } : {}),
+    ...(typeof input.consensus === 'boolean' ? { consensus: input.consensus } : {}),
+  });
+  void advance(job, (signal) => saveScene(job, ctx, signal));
+}
+
+/* ------------------------------------------------ the words a view is drawn with */
+
+/**
+ * The clause every view carries: the attached frames are this world, and this
+ * is another photograph of it. "The same image from another angle" gives back
+ * the same image; "a different scene" gives back a different place. This says
+ * neither.
+ */
+export const WORLD_CLAUSE =
+  'The attached images are photographs of this same established world, made in the same place under the same light. ' +
+  'This is another photograph of it, not a variation of any one of them: keep the place, its materials, its palette ' +
+  'and the character of the light exactly as they show, do not repeat the composition of any attached image, and do ' +
+  'not invent a different place.';
+
+/** In every view of a figure-led world: the role travels, nobody's face does. */
+export const FIGURE_VIEW_CLAUSE =
+  'The same anonymous figure is in this view, playing the same role as in the attached images: nobody in particular, ' +
+  'with no recognisable identity, and no likeness taken from any attached image.';
+
+/**
+ * What the set is read back with once it is complete. A revision, on purpose:
+ * the analyzer keeps the record and rewrites only what several photographs of
+ * one place can teach that one could not.
+ */
+export const CONSENSUS_NOTE =
+  'These images are all photographs of the one world this record already describes, not new references. Keep the ' +
+  'record; revise only prompt, lighting and camera so they describe what every image shares and, in one sentence, ' +
+  'how the framing and distance vary between them.';
+
+/**
+ * The purposes, in the order they are drawn. Each says what its frame is for
+ * and, where it must, disowns the wide framing by name: a close frame that
+ * inherits "the whole layout" loses to it (the catalog's detail frames did,
+ * six times in one batch).
+ */
+const VIEW_LADDER: { purpose: FramePurpose; clause: string; figureClause?: string }[] = [
+  {
+    purpose: 'wide',
+    clause:
+      'This view is the wide establishing photograph: step well back so the whole layout of the space reads from ' +
+      'foreground through middle ground to background.',
+  },
+  {
+    purpose: 'surface',
+    clause:
+      'This view is a close photograph of the surface where a subject would be placed: the material, its finish and ' +
+      'how the light lands on it fill the frame. It steps in past the room, so the wide layout described above is not ' +
+      'in this frame, only the surface and what immediately touches it.',
+    figureClause:
+      "This view is a close photograph of the figure's treatment and the surface around them: the material of the " +
+      'treatment, its finish and how the light lands on it fill the frame; the wide layout described above is not in ' +
+      'this frame.',
+  },
+  {
+    purpose: 'angle',
+    clause:
+      'This view takes the same place from a different camera height and a different angle than any attached image: ' +
+      'lower or higher, and turned to one side, so the space is seen the way none of them show it.',
+  },
+  {
+    purpose: 'light',
+    clause:
+      'This view faces the other way from the main source of light: the same place with the light arriving from the ' +
+      'opposite side of the frame, so what was lit is now in shade and what was in shade is lit.',
+  },
+  {
+    purpose: 'zone',
+    clause:
+      'This view is of a second part of the same place: an adjacent area the attached images imply but do not show, ' +
+      'dressed in the same materials, palette and light.',
+  },
+];
+
+/** The purposes a set of this size draws, after its seed. */
+export const viewLadder = (target: number): FramePurpose[] =>
+  VIEW_LADDER.slice(0, Math.max(0, target - 1)).map((v) => v.purpose);
+
+/** The seed's own prompt, then the world clause, then what this view is for. */
+export function sceneViewPrompt(scene: CustomScene, purpose: FramePurpose): string {
+  const view = VIEW_LADDER.find((v) => v.purpose === purpose);
+  if (!view) return scenePreviewPrompt(scene);
+  const clause = scene.figure && view.figureClause ? view.figureClause : view.clause;
+  return `${scenePreviewPrompt(scene)} ${WORLD_CLAUSE} ${clause}${scene.figure ? ` ${FIGURE_VIEW_CLAUSE}` : ''}`;
+}
+
 /* ----------------------------------------------------------- shared parts */
 
 /** One image, through whichever engine the brand builds with. */
@@ -1115,11 +1921,17 @@ async function draw(
     referenceImages?: string[];
     referenceRoles?: ('character' | 'scene')[];
     signal: AbortSignal;
+    /** What this draw is for, for the debug line. */
+    label?: string;
   },
 ): Promise<string> {
   const engine = deps.engine;
   if (!engine) throw new Error('no engine available');
   const engineId = engine.capabilities().id;
+  deps.log?.(
+    { engine: engineId, label: req.label ?? null, refs: req.referenceImages ?? [], roles: req.referenceRoles ?? [] },
+    'asset draw',
+  );
   const generateReq = {
     prompt: req.prompt,
     brand: deps.brandContext(req.brandId),
@@ -1140,9 +1952,14 @@ async function draw(
 }
 
 /**
-/** How many asset builds are mid-flight — the update path refuses to restart over one. */
+ * How many asset builds are unfinished: the update path refuses to restart
+ * over one. A scene build waiting for its person counts, since a restart would
+ * lose the board; the idle timeout bounds how long that can hold an update.
+ */
 export function runningAssetBuildCount(): number {
-  return running.size;
+  let n = 0;
+  for (const b of builds.values()) if (!b.finished) n++;
+  return n;
 }
 
 /**

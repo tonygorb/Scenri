@@ -51,6 +51,12 @@ export interface ThumbStore {
   settle(): Promise<void>;
   /** Remove every derivative: the danger zone's `scope=all`. */
   clear(): void;
+  /**
+   * Remove one store image's derivatives at every width, waiting for any that
+   * is still being made so a rename cannot land after the unlink. Forgets the
+   * failure memo too, so a hash reused later starts clean.
+   */
+  remove(hash: string): Promise<void>;
   /** A readable stream of an existing derivative. */
   stream(path: string): ReturnType<typeof createReadStream>;
 }
@@ -145,6 +151,16 @@ export function createThumbStore(core: Core, opts: { concurrency?: number } = {}
     },
     async settle() {
       await Promise.allSettled([...inflight.values()]);
+    },
+    async remove(hash) {
+      if (!/^[a-f0-9]{32}$/.test(hash)) return;
+      for (const w of THUMB_WIDTHS) {
+        const memo = `${hash}-w${w}`;
+        const job = inflight.get(memo);
+        if (job) await job.catch(() => null);
+        failed.delete(memo);
+        await unlink(pathFor(hash, w)).catch(() => {});
+      }
     },
     clear() {
       failed.clear();

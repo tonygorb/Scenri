@@ -50,6 +50,12 @@ export interface AssetDraft {
   /** Product only: a half-typed store URL is work too. */
   importUrl: string;
   /**
+   * Scene only: the frames a build drew and the person approved, by hash.
+   * They are on disk whatever happens to the build, so a build the server has
+   * forgotten can be picked up again with them instead of from nothing.
+   */
+  drawn: string[];
+  /**
    * The build this draft was last submitted as, for presenter and scene.
    * Null means it was never sent. See `shouldHydrate` — this is the whole
    * difference between "you are making a second one" and "the first one failed".
@@ -78,11 +84,13 @@ export interface DraftFields {
   facets?: string[];
   imageHashes?: string[];
   importUrl?: string;
+  drawn?: string[];
 }
 
 /**
  * An empty form is not worth a write. Any one field counts: a name alone is a
- * decision someone made, and so is a single uploaded photo.
+ * decision someone made, and so is a single uploaded photo, and so is a frame
+ * someone said yes to.
  */
 export function isNonTrivial(d: DraftFields): boolean {
   return (
@@ -90,7 +98,8 @@ export function isNonTrivial(d: DraftFields): boolean {
     !!d.instruction?.trim() ||
     !!d.importUrl?.trim() ||
     (d.facets ?? []).length > 0 ||
-    (d.imageHashes ?? []).length > 0
+    (d.imageHashes ?? []).length > 0 ||
+    (d.drawn ?? []).length > 0
   );
 }
 
@@ -137,6 +146,7 @@ export function loadAssetDraft(brandId: string, kind: CreateKind): AssetDraft | 
     facets: strings(d.facets),
     imageHashes: strings(d.imageHashes),
     importUrl: typeof d.importUrl === 'string' ? d.importUrl : '',
+    drawn: strings(d.drawn),
     pending: typeof d.pending === 'string' ? d.pending : null,
   };
 }
@@ -157,6 +167,7 @@ export function saveAssetDraft(
     facets: data.facets ?? [],
     imageHashes: data.imageHashes ?? [],
     importUrl: data.importUrl ?? '',
+    drawn: data.drawn ?? [],
     pending: data.pending ?? null,
   };
   write(assetDraftKey(brandId, kind), JSON.stringify(draft));

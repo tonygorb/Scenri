@@ -68,6 +68,12 @@ export interface TaskCenterValue {
    * server is already busy and only this timer has not been told yet.
    */
   poke: () => void;
+  /**
+   * Claim a finish before the bell announces it. The scene builder says its
+   * own "saved" with the dialog still in hand; a second toast from here would
+   * say it again.
+   */
+  markAnnounced: (taskId: string) => void;
 }
 
 const Ctx = createContext<TaskCenterValue | null>(null);
@@ -212,7 +218,9 @@ export function TaskCenterProvider({
 
     const arrivals = settled(prevRef.current, next);
     prevRef.current = new Map(next.map((t) => [t.id, t]));
-    runningRef.current = next.filter((t) => t.state === 'running').length;
+    // A build waiting for its person is not work in flight: it changes when
+    // they act, and they act through a route that pokes this timer.
+    runningRef.current = next.filter((t) => t.state === 'running' && !t.paused).length;
     const ordered = orderTasks(next);
     setTasks((prev) => (sameByValue(prev, ordered) ? prev : ordered));
 
@@ -326,6 +334,9 @@ export function TaskCenterProvider({
   }, [pull]);
 
   const poke = useCallback(() => restartRef.current?.(), []);
+  const markAnnounced = useCallback((taskId: string) => {
+    announcedRef.current.add(taskId);
+  }, []);
 
   const markSeen = useCallback(() => {
     const at = new Date().toISOString();
@@ -351,8 +362,9 @@ export function TaskCenterProvider({
       panelOpen,
       setPanelOpen,
       poke,
+      markAnnounced,
     }),
-    [tasks, builds, feed, seenAt, markSeen, clearFeed, panelOpen, poke],
+    [tasks, builds, feed, seenAt, markSeen, clearFeed, panelOpen, poke, markAnnounced],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -53,6 +53,7 @@
 @import "./surfaces/asset-pages.css";
 @import "./surfaces/first-run.css";
 @import "./surfaces/add-to-brand.css";
+@import "./surfaces/scene-builder.css";
 @import "./surfaces/setup-wizard.css";
 @import "./surfaces/failure.css";
 @import "./surfaces/update-lifecycle.css";

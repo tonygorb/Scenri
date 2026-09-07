@@ -427,6 +427,14 @@ describe('image store', () => {
     expect(core.images.read(h1).equals(buf)).toBe(true);
     expect(() => core.images.pathFor('../etc/passwd')).toThrow(/invalid/);
   });
+  it('removes an original it is asked to, and says when there was none', () => {
+    const h = core.images.save(Buffer.from('a-frame-nobody-kept'));
+    expect(core.images.has(h)).toBe(true);
+    expect(core.images.remove(h)).toBe(true);
+    expect(core.images.has(h)).toBe(false);
+    expect(core.images.remove(h)).toBe(false);
+    expect(core.images.remove('../etc/passwd')).toBe(false);
+  });
 });
 
 describe('ledger + caps', () => {

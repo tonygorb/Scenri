@@ -105,7 +105,8 @@ test('the primary stays reachable with the keyboard up', async ({ page }) => {
   const slug = await brandSlug(page);
   await page.goto(`/${slug}/scenes?new=scene`);
 
-  await dialog(page).locator('input[type="text"], .rt-TextFieldInput').first().tap();
+  // The scene builder opens on its Direction; the name comes at review.
+  await dialog(page).locator('textarea, input[type="text"], .rt-TextFieldInput').first().tap();
   const go = page.locator('.sc-dlg-go');
   await expect(go).toBeVisible();
   const box = await go.boundingBox();

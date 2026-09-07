@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
 export interface ImageStore {
@@ -7,6 +7,13 @@ export interface ImageStore {
   pathFor(hash: string): string;
   read(hash: string): Buffer;
   has(hash: string): boolean;
+  /**
+   * Delete an original. True when a file went away, false when there was none.
+   * The store is content-addressed, so this is only ever called by the code
+   * that produced a frame and then decided against it; nothing derives the
+   * answer from a hash it did not mint itself.
+   */
+  remove(hash: string): boolean;
 }
 
 export function createImageStore(homeDir: string): ImageStore {
@@ -32,6 +39,15 @@ export function createImageStore(homeDir: string): ImageStore {
     },
     has(hash) {
       return /^[a-f0-9]{32}$/.test(hash) && existsSync(fileFor(hash));
+    },
+    remove(hash) {
+      if (!/^[a-f0-9]{32}$/.test(hash)) return false;
+      try {
+        unlinkSync(fileFor(hash));
+        return true;
+      } catch {
+        return false;
+      }
     },
   };
 }

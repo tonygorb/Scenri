@@ -7,10 +7,15 @@ import JSZip from 'jszip';
 import { createCore, type Core, type EngineAdapter, type GenerateRequest } from '@scenri/core';
 import { buildServer } from '../src/server.js';
 import {
+  CONSENSUS_NOTE,
+  FIGURE_VIEW_CLAUSE,
   lintSceneProse,
   resetAssetBuilds,
+  runningAssetBuildCount,
   scenePreviewPrompt,
+  sceneViewPrompt,
   trimEdgeBars,
+  WORLD_CLAUSE,
   type CustomScene,
 } from '../src/customAssets.js';
 import type { FastifyInstance } from 'fastify';
@@ -112,9 +117,18 @@ describe('custom presenters and scenes', () => {
             collections: ['Editorial'],
             verticals: ['Beauty'],
             keywords: ['volcanic', 'shore'],
-            prompt: 'A wet dark basalt shelf at low sunset light.',
+            // The set read back once: a revised prompt, and a figure it should
+            // not be allowed to take away from the locked record.
+            prompt:
+              req.correction === CONSENSUS_NOTE
+                ? 'A wet dark basalt shelf at low sunset light, read across the whole set.'
+                : 'A wet dark basalt shelf at low sunset light.',
             camera: 'low three-quarter',
-            figure: 'someone stands at the tide line, mid-ground, at human scale',
+            // A direction that says the place is empty gets no figure.
+            figure:
+              req.correction === CONSENSUS_NOTE || /empty/i.test(String(req.instruction ?? ''))
+                ? ''
+                : 'someone stands at the tide line, mid-ground, at human scale',
             figureTreatment: 'the face wrapped in translucent fabric',
             coverage: ['A wider frame would pin down how the shelf sits in the bay.'],
           };
@@ -186,6 +200,47 @@ describe('custom presenters and scenes', () => {
       await new Promise((r) => setTimeout(r, 5));
     }
     throw new Error('build never finished');
+  };
+
+  const getJob = async (brandId: string, jobId: string) =>
+    (await app.inject({ method: 'GET', url: `/api/brands/${brandId}/asset-builds/${jobId}` })).json();
+
+  /** Wait for a staged build to reach one of these stages, or to end. */
+  const waitStage = async (brandId: string, jobId: string, ...stages: string[]) => {
+    for (let i = 0; i < 400; i++) {
+      const job = await getJob(brandId, jobId);
+      if (job.finished || stages.includes(job.stage)) return job;
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    throw new Error(`build never reached ${stages.join('|')}`);
+  };
+
+  /** One decision on a staged build. */
+  const act = (brandId: string, jobId: string, path: string, payload?: any, method: 'POST' | 'DELETE' = 'POST') =>
+    app.inject({ method, url: `/api/brands/${brandId}/asset-builds/${jobId}/${path}`, payload });
+
+  const startScene = async (brandId: string, payload: any) => {
+    const started = await app.inject({ method: 'POST', url: `/api/brands/${brandId}/asset-builds`, payload });
+    if (started.statusCode !== 200) throw new Error(`start ${started.statusCode}: ${started.body}`);
+    return String(started.json().jobId);
+  };
+
+  /** Walk a staged scene build to the end: say yes to the seed, save at review. */
+  const buildScene = async (brandId: string, payload: any, finish: any = {}) => {
+    const started = await app.inject({ method: 'POST', url: `/api/brands/${brandId}/asset-builds`, payload });
+    if (started.statusCode !== 200) return { started, job: null as any };
+    const { jobId } = started.json();
+    let job = await waitStage(brandId, jobId, 'awaiting', 'reviewing');
+    if (job.stage === 'awaiting') {
+      await act(brandId, jobId, 'approve');
+      job = await waitStage(brandId, jobId, 'reviewing');
+    }
+    if (job.finished) return { started, job };
+    const name = finish.name ?? payload.name ?? job.suggestedName ?? 'New scene';
+    const r = await act(brandId, jobId, 'finish', { ...finish, name });
+    if (r.statusCode !== 200) throw new Error(`finish ${r.statusCode}: ${r.body}`);
+    job = await settle(brandId, jobId);
+    return { started, job };
   };
 
   /* ------------------------------------------------------------ presenters */
@@ -318,7 +373,7 @@ describe('custom presenters and scenes', () => {
     });
     expect(brandJson(brand.id).characters[0].suitableCategories).toEqual(['Apparel', 'Footwear']);
 
-    const scene = await runBuild(brand.id, {
+    const scene = await buildScene(brand.id, {
       kind: 'scene',
       name: 'Shore',
       instruction: 'a beach',
@@ -428,7 +483,7 @@ describe('custom presenters and scenes', () => {
   it('builds a scene: references read into a record, one empty preview drawn', async () => {
     const brand = await newBrand();
     const refs = [await savePhoto('#334455')];
-    const { job } = await runBuild(brand.id, {
+    const { job } = await buildScene(brand.id, {
       kind: 'scene',
       name: 'Wet Basalt Shore',
       instruction: 'keep the rocks, less orange',
@@ -441,17 +496,23 @@ describe('custom presenters and scenes', () => {
     expect(scene.subject).toBe('product');
     expect(scene.prompt).toContain('basalt');
     expect(scene.instruction).toBe('keep the rocks, less orange');
-    // The user's references are kept, and are the evidence a shot never sees.
-    expect(scene.refs.map((r: any) => r.file)).toEqual(refs.map((h) => `asset:${h}`));
+    // The upload is kept first, and is the evidence a shot never sees. What
+    // the build drew of the same world follows it, marked as drawn.
+    expect(scene.refs[0]).toEqual({ file: `asset:${refs[0]}` });
+    expect(scene.refs.slice(1).every((r: any) => r.drawn === true)).toBe(true);
+    // One upload plus the seed leaves two views to draw for a set of four.
+    expect(scene.refs).toHaveLength(4);
+    // The cover is the seed unless somebody chose otherwise, and it is one of the refs.
     expect(scene.preview).toMatch(/^asset:[a-f0-9]{32}$/);
+    expect(scene.refs.map((r: any) => r.file)).toContain(scene.preview);
     expect(scene.width).toBe(1024);
     expect(scene.height).toBe(1280);
 
     expect(analyzed[0].vocabulary.collections).toContain('Studio');
-    // A preview shows the world, not a stand-in product it would have to invent.
-    expect(generated).toHaveLength(1);
+    // The seed shows the world, not a stand-in product it would have to invent.
+    expect(generated).toHaveLength(3);
     expect(generated[0].prompt).toContain('A figure is in this photograph');
-    // The one draw with the whole reference budget to itself, and an output that
+    // The seed draw has the whole reference budget to itself, and an output that
     // is a card rather than a customer's shot. So the world is read from pixels
     // here, and a shot still only ever gets the words.
     expect(generated[0].referenceImages).toHaveLength(refs.length);
@@ -460,7 +521,7 @@ describe('custom presenters and scenes', () => {
 
   it('records the figure and its treatment, and never who it is', async () => {
     const brand = await newBrand();
-    const { job } = await runBuild(brand.id, {
+    const { job } = await buildScene(brand.id, {
       kind: 'scene',
       name: 'Wet Basalt Shore',
       imageHashes: [await savePhoto('#223344')],
@@ -478,7 +539,7 @@ describe('custom presenters and scenes', () => {
 
   it('says what another reference would buy, through the channel presenters already use', async () => {
     const brand = await newBrand();
-    const { job } = await runBuild(brand.id, {
+    const { job } = await buildScene(brand.id, {
       kind: 'scene',
       name: 'Wet Basalt Shore',
       imageHashes: [await savePhoto('#556677')],
@@ -490,7 +551,7 @@ describe('custom presenters and scenes', () => {
 
   it('draws the staged position empty rather than pretending people do not occur', async () => {
     const brand = await newBrand();
-    await runBuild(brand.id, {
+    await buildScene(brand.id, {
       kind: 'scene',
       name: 'Wet Basalt Shore',
       imageHashes: [await savePhoto('#778899')],
@@ -505,7 +566,7 @@ describe('custom presenters and scenes', () => {
 
   it('keeps the staged position when an edit touches only the prompt', async () => {
     const brand = await newBrand();
-    await runBuild(brand.id, {
+    await buildScene(brand.id, {
       kind: 'scene',
       name: 'Wet Basalt Shore',
       imageHashes: [await savePhoto('#99aabb')],
@@ -523,7 +584,7 @@ describe('custom presenters and scenes', () => {
 
   it('reads an existing scene again in place, keeping its id', async () => {
     const brand = await newBrand();
-    await runBuild(brand.id, {
+    await buildScene(brand.id, {
       kind: 'scene',
       name: 'Wet Basalt Shore',
       imageHashes: [await savePhoto('#bbccdd')],
@@ -544,13 +605,13 @@ describe('custom presenters and scenes', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].id).toBe(before.id);
     // Its own stored references are the evidence, and it revises rather than restarts.
-    expect(analyzed[0].imagePaths).toHaveLength(1);
+    expect(analyzed[0].imagePaths).toHaveLength(before.refs.length);
     expect(analyzed[0].priorDraft.id).toBe(before.id);
   });
 
   it('a re-read carries the direction the scene was built with', async () => {
     const brand = await newBrand();
-    await runBuild(brand.id, {
+    await buildScene(brand.id, {
       kind: 'scene',
       name: 'Wet Basalt Shore',
       instruction: 'keep the rocks, less orange',
@@ -577,7 +638,7 @@ describe('custom presenters and scenes', () => {
 
   it('a fresh correction outranks the stored direction', async () => {
     const brand = await newBrand();
-    await runBuild(brand.id, {
+    await buildScene(brand.id, {
       kind: 'scene',
       name: 'Wet Basalt Shore',
       instruction: 'keep the rocks, less orange',
@@ -598,9 +659,41 @@ describe('custom presenters and scenes', () => {
     expect(brandJson(brand.id).scenes[0].instruction).toBe('colder, no people');
   });
 
+  it('a note reads the same references with the direction kept; frames pick a subset in order; draw:false keeps the card', async () => {
+    const brand = await newBrand();
+    const { job } = await buildScene(brand.id, {
+      kind: 'scene',
+      instruction: 'keep the rocks, less orange',
+      imageHashes: [],
+      consensus: false,
+    });
+    const before = brandJson(brand.id).scenes[0];
+    const refs = before.refs.map((r: any) => r.file.slice(6));
+    analyzed = [];
+    generated = [];
+    const r = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/scenes/${before.id}/reread`,
+      payload: { note: 'read the set as one', frames: [refs[2], refs[0]], draw: false },
+    });
+    expect(r.statusCode).toBe(200);
+    await settle(brand.id, JSON.parse(r.body).jobId);
+    // The Direction stays the Direction; the note is the correction.
+    expect(analyzed[0].instruction).toBe('keep the rocks, less orange');
+    expect(analyzed[0].correction).toBe('read the set as one');
+    // Only the frames asked for, in the order asked.
+    expect(analyzed[0].imagePaths).toEqual([core.images.pathFor(refs[2]), core.images.pathFor(refs[0])]);
+    // No draw, and the card it had.
+    expect(generated).toHaveLength(0);
+    const after = brandJson(brand.id).scenes[0];
+    expect(after.preview).toBe(before.preview);
+    expect(after.refs).toEqual(before.refs);
+    expect(after.instruction).toBe('keep the rocks, less orange');
+  });
+
   it('refuses a second read while the first is still running', async () => {
     const brand = await newBrand();
-    await runBuild(brand.id, {
+    await buildScene(brand.id, {
       kind: 'scene',
       name: 'Wet Basalt Shore',
       imageHashes: [await savePhoto('#ddeeff')],
@@ -625,8 +718,10 @@ describe('custom presenters and scenes', () => {
 
   it('refuses to read again a scene that was written from words', async () => {
     const brand = await newBrand();
-    await runBuild(brand.id, { kind: 'scene', name: 'Shore', instruction: 'a volcanic beach', imageHashes: [] });
-    const id = brandJson(brand.id).scenes[0].id;
+    // A scene written straight into the brand carries no evidence at all. (A
+    // scene built from words alone now draws its own frames, which are.)
+    const id = (await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/scenes`, payload: SCENE_BODY })).json()
+      .scene.id;
     const r = await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/scenes/${id}/reread`, payload: {} });
     expect(r.statusCode).toBe(400);
     expect(JSON.parse(r.body).error).toMatch(/nothing to read again/);
@@ -634,7 +729,7 @@ describe('custom presenters and scenes', () => {
 
   it('builds a scene from words alone', async () => {
     const brand = await newBrand();
-    const { job } = await runBuild(brand.id, {
+    const { job } = await buildScene(brand.id, {
       kind: 'scene',
       name: 'Shore',
       instruction: 'a volcanic beach at dusk',
@@ -869,7 +964,7 @@ describe('custom presenters and scenes', () => {
   it('carries both kinds into a .brand bundle, evidence included', async () => {
     const brand = await newBrand();
     await runBuild(brand.id, { kind: 'presenter', name: 'Mara', imageHashes: [await savePhoto()] });
-    await runBuild(brand.id, { kind: 'scene', name: 'Shore', instruction: 'a volcanic beach', imageHashes: [] });
+    await buildScene(brand.id, { kind: 'scene', name: 'Shore', instruction: 'a volcanic beach', imageHashes: [] });
 
     const res = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/export` });
     expect(res.statusCode).toBe(200);
@@ -878,8 +973,13 @@ describe('custom presenters and scenes', () => {
     expect(json.scenes).toHaveLength(1);
     expect(json.characters[0].sourceRefs[0].file).toMatch(/^assets\/characters\/up-[a-f0-9]{8}-source-01\.png$/);
     expect(json.characters[0].preview).toMatch(/^assets\/characters\/up-[a-f0-9]{8}-card\.png$/);
-    expect(json.scenes[0].preview).toMatch(/^assets\/scenes\/us-[a-f0-9]{8}-preview\.png$/);
-    for (const path of [json.characters[0].sourceRefs[0].file, json.scenes[0].preview]) {
+    // The cover is one of the frames, so the bundle holds it once, under the
+    // frame's own path, and the preview points there.
+    expect(json.scenes[0].refs.map((r: any) => r.file)).toContain(json.scenes[0].preview);
+    // A drawn frame stays marked as drawn in the bundle, beside its rewritten path.
+    expect(json.scenes[0].refs[0]).toMatchObject({ drawn: true });
+    expect(json.scenes[0].refs[0].file).toMatch(/^assets\/scenes\/us-[a-f0-9]{8}-ref-01\.png$/);
+    for (const path of [json.characters[0].sourceRefs[0].file, json.scenes[0].preview, json.scenes[0].refs[0].file]) {
       expect(zip.file(path)).toBeTruthy();
     }
   });
@@ -958,5 +1058,444 @@ describe('custom presenters and scenes', () => {
     expect((await app.inject({ method: 'GET', url: `/api/brands/${theirs.id}/asset-builds` })).json().builds).toEqual(
       [],
     );
+  });
+  /* --------------------------------------------------- the staged build */
+
+  describe('the staged scene build', () => {
+    const purposes = (job: any) => job.frames.filter((f: any) => f.status === 'landed').map((f: any) => f.purpose);
+    const hashes = (job: any) => job.frames.filter((f: any) => f.status === 'landed').map((f: any) => f.hash);
+
+    it('draws the seed and waits; yes draws the views from the seed and the record; save writes the set', async () => {
+      const brand = await newBrand();
+      const jobId = await startScene(brand.id, {
+        kind: 'scene',
+        instruction: 'a volcanic beach at dusk',
+        imageHashes: [],
+      });
+      let job = await waitStage(brand.id, jobId, 'awaiting');
+      expect(job.stage).toBe('awaiting');
+      expect(job.name).toBe('');
+      expect(job.suggestedName).toBe('Wet Basalt Shore');
+      expect(job.record.prompt).toContain('basalt');
+      expect(purposes(job)).toEqual(['seed']);
+      expect(job.cover).toBe(job.frames[0].hash);
+      expect(job.stageAt.seeding).toBeTruthy();
+      // Nothing was uploaded, so the seed is drawn from the words alone.
+      expect(generated).toHaveLength(1);
+      expect(generated[0].referenceImages).toBeUndefined();
+
+      expect((await act(brand.id, jobId, 'approve')).statusCode).toBe(200);
+      job = await waitStage(brand.id, jobId, 'reviewing');
+      expect(job.stage).toBe('reviewing');
+      expect(purposes(job)).toEqual(['seed', 'wide', 'surface', 'angle']);
+      expect(job.step).toBe(4);
+      expect(job.steps).toBe(4);
+      const seedPath = core.images.pathFor(job.frames[0].hash);
+      // Every view is drawn from the locked record with the seed attached
+      // first, then what landed before it, never chained on one predecessor
+      // alone, and never on an upload.
+      for (const req of generated.slice(1)) {
+        expect(req.referenceImages?.[0]).toBe(seedPath);
+        expect(req.referenceRoles?.every((r) => r === 'scene')).toBe(true);
+        expect(req.referenceImages!.length).toBeLessThanOrEqual(4);
+        expect(req.prompt).toContain(job.record.prompt);
+        expect(req.prompt).toContain(WORLD_CLAUSE);
+      }
+      expect(generated[1].referenceImages).toHaveLength(1);
+      expect(generated[3].referenceImages).toHaveLength(3);
+      expect(generated[1].prompt).toContain('wide establishing photograph');
+      expect(generated[2].prompt).toContain('the wide layout described above is not in this frame');
+      expect(generated[3].prompt).toContain('different camera height');
+
+      const r = await act(brand.id, jobId, 'finish', { name: 'Dusk Shore' });
+      expect(r.statusCode).toBe(200);
+      job = await settle(brand.id, jobId);
+      expect(job.stage).toBe('done');
+      expect(job.step).toBe(job.steps);
+      const scene = brandJson(brand.id).scenes[0];
+      expect(job.assetId).toBe(scene.id);
+      expect(scene.name).toBe('Dusk Shore');
+      expect(scene.refs).toHaveLength(4);
+      expect(scene.refs.every((x: any) => x.drawn === true)).toBe(true);
+      expect(scene.preview).toBe(`asset:${job.frames[0].hash}`);
+      expect(scene.instruction).toBe('a volcanic beach at dusk');
+      // The set was read back once, as a revision of the locked record.
+      expect(analyzed).toHaveLength(2);
+      expect(analyzed[1].correction).toBe(CONSENSUS_NOTE);
+      expect(analyzed[1].priorDraft.id).toBe(scene.id);
+      expect(analyzed[1].imagePaths).toEqual(hashes(job).map((h: string) => core.images.pathFor(h)));
+      expect(scene.prompt).toContain('read across the whole set');
+      // Every frame is still on disk, and each is exactly one draw.
+      for (const h of hashes(job)) expect(core.images.has(h)).toBe(true);
+      expect(generated).toHaveLength(4);
+    });
+
+    it('yes locks the record: adjusting after is refused, the reading stands, and the figure survives the read-back', async () => {
+      const brand = await newBrand();
+      const jobId = await startScene(brand.id, { kind: 'scene', instruction: 'a volcanic beach', imageHashes: [] });
+      const before = await waitStage(brand.id, jobId, 'awaiting');
+      await act(brand.id, jobId, 'approve');
+      let job = await waitStage(brand.id, jobId, 'reviewing');
+      // Busy or paused, a second reading is over.
+      const late = await act(brand.id, jobId, 'adjust', { note: 'colder' });
+      expect(late.statusCode).toBe(409);
+      await act(brand.id, jobId, 'finish', { name: 'Shore' });
+      job = await settle(brand.id, jobId);
+      const scene = brandJson(brand.id).scenes[0];
+      expect(scene.id).toBe(before.record.id);
+      // The read-back answered with no figure at all; the locked one stands.
+      expect(scene.figure).toBe(before.record.figure);
+      expect(scene.figureTreatment).toBe(before.record.figureTreatment);
+      expect(scene.subject).toBe(before.record.subject);
+    });
+
+    it('asked not to read the set back, it reads once and keeps the approved prompt', async () => {
+      const brand = await newBrand();
+      const { job } = await buildScene(brand.id, {
+        kind: 'scene',
+        instruction: 'a volcanic beach',
+        imageHashes: [],
+        consensus: false,
+      });
+      expect(job.stage).toBe('done');
+      expect(analyzed).toHaveLength(1);
+      expect(brandJson(brand.id).scenes[0].prompt).toBe('A wet dark basalt shelf at low sunset light.');
+    });
+
+    it('try again redraws the seed on the same reading; adjust reads again with the record as prior', async () => {
+      const brand = await newBrand();
+      const jobId = await startScene(brand.id, { kind: 'scene', instruction: 'a volcanic beach', imageHashes: [] });
+      let job = await waitStage(brand.id, jobId, 'awaiting');
+      const first = job.frames[0].hash;
+      const id = job.record.id;
+
+      expect((await act(brand.id, jobId, 'retry')).statusCode).toBe(200);
+      job = await waitStage(brand.id, jobId, 'awaiting');
+      expect(hashes(job)).toHaveLength(1);
+      expect(hashes(job)[0]).not.toBe(first);
+      expect(job.frames.find((f: any) => f.hash === first).status).toBe('rejected');
+      expect(job.cover).toBe(hashes(job)[0]);
+      expect(analyzed).toHaveLength(1);
+      expect(job.record.id).toBe(id);
+
+      expect((await act(brand.id, jobId, 'adjust', { note: 'colder, less orange' })).statusCode).toBe(200);
+      job = await waitStage(brand.id, jobId, 'awaiting');
+      expect(analyzed).toHaveLength(2);
+      expect(analyzed[1].correction).toBe('colder, less orange');
+      expect(analyzed[1].priorDraft.id).toBe(id);
+      expect(analyzed[1].instruction).toBe('a volcanic beach');
+      expect(job.record.id).toBe(id);
+      expect(hashes(job)).toHaveLength(1);
+      expect(generated).toHaveLength(3);
+      // Nothing to change, nothing read.
+      expect((await act(brand.id, jobId, 'adjust', { note: '   ' })).statusCode).toBe(400);
+    });
+
+    it('redrawing one view keeps the others; removing one below the target draws a replacement; nobody keeps the rejects', async () => {
+      const brand = await newBrand();
+      const jobId = await startScene(brand.id, { kind: 'scene', instruction: 'a volcanic beach', imageHashes: [] });
+      await waitStage(brand.id, jobId, 'awaiting');
+      await act(brand.id, jobId, 'approve');
+      let job = await waitStage(brand.id, jobId, 'reviewing');
+      const [seed, wide, surface, angle] = hashes(job);
+
+      expect((await act(brand.id, jobId, 'retry', { frame: wide })).statusCode).toBe(200);
+      job = await waitStage(brand.id, jobId, 'reviewing');
+      const after = hashes(job);
+      expect(after).toHaveLength(4);
+      expect(after).toContain(seed);
+      expect(after).toContain(surface);
+      expect(after).toContain(angle);
+      expect(after).not.toContain(wide);
+      expect(purposes(job)).toEqual(['seed', 'surface', 'angle', 'wide']);
+
+      expect((await act(brand.id, jobId, `frame/${angle}`, undefined, 'DELETE')).statusCode).toBe(200);
+      job = await waitStage(brand.id, jobId, 'reviewing');
+      expect(hashes(job)).toHaveLength(4);
+      expect(hashes(job)).not.toContain(angle);
+      expect(purposes(job).sort()).toEqual(['angle', 'seed', 'surface', 'wide']);
+
+      await act(brand.id, jobId, 'finish', { name: 'Shore' });
+      job = await settle(brand.id, jobId);
+      const scene = brandJson(brand.id).scenes[0];
+      const kept = scene.refs.map((r: any) => r.file.slice(6));
+      expect(kept).not.toContain(wide);
+      expect(kept).not.toContain(angle);
+      expect(kept).toHaveLength(4);
+      // The rejects are gone from disk; what was kept is not.
+      expect(core.images.has(wide)).toBe(false);
+      expect(core.images.has(angle)).toBe(false);
+      for (const h of kept) expect(core.images.has(h)).toBe(true);
+    });
+
+    it('the cover is any frame for a place, and only a drawn frame for a world built around a figure', async () => {
+      const brand = await newBrand();
+      const upload = await savePhoto('#123456');
+      // A place: the upload may be the card.
+      const place = await buildScene(
+        brand.id,
+        { kind: 'scene', instruction: 'an empty basalt shore', imageHashes: [upload] },
+        { cover: upload },
+      );
+      expect(place.job.stage).toBe('done');
+      const placeScene = brandJson(brand.id).scenes[0];
+      expect(placeScene.figure).toBeUndefined();
+      expect(placeScene.preview).toBe(`asset:${upload}`);
+      // And that card never reaches a shot: a scene contributes words only.
+      const preview = await app.inject({
+        method: 'POST',
+        url: '/api/brief/preview',
+        payload: { brandId: brand.id, engineId: 'spy', brief: { tokens: [{ t: 'template', id: placeScene.id }] } },
+      });
+      expect(preview.json().referenceCount).toBe(0);
+
+      // A figure-led world: the cover is the plate a presenter is shown beside,
+      // so a raw upload of a real person is refused; the seed is the default.
+      const jobId = await startScene(brand.id, { kind: 'scene', instruction: 'a shore', imageHashes: [upload] });
+      await waitStage(brand.id, jobId, 'awaiting');
+      await act(brand.id, jobId, 'approve');
+      const job = await waitStage(brand.id, jobId, 'reviewing');
+      const refused = await act(brand.id, jobId, 'finish', { name: 'Figure', cover: upload });
+      expect(refused.statusCode).toBe(400);
+      expect(refused.json().error).toMatch(/plate/);
+      expect((await act(brand.id, jobId, 'finish', { name: 'Figure', cover: hashes(job)[1] })).statusCode).toBe(200);
+      await settle(brand.id, jobId);
+      const figureScene = brandJson(brand.id).scenes[1];
+      expect(figureScene.figure).toBeTruthy();
+      expect(figureScene.preview).toBe(`asset:${hashes(job)[1]}`);
+      expect(figureScene.refs.find((r: any) => r.file === figureScene.preview).drawn).toBe(true);
+    });
+
+    it('three uploads are a set already: no seed, straight to review; add a view draws one from the uploads', async () => {
+      const brand = await newBrand();
+      const uploads = [await savePhoto('#111111'), await savePhoto('#222222'), await savePhoto('#333333')];
+      const jobId = await startScene(brand.id, { kind: 'scene', instruction: 'an empty shore', imageHashes: uploads });
+      let job = await waitStage(brand.id, jobId, 'awaiting', 'reviewing');
+      expect(job.stage).toBe('reviewing');
+      expect(generated).toHaveLength(0);
+      expect(purposes(job)).toEqual(['upload', 'upload', 'upload']);
+      expect(job.suggestedName).toBe('Wet Basalt Shore');
+
+      expect((await act(brand.id, jobId, 'add-view')).statusCode).toBe(200);
+      job = await waitStage(brand.id, jobId, 'reviewing');
+      expect(generated).toHaveLength(1);
+      expect(generated[0].referenceImages).toEqual(uploads.map((h) => core.images.pathFor(h)));
+      expect(generated[0].prompt).toContain(WORLD_CLAUSE);
+      expect(generated[0].prompt).toContain('wide establishing');
+      expect(purposes(job)).toEqual(['upload', 'upload', 'upload', 'wide']);
+
+      await act(brand.id, jobId, 'finish', { name: 'Shore', cover: uploads[1] });
+      job = await settle(brand.id, jobId);
+      const scene = brandJson(brand.id).scenes[0];
+      expect(scene.refs.map((r: any) => r.file)).toEqual([...uploads, hashes(job)[3]].map((h) => `asset:${h}`));
+      expect(scene.refs.slice(0, 3).every((r: any) => r.drawn === undefined)).toBe(true);
+      expect(scene.refs[3].drawn).toBe(true);
+      expect(scene.preview).toBe(`asset:${uploads[1]}`);
+    });
+
+    it('three uploads of a figure-led world still draw the seed, so the plate is never a raw upload', async () => {
+      const brand = await newBrand();
+      const uploads = [await savePhoto('#444444'), await savePhoto('#555555'), await savePhoto('#666666')];
+      const jobId = await startScene(brand.id, { kind: 'scene', imageHashes: uploads });
+      let job = await waitStage(brand.id, jobId, 'awaiting', 'reviewing');
+      expect(job.stage).toBe('awaiting');
+      expect(generated).toHaveLength(1);
+      expect(generated[0].referenceImages).toHaveLength(3);
+      await act(brand.id, jobId, 'approve');
+      job = await waitStage(brand.id, jobId, 'reviewing');
+      // Enough uploads: no views after the seed.
+      expect(generated).toHaveLength(1);
+      expect(purposes(job)).toEqual(['upload', 'upload', 'upload', 'seed']);
+    });
+
+    it('one upload is enough: the seed is drawn from it and the views never see it', async () => {
+      const brand = await newBrand();
+      const upload = await savePhoto('#777777');
+      const { job } = await buildScene(brand.id, {
+        kind: 'scene',
+        instruction: 'an empty shore',
+        imageHashes: [upload],
+      });
+      expect(job.stage).toBe('done');
+      expect(generated[0].referenceImages).toEqual([core.images.pathFor(upload)]);
+      const seedPath = core.images.pathFor(job.frames.find((f: any) => f.origin === 'seed').hash);
+      for (const req of generated.slice(1)) {
+        expect(req.referenceImages?.[0]).toBe(seedPath);
+        expect(req.referenceImages).not.toContain(core.images.pathFor(upload));
+      }
+      expect(brandJson(brand.id).scenes[0].refs).toHaveLength(4);
+    });
+
+    it('a set of six walks the whole ladder, and a view never carries more than the seed and three others', async () => {
+      const brand = await newBrand();
+      const { job } = await buildScene(brand.id, {
+        kind: 'scene',
+        instruction: 'a volcanic beach',
+        imageHashes: [],
+        target: 6,
+      });
+      expect(job.stage).toBe('done');
+      expect(purposes(job)).toEqual(['seed', 'wide', 'surface', 'angle', 'light', 'zone']);
+      expect(generated).toHaveLength(6);
+      expect(generated[5].referenceImages).toHaveLength(4);
+      expect(generated[4].prompt).toContain('other way from the main source of light');
+      expect(generated[5].prompt).toContain('second part of the same place');
+      expect(brandJson(brand.id).scenes[0].refs).toHaveLength(6);
+    });
+
+    it('a world built around a figure keeps that figure, and nobody in particular, in every view', async () => {
+      const brand = await newBrand();
+      const { job } = await buildScene(brand.id, { kind: 'scene', instruction: 'a shore', imageHashes: [] });
+      expect(job.record.figure).toBeTruthy();
+      for (const req of generated.slice(1)) {
+        expect(req.prompt).toContain(FIGURE_VIEW_CLAUSE);
+        expect(req.prompt).toContain('A figure is in this photograph');
+      }
+      expect(generated[2].prompt).toContain("close photograph of the figure's treatment");
+      // The prompt builder itself, for the record.
+      const words = sceneViewPrompt({ prompt: 'A shelf.', lighting: 'Low sun' } as CustomScene, 'surface');
+      expect(words).toContain('no product, no person');
+      expect(words).not.toContain(FIGURE_VIEW_CLAUSE);
+      expect(sceneViewPrompt({ prompt: 'A shelf.' } as CustomScene, 'upload')).toBe(
+        scenePreviewPrompt({ prompt: 'A shelf.' } as CustomScene),
+      );
+    });
+
+    it('refuses what the stage is not waiting for, and a set outside four to six', async () => {
+      const brand = await newBrand();
+      for (const target of [3, 9, 4.5]) {
+        const r = await app.inject({
+          method: 'POST',
+          url: `/api/brands/${brand.id}/asset-builds`,
+          payload: { kind: 'scene', instruction: 'a shore', imageHashes: [], target },
+        });
+        expect(r.statusCode).toBe(400);
+      }
+      const upload = await savePhoto('#888888');
+      const jobId = await startScene(brand.id, { kind: 'scene', instruction: 'a shore', imageHashes: [upload] });
+      let job = await waitStage(brand.id, jobId, 'awaiting');
+      expect((await act(brand.id, jobId, 'finish', { name: 'x' })).statusCode).toBe(409);
+      expect((await act(brand.id, jobId, 'add-view')).statusCode).toBe(409);
+      expect((await act(brand.id, jobId, 'retry', { frame: upload })).statusCode).toBe(400);
+      expect((await act(brand.id, jobId, `frame/${job.frames[1].hash}`, undefined, 'DELETE')).statusCode).toBe(409);
+      await act(brand.id, jobId, 'approve');
+      job = await waitStage(brand.id, jobId, 'reviewing');
+      expect((await act(brand.id, jobId, 'approve')).statusCode).toBe(409);
+      expect((await act(brand.id, jobId, 'retry', { frame: job.frames[1].hash })).statusCode).toBe(400);
+      const seedRemove = await act(brand.id, jobId, `frame/${job.frames[1].hash}`, undefined, 'DELETE');
+      expect(seedRemove.statusCode).toBe(400);
+      expect((await act(brand.id, jobId, 'finish', { name: '' })).statusCode).toBe(400);
+      expect((await act(brand.id, jobId, 'finish', { name: 'x', cover: 'not-a-frame' })).statusCode).toBe(400);
+      expect((await act(brand.id, jobId, `frame/nope`, undefined, 'DELETE')).statusCode).toBe(404);
+      // A presenter build is not a staged scene.
+      const presenter = (
+        await app.inject({
+          method: 'POST',
+          url: `/api/brands/${brand.id}/asset-builds`,
+          payload: { kind: 'presenter', name: 'Mara', imageHashes: [upload] },
+        })
+      ).json().jobId;
+      expect((await act(brand.id, presenter, 'approve')).statusCode).toBe(400);
+      await settle(brand.id, presenter);
+    });
+
+    it('one scene at a time per brand: the second start is handed the first', async () => {
+      const brand = await newBrand();
+      const jobId = await startScene(brand.id, { kind: 'scene', instruction: 'a shore', imageHashes: [] });
+      await waitStage(brand.id, jobId, 'awaiting');
+      const again = await app.inject({
+        method: 'POST',
+        url: `/api/brands/${brand.id}/asset-builds`,
+        payload: { kind: 'scene', instruction: 'another shore', imageHashes: [] },
+      });
+      expect(again.statusCode).toBe(409);
+      expect(again.json().jobId).toBe(jobId);
+      // Another brand is not in the way.
+      const other = await newBrand();
+      expect(
+        (
+          await app.inject({
+            method: 'POST',
+            url: `/api/brands/${other.id}/asset-builds`,
+            payload: { kind: 'scene', instruction: 'a shore', imageHashes: [] },
+          })
+        ).statusCode,
+      ).toBe(200);
+    });
+
+    it('a build waiting for its person counts as running, and stopping it takes its frames back', async () => {
+      const brand = await newBrand();
+      const upload = await savePhoto('#999999');
+      const jobId = await startScene(brand.id, { kind: 'scene', instruction: 'a shore', imageHashes: [upload] });
+      await waitStage(brand.id, jobId, 'awaiting');
+      await act(brand.id, jobId, 'approve');
+      const job = await waitStage(brand.id, jobId, 'reviewing');
+      expect(runningAssetBuildCount()).toBe(1);
+      const drawn = hashes(job).filter((h: string) => h !== upload);
+      expect(drawn.length).toBeGreaterThan(0);
+      expect((await act(brand.id, jobId, 'cancel')).statusCode).toBe(200);
+      const over = await settle(brand.id, jobId);
+      expect(over.stage).toBe('cancelled');
+      expect(runningAssetBuildCount()).toBe(0);
+      for (const h of drawn) expect(core.images.has(h)).toBe(false);
+      expect(core.images.has(upload)).toBe(true);
+      expect(brandJson(brand.id).scenes ?? []).toHaveLength(0);
+    });
+
+    it('a resumed build hands its approved frames back as images and keeps them marked drawn', async () => {
+      const brand = await newBrand();
+      const first = await startScene(brand.id, { kind: 'scene', instruction: 'an empty shore', imageHashes: [] });
+      await waitStage(brand.id, first, 'awaiting');
+      await act(brand.id, first, 'approve');
+      const job = await waitStage(brand.id, first, 'reviewing');
+      const approved = hashes(job);
+      // The server forgot the job (a restart), but the frames are on disk.
+      resetAssetBuilds();
+      const again = await startScene(brand.id, {
+        kind: 'scene',
+        instruction: 'an empty shore',
+        imageHashes: approved,
+        drawnHashes: approved,
+      });
+      const resumed = await waitStage(brand.id, again, 'awaiting', 'reviewing');
+      expect(resumed.stage).toBe('reviewing');
+      await act(brand.id, again, 'finish', { name: 'Shore', cover: approved[1] });
+      await settle(brand.id, again);
+      const scene = brandJson(brand.id).scenes[0];
+      expect(scene.refs.map((r: any) => r.file)).toEqual(approved.map((h: string) => `asset:${h}`));
+      expect(scene.refs.every((r: any) => r.drawn === true)).toBe(true);
+      expect(scene.preview).toBe(`asset:${approved[1]}`);
+    });
+
+    it('a record with plain refs keeps them plain through edits, and a drawn one keeps its marks', async () => {
+      const brand = await newBrand();
+      const upload = await savePhoto('#aaaaaa');
+      const legacy = (
+        await app.inject({
+          method: 'POST',
+          url: `/api/brands/${brand.id}/scenes`,
+          payload: { ...SCENE_BODY, refHashes: [upload] },
+        })
+      ).json().scene;
+      expect(legacy.refs).toEqual([{ file: `asset:${upload}` }]);
+      await app.inject({
+        method: 'PATCH',
+        url: `/api/brands/${brand.id}/scenes/${legacy.id}`,
+        payload: { prompt: 'A wet basalt shelf, colder.' },
+      });
+      expect(brandJson(brand.id).scenes[0].refs).toEqual([{ file: `asset:${upload}` }]);
+
+      const { job } = await buildScene(brand.id, { kind: 'scene', instruction: 'an empty shore', imageHashes: [] });
+      const drawn = brandJson(brand.id).scenes[1];
+      expect(drawn.refs.every((r: any) => r.drawn === true)).toBe(true);
+      // A PATCH that resends the list without saying which are drawn keeps the marks.
+      const resent = await app.inject({
+        method: 'PATCH',
+        url: `/api/brands/${brand.id}/scenes/${drawn.id}`,
+        payload: { refHashes: hashes(job) },
+      });
+      expect(resent.statusCode).toBe(200);
+      expect(brandJson(brand.id).scenes[1].refs.every((r: any) => r.drawn === true)).toBe(true);
+    });
   });
 });

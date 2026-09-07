@@ -32,6 +32,8 @@ export interface Task {
   startedAt: string;
   /** Absolute app path the row navigates to, or null if there is nowhere to go. */
   href: string | null;
+  /** Running, but waiting on the person rather than on an engine. */
+  paused?: boolean;
 }
 
 export interface NotificationItem {
@@ -237,6 +239,7 @@ export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string })
 export function taskFromAssetBuild(b: AssetBuild, brand: { slug: string }): Task {
   const state: TaskState =
     b.stage === 'done' ? 'done' : b.stage === 'failed' ? 'error' : b.stage === 'cancelled' ? 'cancelled' : 'running';
+  const paused = b.stage === 'awaiting' || b.stage === 'reviewing';
   const subtitle =
     state === 'error'
       ? (b.error ?? 'failed')
@@ -244,13 +247,17 @@ export function taskFromAssetBuild(b: AssetBuild, brand: { slug: string }): Task
         ? 'stopped'
         : state === 'done'
           ? (b.warnings[0] ?? b.coverage[0] ?? (b.kind === 'presenter' ? 'Ready to cast' : 'Ready to use'))
-          : (b.message ?? (b.kind === 'presenter' ? 'Building the studio views' : 'Reading the references'));
+          : paused
+            ? 'Waiting for you'
+            : (b.message ?? (b.kind === 'presenter' ? 'Building the studio views' : 'Reading the references'));
   return {
     id: `build:${b.id}`,
     kind: b.kind,
     state,
-    title: b.name,
+    // A scene is named at review; until then the analyzer's suggestion, or the kind.
+    title: b.name || b.suggestedName || (b.kind === 'presenter' ? 'New presenter' : 'New scene'),
     subtitle,
+    ...(paused ? { paused: true } : {}),
     thumb: b.previewHash,
     // real counters, so a real bar — the same rule catalogPercent follows
     percent: b.steps > 0 ? Math.min(100, Math.round((b.step / b.steps) * 100)) : null,

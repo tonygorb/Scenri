@@ -156,40 +156,7 @@ test.describe('a created presenter, from submit to a living page', () => {
     await expectShellUnlocked(page);
     await expect(page).toHaveURL(new RegExp(`/${slug}/presenters/[^/?]+$`));
   });
-
-  test('a created scene page is just as alive', async ({ page }) => {
-    test.setTimeout(90_000);
-
-    // Scenes carried the identical effect loop, so the same walk guards them.
-    await page.goto(`/${slug}/scenes?new=scene`);
-    await expect(page.getByRole('heading', { name: 'New scene' })).toBeVisible();
-    await page.locator('.sc-newdlg input[type="file"]').setInputFiles({
-      name: 'terrace.png',
-      mimeType: 'image/png',
-      buffer: PNG,
-    });
-    await page.getByLabel('Name', { exact: true }).fill('Low Terrace');
-    // With no analyzer behind the harness, a scene built from photos alone
-    // fails by design; a sentence of the user's own words is the other path.
-    await page.getByLabel('Direction', { exact: true }).fill('A stone terrace in low evening sun.');
-    await page.locator('.sc-dlg-go').click();
-    await expectShellUnlocked(page);
-
-    // The build lands and the library shows the brand's own scene. A scene
-    // card is labeled by its description, not its name, so the owned section
-    // is the anchor; the keyboard opens it past the hover overlay.
-    await expect(page.getByRole('heading', { name: 'Your scenes' })).toBeVisible({ timeout: 30_000 });
-    const ownCard = page.locator('.sc-owned .sc-lookcard-open').first();
-    await expect(ownCard).toBeVisible({ timeout: 15_000 });
-    await ownCard.focus();
-    await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(new RegExp(`/${slug}/scenes/[^/]+$`));
-
-    // Quiet, and alive.
-    expect(await commitRate(page)).toBeLessThan(50);
-    await page.getByRole('link', { name: 'Scenri home' }).click();
-    await expect(page).toHaveURL(new RegExp(`/${slug}$`));
-  });
+  // The scene walk lives in create-scene.spec.ts: it needs the fake build seam.
 });
 
 /**

@@ -196,22 +196,32 @@ export function AppShell() {
  * the dialog; closing replaces, so Back then leaves the screen rather than
  * reopening what you just dismissed.
  */
-export function useDialogParam(name: string) {
+export function useDialogParam(name: string, companions: readonly string[] = NO_COMPANIONS) {
   const [params, setParams] = useSearchParams();
   const value = params.get(name);
+  // A stable key for the callbacks: callers pass a literal array each render.
+  const companionKey = companions.join(',');
 
+  /**
+   * `extra` rides beside the dialog's own param and leaves with it: the
+   * scene builder names the job it is attached to this way. Written in the
+   * same call, because two setSearchParams in one handler both read the same
+   * base and the second silently undoes the first.
+   */
   const open = useCallback(
-    (next: string) => {
+    (next: string, extra?: Record<string, string>) => {
       setParams(
         (cur) => {
           const p = new URLSearchParams(cur);
           p.set(name, next);
+          for (const c of companionKey ? companionKey.split(',') : []) p.delete(c);
+          for (const [k, v] of Object.entries(extra ?? {})) p.set(k, v);
           return p;
         },
         { replace: false },
       );
     },
-    [name, setParams],
+    [name, companionKey, setParams],
   );
 
   /** Moving around inside an open dialog is not a new destination. */
@@ -221,12 +231,13 @@ export function useDialogParam(name: string) {
         (cur) => {
           const p = new URLSearchParams(cur);
           p.set(name, next);
+          for (const c of companionKey ? companionKey.split(',') : []) p.delete(c);
           return p;
         },
         { replace: true },
       );
     },
-    [name, setParams],
+    [name, companionKey, setParams],
   );
 
   const close = useCallback(() => {
@@ -234,14 +245,18 @@ export function useDialogParam(name: string) {
       (cur) => {
         const p = new URLSearchParams(cur);
         p.delete(name);
+        for (const c of companionKey ? companionKey.split(',') : []) p.delete(c);
         return p;
       },
       { replace: true },
     );
-  }, [name, setParams]);
+  }, [name, companionKey, setParams]);
 
-  return { value, open, set, close };
+  const companion = useCallback((key: string) => params.get(key), [params]);
+
+  return { value, open, set, close, companion };
 }
+const NO_COMPANIONS: readonly string[] = [];
 
 /**
  * A filter is not a destination. It survives a refresh and travels in a pasted

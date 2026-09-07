@@ -76,10 +76,20 @@ async function run(): Promise<void> {
   const token = onlyThisMachine ? undefined : randomBytes(24).toString('base64url');
   const reachableAt = onlyThisMachine ? [] : HOST === '0.0.0.0' || HOST === '::' ? lanAddresses() : [HOST];
 
+  // The browser suite's scene builder: a reader and a drawer that finish
+  // without Codex. Opted into here, under a flag, and nowhere else.
+  const fakeBuild =
+    process.env.SCENRI_FAKE_SCENE_BUILD === '1'
+      ? await import('./fakeBuild.js').then((m) => ({
+          analyzer: m.fakeAnalyzer(),
+          buildEngine: m.fakeBuildEngine(core),
+        }))
+      : {};
   const app = buildServer({
     core,
     engines,
     studioDist,
+    ...fakeBuild,
     access: { allowedHosts: reachableAt, token },
     runtime: {
       installKind,

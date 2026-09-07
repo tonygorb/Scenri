@@ -639,3 +639,17 @@ button.sc-ingredient:focus-visible {
 .sc-looks {
   padding: 16px var(--sc-gutter) 96px;
 }
+
+/* A frame on a brand's own scene says what it is: drawn by the builder or
+   uploaded, and which one is the card. Curated scenes say nothing here. */
+.sc-lookpage-ref[data-captioned] {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sc-lookpage-ref-cap {
+  color: var(--sc-fg3);
+  font-size: 11px;
+  line-height: 1.3;
+  text-align: center;
+}

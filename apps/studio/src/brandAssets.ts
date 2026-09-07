@@ -23,6 +23,8 @@ export interface CustomScene extends Scene {
   custom: true;
   /** The user's own inspiration images. Read into words, and drawn from for the preview. */
   refs: string[];
+  /** The subset of `refs` this app drew rather than the person uploaded. */
+  drawnRefs: string[];
   /** What they asked for in their own words when it was built. */
   instruction?: string;
   /** The figure this concept depends on, if it depends on one. A role, never a person. */
@@ -114,6 +116,12 @@ function toScene(s: any): CustomScene {
     previewColor: null,
     custom: true,
     refs,
+    drawnRefs: Array.isArray(s.refs)
+      ? s.refs
+          .filter((r: any) => r?.drawn === true)
+          .map((r: any) => assetUrl(r?.file))
+          .filter((u: string | null): u is string => !!u)
+      : [],
     instruction: s.instruction ? String(s.instruction) : undefined,
     figure: s.figure ? String(s.figure) : undefined,
     figureTreatment: s.figureTreatment ? String(s.figureTreatment) : undefined,

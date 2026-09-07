@@ -17,9 +17,11 @@ export interface AssetFields {
   facets: string[];
   imageHashes: string[];
   importUrl: string;
+  /** Scene only: frames a build drew and the person approved. */
+  drawn: string[];
 }
 
-const EMPTY: AssetFields = { name: '', instruction: '', facets: [], imageHashes: [], importUrl: '' };
+const EMPTY: AssetFields = { name: '', instruction: '', facets: [], imageHashes: [], importUrl: '', drawn: [] };
 
 /**
  * The fields of one creation form, the uploads behind them, and the draft that
@@ -49,6 +51,12 @@ export function useAssetFields(
     restore?: boolean;
     /** Something was abandoned with work in it, and can still be offered back. */
     onDiscarded?: () => void;
+    /**
+     * Refill from a draft whose build is still running, and keep that draft
+     * alive across a close. The scene builder stays attached to its job for
+     * minutes; the other flows hand their job to the bell and are done.
+     */
+    hydrateRunning?: boolean;
   },
 ) {
   const restore = opts.restore ?? false;
@@ -63,6 +71,7 @@ export function useAssetFields(
   existsRef.current = opts.exists;
   const discardedRef = useRef(opts.onDiscarded);
   discardedRef.current = opts.onDiscarded;
+  const hydrateRunning = opts.hydrateRunning ?? false;
   // The fields as they stand right now, for the readers that run after an await
   // or during teardown and so cannot trust what they captured.
   const fieldsRef = useRef(fields);
@@ -112,7 +121,7 @@ export function useAssetFields(
       clearAssetDraft(brandId, kind);
       return;
     }
-    if (draft && shouldHydrate(draft, state)) {
+    if (draft && (shouldHydrate(draft, state) || (hydrateRunning && state === 'running'))) {
       pendingRef.current = draft.pending;
       setFields({
         name: draft.name,
@@ -120,9 +129,10 @@ export function useAssetFields(
         facets: draft.facets,
         imageHashes: draft.imageHashes,
         importUrl: draft.importUrl,
+        drawn: draft.drawn,
       });
     }
-  }, [brandId, kind, restore]);
+  }, [brandId, kind, restore, hydrateRunning]);
 
   /**
    * Debounced, and only ever for an attempt that is actually in flight.
@@ -252,5 +262,16 @@ export function useAssetFields(
     [brandId, kind],
   );
 
-  return { fields, set, uploading, err, setErr, addFiles, removeHash, toggleFacet, submitted };
+  /**
+   * The attempt is over but the work is not: the build was stopped or failed
+   * after something was approved. The draft goes, the fields stay, so the form
+   * is back where it was without a reopen.
+   */
+  const unsubmit = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    pendingRef.current = null;
+    clearAssetDraft(brandId, kind);
+  }, [brandId, kind]);
+
+  return { fields, set, uploading, err, setErr, addFiles, removeHash, toggleFacet, submitted, unsubmit };
 }

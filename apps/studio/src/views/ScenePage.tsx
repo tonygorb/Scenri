@@ -377,15 +377,29 @@ export function ScenePage() {
               <section>
                 <p className="sc-bandhead">Your references</p>
                 <p className="sc-ownedbits-note">
-                  What this scene was read from, and what its example above was drawn from.
+                  What this scene was read from: your uploads, and the views drawn of the same world. The cover is the
+                  card.
                   {owned.figure
-                    ? ' Because this scene is built around a figure, the example drawn from these goes to the shot beside an attached presenter, as reference for the world and the treatment. The people, products and marks in these are never copied.'
+                    ? ' Because this scene is built around a figure, the cover goes to the shot beside an attached presenter, as reference for the world and the treatment. The people, products and marks in these are never copied.'
                     : ' A scene reaches a shot as words, never as pixels, so nothing staged in these images can turn up in a render on its own.'}
                 </p>
                 <div className="sc-lookpage-refs">
-                  {owned.refs.map((src) => (
-                    <RefFrame key={src} src={src} />
-                  ))}
+                  {/* The cover leads; drawn views and uploads are told apart by their caption. */}
+                  {[...owned.refs]
+                    .sort((a, b) => (a === owned.previewUrl ? -1 : b === owned.previewUrl ? 1 : 0))
+                    .map((src, i) => {
+                      const drawn = owned.drawnRefs.includes(src);
+                      const cover = src === owned.previewUrl;
+                      const what = drawn ? 'Drawn view' : 'Your upload';
+                      return (
+                        <RefFrame
+                          key={src}
+                          src={src}
+                          alt={`${what} ${i + 1}${cover ? ', cover' : ''}`}
+                          caption={cover ? `${what}, cover` : what}
+                        />
+                      );
+                    })}
                 </div>
               </section>
             )}
