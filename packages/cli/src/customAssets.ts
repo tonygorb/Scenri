@@ -1340,7 +1340,12 @@ async function advance(job: AssetBuild, step: (signal: AbortSignal) => Promise<v
     await step(ctrl.signal);
   } catch (err: any) {
     if (ctrl.signal.aborted) await finishJob(job, 'cancelled');
-    else await finishJob(job, 'failed', err?.message ?? 'build failed');
+    else {
+      // A failure keeps what had landed: the person can pick the build up
+      // from those frames. A stop keeps nothing; that was the point of it.
+      const landed = new Set(landedFrames(job).map((f) => f.hash as string));
+      await finishJob(job, 'failed', err?.message ?? 'build failed', landed);
+    }
   } finally {
     running.delete(job.id);
     if (!job.finished && PAUSED.has(job.stage)) armIdle(job);

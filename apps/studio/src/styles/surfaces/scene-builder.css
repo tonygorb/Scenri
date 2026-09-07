@@ -89,13 +89,20 @@
 .sc-sb-stage .sc-shimmer {
   --sc-shimmer-dur: 2.9s;
 }
-/* The upload well fills the stage at entry and keeps the stage's shape. */
+/* At entry the well is the stage: one frame, the dropzone's own, never a
+   box inside a box. */
+.sc-sb-stage:has(.sc-sb-well) {
+  background: transparent;
+  box-shadow: none;
+}
 .sc-sb-well {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
-  padding: var(--sc-space-5);
+}
+.sc-sb-well .sc-dropzone {
+  border-radius: var(--sc-radius-lg);
 }
 .sc-sb-well .sc-assetwell,
 .sc-sb-well .sc-assetwell .sc-dropzone {
@@ -256,15 +263,33 @@
   .sc-sb {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     gap: var(--sc-space-5);
   }
   /* At entry the words come first: the well below is optional. */
   .sc-sb[data-screen="entry"] .sc-sb-side {
     order: -1;
   }
+  /* The frame stays in view with the row and the board under it; the body
+     scrolls for the rest. */
   .sc-sb-stage {
-    height: auto;
-    width: 100%;
+    height: min(44dvh, 440px);
+    width: auto;
+    align-self: center;
+  }
+  .sc-sb-stage:has(.sc-sb-well) {
+    height: min(40dvh, 400px);
+  }
+  /* At review the name comes before the board: the cover is on the stage,
+     the name is what saving waits for. */
+  .sc-sb[data-screen="reviewing"] .sc-sb-side {
+    order: 1;
+  }
+  .sc-sb[data-screen="reviewing"] .sc-sb-main {
+    display: contents;
+  }
+  .sc-sb[data-screen="reviewing"] .sc-sb-board {
+    order: 2;
   }
   .sc-sb-tile {
     width: 48px;

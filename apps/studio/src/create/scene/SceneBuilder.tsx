@@ -96,9 +96,11 @@ export function SceneBuilder({
   const busy = starting || b.busy !== null;
 
   // Focus follows the decision: Enter says yes to the world, then saves it.
+  // Only when there is a decision to make; an inert primary wears no ring.
+  const primaryLive = screen === 'awaiting' || screen === 'reviewing' || screen === 'failed' || screen === 'gone';
   useEffect(() => {
-    primaryRef.current?.focus({ preventScroll: true });
-  }, [screen]);
+    if (primaryLive) primaryRef.current?.focus({ preventScroll: true });
+  }, [screen, primaryLive]);
 
   // The analyzer's name for the place, offered once; typing over it wins.
   const suggested = job?.suggestedName ?? null;
@@ -128,8 +130,19 @@ export function SceneBuilder({
     if (screen !== 'reviewing' && screen !== 'viewing') setSelected(null);
   }, [screen]);
 
-  // Saved: the host closes, toasts, and tells whoever asked. Once.
+  // A build that was stopped, here or elsewhere, took its frames with it:
+  // there is nothing to continue from, so this is the start again, with the
+  // words still in place.
   const stage = job?.stage ?? null;
+  useEffect(() => {
+    if (stage !== 'cancelled') return;
+    f.set({ drawn: [] });
+    f.unsubmit();
+    setJobId(null);
+    setCoverPick(null);
+  }, [stage, f.set, f.unsubmit]);
+
+  // Saved: the host closes, toasts, and tells whoever asked. Once.
   const assetId = job?.assetId ?? null;
   useEffect(() => {
     if (stage !== 'done' || !assetId || !job || doneRef.current) return;
@@ -173,7 +186,7 @@ export function SceneBuilder({
   };
   const begin = () => void start(f.fields.imageHashes);
   /** The approved frames go back in as images; the server reads them as a set. */
-  const resume = () => void start([...f.fields.imageHashes, ...f.fields.drawn], f.fields.drawn);
+  const resume = () => void start([...f.fields.imageHashes, ...usableDrawn], usableDrawn);
   const startOver = () => {
     f.set({ drawn: [] });
     f.unsubmit();
@@ -203,6 +216,10 @@ export function SceneBuilder({
     void b.adjust(line);
   };
 
+  // A stopped build took its frames back with it; a failed or forgotten one
+  // left them on disk, so those can be picked up again.
+  const stopped = job?.stage === 'cancelled';
+  const usableDrawn = stopped ? [] : f.fields.drawn;
   const primary = primaryFor(screen, {
     typed: !!f.fields.instruction.trim(),
     uploads: f.fields.imageHashes.length,
@@ -210,13 +227,13 @@ export function SceneBuilder({
     busy,
     canGenerate: caps?.canGenerate ?? true,
     build: job,
-    drawn: f.fields.drawn.length,
+    drawn: usableDrawn.length,
   });
   const onPrimary = () => {
     if (screen === 'entry') begin();
     else if (screen === 'awaiting') void b.approve();
     else if (screen === 'reviewing') save();
-    else if (screen === 'failed' || screen === 'gone') f.fields.drawn.length ? resume() : begin();
+    else if (screen === 'failed' || screen === 'gone') usableDrawn.length ? resume() : begin();
   };
 
   const submitOnMetaEnter = (e: KeyboardEvent) => {
@@ -226,11 +243,13 @@ export function SceneBuilder({
   };
 
   /* ---------------------------------------------------------- the board */
-  const board: AssetBuildFrame[] = job
-    ? boardFrames(job)
-    : screen === 'gone' || screen === 'failed'
-      ? f.fields.drawn.map((hash) => ({ hash, purpose: 'view', status: 'landed', origin: 'view' }))
-      : [];
+  const board: AssetBuildFrame[] = stopped
+    ? []
+    : job
+      ? boardFrames(job)
+      : screen === 'gone' || screen === 'failed'
+        ? f.fields.drawn.map((hash) => ({ hash, purpose: 'view', status: 'landed', origin: 'view' }))
+        : [];
   const landed = job ? landedFrames(job) : [];
   const seed = job ? seedFrame(job) : null;
   const cover = job ? (coverPick ?? defaultCover(job, f.fields.drawn)) : null;
@@ -445,7 +464,7 @@ export function SceneBuilder({
         </div>
 
         <div className="sc-sb-side">
-          {screen === 'entry' && (
+          {(screen === 'entry' || screen === 'failed' || screen === 'gone') && (
             <div className="sc-assetform-field">
               <label className="sc-newdlg-seclabel" htmlFor="sc-scene-direction">
                 Direction
@@ -487,15 +506,13 @@ export function SceneBuilder({
               coverNote={job.coverage[0] ?? null}
             />
           )}
-          {(screen === 'failed' || screen === 'gone') && (
+          {screen === 'gone' && f.fields.drawn.length > 0 && (
+            <p className="sc-sb-note">The frames you approved are still here, so it can go on from them.</p>
+          )}
+          {screen === 'failed' && !stopped && (
             <p className="sc-sb-note">
-              {screen === 'gone'
-                ? f.fields.drawn.length
-                  ? 'This build is gone. The frames you approved are still here, so it can go on from them.'
-                  : 'This build is gone.'
-                : job?.stage === 'cancelled'
-                  ? 'Stopped.'
-                  : (failure?.fix ?? failure?.title ?? 'The build failed.')}
+              {failure?.fix ?? 'The build failed.'}
+              {usableDrawn.length ? ' The frames that landed are still here, so it can go on from them.' : ''}
             </p>
           )}
         </div>
