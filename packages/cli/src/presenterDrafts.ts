@@ -219,6 +219,8 @@ export async function createPresenterDraft(
   const direction = str(input.direction, 400);
   const sources = (input.imageHashes ?? []).map(String).filter((h) => HASH.test(h) && core.images.has(h));
   if (source === 'synthetic' && !direction) throw fail('describe who they are in a sentence', 400);
+  // A person from a description is nothing but what an engine draws.
+  if (source === 'synthetic' && !deps.engine) throw fail('no engine here can draw a person', 400);
   if (source === 'photos' && !sources.length) throw fail('add at least one photo of this person', 400);
   if (source === 'photos' && !input.attestation) {
     throw fail("confirm you have permission to use this person's likeness", 400);
@@ -580,12 +582,20 @@ export async function savePresenterDraft(
   if (!rec) throw fail('draft not found', 404);
   if (running.has(id)) throw fail('a view is still being drawn', 409);
   if (!rec.name.trim()) throw fail('give them a name', 400);
-  for (const v of PRESENTER_VIEWS) {
+  // Without an engine the photographs are the presenter: the portrait leads
+  // and the rest follow as they are. Fewer views than a drawn set has, but a
+  // working person rather than a blocked flow, exactly the old build's
+  // fallback.
+  const blind = !deps.engine;
+  const required: PresenterView[] = blind ? ['portrait'] : [...PRESENTER_VIEWS];
+  for (const v of required) {
     const s = rec.views[v];
     if (s.status === 'stale') throw fail(`redo the ${VIEW_LABEL[v]}: it was built on a view you changed`, 400);
     if (s.status !== 'approved' || !s.hash) throw fail(`approve the ${VIEW_LABEL[v]} first`, 400);
   }
-  const shots = PRESENTER_VIEWS.map((v) => rec.views[v].hash as string);
+  const approved = required.map((v) => rec.views[v].hash as string);
+  const shots = blind ? [...approved, ...rec.sources.filter((h) => !approved.includes(h))] : approved;
+  const angles = blind ? ['portrait'] : [...PRESENTER_VIEWS];
   const portraitFile = `asset:${shots[0]}`;
   const sourceFiles = rec.sources.map((h) => `asset:${h}`);
   const mode = presenterCropMode(portraitFile, sourceFiles, 'portrait');
@@ -594,7 +604,7 @@ export async function savePresenterDraft(
   const built = presenterRecordFrom({
     name: rec.name,
     shotHashes: shots,
-    shotAngles: [...PRESENTER_VIEWS],
+    shotAngles: angles,
     ...(rec.sources.length ? { sourceHashes: rec.sources } : {}),
     previewHash,
     avatarHash,

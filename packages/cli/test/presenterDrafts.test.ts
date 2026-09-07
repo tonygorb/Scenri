@@ -444,6 +444,36 @@ describe('saving', () => {
   });
 });
 
+describe('with no engine that can draw', () => {
+  it('a photos draft still saves: the portrait leads and the other photographs follow as they are', async () => {
+    analyzerOn = false;
+    const a = core.images.save(await png('#a08070', 800, 1000));
+    const b = core.images.save(await png('#b09080', 800, 1000));
+    const blind = { ...deps(), engine: null };
+    let d = await createPresenterDraft(blind, { brandId, source: 'photos', imageHashes: [a, b], attestation: true });
+    for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
+    d = getPresenterDraft(core, d.id)!;
+    expect(view(d, 'portrait')).toMatchObject({ status: 'approved', hash: a, origin: 'photo' });
+    await updatePresenterDraft(core, d.id, { name: 'Noor' });
+    const { presenter } = await savePresenterDraft(blind, d.id);
+    expect(presenter.shots?.map((s) => s.file)).toEqual([`asset:${a}`, `asset:${b}`]);
+    expect(presenter.shots?.[0].angle).toBe('portrait');
+    expect(presenter.shots?.[1].angle).toBeUndefined();
+    expect(presenter.sourceRefs?.map((s) => s.file)).toEqual([`asset:${a}`, `asset:${b}`]);
+    expect(presenter.avatar).toMatch(/^asset:/);
+    expect(presenter.preview).toMatch(/^asset:/);
+  });
+
+  it('a person from a description cannot be started', async () => {
+    const blind = { ...deps(), engine: null };
+    await expect(
+      createPresenterDraft(blind, { brandId, source: 'synthetic', direction: 'someone' }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+    });
+  });
+});
+
 describe('discarding', () => {
   it('removes generated pictures nothing else holds, and never a photo another draft shares', async () => {
     const photo = core.images.save(await png('#a08070', 800, 1000));
