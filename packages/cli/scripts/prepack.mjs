@@ -15,6 +15,7 @@ import { cpSync, existsSync, rmSync, mkdirSync, chmodSync, statSync, readdirSync
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkg = join(here, '..');
@@ -25,9 +26,13 @@ const fail = (msg) => {
   process.exit(1);
 };
 
-// 1. the bundle
+// 1. the bundle. tsup runs through this node by its JS entry: a .cmd shim
+//    cannot be spawned without a shell on Windows, and this script has to
+//    pack the same tarball on a Windows runner as on a Mac.
 console.log('prepack: building the CLI bundle');
-execFileSync('pnpm', ['exec', 'tsup'], { cwd: pkg, stdio: 'inherit' });
+const require = createRequire(import.meta.url);
+const tsupPkg = require.resolve('tsup/package.json');
+execFileSync(process.execPath, [join(dirname(tsupPkg), require(tsupPkg).bin.tsup)], { cwd: pkg, stdio: 'inherit' });
 
 const entry = join(pkg, 'dist', 'index.js');
 if (!existsSync(entry)) fail('tsup produced no dist/index.js');
