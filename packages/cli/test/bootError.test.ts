@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { portBusyLines, bootErrorLines, INSTALL_GUIDE } from '../src/bootError.js';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  anotherScenriLines,
+  bootErrorLines,
+  INSTALL_GUIDE,
+  portBusyLines,
+  shouldAdoptRunning,
+} from '../src/bootError.js';
 
 describe('portBusyLines', () => {
   it('names the port and offers the next one for both shells', () => {
@@ -64,5 +73,36 @@ describe('bootErrorLines', () => {
     expect(all).not.toMatch(/[–—]/);
     expect(all).not.toMatch(/!/);
     expect(all).not.toMatch(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]|\u{FE0F}/u);
+  });
+});
+
+describe('shouldAdoptRunning', () => {
+  const ours = mkdtempSync(join(tmpdir(), 'sc-home-'));
+  const theirs = mkdtempSync(join(tmpdir(), 'sc-other-'));
+
+  it('a source checkout adopts only a server on its own library', () => {
+    expect(shouldAdoptRunning({ installKind: 'dev', ourHome: ours, theirHome: ours })).toBe(true);
+    expect(shouldAdoptRunning({ installKind: 'dev', ourHome: ours, theirHome: theirs })).toBe(false);
+  });
+
+  it('compares real paths, so a home reached through a symlinked tmp still matches', () => {
+    expect(shouldAdoptRunning({ installKind: 'dev', ourHome: join(ours, '.'), theirHome: `${ours}/` })).toBe(true);
+  });
+
+  it('built installs keep adopting, and so does a server too old to report its home', () => {
+    expect(shouldAdoptRunning({ installKind: 'managed', ourHome: ours, theirHome: theirs })).toBe(true);
+    expect(shouldAdoptRunning({ installKind: 'npx', ourHome: ours, theirHome: theirs })).toBe(true);
+    expect(shouldAdoptRunning({ installKind: 'dev', ourHome: ours })).toBe(true);
+  });
+});
+
+describe('anotherScenriLines', () => {
+  it('names both libraries and offers the next port for a checkout', () => {
+    const text = anotherScenriLines(4747, '/Users/x/.scenri', '/w/.scenri-home').join('\n');
+    expect(text).toContain('Port 4747 is held by another Scenri, serving /Users/x/.scenri.');
+    expect(text).toContain('would serve /w/.scenri-home');
+    expect(text).toContain('SCENRI_PORT=4748 pnpm dev');
+    expect(text).not.toMatch(/[–—]/);
+    expect(text).not.toMatch(/!/);
   });
 });

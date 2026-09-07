@@ -10,7 +10,7 @@ import { buildServer } from './server.js';
 import { detectInstallKind } from './installKind.js';
 import { repairPresenterCrops } from './presenterRepair.js';
 import { readMeta } from './meta.js';
-import { portBusyLines } from './bootError.js';
+import { anotherScenriLines, portBusyLines, shouldAdoptRunning } from './bootError.js';
 
 const PORT = Number(process.env.SCENRI_PORT || 4747);
 /**
@@ -110,8 +110,18 @@ async function run(): Promise<void> {
           const res = await fetch(`http://127.0.0.1:${PORT}/api/version`, {
             signal: AbortSignal.timeout(2000),
           });
-          const info = (await res.json()) as { name?: string };
+          const info = (await res.json()) as { name?: string; home?: string };
           if (info.name === readMeta().name) {
+            // Another Scenri, another library: a source checkout must not
+            // "start" by handing over someone else's studio (bootError.ts).
+            if (!shouldAdoptRunning({ installKind, ourHome: core.home, theirHome: info.home })) {
+              console.error('');
+              for (const line of anotherScenriLines(PORT, info.home ?? 'another library', core.home)) {
+                console.error(`  `);
+              }
+              console.error('');
+              process.exit(1);
+            }
             const url = `http://127.0.0.1:${PORT}`;
             console.log(`\n  Scenri is already running → ${url}\n`);
             if (process.env.SCENRI_NO_OPEN !== '1') {
