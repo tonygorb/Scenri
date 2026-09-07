@@ -22,6 +22,11 @@ export async function refreshLauncher(
   deps: InstallDeps & { ownEntry: string; installKind: InstallKind; pkg: string; verifyImpl?: VerifyImpl },
 ): Promise<{ adopted?: true; refreshed?: true }> {
   if (deps.env.SCENRI_NO_DESKTOP === '1') return {};
+  // A source checkout carries its own launcher assets and version number, so
+  // letting it "refresh" an installed icon would push an unreleased bootstrap
+  // onto the user's Desktop from whichever checkout happened to start. Only a
+  // built install keeps the icon current.
+  if (deps.installKind === 'dev') return {};
   const record = readLauncherRecord(deps.homedir);
   if (!record) return {};
   const out: { adopted?: true; refreshed?: true } = {};
