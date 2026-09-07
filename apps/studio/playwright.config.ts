@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { laneEnv } from '../../packages/cli/scripts/worktree.mjs';
+import { laneEnv } from '../../packages/cli/scripts/worktree.js';
 
 /**
  * Runs against a real Scenri server, because the whole point of this suite is

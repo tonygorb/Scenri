@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   plugins: [react()],
   server: {
-    // In a linked worktree packages/cli/scripts/worktree.mjs sets SCENRI_UI_PORT
+    // In a linked worktree packages/cli/scripts/worktree.ts sets SCENRI_UI_PORT
     // and SCENRI_API to that worktree's lane; 5173 and 4747 are the primary
     // checkout's. Strict only under a lane, so the primary keeps Vite's own
     // fallback when 5173 is busy.

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Worktrees: one task, one branch, one checkout, with its own ports and library.
  *
@@ -21,10 +20,10 @@
  * `serve.ts` does not have: on a busy port it adopts the other Scenri and exits
  * 0, and a checkout that "started" that way is serving someone else's branch.
  *
- * Builtins only. Imported by apps/studio/playwright*.config.ts for `laneEnv()`,
- * so importing this file must never run a command.
+ * Runs under tsx like the other scripts here. Imported by the Playwright configs
+ * for `laneEnv()`, so importing this file must never run a command.
  */
-import { spawn, spawnSync } from 'node:child_process';
+import { type SpawnSyncReturns, spawn, spawnSync } from 'node:child_process';
 import {
   constants,
   cpSync,
@@ -43,6 +42,7 @@ import { createServer } from 'node:net';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type BetterSqlite3 from 'better-sqlite3';
 
 const here = dirname(fileURLToPath(import.meta.url));
 /** The checkout this copy of the script lives in: the primary or a worktree. */
@@ -51,14 +51,31 @@ const REPO = resolve(here, '..', '..', '..');
 /** Nine lanes: 4748..4756 sits between the owner's 4747 and the e2e band at 4757. */
 export const LANES = 9;
 
+/** What a lane forces on `pnpm dev`, `pnpm dev:ui` and Playwright in a linked worktree. */
+export interface LaneEnv {
+  SCENRI_PORT: string;
+  SCENRI_API: string;
+  SCENRI_UI_PORT: string;
+  SCENRI_HOME: string;
+  SCENRI_E2E_PORT: string;
+  SCENRI_NO_DESKTOP: '1';
+  SCENRI_NO_OPEN: '1';
+}
+
+/** Where a checkout's git state lives; `linked` is false in the primary. */
+export interface GitDirs {
+  linked: boolean;
+  gitDir: string;
+  commonDir: string;
+}
+
 /**
- * The variables a lane forces on `pnpm dev`, `pnpm dev:ui` and Playwright.
  * Ports sit in gaps the repo already leaves: the server band ends before the
  * e2e harness at 4757, the studio band starts above the owner's 5173, and e2e
  * moves to 6000+ so its four workers, updates.spec's fixtures (base + 10 .. + 86
  * with the free-port probe) and the next lane never meet.
  */
-export function laneEnvFor(lane, home) {
+export function laneEnvFor(lane: number, home: string): LaneEnv {
   const port = 4747 + lane;
   return {
     SCENRI_PORT: String(port),
@@ -75,7 +92,7 @@ export function laneEnvFor(lane, home) {
 }
 
 /** `feat/attach-picker` -> `feat-attach-picker`: the directory a branch lives in. */
-export function slugOf(branch) {
+export function slugOf(branch: string): string {
   return branch.replace(/\//g, '-');
 }
 
@@ -83,7 +100,7 @@ export function slugOf(branch) {
  * `installKind.ts` decides "dev" from a `/dist/` path segment, so a checkout
  * whose directory is literally named dist would look like a built install.
  */
-export function assertSlug(slug) {
+export function assertSlug(slug: string): string {
   if (!/^[A-Za-z0-9._-]+$/.test(slug)) throw new Error(`"${slug}" is not a usable directory name`);
   if (slug === 'dist')
     throw new Error('a worktree cannot be called dist: installKind.ts would read it as a built install');
@@ -91,20 +108,19 @@ export function assertSlug(slug) {
 }
 
 /**
- * Where a checkout's git state lives. In the primary `.git` is a directory and
- * doubles as the common dir. In a linked worktree `.git` is a one-line file,
- * `gitdir: <common>/worktrees/<name>`, and that dir carries a `commondir` file
- * pointing back. No git process needed.
+ * In the primary `.git` is a directory and doubles as the common dir. In a
+ * linked worktree `.git` is a one-line file, `gitdir: <common>/worktrees/<name>`,
+ * and that dir carries a `commondir` file pointing back. No git process needed.
  */
-export function gitDirs(root) {
+export function gitDirs(root: string): GitDirs | null {
   const dotGit = join(root, '.git');
-  let st;
+  let isDir: boolean;
   try {
-    st = statSync(dotGit);
+    isDir = statSync(dotGit).isDirectory();
   } catch {
     return null;
   }
-  if (st.isDirectory()) return { linked: false, gitDir: dotGit, commonDir: dotGit };
+  if (isDir) return { linked: false, gitDir: dotGit, commonDir: dotGit };
   const m = /^gitdir:\s*(.+?)\s*$/m.exec(readFileSync(dotGit, 'utf8'));
   if (!m) return null;
   const gitDir = resolve(root, m[1]);
@@ -117,7 +133,7 @@ export function gitDirs(root) {
   return { linked: true, gitDir, commonDir };
 }
 
-export function readLane(gitDir) {
+export function readLane(gitDir: string): number | null {
   try {
     const n = Number(readFileSync(join(gitDir, 'scenri-lane'), 'utf8').trim());
     return Number.isInteger(n) && n >= 1 && n <= LANES ? n : null;
@@ -127,20 +143,17 @@ export function readLane(gitDir) {
 }
 
 /** Lanes held by every linked worktree of the repo whose common dir this is. */
-export function usedLanes(commonDir) {
+export function usedLanes(commonDir: string): Set<number> {
   const dir = join(commonDir, 'worktrees');
   try {
-    return new Set(
-      readdirSync(dir)
-        .map((name) => readLane(join(dir, name)))
-        .filter((n) => n !== null),
-    );
+    const lanes = readdirSync(dir).map((name) => readLane(join(dir, name)));
+    return new Set(lanes.filter((n): n is number => n !== null));
   } catch {
     return new Set();
   }
 }
 
-export function lowestFreeLane(used) {
+export function lowestFreeLane(used: Set<number>): number {
   for (let n = 1; n <= LANES; n++) if (!used.has(n)) return n;
   throw new Error(`all ${LANES} lanes are taken; remove a worktree first (pnpm worktree list)`);
 }
@@ -151,7 +164,7 @@ export function lowestFreeLane(used) {
  * tool) is isolated the first time anything here runs in it. Null in the
  * primary.
  */
-export function ensureLane(root) {
+export function ensureLane(root: string): number | null {
   const g = gitDirs(root);
   if (!g?.linked) return null;
   let lane = readLane(g.gitDir);
@@ -167,7 +180,7 @@ export function ensureLane(root) {
  * any error. The Playwright configs import this, and CI is a plain clone, so it
  * must never throw.
  */
-export function laneEnv(root = REPO) {
+export function laneEnv(root: string = REPO): Partial<LaneEnv> {
   try {
     const lane = ensureLane(root);
     if (lane === null) return {};
@@ -179,28 +192,32 @@ export function laneEnv(root = REPO) {
 
 // ---------------------------------------------------------------- commands
 
-function fail(msg) {
+function fail(msg: string): never {
   console.error(`worktree: ${msg}`);
   process.exit(1);
 }
 
-function git(cwd, args, { allowFail = false, inherit = false } = {}) {
+function git(
+  cwd: string,
+  args: string[],
+  opts: { allowFail?: boolean; inherit?: boolean } = {},
+): SpawnSyncReturns<string> {
   const r = spawnSync('git', args, {
     cwd,
     encoding: 'utf8',
-    stdio: inherit ? 'inherit' : ['ignore', 'pipe', 'pipe'],
+    stdio: opts.inherit ? 'inherit' : ['ignore', 'pipe', 'pipe'],
   });
-  if (r.status !== 0 && !allowFail) fail(`git ${args.join(' ')} failed${r.stderr ? `:\n${r.stderr.trim()}` : ''}`);
+  if (r.status !== 0 && !opts.allowFail) fail(`git ${args.join(' ')} failed${r.stderr ? `:\n${r.stderr.trim()}` : ''}`);
   return r;
 }
 
-function pnpm(cwd, args, { allowFail = false } = {}) {
+function pnpm(cwd: string, args: string[], opts: { allowFail?: boolean } = {}): number | null {
   const r = spawnSync('pnpm', args, { cwd, stdio: 'inherit', shell: process.platform === 'win32' });
-  if (r.status !== 0 && !allowFail) fail(`pnpm ${args.join(' ')} failed in ${cwd}`);
+  if (r.status !== 0 && !opts.allowFail) fail(`pnpm ${args.join(' ')} failed in ${cwd}`);
   return r.status;
 }
 
-function portBusy(port) {
+function portBusy(port: number): Promise<boolean> {
   return new Promise((done) => {
     const probe = createServer();
     probe.once('error', () => done(true));
@@ -209,21 +226,21 @@ function portBusy(port) {
 }
 
 /** PIDs listening on a port, LISTEN state only: a browser client also "has" the port. */
-function pidsOn(port) {
+function pidsOn(port: number): string {
   const r = spawnSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'], { encoding: 'utf8' });
   return r.status === 0 ? r.stdout.trim().split('\n').filter(Boolean).join(', ') : '';
 }
 
 /** The primary checkout and the sibling directory the worktrees live in. */
-function layout() {
+function layout(): { primary: string; worktrees: string } {
   const g = gitDirs(REPO);
-  if (!g) fail(`${REPO} is not a git checkout`);
+  if (!g) return fail(`${REPO} is not a git checkout`);
   const primary = dirname(g.commonDir);
   return { primary, worktrees: join(dirname(primary), `${basename(primary)}-worktrees`) };
 }
 
 /** Link the primary's local-only material into a worktree, where git would leave nothing. */
-function link(target, at) {
+function link(target: string, at: string): void {
   try {
     lstatSync(at);
     return;
@@ -238,7 +255,7 @@ function link(target, at) {
 }
 
 /** ~/.scenri/content is a 95 MB read-only cache; share it instead of downloading it per worktree. */
-function shareContent(home) {
+function shareContent(home: string): void {
   const content = join(homedir(), '.scenri', 'content');
   if (existsSync(join(content, 'meta.json'))) link(content, join(home, 'content'));
 }
@@ -249,14 +266,14 @@ function shareContent(home) {
  * generations as errors. A read-only connection and VACUUM INTO copy the WAL
  * as well; images and thumbs are APFS clones, so the copy is instant and free.
  */
-function copyLibrary(src, dst, checkout) {
+function copyLibrary(src: string, dst: string, checkout: string): boolean {
   const db = join(src, 'scenri.db');
   if (!existsSync(db)) {
     console.log(`worktree: no library at ${src}, starting empty`);
     return false;
   }
   const require = createRequire(join(checkout, 'packages', 'cli', 'package.json'));
-  const Database = require('better-sqlite3');
+  const Database = require('better-sqlite3') as typeof BetterSqlite3;
   const source = new Database(db, { readonly: true });
   try {
     source.prepare('VACUUM INTO ?').run(join(dst, 'scenri.db'));
@@ -271,7 +288,7 @@ function copyLibrary(src, dst, checkout) {
   return true;
 }
 
-function describeLane(lane, path) {
+function describeLane(lane: number, path: string): string {
   const env = laneEnvFor(lane, join(path, '.scenri-home'));
   return [
     `  lane     ${lane}`,
@@ -282,20 +299,21 @@ function describeLane(lane, path) {
   ].join('\n');
 }
 
-async function add(argv) {
+async function add(argv: string[]): Promise<void> {
   const branch = argv.find((a) => !a.startsWith('--'));
-  if (!branch) fail('usage: pnpm worktree add <branch> [--empty]');
+  if (!branch) return fail('usage: pnpm worktree add <branch> [--empty]');
   const empty = argv.includes('--empty');
   const slug = assertSlug(slugOf(branch));
   const { primary, worktrees } = layout();
   const path = join(worktrees, slug);
-  if (existsSync(path)) fail(`${path} already exists`);
+  if (existsSync(path)) return fail(`${path} already exists`);
   mkdirSync(worktrees, { recursive: true });
 
   if (git(primary, ['fetch', 'origin', '--quiet'], { allowFail: true }).status !== 0) {
     console.error('worktree: could not fetch origin, branching from the local main');
   }
-  const has = (ref) => git(primary, ['rev-parse', '--verify', '--quiet', ref], { allowFail: true }).status === 0;
+  const has = (ref: string) =>
+    git(primary, ['rev-parse', '--verify', '--quiet', ref], { allowFail: true }).status === 0;
   const base = has('refs/remotes/origin/main') ? 'origin/main' : 'main';
   if (has(`refs/heads/${branch}`)) {
     git(primary, ['worktree', 'add', path, branch], { inherit: true });
@@ -308,6 +326,7 @@ async function add(argv) {
   }
 
   const lane = ensureLane(path);
+  if (lane === null) return fail(`${path} did not come up as a linked worktree`);
   link(join(primary, '.claude'), join(path, '.claude'));
   link(join(primary, 'docs', 'design'), join(path, 'docs', 'design'));
 
@@ -329,24 +348,26 @@ async function add(argv) {
   console.log(`\nnext: cd ${path}   (or open it as its own editor window or agent session)\n`);
 }
 
-async function remove(argv) {
+async function remove(argv: string[]): Promise<void> {
   const slug = argv.find((a) => !a.startsWith('--'));
-  if (!slug) fail('usage: pnpm worktree remove <slug> [--force]');
+  if (!slug) return fail('usage: pnpm worktree remove <slug> [--force]');
   const force = argv.includes('--force');
   const { primary, worktrees } = layout();
   const path = join(worktrees, slug);
-  if (!existsSync(path)) fail(`${path} does not exist (pnpm worktree list)`);
-  if (resolve(path) === resolve(REPO)) fail('run remove from another checkout, not from inside the one being removed');
+  if (!existsSync(path)) return fail(`${path} does not exist (pnpm worktree list)`);
+  if (resolve(path) === resolve(REPO))
+    return fail('run remove from another checkout, not from inside the one being removed');
 
   const dirty = git(path, ['status', '--porcelain']).stdout.trim();
-  if (dirty && !force) fail(`${slug} has uncommitted work; commit or push it, or pass --force to discard:\n${dirty}`);
+  if (dirty && !force)
+    return fail(`${slug} has uncommitted work; commit or push it, or pass --force to discard:\n${dirty}`);
 
   const g = gitDirs(path);
   const lane = g ? readLane(g.gitDir) : null;
   if (lane !== null) {
     for (const port of [4747 + lane, 5173 + lane]) {
       if (await portBusy(port))
-        fail(`port ${port} is still listening (pid ${pidsOn(port) || '?'}); stop that server first`);
+        return fail(`port ${port} is still listening (pid ${pidsOn(port) || '?'}); stop that server first`);
     }
   }
 
@@ -361,10 +382,10 @@ async function remove(argv) {
   }
 }
 
-async function list() {
+async function list(): Promise<void> {
   const { primary } = layout();
   const out = git(primary, ['worktree', 'list', '--porcelain']).stdout;
-  const rows = [];
+  const rows: { path: string; branch: string; lane: string; dirty: string; up: string }[] = [];
   for (const block of out.trim().split('\n\n')) {
     const lines = block.split('\n');
     const path = lines[0].replace(/^worktree /, '');
@@ -376,7 +397,7 @@ async function list() {
     const lane = g?.linked ? readLane(g.gitDir) : null;
     const dirty = git(path, ['status', '--porcelain'], { allowFail: true }).stdout.trim() ? 'dirty' : 'clean';
     const ports = lane === null ? [4747, 5173] : [4747 + lane, 5173 + lane];
-    const up = [];
+    const up: number[] = [];
     for (const p of ports) if (await portBusy(p)) up.push(p);
     rows.push({
       path,
@@ -386,7 +407,7 @@ async function list() {
       up: up.join(' ') || '-',
     });
   }
-  const w = (k) => Math.max(...rows.map((r) => r[k].length));
+  const w = (k: 'lane' | 'branch' | 'up') => Math.max(...rows.map((r) => r[k].length));
   for (const r of rows) {
     console.log(
       `${r.lane.padEnd(w('lane'))}  ${r.branch.padEnd(w('branch'))}  ${r.dirty}  listening: ${r.up.padEnd(w('up'))}  ${r.path}`,
@@ -394,19 +415,20 @@ async function list() {
   }
 }
 
-async function run(argv) {
+async function run(argv: string[]): Promise<void> {
   const cmd = argv[0] === '--' ? argv.slice(1) : argv;
-  if (cmd.length === 0) fail('usage: pnpm worktree run -- <command...>');
+  if (cmd.length === 0) return fail('usage: pnpm worktree run -- <command...>');
   const g = gitDirs(REPO);
   if (!g?.linked) return exec(cmd, process.env);
 
   const lane = ensureLane(REPO);
+  if (lane === null) return exec(cmd, process.env);
   const home = join(REPO, '.scenri-home');
   const env = laneEnvFor(lane, home);
   const ui = cmd.some((a) => /@scenri\/studio|vite/.test(a));
   const port = Number(ui ? env.SCENRI_UI_PORT : env.SCENRI_PORT);
   if (await portBusy(port)) {
-    fail(
+    return fail(
       `port ${port} is already listening (pid ${pidsOn(port) || '?'}), and starting anyway would adopt that server and exit 0.\n` +
         `  Stop it, or if it is this worktree's own server, you are already running.`,
     );
@@ -423,9 +445,9 @@ async function run(argv) {
   return exec(cmd, { ...process.env, ...env });
 }
 
-function exec(cmd, env) {
+function exec(cmd: string[], env: NodeJS.ProcessEnv): void {
   const child = spawn(cmd[0], cmd.slice(1), { stdio: 'inherit', env, shell: process.platform === 'win32' });
-  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => child.kill(sig));
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(sig, () => child.kill(sig));
   child.on('error', (err) => fail(`could not start ${cmd[0]}: ${err.message}`));
   child.on('exit', (code, signal) => process.exit(code ?? (signal ? 1 : 0)));
 }
@@ -436,7 +458,7 @@ const USAGE = `usage:
   pnpm worktree remove <slug> [--force]    after the merge; refuses dirty trees and live servers
   pnpm worktree run -- <command...>        the wrapper behind pnpm dev and pnpm dev:ui`;
 
-async function main(argv) {
+async function main(argv: string[]): Promise<void> {
   const [command, ...rest] = argv;
   switch (command) {
     case 'add':
@@ -460,4 +482,4 @@ const invokedDirectly = (() => {
     return false;
   }
 })();
-if (invokedDirectly) main(process.argv.slice(2)).catch((err) => fail(err.message));
+if (invokedDirectly) main(process.argv.slice(2)).catch((err: Error) => fail(err.message));

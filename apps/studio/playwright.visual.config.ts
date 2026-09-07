@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { laneEnv } from '../../packages/cli/scripts/worktree.mjs';
+import { laneEnv } from '../../packages/cli/scripts/worktree.js';
 
 /**
  * Visual-regression harness for the CSS restructure (2026-08 migration).

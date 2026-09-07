@@ -12,7 +12,7 @@ import {
   lowestFreeLane,
   slugOf,
   usedLanes,
-} from '../scripts/worktree.mjs';
+} from '../scripts/worktree.js';
 
 const made: string[] = [];
 const tmp = () => {

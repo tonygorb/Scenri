@@ -11,9 +11,9 @@
   "scripts": {
     "test": "pnpm -r --no-bail test",
     "build": "pnpm --filter @scenri/studio build",
-    "dev": "node packages/cli/scripts/worktree.mjs run -- tsx packages/cli/src/index.ts",
-    "dev:ui": "node packages/cli/scripts/worktree.mjs run -- pnpm --filter @scenri/studio dev",
-    "worktree": "node packages/cli/scripts/worktree.mjs",
+    "dev": "tsx packages/cli/scripts/worktree.ts run -- tsx packages/cli/src/index.ts",
+    "dev:ui": "tsx packages/cli/scripts/worktree.ts run -- pnpm --filter @scenri/studio dev",
+    "worktree": "tsx packages/cli/scripts/worktree.ts",
     "typecheck": "pnpm -r --no-bail typecheck",
     "verify": "pnpm typecheck && pnpm exec biome ci . && pnpm test",
     "verify:studio": "pnpm --filter @scenri/studio typecheck && pnpm exec biome ci apps/studio/src && pnpm --filter @scenri/studio test",
