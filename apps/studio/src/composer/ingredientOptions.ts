@@ -1,4 +1,5 @@
 import { type DemoProduct, type Presenter, type Product, type Scene, assetThumbUrl, thumbOf } from '../api.js';
+import { productCoverUrl } from '../productCover.js';
 import type { Swatch } from '../brand/palette.js';
 import { isRecommendedPresenter, isRecommendedScene } from '../compat.js';
 import { productLabel, productSearchText, presenterSearchText, sceneLabel, sceneSearchText } from '../displayName.js';
@@ -221,7 +222,7 @@ export function buildCandidates(kind: IngredientKind, cat: IngredientCatalog): C
     // brand.json is what a brand with no import still has.
     const own = cat.libraryProducts.length ? cat.libraryProducts : cat.brandProducts;
     return [
-      ...own.map((p): Candidate => productCandidate(p, 'brand', assetThumbUrl(p.shots?.[0]?.file, 'tile'))),
+      ...own.map((p): Candidate => productCandidate(p, 'brand', productCoverUrl(p, 'tile'))),
       ...cat.demoProducts.map((p): Candidate => productCandidate(p, 'catalog', p.previewUrl ?? null)),
     ];
   }

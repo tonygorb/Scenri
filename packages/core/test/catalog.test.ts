@@ -231,3 +231,54 @@ describe('catalog store', () => {
     expect(done.finishedAt).toBeTruthy();
   });
 });
+
+describe('product provenance in the library read', () => {
+  it('resolves every shot to photo or derived and passes the sheet and cover through', () => {
+    const A = 'a'.repeat(32);
+    const B = 'b'.repeat(32);
+    const brand = core.store.createBrand({
+      specVersion: '0.1',
+      meta: { name: 'Acme' },
+      products: [
+        {
+          id: 'p-serum',
+          name: 'Serum',
+          promptName: 'Amber Glass Dropper Bottle',
+          description: 'A 30 ml amber glass dropper bottle.',
+          materials: 'amber glass',
+          primaryColors: 'deep amber',
+          preservationNotes: 'Keep the proportion.',
+          negativeConstraints: 'Never invent lettering.',
+          cover: `asset:${A}`,
+          shots: [
+            { file: `asset:${A}`, locked: true },
+            { file: `asset:${B}`, angle: 'three-quarter', locked: true, source: 'derived' },
+          ],
+        },
+      ],
+    } as any);
+
+    const source = core.catalog.upsertSource(brand.id, 'https://acme.example', 'shopify');
+    core.catalog.upsertProduct({
+      sourceId: source.id,
+      brandId: brand.id,
+      externalKey: '7',
+      title: 'Candle',
+      url: 'https://acme.example/products/candle',
+      images: [{ sourceUrl: 'https://img/candle.jpg', position: 0, assetRef: `asset:${'c'.repeat(32)}` }],
+    });
+
+    const [manual, catalog] = core.catalog.listLibraryProducts(brand.id, core.store.getBrand(brand.id)!.json);
+    // a shot without the field is a photograph: nothing older than this field was ever generated
+    expect(manual.shots.map((s) => s.source)).toEqual(['photo', 'derived']);
+    expect(manual.cover).toBe(`asset:${A}`);
+    expect(manual.promptName).toBe('Amber Glass Dropper Bottle');
+    expect(manual.description).toBe('A 30 ml amber glass dropper bottle.');
+    expect(manual.materials).toBe('amber glass');
+    expect(manual.primaryColors).toBe('deep amber');
+    expect(manual.preservationNotes).toBe('Keep the proportion.');
+    expect(manual.negativeConstraints).toBe('Never invent lettering.');
+    // a store image is a photograph too
+    expect(catalog.shots.map((s) => s.source)).toEqual(['photo']);
+  });
+});

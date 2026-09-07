@@ -1,4 +1,5 @@
-import { assetUrl, type Product } from '../api.js';
+import type { Product } from '../api.js';
+import { productCoverUrl } from '../productCover.js';
 import { productLabel } from '../displayName.js';
 import { categoryLabel } from '../productCategories.js';
 import { CatalogCard, CatalogCardSkeleton, type CatalogCardSize, type CatalogCardVariant } from './CatalogCard.js';
@@ -39,7 +40,7 @@ export function ProductCard({
   return (
     <CatalogCard
       id={product.id}
-      previewUrl={assetUrl(product.shots?.[0]?.file)}
+      previewUrl={productCoverUrl(product, 'tile')}
       title={productLabel(product, 'tooltip')}
       primary={productLabel(product, 'card')}
       secondary={secondary}

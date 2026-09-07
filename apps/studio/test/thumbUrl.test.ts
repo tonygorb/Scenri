@@ -61,6 +61,16 @@ describe('who reads which size', () => {
     expect(src('layout/Notifications.tsx')).toMatch(/thumbUrl\(task\.thumb, 'micro'\)/);
     expect(src('layout/AssetsPanel.tsx')).toMatch(/thumbUrl\(hash, 'micro'\)/);
   });
+  it('every surface that stands a picture in for a product reads its cover at a derivative width', () => {
+    expect(src('layout/ProductCard.tsx')).toMatch(/productCoverUrl\(product, 'tile'\)/);
+    expect(src('views/Home.tsx')).toMatch(/productCoverUrl\(libraryShot, 'tile'\)/);
+    expect(src('create/useKindPreview.ts')).toMatch(/productCoverUrl\(p, 'tile'\)/);
+    expect(src('composer/ingredientOptions.ts')).toMatch(/productCoverUrl\(p, 'tile'\)/);
+    expect(src('composer/BriefInput.tsx')).toMatch(/productCoverUrl\(found\.product, 'micro'\)/);
+    expect(src('layout/detail/Ingredients.tsx')).toMatch(/productCoverUrl\(p, 'micro'\)/);
+    // the product page's rail shows each reference small; only its stage shows the original
+    expect(src('views/ProductPage.tsx')).toMatch(/assetThumbUrl\(shot\.file, 'micro'\)/);
+  });
   it('the stage, compare and the clipboard read the original', () => {
     expect(src('layout/Stage.tsx')).toMatch(/src=\{imgUrl\(hash\)\}/);
     expect(src('layout/DetailOverlay.tsx')).toMatch(/fetch\(imgUrl\(hash\)\)/);

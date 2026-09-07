@@ -5,6 +5,13 @@
  * one tile per angle so a product can show exactly what it's missing; a
  * category with no photography conventions of its own falls back to `other`.
  */
+/**
+ * How many of a product's references a brief attaches. Mirrors PRODUCT_REF_MAX
+ * in packages/cli/src/brief.ts; productCategories.test.ts reads that file to
+ * keep the two in step, since the studio has no dependency on the CLI.
+ */
+export const PRODUCT_REF_MAX = 3;
+
 export interface ProductAngle {
   key: string;
   label: string;

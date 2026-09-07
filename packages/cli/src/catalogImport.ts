@@ -300,15 +300,25 @@ export function brandJsonWithCatalogProducts(core: Core, brandId: string): any {
       ...(p.variant ? { variant: p.variant } : {}),
       ...(p.material ? { material: p.material } : {}),
       ...(p.dimensions ? { dimensions: p.dimensions } : {}),
+      // The identity sheet a product added through the studio carries: the
+      // same fields demo products ship, read by productFactDirectives as is.
+      ...(p.promptName ? { promptName: p.promptName } : {}),
+      ...(p.materials ? { materials: p.materials } : {}),
+      ...(p.primaryColors ? { primaryColors: p.primaryColors } : {}),
+      ...(p.preservationNotes ? { preservationNotes: p.preservationNotes } : {}),
+      ...(p.negativeConstraints ? { negativeConstraints: p.negativeConstraints } : {}),
       // The store's own words, the way the 0.6.9 fix gave demo products
       // theirs: the description is what anchors scale when dimensions are
-      // absent, and imported products shipped with neither.
-      ...((p as any).descriptionHtml
-        ? { description: firstSentence(stripHtml(String((p as any).descriptionHtml)), 300) }
-        : {}),
+      // absent, and imported products shipped with neither. A sheet's own
+      // description wins over a scraped first sentence.
+      ...(p.description
+        ? { description: p.description }
+        : (p as any).descriptionHtml
+          ? { description: firstSentence(stripHtml(String((p as any).descriptionHtml)), 300) }
+          : {}),
       // The declared colorways, so the compiler can say a colour difference
       // between references is a colorway rather than lighting.
-      ...(colorways.length ? { colorways } : {}),
+      ...(colorways.length ? { colorways } : p.colorways?.length ? { colorways: p.colorways } : {}),
     };
   });
   return json;

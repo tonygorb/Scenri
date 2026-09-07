@@ -172,6 +172,25 @@ describe('product references', () => {
     expect(shots.every((s) => s.locked === true)).toBe(true);
   });
 
+  it('carries a drawn view across a reorder as a drawn view', async () => {
+    const brand = await newBrand();
+    const { productId, files } = await manualProduct(brand.id, ['front', 'three-quarter']);
+    // the second reference was drawn by Scenri, not photographed
+    const json = brandJson(brand.id);
+    json.products = json.products.map((p: any) =>
+      p.id === productId
+        ? { ...p, shots: p.shots.map((s: any, i: number) => (i === 1 ? { ...s, source: 'derived' } : s)) }
+        : p,
+    );
+    core.store.updateBrand(brand.id, json);
+
+    const res = await putShots(brand.id, productId, [files[1], files[0]]);
+    expect(res.statusCode).toBe(200);
+    // provenance belongs to the image, like angle and locked: a reorder must
+    // not launder a drawn view into a photograph
+    expect(shotsOf(brand.id, productId).map((s) => s.source ?? 'photo')).toEqual(['derived', 'photo']);
+  });
+
   it('deletes an image the user uploaded, because that one is theirs', async () => {
     const brand = await newBrand();
     const { productId, files } = await manualProduct(brand.id, ['front', 'side']);

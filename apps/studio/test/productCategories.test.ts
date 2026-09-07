@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import {
   categoryLabel,
@@ -5,6 +8,7 @@ import {
   effectiveCategory,
   OTHER_CATEGORY,
   PRODUCT_CATEGORIES,
+  PRODUCT_REF_MAX,
   suggestCategory,
 } from '../src/productCategories.js';
 
@@ -137,5 +141,34 @@ describe('effectiveCategory', () => {
   it('passes a demo product straight through, which is what makes "Suited to X" fire at all', () => {
     expect(effectiveCategory({ category: 'beverage' })).toBe('beverage');
     expect(effectiveCategory({ category: 'jewelry' })).toBe('jewelry');
+  });
+});
+
+/**
+ * The angle table exists twice on purpose: here for the studio, and in
+ * `packages/cli/src/demoProducts.ts` for the server, which resolves a demo
+ * product's frames by the same keys. The studio has no dependency on the CLI,
+ * so neither copy can import the other. This is what keeps them one table.
+ * Same idiom as `searchParity.test.ts`.
+ */
+describe('the two copies of the angle table', () => {
+  const here = fileURLToPath(import.meta.url);
+  const read = (p: string) => readFileSync(resolve(here, '..', '..', p), 'utf8');
+  const CLI = read('../../packages/cli/src/demoProducts.ts');
+  const table = CLI.slice(
+    CLI.indexOf('PRODUCT_ANGLES_BY_CATEGORY: Record'),
+    CLI.indexOf('};', CLI.indexOf('PRODUCT_ANGLES_BY_CATEGORY: Record')),
+  );
+
+  it('list the same angles for every category, in the same order', () => {
+    for (const c of PRODUCT_CATEGORIES) {
+      expect(table).toContain(`${c.key}: [${c.angles.map((a) => `'${a.key}'`).join(', ')}]`);
+    }
+    expect((table.match(/^\s+[a-z-]+: \[/gm) ?? []).length).toBe(PRODUCT_CATEGORIES.length);
+  });
+
+  it('agree on how many references a brief attaches', () => {
+    expect(PRODUCT_REF_MAX).toBe(3);
+    expect(read('../../packages/cli/src/brief.ts')).toContain(`PRODUCT_REF_MAX = ${PRODUCT_REF_MAX}`);
   });
 });

@@ -240,3 +240,44 @@ describe('buildFromUrl', () => {
     await expect(buildFromUrl('https://down.example/', { fetchImpl: err })).rejects.toThrow(/HTTP 500/);
   });
 });
+
+describe('product identity sheet and reference provenance', () => {
+  const H = (c: string) => `asset:${c.repeat(32)}`;
+  const base = { specVersion: '0.1', meta: { name: 'Acme' } };
+
+  it('a product carries its identity sheet, a cover and per-shot provenance', () => {
+    const r = validateBrand({
+      ...base,
+      products: [
+        {
+          id: 'serum',
+          name: 'Serum',
+          promptName: 'Amber Glass Dropper Bottle',
+          description: 'A 30 ml amber glass dropper bottle with a black rubber bulb.',
+          materials: 'amber glass, black rubber bulb, matte black collar',
+          primaryColors: 'deep amber; matte black',
+          preservationNotes: 'Keep the collar-to-bottle proportion.',
+          negativeConstraints: 'Never invent lettering on the label.',
+          colorways: ['amber', 'clear'],
+          cover: H('a'),
+          shots: [
+            { file: H('a'), angle: 'front', locked: true },
+            { file: H('b'), angle: 'three-quarter', locked: true, source: 'derived' },
+          ],
+        },
+      ],
+    });
+    expect(r.errors).toEqual([]);
+    expect(r.valid).toBe(true);
+  });
+
+  it('a shot names its provenance only as photo or derived', () => {
+    const shot = (source: unknown) => ({
+      ...base,
+      products: [{ id: 'serum', name: 'Serum', shots: [{ file: H('a'), locked: true, source }] }],
+    });
+    expect(validateBrand(shot('photo')).valid).toBe(true);
+    expect(validateBrand(shot('derived')).valid).toBe(true);
+    expect(validateBrand(shot('guess')).valid).toBe(false);
+  });
+});

@@ -525,11 +525,25 @@ export interface ShowcaseEntry {
   previewUrl?: string | null;
 }
 
+/**
+ * One reference of a product. `source` says whether it is a photograph or a
+ * view Scenri drew from the photographs; the server resolves it on every
+ * read, so a missing value only ever means a raw brand row.
+ */
+export interface ProductShot {
+  file: string;
+  angle?: string | null;
+  locked?: boolean;
+  alt?: string | null;
+  local?: boolean;
+  source?: 'photo' | 'derived';
+}
+
 /** Products and cast are the same shape: a named thing with locked photos. */
 export interface Product {
   id: string;
   name: string;
-  shots?: { file: string; angle?: string; locked?: boolean; alt?: string | null; local?: boolean }[];
+  shots?: ProductShot[];
   /**
    * Store images taken out of the reference set. Never compiled into a shot.
    * Catalog products only — kept so a re-import does not fetch them back.
@@ -551,6 +565,16 @@ export interface Product {
   variant?: string | null;
   material?: string | null;
   dimensions?: string | null;
+  /** The identity sheet, when the product was read at creation (see productCover.ts for `cover`). */
+  promptName?: string | null;
+  description?: string | null;
+  materials?: string | null;
+  primaryColors?: string | null;
+  preservationNotes?: string | null;
+  negativeConstraints?: string | null;
+  colorways?: string[];
+  /** Display only: the reference every card and chip shows. Never read by the compiler. */
+  cover?: string | null;
   /** Catalog-origin only, straight from the store's own taxonomy (see packages/core's catalogStore). */
   productType?: string | null;
   tags?: string[];
