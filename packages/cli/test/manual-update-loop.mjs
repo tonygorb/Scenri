@@ -14,13 +14,14 @@
  * The fixture registry serves this package at 99.0.0; every other request is
  * relayed to registry.npmjs.org so the real dependencies resolve.
  */
-import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { packFixture } from './pack-fixture.mjs';
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOT = join(CLI, '..', '..');
@@ -40,19 +41,7 @@ if (spawnSync('npm', ['--version'], { stdio: 'ignore' }).status !== 0) {
 if (!existsSync(join(ROOT, 'apps', 'studio', 'dist', 'index.html'))) fail('run `pnpm build` first');
 
 // -- 1. assemble the current source as version 99.0.0 and pack it
-execFileSync('pnpm', ['exec', 'tsup'], { cwd: CLI, stdio: 'ignore' });
-execFileSync('node', [join(CLI, 'scripts', 'prepack.mjs')], { cwd: CLI, stdio: 'ignore' });
-const work = mkdtempSync(join(tmpdir(), 'sc-loop-'));
-const pkgDir = join(work, 'pkg');
-mkdirSync(pkgDir);
-for (const part of ['dist', 'studio-dist', 'templates', 'launcher', 'LICENSE', 'NOTICE', 'README.md']) {
-  cpSync(join(CLI, part), join(pkgDir, part), { recursive: true });
-}
-const manifest = JSON.parse(readFileSync(join(CLI, 'package.json'), 'utf8'));
-manifest.version = '99.0.0';
-manifest.scripts = {}; // no prepack in the copy: it is already assembled
-writeFileSync(join(pkgDir, 'package.json'), JSON.stringify(manifest, null, 2));
-const tarball = join(pkgDir, execFileSync('npm', ['pack', '--loglevel=error'], { cwd: pkgDir }).toString().trim());
+const { work, tarball, manifest } = packFixture('99.0.0', { prefix: 'sc-loop-' });
 ok(`packed ${tarball}`);
 
 // -- 2. a fixture registry: this package at 99.0.0, everything else relayed
