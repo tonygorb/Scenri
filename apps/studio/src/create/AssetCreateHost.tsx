@@ -5,12 +5,12 @@ import { useAppData, useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { CreateKind, PendingState } from '../createDraft.js';
-import { P, hubPath, productPath } from '../routes.js';
+import { P, hubPath, productPath, scenePath } from '../routes.js';
 import { useToasts } from '../toasts.js';
 import { AssetKindPicker } from './AssetKindPicker.js';
 import { PresenterForm } from './PresenterForm.js';
 import { ProductForm } from './ProductForm.js';
-import { SceneForm } from './SceneForm.js';
+import { SceneBuilder } from './scene/SceneBuilder.js';
 import type { Created } from './flow.js';
 
 /**
@@ -37,8 +37,17 @@ const KINDS = ['product', 'presenter', 'scene'] as const;
 const isKind = (v: string | null): v is CreateKind => !!v && (KINDS as readonly string[]).includes(v);
 
 interface CreateApi {
-  open: (kind: CreateKind | 'choose', opts?: { onCreated?: (made: Created) => void }) => void;
+  open: (
+    kind: CreateKind | 'choose',
+    opts?: {
+      onCreated?: (made: Created) => void;
+      /** A scene build to pick back up, from the card on the Scenes wall. */
+      build?: string;
+    },
+  ) => void;
 }
+/** Rides beside `?new=scene`: the job the builder is attached to. */
+const COMPANIONS = ['build'] as const;
 const Ctx = createContext<CreateApi | null>(null);
 
 /** Open a creation flow from anywhere, without a dialog of your own. */
@@ -53,9 +62,10 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { push } = useToasts();
   const { refresh: refreshBrands } = useAppData();
-  const { builds, poke } = useTaskCenter();
-  const param = useDialogParam('new');
+  const { builds, poke, markAnnounced } = useTaskCenter();
+  const param = useDialogParam('new', COMPANIONS);
   const value = param.value;
+  const buildParam = param.companion('build');
 
   // Where the launcher should put the keyboard, and what a bare + means here.
   const onProducts = !!useMatch({ path: P.products, end: false });
@@ -92,7 +102,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
       openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setCameFromChooser(kind === 'choose');
       setRestore(false);
-      openParam(kind === 'choose' ? CHOOSER : kind);
+      openParam(kind === 'choose' ? CHOOSER : kind, opts?.build ? { build: opts.build } : undefined);
     },
     [openParam],
   );
@@ -221,14 +231,30 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         });
         return;
       }
+      if (made.kind === 'scene') {
+        // The builder stayed open until the scene was written, so it exists
+        // now, and this is its one announcement; the bell's would be a second.
+        markAnnounced(`build:${made.jobId}`);
+        void refreshBrands();
+        if (cb?.kind === 'scene') cb.fn(made);
+        push({
+          kind: 'success',
+          title: `${made.name} saved`,
+          actions: [
+            { label: 'Use in a shot', onClick: () => navigate(`${hubPath(brand)}?scene=${made.id}&compose=1`) },
+            { label: 'Open', onClick: () => navigate(scenePath(brand, made.id)) },
+          ],
+        });
+        return;
+      }
       if (cb?.kind === made.kind) cb.fn(made);
       push({
         kind: 'success',
         title: `Building ${made.name}`,
-        detail: made.kind === 'presenter' ? 'Four studio views. The bell will say when.' : 'The bell will say when.',
+        detail: 'Four studio views. The bell will say when.',
       });
     },
-    [brand, close, navigate, poke, push, refreshBrands],
+    [brand, close, markAnnounced, navigate, poke, push, refreshBrands],
   );
 
   const api2 = useMemo<CreateApi>(() => ({ open }), [open]);
@@ -260,7 +286,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
           form's fields into another's. */}
       {kind === 'product' && <ProductForm key="product" {...flowProps} />}
       {kind === 'presenter' && <PresenterForm key="presenter" {...flowProps} />}
-      {kind === 'scene' && <SceneForm key="scene" {...flowProps} />}
+      {kind === 'scene' && <SceneBuilder key="scene" {...flowProps} build={buildParam} />}
     </Ctx.Provider>
   );
 }

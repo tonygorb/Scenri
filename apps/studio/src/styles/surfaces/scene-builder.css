@@ -1,0 +1,281 @@
+/* ---------- 6.7 building a scene ---------------------------------------
+   The create dialog, worn by a flow that is a picture being decided on
+   rather than a form being filled. Same shell, same head, same foot, same
+   sheet on a phone; wider on a desktop, and the body is a stage with a
+   board under it and the words to one side. Everything here is scoped to
+   .sc-scenebuilder so the product and presenter dialogs never feel it.
+
+   Imported right after add-to-brand.css: it restates the foot, the body
+   padding and the sheet's keyboard room at equal specificity, and sizes the
+   card pucks and the reference well, all of which import earlier. */
+.sc-newdlg.sc-scenebuilder {
+  --sc-newdlg-max: 920px;
+}
+/* The foot holds a row now: quiet verbs leading, the primary taking the rest. */
+.sc-scenebuilder .sc-newdlg-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+}
+.sc-scenebuilder .sc-newdlg-actions > .sc-dlg-go {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+}
+.sc-scenebuilder .sc-newdlg-side {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+.sc-scenebuilder .sc-newdlg-side .sc-btn {
+  white-space: nowrap;
+}
+
+.sc-sb {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 296px;
+  gap: var(--sc-space-6) var(--sc-space-7);
+  align-items: start;
+}
+.sc-sb-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+  min-width: 0;
+}
+.sc-sb-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-5);
+  min-width: 0;
+}
+
+/* The stage: one 4:5 frame, bounded by the viewport so the foot stays put. */
+.sc-sb-stage-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+.sc-sb-stage {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  height: min(58dvh, 600px);
+  max-width: 100%;
+  margin: 0 auto;
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-well);
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+  overflow: hidden;
+}
+.sc-sb-stage > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.sc-sb-blank {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--sc-fg3);
+}
+.sc-sb-stage .sc-shimmer {
+  --sc-shimmer-dur: 2.9s;
+}
+/* The upload well fills the stage at entry and keeps the stage's shape. */
+.sc-sb-well {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--sc-space-5);
+}
+.sc-sb-well .sc-assetwell,
+.sc-sb-well .sc-assetwell .sc-dropzone {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+.sc-sb-well .sc-assetform-refs {
+  align-content: start;
+}
+.sc-sb-covertag,
+.sc-sb-tilecover {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  padding: 3px 8px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-scrim);
+  color: var(--sc-scrim-fg);
+  font-size: var(--sc-text-micro);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+}
+.sc-sb-tilecover {
+  left: 4px;
+  top: 4px;
+  padding: 1px 5px;
+  font-size: 9px;
+}
+.sc-sb-clock {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+}
+.sc-sb-status {
+  margin: 0;
+  color: var(--sc-fg2);
+  font-size: 12px;
+  line-height: 1.45;
+  text-wrap: pretty;
+  min-height: 1.45em;
+}
+
+/* The verbs under the stage: quiet, in a row, wrapping on a narrow sheet. */
+.sc-sb-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-2);
+}
+.sc-sb-adjust {
+  margin-top: 0;
+}
+
+/* The board: the set as it grows, one strip, scrolled sideways when long. */
+.sc-sb-board {
+  display: flex;
+  gap: var(--sc-space-3);
+  padding: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sc-sb-board::-webkit-scrollbar {
+  display: none;
+}
+.sc-sb-tilewrap {
+  position: relative;
+  flex: none;
+}
+.sc-sb-tile {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 72px;
+  aspect-ratio: 4 / 5;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius);
+  background: var(--sc-well);
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+  overflow: hidden;
+  cursor: pointer;
+  color: var(--sc-fg3);
+}
+.sc-sb-tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.sc-sb-tile[data-drawing] {
+  cursor: default;
+  display: grid;
+  place-items: end center;
+  padding-bottom: 4px;
+}
+.sc-sb-tile[data-drawing] .sc-cell-tag {
+  position: relative;
+  z-index: 1;
+}
+/* The redraw puck sits on the tile's corner and shows itself to a pointer;
+   on touch the stage row carries the same verb at a real size. */
+.sc-sb-puck {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  opacity: 0;
+}
+.sc-sb-tilewrap:hover .sc-sb-puck,
+.sc-sb-tilewrap:focus-within .sc-sb-puck {
+  opacity: 1;
+}
+@media (hover: none) {
+  .sc-sb-puck {
+    display: none;
+  }
+}
+
+/* The words: the reading while it draws, the sheet at review. */
+.sc-sb-note {
+  margin: 0;
+  color: var(--sc-fg3);
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.sc-sb-reading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+.sc-sb-review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+}
+.sc-sb-review .sc-assetform-facets {
+  margin: 0;
+}
+.sc-sb-addview {
+  align-self: flex-start;
+}
+
+/* A scene build waiting for its person on the wall: quiet, no bar, no shimmer. */
+.sc-lookcard[data-paused] .sc-lookcard-media {
+  background: var(--sc-well);
+}
+.sc-lookcard[data-paused] .sc-lookcard-cap span {
+  color: var(--sc-fg2);
+}
+
+@media (max-width: 767px) {
+  /* The sheet keeps its room above the keyboard: the name is typed at review. */
+  .sc-newdlg.sc-scenebuilder {
+    max-height: calc(92dvh - var(--sc-kb, 0px));
+    padding-bottom: max(var(--sc-space-7), var(--sc-bottom-inset, 0px));
+  }
+  .sc-sb {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sc-space-5);
+  }
+  /* At entry the words come first: the well below is optional. */
+  .sc-sb[data-screen="entry"] .sc-sb-side {
+    order: -1;
+  }
+  .sc-sb-stage {
+    height: auto;
+    width: 100%;
+  }
+  .sc-sb-tile {
+    width: 48px;
+  }
+  .sc-sb-row .sc-btn {
+    min-height: 44px;
+  }
+  .sc-scenebuilder .sc-newdlg-actions {
+    flex-wrap: wrap;
+  }
+  .sc-scenebuilder .sc-newdlg-actions > .sc-dlg-go {
+    flex-basis: 100%;
+  }
+}
+@media (pointer: coarse) {
+  .sc-sb-row .sc-btn,
+  .sc-sb-addview {
+    min-height: 44px;
+  }
+}

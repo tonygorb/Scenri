@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { Spinner } from '@radix-ui/themes';
 import { CaretLeft, X } from '@phosphor-icons/react';
 import { useDialogParam } from '../app/AppShell.js';
@@ -27,6 +27,10 @@ export function AssetCreateShell({
   blocked,
   busy,
   width = '440px',
+  className,
+  secondary,
+  primaryRef,
+  onOpenAutoFocus,
   onBack,
   onPrimary,
   onPasteFiles,
@@ -45,6 +49,13 @@ export function AssetCreateShell({
   busy?: boolean;
   /** Only the measure changes between flows; everything else is fixed. */
   width?: string;
+  /** A hook on the panel for a flow that lays its body out differently. */
+  className?: string;
+  /** Quiet verbs beside the primary: Try again, Adjust, Stop. Rendered in the same row. */
+  secondary?: ReactNode;
+  /** The primary, for a flow that moves focus to it when its screen changes. */
+  primaryRef?: Ref<HTMLButtonElement>;
+  onOpenAutoFocus?: (e: Event) => void;
   /** Rendered only when there is a chooser behind this to go back to. */
   onBack?: () => void;
   onPrimary: () => void;
@@ -56,6 +67,8 @@ export function AssetCreateShell({
   return (
     <DialogSheet
       maxWidth={width}
+      className={className}
+      onOpenAutoFocus={onOpenAutoFocus}
       onDismiss={close}
       onPaste={(e) => {
         if (!onPasteFiles) return;
@@ -82,26 +95,30 @@ export function AssetCreateShell({
 
       <div className="sc-newdlg-body">{children}</div>
 
-      <div className="sc-newdlg-foot">
+      <div className="sc-newdlg-foot" data-secondary={secondary ? '' : undefined}>
         {error && (
           <p className="sc-newdlg-err" role="alert">
             {error}
           </p>
         )}
-        <button
-          type="button"
-          className="sc-btn sc-btn-primary sc-dlg-go"
-          // aria-disabled, not the native attribute: a disabled button leaves
-          // the tab order, taking the only explanation of why it is inert with it.
-          aria-disabled={!ready || busy || undefined}
-          title={blocked}
-          onClick={() => {
-            if (ready && !busy) onPrimary();
-          }}
-        >
-          {busy ? <Spinner size="1" /> : null}
-          {primaryLabel}
-        </button>
+        <div className="sc-newdlg-actions">
+          {secondary && <div className="sc-newdlg-side">{secondary}</div>}
+          <button
+            ref={primaryRef}
+            type="button"
+            className="sc-btn sc-btn-primary sc-dlg-go"
+            // aria-disabled, not the native attribute: a disabled button leaves
+            // the tab order, taking the only explanation of why it is inert with it.
+            aria-disabled={!ready || busy || undefined}
+            title={blocked}
+            onClick={() => {
+              if (ready && !busy) onPrimary();
+            }}
+          >
+            {busy ? <Spinner size="1" /> : null}
+            {primaryLabel}
+          </button>
+        </div>
         {footnote && <p className="sc-dlg-foot">{footnote}</p>}
       </div>
     </DialogSheet>

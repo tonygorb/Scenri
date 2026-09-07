@@ -12,17 +12,18 @@ import { nodeLabel, type FeedNode, thumbUrl } from '../api.js';
 
 /** One reference frame. A 404 reads the same as never having had one: the
  * blank box, not a broken-image glyph the browser drew on its own. */
-export function RefFrame({ src }: { src: string }) {
+export function RefFrame({ src, alt = '', caption }: { src: string; alt?: string; caption?: string }) {
   const [broken, setBroken] = useState(false);
   return (
-    <div className="sc-lookpage-ref">
+    <div className="sc-lookpage-ref" data-captioned={caption ? '' : undefined}>
       {broken ? (
         <span className="sc-lookpage-ref-blank">
           <ImageSquare size={20} />
         </span>
       ) : (
-        <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} />
+        <img src={src} alt={alt} loading="lazy" onError={() => setBroken(true)} />
       )}
+      {caption && <span className="sc-lookpage-ref-cap">{caption}</span>}
     </div>
   );
 }

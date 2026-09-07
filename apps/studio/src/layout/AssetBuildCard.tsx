@@ -20,14 +20,20 @@ export function AssetBuildCard({
   onCancel,
   onRetry,
   onDismiss,
+  onResume,
 }: {
   build: AssetBuild;
   onCancel?: (id: string) => void;
   onRetry?: (build: AssetBuild) => void;
   /** Forget a build that failed. Without it the card sits there for another twelve. */
   onDismiss?: (id: string) => void;
+  /** A scene build waiting for its person: open the builder on it. */
+  onResume?: (build: AssetBuild) => void;
 }) {
   const failed = build.stage === 'failed';
+  // A third state: not drawing, not over, waiting for a decision.
+  const paused = build.stage === 'awaiting' || build.stage === 'reviewing';
+  const title = build.name || build.suggestedName || (build.kind === 'scene' ? 'New scene' : 'New presenter');
   const pct = build.steps > 0 ? Math.round((build.step / build.steps) * 100) : 0;
   /*
    * A failed build used to put the raw thrown string in the caption, where the
@@ -36,7 +42,7 @@ export function AssetBuildCard({
    * way every other failure in the app is; the raw text stays on the title.
    */
   const failure = failed ? describeFailure(build.error) : null;
-  const status = failure ? failure.title : (build.message ?? 'Starting');
+  const status = failure ? failure.title : paused ? 'Waiting for you' : (build.message ?? 'Starting');
 
   /*
    * What the build wants to tell you that is not its status: a view that could
@@ -49,14 +55,29 @@ export function AssetBuildCard({
     // data-build carries the always-visible caption; data-building is the
     // running half of that. A card whose whole job is to report progress
     // cannot hide its status behind a hover the way a finished card does.
-    <div className="sc-lookcard" data-variant="plain" data-size="grid" data-build data-building={!failed || undefined}>
+    <div
+      className="sc-lookcard"
+      data-variant="plain"
+      data-size="grid"
+      data-build
+      data-building={(!failed && !paused) || undefined}
+      data-paused={paused || undefined}
+    >
       <div className="sc-lookcard-media">
         {build.previewHash ? (
           <img src={thumbUrl(build.previewHash, 'tile')} alt="" />
         ) : (
-          <span className="sc-lookcard-blank">{failed ? null : <Spinner />}</span>
+          <span className="sc-lookcard-blank">{failed || paused ? null : <Spinner />}</span>
         )}
-        {!failed && (
+        {paused && onResume && (
+          <button
+            type="button"
+            className="sc-lookcard-open"
+            aria-label={`Continue building ${title}`}
+            onClick={() => onResume(build)}
+          />
+        )}
+        {!failed && !paused && (
           <span className="sc-buildbar" aria-hidden>
             <span style={{ width: `${Math.max(6, pct)}%` }} />
           </span>
@@ -65,7 +86,7 @@ export function AssetBuildCard({
           <button
             type="button"
             className="sc-cardpuck"
-            aria-label={`Stop building ${build.name}`}
+            aria-label={`Stop building ${title}`}
             onClick={() => onCancel(build.id)}
           >
             <X size={13} />
@@ -75,7 +96,7 @@ export function AssetBuildCard({
           <button
             type="button"
             className="sc-cardpuck"
-            aria-label={`Dismiss ${build.name}`}
+            aria-label={`Dismiss ${title}`}
             onClick={() => onDismiss(build.id)}
           >
             <X size={13} />
@@ -86,9 +107,14 @@ export function AssetBuildCard({
             <ArrowClockwise size={12} /> Try again
           </button>
         )}
+        {paused && onResume && (
+          <button type="button" className="sc-lookcard-use" onClick={() => onResume(build)}>
+            Continue
+          </button>
+        )}
       </div>
       <span className="sc-lookcard-cap" title={failure?.raw || status}>
-        <b dir="auto">{build.name}</b>
+        <b dir="auto">{title}</b>
         <span>{status}</span>
       </span>
       {notes.length > 0 && (

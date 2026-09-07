@@ -203,13 +203,31 @@ export const api = {
     brandId: string,
     p: {
       kind: 'presenter' | 'scene';
-      name: string;
+      /** A presenter is named up front; a scene is named at review. */
+      name?: string;
       instruction?: string;
       imageHashes: string[];
       /** Where it files: a presenter's industries, a scene's verticals. */
       facets?: string[];
+      /** Scene only: how many frames the set is built to, four to six. */
+      target?: number;
+      /** Scene only: frames of `imageHashes` this app drew in an earlier attempt. */
+      drawnHashes?: string[];
     },
   ) => req<{ jobId: string }>('POST', `/api/brands/${brandId}/asset-builds`, p),
+  // ---- the decisions a staged scene build waits for
+  approveSceneBuild: (brandId: string, jobId: string) =>
+    req<SceneBuildReply>('POST', `/api/brands/${brandId}/asset-builds/${jobId}/approve`),
+  retrySceneFrame: (brandId: string, jobId: string, frame?: string) =>
+    req<SceneBuildReply>('POST', `/api/brands/${brandId}/asset-builds/${jobId}/retry`, frame ? { frame } : {}),
+  adjustSceneBuild: (brandId: string, jobId: string, note: string) =>
+    req<SceneBuildReply>('POST', `/api/brands/${brandId}/asset-builds/${jobId}/adjust`, { note }),
+  removeSceneFrame: (brandId: string, jobId: string, hash: string) =>
+    req<SceneBuildReply>('DELETE', `/api/brands/${brandId}/asset-builds/${jobId}/frame/${hash}`),
+  addSceneView: (brandId: string, jobId: string) =>
+    req<SceneBuildReply>('POST', `/api/brands/${brandId}/asset-builds/${jobId}/add-view`),
+  finishSceneBuild: (brandId: string, jobId: string, p: { name: string; cover: string | null; facets?: string[] }) =>
+    req<SceneBuildReply>('POST', `/api/brands/${brandId}/asset-builds/${jobId}/finish`, p),
   assetBuild: (brandId: string, jobId: string) =>
     req<AssetBuild>('GET', `/api/brands/${brandId}/asset-builds/${jobId}`),
   assetBuilds: (brandId: string) => req<{ builds: AssetBuild[] }>('GET', `/api/brands/${brandId}/asset-builds`),
@@ -251,6 +269,13 @@ export const api = {
   rereadScene: (brandId: string, sceneId: string, correction?: string) =>
     req<{ jobId: string }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/reread`, { correction }),
 };
+
+/** What every decision on a staged scene build answers with: the job, as it now stands. */
+export interface SceneBuildReply {
+  ok: true;
+  stage: AssetBuild['stage'];
+  job: AssetBuild;
+}
 
 /**
  * Whether this machine can read references and draw from them.
