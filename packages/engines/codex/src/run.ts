@@ -164,6 +164,25 @@ export function codexFailureDetail(stderr: string, stdout: string): string {
 }
 
 /**
+ * codex's own refusal when ~/.codex/config.toml names a model the installed
+ * CLI predates. Captured live on 2026-09-07 (v0.145.0; the Codex desktop app
+ * beside it had written model = "gpt-6-astra"):
+ *
+ *   ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error",
+ *   "message":"The 'gpt-6-astra' model requires a newer version of Codex. ..."}}
+ *
+ * Scenri passes no --model on purpose (the config is the user's), so the fix
+ * is the one codex names: a newer CLI. Not a floor matter: the flag surface is
+ * fine, this version simply predates that model.
+ */
+const MODEL_NEEDS_NEWER_CODEX = /The '([^']+)' model requires a newer version of Codex/;
+
+/** The sentence both the failed exec and the probe say about it; the exec adds what to do. */
+function tooOldForModel(version: string | null, model: string): string {
+  return `Codex CLI ${version ?? 'on this computer'} is too old for the model it is set to, ${model}.`;
+}
+
+/**
  * End a spawned child for real. On POSIX the child is spawned detached, which
  * makes it its own process-group leader, so a negative-pid SIGTERM reaches
  * codex's own descendants (sips, cp, sandbox helpers) too — a plain kill on
@@ -242,6 +261,16 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
     resolved ??= await resolveCodex(platform, spawnImpl);
     return resolved;
   }
+
+  // What the last probe read from `codex --version`, and the verdict a failed
+  // exec pinned on it. The probe alone cannot see a model the CLI predates:
+  // the version meets the floor and login status exits 0, so it answered ready
+  // while every exec died with codex's 400, and the setup wizard showed a green
+  // check under a failed shot. The exec that finds out records it here, and
+  // the probe repeats it for exactly that version. A newer codex clears it;
+  // "check again" on the same one does not.
+  let knownVersion: string | null = null;
+  let tooOldFor: { version: string | null; model: string } | null = null;
 
   // On Windows, npm installs codex as codex.cmd, and a .cmd only runs through
   // a shell (CVE-2024-27980 made Node refuse it otherwise). The prompt can
@@ -404,6 +433,18 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
           );
           return;
         }
+        // The configured model outranks this CLI: say so, and let the probe
+        // say the same until the CLI changes (see tooOldFor).
+        const newer = MODEL_NEEDS_NEWER_CODEX.exec(stderr);
+        if (newer) {
+          const model = newer[1];
+          tooOldFor = { version: knownVersion, model };
+          invalidateProbe();
+          finish(`exit-${code ?? 'unknown'}`, () =>
+            reject(new Error(`${tooOldForModel(knownVersion, model)} Update Codex CLI, then run this again.`)),
+          );
+          return;
+        }
         const snippet = codexFailureDetail(stderr, stdout);
         finish(`exit-${code ?? 'unknown'}`, () =>
           reject(new Error(`codex exited with code ${code ?? 'unknown'}${snippet ? `: ${snippet}` : ''}`)),
@@ -520,6 +561,7 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
       return verdict({ ok: false, reason: NOT_INSTALLED_REASON, code: 'not-installed' }, exe, null);
     }
     const version = parseCodexVersion(ver.stdout);
+    knownVersion = version;
     if (version && !versionAtLeast(version, MIN_CODEX_VERSION)) {
       return verdict(
         {
@@ -530,6 +572,17 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
         exe,
         version,
       );
+    }
+    if (tooOldFor) {
+      if (version === tooOldFor.version) {
+        return verdict(
+          { ok: false, reason: tooOldForModel(version, tooOldFor.model), code: 'update-needed' },
+          exe,
+          version,
+        );
+      }
+      // A different codex is a different question; that verdict said nothing about it.
+      tooOldFor = null;
     }
 
     const login = await probeSpawn(exe, ['login', 'status']);

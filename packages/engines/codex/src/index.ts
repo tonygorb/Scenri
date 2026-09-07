@@ -439,7 +439,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
    * plus codex's stable not-signed-in wording.
    */
   function isFatalSetupError(err: unknown): boolean {
-    return /failed to spawn|ENOENT|not logged in|login required|401|unauthorized/i.test(
+    return /failed to spawn|ENOENT|not logged in|login required|401|unauthorized|is too old/i.test(
       String((err as Error)?.message ?? err),
     );
   }
