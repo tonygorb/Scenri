@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.9.2',
+    date: '2026-09-07',
+    sections: [
+      {
+        heading: 'Fixes',
+        body: 'If the Codex app has switched to a model your Codex CLI is too old for, a shot now stops with a plain sentence naming the version and the model, and the setup dialog opens on the update step rather than a green check. Update the CLI once and generation resumes.',
+      },
+    ],
+  },
+  {
     version: '0.9.1',
     date: '2026-09-07',
     sections: [
