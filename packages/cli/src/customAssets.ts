@@ -19,7 +19,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
-import type { BrandContext, Core, EngineAdapter } from '@scenri/core';
+import type { BrandContext, Core, EngineAdapter, ReferenceRole } from '@scenri/core';
 import type { PresenterDraft, ProductDraft, SceneDraft } from '@scenri/engine-codex';
 
 /* --------------------------------------------------------------- records */
@@ -1112,14 +1112,14 @@ export function scenePreviewPrompt(scene: CustomScene): string {
 
 /* ----------------------------------------------------------- shared parts */
 
-/** One image, through whichever engine the brand builds with. */
-async function draw(
+/** One image, through whichever engine the brand builds with. Shared with the product studio's candidates. */
+export async function draw(
   deps: AssetBuildDeps,
   req: {
     prompt: string;
     brandId: string;
     referenceImages?: string[];
-    referenceRoles?: ('character' | 'scene')[];
+    referenceRoles?: ReferenceRole[];
     signal: AbortSignal;
   },
 ): Promise<string> {

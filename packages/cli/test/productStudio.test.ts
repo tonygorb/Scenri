@@ -120,3 +120,126 @@ describe('product studio: analyze', () => {
     expect((await analyze(brand.id, [])).statusCode).toBe(400);
   });
 });
+
+/**
+ * Save is the one write every product has always used, widened: a shot may
+ * name its angle and its provenance, the sheet rides beside the name, and a
+ * cover may be chosen. A drawn view is accepted only when this brand kept it
+ * as a candidate, so nothing can launder an arbitrary image into "derived".
+ */
+describe('product studio: save', () => {
+  let home: string;
+  let core: Core;
+  let app: FastifyInstance;
+
+  const png = (tint: string) =>
+    sharp({ create: { width: 32, height: 40, channels: 3, background: tint } })
+      .png()
+      .toBuffer();
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'sc-psave-'));
+    core = createCore(home);
+    app = buildServer({ core, engines: { all: () => [], get: () => null } });
+  });
+  afterEach(async () => {
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  const newBrand = async () =>
+    (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', meta: { name: 'Acme' } } },
+      })
+    ).json();
+
+  it('writes the photographs, the sheet and the cover in one write and answers with the id', async () => {
+    const brand = await newBrand();
+    const [a, b] = [core.images.save(await png('#334466')), core.images.save(await png('#554466'))];
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/products`,
+      payload: {
+        name: 'Serum',
+        category: 'beauty',
+        shots: [
+          { hash: a, angle: 'front' },
+          { hash: b, angle: 'label' },
+        ],
+        cover: a,
+        dimensions: '30 ml, 95 mm tall',
+        sheet: {
+          promptName: 'Amber Glass Dropper Bottle',
+          description: 'A 30 ml amber glass dropper bottle.',
+          materials: 'amber glass',
+          primaryColors: 'deep amber',
+          preservationNotes: 'Keep the proportion.',
+          negativeConstraints: 'Never invent lettering.',
+          colorways: ['amber'],
+        },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const { productId } = res.json();
+    const product = (core.store.getBrand(brand.id)!.json as any).products.find((p: any) => p.id === productId);
+    expect(product.shots).toEqual([
+      { file: `asset:${a}`, angle: 'front', locked: true },
+      { file: `asset:${b}`, angle: 'label', locked: true },
+    ]);
+    expect(product.cover).toBe(`asset:${a}`);
+    expect(product).toMatchObject({
+      name: 'Serum',
+      category: 'beauty',
+      dimensions: '30 ml, 95 mm tall',
+      promptName: 'Amber Glass Dropper Bottle',
+      description: 'A 30 ml amber glass dropper bottle.',
+      materials: 'amber glass',
+      primaryColors: 'deep amber',
+      preservationNotes: 'Keep the proportion.',
+      negativeConstraints: 'Never invent lettering.',
+      colorways: ['amber'],
+    });
+    // the library reads it back the way the compiler will see it
+    const lib = core.catalog.listLibraryProducts(brand.id, core.store.getBrand(brand.id)!.json);
+    expect(lib[0].shots.map((s) => s.source)).toEqual(['photo', 'photo']);
+    expect(lib[0].promptName).toBe('Amber Glass Dropper Bottle');
+  });
+
+  it('refuses a drawn view this brand never kept, and a product with no photograph', async () => {
+    const brand = await newBrand();
+    const [a, b] = [core.images.save(await png('#334466')), core.images.save(await png('#554466'))];
+    const forged = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/products`,
+      payload: {
+        name: 'Serum',
+        shots: [
+          { hash: a, angle: 'front' },
+          { hash: b, angle: 'three-quarter', source: 'derived' },
+        ],
+      },
+    });
+    expect(forged.statusCode).toBe(400);
+    const noPhoto = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/products`,
+      payload: { name: 'Serum', shots: [{ hash: a, source: 'derived' }] },
+    });
+    expect(noPhoto.statusCode).toBe(400);
+  });
+
+  it('still takes the old shape, so every existing caller keeps working', async () => {
+    const brand = await newBrand();
+    const a = core.images.save(await png('#334466'));
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/products`,
+      payload: { name: 'Blend', imageHashes: [a] },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().productId).toMatch(/^p-/);
+  });
+});

@@ -26,7 +26,7 @@ import {
   type CustomScene,
 } from '../customAssets.js';
 import { presenterCropMode } from '../presenterRepair.js';
-import { brandContext, COST_PROBE } from './shared.js';
+import { brandContext, COST_PROBE, pickBuildEngine } from './shared.js';
 
 export function registerAssetBuildRoutes(
   app: FastifyInstance,
@@ -41,27 +41,8 @@ export function registerAssetBuildRoutes(
   const { core, engines, scenes, presenters } = deps;
   const analyzer: Analyzer | null = deps.analyzer ?? createCodexAnalyzer({ runner: engines.codexRunner });
 
-  /**
-   * Which engine draws a person's studio views and a scene's preview.
-   *
-   * Prefers codex-cli: it is local, adds no bill of ours on top of the plan the
-   * user already pays for, and carries six references, which is what a chained
-   * identity plan needs. Any
-   * available engine that can take a reference at all will do; one that takes
-   * none could not hold a face, so it is not offered.
-   */
-  const buildEngine = async (): Promise<EngineAdapter | null> => {
-    const ordered = [...engines.all()].sort((a, b) => {
-      const rank = (e: EngineAdapter) => (e.capabilities().id === 'codex-cli' ? 0 : 1);
-      return rank(a) - rank(b);
-    });
-    for (const engine of ordered) {
-      const caps = engine.capabilities();
-      if (!caps.maxReferenceImages || caps.placeholder) continue;
-      if ((await engine.isAvailable()).ok) return engine;
-    }
-    return null;
-  };
+  /** The one engine choice every build shares; see pickBuildEngine. */
+  const buildEngine = (): Promise<EngineAdapter | null> => pickBuildEngine(engines);
 
   const buildDeps = async (): Promise<AssetBuildDeps> => ({
     core,

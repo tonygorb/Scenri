@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
 export interface ImageStore {
@@ -7,6 +7,13 @@ export interface ImageStore {
   pathFor(hash: string): string;
   read(hash: string): Buffer;
   has(hash: string): boolean;
+  /**
+   * Unlink one picture. The store is content-addressed and nothing else ever
+   * deletes from it, so this exists for exactly one caller: the product
+   * studio, for the bytes of a drawn view nobody kept. Callers check
+   * `store.imageReferenced` first; this only knows the disk.
+   */
+  remove(hash: string): boolean;
 }
 
 export function createImageStore(homeDir: string): ImageStore {
@@ -32,6 +39,12 @@ export function createImageStore(homeDir: string): ImageStore {
     },
     has(hash) {
       return /^[a-f0-9]{32}$/.test(hash) && existsSync(fileFor(hash));
+    },
+    remove(hash) {
+      const file = this.pathFor(hash);
+      if (!existsSync(file)) return false;
+      unlinkSync(file);
+      return true;
     },
   };
 }

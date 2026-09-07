@@ -4,7 +4,18 @@ import type { ProductDraft } from '@scenri/engine-codex';
 import type { Analyzer } from '../customAssets.js';
 import { PRODUCT_ANGLES_BY_CATEGORY } from '../demoProducts.js';
 import type { EngineRegistry } from '../engines.js';
+import {
+  abandonDraft,
+  cancelCandidate,
+  getCandidate,
+  keepCandidate,
+  rejectCandidate,
+  startCandidate,
+  type CandidateDeps,
+} from '../productCandidates.js';
 import { plannedViews } from '../productPlan.js';
+import type { ThumbStore } from '../thumbs.js';
+import { brandContext, pickBuildEngine } from './shared.js';
 
 /**
  * The product studio's server half.
@@ -18,9 +29,21 @@ import { plannedViews } from '../productPlan.js';
  */
 export function registerProductStudioRoutes(
   app: FastifyInstance,
-  deps: { core: Core; engines: EngineRegistry; analyzer?: Analyzer | null },
+  deps: { core: Core; engines: EngineRegistry; analyzer?: Analyzer | null; thumbs?: ThumbStore | null },
 ): void {
-  const { core, analyzer } = deps;
+  const { core, engines, analyzer, thumbs } = deps;
+
+  const candidateDeps = async (): Promise<CandidateDeps> => ({
+    core,
+    engine: await pickBuildEngine(engines),
+    analyzer: null,
+    brandContext: (brandId: string) => brandContext(core, brandId),
+    vocabulary: { collections: [], verticals: [], categories: [] },
+    thumbs: thumbs ?? null,
+  });
+
+  const sendError = (reply: any, err: any) =>
+    reply.status(err?.statusCode ?? 500).send({ error: err?.message ?? 'failed' });
 
   const brandOr404 = (req: any, reply: any) => {
     const brand = core.store.getBrand(String(req.params.id));
@@ -88,5 +111,80 @@ export function registerProductStudioRoutes(
       coverage,
       plan: plannedViews(sheet.category, angles),
     };
+  });
+
+  /* ---------------------------------------------------------- candidates */
+
+  const candidateOr404 = (req: any, reply: any) => {
+    const c = getCandidate(String(req.params.jobId));
+    if (!c || c.brandId !== String(req.params.id)) {
+      reply.status(404).send({ error: 'candidate not found' });
+      return null;
+    }
+    return c;
+  };
+
+  /** Draw one view. Answers the moment the work is queued; the studio polls the record. */
+  app.post('/api/brands/:id/product-studio/candidates', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const body = (req.body ?? {}) as any;
+    const photos = Array.isArray(body.photoHashes) ? body.photoHashes.map((h: unknown) => String(h)) : [];
+    const kept = Array.isArray(body.keptHashes) ? body.keptHashes.map((h: unknown) => String(h)) : [];
+    try {
+      const made = startCandidate(await candidateDeps(), {
+        brandId: brand.id,
+        draftId: String(body.draftId ?? 'draft'),
+        angle: String(body.angle ?? ''),
+        photoHashes: photos,
+        keptHashes: kept,
+        sheet: body.sheet && typeof body.sheet === 'object' ? body.sheet : null,
+        correction: body.correction == null ? null : String(body.correction),
+        attempt: Number(body.attempt ?? 1),
+      });
+      return reply.status(202).send(made);
+    } catch (err: any) {
+      return sendError(reply, err);
+    }
+  });
+  app.get('/api/brands/:id/product-studio/candidates/:jobId', async (req, reply) => {
+    if (!brandOr404(req, reply)) return;
+    const c = candidateOr404(req, reply);
+    if (!c) return;
+    return c;
+  });
+  app.post('/api/brands/:id/product-studio/candidates/:jobId/keep', async (req, reply) => {
+    if (!brandOr404(req, reply)) return;
+    const c = candidateOr404(req, reply);
+    if (!c) return;
+    try {
+      return { candidate: keepCandidate(c.id) };
+    } catch (err: any) {
+      return sendError(reply, err);
+    }
+  });
+  app.post('/api/brands/:id/product-studio/candidates/:jobId/reject', async (req, reply) => {
+    if (!brandOr404(req, reply)) return;
+    const c = candidateOr404(req, reply);
+    if (!c) return;
+    try {
+      return { candidate: rejectCandidate(await candidateDeps(), c.id) };
+    } catch (err: any) {
+      return sendError(reply, err);
+    }
+  });
+  app.post('/api/brands/:id/product-studio/candidates/:jobId/cancel', async (req, reply) => {
+    if (!brandOr404(req, reply)) return;
+    const c = candidateOr404(req, reply);
+    if (!c) return;
+    cancelCandidate(c.id);
+    return { ok: true };
+  });
+  /** The draft is over without a save: every view it drew and did not hand to a product goes. */
+  app.delete('/api/brands/:id/product-studio/drafts/:draftId', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const removed = abandonDraft(await candidateDeps(), brand.id, String((req.params as any).draftId));
+    return { ok: true, removed };
   });
 }
