@@ -136,8 +136,8 @@ function dialog(message) {
         { stdio: 'ignore' },
       );
     } else if (process.platform === 'win32') {
-      // Detached: no console to flash, and no SW_HIDE hint, which would hide
-      // the box itself (the first window that process shows).
+      // windowsHide keeps the console off screen and the box still shows;
+      // probed on a real Windows desktop, where a detached PowerShell shows nothing.
       spawnSync(
         powershell(),
         [
@@ -146,7 +146,7 @@ function dialog(message) {
           '-Command',
           "Add-Type -AssemblyName System.Windows.Forms | Out-Null; [System.Windows.Forms.MessageBox]::Show($env:SCENRI_MESSAGE, 'Scenri') | Out-Null",
         ],
-        { stdio: 'ignore', detached: true, env: { ...process.env, SCENRI_MESSAGE: message } },
+        { stdio: 'ignore', windowsHide: true, env: { ...process.env, SCENRI_MESSAGE: message } },
       );
     }
   } catch {

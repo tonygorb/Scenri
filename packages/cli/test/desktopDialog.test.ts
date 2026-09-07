@@ -5,9 +5,9 @@ import { type DialogSpawn, showDialog } from '../src/desktop/dialog.js';
 
 /**
  * One native sentence when there is no terminal. On Windows the box comes from
- * a PowerShell that must have no console (nothing to flash) and no SW_HIDE hint
- * (the box itself is the first window that process shows; a hidden first
- * window is a modal nobody can see and nobody can close).
+ * a PowerShell whose console is kept off screen (windowsHide); the box itself
+ * still shows. Probed on a real windows-latest desktop: a detached PowerShell,
+ * with no console at all, shows nothing, so the hide hint is the mode.
  */
 
 function spawner(script: { error?: Error } = {}) {
@@ -22,7 +22,7 @@ function spawner(script: { error?: Error } = {}) {
 }
 
 describe('showDialog on Windows', () => {
-  it('shows a MessageBox from a console-less PowerShell, the message in the environment, no hide hint', async () => {
+  it('shows a MessageBox from a hidden-console PowerShell, the message in the environment', async () => {
     const { calls, spawnImpl } = spawner();
     await showDialog('win32', 'Port 4747 is in use by another app.', { SystemRoot: 'C:\\Windows' }, spawnImpl);
     expect(calls).toHaveLength(1);
@@ -33,8 +33,8 @@ describe('showDialog on Windows', () => {
     expect(c.args.join(' ')).not.toContain('Port 4747');
     expect((c.opts.env as Record<string, string>).SCENRI_MESSAGE).toBe('Port 4747 is in use by another app.');
     expect(c.opts.stdio).toBe('ignore');
-    expect(c.opts.detached).toBe(true);
-    expect(c.opts.windowsHide).toBeUndefined();
+    expect(c.opts.windowsHide).toBe(true);
+    expect(c.opts.detached).toBeUndefined();
     expect(c.opts.shell).toBeUndefined();
   });
 

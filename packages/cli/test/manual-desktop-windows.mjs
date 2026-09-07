@@ -233,9 +233,11 @@ ok('the .lnk points at node with the bootstrap as its one argument, minimised, w
 
 const messageBox =
   "Add-Type -AssemblyName System.Windows.Forms | Out-Null; [System.Windows.Forms.MessageBox]::Show($env:SCENRI_MESSAGE, 'Scenri') | Out-Null";
+// The shipped mode first; the detached one stays as the record of why it is not
+// shipped (windows-latest, 2026-09-07: windowsHide visible, detached absent).
 const dialogModes = {
-  'windowsHide (0.9.0)': { stdio: 'ignore', windowsHide: true },
-  'detached (0.9.1)': { stdio: 'ignore', detached: true },
+  'windowsHide (shipped)': { stdio: 'ignore', windowsHide: true },
+  'detached (rejected)': { stdio: 'ignore', detached: true },
 };
 for (const [name, opts] of Object.entries(dialogModes)) {
   const child = spawn(PS, ['-NoProfile', '-NonInteractive', '-Command', messageBox], {
@@ -249,7 +251,7 @@ for (const [name, opts] of Object.entries(dialogModes)) {
   }
   note(`dialog probe, ${name}: ${seen}`);
   spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
-  if (interactive && name.includes('0.9.1') && seen !== 'visible') fail(`the shipped dialog mode is ${seen}`);
+  if (interactive && name.includes('shipped') && seen !== 'visible') fail(`the shipped dialog mode is ${seen}`);
 }
 
 const hits = [];

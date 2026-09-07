@@ -3,10 +3,10 @@
  * always data: an osascript argument, or an environment variable PowerShell
  * reads. SCENRI_NO_DIALOG=1 keeps harnesses quiet.
  *
- * On Windows the helper runs detached: DETACHED_PROCESS gives it no console
- * at all, so nothing flashes, and no SW_HIDE hint reaches it. That hint would
- * apply to the first window the process shows, which here is the box itself:
- * a hidden modal that nobody can see and nobody can dismiss.
+ * On Windows the helper runs with windowsHide: CREATE_NO_WINDOW keeps its
+ * console off screen and the box still shows. Probed on a real windows-latest
+ * desktop (2026-09-07): this mode shows the box; a detached PowerShell (no
+ * console at all) shows nothing, so that is not an option.
  */
 import { type SpawnOptions, spawn } from 'node:child_process';
 import { powershellPath } from './paths.js';
@@ -47,7 +47,7 @@ export function showDialog(
   } else if (platform === 'win32') {
     cmd = powershellPath(env);
     args = [...POWERSHELL_ARGS, MESSAGE_BOX];
-    opts = { stdio: 'ignore', detached: true, env: { ...env, SCENRI_MESSAGE: message } };
+    opts = { stdio: 'ignore', windowsHide: true, env: { ...env, SCENRI_MESSAGE: message } };
   } else {
     console.error(`\n  ${message}\n`);
     return Promise.resolve();
