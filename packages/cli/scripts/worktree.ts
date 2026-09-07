@@ -328,6 +328,7 @@ async function add(argv: string[]): Promise<void> {
   const lane = ensureLane(path);
   if (lane === null) return fail(`${path} did not come up as a linked worktree`);
   link(join(primary, '.claude'), join(path, '.claude'));
+  link(join(primary, '.agents'), join(path, '.agents'));
   link(join(primary, 'docs', 'design'), join(path, 'docs', 'design'));
 
   if (pnpm(path, ['install', '--frozen-lockfile'], { allowFail: true }) !== 0) {
