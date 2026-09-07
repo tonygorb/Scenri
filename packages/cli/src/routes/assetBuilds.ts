@@ -28,24 +28,31 @@ import {
 import { presenterCropMode } from '../presenterRepair.js';
 import { brandContext, COST_PROBE, pickBuildEngine } from './shared.js';
 
-export function registerAssetBuildRoutes(
-  app: FastifyInstance,
-  deps: {
-    core: Core;
-    engines: EngineRegistry;
-    analyzer?: Analyzer;
-    scenes: Scene[];
-    presenters: Presenter[];
-  },
-): void {
+export interface BuildRouteDeps {
+  core: Core;
+  engines: EngineRegistry;
+  analyzer?: Analyzer;
+  scenes: Scene[];
+  presenters: Presenter[];
+}
+
+/**
+ * What a build needs, answered fresh each time: the engine that can hold a
+ * face right now, the analyzer if codex is here, the filters that already
+ * exist. Shared by the asset builds and the presenter drafts, so both pick
+ * the same engine by the same rule.
+ */
+export function makeBuildDeps(deps: BuildRouteDeps): {
+  buildEngine: () => Promise<EngineAdapter | null>;
+  buildDeps: () => Promise<AssetBuildDeps>;
+  analyzer: Analyzer | null;
+} {
   const { core, engines, scenes, presenters } = deps;
   const analyzer: Analyzer | null = deps.analyzer ?? createCodexAnalyzer({ runner: engines.codexRunner });
-
   // The one test seam: the browser suite runs on the demo engine, which is a
   // placeholder the picker would otherwise refuse. Set only by that harness.
   const allowPlaceholder = process.env.SCENRI_DEMO_BUILDS === '1';
   const buildEngine = (): Promise<EngineAdapter | null> => pickBuildEngine(engines, { allowPlaceholder });
-
   const buildDeps = async (): Promise<AssetBuildDeps> => ({
     core,
     engine: await buildEngine(),
@@ -55,10 +62,19 @@ export function registerAssetBuildRoutes(
     // person can actually click rather than inventing a category of one.
     vocabulary: { ...facetsOf(scenes), categories: presenterFacetsOf(presenters).categories },
   });
+  return { buildEngine, buildDeps, analyzer };
+}
+
+export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteDeps): void {
+  const { core } = deps;
+  const { buildEngine, buildDeps, analyzer } = makeBuildDeps(deps);
 
   /** What a creation flow needs to know before it promises anything. */
   app.get('/api/asset-builds/capabilities', async () => {
-    const [engine, probe] = await Promise.all([buildEngine(), analyzer?.isAvailable() ?? { ok: false }]);
+    const [engine, probe] = await Promise.all([
+      buildEngine(),
+      analyzer?.isAvailable() ?? Promise.resolve<{ ok: boolean; reason?: string }>({ ok: false }),
+    ]);
     return {
       canAnalyze: probe.ok,
       analyzeReason: probe.ok ? null : (probe.reason ?? null),
