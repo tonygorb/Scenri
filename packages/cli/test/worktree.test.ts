@@ -14,7 +14,7 @@ import {
   usedLanes,
 } from '../scripts/worktree.mjs';
 
-const made = [];
+const made: string[] = [];
 const tmp = () => {
   const dir = mkdtempSync(join(tmpdir(), 'sc-wt-'));
   made.push(dir);
@@ -30,7 +30,7 @@ function fakeRepo(names = ['wt']) {
   const primary = join(root, 'primary');
   const common = join(primary, '.git');
   mkdirSync(common, { recursive: true });
-  const links = {};
+  const links: Record<string, { wt: string; gitDir: string }> = {};
   for (const name of names) {
     const gitDir = join(common, 'worktrees', name);
     mkdirSync(gitDir, { recursive: true });
