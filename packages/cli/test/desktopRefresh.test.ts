@@ -64,6 +64,19 @@ const bundleIcon = () => join(desktop, 'Scenri.app', 'Contents', 'Resources', 'S
 const supportFile = (f: string) => join(launcherDir(root), f);
 
 describe('refreshLauncher', () => {
+  it('leaves an installed launcher alone when running from a source checkout', async () => {
+    const d = deps();
+    await installDesktop(d);
+    const record = readLauncherRecord(root);
+    if (!record) throw new Error('no record');
+    writeLauncherRecord(root, { ...record, schema: LAUNCHER_SCHEMA - 1, createdBy: '0.7.0' });
+    writeFileSync(supportFile('launch.mjs'), '// old bootstrap');
+    const dev = { ...d, installKind: 'dev' as const, ownEntry: '/w/packages/cli/src/serve.ts', version: '9.9.9' };
+    expect(await refreshLauncher(dev)).toEqual({});
+    expect(readFileSync(supportFile('launch.mjs'), 'utf8')).toBe('// old bootstrap');
+    expect(readLauncherRecord(root)).toEqual({ ...record, schema: LAUNCHER_SCHEMA - 1, createdBy: '0.7.0' });
+  });
+
   it('does nothing when no launcher was ever installed, or when told not to', async () => {
     expect(await refreshLauncher(deps())).toEqual({});
     expect(existsSync(launcherDir(root))).toBe(false);
