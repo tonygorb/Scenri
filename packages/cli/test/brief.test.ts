@@ -54,6 +54,24 @@ const ctx = (over: Partial<Parameters<typeof compileBrief>[1]> = {}) => ({
 });
 
 describe('compileBrief', () => {
+  it('a person built here carries facial, skin and build prose the way a curated one does', () => {
+    const brand = brandWith(productHash);
+    (brand.characters[0] as any).origin = 'custom';
+    (brand.characters[0] as any).promptName = 'a man in his forties with cropped grey hair';
+    (brand.characters[0] as any).facial = 'square jaw, deep-set eyes';
+    (brand.characters[0] as any).skin = 'fair with visible freckles';
+    (brand.characters[0] as any).build = 'broad shoulders, athletic';
+    const r = compileBrief({ tokens: [{ t: 'character', id: 'c1' }] }, ctx({ brand }));
+    const who = 'a man in his forties with cropped grey hair';
+    expect(r.prompt).toContain(
+      `${who}'s face, which must survive every generation unchanged: square jaw, deep-set eyes.`,
+    );
+    expect(r.prompt).toContain(
+      `${who}'s skin, exactly as the reference photographs show it: fair with visible freckles.`,
+    );
+    expect(r.prompt).toContain(`${who}'s build: broad shoulders, athletic.`);
+  });
+
   it('a character names itself, attaches its shot, and asks for the identity to hold', () => {
     const r = compileBrief(
       {
