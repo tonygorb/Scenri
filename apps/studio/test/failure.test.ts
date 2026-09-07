@@ -23,6 +23,8 @@ const REAL = {
   codexSignedOut: 'codex exited with code 1: Not logged in',
   codexUnverified: 'Could not verify Codex on this computer',
   codexTooOld: 'Codex CLI 0.140.0 is too old. Scenri needs 0.145.0 or newer.',
+  codexTooOldForModel:
+    'Codex CLI 0.145.0 is too old for the model it is set to, gpt-6-astra. Update Codex CLI, then run this again.',
   codexSilent: 'Codex CLI produced no output for 120s, treating it as stuck',
   codexCodeMode: 'codex exited with code 1: ERROR: code-mode host exited during handshake',
   codexNeverStarted: 'Codex CLI produced no output for 60s after launch, treating it as stuck',
@@ -175,6 +177,16 @@ describe('describeFailure', () => {
 
   it('reads a below-floor codex as an update, never as not installed', () => {
     const f = describeFailure(REAL.codexTooOld, 'Codex');
+    expect(f.kind).toBe('setup');
+    expect(f.title).toBe('Codex CLI needs an update.');
+    expect(f.remedy).toEqual({ label: 'Update Codex', opens: 'setup' });
+    expect(f.retryable).toBe(false);
+  });
+
+  it('reads a codex too old for its own configured model as the same update', () => {
+    // 2026-09-07: the Codex app moved config.toml to gpt-6-astra, the CLI
+    // beside it was 0.145.0, and the raw 400 fell through to the generic note.
+    const f = describeFailure(REAL.codexTooOldForModel, 'Codex');
     expect(f.kind).toBe('setup');
     expect(f.title).toBe('Codex CLI needs an update.');
     expect(f.remedy).toEqual({ label: 'Update Codex', opens: 'setup' });

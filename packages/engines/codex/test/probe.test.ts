@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import type { spawn } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { createRunner } from '../src/run.js';
+import { createRunner, execArgs } from '../src/run.js';
 
 /**
  * The probe's honesty contract. Every outcome that is not a verified exit code
@@ -134,5 +134,51 @@ describe('probe spawn shapes on win32', () => {
     const codexCalls = calls.filter((c) => c.cmd !== 'where.exe');
     expect(codexCalls[0].cmd).toBe('codex "--version"');
     expect(codexCalls[0].opts.shell).toBe(true);
+  });
+});
+
+/**
+ * Captured live on 2026-09-07. The Codex desktop app had written
+ * model = "gpt-6-astra" into ~/.codex/config.toml, and the npm CLI beside it
+ * was 0.145.0. Scenri passes no --model, so every exec inherited that model and
+ * died with codex's own 400 while the probe kept answering ready: the version
+ * met the floor and login status exited 0. The exec that finds out has to tell
+ * the probe, or the setup wizard shows a green check under a failed shot.
+ */
+const MODEL_NEEDS_NEWER_CODEX =
+  'OpenAI Codex v0.145.0\n--------\nworkdir: /tmp/scenri-codex-x\nmodel: gpt-6-astra\nprovider: openai\n' +
+  'approval: never\nsandbox: workspace-write [workdir, /tmp]\nreasoning effort: low\n--------\nuser\n...\n' +
+  'warning: Model metadata for `gpt-6-astra` not found. Defaulting to fallback metadata; this can degrade performance and cause issues.\n' +
+  'ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The \'gpt-6-astra\' model requires a newer version of Codex. Please upgrade to the latest app or CLI and try again."}}\n';
+
+describe('a model the installed codex cannot serve', () => {
+  it('turns the probe to update-needed for that version, and back to ready once codex is newer', async () => {
+    let version = '0.145.0';
+    const { spawnImpl } = scriptedSpawn((call) => {
+      if (call.args[0] === '--version') versionOf(call, version);
+      else if (call.args[0] === 'exec') {
+        call.child.stderr.emit('data', MODEL_NEEDS_NEWER_CODEX);
+        call.child.emit('exit', 1, null);
+      } else call.child.emit('exit', 0, null);
+    });
+    const runner = createRunner({ spawnImpl, platform: 'linux' });
+    await expect(runner.probe()).resolves.toEqual({ ok: true });
+
+    await expect(runner.run(execArgs('/tmp/scenri-codex-x'))).rejects.toThrow(
+      'Codex CLI 0.145.0 is too old for the model it is set to, gpt-6-astra. Update Codex CLI, then run this again.',
+    );
+
+    // No invalidate in between: the failed exec itself has to retire the cached "ready".
+    const avail = await runner.probe();
+    expect(avail).toMatchObject({ ok: false, code: 'update-needed' });
+    expect(avail.reason).toBe('Codex CLI 0.145.0 is too old for the model it is set to, gpt-6-astra.');
+
+    // "Check again" without updating changes nothing: same version, same verdict.
+    runner.invalidateProbe();
+    expect((await runner.probe()).code).toBe('update-needed');
+
+    version = '0.153.4';
+    runner.invalidateProbe();
+    await expect(runner.probe()).resolves.toEqual({ ok: true });
   });
 });

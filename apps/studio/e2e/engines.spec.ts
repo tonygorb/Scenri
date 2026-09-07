@@ -187,8 +187,11 @@ test('the row stays readable at a phone width', async ({ page }) => {
   const heights = await page.locator('.sc-eng').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
   // One line tall each, within a pixel: sub-pixel rounding differs between
   // rasterisers, so an exact match passes on macOS and fails on Linux CI for
-  // reasons that have nothing to do with the layout being right.
-  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(1);
+  // reasons that have nothing to do with the layout being right. Rounded to a
+  // hundredth first: a genuine one-pixel spread arrived as 1.0000152 (float32
+  // noise on the box) and failed the bare `<= 1` about one run in three.
+  const spread = Math.max(...heights) - Math.min(...heights);
+  expect(Math.round(spread * 100) / 100).toBeLessThanOrEqual(1);
 
   const act = row(page, 'OpenRouter').getByRole('button');
   expect((await act.boundingBox())!.height).toBeGreaterThanOrEqual(32);
@@ -256,7 +259,11 @@ test('a codex below the version floor asks for an update, with PowerShell wordin
   );
 
   await page.goto(`/${slug}?setup=codex-cli`);
-  await expect(page.locator('.sc-setup-body')).toContainText('too old for Scenri');
+  // The lead is the probe's own sentence: the same phase also covers a CLI that
+  // predates the model the Codex app chose, and one static line cannot say both.
+  await expect(page.locator('.sc-setup-body')).toContainText(
+    'Codex CLI 0.140.0 is too old. Scenri needs 0.145.0 or newer. Update it once, then check again.',
+  );
   await expect(page.locator('.sc-setup-cmd code')).toHaveText('npm install -g @openai/codex@latest');
   await expect(page.locator('.sc-setup-body')).toContainText('PowerShell');
   await expect(page.locator('.sc-setup-body')).not.toContainText('Codex CLI is ready');

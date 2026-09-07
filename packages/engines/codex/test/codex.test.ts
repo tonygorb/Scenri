@@ -602,6 +602,26 @@ describe('generate', () => {
     );
   });
 
+  it('names the model the installed codex cannot serve, and stops the other variants', async () => {
+    // Real stderr, captured live on 2026-09-07: v0.145.0 with the Codex
+    // desktop app's model = "gpt-6-astra" in config.toml. The JSON line is
+    // codex's own 400, and the raw line used to be the whole failure note.
+    const realStderr =
+      'OpenAI Codex v0.145.0\n--------\nworkdir: /tmp/scenri-codex-x\nmodel: gpt-6-astra\nprovider: openai\n' +
+      'approval: never\nsandbox: workspace-write [workdir, /tmp]\nreasoning effort: low\n--------\nuser\n...\n' +
+      'ERROR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The \'gpt-6-astra\' model requires a newer version of Codex. Please upgrade to the latest app or CLI and try again."}}\n';
+    const { spawnImpl, calls } = fakeSpawn(({ child }) => {
+      child.stderr.emit('data', Buffer.from(realStderr));
+      child.emit('exit', 1, null);
+    });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    await expect(engine.generate({ ...genReq, count: 4 })).rejects.toThrow(
+      'Codex CLI on this computer is too old for the model it is set to, gpt-6-astra. Update Codex CLI, then run this again.',
+    );
+    // The machine, not the variant: the next variant would fail identically.
+    expect(calls.length).toBeLessThan(4);
+  });
+
   // A four variant run that lost one image used to lose all four: the failed
   // worker rejected the batch while the finished pictures were already in the
   // content store, orphaned and unreachable.

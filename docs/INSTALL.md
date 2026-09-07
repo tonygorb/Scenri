@@ -251,6 +251,12 @@ installed, usually after a Node update. Install the current LTS from
 Providers, then **Set up**, and the in-app steps handle both. If sign-in keeps failing, the dialog
 shows the exact terminal command to run instead.
 
+**Shots fail with "Codex CLI ... is too old for the model it is set to".** The Codex app and the
+Codex CLI share one settings file, and when the app moves to a newer model, a CLI installed earlier
+cannot use it. Scenri runs the CLI, so every shot fails until it is updated. The setup dialog names
+the version and the model; update with `npm install -g @openai/codex@latest` (or run OpenAI's
+standalone installer again), then press **Check again**.
+
 **Codex on Windows.** Four things specific to Windows:
 
 - **Installed Codex while Scenri was running?** Quit Scenri (close its terminal window) and run

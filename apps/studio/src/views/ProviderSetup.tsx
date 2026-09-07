@@ -266,6 +266,11 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
   const [problem, setProblem] = useState<{ detail?: string; command?: string; docsUrl?: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [platform, setPlatform] = useState<SetupPlatform>('mac');
+  // The probe's own sentence for a state that has more than one cause. An
+  // update is needed below Scenri's floor, and also when the Codex app has
+  // moved config.toml to a model this CLI predates; the wizard used to claim
+  // the first for both.
+  const [reason, setReason] = useState<string | null>(null);
   const pollRef = useRef<number | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -276,8 +281,9 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
   }, []);
 
   const probe = useCallback(async () => {
-    const { state, platform: p } = await api.codexStatus();
+    const { state, reason: why, platform: p } = await api.codexStatus();
     if (p) setPlatform(p);
+    setReason(why ?? null);
     setPhase(state);
     return state;
   }, []);
@@ -487,7 +493,7 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
         {phase === 'update-needed' && (
           <>
             <p className="sc-setup-lead">
-              Codex CLI on this computer is too old for Scenri. Update it once, then check again.
+              {reason ?? 'Codex CLI on this computer is too old for Scenri.'} Update it once, then check again.
             </p>
             <div className="sc-setup-cmd">
               <code>npm install -g @openai/codex@latest</code>
