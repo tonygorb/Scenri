@@ -384,44 +384,6 @@ jobs:
       - name: Run the update loop
         run: node packages/cli/test/manual-update-loop.mjs
 
-  # TEMPORARY (fix/desktop-windows-launcher): the Windows desktop icon clicked
-  # for real on a windows-latest runner. Removed again before the PR is ready;
-  # the script stays hand-runnable on a VM.
-  desktop-windows:
-    name: desktop launcher (windows)
-    needs: changes
-    if: >-
-      needs.changes.outputs.updater == 'true' &&
-      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
-    runs-on: windows-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Build the studio
-        run: pnpm build
-
-      - name: Click the Desktop icon
-        run: node packages/cli/test/manual-desktop-windows.mjs
-
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: desktop-windows-logs
-          path: ${{ runner.temp }}/sc-desktop/data/logs/
-          retention-days: 7
-
   # The one required status check on main. `always()` is load-bearing: without
   # it a failed upstream job would leave this job "skipped", and GitHub counts
   # a skipped required check as passing. The ruleset requires this job by its
@@ -429,7 +391,7 @@ jobs:
   # every PR stuck waiting on a check that never reports.
   gate:
     name: CI gate
-    needs: [changes, check, secrets, windows, e2e, update-loop, desktop-windows]
+    needs: [changes, check, secrets, windows, e2e, update-loop]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -443,7 +405,6 @@ jobs:
           WINDOWS: ${{ needs.windows.result }}
           E2E: ${{ needs.e2e.result }}
           UPDATE_LOOP: ${{ needs.update-loop.result }}
-          DESKTOP_WINDOWS: ${{ needs.desktop-windows.result }}
           E2E_REQUIRED: ${{ needs.changes.outputs.e2e }}
           UPDATER_REQUIRED: ${{ needs.changes.outputs.updater }}
           DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}
@@ -472,5 +433,4 @@ jobs:
           leg windows "$WINDOWS" "$E2E_REQUIRED"
           leg E2E "$E2E" "$E2E_REQUIRED"
           leg update-loop "$UPDATE_LOOP" "$UPDATER_REQUIRED"
-          leg desktop-windows "$DESKTOP_WINDOWS" "$UPDATER_REQUIRED"
           echo "All checks green."
