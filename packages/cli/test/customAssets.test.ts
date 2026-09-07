@@ -659,6 +659,38 @@ describe('custom presenters and scenes', () => {
     expect(brandJson(brand.id).scenes[0].instruction).toBe('colder, no people');
   });
 
+  it('a note reads the same references with the direction kept; frames pick a subset in order; draw:false keeps the card', async () => {
+    const brand = await newBrand();
+    const { job } = await buildScene(brand.id, {
+      kind: 'scene',
+      instruction: 'keep the rocks, less orange',
+      imageHashes: [],
+      consensus: false,
+    });
+    const before = brandJson(brand.id).scenes[0];
+    const refs = before.refs.map((r: any) => r.file.slice(6));
+    analyzed = [];
+    generated = [];
+    const r = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/scenes/${before.id}/reread`,
+      payload: { note: 'read the set as one', frames: [refs[2], refs[0]], draw: false },
+    });
+    expect(r.statusCode).toBe(200);
+    await settle(brand.id, JSON.parse(r.body).jobId);
+    // The Direction stays the Direction; the note is the correction.
+    expect(analyzed[0].instruction).toBe('keep the rocks, less orange');
+    expect(analyzed[0].correction).toBe('read the set as one');
+    // Only the frames asked for, in the order asked.
+    expect(analyzed[0].imagePaths).toEqual([core.images.pathFor(refs[2]), core.images.pathFor(refs[0])]);
+    // No draw, and the card it had.
+    expect(generated).toHaveLength(0);
+    const after = brandJson(brand.id).scenes[0];
+    expect(after.preview).toBe(before.preview);
+    expect(after.refs).toEqual(before.refs);
+    expect(after.instruction).toBe('keep the rocks, less orange');
+  });
+
   it('refuses a second read while the first is still running', async () => {
     const brand = await newBrand();
     await buildScene(brand.id, {

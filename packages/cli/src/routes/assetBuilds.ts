@@ -370,6 +370,11 @@ export function registerAssetBuildRoutes(
         // word means the stored word.
         instruction: String(body.correction ?? '').trim() || scene.instruction || undefined,
         imageHashes: [],
+        // A note reads the same references with the Direction kept as it is;
+        // `frames` reads a subset in a given order; `draw: false` keeps the card.
+        ...(body.note ? { correction: String(body.note) } : {}),
+        ...(Array.isArray(body.frames) ? { frames: body.frames.map((h: unknown) => String(h)) } : {}),
+        ...(body.draw === false ? { draw: false } : {}),
       });
     } catch (err: any) {
       return reply.status(err.statusCode ?? 500).send({ error: err.message ?? 'could not start' });

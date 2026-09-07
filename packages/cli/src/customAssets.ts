@@ -186,6 +186,16 @@ export interface StartBuildInput {
    * every shot that already names this scene keeps resolving.
    */
   sceneId?: string;
+  /**
+   * Re-read only: read these of the scene's refs, in this order, instead of
+   * all of them in stored order; and the note to read them with, kept apart
+   * from the Direction. The benchmark's prefix and rotation arms, and a
+   * "read again with a note" that keeps the Direction.
+   */
+  frames?: string[];
+  correction?: string;
+  /** Re-read only: keep the preview as it is. */
+  draw?: boolean;
   /** Scene only: how many frames the set is built to, four to six. */
   target?: number;
   /** Scene only: read the finished set back once before saving. */
@@ -294,9 +304,14 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
   const prior = input.sceneId ? brandSceneById(brand.json, input.sceneId) : undefined;
   if (input.sceneId && !prior) throw Object.assign(new Error('scene not found'), { statusCode: 404 });
   // A re-read is filed with no new uploads: its evidence is what it was built from.
+  const stored = ((prior as CustomScene | undefined)?.refs ?? []).map((r) =>
+    String(r?.file ?? '').replace(/^asset:/, ''),
+  );
   const supplied = input.imageHashes.length
     ? input.imageHashes
-    : ((prior as CustomScene | undefined)?.refs ?? []).map((r) => String(r?.file ?? '').replace(/^asset:/, ''));
+    : input.frames?.length
+      ? input.frames.filter((h) => stored.includes(h))
+      : stored;
   const hashes = supplied.filter((h) => /^[a-f0-9]{32}$/.test(h) && core.images.has(h));
   if (input.kind === 'presenter' && !hashes.length) {
     throw Object.assign(new Error('add at least one photo of this person'), { statusCode: 400 });
@@ -386,7 +401,10 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
 
   const ctrl = new AbortController();
   running.set(job.id, ctrl);
-  void runBuild(deps, job, hashes, instruction, ctrl.signal).finally(() => running.delete(job.id));
+  void runBuild(deps, job, hashes, instruction, ctrl.signal, {
+    correction: input.correction ? str(input.correction, 600) : undefined,
+    draw: input.draw ?? true,
+  }).finally(() => running.delete(job.id));
   return { jobId: job.id };
 }
 
@@ -405,10 +423,11 @@ async function runBuild(
   hashes: string[],
   instruction: string,
   signal: AbortSignal,
+  reread: { correction?: string; draw: boolean } = { draw: true },
 ): Promise<void> {
   try {
     if (job.kind === 'presenter') await runPresenterBuild(deps, job, hashes, instruction, signal);
-    else await runSceneBuild(deps, job, hashes, instruction, signal);
+    else await runSceneBuild(deps, job, hashes, instruction, signal, reread);
   } catch (err: any) {
     if (signal.aborted) {
       patch(job, { stage: 'cancelled', message: null, finished: true });
@@ -1122,6 +1141,7 @@ async function runSceneBuild(
   hashes: string[],
   instruction: string,
   signal: AbortSignal,
+  reread: { correction?: string; draw: boolean } = { draw: true },
 ): Promise<void> {
   const { core } = deps;
   // A re-read revises the record it already has, so a scene built before the
@@ -1139,7 +1159,10 @@ async function runSceneBuild(
         imagePaths: hashes.map((h) => core.images.pathFor(h)),
         name: job.name,
         instruction: instruction || undefined,
-        ...(prior ? { priorDraft: prior, correction: instruction || undefined } : {}),
+        // A re-read revises with the Direction as the correction, unless a
+        // note of its own was given, in which case the Direction stays the
+        // Direction and the note is what changes.
+        ...(prior ? { priorDraft: prior, correction: reread.correction ?? (instruction || undefined) } : {}),
         vocabulary: deps.vocabulary,
       },
       signal,
@@ -1164,7 +1187,8 @@ async function runSceneBuild(
       verticals: job.facets.length ? job.facets : draft?.verticals,
       keywords: draft?.keywords,
       instruction,
-      refHashes: hashes,
+      // A re-read keeps every reference it has, whatever subset it read.
+      refHashes: prior ? (prior.refs ?? []).map((r) => String(r.file).replace(/^asset:/, '')) : hashes,
     },
     prior,
   );
@@ -1176,7 +1200,7 @@ async function runSceneBuild(
   if (draft?.coverage?.length) patch(job, { coverage: draft.coverage });
 
   let previewHash: string | null = null;
-  if (deps.engine) {
+  if (deps.engine && reread.draw) {
     patch(job, { stage: 'building', steps: 1, message: 'Drawing the place' });
     try {
       // The one place a scene's own references can be spent for free: this
@@ -1212,6 +1236,8 @@ async function runSceneBuild(
   patch(job, { stage: 'saving', message: null });
   const brand = core.store.getBrand(job.brandId);
   const warnings = [...job.warnings, ...lintSceneProse(brand?.json ?? {}, scene)];
+  // A re-read that did not draw keeps the card it had.
+  if (!previewHash && prior?.preview) scene.preview = prior.preview;
   commit(core, job.brandId, (json) => {
     const rows = brandScenes(json);
     const at = rows.findIndex((s) => s?.id === scene.id);
