@@ -114,9 +114,12 @@ describe('repairPresenterCrops', () => {
 });
 
 describe('a portrait-led record', () => {
-  it('names its crop mode from the leading angle', () => {
+  it('names its crop mode from the leading angle, unless the shot is one of the photographs', () => {
     expect(presenterCropMode('asset:aaa', 'asset:bbb', 'portrait')).toBe('portrait');
-    expect(presenterCropMode('asset:aaa', 'asset:aaa', 'portrait')).toBe('portrait');
+    expect(presenterCropMode('asset:aaa', ['asset:bbb', 'asset:ccc'], 'portrait')).toBe('portrait');
+    // a photograph filed as the portrait is still a photograph: saliency, not studio geometry
+    expect(presenterCropMode('asset:aaa', 'asset:aaa', 'portrait')).toBe('upload');
+    expect(presenterCropMode('asset:aaa', ['asset:bbb', 'asset:aaa'], 'portrait')).toBe('upload');
     expect(presenterCropMode('asset:aaa', 'asset:bbb', 'front')).toBe('generated');
   });
 

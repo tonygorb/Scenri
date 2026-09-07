@@ -341,15 +341,15 @@ async function withDerivedCrops(
   const shots = Array.isArray(body?.shotHashes) ? (body.shotHashes as unknown[]) : null;
   if (!shots?.length || (body.previewHash !== undefined && body.avatarHash !== undefined)) return body;
   const firstShot = `asset:${String(shots[0])}`;
-  const firstSource = Array.isArray(body.sourceHashes)
-    ? `asset:${String((body.sourceHashes as unknown[])[0])}`
-    : base?.sourceRefs?.[0]?.file;
+  const sourceFiles = Array.isArray(body.sourceHashes)
+    ? (body.sourceHashes as unknown[]).map((h) => `asset:${String(h)}`)
+    : (base?.sourceRefs ?? []).map((s) => s?.file);
   // The leading angle rides in the body when the caller knows it, and is
   // otherwise recovered from the record by hash: a re-order is the same
   // frames in a new order, and a portrait stays a portrait wherever it lands.
   const angles = Array.isArray(body.shotAngles) ? (body.shotAngles as unknown[]) : [];
   const firstAngle = angles[0] ?? base?.shots?.find((s) => s?.file === firstShot)?.angle;
-  const derived = await presenterCrops(core, String(shots[0]), presenterCropMode(firstShot, firstSource, firstAngle));
+  const derived = await presenterCrops(core, String(shots[0]), presenterCropMode(firstShot, sourceFiles, firstAngle));
   return {
     ...body,
     ...(body.previewHash === undefined && derived.previewHash ? { previewHash: derived.previewHash } : {}),
