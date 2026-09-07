@@ -42,7 +42,13 @@ export interface CustomPresenter {
 
 /** A `scenes[]` entry. Structurally a Scene, plus where it came from. */
 export interface CustomScene extends Scene {
-  refs?: { file: string }[];
+  /**
+   * The evidence a scene was read from: what the person uploaded, and any
+   * frame the builder drew of the same world (`drawn`). Order carries no
+   * weight anywhere: the analyzer reads them as a set, and a shot never sees
+   * them at all.
+   */
+  refs?: { file: string; drawn?: true }[];
   preview?: string;
   instruction?: string;
   /**
@@ -133,6 +139,12 @@ export interface SceneInput {
   figure?: unknown;
   figureTreatment?: unknown;
   refHashes?: unknown;
+  /**
+   * Which of `refHashes` the builder drew rather than a person uploaded. Absent
+   * on a PATCH means "keep whatever the record already says about each hash",
+   * so an edit that resends the list cannot turn a drawn frame into an upload.
+   */
+  drawnHashes?: unknown;
   previewHash?: unknown;
 }
 
@@ -160,11 +172,18 @@ export function sceneRecordFrom(
   const lighting = has('lighting') ? str(input.lighting, 200) : (base?.lighting ?? '');
   const description = has('description') ? str(input.description, 400) : (base?.description ?? '');
   const camera = has('camera') ? str(input.camera, 200) : (base?.camera ?? '');
+  const drawn = new Set(
+    has('drawnHashes')
+      ? strList(input.drawnHashes, 8, 64)
+          .map((h) => assetRef(h))
+          .filter((f): f is string => !!f)
+      : (base?.refs ?? []).filter((r) => r?.drawn).map((r) => r.file),
+  );
   const refs = has('refHashes')
     ? strList(input.refHashes, 8, 64)
         .map((h) => assetRef(h))
         .filter((f): f is string => !!f)
-        .map((file) => ({ file }))
+        .map((file) => (drawn.has(file) ? { file, drawn: true as const } : { file }))
     : base?.refs;
   const previewRef = has('previewHash') ? assetRef(input.previewHash) : (base?.preview ?? null);
 

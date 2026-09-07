@@ -440,6 +440,10 @@
               "properties": {
                 "file": {
                   "$ref": "#/$defs/assetRef"
+                },
+                "drawn": {
+                  "type": "boolean",
+                  "description": "True when the tool drew this frame from the scene's own record rather than a person uploading it. A photograph of the same world, kept as evidence beside the uploads."
                 }
               }
             },
