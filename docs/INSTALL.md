@@ -282,9 +282,12 @@ again.
 
 **The desktop icon does nothing, or says Scenri's app files are missing.** The icon starts the copy
 of Scenri kept in `~/.scenri/app`. If that folder was removed, run `npx scenri` once in a
-terminal; it puts a copy back and the icon works again. Details of every double-click are in
-`~/.scenri/logs/launcher.log` (`%USERPROFILE%\.scenri\logs\launcher.log` on Windows), and a
-server started from the icon writes to `scenri.log` beside it.
+terminal; it puts a copy back and the icon works again. The same one terminal start is the fix
+after Node.js was upgraded to a new major version: the copy is rebuilt for the new Node on that
+start. Every double-click writes what it did to `~/.scenri/logs/launcher.log`
+(`%USERPROFILE%\.scenri\logs\launcher.log` on Windows), and a server started from the icon writes
+to `scenri.log` beside it; those two files are what to send with a report. The "Starting Scenri"
+page and the studio both open in your default browser.
 
 **The icon says Node.js was not found.** The icon remembers the Node.js that installed it. If that
 copy of Node was removed (a version manager switched, an uninstall), install Node.js again or run
