@@ -13,6 +13,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const FILES = [
   'README.md',
   'AGENTS.md',
+  'CLAUDE.md',
   'ROADMAP.md',
   'DESIGN.md',
   'CONTRIBUTING.md',
