@@ -144,6 +144,9 @@ describe('a presenter avatar is measured from the figure, not the frame', () => 
     expect(m!.height).toBe(512);
   });
 
+  // Gaussian noise at 1024 by 1280 is the worst case for the PNG encoder and
+  // for both trim passes; a loaded Windows runner took 5.7 s against the 5 s
+  // default (main, 2026-09-07), so this one test carries its own budget.
   it('falls back to the old square when there is no figure to measure', async () => {
     // an all-over texture: nothing uniform to trim, so no bounding box
     const noisy = await sharp({
@@ -163,5 +166,5 @@ describe('a presenter avatar is measured from the figure, not the frame', () => 
     // still produces an avatar rather than nothing at all
     expect(m!.width).toBeGreaterThan(0);
     expect(m!.height).toBe(m!.width);
-  });
+  }, 30_000);
 });
