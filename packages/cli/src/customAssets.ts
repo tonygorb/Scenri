@@ -20,7 +20,7 @@
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import type { BrandContext, Core, EngineAdapter } from '@scenri/core';
-import type { PresenterDraft, SceneDraft } from '@scenri/engine-codex';
+import type { PresenterDraft, ProductDraft, SceneDraft } from '@scenri/engine-codex';
 
 /* --------------------------------------------------------------- records */
 
@@ -90,16 +90,22 @@ export interface Analyzer {
   isAvailable(): Promise<{ ok: boolean; reason?: string }>;
   analyze(
     req: {
-      kind: 'presenter' | 'scene';
+      kind: 'presenter' | 'scene' | 'product';
       imagePaths: string[];
       name: string;
       instruction?: string;
       correction?: string;
       priorDraft?: unknown;
-      vocabulary?: { collections?: string[]; verticals?: string[]; categories?: string[] };
+      vocabulary?: {
+        collections?: string[];
+        verticals?: string[];
+        categories?: string[];
+        productCategories?: string[];
+        angleKeys?: string[];
+      };
     },
     signal?: AbortSignal,
-  ): Promise<PresenterDraft | SceneDraft>;
+  ): Promise<PresenterDraft | SceneDraft | ProductDraft>;
 }
 
 export interface AssetBuildDeps {

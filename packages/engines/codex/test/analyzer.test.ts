@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { spawn } from 'node:child_process';
 import { describe, expect, it, vi } from 'vitest';
-import { createCodexAnalyzer, type PresenterDraft, type SceneDraft } from '../src/analyzer.js';
+import { createCodexAnalyzer, type PresenterDraft, type ProductDraft, type SceneDraft } from '../src/analyzer.js';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 1, 1]);
 
@@ -455,5 +455,117 @@ describe('analyze — scene: a figure can be the concept', () => {
     expect(prompt).toContain('stays out even if every reference contains it');
     // The old wording made it a wish with no authority to settle anything.
     expect(prompt).not.toContain('What the person wants from it');
+  });
+});
+
+/**
+ * A product is read into the same sheet demo products ship. The rules that
+ * matter are the ones the model is not allowed to break: it describes the
+ * object, never transcribes or completes its lettering, never names a real
+ * brand, labels each photograph's angle from the category's own keys, says
+ * plainly when the photographs disagree, and asks for photographs, never for
+ * drawn views.
+ */
+const GOOD_PRODUCT = {
+  promptName: 'Amber Glass Dropper Bottle',
+  description: 'A 30 ml amber glass dropper bottle with a black rubber bulb, sized for a facial serum.',
+  materials: 'amber glass, matte black plastic collar, black rubber bulb',
+  primaryColors: 'deep amber; matte black',
+  preservationNotes: 'Keep the collar-to-bottle proportion and the flat shoulder.',
+  negativeConstraints: 'Never invent lettering, a logo or a batch code on the label.',
+  category: 'beauty',
+  angles: ['front', 'somewhere'],
+  conflict: '',
+  coverage: ['A photograph of the label would pin the lettering.'],
+};
+
+describe('analyze — product', () => {
+  const vocabulary = {
+    productCategories: ['beauty', 'footwear', 'other'],
+    angleKeys: ['three-quarter', 'front', 'label', 'side'],
+  };
+
+  it('reads the photographs into an identity sheet, one angle per photograph', async () => {
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(GOOD_PRODUCT));
+      child.emit('exit', 0, null);
+    });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
+    const draft = (await analyzer.analyze({
+      kind: 'product',
+      name: 'Serum',
+      imagePaths: [photo(), photo(), photo()],
+      vocabulary,
+    })) as ProductDraft;
+
+    // an angle the table does not know is "other", and every photograph gets
+    // exactly one entry, so the third photograph is labelled even though the
+    // model stopped at two
+    expect(draft).toEqual({ ...GOOD_PRODUCT, angles: ['front', 'other', 'other'] });
+    expect(calls).toHaveLength(1);
+    const { args } = calls[0];
+    const dir = dirFromArgs(args);
+    expect(args).toContain(`--image=${join(dir, 'ref-1.png')}`);
+    expect(args).toContain(`--image=${join(dir, 'ref-3.png')}`);
+    expect(args).toContain('model_reasoning_effort="high"');
+
+    const prompt = promptFromArgs(calls[0]);
+    expect(prompt).toContain('3 reference images are attached');
+    expect(prompt).toContain('Choose "category" only from this list: beauty, footwear, other');
+    expect(prompt).toContain('three-quarter, front, label, side');
+    expect(prompt).toContain('never transcribe, complete or invent lettering');
+    expect(prompt).toContain('Never name a real brand');
+    expect(prompt).toContain('a further photograph would buy');
+    expect(prompt).not.toContain('drawn view');
+    expect(existsSync(dir)).toBe(false);
+  });
+
+  it('files an unknown category under other, keeps a conflict, and drops a conflict the model withdrew', async () => {
+    let answer: Record<string, unknown> = {
+      ...GOOD_PRODUCT,
+      category: 'Nowhere',
+      conflict: 'The second photograph shows the clear glass colorway.',
+    };
+    const { spawnImpl } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(answer));
+      child.emit('exit', 0, null);
+    });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
+    const req = { kind: 'product' as const, name: 'Serum', imagePaths: [photo(), photo()], vocabulary };
+
+    const conflicted = (await analyzer.analyze(req)) as ProductDraft;
+    expect(conflicted.category).toBe('other');
+    expect(conflicted.conflict).toBe('The second photograph shows the clear glass colorway.');
+
+    answer = { ...GOOD_PRODUCT, conflict: 'none' };
+    const clean = (await analyzer.analyze(req)) as ProductDraft;
+    expect(clean.conflict).toBe('');
+  });
+
+  it('retries only for a missing name or description, never for a fumbled optional', async () => {
+    let attempt = 0;
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      attempt += 1;
+      const body =
+        attempt === 1
+          ? { ...GOOD_PRODUCT, description: '' }
+          : { ...GOOD_PRODUCT, materials: 42, coverage: 'not a list', angles: 'front' };
+      writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(body));
+      child.emit('exit', 0, null);
+    });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
+    const draft = (await analyzer.analyze({
+      kind: 'product',
+      name: 'Serum',
+      imagePaths: [photo()],
+      vocabulary,
+    })) as ProductDraft;
+
+    expect(calls).toHaveLength(2);
+    expect(promptFromArgs(calls[1])).toContain('"description" was missing or empty');
+    // the second answer fumbled three optionals and was still accepted
+    expect(draft.materials).toBe('');
+    expect(draft.coverage).toEqual([]);
+    expect(draft.angles).toEqual(['other']);
   });
 });

@@ -33,7 +33,14 @@ import { DEFAULT_TIMEOUT_MS, createRunner, execArgs, type CodexRunner, type Runn
 
 export { createCodexAnalyzer } from './analyzer.js';
 export { createCodexSetup, INSTALL_COMMAND, type CodexSetup, type CodexSetupState } from './setup.js';
-export type { AnalyzeRequest, CodexAnalyzer, PresenterDraft, SceneDraft } from './analyzer.js';
+export type {
+  AnalyzeRequest,
+  AnalyzerDraft,
+  CodexAnalyzer,
+  PresenterDraft,
+  ProductDraft,
+  SceneDraft,
+} from './analyzer.js';
 export { createRunner, type CodexRunner } from './run.js';
 
 /**

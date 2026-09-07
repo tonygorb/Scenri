@@ -85,6 +85,7 @@ import { registerCatalogImportRoutes } from './routes/catalogImport.js';
 import { registerSceneRoutes } from './routes/scenes.js';
 import { registerPresenterRoutes } from './routes/presenters.js';
 import { registerAssetBuildRoutes } from './routes/assetBuilds.js';
+import { registerProductStudioRoutes } from './routes/productStudio.js';
 import { registerDemoProductRoutes } from './routes/demoProducts.js';
 import { registerShowcaseRoutes } from './routes/showcase.js';
 import { registerProjectRoutes } from './routes/projects.js';
@@ -495,6 +496,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // already prefers `characters[]` over the presenter catalog, and the scene
   // resolver below prefers `scenes[]` over the scene catalog.
   registerAssetBuildRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters });
+  // ---- the product studio: photographs read into an identity sheet before a product exists
+  registerProductStudioRoutes(app, { core, engines, analyzer: opts.analyzer });
 
   // ---- demo products (curated, fictional-but-premium product catalog). A
   // demo product attaches straight into a brief like a Presenter does — see
