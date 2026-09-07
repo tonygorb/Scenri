@@ -21,6 +21,13 @@ export interface DemoOptions {
   order?: 'request' | 'reverse';
   /** A slot that fails, reported the way codex reports a partial run. */
   failSlot?: number;
+  /**
+   * How many reference images it claims to read. Zero by default, which is
+   * the truth: it reads none. A browser test that casts a presenter needs an
+   * engine the build picker will accept, and the picker refuses one that
+   * cannot hold a face. The pictures stay placeholders either way.
+   */
+  maxReferenceImages?: number;
 }
 
 /** The knobs as the end-to-end harness sets them, from the environment; none by default. */
@@ -31,6 +38,8 @@ export function demoOptionsFromEnv(env: Record<string, string | undefined>): Dem
   if (env.SCENRI_DEMO_ORDER === 'reverse') out.order = 'reverse';
   const fail = Number(env.SCENRI_DEMO_FAIL_SLOT);
   if (env.SCENRI_DEMO_FAIL_SLOT && Number.isInteger(fail) && fail >= 0) out.failSlot = fail;
+  const refs = Number(env.SCENRI_DEMO_REFS);
+  if (env.SCENRI_DEMO_REFS && Number.isInteger(refs) && refs > 0) out.maxReferenceImages = refs;
   return out;
 }
 
@@ -93,7 +102,7 @@ export function createDemoEngine(saveImage: (buf: Buffer) => string, opts: DemoO
         // development and in the end-to-end suite. `placeholder` below is what
         // says none of this is a real picture.
         supportsOutpaint: true,
-        maxReferenceImages: 0,
+        maxReferenceImages: opts.maxReferenceImages ?? 0,
         placeholder: true,
       };
     },
@@ -121,7 +130,11 @@ export function createDemoEngine(saveImage: (buf: Buffer) => string, opts: DemoO
           failures.push(`demo: slot ${slot + 1} refused`);
           continue;
         }
-        const hash = saveImage(await render(colors, req.prompt, req.width, req.height, slot + req.prompt.length));
+        // the reference count rides in the label so a human looking at a
+        // placeholder can see what the call carried
+        const refs = req.referenceImages?.length ?? 0;
+        const label = refs ? `refs=${refs} ${req.prompt}` : req.prompt;
+        const hash = saveImage(await render(colors, label, req.width, req.height, slot + req.prompt.length));
         landed.set(slot, hash);
         onImage?.(slot, hash);
       }

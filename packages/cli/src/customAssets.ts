@@ -98,6 +98,7 @@ export interface Analyzer {
       correction?: string;
       priorDraft?: unknown;
       vocabulary?: { collections?: string[]; verticals?: string[]; categories?: string[] };
+      classifyPhotos?: boolean;
     },
     signal?: AbortSignal,
   ): Promise<PresenterDraft | SceneDraft>;
