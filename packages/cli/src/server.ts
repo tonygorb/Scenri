@@ -695,6 +695,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       inheritedAttachments = identity.attachments
         .filter((a) => {
           if (a.role === 'product') {
+            // Photographs only. A refine already has the real object in the
+            // frame; a drawn view beside it is a second, weaker geometry
+            // claim, and the label edit the extra angle exists for needs a
+            // photograph of that face, not an estimate of it.
+            if (a.source === 'derived') return false;
             const n = (productAngles.get(String(a.id ?? a.hash)) ?? 0) + 1;
             productAngles.set(String(a.id ?? a.hash), n);
             return n <= 2;
@@ -1571,6 +1576,17 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             engine: engine.capabilities().id,
             cap,
             sent,
+            // Per picture, so a benchmark can prove which references rode:
+            // the per-role count above cannot tell a photograph from a drawn
+            // view, or which angle led.
+            kept: (compiled?.attachments ?? []).map((a) => ({
+              role: a.role,
+              id: a.id ?? null,
+              angle: a.angle ?? null,
+              source: a.source ?? null,
+              essential: !!a.essential,
+              hash: a.hash,
+            })),
             dropped: (compiled?.dropped ?? []).map((d) => `${d.role}:${d.label} (${d.reason ?? 'budget'})`),
           },
           'reference transport',
@@ -1651,6 +1667,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             cap: Math.max(0, engine.capabilities().maxReferenceImages - 1),
             sourceFrame: true,
             sent,
+            kept: (mergedEdit?.kept ?? []).map((a) => ({
+              role: a.role,
+              id: a.id ?? null,
+              angle: a.angle ?? null,
+              source: a.source ?? null,
+              essential: !!a.essential,
+              inherited: !!a.inherited,
+              hash: a.hash,
+            })),
             dropped: (mergedEdit?.dropped ?? []).map((d) => `${d.role}:${d.label} (${d.reason ?? 'budget'})`),
           },
           'reference transport',

@@ -26,8 +26,23 @@
  * sold. A count is not evidence of coverage, so the coverage claim is gone and
  * the conservative line is the only one left.
  */
-export function productFidelityDirective(attached: number): string {
-  if (attached <= 1) {
+export function productFidelityDirective(photos: number, derived = 0): string {
+  // A photograph and a drawn view are not the same evidence, so the tier is
+  // keyed on the photographs alone: one photograph with two drawn views is
+  // still a product whose unseen faces are unknown, and the colorway language
+  // written for several photographs must not read a drawn view's colour drift
+  // as "another colorway". Both legacy strings below are unchanged, byte for
+  // byte; the drawn-view clause is only ever appended.
+  if (photos <= 1 && derived > 0) {
+    return (
+      'The first attached product image is the exact product, photographed: preserve its label, shape, colors and ' +
+      'proportions faithfully, and do not redesign it. It is the only photograph of this product that exists. Any ' +
+      'face, side or detail not visible in it is unknown: keep those plain and consistent with the visible materials ' +
+      'and color, and do not invent hardware, text, seams, closures, ornament or branding on them. Prefer a ' +
+      `composition that shows the product from the view the photograph gives. ${drawnViewsClause(1, derived)}`
+    );
+  }
+  if (photos <= 1) {
     return (
       'The attached product image is the exact product: preserve its label, shape, colors and proportions faithfully, ' +
       'and do not redesign it. It is also the only view of this product that exists. Any face, side or detail not ' +
@@ -48,7 +63,23 @@ export function productFidelityDirective(attached: number): string {
     'shows the same product in another colorway — never blend colorways, and render the one the first image shows. ' +
     'Any face not visible in them is unknown — keep it plain and consistent with the materials the first image ' +
     'shows, and do not invent detail on it. If the direction above explicitly asks for more than one colorway, ' +
-    'that explicit request wins.'
+    `that explicit request wins.${derived > 0 ? ` ${drawnViewsClause(photos, derived)}` : ''}`
+  );
+}
+
+/**
+ * What a drawn view is allowed to teach. Spoken only when one actually rides,
+ * with the split the engine will see: photographs first, drawn views last,
+ * which is the order the compiler emits and the allocator keeps.
+ */
+function drawnViewsClause(photos: number, derived: number): string {
+  const first = photos === 1 ? 'the first is a photograph' : `the first ${photos} are photographs`;
+  const last = derived === 1 ? 'the last one is a view Scenri drew' : `the last ${derived} are views Scenri drew`;
+  return (
+    `Of the attached product images, ${first} of the real object and the authority for its color, finish, material, ` +
+    `label and every mark; ${last} of the same product from its photographs, to show its shape from another side. ` +
+    'Take geometry and proportion from a drawn view and nothing else: any lettering, logo, seam, hardware or ornament ' +
+    'in it is not evidence, the photograph is right wherever they differ, and a surface no photograph shows stays plain.'
   );
 }
 
