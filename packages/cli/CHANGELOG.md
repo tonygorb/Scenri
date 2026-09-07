@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.2](https://github.com/tonygorb/Scenri/compare/v0.9.1...v0.9.2) (2026-09-07)
+
+
+### Bug Fixes
+
+* **codex:** name the model the installed cli is too old for ([91868da](https://github.com/tonygorb/Scenri/commit/91868daf6ec2d8f3d2c6e636923683d7650aafbf))
+* **codex:** name the model the installed cli is too old for ([66b6b81](https://github.com/tonygorb/Scenri/commit/66b6b819303c4ed99fc40e6137bf00725b4d9673))
+
 ## [0.9.1](https://github.com/tonygorb/Scenri/compare/v0.9.0...v0.9.1) (2026-09-07)
 
 
