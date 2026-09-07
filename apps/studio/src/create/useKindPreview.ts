@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { assetUrl, thumbOf } from '../api.js';
+import { thumbOf } from '../api.js';
 import { productCoverUrl } from '../productCover.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';

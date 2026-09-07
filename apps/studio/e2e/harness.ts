@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, type Page, expect } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -266,4 +266,93 @@ export function isolate(opts: SeedOptions = {}): void {
     test.setTimeout(30_000);
     await fx.stop();
   });
+}
+
+/* ------------------------------------------------------------ page helpers */
+
+/** The brand the app lands on, by slug and id. Every spec that opens a brand page starts here. */
+export async function currentBrand(p: Page): Promise<{ slug: string; id: string }> {
+  await p.goto('/');
+  await p.waitForURL((u) => {
+    const seg = u.pathname.split('/').filter(Boolean);
+    return seg.length === 1 && seg[0] !== 'setup';
+  });
+  const slug = decodeURIComponent(new URL(p.url()).pathname.split('/')[1]);
+  const brands = (await p.evaluate(async () => (await fetch('/api/brands')).json())) as any[];
+  return { slug, id: brands.find((b) => b.slug === slug).id };
+}
+
+/**
+ * A product with `count` distinct references, made the way the app makes one:
+ * images into the content store, then one create call carrying their hashes.
+ * The fills differ so the hashes differ; content addressing would otherwise
+ * collapse identical swatches into a single reference. `hueStep` keeps two
+ * specs' seeds from colliding on the same bytes.
+ */
+export async function seedProduct(
+  p: Page,
+  brandId: string,
+  name: string,
+  count: number,
+  hueStep = 47,
+): Promise<string> {
+  return p.evaluate(
+    async ([id, productName, n, step]) => {
+      const shot = (i: number) =>
+        new Promise<Blob>((res) => {
+          const c = document.createElement('canvas');
+          c.width = 40;
+          c.height = 50;
+          const ctx = c.getContext('2d')!;
+          ctx.fillStyle = `hsl(${i * (step as number)}, 70%, 45%)`;
+          ctx.fillRect(0, 0, 40, 50);
+          c.toBlob((b) => res(b!), 'image/png');
+        });
+      const hashes: string[] = [];
+      for (let i = 0; i < (n as number); i++) {
+        const fd = new FormData();
+        fd.append('file', await shot(i), `angle-${i}.png`);
+        const r = await fetch('/api/images', { method: 'POST', body: fd });
+        hashes.push((await r.json()).hash);
+      }
+      const made = await fetch(`/api/brands/${id}/products`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: productName, imageHashes: hashes }),
+      });
+      return (await made.json()).productId as string;
+    },
+    [brandId, name, count, hueStep] as const,
+  );
+}
+
+/**
+ * Hand `count` distinct photographs to a file input the way a person would,
+ * as File objects through the input itself, so the surface's own upload path
+ * runs. Same canvas trick as seedProduct; `hueStep` keeps the bytes apart.
+ */
+export async function dropPhotos(p: Page, selector: string, count: number, hueStep = 61): Promise<void> {
+  // the dialog mounts once the brand has loaded, a beat after the URL says it is open
+  await p.waitForSelector(selector, { state: 'attached' });
+  await p.evaluate(
+    async ([sel, n, step]) => {
+      const shot = (i: number) =>
+        new Promise<Blob>((res) => {
+          const c = document.createElement('canvas');
+          c.width = 64;
+          c.height = 80;
+          const ctx = c.getContext('2d')!;
+          ctx.fillStyle = `hsl(${i * (step as number)}, 60%, 50%)`;
+          ctx.fillRect(0, 0, 64, 80);
+          c.toBlob((b) => res(b!), 'image/png');
+        });
+      const input = document.querySelector(sel as string) as HTMLInputElement;
+      const dt = new DataTransfer();
+      for (let i = 0; i < (n as number); i++)
+        dt.items.add(new File([await shot(i)], `photo-${i}.png`, { type: 'image/png' }));
+      input.files = dt.files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+    [selector, count, hueStep] as const,
+  );
 }

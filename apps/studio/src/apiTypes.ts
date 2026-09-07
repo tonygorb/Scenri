@@ -334,6 +334,40 @@ export interface AssetBuildCapabilities {
   free: boolean;
 }
 
+/** One read of a product's photographs: the sheet, a label per photograph, and what is worth drawing. */
+export interface ProductAnalysis {
+  available: boolean;
+  reason?: string | null;
+  sheet: {
+    promptName: string;
+    description: string;
+    materials: string;
+    primaryColors: string;
+    preservationNotes: string;
+    negativeConstraints: string;
+    category: string;
+  } | null;
+  angles: string[];
+  conflict: string;
+  coverage: string[];
+  plan: string[];
+}
+
+/** A drawn view of a product, held for a decision. */
+export interface ProductCandidateRecord {
+  id: string;
+  brandId: string;
+  draftId: string;
+  angle: string;
+  attempt: number;
+  correction: string | null;
+  stage: 'queued' | 'drawing' | 'ready' | 'kept' | 'rejected' | 'failed' | 'cancelled';
+  hash: string | null;
+  error: string | null;
+  startedAt: string;
+  finished: boolean;
+}
+
 export interface AssetBuild {
   id: string;
   brandId: string;

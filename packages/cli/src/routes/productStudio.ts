@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { Core } from '@scenri/core';
-import type { ProductDraft } from '@scenri/engine-codex';
+import { createCodexAnalyzer, type ProductDraft } from '@scenri/engine-codex';
 import type { Analyzer } from '../customAssets.js';
 import { PRODUCT_ANGLES_BY_CATEGORY } from '../demoProducts.js';
 import type { EngineRegistry } from '../engines.js';
@@ -31,7 +31,9 @@ export function registerProductStudioRoutes(
   app: FastifyInstance,
   deps: { core: Core; engines: EngineRegistry; analyzer?: Analyzer | null; thumbs?: ThumbStore | null },
 ): void {
-  const { core, engines, analyzer, thumbs } = deps;
+  const { core, engines, thumbs } = deps;
+  // The same reader the asset builds use: injected in tests, the local Codex CLI otherwise.
+  const analyzer: Analyzer | null = deps.analyzer ?? createCodexAnalyzer({ runner: engines.codexRunner });
 
   const candidateDeps = async (): Promise<CandidateDeps> => ({
     core,

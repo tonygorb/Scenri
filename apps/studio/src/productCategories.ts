@@ -181,3 +181,30 @@ export function effectiveCategory(product: {
   if (product.category && BY_KEY.has(product.category)) return product.category;
   return suggestCategory(product.productType, product.tags) ?? null;
 }
+
+/**
+ * The views Scenri may draw for a product: the ones a rotation of the visible
+ * object can honestly supply. A back, a label or a detail is where lettering
+ * and hidden construction live, and no reading of a front photograph knows
+ * them. Mirrors packages/cli/src/productPlan.ts; productCategories.test.ts
+ * reads that file to keep the two in step.
+ */
+export const DERIVABLE_ANGLES = ['three-quarter', 'front', 'side', 'lateral-side', 'medial-side', 'top'] as const;
+const DERIVABLE = new Set<string>(DERIVABLE_ANGLES);
+
+/**
+ * Which views to offer, from what the photographs (and any views already
+ * kept) cover: the category's own angle list, minus the covered angles, kept
+ * to the derivable set, and capped so photographs plus drawn views never
+ * exceed what a brief attaches. The server plans the same way.
+ */
+export function plannedViews(
+  category: string | null | undefined,
+  coveredAngles: (string | null | undefined)[],
+  max = PRODUCT_REF_MAX,
+): string[] {
+  const plan = categoryOf(category).angles.map((a) => a.key);
+  const covered = new Set(coveredAngles.filter((a): a is string => !!a));
+  const room = Math.max(0, max - coveredAngles.length);
+  return plan.filter((a) => DERIVABLE.has(a) && !covered.has(a)).slice(0, room);
+}

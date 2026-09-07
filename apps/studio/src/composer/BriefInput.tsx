@@ -1,15 +1,6 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { productLabel, sceneLabel } from '../displayName.js';
-import {
-  imgUrl,
-  type Brand,
-  type Scene,
-  type Presenter,
-  type DemoProduct,
-  thumbUrl,
-  assetThumbUrl,
-  thumbOf,
-} from '../api.js';
+import { imgUrl, type Brand, type Scene, type Presenter, type DemoProduct, thumbUrl, thumbOf } from '../api.js';
 import { productCoverUrl } from '../productCover.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { attachableMarks, markLabel } from '../brand/marks.js';

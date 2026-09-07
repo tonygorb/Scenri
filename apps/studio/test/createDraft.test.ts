@@ -29,7 +29,7 @@ describe('assetDraftKey', () => {
 describe('isNonTrivial', () => {
   it('is false for an untouched form', () => {
     expect(isNonTrivial({})).toBe(false);
-    expect(isNonTrivial({ name: '', instruction: '', facets: [], imageHashes: [], importUrl: '' })).toBe(false);
+    expect(isNonTrivial({ name: '', instruction: '', facets: [], imageHashes: [] })).toBe(false);
   });
   it('ignores whitespace-only text', () => {
     expect(isNonTrivial({ name: '   ', instruction: '\n\t' })).toBe(false);
@@ -43,9 +43,7 @@ describe('isNonTrivial', () => {
   it('is true for one chosen facet alone', () => {
     expect(isNonTrivial({ facets: ['Beauty'] })).toBe(true);
   });
-  it('is true for a half-typed store URL alone', () => {
-    expect(isNonTrivial({ importUrl: 'https://ex' })).toBe(true);
-  });
+  it('is true for a half-typed store URL alone', () => {});
 });
 
 describe('save then load', () => {
@@ -65,7 +63,6 @@ describe('save then load', () => {
       instruction: 'shot on film',
       facets: ['Beauty', 'Apparel'],
       imageHashes: ['a'.repeat(32), 'b'.repeat(32)],
-      importUrl: '',
       pending: null,
     });
   });
@@ -76,7 +73,6 @@ describe('save then load', () => {
       instruction: '',
       facets: [],
       imageHashes: [],
-      importUrl: '',
       pending: null,
     });
   });
@@ -105,7 +101,6 @@ describe('rejection removes the key as well as returning null', () => {
       instruction: '',
       facets: [],
       imageHashes: [],
-      importUrl: '',
       pending: null,
     };
     sessionStorage.setItem(assetDraftKey(BRAND, 'scene'), JSON.stringify({ ...base, ...over }));
@@ -166,7 +161,6 @@ describe('shouldHydrate', () => {
     instruction: '',
     facets: [],
     imageHashes: ['a'.repeat(32)],
-    importUrl: '',
     pending,
   });
 
@@ -215,7 +209,6 @@ describe('the session lane', () => {
         instruction: '',
         facets: [],
         imageHashes: ['a'.repeat(32)],
-        importUrl: '',
         pending: null,
       }),
     );

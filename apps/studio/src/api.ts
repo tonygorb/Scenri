@@ -41,6 +41,8 @@ import type {
   UsageDay,
   VersionInfo,
   Workspace,
+  ProductAnalysis,
+  ProductCandidateRecord,
 } from './apiTypes.js';
 
 export const api = {
@@ -225,8 +227,53 @@ export const api = {
    * whole brand, which left the caller diffing the library to work out what it
    * had just made. This one says.
    */
-  createProduct: (brandId: string, p: { name: string; imageHashes: string[]; category?: string }) =>
-    req<Brand & { productId: string }>('POST', `/api/brands/${brandId}/products`, p),
+  createProduct: (
+    brandId: string,
+    p: {
+      name: string;
+      imageHashes?: string[];
+      /** The studio's shape: each reference with its angle and provenance. Photographs first. */
+      shots?: { hash: string; angle?: string | null; source?: 'photo' | 'derived' }[];
+      category?: string;
+      cover?: string;
+      dimensions?: string;
+      sheet?: Record<string, unknown>;
+      /** The studio draft this came from, so its kept views are forgotten as candidates. */
+      draftId?: string;
+    },
+  ) => req<Brand & { productId: string }>('POST', `/api/brands/${brandId}/products`, p),
+
+  // ---- the product studio: photographs read into a sheet, views drawn one at a time
+  analyzeProduct: (brandId: string, imageHashes: string[], name?: string) =>
+    req<ProductAnalysis>('POST', `/api/brands/${brandId}/product-studio/analyze`, { imageHashes, name }),
+  startCandidate: (
+    brandId: string,
+    p: {
+      draftId: string;
+      angle: string;
+      photoHashes: string[];
+      keptHashes: string[];
+      sheet?: Record<string, unknown> | null;
+      correction?: string | null;
+      attempt?: number;
+    },
+  ) => req<{ jobId: string }>('POST', `/api/brands/${brandId}/product-studio/candidates`, p),
+  candidate: (brandId: string, jobId: string) =>
+    req<ProductCandidateRecord>('GET', `/api/brands/${brandId}/product-studio/candidates/${jobId}`),
+  keepCandidate: (brandId: string, jobId: string) =>
+    req<{ candidate: ProductCandidateRecord }>(
+      'POST',
+      `/api/brands/${brandId}/product-studio/candidates/${jobId}/keep`,
+    ),
+  rejectCandidate: (brandId: string, jobId: string) =>
+    req<{ candidate: ProductCandidateRecord }>(
+      'POST',
+      `/api/brands/${brandId}/product-studio/candidates/${jobId}/reject`,
+    ),
+  cancelCandidate: (brandId: string, jobId: string) =>
+    req<{ ok: true }>('POST', `/api/brands/${brandId}/product-studio/candidates/${jobId}/cancel`),
+  abandonProductDraft: (brandId: string, draftId: string) =>
+    req<{ ok: true; removed: number }>('DELETE', `/api/brands/${brandId}/product-studio/drafts/${draftId}`),
   /** Write a presenter with no build behind it: the photos become the references. */
   createPresenter: (brandId: string, p: { name: string; shotHashes: string[]; sourceHashes?: string[] }) =>
     req<{ presenter: unknown; brand: Brand }>('POST', `/api/brands/${brandId}/presenters`, p),

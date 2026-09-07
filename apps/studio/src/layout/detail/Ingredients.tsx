@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
-import { type Brand, type FeedNode, thumbUrl, assetThumbUrl, thumbOf } from '../../api.js';
+import { type Brand, type FeedNode, thumbUrl, thumbOf } from '../../api.js';
 import { productCoverUrl } from '../../productCover.js';
 import { useAppData } from '../../app/AppShell.js';
 import { attachableMarks, markLabel } from '../../brand/marks.js';

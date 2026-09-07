@@ -321,6 +321,9 @@ The shared shell behind every curated-asset browsing surface (Products, Scenes, 
 ### Create dialogs (product / presenter / scene)
 A create dialog is a picture being named, not a settings panel. Empty: one large drop well. Filled: a 4:5 grid of references. Name and notes are labeled `.sc-in` fields, the same control as Settings, not a second input style. Filing is optional chips under a quiet legend. The chooser is one press; the forms do not grow a second step.
 
+### The product studio (adding a product)
+The one create surface that is not a form. A product is established from photographs, so the sheet is the photographs: the empty state is one large well, and from the first upload the product fills the stage the product page uses, with the reference board as the same rail beneath it. Photographs are facts and are never approved. One read (no generation) writes the identity sheet and labels each photograph's angle; from those the studio plans which views are worth drawing and draws them one at a time in the same frame, each held for Keep or Try again. A drawn view is told from a photograph by a hairline under its thumb and a word in the caption, never a badge. The foot holds two verbs at most and which two follows the moment (Stop beside a held primary while drawing; Keep and Try again; Draw again and Skip; Build views and Save as is; Save product and a quiet Draw), never a step counter. Name, category and size sit on one review line and are optional; the name falls back to the read's own noun phrase. Closing is an abandon with one Undo in the toast; a reload keeps the board, a view mid-draw included. The cover is a photograph chosen by rule (three-quarter, else front, else first) or the one the person picked, at a derivative width everywhere. Nothing reaches the library until Save, which is the same one write every product has always used.
+
 ## 6. Do's and Don'ts
 
 ### Do:

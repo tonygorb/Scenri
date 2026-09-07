@@ -1,0 +1,186 @@
+/* ---------- 6.7 the product studio ----------------------------------------
+   Adding a product is not the presenter or scene form: nothing here is
+   named before it is seen. The photographs fill the sheet, the read adds
+   the sheet's own line under them, and a drawn view is offered one at a
+   time in the same frame the photographs use. Same shell (DialogSheet, the
+   sc-newdlg classes), same stage and rail the product page uses, so the
+   thing being made looks like the thing it becomes. */
+.sc-pstudio {
+  --sc-newdlg-max: 880px;
+}
+.sc-pstudio .sc-newdlg-head + .sc-newdlg-body {
+  padding-top: var(--sc-space-5);
+}
+.sc-pstudio .sc-assetwell .sc-dropzone {
+  min-height: 240px;
+}
+.sc-pstudio .sc-refstage {
+  --sc-refstage-h: clamp(220px, 44vh, 440px);
+  margin-bottom: var(--sc-space-4);
+}
+.sc-pstudio .sc-refrail-shell {
+  margin-bottom: var(--sc-space-5);
+}
+/* The frame while a view is being drawn: the same box the picture will fill,
+   so nothing moves when it lands. The clock is the one honest progress
+   indicator a single generation has. */
+.sc-pstudio-drawing {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  width: min(352px, 100%);
+  height: var(--sc-refstage-h);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-well);
+  color: var(--sc-fg3);
+  font-size: 12px;
+}
+.sc-pstudio-drawing b {
+  font-family: var(--sc-mono, ui-monospace, monospace);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-fg2);
+}
+/* Under the stage: which picture this is, and the one thing you can do to it. */
+.sc-pstudio-caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 28px;
+  margin: -4px 0 var(--sc-space-4);
+  color: var(--sc-fg3);
+  font-size: 12px;
+}
+.sc-pstudio-caption .sc-btn {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+.sc-pstudio .sc-refrail-item[data-cover]::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--sc-fg);
+  box-shadow: 0 0 0 2px var(--sc-raised);
+  z-index: 1;
+}
+/* The read's line: what the photographs establish, what a further one would
+   buy, or what is being drawn. One line, one voice; a conflict wears an icon. */
+.sc-pstudio-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 20px;
+  margin: 0 0 var(--sc-space-5);
+  color: var(--sc-fg2);
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.sc-pstudio-line svg {
+  flex: none;
+  margin-top: 2px;
+}
+.sc-pstudio-line[data-tone="warn"] {
+  color: var(--sc-fg);
+}
+.sc-pstudio-line small {
+  display: block;
+  color: var(--sc-fg3);
+  font-size: 12px;
+}
+/* The correction after a Try again: one line, one question. */
+.sc-pstudio-fix {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 var(--sc-space-5);
+}
+.sc-pstudio-fix .sc-in {
+  width: 100%;
+}
+/* Review: the name, how it files, its size. One row, quiet labels, the same
+   controls the product page uses. */
+.sc-pstudio-review {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sc-pstudio-review .sc-in {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.sc-pstudio-review .sc-catpick {
+  flex: none;
+}
+.sc-pstudio-size {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--sc-fg3);
+  font-size: 12px;
+}
+.sc-pstudio-size:hover {
+  color: var(--sc-fg2);
+}
+.sc-pstudio-review input.sc-pstudio-sizein {
+  flex: 0 1 200px;
+}
+/* Two verbs at the foot, never more: the primary and the quiet way out of it. */
+.sc-pstudio-verbs {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.sc-pstudio-verbs .sc-dlg-go {
+  flex: 1;
+}
+.sc-pstudio-verbs .sc-btn-ghost {
+  flex: none;
+}
+@media (max-width: 767px) {
+  .sc-pstudio .sc-refstage {
+    --sc-refstage-h: clamp(200px, 38vh, 340px);
+  }
+  .sc-pstudio-review .sc-in {
+    flex-basis: 100%;
+  }
+  .sc-pstudio-verbs {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}
+@media (pointer: coarse) {
+  /* A finger needs 44px. The verbs, the caption's two small actions, the
+     category picker and the quiet text buttons keep their size and grow
+     their reach: the same invisible box the product page's action row uses. */
+  .sc-pstudio-verbs .sc-btn,
+  .sc-pstudio-caption .sc-btn,
+  .sc-pstudio-review .sc-catpick,
+  .sc-pstudio-size,
+  .sc-pstudio .sc-newdlg-secmore {
+    position: relative;
+  }
+  .sc-pstudio-verbs .sc-btn::after,
+  .sc-pstudio-caption .sc-btn::after,
+  .sc-pstudio-review .sc-catpick::after,
+  .sc-pstudio-size::after,
+  .sc-pstudio .sc-newdlg-secmore::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: 100%;
+    min-width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+}

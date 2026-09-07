@@ -21,6 +21,12 @@ export interface DemoOptions {
   order?: 'request' | 'reverse';
   /** A slot that fails, reported the way codex reports a partial run. */
   failSlot?: number;
+  /**
+   * Stand in for an engine that can draw from references, so the product
+   * studio's candidate loop can be driven end to end without a real provider.
+   * Test-only: it makes the placeholder claim a reference cap it does not read.
+   */
+  builds?: boolean;
 }
 
 /** The knobs as the end-to-end harness sets them, from the environment; none by default. */
@@ -31,6 +37,7 @@ export function demoOptionsFromEnv(env: Record<string, string | undefined>): Dem
   if (env.SCENRI_DEMO_ORDER === 'reverse') out.order = 'reverse';
   const fail = Number(env.SCENRI_DEMO_FAIL_SLOT);
   if (env.SCENRI_DEMO_FAIL_SLOT && Number.isInteger(fail) && fail >= 0) out.failSlot = fail;
+  if (env.SCENRI_DEMO_BUILDS === '1') out.builds = true;
   return out;
 }
 
@@ -93,8 +100,8 @@ export function createDemoEngine(saveImage: (buf: Buffer) => string, opts: DemoO
         // development and in the end-to-end suite. `placeholder` below is what
         // says none of this is a real picture.
         supportsOutpaint: true,
-        maxReferenceImages: 0,
-        placeholder: true,
+        maxReferenceImages: opts.builds ? 5 : 0,
+        placeholder: !opts.builds,
       };
     },
     async isAvailable() {

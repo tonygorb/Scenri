@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { isolate } from './harness.js';
+import { currentBrand, isolate, seedProduct } from './harness.js';
 
 /**
  * The product page on a phone and a tablet.
@@ -14,51 +14,9 @@ import { isolate } from './harness.js';
 // A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
 
-async function currentBrand(p: Page): Promise<{ slug: string; id: string }> {
-  await p.goto('/');
-  await p.waitForURL((u) => {
-    const seg = u.pathname.split('/').filter(Boolean);
-    return seg.length === 1 && seg[0] !== 'setup';
-  });
-  const slug = decodeURIComponent(new URL(p.url()).pathname.split('/')[1]);
-  const brands = (await p.evaluate(async () => (await fetch('/api/brands')).json())) as any[];
-  return { slug, id: brands.find((b) => b.slug === slug).id };
-}
-
-async function seedProduct(p: Page, brandId: string, name: string, count: number): Promise<string> {
-  return p.evaluate(
-    async ([id, productName, n]) => {
-      const shot = (i: number) =>
-        new Promise<Blob>((res) => {
-          const c = document.createElement('canvas');
-          c.width = 40;
-          c.height = 50;
-          const ctx = c.getContext('2d')!;
-          ctx.fillStyle = `hsl(${i * 37}, 70%, 45%)`;
-          ctx.fillRect(0, 0, 40, 50);
-          c.toBlob((b) => res(b!), 'image/png');
-        });
-      const hashes: string[] = [];
-      for (let i = 0; i < (n as number); i++) {
-        const fd = new FormData();
-        fd.append('file', await shot(i), `angle-${i}.png`);
-        const r = await fetch('/api/images', { method: 'POST', body: fd });
-        hashes.push((await r.json()).hash);
-      }
-      const made = await fetch(`/api/brands/${id}/products`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: productName, imageHashes: hashes }),
-      });
-      return (await made.json()).productId as string;
-    },
-    [brandId, name, count] as const,
-  );
-}
-
 test('a big reference set stays one row, and never widens the page', async ({ page }) => {
   const brand = await currentBrand(page);
-  const id = await seedProduct(page, brand.id, 'Many angles', 12);
+  const id = await seedProduct(page, brand.id, 'Many angles', 12, 37);
   await page.goto(`/${brand.slug}/products/${id}`);
 
   const rail = page.locator('.sc-refrail');
@@ -82,7 +40,7 @@ test('a big reference set stays one row, and never widens the page', async ({ pa
 
 test('every reference control is big enough for a thumb', async ({ page }) => {
   const brand = await currentBrand(page);
-  const id = await seedProduct(page, brand.id, 'Touch me', 3);
+  const id = await seedProduct(page, brand.id, 'Touch me', 3, 37);
   await page.goto(`/${brand.slug}/products/${id}`);
 
   await page.locator('.sc-refrail-item').nth(2).click();
@@ -108,7 +66,7 @@ test('every reference control is big enough for a thumb', async ({ page }) => {
 
 test('swapping a reference and starting a shot both work by touch', async ({ page }) => {
   const brand = await currentBrand(page);
-  const id = await seedProduct(page, brand.id, 'Thumbs up', 4);
+  const id = await seedProduct(page, brand.id, 'Thumbs up', 4, 37);
   await page.goto(`/${brand.slug}/products/${id}`);
 
   const shown = () => page.locator('.sc-refstage-frame img').getAttribute('src');

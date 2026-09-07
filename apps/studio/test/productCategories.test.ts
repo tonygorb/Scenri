@@ -7,8 +7,10 @@ import {
   categoryOf,
   effectiveCategory,
   OTHER_CATEGORY,
+  DERIVABLE_ANGLES,
   PRODUCT_CATEGORIES,
   PRODUCT_REF_MAX,
+  plannedViews,
   suggestCategory,
 } from '../src/productCategories.js';
 
@@ -170,5 +172,33 @@ describe('the two copies of the angle table', () => {
   it('agree on how many references a brief attaches', () => {
     expect(PRODUCT_REF_MAX).toBe(3);
     expect(read('../../packages/cli/src/brief.ts')).toContain(`PRODUCT_REF_MAX = ${PRODUCT_REF_MAX}`);
+  });
+});
+
+/**
+ * The studio plans the same views the server does, from the same table, so the
+ * offer it shows before a candidate is asked for matches what the server will
+ * accept. The derivable set is pinned to the CLI's the way the table is.
+ */
+describe('plannedViews, the studio copy', () => {
+  const here = fileURLToPath(import.meta.url);
+  const read = (p: string) => readFileSync(resolve(here, '..', '..', p), 'utf8');
+
+  it('offers the uncovered, derivable angles, capped to what a brief attaches', () => {
+    expect(plannedViews('fragrance', ['three-quarter'])).toEqual(['front', 'side']);
+    expect(plannedViews('beauty', ['front'])).toEqual(['three-quarter']);
+    expect(plannedViews('electronics', ['front'])).toEqual(['three-quarter']);
+    expect(plannedViews('apparel', ['front'])).toEqual([]);
+    expect(plannedViews('footwear', ['other'])).toEqual(['three-quarter', 'lateral-side']);
+    expect(plannedViews('fragrance', ['other', 'other', 'other'])).toEqual([]);
+    expect(plannedViews(null, [null])).toEqual(['three-quarter', 'front']);
+  });
+
+  it('draws the same angles the server does', () => {
+    const cli = read('../../packages/cli/src/productPlan.ts');
+    const m = cli.match(/DERIVABLE_ANGLES = \[([^\]]+)\]/);
+    expect(m).not.toBeNull();
+    const server = m![1].split(',').map((s) => s.trim().replace(/^'|'$/g, ''));
+    expect([...DERIVABLE_ANGLES]).toEqual(server);
   });
 });

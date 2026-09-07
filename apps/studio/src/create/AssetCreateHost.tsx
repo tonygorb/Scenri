@@ -9,7 +9,7 @@ import { P, hubPath, productPath } from '../routes.js';
 import { useToasts } from '../toasts.js';
 import { AssetKindPicker } from './AssetKindPicker.js';
 import { PresenterForm } from './PresenterForm.js';
-import { ProductForm } from './ProductForm.js';
+import { ProductStudio } from './product/ProductStudio.js';
 import { SceneForm } from './SceneForm.js';
 import type { Created } from './flow.js';
 
@@ -258,7 +258,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
       )}
       {/* Keyed by kind so switching flows remounts rather than carrying one
           form's fields into another's. */}
-      {kind === 'product' && <ProductForm key="product" {...flowProps} />}
+      {kind === 'product' && <ProductStudio key="product" {...flowProps} />}
       {kind === 'presenter' && <PresenterForm key="presenter" {...flowProps} />}
       {kind === 'scene' && <SceneForm key="scene" {...flowProps} />}
     </Ctx.Provider>

@@ -1,4 +1,4 @@
-import { type DemoProduct, type Presenter, type Product, type Scene, assetThumbUrl, thumbOf } from '../api.js';
+import { type DemoProduct, type Presenter, type Product, type Scene, thumbOf } from '../api.js';
 import { productCoverUrl } from '../productCover.js';
 import type { Swatch } from '../brand/palette.js';
 import { isRecommendedPresenter, isRecommendedScene } from '../compat.js';

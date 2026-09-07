@@ -526,6 +526,20 @@
   outline: 2px solid var(--sc-sel-line);
   outline-offset: -2px;
 }
+/* A drawn view is told from a photograph quietly: a hairline at the foot of
+   the thumb, never a badge. The stage caption says it in words. Same mark on
+   the product page and in the product studio, since the rail is one rail. */
+.sc-refrail-item[data-source="derived"]::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 5px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--sc-fg);
+  opacity: 0.55;
+}
 /* Past the third, an image is on the record but never sent. Dimming says so
    across the whole set at once, which the tag on the stage can only say one
    frame at a time. */

@@ -37,9 +37,9 @@ export interface AssetDraft {
   kind: CreateKind;
   updatedAt: string;
   name: string;
-  /** Presenter's note, scene's description. Unused by product. */
+  /** Presenter's note, scene's description. */
   instruction: string;
-  /** Categories the new asset files under. One list, three forms. */
+  /** Categories the new asset files under. One list, two forms; the product studio keeps its own draft. */
   facets: string[];
   /**
    * Content hashes, never File objects. Uploading happens as files are picked,
@@ -47,8 +47,6 @@ export interface AssetDraft {
    * localStorage, and a 32-hex hash already outlives the tab on the server.
    */
   imageHashes: string[];
-  /** Product only: a half-typed store URL is work too. */
-  importUrl: string;
   /**
    * The build this draft was last submitted as, for presenter and scene.
    * Null means it was never sent. See `shouldHydrate` — this is the whole
@@ -77,7 +75,6 @@ export interface DraftFields {
   instruction?: string;
   facets?: string[];
   imageHashes?: string[];
-  importUrl?: string;
 }
 
 /**
@@ -85,13 +82,7 @@ export interface DraftFields {
  * decision someone made, and so is a single uploaded photo.
  */
 export function isNonTrivial(d: DraftFields): boolean {
-  return (
-    !!d.name?.trim() ||
-    !!d.instruction?.trim() ||
-    !!d.importUrl?.trim() ||
-    (d.facets ?? []).length > 0 ||
-    (d.imageHashes ?? []).length > 0
-  );
+  return !!d.name?.trim() || !!d.instruction?.trim() || (d.facets ?? []).length > 0 || (d.imageHashes ?? []).length > 0;
 }
 
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
@@ -136,7 +127,6 @@ export function loadAssetDraft(brandId: string, kind: CreateKind): AssetDraft | 
     instruction: typeof d.instruction === 'string' ? d.instruction : '',
     facets: strings(d.facets),
     imageHashes: strings(d.imageHashes),
-    importUrl: typeof d.importUrl === 'string' ? d.importUrl : '',
     pending: typeof d.pending === 'string' ? d.pending : null,
   };
 }
@@ -156,7 +146,6 @@ export function saveAssetDraft(
     instruction: data.instruction ?? '',
     facets: data.facets ?? [],
     imageHashes: data.imageHashes ?? [],
-    importUrl: data.importUrl ?? '',
     pending: data.pending ?? null,
   };
   write(assetDraftKey(brandId, kind), JSON.stringify(draft));

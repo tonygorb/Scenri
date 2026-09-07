@@ -3,7 +3,7 @@ import { productLabel, sceneLabel, showcaseSearchText } from '../displayName.js'
 import { Link, useNavigate } from 'react-router';
 import { Badge } from '@radix-ui/themes';
 import { Aperture, Mountains, Package, User } from '@phosphor-icons/react';
-import { assetUrl, type ShowcaseEntry, thumbOf } from '../api.js';
+import { type ShowcaseEntry, thumbOf } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { useApplyScene } from '../app/useApplyScene.js';
