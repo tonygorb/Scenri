@@ -13,6 +13,7 @@ export function Confirm({
   fullWidth,
   open,
   onOpenChange,
+  tone = 'red',
 }: {
   label: string;
   title: string;
@@ -24,6 +25,8 @@ export function Confirm({
   /** Controlled, for a confirm opened from somewhere that unmounts on select (a menu item): no trigger is rendered. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** The trigger's colour: red for a delete, quiet for an act that only throws work away. The confirm itself stays red. */
+  tone?: 'red' | 'quiet';
 }) {
   return (
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
@@ -31,7 +34,7 @@ export function Confirm({
         <AlertDialog.Trigger>
           <button
             type="button"
-            className="sc-btn sc-btn-ghost sc-btn-red"
+            className={tone === 'red' ? 'sc-btn sc-btn-ghost sc-btn-red' : 'sc-btn sc-btn-ghost'}
             disabled={busy}
             style={fullWidth ? { width: '100%' } : undefined}
           >

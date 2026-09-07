@@ -106,8 +106,13 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     if (!brand) return;
     const body = (req.body ?? {}) as any;
     const kind = String(body.kind ?? '');
-    if (kind !== 'presenter' && kind !== 'scene')
-      return reply.status(400).send({ error: 'kind must be presenter|scene' });
+    // The bulk five-view presenter build is gone: a person is cast one
+    // approved view at a time in the studio, on its own routes.
+    if (kind === 'presenter')
+      return reply
+        .status(400)
+        .send({ error: 'presenters are cast in the studio now: POST /api/brands/:id/presenter-drafts' });
+    if (kind !== 'scene') return reply.status(400).send({ error: 'kind must be scene' });
     try {
       return startAssetBuild(await buildDeps(), {
         brandId: brand.id,

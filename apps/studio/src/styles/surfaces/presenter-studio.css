@@ -41,9 +41,10 @@
 }
 /* The two doors wear the chooser's own card (.sc-pick, add-to-brand.css):
    the studio is the next room of the same house. Two across, not three. */
-.sc-studio-doors {
+.sc-studio-entry .sc-pickgrid.sc-studio-doors {
   grid-template-columns: 1fr 1fr;
-  margin: 28px 0 24px;
+  max-width: 460px;
+  margin: 28px auto 24px;
 }
 .sc-studio-doors .sc-pick[aria-disabled="true"] {
   opacity: 0.55;
@@ -273,21 +274,31 @@
   grid-template-columns: repeat(3, 120px);
   gap: 12px;
 }
-.sc-studio-review-refs figure {
-  margin: 0;
+.sc-studio-review-ref {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--sc-fg3);
+  font-size: 12px;
+  cursor: pointer;
 }
-.sc-studio-review-refs img {
+.sc-studio-review-ref img {
   display: block;
   width: 120px;
   aspect-ratio: 4 / 5;
   object-fit: cover;
   border-radius: var(--sc-radius-md);
   border: 1px solid var(--sc-line);
+  transition: border-color var(--sc-dur-fast) var(--sc-ease);
 }
-.sc-studio-review-refs figcaption {
-  margin-top: 6px;
-  color: var(--sc-fg3);
-  font-size: 12px;
+@media (hover: hover) {
+  .sc-studio-review-ref:hover:not(:active) img {
+    border-color: var(--sc-line-hover);
+  }
 }
 .sc-studio-review-fields {
   width: 100%;
@@ -308,11 +319,30 @@
     gap: 18px;
   }
   .sc-studio-stage {
-    max-height: 62vh;
+    max-height: 46vh;
     width: 100%;
   }
   .sc-studio-rail {
     position: static;
+    gap: 14px;
+  }
+  /* the strip goes square so the picture, the strip and the decision share
+     one screen above the tab bar; the decision comes before the words, which
+     a thumb reaches without reading */
+  .sc-studio-slot-pic {
+    aspect-ratio: 1;
+  }
+  .sc-studio-rail .sc-studio-strip {
+    order: 0;
+  }
+  .sc-studio-rail .sc-studio-actions {
+    order: 1;
+  }
+  .sc-studio-rail .sc-studio-step {
+    order: 2;
+  }
+  .sc-studio-rail .sc-studio-foot {
+    order: 3;
   }
   .sc-studio-actions .sc-btn {
     min-height: var(--sc-tap);

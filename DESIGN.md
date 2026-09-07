@@ -318,8 +318,11 @@ The shared shell behind every curated-asset browsing surface (Products, Scenes, 
 - **Search shows once a library clears ~8 items**, and may match more than the card displays (a Presenter card shows name + descriptor; its search also reads hair, skin, build, age): the search system is allowed to be smarter than the visible card.
 - **A primary CTA slot may be visible before it's wired.** A not-yet-wired action renders as a ghost button: its presence signals intent even before it does something, and ghost is the tell that it is not the loud, working action yet.
 
-### Create dialogs (product / presenter / scene)
+### Create dialogs (product / scene)
 A create dialog is a picture being named, not a settings panel. Empty: one large drop well. Filled: a 4:5 grid of references. Name and notes are labeled `.sc-in` fields, the same control as Settings, not a second input style. Filing is optional chips under a quiet legend. The chooser is one press; the forms do not grow a second step.
+
+### The presenter studio (`/presenters/new`)
+A person is cast over several generations, so they get a page, not a dialog. The chooser's presenter row and a `?new=presenter` link both land here with a clean URL. Two doors in the chooser's own card shape (a face Scenri drew, a photograph of a person), one field behind each, replacing the doors rather than opening under them. Then one view at a time: the picture dominates (`.sc-studio-stage`, 4:5), the three frames of the strip are the progress (approved, current, still to come, stale), and the decision is one primary and at most two ghosts: Approve & continue, Try again, Adjust. No step numbers, no bar. While a view is drawn the last picture dims under the mono clock a running shot tile wears; no fake progress. The name comes last, with the person in front of you. On a phone: picture, strip, decision, then the words, all above the tab bar. Discard is a quiet ghost (the `Confirm` tone `quiet`), red stays for deletes.
 
 ## 6. Do's and Don'ts
 

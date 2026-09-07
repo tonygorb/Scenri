@@ -1,6 +1,6 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { imgUrl, thumbUrl } from '../../api.js';
-import { STUDIO_VIEWS, VIEW_LABEL, type DraftLike } from './studioRules.js';
+import { STUDIO_VIEWS, VIEW_LABEL, type DraftLike, type StudioView } from './studioRules.js';
 
 /**
  * The person, before they are saved: the avatar the small surfaces will use,
@@ -16,6 +16,7 @@ export function StudioReview({
   busy,
   onName,
   onFacets,
+  onPick,
   onSave,
 }: {
   draft: DraftLike;
@@ -27,6 +28,8 @@ export function StudioReview({
   busy: boolean;
   onName: (name: string) => void;
   onFacets: (facets: string[]) => void;
+  /** Look at an approved view again, to redo it. */
+  onPick: (view: StudioView) => void;
   onSave: () => void;
 }) {
   const [touched, setTouched] = useState(false);
@@ -52,10 +55,16 @@ export function StudioReview({
         {STUDIO_VIEWS.map((v) => {
           const h = draft.views[v].hash;
           return (
-            <figure key={v}>
-              {h ? <img src={thumbUrl(h, 'tile')} alt={VIEW_LABEL[v]} loading="lazy" /> : null}
-              <figcaption>{VIEW_LABEL[v]}</figcaption>
-            </figure>
+            <button
+              type="button"
+              key={v}
+              className="sc-studio-review-ref"
+              aria-label={`${VIEW_LABEL[v]}, approved. Look again or redo.`}
+              onClick={() => onPick(v)}
+            >
+              {h ? <img src={thumbUrl(h, 'tile')} alt="" loading="lazy" /> : null}
+              <span>{VIEW_LABEL[v]}</span>
+            </button>
           );
         })}
       </section>

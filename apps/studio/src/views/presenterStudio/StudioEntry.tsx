@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { api, type AssetBuildCapabilities, type PresenterDraft, uploadImage } from '../../api.js';
 import { RefStrip } from '../../create/RefStrip.js';
 import { presenterDraftPath } from '../../routes.js';
+import { agoLabel } from '../../tasks.js';
 
 /** Four is the working ceiling: past that a photo adds nothing an engine reads. */
 const MAX_PHOTOS = 4;
@@ -23,11 +24,14 @@ export function StudioEntry({
   brand,
   caps,
   capsNote,
+  pictures,
   onCreated,
 }: {
   brand: { id: string; slug: string };
   caps: AssetBuildCapabilities | null;
   capsNote: (whenKnown: string) => ReactNode;
+  /** What each door shows: a face Scenri drew, a photograph of a person. Null falls back to the glyph. */
+  pictures: { scratch: string | null; photos: string | null };
   onCreated: (draft: PresenterDraft) => void;
 }) {
   const [mode, setMode] = useState<Mode | null>(null);
@@ -121,6 +125,7 @@ export function StudioEntry({
             <Link key={d.id} to={presenterDraftPath(brand, d.id)}>
               Continue{' '}
               {d.name.trim() ? d.name : d.source === 'synthetic' ? 'the person you described' : 'from your photos'}
+              <small> {agoLabel(d.updatedAt)}</small>
             </Link>
           ))}
         </p>
@@ -137,9 +142,13 @@ export function StudioEntry({
             onClick={() => setMode('scratch')}
           >
             <span className="sc-pick-media">
-              <span className="sc-pick-blank">
-                <UserFocus size={22} />
-              </span>
+              {pictures.scratch ? (
+                <img src={pictures.scratch} alt="" loading="lazy" />
+              ) : (
+                <span className="sc-pick-blank">
+                  <UserFocus size={22} />
+                </span>
+              )}
             </span>
             <span className="sc-pick-cap">
               <b>Start from scratch</b>
@@ -154,9 +163,13 @@ export function StudioEntry({
             onClick={() => setMode('photos')}
           >
             <span className="sc-pick-media">
-              <span className="sc-pick-blank">
-                <Images size={22} />
-              </span>
+              {pictures.photos ? (
+                <img src={pictures.photos} alt="" loading="lazy" />
+              ) : (
+                <span className="sc-pick-blank">
+                  <Images size={22} />
+                </span>
+              )}
             </span>
             <span className="sc-pick-cap">
               <b>Use photos</b>

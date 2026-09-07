@@ -15,8 +15,10 @@ import { PresenterCard } from '../layout/PresenterCard.js';
 import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 
-/** Every presenter ships exactly 4 frames (front/left/right/back), so this never triggers "See the whole set" — kept as a cap rather than a magic 4 in the slice call below in case a future presenter ships more. */
+/** How many of a curated presenter's frames the page shows before "See the whole set". */
 const FRONT_ANGLES = 4;
+/** How many of a person's views a brief attaches: the compiler's CHARACTER_REF_MAX. */
+const USED_IN_SHOTS = 3;
 
 /**
  * One presenter. The reference set says who they are — face, profile, hair,
@@ -224,12 +226,13 @@ export function PresenterPage() {
           <>
             <div className="sc-lookpage-refs">
               {frames.map((src, i) => (
-                <div key={src} className="sc-ownedref" data-engine={owned && i < 2 ? '' : undefined}>
+                <div key={src} className="sc-ownedref" data-engine={owned && i < USED_IN_SHOTS ? '' : undefined}>
                   <RefFrame src={src} />
-                  {/* Two references per person reach the engine, and they are
-                      the first two. Saying which is the difference between a
-                      gallery and knowing what your shots are built from. */}
-                  {owned && i < 2 && <span className="sc-ownedref-tag">Used in shots</span>}
+                  {/* Three references per person reach the engine, and they
+                      are the first three. Saying which is the difference
+                      between a gallery and knowing what your shots are built
+                      from. */}
+                  {owned && i < USED_IN_SHOTS && <span className="sc-ownedref-tag">Used in shots</span>}
                 </div>
               ))}
             </div>
@@ -245,6 +248,21 @@ export function PresenterPage() {
 
         {owned && (
           <div className="sc-ownedbits">
+            {/* Where they came from is kept, never inferred. A person made
+                from a description is not a real person, and an advertiser
+                has to say so where the law asks; the fact lives here so the
+                claim can be made, and nowhere on a card or a chip. */}
+            {owned.source === 'synthetic' && (
+              <p className="sc-ownedbits-note">
+                Created in Scenri from a description. Not a real person. Ads that use them must say so where the law
+                asks.
+              </p>
+            )}
+            {owned.likeness && (
+              <p className="sc-ownedbits-note">
+                Likeness permission confirmed {new Date(owned.likeness.attestedAt).toLocaleDateString()}.
+              </p>
+            )}
             {owned.sourceRefs.length > 0 && (
               <section>
                 <p className="sc-bandhead">Your photos</p>

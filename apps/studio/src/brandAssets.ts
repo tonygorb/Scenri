@@ -13,6 +13,10 @@ import { assetUrl, type Brand, type Presenter, type Scene } from './api.js';
 
 export interface CustomPresenter extends Presenter {
   custom: true;
+  /** Made here from a description, or built from photographs of a real person. Absent on older records: photos. */
+  source?: 'synthetic' | 'photos';
+  /** The likeness confirmation given for a real person. */
+  likeness?: { attestedAt: string; version: string };
   /** The photographs this person was built from. Never generated. */
   sourceRefs: string[];
   /** The normalized views, in the order a brief attaches them. */
@@ -59,14 +63,13 @@ function toPresenter(c: any): CustomPresenter {
     hair: String(c.hair ?? ''),
     identityNotes: String(c.identityNotes ?? ''),
     negativeConstraints: Array.isArray(c.negativeConstraints) ? c.negativeConstraints.map(String) : [],
-    // A curated presenter carries these from its casting sheet. A person built
-    // here has them folded into identityNotes instead, so they stay empty
-    // rather than being invented to fill a shape. `suitableCategories` is the
-    // exception: it is what the category tabs filter on, so a person with none
-    // would be invisible under every tab but "Every presenter".
-    facial: '',
-    skin: '',
-    build: '',
+    // The casting-sheet prose a person built in the studio carries, the same
+    // three the curated roster does; an older record has none and stays
+    // empty rather than being invented to fill a shape. `wardrobeDefault` is
+    // the capture uniform and never rides.
+    facial: String(c.facial ?? ''),
+    skin: String(c.skin ?? ''),
+    build: String(c.build ?? ''),
     wardrobeDefault: '',
     suitableCategories: Array.isArray(c.suitableCategories) ? c.suitableCategories.map(String) : [],
     suitableStyles: [],
@@ -80,6 +83,10 @@ function toPresenter(c: any): CustomPresenter {
     custom: true,
     shots,
     sourceRefs,
+    ...(c.source === 'synthetic' || c.source === 'photos' ? { source: c.source } : {}),
+    ...(c.likeness?.attestedAt
+      ? { likeness: { attestedAt: String(c.likeness.attestedAt), version: String(c.likeness.version ?? 'v1') } }
+      : {}),
   };
 }
 

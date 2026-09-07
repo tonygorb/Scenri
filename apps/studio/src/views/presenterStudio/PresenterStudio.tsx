@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { api, type AssetBuildCapabilities } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { useBrand } from '../../app/BrandLayout.js';
+import { customPresentersOf } from '../../brandAssets.js';
+import { presenterAvatar } from '../../presenterVisual.js';
 import { Confirm } from '../../Confirm.js';
 import { ScrollPane } from '../../layout/ScrollPane.js';
 import { hubPath, presenterDraftPath, presenterNewPath, presenterPath, presentersPath } from '../../routes.js';
@@ -39,7 +41,15 @@ export function PresenterStudio() {
   const navigate = useNavigate();
   const location = useLocation();
   const { push } = useToasts();
-  const { presenterCategories, applyBrand } = useAppData();
+  const { presenterCategories, presenters, applyBrand } = useAppData();
+  // The doors are pictures, the chooser's rule: a face Scenri drew for the
+  // sentence door, a photograph of a person for the photos door.
+  const mine = customPresentersOf(brand);
+  const doorPictures = useMemo(() => {
+    const drawn = presenters.find((p) => p.id === 'maren') ?? presenters.find((p) => p.avatarUrl) ?? presenters[0];
+    const photo = mine.find((p) => p.sourceRefs.length)?.sourceRefs[0] ?? presenters[1]?.previewUrl ?? null;
+    return { scratch: drawn ? presenterAvatar(drawn).src : null, photos: photo };
+  }, [presenters, mine]);
   useTitleEntity('Create presenter');
 
   // Asked once per visit: whether anything here can draw, and what it costs.
@@ -86,6 +96,7 @@ export function PresenterStudio() {
             brand={brand}
             caps={caps}
             capsNote={capsNote}
+            pictures={doorPictures}
             onCreated={(d) => navigate(presenterDraftPath(brand, d.id), { replace: true, state: location.state })}
           />
         </main>
@@ -255,6 +266,7 @@ function DraftStudio({
           {worthKeeping(draft) ? (
             <Confirm
               label="Discard"
+              tone="quiet"
               title="Discard this presenter?"
               body="The views drawn so far are thrown away. Nothing was saved to the library."
               busy={discarding}
@@ -268,20 +280,18 @@ function DraftStudio({
         </div>
 
         {review ? (
-          <>
-            <ViewStrip items={stripItems(draft, focus)} onPick={(v) => setFocus(v)} />
-            <StudioReview
-              draft={draft}
-              categories={categories}
-              name={name}
-              facets={facets}
-              blocker={blocker}
-              busy={saving}
-              onName={setNameLater}
-              onFacets={setFacetsNow}
-              onSave={() => void save()}
-            />
-          </>
+          <StudioReview
+            draft={draft}
+            categories={categories}
+            name={name}
+            facets={facets}
+            blocker={blocker}
+            busy={saving}
+            onName={setNameLater}
+            onFacets={setFacetsNow}
+            onPick={(v) => setFocus(v)}
+            onSave={() => void save()}
+          />
         ) : (
           <div className="sc-studio-body">
             <StudioStage view={view} slot={slot} drawing={drawing} since={draft.updatedAt} name={name} />

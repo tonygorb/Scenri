@@ -18,7 +18,6 @@
  * view is a convenience, the photographs are the evidence.
  */
 import { randomUUID } from 'node:crypto';
-import { CAPTURE_UNIFORM, studioPrompt, whoIs } from './presenterPrompts.js';
 import sharp from 'sharp';
 import type { BrandContext, Core, EngineAdapter, ReferenceRole } from '@scenri/core';
 import type { PresenterDraft, SceneDraft } from '@scenri/engine-codex';
@@ -117,7 +116,8 @@ export interface AssetBuildDeps {
 
 export interface StartBuildInput {
   brandId: string;
-  kind: 'presenter' | 'scene';
+  /** Only scenes build here now; a presenter is cast in the studio (presenterDrafts.ts). */
+  kind: 'scene';
   name: string;
   instruction?: string;
   imageHashes: string[];
@@ -187,10 +187,7 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
     ? input.imageHashes
     : ((prior as CustomScene | undefined)?.refs ?? []).map((r) => String(r?.file ?? '').replace(/^asset:/, ''));
   const hashes = supplied.filter((h) => /^[a-f0-9]{32}$/.test(h) && core.images.has(h));
-  if (input.kind === 'presenter' && !hashes.length) {
-    throw Object.assign(new Error('add at least one photo of this person'), { statusCode: 400 });
-  }
-  if (input.kind === 'scene' && !hashes.length && !input.instruction?.trim()) {
+  if (!hashes.length && !input.instruction?.trim()) {
     throw Object.assign(new Error('add a reference image, or describe the place in a sentence'), { statusCode: 400 });
   }
 
@@ -198,10 +195,10 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
     id: `ab-${randomUUID().slice(0, 8)}`,
     brandId: brand.id,
     kind: input.kind,
-    name: str(input.name, 60) || (input.kind === 'presenter' ? 'New presenter' : 'New scene'),
+    name: str(input.name, 60) || 'New scene',
     stage: 'queued',
     step: 0,
-    steps: input.kind === 'presenter' ? STUDIO_FRAMES.length : 1,
+    steps: 1,
     message: null,
     assetId: null,
     previewHash: null,
@@ -239,8 +236,7 @@ async function runBuild(
   signal: AbortSignal,
 ): Promise<void> {
   try {
-    if (job.kind === 'presenter') await runPresenterBuild(deps, job, hashes, instruction, signal);
-    else await runSceneBuild(deps, job, hashes, instruction, signal);
+    await runSceneBuild(deps, job, hashes, instruction, signal);
   } catch (err: any) {
     if (signal.aborted) {
       patch(job, { stage: 'cancelled', message: null, finished: true });
@@ -248,216 +244,6 @@ async function runBuild(
     }
     patch(job, { stage: 'failed', error: err?.message ?? 'build failed', message: null, finished: true });
   }
-}
-
-/* ----------------------------------------------------- presenter pipeline */
-
-/**
- * The identity plan, ported from the curated roster's own set recipes.
- *
- * The front view is drawn from the person's photographs; every other view is
- * drawn from the front view, so the four frames are the same person seen four
- * ways rather than four attempts at a description. The right profile chains off
- * the left and asks for a mirror, which is what stops it drifting into a
- * different face.
- */
-const STUDIO_FRAMES: {
-  angle: string;
-  from: 'sources' | 'front' | 'left-profile';
-  subject: (who: string) => string;
-}[] = [
-  /*
-   * The identity frame, and it comes first because that is the order a brief
-   * attaches: `shots[0]` is the essential character reference.
-   *
-   * Every other frame here is full-length head-to-toe, which is right for
-   * build, proportion and wardrobe and useless for a face — in a 1024x1280
-   * full-length frame the face is about 105px brow to chin, while a portrait
-   * output renders it at four times that. Measured 2026-08-30 against the
-   * reported failure: four outputs of one brief, four different jaws, and
-   * drift that tracked nothing but how big the face was in the output.
-   *
-   * Drawn `from: 'sources'` rather than chained off the front view, because
-   * the user's own photographs are the only real face evidence in the system
-   * and a chain would just enlarge the same 105px.
-   */
-  {
-    angle: 'portrait',
-    from: 'sources',
-    subject: (who) =>
-      `${who}, head-and-shoulders portrait framing from just above the top of the head down to the collarbone, facing the camera straight-on, relaxed neutral expression, eyes to the lens, their own hair exactly as the references show it, the same plain studio backdrop and even frontal light`,
-  },
-  {
-    angle: 'front',
-    from: 'sources',
-    subject: (who) =>
-      `${who}, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, facing the camera straight-on`,
-  },
-  {
-    angle: 'left-profile',
-    from: 'front',
-    subject: () =>
-      'the same person in the identical standing pose, full-length head-to-toe framing, rotated a full 90 degrees to show their left side in full profile, facing screen-left, same wardrobe',
-  },
-  {
-    angle: 'right-profile',
-    from: 'left-profile',
-    subject: () =>
-      'the attached image shows this exact same person in full left profile, standing: generate the precise mirror-flipped view of that same pose, the same person now in full right profile, facing the exact opposite horizontal direction, same standing pose, same wardrobe, same lighting and background',
-  },
-  {
-    angle: 'back',
-    from: 'front',
-    subject: () =>
-      'the same person in the identical standing pose, full-length head-to-toe framing, rotated to face fully away from the camera, back view, same wardrobe',
-  },
-];
-
-async function runPresenterBuild(
-  deps: AssetBuildDeps,
-  job: AssetBuild,
-  hashes: string[],
-  instruction: string,
-  signal: AbortSignal,
-): Promise<void> {
-  const { core } = deps;
-  const sourcePaths = hashes.map((h) => core.images.pathFor(h));
-
-  let draft: PresenterDraft | null = null;
-  if (deps.analyzer) {
-    patch(job, { stage: 'analyzing', message: 'Reading the photos' });
-    draft = (await deps.analyzer.analyze(
-      {
-        kind: 'presenter',
-        imagePaths: sourcePaths,
-        name: job.name,
-        instruction: instruction || undefined,
-        vocabulary: deps.vocabulary,
-      },
-      signal,
-    )) as PresenterDraft;
-    patch(job, { coverage: draft.coverage ?? [] });
-  }
-  if (signal.aborted) throw new Error('cancelled');
-
-  // Without an engine the photographs are the presenter: fewer views than a
-  // curated one has, but a working person rather than a blocked flow.
-  let shotHashes = hashes;
-  let shotAngles: string[] = [];
-  const warnings: string[] = [];
-  if (deps.engine) {
-    patch(job, { stage: 'building', steps: STUDIO_FRAMES.length, message: 'Building the studio views' });
-    const built = await generateStudioSet(deps, job, whoIs(job.name, draft), sourcePaths, signal);
-    if (built.hashes.length) {
-      shotHashes = built.hashes;
-      shotAngles = built.angles;
-    } else warnings.push('The studio views could not be drawn, so the photos are being used directly.');
-  } else {
-    warnings.push('No engine could draw the studio views, so the photos are being used directly.');
-  }
-  if (signal.aborted) throw new Error('cancelled');
-
-  patch(job, { stage: 'saving', message: null });
-  // The geometric top-anchored crops assume an engine-drawn full-length
-  // standing front view. On the no-engine path the frame is whatever the user
-  // photographed — a waist-up selfie, a landscape — and top-16% is a square
-  // of forehead or ceiling. Saliency picks the subject instead.
-  const generated = shotHashes !== hashes;
-  // The card crops are geometric and measured from a STANDING FIGURE, so they
-  // come off the full-length front view by name. They used to read shots[0],
-  // which was the same picture until the portrait frame took that seat: fed a
-  // head-and-shoulders frame, `figureBox` would have found a head where it
-  // expected a body and cropped an avatar out of a forehead.
-  const frontIndex = shotAngles.indexOf('front');
-  const cardSource = frontIndex === -1 ? shotHashes[0] : shotHashes[frontIndex];
-  const { previewHash, avatarHash } = await presenterCrops(core, cardSource, generated ? 'generated' : 'upload');
-  const built = presenterRecordFrom({
-    name: job.name,
-    shotHashes,
-    shotAngles,
-    sourceHashes: hashes,
-    previewHash,
-    avatarHash,
-    promptName: draft?.promptName,
-    presentation: draft?.presentation,
-    descriptor: draft?.descriptor,
-    ageRange: draft?.ageRange,
-    hair: draft?.hair,
-    identityNotes: draft?.identityNotes,
-    negativeConstraints: draft?.negativeConstraints,
-    // What the caller asked for wins over what the analyzer guessed: the
-    // person choosing where this belongs knows their own library.
-    suitableCategories: job.facets.length ? job.facets : draft?.suitableCategories,
-  });
-  if (!built.ok) throw new Error(built.error);
-  commit(core, job.brandId, (json) => {
-    json.characters = [...brandCharacters(json), built.presenter];
-  });
-  patch(job, {
-    stage: 'done',
-    step: job.steps,
-    assetId: built.presenter.id,
-    previewHash: previewHash ?? cardSource ?? null,
-    warnings: [...job.warnings, ...warnings],
-    finished: true,
-  });
-}
-
-/**
- * Draw the four normalized views, front first so the rest can chain off it.
- *
- * A frame that fails does not fail the presenter: the views that did land are
- * kept in plan order, and the first of them is the one a brief attaches.
- */
-async function generateStudioSet(
-  deps: AssetBuildDeps,
-  job: AssetBuild,
-  who: string,
-  sourcePaths: string[],
-  signal: AbortSignal,
-): Promise<{ hashes: string[]; angles: string[] }> {
-  const engine = deps.engine;
-  if (!engine) return { hashes: [], angles: [] };
-  const caps = engine.capabilities();
-  if (!caps.maxReferenceImages) return { hashes: [], angles: [] };
-  const byAngle = new Map<string, string>();
-
-  for (const frame of STUDIO_FRAMES) {
-    if (signal.aborted) throw new Error('cancelled');
-    const refs =
-      frame.from === 'sources'
-        ? sourcePaths.slice(0, caps.maxReferenceImages)
-        : [byAngle.get(frame.from)].filter((h): h is string => !!h).map((h) => deps.core.images.pathFor(h));
-    // A chained frame with no anchor would be a fresh guess at a face.
-    if (!refs.length) continue;
-    try {
-      const drawn = await draw(deps, {
-        prompt: studioPrompt(frame.subject(who)),
-        brandId: job.brandId,
-        referenceImages: refs,
-        referenceRoles: refs.map(() => 'character' as const),
-        signal,
-      });
-      // Before anything chains off it: a bar left on the anchor is a bar the
-      // next frame is conditioned on and faithfully reproduces.
-      const hash = await trimEdgeBars(deps.core, drawn);
-      byAngle.set(frame.angle, hash);
-      patch(job, {
-        step: byAngle.size,
-        previewHash: job.previewHash ?? hash,
-        message: `Building the studio views (${byAngle.size} of ${STUDIO_FRAMES.length})`,
-      });
-    } catch (err: any) {
-      if (signal.aborted) throw err;
-      // The front view is the anchor; without it there is nothing to chain from.
-      // The portrait anchors nothing, so losing it costs face conditioning and
-      // not the build.
-      if (frame.angle === 'front') throw err;
-      patch(job, { warnings: [...job.warnings, `The ${frame.angle} view could not be drawn.`] });
-    }
-  }
-  const kept = STUDIO_FRAMES.filter((f) => byAngle.get(f.angle));
-  return { hashes: kept.map((f) => byAngle.get(f.angle) as string), angles: kept.map((f) => f.angle) };
 }
 
 /**

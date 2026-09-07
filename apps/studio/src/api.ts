@@ -204,7 +204,8 @@ export const api = {
   startAssetBuild: (
     brandId: string,
     p: {
-      kind: 'presenter' | 'scene';
+      /** Only scenes build here; a presenter is cast in the studio (createPresenterDraft). */
+      kind: 'scene';
       name: string;
       instruction?: string;
       imageHashes: string[];
