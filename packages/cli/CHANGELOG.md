@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.1](https://github.com/tonygorb/Scenri/compare/v0.9.0...v0.9.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **cli:** the desktop icon on Windows ends in the studio or a sentence, never in silence ([4a5dacb](https://github.com/tonygorb/Scenri/commit/4a5dacbdc1522fa04e506c92354182d0c3f08309))
+* **cli:** the desktop icon on Windows ends in the studio or a sentence, never in silence ([86bdc1e](https://github.com/tonygorb/Scenri/commit/86bdc1e24728d3a706e690c13c08b0adb27714ec))
+* **cli:** the dialog PowerShell keeps windowsHide, because a detached one shows nothing on Windows ([f140c04](https://github.com/tonygorb/Scenri/commit/f140c04b47008359ea4f2e194a08435b9321842a))
+
 ## [0.9.0](https://github.com/tonygorb/Scenri/compare/v0.8.3...v0.9.0) (2026-09-06)
 
 

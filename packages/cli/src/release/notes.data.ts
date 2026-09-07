@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.9.1',
+    date: '2026-09-07',
+    sections: [
+      {
+        heading: 'Desktop',
+        body: 'The desktop icon on Windows now ends in the studio or in one plain sentence, never in silence. On both systems the Starting page and the studio open in your default browser, a start that fails says why, and after a Node.js upgrade the next terminal start rebuilds the copy the icon runs.',
+      },
+    ],
+  },
+  {
     version: '0.9.0',
     date: '2026-09-06',
     title: 'Scenri on your desktop',
