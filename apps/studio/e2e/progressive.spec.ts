@@ -208,20 +208,13 @@ test('every shot of a batch made inside a set is filed in that set', async ({ pa
 });
 
 test("a brand's late answer never lands on another brand's feed", async ({ page }) => {
-  // This test has gone red on CI's loaded runners with the app leaving the
-  // new brand's home for the old brand's create page on its own, before the
-  // late answer even arrived, and green alone every time. Until the caller
-  // is named, every navigation the app makes logs its stack to the console,
-  // which the trace keeps: the next red says who did it.
-  await page.addInitScript(() => {
-    for (const m of ['pushState', 'replaceState'] as const) {
-      const orig = history[m];
-      history[m] = function (this: History, ...a: Parameters<History['pushState']>) {
-        console.warn(`[nav] ${m} -> ${String(a[2])}\n${new Error().stack ?? ''}`);
-        return orig.apply(this, a);
-      };
-    }
-  });
+  // The URL leads the screen: React Router 7 navigates inside a transition, so
+  // history already says /late-answer while the old brand's tree is still the
+  // one painted. On a loaded CI runner that gap reached a few hundred
+  // milliseconds, and a click on the nav's Create link inside it followed the
+  // old brand's href (the trace named it: a Link pushState to
+  // /e2e-fixture/create?compose=1). So the test waits for that link to name
+  // the new brand before clicking, which is what a person's eyes do.
   const slug = await brandSlug(page);
   const a = (await (await page.request.get('/api/brands')).json())[0];
   const made = await page.request.post('/api/brands', {
@@ -241,7 +234,9 @@ test("a brand's late answer never lands on another brand's feed", async ({ page 
   await page.locator('.sc-org-btn').click();
   await page.locator('.sc-menu-item', { hasText: 'Late answer' }).click();
   await page.waitForURL(new RegExp(`/${b.slug}$`));
-  await page.locator('.sc-nav a', { hasText: 'Create' }).click();
+  const create = page.locator('.sc-nav a', { hasText: 'Create' });
+  await expect(create).toHaveAttribute('href', new RegExp(`^/${b.slug}/create`));
+  await create.click();
   await page.waitForURL(new RegExp(`/${b.slug}/create$`));
   await page.waitForTimeout(4_000);
   expect(await page.locator('.sc-cell[data-fb-node]').count()).toBe(0);
