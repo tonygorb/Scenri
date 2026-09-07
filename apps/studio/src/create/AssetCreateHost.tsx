@@ -5,10 +5,9 @@ import { useAppData, useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { CreateKind, PendingState } from '../createDraft.js';
-import { P, hubPath, productPath } from '../routes.js';
+import { P, hubPath, presenterNewPath, productPath } from '../routes.js';
 import { useToasts } from '../toasts.js';
 import { AssetKindPicker } from './AssetKindPicker.js';
-import { PresenterForm } from './PresenterForm.js';
 import { ProductForm } from './ProductForm.js';
 import { SceneForm } from './SceneForm.js';
 import type { Created } from './flow.js';
@@ -28,6 +27,14 @@ import type { Created } from './flow.js';
  * shelf. That lives in a ref, is fired only for the kind that asked, and
  * deliberately does not survive a reload: the asset is still created, which
  * is the half that matters.
+ *
+ * A presenter is the exception: they are cast in a studio of their own, a
+ * page under the presenters library, because a person is built over several
+ * generations with a big picture in front of you. The three doors here still
+ * lead there (the top bar's +, the chooser, a `?new=presenter` link), and
+ * none of them leaves `?new=` behind: a push from a button, a replace from
+ * the chooser (one Back leaves, as with every row) and from a deep link (Back
+ * must not resurrect a dialog nobody saw).
  */
 
 const CHOOSER = '1';
@@ -88,14 +95,24 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
 
   const open = useCallback<CreateApi['open']>(
     (kind, opts) => {
+      if (kind === 'presenter') {
+        navigate(presenterNewPath(brand), { state: opts?.onCreated ? { from: 'compose' } : undefined });
+        return;
+      }
       createdRef.current = kind === 'choose' || !opts?.onCreated ? null : { kind, fn: opts.onCreated };
       openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setCameFromChooser(kind === 'choose');
       setRestore(false);
       openParam(kind === 'choose' ? CHOOSER : kind);
     },
-    [openParam],
+    [brand, navigate, openParam],
   );
+
+  // A deep link straight to the presenter flow lands in the studio, replacing
+  // itself so Back never reopens a dialog that was never there.
+  useEffect(() => {
+    if (value === 'presenter') navigate(presenterNewPath(brand), { replace: true });
+  }, [value, brand, navigate]);
 
   const close = useCallback(() => {
     createdRef.current = null;
@@ -222,11 +239,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         return;
       }
       if (cb?.kind === made.kind) cb.fn(made);
-      push({
-        kind: 'success',
-        title: `Building ${made.name}`,
-        detail: made.kind === 'presenter' ? 'Four studio views. The bell will say when.' : 'The bell will say when.',
-      });
+      push({ kind: 'success', title: `Building ${made.name}`, detail: 'The bell will say when.' });
     },
     [brand, close, navigate, poke, push, refreshBrands],
   );
@@ -251,6 +264,10 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         <AssetKindPicker
           suggest={here}
           onPick={(k) => {
+            if (k === 'presenter') {
+              navigate(presenterNewPath(brand), { replace: true });
+              return;
+            }
             setCameFromChooser(true);
             setParam(k);
           }}
@@ -259,7 +276,6 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
       {/* Keyed by kind so switching flows remounts rather than carrying one
           form's fields into another's. */}
       {kind === 'product' && <ProductForm key="product" {...flowProps} />}
-      {kind === 'presenter' && <PresenterForm key="presenter" {...flowProps} />}
       {kind === 'scene' && <SceneForm key="scene" {...flowProps} />}
     </Ctx.Provider>
   );

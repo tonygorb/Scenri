@@ -420,7 +420,7 @@ export function AttachBody({
           });
           return;
         }
-        onTab(made.kind === 'presenter' ? 'Presenters' : 'Scenes');
+        onTab('Scenes');
       },
     });
 

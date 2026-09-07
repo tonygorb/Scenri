@@ -356,6 +356,38 @@ export interface AssetBuild {
   finished: boolean;
 }
 
+/** The three canonical views a presenter is cast in, in build order. */
+export type PresenterDraftView = 'portrait' | 'front' | 'three-quarter';
+export type PresenterDraftSlotStatus = 'empty' | 'generating' | 'candidate' | 'approved' | 'stale';
+export interface PresenterDraftSlot {
+  status: PresenterDraftSlotStatus;
+  hash?: string;
+  origin?: 'generated' | 'photo';
+  attempts: number;
+  rejected: string[];
+  adjustment?: string;
+  conditionedOn?: string[];
+  error?: string;
+}
+/** A presenter being cast: the server's row, whole, on every answer. */
+export interface PresenterDraft {
+  id: string;
+  brandId: string;
+  source: 'synthetic' | 'photos';
+  direction?: string;
+  name: string;
+  facets: string[];
+  attestation?: { attestedAt: string; version: string };
+  sources: string[];
+  analysis?: { promptName?: string; descriptor?: string } | null;
+  views: Record<PresenterDraftView, PresenterDraftSlot>;
+  generations: number;
+  activeView: PresenterDraftView | null;
+  stage: 'idle' | 'analyzing' | 'drawing';
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PresenterPatch {
   name?: string;
   descriptor?: string;
