@@ -258,6 +258,22 @@ describe('spendAssetDraft', () => {
   });
 });
 
+describe('drawn frames', () => {
+  it('keeps the frames a build drew and the person approved, and counts them as work', () => {
+    saveAssetDraft('b1', 'scene', { instruction: 'a shore', drawn: ['a'.repeat(32), 'b'.repeat(32)], pending: 'ab-1' });
+    const d = loadAssetDraft('b1', 'scene');
+    expect(d?.drawn).toEqual(['a'.repeat(32), 'b'.repeat(32)]);
+    // An older draft without the field reads as none.
+    sessionStorage.setItem(
+      assetDraftKey('b1', 'scene'),
+      JSON.stringify({ ...d, drawn: undefined, updatedAt: new Date().toISOString() }),
+    );
+    expect(loadAssetDraft('b1', 'scene')?.drawn).toEqual([]);
+    expect(isNonTrivial({ drawn: ['a'.repeat(32)] })).toBe(true);
+    expect(isNonTrivial({ drawn: [] })).toBe(false);
+  });
+});
+
 describe('a storage that throws', () => {
   let setItem: typeof Storage.prototype.setItem;
   let getItem: typeof Storage.prototype.getItem;

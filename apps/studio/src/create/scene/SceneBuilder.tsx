@@ -377,7 +377,7 @@ export function SceneBuilder({
         <div className="sc-sb-main">
           <Stage
             hash={shown}
-            alt={`${shownLabel}${shown && shown === cover ? ', cover' : ''}`}
+            alt={`${shownLabel}${shown && shown === cover && screen === 'reviewing' ? ', cover' : ''}`}
             drawing={screen === 'seeding' || (screen === 'viewing' && !!drawing)}
             since={screen === 'seeding' ? (job?.stageAt?.seeding ?? job?.startedAt ?? drawingSince) : drawingSince}
             cover={!!shown && shown === cover && screen === 'reviewing'}

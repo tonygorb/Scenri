@@ -49,6 +49,12 @@
   gap: var(--sc-space-5);
   min-width: 0;
 }
+/* The direction is a paragraph, not a line: five rows, and it may grow. */
+.sc-sb-side textarea.sc-in {
+  min-height: 132px;
+  resize: vertical;
+  line-height: 1.45;
+}
 
 /* The stage: one 4:5 frame, bounded by the viewport so the foot stays put. */
 .sc-sb-stage-wrap {

@@ -154,7 +154,8 @@ test.describe('adding to a brand', () => {
   });
 
   test('a facet chip that is on looks on', async ({ page }) => {
-    await page.goto(`/${slug}?new=scene`);
+    // The presenter form: a scene files its categories at review, not at entry.
+    await page.goto(`/${slug}?new=presenter`);
     const chip = page.locator('.sc-assetform-facets .sc-chip').first();
     const off = await chip.evaluate((el) => getComputedStyle(el).backgroundColor);
     await chip.click();

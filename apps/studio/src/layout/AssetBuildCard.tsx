@@ -64,18 +64,25 @@ export function AssetBuildCard({
       data-paused={paused || undefined}
     >
       <div className="sc-lookcard-media">
-        {build.previewHash ? (
-          <img src={thumbUrl(build.previewHash, 'tile')} alt="" />
-        ) : (
-          <span className="sc-lookcard-blank">{failed || paused ? null : <Spinner />}</span>
-        )}
-        {paused && onResume && (
+        {/* While it waits, the picture is the way back in: the same open
+            control the finished cards wear, wrapping the media. */}
+        {paused && onResume ? (
           <button
             type="button"
             className="sc-lookcard-open"
             aria-label={`Continue building ${title}`}
             onClick={() => onResume(build)}
-          />
+          >
+            {build.previewHash ? (
+              <img src={thumbUrl(build.previewHash, 'tile')} alt="" />
+            ) : (
+              <span className="sc-lookcard-blank" />
+            )}
+          </button>
+        ) : build.previewHash ? (
+          <img src={thumbUrl(build.previewHash, 'tile')} alt="" />
+        ) : (
+          <span className="sc-lookcard-blank">{failed || paused ? null : <Spinner />}</span>
         )}
         {!failed && !paused && (
           <span className="sc-buildbar" aria-hidden>
