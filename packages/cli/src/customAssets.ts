@@ -861,11 +861,25 @@ async function figureBox(buf: Buffer): Promise<{ left: number; top: number; widt
  * spend). Either way a failed first choice falls through to the other before
  * giving up, so a presenter no longer silently ships with no avatar at all.
  */
+export type PresenterCropMode = 'generated' | 'upload' | 'portrait';
+
 export async function presenterCrops(
   core: Core,
   hash: string | undefined,
-  mode: 'generated' | 'upload',
+  mode: PresenterCropMode,
 ): Promise<{ previewHash: string | undefined; avatarHash: string | undefined }> {
+  // A `portrait` is head-and-shoulders by construction, framed "from just
+  // above the top of the head down to the collarbone" with the headroom
+  // already in the picture. The standing geometry read one as a whole figure
+  // and carved an avatar out of a forehead, which is what every engine-built
+  // presenter got on its next boot once the portrait frame led. So: the card
+  // is the frame itself (already the 4:5 a card wants), and the avatar is the
+  // full-width square off its top. No saliency, no figure box: deterministic,
+  // and byte-identical between the build, the boot repair and a re-order.
+  if (mode === 'portrait') {
+    const exists = !!hash && core.images.has(hash);
+    return { previewHash: exists ? hash : undefined, avatarHash: await portraitAvatarCrop(core, hash) };
+  }
   const previewHash =
     mode === 'generated'
       ? ((await cardCrop(core, hash)) ?? (await cardCropSmart(core, hash)))
@@ -875,6 +889,19 @@ export async function presenterCrops(
       ? ((await avatarCrop(core, hash)) ?? (await avatarCropSmart(core, hash)))
       : ((await avatarCropSmart(core, hash)) ?? (await avatarCrop(core, hash)));
   return { previewHash, avatarHash };
+}
+
+/** The square off the top of a portrait frame, full width, stored at the avatar cap. */
+async function portraitAvatarCrop(core: Core, hash: string | undefined): Promise<string | undefined> {
+  return crop(
+    core,
+    hash,
+    (w, h) => {
+      const size = Math.min(w, h);
+      return { left: Math.max(0, Math.round((w - size) / 2)), top: 0, width: size, height: size };
+    },
+    AVATAR_MAX_PX,
+  );
 }
 
 /** The largest 4:5 window on the picture, placed by saliency. Best effort. */

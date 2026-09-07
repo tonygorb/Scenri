@@ -168,3 +168,36 @@ describe('a presenter avatar is measured from the figure, not the frame', () => 
     expect(m!.height).toBe(m!.width);
   }, 30_000);
 });
+
+describe('a portrait-led frame keeps its own framing', () => {
+  it('takes the avatar as the square top of the portrait, and the card as the portrait itself', async () => {
+    // A head-and-shoulders frame: one large dark block, backdrop everywhere
+    // else. Placed low on purpose, where a saliency window would slide down to
+    // meet it and the standing geometry would read it as a whole figure and
+    // carve 0.22 of it: the portrait mode does neither. The studio frames its
+    // portraits with the headroom already in the picture, so the square is
+    // the frame's own top.
+    const W = 1024;
+    const H = 1280;
+    const head = await sharp({ create: { width: 420, height: 520, channels: 3, background: { r: 40, g: 40, b: 44 } } })
+      .png()
+      .toBuffer();
+    const frame = core.images.save(
+      await sharp({ create: { width: W, height: H, channels: 3, background: { r: 255, g: 255, b: 255 } } })
+        .composite([{ input: head, left: 302, top: 700 }])
+        .png()
+        .toBuffer(),
+    );
+    const { previewHash, avatarHash } = await presenterCrops(core, frame, 'portrait');
+    // the card is the frame: a portrait is already the 4:5 a card wants
+    expect(previewHash).toBe(frame);
+    const m = await meta(avatarHash);
+    // the full-width square off the top, stored at the cap
+    expect(m!.width).toBe(512);
+    expect(m!.height).toBe(512);
+    // top anchored: frame rows 0..1024 at half scale, nothing slid down
+    expect(await pixel(avatarHash!, 256, 10)).toEqual([255, 255, 255]);
+    expect(await pixel(avatarHash!, 256, 300)).toEqual([255, 255, 255]);
+    expect(await pixel(avatarHash!, 256, 450)).toEqual([40, 40, 44]);
+  });
+});

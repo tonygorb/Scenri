@@ -1,5 +1,5 @@
 import type { Core } from '@scenri/core';
-import { brandCharacters, commit, presenterCrops } from './customAssets.js';
+import { brandCharacters, commit, presenterCrops, type PresenterCropMode } from './customAssets.js';
 
 /**
  * One-time repair of custom presenter thumbnails, run at boot.
@@ -19,7 +19,14 @@ import { brandCharacters, commit, presenterCrops } from './customAssets.js';
  */
 
 /** Which crop geometry a presenter's shots were made for. */
-export function presenterCropMode(firstShotFile: unknown, firstSourceFile: unknown): 'upload' | 'generated' {
+export function presenterCropMode(
+  firstShotFile: unknown,
+  firstSourceFile: unknown,
+  firstShotAngle?: unknown,
+): PresenterCropMode {
+  // A leading portrait says so on the record. It is head-and-shoulders, not
+  // a standing figure, and the standing geometry carves a forehead out of it.
+  if (firstShotAngle === 'portrait') return 'portrait';
   // When the first shot IS the first source photo, no engine ever drew a
   // studio frame: the crops must read the photograph, not assume a full
   // length standing figure.
@@ -43,7 +50,7 @@ export async function repairPresenterCrops(
         const firstShot = c.shots?.[0]?.file;
         const hash = typeof firstShot === 'string' && firstShot.startsWith('asset:') ? firstShot.slice(6) : null;
         if (!hash) continue;
-        const mode = presenterCropMode(firstShot, c.sourceRefs?.[0]?.file);
+        const mode = presenterCropMode(firstShot, c.sourceRefs?.[0]?.file, c.shots?.[0]?.angle);
         const { previewHash, avatarHash } = await presenterCrops(core, hash, mode);
         const preview = previewHash ? `asset:${previewHash}` : undefined;
         const avatar = avatarHash ? `asset:${avatarHash}` : undefined;

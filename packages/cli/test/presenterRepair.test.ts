@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { createCore, type Core } from '@scenri/core';
 import { presenterCropMode, repairPresenterCrops } from '../src/presenterRepair.js';
+import { presenterCrops } from '../src/customAssets.js';
 
 let home: string;
 let core: Core;
@@ -109,5 +110,43 @@ describe('repairPresenterCrops', () => {
     ]);
     const { repaired } = await repairPresenterCrops(core);
     expect(repaired).toBe(0);
+  });
+});
+
+describe('a portrait-led record', () => {
+  it('names its crop mode from the leading angle', () => {
+    expect(presenterCropMode('asset:aaa', 'asset:bbb', 'portrait')).toBe('portrait');
+    expect(presenterCropMode('asset:aaa', 'asset:aaa', 'portrait')).toBe('portrait');
+    expect(presenterCropMode('asset:aaa', 'asset:bbb', 'front')).toBe('generated');
+  });
+
+  it('is mended with portrait crops, and then left alone', async () => {
+    // The shape every engine-built presenter has had since the portrait frame
+    // was prepended: shots[0] is head-and-shoulders. The boot repair used to
+    // read it as a standing figure and carve an avatar out of a forehead.
+    const portrait = core.images.save(await png('#8a6a5a'));
+    const front = core.images.save(await png('#224488'));
+    const brand = seedBrand([
+      {
+        id: 'up-port0001',
+        name: 'Ilse',
+        origin: 'custom',
+        shots: [
+          { file: `asset:${portrait}`, angle: 'portrait', locked: true },
+          { file: `asset:${front}`, angle: 'front', locked: true },
+        ],
+        sourceRefs: [{ file: `asset:${'a'.repeat(32)}` }],
+        avatar: `asset:${front}`,
+        preview: `asset:${front}`,
+      },
+    ]);
+    const first = await repairPresenterCrops(core);
+    expect(first.repaired).toBe(1);
+    const fixed = charOf(brand.id);
+    const want = await presenterCrops(core, portrait, 'portrait');
+    expect(fixed.avatar).toBe(`asset:${want.avatarHash}`);
+    expect(fixed.preview).toBe(`asset:${portrait}`);
+    const second = await repairPresenterCrops(core);
+    expect(second.repaired).toBe(0);
   });
 });
