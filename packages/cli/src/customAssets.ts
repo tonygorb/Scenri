@@ -18,8 +18,9 @@
  * view is a convenience, the photographs are the evidence.
  */
 import { randomUUID } from 'node:crypto';
+import { CAPTURE_UNIFORM, studioPrompt, whoIs } from './presenterPrompts.js';
 import sharp from 'sharp';
-import type { BrandContext, Core, EngineAdapter } from '@scenri/core';
+import type { BrandContext, Core, EngineAdapter, ReferenceRole } from '@scenri/core';
 import type { PresenterDraft, SceneDraft } from '@scenri/engine-codex';
 
 /* --------------------------------------------------------------- records */
@@ -289,7 +290,7 @@ const STUDIO_FRAMES: {
     angle: 'front',
     from: 'sources',
     subject: (who) =>
-      `${who}, wearing a fitted off-white ribbed tank top and matching fitted off-white leggings, barefoot, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, facing the camera straight-on`,
+      `${who}, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, facing the camera straight-on`,
   },
   {
     angle: 'left-profile',
@@ -310,35 +311,6 @@ const STUDIO_FRAMES: {
       'the same person in the identical standing pose, full-length head-to-toe framing, rotated to face fully away from the camera, back view, same wardrobe',
   },
 ];
-
-/** The studio itself. Identical for every person, which is the entire point. */
-const STUDIO_SET =
-  'against a solid seamless white studio background, eye-level camera with gentle 85mm-equivalent portrait compression and a soft shallow depth of field, one large soft key light with gentle fill producing even, flattering, true-to-life beauty light, while keeping fine natural skin texture at pore scale and true-to-life proportions, the complexion even and uniform in tone across face, neck and shoulders, never airbrushed, plastic, or synthetic-looking, a calm quietly confident expression, true-to-life color grade with minimal retouch';
-
-function studioPrompt(subject: string): string {
-  // "No logos" here is deliberate, not a gap: a built asset is neutral raw
-  // material, and a brand mark enters a shot exactly one way, as the mark chip
-  // the user places (see docs/brand-marks.md). Baking a logo into an asset
-  // would put a second uncontrolled copy of it into every future shot.
-  //
-  // The clause that arrives first wins, so the full-bleed instruction leads:
-  // without it the backdrop stops short and leaves flat bands down the sides.
-  return (
-    'Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind, ' +
-    'the seamless studio backdrop runs past all four edges and is the only thing behind the subject at every edge of the frame. ' +
-    `${subject}, ${STUDIO_SET}. ` +
-    'No text, no logos, no watermarks anywhere in the frame.'
-  );
-}
-
-/** What the frames are told they are looking at, from the record we will store. */
-function whoIs(name: string, draft: PresenterDraft | null): string {
-  if (!draft) return `the exact person in the attached photographs`;
-  const bits = [draft.promptName];
-  if (draft.hair && !draft.promptName.toLowerCase().includes(draft.hair.toLowerCase())) bits.push(draft.hair);
-  if (draft.identityNotes) bits.push(draft.identityNotes);
-  return bits.filter(Boolean).join(', ') || name;
-}
 
 async function runPresenterBuild(
   deps: AssetBuildDeps,
@@ -1133,15 +1105,24 @@ export function scenePreviewPrompt(scene: CustomScene): string {
 
 /* ----------------------------------------------------------- shared parts */
 
-/** One image, through whichever engine the brand builds with. */
-async function draw(
+/**
+ * One image, through whichever engine the brand builds with.
+ *
+ * Shared by the studio-set pipeline, the scene preview and the presenter
+ * studio's view steps: the same cost gate the composer answers to, the same
+ * ledger line (a build is generation, not metadata), no node minted.
+ */
+export async function draw(
   deps: AssetBuildDeps,
   req: {
     prompt: string;
     brandId: string;
     referenceImages?: string[];
-    referenceRoles?: ('character' | 'scene')[];
+    referenceRoles?: ReferenceRole[];
     signal: AbortSignal;
+    /** Defaults to the 4:5 every curated asset ships at. */
+    width?: number;
+    height?: number;
   },
 ): Promise<string> {
   const engine = deps.engine;
@@ -1152,8 +1133,8 @@ async function draw(
     brand: deps.brandContext(req.brandId),
     referenceImages: req.referenceImages,
     referenceRoles: req.referenceRoles,
-    width: ASSET_WIDTH,
-    height: ASSET_HEIGHT,
+    width: req.width ?? ASSET_WIDTH,
+    height: req.height ?? ASSET_HEIGHT,
     count: 1,
   };
   // Same budget the composer answers to: a build is generation, not metadata.
