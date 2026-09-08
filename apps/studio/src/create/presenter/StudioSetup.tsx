@@ -1,7 +1,7 @@
 import { Check, Image, Plus, TextAa, X } from '@phosphor-icons/react';
 import { type KeyboardEvent, type ReactNode, useEffect, useRef } from 'react';
 import { thumbUrl } from '../../api.js';
-import { ChipsInput } from '../../layout/ChipsInput.js';
+import { CategoryMenu } from './CategoryMenu.js';
 import { useFileDrop } from '../../layout/Dropzone.js';
 import { OpenAIMark } from '../../layout/OpenAIMark.js';
 import { MAX_PHOTOS, photosHint } from './presenterStudioRules.js';
@@ -215,13 +215,11 @@ function PhotoSlots({
 }
 
 /**
- * The categories a presenter is cast for.
+ * The categories a presenter is cast for: one line, and a menu behind it.
  *
- * The studio's own list control, the one the brand board uses: the chosen
- * ones are chips you can take off, the brand's own categories are offered
- * beside them until they are picked, and a word that is not on the list is
- * typed into the same field and taken by Enter, a comma, or leaving it. One
- * field, one place to look, and nothing moves under the pointer.
+ * The engine names these itself, off the photographs or off the portrait it
+ * drew, and what is chosen here only overrides that. So this is the quietest
+ * field in the rail, never a wall of toggles.
  */
 export function CategoriesField({
   categories,
@@ -233,17 +231,9 @@ export function CategoriesField({
   onFacets: (next: string[]) => void;
 }) {
   return (
-    <fieldset className="sc-pstudio-field sc-pstudio-fieldset sc-pstudio-cats">
-      <legend className="sc-newdlg-seclabel">Categories</legend>
-      <ChipsInput
-        label="Categories"
-        value={facets}
-        onChange={onFacets}
-        suggestions={categories.filter((c) => !facets.some((f) => f.toLowerCase() === c.toLowerCase()))}
-        placeholder="Add a category"
-        maxLength={30}
-      />
-    </fieldset>
+    <Field label="Categories">
+      <CategoryMenu value={facets} categories={categories} onChange={onFacets} />
+    </Field>
   );
 }
 

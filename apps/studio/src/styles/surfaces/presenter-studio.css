@@ -513,57 +513,99 @@
   line-height: 22px;
 }
 
-/* categories: the studio's own list control, wearing this rail's field.
-   The chosen ones are chips you take off; the brand's own sit under it as
-   one-tap offers until they are picked; a new word is typed in the same
-   field. */
-.sc-pstudio-cats .sc-chips {
-  min-height: 44px;
-  margin: 0;
-  padding: 7px 10px;
+/* a value that opens a list: the rail's own field, with the caret at its end */
+.sc-pstudio-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
   border: 1.5px solid var(--sc-line);
   border-radius: var(--sc-radius-md);
   background: var(--sc-pstudio-field);
+  color: var(--sc-fg);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
 }
 
-.sc-pstudio-cats .sc-chips:hover {
-  background: var(--sc-pstudio-field);
+.sc-pstudio-picker:hover {
   border-color: var(--sc-line-strong);
 }
 
-.sc-pstudio-cats .sc-chips:focus-within {
-  background: var(--sc-pstudio-field);
+.sc-pstudio-picker[data-state="open"] {
   border-color: var(--sc-focus);
 }
 
-.sc-pstudio-cats .sc-chips-item {
-  font-size: 13px;
+.sc-pstudio-picker > svg {
+  flex: none;
+  color: var(--sc-fg3);
 }
 
-.sc-pstudio-cats .sc-chips-in {
-  height: 26px;
-  font-size: 15px;
+.sc-pstudio-picker-lb {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.sc-pstudio-cats .sc-chips-in::placeholder {
+.sc-pstudio-picker-lb[data-empty] {
   color: var(--sc-pstudio-placeholder);
 }
 
-.sc-pstudio-cats .sc-chips-sugg {
+/* the list itself: the app's menu, with a box at the top that narrows it */
+.sc-pstudio-menu {
+  width: var(--radix-dropdown-menu-trigger-width, 280px);
+  max-height: min(52vh, 380px);
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--sc-space-3);
-  margin-top: var(--sc-space-4);
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.sc-pstudio-cats .sc-chips-sugg .sc-chip {
-  height: 30px;
-  padding: 0 12px;
-  color: var(--sc-fg2);
-}
-
-.sc-pstudio-cats .sc-chips-sugg .sc-chip:hover:not(:active) {
+.sc-pstudio-menu-find {
+  flex: none;
+  width: 100%;
+  height: 34px;
+  margin-bottom: var(--sc-space-3);
+  padding: 0 10px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+  background: var(--sc-hover);
   color: var(--sc-fg);
+  font: inherit;
+  font-size: 13.5px;
+  outline: none;
+}
+
+.sc-pstudio-menu-find:focus {
+  border-color: var(--sc-focus);
+}
+
+.sc-pstudio-menu-find::placeholder {
+  color: var(--sc-fg3);
+}
+
+.sc-pstudio-menu-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sc-pstudio-menu .sc-menu-lb {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sc-pstudio-menu-none {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--sc-fg3);
 }
 
 /* the four photo slots: one to four, each a place to drop or pick */
