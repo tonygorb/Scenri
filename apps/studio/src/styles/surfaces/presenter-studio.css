@@ -527,19 +527,21 @@
   padding: 9px 13px;
 }
 
-/* who they are: three cards, the frames' own pattern, a form and never a face */
+/* who they are: the frame's own cards, at the frame's own size. A 90 x 112
+   picture in a 97 x 119 frame, 8 apart, the label 8 under: the same treatment
+   the view strip gives a tile, and a form rather than a face, so a card reads
+   as a kind and never as the person you are about to be given. */
 .sc-pstudio-whorow {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
   gap: var(--sc-space-4);
 }
 
 .sc-pstudio-whocard {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--sc-space-3);
-  min-width: 0;
+  align-items: flex-start;
+  gap: var(--sc-space-4);
+  width: 97px;
   padding: 0;
   border: none;
   background: none;
@@ -549,9 +551,9 @@
 
 .sc-pstudio-whocard-frame {
   display: block;
-  width: 100%;
+  width: 97px;
   padding: 2px;
-  border: 1px solid var(--sc-line);
+  border: 1.5px solid var(--sc-line);
   border-radius: var(--sc-radius);
 }
 
@@ -566,10 +568,10 @@
 .sc-pstudio-whocard-inner {
   position: relative;
   display: block;
-  width: 100%;
-  aspect-ratio: 4 / 5;
+  width: 90px;
+  height: 112px;
   overflow: hidden;
-  border-radius: var(--sc-radius-md);
+  border-radius: var(--sc-radius-sm);
   background: var(--sc-pstudio-field);
 }
 
@@ -586,8 +588,8 @@
 }
 
 .sc-pstudio-whocard-lb {
-  font-size: 13px;
-  line-height: 18px;
+  font-size: 15px;
+  line-height: 22px;
 }
 
 .sc-pstudio-whocard[data-on] {
