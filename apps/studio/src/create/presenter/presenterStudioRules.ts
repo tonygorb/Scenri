@@ -31,6 +31,7 @@ export type DraftLike = Pick<PresenterDraft, 'source' | 'name' | 'views' | 'acti
   direction?: string;
   sources?: string[];
   analysis?: PresenterDraft['analysis'];
+  readError?: string;
 };
 
 export type Phase = 'identity' | 'build' | 'review';
@@ -300,6 +301,11 @@ export function photosHint(count: number): string {
 /** After the read: which views the photos already are, and which will be drawn. */
 export function coverageLine(d: DraftLike, canGenerate: boolean): { text: string; tone?: 'warn' } | null {
   if (d.source !== 'photos' || d.stage === 'analyzing') return null;
+  const readError = d.readError?.trim();
+  if (readError) {
+    const reason = /[.!?]$/.test(readError) ? readError : `${readError}.`;
+    return { text: `The photos could not be read: ${reason} Your first photo is the face.`, tone: 'warn' };
+  }
   const conflict = d.analysis?.conflict?.trim();
   if (conflict) return { text: `These photos may show more than one person: ${conflict}`, tone: 'warn' };
   const photo = VIEWS.filter((v) => d.views[v].origin === 'photo');

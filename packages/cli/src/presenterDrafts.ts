@@ -79,6 +79,11 @@ export interface PresenterDraftRecord {
   sources: string[];
   /** What the analyzer read: off the photographs, or off the approved portrait. */
   analysis?: AnalyzerDraft;
+  /**
+   * Why the photographs could not be read. The first photo then stands in as
+   * the face, exactly as it does without an analyzer, and the rail says so.
+   */
+  readError?: string;
   views: Record<PresenterView, ViewSlot>;
   /** Generations spent on this draft, every slot, every attempt. */
   generations: number;
@@ -136,6 +141,7 @@ function fromRow(row: { id: string; brandId: string; json: unknown; createdAt: s
   if (j.direction) rec.direction = String(j.direction);
   if (j.attestation) rec.attestation = j.attestation;
   if (j.analysis) rec.analysis = j.analysis;
+  if (j.readError) rec.readError = String(j.readError);
   return rec;
 }
 
@@ -263,32 +269,41 @@ export async function createPresenterDraft(
 /**
  * Read the photographs once, and let the ones that already are a canonical
  * view fill that slot as the original. Without an analyzer the first photo
- * is the portrait: the face the user chose to lead with.
+ * is the portrait: the face the user chose to lead with. A read that fails
+ * (the engine's limit, a dropped connection) lands the same way, with the
+ * reason on the row, so the draft never sits empty and silent.
  */
 async function filePhotos(deps: AssetBuildDeps, id: string, signal: AbortSignal): Promise<void> {
   const { core, analyzer } = deps;
   const rec = getPresenterDraft(core, id);
   if (!rec) return;
   let analysis: AnalyzerDraft | undefined;
+  let readError: string | undefined;
   if (analyzer) {
     mutate(core, id, (r) => {
       r.stage = 'analyzing';
     });
-    analysis = (await analyzer.analyze(
-      {
-        kind: 'presenter',
-        imagePaths: rec.sources.map((h) => core.images.pathFor(h)),
-        name: rec.name || 'New presenter',
-        instruction: rec.direction || undefined,
-        vocabulary: deps.vocabulary,
-        classifyPhotos: true,
-      },
-      signal,
-    )) as AnalyzerDraft;
+    try {
+      analysis = (await analyzer.analyze(
+        {
+          kind: 'presenter',
+          imagePaths: rec.sources.map((h) => core.images.pathFor(h)),
+          name: rec.name || 'New presenter',
+          instruction: rec.direction || undefined,
+          vocabulary: deps.vocabulary,
+          classifyPhotos: true,
+        },
+        signal,
+      )) as AnalyzerDraft;
+    } catch (err: any) {
+      if (signal.aborted) return;
+      readError = String(err?.message ?? 'the photos could not be read');
+    }
   }
   if (signal.aborted) return;
   mutate(core, id, (r) => {
     if (analysis) r.analysis = analysis;
+    r.readError = readError;
     const filings = analysis?.photos ?? [];
     for (const v of PRESENTER_VIEWS) {
       const hit = filings.find((p) => p.view === v && p.usable && r.sources[p.index]);

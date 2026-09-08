@@ -388,6 +388,8 @@ export interface PresenterDraft {
     conflict?: string;
     photos?: { index: number; view: string; usable: boolean; note: string }[];
   } | null;
+  /** Why the photos could not be read; the first photo is the face regardless. */
+  readError?: string;
   views: Record<PresenterDraftView, PresenterDraftSlot>;
   generations: number;
   activeView: PresenterDraftView | null;

@@ -536,6 +536,34 @@ describe('from photos: the originals are the truth', () => {
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
+  it('a read that fails says why and files the first photo as the face, the way no analyzer does', async () => {
+    const [a, b] = await photos(2);
+    const broken: AssetBuildDeps = {
+      ...deps(),
+      analyzer: {
+        isAvailable: async () => ({ ok: true }),
+        analyze: async () => {
+          throw new Error('Your Codex plan usage limit is used up until 11:17 PM.');
+        },
+      } as any,
+    };
+    const created = await createPresenterDraft(broken, {
+      brandId,
+      source: 'photos',
+      imageHashes: [a, b],
+      attestation: true,
+    });
+    const d = await settled(created.id);
+    expect(d.stage).toBe('idle');
+    expect(d.activeView).toBeNull();
+    expect(d.readError).toContain('usage limit');
+    expect(d.analysis).toBeUndefined();
+    expect(d.views.portrait).toMatchObject({ status: 'approved', origin: 'photo', hash: a });
+    expect(d.views.front.status).toBe('empty');
+    // the row remembers it across a reload
+    expect(getPresenterDraft(core, created.id)?.readError).toContain('usage limit');
+  });
+
   it('files the photos by view: a usable portrait fills its slot as the original, pre-approved', async () => {
     const [portrait, snap] = await photos(2);
     let d = await createPresenterDraft(deps(), {

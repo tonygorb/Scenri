@@ -244,6 +244,20 @@ describe('photos', () => {
     expect(photosHint(4)).toContain('Four angles');
   });
 
+  it('a failed read is said out loud, with the first photo standing in as the face', () => {
+    const d = draft({
+      source: 'photos',
+      sources: ['a', 'b'],
+      readError: 'the usage limit is used up until 11:17 PM',
+      views: { portrait: approved('a', 'photo') },
+    });
+    const line = coverageLine(d, true);
+    expect(line?.tone).toBe('warn');
+    expect(line?.text).toBe(
+      'The photos could not be read: the usage limit is used up until 11:17 PM. Your first photo is the face.',
+    );
+  });
+
   it('the coverage line says which views the photos are, and warns about a second person', () => {
     const one = draft({ source: 'photos', sources: ['a'], views: { portrait: approved('a', 'photo') } });
     expect(coverageLine(one, true)?.text).toBe(
