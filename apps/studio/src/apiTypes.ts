@@ -362,6 +362,8 @@ export type PresenterDraftSlotStatus = 'empty' | 'generating' | 'candidate' | 'a
 export interface PresenterDraftSlot {
   status: PresenterDraftSlotStatus;
   hash?: string;
+  /** The approved picture a revised candidate would replace, until Use or Keep previous. */
+  prior?: string;
   origin?: 'generated' | 'photo';
   attempts: number;
   rejected: string[];
@@ -379,7 +381,13 @@ export interface PresenterDraft {
   facets: string[];
   attestation?: { attestedAt: string; version: string };
   sources: string[];
-  analysis?: { promptName?: string; descriptor?: string } | null;
+  analysis?: {
+    promptName?: string;
+    descriptor?: string;
+    /** The analyzer's one line when the photographs seem to show more than one person. */
+    conflict?: string;
+    photos?: { index: number; view: string; usable: boolean; note: string }[];
+  } | null;
   views: Record<PresenterDraftView, PresenterDraftSlot>;
   generations: number;
   activeView: PresenterDraftView | null;

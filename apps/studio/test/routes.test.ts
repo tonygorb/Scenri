@@ -6,8 +6,6 @@ import {
   kitPath,
   scenePath,
   scenesPath,
-  presenterDraftPath,
-  presenterNewPath,
   presenterPath,
   presentersPath,
   productPath,
@@ -21,13 +19,6 @@ const brand = { slug: 'nalla' };
 const set = { slug: 'spring-campaign' };
 
 describe('path builders', () => {
-  it('the presenter studio is a page under the presenters library, never an id', () => {
-    expect(presenterNewPath(brand)).toBe('/nalla/presenters/new');
-    expect(presenterDraftPath(brand, 'pd-1a2b3c4d')).toBe('/nalla/presenters/new/pd-1a2b3c4d');
-    expect(P.presenterNew).toBe('/:brandSlug/presenters/new');
-    expect(P.presenterDraft).toBe('/:brandSlug/presenters/new/:draftId');
-  });
-
   /**
    * A catalog product's id carries the `cat-` prefix the server strips, and a
    * demo product's is a plain slug. Both have to survive the round trip: the

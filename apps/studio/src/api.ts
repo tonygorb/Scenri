@@ -204,7 +204,7 @@ export const api = {
   startAssetBuild: (
     brandId: string,
     p: {
-      /** Only scenes build here; a presenter is cast in the studio (createPresenterDraft). */
+      /** Only scenes build here; a presenter is cast in the create dialog (createPresenterDraft). */
       kind: 'scene';
       name: string;
       instruction?: string;
@@ -230,7 +230,7 @@ export const api = {
    */
   createProduct: (brandId: string, p: { name: string; imageHashes: string[]; category?: string }) =>
     req<Brand & { productId: string }>('POST', `/api/brands/${brandId}/products`, p),
-  // ---- the presenter studio: one person, one approved view at a time
+  // ---- a presenter being cast: one person, one approved view at a time
   createPresenterDraft: (
     brandId: string,
     p: {
@@ -261,6 +261,9 @@ export const api = {
     req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/approve`),
   redoDraftView: (brandId: string, draftId: string, view: PresenterDraftView) =>
     req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/redo`),
+  /** Keep the previous approved picture; the revision goes. */
+  revertDraftView: (brandId: string, draftId: string, view: PresenterDraftView) =>
+    req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/revert`),
   placeDraftPhoto: (brandId: string, draftId: string, view: PresenterDraftView, hash: string) =>
     req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/use-photo`, { hash }),
   savePresenterDraft: (brandId: string, draftId: string) =>

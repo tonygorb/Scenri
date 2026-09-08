@@ -4,7 +4,8 @@ export interface VerticalsTabItem {
   /** `null` is the "all / every" clear option. */
   value: string | null;
   label: string;
-  count: number;
+  /** How many the tab holds. Absent on a tab that is a mode, not a filter. */
+  count?: number;
 }
 
 function isSelected(activeKey: string | null, value: string | null): boolean {
@@ -29,7 +30,7 @@ export function VerticalsTabs({
 }) {
   const shellRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
-  const itemsKey = items.map((i) => `${i.value ?? ''}:${i.count}`).join('|');
+  const itemsKey = items.map((i) => `${i.value ?? ''}:${i.count ?? ''}`).join('|');
 
   useLayoutEffect(() => {
     const shell = shellRef.current;
@@ -185,7 +186,7 @@ export function VerticalsTabs({
               onClick={() => select(item.value)}
             >
               <span className="sc-vlabel">{item.label}</span>
-              <span className="sc-vcount">{item.count}</span>
+              {item.count !== undefined && <span className="sc-vcount">{item.count}</span>}
             </button>
           );
         })}

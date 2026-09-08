@@ -396,12 +396,10 @@ export function AttachBody({
   };
 
   /**
-   * Make a new one from here. A product is written the moment the flow
-   * finishes, so its chip goes straight into a brief that is still in memory
-   * (the one caller that genuinely needs an answer back; a URL round-trip
-   * would remount the composer under it). A presenter or a scene is a build
-   * the flow starts: the tab is the place to watch, and the tile arrives
-   * when the build lands, announced by the bell.
+   * Make a new one from here. A product and a presenter are written the
+   * moment the flow finishes, so the chip goes straight into a brief that is
+   * still in memory. A scene is a build the flow starts: the tab is the place
+   * to watch, and the tile arrives when the build lands, announced by the bell.
    */
   const create = (kind: 'product' | 'presenter' | 'scene') =>
     createAsset(kind, {
@@ -416,6 +414,19 @@ export function AttachBody({
             label: 'Product',
             full: '',
             search: '',
+            token,
+          });
+          return;
+        }
+        if (made.kind === 'presenter') {
+          const token: SentenceToken = { t: 'character', id: made.id };
+          onPick({
+            key: identityKeyOf(token),
+            group: 'Presenters',
+            shape: 'square',
+            label: 'Presenter',
+            full: made.name,
+            search: made.name,
             token,
           });
           return;

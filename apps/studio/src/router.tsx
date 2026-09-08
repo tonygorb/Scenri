@@ -19,7 +19,6 @@ import { ScenesView } from './views/Scenes.js';
 import { ScenePage } from './views/ScenePage.js';
 import { PresentersView } from './views/Presenters.js';
 import { PresenterPage } from './views/PresenterPage.js';
-import { PresenterStudio } from './views/presenterStudio/PresenterStudio.js';
 import { ProductsView } from './views/Products.js';
 import { ProductPage } from './views/ProductPage.js';
 import { CreateView } from './views/Create.js';
@@ -183,10 +182,6 @@ export const router = createBrowserRouter([
           { path: P.scenes, element: <ScenesView /> },
           { path: P.scene, element: <SceneRoute /> },
           { path: P.presenters, element: <PresentersView /> },
-          // the studio before the id route, for the reader: the router ranks
-          // a static segment above a param either way
-          { path: P.presenterNew, element: <PresenterStudio /> },
-          { path: P.presenterDraft, element: <PresenterStudio /> },
           { path: P.presenter, element: <PresenterRoute /> },
         ],
       },

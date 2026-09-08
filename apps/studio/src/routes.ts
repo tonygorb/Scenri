@@ -32,9 +32,6 @@ export const P = {
   scene: '/:brandSlug/scenes/:sceneId',
   presenters: '/:brandSlug/presenters',
   presenter: '/:brandSlug/presenters/:presenterId',
-  /** The presenter studio: a page, because a person is cast over several generations with a big picture in front of you. */
-  presenterNew: '/:brandSlug/presenters/new',
-  presenterDraft: '/:brandSlug/presenters/new/:draftId',
   hub: '/:brandSlug/create',
   hubShot: '/:brandSlug/create/shots/:shotId',
   set: '/:brandSlug/sets/:setSlug',
@@ -65,9 +62,6 @@ export const scenePath = (b: BrandLike, sceneId: string): string =>
 export const presentersPath = (b: BrandLike): string => generatePath(P.presenters, { brandSlug: b.slug });
 export const presenterPath = (b: BrandLike, presenterId: string): string =>
   generatePath(P.presenter, { brandSlug: b.slug, presenterId });
-export const presenterNewPath = (b: BrandLike): string => generatePath(P.presenterNew, { brandSlug: b.slug });
-export const presenterDraftPath = (b: BrandLike, draftId: string): string =>
-  generatePath(P.presenterDraft, { brandSlug: b.slug, draftId });
 export const hubPath = (b: BrandLike): string => generatePath(P.hub, { brandSlug: b.slug });
 export const setPath = (b: BrandLike, s: SetLike): string =>
   generatePath(P.set, { brandSlug: b.slug, setSlug: s.slug });

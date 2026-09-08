@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, type PresenterDraft, type PresenterDraftView } from '../../api.js';
 
 /**
- * The draft on the page, as the server holds it. Every action answers with
- * the whole draft, so state is replaced, never merged; polling runs only
- * while a step is drawing, because this page is the row's only writer.
+ * The draft the dialog is holding, as the server holds it. Every action
+ * answers with the whole draft, so state is replaced, never merged; polling
+ * runs only while a step is drawing or the photos are being read.
  */
 export function usePresenterDraft(brandId: string, draftId: string) {
   const [draft, setDraft] = useState<PresenterDraft | null>(null);
@@ -74,6 +74,7 @@ export function usePresenterDraft(brandId: string, draftId: string) {
       act(async () => (await api.generateDraftView(brandId, draftId, view, adjustment ? { adjustment } : {})).draft),
     approve: (view: PresenterDraftView) => act(() => api.approveDraftView(brandId, draftId, view)),
     redo: (view: PresenterDraftView) => act(() => api.redoDraftView(brandId, draftId, view)),
+    revert: (view: PresenterDraftView) => act(() => api.revertDraftView(brandId, draftId, view)),
     placePhoto: (view: PresenterDraftView, hash: string) =>
       act(() => api.placeDraftPhoto(brandId, draftId, view, hash)),
     update: (patch: { name?: string; facets?: string[]; direction?: string }) =>
