@@ -279,7 +279,41 @@ export function refineHint(selected: StudioView, d: DraftLike): string {
   return 'Changes this view only. Hair, skin, age or build change the person.';
 }
 
-/** What Send is called for, so a placeholder can ask the right question. */
+export type ComposerState = {
+  /** The chip in the card naming what Refine will touch; none while the sentence is refused. */
+  chip: { view: StudioView; label: string } | null;
+  /** The line under the card. */
+  hint: string;
+  tone?: 'alert';
+};
+
+const SCOPE_NAME: Record<StudioView, string> = {
+  portrait: 'face',
+  front: 'full body',
+  'three-quarter': 'three-quarter view',
+};
+
+/**
+ * What the composer shows around the sentence, following it as it is typed:
+ * the chip says which picture Refine will redraw (the Figma "Refining front
+ * view"), and the line under the card says what that means. A sentence that
+ * cannot go anywhere drops the chip and puts the reason on the line.
+ */
+export function composerState(text: string, selected: StudioView, d: DraftLike): ComposerState {
+  const typed = text.trim();
+  const t = refineTarget(typed || 'this', selected, d);
+  if ('blocked' in t) {
+    return typed ? { chip: null, hint: t.blocked, tone: 'alert' } : { chip: null, hint: refineHint(selected, d) };
+  }
+  const label = !identityLocked(d)
+    ? 'Adjusting the face'
+    : t.scope === 'identity'
+      ? 'Changing the person'
+      : `Refining the ${SCOPE_NAME[t.view]}`;
+  return { chip: { view: t.view, label }, hint: refineHint(selected, d) };
+}
+
+/** What Refine is asked for, so a placeholder can ask the right question. */
 export function composerPlaceholder(selected: StudioView, d: DraftLike): string {
   if (!identityLocked(d)) return 'Adjust: shorter hair, older';
   const who = d.name.trim() || 'them';

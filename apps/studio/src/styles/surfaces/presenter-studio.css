@@ -654,6 +654,34 @@
   box-shadow: var(--sc-shadow-float);
 }
 
+/* the scope chip over the sentence: which picture Refine will redraw */
+.sc-pstudio-scope-row {
+  display: flex;
+  padding: 16px 16px 0;
+}
+
+.sc-pstudio-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  height: 22px;
+  padding: 0 10px 0 2px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+  font-size: var(--sc-text-micro);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sc-pstudio-scope img {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--sc-radius-full);
+  object-fit: cover;
+}
+
 .sc-pstudio-composer-card textarea.sc-in {
   min-height: 44px;
   max-height: 140px;
@@ -748,6 +776,11 @@
 
   .sc-pstudio-stage {
     grid-area: stage;
+  }
+
+  /* nothing under the well yet: the empty well takes the Figma's full 870 */
+  .sc-pstudio-grid[data-phase="setup"] .sc-pstudio-wrap {
+    padding: 0;
   }
 
   .sc-pstudio-head {

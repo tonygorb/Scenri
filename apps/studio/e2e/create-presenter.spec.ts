@@ -113,7 +113,7 @@ test.describe('a person from scratch', () => {
     await page.getByRole('button', { name: 'Create presenter' }).first().click();
     await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters\\?new=presenter$`));
     await expect(dialog(page)).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'New presenter' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create presenter' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'From scratch' })).toHaveAttribute('aria-selected', 'true');
 
     const create = page.getByRole('button', { name: 'Create person' });
@@ -218,7 +218,7 @@ test.describe('a person from scratch', () => {
     const before = await draftOf(page, brand.id, draftId);
 
     await composer(page).fill('a little shorter hair');
-    await page.getByRole('button', { name: 'Send' }).click();
+    await page.getByRole('button', { name: 'Refine' }).click();
     await expect(page.getByRole('button', { name: 'Keep previous' })).toBeVisible({ timeout: 20_000 });
     let d = await draftOf(page, brand.id, draftId);
     expect(d.views.portrait.status).toBe('candidate');
@@ -256,7 +256,7 @@ test.describe('a person from scratch', () => {
     await page.getByRole('button', { name: /^Full body/ }).click();
     await expect(page.locator('.sc-pstudio-slot[data-state="current"]')).toHaveAttribute('aria-label', /Full body/);
     await composer(page).fill('turn a little more to camera');
-    await page.getByRole('button', { name: 'Send' }).click();
+    await page.getByRole('button', { name: 'Refine' }).click();
     await expect(page.getByRole('button', { name: 'Keep previous' })).toBeVisible({ timeout: 20_000 });
     let d = await draftOf(page, brand.id, draftId);
     expect(d.views.front).toMatchObject({ status: 'candidate', prior: before.views.front.hash });
@@ -341,7 +341,7 @@ test.describe('from photos', () => {
     // the composer will not redraw a photograph
     await page.getByRole('button', { name: /^Face/ }).click();
     await composer(page).fill('shorter hair');
-    await page.getByRole('button', { name: 'Send' }).click();
+    await page.getByRole('button', { name: 'Refine' }).click();
     await expect(page.getByRole('alert')).toContainText('Their photos define who they are');
     await page.getByRole('button', { name: /^Full body/ }).click();
 
@@ -371,7 +371,7 @@ test.describe('the doors lead here', () => {
     await page.locator('[data-kind="presenter"]').click();
     await expect(page).toHaveURL(/\?new=presenter$/);
     await expect(dialog(page)).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'New presenter' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create presenter' })).toBeVisible();
     await page.locator('.sc-newdlg-back').click();
     await expect(page).toHaveURL(/\?new=1$/);
     await expect(page.locator('.sc-pick')).toHaveCount(3);

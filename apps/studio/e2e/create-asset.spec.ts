@@ -89,7 +89,7 @@ test.describe('adding to a brand', () => {
   test('a presenter deep link lands in the dialog, with no arrow back to a chooser nobody saw', async ({ page }) => {
     await page.goto(`/${slug}/products?new=presenter`);
     await expect(page).toHaveURL(new RegExp(`/${slug}/products\\?new=presenter$`));
-    await expect(page.getByRole('heading', { name: 'New presenter' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create presenter' })).toBeVisible();
     await expect(dialog(page)).toBeVisible();
     await expect(page.locator('.sc-newdlg-back')).toHaveCount(0);
   });

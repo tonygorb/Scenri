@@ -23,7 +23,7 @@ import {
   nextToDraw,
   phaseOf,
   railCopy,
-  refineHint,
+  composerState,
   refineTarget,
   resumable,
   saveBlocker,
@@ -358,7 +358,16 @@ function ResumeFace({ draft }: { draft: PresenterDraft }) {
   return face ? <img src={thumbUrl(face, 'micro')} alt="" /> : <span className="sc-pstudio-resume-blank" />;
 }
 
-function Head({ onBack, children }: { onBack?: () => void; children?: ReactNode }) {
+/** The title is the Figma's: Create presenter until the set is complete, Refine presenter after. */
+function Head({
+  onBack,
+  title = 'Create presenter',
+  children,
+}: {
+  onBack?: () => void;
+  title?: string;
+  children?: ReactNode;
+}) {
   return (
     <div className="sc-pstudio-head sc-newdlg-head">
       {onBack && (
@@ -366,7 +375,7 @@ function Head({ onBack, children }: { onBack?: () => void; children?: ReactNode 
           <CaretLeft size={15} />
         </button>
       )}
-      <SheetTitle className="sc-newdlg-title">New presenter</SheetTitle>
+      <SheetTitle className="sc-newdlg-title">{title}</SheetTitle>
       {children}
       <SheetClose>
         <button type="button" className="sc-set-close sc-newdlg-close" aria-label="Close">
@@ -580,7 +589,7 @@ function Draft({
 
   return (
     <>
-      <Head onBack={onBack}>
+      <Head onBack={onBack} title={phase === 'review' ? 'Refine presenter' : 'Create presenter'}>
         {worthKeeping(d) ? (
           <Confirm
             label="Start over"
@@ -657,7 +666,10 @@ function Draft({
         {composerOn && (
           <RefineComposer
             placeholder={composerPlaceholder(view, d)}
-            hint={refineHint(view, d)}
+            describe={(text) => {
+              const st = composerState(text, view, d);
+              return { ...st, hash: st.chip ? d.views[st.chip.view].hash : undefined };
+            }}
             disabled={s.busy}
             working={isDrawing}
             error={askErr}

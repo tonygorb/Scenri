@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PresenterDraftSlot } from '../src/api.js';
 import {
   VIEWS,
+  composerState,
   coverageLine,
   currentView,
   emptySlot,
@@ -180,6 +181,33 @@ describe('what a request is aimed at', () => {
     });
     expect(refineHint('portrait', d)).toContain('Changes the person');
     expect(refineHint('front', d)).toContain('this view only');
+  });
+
+  it('the composer chip names what Refine will redraw, and follows the sentence', () => {
+    const pre = draft({ views: { portrait: candidate('c') } });
+    expect(composerState('', 'portrait', pre).chip).toEqual({ view: 'portrait', label: 'Adjusting the face' });
+    const d = draft({ views: { portrait: approved('p'), front: approved('f'), 'three-quarter': approved('t') } });
+    expect(composerState('', 'front', d).chip).toEqual({ view: 'front', label: 'Refining the full body' });
+    expect(composerState('turn to camera', 'three-quarter', d).chip).toEqual({
+      view: 'three-quarter',
+      label: 'Refining the three-quarter view',
+    });
+    expect(composerState('shorter hair', 'front', d).chip).toEqual({ view: 'portrait', label: 'Changing the person' });
+    expect(composerState('', 'portrait', d)).toMatchObject({
+      chip: { view: 'portrait', label: 'Changing the person' },
+      hint: expect.stringContaining('Changes the person'),
+    });
+    const photos = draft({
+      source: 'photos',
+      sources: ['a'],
+      views: { portrait: approved('a', 'photo'), front: approved('f') },
+    });
+    expect(composerState('shorter hair', 'front', photos)).toEqual({
+      chip: null,
+      hint: 'Their photos define who they are. Change a drawn view instead.',
+      tone: 'alert',
+    });
+    expect(composerState('', 'portrait', photos).chip).toBeNull();
   });
 
   it('never redraws a photograph', () => {
