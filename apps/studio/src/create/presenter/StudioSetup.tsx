@@ -1,18 +1,18 @@
 import { Check, Image, Plus, TextAa, X } from '@phosphor-icons/react';
 import { type KeyboardEvent, type ReactNode, useEffect, useRef } from 'react';
 import { thumbUrl } from '../../api.js';
+import { Choice, Choices } from '../../composer/shotSettings/Choices.js';
 import { CategoryMenu } from './CategoryMenu.js';
 import { useFileDrop } from '../../layout/Dropzone.js';
 import { OpenAIMark } from '../../layout/OpenAIMark.js';
-import { MAX_PHOTOS, photosHint, whoHint } from './presenterStudioRules.js';
+import { MAX_PHOTOS, photosHint, type Steer, whoHint } from './presenterStudioRules.js';
 
 /**
  * The setup rail, as the Figma frames lay it out: the Aa / Image toggle in
- * the head, then Name, the sentence or the four photo places, and Optional
- * notes, with Cancel and Create presenter in the foot. The name is offered,
- * never required: a person is cast from the sentence alone and named at the
- * end. Nothing here asks for a gender, because the sentence says it and the
- * photographs show it.
+ * the head, then Name, who they are, the sentence or the four photo places,
+ * and Optional notes, with Cancel and Create presenter in the foot. The name
+ * is offered, never required: a person is cast from the sentence alone and
+ * named at the end.
  */
 export type Mode = 'scratch' | 'photos';
 
@@ -90,12 +90,48 @@ function Field({ id, label, children }: { id?: string; label: string; children: 
   );
 }
 
-/** Three whole sentences, one tap each: every one of them says who the person is. */
-const EXAMPLES = [
-  'Warm man in his 30s, close-cropped beard, easy smile',
-  'Athletic woman in her mid 20s, natural curls',
-  'Androgynous person in their 20s, platinum buzz cut',
+/**
+ * Who the person is: the one thing a roll cannot guess.
+ *
+ * Three settings, and every one of them says something to the engine, which
+ * is what the old neutral third did not. Nothing is chosen until it is
+ * chosen; the sentence can say it instead, and when neither does, the line
+ * under the description says so. The photos tab does not show it, because a
+ * photograph settles this by itself.
+ */
+const STEERS: { id: Steer; label: string }[] = [
+  { id: 'woman', label: 'Woman' },
+  { id: 'man', label: 'Man' },
+  { id: 'androgynous', label: 'Androgynous' },
 ];
+
+function SteerChoice({ value, onChange }: { value: Steer | null; onChange: (next: Steer | null) => void }) {
+  return (
+    <Field label="Who they are">
+      <Choices
+        label="Who they are"
+        className="sc-seg sc-pstudio-seg"
+        value={value ?? ''}
+        ids={STEERS.map((g) => g.id)}
+        onChange={(id) => onChange(id as Steer)}
+      >
+        {STEERS.map((g) => (
+          <Choice
+            key={g.id}
+            id={g.id}
+            className="sc-seg-o"
+            on={value === g.id}
+            label={g.label}
+            // picking the one that is set puts the question back to the sentence
+            onPick={() => onChange(value === g.id ? null : g.id)}
+          >
+            {g.label}
+          </Choice>
+        ))}
+      </Choices>
+    </Field>
+  );
+}
 
 /** The four places, named as the frame names them. A hint, not a requirement: one photo is enough. */
 const SLOT_HINTS = ['Front', 'Left', 'Back', 'Right'];
@@ -214,6 +250,8 @@ export function SetupForm({
   engineOff,
   name,
   onName,
+  steer,
+  onSteer,
   direction,
   onDirection,
   onCreate,
@@ -234,6 +272,8 @@ export function SetupForm({
   engineOff: boolean;
   name: string;
   onName: (next: string) => void;
+  steer: Steer | null;
+  onSteer: (next: Steer | null) => void;
   direction: string;
   onDirection: (next: string) => void;
   onCreate: () => void;
@@ -268,6 +308,7 @@ export function SetupForm({
           onKeyDown={enterCreates}
         />
       </Field>
+      {mode === 'scratch' && <SteerChoice value={steer} onChange={onSteer} />}
       {mode === 'scratch' ? (
         engineOff ? (
           <SetupCard onSetup={onSetup} />
@@ -283,17 +324,7 @@ export function SetupForm({
               onChange={(e) => onDirection(e.target.value)}
               onKeyDown={enterCreates}
             />
-            {/* a whole sentence, one tap: the blank page and the unanswered
-                question are the same problem, and an example solves both */}
-            <div className="sc-pstudio-examples">
-              <span>Try</span>
-              {EXAMPLES.map((ex) => (
-                <button type="button" key={ex} className="sc-chip" onClick={() => onDirection(ex)}>
-                  {ex}
-                </button>
-              ))}
-            </div>
-            {whoHint(direction) && <p className="sc-pstudio-line">{whoHint(direction)}</p>}
+            {whoHint(steer, direction) && <p className="sc-pstudio-line">{whoHint(steer, direction)}</p>}
           </Field>
         )
       ) : (

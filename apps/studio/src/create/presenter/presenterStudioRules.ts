@@ -231,19 +231,40 @@ export function requestLine(d: DraftLike): string {
 const SAYS_WHO =
   /\b(wom[ae]n|m[ae]n|male|female|lady|ladies|girl|boy|guy|gentlem[ae]n|nonbinary|non-binary|androgynous|masculine|feminine|transgender|trans|mother|father|mum|mom|dad|sister|brother|daughter|son|grandmother|grandfather)\b/i;
 
+/** The steer, and the words it puts in front of the sentence. */
+export type Steer = 'woman' | 'man' | 'androgynous';
+export const STEER_WORDS: Record<Steer, string> = {
+  woman: 'a woman',
+  man: 'a man',
+  androgynous: 'an androgynous person',
+};
+
 /**
- * The line under the description when the sentence names nobody.
+ * The sentence the engine is given.
  *
- * Gender decides who is drawn, and the engine only knows what the sentence
- * says. "Someone friendly in their 30s" is a coin toss, and the person who
- * wrote it will read the result as the engine being wrong rather than as a
- * question they never answered. A field beside the sentence would say it
- * twice; this says it once, in the place it belongs.
+ * Gender decides who is drawn and a roll cannot guess it, so the steer is a
+ * real input, not decoration: every one of its three settings says something.
+ * It leads the sentence unless the sentence already names who the person is,
+ * in which case the words are already there and saying them twice would only
+ * make the prompt argue with itself.
  */
-export function whoHint(direction: string): string | null {
+export function castSentence(steer: Steer | null, direction: string): string {
+  const text = direction.trim();
+  if (!steer || !text || SAYS_WHO.test(text)) return text;
+  return `${STEER_WORDS[steer]}, ${text}`;
+}
+
+/**
+ * The line under the description when neither the steer nor the sentence says
+ * who this is. Left unanswered the first roll picks, and the person who wrote
+ * it reads the result as the engine being wrong rather than as a question
+ * nobody answered.
+ */
+export function whoHint(steer: Steer | null, direction: string): string | null {
+  if (steer) return null;
   const text = direction.trim();
   if (text.length < 8 || SAYS_WHO.test(text)) return null;
-  return 'This does not say who they are, so the first roll picks. Name a woman, a man, or someone androgynous.';
+  return 'Nobody has said who this is, so the first roll picks. Choose above, or say it here.';
 }
 
 /**

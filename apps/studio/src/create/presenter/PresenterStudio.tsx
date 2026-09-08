@@ -17,6 +17,7 @@ import {
   MAX_PHOTOS,
   VIEWS,
   VIEW_LABEL,
+  castSentence,
   composerPlaceholder,
   composerState,
   coverageLine,
@@ -30,6 +31,7 @@ import {
   saveBlocker,
   seedCategories,
   selectedView,
+  type Steer,
   stripItems,
   type StudioView,
   worthKeeping,
@@ -41,8 +43,8 @@ import { usePresenterDraft } from './usePresenterDraft.js';
  * draw it.
  *
  * A wide stage on the left and a 500 rail on the right. Setup is a form:
- * the Aa / Image toggle in the head, Name, a sentence or four photo places,
- * Optional notes, then Create presenter. Then one
+ * the Aa / Image toggle in the head, Name, who they are, a sentence or four
+ * photo places, Optional notes, then Create presenter. Then one
  * identity: the face, drawn and decided; then the front, left, back and
  * right views, each drawn from the approved views before it and decided in
  * turn, the strip under the stage keeping the count. The rail reads as a
@@ -89,6 +91,7 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
   const [boot, setBoot] = useState(true);
   const [mode, setMode] = useState<Mode>('scratch');
   const [name, setName] = useState('');
+  const [steer, setSteer] = useState<Steer | null>(null);
   const [direction, setDirection] = useState('');
   const [notes, setNotes] = useState('');
   const [hashes, setHashes] = useState<string[]>([]);
@@ -153,8 +156,8 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
     }
   }, []);
 
-  /** The sentence the engine gets, exactly as it was written. */
-  const sentence = () => direction.trim();
+  /** The sentence the engine gets: the steer leads it unless the sentence says it. */
+  const sentence = () => castSentence(steer, direction);
   const words = () => ({ name: name.trim() || undefined });
 
   const startScratch = async () => {
@@ -296,6 +299,8 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
                   engineOff={engineOff}
                   name={name}
                   onName={setName}
+                  steer={steer}
+                  onSteer={setSteer}
                   direction={direction}
                   onDirection={(next) => {
                     setErr(null);

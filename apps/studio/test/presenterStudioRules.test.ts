@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PresenterDraftSlot } from '../src/api.js';
 import {
   VIEWS,
+  castSentence,
   composerState,
   coverageLine,
   currentView,
@@ -322,17 +323,24 @@ describe('leaving and saving', () => {
   });
 });
 
-describe('the sentence has to say who', () => {
-  it('speaks up only when the sentence names nobody', () => {
-    expect(whoHint('someone friendly in their 30s')).toContain('does not say who they are');
-    expect(whoHint('tall, freckled, quietly confident')).toContain('Name a woman');
-    // said, in any of its words: no line
-    expect(whoHint('a woman in her forties')).toBeNull();
-    expect(whoHint('warm guy, close-cropped beard')).toBeNull();
-    expect(whoHint('androgynous person, platinum buzz cut')).toBeNull();
-    // nothing typed yet is not a fault
-    expect(whoHint('')).toBeNull();
-    expect(whoHint('tall')).toBeNull();
+describe('who they are', () => {
+  it('leads the sentence, unless the sentence already says it', () => {
+    expect(castSentence('woman', 'in her forties, short silver hair')).toBe(
+      'a woman, in her forties, short silver hair',
+    );
+    expect(castSentence('androgynous', 'in their 20s, platinum buzz cut')).toBe(
+      'an androgynous person, in their 20s, platinum buzz cut',
+    );
+    expect(castSentence('man', 'a guy with a full beard')).toBe('a guy with a full beard');
+    expect(castSentence(null, 'someone warm')).toBe('someone warm');
+    expect(castSentence('man', '   ')).toBe('');
+  });
+
+  it('says so only when neither the steer nor the sentence names anyone', () => {
+    expect(whoHint(null, 'someone friendly in their 30s')).toContain('Nobody has said who this is');
+    expect(whoHint('woman', 'someone friendly in their 30s')).toBeNull();
+    expect(whoHint(null, 'a woman in her forties')).toBeNull();
+    expect(whoHint(null, '')).toBeNull();
   });
 });
 
