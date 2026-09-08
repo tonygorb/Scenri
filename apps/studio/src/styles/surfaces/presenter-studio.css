@@ -1,0 +1,935 @@
+/* ---------- the presenter studio ------------------------------------------
+   A person is established visually, in the create dialog. The geometry is the
+   Figma studio frames (5301:9997 .. 5301:11090) read at 1x: a 1664 x 952 card
+   with a 500 rail, the stage padded 40 with the round close at 40/40, a strip
+   of labelled 90 x 112 tiles in 1.5px frames, 44px radius-10 buttons, a 16px
+   regular title, a 15px status line, a radius-22 composer card with a Send
+   pill, and 44px inputs on the ink-800 field ground. Tokens carry every value
+   the palette has; the two Figma greys the palette lacks (ink-300 labels,
+   ink-500 placeholders) are mixed from it. On a phone the same pieces stack
+   into one sheet with one scroller and a bottom that stays put. */
+
+.sc-newdlg.sc-pstudio {
+  --sc-newdlg-max: min(1664px, calc(100vw - 48px));
+  --sc-pstudio-rail: 500px;
+  --sc-pstudio-field: var(--sc-hover); /* ink-800 */
+  --sc-pstudio-label: color-mix(in srgb, var(--sc-fg) 90%, var(--sc-bg)); /* ink-300 */
+  --sc-pstudio-placeholder: color-mix(in srgb, var(--sc-fg3) 78%, var(--sc-bg)); /* ink-500 */
+  padding: 0;
+  background: var(--sc-bg);
+}
+
+.sc-pstudio-grid {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ---- close: on the stage, top left, a hairline circle -------------------- */
+.sc-pstudio-close {
+  position: absolute;
+  top: 40px;
+  left: 40px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: none;
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+
+.sc-pstudio-close:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+
+/* ---- head ---------------------------------------------------------------- */
+.sc-pstudio-head {
+  min-height: 65px;
+  padding: var(--sc-space-7);
+  border-bottom: 1px solid var(--sc-line);
+  margin: 0;
+}
+
+.sc-pstudio-head .sc-newdlg-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: -0.02em;
+}
+
+.sc-pstudio-head .sc-btn {
+  flex: none;
+  height: 30px;
+  padding: 0 var(--sc-space-5);
+  font-size: var(--sc-text-body);
+  font-weight: 500;
+  color: var(--sc-fg2);
+}
+
+/* ---- tabs: the library's underline tabs, sitting still ------------------- */
+.sc-pstudio-tabs {
+  padding: 0 var(--sc-space-7);
+}
+
+.sc-pstudio-tabs .sc-verticals-shell {
+  position: static;
+  margin: 0;
+  background: transparent;
+}
+
+.sc-pstudio-tabs .sc-verticals-shell::before,
+.sc-pstudio-tabs .sc-verticals-shell::after {
+  display: none;
+}
+
+.sc-pstudio-tabs .sc-verticals {
+  border-bottom: 1px solid var(--sc-line);
+  padding-top: var(--sc-space-2);
+}
+
+.sc-pstudio-tabs .sc-verticals button {
+  font-size: 15px;
+  padding: 10px 0 12px;
+}
+
+/* ---- stage --------------------------------------------------------------- */
+.sc-pstudio-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 40px;
+  background: var(--sc-bg);
+}
+
+.sc-pstudio-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--sc-space-7) 0;
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sc-pstudio-well {
+  position: relative;
+  height: min(100cqh, calc(100cqw * 5 / 4));
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-raised);
+}
+
+.sc-pstudio-well img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sc-pstudio-well[data-drawing] img {
+  opacity: 0.55;
+}
+
+.sc-pstudio-well-blank {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--sc-fg3);
+  opacity: 0.5;
+}
+
+.sc-pstudio-clock {
+  position: absolute;
+  inset: auto 0 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sc-space-2);
+  pointer-events: none;
+}
+
+/* the shimmer primitive is an overlay; here it is a small bar of its own */
+.sc-pstudio-clock .sc-shimmer {
+  position: relative;
+  inset: auto;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.sc-pstudio-clock time {
+  font-family: var(--sc-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
+}
+
+/* the strip: labelled tiles, the progress and the navigation */
+.sc-pstudio-strip {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  gap: var(--sc-space-4);
+  list-style: none;
+  margin: 0;
+  padding: var(--sc-space-7) 0;
+}
+
+.sc-pstudio-strip li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-2);
+}
+
+.sc-pstudio-slot-lb {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--sc-fg2);
+}
+
+.sc-pstudio-slot-lb[data-on] {
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-slot {
+  display: block;
+  padding: 2px;
+  border: 1.5px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: none;
+  cursor: pointer;
+}
+
+.sc-pstudio-slot:disabled {
+  cursor: default;
+}
+
+.sc-pstudio-slot[data-state="current"] {
+  border-color: var(--sc-fg);
+}
+
+.sc-pstudio-slot[data-state="todo"] {
+  opacity: 0.5;
+}
+
+.sc-pstudio-slot-inner {
+  position: relative;
+  display: block;
+  width: 90px;
+  height: 112px;
+  overflow: hidden;
+  border-radius: var(--sc-radius-sm);
+  background: var(--sc-pstudio-field);
+}
+
+.sc-pstudio-slot-inner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sc-pstudio-slot[data-state="stale"] img {
+  opacity: 0.35;
+}
+
+.sc-pstudio-slot .sc-shimmer {
+  border-radius: inherit;
+}
+
+.sc-pstudio-slot-mark {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-green);
+  color: var(--sc-inv-fg);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* ---- rail body ----------------------------------------------------------- */
+.sc-pstudio-body {
+  min-height: 0;
+  padding: var(--sc-space-7);
+}
+
+.sc-pstudio-body[data-end] {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--sc-space-4);
+  padding: var(--sc-space-8) var(--sc-space-8) var(--sc-space-5);
+}
+
+/* what the person was made from, kept in view above the decision */
+.sc-pstudio-origin {
+  margin-bottom: auto;
+  padding-bottom: var(--sc-space-8);
+}
+
+.sc-pstudio-origin p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--sc-fg2);
+  text-wrap: pretty;
+}
+
+.sc-pstudio-origin-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-3);
+}
+
+.sc-pstudio-origin-photos img {
+  width: 44px;
+  height: 55px;
+  object-fit: cover;
+  border-radius: var(--sc-radius-sm);
+  background: var(--sc-pstudio-field);
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+}
+
+.sc-pstudio-status {
+  margin: 0;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--sc-fg);
+  text-wrap: pretty;
+}
+
+.sc-pstudio-status[data-tone="alert"] {
+  color: var(--sc-red);
+}
+
+.sc-pstudio-line {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--sc-fg2);
+}
+
+.sc-pstudio-line[data-tone="warn"] {
+  color: var(--sc-warn);
+}
+
+/* fields: the Figma field, 44 tall, 15px, on ink-800 */
+.sc-pstudio-field {
+  margin-bottom: var(--sc-space-7);
+}
+
+.sc-pstudio-field .sc-newdlg-seclabel,
+.sc-pstudio-photos .sc-newdlg-seclabel {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  color: var(--sc-pstudio-label);
+  margin-bottom: var(--sc-space-4);
+}
+
+.sc-pstudio .sc-in {
+  width: 100%;
+  min-height: 44px;
+  height: auto;
+  padding: 8px 12px;
+  border: 1.5px solid var(--sc-line);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-pstudio-field);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.sc-pstudio .sc-in::placeholder {
+  color: var(--sc-pstudio-placeholder);
+}
+
+.sc-pstudio-field textarea.sc-in {
+  min-height: 72px;
+  resize: none;
+}
+
+.sc-pstudio-examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-3);
+  margin-top: var(--sc-space-5);
+}
+
+.sc-pstudio-examples > span {
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
+  margin-right: var(--sc-space-1);
+}
+
+/* the four photo slots: one to four, each a place to drop or pick */
+.sc-pstudio-slots {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sc-space-4);
+}
+
+.sc-pstudio-pslot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+  min-width: 0;
+}
+
+.sc-pstudio-pslot-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 2px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: none;
+  cursor: pointer;
+}
+
+.sc-pstudio-pslot-frame[data-filled] {
+  border-color: var(--sc-fg);
+  cursor: default;
+}
+
+.sc-pstudio-pslot-frame[data-drag-over] {
+  border-color: var(--sc-focus);
+}
+
+.sc-pstudio-pslot-inner {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-pstudio-field);
+}
+
+.sc-pstudio-pslot-inner img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sc-pstudio-pslot-plus {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 2px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-pslot-plus > span {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-line);
+}
+
+.sc-pstudio-pslot-drop {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-scrim);
+  color: var(--sc-scrim-fg);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.sc-pstudio-pslot-frame:hover .sc-pstudio-pslot-drop,
+.sc-pstudio-pslot-drop:focus-visible {
+  opacity: 1;
+}
+
+.sc-pstudio-pslot-lb {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--sc-fg2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sc-pstudio-photos .sc-pstudio-line {
+  margin-top: var(--sc-space-5);
+}
+
+.sc-pstudio-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-4);
+  margin-top: var(--sc-space-7);
+  color: var(--sc-fg2);
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.sc-pstudio-consent input {
+  flex: none;
+  margin-top: 3px;
+  accent-color: var(--sc-fg);
+}
+
+/* nothing to draw with: the composer's card, and its door */
+.sc-pstudio-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  padding: var(--sc-space-6);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-panel);
+}
+
+.sc-pstudio-card > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--sc-fg2);
+}
+
+.sc-pstudio-card b {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sc-pstudio-card p {
+  margin: 0;
+  font-size: var(--sc-text-body);
+  line-height: 1.45;
+  color: var(--sc-fg2);
+}
+
+.sc-pstudio-card .sc-btn {
+  align-self: flex-start;
+  margin-top: var(--sc-space-3);
+}
+
+.sc-pstudio-resume {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-5);
+  width: 100%;
+  margin: 0 0 var(--sc-space-7);
+  padding: var(--sc-space-4) var(--sc-space-5);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: none;
+  color: var(--sc-fg);
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+}
+
+.sc-pstudio-resume:hover:not(:active) {
+  background: var(--sc-hover);
+}
+
+.sc-pstudio-resume img,
+.sc-pstudio-resume-blank {
+  flex: none;
+  width: 28px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: var(--sc-radius-sm);
+  background: var(--sc-pstudio-field);
+}
+
+.sc-pstudio-resume span {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sc-pstudio-resume small {
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
+}
+
+.sc-pstudio-review {
+  margin-top: var(--sc-space-7);
+}
+
+.sc-pstudio-review .sc-newdlg-secmore {
+  margin-top: 0;
+}
+
+.sc-pstudio-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-5);
+  margin-top: var(--sc-space-5);
+}
+
+/* ---- rail foot: the composer, the decision, the footnote ----------------- */
+.sc-pstudio-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-5);
+  padding: var(--sc-space-7);
+}
+
+.sc-pstudio-foot .sc-dlg-foot {
+  margin-top: 0;
+}
+
+/* the decision: Figma's 44px radius-10 pair, the primary taking the room */
+.sc-pstudio-actions {
+  display: flex;
+  gap: var(--sc-space-6);
+}
+
+.sc-pstudio-actions .sc-btn {
+  height: 44px;
+  padding: 0 32px;
+  border-radius: var(--sc-radius);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.sc-pstudio-actions .sc-btn-ghost {
+  flex: none;
+  border: 1.5px solid var(--sc-line);
+  background: var(--sc-pstudio-field);
+}
+
+.sc-pstudio-actions .sc-btn-ghost:hover {
+  border-color: var(--sc-line-strong);
+}
+
+.sc-pstudio-actions .sc-btn-primary {
+  flex: 1 1 auto;
+  gap: 10px;
+}
+
+.sc-pstudio-actions .sc-btn-primary[aria-disabled="true"] {
+  opacity: 0.5;
+}
+
+/* the composer card: an editing field, not a chat */
+.sc-pstudio-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+
+.sc-pstudio-composer-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-float);
+  background: var(--sc-panel);
+  box-shadow: var(--sc-shadow-float);
+}
+
+.sc-pstudio-composer-card textarea.sc-in {
+  min-height: 44px;
+  max-height: 140px;
+  padding: 16px 16px 0;
+  border: none;
+  border-radius: var(--sc-radius-float) var(--sc-radius-float) 0 0;
+  background: none;
+  font-size: 15px;
+  line-height: 28px;
+  resize: none;
+  overflow-y: hidden;
+}
+
+.sc-pstudio-composer-card textarea.sc-in:focus {
+  outline: none;
+}
+
+.sc-pstudio-composer-card textarea.sc-in::placeholder {
+  color: var(--sc-fg3);
+}
+
+.sc-pstudio-composer-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: var(--sc-space-6);
+  padding: var(--sc-space-6);
+}
+
+.sc-pstudio-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sc-space-4);
+  height: 38px;
+  min-width: 38px;
+  padding: 0 var(--sc-space-5);
+  border: none;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-chip);
+  color: var(--sc-fg2);
+  font-size: var(--sc-text-control);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sc-pstudio-send:hover:not([aria-disabled="true"]) {
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-send[aria-disabled="true"] {
+  cursor: default;
+}
+
+.sc-pstudio-composer-hint {
+  padding: 0 var(--sc-space-2);
+  font-size: var(--sc-text-micro);
+  color: var(--sc-fg3);
+}
+
+.sc-pstudio-composer-hint[data-tone="alert"] {
+  color: var(--sc-red);
+}
+
+/* ---- the desktop card: stage left, rail right ---------------------------- */
+@media (min-width: 768px) {
+  .sc-newdlg.sc-pstudio {
+    height: min(952px, 92dvh);
+    max-height: 92dvh;
+    overflow: hidden;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--sc-line);
+    border-radius: var(--sc-radius-xl);
+  }
+
+  .sc-pstudio-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--sc-pstudio-rail);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "stage head"
+      "stage tabs"
+      "stage body"
+      "stage foot";
+  }
+
+  .sc-pstudio-scroll {
+    display: contents;
+  }
+
+  .sc-pstudio-stage {
+    grid-area: stage;
+  }
+
+  .sc-pstudio-head {
+    grid-area: head;
+  }
+
+  .sc-pstudio-head .sc-newdlg-close {
+    display: none;
+  }
+
+  .sc-pstudio-tabs {
+    grid-area: tabs;
+  }
+
+  .sc-pstudio-body {
+    grid-area: body;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sc-pstudio-foot {
+    grid-area: foot;
+  }
+
+  .sc-pstudio-head,
+  .sc-pstudio-tabs,
+  .sc-pstudio-body,
+  .sc-pstudio-foot {
+    border-left: 1px solid var(--sc-line);
+    background: var(--sc-bg);
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .sc-newdlg.sc-pstudio {
+    --sc-pstudio-rail: 420px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .sc-newdlg.sc-pstudio {
+    --sc-pstudio-rail: 320px;
+  }
+
+  .sc-pstudio-stage {
+    padding: 24px;
+  }
+
+  .sc-pstudio-close {
+    top: 24px;
+    left: 24px;
+  }
+
+  .sc-pstudio-body[data-end] {
+    padding: var(--sc-space-7);
+  }
+}
+
+/* ---- the phone sheet: one column, one scroller, a bottom that stays ------ */
+@media (max-width: 767px) {
+  .sc-newdlg.sc-pstudio {
+    height: 96dvh;
+    max-height: 96dvh;
+    padding: 0;
+  }
+
+  .sc-pstudio-close {
+    display: none;
+  }
+
+  .sc-pstudio-grid {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sc-pstudio-head {
+    min-height: 52px;
+    padding: var(--sc-space-4) var(--sc-space-4) var(--sc-space-4) var(--sc-space-6);
+  }
+
+  .sc-pstudio-tabs {
+    padding: 0 var(--sc-space-6);
+  }
+
+  .sc-pstudio-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sc-pstudio-stage {
+    flex: none;
+    padding: var(--sc-space-5) var(--sc-space-6) var(--sc-space-4);
+  }
+
+  /* a definite height, so the well's own height has something to read */
+  .sc-pstudio-wrap {
+    flex: none;
+    height: min(46dvh, calc((100vw - 32px) * 5 / 4));
+    padding: 0;
+  }
+
+  .sc-pstudio-well {
+    height: min(100cqh, calc(100cqw * 5 / 4));
+  }
+
+  .sc-pstudio-grid[data-phase="setup"] .sc-pstudio-stage {
+    display: none;
+  }
+
+  .sc-pstudio-strip {
+    justify-content: flex-start;
+    margin: 0 calc(-1 * var(--sc-space-6));
+    padding: var(--sc-space-5) var(--sc-space-6) 0;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .sc-pstudio-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sc-pstudio-strip li {
+    flex: none;
+    scroll-snap-align: start;
+  }
+
+  .sc-pstudio-slot-inner {
+    width: 72px;
+    height: 90px;
+  }
+
+  .sc-pstudio-body {
+    flex: none;
+    padding: var(--sc-space-5) var(--sc-space-6);
+  }
+
+  .sc-pstudio-body[data-end] {
+    justify-content: flex-start;
+    padding: var(--sc-space-5) var(--sc-space-6);
+  }
+
+  .sc-pstudio-origin {
+    padding-bottom: var(--sc-space-5);
+  }
+
+  .sc-pstudio-foot {
+    position: sticky;
+    bottom: 0;
+    padding: var(--sc-space-5) var(--sc-space-6) calc(var(--sc-space-5) + var(--sc-bottom-inset));
+    background: var(--sc-bg);
+    border-top: 1px solid var(--sc-line);
+  }
+
+  .sc-pstudio-actions {
+    gap: var(--sc-space-4);
+  }
+
+  .sc-pstudio-actions .sc-btn {
+    padding: 0 var(--sc-space-6);
+  }
+
+  .sc-pstudio-actions .sc-btn-ghost {
+    flex: 1 1 auto;
+  }
+
+  .sc-pstudio-slots {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sc-pstudio-pslot-drop {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-pstudio .sc-shimmer,
+  .sc-pstudio .sc-shimmer::after {
+    animation: none;
+  }
+}

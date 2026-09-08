@@ -81,8 +81,16 @@ test.describe('adding to a brand', () => {
   });
 
   test('a deep link lands straight in the flow, with no arrow back to a chooser nobody saw', async ({ page }) => {
+    await page.goto(`/${slug}/products?new=scene`);
+    await expect(page.getByRole('heading', { name: 'New scene' })).toBeVisible();
+    await expect(page.locator('.sc-newdlg-back')).toHaveCount(0);
+  });
+
+  test('a presenter deep link lands in the dialog, with no arrow back to a chooser nobody saw', async ({ page }) => {
     await page.goto(`/${slug}/products?new=presenter`);
+    await expect(page).toHaveURL(new RegExp(`/${slug}/products\\?new=presenter$`));
     await expect(page.getByRole('heading', { name: 'New presenter' })).toBeVisible();
+    await expect(dialog(page)).toBeVisible();
     await expect(page.locator('.sc-newdlg-back')).toHaveCount(0);
   });
 
@@ -115,18 +123,18 @@ test.describe('adding to a brand', () => {
     // the free one says so, where the other two say what they will spend
     await expect(page.locator('.sc-dlg-foot')).toContainText('No preview');
 
-    await page.goto(`/${slug}?new=presenter`);
+    await page.goto(`/${slug}?new=scene`);
     await expect(page.locator('.sc-dlg-foot')).not.toHaveText('');
 
-    await page.goto(`/${slug}?new=scene`);
+    await page.goto(`/${slug}?new=presenter`);
     await expect(page.locator('.sc-dlg-foot')).not.toHaveText('');
   });
 
   test('the primary explains itself rather than going quietly inert', async ({ page }) => {
-    await page.goto(`/${slug}?new=presenter`);
+    await page.goto(`/${slug}?new=scene`);
     const go = page.locator('.sc-dlg-go');
     await expect(go).toHaveAttribute('aria-disabled', 'true');
-    await expect(go).toHaveAttribute('title', /name and at least one photo/i);
+    await expect(go).toHaveAttribute('title', /a name, and a photo or a line of direction/i);
     // aria-disabled, not the native attribute: the explanation stays reachable
     await expect(go).not.toHaveAttribute('disabled', /.*/);
   });

@@ -8,7 +8,7 @@ import type { CreateKind, PendingState } from '../createDraft.js';
 import { P, hubPath, productPath } from '../routes.js';
 import { useToasts } from '../toasts.js';
 import { AssetKindPicker } from './AssetKindPicker.js';
-import { PresenterForm } from './PresenterForm.js';
+import { PresenterStudio } from './presenter/PresenterStudio.js';
 import { ProductForm } from './ProductForm.js';
 import { SceneForm } from './SceneForm.js';
 import type { Created } from './flow.js';
@@ -221,12 +221,20 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         });
         return;
       }
+      if (made.kind === 'presenter') {
+        void refreshBrands();
+        if (cb?.kind === 'presenter') cb.fn(made);
+        push({
+          kind: 'success',
+          title: `${made.name} added`,
+          actions: [
+            { label: 'Use in a shot', onClick: () => navigate(`${hubPath(brand)}?presenter=${made.id}&compose=1`) },
+          ],
+        });
+        return;
+      }
       if (cb?.kind === made.kind) cb.fn(made);
-      push({
-        kind: 'success',
-        title: `Building ${made.name}`,
-        detail: made.kind === 'presenter' ? 'Four studio views. The bell will say when.' : 'The bell will say when.',
-      });
+      push({ kind: 'success', title: `Building ${made.name}`, detail: 'The bell will say when.' });
     },
     [brand, close, navigate, poke, push, refreshBrands],
   );
@@ -259,7 +267,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
       {/* Keyed by kind so switching flows remounts rather than carrying one
           form's fields into another's. */}
       {kind === 'product' && <ProductForm key="product" {...flowProps} />}
-      {kind === 'presenter' && <PresenterForm key="presenter" {...flowProps} />}
+      {kind === 'presenter' && <PresenterStudio key="presenter" {...flowProps} />}
       {kind === 'scene' && <SceneForm key="scene" {...flowProps} />}
     </Ctx.Provider>
   );

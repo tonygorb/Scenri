@@ -41,6 +41,8 @@ import type {
   UsageDay,
   VersionInfo,
   Workspace,
+  PresenterDraft,
+  PresenterDraftView,
 } from './apiTypes.js';
 
 export const api = {
@@ -202,7 +204,8 @@ export const api = {
   startAssetBuild: (
     brandId: string,
     p: {
-      kind: 'presenter' | 'scene';
+      /** Only scenes build here; a presenter is cast in the create dialog (createPresenterDraft). */
+      kind: 'scene';
       name: string;
       instruction?: string;
       imageHashes: string[];
@@ -227,6 +230,49 @@ export const api = {
    */
   createProduct: (brandId: string, p: { name: string; imageHashes: string[]; category?: string }) =>
     req<Brand & { productId: string }>('POST', `/api/brands/${brandId}/products`, p),
+  // ---- a presenter being cast: one person, one approved view at a time
+  createPresenterDraft: (
+    brandId: string,
+    p: {
+      source: 'synthetic' | 'photos';
+      direction?: string;
+      imageHashes?: string[];
+      attestation?: boolean;
+      name?: string;
+      facets?: string[];
+    },
+  ) => req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts`, p),
+  presenterDrafts: (brandId: string) =>
+    req<{ drafts: PresenterDraft[] }>('GET', `/api/brands/${brandId}/presenter-drafts`),
+  presenterDraft: (brandId: string, draftId: string) =>
+    req<PresenterDraft>('GET', `/api/brands/${brandId}/presenter-drafts/${draftId}`),
+  updatePresenterDraft: (
+    brandId: string,
+    draftId: string,
+    p: { name?: string; facets?: string[]; direction?: string },
+  ) => req<PresenterDraft>('PATCH', `/api/brands/${brandId}/presenter-drafts/${draftId}`, p),
+  generateDraftView: (brandId: string, draftId: string, view: PresenterDraftView, p: { adjustment?: string } = {}) =>
+    req<{ draft: PresenterDraft }>(
+      'POST',
+      `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/generate`,
+      p,
+    ),
+  approveDraftView: (brandId: string, draftId: string, view: PresenterDraftView) =>
+    req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/approve`),
+  redoDraftView: (brandId: string, draftId: string, view: PresenterDraftView) =>
+    req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/redo`),
+  /** Keep the previous approved picture; the revision goes. */
+  revertDraftView: (brandId: string, draftId: string, view: PresenterDraftView) =>
+    req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/revert`),
+  placeDraftPhoto: (brandId: string, draftId: string, view: PresenterDraftView, hash: string) =>
+    req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/use-photo`, { hash }),
+  savePresenterDraft: (brandId: string, draftId: string) =>
+    req<{ presenter: { id: string; name: string }; brand: Brand }>(
+      'POST',
+      `/api/brands/${brandId}/presenter-drafts/${draftId}/save`,
+    ),
+  deletePresenterDraft: (brandId: string, draftId: string) =>
+    req<{ ok: true }>('DELETE', `/api/brands/${brandId}/presenter-drafts/${draftId}`),
   /** Write a presenter with no build behind it: the photos become the references. */
   createPresenter: (brandId: string, p: { name: string; shotHashes: string[]; sourceHashes?: string[] }) =>
     req<{ presenter: unknown; brand: Brand }>('POST', `/api/brands/${brandId}/presenters`, p),

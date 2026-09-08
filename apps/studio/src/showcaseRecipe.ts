@@ -1,4 +1,5 @@
 import type { DemoProduct, Presenter, Scene, ShowcaseEntry } from './api.js';
+import { presenterAvatar } from './presenterVisual.js';
 import { productLabel, sceneLabel } from './displayName.js';
 
 /**
@@ -39,7 +40,7 @@ export function recipeProps(entry: ShowcaseEntry, catalogs: Catalogs) {
     productId: product?.id ?? null,
     presenterName: presenter?.name ?? null,
     // .sc-showcase-chip img is a circle, which the square portrait fills cleanly.
-    presenterPreviewUrl: presenter?.avatarUrl ?? presenter?.previewUrl ?? null,
+    presenterPreviewUrl: presenter ? presenterAvatar(presenter).src : null,
     presenterId: presenter?.id ?? null,
     sceneName: scene ? sceneLabel(scene, 'chip') : null,
     scenePreviewUrl: scene?.previewUrl ?? null,

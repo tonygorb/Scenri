@@ -55,6 +55,32 @@ const PLACE = {
 };
 
 describe('customPresentersOf', () => {
+  it('reads the casting prose and the origin a studio-built person carries, and leaves an older record empty', () => {
+    const [p] = customPresentersOf(
+      brandWith({
+        characters: [
+          {
+            ...PERSON,
+            source: 'photos',
+            likeness: { attestedAt: '2026-09-08T00:00:00Z', version: 'v1' },
+            facial: 'oval face',
+            skin: 'olive',
+            build: 'slender',
+          },
+        ],
+      }),
+    );
+    expect(p.source).toBe('photos');
+    expect(p.likeness).toEqual({ attestedAt: '2026-09-08T00:00:00Z', version: 'v1' });
+    expect(p.facial).toBe('oval face');
+    expect(p.skin).toBe('olive');
+    expect(p.build).toBe('slender');
+    const [old] = customPresentersOf(brandWith({ characters: [PERSON] }));
+    expect(old.source).toBeUndefined();
+    expect(old.likeness).toBeUndefined();
+    expect(old.facial).toBe('');
+  });
+
   it('reads a person the brand built, in the catalog shape every card takes', () => {
     const [p] = customPresentersOf(brandWith({ characters: [PERSON] }));
     expect(p.id).toBe('up-1234abcd');

@@ -2,15 +2,12 @@ import { useMemo } from 'react';
 import { presenterSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
 import { Plus } from '@phosphor-icons/react';
-import { api } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { useTaskCenter } from '../app/TaskCenter.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { customPresentersOf } from '../brandAssets.js';
 import { presenterPath } from '../routes.js';
-import { AssetBuildCard } from '../layout/AssetBuildCard.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
@@ -51,10 +48,8 @@ export function PresentersView() {
   // One poll for the whole app, owned by TaskCenter: a build started from the
   // top bar on any screen has to stay visible after you leave the screen that
   // started it.
-  const { builds, poke: refreshBuilds } = useTaskCenter();
   const createAsset = useCreateAsset();
   const mine = useMemo(() => customPresentersOf(brand), [brand]);
-  const running = builds.filter((b) => b.kind === 'presenter' && (!b.finished || b.stage === 'failed'));
   const [tile, setTile] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
   const density = normalizeDensity(tile);
   const setDensity = (cols: DensityCols) => setTile(cols);
@@ -105,8 +100,8 @@ export function PresentersView() {
    * narrowing to a category your one presenter is not in read as losing the
    * page, chrome and all, and snapping back to the first-run offer.
    */
-  const owned = mine.length > 0 || running.length > 0;
-  const showMine = running.length > 0 || minePlusBuilds.length > 0;
+  const owned = mine.length > 0;
+  const showMine = minePlusBuilds.length > 0;
   /**
    * Nothing of your own yet: the page leads with its offer.
    *
@@ -176,15 +171,6 @@ export function PresentersView() {
                 <h2 className="sc-sec-title">Your presenters</h2>
               </div>
               <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
-                {running.map((b) => (
-                  <AssetBuildCard
-                    key={b.id}
-                    build={b}
-                    onCancel={(id) => void api.cancelAssetBuild(brand.id, id).then(refreshBuilds)}
-                    onDismiss={(id) => void api.deleteAssetBuild(brand.id, id).then(refreshBuilds)}
-                    onRetry={() => createAsset('presenter')}
-                  />
-                ))}
                 {minePlusBuilds.map((p) => (
                   <PresenterCard
                     key={p.id}
