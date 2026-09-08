@@ -450,18 +450,34 @@
   padding: 9px 13px;
 }
 
-/* the steer: the app's segmented control, across the rail's own field width */
-.sc-pstudio-seg {
-  width: 100%;
-  margin-left: 0;
-  background: var(--sc-pstudio-field);
+/* three whole sentences under the description, one tap each */
+.sc-pstudio-examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-3);
+  margin-top: var(--sc-space-5);
 }
 
-.sc-pstudio-seg .sc-seg-o {
-  flex: 1 1 0;
-  justify-content: center;
-  height: 38px;
-  font-size: 14px;
+.sc-pstudio-examples > span {
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
+  margin-right: var(--sc-space-1);
+}
+
+.sc-pstudio-examples .sc-chip {
+  height: 30px;
+  padding: 0 12px;
+  color: var(--sc-fg2);
+  text-align: left;
+}
+
+.sc-pstudio-examples .sc-chip:hover:not(:active) {
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-field .sc-pstudio-line {
+  margin-top: var(--sc-space-4);
 }
 
 /* a value that opens a list: the rail's own field, with the caret at its end */

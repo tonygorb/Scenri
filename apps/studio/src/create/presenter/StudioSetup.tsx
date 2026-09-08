@@ -1,21 +1,20 @@
 import { Check, Image, Plus, TextAa, X } from '@phosphor-icons/react';
 import { type KeyboardEvent, type ReactNode, useEffect, useRef } from 'react';
 import { thumbUrl } from '../../api.js';
-import { Choice, Choices } from '../../composer/shotSettings/Choices.js';
 import { CategoryMenu } from './CategoryMenu.js';
 import { useFileDrop } from '../../layout/Dropzone.js';
 import { OpenAIMark } from '../../layout/OpenAIMark.js';
-import { MAX_PHOTOS, photosHint } from './presenterStudioRules.js';
+import { MAX_PHOTOS, photosHint, whoHint } from './presenterStudioRules.js';
 
 /**
  * The setup rail, as the Figma frames lay it out: the Aa / Image toggle in
- * the head, then Name, Gender, the sentence or the four photo places,
- * Optional notes and Categories, with Cancel and Create presenter in the
- * foot. Name and gender are offered, never required: a person can be cast
- * from the sentence alone and named at the end.
+ * the head, then Name, the sentence or the four photo places, and Optional
+ * notes, with Cancel and Create presenter in the foot. The name is offered,
+ * never required: a person is cast from the sentence alone and named at the
+ * end. Nothing here asks for a gender, because the sentence says it and the
+ * photographs show it.
  */
 export type Mode = 'scratch' | 'photos';
-export type Gender = 'woman' | 'man';
 
 const MODES: { value: Mode; label: string; icon: ReactNode }[] = [
   { value: 'scratch', label: 'From scratch', icon: <TextAa size={18} /> },
@@ -91,49 +90,12 @@ function Field({ id, label, children }: { id?: string; label: string; children: 
   );
 }
 
-/**
- * A steer, not a form field.
- *
- * Two picture cards spent a fifth of the rail on one bit, said nothing the
- * word "Male" does not, and left anyone outside the pair with no answer but
- * silence. This is the app's own segmented control instead: one row, three
- * ways, arrow keys, Either standing for no steer at all. The sentence still
- * outranks it (see `castSentence`), and the photos tab does not show it,
- * because a photograph settles this by itself.
- */
-const GENDERS: { id: string; label: string }[] = [
-  { id: 'woman', label: 'Woman' },
-  { id: 'man', label: 'Man' },
-  { id: 'any', label: 'Either' },
+/** Three whole sentences, one tap each: every one of them says who the person is. */
+const EXAMPLES = [
+  'Warm man in his 30s, close-cropped beard, easy smile',
+  'Athletic woman in her mid 20s, natural curls',
+  'Androgynous person in their 20s, platinum buzz cut',
 ];
-
-function GenderChoice({ value, onChange }: { value: Gender | null; onChange: (next: Gender | null) => void }) {
-  const set = (id: string) => onChange(id === 'woman' || id === 'man' ? id : null);
-  return (
-    <Field label="Gender">
-      <Choices
-        label="Gender"
-        className="sc-seg sc-pstudio-seg"
-        value={value ?? 'any'}
-        ids={GENDERS.map((g) => g.id)}
-        onChange={set}
-      >
-        {GENDERS.map((g) => (
-          <Choice
-            key={g.id}
-            id={g.id}
-            className="sc-seg-o"
-            on={(value ?? 'any') === g.id}
-            label={g.label}
-            onPick={() => set(g.id)}
-          >
-            {g.label}
-          </Choice>
-        ))}
-      </Choices>
-    </Field>
-  );
-}
 
 /** The four places, named as the frame names them. A hint, not a requirement: one photo is enough. */
 const SLOT_HINTS = ['Front', 'Left', 'Back', 'Right'];
@@ -252,8 +214,6 @@ export function SetupForm({
   engineOff,
   name,
   onName,
-  gender,
-  onGender,
   direction,
   onDirection,
   onCreate,
@@ -274,8 +234,6 @@ export function SetupForm({
   engineOff: boolean;
   name: string;
   onName: (next: string) => void;
-  gender: Gender | null;
-  onGender: (next: Gender | null) => void;
   direction: string;
   onDirection: (next: string) => void;
   onCreate: () => void;
@@ -310,7 +268,6 @@ export function SetupForm({
           onKeyDown={enterCreates}
         />
       </Field>
-      {mode === 'scratch' && <GenderChoice value={gender} onChange={onGender} />}
       {mode === 'scratch' ? (
         engineOff ? (
           <SetupCard onSetup={onSetup} />
@@ -326,6 +283,17 @@ export function SetupForm({
               onChange={(e) => onDirection(e.target.value)}
               onKeyDown={enterCreates}
             />
+            {/* a whole sentence, one tap: the blank page and the unanswered
+                question are the same problem, and an example solves both */}
+            <div className="sc-pstudio-examples">
+              <span>Try</span>
+              {EXAMPLES.map((ex) => (
+                <button type="button" key={ex} className="sc-chip" onClick={() => onDirection(ex)}>
+                  {ex}
+                </button>
+              ))}
+            </div>
+            {whoHint(direction) && <p className="sc-pstudio-line">{whoHint(direction)}</p>}
           </Field>
         )
       ) : (

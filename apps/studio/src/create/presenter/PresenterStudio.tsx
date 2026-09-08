@@ -10,14 +10,13 @@ import { DialogSheet, SheetClose, SheetTitle } from '../../layout/DialogSheet.js
 import { ScenriLockup } from '../../layout/ScenriMark.js';
 import type { FlowProps } from '../flow.js';
 import { RefineComposer } from './RefineComposer.js';
-import { DetailsFields, type Gender, type Mode, ModeToggle, SetupForm } from './StudioSetup.js';
+import { DetailsFields, type Mode, ModeToggle, SetupForm } from './StudioSetup.js';
 import { StudioStage } from './StudioStage.js';
 import {
   type Action,
   MAX_PHOTOS,
   VIEWS,
   VIEW_LABEL,
-  castSentence,
   composerPlaceholder,
   composerState,
   coverageLine,
@@ -42,8 +41,8 @@ import { usePresenterDraft } from './usePresenterDraft.js';
  * draw it.
  *
  * A wide stage on the left and a 500 rail on the right. Setup is a form:
- * the Aa / Image toggle in the head, Name, Gender, a sentence or four photo
- * places, Optional notes, Categories, then Create presenter. Then one
+ * the Aa / Image toggle in the head, Name, a sentence or four photo places,
+ * Optional notes, then Create presenter. Then one
  * identity: the face, drawn and decided; then the front, left, back and
  * right views, each drawn from the approved views before it and decided in
  * turn, the strip under the stage keeping the count. The rail reads as a
@@ -90,7 +89,6 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
   const [boot, setBoot] = useState(true);
   const [mode, setMode] = useState<Mode>('scratch');
   const [name, setName] = useState('');
-  const [gender, setGender] = useState<Gender | null>(null);
   const [direction, setDirection] = useState('');
   const [notes, setNotes] = useState('');
   const [hashes, setHashes] = useState<string[]>([]);
@@ -155,8 +153,8 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
     }
   }, []);
 
-  /** The sentence the engine gets: the steer leads it only when it is not already said. */
-  const sentence = () => castSentence(gender, direction);
+  /** The sentence the engine gets, exactly as it was written. */
+  const sentence = () => direction.trim();
   const words = () => ({ name: name.trim() || undefined });
 
   const startScratch = async () => {
@@ -298,8 +296,6 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
                   engineOff={engineOff}
                   name={name}
                   onName={setName}
-                  gender={gender}
-                  onGender={setGender}
                   direction={direction}
                   onDirection={(next) => {
                     setErr(null);
