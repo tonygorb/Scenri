@@ -118,7 +118,7 @@ test.describe('a person from scratch', () => {
     await expect(page.getByRole('heading', { name: 'Create presenter' })).toBeVisible();
     await expect(page.getByRole('radio', { name: 'From scratch' })).toHaveAttribute('aria-checked', 'true');
 
-    const create = dialog(page).getByRole('button', { name: 'Create presenter' });
+    const create = dialog(page).getByRole('button', { name: 'Create', exact: true });
     await expect(create).toHaveAttribute('aria-disabled', 'true');
     await page.getByLabel('Describe the presenter').fill('confident woman in her 40s, short silver hair');
     await expect(create).not.toHaveAttribute('aria-disabled', /.*/);
@@ -326,9 +326,9 @@ test.describe('from photos', () => {
     await expect(page.locator('.sc-pstudio-pslot-frame[data-filled] img')).toHaveCount(1);
     // the photo is on the stage before anything is drawn
     await expect(page.locator('.sc-pstudio-well img')).toBeVisible();
-    const go = dialog(page).getByRole('button', { name: 'Create presenter', exact: true });
+    const go = dialog(page).getByRole('button', { name: 'Create', exact: true });
     await expect(go).toHaveAttribute('aria-disabled', 'true');
-    await expect(go).toHaveAttribute('title', /permission/i);
+    await expect(page.locator('.sc-pstudio-composer-hint')).toContainText(/permission/i);
     await page.getByRole('checkbox').check();
     await expect(go).not.toHaveAttribute('aria-disabled', /.*/);
     await go.click();

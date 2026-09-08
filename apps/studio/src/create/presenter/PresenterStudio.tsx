@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, ArrowsCounterClockwise, CaretLeft, Copy, X } from '@phosphor-icons/react';
+import { ArrowsCounterClockwise, CaretLeft, Copy, X } from '@phosphor-icons/react';
 import { Spinner } from '@radix-ui/themes';
 import { api, thumbUrl, uploadImage, type PresenterDraft } from '../../api.js';
 import { useAppData, useDialogParam } from '../../app/AppShell.js';
@@ -21,6 +21,7 @@ import {
   VIEW_LABEL,
   castSentence,
   composerPlaceholder,
+  whoHint,
   composerState,
   coverageLine,
   emptySlot,
@@ -83,7 +84,7 @@ const clearPointer = (brandId: string) => {
   }
 };
 
-export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps) {
+export function PresenterStudio({ onBack, onStarted, caps }: FlowProps) {
   const { brand } = useBrand();
   const { close } = useDialogParam('new');
   const openSetup = useOpenSetup();
@@ -91,6 +92,7 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
   const [resume, setResume] = useState<PresenterDraft | null>(null);
   const [boot, setBoot] = useState(true);
   const [mode, setMode] = useState<Mode>('scratch');
+  const [name, setName] = useState('');
   const [traits, setTraits] = useState<Traits>(NO_TRAITS);
   const [direction, setDirection] = useState('');
   const [hashes, setHashes] = useState<string[]>([]);
@@ -155,36 +157,22 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
     }
   }, []);
 
-  /** The sentence the engine gets: the steer leads it unless the sentence says it. */
-  const sentence = () => castSentence(traits, direction);
+  /** The sentence the engine gets: the traits lead it unless it already says them. */
+  const sentence = (text: string) => castSentence(traits, text);
 
-  const startScratch = async () => {
-    if (!direction.trim()) {
+  const startScratch = async (text: string) => {
+    if (!text.trim()) {
       setErr('Describe the presenter, then create them.');
-      return;
+      return false;
     }
-    if (!canDraw || busy) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const draft = await api.createPresenterDraft(brand.id, { source: 'synthetic', direction: sentence() });
-      openDraft(draft.id);
-    } catch (e: any) {
-      setErr(String(e?.message ?? e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const startPhotos = async () => {
-    if (!hashes.length || !attested || busy) return;
+    if (!canDraw || busy) return false;
     setBusy(true);
     setErr(null);
     try {
       const draft = await api.createPresenterDraft(brand.id, {
-        source: 'photos',
-        imageHashes: hashes,
-        attestation: true,
+        source: 'synthetic',
+        direction: sentence(text),
+        name: name.trim() || undefined,
       });
       openDraft(draft.id);
     } catch (e: any) {
@@ -192,30 +180,43 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
     } finally {
       setBusy(false);
     }
+    return true;
   };
 
-  const footnote = capsNote(
-    engineOff
-      ? 'Saved from the photos you add.'
-      : caps?.free
-        ? 'Five views, one at a time. Nothing billed through Scenri.'
-        : 'Five views, one at a time, each a generation.',
-  );
+  const startPhotos = async (text: string) => {
+    if (!hashes.length || !attested || busy) return false;
+    setBusy(true);
+    setErr(null);
+    try {
+      const draft = await api.createPresenterDraft(brand.id, {
+        source: 'photos',
+        imageHashes: hashes,
+        attestation: true,
+        name: name.trim() || undefined,
+        // what matters in these photographs, handed to the analyzer as it reads them
+        direction: text.trim() || undefined,
+      });
+      openDraft(draft.id);
+    } catch (e: any) {
+      setErr(String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+    return true;
+  };
 
+  // The pill's own emptiness covers the missing sentence; this is everything else.
   const primaryOff =
-    mode === 'scratch'
-      ? !direction.trim() || busy || boot || !caps
-      : !hashes.length || !attested || busy || boot || uploading;
-  const primaryWhy =
-    mode === 'scratch'
-      ? !direction.trim()
-        ? 'Describe the presenter'
-        : undefined
-      : !hashes.length
-        ? 'Add a photo'
+    mode === 'scratch' ? busy || boot || !caps : !hashes.length || !attested || busy || boot || uploading;
+  // Why it cannot be pressed, said under the card rather than hidden in a tooltip.
+  const blocked =
+    mode === 'photos'
+      ? !hashes.length
+        ? 'Add a photo of them first.'
         : !attested
-          ? 'Confirm you have permission to use their likeness'
-          : undefined;
+          ? 'Confirm you have permission to use their likeness.'
+          : null
+      : null;
 
   return (
     <DialogSheet
@@ -241,7 +242,6 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
             key={draftId}
             draftId={draftId}
             canDraw={canDraw}
-            footnote={footnote}
             onBack={onBack}
             onStarted={onStarted}
             onGone={() => {
@@ -288,14 +288,10 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
                   mode={mode}
                   canDraw={canDraw}
                   engineOff={engineOff}
+                  name={name}
+                  onName={setName}
                   traits={traits}
                   onTraits={(patch) => setTraits((t) => ({ ...t, ...patch }))}
-                  direction={direction}
-                  onDirection={(next) => {
-                    setErr(null);
-                    setDirection(next);
-                  }}
-                  onCreate={() => void startScratch()}
                   hashes={hashes}
                   uploading={uploading}
                   attested={attested}
@@ -310,26 +306,26 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
             </div>
             <div className="sc-pstudio-foot">
               {!(mode === 'scratch' && engineOff) && (
-                <div className="sc-pstudio-actions">
-                  <SheetClose>
-                    <button type="button" className="sc-btn sc-btn-ghost">
-                      Cancel
-                    </button>
-                  </SheetClose>
-                  <button
-                    type="button"
-                    className="sc-btn sc-btn-primary"
-                    aria-disabled={primaryOff || undefined}
-                    title={primaryWhy}
-                    onClick={() => void (mode === 'scratch' ? startScratch() : startPhotos())}
-                  >
-                    {busy ? <Spinner size="1" /> : null}
-                    {mode === 'photos' && !canDraw ? 'Save with photos' : 'Create presenter'}
-                    <ArrowRight size={18} />
-                  </button>
-                </div>
+                <RefineComposer
+                  label={mode === 'photos' ? 'What matters in these photos' : 'Describe the presenter'}
+                  placeholder={mode === 'photos' ? 'What matters in these photos' : 'Describe the presenter'}
+                  action={mode === 'photos' && !canDraw ? 'Save' : 'Create'}
+                  hint={blocked ?? (mode === 'photos' ? null : whoHint(traits, direction))}
+                  value={direction}
+                  onValue={(next) => {
+                    setErr(null);
+                    setDirection(next);
+                  }}
+                  allowEmpty={mode === 'photos'}
+                  disabled={primaryOff}
+                  working={busy}
+                  error={err}
+                  onSend={(text) => {
+                    void (mode === 'scratch' ? startScratch(text) : startPhotos(text));
+                    return false;
+                  }}
+                />
               )}
-              <p className="sc-dlg-foot">{footnote}</p>
             </div>
           </>
         )}
@@ -385,7 +381,6 @@ const PRIMARY: ReadonlySet<Action> = new Set(['use-person', 'use', 'retry', 'sav
 function Draft({
   draftId,
   canDraw,
-  footnote,
   onBack,
   onStarted,
   onGone,
@@ -393,7 +388,6 @@ function Draft({
 }: {
   draftId: string;
   canDraw: boolean;
-  footnote: ReactNode;
   onBack?: () => void;
   onStarted: FlowProps['onStarted'];
   onGone: () => void;
@@ -588,9 +582,7 @@ function Draft({
           </div>
           <div className="sc-pstudio-body" />
         </div>
-        <div className="sc-pstudio-foot">
-          <p className="sc-dlg-foot">{footnote}</p>
-        </div>
+        <div className="sc-pstudio-foot"></div>
       </>
     );
   }
@@ -720,6 +712,7 @@ function Draft({
               </button>
             </div>
             <RefineComposer
+              label="What should change"
               placeholder={composerPlaceholder(view, d)}
               describe={(text) => {
                 const st = composerState(text, view, d);
@@ -761,7 +754,6 @@ function Draft({
             )}
           </div>
         )}
-        <p className="sc-dlg-foot">{footnote}</p>
       </div>
     </>
   );

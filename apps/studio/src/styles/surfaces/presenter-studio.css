@@ -448,12 +448,14 @@
   color: var(--sc-warn);
 }
 
-/* the label row: the name of the thing on the left, what is set on the right */
+/* the label row: the name of the thing on the left, and on the right only
+   what the control below cannot say for itself. One gap under it, always. */
 .sc-pstudio-fieldhead {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--sc-space-4);
+  margin-bottom: var(--sc-space-4);
 }
 
 .sc-pstudio-fieldval {
@@ -470,9 +472,9 @@
 }
 
 .sc-pstudio-chips .sc-chip {
-  height: 34px;
-  padding: 0 16px;
-  font-size: 14px;
+  height: 30px;
+  padding: 0 14px;
+  font-size: 13px;
 }
 
 /* fields: the Figma field, 44 tall, 15px, on ink-800 */
@@ -496,7 +498,12 @@
   font-size: 13px;
   font-weight: 400;
   line-height: 20px;
-  color: var(--sc-pstudio-label);
+  color: var(--sc-fg2);
+  margin-bottom: 0;
+}
+
+.sc-pstudio-photos .sc-newdlg-seclabel {
+  display: block;
   margin-bottom: var(--sc-space-4);
 }
 
@@ -555,6 +562,7 @@
   padding: 2px;
   border: 1.5px solid var(--sc-line);
   border-radius: var(--sc-radius);
+  transition: border-color 120ms ease;
 }
 
 .sc-pstudio-whocard:hover .sc-pstudio-whocard-frame {
@@ -579,8 +587,14 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* the mannequins are shot on white; on the dark rail they sit calmer dimmed */
-  opacity: 0.72;
+  /* a white bust on a near-black rail is the loudest thing in the room until
+     it is the one that is chosen */
+  opacity: 0.5;
+  transition: opacity 120ms ease;
+}
+
+.sc-pstudio-whocard:hover .sc-pstudio-whocard-inner img {
+  opacity: 0.7;
 }
 
 .sc-pstudio-whocard[data-on] .sc-pstudio-whocard-inner img {
@@ -588,11 +602,12 @@
 }
 
 .sc-pstudio-whocard-lb {
-  font-size: 15px;
-  line-height: 22px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--sc-fg3);
 }
 
-.sc-pstudio-whocard[data-on] {
+.sc-pstudio-whocard[data-on] .sc-pstudio-whocard-lb {
   color: var(--sc-fg);
 }
 
@@ -605,19 +620,18 @@
 .sc-pstudio-skin {
   display: flex;
   align-items: center;
-  min-height: 38px;
 }
 
 .sc-pstudio-swatches {
   display: flex;
-  gap: var(--sc-space-5);
+  gap: var(--sc-space-4);
 }
 
 .sc-pstudio-swatch {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: none;
   border-radius: var(--sc-radius-full);
@@ -627,8 +641,8 @@
 }
 
 .sc-pstudio-swatch > span {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: var(--sc-radius-full);
 }
 
@@ -637,7 +651,7 @@
 }
 
 .sc-pstudio-swatch[data-on] {
-  box-shadow: inset 0 0 0 2px var(--sc-fg);
+  box-shadow: inset 0 0 0 1.5px var(--sc-fg);
 }
 
 .sc-pstudio-swatch:focus-visible {
@@ -1079,13 +1093,15 @@
   gap: var(--sc-space-3);
 }
 
+/* the card sits one step above its own ground, the way the app's composer
+   does on the page: the rail is ink-900, so this is the surface above it */
 .sc-pstudio-composer-card {
   position: relative;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--sc-line-strong);
   border-radius: var(--sc-radius-float);
-  background: var(--sc-panel);
+  background: var(--sc-raised);
   box-shadow: var(--sc-shadow-float);
 }
 

@@ -5,15 +5,7 @@ import { Choice, Choices } from '../../composer/shotSettings/Choices.js';
 import { CategoryMenu } from './CategoryMenu.js';
 import { useFileDrop } from '../../layout/Dropzone.js';
 import { OpenAIMark } from '../../layout/OpenAIMark.js';
-import {
-  type Age,
-  MAX_PHOTOS,
-  photosHint,
-  type Steer,
-  type Tone,
-  type Traits,
-  whoHint,
-} from './presenterStudioRules.js';
+import { type Age, MAX_PHOTOS, photosHint, type Steer, type Tone, type Traits } from './presenterStudioRules.js';
 
 /**
  * The setup rail: two ways to start as tabs, then the three things a roll
@@ -155,11 +147,6 @@ function WhoRow({ value, onChange }: { value: Steer | null; onChange: (next: Ste
             <span className="sc-pstudio-whocard-frame">
               <span className="sc-pstudio-whocard-inner">
                 <img src={o.src} alt="" decoding="async" />
-                {value === o.id && (
-                  <span className="sc-pstudio-slot-mark" aria-hidden>
-                    <Check size={11} weight="bold" />
-                  </span>
-                )}
               </span>
             </span>
             <span className="sc-pstudio-whocard-lb">{o.label}</span>
@@ -210,7 +197,7 @@ function SkinRow({ value, onChange }: { value: Tone | null; onChange: (next: Ton
  */
 function AgeRow({ value, onChange }: { value: Age | null; onChange: (next: Age | null) => void }) {
   return (
-    <Field label="Age" value={value ? AGES.find((a) => a.id === value)?.label : undefined}>
+    <Field label="Age">
       <Choices
         label="Age"
         className="sc-pstudio-chips"
@@ -346,23 +333,21 @@ export function FiledUnderField({
 }
 
 /**
- * The whole setup form.
+ * The setup body: the three things a roll cannot guess, or the photographs.
  *
- * Four inputs, and every one of them changes the person who is drawn: who
- * they are, roughly their age, their skin, and the sentence that carries
- * everything an open vocabulary should carry. The name is asked in review,
- * where saving needs it, and the categories are the engine's to read. The
- * head's tabs decide whether the middle is a sentence or photographs.
+ * The sentence is not here. It is in the composer at the bottom of the rail,
+ * where it stays for the whole life of the dialog: the same card describes
+ * the person and then corrects them. The name is asked in review, where
+ * saving needs it, and the categories are the engine's to read.
  */
 export function SetupForm({
   mode,
   canDraw,
   engineOff,
+  name,
+  onName,
   traits,
   onTraits,
-  direction,
-  onDirection,
-  onCreate,
   hashes,
   uploading,
   attested,
@@ -376,12 +361,11 @@ export function SetupForm({
   mode: Mode;
   canDraw: boolean;
   engineOff: boolean;
+  name: string;
+  onName: (next: string) => void;
   traits: Traits;
   /** A patch, never the whole object: two rows changed in one tick must not clobber each other. */
   onTraits: (patch: Partial<Traits>) => void;
-  direction: string;
-  onDirection: (next: string) => void;
-  onCreate: () => void;
   hashes: string[];
   uploading: boolean;
   attested: boolean;
@@ -392,14 +376,19 @@ export function SetupForm({
   onSetup: () => void;
   error?: string | null;
 }) {
-  const enterCreates = (e: KeyboardEvent) => {
-    if (e.key !== 'Enter' || e.shiftKey) return;
-    e.preventDefault();
-    onCreate();
-  };
-  const hint = whoHint(traits, direction);
   return (
     <div className="sc-pstudio-form">
+      <Field id="sc-pstudio-setup-name" label="Name">
+        <input
+          id="sc-pstudio-setup-name"
+          className="sc-in"
+          type="text"
+          maxLength={60}
+          placeholder="Their name"
+          value={name}
+          onChange={(e) => onName(e.target.value)}
+        />
+      </Field>
       {mode === 'scratch' ? (
         engineOff ? (
           <SetupCard onSetup={onSetup} />
@@ -408,19 +397,6 @@ export function SetupForm({
             <WhoRow value={traits.steer} onChange={(steer) => onTraits({ steer })} />
             <AgeRow value={traits.age} onChange={(age) => onTraits({ age })} />
             <SkinRow value={traits.tone} onChange={(tone) => onTraits({ tone })} />
-            <Field id="sc-pstudio-direction" label="Describe the presenter">
-              <textarea
-                id="sc-pstudio-direction"
-                className="sc-in sc-pstudio-direction"
-                rows={4}
-                maxLength={400}
-                placeholder="Natural-looking, slim build, long straight brown hair, calm expression"
-                value={direction}
-                onChange={(e) => onDirection(e.target.value)}
-                onKeyDown={enterCreates}
-              />
-              {hint && <p className="sc-pstudio-line">{hint}</p>}
-            </Field>
           </>
         )
       ) : (
