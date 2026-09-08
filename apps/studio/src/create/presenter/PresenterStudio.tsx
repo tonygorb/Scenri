@@ -596,6 +596,20 @@ function Draft({
           onPick={(v) => setFocus(v === (drawingView(d) ?? null) ? null : v)}
         />
         <div className="sc-pstudio-body" data-end={phase !== 'review' || undefined}>
+          <div className="sc-pstudio-origin">
+            <span className="sc-newdlg-seclabel">
+              {d.source === 'photos' ? 'From your photos' : 'From your description'}
+            </span>
+            {d.source === 'photos' ? (
+              <div className="sc-pstudio-origin-photos">
+                {d.sources.map((h, i) => (
+                  <img key={h} src={thumbUrl(h, 'micro')} alt={`Photo ${i + 1}`} />
+                ))}
+              </div>
+            ) : (
+              <p>{d.direction}</p>
+            )}
+          </div>
           {coverage && (
             <p className="sc-pstudio-line" data-tone={coverage.tone}>
               {coverage.text}

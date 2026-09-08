@@ -277,7 +277,7 @@ export function refineHint(selected: StudioView, d: DraftLike): string {
 
 /** What Send is called for, so a placeholder can ask the right question. */
 export function composerPlaceholder(selected: StudioView, d: DraftLike): string {
-  if (!identityLocked(d)) return 'Adjust: shorter hair, older, warmer skin';
+  if (!identityLocked(d)) return 'Adjust: shorter hair, older';
   const who = d.name.trim() || 'them';
   return selected === 'portrait'
     ? `What should change about ${who}?`

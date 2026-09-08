@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useState } from 'react';
+import { type KeyboardEvent, useLayoutEffect, useRef, useState } from 'react';
 
 /**
  * The one place a person says what should change: a sentence and Send. It is
@@ -22,6 +22,19 @@ export function RefineComposer({
   onSend: (text: string) => boolean;
 }) {
   const [text, setText] = useState('');
+  const field = useRef<HTMLTextAreaElement>(null);
+
+  // One line that grows with the sentence, up to the cap the stylesheet sets;
+  // a scrollbar only past that, never behind a placeholder.
+  useLayoutEffect(() => {
+    const el = field.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const max = Number.parseFloat(getComputedStyle(el).maxHeight) || Number.POSITIVE_INFINITY;
+    el.style.height = `${Math.min(el.scrollHeight, max)}px`;
+    el.style.overflowY = el.scrollHeight > max ? 'auto' : 'hidden';
+  }, [text]);
+
   const send = () => {
     if (disabled) return;
     if (onSend(text)) setText('');
@@ -30,6 +43,7 @@ export function RefineComposer({
     <div className="sc-pstudio-composer">
       <div className="sc-pstudio-composer-row">
         <textarea
+          ref={field}
           className="sc-in"
           rows={1}
           maxLength={240}
