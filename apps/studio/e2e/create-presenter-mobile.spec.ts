@@ -105,6 +105,7 @@ test('the picture, the strip and the decision all fit, and the strip scrolls sid
   await openDraft(page, brand, draftId);
   const use = page.getByRole('button', { name: 'Use this person' });
   await expect(use).toBeVisible({ timeout: 20_000 });
+  await settledBox(page, '.sc-newdlg');
   await expect(page.locator('.sc-pstudio-well img')).toBeVisible();
   await expect(page.locator('.sc-pstudio-slot')).toHaveCount(3);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -126,6 +127,7 @@ test('the decision stays reachable with the composer focused', async ({ page }) 
   await openDraft(page, brand, draftId);
   const use = page.getByRole('button', { name: 'Use this person' });
   await expect(use).toBeVisible({ timeout: 20_000 });
+  await settledBox(page, '.sc-newdlg');
   await page.getByLabel('What should change').tap();
   const box = await use.boundingBox();
   expect(box!.y + box!.height).toBeLessThanOrEqual(page.viewportSize()!.height);

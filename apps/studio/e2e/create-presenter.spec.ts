@@ -318,7 +318,7 @@ test.describe('from photos', () => {
     await page.goto(`/${brand.slug}/presenters?new=presenter`);
     await page.getByRole('tab', { name: 'From photos' }).click();
     await page.locator('input[type="file"]').setInputFiles({ name: 'noor.png', mimeType: 'image/png', buffer: PNG });
-    await expect(page.locator('.sc-assetform-ref img')).toHaveCount(1);
+    await expect(page.locator('.sc-pstudio-pslot-frame[data-filled] img')).toHaveCount(1);
     // the photo is on the stage before anything is drawn
     await expect(page.locator('.sc-pstudio-well img')).toBeVisible();
     const go = page.getByRole('button', { name: 'Continue', exact: true });
