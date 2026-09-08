@@ -45,6 +45,12 @@ export interface ViewSlot {
   status: ViewStatus;
   /** The current picture: a candidate awaiting a decision, or the approved view. */
   hash?: string;
+  /**
+   * The approved picture a revised candidate would replace. Kept until the
+   * decision: Use retires it and stales what was drawn from it, Keep previous
+   * puts it back.
+   */
+  prior?: string;
   /** Drawn by an engine, or one of the user's own photographs. */
   origin?: 'generated' | 'photo';
   /** Generations spent on this slot, failures included. */
@@ -92,7 +98,7 @@ export const DEPENDS: Record<PresenterView, PresenterView[]> = {
 
 /** How a view is named in a sentence a person reads. */
 export const VIEW_LABEL: Record<PresenterView, string> = {
-  portrait: 'portrait',
+  portrait: 'face',
   front: 'full body',
   'three-quarter': 'three-quarter view',
 };
@@ -405,7 +411,12 @@ async function drawView(
     const hash = await trimEdgeBars(core, drawn);
     mutate(core, id, (r) => {
       const slot = r.views[view];
-      if (slot.hash && slot.origin === 'generated' && slot.hash !== hash) slot.rejected = [...slot.rejected, slot.hash];
+      if (slot.hash && slot.hash !== hash) {
+        // A revision of an approved view keeps the approved picture until the
+        // decision; a candidate being redrawn is simply let go of.
+        if (before === 'approved') slot.prior = slot.hash;
+        else if (slot.origin === 'generated') slot.rejected = [...slot.rejected, slot.hash];
+      }
       slot.status = 'candidate';
       slot.hash = hash;
       slot.origin = 'generated';
@@ -477,7 +488,36 @@ export async function approveView(
   if (slot.status === 'stale') throw fail(`redo the ${VIEW_LABEL[view]}: it was built on a view you changed`, 400);
   if (slot.status !== 'candidate' || !slot.hash) throw fail(`there is no ${VIEW_LABEL[view]} to approve yet`, 400);
   return mutate(deps.core, id, (r) => {
-    r.views[view].status = 'approved';
+    const s = r.views[view];
+    s.status = 'approved';
+    if (s.prior) {
+      // A revision took an approved picture's place: whatever was drawn from
+      // the old one no longer stands, and is drawn again from this one.
+      if (!r.sources.includes(s.prior)) s.rejected = [...s.rejected, s.prior];
+      s.prior = undefined;
+      staleDependents(r, view);
+    }
+  });
+}
+
+/** Keep the approved picture: the revision goes, and nothing built on the approved one moves. */
+export async function revertView(deps: AssetBuildDeps, id: string, view: PresenterView): Promise<PresenterDraftRecord> {
+  if (!isView(view)) throw fail('no such view', 400);
+  if (running.has(id)) throw fail('a view is still being drawn', 409);
+  const rec = getPresenterDraft(deps.core, id);
+  if (!rec) throw fail('draft not found', 404);
+  if (!rec.views[view].prior) throw fail(`there is no previous ${VIEW_LABEL[view]} to keep`, 400);
+  return mutate(deps.core, id, (r) => {
+    const s = r.views[view];
+    const prior = s.prior as string;
+    if (s.hash && s.hash !== prior && !r.sources.includes(s.hash)) s.rejected = [...s.rejected, s.hash];
+    s.hash = prior;
+    s.origin = r.sources.includes(prior) ? 'photo' : 'generated';
+    s.status = 'approved';
+    s.prior = undefined;
+    s.adjustment = undefined;
+    s.conditionedOn = undefined;
+    s.error = undefined;
   });
 }
 
@@ -492,6 +532,8 @@ function reaches(from: PresenterView, to: PresenterView): boolean {
 function staleDependents(r: PresenterDraftRecord, view: PresenterView): void {
   for (const d of dependents(view)) {
     const s = r.views[d];
+    // A photograph is the truth whatever was drawn upstream of it.
+    if (s.origin === 'photo') continue;
     if (s.status === 'approved' || s.status === 'candidate') s.status = 'stale';
   }
 }
@@ -507,8 +549,8 @@ export async function redoView(deps: AssetBuildDeps, id: string, view: Presenter
   if (running.has(id)) throw fail('a view is still being drawn', 409);
   return mutate(deps.core, id, (r) => {
     const slot = r.views[view];
-    if (slot.hash && slot.origin === 'generated') slot.rejected = [...slot.rejected, slot.hash];
-    r.views[view] = { ...emptySlot(), attempts: slot.attempts, rejected: slot.rejected };
+    const gone = [slot.hash, slot.prior].filter((h): h is string => !!h && !r.sources.includes(h));
+    r.views[view] = { ...emptySlot(), attempts: slot.attempts, rejected: [...slot.rejected, ...gone] };
     staleDependents(r, view);
     if (view === 'portrait' && r.source === 'synthetic') r.analysis = undefined;
   });
@@ -529,11 +571,11 @@ export async function usePhotoForView(
   return mutate(deps.core, id, (r) => {
     const slot = r.views[view];
     if (slot.hash === hash && slot.origin === 'photo') return;
-    if (slot.hash && slot.origin === 'generated') slot.rejected = [...slot.rejected, slot.hash];
+    const gone = [slot.hash, slot.prior].filter((h): h is string => !!h && !r.sources.includes(h));
     r.views[view] = {
       ...emptySlot(),
       attempts: slot.attempts,
-      rejected: slot.rejected,
+      rejected: [...slot.rejected, ...gone],
       status: 'approved',
       hash,
       origin: 'photo',
@@ -638,15 +680,46 @@ export async function savePresenterDraft(
 
 /** Intentional cancel: the row goes, and every picture this draft alone was holding. */
 export async function discardPresenterDraft(deps: AssetBuildDeps, id: string, hooks: CleanupHooks = {}): Promise<void> {
-  const { core } = deps;
   running.get(id)?.ctrl.abort();
   running.delete(id);
-  const rec = getPresenterDraft(core, id);
+  const rec = getPresenterDraft(deps.core, id);
   if (!rec) return;
-  core.store.deletePresenterDraft(id);
+  dropDraft(deps.core, rec, hooks);
+}
+
+/** Fourteen days untouched is abandoned. */
+export const ABANDONED_DRAFT_MS = 14 * 24 * 60 * 60 * 1000;
+
+/**
+ * At boot, let go of drafts nobody has touched in two weeks, the way a
+ * discard would: the row, and every picture the draft alone was holding. A
+ * draft closed and forgotten used to keep every rejected candidate forever.
+ */
+export function sweepAbandonedPresenterDrafts(core: Core, hooks: CleanupHooks = {}, now = Date.now()): number {
+  let swept = 0;
+  for (const brand of core.store.listBrands()) {
+    for (const rec of listPresenterDrafts(core, brand.id)) {
+      if (running.has(rec.id)) continue;
+      const touched = stampMs(rec.updatedAt);
+      if (Number.isNaN(touched) || now - touched < ABANDONED_DRAFT_MS) continue;
+      dropDraft(core, rec, hooks);
+      swept += 1;
+    }
+  }
+  return swept;
+}
+
+/** The store stamps rows as UTC `YYYY-MM-DD HH:MM:SS[.mmm]`; read that, or any ISO string. */
+function stampMs(s: string): number {
+  const iso = s.includes('T') ? s : s.replace(' ', 'T');
+  return Date.parse(/Z$|[+-]\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`);
+}
+
+function dropDraft(core: Core, rec: PresenterDraftRecord, hooks: CleanupHooks): void {
+  core.store.deletePresenterDraft(rec.id);
   const generated = PRESENTER_VIEWS.flatMap((v) => {
     const s = rec.views[v];
-    return [...s.rejected, ...(s.hash && s.origin === 'generated' ? [s.hash] : [])];
+    return [...s.rejected, ...(s.hash && s.origin === 'generated' ? [s.hash] : []), ...(s.prior ? [s.prior] : [])];
   });
   removeUnreferenced(core, [...generated, ...rec.sources], hooks);
 }

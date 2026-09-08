@@ -7,6 +7,7 @@ import {
   getPresenterDraft,
   listPresenterDrafts,
   redoView,
+  revertView,
   savePresenterDraft,
   updatePresenterDraft,
   usePhotoForView,
@@ -20,7 +21,7 @@ import { makeBuildDeps, type BuildRouteDeps } from './assetBuilds.js';
  * The presenter studio's API. A draft is created from a sentence or from
  * photographs, its three views are drawn and decided one at a time, and the
  * save is a presenter like any other. Every answer is the whole draft, so the
- * page never has to merge.
+ * dialog never has to merge.
  */
 export function registerPresenterDraftRoutes(
   app: FastifyInstance,
@@ -111,6 +112,11 @@ export function registerPresenterDraftRoutes(
     const draft = draftOr404(req, reply);
     if (!draft) return;
     return answer(reply, async () => redoView(await buildDeps(), draft.id, viewOf(req)));
+  });
+  app.post('/api/brands/:id/presenter-drafts/:draftId/views/:view/revert', async (req, reply) => {
+    const draft = draftOr404(req, reply);
+    if (!draft) return;
+    return answer(reply, async () => revertView(await buildDeps(), draft.id, viewOf(req)));
   });
   app.post('/api/brands/:id/presenter-drafts/:draftId/views/:view/use-photo', async (req, reply) => {
     const draft = draftOr404(req, reply);

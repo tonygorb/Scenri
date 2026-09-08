@@ -86,7 +86,7 @@ import { registerSceneRoutes } from './routes/scenes.js';
 import { registerPresenterRoutes } from './routes/presenters.js';
 import { registerAssetBuildRoutes } from './routes/assetBuilds.js';
 import { registerPresenterDraftRoutes } from './routes/presenterDrafts.js';
-import { runningDraftJobCount, sweepPresenterDrafts } from './presenterDrafts.js';
+import { runningDraftJobCount, sweepAbandonedPresenterDrafts, sweepPresenterDrafts } from './presenterDrafts.js';
 import { registerDemoProductRoutes } from './routes/demoProducts.js';
 import { registerShowcaseRoutes } from './routes/showcase.js';
 import { registerProjectRoutes } from './routes/projects.js';
@@ -500,6 +500,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // A draft's step lives in this process; after a restart the row still says
   // it is drawing. Put those back before anyone reads them.
   sweepPresenterDrafts(core);
+  sweepAbandonedPresenterDrafts(core, { evict: (hash) => thumbs.evict(hash) });
   registerPresenterDraftRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters, thumbs });
 
   // ---- demo products (curated, fictional-but-premium product catalog). A

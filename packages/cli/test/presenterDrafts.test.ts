@@ -6,17 +6,22 @@ import sharp from 'sharp';
 import { createCore, type Core, type EngineAdapter, type GenerateRequest } from '@scenri/core';
 import { compileBrief } from '../src/brief.js';
 import { brandCharacters, presenterCrops, resetAssetBuilds, type AssetBuildDeps } from '../src/customAssets.js';
-import { CAPTURE_UNIFORM } from '../src/presenterPrompts.js';
+import { CAPTURE_UNIFORM, PRESENTER_VIEWS } from '../src/presenterPrompts.js';
 import {
+  ABANDONED_DRAFT_MS,
+  DEPENDS,
   approveView,
   createPresenterDraft,
   discardPresenterDraft,
   generateView,
   getPresenterDraft,
+  planStep,
   redoView,
   resetPresenterDrafts,
+  revertView,
   runningDraftJobCount,
   savePresenterDraft,
+  sweepAbandonedPresenterDrafts,
   sweepPresenterDrafts,
   updatePresenterDraft,
   usePhotoForView,
@@ -213,8 +218,8 @@ describe('from scratch: the identity is one person, rolled and then locked', () 
 
   it('refuses a view whose dependencies are not approved, and a second job while one runs', async () => {
     const d = await synthetic();
-    await expect(generateView(deps(), d.id, 'front', {})).rejects.toThrow(/portrait/);
-    await expect(generateView(deps(), d.id, 'three-quarter', {})).rejects.toThrow(/portrait/);
+    await expect(generateView(deps(), d.id, 'front', {})).rejects.toThrow(/face/);
+    await expect(generateView(deps(), d.id, 'three-quarter', {})).rejects.toThrow(/face/);
     await generateView(deps(), d.id, 'portrait', {});
     await expect(generateView(deps(), d.id, 'portrait', {})).rejects.toMatchObject({ statusCode: 409 });
     for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
@@ -273,7 +278,7 @@ describe('redoing an upstream view', () => {
     // the identity is being re-rolled: the words read off the old face go too
     expect(d.analysis).toBeUndefined();
     await updatePresenterDraft(core, d.id, { name: 'Ilse' });
-    await expect(savePresenterDraft(deps(), d.id)).rejects.toThrow(/portrait/i);
+    await expect(savePresenterDraft(deps(), d.id)).rejects.toThrow(/face/i);
     d = await step(d.id, 'portrait');
     await approveView(deps(), d.id, 'portrait');
     await expect(savePresenterDraft(deps(), d.id)).rejects.toThrow(/full body|front/i);
@@ -581,7 +586,7 @@ describe('from photos: the originals are the truth', () => {
     expect(brandCharacters(core.store.getBrand(brandId)!.json)).toHaveLength(1);
   });
 
-  it('a photo can be put in a slot by hand, and taking it out of the portrait stales the rest', async () => {
+  it('a photo can be put in a slot by hand; changing the portrait stales what was drawn, never a photo', async () => {
     analyzerOn = false;
     const [a, b] = await photos(2);
     let d = await createPresenterDraft(deps(), { brandId, source: 'photos', imageHashes: [a, b], attestation: true });
@@ -589,10 +594,153 @@ describe('from photos: the originals are the truth', () => {
     await usePhotoForView(deps(), d.id, 'front', b);
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'front')).toMatchObject({ status: 'approved', hash: b, origin: 'photo' });
+    d = await step(d.id, 'three-quarter');
+    await approveView(deps(), d.id, 'three-quarter');
     await usePhotoForView(deps(), d.id, 'portrait', b);
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'portrait').hash).toBe(b);
-    expect(view(d, 'front').status).toBe('stale');
+    // the photograph stands whatever changed upstream; the drawn view does not
+    expect(view(d, 'front').status).toBe('approved');
+    expect(view(d, 'three-quarter').status).toBe('stale');
     await expect(usePhotoForView(deps(), d.id, 'front', 'f'.repeat(32))).rejects.toMatchObject({ statusCode: 400 });
+  });
+});
+
+describe('the three-view contract', () => {
+  it('is face, full body, three-quarter, each drawn from the approved views before it', () => {
+    expect(PRESENTER_VIEWS).toEqual(['portrait', 'front', 'three-quarter']);
+    expect(DEPENDS.portrait).toEqual([]);
+    expect(DEPENDS.front).toEqual(['portrait']);
+    expect(DEPENDS['three-quarter']).toEqual(['portrait', 'front']);
+  });
+
+  it('planStep attaches approved views first, then the photographs, inside the cap', () => {
+    const empty = { status: 'empty' as const, attempts: 0, rejected: [] };
+    const rec = {
+      source: 'photos' as const,
+      direction: '',
+      name: 'Ilse',
+      analysis: { promptName: 'a woman' },
+      sources: ['s1', 's2', 's3'],
+      views: {
+        portrait: { ...empty, status: 'approved' as const, hash: 'p' },
+        front: { ...empty, status: 'approved' as const, hash: 'f' },
+        'three-quarter': empty,
+      },
+    } as unknown as PresenterDraftRecord;
+    const tq = planStep(rec, 'three-quarter', undefined, 5);
+    expect(tq.refs).toEqual(['p', 'f', 's1', 's2', 's3']);
+    expect(tq.prompt).toMatch(/about 40 degrees/);
+    expect(planStep(rec, 'three-quarter', undefined, 3).refs).toEqual(['p', 'f', 's1']);
+    const synth = planStep(
+      { ...rec, source: 'synthetic', direction: 'a woman in her 30s', views: { ...rec.views, portrait: empty } },
+      'portrait',
+      undefined,
+      5,
+    );
+    expect(synth.refs).toEqual([]);
+    expect(synth.prompt).toContain('a woman in her 30s');
+  });
+});
+
+describe('revising an approved view', () => {
+  it('keeps the approved picture until the decision, and Use stales what was drawn from it', async () => {
+    let d = await cast();
+    const face = view(d, 'portrait').hash!;
+    const front = view(d, 'front').hash!;
+    d = await step(d.id, 'portrait', 'shorter hair');
+    // the revision rides as a candidate; the approved face is still on the row and on disk
+    expect(view(d, 'portrait')).toMatchObject({ status: 'candidate', prior: face, adjustment: 'shorter hair' });
+    expect(view(d, 'portrait').hash).not.toBe(face);
+    expect(existsSync(core.images.pathFor(face))).toBe(true);
+    // conditioned on the approved face, so a nudge keeps the person
+    expect(refsOf(generated.at(-1)!)).toEqual([face]);
+    expect(view(d, 'front').status).toBe('approved');
+    await approveView(deps(), d.id, 'portrait');
+    d = getPresenterDraft(core, d.id)!;
+    expect(view(d, 'portrait').status).toBe('approved');
+    expect(view(d, 'portrait').prior).toBeUndefined();
+    expect(view(d, 'portrait').rejected).toContain(face);
+    expect(view(d, 'front').status).toBe('stale');
+    expect(view(d, 'three-quarter').status).toBe('stale');
+    expect(view(d, 'front').hash).toBe(front);
+    // a stale view is drawn again from the new face, and the old front retires
+    d = await step(d.id, 'front');
+    expect(refsOf(generated.at(-1)!)).toEqual([view(d, 'portrait').hash]);
+    expect(view(d, 'front').status).toBe('candidate');
+    expect(view(d, 'front').rejected).toContain(front);
+  });
+
+  it('Keep previous puts the approved picture back and nothing else moves', async () => {
+    let d = await cast();
+    const face = view(d, 'portrait').hash!;
+    d = await step(d.id, 'portrait', 'shorter hair');
+    const revision = view(d, 'portrait').hash!;
+    await expect(revertView(deps(), d.id, 'front')).rejects.toMatchObject({ statusCode: 400 });
+    await revertView(deps(), d.id, 'portrait');
+    d = getPresenterDraft(core, d.id)!;
+    expect(view(d, 'portrait')).toMatchObject({ status: 'approved', hash: face, origin: 'generated' });
+    expect(view(d, 'portrait').prior).toBeUndefined();
+    expect(view(d, 'portrait').rejected).toContain(revision);
+    expect(view(d, 'front').status).toBe('approved');
+    expect(view(d, 'three-quarter').status).toBe('approved');
+    // a second revision before deciding lets the first candidate go and keeps the same prior
+    d = await step(d.id, 'front', 'arms relaxed');
+    const first = view(d, 'front').hash!;
+    d = await step(d.id, 'front', 'arms relaxed, feet apart');
+    expect(view(d, 'front').prior).toBe(d.views.front.prior);
+    expect(view(d, 'front').rejected).toContain(first);
+    await updatePresenterDraft(core, d.id, { name: 'Ilse' });
+    await expect(savePresenterDraft(deps(), d.id)).rejects.toThrow(/full body/);
+  });
+
+  it('a failed revision leaves the approved picture exactly where it was', async () => {
+    let d = await cast();
+    const face = view(d, 'portrait').hash!;
+    failNext = new Error('the engine timed out');
+    d = await step(d.id, 'portrait', 'shorter hair');
+    expect(view(d, 'portrait')).toMatchObject({ status: 'approved', hash: face, error: 'the engine timed out' });
+    expect(view(d, 'portrait').prior).toBeUndefined();
+    expect(view(d, 'front').status).toBe('approved');
+  });
+});
+
+describe('abandoned drafts', () => {
+  it('are let go of after two weeks, pictures included, and a fresh one is left alone', async () => {
+    let old = await synthetic();
+    old = await step(old.id, 'portrait');
+    const candidate = view(old, 'portrait').hash!;
+    const fresh = await synthetic();
+    const later = Date.now() + ABANDONED_DRAFT_MS + 60_000;
+    expect(sweepAbandonedPresenterDrafts(core, {}, Date.now())).toBe(0);
+    expect(sweepAbandonedPresenterDrafts(core, {}, later)).toBe(2);
+    expect(getPresenterDraft(core, old.id)).toBeNull();
+    expect(getPresenterDraft(core, fresh.id)).toBeNull();
+    expect(existsSync(core.images.pathFor(candidate))).toBe(false);
+  });
+
+  it('never touch a draft that is mid-step, or a photo another draft shares', async () => {
+    const photo = core.images.save(await png('#a08070', 800, 1000));
+    const a = await createPresenterDraft(deps(), {
+      brandId,
+      source: 'photos',
+      imageHashes: [photo],
+      attestation: true,
+    });
+    const b = await createPresenterDraft(deps(), {
+      brandId,
+      source: 'photos',
+      imageHashes: [photo],
+      attestation: true,
+    });
+    for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
+    const later = Date.now() + ABANDONED_DRAFT_MS + 60_000;
+    // b is drawing: it stays, and the photo it holds stays with it
+    await generateView(deps(), b.id, 'front', {});
+    expect(sweepAbandonedPresenterDrafts(core, {}, later)).toBe(1);
+    expect(getPresenterDraft(core, a.id)).toBeNull();
+    expect(getPresenterDraft(core, b.id)).not.toBeNull();
+    expect(existsSync(core.images.pathFor(photo))).toBe(true);
+    for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
   });
 });

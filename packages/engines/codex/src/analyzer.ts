@@ -77,6 +77,11 @@ export interface PresenterDraft {
   build?: string;
   /** Present only when `classifyPhotos` was asked for and the answer had one. */
   photos?: PhotoFiling[];
+  /**
+   * One sentence, only when the photographs appear to show more than one
+   * person. The studio shows it as a warning; nothing is refused on it.
+   */
+  conflict?: string;
 }
 
 export interface SceneDraft {
@@ -241,7 +246,8 @@ function photosClause(refCount: number): string {
     ' "portrait" (head and shoulders, the face large and facing the camera),' +
     ' "front" (full length, standing, facing the camera),' +
     ' "three-quarter" (head and shoulders, the head turned about 45 degrees with both eyes visible),' +
-    ' or "other"; "usable" is true only when the image is sharp, evenly lit, unobstructed, and shows this person clearly enough to stand in as that view; "note" is a few words on why.'
+    ' or "other"; "usable" is true only when the image is sharp, evenly lit, unobstructed, and shows this person clearly enough to stand in as that view; "note" is a few words on why.' +
+    ' If the photographs appear to show more than one person, also write "conflict": one sentence saying which images disagree; otherwise leave "conflict" out.'
   );
 }
 
@@ -392,6 +398,7 @@ function parsePresenter(req: AnalyzeRequest, o: Record<string, unknown>): ParseR
       ...optional('skin', cap(str(o.skin), 200)),
       ...optional('build', cap(str(o.build), 200)),
       ...(req.classifyPhotos ? optional('photos', photoFilings(o.photos, req.imagePaths.length)) : {}),
+      ...(req.classifyPhotos ? optional('conflict', cap(str(o.conflict), 200)) : {}),
     },
   };
 }

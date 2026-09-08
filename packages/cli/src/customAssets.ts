@@ -365,11 +365,11 @@ async function cardCrop(core: Core, hash: string | undefined): Promise<string | 
 const AVATAR_FIGURE_FRACTION = 0.22;
 const AVATAR_HEADROOM = 0.1;
 /**
- * Stored avatar cap. The largest render is the presenter page's 88px hero
- * circle — 264px at 3x — so 512 covers every surface with margin; a smaller
- * native crop is stored as-is rather than inflated into blur.
+ * Stored avatar cap. The curated roster ships a 1024 square, and a portrait
+ * frame is 1024 wide, so the square off an approved face is stored whole; a
+ * smaller native crop is stored as-is rather than inflated into blur.
  */
-const AVATAR_MAX_PX = 512;
+const AVATAR_MAX_PX = 1024;
 /**
  * Backdrop trim passes, in order. 12 reads a seamless white sweep; some
  * generated frames stand on a soft gray gradient that 12 cannot tell from

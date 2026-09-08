@@ -138,6 +138,7 @@ describe('analyze — presenter', () => {
           { index: 7, view: 'front', usable: true, note: 'no such photo' },
           'junk',
         ],
+        conflict: 'ref-2 looks like a different person: rounder face, darker brows',
       };
       writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(body));
       child.emit('exit', 0, null);
@@ -159,9 +160,12 @@ describe('analyze — presenter', () => {
       { index: 0, view: 'portrait', usable: true, note: 'sharp, well lit' },
       { index: 1, view: 'other', usable: true, note: 'a profile' },
     ]);
+    // a second person in the pile is said once, never refused
+    expect(draft.conflict).toBe('ref-2 looks like a different person: rounder face, darker brows');
     const prompt = promptFromArgs(calls[0]);
     expect(prompt).toContain('"facial"');
     expect(prompt).toContain('"photos"');
+    expect(prompt).toContain('"conflict"');
     expect(prompt).toContain('ref-1.png');
   });
 
@@ -180,8 +184,10 @@ describe('analyze — presenter', () => {
     expect(calls).toHaveLength(1);
     expect(draft.facial).toBeUndefined();
     expect(draft.photos).toBeUndefined();
+    expect(draft.conflict).toBeUndefined();
     // and a call that did not ask for a filing is not told about one
     expect(promptFromArgs(calls[0])).not.toContain('"photos"');
+    expect(promptFromArgs(calls[0])).not.toContain('"conflict"');
   });
 
   it('retries once with the exact problem, then succeeds', async () => {

@@ -150,6 +150,25 @@ describe('presenter draft routes', () => {
     expect((await j('GET', `${base}/${id}`)).status).toBe(404);
   });
 
+  it('a revised approved view can be used or kept as it was, through the route', async () => {
+    const brand = await newBrand();
+    const base = `/api/brands/${brand.id}/presenter-drafts`;
+    const { body: made } = await j('POST', base, { source: 'synthetic', direction: 'someone' });
+    await j('POST', `${base}/${made.id}/views/portrait/generate`, {});
+    let d = await settled(brand.id, made.id);
+    await j('POST', `${base}/${made.id}/views/portrait/approve`);
+    const face = d.views.portrait.hash;
+    // nothing to keep yet
+    expect((await j('POST', `${base}/${made.id}/views/portrait/revert`)).status).toBe(400);
+    await j('POST', `${base}/${made.id}/views/portrait/generate`, { adjustment: 'shorter hair' });
+    d = await settled(brand.id, made.id);
+    expect(d.views.portrait).toMatchObject({ status: 'candidate', prior: face });
+    const kept = await j('POST', `${base}/${made.id}/views/portrait/revert`);
+    expect(kept.status).toBe(200);
+    expect(kept.body.views.portrait).toMatchObject({ status: 'approved', hash: face });
+    expect(kept.body.views.portrait.prior).toBeUndefined();
+  });
+
   it('a draft belongs to its brand', async () => {
     const acme = await newBrand();
     const other = await newBrand();
@@ -175,7 +194,7 @@ describe('presenter draft routes', () => {
     const { body } = await j('POST', base, { source: 'synthetic', direction: 'someone' });
     const early = await j('POST', `${base}/${body.id}/views/front/generate`, {});
     expect(early.status).toBe(400);
-    expect(early.body.error).toMatch(/portrait/);
+    expect(early.body.error).toMatch(/face/);
     expect((await j('POST', `${base}/${body.id}/views/sideways/generate`, {})).status).toBe(400);
   });
 

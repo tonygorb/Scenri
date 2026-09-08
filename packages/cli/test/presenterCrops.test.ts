@@ -126,22 +126,22 @@ describe('a presenter avatar is measured from the figure, not the frame', () => 
     expect(m!.height).toBe(176);
   });
 
-  it('caps the stored avatar at 512 without ever distorting it', async () => {
-    const W = 3000;
-    const H = 3750;
-    const body = await sharp({ create: { width: 600, height: 3400, channels: 3, background: { r: 40, g: 40, b: 44 } } })
+  it('caps the stored avatar at 1024 without ever distorting it', async () => {
+    const W = 5000;
+    const H = 6250;
+    const body = await sharp({ create: { width: 800, height: 5600, channels: 3, background: { r: 40, g: 40, b: 44 } } })
       .png()
       .toBuffer();
     const png = await sharp({ create: { width: W, height: H, channels: 3, background: { r: 255, g: 255, b: 255 } } })
-      .composite([{ input: body, left: 1200, top: 250 }])
+      .composite([{ input: body, left: 2100, top: 400 }])
       .png()
       .toBuffer();
     const hash = core.images.save(png);
     const { avatarHash } = await presenterCrops(core, hash, 'generated');
     const m = await meta(avatarHash);
-    // the native crop would be 748; stored at the 512 cap, still square
-    expect(m!.width).toBe(512);
-    expect(m!.height).toBe(512);
+    // the native crop would be 1232; stored at the 1024 cap, still square
+    expect(m!.width).toBe(1024);
+    expect(m!.height).toBe(1024);
   });
 
   // Gaussian noise at 1024 by 1280 is the worst case for the PNG encoder and
@@ -192,12 +192,12 @@ describe('a portrait-led frame keeps its own framing', () => {
     // the card is the frame: a portrait is already the 4:5 a card wants
     expect(previewHash).toBe(frame);
     const m = await meta(avatarHash);
-    // the full-width square off the top, stored at the cap
-    expect(m!.width).toBe(512);
-    expect(m!.height).toBe(512);
-    // top anchored: frame rows 0..1024 at half scale, nothing slid down
-    expect(await pixel(avatarHash!, 256, 10)).toEqual([255, 255, 255]);
-    expect(await pixel(avatarHash!, 256, 300)).toEqual([255, 255, 255]);
-    expect(await pixel(avatarHash!, 256, 450)).toEqual([40, 40, 44]);
+    // the full-width square off the top, stored whole: 1024 is the cap
+    expect(m!.width).toBe(1024);
+    expect(m!.height).toBe(1024);
+    // top anchored: frame rows 0..1024 as they are, nothing slid down
+    expect(await pixel(avatarHash!, 512, 10)).toEqual([255, 255, 255]);
+    expect(await pixel(avatarHash!, 512, 600)).toEqual([255, 255, 255]);
+    expect(await pixel(avatarHash!, 512, 900)).toEqual([40, 40, 44]);
   });
 });
