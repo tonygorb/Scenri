@@ -488,6 +488,12 @@
   margin-bottom: calc(2 * var(--sc-space-6));
 }
 
+/* the last field's gap is the boundary before the composer, which the body
+   and the foot already pay between them */
+.sc-pstudio-form > .sc-pstudio-field:last-child {
+  margin-bottom: 0;
+}
+
 .sc-pstudio-fieldset {
   min-width: 0;
   padding: 0;
