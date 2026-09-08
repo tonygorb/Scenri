@@ -215,13 +215,14 @@ function PhotoSlots({
 }
 
 /**
- * The categories a presenter is cast for: one line, and a menu behind it.
+ * What the person is filed under, asked once they exist.
  *
- * The engine names these itself, off the photographs or off the portrait it
- * drew, and what is chosen here only overrides that. So this is the quietest
- * field in the rail, never a wall of toggles.
+ * The engine reads this off the photographs or off the portrait it drew, and
+ * `savePresenterDraft` keeps that reading unless the user has an opinion. So
+ * this is never an empty question in a form: it appears with the answer
+ * already in it, and what happens here is a correction.
  */
-export function CategoriesField({
+export function FiledUnderField({
   categories,
   facets,
   onFacets,
@@ -231,8 +232,8 @@ export function CategoriesField({
   onFacets: (next: string[]) => void;
 }) {
   return (
-    <Field label="Categories">
-      <CategoryMenu value={facets} categories={categories} onChange={onFacets} />
+    <Field label="Filed under">
+      <CategoryMenu value={facets} categories={categories} onChange={onFacets} placeholder="Nothing yet" />
     </Field>
   );
 }
@@ -258,9 +259,6 @@ export function SetupForm({
   onAttested,
   notes,
   onNotes,
-  facets,
-  onFacets,
-  categories,
   onSetup,
   error,
 }: {
@@ -283,9 +281,6 @@ export function SetupForm({
   onAttested: (on: boolean) => void;
   notes: string;
   onNotes: (next: string) => void;
-  facets: string[];
-  onFacets: (next: string[]) => void;
-  categories: string[];
   onSetup: () => void;
   error?: string | null;
 }) {
@@ -357,7 +352,6 @@ export function SetupForm({
           onKeyDown={enterCreates}
         />
       </Field>
-      <CategoriesField categories={categories} facets={facets} onFacets={onFacets} />
       {error && (
         <p className="sc-newdlg-err" role="alert">
           {error}
@@ -416,7 +410,7 @@ export function DetailsFields({
           onChange={(e) => onNotes(e.target.value)}
         />
       </Field>
-      <CategoriesField categories={categories} facets={facets} onFacets={onFacets} />
+      <FiledUnderField categories={categories} facets={facets} onFacets={onFacets} />
     </div>
   );
 }

@@ -386,6 +386,8 @@ export interface PresenterDraft {
     descriptor?: string;
     /** The analyzer's one line when the photographs seem to show more than one person. */
     conflict?: string;
+    /** What the engine read this person as being cast for; the user's own picks override it. */
+    suitableCategories?: string[];
     photos?: { index: number; view: string; usable: boolean; note: string }[];
   } | null;
   /** Why the photos could not be read; the first photo is the face regardless. */

@@ -227,6 +227,20 @@ export function requestLine(d: DraftLike): string {
   return `Build a presenter${who ? ` named ${who}` : ''} from these photos.`;
 }
 
+/**
+ * What the Filed under line should start from, or null to leave it alone.
+ *
+ * The engine names the categories off the photographs or off the portrait it
+ * drew, and the server keeps that reading unless the draft carries picks of
+ * its own. So the line opens with the engine's answer in it, once, and never
+ * argues with a person who has already chosen: an emptied line stays empty.
+ */
+export function seedCategories(d: DraftLike, chosen: string[]): string[] | null {
+  const read = d.analysis?.suitableCategories ?? [];
+  if (!read.length || chosen.length) return null;
+  return read;
+}
+
 /** Drawn work a discard would throw away. A placed photo is still on disk as itself. */
 export function worthKeeping(d: DraftLike): boolean {
   return VIEWS.some((v) => {

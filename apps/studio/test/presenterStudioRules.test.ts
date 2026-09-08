@@ -14,6 +14,7 @@ import {
   refineTarget,
   resumable,
   saveBlocker,
+  seedCategories,
   selectedView,
   stripItems,
   worthKeeping,
@@ -317,6 +318,17 @@ describe('leaving and saving', () => {
     });
     expect(saveBlocker(done, '  ')).toBe('Give them a name');
     expect(saveBlocker(done, 'Maren')).toBeNull();
+  });
+});
+
+describe('what the person is filed under', () => {
+  it("opens with the engine's reading, once, and never argues with a choice", () => {
+    const read = draft({ analysis: { suitableCategories: ['Beauty', 'Apparel'] } });
+    expect(seedCategories(read, [])).toEqual(['Beauty', 'Apparel']);
+    // someone who has already chosen is left alone, and so is an emptied line
+    expect(seedCategories(read, ['Fitness'])).toBeNull();
+    expect(seedCategories(draft(), [])).toBeNull();
+    expect(seedCategories(draft({ analysis: { suitableCategories: [] } }), [])).toBeNull();
   });
 });
 

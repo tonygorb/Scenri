@@ -28,6 +28,7 @@ import {
   requestLine,
   resumable,
   saveBlocker,
+  seedCategories,
   selectedView,
   stripItems,
   type StudioView,
@@ -83,7 +84,6 @@ const GENDER_WORD: Record<Gender, string> = { woman: 'a woman', man: 'a man' };
 
 export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps) {
   const { brand } = useBrand();
-  const { presenterCategories } = useAppData();
   const { close } = useDialogParam('new');
   const openSetup = useOpenSetup();
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -94,7 +94,6 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
   const [gender, setGender] = useState<Gender | null>(null);
   const [direction, setDirection] = useState('');
   const [notes, setNotes] = useState('');
-  const [facets, setFacets] = useState<string[]>([]);
   const [hashes, setHashes] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [attested, setAttested] = useState(false);
@@ -159,7 +158,7 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
 
   /** The sentence the engine gets: the gender card, if chosen, leads the description. */
   const sentence = () => [gender ? GENDER_WORD[gender] : '', direction.trim()].filter(Boolean).join(', ');
-  const words = () => ({ name: name.trim() || undefined, facets: facets.length ? facets : undefined });
+  const words = () => ({ name: name.trim() || undefined });
 
   const startScratch = async () => {
     if (!direction.trim()) {
@@ -318,9 +317,6 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
                   onAttested={setAttested}
                   notes={notes}
                   onNotes={setNotes}
-                  facets={facets}
-                  onFacets={setFacets}
-                  categories={presenterCategories}
                   onSetup={() => openSetup()}
                   error={err}
                 />
@@ -435,6 +431,7 @@ function Draft({
   const [discarding, setDiscarding] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const seeded = useRef(false);
+  const catsSeeded = useRef(false);
   const started = useRef('');
   const nameTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -444,6 +441,18 @@ function Draft({
     setName(d.name);
     setFacets(d.facets);
   }, [d]);
+
+  // The engine's own reading fills the line the first time it lands, so what
+  // the user meets is an answer to correct rather than an empty field. It is
+  // held here and not written to the draft: an untouched line stays the
+  // server's fallback, which is the same words.
+  useEffect(() => {
+    if (catsSeeded.current || !d) return;
+    const read = seedCategories(d, facets);
+    if (!read) return;
+    catsSeeded.current = true;
+    setFacets(read);
+  }, [d, facets]);
 
   useEffect(() => {
     if (s.gone) onGone();
