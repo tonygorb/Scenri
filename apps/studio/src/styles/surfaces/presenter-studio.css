@@ -256,19 +256,18 @@
   border-radius: inherit;
 }
 
+/* what stands: a filled disc with the app's own check in it, never a glyph */
 .sc-pstudio-slot-mark {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 6px;
+  right: 6px;
   display: grid;
   place-items: center;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: var(--sc-radius-full);
   background: var(--sc-green);
   color: var(--sc-inv-fg);
-  font-size: 10px;
-  font-weight: 700;
 }
 
 /* ---- rail body ----------------------------------------------------------- */
@@ -514,53 +513,57 @@
   line-height: 22px;
 }
 
-/* categories: chips that wrap, and one more in the same row, the same size,
-   so opening the field moves nothing */
-.sc-pstudio-cats {
+/* categories: the studio's own list control, wearing this rail's field.
+   The chosen ones are chips you take off; the brand's own sit under it as
+   one-tap offers until they are picked; a new word is typed in the same
+   field. */
+.sc-pstudio-cats .sc-chips {
+  min-height: 44px;
+  margin: 0;
+  padding: 7px 10px;
+  border: 1.5px solid var(--sc-line);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-pstudio-field);
+}
+
+.sc-pstudio-cats .sc-chips:hover {
+  background: var(--sc-pstudio-field);
+  border-color: var(--sc-line-strong);
+}
+
+.sc-pstudio-cats .sc-chips:focus-within {
+  background: var(--sc-pstudio-field);
+  border-color: var(--sc-focus);
+}
+
+.sc-pstudio-cats .sc-chips-item {
+  font-size: 13px;
+}
+
+.sc-pstudio-cats .sc-chips-in {
+  height: 26px;
+  font-size: 15px;
+}
+
+.sc-pstudio-cats .sc-chips-in::placeholder {
+  color: var(--sc-pstudio-placeholder);
+}
+
+.sc-pstudio-cats .sc-chips-sugg {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sc-space-4);
-}
-
-.sc-pstudio-cats .sc-chip,
-.sc-pstudio-catadd,
-.sc-pstudio .sc-in.sc-pstudio-cat-in {
-  height: 32px;
-  border-radius: var(--sc-radius-full);
-}
-
-.sc-pstudio-cats .sc-chip {
-  padding: 0 13px;
-}
-
-.sc-pstudio-catadd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   gap: var(--sc-space-3);
-  width: var(--sc-pstudio-catw, 132px);
-  padding: 0;
-  border: 1px dashed var(--sc-line-strong);
-  background: none;
+  margin-top: var(--sc-space-4);
+}
+
+.sc-pstudio-cats .sc-chips-sugg .sc-chip {
+  height: 30px;
+  padding: 0 12px;
   color: var(--sc-fg2);
-  font-size: var(--sc-text-control);
-  cursor: pointer;
 }
 
-.sc-pstudio-catadd:hover {
+.sc-pstudio-cats .sc-chips-sugg .sc-chip:hover:not(:active) {
   color: var(--sc-fg);
-  border-color: var(--sc-fg3);
-}
-
-.sc-pstudio .sc-in.sc-pstudio-cat-in {
-  flex: none;
-  width: var(--sc-pstudio-catw, 132px);
-  min-height: 32px;
-  padding: 0 13px;
-  border-width: 1px;
-  font-size: var(--sc-text-control);
-  line-height: 30px;
 }
 
 /* the four photo slots: one to four, each a place to drop or pick */
@@ -842,6 +845,10 @@
 }
 
 .sc-pstudio-actions .sc-btn {
+  display: inline-flex;
+  align-items: center;
+  /* the label and its arrow are one group, centred in the button, as drawn */
+  justify-content: center;
   height: 44px;
   padding: 0 32px;
   border-radius: var(--sc-radius);

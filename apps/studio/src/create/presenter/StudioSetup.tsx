@@ -1,6 +1,7 @@
-import { Image, Plus, TextAa, X } from '@phosphor-icons/react';
-import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { Check, Image, Plus, TextAa, X } from '@phosphor-icons/react';
+import { type KeyboardEvent, type ReactNode, useEffect, useRef } from 'react';
 import { thumbUrl } from '../../api.js';
+import { ChipsInput } from '../../layout/ChipsInput.js';
 import { useFileDrop } from '../../layout/Dropzone.js';
 import { OpenAIMark } from '../../layout/OpenAIMark.js';
 import { MAX_PHOTOS, photosHint } from './presenterStudioRules.js';
@@ -114,7 +115,7 @@ function GenderCards({ value, onChange }: { value: Gender | null; onChange: (nex
                 <img src={g.src} alt="" decoding="async" />
                 {value === g.value && (
                   <span className="sc-pstudio-slot-mark" aria-hidden>
-                    &#10003;
+                    <Check size={11} weight="bold" />
                   </span>
                 )}
               </span>
@@ -174,7 +175,7 @@ function PhotoSlots({
                 <span className="sc-pstudio-pslot-inner">
                   <img src={thumbUrl(hash, 'small')} alt={`Yours, ${i + 1} of ${hashes.length}`} />
                   <span className="sc-pstudio-slot-mark" aria-hidden>
-                    &#10003;
+                    <Check size={11} weight="bold" />
                   </span>
                 </span>
                 <button
@@ -213,7 +214,15 @@ function PhotoSlots({
   );
 }
 
-/** The brand's categories as chips, and a plus that takes one more in a word. */
+/**
+ * The categories a presenter is cast for.
+ *
+ * The studio's own list control, the one the brand board uses: the chosen
+ * ones are chips you can take off, the brand's own categories are offered
+ * beside them until they are picked, and a word that is not on the list is
+ * typed into the same field and taken by Enter, a comma, or leaving it. One
+ * field, one place to look, and nothing moves under the pointer.
+ */
 export function CategoriesField({
   categories,
   facets,
@@ -223,69 +232,17 @@ export function CategoriesField({
   facets: string[];
   onFacets: (next: string[]) => void;
 }) {
-  const [adding, setAdding] = useState(false);
-  const [word, setWord] = useState('');
-  const field = useRef<HTMLInputElement>(null);
-  const all = [...categories, ...facets.filter((f) => !categories.includes(f))];
-  const close = () => {
-    setWord('');
-    setAdding(false);
-  };
-  const commit = () => {
-    const w = word.trim();
-    if (w && !all.some((c) => c.toLowerCase() === w.toLowerCase())) onFacets([...facets, w]);
-    close();
-  };
-  useEffect(() => {
-    if (adding) field.current?.focus();
-  }, [adding]);
   return (
-    <fieldset className="sc-pstudio-field sc-pstudio-fieldset">
+    <fieldset className="sc-pstudio-field sc-pstudio-fieldset sc-pstudio-cats">
       <legend className="sc-newdlg-seclabel">Categories</legend>
-      {/* the chips and the one that adds another sit in one wrapping row, and
-          the field that opens is exactly the size of the chip it replaces, so
-          nothing on the page moves */}
-      <div className="sc-pstudio-cats">
-        {all.map((v) => (
-          <button
-            type="button"
-            key={v}
-            className="sc-chip"
-            data-on={facets.includes(v) || undefined}
-            aria-pressed={facets.includes(v)}
-            onClick={() => onFacets(facets.includes(v) ? facets.filter((x) => x !== v) : [...facets, v])}
-          >
-            {v}
-          </button>
-        ))}
-        {adding ? (
-          <input
-            ref={field}
-            className="sc-in sc-pstudio-cat-in"
-            type="text"
-            aria-label="New category"
-            placeholder="New category"
-            maxLength={30}
-            value={word}
-            onChange={(e) => setWord(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e: KeyboardEvent) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                commit();
-              } else if (e.key === 'Escape') {
-                e.preventDefault();
-                close();
-              }
-            }}
-          />
-        ) : (
-          <button type="button" className="sc-pstudio-catadd" onClick={() => setAdding(true)}>
-            <Plus size={13} />
-            Add one
-          </button>
-        )}
-      </div>
+      <ChipsInput
+        label="Categories"
+        value={facets}
+        onChange={onFacets}
+        suggestions={categories.filter((c) => !facets.some((f) => f.toLowerCase() === c.toLowerCase()))}
+        placeholder="Add a category"
+        maxLength={30}
+      />
     </fieldset>
   );
 }

@@ -1,4 +1,4 @@
-import { UserCircle } from '@phosphor-icons/react';
+import { Check, UserCircle } from '@phosphor-icons/react';
 import { imgUrl, thumbUrl } from '../../api.js';
 import { elapsedLabel } from '../../tasks.js';
 import type { StripItem, StudioView } from './presenterStudioRules.js';
@@ -83,7 +83,7 @@ export function StudioStage({
                     {it.drawing ? <span className="sc-shimmer" aria-hidden /> : null}
                     {it.approved && !it.drawing ? (
                       <span className="sc-pstudio-slot-mark" aria-hidden>
-                        &#10003;
+                        <Check size={11} weight="bold" />
                       </span>
                     ) : null}
                   </span>
