@@ -356,8 +356,8 @@ export interface AssetBuild {
   finished: boolean;
 }
 
-/** The three canonical views a presenter is cast in, in build order. */
-export type PresenterDraftView = 'portrait' | 'front' | 'three-quarter';
+/** The five canonical views a presenter is cast in, in build order: the strip's Avatar, Front, Left, Back, Right. */
+export type PresenterDraftView = 'portrait' | 'front' | 'left' | 'back' | 'right';
 export type PresenterDraftSlotStatus = 'empty' | 'generating' | 'candidate' | 'approved' | 'stale';
 export interface PresenterDraftSlot {
   status: PresenterDraftSlotStatus;

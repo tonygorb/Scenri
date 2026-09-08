@@ -7,21 +7,35 @@ import type { PresenterDraft, PresenterDraftSlot, PresenterDraftView } from '../
  * save. The components read these; nothing here reads a component.
  */
 export type StudioView = PresenterDraftView;
-export const VIEWS: readonly StudioView[] = ['portrait', 'front', 'three-quarter'];
+export const VIEWS: readonly StudioView[] = ['portrait', 'front', 'left', 'back', 'right'];
 
-/** How a view is named where a person reads it. */
+/** The strip's word for a view: the Figma's Avatar, Front, Left, Back, Right. */
 export const VIEW_LABEL: Record<StudioView, string> = {
-  portrait: 'Face',
-  front: 'Full body',
-  'three-quarter': 'Three-quarter',
+  portrait: 'Avatar',
+  front: 'Front',
+  left: 'Left',
+  back: 'Back',
+  right: 'Right',
 };
-const lower = (v: StudioView) => VIEW_LABEL[v].toLowerCase();
+
+/** The view inside a sentence. */
+export const VIEW_NAME: Record<StudioView, string> = {
+  portrait: 'face',
+  front: 'front view',
+  left: 'left view',
+  back: 'back view',
+  right: 'right view',
+};
+const lower = (v: StudioView) => VIEW_NAME[v];
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Which approved views a view is drawn from. Mirrors the server's plan. */
 const DEPENDS: Record<StudioView, StudioView[]> = {
   portrait: [],
   front: ['portrait'],
-  'three-quarter': ['portrait', 'front'],
+  left: ['portrait', 'front'],
+  back: ['portrait', 'front'],
+  right: ['portrait', 'front', 'left'],
 };
 
 /** Four is the working ceiling: past that a photo adds nothing an engine reads. */
@@ -36,7 +50,7 @@ export type DraftLike = Pick<PresenterDraft, 'source' | 'name' | 'views' | 'acti
 
 export type Phase = 'identity' | 'build' | 'review';
 
-/** The first view not yet approved, in build order; null once all three are. */
+/** The first view not yet approved, in build order; null once all five are. */
 export function currentView(d: DraftLike): StudioView | null {
   return VIEWS.find((v) => d.views[v].status !== 'approved') ?? null;
 }
@@ -104,7 +118,7 @@ export interface StripItem {
   approved: boolean;
 }
 
-/** The three views as the progress: what stands, what is being decided, what is still to come. */
+/** The five views as the progress: what stands, what is being decided, what is still to come. */
 export function stripItems(d: DraftLike, selected: StudioView): StripItem[] {
   return VIEWS.map((view) => {
     const slot = d.views[view];
@@ -138,15 +152,15 @@ export interface RailCopy {
 /** What the rail says about the view on the stage, and the one or two things you can do about it. */
 export function railCopy(d: DraftLike, view: StudioView, canGenerate: boolean): RailCopy {
   const slot = d.views[view];
-  const label = VIEW_LABEL[view];
+  const label = cap(lower(view));
   if (phaseOf(d, canGenerate) === 'review') {
     if (!canGenerate && !allApproved(d)) {
       return { status: 'Saved from your photos: the face leads, the rest follow as they are.', actions: ['save'] };
     }
     return {
       status: d.name.trim()
-        ? 'All three views are one person. Check them, then save.'
-        : 'All three views are one person. Check them, then name them.',
+        ? 'All five views are one person. Check them, then save.'
+        : 'All five views are one person. Check them, then name them.',
       actions: ['save'],
     };
   }
@@ -185,7 +199,7 @@ export function railCopy(d: DraftLike, view: StudioView, canGenerate: boolean): 
   }
   if (slot.status === 'candidate' && view === 'portrait' && !identityLocked(d)) {
     return {
-      status: 'Is this the person? Using them locks the face; the full body and three-quarter views are built from it.',
+      status: 'Is this the person? Using them locks the face; the other views are built from it.',
       actions: ['try-again', 'use-person'],
     };
   }
@@ -204,6 +218,13 @@ export function railCopy(d: DraftLike, view: StudioView, canGenerate: boolean): 
   const missing = DEPENDS[view].find((dep) => d.views[dep].status !== 'approved');
   if (missing) return { status: `${label} comes after the ${lower(missing)}.`, actions: [] };
   return { status: `${label}. Drawn next.`, actions: [] };
+}
+
+/** The request the transcript shows as yours: the sentence, or the photos in a sentence. */
+export function requestLine(d: DraftLike): string {
+  if (d.source === 'synthetic') return d.direction?.trim() || 'Build a presenter.';
+  const who = d.name.trim();
+  return `Build a presenter${who ? ` named ${who}` : ''} from these photos.`;
 }
 
 /** Drawn work a discard would throw away. A placed photo is still on disk as itself. */
@@ -271,7 +292,7 @@ export function refineTarget(text: string, selected: StudioView, d: DraftLike): 
   return { view: selected, scope: 'view' };
 }
 
-/** The one line under the composer saying what Send will do, before it is pressed. */
+/** The one line under the composer saying what Refine will do, before it is pressed. */
 export function refineHint(selected: StudioView, d: DraftLike): string {
   if (!identityLocked(d)) return 'An adjustment keeps this person. Try again rolls a new one.';
   if (d.views.portrait.origin === 'photo') return 'Changes this view only. Their photos define who they are.';
@@ -285,12 +306,6 @@ export type ComposerState = {
   /** The line under the card. */
   hint: string;
   tone?: 'alert';
-};
-
-const SCOPE_NAME: Record<StudioView, string> = {
-  portrait: 'face',
-  front: 'full body',
-  'three-quarter': 'three-quarter view',
 };
 
 /**
@@ -309,7 +324,7 @@ export function composerState(text: string, selected: StudioView, d: DraftLike):
     ? 'Adjusting the face'
     : t.scope === 'identity'
       ? 'Changing the person'
-      : `Refining the ${SCOPE_NAME[t.view]}`;
+      : `Refining the ${VIEW_NAME[t.view]}`;
   return { chip: { view: t.view, label }, hint: refineHint(selected, d) };
 }
 
@@ -317,9 +332,7 @@ export function composerState(text: string, selected: StudioView, d: DraftLike):
 export function composerPlaceholder(selected: StudioView, d: DraftLike): string {
   if (!identityLocked(d)) return 'Adjust: shorter hair, older';
   const who = d.name.trim() || 'them';
-  return selected === 'portrait'
-    ? `What should change about ${who}?`
-    : `Change this view: ${VIEW_LABEL[selected].toLowerCase()}`;
+  return selected === 'portrait' ? `What should change about ${who}?` : `Change this view: ${VIEW_NAME[selected]}`;
 }
 
 /* --------------------------------------------------------------- photos */
@@ -329,7 +342,7 @@ export function photosHint(count: number): string {
   if (count === 0) return 'The same person, face clear. Different angles help.';
   if (count === 1) return 'One photo works. Two to four, from different angles, hold the likeness better.';
   if (count < MAX_PHOTOS) return 'More angles hold the likeness better.';
-  return 'Four angles. The face, full body and three-quarter views come from these.';
+  return 'Four angles. The reference set comes from these.';
 }
 
 /** After the read: which views the photos already are, and which will be drawn. */
@@ -345,10 +358,16 @@ export function coverageLine(d: DraftLike, canGenerate: boolean): { text: string
   const photo = VIEWS.filter((v) => d.views[v].origin === 'photo');
   const drawn = VIEWS.filter((v) => d.views[v].origin !== 'photo');
   const list = (vs: StudioView[]) =>
-    vs.map((v, i) => (i === 0 ? VIEW_LABEL[v] : lower(v))).join(vs.length === 2 ? ' and ' : ', ');
-  const from = photo.length ? `${list(photo)} from your ${photo.length === 1 ? 'photo' : 'photos'}.` : '';
+    vs.length <= 2
+      ? vs.map(lower).join(' and ')
+      : `${vs.slice(0, -1).map(lower).join(', ')} and ${lower(vs[vs.length - 1])}`;
+  const from = photo.length ? `${cap(list(photo))} from your ${photo.length === 1 ? 'photo' : 'photos'}.` : '';
   if (!drawn.length) return { text: from };
-  const rest = `${list(drawn)} ${drawn.length === 1 ? 'is' : 'are'} ${canGenerate ? 'drawn from them' : 'saved from the photos as they are'}.`;
+  const how = canGenerate ? 'drawn from them' : 'saved from the photos as they are';
+  const rest =
+    drawn.length >= 3 && photo.length
+      ? `The rest are ${how}.`
+      : `${cap(list(drawn))} ${drawn.length === 1 ? 'is' : 'are'} ${how}.`;
   return { text: [from, rest].filter(Boolean).join(' ') };
 }
 

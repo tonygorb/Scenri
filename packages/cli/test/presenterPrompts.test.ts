@@ -45,14 +45,22 @@ describe('the three canonical views', () => {
     expect(s).toContain('facing the camera straight-on');
   });
 
-  it('three-quarter is the same person turned, head-and-shoulders, eyes still to the lens', () => {
-    const s = viewSubject('three-quarter', 'who');
+  it('left and right are the same person turned to a full profile, full length, in the uniform', () => {
+    for (const side of ['left', 'right'] as const) {
+      const s = viewSubject(side, 'who');
+      expect(s).toContain('the same person');
+      expect(s).toContain(CAPTURE_UNIFORM);
+      expect(s).toContain('full-length head-to-toe framing');
+      expect(s).toContain(`their ${side} side faces the camera`);
+      expect(s).toContain('full profile');
+    }
+  });
+
+  it('back is the same person facing away, full length, in the uniform', () => {
+    const s = viewSubject('back', 'who');
     expect(s).toContain('the same person');
-    expect(s).toContain('head-and-shoulders');
-    expect(s).toMatch(/three-quarter|about 40 degrees/);
-    expect(s).toContain('eyes to the lens');
-    // a turned head is not a profile: both eyes stay in the frame
-    expect(s).not.toMatch(/full profile/);
+    expect(s).toContain(CAPTURE_UNIFORM);
+    expect(s).toContain('directly away from the camera');
   });
 });
 

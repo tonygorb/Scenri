@@ -45,8 +45,8 @@ export interface AnalyzeRequest {
 }
 
 /** Which canonical view a photograph could stand in for, and whether it is good enough to. */
-export type PhotoView = 'portrait' | 'front' | 'three-quarter' | 'other';
-export const PHOTO_VIEWS: readonly PhotoView[] = ['portrait', 'front', 'three-quarter', 'other'];
+export type PhotoView = 'portrait' | 'front' | 'left' | 'back' | 'right' | 'other';
+export const PHOTO_VIEWS: readonly PhotoView[] = ['portrait', 'front', 'left', 'back', 'right', 'other'];
 export interface PhotoFiling {
   /** Position in the attachment order: ref-1.png is 0. */
   index: number;
@@ -245,7 +245,9 @@ function photosClause(refCount: number): string {
     ' each an object {"index", "view", "usable", "note"}, where "view" is exactly one of' +
     ' "portrait" (head and shoulders, the face large and facing the camera),' +
     ' "front" (full length, standing, facing the camera),' +
-    ' "three-quarter" (head and shoulders, the head turned about 45 degrees with both eyes visible),' +
+    ' "left" (full length, the left side of the body to the camera),' +
+    ' "back" (full length, facing away from the camera),' +
+    ' "right" (full length, the right side of the body to the camera),' +
     ' or "other"; "usable" is true only when the image is sharp, evenly lit, unobstructed, and shows this person clearly enough to stand in as that view; "note" is a few words on why.' +
     ' If the photographs appear to show more than one person, also write "conflict": one sentence saying which images disagree; otherwise leave "conflict" out.'
   );

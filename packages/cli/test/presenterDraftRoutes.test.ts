@@ -136,10 +136,15 @@ describe('presenter draft routes', () => {
     d = await settled(brand.id, id);
     expect(d.views.front.conditionedOn).toEqual([d.views.portrait.hash]);
     await j('POST', `${base}/${id}/views/front/approve`);
-    await j('POST', `${base}/${id}/views/three-quarter/generate`, { adjustment: 'a touch more smile' });
+    await j('POST', `${base}/${id}/views/left/generate`, { adjustment: 'a touch more smile' });
     d = await settled(brand.id, id);
-    expect(d.views['three-quarter'].adjustment).toBe('a touch more smile');
-    await j('POST', `${base}/${id}/views/three-quarter/approve`);
+    expect(d.views['left'].adjustment).toBe('a touch more smile');
+    await j('POST', `${base}/${id}/views/left/approve`);
+    for (const v of ['back', 'right']) {
+      await j('POST', `${base}/${id}/views/${v}/generate`, {});
+      await settled(brand.id, id);
+      await j('POST', `${base}/${id}/views/${v}/approve`);
+    }
 
     expect((await j('POST', `${base}/${id}/save`)).status).toBe(400); // no name yet
     expect((await j('PATCH', `${base}/${id}`, { name: 'Tomas', facets: ['Beauty'] })).body.name).toBe('Tomas');
@@ -217,9 +222,14 @@ describe('presenter draft routes', () => {
     await j('POST', `${base}/${d.id}/views/front/generate`, {});
     d = await settled(brand.id, d.id);
     await j('POST', `${base}/${d.id}/views/front/approve`);
-    await j('POST', `${base}/${d.id}/views/three-quarter/generate`, {});
+    await j('POST', `${base}/${d.id}/views/left/generate`, {});
     d = await settled(brand.id, d.id);
-    await j('POST', `${base}/${d.id}/views/three-quarter/approve`);
+    await j('POST', `${base}/${d.id}/views/left/approve`);
+    for (const v of ['back', 'right']) {
+      await j('POST', `${base}/${d.id}/views/${v}/generate`, {});
+      d = await settled(brand.id, d.id);
+      await j('POST', `${base}/${d.id}/views/${v}/approve`);
+    }
     const saved = await j('POST', `${base}/${d.id}/save`);
     expect(saved.status).toBe(200);
     expect(saved.body.presenter.source).toBe('photos');

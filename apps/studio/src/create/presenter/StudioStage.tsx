@@ -8,9 +8,10 @@ import type { StripItem, StudioView } from './presenterStudioRules.js';
  *
  * The well is the one place identity is judged, so it shows the frame at
  * its own resolution once it arrives (the 640 derivative paints first). The
- * strip is the Figma strip: a label over a 90 x 112 tile in a 1.5px frame,
- * the one on the stage outlined in ink, the ones still to come at half
- * strength. It is the progress and the navigation; no step numbers.
+ * strip is the Figma strip: five 90 x 112 tiles at an 8px pitch with the
+ * label centred under each, the one on the stage outlined in ink and the
+ * others at half strength. It is the progress and the navigation; no step
+ * numbers.
  */
 export function StudioStage({
   hash,
@@ -68,9 +69,6 @@ export function StudioStage({
               (it.drawing ? ', drawing' : '');
             return (
               <li key={it.view}>
-                <span className="sc-pstudio-slot-lb" data-on={it.state === 'current' || undefined} aria-hidden>
-                  {it.label}
-                </span>
                 <button
                   type="button"
                   className="sc-pstudio-slot"
@@ -90,6 +88,9 @@ export function StudioStage({
                     ) : null}
                   </span>
                 </button>
+                <span className="sc-pstudio-slot-lb" data-on={it.state === 'current' || undefined} aria-hidden>
+                  {it.label}
+                </span>
               </li>
             );
           })}

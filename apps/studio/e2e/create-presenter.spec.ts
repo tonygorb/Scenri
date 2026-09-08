@@ -5,8 +5,8 @@ import { isolate } from './harness.js';
  * The presenter studio, end to end, in the create dialog.
  *
  * A person is cast one used view at a time: from a sentence or from
- * photographs, the face first, then the full body and the three-quarter
- * view, each drawn from the views used before it, then named and saved. A
+ * photographs, the face first, then the front, left, back and right views,
+ * each drawn from the views used before it, then named and saved. A
  * sentence in the composer changes the person (the face is redrawn and the
  * other views follow) or one view alone. The harness runs the demo engine
  * (SCENRI_DEMO_BUILDS) with five reference slots (SCENRI_DEMO_REFS), so every
@@ -49,7 +49,7 @@ async function waitDraft(p: Page, brandId: string): Promise<string> {
   throw new Error('draft never appeared');
 }
 
-type View = 'portrait' | 'front' | 'three-quarter';
+type View = 'portrait' | 'front' | 'left' | 'back' | 'right';
 
 async function settledView(p: Page, brandId: string, draftId: string, view: View, want: string) {
   for (let i = 0; i < 200; i++) {
@@ -81,7 +81,9 @@ async function seedDraft(
   await p.request.post(`${base}/${draft.id}/views/portrait/approve`);
   if (upTo === 'portrait-approved') return draft.id as string;
   await build('front');
-  await build('three-quarter');
+  await build('left');
+  await build('back');
+  await build('right');
   return draft.id as string;
 }
 
@@ -116,9 +118,9 @@ test.describe('a person from scratch', () => {
     await expect(page.getByRole('heading', { name: 'Create presenter' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'From scratch' })).toHaveAttribute('aria-selected', 'true');
 
-    const create = page.getByRole('button', { name: 'Create person' });
+    const create = dialog(page).getByRole('button', { name: 'Create presenter' });
     await expect(create).toHaveAttribute('aria-disabled', 'true');
-    await page.getByLabel('Describe the person').fill('confident woman in her 40s, short silver hair');
+    await page.getByLabel('Describe the presenter').fill('confident woman in her 40s, short silver hair');
     await expect(create).not.toHaveAttribute('aria-disabled', /.*/);
     await create.click();
 
@@ -141,10 +143,11 @@ test.describe('a person from scratch', () => {
     expect(d.views.front.conditionedOn).toEqual([portrait]);
     const front = d.views.front.hash as string;
 
-    await useViews(page, ['Full body', 'Three-quarter']);
+    await useViews(page, ['Front', 'Left', 'Back', 'Right']);
     d = await draftOf(page, brand.id, draftId);
-    expect(d.views['three-quarter'].conditionedOn).toEqual([portrait, front]);
-    await expect(page.locator('.sc-pstudio-slot[data-state="approved"]')).toHaveCount(2);
+    expect(d.views.left.conditionedOn).toEqual([portrait, front]);
+    expect(d.views.right.conditionedOn).toEqual([portrait, front, d.views.left.hash]);
+    await expect(page.locator('.sc-pstudio-slot[data-state="approved"]')).toHaveCount(4);
     await expect(page.locator('.sc-pstudio-slot[data-state="current"]')).toHaveCount(1);
 
     // the name comes last, with the person in front of you
@@ -165,7 +168,7 @@ test.describe('a person from scratch', () => {
       (c: any) => c.name === 'Ofira',
     );
     expect(person.source).toBe('synthetic');
-    expect(person.shots.map((s: any) => s.angle)).toEqual(['portrait', 'front', 'three-quarter']);
+    expect(person.shots.map((s: any) => s.angle)).toEqual(['portrait', 'front', 'left', 'back', 'right']);
     expect(person.shots[0].file).toBe(`asset:${portrait}`);
     expect(person.avatar).toMatch(/^asset:[a-f0-9]{32}$/);
     expect(person.preview).toBe(`asset:${portrait}`);
@@ -231,17 +234,19 @@ test.describe('a person from scratch', () => {
 
     await page.getByRole('button', { name: 'Use', exact: true }).click();
     // the views built on the old face are drawn again from the new one, with no click
-    await expect(status(page)).toContainText('Full body', { timeout: 20_000 });
+    await expect(status(page)).toContainText('Front view', { timeout: 20_000 });
     await expect(page.getByRole('button', { name: 'Use', exact: true })).toBeVisible({ timeout: 20_000 });
     d = await draftOf(page, brand.id, draftId);
     expect(d.views.portrait).toMatchObject({ status: 'approved', hash: revised });
     expect(d.views.portrait.prior).toBeUndefined();
     expect(d.views.front.status).toBe('candidate');
     expect(d.views.front.conditionedOn).toEqual([revised]);
-    expect(d.views['three-quarter'].status).toBe('stale');
-    await useViews(page, ['Full body', 'Three-quarter']);
+    expect(d.views.left.status).toBe('stale');
+    expect(d.views.back.status).toBe('stale');
+    expect(d.views.right.status).toBe('stale');
+    await useViews(page, ['Front', 'Left', 'Back', 'Right']);
     d = await draftOf(page, brand.id, draftId);
-    expect(d.views['three-quarter'].conditionedOn).toEqual([revised, d.views.front.hash]);
+    expect(d.views.left.conditionedOn).toEqual([revised, d.views.front.hash]);
     await expect(page.getByLabel('Name', { exact: true })).toBeVisible({ timeout: 20_000 });
   });
 
@@ -253,22 +258,22 @@ test.describe('a person from scratch', () => {
     await expect(page.getByLabel('Name', { exact: true })).toBeVisible({ timeout: 20_000 });
     const before = await draftOf(page, brand.id, draftId);
 
-    await page.getByRole('button', { name: /^Full body/ }).click();
-    await expect(page.locator('.sc-pstudio-slot[data-state="current"]')).toHaveAttribute('aria-label', /Full body/);
+    await page.getByRole('button', { name: /^Front/ }).click();
+    await expect(page.locator('.sc-pstudio-slot[data-state="current"]')).toHaveAttribute('aria-label', /Front/);
     await composer(page).fill('turn a little more to camera');
     await page.getByRole('button', { name: 'Refine' }).click();
     await expect(page.getByRole('button', { name: 'Keep previous' })).toBeVisible({ timeout: 20_000 });
     let d = await draftOf(page, brand.id, draftId);
     expect(d.views.front).toMatchObject({ status: 'candidate', prior: before.views.front.hash });
     expect(d.views.portrait).toMatchObject({ status: 'approved', hash: before.views.portrait.hash });
-    expect(d.views['three-quarter'].status).toBe('approved');
+    expect(d.views.right.status).toBe('approved');
 
     await page.getByRole('button', { name: 'Keep previous' }).click();
     await expect(page.getByLabel('Name', { exact: true })).toBeVisible({ timeout: 20_000 });
     d = await draftOf(page, brand.id, draftId);
     expect(d.views.front).toMatchObject({ status: 'approved', hash: before.views.front.hash });
     expect(d.views.front.prior).toBeUndefined();
-    expect(d.views['three-quarter'].status).toBe('approved');
+    expect(d.views.right.status).toBe('approved');
   });
 
   test('Start over asks, then leaves nothing behind', async ({ page }) => {
@@ -280,7 +285,7 @@ test.describe('a person from scratch', () => {
     await page.getByRole('alertdialog').getByRole('button', { name: 'Start over', exact: true }).click();
     await expect(page.getByRole('tab', { name: 'From scratch' })).toBeVisible();
     // the sentence comes back, so a second try starts from it
-    await expect(page.getByLabel('Describe the person')).toHaveValue('a man in his 30s');
+    await expect(page.getByLabel('Describe the presenter')).toHaveValue('a man in his 30s');
     expect((await draftsOf(page, brand.id)).drafts.map((d) => d.id)).not.toContain(draftId);
     expect((await page.request.get(`/api/brands/${brand.id}/presenter-drafts/${draftId}`)).status()).toBe(404);
   });
@@ -321,7 +326,7 @@ test.describe('from photos', () => {
     await expect(page.locator('.sc-pstudio-pslot-frame[data-filled] img')).toHaveCount(1);
     // the photo is on the stage before anything is drawn
     await expect(page.locator('.sc-pstudio-well img')).toBeVisible();
-    const go = page.getByRole('button', { name: 'Continue', exact: true });
+    const go = dialog(page).getByRole('button', { name: 'Create presenter', exact: true });
     await expect(go).toHaveAttribute('aria-disabled', 'true');
     await expect(go).toHaveAttribute('title', /permission/i);
     await page.getByRole('checkbox').check();
@@ -339,13 +344,13 @@ test.describe('from photos', () => {
     expect(d.views.front.conditionedOn).toEqual([photo]);
 
     // the composer will not redraw a photograph
-    await page.getByRole('button', { name: /^Face/ }).click();
+    await page.getByRole('button', { name: /^Avatar/ }).click();
     await composer(page).fill('shorter hair');
     await page.getByRole('button', { name: 'Refine' }).click();
     await expect(page.getByRole('alert')).toContainText('Their photos define who they are');
-    await page.getByRole('button', { name: /^Full body/ }).click();
+    await page.getByRole('button', { name: /^Front/ }).click();
 
-    await useViews(page, ['Full body', 'Three-quarter']);
+    await useViews(page, ['Front', 'Left', 'Back', 'Right']);
     const name = page.getByLabel('Name', { exact: true });
     await expect(name).toBeVisible({ timeout: 20_000 });
     await name.fill('Noor');
@@ -359,7 +364,7 @@ test.describe('from photos', () => {
     expect(person.likeness.version).toBe('v1');
     expect(person.sourceRefs.map((s: any) => s.file)).toEqual([`asset:${photo}`]);
     expect(person.shots[0]).toMatchObject({ file: `asset:${photo}`, angle: 'portrait' });
-    expect(person.shots).toHaveLength(3);
+    expect(person.shots).toHaveLength(5);
   });
 });
 

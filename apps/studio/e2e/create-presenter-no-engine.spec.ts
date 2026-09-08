@@ -30,7 +30,7 @@ test('without an engine, From scratch offers the setup and From photos still sav
   await expect(page.getByRole('tab', { name: 'From scratch' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByText('Image generation is not set up yet')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Set up' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Create person' })).toHaveCount(0);
+  await expect(page.locator('.sc-newdlg').getByRole('button', { name: 'Create presenter' })).toHaveCount(0);
   await expect(page.locator('.sc-dlg-foot')).toContainText('Saved from the photos you add');
 
   await page.getByRole('tab', { name: 'From photos' }).click();

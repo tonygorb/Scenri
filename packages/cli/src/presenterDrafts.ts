@@ -98,14 +98,18 @@ export interface PresenterDraftRecord {
 export const DEPENDS: Record<PresenterView, PresenterView[]> = {
   portrait: [],
   front: ['portrait'],
-  'three-quarter': ['portrait', 'front'],
+  left: ['portrait', 'front'],
+  back: ['portrait', 'front'],
+  right: ['portrait', 'front', 'left'],
 };
 
 /** How a view is named in a sentence a person reads. */
 export const VIEW_LABEL: Record<PresenterView, string> = {
   portrait: 'face',
-  front: 'full body',
-  'three-quarter': 'three-quarter view',
+  front: 'front view',
+  left: 'left view',
+  back: 'back view',
+  right: 'right view',
 };
 
 const isView = (v: unknown): v is PresenterView => (PRESENTER_VIEWS as readonly string[]).includes(String(v));

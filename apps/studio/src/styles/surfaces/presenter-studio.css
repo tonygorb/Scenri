@@ -74,40 +74,42 @@
   color: var(--sc-fg2);
 }
 
-/* ---- tabs: the library's underline tabs, sitting still ------------------- */
-.sc-pstudio-tabs {
-  padding: 0 var(--sc-space-7);
+/* ---- the Aa / Image toggle: the frame's 91 x 37 pair of 42 x 30 cells ---- */
+.sc-pstudio-toggle {
+  flex: none;
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--sc-line);
+  border-radius: 10px;
+  background: var(--sc-panel);
 }
 
-.sc-pstudio-tabs .sc-verticals-shell {
-  position: static;
-  margin: 0;
-  background: transparent;
+.sc-pstudio-toggle button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--sc-fg3);
+  cursor: pointer;
 }
 
-.sc-pstudio-tabs .sc-verticals-shell::before,
-.sc-pstudio-tabs .sc-verticals-shell::after {
-  display: none;
+.sc-pstudio-toggle button[aria-selected="true"] {
+  background: var(--sc-chip);
+  color: var(--sc-fg);
 }
 
-.sc-pstudio-tabs .sc-verticals {
-  border-bottom: 1px solid var(--sc-line);
-  padding-top: var(--sc-space-2);
-}
-
-.sc-pstudio-tabs .sc-verticals button {
-  font-size: 15px;
-  padding: 10px 0 12px;
-}
-
-/* ---- stage --------------------------------------------------------------- */
+/* ---- stage: padded 20, the well 20 further in, the strip block 180 ------- */
 .sc-pstudio-stage {
   position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  padding: 40px;
+  padding: var(--sc-space-7);
   background: var(--sc-bg);
 }
 
@@ -176,7 +178,8 @@
   color: var(--sc-fg3);
 }
 
-/* the strip: labelled tiles, the progress and the navigation */
+/* the strip: five tiles at a 98 pitch, the label centred under each, the
+   one on the stage outlined in ink and the rest at half strength */
 .sc-pstudio-strip {
   flex: none;
   display: flex;
@@ -190,12 +193,13 @@
 .sc-pstudio-strip li {
   display: flex;
   flex-direction: column;
-  gap: var(--sc-space-2);
+  align-items: center;
+  gap: var(--sc-space-4);
 }
 
 .sc-pstudio-slot-lb {
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 13px;
+  line-height: 20px;
   color: var(--sc-fg2);
 }
 
@@ -205,11 +209,12 @@
 
 .sc-pstudio-slot {
   display: block;
-  padding: 2px;
-  border: 1.5px solid var(--sc-line);
-  border-radius: var(--sc-radius);
+  padding: 0;
+  border: none;
+  border-radius: var(--sc-radius-md);
   background: none;
   cursor: pointer;
+  opacity: 0.5;
 }
 
 .sc-pstudio-slot:disabled {
@@ -217,11 +222,12 @@
 }
 
 .sc-pstudio-slot[data-state="current"] {
-  border-color: var(--sc-fg);
+  opacity: 1;
 }
 
-.sc-pstudio-slot[data-state="todo"] {
-  opacity: 0.5;
+.sc-pstudio-slot[data-state="current"] .sc-pstudio-slot-inner {
+  outline: 2px solid var(--sc-fg);
+  outline-offset: -2px;
 }
 
 .sc-pstudio-slot-inner {
@@ -230,7 +236,7 @@
   width: 90px;
   height: 112px;
   overflow: hidden;
-  border-radius: var(--sc-radius-sm);
+  border-radius: var(--sc-radius-md);
   background: var(--sc-pstudio-field);
 }
 
@@ -278,33 +284,95 @@
   padding: var(--sc-space-8) var(--sc-space-8) var(--sc-space-5);
 }
 
-/* what the person was made from, kept in view above the decision */
-.sc-pstudio-origin {
-  margin-bottom: auto;
-  padding-bottom: var(--sc-space-8);
+/* the transcript: You, then Scenri, anchored to the bottom of the rail; the
+   words are the build's own status, no model is ever asked for them */
+.sc-pstudio-chat {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--sc-space-8);
+  min-height: 100%;
 }
 
-.sc-pstudio-origin p {
-  margin: 0;
+.sc-pstudio-msg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+}
+
+.sc-pstudio-msg[data-role="you"] {
+  align-items: flex-end;
+}
+
+.sc-pstudio-msg-who {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-3);
   font-size: 13px;
   line-height: 20px;
-  color: var(--sc-fg2);
+  color: var(--sc-fg3);
+}
+
+.sc-pstudio-msg-mark {
+  height: 14px;
+  width: auto;
+}
+
+.sc-pstudio-bubble {
+  max-width: 320px;
+  padding: var(--sc-space-7);
+  border-radius: 16px;
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-bubble p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 22px;
   text-wrap: pretty;
 }
 
-.sc-pstudio-origin-photos {
+.sc-pstudio-bubble-photos {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sc-space-3);
+  margin-top: var(--sc-space-5);
 }
 
-.sc-pstudio-origin-photos img {
+.sc-pstudio-bubble-photos img {
   width: 44px;
   height: 55px;
   object-fit: cover;
   border-radius: var(--sc-radius-sm);
   background: var(--sc-pstudio-field);
-  box-shadow: inset 0 0 0 1px var(--sc-line);
+}
+
+.sc-pstudio-msg-tools {
+  display: flex;
+  margin-top: var(--sc-space-2);
+}
+
+.sc-pstudio-tool {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  color: var(--sc-fg3);
+  cursor: pointer;
+}
+
+.sc-pstudio-tool:hover:not(:disabled) {
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-tool:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .sc-pstudio-status {
@@ -333,6 +401,17 @@
 /* fields: the Figma field, 44 tall, 15px, on ink-800 */
 .sc-pstudio-field {
   margin-bottom: var(--sc-space-7);
+}
+
+.sc-pstudio-fieldset {
+  min-width: 0;
+  padding: 0;
+  border: none;
+}
+
+.sc-pstudio-fieldset > legend {
+  display: block;
+  padding: 0;
 }
 
 .sc-pstudio-field .sc-newdlg-seclabel,
@@ -365,18 +444,101 @@
   resize: none;
 }
 
-.sc-pstudio-examples {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sc-space-3);
-  margin-top: var(--sc-space-5);
+/* the frame's description: 120 tall, the sentence at 15/22 inside 9.5 / 13.5 */
+.sc-pstudio-field textarea.sc-pstudio-direction {
+  min-height: 120px;
+  padding: 9px 13px;
 }
 
-.sc-pstudio-examples > span {
-  font-size: var(--sc-text-caption);
+/* gender: two 110 x 135 cards, either or neither, the mark on the chosen one */
+.sc-pstudio-gender {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-4);
+}
+
+.sc-pstudio-gcard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sc-space-4);
+  width: 110px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+
+.sc-pstudio-gcard-inner {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 110px;
+  height: 135px;
+  border: 1.5px solid var(--sc-line);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-pstudio-field);
   color: var(--sc-fg3);
-  margin-right: var(--sc-space-1);
+}
+
+.sc-pstudio-gcard:hover .sc-pstudio-gcard-inner {
+  border-color: var(--sc-line-strong);
+}
+
+.sc-pstudio-gcard[aria-pressed="true"] {
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-gcard[aria-pressed="true"] .sc-pstudio-gcard-inner {
+  border-color: var(--sc-fg);
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-gcard-lb {
+  font-size: 15px;
+  line-height: 22px;
+}
+
+/* categories: the chips, and a 30px plus that takes one more in a word */
+.sc-pstudio-cats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+}
+
+/* the frame's chips: 32 tall, the word inside 13 on each side */
+.sc-pstudio-cats .sc-chip {
+  height: 32px;
+  padding: 0 13px;
+}
+
+.sc-pstudio-catplus {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: none;
+  color: var(--sc-fg);
+  cursor: pointer;
+}
+
+.sc-pstudio-catplus:hover {
+  border-color: var(--sc-line-strong);
+}
+
+.sc-pstudio .sc-in.sc-pstudio-cat-in {
+  flex: none;
+  width: 150px;
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 13px;
+  line-height: 20px;
 }
 
 /* the four photo slots: one to four, each a place to drop or pick */
@@ -578,19 +740,65 @@
   color: var(--sc-fg3);
 }
 
-.sc-pstudio-review {
-  margin-top: var(--sc-space-7);
-}
-
-.sc-pstudio-review .sc-newdlg-secmore {
-  margin-top: 0;
-}
-
+/* the words, behind Change: name, notes, categories */
 .sc-pstudio-details {
   display: flex;
   flex-direction: column;
-  gap: var(--sc-space-5);
-  margin-top: var(--sc-space-5);
+  padding-top: var(--sc-space-7);
+  border-top: 1px solid var(--sc-line);
+}
+
+.sc-pstudio-details .sc-pstudio-field:last-child {
+  margin-bottom: 0;
+}
+
+/* the dock: who this is, with Change, sitting on the composer card */
+.sc-pstudio-dock {
+  display: flex;
+  flex-direction: column;
+}
+
+.sc-pstudio-who {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+  margin: 0 var(--sc-space-7);
+  padding: var(--sc-space-4);
+  border: 1px solid var(--sc-line);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  background: var(--sc-panel);
+}
+
+.sc-pstudio-who-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  height: 24px;
+  padding: 2px 10px 2px 2px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-chip);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-who-chip img,
+.sc-pstudio-who-blank {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--sc-radius-full);
+  object-fit: cover;
+  background: var(--sc-pstudio-field);
+}
+
+.sc-pstudio-who .sc-btn {
+  height: 24px;
+  padding: 0 13px;
+  border-radius: var(--sc-radius-full);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 /* ---- rail foot: the composer, the decision, the footnote ----------------- */
@@ -646,6 +854,7 @@
 }
 
 .sc-pstudio-composer-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--sc-line-strong);
@@ -762,10 +971,9 @@
   .sc-pstudio-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--sc-pstudio-rail);
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     grid-template-areas:
       "stage head"
-      "stage tabs"
       "stage body"
       "stage foot";
   }
@@ -778,21 +986,12 @@
     grid-area: stage;
   }
 
-  /* nothing under the well yet: the empty well takes the Figma's full 870 */
-  .sc-pstudio-grid[data-phase="setup"] .sc-pstudio-wrap {
-    padding: 0;
-  }
-
   .sc-pstudio-head {
     grid-area: head;
   }
 
   .sc-pstudio-head .sc-newdlg-close {
     display: none;
-  }
-
-  .sc-pstudio-tabs {
-    grid-area: tabs;
   }
 
   .sc-pstudio-body {
@@ -806,7 +1005,6 @@
   }
 
   .sc-pstudio-head,
-  .sc-pstudio-tabs,
   .sc-pstudio-body,
   .sc-pstudio-foot {
     border-left: 1px solid var(--sc-line);
@@ -823,10 +1021,6 @@
 @media (min-width: 768px) and (max-width: 1023px) {
   .sc-newdlg.sc-pstudio {
     --sc-pstudio-rail: 320px;
-  }
-
-  .sc-pstudio-stage {
-    padding: 24px;
   }
 
   .sc-pstudio-close {
@@ -859,10 +1053,6 @@
   .sc-pstudio-head {
     min-height: 52px;
     padding: var(--sc-space-4) var(--sc-space-4) var(--sc-space-4) var(--sc-space-6);
-  }
-
-  .sc-pstudio-tabs {
-    padding: 0 var(--sc-space-6);
   }
 
   .sc-pstudio-scroll {
@@ -927,8 +1117,12 @@
     padding: var(--sc-space-5) var(--sc-space-6);
   }
 
-  .sc-pstudio-origin {
-    padding-bottom: var(--sc-space-5);
+  .sc-pstudio-bubble {
+    max-width: 100%;
+  }
+
+  .sc-pstudio-who {
+    margin: 0 var(--sc-space-4);
   }
 
   .sc-pstudio-foot {

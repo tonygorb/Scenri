@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, CaretLeft, X } from '@phosphor-icons/react';
+import { ArrowRight, ArrowsCounterClockwise, CaretLeft, Copy, X } from '@phosphor-icons/react';
 import { Spinner } from '@radix-ui/themes';
 import { api, thumbUrl, uploadImage, type PresenterDraft } from '../../api.js';
 import { useAppData, useDialogParam } from '../../app/AppShell.js';
@@ -7,10 +7,10 @@ import { useBrand } from '../../app/BrandLayout.js';
 import { useOpenSetup } from '../../app/dialogs.js';
 import { Confirm } from '../../Confirm.js';
 import { DialogSheet, SheetClose, SheetTitle } from '../../layout/DialogSheet.js';
-import { VerticalsTabs } from '../../layout/VerticalsTabs.js';
+import { ScenriLockup } from '../../layout/ScenriMark.js';
 import type { FlowProps } from '../flow.js';
 import { RefineComposer } from './RefineComposer.js';
-import { PhotosPanel, ReviewFields, ScratchPanel, SetupCard } from './StudioSetup.js';
+import { DetailsFields, type Gender, type Mode, ModeToggle, SetupForm } from './StudioSetup.js';
 import { StudioStage } from './StudioStage.js';
 import {
   type Action,
@@ -18,13 +18,14 @@ import {
   VIEWS,
   VIEW_LABEL,
   composerPlaceholder,
+  composerState,
   coverageLine,
   emptySlot,
   nextToDraw,
   phaseOf,
   railCopy,
-  composerState,
   refineTarget,
+  requestLine,
   resumable,
   saveBlocker,
   selectedView,
@@ -35,24 +36,26 @@ import {
 import { usePresenterDraft } from './usePresenterDraft.js';
 
 /**
- * The presenter studio, in the create dialog.
+ * The presenter studio, in the create dialog, laid out as the Figma frames
+ * draw it.
  *
- * A wide stage on the left and a narrow rail on the right. Two ways to
- * start, as tabs: a sentence, or one to four photos. Then one identity: the
- * face, drawn and decided; then the full body and the three-quarter view,
- * each drawn from the approved views before it and decided in turn. A
- * sentence in the composer changes the person (the face is redrawn and the
- * other views follow) or one view (that view alone). The name comes last.
+ * A wide stage on the left and a 500 rail on the right. Setup is a form:
+ * the Aa / Image toggle in the head, Name, Gender, a sentence or four photo
+ * places, Optional notes, Categories, then Create presenter. Then one
+ * identity: the face, drawn and decided; then the front, left, back and
+ * right views, each drawn from the approved views before it and decided in
+ * turn, the strip under the stage keeping the count. The rail reads as a
+ * transcript, You and Scenri, with no model ever asked for words: Scenri's
+ * lines are the build's own status. A sentence in the composer changes the
+ * person (the face is redrawn and the other views follow) or one view.
  *
  * The draft lives on the server. Closing keeps it and reopening resumes it;
  * Start over is the only way to throw it away. The host's discard-and-undo
  * toast is not used here, because closing is not discarding.
  *
- * On a phone the same pieces stack: head, tabs, stage, strip, words, and a
+ * On a phone the same pieces stack: head, stage, strip, transcript, and a
  * bottom that stays put with the composer and the one decision in it.
  */
-type Mode = 'scratch' | 'photos';
-
 const pointerKey = (brandId: string) => `scenri:presenter-draft:${brandId}`;
 const readPointer = (brandId: string) => {
   try {
@@ -76,20 +79,22 @@ const clearPointer = (brandId: string) => {
   }
 };
 
-const MODES = [
-  { value: 'scratch', label: 'From scratch' },
-  { value: 'photos', label: 'From photos' },
-];
+const GENDER_WORD: Record<Gender, string> = { woman: 'a woman', man: 'a man' };
 
 export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps) {
   const { brand } = useBrand();
+  const { presenterCategories } = useAppData();
   const { close } = useDialogParam('new');
   const openSetup = useOpenSetup();
   const [draftId, setDraftId] = useState<string | null>(null);
   const [resume, setResume] = useState<PresenterDraft | null>(null);
   const [boot, setBoot] = useState(true);
   const [mode, setMode] = useState<Mode>('scratch');
+  const [name, setName] = useState('');
+  const [gender, setGender] = useState<Gender | null>(null);
   const [direction, setDirection] = useState('');
+  const [notes, setNotes] = useState('');
+  const [facets, setFacets] = useState<string[]>([]);
   const [hashes, setHashes] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [attested, setAttested] = useState(false);
@@ -152,16 +157,24 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
     }
   }, []);
 
+  /** The sentence the engine gets: the gender card, if chosen, leads the description. */
+  const sentence = () => [gender ? GENDER_WORD[gender] : '', direction.trim()].filter(Boolean).join(', ');
+  const words = () => ({ name: name.trim() || undefined, facets: facets.length ? facets : undefined });
+
   const startScratch = async () => {
     if (!direction.trim()) {
-      setErr('Describe the person, then create them.');
+      setErr('Describe the presenter, then create them.');
       return;
     }
     if (!canDraw || busy) return;
     setBusy(true);
     setErr(null);
     try {
-      const draft = await api.createPresenterDraft(brand.id, { source: 'synthetic', direction: direction.trim() });
+      const draft = await api.createPresenterDraft(brand.id, {
+        source: 'synthetic',
+        direction: sentence(),
+        ...words(),
+      });
       openDraft(draft.id);
     } catch (e: any) {
       setErr(String(e?.message ?? e));
@@ -179,6 +192,8 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
         source: 'photos',
         imageHashes: hashes,
         attestation: true,
+        direction: gender ? GENDER_WORD[gender] : undefined,
+        ...words(),
       });
       openDraft(draft.id);
     } catch (e: any) {
@@ -192,9 +207,24 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
     engineOff
       ? 'Saved from the photos you add.'
       : caps?.free
-        ? 'Three views, one at a time. Nothing billed through Scenri.'
-        : 'Three views, one at a time, each a generation.',
+        ? 'Five views, one at a time. Nothing billed through Scenri.'
+        : 'Five views, one at a time, each a generation.',
   );
+
+  const primaryOff =
+    mode === 'scratch'
+      ? !direction.trim() || busy || boot || !caps
+      : !hashes.length || !attested || busy || boot || uploading;
+  const primaryWhy =
+    mode === 'scratch'
+      ? !direction.trim()
+        ? 'Describe the presenter'
+        : undefined
+      : !hashes.length
+        ? 'Add a photo'
+        : !attested
+          ? 'Confirm you have permission to use their likeness'
+          : undefined;
 
   return (
     <DialogSheet
@@ -221,6 +251,7 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
             draftId={draftId}
             canDraw={canDraw}
             footnote={footnote}
+            initialNotes={notes}
             onBack={onBack}
             onStarted={onStarted}
             onGone={() => {
@@ -231,18 +262,15 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
           />
         ) : (
           <>
-            <Head onBack={onBack} />
-            <div className="sc-pstudio-tabs">
-              <VerticalsTabs
-                aria-label="How to start"
-                activeKey={mode}
-                items={MODES}
-                onSelect={(v) => {
+            <Head onBack={onBack}>
+              <ModeToggle
+                mode={mode}
+                onMode={(next) => {
                   setErr(null);
-                  setMode(v === 'photos' ? 'photos' : 'scratch');
+                  setMode(next);
                 }}
               />
-            </div>
+            </Head>
             <div className="sc-pstudio-scroll">
               <StudioStage
                 hash={mode === 'photos' ? hashes[0] : undefined}
@@ -267,58 +295,39 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
                     </span>
                   </button>
                 )}
-                {mode === 'scratch' ? (
-                  engineOff ? (
-                    <SetupCard onSetup={() => openSetup()} />
-                  ) : (
-                    <ScratchPanel
-                      direction={direction}
-                      onDirection={(next) => {
-                        setErr(null);
-                        setDirection(next);
-                      }}
-                      onCreate={() => void startScratch()}
-                      error={err}
-                    />
-                  )
-                ) : (
-                  <PhotosPanel
-                    hashes={hashes}
-                    uploading={uploading}
-                    attested={attested}
-                    canDraw={canDraw}
-                    error={err}
-                    onAdd={(files) => void addFiles(files)}
-                    onRemove={(h) => setHashes((cur) => cur.filter((x) => x !== h))}
-                    onReject={() => setErr('Drop an image file.')}
-                    onAttested={setAttested}
-                  />
-                )}
+                <SetupForm
+                  mode={mode}
+                  canDraw={canDraw}
+                  engineOff={engineOff}
+                  name={name}
+                  onName={setName}
+                  gender={gender}
+                  onGender={setGender}
+                  direction={direction}
+                  onDirection={(next) => {
+                    setErr(null);
+                    setDirection(next);
+                  }}
+                  onCreate={() => void startScratch()}
+                  hashes={hashes}
+                  uploading={uploading}
+                  attested={attested}
+                  onAdd={(files) => void addFiles(files)}
+                  onRemove={(h) => setHashes((cur) => cur.filter((x) => x !== h))}
+                  onReject={() => setErr('Drop an image file.')}
+                  onAttested={setAttested}
+                  notes={notes}
+                  onNotes={setNotes}
+                  facets={facets}
+                  onFacets={setFacets}
+                  categories={presenterCategories}
+                  onSetup={() => openSetup()}
+                  error={err}
+                />
               </div>
             </div>
             <div className="sc-pstudio-foot">
-              {mode === 'scratch' ? (
-                !engineOff && (
-                  <div className="sc-pstudio-actions">
-                    <SheetClose>
-                      <button type="button" className="sc-btn sc-btn-ghost">
-                        Cancel
-                      </button>
-                    </SheetClose>
-                    <button
-                      type="button"
-                      className="sc-btn sc-btn-primary"
-                      aria-disabled={!direction.trim() || busy || boot || !caps || undefined}
-                      title={!direction.trim() ? 'Describe the person' : undefined}
-                      onClick={() => void startScratch()}
-                    >
-                      {busy ? <Spinner size="1" /> : null}
-                      Create person
-                      <ArrowRight size={18} />
-                    </button>
-                  </div>
-                )
-              ) : (
+              {!(mode === 'scratch' && engineOff) && (
                 <div className="sc-pstudio-actions">
                   <SheetClose>
                     <button type="button" className="sc-btn sc-btn-ghost">
@@ -328,18 +337,12 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
                   <button
                     type="button"
                     className="sc-btn sc-btn-primary"
-                    aria-disabled={!hashes.length || !attested || busy || boot || uploading || undefined}
-                    title={
-                      !hashes.length
-                        ? 'Add a photo'
-                        : !attested
-                          ? 'Confirm you have permission to use their likeness'
-                          : undefined
-                    }
-                    onClick={() => void startPhotos()}
+                    aria-disabled={primaryOff || undefined}
+                    title={primaryWhy}
+                    onClick={() => void (mode === 'scratch' ? startScratch() : startPhotos())}
                   >
                     {busy ? <Spinner size="1" /> : null}
-                    {canDraw ? 'Continue' : 'Save with photos'}
+                    {mode === 'photos' && !canDraw ? 'Save with photos' : 'Create presenter'}
                     <ArrowRight size={18} />
                   </button>
                 </div>
@@ -401,6 +404,7 @@ function Draft({
   draftId,
   canDraw,
   footnote,
+  initialNotes,
   onBack,
   onStarted,
   onGone,
@@ -409,6 +413,7 @@ function Draft({
   draftId: string;
   canDraw: boolean;
   footnote: ReactNode;
+  initialNotes: string;
   onBack?: () => void;
   onStarted: FlowProps['onStarted'];
   onGone: () => void;
@@ -421,8 +426,9 @@ function Draft({
   const [focus, setFocus] = useState<StudioView | null>(null);
   const [name, setName] = useState('');
   const [facets, setFacets] = useState<string[]>([]);
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState(initialNotes);
   const [details, setDetails] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [askErr, setAskErr] = useState<string | null>(null);
@@ -474,6 +480,11 @@ function Draft({
     : s.err && !isDrawing
       ? { status: `${s.err}. Nothing approved was touched.`, tone: 'alert' as const, actions: ['retry' as Action] }
       : railCopy(d, view, canDraw);
+
+  // The words are asked for once the person stands, unless they were given at the start.
+  useEffect(() => {
+    if (phase === 'review' && !name.trim()) setDetails(true);
+  }, [phase, name]);
 
   const act = useCallback(
     (a: Action) => {
@@ -562,6 +573,17 @@ function Draft({
     return true;
   };
 
+  const copyStatus = async () => {
+    if (!copy) return;
+    try {
+      await navigator.clipboard.writeText(copy.status);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* the clipboard is closed to this page */
+    }
+  };
+
   if (!d) {
     return (
       <>
@@ -582,10 +604,12 @@ function Draft({
   }
 
   const stageHash = slot.hash ?? (d.stage === 'analyzing' ? d.sources[0] : undefined);
+  const face = d.views.portrait.hash ?? d.sources[0];
   const blocker = saveBlocker(d, name, canDraw);
   const coverage = coverageLine(d, canDraw);
   const composerOn = canDraw && (d.views.portrait.hash || d.views.portrait.status !== 'empty');
   const errorLine = saveErr ?? s.err;
+  const canRedraw = !!copy && !isDrawing && !s.busy && copy.actions.some((a) => a === 'try-again' || a === 'retry');
 
   return (
     <>
@@ -615,66 +639,108 @@ function Draft({
           items={stripItems(d, view)}
           onPick={(v) => setFocus(v === (drawingView(d) ?? null) ? null : v)}
         />
-        <div className="sc-pstudio-body" data-end={phase !== 'review' || undefined}>
-          <div className="sc-pstudio-origin">
-            <span className="sc-newdlg-seclabel">
-              {d.source === 'photos' ? 'From your photos' : 'From your description'}
-            </span>
-            {d.source === 'photos' ? (
-              <div className="sc-pstudio-origin-photos">
-                {d.sources.map((h, i) => (
-                  <img key={h} src={thumbUrl(h, 'micro')} alt={`Yours, ${i + 1} of ${d.sources.length}`} />
-                ))}
+        <div className="sc-pstudio-body" data-end>
+          <div className="sc-pstudio-chat">
+            <div className="sc-pstudio-msg" data-role="you">
+              <span className="sc-pstudio-msg-who">You</span>
+              <div className="sc-pstudio-bubble">
+                <p>{requestLine(d)}</p>
+                {d.source === 'photos' && d.sources.length > 0 && (
+                  <div className="sc-pstudio-bubble-photos">
+                    {d.sources.map((h, i) => (
+                      <img key={h} src={thumbUrl(h, 'micro')} alt={`Yours, ${i + 1} of ${d.sources.length}`} />
+                    ))}
+                  </div>
+                )}
               </div>
-            ) : (
-              <p>{d.direction}</p>
+            </div>
+            <div className="sc-pstudio-msg" data-role="scenri">
+              <span className="sc-pstudio-msg-who">
+                <ScenriLockup className="sc-pstudio-msg-mark" aria-hidden />
+              </span>
+              {coverage && (
+                <p className="sc-pstudio-line" data-tone={coverage.tone}>
+                  {coverage.text}
+                </p>
+              )}
+              <p className="sc-pstudio-status" role="status" aria-live="polite" data-tone={copy?.tone}>
+                {copy?.status}
+              </p>
+              {errorLine && (
+                <p className="sc-newdlg-err" role="alert">
+                  {errorLine}
+                </p>
+              )}
+              <div className="sc-pstudio-msg-tools">
+                <button
+                  type="button"
+                  className="sc-pstudio-tool"
+                  aria-label={copied ? 'Copied' : 'Copy'}
+                  title={copied ? 'Copied' : 'Copy'}
+                  onClick={() => void copyStatus()}
+                >
+                  <Copy size={20} />
+                </button>
+                <button
+                  type="button"
+                  className="sc-pstudio-tool"
+                  aria-label="Draw again"
+                  title="Draw again"
+                  disabled={!canRedraw}
+                  onClick={() => act('try-again')}
+                >
+                  <ArrowsCounterClockwise size={20} />
+                </button>
+              </div>
+            </div>
+            {details && (
+              <DetailsFields
+                name={name}
+                onName={setNameLater}
+                facets={facets}
+                onFacets={(next) => {
+                  setFacets(next);
+                  void s.update({ facets: next });
+                }}
+                notes={notes}
+                onNotes={setNotes}
+                categories={presenterCategories}
+                onEnter={() => void save()}
+              />
             )}
           </div>
-          {coverage && (
-            <p className="sc-pstudio-line" data-tone={coverage.tone}>
-              {coverage.text}
-            </p>
-          )}
-          <p className="sc-pstudio-status" role="status" aria-live="polite" data-tone={copy?.tone}>
-            {copy?.status}
-          </p>
-          {errorLine && (
-            <p className="sc-newdlg-err" role="alert">
-              {errorLine}
-            </p>
-          )}
-          {phase === 'review' && (
-            <ReviewFields
-              name={name}
-              onName={setNameLater}
-              facets={facets}
-              onFacets={(next) => {
-                setFacets(next);
-                void s.update({ facets: next });
-              }}
-              notes={notes}
-              onNotes={setNotes}
-              categories={presenterCategories}
-              details={details}
-              onDetails={setDetails}
-              onEnter={() => void save()}
-            />
-          )}
         </div>
       </div>
       <div className="sc-pstudio-foot">
         {composerOn && (
-          <RefineComposer
-            placeholder={composerPlaceholder(view, d)}
-            describe={(text) => {
-              const st = composerState(text, view, d);
-              return { ...st, hash: st.chip ? d.views[st.chip.view].hash : undefined };
-            }}
-            disabled={s.busy}
-            working={isDrawing}
-            error={askErr}
-            onSend={ask}
-          />
+          <div className="sc-pstudio-dock">
+            <div className="sc-pstudio-who">
+              <span className="sc-pstudio-who-chip">
+                {face ? <img src={thumbUrl(face, 'micro')} alt="" /> : <span className="sc-pstudio-who-blank" />}
+                {name.trim() || 'Unnamed'}
+              </span>
+              <button
+                type="button"
+                className="sc-btn sc-btn-ghost"
+                aria-expanded={details}
+                aria-controls="sc-pstudio-details"
+                onClick={() => setDetails((v) => !v)}
+              >
+                {details ? 'Done' : 'Change'}
+              </button>
+            </div>
+            <RefineComposer
+              placeholder={composerPlaceholder(view, d)}
+              describe={(text) => {
+                const st = composerState(text, view, d);
+                return { ...st, hash: st.chip ? d.views[st.chip.view].hash : undefined };
+              }}
+              disabled={s.busy}
+              working={isDrawing}
+              error={askErr}
+              onSend={ask}
+            />
+          </div>
         )}
         {copy && copy.actions.length > 0 && (
           <div className="sc-pstudio-actions">

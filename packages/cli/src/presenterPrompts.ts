@@ -36,18 +36,19 @@ export function studioPrompt(subject: string): string {
 }
 
 /**
- * The three canonical views, in the order they are built.
+ * The five canonical views, in the order they are built: the reference set
+ * the Figma studio lays out as Avatar, Front, Left, Back, Right.
  *
  * `portrait` is the identity: the face at face size, which is the only place
  * identity can be judged (a full-length frame renders it at ~105px brow to
  * chin, a portrait at four times that). `front` carries build, proportion and
- * hair length. `three-quarter` covers the most common commercial angle after
- * frontal and the point past which a single front view stops carrying the
- * face. Profiles and a back view were drawn once and never transported: three
- * references is what a brief carries, and a back view is inert for a face.
+ * hair length. `left`, `back` and `right` complete the set the way a casting
+ * sheet does, full length and turned. A brief still carries three references
+ * (CHARACTER_REF_MAX): the portrait, the front and the first turned view; the
+ * other two live on the presenter's page.
  */
-export type PresenterView = 'portrait' | 'front' | 'three-quarter';
-export const PRESENTER_VIEWS: readonly PresenterView[] = ['portrait', 'front', 'three-quarter'];
+export type PresenterView = 'portrait' | 'front' | 'left' | 'back' | 'right';
+export const PRESENTER_VIEWS: readonly PresenterView[] = ['portrait', 'front', 'left', 'back', 'right'];
 
 /** What a view asks for, about the person named in `who`. */
 export function viewSubject(view: PresenterView, who: string): string {
@@ -56,10 +57,12 @@ export function viewSubject(view: PresenterView, who: string): string {
       return `${who}, head-and-shoulders portrait framing from just above the top of the head down to the collarbone, facing the camera straight-on, relaxed neutral expression, eyes to the lens, their own hair exactly as the references show it, the same plain studio backdrop and even frontal light`;
     case 'front':
       return `${who}, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, facing the camera straight-on`;
-    case 'three-quarter':
-      // A turned head, not a profile: both eyes stay in the frame, which is
-      // what keeps the nose and brow geometry readable as the same face.
-      return `${who}: the same person as the attached images, head-and-shoulders portrait framing from just above the top of the head down to the collarbone, head and shoulders turned about 40 degrees to their left in a three-quarter view, both eyes clearly visible, eyes to the lens, relaxed neutral expression, their own hair exactly as the attached images show it, same wardrobe, the same plain studio backdrop and even frontal light`;
+    case 'left':
+      return `${who}: the same person as the attached images, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, turned so that their left side faces the camera in a full profile, the head in profile too, their own hair exactly as the attached images show it, the same plain studio backdrop and even light`;
+    case 'back':
+      return `${who}: the same person as the attached images, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, turned to face directly away from the camera so the back of the head, the shoulders and the legs are to the lens, their own hair exactly as the attached images show it, the same plain studio backdrop and even light`;
+    case 'right':
+      return `${who}: the same person as the attached images, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, turned so that their right side faces the camera in a full profile, the head in profile too, their own hair exactly as the attached images show it, the same plain studio backdrop and even light`;
   }
 }
 

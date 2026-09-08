@@ -1,61 +1,59 @@
-import { Plus, X } from '@phosphor-icons/react';
-import { type KeyboardEvent, useRef } from 'react';
+import { GenderFemale, GenderMale, Image, Plus, TextAa, X } from '@phosphor-icons/react';
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { thumbUrl } from '../../api.js';
 import { useFileDrop } from '../../layout/Dropzone.js';
 import { OpenAIMark } from '../../layout/OpenAIMark.js';
 import { MAX_PHOTOS, photosHint } from './presenterStudioRules.js';
 
-/** Three sentences a person can start from. Text only: an image would be a face, and a face is an identity. */
-const EXAMPLES = [
-  'Warm man in his 30s, close-cropped beard, easy smile',
-  'Athletic woman in her mid 20s, natural curls',
-  'Silver-haired man in his 60s, quiet authority',
+/**
+ * The setup rail, as the Figma frames lay it out: the Aa / Image toggle in
+ * the head, then Name, Gender, the sentence or the four photo places,
+ * Optional notes and Categories, with Cancel and Create presenter in the
+ * foot. Name and gender are offered, never required: a person can be cast
+ * from the sentence alone and named at the end.
+ */
+export type Mode = 'scratch' | 'photos';
+export type Gender = 'woman' | 'man';
+
+const MODES: { value: Mode; label: string; icon: ReactNode }[] = [
+  { value: 'scratch', label: 'From scratch', icon: <TextAa size={18} /> },
+  { value: 'photos', label: 'From photos', icon: <Image size={18} /> },
 ];
 
-/** From scratch: one sentence, and Scenri draws the person. */
-export function ScratchPanel({
-  direction,
-  onDirection,
-  onCreate,
-  error,
-}: {
-  direction: string;
-  onDirection: (next: string) => void;
-  onCreate: () => void;
-  error?: string | null;
-}) {
+/** The two ways to start, as the frame's icon toggle: a tab list of two, arrows move between them. */
+export function ModeToggle({ mode, onMode }: { mode: Mode; onMode: (next: Mode) => void }) {
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = root.current;
+    if (!el || !el.contains(document.activeElement)) return;
+    el.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
+  }, [mode]);
   return (
-    <div className="sc-pstudio-field">
-      <label className="sc-newdlg-seclabel" htmlFor="sc-pstudio-direction">
-        Describe the person
-      </label>
-      <textarea
-        id="sc-pstudio-direction"
-        className="sc-in"
-        rows={3}
-        maxLength={400}
-        placeholder="Confident woman in her 40s, short silver hair, natural skin, understated editorial presence"
-        value={direction}
-        onChange={(e) => onDirection(e.target.value)}
-        onKeyDown={(e: KeyboardEvent) => {
-          if (e.key !== 'Enter' || e.shiftKey) return;
-          e.preventDefault();
-          onCreate();
-        }}
-      />
-      <div className="sc-pstudio-examples">
-        <span>Try</span>
-        {EXAMPLES.map((ex) => (
-          <button type="button" key={ex} className="sc-chip" onClick={() => onDirection(ex)}>
-            {ex}
-          </button>
-        ))}
-      </div>
-      {error && (
-        <p className="sc-newdlg-err" role="alert">
-          {error}
-        </p>
-      )}
+    <div
+      ref={root}
+      className="sc-pstudio-toggle"
+      role="tablist"
+      aria-label="How to start"
+      onKeyDown={(e) => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault();
+        onMode(mode === 'scratch' ? 'photos' : 'scratch');
+      }}
+    >
+      {MODES.map((m) => (
+        <button
+          key={m.value}
+          type="button"
+          role="tab"
+          aria-selected={mode === m.value}
+          aria-label={m.label}
+          title={m.label}
+          tabIndex={mode === m.value ? 0 : -1}
+          onClick={() => onMode(m.value)}
+        >
+          {m.icon}
+        </button>
+      ))}
     </div>
   );
 }
@@ -76,14 +74,64 @@ export function SetupCard({ onSetup }: { onSetup: () => void }) {
   );
 }
 
-/** What each of the four places is best for. A hint, not a requirement: one photo is enough. */
-const SLOT_HINTS = ['Face', 'Full body', 'Three-quarter', 'Another angle'];
+function Field({ id, label, children }: { id?: string; label: string; children: ReactNode }) {
+  return (
+    <div className="sc-pstudio-field">
+      {id ? (
+        <label className="sc-newdlg-seclabel" htmlFor={id}>
+          {label}
+        </label>
+      ) : (
+        <span className="sc-newdlg-seclabel">{label}</span>
+      )}
+      {children}
+    </div>
+  );
+}
+
+const GENDERS: { value: Gender; label: string; icon: ReactNode }[] = [
+  { value: 'man', label: 'Male', icon: <GenderMale size={40} weight="light" /> },
+  { value: 'woman', label: 'Female', icon: <GenderFemale size={40} weight="light" /> },
+];
+
+/** Two cards, either or neither: the frame's Male / Female with the mark on the chosen one. */
+function GenderCards({ value, onChange }: { value: Gender | null; onChange: (next: Gender | null) => void }) {
+  return (
+    <fieldset className="sc-pstudio-field sc-pstudio-fieldset">
+      <legend className="sc-newdlg-seclabel">Gender</legend>
+      <div className="sc-pstudio-gender">
+        {GENDERS.map((g) => (
+          <button
+            key={g.value}
+            type="button"
+            className="sc-pstudio-gcard"
+            aria-pressed={value === g.value}
+            onClick={() => onChange(value === g.value ? null : g.value)}
+          >
+            <span className="sc-pstudio-gcard-inner">
+              {g.icon}
+              {value === g.value && (
+                <span className="sc-pstudio-slot-mark" aria-hidden>
+                  &#10003;
+                </span>
+              )}
+            </span>
+            <span className="sc-pstudio-gcard-lb">{g.label}</span>
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+/** The four places, named as the frame names them. A hint, not a requirement: one photo is enough. */
+const SLOT_HINTS = ['Front', 'Left', 'Back', 'Right'];
 
 /**
- * Four places for one to four photographs, the way the Figma frame lays them
- * out: a slot is a drop target and a picker; a filled one shows the photo
- * with a mark and a way to take it out again. One hidden file input serves
- * every slot, so picking several at once fills the next free places.
+ * Four places for one to four photographs: a slot is a drop target and a
+ * picker; a filled one shows the photo with a mark and a way to take it out
+ * again. One hidden file input serves every slot, so picking several at once
+ * fills the next free places.
  */
 function PhotoSlots({
   hashes,
@@ -129,7 +177,7 @@ function PhotoSlots({
                 <button
                   type="button"
                   className="sc-pstudio-pslot-drop"
-                  aria-label={`Remove ${hint.toLowerCase()} photo`}
+                  aria-label={`Remove the ${hint.toLowerCase()} photo`}
                   onClick={() => onRemove(hash)}
                 >
                   <X size={11} weight="bold" />
@@ -162,43 +210,201 @@ function PhotoSlots({
   );
 }
 
-/** From photos: one to four photographs of one person, and the word that they may be used. */
-export function PhotosPanel({
+/** The brand's categories as chips, and a plus that takes one more in a word. */
+export function CategoriesField({
+  categories,
+  facets,
+  onFacets,
+}: {
+  categories: string[];
+  facets: string[];
+  onFacets: (next: string[]) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [word, setWord] = useState('');
+  const all = [...categories, ...facets.filter((f) => !categories.includes(f))];
+  const commit = () => {
+    const w = word.trim();
+    if (w && !facets.includes(w)) onFacets([...facets, w]);
+    setWord('');
+    setAdding(false);
+  };
+  return (
+    <fieldset className="sc-pstudio-field sc-pstudio-fieldset">
+      <legend className="sc-newdlg-seclabel">Categories</legend>
+      <div className="sc-pstudio-cats">
+        <div className="sc-assetform-facets-chips">
+          {all.map((v) => (
+            <button
+              type="button"
+              key={v}
+              className="sc-chip"
+              data-on={facets.includes(v) || undefined}
+              aria-pressed={facets.includes(v)}
+              onClick={() => onFacets(facets.includes(v) ? facets.filter((x) => x !== v) : [...facets, v])}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+        {adding ? (
+          <input
+            className="sc-in sc-pstudio-cat-in"
+            type="text"
+            aria-label="Add a category"
+            placeholder="Category"
+            maxLength={30}
+            // biome-ignore lint/a11y/noAutofocus: the field appears on the plus the person just pressed
+            autoFocus
+            value={word}
+            onChange={(e) => setWord(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commit();
+              } else if (e.key === 'Escape') {
+                setWord('');
+                setAdding(false);
+              }
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            className="sc-pstudio-catplus"
+            aria-label="Add a category"
+            onClick={() => setAdding(true)}
+          >
+            <Plus size={14} />
+          </button>
+        )}
+      </div>
+    </fieldset>
+  );
+}
+
+/** The whole setup form; the head's toggle decides whether the middle is a sentence or photographs. */
+export function SetupForm({
+  mode,
+  canDraw,
+  engineOff,
+  name,
+  onName,
+  gender,
+  onGender,
+  direction,
+  onDirection,
+  onCreate,
   hashes,
   uploading,
   attested,
-  canDraw,
-  error,
   onAdd,
   onRemove,
   onReject,
   onAttested,
+  notes,
+  onNotes,
+  facets,
+  onFacets,
+  categories,
+  onSetup,
+  error,
 }: {
+  mode: Mode;
+  canDraw: boolean;
+  engineOff: boolean;
+  name: string;
+  onName: (next: string) => void;
+  gender: Gender | null;
+  onGender: (next: Gender | null) => void;
+  direction: string;
+  onDirection: (next: string) => void;
+  onCreate: () => void;
   hashes: string[];
   uploading: boolean;
   attested: boolean;
-  canDraw: boolean;
-  error?: string | null;
   onAdd: (files: File[]) => void;
   onRemove: (hash: string) => void;
   onReject: () => void;
   onAttested: (on: boolean) => void;
+  notes: string;
+  onNotes: (next: string) => void;
+  facets: string[];
+  onFacets: (next: string[]) => void;
+  categories: string[];
+  onSetup: () => void;
+  error?: string | null;
 }) {
+  const enterCreates = (e: KeyboardEvent) => {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+    e.preventDefault();
+    onCreate();
+  };
   return (
-    <div className="sc-pstudio-field sc-pstudio-photos">
-      <span className="sc-newdlg-seclabel">Photos</span>
-      <PhotoSlots hashes={hashes} uploading={uploading} onAdd={onAdd} onRemove={onRemove} onReject={onReject} />
-      <p className="sc-pstudio-line">{photosHint(hashes.length)}</p>
-      {!canDraw && (
-        <p className="sc-pstudio-line">No engine here can draw the other views. The photos are saved as they are.</p>
+    <div className="sc-pstudio-form">
+      <Field id="sc-pstudio-name" label="Name">
+        <input
+          id="sc-pstudio-name"
+          className="sc-in"
+          type="text"
+          maxLength={60}
+          placeholder="Their name"
+          value={name}
+          onChange={(e) => onName(e.target.value)}
+          onKeyDown={enterCreates}
+        />
+      </Field>
+      <GenderCards value={gender} onChange={onGender} />
+      {mode === 'scratch' ? (
+        engineOff ? (
+          <SetupCard onSetup={onSetup} />
+        ) : (
+          <Field id="sc-pstudio-direction" label="Describe the presenter">
+            <textarea
+              id="sc-pstudio-direction"
+              className="sc-in sc-pstudio-direction"
+              rows={4}
+              maxLength={400}
+              placeholder="Natural-looking woman in her late 20s, slim build, long straight brown hair, calm expression"
+              value={direction}
+              onChange={(e) => onDirection(e.target.value)}
+              onKeyDown={enterCreates}
+            />
+          </Field>
+        )
+      ) : (
+        <div className="sc-pstudio-field sc-pstudio-photos">
+          <span className="sc-newdlg-seclabel">Your presenter</span>
+          <PhotoSlots hashes={hashes} uploading={uploading} onAdd={onAdd} onRemove={onRemove} onReject={onReject} />
+          <p className="sc-pstudio-line">{photosHint(hashes.length)}</p>
+          {!canDraw && (
+            <p className="sc-pstudio-line">
+              No engine here can draw the other views. The photos are saved as they are.
+            </p>
+          )}
+          <label className="sc-pstudio-consent">
+            <input type="checkbox" checked={attested} onChange={(e) => onAttested(e.target.checked)} />
+            <span>
+              I confirm this is a real person who is 18 or older and has given me permission to use their likeness in
+              commercial images, and that I am responsible for that permission.
+            </span>
+          </label>
+        </div>
       )}
-      <label className="sc-pstudio-consent">
-        <input type="checkbox" checked={attested} onChange={(e) => onAttested(e.target.checked)} />
-        <span>
-          I confirm this is a real person who is 18 or older and has given me permission to use their likeness in
-          commercial images, and that I am responsible for that permission.
-        </span>
-      </label>
+      <Field id="sc-pstudio-notes" label="Optional notes">
+        <input
+          id="sc-pstudio-notes"
+          className="sc-in"
+          type="text"
+          maxLength={400}
+          placeholder="Anything worth knowing about them"
+          value={notes}
+          onChange={(e) => onNotes(e.target.value)}
+          onKeyDown={enterCreates}
+        />
+      </Field>
+      <CategoriesField categories={categories} facets={facets} onFacets={onFacets} />
       {error && (
         <p className="sc-newdlg-err" role="alert">
           {error}
@@ -208,8 +414,8 @@ export function PhotosPanel({
   );
 }
 
-/** The words that belong to a presenter, asked for once the person exists. */
-export function ReviewFields({
+/** The words that belong to a presenter, behind Change once the person exists. */
+export function DetailsFields({
   name,
   onName,
   facets,
@@ -217,8 +423,6 @@ export function ReviewFields({
   notes,
   onNotes,
   categories,
-  details,
-  onDetails,
   onEnter,
 }: {
   name: string;
@@ -228,16 +432,11 @@ export function ReviewFields({
   notes: string;
   onNotes: (next: string) => void;
   categories: string[];
-  details: boolean;
-  onDetails: (open: boolean) => void;
   onEnter: () => void;
 }) {
   return (
-    <div className="sc-pstudio-review">
-      <div className="sc-pstudio-field">
-        <label className="sc-newdlg-seclabel" htmlFor="sc-pstudio-name">
-          Name
-        </label>
+    <div id="sc-pstudio-details" className="sc-pstudio-details">
+      <Field id="sc-pstudio-name" label="Name">
         <input
           id="sc-pstudio-name"
           className="sc-in"
@@ -252,53 +451,19 @@ export function ReviewFields({
             onEnter();
           }}
         />
-      </div>
-      <button
-        type="button"
-        className="sc-newdlg-secmore"
-        aria-expanded={details}
-        aria-controls="sc-pstudio-details"
-        onClick={() => onDetails(!details)}
-      >
-        {details ? 'Details' : '+ Details'}
-      </button>
-      {details && (
-        <div id="sc-pstudio-details" className="sc-pstudio-details">
-          {categories.length > 0 && (
-            <fieldset className="sc-assetform-facets">
-              <legend>Categories</legend>
-              <div className="sc-assetform-facets-chips">
-                {categories.map((v) => (
-                  <button
-                    type="button"
-                    key={v}
-                    className="sc-chip"
-                    data-on={facets.includes(v) || undefined}
-                    aria-pressed={facets.includes(v)}
-                    onClick={() => onFacets(facets.includes(v) ? facets.filter((x) => x !== v) : [...facets, v])}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-          )}
-          <div className="sc-pstudio-field">
-            <label className="sc-newdlg-seclabel" htmlFor="sc-pstudio-notes">
-              Notes
-            </label>
-            <textarea
-              id="sc-pstudio-notes"
-              className="sc-in"
-              rows={2}
-              maxLength={400}
-              placeholder="Anything worth knowing about them"
-              value={notes}
-              onChange={(e) => onNotes(e.target.value)}
-            />
-          </div>
-        </div>
-      )}
+      </Field>
+      <Field id="sc-pstudio-notes" label="Notes">
+        <textarea
+          id="sc-pstudio-notes"
+          className="sc-in"
+          rows={2}
+          maxLength={400}
+          placeholder="Anything worth knowing about them"
+          value={notes}
+          onChange={(e) => onNotes(e.target.value)}
+        />
+      </Field>
+      <CategoriesField categories={categories} facets={facets} onFacets={onFacets} />
     </div>
   );
 }

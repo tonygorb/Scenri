@@ -211,7 +211,7 @@ describe('custom presenters and scenes', () => {
       throw new Error('the draft never settled');
     };
     let d = await settledDraft();
-    for (const view of ['portrait', 'front', 'three-quarter'] as const) {
+    for (const view of ['portrait', 'front', 'left', 'back', 'right'] as const) {
       if (d.views[view].status === 'approved') continue;
       await app.inject({ method: 'POST', url: `${base}/${id}/views/${view}/generate`, payload: {} });
       d = await settledDraft();
@@ -293,7 +293,7 @@ describe('custom presenters and scenes', () => {
     expect(compiled.attachments.filter((a: any) => a.role === 'character').map((a: any) => a.angle)).toEqual([
       'portrait',
       'front',
-      'three-quarter',
+      'left',
     ]);
     expect(compiled.attachments[0].essential).toBe(true);
   });
@@ -316,7 +316,7 @@ describe('custom presenters and scenes', () => {
     expect(person.name).toBe('Mara Vance');
     expect(person.descriptor).toBe('Quiet, editorial');
     expect(person.promptName).toBe('a woman in her early thirties with dark waves'); // frozen
-    expect(person.shots).toHaveLength(3); // untouched by a field edit
+    expect(person.shots).toHaveLength(5); // untouched by a field edit
 
     const legacy = await app.inject({
       method: 'PATCH',

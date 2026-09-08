@@ -134,7 +134,7 @@ afterEach(() => {
 });
 
 /** Run one step and wait for it to land. */
-async function step(draftId: string, view: 'portrait' | 'front' | 'three-quarter', adjustment?: string) {
+async function step(draftId: string, view: 'portrait' | 'front' | 'left' | 'back' | 'right', adjustment?: string) {
   await generateView(deps(), draftId, view, { adjustment });
   for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
   return getPresenterDraft(core, draftId)!;
@@ -147,7 +147,7 @@ const refsOf = (req: GenerateRequest) =>
       .pop()!
       .replace(/\.png$/, ''),
   );
-const view = (d: PresenterDraftRecord, v: 'portrait' | 'front' | 'three-quarter') => d.views[v];
+const view = (d: PresenterDraftRecord, v: 'portrait' | 'front' | 'left' | 'back' | 'right') => d.views[v];
 
 async function synthetic(direction = 'confident woman in her 40s, short silver hair') {
   return createPresenterDraft(deps(), { brandId, source: 'synthetic', direction });
@@ -160,8 +160,12 @@ async function cast() {
   await approveView(deps(), d.id, 'portrait');
   d = await step(d.id, 'front');
   await approveView(deps(), d.id, 'front');
-  d = await step(d.id, 'three-quarter');
-  await approveView(deps(), d.id, 'three-quarter');
+  d = await step(d.id, 'left');
+  await approveView(deps(), d.id, 'left');
+  d = await step(d.id, 'back');
+  await approveView(deps(), d.id, 'back');
+  d = await step(d.id, 'right');
+  await approveView(deps(), d.id, 'right');
   return getPresenterDraft(core, d.id)!;
 }
 
@@ -219,7 +223,7 @@ describe('from scratch: the identity is one person, rolled and then locked', () 
   it('refuses a view whose dependencies are not approved, and a second job while one runs', async () => {
     const d = await synthetic();
     await expect(generateView(deps(), d.id, 'front', {})).rejects.toThrow(/face/);
-    await expect(generateView(deps(), d.id, 'three-quarter', {})).rejects.toThrow(/face/);
+    await expect(generateView(deps(), d.id, 'left', {})).rejects.toThrow(/face/);
     await generateView(deps(), d.id, 'portrait', {});
     await expect(generateView(deps(), d.id, 'portrait', {})).rejects.toMatchObject({ statusCode: 409 });
     for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
@@ -251,7 +255,7 @@ describe('regenerating a step never moves an approved one', () => {
     expect(refsOf(generated[2])).toEqual([portrait]);
   });
 
-  it('the three-quarter is drawn from both approved views and nothing that was rejected', async () => {
+  it('the left is drawn from both approved views and nothing that was rejected', async () => {
     let d = await synthetic();
     d = await step(d.id, 'portrait');
     await approveView(deps(), d.id, 'portrait');
@@ -259,11 +263,11 @@ describe('regenerating a step never moves an approved one', () => {
     const rejectedFront = view(d, 'front').hash!;
     d = await step(d.id, 'front');
     await approveView(deps(), d.id, 'front');
-    d = await step(d.id, 'three-quarter');
+    d = await step(d.id, 'left');
     const refs = refsOf(generated[3]);
     expect(refs).toEqual([view(d, 'portrait').hash, view(d, 'front').hash]);
     expect(refs).not.toContain(rejectedFront);
-    expect(generated[3].prompt).toMatch(/about 40 degrees/);
+    expect(generated[3].prompt).toMatch(/left side faces the camera/);
   });
 });
 
@@ -274,7 +278,9 @@ describe('redoing an upstream view', () => {
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'portrait').status).toBe('empty');
     expect(view(d, 'front').status).toBe('stale');
-    expect(view(d, 'three-quarter').status).toBe('stale');
+    expect(view(d, 'left').status).toBe('stale');
+    expect(view(d, 'back').status).toBe('stale');
+    expect(view(d, 'right').status).toBe('stale');
     // the identity is being re-rolled: the words read off the old face go too
     expect(d.analysis).toBeUndefined();
     await updatePresenterDraft(core, d.id, { name: 'Ilse' });
@@ -284,19 +290,25 @@ describe('redoing an upstream view', () => {
     await expect(savePresenterDraft(deps(), d.id)).rejects.toThrow(/full body|front/i);
     d = await step(d.id, 'front');
     await approveView(deps(), d.id, 'front');
-    d = await step(d.id, 'three-quarter');
-    await approveView(deps(), d.id, 'three-quarter');
+    d = await step(d.id, 'left');
+    await approveView(deps(), d.id, 'left');
+    d = await step(d.id, 'back');
+    await approveView(deps(), d.id, 'back');
+    d = await step(d.id, 'right');
+    await approveView(deps(), d.id, 'right');
     const saved = await savePresenterDraft(deps(), d.id);
     expect(saved.presenter.id).toMatch(/^up-[a-f0-9]{8}$/);
   });
 
-  it('redoing the front stales only the three-quarter', async () => {
+  it('redoing the front stales the turned views and leaves the face', async () => {
     let d = await cast();
     await redoView(deps(), d.id, 'front');
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'portrait').status).toBe('approved');
     expect(view(d, 'front').status).toBe('empty');
-    expect(view(d, 'three-quarter').status).toBe('stale');
+    expect(view(d, 'left').status).toBe('stale');
+    expect(view(d, 'back').status).toBe('stale');
+    expect(view(d, 'right').status).toBe('stale');
     expect(d.analysis).toBeDefined();
   });
 
@@ -305,7 +317,7 @@ describe('redoing an upstream view', () => {
     await updatePresenterDraft(core, d.id, { name: 'Ilse', facets: ['Beauty'], direction: 'something else' });
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'front').status).toBe('approved');
-    expect(view(d, 'three-quarter').status).toBe('approved');
+    expect(view(d, 'left').status).toBe('approved');
     expect(d.name).toBe('Ilse');
     expect(d.facets).toEqual(['Beauty']);
   });
@@ -373,11 +385,13 @@ describe('saving', () => {
     expect(presenter.build).toBe('tall and slender');
     expect(presenter.suitableCategories).toEqual(['Beauty']);
     expect(presenter.likeness).toBeUndefined();
-    expect(presenter.shots?.map((s) => s.angle)).toEqual(['portrait', 'front', 'three-quarter']);
+    expect(presenter.shots?.map((s) => s.angle)).toEqual(['portrait', 'front', 'left', 'back', 'right']);
     expect(presenter.shots?.map((s) => s.file)).toEqual([
       `asset:${d.views.portrait.hash}`,
       `asset:${d.views.front.hash}`,
-      `asset:${d.views['three-quarter'].hash}`,
+      `asset:${d.views.left.hash}`,
+      `asset:${d.views.back.hash}`,
+      `asset:${d.views.right.hash}`,
     ]);
     expect(presenter.sourceRefs).toBeUndefined();
     // the avatar is a crop of the approved portrait, the card is the portrait
@@ -403,11 +417,21 @@ describe('saving', () => {
     await approveView(deps(), d.id, 'portrait');
     d = await step(d.id, 'front');
     await approveView(deps(), d.id, 'front');
-    d = await step(d.id, 'three-quarter');
-    await approveView(deps(), d.id, 'three-quarter');
+    d = await step(d.id, 'left');
+    await approveView(deps(), d.id, 'left');
+    d = await step(d.id, 'back');
+    await approveView(deps(), d.id, 'back');
+    d = await step(d.id, 'right');
+    await approveView(deps(), d.id, 'right');
     await updatePresenterDraft(core, d.id, { name: 'Ilse' });
     d = getPresenterDraft(core, d.id)!;
-    const kept = [d.views.portrait.hash!, d.views.front.hash!, d.views['three-quarter'].hash!];
+    const kept = [
+      d.views.portrait.hash!,
+      d.views.front.hash!,
+      d.views.left.hash!,
+      d.views.back.hash!,
+      d.views.right.hash!,
+    ];
     await savePresenterDraft(deps(), d.id);
     expect(existsSync(core.images.pathFor(rejected))).toBe(false);
     for (const h of kept) expect(existsSync(core.images.pathFor(h))).toBe(true);
@@ -442,7 +466,7 @@ describe('saving', () => {
     expect(chars).toHaveLength(3);
     expect(chars[0].essential).toBe(true);
     expect(chars[0].hash).toBe(d.views.portrait.hash);
-    expect(chars.map((a) => a.angle)).toEqual(['portrait', 'front', 'three-quarter']);
+    expect(chars.map((a) => a.angle)).toEqual(['portrait', 'front', 'left']);
     expect(r.prompt).toContain('a woman in her forties with a short silver crop');
     expect(r.prompt).toContain('square jaw, strong brow');
     expect(r.warnings).toEqual([]);
@@ -598,8 +622,12 @@ describe('from photos: the originals are the truth', () => {
     d = await settled(d.id);
     d = await step(d.id, 'front');
     await approveView(deps(), d.id, 'front');
-    d = await step(d.id, 'three-quarter');
-    await approveView(deps(), d.id, 'three-quarter');
+    d = await step(d.id, 'left');
+    await approveView(deps(), d.id, 'left');
+    d = await step(d.id, 'back');
+    await approveView(deps(), d.id, 'back');
+    d = await step(d.id, 'right');
+    await approveView(deps(), d.id, 'right');
     await updatePresenterDraft(core, d.id, { name: 'Noor' });
     const { presenter } = await savePresenterDraft(deps(), d.id);
     expect(presenter.source).toBe('photos');
@@ -622,24 +650,26 @@ describe('from photos: the originals are the truth', () => {
     await usePhotoForView(deps(), d.id, 'front', b);
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'front')).toMatchObject({ status: 'approved', hash: b, origin: 'photo' });
-    d = await step(d.id, 'three-quarter');
-    await approveView(deps(), d.id, 'three-quarter');
+    d = await step(d.id, 'left');
+    await approveView(deps(), d.id, 'left');
     await usePhotoForView(deps(), d.id, 'portrait', b);
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'portrait').hash).toBe(b);
     // the photograph stands whatever changed upstream; the drawn view does not
     expect(view(d, 'front').status).toBe('approved');
-    expect(view(d, 'three-quarter').status).toBe('stale');
+    expect(view(d, 'left').status).toBe('stale');
     await expect(usePhotoForView(deps(), d.id, 'front', 'f'.repeat(32))).rejects.toMatchObject({ statusCode: 400 });
   });
 });
 
-describe('the three-view contract', () => {
-  it('is face, full body, three-quarter, each drawn from the approved views before it', () => {
-    expect(PRESENTER_VIEWS).toEqual(['portrait', 'front', 'three-quarter']);
+describe('the five-view contract', () => {
+  it('is face, front, left, back, right, each drawn from the approved views before it', () => {
+    expect(PRESENTER_VIEWS).toEqual(['portrait', 'front', 'left', 'back', 'right']);
     expect(DEPENDS.portrait).toEqual([]);
     expect(DEPENDS.front).toEqual(['portrait']);
-    expect(DEPENDS['three-quarter']).toEqual(['portrait', 'front']);
+    expect(DEPENDS.left).toEqual(['portrait', 'front']);
+    expect(DEPENDS.back).toEqual(['portrait', 'front']);
+    expect(DEPENDS.right).toEqual(['portrait', 'front', 'left']);
   });
 
   it('planStep attaches approved views first, then the photographs, inside the cap', () => {
@@ -653,13 +683,13 @@ describe('the three-view contract', () => {
       views: {
         portrait: { ...empty, status: 'approved' as const, hash: 'p' },
         front: { ...empty, status: 'approved' as const, hash: 'f' },
-        'three-quarter': empty,
+        left: empty,
       },
     } as unknown as PresenterDraftRecord;
-    const tq = planStep(rec, 'three-quarter', undefined, 5);
+    const tq = planStep(rec, 'left', undefined, 5);
     expect(tq.refs).toEqual(['p', 'f', 's1', 's2', 's3']);
-    expect(tq.prompt).toMatch(/about 40 degrees/);
-    expect(planStep(rec, 'three-quarter', undefined, 3).refs).toEqual(['p', 'f', 's1']);
+    expect(tq.prompt).toMatch(/left side faces the camera/);
+    expect(planStep(rec, 'left', undefined, 3).refs).toEqual(['p', 'f', 's1']);
     const synth = planStep(
       { ...rec, source: 'synthetic', direction: 'a woman in her 30s', views: { ...rec.views, portrait: empty } },
       'portrait',
@@ -690,7 +720,7 @@ describe('revising an approved view', () => {
     expect(view(d, 'portrait').prior).toBeUndefined();
     expect(view(d, 'portrait').rejected).toContain(face);
     expect(view(d, 'front').status).toBe('stale');
-    expect(view(d, 'three-quarter').status).toBe('stale');
+    expect(view(d, 'left').status).toBe('stale');
     expect(view(d, 'front').hash).toBe(front);
     // a stale view is drawn again from the new face, and the old front retires
     d = await step(d.id, 'front');
@@ -711,7 +741,7 @@ describe('revising an approved view', () => {
     expect(view(d, 'portrait').prior).toBeUndefined();
     expect(view(d, 'portrait').rejected).toContain(revision);
     expect(view(d, 'front').status).toBe('approved');
-    expect(view(d, 'three-quarter').status).toBe('approved');
+    expect(view(d, 'left').status).toBe('approved');
     // a second revision before deciding lets the first candidate go and keeps the same prior
     d = await step(d.id, 'front', 'arms relaxed');
     const first = view(d, 'front').hash!;
@@ -719,7 +749,7 @@ describe('revising an approved view', () => {
     expect(view(d, 'front').prior).toBe(d.views.front.prior);
     expect(view(d, 'front').rejected).toContain(first);
     await updatePresenterDraft(core, d.id, { name: 'Ilse' });
-    await expect(savePresenterDraft(deps(), d.id)).rejects.toThrow(/full body/);
+    await expect(savePresenterDraft(deps(), d.id)).rejects.toThrow(/front view/);
   });
 
   it('a failed revision leaves the approved picture exactly where it was', async () => {

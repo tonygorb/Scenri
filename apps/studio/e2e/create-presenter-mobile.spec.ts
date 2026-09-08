@@ -107,7 +107,7 @@ test('the picture, the strip and the decision all fit, and the strip scrolls sid
   await expect(use).toBeVisible({ timeout: 20_000 });
   await settledBox(page, '.sc-newdlg');
   await expect(page.locator('.sc-pstudio-well img')).toBeVisible();
-  await expect(page.locator('.sc-pstudio-slot')).toHaveCount(3);
+  await expect(page.locator('.sc-pstudio-slot')).toHaveCount(5);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
   const box = await use.boundingBox();
