@@ -38,6 +38,30 @@ export interface CustomPresenter {
   /** Square head-and-shoulders crop of the same view, for round surfaces. */
   avatar?: string;
   notes?: string;
+  /**
+   * Where this person came from. `synthetic` was made here from a description;
+   * `photos` was built from photographs of a real person. Absent on a record
+   * written before the distinction, which reads as photos. There is no third
+   * value on purpose: a public figure is not a source Scenri offers.
+   */
+  source?: PresenterSource;
+  /** The confirmation given for a real person's commercial likeness. Never on a synthetic person. */
+  likeness?: LikenessConfirmation;
+  /** Bone structure in words; full-length pictures cannot carry it. Injected verbatim, name-prefixed. */
+  facial?: string;
+  /** Skin tone and texture as the references show it. Injected verbatim, name-prefixed. */
+  skin?: string;
+  /** Body type and proportions. Injected verbatim, name-prefixed. */
+  build?: string;
+}
+
+export type PresenterSource = 'synthetic' | 'photos';
+export const PRESENTER_SOURCES: readonly PresenterSource[] = ['synthetic', 'photos'];
+/** Which wording of the likeness confirmation was shown, so a later rewording is a new version. */
+export const LIKENESS_VERSION = 'v1';
+export interface LikenessConfirmation {
+  attestedAt: string;
+  version: typeof LIKENESS_VERSION;
 }
 
 /** A `scenes[]` entry. Structurally a Scene, plus where it came from. */
@@ -225,6 +249,11 @@ export interface PresenterInput {
   sourceHashes?: unknown;
   previewHash?: unknown;
   avatarHash?: unknown;
+  source?: unknown;
+  likeness?: unknown;
+  facial?: unknown;
+  skin?: unknown;
+  build?: unknown;
 }
 
 export function presenterRecordFrom(
@@ -237,12 +266,20 @@ export function presenterRecordFrom(
   // Angles ride with the files when the caller knows them. Without this the
   // portrait frame is indistinguishable from a standing view once stored, and
   // the identity crop would happily carve a forehead out of it.
+  // A re-order that names no angles is the same frames in a new order, so
+  // each frame keeps the angle the record already gave it, found by hash.
+  // Without this a re-order stripped every label and the portrait became
+  // indistinguishable from a standing view.
   const angles = has('shotAngles') ? strList(input.shotAngles, 8, 32) : [];
+  const knownAngle = (file: string) => base?.shots?.find((s) => s.file === file)?.angle;
   const shots = has('shotHashes')
     ? strList(input.shotHashes, 8, 64)
         .map((h) => assetRef(h))
         .filter((f): f is string => !!f)
-        .map((file, i) => (angles[i] ? { file, angle: angles[i], locked: true } : { file, locked: true }))
+        .map((file, i) => {
+          const angle = angles[i] ?? knownAngle(file);
+          return angle ? { file, angle, locked: true } : { file, locked: true };
+        })
     : (base?.shots ?? []);
   if (!shots.length) return { ok: false, error: 'a presenter needs at least one photo' };
   const sources = has('sourceHashes')
@@ -281,7 +318,28 @@ export function presenterRecordFrom(
   if (previewRef) presenter.preview = previewRef;
   const avatarRef = has('avatarHash') ? assetRef(input.avatarHash) : (base?.avatar ?? null);
   if (avatarRef) presenter.avatar = avatarRef;
+  // Where they came from is recorded, never inferred, and never a value
+  // there is no policy for.
+  const source = has('source') ? str(input.source, 16) : base?.source;
+  if (source && (PRESENTER_SOURCES as readonly string[]).includes(source)) presenter.source = source as PresenterSource;
+  const likeness = has('likeness') ? likenessOf(input.likeness) : base?.likeness;
+  if (likeness) presenter.likeness = likeness;
+  const facial = has('facial') ? str(input.facial, 300) : base?.facial;
+  if (facial) presenter.facial = facial;
+  const skin = has('skin') ? str(input.skin, 200) : base?.skin;
+  if (skin) presenter.skin = skin;
+  const build = has('build') ? str(input.build, 200) : base?.build;
+  if (build) presenter.build = build;
   return { ok: true, presenter };
+}
+
+/** A likeness confirmation is a date and the wording it was given under; anything less is not one. */
+function likenessOf(raw: unknown): LikenessConfirmation | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const at = str((raw as any).attestedAt, 40);
+  const version = str((raw as any).version, 8);
+  if (!at || version !== LIKENESS_VERSION) return undefined;
+  return { attestedAt: at, version: LIKENESS_VERSION };
 }
 
 /**

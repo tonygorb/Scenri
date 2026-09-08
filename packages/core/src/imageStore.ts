@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 export interface ImageStore {
@@ -7,6 +7,8 @@ export interface ImageStore {
   pathFor(hash: string): string;
   read(hash: string): Buffer;
   has(hash: string): boolean;
+  /** Unlink a stored image. True when there was one. The caller decides whether anything still needs it. */
+  remove(hash: string): boolean;
 }
 
 export function createImageStore(homeDir: string): ImageStore {
@@ -32,6 +34,12 @@ export function createImageStore(homeDir: string): ImageStore {
     },
     has(hash) {
       return /^[a-f0-9]{32}$/.test(hash) && existsSync(fileFor(hash));
+    },
+    remove(hash) {
+      const file = this.pathFor(hash);
+      if (!existsSync(file)) return false;
+      rmSync(file, { force: true });
+      return true;
     },
   };
 }

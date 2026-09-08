@@ -36,6 +36,23 @@ export interface AnalyzeRequest {
   priorDraft?: unknown;
   /** Allowed facet values, so a new asset lands in the filters that already exist. */
   vocabulary?: { collections?: string[]; verticals?: string[]; categories?: string[] };
+  /**
+   * File each attached photograph by the canonical view it could stand in
+   * for. Asked only when the photographs are the user's own uploads and the
+   * studio wants to know which views it need not draw.
+   */
+  classifyPhotos?: boolean;
+}
+
+/** Which canonical view a photograph could stand in for, and whether it is good enough to. */
+export type PhotoView = 'portrait' | 'front' | 'three-quarter' | 'other';
+export const PHOTO_VIEWS: readonly PhotoView[] = ['portrait', 'front', 'three-quarter', 'other'];
+export interface PhotoFiling {
+  /** Position in the attachment order: ref-1.png is 0. */
+  index: number;
+  view: PhotoView;
+  usable: boolean;
+  note: string;
 }
 
 export interface PresenterDraft {
@@ -50,6 +67,21 @@ export interface PresenterDraft {
   suitableCategories: string[];
   /** Non-blocking notes on which further view would make this person more consistent. */
   coverage: string[];
+  /**
+   * The three prose fields a curated presenter carries and the compiler
+   * reads: bone structure, skin, build. Optional, because a model that omits
+   * them must not burn the one retry that exists for a broken contract.
+   */
+  facial?: string;
+  skin?: string;
+  build?: string;
+  /** Present only when `classifyPhotos` was asked for and the answer had one. */
+  photos?: PhotoFiling[];
+  /**
+   * One sentence, only when the photographs appear to show more than one
+   * person. The studio shows it as a warning; nothing is refused on it.
+   */
+  conflict?: string;
 }
 
 export interface SceneDraft {
@@ -198,7 +230,24 @@ function presenterBody(req: AnalyzeRequest, refCount: number): string {
     ' "identityNotes": one paragraph naming the two or three features that must survive every generation, drawn from face shape, eyes, nose, mouth, jaw, skin, distinctive marks, and build where it is visible;' +
     ' "negativeConstraints": an array of short refusals for the drift these photographs invite, such as "no youth-smoothing that erases the natural lines";' +
     ` "suitableCategories": the industries this person would be cast for.${categories}` +
-    ' "coverage": an array of at most two short sentences naming a view that is missing and would make this person more consistent, such as "A three-quarter photo would pin the cheekbones down." Use an empty array when the coverage is already good.'
+    ' "coverage": an array of at most two short sentences naming a view that is missing and would make this person more consistent, such as "A three-quarter photo would pin the cheekbones down." Use an empty array when the coverage is already good;' +
+    ' "facial": bone structure in words, the face shape, jaw, cheekbones, eyes and brows a photographer would need to recognise them again;' +
+    ' "skin": their skin tone and texture exactly as the photographs show it, never smoothed;' +
+    ' "build": their body type and proportions where the photographs show them.' +
+    (req.classifyPhotos ? photosClause(refCount) : '')
+  );
+}
+
+/** The filing the studio asks for on the user's own uploads, so it knows which views it need not draw. */
+function photosClause(refCount: number): string {
+  return (
+    ` Also write "photos": an array with one entry per attached image in attachment order (ref-1.png is index 0, up to index ${Math.max(0, refCount - 1)}),` +
+    ' each an object {"index", "view", "usable", "note"}, where "view" is exactly one of' +
+    ' "portrait" (head and shoulders, the face large and facing the camera),' +
+    ' "front" (full length, standing, facing the camera),' +
+    ' "three-quarter" (head and shoulders, the head turned about 45 degrees with both eyes visible),' +
+    ' or "other"; "usable" is true only when the image is sharp, evenly lit, unobstructed, and shows this person clearly enough to stand in as that view; "note" is a few words on why.' +
+    ' If the photographs appear to show more than one person, also write "conflict": one sentence saying which images disagree; otherwise leave "conflict" out.'
   );
 }
 
@@ -343,8 +392,40 @@ function parsePresenter(req: AnalyzeRequest, o: Record<string, unknown>): ParseR
       negativeConstraints: list(o.negativeConstraints, 6, 160),
       suitableCategories: pick(o.suitableCategories, req.vocabulary?.categories, 6),
       coverage: list(o.coverage, 2, 160),
+      // Non-blocking, like scene's `camera`: a model that omits or fumbles
+      // these must not burn the single retry that exists for a broken contract.
+      ...optional('facial', cap(str(o.facial), 300)),
+      ...optional('skin', cap(str(o.skin), 200)),
+      ...optional('build', cap(str(o.build), 200)),
+      ...(req.classifyPhotos ? optional('photos', photoFilings(o.photos, req.imagePaths.length)) : {}),
+      ...(req.classifyPhotos ? optional('conflict', cap(str(o.conflict), 200)) : {}),
     },
   };
+}
+
+/** A key only when there is a value, so an absent answer stays absent rather than empty. */
+function optional<K extends string, V>(key: K, value: V | '' | undefined): Partial<Record<K, V>> {
+  return value === undefined || value === '' || (Array.isArray(value) && value.length === 0)
+    ? {}
+    : ({ [key]: value } as Record<K, V>);
+}
+
+/** The photo filing, tolerated into shape: bad rows dropped, unknown views "other", loose booleans coerced. */
+function photoFilings(raw: unknown, count: number): PhotoFiling[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: PhotoFiling[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const r = row as Record<string, unknown>;
+    const index = Number(r.index);
+    if (!Number.isInteger(index) || index < 0 || index >= count) continue;
+    const view = (PHOTO_VIEWS as readonly string[]).includes(str(r.view).toLowerCase())
+      ? (str(r.view).toLowerCase() as PhotoView)
+      : 'other';
+    const usable = r.usable === true || /^(true|yes)$/i.test(str(r.usable));
+    out.push({ index, view, usable, note: cap(str(r.note), 160) });
+  }
+  return out.length ? out : undefined;
 }
 
 function parseScene(req: AnalyzeRequest, o: Record<string, unknown>): ParseResult {
