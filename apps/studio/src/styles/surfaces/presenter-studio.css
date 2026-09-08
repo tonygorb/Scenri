@@ -77,7 +77,7 @@
 
 /* ---- tabs: the library's underline tabs, sitting still ------------------- */
 .sc-pstudio-tabs {
-  padding: var(--sc-space-5) var(--sc-space-7) 0;
+  padding: var(--sc-space-7) var(--sc-space-7) 0;
 }
 
 .sc-pstudio-modes {
@@ -92,7 +92,7 @@
   justify-content: center;
   gap: var(--sc-space-4);
   height: 38px;
-  font-size: 14px;
+  font-size: var(--sc-text-control);
 }
 
 /* ---- stage: padded 20, the well 20 further in, the strip block 180 ------- */
@@ -485,7 +485,7 @@
 }
 
 .sc-pstudio-field[data-group] {
-  margin-bottom: var(--sc-space-8);
+  margin-bottom: calc(2 * var(--sc-space-6));
 }
 
 .sc-pstudio-fieldset {
@@ -610,7 +610,7 @@
 .sc-pstudio-whocard-lb {
   font-size: 13px;
   line-height: 20px;
-  color: var(--sc-fg3);
+  color: var(--sc-fg2);
 }
 
 .sc-pstudio-whocard[data-on] .sc-pstudio-whocard-lb {
@@ -952,13 +952,15 @@
   margin-top: var(--sc-space-3);
 }
 
+/* the same 44 every input in the rail stands at */
 .sc-pstudio-resume {
   display: flex;
   align-items: center;
   gap: var(--sc-space-5);
   width: 100%;
+  min-height: 44px;
   margin: 0 0 var(--sc-space-7);
-  padding: var(--sc-space-4) var(--sc-space-5);
+  padding: var(--sc-space-3) var(--sc-space-5);
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius);
   background: none;
@@ -975,8 +977,8 @@
 .sc-pstudio-resume img,
 .sc-pstudio-resume-blank {
   flex: none;
-  width: 28px;
-  height: 34px;
+  width: 24px;
+  height: 30px;
   object-fit: cover;
   border-radius: var(--sc-radius-sm);
   background: var(--sc-pstudio-field);
@@ -1058,7 +1060,7 @@
 .sc-pstudio-foot {
   display: flex;
   flex-direction: column;
-  gap: var(--sc-space-5);
+  gap: var(--sc-space-4);
   padding: var(--sc-space-7);
 }
 
@@ -1115,15 +1117,15 @@
   gap: var(--sc-space-3);
 }
 
-/* the card sits one step above its own ground, the way the app's composer
-   does on the page: the rail is ink-900, so this is the surface above it */
+/* the card stands on the same ground as every input in the rail; the
+   border and the lift are what say it floats, as in the frame */
 .sc-pstudio-composer-card {
   position: relative;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--sc-line-strong);
   border-radius: var(--sc-radius-float);
-  background: var(--sc-raised);
+  background: var(--sc-pstudio-field);
   box-shadow: var(--sc-shadow-float);
 }
 
@@ -1201,8 +1203,15 @@
   cursor: pointer;
 }
 
+.sc-pstudio-send:not([aria-disabled="true"]) {
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+}
+
 .sc-pstudio-send:hover:not([aria-disabled="true"]) {
-  color: var(--sc-fg);
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+  opacity: 0.92;
 }
 
 .sc-pstudio-send[aria-disabled="true"] {
@@ -1212,7 +1221,14 @@
 .sc-pstudio-composer-hint {
   padding: 0 var(--sc-space-2);
   font-size: var(--sc-text-micro);
+  line-height: 16px;
   color: var(--sc-fg3);
+}
+
+.sc-pstudio-foot .sc-dlg-foot {
+  margin-top: 0;
+  font-size: var(--sc-text-micro);
+  line-height: 16px;
 }
 
 .sc-pstudio-composer-hint[data-tone="alert"] {
@@ -1267,6 +1283,9 @@
     grid-area: body;
     overflow-y: auto;
     overscroll-behavior: contain;
+    /* the foot brings its own 20 above the composer; together with this the
+       gap before the card is the 32 a group boundary gets, not 40 */
+    padding-bottom: var(--sc-space-5);
   }
 
   .sc-pstudio-foot {
