@@ -5,6 +5,7 @@ import {
   VIEWS,
   NO_TRAITS,
   castSentence,
+  hairName,
   composerState,
   coverageLine,
   currentView,
@@ -329,9 +330,9 @@ describe('the three things a roll cannot guess', () => {
   const T = (p: Partial<Traits> = {}): Traits => ({ ...NO_TRAITS, ...p });
 
   it('leads the sentence in the order a person would say them', () => {
-    expect(castSentence(T({ steer: 'woman', age: '30s', tone: 'olive' }), 'natural curls, calm expression')).toBe(
-      'a woman in her 30s with olive skin, natural curls, calm expression',
-    );
+    expect(
+      castSentence(T({ steer: 'woman', age: '30s', tone: 'olive', hair: 'black' }), 'natural curls, calm expression'),
+    ).toBe('a woman in her 30s with olive skin and black hair, natural curls, calm expression');
     expect(castSentence(T({ steer: 'man', age: '60+' }), 'close-cropped beard')).toBe(
       'a man in his 60s or older, close-cropped beard',
     );
@@ -345,7 +346,11 @@ describe('the three things a roll cannot guess', () => {
   it('drops any part the sentence already covers, rather than saying it twice', () => {
     expect(castSentence(T({ steer: 'man' }), 'a guy with a full beard')).toBe('a guy with a full beard');
     expect(castSentence(T({ steer: 'woman', age: '30s' }), 'a woman in her forties')).toBe('a woman in her forties');
-    expect(castSentence(T({ tone: 'fair' }), 'freckled skin, red hair')).toBe('freckled skin, red hair');
+    expect(castSentence(T({ tone: 'fair', hair: 'red' }), 'freckled skin, red hair')).toBe('freckled skin, red hair');
+    // one of the two said, the other not: only the missing half is added
+    expect(castSentence(T({ tone: 'deep', hair: 'black' }), 'a shaved head')).toBe(
+      'with deep brown skin, a shaved head',
+    );
     expect(castSentence(NO_TRAITS, 'someone warm')).toBe('someone warm');
     expect(castSentence(T({ steer: 'man' }), '   ')).toBe('');
   });
@@ -355,6 +360,21 @@ describe('the three things a roll cannot guess', () => {
     expect(whoHint(T({ steer: 'woman' }), 'someone friendly in their 30s')).toBeNull();
     expect(whoHint(NO_TRAITS, 'a woman in her forties')).toBeNull();
     expect(whoHint(NO_TRAITS, '')).toBeNull();
+  });
+});
+
+describe('a colour becomes a word', () => {
+  it('names the nearest hair colour, because a hex in a prompt is dropped or guessed', () => {
+    expect(hairName('#1a1817')).toBe('jet black');
+    expect(hairName('#d9b26a')).toBe('honey blonde');
+    expect(hairName('#a98cd4')).toBe('lavender');
+    expect(hairName('#2f9a94')).toBe('teal');
+    expect(hairName('not a colour')).toBe('dyed');
+  });
+
+  it('sends the picked colour as those words', () => {
+    const t = { ...NO_TRAITS, hair: '#e374a6' };
+    expect(castSentence(t, 'a sharp bob')).toBe('with pink hair, a sharp bob');
   });
 });
 

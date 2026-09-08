@@ -477,9 +477,15 @@
   font-size: 13px;
 }
 
-/* fields: the Figma field, 44 tall, 15px, on ink-800 */
+/* fields: the Figma field, 44 tall, 15px, on ink-800. One rhythm inside a
+   group, a wider one between groups, and no dividing lines: in a rail this
+   narrow a hairline between fields is noise, and space says the same thing. */
 .sc-pstudio-field {
   margin-bottom: var(--sc-space-7);
+}
+
+.sc-pstudio-field[data-group] {
+  margin-bottom: var(--sc-space-8);
 }
 
 .sc-pstudio-fieldset {
@@ -651,6 +657,22 @@
 }
 
 .sc-pstudio-swatch[data-on] {
+  box-shadow: inset 0 0 0 1.5px var(--sc-fg);
+}
+
+/* the last swatch is any colour at all: the app's own picker, wearing the
+   same 30px circle so the row reads as one set */
+.sc-pstudio-swatch-any {
+  position: relative;
+  color: var(--sc-fg2);
+  background: var(--sc-pstudio-field);
+}
+
+.sc-pstudio-swatch-any:hover {
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-swatch-any[data-on] {
   box-shadow: inset 0 0 0 1.5px var(--sc-fg);
 }
 

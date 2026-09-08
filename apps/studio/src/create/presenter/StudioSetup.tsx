@@ -2,10 +2,19 @@ import { Check, Image as ImageIcon, Plus, TextAa, X } from '@phosphor-icons/reac
 import { type KeyboardEvent, type ReactNode, useRef } from 'react';
 import { thumbUrl } from '../../api.js';
 import { Choice, Choices } from '../../composer/shotSettings/Choices.js';
+import { ColorPicker } from '../../layout/ColorPicker.js';
 import { CategoryMenu } from './CategoryMenu.js';
 import { useFileDrop } from '../../layout/Dropzone.js';
 import { OpenAIMark } from '../../layout/OpenAIMark.js';
-import { type Age, MAX_PHOTOS, photosHint, type Steer, type Tone, type Traits } from './presenterStudioRules.js';
+import {
+  type Age,
+  hairName,
+  MAX_PHOTOS,
+  photosHint,
+  type Steer,
+  type Tone,
+  type Traits,
+} from './presenterStudioRules.js';
 
 /**
  * The setup rail: two ways to start as tabs, then the three things a roll
@@ -78,9 +87,21 @@ export function SetupCard({ onSetup }: { onSetup: () => void }) {
  * value that is set, which is where a person looks for it: beside the name of
  * the thing, not trailing the control that sets it.
  */
-function Field({ id, label, value, children }: { id?: string; label: string; value?: string; children: ReactNode }) {
+function Field({
+  id,
+  label,
+  value,
+  group,
+  children,
+}: {
+  id?: string;
+  label: string;
+  value?: string;
+  group?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <div className="sc-pstudio-field">
+    <div className="sc-pstudio-field" data-group={group || undefined}>
       <div className="sc-pstudio-fieldhead">
         {id ? (
           <label className="sc-newdlg-seclabel" htmlFor={id}>
@@ -115,13 +136,23 @@ const AGES: { id: Age; label: string }[] = [
   { id: '50s', label: '50s' },
   { id: '60+', label: '60+' },
 ];
-/** The swatch is the label: a word for skin means little, a colour means it at a glance. */
+/** The swatch is the label: a word for a colour means little, the colour means it at a glance. */
+const HAIRS: { id: string; label: string; hex: string }[] = [
+  { id: 'black', label: 'Black', hex: '#1f1d1c' },
+  { id: 'brown', label: 'Brown', hex: '#4a2f1d' },
+  { id: 'blonde', label: 'Blonde', hex: '#d9b26a' },
+  { id: 'red', label: 'Red', hex: '#a33b1f' },
+  { id: 'grey', label: 'Grey', hex: '#b9b6b1' },
+  { id: 'white', label: 'White', hex: '#efece7' },
+];
+
 const TONES: { id: Tone; label: string; hex: string }[] = [
   { id: 'fair', label: 'Fair', hex: '#f3ddcd' },
   { id: 'light', label: 'Light', hex: '#e6c0a2' },
-  { id: 'olive', label: 'Olive', hex: '#c99b6e' },
-  { id: 'brown', label: 'Brown', hex: '#96603a' },
-  { id: 'deep', label: 'Deep', hex: '#5a3825' },
+  { id: 'olive', label: 'Olive', hex: '#cfa274' },
+  { id: 'tan', label: 'Tan', hex: '#b07d4f' },
+  { id: 'brown', label: 'Brown', hex: '#8a5732' },
+  { id: 'deep', label: 'Deep', hex: '#523320' },
 ];
 
 /** Who they are, as three cards: a form, never a face, so a card is a kind and not a casting. */
@@ -157,20 +188,36 @@ function WhoRow({ value, onChange }: { value: Steer | null; onChange: (next: Ste
   );
 }
 
-/** Skin, as the thing itself: five swatches, the word under the chosen one. */
-function SkinRow({ value, onChange }: { value: Tone | null; onChange: (next: Tone | null) => void }) {
-  const chosen = TONES.find((t) => t.id === value);
+/** A colour, as the colour: swatches, and the word for the one that is set. */
+function SwatchRow<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  custom,
+}: {
+  label: string;
+  options: { id: T; label: string; hex: string }[];
+  value: T | null;
+  onChange: (next: T | null) => void;
+  /** Any colour at all, named for the prompt on the way out. */
+  custom?: { name: (hex: string) => string };
+}) {
+  const picked = value && !options.some((o) => o.id === value) ? value : null;
   return (
-    <Field label="Skin" value={chosen?.label}>
+    <Field
+      label={label}
+      value={picked ? cap(custom?.name(picked) ?? picked) : options.find((o) => o.id === value)?.label}
+    >
       <div className="sc-pstudio-skin">
         <Choices
-          label="Skin"
+          label={label}
           className="sc-pstudio-swatches"
           value={value ?? ''}
-          ids={TONES.map((o) => o.id)}
-          onChange={(id) => onChange(id as Tone)}
+          ids={options.map((o) => o.id)}
+          onChange={(id) => onChange(id as T)}
         >
-          {TONES.map((o) => (
+          {options.map((o) => (
             <Choice
               key={o.id}
               id={o.id}
@@ -183,10 +230,29 @@ function SkinRow({ value, onChange }: { value: Tone | null; onChange: (next: Ton
             </Choice>
           ))}
         </Choices>
+        {custom && (
+          <ColorPicker
+            className="sc-pstudio-swatch sc-pstudio-swatch-any"
+            label={`Any ${label.toLowerCase()} colour`}
+            value={picked ?? '#8a5a2b'}
+            // the swatch follows the cursor: a colour is judged while it moves
+            commitMode="live"
+            align="end"
+            onChange={(hex) => onChange(hex as T)}
+            triggerProps={{ 'data-on': picked ? '' : undefined }}
+            // the trigger paints its own value, which would show the suggested
+            // colour before one is chosen; empty is empty until it is picked
+            triggerStyle={{ background: picked ?? 'var(--sc-pstudio-field)' }}
+          >
+            {picked ? null : <Plus size={13} />}
+          </ColorPicker>
+        )}
       </div>
     </Field>
   );
 }
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * Age, as the app's own chips.
@@ -378,7 +444,7 @@ export function SetupForm({
 }) {
   return (
     <div className="sc-pstudio-form">
-      <Field id="sc-pstudio-setup-name" label="Name">
+      <Field id="sc-pstudio-setup-name" label="Name" group>
         <input
           id="sc-pstudio-setup-name"
           className="sc-in"
@@ -396,7 +462,14 @@ export function SetupForm({
           <>
             <WhoRow value={traits.steer} onChange={(steer) => onTraits({ steer })} />
             <AgeRow value={traits.age} onChange={(age) => onTraits({ age })} />
-            <SkinRow value={traits.tone} onChange={(tone) => onTraits({ tone })} />
+            <SwatchRow label="Skin" options={TONES} value={traits.tone} onChange={(tone) => onTraits({ tone })} />
+            <SwatchRow
+              label="Hair"
+              options={HAIRS}
+              value={traits.hair}
+              onChange={(hair) => onTraits({ hair })}
+              custom={{ name: hairName }}
+            />
           </>
         )
       ) : (

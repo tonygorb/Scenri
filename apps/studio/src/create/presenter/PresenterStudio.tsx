@@ -84,7 +84,7 @@ const clearPointer = (brandId: string) => {
   }
 };
 
-export function PresenterStudio({ onBack, onStarted, caps }: FlowProps) {
+export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps) {
   const { brand } = useBrand();
   const { close } = useDialogParam('new');
   const openSetup = useOpenSetup();
@@ -208,6 +208,19 @@ export function PresenterStudio({ onBack, onStarted, caps }: FlowProps) {
   // The pill's own emptiness covers the missing sentence; this is everything else.
   const primaryOff =
     mode === 'scratch' ? busy || boot || !caps : !hashes.length || !attested || busy || boot || uploading;
+  /**
+   * What it costs, and nothing else: what is being made is on the stage, and
+   * saying "five views, one at a time" in both places was saying it twice.
+   * The note still carries the engine's own state when it cannot be reached.
+   */
+  const footnote = capsNote(
+    engineOff
+      ? 'Saved from the photos you add.'
+      : caps?.free
+        ? 'Nothing billed through Scenri.'
+        : 'Each view is a generation.',
+  );
+
   // Why it cannot be pressed, said under the card rather than hidden in a tooltip.
   const blocked =
     mode === 'photos'
@@ -244,6 +257,7 @@ export function PresenterStudio({ onBack, onStarted, caps }: FlowProps) {
             canDraw={canDraw}
             onBack={onBack}
             onStarted={onStarted}
+            footnote={footnote}
             onGone={() => {
               clearPointer(brand.id);
               leaveDraft();
@@ -326,6 +340,7 @@ export function PresenterStudio({ onBack, onStarted, caps }: FlowProps) {
                   }}
                 />
               )}
+              <p className="sc-dlg-foot">{footnote}</p>
             </div>
           </>
         )}
@@ -381,6 +396,7 @@ const PRIMARY: ReadonlySet<Action> = new Set(['use-person', 'use', 'retry', 'sav
 function Draft({
   draftId,
   canDraw,
+  footnote,
   onBack,
   onStarted,
   onGone,
@@ -388,6 +404,7 @@ function Draft({
 }: {
   draftId: string;
   canDraw: boolean;
+  footnote: ReactNode;
   onBack?: () => void;
   onStarted: FlowProps['onStarted'];
   onGone: () => void;
@@ -582,7 +599,9 @@ function Draft({
           </div>
           <div className="sc-pstudio-body" />
         </div>
-        <div className="sc-pstudio-foot"></div>
+        <div className="sc-pstudio-foot">
+          <p className="sc-dlg-foot">{footnote}</p>
+        </div>
       </>
     );
   }

@@ -243,14 +243,17 @@ export function requestLine(d: DraftLike): string {
  */
 export type Steer = 'woman' | 'man' | 'androgynous';
 export type Age = '20s' | '30s' | '40s' | '50s' | '60+';
-export type Tone = 'fair' | 'light' | 'olive' | 'brown' | 'deep';
+export type Tone = 'fair' | 'light' | 'olive' | 'tan' | 'brown' | 'deep';
+/** A named hair colour, or any colour at all as `#rrggbb`: people dye it. */
+export type Hair = string;
 
 export interface Traits {
   steer: Steer | null;
   age: Age | null;
   tone: Tone | null;
+  hair: Hair | null;
 }
-export const NO_TRAITS: Traits = { steer: null, age: null, tone: null };
+export const NO_TRAITS: Traits = { steer: null, age: null, tone: null, hair: null };
 
 const STEER_WORDS: Record<Steer, string> = {
   woman: 'a woman',
@@ -258,10 +261,69 @@ const STEER_WORDS: Record<Steer, string> = {
   androgynous: 'an androgynous person',
 };
 const POSSESSIVE: Record<Steer, string> = { woman: 'her', man: 'his', androgynous: 'their' };
+const HAIR_WORDS: Record<string, string> = {
+  black: 'black hair',
+  brown: 'brown hair',
+  blonde: 'blonde hair',
+  red: 'red hair',
+  grey: 'grey hair',
+  white: 'white hair',
+};
+
+/**
+ * A colour a person can point at, in the words the engine reads.
+ *
+ * The picker returns a hex, and a hex in a prompt is either dropped or
+ * guessed at, so a custom colour is named before it is sent. The list is the
+ * colours hair is actually found or dyed in, natural first; the nearest one
+ * in plain RGB wins, which is close enough for a word.
+ */
+const HAIR_NAMES: [string, number, number, number][] = [
+  ['jet black', 0x1a, 0x18, 0x17],
+  ['dark brown', 0x3b, 0x27, 0x18],
+  ['chestnut brown', 0x6b, 0x42, 0x26],
+  ['light brown', 0x9b, 0x6f, 0x45],
+  ['auburn', 0x8c, 0x3b, 0x24],
+  ['copper red', 0xb5, 0x51, 0x22],
+  ['ginger', 0xd1, 0x7a, 0x33],
+  ['honey blonde', 0xd9, 0xb2, 0x6a],
+  ['platinum blonde', 0xe8, 0xdc, 0xbf],
+  ['silver grey', 0xb9, 0xb6, 0xb1],
+  ['white', 0xf2, 0xf1, 0xee],
+  ['burgundy', 0x6a, 0x1b, 0x2f],
+  ['pink', 0xe3, 0x74, 0xa6],
+  ['lavender', 0xa9, 0x8c, 0xd4],
+  ['blue', 0x3f, 0x63, 0xc4],
+  ['teal', 0x2f, 0x9a, 0x94],
+  ['green', 0x4c, 0xa1, 0x50],
+];
+
+export function hairName(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return 'dyed';
+  const n = Number.parseInt(m[1], 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  let best = HAIR_NAMES[0];
+  let near = Number.POSITIVE_INFINITY;
+  for (const c of HAIR_NAMES) {
+    const d = (c[1] - r) ** 2 + (c[2] - g) ** 2 + (c[3] - b) ** 2;
+    if (d < near) {
+      near = d;
+      best = c;
+    }
+  }
+  return best[0];
+}
+
+/** The words for whatever the hair row is set to, named or picked. */
+export function hairPhrase(hair: Hair): string {
+  return HAIR_WORDS[hair] ?? `${hairName(hair)} hair`;
+}
 const TONE_WORDS: Record<Tone, string> = {
   fair: 'fair skin',
   light: 'light skin',
   olive: 'olive skin',
+  tan: 'tan skin',
   brown: 'brown skin',
   deep: 'deep brown skin',
 };
@@ -272,6 +334,8 @@ const SAYS_WHO =
 /** Words that already put an age on them. */
 const SAYS_AGE =
   /\b(\d0s|\d{2}\s*(years|yo)|teen|twenties|thirties|forties|fifties|sixties|seventies|elderly|young|old(er)?|middle-aged)\b/i;
+/** Words that already say what their hair is. */
+const SAYS_HAIR = /\b(hair|bald|shaved|buzz|blonde?|brunette|redhead|ginger|greying|silver|auburn|platinum)\b/i;
 /** Words that already say what their skin is like. */
 const SAYS_TONE =
   /\b(skin|complexion|fair|pale|light|olive|tan|tanned|brown|deep|dark|ebony|black|white|freckled|golden)\b/i;
@@ -294,7 +358,11 @@ export function castSentence(t: Traits, direction: string): string {
     const age = t.age === '60+' ? `in ${poss} 60s or older` : `in ${poss} ${t.age}`;
     parts.push(who ? age : `someone ${age}`);
   }
-  if (t.tone && !SAYS_TONE.test(text)) parts.push(`with ${TONE_WORDS[t.tone]}`);
+  // "with olive skin and black hair" reads as one clause, not two
+  const has: string[] = [];
+  if (t.tone && !SAYS_TONE.test(text)) has.push(TONE_WORDS[t.tone]);
+  if (t.hair && !SAYS_HAIR.test(text)) has.push(hairPhrase(t.hair));
+  if (has.length) parts.push(`with ${has.join(' and ')}`);
   if (!parts.length) return text;
   return `${parts.join(' ')}, ${text}`;
 }
