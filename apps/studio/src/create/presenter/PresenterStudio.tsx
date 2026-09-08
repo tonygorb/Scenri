@@ -240,7 +240,7 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
             <div className="sc-pstudio-scroll">
               <StudioStage
                 hash={mode === 'photos' ? hashes[0] : undefined}
-                alt={mode === 'photos' && hashes.length ? 'Your first photo' : ''}
+                alt={mode === 'photos' && hashes.length ? 'The first one you added' : ''}
                 drawing={false}
                 now={0}
                 items={VIEWS.map((view) => ({
@@ -603,7 +603,7 @@ function Draft({
             {d.source === 'photos' ? (
               <div className="sc-pstudio-origin-photos">
                 {d.sources.map((h, i) => (
-                  <img key={h} src={thumbUrl(h, 'micro')} alt={`Photo ${i + 1}`} />
+                  <img key={h} src={thumbUrl(h, 'micro')} alt={`Yours, ${i + 1} of ${d.sources.length}`} />
                 ))}
               </div>
             ) : (
