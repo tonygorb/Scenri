@@ -77,7 +77,7 @@ export function StudioStage({
               >
                 {it.hash ? <img src={thumbUrl(it.hash, 'micro')} alt="" /> : null}
                 {it.drawing ? <span className="sc-shimmer" aria-hidden /> : null}
-                {it.state === 'approved' || (it.state === 'current' && it.hash && !it.drawing && it.photo) ? (
+                {it.approved && !it.drawing ? (
                   <span className="sc-pstudio-slot-mark" aria-hidden>
                     &#10003;
                   </span>

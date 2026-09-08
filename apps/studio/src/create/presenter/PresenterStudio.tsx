@@ -250,6 +250,7 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
                   hash: undefined,
                   photo: false,
                   drawing: false,
+                  approved: false,
                 }))}
               />
               <div className="sc-pstudio-body">

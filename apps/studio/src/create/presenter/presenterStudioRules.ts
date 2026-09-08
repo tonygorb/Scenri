@@ -99,6 +99,8 @@ export interface StripItem {
   hash: string | undefined;
   photo: boolean;
   drawing: boolean;
+  /** Used, whether or not it is the one on the stage. */
+  approved: boolean;
 }
 
 /** The three views as the progress: what stands, what is being decided, what is still to come. */
@@ -120,6 +122,7 @@ export function stripItems(d: DraftLike, selected: StudioView): StripItem[] {
       hash: slot.hash,
       photo: slot.origin === 'photo',
       drawing: d.activeView === view,
+      approved: slot.status === 'approved',
     };
   });
 }
