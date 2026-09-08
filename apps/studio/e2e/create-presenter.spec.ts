@@ -116,7 +116,7 @@ test.describe('a person from scratch', () => {
     await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters\\?new=presenter$`));
     await expect(dialog(page)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Create presenter' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'From scratch' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('radio', { name: 'From scratch' })).toHaveAttribute('aria-checked', 'true');
 
     const create = dialog(page).getByRole('button', { name: 'Create presenter' });
     await expect(create).toHaveAttribute('aria-disabled', 'true');
@@ -283,7 +283,7 @@ test.describe('a person from scratch', () => {
     await expect(page.getByRole('button', { name: 'Use', exact: true })).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Start over', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Start over', exact: true }).click();
-    await expect(page.getByRole('tab', { name: 'From scratch' })).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'From scratch' })).toBeVisible();
     // the sentence comes back, so a second try starts from it
     await expect(page.getByLabel('Describe the presenter')).toHaveValue('a man in his 30s');
     expect((await draftsOf(page, brand.id)).drafts.map((d) => d.id)).not.toContain(draftId);
@@ -321,7 +321,7 @@ test.describe('from photos', () => {
     test.setTimeout(90_000);
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters?new=presenter`);
-    await page.getByRole('tab', { name: 'From photos' }).click();
+    await page.getByRole('radio', { name: 'From photos' }).click();
     await page.locator('input[type="file"]').setInputFiles({ name: 'noor.png', mimeType: 'image/png', buffer: PNG });
     await expect(page.locator('.sc-pstudio-pslot-frame[data-filled] img')).toHaveCount(1);
     // the photo is on the stage before anything is drawn

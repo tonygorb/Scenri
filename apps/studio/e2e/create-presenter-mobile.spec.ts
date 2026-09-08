@@ -64,7 +64,7 @@ test('the studio is a sheet on a phone and a wide card on a tablet', async ({ pa
   const brand = await currentBrand(page);
   await page.goto(`/${brand.slug}/presenters?new=presenter`);
   await expect(dialog(page)).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'From scratch' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'From scratch' })).toBeVisible();
   await settledBox(page, '.sc-newdlg');
 
   const g = await dialog(page).evaluate((el) => {

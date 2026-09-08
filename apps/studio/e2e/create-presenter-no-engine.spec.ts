@@ -27,13 +27,13 @@ test('without an engine, From scratch offers the setup and From photos still sav
   test.setTimeout(60_000);
   const brand = await currentBrand(page);
   await page.goto(`/${brand.slug}/presenters?new=presenter`);
-  await expect(page.getByRole('tab', { name: 'From scratch' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('radio', { name: 'From scratch' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByText('Image generation is not set up yet')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Set up' })).toBeVisible();
   await expect(page.locator('.sc-newdlg').getByRole('button', { name: 'Create presenter' })).toHaveCount(0);
   await expect(page.locator('.sc-dlg-foot')).toContainText('Saved from the photos you add');
 
-  await page.getByRole('tab', { name: 'From photos' }).click();
+  await page.getByRole('radio', { name: 'From photos' }).click();
   await expect(page.getByText('No engine here can draw the other views')).toBeVisible();
   await page.locator('input[type="file"]').setInputFiles({ name: 'noor.png', mimeType: 'image/png', buffer: PNG });
   await page.getByRole('checkbox').check();

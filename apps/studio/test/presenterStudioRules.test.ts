@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { PresenterDraftSlot } from '../src/api.js';
 import {
+  type Traits,
   VIEWS,
+  NO_TRAITS,
   castSentence,
   composerState,
   coverageLine,
@@ -323,24 +325,36 @@ describe('leaving and saving', () => {
   });
 });
 
-describe('who they are', () => {
-  it('leads the sentence, unless the sentence already says it', () => {
-    expect(castSentence('woman', 'in her forties, short silver hair')).toBe(
-      'a woman, in her forties, short silver hair',
+describe('the three things a roll cannot guess', () => {
+  const T = (p: Partial<Traits> = {}): Traits => ({ ...NO_TRAITS, ...p });
+
+  it('leads the sentence in the order a person would say them', () => {
+    expect(castSentence(T({ steer: 'woman', age: '30s', tone: 'olive' }), 'natural curls, calm expression')).toBe(
+      'a woman in her 30s with olive skin, natural curls, calm expression',
     );
-    expect(castSentence('androgynous', 'in their 20s, platinum buzz cut')).toBe(
-      'an androgynous person, in their 20s, platinum buzz cut',
+    expect(castSentence(T({ steer: 'man', age: '60+' }), 'close-cropped beard')).toBe(
+      'a man in his 60s or older, close-cropped beard',
     );
-    expect(castSentence('man', 'a guy with a full beard')).toBe('a guy with a full beard');
-    expect(castSentence(null, 'someone warm')).toBe('someone warm');
-    expect(castSentence('man', '   ')).toBe('');
+    expect(castSentence(T({ steer: 'androgynous', tone: 'deep' }), 'platinum buzz cut')).toBe(
+      'an androgynous person with deep brown skin, platinum buzz cut',
+    );
+    // an age with nobody to own it still reads as a sentence
+    expect(castSentence(T({ age: '40s' }), 'quietly confident')).toBe('someone in their 40s, quietly confident');
   });
 
-  it('says so only when neither the steer nor the sentence names anyone', () => {
-    expect(whoHint(null, 'someone friendly in their 30s')).toContain('Nobody has said who this is');
-    expect(whoHint('woman', 'someone friendly in their 30s')).toBeNull();
-    expect(whoHint(null, 'a woman in her forties')).toBeNull();
-    expect(whoHint(null, '')).toBeNull();
+  it('drops any part the sentence already covers, rather than saying it twice', () => {
+    expect(castSentence(T({ steer: 'man' }), 'a guy with a full beard')).toBe('a guy with a full beard');
+    expect(castSentence(T({ steer: 'woman', age: '30s' }), 'a woman in her forties')).toBe('a woman in her forties');
+    expect(castSentence(T({ tone: 'fair' }), 'freckled skin, red hair')).toBe('freckled skin, red hair');
+    expect(castSentence(NO_TRAITS, 'someone warm')).toBe('someone warm');
+    expect(castSentence(T({ steer: 'man' }), '   ')).toBe('');
+  });
+
+  it('says so only when nothing has named who this is', () => {
+    expect(whoHint(NO_TRAITS, 'someone friendly in their 30s')).toContain('Nobody has said who this is');
+    expect(whoHint(T({ steer: 'woman' }), 'someone friendly in their 30s')).toBeNull();
+    expect(whoHint(NO_TRAITS, 'a woman in her forties')).toBeNull();
+    expect(whoHint(NO_TRAITS, '')).toBeNull();
   });
 });
 

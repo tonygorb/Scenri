@@ -13,6 +13,32 @@ import type { StripItem, StudioView } from './presenterStudioRules.js';
  * others at half strength. It is the progress and the navigation; no step
  * numbers.
  */
+/**
+ * What the stage shows before there is anything to show.
+ *
+ * A 1100px well holding one grey icon is the emptiest thing in the app, and
+ * it says nothing about what is being made. These are the five frames the
+ * person will arrive as, at the size they will arrive, labelled and waiting.
+ * The deliverable, drawn as an empty set.
+ */
+export function StagePreview({ views }: { views: { view: StudioView; label: string }[] }) {
+  return (
+    <div className="sc-pstudio-stage sc-pstudio-stage-preview">
+      <ol className="sc-pstudio-plates" aria-label="The five views a presenter is cast in">
+        {views.map((v, i) => (
+          <li key={v.view}>
+            <span className="sc-pstudio-plate" data-lead={i === 0 || undefined}>
+              <UserCircle size={40} weight="thin" aria-hidden />
+            </span>
+            <span className="sc-pstudio-plate-lb">{v.label}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="sc-pstudio-plates-note">Five frames of one person, drawn one at a time. The face comes first.</p>
+    </div>
+  );
+}
+
 export function StudioStage({
   hash,
   alt,

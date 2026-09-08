@@ -1,61 +1,67 @@
-import { Check, Image, Plus, TextAa, X } from '@phosphor-icons/react';
-import { type KeyboardEvent, type ReactNode, useEffect, useRef } from 'react';
+import { Check, Image as ImageIcon, Plus, TextAa, X } from '@phosphor-icons/react';
+import { type KeyboardEvent, type ReactNode, useRef } from 'react';
 import { thumbUrl } from '../../api.js';
 import { Choice, Choices } from '../../composer/shotSettings/Choices.js';
 import { CategoryMenu } from './CategoryMenu.js';
 import { useFileDrop } from '../../layout/Dropzone.js';
 import { OpenAIMark } from '../../layout/OpenAIMark.js';
-import { MAX_PHOTOS, photosHint, type Steer, whoHint } from './presenterStudioRules.js';
+import {
+  type Age,
+  MAX_PHOTOS,
+  photosHint,
+  type Steer,
+  type Tone,
+  type Traits,
+  whoHint,
+} from './presenterStudioRules.js';
 
 /**
- * The setup rail, as the Figma frames lay it out: the Aa / Image toggle in
- * the head, then Name, who they are, the sentence or the four photo places,
- * and Optional notes, with Cancel and Create presenter in the foot. The name
- * is offered, never required: a person is cast from the sentence alone and
- * named at the end.
+ * The setup rail: two ways to start as tabs, then the three things a roll
+ * cannot guess and the sentence that
+ * carries the rest, or the four photo places, with Cancel and Create
+ * presenter in the foot. The name is asked in review, where saving needs it.
  */
 export type Mode = 'scratch' | 'photos';
 
-const MODES: { value: Mode; label: string; icon: ReactNode }[] = [
-  { value: 'scratch', label: 'From scratch', icon: <TextAa size={18} /> },
-  { value: 'photos', label: 'From photos', icon: <Image size={18} /> },
-];
-
-/** The two ways to start, as the frame's icon toggle: a tab list of two, arrows move between them. */
-export function ModeToggle({ mode, onMode }: { mode: Mode; onMode: (next: Mode) => void }) {
-  const root = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = root.current;
-    if (!el?.contains(document.activeElement)) return;
-    el.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
-  }, [mode]);
+/**
+ * The two ways to start, as a segmented control.
+ *
+ * This is not navigation between two views of the same thing, which is what a
+ * tab strip means: it is a choice of what the person will be made from, and
+ * it changes the form under it. A two-up switch says that, says it at the
+ * size of the fields it governs, and keeps the words that two icons could
+ * only imply.
+ */
+export function ModeSwitch({ mode, onMode }: { mode: Mode; onMode: (next: Mode) => void }) {
   return (
-    <div
-      ref={root}
-      className="sc-pstudio-toggle"
-      role="tablist"
-      aria-label="How to start"
-      onKeyDown={(e) => {
-        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        e.preventDefault();
-        onMode(mode === 'scratch' ? 'photos' : 'scratch');
-      }}
+    <Choices
+      label="How to start"
+      className="sc-seg sc-pstudio-modes"
+      value={mode}
+      ids={['scratch', 'photos']}
+      onChange={(id) => onMode(id as Mode)}
     >
-      {MODES.map((m) => (
-        <button
-          key={m.value}
-          type="button"
-          role="tab"
-          aria-selected={mode === m.value}
-          aria-label={m.label}
-          title={m.label}
-          tabIndex={mode === m.value ? 0 : -1}
-          onClick={() => onMode(m.value)}
-        >
-          {m.icon}
-        </button>
-      ))}
-    </div>
+      <Choice
+        id="scratch"
+        className="sc-seg-o"
+        on={mode === 'scratch'}
+        label="From scratch"
+        onPick={() => onMode('scratch')}
+      >
+        <TextAa size={17} />
+        From scratch
+      </Choice>
+      <Choice
+        id="photos"
+        className="sc-seg-o"
+        on={mode === 'photos'}
+        label="From photos"
+        onPick={() => onMode('photos')}
+      >
+        <ImageIcon size={17} />
+        From photos
+      </Choice>
+    </Choices>
   );
 }
 
@@ -75,57 +81,153 @@ export function SetupCard({ onSetup }: { onSetup: () => void }) {
   );
 }
 
-function Field({ id, label, children }: { id?: string; label: string; children: ReactNode }) {
+/**
+ * A labelled field. The label row takes a second slot on the right for the
+ * value that is set, which is where a person looks for it: beside the name of
+ * the thing, not trailing the control that sets it.
+ */
+function Field({ id, label, value, children }: { id?: string; label: string; value?: string; children: ReactNode }) {
   return (
     <div className="sc-pstudio-field">
-      {id ? (
-        <label className="sc-newdlg-seclabel" htmlFor={id}>
-          {label}
-        </label>
-      ) : (
-        <span className="sc-newdlg-seclabel">{label}</span>
-      )}
+      <div className="sc-pstudio-fieldhead">
+        {id ? (
+          <label className="sc-newdlg-seclabel" htmlFor={id}>
+            {label}
+          </label>
+        ) : (
+          <span className="sc-newdlg-seclabel">{label}</span>
+        )}
+        {value && <span className="sc-pstudio-fieldval">{value}</span>}
+      </div>
       {children}
     </div>
   );
 }
 
 /**
- * Who the person is: the one thing a roll cannot guess.
+ * The three things a roll cannot guess, one row each.
  *
- * Three settings, and every one of them says something to the engine, which
- * is what the old neutral third did not. Nothing is chosen until it is
- * chosen; the sentence can say it instead, and when neither does, the line
- * under the description says so. The photos tab does not show it, because a
- * photograph settles this by itself.
+ * Nothing is chosen until it is chosen, and pressing the chosen one puts the
+ * question back to the sentence. Every setting says something to the engine:
+ * there is no neutral option that quietly does nothing.
  */
-const STEERS: { id: Steer; label: string }[] = [
-  { id: 'woman', label: 'Woman' },
-  { id: 'man', label: 'Man' },
-  { id: 'androgynous', label: 'Androgynous' },
+const STEERS: { id: Steer; label: string; src: string }[] = [
+  { id: 'woman', label: 'Woman', src: '/presenter/who-woman.webp' },
+  { id: 'man', label: 'Man', src: '/presenter/who-man.webp' },
+  { id: 'androgynous', label: 'Androgynous', src: '/presenter/who-androgynous.webp' },
+];
+const AGES: { id: Age; label: string }[] = [
+  { id: '20s', label: '20s' },
+  { id: '30s', label: '30s' },
+  { id: '40s', label: '40s' },
+  { id: '50s', label: '50s' },
+  { id: '60+', label: '60+' },
+];
+/** The swatch is the label: a word for skin means little, a colour means it at a glance. */
+const TONES: { id: Tone; label: string; hex: string }[] = [
+  { id: 'fair', label: 'Fair', hex: '#f3ddcd' },
+  { id: 'light', label: 'Light', hex: '#e6c0a2' },
+  { id: 'olive', label: 'Olive', hex: '#c99b6e' },
+  { id: 'brown', label: 'Brown', hex: '#96603a' },
+  { id: 'deep', label: 'Deep', hex: '#5a3825' },
 ];
 
-function SteerChoice({ value, onChange }: { value: Steer | null; onChange: (next: Steer | null) => void }) {
+/** Who they are, as three cards: a form, never a face, so a card is a kind and not a casting. */
+function WhoRow({ value, onChange }: { value: Steer | null; onChange: (next: Steer | null) => void }) {
   return (
     <Field label="Who they are">
       <Choices
         label="Who they are"
-        className="sc-seg sc-pstudio-seg"
+        className="sc-pstudio-whorow"
         value={value ?? ''}
-        ids={STEERS.map((g) => g.id)}
+        ids={STEERS.map((o) => o.id)}
         onChange={(id) => onChange(id as Steer)}
       >
-        {STEERS.map((g) => (
+        {STEERS.map((o) => (
           <Choice
-            key={g.id}
-            id={g.id}
-            className="sc-seg-o"
-            on={value === g.id}
-            label={g.label}
-            // picking the one that is set puts the question back to the sentence
-            onPick={() => onChange(value === g.id ? null : g.id)}
+            key={o.id}
+            id={o.id}
+            className="sc-pstudio-whocard"
+            on={value === o.id}
+            label={o.label}
+            onPick={() => onChange(value === o.id ? null : o.id)}
           >
-            {g.label}
+            <span className="sc-pstudio-whocard-frame">
+              <span className="sc-pstudio-whocard-inner">
+                <img src={o.src} alt="" decoding="async" />
+                {value === o.id && (
+                  <span className="sc-pstudio-slot-mark" aria-hidden>
+                    <Check size={11} weight="bold" />
+                  </span>
+                )}
+              </span>
+            </span>
+            <span className="sc-pstudio-whocard-lb">{o.label}</span>
+          </Choice>
+        ))}
+      </Choices>
+    </Field>
+  );
+}
+
+/** Skin, as the thing itself: five swatches, the word under the chosen one. */
+function SkinRow({ value, onChange }: { value: Tone | null; onChange: (next: Tone | null) => void }) {
+  const chosen = TONES.find((t) => t.id === value);
+  return (
+    <Field label="Skin" value={chosen?.label}>
+      <div className="sc-pstudio-skin">
+        <Choices
+          label="Skin"
+          className="sc-pstudio-swatches"
+          value={value ?? ''}
+          ids={TONES.map((o) => o.id)}
+          onChange={(id) => onChange(id as Tone)}
+        >
+          {TONES.map((o) => (
+            <Choice
+              key={o.id}
+              id={o.id}
+              className="sc-pstudio-swatch"
+              on={value === o.id}
+              label={o.label}
+              onPick={() => onChange(value === o.id ? null : o.id)}
+            >
+              <span style={{ background: o.hex }} aria-hidden />
+            </Choice>
+          ))}
+        </Choices>
+      </div>
+    </Field>
+  );
+}
+
+/**
+ * Age, as the app's own chips.
+ *
+ * Five ordered buckets are a small set to choose from, not a track of modes
+ * and not a continuum worth a slider: a segmented control at five cells reads
+ * as five tabs, and a slider for five stops is harder to hit than a chip.
+ */
+function AgeRow({ value, onChange }: { value: Age | null; onChange: (next: Age | null) => void }) {
+  return (
+    <Field label="Age" value={value ? AGES.find((a) => a.id === value)?.label : undefined}>
+      <Choices
+        label="Age"
+        className="sc-pstudio-chips"
+        value={value ?? ''}
+        ids={AGES.map((o) => o.id)}
+        onChange={(id) => onChange(id as Age)}
+      >
+        {AGES.map((o) => (
+          <Choice
+            key={o.id}
+            id={o.id}
+            className="sc-chip"
+            on={value === o.id}
+            label={o.label}
+            onPick={() => onChange(value === o.id ? null : o.id)}
+          >
+            {o.label}
           </Choice>
         ))}
       </Choices>
@@ -243,15 +345,21 @@ export function FiledUnderField({
   );
 }
 
-/** The whole setup form; the head's toggle decides whether the middle is a sentence or photographs. */
+/**
+ * The whole setup form.
+ *
+ * Four inputs, and every one of them changes the person who is drawn: who
+ * they are, roughly their age, their skin, and the sentence that carries
+ * everything an open vocabulary should carry. The name is asked in review,
+ * where saving needs it, and the categories are the engine's to read. The
+ * head's tabs decide whether the middle is a sentence or photographs.
+ */
 export function SetupForm({
   mode,
   canDraw,
   engineOff,
-  name,
-  onName,
-  steer,
-  onSteer,
+  traits,
+  onTraits,
   direction,
   onDirection,
   onCreate,
@@ -262,18 +370,15 @@ export function SetupForm({
   onRemove,
   onReject,
   onAttested,
-  notes,
-  onNotes,
   onSetup,
   error,
 }: {
   mode: Mode;
   canDraw: boolean;
   engineOff: boolean;
-  name: string;
-  onName: (next: string) => void;
-  steer: Steer | null;
-  onSteer: (next: Steer | null) => void;
+  traits: Traits;
+  /** A patch, never the whole object: two rows changed in one tick must not clobber each other. */
+  onTraits: (patch: Partial<Traits>) => void;
   direction: string;
   onDirection: (next: string) => void;
   onCreate: () => void;
@@ -284,8 +389,6 @@ export function SetupForm({
   onRemove: (hash: string) => void;
   onReject: () => void;
   onAttested: (on: boolean) => void;
-  notes: string;
-  onNotes: (next: string) => void;
   onSetup: () => void;
   error?: string | null;
 }) {
@@ -294,38 +397,31 @@ export function SetupForm({
     e.preventDefault();
     onCreate();
   };
+  const hint = whoHint(traits, direction);
   return (
     <div className="sc-pstudio-form">
-      <Field id="sc-pstudio-name" label="Name">
-        <input
-          id="sc-pstudio-name"
-          className="sc-in"
-          type="text"
-          maxLength={60}
-          placeholder="Their name"
-          value={name}
-          onChange={(e) => onName(e.target.value)}
-          onKeyDown={enterCreates}
-        />
-      </Field>
-      {mode === 'scratch' && <SteerChoice value={steer} onChange={onSteer} />}
       {mode === 'scratch' ? (
         engineOff ? (
           <SetupCard onSetup={onSetup} />
         ) : (
-          <Field id="sc-pstudio-direction" label="Describe the presenter">
-            <textarea
-              id="sc-pstudio-direction"
-              className="sc-in sc-pstudio-direction"
-              rows={4}
-              maxLength={400}
-              placeholder="Natural-looking woman in her late 20s, slim build, long straight brown hair, calm expression"
-              value={direction}
-              onChange={(e) => onDirection(e.target.value)}
-              onKeyDown={enterCreates}
-            />
-            {whoHint(steer, direction) && <p className="sc-pstudio-line">{whoHint(steer, direction)}</p>}
-          </Field>
+          <>
+            <WhoRow value={traits.steer} onChange={(steer) => onTraits({ steer })} />
+            <AgeRow value={traits.age} onChange={(age) => onTraits({ age })} />
+            <SkinRow value={traits.tone} onChange={(tone) => onTraits({ tone })} />
+            <Field id="sc-pstudio-direction" label="Describe the presenter">
+              <textarea
+                id="sc-pstudio-direction"
+                className="sc-in sc-pstudio-direction"
+                rows={4}
+                maxLength={400}
+                placeholder="Natural-looking, slim build, long straight brown hair, calm expression"
+                value={direction}
+                onChange={(e) => onDirection(e.target.value)}
+                onKeyDown={enterCreates}
+              />
+              {hint && <p className="sc-pstudio-line">{hint}</p>}
+            </Field>
+          </>
         )
       ) : (
         <div className="sc-pstudio-field sc-pstudio-photos">
@@ -346,18 +442,6 @@ export function SetupForm({
           </label>
         </div>
       )}
-      <Field id="sc-pstudio-notes" label="Optional notes">
-        <input
-          id="sc-pstudio-notes"
-          className="sc-in"
-          type="text"
-          maxLength={400}
-          placeholder="Anything worth knowing about them"
-          value={notes}
-          onChange={(e) => onNotes(e.target.value)}
-          onKeyDown={enterCreates}
-        />
-      </Field>
       {error && (
         <p className="sc-newdlg-err" role="alert">
           {error}
@@ -373,8 +457,6 @@ export function DetailsFields({
   onName,
   facets,
   onFacets,
-  notes,
-  onNotes,
   categories,
   onEnter,
 }: {
@@ -382,8 +464,6 @@ export function DetailsFields({
   onName: (next: string) => void;
   facets: string[];
   onFacets: (next: string[]) => void;
-  notes: string;
-  onNotes: (next: string) => void;
   categories: string[];
   onEnter: () => void;
 }) {
@@ -403,17 +483,6 @@ export function DetailsFields({
             e.preventDefault();
             onEnter();
           }}
-        />
-      </Field>
-      <Field id="sc-pstudio-notes" label="Notes">
-        <textarea
-          id="sc-pstudio-notes"
-          className="sc-in"
-          rows={2}
-          maxLength={400}
-          placeholder="Anything worth knowing about them"
-          value={notes}
-          onChange={(e) => onNotes(e.target.value)}
         />
       </Field>
       <FiledUnderField categories={categories} facets={facets} onFacets={onFacets} />

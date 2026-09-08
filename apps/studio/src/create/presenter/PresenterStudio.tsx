@@ -10,11 +10,13 @@ import { DialogSheet, SheetClose, SheetTitle } from '../../layout/DialogSheet.js
 import { ScenriLockup } from '../../layout/ScenriMark.js';
 import type { FlowProps } from '../flow.js';
 import { RefineComposer } from './RefineComposer.js';
-import { DetailsFields, type Mode, ModeToggle, SetupForm } from './StudioSetup.js';
-import { StudioStage } from './StudioStage.js';
+import { DetailsFields, type Mode, ModeSwitch, SetupForm } from './StudioSetup.js';
+import { StagePreview, StudioStage } from './StudioStage.js';
 import {
   type Action,
   MAX_PHOTOS,
+  NO_TRAITS,
+  type Traits,
   VIEWS,
   VIEW_LABEL,
   castSentence,
@@ -31,7 +33,6 @@ import {
   saveBlocker,
   seedCategories,
   selectedView,
-  type Steer,
   stripItems,
   type StudioView,
   worthKeeping,
@@ -43,8 +44,8 @@ import { usePresenterDraft } from './usePresenterDraft.js';
  * draw it.
  *
  * A wide stage on the left and a 500 rail on the right. Setup is a form:
- * the Aa / Image toggle in the head, Name, who they are, a sentence or four
- * photo places, Optional notes, then Create presenter. Then one
+ * two ways to start as tabs, then who they are, their age, their skin and
+ * the sentence, or four photo places, then Create presenter. Then one
  * identity: the face, drawn and decided; then the front, left, back and
  * right views, each drawn from the approved views before it and decided in
  * turn, the strip under the stage keeping the count. The rail reads as a
@@ -90,10 +91,8 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
   const [resume, setResume] = useState<PresenterDraft | null>(null);
   const [boot, setBoot] = useState(true);
   const [mode, setMode] = useState<Mode>('scratch');
-  const [name, setName] = useState('');
-  const [steer, setSteer] = useState<Steer | null>(null);
+  const [traits, setTraits] = useState<Traits>(NO_TRAITS);
   const [direction, setDirection] = useState('');
-  const [notes, setNotes] = useState('');
   const [hashes, setHashes] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [attested, setAttested] = useState(false);
@@ -157,8 +156,7 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
   }, []);
 
   /** The sentence the engine gets: the steer leads it unless the sentence says it. */
-  const sentence = () => castSentence(steer, direction);
-  const words = () => ({ name: name.trim() || undefined });
+  const sentence = () => castSentence(traits, direction);
 
   const startScratch = async () => {
     if (!direction.trim()) {
@@ -169,11 +167,7 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
     setBusy(true);
     setErr(null);
     try {
-      const draft = await api.createPresenterDraft(brand.id, {
-        source: 'synthetic',
-        direction: sentence(),
-        ...words(),
-      });
+      const draft = await api.createPresenterDraft(brand.id, { source: 'synthetic', direction: sentence() });
       openDraft(draft.id);
     } catch (e: any) {
       setErr(String(e?.message ?? e));
@@ -191,7 +185,6 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
         source: 'photos',
         imageHashes: hashes,
         attestation: true,
-        ...words(),
       });
       openDraft(draft.id);
     } catch (e: any) {
@@ -249,7 +242,6 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
             draftId={draftId}
             canDraw={canDraw}
             footnote={footnote}
-            initialNotes={notes}
             onBack={onBack}
             onStarted={onStarted}
             onGone={() => {
@@ -260,23 +252,22 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
           />
         ) : (
           <>
-            <Head onBack={onBack}>
-              <ModeToggle
+            <Head onBack={onBack} />
+            <div className="sc-pstudio-tabs">
+              <ModeSwitch
                 mode={mode}
                 onMode={(next) => {
                   setErr(null);
                   setMode(next);
                 }}
               />
-            </Head>
+            </div>
             <div className="sc-pstudio-scroll">
-              <StudioStage
-                hash={mode === 'photos' ? hashes[0] : undefined}
-                alt={mode === 'photos' && hashes.length ? 'The first one you added' : ''}
-                drawing={false}
-                now={0}
-                items={[]}
-              />
+              {mode === 'photos' && hashes.length ? (
+                <StudioStage hash={hashes[0]} alt="The first one you added" drawing={false} now={0} items={[]} />
+              ) : (
+                <StagePreview views={VIEWS.map((v) => ({ view: v, label: VIEW_LABEL[v] }))} />
+              )}
               <div className="sc-pstudio-body">
                 {resume && !boot && (
                   <button type="button" className="sc-pstudio-resume" onClick={() => openDraft(resume.id)}>
@@ -297,10 +288,8 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
                   mode={mode}
                   canDraw={canDraw}
                   engineOff={engineOff}
-                  name={name}
-                  onName={setName}
-                  steer={steer}
-                  onSteer={setSteer}
+                  traits={traits}
+                  onTraits={(patch) => setTraits((t) => ({ ...t, ...patch }))}
                   direction={direction}
                   onDirection={(next) => {
                     setErr(null);
@@ -314,8 +303,6 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
                   onRemove={(h) => setHashes((cur) => cur.filter((x) => x !== h))}
                   onReject={() => setErr('Drop an image file.')}
                   onAttested={setAttested}
-                  notes={notes}
-                  onNotes={setNotes}
                   onSetup={() => openSetup()}
                   error={err}
                 />
@@ -399,7 +386,6 @@ function Draft({
   draftId,
   canDraw,
   footnote,
-  initialNotes,
   onBack,
   onStarted,
   onGone,
@@ -408,7 +394,6 @@ function Draft({
   draftId: string;
   canDraw: boolean;
   footnote: ReactNode;
-  initialNotes: string;
   onBack?: () => void;
   onStarted: FlowProps['onStarted'];
   onGone: () => void;
@@ -421,7 +406,6 @@ function Draft({
   const [focus, setFocus] = useState<StudioView | null>(null);
   const [name, setName] = useState('');
   const [facets, setFacets] = useState<string[]>([]);
-  const [notes, setNotes] = useState(initialNotes);
   const [details, setDetails] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -547,7 +531,7 @@ function Draft({
     setSaveErr(null);
     try {
       if (nameTimer.current) clearTimeout(nameTimer.current);
-      await api.updatePresenterDraft(brand.id, d.id, { name, facets, direction: notes.trim() || undefined });
+      await api.updatePresenterDraft(brand.id, d.id, { name, facets });
       const r = await api.savePresenterDraft(brand.id, d.id);
       clearPointer(brand.id);
       onStarted({ kind: 'presenter', id: r.presenter.id, name: r.presenter.name });
@@ -710,8 +694,6 @@ function Draft({
                   setFacets(next);
                   void s.update({ facets: next });
                 }}
-                notes={notes}
-                onNotes={setNotes}
                 categories={presenterCategories}
                 onEnter={() => void save()}
               />

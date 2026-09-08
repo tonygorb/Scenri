@@ -75,32 +75,24 @@
   color: var(--sc-fg2);
 }
 
-/* ---- the Aa / Image toggle: the frame's 91 x 37 pair of 42 x 30 cells ---- */
-.sc-pstudio-toggle {
-  flex: none;
-  display: flex;
+/* ---- tabs: the library's underline tabs, sitting still ------------------- */
+.sc-pstudio-tabs {
+  padding: var(--sc-space-5) var(--sc-space-7) 0;
+}
+
+.sc-pstudio-modes {
+  width: 100%;
+  margin-left: 0;
   padding: 3px;
-  border: 1px solid var(--sc-line);
-  border-radius: 10px;
-  background: var(--sc-panel);
+  background: var(--sc-pstudio-field);
 }
 
-.sc-pstudio-toggle button {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 30px;
-  padding: 0;
-  border: none;
-  border-radius: 7px;
-  background: none;
-  color: var(--sc-fg3);
-  cursor: pointer;
-}
-
-.sc-pstudio-toggle button[aria-selected="true"] {
-  background: var(--sc-chip);
-  color: var(--sc-fg);
+.sc-pstudio-modes .sc-seg-o {
+  flex: 1 1 0;
+  justify-content: center;
+  gap: var(--sc-space-4);
+  height: 38px;
+  font-size: 14px;
 }
 
 /* ---- stage: padded 20, the well 20 further in, the strip block 180 ------- */
@@ -270,6 +262,64 @@
   color: var(--sc-inv-fg);
 }
 
+/* the five frames a person arrives as, shown before there is anything in them */
+.sc-pstudio-stage-preview {
+  align-items: center;
+  justify-content: center;
+  gap: var(--sc-space-8);
+}
+
+.sc-pstudio-plates {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--sc-space-6);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.sc-pstudio-plates li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sc-space-5);
+  min-width: 0;
+  flex: 0 1 200px;
+}
+
+.sc-pstudio-plate {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-panel);
+  color: var(--sc-fg3);
+  opacity: 0.45;
+}
+
+/* the face is first and is the one everything else is drawn from */
+.sc-pstudio-plate[data-lead] {
+  opacity: 0.8;
+  border-color: var(--sc-line-strong);
+}
+
+.sc-pstudio-plate-lb {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--sc-fg3);
+}
+
+.sc-pstudio-plates-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--sc-fg3);
+}
+
 /* ---- rail body ----------------------------------------------------------- */
 .sc-pstudio-body {
   min-height: 0;
@@ -398,6 +448,33 @@
   color: var(--sc-warn);
 }
 
+/* the label row: the name of the thing on the left, what is set on the right */
+.sc-pstudio-fieldhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+}
+
+.sc-pstudio-fieldval {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--sc-fg);
+}
+
+/* age: the app's chips, one row, ordered */
+.sc-pstudio-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-4);
+}
+
+.sc-pstudio-chips .sc-chip {
+  height: 34px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
 /* fields: the Figma field, 44 tall, 15px, on ink-800 */
 .sc-pstudio-field {
   margin-bottom: var(--sc-space-7);
@@ -450,7 +527,123 @@
   padding: 9px 13px;
 }
 
-/* who they are: the app's segmented control, across the rail's field width */
+/* who they are: three cards, the frames' own pattern, a form and never a face */
+.sc-pstudio-whorow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sc-space-4);
+}
+
+.sc-pstudio-whocard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sc-space-3);
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+
+.sc-pstudio-whocard-frame {
+  display: block;
+  width: 100%;
+  padding: 2px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+}
+
+.sc-pstudio-whocard:hover .sc-pstudio-whocard-frame {
+  border-color: var(--sc-line-strong);
+}
+
+.sc-pstudio-whocard[data-on] .sc-pstudio-whocard-frame {
+  border-color: var(--sc-fg);
+}
+
+.sc-pstudio-whocard-inner {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-pstudio-field);
+}
+
+.sc-pstudio-whocard-inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* the mannequins are shot on white; on the dark rail they sit calmer dimmed */
+  opacity: 0.72;
+}
+
+.sc-pstudio-whocard[data-on] .sc-pstudio-whocard-inner img {
+  opacity: 1;
+}
+
+.sc-pstudio-whocard-lb {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.sc-pstudio-whocard[data-on] {
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-whocard:focus-visible .sc-pstudio-whocard-frame {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+}
+
+/* skin: the thing itself, five swatches and the word for the one that is on */
+.sc-pstudio-skin {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+}
+
+.sc-pstudio-swatches {
+  display: flex;
+  gap: var(--sc-space-5);
+}
+
+.sc-pstudio-swatch {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--sc-radius-full);
+  background: none;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+}
+
+.sc-pstudio-swatch > span {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--sc-radius-full);
+}
+
+.sc-pstudio-swatch:hover {
+  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
+}
+
+.sc-pstudio-swatch[data-on] {
+  box-shadow: inset 0 0 0 2px var(--sc-fg);
+}
+
+.sc-pstudio-swatch:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+}
+
+/* age: the app's segmented control, across the rail's field width */
 .sc-pstudio-seg {
   width: 100%;
   margin-left: 0;
@@ -1002,11 +1195,16 @@
   .sc-pstudio-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--sc-pstudio-rail);
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
     grid-template-areas:
       "stage head"
+      "stage tabs"
       "stage body"
       "stage foot";
+  }
+
+  .sc-pstudio-tabs {
+    grid-area: tabs;
   }
 
   .sc-pstudio-scroll {
@@ -1037,6 +1235,7 @@
 
   /* the rail is the lighter surface, the stage the darker one: ink-900 on ink-950 */
   .sc-pstudio-head,
+  .sc-pstudio-tabs,
   .sc-pstudio-body,
   .sc-pstudio-foot {
     border-left: 1px solid var(--sc-line);
@@ -1085,6 +1284,10 @@
   .sc-pstudio-head {
     min-height: 52px;
     padding: var(--sc-space-4) var(--sc-space-4) var(--sc-space-4) var(--sc-space-6);
+  }
+
+  .sc-pstudio-tabs {
+    padding: 0 var(--sc-space-6);
   }
 
   .sc-pstudio-scroll {

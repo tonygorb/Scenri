@@ -227,41 +227,85 @@ export function requestLine(d: DraftLike): string {
   return `Build a presenter${who ? ` named ${who}` : ''} from these photos.`;
 }
 
-/** Words that say who the person is, which is the one thing a roll cannot guess. */
-const SAYS_WHO =
-  /\b(wom[ae]n|m[ae]n|male|female|lady|ladies|girl|boy|guy|gentlem[ae]n|nonbinary|non-binary|androgynous|masculine|feminine|transgender|trans|mother|father|mum|mom|dad|sister|brother|daughter|son|grandmother|grandfather)\b/i;
+/* --------------------------------------------------------------- casting */
 
-/** The steer, and the words it puts in front of the sentence. */
+/**
+ * The three things a roll cannot guess, and the words they put in front of
+ * the sentence.
+ *
+ * Everything about a presenter is derived from the picture the roll draws,
+ * and the roll reads one string. Who they are, roughly how old they are and
+ * their skin are the attributes that decide that picture and that the
+ * analyzer then freezes for every future shot (promptName, ageRange, skin).
+ * They are also the three where saying nothing is not neutral: an unsteered
+ * roll returns the same narrow default over and over. Hair, build and the
+ * distinctive marks stay in the sentence, where an open vocabulary belongs.
+ */
 export type Steer = 'woman' | 'man' | 'androgynous';
-export const STEER_WORDS: Record<Steer, string> = {
+export type Age = '20s' | '30s' | '40s' | '50s' | '60+';
+export type Tone = 'fair' | 'light' | 'olive' | 'brown' | 'deep';
+
+export interface Traits {
+  steer: Steer | null;
+  age: Age | null;
+  tone: Tone | null;
+}
+export const NO_TRAITS: Traits = { steer: null, age: null, tone: null };
+
+const STEER_WORDS: Record<Steer, string> = {
   woman: 'a woman',
   man: 'a man',
   androgynous: 'an androgynous person',
 };
+const POSSESSIVE: Record<Steer, string> = { woman: 'her', man: 'his', androgynous: 'their' };
+const TONE_WORDS: Record<Tone, string> = {
+  fair: 'fair skin',
+  light: 'light skin',
+  olive: 'olive skin',
+  brown: 'brown skin',
+  deep: 'deep brown skin',
+};
+
+/** Words that say who the person is, which is the one thing a roll cannot guess. */
+const SAYS_WHO =
+  /\b(wom[ae]n|m[ae]n|male|female|lady|ladies|girl|boy|guy|gentlem[ae]n|nonbinary|non-binary|androgynous|masculine|feminine|transgender|trans|mother|father|mum|mom|dad|sister|brother|daughter|son|grandmother|grandfather)\b/i;
+/** Words that already put an age on them. */
+const SAYS_AGE =
+  /\b(\d0s|\d{2}\s*(years|yo)|teen|twenties|thirties|forties|fifties|sixties|seventies|elderly|young|old(er)?|middle-aged)\b/i;
+/** Words that already say what their skin is like. */
+const SAYS_TONE =
+  /\b(skin|complexion|fair|pale|light|olive|tan|tanned|brown|deep|dark|ebony|black|white|freckled|golden)\b/i;
 
 /**
  * The sentence the engine is given.
  *
- * Gender decides who is drawn and a roll cannot guess it, so the steer is a
- * real input, not decoration: every one of its three settings says something.
- * It leads the sentence unless the sentence already names who the person is,
- * in which case the words are already there and saying them twice would only
- * make the prompt argue with itself.
+ * The chosen traits lead it, in the order a person would say them, and each
+ * one drops out when the sentence already covers it, because a prompt that
+ * says a thing twice is a prompt arguing with itself.
  */
-export function castSentence(steer: Steer | null, direction: string): string {
+export function castSentence(t: Traits, direction: string): string {
   const text = direction.trim();
-  if (!steer || !text || SAYS_WHO.test(text)) return text;
-  return `${STEER_WORDS[steer]}, ${text}`;
+  if (!text) return '';
+  const parts: string[] = [];
+  const who = t.steer && !SAYS_WHO.test(text) ? STEER_WORDS[t.steer] : '';
+  if (who) parts.push(who);
+  if (t.age && !SAYS_AGE.test(text)) {
+    const poss = t.steer ? POSSESSIVE[t.steer] : 'their';
+    const age = t.age === '60+' ? `in ${poss} 60s or older` : `in ${poss} ${t.age}`;
+    parts.push(who ? age : `someone ${age}`);
+  }
+  if (t.tone && !SAYS_TONE.test(text)) parts.push(`with ${TONE_WORDS[t.tone]}`);
+  if (!parts.length) return text;
+  return `${parts.join(' ')}, ${text}`;
 }
 
 /**
- * The line under the description when neither the steer nor the sentence says
- * who this is. Left unanswered the first roll picks, and the person who wrote
- * it reads the result as the engine being wrong rather than as a question
- * nobody answered.
+ * The line under the description when nothing has said who this is. Left
+ * unanswered the first roll picks, and the person who wrote it reads the
+ * result as the engine being wrong rather than as a question nobody answered.
  */
-export function whoHint(steer: Steer | null, direction: string): string | null {
-  if (steer) return null;
+export function whoHint(t: Traits, direction: string): string | null {
+  if (t.steer) return null;
   const text = direction.trim();
   if (text.length < 8 || SAYS_WHO.test(text)) return null;
   return 'Nobody has said who this is, so the first roll picks. Choose above, or say it here.';
