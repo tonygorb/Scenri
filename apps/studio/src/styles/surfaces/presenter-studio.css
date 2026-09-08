@@ -16,7 +16,8 @@
   --sc-pstudio-label: color-mix(in srgb, var(--sc-fg) 90%, var(--sc-bg)); /* ink-300 */
   --sc-pstudio-placeholder: color-mix(in srgb, var(--sc-fg3) 78%, var(--sc-bg)); /* ink-500 */
   padding: 0;
-  background: var(--sc-bg);
+  /* the rail's own surface: the stage paints the darker ground itself */
+  background: var(--sc-panel);
 }
 
 .sc-pstudio-grid {
@@ -450,7 +451,7 @@
   padding: 9px 13px;
 }
 
-/* gender: two 110 x 135 cards, either or neither, the mark on the chosen one */
+/* gender: two 110 x 135 cards in the photo slot's frame, either or neither */
 .sc-pstudio-gender {
   display: flex;
   flex-wrap: wrap;
@@ -462,12 +463,28 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--sc-space-4);
-  width: 110px;
   padding: 0;
   border: none;
   background: none;
   color: var(--sc-fg2);
   cursor: pointer;
+}
+
+/* the same ring the upload slots wear: a hairline frame around a 2px inset */
+.sc-pstudio-gcard-frame {
+  display: block;
+  padding: 2px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: none;
+}
+
+.sc-pstudio-gcard:hover .sc-pstudio-gcard-frame {
+  border-color: var(--sc-line-strong);
+}
+
+.sc-pstudio-gcard[aria-pressed="true"] .sc-pstudio-gcard-frame {
+  border-color: var(--sc-fg);
 }
 
 .sc-pstudio-gcard-inner {
@@ -476,22 +493,19 @@
   place-items: center;
   width: 110px;
   height: 135px;
-  border: 1.5px solid var(--sc-line);
+  overflow: hidden;
   border-radius: var(--sc-radius-md);
   background: var(--sc-pstudio-field);
   color: var(--sc-fg3);
 }
 
-.sc-pstudio-gcard:hover .sc-pstudio-gcard-inner {
-  border-color: var(--sc-line-strong);
+.sc-pstudio-gcard-inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .sc-pstudio-gcard[aria-pressed="true"] {
-  color: var(--sc-fg);
-}
-
-.sc-pstudio-gcard[aria-pressed="true"] .sc-pstudio-gcard-inner {
-  border-color: var(--sc-fg);
   color: var(--sc-fg);
 }
 
@@ -500,45 +514,53 @@
   line-height: 22px;
 }
 
-/* categories: the chips, and a 30px plus that takes one more in a word */
+/* categories: chips that wrap, and one more in the same row, the same size,
+   so opening the field moves nothing */
 .sc-pstudio-cats {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: var(--sc-space-4);
 }
 
-/* the frame's chips: 32 tall, the word inside 13 on each side */
-.sc-pstudio-cats .sc-chip {
+.sc-pstudio-cats .sc-chip,
+.sc-pstudio-catadd,
+.sc-pstudio .sc-in.sc-pstudio-cat-in {
   height: 32px;
+  border-radius: var(--sc-radius-full);
+}
+
+.sc-pstudio-cats .sc-chip {
   padding: 0 13px;
 }
 
-.sc-pstudio-catplus {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
+.sc-pstudio-catadd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sc-space-3);
+  width: var(--sc-pstudio-catw, 132px);
   padding: 0;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-full);
+  border: 1px dashed var(--sc-line-strong);
   background: none;
-  color: var(--sc-fg);
+  color: var(--sc-fg2);
+  font-size: var(--sc-text-control);
   cursor: pointer;
 }
 
-.sc-pstudio-catplus:hover {
-  border-color: var(--sc-line-strong);
+.sc-pstudio-catadd:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-fg3);
 }
 
 .sc-pstudio .sc-in.sc-pstudio-cat-in {
   flex: none;
-  width: 150px;
+  width: var(--sc-pstudio-catw, 132px);
   min-height: 32px;
-  padding: 4px 10px;
-  font-size: 13px;
-  line-height: 20px;
+  padding: 0 13px;
+  border-width: 1px;
+  font-size: var(--sc-text-control);
+  line-height: 30px;
 }
 
 /* the four photo slots: one to four, each a place to drop or pick */
@@ -829,12 +851,14 @@
 
 .sc-pstudio-actions .sc-btn-ghost {
   flex: none;
-  border: 1.5px solid var(--sc-line);
-  background: var(--sc-pstudio-field);
+  border: 1px solid var(--sc-line);
+  background: var(--sc-hover);
+  color: var(--sc-fg);
 }
 
-.sc-pstudio-actions .sc-btn-ghost:hover {
+.sc-pstudio-actions .sc-btn-ghost:hover:not(:disabled) {
   border-color: var(--sc-line-strong);
+  background: var(--sc-chip);
 }
 
 .sc-pstudio-actions .sc-btn-primary {
@@ -842,8 +866,11 @@
   gap: 10px;
 }
 
+/* a primary that cannot be pressed is a quiet fill, never a washed-out white */
 .sc-pstudio-actions .sc-btn-primary[aria-disabled="true"] {
-  opacity: 0.5;
+  background: var(--sc-chip);
+  color: var(--sc-fg3);
+  opacity: 1;
 }
 
 /* the composer card: an editing field, not a chat */
@@ -1004,11 +1031,12 @@
     grid-area: foot;
   }
 
+  /* the rail is the lighter surface, the stage the darker one: ink-900 on ink-950 */
   .sc-pstudio-head,
   .sc-pstudio-body,
   .sc-pstudio-foot {
     border-left: 1px solid var(--sc-line);
-    background: var(--sc-bg);
+    background: var(--sc-panel);
   }
 }
 

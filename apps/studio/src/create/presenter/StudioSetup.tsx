@@ -1,4 +1,4 @@
-import { GenderFemale, GenderMale, Image, Plus, TextAa, X } from '@phosphor-icons/react';
+import { Image, Plus, TextAa, X } from '@phosphor-icons/react';
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { thumbUrl } from '../../api.js';
 import { useFileDrop } from '../../layout/Dropzone.js';
@@ -25,7 +25,7 @@ export function ModeToggle({ mode, onMode }: { mode: Mode; onMode: (next: Mode) 
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = root.current;
-    if (!el || !el.contains(document.activeElement)) return;
+    if (!el?.contains(document.activeElement)) return;
     el.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
   }, [mode]);
   return (
@@ -89,12 +89,13 @@ function Field({ id, label, children }: { id?: string; label: string; children: 
   );
 }
 
-const GENDERS: { value: Gender; label: string; icon: ReactNode }[] = [
-  { value: 'man', label: 'Male', icon: <GenderMale size={40} weight="light" /> },
-  { value: 'woman', label: 'Female', icon: <GenderFemale size={40} weight="light" /> },
+/** The two mannequins the frames use, in `public/presenter/`: a form, never a face. */
+const GENDERS: { value: Gender; label: string; src: string }[] = [
+  { value: 'man', label: 'Male', src: '/presenter/male.webp' },
+  { value: 'woman', label: 'Female', src: '/presenter/female.webp' },
 ];
 
-/** Two cards, either or neither: the frame's Male / Female with the mark on the chosen one. */
+/** Two cards, either or neither, wearing the same ring the upload slots wear. */
 function GenderCards({ value, onChange }: { value: Gender | null; onChange: (next: Gender | null) => void }) {
   return (
     <fieldset className="sc-pstudio-field sc-pstudio-fieldset">
@@ -108,13 +109,15 @@ function GenderCards({ value, onChange }: { value: Gender | null; onChange: (nex
             aria-pressed={value === g.value}
             onClick={() => onChange(value === g.value ? null : g.value)}
           >
-            <span className="sc-pstudio-gcard-inner">
-              {g.icon}
-              {value === g.value && (
-                <span className="sc-pstudio-slot-mark" aria-hidden>
-                  &#10003;
-                </span>
-              )}
+            <span className="sc-pstudio-gcard-frame">
+              <span className="sc-pstudio-gcard-inner">
+                <img src={g.src} alt="" decoding="async" />
+                {value === g.value && (
+                  <span className="sc-pstudio-slot-mark" aria-hidden>
+                    &#10003;
+                  </span>
+                )}
+              </span>
             </span>
             <span className="sc-pstudio-gcard-lb">{g.label}</span>
           </button>
@@ -222,40 +225,47 @@ export function CategoriesField({
 }) {
   const [adding, setAdding] = useState(false);
   const [word, setWord] = useState('');
+  const field = useRef<HTMLInputElement>(null);
   const all = [...categories, ...facets.filter((f) => !categories.includes(f))];
-  const commit = () => {
-    const w = word.trim();
-    if (w && !facets.includes(w)) onFacets([...facets, w]);
+  const close = () => {
     setWord('');
     setAdding(false);
   };
+  const commit = () => {
+    const w = word.trim();
+    if (w && !all.some((c) => c.toLowerCase() === w.toLowerCase())) onFacets([...facets, w]);
+    close();
+  };
+  useEffect(() => {
+    if (adding) field.current?.focus();
+  }, [adding]);
   return (
     <fieldset className="sc-pstudio-field sc-pstudio-fieldset">
       <legend className="sc-newdlg-seclabel">Categories</legend>
+      {/* the chips and the one that adds another sit in one wrapping row, and
+          the field that opens is exactly the size of the chip it replaces, so
+          nothing on the page moves */}
       <div className="sc-pstudio-cats">
-        <div className="sc-assetform-facets-chips">
-          {all.map((v) => (
-            <button
-              type="button"
-              key={v}
-              className="sc-chip"
-              data-on={facets.includes(v) || undefined}
-              aria-pressed={facets.includes(v)}
-              onClick={() => onFacets(facets.includes(v) ? facets.filter((x) => x !== v) : [...facets, v])}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
+        {all.map((v) => (
+          <button
+            type="button"
+            key={v}
+            className="sc-chip"
+            data-on={facets.includes(v) || undefined}
+            aria-pressed={facets.includes(v)}
+            onClick={() => onFacets(facets.includes(v) ? facets.filter((x) => x !== v) : [...facets, v])}
+          >
+            {v}
+          </button>
+        ))}
         {adding ? (
           <input
+            ref={field}
             className="sc-in sc-pstudio-cat-in"
             type="text"
-            aria-label="Add a category"
-            placeholder="Category"
+            aria-label="New category"
+            placeholder="New category"
             maxLength={30}
-            // biome-ignore lint/a11y/noAutofocus: the field appears on the plus the person just pressed
-            autoFocus
             value={word}
             onChange={(e) => setWord(e.target.value)}
             onBlur={commit}
@@ -264,19 +274,15 @@ export function CategoriesField({
                 e.preventDefault();
                 commit();
               } else if (e.key === 'Escape') {
-                setWord('');
-                setAdding(false);
+                e.preventDefault();
+                close();
               }
             }}
           />
         ) : (
-          <button
-            type="button"
-            className="sc-pstudio-catplus"
-            aria-label="Add a category"
-            onClick={() => setAdding(true)}
-          >
-            <Plus size={14} />
+          <button type="button" className="sc-pstudio-catadd" onClick={() => setAdding(true)}>
+            <Plus size={13} />
+            Add one
           </button>
         )}
       </div>
