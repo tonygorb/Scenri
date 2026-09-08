@@ -1,6 +1,8 @@
-import type { KeyboardEvent } from 'react';
+import { Plus, X } from '@phosphor-icons/react';
+import { type KeyboardEvent, useRef } from 'react';
+import { thumbUrl } from '../../api.js';
+import { useFileDrop } from '../../layout/Dropzone.js';
 import { OpenAIMark } from '../../layout/OpenAIMark.js';
-import { RefStrip } from '../RefStrip.js';
 import { MAX_PHOTOS, photosHint } from './presenterStudioRules.js';
 
 /** Three sentences a person can start from. Text only: an image would be a face, and a face is an identity. */
@@ -74,6 +76,92 @@ export function SetupCard({ onSetup }: { onSetup: () => void }) {
   );
 }
 
+/** What each of the four places is best for. A hint, not a requirement: one photo is enough. */
+const SLOT_HINTS = ['Face', 'Full body', 'Three-quarter', 'Another angle'];
+
+/**
+ * Four places for one to four photographs, the way the Figma frame lays them
+ * out: a slot is a drop target and a picker; a filled one shows the photo
+ * with a mark and a way to take it out again. One hidden file input serves
+ * every slot, so picking several at once fills the next free places.
+ */
+function PhotoSlots({
+  hashes,
+  uploading,
+  onAdd,
+  onRemove,
+  onReject,
+}: {
+  hashes: string[];
+  uploading: boolean;
+  onAdd: (files: File[]) => void;
+  onRemove: (hash: string) => void;
+  onReject: () => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const { dropProps } = useFileDrop({ onFiles: onAdd, onReject, disabled: uploading || hashes.length >= MAX_PHOTOS });
+  return (
+    <div className="sc-pstudio-slots" {...dropProps}>
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          e.target.value = '';
+          if (files.length) onAdd(files);
+        }}
+      />
+      {SLOT_HINTS.map((hint, i) => {
+        const hash = hashes[i];
+        return (
+          <div key={hint} className="sc-pstudio-pslot">
+            {hash ? (
+              <div className="sc-pstudio-pslot-frame" data-filled>
+                <span className="sc-pstudio-pslot-inner">
+                  <img src={thumbUrl(hash, 'small')} alt={`Yours, ${i + 1} of ${hashes.length}`} />
+                  <span className="sc-pstudio-slot-mark" aria-hidden>
+                    &#10003;
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="sc-pstudio-pslot-drop"
+                  aria-label={`Remove ${hint.toLowerCase()} photo`}
+                  onClick={() => onRemove(hash)}
+                >
+                  <X size={11} weight="bold" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="sc-pstudio-pslot-frame"
+                aria-label={i === hashes.length ? `Add a photo, ${hint.toLowerCase()}` : `${hint}, add photos in order`}
+                disabled={uploading || i !== hashes.length}
+                onClick={() => input.current?.click()}
+              >
+                <span className="sc-pstudio-pslot-inner">
+                  <span className="sc-pstudio-pslot-plus">
+                    <span>
+                      <Plus size={17} />
+                    </span>
+                  </span>
+                </span>
+              </button>
+            )}
+            <span className="sc-pstudio-pslot-lb" aria-hidden>
+              {hint}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** From photos: one to four photographs of one person, and the word that they may be used. */
 export function PhotosPanel({
   hashes,
@@ -99,17 +187,8 @@ export function PhotosPanel({
   return (
     <div className="sc-pstudio-field sc-pstudio-photos">
       <span className="sc-newdlg-seclabel">Photos</span>
-      <RefStrip
-        hashes={hashes}
-        max={MAX_PHOTOS}
-        label="Add 1 to 4 photos"
-        hint={photosHint(0)}
-        busy={uploading}
-        onAdd={onAdd}
-        onRemove={onRemove}
-        onReject={onReject}
-      />
-      {hashes.length > 0 && <p className="sc-pstudio-line">{photosHint(hashes.length)}</p>}
+      <PhotoSlots hashes={hashes} uploading={uploading} onAdd={onAdd} onRemove={onRemove} onReject={onReject} />
+      <p className="sc-pstudio-line">{photosHint(hashes.length)}</p>
       {!canDraw && (
         <p className="sc-pstudio-line">No engine here can draw the other views. The photos are saved as they are.</p>
       )}

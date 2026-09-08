@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { CaretLeft, X } from '@phosphor-icons/react';
+import { ArrowRight, CaretLeft, X } from '@phosphor-icons/react';
 import { Spinner } from '@radix-ui/themes';
 import { api, thumbUrl, uploadImage, type PresenterDraft } from '../../api.js';
 import { useAppData, useDialogParam } from '../../app/AppShell.js';
@@ -209,6 +209,12 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
       }}
     >
       <div className="sc-pstudio-grid" data-phase={draftId ? undefined : 'setup'}>
+        {/* the close sits on the stage, top left, as the frame has it; the head's own close is the phone's */}
+        <SheetClose>
+          <button type="button" className="sc-pstudio-close" aria-label="Close">
+            <X size={13} />
+          </button>
+        </SheetClose>
         {draftId ? (
           <Draft
             key={draftId}
@@ -243,15 +249,7 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
                 alt={mode === 'photos' && hashes.length ? 'The first one you added' : ''}
                 drawing={false}
                 now={0}
-                items={VIEWS.map((view) => ({
-                  view,
-                  label: VIEW_LABEL[view],
-                  state: 'todo',
-                  hash: undefined,
-                  photo: false,
-                  drawing: false,
-                  approved: false,
-                }))}
+                items={[]}
               />
               <div className="sc-pstudio-body">
                 {resume && !boot && (
@@ -301,7 +299,12 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
             <div className="sc-pstudio-foot">
               {mode === 'scratch' ? (
                 !engineOff && (
-                  <div className="sc-pstudio-actions" data-stack>
+                  <div className="sc-pstudio-actions">
+                    <SheetClose>
+                      <button type="button" className="sc-btn sc-btn-ghost">
+                        Cancel
+                      </button>
+                    </SheetClose>
                     <button
                       type="button"
                       className="sc-btn sc-btn-primary"
@@ -311,11 +314,17 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
                     >
                       {busy ? <Spinner size="1" /> : null}
                       Create person
+                      <ArrowRight size={18} />
                     </button>
                   </div>
                 )
               ) : (
-                <div className="sc-pstudio-actions" data-stack>
+                <div className="sc-pstudio-actions">
+                  <SheetClose>
+                    <button type="button" className="sc-btn sc-btn-ghost">
+                      Cancel
+                    </button>
+                  </SheetClose>
                   <button
                     type="button"
                     className="sc-btn sc-btn-primary"
@@ -331,6 +340,7 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
                   >
                     {busy ? <Spinner size="1" /> : null}
                     {canDraw ? 'Continue' : 'Save with photos'}
+                    <ArrowRight size={18} />
                   </button>
                 </div>
               )}
@@ -648,7 +658,8 @@ function Draft({
           <RefineComposer
             placeholder={composerPlaceholder(view, d)}
             hint={refineHint(view, d)}
-            disabled={isDrawing || s.busy}
+            disabled={s.busy}
+            working={isDrawing}
             error={askErr}
             onSend={ask}
           />

@@ -4,12 +4,13 @@ import { elapsedLabel } from '../../tasks.js';
 import type { StripItem, StudioView } from './presenterStudioRules.js';
 
 /**
- * The picture, and the three views under it.
+ * The picture, and the views under it.
  *
  * The well is the one place identity is judged, so it shows the frame at
  * its own resolution once it arrives (the 640 derivative paints first). The
- * strip is the progress and the navigation: what stands, what is on the
- * stage, what is being drawn, what is still to come. No step numbers.
+ * strip is the Figma strip: a label over a 90 x 112 tile in a 1.5px frame,
+ * the one on the stage outlined in ink, the ones still to come at half
+ * strength. It is the progress and the navigation; no step numbers.
  */
 export function StudioStage({
   hash,
@@ -57,39 +58,43 @@ export function StudioStage({
           )}
         </div>
       </div>
-      <ol className="sc-pstudio-strip" aria-label="Views">
-        {items.map((it) => {
-          const name =
-            it.label +
-            (it.state === 'approved' ? ', approved' : it.state === 'stale' ? ', to be drawn again' : '') +
-            (it.photo ? ', your photo' : '') +
-            (it.drawing ? ', drawing' : '');
-          return (
-            <li key={it.view}>
-              <button
-                type="button"
-                className="sc-pstudio-slot"
-                data-state={it.state}
-                aria-current={it.state === 'current' ? 'step' : undefined}
-                aria-label={name}
-                disabled={!onPick}
-                onClick={() => onPick?.(it.view)}
-              >
-                {it.hash ? <img src={thumbUrl(it.hash, 'micro')} alt="" /> : null}
-                {it.drawing ? <span className="sc-shimmer" aria-hidden /> : null}
-                {it.approved && !it.drawing ? (
-                  <span className="sc-pstudio-slot-mark" aria-hidden>
-                    &#10003;
+      {items.length > 0 && (
+        <ol className="sc-pstudio-strip" aria-label="Views">
+          {items.map((it) => {
+            const name =
+              it.label +
+              (it.approved ? ', used' : it.state === 'stale' ? ', to be drawn again' : '') +
+              (it.photo ? ', your photo' : '') +
+              (it.drawing ? ', drawing' : '');
+            return (
+              <li key={it.view}>
+                <span className="sc-pstudio-slot-lb" data-on={it.state === 'current' || undefined} aria-hidden>
+                  {it.label}
+                </span>
+                <button
+                  type="button"
+                  className="sc-pstudio-slot"
+                  data-state={it.state}
+                  aria-current={it.state === 'current' ? 'step' : undefined}
+                  aria-label={name}
+                  disabled={!onPick}
+                  onClick={() => onPick?.(it.view)}
+                >
+                  <span className="sc-pstudio-slot-inner">
+                    {it.hash ? <img src={thumbUrl(it.hash, 'micro')} alt="" /> : null}
+                    {it.drawing ? <span className="sc-shimmer" aria-hidden /> : null}
+                    {it.approved && !it.drawing ? (
+                      <span className="sc-pstudio-slot-mark" aria-hidden>
+                        &#10003;
+                      </span>
+                    ) : null}
                   </span>
-                ) : null}
-              </button>
-              <span className="sc-pstudio-slot-lb" data-on={it.state === 'current' || undefined} aria-hidden>
-                {it.label}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </div>
   );
 }
