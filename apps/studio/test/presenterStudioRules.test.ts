@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PresenterDraftSlot } from '../src/api.js';
 import {
   VIEWS,
+  castSentence,
   composerState,
   coverageLine,
   currentView,
@@ -318,6 +319,22 @@ describe('leaving and saving', () => {
     });
     expect(saveBlocker(done, '  ')).toBe('Give them a name');
     expect(saveBlocker(done, 'Maren')).toBeNull();
+  });
+});
+
+describe('the gender steer', () => {
+  it('leads the sentence only when the sentence has not said it', () => {
+    expect(castSentence('woman', 'in her forties, short silver hair')).toBe(
+      'a woman, in her forties, short silver hair',
+    );
+    expect(castSentence('man', 'someone warm, early 30s')).toBe('a man, someone warm, early 30s');
+    // already said: the steer stays out rather than saying it twice
+    expect(castSentence('woman', 'a woman in her forties')).toBe('a woman in her forties');
+    expect(castSentence('man', 'a guy with a full beard')).toBe('a guy with a full beard');
+    expect(castSentence('woman', 'an androgynous person in their 20s')).toBe('an androgynous person in their 20s');
+    // no steer, or nothing to steer
+    expect(castSentence(null, 'someone warm')).toBe('someone warm');
+    expect(castSentence('man', '   ')).toBe('');
   });
 });
 

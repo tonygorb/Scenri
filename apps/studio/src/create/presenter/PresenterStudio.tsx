@@ -17,6 +17,7 @@ import {
   MAX_PHOTOS,
   VIEWS,
   VIEW_LABEL,
+  castSentence,
   composerPlaceholder,
   composerState,
   coverageLine,
@@ -79,8 +80,6 @@ const clearPointer = (brandId: string) => {
     /* private mode */
   }
 };
-
-const GENDER_WORD: Record<Gender, string> = { woman: 'a woman', man: 'a man' };
 
 export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps) {
   const { brand } = useBrand();
@@ -156,8 +155,8 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
     }
   }, []);
 
-  /** The sentence the engine gets: the gender card, if chosen, leads the description. */
-  const sentence = () => [gender ? GENDER_WORD[gender] : '', direction.trim()].filter(Boolean).join(', ');
+  /** The sentence the engine gets: the steer leads it only when it is not already said. */
+  const sentence = () => castSentence(gender, direction);
   const words = () => ({ name: name.trim() || undefined });
 
   const startScratch = async () => {
@@ -191,7 +190,6 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
         source: 'photos',
         imageHashes: hashes,
         attestation: true,
-        direction: gender ? GENDER_WORD[gender] : undefined,
         ...words(),
       });
       openDraft(draft.id);

@@ -227,6 +227,23 @@ export function requestLine(d: DraftLike): string {
   return `Build a presenter${who ? ` named ${who}` : ''} from these photos.`;
 }
 
+/** Words that already name who the person is, so a steer would only repeat them. */
+const GENDER_SAID =
+  /\b(wom[ae]n|m[ae]n|male|female|lady|ladies|girl|boy|guy|gentlem[ae]n|nonbinary|non-binary|androgynous|masculine|feminine|transgender|trans)\b/i;
+
+/**
+ * The sentence the engine is given.
+ *
+ * The steer is a convenience for a sentence that never says it. When the
+ * sentence does say it, the steer stays out of the way rather than saying it
+ * twice or, worse, contradicting it.
+ */
+export function castSentence(gender: 'woman' | 'man' | null, direction: string): string {
+  const text = direction.trim();
+  if (!gender || !text || GENDER_SAID.test(text)) return text;
+  return `a ${gender}, ${text}`;
+}
+
 /**
  * What the Filed under line should start from, or null to leave it alone.
  *

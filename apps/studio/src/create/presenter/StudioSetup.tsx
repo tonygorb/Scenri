@@ -1,6 +1,7 @@
 import { Check, Image, Plus, TextAa, X } from '@phosphor-icons/react';
 import { type KeyboardEvent, type ReactNode, useEffect, useRef } from 'react';
 import { thumbUrl } from '../../api.js';
+import { Choice, Choices } from '../../composer/shotSettings/Choices.js';
 import { CategoryMenu } from './CategoryMenu.js';
 import { useFileDrop } from '../../layout/Dropzone.js';
 import { OpenAIMark } from '../../layout/OpenAIMark.js';
@@ -90,41 +91,47 @@ function Field({ id, label, children }: { id?: string; label: string; children: 
   );
 }
 
-/** The two mannequins the frames use, in `public/presenter/`: a form, never a face. */
-const GENDERS: { value: Gender; label: string; src: string }[] = [
-  { value: 'man', label: 'Male', src: '/presenter/male.webp' },
-  { value: 'woman', label: 'Female', src: '/presenter/female.webp' },
+/**
+ * A steer, not a form field.
+ *
+ * Two picture cards spent a fifth of the rail on one bit, said nothing the
+ * word "Male" does not, and left anyone outside the pair with no answer but
+ * silence. This is the app's own segmented control instead: one row, three
+ * ways, arrow keys, Either standing for no steer at all. The sentence still
+ * outranks it (see `castSentence`), and the photos tab does not show it,
+ * because a photograph settles this by itself.
+ */
+const GENDERS: { id: string; label: string }[] = [
+  { id: 'woman', label: 'Woman' },
+  { id: 'man', label: 'Man' },
+  { id: 'any', label: 'Either' },
 ];
 
-/** Two cards, either or neither, wearing the same ring the upload slots wear. */
-function GenderCards({ value, onChange }: { value: Gender | null; onChange: (next: Gender | null) => void }) {
+function GenderChoice({ value, onChange }: { value: Gender | null; onChange: (next: Gender | null) => void }) {
+  const set = (id: string) => onChange(id === 'woman' || id === 'man' ? id : null);
   return (
-    <fieldset className="sc-pstudio-field sc-pstudio-fieldset">
-      <legend className="sc-newdlg-seclabel">Gender</legend>
-      <div className="sc-pstudio-gender">
+    <Field label="Gender">
+      <Choices
+        label="Gender"
+        className="sc-seg sc-pstudio-seg"
+        value={value ?? 'any'}
+        ids={GENDERS.map((g) => g.id)}
+        onChange={set}
+      >
         {GENDERS.map((g) => (
-          <button
-            key={g.value}
-            type="button"
-            className="sc-pstudio-gcard"
-            aria-pressed={value === g.value}
-            onClick={() => onChange(value === g.value ? null : g.value)}
+          <Choice
+            key={g.id}
+            id={g.id}
+            className="sc-seg-o"
+            on={(value ?? 'any') === g.id}
+            label={g.label}
+            onPick={() => set(g.id)}
           >
-            <span className="sc-pstudio-gcard-frame">
-              <span className="sc-pstudio-gcard-inner">
-                <img src={g.src} alt="" decoding="async" />
-                {value === g.value && (
-                  <span className="sc-pstudio-slot-mark" aria-hidden>
-                    <Check size={11} weight="bold" />
-                  </span>
-                )}
-              </span>
-            </span>
-            <span className="sc-pstudio-gcard-lb">{g.label}</span>
-          </button>
+            {g.label}
+          </Choice>
         ))}
-      </div>
-    </fieldset>
+      </Choices>
+    </Field>
   );
 }
 
@@ -303,7 +310,7 @@ export function SetupForm({
           onKeyDown={enterCreates}
         />
       </Field>
-      <GenderCards value={gender} onChange={onGender} />
+      {mode === 'scratch' && <GenderChoice value={gender} onChange={onGender} />}
       {mode === 'scratch' ? (
         engineOff ? (
           <SetupCard onSetup={onSetup} />
