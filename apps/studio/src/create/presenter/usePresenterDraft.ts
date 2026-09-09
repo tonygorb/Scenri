@@ -6,7 +6,7 @@ import { api, type PresenterDraft, type PresenterDraftView } from '../../api.js'
  * answers with the whole draft, so state is replaced, never merged; polling
  * runs only while a step is drawing or the photos are being read.
  */
-export function usePresenterDraft(brandId: string, draftId: string) {
+export function usePresenterDraft(brandId: string, draftId: string | null) {
   const [draft, setDraft] = useState<PresenterDraft | null>(null);
   const [gone, setGone] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -25,6 +25,7 @@ export function usePresenterDraft(brandId: string, draftId: string) {
   }, []);
 
   const load = useCallback(async () => {
+    if (!draftId) return;
     try {
       take(await api.presenterDraft(brandId, draftId));
     } catch (e: any) {
@@ -70,15 +71,23 @@ export function usePresenterDraft(brandId: string, draftId: string) {
     busy,
     drawing,
     reload: load,
-    generate: (view: PresenterDraftView, adjustment?: string) =>
-      act(async () => (await api.generateDraftView(brandId, draftId, view, adjustment ? { adjustment } : {})).draft),
-    approve: (view: PresenterDraftView) => act(() => api.approveDraftView(brandId, draftId, view)),
-    redo: (view: PresenterDraftView) => act(() => api.redoDraftView(brandId, draftId, view)),
-    revert: (view: PresenterDraftView) => act(() => api.revertDraftView(brandId, draftId, view)),
+    generate: (view: PresenterDraftView, adjustment?: string, decide?: 'auto') =>
+      act(
+        async () =>
+          (
+            await api.generateDraftView(brandId, draftId ?? '', view, {
+              ...(adjustment ? { adjustment } : {}),
+              ...(decide ? { decide } : {}),
+            })
+          ).draft,
+      ),
+    approve: (view: PresenterDraftView) => act(() => api.approveDraftView(brandId, draftId ?? '', view)),
+    redo: (view: PresenterDraftView) => act(() => api.redoDraftView(brandId, draftId ?? '', view)),
+    revert: (view: PresenterDraftView) => act(() => api.revertDraftView(brandId, draftId ?? '', view)),
     placePhoto: (view: PresenterDraftView, hash: string) =>
-      act(() => api.placeDraftPhoto(brandId, draftId, view, hash)),
-    update: (patch: { name?: string; facets?: string[]; direction?: string }) =>
-      act(() => api.updatePresenterDraft(brandId, draftId, patch)),
+      act(() => api.placeDraftPhoto(brandId, draftId ?? '', view, hash)),
+    update: (patch: { name?: string; facets?: string[]; direction?: string; extras?: boolean }) =>
+      act(() => api.updatePresenterDraft(brandId, draftId ?? '', patch)),
     clearErr: () => setErr(null),
   };
 }

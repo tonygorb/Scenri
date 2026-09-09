@@ -1,14 +1,16 @@
 import type { PresenterDraft, PresenterDraftSlot, PresenterDraftView } from '../../api.js';
 
 /**
- * The presenter studio's rules, pure: which phase the dialog is in, which
- * view is on the stage, what gets drawn without a click, what the rail says
- * and offers, what a request in the composer is aimed at, what blocks a
- * save. The components read these; nothing here reads a component.
+ * The presenter studio's rules, pure: which views a draft is building,
+ * which is on the stage, what gets drawn without a click, what a sentence
+ * in the composer is aimed at, what blocks a save. The components and the
+ * flows read these; nothing here reads a component.
  */
 export type StudioView = PresenterDraftView;
 /** The server's save order: three core views, then the three built on request. */
 export const VIEWS: readonly StudioView[] = ['portrait', 'front', 'three-quarter', 'back', 'left', 'right'];
+export const CORE_VIEWS: readonly StudioView[] = ['portrait', 'front', 'three-quarter'];
+export const EXTRA_VIEWS: readonly StudioView[] = ['back', 'left', 'right'];
 
 /** The strip's word for a view. */
 export const VIEW_LABEL: Record<StudioView, string> = {
@@ -30,10 +32,9 @@ export const VIEW_NAME: Record<StudioView, string> = {
   right: 'right view',
 };
 const lower = (v: StudioView) => VIEW_NAME[v];
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Which approved views a view is drawn from. Mirrors the server's plan. */
-const DEPENDS: Record<StudioView, StudioView[]> = {
+export const DEPENDS: Record<StudioView, StudioView[]> = {
   portrait: [],
   front: ['portrait'],
   'three-quarter': ['portrait', 'front'],
@@ -50,13 +51,18 @@ export type DraftLike = Pick<PresenterDraft, 'source' | 'name' | 'views' | 'acti
   sources?: string[];
   analysis?: PresenterDraft['analysis'];
   readError?: string;
+  extras?: boolean;
+  identityEdits?: string[];
 };
+
+/** The views this draft is building: the core three, and the extras once asked for. */
+export const viewsOf = (d: DraftLike): readonly StudioView[] => (d.extras ? VIEWS : CORE_VIEWS);
 
 export type Phase = 'identity' | 'build' | 'review';
 
-/** The first view not yet approved, in build order; null once all five are. */
+/** The first view not yet approved, in build order; null once every view in play is. */
 export function currentView(d: DraftLike): StudioView | null {
-  return VIEWS.find((v) => d.views[v].status !== 'approved') ?? null;
+  return viewsOf(d).find((v) => d.views[v].status !== 'approved') ?? null;
 }
 
 export const allApproved = (d: DraftLike): boolean => currentView(d) === null;
@@ -72,14 +78,15 @@ export const drawing = (d: DraftLike): boolean => d.stage !== 'idle' || !!d.acti
 
 /**
  * Photos with no engine can still become a presenter: the face is enough.
- * With an engine, every view has to be approved.
+ * With an engine, every view in play has to be approved.
  */
 export function readyToSave(d: DraftLike, canGenerate: boolean): boolean {
   if (allApproved(d)) return true;
   return !canGenerate && d.source === 'photos' && d.views.portrait.status === 'approved';
 }
 
-const pending = (d: DraftLike) => VIEWS.some((v) => d.views[v].status === 'candidate' || !!d.views[v].prior);
+/** A candidate somewhere still waits for a decision. */
+const pending = (d: DraftLike) => viewsOf(d).some((v) => d.views[v].status === 'candidate');
 
 /** Identity until the face is used; review once everything stands; build in between. */
 export function phaseOf(d: DraftLike, canGenerate: boolean): Phase {
@@ -89,8 +96,8 @@ export function phaseOf(d: DraftLike, canGenerate: boolean): Phase {
 }
 
 /**
- * What the dialog draws next with no click: the first view not yet approved,
- * when it is empty or stale, has not just failed, and everything it is drawn
+ * What is drawn next with no click: the first view not yet approved, when
+ * it is empty or stale, has not just failed, and everything it is drawn
  * from is approved. A candidate waits for a decision, a failure waits for
  * Retry. A stale view is drawn again on its own: the person already decided
  * the change that staled it.
@@ -107,7 +114,7 @@ export function nextToDraw(d: DraftLike): StudioView | null {
 
 /** The view on the stage: what the person chose, else what is being drawn, else what is next. */
 export function selectedView(d: DraftLike, focus: StudioView | null): StudioView {
-  return focus ?? (drawing(d) ? d.activeView : null) ?? currentView(d) ?? 'portrait';
+  return focus ?? (drawing(d) ? (d.activeView as StudioView | null) : null) ?? currentView(d) ?? 'portrait';
 }
 
 export type StripState = 'approved' | 'current' | 'todo' | 'stale';
@@ -120,11 +127,12 @@ export interface StripItem {
   drawing: boolean;
   /** Used, whether or not it is the one on the stage. */
   approved: boolean;
+  error: boolean;
 }
 
-/** The five views as the progress: what stands, what is being decided, what is still to come. */
+/** The views in play as the progress: what stands, what is being decided, what is still to come. */
 export function stripItems(d: DraftLike, selected: StudioView): StripItem[] {
-  return VIEWS.map((view) => {
+  return viewsOf(d).map((view) => {
     const slot = d.views[view];
     const state: StripState =
       view === selected
@@ -142,113 +150,16 @@ export function stripItems(d: DraftLike, selected: StudioView): StripItem[] {
       photo: slot.origin === 'photo',
       drawing: d.activeView === view,
       approved: slot.status === 'approved',
+      error: !!slot.error,
     };
   });
 }
 
-export type Action = 'try-again' | 'use-person' | 'use' | 'keep-previous' | 'retry' | 'save';
-export interface RailCopy {
-  status: string;
-  tone?: 'alert';
-  actions: Action[];
-}
-
-/** What the rail says about the view on the stage, and the one or two things you can do about it. */
-export function railCopy(d: DraftLike, view: StudioView, canGenerate: boolean): RailCopy {
-  const slot = d.views[view];
-  const label = cap(lower(view));
-  if (phaseOf(d, canGenerate) === 'review') {
-    if (!canGenerate && !allApproved(d)) {
-      return { status: 'Saved from your photos: the face leads, the rest follow as they are.', actions: ['save'] };
-    }
-    return {
-      status: d.name.trim()
-        ? 'All five views are one person. Check them, then save.'
-        : 'All five views are one person. Check them, then name them.',
-      actions: ['save'],
-    };
-  }
-  if (d.stage === 'analyzing') return { status: 'Reading the photos.', actions: [] };
-  if (d.activeView === view) {
-    if (slot.adjustment && slot.prior) {
-      return {
-        status:
-          `Redrawing the ${lower(view)}: "${slot.adjustment}".` +
-          (view === 'portrait' ? ' The other views follow once you use it.' : ''),
-        actions: [],
-      };
-    }
-    if (slot.adjustment)
-      return { status: `Adjusting the face: "${slot.adjustment}". Everything else stays.`, actions: [] };
-    if (view === 'portrait') return { status: 'Drawing their face from your description.', actions: [] };
-    return {
-      status: `Drawing the ${lower(view)} from ${d.source === 'photos' ? 'your photos and the approved face' : 'the approved face'}.`,
-      actions: [],
-    };
-  }
-  if (slot.error) {
-    return {
-      status: `The ${lower(view)} could not be drawn: ${slot.error}. Nothing approved was touched.`,
-      tone: 'alert',
-      actions: ['retry'],
-    };
-  }
-  if (slot.status === 'candidate' && slot.prior) {
-    return {
-      status:
-        `A revised ${lower(view)}. Use it, or keep the previous one.` +
-        (view === 'portrait' ? ' Using it redraws the other views from this face.' : ''),
-      actions: ['keep-previous', 'use'],
-    };
-  }
-  if (slot.status === 'candidate' && view === 'portrait' && !identityLocked(d)) {
-    return {
-      status: 'Is this the person? Using them locks the face; the other views are built from it.',
-      actions: ['try-again', 'use-person'],
-    };
-  }
-  if (slot.status === 'candidate') {
-    return { status: `${label}. Built from the approved face. Use it, or try again.`, actions: ['try-again', 'use'] };
-  }
-  if (slot.status === 'stale')
-    return { status: `${label}. Built on a face that changed; it is drawn again next.`, actions: [] };
-  if (slot.status === 'approved') {
-    return {
-      status: slot.origin === 'photo' ? `${label}. Your photo, kept as it is.` : `${label}, approved.`,
-      actions: [],
-    };
-  }
-  if (!canGenerate) return { status: `${label}. Needs an engine to draw.`, actions: [] };
-  const missing = DEPENDS[view].find((dep) => d.views[dep].status !== 'approved');
-  if (missing) return { status: `${label} comes after the ${lower(missing)}.`, actions: [] };
-  return { status: `${label}. Drawn next.`, actions: [] };
-}
-
-/** The request the transcript shows as yours: the sentence, or the photos in a sentence. */
-export function requestLine(d: DraftLike): string {
-  if (d.source === 'synthetic') return d.direction?.trim() || 'Build a presenter.';
-  const who = d.name.trim();
-  return `Build a presenter${who ? ` named ${who}` : ''} from these photos.`;
-}
-
 /* --------------------------------------------------------------- casting */
 
-/**
- * The three things a roll cannot guess, and the words they put in front of
- * the sentence.
- *
- * Everything about a presenter is derived from the picture the roll draws,
- * and the roll reads one string. Who they are, roughly how old they are and
- * their skin are the attributes that decide that picture and that the
- * analyzer then freezes for every future shot (promptName, ageRange, skin).
- * They are also the three where saying nothing is not neutral: an unsteered
- * roll returns the same narrow default over and over. Hair, build and the
- * distinctive marks stay in the sentence, where an open vocabulary belongs.
- */
 export type Steer = 'woman' | 'man' | 'androgynous';
 export type Age = '20s' | '30s' | '40s' | '50s' | '60+';
 export type Tone = 'fair' | 'light' | 'olive' | 'tan' | 'brown' | 'deep';
-/** A named hair colour, or any colour at all as `#rrggbb`: people dye it. */
 export type Hair = string;
 
 export interface Traits {
@@ -275,12 +186,9 @@ const HAIR_WORDS: Record<string, string> = {
 };
 
 /**
- * A colour a person can point at, in the words the engine reads.
- *
- * The picker returns a hex, and a hex in a prompt is either dropped or
- * guessed at, so a custom colour is named before it is sent. The list is the
- * colours hair is actually found or dyed in, natural first; the nearest one
- * in plain RGB wins, which is close enough for a word.
+ * A colour a person can point at, in the words the engine reads: a hex in a
+ * prompt is either dropped or guessed at, so a custom colour is named. The
+ * list is the colours hair is found or dyed in, natural first.
  */
 const HAIR_NAMES: [string, number, number, number][] = [
   ['jet black', 0x1a, 0x18, 0x17],
@@ -310,16 +218,16 @@ export function hairName(hex: string): string {
   let best = HAIR_NAMES[0];
   let near = Number.POSITIVE_INFINITY;
   for (const c of HAIR_NAMES) {
-    const d = (c[1] - r) ** 2 + (c[2] - g) ** 2 + (c[3] - b) ** 2;
-    if (d < near) {
-      near = d;
+    const dist = (c[1] - r) ** 2 + (c[2] - g) ** 2 + (c[3] - b) ** 2;
+    if (dist < near) {
+      near = dist;
       best = c;
     }
   }
   return best[0];
 }
 
-/** The words for whatever the hair row is set to, named or picked. */
+/** The words for whatever the hair is set to, named or picked. */
 export function hairPhrase(hair: Hair): string {
   return HAIR_WORDS[hair] ?? `${hairName(hair)} hair`;
 }
@@ -333,11 +241,11 @@ const TONE_WORDS: Record<Tone, string> = {
 };
 
 /** Words that say who the person is, which is the one thing a roll cannot guess. */
-const SAYS_WHO =
-  /\b(wom[ae]n|m[ae]n|male|female|lady|ladies|girl|boy|guy|gentlem[ae]n|nonbinary|non-binary|androgynous|masculine|feminine|transgender|trans|mother|father|mum|mom|dad|sister|brother|daughter|son|grandmother|grandfather)\b/i;
+export const saysWho =
+  /\b(wom[ae]n|m[ae]n|male|female|lady|ladies|girl|boy|guy|gentlem[ae]n|nonbinary|non-binary|androgynous|masculine|feminine|transgender|trans|mother|father|mum|mom|dad|sister|brother|daughter|son|grandmother|grandfather|she|he|her|his)\b/i;
 /** Words that already put an age on them. */
-const SAYS_AGE =
-  /\b(\d0s|\d{2}\s*(years|yo)|teen|twenties|thirties|forties|fifties|sixties|seventies|elderly|young|old(er)?|middle-aged)\b/i;
+export const saysAge =
+  /\b(\d0s|\d{2}\s*(years|yo)|teen|twenties|thirties|forties|fifties|sixties|seventies|elderly|young|old(er)?|middle-aged|adult)\b/i;
 /** Words that already say what their hair is. */
 const SAYS_HAIR = /\b(hair|bald|shaved|buzz|blonde?|brunette|redhead|ginger|greying|silver|auburn|platinum)\b/i;
 /** Words that already say what their skin is like. */
@@ -355,14 +263,13 @@ export function castSentence(t: Traits, direction: string): string {
   const text = direction.trim();
   if (!text) return '';
   const parts: string[] = [];
-  const who = t.steer && !SAYS_WHO.test(text) ? STEER_WORDS[t.steer] : '';
+  const who = t.steer && !saysWho.test(text) ? STEER_WORDS[t.steer] : '';
   if (who) parts.push(who);
-  if (t.age && !SAYS_AGE.test(text)) {
+  if (t.age && !saysAge.test(text)) {
     const poss = t.steer ? POSSESSIVE[t.steer] : 'their';
     const age = t.age === '60+' ? `in ${poss} 60s or older` : `in ${poss} ${t.age}`;
     parts.push(who ? age : `someone ${age}`);
   }
-  // "with olive skin and black hair" reads as one clause, not two
   const has: string[] = [];
   if (t.tone && !SAYS_TONE.test(text)) has.push(TONE_WORDS[t.tone]);
   if (t.hair && !SAYS_HAIR.test(text)) has.push(hairPhrase(t.hair));
@@ -372,24 +279,10 @@ export function castSentence(t: Traits, direction: string): string {
 }
 
 /**
- * The line under the description when nothing has said who this is. Left
- * unanswered the first roll picks, and the person who wrote it reads the
- * result as the engine being wrong rather than as a question nobody answered.
- */
-export function whoHint(t: Traits, direction: string): string | null {
-  if (t.steer) return null;
-  const text = direction.trim();
-  if (text.length < 8 || SAYS_WHO.test(text)) return null;
-  return 'Nobody has said who this is, so the first roll picks. Choose above, or say it here.';
-}
-
-/**
  * What the Filed under line should start from, or null to leave it alone.
- *
- * The engine names the categories off the photographs or off the portrait it
- * drew, and the server keeps that reading unless the draft carries picks of
- * its own. So the line opens with the engine's answer in it, once, and never
- * argues with a person who has already chosen: an emptied line stays empty.
+ * The engine names the categories off the photographs or the portrait it
+ * drew; the line opens with that answer in it, once, and never argues with a
+ * person who has already chosen.
  */
 export function seedCategories(d: DraftLike, chosen: string[]): string[] | null {
   const read = d.analysis?.suitableCategories ?? [];
@@ -405,20 +298,24 @@ export function worthKeeping(d: DraftLike): boolean {
   });
 }
 
-/** A draft that is worth offering back when the dialog reopens. */
+/** A draft that is worth offering back when the studio reopens. */
 export function resumable(d: DraftLike): boolean {
   if (d.sources?.length) return true;
   if (d.direction?.trim()) return true;
   return worthKeeping(d);
 }
 
-/** What stops a save, first thing first: the sentence a disabled button carries. */
+/**
+ * What stops a save, first thing first: the sentence a disabled button
+ * carries. A view that decided itself and still holds the one it replaced
+ * is not a blocker; Keep previous is an offer, not a debt.
+ */
 export function saveBlocker(d: DraftLike, name: string, canGenerate = true): string | null {
   if (drawing(d)) return 'Still drawing';
-  const required: readonly StudioView[] = !canGenerate && d.source === 'photos' ? ['portrait'] : VIEWS;
+  const required: readonly StudioView[] = !canGenerate && d.source === 'photos' ? ['portrait'] : viewsOf(d);
   for (const v of required) {
     const s = d.views[v];
-    if (s.prior) return `Decide on the ${lower(v)} first`;
+    if (s.status === 'candidate') return `Decide on the ${lower(v)} first`;
     if (s.status === 'stale') return `Redo the ${lower(v)} first`;
     if (s.status !== 'approved') return `Use the ${lower(v)} first`;
   }
@@ -429,7 +326,7 @@ export function saveBlocker(d: DraftLike, name: string, canGenerate = true): str
 /* ------------------------------------------------------------- refining */
 
 /** Words that change who the person is, rather than how one picture was taken. */
-const IDENTITY_WORDS =
+export const IDENTITY_WORDS =
   /\b(hair|bald|fringe|bangs|beard|moustache|mustache|stubble|skin|freckles?|complexion|age|older|younger|\d0s|face|facial|jaw|chin|cheek(bone)?s?|nose|eyes?|brows?|eyebrows?|lips?|mouth|teeth|wrinkles?|build|weight|heavier|slimmer|thinner|leaner|broader|muscular|athletic|curvier|taller|shorter|height|gender|woman|man|feminine|masculine|glasses|tattoo|scar)\b/i;
 
 export type RefineTarget = { view: StudioView; scope: 'identity' | 'view' } | { blocked: string };
@@ -480,9 +377,9 @@ export type ComposerState = {
 
 /**
  * What the composer shows around the sentence, following it as it is typed:
- * the chip says which picture Refine will redraw (the Figma "Refining front
- * view"), and the line under the card says what that means. A sentence that
- * cannot go anywhere drops the chip and puts the reason on the line.
+ * the chip says which picture Refine will redraw, and the line under the
+ * card says what that means. A sentence that cannot go anywhere drops the
+ * chip and puts the reason on the line.
  */
 export function composerState(text: string, selected: StudioView, d: DraftLike): ComposerState {
   const typed = text.trim();
@@ -498,22 +395,9 @@ export function composerState(text: string, selected: StudioView, d: DraftLike):
   return { chip: { view: t.view, label }, hint: refineHint(selected, d) };
 }
 
-/** What Refine is asked for, so a placeholder can ask the right question. */
-export function composerPlaceholder(selected: StudioView, d: DraftLike): string {
-  if (!identityLocked(d)) return 'Adjust: shorter hair, older';
-  const who = d.name.trim() || 'them';
-  return selected === 'portrait' ? `What should change about ${who}?` : `Change this view: ${VIEW_NAME[selected]}`;
-}
-
 /* --------------------------------------------------------------- photos */
 
-/** The line under the photo tiles before anything has been read. */
-export function photosHint(count: number): string {
-  if (count === 0) return 'The same person, face clear. Different angles help.';
-  if (count === 1) return 'One photo works. Two to four, from different angles, hold the likeness better.';
-  if (count < MAX_PHOTOS) return 'More angles hold the likeness better.';
-  return 'Four angles. The reference set comes from these.';
-}
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** After the read: which views the photos already are, and which will be drawn. */
 export function coverageLine(d: DraftLike, canGenerate: boolean): { text: string; tone?: 'warn' } | null {
@@ -525,9 +409,10 @@ export function coverageLine(d: DraftLike, canGenerate: boolean): { text: string
   }
   const conflict = d.analysis?.conflict?.trim();
   if (conflict) return { text: `These photos may show more than one person: ${conflict}`, tone: 'warn' };
-  const photo = VIEWS.filter((v) => d.views[v].origin === 'photo');
-  const drawn = VIEWS.filter((v) => d.views[v].origin !== 'photo');
-  const list = (vs: StudioView[]) =>
+  const inPlay = viewsOf(d);
+  const photo = inPlay.filter((v) => d.views[v].origin === 'photo');
+  const drawn = inPlay.filter((v) => d.views[v].origin !== 'photo');
+  const list = (vs: readonly StudioView[]) =>
     vs.length <= 2
       ? vs.map(lower).join(' and ')
       : `${vs.slice(0, -1).map(lower).join(', ')} and ${lower(vs[vs.length - 1])}`;
