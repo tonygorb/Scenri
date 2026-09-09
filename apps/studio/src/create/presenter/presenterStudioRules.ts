@@ -454,3 +454,13 @@ export function coverageLine(d: DraftLike, canGenerate: boolean): { text: string
 
 /** A slot, for tests and for anyone building a draft by hand. */
 export const emptySlot = (): PresenterDraftSlot => ({ status: 'empty', attempts: 0, rejected: [] });
+
+/** What the stage is doing, in a few words: the view being drawn, and whether it is drawn over a picture it already has. */
+export function doingLine(d: DraftLike): string | undefined {
+  if (d.stage === 'analyzing') return 'Reading the photos';
+  const v = d.activeView;
+  if (!v) return undefined;
+  const again = !!d.views[v]?.hash;
+  if (v === 'portrait') return again ? 'Adjusting the face' : 'Drawing the face';
+  return `${again ? 'Redrawing' : 'Drawing'} the ${VIEW_NAME[v]}`;
+}

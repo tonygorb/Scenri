@@ -134,7 +134,85 @@
 }
 
 .sc-pstudio-well[data-drawing] img {
-  opacity: 0.55;
+  opacity: 0.8;
+}
+
+/* a light sweeps the picture while its view is drawn again: worked on, not gone */
+.sc-pstudio-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.16) 50%, transparent 65%);
+  background-size: 260% 100%;
+  animation: sc-pstudio-sweep 1800ms ease-in-out infinite;
+}
+
+@keyframes sc-pstudio-sweep {
+  from {
+    background-position: 120% 0;
+  }
+
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* what is being drawn, and for how long, in one pill at the foot of the stage */
+.sc-pstudio-doing {
+  position: absolute;
+  inset: auto auto 12px 50%;
+  translate: -50% 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px 0 10px;
+  border-radius: var(--sc-radius-full);
+  background: color-mix(in srgb, var(--sc-bg) 78%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--sc-fg);
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.sc-pstudio-doing time {
+  color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-pstudio-slot-work {
+  position: absolute;
+  inset: auto 6px 6px auto;
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-ring {
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: sc-pstudio-ring 720ms linear infinite;
+}
+
+@keyframes sc-pstudio-ring {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-pstudio-veil {
+    animation: none;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .sc-pstudio-ring {
+    animation: none;
+    border-right-color: currentColor;
+    opacity: 0.5;
+  }
 }
 
 .sc-pstudio-well-blank {
@@ -144,32 +222,6 @@
   place-items: center;
   color: var(--sc-fg3);
   opacity: 0.5;
-}
-
-.sc-pstudio-clock {
-  position: absolute;
-  inset: auto 0 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--sc-space-2);
-  pointer-events: none;
-}
-
-/* the shimmer primitive is an overlay; here it is a small bar of its own */
-.sc-pstudio-clock .sc-shimmer {
-  position: relative;
-  inset: auto;
-  width: 36px;
-  height: 4px;
-  border-radius: 2px;
-}
-
-.sc-pstudio-clock time {
-  font-family: var(--sc-font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: var(--sc-text-caption);
-  color: var(--sc-fg3);
 }
 
 /* the strip: five tiles at a 98 pitch, the label centred under each, the
@@ -616,23 +668,6 @@
 }
 
 /* the filed-under line, beside the save turn */
-.sc-pstudio-filed {
-  display: flex;
-  align-items: center;
-  gap: var(--sc-space-5);
-}
-
-.sc-pstudio-filed-lb {
-  flex: none;
-  font-size: var(--sc-text-caption);
-  font-weight: 500;
-  color: var(--sc-fg2);
-}
-
-.sc-pstudio-filed > :last-child {
-  flex: 1 1 auto;
-  min-width: 0;
-}
 
 /* a candidate over a picture that stands: press to see the one it replaces */
 .sc-pstudio-compare {

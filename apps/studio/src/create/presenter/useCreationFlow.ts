@@ -35,6 +35,7 @@ import {
   selectedView,
   stripItems,
   readsAsPerson,
+  doingLine,
 } from './presenterStudioRules.js';
 import { usePresenterDraft } from './usePresenterDraft.js';
 
@@ -128,11 +129,15 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     },
     [brand.id],
   );
-  const clearSetup = useCallback(() => {
-    session.remove(setupKey(brand.id));
-    forgetSaid(`presenter-create:${brand.id}`);
-    setSetupState(EMPTY_SETUP);
-  }, [brand.id]);
+  const clearSetup = useCallback(
+    (draftId?: string) => {
+      session.remove(setupKey(brand.id));
+      forgetSaid(`presenter-create:${brand.id}:new`);
+      if (draftId) forgetSaid(`presenter-create:${brand.id}:${draftId}`);
+      setSetupState(EMPTY_SETUP);
+    },
+    [brand.id],
+  );
 
   const s = usePresenterDraft(brand.id, draftId);
   const d = s.draft;
@@ -300,7 +305,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       await api.updatePresenterDraft(brand.id, d.id, { facets });
       const r = await api.savePresenterDraft(brand.id, d.id);
       session.remove(pointerKey(brand.id));
-      clearSetup();
+      clearSetup(d.id);
       onStarted({ kind: 'presenter', id: r.presenter.id, name: r.presenter.name });
     } catch (e: any) {
       setSaving(false);
@@ -318,7 +323,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       }
     }
     session.remove(pointerKey(brand.id));
-    clearSetup();
+    clearSetup(d?.id);
     setUi({ collapsed: false, extrasDeclined: false, reasking: null, failed: null, asides: [], unsure: null });
     setText(keep);
     setConfirming(null);
@@ -412,7 +417,10 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
             return;
           }
           const failedView = (Object.keys(d.views) as StudioView[]).find((x) => !!d.views[x].error);
-          if (failedView) void s.generate(failedView, undefined, failedView === 'portrait' ? undefined : 'auto');
+          if (failedView) {
+            // drawn again as it was asked for, not from scratch
+            void s.generate(failedView, d.views[failedView].adjustment, failedView === 'portrait' ? undefined : 'auto');
+          }
           return;
         }
         case 'extras':
@@ -611,7 +619,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         : null,
     surface: {
       title: 'Create presenter',
-      memoryKey: `presenter-create:${brand.id}`,
+      // one conversation per draft: a second person started in the same tab is
+      // a new conversation and arrives line by line, not already said
+      memoryKey: `presenter-create:${brand.id}:${d?.id ?? 'new'}`,
       turns,
       busy: s.busy || busySetup,
       stage: d
@@ -620,6 +630,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
             alt: `${VIEW_LABEL[view]}${slot?.status === 'candidate' ? ', candidate' : ''}`,
             drawing: drawingNow,
             since: d.updatedAt,
+            doing: doingLine(d),
             items,
             onPick: (v: StudioView) => {
               setFocus(v);
@@ -643,6 +654,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         error: askErr ?? saveErr,
         disabled: s.busy || busySetup || booting || !!composerBase.off,
         working: !!d && !!d.activeView && question?.id !== 'name',
+        onStop: d?.activeView ? () => void s.stop() : undefined,
         focusKey: question ? `${question.id}:${d?.id ?? 'setup'}` : undefined,
         onAttach: !d && question?.id === 'source' ? () => setSetup({ source: 'photos' }) : undefined,
       },
@@ -653,13 +665,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       onRestore: (view: string, hash: string) => void s.restore(view as StudioView, hash),
       onEdit,
       onExpand: () => setUi((u) => ({ ...u, collapsed: false })),
-      footnote: capsNote(
-        !canDraw
-          ? 'Saved from the photos you add.'
-          : caps?.free
-            ? 'Nothing billed through Scenri.'
-            : 'Each view is a generation.',
-      ),
+      footnote: capsNote(''),
       onPaste: !d ? (files: File[]) => void addFiles(files) : undefined,
     },
   };

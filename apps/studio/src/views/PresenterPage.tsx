@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { TextField } from '@radix-ui/themes';
 import { api, type PresenterPatch } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
+import { CategoryMenu } from '../create/presenter/CategoryMenu.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useMadeWith } from './useMadeWith.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
@@ -43,7 +44,8 @@ const CURATED_LABELS = ['Front', 'Left', 'Right', 'Back'];
  */
 export function PresenterPage() {
   const { presenterId = '' } = useParams();
-  const { presenters, presentersLoaded, presentersError, refetchPresenters, applyBrand } = useAppData();
+  const { presenters, presentersLoaded, presentersError, refetchPresenters, applyBrand, presenterCategories } =
+    useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
   const applyPresenter = useApplyPresenter();
@@ -255,9 +257,20 @@ export function PresenterPage() {
         ) : (
           <p className="sc-lookpage-lede">{presenter.descriptor}</p>
         )}
-        <p className="sc-lookpage-facts">
-          {[presenter.ageRange, presenter.hair, presenter.suitableCategories.join(', ')].filter(Boolean).join(' · ')}
-        </p>
+        <p className="sc-lookpage-facts">{[presenter.ageRange, presenter.hair].filter(Boolean).join(' · ')}</p>
+        {owned ? (
+          <div className="sc-presenterpage-filed">
+            <span className="sc-presenterpage-filed-lb">Filed under</span>
+            <CategoryMenu
+              value={presenter.suitableCategories}
+              categories={presenterCategories}
+              onChange={(next) => patch({ suitableCategories: next })}
+              placeholder="Nothing yet"
+            />
+          </div>
+        ) : presenter.suitableCategories.length ? (
+          <p className="sc-lookpage-facts">Filed under {presenter.suitableCategories.join(', ')}</p>
+        ) : null}
 
         {owned && editing && (
           <div className="sc-presenterpage-cont">

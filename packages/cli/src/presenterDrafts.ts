@@ -226,7 +226,30 @@ function fromRow(row: { id: string; brandId: string; json: unknown; createdAt: s
   if (j.presenterId) rec.presenterId = String(j.presenterId);
   if (j.baseId) rec.baseId = String(j.baseId);
   if (Array.isArray(j.keptShots) && j.keptShots.length) rec.keptShots = j.keptShots.map(shotOf);
+  backfillRecord(rec);
   return rec;
+}
+
+/**
+ * A draft from before the record was kept has pictures on its views and no
+ * results or asks to show them by. Read them off the slots once, in view
+ * order, dated when the draft last changed: the record then reads as one,
+ * and every picture on a view is a restore point.
+ */
+function backfillRecord(rec: PresenterDraftRecord): void {
+  if (rec.results.length) return;
+  const at = rec.updatedAt || rec.createdAt;
+  for (const v of PRESENTER_VIEWS) {
+    const s = rec.views[v];
+    if (!s.hash || s.origin !== 'generated') continue;
+    if (s.adjustment && !rec.asks.some((a) => a.view === v && a.text === s.adjustment)) {
+      rec.asks = [...rec.asks, { view: v, text: s.adjustment, at }];
+    }
+    rec.results = [
+      ...rec.results,
+      { view: v, hash: s.hash, at, ...(s.adjustment ? { ask: s.adjustment } : {}), how: 'drawn' },
+    ];
+  }
 }
 
 const asksOf = (v: unknown): DraftAsk[] =>
@@ -793,6 +816,8 @@ async function drawView(
       const slot = r.views[view];
       slot.status = before === 'generating' ? (slot.hash ? 'candidate' : 'empty') : before;
       slot.attempts += 1;
+      // the ask it was for stays on the slot, so drawing it again is drawing it again with the ask
+      if (adjustment) slot.adjustment = adjustment;
       slot.error = signal.aborted ? 'cancelled' : String(err?.message ?? 'the view could not be drawn');
       r.generations += 1;
     });
@@ -1239,6 +1264,22 @@ function readWords(a: AnalyzerDraft | undefined): Partial<PresenterInput> {
   if (said(a.skin)) out.skin = a.skin;
   if (said(a.build)) out.build = a.build;
   return out;
+}
+
+/**
+ * Stop what is drawing, and keep everything else. The job's own catch writes
+ * the outcome on the row (the slot back to what it was, `cancelled` as its
+ * reason) and the draft goes idle; nothing is drawn again until asked. The
+ * engine gets the abort, so a process under way is killed, not left to spend.
+ */
+export async function stopPresenterDraft(deps: AssetBuildDeps, id: string): Promise<PresenterDraftRecord> {
+  const rec = getPresenterDraft(deps.core, id);
+  if (!rec) throw fail('draft not found', 404);
+  const job = running.get(id);
+  if (!job) return rec;
+  job.ctrl.abort();
+  for (let i = 0; i < 500 && running.has(id); i++) await new Promise((r) => setTimeout(r, 10));
+  return getPresenterDraft(deps.core, id) ?? rec;
 }
 
 /** Intentional cancel: the row goes, and every picture this draft alone was holding. */

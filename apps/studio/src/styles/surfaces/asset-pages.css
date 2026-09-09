@@ -959,3 +959,23 @@
     width: 100%;
   }
 }
+
+/* where a presenter is filed: the verticals they suit, set on their page */
+.sc-presenterpage-filed {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  max-width: var(--sc-measure-lede);
+  margin: 0 auto var(--sc-space-8);
+}
+
+.sc-presenterpage-filed-lb {
+  flex: none;
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
+}
+
+.sc-presenterpage-filed > :last-child {
+  flex: 1;
+  min-width: 0;
+}

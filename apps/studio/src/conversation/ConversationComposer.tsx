@@ -1,5 +1,4 @@
 import { ArrowUp, Plus } from '@phosphor-icons/react';
-import { Spinner } from '@radix-ui/themes';
 import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Tip } from '../layout/Tip.js';
 
@@ -35,6 +34,7 @@ export function ConversationComposer({
   working,
   error,
   focusKey,
+  onStop,
   onAttach,
   onSend,
 }: {
@@ -57,6 +57,8 @@ export function ConversationComposer({
   error?: string | null;
   /** Changes when the field should take the keyboard: a new text question arrived. */
   focusKey?: string;
+  /** While it works: stop what is drawing. The pill says Stop and does that. */
+  onStop?: () => void;
   /** An attach button beside the pill: photographs can come in here too. */
   onAttach?: () => void;
   /** True when the sentence was taken; the flow then clears `value`. */
@@ -101,12 +103,15 @@ export function ConversationComposer({
     <button
       type="button"
       className="sc-convo-send"
-      aria-disabled={off || empty || undefined}
+      aria-disabled={(working ? !onStop : off || empty) || undefined}
       aria-busy={working || undefined}
-      onClick={send}
+      data-stop={(working && !!onStop) || undefined}
+      onClick={working ? onStop : send}
     >
-      <span className="sc-convo-send-ico">{working ? <Spinner size="1" /> : <ArrowUp size={17} weight="bold" />}</span>
-      {working ? 'Working' : action}
+      <span className="sc-convo-send-ico">
+        {working ? <span className="sc-convo-spin" aria-hidden="true" /> : <ArrowUp size={17} weight="bold" />}
+      </span>
+      {working ? (onStop ? 'Stop' : 'Working') : action}
     </button>
   );
   return (

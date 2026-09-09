@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PresenterDraftSlot } from '../src/api.js';
 import {
+  doingLine,
   type Traits,
   VIEWS,
   NO_TRAITS,
@@ -369,5 +370,20 @@ describe('what reads as a person', () => {
       '35',
     ])
       expect([t, readsAsPerson(t)]).toEqual([t, false]);
+  });
+});
+
+describe('doingLine', () => {
+  it('names the view being drawn, and says when it is drawn over a picture it already has', () => {
+    expect(doingLine(draft({ stage: 'analyzing' }))).toBe('Reading the photos');
+    expect(doingLine(draft({ stage: 'idle', activeView: null }))).toBeUndefined();
+    expect(doingLine(draft({ stage: 'drawing', activeView: 'portrait' }))).toBe('Drawing the face');
+    expect(doingLine(draft({ stage: 'drawing', activeView: 'portrait', views: { portrait: approved('p0') } }))).toBe(
+      'Adjusting the face',
+    );
+    expect(doingLine(draft({ stage: 'drawing', activeView: 'front' }))).toBe('Drawing the full body');
+    expect(doingLine(draft({ stage: 'drawing', activeView: 'front', views: { front: approved('f0') } }))).toBe(
+      'Redrawing the full body',
+    );
   });
 });

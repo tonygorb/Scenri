@@ -126,8 +126,12 @@ async function openDraft(p: Page, brand: { slug: string; id: string }, draftId: 
 /** Every request the studio makes to the API between two moments. */
 function apiCalls(p: Page): { count: () => number; urls: () => string; reset: () => void } {
   let seen: string[] = [];
+  // The bell's own tick (activity and asset builds) runs on its own clock in
+  // every brand and is not the conversation asking for anything.
+  const bell = /\/(activity|asset-builds)$/;
   p.on('request', (r) => {
-    if (r.url().includes('/api/')) seen.push(`${r.method()} ${new URL(r.url()).pathname}`);
+    const path = new URL(r.url()).pathname;
+    if (r.url().includes('/api/') && !bell.test(path)) seen.push(`${r.method()} ${path}`);
   });
   return {
     count: () => seen.length,
@@ -325,7 +329,11 @@ test.describe('a person from scratch', () => {
     await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 20_000 });
     const before = await draftOf(page, brand.id, draftId);
     await send(page, 'shorter hair');
+    // while it draws, the stage says so over the picture it is redrawing
+    await expect(page.locator('.sc-pstudio-doing')).toContainText('Adjusting the face');
+    await expect(page.locator('.sc-pstudio-veil')).toHaveCount(1);
     await expect(log(page)).toContainText('with the change', { timeout: 20_000 });
+    await expect(page.locator('.sc-pstudio-doing')).toHaveCount(0);
     await expect(page.locator('.sc-pstudio-compare')).toBeVisible();
     const revised = await draftOf(page, brand.id, draftId);
     expect(revised.views.portrait.status).toBe('candidate');
@@ -363,18 +371,28 @@ test.describe('a person from scratch', () => {
       .poll(async () => (await draftOf(page, brand.id, draftId)).views.front.hash)
       .toBe(before.views.front.hash);
     await expect(page.locator('.sc-pstudio-offer')).toHaveCount(0);
-    // the redrawn picture stays in the record as a restore point: back in one tap, nothing drawn
+    // every picture drawn for a view keeps its own card, numbered, and the one
+    // on the stage says so; the other is the press that puts it back
     await expect(log(page)).toContainText('Keep previous');
+    await expect(log(page).locator('.sc-convo-shot[data-current]')).toContainText('Full body 1');
+    const pictures = () =>
+      log(page)
+        .getByText(/^Here is full body \d+\.$/)
+        .count();
+    expect(await pictures()).toBe(2);
     const calls = apiCalls(page);
     const restore = log(page).locator('.sc-convo-restore');
     await expect(restore).toHaveCount(1);
+    await expect(restore).toContainText('Full body 2');
     await restore.click();
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).views.front.hash)
       .toBe(redrawn.views.front.hash);
     // the full body is back from its file; only the view built on it is drawn again
     expect(calls.urls()).not.toContain('/views/front/generate');
-    await expect(log(page)).toContainText('Restored the full body from before.');
+    // putting it back moves the mark from one card to the other and says nothing new
+    await expect(log(page).locator('.sc-convo-shot[data-current]')).toContainText('Full body 2');
+    expect(await pictures()).toBe(2);
     const back = await draftOf(page, brand.id, draftId);
     expect(back.views.front.prior).toBe(before.views.front.hash);
     // what was built on the replaced full body is drawn again on its own

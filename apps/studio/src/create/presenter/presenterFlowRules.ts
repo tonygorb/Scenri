@@ -15,6 +15,7 @@ import {
   type DraftResult,
   type Steer,
   type StudioView,
+  VIEW_LABEL,
   VIEW_NAME,
   allApproved,
   castSentence,
@@ -236,6 +237,34 @@ export function turnsFor(args: FlowArgs): Turn[] {
   // is shaped once without them to learn it.
   const openId = asides.length ? openQuestionId(shape(args, [], null)) : null;
   return shape(args, asides, openId);
+}
+
+/** A draw that was stopped is said quietly and offered again; one that failed says why, with a Retry. */
+export function stoppedOrFailed(view: StudioView, error: string): Question {
+  const name = view === 'portrait' ? 'face' : VIEW_NAME[view];
+  return error === 'cancelled'
+    ? {
+        id: 'retry',
+        kind: 'confirm',
+        quiet: true,
+        prompt: `Stopped drawing the ${name}. Nothing finished was touched.`,
+        options: [{ id: 'retry', label: 'Draw it again' }],
+      }
+    : {
+        id: 'retry',
+        kind: 'confirm',
+        tone: 'alert',
+        prompt: `The ${name} could not be drawn: ${error}. Nothing finished was touched.`,
+        options: [{ id: 'retry', label: 'Retry' }],
+      };
+}
+
+/** Where the analyzer filed them, said once at the save; the presenter page is where it changes. */
+export function filedLine(d: DraftLike): string {
+  const cats = (d.analysis?.suitableCategories ?? []).filter(Boolean);
+  if (!cats.length) return '';
+  const list = cats.length === 1 ? cats[0] : `${cats.slice(0, -1).join(', ')} and ${cats[cats.length - 1]}`;
+  return ` Filed under ${list}; that can change on their page.`;
 }
 
 /** The moment the record last moved: what was said before it belongs to the record, not to the open question. */
@@ -532,16 +561,41 @@ function turnsBase(
   // decision taken, and whatever was said in between, in the order it
   // happened. What was said at the open question is not here; it follows
   // that question.
-  const results = d.results ?? [];
+  // Only a picture that was drawn is a line. Putting one back moves the mark
+  // from one card to another; it says nothing new, so the log does not grow.
+  const results = (d.results ?? []).filter((r) => r.how !== 'restored');
   const decisions = d.decisions ?? [];
   const idle = !d.activeView && d.stage === 'idle';
-  const shot = (r: DraftResult, id: string, text: string): Turn => ({
-    kind: 'scenri',
-    id,
-    text,
-    thumb: r.hash,
-    restore: idle && d.views[r.view].hash !== r.hash ? { view: r.view, hash: r.hash } : undefined,
-  });
+  // every picture drawn for a view is numbered in the order it first landed;
+  // a restored one keeps its number, and the one on the view right now is
+  // marked as such on its latest line
+  const numbers = new Map<string, number>();
+  const perView = new Map<string, number>();
+  const latest = new Map<string, DraftResult>();
+  for (const r of results) {
+    const key = `${r.view}:${r.hash}`;
+    latest.set(key, r);
+    if (numbers.has(key)) continue;
+    const n = (perView.get(r.view) ?? 0) + 1;
+    perView.set(r.view, n);
+    numbers.set(key, n);
+  }
+  const numberOf = (r: DraftResult) => numbers.get(`${r.view}:${r.hash}`) ?? 1;
+  const shot = (r: DraftResult, id: string): Turn => {
+    const n = numberOf(r);
+    const onView = d.views[r.view].hash === r.hash;
+    // the mark is only worth saying where a view has more than one picture
+    const several = (perView.get(r.view) ?? 0) > 1;
+    return {
+      kind: 'scenri',
+      id,
+      text: `Here is ${VIEW_NAME[r.view]} ${n}.`,
+      thumb: r.hash,
+      label: `${VIEW_LABEL[r.view]} ${n}`,
+      current: several && onView && latest.get(`${r.view}:${r.hash}`) === r,
+      restore: idle && !onView ? { view: r.view, hash: r.hash } : undefined,
+    };
+  };
   // a drawn picture answers the ask before it on its view, once
   const taken = new Set<DraftResult>();
   const outcomes = new Map(
@@ -591,7 +645,7 @@ function turnsBase(
           turns: [
             { kind: 'scenri' as const, id: `asked-ask-${a.at}`, text: askedFor(a.view) },
             { kind: 'you' as const, id: `ask-${a.at}`, text: a.text, editable: false },
-            ...(r ? [shot(r, `redrew-${a.at}`, `Redrew the ${VIEW_NAME[a.view]}.`)] : []),
+            ...(r ? [shot(r, `redrew-${a.at}`)] : []),
           ],
         };
       }),
@@ -599,17 +653,7 @@ function turnsBase(
         .filter((r) => !taken.has(r))
         .map((r) => ({
           at: r.at,
-          turns: [
-            shot(
-              r,
-              `result-${r.at}`,
-              r.how === 'restored'
-                ? `Restored the ${VIEW_NAME[r.view]} from before.`
-                : r.ask
-                  ? `Redrew the ${VIEW_NAME[r.view]}.`
-                  : `Drew the ${VIEW_NAME[r.view]}.`,
-            ),
-          ],
+          turns: [shot(r, `result-${r.at}`)],
         })),
       ...decisions.map((x) => ({ at: x.at, turns: decided(x) })),
       ...chatter.map((a) => ({ at: a.at, turns: asideTurns(a) })),
@@ -663,13 +707,7 @@ function turnsBase(
     }
     if (p.error) {
       openAsk();
-      ask({
-        id: 'retry',
-        kind: 'confirm',
-        tone: 'alert',
-        prompt: `The face could not be drawn: ${p.error}. Nothing finished was touched.`,
-        options: [{ id: 'retry', label: 'Retry' }],
-      });
+      ask(stoppedOrFailed('portrait', p.error));
       return T;
     }
     if (p.status === 'candidate') {
@@ -741,13 +779,7 @@ function turnsBase(
 
   if (failed) {
     openAsk();
-    ask({
-      id: 'retry',
-      kind: 'confirm',
-      tone: 'alert',
-      prompt: `The ${VIEW_NAME[failed]} could not be drawn: ${d.views[failed].error}. Nothing finished was touched.`,
-      options: [{ id: 'retry', label: 'Retry' }],
-    });
+    ask(stoppedOrFailed(failed, d.views[failed].error ?? ''));
     return T;
   }
 
@@ -779,7 +811,7 @@ function turnsBase(
   ask({
     id: 'save',
     kind: 'confirm',
-    prompt: `${cap(who)} is ready.`,
+    prompt: `${cap(who)} is ready.${filedLine(d)}`,
     options: [{ id: 'save', label: 'Save presenter' }],
   });
   return T;
@@ -848,8 +880,9 @@ export function composerFor(q: Question | null, d: DraftLike | null, selected: S
   if (!d) return { ...QUIET, off: 'Starting the draft.' };
   if (d.stage === 'analyzing') return { ...QUIET, off: 'Reading the photos.' };
   if (drawing(d)) {
-    const v = d.activeView as StudioView | null;
-    const off = v ? `The ${VIEW_NAME[v]} is still drawing.` : 'Still drawing.';
+    // the stage says what is being drawn and for how long; saying it again
+    // under the composer is the same sentence twice
+    const off = '';
     return identityLocked(d)
       ? { placeholder: composerPlaceholder(selected, d), label: 'What should change', action: 'Refine', off }
       : { ...QUIET, off };

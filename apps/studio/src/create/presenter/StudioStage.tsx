@@ -23,6 +23,7 @@ export function StudioStage({
   items,
   onPick,
   compare,
+  doing,
 }: {
   /** The frame on the stage; none draws the empty well. */
   hash?: string;
@@ -34,6 +35,8 @@ export function StudioStage({
   items: StripItem[];
   onPick?: (view: StudioView) => void;
   compare?: { on: boolean; toggle: () => void };
+  /** What is being drawn, in words, for the pill on the stage. */
+  doing?: string;
 }) {
   const now = useNow(drawing);
   return (
@@ -50,13 +53,15 @@ export function StudioStage({
               decoding="async"
             />
           ) : (
-            <span className={`sc-pstudio-well-blank${drawing ? ' sc-shimmer' : ''}`} aria-hidden>
+            <span className="sc-pstudio-well-blank" aria-hidden>
               {!drawing && <UserCircle size={96} weight="thin" />}
             </span>
           )}
+          {drawing && hash && <span className="sc-pstudio-veil" aria-hidden />}
           {drawing && (
-            <span className="sc-pstudio-clock" aria-hidden>
-              <span className="sc-shimmer" />
+            <span className="sc-pstudio-doing" role="status">
+              <span className="sc-pstudio-ring" aria-hidden />
+              <span>{doing ?? 'Drawing'}</span>
               {since && <time>{elapsedLabel(since, now)}</time>}
             </span>
           )}
@@ -90,7 +95,7 @@ export function StudioStage({
                 >
                   <span className="sc-pstudio-slot-inner">
                     {it.hash ? <img src={thumbUrl(it.hash, 'micro')} alt="" /> : null}
-                    {it.drawing ? <span className="sc-shimmer" aria-hidden /> : null}
+                    {it.drawing ? <span className="sc-pstudio-slot-work sc-pstudio-ring" aria-hidden /> : null}
                     {it.approved && !it.drawing ? (
                       <span className="sc-pstudio-slot-mark" aria-hidden>
                         <Check size={11} weight="bold" />

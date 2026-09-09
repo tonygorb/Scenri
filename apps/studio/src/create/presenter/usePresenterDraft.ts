@@ -20,8 +20,11 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     };
   }, []);
 
+  // Answers can cross: a poll sent before an action lands after it. The row's
+  // own clock decides, so an older answer never overwrites a newer draft.
   const take = useCallback((next: PresenterDraft) => {
-    if (alive.current) setDraft(next);
+    if (!alive.current) return;
+    setDraft((cur) => (cur && cur.id === next.id && next.updatedAt < cur.updatedAt ? cur : next));
   }, []);
 
   // A different address is a different draft: nothing of the last one carries over.
@@ -91,6 +94,7 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     approve: (view: PresenterDraftView) => act(() => api.approveDraftView(brandId, draftId ?? '', view)),
     redo: (view: PresenterDraftView) => act(() => api.redoDraftView(brandId, draftId ?? '', view)),
     revert: (view: PresenterDraftView) => act(() => api.revertDraftView(brandId, draftId ?? '', view)),
+    stop: () => act(() => api.stopDraft(brandId, draftId ?? '')),
     restore: (view: PresenterDraftView, hash: string) =>
       act(() => api.restoreDraftView(brandId, draftId ?? '', view, hash)),
     placePhoto: (view: PresenterDraftView, hash: string) =>

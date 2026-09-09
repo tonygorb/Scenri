@@ -28,6 +28,7 @@ import {
   redoView,
   resetPresenterDrafts,
   restoreView,
+  stopPresenterDraft,
   revertView,
   runningDraftJobCount,
   savePresenterDraft,
@@ -54,6 +55,8 @@ let home: string;
 let core: Core;
 let generated: GenerateRequest[];
 let failNext: Error | null;
+/** When set, the next draw waits here until released or aborted. */
+let holdNext: { release?: () => void } | null = null;
 let analyzed: any[];
 let analyzerOn: boolean;
 
@@ -73,8 +76,16 @@ const engine = (): EngineAdapter => ({
   }),
   isAvailable: async () => ({ ok: true }),
   costEstimate: async () => 0,
-  generate: async (req) => {
+  generate: async (req, signal) => {
     generated.push(req);
+    if (holdNext) {
+      const h = holdNext;
+      holdNext = null;
+      await new Promise<void>((resolve, reject) => {
+        h.release = resolve;
+        signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+      });
+    }
     if (failNext) {
       const err = failNext;
       failNext = null;
@@ -1341,5 +1352,57 @@ describe('the record: results, decisions, and a picture restored from before', (
     await redoView(deps(), d.id, 'front');
     d = getPresenterDraft(core, d.id)!;
     expect(d.decisions.map((x) => x.what).slice(-2)).toEqual(['keep', 'again']);
+  });
+});
+
+describe('a draft from before the record was kept', () => {
+  it('reads its pictures off the slots as results, and an adjustment as the ask it came from', async () => {
+    let d = await cast();
+    d = await step(d.id, 'front', 'arms relaxed', 'auto');
+    // strip the record the way an older row has none, and read it back
+    const { id, brandId, createdAt: _c, updatedAt: _u, ...json } = d;
+    core.store.putPresenterDraft({ id, brandId, json: { ...json, asks: [], results: [], decisions: [] } });
+    const back = getPresenterDraft(core, id)!;
+    expect(back.results.map((r) => [r.view, r.hash, r.ask ?? null])).toEqual([
+      ['portrait', d.views.portrait.hash, null],
+      ['front', d.views.front.hash, 'arms relaxed'],
+      ['three-quarter', d.views['three-quarter'].hash, null],
+    ]);
+    expect(back.asks).toEqual([expect.objectContaining({ view: 'front', text: 'arms relaxed' })]);
+    expect(back.decisions).toEqual([]);
+  });
+});
+
+describe('stopping a draw', () => {
+  it('aborts the job, puts the slot back as it was with cancelled as the reason, and the draft goes idle', async () => {
+    const d = await cast();
+    const front = view(d, 'front').hash!;
+    holdNext = {};
+    await generateView(deps(), d.id, 'front', { adjustment: 'arms relaxed', decide: 'auto' });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(runningDraftJobCount()).toBe(1);
+    expect(getPresenterDraft(core, d.id)!.activeView).toBe('front');
+    const stopped = await stopPresenterDraft(deps(), d.id);
+    expect(runningDraftJobCount()).toBe(0);
+    expect(stopped.activeView).toBeNull();
+    expect(stopped.stage).toBe('idle');
+    expect(view(stopped, 'front')).toMatchObject({ status: 'approved', hash: front, error: 'cancelled' });
+    expect(stopped.results.filter((r) => r.view === 'front')).toHaveLength(1);
+    // nothing running: a stop is nothing
+    expect((await stopPresenterDraft(deps(), d.id)).views.front.error).toBe('cancelled');
+    // asked again, it draws
+    const again = await step(d.id, 'front', 'arms relaxed', 'auto');
+    expect(view(again, 'front').error).toBeUndefined();
+    expect(view(again, 'front').hash).not.toBe(front);
+  });
+});
+
+describe('a draw that failed', () => {
+  it('keeps the ask it was for on the slot, so a retry can draw it again with the ask', async () => {
+    const d = await cast();
+    failNext = new Error('the limit');
+    const failed = await step(d.id, 'front', 'arms relaxed', 'auto');
+    expect(view(failed, 'front')).toMatchObject({ status: 'approved', error: 'the limit', adjustment: 'arms relaxed' });
+    expect(failed.results.filter((r) => r.view === 'front')).toHaveLength(1);
   });
 });

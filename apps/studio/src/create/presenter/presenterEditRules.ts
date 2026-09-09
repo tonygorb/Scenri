@@ -11,6 +11,7 @@ import {
   type DraftLike,
   IDENTITY_WORDS,
   type StudioView,
+  VIEW_LABEL,
   VIEW_NAME,
   type DraftDecision,
   type DraftResult,
@@ -288,15 +289,40 @@ function shapeEdit(
   const chatter = asides.filter((a) => !placed.has(a) && (a.q !== openId || a.at <= edge));
   for (const a of chatter) placed.add(a);
   // every picture that landed is a restore point while it is not the one on the view
-  const results = d.results ?? [];
+  // Only a picture that was drawn is a line. Putting one back moves the mark
+  // from one card to another; it says nothing new, so the log does not grow.
+  const results = (d.results ?? []).filter((r) => r.how !== 'restored');
   const idle = !d.activeView && d.stage === 'idle';
-  const shot = (r: DraftResult, id: string, text: string): Turn => ({
-    kind: 'scenri',
-    id,
-    text,
-    thumb: r.hash,
-    restore: idle && d.views[r.view].hash !== r.hash ? { view: r.view, hash: r.hash } : undefined,
-  });
+  // every picture drawn for a view is numbered in the order it first landed;
+  // a restored one keeps its number, and the one on the view right now is
+  // marked as such on its latest line
+  const numbers = new Map<string, number>();
+  const perView = new Map<string, number>();
+  const latest = new Map<string, DraftResult>();
+  for (const r of results) {
+    const key = `${r.view}:${r.hash}`;
+    latest.set(key, r);
+    if (numbers.has(key)) continue;
+    const n = (perView.get(r.view) ?? 0) + 1;
+    perView.set(r.view, n);
+    numbers.set(key, n);
+  }
+  const numberOf = (r: DraftResult) => numbers.get(`${r.view}:${r.hash}`) ?? 1;
+  const shot = (r: DraftResult, id: string): Turn => {
+    const n = numberOf(r);
+    const onView = d.views[r.view].hash === r.hash;
+    // the mark is only worth saying where a view has more than one picture
+    const several = (perView.get(r.view) ?? 0) > 1;
+    return {
+      kind: 'scenri',
+      id,
+      text: `Here is ${VIEW_NAME[r.view]} ${n}.`,
+      thumb: r.hash,
+      label: `${VIEW_LABEL[r.view]} ${n}`,
+      current: several && onView && latest.get(`${r.view}:${r.hash}`) === r,
+      restore: idle && !onView ? { view: r.view, hash: r.hash } : undefined,
+    };
+  };
   const taken = new Set<DraftResult>();
   const outcomes = new Map(
     asks.map((a) => {
@@ -333,7 +359,7 @@ function shapeEdit(
         turns: [
           { kind: 'scenri' as const, id: `asked-ask-${a.at}`, text: PROMPT_EDIT.change },
           { kind: 'you' as const, id: `ask-${a.at}`, text: a.text, editable: false },
-          ...(r ? [shot(r, `redrew-${a.at}`, `Redrew the ${VIEW_NAME[a.view]}.`)] : []),
+          ...(r ? [shot(r, `redrew-${a.at}`)] : []),
         ],
       };
     }),
@@ -341,17 +367,7 @@ function shapeEdit(
       .filter((r) => !taken.has(r))
       .map((r) => ({
         at: r.at,
-        turns: [
-          shot(
-            r,
-            `result-${r.at}`,
-            r.how === 'restored'
-              ? `Restored the ${VIEW_NAME[r.view]} from before.`
-              : r.ask
-                ? `Redrew the ${VIEW_NAME[r.view]}.`
-                : `Drew the ${VIEW_NAME[r.view]}.`,
-          ),
-        ],
+        turns: [shot(r, `result-${r.at}`)],
       })),
     ...decisions.map((x) => ({ at: x.at, turns: decided(x) })),
     ...chatter.map((a) => ({ at: a.at, turns: asideTurns(a) })),
@@ -413,14 +429,17 @@ function shapeEdit(
 
   if (ui.failed || failedView) {
     openAsk();
+    const stopped = !!failedView && d.views[failedView].error === 'cancelled';
     ask({
       id: 'retry',
       kind: 'confirm',
-      tone: 'alert',
-      prompt: failedView
-        ? `The ${VIEW_NAME[failedView]} could not be drawn: ${d.views[failedView].error}. Nothing finished was touched.`
-        : `That did not go through: ${ui.failed}. Nothing finished was touched.`,
-      options: [{ id: 'retry', label: 'Retry' }],
+      ...(stopped ? { quiet: true } : { tone: 'alert' as const }),
+      prompt: stopped
+        ? `Stopped drawing the ${VIEW_NAME[failedView as StudioView]}. Nothing finished was touched.`
+        : failedView
+          ? `The ${VIEW_NAME[failedView]} could not be drawn: ${d.views[failedView].error}. Nothing finished was touched.`
+          : `That did not go through: ${ui.failed}. Nothing finished was touched.`,
+      options: [{ id: 'retry', label: stopped ? 'Draw it again' : 'Retry' }],
     });
     return done();
   }

@@ -94,7 +94,44 @@ export function syntheticIdentitySubject(direction: string, opts: { adjustment?:
   const body = `${person}, ${framing}, wearing ${CAPTURE_UNIFORM}, ${skin}`;
   const adjustment = opts.adjustment?.trim();
   if (!adjustment) return body;
-  return `the same person as the attached image, changed only in this: ${adjustment}. Otherwise identical to the attached image in face, hair, age and build; ${body}`;
+  return `the same person as the attached image, changed only in this: ${adjustment}. That change is the point of this picture and overrides anything below that describes it otherwise. ${keptAspects(adjustment)}; ${body}`;
+}
+
+/**
+ * The aspects an ask can be about, and the words that say it is.
+ *
+ * "Otherwise identical in face, hair, age and build" used to ride behind
+ * every ask, which contradicted the ask itself: "blue eyes, changed only in
+ * this ... otherwise identical in face" asks for two opposite things at once,
+ * and the model kept the face it was shown. What the ask names is excepted
+ * from that clause, so only the rest is held still.
+ */
+const ASPECTS: { name: string; except?: string; words: RegExp }[] = [
+  {
+    name: 'face',
+    except: 'the rest of the face',
+    words:
+      /\b(face|facial|jaw|chin|cheeks?|cheekbones?|nose|mouth|lips?|teeth|smile|eyes?|eyelids?|eyebrows?|brows?|lashes|freckles?|beard|moustache|mustache|stubble|glasses|expression|skin|complexion|wrinkles?)\b/i,
+  },
+  {
+    name: 'hair',
+    words:
+      /\b(hair|haircut|hairline|bob|fringe|bangs|ponytail|bun|braids?|curls?|curly|straighter|bald|shaved|beard)\b/i,
+  },
+  { name: 'age', words: /\b(age|aged|older|younger|youthful|years old|teenage|[2-7]0s)\b/i },
+  {
+    name: 'build',
+    words:
+      /\b(build|body|frame|slim|slimmer|slender|thin|athletic|muscular|heavier|leaner|fuller|broader|broad|shoulders|weight|taller|shorter)\b/i,
+  },
+];
+
+/** The "otherwise identical" clause with whatever the ask names taken out of it. */
+function keptAspects(adjustment: string): string {
+  const kept = ASPECTS.map((a) => (a.words.test(adjustment) ? a.except : a.name)).filter((x): x is string => !!x);
+  if (!kept.length) return 'Otherwise the same person as the attached image';
+  const list = kept.length === 1 ? kept[0] : `${kept.slice(0, -1).join(', ')} and ${kept.at(-1)}`;
+  return `Otherwise identical to the attached image in ${list}`;
 }
 
 /** The person the frames show, for a draft that has no words yet. */

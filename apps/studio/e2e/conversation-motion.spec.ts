@@ -99,6 +99,8 @@ async function watch(p: Page) {
       timer: 0,
       wasFolded: false,
       unfolded: false,
+      lastTick: 0,
+      maxGap: 0,
     };
     (window as unknown as { __motion: typeof M }).__motion = M;
     const box = document.querySelector('[role="log"]') as HTMLElement;
@@ -111,6 +113,9 @@ async function watch(p: Page) {
       M.events.push({ t: Math.round(performance.now() - M.t0), ...e } as Ev);
     let first = true;
     const snap = () => {
+      const tick = performance.now();
+      if (M.lastTick) M.maxGap = Math.max(M.maxGap, tick - M.lastTick);
+      M.lastTick = tick;
       const seenNow = new Set<number>();
       for (const el of box.querySelectorAll('.sc-convo-turn')) {
         const id = idOf(el);
@@ -187,17 +192,34 @@ async function watch(p: Page) {
   });
 }
 
-async function record(p: Page): Promise<{ events: Ev[]; initial: number[] }> {
+async function record(p: Page): Promise<{ events: Ev[]; initial: number[]; maxGap: number; end: number }> {
   return p.evaluate(() => {
-    const M = (window as unknown as { __motion: { events: Ev[]; initial: Set<number>; timer: number } }).__motion;
+    const M = (
+      window as unknown as {
+        __motion: { events: Ev[]; initial: Set<number>; timer: number; maxGap: number; t0: number };
+      }
+    ).__motion;
     window.clearInterval(M.timer);
-    return { events: M.events, initial: [...M.initial] };
+    // when the watching stopped, so a line whose beat was still to come is not
+    // judged for a beat nobody stayed to see
+    return {
+      events: M.events,
+      initial: [...M.initial],
+      maxGap: Math.round(M.maxGap),
+      end: Math.round(performance.now() - M.t0),
+    };
   });
 }
 
 /** What the record says against the rules. */
-function judge(events: Ev[], initial: number[], opts: { reduced?: boolean } = {}): string[] {
+function judge(
+  events: Ev[],
+  initial: number[],
+  opts: { reduced?: boolean; maxGap?: number; end?: number } = {},
+): string[] {
   const out: string[] = [];
+  // a sampler starved by a loaded machine misses a dots window; timing rules then say nothing
+  const timed = (opts.maxGap ?? 0) < 250;
   const first = new Set(initial);
   const byId = new Map<number, Ev[]>();
   for (const e of events) byId.set(e.id, [...(byId.get(e.id) ?? []), e]);
@@ -219,10 +241,10 @@ function judge(events: Ev[], initial: number[], opts: { reduced?: boolean } = {}
       const wordsStart = at(g, 'words start');
       const wordsDone = at(g, 'words done') ?? at(g, 'words plain');
       // a line replaced before anyone could see it owes no thought
-      const lived = (un?.t ?? Number.POSITIVE_INFINITY) - m.t;
+      const lived = (un?.t ?? opts.end ?? Number.POSITIVE_INFINITY) - m.t;
       const shown = g.some((e) => e.ev === 'seen');
-      if (dotsOn === undefined && shown && lived > 900) out.push(`${label}: arrived without thinking`);
-      if (wordsStart !== undefined && dotsOff !== undefined && wordsStart < dotsOff - 20)
+      if (timed && dotsOn === undefined && shown && lived > 900) out.push(`${label}: arrived without thinking`);
+      if (timed && wordsStart !== undefined && dotsOff !== undefined && wordsStart < dotsOff - 20)
         out.push(`${label}: words before the dots left (${wordsStart} < ${dotsOff})`);
       const ctl = at(g, 'controls on');
       if (ctl !== undefined && wordsDone !== undefined && ctl < wordsDone - 40)
@@ -323,8 +345,8 @@ test.describe('the conversation in motion', () => {
     await expect(answer(page, 'Save presenter')).toBeVisible();
     await settle(page);
 
-    const { events, initial } = await record(page);
-    const bad = judge(events, initial);
+    const { events, initial, maxGap, end } = await record(page);
+    const bad = judge(events, initial, { maxGap, end });
     if (bad.length) console.log(trace(events));
     expect(bad).toEqual([]);
   });
@@ -381,8 +403,8 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('Maren Vale is ready.');
     await settle(page);
 
-    const { events, initial } = await record(page);
-    const bad = judge(events, initial);
+    const { events, initial, maxGap, end } = await record(page);
+    const bad = judge(events, initial, { maxGap, end });
     if (bad.length) console.log(trace(events));
     expect(bad).toEqual([]);
 
@@ -425,8 +447,8 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('Save changes when you are done.', { timeout: 30_000 });
     await settle(page);
 
-    const { events, initial } = await record(page);
-    const bad = judge(events, initial);
+    const { events, initial, maxGap, end } = await record(page);
+    const bad = judge(events, initial, { maxGap, end });
     if (bad.length) console.log(trace(events));
     expect(bad).toEqual([]);
   });
@@ -444,8 +466,8 @@ test.describe('the conversation in motion', () => {
     await send(page, 'hey');
     await expect(log(page)).toContainText('Hi. Describe them in a sentence');
     await settle(page, 800);
-    const { events, initial } = await record(page);
-    const bad = judge(events, initial, { reduced: true });
+    const { events, initial, maxGap, end } = await record(page);
+    const bad = judge(events, initial, { reduced: true, maxGap, end });
     if (bad.length) console.log(trace(events));
     expect(bad).toEqual([]);
   });

@@ -423,6 +423,8 @@ export interface PresenterDraft {
 export interface PresenterPatch {
   name?: string;
   descriptor?: string;
+  /** Where they are filed in the library: the verticals they suit. */
+  suitableCategories?: string[];
   ageRange?: string;
   hair?: string;
   identityNotes?: string;

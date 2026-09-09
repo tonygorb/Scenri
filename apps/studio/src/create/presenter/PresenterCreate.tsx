@@ -1,8 +1,7 @@
 import { Confirm } from '../../Confirm.js';
-import { CategoryMenu } from './CategoryMenu.js';
 import { StudioShell } from './StudioShell.js';
 import { type CreationFlowArgs, useCreationFlow } from './useCreationFlow.js';
-import { VIEW_NAME, identityLocked, worthKeeping } from './presenterStudioRules.js';
+import { VIEW_NAME, worthKeeping } from './presenterStudioRules.js';
 
 /**
  * Create presenter: the creation flow on the studio surface.
@@ -16,9 +15,6 @@ import { VIEW_NAME, identityLocked, worthKeeping } from './presenterStudioRules.
 export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClose: () => void }) {
   const f = useCreationFlow(args);
   const d = f.d;
-  const ready =
-    !!d && identityLocked(d) && f.surface.turns.some((t) => t.kind === 'question' && t.question.id === 'save');
-
   const headAction = d ? (
     worthKeeping(d) ? (
       <Confirm
@@ -48,17 +44,6 @@ export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClo
           <button type="button" className="sc-btn sc-btn-ghost" onClick={f.keepPrevious}>
             Keep previous
           </button>
-        </div>
-      )}
-      {ready && (
-        <div className="sc-pstudio-filed">
-          <span className="sc-pstudio-filed-lb">Filed under</span>
-          <CategoryMenu
-            value={f.facets}
-            categories={f.presenterCategories}
-            onChange={f.setFacets}
-            placeholder="Nothing yet"
-          />
         </div>
       )}
     </>

@@ -1,3 +1,4 @@
+import { Check } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { thumbUrl } from '../api.js';
 import { ScenriMark } from '../layout/ScenriMark.js';
@@ -23,6 +24,8 @@ export function ScenriTurn({
   leave,
   turnId,
   thumb,
+  label,
+  current,
   restore,
   onRestore,
 }: {
@@ -30,6 +33,10 @@ export function ScenriTurn({
   tone?: QuestionTone;
   /** A picture the line is about, shown small under it. */
   thumb?: string;
+  /** Its name: the view and its number. */
+  label?: string;
+  /** It is the one on its view right now. */
+  current?: boolean;
   /** The picture can be put back as it was; the button says so. */
   restore?: { view: string; hash: string };
   onRestore?: (view: string, hash: string) => void;
@@ -65,20 +72,33 @@ export function ScenriTurn({
         {thinking && <Thinking />}
         <RevealWords text={text} playing={playing} />
       </p>
-      {thumb && (
-        <span className="sc-convo-shot" data-reveal={playing || undefined}>
-          <img src={thumbUrl(thumb, 'micro')} alt="" />
-          {restore && onRestore && (
-            <button
-              type="button"
-              className="sc-btn sc-btn-ghost sc-convo-restore"
-              onClick={() => onRestore(restore.view, restore.hash)}
-            >
-              Restore
-            </button>
-          )}
-        </span>
-      )}
+      {thumb &&
+        (restore && onRestore ? (
+          <button
+            type="button"
+            className="sc-convo-shot sc-convo-restore"
+            data-reveal={playing || undefined}
+            aria-label={label ? `Put ${label.toLowerCase()} back on the stage` : 'Put this back on the stage'}
+            onClick={() => onRestore(restore.view, restore.hash)}
+          >
+            <img src={thumbUrl(thumb, 'micro')} alt="" />
+            <span className="sc-convo-shot-nm">{label}</span>
+            <span className="sc-convo-shot-do" aria-hidden>
+              Put back
+            </span>
+          </button>
+        ) : (
+          <span className="sc-convo-shot" data-reveal={playing || undefined} data-current={current || undefined}>
+            <img src={thumbUrl(thumb, 'micro')} alt="" />
+            <span className="sc-convo-shot-nm">{label}</span>
+            {current && (
+              <span className="sc-convo-shot-on">
+                <Check size={11} weight="bold" aria-hidden />
+                On the stage
+              </span>
+            )}
+          </span>
+        ))}
     </div>
   );
 }

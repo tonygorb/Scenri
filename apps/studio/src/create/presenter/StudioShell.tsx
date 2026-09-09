@@ -15,6 +15,8 @@ export interface StageSurface {
   alt: string;
   drawing: boolean;
   since?: string;
+  /** What is being drawn, in words, for the pill on the stage. */
+  doing?: string;
   items: StripItem[];
   onPick?: (view: StudioView) => void;
   /** A candidate over a picture that stands: press to see the one it would replace. */
@@ -35,6 +37,8 @@ export interface ComposerSurface {
   allowEmpty?: boolean;
   focusKey?: string;
   onAttach?: () => void;
+  /** Stop what is drawing; only while something is. */
+  onStop?: () => void;
 }
 
 /**
@@ -163,6 +167,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 alt={s.stage.alt}
                 drawing={s.stage.drawing}
                 since={s.stage.since}
+                doing={s.stage.doing}
                 items={s.stage.items}
                 onPick={s.stage.onPick}
                 compare={s.stage.compare}
@@ -209,10 +214,11 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 error={s.composer.error}
                 focusKey={s.composer.focusKey}
                 onAttach={s.composer.onAttach}
+                onStop={s.composer.onStop}
                 onSend={s.onSend}
               />
             )}
-            <p className="sc-dlg-foot">{s.footnote}</p>
+            {s.footnote ? <p className="sc-dlg-foot">{s.footnote}</p> : null}
           </div>
         </div>
         {s.overlay}

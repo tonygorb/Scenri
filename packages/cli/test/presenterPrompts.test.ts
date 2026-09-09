@@ -146,3 +146,23 @@ describe('whoIs', () => {
     );
   });
 });
+
+describe('an ask on the face', () => {
+  it('is not contradicted by the clause that holds the rest of the person still', () => {
+    const blue = syntheticIdentitySubject('a woman in her late 30s, brown eyes', {
+      adjustment: 'change her eyes to blue',
+    });
+    expect(blue).toContain('changed only in this: change her eyes to blue.');
+    expect(blue).toContain('overrides anything below that describes it otherwise');
+    // the ask is about the face, so the face is not also held identical
+    expect(blue).toContain('Otherwise identical to the attached image in the rest of the face, hair, age and build');
+    const longer = syntheticIdentitySubject('a woman in her late 30s', { adjustment: 'longer hair' });
+    expect(longer).toContain('Otherwise identical to the attached image in face, age and build');
+    const both = syntheticIdentitySubject('a woman', { adjustment: 'blue eyes and longer hair' });
+    expect(both).toContain('Otherwise identical to the attached image in the rest of the face, age and build');
+    // an ask about nothing nameable still holds the person
+    expect(syntheticIdentitySubject('a woman', { adjustment: 'make it warmer' })).toContain(
+      'Otherwise identical to the attached image in face, hair, age and build',
+    );
+  });
+});

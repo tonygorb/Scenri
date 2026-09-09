@@ -8,6 +8,7 @@ import {
   type Setup,
   UNSURE_LINE,
   asideReply,
+  filedLine,
   settleUnsure,
   composerFor,
   descriptionGaps,
@@ -359,7 +360,8 @@ describe('what was sent stays as it was sent', () => {
     expect(t).toContain(`scenri:redrew-${at(3)}`);
     expect(composerFor(null, set, 'front').off).toBeUndefined();
     const busy = draft({ ...set, activeView: 'three-quarter', stage: 'drawing' });
-    expect(composerFor(null, busy, 'front').off).toBe('The three-quarter view is still drawing.');
+    // the stage names what is being drawn, so the composer says nothing under it
+    expect(composerFor(null, busy, 'front').off).toBe('');
     expect(ids(scratch, busy).at(-1)).toBe('scenri:drawing-three-quarter');
   });
 });
@@ -477,14 +479,23 @@ describe('the record: pictures, decisions and restore points', () => {
     const line = (id: string) => t.find((x) => x.kind === 'scenri' && x.id === id) as Extract<Turn, { kind: 'scenri' }>;
     // the first face, tried again: a restore point; the face on the view: not
     expect(line(`result-${at(0)}`)).toMatchObject({
-      text: 'Drew the face.',
+      text: 'Here is face 1.',
+      label: 'Face 1',
+      current: false,
       thumb: 'p0',
       restore: { view: 'portrait', hash: 'p0' },
     });
+    expect(line(`result-${at(1)}`)).toMatchObject({ text: 'Here is face 2.', label: 'Face 2', current: true });
     expect(line(`result-${at(1)}`).restore).toBeUndefined();
+    // the full body on the view is the first one drawn, and says so
+    expect(line(`result-${at(3)}`)).toMatchObject({ label: 'Full body 1', current: true });
+    // one three-quarter picture, so nothing to tell apart and nothing marked
+    expect(line(`result-${at(6)}`)).toMatchObject({ label: 'Three-quarter 1', current: false });
     // the ask's picture is its outcome, and since Keep previous put the first full body back, it can be restored
     expect(line(`redrew-${at(4)}`)).toMatchObject({
-      text: 'Redrew the full body.',
+      text: 'Here is full body 2.',
+      label: 'Full body 2',
+      current: false,
       thumb: 'f1',
       restore: { view: 'front', hash: 'f1' },
     });
@@ -531,5 +542,17 @@ describe('what was said stays in its place', () => {
       'you:aside-said-' + at(4),
       'scenri:aside-reply-' + at(4),
     ]);
+  });
+});
+
+describe('where they were filed', () => {
+  it('is said once at the save, from what the analyzer read, and points to the page for changes', () => {
+    expect(filedLine(draft())).toBe('');
+    expect(filedLine(draft({ analysis: { suitableCategories: ['Apparel'] } }))).toBe(
+      ' Filed under Apparel; that can change on their page.',
+    );
+    expect(filedLine(draft({ analysis: { suitableCategories: ['Apparel', 'Beauty', 'Sport'] } }))).toBe(
+      ' Filed under Apparel, Beauty and Sport; that can change on their page.',
+    );
   });
 });

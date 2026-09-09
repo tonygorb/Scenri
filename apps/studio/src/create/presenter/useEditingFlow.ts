@@ -27,6 +27,7 @@ import {
   selectedView,
   stripItems,
   readsAsPerson,
+  doingLine,
 } from './presenterStudioRules.js';
 import { usePresenterDraft } from './usePresenterDraft.js';
 
@@ -95,7 +96,9 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
 
   const s = usePresenterDraft(brand.id, draftId);
   const d = s.draft;
-  const memoryKey = `presenter-edit:${brand.id}:${presenterId}`;
+  // one conversation per edit session, so a second visit to the same person
+  // arrives line by line rather than already said
+  const memoryKey = `presenter-edit:${brand.id}:${presenterId}:${d?.id ?? 'new'}`;
 
   // Only a stale view, or a missing one once Build them was chosen, is drawn
   // without a click: opening the editor never spends a generation.
@@ -206,7 +209,10 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
             return;
           }
           const failedView = (Object.keys(d.views) as StudioView[]).find((x) => !!d.views[x].error);
-          if (failedView) void s.generate(failedView, undefined, failedView === 'portrait' ? undefined : 'auto');
+          if (failedView) {
+            // drawn again as it was asked for, not from scratch
+            void s.generate(failedView, d.views[failedView].adjustment, failedView === 'portrait' ? undefined : 'auto');
+          }
           return;
         }
         case 'conflict':
@@ -318,8 +324,9 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
             ? 'Retry above.'
             : d.stage === 'analyzing'
               ? 'Reading the photos.'
-              : d.activeView
-                ? `The ${VIEW_NAME[d.activeView]} is still drawing.`
+              : // the stage says what is being drawn; the composer does not say it again
+                d.activeView
+                ? ''
                 : null;
   const composerOn = !!d;
 
@@ -351,6 +358,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
             alt: `${VIEW_LABEL[view]}${slot?.status === 'candidate' ? ', candidate' : ''}`,
             drawing: drawingNow,
             since: d.updatedAt,
+            doing: doingLine(d),
             items: stripItems(d, view),
             onPick: (v: StudioView) => {
               setFocus(v);
@@ -374,6 +382,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
             error: askErr,
             disabled: s.busy || saving || leaving || !!off,
             working: !!d?.activeView,
+            onStop: d?.activeView ? () => void s.stop() : undefined,
             focusKey: `${question?.id ?? 'open'}:${d?.id ?? ''}`,
           }
         : null,
@@ -382,13 +391,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
       onSend,
       onAnswer,
       onRestore: (view: string, hash: string) => void s.restore(view as StudioView, hash),
-      footnote: capsNote(
-        !canDraw
-          ? 'Image generation is not set up, so nothing can be redrawn yet.'
-          : caps?.free
-            ? 'Nothing billed through Scenri.'
-            : 'Each redrawn view is a generation.',
-      ),
+      footnote: capsNote(''),
     },
     setupNeeded: !canDraw ? openSetup : null,
   };

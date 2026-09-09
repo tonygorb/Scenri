@@ -281,6 +281,12 @@
     display: none;
   }
 
+  .sc-convo-spin {
+    animation: none;
+    border-right-color: currentColor;
+    opacity: 0.5;
+  }
+
   .sc-convo-q[data-picked] > *,
   .sc-convo-q[data-picked] .sc-convo-choice:not([data-on]),
   .sc-convo-q[data-picked] .sc-btn:not([data-on]) {
@@ -293,24 +299,83 @@
 }
 
 /* the picture a line is about: the strip's tile size, with Restore beside it when it can be put back */
+/* ---- a picture in the record ---------------------------------------------
+   One card per picture drawn for a view: the thumbnail, its name, and either
+   the mark that it is the one on the stage or the press that puts it back.
+   Putting one back moves the mark; it never writes another line. */
 .sc-convo-shot {
-  display: inline-flex;
-  align-items: flex-end;
+  display: flex;
+  align-items: center;
   gap: var(--sc-space-4);
-  margin-top: var(--sc-space-2);
+  width: fit-content;
+  max-width: 100%;
+  margin-top: var(--sc-space-3);
+  padding: var(--sc-space-3);
+  padding-right: var(--sc-space-5);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-raised);
+  color: inherit;
+  text-align: left;
+  font: inherit;
 }
 
 .sc-convo-shot img {
-  width: 56px;
-  height: 70px;
+  width: 44px;
+  height: 55px;
   object-fit: cover;
-  border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-md);
   background: var(--sc-chip);
 }
 
-.sc-convo-restore {
-  height: 32px;
+.sc-convo-shot-nm {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--sc-fg);
+  white-space: nowrap;
+}
+
+/* the one on the stage: outlined, and it says so */
+.sc-convo-shot[data-current] {
+  border-color: var(--sc-fg2);
+}
+
+.sc-convo-shot-on {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding-left: var(--sc-space-4);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--sc-fg2);
+  white-space: nowrap;
+}
+
+/* any other picture is the press that puts it back */
+button.sc-convo-shot {
+  cursor: pointer;
+  transition:
+    border-color var(--sc-dur-1) var(--sc-ease),
+    background var(--sc-dur-1) var(--sc-ease);
+}
+
+.sc-convo-shot-do {
+  margin-left: auto;
+  padding-left: var(--sc-space-4);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--sc-fg3);
+  white-space: nowrap;
+}
+
+button.sc-convo-shot:hover {
+  border-color: var(--sc-fg2);
+  background: var(--sc-chip);
+}
+
+button.sc-convo-shot:hover .sc-convo-shot-do {
+  color: var(--sc-fg);
 }
 
 .sc-convo-hint {
@@ -638,6 +703,33 @@
   width: 17px;
   height: 17px;
   flex: none;
+}
+
+/* a ring that turns: the rail sits outside the theme root, so it is its own and needs no token */
+.sc-convo-spin {
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: sc-convo-spin 720ms linear infinite;
+}
+
+@keyframes sc-convo-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* while a view draws the pill is Stop: pressable, with the ring still turning */
+.sc-convo-send[data-stop] {
+  cursor: pointer;
+  background: var(--sc-chip);
+  color: var(--sc-fg);
+}
+
+.sc-convo-send[data-stop]:hover {
+  background: var(--sc-chip-hover);
 }
 
 .sc-convo-line {

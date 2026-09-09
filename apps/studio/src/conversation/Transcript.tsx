@@ -95,8 +95,14 @@ export function Transcript({
   const onPick = (qid: string, picked: Picked) => {
     look.current = { qid, look: picked };
   };
-  const list = leaving ? leaving.from : turns;
+  // What is on screen while a turn goes: the turns as they are now, with the
+  // ones that are going put back where they were. The picture never waits on
+  // a timer to be right; a beat that is missed costs a fade, never a line.
+  const list = leaving ? withLeaving(turns, leaving) : turns;
   rendered.current = list;
+  // and what arrives waits for the ones going to be gone, as it did when they
+  // were the whole picture
+  const hold = leaving ? Math.max(0, leaving.until - now) : 0;
 
   // A line arrives once, when it is written. What has been said is remembered
   // for the conversation (session storage under `memoryKey`), so a reload, a
@@ -168,10 +174,10 @@ export function Transcript({
     // A line already read as a question does not arrive again as its record.
     const seenAsQuestion = t.kind === 'scenri' && t.id.startsWith('asked-');
     const reveal = !reduced && !going && fresh.has(k) && !seenAsQuestion;
-    const delay = reveal ? base + offset : 0;
+    const delay = reveal ? hold + base + offset : 0;
     if (reveal && (t.kind === 'scenri' || t.kind === 'question')) {
       offset += THINK_MS + REVEAL_LEAD_MS;
-      slots.current.set(k, now + base + offset);
+      slots.current.set(k, now + hold + base + offset);
     }
     const afterScenri = prevScenri;
     prevScenri = t.kind === 'scenri' || t.kind === 'question';
@@ -204,6 +210,8 @@ export function Transcript({
           delay={delay}
           turnId={k}
           thumb={t.thumb}
+          label={t.label}
+          current={t.current}
           restore={t.restore}
           onRestore={onRestore}
         />,
@@ -238,6 +246,26 @@ export function Transcript({
       <div className="sc-convo-turns">{out}</div>
     </div>
   );
+}
+
+/**
+ * The turns to render while some are going: the current ones, with the ones
+ * on their way out back in the places they held.
+ */
+function withLeaving(cur: Turn[], leaving: Leaving): Turn[] {
+  const out: Turn[] = [];
+  let i = 0;
+  for (const t of leaving.from) {
+    const k = turnKey(t);
+    if (leaving.gone.has(k)) {
+      out.push(t);
+      continue;
+    }
+    while (i < cur.length && turnKey(cur[i]) !== k) out.push(cur[i++] as Turn);
+    if (i < cur.length) out.push(cur[i++] as Turn);
+  }
+  while (i < cur.length) out.push(cur[i++] as Turn);
+  return out;
 }
 
 /** The element that scrolls this one: itself when it overflows, else the nearest ancestor that does. */

@@ -271,6 +271,8 @@ export const api = {
   /** Keep the previous approved picture; the revision goes. */
   revertDraftView: (brandId: string, draftId: string, view: PresenterDraftView) =>
     req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/revert`),
+  stopDraft: (brandId: string, draftId: string) =>
+    req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/stop`),
   restoreDraftView: (brandId: string, draftId: string, view: PresenterDraftView, hash: string) =>
     req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/restore`, { hash }),
   placeDraftPhoto: (brandId: string, draftId: string, view: PresenterDraftView, hash: string) =>
