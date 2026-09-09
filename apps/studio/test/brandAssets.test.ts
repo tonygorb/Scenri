@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   customPresenterById,
   customPresentersOf,
@@ -6,6 +6,7 @@ import {
   customScenesOf,
   headPresenterId,
   withCustomFirst,
+  withHeadPresenters,
 } from '../src/brandAssets.js';
 import type { Brand } from '../src/api.js';
 
@@ -178,5 +179,29 @@ describe('withCustomFirst', () => {
     const merged = withCustomFirst([{ id: 'studio-shelf', mine: true }], [{ id: 'studio-shelf', mine: false }]);
     expect(merged).toHaveLength(1);
     expect((merged[0] as any).mine).toBe(true);
+  });
+});
+
+describe('a brief started from an old shot', () => {
+  it('carries each person as they are now, and leaves every other token alone', () => {
+    const brand = {
+      json: {
+        characters: [
+          { id: 'up-a', name: 'Maren', origin: 'custom', supersededBy: 'up-b' },
+          { id: 'up-b', name: 'Maren', origin: 'custom', revisionOf: 'up-a' },
+        ],
+      },
+    } as any;
+    const tokens = [
+      { t: 'character', id: 'up-a' },
+      { t: 'product', id: 'p1' },
+      { t: 'text', v: 'by a window' },
+    ];
+    expect(withHeadPresenters(brand, tokens)).toEqual([
+      { t: 'character', id: 'up-b' },
+      { t: 'product', id: 'p1' },
+      { t: 'text', v: 'by a window' },
+    ]);
+    expect(withHeadPresenters(brand, [{ t: 'character', id: 'unknown' }])).toEqual([{ t: 'character', id: 'unknown' }]);
   });
 });

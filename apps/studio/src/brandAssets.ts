@@ -169,3 +169,18 @@ export function withCustomFirst<T extends { id: string }>(mine: T[], catalog: T[
   const owned = new Set(mine.map((m) => m.id));
   return [...mine, ...catalog.filter((c) => !owned.has(c.id))];
 }
+
+/**
+ * A brief's presenter tokens, moved to the current revision of each person.
+ *
+ * A stored shot names the record it was made with, and that record keeps its
+ * pictures so a refine of the shot conditions on the person in it. A new shot
+ * started from the old one is a new shot of the person as they are now, so
+ * its tokens are mapped to the head before they enter the composer.
+ */
+export function withHeadPresenters<T extends { t: string; id?: string }>(
+  brand: Brand | null | undefined,
+  tokens: T[],
+): T[] {
+  return tokens.map((t) => (t.t === 'character' && t.id ? { ...t, id: headPresenterId(brand, t.id) } : t));
+}

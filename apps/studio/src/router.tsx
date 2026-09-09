@@ -7,6 +7,7 @@ import {
   useNavigate,
   useParams,
   useRouteError,
+  Outlet,
 } from 'react-router';
 import { Flex } from '@radix-ui/themes';
 import { AppShell } from './app/AppShell.js';
@@ -19,6 +20,7 @@ import { ScenesView } from './views/Scenes.js';
 import { ScenePage } from './views/ScenePage.js';
 import { PresentersView } from './views/Presenters.js';
 import { PresenterPage } from './views/PresenterPage.js';
+import { PresenterEditRoute } from './views/PresenterEditRoute.js';
 import { PresenterStudioRoute } from './views/PresenterStudioRoute.js';
 import { ProductsView } from './views/Products.js';
 import { ProductPage } from './views/ProductPage.js';
@@ -137,7 +139,12 @@ function SceneRoute() {
 
 function PresenterRoute() {
   const { presenterId } = useParams();
-  return <PresenterPage key={presenterId} />;
+  return (
+    <>
+      <PresenterPage key={presenterId} />
+      <Outlet />
+    </>
+  );
 }
 
 function ProductRoute() {
@@ -190,7 +197,12 @@ export const router = createBrowserRouter([
             element: <PresentersView />,
             children: [{ path: P.presenterStudio, element: <PresenterStudioRoute /> }],
           },
-          { path: P.presenter, element: <PresenterRoute /> },
+          // the editor is a child of the page for the reason the studio is a child of the library
+          {
+            path: P.presenter,
+            element: <PresenterRoute />,
+            children: [{ path: P.presenterEdit, element: <PresenterEditRoute /> }],
+          },
         ],
       },
       { path: P.notFound, element: <Navigate to={P.root} replace /> },

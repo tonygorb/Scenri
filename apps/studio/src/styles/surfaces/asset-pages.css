@@ -858,3 +858,104 @@
   line-height: 1.6;
   color: var(--sc-fg3);
 }
+
+/* ---- 6.9 a presenter's reference set: the pictures Scenri understands them by ---- */
+.sc-refset {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  width: 100%;
+  max-width: 640px;
+  margin: 8px auto 0;
+  padding: 0;
+  list-style: none;
+}
+.sc-refset[data-count="1"] {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 300px;
+}
+.sc-refset[data-count="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 460px;
+}
+.sc-refset[data-count="4"],
+.sc-refset[data-count="5"],
+.sc-refset[data-count="6"] {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 920px;
+}
+.sc-refset li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.sc-refset-tile {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  padding: 0;
+  border: none;
+  border-radius: var(--sc-radius-lg);
+  overflow: hidden;
+  background: var(--sc-raised);
+  cursor: zoom-in;
+}
+.sc-refset-tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.sc-refset-lb {
+  font-size: var(--sc-text-body);
+  color: var(--sc-fg2);
+}
+.sc-presenterpage-cont {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  font-size: var(--sc-text-body);
+  color: var(--sc-fg2);
+}
+.sc-presenterpage-cont .sc-btn {
+  height: 28px;
+  padding: 0 12px;
+  font-size: var(--sc-text-body);
+}
+.sc-presenterpage-bits {
+  align-items: center;
+  text-align: center;
+  gap: 18px;
+}
+.sc-presenterpage-sources-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.sc-presenterpage-sources-row .sc-refset-tile {
+  width: 56px;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--sc-radius-sm);
+}
+@media (max-width: 767px) {
+  .sc-refset,
+  .sc-refset[data-count="4"],
+  .sc-refset[data-count="5"],
+  .sc-refset[data-count="6"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .sc-refset[data-count="6"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .sc-lookpage-acts {
+    width: 100%;
+  }
+}

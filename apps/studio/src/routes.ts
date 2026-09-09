@@ -41,6 +41,8 @@ export const P = {
    */
   presenterStudio: '/:brandSlug/presenters/new/:draftId?',
   presenter: '/:brandSlug/presenters/:presenterId',
+  /** The editor: the same studio surface over the presenter's own page, with a session seeded from the record. */
+  presenterEdit: '/:brandSlug/presenters/:presenterId/edit',
   hub: '/:brandSlug/create',
   hubShot: '/:brandSlug/create/shots/:shotId',
   set: '/:brandSlug/sets/:setSlug',
@@ -74,6 +76,8 @@ export const presenterPath = (b: BrandLike, presenterId: string): string =>
 /** The studio, fresh or at a draft: one builder, since a draft is the same place further along. */
 export const presenterStudioPath = (b: BrandLike, draftId?: string | null): string =>
   generatePath(P.presenterStudio, { brandSlug: b.slug, draftId: draftId ?? undefined });
+export const presenterEditPath = (b: BrandLike, presenterId: string): string =>
+  generatePath(P.presenterEdit, { brandSlug: b.slug, presenterId });
 export const hubPath = (b: BrandLike): string => generatePath(P.hub, { brandSlug: b.slug });
 export const setPath = (b: BrandLike, s: SetLike): string =>
   generatePath(P.set, { brandSlug: b.slug, setSlug: s.slug });

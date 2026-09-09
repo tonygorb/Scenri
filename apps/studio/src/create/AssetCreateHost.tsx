@@ -84,7 +84,9 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   const onScenes = !!useMatch({ path: P.scenes, end: false });
   const here: CreateKind | null = onProducts ? 'product' : onPresenters ? 'presenter' : onScenes ? 'scene' : null;
   // the studio is a route, not a param, and it needs the engine's answer too
+  // the two route-mounted flows share the probe with the dialogs: creation and the editor
   const onStudio = !!useMatch({ path: P.presenterStudio });
+  const onEditor = !!useMatch({ path: P.presenterEdit });
 
   const [caps, setCaps] = useState<AssetBuildCapabilities | null>(null);
   const [capsFailed, setCapsFailed] = useState(false);
@@ -184,7 +186,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   // Asked once per opening, and retried once if the answer never came: a silent
   // null used to erase the whole cost line, so the dialog said nothing at all
   // about what pressing the button would spend.
-  const wantCaps = value !== null || onStudio;
+  const wantCaps = value !== null || onStudio || onEditor;
   useEffect(() => {
     if (!wantCaps) return;
     let alive = true;
