@@ -46,11 +46,9 @@
   color: var(--sc-fg3);
 }
 
-/* the lockup at the eyebrow's size: 4.122:1, so 14 tall is 58 wide */
 .sc-convo-mark {
-  width: 58px;
+  width: 14px;
   height: 14px;
-  color: var(--sc-fg2);
 }
 
 .sc-convo-bubble {

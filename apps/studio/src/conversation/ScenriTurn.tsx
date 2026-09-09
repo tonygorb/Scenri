@@ -1,6 +1,6 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { thumbUrl } from '../api.js';
-import { ScenriLockup } from '../layout/ScenriMark.js';
+import { ScenriMark } from '../layout/ScenriMark.js';
 import { type QuestionTone, REVEAL_LEAD_MS, THINK_MS, revealPlan } from './question.js';
 
 /**
@@ -96,15 +96,15 @@ export const arrivalVars = (delay: number): CSSProperties =>
   ({ '--sc-convo-start': `${delay}ms`, '--sc-convo-think': `${THINK_MS}ms` }) as CSSProperties;
 
 /**
- * Who is speaking, in a 32px row: the Scenri lockup itself, the artwork of
- * record, rather than the symbol with the name typed beside it. It breathes
- * while a line is on its way.
+ * Who is speaking, in a 32px row: the symbol and the name in the rail's own
+ * type, never the lockup artwork, which reads heavier than a line of chat at
+ * this size. The mark breathes while a line is on its way.
  */
 export function Eyebrow({ thinking }: { thinking?: boolean }) {
   return (
     <span className="sc-convo-who" data-thinking={thinking || undefined}>
-      <ScenriLockup className="sc-convo-mark" />
-      <span className="sc-vh">Scenri</span>
+      <ScenriMark className="sc-convo-mark" />
+      Scenri
     </span>
   );
 }
