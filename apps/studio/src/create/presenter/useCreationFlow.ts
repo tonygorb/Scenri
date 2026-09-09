@@ -657,7 +657,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         label: composerBase.label,
         action: composerBase.action,
         scope,
-        hint: askErr ? null : (composerBase.off ?? undefined),
+        // nothing is said under the composer: what cannot be answered there is
+        // plain from the question above it, and the pill carries the reason
+        hint: null,
         why: composerBase.off ?? undefined,
         error: askErr ?? saveErr,
         disabled: s.busy || busySetup || booting || !!composerBase.off,

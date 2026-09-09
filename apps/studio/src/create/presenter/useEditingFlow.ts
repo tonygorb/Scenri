@@ -385,7 +385,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
             label: 'What should change',
             action: 'Refine',
             scope: off ? null : scope,
-            hint: off ?? undefined,
+            hint: null,
             why: off ?? undefined,
             error: askErr,
             disabled: s.busy || saving || leaving || !!off,

@@ -5,7 +5,7 @@ import { ScenriTurn } from './ScenriTurn.js';
 import { YouTurn } from './YouTurn.js';
 
 /** The beat a turn takes to go when it leaves: a reverted answer, a question that is over. */
-export const LEAVE_MS = 180;
+export const LEAVE_MS = 240;
 
 /**
  * How long a page opened on a conversation takes its history as read. The draft
@@ -13,6 +13,9 @@ export const LEAVE_MS = 180;
  * the whole of it; anything the person does ends the window at once.
  */
 const SETTLE_MS = 3000;
+
+/** How far into the beat a turn that is going the next one starts arriving. */
+const OVERLAP_MS = 150;
 
 interface Leaving {
   /** The turns as they were, with the ones that are going marked. */
@@ -131,7 +134,10 @@ export function Transcript({
   rendered.current = list;
   // and what arrives waits for the ones going to be gone, as it did when they
   // were the whole picture
-  const hold = leaving ? Math.max(0, leaving.until - now) : 0;
+  // What arrives starts while what is going is still folding away, so the room
+  // one gives back is the room the other takes, and the conversation never
+  // dips and springs back.
+  const hold = leaving ? Math.max(0, leaving.until - now - OVERLAP_MS) : 0;
 
   // A line arrives once, when it is written. What has been said is remembered
   // for the conversation (session storage under `memoryKey`), so a reload, a
@@ -219,7 +225,10 @@ export function Transcript({
       slots.current.set(k, now + hold + base + offset);
     }
     const afterScenri = prevScenri;
-    prevScenri = t.kind === 'scenri' || t.kind === 'question';
+    // a turn on its way out does not decide whether the next one carries the
+    // eyebrow: it used to, so the line under a ghost grew by a whole row the
+    // moment the ghost was taken away
+    if (!going) prevScenri = t.kind === 'scenri' || t.kind === 'question';
     if (t.kind === 'you') {
       const first = firstYou;
       firstYou = false;
