@@ -227,131 +227,6 @@
 /* The pictures this view has worn: small, numbered, oldest first, the one on
    the stage outlined. Pressing one puts it back; the log keeps the story, this
    is the way to see them side by side at a glance. */
-/* The pictures this view has worn stand beside it, newest last, the one on the
-   stage lit: the way a shot's versions stand beside a shot. Pressing one puts
-   it back. A history of fifty is a window, not a column: the rail is as tall as
-   the picture, it scrolls, its edges fade where there is more, a press at
-   either end moves a page, and the count says how many there are. */
-.sc-pstudio-takes {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  align-self: stretch;
-  justify-content: center;
-  min-height: 0;
-  margin-left: var(--sc-space-5);
-}
-
-.sc-pstudio-takes-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 0;
-  padding: 2px;
-  overflow-y: auto;
-  scrollbar-width: none;
-  overscroll-behavior: contain;
-}
-
-.sc-pstudio-takes-list::-webkit-scrollbar {
-  display: none;
-}
-
-/* where there is more, the column fades into it rather than being cut */
-.sc-pstudio-takes[data-more="down"] .sc-pstudio-takes-list {
-  mask-image: linear-gradient(to bottom, #000 82%, transparent);
-}
-
-.sc-pstudio-takes[data-more="up"] .sc-pstudio-takes-list {
-  mask-image: linear-gradient(to top, #000 82%, transparent);
-}
-
-.sc-pstudio-takes[data-more="both"] .sc-pstudio-takes-list {
-  mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
-}
-
-.sc-pstudio-takes-step {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 14px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--sc-fg3);
-  cursor: pointer;
-}
-
-.sc-pstudio-takes-step:hover {
-  color: var(--sc-fg);
-}
-
-.sc-pstudio-takes-n {
-  flex: none;
-  font-size: 11px;
-  line-height: 14px;
-  color: var(--sc-fg3);
-  font-variant-numeric: tabular-nums;
-}
-
-.sc-pstudio-take {
-  position: relative;
-  flex: none;
-  display: block;
-  width: 44px;
-  height: 55px;
-  padding: 0;
-  overflow: hidden;
-  border-radius: var(--sc-radius-md);
-  background: var(--sc-chip);
-  cursor: pointer;
-  transition: outline-color var(--sc-dur-1) var(--sc-ease);
-  outline: 1px solid transparent;
-  outline-offset: 1px;
-}
-
-.sc-pstudio-take img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.7;
-  transition: opacity var(--sc-dur-1) var(--sc-ease);
-}
-
-/* the number rides in the corner, quiet, and never covers the face */
-.sc-pstudio-take span {
-  position: absolute;
-  inset: auto 3px 3px auto;
-  min-width: 13px;
-  padding: 0 3px;
-  border-radius: var(--sc-radius-sm);
-  background: color-mix(in srgb, var(--sc-bg) 78%, transparent);
-  color: var(--sc-fg2);
-  font-size: 9px;
-  line-height: 13px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.sc-pstudio-take:hover img {
-  opacity: 0.9;
-}
-
-.sc-pstudio-take[data-on] {
-  outline-color: var(--sc-fg);
-  cursor: default;
-}
-
-.sc-pstudio-take[data-on] img {
-  opacity: 1;
-}
-
-.sc-pstudio-take[data-on] span {
-  color: var(--sc-fg);
-}
-
 /* the strip: five tiles at a 98 pitch, the label centred under each, the
    one on the stage outlined in ink and the rest at half strength */
 .sc-pstudio-strip {
@@ -702,34 +577,6 @@
     height: min(100cqh, calc(100cqw * 5 / 4));
   }
 
-  .sc-pstudio-takes {
-    flex-direction: row;
-    align-self: flex-end;
-    margin: 0 0 0 8px;
-  }
-
-  .sc-pstudio-takes-list {
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-
-  .sc-pstudio-takes[data-more="down"] .sc-pstudio-takes-list {
-    mask-image: linear-gradient(to right, #000 82%, transparent);
-  }
-
-  .sc-pstudio-takes[data-more="up"] .sc-pstudio-takes-list {
-    mask-image: linear-gradient(to left, #000 82%, transparent);
-  }
-
-  .sc-pstudio-takes[data-more="both"] .sc-pstudio-takes-list {
-    mask-image: linear-gradient(to right, transparent, #000 18%, #000 82%, transparent);
-  }
-
-  .sc-pstudio-takes-step {
-    display: none;
-  }
-
   .sc-pstudio-grid[data-phase="setup"] .sc-pstudio-stage {
     display: none;
   }
@@ -820,6 +667,98 @@
 /* the filed-under line, beside the save turn */
 
 /* a candidate over a picture that stands: press to see the one it replaces */
+/* The versions of this view, on the picture itself: one press moves through
+   them, the picture under it follows, and what it says is what you are looking
+   at. Nothing is put back until it is asked for, so stepping costs nothing and
+   fifty read exactly as three do. It speaks the Compare press's language,
+   at the foot of the picture where it is out of the face's way. */
+.sc-pstudio-vers {
+  position: absolute;
+  inset: auto auto 12px 50%;
+  translate: -50% 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 4px;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-glass);
+  backdrop-filter: blur(8px);
+  color: var(--sc-fg);
+  font-size: var(--sc-text-caption);
+  white-space: nowrap;
+}
+
+.sc-pstudio-vers-step {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sc-pstudio-vers-step:hover {
+  background: color-mix(in srgb, var(--sc-fg) 12%, transparent);
+}
+
+.sc-pstudio-vers-step[aria-disabled] {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sc-pstudio-vers-step[aria-disabled]:hover {
+  background: none;
+}
+
+.sc-pstudio-vers-n {
+  padding: 0 2px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-pstudio-vers-on {
+  padding: 0 8px 0 6px;
+  color: var(--sc-fg3);
+}
+
+/* a finger gets its own room */
+@media (pointer: coarse) {
+  .sc-pstudio-vers {
+    height: 40px;
+    gap: 4px;
+    padding: 0 6px;
+  }
+
+  .sc-pstudio-vers-step {
+    width: 34px;
+    height: 34px;
+  }
+
+  .sc-pstudio-vers-put {
+    height: 32px;
+  }
+}
+
+.sc-pstudio-vers-put {
+  height: 22px;
+  margin-left: 4px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+  font-size: var(--sc-text-caption);
+  font-weight: 500;
+  cursor: pointer;
+}
+
 .sc-pstudio-compare {
   position: absolute;
   top: 12px;

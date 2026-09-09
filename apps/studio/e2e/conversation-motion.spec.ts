@@ -84,6 +84,8 @@ interface Ev {
   leave?: boolean;
   picked?: boolean;
   folded?: boolean;
+  arrive?: boolean;
+  start?: string;
 }
 
 /** Start watching the transcript. Everything already on screen is taken as read. */
@@ -141,7 +143,19 @@ async function watch(p: Page) {
         const prev = M.last.get(id) as typeof s | undefined;
         if (!prev) {
           if (first) M.initial.add(id);
-          push({ id, turn, who, text, ev: 'mount', op: s.op, folded: M.unfolded || M.wasFolded !== s.folded });
+          push({
+            id,
+            turn,
+            who,
+            text,
+            ev: 'mount',
+            op: s.op,
+            folded: M.unfolded || M.wasFolded !== s.folded,
+            // what the app decided about this line's arrival, so a missing beat
+            // says whether it was never played or merely not caught
+            arrive: (el as HTMLElement).dataset.arrive === 'true',
+            start: (el as HTMLElement).style.getPropertyValue('--sc-convo-start'),
+          });
         } else {
           if (!prev.dots && s.dots) push({ id, turn, who, text, ev: 'dots on' });
           if (prev.dots && !s.dots) push({ id, turn, who, text, ev: 'dots off' });
@@ -243,7 +257,18 @@ function judge(
       // a line replaced before anyone could see it owes no thought
       const lived = (un?.t ?? opts.end ?? Number.POSITIVE_INFINITY) - m.t;
       const shown = g.some((e) => e.ev === 'seen');
-      if (timed && dotsOn === undefined && shown && lived > 900) out.push(`${label}: arrived without thinking`);
+      // The beat has two clocks: the line fades in on the browser's animation
+      // clock and stops thinking on a timer. A starved page can start the fade
+      // hundreds of milliseconds late, which eats the beat without anything
+      // being wrong with it, so a line whose fade started far behind its own
+      // slot is not held to the rule.
+      const slot = Number.parseFloat(m.start ?? '0') || 0;
+      const late = (at(g, 'seen') ?? 0) - m.t - slot;
+      const onTime = late < 400;
+      if (timed && onTime && dotsOn === undefined && shown && lived > 900)
+        out.push(
+          `${label}: arrived without thinking (arrive=${m.arrive}, start=${m.start || '0'}, late=${Math.round(late)}ms)`,
+        );
       if (timed && wordsStart !== undefined && dotsOff !== undefined && wordsStart < dotsOff - 20)
         out.push(`${label}: words before the dots left (${wordsStart} < ${dotsOff})`);
       const ctl = at(g, 'controls on');
@@ -271,8 +296,18 @@ function judge(
   if (opts.reduced) return [...new Set(out)];
   for (const e of events) {
     if (e.ev === 'unmount' && e.turn) gone.set(e.turn, e.t);
-    if (e.ev === 'mount' && e.turn && gone.has(e.turn) && e.t - (gone.get(e.turn) ?? 0) < 400)
-      out.push(`${e.turn}: back ${e.t - (gone.get(e.turn) ?? 0)}ms after it left`);
+    if (e.ev === 'mount' && e.turn && gone.has(e.turn)) {
+      const left = gone.get(e.turn) ?? 0;
+      // A question asked again because the work it was waiting for landed is not
+      // a flicker: the world moved on, and other lines arrived while it was away.
+      // A flicker is the same turn back with nothing having happened between.
+      const moved = events.some(
+        (x) => (x.ev === 'mount' || x.ev === 'unmount') && x.id !== e.id && x.t > left && x.t < e.t,
+      );
+      // folding and unfolding the setup replaces the transcript wholesale; that
+      // is not a turn coming back, it is the whole stretch being put away
+      if (!moved && !e.folded && e.t - left < 400) out.push(`${e.turn}: back ${e.t - left}ms after it left`);
+    }
   }
   return [...new Set(out)];
 }

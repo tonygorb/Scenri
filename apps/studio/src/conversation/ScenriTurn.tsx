@@ -1,7 +1,6 @@
-import { Check } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { thumbUrl } from '../api.js';
-import { ScenriMark } from '../layout/ScenriMark.js';
+import { ScenriLockup } from '../layout/ScenriMark.js';
 import { type QuestionTone, REVEAL_LEAD_MS, THINK_MS, revealPlan } from './question.js';
 
 /**
@@ -72,33 +71,22 @@ export function ScenriTurn({
         {thinking && <Thinking />}
         <RevealWords text={text} playing={playing} />
       </p>
-      {thumb &&
-        (restore && onRestore ? (
-          <button
-            type="button"
-            className="sc-convo-shot sc-convo-restore"
-            data-reveal={playing || undefined}
-            aria-label={label ? `Put ${label.toLowerCase()} back on the stage` : 'Put this back on the stage'}
-            onClick={() => onRestore(restore.view, restore.hash)}
-          >
-            <img src={thumbUrl(thumb, 'micro')} alt="" />
-            <span className="sc-convo-shot-nm">{label}</span>
-            <span className="sc-convo-shot-do" aria-hidden>
+      {thumb && (
+        <span className="sc-convo-shot" data-reveal={playing || undefined} data-current={current || undefined}>
+          <img src={thumbUrl(thumb, 'micro')} alt={current && label ? `${label}, active` : (label ?? '')} />
+          {restore && onRestore ? (
+            <button
+              type="button"
+              className="sc-convo-shot-do sc-convo-restore"
+              onClick={() => onRestore(restore.view, restore.hash)}
+            >
               Put back
-            </span>
-          </button>
-        ) : (
-          <span className="sc-convo-shot" data-reveal={playing || undefined} data-current={current || undefined}>
-            <img src={thumbUrl(thumb, 'micro')} alt="" />
-            <span className="sc-convo-shot-nm">{label}</span>
-            {current && (
-              <span className="sc-convo-shot-on">
-                <Check size={11} weight="bold" aria-hidden />
-                On the stage
-              </span>
-            )}
-          </span>
-        ))}
+            </button>
+          ) : (
+            current && <span className="sc-convo-shot-do">Active</span>
+          )}
+        </span>
+      )}
     </div>
   );
 }
@@ -107,12 +95,16 @@ export function ScenriTurn({
 export const arrivalVars = (delay: number): CSSProperties =>
   ({ '--sc-convo-start': `${delay}ms`, '--sc-convo-think': `${THINK_MS}ms` }) as CSSProperties;
 
-/** The mark and the name, in a 32px row. The mark breathes while a line is on its way. */
+/**
+ * Who is speaking, in a 32px row: the Scenri lockup itself, the artwork of
+ * record, rather than the symbol with the name typed beside it. It breathes
+ * while a line is on its way.
+ */
 export function Eyebrow({ thinking }: { thinking?: boolean }) {
   return (
     <span className="sc-convo-who" data-thinking={thinking || undefined}>
-      <ScenriMark className="sc-convo-mark" />
-      Scenri
+      <ScenriLockup className="sc-convo-mark" />
+      <span className="sc-vh">Scenri</span>
     </span>
   );
 }

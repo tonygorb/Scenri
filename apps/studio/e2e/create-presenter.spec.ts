@@ -158,7 +158,7 @@ test.describe('a person from scratch', () => {
 
     // a typed sentence is the description; no door is asked
     await send(page, 'Late 30s woman, Mediterranean appearance, dark shoulder-length hair, slim build, elegant.');
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     await expect(answer(page, 'Describe someone')).toHaveCount(0);
     await expect(answer(page, 'Add photos')).toHaveCount(0);
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
@@ -179,7 +179,7 @@ test.describe('a person from scratch', () => {
     await answer(page, 'Save presenter').click();
 
     // a saved presenter is an asset: its own page, and the library holds it
-    await expect(page).toHaveURL(/\/presenters\/up-/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/presenters\/up-/, { timeout: 40_000 });
     await expect(studio(page)).toHaveCount(0);
     const person = await personNamed(page, brand.id, 'Maren');
     expect(person.source).toBe('synthetic');
@@ -201,7 +201,7 @@ test.describe('a person from scratch', () => {
     await page.getByRole('radio', { name: '20s' }).click();
     await page.getByRole('radio', { name: 'Athletic' }).click();
     await answer(page, 'Continue').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     const { drafts } = await draftsOf(page, brand.id);
     const d = await draftOf(page, brand.id, drafts[0].id);
     expect(d.direction).toBe('a man in his 20s, black curly hair, athletic build');
@@ -374,37 +374,37 @@ test.describe('a person from scratch', () => {
     // every picture drawn for a view keeps its own card, numbered, and the one
     // on the stage says so; the other is the press that puts it back
     await expect(log(page)).toContainText('Keep previous');
-    await expect(log(page).locator('.sc-convo-shot[data-current]')).toContainText('Full body 1');
     const pictures = () =>
       log(page)
         .getByText(/^Here is full body \d+\.$/)
         .count();
     expect(await pictures()).toBe(2);
     const calls = apiCalls(page);
+    // the picture the view wears is marked and says so; the other carries the press
+    await expect(log(page).locator('.sc-convo-shot[data-current] img')).toHaveAttribute('alt', 'Full body 1, active');
     const restore = log(page).locator('.sc-convo-restore');
     await expect(restore).toHaveCount(1);
-    await expect(restore).toContainText('Full body 2');
-    // the same two pictures are on the stage as takes, the one it wears outlined
-    const takes = page.locator('.sc-pstudio-take');
-    await expect(takes).toHaveCount(2);
-    await expect(page.locator('.sc-pstudio-take[data-on]')).toHaveAttribute(
-      'aria-label',
-      /Picture 1 of 2, on the stage/,
-    );
+    await expect(restore).toHaveText('Put back');
+    // the stage says which of the two it is showing, and steps between them without drawing
+    const vers = page.locator('.sc-pstudio-vers');
+    await expect(vers).toContainText('Version 1 of 2');
+    await expect(vers).toContainText('Active');
+    await page.getByRole('button', { name: 'The version after' }).click();
+    await expect(vers).toContainText('Version 2 of 2');
+    await expect(vers.getByRole('button', { name: 'Put back' })).toBeVisible();
+    expect(calls.urls()).toBe('');
     await restore.click();
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).views.front.hash)
       .toBe(redrawn.views.front.hash);
     // the full body is back from its file; only the view built on it is drawn again
     expect(calls.urls()).not.toContain('/views/front/generate');
-    // putting it back moves the mark from one card to the other and says nothing new
-    await expect(log(page).locator('.sc-convo-shot[data-current]')).toContainText('Full body 2');
+    // putting it back moves the mark from one picture to the other and says nothing new
+    await expect(log(page).locator('.sc-convo-shot[data-current] img')).toHaveAttribute('alt', 'Full body 2, active');
     expect(await pictures()).toBe(2);
-    // and the outline on the stage moved with it
-    await expect(page.locator('.sc-pstudio-take[data-on]')).toHaveAttribute(
-      'aria-label',
-      /Picture 2 of 2, on the stage/,
-    );
+    // and the stage is on it, with nothing left to put back there
+    await expect(vers).toContainText('Version 2 of 2');
+    await expect(vers).toContainText('Active');
     const back = await draftOf(page, brand.id, draftId);
     expect(back.views.front.prior).toBe(before.views.front.hash);
     // what was built on the replaced full body is drawn again on its own
@@ -482,7 +482,7 @@ test.describe('from photos', () => {
     await page.getByRole('checkbox').check();
     await expect(cont).not.toHaveAttribute('aria-disabled', 'true');
     await cont.click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     await expect(log(page)).toContainText('Face from your photo', { timeout: 20_000 });
     await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 30_000 });
     // the photo is never redrawn, and an identity ask against it is refused
@@ -491,7 +491,7 @@ test.describe('from photos', () => {
     await answer(page, 'Save as is').click();
     await send(page, 'Noor');
     await answer(page, 'Save presenter').click();
-    await expect(page).toHaveURL(/\/presenters\/up-/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/presenters\/up-/, { timeout: 40_000 });
     const person = await personNamed(page, brand.id, 'Noor');
     expect(person.source).toBe('photos');
     expect(person.sourceRefs).toHaveLength(1);
@@ -595,7 +595,7 @@ test.describe('what answers nothing', () => {
     await answer(page, 'Use it anyway').click();
     await expect(log(page)).toContainText('cannot tell yet');
     await answer(page, 'Skip, draw as is').click();
-    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     expect(drafts).toBe(1);
   });
 

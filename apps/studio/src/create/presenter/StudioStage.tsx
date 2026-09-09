@@ -1,5 +1,5 @@
-import { CaretDown, CaretUp, Check, UserCircle, Warning } from '@phosphor-icons/react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { CaretLeft, CaretRight, Check, UserCircle, Warning } from '@phosphor-icons/react';
+import { useEffect, useState } from 'react';
 import { imgUrl, thumbUrl } from '../../api.js';
 import { elapsedLabel } from '../../tasks.js';
 import type { StripItem, StudioView, Take } from './presenterStudioRules.js';
@@ -45,15 +45,34 @@ export function StudioStage({
   onTake?: (hash: string) => void;
 }) {
   const now = useNow(drawing);
+  // The well keeps the picture it is showing until the next one is decoded, and
+  // then swaps the source in the same element: no blank frame, and no fade
+  // replayed from the dark ground on every step, which read as flashing.
+  // Which of this view's pictures is being looked at. Stepping through them
+  // only looks; the picture on the view changes when it is put back.
+  const [peek, setPeek] = useState<string | null>(null);
+  const list = takes ?? [];
+  const at = Math.max(
+    0,
+    list.findIndex((t) => (peek ? t.hash === peek : t.current)),
+  );
+  const looking = list[at];
+  // a new picture, or another view, and the well is back on what the view wears
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the picture on the view is the reset
+  useEffect(() => setPeek(null), [hash]);
+  const shown = usePainted(peek && list.some((t) => t.hash === peek) ? peek : hash);
+  const step = (d: 1 | -1) => {
+    const next = list[at + d];
+    if (next) setPeek(next.hash);
+  };
   return (
     <div className="sc-pstudio-stage">
       <div className="sc-pstudio-wrap">
         <div className="sc-pstudio-well" data-drawing={drawing || undefined} data-empty={!hash || undefined}>
-          {hash ? (
+          {hash && shown ? (
             <img
-              key={hash}
-              src={imgUrl(hash)}
-              srcSet={`${thumbUrl(hash, 'tile')} 640w, ${imgUrl(hash)} 1024w`}
+              src={imgUrl(shown)}
+              srcSet={`${thumbUrl(shown, 'tile')} 640w, ${imgUrl(shown)} 1024w`}
               sizes="(max-width: 767px) 92vw, 44vw"
               alt={alt}
               decoding="async"
@@ -71,13 +90,43 @@ export function StudioStage({
               {since && <time>{elapsedLabel(since, now)}</time>}
             </span>
           )}
+          {list.length > 1 && !drawing && (
+            <div className="sc-pstudio-vers">
+              <button
+                type="button"
+                className="sc-pstudio-vers-step"
+                aria-label="The version before"
+                aria-disabled={at === 0 || undefined}
+                onClick={() => at > 0 && step(-1)}
+              >
+                <CaretLeft size={13} weight="bold" />
+              </button>
+              <span className="sc-pstudio-vers-n">
+                Version {looking?.n ?? 1} of {list.length}
+              </span>
+              <button
+                type="button"
+                className="sc-pstudio-vers-step"
+                aria-label="The version after"
+                aria-disabled={at === list.length - 1 || undefined}
+                onClick={() => at < list.length - 1 && step(1)}
+              >
+                <CaretRight size={13} weight="bold" />
+              </button>
+              {looking && !looking.current && onTake && (
+                <button type="button" className="sc-pstudio-vers-put" onClick={() => onTake(looking.hash)}>
+                  Put back
+                </button>
+              )}
+              {looking?.current && <span className="sc-pstudio-vers-on">Active</span>}
+            </div>
+          )}
           {compare && !drawing && (
             <button type="button" className="sc-pstudio-compare" aria-pressed={compare.on} onClick={compare.toggle}>
               {compare.on ? 'Showing current' : 'Compare'}
             </button>
           )}
         </div>
-        {takes && takes.length > 1 && <TakesRail takes={takes} onTake={onTake} />}
       </div>
       {items.length > 0 && (
         <ol className="sc-pstudio-strip" aria-label="Views">
@@ -140,78 +189,37 @@ function useNow(running: boolean): number {
 }
 
 /**
- * The pictures a view has worn, beside it: newest last, the one on the stage
- * lit, one press puts an older one back.
- *
- * A person who refines a face a few times has three or four; a person who
- * keeps going can have fifty. So the rail is a window, not a list: it is as
- * tall as the picture, it scrolls, the one on the stage is scrolled to
- * whenever it changes, the edges fade where there is more, and a press at
- * either end moves a page. The count says how many there are, so a long
- * history reads as a number rather than as an endless column.
+ * The picture the well is showing: the one asked for, but only once it can be
+ * painted. A switch between versions used to unmount the old frame and mount
+ * the new one empty, which read as a flash on every press; now the old frame
+ * stands until the new one is decoded, and the swap is a single frame.
  */
-function TakesRail({ takes, onTake }: { takes: Take[]; onTake?: (hash: string) => void }) {
-  const list = useRef<HTMLDivElement>(null);
-  const [more, setMore] = useState<'none' | 'up' | 'down' | 'both'>('none');
-  const current = takes.find((t) => t.current);
-  const read = useCallback(() => {
-    const el = list.current;
-    if (!el) return;
-    const top = el.scrollTop > 4;
-    const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 4;
-    setMore(top && bottom ? 'both' : top ? 'up' : bottom ? 'down' : 'none');
-  }, []);
-  // the one on the stage is always in the window, whichever it becomes
-  useLayoutEffect(() => {
-    const el = list.current?.querySelector('[data-on]');
-    el?.scrollIntoView({ block: 'nearest' });
-    read();
-  }, [read]);
-  // and the window's own size decides where the edges fade
+function usePainted(hash?: string): string | undefined {
+  const [shown, setShown] = useState(hash);
   useEffect(() => {
-    const el = list.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(read);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [read]);
-  const page = (dir: 1 | -1) => {
-    const el = list.current;
-    if (el) el.scrollBy({ top: dir * Math.max(120, el.clientHeight - 60), behavior: 'smooth' });
-  };
-  const overflows = more !== 'none';
-  return (
-    <nav className="sc-pstudio-takes" data-more={more} aria-label={`${takes.length} pictures of this view`}>
-      {overflows && (
-        <button type="button" className="sc-pstudio-takes-step" aria-label="Earlier pictures" onClick={() => page(-1)}>
-          <CaretUp size={12} weight="bold" />
-        </button>
-      )}
-      <div ref={list} className="sc-pstudio-takes-list" onScroll={read}>
-        {takes.map((t) => (
-          <button
-            key={t.hash}
-            type="button"
-            className="sc-pstudio-take"
-            data-on={t.current || undefined}
-            aria-current={t.current || undefined}
-            aria-label={`Picture ${t.n} of ${takes.length}${t.current ? ', on the stage' : ''}`}
-            disabled={!onTake || t.current}
-            onClick={() => onTake?.(t.hash)}
-          >
-            <img src={thumbUrl(t.hash, 'micro')} alt="" loading="lazy" decoding="async" />
-            <span aria-hidden>{t.n}</span>
-          </button>
-        ))}
-      </div>
-      {overflows && (
-        <button type="button" className="sc-pstudio-takes-step" aria-label="Later pictures" onClick={() => page(1)}>
-          <CaretDown size={12} weight="bold" />
-        </button>
-      )}
-      <span className="sc-pstudio-takes-n" aria-hidden>
-        {current ? `${current.n}/${takes.length}` : takes.length}
-      </span>
-    </nav>
-  );
+    if (!hash || hash === shown) {
+      if (!hash) setShown(undefined);
+      return;
+    }
+    let live = true;
+    const done = () => {
+      if (live) setShown(hash);
+    };
+    const img = new Image();
+    img.srcset = `${thumbUrl(hash, 'tile')} 640w, ${imgUrl(hash)} 1024w`;
+    img.sizes = '(max-width: 767px) 92vw, 44vw';
+    img.src = imgUrl(hash);
+    if (img.decode) img.decode().then(done, done);
+    else {
+      img.onload = done;
+      img.onerror = done;
+    }
+    // a picture that never paints must not hold the well for ever
+    const t = window.setTimeout(done, 3000);
+    return () => {
+      live = false;
+      window.clearTimeout(t);
+    };
+  }, [hash, shown]);
+  return shown;
 }

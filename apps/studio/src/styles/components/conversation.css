@@ -46,9 +46,11 @@
   color: var(--sc-fg3);
 }
 
+/* the lockup at the eyebrow's size: 4.122:1, so 14 tall is 58 wide */
 .sc-convo-mark {
-  width: 14px;
+  width: 58px;
   height: 14px;
+  color: var(--sc-fg2);
 }
 
 .sc-convo-bubble {
@@ -300,82 +302,91 @@
 
 /* the picture a line is about: the strip's tile size, with Restore beside it when it can be put back */
 /* ---- a picture in the record ---------------------------------------------
-   One card per picture drawn for a view: the thumbnail, its name, and either
-   the mark that it is the one on the stage or the press that puts it back.
-   Putting one back moves the mark; it never writes another line. */
+   The picture the line is about, under it, plain: no card and no caption, the
+   way a picture arrives in a chat. The line above it already names it, so the
+   only thing over its foot is what can be done with it, and only while it is
+   pointed at or focused. The picture the view wears carries a thin ring and the
+   word for it. */
 .sc-convo-shot {
-  display: flex;
-  align-items: center;
-  gap: var(--sc-space-4);
-  width: fit-content;
-  max-width: 100%;
+  position: relative;
+  /* the turn is a column, so a picture takes its own width, never the rail's */
+  align-self: flex-start;
+  display: block;
+  width: 128px;
   margin-top: var(--sc-space-3);
-  padding: var(--sc-space-3);
-  padding-right: var(--sc-space-5);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-lg);
-  background: var(--sc-raised);
-  color: inherit;
-  text-align: left;
-  font: inherit;
+  border-radius: var(--sc-radius-md);
+  overflow: hidden;
+  line-height: 0;
 }
 
 .sc-convo-shot img {
-  width: 44px;
-  height: 55px;
+  width: 128px;
+  height: 160px;
   object-fit: cover;
-  border-radius: var(--sc-radius-md);
   background: var(--sc-chip);
 }
 
-.sc-convo-shot-nm {
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--sc-fg);
-  white-space: nowrap;
-}
-
-/* the one on the stage: outlined, and it says so */
 .sc-convo-shot[data-current] {
-  border-color: var(--sc-fg2);
+  outline: 1px solid var(--sc-fg);
+  outline-offset: 1px;
 }
 
-.sc-convo-shot-on {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-  padding-left: var(--sc-space-4);
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--sc-fg2);
-  white-space: nowrap;
-}
-
-/* any other picture is the press that puts it back */
-button.sc-convo-shot {
-  cursor: pointer;
-  transition:
-    border-color var(--sc-dur-1) var(--sc-ease),
-    background var(--sc-dur-1) var(--sc-ease);
-}
-
+/* what can be done with it, over its foot */
 .sc-convo-shot-do {
-  margin-left: auto;
-  padding-left: var(--sc-space-4);
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 18px 10px 8px;
+  border: none;
+  background: linear-gradient(to top, rgb(0 0 0 / 72%), rgb(0 0 0 / 0%));
+  color: #fff;
   font-size: 12px;
   line-height: 16px;
-  color: var(--sc-fg3);
+  font-weight: 500;
+  text-align: left;
   white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--sc-dur-1) var(--sc-ease);
 }
 
-button.sc-convo-shot:hover {
-  border-color: var(--sc-fg2);
-  background: var(--sc-chip);
+/* the ring has to read on any picture, so it is the picture's own light */
+.sc-convo-shot-do:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
 }
 
-button.sc-convo-shot:hover .sc-convo-shot-do {
-  color: var(--sc-fg);
+button.sc-convo-shot-do {
+  width: 100%;
+  /* not `font: inherit`: the picture's own line-height is zero, to keep the
+     frame flush, and inheriting it collapsed the press to two thirds height */
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.sc-convo-shot:hover .sc-convo-shot-do,
+.sc-convo-shot:focus-within .sc-convo-shot-do {
+  opacity: 1;
+}
+
+/* the one in use says so without being pointed at */
+.sc-convo-shot[data-current] .sc-convo-shot-do {
+  opacity: 1;
+  font-weight: 400;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-convo-shot-do {
+    transition: none;
+  }
+}
+
+/* a coarse pointer never hovers, so the press stands on the picture, and it is
+   a finger's worth of it */
+@media (hover: none) {
+  .sc-convo-shot-do {
+    opacity: 1;
+    padding-top: 24px;
+    padding-bottom: 12px;
+  }
 }
 
 .sc-convo-hint {

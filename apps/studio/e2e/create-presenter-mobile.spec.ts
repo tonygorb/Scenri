@@ -61,6 +61,13 @@ test('the phone stacks: stage held, newest turn in view, composer above the fold
     expect(composer!.y + composer!.height).toBeLessThanOrEqual(vw.height + 1);
     // the strip scrolls sideways rather than wrapping
     expect(await page.locator('.sc-pstudio-strip').evaluate((el) => getComputedStyle(el).overflowX)).toBe('auto');
+    // a finger never hovers, so what can be done with a picture stands on it
+    // (a view with one picture has nothing to say, so there is nothing to show)
+    const act = page.getByRole('log').locator('.sc-convo-shot-do').first();
+    if (await act.count()) {
+      expect(await act.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+      expect((await act.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
   } else {
     // the tablet keeps the stage beside the rail
     expect(stage!.x + stage!.width).toBeLessThanOrEqual(rail!.x + 1);
@@ -81,4 +88,35 @@ test('the composer stays reachable with the keyboard up', async ({ page }) => {
   const vh = page.viewportSize()!.height;
   expect(box!.y + box!.height).toBeLessThanOrEqual(vh - 300 + 1);
   await expect(page.locator('.sc-pstudio-stage')).toBeVisible();
+});
+
+test('a second picture of a view: the press to put one back stands on the picture, and the stage steps between them', async ({
+  page,
+}) => {
+  test.skip(page.viewportSize()!.width >= 768, 'the phone is what has no hover');
+  const brand = await currentBrand(page);
+  const base = `/api/brands/${brand.id}/presenter-drafts`;
+  const draftId = await seedCandidate(page, brand.id);
+  // a second face for the same view: one to wear, one to put back
+  await page.request.post(`${base}/${draftId}/views/portrait/approve`, { data: {} });
+  await page.request.post(`${base}/${draftId}/views/portrait/generate`, { data: { adjustment: 'shorter hair' } });
+  for (let i = 0; i < 200; i++) {
+    const d = await (await page.request.get(`${base}/${draftId}`)).json();
+    if (!d.activeView && d.stage === 'idle' && (d.results ?? []).filter((r: any) => r.view === 'portrait').length > 1)
+      break;
+    await page.waitForTimeout(50);
+  }
+  await page.goto(`/${brand.slug}/presenters/new/${draftId}`);
+  const act = page.getByRole('log').locator('.sc-convo-shot-do').first();
+  await expect(act).toBeVisible({ timeout: 20_000 });
+  // no hover on a finger: what can be done is on the picture, at a finger's size
+  expect(await act.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+  expect((await act.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // and the stage steps between the two without drawing anything
+  const vers = page.locator('.sc-pstudio-vers');
+  await expect(vers).toContainText('of 2');
+  const step = page.getByRole('button', { name: 'The version before' });
+  expect((await step.boundingBox())!.height).toBeGreaterThanOrEqual(32);
+  await step.click();
+  await expect(vers.getByRole('button', { name: 'Put back' })).toBeVisible();
 });
