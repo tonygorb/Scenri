@@ -1,8 +1,9 @@
-import { type CSSProperties, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
 import { RefStrip } from '../create/RefStrip.js';
+import { Tip } from '../layout/Tip.js';
 import { type Answer, type Question, groupsAnswered, revealPlan } from './question.js';
-import { Eyebrow, RevealWords, Thinking, arrivalVars, useRevealOnce } from './ScenriTurn.js';
+import { Eyebrow, RevealWords, Thinking, arrivalVars, useLeave, useRevealOnce } from './ScenriTurn.js';
 
 /**
  * A question, native to the transcript: the prompt as Scenri's line, and
@@ -33,11 +34,15 @@ export function QuestionBlock({
   eyebrow = true,
   delay = 0,
   leave,
+  spent,
+  turnId,
   onAnswer,
   onPick,
   onStarter,
 }: {
   question: Question;
+  /** The turn's key, on the element, for what watches the transcript. */
+  turnId?: string;
   reveal?: boolean;
   /** How long after the turn before it this one starts, when several arrive together. */
   delay?: number;
@@ -47,6 +52,8 @@ export function QuestionBlock({
   busy?: boolean;
   /** The question is over and the block is going: a short fade, nothing in it pressable. */
   leave?: boolean;
+  /** The block was answered and is on its way out; off again once the same question is live again. */
+  spent?: boolean;
   onAnswer: (answer: Answer) => void;
   /** A tap was taken: what the block looked like, so the transcript keeps its ghost while the row goes. */
   onPick?: (questionId: string, picked: Picked) => void;
@@ -55,9 +62,17 @@ export function QuestionBlock({
 }) {
   // the timing a turn arrives by is fixed when it mounts, whatever renders after
   const [start] = useState(delay);
-  const playing = useRevealOnce(reveal, question.prompt, start);
+  const going = useLeave(leave, start);
+  const { playing, thinking } = useRevealOnce(reveal, question.prompt, start, going === 'true');
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [picked, setPicked] = useState<string | null>(null);
+  // A block that went and is back as the same question (Try again, a retry)
+  // is live again. One whose answer is still in flight stays as it was.
+  const wasSpent = useRef(false);
+  useEffect(() => {
+    if (wasSpent.current && !spent) setPicked(null);
+    wasSpent.current = !!spent;
+  }, [spent]);
   // The answer is taken the moment it is tapped. The block lights the chosen
   // control and hands its look to the transcript, which keeps a ghost of it
   // while the row goes.
@@ -74,30 +89,36 @@ export function QuestionBlock({
       className="sc-convo-turn"
       data-who="scenri"
       data-arrive={playing || undefined}
-      data-leave={leave || undefined}
-      style={playing ? arrivalVars(start) : undefined}
+      data-leave={going}
+      data-turn={turnId}
+      style={playing ? ({ ...arrivalVars(start), '--sc-convo-after': `${plan.total}ms` } as CSSProperties) : undefined}
     >
-      {eyebrow && <Eyebrow thinking={playing} />}
+      {eyebrow && <Eyebrow thinking={thinking} />}
       <p className="sc-convo-say" id={promptId} data-tone={question.tone} data-reveal={playing || undefined}>
-        {playing && <Thinking />}
+        {thinking && <Thinking />}
         <RevealWords text={question.prompt} playing={playing} />
       </p>
-      {question.hint && <p className="sc-convo-hint">{question.hint}</p>}
+      {question.hint && (
+        <p className="sc-convo-hint" data-reveal={playing || undefined}>
+          {question.hint}
+        </p>
+      )}
       <fieldset
         className="sc-convo-q"
         aria-labelledby={promptId}
         data-kind={question.kind}
         data-reveal={playing || undefined}
         data-picked={!!picked || undefined}
-        style={playing ? ({ '--sc-convo-after': `${plan.total}ms` } as CSSProperties) : undefined}
         disabled={busy || undefined}
       >
         {question.kind === 'text' && question.starters && question.starters.length > 0 && (
           <div className="sc-convo-starters">
             {question.starters.map((s) => (
-              <button key={s} type="button" className="sc-convo-starter" onClick={() => onStarter?.(s)}>
-                {s}
-              </button>
+              <Tip key={s.text} label={s.text}>
+                <button type="button" className="sc-convo-starter" onClick={() => onStarter?.(s.text)}>
+                  {s.label}
+                </button>
+              </Tip>
             ))}
           </div>
         )}

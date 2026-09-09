@@ -85,10 +85,32 @@ export const SOURCE_OPTIONS = [
   { id: 'scratch', label: 'Describe someone' },
 ];
 
+/**
+ * Five ready answers to the question as it is asked: who, age, skin, hair,
+ * build and presence, in one sentence. A few words on the chip, the whole
+ * sentence on hover and into the composer.
+ */
 export const STARTERS = [
-  'Late 30s, Mediterranean, dark shoulder-length hair, slim, warm and composed',
-  'Early 20s, athletic, short blond hair, freckles, bright',
-  'Around 60, silver hair, broad build, calm and assured',
+  {
+    label: 'Late 30s, warm',
+    text: 'A woman in her late 30s, Mediterranean, olive skin, dark shoulder-length hair, slim build, warm and composed.',
+  },
+  {
+    label: 'Early 20s, bright',
+    text: 'A man in his early 20s, fair skin with freckles, short blond hair, athletic build, bright and easygoing.',
+  },
+  {
+    label: 'Mid 40s, quiet',
+    text: 'A man in his mid 40s, East Asian, close-cropped black hair, lean build, quietly confident.',
+  },
+  {
+    label: 'Late 20s, easy',
+    text: 'A woman in her late 20s, deep brown skin, natural curls, tall and graceful, with an easy laugh.',
+  },
+  {
+    label: 'Sixties, calm',
+    text: 'A woman in her early sixties, light skin, silver hair in a soft bob, broad build, calm and assured.',
+  },
 ];
 
 export const ATTEST_TEXT = "I have permission to use this person's likeness.";
@@ -338,7 +360,10 @@ function turnsBase(
 ): Turn[] {
   const T: Turn[] = [{ kind: 'you', id: 'intent', text: 'Create a presenter' }];
   const folded = ui.collapsed && !!d && identityLocked(d);
-  if (folded) for (const a of asides) if (a.q && SETUP_QS.has(a.q)) placed.add(a);
+  // the setup's chatter folds with it; the name's only once the name is given and folded with it
+  if (folded) {
+    for (const a of asides) if (a.q && SETUP_QS.has(a.q) && (a.q !== 'name' || !!d?.name?.trim())) placed.add(a);
+  }
   // What was said at a question, once it is answered, sits between its line and the answer.
   const attach = (ids: string[]) => {
     const mine = asides.filter((a) => !placed.has(a) && !!a.q && a.q !== openId && ids.includes(a.q)).sort(byAt);
@@ -487,8 +512,9 @@ function turnsBase(
   const lastOpen =
     !!last &&
     !!lastSlot &&
-    (lastSlot.status === 'generating' || lastSlot.status === 'candidate' || !!lastSlot.error) &&
-    (lastSlot.adjustment === last.text || !!lastSlot.error);
+    ((lastSlot.status === 'generating' && d.activeView === last.view) ||
+      (lastSlot.status === 'candidate' && lastSlot.adjustment === last.text) ||
+      !!lastSlot.error);
   const askedFor = (v: StudioView) => (v === 'portrait' && !identityLocked(d) ? PROMPT.identity(who) : PROMPT.change);
   // The record: the closed asks and whatever was said in between, in the
   // order it happened. What was said at the open question is not here; it
@@ -598,6 +624,8 @@ function turnsBase(
           ? 'Building the reference set from this face. The full body first.'
           : `Drawing the ${VIEW_NAME[active]}.`,
     );
+    // a person whose face came from a photograph has had no draw to be named during
+    if (!name) askName(PROMPT.nameWhileDrawing);
     return T;
   }
 
@@ -631,7 +659,11 @@ function turnsBase(
     return T;
   }
 
-  if (!allApproved(d)) return T;
+  if (!allApproved(d)) {
+    // between two draws of the set there is still no name and still nothing else to ask
+    if (!name) askName(PROMPT.nameWhileDrawing);
+    return T;
+  }
 
   if (!d.extras && !ui.extrasDeclined) {
     say('set-ready', 'The set is ready. Select a view and say what is wrong to redraw it.');

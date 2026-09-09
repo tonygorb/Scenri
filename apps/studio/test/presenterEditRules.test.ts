@@ -279,7 +279,7 @@ describe('a set that is not coherent yet', () => {
       canGenerate: true,
       ui: EMPTY_EDIT_UI,
     });
-    expect(ids(t).at(-1)).toBe('scenri:rebuilding');
+    expect(ids(t).at(-1)).toBe('scenri:drawing-front');
     expect(ids(t)).not.toContain('q:save');
   });
 });

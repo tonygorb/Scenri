@@ -498,6 +498,19 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         setText('');
         return true;
       }
+      // A bare name, typed before any name was asked (a fast engine lands the face
+      // first), names them rather than redrawing the face from it.
+      if (
+        d &&
+        !d.name?.trim() &&
+        qid !== 'name' &&
+        /^[A-Z][a-z]+(?:\s[A-Z][a-z]+)?$/.test(sentence) &&
+        !readsAsPerson(sentence)
+      ) {
+        void s.update({ name: sentence.slice(0, 60) });
+        setText('');
+        return true;
+      }
       if (qid === 'name') {
         const name =
           sentence.replace(/^(?:(?:her|his|their|the|my)\s+name\s+is|call\s+(?:her|him|them)|name:)\s*/i, '').trim() ||
@@ -536,6 +549,13 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         return;
       }
       if (effect === 'plain') {
+        // what was said under the answers that go, goes with them
+        const under = turnId === 'source' || turnId === 'photos' ? ['source'] : ['source', 'describe'];
+        setUi((u) => ({
+          ...u,
+          unsure: null,
+          asides: (u.asides ?? []).filter((a) => a.q === null || under.includes(a.q)),
+        }));
         if (turnId === 'describe' || turnId === 'gaps') {
           setText(setup.description);
           setSetup({ description: '', gaps: null, gapsAsked: false });
@@ -585,7 +605,10 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       setText(d?.direction ?? setup.description);
       setUi((u) => ({ ...u, reasking: 'describe' }));
     },
-    keepPrevious: slot && slot.status === 'approved' && slot.prior && !drawingNow ? () => void s.revert(view) : null,
+    keepPrevious:
+      slot && slot.status === 'approved' && slot.prior && !drawingNow && !d?.activeView && d?.stage === 'idle'
+        ? () => void s.revert(view)
+        : null,
     surface: {
       title: 'Create presenter',
       memoryKey: `presenter-create:${brand.id}`,

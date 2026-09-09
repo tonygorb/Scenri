@@ -124,15 +124,16 @@ async function openDraft(p: Page, brand: { slug: string; id: string }, draftId: 
 }
 
 /** Every request the studio makes to the API between two moments. */
-function apiCalls(p: Page): { count: () => number; reset: () => void } {
-  let n = 0;
+function apiCalls(p: Page): { count: () => number; urls: () => string; reset: () => void } {
+  let seen: string[] = [];
   p.on('request', (r) => {
-    if (r.url().includes('/api/')) n++;
+    if (r.url().includes('/api/')) seen.push(`${r.method()} ${new URL(r.url()).pathname}`);
   });
   return {
-    count: () => n,
+    count: () => seen.length,
+    urls: () => seen.join(', '),
     reset: () => {
-      n = 0;
+      seen = [];
     },
   };
 }
@@ -188,7 +189,8 @@ test.describe('a person from scratch', () => {
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
     await expect(log(page)).toContainText('Describe them.');
-    await expect(page.locator('.sc-convo-starter')).toHaveCount(3);
+    await expect(page.locator('.sc-convo-starter')).toHaveCount(5);
+    await expect(page.locator('.sc-convo-starter').first()).toHaveText('Late 30s, warm');
     await send(page, 'black curly hair');
     await expect(log(page)).toContainText('cannot tell yet');
     await page.getByRole('radio', { name: 'Man', exact: true }).click();
@@ -215,7 +217,7 @@ test.describe('a person from scratch', () => {
     await answer(page, 'Describe someone').click();
     await expect(log(page)).toContainText('Describe them.');
     await page.waitForTimeout(900);
-    expect(calls.count()).toBe(0);
+    expect(calls.urls()).toBe('');
     // one sentence, one node's text, from the first frame
     await expect(log(page).locator('.sc-convo-say').last()).toHaveText(
       'Describe them. Age, hair, build, skin and presence all help; one or two sentences is enough.',
@@ -562,7 +564,7 @@ test.describe('what answers nothing', () => {
     await expect(log(page).locator('.sc-convo-q[data-picked]')).toHaveCount(0);
     await send(page, 'hey');
     // the reply thinks first: three dots stand where the words will
-    await expect(log(page).locator('.sc-convo-dots')).toBeVisible();
+    await expect(log(page).locator('.sc-convo-dots').first()).toBeVisible();
     await expect(log(page)).toContainText('Hi. A few words about them is enough');
     await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0, { timeout: 4000 });
     // an answer changed from its pencil goes with a fade, and the question asked again arrives again
@@ -572,12 +574,12 @@ test.describe('what answers nothing', () => {
       .click();
     await expect(log(page).locator('.sc-convo-turn[data-leave]').first()).toBeAttached();
     await expect(answer(page, 'Add photos')).toBeVisible();
-    await expect(log(page).locator('.sc-convo-dots')).toBeVisible();
+    await expect(log(page).locator('.sc-convo-dots').first()).toBeVisible();
     await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0, { timeout: 4000 });
     // the other door arrives with its beat too, and has a way back
     await answer(page, 'Add photos').click();
     await expect(log(page)).toContainText('Add one clear photo of their face.');
-    await expect(log(page).locator('.sc-convo-dots')).toBeVisible();
+    await expect(log(page).locator('.sc-convo-dots').first()).toBeVisible();
     await expect(answer(page, 'Describe someone instead')).toBeVisible();
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.reload();

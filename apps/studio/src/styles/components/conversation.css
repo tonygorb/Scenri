@@ -151,7 +151,8 @@
   }
 }
 
-/* a question's controls follow its line, once the line has been read */
+/* a question's controls, and its hint, follow its line once the line has been read */
+.sc-convo-hint[data-reveal],
 .sc-convo-q[data-reveal] > * {
   opacity: 0;
   animation: sc-convo-word 160ms var(--sc-ease) forwards;
@@ -170,8 +171,11 @@
 
 /* a turn that goes: a short fade and a 4px drop, and nothing in it can be pressed */
 .sc-convo-turn[data-leave] {
-  animation: sc-convo-leave var(--sc-dur-fast) var(--sc-ease) forwards;
   pointer-events: none;
+}
+
+.sc-convo-turn[data-leave="true"] {
+  animation: sc-convo-leave var(--sc-dur-fast) var(--sc-ease) forwards;
 }
 
 @keyframes sc-convo-leave {
@@ -179,6 +183,12 @@
     opacity: 0;
     translate: 0 4px;
   }
+}
+
+/* told to go before its arrival began: never seen, while its arrival keeps
+   running underneath in case it is back a frame later */
+.sc-convo-turn[data-leave="early"] {
+  visibility: hidden;
 }
 
 .sc-convo-turn[data-who="scenri"][data-arrive] {
@@ -194,8 +204,6 @@
   align-items: center;
   gap: 4px;
   height: 22px;
-  animation: sc-convo-dots-off 1ms linear forwards;
-  animation-delay: calc(var(--sc-convo-start, 0ms) + var(--sc-convo-think, 0ms));
 }
 
 .sc-convo-dots i {
@@ -225,12 +233,6 @@
   30% {
     opacity: 1;
     translate: 0 -3px;
-  }
-}
-
-@keyframes sc-convo-dots-off {
-  to {
-    visibility: hidden;
   }
 }
 
@@ -265,9 +267,10 @@
   }
 
   .sc-convo-say[data-reveal] .sc-convo-w,
+  .sc-convo-hint[data-reveal],
   .sc-convo-q[data-reveal] > *,
   .sc-convo-turn[data-arrive],
-  .sc-convo-turn[data-leave] {
+  .sc-convo-turn[data-leave="true"] {
     animation: none;
     opacity: 1;
   }
@@ -387,27 +390,38 @@
   color: var(--sc-fg3);
 }
 
+/* starters: three ready people, each a soft filled pill with a few words on
+   it; the whole sentence goes into the composer on the tap */
 .sc-convo-starters {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: var(--sc-space-3);
 }
 
 .sc-convo-starter {
-  padding: 10px 12px;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius);
-  background: none;
+  max-width: 100%;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--sc-radius-xl);
+  background: var(--sc-chip);
   color: var(--sc-fg2);
   font-size: 13px;
   line-height: 18px;
   text-align: left;
+  text-wrap: pretty;
   cursor: pointer;
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
 }
 
 .sc-convo-starter:hover {
-  border-color: var(--sc-line-strong);
+  background: var(--sc-chip-hover);
   color: var(--sc-fg);
+}
+
+.sc-convo-starter:active {
+  background: var(--sc-chip-active);
 }
 
 .sc-convo-decide {
@@ -592,6 +606,15 @@
 
 .sc-convo-send[aria-disabled="true"] {
   cursor: default;
+}
+
+/* the arrow, or the spinner while it works: the same 17px box the shot composer's send uses */
+.sc-convo-send-ico {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  flex: none;
 }
 
 .sc-convo-line {

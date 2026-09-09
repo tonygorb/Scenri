@@ -272,8 +272,9 @@ function shapeEdit(
   const lastOpen =
     !!last &&
     !!lastSlot &&
-    (lastSlot.status === 'generating' || lastSlot.status === 'candidate' || !!lastSlot.error) &&
-    (lastSlot.adjustment === last.text || !!lastSlot.error);
+    ((lastSlot.status === 'generating' && d.activeView === last.view) ||
+      (lastSlot.status === 'candidate' && lastSlot.adjustment === last.text) ||
+      !!lastSlot.error);
   const told = new Set((d.identityEdits ?? []).map((e) => e.toLowerCase()));
   const closed = (lastOpen ? asks.slice(0, -1) : asks).filter(
     (a) => !(a.view === 'portrait' && told.has(a.text.replace(/\s+/g, ' ').toLowerCase())),
@@ -373,8 +374,10 @@ function shapeEdit(
 
   // A view built on a face that changed is redrawn before anything is offered:
   // Save is for a coherent set, and the redraw starts on its own.
-  if (views.some((v) => d.views[v].status === 'stale')) {
-    say('rebuilding', 'Redrawing the views built on the face.');
+  const stale = views.find((v) => d.views[v].status === 'stale');
+  if (stale) {
+    // the same turn the draw will be, so the line is not replaced mid-thought when it starts
+    say(`drawing-${stale}`, `Redrawing the views built on the face. The ${VIEW_NAME[stale]} first.`);
     return done();
   }
 

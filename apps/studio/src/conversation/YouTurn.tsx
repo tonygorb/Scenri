@@ -2,6 +2,7 @@ import { PencilSimple } from '@phosphor-icons/react';
 import { type CSSProperties, useState } from 'react';
 import { thumbUrl } from '../api.js';
 import { Tip } from '../layout/Tip.js';
+import { useLeave } from './ScenriTurn.js';
 
 /**
  * Your answer: a bubble on the right, under the line it answered, and a
@@ -16,8 +17,11 @@ export function YouTurn({
   arrive,
   leave,
   delay = 0,
+  turnId,
   onEdit,
 }: {
+  /** The turn's key, on the element, for what watches the transcript. */
+  turnId?: string;
   text: string;
   photos?: string[];
   editable?: boolean;
@@ -34,12 +38,14 @@ export function YouTurn({
   // an arrival plays once from its mount, whatever renders after
   const [arriving] = useState(!!arrive);
   const [start] = useState(delay);
+  const going = useLeave(leave, arriving ? start : 0, arriving ? 240 : 0);
   return (
     <div
       className="sc-convo-turn"
       data-who="you"
       data-arrive={arriving || undefined}
-      data-leave={leave || undefined}
+      data-leave={going}
+      data-turn={turnId}
       style={arriving ? ({ '--sc-convo-start': `${start}ms` } as CSSProperties) : undefined}
     >
       {first && <span className="sc-convo-who">You</span>}

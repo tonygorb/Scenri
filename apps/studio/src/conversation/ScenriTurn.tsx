@@ -1,6 +1,6 @@
-import { type CSSProperties, useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { ScenriMark } from '../layout/ScenriMark.js';
-import { type QuestionTone, THINK_MS, revealPlan } from './question.js';
+import { type QuestionTone, REVEAL_LEAD_MS, THINK_MS, revealPlan } from './question.js';
 
 /**
  * A line from Scenri: the mark and the word above it, the sentence under.
@@ -20,9 +20,12 @@ export function ScenriTurn({
   eyebrow = true,
   delay = 0,
   leave,
+  turnId,
 }: {
   text: string;
   tone?: QuestionTone;
+  /** The turn's key, on the element, for what watches the transcript. */
+  turnId?: string;
   /** Play the arrival: only on a turn that is new to this render. */
   reveal?: boolean;
   eyebrow?: boolean;
@@ -33,18 +36,20 @@ export function ScenriTurn({
 }) {
   // the timing a turn arrives by is fixed when it mounts, whatever renders after
   const [start] = useState(delay);
-  const playing = useRevealOnce(reveal, text, start);
+  const going = useLeave(leave, start);
+  const { playing, thinking } = useRevealOnce(reveal, text, start, going === 'true');
   return (
     <div
       className="sc-convo-turn"
       data-who="scenri"
       data-arrive={playing || undefined}
-      data-leave={leave || undefined}
+      data-leave={going}
+      data-turn={turnId}
       style={playing ? arrivalVars(start) : undefined}
     >
-      {eyebrow && <Eyebrow thinking={playing} />}
+      {eyebrow && <Eyebrow thinking={thinking} />}
       <p className="sc-convo-say" data-tone={tone} data-reveal={playing || undefined}>
-        {playing && <Thinking />}
+        {thinking && <Thinking />}
         <RevealWords text={text} playing={playing} />
       </p>
     </div>
@@ -103,26 +108,49 @@ export function RevealWords({ text, playing }: { text: string; playing: boolean 
   );
 }
 
-/** True while the arrival plays; false once it ends or the person acts. */
-export function useRevealOnce(reveal: boolean | undefined, text: string, delay = 0): boolean {
+/**
+ * The arrival: `thinking` for the beat before the words, `playing` until the
+ * last word has landed. A line that is going has nothing left to play. What
+ * the person does meanwhile does not hurry it: a line takes its beat whether
+ * or not the next answer is already being typed, and a queue of lines is
+ * bounded by one beat each, so nothing ever snaps in whole.
+ */
+export function useRevealOnce(
+  reveal: boolean | undefined,
+  text: string,
+  delay = 0,
+  leave = false,
+): { playing: boolean; thinking: boolean } {
   const [playing, setPlaying] = useState(!!reveal);
+  const [thinking, setThinking] = useState(!!reveal);
   useEffect(() => {
     if (!playing) return;
-    // The key or click that brought this line is still on its way up to the
-    // window when this runs; only what comes after it ends the arrival.
-    const armed = performance.now();
-    const stop = (e?: Event) => {
-      if (e && e.timeStamp < armed) return;
+    const t = setTimeout(() => {
+      setThinking(false);
       setPlaying(false);
-    };
-    const t = setTimeout(stop, delay + revealPlan(text).total);
-    window.addEventListener('keydown', stop, { once: true });
-    window.addEventListener('pointerdown', stop, { once: true });
+    }, delay + revealPlan(text).total);
+    const th = setTimeout(() => setThinking(false), delay + THINK_MS);
     return () => {
       clearTimeout(t);
-      window.removeEventListener('keydown', stop);
-      window.removeEventListener('pointerdown', stop);
+      clearTimeout(th);
     };
   }, [playing, text, delay]);
-  return playing;
+  return { playing: playing && !leave, thinking: playing && thinking && !leave };
+}
+
+/**
+ * How a turn leaves: with a fade once it has arrived, and unseen when it is
+ * told to go before its arrival began (a line replaced within its wait). An
+ * early leave only hides the turn: its arrival keeps running underneath, so
+ * a line that is back a frame later arrives when it was going to.
+ */
+export function useLeave(
+  leave: boolean | undefined,
+  start: number,
+  /** How long after its start the turn counts as seen: a line once its words begin, an answer once it has landed. */
+  seenAfter = THINK_MS + REVEAL_LEAD_MS,
+): 'early' | 'true' | undefined {
+  const mounted = useRef(performance.now());
+  if (!leave) return undefined;
+  return performance.now() - mounted.current < start + seenAfter ? 'early' : 'true';
 }

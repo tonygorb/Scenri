@@ -105,7 +105,7 @@ export function ConversationComposer({
       aria-busy={working || undefined}
       onClick={send}
     >
-      {working ? <Spinner size="1" /> : <ArrowUp size={17} weight="bold" />}
+      <span className="sc-convo-send-ico">{working ? <Spinner size="1" /> : <ArrowUp size={17} weight="bold" />}</span>
       {working ? 'Working' : action}
     </button>
   );

@@ -4,6 +4,7 @@ import { activeQuestion } from '../src/create/presenter/presenterFlowRules.js';
 import type { Question } from '../src/conversation/question.js';
 import {
   EMPTY_SETUP,
+  STARTERS,
   type Setup,
   UNSURE_LINE,
   asideReply,
@@ -76,7 +77,9 @@ describe('the transcript is a function of state', () => {
   it('from scratch: source, then describe, with starters', () => {
     const t = turnsFor({ setup: setup({ source: 'scratch' }), draft: null, canGenerate: true, ui });
     expect(activeQuestion(t)?.id).toBe('describe');
-    expect(activeQuestion(t)?.kind === 'text' && activeQuestion(t)?.starters?.length).toBe(3);
+    expect(activeQuestion(t)?.kind === 'text' && activeQuestion(t)?.starters?.length).toBe(5);
+    // every starter answers the question as asked: nothing left for the follow-up
+    for (const s of STARTERS) expect([s.label, needsFollowUp(s.text)]).toEqual([s.label, false]);
   });
   it('from scratch with no engine: the setup line, nothing drawn', () => {
     expect(ids(setup({ source: 'scratch' }), null, false)).toEqual([

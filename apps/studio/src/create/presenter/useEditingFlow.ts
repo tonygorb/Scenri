@@ -336,7 +336,10 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
     canRevert: !!record?.revisionOf,
     discard,
     revert,
-    keepPrevious: slot && slot.status === 'approved' && slot.prior && !drawingNow ? () => void s.revert(view) : null,
+    keepPrevious:
+      slot && slot.status === 'approved' && slot.prior && !drawingNow && !d?.activeView && d?.stage === 'idle'
+        ? () => void s.revert(view)
+        : null,
     surface: {
       title: 'Edit presenter',
       memoryKey,

@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { type Answer, type Turn, prefersReducedMotion, revealPlan, turnKey } from './question.js';
+import { REVEAL_LEAD_MS, THINK_MS, type Answer, type Turn, prefersReducedMotion, turnKey } from './question.js';
 import { PICK_MS, type Picked, QuestionBlock } from './QuestionBlock.js';
 import { ScenriTurn } from './ScenriTurn.js';
 import { YouTurn } from './YouTurn.js';
@@ -53,29 +53,33 @@ export function Transcript({
   // tapped keeps its ghost (the chosen control lit, the row fading), and what
   // comes next waits until it is gone. Folding and unfolding the setup is
   // not going anywhere, and plays nothing.
-  const shown = useRef<Turn[]>(turns);
+  const last = useRef<Turn[]>(turns);
+  const rendered = useRef<Turn[]>(turns);
   const leave = useRef<Leaving | null>(null);
   const look = useRef<{ qid: string; look: Picked } | null>(null);
   const gone = useRef<string[]>([]);
   const [, tick] = useState(0);
+  const queueEnd = useRef(0);
   const now = performance.now();
-  if (turns !== shown.current) {
-    const prev = shown.current;
+  if (turns !== last.current) {
+    // against what is on screen, so a change landing mid-fade keeps the fade going
+    const prev = rendered.current;
     const cur = new Set(turns.map(turnKey));
     const left = prev.map(turnKey).filter((k) => !cur.has(k));
     const folds = (list: Turn[]) => list.some((t) => t.kind === 'summary');
     gone.current = folds(prev) === folds(turns) ? left : [];
     if (!reduced && gone.current.length) {
-      const picked = look.current;
+      const kept = leave.current?.look && left.includes(`q:${leave.current.look.qid}`) ? leave.current.look : null;
+      const picked = look.current ?? kept;
       leave.current = {
         from: prev,
         gone: new Set(gone.current),
         look: picked,
-        until: now + (picked ? PICK_MS : LEAVE_MS),
+        until: now + (look.current ? PICK_MS : LEAVE_MS),
       };
     } else leave.current = null;
     look.current = null;
-    shown.current = turns;
+    last.current = turns;
   }
   const leaving = leave.current && now < leave.current.until ? leave.current : null;
   if (!leaving) leave.current = null;
@@ -88,6 +92,7 @@ export function Transcript({
     look.current = { qid, look: picked };
   };
   const list = leaving ? leaving.from : turns;
+  rendered.current = list;
 
   // A line arrives once, when it is written. What has been said is remembered
   // for the conversation (session storage under `memoryKey`), so a reload, a
@@ -139,7 +144,11 @@ export function Transcript({
 
   let firstYou = true;
   let prevScenri = false;
-  // Lines that arrive together take their turns, one after the other.
+  // Lines take their turns, whichever render brought them: the next starts
+  // thinking as the one before starts its words, and a line that arrives while
+  // earlier ones are still queued waits for them. The queue is kept as the
+  // moment it ends, so it never outlives what is in it by more than one beat.
+  const base = Math.max(0, queueEnd.current - now);
   let offset = 0;
   const out: ReactNode[] = [];
   for (const t of list) {
@@ -150,9 +159,8 @@ export function Transcript({
     // A line already read as a question does not arrive again as its record.
     const seenAsQuestion = t.kind === 'scenri' && t.id.startsWith('asked-');
     const reveal = !reduced && !going && fresh.has(k) && !seenAsQuestion;
-    const delay = reveal ? offset : 0;
-    if (reveal && t.kind === 'scenri') offset += revealPlan(t.text).total;
-    if (reveal && t.kind === 'question') offset += revealPlan(t.question.prompt).total;
+    const delay = reveal ? base + offset : 0;
+    if (reveal && (t.kind === 'scenri' || t.kind === 'question')) offset += THINK_MS + REVEAL_LEAD_MS;
     const afterScenri = prevScenri;
     prevScenri = t.kind === 'scenri' || t.kind === 'question';
     if (t.kind === 'you') {
@@ -168,6 +176,7 @@ export function Transcript({
           arrive={reveal}
           leave={going}
           delay={delay}
+          turnId={k}
           onEdit={t.editable && onEdit ? () => onEdit(t.id) : undefined}
         />,
       );
@@ -181,6 +190,7 @@ export function Transcript({
           leave={going}
           eyebrow={!afterScenri}
           delay={delay}
+          turnId={k}
         />,
       );
     } else if (t.kind === 'summary') {
@@ -196,7 +206,9 @@ export function Transcript({
           question={t.question}
           reveal={reveal}
           leave={going && !ghost}
+          spent={going}
           delay={delay}
+          turnId={k}
           busy={busy}
           eyebrow={!afterScenri}
           onAnswer={(a) => onAnswer(t.question.id, a)}
@@ -206,6 +218,7 @@ export function Transcript({
       );
     }
   }
+  if (offset) queueEnd.current = now + base + offset;
   return (
     <div ref={box} className="sc-convo-log" role="log" aria-live="polite" aria-relevant="additions">
       <div className="sc-convo-turns">{out}</div>

@@ -36,7 +36,8 @@ export type Question =
   | (QuestionBase & {
       kind: 'text';
       /** Tappable sentences that fill the composer, for a blank-canvas question. */
-      starters?: string[];
+      /** Ready sentences: a few words on the chip, the whole sentence into the composer. */
+      starters?: { label: string; text: string }[];
     })
   | (QuestionBase & {
       kind: 'choice';
