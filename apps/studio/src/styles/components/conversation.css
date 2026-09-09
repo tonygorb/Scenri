@@ -17,14 +17,16 @@
   scrollbar-color: var(--sc-sb) transparent;
 }
 
-/* The conversation grows downward from the top of the rail. It used to sit on
-   the bottom edge (`margin-top: auto`), which made every block that arrived or
-   went move the whole conversation above it; now what is above a change stays
-   where it is, and only what is under it moves. */
+/* The conversation sits on the bottom edge of the rail, beside the composer,
+   and grows upward from it. A block arriving or going therefore moves the ones
+   above it; they slide to their new places rather than being teleported there
+   (`Transcript` measures each turn's place every render and plays the
+   difference back), so the conversation reads as one moving thing. */
 .sc-convo-turns {
   display: flex;
   flex-direction: column;
   gap: 32px;
+  margin-top: auto;
 }
 
 .sc-convo-turn {
@@ -164,15 +166,6 @@
 }
 
 /* a new turn takes its place: a short fade and a 4px rise; an answer a touch slower, so it is seen to land */
-/* A turn takes its room as it arrives and gives it back as it goes. Without
-   this the block is simply there, at full height, from the frame it is created
-   in, and gone in the frame it is removed, which is what a jump is. Height
-   animates to and from `auto` under `interpolate-size`, and where that is not
-   supported the block simply appears, as it did before. */
-:root {
-  interpolate-size: allow-keywords;
-}
-
 .sc-convo-turn[data-arrive] {
   animation: sc-convo-arrive var(--sc-dur-fast) var(--sc-ease) both;
 }
@@ -206,46 +199,6 @@
 
 .sc-convo-turn[data-who="scenri"][data-arrive] {
   animation-delay: calc(var(--sc-convo-start, 0ms) + 120ms);
-}
-
-@supports (interpolate-size: allow-keywords) {
-  /* a flex item's own content is its floor by default, which no animation can
-     go under: the room a turn takes has to be allowed to reach zero */
-  .sc-convo-turn[data-arrive],
-  .sc-convo-turn[data-leave],
-  .sc-convo-turn:has(> .sc-convo-q[data-picked]) {
-    min-height: 0;
-    overflow: clip;
-  }
-
-  .sc-convo-turn[data-arrive] {
-    animation-name: sc-convo-arrive-room;
-    /* the room a line takes opens at the pace the line reads, not the pace a
-       chip lights: at the fast duration the last frames were forty pixels each */
-    animation-duration: var(--sc-dur-slow);
-    animation-timing-function: cubic-bezier(0.32, 0, 0.24, 1);
-  }
-
-  /* the room has to be given back before the turn is taken out of the list, or
-     what is left of it goes in one frame: this outruns LEAVE_MS in Transcript,
-     and the selector carries a hair more weight than the arrival's own duration */
-  /* A turn that goes gives its room back before it is taken out of the list,
-     or what is left of it goes in one frame. This holds for a line that was
-     never seen as well: it is hidden rather than faded, but the space it held
-     is still given back a frame at a time. */
-  .sc-convo-turn[data-who][data-leave] {
-    animation-name: sc-convo-leave-room;
-    animation-duration: 180ms;
-    animation-delay: 0ms;
-    /* eased at both ends: the app's own ease is front-loaded, which gave back
-       a third of the room in the first frame */
-    animation-timing-function: cubic-bezier(0.32, 0, 0.24, 1);
-  }
-
-  /* the answered block's ghost: it fades, then folds away under what follows */
-  .sc-convo-turn:has(> .sc-convo-q[data-picked]) {
-    animation: sc-convo-fold 200ms var(--sc-ease) 100ms both;
-  }
 }
 
 /* The beat before a line: three dots stand where the words will, and the
@@ -314,45 +267,6 @@
   }
 }
 
-@keyframes sc-convo-arrive-room {
-  from {
-    height: 0;
-    opacity: 0;
-    translate: 0 4px;
-  }
-
-  to {
-    height: auto;
-    opacity: 1;
-    translate: 0 0;
-  }
-}
-
-@keyframes sc-convo-leave-room {
-  from {
-    height: auto;
-    opacity: 1;
-  }
-
-  to {
-    height: 0;
-    opacity: 0;
-    translate: 0 4px;
-  }
-}
-
-@keyframes sc-convo-fold {
-  from {
-    height: auto;
-    opacity: 1;
-  }
-
-  to {
-    height: 0;
-    opacity: 0;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .sc-convo-card[data-flash] {
     animation: none;
@@ -363,11 +277,9 @@
   .sc-convo-shot[data-reveal],
   .sc-convo-q[data-reveal] > *,
   .sc-convo-turn[data-arrive],
-  .sc-convo-turn[data-leave],
-  .sc-convo-turn:has(> .sc-convo-q[data-picked]) {
+  .sc-convo-turn[data-leave] {
     animation: none;
     opacity: 1;
-    height: auto;
   }
 
   .sc-convo-dots {

@@ -5,7 +5,7 @@ import { ScenriTurn } from './ScenriTurn.js';
 import { YouTurn } from './YouTurn.js';
 
 /** The beat a turn takes to go when it leaves: a reverted answer, a question that is over. */
-export const LEAVE_MS = 240;
+export const LEAVE_MS = 180;
 
 /**
  * How long a page opened on a conversation takes its history as read. The draft
@@ -14,8 +14,21 @@ export const LEAVE_MS = 240;
  */
 const SETTLE_MS = 3000;
 
-/** How far into the beat a turn that is going the next one starts arriving. */
-const OVERLAP_MS = 150;
+/**
+ * How a turn that stays moves when the ones around it change: the distance it
+ * has to travel, played back from where it was. Long enough to read as one
+ * movement, and eased like a thing with weight rather than a fade.
+ */
+const SLIDE_MS = 460;
+/**
+ * The curve a turn travels on: a spring that is critically damped, so it
+ * carries weight and settles without ever going past where it is headed. No
+ * bounce.
+ */
+const SLIDE_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+/** How long an answer of your own holds the floor before the reply begins. */
+const ANSWER_MS = 220;
 
 interface Leaving {
   /** The turns as they were, with the ones that are going marked. */
@@ -94,8 +107,10 @@ export function Transcript({
   const look = useRef<{ qid: string; look: Picked } | null>(null);
   const gone = useRef<string[]>([]);
   const [, tick] = useState(0);
-  // when each arriving turn's slot ends, by key; a turn that left gives its slot back
-  const slots = useRef(new Map<string, number>());
+  // when each turn may take its place on screen, by key, and the moment the
+  // next one after them may
+  const due = useRef(new Map<string, number>());
+  const free = useRef(0);
   const now = performance.now();
   if (turns !== last.current) {
     // against what is on screen, so a change landing mid-fade keeps the fade going
@@ -131,13 +146,8 @@ export function Transcript({
   // ones that are going put back where they were. The picture never waits on
   // a timer to be right; a beat that is missed costs a fade, never a line.
   const list = leaving ? withLeaving(turns, leaving) : turns;
-  rendered.current = list;
   // and what arrives waits for the ones going to be gone, as it did when they
   // were the whole picture
-  // What arrives starts while what is going is still folding away, so the room
-  // one gives back is the room the other takes, and the conversation never
-  // dips and springs back.
-  const hold = leaving ? Math.max(0, leaving.until - now - OVERLAP_MS) : 0;
 
   // A line arrives once, when it is written. What has been said is remembered
   // for the conversation (session storage under `memoryKey`), so a reload, a
@@ -165,11 +175,55 @@ export function Transcript({
     for (const k of fresh) seen.current.add(k);
     fresh.clear();
   }
+  // Turns take their places one at a time. A line that has not had its beat yet
+  // is not on the screen at all: it used to be there from the first frame, at
+  // full height and invisible, so answering a question moved the conversation
+  // by the whole of what was coming before any of it could be read. Each turn
+  // now waits for the one before it, and for whatever is leaving to be gone.
+  const shown: Turn[] = [];
+  let soonest = Number.POSITIVE_INFINITY;
+  {
+    const here = new Set(list.map(turnKey));
+    for (const k of [...due.current.keys()]) if (!here.has(k)) due.current.delete(k);
+    for (const t of list) {
+      const k = turnKey(t);
+      if (!fresh.has(k)) {
+        shown.push(t);
+        continue;
+      }
+      // The setup folding into its one row is not a line arriving: it stands in
+      // for what it replaces, so it takes its place in the same breath. Your own
+      // words are yours and appear at once as well; only Scenri's lines wait
+      // their turn behind one another.
+      if (t.kind === 'summary') {
+        shown.push(t);
+        continue;
+      }
+      let at = due.current.get(k);
+      if (at === undefined) {
+        // the floor is kept between renders: a line that lands while an earlier
+        // one is still being read waits for it, however many renders apart
+        const mine = t.kind === 'you';
+        at = Math.max(now, mine ? 0 : free.current, leaving?.until ?? 0);
+        due.current.set(k, at);
+        free.current = Math.max(free.current, at + (mine ? ANSWER_MS : THINK_MS + REVEAL_LEAD_MS));
+      }
+      if (at <= now) shown.push(t);
+      else soonest = Math.min(soonest, at - now);
+    }
+  }
+  rendered.current = shown;
+  useEffect(() => {
+    if (soonest === Number.POSITIVE_INFINITY) return;
+    const t = window.setTimeout(() => tick((n) => n + 1), soonest);
+    return () => window.clearTimeout(t);
+  }, [soonest]);
+
   useEffect(() => {
     const set = seen.current;
     if (!set) return;
     for (const k of gone.current) set.delete(k);
-    for (const t of list) {
+    for (const t of shown) {
       const k = turnKey(t);
       if (!leaving?.gone.has(k)) set.add(k);
     }
@@ -197,21 +251,33 @@ export function Transcript({
     parent.scrollTop = parent.scrollHeight;
   });
 
+  // Nothing is teleported. A turn that was on screen last render and is
+  // somewhere else this one is put back where it was and played forward to
+  // where it is now, so a block arriving or going reads as the conversation
+  // moving rather than as the page jumping. Turns arriving play their own
+  // arrival and are left alone; under reduced motion nothing moves at all.
+  const spots = useRef(new Map<string, number>());
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const next = new Map<string, number>();
+    for (const node of el.querySelectorAll<HTMLElement>('.sc-convo-turn')) {
+      const key = node.dataset.turn ?? '';
+      const at = node.offsetTop;
+      next.set(key, at);
+      const was = spots.current.get(key);
+      // a turn seen here for the first time plays its own arrival; everything
+      // else that has moved is played back from where it was
+      if (reduced || was === undefined || Math.abs(was - at) < 1) continue;
+      slide(node, was - at);
+    }
+    spots.current = next;
+  });
+
   let firstYou = true;
   let prevScenri = false;
-  // Lines take their turns, whichever render brought them: the next starts
-  // thinking as the one before starts its words, and a line that arrives while
-  // earlier ones are still queued waits for them. The queue is what is on
-  // screen: a line that left gives its slot back, so nothing waits on a line
-  // no one will see.
-  const present = new Set(list.map(turnKey));
-  for (const key of [...slots.current.keys()]) if (!present.has(key)) slots.current.delete(key);
-  let queueEnd = 0;
-  for (const end of slots.current.values()) queueEnd = Math.max(queueEnd, end);
-  const base = Math.max(0, queueEnd - now);
-  let offset = 0;
   const out: ReactNode[] = [];
-  for (const t of list) {
+  for (const t of shown) {
     const k = turnKey(t);
     const going = !!leaving?.gone.has(k);
     // a block that was tapped goes as its ghost, not as a fade
@@ -219,11 +285,9 @@ export function Transcript({
     // A line already read as a question does not arrive again as its record.
     const seenAsQuestion = t.kind === 'scenri' && t.id.startsWith('asked-');
     const reveal = !reduced && !going && fresh.has(k) && !seenAsQuestion;
-    const delay = reveal ? hold + base + offset : 0;
-    if (reveal && (t.kind === 'scenri' || t.kind === 'question')) {
-      offset += THINK_MS + REVEAL_LEAD_MS;
-      slots.current.set(k, now + hold + base + offset);
-    }
+    // a turn is put on screen when its beat comes, so it arrives from nothing
+    // rather than waiting its turn invisibly at full height
+    const delay = 0;
     const afterScenri = prevScenri;
     // a turn on its way out does not decide whether the next one carries the
     // eyebrow: it used to, so the line under a ghost grew by a whole row the
@@ -316,6 +380,30 @@ function withLeaving(cur: Turn[], leaving: Leaving): Turn[] {
   }
   while (i < cur.length) out.push(cur[i++] as Turn);
   return out;
+}
+
+/**
+ * Put a turn back where it was and play it forward to where it is now. The
+ * offset is written before the browser paints, so the first frame is the old
+ * place: without that, one frame lands at the new place and the movement reads
+ * as a jump followed by a slide.
+ */
+function slide(node: HTMLElement, from: number) {
+  // a move that lands while another is still running replaces it, so the turn
+  // is never being pulled to two places at once
+  for (const old of node.getAnimations()) if (old.id === 'slide') old.cancel();
+  const back = `translateY(${from}px)`;
+  node.style.transform = back;
+  const run = node.animate([{ transform: back }, { transform: 'translateY(0)' }], {
+    duration: SLIDE_MS,
+    easing: SLIDE_EASE,
+    fill: 'both',
+  });
+  run.id = 'slide';
+  run.onfinish = () => {
+    node.style.transform = '';
+    run.cancel();
+  };
 }
 
 /** The element that scrolls this one: itself when it overflows, else the nearest ancestor that does. */
