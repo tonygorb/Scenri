@@ -252,6 +252,27 @@ const SAYS_HAIR = /\b(hair|bald|shaved|buzz|blonde?|brunette|redhead|ginger|grey
 /** Words that already say what their skin is like. */
 const SAYS_TONE =
   /\b(skin|complexion|fair|pale|light|olive|tan|tanned|brown|deep|dark|ebony|black|white|freckled|golden)\b/i;
+/** A person by noun: a pronoun alone says too little for a sentence to be read as one. */
+const SAYS_PERSON =
+  /\b(wom[ae]n|m[ae]n|male|female|lady|ladies|girl|boy|guy|guys|gentlem[ae]n|nonbinary|non-binary|androgynous|masculine|feminine|transgender|trans|mother|father|mum|mom|dad|sister|brother|daughter|son|grandmother|grandfather|person|people|someone|somebody|model|teen|teenager|kid|child|adult|senior)\b/i;
+/** Hair, face, build, presence, and what a change to any of them is called. */
+const SAYS_LOOKS =
+  /\b(hair|haired|curly|wavy|straight|braids?|bob|ponytail|bun|fringe|bangs|beard|beardless|moustache|mustache|stubble|goatee|clean-shaven|freckles?|glasses|spectacles|tattoos?|piercings?|eyes?|eyebrows?|brows|jaw|jawline|cheekbones|nose|lips|mouth|smile|smiling|face|features|forehead|dimples|scar|wrinkles|build|figure|frame|body|tall|short|slim|slender|athletic|average|fuller|curvy|broad|lean|muscular|petite|stocky|heavy|thin|plus.size|height|weight|presence|vibe|energy|look|looks|looking|calm|warm|confident|elegant|composed|friendly|serious|intense|soft|gentle|bright|energetic|quiet|poised|relaxed|playful|stern|kind|charming|handsome|beautiful|pretty|striking|rugged|graceful|sporty|nerdy|bookish|professional|corporate|casual|older|younger|taller|shorter|longer|slimmer|leaner|heavier|broader|bigger|smaller|thinner|thicker|softer|sharper|lighter|darker|natural|makeup|make-up|lipstick|jewelry|earrings)\b/i;
+const SAYS_ORIGIN =
+  /\b(mediterranean|asian|indian|chinese|japanese|korean|african|nordic|scandinavian|latin[ao]?|hispanic|arab|arabic|middle eastern|european|caucasian|israeli|jewish|irish|italian|french|spanish|greek|turkish|persian|brazilian|mexican|american|british|german|dutch|russian|polish|thai|vietnamese|filipin[ao]|nigerian|ethiopian|moroccan|egyptian|australian|canadian|swedish|norwegian|danish|finnish|portuguese|indonesian|pakistani|iranian|lebanese|slavic|celtic|mixed|biracial)\b/i;
+
+/**
+ * Whether a sentence has anything of a person in it: who they are, their
+ * age, hair, skin, build, face, presence or origin. What a face is drawn
+ * from; what the conversation asks about first when it is missing.
+ */
+export const readsAsPerson = (text: string): boolean =>
+  SAYS_PERSON.test(text) ||
+  saysAge.test(text) ||
+  SAYS_HAIR.test(text) ||
+  SAYS_TONE.test(text) ||
+  SAYS_LOOKS.test(text) ||
+  SAYS_ORIGIN.test(text);
 
 /**
  * The sentence the engine is given.

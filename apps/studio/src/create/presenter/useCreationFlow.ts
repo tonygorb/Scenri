@@ -3,11 +3,13 @@ import { api, type PresenterDraft, thumbUrl, uploadImage } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useOpenSetup } from '../../app/dialogs.js';
-import { type Answer, nowIso, smallTalk } from '../../conversation/question.js';
+import { type Answer, answersNothing, nowIso } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
 import {
-  ASIDE,
+  type AsidePhase,
+  asideReply,
+  settleUnsure,
   EMPTY_SETUP,
   type FlowUi,
   type Setup,
@@ -32,6 +34,7 @@ import {
   seedCategories,
   selectedView,
   stripItems,
+  readsAsPerson,
 } from './presenterStudioRules.js';
 import { usePresenterDraft } from './usePresenterDraft.js';
 
@@ -100,6 +103,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     reasking: null,
     failed: null,
     asides: [],
+    unsure: null,
   });
   const [text, setText] = useState('');
   const [focus, setFocus] = useState<StudioView | null>(null);
@@ -315,7 +319,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     }
     session.remove(pointerKey(brand.id));
     clearSetup();
-    setUi({ collapsed: false, extrasDeclined: false, reasking: null, failed: null, asides: [] });
+    setUi({ collapsed: false, extrasDeclined: false, reasking: null, failed: null, asides: [], unsure: null });
     setText(keep);
     setConfirming(null);
     onLeaveDraft();
@@ -335,7 +339,16 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const onAnswer = useCallback(
     (qid: string, a: Answer) => {
       setAskErr(null);
+      // anything else answered settles the sentence that was waiting
+      if (qid !== 'unsure') setUi(settleUnsure);
       switch (qid) {
+        case 'unsure': {
+          if (a.kind !== 'confirm' || a.id !== 'use' || !ui.unsure) return;
+          const said = ui.unsure.said;
+          setUi((u) => ({ ...u, unsure: null }));
+          describe(said);
+          return;
+        }
         case 'source':
           if (a.kind === 'choice') setSetup({ source: a.id as Setup['source'] });
           return;
@@ -416,7 +429,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           return;
       }
     },
-    [setup, setSetup, openSetup, startScratch, addFiles, startPhotos, d, s, view, save],
+    [setup, setSetup, openSetup, startScratch, addFiles, startPhotos, d, s, view, save, ui.unsure, describe],
   );
 
   const onSend = useCallback(
@@ -424,23 +437,35 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       const sentence = raw.trim();
       if (!sentence) return false;
       setAskErr(null);
-      const qid = ui.reasking ?? question?.id;
-      // a greeting or a word that describes nobody is answered with the question,
-      // not drawn, and what was said stays in the conversation
-      if (qid !== 'name' && smallTalk(sentence) && !(qid === 'source' && sourceFromText(sentence))) {
-        const again = (ui.asides ?? []).some((a) => a.q === (qid ?? null));
-        const reply = again
-          ? ASIDE.again(qid)
-          : qid === 'source'
-            ? ASIDE.source(sentence)
-            : qid === 'describe'
-              ? ASIDE.describe
-              : ASIDE.refine;
-        const aside = { said: sentence, reply, q: qid ?? null, at: nowIso() };
+      const open = question?.id;
+      const qid = ui.reasking ?? (open === 'unsure' ? (ui.unsure?.q ?? 'source') : open);
+      const phase: AsidePhase =
+        qid === 'source' ? 'source' : qid === 'describe' ? 'describe' : qid === 'name' ? 'name' : 'refine';
+      const door = qid === 'source' ? sourceFromText(sentence) : null;
+      // What answers nothing is answered with the question, in words for what
+      // was said, and stays in the conversation. A word or two that describes
+      // nobody can still be a name, or a change to a view.
+      const kind = door ? null : answersNothing(sentence, readsAsPerson);
+      if (kind && (phase === 'source' || phase === 'describe' || kind !== 'vague')) {
+        const again = (ui.asides ?? []).some((a) => a.q === (open ?? null));
+        const aside = {
+          said: sentence,
+          reply: asideReply(kind, phase, again, sentence),
+          q: open ?? null,
+          at: nowIso(),
+        };
         setUi((u) => ({ ...u, asides: [...(u.asides ?? []), aside] }));
         setText('');
         return true;
       }
+      // Before a face exists, a sentence with nothing of a person in it is asked about, not drawn.
+      if ((qid === 'source' || qid === 'describe') && !door && !ui.reasking && !readsAsPerson(sentence)) {
+        const unsure = { said: sentence, q: open ?? null, at: nowIso() };
+        setUi((u) => ({ ...settleUnsure(u), unsure }));
+        setText('');
+        return true;
+      }
+      if (qid === 'source' || qid === 'describe') setUi(settleUnsure);
       if (qid === 'source') {
         const door = sourceFromText(sentence);
         if (door) {
@@ -473,7 +498,10 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         return true;
       }
       if (qid === 'name') {
-        if (d) void s.update({ name: sentence.slice(0, 60) });
+        const name =
+          sentence.replace(/^(?:(?:her|his|their|the|my)\s+name\s+is|call\s+(?:her|him|them)|name:)\s*/i, '').trim() ||
+          sentence;
+        if (d) void s.update({ name: name.slice(0, 60) });
         setUi((u) => ({ ...u, reasking: null }));
         setText('');
         return true;
@@ -495,7 +523,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       setText('');
       return true;
     },
-    [ui.reasking, ui.asides, question?.id, canDraw, setSetup, describe, d, s, view],
+    [ui.reasking, ui.asides, ui.unsure, question?.id, canDraw, setSetup, describe, d, s, view],
   );
 
   const onEdit = useCallback(

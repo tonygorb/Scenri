@@ -1,4 +1,11 @@
-import { type Aside, type Question, type Turn, asideTurns, openQuestionId } from '../../conversation/question.js';
+import {
+  type Aside,
+  type NothingKind,
+  type Question,
+  type Turn,
+  asideTurns,
+  openQuestionId,
+} from '../../conversation/question.js';
 import {
   CORE_VIEWS,
   type DraftLike,
@@ -167,6 +174,27 @@ export const EDIT_ASIDE =
 /** The second time, different words. */
 export const EDIT_ASIDE_AGAIN =
   'Still here. Select a view and say what is wrong with it, or say what should change about them.';
+
+/** The reply to what answered nothing, in words for what was said. */
+export function editAsideReply(kind: NothingKind, name: string, again: boolean): string {
+  const how = `select a view and say what is wrong with it, or say what should change about ${name}`;
+  switch (kind) {
+    case 'likeness':
+      return 'Describe the change by looks. Scenri does not draw a named person.';
+    case 'help':
+    case 'question':
+      return `This is where ${name} is changed: ${how}.`;
+    case 'nav':
+      return 'Discard changes is at the top, and Save changes keeps what you did.';
+    case 'go':
+    case 'intent':
+      return `Nothing changes until it is said what: ${how}.`;
+    case 'nonsense':
+      return `That does not say what should change. ${how.charAt(0).toUpperCase()}${how.slice(1)}.`;
+    default:
+      return again ? EDIT_ASIDE_AGAIN : EDIT_ASIDE;
+  }
+}
 
 export const PROMPT_EDIT = {
   opening: (name: string) =>

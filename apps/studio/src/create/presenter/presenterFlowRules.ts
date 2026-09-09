@@ -1,5 +1,12 @@
 import type { Question, Turn } from '../../conversation/question.js';
-import { type Aside, asideTurns, choiceFromText, isAsideTurn, openQuestionId } from '../../conversation/question.js';
+import {
+  type Aside,
+  type NothingKind,
+  asideTurns,
+  choiceFromText,
+  isAsideTurn,
+  openQuestionId,
+} from '../../conversation/question.js';
 import {
   type Age,
   type DraftLike,
@@ -67,6 +74,8 @@ export interface FlowUi {
   failed?: string | null;
   /** Sentences that answered nothing, each kept where it was said. */
   asides?: Aside[];
+  /** A sentence with nothing of a person in it, waiting to be drawn from anyway or replaced. */
+  unsure?: { said: string; q: string | null; at: string } | null;
 }
 
 export const MAX_PHOTOS = 4;
@@ -223,28 +232,100 @@ function shape(args: FlowArgs, asides: Aside[], openId: string | null): Turn[] {
             },
           ];
   }
-  // What was said at the open question follows it; anything left follows the last turn.
-  for (const a of asides) if (!placed.has(a)) T.push(...asideTurns(a));
+  // A sentence with nothing of a person in it waits on its own question. What
+  // was said follows the last turn, in order: before that question when it
+  // came before, after it when it came after.
+  const left = asides.filter((a) => !placed.has(a)).sort(byAt);
+  const u = args.ui.unsure;
+  for (const a of left) if (!u || a.at < u.at) T.push(...asideTurns(a));
+  if (u) {
+    T.push({ kind: 'you', id: `unsure-${u.at}`, text: u.said, editable: false });
+    T.push({
+      kind: 'question',
+      question: {
+        id: 'unsure',
+        kind: 'confirm',
+        quiet: true,
+        prompt: UNSURE_PROMPT,
+        options: [{ id: 'use', label: 'Use it anyway' }],
+      },
+    });
+    for (const a of left) if (a.at >= u.at) T.push(...asideTurns(a));
+  }
   return T;
 }
 
-/** The question again, in its own words, when the answer was not one. */
-export const ASIDE = {
-  source: (said: string) =>
-    /^(hi|hello|hey|heya|hiya|yo|hola|shalom|good (morning|afternoon|evening))\b/i.test(said.trim())
-      ? 'Hi. Describe them in a sentence, or pick one above.'
-      : 'Describe them in a sentence, or pick one above.',
-  describe: 'A few words about them is enough: age, hair, build, skin, presence.',
-  name: 'A name, so the rest of the conversation can use it.',
-  refine: 'Say what should change: hair, age or build change the person; anything else changes the view on the stage.',
-  /** The second time at the same question, different words, so the reply never repeats itself. */
-  again: (qid: string | undefined) =>
-    qid === 'source'
-      ? 'Still here. A sentence about them, or one of the two above.'
-      : qid === 'describe'
-        ? 'Still here. One or two sentences about them is all it takes.'
-        : 'Still here. Say what should change, and it is redrawn.',
+/** Where the conversation is when a sentence answers nothing: what the reply points back to. */
+export type AsidePhase = 'source' | 'describe' | 'name' | 'refine';
+
+const HOW: Record<AsidePhase, string> = {
+  source: 'describe them in a sentence, or pick one above',
+  describe: 'a few words about them is enough: age, hair, build, skin, presence',
+  name: 'a name, so the rest of the conversation can use it',
+  refine: 'say what should change: hair, age or build change the person; anything else changes the view on the stage',
 };
+
+/** The question again, in words that answer what was actually said. Different words the second time. */
+export function asideReply(kind: NothingKind, phase: AsidePhase, again: boolean, said = ''): string {
+  const how = HOW[phase];
+  switch (kind) {
+    case 'likeness':
+      return 'Describe them by looks. Scenri does not draw a named person.';
+    case 'help':
+      return phase === 'refine'
+        ? 'Select a view and say what is wrong with it, or say what should change about them: hair, age, build, skin.'
+        : phase === 'name'
+          ? 'Any name will do; it can be changed later.'
+          : 'Describe the person in a sentence: age, hair, build, skin, presence. Or add photos of a real person.';
+    case 'question':
+      return phase === 'refine'
+        ? `This is where the picture is changed: ${how}.`
+        : phase === 'name'
+          ? `This is where they get a name: ${how}.`
+          : `This is where the person is described: ${how}.`;
+    case 'nav':
+      return 'To begin again, use Start over at the top. Close keeps the draft where it is.';
+    case 'go':
+      return phase === 'refine'
+        ? 'Try again redraws it as it is; a sentence says what should change.'
+        : `Nothing to draw yet. ${cap(how)}.`;
+    case 'intent':
+      return phase === 'refine'
+        ? `Nothing changes until it is said what: ${how}.`
+        : `That is what we are here for. Who are they? ${cap(how)}.`;
+    case 'nonsense':
+      return phase === 'name'
+        ? `That is not a name. ${cap(how)}.`
+        : phase === 'refine'
+          ? `That does not say what should change. ${cap(how)}.`
+          : `That does not describe anyone. ${cap(how)}.`;
+    case 'greeting':
+      return again
+        ? `Still here. ${cap(how)}.`
+        : /^(hi|hello|hey|heya|hiya|yo|hola|shalom|good)\b/i.test(said.trim())
+          ? `Hi. ${cap(how)}.`
+          : `${cap(how)}.`;
+    case 'ack':
+      return again ? `Still here. ${cap(how)}.` : `Go ahead: ${how}.`;
+    case 'vague':
+      return again ? `Still here. ${cap(how)}.` : `${cap(how)}.`;
+  }
+}
+
+/** A sentence with nothing of a person in it, once a proper one came: the record's word for it. */
+export const UNSURE_LINE = 'That did not read as a description of someone.';
+export const UNSURE_PROMPT =
+  'That does not read as a description yet. Draw from it anyway, or describe them: age, hair, build, skin, presence.';
+
+/** The waiting sentence, once something else was said: kept as the record's line, with what was said under it. */
+export function settleUnsure(u: FlowUi): FlowUi {
+  const w = u.unsure;
+  if (!w) return u;
+  const asides = (u.asides ?? []).map((a) => (a.q === 'unsure' ? { ...a, q: w.q } : a));
+  return { ...u, unsure: null, asides: [...asides, { said: w.said, reply: UNSURE_LINE, q: w.q, at: w.at }] };
+}
+
+const byAt = (x: { at: string }, y: { at: string }) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0);
 
 /** The questions of the setup: folded with it, and their asides with them. */
 const SETUP_QS = new Set(['source', 'describe', 'gaps', 'photos', 'noengine', 'blind', 'name']);
@@ -260,8 +341,8 @@ function turnsBase(
   if (folded) for (const a of asides) if (a.q && SETUP_QS.has(a.q)) placed.add(a);
   // What was said at a question, once it is answered, sits between its line and the answer.
   const attach = (ids: string[]) => {
-    for (const a of asides) {
-      if (placed.has(a) || !a.q || a.q === openId || !ids.includes(a.q)) continue;
+    const mine = asides.filter((a) => !placed.has(a) && !!a.q && a.q !== openId && ids.includes(a.q)).sort(byAt);
+    for (const a of mine) {
       placed.add(a);
       T.push(...asideTurns(a));
     }
@@ -621,6 +702,7 @@ export function composerFor(q: Question | null, d: DraftLike | null, selected: S
       case 'source':
         return { placeholder: 'Describe them, or choose above', label: 'Describe them', action: 'Send' };
       case 'describe':
+      case 'unsure':
         return { placeholder: 'Describe them', label: 'Describe them', action: 'Send' };
       case 'name':
         return { placeholder: 'Their name', label: 'Their name', action: 'Send' };

@@ -104,6 +104,8 @@ export const turnKey = (t: Turn): string => (t.kind === 'question' ? `q:${t.ques
  * on screen almost at once; a long line is read as it arrives, never waited
  * for. The words are real text nodes, so a screen reader hears one sentence.
  */
+/** The beat before a line arrives: the mark breathes and three dots stand where the words will. */
+export const THINK_MS = 700;
 export const REVEAL_LEAD_MS = 180;
 export const REVEAL_STEP_MS = 28;
 export const REVEAL_MAX_MS = 700;
@@ -112,7 +114,7 @@ export function revealPlan(text: string): { words: string[]; step: number; total
   const words = text.split(/(\s+)/).filter((w) => w.length > 0);
   const spoken = words.filter((w) => !/^\s+$/.test(w)).length;
   const step = Math.min(REVEAL_STEP_MS, Math.floor(REVEAL_MAX_MS / Math.max(1, spoken)));
-  return { words, step, total: REVEAL_LEAD_MS + step * spoken + 160 };
+  return { words, step, total: THINK_MS + REVEAL_LEAD_MS + step * spoken + 160 };
 }
 
 /** How long the line takes to be whole, lead included. */
@@ -160,25 +162,80 @@ export function prefersReducedMotion(): boolean {
 const DESCRIBES =
   /\b(wom[ae]n|m[ae]n|male|female|lady|girl|boy|guy|person|she|he|they|\d0s|\d\d|young|old|teen|adult|hair|bald|beard|skin|freckle|build|slim|slender|athletic|average|fuller|tall|short|eyes?|face|smile|presence|calm|warm|confident|elegant|blonde?|brunette|dark|light|tan|olive|brown|black|white|silver|grey|gray|red|curly|straight|wavy|photos?|pictures?|selfies?|uploads?|older|younger|taller|shorter|longer|slimmer|leaner|heavier|broader|bigger|smaller|thinner|thicker|softer|sharper|natural|scratch|describe)\b/i;
 
+/** Why a sentence is not an answer, so the reply can point back in the right words. */
+export type NothingKind =
+  | 'greeting'
+  | 'ack'
+  | 'question'
+  | 'nav'
+  | 'go'
+  | 'help'
+  | 'intent'
+  | 'nonsense'
+  | 'likeness'
+  | 'vague';
+
+const GREETING =
+  /^(hi|hello|hey|heya|hiya|yo|hola|shalom|sup|good (morning|afternoon|evening)|thanks|thank you|thx|cheers)\b/i;
+const ACK =
+  /^(ok|okay|k|kk|sure|fine|yes|yeah|yep|yup|no|nope|nah|cool|nice|great|alright|right|hmm+|hm+|uh+|um+|oh|ah|wow|haha+|hehe+|lol|lmao|omg|meh|really|seriously|interesting|whatever)[\s!.,?]*$/i;
+const QUESTION =
+  /^(how|what|what's|whats|who|who's|whos|why|where|when|which|can|could|do|does|did|are|is|will|would|should|may|have|has|am|isn't|aren't|don't|doesn't)\b/i;
+const NAV =
+  /^(start over|start again|restart|reset|cancel|stop|quit|exit|go back|back|undo|never ?mind|forget it|close)\b/i;
+const GO =
+  /^(skip|next|continue|go|go on|proceed|generate|draw|render|build|show me|show|try|do it|let'?s go|begin|start)\b/i;
+const HELP =
+  /^(help|help me|how does this work|what do i do|what should i (write|say|type)|instructions|\?+)[\s!.,?]*$/i;
+const INTENT =
+  /\b(presenters?|avatars?|characters?|Scenri|create|creating|generate|generating|images?|pictures?|shoot|campaign|brand|product)\b/i;
+const NONSENSE =
+  /^(test|testing|blah|lorem|ipsum|foo|bar|baz|dummy|sample|placeholder|xxx+|abc|asdf\w*|qwer\w*|zxcv\w*|hjkl|jkl|sdfg?|dfgh?|fghj?|bull\w*|shit\w*|crap|fuck\w*|damn|wtf|stfu|bs|rofl)$/i;
+const NO_VOWEL = /^[b-df-hj-np-tv-xz]{3,}$/i;
+const REPEAT = /(.)\1{3,}/;
+const LIKENESS =
+  /\b(like|as|resembling|resembles|similar to|looks? like|looking like)\s+([A-Z][a-z]+)(?:\s+[A-Z][a-z]+)*\b/;
+const REGION =
+  /^(mediterranean|asian|east|south|southeast|indian|chinese|japanese|korean|african|black|white|nordic|scandinavian|latin|latina|latino|hispanic|arab|arabic|middle|eastern|european|caucasian|israeli|jewish|irish|italian|french|spanish|greek|turkish|persian|brazilian|mexican|american|british|german|dutch|russian|polish|thai|vietnamese|filipino|filipina|nigerian|ethiopian|moroccan|egyptian|australian|canadian|swedish|norwegian|danish|finnish|portuguese|indonesian|pakistani|iranian|lebanese|slavic|celtic|west|north|central)$/i;
+
 /**
- * A greeting, a thanks, a test, or a word or two that describes nobody:
- * not an answer to any question, and never a sentence to draw from. The
- * flow replies with the question again, in its own words.
+ * What a sentence that answers nothing is: a greeting, a nod, a question to
+ * Scenri, a way out, a push to go, a call for help, the task restated, noise,
+ * a named person to copy, or a word or two that describes nobody. Null for
+ * anything that could be an answer. `describes` says what counts as one for
+ * the question at hand; a sentence that describes is never nothing, except
+ * when it names a real person to copy.
  */
-export function smallTalk(text: string): boolean {
+export function answersNothing(
+  text: string,
+  describes: (t: string) => boolean = (t) => DESCRIBES.test(t),
+): NothingKind | null {
   const t = text.trim();
-  if (!t) return false;
-  if (
-    /^(hi|hello|hey|heya|hiya|yo|hola|shalom|sup|good (morning|afternoon|evening)|thanks|thank you|thx|cheers|ok|okay|k|sure|fine|yes|yeah|yep|no|nope|help|test|testing|what|why|how|\?+|\.+|!+)[\s!.,?]*$/i.test(
-      t,
-    )
-  )
-    return true;
+  if (!t) return null;
+  const like = LIKENESS.exec(t);
+  if (like && !REGION.test(like[2])) return 'likeness';
+  if (describes(t)) return null;
+  if (!/[a-z]/i.test(t)) return HELP.test(t) ? 'help' : 'nonsense';
   const words = t.split(/\s+/).filter(Boolean);
+  const n = words.length;
+  if (HELP.test(t)) return 'help';
+  if (GREETING.test(t) && n <= 4) return 'greeting';
+  if (ACK.test(t)) return 'ack';
+  if (n <= 8 && words.some((w) => NONSENSE.test(w.replace(/[^a-z]/gi, '')) || NO_VOWEL.test(w) || REPEAT.test(w))) {
+    return 'nonsense';
+  }
+  if (QUESTION.test(t) || /\?\s*$/.test(t)) return 'question';
+  if (NAV.test(t) && n <= 4) return 'nav';
+  if (INTENT.test(t) && n <= 10) return 'intent';
+  if (GO.test(t) && n <= 4) return 'go';
   // a bare capitalised word can be a name; one or two plain words that describe nobody cannot
-  if (words.length === 1 && /^[A-Z][a-z]+$/.test(t)) return false;
-  return words.length <= 2 && !DESCRIBES.test(t) && !/\d/.test(t);
+  if (n === 1 && /^[A-Z][a-z]+$/.test(t)) return null;
+  return n <= 2 ? 'vague' : null;
 }
+
+/** True for anything that is not an answer. */
+export const smallTalk = (text: string, describes?: (t: string) => boolean): boolean =>
+  answersNothing(text, describes) !== null;
 
 /**
  * A sentence that answered nothing: small talk at a question, a sentence

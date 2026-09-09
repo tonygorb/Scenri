@@ -2,7 +2,7 @@ import { type CSSProperties, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
 import { RefStrip } from '../create/RefStrip.js';
 import { type Answer, type Question, groupsAnswered, revealPlan } from './question.js';
-import { Eyebrow, RevealWords, useRevealOnce } from './ScenriTurn.js';
+import { Eyebrow, RevealWords, Thinking, arrivalVars, useRevealOnce } from './ScenriTurn.js';
 
 /**
  * A question, native to the transcript: the prompt as Scenri's line, and
@@ -17,11 +17,14 @@ export function QuestionBlock({
   reveal,
   busy,
   eyebrow = true,
+  delay = 0,
   onAnswer,
   onStarter,
 }: {
   question: Question;
   reveal?: boolean;
+  /** How long after the turn before it this one starts, when several arrive together. */
+  delay?: number;
   /** Off when the line before it was Scenri's already. */
   eyebrow?: boolean;
   /** The flow is mid-request: nothing here answers twice. */
@@ -30,15 +33,21 @@ export function QuestionBlock({
   /** A starter sentence fills the composer; the flow owns the composer's text. */
   onStarter?: (text: string) => void;
 }) {
-  const playing = useRevealOnce(reveal, question.prompt);
+  const playing = useRevealOnce(reveal, question.prompt, delay);
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [picked, setPicked] = useState<string | null>(null);
   const plan = revealPlan(question.prompt);
   const promptId = `sc-convo-q-${question.id}`;
   return (
-    <div className="sc-convo-turn" data-who="scenri" data-arrive={playing || undefined}>
-      {eyebrow && <Eyebrow />}
+    <div
+      className="sc-convo-turn"
+      data-who="scenri"
+      data-arrive={playing || undefined}
+      style={playing ? arrivalVars(delay) : undefined}
+    >
+      {eyebrow && <Eyebrow thinking={playing} />}
       <p className="sc-convo-say" id={promptId} data-tone={question.tone} data-reveal={playing || undefined}>
+        {playing && <Thinking />}
         <RevealWords text={question.prompt} playing={playing} />
       </p>
       {question.hint && <p className="sc-convo-hint">{question.hint}</p>}

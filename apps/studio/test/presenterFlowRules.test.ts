@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { PresenterDraftSlot } from '../src/api.js';
 import { activeQuestion } from '../src/create/presenter/presenterFlowRules.js';
+import type { Question } from '../src/conversation/question.js';
 import {
   EMPTY_SETUP,
   type Setup,
+  UNSURE_LINE,
+  asideReply,
+  settleUnsure,
   composerFor,
   descriptionGaps,
   directionFrom,
@@ -352,5 +356,70 @@ describe('what was sent stays as it was sent', () => {
     const busy = draft({ ...set, activeView: 'three-quarter', stage: 'drawing' });
     expect(composerFor(null, busy, 'front').off).toBe('The three-quarter view is still drawing.');
     expect(ids(scratch, busy).at(-1)).toBe('scenri:drawing-three-quarter');
+  });
+});
+
+describe('a sentence that answers nothing', () => {
+  it('is answered in words for what it was, and differently the second time', () => {
+    expect(asideReply('greeting', 'source', false, 'hello')).toBe(
+      'Hi. Describe them in a sentence, or pick one above.',
+    );
+    expect(asideReply('question', 'source', false, 'how are you?')).toBe(
+      'This is where the person is described: describe them in a sentence, or pick one above.',
+    );
+    expect(asideReply('nonsense', 'describe', false, 'bullshit')).toBe(
+      'That does not describe anyone. A few words about them is enough: age, hair, build, skin, presence.',
+    );
+    expect(asideReply('nav', 'refine', false, 'start over')).toContain('Start over at the top');
+    expect(asideReply('likeness', 'describe', false, 'like Zendaya')).toContain('does not draw a named person');
+    expect(asideReply('greeting', 'source', true, 'hey')).toMatch(/^Still here\./);
+    expect(asideReply('intent', 'source', false, 'i want to create a presenter')).toMatch(
+      /^That is what we are here for\./,
+    );
+    expect(asideReply('nonsense', 'name', false, 'wtf')).toMatch(/^That is not a name\./);
+  });
+  it('a sentence with nothing of a person in it waits on its own question, then joins the record when a real one comes', () => {
+    const u = { ...ui, unsure: { said: 'a florist from Paris who sells tulips', q: 'source', at: 'u1' } };
+    expect(ids(setup(), null, true, u).slice(-3)).toEqual(['q:source', 'you:unsure-u1', 'q:unsure']);
+    expect(activeQuestion(turnsFor({ setup: setup(), draft: null, canGenerate: true, ui: u }))?.id).toBe('unsure');
+    const q: Question = { id: 'unsure', kind: 'confirm', prompt: '', options: [] };
+    expect(composerFor(q, null, 'portrait').placeholder).toBe('Describe them');
+    // what was said at the waiting question follows it; what came before stays before
+    const chatty = {
+      ...u,
+      asides: [
+        { said: '?', reply: 'r', q: 'source', at: 'a0' },
+        { said: 'hey', reply: 'r', q: 'unsure', at: 'u2' },
+      ],
+    };
+    expect(ids(setup(), null, true, chatty).slice(-6)).toEqual([
+      'you:aside-said-a0',
+      'scenri:aside-reply-a0',
+      'you:unsure-u1',
+      'q:unsure',
+      'you:aside-said-u2',
+      'scenri:aside-reply-u2',
+    ]);
+    const settled = settleUnsure(chatty);
+    expect(settled.unsure).toBeNull();
+    expect(settled.asides?.map((a) => [a.said, a.q])).toEqual([
+      ['?', 'source'],
+      ['hey', 'source'],
+      ['a florist from Paris who sells tulips', 'source'],
+    ]);
+    expect(settled.asides?.at(-1)?.reply).toBe(UNSURE_LINE);
+    // once the description came, all of it sits under the first question's line, in order
+    const typed = setup({ source: 'scratch', typed: true, description: 'a woman in her 30s' });
+    expect(ids(typed, null, true, settled).slice(0, 9)).toEqual([
+      'you:intent',
+      'scenri:asked-describe',
+      'you:aside-said-a0',
+      'scenri:aside-reply-a0',
+      'you:aside-said-u1',
+      'scenri:aside-reply-u1',
+      'you:aside-said-u2',
+      'scenri:aside-reply-u2',
+      'you:describe',
+    ]);
   });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import { type Answer, type Turn, prefersReducedMotion, turnKey } from './question.js';
+import { type Answer, type Turn, prefersReducedMotion, turnKey, revealPlan } from './question.js';
 import { QuestionBlock } from './QuestionBlock.js';
 import { ScenriTurn } from './ScenriTurn.js';
 import { YouTurn } from './YouTurn.js';
@@ -80,12 +80,19 @@ export function Transcript({
 
   let firstYou = true;
   let prevScenri = false;
+  // Lines that arrive together take their turns, one after the other.
+  let offset = 0;
   return (
     <div ref={box} className="sc-convo-log" role="log" aria-live="polite" aria-relevant="additions">
       <div className="sc-convo-turns">
         {turns.map((t) => {
           const k = turnKey(t);
-          const reveal = !reduced && fresh.has(k);
+          // A line already read as a question does not arrive again as its record.
+          const seenAsQuestion = t.kind === 'scenri' && t.id.startsWith('asked-');
+          const reveal = !reduced && fresh.has(k) && !seenAsQuestion;
+          const delay = reveal && (t.kind === 'scenri' || t.kind === 'question') ? offset : 0;
+          if (reveal && t.kind === 'scenri') offset += revealPlan(t.text).total;
+          if (reveal && t.kind === 'question') offset += revealPlan(t.question.prompt).total;
           const afterScenri = prevScenri;
           prevScenri = t.kind === 'scenri' || t.kind === 'question';
           if (t.kind === 'you') {
@@ -104,7 +111,9 @@ export function Transcript({
             );
           }
           if (t.kind === 'scenri')
-            return <ScenriTurn key={k} text={t.text} tone={t.tone} reveal={reveal} eyebrow={!afterScenri} />;
+            return (
+              <ScenriTurn key={k} text={t.text} tone={t.tone} reveal={reveal} eyebrow={!afterScenri} delay={delay} />
+            );
           if (t.kind === 'summary') {
             return (
               <button key={k} type="button" className="sc-convo-summary" onClick={onExpand}>
@@ -117,6 +126,7 @@ export function Transcript({
               key={k}
               question={t.question}
               reveal={reveal}
+              delay={delay}
               busy={busy}
               eyebrow={!afterScenri}
               onAnswer={(a) => onAnswer(t.question.id, a)}

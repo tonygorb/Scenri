@@ -3,14 +3,13 @@ import { api, thumbUrl } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useOpenSetup } from '../../app/dialogs.js';
-import { type Answer, nowIso, smallTalk } from '../../conversation/question.js';
+import { type Answer, answersNothing, nowIso } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
 import { activeQuestion } from './presenterFlowRules.js';
 import {
-  EDIT_ASIDE,
-  EDIT_ASIDE_AGAIN,
   EMPTY_EDIT_UI,
+  editAsideReply,
   OUT_OF_SCOPE_LINE,
   PROMPT_EDIT,
   type EditBase,
@@ -27,6 +26,7 @@ import {
   nextToDraw,
   selectedView,
   stripItems,
+  readsAsPerson,
 } from './presenterStudioRules.js';
 import { usePresenterDraft } from './usePresenterDraft.js';
 
@@ -244,8 +244,18 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
               ],
             }
           : u;
-      if (smallTalk(sentence)) {
-        setUi((u) => said(u, (u.asides ?? []).some((a) => a.q === q) ? EDIT_ASIDE_AGAIN : EDIT_ASIDE));
+      const kind = answersNothing(sentence, readsAsPerson);
+      if (kind && kind !== 'vague') {
+        setUi((u) =>
+          said(
+            u,
+            editAsideReply(
+              kind,
+              name,
+              (u.asides ?? []).some((a) => a.q === q),
+            ),
+          ),
+        );
         setText('');
         return true;
       }

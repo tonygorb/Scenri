@@ -4,6 +4,8 @@ import {
   type Turn,
   choiceFromText,
   groupsAnswered,
+  THINK_MS,
+  answersNothing,
   revealDuration,
   revealPlan,
   smallTalk,
@@ -39,10 +41,10 @@ describe('the arrival', () => {
   it('is word by word, a beat after the turn before it, and never past seven tenths', () => {
     expect(revealPlan('Maren').words).toEqual(['Maren']);
     expect(revealPlan('What should we call them?').step).toBe(28);
-    expect(revealDuration('What should we call them?')).toBe(180 + 28 * 5 + 160);
+    expect(revealDuration('What should we call them?')).toBe(THINK_MS + 180 + 28 * 5 + 160);
     const long = revealPlan(Array.from({ length: 60 }, () => 'word').join(' '));
     expect(long.step * 60).toBeLessThanOrEqual(700);
-    expect(revealDuration('')).toBe(180 + 160);
+    expect(revealDuration('')).toBe(THINK_MS + 180 + 160);
   });
 });
 
@@ -72,6 +74,48 @@ describe('small talk', () => {
   it('is a greeting, a thanks, a test, or a word or two that describes nobody', () => {
     for (const t of ['hello', 'Hi!', 'hey there', 'thanks', 'ok', 'test', '?', 'yes', 'help'])
       expect(smallTalk(t)).toBe(true);
+  });
+  it('is named for what it is, so the reply can answer it', () => {
+    const table: Record<string, string[]> = {
+      greeting: ['hey there', 'hello Scenri', 'good morning', 'thanks a lot'],
+      ack: ['ok', 'sure', 'yes!', 'lol', 'hmm'],
+      question: ['how are you?', 'what is this', 'who are you', 'can you help me?', 'is this free', 'and then?'],
+      nav: ['start over', 'restart', 'cancel', 'go back', 'never mind'],
+      go: ['skip', 'go on', 'draw', 'start'],
+      help: ['help', 'help me', '???', 'what do i do'],
+      intent: ['i want to create a presenter', 'make me a presenter', 'new presenter', 'create'],
+      nonsense: [
+        'bullshit',
+        'this is bullshit',
+        'asdf',
+        'asdfgh jkl',
+        'qwerty',
+        'blah blah blah',
+        'lorem ipsum',
+        '12345',
+        '!!!',
+        'test test',
+        'aaaaaaa',
+        'wtf',
+      ],
+      likeness: ['like Zendaya', 'looks like Brad Pitt', 'a woman like Audrey Hepburn'],
+      vague: ['nothing much', 'maybe later'],
+    };
+    for (const [kind, texts] of Object.entries(table))
+      for (const t of texts) expect([t, answersNothing(t)]).toEqual([t, kind]);
+    for (const t of [
+      'a woman',
+      'late 30s',
+      'silver hair',
+      'tall guy',
+      'Maren',
+      'shorter hair',
+      'older',
+      'why not a woman in her 40s',
+      'like Mediterranean women, olive skin',
+      'a florist from Paris who sells tulips',
+    ])
+      expect([t, answersNothing(t)]).toEqual([t, null]);
   });
   it('is not a sentence about a person, however short', () => {
     for (const t of [

@@ -306,8 +306,11 @@ test.describe('a person from scratch', () => {
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).direction, { timeout: 20_000 })
       .toBe('a woman in her 50s with silver hair');
+    // the face is drawn again from the new sentence, and decided again
+    await expect
+      .poll(async () => (await draftOf(page, brand.id, draftId)).views.portrait.attempts, { timeout: 20_000 })
+      .toBe(2);
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
-    expect((await draftOf(page, brand.id, draftId)).views.portrait.attempts).toBe(2);
   });
 
   test('after the lock, a sentence about the person redraws the face and Use redraws the views built on it', async ({
@@ -501,5 +504,65 @@ test.describe('the doors', () => {
     await page.getByRole('link', { name: /white-blonde pixie/ }).click({ position: { x: 8, y: 8 } });
     await expect(page).toHaveURL(/\/presenters\/[^/]+$/);
     await expect(page.getByRole('button', { name: 'Use in a shot' }).first()).toBeVisible();
+  });
+});
+
+test.describe('what answers nothing', () => {
+  test('is answered with the question in words for what was said, makes no draft, and a sentence with nothing of a person in it is asked about first', async ({
+    page,
+  }) => {
+    const brand = await currentBrand(page);
+    let drafts = 0;
+    page.on('request', (r) => {
+      if (r.method() === 'POST' && /\/presenter-drafts$/.test(r.url())) drafts++;
+    });
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await expect(log(page)).toContainText('Who are we creating?');
+    await send(page, 'how are you?');
+    await expect(log(page)).toContainText('This is where the person is described');
+    await send(page, 'bullshit');
+    await expect(log(page)).toContainText('That does not describe anyone.');
+    await send(page, 'i want to create a presenter');
+    await expect(log(page)).toContainText('That is what we are here for.');
+    await send(page, 'like Zendaya');
+    await expect(log(page)).toContainText('does not draw a named person');
+    await send(page, 'start over');
+    await expect(log(page)).toContainText('Start over at the top');
+    // every one of them is still there, in order, and the doors still stand
+    expect(await log(page).locator('.sc-convo-bubble').allTextContents()).toEqual([
+      'Create a presenter',
+      'how are you?',
+      'bullshit',
+      'i want to create a presenter',
+      'like Zendaya',
+      'start over',
+    ]);
+    await expect(answer(page, 'Describe someone')).toBeVisible();
+    // nothing of a person in it: asked about, not drawn
+    await send(page, 'a florist from Paris who sells tulips');
+    await expect(answer(page, 'Use it anyway')).toBeVisible();
+    expect(drafts).toBe(0);
+    await answer(page, 'Use it anyway').click();
+    await expect(log(page)).toContainText('cannot tell yet');
+    await answer(page, 'Skip, draw as is').click();
+    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 20_000 });
+    expect(drafts).toBe(1);
+  });
+
+  test('a line takes a beat to arrive, and none at all under reduced motion', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await expect(log(page)).toContainText('Who are we creating?');
+    await send(page, 'hey');
+    // the reply thinks first: three dots stand where the words will
+    await expect(log(page).locator('.sc-convo-dots')).toBeVisible();
+    await expect(log(page)).toContainText('Hi. Describe them in a sentence, or pick one above.');
+    await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0, { timeout: 4000 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.reload();
+    await expect(log(page)).toContainText('Who are we creating?');
+    await send(page, 'hello');
+    await expect(log(page)).toContainText('Hi. Describe them in a sentence, or pick one above.');
+    await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0);
   });
 });

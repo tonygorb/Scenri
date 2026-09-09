@@ -114,6 +114,7 @@
 
 /* ---- Scenri's line, and its arrival --------------------------------------- */
 .sc-convo-say {
+  position: relative;
   margin: 0;
   padding: 0;
   font-size: 15px;
@@ -135,8 +136,13 @@
 .sc-convo-say[data-reveal] .sc-convo-w {
   opacity: 0;
   animation: sc-convo-word 160ms var(--sc-ease) forwards;
-  /* the line starts a beat after the turn before it */
-  animation-delay: calc(var(--sc-convo-lead, 180ms) + var(--sc-convo-word-delay, 0ms));
+  /* the line thinks first, then starts a beat later; a line arriving after another waits its turn */
+  animation-delay: calc(
+    var(--sc-convo-start, 0ms) +
+    var(--sc-convo-think, 0ms) +
+    var(--sc-convo-lead, 180ms) +
+    var(--sc-convo-word-delay, 0ms)
+  );
 }
 
 @keyframes sc-convo-word {
@@ -149,7 +155,7 @@
 .sc-convo-q[data-reveal] > * {
   opacity: 0;
   animation: sc-convo-word 160ms var(--sc-ease) forwards;
-  animation-delay: var(--sc-convo-after, 400ms);
+  animation-delay: calc(var(--sc-convo-start, 0ms) + var(--sc-convo-after, 400ms));
 }
 
 /* a new turn takes its place: a short fade and a 4px rise */
@@ -158,7 +164,70 @@
 }
 
 .sc-convo-turn[data-who="scenri"][data-arrive] {
-  animation-delay: var(--sc-convo-lead, 180ms);
+  animation-delay: calc(var(--sc-convo-start, 0ms) + 120ms);
+}
+
+/* The beat before a line: three dots stand where the words will, and the
+   mark breathes. The dots step aside the moment the words start. */
+.sc-convo-dots {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  animation: sc-convo-dots-off 1ms linear forwards;
+  animation-delay: calc(var(--sc-convo-start, 0ms) + var(--sc-convo-think, 0ms));
+}
+
+.sc-convo-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sc-fg2);
+  opacity: 0.35;
+  animation: sc-convo-dot 900ms var(--sc-ease) infinite;
+}
+
+.sc-convo-dots i:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.sc-convo-dots i:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+@keyframes sc-convo-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    translate: 0 0;
+  }
+  30% {
+    opacity: 1;
+    translate: 0 -3px;
+  }
+}
+
+@keyframes sc-convo-dots-off {
+  to {
+    visibility: hidden;
+  }
+}
+
+.sc-convo-who[data-thinking] .sc-convo-mark {
+  animation: sc-convo-breathe 1100ms ease-in-out infinite;
+}
+
+@keyframes sc-convo-breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 @keyframes sc-convo-arrive {
@@ -182,6 +251,14 @@
   .sc-convo-turn[data-arrive] {
     animation: none;
     opacity: 1;
+  }
+
+  .sc-convo-dots {
+    display: none;
+  }
+
+  .sc-convo-who[data-thinking] .sc-convo-mark {
+    animation: none;
   }
 }
 

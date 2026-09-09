@@ -22,6 +22,7 @@ import {
   worthKeeping,
   type DraftLike,
   type StudioView,
+  readsAsPerson,
 } from '../src/create/presenter/presenterStudioRules.js';
 
 const slot = (p: Partial<PresenterDraftSlot>): PresenterDraftSlot => ({ ...emptySlot(), ...p });
@@ -343,5 +344,30 @@ describe('photos', () => {
       text: 'These photos may show more than one person: the second photo has a rounder face',
       tone: 'warn',
     });
+  });
+});
+
+describe('what reads as a person', () => {
+  it('needs a noun, an age, hair, skin, build, a face, a presence or an origin; a pronoun alone is not enough', () => {
+    for (const t of [
+      'a woman in her 30s',
+      'silver hair',
+      'tall guy',
+      'freckles and a warm smile',
+      'Mediterranean, olive skin',
+      'older',
+      'athletic',
+      'someone in their 50s',
+    ])
+      expect([t, readsAsPerson(t)]).toEqual([t, true]);
+    for (const t of [
+      'how are you?',
+      'i want to create a presenter',
+      'a florist from Paris who sells tulips',
+      'show me her',
+      'bullshit',
+      '35',
+    ])
+      expect([t, readsAsPerson(t)]).toEqual([t, false]);
   });
 });

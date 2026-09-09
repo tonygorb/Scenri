@@ -3,6 +3,7 @@ import type { PresenterDraftSlot } from '../src/api.js';
 import {
   EMPTY_EDIT_UI,
   OUT_OF_SCOPE_LINE,
+  editAsideReply,
   editComposerState,
   editIntent,
   isDirty,
@@ -280,5 +281,16 @@ describe('a set that is not coherent yet', () => {
     });
     expect(ids(t).at(-1)).toBe('scenri:rebuilding');
     expect(ids(t)).not.toContain('q:save');
+  });
+});
+
+describe('what answered nothing in the editor', () => {
+  it('is answered in words for what it was', () => {
+    expect(editAsideReply('question', 'Maren', false)).toBe(
+      'This is where Maren is changed: select a view and say what is wrong with it, or say what should change about Maren.',
+    );
+    expect(editAsideReply('nav', 'Maren', false)).toContain('Discard changes');
+    expect(editAsideReply('nonsense', 'Maren', false)).toMatch(/^That does not say what should change\./);
+    expect(editAsideReply('greeting', 'Maren', true)).toMatch(/^Still here\./);
   });
 });
