@@ -1,5 +1,5 @@
-import { Check, UserCircle, Warning } from '@phosphor-icons/react';
-import { useEffect, useState } from 'react';
+import { CaretDown, CaretUp, Check, UserCircle, Warning } from '@phosphor-icons/react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { imgUrl, thumbUrl } from '../../api.js';
 import { elapsedLabel } from '../../tasks.js';
 import type { StripItem, StudioView, Take } from './presenterStudioRules.js';
@@ -77,25 +77,7 @@ export function StudioStage({
             </button>
           )}
         </div>
-        {takes && takes.length > 1 && (
-          <nav className="sc-pstudio-takes" aria-label="Pictures of this view">
-            {takes.map((t) => (
-              <button
-                key={t.hash}
-                type="button"
-                className="sc-pstudio-take"
-                data-on={t.current || undefined}
-                aria-current={t.current || undefined}
-                aria-label={`Picture ${t.n} of ${takes.length}${t.current ? ', on the stage' : ''}`}
-                disabled={!onTake || t.current}
-                onClick={() => onTake?.(t.hash)}
-              >
-                <img src={thumbUrl(t.hash, 'micro')} alt="" />
-                <span aria-hidden>{t.n}</span>
-              </button>
-            ))}
-          </nav>
-        )}
+        {takes && takes.length > 1 && <TakesRail takes={takes} onTake={onTake} />}
       </div>
       {items.length > 0 && (
         <ol className="sc-pstudio-strip" aria-label="Views">
@@ -155,4 +137,81 @@ function useNow(running: boolean): number {
     return () => clearInterval(t);
   }, [running]);
   return now;
+}
+
+/**
+ * The pictures a view has worn, beside it: newest last, the one on the stage
+ * lit, one press puts an older one back.
+ *
+ * A person who refines a face a few times has three or four; a person who
+ * keeps going can have fifty. So the rail is a window, not a list: it is as
+ * tall as the picture, it scrolls, the one on the stage is scrolled to
+ * whenever it changes, the edges fade where there is more, and a press at
+ * either end moves a page. The count says how many there are, so a long
+ * history reads as a number rather than as an endless column.
+ */
+function TakesRail({ takes, onTake }: { takes: Take[]; onTake?: (hash: string) => void }) {
+  const list = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState<'none' | 'up' | 'down' | 'both'>('none');
+  const current = takes.find((t) => t.current);
+  const read = useCallback(() => {
+    const el = list.current;
+    if (!el) return;
+    const top = el.scrollTop > 4;
+    const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 4;
+    setMore(top && bottom ? 'both' : top ? 'up' : bottom ? 'down' : 'none');
+  }, []);
+  // the one on the stage is always in the window, whichever it becomes
+  useLayoutEffect(() => {
+    const el = list.current?.querySelector('[data-on]');
+    el?.scrollIntoView({ block: 'nearest' });
+    read();
+  }, [read]);
+  // and the window's own size decides where the edges fade
+  useEffect(() => {
+    const el = list.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [read]);
+  const page = (dir: 1 | -1) => {
+    const el = list.current;
+    if (el) el.scrollBy({ top: dir * Math.max(120, el.clientHeight - 60), behavior: 'smooth' });
+  };
+  const overflows = more !== 'none';
+  return (
+    <nav className="sc-pstudio-takes" data-more={more} aria-label={`${takes.length} pictures of this view`}>
+      {overflows && (
+        <button type="button" className="sc-pstudio-takes-step" aria-label="Earlier pictures" onClick={() => page(-1)}>
+          <CaretUp size={12} weight="bold" />
+        </button>
+      )}
+      <div ref={list} className="sc-pstudio-takes-list" onScroll={read}>
+        {takes.map((t) => (
+          <button
+            key={t.hash}
+            type="button"
+            className="sc-pstudio-take"
+            data-on={t.current || undefined}
+            aria-current={t.current || undefined}
+            aria-label={`Picture ${t.n} of ${takes.length}${t.current ? ', on the stage' : ''}`}
+            disabled={!onTake || t.current}
+            onClick={() => onTake?.(t.hash)}
+          >
+            <img src={thumbUrl(t.hash, 'micro')} alt="" loading="lazy" decoding="async" />
+            <span aria-hidden>{t.n}</span>
+          </button>
+        ))}
+      </div>
+      {overflows && (
+        <button type="button" className="sc-pstudio-takes-step" aria-label="Later pictures" onClick={() => page(1)}>
+          <CaretDown size={12} weight="bold" />
+        </button>
+      )}
+      <span className="sc-pstudio-takes-n" aria-hidden>
+        {current ? `${current.n}/${takes.length}` : takes.length}
+      </span>
+    </nav>
+  );
 }
