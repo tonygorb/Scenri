@@ -28,6 +28,7 @@ import {
   stripItems,
   readsAsPerson,
   doingLine,
+  takesOf,
 } from './presenterStudioRules.js';
 import { usePresenterDraft } from './usePresenterDraft.js';
 
@@ -99,6 +100,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
   // one conversation per edit session, so a second visit to the same person
   // arrives line by line rather than already said
   const memoryKey = `presenter-edit:${brand.id}:${presenterId}:${d?.id ?? 'new'}`;
+  const [resumed] = useState(!!s.draft);
 
   // Only a stale view, or a missing one once Build them was chosen, is drawn
   // without a click: opening the editor never spends a generation.
@@ -116,6 +118,8 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
   const view: StudioView = d ? selectedView(d, focus) : 'portrait';
   const slot = d ? d.views[view] : null;
   const drawingNow = !!d && (d.activeView === view || d.stage === 'analyzing');
+  // a picture is only put back while nothing is being drawn
+  const idleNow = !!d && !d.activeView && d.stage === 'idle';
   const failed = s.err && d && !d.activeView ? s.err : null;
 
   const turns = useMemo(
@@ -350,6 +354,8 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
     surface: {
       title: 'Edit presenter',
       memoryKey,
+      // an edit session is resumed whenever a draft for this person was already open
+      resumed,
       turns,
       busy: s.busy || saving || leaving,
       stage: d
@@ -359,6 +365,8 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
             drawing: drawingNow,
             since: d.updatedAt,
             doing: doingLine(d),
+            takes: takesOf(d, view),
+            onTake: idleNow ? (hash: string) => void s.restore(view, hash) : undefined,
             items: stripItems(d, view),
             onPick: (v: StudioView) => {
               setFocus(v);

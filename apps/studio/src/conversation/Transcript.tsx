@@ -29,6 +29,7 @@ export function Transcript({
   turns,
   busy,
   memoryKey,
+  resumed,
   onAnswer,
   onEdit,
   onExpand,
@@ -39,6 +40,8 @@ export function Transcript({
   busy?: boolean;
   /** Where what has been said is remembered, so a line arrives once. */
   memoryKey?: string;
+  /** The page opened on a conversation that was already had: none of it is written out again. */
+  resumed?: boolean;
   onAnswer: (questionId: string, answer: Answer) => void;
   onEdit?: (turnId: string) => void;
   /** The folded setup stretch was pressed. */
@@ -113,16 +116,27 @@ export function Transcript({
   const seen = useRef<Set<string> | null>(null);
   if (seen.current === null) {
     const stored = memoryKey ? readSaid(memoryKey) : null;
-    seen.current = stored ?? new Set(turns.length > 2 ? turns.map(turnKey) : []);
+    seen.current = stored ?? new Set(resumed || turns.length > 2 ? turns.map(turnKey) : []);
   }
+  const said = useRef(false);
   const fresh = new Set<string>();
   for (const t of list) {
     const k = turnKey(t);
     if (!seen.current.has(k)) fresh.add(k);
   }
+  // A conversation that was already had is not had again. A page opened on a
+  // draft has its history a moment later, all at once: that first arrival is
+  // taken as read rather than written out in front of the reader. Everything
+  // after it is written as it happens.
+  if (resumed && !said.current && fresh.size > 2) {
+    for (const k of fresh) seen.current.add(k);
+    fresh.clear();
+    said.current = true;
+  }
   useEffect(() => {
     const set = seen.current;
     if (!set) return;
+    if (fresh.size) said.current = true;
     for (const k of gone.current) set.delete(k);
     for (const t of list) {
       const k = turnKey(t);
@@ -254,11 +268,13 @@ export function Transcript({
  */
 function withLeaving(cur: Turn[], leaving: Leaving): Turn[] {
   const out: Turn[] = [];
+  const live = new Set(cur.map(turnKey));
   let i = 0;
   for (const t of leaving.from) {
     const k = turnKey(t);
+    // a turn that went and is already back is one turn, in its place now
     if (leaving.gone.has(k)) {
-      out.push(t);
+      if (!live.has(k)) out.push(t);
       continue;
     }
     while (i < cur.length && turnKey(cur[i]) !== k) out.push(cur[i++] as Turn);

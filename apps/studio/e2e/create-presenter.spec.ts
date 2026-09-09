@@ -384,6 +384,13 @@ test.describe('a person from scratch', () => {
     const restore = log(page).locator('.sc-convo-restore');
     await expect(restore).toHaveCount(1);
     await expect(restore).toContainText('Full body 2');
+    // the same two pictures are on the stage as takes, the one it wears outlined
+    const takes = page.locator('.sc-pstudio-take');
+    await expect(takes).toHaveCount(2);
+    await expect(page.locator('.sc-pstudio-take[data-on]')).toHaveAttribute(
+      'aria-label',
+      /Picture 1 of 2, on the stage/,
+    );
     await restore.click();
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).views.front.hash)
@@ -393,6 +400,11 @@ test.describe('a person from scratch', () => {
     // putting it back moves the mark from one card to the other and says nothing new
     await expect(log(page).locator('.sc-convo-shot[data-current]')).toContainText('Full body 2');
     expect(await pictures()).toBe(2);
+    // and the outline on the stage moved with it
+    await expect(page.locator('.sc-pstudio-take[data-on]')).toHaveAttribute(
+      'aria-label',
+      /Picture 2 of 2, on the stage/,
+    );
     const back = await draftOf(page, brand.id, draftId);
     expect(back.views.front.prior).toBe(before.views.front.hash);
     // what was built on the replaced full body is drawn again on its own

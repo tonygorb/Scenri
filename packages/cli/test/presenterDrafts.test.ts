@@ -1340,7 +1340,10 @@ describe('the record: results, decisions, and a picture restored from before', (
     expect(view(d, 'front').rejected).not.toContain(front0);
     expect(view(d, 'three-quarter').status).toBe('stale');
     expect(existsSync(core.images.pathFor(front0))).toBe(true);
-    expect(d.results.at(-1)).toMatchObject({ view: 'front', hash: front0, how: 'restored' });
+    // putting one back writes no row: the record is what was drawn, so going
+    // back and forth never pushes the early draws out of the capped list
+    expect(d.results.filter((r) => r.view === 'front')).toHaveLength(3);
+    expect(d.results.every((r) => r.how === 'drawn')).toBe(true);
     // the same picture again is nothing; a stranger is refused
     expect((await restoreView(deps(), d.id, 'front', front0)).results).toHaveLength(d.results.length);
     await expect(restoreView(deps(), d.id, 'front', 'deadbeefdeadbeefdeadbeefdeadbeef')).rejects.toMatchObject({

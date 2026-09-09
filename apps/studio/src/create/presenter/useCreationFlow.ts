@@ -36,6 +36,7 @@ import {
   stripItems,
   readsAsPerson,
   doingLine,
+  takesOf,
 } from './presenterStudioRules.js';
 import { usePresenterDraft } from './usePresenterDraft.js';
 
@@ -116,6 +117,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const [busySetup, setBusySetup] = useState(false);
   const [confirming, setConfirming] = useState<'start-over' | 'redescribe' | null>(null);
   const [booting, setBooting] = useState(!draftId);
+  // the page opened on a draft: its conversation was had before this page
+  const [resumed] = useState(!!draftId);
   const catsSeeded = useRef(false);
   const started = useRef('');
 
@@ -340,6 +343,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const view: StudioView = d ? selectedView(d, focus) : 'portrait';
   const slot = d ? d.views[view] : null;
   const drawingNow = !!d && (d.activeView === view || d.stage === 'analyzing');
+  // a picture is only put back while nothing is being drawn
+  const idleNow = !!d && !d.activeView && d.stage === 'idle';
 
   const onAnswer = useCallback(
     (qid: string, a: Answer) => {
@@ -622,6 +627,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       // one conversation per draft: a second person started in the same tab is
       // a new conversation and arrives line by line, not already said
       memoryKey: `presenter-create:${brand.id}:${d?.id ?? 'new'}`,
+      resumed,
       turns,
       busy: s.busy || busySetup,
       stage: d
@@ -631,6 +637,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
             drawing: drawingNow,
             since: d.updatedAt,
             doing: doingLine(d),
+            takes: takesOf(d, view),
+            onTake: idleNow ? (hash: string) => void s.restore(view, hash) : undefined,
             items,
             onPick: (v: StudioView) => {
               setFocus(v);

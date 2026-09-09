@@ -973,9 +973,10 @@ export async function restoreView(
     s.conditionedOn = undefined;
     s.error = undefined;
     if (s.status === 'approved') staleDependents(r, view);
-    r.results = [...r.results, { view, hash, at: new Date().toISOString(), how: 'restored' as const }].slice(
-      -RESULTS_MAX,
-    );
+    // Putting a picture back writes no history: the record is the pictures that
+    // were drawn, and which one a view wears is the view's own business. It
+    // used to append a row, so going back and forth a few times pushed the
+    // early draws out of the capped list and renumbered what was left.
   });
 }
 

@@ -2,7 +2,7 @@ import { Check, UserCircle, Warning } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
 import { imgUrl, thumbUrl } from '../../api.js';
 import { elapsedLabel } from '../../tasks.js';
-import type { StripItem, StudioView } from './presenterStudioRules.js';
+import type { StripItem, StudioView, Take } from './presenterStudioRules.js';
 
 /**
  * The picture, and the views under it.
@@ -24,6 +24,8 @@ export function StudioStage({
   onPick,
   compare,
   doing,
+  takes,
+  onTake,
 }: {
   /** The frame on the stage; none draws the empty well. */
   hash?: string;
@@ -37,6 +39,10 @@ export function StudioStage({
   compare?: { on: boolean; toggle: () => void };
   /** What is being drawn, in words, for the pill on the stage. */
   doing?: string;
+  /** The pictures this view has worn, when it has worn more than one. */
+  takes?: Take[];
+  /** Put one of them back on the view. */
+  onTake?: (hash: string) => void;
 }) {
   const now = useNow(drawing);
   return (
@@ -71,6 +77,25 @@ export function StudioStage({
             </button>
           )}
         </div>
+        {takes && takes.length > 1 && (
+          <nav className="sc-pstudio-takes" aria-label="Pictures of this view">
+            {takes.map((t) => (
+              <button
+                key={t.hash}
+                type="button"
+                className="sc-pstudio-take"
+                data-on={t.current || undefined}
+                aria-current={t.current || undefined}
+                aria-label={`Picture ${t.n} of ${takes.length}${t.current ? ', on the stage' : ''}`}
+                disabled={!onTake || t.current}
+                onClick={() => onTake?.(t.hash)}
+              >
+                <img src={thumbUrl(t.hash, 'micro')} alt="" />
+                <span aria-hidden>{t.n}</span>
+              </button>
+            ))}
+          </nav>
+        )}
       </div>
       {items.length > 0 && (
         <ol className="sc-pstudio-strip" aria-label="Views">

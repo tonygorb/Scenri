@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PresenterDraftSlot } from '../src/api.js';
 import {
   doingLine,
+  takesOf,
   type Traits,
   VIEWS,
   NO_TRAITS,
@@ -385,5 +386,28 @@ describe('doingLine', () => {
     expect(doingLine(draft({ stage: 'drawing', activeView: 'front', views: { front: approved('f0') } }))).toBe(
       'Redrawing the full body',
     );
+  });
+});
+
+describe('takesOf', () => {
+  it('lists every picture a view has worn, in order, and says which it wears now', () => {
+    const d = draft({
+      views: { portrait: approved('p2'), front: approved('f0') },
+      results: [
+        { view: 'portrait', hash: 'p0', at: '1', how: 'drawn' },
+        { view: 'portrait', hash: 'p1', at: '2', how: 'drawn' },
+        { view: 'front', hash: 'f0', at: '3', how: 'drawn' },
+        { view: 'portrait', hash: 'p2', at: '4', how: 'drawn' },
+        // putting one back is not another picture
+        { view: 'portrait', hash: 'p0', at: '5', how: 'restored' },
+      ],
+    });
+    expect(takesOf(d, 'portrait')).toEqual([
+      { n: 1, hash: 'p0', current: false },
+      { n: 2, hash: 'p1', current: false },
+      { n: 3, hash: 'p2', current: true },
+    ]);
+    // one picture is not a choice, so there is nothing to show
+    expect(takesOf(d, 'front')).toEqual([]);
   });
 });

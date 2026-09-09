@@ -464,3 +464,27 @@ export function doingLine(d: DraftLike): string | undefined {
   if (v === 'portrait') return again ? 'Adjusting the face' : 'Drawing the face';
   return `${again ? 'Redrawing' : 'Drawing'} the ${VIEW_NAME[v]}`;
 }
+
+/** One picture a view has worn: its number, its file, and whether it wears it now. */
+export interface Take {
+  n: number;
+  hash: string;
+  current: boolean;
+}
+
+/**
+ * Every picture drawn for a view, oldest first. The strip under the stage says
+ * which view you are looking at; this says which of its pictures, so a person
+ * who has gone back and forth can see them side by side at a glance instead of
+ * reading the log for it.
+ */
+export function takesOf(d: DraftLike, view: StudioView): Take[] {
+  const seen = new Set<string>();
+  const out: Take[] = [];
+  for (const r of d.results ?? []) {
+    if (r.view !== view || r.how === 'restored' || seen.has(r.hash)) continue;
+    seen.add(r.hash);
+    out.push({ n: out.length + 1, hash: r.hash, current: d.views[view].hash === r.hash });
+  }
+  return out.length > 1 ? out : [];
+}

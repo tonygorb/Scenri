@@ -6,7 +6,7 @@ import { ConversationComposer, type ComposerScope } from '../../conversation/Con
 import type { Answer, Turn } from '../../conversation/question.js';
 import { Transcript } from '../../conversation/Transcript.js';
 import { Tip } from '../../layout/Tip.js';
-import type { StripItem, StudioView } from './presenterStudioRules.js';
+import type { StripItem, Take, StudioView } from './presenterStudioRules.js';
 import { StudioStage } from './StudioStage.js';
 
 /** The stage, as a flow describes it. */
@@ -17,6 +17,10 @@ export interface StageSurface {
   since?: string;
   /** What is being drawn, in words, for the pill on the stage. */
   doing?: string;
+  /** The pictures the view on the stage has worn, when it has worn more than one. */
+  takes?: Take[];
+  /** Put one of them back on the view. */
+  onTake?: (hash: string) => void;
   items: StripItem[];
   onPick?: (view: StudioView) => void;
   /** A candidate over a picture that stands: press to see the one it would replace. */
@@ -52,6 +56,8 @@ export interface StudioSurface {
   busy: boolean;
   /** Where the transcript remembers what has been said. */
   memoryKey?: string;
+  /** The page opened on a conversation that was already had. */
+  resumed?: boolean;
   stage: StageSurface | null;
   composer: ComposerSurface | null;
   text: string;
@@ -168,6 +174,8 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 drawing={s.stage.drawing}
                 since={s.stage.since}
                 doing={s.stage.doing}
+                takes={s.stage.takes}
+                onTake={s.stage.onTake}
                 items={s.stage.items}
                 onPick={s.stage.onPick}
                 compare={s.stage.compare}
@@ -188,6 +196,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 turns={s.turns}
                 busy={s.busy}
                 memoryKey={s.memoryKey}
+                resumed={s.resumed}
                 onAnswer={s.onAnswer}
                 onEdit={s.onEdit}
                 onExpand={s.onExpand}
