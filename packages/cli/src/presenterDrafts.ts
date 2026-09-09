@@ -76,6 +76,16 @@ export interface ViewSlot {
   error?: string;
 }
 
+/** One sentence sent to redraw a view. The conversation is read off these, in the order they were sent. */
+export interface DraftAsk {
+  view: PresenterView;
+  text: string;
+  at: string;
+}
+
+/** Asks a draft keeps: enough for a long session, the oldest let go first. */
+const ASKS_MAX = 40;
+
 export interface PresenterDraftRecord {
   id: string;
   brandId: string;
@@ -113,6 +123,12 @@ export interface PresenterDraftRecord {
   baseId?: string;
   /** Identity-wide instructions accepted in this session, on top of the record's own. Newest last. */
   identityEdits: string[];
+  /**
+   * Every sentence sent to redraw a view, oldest first. A slot holds only its
+   * last adjustment; this is the exchange as it happened, so the conversation
+   * shows each ask under the line it answered and none is rewritten by the next.
+   */
+  asks: DraftAsk[];
   /** Shots the record holds under an angle the studio has no slot for. Written back untouched, after the six views. */
   keptShots?: CustomShot[];
   createdAt: string;
@@ -169,6 +185,7 @@ function fromRow(row: { id: string; brandId: string; json: unknown; createdAt: s
     activeView: isView(j.activeView) ? j.activeView : null,
     stage: j.stage === 'analyzing' || j.stage === 'drawing' ? j.stage : 'idle',
     identityEdits: identityEditsOf(j.identityEdits),
+    asks: asksOf(j.asks),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -181,6 +198,12 @@ function fromRow(row: { id: string; brandId: string; json: unknown; createdAt: s
   if (Array.isArray(j.keptShots) && j.keptShots.length) rec.keptShots = j.keptShots.map(shotOf);
   return rec;
 }
+
+const asksOf = (v: unknown): DraftAsk[] =>
+  (Array.isArray(v) ? v : [])
+    .filter((a: any) => isView(a?.view) && typeof a?.text === 'string' && a.text.trim())
+    .map((a: any) => ({ view: a.view as PresenterView, text: String(a.text), at: String(a.at ?? '') }))
+    .slice(-ASKS_MAX);
 
 const shotOf = (s: any): CustomShot => ({
   file: String(s?.file ?? ''),
@@ -300,6 +323,7 @@ export async function createPresenterDraft(
     activeView: null,
     stage: 'idle',
     identityEdits: [],
+    asks: [],
     createdAt: '',
     updatedAt: '',
   };
@@ -380,6 +404,7 @@ export function seedDraftFromPresenter(core: Core, brandId: string, presenter: C
     presenterId: presenter.id,
     baseId: presenter.id,
     identityEdits: identityEditsOf(presenter.identityEdits),
+    asks: [],
     createdAt: '',
     updatedAt: '',
   };
@@ -615,6 +640,12 @@ export async function generateView(
     r.views[view].error = undefined;
     r.activeView = view;
     r.stage = 'drawing';
+    // The sentence joins the record once: the same one sent to the same view
+    // again is Try again, not a second ask.
+    const last = r.asks[r.asks.length - 1];
+    if (adjustment && !(last && last.view === view && last.text === adjustment)) {
+      r.asks = [...r.asks, { view, text: adjustment, at: new Date().toISOString() }].slice(-ASKS_MAX);
+    }
   });
   startJob(deps, id, view, (signal) => drawView(deps, id, view, before, adjustment, decide, signal));
   return { draft: saved };

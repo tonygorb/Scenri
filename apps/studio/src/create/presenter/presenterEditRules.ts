@@ -238,22 +238,37 @@ export function turnsForEdit({ draft: d, base, name, selected, canGenerate, ui }
     say(`changed-${i}`, `Changed ${name}. The views built on the face were redrawn.`);
   });
 
-  for (const v of views) {
-    const slot = d.views[v];
-    if (slot.status === 'approved' && slot.prior && slot.adjustment && v !== 'portrait') {
-      you(`adjust-${v}`, slot.adjustment, PROMPT_EDIT.change);
-      say(`redrew-${v}`, `Redrew the ${VIEW_NAME[v]}.`);
-    }
+  // Every sentence sent to redraw a view is an exchange of its own, in the
+  // order it was sent. The last one is still open while its view draws, waits
+  // on a decision or failed. A change to the person that was accepted is told
+  // above as the change it became, so its ask is not told twice.
+  const asks = d.asks ?? [];
+  const last = asks[asks.length - 1];
+  const lastSlot = last ? d.views[last.view] : null;
+  const lastOpen =
+    !!last &&
+    !!lastSlot &&
+    (lastSlot.status === 'generating' || lastSlot.status === 'candidate' || !!lastSlot.error) &&
+    (lastSlot.adjustment === last.text || !!lastSlot.error);
+  const told = new Set((d.identityEdits ?? []).map((e) => e.toLowerCase()));
+  for (const a of lastOpen ? asks.slice(0, -1) : asks) {
+    if (a.view === 'portrait' && told.has(a.text.replace(/\s+/g, ' ').toLowerCase())) continue;
+    you(`ask-${a.at}`, a.text, PROMPT_EDIT.change);
+    say(`redrew-${a.at}`, `Redrew the ${VIEW_NAME[a.view]}.`);
   }
+  const openAsk = () => {
+    if (lastOpen && last) you(`ask-${last.at}`, last.text, PROMPT_EDIT.change);
+  };
 
   if (active) {
     const slot = d.views[active];
+    openAsk();
     say(
       `drawing-${active}`,
-      slot.adjustment
+      lastOpen && last?.view === active
         ? active === 'portrait'
-          ? `Changing ${name}: "${slot.adjustment}". Everything else stays.`
-          : `Redrawing the ${VIEW_NAME[active]}: "${slot.adjustment}".`
+          ? `Changing ${name}. Everything else stays.`
+          : `Redrawing the ${VIEW_NAME[active]}.`
         : slot.status === 'stale' || views.some((v) => d.views[v].status === 'stale')
           ? `Redrawing the views built on the face. The ${VIEW_NAME[active]} first.`
           : `Drawing the ${VIEW_NAME[active]}.`,
@@ -262,8 +277,7 @@ export function turnsForEdit({ draft: d, base, name, selected, canGenerate, ui }
   }
 
   if (candidate) {
-    const slot = d.views[candidate];
-    if (slot.adjustment) you('adjust', slot.adjustment, PROMPT_EDIT.change);
+    openAsk();
     ask({
       id: candidate === 'portrait' ? 'revision' : 'view-revision',
       kind: 'confirm',
@@ -281,6 +295,7 @@ export function turnsForEdit({ draft: d, base, name, selected, canGenerate, ui }
   }
 
   if (ui.failed || failedView) {
+    openAsk();
     ask({
       id: 'retry',
       kind: 'confirm',
@@ -301,6 +316,13 @@ export function turnsForEdit({ draft: d, base, name, selected, canGenerate, ui }
       prompt: `${name} changed in another tab. Reload to continue.`,
       options: [{ id: 'reload', label: 'Reload' }],
     });
+    return T;
+  }
+
+  // A view built on a face that changed is redrawn before anything is offered:
+  // Save is for a coherent set, and the redraw starts on its own.
+  if (views.some((v) => d.views[v].status === 'stale')) {
+    say('rebuilding', 'Redrawing the views built on the face.');
     return T;
   }
 

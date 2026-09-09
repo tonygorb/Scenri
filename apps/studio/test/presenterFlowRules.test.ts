@@ -205,7 +205,7 @@ describe('the composer follows the question', () => {
     const t = turnsFor({ setup: setup(), draft: null, canGenerate: true, ui });
     expect(composerFor(activeQuestion(t), null, 'portrait')?.placeholder).toBe('Describe them, or choose above');
     const photos = turnsFor({ setup: setup({ source: 'photos' }), draft: null, canGenerate: true, ui });
-    expect(composerFor(activeQuestion(photos), null, 'portrait')).toBeNull();
+    expect(composerFor(activeQuestion(photos), null, 'portrait').off).toBe('Add their photos above.');
   });
   it('turns into the refinement field once the face is used', () => {
     const d = draft({
@@ -252,5 +252,75 @@ describe('small talk at a question', () => {
     const list = t.map((x) => (x.kind === 'question' ? `q:${x.question.id}` : `${x.kind}:${x.id}`));
     expect(list).toEqual(['you:intent', 'q:source', 'you:aside-said', 'scenri:aside-reply']);
     expect(activeQuestion(t)?.id).toBe('source');
+  });
+});
+
+describe('what was sent stays as it was sent', () => {
+  const at = (n: number) => `2026-09-09T10:0${n}:00.000Z`;
+  const scratch = setup({ source: 'scratch', description: 'a woman in her 30s, dark hair, slim' });
+  it('the name answered during the first draw stays under the line that says it draws', () => {
+    const d = draft({
+      name: 'Maren',
+      views: views({ portrait: slot({ status: 'generating' }) }),
+      activeView: 'portrait',
+      stage: 'drawing',
+    });
+    expect(ids(scratch, d).slice(-3)).toEqual(['scenri:drawing-face', 'scenri:asked-name', 'you:name']);
+    const unnamed = draft({ ...d, name: '' });
+    expect(ids(scratch, unnamed).slice(-2)).toEqual(['scenri:drawing-face', 'q:name']);
+  });
+  it('every adjustment is an exchange of its own; the open one sits under the line that says it draws, and none is rewritten by the next', () => {
+    const asks = [
+      { view: 'portrait' as const, text: 'shorter hair', at: at(1) },
+      { view: 'portrait' as const, text: 'add glasses', at: at(2) },
+    ];
+    const drawing = draft({
+      name: 'Maren',
+      asks,
+      views: views({ portrait: slot({ status: 'generating', hash: 'p1', adjustment: 'add glasses' }) }),
+      activeView: 'portrait',
+      stage: 'drawing',
+    });
+    const t = turnsFor({ setup: scratch, draft: drawing, canGenerate: true, ui });
+    expect(ids(scratch, drawing).slice(-8)).toEqual([
+      'scenri:asked-name',
+      'you:name',
+      `scenri:asked-ask-${at(1)}`,
+      `you:ask-${at(1)}`,
+      `scenri:redrew-${at(1)}`,
+      `scenri:asked-ask-${at(2)}`,
+      `you:ask-${at(2)}`,
+      'scenri:drawing-face',
+    ]);
+    expect(t.at(-1)).toMatchObject({ kind: 'scenri', text: 'Adjusting the face. Everything else stays.' });
+    expect(t.find((x) => x.kind === 'you' && x.id === `ask-${at(1)}`)).toMatchObject({
+      text: 'shorter hair',
+      editable: false,
+    });
+    const landed = draft({
+      ...drawing,
+      views: views({ portrait: slot({ status: 'candidate', hash: 'p2', adjustment: 'add glasses' }) }),
+      activeView: null,
+      stage: 'idle',
+    });
+    expect(ids(scratch, landed).slice(-3)).toEqual([`scenri:asked-ask-${at(2)}`, `you:ask-${at(2)}`, 'q:identity']);
+  });
+  it('a view that redrew itself keeps its ask closed, and the composer is off while any view draws', () => {
+    const set = draft({
+      name: 'Maren',
+      asks: [{ view: 'front', text: 'arms relaxed', at: at(3) }],
+      views: views({
+        portrait: slot({ status: 'approved', hash: 'p' }),
+        front: slot({ status: 'approved', hash: 'f2', prior: 'f', adjustment: 'arms relaxed' }),
+        'three-quarter': slot({ status: 'approved', hash: 't' }),
+      }),
+    });
+    const t = ids(scratch, set);
+    expect(t).toContain(`you:ask-${at(3)}`);
+    expect(t).toContain(`scenri:redrew-${at(3)}`);
+    expect(composerFor(null, set, 'front').off).toBeUndefined();
+    const busy = draft({ ...set, activeView: 'three-quarter', stage: 'drawing' });
+    expect(composerFor(null, busy, 'front').off).toBe('The three-quarter view is still drawing.');
+    expect(ids(scratch, busy).at(-1)).toBe('scenri:drawing-three-quarter');
   });
 });

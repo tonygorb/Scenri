@@ -160,6 +160,7 @@ describe('the editor transcript', () => {
   });
   it('a candidate returns the one decision; a self-decided redraw is in the record', () => {
     const d = draft({
+      asks: [{ view: 'portrait', text: 'shorter hair', at: 'a1' }],
       views: views({
         portrait: slot({ status: 'candidate', hash: 'p2', prior: 'p', adjustment: 'shorter hair' }),
         front: approved('f'),
@@ -174,8 +175,9 @@ describe('the editor transcript', () => {
       canGenerate: true,
       ui: EMPTY_EDIT_UI,
     });
-    expect(ids(t)).toEqual(['scenri:opening', 'scenri:asked-adjust', 'you:adjust', 'q:revision']);
+    expect(ids(t)).toEqual(['scenri:opening', 'scenri:asked-ask-a1', 'you:ask-a1', 'q:revision']);
     const redrew = draft({
+      asks: [{ view: 'front', text: 'to camera', at: 'a2' }],
       views: views({
         portrait: approved('p'),
         front: slot({ status: 'approved', hash: 'f2', prior: 'f', adjustment: 'to camera' }),
@@ -190,13 +192,7 @@ describe('the editor transcript', () => {
       canGenerate: true,
       ui: EMPTY_EDIT_UI,
     });
-    expect(ids(r)).toEqual([
-      'scenri:opening',
-      'scenri:asked-adjust-front',
-      'you:adjust-front',
-      'scenri:redrew-front',
-      'q:save',
-    ]);
+    expect(ids(r)).toEqual(['scenri:opening', 'scenri:asked-ask-a2', 'you:ask-a2', 'scenri:redrew-a2', 'q:save']);
   });
   it('a conflict on save asks for a reload; a failure asks for a retry', () => {
     const c = turnsForEdit({
@@ -258,5 +254,27 @@ describe('dirtiness', () => {
         base,
       ),
     ).toBe(true);
+  });
+});
+
+describe('a set that is not coherent yet', () => {
+  it('offers no Save while a view built on the face is still to be redrawn', () => {
+    const d = draft({
+      views: views({
+        portrait: approved('p2'),
+        front: slot({ status: 'stale', hash: 'f' }),
+        'three-quarter': slot({ status: 'stale', hash: 't' }),
+      }),
+    });
+    const t = turnsForEdit({
+      draft: d,
+      base,
+      name: 'Maren',
+      selected: 'portrait',
+      canGenerate: true,
+      ui: EMPTY_EDIT_UI,
+    });
+    expect(ids(t).at(-1)).toBe('scenri:rebuilding');
+    expect(ids(t)).not.toContain('q:save');
   });
 });

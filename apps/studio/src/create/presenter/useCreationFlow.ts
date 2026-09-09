@@ -515,7 +515,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
 
   const composerBase = composerFor(question, d, view);
   const scope =
-    d && identityLocked(d) && !question?.id.match(/^(name|describe)$/)
+    d && identityLocked(d) && !composerBase.off && !question?.id.match(/^(name|describe)$/)
       ? (() => {
           const st = composerState(text, view, d);
           const h = st.chip ? d.views[st.chip.view].hash : undefined;
@@ -572,18 +572,21 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
                 : undefined,
           }
         : null,
-      composer: composerBase
-        ? {
-            ...composerBase,
-            scope,
-            hint: askErr ? null : undefined,
-            error: askErr ?? saveErr,
-            disabled: s.busy || busySetup || booting,
-            working: !!d && drawingNow && !(question?.id === 'name'),
-            focusKey: question ? `${question.id}:${d?.id ?? 'setup'}` : undefined,
-            onAttach: !d && question?.id === 'source' ? () => setSetup({ source: 'photos' }) : undefined,
-          }
-        : null,
+      // The composer is always there: it is where a sentence goes. Off, with the
+      // reason under the card, while a sentence cannot be the answer.
+      composer: {
+        placeholder: composerBase.placeholder,
+        label: composerBase.label,
+        action: composerBase.action,
+        scope,
+        hint: askErr ? null : (composerBase.off ?? undefined),
+        why: composerBase.off ?? undefined,
+        error: askErr ?? saveErr,
+        disabled: s.busy || busySetup || booting || !!composerBase.off,
+        working: !!d && !!d.activeView && question?.id !== 'name',
+        focusKey: question ? `${question.id}:${d?.id ?? 'setup'}` : undefined,
+        onAttach: !d && question?.id === 'source' ? () => setSetup({ source: 'photos' }) : undefined,
+      },
       text,
       onText: setText,
       onSend,

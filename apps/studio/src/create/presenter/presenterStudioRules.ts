@@ -53,6 +53,7 @@ export type DraftLike = Pick<PresenterDraft, 'source' | 'name' | 'views' | 'acti
   readError?: string;
   extras?: boolean;
   identityEdits?: string[];
+  asks?: PresenterDraft['asks'];
 };
 
 /** The views this draft is building: the core three, and the extras once asked for. */

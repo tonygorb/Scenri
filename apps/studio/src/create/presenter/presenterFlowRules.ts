@@ -363,16 +363,47 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
   const p = d.views.portrait;
   const active = d.activeView as StudioView | null;
 
+  // Every sentence sent to redraw a view is an exchange of its own, in the
+  // order it was sent, and stays whatever is sent after it. The last one is
+  // still open while its view draws, waits on a decision or failed; the lines
+  // below close it. The rest closed when their view landed.
+  const asks = d.asks ?? [];
+  const last = asks[asks.length - 1];
+  const lastSlot = last ? d.views[last.view] : null;
+  const lastOpen =
+    !!last &&
+    !!lastSlot &&
+    (lastSlot.status === 'generating' || lastSlot.status === 'candidate' || !!lastSlot.error) &&
+    (lastSlot.adjustment === last.text || !!lastSlot.error);
+  const askedFor = (v: StudioView) => (v === 'portrait' && !identityLocked(d) ? PROMPT.identity(who) : PROMPT.change);
+  const pastAsks = () => {
+    for (const a of lastOpen ? asks.slice(0, -1) : asks) {
+      you(`ask-${a.at}`, a.text, askedFor(a.view), { editable: false });
+      say(`redrew-${a.at}`, `Redrew the ${VIEW_NAME[a.view]}.`);
+    }
+  };
+  const openAsk = () => {
+    if (lastOpen && last) you(`ask-${last.at}`, last.text, askedFor(last.view), { editable: false });
+  };
+
   if (!identityLocked(d)) {
-    if (p.status === 'generating' || (active === 'portrait' && p.status !== 'candidate')) {
-      say(
-        'drawing-face',
-        p.adjustment ? `Adjusting the face: "${p.adjustment}". Everything else stays.` : 'Drawing their face.',
-      );
-      if (!name) askName(PROMPT.nameWhileDrawing);
+    const drawingFace = p.status === 'generating' || (active === 'portrait' && p.status !== 'candidate');
+    if (drawingFace && !asks.length) {
+      // The first draw: the name is asked under the line that says it is
+      // drawing, and the answer stays there.
+      say('drawing-face', 'Drawing their face.');
+      if (name) you('name', name, PROMPT.name);
+      else askName(PROMPT.nameWhileDrawing);
       return T;
     }
     if (name) you('name', name, PROMPT.name);
+    pastAsks();
+    if (drawingFace) {
+      openAsk();
+      say('drawing-face', lastOpen ? 'Adjusting the face. Everything else stays.' : 'Drawing their face.');
+      if (!name) askName(PROMPT.nameWhileDrawing);
+      return T;
+    }
     if (ui.failed) {
       ask({
         id: 'retry',
@@ -384,6 +415,7 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
       return T;
     }
     if (p.error) {
+      openAsk();
       ask({
         id: 'retry',
         kind: 'confirm',
@@ -394,11 +426,11 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
       return T;
     }
     if (p.status === 'candidate') {
-      if (p.adjustment) you('adjust', p.adjustment, PROMPT.identity(who));
+      openAsk();
       ask({
         id: 'identity',
         kind: 'confirm',
-        prompt: p.adjustment ? 'Adjusted. Use this person, or try again.' : PROMPT.identity(who),
+        prompt: lastOpen ? 'Adjusted. Use this person, or try again.' : PROMPT.identity(who),
         options: [
           { id: 'use', label: 'Use this person' },
           { id: 'again', label: 'Try again' },
@@ -410,6 +442,7 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
   }
 
   if (name && !folded) you('name', name, PROMPT.name);
+  pastAsks();
 
   const views = Object.keys(d.views) as StudioView[];
   const candidate = views.find((v) => d.views[v].status === 'candidate');
@@ -427,11 +460,11 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
   }
 
   if (active) {
-    const slot = d.views[active];
+    openAsk();
     say(
       `drawing-${active}`,
-      slot.adjustment
-        ? `Redrawing the ${VIEW_NAME[active]}: "${slot.adjustment}".`
+      lastOpen && last?.view === active
+        ? `Redrawing the ${VIEW_NAME[active]}.`
         : active === 'front' && !d.views.front.hash
           ? 'Building the reference set from this face. The full body first.'
           : `Drawing the ${VIEW_NAME[active]}.`,
@@ -440,8 +473,7 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
   }
 
   if (candidate) {
-    const slot = d.views[candidate];
-    if (slot.adjustment) you('adjust', slot.adjustment, PROMPT.change);
+    openAsk();
     ask({
       id: candidate === 'portrait' ? 'revision' : 'view-revision',
       kind: 'confirm',
@@ -459,6 +491,7 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
   }
 
   if (failed) {
+    openAsk();
     ask({
       id: 'retry',
       kind: 'confirm',
@@ -467,15 +500,6 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
       options: [{ id: 'retry', label: 'Retry' }],
     });
     return T;
-  }
-
-  // A view that decided itself keeps the sentence that redrew it in the record.
-  for (const v of views) {
-    const slot = d.views[v];
-    if (slot.status === 'approved' && slot.prior && slot.adjustment && v !== 'portrait') {
-      you(`adjust-${v}`, slot.adjustment, PROMPT.change, { editable: false });
-      say(`redrew-${v}`, `Redrew the ${VIEW_NAME[v]}.`);
-    }
   }
 
   if (!allApproved(d)) return T;
@@ -531,11 +555,21 @@ export function editEffect(turnId: string, hasDraft: boolean): EditEffect {
 }
 
 /** The composer's placeholder and pill for the open question, or null when the question answers itself. */
-export function composerFor(
-  q: Question | null,
-  d: DraftLike | null,
-  selected: StudioView,
-): { placeholder: string; label: string; action: string } | null {
+/**
+ * The composer is the one place a sentence is typed, so it is always there.
+ * When a sentence cannot be the answer (a choice to pick, photos to add, a
+ * view still drawing) it is off, and `off` says why under the card.
+ */
+export interface ComposerFor {
+  placeholder: string;
+  label: string;
+  action: string;
+  off?: string;
+}
+
+const QUIET: ComposerFor = { placeholder: 'Nothing to type yet', label: 'Message', action: 'Send' };
+
+export function composerFor(q: Question | null, d: DraftLike | null, selected: StudioView): ComposerFor {
   if (q) {
     switch (q.id) {
       case 'source':
@@ -547,19 +581,27 @@ export function composerFor(
       case 'identity':
         return { placeholder: 'Adjust: shorter hair, older', label: 'What should change', action: 'Refine' };
       case 'gaps':
+        return { ...QUIET, off: 'Pick above, or skip.' };
       case 'photos':
+        return { ...QUIET, off: 'Add their photos above.' };
       case 'noengine':
+        return { ...QUIET, off: 'Set up image generation, or add photos.' };
       case 'blind':
+        return { ...QUIET, off: 'Decide above.' };
       case 'retry':
-        return null;
+        return { ...QUIET, off: 'Retry above.' };
     }
   }
-  if (!d || !identityLocked(d) || drawing(d)) {
-    if (d && drawing(d) && identityLocked(d)) {
-      return { placeholder: composerPlaceholder(selected, d), label: 'What should change', action: 'Refine' };
-    }
-    return null;
+  if (!d) return { ...QUIET, off: 'Starting the draft.' };
+  if (d.stage === 'analyzing') return { ...QUIET, off: 'Reading the photos.' };
+  if (drawing(d)) {
+    const v = d.activeView as StudioView | null;
+    const off = v ? `The ${VIEW_NAME[v]} is still drawing.` : 'Still drawing.';
+    return identityLocked(d)
+      ? { placeholder: composerPlaceholder(selected, d), label: 'What should change', action: 'Refine', off }
+      : { ...QUIET, off };
   }
+  if (!identityLocked(d)) return { ...QUIET, off: 'The face comes first.' };
   return { placeholder: composerPlaceholder(selected, d), label: 'What should change', action: 'Refine' };
 }
 

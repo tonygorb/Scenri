@@ -408,6 +408,8 @@ export interface PresenterDraft {
   baseId?: string;
   /** Identity-wide instructions accepted in this session, newest last. */
   identityEdits: string[];
+  /** Every sentence sent to redraw a view, oldest first. The conversation is read off these. */
+  asks: { view: PresenterDraftView; text: string; at: string }[];
   /** Shots the record holds under an angle the studio has no slot for. Written back untouched on save. */
   keptShots?: { file: string; angle?: string }[];
   createdAt: string;

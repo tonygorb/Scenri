@@ -1286,3 +1286,23 @@ describe('editing a saved presenter', () => {
     expect(mergeIdentityEdits(many, '')).toEqual(many);
   });
 });
+
+describe('the asks a draft keeps', () => {
+  it('every sentence sent to redraw a view stays, in order; the same one sent to the same view again is Try again, not a second ask', async () => {
+    let d = await cast();
+    expect(d.asks).toEqual([]);
+    d = await step(d.id, 'front', 'arms relaxed', 'auto');
+    d = await step(d.id, 'front', 'arms relaxed', 'auto');
+    // a plain redraw sends no sentence, so it adds nothing
+    d = await step(d.id, 'three-quarter', undefined, 'auto');
+    expect(d.asks.map((a) => [a.view, a.text])).toEqual([['front', 'arms relaxed']]);
+    d = await step(d.id, 'portrait', 'shorter hair');
+    expect(d.asks.map((a) => [a.view, a.text])).toEqual([
+      ['front', 'arms relaxed'],
+      ['portrait', 'shorter hair'],
+    ]);
+    expect(d.asks.every((a) => !Number.isNaN(Date.parse(a.at)))).toBe(true);
+    // the slot still says what it was last drawn with
+    expect(view(d, 'portrait').adjustment).toBe('shorter hair');
+  });
+});

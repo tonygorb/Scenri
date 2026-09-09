@@ -273,7 +273,24 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
       }
     : null;
   const stageHash = compare && slot?.prior ? slot.prior : slot?.hash;
-  const composerOn = !!d && question?.id !== 'legacy' && question?.id !== 'conflict';
+  // The composer is always there once the session is open. While a sentence
+  // cannot be the answer it is off, with the reason under the card.
+  const off = !d
+    ? null
+    : question?.id === 'legacy'
+      ? 'Decide above.'
+      : question?.id === 'conflict'
+        ? 'Reload to continue.'
+        : question?.id === 'scope'
+          ? 'Pick above.'
+          : question?.id === 'retry'
+            ? 'Retry above.'
+            : d.stage === 'analyzing'
+              ? 'Reading the photos.'
+              : d.activeView
+                ? `The ${VIEW_NAME[d.activeView]} is still drawing.`
+                : null;
+  const composerOn = !!d;
 
   return {
     d,
@@ -317,10 +334,12 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
               view === 'portrait' ? `What should change about ${name}?` : `Change this view: ${VIEW_NAME[view]}`,
             label: 'What should change',
             action: 'Refine',
-            scope,
+            scope: off ? null : scope,
+            hint: off ?? undefined,
+            why: off ?? undefined,
             error: askErr,
-            disabled: s.busy || saving || leaving,
-            working: drawingNow,
+            disabled: s.busy || saving || leaving || !!off,
+            working: !!d?.activeView,
             focusKey: `${question?.id ?? 'open'}:${d?.id ?? ''}`,
           }
         : null,

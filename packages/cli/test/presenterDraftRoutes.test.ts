@@ -139,6 +139,7 @@ describe('presenter draft routes', () => {
     await j('POST', `${base}/${id}/views/three-quarter/generate`, { adjustment: 'a touch more smile' });
     d = await settled(brand.id, id);
     expect(d.views['three-quarter'].adjustment).toBe('a touch more smile');
+    expect(d.asks).toEqual([expect.objectContaining({ view: 'three-quarter', text: 'a touch more smile' })]);
     await j('POST', `${base}/${id}/views/three-quarter/approve`);
 
     expect((await j('POST', `${base}/${id}/save`)).status).toBe(400); // no name yet
