@@ -27,6 +27,7 @@ import {
   planStep,
   redoView,
   resetPresenterDrafts,
+  restoreView,
   revertView,
   runningDraftJobCount,
   savePresenterDraft,
@@ -1304,5 +1305,41 @@ describe('the asks a draft keeps', () => {
     expect(d.asks.every((a) => !Number.isNaN(Date.parse(a.at)))).toBe(true);
     // the slot still says what it was last drawn with
     expect(view(d, 'portrait').adjustment).toBe('shorter hair');
+  });
+});
+
+describe('the record: results, decisions, and a picture restored from before', () => {
+  it('every landed picture is a result, every decision is kept, and a restore puts a picture back one to one', async () => {
+    let d = await cast();
+    const front0 = view(d, 'front').hash!;
+    expect(d.results.map((r) => [r.view, r.how])).toEqual([
+      ['portrait', 'drawn'],
+      ['front', 'drawn'],
+      ['three-quarter', 'drawn'],
+    ]);
+    d = await step(d.id, 'front', 'arms relaxed', 'auto');
+    const front1 = view(d, 'front').hash!;
+    expect(d.results.at(-1)).toMatchObject({ view: 'front', hash: front1, ask: 'arms relaxed', how: 'drawn' });
+    d = await step(d.id, 'front', 'arms up', 'auto');
+    const front2 = view(d, 'front').hash!;
+    expect(view(d, 'front').rejected).toContain(front0);
+    d = await restoreView(deps(), d.id, 'front', front0);
+    expect(view(d, 'front')).toMatchObject({ status: 'approved', hash: front0, prior: front2, origin: 'generated' });
+    expect(view(d, 'front').adjustment).toBeUndefined();
+    expect(view(d, 'front').rejected).not.toContain(front0);
+    expect(view(d, 'three-quarter').status).toBe('stale');
+    expect(existsSync(core.images.pathFor(front0))).toBe(true);
+    expect(d.results.at(-1)).toMatchObject({ view: 'front', hash: front0, how: 'restored' });
+    // the same picture again is nothing; a stranger is refused
+    expect((await restoreView(deps(), d.id, 'front', front0)).results).toHaveLength(d.results.length);
+    await expect(restoreView(deps(), d.id, 'front', 'deadbeefdeadbeefdeadbeefdeadbeef')).rejects.toMatchObject({
+      statusCode: 400,
+    });
+    // Keep previous takes the replaced picture back, and the decisions say so
+    d = await revertView(deps(), d.id, 'front');
+    expect(view(d, 'front').hash).toBe(front2);
+    await redoView(deps(), d.id, 'front');
+    d = getPresenterDraft(core, d.id)!;
+    expect(d.decisions.map((x) => x.what).slice(-2)).toEqual(['keep', 'again']);
   });
 });

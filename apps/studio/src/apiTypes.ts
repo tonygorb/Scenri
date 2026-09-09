@@ -410,6 +410,10 @@ export interface PresenterDraft {
   identityEdits: string[];
   /** Every sentence sent to redraw a view, oldest first. The conversation is read off these. */
   asks: { view: PresenterDraftView; text: string; at: string }[];
+  /** Every picture that landed on a view, oldest first: the record's restore points while the draft lives. */
+  results: { view: PresenterDraftView; hash: string; at: string; ask?: string; how: 'drawn' | 'restored' }[];
+  /** Every decision taken on a view, oldest first. */
+  decisions: { view: PresenterDraftView; what: 'use' | 'again' | 'keep'; at: string }[];
   /** Shots the record holds under an angle the studio has no slot for. Written back untouched on save. */
   keptShots?: { file: string; angle?: string }[];
   createdAt: string;

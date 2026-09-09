@@ -381,6 +381,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
       onText: setText,
       onSend,
       onAnswer,
+      onRestore: (view: string, hash: string) => void s.restore(view as StudioView, hash),
       footnote: capsNote(
         !canDraw
           ? 'Image generation is not set up, so nothing can be redrawn yet.'

@@ -91,6 +91,8 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     approve: (view: PresenterDraftView) => act(() => api.approveDraftView(brandId, draftId ?? '', view)),
     redo: (view: PresenterDraftView) => act(() => api.redoDraftView(brandId, draftId ?? '', view)),
     revert: (view: PresenterDraftView) => act(() => api.revertDraftView(brandId, draftId ?? '', view)),
+    restore: (view: PresenterDraftView, hash: string) =>
+      act(() => api.restoreDraftView(brandId, draftId ?? '', view, hash)),
     placePhoto: (view: PresenterDraftView, hash: string) =>
       act(() => api.placeDraftPhoto(brandId, draftId ?? '', view, hash)),
     update: (patch: { name?: string; facets?: string[]; direction?: string; extras?: boolean }) =>

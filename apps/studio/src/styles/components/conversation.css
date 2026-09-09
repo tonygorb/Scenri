@@ -151,8 +151,9 @@
   }
 }
 
-/* a question's controls, and its hint, follow its line once the line has been read */
+/* a question's controls, its hint, and a line's picture follow the line once it has been read */
 .sc-convo-hint[data-reveal],
+.sc-convo-shot[data-reveal],
 .sc-convo-q[data-reveal] > * {
   opacity: 0;
   animation: sc-convo-word 160ms var(--sc-ease) forwards;
@@ -268,6 +269,7 @@
 
   .sc-convo-say[data-reveal] .sc-convo-w,
   .sc-convo-hint[data-reveal],
+  .sc-convo-shot[data-reveal],
   .sc-convo-q[data-reveal] > *,
   .sc-convo-turn[data-arrive],
   .sc-convo-turn[data-leave="true"] {
@@ -288,6 +290,27 @@
   .sc-convo-who[data-thinking] .sc-convo-mark {
     animation: none;
   }
+}
+
+/* the picture a line is about: the strip's tile size, with Restore beside it when it can be put back */
+.sc-convo-shot {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: var(--sc-space-4);
+  margin-top: var(--sc-space-2);
+}
+
+.sc-convo-shot img {
+  width: 56px;
+  height: 70px;
+  object-fit: cover;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-chip);
+}
+
+.sc-convo-restore {
+  height: 32px;
 }
 
 .sc-convo-hint {

@@ -1,4 +1,5 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { thumbUrl } from '../api.js';
 import { ScenriMark } from '../layout/ScenriMark.js';
 import { type QuestionTone, REVEAL_LEAD_MS, THINK_MS, revealPlan } from './question.js';
 
@@ -21,9 +22,17 @@ export function ScenriTurn({
   delay = 0,
   leave,
   turnId,
+  thumb,
+  restore,
+  onRestore,
 }: {
   text: string;
   tone?: QuestionTone;
+  /** A picture the line is about, shown small under it. */
+  thumb?: string;
+  /** The picture can be put back as it was; the button says so. */
+  restore?: { view: string; hash: string };
+  onRestore?: (view: string, hash: string) => void;
   /** The turn's key, on the element, for what watches the transcript. */
   turnId?: string;
   /** Play the arrival: only on a turn that is new to this render. */
@@ -45,13 +54,31 @@ export function ScenriTurn({
       data-arrive={playing || undefined}
       data-leave={going}
       data-turn={turnId}
-      style={playing ? arrivalVars(start) : undefined}
+      style={
+        playing
+          ? ({ ...arrivalVars(start), '--sc-convo-after': `${revealPlan(text).total}ms` } as CSSProperties)
+          : undefined
+      }
     >
       {eyebrow && <Eyebrow thinking={thinking} />}
       <p className="sc-convo-say" data-tone={tone} data-reveal={playing || undefined}>
         {thinking && <Thinking />}
         <RevealWords text={text} playing={playing} />
       </p>
+      {thumb && (
+        <span className="sc-convo-shot" data-reveal={playing || undefined}>
+          <img src={thumbUrl(thumb, 'micro')} alt="" />
+          {restore && onRestore && (
+            <button
+              type="button"
+              className="sc-btn sc-btn-ghost sc-convo-restore"
+              onClick={() => onRestore(restore.view, restore.hash)}
+            >
+              Restore
+            </button>
+          )}
+        </span>
+      )}
     </div>
   );
 }

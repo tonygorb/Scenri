@@ -650,6 +650,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       onText: setText,
       onSend,
       onAnswer,
+      onRestore: (view: string, hash: string) => void s.restore(view as StudioView, hash),
       onEdit,
       onExpand: () => setUi((u) => ({ ...u, collapsed: false })),
       footnote: capsNote(

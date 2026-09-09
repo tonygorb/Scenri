@@ -33,6 +33,7 @@ export function Transcript({
   onEdit,
   onExpand,
   onStarter,
+  onRestore,
 }: {
   turns: Turn[];
   busy?: boolean;
@@ -43,6 +44,8 @@ export function Transcript({
   /** The folded setup stretch was pressed. */
   onExpand?: () => void;
   onStarter?: (text: string) => void;
+  /** A picture from before, put back on its view. */
+  onRestore?: (view: string, hash: string) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -59,7 +62,8 @@ export function Transcript({
   const look = useRef<{ qid: string; look: Picked } | null>(null);
   const gone = useRef<string[]>([]);
   const [, tick] = useState(0);
-  const queueEnd = useRef(0);
+  // when each arriving turn's slot ends, by key; a turn that left gives its slot back
+  const slots = useRef(new Map<string, number>());
   const now = performance.now();
   if (turns !== last.current) {
     // against what is on screen, so a change landing mid-fade keeps the fade going
@@ -146,9 +150,14 @@ export function Transcript({
   let prevScenri = false;
   // Lines take their turns, whichever render brought them: the next starts
   // thinking as the one before starts its words, and a line that arrives while
-  // earlier ones are still queued waits for them. The queue is kept as the
-  // moment it ends, so it never outlives what is in it by more than one beat.
-  const base = Math.max(0, queueEnd.current - now);
+  // earlier ones are still queued waits for them. The queue is what is on
+  // screen: a line that left gives its slot back, so nothing waits on a line
+  // no one will see.
+  const present = new Set(list.map(turnKey));
+  for (const key of [...slots.current.keys()]) if (!present.has(key)) slots.current.delete(key);
+  let queueEnd = 0;
+  for (const end of slots.current.values()) queueEnd = Math.max(queueEnd, end);
+  const base = Math.max(0, queueEnd - now);
   let offset = 0;
   const out: ReactNode[] = [];
   for (const t of list) {
@@ -160,7 +169,10 @@ export function Transcript({
     const seenAsQuestion = t.kind === 'scenri' && t.id.startsWith('asked-');
     const reveal = !reduced && !going && fresh.has(k) && !seenAsQuestion;
     const delay = reveal ? base + offset : 0;
-    if (reveal && (t.kind === 'scenri' || t.kind === 'question')) offset += THINK_MS + REVEAL_LEAD_MS;
+    if (reveal && (t.kind === 'scenri' || t.kind === 'question')) {
+      offset += THINK_MS + REVEAL_LEAD_MS;
+      slots.current.set(k, now + base + offset);
+    }
     const afterScenri = prevScenri;
     prevScenri = t.kind === 'scenri' || t.kind === 'question';
     if (t.kind === 'you') {
@@ -191,6 +203,9 @@ export function Transcript({
           eyebrow={!afterScenri}
           delay={delay}
           turnId={k}
+          thumb={t.thumb}
+          restore={t.restore}
+          onRestore={onRestore}
         />,
       );
     } else if (t.kind === 'summary') {
@@ -218,7 +233,6 @@ export function Transcript({
       );
     }
   }
-  if (offset) queueEnd.current = now + base + offset;
   return (
     <div ref={box} className="sc-convo-log" role="log" aria-live="polite" aria-relevant="additions">
       <div className="sc-convo-turns">{out}</div>

@@ -12,6 +12,8 @@ import {
   IDENTITY_WORDS,
   type StudioView,
   VIEW_NAME,
+  type DraftDecision,
+  type DraftResult,
   drawing,
   viewsOf,
 } from './presenterStudioRules.js';
@@ -279,17 +281,79 @@ function shapeEdit(
   const closed = (lastOpen ? asks.slice(0, -1) : asks).filter(
     (a) => !(a.view === 'portrait' && told.has(a.text.replace(/\s+/g, ' ').toLowerCase())),
   );
-  const chatter = asides.filter((a) => !placed.has(a) && a.q !== openId);
+  // what was said at the open question stays with it only while nothing has been recorded since
+  const edge = [...asks, ...(d.results ?? []), ...(d.decisions ?? [])]
+    .map((x) => x.at)
+    .reduce((m, at) => (at > m ? at : m), '');
+  const chatter = asides.filter((a) => !placed.has(a) && (a.q !== openId || a.at <= edge));
   for (const a of chatter) placed.add(a);
+  // every picture that landed is a restore point while it is not the one on the view
+  const results = d.results ?? [];
+  const idle = !d.activeView && d.stage === 'idle';
+  const shot = (r: DraftResult, id: string, text: string): Turn => ({
+    kind: 'scenri',
+    id,
+    text,
+    thumb: r.hash,
+    restore: idle && d.views[r.view].hash !== r.hash ? { view: r.view, hash: r.hash } : undefined,
+  });
+  const taken = new Set<DraftResult>();
+  const outcomes = new Map(
+    asks.map((a) => {
+      const r = results.find(
+        (x) => !taken.has(x) && x.how === 'drawn' && x.view === a.view && x.ask === a.text && x.at >= a.at,
+      );
+      if (r) taken.add(r);
+      return [a, r] as const;
+    }),
+  );
+  // a decision on the face that became a change to the person is told above as that change
+  const decisions = (d.decisions ?? []).filter((x) => !(x.view === 'portrait' && x.what === 'use'));
+  const decided = (x: DraftDecision): Turn[] => [
+    {
+      kind: 'scenri',
+      id: `asked-decided-${x.at}`,
+      text:
+        x.view === 'portrait'
+          ? `Here is ${name} with the change. Use this, or keep the previous one. Using it redraws the views built on the face.`
+          : `Redrew the ${VIEW_NAME[x.view]}. Use it, or keep the previous one.`,
+    },
+    {
+      kind: 'you',
+      id: `decided-${x.at}`,
+      text: x.what === 'again' ? 'Try again' : x.what === 'keep' ? 'Keep previous' : 'Use it',
+      editable: false,
+    },
+  ];
   const record: { at: string; turns: Turn[] }[] = [
-    ...closed.map((a) => ({
-      at: a.at,
-      turns: [
-        { kind: 'scenri' as const, id: `asked-ask-${a.at}`, text: PROMPT_EDIT.change },
-        { kind: 'you' as const, id: `ask-${a.at}`, text: a.text, editable: false },
-        { kind: 'scenri' as const, id: `redrew-${a.at}`, text: `Redrew the ${VIEW_NAME[a.view]}.` },
-      ],
-    })),
+    ...closed.map((a) => {
+      const r = outcomes.get(a);
+      return {
+        at: a.at,
+        turns: [
+          { kind: 'scenri' as const, id: `asked-ask-${a.at}`, text: PROMPT_EDIT.change },
+          { kind: 'you' as const, id: `ask-${a.at}`, text: a.text, editable: false },
+          ...(r ? [shot(r, `redrew-${a.at}`, `Redrew the ${VIEW_NAME[a.view]}.`)] : []),
+        ],
+      };
+    }),
+    ...results
+      .filter((r) => !taken.has(r))
+      .map((r) => ({
+        at: r.at,
+        turns: [
+          shot(
+            r,
+            `result-${r.at}`,
+            r.how === 'restored'
+              ? `Restored the ${VIEW_NAME[r.view]} from before.`
+              : r.ask
+                ? `Redrew the ${VIEW_NAME[r.view]}.`
+                : `Drew the ${VIEW_NAME[r.view]}.`,
+          ),
+        ],
+      })),
+    ...decisions.map((x) => ({ at: x.at, turns: decided(x) })),
     ...chatter.map((a) => ({ at: a.at, turns: asideTurns(a) })),
   ];
   record.sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0));

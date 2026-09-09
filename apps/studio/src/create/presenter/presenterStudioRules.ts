@@ -54,7 +54,11 @@ export type DraftLike = Pick<PresenterDraft, 'source' | 'name' | 'views' | 'acti
   extras?: boolean;
   identityEdits?: string[];
   asks?: PresenterDraft['asks'];
+  results?: PresenterDraft['results'];
+  decisions?: PresenterDraft['decisions'];
 };
+export type DraftResult = NonNullable<DraftLike['results']>[number];
+export type DraftDecision = NonNullable<DraftLike['decisions']>[number];
 
 /** The views this draft is building: the core three, and the extras once asked for. */
 export const viewsOf = (d: DraftLike): readonly StudioView[] => (d.extras ? VIEWS : CORE_VIEWS);

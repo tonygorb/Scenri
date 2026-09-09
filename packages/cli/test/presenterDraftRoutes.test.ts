@@ -140,6 +140,11 @@ describe('presenter draft routes', () => {
     d = await settled(brand.id, id);
     expect(d.views['three-quarter'].adjustment).toBe('a touch more smile');
     expect(d.asks).toEqual([expect.objectContaining({ view: 'three-quarter', text: 'a touch more smile' })]);
+    expect(d.results.at(-1)).toMatchObject({ view: 'three-quarter', ask: 'a touch more smile', how: 'drawn' });
+    const before = d.results.find((r: any) => r.view === 'three-quarter').hash;
+    const back = await j('POST', `${base}/${id}/views/three-quarter/restore`, { hash: before });
+    expect(back.status).toBe(200);
+    expect(back.body.views['three-quarter'].hash).toBe(before);
     await j('POST', `${base}/${id}/views/three-quarter/approve`);
 
     expect((await j('POST', `${base}/${id}/save`)).status).toBe(400); // no name yet

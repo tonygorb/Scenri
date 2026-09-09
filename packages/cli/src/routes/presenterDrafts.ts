@@ -8,6 +8,7 @@ import {
   listPresenterDrafts,
   openPresenterEdit,
   redoView,
+  restoreView,
   revertView,
   savePresenterDraft,
   updatePresenterDraft,
@@ -136,6 +137,12 @@ export function registerPresenterDraftRoutes(
     const draft = draftOr404(req, reply);
     if (!draft) return;
     return answer(reply, async () => revertView(await buildDeps(), draft.id, viewOf(req)));
+  });
+  app.post('/api/brands/:id/presenter-drafts/:draftId/views/:view/restore', async (req, reply) => {
+    const draft = draftOr404(req, reply);
+    if (!draft) return;
+    const hash = String((req.body as { hash?: unknown } | null)?.hash ?? '');
+    return answer(reply, async () => restoreView(await buildDeps(), draft.id, viewOf(req), hash));
   });
   app.post('/api/brands/:id/presenter-drafts/:draftId/views/:view/use-photo', async (req, reply) => {
     const draft = draftOr404(req, reply);

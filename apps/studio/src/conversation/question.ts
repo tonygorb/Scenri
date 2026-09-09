@@ -96,7 +96,16 @@ export type Turn =
       /** The answer can be changed from here. */
       editable?: boolean;
     }
-  | { kind: 'scenri'; id: string; text: string; tone?: QuestionTone }
+  | {
+      kind: 'scenri';
+      id: string;
+      text: string;
+      tone?: QuestionTone;
+      /** A picture the line is about, shown small under it. */
+      thumb?: string;
+      /** The picture can be put back as it was, one to one. */
+      restore?: { view: string; hash: string };
+    }
   | { kind: 'question'; question: Question }
   | { kind: 'summary'; id: string; text: string };
 

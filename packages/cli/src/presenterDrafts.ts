@@ -16,6 +16,7 @@
  * the rest are generated from the approved views plus the photographs.
  */
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import type { Core } from '@scenri/core';
 import type { PresenterDraft as AnalyzerDraft } from '@scenri/engine-codex';
 import {
@@ -86,6 +87,29 @@ export interface DraftAsk {
 /** Asks a draft keeps: enough for a long session, the oldest let go first. */
 const ASKS_MAX = 40;
 
+/**
+ * A picture that landed on a view: drawn, from an ask or on its own, or
+ * restored from before. Every one is a restore point while the draft lives:
+ * its file is kept until the draft is saved or discarded.
+ */
+export interface DraftResult {
+  view: PresenterView;
+  hash: string;
+  at: string;
+  /** The sentence it was drawn from, when there was one. */
+  ask?: string;
+  how: 'drawn' | 'restored';
+}
+
+/** A decision taken on a view: the candidate used, tried again, or the previous kept. */
+export interface DraftDecision {
+  view: PresenterView;
+  what: 'use' | 'again' | 'keep';
+  at: string;
+}
+
+const RESULTS_MAX = 60;
+
 export interface PresenterDraftRecord {
   id: string;
   brandId: string;
@@ -129,6 +153,10 @@ export interface PresenterDraftRecord {
    * shows each ask under the line it answered and none is rewritten by the next.
    */
   asks: DraftAsk[];
+  /** Every picture that landed on a view, oldest first: the record's restore points. */
+  results: DraftResult[];
+  /** Every decision taken on a view, oldest first. */
+  decisions: DraftDecision[];
   /** Shots the record holds under an angle the studio has no slot for. Written back untouched, after the six views. */
   keptShots?: CustomShot[];
   createdAt: string;
@@ -186,6 +214,8 @@ function fromRow(row: { id: string; brandId: string; json: unknown; createdAt: s
     stage: j.stage === 'analyzing' || j.stage === 'drawing' ? j.stage : 'idle',
     identityEdits: identityEditsOf(j.identityEdits),
     asks: asksOf(j.asks),
+    results: resultsOf(j.results),
+    decisions: decisionsOf(j.decisions),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -204,6 +234,24 @@ const asksOf = (v: unknown): DraftAsk[] =>
     .filter((a: any) => isView(a?.view) && typeof a?.text === 'string' && a.text.trim())
     .map((a: any) => ({ view: a.view as PresenterView, text: String(a.text), at: String(a.at ?? '') }))
     .slice(-ASKS_MAX);
+
+const resultsOf = (v: unknown): DraftResult[] =>
+  (Array.isArray(v) ? v : [])
+    .filter((r: any) => isView(r?.view) && HASH.test(String(r?.hash ?? '')))
+    .map((r: any) => ({
+      view: r.view as PresenterView,
+      hash: String(r.hash),
+      at: String(r.at ?? ''),
+      ...(typeof r.ask === 'string' && r.ask ? { ask: String(r.ask) } : {}),
+      how: r.how === 'restored' ? ('restored' as const) : ('drawn' as const),
+    }))
+    .slice(-RESULTS_MAX);
+
+const decisionsOf = (v: unknown): DraftDecision[] =>
+  (Array.isArray(v) ? v : [])
+    .filter((d: any) => isView(d?.view) && ['use', 'again', 'keep'].includes(d?.what))
+    .map((d: any) => ({ view: d.view as PresenterView, what: d.what as DraftDecision['what'], at: String(d.at ?? '') }))
+    .slice(-RESULTS_MAX);
 
 const shotOf = (s: any): CustomShot => ({
   file: String(s?.file ?? ''),
@@ -324,6 +372,8 @@ export async function createPresenterDraft(
     stage: 'idle',
     identityEdits: [],
     asks: [],
+    results: [],
+    decisions: [],
     createdAt: '',
     updatedAt: '',
   };
@@ -405,6 +455,8 @@ export function seedDraftFromPresenter(core: Core, brandId: string, presenter: C
     baseId: presenter.id,
     identityEdits: identityEditsOf(presenter.identityEdits),
     asks: [],
+    results: [],
+    decisions: [],
     createdAt: '',
     updatedAt: '',
   };
@@ -724,6 +776,10 @@ async function drawView(
       slot.adjustment = adjustment;
       slot.error = undefined;
       r.generations += 1;
+      r.results = [
+        ...r.results,
+        { view, hash, at: new Date().toISOString(), ...(adjustment ? { ask: adjustment } : {}), how: 'drawn' as const },
+      ].slice(-RESULTS_MAX);
       if (decide === 'auto') {
         // Straight to approved, exactly as Use would take it, except that the
         // prior stays on the slot so Keep previous is still on offer. What
@@ -814,6 +870,7 @@ export async function approveView(
   return mutate(deps.core, id, (r) => {
     const s = r.views[view];
     s.status = 'approved';
+    r.decisions = [...r.decisions, { view, what: 'use' as const, at: new Date().toISOString() }].slice(-RESULTS_MAX);
     if (s.prior) {
       // A revision took an approved picture's place: whatever was drawn from
       // the old one no longer stands, and is drawn again from this one.
@@ -848,6 +905,52 @@ export async function revertView(deps: AssetBuildDeps, id: string, view: Present
     s.adjustment = undefined;
     s.conditionedOn = undefined;
     s.error = undefined;
+    r.decisions = [...r.decisions, { view, what: 'keep' as const, at: new Date().toISOString() }].slice(-RESULTS_MAX);
+  });
+}
+
+/**
+ * A picture from before, back on its view: the record's restore point, one
+ * to one, nothing drawn. The picture it replaces stays as the prior, so Keep
+ * previous still works, and what was drawn from the replaced picture no
+ * longer stands. The restored picture leaves the let-go list, so it is kept.
+ */
+export async function restoreView(
+  deps: AssetBuildDeps,
+  id: string,
+  view: PresenterView,
+  hash: string,
+): Promise<PresenterDraftRecord> {
+  if (!isView(view)) throw fail('no such view', 400);
+  if (!HASH.test(String(hash))) throw fail('no such picture', 400);
+  if (running.has(id)) throw fail('a view is still being drawn', 409);
+  const rec = getPresenterDraft(deps.core, id);
+  if (!rec) throw fail('draft not found', 404);
+  const slot = rec.views[view];
+  const known =
+    rec.results.some((r) => r.view === view && r.hash === hash) || slot.prior === hash || slot.rejected.includes(hash);
+  if (!known) throw fail(`that was never the ${VIEW_LABEL[view]}`, 400);
+  if (!existsSync(deps.core.images.pathFor(hash))) throw fail('that picture is gone', 410);
+  if (slot.hash === hash) return rec;
+  const from = [...rec.results].reverse().find((r) => r.view === view && r.hash === hash);
+  return mutate(deps.core, id, (r) => {
+    const s = r.views[view];
+    const was = s.hash;
+    if (s.status === 'approved' && was) {
+      if (s.prior && s.prior !== was && !r.sources.includes(s.prior)) s.rejected = [...s.rejected, s.prior];
+      s.prior = was;
+    } else if (was && !r.sources.includes(was)) s.rejected = [...s.rejected, was];
+    s.rejected = s.rejected.filter((h) => h !== hash);
+    s.hash = hash;
+    s.origin = r.sources.includes(hash) ? 'photo' : 'generated';
+    if (s.status !== 'candidate') s.status = 'approved';
+    s.adjustment = from?.ask;
+    s.conditionedOn = undefined;
+    s.error = undefined;
+    if (s.status === 'approved') staleDependents(r, view);
+    r.results = [...r.results, { view, hash, at: new Date().toISOString(), how: 'restored' as const }].slice(
+      -RESULTS_MAX,
+    );
   });
 }
 
@@ -883,6 +986,7 @@ export async function redoView(deps: AssetBuildDeps, id: string, view: Presenter
     r.views[view] = { ...emptySlot(), attempts: slot.attempts, rejected: [...slot.rejected, ...gone] };
     staleDependents(r, view);
     if (view === 'portrait' && r.source === 'synthetic') r.analysis = undefined;
+    r.decisions = [...r.decisions, { view, what: 'again' as const, at: new Date().toISOString() }].slice(-RESULTS_MAX);
   });
 }
 

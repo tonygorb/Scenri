@@ -183,6 +183,7 @@ describe('the editor transcript', () => {
     expect(ids(t)).toEqual(['scenri:opening', 'scenri:asked-ask-a1', 'you:ask-a1', 'q:revision']);
     const redrew = draft({
       asks: [{ view: 'front', text: 'to camera', at: 'a2' }],
+      results: [{ view: 'front', hash: 'f2', at: 'a2', ask: 'to camera', how: 'drawn' }],
       views: views({
         portrait: approved('p'),
         front: slot({ status: 'approved', hash: 'f2', prior: 'f', adjustment: 'to camera' }),

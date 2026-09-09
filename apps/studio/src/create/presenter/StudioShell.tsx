@@ -57,6 +57,8 @@ export interface StudioSurface {
   onAnswer: (questionId: string, answer: Answer) => void;
   onEdit?: (turnId: string) => void;
   onExpand?: () => void;
+  /** A picture from before, put back on its view. */
+  onRestore?: (view: string, hash: string) => void;
   /** The head's one quiet action: Start over, Discard changes. */
   headAction?: ReactNode;
   /** Rows above the composer: the filed-under line, a Keep previous offer. */
@@ -184,6 +186,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 onAnswer={s.onAnswer}
                 onEdit={s.onEdit}
                 onExpand={s.onExpand}
+                onRestore={s.onRestore}
                 onStarter={(text) => s.onText(text)}
               />
             </div>

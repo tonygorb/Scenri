@@ -9,7 +9,10 @@ import {
 } from '../../conversation/question.js';
 import {
   type Age,
+  EXTRA_VIEWS,
+  type DraftDecision,
   type DraftLike,
+  type DraftResult,
   type Steer,
   type StudioView,
   VIEW_NAME,
@@ -206,6 +209,7 @@ export const PROMPT = {
   identity: (who: string) =>
     `Here is ${who === 'them' ? 'the face' : who}. Use this person, try again, or say what to change.`,
   change: 'What should change?',
+  extras: 'Add back and profile views? They help shots from behind or in profile.',
 };
 
 export const gapsPrompt = (n: number): string =>
@@ -232,6 +236,13 @@ export function turnsFor(args: FlowArgs): Turn[] {
   // is shaped once without them to learn it.
   const openId = asides.length ? openQuestionId(shape(args, [], null)) : null;
   return shape(args, asides, openId);
+}
+
+/** The moment the record last moved: what was said before it belongs to the record, not to the open question. */
+export function recordEdge(d: DraftLike | null): string {
+  if (!d) return '';
+  const ats = [...(d.asks ?? []), ...(d.results ?? []), ...(d.decisions ?? [])].map((x) => x.at);
+  return ats.length ? ats.reduce((m, at) => (at > m ? at : m)) : '';
 }
 
 function shape(args: FlowArgs, asides: Aside[], openId: string | null): Turn[] {
@@ -516,23 +527,104 @@ function turnsBase(
       (lastSlot.status === 'candidate' && lastSlot.adjustment === last.text) ||
       !!lastSlot.error);
   const askedFor = (v: StudioView) => (v === 'portrait' && !identityLocked(d) ? PROMPT.identity(who) : PROMPT.change);
-  // The record: the closed asks and whatever was said in between, in the
-  // order it happened. What was said at the open question is not here; it
-  // follows that question.
+  // The record: every sentence sent to redraw a view, every picture that
+  // landed (a restore point while it is not the one on the view), every
+  // decision taken, and whatever was said in between, in the order it
+  // happened. What was said at the open question is not here; it follows
+  // that question.
+  const results = d.results ?? [];
+  const decisions = d.decisions ?? [];
+  const idle = !d.activeView && d.stage === 'idle';
+  const shot = (r: DraftResult, id: string, text: string): Turn => ({
+    kind: 'scenri',
+    id,
+    text,
+    thumb: r.hash,
+    restore: idle && d.views[r.view].hash !== r.hash ? { view: r.view, hash: r.hash } : undefined,
+  });
+  // a drawn picture answers the ask before it on its view, once
+  const taken = new Set<DraftResult>();
+  const outcomes = new Map(
+    asks.map((a) => {
+      const r = results.find(
+        (x) => !taken.has(x) && x.how === 'drawn' && x.view === a.view && x.ask === a.text && x.at >= a.at,
+      );
+      if (r) taken.add(r);
+      return [a, r] as const;
+    }),
+  );
+  const firstUse = decisions.find((x) => x.view === 'portrait' && x.what === 'use');
+  const revisionPrompt = (v: StudioView) =>
+    v === 'portrait'
+      ? `Here is ${who} with the change. Use this, or keep the previous one. Using it redraws the views built on the face.`
+      : `Redrew the ${VIEW_NAME[v]}. Use it, or keep the previous one.`;
+  const decided = (x: DraftDecision): Turn[] => {
+    const identity = x.view === 'portrait' && x === firstUse;
+    const label =
+      x.what === 'again'
+        ? 'Try again'
+        : x.what === 'keep'
+          ? 'Keep previous'
+          : identity
+            ? 'Use this person'
+            : x.view === 'portrait'
+              ? 'Use this'
+              : 'Use it';
+    return [
+      { kind: 'scenri', id: `asked-decided-${x.at}`, text: identity ? PROMPT.identity(who) : revisionPrompt(x.view) },
+      { kind: 'you', id: `decided-${x.at}`, text: label, editable: false },
+    ];
+  };
   const pastAsks = () => {
     const closed = lastOpen ? asks.slice(0, -1) : asks;
-    const chatter = asides.filter((a) => !placed.has(a) && a.q !== openId);
+    // what was said at the open question stays with it only while nothing has been recorded since;
+    // once the record moved on, it is part of the record and does not follow the question around
+    const edge = recordEdge(d);
+    const chatter = asides.filter((a) => !placed.has(a) && (a.q !== openId || a.at <= edge));
     for (const a of chatter) placed.add(a);
+    const firstExtra = results.find((r) => (EXTRA_VIEWS as readonly string[]).includes(r.view));
     const record: { at: string; turns: Turn[] }[] = [
-      ...closed.map((a) => ({
-        at: a.at,
-        turns: [
-          { kind: 'scenri' as const, id: `asked-ask-${a.at}`, text: askedFor(a.view) },
-          { kind: 'you' as const, id: `ask-${a.at}`, text: a.text, editable: false },
-          { kind: 'scenri' as const, id: `redrew-${a.at}`, text: `Redrew the ${VIEW_NAME[a.view]}.` },
-        ],
-      })),
+      ...closed.map((a) => {
+        const r = outcomes.get(a);
+        return {
+          at: a.at,
+          turns: [
+            { kind: 'scenri' as const, id: `asked-ask-${a.at}`, text: askedFor(a.view) },
+            { kind: 'you' as const, id: `ask-${a.at}`, text: a.text, editable: false },
+            ...(r ? [shot(r, `redrew-${a.at}`, `Redrew the ${VIEW_NAME[a.view]}.`)] : []),
+          ],
+        };
+      }),
+      ...results
+        .filter((r) => !taken.has(r))
+        .map((r) => ({
+          at: r.at,
+          turns: [
+            shot(
+              r,
+              `result-${r.at}`,
+              r.how === 'restored'
+                ? `Restored the ${VIEW_NAME[r.view]} from before.`
+                : r.ask
+                  ? `Redrew the ${VIEW_NAME[r.view]}.`
+                  : `Drew the ${VIEW_NAME[r.view]}.`,
+            ),
+          ],
+        })),
+      ...decisions.map((x) => ({ at: x.at, turns: decided(x) })),
       ...chatter.map((a) => ({ at: a.at, turns: asideTurns(a) })),
+      // the extras decision sits between the core set and what it added
+      ...(identityLocked(d) && (d.extras || ui.extrasDeclined)
+        ? [
+            {
+              at: firstExtra ? firstExtra.at.slice(0, -1) : '~',
+              turns: [
+                { kind: 'scenri' as const, id: 'asked-extras', text: PROMPT.extras },
+                { kind: 'you' as const, id: 'extras', text: d.extras ? 'Add them' : 'Save as is', editable: false },
+              ],
+            },
+          ]
+        : []),
     ];
     record.sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0));
     for (const r of record) T.push(...r.turns);
@@ -670,7 +762,7 @@ function turnsBase(
     ask({
       id: 'extras',
       kind: 'confirm',
-      prompt: 'Add back and profile views? They help shots from behind or in profile.',
+      prompt: PROMPT.extras,
       options: [
         { id: 'add', label: 'Add them' },
         { id: 'save', label: 'Save as is' },

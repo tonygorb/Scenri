@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PresenterDraftSlot } from '../src/api.js';
 import { activeQuestion } from '../src/create/presenter/presenterFlowRules.js';
-import type { Question } from '../src/conversation/question.js';
+import type { Question, Turn } from '../src/conversation/question.js';
 import {
   EMPTY_SETUP,
   STARTERS,
@@ -314,6 +314,7 @@ describe('what was sent stays as it was sent', () => {
     const drawing = draft({
       name: 'Maren',
       asks,
+      results: [{ view: 'portrait', hash: 'p1', at: at(1), ask: 'shorter hair', how: 'drawn' }],
       views: views({ portrait: slot({ status: 'generating', hash: 'p1', adjustment: 'add glasses' }) }),
       activeView: 'portrait',
       stage: 'drawing',
@@ -346,6 +347,7 @@ describe('what was sent stays as it was sent', () => {
     const set = draft({
       name: 'Maren',
       asks: [{ view: 'front', text: 'arms relaxed', at: at(3) }],
+      results: [{ view: 'front', hash: 'f2', at: at(3), ask: 'arms relaxed', how: 'drawn' }],
       views: views({
         portrait: slot({ status: 'approved', hash: 'p' }),
         front: slot({ status: 'approved', hash: 'f2', prior: 'f', adjustment: 'arms relaxed' }),
@@ -423,6 +425,111 @@ describe('a sentence that answers nothing', () => {
       'you:aside-said-u2',
       'scenri:aside-reply-u2',
       'you:describe',
+    ]);
+  });
+});
+
+describe('the record: pictures, decisions and restore points', () => {
+  const at = (n: number) => `2026-09-09T11:0${n}:00.000Z`;
+  const scratch = setup({ source: 'scratch', description: 'a woman in her 30s, dark hair, slim' });
+  it('shows every picture that landed with Restore on the ones not on the view, every decision as an answer, and the extras answer in its place', () => {
+    const d = draft({
+      name: 'Maren',
+      extras: true,
+      asks: [{ view: 'front', text: 'arms relaxed', at: at(4) }],
+      results: [
+        { view: 'portrait', hash: 'p0', at: at(0), how: 'drawn' },
+        { view: 'portrait', hash: 'p1', at: at(1), how: 'drawn' },
+        { view: 'front', hash: 'f0', at: at(3), how: 'drawn' },
+        { view: 'front', hash: 'f1', at: at(5), ask: 'arms relaxed', how: 'drawn' },
+        { view: 'three-quarter', hash: 't0', at: at(6), how: 'drawn' },
+        { view: 'back', hash: 'b0', at: at(8), how: 'drawn' },
+      ],
+      decisions: [
+        { view: 'portrait', what: 'again', at: `${at(0)}!` },
+        { view: 'portrait', what: 'use', at: at(2) },
+        { view: 'front', what: 'keep', at: at(7) },
+      ],
+      views: views({
+        portrait: slot({ status: 'approved', hash: 'p1' }),
+        front: slot({ status: 'approved', hash: 'f0', prior: 'f1' }),
+        'three-quarter': slot({ status: 'approved', hash: 't0' }),
+        back: slot({ status: 'approved', hash: 'b0' }),
+      }),
+    });
+    const t = turnsFor({ setup: scratch, draft: d, canGenerate: true, ui });
+    const list = ids(scratch, d);
+    const order = [
+      `scenri:result-${at(0)}`,
+      `you:decided-${at(0)}!`,
+      `scenri:result-${at(1)}`,
+      `you:decided-${at(2)}`,
+      `scenri:result-${at(3)}`,
+      `you:ask-${at(4)}`,
+      `scenri:redrew-${at(4)}`,
+      `scenri:result-${at(6)}`,
+      `you:decided-${at(7)}`,
+      'you:extras',
+      `scenri:result-${at(8)}`,
+    ];
+    expect(order.map((k) => list.indexOf(k))).toEqual([...order.map((k) => list.indexOf(k))].sort((a, b) => a - b));
+    for (const k of order) expect(list).toContain(k);
+    const line = (id: string) => t.find((x) => x.kind === 'scenri' && x.id === id) as Extract<Turn, { kind: 'scenri' }>;
+    // the first face, tried again: a restore point; the face on the view: not
+    expect(line(`result-${at(0)}`)).toMatchObject({
+      text: 'Drew the face.',
+      thumb: 'p0',
+      restore: { view: 'portrait', hash: 'p0' },
+    });
+    expect(line(`result-${at(1)}`).restore).toBeUndefined();
+    // the ask's picture is its outcome, and since Keep previous put the first full body back, it can be restored
+    expect(line(`redrew-${at(4)}`)).toMatchObject({
+      text: 'Redrew the full body.',
+      thumb: 'f1',
+      restore: { view: 'front', hash: 'f1' },
+    });
+    expect(list).not.toContain(`scenri:result-${at(5)}`);
+    const you = (id: string) => (t.find((x) => x.kind === 'you' && x.id === id) as Extract<Turn, { kind: 'you' }>).text;
+    expect([you(`decided-${at(0)}!`), you(`decided-${at(2)}`), you(`decided-${at(7)}`), you('extras')]).toEqual([
+      'Try again',
+      'Use this person',
+      'Keep previous',
+      'Add them',
+    ]);
+    // nothing can be restored while a view draws
+    const busy = draft({ ...d, activeView: 'left', stage: 'drawing' });
+    const bt = turnsFor({ setup: scratch, draft: busy, canGenerate: true, ui });
+    expect(
+      (bt.find((x) => x.kind === 'scenri' && x.id === `result-${at(0)}`) as Extract<Turn, { kind: 'scenri' }>).restore,
+    ).toBeUndefined();
+  });
+});
+
+describe('what was said stays in its place', () => {
+  const at = (n: number) => `2026-09-09T12:0${n}:00.000Z`;
+  const scratch = setup({ source: 'scratch', description: 'a woman in her 30s, dark hair, slim' });
+  it('small talk said at a question before the record moved on stays in the record when the same question is open again', () => {
+    const d = draft({
+      name: 'Maren',
+      asks: [{ view: 'portrait', text: 'shorter hair', at: at(2) }],
+      results: [
+        { view: 'portrait', hash: 'p0', at: at(0), how: 'drawn' },
+        { view: 'portrait', hash: 'p1', at: at(3), ask: 'shorter hair', how: 'drawn' },
+      ],
+      views: views({
+        portrait: slot({ status: 'candidate', hash: 'p1', prior: undefined, adjustment: 'shorter hair' }),
+      }),
+    });
+    const said = { ...ui, asides: [{ said: 'hey', reply: 'r', q: 'identity', at: at(1) }] };
+    const list = ids(scratch, d, true, said);
+    expect(list.indexOf('you:aside-said-' + at(1))).toBeLessThan(list.indexOf('you:ask-' + at(2)));
+    expect(list.at(-1)).toBe('q:identity');
+    // said after the record moved on, it follows the open question
+    const later = { ...ui, asides: [{ said: 'hey', reply: 'r', q: 'identity', at: at(4) }] };
+    expect(ids(scratch, d, true, later).slice(-3)).toEqual([
+      'q:identity',
+      'you:aside-said-' + at(4),
+      'scenri:aside-reply-' + at(4),
     ]);
   });
 });
