@@ -599,6 +599,26 @@ test.describe('what answers nothing', () => {
     expect(drafts).toBe(1);
   });
 
+  test('a conversation that was already had is not written out again on a reload', async ({ page }) => {
+    const brand = await currentBrand(page);
+    const draftId = await seedDraft(page, brand.id, 'core-approved');
+    await openDraft(page, brand, draftId);
+    await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 20_000 });
+    const said = await log(page).locator('.sc-convo-turn').count();
+    expect(said).toBeGreaterThan(3);
+    // the page is opened again on the same conversation: it is simply there
+    await page.reload();
+    await expect(log(page).locator('.sc-convo-turn')).toHaveCount(said, { timeout: 20_000 });
+    for (let i = 0; i < 12; i++) {
+      expect(await log(page).locator('.sc-convo-turn[data-arrive]').count()).toBe(0);
+      expect(await log(page).locator('.sc-convo-dots').count()).toBe(0);
+      await page.waitForTimeout(150);
+    }
+    // and what happens after it is written as it happens
+    await send(page, 'hey');
+    await expect(log(page).locator('.sc-convo-dots').first()).toBeVisible();
+  });
+
   test('a line takes a beat to arrive, and none at all under reduced motion', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);

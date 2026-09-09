@@ -7,6 +7,13 @@ import { YouTurn } from './YouTurn.js';
 /** The beat a turn takes to go when it leaves: a reverted answer, a question that is over. */
 export const LEAVE_MS = 180;
 
+/**
+ * How long a page opened on a conversation takes its history as read. The draft
+ * and its record arrive over several renders, so a single first batch is not
+ * the whole of it; anything the person does ends the window at once.
+ */
+const SETTLE_MS = 3000;
+
 interface Leaving {
   /** The turns as they were, with the ones that are going marked. */
   from: Turn[];
@@ -52,6 +59,25 @@ export function Transcript({
 }) {
   const box = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
+  // How long a page that opened on a conversation stays quiet: long enough for
+  // the draft and its record to land, over as soon as the person acts.
+  const settling = useRef(!!resumed);
+  const opened = useRef(performance.now());
+  if (settling.current && performance.now() - opened.current > SETTLE_MS) settling.current = false;
+  useEffect(() => {
+    if (!settling.current) return;
+    const done = () => {
+      settling.current = false;
+    };
+    const t = window.setTimeout(done, SETTLE_MS);
+    window.addEventListener('pointerdown', done, { capture: true });
+    window.addEventListener('keydown', done, { capture: true });
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('pointerdown', done, { capture: true });
+      window.removeEventListener('keydown', done, { capture: true });
+    };
+  }, []);
   const reduced = prefersReducedMotion();
 
   // A turn that goes is seen going. The state moved the moment it changed;
@@ -118,25 +144,24 @@ export function Transcript({
     const stored = memoryKey ? readSaid(memoryKey) : null;
     seen.current = stored ?? new Set(resumed || turns.length > 2 ? turns.map(turnKey) : []);
   }
-  const said = useRef(false);
   const fresh = new Set<string>();
   for (const t of list) {
     const k = turnKey(t);
     if (!seen.current.has(k)) fresh.add(k);
   }
   // A conversation that was already had is not had again. A page opened on a
-  // draft has its history a moment later, all at once: that first arrival is
-  // taken as read rather than written out in front of the reader. Everything
-  // after it is written as it happens.
-  if (resumed && !said.current && fresh.size > 2) {
+  // draft gets its history a moment later and in more than one go: the draft
+  // answers, then the pictures it names, then whatever settles after them. All
+  // of it is taken as read while the page is still settling, and the moment the
+  // person touches anything, or the settling window is over, the conversation
+  // writes itself out as it happens again.
+  if (resumed && settling.current && fresh.size) {
     for (const k of fresh) seen.current.add(k);
     fresh.clear();
-    said.current = true;
   }
   useEffect(() => {
     const set = seen.current;
     if (!set) return;
-    if (fresh.size) said.current = true;
     for (const k of gone.current) set.delete(k);
     for (const t of list) {
       const k = turnKey(t);
