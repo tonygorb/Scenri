@@ -16,6 +16,7 @@ import { YouTurn } from './YouTurn.js';
 export function Transcript({
   turns,
   busy,
+  memoryKey,
   onAnswer,
   onEdit,
   onExpand,
@@ -23,6 +24,8 @@ export function Transcript({
 }: {
   turns: Turn[];
   busy?: boolean;
+  /** Where what has been said is remembered, so a line arrives once. */
+  memoryKey?: string;
   onAnswer: (questionId: string, answer: Answer) => void;
   onEdit?: (turnId: string) => void;
   /** The folded setup stretch was pressed. */
@@ -30,19 +33,28 @@ export function Transcript({
   onStarter?: (text: string) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
-  const seen = useRef<Set<string>>(new Set());
   const pinned = useRef(true);
   const reduced = prefersReducedMotion();
 
-  // Which turns are new this render, decided before the DOM commits so the
-  // sweep starts on their first frame and never replays on the rest.
+  // A line arrives once, when it is written. What has been said is remembered
+  // for the conversation (session storage under `memoryKey`), so a reload, a
+  // fold and unfold or a remount never replay it. A conversation opened with
+  // its history already long plays nothing on arrival.
+  const seen = useRef<Set<string> | null>(null);
+  if (seen.current === null) {
+    const stored = memoryKey ? readSaid(memoryKey) : null;
+    seen.current = stored ?? new Set(turns.length > 2 ? turns.map(turnKey) : []);
+  }
   const fresh = new Set<string>();
   for (const t of turns) {
     const k = turnKey(t);
     if (!seen.current.has(k)) fresh.add(k);
   }
   useEffect(() => {
-    for (const t of turns) seen.current.add(turnKey(t));
+    const set = seen.current;
+    if (!set) return;
+    for (const t of turns) set.add(turnKey(t));
+    if (memoryKey) writeSaid(memoryKey, set);
   });
 
   // The newest turn stays in view unless the reader scrolled up to read. On a
@@ -83,10 +95,10 @@ export function Transcript({
               <YouTurn
                 key={k}
                 text={t.text}
-                asked={t.asked}
                 photos={t.photos}
                 editable={t.editable}
                 first={first}
+                arrive={reveal}
                 onEdit={t.editable && onEdit ? () => onEdit(t.id) : undefined}
               />
             );
@@ -126,4 +138,32 @@ function scrollParent(el: HTMLElement): HTMLElement {
     node = node.parentElement;
   }
   return el;
+}
+
+const saidKey = (memoryKey: string) => `scenri:convo-said:${memoryKey}`;
+
+/** A conversation is over: the next one under this key starts fresh. */
+export function forgetSaid(memoryKey: string) {
+  try {
+    sessionStorage.removeItem(saidKey(memoryKey));
+  } catch {
+    /* private mode */
+  }
+}
+
+function readSaid(memoryKey: string): Set<string> | null {
+  try {
+    const raw = sessionStorage.getItem(saidKey(memoryKey));
+    return raw ? new Set(JSON.parse(raw) as string[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSaid(memoryKey: string, set: Set<string>) {
+  try {
+    sessionStorage.setItem(saidKey(memoryKey), JSON.stringify([...set]));
+  } catch {
+    /* private mode */
+  }
 }

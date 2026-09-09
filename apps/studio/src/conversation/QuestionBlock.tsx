@@ -1,9 +1,8 @@
 import { type CSSProperties, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
 import { RefStrip } from '../create/RefStrip.js';
-import { ScenriLockup } from '../layout/ScenriMark.js';
-import { type Answer, type Question, groupsAnswered, revealDuration } from './question.js';
-import { useRevealOnce } from './ScenriTurn.js';
+import { type Answer, type Question, groupsAnswered, revealPlan } from './question.js';
+import { Eyebrow, RevealWords, useRevealOnce } from './ScenriTurn.js';
 
 /**
  * A question, native to the transcript: the prompt as Scenri's line, and
@@ -31,28 +30,25 @@ export function QuestionBlock({
   /** A starter sentence fills the composer; the flow owns the composer's text. */
   onStarter?: (text: string) => void;
 }) {
-  const playing = useRevealOnce(reveal);
+  const playing = useRevealOnce(reveal, question.prompt);
   const [picks, setPicks] = useState<Record<string, string>>({});
-  const legend = (
-    <legend
-      className="sc-convo-say"
-      data-tone={question.tone}
-      data-reveal={playing || undefined}
-      style={playing ? ({ '--sc-reveal-d': `${revealDuration(question.prompt)}ms` } as CSSProperties) : undefined}
-    >
-      {question.prompt}
-    </legend>
-  );
+  const plan = revealPlan(question.prompt);
+  const promptId = `sc-convo-q-${question.id}`;
   return (
-    <div className="sc-convo-turn" data-who="scenri">
-      <span className="sc-convo-who">
-        <ScenriLockup className="sc-convo-mark" aria-hidden />
-        Scenri
-      </span>
-      <fieldset className="sc-convo-q" data-kind={question.kind} disabled={busy || undefined}>
-        {legend}
-        {question.hint && <p className="sc-convo-hint">{question.hint}</p>}
-
+    <div className="sc-convo-turn" data-who="scenri" data-arrive={playing || undefined}>
+      {eyebrow && <Eyebrow />}
+      <p className="sc-convo-say" id={promptId} data-tone={question.tone} data-reveal={playing || undefined}>
+        <RevealWords text={question.prompt} playing={playing} />
+      </p>
+      {question.hint && <p className="sc-convo-hint">{question.hint}</p>}
+      <fieldset
+        className="sc-convo-q"
+        aria-labelledby={promptId}
+        data-kind={question.kind}
+        data-reveal={playing || undefined}
+        style={playing ? ({ '--sc-convo-after': `${plan.total}ms` } as CSSProperties) : undefined}
+        disabled={busy || undefined}
+      >
         {question.kind === 'text' && question.starters && question.starters.length > 0 && (
           <div className="sc-convo-starters">
             {question.starters.map((s) => (

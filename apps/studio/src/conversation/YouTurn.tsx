@@ -3,30 +3,30 @@ import { thumbUrl } from '../api.js';
 import { Tip } from '../layout/Tip.js';
 
 /**
- * Your answer: a bubble on the right, the question it answered as a quiet
- * line above it, and a pencil when it can still be changed. Photographs in
+ * Your answer: a bubble on the right, under the line it answered, and a
+ * pencil when it can still be changed. Photographs in
  * an answer show as a row of small frames inside the bubble.
  */
 export function YouTurn({
   text,
-  asked,
   photos,
   editable,
   first,
+  arrive,
   onEdit,
 }: {
   text: string;
-  asked?: string;
   photos?: string[];
   editable?: boolean;
   /** The first answer carries the "You" word; the rest are told by their side. */
   first?: boolean;
+  /** New this render: fade and rise into place. */
+  arrive?: boolean;
   onEdit?: () => void;
 }) {
   return (
-    <div className="sc-convo-turn" data-who="you">
+    <div className="sc-convo-turn" data-who="you" data-arrive={arrive || undefined}>
       {first && <span className="sc-convo-who">You</span>}
-      {asked && <span className="sc-convo-asked">{asked}</span>}
       <div className="sc-convo-bubble">
         {editable && onEdit && (
           <Tip label="Change this answer">

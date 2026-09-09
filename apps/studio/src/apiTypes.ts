@@ -402,6 +402,14 @@ export interface PresenterDraft {
   generations: number;
   activeView: PresenterDraftView | null;
   stage: 'idle' | 'analyzing' | 'drawing';
+  /** The presenter an edit session works on, the head when it was opened. Absent on a creation. */
+  presenterId?: string;
+  /** The head's id when the session opened; the save answers 409 when it has moved since. */
+  baseId?: string;
+  /** Identity-wide instructions accepted in this session, newest last. */
+  identityEdits: string[];
+  /** Shots the record holds under an angle the studio has no slot for. Written back untouched on save. */
+  keptShots?: { file: string; angle?: string }[];
   createdAt: string;
   updatedAt: string;
 }

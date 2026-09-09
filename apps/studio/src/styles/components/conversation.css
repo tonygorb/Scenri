@@ -12,7 +12,7 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding: var(--sc-space-8) 32px;
+  padding: 32px;
   scrollbar-width: thin;
   scrollbar-color: var(--sc-sb) transparent;
 }
@@ -20,7 +20,7 @@
 .sc-convo-turns {
   display: flex;
   flex-direction: column;
-  gap: var(--sc-space-8);
+  gap: 32px;
   margin-top: auto;
 }
 
@@ -39,24 +39,16 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sc-space-3);
+  min-height: 32px;
   font-size: 13px;
+  font-weight: 500;
   line-height: 20px;
   color: var(--sc-fg3);
 }
 
 .sc-convo-mark {
+  width: 14px;
   height: 14px;
-  width: auto;
-}
-
-/* the question an answer answered, kept as a whisper over the bubble */
-.sc-convo-asked {
-  max-width: 320px;
-  font-size: var(--sc-text-caption);
-  line-height: 16px;
-  color: var(--sc-fg3);
-  text-align: right;
-  text-wrap: pretty;
 }
 
 .sc-convo-bubble {
@@ -65,7 +57,8 @@
   padding: var(--sc-space-7);
   border-radius: var(--sc-radius-xl);
   background: var(--sc-hover);
-  color: var(--sc-fg);
+  /* ink-300: an answer reads a step quieter than Scenri's line */
+  color: color-mix(in srgb, var(--sc-fg) 90%, var(--sc-bg));
 }
 
 .sc-convo-bubble p {
@@ -137,37 +130,59 @@
   color: var(--sc-warn);
 }
 
-/* One node, one animated custom property, one sweep: the words are whole
-   underneath from the first frame. Any key or click ends it early. */
-@property --sc-reveal-p {
-  syntax: "<percentage>";
-  inherits: false;
-  initial-value: 0%;
+/* The words of an arriving line, each a beat after the last; the text is
+   whole underneath from the first frame. Any key or click ends it early. */
+.sc-convo-say[data-reveal] .sc-convo-w {
+  opacity: 0;
+  animation: sc-convo-word 160ms var(--sc-ease) forwards;
+  /* the line starts a beat after the turn before it */
+  animation-delay: calc(var(--sc-convo-lead, 180ms) + var(--sc-convo-word-delay, 0ms));
 }
 
-.sc-convo-say[data-reveal] {
-  --sc-reveal-p: 0%;
-  mask-image: linear-gradient(90deg, #000 var(--sc-reveal-p), transparent calc(var(--sc-reveal-p) + 12%));
-  -webkit-mask-image: linear-gradient(90deg, #000 var(--sc-reveal-p), transparent calc(var(--sc-reveal-p) + 12%));
-  animation: sc-convo-reveal var(--sc-reveal-d, 400ms) linear forwards;
-}
-
-@keyframes sc-convo-reveal {
+@keyframes sc-convo-word {
   to {
-    --sc-reveal-p: 112%;
+    opacity: 1;
+  }
+}
+
+/* a question's controls follow its line, once the line has been read */
+.sc-convo-q[data-reveal] > * {
+  opacity: 0;
+  animation: sc-convo-word 160ms var(--sc-ease) forwards;
+  animation-delay: var(--sc-convo-after, 400ms);
+}
+
+/* a new turn takes its place: a short fade and a 4px rise */
+.sc-convo-turn[data-arrive] {
+  animation: sc-convo-arrive var(--sc-dur-fast) var(--sc-ease) both;
+}
+
+.sc-convo-turn[data-who="scenri"][data-arrive] {
+  animation-delay: var(--sc-convo-lead, 180ms);
+}
+
+@keyframes sc-convo-arrive {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sc-convo-say[data-reveal] {
+  .sc-convo-say[data-reveal] .sc-convo-w,
+  .sc-convo-q[data-reveal] > *,
+  .sc-convo-turn[data-arrive] {
     animation: none;
-    mask-image: none;
-    -webkit-mask-image: none;
+    opacity: 1;
   }
 }
 
 .sc-convo-hint {
-  margin: 0;
+  margin: -2px 0 0;
   font-size: 13px;
   line-height: 20px;
   color: var(--sc-fg2);
@@ -180,7 +195,7 @@
   flex-direction: column;
   gap: var(--sc-space-5);
   min-width: 0;
-  margin: 0;
+  margin: var(--sc-space-2) 0 0;
   padding: 0;
   border: 0;
 }
@@ -437,11 +452,10 @@
   }
 
   .sc-convo-turns {
-    gap: var(--sc-space-6);
+    gap: var(--sc-space-7);
   }
 
-  .sc-convo-bubble,
-  .sc-convo-asked {
+  .sc-convo-bubble {
     max-width: 84%;
   }
 

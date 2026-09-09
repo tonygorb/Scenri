@@ -75,11 +75,23 @@ describe('the transcript is a function of state', () => {
     expect(activeQuestion(t)?.kind === 'text' && activeQuestion(t)?.starters?.length).toBe(3);
   });
   it('from scratch with no engine: the setup line, nothing drawn', () => {
-    expect(ids(setup({ source: 'scratch' }), null, false)).toEqual(['you:intent', 'you:source', 'q:noengine']);
+    expect(ids(setup({ source: 'scratch' }), null, false)).toEqual([
+      'you:intent',
+      'scenri:asked-source',
+      'you:source',
+      'q:noengine',
+    ]);
   });
   it('a thin description asks the follow-up once, then never again', () => {
     const asked = setup({ source: 'scratch', description: 'black curly hair', gapsAsked: true });
-    expect(ids(asked, null)).toEqual(['you:intent', 'you:source', 'you:describe', 'q:gaps']);
+    expect(ids(asked, null)).toEqual([
+      'you:intent',
+      'scenri:asked-source',
+      'you:source',
+      'scenri:asked-describe',
+      'you:describe',
+      'q:gaps',
+    ]);
     const answered = { ...asked, gaps: 'skipped' as const };
     expect(ids(answered, null).at(-1)).toBe('you:gaps');
   });
@@ -88,7 +100,9 @@ describe('the transcript is a function of state', () => {
     const d = draft({ source: 'photos', sources: ['a', 'b'], stage: 'analyzing' });
     expect(ids(setup({ source: 'photos' }), d)).toEqual([
       'you:intent',
+      'scenri:asked-source',
       'you:source',
+      'scenri:asked-photos',
       'you:photos',
       'scenri:reading',
       'q:name',

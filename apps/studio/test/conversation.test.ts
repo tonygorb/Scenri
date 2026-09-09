@@ -5,6 +5,7 @@ import {
   choiceFromText,
   groupsAnswered,
   revealDuration,
+  revealPlan,
   turnKey,
 } from '../src/conversation/question.js';
 
@@ -33,11 +34,14 @@ describe('a typed sentence at a choice question', () => {
   });
 });
 
-describe('the arrival sweep', () => {
-  it('is short for a short line and never longer than six tenths', () => {
-    expect(revealDuration('Maren')).toBe(180);
-    expect(revealDuration('What should we call them?')).toBe(25 * 14);
-    expect(revealDuration('x'.repeat(200))).toBe(600);
+describe('the arrival', () => {
+  it('is word by word, a beat after the turn before it, and never past seven tenths', () => {
+    expect(revealPlan('Maren').words).toEqual(['Maren']);
+    expect(revealPlan('What should we call them?').step).toBe(28);
+    expect(revealDuration('What should we call them?')).toBe(180 + 28 * 5 + 160);
+    const long = revealPlan(Array.from({ length: 60 }, () => 'word').join(' '));
+    expect(long.step * 60).toBeLessThanOrEqual(700);
+    expect(revealDuration('')).toBe(180 + 160);
   });
 });
 

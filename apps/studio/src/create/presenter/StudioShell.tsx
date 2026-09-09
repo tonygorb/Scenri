@@ -46,6 +46,8 @@ export interface StudioSurface {
   title: string;
   turns: Turn[];
   busy: boolean;
+  /** Where the transcript remembers what has been said. */
+  memoryKey?: string;
   stage: StageSurface | null;
   composer: ComposerSurface | null;
   text: string;
@@ -178,6 +180,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
               <Transcript
                 turns={s.turns}
                 busy={s.busy}
+                memoryKey={s.memoryKey}
                 onAnswer={s.onAnswer}
                 onEdit={s.onEdit}
                 onExpand={s.onExpand}

@@ -88,8 +88,6 @@ export type Turn =
       kind: 'you';
       id: string;
       text: string;
-      /** The question this answered, kept as a quiet line so a column of answers still reads. */
-      asked?: string;
       photos?: string[];
       /** The answer can be changed from here. */
       editable?: boolean;
@@ -101,13 +99,24 @@ export type Turn =
 export const turnKey = (t: Turn): string => (t.kind === 'question' ? `q:${t.question.id}` : `${t.kind}:${t.id}`);
 
 /**
- * How long a deterministic line takes to appear: fourteen milliseconds a
- * character between a fifth of a second and six tenths. A short question is
- * on screen at once; a long line is read as it arrives, never waited for.
+ * How a deterministic line appears: word by word, each a beat after the
+ * last, the whole line inside seven tenths of a second. A short question is
+ * on screen almost at once; a long line is read as it arrives, never waited
+ * for. The words are real text nodes, so a screen reader hears one sentence.
  */
-export function revealDuration(text: string): number {
-  return Math.min(600, Math.max(180, text.length * 14));
+export const REVEAL_LEAD_MS = 180;
+export const REVEAL_STEP_MS = 28;
+export const REVEAL_MAX_MS = 700;
+
+export function revealPlan(text: string): { words: string[]; step: number; total: number } {
+  const words = text.split(/(\s+)/).filter((w) => w.length > 0);
+  const spoken = words.filter((w) => !/^\s+$/.test(w)).length;
+  const step = Math.min(REVEAL_STEP_MS, Math.floor(REVEAL_MAX_MS / Math.max(1, spoken)));
+  return { words, step, total: REVEAL_LEAD_MS + step * spoken + 160 };
 }
+
+/** How long the line takes to be whole, lead included. */
+export const revealDuration = (text: string): number => revealPlan(text).total;
 
 /** A grouped choice is complete when every row has a pick. */
 export function groupsAnswered(groups: ChoiceGroup[], picks: Record<string, string>): boolean {

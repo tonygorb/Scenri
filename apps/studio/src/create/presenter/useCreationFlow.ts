@@ -4,6 +4,7 @@ import { useAppData } from '../../app/AppShell.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useOpenSetup } from '../../app/dialogs.js';
 import type { Answer } from '../../conversation/question.js';
+import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
 import {
   EMPTY_SETUP,
@@ -22,6 +23,7 @@ import {
   type StudioView,
   VIEW_LABEL,
   composerState,
+  drawing as isDrawing,
   identityLocked,
   nextToDraw,
   refineTarget,
@@ -91,7 +93,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const canDraw = !!caps?.canGenerate;
 
   const [setup, setSetupState] = useState<Setup>(() => readSetup(brand.id));
-  const [ui, setUi] = useState<FlowUi>({ collapsed: false, extrasDeclined: false, reasking: null });
+  const [ui, setUi] = useState<FlowUi>({ collapsed: false, extrasDeclined: false, reasking: null, failed: null });
   const [text, setText] = useState('');
   const [focus, setFocus] = useState<StudioView | null>(null);
   const [compare, setCompare] = useState(false);
@@ -117,6 +119,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   );
   const clearSetup = useCallback(() => {
     session.remove(setupKey(brand.id));
+    forgetSaid(`presenter-create:${brand.id}`);
     setSetupState(EMPTY_SETUP);
   }, [brand.id]);
 
@@ -305,13 +308,18 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     }
     session.remove(pointerKey(brand.id));
     clearSetup();
-    setUi({ collapsed: false, extrasDeclined: false, reasking: null });
+    setUi({ collapsed: false, extrasDeclined: false, reasking: null, failed: null });
     setText(keep);
     setConfirming(null);
     onLeaveDraft();
   }, [setup.description, d, brand.id, clearSetup, onLeaveDraft]);
 
-  const turns = useMemo(() => turnsFor({ setup, draft: d, canGenerate: canDraw, ui }), [setup, d, canDraw, ui]);
+  // A request the engine never saw is said the way a failed draw is: once, with a Retry.
+  const failed = s.err && d && !isDrawing(d) ? s.err : null;
+  const turns = useMemo(
+    () => turnsFor({ setup, draft: d, canGenerate: canDraw, ui: { ...ui, failed } }),
+    [setup, d, canDraw, ui, failed],
+  );
   const question = activeQuestion(turns);
   const view: StudioView = d ? selectedView(d, focus) : 'portrait';
   const slot = d ? d.views[view] : null;
@@ -376,8 +384,14 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         }
         case 'retry': {
           if (!d) return;
-          const failed = (Object.keys(d.views) as StudioView[]).find((x) => !!d.views[x].error);
-          if (failed) void s.generate(failed, undefined, failed === 'portrait' ? undefined : 'auto');
+          if (s.err) {
+            // the request that failed is drawn again by the auto-draw, from a clean count
+            s.clearErr();
+            started.current = '';
+            return;
+          }
+          const failedView = (Object.keys(d.views) as StudioView[]).find((x) => !!d.views[x].error);
+          if (failedView) void s.generate(failedView, undefined, failedView === 'portrait' ? undefined : 'auto');
           return;
         }
         case 'extras':
@@ -522,6 +536,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     keepPrevious: slot && slot.status === 'approved' && slot.prior && !drawingNow ? () => void s.revert(view) : null,
     surface: {
       title: 'Create presenter',
+      memoryKey: `presenter-create:${brand.id}`,
       turns,
       busy: s.busy || busySetup,
       stage: d

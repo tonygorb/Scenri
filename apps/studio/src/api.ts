@@ -287,6 +287,20 @@ export const api = {
     req<{ presenter: unknown; brand: Brand }>('PATCH', `/api/brands/${brandId}/presenters/${presenterId}`, patch),
   deletePresenter: (brandId: string, presenterId: string) =>
     req<{ ok: true }>('DELETE', `/api/brands/${brandId}/presenters/${presenterId}`),
+  /**
+   * Edit a saved person: the session already open on them, else one seeded
+   * from the record. Any id in their history opens the head. The save on the
+   * returned draft answers the head: a new record when a picture or the
+   * identity prose changed, the same record patched in place otherwise.
+   */
+  editPresenter: (brandId: string, presenterId: string) =>
+    req<PresenterDraft>('POST', `/api/brands/${brandId}/presenters/${presenterId}/edit`),
+  /** Revert last change: the record this one replaced becomes the head again. 400 when nothing is older. */
+  revertPresenter: (brandId: string, presenterId: string) =>
+    req<{ presenter: { id: string; name: string }; brand: Brand }>(
+      'POST',
+      `/api/brands/${brandId}/presenters/${presenterId}/revert`,
+    ),
   createScene: (brandId: string, p: ScenePatch) =>
     req<{ scene: unknown; warnings: string[]; brand: Brand }>('POST', `/api/brands/${brandId}/scenes`, p),
   updateScene: (brandId: string, sceneId: string, patch: ScenePatch) =>

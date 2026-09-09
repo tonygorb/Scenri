@@ -2,8 +2,8 @@ import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
 
 /**
- * No drawing engine: From scratch shows the way to set one up, and From
- * photos still saves the photographs as the presenter.
+ * No drawing engine: describing someone answers with the way to set one up,
+ * and photographs still become the presenter, saved as they are.
  */
 isolate({ shot: false, env: { SCENRI_DEMO_ENGINE: '0', SCENRI_DEMO_BUILDS: '0' } });
 
@@ -23,31 +23,30 @@ async function currentBrand(p: Page): Promise<{ slug: string; id: string }> {
   return { slug, id: brands.find((b) => b.slug === slug)?.id ?? brands[0].id };
 }
 
-test('without an engine, From scratch offers the setup and From photos still saves', async ({ page }) => {
+test('without an engine, describing offers the setup and photos still save', async ({ page }) => {
   test.setTimeout(60_000);
   const brand = await currentBrand(page);
   await page.goto(`/${brand.slug}/presenters/new`);
-  await expect(page.getByRole('radio', { name: 'From scratch' })).toHaveAttribute('aria-checked', 'true');
-  await expect(page.getByText('Image generation is not set up yet')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Set up' })).toBeVisible();
-  await expect(page.locator('.sc-pstudio').getByRole('button', { name: 'Create', exact: true })).toHaveCount(0);
+  const log = page.getByRole('log');
+  await log.getByRole('button', { name: 'Describe someone' }).click();
+  await expect(log).toContainText('needs image generation, which is not set up yet');
+  await expect(log.getByRole('button', { name: 'Set up' })).toBeVisible();
+  await expect(page.locator('.sc-pstudio-well img')).toHaveCount(0);
 
-  await page.getByRole('radio', { name: 'From photos' }).click();
-  await expect(page.getByText('No engine here can draw the other views')).toBeVisible();
+  await log.getByRole('button', { name: 'Add photos instead' }).click();
   await page.locator('input[type="file"]').setInputFiles({ name: 'noor.png', mimeType: 'image/png', buffer: PNG });
   await page.getByRole('checkbox').check();
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-
-  const name = page.getByLabel('Name', { exact: true });
-  await expect(name).toBeVisible({ timeout: 20_000 });
-  await expect(page.locator('.sc-pstudio-status')).toContainText('Saved from your photos');
-  await expect(page.getByLabel('What should change')).toHaveCount(0);
-  await name.fill('Noor');
-  await page.getByRole('button', { name: 'Save presenter' }).click();
-  await expect(page.locator('.sc-pstudio')).toHaveCount(0, { timeout: 20_000 });
+  await log.getByRole('button', { name: 'Continue' }).click();
+  await expect(log).toContainText('What should we call them?', { timeout: 20_000 });
+  await page.locator('.sc-convo-card textarea').fill('Noor');
+  await page.locator('.sc-convo-card textarea').press('Enter');
+  await expect(log).toContainText('No engine here can draw the other views.');
+  await log.getByRole('button', { name: 'Save with photos' }).click();
+  await expect(page).toHaveURL(/\/presenters\/up-/, { timeout: 20_000 });
   const brands = await (await page.request.get('/api/brands')).json();
   const person = (brands.find((b: any) => b.id === brand.id).json.characters ?? []).find((c: any) => c.name === 'Noor');
   expect(person.source).toBe('photos');
   expect(person.sourceRefs).toHaveLength(1);
   expect(person.shots).toHaveLength(1);
+  expect(person.shots[0].angle).toBe('portrait');
 });

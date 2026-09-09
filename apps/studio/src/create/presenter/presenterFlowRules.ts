@@ -63,6 +63,8 @@ export interface FlowUi {
   extrasDeclined: boolean;
   /** An answered question asked again from its pencil: the name, or the description. */
   reasking: 'name' | 'describe' | null;
+  /** A draw request that never reached the engine, said once with a Retry. */
+  failed?: string | null;
 }
 
 export const MAX_PHOTOS = 4;
@@ -160,6 +162,26 @@ export function photosHint(n: number): string {
   return 'Four angles. The reference set comes from these.';
 }
 
+/** Every line Scenri says as a question, once, so the record repeats it exactly. */
+export const PROMPT = {
+  source: 'Who are we creating? Describe someone new, or add photos of a real person.',
+  describe: 'Describe them. Age, hair, build, skin and presence all help; one or two sentences is enough.',
+  photos: 'Add one clear photo of their face. Up to three more angles hold the likeness better.',
+  name: 'What should we call them?',
+  nameWhileDrawing: 'While it draws: what should we call them?',
+  nameWhileReading: 'While I read them: what should we call them?',
+  identity: (who: string) =>
+    `Here is ${who === 'them' ? 'the face' : who}. Use this person, try again, or say what to change.`,
+  change: 'What should change?',
+};
+
+export const gapsPrompt = (n: number): string =>
+  n === 1
+    ? 'One thing I cannot tell yet.'
+    : n === 2
+      ? 'Two things I cannot tell yet.'
+      : 'A few things I cannot tell yet.';
+
 export interface FlowArgs {
   setup: Setup;
   draft: DraftLike | null;
@@ -176,7 +198,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
   if (!args.ui.reasking) return T;
   const kept = T[T.length - 1]?.kind === 'question' ? T.slice(0, -1) : T;
   if (args.ui.reasking === 'name') {
-    return [...kept, { kind: 'question', question: { id: 'name', kind: 'text', prompt: 'What should we call them?' } }];
+    return [...kept, { kind: 'question', question: { id: 'name', kind: 'text', prompt: PROMPT.name } }];
   }
   return [
     ...kept,
@@ -193,13 +215,16 @@ export function turnsFor(args: FlowArgs): Turn[] {
 
 function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
   const T: Turn[] = [{ kind: 'you', id: 'intent', text: 'Create a presenter' }];
-  const you = (id: string, text: string, asked: string, extra?: { photos?: string[]; editable?: boolean }) =>
-    T.push({ kind: 'you', id, text, asked, editable: extra?.editable ?? true, photos: extra?.photos });
+  const folded = ui.collapsed && !!d && identityLocked(d);
+  // An answer keeps the line it answered above it: the exchange is the record.
+  const you = (id: string, text: string, asked: string, extra?: { photos?: string[]; editable?: boolean }) => {
+    if (!folded) T.push({ kind: 'scenri', id: `asked-${id}`, text: asked });
+    T.push({ kind: 'you', id, text, editable: extra?.editable ?? true, photos: extra?.photos });
+  };
   const say = (id: string, text: string, tone?: 'alert' | 'warn') => T.push({ kind: 'scenri', id, text, tone });
   const ask = (question: Question) => T.push({ kind: 'question', question });
   const name = d?.name?.trim() ?? '';
   const who = name || 'them';
-  const folded = ui.collapsed && !!d && identityLocked(d);
   // A draft opened at its address carries its own answers; the setup mirror is only for before.
   const source: Source | null = setup.source ?? (d ? (d.source === 'photos' ? 'photos' : 'scratch') : null);
 
@@ -207,14 +232,13 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
     ask({
       id: 'source',
       kind: 'choice',
-      prompt: 'Who are we creating? Describe someone new, or add photos of a real person.',
+      prompt: PROMPT.source,
       options: SOURCE_OPTIONS,
     });
     return T;
   }
 
-  if (!folded && !setup.typed)
-    you('source', source === 'photos' ? 'Add photos' : 'Describe someone', 'Who are we creating?');
+  if (!folded && !setup.typed) you('source', source === 'photos' ? 'Add photos' : 'Describe someone', PROMPT.source);
 
   if (source === 'scratch') {
     if (!canGenerate && !d) {
@@ -234,36 +258,31 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
       ask({
         id: 'describe',
         kind: 'text',
-        prompt: 'Describe them. Age, hair, build, skin and presence all help; one or two sentences is enough.',
+        prompt: PROMPT.describe,
         starters: STARTERS,
       });
       return T;
     }
-    if (!folded) you('describe', setup.description.trim() || (d?.direction ?? ''), 'Describe them.');
+    if (!folded) you('describe', setup.description.trim() || (d?.direction ?? ''), PROMPT.describe);
     if (setup.gapsAsked && !setup.gaps && !d) {
       const gaps = descriptionGaps(setup.description);
       ask({
         id: 'gaps',
         kind: 'choice',
-        prompt:
-          gaps.length === 1
-            ? 'One thing I cannot tell yet.'
-            : gaps.length === 2
-              ? 'Two things I cannot tell yet.'
-              : 'A few things I cannot tell yet.',
+        prompt: gapsPrompt(gaps.length),
         groups: gaps.map((g) => ({ id: g, ...GAP_GROUPS[g] })),
         submit: 'Continue',
         skip: 'Skip, draw as is',
       });
       return T;
     }
-    if (setup.gaps && !folded) you('gaps', gapsLine(setup.gaps), 'What I could not tell');
+    if (setup.gaps && !folded) you('gaps', gapsLine(setup.gaps), gapsPrompt(descriptionGaps(setup.description).length));
   } else {
     if (!d) {
       ask({
         id: 'photos',
         kind: 'photos',
-        prompt: 'Add one clear photo of their face. Up to three more angles hold the likeness better.',
+        prompt: PROMPT.photos,
         hint: photosHint(setup.photoHashes.length),
         hashes: setup.photoHashes,
         max: MAX_PHOTOS,
@@ -275,7 +294,7 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
     }
     if (!folded) {
       const n = d.sources?.length ?? 0;
-      you('photos', photosLine(n), 'Photos of them', { photos: d.sources ?? [], editable: true });
+      you('photos', photosLine(n), PROMPT.photos, { photos: d.sources ?? [], editable: true });
     }
   }
 
@@ -293,7 +312,7 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
 
   if (d.stage === 'analyzing') {
     say('reading', 'Reading the photos.');
-    if (!name) askName('While I read them: what should we call them?');
+    if (!name) askName(PROMPT.nameWhileReading);
     return T;
   }
 
@@ -301,9 +320,9 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
   if (coverage && !folded) say('coverage', coverage.text, coverage.tone);
 
   if (!canGenerate && d.source === 'photos') {
-    if (name && !folded) you('name', name, 'What should we call them?');
+    if (name && !folded) you('name', name, PROMPT.name);
     if (!name) {
-      askName('What should we call them?');
+      askName(PROMPT.name);
       return T;
     }
     ask({
@@ -327,10 +346,20 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
         'drawing-face',
         p.adjustment ? `Adjusting the face: "${p.adjustment}". Everything else stays.` : 'Drawing their face.',
       );
-      if (!name) askName('While it draws: what should we call them?');
+      if (!name) askName(PROMPT.nameWhileDrawing);
       return T;
     }
-    if (name) you('name', name, 'What should we call them?');
+    if (name) you('name', name, PROMPT.name);
+    if (ui.failed) {
+      ask({
+        id: 'retry',
+        kind: 'confirm',
+        tone: 'alert',
+        prompt: `That did not go through: ${ui.failed}. Nothing finished was touched.`,
+        options: [{ id: 'retry', label: 'Retry' }],
+      });
+      return T;
+    }
     if (p.error) {
       ask({
         id: 'retry',
@@ -342,13 +371,11 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
       return T;
     }
     if (p.status === 'candidate') {
-      if (p.adjustment) you('adjust', p.adjustment, 'What should change');
+      if (p.adjustment) you('adjust', p.adjustment, PROMPT.identity(who));
       ask({
         id: 'identity',
         kind: 'confirm',
-        prompt: p.adjustment
-          ? 'Adjusted. Use this person, or try again.'
-          : `Here is ${who === 'them' ? 'the face' : who}. Use this person, try again, or say what to change.`,
+        prompt: p.adjustment ? 'Adjusted. Use this person, or try again.' : PROMPT.identity(who),
         options: [
           { id: 'use', label: 'Use this person' },
           { id: 'again', label: 'Try again' },
@@ -359,11 +386,22 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
     return T;
   }
 
-  if (name && !folded) you('name', name, 'What should we call them?');
+  if (name && !folded) you('name', name, PROMPT.name);
 
   const views = Object.keys(d.views) as StudioView[];
   const candidate = views.find((v) => d.views[v].status === 'candidate');
   const failed = views.find((v) => !!d.views[v].error);
+
+  if (ui.failed && !active) {
+    ask({
+      id: 'retry',
+      kind: 'confirm',
+      tone: 'alert',
+      prompt: `That did not go through: ${ui.failed}. Nothing finished was touched.`,
+      options: [{ id: 'retry', label: 'Retry' }],
+    });
+    return T;
+  }
 
   if (active) {
     const slot = d.views[active];
@@ -380,7 +418,7 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
 
   if (candidate) {
     const slot = d.views[candidate];
-    if (slot.adjustment) you('adjust', slot.adjustment, 'What should change');
+    if (slot.adjustment) you('adjust', slot.adjustment, PROMPT.change);
     ask({
       id: candidate === 'portrait' ? 'revision' : 'view-revision',
       kind: 'confirm',
@@ -412,7 +450,7 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
   for (const v of views) {
     const slot = d.views[v];
     if (slot.status === 'approved' && slot.prior && slot.adjustment && v !== 'portrait') {
-      you(`adjust-${v}`, slot.adjustment, 'What should change', { editable: false });
+      you(`adjust-${v}`, slot.adjustment, PROMPT.change, { editable: false });
       say(`redrew-${v}`, `Redrew the ${VIEW_NAME[v]}.`);
     }
   }
@@ -434,7 +472,7 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
   }
 
   if (!name) {
-    askName('What should we call them?');
+    askName(PROMPT.name);
     return T;
   }
 
