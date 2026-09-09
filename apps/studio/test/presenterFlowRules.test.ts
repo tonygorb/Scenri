@@ -247,10 +247,10 @@ describe('small talk at a question', () => {
       setup: setup(),
       draft: null,
       canGenerate: true,
-      ui: { ...ui, aside: { said: 'hello', reply: 'Hi. Describe someone new, or add photos of a real person.' } },
+      ui: { ...ui, aside: { said: 'hello', reply: 'Hi. Describe them in a sentence, or pick one above.' } },
     });
     const list = t.map((x) => (x.kind === 'question' ? `q:${x.question.id}` : `${x.kind}:${x.id}`));
-    expect(list).toEqual(['you:intent', 'you:aside-said', 'scenri:aside-reply', 'q:source']);
+    expect(list).toEqual(['you:intent', 'q:source', 'you:aside-said', 'scenri:aside-reply']);
     expect(activeQuestion(t)?.id).toBe('source');
   });
 });

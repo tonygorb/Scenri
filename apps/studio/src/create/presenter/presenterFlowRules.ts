@@ -215,17 +215,13 @@ export function turnsFor(args: FlowArgs): Turn[] {
   ];
 }
 
-/** Small talk sits before the open question: what was said, then the question again. */
+/** Small talk comes after the open question, as it did: what was said, then a word pointing back up. */
 export function withAside(T: Turn[], aside: FlowUi['aside'] | undefined): Turn[] {
   if (!aside) return T;
-  const last = T[T.length - 1];
-  const before = last?.kind === 'question' ? T.slice(0, -1) : T;
-  const tail = last?.kind === 'question' ? [last] : [];
   return [
-    ...before,
+    ...T,
     { kind: 'you', id: 'aside-said', text: aside.said, editable: false },
     { kind: 'scenri', id: 'aside-reply', text: aside.reply },
-    ...tail,
   ];
 }
 
@@ -233,8 +229,8 @@ export function withAside(T: Turn[], aside: FlowUi['aside'] | undefined): Turn[]
 export const ASIDE = {
   source: (said: string) =>
     /^(hi|hello|hey|heya|hiya|yo|hola|shalom|good (morning|afternoon|evening))\b/i.test(said.trim())
-      ? 'Hi. Describe someone new, or add photos of a real person.'
-      : 'Describe someone new, or add photos of a real person.',
+      ? 'Hi. Describe them in a sentence, or pick one above.'
+      : 'Describe them in a sentence, or pick one above.',
   describe: 'A few words about them is enough: age, hair, build, skin, presence.',
   name: 'A name, so the rest of the conversation can use it.',
   refine: 'Say what should change: hair, age or build change the person; anything else changes the view on the stage.',
@@ -512,10 +508,15 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
   return T;
 }
 
-/** The open question, read off the transcript. */
+/** The open question, read off the transcript: the last one asked, whatever was said after it. */
 export function activeQuestion(turns: Turn[]): Question | null {
-  const last = turns[turns.length - 1];
-  return last && last.kind === 'question' ? last.question : null;
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const t = turns[i];
+    if (t.kind === 'question') return t.question;
+    if (t.kind === 'you' && t.id !== 'aside-said') return null;
+    if (t.kind === 'scenri' && t.id !== 'aside-reply') return null;
+  }
+  return null;
 }
 
 /** What changing an earlier answer costs. */
