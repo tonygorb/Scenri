@@ -1,4 +1,4 @@
-import { Check, Image as ImageIcon, Plus, TextAa, X } from '@phosphor-icons/react';
+import { Check, Plus, X } from '@phosphor-icons/react';
 import { type KeyboardEvent, type ReactNode, useRef } from 'react';
 import { thumbUrl } from '../../api.js';
 import { Choice, Choices } from '../../composer/shotSettings/Choices.js';
@@ -6,6 +6,7 @@ import { ColorPicker } from '../../layout/ColorPicker.js';
 import { CategoryMenu } from './CategoryMenu.js';
 import { useFileDrop } from '../../layout/Dropzone.js';
 import { OpenAIMark } from '../../layout/OpenAIMark.js';
+import { Tip } from '../../layout/Tip.js';
 import {
   type Age,
   hairName,
@@ -29,9 +30,8 @@ export type Mode = 'scratch' | 'photos';
  *
  * This is not navigation between two views of the same thing, which is what a
  * tab strip means: it is a choice of what the person will be made from, and
- * it changes the form under it. A two-up switch says that, says it at the
- * size of the fields it governs, and keeps the words that two icons could
- * only imply.
+ * it changes the form under it. A two-up switch says that, at the system's
+ * 34 control height, and keeps the words that two icons would only imply.
  */
 export function ModeSwitch({ mode, onMode }: { mode: Mode; onMode: (next: Mode) => void }) {
   return (
@@ -49,7 +49,6 @@ export function ModeSwitch({ mode, onMode }: { mode: Mode; onMode: (next: Mode) 
         label="From scratch"
         onPick={() => onMode('scratch')}
       >
-        <TextAa size={17} />
         From scratch
       </Choice>
       <Choice
@@ -59,7 +58,6 @@ export function ModeSwitch({ mode, onMode }: { mode: Mode; onMode: (next: Mode) 
         label="From photos"
         onPick={() => onMode('photos')}
       >
-        <ImageIcon size={17} />
         From photos
       </Choice>
     </Choices>
@@ -124,10 +122,10 @@ function Field({
  * question back to the sentence. Every setting says something to the engine:
  * there is no neutral option that quietly does nothing.
  */
-const STEERS: { id: Steer; label: string; src: string }[] = [
-  { id: 'woman', label: 'Woman', src: '/presenter/who-woman.webp' },
-  { id: 'man', label: 'Man', src: '/presenter/who-man.webp' },
-  { id: 'androgynous', label: 'Androgynous', src: '/presenter/who-androgynous.webp' },
+const STEERS: { id: Steer; label: string }[] = [
+  { id: 'woman', label: 'Woman' },
+  { id: 'man', label: 'Man' },
+  { id: 'androgynous', label: 'Androgynous' },
 ];
 const AGES: { id: Age; label: string }[] = [
   { id: '20s', label: '20s' },
@@ -136,12 +134,16 @@ const AGES: { id: Age; label: string }[] = [
   { id: '50s', label: '50s' },
   { id: '60+', label: '60+' },
 ];
-/** The swatch is the label: a word for a colour means little, the colour means it at a glance. */
+/**
+ * The swatch is the label: a word for a colour means little, the colour means
+ * it at a glance. Light to dark, the way the skin row runs, then the two that
+ * come with age.
+ */
 const HAIRS: { id: string; label: string; hex: string }[] = [
-  { id: 'black', label: 'Black', hex: '#1f1d1c' },
-  { id: 'brown', label: 'Brown', hex: '#4a2f1d' },
   { id: 'blonde', label: 'Blonde', hex: '#d9b26a' },
   { id: 'red', label: 'Red', hex: '#a33b1f' },
+  { id: 'brown', label: 'Brown', hex: '#4a2f1d' },
+  { id: 'black', label: 'Black', hex: '#1f1d1c' },
   { id: 'grey', label: 'Grey', hex: '#b9b6b1' },
   { id: 'white', label: 'White', hex: '#efece7' },
 ];
@@ -155,32 +157,47 @@ const TONES: { id: Tone; label: string; hex: string }[] = [
   { id: 'deep', label: 'Deep', hex: '#523320' },
 ];
 
-/** Who they are, as three cards: a form, never a face, so a card is a kind and not a casting. */
-function WhoRow({ value, onChange }: { value: Steer | null; onChange: (next: Steer | null) => void }) {
+/**
+ * A small set of words to choose one from, as the app's own chips.
+ *
+ * Who they are and Age are the same kind of fact as each other, a few ordered
+ * words, so they wear the same control. Who they are was three drawn busts
+ * once; a picture of a face reads as a casting (pick this person) when the
+ * row is a steer (describe them as a woman), and the word says only that.
+ * Not a track of modes and not a continuum worth a slider; chips are the
+ * language every other facet in the app already speaks, kept small so a row
+ * of words does not outweigh the swatches below.
+ */
+function ChipRow<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { id: T; label: string }[];
+  value: T | null;
+  onChange: (next: T | null) => void;
+}) {
   return (
-    <Field label="Who they are">
+    <Field label={label}>
       <Choices
-        label="Who they are"
-        className="sc-pstudio-whorow"
+        label={label}
+        className="sc-pstudio-chips"
         value={value ?? ''}
-        ids={STEERS.map((o) => o.id)}
-        onChange={(id) => onChange(id as Steer)}
+        ids={options.map((o) => o.id)}
+        onChange={(id) => onChange(id as T)}
       >
-        {STEERS.map((o) => (
+        {options.map((o) => (
           <Choice
             key={o.id}
             id={o.id}
-            className="sc-pstudio-whocard"
+            className="sc-chip"
             on={value === o.id}
             label={o.label}
             onPick={() => onChange(value === o.id ? null : o.id)}
           >
-            <span className="sc-pstudio-whocard-frame">
-              <span className="sc-pstudio-whocard-inner">
-                <img src={o.src} alt="" decoding="async" />
-              </span>
-            </span>
-            <span className="sc-pstudio-whocard-lb">{o.label}</span>
+            {o.label}
           </Choice>
         ))}
       </Choices>
@@ -205,10 +222,9 @@ function SwatchRow<T extends string>({
 }) {
   const picked = value && !options.some((o) => o.id === value) ? value : null;
   return (
-    <Field
-      label={label}
-      value={picked ? cap(custom?.name(picked) ?? picked) : options.find((o) => o.id === value)?.label}
-    >
+    // no echo in the heading: the chosen disc is its own answer, like Who and
+    // Age beside it; the name is there on hover for anyone who wants the word
+    <Field label={label}>
       <div className="sc-pstudio-skin">
         <Choices
           label={label}
@@ -218,22 +234,24 @@ function SwatchRow<T extends string>({
           onChange={(id) => onChange(id as T)}
         >
           {options.map((o) => (
-            <Choice
-              key={o.id}
-              id={o.id}
-              className="sc-pstudio-swatch"
-              on={value === o.id}
-              label={o.label}
-              onPick={() => onChange(value === o.id ? null : o.id)}
-            >
-              <span style={{ background: o.hex }} aria-hidden />
-            </Choice>
+            <Tip key={o.id} label={o.label}>
+              <Choice
+                id={o.id}
+                className="sc-pstudio-swatch"
+                on={value === o.id}
+                label={o.label}
+                onPick={() => onChange(value === o.id ? null : o.id)}
+              >
+                <span style={{ background: o.hex }} aria-hidden />
+              </Choice>
+            </Tip>
           ))}
         </Choices>
         {custom && (
           <ColorPicker
             className="sc-pstudio-swatch sc-pstudio-swatch-any"
             label={`Any ${label.toLowerCase()} colour`}
+            tip
             value={picked ?? '#8a5a2b'}
             // the swatch follows the cursor: a colour is judged while it moves
             commitMode="live"
@@ -248,42 +266,6 @@ function SwatchRow<T extends string>({
           </ColorPicker>
         )}
       </div>
-    </Field>
-  );
-}
-
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-/**
- * Age, as the app's own chips.
- *
- * Five ordered buckets are a small set to choose from, not a track of modes
- * and not a continuum worth a slider: a segmented control at five cells reads
- * as five tabs, and a slider for five stops is harder to hit than a chip.
- */
-function AgeRow({ value, onChange }: { value: Age | null; onChange: (next: Age | null) => void }) {
-  return (
-    <Field label="Age">
-      <Choices
-        label="Age"
-        className="sc-pstudio-chips"
-        value={value ?? ''}
-        ids={AGES.map((o) => o.id)}
-        onChange={(id) => onChange(id as Age)}
-      >
-        {AGES.map((o) => (
-          <Choice
-            key={o.id}
-            id={o.id}
-            className="sc-chip"
-            on={value === o.id}
-            label={o.label}
-            onPick={() => onChange(value === o.id ? null : o.id)}
-          >
-            {o.label}
-          </Choice>
-        ))}
-      </Choices>
     </Field>
   );
 }
@@ -338,14 +320,16 @@ function PhotoSlots({
                     <Check size={11} weight="bold" />
                   </span>
                 </span>
-                <button
-                  type="button"
-                  className="sc-pstudio-pslot-drop"
-                  aria-label={`Remove the ${hint.toLowerCase()} photo`}
-                  onClick={() => onRemove(hash)}
-                >
-                  <X size={11} weight="bold" />
-                </button>
+                <Tip label="Remove">
+                  <button
+                    type="button"
+                    className="sc-pstudio-pslot-drop"
+                    aria-label={`Remove the ${hint.toLowerCase()} photo`}
+                    onClick={() => onRemove(hash)}
+                  >
+                    <X size={11} weight="bold" />
+                  </button>
+                </Tip>
               </div>
             ) : (
               <button
@@ -460,8 +444,13 @@ export function SetupForm({
           <SetupCard onSetup={onSetup} />
         ) : (
           <>
-            <WhoRow value={traits.steer} onChange={(steer) => onTraits({ steer })} />
-            <AgeRow value={traits.age} onChange={(age) => onTraits({ age })} />
+            <ChipRow
+              label="Who they are"
+              options={STEERS}
+              value={traits.steer}
+              onChange={(steer) => onTraits({ steer })}
+            />
+            <ChipRow label="Age" options={AGES} value={traits.age} onChange={(age) => onTraits({ age })} />
             <SwatchRow label="Skin" options={TONES} value={traits.tone} onChange={(tone) => onTraits({ tone })} />
             <SwatchRow
               label="Hair"

@@ -1,23 +1,31 @@
 /* ---------- the presenter studio ------------------------------------------
-   A person is established visually, in the create dialog. The geometry is the
-   Figma studio frames (5301:9997 .. 5301:11090) read at 1x: a 1664 x 952 card
-   with a 500 rail, the stage padded 40 with the round close at 40/40, a strip
-   of labelled 90 x 112 tiles in 1.5px frames, 44px radius-10 buttons, a 16px
-   regular title, a 15px status line, a radius-22 composer card with a Send
-   pill, and 44px inputs on the ink-800 field ground. Tokens carry every value
-   the palette has; the two Figma greys the palette lacks (ink-300 labels,
-   ink-500 placeholders) are mixed from it. On a phone the same pieces stack
-   into one sheet with one scroller and a bottom that stays put. */
+   A person is established visually, at a place of its own: /presenters/new,
+   a full-bleed surface over the library, the way the shot overlay stands over
+   the hub (same z, 80). The geometry is the Figma studio frames (5301:9997 ..
+   5301:11090) read at 1x: a 500 rail, the stage padded 40 with the round
+   close at 40/40, a strip of labelled 90 x 112 tiles in 1.5px frames, 44px
+   radius-10 buttons, a 16px regular title, a 15px status line, a radius-22
+   composer card with a Send pill, and 44px inputs on the ink-800 field
+   ground. Tokens carry every value the palette has; the two Figma greys the
+   palette lacks (ink-300 labels, ink-500 placeholders) are mixed from it. On
+   a phone the same pieces stack into one column with one scroller and a
+   bottom that stays put. */
 
-.sc-newdlg.sc-pstudio {
-  --sc-newdlg-max: min(1664px, calc(100vw - 48px));
+.sc-pstudio {
   --sc-pstudio-rail: 500px;
   --sc-pstudio-field: var(--sc-hover); /* ink-800 */
   --sc-pstudio-label: color-mix(in srgb, var(--sc-fg) 90%, var(--sc-bg)); /* ink-300 */
   --sc-pstudio-placeholder: color-mix(in srgb, var(--sc-fg3) 78%, var(--sc-bg)); /* ink-500 */
-  padding: 0;
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   /* the rail's own surface: the stage paints the darker ground itself */
   background: var(--sc-panel);
+  color: var(--sc-fg);
+  outline: none;
 }
 
 .sc-pstudio-grid {
@@ -52,7 +60,7 @@
 /* ---- head ---------------------------------------------------------------- */
 .sc-pstudio-head {
   min-height: 65px;
-  padding: var(--sc-space-7);
+  padding: var(--sc-space-6) var(--sc-space-7);
   border-bottom: 1px solid var(--sc-line);
   margin: 0;
 }
@@ -75,24 +83,27 @@
   color: var(--sc-fg2);
 }
 
-/* ---- tabs: the library's underline tabs, sitting still ------------------- */
-.sc-pstudio-tabs {
-  padding: var(--sc-space-7) var(--sc-space-7) 0;
-}
-
+/* ---- the two ways to start: a compact switch in the title row ------------ */
+/* Chrome beside the title, at the head's own 30 (its Change button), sized by
+   its words. A one-time choice does not get a band of its own over the form. */
 .sc-pstudio-modes {
-  width: 100%;
-  margin-left: 0;
-  padding: 3px;
-  background: var(--sc-pstudio-field);
+  flex: none;
+  margin-left: var(--sc-space-5);
+  padding: 2px;
+  background: var(--sc-well);
 }
 
 .sc-pstudio-modes .sc-seg-o {
-  flex: 1 1 0;
   justify-content: center;
-  gap: var(--sc-space-4);
-  height: 38px;
-  font-size: var(--sc-text-control);
+  gap: 0;
+  height: 30px;
+  padding: 0 var(--sc-space-5);
+  font-size: var(--sc-text-body);
+}
+
+.sc-pstudio-modes .sc-seg-o[data-on] {
+  background: var(--sc-pstudio-field);
+  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
 }
 
 /* ---- stage: padded 20, the well 20 further in, the strip block 180 ------- */
@@ -455,37 +466,40 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--sc-space-4);
-  margin-bottom: var(--sc-space-4);
+  margin-bottom: var(--sc-space-5);
 }
 
 .sc-pstudio-fieldval {
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--sc-fg);
+  font-size: var(--sc-text-caption);
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--sc-fg2);
 }
 
-/* age: the app's chips, one row, ordered */
+/* age: the app's chips, small, left, one row; words stay lighter than the
+   pictures above and the swatches below */
 .sc-pstudio-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--sc-space-4);
+  gap: var(--sc-space-3);
 }
 
 .sc-pstudio-chips .sc-chip {
-  height: 30px;
-  padding: 0 14px;
-  font-size: 13px;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* fields: the Figma field, 44 tall, 15px, on ink-800. One rhythm inside a
    group, a wider one between groups, and no dividing lines: in a rail this
    narrow a hairline between fields is noise, and space says the same thing. */
 .sc-pstudio-field {
-  margin-bottom: var(--sc-space-7);
+  margin-bottom: var(--sc-space-6);
 }
 
 .sc-pstudio-field[data-group] {
-  margin-bottom: calc(2 * var(--sc-space-6));
+  margin-bottom: var(--sc-space-8);
 }
 
 /* the last field's gap is the boundary before the composer, which the body
@@ -507,16 +521,16 @@
 
 .sc-pstudio-field .sc-newdlg-seclabel,
 .sc-pstudio-photos .sc-newdlg-seclabel {
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 20px;
+  font-size: var(--sc-text-caption);
+  font-weight: 500;
+  line-height: 16px;
   color: var(--sc-fg2);
   margin-bottom: 0;
 }
 
 .sc-pstudio-photos .sc-newdlg-seclabel {
   display: block;
-  margin-bottom: var(--sc-space-4);
+  margin-bottom: var(--sc-space-5);
 }
 
 .sc-pstudio .sc-in {
@@ -546,159 +560,80 @@
   padding: 9px 13px;
 }
 
-/* who they are: the frame's own cards, at the frame's own size. A 90 x 112
-   picture in a 97 x 119 frame, 8 apart, the label 8 under: the same treatment
-   the view strip gives a tile, and a form rather than a face, so a card reads
-   as a kind and never as the person you are about to be given. */
-.sc-pstudio-whorow {
-  display: flex;
-  gap: var(--sc-space-4);
-}
-
-.sc-pstudio-whocard {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sc-space-4);
-  width: 97px;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--sc-fg2);
-  cursor: pointer;
-}
-
-.sc-pstudio-whocard-frame {
-  display: block;
-  width: 97px;
-  padding: 2px;
-  border: 1.5px solid var(--sc-line);
-  border-radius: var(--sc-radius);
-  transition: border-color 120ms ease;
-}
-
-.sc-pstudio-whocard:hover .sc-pstudio-whocard-frame {
-  border-color: var(--sc-line-strong);
-}
-
-.sc-pstudio-whocard[data-on] .sc-pstudio-whocard-frame {
-  border-color: var(--sc-fg);
-}
-
-.sc-pstudio-whocard-inner {
-  position: relative;
-  display: block;
-  width: 90px;
-  height: 112px;
-  overflow: hidden;
-  border-radius: var(--sc-radius-sm);
-  background: var(--sc-pstudio-field);
-}
-
-.sc-pstudio-whocard-inner img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  /* a white bust on a near-black rail is the loudest thing in the room until
-     it is the one that is chosen */
-  opacity: 0.5;
-  transition: opacity 120ms ease;
-}
-
-.sc-pstudio-whocard:hover .sc-pstudio-whocard-inner img {
-  opacity: 0.7;
-}
-
-.sc-pstudio-whocard[data-on] .sc-pstudio-whocard-inner img {
-  opacity: 1;
-}
-
-.sc-pstudio-whocard-lb {
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--sc-fg2);
-}
-
-.sc-pstudio-whocard[data-on] .sc-pstudio-whocard-lb {
-  color: var(--sc-fg);
-}
-
-.sc-pstudio-whocard:focus-visible .sc-pstudio-whocard-frame {
-  outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: var(--sc-ring-off);
-}
-
-/* skin: the thing itself, five swatches and the word for the one that is on */
+/* skin / hair: the colour itself as a solid disc, the chips' 28, light to
+   dark in both rows. The chosen one wears a ring outside the disc, with the
+   panel showing between, so the colour is never covered and every state is
+   paint-only. Twelve apart so two rings never meet. */
 .sc-pstudio-skin {
   display: flex;
   align-items: center;
+  gap: var(--sc-space-5);
 }
 
 .sc-pstudio-swatches {
   display: flex;
-  gap: var(--sc-space-4);
+  gap: var(--sc-space-5);
 }
 
 .sc-pstudio-swatch {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: none;
   border-radius: var(--sc-radius-full);
   background: none;
   cursor: pointer;
-  box-shadow: inset 0 0 0 1px var(--sc-line);
+  transition: box-shadow 120ms ease;
 }
 
 .sc-pstudio-swatch > span {
-  width: 22px;
-  height: 22px;
+  width: 100%;
+  height: 100%;
   border-radius: var(--sc-radius-full);
+  /* a hairline on the disc itself, so the palest tone still has an edge */
+  box-shadow: inset 0 0 0 1px var(--sc-line);
 }
 
 .sc-pstudio-swatch:hover {
-  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
+  box-shadow:
+    0 0 0 2px var(--sc-panel),
+    0 0 0 3px var(--sc-line-strong);
 }
 
 .sc-pstudio-swatch[data-on] {
-  box-shadow: inset 0 0 0 1.5px var(--sc-fg);
+  box-shadow:
+    0 0 0 2px var(--sc-panel),
+    0 0 0 3.5px var(--sc-fg);
 }
 
 /* the last swatch is any colour at all: the app's own picker, wearing the
-   same 30px circle so the row reads as one set */
+   same disc so the row reads as one set; empty until a colour is picked */
 .sc-pstudio-swatch-any {
   position: relative;
   color: var(--sc-fg2);
   background: var(--sc-pstudio-field);
+  box-shadow: inset 0 0 0 1px var(--sc-line);
 }
 
 .sc-pstudio-swatch-any:hover {
   color: var(--sc-fg);
+  box-shadow:
+    inset 0 0 0 1px var(--sc-line-strong),
+    0 0 0 2px var(--sc-panel),
+    0 0 0 3px var(--sc-line-strong);
 }
 
 .sc-pstudio-swatch-any[data-on] {
-  box-shadow: inset 0 0 0 1.5px var(--sc-fg);
+  box-shadow:
+    0 0 0 2px var(--sc-panel),
+    0 0 0 3.5px var(--sc-fg);
 }
 
 .sc-pstudio-swatch:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: var(--sc-ring-off);
-}
-
-/* age: the app's segmented control, across the rail's field width */
-.sc-pstudio-seg {
-  width: 100%;
-  margin-left: 0;
-  background: var(--sc-pstudio-field);
-}
-
-.sc-pstudio-seg .sc-seg-o {
-  flex: 1 1 0;
-  justify-content: center;
-  height: 38px;
-  font-size: 14px;
+  outline-offset: 4px;
 }
 
 .sc-pstudio-field .sc-pstudio-line {
@@ -1241,32 +1176,16 @@
   color: var(--sc-red);
 }
 
-/* ---- the desktop card: stage left, rail right ---------------------------- */
+/* ---- the desktop surface: stage left, rail right ------------------------- */
 @media (min-width: 768px) {
-  .sc-newdlg.sc-pstudio {
-    height: min(952px, 92dvh);
-    max-height: 92dvh;
-    overflow: hidden;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--sc-line);
-    border-radius: var(--sc-radius-xl);
-  }
-
   .sc-pstudio-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--sc-pstudio-rail);
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     grid-template-areas:
       "stage head"
-      "stage tabs"
       "stage body"
       "stage foot";
-  }
-
-  .sc-pstudio-tabs {
-    grid-area: tabs;
   }
 
   .sc-pstudio-scroll {
@@ -1289,8 +1208,6 @@
     grid-area: body;
     overflow-y: auto;
     overscroll-behavior: contain;
-    /* the foot brings its own 20 above the composer; together with this the
-       gap before the card is the 32 a group boundary gets, not 40 */
     padding-bottom: var(--sc-space-5);
   }
 
@@ -1300,7 +1217,6 @@
 
   /* the rail is the lighter surface, the stage the darker one: ink-900 on ink-950 */
   .sc-pstudio-head,
-  .sc-pstudio-tabs,
   .sc-pstudio-body,
   .sc-pstudio-foot {
     border-left: 1px solid var(--sc-line);
@@ -1309,13 +1225,13 @@
 }
 
 @media (min-width: 768px) and (max-width: 1279px) {
-  .sc-newdlg.sc-pstudio {
+  .sc-pstudio {
     --sc-pstudio-rail: 420px;
   }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
-  .sc-newdlg.sc-pstudio {
+  .sc-pstudio {
     --sc-pstudio-rail: 320px;
   }
 
@@ -1324,19 +1240,30 @@
     left: 24px;
   }
 
+  /* a 320 rail cannot seat the title and the switch on one line without the
+     title breaking in two; the switch drops under it, as it does on a phone */
+  .sc-pstudio-head {
+    flex-wrap: wrap;
+    padding: var(--sc-space-5) var(--sc-space-6);
+  }
+
+  .sc-pstudio-modes {
+    order: 9;
+    flex: 1 1 100%;
+    margin: var(--sc-space-4) 0 0;
+  }
+
+  .sc-pstudio-modes .sc-seg-o {
+    flex: 1 1 0;
+  }
+
   .sc-pstudio-body[data-end] {
     padding: var(--sc-space-7);
   }
 }
 
-/* ---- the phone sheet: one column, one scroller, a bottom that stays ------ */
+/* ---- the phone: one column, one scroller, a bottom that stays ------------ */
 @media (max-width: 767px) {
-  .sc-newdlg.sc-pstudio {
-    height: 96dvh;
-    max-height: 96dvh;
-    padding: 0;
-  }
-
   .sc-pstudio-close {
     display: none;
   }
@@ -1346,13 +1273,23 @@
     flex-direction: column;
   }
 
+  /* the whole screen now, so the head clears the notch */
   .sc-pstudio-head {
     min-height: 52px;
-    padding: var(--sc-space-4) var(--sc-space-4) var(--sc-space-4) var(--sc-space-6);
+    flex-wrap: wrap;
+    padding: max(var(--sc-space-4), env(safe-area-inset-top)) var(--sc-space-4) var(--sc-space-5) var(--sc-space-6);
   }
 
-  .sc-pstudio-tabs {
-    padding: 0 var(--sc-space-6);
+  /* the head's own close takes the title row here, so the switch drops to a
+     line of its own under the title, two-up across the sheet */
+  .sc-pstudio-modes {
+    order: 9;
+    flex: 1 1 100%;
+    margin: var(--sc-space-4) var(--sc-space-2) 0 0;
+  }
+
+  .sc-pstudio-modes .sc-seg-o {
+    flex: 1 1 0;
   }
 
   .sc-pstudio-scroll {

@@ -26,11 +26,11 @@ async function currentBrand(p: Page): Promise<{ slug: string; id: string }> {
 test('without an engine, From scratch offers the setup and From photos still saves', async ({ page }) => {
   test.setTimeout(60_000);
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/presenters?new=presenter`);
+  await page.goto(`/${brand.slug}/presenters/new`);
   await expect(page.getByRole('radio', { name: 'From scratch' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByText('Image generation is not set up yet')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Set up' })).toBeVisible();
-  await expect(page.locator('.sc-newdlg').getByRole('button', { name: 'Create', exact: true })).toHaveCount(0);
+  await expect(page.locator('.sc-pstudio').getByRole('button', { name: 'Create', exact: true })).toHaveCount(0);
 
   await page.getByRole('radio', { name: 'From photos' }).click();
   await expect(page.getByText('No engine here can draw the other views')).toBeVisible();
@@ -44,7 +44,7 @@ test('without an engine, From scratch offers the setup and From photos still sav
   await expect(page.getByLabel('What should change')).toHaveCount(0);
   await name.fill('Noor');
   await page.getByRole('button', { name: 'Save presenter' }).click();
-  await expect(page.locator('.sc-newdlg')).toHaveCount(0, { timeout: 20_000 });
+  await expect(page.locator('.sc-pstudio')).toHaveCount(0, { timeout: 20_000 });
   const brands = await (await page.request.get('/api/brands')).json();
   const person = (brands.find((b: any) => b.id === brand.id).json.characters ?? []).find((c: any) => c.name === 'Noor');
   expect(person.source).toBe('photos');

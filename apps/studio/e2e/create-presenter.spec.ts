@@ -2,7 +2,8 @@ import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
 
 /**
- * The presenter studio, end to end, in the create dialog.
+ * The presenter studio, end to end, at its own address: /presenters/new for
+ * a fresh start, /presenters/new/:draftId once there is a draft.
  *
  * A person is cast one used view at a time: from a sentence or from
  * photographs, the face first, then the front, left, back and right views,
@@ -32,7 +33,8 @@ async function currentBrand(p: Page): Promise<{ slug: string; id: string }> {
   return { slug, id: brands.find((b) => b.slug === slug)?.id ?? brands[0].id };
 }
 
-const dialog = (p: Page) => p.locator('.sc-newdlg');
+/** The studio: a place of its own, full-bleed over the library. */
+const studio = (p: Page) => p.locator('.sc-pstudio');
 const status = (p: Page) => p.locator('.sc-pstudio-status');
 const composer = (p: Page) => p.getByLabel('What should change');
 const draftsOf = async (p: Page, brandId: string) =>
@@ -93,7 +95,7 @@ async function openDraft(p: Page, brand: { slug: string; id: string }, draftId: 
     id: draftId,
     brandId: brand.id,
   });
-  await p.goto(`/${brand.slug}/presenters?new=presenter`);
+  await p.goto(`/${brand.slug}/presenters/new`);
 }
 
 /** Use each view as it lands on the stage, in build order. */
@@ -113,12 +115,12 @@ test.describe('a person from scratch', () => {
 
     await page.goto(`/${brand.slug}/presenters`);
     await page.getByRole('button', { name: 'Create presenter' }).first().click();
-    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters\\?new=presenter$`));
-    await expect(dialog(page)).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+    await expect(studio(page)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Create presenter' })).toBeVisible();
     await expect(page.getByRole('radio', { name: 'From scratch' })).toHaveAttribute('aria-checked', 'true');
 
-    const create = dialog(page).getByRole('button', { name: 'Create', exact: true });
+    const create = studio(page).getByRole('button', { name: 'Create', exact: true });
     await expect(create).toHaveAttribute('aria-disabled', 'true');
     await page.getByLabel('Describe the presenter').fill('confident woman in her 40s, short silver hair');
     await expect(create).not.toHaveAttribute('aria-disabled', /.*/);
@@ -161,7 +163,7 @@ test.describe('a person from scratch', () => {
     await expect(save).not.toHaveAttribute('aria-disabled', /.*/);
     await save.click();
 
-    await expect(dialog(page)).toHaveCount(0, { timeout: 20_000 });
+    await expect(studio(page)).toHaveCount(0, { timeout: 20_000 });
     await expect(page.getByText('Ofira added')).toBeVisible();
     const brands = await (await page.request.get('/api/brands')).json();
     const person = (brands.find((b: any) => b.id === brand.id).json.characters ?? []).find(
@@ -178,17 +180,28 @@ test.describe('a person from scratch', () => {
     await expect(page.getByRole('link', { name: 'Ofira', exact: true })).toBeVisible();
   });
 
-  test('close keeps the draft; reopen resumes the same step', async ({ page }) => {
+  test('a draft has an address: reload keeps the step, close keeps the draft, reopen resumes it', async ({ page }) => {
     const brand = await currentBrand(page);
     const draftId = await seedDraft(page, brand.id, 'portrait-approved');
     await openDraft(page, brand, draftId);
+    // the pointed draft takes over the fresh address, replacing it
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new/${draftId}$`));
     await expect(page.getByRole('button', { name: 'Use', exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('.sc-pstudio-slot[data-state="approved"]')).toHaveCount(1);
+
+    // the address is the draft: a reload comes straight back to the same step
+    await page.reload();
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new/${draftId}$`));
+    await expect(page.getByRole('button', { name: 'Use', exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('.sc-pstudio-slot[data-state="approved"]')).toHaveCount(1);
+
+    // leaving is a move to the library, and the draft stays on the server
     await page.keyboard.press('Escape');
-    await expect(dialog(page)).toHaveCount(0);
+    await expect(studio(page)).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
     expect((await draftsOf(page, brand.id)).drafts.map((d) => d.id)).toContain(draftId);
 
-    await page.goto(`/${brand.slug}/presenters?new=presenter`);
+    await page.goto(`/${brand.slug}/presenters/new`);
     await expect(page.getByRole('button', { name: 'Use', exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('.sc-pstudio-slot[data-state="approved"]')).toHaveCount(1);
     const d = await draftOf(page, brand.id, draftId);
@@ -320,13 +333,13 @@ test.describe('from photos', () => {
   test('one photo and the confirmation: the photo is the face, the rest is drawn from it', async ({ page }) => {
     test.setTimeout(90_000);
     const brand = await currentBrand(page);
-    await page.goto(`/${brand.slug}/presenters?new=presenter`);
+    await page.goto(`/${brand.slug}/presenters/new`);
     await page.getByRole('radio', { name: 'From photos' }).click();
     await page.locator('input[type="file"]').setInputFiles({ name: 'noor.png', mimeType: 'image/png', buffer: PNG });
     await expect(page.locator('.sc-pstudio-pslot-frame[data-filled] img')).toHaveCount(1);
     // the photo is on the stage before anything is drawn
     await expect(page.locator('.sc-pstudio-well img')).toBeVisible();
-    const go = dialog(page).getByRole('button', { name: 'Create', exact: true });
+    const go = studio(page).getByRole('button', { name: 'Create', exact: true });
     await expect(go).toHaveAttribute('aria-disabled', 'true');
     await expect(page.locator('.sc-pstudio-composer-hint')).toContainText(/permission/i);
     await page.getByRole('checkbox').check();
@@ -355,7 +368,7 @@ test.describe('from photos', () => {
     await expect(name).toBeVisible({ timeout: 20_000 });
     await name.fill('Noor');
     await page.getByRole('button', { name: 'Save presenter' }).click();
-    await expect(dialog(page)).toHaveCount(0, { timeout: 20_000 });
+    await expect(studio(page)).toHaveCount(0, { timeout: 20_000 });
     const brands = await (await page.request.get('/api/brands')).json();
     const person = (brands.find((b: any) => b.id === brand.id).json.characters ?? []).find(
       (c: any) => c.name === 'Noor',
@@ -369,17 +382,26 @@ test.describe('from photos', () => {
 });
 
 test.describe('the doors lead here', () => {
-  test('the chooser row replaces itself, so one Back returns to the chooser', async ({ page }) => {
+  test('the chooser hands over to the studio, and one Back returns to where you were', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/scenes`);
     await page.getByRole('button', { name: 'Add to this brand', exact: true }).click();
     await page.locator('[data-kind="presenter"]').click();
-    await expect(page).toHaveURL(/\?new=presenter$/);
-    await expect(dialog(page)).toBeVisible();
+    // the chooser's own entry is consumed by the studio's address
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+    await expect(studio(page)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Create presenter' })).toBeVisible();
-    await page.locator('.sc-newdlg-back').click();
-    await expect(page).toHaveURL(/\?new=1$/);
-    await expect(page.locator('.sc-pick')).toHaveCount(3);
+    await expect(page.locator('.sc-newdlg-back')).toHaveCount(0);
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
+    await expect(studio(page)).toHaveCount(0);
+  });
+
+  test('the old ?new=presenter address forwards to the studio', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/products?new=presenter`);
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+    await expect(studio(page)).toBeVisible();
   });
 
   test('a created scene page is just as alive', async ({ page }) => {
@@ -395,7 +417,7 @@ test.describe('the doors lead here', () => {
     await page.getByLabel('Name', { exact: true }).fill('Low Terrace');
     await page.getByLabel('Direction', { exact: true }).fill('A stone terrace in low evening sun.');
     await page.locator('.sc-dlg-go').click();
-    await expect(dialog(page)).toHaveCount(0);
+    await expect(studio(page)).toHaveCount(0);
 
     await expect(page.getByRole('heading', { name: 'Your scenes' })).toBeVisible({ timeout: 30_000 });
     const ownCard = page.locator('.sc-owned .sc-lookcard-open').first();

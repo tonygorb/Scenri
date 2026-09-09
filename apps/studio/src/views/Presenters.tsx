@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { presenterSearchText } from '../displayName.js';
-import { useNavigate } from 'react-router';
+import { Outlet, useNavigate } from 'react-router';
 import { Plus } from '@phosphor-icons/react';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -266,6 +266,9 @@ export function PresentersView() {
           )}
         </main>
       </ScrollPane>
+      {/* the presenter studio, when its route is open: full-bleed over this
+          library, which stays mounted and scrolled where it was */}
+      <Outlet />
     </WallDensityCtx.Provider>
   );
 }

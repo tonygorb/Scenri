@@ -1,4 +1,10 @@
-import type { ClipboardEvent, CSSProperties, ReactNode } from 'react';
+import {
+  type ClipboardEvent,
+  type ComponentPropsWithoutRef,
+  type CSSProperties,
+  forwardRef,
+  type ReactNode,
+} from 'react';
 import * as Primitive from '@radix-ui/react-dialog';
 import { focusSelfOnOpen } from '../app/dialogs.js';
 import { useSheetDrag } from '../useSheetDrag.js';
@@ -77,9 +83,16 @@ export function SheetTitle({ className, children }: { className?: string; childr
   return <Primitive.Title className={className}>{children}</Primitive.Title>;
 }
 
-export function SheetClose({ children }: { children: ReactNode }) {
-  return <Primitive.Close asChild>{children}</Primitive.Close>;
-}
+/** The ref and any props pass through to the button, so a `Tip` can wrap it. */
+export const SheetClose = forwardRef<HTMLButtonElement, ComponentPropsWithoutRef<typeof Primitive.Close>>(
+  function SheetClose({ children, ...rest }, ref) {
+    return (
+      <Primitive.Close asChild ref={ref} {...rest}>
+        {children}
+      </Primitive.Close>
+    );
+  },
+);
 
 export function SheetDescription({ className, children }: { className?: string; children: ReactNode }) {
   return <Primitive.Description className={className}>{children}</Primitive.Description>;

@@ -86,12 +86,12 @@ test.describe('adding to a brand', () => {
     await expect(page.locator('.sc-newdlg-back')).toHaveCount(0);
   });
 
-  test('a presenter deep link lands in the dialog, with no arrow back to a chooser nobody saw', async ({ page }) => {
+  test('a presenter is a place, not a dialog: the old param forwards to its address', async ({ page }) => {
     await page.goto(`/${slug}/products?new=presenter`);
-    await expect(page).toHaveURL(new RegExp(`/${slug}/products\\?new=presenter$`));
+    await expect(page).toHaveURL(new RegExp(`/${slug}/presenters/new$`));
     await expect(page.getByRole('heading', { name: 'Create presenter' })).toBeVisible();
-    await expect(dialog(page)).toBeVisible();
-    await expect(page.locator('.sc-newdlg-back')).toHaveCount(0);
+    await expect(page.locator('.sc-pstudio')).toBeVisible();
+    await expect(dialog(page)).toHaveCount(0);
   });
 
   test('opened from the chooser, the arrow goes back to it', async ({ page }) => {
@@ -126,7 +126,7 @@ test.describe('adding to a brand', () => {
     await page.goto(`/${slug}?new=scene`);
     await expect(page.locator('.sc-dlg-foot')).not.toHaveText('');
 
-    await page.goto(`/${slug}?new=presenter`);
+    await page.goto(`/${slug}/presenters/new`);
     await expect(page.locator('.sc-dlg-foot')).not.toHaveText('');
   });
 

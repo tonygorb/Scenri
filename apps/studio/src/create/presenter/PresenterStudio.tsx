@@ -1,13 +1,15 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowsCounterClockwise, CaretLeft, Copy, X } from '@phosphor-icons/react';
+import { ArrowsCounterClockwise, Copy, X } from '@phosphor-icons/react';
 import { Spinner } from '@radix-ui/themes';
 import { api, thumbUrl, uploadImage, type PresenterDraft } from '../../api.js';
-import { useAppData, useDialogParam } from '../../app/AppShell.js';
+import { useAppData } from '../../app/AppShell.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useOpenSetup } from '../../app/dialogs.js';
 import { Confirm } from '../../Confirm.js';
-import { DialogSheet, SheetClose, SheetTitle } from '../../layout/DialogSheet.js';
+import { FocusScope } from '@radix-ui/react-focus-scope';
+import { createPortal } from 'react-dom';
 import { ScenriLockup } from '../../layout/ScenriMark.js';
+import { Tip } from '../../layout/Tip.js';
 import type { FlowProps } from '../flow.js';
 import { RefineComposer } from './RefineComposer.js';
 import { DetailsFields, type Mode, ModeSwitch, SetupForm } from './StudioSetup.js';
@@ -41,22 +43,29 @@ import {
 import { usePresenterDraft } from './usePresenterDraft.js';
 
 /**
- * The presenter studio, in the create dialog, laid out as the Figma frames
+ * The presenter studio, a place of its own, laid out as the Figma frames
  * draw it.
  *
  * A wide stage on the left and a 500 rail on the right. Setup is a form:
- * two ways to start as tabs, then who they are, their age, their skin and
- * the sentence, or four photo places, then Create presenter. Then one
- * identity: the face, drawn and decided; then the front, left, back and
+ * two ways to start in the title row, then who they are, their age, their
+ * skin and the sentence, or four photo places, then Create presenter. Then
+ * one identity: the face, drawn and decided; then the front, left, back and
  * right views, each drawn from the approved views before it and decided in
  * turn, the strip under the stage keeping the count. The rail reads as a
  * transcript, You and Scenri, with no model ever asked for words: Scenri's
  * lines are the build's own status. A sentence in the composer changes the
  * person (the face is redrawn and the other views follow) or one view.
  *
- * The draft lives on the server. Closing keeps it and reopening resumes it;
- * Start over is the only way to throw it away. The host's discard-and-undo
- * toast is not used here, because closing is not discarding.
+ * It is not a dialog. A person takes minutes, five drawn views and a draft
+ * that outlives the session, and a modal promises quick-then-back. So the
+ * studio has an address (`/presenters/new`, `/presenters/new/:draftId`, see
+ * PresenterStudioRoute) and this component is the full-bleed surface at it,
+ * over the library it was opened from, the way the shot overlay stands over
+ * the hub. Where the draft is comes from the route; this component asks to
+ * move (`onOpenDraft`, `onLeaveDraft`, `onClose`) and never decides where.
+ *
+ * The draft lives on the server. Leaving keeps it and coming back resumes
+ * it; Start over is the only way to throw it away.
  *
  * On a phone the same pieces stack: head, stage, strip, transcript, and a
  * bottom that stays put with the composer and the one decision in it.
@@ -84,11 +93,26 @@ const clearPointer = (brandId: string) => {
   }
 };
 
-export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps) {
+export function PresenterStudio({
+  draftId,
+  onOpenDraft,
+  onLeaveDraft,
+  onClose,
+  onStarted,
+  caps,
+  capsNote,
+}: {
+  /** The draft at this address, or null for a fresh start. */
+  draftId: string | null;
+  /** Move to a draft's own address; `replace` when it is the one already pointed at. */
+  onOpenDraft: (id: string, replace?: boolean) => void;
+  /** Back to a fresh start, the draft left where it was. */
+  onLeaveDraft: () => void;
+  /** Out of the studio, to the library it stands over. */
+  onClose: () => void;
+} & Pick<FlowProps, 'onStarted' | 'caps' | 'capsNote'>) {
   const { brand } = useBrand();
-  const { close } = useDialogParam('new');
   const openSetup = useOpenSetup();
-  const [draftId, setDraftId] = useState<string | null>(null);
   const [resume, setResume] = useState<PresenterDraft | null>(null);
   const [boot, setBoot] = useState(true);
   const [mode, setMode] = useState<Mode>('scratch');
@@ -104,7 +128,15 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
   const canDraw = !!caps?.canGenerate;
   const engineOff = !!caps && !caps.canGenerate;
 
+  // A fresh start asks whether one is already under way: the draft this
+  // session pointed at is resumed in place (its address replacing this one),
+  // any other resumable draft is offered as a row. A draft's own address asks
+  // nothing; it is the answer.
   useEffect(() => {
+    if (draftId) {
+      setBoot(false);
+      return;
+    }
     let alive = true;
     const pointed = readPointer(brand.id);
     void api
@@ -113,7 +145,7 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
         if (!alive) return;
         const found = pointed ? r.drafts.find((d) => d.id === pointed) : undefined;
         if (found) {
-          setDraftId(found.id);
+          onOpenDraft(found.id, true);
           return;
         }
         if (pointed) clearPointer(brand.id);
@@ -126,21 +158,24 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
     return () => {
       alive = false;
     };
-  }, [brand.id]);
+  }, [brand.id, draftId, onOpenDraft]);
 
   const openDraft = useCallback(
     (id: string) => {
       writePointer(brand.id, id);
-      setDraftId(id);
+      onOpenDraft(id);
     },
-    [brand.id],
+    [brand.id, onOpenDraft],
   );
 
-  const leaveDraft = useCallback((keepDirection?: string) => {
-    setDraftId(null);
-    setResume(null);
-    if (keepDirection !== undefined) setDirection(keepDirection);
-  }, []);
+  const leaveDraft = useCallback(
+    (keepDirection?: string) => {
+      setResume(null);
+      if (keepDirection !== undefined) setDirection(keepDirection);
+      onLeaveDraft();
+    },
+    [onLeaveDraft],
+  );
 
   const addFiles = useCallback(async (files: File[]) => {
     setErr(null);
@@ -221,7 +256,7 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
         : 'Each view is a generation.',
   );
 
-  // Why it cannot be pressed, said under the card rather than hidden in a tooltip.
+  // Why it cannot be pressed: the line under the card, and the pill's own answer on hover.
   const blocked =
     mode === 'photos'
       ? !hashes.length
@@ -231,121 +266,156 @@ export function PresenterStudio({ onBack, onStarted, caps, capsNote }: FlowProps
           : null
       : null;
 
-  return (
-    <DialogSheet
-      className="sc-pstudio"
-      onDismiss={close}
-      onPaste={(e) => {
-        if (draftId || mode !== 'photos') return;
-        const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'));
-        if (!files.length) return;
+  // Escape leaves, as it does the shot overlay, unless a popover or a Confirm
+  // inside already took the key (Radix marks its Escape handled).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      e.preventDefault();
+      onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  return createPortal(
+    // Over the library, at the body, so the scroll pane under it never clips
+    // it and its z-order is its own. Focus is held inside and taken silently
+    // on arrival (app/dialogs.ts), the way the shot overlay does it: aimed at
+    // the first control instead, the close, its tip opened on arrival.
+    <FocusScope
+      trapped
+      loop
+      asChild
+      onMountAutoFocus={(e) => {
         e.preventDefault();
-        void addFiles(files);
+        rootRef.current?.focus({ preventScroll: true });
       }}
     >
-      <div className="sc-pstudio-grid" data-phase={draftId ? undefined : 'setup'}>
-        {/* the close sits on the stage, top left, as the frame has it; the head's own close is the phone's */}
-        <SheetClose>
-          <button type="button" className="sc-pstudio-close" aria-label="Close">
-            <X size={13} />
-          </button>
-        </SheetClose>
-        {draftId ? (
-          <Draft
-            key={draftId}
-            draftId={draftId}
-            canDraw={canDraw}
-            onBack={onBack}
-            onStarted={onStarted}
-            footnote={footnote}
-            onGone={() => {
-              clearPointer(brand.id);
-              leaveDraft();
-            }}
-            onReset={(dir) => leaveDraft(dir)}
-          />
-        ) : (
-          <>
-            <Head onBack={onBack} />
-            <div className="sc-pstudio-tabs">
-              <ModeSwitch
-                mode={mode}
-                onMode={(next) => {
-                  setErr(null);
-                  setMode(next);
-                }}
-              />
-            </div>
-            <div className="sc-pstudio-scroll">
-              {mode === 'photos' && hashes.length ? (
-                <StudioStage hash={hashes[0]} alt="The first one you added" drawing={false} now={0} items={[]} />
-              ) : (
-                <StagePreview views={VIEWS.map((v) => ({ view: v, label: VIEW_LABEL[v] }))} />
-              )}
-              <div className="sc-pstudio-body">
-                {resume && !boot && (
-                  <button type="button" className="sc-pstudio-resume" onClick={() => openDraft(resume.id)}>
-                    <ResumeFace draft={resume} />
-                    <span>
-                      Continue with the person you started
-                      <small>
-                        {resume.name.trim()
-                          ? resume.name
-                          : resume.source === 'synthetic'
-                            ? 'from your description'
-                            : 'from your photos'}
-                      </small>
-                    </span>
-                  </button>
-                )}
-                <SetupForm
+      <div
+        ref={rootRef}
+        tabIndex={-1}
+        className="sc-pstudio"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sc-pstudio-title"
+        onPaste={(e) => {
+          if (draftId || mode !== 'photos') return;
+          const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'));
+          if (!files.length) return;
+          e.preventDefault();
+          void addFiles(files);
+        }}
+      >
+        <div className="sc-pstudio-grid" data-phase={draftId ? undefined : 'setup'}>
+          {/* the close sits on the stage, top left, as the frame has it; the head's own close is the phone's */}
+          <Tip label="Close (esc)">
+            <button type="button" className="sc-pstudio-close" onClick={onClose} aria-label="Close">
+              <X size={13} />
+            </button>
+          </Tip>
+          {draftId ? (
+            <Draft
+              key={draftId}
+              draftId={draftId}
+              canDraw={canDraw}
+              onClose={onClose}
+              onStarted={onStarted}
+              footnote={footnote}
+              onGone={() => {
+                clearPointer(brand.id);
+                leaveDraft();
+              }}
+              onReset={(dir) => leaveDraft(dir)}
+            />
+          ) : (
+            <>
+              <Head onClose={onClose}>
+                {/* the two ways to start sit in the title row, chrome beside the
+                  name of the dialog, not a band of their own over the form */}
+                <ModeSwitch
                   mode={mode}
-                  canDraw={canDraw}
-                  engineOff={engineOff}
-                  name={name}
-                  onName={setName}
-                  traits={traits}
-                  onTraits={(patch) => setTraits((t) => ({ ...t, ...patch }))}
-                  hashes={hashes}
-                  uploading={uploading}
-                  attested={attested}
-                  onAdd={(files) => void addFiles(files)}
-                  onRemove={(h) => setHashes((cur) => cur.filter((x) => x !== h))}
-                  onReject={() => setErr('Drop an image file.')}
-                  onAttested={setAttested}
-                  onSetup={() => openSetup()}
-                  error={err}
-                />
-              </div>
-            </div>
-            <div className="sc-pstudio-foot">
-              {!(mode === 'scratch' && engineOff) && (
-                <RefineComposer
-                  label={mode === 'photos' ? 'What matters in these photos' : 'Describe the presenter'}
-                  placeholder={mode === 'photos' ? 'What matters in these photos' : 'Describe the presenter'}
-                  action={mode === 'photos' && !canDraw ? 'Save' : 'Create'}
-                  hint={blocked ?? (mode === 'photos' ? null : whoHint(traits, direction))}
-                  value={direction}
-                  onValue={(next) => {
+                  onMode={(next) => {
                     setErr(null);
-                    setDirection(next);
-                  }}
-                  allowEmpty={mode === 'photos'}
-                  disabled={primaryOff}
-                  working={busy}
-                  error={err}
-                  onSend={(text) => {
-                    void (mode === 'scratch' ? startScratch(text) : startPhotos(text));
-                    return false;
+                    setMode(next);
                   }}
                 />
-              )}
-              <p className="sc-dlg-foot">{footnote}</p>
-            </div>
-          </>
-        )}
+              </Head>
+              <div className="sc-pstudio-scroll">
+                {mode === 'photos' && hashes.length ? (
+                  <StudioStage hash={hashes[0]} alt="The first one you added" drawing={false} now={0} items={[]} />
+                ) : (
+                  <StagePreview views={VIEWS.map((v) => ({ view: v, label: VIEW_LABEL[v] }))} />
+                )}
+                <div className="sc-pstudio-body">
+                  {resume && !boot && (
+                    <button type="button" className="sc-pstudio-resume" onClick={() => openDraft(resume.id)}>
+                      <ResumeFace draft={resume} />
+                      <span>
+                        Continue with the person you started
+                        <small>
+                          {resume.name.trim()
+                            ? resume.name
+                            : resume.source === 'synthetic'
+                              ? 'from your description'
+                              : 'from your photos'}
+                        </small>
+                      </span>
+                    </button>
+                  )}
+                  <SetupForm
+                    mode={mode}
+                    canDraw={canDraw}
+                    engineOff={engineOff}
+                    name={name}
+                    onName={setName}
+                    traits={traits}
+                    onTraits={(patch) => setTraits((t) => ({ ...t, ...patch }))}
+                    hashes={hashes}
+                    uploading={uploading}
+                    attested={attested}
+                    onAdd={(files) => void addFiles(files)}
+                    onRemove={(h) => setHashes((cur) => cur.filter((x) => x !== h))}
+                    onReject={() => setErr('Drop an image file.')}
+                    onAttested={setAttested}
+                    onSetup={() => openSetup()}
+                    error={err}
+                  />
+                </div>
+              </div>
+              <div className="sc-pstudio-foot">
+                {!(mode === 'scratch' && engineOff) && (
+                  <RefineComposer
+                    label={mode === 'photos' ? 'What matters in these photos' : 'Describe the presenter'}
+                    placeholder={mode === 'photos' ? 'What matters in these photos' : 'Describe the presenter'}
+                    action={mode === 'photos' && !canDraw ? 'Save' : 'Create'}
+                    hint={blocked ?? (mode === 'photos' ? null : whoHint(traits, direction))}
+                    value={direction}
+                    onValue={(next) => {
+                      setErr(null);
+                      setDirection(next);
+                    }}
+                    allowEmpty={mode === 'photos'}
+                    disabled={primaryOff}
+                    why={blocked}
+                    working={busy}
+                    error={err}
+                    onSend={(text) => {
+                      void (mode === 'scratch' ? startScratch(text) : startPhotos(text));
+                      return false;
+                    }}
+                  />
+                )}
+                <p className="sc-dlg-foot">{footnote}</p>
+              </div>
+            </>
+          )}
+        </div>
       </div>
-    </DialogSheet>
+    </FocusScope>,
+    document.body,
   );
 }
 
@@ -354,30 +424,29 @@ function ResumeFace({ draft }: { draft: PresenterDraft }) {
   return face ? <img src={thumbUrl(face, 'micro')} alt="" /> : <span className="sc-pstudio-resume-blank" />;
 }
 
-/** The title is the Figma's: Create presenter until the set is complete, Refine presenter after. */
+/**
+ * The title is the Figma's: Create presenter until the set is complete,
+ * Refine presenter after. Its close is the phone's; on a desktop the stage
+ * carries the one close, top left.
+ */
 function Head({
-  onBack,
+  onClose,
   title = 'Create presenter',
   children,
 }: {
-  onBack?: () => void;
+  onClose: () => void;
   title?: string;
   children?: ReactNode;
 }) {
   return (
     <div className="sc-pstudio-head sc-newdlg-head">
-      {onBack && (
-        <button type="button" className="sc-newdlg-back" onClick={onBack} aria-label="Back">
-          <CaretLeft size={15} />
-        </button>
-      )}
-      <SheetTitle className="sc-newdlg-title">{title}</SheetTitle>
+      <h2 id="sc-pstudio-title" className="sc-newdlg-title">
+        {title}
+      </h2>
       {children}
-      <SheetClose>
-        <button type="button" className="sc-set-close sc-newdlg-close" aria-label="Close">
-          <X size={16} />
-        </button>
-      </SheetClose>
+      <button type="button" className="sc-set-close sc-newdlg-close" onClick={onClose} aria-label="Close">
+        <X size={16} />
+      </button>
     </div>
   );
 }
@@ -397,7 +466,7 @@ function Draft({
   draftId,
   canDraw,
   footnote,
-  onBack,
+  onClose,
   onStarted,
   onGone,
   onReset,
@@ -405,7 +474,7 @@ function Draft({
   draftId: string;
   canDraw: boolean;
   footnote: ReactNode;
-  onBack?: () => void;
+  onClose: () => void;
   onStarted: FlowProps['onStarted'];
   onGone: () => void;
   onReset: (direction: string) => void;
@@ -590,7 +659,7 @@ function Draft({
   if (!d) {
     return (
       <>
-        <Head onBack={onBack} />
+        <Head onClose={onClose} />
         <div className="sc-pstudio-scroll">
           <div className="sc-pstudio-stage">
             <div className="sc-pstudio-wrap">
@@ -616,7 +685,7 @@ function Draft({
 
   return (
     <>
-      <Head onBack={onBack} title={phase === 'review' ? 'Refine presenter' : 'Create presenter'}>
+      <Head onClose={onClose} title={phase === 'review' ? 'Refine presenter' : 'Create presenter'}>
         {worthKeeping(d) ? (
           <Confirm
             label="Start over"

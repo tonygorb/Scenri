@@ -4,16 +4,16 @@ import { isolate } from './harness.js';
 /**
  * The presenter studio on a hand's width, and on a tablet.
  *
- * Above 768px the studio is a wide card with the stage left and the rail
- * right; below it the same markup stacks into one sheet: head, tabs, the
- * picture, the strip, the words, and a bottom that stays put with the
- * composer and the one decision in it. Runs on the mobile (Pixel 5) and
- * tablet (iPad Mini landscape) projects.
+ * The studio is the whole screen at every width. Above 768px the stage is
+ * left and the rail right; below it the same markup stacks into one column:
+ * head, the two ways to start, the picture, the strip, the words, and a
+ * bottom that stays put with the composer and the one decision in it. Runs
+ * on the mobile (Pixel 5) and tablet (iPad Mini landscape) projects.
  */
 isolate({ env: { SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5' } });
 
 const isPhone = (p: Page) => (p.viewportSize()?.width ?? 0) < 768;
-const dialog = (p: Page) => p.locator('.sc-newdlg');
+const studio = (p: Page) => p.locator('.sc-pstudio');
 
 async function currentBrand(p: Page): Promise<{ slug: string; id: string }> {
   await p.goto('/');
@@ -26,7 +26,7 @@ async function currentBrand(p: Page): Promise<{ slug: string; id: string }> {
   return { slug, id: brands.find((b) => b.slug === slug)?.id ?? brands[0].id };
 }
 
-/** The sheet rises from below the fold; wait until its box stops moving. */
+/** Wait until a box stops moving, so a measure is of a settled layout. */
 async function settledBox(p: Page, selector: string) {
   let last = '';
   for (let i = 0; i < 40; i++) {
@@ -57,46 +57,35 @@ async function openDraft(p: Page, brand: { slug: string; id: string }, draftId: 
     id: draftId,
     brandId: brand.id,
   });
-  await p.goto(`/${brand.slug}/presenters?new=presenter`);
+  await p.goto(`/${brand.slug}/presenters/new`);
 }
 
-test('the studio is a sheet on a phone and a wide card on a tablet', async ({ page }) => {
+test('the studio is the whole screen; the phone stacks it, the tablet keeps the stage', async ({ page }) => {
   const brand = await currentBrand(page);
-  await page.goto(`/${brand.slug}/presenters?new=presenter`);
-  await expect(dialog(page)).toBeVisible();
+  await page.goto(`/${brand.slug}/presenters/new`);
+  await expect(studio(page)).toBeVisible();
   await expect(page.getByRole('radio', { name: 'From scratch' })).toBeVisible();
-  await settledBox(page, '.sc-newdlg');
+  await settledBox(page, '.sc-pstudio');
 
-  const g = await dialog(page).evaluate((el) => {
+  const g = await studio(page).evaluate((el) => {
     const r = el.getBoundingClientRect();
-    const cs = getComputedStyle(el);
     return {
+      top: r.top,
       bottom: r.bottom,
-      height: r.height,
       width: r.width,
       viewportH: window.innerHeight,
       viewportW: window.innerWidth,
-      topLeftRadius: Number.parseFloat(cs.borderTopLeftRadius),
-      bottomLeftRadius: Number.parseFloat(cs.borderBottomLeftRadius),
       overflow: document.documentElement.scrollWidth - window.innerWidth,
       stageShown: getComputedStyle(document.querySelector('.sc-pstudio-stage')!).display !== 'none',
     };
   });
   expect(g.overflow).toBeLessThanOrEqual(1);
-  if (isPhone(page)) {
-    expect(Math.abs(g.bottom - g.viewportH)).toBeLessThanOrEqual(1);
-    expect(Math.abs(g.width - g.viewportW)).toBeLessThanOrEqual(1);
-    expect(g.height).toBeGreaterThanOrEqual(g.viewportH * 0.9);
-    expect(g.topLeftRadius).toBeGreaterThan(8);
-    expect(g.bottomLeftRadius).toBeLessThanOrEqual(1);
-    // nothing to look at yet: the phone gives the words the room
-    expect(g.stageShown).toBe(false);
-  } else {
-    expect(g.viewportH - g.bottom).toBeGreaterThan(8);
-    expect(g.width).toBeLessThan(g.viewportW - 16);
-    expect(g.bottomLeftRadius).toBeGreaterThan(1);
-    expect(g.stageShown).toBe(true);
-  }
+  // a place, not a sheet: edge to edge at every width
+  expect(Math.abs(g.top)).toBeLessThanOrEqual(1);
+  expect(Math.abs(g.bottom - g.viewportH)).toBeLessThanOrEqual(1);
+  expect(Math.abs(g.width - g.viewportW)).toBeLessThanOrEqual(1);
+  // nothing to look at yet: the phone gives the words the room
+  expect(g.stageShown).toBe(!isPhone(page));
 });
 
 test('the picture, the strip and the decision all fit, and the strip scrolls sideways', async ({ page }) => {
@@ -105,7 +94,7 @@ test('the picture, the strip and the decision all fit, and the strip scrolls sid
   await openDraft(page, brand, draftId);
   const use = page.getByRole('button', { name: 'Use this person' });
   await expect(use).toBeVisible({ timeout: 20_000 });
-  await settledBox(page, '.sc-newdlg');
+  await settledBox(page, '.sc-pstudio');
   await expect(page.locator('.sc-pstudio-well img')).toBeVisible();
   await expect(page.locator('.sc-pstudio-slot')).toHaveCount(5);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -127,7 +116,7 @@ test('the decision stays reachable with the composer focused', async ({ page }) 
   await openDraft(page, brand, draftId);
   const use = page.getByRole('button', { name: 'Use this person' });
   await expect(use).toBeVisible({ timeout: 20_000 });
-  await settledBox(page, '.sc-newdlg');
+  await settledBox(page, '.sc-pstudio');
   await page.getByLabel('What should change').tap();
   const box = await use.boundingBox();
   expect(box!.y + box!.height).toBeLessThanOrEqual(page.viewportSize()!.height);

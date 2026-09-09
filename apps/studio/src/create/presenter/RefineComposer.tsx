@@ -2,6 +2,7 @@ import { ArrowUp } from '@phosphor-icons/react';
 import { Spinner } from '@radix-ui/themes';
 import { type KeyboardEvent, useLayoutEffect, useRef, useState } from 'react';
 import { thumbUrl } from '../../api.js';
+import { Tip } from '../../layout/Tip.js';
 import type { ComposerState } from './presenterStudioRules.js';
 
 /**
@@ -27,6 +28,7 @@ export function RefineComposer({
   onValue,
   allowEmpty,
   disabled,
+  why,
   working,
   error,
   onSend,
@@ -46,6 +48,8 @@ export function RefineComposer({
   /** The pill works with nothing typed: a photographs draft needs no sentence. */
   allowEmpty?: boolean;
   disabled?: boolean;
+  /** Why the pill is dimmed, said on it when the cursor asks; the line under the card says it too. */
+  why?: string | null;
   /** A picture is being drawn: the pill says so. */
   working?: boolean;
   /** Why the last sentence went nowhere. */
@@ -77,6 +81,20 @@ export function RefineComposer({
     if (onSend(text) && value === undefined) setOwn('');
   };
   const line = error ? { text: error, tone: 'alert' as const } : { text: state?.hint ?? hint ?? '', tone: state?.tone };
+  // A dimmed pill answers the cursor: the reason, or that the sentence is missing.
+  const reason = working ? null : disabled && why ? why : empty && !disabled ? 'Nothing typed yet.' : null;
+  const pill = (
+    <button
+      type="button"
+      className="sc-pstudio-send"
+      aria-disabled={off || empty || undefined}
+      aria-busy={working || undefined}
+      onClick={send}
+    >
+      {working ? <Spinner size="1" /> : <ArrowUp size={17} weight="bold" />}
+      {working ? 'Working' : action}
+    </button>
+  );
   return (
     <div className="sc-pstudio-composer">
       <div className="sc-pstudio-composer-card">
@@ -104,18 +122,7 @@ export function RefineComposer({
             send();
           }}
         />
-        <div className="sc-pstudio-composer-row">
-          <button
-            type="button"
-            className="sc-pstudio-send"
-            aria-disabled={off || empty || undefined}
-            aria-busy={working || undefined}
-            onClick={send}
-          >
-            {working ? <Spinner size="1" /> : <ArrowUp size={17} weight="bold" />}
-            {working ? 'Working' : action}
-          </button>
-        </div>
+        <div className="sc-pstudio-composer-row">{reason ? <Tip label={reason}>{pill}</Tip> : pill}</div>
       </div>
       {line.text ? (
         <small

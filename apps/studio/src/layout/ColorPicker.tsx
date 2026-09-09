@@ -2,6 +2,7 @@ import { useEffect, useState, type ButtonHTMLAttributes } from 'react';
 import { Popover } from '@radix-ui/themes';
 import { HexColorPicker } from 'react-colorful';
 import { normalizeHex } from '../brand/palette.js';
+import { Tip } from './Tip.js';
 
 /**
  * The one colour picker.
@@ -34,6 +35,7 @@ export function ColorPicker({
   className,
   triggerStyle,
   triggerProps,
+  tip,
   commitMode = 'live',
   align = 'start',
   children,
@@ -53,6 +55,8 @@ export function ColorPicker({
     'data-nav'?: number;
     'data-on'?: string;
   };
+  /** Say `label` on hover too, for a trigger that is only a mark with no word beside it. */
+  tip?: boolean;
   /** The rail plus sits on the right edge; `end` keeps the popover on screen. */
   align?: 'start' | 'center' | 'end';
   children?: React.ReactNode;
@@ -93,19 +97,23 @@ export function ColorPicker({
 
   const uniquePresets = [...new Set((presets ?? []).map((p) => normalizeHex(p)).filter((p): p is string => !!p))];
 
+  const trigger = (
+    <Popover.Trigger>
+      <button
+        type="button"
+        className={className ?? 'sc-cp-trigger'}
+        style={{ background: safe, ...triggerStyle }}
+        aria-label={label}
+        {...triggerProps}
+      >
+        {children}
+      </button>
+    </Popover.Trigger>
+  );
+
   return (
     <Popover.Root open={open} onOpenChange={close}>
-      <Popover.Trigger>
-        <button
-          type="button"
-          className={className ?? 'sc-cp-trigger'}
-          style={{ background: safe, ...triggerStyle }}
-          aria-label={label}
-          {...triggerProps}
-        >
-          {children}
-        </button>
-      </Popover.Trigger>
+      {tip ? <Tip label={label}>{trigger}</Tip> : trigger}
       <Popover.Content className="sc-cp" align={align} sideOffset={6} width="232px">
         <HexColorPicker color={draft} onChange={set} />
         <div className="sc-cp-foot">

@@ -19,6 +19,7 @@ import { ScenesView } from './views/Scenes.js';
 import { ScenePage } from './views/ScenePage.js';
 import { PresentersView } from './views/Presenters.js';
 import { PresenterPage } from './views/PresenterPage.js';
+import { PresenterStudioRoute } from './views/PresenterStudioRoute.js';
 import { ProductsView } from './views/Products.js';
 import { ProductPage } from './views/ProductPage.js';
 import { CreateView } from './views/Create.js';
@@ -181,7 +182,14 @@ export const router = createBrowserRouter([
           { path: P.product, element: <ProductRoute /> },
           { path: P.scenes, element: <ScenesView /> },
           { path: P.scene, element: <SceneRoute /> },
-          { path: P.presenters, element: <PresentersView /> },
+          // the presenter studio is a child route for the same reason the shot
+          // overlay is: the library stays mounted underneath, and a draft in
+          // progress has an address of its own
+          {
+            path: P.presenters,
+            element: <PresentersView />,
+            children: [{ path: P.presenterStudio, element: <PresenterStudioRoute /> }],
+          },
           { path: P.presenter, element: <PresenterRoute /> },
         ],
       },
