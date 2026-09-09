@@ -24,6 +24,13 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     if (alive.current) setDraft(next);
   }, []);
 
+  // A different address is a different draft: nothing of the last one carries over.
+  useEffect(() => {
+    setDraft(null);
+    setGone(false);
+    setErr(null);
+  }, [draftId]);
+
   const load = useCallback(async () => {
     if (!draftId) return;
     try {

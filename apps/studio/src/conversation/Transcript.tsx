@@ -45,26 +45,31 @@ export function Transcript({
     for (const t of turns) seen.current.add(turnKey(t));
   });
 
+  // The newest turn stays in view unless the reader scrolled up to read. On a
+  // desktop the log is the scroller; on a phone the studio column is, so the
+  // nearest scrolling ancestor is what moves and what is watched.
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const parent = scrollParent(el);
+    const onScroll = () => {
+      pinned.current = parent.scrollHeight - parent.scrollTop - parent.clientHeight < 24;
+    };
+    parent.addEventListener('scroll', onScroll, { passive: true });
+    return () => parent.removeEventListener('scroll', onScroll);
+  }, []);
+
   useLayoutEffect(() => {
     const el = box.current;
     if (!el || !pinned.current) return;
-    el.scrollTop = el.scrollHeight;
+    const parent = scrollParent(el);
+    parent.scrollTop = parent.scrollHeight;
   });
 
   let firstYou = true;
   let prevScenri = false;
   return (
-    <div
-      ref={box}
-      className="sc-convo-log"
-      role="log"
-      aria-live="polite"
-      aria-relevant="additions"
-      onScroll={(e) => {
-        const el = e.currentTarget;
-        pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
-      }}
-    >
+    <div ref={box} className="sc-convo-log" role="log" aria-live="polite" aria-relevant="additions">
       <div className="sc-convo-turns">
         {turns.map((t) => {
           const k = turnKey(t);
@@ -110,4 +115,15 @@ export function Transcript({
       </div>
     </div>
   );
+}
+
+/** The element that scrolls this one: itself when it overflows, else the nearest ancestor that does. */
+function scrollParent(el: HTMLElement): HTMLElement {
+  let node: HTMLElement | null = el;
+  while (node) {
+    const { overflowY } = getComputedStyle(node);
+    if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight) return node;
+    node = node.parentElement;
+  }
+  return el;
 }

@@ -207,3 +207,22 @@ describe('the composer follows the question', () => {
     expect(composerFor(activeQuestion(t), d, 'front')?.action).toBe('Refine');
   });
 });
+
+describe('a draft opened at its address', () => {
+  it("carries its own answers: no door is asked again, and the sentence is the draft's", () => {
+    const d = draft({
+      name: 'Idan',
+      direction: 'a man in his 30s',
+      views: views({ portrait: slot({ status: 'candidate', hash: 'p' }) }),
+    });
+    const t = turnsFor({ setup: setup(), draft: d, canGenerate: true, ui });
+    const list = t.map((x) => (x.kind === 'question' ? `q:${x.question.id}` : `${x.kind}:${x.id}`));
+    expect(list).not.toContain('q:source');
+    expect(list).toContain('you:describe');
+    expect(t.find((x) => x.kind === 'you' && x.id === 'describe')).toMatchObject({ text: 'a man in his 30s' });
+    expect(activeQuestion(t)?.id).toBe('identity');
+    const photos = draft({ source: 'photos', sources: ['a'], stage: 'analyzing' });
+    const p = turnsFor({ setup: setup(), draft: photos, canGenerate: true, ui });
+    expect(p.map((x) => (x.kind === 'question' ? `q:${x.question.id}` : `${x.kind}:${x.id}`))).toContain('you:photos');
+  });
+});

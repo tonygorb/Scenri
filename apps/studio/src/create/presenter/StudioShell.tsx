@@ -91,7 +91,27 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // Enter decides the open question's first answer when no field has the
+  // keyboard: Use this person, Save presenter, Retry, without reaching for
+  // the mouse. A sentence in the composer keeps Enter for itself.
   const s = surface;
+  const open = s.turns[s.turns.length - 1];
+  const decide =
+    open?.kind === 'question' && open.question.kind === 'confirm' && !open.question.quiet ? open.question : null;
+  useEffect(() => {
+    if (!decide || s.busy) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.shiftKey || e.defaultPrevented) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.isContentEditable))
+        return;
+      e.preventDefault();
+      s.onAnswer(decide.id, { kind: 'confirm', id: decide.options[0].id });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [decide, s.busy, s.onAnswer]);
+
   return createPortal(
     <FocusScope
       trapped

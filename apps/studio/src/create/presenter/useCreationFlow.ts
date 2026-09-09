@@ -123,6 +123,13 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const s = usePresenterDraft(brand.id, draftId);
   const d = s.draft;
 
+  // A new draft starts its own count of what was drawn without a click.
+  useEffect(() => {
+    started.current = '';
+    catsSeeded.current = false;
+    setFacets([]);
+  }, [draftId]);
+
   // A fresh start resumes the draft this session pointed at, in place.
   useEffect(() => {
     if (draftId) {

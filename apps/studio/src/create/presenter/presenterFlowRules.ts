@@ -200,8 +200,10 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
   const name = d?.name?.trim() ?? '';
   const who = name || 'them';
   const folded = ui.collapsed && !!d && identityLocked(d);
+  // A draft opened at its address carries its own answers; the setup mirror is only for before.
+  const source: Source | null = setup.source ?? (d ? (d.source === 'photos' ? 'photos' : 'scratch') : null);
 
-  if (!setup.source) {
+  if (!source) {
     ask({
       id: 'source',
       kind: 'choice',
@@ -212,9 +214,9 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
   }
 
   if (!folded && !setup.typed)
-    you('source', setup.source === 'photos' ? 'Add photos' : 'Describe someone', 'Who are we creating?');
+    you('source', source === 'photos' ? 'Add photos' : 'Describe someone', 'Who are we creating?');
 
-  if (setup.source === 'scratch') {
+  if (source === 'scratch') {
     if (!canGenerate && !d) {
       ask({
         id: 'noengine',
@@ -283,7 +285,7 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
     T.push({
       kind: 'summary',
       id: 'setup',
-      text: `Setup: ${setup.source === 'photos' ? photosLine(d.sources?.length ?? 0) : 'described'}${name ? `, named ${name}` : ''}. Show`,
+      text: `Setup: ${source === 'photos' ? photosLine(d.sources?.length ?? 0) : 'described'}${name ? `, named ${name}` : ''}. Show`,
     });
   }
 
@@ -404,6 +406,15 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
       options: [{ id: 'retry', label: 'Retry' }],
     });
     return T;
+  }
+
+  // A view that decided itself keeps the sentence that redrew it in the record.
+  for (const v of views) {
+    const slot = d.views[v];
+    if (slot.status === 'approved' && slot.prior && slot.adjustment && v !== 'portrait') {
+      you(`adjust-${v}`, slot.adjustment, 'What should change', { editable: false });
+      say(`redrew-${v}`, `Redrew the ${VIEW_NAME[v]}.`);
+    }
   }
 
   if (!allApproved(d)) return T;
