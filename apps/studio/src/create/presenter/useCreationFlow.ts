@@ -3,7 +3,7 @@ import { api, type PresenterDraft, thumbUrl, uploadImage } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useOpenSetup } from '../../app/dialogs.js';
-import { type Answer, smallTalk } from '../../conversation/question.js';
+import { type Answer, nowIso, smallTalk } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
 import {
@@ -99,7 +99,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     extrasDeclined: false,
     reasking: null,
     failed: null,
-    aside: null,
+    asides: [],
   });
   const [text, setText] = useState('');
   const [focus, setFocus] = useState<StudioView | null>(null);
@@ -315,7 +315,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     }
     session.remove(pointerKey(brand.id));
     clearSetup();
-    setUi({ collapsed: false, extrasDeclined: false, reasking: null, failed: null, aside: null });
+    setUi({ collapsed: false, extrasDeclined: false, reasking: null, failed: null, asides: [] });
     setText(keep);
     setConfirming(null);
     onLeaveDraft();
@@ -335,7 +335,6 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const onAnswer = useCallback(
     (qid: string, a: Answer) => {
       setAskErr(null);
-      setUi((u) => (u.aside ? { ...u, aside: null } : u));
       switch (qid) {
         case 'source':
           if (a.kind === 'choice') setSetup({ source: a.id as Setup['source'] });
@@ -425,12 +424,20 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       const sentence = raw.trim();
       if (!sentence) return false;
       setAskErr(null);
-      setUi((u) => ({ ...u, aside: null }));
       const qid = ui.reasking ?? question?.id;
-      // a greeting or a word that describes nobody is answered with the question, not drawn
+      // a greeting or a word that describes nobody is answered with the question,
+      // not drawn, and what was said stays in the conversation
       if (qid !== 'name' && smallTalk(sentence) && !(qid === 'source' && sourceFromText(sentence))) {
-        const reply = qid === 'source' ? ASIDE.source(sentence) : qid === 'describe' ? ASIDE.describe : ASIDE.refine;
-        setUi((u) => ({ ...u, aside: { said: sentence, reply } }));
+        const again = (ui.asides ?? []).some((a) => a.q === (qid ?? null));
+        const reply = again
+          ? ASIDE.again(qid)
+          : qid === 'source'
+            ? ASIDE.source(sentence)
+            : qid === 'describe'
+              ? ASIDE.describe
+              : ASIDE.refine;
+        const aside = { said: sentence, reply, q: qid ?? null, at: nowIso() };
+        setUi((u) => ({ ...u, asides: [...(u.asides ?? []), aside] }));
         setText('');
         return true;
       }
@@ -488,7 +495,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       setText('');
       return true;
     },
-    [ui.reasking, question?.id, canDraw, setSetup, describe, d, s, view],
+    [ui.reasking, ui.asides, question?.id, canDraw, setSetup, describe, d, s, view],
   );
 
   const onEdit = useCallback(

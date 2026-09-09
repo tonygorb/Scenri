@@ -3,13 +3,16 @@ import { api, thumbUrl } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useOpenSetup } from '../../app/dialogs.js';
-import { type Answer, smallTalk } from '../../conversation/question.js';
+import { type Answer, nowIso, smallTalk } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
 import { activeQuestion } from './presenterFlowRules.js';
 import {
   EDIT_ASIDE,
+  EDIT_ASIDE_AGAIN,
   EMPTY_EDIT_UI,
+  OUT_OF_SCOPE_LINE,
+  PROMPT_EDIT,
   type EditBase,
   type EditUi,
   editComposerState,
@@ -171,7 +174,6 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
   const onAnswer = useCallback(
     (qid: string, a: Answer) => {
       setAskErr(null);
-      setUi((u) => (u.aside ? { ...u, aside: null } : u));
       if (!d) return;
       switch (qid) {
         case 'legacy':
@@ -180,7 +182,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
           return;
         case 'scope': {
           if (a.kind !== 'choice') return;
-          const sentence = ui.scopeAsk ?? '';
+          const sentence = ui.scopeAsk?.said ?? '';
           setUi((u) => ({ ...u, scopeAsk: null }));
           if (a.id === 'identity') void s.generate('portrait', sentence);
           else void s.generate(view, sentence, 'auto');
@@ -223,9 +225,27 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
       const sentence = raw.trim();
       if (!sentence || !d) return false;
       setAskErr(null);
-      setUi((u) => ({ ...u, outOfScope: null, scopeAsk: null, aside: null }));
+      const q = question?.id ?? null;
+      const at = nowIso();
+      // What answered nothing stays in the conversation where it was said.
+      const said = (u: EditUi, reply: string): EditUi => ({
+        ...u,
+        asides: [...(u.asides ?? []), { said: sentence, reply, q, at }],
+      });
+      // A sentence that read both ways waits for its answer; a new sentence leaves it in the record as asked.
+      const leaveScope = (u: EditUi): EditUi =>
+        u.scopeAsk
+          ? {
+              ...u,
+              scopeAsk: null,
+              asides: [
+                ...(u.asides ?? []),
+                { said: u.scopeAsk.said, reply: PROMPT_EDIT.scope, q: 'scope', at: u.scopeAsk.at },
+              ],
+            }
+          : u;
       if (smallTalk(sentence)) {
-        setUi((u) => ({ ...u, aside: { said: sentence, reply: EDIT_ASIDE } }));
+        setUi((u) => said(u, (u.asides ?? []).some((a) => a.q === q) ? EDIT_ASIDE_AGAIN : EDIT_ASIDE));
         setText('');
         return true;
       }
@@ -239,22 +259,23 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
         return false;
       }
       if (i.scope === 'out-of-scope') {
-        setUi((u) => ({ ...u, outOfScope: sentence }));
+        setUi((u) => said(leaveScope(u), OUT_OF_SCOPE_LINE(name)));
         setText('');
         return true;
       }
       if (i.scope === 'ambiguous') {
-        setUi((u) => ({ ...u, scopeAsk: sentence }));
+        setUi((u) => ({ ...leaveScope(u), scopeAsk: { said: sentence, at } }));
         setText('');
         return true;
       }
+      setUi((u) => leaveScope(u));
       setFocus(i.view);
       setCompare(false);
       void s.generate(i.view, sentence, i.scope === 'view' ? 'auto' : undefined);
       setText('');
       return true;
     },
-    [d, canDraw, view, s],
+    [d, canDraw, view, s, question?.id, name],
   );
 
   const scopeState = d ? editComposerState(text, view, d, name) : null;

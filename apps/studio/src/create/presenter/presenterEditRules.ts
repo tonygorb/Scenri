@@ -1,4 +1,4 @@
-import type { Question, Turn } from '../../conversation/question.js';
+import { type Aside, type Question, type Turn, asideTurns, openQuestionId } from '../../conversation/question.js';
 import {
   CORE_VIEWS,
   type DraftLike,
@@ -135,22 +135,19 @@ export interface EditUi {
   /** "Build them" was chosen: the missing core views are drawn without a click. */
   building: boolean;
   buildDeclined: boolean;
-  /** The last sentence that belonged to Create, shown once with the line that says so. */
-  outOfScope: string | null;
-  /** The last sentence that read both ways, waiting for its answer. */
-  scopeAsk: string | null;
+  /** The sentence that read both ways, waiting for its answer. */
+  scopeAsk: { said: string; at: string } | null;
   /** A draw request that never reached the engine. */
   failed?: string | null;
   /** The save was refused because the record moved elsewhere. */
   conflict: string | null;
-  /** Small talk: what was said, and what the composer is for, once. */
-  aside?: { said: string; reply: string } | null;
+  /** Sentences that answered nothing (small talk, a sentence for Create, a question that was left), each kept where it was said. */
+  asides?: Aside[];
 }
 
 export const EMPTY_EDIT_UI: EditUi = {
   building: false,
   buildDeclined: false,
-  outOfScope: null,
   scopeAsk: null,
   failed: null,
   conflict: null,
@@ -167,6 +164,9 @@ export interface EditFlowArgs {
 
 export const EDIT_ASIDE =
   'Say what should change: hair, age or build change the person; anything else changes the view on the stage.';
+/** The second time, different words. */
+export const EDIT_ASIDE_AGAIN =
+  'Still here. Select a view and say what is wrong with it, or say what should change about them.';
 
 export const PROMPT_EDIT = {
   opening: (name: string) =>
@@ -177,15 +177,33 @@ export const PROMPT_EDIT = {
 };
 
 /** The editor's transcript, whole, from state. */
-export function turnsForEdit({ draft: d, base, name, selected, canGenerate, ui }: EditFlowArgs): Turn[] {
+export function turnsForEdit(args: EditFlowArgs): Turn[] {
+  const asides = args.ui.asides ?? [];
+  // Where an aside goes depends on which question is open, so the transcript
+  // is shaped once without them to learn it.
+  const openId = asides.length ? openQuestionId(shapeEdit(args, [], null)) : null;
+  return shapeEdit(args, asides, openId);
+}
+
+function shapeEdit(
+  { draft: d, base, name, selected, canGenerate, ui }: EditFlowArgs,
+  asides: Aside[],
+  openId: string | null,
+): Turn[] {
   const T: Turn[] = [{ kind: 'scenri', id: 'opening', text: PROMPT_EDIT.opening(name) }];
+  const placed = new Set<Aside>();
+  // What was said at the open question follows it; anything left follows the last turn.
+  const done = () => {
+    for (const a of asides) if (!placed.has(a)) T.push(...asideTurns(a));
+    return T;
+  };
   const you = (id: string, text: string, asked?: string) => {
     if (asked) T.push({ kind: 'scenri', id: `asked-${id}`, text: asked });
     T.push({ kind: 'you', id, text, editable: false });
   };
   const say = (id: string, text: string, tone?: 'alert' | 'warn') => T.push({ kind: 'scenri', id, text, tone });
   const ask = (question: Question) => T.push({ kind: 'question', question });
-  if (!d) return T;
+  if (!d) return done();
 
   const missing = missingCore(d);
   if (missing.length && !ui.building && !ui.buildDeclined && !drawing(d) && canGenerate) {
@@ -199,30 +217,7 @@ export function turnsForEdit({ draft: d, base, name, selected, canGenerate, ui }
         { id: 'not', label: 'Not now' },
       ],
     });
-    return T;
-  }
-
-  if (ui.outOfScope) {
-    you('out-of-scope', ui.outOfScope);
-    say('out-of-scope-line', OUT_OF_SCOPE_LINE(name));
-  }
-  if (ui.aside) {
-    you('aside-said', ui.aside.said);
-    say('aside-reply', ui.aside.reply);
-  }
-
-  if (ui.scopeAsk) {
-    you('scope-ask', ui.scopeAsk);
-    ask({
-      id: 'scope',
-      kind: 'choice',
-      prompt: PROMPT_EDIT.scope,
-      options: [
-        { id: 'view', label: `This view (the ${VIEW_NAME[selected]})` },
-        { id: 'identity', label: 'The presenter' },
-      ],
-    });
-    return T;
+    return done();
   }
 
   const views = viewsOf(d);
@@ -238,8 +233,9 @@ export function turnsForEdit({ draft: d, base, name, selected, canGenerate, ui }
     say(`changed-${i}`, `Changed ${name}. The views built on the face were redrawn.`);
   });
 
-  // Every sentence sent to redraw a view is an exchange of its own, in the
-  // order it was sent. The last one is still open while its view draws, waits
+  // The record: every sentence sent to redraw a view as an exchange of its
+  // own, and every sentence that answered nothing where it was said, in the
+  // order it happened. The last ask is still open while its view draws, waits
   // on a decision or failed. A change to the person that was accepted is told
   // above as the change it became, so its ask is not told twice.
   const asks = d.asks ?? [];
@@ -251,11 +247,39 @@ export function turnsForEdit({ draft: d, base, name, selected, canGenerate, ui }
     (lastSlot.status === 'generating' || lastSlot.status === 'candidate' || !!lastSlot.error) &&
     (lastSlot.adjustment === last.text || !!lastSlot.error);
   const told = new Set((d.identityEdits ?? []).map((e) => e.toLowerCase()));
-  for (const a of lastOpen ? asks.slice(0, -1) : asks) {
-    if (a.view === 'portrait' && told.has(a.text.replace(/\s+/g, ' ').toLowerCase())) continue;
-    you(`ask-${a.at}`, a.text, PROMPT_EDIT.change);
-    say(`redrew-${a.at}`, `Redrew the ${VIEW_NAME[a.view]}.`);
+  const closed = (lastOpen ? asks.slice(0, -1) : asks).filter(
+    (a) => !(a.view === 'portrait' && told.has(a.text.replace(/\s+/g, ' ').toLowerCase())),
+  );
+  const chatter = asides.filter((a) => !placed.has(a) && a.q !== openId);
+  for (const a of chatter) placed.add(a);
+  const record: { at: string; turns: Turn[] }[] = [
+    ...closed.map((a) => ({
+      at: a.at,
+      turns: [
+        { kind: 'scenri' as const, id: `asked-ask-${a.at}`, text: PROMPT_EDIT.change },
+        { kind: 'you' as const, id: `ask-${a.at}`, text: a.text, editable: false },
+        { kind: 'scenri' as const, id: `redrew-${a.at}`, text: `Redrew the ${VIEW_NAME[a.view]}.` },
+      ],
+    })),
+    ...chatter.map((a) => ({ at: a.at, turns: asideTurns(a) })),
+  ];
+  record.sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0));
+  for (const r of record) T.push(...r.turns);
+
+  if (ui.scopeAsk) {
+    you('scope-ask', ui.scopeAsk.said);
+    ask({
+      id: 'scope',
+      kind: 'choice',
+      prompt: PROMPT_EDIT.scope,
+      options: [
+        { id: 'view', label: `This view (the ${VIEW_NAME[selected]})` },
+        { id: 'identity', label: 'The presenter' },
+      ],
+    });
+    return done();
   }
+
   const openAsk = () => {
     if (lastOpen && last) you(`ask-${last.at}`, last.text, PROMPT_EDIT.change);
   };
@@ -273,7 +297,7 @@ export function turnsForEdit({ draft: d, base, name, selected, canGenerate, ui }
           ? `Redrawing the views built on the face. The ${VIEW_NAME[active]} first.`
           : `Drawing the ${VIEW_NAME[active]}.`,
     );
-    return T;
+    return done();
   }
 
   if (candidate) {
@@ -291,7 +315,7 @@ export function turnsForEdit({ draft: d, base, name, selected, canGenerate, ui }
         { id: 'again', label: 'Try again' },
       ],
     });
-    return T;
+    return done();
   }
 
   if (ui.failed || failedView) {
@@ -305,7 +329,7 @@ export function turnsForEdit({ draft: d, base, name, selected, canGenerate, ui }
         : `That did not go through: ${ui.failed}. Nothing finished was touched.`,
       options: [{ id: 'retry', label: 'Retry' }],
     });
-    return T;
+    return done();
   }
 
   if (ui.conflict) {
@@ -316,14 +340,14 @@ export function turnsForEdit({ draft: d, base, name, selected, canGenerate, ui }
       prompt: `${name} changed in another tab. Reload to continue.`,
       options: [{ id: 'reload', label: 'Reload' }],
     });
-    return T;
+    return done();
   }
 
   // A view built on a face that changed is redrawn before anything is offered:
   // Save is for a coherent set, and the redraw starts on its own.
   if (views.some((v) => d.views[v].status === 'stale')) {
     say('rebuilding', 'Redrawing the views built on the face.');
-    return T;
+    return done();
   }
 
   if (base && isDirty(d, base)) {
@@ -334,5 +358,5 @@ export function turnsForEdit({ draft: d, base, name, selected, canGenerate, ui }
       options: [{ id: 'save', label: 'Save changes' }],
     });
   }
-  return T;
+  return done();
 }

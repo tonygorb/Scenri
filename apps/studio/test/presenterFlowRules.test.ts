@@ -242,16 +242,46 @@ describe('a draft opened at its address', () => {
 });
 
 describe('small talk at a question', () => {
-  it('is answered with the question again, and the question stays open', () => {
+  const hello = (at: string) => ({
+    said: 'hello',
+    reply: 'Hi. Describe them in a sentence, or pick one above.',
+    q: 'source',
+    at,
+  });
+  it('is answered with the question again, the question stays open, and a second one does not replace the first', () => {
     const t = turnsFor({
       setup: setup(),
       draft: null,
       canGenerate: true,
-      ui: { ...ui, aside: { said: 'hello', reply: 'Hi. Describe them in a sentence, or pick one above.' } },
+      ui: {
+        ...ui,
+        asides: [
+          hello('a1'),
+          { said: 'test', reply: 'Describe them in a sentence, or pick one above.', q: 'source', at: 'a2' },
+        ],
+      },
     });
     const list = t.map((x) => (x.kind === 'question' ? `q:${x.question.id}` : `${x.kind}:${x.id}`));
-    expect(list).toEqual(['you:intent', 'q:source', 'you:aside-said', 'scenri:aside-reply']);
+    expect(list).toEqual([
+      'you:intent',
+      'q:source',
+      'you:aside-said-a1',
+      'scenri:aside-reply-a1',
+      'you:aside-said-a2',
+      'scenri:aside-reply-a2',
+    ]);
     expect(activeQuestion(t)?.id).toBe('source');
+  });
+  it('stays under the question it interrupted once that question is answered', () => {
+    const typed = setup({ source: 'scratch', typed: true, description: 'a woman in her 30s, dark hair, slim' });
+    const list = ids(typed, null, true, { ...ui, asides: [hello('a1')] });
+    expect(list.slice(0, 5)).toEqual([
+      'you:intent',
+      'scenri:asked-describe',
+      'you:aside-said-a1',
+      'scenri:aside-reply-a1',
+      'you:describe',
+    ]);
   });
 });
 

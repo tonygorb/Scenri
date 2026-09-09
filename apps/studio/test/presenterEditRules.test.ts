@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PresenterDraftSlot } from '../src/api.js';
 import {
   EMPTY_EDIT_UI,
+  OUT_OF_SCOPE_LINE,
   editComposerState,
   editIntent,
   isDirty,
@@ -145,16 +146,19 @@ describe('the editor transcript', () => {
       name: 'Maren',
       selected: 'front',
       canGenerate: true,
-      ui: { ...EMPTY_EDIT_UI, outOfScope: 'in a red dress' },
+      ui: {
+        ...EMPTY_EDIT_UI,
+        asides: [{ said: 'in a red dress', reply: OUT_OF_SCOPE_LINE('Maren'), q: null, at: 'n1' }],
+      },
     });
-    expect(ids(oos)).toEqual(['scenri:opening', 'you:out-of-scope', 'scenri:out-of-scope-line']);
+    expect(ids(oos)).toEqual(['scenri:opening', 'you:aside-said-n1', 'scenri:aside-reply-n1']);
     const ask = turnsForEdit({
       draft: draft(),
       base,
       name: 'Maren',
       selected: 'front',
       canGenerate: true,
-      ui: { ...EMPTY_EDIT_UI, scopeAsk: 'her face looks wrong with the shorter hair' },
+      ui: { ...EMPTY_EDIT_UI, scopeAsk: { said: 'her face looks wrong with the shorter hair', at: 'n2' } },
     });
     expect(ids(ask).at(-1)).toBe('q:scope');
   });

@@ -154,7 +154,8 @@ test.describe('a person from scratch', () => {
     // a typed sentence is the description; no door is asked
     await send(page, 'Late 30s woman, Mediterranean appearance, dark shoulder-length hair, slim build, elegant.');
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 20_000 });
-    await expect(log(page)).not.toContainText('Describe someone');
+    await expect(answer(page, 'Describe someone')).toHaveCount(0);
+    await expect(answer(page, 'Add photos')).toHaveCount(0);
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('.sc-pstudio-slot')).toHaveCount(3);
 

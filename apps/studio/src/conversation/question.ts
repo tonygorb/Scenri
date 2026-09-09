@@ -179,3 +179,39 @@ export function smallTalk(text: string): boolean {
   if (words.length === 1 && /^[A-Z][a-z]+$/.test(t)) return false;
   return words.length <= 2 && !DESCRIBES.test(t) && !/\d/.test(t);
 }
+
+/**
+ * A sentence that answered nothing: small talk at a question, a sentence
+ * the flow could only point back from, a question that was left. It stays
+ * where it was said: under the question it interrupted while that is open,
+ * between that question's line and its answer once answered, else in the
+ * record by time. Nothing said later rewrites it.
+ */
+export interface Aside {
+  said: string;
+  reply: string;
+  /** The question open when it was said, by id; null when none was. */
+  q: string | null;
+  /** When it was said, ISO: the key of its turns and its place in the record. */
+  at: string;
+}
+
+export const asideTurns = (a: Aside): Turn[] => [
+  { kind: 'you', id: `aside-said-${a.at}`, text: a.said, editable: false },
+  { kind: 'scenri', id: `aside-reply-${a.at}`, text: a.reply },
+];
+
+/** An aside's turns are not an answer: the question before them is still the open one. */
+export const isAsideTurn = (t: Turn): boolean => (t.kind === 'you' || t.kind === 'scenri') && t.id.startsWith('aside-');
+
+/** The open question's id, read off the end of a transcript: the last question, whatever asides follow it. */
+export function openQuestionId(turns: Turn[]): string | null {
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const t = turns[i];
+    if (t.kind === 'question') return t.question.id;
+    if (!isAsideTurn(t)) return null;
+  }
+  return null;
+}
+
+export const nowIso = (): string => new Date().toISOString();

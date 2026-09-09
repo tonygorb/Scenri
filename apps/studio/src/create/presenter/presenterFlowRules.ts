@@ -1,5 +1,5 @@
 import type { Question, Turn } from '../../conversation/question.js';
-import { choiceFromText } from '../../conversation/question.js';
+import { type Aside, asideTurns, choiceFromText, isAsideTurn, openQuestionId } from '../../conversation/question.js';
 import {
   type Age,
   type DraftLike,
@@ -65,8 +65,8 @@ export interface FlowUi {
   reasking: 'name' | 'describe' | null;
   /** A draw request that never reached the engine, said once with a Retry. */
   failed?: string | null;
-  /** Small talk at a question: what was said, and the question again in its own words. */
-  aside?: { said: string; reply: string } | null;
+  /** Sentences that answered nothing, each kept where it was said. */
+  asides?: Aside[];
 }
 
 export const MAX_PHOTOS = 4;
@@ -196,33 +196,36 @@ export interface FlowArgs {
  * when there is one; `activeQuestion()` reads it off.
  */
 export function turnsFor(args: FlowArgs): Turn[] {
-  const T = withAside(turnsBase(args), args.ui.aside);
-  if (!args.ui.reasking) return T;
-  const kept = T[T.length - 1]?.kind === 'question' ? T.slice(0, -1) : T;
-  if (args.ui.reasking === 'name') {
-    return [...kept, { kind: 'question', question: { id: 'name', kind: 'text', prompt: PROMPT.name } }];
-  }
-  return [
-    ...kept,
-    {
-      kind: 'question',
-      question: {
-        id: 'describe',
-        kind: 'text',
-        prompt: 'Describe them again. The face is drawn from the new sentence.',
-      },
-    },
-  ];
+  const asides = args.ui.asides ?? [];
+  // Where an aside goes depends on which question is open, so the transcript
+  // is shaped once without them to learn it.
+  const openId = asides.length ? openQuestionId(shape(args, [], null)) : null;
+  return shape(args, asides, openId);
 }
 
-/** Small talk comes after the open question, as it did: what was said, then a word pointing back up. */
-export function withAside(T: Turn[], aside: FlowUi['aside'] | undefined): Turn[] {
-  if (!aside) return T;
-  return [
-    ...T,
-    { kind: 'you', id: 'aside-said', text: aside.said, editable: false },
-    { kind: 'scenri', id: 'aside-reply', text: aside.reply },
-  ];
+function shape(args: FlowArgs, asides: Aside[], openId: string | null): Turn[] {
+  const placed = new Set<Aside>();
+  let T = turnsBase(args, asides, openId, placed);
+  if (args.ui.reasking) {
+    const kept = T[T.length - 1]?.kind === 'question' ? T.slice(0, -1) : T;
+    T =
+      args.ui.reasking === 'name'
+        ? [...kept, { kind: 'question', question: { id: 'name', kind: 'text', prompt: PROMPT.name } }]
+        : [
+            ...kept,
+            {
+              kind: 'question',
+              question: {
+                id: 'describe',
+                kind: 'text',
+                prompt: 'Describe them again. The face is drawn from the new sentence.',
+              },
+            },
+          ];
+  }
+  // What was said at the open question follows it; anything left follows the last turn.
+  for (const a of asides) if (!placed.has(a)) T.push(...asideTurns(a));
+  return T;
 }
 
 /** The question again, in its own words, when the answer was not one. */
@@ -234,14 +237,40 @@ export const ASIDE = {
   describe: 'A few words about them is enough: age, hair, build, skin, presence.',
   name: 'A name, so the rest of the conversation can use it.',
   refine: 'Say what should change: hair, age or build change the person; anything else changes the view on the stage.',
+  /** The second time at the same question, different words, so the reply never repeats itself. */
+  again: (qid: string | undefined) =>
+    qid === 'source'
+      ? 'Still here. A sentence about them, or one of the two above.'
+      : qid === 'describe'
+        ? 'Still here. One or two sentences about them is all it takes.'
+        : 'Still here. Say what should change, and it is redrawn.',
 };
 
-function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
+/** The questions of the setup: folded with it, and their asides with them. */
+const SETUP_QS = new Set(['source', 'describe', 'gaps', 'photos', 'noengine', 'blind', 'name']);
+
+function turnsBase(
+  { setup, draft: d, canGenerate, ui }: FlowArgs,
+  asides: Aside[],
+  openId: string | null,
+  placed: Set<Aside>,
+): Turn[] {
   const T: Turn[] = [{ kind: 'you', id: 'intent', text: 'Create a presenter' }];
   const folded = ui.collapsed && !!d && identityLocked(d);
+  if (folded) for (const a of asides) if (a.q && SETUP_QS.has(a.q)) placed.add(a);
+  // What was said at a question, once it is answered, sits between its line and the answer.
+  const attach = (ids: string[]) => {
+    for (const a of asides) {
+      if (placed.has(a) || !a.q || a.q === openId || !ids.includes(a.q)) continue;
+      placed.add(a);
+      T.push(...asideTurns(a));
+    }
+  };
   // An answer keeps the line it answered above it: the exchange is the record.
   const you = (id: string, text: string, asked: string, extra?: { photos?: string[]; editable?: boolean }) => {
     if (!folded) T.push({ kind: 'scenri', id: `asked-${id}`, text: asked });
+    // A typed sentence answered the first question, so what was said there stays with it.
+    attach(id === 'describe' && setup.typed ? ['source', 'describe'] : [id]);
     T.push({ kind: 'you', id, text, editable: extra?.editable ?? true, photos: extra?.photos });
   };
   const say = (id: string, text: string, tone?: 'alert' | 'warn') => T.push({ kind: 'scenri', id, text, tone });
@@ -286,7 +315,9 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
       });
       return T;
     }
-    if (!folded) you('describe', setup.description.trim() || (d?.direction ?? ''), PROMPT.describe);
+    if (!folded) {
+      you('describe', setup.description.trim() || (d?.direction ?? ''), setup.typed ? PROMPT.source : PROMPT.describe);
+    }
     if (setup.gapsAsked && !setup.gaps && !d) {
       const gaps = descriptionGaps(setup.description);
       ask({
@@ -335,7 +366,8 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
 
   if (d.stage === 'analyzing') {
     say('reading', 'Reading the photos.');
-    if (!name) askName(PROMPT.nameWhileReading);
+    if (name) you('name', name, PROMPT.name);
+    else askName(PROMPT.nameWhileReading);
     return T;
   }
 
@@ -376,11 +408,26 @@ function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
     (lastSlot.status === 'generating' || lastSlot.status === 'candidate' || !!lastSlot.error) &&
     (lastSlot.adjustment === last.text || !!lastSlot.error);
   const askedFor = (v: StudioView) => (v === 'portrait' && !identityLocked(d) ? PROMPT.identity(who) : PROMPT.change);
+  // The record: the closed asks and whatever was said in between, in the
+  // order it happened. What was said at the open question is not here; it
+  // follows that question.
   const pastAsks = () => {
-    for (const a of lastOpen ? asks.slice(0, -1) : asks) {
-      you(`ask-${a.at}`, a.text, askedFor(a.view), { editable: false });
-      say(`redrew-${a.at}`, `Redrew the ${VIEW_NAME[a.view]}.`);
-    }
+    const closed = lastOpen ? asks.slice(0, -1) : asks;
+    const chatter = asides.filter((a) => !placed.has(a) && a.q !== openId);
+    for (const a of chatter) placed.add(a);
+    const record: { at: string; turns: Turn[] }[] = [
+      ...closed.map((a) => ({
+        at: a.at,
+        turns: [
+          { kind: 'scenri' as const, id: `asked-ask-${a.at}`, text: askedFor(a.view) },
+          { kind: 'you' as const, id: `ask-${a.at}`, text: a.text, editable: false },
+          { kind: 'scenri' as const, id: `redrew-${a.at}`, text: `Redrew the ${VIEW_NAME[a.view]}.` },
+        ],
+      })),
+      ...chatter.map((a) => ({ at: a.at, turns: asideTurns(a) })),
+    ];
+    record.sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0));
+    for (const r of record) T.push(...r.turns);
   };
   const openAsk = () => {
     if (lastOpen && last) you(`ask-${last.at}`, last.text, askedFor(last.view), { editable: false });
@@ -537,8 +584,7 @@ export function activeQuestion(turns: Turn[]): Question | null {
   for (let i = turns.length - 1; i >= 0; i--) {
     const t = turns[i];
     if (t.kind === 'question') return t.question;
-    if (t.kind === 'you' && t.id !== 'aside-said') return null;
-    if (t.kind === 'scenri' && t.id !== 'aside-reply') return null;
+    if (!isAsideTurn(t)) return null;
   }
   return null;
 }
