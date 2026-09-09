@@ -363,6 +363,24 @@ test.describe('a person from scratch', () => {
       .poll(async () => (await draftOf(page, brand.id, draftId)).views.front.hash)
       .toBe(before.views.front.hash);
     await expect(page.locator('.sc-pstudio-offer')).toHaveCount(0);
+    // the redrawn picture stays in the record as a restore point: back in one tap, nothing drawn
+    await expect(log(page)).toContainText('Keep previous');
+    const calls = apiCalls(page);
+    const restore = log(page).locator('.sc-convo-restore');
+    await expect(restore).toHaveCount(1);
+    await restore.click();
+    await expect
+      .poll(async () => (await draftOf(page, brand.id, draftId)).views.front.hash)
+      .toBe(redrawn.views.front.hash);
+    // the full body is back from its file; only the view built on it is drawn again
+    expect(calls.urls()).not.toContain('/views/front/generate');
+    await expect(log(page)).toContainText('Restored the full body from before.');
+    const back = await draftOf(page, brand.id, draftId);
+    expect(back.views.front.prior).toBe(before.views.front.hash);
+    // what was built on the replaced full body is drawn again on its own
+    await expect
+      .poll(async () => (await draftOf(page, brand.id, draftId)).views['three-quarter'].attempts, { timeout: 20_000 })
+      .toBeGreaterThan(before.views['three-quarter'].attempts);
   });
 
   test('Add them builds the back and profile views, and the strip grows to six', async ({ page }) => {
