@@ -12,13 +12,29 @@ import { Eyebrow, RevealWords, Thinking, arrivalVars, useRevealOnce } from './Sc
  * its quieter alternatives. A sentence has no control here: the composer
  * under the transcript is the answer, and the starters only fill it.
  */
+/**
+ * The beat a tap is seen for: the chosen control keeps its light, the rest
+ * step back, the row goes. The answer itself is taken at once; the transcript
+ * keeps a ghost of the block for this long, so nothing typed meanwhile goes
+ * to a question that is already answered.
+ */
+export const PICK_MS = 300;
+
+/** What a block looked like when it was answered, for its ghost. */
+export interface Picked {
+  picked: string;
+  picks: Record<string, string>;
+}
+
 export function QuestionBlock({
   question,
   reveal,
   busy,
   eyebrow = true,
   delay = 0,
+  ghost,
   onAnswer,
+  onPick,
   onStarter,
 }: {
   question: Question;
@@ -29,13 +45,28 @@ export function QuestionBlock({
   eyebrow?: boolean;
   /** The flow is mid-request: nothing here answers twice. */
   busy?: boolean;
+  /** This is the ghost of an answered block: inert, going, showing what was chosen. */
+  ghost?: Picked;
   onAnswer: (answer: Answer) => void;
+  /** A tap was taken: what the block looked like, for the ghost the transcript keeps. */
+  onPick?: (question: Question, picked: Picked) => void;
   /** A starter sentence fills the composer; the flow owns the composer's text. */
   onStarter?: (text: string) => void;
 }) {
-  const playing = useRevealOnce(reveal, question.prompt, delay);
-  const [picks, setPicks] = useState<Record<string, string>>({});
-  const [picked, setPicked] = useState<string | null>(null);
+  // the timing a turn arrives by is fixed when it mounts, whatever renders after
+  const [start] = useState(delay);
+  const playing = useRevealOnce(reveal, question.prompt, start);
+  const [picks, setPicks] = useState<Record<string, string>>(ghost?.picks ?? {});
+  const [picked, setPicked] = useState<string | null>(ghost?.picked ?? null);
+  // The answer is taken the moment it is tapped. The block lights the chosen
+  // control and hands its look to the transcript, which keeps a ghost of it
+  // while the row goes.
+  const commit = (id: string, answer: Answer) => {
+    if (picked) return;
+    setPicked(id);
+    onPick?.(question, { picked: id, picks });
+    onAnswer(answer);
+  };
   const plan = revealPlan(question.prompt);
   const promptId = `sc-convo-q-${question.id}`;
   return (
@@ -43,7 +74,7 @@ export function QuestionBlock({
       className="sc-convo-turn"
       data-who="scenri"
       data-arrive={playing || undefined}
-      style={playing ? arrivalVars(delay) : undefined}
+      style={playing ? arrivalVars(start) : undefined}
     >
       {eyebrow && <Eyebrow thinking={playing} />}
       <p className="sc-convo-say" id={promptId} data-tone={question.tone} data-reveal={playing || undefined}>
@@ -56,6 +87,7 @@ export function QuestionBlock({
         aria-labelledby={promptId}
         data-kind={question.kind}
         data-reveal={playing || undefined}
+        data-picked={!!picked || undefined}
         style={playing ? ({ '--sc-convo-after': `${plan.total}ms` } as CSSProperties) : undefined}
         disabled={busy || undefined}
       >
@@ -77,11 +109,7 @@ export function QuestionBlock({
                 type="button"
                 className="sc-chip sc-convo-choice"
                 data-on={picked === o.id || undefined}
-                onClick={() => {
-                  // the chip lights before the turn takes its place: the tap is seen
-                  setPicked(o.id);
-                  onAnswer({ kind: 'choice', id: o.id });
-                }}
+                onClick={() => commit(o.id, { kind: 'choice', id: o.id })}
               >
                 {o.label}
               </button>
@@ -124,14 +152,20 @@ export function QuestionBlock({
                 className="sc-btn sc-btn-primary"
                 aria-disabled={!groupsAnswered(question.groups, picks) || undefined}
                 title={groupsAnswered(question.groups, picks) ? undefined : 'Pick one in each row, or skip.'}
+                data-on={picked === 'submit' || undefined}
                 onClick={() => {
-                  if (groupsAnswered(question.groups ?? [], picks)) onAnswer({ kind: 'choices', picks });
+                  if (groupsAnswered(question.groups ?? [], picks)) commit('submit', { kind: 'choices', picks });
                 }}
               >
                 {question.submit ?? 'Continue'}
               </button>
               {question.skip && (
-                <button type="button" className="sc-btn sc-btn-ghost" onClick={() => onAnswer({ kind: 'skip' })}>
+                <button
+                  type="button"
+                  className="sc-btn sc-btn-ghost"
+                  data-on={picked === 'skip' || undefined}
+                  onClick={() => commit('skip', { kind: 'skip' })}
+                >
                   {question.skip}
                 </button>
               )}
@@ -167,8 +201,9 @@ export function QuestionBlock({
                 className="sc-btn sc-btn-primary"
                 aria-disabled={!!photosBlocked(question) || undefined}
                 title={photosBlocked(question) ?? undefined}
+                data-on={picked === 'submit' || undefined}
                 onClick={() => {
-                  if (!photosBlocked(question)) onAnswer({ kind: 'photos', action: { type: 'submit' } });
+                  if (!photosBlocked(question)) commit('submit', { kind: 'photos', action: { type: 'submit' } });
                 }}
               >
                 {question.submit}
@@ -184,7 +219,8 @@ export function QuestionBlock({
                 key={o.id}
                 type="button"
                 className={`sc-btn ${i === 0 && !question.quiet ? 'sc-btn-primary' : 'sc-btn-ghost'}`}
-                onClick={() => onAnswer({ kind: 'confirm', id: o.id })}
+                data-on={picked === o.id || undefined}
+                onClick={() => commit(o.id, { kind: 'confirm', id: o.id })}
               >
                 {o.label}
               </button>

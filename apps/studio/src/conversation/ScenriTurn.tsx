@@ -28,13 +28,15 @@ export function ScenriTurn({
   /** How long after the turn before it this one starts, when several arrive together. */
   delay?: number;
 }) {
-  const playing = useRevealOnce(reveal, text, delay);
+  // the timing a turn arrives by is fixed when it mounts, whatever renders after
+  const [start] = useState(delay);
+  const playing = useRevealOnce(reveal, text, start);
   return (
     <div
       className="sc-convo-turn"
       data-who="scenri"
       data-arrive={playing || undefined}
-      style={playing ? arrivalVars(delay) : undefined}
+      style={playing ? arrivalVars(start) : undefined}
     >
       {eyebrow && <Eyebrow thinking={playing} />}
       <p className="sc-convo-say" data-tone={tone} data-reveal={playing || undefined}>

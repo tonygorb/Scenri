@@ -1,4 +1,5 @@
 import { PencilSimple } from '@phosphor-icons/react';
+import { type CSSProperties, useState } from 'react';
 import { thumbUrl } from '../api.js';
 import { Tip } from '../layout/Tip.js';
 
@@ -13,6 +14,7 @@ export function YouTurn({
   editable,
   first,
   arrive,
+  delay = 0,
   onEdit,
 }: {
   text: string;
@@ -22,10 +24,20 @@ export function YouTurn({
   first?: boolean;
   /** New this render: fade and rise into place. */
   arrive?: boolean;
+  /** How long to wait first: the beat the answered block takes to go. */
+  delay?: number;
   onEdit?: () => void;
 }) {
+  // an arrival plays once from its mount, whatever renders after
+  const [arriving] = useState(!!arrive);
+  const [start] = useState(delay);
   return (
-    <div className="sc-convo-turn" data-who="you" data-arrive={arrive || undefined}>
+    <div
+      className="sc-convo-turn"
+      data-who="you"
+      data-arrive={arriving || undefined}
+      style={arriving ? ({ '--sc-convo-start': `${start}ms` } as CSSProperties) : undefined}
+    >
       {first && <span className="sc-convo-who">You</span>}
       <div className="sc-convo-bubble">
         {editable && onEdit && (

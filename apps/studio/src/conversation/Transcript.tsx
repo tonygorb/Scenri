@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
-import { type Answer, type Turn, prefersReducedMotion, turnKey, revealPlan } from './question.js';
-import { QuestionBlock } from './QuestionBlock.js';
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type Answer, type Question, type Turn, prefersReducedMotion, revealPlan, turnKey } from './question.js';
+import { PICK_MS, type Picked, QuestionBlock } from './QuestionBlock.js';
 import { ScenriTurn } from './ScenriTurn.js';
 import { YouTurn } from './YouTurn.js';
 
@@ -35,6 +35,24 @@ export function Transcript({
   const box = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const reduced = prefersReducedMotion();
+
+  // A tap is seen before its answer takes the block's place: the answer is
+  // taken at once, and a ghost of the block stands where it was for a beat,
+  // its chosen control lit and its row going. What arrives after waits for it.
+  const [ghost, setGhost] = useState<{ question: Question; look: Picked } | null>(null);
+  const ghostTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (ghostTimer.current) window.clearTimeout(ghostTimer.current);
+    },
+    [],
+  );
+  const onPick = (question: Question, look: Picked) => {
+    if (reduced) return;
+    setGhost({ question, look });
+    if (ghostTimer.current) window.clearTimeout(ghostTimer.current);
+    ghostTimer.current = window.setTimeout(() => setGhost(null), PICK_MS);
+  };
 
   // A line arrives once, when it is written. What has been said is remembered
   // for the conversation (session storage under `memoryKey`), so a reload, a
@@ -80,64 +98,87 @@ export function Transcript({
 
   let firstYou = true;
   let prevScenri = false;
-  // Lines that arrive together take their turns, one after the other.
-  let offset = 0;
+  // Lines that arrive together take their turns, one after the other; after a
+  // tap, everything waits for the ghost to go.
+  let offset = ghost ? PICK_MS : 0;
+  let ghostPlaced = false;
+  const ghostBlock = (eyebrow: boolean): ReactNode =>
+    ghost ? (
+      <QuestionBlock
+        key={`ghost:${ghost.question.id}`}
+        question={ghost.question}
+        ghost={ghost.look}
+        eyebrow={eyebrow}
+        onAnswer={noop}
+      />
+    ) : null;
+  const out: ReactNode[] = [];
+  for (const t of turns) {
+    const k = turnKey(t);
+    // A line already read as a question does not arrive again as its record.
+    const seenAsQuestion = t.kind === 'scenri' && t.id.startsWith('asked-');
+    const isGhostsLine = !!ghost && seenAsQuestion && t.id === `asked-${ghost.question.id}`;
+    // the ghost stands where its block was: in place of its own line, else before whatever is new
+    if (ghost && !ghostPlaced && (isGhostsLine || fresh.has(k))) {
+      out.push(ghostBlock(!prevScenri));
+      ghostPlaced = true;
+      prevScenri = true;
+      if (isGhostsLine) continue;
+    }
+    const reveal = !reduced && fresh.has(k) && !seenAsQuestion;
+    const delay = reveal ? offset : 0;
+    if (reveal && t.kind === 'scenri') offset += revealPlan(t.text).total;
+    if (reveal && t.kind === 'question') offset += revealPlan(t.question.prompt).total;
+    const afterScenri = prevScenri;
+    prevScenri = t.kind === 'scenri' || t.kind === 'question';
+    if (t.kind === 'you') {
+      const first = firstYou;
+      firstYou = false;
+      out.push(
+        <YouTurn
+          key={k}
+          text={t.text}
+          photos={t.photos}
+          editable={t.editable}
+          first={first}
+          arrive={reveal}
+          delay={delay}
+          onEdit={t.editable && onEdit ? () => onEdit(t.id) : undefined}
+        />,
+      );
+    } else if (t.kind === 'scenri') {
+      out.push(<ScenriTurn key={k} text={t.text} tone={t.tone} reveal={reveal} eyebrow={!afterScenri} delay={delay} />);
+    } else if (t.kind === 'summary') {
+      out.push(
+        <button key={k} type="button" className="sc-convo-summary" onClick={onExpand}>
+          {t.text}
+        </button>,
+      );
+    } else {
+      out.push(
+        <QuestionBlock
+          key={k}
+          question={t.question}
+          reveal={reveal}
+          delay={delay}
+          busy={busy}
+          eyebrow={!afterScenri}
+          onAnswer={(a) => onAnswer(t.question.id, a)}
+          onPick={onPick}
+          onStarter={onStarter}
+        />,
+      );
+    }
+  }
+  if (ghost && !ghostPlaced) out.push(ghostBlock(!prevScenri));
   return (
     <div ref={box} className="sc-convo-log" role="log" aria-live="polite" aria-relevant="additions">
-      <div className="sc-convo-turns">
-        {turns.map((t) => {
-          const k = turnKey(t);
-          // A line already read as a question does not arrive again as its record.
-          const seenAsQuestion = t.kind === 'scenri' && t.id.startsWith('asked-');
-          const reveal = !reduced && fresh.has(k) && !seenAsQuestion;
-          const delay = reveal && (t.kind === 'scenri' || t.kind === 'question') ? offset : 0;
-          if (reveal && t.kind === 'scenri') offset += revealPlan(t.text).total;
-          if (reveal && t.kind === 'question') offset += revealPlan(t.question.prompt).total;
-          const afterScenri = prevScenri;
-          prevScenri = t.kind === 'scenri' || t.kind === 'question';
-          if (t.kind === 'you') {
-            const first = firstYou;
-            firstYou = false;
-            return (
-              <YouTurn
-                key={k}
-                text={t.text}
-                photos={t.photos}
-                editable={t.editable}
-                first={first}
-                arrive={reveal}
-                onEdit={t.editable && onEdit ? () => onEdit(t.id) : undefined}
-              />
-            );
-          }
-          if (t.kind === 'scenri')
-            return (
-              <ScenriTurn key={k} text={t.text} tone={t.tone} reveal={reveal} eyebrow={!afterScenri} delay={delay} />
-            );
-          if (t.kind === 'summary') {
-            return (
-              <button key={k} type="button" className="sc-convo-summary" onClick={onExpand}>
-                {t.text}
-              </button>
-            );
-          }
-          return (
-            <QuestionBlock
-              key={k}
-              question={t.question}
-              reveal={reveal}
-              delay={delay}
-              busy={busy}
-              eyebrow={!afterScenri}
-              onAnswer={(a) => onAnswer(t.question.id, a)}
-              onStarter={onStarter}
-            />
-          );
-        })}
-      </div>
+      <div className="sc-convo-turns">{out}</div>
     </div>
   );
 }
+
+const noop = () => undefined;
 
 /** The element that scrolls this one: itself when it overflows, else the nearest ancestor that does. */
 function scrollParent(el: HTMLElement): HTMLElement {

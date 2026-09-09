@@ -158,9 +158,14 @@
   animation-delay: calc(var(--sc-convo-start, 0ms) + var(--sc-convo-after, 400ms));
 }
 
-/* a new turn takes its place: a short fade and a 4px rise */
+/* a new turn takes its place: a short fade and a 4px rise; an answer a touch slower, so it is seen to land */
 .sc-convo-turn[data-arrive] {
   animation: sc-convo-arrive var(--sc-dur-fast) var(--sc-ease) both;
+}
+
+.sc-convo-turn[data-who="you"][data-arrive] {
+  animation-duration: var(--sc-dur-slow);
+  animation-delay: var(--sc-convo-start, 0ms);
 }
 
 .sc-convo-turn[data-who="scenri"][data-arrive] {
@@ -257,6 +262,12 @@
     display: none;
   }
 
+  .sc-convo-q[data-picked] > *,
+  .sc-convo-q[data-picked] .sc-convo-choice:not([data-on]),
+  .sc-convo-q[data-picked] .sc-btn:not([data-on]) {
+    animation: none;
+  }
+
   .sc-convo-who[data-thinking] .sc-convo-mark {
     animation: none;
   }
@@ -283,6 +294,38 @@
 
 .sc-convo-q:disabled {
   opacity: 0.7;
+}
+
+/* A tap is seen before it is taken: the chosen control keeps its light, the
+   others step back at once, and the row goes. The answer was taken on the
+   tap; this is its ghost, kept by the transcript for PICK_MS. */
+.sc-convo-q[data-picked] .sc-convo-choice:not([data-on]),
+.sc-convo-q[data-picked] .sc-btn:not([data-on]) {
+  animation: sc-convo-dim var(--sc-dur-fast) var(--sc-ease) forwards;
+}
+
+.sc-convo-q[data-picked] {
+  pointer-events: none;
+}
+
+.sc-convo-q[data-picked] > * {
+  animation: sc-convo-out 160ms var(--sc-ease) 140ms forwards;
+}
+
+.sc-convo-decide .sc-btn[data-on] {
+  transform: scale(0.98);
+}
+
+@keyframes sc-convo-dim {
+  to {
+    opacity: 0.35;
+  }
+}
+
+@keyframes sc-convo-out {
+  to {
+    opacity: 0;
+  }
 }
 
 .sc-convo-choices {

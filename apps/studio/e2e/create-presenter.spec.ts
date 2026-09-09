@@ -553,16 +553,23 @@ test.describe('what answers nothing', () => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await expect(log(page)).toContainText('Who are we creating?');
+    // a tap is seen before it is taken: the chosen chip lights and the row steps back, then the turn takes its place
+    await answer(page, 'Describe someone').click();
+    await expect(log(page).locator('.sc-convo-q[data-picked] .sc-convo-choice[data-on]')).toHaveText(
+      'Describe someone',
+    );
+    await expect(log(page)).toContainText('Describe them.');
+    await expect(log(page).locator('.sc-convo-q[data-picked]')).toHaveCount(0);
     await send(page, 'hey');
     // the reply thinks first: three dots stand where the words will
     await expect(log(page).locator('.sc-convo-dots')).toBeVisible();
-    await expect(log(page)).toContainText('Hi. Describe them in a sentence, or pick one above.');
+    await expect(log(page)).toContainText('Hi. A few words about them is enough');
     await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0, { timeout: 4000 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.reload();
     await expect(log(page)).toContainText('Who are we creating?');
     await send(page, 'hello');
-    await expect(log(page)).toContainText('Hi. Describe them in a sentence, or pick one above.');
+    await expect(log(page)).toContainText('Hi. A few words about them is enough');
     await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0);
   });
 });
