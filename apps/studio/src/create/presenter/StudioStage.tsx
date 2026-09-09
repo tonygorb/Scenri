@@ -90,7 +90,9 @@ export function StudioStage({
               {since && <time>{elapsedLabel(since, now)}</time>}
             </span>
           )}
-          {list.length > 1 && !drawing && (
+          {/* Compare is already showing another picture in this well; two ways to
+              swap it at once would say different things about what you see */}
+          {list.length > 1 && !drawing && !compare?.on && (
             <div className="sc-pstudio-vers">
               <button
                 type="button"
