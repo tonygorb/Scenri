@@ -188,13 +188,43 @@ test.describe('a person from scratch', () => {
     expect((await draftsOf(page, brand.id)).drafts).toHaveLength(0);
   });
 
+  test('the look is tapped one step at a time, and what was tapped is the person', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await answer(page, 'Describe someone').click();
+    // one row, one tap, then the next row: who, age, hair, its length, skin, build
+    await expect(log(page)).toContainText('Who are we drawing?');
+    await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
+    await expect(log(page)).toContainText('About what age?');
+    await log(page).getByRole('button', { name: '30s', exact: true }).click();
+    await expect(log(page)).toContainText('What colour is their hair?');
+    await log(page).getByRole('button', { name: 'Black', exact: true }).click();
+    await expect(log(page)).toContainText('How long do they wear it?');
+    // length and build are shapes rather than words
+    await expect(log(page).locator('.sc-convo-tile .sc-look-art').first()).toBeVisible();
+    await log(page).getByRole('button', { name: 'Shoulder', exact: true }).click();
+    await expect(log(page)).toContainText('And their skin?');
+    await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
+    await expect(log(page)).toContainText('What sort of build?');
+    // what has been tapped so far is one answer of yours, and it grows
+    await expect(log(page).locator('.sc-convo-turn[data-who="you"]').last()).toContainText(
+      'A woman in their 30s with shoulder-length black hair, olive skin',
+    );
+    await log(page).getByRole('button', { name: 'Athletic', exact: true }).click();
+    // nothing is drawn until it is read back and agreed to
+    await expect(log(page)).toContainText('Shall I draw them?');
+    await log(page).getByRole('button', { name: 'Draw them' }).click();
+    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    const tapped = await draftsOf(page, brand.id);
+    const first = await draftOf(page, brand.id, tapped.drafts[0].id);
+    expect(first.direction).toBe('a woman in their 30s with shoulder-length black hair, olive skin, an athletic build');
+  });
+
   test('a thin sentence asks one follow-up, and its picks fold into the sentence', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Describe them.');
-    await expect(page.locator('.sc-convo-starter')).toHaveCount(5);
-    await expect(page.locator('.sc-convo-starter').first()).toHaveText('Late 30s, warm');
+    await expect(log(page)).toContainText('Who are we drawing?');
     await send(page, 'black curly hair');
     await expect(log(page)).toContainText('cannot tell yet');
     await page.getByRole('radio', { name: 'Man', exact: true }).click();
@@ -219,13 +249,11 @@ test.describe('a person from scratch', () => {
     await page.waitForTimeout(300);
     calls.reset();
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Describe them.');
+    await expect(log(page)).toContainText('Who are we drawing?');
     await page.waitForTimeout(900);
     expect(calls.urls()).toBe('');
     // one sentence, one node's text, from the first frame
-    await expect(log(page).locator('.sc-convo-say').last()).toHaveText(
-      'Describe them. Age, hair, build, skin and presence all help; one or two sentences is enough.',
-    );
+    await expect(log(page).locator('.sc-convo-say').last()).toHaveText('Who are we drawing?');
   });
 
   test('reduced motion: no arrival plays, the line simply stands', async ({ page }) => {
@@ -233,7 +261,7 @@ test.describe('a person from scratch', () => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Describe them.');
+    await expect(log(page)).toContainText('Who are we drawing?');
     await expect(page.locator('[data-reveal] .sc-convo-w')).toHaveCount(0);
   });
 
@@ -628,7 +656,7 @@ test.describe('what answers nothing', () => {
     await expect(log(page).locator('.sc-convo-q[data-picked] .sc-convo-choice[data-on]')).toHaveText(
       'Describe someone',
     );
-    await expect(log(page)).toContainText('Describe them.');
+    await expect(log(page)).toContainText('Who are we drawing?');
     await expect(log(page).locator('.sc-convo-q[data-picked]')).toHaveCount(0);
     await send(page, 'hey');
     // the reply thinks first: three dots stand where the words will

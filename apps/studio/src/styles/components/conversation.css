@@ -453,6 +453,191 @@ button.sc-convo-shot-do {
   gap: var(--sc-space-4);
 }
 
+/* ---- the look, tapped ------------------------------------------------------
+   Rows of colours and words: hair by colour and by length, skin by tone, each
+   swatch the colour it stands for so the eye picks rather than the reader. A
+   colour of your own sits at the end of a row and opens the system picker. */
+.sc-convo-look {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-5);
+}
+
+/* not `.sc-convo-row`: that is the composer's own row, and it aligns to its far
+   edge, which pushed every swatch to the right of the rail */
+.sc-convo-look-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+
+.sc-convo-look-lb {
+  font-size: var(--sc-text-caption);
+  line-height: 16px;
+  color: var(--sc-fg3);
+}
+
+/* a row of tiles reads as a grid, three across, rather than a wrapping line */
+.sc-convo-swatches:has(.sc-convo-tile) {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  justify-content: start;
+  align-items: end;
+}
+
+.sc-convo-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.sc-convo-swatch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--sc-line);
+  border-radius: 50%;
+  background: var(--sc-swatch, var(--sc-chip));
+  cursor: pointer;
+  transition:
+    outline-color var(--sc-dur-fast) var(--sc-ease),
+    scale var(--sc-dur-fast) var(--sc-ease);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+.sc-convo-swatch:hover {
+  scale: 1.08;
+}
+
+.sc-convo-swatch[data-on] {
+  outline-color: var(--sc-fg);
+}
+
+/* Length and build are shapes: a small figure in a square, with its word under
+   it. Faster to recognise than "chin-length" is to read. */
+.sc-convo-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 70px;
+  padding: 6px 0 0;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-raised);
+  color: var(--sc-fg2);
+  font-size: 11px;
+  line-height: 14px;
+  cursor: pointer;
+  transition:
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+
+.sc-convo-tile span {
+  padding-bottom: 5px;
+}
+
+/* one cell of the sheet its row was drawn on */
+.sc-look-art {
+  display: block;
+  border-radius: var(--sc-radius-md);
+  background-color: var(--sc-chip);
+  background-repeat: no-repeat;
+  background-size: calc(100% * var(--sc-look-cols)) calc(100% * var(--sc-look-rows));
+  background-position: calc(var(--sc-look-x) * 100% / (var(--sc-look-cols) - 1))
+    calc(var(--sc-look-y) * 100% / (var(--sc-look-rows) - 1));
+  opacity: 0.75;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+
+.sc-look-art[data-kind="hair"] {
+  --sc-look-cols: 3;
+  --sc-look-rows: 2;
+
+  width: 42px;
+  height: 60px;
+  background-image: url("../../assets/look/hair.webp");
+}
+
+.sc-look-art[data-kind="build"] {
+  --sc-look-cols: 2;
+  --sc-look-rows: 2;
+
+  width: 54px;
+  height: 54px;
+  background-image: url("../../assets/look/build.webp");
+}
+
+.sc-convo-tile:hover {
+  border-color: var(--sc-line-strong);
+  color: var(--sc-fg);
+}
+
+.sc-convo-tile[data-on] {
+  border-color: var(--sc-fg);
+  color: var(--sc-fg);
+}
+
+.sc-convo-tile:hover .sc-look-art,
+.sc-convo-tile[data-on] .sc-look-art {
+  opacity: 1;
+}
+
+/* the quiet way past a step, at the end of its row */
+.sc-convo-pass {
+  color: var(--sc-fg3);
+}
+
+/* a colour of your own: the wheel until it is chosen, then the colour itself */
+.sc-convo-swatch-own {
+  background: conic-gradient(from 0deg, #f0605d, #f7bc50, #7ac74f, #4aa3f0, #8b6ff2, #f0605d);
+}
+
+/* once a colour is under the pointer, the swatch is that colour */
+.sc-convo-swatch-own[data-picked] {
+  background: var(--sc-swatch);
+  outline-color: var(--sc-fg);
+}
+
+.sc-convo-swatch-own input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  opacity: 0;
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .sc-convo-swatch {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-convo-swatch {
+    transition: none;
+  }
+
+  .sc-convo-swatch:hover {
+    scale: 1;
+  }
+}
+
 /* a choice inside a conversation is a chip at hand height: the same chip
    primitive, taller, with the ink of an answer on the one that is set */
 .sc-chip.sc-convo-choice {

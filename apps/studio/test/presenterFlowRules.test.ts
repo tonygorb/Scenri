@@ -4,6 +4,11 @@ import { activeQuestion } from '../src/create/presenter/presenterFlowRules.js';
 import type { Question, Turn } from '../src/conversation/question.js';
 import {
   EMPTY_SETUP,
+  lastLookStep,
+  PASSED,
+  directionFrom,
+  lookLine,
+  lookSentence,
   STARTERS,
   type Setup,
   UNSURE_LINE,
@@ -75,12 +80,55 @@ describe('the transcript is a function of state', () => {
   it('opens with the intent and one question', () => {
     expect(ids(setup(), null)).toEqual(['you:intent', 'q:source']);
   });
-  it('from scratch: source, then describe, with starters', () => {
-    const t = turnsFor({ setup: setup({ source: 'scratch' }), draft: null, canGenerate: true, ui });
-    expect(activeQuestion(t)?.id).toBe('describe');
-    expect(activeQuestion(t)?.kind === 'text' && activeQuestion(t)?.starters?.length).toBe(5);
-    // every starter answers the question as asked: nothing left for the follow-up
+  it('from scratch: the look is asked one tap at a time, in order', () => {
+    const ask = (look: Setup['look']) =>
+      activeQuestion(turnsFor({ setup: setup({ source: 'scratch', look }), draft: null, canGenerate: true, ui }));
+    const first = ask(null);
+    expect(first?.id).toBe('look-who');
+    expect(first?.kind === 'swatches' && first.row.id).toBe('who');
+    expect(first?.kind === 'swatches' && first.row.options.map((o) => o.id)).toEqual(['woman', 'man', 'androgynous']);
+    // each answer brings the next, and a step passed over is not asked again
+    expect(ask({ who: 'woman' })).toMatchObject({ id: 'look-age' });
+    const order = ['who', 'age', 'hair', 'length', 'skin', 'build'];
+    const so: Record<string, string> = {};
+    for (const id of order) {
+      const q = ask({ ...so });
+      expect(q?.kind === 'swatches' && q.row.id).toBe(id);
+      so[id] = id === 'age' ? PASSED : (q?.kind === 'swatches' && q.row.options[0].id) || '';
+    }
+    // everything answered: it is read back, and nothing is drawn until it is agreed to
+    expect(ask({ ...so })).toMatchObject({ id: 'agree' });
+    expect(ask({ ...so })?.prompt).toContain('Shall I draw them?');
+    // colours are colours, hair and skin take one of your own, and shapes are drawn
+    const hair = ask({ who: 'woman', age: '30s' });
+    // one row of colours, with a colour of your own at the end of it
+    expect(hair?.kind === 'swatches' && hair.row.options.every((o) => !!o.color)).toBe(true);
+    expect(hair?.kind === 'swatches' && [hair.row.options.length, hair.row.custom]).toEqual([9, true]);
+    // an answer already given is taken back with its pencil, as any answer is
+    const said = turnsFor({
+      setup: setup({ source: 'scratch', look: { who: 'woman', age: '30s' } }),
+      draft: null,
+      canGenerate: true,
+      ui,
+    });
+    expect(said.find((t) => t.kind === 'you' && t.id === 'look')).toMatchObject({ editable: true });
+    expect(lastLookStep({ who: 'woman', age: '30s' })).toBe('age');
+    const length = ask({ who: 'woman', age: '30s', hair: 'black' });
+    expect(length?.kind === 'swatches' && length.row.options.every((o) => o.art === 'hair')).toBe(true);
+    // a sentence still answers the whole thing, and answers it whole
     for (const s of STARTERS) expect([s.label, needsFollowUp(s.text)]).toEqual([s.label, false]);
+  });
+
+  it('what was tapped is said as a person, with a colour of your own named as the nearest we have', () => {
+    const look = { who: 'woman', age: '30s', hair: 'dark brown', length: 'shoulder-length', skin: 'olive', build: 'slender' };
+    expect(lookSentence(look)).toBe(
+      'a woman in their 30s with shoulder-length dark brown hair, olive skin, a slender build',
+    );
+    expect(lookSentence({ who: 'man', hair: '#0f0d0c' })).toBe('a man with black hair');
+    expect(directionFrom(setup({ source: 'scratch', look, description: 'a warm, unhurried presence' }))).toBe(
+      'a woman in their 30s with shoulder-length dark brown hair, olive skin, a slender build, a warm, unhurried presence',
+    );
+    expect(lookLine('skipped')).toBe('Surprise me');
   });
   it('from scratch with no engine: the setup line, nothing drawn', () => {
     expect(ids(setup({ source: 'scratch' }), null, false)).toEqual([

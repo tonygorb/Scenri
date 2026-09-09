@@ -24,6 +24,25 @@ export interface ChoiceGroup {
   options: ChoiceOption[];
 }
 
+/** One thing to tap inside a row: a colour, a drawn figure, or a word. */
+export interface Swatch {
+  id: string;
+  label: string;
+  /** The colour it stands for, when it is a colour. */
+  color?: string;
+  /** The figure it stands for, when it is a shape: hair around a head, or a build. */
+  art?: 'hair' | 'build';
+}
+
+/** A row inside a swatch question: what it is about, and what can be tapped. */
+export interface SwatchRow {
+  id: string;
+  label: string;
+  options: Swatch[];
+  /** A colour of your own, kept as a hex string. */
+  custom?: boolean;
+}
+
 interface QuestionBase {
   id: string;
   prompt: string;
@@ -47,6 +66,13 @@ export type Question =
       groups?: ChoiceGroup[];
       submit?: string;
       /** A second, quiet way out of a grouped question. */
+      skip?: string;
+    })
+  | (QuestionBase & {
+      kind: 'swatches';
+      /** What is being asked about, one row of it. */
+      row: SwatchRow;
+      /** A quiet way past this one. */
       skip?: string;
     })
   | (QuestionBase & {
@@ -82,6 +108,7 @@ export type Answer =
   | { kind: 'text'; text: string }
   | { kind: 'choice'; id: string }
   | { kind: 'choices'; picks: Record<string, string> }
+  | { kind: 'swatches'; picks: Record<string, string> }
   | { kind: 'skip' }
   | { kind: 'photos'; action: PhotosAction }
   | { kind: 'confirm'; id: string };

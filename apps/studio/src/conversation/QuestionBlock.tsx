@@ -1,5 +1,6 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
+import { LookArt } from './LookArt.js';
 import { RefStrip } from '../create/RefStrip.js';
 import { Tip } from '../layout/Tip.js';
 import { type Answer, type Question, groupsAnswered, revealPlan } from './question.js';
@@ -65,6 +66,8 @@ export function QuestionBlock({
   const going = useLeave(leave, start);
   const { playing, thinking } = useRevealOnce(reveal, question.prompt, start, going === 'true');
   const [picks, setPicks] = useState<Record<string, string>>({});
+  // a colour of your own, as it is being chosen
+  const [own, setOwn] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   // A block that went and is back as the same question (Try again, a retry)
   // is live again. One whose answer is still in flight stays as it was.
@@ -185,6 +188,64 @@ export function QuestionBlock({
                 <button
                   type="button"
                   className="sc-btn sc-btn-ghost"
+                  data-on={picked === 'skip' || undefined}
+                  onClick={() => commit('skip', { kind: 'skip' })}
+                >
+                  {question.skip}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {question.kind === 'swatches' && (
+          <div className="sc-convo-look">
+            <div className="sc-convo-swatches">
+              {question.row.options.map((o) => (
+                <Tip key={o.id} label={o.label}>
+                  <button
+                    type="button"
+                    className={o.color ? 'sc-convo-swatch' : o.art ? 'sc-convo-tile' : 'sc-chip sc-convo-choice'}
+                    style={o.color ? ({ '--sc-swatch': o.color } as CSSProperties) : undefined}
+                    aria-label={o.label}
+                    data-on={picked === o.id || undefined}
+                    onClick={() => commit(o.id, { kind: 'swatches', picks: { [question.row.id]: o.id } })}
+                  >
+                    {o.art ? (
+                      <>
+                        <LookArt kind={o.art} id={o.id} />
+                        <span>{o.label}</span>
+                      </>
+                    ) : o.color ? null : (
+                      o.label
+                    )}
+                  </button>
+                </Tip>
+              ))}
+              {question.row.custom && (
+                <Tip label="A colour of your own">
+                  <span
+                    className="sc-convo-swatch sc-convo-swatch-own"
+                    data-picked={!!own || undefined}
+                    style={own ? ({ '--sc-swatch': own } as CSSProperties) : undefined}
+                  >
+                    <input
+                      type="color"
+                      aria-label="A colour of your own"
+                      value={own ?? '#7b5230'}
+                      onInput={(e) => setOwn((e.target as HTMLInputElement).value)}
+                      onChange={(e) => {
+                        setOwn(e.target.value);
+                        commit(e.target.value, { kind: 'swatches', picks: { [question.row.id]: e.target.value } });
+                      }}
+                    />
+                  </span>
+                </Tip>
+              )}
+              {question.skip && (
+                <button
+                  type="button"
+                  className="sc-chip sc-convo-choice sc-convo-pass"
                   data-on={picked === 'skip' || undefined}
                   onClick={() => commit('skip', { kind: 'skip' })}
                 >

@@ -16,6 +16,9 @@ import {
   activeQuestion,
   composerFor,
   directionFrom,
+  lastLookStep,
+  nextLookStep,
+  PASSED,
   editEffect,
   needsFollowUp,
   sourceFromText,
@@ -366,6 +369,29 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           if (a.kind === 'confirm' && a.id === 'setup') openSetup();
           if (a.kind === 'confirm' && a.id === 'photos') setSetup({ source: 'photos' });
           return;
+        case 'agree': {
+          if (a.kind !== 'confirm') return;
+          // agreed: what was tapped is the person, and the face is drawn from it
+          if (a.id === 'draw') void startScratch(setup);
+          // or the last step comes back, to be tapped again
+          if (a.id === 'change') onEditRef.current?.('look');
+          return;
+        }
+        case 'look-who':
+        case 'look-age':
+        case 'look-hair':
+        case 'look-length':
+        case 'look-skin':
+        case 'look-build': {
+          const step = nextLookStep(setup.look ?? null);
+          if (!step) return;
+          const had = setup.look && setup.look !== 'skipped' ? setup.look : {};
+          const picks = a.kind === 'swatches' ? a.picks : a.kind === 'skip' ? { [step.row.id]: PASSED } : null;
+          if (!picks) return;
+          // one tap answers one step; nothing is drawn until it is all agreed to
+          setSetup({ ...setup, look: { ...had, ...picks } });
+          return;
+        }
         case 'gaps': {
           if (a.kind === 'choices') {
             const next = { ...setup, gaps: a.picks };
@@ -454,7 +480,13 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       const open = question?.id;
       const qid = ui.reasking ?? (open === 'unsure' ? (ui.unsure?.q ?? 'source') : open);
       const phase: AsidePhase =
-        qid === 'source' ? 'source' : qid === 'describe' ? 'describe' : qid === 'name' ? 'name' : 'refine';
+        qid === 'source'
+          ? 'source'
+          : qid === 'describe' || qid?.startsWith('look')
+            ? 'describe'
+            : qid === 'name'
+              ? 'name'
+              : 'refine';
       const door = qid === 'source' ? sourceFromText(sentence) : null;
       // What answers nothing is answered with the question, in words for what
       // was said, and stays in the conversation. A word or two that describes
@@ -473,13 +505,18 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         return true;
       }
       // Before a face exists, a sentence with nothing of a person in it is asked about, not drawn.
-      if ((qid === 'source' || qid === 'describe') && !door && !ui.reasking && !readsAsPerson(sentence)) {
+      if (
+        (qid === 'source' || qid === 'describe' || qid === 'look') &&
+        !door &&
+        !ui.reasking &&
+        !readsAsPerson(sentence)
+      ) {
         const unsure = { said: sentence, q: open ?? null, at: nowIso() };
         setUi((u) => ({ ...settleUnsure(u), unsure }));
         setText('');
         return true;
       }
-      if (qid === 'source' || qid === 'describe') setUi(settleUnsure);
+      if (qid === 'source' || qid === 'describe' || qid?.startsWith('look')) setUi(settleUnsure);
       if (qid === 'source') {
         const door = sourceFromText(sentence);
         if (door) {
@@ -496,7 +533,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         setText('');
         return true;
       }
-      if (qid === 'describe') {
+      if (qid === 'describe' || qid?.startsWith('look')) {
         if (d && ui.reasking === 'describe') {
           void (async () => {
             await s.update({ direction: sentence });
@@ -553,8 +590,19 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     [ui.reasking, ui.asides, ui.unsure, question?.id, canDraw, setSetup, describe, d, s, view],
   );
 
+  // onAnswer can need what the pencil does, and is declared before it
+  const onEditRef = useRef<((turnId: string) => void) | null>(null);
   const onEdit = useCallback(
     (turnId: string) => {
+      // a look answer goes back one step, so it can be tapped again
+      if (turnId === 'look') {
+        const back = lastLookStep(setup.look ?? null);
+        if (!back) return;
+        const rest = { ...(setup.look && setup.look !== 'skipped' ? setup.look : {}) };
+        delete rest[back];
+        setSetup({ look: Object.keys(rest).length ? rest : null });
+        return;
+      }
       const effect = editEffect(turnId, !!d);
       if (turnId === 'name') {
         setText(d?.name ?? '');
@@ -579,8 +627,10 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       if (effect === 'redraw-identity') setConfirming('redescribe');
       if (effect === 'start-over') setConfirming('start-over');
     },
-    [d, setup.description, setSetup],
+    // setup.look too: taking an answer back reads what has been given so far
+    [d, setup.description, setup.look, setSetup],
   );
+  onEditRef.current = onEdit;
 
   const composerBase = composerFor(question, d, view);
   const scope =

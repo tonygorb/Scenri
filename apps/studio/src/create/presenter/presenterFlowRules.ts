@@ -1,4 +1,4 @@
-import type { Question, Turn } from '../../conversation/question.js';
+import type { Question, Swatch, SwatchRow, Turn } from '../../conversation/question.js';
 import {
   type Aside,
   type NothingKind,
@@ -46,6 +46,8 @@ export type Source = 'scratch' | 'photos';
 export interface Setup {
   source: Source | null;
   description: string;
+  /** The look, tapped rather than typed: colours and words by row, `'skipped'`, or null. */
+  look?: Record<string, string> | 'skipped' | null;
   /** The follow-up's picks, `'skipped'`, or null while unanswered. */
   gaps: Record<string, string> | 'skipped' | null;
   /** The follow-up was shown; it is shown at most once. */
@@ -60,6 +62,7 @@ export interface Setup {
 export const EMPTY_SETUP: Setup = {
   source: null,
   description: '',
+  look: null,
   gaps: null,
   gapsAsked: false,
   photoHashes: [],
@@ -163,8 +166,146 @@ const GAP_GROUPS: Record<Gap, { label: string; options: { id: string; label: str
   },
 };
 
+/**
+ * The look, as things to tap rather than words to find: hair by colour and by
+ * length, skin by tone, each a swatch of the colour it stands for. A colour of
+ * your own is allowed on both rows, and is read back as the nearest name we
+ * have a word for, because a hex code means nothing to a model.
+ */
+export const HAIR_COLOURS: Swatch[] = [
+  { id: 'black', label: 'Black', color: '#15120f' },
+  { id: 'dark brown', label: 'Dark brown', color: '#3b2418' },
+  { id: 'brown', label: 'Brown', color: '#6b4630' },
+  { id: 'auburn', label: 'Auburn', color: '#8c3b26' },
+  { id: 'ginger', label: 'Ginger', color: '#c2622a' },
+  { id: 'blonde', label: 'Blonde', color: '#d8ac63' },
+  { id: 'platinum blonde', label: 'Platinum', color: '#e9e1d0' },
+  { id: 'grey', label: 'Grey', color: '#9b9b99' },
+  { id: 'white', label: 'White', color: '#f0efed' },
+];
+
+export const HAIR_LENGTHS: Swatch[] = [
+  { id: 'buzzed', label: 'Buzzed' },
+  { id: 'cropped', label: 'Cropped' },
+  { id: 'short', label: 'Short' },
+  { id: 'chin-length', label: 'Chin' },
+  { id: 'shoulder-length', label: 'Shoulder' },
+  { id: 'long', label: 'Long' },
+];
+
+export const SKIN_TONES: Swatch[] = [
+  { id: 'porcelain', label: 'Porcelain', color: '#f4e0d4' },
+  { id: 'fair', label: 'Fair', color: '#edcdb6' },
+  { id: 'light olive', label: 'Light olive', color: '#ddb894' },
+  { id: 'olive', label: 'Olive', color: '#c2935f' },
+  { id: 'tan', label: 'Tan', color: '#a9713f' },
+  { id: 'brown', label: 'Brown', color: '#7c4f2c' },
+  { id: 'deep brown', label: 'Deep brown', color: '#57351d' },
+  { id: 'deep', label: 'Deep', color: '#3a2114' },
+];
+
+/**
+ * The look, one question at a time. Each is a single row answered by one tap,
+ * so nothing is a form: the block asks, you tap, the next one comes. Length and
+ * build are drawn rather than named, because a shape is read faster than the
+ * word for it.
+ */
+export const LOOK_STEPS: { row: SwatchRow; prompt: string }[] = [
+  { row: { id: 'who', label: 'Who', options: GAP_GROUPS.who.options }, prompt: 'Who are we drawing?' },
+  { row: { id: 'age', label: 'Age', options: GAP_GROUPS.age.options }, prompt: 'About what age?' },
+  { row: { id: 'hair', label: 'Hair', options: HAIR_COLOURS, custom: true }, prompt: 'What colour is their hair?' },
+  {
+    row: { id: 'length', label: 'Length', options: HAIR_LENGTHS.map((o) => ({ ...o, art: 'hair' as const })) },
+    prompt: 'How long do they wear it?',
+  },
+  { row: { id: 'skin', label: 'Skin', options: SKIN_TONES, custom: true }, prompt: 'And their skin?' },
+  {
+    row: {
+      id: 'build',
+      label: 'Build',
+      options: GAP_GROUPS.build.options.map((o) => ({ ...o, art: 'build' as const })),
+    },
+    prompt: 'What sort of build?',
+  },
+];
+
+/** The step before this one, so any answer can be taken back from where you are. */
+export function stepBefore(id: string): string | null {
+  const at = LOOK_STEPS.findIndex((s) => s.row.id === id);
+  return at > 0 ? LOOK_STEPS[at - 1].row.id : null;
+}
+
+/** The step still to ask, or null once every one of them has been answered or passed. */
+export function nextLookStep(look: Setup['look']): (typeof LOOK_STEPS)[number] | null {
+  if (look === 'skipped') return null;
+  const done = look ?? {};
+  return LOOK_STEPS.find((s) => !done[s.row.id]) ?? null;
+}
+
+/** The name we have for a colour of someone's own: the nearest one on its row. */
+export function nearestSwatch(hex: string, among: Swatch[]): string {
+  const rgb = (h: string) => {
+    const v = h.replace('#', '');
+    const n = v.length === 3 ? v.split('').map((c) => c + c) : [v.slice(0, 2), v.slice(2, 4), v.slice(4, 6)];
+    return n.map((p) => Number.parseInt(p, 16) || 0);
+  };
+  const [r, g, b] = rgb(hex);
+  let best = among[0];
+  let far = Number.POSITIVE_INFINITY;
+  for (const one of among) {
+    if (!one.color) continue;
+    const [x, y, z] = rgb(one.color);
+    const d = (r - x) ** 2 + (g - y) ** 2 + (b - z) ** 2;
+    if (d < far) {
+      far = d;
+      best = one;
+    }
+  }
+  return best.id;
+}
+
+/** A step passed over: remembered, so it is asked once. */
+export const PASSED = 'either';
+
+/** What was tapped, said as a person: the sentence the engine is given. */
+export function lookSentence(look: Record<string, string>): string {
+  const name = (id: string | undefined, among: Swatch[]) =>
+    !id || id === PASSED ? '' : id.startsWith('#') ? nearestSwatch(id, among) : id;
+  const who =
+    look.who === 'androgynous'
+      ? 'an androgynous person'
+      : look.who === 'man'
+        ? 'a man'
+        : look.who === 'woman'
+          ? 'a woman'
+          : 'a person';
+  const parts: string[] = [who];
+  if (look.age) parts.push(look.age === '60+' ? 'in their 60s or older' : `in their ${look.age}`);
+  const hair = [name(look.length, HAIR_LENGTHS), name(look.hair, HAIR_COLOURS)].filter(Boolean).join(' ');
+  const has: string[] = [];
+  if (hair) has.push(`${hair} hair`);
+  const skin = name(look.skin, SKIN_TONES);
+  if (skin) has.push(`${skin} skin`);
+  if (look.build && look.build !== PASSED) has.push(`${/^[aeiou]/.test(look.build) ? 'an' : 'a'} ${look.build} build`);
+  if (has.length) parts.push(`with ${has.join(', ')}`);
+  return parts.join(' ');
+}
+
+/** What was tapped, as the answer in the transcript. */
+export function lookLine(look: Setup['look']): string {
+  if (!look || look === 'skipped') return 'Surprise me';
+  return cap(lookSentence(look));
+}
+
 /** The sentence the engine is given: the description with the follow-up's picks folded in. */
 export function directionFrom(setup: Setup): string {
+  const look = setup.look && setup.look !== 'skipped' ? setup.look : null;
+  if (look) {
+    // what was tapped is the person; anything typed after it is what else they are
+    const said = setup.description.trim().replace(/[.\s]+$/, '');
+    const from = lookSentence(look);
+    return said ? `${from}, ${said}` : from;
+  }
   const picks = setup.gaps && setup.gaps !== 'skipped' ? setup.gaps : {};
   const build = picks.build
     ? `${setup.description.trim().replace(/[.\s]+$/, '')}, ${picks.build} build`
@@ -203,6 +344,9 @@ export function photosHint(n: number): string {
 export const PROMPT = {
   source: 'Who are we creating? Describe someone new, or add photos of a real person.',
   describe: 'Describe them. Age, hair, build, skin and presence all help; one or two sentences is enough.',
+  look: 'What do they look like? Tap what fits.',
+  lookHint: 'Anything you leave is ours to choose. A sentence in the box works too.',
+  lookMore: 'Anything else about them?',
   photos: 'Add one clear photo of their face. Up to three more angles hold the likeness better.',
   name: 'What should we call them?',
   nameWhileDrawing: 'While it draws: what should we call them?',
@@ -452,17 +596,47 @@ function turnsBase(
       });
       return T;
     }
-    if (!setup.description.trim() && !d) {
+    // Tapped before typed: the look is a few rows of colours and words, and the
+    // composer is still there for anyone who would rather say it in a sentence.
+    const step = setup.description.trim() || d ? null : nextLookStep(setup.look ?? null);
+    if (!folded && setup.look && setup.look !== 'skipped') {
+      // what has been tapped so far stays as one answer, and grows as it is given
+      you('look', lookLine(setup.look), PROMPT.look);
+    }
+    if (step && !d) {
       ask({
-        id: 'describe',
-        kind: 'text',
-        prompt: PROMPT.describe,
-        starters: STARTERS,
+        // each step is its own question, so each arrives on its own beat and
+        // carries its own answer rather than the one before it
+        id: `look-${step.row.id}`,
+        kind: 'swatches',
+        prompt: step.prompt,
+        hint: step.row.id === 'who' ? PROMPT.lookHint : undefined,
+        row: step.row,
+        skip: 'Skip',
       });
       return T;
     }
-    if (!folded) {
-      you('describe', setup.description.trim() || (d?.direction ?? ''), setup.typed ? PROMPT.source : PROMPT.describe);
+    // every step answered: what we have is read back before anything is drawn
+    if (!d && setup.look && setup.look !== 'skipped' && !setup.description.trim()) {
+      ask({
+        id: 'agree',
+        kind: 'confirm',
+        prompt: `${cap(lookSentence(setup.look))}. Shall I draw them?`,
+        options: [
+          { id: 'draw', label: 'Draw them' },
+          { id: 'change', label: 'Change something' },
+        ],
+      });
+      return T;
+    }
+    if (!folded && setup.description.trim()) {
+      you(
+        'describe',
+        setup.description.trim(),
+        setup.look ? PROMPT.lookMore : setup.typed ? PROMPT.source : PROMPT.describe,
+      );
+    } else if (!folded && !setup.look) {
+      you('describe', d?.direction ?? '', setup.typed ? PROMPT.source : PROMPT.describe);
     }
     if (setup.gapsAsked && !setup.gaps && !d) {
       const gaps = descriptionGaps(setup.description);
@@ -830,6 +1004,13 @@ export function activeQuestion(turns: Turn[]): Question | null {
 /** What changing an earlier answer costs. */
 export type EditEffect = 'plain' | 'metadata' | 'redraw-identity' | 'start-over';
 
+/** The step a look answer goes back to when it is taken back: the last one given. */
+export function lastLookStep(look: Setup['look']): string | null {
+  if (!look || look === 'skipped') return null;
+  const given = LOOK_STEPS.filter((s) => look[s.row.id]);
+  return given.length ? given[given.length - 1].row.id : null;
+}
+
 export function editEffect(turnId: string, hasDraft: boolean): EditEffect {
   if (turnId === 'name') return 'metadata';
   if (!hasDraft) return 'plain';
@@ -855,6 +1036,10 @@ const QUIET: ComposerFor = { placeholder: 'Nothing to type yet', label: 'Message
 
 export function composerFor(q: Question | null, d: DraftLike | null, selected: StudioView): ComposerFor {
   if (q) {
+    // the look is tapped, and a sentence answers the whole of it just as well
+    if (q.id.startsWith('look-')) {
+      return { placeholder: 'Or describe them in a sentence', label: 'Describe them', action: 'Send' };
+    }
     switch (q.id) {
       case 'source':
         return { placeholder: 'Describe them, or choose above', label: 'Describe them', action: 'Send' };

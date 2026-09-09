@@ -336,11 +336,14 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('This is where the person is described');
     await settle(page);
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Describe them.');
+    await expect(log(page)).toContainText('Who are we drawing?');
     await settle(page);
-    // a starter fills the composer: no turn moves
-    await log(page).locator('.sc-convo-starter').first().click();
-    await expect(composer(page)).toHaveValue(/late 30s/i);
+    // the look is tapped a step at a time, each step arriving on its own beat
+    await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
+    await expect(log(page)).toContainText('About what age?');
+    await settle(page);
+    await log(page).getByRole('button', { name: 'Skip' }).click();
+    await expect(log(page)).toContainText('What colour is their hair?');
     await settle(page, 600);
     await send(page, 'bullshit');
     await expect(log(page)).toContainText('That does not describe anyone.');
@@ -495,7 +498,7 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('Who are we creating?');
     await watch(page);
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Describe them.');
+    await expect(log(page)).toContainText('Who are we drawing?');
     await pencil(page, 'Describe someone').click();
     await expect(answer(page, 'Add photos')).toBeVisible();
     await send(page, 'hey');
