@@ -29,6 +29,8 @@ import {
 } from './assetRecords.js';
 import { draw, presenterCrops, trimEdgeBars, type AssetBuildDeps } from './customAssets.js';
 import {
+  CORE_VIEWS,
+  EXTRA_VIEWS,
   PRESENTER_VIEWS,
   studioPrompt,
   syntheticIdentitySubject,
@@ -85,6 +87,12 @@ export interface PresenterDraftRecord {
    */
   readError?: string;
   views: Record<PresenterView, ViewSlot>;
+  /**
+   * Whether the extra views (back, left, right) may be drawn. Off until asked
+   * for: a view costs minutes of engine time and a brief carries the three
+   * core views. An extra already drawn is kept and saved whatever this says.
+   */
+  extras: boolean;
   /** Generations spent on this draft, every slot, every attempt. */
   generations: number;
   /** The slot a step is drawing into, while one is. */
@@ -98,8 +106,9 @@ export interface PresenterDraftRecord {
 export const DEPENDS: Record<PresenterView, PresenterView[]> = {
   portrait: [],
   front: ['portrait'],
-  left: ['portrait', 'front'],
+  'three-quarter': ['portrait', 'front'],
   back: ['portrait', 'front'],
+  left: ['portrait', 'front'],
   right: ['portrait', 'front', 'left'],
 };
 
@@ -107,12 +116,14 @@ export const DEPENDS: Record<PresenterView, PresenterView[]> = {
 export const VIEW_LABEL: Record<PresenterView, string> = {
   portrait: 'face',
   front: 'front view',
-  left: 'left view',
+  'three-quarter': 'three-quarter view',
   back: 'back view',
+  left: 'left view',
   right: 'right view',
 };
 
 const isView = (v: unknown): v is PresenterView => (PRESENTER_VIEWS as readonly string[]).includes(String(v));
+const isExtra = (v: PresenterView) => EXTRA_VIEWS.includes(v);
 const HASH = /^[a-f0-9]{32}$/;
 const fail = (message: string, statusCode: number) => Object.assign(new Error(message), { statusCode });
 const str = (v: unknown, max: number) =>
@@ -136,6 +147,7 @@ function fromRow(row: { id: string; brandId: string; json: unknown; createdAt: s
     facets: Array.isArray(j.facets) ? j.facets.map(String) : [],
     sources: Array.isArray(j.sources) ? j.sources.map(String) : [],
     views,
+    extras: j.extras === true,
     generations: Number(j.generations ?? 0),
     activeView: isView(j.activeView) ? j.activeView : null,
     stage: j.stage === 'analyzing' || j.stage === 'drawing' ? j.stage : 'idle',
@@ -222,6 +234,8 @@ export interface CreateDraftInput {
   attestation?: boolean;
   name?: string;
   facets?: string[];
+  /** Ask for the extra views from the start. */
+  extras?: boolean;
 }
 
 export async function createPresenterDraft(
@@ -254,6 +268,7 @@ export async function createPresenterDraft(
       .slice(0, 8),
     sources: source === 'photos' ? sources : [],
     views,
+    extras: input.extras === true,
     generations: 0,
     activeView: null,
     stage: 'idle',
@@ -350,23 +365,30 @@ function startJob(
  * Draw one view, from the approved views it depends on plus the photographs,
  * and land it as this slot's candidate. The step before it stays exactly as
  * it was, whatever happens here.
+ *
+ * With `decide: 'auto'` the view lands approved instead of waiting for Use,
+ * keeping the picture it replaced as `prior` so Keep previous still works.
+ * Never the face: the identity is always judged by a person.
  */
 export async function generateView(
   deps: AssetBuildDeps,
   id: string,
   view: PresenterView,
-  opts: { adjustment?: string } = {},
+  opts: { adjustment?: string; decide?: 'auto' } = {},
 ): Promise<{ draft: PresenterDraftRecord }> {
   const { core, engine } = deps;
   if (!isView(view)) throw fail('no such view', 400);
   const rec = getPresenterDraft(core, id);
   if (!rec) throw fail('draft not found', 404);
   if (running.has(id)) throw fail('a view is still being drawn', 409);
+  if (isExtra(view) && !rec.extras) throw fail('extra views are built on request', 400);
+  if (opts.decide === 'auto' && view === 'portrait') throw fail('the face is always decided by hand', 400);
   for (const dep of DEPENDS[view]) {
     if (rec.views[dep].status !== 'approved') throw fail(`approve the ${VIEW_LABEL[dep]} first`, 400);
   }
   if (!engine || !engine.capabilities().maxReferenceImages) throw fail('no engine here can draw a person', 400);
   const adjustment = str(opts.adjustment, 240) || undefined;
+  const decide = opts.decide === 'auto' ? 'auto' : undefined;
   const before = rec.views[view].status;
   const saved = mutate(core, id, (r) => {
     r.views[view].status = 'generating';
@@ -374,7 +396,7 @@ export async function generateView(
     r.activeView = view;
     r.stage = 'drawing';
   });
-  startJob(deps, id, view, (signal) => drawView(deps, id, view, before, adjustment, signal));
+  startJob(deps, id, view, (signal) => drawView(deps, id, view, before, adjustment, decide, signal));
   return { draft: saved };
 }
 
@@ -384,6 +406,7 @@ async function drawView(
   view: PresenterView,
   before: ViewStatus,
   adjustment: string | undefined,
+  decide: 'auto' | undefined,
   signal: AbortSignal,
 ): Promise<void> {
   const { core, engine, analyzer } = deps;
@@ -433,8 +456,14 @@ async function drawView(
       if (slot.hash && slot.hash !== hash) {
         // A revision of an approved view keeps the approved picture until the
         // decision; a candidate being redrawn is simply let go of.
-        if (before === 'approved') slot.prior = slot.hash;
-        else if (slot.origin === 'generated') slot.rejected = [...slot.rejected, slot.hash];
+        if (before === 'approved') {
+          // A view that decided itself may still hold the prior it replaced;
+          // that one was never chosen over the picture now being replaced.
+          if (slot.prior && slot.prior !== slot.hash && !r.sources.includes(slot.prior)) {
+            slot.rejected = [...slot.rejected, slot.prior];
+          }
+          slot.prior = slot.hash;
+        } else if (slot.origin === 'generated') slot.rejected = [...slot.rejected, slot.hash];
       }
       slot.status = 'candidate';
       slot.hash = hash;
@@ -444,6 +473,13 @@ async function drawView(
       slot.adjustment = adjustment;
       slot.error = undefined;
       r.generations += 1;
+      if (decide === 'auto') {
+        // Straight to approved, exactly as Use would take it, except that the
+        // prior stays on the slot so Keep previous is still on offer. What
+        // was drawn from the old picture no longer stands, as on Use.
+        slot.status = 'approved';
+        if (slot.prior) staleDependents(r, view);
+      }
     });
   } catch (err: any) {
     mutate(core, id, (r) => {
@@ -503,7 +539,16 @@ export async function approveView(
   const rec = getPresenterDraft(deps.core, id);
   if (!rec) throw fail('draft not found', 404);
   const slot = rec.views[view];
-  if (slot.status === 'approved') return rec;
+  if (slot.status === 'approved') {
+    if (!slot.prior) return rec;
+    // A view that decided itself, confirmed: the prior it kept for Keep
+    // previous retires. Its dependents were already staled when it landed.
+    return mutate(deps.core, id, (r) => {
+      const s = r.views[view];
+      if (s.prior && !r.sources.includes(s.prior)) s.rejected = [...s.rejected, s.prior];
+      s.prior = undefined;
+    });
+  }
   if (slot.status === 'stale') throw fail(`redo the ${VIEW_LABEL[view]}: it was built on a view you changed`, 400);
   if (slot.status !== 'candidate' || !slot.hash) throw fail(`there is no ${VIEW_LABEL[view]} to approve yet`, 400);
   return mutate(deps.core, id, (r) => {
@@ -603,13 +648,14 @@ export async function usePhotoForView(
   });
 }
 
-/** The words around the person. None of these touch a view. */
+/** The words around the person, and the extras switch. None of these touch a view. */
 export async function updatePresenterDraft(
   core: Core,
   id: string,
-  patch: { name?: unknown; facets?: unknown; direction?: unknown },
+  patch: { name?: unknown; facets?: unknown; direction?: unknown; extras?: unknown },
 ): Promise<PresenterDraftRecord> {
   return mutate(core, id, (r) => {
+    if (patch.extras !== undefined) r.extras = patch.extras === true;
     if (patch.name !== undefined) r.name = str(patch.name, 60);
     if (Array.isArray(patch.facets))
       r.facets = patch.facets
@@ -630,7 +676,9 @@ export interface CleanupHooks {
 /**
  * Commit the approved views as a presenter, exactly as approved: the portrait
  * leads, the card and avatar are crops of it, the photographs stay as the
- * evidence. Then the draft goes, and with it every rejected picture nothing
+ * evidence. The three core views are required; an extra is required only
+ * once something was drawn into it, and then it has to be approved like any
+ * other. Then the draft goes, and with it every rejected picture nothing
  * else holds.
  */
 export async function savePresenterDraft(
@@ -648,7 +696,10 @@ export async function savePresenterDraft(
   // working person rather than a blocked flow, exactly the old build's
   // fallback.
   const blind = !deps.engine;
-  const required: PresenterView[] = blind ? ['portrait'] : [...PRESENTER_VIEWS];
+  // In save order: the core views, then whichever extras were drawn.
+  const required: PresenterView[] = blind
+    ? ['portrait']
+    : [...CORE_VIEWS, ...EXTRA_VIEWS.filter((v) => rec.views[v].status !== 'empty')];
   for (const v of required) {
     const s = rec.views[v];
     if (s.status === 'stale') throw fail(`redo the ${VIEW_LABEL[v]}: it was built on a view you changed`, 400);
@@ -656,7 +707,7 @@ export async function savePresenterDraft(
   }
   const approved = required.map((v) => rec.views[v].hash as string);
   const shots = blind ? [...approved, ...rec.sources.filter((h) => !approved.includes(h))] : approved;
-  const angles = blind ? ['portrait'] : [...PRESENTER_VIEWS];
+  const angles = blind ? ['portrait'] : [...required];
   const portraitFile = `asset:${shots[0]}`;
   const sourceFiles = rec.sources.map((h) => `asset:${h}`);
   const mode = presenterCropMode(portraitFile, sourceFiles, 'portrait');
@@ -691,7 +742,12 @@ export async function savePresenterDraft(
   core.store.deletePresenterDraft(id);
   removeUnreferenced(
     core,
-    PRESENTER_VIEWS.flatMap((v) => rec.views[v].rejected),
+    PRESENTER_VIEWS.flatMap((v) => {
+      const s = rec.views[v];
+      // A prior a self-decided view was still carrying was never chosen over
+      // the picture that replaced it: it goes with the rejected ones.
+      return [...s.rejected, ...(s.prior && s.prior !== s.hash ? [s.prior] : [])];
+    }),
     hooks,
   );
   return { presenter: built.presenter, brand: core.store.getBrand(rec.brandId) };

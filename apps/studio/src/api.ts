@@ -240,6 +240,7 @@ export const api = {
       attestation?: boolean;
       name?: string;
       facets?: string[];
+      extras?: boolean;
     },
   ) => req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts`, p),
   presenterDrafts: (brandId: string) =>
@@ -249,9 +250,15 @@ export const api = {
   updatePresenterDraft: (
     brandId: string,
     draftId: string,
-    p: { name?: string; facets?: string[]; direction?: string },
+    p: { name?: string; facets?: string[]; direction?: string; extras?: boolean },
   ) => req<PresenterDraft>('PATCH', `/api/brands/${brandId}/presenter-drafts/${draftId}`, p),
-  generateDraftView: (brandId: string, draftId: string, view: PresenterDraftView, p: { adjustment?: string } = {}) =>
+  /** With `decide: 'auto'` the view lands approved; the face never does. */
+  generateDraftView: (
+    brandId: string,
+    draftId: string,
+    view: PresenterDraftView,
+    p: { adjustment?: string; decide?: 'auto' } = {},
+  ) =>
     req<{ draft: PresenterDraft }>(
       'POST',
       `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/generate`,

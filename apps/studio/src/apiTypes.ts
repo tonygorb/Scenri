@@ -356,8 +356,12 @@ export interface AssetBuild {
   finished: boolean;
 }
 
-/** The five canonical views a presenter is cast in, in build order: the strip's Avatar, Front, Left, Back, Right. */
-export type PresenterDraftView = 'portrait' | 'front' | 'left' | 'back' | 'right';
+/**
+ * The views a presenter is cast in, in save order: three core views built by
+ * default (face, full body, three-quarter) and three built on request (back,
+ * left, right).
+ */
+export type PresenterDraftView = 'portrait' | 'front' | 'three-quarter' | 'back' | 'left' | 'right';
 export type PresenterDraftSlotStatus = 'empty' | 'generating' | 'candidate' | 'approved' | 'stale';
 export interface PresenterDraftSlot {
   status: PresenterDraftSlotStatus;
@@ -393,6 +397,8 @@ export interface PresenterDraft {
   /** Why the photos could not be read; the first photo is the face regardless. */
   readError?: string;
   views: Record<PresenterDraftView, PresenterDraftSlot>;
+  /** Whether the extra views may be drawn. Off until asked for. */
+  extras: boolean;
   generations: number;
   activeView: PresenterDraftView | null;
   stage: 'idle' | 'analyzing' | 'drawing';

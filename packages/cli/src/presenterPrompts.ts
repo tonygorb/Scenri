@@ -36,19 +36,25 @@ export function studioPrompt(subject: string): string {
 }
 
 /**
- * The five canonical views, in the order they are built: the reference set
- * the Figma studio lays out as Avatar, Front, Left, Back, Right.
+ * The six views a person can be cast in: three core, built by default, and
+ * three extras, built only on request.
  *
  * `portrait` is the identity: the face at face size, which is the only place
  * identity can be judged (a full-length frame renders it at ~105px brow to
  * chin, a portrait at four times that). `front` carries build, proportion and
- * hair length. `left`, `back` and `right` complete the set the way a casting
- * sheet does, full length and turned. A brief still carries three references
- * (CHARACTER_REF_MAX): the portrait, the front and the first turned view; the
- * other two live on the presenter's page.
+ * hair length. `three-quarter` is the turned view a brief most often needs,
+ * with both eyes still in frame. Those three are exactly what a brief carries
+ * (CHARACTER_REF_MAX), and the three-view shape held identity 6/6 in the
+ * battery; a view costs minutes of engine time, so `back`, `left` and `right`
+ * complete the casting sheet only when asked for. The compiler swaps one of
+ * them in when the shot's own words ask for that side (askedView).
+ *
+ * PRESENTER_VIEWS is the save order.
  */
-export type PresenterView = 'portrait' | 'front' | 'left' | 'back' | 'right';
-export const PRESENTER_VIEWS: readonly PresenterView[] = ['portrait', 'front', 'left', 'back', 'right'];
+export type PresenterView = 'portrait' | 'front' | 'three-quarter' | 'back' | 'left' | 'right';
+export const CORE_VIEWS: readonly PresenterView[] = ['portrait', 'front', 'three-quarter'];
+export const EXTRA_VIEWS: readonly PresenterView[] = ['back', 'left', 'right'];
+export const PRESENTER_VIEWS: readonly PresenterView[] = [...CORE_VIEWS, ...EXTRA_VIEWS];
 
 /** What a view asks for, about the person named in `who`. */
 export function viewSubject(view: PresenterView, who: string): string {
@@ -57,6 +63,8 @@ export function viewSubject(view: PresenterView, who: string): string {
       return `${who}, head-and-shoulders portrait framing from just above the top of the head down to the collarbone, facing the camera straight-on, relaxed neutral expression, eyes to the lens, their own hair exactly as the references show it, the same plain studio backdrop and even frontal light`;
     case 'front':
       return `${who}, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, facing the camera straight-on`;
+    case 'three-quarter':
+      return `${who}: the same person as the attached images, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, turned about forty-five degrees from the camera so that both eyes stay in frame (a three-quarter view), the head turned with the body, their own hair exactly as the attached images show it, the same plain studio backdrop and even light`;
     case 'left':
       return `${who}: the same person as the attached images, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, turned so that their left side faces the camera in a full profile, the head in profile too, their own hair exactly as the attached images show it, the same plain studio backdrop and even light`;
     case 'back':

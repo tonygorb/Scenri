@@ -135,6 +135,7 @@ describe('analyze — presenter', () => {
         photos: [
           { index: 0, view: 'portrait', usable: true, note: 'sharp, well lit' },
           { index: 1, view: 'sideways', usable: 'yes', note: 'a profile' },
+          { index: 2, view: 'Three-Quarter', usable: true, note: 'turned, both eyes visible' },
           { index: 7, view: 'front', usable: true, note: 'no such photo' },
           'junk',
         ],
@@ -147,7 +148,7 @@ describe('analyze — presenter', () => {
     const draft = (await analyzer.analyze({
       kind: 'presenter',
       name: 'Mara',
-      imagePaths: [photo(), photo()],
+      imagePaths: [photo(), photo(), photo()],
       classifyPhotos: true,
     })) as PresenterDraft;
 
@@ -159,6 +160,7 @@ describe('analyze — presenter', () => {
     expect(draft.photos).toEqual([
       { index: 0, view: 'portrait', usable: true, note: 'sharp, well lit' },
       { index: 1, view: 'other', usable: true, note: 'a profile' },
+      { index: 2, view: 'three-quarter', usable: true, note: 'turned, both eyes visible' },
     ]);
     // a second person in the pile is said once, never refused
     expect(draft.conflict).toBe('ref-2 looks like a different person: rounder face, darker brows');
@@ -167,6 +169,8 @@ describe('analyze — presenter', () => {
     expect(prompt).toContain('"photos"');
     expect(prompt).toContain('"conflict"');
     expect(prompt).toContain('ref-1.png');
+    // the filing names every view the studio can fill, the three-quarter included
+    expect(prompt).toContain('"three-quarter" (turned about forty-five degrees, both eyes visible)');
   });
 
   it('never spends the one retry on the optional keys', async () => {

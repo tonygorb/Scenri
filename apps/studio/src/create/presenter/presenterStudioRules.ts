@@ -7,23 +7,26 @@ import type { PresenterDraft, PresenterDraftSlot, PresenterDraftView } from '../
  * save. The components read these; nothing here reads a component.
  */
 export type StudioView = PresenterDraftView;
-export const VIEWS: readonly StudioView[] = ['portrait', 'front', 'left', 'back', 'right'];
+/** The server's save order: three core views, then the three built on request. */
+export const VIEWS: readonly StudioView[] = ['portrait', 'front', 'three-quarter', 'back', 'left', 'right'];
 
-/** The strip's word for a view: the Figma's Avatar, Front, Left, Back, Right. */
+/** The strip's word for a view. */
 export const VIEW_LABEL: Record<StudioView, string> = {
-  portrait: 'Avatar',
-  front: 'Front',
-  left: 'Left',
+  portrait: 'Face',
+  front: 'Full body',
+  'three-quarter': 'Three-quarter',
   back: 'Back',
+  left: 'Left',
   right: 'Right',
 };
 
 /** The view inside a sentence. */
 export const VIEW_NAME: Record<StudioView, string> = {
   portrait: 'face',
-  front: 'front view',
-  left: 'left view',
+  front: 'full body',
+  'three-quarter': 'three-quarter view',
   back: 'back view',
+  left: 'left view',
   right: 'right view',
 };
 const lower = (v: StudioView) => VIEW_NAME[v];
@@ -33,8 +36,9 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const DEPENDS: Record<StudioView, StudioView[]> = {
   portrait: [],
   front: ['portrait'],
-  left: ['portrait', 'front'],
+  'three-quarter': ['portrait', 'front'],
   back: ['portrait', 'front'],
+  left: ['portrait', 'front'],
   right: ['portrait', 'front', 'left'],
 };
 

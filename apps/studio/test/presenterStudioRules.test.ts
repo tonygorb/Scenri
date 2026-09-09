@@ -45,32 +45,31 @@ function draft(p: Partial<DraftLike> & { views?: Partial<Record<StudioView, Pres
     views: {
       portrait: emptySlot(),
       front: emptySlot(),
-      left: emptySlot(),
+      'three-quarter': emptySlot(),
       back: emptySlot(),
+      left: emptySlot(),
       right: emptySlot(),
       ...(p.views ?? {}),
     },
   };
 }
 
-describe('the order: face, front, left, back, right', () => {
-  it('is five views, and the current one is the first not yet used', () => {
-    expect(VIEWS).toEqual(['portrait', 'front', 'left', 'back', 'right']);
+/** Every view approved, the way the server saves them. */
+const allSix = {
+  portrait: approved('p'),
+  front: approved('f'),
+  'three-quarter': approved('q'),
+  back: approved('b'),
+  left: approved('l'),
+  right: approved('r'),
+};
+
+describe('the order: face, full body, three-quarter, then back, left, right', () => {
+  it('is six views, and the current one is the first not yet used', () => {
+    expect(VIEWS).toEqual(['portrait', 'front', 'three-quarter', 'back', 'left', 'right']);
     expect(currentView(draft())).toBe('portrait');
     expect(currentView(draft({ views: { portrait: approved('p') } }))).toBe('front');
-    expect(
-      currentView(
-        draft({
-          views: {
-            portrait: approved('p'),
-            front: approved('f'),
-            left: approved('l'),
-            back: approved('b'),
-            right: approved('r'),
-          },
-        }),
-      ),
-    ).toBeNull();
+    expect(currentView(draft({ views: allSix }))).toBeNull();
   });
 });
 
@@ -79,15 +78,7 @@ describe('phases', () => {
     expect(phaseOf(draft(), true)).toBe('identity');
     expect(phaseOf(draft({ views: { portrait: candidate('c') } }), true)).toBe('identity');
     expect(phaseOf(draft({ views: { portrait: approved('p') } }), true)).toBe('build');
-    const done = draft({
-      views: {
-        portrait: approved('p'),
-        front: approved('f'),
-        left: approved('l'),
-        back: approved('b'),
-        right: approved('r'),
-      },
-    });
+    const done = draft({ views: allSix });
     expect(phaseOf(done, true)).toBe('review');
     // a revision pending on an approved view is not review
     expect(phaseOf({ ...done, views: { ...done.views, portrait: candidate('c', { prior: 'p' }) } }, true)).toBe(
@@ -102,7 +93,7 @@ describe('phases', () => {
     expect(phaseOf(d, false)).toBe('review');
     expect(phaseOf(d, true)).toBe('build');
     expect(saveBlocker(d, 'Noor', false)).toBeNull();
-    expect(saveBlocker(d, 'Noor', true)).toBe('Use the front view first');
+    expect(saveBlocker(d, 'Noor', true)).toBe('Use the full body first');
   });
 });
 
@@ -120,11 +111,11 @@ describe('what gets drawn next without a click', () => {
       views: {
         portrait: approved('p2'),
         front: slot({ status: 'stale', hash: 'f', origin: 'generated' }),
-        left: slot({ status: 'stale', hash: 'l', origin: 'generated' }),
+        'three-quarter': slot({ status: 'stale', hash: 'q', origin: 'generated' }),
       },
     });
     expect(nextToDraw(d)).toBe('front');
-    expect(nextToDraw({ ...d, views: { ...d.views, front: approved('f2') } })).toBe('left');
+    expect(nextToDraw({ ...d, views: { ...d.views, front: approved('f2') } })).toBe('three-quarter');
   });
 });
 
@@ -135,13 +126,14 @@ describe('the strip is the progress', () => {
     expect(stripItems(d, 'front').map((i) => [i.view, i.state, i.drawing])).toEqual([
       ['portrait', 'approved', false],
       ['front', 'current', true],
-      ['left', 'todo', false],
+      ['three-quarter', 'todo', false],
       ['back', 'todo', false],
+      ['left', 'todo', false],
       ['right', 'todo', false],
     ]);
     // a chosen view wins over the one being drawn
     expect(selectedView(d, 'portrait')).toBe('portrait');
-    expect(stripItems(d, 'portrait')[0]).toMatchObject({ state: 'current', label: 'Avatar', photo: false });
+    expect(stripItems(d, 'portrait')[0]).toMatchObject({ state: 'current', label: 'Face', photo: false });
     const photos = draft({ source: 'photos', views: { portrait: approved('a', 'photo') } });
     expect(stripItems(photos, 'front')[0]).toMatchObject({ state: 'approved', photo: true });
   });
@@ -153,7 +145,7 @@ describe('what the rail says', () => {
     expect(railCopy(face, 'portrait', true)).toMatchObject({ actions: ['try-again', 'use-person'] });
     const front = draft({ views: { portrait: approved('p'), front: candidate('f') } });
     expect(railCopy(front, 'front', true)).toMatchObject({ actions: ['try-again', 'use'] });
-    expect(railCopy(front, 'front', true).status).toContain('Front view');
+    expect(railCopy(front, 'front', true).status).toContain('Full body');
   });
 
   it('offers Use or Keep previous on a revision, Retry on a failure, and nothing while drawing', () => {
@@ -185,15 +177,7 @@ describe('what the rail says', () => {
   });
 
   it('says review is about one person, and names the naming', () => {
-    const done = draft({
-      views: {
-        portrait: approved('p'),
-        front: approved('f'),
-        left: approved('l'),
-        back: approved('b'),
-        right: approved('r'),
-      },
-    });
+    const done = draft({ views: allSix });
     expect(railCopy(done, 'portrait', true)).toMatchObject({ actions: ['save'] });
     expect(railCopy(done, 'portrait', true).status).toContain('name them');
     expect(railCopy({ ...done, name: 'Maren' }, 'front', true).status).toContain('then save');
@@ -210,15 +194,7 @@ describe('what a request is aimed at', () => {
   });
 
   it('after the lock, the face or an identity word changes the person; anything else changes the view', () => {
-    const d = draft({
-      views: {
-        portrait: approved('p'),
-        front: approved('f'),
-        left: approved('l'),
-        back: approved('b'),
-        right: approved('r'),
-      },
-    });
+    const d = draft({ views: allSix });
     expect(refineTarget('a little shorter hair', 'front', d)).toEqual({ view: 'portrait', scope: 'identity' });
     expect(refineTarget('older, mid 40s', 'left', d)).toEqual({ view: 'portrait', scope: 'identity' });
     expect(refineTarget('less athletic', 'front', d)).toEqual({ view: 'portrait', scope: 'identity' });
@@ -235,16 +211,8 @@ describe('what a request is aimed at', () => {
   it('the composer chip names what Refine will redraw, and follows the sentence', () => {
     const pre = draft({ views: { portrait: candidate('c') } });
     expect(composerState('', 'portrait', pre).chip).toEqual({ view: 'portrait', label: 'Adjusting the face' });
-    const d = draft({
-      views: {
-        portrait: approved('p'),
-        front: approved('f'),
-        left: approved('l'),
-        back: approved('b'),
-        right: approved('r'),
-      },
-    });
-    expect(composerState('', 'front', d).chip).toEqual({ view: 'front', label: 'Refining the front view' });
+    const d = draft({ views: allSix });
+    expect(composerState('', 'front', d).chip).toEqual({ view: 'front', label: 'Refining the full body' });
     expect(composerState('turn to camera', 'left', d).chip).toEqual({ view: 'left', label: 'Refining the left view' });
     expect(composerState('shorter hair', 'front', d).chip).toEqual({ view: 'portrait', label: 'Changing the person' });
     expect(composerState('', 'portrait', d)).toMatchObject({
@@ -298,7 +266,7 @@ describe('leaving and saving', () => {
 
   it('the save blocker says the first thing in the way', () => {
     const d = draft({ views: { portrait: approved('p'), front: candidate('f') } });
-    expect(saveBlocker(d, '')).toBe('Use the front view first');
+    expect(saveBlocker(d, '')).toBe('Use the full body first');
     expect(saveBlocker({ ...d, activeView: 'front', stage: 'drawing' }, '')).toBe('Still drawing');
     const revision = draft({
       views: { portrait: candidate('c', { prior: 'p' }), front: approved('f'), left: approved('t') },
@@ -311,16 +279,8 @@ describe('leaving and saving', () => {
         left: approved('t'),
       },
     });
-    expect(saveBlocker(stale, 'Maren')).toBe('Redo the front view first');
-    const done = draft({
-      views: {
-        portrait: approved('p'),
-        front: approved('f'),
-        left: approved('l'),
-        back: approved('b'),
-        right: approved('r'),
-      },
-    });
+    expect(saveBlocker(stale, 'Maren')).toBe('Redo the full body first');
+    const done = draft({ views: allSix });
     expect(saveBlocker(done, '  ')).toBe('Give them a name');
     expect(saveBlocker(done, 'Maren')).toBeNull();
   });
@@ -420,7 +380,7 @@ describe('photos', () => {
       sources: ['a', 'b'],
       views: { portrait: approved('a', 'photo'), front: approved('b', 'photo') },
     });
-    expect(coverageLine(two, true)?.text).toBe('Face and front view from your photos. The rest are drawn from them.');
+    expect(coverageLine(two, true)?.text).toBe('Face and full body from your photos. The rest are drawn from them.');
     expect(coverageLine({ ...one, stage: 'analyzing' }, true)).toBeNull();
     expect(coverageLine(draft(), true)).toBeNull();
     const conflict = { ...one, analysis: { conflict: 'the second photo has a rounder face' } };

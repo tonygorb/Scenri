@@ -6,7 +6,13 @@ import sharp from 'sharp';
 import { createCore, type Core, type EngineAdapter, type GenerateRequest } from '@scenri/core';
 import { compileBrief } from '../src/brief.js';
 import { brandCharacters, presenterCrops, resetAssetBuilds, type AssetBuildDeps } from '../src/customAssets.js';
-import { CAPTURE_UNIFORM, PRESENTER_VIEWS } from '../src/presenterPrompts.js';
+import {
+  CAPTURE_UNIFORM,
+  CORE_VIEWS,
+  EXTRA_VIEWS,
+  PRESENTER_VIEWS,
+  type PresenterView,
+} from '../src/presenterPrompts.js';
 import {
   ABANDONED_DRAFT_MS,
   DEPENDS,
@@ -134,8 +140,8 @@ afterEach(() => {
 });
 
 /** Run one step and wait for it to land. */
-async function step(draftId: string, view: 'portrait' | 'front' | 'left' | 'back' | 'right', adjustment?: string) {
-  await generateView(deps(), draftId, view, { adjustment });
+async function step(draftId: string, view: PresenterView, adjustment?: string, decide?: 'auto') {
+  await generateView(deps(), draftId, view, { adjustment, decide });
   for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
   return getPresenterDraft(core, draftId)!;
 }
@@ -147,26 +153,32 @@ const refsOf = (req: GenerateRequest) =>
       .pop()!
       .replace(/\.png$/, ''),
   );
-const view = (d: PresenterDraftRecord, v: 'portrait' | 'front' | 'left' | 'back' | 'right') => d.views[v];
+const view = (d: PresenterDraftRecord, v: PresenterView) => d.views[v];
 
 async function synthetic(direction = 'confident woman in her 40s, short silver hair') {
   return createPresenterDraft(deps(), { brandId, source: 'synthetic', direction });
 }
 
-/** A fully approved synthetic draft, ready to save. */
+/** Draw and approve each view in turn. */
+async function build(draftId: string, views: readonly PresenterView[]) {
+  for (const v of views) {
+    await step(draftId, v);
+    await approveView(deps(), draftId, v);
+  }
+  return getPresenterDraft(core, draftId)!;
+}
+
+/** A synthetic draft with the three core views approved, ready to save. */
 async function cast() {
-  let d = await synthetic();
-  d = await step(d.id, 'portrait');
-  await approveView(deps(), d.id, 'portrait');
-  d = await step(d.id, 'front');
-  await approveView(deps(), d.id, 'front');
-  d = await step(d.id, 'left');
-  await approveView(deps(), d.id, 'left');
-  d = await step(d.id, 'back');
-  await approveView(deps(), d.id, 'back');
-  d = await step(d.id, 'right');
-  await approveView(deps(), d.id, 'right');
-  return getPresenterDraft(core, d.id)!;
+  const d = await synthetic();
+  return build(d.id, CORE_VIEWS);
+}
+
+/** The same, with the extras switched on and all six views approved. */
+async function castWithExtras() {
+  const d = await synthetic();
+  await updatePresenterDraft(core, d.id, { extras: true });
+  return build(d.id, PRESENTER_VIEWS);
 }
 
 describe('from scratch: the identity is one person, rolled and then locked', () => {
@@ -223,7 +235,7 @@ describe('from scratch: the identity is one person, rolled and then locked', () 
   it('refuses a view whose dependencies are not approved, and a second job while one runs', async () => {
     const d = await synthetic();
     await expect(generateView(deps(), d.id, 'front', {})).rejects.toThrow(/face/);
-    await expect(generateView(deps(), d.id, 'left', {})).rejects.toThrow(/face/);
+    await expect(generateView(deps(), d.id, 'three-quarter', {})).rejects.toThrow(/face/);
     await generateView(deps(), d.id, 'portrait', {});
     await expect(generateView(deps(), d.id, 'portrait', {})).rejects.toMatchObject({ statusCode: 409 });
     for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
@@ -255,7 +267,7 @@ describe('regenerating a step never moves an approved one', () => {
     expect(refsOf(generated[2])).toEqual([portrait]);
   });
 
-  it('the left is drawn from both approved views and nothing that was rejected', async () => {
+  it('the three-quarter is drawn from both approved views and nothing that was rejected', async () => {
     let d = await synthetic();
     d = await step(d.id, 'portrait');
     await approveView(deps(), d.id, 'portrait');
@@ -263,24 +275,21 @@ describe('regenerating a step never moves an approved one', () => {
     const rejectedFront = view(d, 'front').hash!;
     d = await step(d.id, 'front');
     await approveView(deps(), d.id, 'front');
-    d = await step(d.id, 'left');
+    d = await step(d.id, 'three-quarter');
     const refs = refsOf(generated[3]);
     expect(refs).toEqual([view(d, 'portrait').hash, view(d, 'front').hash]);
     expect(refs).not.toContain(rejectedFront);
-    expect(generated[3].prompt).toMatch(/left side faces the camera/);
+    expect(generated[3].prompt).toMatch(/about forty-five degrees/);
   });
 });
 
 describe('redoing an upstream view', () => {
   it('stales everything built on it, and save refuses until they are redone', async () => {
-    let d = await cast();
+    let d = await castWithExtras();
     await redoView(deps(), d.id, 'portrait');
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'portrait').status).toBe('empty');
-    expect(view(d, 'front').status).toBe('stale');
-    expect(view(d, 'left').status).toBe('stale');
-    expect(view(d, 'back').status).toBe('stale');
-    expect(view(d, 'right').status).toBe('stale');
+    for (const v of PRESENTER_VIEWS) if (v !== 'portrait') expect(view(d, v).status).toBe('stale');
     // the identity is being re-rolled: the words read off the old face go too
     expect(d.analysis).toBeUndefined();
     await updatePresenterDraft(core, d.id, { name: 'Ilse' });
@@ -288,28 +297,34 @@ describe('redoing an upstream view', () => {
     d = await step(d.id, 'portrait');
     await approveView(deps(), d.id, 'portrait');
     await expect(savePresenterDraft(deps(), d.id)).rejects.toThrow(/full body|front/i);
-    d = await step(d.id, 'front');
-    await approveView(deps(), d.id, 'front');
-    d = await step(d.id, 'left');
-    await approveView(deps(), d.id, 'left');
-    d = await step(d.id, 'back');
-    await approveView(deps(), d.id, 'back');
-    d = await step(d.id, 'right');
-    await approveView(deps(), d.id, 'right');
+    d = await build(d.id, ['front', 'three-quarter']);
+    // the extras were built on the old face too, and a stale extra blocks the save
+    await expect(savePresenterDraft(deps(), d.id)).rejects.toThrow(/redo the back view/);
+    d = await build(d.id, EXTRA_VIEWS);
     const saved = await savePresenterDraft(deps(), d.id);
     expect(saved.presenter.id).toMatch(/^up-[a-f0-9]{8}$/);
   });
 
   it('redoing the front stales the turned views and leaves the face', async () => {
-    let d = await cast();
+    let d = await castWithExtras();
     await redoView(deps(), d.id, 'front');
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'portrait').status).toBe('approved');
     expect(view(d, 'front').status).toBe('empty');
-    expect(view(d, 'left').status).toBe('stale');
+    expect(view(d, 'three-quarter').status).toBe('stale');
     expect(view(d, 'back').status).toBe('stale');
+    expect(view(d, 'left').status).toBe('stale');
     expect(view(d, 'right').status).toBe('stale');
     expect(d.analysis).toBeDefined();
+  });
+
+  it('redoing the left stales only the right, which is drawn from it', async () => {
+    let d = await castWithExtras();
+    await redoView(deps(), d.id, 'left');
+    d = getPresenterDraft(core, d.id)!;
+    expect(view(d, 'left').status).toBe('empty');
+    expect(view(d, 'right').status).toBe('stale');
+    for (const v of ['portrait', 'front', 'three-quarter', 'back'] as const) expect(view(d, v).status).toBe('approved');
   });
 
   it('name, categories and direction never stale anything', async () => {
@@ -317,7 +332,7 @@ describe('redoing an upstream view', () => {
     await updatePresenterDraft(core, d.id, { name: 'Ilse', facets: ['Beauty'], direction: 'something else' });
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'front').status).toBe('approved');
-    expect(view(d, 'left').status).toBe('approved');
+    expect(view(d, 'three-quarter').status).toBe('approved');
     expect(d.name).toBe('Ilse');
     expect(d.facets).toEqual(['Beauty']);
   });
@@ -385,13 +400,11 @@ describe('saving', () => {
     expect(presenter.build).toBe('tall and slender');
     expect(presenter.suitableCategories).toEqual(['Beauty']);
     expect(presenter.likeness).toBeUndefined();
-    expect(presenter.shots?.map((s) => s.angle)).toEqual(['portrait', 'front', 'left', 'back', 'right']);
+    expect(presenter.shots?.map((s) => s.angle)).toEqual(['portrait', 'front', 'three-quarter']);
     expect(presenter.shots?.map((s) => s.file)).toEqual([
       `asset:${d.views.portrait.hash}`,
       `asset:${d.views.front.hash}`,
-      `asset:${d.views.left.hash}`,
-      `asset:${d.views.back.hash}`,
-      `asset:${d.views.right.hash}`,
+      `asset:${d.views['three-quarter'].hash}`,
     ]);
     expect(presenter.sourceRefs).toBeUndefined();
     // the avatar is a crop of the approved portrait, the card is the portrait
@@ -413,25 +426,10 @@ describe('saving', () => {
     let d = await synthetic();
     d = await step(d.id, 'portrait');
     const rejected = view(d, 'portrait').hash!;
-    d = await step(d.id, 'portrait');
-    await approveView(deps(), d.id, 'portrait');
-    d = await step(d.id, 'front');
-    await approveView(deps(), d.id, 'front');
-    d = await step(d.id, 'left');
-    await approveView(deps(), d.id, 'left');
-    d = await step(d.id, 'back');
-    await approveView(deps(), d.id, 'back');
-    d = await step(d.id, 'right');
-    await approveView(deps(), d.id, 'right');
+    d = await build(d.id, ['portrait', 'front', 'three-quarter']);
     await updatePresenterDraft(core, d.id, { name: 'Ilse' });
     d = getPresenterDraft(core, d.id)!;
-    const kept = [
-      d.views.portrait.hash!,
-      d.views.front.hash!,
-      d.views.left.hash!,
-      d.views.back.hash!,
-      d.views.right.hash!,
-    ];
+    const kept = [d.views.portrait.hash!, d.views.front.hash!, d.views['three-quarter'].hash!];
     await savePresenterDraft(deps(), d.id);
     expect(existsSync(core.images.pathFor(rejected))).toBe(false);
     for (const h of kept) expect(existsSync(core.images.pathFor(h))).toBe(true);
@@ -466,7 +464,7 @@ describe('saving', () => {
     expect(chars).toHaveLength(3);
     expect(chars[0].essential).toBe(true);
     expect(chars[0].hash).toBe(d.views.portrait.hash);
-    expect(chars.map((a) => a.angle)).toEqual(['portrait', 'front', 'left']);
+    expect(chars.map((a) => a.angle)).toEqual(['portrait', 'front', 'three-quarter']);
     expect(r.prompt).toContain('a woman in her forties with a short silver crop');
     expect(r.prompt).toContain('square jaw, strong brow');
     expect(r.warnings).toEqual([]);
@@ -620,14 +618,7 @@ describe('from photos: the originals are the truth', () => {
     const four = await photos(4);
     let d = await createPresenterDraft(deps(), { brandId, source: 'photos', imageHashes: four, attestation: true });
     d = await settled(d.id);
-    d = await step(d.id, 'front');
-    await approveView(deps(), d.id, 'front');
-    d = await step(d.id, 'left');
-    await approveView(deps(), d.id, 'left');
-    d = await step(d.id, 'back');
-    await approveView(deps(), d.id, 'back');
-    d = await step(d.id, 'right');
-    await approveView(deps(), d.id, 'right');
+    d = await build(d.id, ['front', 'three-quarter']);
     await updatePresenterDraft(core, d.id, { name: 'Noor' });
     const { presenter } = await savePresenterDraft(deps(), d.id);
     expect(presenter.source).toBe('photos');
@@ -650,25 +641,28 @@ describe('from photos: the originals are the truth', () => {
     await usePhotoForView(deps(), d.id, 'front', b);
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'front')).toMatchObject({ status: 'approved', hash: b, origin: 'photo' });
-    d = await step(d.id, 'left');
-    await approveView(deps(), d.id, 'left');
+    d = await step(d.id, 'three-quarter');
+    await approveView(deps(), d.id, 'three-quarter');
     await usePhotoForView(deps(), d.id, 'portrait', b);
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'portrait').hash).toBe(b);
     // the photograph stands whatever changed upstream; the drawn view does not
     expect(view(d, 'front').status).toBe('approved');
-    expect(view(d, 'left').status).toBe('stale');
+    expect(view(d, 'three-quarter').status).toBe('stale');
     await expect(usePhotoForView(deps(), d.id, 'front', 'f'.repeat(32))).rejects.toMatchObject({ statusCode: 400 });
   });
 });
 
-describe('the five-view contract', () => {
-  it('is face, front, left, back, right, each drawn from the approved views before it', () => {
-    expect(PRESENTER_VIEWS).toEqual(['portrait', 'front', 'left', 'back', 'right']);
+describe('the view contract: three core, three on request', () => {
+  it('builds face, full body, three-quarter by default; back, left, right on request; each from the approved views before it', () => {
+    expect(CORE_VIEWS).toEqual(['portrait', 'front', 'three-quarter']);
+    expect(EXTRA_VIEWS).toEqual(['back', 'left', 'right']);
+    expect(PRESENTER_VIEWS).toEqual(['portrait', 'front', 'three-quarter', 'back', 'left', 'right']);
     expect(DEPENDS.portrait).toEqual([]);
     expect(DEPENDS.front).toEqual(['portrait']);
-    expect(DEPENDS.left).toEqual(['portrait', 'front']);
+    expect(DEPENDS['three-quarter']).toEqual(['portrait', 'front']);
     expect(DEPENDS.back).toEqual(['portrait', 'front']);
+    expect(DEPENDS.left).toEqual(['portrait', 'front']);
     expect(DEPENDS.right).toEqual(['portrait', 'front', 'left']);
   });
 
@@ -683,13 +677,20 @@ describe('the five-view contract', () => {
       views: {
         portrait: { ...empty, status: 'approved' as const, hash: 'p' },
         front: { ...empty, status: 'approved' as const, hash: 'f' },
-        left: empty,
+        'three-quarter': empty,
+        back: empty,
+        left: { ...empty, status: 'approved' as const, hash: 'l' },
+        right: empty,
       },
     } as unknown as PresenterDraftRecord;
-    const tq = planStep(rec, 'left', undefined, 5);
+    const tq = planStep(rec, 'three-quarter', undefined, 5);
     expect(tq.refs).toEqual(['p', 'f', 's1', 's2', 's3']);
-    expect(tq.prompt).toMatch(/left side faces the camera/);
-    expect(planStep(rec, 'left', undefined, 3).refs).toEqual(['p', 'f', 's1']);
+    expect(tq.prompt).toMatch(/about forty-five degrees/);
+    expect(planStep(rec, 'three-quarter', undefined, 3).refs).toEqual(['p', 'f', 's1']);
+    // an extra is conditioned exactly as its DEPENDS say: the right rides on the approved left
+    expect(planStep(rec, 'back', undefined, 5).refs).toEqual(['p', 'f', 's1', 's2', 's3']);
+    expect(planStep(rec, 'right', undefined, 5).refs).toEqual(['p', 'f', 'l', 's1', 's2']);
+    expect(planStep(rec, 'right', undefined, 5).prompt).toMatch(/right side faces the camera/);
     const synth = planStep(
       { ...rec, source: 'synthetic', direction: 'a woman in her 30s', views: { ...rec.views, portrait: empty } },
       'portrait',
@@ -720,7 +721,7 @@ describe('revising an approved view', () => {
     expect(view(d, 'portrait').prior).toBeUndefined();
     expect(view(d, 'portrait').rejected).toContain(face);
     expect(view(d, 'front').status).toBe('stale');
-    expect(view(d, 'left').status).toBe('stale');
+    expect(view(d, 'three-quarter').status).toBe('stale');
     expect(view(d, 'front').hash).toBe(front);
     // a stale view is drawn again from the new face, and the old front retires
     d = await step(d.id, 'front');
@@ -741,7 +742,7 @@ describe('revising an approved view', () => {
     expect(view(d, 'portrait').prior).toBeUndefined();
     expect(view(d, 'portrait').rejected).toContain(revision);
     expect(view(d, 'front').status).toBe('approved');
-    expect(view(d, 'left').status).toBe('approved');
+    expect(view(d, 'three-quarter').status).toBe('approved');
     // a second revision before deciding lets the first candidate go and keeps the same prior
     d = await step(d.id, 'front', 'arms relaxed');
     const first = view(d, 'front').hash!;
@@ -760,6 +761,201 @@ describe('revising an approved view', () => {
     expect(view(d, 'portrait')).toMatchObject({ status: 'approved', hash: face, error: 'the engine timed out' });
     expect(view(d, 'portrait').prior).toBeUndefined();
     expect(view(d, 'front').status).toBe('approved');
+  });
+});
+
+describe('extras are built on request', () => {
+  it('refuses an extra until the extras are switched on, and draws it from the approved core views after', async () => {
+    let d = await cast();
+    expect(d.extras).toBe(false);
+    await expect(generateView(deps(), d.id, 'back', {})).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'extra views are built on request',
+    });
+    await expect(generateView(deps(), d.id, 'left', {})).rejects.toThrow(/on request/);
+    await expect(generateView(deps(), d.id, 'right', {})).rejects.toThrow(/on request/);
+    d = await updatePresenterDraft(core, d.id, { extras: true });
+    expect(d.extras).toBe(true);
+    d = await step(d.id, 'back');
+    expect(view(d, 'back').status).toBe('candidate');
+    expect(refsOf(generated.at(-1)!)).toEqual([view(d, 'portrait').hash, view(d, 'front').hash]);
+    expect(generated.at(-1)!.prompt).toMatch(/directly away from the camera/);
+    // the right waits on the left, exactly as its DEPENDS say
+    await expect(generateView(deps(), d.id, 'right', {})).rejects.toThrow(/left view/);
+    // and a switch back off does not refuse the views already drawn; it only stops new ones
+    await updatePresenterDraft(core, d.id, { extras: false });
+    await expect(generateView(deps(), d.id, 'left', {})).rejects.toThrow(/on request/);
+  });
+
+  it('can be asked for at creation', async () => {
+    const d = await createPresenterDraft(deps(), { brandId, source: 'synthetic', direction: 'someone', extras: true });
+    expect(d.extras).toBe(true);
+    expect(getPresenterDraft(core, d.id)?.extras).toBe(true);
+  });
+
+  it('saves the three core views when no extra was drawn, whatever the switch says', async () => {
+    const d = await cast();
+    await updatePresenterDraft(core, d.id, { name: 'Ilse', extras: true });
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    expect(presenter.shots?.map((s) => s.angle)).toEqual(['portrait', 'front', 'three-quarter']);
+  });
+
+  it('saves all six in order once every extra is approved', async () => {
+    const d = await castWithExtras();
+    await updatePresenterDraft(core, d.id, { name: 'Ilse' });
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    expect(presenter.shots?.map((s) => s.angle)).toEqual([
+      'portrait',
+      'front',
+      'three-quarter',
+      'back',
+      'left',
+      'right',
+    ]);
+    expect(presenter.shots?.map((s) => s.file)).toEqual(PRESENTER_VIEWS.map((v) => `asset:${d.views[v].hash}`));
+    // the portrait still leads, and the crops are read off it
+    expect(presenter.preview).toBe(`asset:${d.views.portrait.hash}`);
+  });
+
+  it('saves the extras that were approved and skips the ones never drawn', async () => {
+    let d = await cast();
+    await updatePresenterDraft(core, d.id, { name: 'Ilse', extras: true });
+    d = await build(d.id, ['left']);
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    expect(presenter.shots?.map((s) => s.angle)).toEqual(['portrait', 'front', 'three-quarter', 'left']);
+  });
+
+  it('an extra left as a candidate blocks the save, with the same words a core view uses', async () => {
+    let d = await cast();
+    await updatePresenterDraft(core, d.id, { name: 'Ilse', extras: true });
+    d = await step(d.id, 'back');
+    expect(view(d, 'back').status).toBe('candidate');
+    await expect(savePresenterDraft(deps(), d.id)).rejects.toThrow('approve the back view first');
+    await approveView(deps(), d.id, 'back');
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    expect(presenter.shots?.map((s) => s.angle)).toEqual(['portrait', 'front', 'three-quarter', 'back']);
+  });
+
+  it('a photograph the analyzer files as an extra fills that slot as the original', async () => {
+    const [portrait, back] = [
+      core.images.save(await png('#607080', 800, 1000)),
+      core.images.save(await png('#708090', 800, 1000)),
+    ];
+    const filing: AssetBuildDeps = {
+      ...deps(),
+      analyzer: {
+        isAvailable: async () => ({ ok: true }),
+        analyze: async (req: any) => ({
+          ...(await analyzer().analyze(req)),
+          photos: [
+            { index: 0, view: 'portrait', usable: true, note: 'sharp' },
+            { index: 1, view: 'back', usable: true, note: 'facing away' },
+          ],
+        }),
+      } as any,
+    };
+    let d = await createPresenterDraft(filing, {
+      brandId,
+      source: 'photos',
+      imageHashes: [portrait, back],
+      attestation: true,
+    });
+    for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
+    d = getPresenterDraft(core, d.id)!;
+    expect(view(d, 'back')).toMatchObject({ status: 'approved', hash: back, origin: 'photo' });
+    d = await build(d.id, ['front', 'three-quarter']);
+    await updatePresenterDraft(core, d.id, { name: 'Noor' });
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    expect(presenter.shots?.map((s) => s.angle)).toEqual(['portrait', 'front', 'three-quarter', 'back']);
+  });
+});
+
+describe('a landed view can decide itself', () => {
+  it('lands approved with no prior on an empty slot, and the next view is drawn from it', async () => {
+    let d = await synthetic();
+    d = await step(d.id, 'portrait');
+    await approveView(deps(), d.id, 'portrait');
+    d = await step(d.id, 'front', undefined, 'auto');
+    expect(view(d, 'front')).toMatchObject({ status: 'approved', origin: 'generated' });
+    expect(view(d, 'front').prior).toBeUndefined();
+    expect(view(d, 'front').attempts).toBe(1);
+    d = await step(d.id, 'three-quarter', undefined, 'auto');
+    expect(refsOf(generated.at(-1)!)).toEqual([view(d, 'portrait').hash, view(d, 'front').hash]);
+    expect(view(d, 'three-quarter').status).toBe('approved');
+  });
+
+  it('replacing an approved view keeps it as the prior, so Keep previous still works, and stales what was drawn from it', async () => {
+    let d = await cast();
+    const front = view(d, 'front').hash!;
+    const threeQuarter = view(d, 'three-quarter').hash!;
+    d = await step(d.id, 'front', 'arms relaxed', 'auto');
+    expect(view(d, 'front')).toMatchObject({ status: 'approved', prior: front, adjustment: 'arms relaxed' });
+    expect(view(d, 'front').hash).not.toBe(front);
+    expect(view(d, 'front').rejected).not.toContain(front);
+    expect(existsSync(core.images.pathFor(front))).toBe(true);
+    // the three-quarter was drawn from the old front
+    expect(view(d, 'three-quarter').status).toBe('stale');
+    expect(view(d, 'three-quarter').hash).toBe(threeQuarter);
+    await revertView(deps(), d.id, 'front');
+    d = getPresenterDraft(core, d.id)!;
+    expect(view(d, 'front')).toMatchObject({ status: 'approved', hash: front });
+    expect(view(d, 'front').prior).toBeUndefined();
+  });
+
+  it('Use on a view that decided itself settles it: the prior retires and nothing is staled twice', async () => {
+    let d = await cast();
+    const front = view(d, 'front').hash!;
+    d = await step(d.id, 'front', undefined, 'auto');
+    expect(view(d, 'front').prior).toBe(front);
+    d = await step(d.id, 'three-quarter', undefined, 'auto');
+    expect(view(d, 'three-quarter').status).toBe('approved');
+    await approveView(deps(), d.id, 'front');
+    d = getPresenterDraft(core, d.id)!;
+    expect(view(d, 'front')).toMatchObject({ status: 'approved' });
+    expect(view(d, 'front').prior).toBeUndefined();
+    expect(view(d, 'front').rejected).toContain(front);
+    expect(view(d, 'three-quarter').status).toBe('approved');
+  });
+
+  it('a save retires a prior that was never decided against, and never keeps its picture', async () => {
+    let d = await cast();
+    const front = view(d, 'front').hash!;
+    d = await step(d.id, 'front', undefined, 'auto');
+    d = await step(d.id, 'three-quarter', undefined, 'auto');
+    await updatePresenterDraft(core, d.id, { name: 'Ilse' });
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    expect(presenter.shots?.map((s) => s.file)).toContain(`asset:${view(d, 'front').hash}`);
+    expect(presenter.shots?.map((s) => s.file)).not.toContain(`asset:${front}`);
+    expect(existsSync(core.images.pathFor(front))).toBe(false);
+  });
+
+  it('a second self-deciding draw lets the older prior go and keeps the newest', async () => {
+    let d = await cast();
+    const first = view(d, 'front').hash!;
+    d = await step(d.id, 'front', undefined, 'auto');
+    const second = view(d, 'front').hash!;
+    d = await step(d.id, 'front', undefined, 'auto');
+    expect(view(d, 'front').prior).toBe(second);
+    expect(view(d, 'front').rejected).toContain(first);
+  });
+
+  it('the face is always decided by hand', async () => {
+    const d = await synthetic();
+    await expect(generateView(deps(), d.id, 'portrait', { decide: 'auto' })).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'the face is always decided by hand',
+    });
+    expect(view(getPresenterDraft(core, d.id)!, 'portrait').status).toBe('empty');
+  });
+
+  it('a failure lands the same way whichever way the decision was going', async () => {
+    let d = await cast();
+    const front = view(d, 'front').hash!;
+    failNext = new Error('the engine timed out');
+    d = await step(d.id, 'front', undefined, 'auto');
+    expect(view(d, 'front')).toMatchObject({ status: 'approved', hash: front, error: 'the engine timed out' });
+    expect(view(d, 'front').prior).toBeUndefined();
+    expect(view(d, 'three-quarter').status).toBe('approved');
   });
 });
 

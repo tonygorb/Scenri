@@ -136,21 +136,17 @@ describe('presenter draft routes', () => {
     d = await settled(brand.id, id);
     expect(d.views.front.conditionedOn).toEqual([d.views.portrait.hash]);
     await j('POST', `${base}/${id}/views/front/approve`);
-    await j('POST', `${base}/${id}/views/left/generate`, { adjustment: 'a touch more smile' });
+    await j('POST', `${base}/${id}/views/three-quarter/generate`, { adjustment: 'a touch more smile' });
     d = await settled(brand.id, id);
-    expect(d.views['left'].adjustment).toBe('a touch more smile');
-    await j('POST', `${base}/${id}/views/left/approve`);
-    for (const v of ['back', 'right']) {
-      await j('POST', `${base}/${id}/views/${v}/generate`, {});
-      await settled(brand.id, id);
-      await j('POST', `${base}/${id}/views/${v}/approve`);
-    }
+    expect(d.views['three-quarter'].adjustment).toBe('a touch more smile');
+    await j('POST', `${base}/${id}/views/three-quarter/approve`);
 
     expect((await j('POST', `${base}/${id}/save`)).status).toBe(400); // no name yet
     expect((await j('PATCH', `${base}/${id}`, { name: 'Tomas', facets: ['Beauty'] })).body.name).toBe('Tomas');
     const saved = await j('POST', `${base}/${id}/save`);
     expect(saved.status).toBe(200);
     expect(saved.body.presenter).toMatchObject({ name: 'Tomas', origin: 'custom', source: 'synthetic' });
+    expect(saved.body.presenter.shots.map((s: any) => s.angle)).toEqual(['portrait', 'front', 'three-quarter']);
     expect(saved.body.brand.json.characters).toHaveLength(1);
     expect((await j('GET', `${base}/${id}`)).status).toBe(404);
   });
@@ -172,6 +168,38 @@ describe('presenter draft routes', () => {
     expect(kept.status).toBe(200);
     expect(kept.body.views.portrait).toMatchObject({ status: 'approved', hash: face });
     expect(kept.body.views.portrait.prior).toBeUndefined();
+  });
+
+  it('extras are switched on through the row, and a landed view can decide itself through the body', async () => {
+    const brand = await newBrand();
+    const base = `/api/brands/${brand.id}/presenter-drafts`;
+    const { body: made } = await j('POST', base, { source: 'synthetic', direction: 'someone' });
+    expect(made.extras).toBe(false);
+    await j('POST', `${base}/${made.id}/views/portrait/generate`, {});
+    await settled(brand.id, made.id);
+    await j('POST', `${base}/${made.id}/views/portrait/approve`);
+    // the face is always decided by hand
+    const byHand = await j('POST', `${base}/${made.id}/views/portrait/generate`, { decide: 'auto' });
+    expect(byHand.status).toBe(400);
+    expect(byHand.body.error).toMatch(/by hand/);
+    // a full body that decides itself lands approved
+    await j('POST', `${base}/${made.id}/views/front/generate`, { decide: 'auto' });
+    let d = await settled(brand.id, made.id);
+    expect(d.views.front.status).toBe('approved');
+    // an extra waits for the switch
+    const early = await j('POST', `${base}/${made.id}/views/back/generate`, {});
+    expect(early.status).toBe(400);
+    expect(early.body.error).toMatch(/on request/);
+    const on = await j('PATCH', `${base}/${made.id}`, { extras: true });
+    expect(on.status).toBe(200);
+    expect(on.body.extras).toBe(true);
+    await j('POST', `${base}/${made.id}/views/back/generate`, { decide: 'auto' });
+    d = await settled(brand.id, made.id);
+    expect(d.views.back.status).toBe('approved');
+    expect((await j('PATCH', `${base}/${made.id}`, { extras: false })).body.extras).toBe(false);
+    // and the switch can be set at creation
+    const { body: asked } = await j('POST', base, { source: 'synthetic', direction: 'someone', extras: true });
+    expect(asked.extras).toBe(true);
   });
 
   it('a draft belongs to its brand', async () => {
@@ -222,14 +250,9 @@ describe('presenter draft routes', () => {
     await j('POST', `${base}/${d.id}/views/front/generate`, {});
     d = await settled(brand.id, d.id);
     await j('POST', `${base}/${d.id}/views/front/approve`);
-    await j('POST', `${base}/${d.id}/views/left/generate`, {});
+    await j('POST', `${base}/${d.id}/views/three-quarter/generate`, {});
     d = await settled(brand.id, d.id);
-    await j('POST', `${base}/${d.id}/views/left/approve`);
-    for (const v of ['back', 'right']) {
-      await j('POST', `${base}/${d.id}/views/${v}/generate`, {});
-      d = await settled(brand.id, d.id);
-      await j('POST', `${base}/${d.id}/views/${v}/approve`);
-    }
+    await j('POST', `${base}/${d.id}/views/three-quarter/approve`);
     const saved = await j('POST', `${base}/${d.id}/save`);
     expect(saved.status).toBe(200);
     expect(saved.body.presenter.source).toBe('photos');

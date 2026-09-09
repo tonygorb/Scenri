@@ -19,9 +19,10 @@ import { makeBuildDeps, type BuildRouteDeps } from './assetBuilds.js';
 
 /**
  * The presenter studio's API. A draft is created from a sentence or from
- * photographs, its three views are drawn and decided one at a time, and the
- * save is a presenter like any other. Every answer is the whole draft, so the
- * dialog never has to merge.
+ * photographs, its views are drawn and decided one at a time (the three core
+ * ones by default, the extras once the row asks for them), and the save is a
+ * presenter like any other. Every answer is the whole draft, so the dialog
+ * never has to merge.
  */
 export function registerPresenterDraftRoutes(
   app: FastifyInstance,
@@ -72,6 +73,7 @@ export function registerPresenterDraftRoutes(
         attestation: body.attestation === true,
         name: body.name == null ? undefined : String(body.name),
         facets: Array.isArray(body.facets) ? body.facets.map((f: unknown) => String(f)) : [],
+        extras: body.extras === true,
       }),
     );
   });
@@ -90,7 +92,12 @@ export function registerPresenterDraftRoutes(
     if (!draft) return;
     const body = (req.body ?? {}) as any;
     return answer(reply, () =>
-      updatePresenterDraft(core, draft.id, { name: body.name, facets: body.facets, direction: body.direction }),
+      updatePresenterDraft(core, draft.id, {
+        name: body.name,
+        facets: body.facets,
+        direction: body.direction,
+        extras: body.extras,
+      }),
     );
   });
   app.post('/api/brands/:id/presenter-drafts/:draftId/views/:view/generate', async (req, reply) => {
@@ -100,6 +107,7 @@ export function registerPresenterDraftRoutes(
     return answer(reply, async () =>
       generateView(await buildDeps(), draft.id, viewOf(req), {
         adjustment: body.adjustment == null ? undefined : String(body.adjustment),
+        decide: body.decide === 'auto' ? 'auto' : undefined,
       }),
     );
   });

@@ -23,6 +23,7 @@ export {
 import {
   brandRuleDirectives,
   characterFactDirectives,
+  characterRefs,
   editPreservationDirective,
   extendPreservationDirective,
   garmentDisplayDirective,
@@ -325,8 +326,12 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   let hasPerson = false;
   let people = 0;
   let sentence = '';
-  /** The text the user typed, on its own: scene prose is appended to `sentence`, never here. */
-  let userWords = '';
+  /**
+   * The text the user typed, on its own, whole: scene prose is appended to
+   * `sentence`, never here. Read before the tokens compile, because a
+   * presenter chip picks its views off the words on both sides of it.
+   */
+  const userWords = brief.tokens.map((t) => (t.t === 'text' ? ` ${t.v}` : '')).join('');
   // Tokens compile independently and never know what text preceded them, so
   // every append goes through here to guarantee a separating space — raw
   // concatenation (e.g. a product name directly followed by scene prose)
@@ -350,7 +355,6 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     switch (tok.t) {
       case 'text':
         append(tok.v);
-        userWords += ` ${tok.v}`;
         break;
 
       case 'product': {
@@ -434,13 +438,17 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         // generation change; a person built here freezes a promptName at
         // creation so their display name stays free to edit.
         append(c.promptName ?? c.name);
-        // Up to 2 angles per person (front + one more, if available): a face
-        // benefits from multiple views for identity lock, unlike a labeled
-        // product, which a single well-matched reference fully specifies.
-        const cshots = (c.shots ?? [])
-          .slice(0, CHARACTER_REF_MAX)
-          .map((s: any) => ({ h: assetHash(s?.file), angle: s?.angle ? String(s.angle) : undefined }))
-          .filter((x: { h: string | null }): x is { h: string; angle?: string } => !!x.h && ctx.images.has(x.h));
+        // Up to CHARACTER_REF_MAX views per person: a face benefits from
+        // multiple views for identity lock, unlike a labeled product, which a
+        // single well-matched reference fully specifies. The leading view is
+        // the identity; the words pick a stored side when they ask for one
+        // ("from behind", "in profile"), the full body rides, and the rest
+        // follow as stored.
+        const cshots: { h: string; angle?: string }[] = [];
+        for (const s of characterRefs((c.shots ?? []) as any[], userWords, CHARACTER_REF_MAX)) {
+          const h = assetHash(s?.file);
+          if (h && ctx.images.has(h)) cshots.push({ h, ...(s?.angle ? { angle: String(s.angle) } : {}) });
+        }
         if (cshots.length) {
           cshots.forEach(({ h, angle }: { h: string; angle?: string }, i: number) => {
             attachments.push({

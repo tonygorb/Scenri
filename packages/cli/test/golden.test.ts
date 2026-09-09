@@ -33,6 +33,8 @@ let detailHash: string;
 let faceAHash: string;
 let faceBHash: string;
 let faceCHash: string;
+let faceDHash: string;
+let faceEHash: string;
 let inspoHash: string;
 
 const caps = (maxReferenceImages: number, displayName = 'Codex CLI'): EngineCapabilities => ({
@@ -44,7 +46,11 @@ const caps = (maxReferenceImages: number, displayName = 'Codex CLI'): EngineCapa
   maxReferenceImages,
 });
 
-/** A product with three real angles and a presenter with three real views. */
+/**
+ * A product with three real angles, a presenter with three real views, and
+ * two more presenters whose stored views are named the way the studio and
+ * the curated roster name them, for the rows where the words pick a view.
+ */
 const brand = () => ({
   meta: { name: 'Acme' },
   products: [
@@ -83,6 +89,31 @@ const brand = () => ({
         { file: `asset:${faceCHash}`, angle: 'right-profile', locked: true },
       ],
     },
+    {
+      // A person built in the studio: the three core views, plus the one
+      // extra she asked for.
+      id: 'c2',
+      name: 'Ilse',
+      shots: [
+        { file: `asset:${faceAHash}`, angle: 'portrait', locked: true },
+        { file: `asset:${faceBHash}`, angle: 'front', locked: true },
+        { file: `asset:${faceCHash}`, angle: 'three-quarter', locked: true },
+        { file: `asset:${faceDHash}`, angle: 'back', locked: true },
+      ],
+    },
+    {
+      // A curated presenter: the shipped avatar leads, then the four studio
+      // views the roster was drawn in.
+      id: 'c3',
+      name: 'Maren',
+      shots: [
+        { file: `asset:${faceAHash}`, angle: 'portrait', locked: true },
+        { file: `asset:${faceBHash}`, angle: 'front', locked: true },
+        { file: `asset:${faceCHash}`, angle: 'left-profile', locked: true },
+        { file: `asset:${faceDHash}`, angle: 'right-profile', locked: true },
+        { file: `asset:${faceEHash}`, angle: 'back', locked: true },
+      ],
+    },
   ],
 });
 
@@ -95,6 +126,8 @@ beforeEach(() => {
   faceAHash = core.images.save(Buffer.from('face-a'));
   faceBHash = core.images.save(Buffer.from('face-b'));
   faceCHash = core.images.save(Buffer.from('face-c'));
+  faceDHash = core.images.save(Buffer.from('face-d'));
+  faceEHash = core.images.save(Buffer.from('face-e'));
   inspoHash = core.images.save(Buffer.from('inspo'));
 });
 afterEach(() => {
@@ -255,6 +288,58 @@ describe('golden: identity is never lost or confused', () => {
     expect(roles(r)).toEqual(['character', 'character', 'character']);
     expect(r.productId).toBeNull();
     expect(r.warnings).toEqual([]);
+  });
+
+  it('8a. a presenter carries the face, the full body and the three-quarter when the words ask for nothing', () => {
+    const r = compile([
+      { t: 'text', v: 'holding a coffee at a window' },
+      { t: 'character', id: 'c2' },
+    ]);
+    const chars = r.attachments.filter((a) => a.role === 'character');
+    expect(chars.map((a) => a.angle)).toEqual(['portrait', 'front', 'three-quarter']);
+    expect(chars[0].essential).toBe(true);
+    expect(chars).toHaveLength(CHARACTER_REF_MAX);
+  });
+
+  it('8b. "from behind" boards the stored back view after the face, and the full body still rides', () => {
+    const r = compile([
+      { t: 'character', id: 'c2' },
+      { t: 'text', v: 'walking away from the camera, seen from behind, down a pier' },
+    ]);
+    const chars = r.attachments.filter((a) => a.role === 'character');
+    expect(chars.map((a) => a.angle)).toEqual(['portrait', 'back', 'front']);
+    expect(chars[0].essential).toBe(true);
+  });
+
+  it('8c. "in profile" on a curated presenter boards the left profile after the avatar', () => {
+    const r = compile([
+      { t: 'text', v: 'a quiet portrait in profile' },
+      { t: 'character', id: 'c3' },
+    ]);
+    const chars = r.attachments.filter((a) => a.role === 'character');
+    expect(chars.map((a) => a.angle)).toEqual(['portrait', 'left-profile', 'front']);
+    // and the words after the chip count as much as the words before it
+    const after = compile([
+      { t: 'character', id: 'c3' },
+      { t: 'text', v: 'seen from the side' },
+    ]);
+    expect(after.attachments.filter((a) => a.role === 'character').map((a) => a.angle)).toEqual([
+      'portrait',
+      'left-profile',
+      'front',
+    ]);
+  });
+
+  it('8d. a presenter with no stored view for the ask rides exactly as stored', () => {
+    const r = compile([
+      { t: 'character', id: 'c1' },
+      { t: 'text', v: 'seen from behind' },
+    ]);
+    expect(r.attachments.filter((a) => a.role === 'character').map((a) => a.angle)).toEqual([
+      'front',
+      'left-profile',
+      'right-profile',
+    ]);
   });
 
   it('9. a requested angle leads, and is never dropped in favour of other angles', () => {

@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   CAPTURE_UNIFORM,
+  CORE_VIEWS,
+  EXTRA_VIEWS,
+  PRESENTER_VIEWS,
   STUDIO_SET,
   studioPrompt,
   viewSubject,
@@ -29,7 +32,22 @@ describe('the capture setup is a contract', () => {
   });
 });
 
-describe('the three canonical views', () => {
+describe('the six views: three core, three on request', () => {
+  it('builds face, full body and three-quarter by default, and back, left, right on request', () => {
+    expect(CORE_VIEWS).toEqual(['portrait', 'front', 'three-quarter']);
+    expect(EXTRA_VIEWS).toEqual(['back', 'left', 'right']);
+    expect(PRESENTER_VIEWS).toEqual([...CORE_VIEWS, ...EXTRA_VIEWS]);
+  });
+
+  it('every view after the face is the same person in the capture uniform, full length', () => {
+    for (const v of PRESENTER_VIEWS) {
+      if (v === 'portrait') continue;
+      const s = viewSubject(v, 'who');
+      expect(s).toContain(CAPTURE_UNIFORM);
+      expect(s).toContain('full-length head-to-toe framing');
+    }
+  });
+
   it('portrait is head-and-shoulders, eyes to the lens, in the same backdrop', () => {
     const s = viewSubject('portrait', 'the exact person in the attached photographs');
     expect(s).toContain('head-and-shoulders portrait framing');
@@ -43,6 +61,16 @@ describe('the three canonical views', () => {
     expect(s).toContain(CAPTURE_UNIFORM);
     expect(s).toContain('full-length head-to-toe framing');
     expect(s).toContain('facing the camera straight-on');
+  });
+
+  it('three-quarter is turned about forty-five degrees, both eyes in frame, the head with the body', () => {
+    const s = viewSubject('three-quarter', 'who');
+    expect(s).toContain('the same person');
+    expect(s).toContain('about forty-five degrees');
+    expect(s).toContain('both eyes stay in frame');
+    expect(s).toContain('three-quarter view');
+    expect(s).toContain('the head turned with the body');
+    expect(s).toContain('their own hair exactly as the attached images show it');
   });
 
   it('left and right are the same person turned to a full profile, full length, in the uniform', () => {
