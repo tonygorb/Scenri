@@ -21,6 +21,12 @@ export interface CustomPresenter extends Presenter {
   sourceRefs: string[];
   /** The normalized views, in the order a brief attaches them. */
   shots: string[];
+  /** The record this one replaced, when an edit that changed a picture made it. */
+  revisionOf?: string;
+  /** The record that replaced this one. Absent on the head, the only record a list shows. */
+  supersededBy?: string;
+  /** The identity-wide instructions accepted when this record's views were drawn. */
+  identityEdits?: string[];
 }
 
 export interface CustomScene extends Scene {
@@ -38,14 +44,37 @@ export interface CustomScene extends Scene {
 const urls = (rows: unknown): string[] =>
   Array.isArray(rows) ? rows.map((r: any) => assetUrl(r?.file)).filter((u): u is string => !!u) : [];
 
-/** A brand's own people, newest last, exactly as its document lists them. */
+const customRows = (brand: Brand | null | undefined): any[] =>
+  ((brand?.json?.characters ?? []) as any[]).filter((c) => c?.origin === 'custom');
+
+/**
+ * A brand's own people, newest last, exactly as its document lists them:
+ * one record per person, the current one. A record an edit replaced stays
+ * in the document for the shots made against it, and never in a list.
+ */
 export function customPresentersOf(brand: Brand | null | undefined): CustomPresenter[] {
-  const rows: any[] = brand?.json?.characters ?? [];
-  return rows.filter((c) => c?.origin === 'custom').map(toPresenter);
+  return customRows(brand)
+    .filter((c) => !c.supersededBy)
+    .map(toPresenter);
 }
 
+/** Any record by id, the head or one an edit replaced, so an old shot's presenter still opens. */
 export function customPresenterById(brand: Brand | null | undefined, id: string): CustomPresenter | undefined {
-  return customPresentersOf(brand).find((p) => p.id === id);
+  const row = customRows(brand).find((c) => c.id === id);
+  return row ? toPresenter(row) : undefined;
+}
+
+/** The current record for any presenter id, following the chain of replacements; an unknown id is its own head. */
+export function headPresenterId(brand: Brand | null | undefined, id: string): string {
+  const rows = customRows(brand);
+  const seen = new Set<string>([id]);
+  let cur = id;
+  for (;;) {
+    const next = rows.find((c) => c.id === cur)?.supersededBy;
+    if (typeof next !== 'string' || !next || seen.has(next) || !rows.some((c) => c.id === next)) return cur;
+    seen.add(next);
+    cur = next;
+  }
 }
 
 function toPresenter(c: any): CustomPresenter {
@@ -83,6 +112,9 @@ function toPresenter(c: any): CustomPresenter {
     custom: true,
     shots,
     sourceRefs,
+    identityEdits: Array.isArray(c.identityEdits) ? c.identityEdits.map(String) : [],
+    ...(c.revisionOf ? { revisionOf: String(c.revisionOf) } : {}),
+    ...(c.supersededBy ? { supersededBy: String(c.supersededBy) } : {}),
     ...(c.source === 'synthetic' || c.source === 'photos' ? { source: c.source } : {}),
     ...(c.likeness?.attestedAt
       ? { likeness: { attestedAt: String(c.likeness.attestedAt), version: String(c.likeness.version ?? 'v1') } }

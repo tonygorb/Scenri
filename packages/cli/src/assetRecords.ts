@@ -53,9 +53,22 @@ export interface CustomPresenter {
   skin?: string;
   /** Body type and proportions. Injected verbatim, name-prefixed. */
   build?: string;
+  /**
+   * The record this one replaced. A saved shot names only a presenter's id,
+   * so an edit that changes a picture or the identity prose is written as a
+   * new record: the old one stays, and its shots keep refining against what
+   * they were made from.
+   */
+  revisionOf?: string;
+  /** The record that replaced this one. Absent on the head, which is the one the studio lists and casts. */
+  supersededBy?: string;
+  /** The identity-wide instructions accepted when this record's views were drawn, e.g. "shorter hair". */
+  identityEdits?: string[];
 }
 
 export type PresenterSource = 'synthetic' | 'photos';
+export const IDENTITY_EDITS_MAX = 8;
+export const IDENTITY_EDIT_CHARS = 120;
 export const PRESENTER_SOURCES: readonly PresenterSource[] = ['synthetic', 'photos'];
 /** Which wording of the likeness confirmation was shown, so a later rewording is a new version. */
 export const LIKENESS_VERSION = 'v1';
@@ -136,6 +149,65 @@ export function brandSceneById(brandJson: any, id: string): Scene | undefined {
 /** Only what this app built is editable; an older hand-added cast stays as it is. */
 export function isCustomPresenter(c: any): boolean {
   return c?.origin === 'custom';
+}
+
+/**
+ * The current record for any presenter id, following `supersededBy` to the
+ * end of the chain. An id nothing is known about is its own head, so a caller
+ * can resolve first and ask questions after. A pointer at a record that is
+ * gone stops at the last one that exists, and a loop ends.
+ */
+export function headOf(brandJson: any, id: string): string {
+  const rows = brandCharacters(brandJson);
+  const seen = new Set<string>([id]);
+  let cur = id;
+  for (;;) {
+    const next = rows.find((c) => c?.id === cur)?.supersededBy;
+    if (typeof next !== 'string' || !next || seen.has(next) || !rows.some((c) => c?.id === next)) return cur;
+    seen.add(next);
+    cur = next;
+  }
+}
+
+/** Every id in a presenter's history, the head first, back through `revisionOf` as far as the records go. */
+export function presenterChain(brandJson: any, id: string): string[] {
+  const rows = brandCharacters(brandJson);
+  const head = headOf(brandJson, id);
+  const out = [head];
+  const seen = new Set<string>([head]);
+  let cur = head;
+  for (;;) {
+    const prev = rows.find((c) => c?.id === cur)?.revisionOf;
+    if (typeof prev !== 'string' || !prev || seen.has(prev) || !rows.some((c) => c?.id === prev)) return out;
+    seen.add(prev);
+    out.push(prev);
+    cur = prev;
+  }
+}
+
+/** The brand's own people as a list shows them: one record per person, the current one. */
+export function customPresenterHeads(brandJson: any): CustomPresenter[] {
+  return brandCharacters(brandJson).filter((c) => isCustomPresenter(c) && !c.supersededBy);
+}
+
+/**
+ * The identity edits as a record carries them: trimmed, one space between
+ * words, no repeats, at most eight of at most 120 characters. Anything past
+ * the cap is dropped from the end; merging with a preference for the newest
+ * is `mergeIdentityEdits` in presenterDrafts.
+ */
+export function identityEditsOf(v: unknown): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of Array.isArray(v) ? v : []) {
+    const s = str(raw, IDENTITY_EDIT_CHARS).replace(/\s+/g, ' ');
+    const key = s.toLowerCase();
+    if (!s || seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+    if (out.length >= IDENTITY_EDITS_MAX) break;
+  }
+  return out;
 }
 
 /* ------------------------------------------------------------ validation */
@@ -254,6 +326,8 @@ export interface PresenterInput {
   facial?: unknown;
   skin?: unknown;
   build?: unknown;
+  identityEdits?: unknown;
+  revisionOf?: unknown;
 }
 
 export function presenterRecordFrom(
@@ -330,7 +404,31 @@ export function presenterRecordFrom(
   if (skin) presenter.skin = skin;
   const build = has('build') ? str(input.build, 200) : base?.build;
   if (build) presenter.build = build;
+  const edits = has('identityEdits') ? identityEditsOf(input.identityEdits) : base?.identityEdits;
+  if (edits?.length) presenter.identityEdits = edits;
+  const revisionOf = has('revisionOf') ? str(input.revisionOf, 64) : base?.revisionOf;
+  if (revisionOf) presenter.revisionOf = revisionOf;
+  // Only the supersede step writes this. A request body never does, and an
+  // edit of a superseded record never clears it.
+  if (base?.supersededBy) presenter.supersededBy = base.supersededBy;
   return { ok: true, presenter };
+}
+
+/**
+ * A new record for an edited person: a fresh id, `revisionOf` naming the
+ * record it replaces, everything else from the input over the base. The base
+ * is not touched here; marking it superseded is the commit's job, done in the
+ * same write that appends this one. `promptName` is frozen within a record,
+ * so a revision may carry a new one from the input.
+ */
+export function mintRevision(
+  base: CustomPresenter,
+  input: PresenterInput,
+): { ok: true; presenter: CustomPresenter } | { ok: false; error: string } {
+  const built = presenterRecordFrom(input, base);
+  if (!built.ok) return built;
+  const { supersededBy: _head, ...rest } = built.presenter;
+  return { ok: true, presenter: { ...rest, id: mintId(PRESENTER_ID_PREFIX), revisionOf: base.id } };
 }
 
 /** A likeness confirmation is a date and the wording it was given under; anything less is not one. */

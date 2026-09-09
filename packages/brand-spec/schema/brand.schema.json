@@ -371,6 +371,21 @@
           "build": {
             "type": "string",
             "description": "Body type and proportions. Injected verbatim, name-prefixed."
+          },
+          "revisionOf": {
+            "type": "string",
+            "description": "The record this one replaced: an edit that changes a picture or the identity prose is a new record, so shots made against the old one keep refining against what they were made from."
+          },
+          "supersededBy": {
+            "type": "string",
+            "description": "The record that replaced this one. Absent on the current record; a tool lists only records without it and maps an old id to the current record through it."
+          },
+          "identityEdits": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The identity-wide instructions accepted when this record's views were drawn, e.g. \"shorter hair\". Read after identityNotes, so later views follow the change rather than the originals."
           }
         }
       },

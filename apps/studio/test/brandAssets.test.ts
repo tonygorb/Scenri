@@ -4,6 +4,7 @@ import {
   customPresentersOf,
   customSceneById,
   customScenesOf,
+  headPresenterId,
   withCustomFirst,
 } from '../src/brandAssets.js';
 import type { Brand } from '../src/api.js';
@@ -113,6 +114,23 @@ describe('customPresentersOf', () => {
     expect(customPresentersOf(null)).toEqual([]);
     expect(customPresenterById(brandWith({ characters: [PERSON] }), 'up-1234abcd')?.name).toBe('Mara');
     expect(customPresenterById(brandWith({ characters: [PERSON] }), 'nobody')).toBeUndefined();
+  });
+
+  it('lists only the heads, resolves a superseded id, and maps any id to its head', () => {
+    const old = { ...PERSON, id: 'up-old', supersededBy: 'up-1234abcd' };
+    const head = { ...PERSON, revisionOf: 'up-old', identityEdits: ['shorter hair'] };
+    const brand = brandWith({ characters: [old, head] });
+    const listed = customPresentersOf(brand);
+    expect(listed.map((p) => p.id)).toEqual(['up-1234abcd']);
+    expect(listed[0].revisionOf).toBe('up-old');
+    expect(listed[0].supersededBy).toBeUndefined();
+    expect(listed[0].identityEdits).toEqual(['shorter hair']);
+    // an old shot still names the old record, and its page still opens
+    expect(customPresenterById(brand, 'up-old')?.supersededBy).toBe('up-1234abcd');
+    expect(customPresenterById(brand, 'up-old')?.identityEdits).toEqual([]);
+    expect(headPresenterId(brand, 'up-old')).toBe('up-1234abcd');
+    expect(headPresenterId(brand, 'up-1234abcd')).toBe('up-1234abcd');
+    expect(headPresenterId(brand, 'nobody')).toBe('nobody');
   });
 });
 

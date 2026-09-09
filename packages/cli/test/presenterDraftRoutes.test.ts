@@ -304,4 +304,61 @@ describe('presenter draft routes', () => {
     expect(d.views.portrait.error).toMatch(/restart/);
     expect(d.activeView).toBeNull();
   });
+
+  /**
+   * A saved shot names only the presenter's id, so an edit that changes a
+   * picture is a new record and the old one stays. Revert walks that chain
+   * back one record at a time.
+   */
+  describe('reverting a revision', () => {
+    const person = (id: string, hash: string, extra: Record<string, unknown> = {}) => ({
+      id,
+      name: 'Ilse',
+      origin: 'custom',
+      shots: [{ file: `asset:${hash}`, angle: 'portrait', locked: true }],
+      ...extra,
+    });
+    const chainBrand = async () => {
+      const [a, b, c] = ['a', 'b', 'c'].map((ch) => ch.repeat(32));
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: {
+          brand: {
+            specVersion: '0.1',
+            meta: { name: 'Acme' },
+            characters: [
+              person('up-00000001', a, { supersededBy: 'up-00000002' }),
+              person('up-00000002', b, { revisionOf: 'up-00000001', supersededBy: 'up-00000003' }),
+              person('up-00000003', c, { revisionOf: 'up-00000002' }),
+            ],
+          },
+        },
+      });
+      expect(res.statusCode).toBe(200);
+      return res.json() as { id: string };
+    };
+
+    it('puts the previous record back as the head, one step per call, and refuses when nothing is older', async () => {
+      const brand = await chainBrand();
+      const url = (id: string) => `/api/brands/${brand.id}/presenters/${id}/revert`;
+      // only a head reverts
+      expect((await j('POST', url('up-00000002'))).status).toBe(400);
+      const once = await j('POST', url('up-00000003'));
+      expect(once.status).toBe(200);
+      expect(once.body.presenter.id).toBe('up-00000002');
+      expect(once.body.presenter.supersededBy).toBeUndefined();
+      const rows = once.body.brand.json.characters as any[];
+      // the reverted record stays, pointing at the head again
+      expect(rows.find((c) => c.id === 'up-00000003').supersededBy).toBe('up-00000002');
+      expect(rows).toHaveLength(3);
+      const twice = await j('POST', url('up-00000002'));
+      expect(twice.status).toBe(200);
+      expect(twice.body.presenter.id).toBe('up-00000001');
+      const nothing = await j('POST', url('up-00000001'));
+      expect(nothing.status).toBe(400);
+      expect(nothing.body.error).toMatch(/nothing to revert/i);
+      expect((await j('POST', url('up-nobody'))).status).toBe(404);
+    });
+  });
 });

@@ -200,6 +200,42 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     }
     return { presenter: built.presenter, brand: core.store.getBrand(brand.id) };
   });
+  /**
+   * Revert last change: the record this head replaced becomes the head again.
+   *
+   * An edit that changed a picture was written as a new record with the old
+   * one kept and marked superseded, so going back is a swap of two markers:
+   * the older record's `supersededBy` is cleared and the current one is
+   * pointed at it. Nothing is deleted, and a shot made against either record
+   * keeps refining against the pictures it was made from. One step per call.
+   */
+  app.post('/api/brands/:id/presenters/:presenterId/revert', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const id = String((req.params as any).presenterId);
+    const rows = brandCharacters(brand.json);
+    const current = rows.find((c: any) => c.id === id);
+    if (!current) return reply.status(404).send({ error: 'presenter not found' });
+    if (!isCustomPresenter(current)) return reply.status(400).send({ error: 'this presenter is not editable' });
+    const older =
+      current.revisionOf && !current.supersededBy ? rows.find((c: any) => c.id === current.revisionOf) : undefined;
+    if (!older) return reply.status(400).send({ error: 'nothing to revert' });
+    try {
+      commit(core, brand.id, (json) => {
+        json.characters = brandCharacters(json).map((c: any) => {
+          if (c.id === older.id) {
+            const { supersededBy: _cleared, ...head } = c;
+            return head;
+          }
+          return c.id === current.id ? { ...c, supersededBy: older.id } : c;
+        });
+      });
+    } catch (err: any) {
+      return reply.status(err.statusCode ?? 500).send({ error: err.message });
+    }
+    const after = core.store.getBrand(brand.id);
+    return { presenter: brandCharacters(after?.json).find((c: any) => c.id === older.id), brand: after };
+  });
   app.delete('/api/brands/:id/presenters/:presenterId', async (req, reply) => {
     const brand = brandOr404(req, reply);
     if (!brand) return;
@@ -209,6 +245,9 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     if (!isCustomPresenter(base)) return reply.status(400).send({ error: 'this presenter is not editable' });
     // Shots already made keep their prompt and their pixels. A brief that names
     // this person again will say so; see compileBrief's roster warning.
+    // Deleting the head of a revision chain removes only that record: the
+    // records it superseded stay, still marked superseded, and still what
+    // their own shots refine against.
     commit(core, brand.id, (json) => {
       json.characters = brandCharacters(json).filter((c: any) => c.id !== id);
     });
