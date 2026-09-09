@@ -424,6 +424,7 @@ function turnsBase(
         busy: setup.uploading,
         attest: { text: ATTEST_TEXT, checked: setup.attested },
         submit: 'Continue',
+        back: 'Describe someone instead',
       });
       return T;
     }

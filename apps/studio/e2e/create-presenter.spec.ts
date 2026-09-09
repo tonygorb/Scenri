@@ -565,11 +565,27 @@ test.describe('what answers nothing', () => {
     await expect(log(page).locator('.sc-convo-dots')).toBeVisible();
     await expect(log(page)).toContainText('Hi. A few words about them is enough');
     await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0, { timeout: 4000 });
+    // an answer changed from its pencil goes with a fade, and the question asked again arrives again
+    await log(page)
+      .locator('.sc-convo-turn', { hasText: 'Describe someone' })
+      .getByRole('button', { name: 'Change this answer' })
+      .click();
+    await expect(log(page).locator('.sc-convo-turn[data-leave]').first()).toBeAttached();
+    await expect(answer(page, 'Add photos')).toBeVisible();
+    await expect(log(page).locator('.sc-convo-dots')).toBeVisible();
+    await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0, { timeout: 4000 });
+    // the other door arrives with its beat too, and has a way back
+    await answer(page, 'Add photos').click();
+    await expect(log(page)).toContainText('Add one clear photo of their face.');
+    await expect(log(page).locator('.sc-convo-dots')).toBeVisible();
+    await expect(answer(page, 'Describe someone instead')).toBeVisible();
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.reload();
+    await expect(log(page)).toContainText('Add one clear photo of their face.');
+    await answer(page, 'Describe someone instead').click();
     await expect(log(page)).toContainText('Who are we creating?');
     await send(page, 'hello');
-    await expect(log(page)).toContainText('Hi. A few words about them is enough');
+    await expect(log(page)).toContainText('Hi. Describe them in a sentence, or pick one above.');
     await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0);
   });
 });

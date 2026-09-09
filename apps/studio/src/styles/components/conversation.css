@@ -168,6 +168,19 @@
   animation-delay: var(--sc-convo-start, 0ms);
 }
 
+/* a turn that goes: a short fade and a 4px drop, and nothing in it can be pressed */
+.sc-convo-turn[data-leave] {
+  animation: sc-convo-leave var(--sc-dur-fast) var(--sc-ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes sc-convo-leave {
+  to {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
 .sc-convo-turn[data-who="scenri"][data-arrive] {
   animation-delay: calc(var(--sc-convo-start, 0ms) + 120ms);
 }
@@ -253,7 +266,8 @@
 
   .sc-convo-say[data-reveal] .sc-convo-w,
   .sc-convo-q[data-reveal] > *,
-  .sc-convo-turn[data-arrive] {
+  .sc-convo-turn[data-arrive],
+  .sc-convo-turn[data-leave] {
     animation: none;
     opacity: 1;
   }

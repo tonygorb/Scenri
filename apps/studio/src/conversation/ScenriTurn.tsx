@@ -19,12 +19,15 @@ export function ScenriTurn({
   reveal,
   eyebrow = true,
   delay = 0,
+  leave,
 }: {
   text: string;
   tone?: QuestionTone;
   /** Play the arrival: only on a turn that is new to this render. */
   reveal?: boolean;
   eyebrow?: boolean;
+  /** The line is going: a short fade. */
+  leave?: boolean;
   /** How long after the turn before it this one starts, when several arrive together. */
   delay?: number;
 }) {
@@ -36,6 +39,7 @@ export function ScenriTurn({
       className="sc-convo-turn"
       data-who="scenri"
       data-arrive={playing || undefined}
+      data-leave={leave || undefined}
       style={playing ? arrivalVars(start) : undefined}
     >
       {eyebrow && <Eyebrow thinking={playing} />}

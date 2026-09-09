@@ -56,6 +56,8 @@ export type Question =
       /** The likeness confirmation, when the flow asks for one. */
       attest?: { text: string; checked: boolean };
       submit: string;
+      /** A quiet way back to describing someone instead, before any photo is filed. */
+      back?: string;
     })
   | (QuestionBase & {
       kind: 'confirm';
@@ -72,7 +74,8 @@ export type PhotosAction =
   | { type: 'remove'; hash: string }
   | { type: 'attest'; checked: boolean }
   | { type: 'reject' }
-  | { type: 'submit' };
+  | { type: 'submit' }
+  | { type: 'back' };
 
 export type Answer =
   | { kind: 'text'; text: string }

@@ -32,7 +32,7 @@ export function QuestionBlock({
   busy,
   eyebrow = true,
   delay = 0,
-  ghost,
+  leave,
   onAnswer,
   onPick,
   onStarter,
@@ -45,26 +45,26 @@ export function QuestionBlock({
   eyebrow?: boolean;
   /** The flow is mid-request: nothing here answers twice. */
   busy?: boolean;
-  /** This is the ghost of an answered block: inert, going, showing what was chosen. */
-  ghost?: Picked;
+  /** The question is over and the block is going: a short fade, nothing in it pressable. */
+  leave?: boolean;
   onAnswer: (answer: Answer) => void;
-  /** A tap was taken: what the block looked like, for the ghost the transcript keeps. */
-  onPick?: (question: Question, picked: Picked) => void;
+  /** A tap was taken: what the block looked like, so the transcript keeps its ghost while the row goes. */
+  onPick?: (questionId: string, picked: Picked) => void;
   /** A starter sentence fills the composer; the flow owns the composer's text. */
   onStarter?: (text: string) => void;
 }) {
   // the timing a turn arrives by is fixed when it mounts, whatever renders after
   const [start] = useState(delay);
   const playing = useRevealOnce(reveal, question.prompt, start);
-  const [picks, setPicks] = useState<Record<string, string>>(ghost?.picks ?? {});
-  const [picked, setPicked] = useState<string | null>(ghost?.picked ?? null);
+  const [picks, setPicks] = useState<Record<string, string>>({});
+  const [picked, setPicked] = useState<string | null>(null);
   // The answer is taken the moment it is tapped. The block lights the chosen
   // control and hands its look to the transcript, which keeps a ghost of it
   // while the row goes.
   const commit = (id: string, answer: Answer) => {
     if (picked) return;
     setPicked(id);
-    onPick?.(question, { picked: id, picks });
+    onPick?.(question.id, { picked: id, picks });
     onAnswer(answer);
   };
   const plan = revealPlan(question.prompt);
@@ -74,6 +74,7 @@ export function QuestionBlock({
       className="sc-convo-turn"
       data-who="scenri"
       data-arrive={playing || undefined}
+      data-leave={leave || undefined}
       style={playing ? arrivalVars(start) : undefined}
     >
       {eyebrow && <Eyebrow thinking={playing} />}
@@ -208,6 +209,16 @@ export function QuestionBlock({
               >
                 {question.submit}
               </button>
+              {question.back && (
+                <button
+                  type="button"
+                  className="sc-btn sc-btn-ghost"
+                  data-on={picked === 'back' || undefined}
+                  onClick={() => commit('back', { kind: 'photos', action: { type: 'back' } })}
+                >
+                  {question.back}
+                </button>
+              )}
             </div>
           </div>
         )}

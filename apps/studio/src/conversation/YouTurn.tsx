@@ -14,6 +14,7 @@ export function YouTurn({
   editable,
   first,
   arrive,
+  leave,
   delay = 0,
   onEdit,
 }: {
@@ -24,6 +25,8 @@ export function YouTurn({
   first?: boolean;
   /** New this render: fade and rise into place. */
   arrive?: boolean;
+  /** The answer is going, changed from its pencil: a short fade. */
+  leave?: boolean;
   /** How long to wait first: the beat the answered block takes to go. */
   delay?: number;
   onEdit?: () => void;
@@ -36,6 +39,7 @@ export function YouTurn({
       className="sc-convo-turn"
       data-who="you"
       data-arrive={arriving || undefined}
+      data-leave={leave || undefined}
       style={arriving ? ({ '--sc-convo-start': `${start}ms` } as CSSProperties) : undefined}
     >
       {first && <span className="sc-convo-who">You</span>}

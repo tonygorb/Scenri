@@ -378,6 +378,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           if (act.type === 'attest') setSetup({ attested: act.checked });
           if (act.type === 'reject') setAskErr('That was not an image. Drop a photo, or choose a file.');
           if (act.type === 'submit') void startPhotos();
+          if (act.type === 'back') setSetup({ source: null });
           return;
         }
         case 'identity':
