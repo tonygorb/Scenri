@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { useBrand } from '../app/BrandLayout.js';
 import { headPresenterId } from '../brandAssets.js';
@@ -21,7 +21,10 @@ export function PresenterEditRoute() {
   const { caps, capsNote } = useCreateFlow();
   useTitleEntity('Edit presenter');
 
-  const head = headPresenterId(brand, presenterId);
+  // Decided once, on arrival: a save mints a new head while this route is
+  // still mounted, and following it here would reopen the editor on the
+  // new record instead of landing on its page.
+  const [head] = useState(() => headPresenterId(brand, presenterId));
   const leave = useCallback((id: string) => navigate(presenterPath(brand, id), { replace: true }), [navigate, brand]);
   const close = useCallback(
     () => navigate(presenterPath(brand, presenterId), { replace: true }),
