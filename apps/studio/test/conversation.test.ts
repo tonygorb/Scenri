@@ -6,6 +6,7 @@ import {
   groupsAnswered,
   revealDuration,
   revealPlan,
+  smallTalk,
   turnKey,
 } from '../src/conversation/question.js';
 
@@ -64,5 +65,26 @@ describe('turn keys', () => {
     expect(turnKey(a)).toBe('you:name');
     expect(turnKey(b)).toBe('q:source');
     expect(turnKey({ kind: 'scenri', id: 'drawing', text: 'Drawing their face.' })).toBe('scenri:drawing');
+  });
+});
+
+describe('small talk', () => {
+  it('is a greeting, a thanks, a test, or a word or two that describes nobody', () => {
+    for (const t of ['hello', 'Hi!', 'hey there', 'thanks', 'ok', 'test', '?', 'yes', 'help'])
+      expect(smallTalk(t)).toBe(true);
+  });
+  it('is not a sentence about a person, however short', () => {
+    for (const t of [
+      'a woman',
+      'late 30s',
+      'silver hair',
+      'tall guy',
+      'Maren',
+      'shorter hair',
+      'older',
+      'two photos',
+      'from scratch',
+    ])
+      expect(smallTalk(t)).toBe(false);
   });
 });

@@ -65,6 +65,8 @@ export interface FlowUi {
   reasking: 'name' | 'describe' | null;
   /** A draw request that never reached the engine, said once with a Retry. */
   failed?: string | null;
+  /** Small talk at a question: what was said, and the question again in its own words. */
+  aside?: { said: string; reply: string } | null;
 }
 
 export const MAX_PHOTOS = 4;
@@ -194,7 +196,7 @@ export interface FlowArgs {
  * when there is one; `activeQuestion()` reads it off.
  */
 export function turnsFor(args: FlowArgs): Turn[] {
-  const T = turnsBase(args);
+  const T = withAside(turnsBase(args), args.ui.aside);
   if (!args.ui.reasking) return T;
   const kept = T[T.length - 1]?.kind === 'question' ? T.slice(0, -1) : T;
   if (args.ui.reasking === 'name') {
@@ -212,6 +214,31 @@ export function turnsFor(args: FlowArgs): Turn[] {
     },
   ];
 }
+
+/** Small talk sits before the open question: what was said, then the question again. */
+export function withAside(T: Turn[], aside: FlowUi['aside'] | undefined): Turn[] {
+  if (!aside) return T;
+  const last = T[T.length - 1];
+  const before = last?.kind === 'question' ? T.slice(0, -1) : T;
+  const tail = last?.kind === 'question' ? [last] : [];
+  return [
+    ...before,
+    { kind: 'you', id: 'aside-said', text: aside.said, editable: false },
+    { kind: 'scenri', id: 'aside-reply', text: aside.reply },
+    ...tail,
+  ];
+}
+
+/** The question again, in its own words, when the answer was not one. */
+export const ASIDE = {
+  source: (said: string) =>
+    /^(hi|hello|hey|heya|hiya|yo|hola|shalom|good (morning|afternoon|evening))\b/i.test(said.trim())
+      ? 'Hi. Describe someone new, or add photos of a real person.'
+      : 'Describe someone new, or add photos of a real person.',
+  describe: 'A few words about them is enough: age, hair, build, skin, presence.',
+  name: 'A name, so the rest of the conversation can use it.',
+  refine: 'Say what should change: hair, age or build change the person; anything else changes the view on the stage.',
+};
 
 function turnsBase({ setup, draft: d, canGenerate, ui }: FlowArgs): Turn[] {
   const T: Turn[] = [{ kind: 'you', id: 'intent', text: 'Create a presenter' }];

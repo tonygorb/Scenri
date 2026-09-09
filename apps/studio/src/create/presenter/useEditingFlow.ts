@@ -3,11 +3,12 @@ import { api, thumbUrl } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useOpenSetup } from '../../app/dialogs.js';
-import type { Answer } from '../../conversation/question.js';
+import { type Answer, smallTalk } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
 import { activeQuestion } from './presenterFlowRules.js';
 import {
+  EDIT_ASIDE,
   EMPTY_EDIT_UI,
   type EditBase,
   type EditUi,
@@ -170,6 +171,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
   const onAnswer = useCallback(
     (qid: string, a: Answer) => {
       setAskErr(null);
+      setUi((u) => (u.aside ? { ...u, aside: null } : u));
       if (!d) return;
       switch (qid) {
         case 'legacy':
@@ -221,7 +223,12 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
       const sentence = raw.trim();
       if (!sentence || !d) return false;
       setAskErr(null);
-      setUi((u) => ({ ...u, outOfScope: null, scopeAsk: null }));
+      setUi((u) => ({ ...u, outOfScope: null, scopeAsk: null, aside: null }));
+      if (smallTalk(sentence)) {
+        setUi((u) => ({ ...u, aside: { said: sentence, reply: EDIT_ASIDE } }));
+        setText('');
+        return true;
+      }
       if (!canDraw) {
         setAskErr('Image generation is not set up, so nothing can be redrawn yet.');
         return false;

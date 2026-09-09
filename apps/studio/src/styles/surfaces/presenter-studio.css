@@ -84,27 +84,6 @@
 }
 
 /* ---- the two ways to start: a compact switch in the title row ------------ */
-/* Chrome beside the title, at the head's own 30 (its Change button), sized by
-   its words. A one-time choice does not get a band of its own over the form. */
-.sc-pstudio-modes {
-  flex: none;
-  margin-left: var(--sc-space-5);
-  padding: 2px;
-  background: var(--sc-well);
-}
-
-.sc-pstudio-modes .sc-seg-o {
-  justify-content: center;
-  gap: 0;
-  height: 30px;
-  padding: 0 var(--sc-space-5);
-  font-size: var(--sc-text-body);
-}
-
-.sc-pstudio-modes .sc-seg-o[data-on] {
-  background: var(--sc-pstudio-field);
-  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
-}
 
 /* ---- stage: padded 20, the well 20 further in, the strip block 180 ------- */
 .sc-pstudio-stage {
@@ -141,6 +120,17 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* a new picture, a candidate, or the one it replaces on Compare: fades in over the last */
+  animation: sc-pstudio-well-in var(--sc-dur-slow) var(--sc-ease);
+}
+
+@keyframes sc-pstudio-well-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .sc-pstudio-well[data-drawing] img {
@@ -219,6 +209,7 @@
   background: none;
   cursor: pointer;
   opacity: 0.5;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
 }
 
 .sc-pstudio-slot:disabled {
@@ -273,64 +264,6 @@
   color: var(--sc-inv-fg);
 }
 
-/* the five frames a person arrives as, shown before there is anything in them */
-.sc-pstudio-stage-preview {
-  align-items: center;
-  justify-content: center;
-  gap: var(--sc-space-8);
-}
-
-.sc-pstudio-plates {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: var(--sc-space-6);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  width: 100%;
-}
-
-.sc-pstudio-plates li {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--sc-space-5);
-  min-width: 0;
-  flex: 0 1 200px;
-}
-
-.sc-pstudio-plate {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  aspect-ratio: 4 / 5;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-lg);
-  background: var(--sc-panel);
-  color: var(--sc-fg3);
-  opacity: 0.45;
-}
-
-/* the face is first and is the one everything else is drawn from */
-.sc-pstudio-plate[data-lead] {
-  opacity: 0.8;
-  border-color: var(--sc-line-strong);
-}
-
-.sc-pstudio-plate-lb {
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--sc-fg3);
-}
-
-.sc-pstudio-plates-note {
-  margin: 0;
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--sc-fg3);
-}
-
 /* ---- rail body ----------------------------------------------------------- */
 .sc-pstudio-body {
   min-height: 0;
@@ -343,194 +276,6 @@
   justify-content: flex-end;
   gap: var(--sc-space-4);
   padding: var(--sc-space-8) var(--sc-space-8) var(--sc-space-5);
-}
-
-/* the transcript: You, then Scenri, anchored to the bottom of the rail; the
-   words are the build's own status, no model is ever asked for them */
-.sc-pstudio-chat {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: var(--sc-space-8);
-  min-height: 100%;
-}
-
-.sc-pstudio-msg {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sc-space-4);
-}
-
-.sc-pstudio-msg[data-role="you"] {
-  align-items: flex-end;
-}
-
-.sc-pstudio-msg-who {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sc-space-3);
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--sc-fg3);
-}
-
-.sc-pstudio-msg-mark {
-  height: 14px;
-  width: auto;
-}
-
-.sc-pstudio-bubble {
-  max-width: 320px;
-  padding: var(--sc-space-7);
-  border-radius: 16px;
-  background: var(--sc-hover);
-  color: var(--sc-fg);
-}
-
-.sc-pstudio-bubble p {
-  margin: 0;
-  font-size: 15px;
-  line-height: 22px;
-  text-wrap: pretty;
-}
-
-.sc-pstudio-bubble-photos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sc-space-3);
-  margin-top: var(--sc-space-5);
-}
-
-.sc-pstudio-bubble-photos img {
-  width: 44px;
-  height: 55px;
-  object-fit: cover;
-  border-radius: var(--sc-radius-sm);
-  background: var(--sc-pstudio-field);
-}
-
-.sc-pstudio-msg-tools {
-  display: flex;
-  margin-top: var(--sc-space-2);
-}
-
-.sc-pstudio-tool {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  border-radius: var(--sc-radius-sm);
-  background: none;
-  color: var(--sc-fg3);
-  cursor: pointer;
-}
-
-.sc-pstudio-tool:hover:not(:disabled) {
-  color: var(--sc-fg);
-}
-
-.sc-pstudio-tool:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.sc-pstudio-status {
-  margin: 0;
-  font-size: 15px;
-  line-height: 22px;
-  color: var(--sc-fg);
-  text-wrap: pretty;
-}
-
-.sc-pstudio-status[data-tone="alert"] {
-  color: var(--sc-red);
-}
-
-.sc-pstudio-line {
-  margin: 0;
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--sc-fg2);
-}
-
-.sc-pstudio-line[data-tone="warn"] {
-  color: var(--sc-warn);
-}
-
-/* the label row: the name of the thing on the left, and on the right only
-   what the control below cannot say for itself. One gap under it, always. */
-.sc-pstudio-fieldhead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--sc-space-4);
-  margin-bottom: var(--sc-space-5);
-}
-
-.sc-pstudio-fieldval {
-  font-size: var(--sc-text-caption);
-  font-weight: 500;
-  line-height: 16px;
-  color: var(--sc-fg2);
-}
-
-/* age: the app's chips, small, left, one row; words stay lighter than the
-   pictures above and the swatches below */
-.sc-pstudio-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sc-space-3);
-}
-
-.sc-pstudio-chips .sc-chip {
-  height: 28px;
-  padding: 0 12px;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-/* fields: the Figma field, 44 tall, 15px, on ink-800. One rhythm inside a
-   group, a wider one between groups, and no dividing lines: in a rail this
-   narrow a hairline between fields is noise, and space says the same thing. */
-.sc-pstudio-field {
-  margin-bottom: var(--sc-space-6);
-}
-
-.sc-pstudio-field[data-group] {
-  margin-bottom: var(--sc-space-8);
-}
-
-/* the last field's gap is the boundary before the composer, which the body
-   and the foot already pay between them */
-.sc-pstudio-form > .sc-pstudio-field:last-child {
-  margin-bottom: 0;
-}
-
-.sc-pstudio-fieldset {
-  min-width: 0;
-  padding: 0;
-  border: none;
-}
-
-.sc-pstudio-fieldset > legend {
-  display: block;
-  padding: 0;
-}
-
-.sc-pstudio-field .sc-newdlg-seclabel,
-.sc-pstudio-photos .sc-newdlg-seclabel {
-  font-size: var(--sc-text-caption);
-  font-weight: 500;
-  line-height: 16px;
-  color: var(--sc-fg2);
-  margin-bottom: 0;
-}
-
-.sc-pstudio-photos .sc-newdlg-seclabel {
-  display: block;
-  margin-bottom: var(--sc-space-5);
 }
 
 .sc-pstudio .sc-in {
@@ -547,97 +292,6 @@
 
 .sc-pstudio .sc-in::placeholder {
   color: var(--sc-pstudio-placeholder);
-}
-
-.sc-pstudio-field textarea.sc-in {
-  min-height: 72px;
-  resize: none;
-}
-
-/* the frame's description: 120 tall, the sentence at 15/22 inside 9.5 / 13.5 */
-.sc-pstudio-field textarea.sc-pstudio-direction {
-  min-height: 120px;
-  padding: 9px 13px;
-}
-
-/* skin / hair: the colour itself as a solid disc, the chips' 28, light to
-   dark in both rows. The chosen one wears a ring outside the disc, with the
-   panel showing between, so the colour is never covered and every state is
-   paint-only. Twelve apart so two rings never meet. */
-.sc-pstudio-skin {
-  display: flex;
-  align-items: center;
-  gap: var(--sc-space-5);
-}
-
-.sc-pstudio-swatches {
-  display: flex;
-  gap: var(--sc-space-5);
-}
-
-.sc-pstudio-swatch {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: var(--sc-radius-full);
-  background: none;
-  cursor: pointer;
-  transition: box-shadow 120ms ease;
-}
-
-.sc-pstudio-swatch > span {
-  width: 100%;
-  height: 100%;
-  border-radius: var(--sc-radius-full);
-  /* a hairline on the disc itself, so the palest tone still has an edge */
-  box-shadow: inset 0 0 0 1px var(--sc-line);
-}
-
-.sc-pstudio-swatch:hover {
-  box-shadow:
-    0 0 0 2px var(--sc-panel),
-    0 0 0 3px var(--sc-line-strong);
-}
-
-.sc-pstudio-swatch[data-on] {
-  box-shadow:
-    0 0 0 2px var(--sc-panel),
-    0 0 0 3.5px var(--sc-fg);
-}
-
-/* the last swatch is any colour at all: the app's own picker, wearing the
-   same disc so the row reads as one set; empty until a colour is picked */
-.sc-pstudio-swatch-any {
-  position: relative;
-  color: var(--sc-fg2);
-  background: var(--sc-pstudio-field);
-  box-shadow: inset 0 0 0 1px var(--sc-line);
-}
-
-.sc-pstudio-swatch-any:hover {
-  color: var(--sc-fg);
-  box-shadow:
-    inset 0 0 0 1px var(--sc-line-strong),
-    0 0 0 2px var(--sc-panel),
-    0 0 0 3px var(--sc-line-strong);
-}
-
-.sc-pstudio-swatch-any[data-on] {
-  box-shadow:
-    0 0 0 2px var(--sc-panel),
-    0 0 0 3.5px var(--sc-fg);
-}
-
-.sc-pstudio-swatch:focus-visible {
-  outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: 4px;
-}
-
-.sc-pstudio-field .sc-pstudio-line {
-  margin-top: var(--sc-space-4);
 }
 
 /* a value that opens a list: the rail's own field, with the caret at its end */
@@ -735,268 +389,6 @@
   color: var(--sc-fg3);
 }
 
-/* the four photo slots: one to four, each a place to drop or pick */
-.sc-pstudio-slots {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--sc-space-4);
-}
-
-.sc-pstudio-pslot {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sc-space-4);
-  min-width: 0;
-}
-
-.sc-pstudio-pslot-frame {
-  position: relative;
-  display: block;
-  width: 100%;
-  padding: 2px;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius);
-  background: none;
-  cursor: pointer;
-}
-
-.sc-pstudio-pslot-frame[data-filled] {
-  border-color: var(--sc-fg);
-  cursor: default;
-}
-
-.sc-pstudio-pslot-frame[data-drag-over] {
-  border-color: var(--sc-focus);
-}
-
-.sc-pstudio-pslot-inner {
-  position: relative;
-  display: grid;
-  place-items: center;
-  aspect-ratio: 4 / 5;
-  overflow: hidden;
-  border-radius: var(--sc-radius-md);
-  background: var(--sc-pstudio-field);
-}
-
-.sc-pstudio-pslot-inner img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.sc-pstudio-pslot-plus {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 2px;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-full);
-  color: var(--sc-fg);
-}
-
-.sc-pstudio-pslot-plus > span {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-line);
-}
-
-.sc-pstudio-pslot-drop {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: none;
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-scrim);
-  color: var(--sc-scrim-fg);
-  cursor: pointer;
-  opacity: 0;
-}
-
-.sc-pstudio-pslot-frame:hover .sc-pstudio-pslot-drop,
-.sc-pstudio-pslot-drop:focus-visible {
-  opacity: 1;
-}
-
-.sc-pstudio-pslot-lb {
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--sc-fg2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sc-pstudio-photos .sc-pstudio-line {
-  margin-top: var(--sc-space-5);
-}
-
-.sc-pstudio-consent {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sc-space-4);
-  margin-top: var(--sc-space-7);
-  color: var(--sc-fg2);
-  font-size: 13px;
-  line-height: 20px;
-  cursor: pointer;
-}
-
-.sc-pstudio-consent input {
-  flex: none;
-  margin-top: 3px;
-  accent-color: var(--sc-fg);
-}
-
-/* nothing to draw with: the composer's card, and its door */
-.sc-pstudio-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sc-space-3);
-  padding: var(--sc-space-6);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-lg);
-  background: var(--sc-panel);
-}
-
-.sc-pstudio-card > svg {
-  width: 16px;
-  height: 16px;
-  color: var(--sc-fg2);
-}
-
-.sc-pstudio-card b {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.sc-pstudio-card p {
-  margin: 0;
-  font-size: var(--sc-text-body);
-  line-height: 1.45;
-  color: var(--sc-fg2);
-}
-
-.sc-pstudio-card .sc-btn {
-  align-self: flex-start;
-  margin-top: var(--sc-space-3);
-}
-
-/* the same 44 every input in the rail stands at */
-.sc-pstudio-resume {
-  display: flex;
-  align-items: center;
-  gap: var(--sc-space-5);
-  width: 100%;
-  min-height: 44px;
-  margin: 0 0 var(--sc-space-7);
-  padding: var(--sc-space-3) var(--sc-space-5);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius);
-  background: none;
-  color: var(--sc-fg);
-  cursor: pointer;
-  text-align: left;
-  font-size: 13px;
-}
-
-.sc-pstudio-resume:hover:not(:active) {
-  background: var(--sc-hover);
-}
-
-.sc-pstudio-resume img,
-.sc-pstudio-resume-blank {
-  flex: none;
-  width: 24px;
-  height: 30px;
-  object-fit: cover;
-  border-radius: var(--sc-radius-sm);
-  background: var(--sc-pstudio-field);
-}
-
-.sc-pstudio-resume span {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.sc-pstudio-resume small {
-  font-size: var(--sc-text-caption);
-  color: var(--sc-fg3);
-}
-
-/* the words, behind Change: name, notes, categories */
-.sc-pstudio-details {
-  display: flex;
-  flex-direction: column;
-  padding-top: var(--sc-space-7);
-  border-top: 1px solid var(--sc-line);
-}
-
-.sc-pstudio-details .sc-pstudio-field:last-child {
-  margin-bottom: 0;
-}
-
-/* the dock: who this is, with Change, sitting on the composer card */
-.sc-pstudio-dock {
-  display: flex;
-  flex-direction: column;
-}
-
-.sc-pstudio-who {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sc-space-4);
-  margin: 0 var(--sc-space-7);
-  padding: var(--sc-space-4);
-  border: 1px solid var(--sc-line);
-  border-bottom: none;
-  border-radius: 12px 12px 0 0;
-  background: var(--sc-panel);
-}
-
-.sc-pstudio-who-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sc-space-3);
-  height: 24px;
-  padding: 2px 10px 2px 2px;
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-chip);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--sc-fg);
-}
-
-.sc-pstudio-who-chip img,
-.sc-pstudio-who-blank {
-  width: 20px;
-  height: 20px;
-  border-radius: var(--sc-radius-full);
-  object-fit: cover;
-  background: var(--sc-pstudio-field);
-}
-
-.sc-pstudio-who .sc-btn {
-  height: 24px;
-  padding: 0 13px;
-  border-radius: var(--sc-radius-full);
-  font-size: 12px;
-  font-weight: 500;
-}
-
 /* ---- rail foot: the composer, the decision, the footnote ----------------- */
 .sc-pstudio-foot {
   display: flex;
@@ -1009,171 +401,10 @@
   margin-top: 0;
 }
 
-/* the decision: Figma's 44px radius-10 pair, the primary taking the room */
-.sc-pstudio-actions {
-  display: flex;
-  gap: var(--sc-space-6);
-}
-
-.sc-pstudio-actions .sc-btn {
-  display: inline-flex;
-  align-items: center;
-  /* the label and its arrow are one group, centred in the button, as drawn */
-  justify-content: center;
-  height: 44px;
-  padding: 0 32px;
-  border-radius: var(--sc-radius);
-  font-size: 16px;
-  font-weight: 500;
-}
-
-.sc-pstudio-actions .sc-btn-ghost {
-  flex: none;
-  border: 1px solid var(--sc-line);
-  background: var(--sc-hover);
-  color: var(--sc-fg);
-}
-
-.sc-pstudio-actions .sc-btn-ghost:hover:not(:disabled) {
-  border-color: var(--sc-line-strong);
-  background: var(--sc-chip);
-}
-
-.sc-pstudio-actions .sc-btn-primary {
-  flex: 1 1 auto;
-  gap: 10px;
-}
-
-/* a primary that cannot be pressed is a quiet fill, never a washed-out white */
-.sc-pstudio-actions .sc-btn-primary[aria-disabled="true"] {
-  background: var(--sc-chip);
-  color: var(--sc-fg3);
-  opacity: 1;
-}
-
-/* the composer card: an editing field, not a chat */
-.sc-pstudio-composer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sc-space-3);
-}
-
-/* the card stands on the same ground as every input in the rail; the
-   border and the lift are what say it floats, as in the frame */
-.sc-pstudio-composer-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--sc-line-strong);
-  border-radius: var(--sc-radius-float);
-  background: var(--sc-pstudio-field);
-  box-shadow: var(--sc-shadow-float);
-}
-
-/* the scope chip over the sentence: which picture Refine will redraw */
-.sc-pstudio-scope-row {
-  display: flex;
-  padding: 16px 16px 0;
-}
-
-.sc-pstudio-scope {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sc-space-3);
-  height: 22px;
-  padding: 0 10px 0 2px;
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-fg);
-  color: var(--sc-bg);
-  font-size: var(--sc-text-micro);
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.sc-pstudio-scope img {
-  width: 18px;
-  height: 18px;
-  border-radius: var(--sc-radius-full);
-  object-fit: cover;
-}
-
-.sc-pstudio-composer-card textarea.sc-in {
-  min-height: 44px;
-  max-height: 140px;
-  padding: 16px 16px 0;
-  border: none;
-  border-radius: var(--sc-radius-float) var(--sc-radius-float) 0 0;
-  background: none;
-  font-size: 15px;
-  line-height: 28px;
-  resize: none;
-  overflow-y: hidden;
-}
-
-.sc-pstudio-composer-card textarea.sc-in:focus {
-  outline: none;
-}
-
-.sc-pstudio-composer-card textarea.sc-in::placeholder {
-  color: var(--sc-fg3);
-}
-
-.sc-pstudio-composer-row {
-  display: flex;
-  justify-content: flex-end;
-  align-items: flex-end;
-  gap: var(--sc-space-6);
-  padding: var(--sc-space-6);
-}
-
-.sc-pstudio-send {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--sc-space-4);
-  height: 38px;
-  min-width: 38px;
-  padding: 0 var(--sc-space-5);
-  border: none;
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-chip);
-  color: var(--sc-fg2);
-  font-size: var(--sc-text-control);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.sc-pstudio-send:not([aria-disabled="true"]) {
-  background: var(--sc-fg);
-  color: var(--sc-bg);
-}
-
-.sc-pstudio-send:hover:not([aria-disabled="true"]) {
-  background: var(--sc-fg);
-  color: var(--sc-bg);
-  opacity: 0.92;
-}
-
-.sc-pstudio-send[aria-disabled="true"] {
-  cursor: default;
-}
-
-.sc-pstudio-composer-hint {
-  padding: 0 var(--sc-space-2);
-  font-size: var(--sc-text-micro);
-  line-height: 16px;
-  color: var(--sc-fg3);
-}
-
 .sc-pstudio-foot .sc-dlg-foot {
   margin-top: 0;
   font-size: var(--sc-text-micro);
   line-height: 16px;
-}
-
-.sc-pstudio-composer-hint[data-tone="alert"] {
-  color: var(--sc-red);
 }
 
 /* ---- the desktop surface: stage left, rail right ------------------------- */
@@ -1247,16 +478,6 @@
     padding: var(--sc-space-5) var(--sc-space-6);
   }
 
-  .sc-pstudio-modes {
-    order: 9;
-    flex: 1 1 100%;
-    margin: var(--sc-space-4) 0 0;
-  }
-
-  .sc-pstudio-modes .sc-seg-o {
-    flex: 1 1 0;
-  }
-
   .sc-pstudio-body[data-end] {
     padding: var(--sc-space-7);
   }
@@ -1278,18 +499,6 @@
     min-height: 52px;
     flex-wrap: wrap;
     padding: max(var(--sc-space-4), env(safe-area-inset-top)) var(--sc-space-4) var(--sc-space-5) var(--sc-space-6);
-  }
-
-  /* the head's own close takes the title row here, so the switch drops to a
-     line of its own under the title, two-up across the sheet */
-  .sc-pstudio-modes {
-    order: 9;
-    flex: 1 1 100%;
-    margin: var(--sc-space-4) var(--sc-space-2) 0 0;
-  }
-
-  .sc-pstudio-modes .sc-seg-o {
-    flex: 1 1 0;
   }
 
   .sc-pstudio-scroll {
@@ -1354,14 +563,6 @@
     padding: var(--sc-space-5) var(--sc-space-6);
   }
 
-  .sc-pstudio-bubble {
-    max-width: 100%;
-  }
-
-  .sc-pstudio-who {
-    margin: 0 var(--sc-space-4);
-  }
-
   .sc-pstudio-foot {
     position: sticky;
     bottom: 0;
@@ -1369,31 +570,12 @@
     background: var(--sc-bg);
     border-top: 1px solid var(--sc-line);
   }
-
-  .sc-pstudio-actions {
-    gap: var(--sc-space-4);
-  }
-
-  .sc-pstudio-actions .sc-btn {
-    padding: 0 var(--sc-space-6);
-  }
-
-  .sc-pstudio-actions .sc-btn-ghost {
-    flex: 1 1 auto;
-  }
-
-  .sc-pstudio-slots {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .sc-pstudio-pslot-drop {
-    opacity: 1;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .sc-pstudio .sc-shimmer,
-  .sc-pstudio .sc-shimmer::after {
+  .sc-pstudio .sc-shimmer::after,
+  .sc-pstudio-well img {
     animation: none;
   }
 }

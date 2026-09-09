@@ -74,10 +74,19 @@ export function ConversationComposer({
     el.style.overflowY = el.scrollHeight > max ? 'auto' : 'hidden';
   }, [value]);
 
+  const [flash, setFlash] = useState(false);
   useEffect(() => {
     if (!focusKey || focusKey === focusedOnce || disabled) return;
     setFocusedOnce(focusKey);
-    field.current?.focus({ preventScroll: true });
+    const el = field.current;
+    el?.focus({ preventScroll: true });
+    // an answer reopened for a change arrives with its words selected and the card lit once
+    if (el && el.value) {
+      el.select();
+      setFlash(true);
+      const t = setTimeout(() => setFlash(false), 700);
+      return () => clearTimeout(t);
+    }
   }, [focusKey, focusedOnce, disabled]);
 
   const off = disabled || working;
@@ -102,7 +111,7 @@ export function ConversationComposer({
   );
   return (
     <div className="sc-convo-composer">
-      <div className="sc-convo-card">
+      <div className="sc-convo-card" data-flash={flash || undefined}>
         {scope?.chip && (
           <div className="sc-convo-scope-row">
             <span className="sc-convo-scope">

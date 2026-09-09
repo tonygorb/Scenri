@@ -155,3 +155,27 @@ export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
+
+/** Words that describe a person: with any of these, a short sentence is an answer, not small talk. */
+const DESCRIBES =
+  /\b(wom[ae]n|m[ae]n|male|female|lady|girl|boy|guy|person|she|he|they|\d0s|\d\d|young|old|teen|adult|hair|bald|beard|skin|freckle|build|slim|slender|athletic|average|fuller|tall|short|eyes?|face|smile|presence|calm|warm|confident|elegant|blonde?|brunette|dark|light|tan|olive|brown|black|white|silver|grey|gray|red|curly|straight|wavy|photos?|pictures?|selfies?|uploads?|older|younger|taller|shorter|longer|slimmer|leaner|heavier|broader|bigger|smaller|thinner|thicker|softer|sharper|natural|scratch|describe)\b/i;
+
+/**
+ * A greeting, a thanks, a test, or a word or two that describes nobody:
+ * not an answer to any question, and never a sentence to draw from. The
+ * flow replies with the question again, in its own words.
+ */
+export function smallTalk(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (
+    /^(hi|hello|hey|heya|hiya|yo|hola|shalom|sup|good (morning|afternoon|evening)|thanks|thank you|thx|cheers|ok|okay|k|sure|fine|yes|yeah|yep|no|nope|help|test|testing|what|why|how|\?+|\.+|!+)[\s!.,?]*$/i.test(
+      t,
+    )
+  )
+    return true;
+  const words = t.split(/\s+/).filter(Boolean);
+  // a bare capitalised word can be a name; one or two plain words that describe nobody cannot
+  if (words.length === 1 && /^[A-Z][a-z]+$/.test(t)) return false;
+  return words.length <= 2 && !DESCRIBES.test(t) && !/\d/.test(t);
+}

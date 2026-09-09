@@ -240,3 +240,17 @@ describe('a draft opened at its address', () => {
     expect(p.map((x) => (x.kind === 'question' ? `q:${x.question.id}` : `${x.kind}:${x.id}`))).toContain('you:photos');
   });
 });
+
+describe('small talk at a question', () => {
+  it('is answered with the question again, and the question stays open', () => {
+    const t = turnsFor({
+      setup: setup(),
+      draft: null,
+      canGenerate: true,
+      ui: { ...ui, aside: { said: 'hello', reply: 'Hi. Describe someone new, or add photos of a real person.' } },
+    });
+    const list = t.map((x) => (x.kind === 'question' ? `q:${x.question.id}` : `${x.kind}:${x.id}`));
+    expect(list).toEqual(['you:intent', 'you:aside-said', 'scenri:aside-reply', 'q:source']);
+    expect(activeQuestion(t)?.id).toBe('source');
+  });
+});

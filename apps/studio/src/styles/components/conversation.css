@@ -173,6 +173,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .sc-convo-card[data-flash] {
+    animation: none;
+  }
+
   .sc-convo-say[data-reveal] .sc-convo-w,
   .sc-convo-q[data-reveal] > *,
   .sc-convo-turn[data-arrive] {
@@ -223,6 +227,13 @@
 
 .sc-chip.sc-convo-choice:hover {
   background: var(--sc-chip-hover);
+}
+
+.sc-chip.sc-convo-choice {
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease),
+    border-color var(--sc-dur-fast) var(--sc-ease);
 }
 
 .sc-convo-groups {
@@ -328,6 +339,21 @@
   border-radius: var(--sc-radius-float);
   background: var(--sc-hover);
   box-shadow: var(--sc-shadow-float);
+  transition: border-color var(--sc-dur-slow) var(--sc-ease);
+}
+
+/* an answer reopened for a change: the card lights once, then settles */
+.sc-convo-card[data-flash] {
+  animation: sc-convo-flash 700ms var(--sc-ease);
+}
+
+@keyframes sc-convo-flash {
+  0% {
+    border-color: var(--sc-fg);
+  }
+  100% {
+    border-color: var(--sc-line-strong);
+  }
 }
 
 .sc-convo-scope-row {

@@ -3,10 +3,11 @@ import { api, type PresenterDraft, thumbUrl, uploadImage } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useOpenSetup } from '../../app/dialogs.js';
-import type { Answer } from '../../conversation/question.js';
+import { type Answer, smallTalk } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
 import {
+  ASIDE,
   EMPTY_SETUP,
   type FlowUi,
   type Setup,
@@ -93,7 +94,13 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const canDraw = !!caps?.canGenerate;
 
   const [setup, setSetupState] = useState<Setup>(() => readSetup(brand.id));
-  const [ui, setUi] = useState<FlowUi>({ collapsed: false, extrasDeclined: false, reasking: null, failed: null });
+  const [ui, setUi] = useState<FlowUi>({
+    collapsed: false,
+    extrasDeclined: false,
+    reasking: null,
+    failed: null,
+    aside: null,
+  });
   const [text, setText] = useState('');
   const [focus, setFocus] = useState<StudioView | null>(null);
   const [compare, setCompare] = useState(false);
@@ -308,7 +315,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     }
     session.remove(pointerKey(brand.id));
     clearSetup();
-    setUi({ collapsed: false, extrasDeclined: false, reasking: null, failed: null });
+    setUi({ collapsed: false, extrasDeclined: false, reasking: null, failed: null, aside: null });
     setText(keep);
     setConfirming(null);
     onLeaveDraft();
@@ -328,6 +335,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const onAnswer = useCallback(
     (qid: string, a: Answer) => {
       setAskErr(null);
+      setUi((u) => (u.aside ? { ...u, aside: null } : u));
       switch (qid) {
         case 'source':
           if (a.kind === 'choice') setSetup({ source: a.id as Setup['source'] });
@@ -417,7 +425,15 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       const sentence = raw.trim();
       if (!sentence) return false;
       setAskErr(null);
+      setUi((u) => ({ ...u, aside: null }));
       const qid = ui.reasking ?? question?.id;
+      // a greeting or a word that describes nobody is answered with the question, not drawn
+      if (qid !== 'name' && smallTalk(sentence) && !(qid === 'source' && sourceFromText(sentence))) {
+        const reply = qid === 'source' ? ASIDE.source(sentence) : qid === 'describe' ? ASIDE.describe : ASIDE.refine;
+        setUi((u) => ({ ...u, aside: { said: sentence, reply } }));
+        setText('');
+        return true;
+      }
       if (qid === 'source') {
         const door = sourceFromText(sentence);
         if (door) {

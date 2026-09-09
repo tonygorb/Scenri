@@ -143,6 +143,8 @@ export interface EditUi {
   failed?: string | null;
   /** The save was refused because the record moved elsewhere. */
   conflict: string | null;
+  /** Small talk: what was said, and what the composer is for, once. */
+  aside?: { said: string; reply: string } | null;
 }
 
 export const EMPTY_EDIT_UI: EditUi = {
@@ -162,6 +164,9 @@ export interface EditFlowArgs {
   canGenerate: boolean;
   ui: EditUi;
 }
+
+export const EDIT_ASIDE =
+  'Say what should change: hair, age or build change the person; anything else changes the view on the stage.';
 
 export const PROMPT_EDIT = {
   opening: (name: string) =>
@@ -200,6 +205,10 @@ export function turnsForEdit({ draft: d, base, name, selected, canGenerate, ui }
   if (ui.outOfScope) {
     you('out-of-scope', ui.outOfScope);
     say('out-of-scope-line', OUT_OF_SCOPE_LINE(name));
+  }
+  if (ui.aside) {
+    you('aside-said', ui.aside.said);
+    say('aside-reply', ui.aside.reply);
   }
 
   if (ui.scopeAsk) {

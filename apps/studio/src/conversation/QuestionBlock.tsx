@@ -32,6 +32,7 @@ export function QuestionBlock({
 }) {
   const playing = useRevealOnce(reveal, question.prompt);
   const [picks, setPicks] = useState<Record<string, string>>({});
+  const [picked, setPicked] = useState<string | null>(null);
   const plan = revealPlan(question.prompt);
   const promptId = `sc-convo-q-${question.id}`;
   return (
@@ -66,7 +67,12 @@ export function QuestionBlock({
                 key={o.id}
                 type="button"
                 className="sc-chip sc-convo-choice"
-                onClick={() => onAnswer({ kind: 'choice', id: o.id })}
+                data-on={picked === o.id || undefined}
+                onClick={() => {
+                  // the chip lights before the turn takes its place: the tap is seen
+                  setPicked(o.id);
+                  onAnswer({ kind: 'choice', id: o.id });
+                }}
               >
                 {o.label}
               </button>

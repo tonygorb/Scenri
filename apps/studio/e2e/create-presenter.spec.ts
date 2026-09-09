@@ -129,7 +129,12 @@ function apiCalls(p: Page): { count: () => number; reset: () => void } {
   p.on('request', (r) => {
     if (r.url().includes('/api/')) n++;
   });
-  return { count: () => n, reset: () => void (n = 0) };
+  return {
+    count: () => n,
+    reset: () => {
+      n = 0;
+    },
+  };
 }
 
 test.describe('a person from scratch', () => {
