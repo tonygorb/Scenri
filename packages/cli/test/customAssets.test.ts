@@ -225,6 +225,24 @@ describe('custom presenters and scenes', () => {
 
   /* ------------------------------------------------------------ presenters */
 
+  it('an edit that changes only the name patches the record in place, through the studio routes', async () => {
+    const brand = await newBrand();
+    const p = await castPresenter(brand.id, 'Mara', [await savePhoto()]);
+    const opened = await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/presenters/${p.id}/edit` });
+    expect(opened.statusCode).toBe(200);
+    const draft = opened.json();
+    expect(draft.presenterId).toBe(p.id);
+    expect(draft.views.portrait.status).toBe('approved');
+    expect(draft.views.front.status).toBe('approved');
+    const base = `/api/brands/${brand.id}/presenter-drafts/${draft.id}`;
+    await app.inject({ method: 'PATCH', url: base, payload: { name: 'Mara Lind' } });
+    const saved = await app.inject({ method: 'POST', url: `${base}/save` });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().presenter).toMatchObject({ id: p.id, name: 'Mara Lind' });
+    expect(saved.json().presenter.shots).toEqual(p.shots);
+    expect(brandJson(brand.id).characters).toHaveLength(1);
+  });
+
   it('a manual create and a shot replacement both derive fresh thumbnails', async () => {
     const brand = await newBrand();
     const first = await savePhoto('#101010');

@@ -19,16 +19,25 @@ import { randomUUID } from 'node:crypto';
 import type { Core } from '@scenri/core';
 import type { PresenterDraft as AnalyzerDraft } from '@scenri/engine-codex';
 import {
+  IDENTITY_EDIT_CHARS,
+  IDENTITY_EDITS_MAX,
   LIKENESS_VERSION,
   brandCharacters,
   commit,
+  headOf,
+  identityEditsOf,
+  isCustomPresenter,
+  mintRevision,
   presenterRecordFrom,
   type CustomPresenter,
+  type CustomShot,
   type LikenessConfirmation,
+  type PresenterInput,
   type PresenterSource,
 } from './assetRecords.js';
 import { draw, presenterCrops, trimEdgeBars, type AssetBuildDeps } from './customAssets.js';
 import {
+  ATTACHED_PERSON,
   CORE_VIEWS,
   EXTRA_VIEWS,
   PRESENTER_VIEWS,
@@ -98,6 +107,14 @@ export interface PresenterDraftRecord {
   /** The slot a step is drawing into, while one is. */
   activeView: PresenterView | null;
   stage: 'idle' | 'analyzing' | 'drawing';
+  /** The presenter this session edits, the head when it was opened. Absent on a creation. */
+  presenterId?: string;
+  /** The head's id when the session was seeded; a save refuses when the head has moved since. */
+  baseId?: string;
+  /** Identity-wide instructions accepted in this session, on top of the record's own. Newest last. */
+  identityEdits: string[];
+  /** Shots the record holds under an angle the studio has no slot for. Written back untouched, after the six views. */
+  keptShots?: CustomShot[];
   createdAt: string;
   updatedAt: string;
 }
@@ -151,6 +168,7 @@ function fromRow(row: { id: string; brandId: string; json: unknown; createdAt: s
     generations: Number(j.generations ?? 0),
     activeView: isView(j.activeView) ? j.activeView : null,
     stage: j.stage === 'analyzing' || j.stage === 'drawing' ? j.stage : 'idle',
+    identityEdits: identityEditsOf(j.identityEdits),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -158,8 +176,17 @@ function fromRow(row: { id: string; brandId: string; json: unknown; createdAt: s
   if (j.attestation) rec.attestation = j.attestation;
   if (j.analysis) rec.analysis = j.analysis;
   if (j.readError) rec.readError = String(j.readError);
+  if (j.presenterId) rec.presenterId = String(j.presenterId);
+  if (j.baseId) rec.baseId = String(j.baseId);
+  if (Array.isArray(j.keptShots) && j.keptShots.length) rec.keptShots = j.keptShots.map(shotOf);
   return rec;
 }
+
+const shotOf = (s: any): CustomShot => ({
+  file: String(s?.file ?? ''),
+  ...(s?.angle ? { angle: String(s.angle) } : {}),
+  ...(s?.locked ? { locked: true } : {}),
+});
 
 function put(core: Core, rec: PresenterDraftRecord): PresenterDraftRecord {
   const { id, brandId, createdAt: _c, updatedAt: _u, ...json } = rec;
@@ -272,6 +299,7 @@ export async function createPresenterDraft(
     generations: 0,
     activeView: null,
     stage: 'idle',
+    identityEdits: [],
     createdAt: '',
     updatedAt: '',
   };
@@ -283,6 +311,198 @@ export async function createPresenterDraft(
   const saved = put(core, rec);
   if (source === 'photos') startJob(deps, saved.id, null, (signal) => filePhotos(deps, saved.id, signal));
   return saved;
+}
+
+/* ------------------------------------------------------------------ edit */
+
+const hashOfFile = (file: unknown): string | null => {
+  const s = String(file ?? '');
+  return s.startsWith('asset:') && HASH.test(s.slice(6)) ? s.slice(6) : null;
+};
+
+/** The record's own words, cut the way the session's direction is seeded from them, so an unchanged direction compares equal. */
+const seedDirection = (p: CustomPresenter) => str(p.identityNotes ?? p.descriptor, 400);
+
+/**
+ * A record's shots as the six slots, plus whatever it holds under an angle
+ * the studio has no slot for. One compatibility boundary for every record
+ * shape: a studio build fills its views by angle; a record with no portrait
+ * leads with its first shot, which is what its card and avatar were cropped
+ * from; a shot that is one of `sourceRefs` is the user's own photograph and
+ * is never redrawn.
+ */
+function slotsFromRecord(presenter: CustomPresenter): {
+  views: Record<PresenterView, ViewSlot>;
+  kept: CustomShot[];
+  sources: string[];
+} {
+  const sources = (presenter.sourceRefs ?? []).map((s) => hashOfFile(s.file)).filter((h): h is string => !!h);
+  const views = {} as Record<PresenterView, ViewSlot>;
+  for (const v of PRESENTER_VIEWS) views[v] = emptySlot();
+  const kept: CustomShot[] = [];
+  const shots = presenter.shots ?? [];
+  const hasPortrait = shots.some((s) => s.angle === 'portrait' && hashOfFile(s.file));
+  shots.forEach((shot, i) => {
+    const hash = hashOfFile(shot.file);
+    const angle = !hasPortrait && i === 0 ? 'portrait' : shot.angle;
+    if (hash && isView(angle) && views[angle].status === 'empty') {
+      const origin = sources.includes(hash) ? 'photo' : 'generated';
+      views[angle] = { ...emptySlot(), status: 'approved', hash, origin };
+    } else kept.push({ ...shot });
+  });
+  return { views, kept, sources };
+}
+
+/**
+ * Open a saved person for editing: a draft seeded from the record, every
+ * view it holds approved as it is, nothing drawn and nothing read. What the
+ * session changes lands on the draft; the record changes only on save.
+ */
+export function seedDraftFromPresenter(core: Core, brandId: string, presenter: CustomPresenter): PresenterDraftRecord {
+  const { views, kept, sources } = slotsFromRecord(presenter);
+  const source: PresenterSource = presenter.source ?? (presenter.sourceRefs?.length ? 'photos' : 'synthetic');
+  const direction = seedDirection(presenter);
+  const rec: PresenterDraftRecord = {
+    id: `pd-${randomUUID().slice(0, 8)}`,
+    brandId,
+    source,
+    name: str(presenter.name, 60),
+    facets: (presenter.suitableCategories ?? [])
+      .map((f) => str(f, 40))
+      .filter(Boolean)
+      .slice(0, 8),
+    sources,
+    views,
+    extras: EXTRA_VIEWS.some((v) => views[v].status !== 'empty'),
+    generations: 0,
+    activeView: null,
+    stage: 'idle',
+    presenterId: presenter.id,
+    baseId: presenter.id,
+    identityEdits: identityEditsOf(presenter.identityEdits),
+    createdAt: '',
+    updatedAt: '',
+  };
+  if (direction) rec.direction = direction;
+  if (presenter.likeness) rec.attestation = presenter.likeness;
+  if (kept.length) rec.keptShots = kept;
+  return put(core, rec);
+}
+
+/**
+ * The session for a saved person: the one already open on them, else a
+ * fresh seed. Any id in their history opens the head, so a link from an old
+ * shot still edits the current record.
+ */
+export function openPresenterEdit(core: Core, brandId: string, presenterId: string): PresenterDraftRecord {
+  const brand = core.store.getBrand(brandId);
+  if (!brand) throw fail('brand not found', 404);
+  const rows = brandCharacters(brand.json);
+  const asked = rows.find((c) => c?.id === presenterId);
+  if (!asked) throw fail('presenter not found', 404);
+  if (!isCustomPresenter(asked)) throw fail('this presenter is not editable', 400);
+  const headId = headOf(brand.json, presenterId);
+  const head = rows.find((c) => c?.id === headId) as CustomPresenter;
+  return (
+    listPresenterDrafts(core, brandId).find((d) => d.presenterId === headId) ??
+    seedDraftFromPresenter(core, brandId, head)
+  );
+}
+
+/**
+ * The words an identity edit is about, so a later edit about the same
+ * thing replaces the earlier one instead of contradicting it. A short list
+ * and a word-boundary match, on purpose: the first of these in the sentence
+ * names the trait, and a sentence the list does not know is a note of its
+ * own.
+ */
+export const IDENTITY_WORDS: readonly string[] = [
+  'hair',
+  'fringe',
+  'bangs',
+  'curls',
+  'beard',
+  'moustache',
+  'mustache',
+  'stubble',
+  'eyebrows',
+  'eyebrow',
+  'brows',
+  'brow',
+  'eyes',
+  'eye',
+  'lashes',
+  'nose',
+  'lips',
+  'mouth',
+  'teeth',
+  'smile',
+  'chin',
+  'jawline',
+  'jaw',
+  'cheekbones',
+  'cheeks',
+  'ears',
+  'neck',
+  'skin',
+  'freckles',
+  'scar',
+  'mole',
+  'tattoo',
+  'wrinkles',
+  'glasses',
+  'earrings',
+  'earring',
+  'piercing',
+  'makeup',
+  'age',
+  'older',
+  'younger',
+  'build',
+  'weight',
+  'height',
+  'shoulders',
+];
+const TRAIT_ALIAS: Record<string, string> = {
+  fringe: 'hair',
+  bangs: 'hair',
+  curls: 'hair',
+  mustache: 'moustache',
+  stubble: 'beard',
+  eyebrow: 'brow',
+  eyebrows: 'brow',
+  brows: 'brow',
+  eye: 'eyes',
+  lashes: 'eyes',
+  jawline: 'jaw',
+  cheeks: 'cheekbones',
+  earring: 'earrings',
+  older: 'age',
+  younger: 'age',
+  weight: 'build',
+  height: 'build',
+};
+const TRAIT = new RegExp(`\\b(${IDENTITY_WORDS.join('|')})\\b`, 'i');
+
+/** The trait an edit names, by its first identity word; null when it names none. */
+export function traitOf(sentence: string): string | null {
+  const m = TRAIT.exec(sentence);
+  if (!m) return null;
+  const word = m[1].toLowerCase();
+  return TRAIT_ALIAS[word] ?? word;
+}
+
+/**
+ * An accepted identity edit joins the list, replacing an earlier entry about
+ * the same trait, so "much longer hair" after "shorter hair" leaves one
+ * instruction about hair. Newest last, eight at most, the oldest let go.
+ */
+export function mergeIdentityEdits(existing: string[], adjustment: string): string[] {
+  const next = str(adjustment, IDENTITY_EDIT_CHARS).replace(/\s+/g, ' ');
+  if (!next) return existing.slice(-IDENTITY_EDITS_MAX);
+  const trait = traitOf(next);
+  const kept = existing.filter((e) => e.toLowerCase() !== next.toLowerCase() && (!trait || traitOf(e) !== trait));
+  return [...kept, next].slice(-IDENTITY_EDITS_MAX);
 }
 
 /**
@@ -520,7 +740,16 @@ export function planStep(
     if (h && rec.views[dep].status === 'approved' && !refs.includes(h)) refs.push(h);
   }
   for (const h of rec.sources) if (!refs.includes(h)) refs.push(h);
-  const who = whoIs(rec.name || 'this person', rec.analysis ?? null);
+  // The record's words, with the identity edits accepted in this session
+  // after them; with no words yet, the edits still ride so a photo person's
+  // later views follow the change rather than the originals.
+  const edits = rec.identityEdits ?? [];
+  const words = rec.analysis
+    ? { ...rec.analysis, identityEdits: edits }
+    : edits.length
+      ? { promptName: ATTACHED_PERSON, identityEdits: edits }
+      : null;
+  const who = whoIs(rec.name || 'this person', words);
   const subject = adjustment
     ? `${viewSubject(view, who)}, and for this view only: ${adjustment}`
     : viewSubject(view, who);
@@ -560,6 +789,12 @@ export async function approveView(
       if (!r.sources.includes(s.prior)) s.rejected = [...s.rejected, s.prior];
       s.prior = undefined;
       staleDependents(r, view);
+      // In an edit session, a face redrawn with an instruction and then used
+      // is an identity edit: it rides on every view drawn after it, and on
+      // the record. Keep previous never records one.
+      if (view === 'portrait' && r.presenterId && s.adjustment) {
+        r.identityEdits = mergeIdentityEdits(r.identityEdits, s.adjustment);
+      }
     }
   });
 }
@@ -690,6 +925,7 @@ export async function savePresenterDraft(
   const rec = getPresenterDraft(core, id);
   if (!rec) throw fail('draft not found', 404);
   if (running.has(id)) throw fail('a view is still being drawn', 409);
+  if (rec.presenterId) return saveEdit(deps, rec, hooks);
   if (!rec.name.trim()) throw fail('give them a name', 400);
   // Without an engine the photographs are the presenter: the portrait leads
   // and the rest follow as they are. Fewer views than a drawn set has, but a
@@ -740,17 +976,134 @@ export async function savePresenterDraft(
     json.characters = [...brandCharacters(json), built.presenter];
   });
   core.store.deletePresenterDraft(id);
-  removeUnreferenced(
-    core,
-    PRESENTER_VIEWS.flatMap((v) => {
-      const s = rec.views[v];
-      // A prior a self-decided view was still carrying was never chosen over
-      // the picture that replaced it: it goes with the rejected ones.
-      return [...s.rejected, ...(s.prior && s.prior !== s.hash ? [s.prior] : [])];
-    }),
-    hooks,
-  );
+  removeUnreferenced(core, letGoOf(rec), hooks);
   return { presenter: built.presenter, brand: core.store.getBrand(rec.brandId) };
+}
+
+/**
+ * The pictures a session let go of: the rejected ones, and a prior a
+ * self-decided view was still carrying, which was never chosen over the
+ * picture that replaced it.
+ */
+function letGoOf(rec: PresenterDraftRecord): string[] {
+  return PRESENTER_VIEWS.flatMap((v) => {
+    const s = rec.views[v];
+    return [...s.rejected, ...(s.prior && s.prior !== s.hash ? [s.prior] : [])];
+  });
+}
+
+/**
+ * Save an edit session. Provenance decides the shape of the write: a saved
+ * shot names only the presenter's id, so a change to any picture or to the
+ * identity prose is written as a new record with a fresh id, and the old one
+ * is kept, marked superseded, still exactly what its own shots refine
+ * against. A change to the words around the person (name, categories)
+ * patches the record in place. Either way the session's row goes, and with
+ * it every rejected picture nothing holds; the superseded record holds its
+ * own, so its pictures stay.
+ */
+async function saveEdit(
+  deps: AssetBuildDeps,
+  rec: PresenterDraftRecord,
+  hooks: CleanupHooks,
+): Promise<{ presenter: CustomPresenter; brand: ReturnType<Core['store']['getBrand']> }> {
+  const { core } = deps;
+  const brand = core.store.getBrand(rec.brandId);
+  if (!brand) throw fail('brand not found', 404);
+  const base = brandCharacters(brand.json).find((c) => c?.id === rec.presenterId) as CustomPresenter | undefined;
+  if (!base) throw fail('this presenter no longer exists', 404);
+  const moved = () => fail('this presenter changed elsewhere; reload to continue', 409);
+  const baseId = rec.baseId ?? '';
+  if (!baseId || headOf(brand.json, baseId) !== baseId) throw moved();
+  if (!rec.name.trim()) throw fail('give them a name', 400);
+  // Every view the record had and every view the session filled must stand.
+  // A record is never asked to grow: a legacy one-shot person saves with the
+  // one view it has.
+  const seeded = slotsFromRecord(base);
+  const required = PRESENTER_VIEWS.filter((v) => rec.views[v].status !== 'empty' || seeded.views[v].status !== 'empty');
+  for (const v of required) {
+    const s = rec.views[v];
+    if (s.status === 'stale') throw fail(`redo the ${VIEW_LABEL[v]}: it was built on a view you changed`, 400);
+    if (s.status !== 'approved' || !s.hash) throw fail(`approve the ${VIEW_LABEL[v]} first`, 400);
+  }
+  const views = required.map((v) => ({ hash: rec.views[v].hash as string, angle: v }));
+  const kept = rec.keptShots ?? [];
+  const nextFiles = [...views.map((v) => `asset:${v.hash}`), ...kept.map((k) => k.file)];
+  const baseFiles = (base.shots ?? []).map((s) => s.file);
+  const samePictures = nextFiles.length === baseFiles.length && nextFiles.every((f) => baseFiles.includes(f));
+  const sameEdits = JSON.stringify(rec.identityEdits) === JSON.stringify(base.identityEdits ?? []);
+  const direction = rec.direction ?? '';
+  const sameDirection = direction === seedDirection(base);
+  let head: CustomPresenter;
+  if (samePictures && sameEdits && sameDirection) {
+    const built = presenterRecordFrom({ name: rec.name, suitableCategories: rec.facets }, base);
+    if (!built.ok) throw fail(built.error, 400);
+    const patched = built.presenter;
+    commit(core, rec.brandId, (json) => {
+      if (headOf(json, baseId) !== baseId) throw moved();
+      json.characters = brandCharacters(json).map((c: any) => (c.id === base.id ? patched : c));
+    });
+    head = patched;
+  } else {
+    if (!views.length) throw fail('approve the face first', 400);
+    // The crops come off the leading view exactly as a creation derives
+    // them, so an unchanged face keeps its avatar hash, content-addressed.
+    const first = views[0];
+    const mode = presenterCropMode(
+      `asset:${first.hash}`,
+      rec.sources.map((h) => `asset:${h}`),
+      first.angle,
+    );
+    const { previewHash, avatarHash } = await presenterCrops(core, first.hash, mode);
+    const built = mintRevision(base, {
+      name: rec.name,
+      shotHashes: views.map((v) => v.hash),
+      shotAngles: views.map((v) => v.angle),
+      ...(rec.sources.length ? { sourceHashes: rec.sources } : {}),
+      previewHash,
+      avatarHash,
+      suitableCategories: rec.facets,
+      identityEdits: rec.identityEdits,
+      // Recorded, never inferred: a record with no source stays without one.
+      ...(base.source ? { source: rec.source } : {}),
+      ...(sameDirection ? {} : { identityNotes: direction }),
+      // A read taken in this session describes the face as it is now; with
+      // none, the record's own words and casting prose carry.
+      ...readWords(rec.analysis),
+    });
+    if (!built.ok) throw fail(built.error, 400);
+    const minted = kept.length
+      ? { ...built.presenter, shots: [...(built.presenter.shots ?? []), ...kept] }
+      : built.presenter;
+    commit(core, rec.brandId, (json) => {
+      if (headOf(json, baseId) !== baseId) throw moved();
+      json.characters = [
+        ...brandCharacters(json).map((c: any) => (c.id === base.id ? { ...c, supersededBy: minted.id } : c)),
+        minted,
+      ];
+    });
+    head = minted;
+  }
+  core.store.deletePresenterDraft(rec.id);
+  removeUnreferenced(core, letGoOf(rec), hooks);
+  return { presenter: head, brand: core.store.getBrand(rec.brandId) };
+}
+
+/** What a fresh analyzer read contributes to a revision: only what it actually said. */
+function readWords(a: AnalyzerDraft | undefined): Partial<PresenterInput> {
+  if (!a) return {};
+  const out: Partial<PresenterInput> = {};
+  const said = (v: unknown) => v != null && v !== '' && !(Array.isArray(v) && !v.length);
+  if (said(a.promptName)) out.promptName = a.promptName;
+  if (said(a.presentation)) out.presentation = a.presentation;
+  if (said(a.descriptor)) out.descriptor = a.descriptor;
+  if (said(a.ageRange)) out.ageRange = a.ageRange;
+  if (said(a.hair)) out.hair = a.hair;
+  if (said(a.negativeConstraints)) out.negativeConstraints = a.negativeConstraints;
+  if (said(a.facial)) out.facial = a.facial;
+  if (said(a.skin)) out.skin = a.skin;
+  if (said(a.build)) out.build = a.build;
+  return out;
 }
 
 /** Intentional cancel: the row goes, and every picture this draft alone was holding. */

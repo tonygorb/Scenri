@@ -361,4 +361,82 @@ describe('presenter draft routes', () => {
       expect((await j('POST', url('up-nobody'))).status).toBe(404);
     });
   });
+
+  describe('editing a saved presenter', () => {
+    /** A synthetic person cast through the routes and saved. */
+    const castSynthetic = async (brandId: string, name = 'Tomas') => {
+      const base = `/api/brands/${brandId}/presenter-drafts`;
+      const { body: made } = await j('POST', base, { source: 'synthetic', direction: 'a man in his 30s' });
+      for (const view of ['portrait', 'front', 'three-quarter'] as const) {
+        await j('POST', `${base}/${made.id}/views/${view}/generate`, {});
+        await settled(brandId, made.id);
+        await j('POST', `${base}/${made.id}/views/${view}/approve`);
+      }
+      await j('PATCH', `${base}/${made.id}`, { name });
+      const saved = await j('POST', `${base}/${made.id}/save`);
+      expect(saved.status).toBe(200);
+      return saved.body.presenter as any;
+    };
+
+    it('opens one session seeded from the record, lists it by presenter, and refuses what is not editable', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: {
+          brand: { specVersion: '0.1', meta: { name: 'Acme' }, characters: [{ id: 'legacy', name: 'Old Cast' }] },
+        },
+      });
+      const brand = res.json() as { id: string };
+      const p = await castSynthetic(brand.id);
+      expect((await j('POST', `/api/brands/${brand.id}/presenters/nobody/edit`)).status).toBe(404);
+      const curated = await j('POST', `/api/brands/${brand.id}/presenters/legacy/edit`);
+      expect(curated.status).toBe(400);
+      expect(curated.body.error).toMatch(/not editable/);
+      const opened = await j('POST', `/api/brands/${brand.id}/presenters/${p.id}/edit`);
+      expect(opened.status).toBe(200);
+      expect(opened.body.presenterId).toBe(p.id);
+      expect(opened.body.baseId).toBe(p.id);
+      expect(opened.body.identityEdits).toEqual([]);
+      expect(opened.body.views.portrait).toMatchObject({
+        status: 'approved',
+        origin: 'generated',
+        hash: p.shots[0].file.slice(6),
+      });
+      expect(opened.body.stage).toBe('idle');
+      // opening again is the same session
+      expect((await j('POST', `/api/brands/${brand.id}/presenters/${p.id}/edit`)).body.id).toBe(opened.body.id);
+      const { body: listed } = await j('GET', `/api/brands/${brand.id}/presenter-drafts`);
+      expect(listed.drafts.map((d: any) => [d.id, d.presenterId])).toEqual([[opened.body.id, p.id]]);
+    });
+
+    it('a saved repair is a new record, an old id opens the head, and revert walks back to it', async () => {
+      const brand = await newBrand();
+      const p = await castSynthetic(brand.id);
+      const base = `/api/brands/${brand.id}/presenter-drafts`;
+      const { body: d } = await j('POST', `/api/brands/${brand.id}/presenters/${p.id}/edit`);
+      await j('POST', `${base}/${d.id}/views/three-quarter/generate`, { adjustment: 'a touch more smile' });
+      await settled(brand.id, d.id);
+      await j('POST', `${base}/${d.id}/views/three-quarter/approve`);
+      const saved = await j('POST', `${base}/${d.id}/save`);
+      expect(saved.status).toBe(200);
+      const head = saved.body.presenter;
+      expect(head.id).not.toBe(p.id);
+      expect(head.revisionOf).toBe(p.id);
+      const rows = saved.body.brand.json.characters as any[];
+      expect(rows).toHaveLength(2);
+      expect(rows.find((c) => c.id === p.id).supersededBy).toBe(head.id);
+      expect((await j('GET', `${base}/${d.id}`)).status).toBe(404);
+      // the old id opens a session on the head
+      const reopened = await j('POST', `/api/brands/${brand.id}/presenters/${p.id}/edit`);
+      expect(reopened.body.presenterId).toBe(head.id);
+      expect(reopened.body.views['three-quarter'].hash).toBe(head.shots[2].file.slice(6));
+      await j('DELETE', `${base}/${reopened.body.id}`);
+      // and revert puts the first record back as the head
+      const reverted = await j('POST', `/api/brands/${brand.id}/presenters/${head.id}/revert`);
+      expect(reverted.status).toBe(200);
+      expect(reverted.body.presenter.id).toBe(p.id);
+      expect(reverted.body.presenter.supersededBy).toBeUndefined();
+      expect((await j('POST', `/api/brands/${brand.id}/presenters/${head.id}/edit`)).body.presenterId).toBe(p.id);
+    });
+  });
 });

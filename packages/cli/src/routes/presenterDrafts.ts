@@ -6,6 +6,7 @@ import {
   generateView,
   getPresenterDraft,
   listPresenterDrafts,
+  openPresenterEdit,
   redoView,
   revertView,
   savePresenterDraft,
@@ -81,6 +82,16 @@ export function registerPresenterDraftRoutes(
     const brand = brandOr404(req, reply);
     if (!brand) return;
     return { drafts: listPresenterDrafts(core, brand.id) };
+  });
+  /**
+   * Edit a saved person: the session already open on them, else one seeded
+   * from the record. Any id in their history opens the head, and the rows
+   * above carry `presenterId` so a client can find the session again.
+   */
+  app.post('/api/brands/:id/presenters/:presenterId/edit', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    return answer(reply, async () => openPresenterEdit(core, brand.id, String((req.params as any).presenterId)));
   });
   app.get('/api/brands/:id/presenter-drafts/:draftId', async (req, reply) => {
     const draft = draftOr404(req, reply);

@@ -97,14 +97,27 @@ export function syntheticIdentitySubject(direction: string, opts: { adjustment?:
   return `the same person as the attached image, changed only in this: ${adjustment}. Otherwise identical to the attached image in face, hair, age and build; ${body}`;
 }
 
-/** What the frames are told they are looking at, from the record we will store. */
+/** The person the frames show, for a draft that has no words yet. */
+export const ATTACHED_PERSON = 'the exact person in the attached photographs';
+
+/**
+ * What the frames are told they are looking at, from the record we will
+ * store. An edit session's accepted identity edits ride as one clause after
+ * the record's words, so a view drawn after "shorter hair" follows the
+ * change rather than the photographs it was originally read from; the drawn
+ * views attached ahead of the photographs carry the picture of it.
+ */
 export function whoIs(
   name: string,
-  draft: { promptName: string; hair?: string; identityNotes?: string } | null,
+  draft: { promptName?: string; hair?: string; identityNotes?: string; identityEdits?: string[] } | null,
 ): string {
-  if (!draft) return 'the exact person in the attached photographs';
-  const bits = [draft.promptName];
-  if (draft.hair && !draft.promptName.toLowerCase().includes(draft.hair.toLowerCase())) bits.push(draft.hair);
+  if (!draft) return ATTACHED_PERSON;
+  const promptName = draft.promptName ?? '';
+  const bits = [promptName];
+  if (draft.hair && !promptName.toLowerCase().includes(draft.hair.toLowerCase())) bits.push(draft.hair);
   if (draft.identityNotes) bits.push(draft.identityNotes);
-  return bits.filter(Boolean).join(', ') || name;
+  const who = bits.filter(Boolean).join(', ') || name;
+  const edits = (draft.identityEdits ?? []).filter(Boolean);
+  if (!edits.length) return who;
+  return `${who}, except as changed here: ${edits.join('; ')}; the attached drawn views show the change`;
 }

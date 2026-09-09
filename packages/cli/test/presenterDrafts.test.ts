@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { createCore, type Core, type EngineAdapter, type GenerateRequest } from '@scenri/core';
+import { commit, customPresenterHeads, headOf, presenterChain, type CustomPresenter } from '../src/assetRecords.js';
 import { compileBrief } from '../src/brief.js';
 import { brandCharacters, presenterCrops, resetAssetBuilds, type AssetBuildDeps } from '../src/customAssets.js';
 import {
@@ -21,12 +22,15 @@ import {
   discardPresenterDraft,
   generateView,
   getPresenterDraft,
+  mergeIdentityEdits,
+  openPresenterEdit,
   planStep,
   redoView,
   resetPresenterDrafts,
   revertView,
   runningDraftJobCount,
   savePresenterDraft,
+  seedDraftFromPresenter,
   sweepAbandonedPresenterDrafts,
   sweepPresenterDrafts,
   updatePresenterDraft,
@@ -996,5 +1000,289 @@ describe('abandoned drafts', () => {
     expect(getPresenterDraft(core, b.id)).not.toBeNull();
     expect(existsSync(core.images.pathFor(photo))).toBe(true);
     for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
+  });
+});
+
+/**
+ * Editing a saved person is a session seeded from the record. A candidate
+ * never touches the record; a save that changes a picture or the identity
+ * prose is a new record with a fresh id, because a saved shot names only the
+ * id and would otherwise refine against pictures it was not made from; a save
+ * that changes only the words around the person patches the record in place.
+ */
+describe('editing a saved presenter', () => {
+  const brandJson = () => core.store.getBrand(brandId)!.json as any;
+  const record = (id: string) => brandCharacters(brandJson()).find((c: any) => c.id === id) as CustomPresenter;
+  const hashOf = (file: string) => file.slice(6);
+  async function photos(n: number) {
+    const out: string[] = [];
+    for (let i = 0; i < n; i++)
+      out.push(core.images.save(await png(`#${(0x60 + i * 0x10).toString(16)}7080`, 800, 1000)));
+    return out;
+  }
+  async function settled(id: string) {
+    for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
+    return getPresenterDraft(core, id)!;
+  }
+  /** A synthetic person with the three core views, saved. */
+  async function saved() {
+    const d = await cast();
+    await updatePresenterDraft(core, d.id, { name: 'Ilse', facets: ['Beauty'] });
+    return (await savePresenterDraft(deps(), d.id)).presenter;
+  }
+
+  it('seeds a session from a three-view record: every view approved as it was, nothing drawn, nothing read', async () => {
+    const p = await saved();
+    const drawn = generated.length;
+    const read = analyzed.length;
+    const d = seedDraftFromPresenter(core, brandId, p);
+    expect(d.id).toMatch(/^pd-/);
+    expect(d.presenterId).toBe(p.id);
+    expect(d.baseId).toBe(p.id);
+    expect(d.source).toBe('synthetic');
+    expect(d.name).toBe('Ilse');
+    expect(d.facets).toEqual(['Beauty']);
+    expect(d.direction).toBe(p.identityNotes);
+    expect(d.identityEdits).toEqual([]);
+    expect(d.sources).toEqual([]);
+    for (const v of CORE_VIEWS) {
+      expect(view(d, v)).toMatchObject({
+        status: 'approved',
+        origin: 'generated',
+        hash: hashOf(p.shots![CORE_VIEWS.indexOf(v)].file),
+      });
+    }
+    for (const v of EXTRA_VIEWS) expect(view(d, v).status).toBe('empty');
+    expect(d.extras).toBe(false);
+    expect(d.stage).toBe('idle');
+    expect(d.analysis).toBeUndefined();
+    expect(generated).toHaveLength(drawn);
+    expect(analyzed).toHaveLength(read);
+    expect(getPresenterDraft(core, d.id)?.presenterId).toBe(p.id);
+  });
+
+  it('seeds by role from a person built from photographs: a photograph in a slot is the original', async () => {
+    const [a, b] = await photos(2);
+    let d = await createPresenterDraft(deps(), {
+      brandId,
+      source: 'photos',
+      imageHashes: [a, b],
+      attestation: true,
+      name: 'Noor',
+    });
+    d = await settled(d.id);
+    d = await build(d.id, ['front', 'three-quarter']);
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    const e = seedDraftFromPresenter(core, brandId, presenter);
+    expect(e.source).toBe('photos');
+    expect(e.sources).toEqual([a, b]);
+    expect(e.attestation?.version).toBe('v1');
+    expect(view(e, 'portrait')).toMatchObject({ status: 'approved', hash: a, origin: 'photo' });
+    expect(view(e, 'front')).toMatchObject({ status: 'approved', origin: 'generated' });
+    expect(view(e, 'three-quarter').status).toBe('approved');
+    expect(e.extras).toBe(false);
+  });
+
+  it('seeds a legacy one-shot record with no angle: the first shot is the face, the rest stay empty, nothing is drawn', async () => {
+    const hash = core.images.save(await png('#606070', 800, 1000));
+    const legacy: CustomPresenter = {
+      id: 'up-legacy01',
+      name: 'Old',
+      origin: 'custom',
+      shots: [{ file: `asset:${hash}` }],
+      sourceRefs: [{ file: `asset:${hash}` }],
+    };
+    commit(core, brandId, (json) => {
+      json.characters = [...brandCharacters(json), legacy];
+    });
+    const d = seedDraftFromPresenter(core, brandId, legacy);
+    expect(view(d, 'portrait')).toMatchObject({ status: 'approved', hash, origin: 'photo' });
+    for (const v of PRESENTER_VIEWS) if (v !== 'portrait') expect(view(d, v).status).toBe('empty');
+    expect(d.source).toBe('photos');
+    expect(d.direction).toBeUndefined();
+    expect(d.keptShots).toBeUndefined();
+    expect(generated).toHaveLength(0);
+    // a name is enough to save it, and the record is patched where it is
+    await updatePresenterDraft(core, d.id, { name: 'Older' });
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    expect(presenter.id).toBe('up-legacy01');
+    expect(presenter.name).toBe('Older');
+    expect(presenter.shots).toEqual(legacy.shots);
+    expect(presenter.source).toBeUndefined();
+    expect(brandCharacters(brandJson())).toHaveLength(1);
+  });
+
+  it('keeps shots under an angle it has no slot for, and writes them back after the six views', async () => {
+    const p = await saved();
+    const odd = core.images.save(await png('#303040'));
+    commit(core, brandId, (json) => {
+      json.characters = brandCharacters(json).map((c: any) =>
+        c.id === p.id ? { ...c, shots: [...c.shots, { file: `asset:${odd}`, angle: 'seated', locked: true }] } : c,
+      );
+    });
+    const d = seedDraftFromPresenter(core, brandId, record(p.id));
+    expect(d.keptShots).toEqual([{ file: `asset:${odd}`, angle: 'seated', locked: true }]);
+    for (const v of CORE_VIEWS) expect(view(d, v).status).toBe('approved');
+    await updatePresenterDraft(core, d.id, { extras: true });
+    await step(d.id, 'back');
+    await approveView(deps(), d.id, 'back');
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    expect(presenter.id).not.toBe(p.id);
+    expect(presenter.shots?.map((s) => s.angle)).toEqual(['portrait', 'front', 'three-quarter', 'back', 'seated']);
+    expect(presenter.shots?.at(-1)?.file).toBe(`asset:${odd}`);
+    // a back was added and the face was not touched: same card, same avatar
+    expect(presenter.avatar).toBe(p.avatar);
+    expect(presenter.preview).toBe(p.preview);
+    expect(existsSync(core.images.pathFor(odd))).toBe(true);
+  });
+
+  it('a candidate never touches the record, and a discard leaves it exactly as it was', async () => {
+    const p = await saved();
+    const before = JSON.stringify(record(p.id));
+    const d = seedDraftFromPresenter(core, brandId, p);
+    const r = await step(d.id, 'front', 'arms folded');
+    expect(view(r, 'front')).toMatchObject({ status: 'candidate', prior: hashOf(p.shots![1].file) });
+    expect(JSON.stringify(record(p.id))).toBe(before);
+    const candidate = view(r, 'front').hash!;
+    await discardPresenterDraft(deps(), d.id);
+    expect(JSON.stringify(record(p.id))).toBe(before);
+    expect(getPresenterDraft(core, d.id)).toBeNull();
+    for (const s of p.shots!) expect(existsSync(core.images.pathFor(hashOf(s.file)))).toBe(true);
+    expect(existsSync(core.images.pathFor(candidate))).toBe(false);
+  });
+
+  it('a view repair is a new revision: one shot changes, and the old record keeps its old shot', async () => {
+    const p = await saved();
+    const d = seedDraftFromPresenter(core, brandId, p);
+    await step(d.id, 'three-quarter', 'a touch more smile');
+    await approveView(deps(), d.id, 'three-quarter');
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    expect(presenter.id).not.toBe(p.id);
+    expect(presenter.revisionOf).toBe(p.id);
+    expect(presenter.supersededBy).toBeUndefined();
+    expect(presenter.shots?.[0]).toEqual(p.shots?.[0]);
+    expect(presenter.shots?.[1]).toEqual(p.shots?.[1]);
+    expect(presenter.shots?.[2].file).not.toBe(p.shots?.[2].file);
+    expect(presenter.shots?.[2].angle).toBe('three-quarter');
+    expect(presenter.avatar).toBe(p.avatar);
+    expect(presenter.preview).toBe(p.preview);
+    expect(presenter.promptName).toBe(p.promptName);
+    expect(presenter.facial).toBe(p.facial);
+    expect(presenter.source).toBe('synthetic');
+    expect(presenter.name).toBe('Ilse');
+    expect(presenter.suitableCategories).toEqual(['Beauty']);
+    const json = brandJson();
+    const old = record(p.id);
+    expect(old.supersededBy).toBe(presenter.id);
+    expect(old.shots?.[2]).toEqual(p.shots?.[2]);
+    expect(headOf(json, p.id)).toBe(presenter.id);
+    expect(customPresenterHeads(json).map((c) => c.id)).toEqual([presenter.id]);
+    expect(brandCharacters(json)).toHaveLength(2);
+    // the old picture stays: the old record holds it
+    expect(existsSync(core.images.pathFor(hashOf(p.shots![2].file)))).toBe(true);
+    expect(getPresenterDraft(core, d.id)).toBeNull();
+  });
+
+  it('an identity accept records the edit, stales the drawn views, and the saved revision has a re-derived avatar', async () => {
+    const p = await saved();
+    const d = seedDraftFromPresenter(core, brandId, p);
+    let r = await step(d.id, 'portrait', 'shorter hair');
+    expect(view(r, 'portrait')).toMatchObject({
+      status: 'candidate',
+      prior: hashOf(p.shots![0].file),
+      adjustment: 'shorter hair',
+    });
+    expect(r.identityEdits).toEqual([]);
+    r = await approveView(deps(), d.id, 'portrait');
+    expect(r.identityEdits).toEqual(['shorter hair']);
+    expect(view(r, 'front').status).toBe('stale');
+    expect(view(r, 'three-quarter').status).toBe('stale');
+    // the views drawn after it are told about the change
+    const plan = planStep(r, 'front', undefined, 5);
+    expect(plan.prompt).toContain('except as changed here: shorter hair; the attached drawn views show the change');
+    r = await build(d.id, ['front', 'three-quarter']);
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    expect(presenter.id).not.toBe(p.id);
+    expect(presenter.identityEdits).toEqual(['shorter hair']);
+    expect(presenter.shots?.[0].file).toBe(`asset:${r.views.portrait.hash}`);
+    expect(presenter.preview).toBe(`asset:${r.views.portrait.hash}`);
+    const want = await presenterCrops(core, r.views.portrait.hash, 'portrait');
+    expect(presenter.avatar).toBe(`asset:${want.avatarHash}`);
+    expect(presenter.avatar).not.toBe(p.avatar);
+    expect(record(p.id).shots?.[0]).toEqual(p.shots?.[0]);
+    expect(record(p.id).identityEdits).toBeUndefined();
+  });
+
+  it('a name-only edit patches the record in place: same id, no new record', async () => {
+    const p = await saved();
+    const d = seedDraftFromPresenter(core, brandId, p);
+    await updatePresenterDraft(core, d.id, { name: 'Ilse Marr', facets: ['Apparel'] });
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    expect(presenter.id).toBe(p.id);
+    expect(presenter.name).toBe('Ilse Marr');
+    expect(presenter.suitableCategories).toEqual(['Apparel']);
+    expect(presenter.revisionOf).toBeUndefined();
+    expect(presenter.shots).toEqual(p.shots);
+    expect(presenter.avatar).toBe(p.avatar);
+    expect(presenter.promptName).toBe(p.promptName);
+    expect(brandCharacters(brandJson())).toHaveLength(1);
+    expect(getPresenterDraft(core, d.id)).toBeNull();
+  });
+
+  it('refuses to save over a head that moved, and keeps the session for the reload', async () => {
+    const p = await saved();
+    const mine = seedDraftFromPresenter(core, brandId, p);
+    await updatePresenterDraft(core, mine.id, { name: 'Ilse Marr' });
+    // meanwhile another session saves a repair
+    const theirs = seedDraftFromPresenter(core, brandId, p);
+    await step(theirs.id, 'three-quarter');
+    await approveView(deps(), theirs.id, 'three-quarter');
+    await savePresenterDraft(deps(), theirs.id);
+    await expect(savePresenterDraft(deps(), mine.id)).rejects.toMatchObject({
+      statusCode: 409,
+      message: /changed elsewhere/,
+    });
+    expect(getPresenterDraft(core, mine.id)).not.toBeNull();
+    expect(record(p.id).name).toBe('Ilse');
+  });
+
+  it('headOf follows two revisions to the newest, and the chain reads back to the first', async () => {
+    const p = await saved();
+    const first = seedDraftFromPresenter(core, brandId, p);
+    await step(first.id, 'three-quarter');
+    await approveView(deps(), first.id, 'three-quarter');
+    const r1 = (await savePresenterDraft(deps(), first.id)).presenter;
+    // opening by the old id lands on the head
+    const second = openPresenterEdit(core, brandId, p.id);
+    expect(second.presenterId).toBe(r1.id);
+    await step(second.id, 'three-quarter');
+    await approveView(deps(), second.id, 'three-quarter');
+    const r2 = (await savePresenterDraft(deps(), second.id)).presenter;
+    const json = brandJson();
+    expect(headOf(json, p.id)).toBe(r2.id);
+    expect(headOf(json, r1.id)).toBe(r2.id);
+    expect(presenterChain(json, p.id)).toEqual([r2.id, r1.id, p.id]);
+    expect(customPresenterHeads(json).map((c) => c.id)).toEqual([r2.id]);
+    // one open session per person, whichever id opens it
+    const third = openPresenterEdit(core, brandId, p.id);
+    expect(third.presenterId).toBe(r2.id);
+    expect(openPresenterEdit(core, brandId, r2.id).id).toBe(third.id);
+    await expect(async () => openPresenterEdit(core, brandId, 'nobody')).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('mergeIdentityEdits replaces an entry about the same trait, keeps the rest, and holds eight', () => {
+    expect(mergeIdentityEdits([], ' shorter  hair ')).toEqual(['shorter hair']);
+    expect(mergeIdentityEdits(['shorter hair', 'a fuller beard'], 'much longer hair')).toEqual([
+      'a fuller beard',
+      'much longer hair',
+    ]);
+    expect(mergeIdentityEdits(['shorter hair'], 'Shorter hair')).toEqual(['Shorter hair']);
+    expect(mergeIdentityEdits(['thicker eyebrows'], 'a lighter brow')).toEqual(['a lighter brow']);
+    expect(mergeIdentityEdits(['a fuller beard'], 'no glasses')).toEqual(['a fuller beard', 'no glasses']);
+    // no trait word: appended, never a replacement
+    expect(mergeIdentityEdits(['shorter hair'], 'a warmer look')).toEqual(['shorter hair', 'a warmer look']);
+    const many = Array.from({ length: 8 }, (_, i) => `note ${i}`);
+    expect(mergeIdentityEdits(many, 'a ninth note')).toEqual([...many.slice(1), 'a ninth note']);
+    expect(mergeIdentityEdits(many, '')).toEqual(many);
   });
 });

@@ -128,4 +128,21 @@ describe('whoIs', () => {
       'a woman, silver crop',
     );
   });
+
+  it('carries the accepted identity edits as one clause after the record, so later views follow the change', () => {
+    expect(
+      whoIs('Mara', {
+        promptName: 'a woman with dark waves',
+        hair: 'dark waves',
+        identityNotes: 'the wide-set eyes must survive',
+        identityEdits: ['shorter hair', 'no glasses'],
+      }),
+    ).toBe(
+      'a woman with dark waves, the wide-set eyes must survive, except as changed here: shorter hair; no glasses; the attached drawn views show the change',
+    );
+    expect(whoIs('Mara', { promptName: 'a woman', identityEdits: [] })).toBe('a woman');
+    expect(whoIs('Mara', { promptName: '', identityEdits: ['shorter hair'] })).toBe(
+      'Mara, except as changed here: shorter hair; the attached drawn views show the change',
+    );
+  });
 });
