@@ -352,8 +352,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   // A request the engine never saw is said the way a failed draw is: once, with a Retry.
   const failed = s.err && d && !isDrawing(d) ? s.err : null;
   const turns = useMemo(
-    () => turnsFor({ setup, draft: d, canGenerate: canDraw, ui: { ...ui, failed } }),
-    [setup, d, canDraw, ui, failed],
+    () => turnsFor({ setup, draft: d, canGenerate: canDraw, ui: { ...ui, failed }, pending: picked }),
+    [setup, d, canDraw, ui, failed, picked],
   );
   const question = activeQuestion(turns);
   const view: StudioView = d ? selectedView(d, focus) : 'portrait';
@@ -516,13 +516,16 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         // what it is, so only typed words are read this way, chip or no chip.
         const empty = typed && !/^#[0-9a-f]{6}$/i.test(typed) ? answersNothing(typed, readsAsPerson) : null;
         if (empty) {
+          // the step's own words, not the whole person's: a hair colour is
+          // answered about hair, and a second miss says it differently
+          const again = (ui.asides ?? []).some((a) => a.q === `look-${step}`);
           setUi((u) => ({
             ...u,
             asides: [
               ...(u.asides ?? []),
               {
                 said: typed,
-                reply: asideReply(empty, 'describe', false, typed),
+                reply: asideReply(empty, 'look', again, typed, step),
                 q: `look-${step}`,
                 at: nowIso(),
               },
@@ -542,21 +545,23 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       const phase: AsidePhase =
         qid === 'source'
           ? 'source'
-          : qid === 'describe' || qid?.startsWith('look')
-            ? 'describe'
-            : qid === 'name'
-              ? 'name'
-              : 'refine';
+          : qid?.startsWith('look-')
+            ? 'look'
+            : qid === 'describe' || qid?.startsWith('look')
+              ? 'describe'
+              : qid === 'name'
+                ? 'name'
+                : 'refine';
       const door = qid === 'source' ? sourceFromText(sentence) : null;
       // What answers nothing is answered with the question, in words for what
       // was said, and stays in the conversation. A word or two that describes
       // nobody can still be a name, or a change to a view.
       const kind = door ? null : answersNothing(sentence, readsAsPerson);
-      if (kind && (phase === 'source' || phase === 'describe' || kind !== 'vague')) {
+      if (kind && (phase === 'source' || phase === 'describe' || phase === 'look' || kind !== 'vague')) {
         const again = (ui.asides ?? []).some((a) => a.q === (open ?? null));
         const aside = {
           said: sentence,
-          reply: asideReply(kind, phase, again, sentence),
+          reply: asideReply(kind, phase, again, sentence, qid?.startsWith('look-') ? qid.slice(5) : undefined),
           q: open ?? null,
           at: nowIso(),
         };

@@ -1,3 +1,4 @@
+import { normalizeHex } from '../../brand/palette.js';
 import type { Question, Swatch, SwatchRow, Turn } from '../../conversation/question.js';
 import {
   type Aside,
@@ -451,6 +452,20 @@ export interface FlowArgs {
   draft: DraftLike | null;
   canGenerate: boolean;
   ui: FlowUi;
+  /** A colour held in the composer and not sent yet, so its swatch reads as chosen. */
+  pending?: string | null;
+}
+
+/**
+ * The swatch a held colour is, when it is one of the row's own.
+ *
+ * A colour of one's own is nobody's swatch, and the chip in the composer is
+ * where it shows; the row only ever lights one of its own.
+ */
+export function pendingSwatch(hex: string | null | undefined, row: SwatchRow): string | undefined {
+  const want = hex ? normalizeHex(hex) : null;
+  if (!want) return undefined;
+  return row.options.find((o) => o.color && normalizeHex(o.color) === want)?.id;
 }
 
 /**
@@ -544,33 +559,56 @@ function shape(args: FlowArgs, asides: Aside[], openId: string | null): Turn[] {
 }
 
 /** Where the conversation is when a sentence answers nothing: what the reply points back to. */
-export type AsidePhase = 'source' | 'describe' | 'name' | 'refine';
+export type AsidePhase = 'source' | 'describe' | 'look' | 'name' | 'refine';
 
 const HOW: Record<AsidePhase, string> = {
   source: 'describe them in a sentence, or pick one above',
   describe: 'a few words about them is enough: age, hair, build, skin, presence',
+  look: 'tap one above, or say it in your own words',
   name: 'a name, so the rest of the conversation can use it',
   refine: 'say what should change: hair, age or build change the person; anything else changes the view on the stage',
 };
 
+/**
+ * One step of the look, in its own words.
+ *
+ * A step asks one thing, so what comes back is answered about that thing: a
+ * hair colour is not answered with the whole person's description, which is
+ * what the describe phase would have said. `thing` names what was expected;
+ * `how` says the two ways to give it.
+ */
+const LOOK_ASK: Record<string, { thing: string; how: string }> = {
+  who: { thing: 'a person', how: 'tap who they are above' },
+  age: { thing: 'an age', how: 'tap an age above' },
+  hair: { thing: 'a hair colour', how: 'tap a colour above, or say it: dark auburn, salt and pepper' },
+  length: { thing: 'a length', how: 'tap a length above, or say it: a chin-length bob' },
+  skin: { thing: 'a skin tone', how: 'tap a tone above, or say it: warm olive' },
+  build: { thing: 'a build', how: 'tap a build above, or say it: lean and tall' },
+};
+
 /** The question again, in words that answer what was actually said. Different words the second time. */
-export function asideReply(kind: NothingKind, phase: AsidePhase, again: boolean, said = ''): string {
-  const how = HOW[phase];
+export function asideReply(kind: NothingKind, phase: AsidePhase, again: boolean, said = '', step?: string): string {
+  const ask = phase === 'look' ? (LOOK_ASK[step ?? ''] ?? null) : null;
+  const how = ask?.how ?? HOW[phase];
   switch (kind) {
     case 'likeness':
       return 'Describe them by looks. Scenri does not draw a named person.';
     case 'help':
-      return phase === 'refine'
-        ? 'Select a view and say what is wrong with it, or say what should change about them: hair, age, build, skin.'
-        : phase === 'name'
-          ? 'Any name will do; it can be changed later.'
-          : 'Describe the person in a sentence: age, hair, build, skin, presence. Or add photos of a real person.';
+      return ask
+        ? `${cap(how)}.`
+        : phase === 'refine'
+          ? 'Select a view and say what is wrong with it, or say what should change about them: hair, age, build, skin.'
+          : phase === 'name'
+            ? 'Any name will do; it can be changed later.'
+            : 'Describe the person in a sentence: age, hair, build, skin, presence. Or add photos of a real person.';
     case 'question':
-      return phase === 'refine'
-        ? `This is where the picture is changed: ${how}.`
-        : phase === 'name'
-          ? `This is where they get a name: ${how}.`
-          : `This is where the person is described: ${how}.`;
+      return ask
+        ? `This step asks for ${ask.thing}: ${how}.`
+        : phase === 'refine'
+          ? `This is where the picture is changed: ${how}.`
+          : phase === 'name'
+            ? `This is where they get a name: ${how}.`
+            : `This is where the person is described: ${how}.`;
     case 'nav':
       return 'To begin again, use Start over at the top. Close keeps the draft where it is.';
     case 'go':
@@ -578,15 +616,19 @@ export function asideReply(kind: NothingKind, phase: AsidePhase, again: boolean,
         ? 'Try again redraws it as it is; a sentence says what should change.'
         : `Nothing to draw yet. ${cap(how)}.`;
     case 'intent':
-      return phase === 'refine'
-        ? `Nothing changes until it is said what: ${how}.`
-        : `That is what we are here for. Who are they? ${cap(how)}.`;
-    case 'nonsense':
-      return phase === 'name'
-        ? `That is not a name. ${cap(how)}.`
+      return ask
+        ? `${cap(how)}.`
         : phase === 'refine'
-          ? `That does not say what should change. ${cap(how)}.`
-          : `That does not describe anyone. ${cap(how)}.`;
+          ? `Nothing changes until it is said what: ${how}.`
+          : `That is what we are here for. Who are they? ${cap(how)}.`;
+    case 'nonsense':
+      return ask
+        ? `That is not ${ask.thing}. ${cap(how)}.`
+        : phase === 'name'
+          ? `That is not a name. ${cap(how)}.`
+          : phase === 'refine'
+            ? `That does not say what should change. ${cap(how)}.`
+            : `That does not describe anyone. ${cap(how)}.`;
     case 'greeting':
       return again
         ? `Still here. ${cap(how)}.`
@@ -619,7 +661,7 @@ const byAt = (x: { at: string }, y: { at: string }) => (x.at < y.at ? -1 : x.at 
 const SETUP_QS = new Set(['source', 'describe', 'gaps', 'photos', 'noengine', 'blind', 'name']);
 
 function turnsBase(
-  { setup, draft: d, canGenerate, ui }: FlowArgs,
+  { setup, draft: d, canGenerate, ui, pending }: FlowArgs,
   asides: Aside[],
   openId: string | null,
   placed: Set<Aside>,
@@ -712,6 +754,7 @@ function turnsBase(
         prompt: step.prompt,
         hint: step.row.id === 'who' ? PROMPT.lookHint : undefined,
         row: step.row,
+        pending: pendingSwatch(pending, step.row),
         who: setup.look && setup.look !== 'skipped' ? setup.look.who : undefined,
         skip: 'Skip',
         describe: step.row.id === 'who' ? 'Describe instead' : LOOK_SAYS[step.row.id],

@@ -14,7 +14,9 @@ import {
   STARTERS,
   type Setup,
   UNSURE_LINE,
+  LOOK_STEPS,
   asideReply,
+  pendingSwatch,
   composerFor,
   descriptionGaps,
   directionFrom,
@@ -453,6 +455,50 @@ describe('a sentence that answers nothing', () => {
       /^That is what we are here for\./,
     );
     expect(asideReply('nonsense', 'name', false, 'wtf')).toMatch(/^That is not a name\./);
+  });
+  it('a colour held in the composer lights its own swatch, and a colour of your own lights none', () => {
+    const row = LOOK_STEPS.find((s) => s.row.id === 'hair')?.row;
+    if (!row) throw new Error('the hair row');
+    expect(pendingSwatch('#8c3b26', row)).toBe('auburn');
+    // case and shorthand are the same colour
+    expect(pendingSwatch('#8C3B26', row)).toBe('auburn');
+    // nobody's swatch: the chip in the composer is where it shows
+    expect(pendingSwatch('#7f3fbf', row)).toBeUndefined();
+    expect(pendingSwatch(null, row)).toBeUndefined();
+  });
+  it('answers a step of the look about that step, never about the whole person', () => {
+    expect(asideReply('nonsense', 'look', false, 'sdf', 'hair')).toBe(
+      'That is not a hair colour. Tap a colour above, or say it: dark auburn, salt and pepper.',
+    );
+    expect(asideReply('nonsense', 'look', false, 'sdf', 'skin')).toBe(
+      'That is not a skin tone. Tap a tone above, or say it: warm olive.',
+    );
+    expect(asideReply('nonsense', 'look', false, 'sdf', 'build')).toBe(
+      'That is not a build. Tap a build above, or say it: lean and tall.',
+    );
+    expect(asideReply('nonsense', 'look', false, 'sdf', 'length')).toBe(
+      'That is not a length. Tap a length above, or say it: a chin-length bob.',
+    );
+    // the other ways of saying nothing land on the step's own words too
+    expect(asideReply('help', 'look', false, 'help', 'hair')).toBe(
+      'Tap a colour above, or say it: dark auburn, salt and pepper.',
+    );
+    expect(asideReply('question', 'look', false, 'what is this?', 'skin')).toBe(
+      'This step asks for a skin tone: tap a tone above, or say it: warm olive.',
+    );
+    expect(asideReply('greeting', 'look', false, 'hey', 'build')).toBe(
+      'Hi. Tap a build above, or say it: lean and tall.',
+    );
+    expect(asideReply('greeting', 'look', true, 'hey', 'build')).toMatch(/^Still here\./);
+    // a step with no words of its own still says something true
+    expect(asideReply('nonsense', 'look', false, 'sdf', 'who')).toBe('That is not a person. Tap who they are above.');
+    expect(asideReply('nonsense', 'look', false, 'sdf', undefined)).toBe(
+      'That does not describe anyone. Tap one above, or say it in your own words.',
+    );
+    // and nothing about the whole person leaks into a step's answer
+    for (const step of ['hair', 'length', 'skin', 'build']) {
+      expect(asideReply('nonsense', 'look', false, 'sdf', step)).not.toContain('presence');
+    }
   });
   it('a sentence with nothing of a person in it waits on its own question, then joins the record when a real one comes', () => {
     const u = { ...ui, unsure: { said: 'a florist from Paris who sells tulips', q: 'source', at: 'u1' } };

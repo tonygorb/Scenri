@@ -78,6 +78,8 @@ export type Question =
       describe?: string;
       /** Who is being made, so the figures on the tiles are theirs. */
       who?: string;
+      /** The option the composer is holding but has not sent, shown as chosen. */
+      pending?: string;
     })
   | (QuestionBase & {
       kind: 'photos';

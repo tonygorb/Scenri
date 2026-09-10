@@ -210,7 +210,7 @@ export function QuestionBlock({
                     className={o.color ? 'sc-convo-swatch' : o.art ? 'sc-convo-tile' : 'sc-chip sc-convo-choice'}
                     style={o.color ? ({ '--sc-swatch': o.color } as CSSProperties) : undefined}
                     aria-label={o.label}
-                    data-on={picked === o.id || undefined}
+                    data-on={picked === o.id || (!picked && question.pending === o.id) || undefined}
                     onClick={() => commit(o.id, { kind: 'swatches', picks: { [question.row.id]: o.id } })}
                   >
                     {o.art ? (

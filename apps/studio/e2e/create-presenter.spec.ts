@@ -242,6 +242,8 @@ test.describe('a person from scratch', () => {
     await menu.getByRole('option', { name: /Auburn/ }).click();
     await expect(menu).toBeHidden();
     await expect(chip).toHaveText('Auburn');
+    // the row above agrees: a colour of the row's own reads as chosen there too
+    await expect(log(page).getByRole('button', { name: 'Auburn', exact: true })).toHaveAttribute('data-on', 'true');
 
     // words typed beside it are words about that colour: the chip is read as
     // the first of them, in the order the two are seen
@@ -265,10 +267,13 @@ test.describe('a person from scratch', () => {
     const chip = page.locator('.sc-convo-field .sc-token');
     await chip.click();
     await page.locator('.sc-swap[data-kind="color"]').getByRole('option', { name: /Ginger/ }).click();
-    await page.locator('.sc-convo-field textarea').fill('asdkjhasd');
+    await page.locator('.sc-convo-field textarea').fill('sdf');
     await page.getByRole('button', { name: 'Send' }).click();
     // the step stays open, the nonsense is answered, and the colour stands
-    await expect(log(page)).toContainText('asdkjhasd');
+    await expect(log(page)).toContainText('sdf');
+    // answered about hair, not about the whole person
+    await expect(log(page)).toContainText('That is not a hair colour.');
+    await expect(log(page)).not.toContainText('presence.');
     await expect(log(page)).toContainText('What colour is their hair?');
     await expect(chip).toHaveText('Ginger');
     // the chip is the answer, not a word in a sentence: it carries no remove of
