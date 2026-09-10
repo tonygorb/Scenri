@@ -324,7 +324,11 @@ export function answersNothing(text: string, describes: (t: string) => boolean):
   if (HELP.test(t)) return 'help';
   if (GREETING.test(t) && n <= 4) return 'greeting';
   if (ACK.test(t)) return 'ack';
-  if (n <= 8 && words.some((w) => NONSENSE.test(w.replace(/[^a-z]/gi, '')) || NO_VOWEL.test(w) || REPEAT.test(w))) {
+  // Every test reads the letters alone. "zzz999" is the same mash as "zzz" and
+  // used to pass, because the digits stopped it looking like a run of
+  // consonants; a real short answer has vowels in it and is untouched.
+  const bare = (w: string) => w.replace(/[^a-z]/gi, '');
+  if (n <= 8 && words.some((w) => NONSENSE.test(bare(w)) || NO_VOWEL.test(bare(w)) || REPEAT.test(bare(w) || w))) {
     return 'nonsense';
   }
   if (QUESTION.test(t) || /\?\s*$/.test(t)) return 'question';
@@ -354,11 +358,39 @@ export interface Aside {
   q: string | null;
   /** When it was said, ISO: the key of its turns and its place in the record. */
   at: string;
+  /**
+   * What was wrong with it, when something was.
+   *
+   * It is what decides whether the next reply is a repeat: the same complaint
+   * twice at the same question earns a different answer, three different
+   * complaints do not. Counting bounces instead of counting *the same* bounce
+   * made the third stray sentence at a question lose the specific reply it had
+   * earned, whatever it said.
+   */
+  kind?: NothingKind;
+  /**
+   * How many times it has been said again.
+   *
+   * It rides in the reply's turn id, so a reply to new words is a new line to
+   * whatever is watching the transcript: it arrives the way every other line
+   * arrives, written out, rather than changing under the reader's eye. The
+   * words themselves keep their id, because they were rewritten in place and
+   * never went anywhere.
+   */
+  rev?: number;
 }
 
-export const asideTurns = (a: Aside): Turn[] => [
-  { kind: 'you', id: `aside-said-${a.at}`, text: a.said, editable: false },
-  { kind: 'scenri', id: `aside-reply-${a.at}`, text: a.reply },
+/** The id an aside's own words answer to, for editing and for its key. */
+export const asideTurnId = (at: string): string => `aside-said-${at}`;
+/** The `at` back out of that id, or null when the id is not an aside's. */
+export const asideAtOf = (turnId: string): string | null =>
+  turnId.startsWith('aside-said-') ? turnId.slice('aside-said-'.length) : null;
+
+export const asideTurns = (a: Aside, editing = false): Turn[] => [
+  // Words a person typed are words a person can change, wherever they landed.
+  // An aside is not an answer, but it is still theirs.
+  { kind: 'you', id: asideTurnId(a.at), text: a.said, editable: true, editing: editing || undefined },
+  { kind: 'scenri', id: `aside-reply-${a.at}${a.rev ? `-${a.rev}` : ''}`, text: a.reply },
 ];
 
 /** An aside's turns are not an answer: the question before them is still the open one. */

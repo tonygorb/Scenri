@@ -37,16 +37,31 @@ export function Strip({ step, children }: { step: number; children: ReactNode })
     };
   }, [read]);
 
-  const go = (dir: -1 | 1) => row.current?.scrollBy({ left: dir * step, behavior: 'smooth' });
+  // One card, measured: the plates size themselves off the row's width now, so
+  // a number fixed at build time would overshoot a narrow rail and undershoot a
+  // wide one. `step` stays the fallback for a row with nothing in it yet.
+  const go = (dir: -1 | 1) => {
+    const el = row.current;
+    if (!el) return;
+    const first = el.firstElementChild as HTMLElement | null;
+    const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 0;
+    const by = first ? first.offsetWidth + gap : step;
+    el.scrollBy({ left: dir * by, behavior: 'smooth' });
+  };
   const fade = ends.back && ends.on ? 'both' : ends.back ? 'back' : ends.on ? 'on' : undefined;
+
+  // Nowhere to go in either direction: the row fits, and a control that cannot
+  // do anything is not drawn dim, it is not drawn. It comes back the moment
+  // the row is narrowed enough to hide something, which the observer catches.
+  const roomToGo = ends.back || ends.on;
 
   return (
     <div className="sc-convo-strip" data-fade={fade}>
-      <Arrow dir={-1} live={ends.back} onGo={go} />
+      {roomToGo && <Arrow dir={-1} live={ends.back} onGo={go} />}
       <div className="sc-convo-plates" ref={row}>
         {children}
       </div>
-      <Arrow dir={1} live={ends.on} onGo={go} />
+      {roomToGo && <Arrow dir={1} live={ends.on} onGo={go} />}
     </div>
   );
 }

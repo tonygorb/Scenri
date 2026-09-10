@@ -10,7 +10,8 @@ import {
   isAsideTurn,
   openQuestionId,
 } from '../../conversation/question.js';
-import { type CreationState, UNSURE_LINE } from './creationState.js';
+import { type CreationState, UNSURE_LINE, asideEditAt, isAsideEdit } from './creationState.js';
+import type { AsidePhase as Phase } from './presenterCopy.js';
 import {
   ATTEST_TEXT,
   DOOR_WORDS,
@@ -92,8 +93,8 @@ export {
   SOURCE_OPTIONS,
   ATTEST_TEXT,
   UNSURE_PROMPT,
-  asideReply,
   type AsidePhase,
+  asideReply,
   gapsPrompt,
 } from './presenterCopy.js';
 export { descriptionGaps } from './presenterQuestions.js';
@@ -321,6 +322,39 @@ export function answeredInWords(id: Qid | null, a: Answers): boolean {
   return notAnOption((a[id as TraitQid] as TraitWhat | undefined)?.words, t.options);
 }
 
+/**
+ * The voice a sentence that answered nothing is answered in.
+ *
+ * It is a function of what the sentence was aimed at, never of which branch
+ * happened to catch it. Reading it off the branch is how a setup step came to
+ * reply "say what should change: hair, age or build change the person" to
+ * somebody four questions away from a picture: the step fell through to the
+ * last case, and the last case was the one for a presenter already drawn.
+ *
+ * `drawn` is the floor under that: there is nothing to refine before there is a
+ * picture, so setup cannot speak in the refine voice whatever else is wrong.
+ */
+export function asidePhaseFor(target: Qid | 'keep' | null, open: string | null, drawn: boolean): Phase {
+  if (target && isLookQid(target)) return 'look';
+  if (target === 'keep' || target?.startsWith('trait-')) return 'detail';
+  const id = target ?? open;
+  if (id && isLookQid(id)) return 'look';
+  if (id?.startsWith('trait-')) return 'detail';
+  switch (id) {
+    case 'source':
+      return 'source';
+    case 'describe':
+    case 'gaps':
+      return 'describe';
+    case 'name':
+      return 'name';
+    case 'traits':
+      return 'detail';
+    default:
+      return drawn ? 'refine' : 'describe';
+  }
+}
+
 /** What a sentence is, at a step that asks for a short phrase. Null when it answers it. */
 export const notAnAnswerAtAStep = (text: string, describes: (t: string) => boolean): NothingKind | null => {
   const kind = answersNothing(text, describes);
@@ -527,6 +561,10 @@ export function turnsFor(args: FlowArgs): Turn[] {
 
 const byAt = (x: { at: string }, y: { at: string }) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0);
 
+/** True when this aside is the one being said again. */
+const beingSaidAgain = (state: CreationState, x: Aside) =>
+  isAsideEdit(state.editing) && asideEditAt(state.editing) === x.at;
+
 function shape(args: FlowArgs, asides: Aside[], openId: string | null): Turn[] {
   const placed = new Set<Aside>();
   const T = build(args, asides, openId, placed);
@@ -535,7 +573,7 @@ function shape(args: FlowArgs, asides: Aside[], openId: string | null): Turn[] {
   // came before, after it when it came after.
   const left = asides.filter((a) => !placed.has(a)).sort(byAt);
   const u = args.state.unsure;
-  for (const a of left) if (!u || a.at < u.at) T.push(...asideTurns(a));
+  for (const a of left) if (!u || a.at < u.at) T.push(...asideTurns(a, beingSaidAgain(args.state, a)));
   if (u) {
     T.push({ kind: 'you', id: `unsure-${u.at}`, text: u.said, editable: false });
     T.push({
@@ -548,7 +586,7 @@ function shape(args: FlowArgs, asides: Aside[], openId: string | null): Turn[] {
         options: [{ id: 'use', label: 'Use it anyway' }],
       },
     });
-    for (const a of left) if (a.at >= u.at) T.push(...asideTurns(a));
+    for (const a of left) if (a.at >= u.at) T.push(...asideTurns(a, beingSaidAgain(args.state, a)));
   }
   return T;
 }
@@ -570,7 +608,7 @@ function build(
     const mine = asides.filter((x) => !placed.has(x) && !!x.q && x.q !== openId && ids.includes(x.q)).sort(byAt);
     for (const x of mine) {
       placed.add(x);
-      into.push(...asideTurns(x));
+      into.push(...asideTurns(x, beingSaidAgain(state, x)));
     }
   };
   // An answer keeps the line it answered above it: the exchange is the record.
@@ -739,8 +777,11 @@ export function composerFor(
   d: DraftLike | null,
   selected: StudioView,
 ): ComposerFor {
-  // an answer being rewritten has its own field; the composer waits
-  if (state.editing !== null && (state.editing === 'name' || answeredInWords(state.editing, state.answers))) {
+  // an answer or an aside being rewritten has its own field; the composer waits
+  if (
+    state.editing !== null &&
+    (state.editing === 'name' || isAsideEdit(state.editing) || answeredInWords(state.editing, state.answers))
+  ) {
     return { ...QUIET, off: 'Finish the change above.' };
   }
   // A tap question handed to the composer: it takes that one question, and only that one.

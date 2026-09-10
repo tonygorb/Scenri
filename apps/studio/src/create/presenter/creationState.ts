@@ -1,4 +1,9 @@
-import type { Aside } from '../../conversation/question.js';
+import type { Aside, NothingKind } from '../../conversation/question.js';
+
+/** An aside being rewritten, named by when it was said. */
+export type AsideEdit = `aside:${string}`;
+export const isAsideEdit = (v: unknown): v is AsideEdit => typeof v === 'string' && v.startsWith('aside:');
+export const asideEditAt = (v: AsideEdit): string => v.slice('aside:'.length);
 import {
   type Answers,
   type FlowContext,
@@ -9,6 +14,7 @@ import {
   applies,
   commit,
   isQid,
+  orderOf,
   nextQuestion,
   traitOfQid,
 } from './presenterQuestions.js';
@@ -42,7 +48,7 @@ export interface CreationState {
   answers: Answers;
   revision: number;
   /** A question reopened from its answer, until it is saved or cancelled. The name lives on the draft. */
-  editing: Qid | 'name' | null;
+  editing: Qid | 'name' | AsideEdit | null;
   /**
    * The composer's target while a tap question is answered in words, or while
    * a detail is being added at the read-back. Null: the composer belongs to
@@ -98,7 +104,11 @@ export type Action =
   /** An answer, or several given together (a door and the sentence typed at it). */
   | { type: 'answer'; patch: Partial<Answers>; ctx: FlowContext }
   /** A question reopened from its answer. */
-  | { type: 'edit'; id: Qid | 'name' }
+  | { type: 'edit'; id: Qid | 'name' | AsideEdit }
+  /** An aside said again, in the same place: new words, and the answer to them. */
+  | { type: 'amend-aside'; at: string; said: string; reply: string; kind: NothingKind }
+  /** An aside that turned out to be an answer after all: it goes, the answer stays. */
+  | { type: 'drop-aside'; at: string }
   /**
    * A picture of a detail landed, or was taken off. One at a time: a detail
    * rides after the person in the engine's budget, so a second angle of the
@@ -125,7 +135,7 @@ export type Action =
   /** Everything goes, except words to start the next person from. */
   | { type: 'start-over'; text?: string }
   /** What the session remembered, at a reload. */
-  | { type: 'restore'; answers: Answers; revision: number };
+  | { type: 'restore'; answers: Answers; revision: number; asides?: Aside[] };
 
 const same = (x: unknown, y: unknown) => JSON.stringify(x) === JSON.stringify(y);
 
@@ -159,9 +169,38 @@ function restored(s: CreationState): Answers {
   return { ...s.answers, [was.id]: { ...now, refs: was.refs } };
 }
 
-/** The asides that still have a question to stand under. */
-function keptAsides(asides: Aside[], answers: Answers, ctx: FlowContext): Aside[] {
-  return asides.filter((a) => !a.q || !isQid(a.q) || applies(a.q, answers, ctx));
+/**
+ * The asides that still stand.
+ *
+ * Two ways one stops standing. Its question may no longer exist at all, which
+ * is the `applies` half. Or the conversation may have been taken back past the
+ * point where it was said, which is the same rule every answer obeys: a
+ * sentence said at a question that has just been asked again was said in a run
+ * that no longer happened, and leaving it behind floats it under a question it
+ * was never a reply to.
+ */
+function keptAsides(asides: Aside[], answers: Answers, ctx: FlowContext, from?: number): Aside[] {
+  return asides.filter((a) => {
+    if (!a.q || !isQid(a.q)) return true;
+    if (!applies(a.q, answers, ctx)) return false;
+    // said at the question being answered, or before it: it stands. Said after
+    // it: that question is being asked again, so it does not.
+    return from === undefined || orderOf(a.q) <= from;
+  });
+}
+
+/**
+ * The earliest question a change touches, in the run's own order.
+ *
+ * It does not ask whether anything was actually truncated. Going forward there
+ * is nothing after the question being answered for an aside to be attached to,
+ * so the rule costs nothing there; going back it is the whole point, and a
+ * question that was reached past but never answered is reached past all the
+ * same.
+ */
+function reachesBack(patch: Partial<Answers>): number | undefined {
+  const ids = Object.keys(patch).filter((id) => isQid(id));
+  return ids.length ? Math.min(...ids.map(orderOf)) : undefined;
 }
 
 /** The waiting sentence, folded into the record when something else was said. */
@@ -182,7 +221,7 @@ export function reduce(s: CreationState, action: Action): CreationState {
         ...settled,
         answers,
         revision: moved ? s.revision + 1 : s.revision,
-        asides: keptAsides(settled.asides, answers, action.ctx),
+        asides: keptAsides(settled.asides, answers, action.ctx, reachesBack(action.patch)),
         editing: null,
         saying: null,
         colour: null,
@@ -195,12 +234,29 @@ export function reduce(s: CreationState, action: Action): CreationState {
       return {
         ...s,
         answers: restored(s),
-        composing: opening(s, action.id),
+        composing: isAsideEdit(action.id) ? null : opening(s, action.id),
         editing: action.id,
         saying: null,
         colour: null,
         text: '',
       };
+    // One rule for every turn in this conversation: a turn said again is a turn
+    // re-said, and what came after it was said in a conversation that no longer
+    // happened. An answer truncates the answers under it; a sentence said in
+    // passing truncates the sentences said after it. It never touches an
+    // answer, because nothing was ever conditioned on chatter.
+    case 'amend-aside':
+      return {
+        ...s,
+        editing: null,
+        asides: s.asides
+          .filter((a) => a.at <= action.at)
+          .map((a) =>
+            a.at === action.at ? { ...a, said: action.said, reply: action.reply, rev: (a.rev ?? 0) + 1 } : a,
+          ),
+      };
+    case 'drop-aside':
+      return { ...s, editing: null, asides: s.asides.filter((a) => a.at < action.at) };
     case 'cancel-edit':
       return { ...s, answers: restored(s), composing: null, editing: null, saying: null, colour: null, text: '' };
     case 'say': {
@@ -286,7 +342,7 @@ export function reduce(s: CreationState, action: Action): CreationState {
     case 'start-over':
       return { ...EMPTY_STATE, revision: s.revision + 1, text: action.text ?? '' };
     case 'restore':
-      return { ...EMPTY_STATE, answers: action.answers, revision: action.revision };
+      return { ...EMPTY_STATE, answers: action.answers, revision: action.revision, asides: action.asides ?? [] };
   }
 }
 
@@ -301,29 +357,64 @@ export function readyToDraw(s: CreationState, ctx: FlowContext): boolean {
 /* ---------------------------------------------------------- persistence */
 
 /**
- * What a reload gets back: the answers and their revision, nothing else. The
- * composer's half sentence, a question being said again, the chatter, all of
- * it is the moment, and the moment is over.
+ * What a reload gets back: the answers, their revision, and everything that was
+ * said beside them.
+ *
+ * The asides used to be left out on the grounds that chatter is the moment and
+ * the moment is over. It is not: a person who typed something and was answered
+ * came back to a conversation that had forgotten both halves, which reads as
+ * the app having lost their words rather than having replied to them. The
+ * composer's half sentence and a question being said again are still the
+ * moment, and those are still dropped.
  */
-const STORED = 3;
+const STORED = 4;
+/** The most that is carried: a long sitting is a long conversation, not a log. */
+const ASIDES_MAX = 40;
 
 export function serialize(s: CreationState): string {
-  return JSON.stringify({ v: STORED, answers: s.answers, revision: s.revision });
+  return JSON.stringify({
+    v: STORED,
+    answers: s.answers,
+    revision: s.revision,
+    asides: s.asides.slice(-ASIDES_MAX),
+  });
 }
 
-export function deserialize(raw: string | null): { answers: Answers; revision: number } | null {
+/** One aside off storage, or null: every field is read, nothing is assumed. */
+function asideFrom(v: unknown): Aside | null {
+  if (!v || typeof v !== 'object') return null;
+  const a = v as Record<string, unknown>;
+  if (typeof a.said !== 'string' || typeof a.reply !== 'string' || typeof a.at !== 'string') return null;
+  if (!a.said.trim() || !a.reply.trim()) return null;
+  const q = typeof a.q === 'string' ? a.q : null;
+  const rev = typeof a.rev === 'number' && a.rev > 0 ? a.rev : undefined;
+  const kind = typeof a.kind === 'string' ? (a.kind as Aside['kind']) : undefined;
+  return { said: a.said, reply: a.reply, q, at: a.at, ...(rev ? { rev } : {}), ...(kind ? { kind } : {}) };
+}
+
+export function deserialize(raw: string | null): { answers: Answers; revision: number; asides: Aside[] } | null {
   if (!raw) return null;
   try {
-    const p = JSON.parse(raw) as { v?: number; answers?: Record<string, unknown>; revision?: number };
-    // v2 wrote the last-moment detail as bare words; it carries a picture now
-    if ((p.v !== STORED && p.v !== 2) || !p.answers || typeof p.answers !== 'object') return null;
+    const p = JSON.parse(raw) as {
+      v?: number;
+      answers?: Record<string, unknown>;
+      revision?: number;
+      asides?: unknown;
+    };
+    // v2 wrote the last-moment detail as bare words; it carries a picture now.
+    // v3 kept no asides, and reads back with none rather than being thrown away.
+    if ((p.v !== STORED && p.v !== 3 && p.v !== 2) || !p.answers || typeof p.answers !== 'object') return null;
     const answers: Answers = {};
     // a question the table no longer has is forgotten, never carried
     for (const [k, v] of Object.entries(p.answers)) {
       if (!isQid(k)) continue;
       (answers as Record<string, unknown>)[k] = k === 'keep' && typeof v === 'string' ? { words: v, refs: [] } : v;
     }
-    return { answers, revision: typeof p.revision === 'number' ? p.revision : 0 };
+    const asides = (Array.isArray(p.asides) ? p.asides : [])
+      .map(asideFrom)
+      .filter((a): a is Aside => a !== null)
+      .slice(-ASIDES_MAX);
+    return { answers, revision: typeof p.revision === 'number' ? p.revision : 0, asides };
   } catch {
     return null;
   }

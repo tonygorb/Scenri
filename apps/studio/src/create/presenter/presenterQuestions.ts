@@ -201,6 +201,15 @@ export const SPECS: readonly Spec[] = [
 
 const SPEC = new Map(SPECS.map((s) => [s.id, s]));
 
+/**
+ * Where a question stands in the run, for anything that has to reason about
+ * "after". Unknown ids sort last, so a stray one is never treated as early.
+ */
+export const orderOf = (id: string): number => {
+  const i = SPECS.findIndex((s) => s.id === id);
+  return i < 0 ? SPECS.length : i;
+};
+
 export const specOf = (id: Qid): Spec => SPEC.get(id) as Spec;
 
 export function applies(id: Qid, a: Answers, ctx: FlowContext): boolean {

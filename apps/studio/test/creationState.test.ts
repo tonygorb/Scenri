@@ -101,23 +101,79 @@ describe('the state of a presenter being made', () => {
     expect(s.asides).toEqual([]);
   });
 
-  it('remembers the answers and their revision, and nothing of the moment', () => {
+  it('a rewind takes back the sentences said after the point it reaches to', () => {
+    const at = (n: string, q: string) => ({ said: n, reply: 'Say more.', q, at: n });
+    let s = reduce(EMPTY_STATE, { type: 'answer', patch: { ...scratch }, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'answer', patch: { 'look-who': 'woman' }, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'answer', patch: { 'look-age': '30s' }, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'aside', aside: at('1', 'look-who') });
+    s = reduce(s, { type: 'aside', aside: at('2', 'look-hair') });
+    s = reduce(s, { type: 'aside', aside: at('3', 'look-length') });
+    // the age is answered again: the hair and the length are asked again with
+    // it, so what was said at them was said in a run that no longer happened
+    const back = reduce(s, { type: 'answer', patch: { 'look-age': '50s' }, ctx: NO_DRAFT });
+    expect(back.answers['look-age']).toBe('50s');
+    expect(back.asides.map((a) => a.at)).toEqual(['1']);
+    // answering the question a sentence was said at keeps it: it stands under
+    // that exchange. What was said at a later question still goes.
+    const on = reduce(s, { type: 'answer', patch: { 'look-hair': 'black' }, ctx: NO_DRAFT });
+    expect(on.asides.map((a) => a.at)).toEqual(['1', '2']);
+  });
+
+  it('a sentence said again takes the sentences said after it, and never an answer', () => {
+    const said = (at: string, text: string) => ({ said: text, reply: 'Say more.', q: 'look-age', at });
+    let s = reduce(EMPTY_STATE, { type: 'answer', patch: { ...scratch, 'look-who': 'woman' }, ctx: NO_DRAFT });
+    for (const a of [said('1', 'one'), said('2', 'two'), said('3', 'three')]) {
+      s = reduce(s, { type: 'aside', aside: a });
+    }
+    const amended = reduce(s, { type: 'amend-aside', at: '2', said: 'two, again', reply: 'Still not it.' });
+    expect(amended.asides.map((a) => [a.at, a.said])).toEqual([
+      ['1', 'one'],
+      ['2', 'two, again'],
+    ]);
+    // the reply to new words is a new line, so it is written out again rather
+    // than changing under the reader; the words keep their own id
+    expect(amended.asides.at(-1)?.rev).toBe(1);
+    const twice = reduce(amended, { type: 'amend-aside', at: '2', said: 'and again', reply: 'Nor that.' });
+    expect(twice.asides.at(-1)?.rev).toBe(2);
+    // the answer given before any of it is untouched: nothing was conditioned on chatter
+    expect(amended.answers['look-who']).toBe('woman');
+    expect(amended.editing).toBeNull();
+    // and one that turned out to be an answer takes the later ones with it too
+    const dropped = reduce(s, { type: 'drop-aside', at: '2' });
+    expect(dropped.asides.map((a) => a.at)).toEqual(['1']);
+  });
+
+  it('remembers the answers, their revision and what was said beside them, and nothing of the moment', () => {
+    const said = { said: 'hi', reply: 'Hi.', q: 'look-age', at: '1' };
     let s = reduce(EMPTY_STATE, { type: 'answer', patch: { ...scratch, 'look-who': 'woman' }, ctx: NO_DRAFT });
     s = reduce(s, { type: 'say', id: 'look-age' });
     s = reduce(s, { type: 'text', text: 'about forty' });
-    s = reduce(s, { type: 'aside', aside: { said: 'hi', reply: 'Hi.', q: 'look-age', at: '1' } });
+    s = reduce(s, { type: 'aside', aside: said });
     const back = deserialize(serialize(s));
-    expect(back).toEqual({ answers: s.answers, revision: s.revision });
-    const r = reduce(EMPTY_STATE, { type: 'restore', ...(back as { answers: Answers; revision: number }) });
+    expect(back).toEqual({ answers: s.answers, revision: s.revision, asides: [said] });
+    const r = reduce(EMPTY_STATE, { type: 'restore', ...(back as NonNullable<ReturnType<typeof deserialize>>) });
+    // the half sentence and the question being said again are the moment, and
+    // the moment is over; what a person typed and was answered is not
     expect(r.saying).toBeNull();
     expect(r.text).toBe('');
-    expect(r.asides).toEqual([]);
+    expect(r.asides).toEqual([said]);
+    // an aside missing any of its own parts is not carried
+    const half = JSON.stringify({ v: 4, answers: {}, revision: 0, asides: [{ said: 'hi' }, said] });
+    expect(deserialize(half)?.asides).toEqual([said]);
     // what an older studio wrote is not carried, and a question the table lost is dropped
     expect(deserialize(JSON.stringify({ source: 'scratch', look: { who: 'woman' } }))).toBeNull();
+    // v3 kept no asides at all, and reads back with none rather than being refused
+    expect(deserialize(JSON.stringify({ v: 3, answers: { 'look-who': 'man' }, revision: 1 }))).toEqual({
+      answers: { 'look-who': 'man' },
+      revision: 1,
+      asides: [],
+    });
     expect(deserialize(JSON.stringify({ v: 2, answers: { 'look-who': 'man', 'look-hat': 'x' }, revision: 3 }))).toEqual(
       {
         answers: { 'look-who': 'man' },
         revision: 3,
+        asides: [],
       },
     );
     expect(deserialize('not json')).toBeNull();

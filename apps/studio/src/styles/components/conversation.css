@@ -982,6 +982,13 @@ button.sc-convo-shot-do {
 }
 
 .sc-convo-plates {
+  /* The plates take the row's own width between them, at a locked shape, so a
+     conversation made wider shows bigger cards rather than a wider gap. Six is
+     what a row is built to seat; the clamp keeps them legible when the rail is
+     at its narrowest and stops them becoming posters when it is at its widest.
+     The source art is 240x300, which is this shape at 2x. */
+  --sc-plate-w: clamp(72px, calc((100% - 5 * var(--sc-space-4)) / 6), 132px);
+  --sc-plate-ratio: 90 / 112;
   display: flex;
   flex-wrap: nowrap;
   gap: var(--sc-space-4);
@@ -1028,7 +1035,7 @@ button.sc-convo-shot-do {
      and the gaps between them are equal. A word longer than the picture used to
      make its own plate wider and push its neighbours along, which read as a row
      with the spacing broken. */
-  width: 90px;
+  width: var(--sc-plate-w, 90px);
   gap: var(--sc-space-3);
   padding: 0;
   border: none;
@@ -1062,8 +1069,9 @@ button.sc-convo-shot-do {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  width: 90px;
-  height: 112px;
+  width: 100%;
+  /* the shape is locked, so the picture grows and shrinks whole */
+  aspect-ratio: var(--sc-plate-ratio, 90 / 112);
   overflow: hidden;
   border-radius: var(--sc-radius-md);
   background: var(--sc-raised);
@@ -1079,7 +1087,14 @@ button.sc-convo-shot-do {
    where there is nowhere left to go. Never drawn where a finger would swipe. */
 .sc-convo-strip-go {
   position: absolute;
-  top: 42px;
+  /* Halfway down the picture at any size. The picture is as tall as the plate
+     is wide times its shape, which `top` cannot be told in a percentage (a
+     percentage there is of the height, not the width). So the control is given
+     the whole column minus the label under it and centred in what is left,
+     which is the picture, whatever size it has grown to. */
+  top: 0;
+  bottom: calc(20px + var(--sc-space-3));
+  margin-block: auto;
   z-index: 1;
   display: grid;
   place-items: center;

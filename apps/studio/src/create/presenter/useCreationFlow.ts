@@ -4,14 +4,31 @@ import { useAppData } from '../../app/AppShell.js';
 import { normalizeHex, type Swatch as PaletteSwatch } from '../../brand/palette.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useOpenSetup } from '../../app/dialogs.js';
-import { type Answer, type Swatch, answersNothing, nowIso } from '../../conversation/question.js';
+import {
+  type Answer,
+  type NothingKind,
+  type Swatch,
+  answersNothing,
+  asideAtOf,
+  nowIso,
+} from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
-import { type CreationState, EMPTY_STATE, deserialize, readyToDraw, reduce, serialize } from './creationState.js';
+import {
+  type CreationState,
+  EMPTY_STATE,
+  asideEditAt,
+  deserialize,
+  isAsideEdit,
+  readyToDraw,
+  reduce,
+  serialize,
+} from './creationState.js';
 import { type AsidePhase, asideReply } from './presenterCopy.js';
 import {
   TEXT_QIDS,
   answeredInWords,
+  asidePhaseFor,
   notAnAnswerAtAStep,
   activeQuestion,
   answerPatch,
@@ -142,7 +159,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
 
   const [state, dispatch] = useReducer(reduce, brand.id, (id) => {
     const back = deserialize(session.read(setupKey(id)));
-    return back ? { ...EMPTY_STATE, answers: back.answers, revision: back.revision } : EMPTY_STATE;
+    return back ? { ...EMPTY_STATE, answers: back.answers, revision: back.revision, asides: back.asides } : EMPTY_STATE;
   });
   // the latest state, for work that finishes after the render it started in
   const stateRef = useRef(state);
@@ -172,7 +189,11 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const refShots = useRef(new Map<string, string>());
   const [booting, setBooting] = useState(!draftId);
   // the page opened on a draft: its conversation was had before this page
-  const [resumed] = useState(!!draftId);
+  // A conversation is resumed whenever it came back off storage, not only when
+  // a draft came with it. Before this the setup half read as new on every
+  // reload and played its arrivals again, which after the asides began to be
+  // kept meant a screenful of old lines flying in one after another.
+  const [resumed] = useState(() => !!draftId || !!deserialize(session.read(setupKey(brand.id))));
   useEffect(
     () => () => {
       for (const url of refShots.current.values()) URL.revokeObjectURL(url);
@@ -475,8 +496,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   }, [d, s.busy, s.generate, canDraw, s.err, ready, synced]);
 
   /** A sentence that answered nothing, kept where it was said. */
-  const bounce = useCallback((said: string, reply: string, q: string | null) => {
-    dispatch({ type: 'aside', aside: { said, reply, q, at: nowIso() } });
+  const bounce = useCallback((said: string, reply: string, q: string | null, kind: NothingKind) => {
+    dispatch({ type: 'aside', aside: { said, reply, q, at: nowIso(), kind } });
   }, []);
 
   const onAnswer = useCallback(
@@ -609,7 +630,14 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       setAskErr(null);
       // how many times this same question has already been answered with
       // something that was not an answer
-      const again = (q: string | null) => st.asides.filter((x) => x.q === q).length;
+      // The same complaint twice at the same question is a repeat; two different
+      // complaints are two answers, and both are owed their own words.
+      const again = (q: string | null, kind: NothingKind) =>
+        st.asides.filter((x) => x.q === q && x.kind === kind).length;
+      // One place decides which voice an aside is answered in, so no branch can
+      // reach for a different one. Nothing is refined before a picture exists.
+      const voice = (t: Qid | 'keep' | null, openId: string | null = null) =>
+        asidePhaseFor(t, openId, !!d && identityLocked(d));
 
       // A detail in their own words: it answers the open half of that trait,
       // and the placement question follows only if the words did not say it.
@@ -625,7 +653,12 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         }
         const empty = notAnAnswerAtAStep(typed, readsAsPerson);
         if (!typed || empty) {
-          bounce(typed, asideReply(empty ?? 'vague', 'detail', again(target), typed), target);
+          bounce(
+            typed,
+            asideReply(empty ?? 'vague', voice(target), again(target, empty ?? 'vague'), typed),
+            target,
+            empty ?? 'vague',
+          );
           return true;
         }
         if (trait.part === 'where') commitAnswer({ [target]: typed });
@@ -653,7 +686,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         // what it is, so only typed words are read this way, chip or no chip.
         const empty = typed && !/^#[0-9a-f]{6}$/i.test(typed) ? notAnAnswerAtAStep(typed, readsAsPerson) : null;
         if (empty) {
-          bounce(typed, asideReply(empty, 'look', again(target), typed, step), target);
+          bounce(typed, asideReply(empty, voice(target), again(target, empty), typed, step), target, empty);
           return true;
         }
         commitAnswer({ [target]: chosen && typed ? `${chosen} ${typed}` : sentence });
@@ -667,7 +700,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       if (open === 'traits') {
         const empty = answersNothing(sentence, readsAsPerson);
         if (empty) {
-          bounce(sentence, asideReply(empty, 'detail', again(open), sentence), open);
+          bounce(sentence, asideReply(empty, voice(null, open), again(open, empty), sentence), open, empty);
           return true;
         }
         const had = st.answers.keep;
@@ -683,22 +716,21 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       if (open === 'gaps') {
         const empty = answersNothing(sentence, readsAsPerson);
         if (empty) {
-          bounce(sentence, asideReply(empty, 'describe', again(open), sentence), open);
+          bounce(sentence, asideReply(empty, voice(null, open), again(open, empty), sentence), open, empty);
           return true;
         }
         const said = (st.answers.describe ?? '').trim().replace(/[.\s]+$/, '');
         commitAnswer({ describe: said ? `${said}, ${sentence}` : sentence });
         return true;
       }
-      const phase: AsidePhase =
-        qid === 'source' ? 'source' : qid === 'describe' ? 'describe' : qid === 'name' ? 'name' : 'refine';
+      const phase = voice(null, qid);
       const door = qid === 'source' ? sourceFromText(sentence) : null;
       // What answers nothing is answered with the question, in words for what
       // was said, and stays in the conversation. A word or two that describes
       // nobody can still be a name, or a change to a view.
       const kind = door ? null : answersNothing(sentence, readsAsPerson);
       if (kind && (phase === 'source' || phase === 'describe' || kind !== 'vague')) {
-        bounce(sentence, asideReply(kind, phase, again(open), sentence), open);
+        bounce(sentence, asideReply(kind, phase, again(open, kind), sentence), open, kind);
         return true;
       }
       // Before a face exists, a sentence with nothing of a person in it is asked about, not drawn.
@@ -772,6 +804,14 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         dispatch({ type: 'edit', id: 'name' });
         return;
       }
+      // Something said in passing is said again in place: it answered nothing,
+      // so there is nothing downstream of it to invalidate and no cost to ask
+      // about. It is the cheapest edit in the conversation.
+      const at = asideAtOf(turnId);
+      if (at) {
+        dispatch({ type: 'edit', id: `aside:${at}` });
+        return;
+      }
       if (!isQid(turnId)) return;
       const cost = editCost(turnId, d);
       if (cost === 'start-over') {
@@ -804,6 +844,34 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         if (d) void s.update({ name: text.slice(0, 60) });
         return;
       }
+      const at = asideAtOf(turnId);
+      if (at) {
+        const st = stateRef.current;
+        const was = st.asides.find((a) => a.at === at);
+        if (!was) return;
+        // Said again, and read again. If the new words answer the question it
+        // was said at, and that question is still the one on the floor, it
+        // stops being an aside and becomes the answer.
+        const openNow = question?.id ?? null;
+        const kind = answersNothing(text, readsAsPerson);
+        if (!kind && was.q && was.q === openNow && onSend(text)) {
+          dispatch({ type: 'drop-aside', at });
+          return;
+        }
+        const asQid = was.q && isQid(was.q) ? (was.q as Qid) : null;
+        const phase = asidePhaseFor(asQid, was.q, !!d && identityLocked(d));
+        const step = asQid && isLookQid(asQid) ? (asQid.slice('look-'.length) as LookStep) : undefined;
+        const k = kind ?? 'vague';
+        const before = st.asides.filter((a) => a.q === was.q && a.at < was.at && a.kind === k).length;
+        dispatch({
+          type: 'amend-aside',
+          at,
+          said: text,
+          reply: asideReply(k, phase, before, text, step),
+          kind: k,
+        });
+        return;
+      }
       if (!isQid(turnId) || !answeredInWords(turnId, stateRef.current.answers)) return;
       // A detail keeps whatever pictures were attached to it: the words are
       // being changed, not what they were said about.
@@ -814,7 +882,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       }
       commitAnswer({ [turnId]: text });
     },
-    [d, s.update, commitAnswer],
+    [d, s.update, commitAnswer, onSend, question],
   );
   const onCancelEdit = useCallback(() => dispatch({ type: 'cancel-edit' }), []);
 
@@ -825,8 +893,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
    */
   const onDescribe = useCallback(() => {
     const st = stateRef.current;
-    const id =
-      st.editing && st.editing !== 'name' && !answeredInWords(st.editing, st.answers) ? st.editing : question?.id;
+    const editing = st.editing && st.editing !== 'name' && !isAsideEdit(st.editing) ? st.editing : null;
+    const id = editing && !answeredInWords(editing, st.answers) ? editing : question?.id;
     // the read-back: a detail the rows could not ask for, in their own words
     if (id === 'agree') {
       dispatch({ type: 'say', id: 'keep' });

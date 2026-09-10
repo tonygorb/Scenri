@@ -13,15 +13,16 @@ import {
   editCost,
   flowContext,
   answeredInWords,
+  asidePhaseFor,
   notAnAnswerAtAStep,
   sentenceTarget,
   turnsFor,
 } from '../src/create/presenter/presenterFlowRules.ts';
 import { HAIR_LENGTHS } from '../src/create/presenter/presenterLook.ts';
 import { TRAITS } from '../src/create/presenter/presenterTraits.ts';
-import { asideReply } from '../src/create/presenter/presenterCopy.ts';
-import { answersNothing } from '../src/conversation/question.ts';
-import type { Answers } from '../src/create/presenter/presenterQuestions.ts';
+import { type AsidePhase, asideReply } from '../src/create/presenter/presenterCopy.ts';
+import { type NothingKind, answersNothing } from '../src/conversation/question.ts';
+import type { Answers, Qid } from '../src/create/presenter/presenterQuestions.ts';
 import { type DraftLike, emptySlot, readsAsPerson } from '../src/create/presenter/presenterStudioRules.ts';
 
 const state = (answers: Answers, over: Partial<CreationState> = {}): CreationState => ({
@@ -351,6 +352,15 @@ describe('a question with chips still takes words', () => {
     for (const said of ['hi', 'what can you do?', 'go back']) {
       expect(notAnAnswerAtAStep(said, readsAsPerson), said).not.toBeNull();
     }
+    // so is a mash at the keyboard, digits in it or not: the letters are read
+    // alone, so "zzz999" is the same thing as "zzz"
+    for (const said of ['zzz', 'zzz999', 'asdfgh', 'qqqqq']) {
+      expect(notAnAnswerAtAStep(said, readsAsPerson), said).toBe('nonsense');
+    }
+    // and a short answer with vowels in it is still an answer
+    for (const said of ['bob', 'a bob', 'kare', 'pony tail']) {
+      expect(notAnAnswerAtAStep(said, readsAsPerson), said).toBeNull();
+    }
   });
 
   it('the same reply is not sent a third time; the way out is named instead', () => {
@@ -360,6 +370,70 @@ describe('a question with chips still takes words', () => {
     expect(second).not.toBe(first);
     expect(third).not.toBe(second);
     expect(third).toMatch(/Skip/);
+  });
+});
+
+describe('every question answers a stray sentence in its own voice', () => {
+  // The bug this pins: a look step replied "say what should change: hair, age
+  // or build change the person", which is the voice of a presenter already
+  // drawn, to somebody four questions away from a picture. The voice is a
+  // function of what the sentence was aimed at, so every question is checked.
+  const voices: [string, Qid | 'keep' | null, string | null, AsidePhase][] = [
+    ['the door', 'source', 'source', 'source'],
+    ['a description', 'describe', 'describe', 'describe'],
+    ['the gaps in one', null, 'gaps', 'describe'],
+    ['who they are', 'look-who', 'look-who', 'look'],
+    ['their age', 'look-age', 'look-age', 'look'],
+    ['their hair', 'look-hair', 'look-hair', 'look'],
+    ['its length', 'look-length', 'look-length', 'look'],
+    ['their skin', 'look-skin', 'look-skin', 'look'],
+    ['their build', 'look-build', 'look-build', 'look'],
+    ['the chooser of details', null, 'traits', 'detail'],
+    ['a detail', 'trait-glasses', 'trait-glasses', 'detail'],
+    ['where it is', 'trait-tattoo-where', 'trait-tattoo-where', 'detail'],
+    ['the last word', 'keep', 'agree', 'detail'],
+    ['their name', null, 'name', 'name'],
+  ];
+
+  it.each(voices)('%s is answered in its own voice, before a picture and after', (_n, target, open, want) => {
+    expect(asidePhaseFor(target, open, false)).toBe(want);
+    expect(asidePhaseFor(target, open, true)).toBe(want);
+  });
+
+  it('nothing speaks in the refine voice until there is something to refine', () => {
+    // every id the flow knows, plus ones it does not
+    const ids = [...voices.map((v) => v[2]), 'blind', 'retry', 'photos', 'noengine', 'agree', 'unsure', null, 'x'];
+    for (const id of ids) expect(asidePhaseFor(null, id, false), String(id)).not.toBe('refine');
+    // and once a face stands, an id that belongs to no question is a refinement
+    expect(asidePhaseFor(null, null, true)).toBe('refine');
+    expect(asidePhaseFor(null, 'retry', true)).toBe('refine');
+  });
+
+  it('every voice has words for every way a sentence can answer nothing', () => {
+    const kinds: NothingKind[] = [
+      'likeness',
+      'help',
+      'question',
+      'greeting',
+      'ack',
+      'nav',
+      'intent',
+      'go',
+      'nonsense',
+      'vague',
+    ];
+    const phases: AsidePhase[] = ['source', 'describe', 'name', 'look', 'detail', 'refine'];
+    for (const phase of phases) {
+      for (const kind of kinds) {
+        for (const again of [0, 1, 2]) {
+          const said = asideReply(kind, phase, again, 'whatever', phase === 'look' ? 'length' : undefined);
+          expect(said, `${phase}/${kind}/${again}`).toBeTruthy();
+          expect(said, `${phase}/${kind}/${again}`).not.toMatch(/undefined|\[object/i);
+          // a setup voice never borrows the words of a drawn presenter
+          if (phase !== 'refine') expect(said, `${phase}/${kind}`).not.toMatch(/view on the stage/i);
+        }
+      }
+    }
   });
 });
 

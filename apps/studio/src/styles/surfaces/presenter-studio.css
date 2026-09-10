@@ -448,7 +448,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--sc-space-4);
-  padding: var(--sc-space-7);
+  /* No padding at the top: the fade above it is the space between the talk and
+     the composer, and a padding under the fade only pushes the two apart. */
+  padding: 0 var(--sc-space-7) var(--sc-space-7);
 }
 
 .sc-pstudio-foot .sc-dlg-foot {
@@ -681,7 +683,7 @@
     --sc-dock-ground: var(--sc-panel);
     position: sticky;
     bottom: 0;
-    padding: var(--sc-space-5) var(--sc-space-6) calc(var(--sc-space-5) + var(--sc-bottom-inset));
+    padding: 0 var(--sc-space-6) calc(var(--sc-space-5) + var(--sc-bottom-inset));
   }
 }
 
