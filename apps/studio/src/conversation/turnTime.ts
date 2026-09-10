@@ -1,24 +1,15 @@
 /**
  * When things were said, in the words a person would use.
  *
- * A clock time on every turn is noise: a conversation had in one sitting wears
- * the same four digits twenty times over and answers a question nobody asked.
- * What a reader actually wants to know is two things, and they are different
- * questions with different answers:
+ * A clock time standing on every turn is noise: a conversation had in one
+ * sitting wears the same four digits twenty times over and answers a question
+ * nobody asked. So it is there for the asking and not otherwise, and it answers
+ * in the words the question was asked in: relative while relative is what a
+ * person means ("just now", "12 min ago"), a clock time once it stops being.
  *
- * 1. "Where did this pause?" A run of turns is one moment. A gap between two of
- *    them is the only place a time carries information, so that is where the
- *    conversation says one, in the flow, for everyone to read at a glance.
- * 2. "When exactly was this one?" Asked of a single turn, rarely, by hovering
- *    it. Then the answer is relative while relative is what a person means
- *    ("just now", "12 min ago") and a clock time once it stops being.
- *
- * Both are pure functions of two numbers, so both are tested rather than
- * eyeballed, and neither knows anything about a presenter.
+ * It is a pure function of two numbers, so it is tested rather than eyeballed,
+ * and it knows nothing about a presenter.
  */
-
-/** A pause long enough to be a second sitting rather than a beat. */
-export const GAP_MS = 5 * 60_000;
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -50,23 +41,6 @@ export function sayTime(at: number, now: number = Date.now()): string {
   const d = new Date(at);
   const back = daysBack(d, new Date(now));
   if (back === 0) return clock(d);
-  if (back === 1) return `Yesterday ${clock(d)}`;
-  return `${day(d)} ${clock(d)}`;
-}
-
-/**
- * The line between two runs, or null when the conversation simply carried on.
- *
- * `prev` is when the turn before this one was said, or undefined for the first
- * turn of all, which always gets one: a conversation opens by saying when it
- * began. Otherwise a mark appears only where there was a real pause, so the
- * marks in a transcript are exactly its sittings.
- */
-export function whenMark(at: number, prev: number | undefined, now: number = Date.now()): string | null {
-  if (prev !== undefined && at - prev < GAP_MS) return null;
-  const d = new Date(at);
-  const back = daysBack(d, new Date(now));
-  if (back === 0) return `Today ${clock(d)}`;
   if (back === 1) return `Yesterday ${clock(d)}`;
   return `${day(d)} ${clock(d)}`;
 }

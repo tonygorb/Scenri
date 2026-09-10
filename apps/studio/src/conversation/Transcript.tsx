@@ -1,9 +1,8 @@
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { REVEAL_LEAD_MS, THINK_MS, type Answer, type Turn, prefersReducedMotion, turnKey } from './question.js';
 import { PICK_MS, type Picked, QuestionBlock } from './QuestionBlock.js';
-import { ScenriTurn, WhenMark, Working } from './ScenriTurn.js';
+import { ScenriTurn, Working } from './ScenriTurn.js';
 import { YouTurn } from './YouTurn.js';
-import { whenMark } from './turnTime.js';
 
 /** The beat a turn takes to go when it leaves: a reverted answer, a question that is over. */
 export const LEAVE_MS = 180;
@@ -496,21 +495,12 @@ export function Transcript({
     if (!times.current.has(k)) times.current.set(k, Date.now());
   }
 
-  let firstYou = true;
   let prevScenri = false;
-  // the time of the turn before this one, for the mark between two sittings
-  let ago: number | undefined;
   const out: ReactNode[] = [];
   for (const t of shown) {
     const k = turnKey(t);
     const dim = !!changing && !bright.has(k);
-    // Where the conversation paused, said once, in the flow.
     const at = times.current.get(k);
-    if (at !== undefined) {
-      const mark = whenMark(at, ago, clock);
-      ago = at;
-      if (mark && !leaving?.gone.has(k)) out.push(<WhenMark key={`when:${k}`} text={mark} />);
-    }
     const going = !!leaving?.gone.has(k);
     // a block that was tapped goes as its ghost, not as a fade
     const ghost = going && t.kind === 'question' && leaving?.look?.qid === t.question.id;
@@ -528,8 +518,6 @@ export function Transcript({
     // it keeps the eyebrow it had: nothing around a change moves
     if (!going) prevScenri = t.kind === 'scenri' || (t.kind === 'question' && !t.question.reopened);
     if (t.kind === 'you') {
-      const first = firstYou;
-      firstYou = false;
       out.push(
         <YouTurn
           key={k}
@@ -537,7 +525,6 @@ export function Transcript({
           photos={t.photos}
           editable={t.editable}
           editing={t.editing}
-          first={first}
           arrive={reveal}
           leave={going}
           delay={delay}

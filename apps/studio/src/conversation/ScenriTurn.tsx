@@ -139,21 +139,6 @@ export function TurnTime({ at, now }: { at: number; now?: number }) {
 }
 
 /**
- * Where the conversation paused, said once, in the flow.
- *
- * This is the time a reader actually reads: a run of turns is one moment, and
- * the only place a clock carries information is between two of them. It stands
- * on its own line, quiet, and is never hovered for.
- */
-export function WhenMark({ text }: { text: string }) {
-  return (
-    <div className="sc-convo-when">
-      <span>{text}</span>
-    </div>
-  );
-}
-
-/**
  * Scenri, working: the mark and the name where the next line will come from,
  * with three dots after them. It stands only while something is genuinely being
  * waited for, and it is what resolves into the line when it arrives.

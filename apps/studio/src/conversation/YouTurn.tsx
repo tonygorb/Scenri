@@ -16,7 +16,6 @@ export function YouTurn({
   now,
   editable,
   editing,
-  first,
   arrive,
   leave,
   delay = 0,
@@ -35,8 +34,6 @@ export function YouTurn({
   /** The clock the whole transcript reads by, so no two times disagree. */
   now?: number;
   editable?: boolean;
-  /** The first answer carries the "You" word; the rest are told by their side. */
-  first?: boolean;
   /** New this render: fade and rise into place. */
   arrive?: boolean;
   /** The answer is going, changed from its pencil: a short fade. */
@@ -66,16 +63,11 @@ export function YouTurn({
       data-dim={dim || undefined}
       style={arriving ? ({ '--sc-convo-start': `${start}ms` } as CSSProperties) : undefined}
     >
-      {/* the first answer carries the word "You", and the time goes in that row
-          rather than over it; every other answer wears it above the bubble */}
-      {first ? (
-        <span className="sc-convo-who">
-          You
-          {at ? <TurnTime at={at} now={now} /> : null}
-        </span>
-      ) : at ? (
-        <TurnTime at={at} now={now} />
-      ) : null}
+      {/* No name over your own words: which side they are on says whose they
+          are, the way it does in every conversation anybody has ever read. One
+          label on one answer and none on the rest read as a leftover. Scenri
+          keeps its name because a line from the app is not a line from you. */}
+      {at ? <TurnTime at={at} now={now} /> : null}
       {editing && onSave && onCancel ? (
         <Rewrite text={text} onSave={onSave} onCancel={onCancel} />
       ) : (

@@ -150,35 +150,6 @@
   color: var(--sc-fg3);
 }
 
-/* ---- where the conversation paused -----------------------------------------
-   The one time a reader reads: a run of turns is one moment, so the clock is
-   said once, between two of them, on its own line and quiet. A hairline each
-   side because that is what a break in a conversation looks like everywhere a
-   person has ever seen one. */
-.sc-convo-when {
-  display: flex;
-  align-items: center;
-  gap: var(--sc-space-4);
-  margin: var(--sc-space-3) 0;
-  font-size: 11px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: var(--sc-fg3);
-}
-
-.sc-convo-when::before,
-.sc-convo-when::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--sc-line);
-}
-
-/* while an answer is being changed, the marks step back with everything else */
-.sc-convo-log[data-changing] .sc-convo-when {
-  opacity: 0.4;
-}
-
 /* ---- when a turn was said ---------------------------------------------------
    There for the asking, never in the way: a conversation reads as talk, and a
    standing column of clock times reads as a log. Scenri's sits beside the name

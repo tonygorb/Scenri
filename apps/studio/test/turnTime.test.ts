@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { GAP_MS, sayTime, whenMark } from '../src/conversation/turnTime.js';
+import { sayTime } from '../src/conversation/turnTime.js';
 
 /**
- * Two questions, two answers: where did the conversation pause, and when
- * exactly was this one turn. Both are arithmetic on two numbers, so both are
- * pinned here rather than looked at.
+ * When one turn was said, in the words a person would use. Arithmetic on two
+ * numbers, pinned here rather than looked at.
  */
 const AT = new Date(2026, 8, 10, 14, 30, 0).getTime();
 const mins = (n: number) => n * 60_000;
@@ -29,24 +28,5 @@ describe('when one turn was said', () => {
 
   it('never counts backwards when the clock moved under it', () => {
     expect(sayTime(AT, AT - hours(3))).toBe('just now');
-  });
-});
-
-describe('where the conversation paused', () => {
-  it('marks the first turn of all, and nothing that simply carried on', () => {
-    expect(whenMark(AT, undefined, AT)).toBe(
-      `Today ${new Date(AT).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-    );
-    expect(whenMark(AT + mins(1), AT, AT + mins(1))).toBeNull();
-    expect(whenMark(AT + GAP_MS - 1, AT, AT)).toBeNull();
-  });
-
-  it('marks a real pause, and says the day when the pause crossed one', () => {
-    expect(whenMark(AT + GAP_MS, AT, AT + GAP_MS)).toMatch(/^Today /);
-    const nextMorning = new Date(2026, 8, 11, 9, 0, 0).getTime();
-    expect(whenMark(nextMorning, AT, nextMorning)).toMatch(/^Today /);
-    // read the next day again: what was "today" is yesterday, and says so
-    const dayAfter = new Date(2026, 8, 12, 9, 0, 0).getTime();
-    expect(whenMark(nextMorning, AT, dayAfter)).toMatch(/^Yesterday /);
   });
 });
