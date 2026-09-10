@@ -488,7 +488,9 @@ button.sc-convo-shot-do {
 .sc-convo-ways {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--sc-space-3);
+  align-items: center;
+  gap: var(--sc-space-4);
+  margin-top: var(--sc-space-2);
 }
 
 /* not `.sc-convo-row`: that is the composer's own row, and it aligns to its far
@@ -640,26 +642,39 @@ button.sc-convo-shot-do {
 }
 
 .sc-convo-own-take {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
+  flex: none;
+  height: 28px;
+  padding: 0 12px;
   border: none;
-  border-radius: 50%;
+  border-radius: var(--sc-radius-full);
   background: var(--sc-fg);
   color: var(--sc-bg);
+  font-size: var(--sc-text-caption);
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
 }
 
+.sc-convo-own-take:hover {
+  opacity: 0.9;
+}
+
 .sc-convo-swatch-own {
+  color: var(--sc-fg);
   background: conic-gradient(from 0deg, #f0605d, #f7bc50, #7ac74f, #4aa3f0, #8b6ff2, #f0605d);
+  opacity: 0.85;
+}
+
+.sc-convo-swatch-own svg {
+  position: relative;
+  mix-blend-mode: luminosity;
 }
 
 /* once a colour is under the pointer, the swatch is that colour */
-.sc-convo-swatch-own[data-picked] {
+.sc-convo-own[data-picked] .sc-convo-swatch-own {
   background: var(--sc-swatch);
   outline-color: var(--sc-fg);
+  opacity: 1;
 }
 
 .sc-convo-swatch-own input {
@@ -998,6 +1013,13 @@ button.sc-convo-shot-do {
 @media (max-width: 767px) {
   .sc-convo-log {
     padding: var(--sc-space-6) 14px;
+  }
+
+  /* A question with things to tap owns the answer, and on a phone the room is
+     the screen: a composer that cannot be typed into stands aside instead of
+     holding a third of it. */
+  .sc-convo-card[data-quiet] {
+    display: none;
   }
 
   .sc-convo-turns {

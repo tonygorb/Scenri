@@ -1088,7 +1088,14 @@ export function rewindSetup(setup: Setup, id: string): Partial<Setup> {
   const at = AT(id);
   if (at < 0) return {};
   const back: Partial<Setup> = {};
-  if (at < AT('look')) back.look = null;
+  // at the answer itself, everything after it goes; the answer's own new value
+  // is the caller's to set
+  if (at <= AT('source')) {
+    // the photographs belong to the door they were added under
+    back.photoHashes = [];
+    back.attested = false;
+  }
+  if (at <= AT('look')) back.look = null;
   if (at < AT('describe')) {
     back.description = '';
     back.typed = false;

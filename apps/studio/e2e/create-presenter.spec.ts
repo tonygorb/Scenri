@@ -221,6 +221,74 @@ test.describe('a person from scratch', () => {
     expect(first.direction).toBe('a woman in their 30s with shoulder-length black hair, olive skin, an athletic build');
   });
 
+  test('an answer is said again where it stands, and the future it had is taken back', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await answer(page, 'Describe someone').click();
+    await expect(log(page)).toContainText('Who are we making?');
+    await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
+    await expect(log(page)).toContainText('Roughly what age?');
+    await log(page).getByRole('button', { name: '30s', exact: true }).click();
+    await expect(log(page)).toContainText('What colour is their hair?');
+    await log(page).getByRole('button', { name: 'Black', exact: true }).click();
+    await expect(log(page)).toContainText('How long is it?');
+
+    // the pencil on an earlier answer takes that answer back, and everything the
+    // flow asked after it goes with it
+    await log(page)
+      .locator('.sc-convo-turn[data-turn="you:look-age"]')
+      .getByRole('button', { name: 'Change this answer' })
+      .click();
+    await expect(log(page)).toContainText('Roughly what age?');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-age"]')).toHaveCount(0);
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toHaveCount(0);
+    // what came before it is untouched
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-who"]')).toContainText('Woman');
+    // and the conversation carries on from the corrected answer
+    const open = log(page).locator('.sc-convo-q:not([data-picked])').last();
+    await open.getByRole('button', { name: '40s', exact: true }).click();
+    await expect(log(page)).toContainText('What colour is their hair?');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-age"]')).toContainText('40s');
+  });
+
+  test('a text answer is rewritten in place, and cancelling changes nothing', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await answer(page, 'Describe someone').click();
+    await log(page).getByRole('button', { name: 'Describe instead' }).click();
+    await expect(log(page)).toContainText('Describe them.');
+    await send(page, 'a woman in her 30s with dark curls');
+    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 30_000 });
+
+    // cancelling leaves the answer exactly as it was
+    await log(page)
+      .locator('.sc-convo-turn', { hasText: 'dark curls' })
+      .getByRole('button', { name: 'Change this answer' })
+      .click();
+    const field = log(page).locator('.sc-convo-rewrite');
+    await expect(field).toHaveValue('a woman in her 30s with dark curls');
+    await field.fill('something else entirely');
+    await log(page).getByRole('button', { name: 'Cancel' }).click();
+    await expect(log(page).locator('.sc-convo-rewrite')).toHaveCount(0);
+    await expect(log(page).locator('.sc-convo-turn[data-who="you"]').last()).toContainText('dark curls');
+
+    // saying it again replaces it, and it is what the drawing is asked for
+    await log(page)
+      .locator('.sc-convo-turn', { hasText: 'dark curls' })
+      .getByRole('button', { name: 'Change this answer' })
+      .click();
+    await log(page).locator('.sc-convo-rewrite').fill('a man in his 50s with a shaved head');
+    await log(page).getByRole('button', { name: 'Save', exact: true }).click();
+    // a face is already drawn from the old words, so it is asked about
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Redraw the face' }).click();
+    await expect(log(page).locator('.sc-convo-turn[data-who="you"]').last()).toContainText('shaved head');
+    const { drafts } = await draftsOf(page, brand.id);
+    await expect
+      .poll(async () => (await draftOf(page, brand.id, drafts[0].id)).direction, { timeout: 20_000 })
+      .toBe('a man in his 50s with a shaved head');
+  });
+
   test('a thin sentence asks one follow-up, and its picks fold into the sentence', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);

@@ -581,6 +581,12 @@
     display: none;
   }
 
+  /* and once there is, it takes the top of the screen and stays there while the
+     conversation moves under it */
+  .sc-pstudio-grid[data-phase="made"] .sc-pstudio-wrap {
+    height: min(38dvh, calc((100vw - 32px) * 5 / 4));
+  }
+
   .sc-pstudio-strip {
     justify-content: flex-start;
     margin: 0 calc(-1 * var(--sc-space-6));

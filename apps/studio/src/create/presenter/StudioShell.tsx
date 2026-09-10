@@ -158,7 +158,9 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
           s.onPaste(files);
         }}
       >
-        <div className="sc-pstudio-grid">
+        {/* Before there is anything to look at, the phone gives the whole screen
+            to the conversation: an empty plate is not worth a third of it. */}
+        <div className="sc-pstudio-grid" data-phase={s.stage?.hash ? 'made' : 'setup'}>
           <Tip label="Close (esc)">
             <button type="button" className="sc-pstudio-close" onClick={onClose} aria-label="Close">
               <X size={13} />
@@ -220,6 +222,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
             {s.dock}
             {s.composer && (
               <ConversationComposer
+                quiet={!!s.composer.disabled && !s.composer.working}
                 placeholder={s.composer.placeholder}
                 label={s.composer.label}
                 action={s.composer.action}

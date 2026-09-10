@@ -31,6 +31,7 @@ export function ConversationComposer({
   allowEmpty,
   disabled,
   why,
+  quiet,
   working,
   error,
   focusKey,
@@ -53,6 +54,8 @@ export function ConversationComposer({
   disabled?: boolean;
   /** Why the pill is dimmed, on it when the cursor asks; the line under the card says it too. */
   why?: string | null;
+  /** Nothing here can be answered right now: on a phone it stands aside rather than taking the room. */
+  quiet?: boolean;
   working?: boolean;
   error?: string | null;
   /** Changes when the field should take the keyboard: a new text question arrived. */
@@ -116,7 +119,7 @@ export function ConversationComposer({
   );
   return (
     <div className="sc-convo-composer">
-      <div className="sc-convo-card" data-flash={flash || undefined}>
+      <div className="sc-convo-card" data-quiet={quiet || undefined} data-flash={flash || undefined}>
         {scope?.chip && (
           <div className="sc-convo-scope-row">
             <span className="sc-convo-scope">

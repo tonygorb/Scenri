@@ -666,18 +666,14 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         return;
       }
       if (effect === 'plain') {
-        // what was said under the answers that go, goes with them
-        const under = turnId === 'source' || turnId === 'photos' ? ['source'] : ['source', 'describe'];
-        setUi((u) => ({
-          ...u,
-          unsure: null,
-          asides: (u.asides ?? []).filter((a) => a.q === null || under.includes(a.q)),
-        }));
-        if (turnId === 'describe' || turnId === 'gaps') {
-          setText(setup.description);
-          setSetup({ description: '', gaps: null, gapsAsked: false });
-        }
-        if (turnId === 'source' || turnId === 'photos') setSetup({ source: null });
+        // One rule for taking an answer back, wherever the pencil is: this
+        // answer goes, everything the flow asked after it goes with it, and
+        // nothing before it moves. The door used to clear only itself, so
+        // choosing it again brought back every answer that had followed it.
+        const at = turnId === 'photos' ? 'source' : turnId;
+        setUi((u) => ({ ...u, unsure: null, saying: null, asides: rewindAsides(u.asides ?? [], at) }));
+        if (turnId === 'describe' || turnId === 'gaps') setText(setup.description);
+        setSetup({ ...rewindSetup(setup, at), ...(at === 'source' ? { source: null, typed: false } : {}) });
         return;
       }
       if (effect === 'redraw-identity') setConfirming('redescribe');

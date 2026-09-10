@@ -1,4 +1,4 @@
-import { Check, PencilSimple } from '@phosphor-icons/react';
+import { PencilSimple, Plus } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
 import { LookArt } from './LookArt.js';
@@ -226,42 +226,40 @@ export function QuestionBlock({
                   </button>
                 </Tip>
               ))}
-              {question.row.custom && (
-                <span className="sc-convo-own">
-                  <Tip label="A colour of your own">
-                    <span
-                      className="sc-convo-swatch sc-convo-swatch-own"
-                      data-picked={!!own || undefined}
-                      style={own ? ({ '--sc-swatch': own } as CSSProperties) : undefined}
-                    >
-                      <input
-                        type="color"
-                        aria-label="A colour of your own"
-                        value={own ?? '#7b5230'}
-                        // the swatch is the colour under the pointer while it
-                        // moves; choosing a colour is not the same as being done
-                        onInput={(e) => setOwn((e.target as HTMLInputElement).value)}
-                        onChange={(e) => setOwn(e.target.value)}
-                      />
-                    </span>
-                  </Tip>
-                  {own && (
-                    <Tip label="Use this colour">
+            </div>
+            {(question.skip || question.describe || question.row.custom) && (
+              <div className="sc-convo-ways">
+                {question.row.custom && (
+                  <span className="sc-convo-own" data-picked={!!own || undefined}>
+                    <Tip label="A colour of your own">
+                      <span
+                        className="sc-convo-swatch sc-convo-swatch-own"
+                        style={own ? ({ '--sc-swatch': own } as CSSProperties) : undefined}
+                      >
+                        <input
+                          type="color"
+                          aria-label="A colour of your own"
+                          value={own ?? '#7b5230'}
+                          // the swatch is the colour under the pointer while it
+                          // moves; choosing a colour is not the same as being done
+                          onInput={(e) => setOwn((e.target as HTMLInputElement).value)}
+                          onChange={(e) => setOwn(e.target.value)}
+                        />
+                        {!own && <Plus size={12} weight="bold" />}
+                      </span>
+                    </Tip>
+                    {own && (
                       <button
                         type="button"
                         className="sc-convo-own-take"
-                        aria-label="Use this colour"
                         onClick={() => commit(own, { kind: 'swatches', picks: { [question.row.id]: own } })}
                       >
-                        <Check size={12} weight="bold" />
+                        Use it
                       </button>
-                    </Tip>
-                  )}
-                </span>
-              )}
-            </div>
-            {(question.skip || question.describe) && (
-              <div className="sc-convo-ways">
+                    )}
+                  </span>
+                )}
+
                 {question.skip && (
                   <button
                     type="button"

@@ -4,6 +4,8 @@ import { activeQuestion } from '../src/create/presenter/presenterFlowRules.js';
 import type { Question, Turn } from '../src/conversation/question.js';
 import {
   EMPTY_SETUP,
+  rewindAsides,
+  rewindSetup,
   PASSED,
   STARTERS,
   type Setup,
@@ -613,5 +615,89 @@ describe('where they were filed', () => {
     expect(filedLine(draft({ analysis: { suitableCategories: ['Apparel', 'Beauty', 'Sport'] } }))).toBe(
       ' Filed under Apparel, Beauty and Sport; that can change on their page.',
     );
+  });
+});
+
+describe('changing an answer takes back what came after it', () => {
+  const look = { who: 'woman', age: '30s', hair: 'black' };
+
+  it('clears the answers the flow asked later, and nothing it asked earlier', () => {
+    const full = setup({
+      source: 'scratch',
+      look,
+      description: 'warm and unhurried',
+      gaps: 'skipped',
+      gapsAsked: true,
+    });
+    // the door is the first thing asked: changing it takes back all of it,
+    // photographs included, since they were added under the door
+    expect(rewindSetup(full, 'source')).toMatchObject({
+      look: null,
+      description: '',
+      gaps: null,
+      gapsAsked: false,
+      photoHashes: [],
+      attested: false,
+    });
+    // taking the look back takes the look itself and what followed it; the door
+    // it was asked under survives
+    expect(rewindSetup(full, 'look')).toMatchObject({ look: null, description: '', gaps: null });
+    expect(rewindSetup(full, 'look').source).toBeUndefined();
+    // the sentence is the last of the setup: nothing before it moves
+    expect(rewindSetup(full, 'describe')).toEqual({ gaps: null, gapsAsked: false });
+    // the name is not part of the setup's order, so it takes nothing back
+    expect(rewindSetup(full, 'name')).toEqual({});
+  });
+
+  it('drops what was said in passing at a later question, and keeps what was said before', () => {
+    const asides = [
+      { said: 'hey', reply: 'Hi.', q: 'source', at: '1' },
+      { said: 'what?', reply: 'This is where.', q: 'look-hair', at: '2' },
+      { said: 'ok', reply: 'Right.', q: 'describe', at: '3' },
+    ];
+    expect(rewindAsides(asides, 'source').map((a) => a.q)).toEqual(['source']);
+    expect(rewindAsides(asides, 'look').map((a) => a.q)).toEqual(['source', 'look-hair']);
+    expect(rewindAsides(asides, 'describe').map((a) => a.q)).toEqual(['source', 'look-hair', 'describe']);
+  });
+
+  it('leaves no trace of a taken-back answer in what the engine is given', () => {
+    const before = directionFrom(setup({ source: 'scratch', look: { ...look, length: 'long' } }));
+    expect(before).toContain('long black hair');
+    // the length is taken back, and the sentence no longer says it
+    const after = directionFrom(setup({ source: 'scratch', look }));
+    expect(after).toContain('black hair');
+    expect(after).not.toContain('long');
+  });
+
+  it('keeps a step answered in words as those words, in the transcript and in the sentence', () => {
+    const said = { ...look, hair: 'dark auburn with copper ends' };
+    expect(lookSentence(said)).toContain('dark auburn with copper ends hair');
+    const t = turnsFor({ setup: setup({ source: 'scratch', look: said }), draft: null, canGenerate: true, ui });
+    expect(t.find((x) => x.kind === 'you' && x.id === 'look-hair')).toMatchObject({
+      text: 'dark auburn with copper ends',
+    });
+  });
+});
+
+describe('one answer surface at a time', () => {
+  const step = (id: string): Question => ({
+    id: `look-${id}`,
+    kind: 'swatches',
+    prompt: '',
+    row: { id, label: '', options: [] },
+  });
+
+  it('a question with things to tap owns the answer; the composer says where it is', () => {
+    expect(composerFor(step('hair'), null, 'portrait')).toMatchObject({ off: 'Tap one above.' });
+    // until that one step is asked for in words, and then only that one
+    expect(composerFor(step('hair'), null, 'portrait', 'hair')).toMatchObject({ action: 'Send' });
+    expect(composerFor(step('hair'), null, 'portrait', 'build')).toMatchObject({ off: 'Tap one above.' });
+  });
+
+  it('a text question is the composer, and the person is refined in words', () => {
+    expect(composerFor({ id: 'describe', kind: 'text', prompt: '' }, null, 'portrait').off).toBeUndefined();
+    expect(composerFor({ id: 'identity', kind: 'confirm', prompt: '', options: [] }, null, 'portrait')).toMatchObject({
+      action: 'Refine',
+    });
   });
 });
