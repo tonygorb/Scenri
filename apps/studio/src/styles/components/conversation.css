@@ -713,7 +713,10 @@ button.sc-convo-shot-do {
 /* A photographed plate: the picture is the plate's surface, cropped to it. */
 .sc-convo-plate-in[data-card] {
   background-color: var(--sc-raised);
-  background-position: 50% 35%;
+  /* The card is drawn at the plate's own shape and the subject is measured into
+     the same place on every one of them, so there is nothing left to crop or to
+     aim: the picture is the plate. */
+  background-position: 50% 50%;
   background-size: cover;
   background-repeat: no-repeat;
 }
@@ -731,9 +734,6 @@ button.sc-convo-shot-do {
 }
 .sc-convo-plate-in[data-card="freckles-5"] {
   background-image: url("../../assets/traits/freckles-5.webp");
-}
-.sc-convo-plate-in[data-card="freckles-6"] {
-  background-image: url("../../assets/traits/freckles-6.webp");
 }
 .sc-convo-plate-in[data-card="glasses-1"] {
   background-image: url("../../assets/traits/glasses-1.webp");
