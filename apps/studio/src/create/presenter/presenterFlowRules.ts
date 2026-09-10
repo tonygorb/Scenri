@@ -62,7 +62,7 @@ import {
   drawing,
   identityLocked,
 } from './presenterStudioRules.js';
-import { TRAITS, type TraitId, keepSentence, traitOf } from './presenterTraits.js';
+import { TRAITS, type TraitId, traitOf, traitSentence } from './presenterTraits.js';
 
 /**
  * The creation conversation, as rules.
@@ -153,15 +153,35 @@ export function compileDirection(a: Answers): string {
 }
 
 /**
- * Everything that stays the same about them, as one sentence: the details
+ * Everything that stays the same about them, one thing at a time: the details
  * they chose and answered, in the table's order, and then anything else they
- * said at the last moment. One sentence, because that is what a prompt
- * carries and what the record's identity notes hold.
+ * said at the last moment.
+ */
+export function keepItems(a: Answers): string[] {
+  const details = traitDetails(a);
+  const said = (a.keep ?? '').trim();
+  const items = inTableOrder(a.traits ?? [])
+    .map((id) => {
+      const one = details[id];
+      return one ? traitSentence(id, one) : '';
+    })
+    .filter(Boolean);
+  return said ? [...items, said] : items;
+}
+
+/**
+ * The same, as one sentence, because that is what a prompt carries and what
+ * the record's identity notes hold.
  */
 export function compileKeep(a: Answers): string {
-  const details = keepSentence(traitDetails(a), inTableOrder(a.traits ?? []));
-  const said = (a.keep ?? '').trim();
-  return [details, said].filter(Boolean).join(', ');
+  return keepItems(a).join(', ');
+}
+
+/** And said as a person says it, with the last one joined by "and". */
+export function keepLine(a: Answers): string {
+  const items = keepItems(a);
+  if (items.length < 2) return items[0] ?? '';
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }
 
 /** The pictures of each detail, for the draft to draw them from. */
@@ -543,7 +563,10 @@ function build(
         open = {
           id: 'agree',
           kind: 'confirm',
-          prompt: `${lookLine(lookOf(a))}. Shall I draw them?`,
+          // The whole person, and everything that is always true of them: the
+          // last word before anything is drawn says all of it, or a run of
+          // questions reads as though nothing had been listening.
+          prompt: `${lookLine(lookOf(a))}${keepLine(a) ? `, and always ${keepLine(a)}` : ''}. Shall I draw them?`,
           options: [
             { id: 'draw', label: 'Draw them' },
             { id: 'add', label: a.keep?.trim() ? 'Add another' : 'Add a detail' },

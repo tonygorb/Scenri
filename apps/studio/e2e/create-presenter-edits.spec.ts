@@ -237,11 +237,14 @@ test.describe('a picture of the thing itself', () => {
     await expect(log(page)).toContainText('What glasses do they wear?');
 
     // a question with things to tap owns the answer: the card stands down, and
-    // the way in for a picture stands down with it
-    await expect(page.locator('.sc-convo-attach')).toHaveCount(0);
+    // the way in stands where it is, dimmed, until the card can take a picture
+    const plus = page.getByRole('button', { name: 'Add the picture of the glasses' });
+    await expect(plus).toBeVisible();
+    await expect(plus).toHaveAttribute('aria-disabled', 'true');
     await answer(page, 'Describe the glasses').click();
+    await expect(plus).not.toHaveAttribute('aria-disabled', /.*/);
     // the picture goes in the line, in the chip the rest of the app uses for one
-    await page.getByRole('button', { name: 'Add the picture of the glasses' }).click();
+    await plus.click();
     await page
       .locator('.sc-convo-card input[type="file"]')
       .setInputFiles({ name: 'thin-black.png', mimeType: 'image/png', buffer: PNG });
@@ -309,12 +312,12 @@ test.describe('a picture of the thing itself', () => {
     await expect(page.getByRole('button', { name: /picture of the/ })).toHaveCount(0);
     await expect(page.locator('.sc-convo-attach')).toHaveCount(0);
 
-    // left as it was, the conversation is back on the glasses; saying it in
-    // words is a fresh start, and the way in comes with it
+    // left as it was, the conversation is back on the glasses: the way in is
+    // there again, and saying it in words makes it usable
     await turn(page, 'q:look-hair').getByRole('button', { name: 'Cancel' }).click();
-    await expect(page.locator('.sc-convo-attach')).toHaveCount(0);
+    await expect(plus).toHaveAttribute('aria-disabled', 'true');
     await answer(page, 'Describe the glasses').click();
-    await expect(plus).toBeVisible();
+    await expect(plus).not.toHaveAttribute('aria-disabled', /.*/);
   });
 
   test('comes off again from its own chip', async ({ page }) => {

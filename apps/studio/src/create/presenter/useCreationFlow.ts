@@ -871,8 +871,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
    * both the words and the way in for a picture.
    */
   const composerOff = s.busy || busySetup || booting || !!composerBase.off;
-  // where a picture would go if one were added right now
-  const attachTarget = composerOff ? null : pictureFor(state, ctx);
+  // The detail a picture belongs to, whether or not the card can take one yet:
+  // the way in stays on screen and says why, rather than coming and going.
+  const attachTarget = pictureFor(state, ctx);
   const sayingStep = state.saying && isLookQid(state.saying) ? (state.saying.slice('look-'.length) as LookStep) : null;
   /** The colours this step is answered with, when it is answered with one. */
   const colours = composerBase.color && sayingStep ? colourPalette(sayingStep) : null;

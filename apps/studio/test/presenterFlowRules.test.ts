@@ -97,6 +97,22 @@ describe('the transcript is a function of state', () => {
       'A woman in their 30s with long brown hair, olive skin, a lean build. Shall I draw them?',
     );
     expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Draw them', 'Add a detail']);
+    // and everything that is always true of them is in that last word too
+    const withDetails = turns(
+      state({
+        ...a,
+        traits: ['glasses', 'tattoo', 'prosthetic'],
+        'trait-glasses': { words: 'thin black rectangular metal frames', refs: [] },
+        'trait-tattoo': { words: 'a solid blackwork tattoo', refs: [] },
+        'trait-tattoo-where': 'on their right forearm',
+        'trait-prosthetic': { words: 'a prosthetic limb in a bright painted finish', refs: [] },
+        'trait-prosthetic-where': 'in place of their right arm',
+      }),
+    );
+    const said = open(withDetails);
+    expect(said?.kind === 'confirm' && said.prompt).toBe(
+      'A woman in their 30s with long brown hair, olive skin, a lean build, and always thin black rectangular metal frames, a solid blackwork tattoo on their right forearm and a prosthetic limb in a bright painted finish in place of their right arm. Shall I draw them?',
+    );
     // the swatch questions know who is being drawn
     const who = open(turns(state({ source: { door: 'scratch', via: 'taps' }, 'look-who': 'man' })));
     expect(who?.kind === 'swatches' && who.cast).toBe('man');

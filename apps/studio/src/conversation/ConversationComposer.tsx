@@ -235,12 +235,16 @@ export function ConversationComposer({
         <div className="sc-convo-row">
           {(onAttach || onAttachFiles) && (
             <>
-              <Tip label={attachLabel ?? 'Add photos'}>
+              {/* It stays where it is when it cannot be used, dimmed, saying why
+                  on the cursor: the pill beside it does exactly the same, and a
+                  control that vanishes teaches nobody where pictures go. */}
+              <Tip label={off && why ? why : (attachLabel ?? 'Add photos')}>
                 <button
                   type="button"
                   className="sc-convo-attach"
                   aria-label={attachLabel ?? 'Add photos'}
-                  onClick={onAttachFiles ? () => files.current?.click() : onAttach}
+                  aria-disabled={off || undefined}
+                  onClick={off ? undefined : onAttachFiles ? () => files.current?.click() : onAttach}
                 >
                   <Plus size={16} weight="bold" />
                 </button>

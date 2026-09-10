@@ -172,13 +172,14 @@ export const TRAITS: Trait[] = [
     refHint: 'A clear photograph showing its shape and finish.',
     where: {
       ask: 'And which limb?',
+      // a limb is not worn on a limb: it is one, and the words say which
       options: [
-        { id: 'their left arm', label: 'Left arm' },
-        { id: 'their right arm', label: 'Right arm' },
-        { id: 'their left leg', label: 'Left leg' },
-        { id: 'their right leg', label: 'Right leg' },
-        { id: 'their left hand', label: 'Left hand' },
-        { id: 'their right hand', label: 'Right hand' },
+        { id: 'in place of their left arm', label: 'Left arm' },
+        { id: 'in place of their right arm', label: 'Right arm' },
+        { id: 'in place of their left leg', label: 'Left leg' },
+        { id: 'in place of their right leg', label: 'Right leg' },
+        { id: 'in place of their left hand', label: 'Left hand' },
+        { id: 'in place of their right hand', label: 'Right hand' },
       ],
     },
   },

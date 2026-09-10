@@ -1393,8 +1393,14 @@ button.sc-convo-shot-do {
   cursor: pointer;
 }
 
-.sc-convo-attach:hover {
+.sc-convo-attach:hover:not([aria-disabled="true"]) {
   border-color: var(--sc-line-strong);
+}
+
+/* nothing to attach to right now: it stands where it is, and says so */
+.sc-convo-attach[aria-disabled="true"] {
+  color: var(--sc-fg3);
+  cursor: default;
 }
 
 .sc-convo-send {
