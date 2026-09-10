@@ -1,5 +1,5 @@
 import { PencilSimple } from '@phosphor-icons/react';
-import { type CSSProperties, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { thumbUrl } from '../api.js';
 import { Tip } from '../layout/Tip.js';
 import { useLeave } from './ScenriTurn.js';
@@ -13,12 +13,15 @@ export function YouTurn({
   text,
   photos,
   editable,
+  editing,
   first,
   arrive,
   leave,
   delay = 0,
   turnId,
   onEdit,
+  onSave,
+  onCancel,
 }: {
   /** The turn's key, on the element, for what watches the transcript. */
   turnId?: string;
@@ -33,7 +36,12 @@ export function YouTurn({
   leave?: boolean;
   /** How long to wait first: the beat the answered block takes to go. */
   delay?: number;
+  /** The answer is being rewritten in place. */
+  editing?: boolean;
   onEdit?: () => void;
+  /** Said again, in the same place: the conversation carries on from here. */
+  onSave?: (text: string) => void;
+  onCancel?: () => void;
 }) {
   // an arrival plays once from its mount, whatever renders after
   const [arriving] = useState(!!arrive);
@@ -49,22 +57,81 @@ export function YouTurn({
       style={arriving ? ({ '--sc-convo-start': `${start}ms` } as CSSProperties) : undefined}
     >
       {first && <span className="sc-convo-who">You</span>}
-      <div className="sc-convo-bubble">
-        {editable && onEdit && (
-          <Tip label="Change this answer">
-            <button type="button" className="sc-convo-edit" aria-label="Change this answer" onClick={onEdit}>
-              <PencilSimple size={13} />
-            </button>
-          </Tip>
-        )}
-        <p>{text}</p>
-        {photos && photos.length > 0 && (
-          <div className="sc-convo-photos">
-            {photos.map((h, i) => (
-              <img key={h} src={thumbUrl(h, 'micro')} alt={`Yours, ${i + 1} of ${photos.length}`} />
-            ))}
-          </div>
-        )}
+      {editing && onSave && onCancel ? (
+        <Rewrite text={text} onSave={onSave} onCancel={onCancel} />
+      ) : (
+        <div className="sc-convo-bubble">
+          {editable && onEdit && (
+            <Tip label="Change this answer">
+              <button type="button" className="sc-convo-edit" aria-label="Change this answer" onClick={onEdit}>
+                <PencilSimple size={13} />
+              </button>
+            </Tip>
+          )}
+          <p>{text}</p>
+          {photos && photos.length > 0 && (
+            <div className="sc-convo-photos">
+              {photos.map((h, i) => (
+                <img key={h} src={thumbUrl(h, 'micro')} alt={`Yours, ${i + 1} of ${photos.length}`} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * An answer being said again: the words as they were, in a field where they
+ * stand. Enter saves, Escape cancels, and nothing else in the conversation
+ * moves until one of the two happens.
+ */
+function Rewrite({ text, onSave, onCancel }: { text: string; onSave: (t: string) => void; onCancel: () => void }) {
+  const [draft, setDraft] = useState(text);
+  const field = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = field.current;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, []);
+  const save = () => {
+    const said = draft.trim();
+    if (said) onSave(said);
+  };
+  return (
+    <div className="sc-convo-bubble" data-editing="true">
+      <textarea
+        ref={field}
+        className="sc-convo-rewrite"
+        aria-label="Your answer"
+        rows={Math.min(6, Math.max(1, draft.split('\n').length))}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            onCancel();
+          }
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            save();
+          }
+        }}
+      />
+      <div className="sc-convo-rewrite-do">
+        <button type="button" className="sc-btn sc-btn-ghost" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="sc-btn sc-btn-primary"
+          aria-disabled={!draft.trim() || undefined}
+          onClick={save}
+        >
+          Save
+        </button>
       </div>
     </div>
   );

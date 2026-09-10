@@ -119,7 +119,7 @@ async function watch(p: Page) {
       if (M.lastTick) M.maxGap = Math.max(M.maxGap, tick - M.lastTick);
       M.lastTick = tick;
       const seenNow = new Set<number>();
-      for (const el of box.querySelectorAll('.sc-convo-turn')) {
+      for (const el of box.querySelectorAll('.sc-convo-turn:not([data-working])')) {
         const id = idOf(el);
         seenNow.add(id);
         const who = (el as HTMLElement).dataset.who ?? '';
@@ -336,15 +336,18 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('This is where the person is described');
     await settle(page);
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Who are we drawing?');
+    await expect(log(page)).toContainText('Who are we making?');
     await settle(page);
     // the look is tapped a step at a time, each step arriving on its own beat
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
-    await expect(log(page)).toContainText('About what age?');
+    await expect(log(page)).toContainText('Roughly what age?');
     await settle(page);
     await log(page).getByRole('button', { name: 'Skip' }).click();
     await expect(log(page)).toContainText('What colour is their hair?');
     await settle(page, 600);
+    // the step owns the answer; saying it in words is asked for first
+    await log(page).getByRole('button', { name: 'Describe the colour' }).click();
+    await settle(page);
     await send(page, 'bullshit');
     await expect(log(page)).toContainText('That does not describe anyone.');
     await settle(page);
@@ -380,7 +383,10 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('Select a view and say what is wrong');
     await settle(page);
     await answer(page, 'Save as is').click();
-    await expect(answer(page, 'Save presenter')).toBeVisible();
+    // the name is asked across the build, and the save waits on it
+    await expect(log(page)).toContainText('What should we call them?', { timeout: 20_000 });
+    await send(page, 'Noor');
+    await expect(answer(page, 'Save presenter')).toBeVisible({ timeout: 20_000 });
     await settle(page);
 
     const { events, initial, maxGap, end } = await record(page);
@@ -435,9 +441,11 @@ test.describe('the conversation in motion', () => {
       .click();
     await settle(page, 600);
     await pencil(page, 'Maren').click();
-    await expect(composer(page)).toHaveValue('Maren');
+    // a text answer is rewritten where it stands
+    await expect(log(page).locator('.sc-convo-rewrite')).toHaveValue('Maren');
     await settle(page);
-    await send(page, 'Maren Vale');
+    await log(page).locator('.sc-convo-rewrite').fill('Maren Vale');
+    await log(page).getByRole('button', { name: 'Save', exact: true }).click();
     await expect(log(page)).toContainText('Maren Vale is ready.');
     await settle(page);
 
@@ -498,7 +506,7 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('Who are we creating?');
     await watch(page);
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Who are we drawing?');
+    await expect(log(page)).toContainText('Who are we making?');
     await pencil(page, 'Describe someone').click();
     await expect(answer(page, 'Add photos')).toBeVisible();
     await send(page, 'hey');

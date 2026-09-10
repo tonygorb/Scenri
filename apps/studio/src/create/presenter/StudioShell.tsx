@@ -54,6 +54,8 @@ export interface StudioSurface {
   title: string;
   turns: Turn[];
   busy: boolean;
+  /** What is genuinely being waited for, for the line under Scenri's name. */
+  working?: boolean | string;
   /** Where the transcript remembers what has been said. */
   memoryKey?: string;
   /** The page opened on a conversation that was already had. */
@@ -66,6 +68,11 @@ export interface StudioSurface {
   onSend: (text: string) => boolean;
   onAnswer: (questionId: string, answer: Answer) => void;
   onEdit?: (turnId: string) => void;
+  /** A tap question answered in words instead. */
+  onDescribe?: () => void;
+  /** An answer said again, where it stands. */
+  onSaveEdit?: (turnId: string, text: string) => void;
+  onCancelEdit?: () => void;
   onExpand?: () => void;
   /** A picture from before, put back on its view. */
   onRestore?: (view: string, hash: string) => void;
@@ -195,13 +202,17 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
               <Transcript
                 turns={s.turns}
                 busy={s.busy}
+                working={s.working}
                 memoryKey={s.memoryKey}
                 resumed={s.resumed}
                 onAnswer={s.onAnswer}
                 onEdit={s.onEdit}
+                onSaveEdit={s.onSaveEdit}
+                onCancelEdit={s.onCancelEdit}
                 onExpand={s.onExpand}
                 onRestore={s.onRestore}
                 onStarter={(text) => s.onText(text)}
+                onDescribe={s.onDescribe}
               />
             </div>
           </div>

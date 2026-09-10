@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { REVEAL_LEAD_MS, THINK_MS, type Answer, type Turn, prefersReducedMotion, turnKey } from './question.js';
 import { PICK_MS, type Picked, QuestionBlock } from './QuestionBlock.js';
-import { ScenriTurn } from './ScenriTurn.js';
+import { ScenriTurn, Working } from './ScenriTurn.js';
 import { YouTurn } from './YouTurn.js';
 
 /** The beat a turn takes to go when it leaves: a reverted answer, a question that is over. */
@@ -51,25 +51,39 @@ interface Leaving {
 export function Transcript({
   turns,
   busy,
+  working,
   memoryKey,
   resumed,
   onAnswer,
   onEdit,
+  onSaveEdit,
+  onCancelEdit,
   onExpand,
   onStarter,
+  onDescribe,
   onRestore,
 }: {
   turns: Turn[];
   busy?: boolean;
+  /**
+   * Something is genuinely being waited for, and what it is in a word or two.
+   * Never set for a question the flow already has: a line that is ready arrives.
+   */
+  working?: boolean | string;
   /** Where what has been said is remembered, so a line arrives once. */
   memoryKey?: string;
   /** The page opened on a conversation that was already had: none of it is written out again. */
   resumed?: boolean;
   onAnswer: (questionId: string, answer: Answer) => void;
   onEdit?: (turnId: string) => void;
+  /** An answer said again, in the place it was said. */
+  onSaveEdit?: (turnId: string, text: string) => void;
+  onCancelEdit?: () => void;
   /** The folded setup stretch was pressed. */
   onExpand?: () => void;
   onStarter?: (text: string) => void;
+  /** A question with things to tap was answered in words instead. */
+  onDescribe?: () => void;
   /** A picture from before, put back on its view. */
   onRestore?: (view: string, hash: string) => void;
 }) {
@@ -202,8 +216,10 @@ export function Transcript({
       let at = due.current.get(k);
       if (at === undefined) {
         // the floor is kept between renders: a line that lands while an earlier
-        // one is still being read waits for it, however many renders apart
-        const mine = t.kind === 'you';
+        // one is still being read waits for it, however many renders apart.
+        // Your own words are yours, and a question you have already read and
+        // answered is not being said to you again, so neither waits.
+        const mine = t.kind === 'you' || (t.kind === 'scenri' && t.id.startsWith('asked-'));
         at = Math.max(now, mine ? 0 : free.current, leaving?.until ?? 0);
         due.current.set(k, at);
         free.current = Math.max(free.current, at + (mine ? ANSWER_MS : THINK_MS + REVEAL_LEAD_MS));
@@ -302,12 +318,15 @@ export function Transcript({
           text={t.text}
           photos={t.photos}
           editable={t.editable}
+          editing={t.editing}
           first={first}
           arrive={reveal}
           leave={going}
           delay={delay}
           turnId={k}
           onEdit={t.editable && onEdit ? () => onEdit(t.id) : undefined}
+          onSave={onSaveEdit ? (said) => onSaveEdit(t.id, said) : undefined}
+          onCancel={onCancelEdit}
         />,
       );
     } else if (t.kind === 'scenri') {
@@ -349,13 +368,17 @@ export function Transcript({
           onAnswer={(a) => onAnswer(t.question.id, a)}
           onPick={onPick}
           onStarter={onStarter}
+          onDescribe={onDescribe}
         />,
       );
     }
   }
   return (
     <div ref={box} className="sc-convo-log" role="log" aria-live="polite" aria-relevant="additions">
-      <div className="sc-convo-turns">{out}</div>
+      <div className="sc-convo-turns">
+        {out}
+        {working && <Working what={working === true ? undefined : working} />}
+      </div>
     </div>
   );
 }

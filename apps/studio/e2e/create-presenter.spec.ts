@@ -193,26 +193,27 @@ test.describe('a person from scratch', () => {
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
     // one row, one tap, then the next row: who, age, hair, its length, skin, build
-    await expect(log(page)).toContainText('Who are we drawing?');
+    await expect(log(page)).toContainText('Who are we making?');
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
-    await expect(log(page)).toContainText('About what age?');
+    await expect(log(page)).toContainText('Roughly what age?');
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
     await expect(log(page)).toContainText('What colour is their hair?');
     await log(page).getByRole('button', { name: 'Black', exact: true }).click();
-    await expect(log(page)).toContainText('How long do they wear it?');
+    await expect(log(page)).toContainText('How long is it?');
     // length and build are shapes rather than words
     await expect(log(page).locator('.sc-convo-tile .sc-look-art').first()).toBeVisible();
     await log(page).getByRole('button', { name: 'Shoulder', exact: true }).click();
-    await expect(log(page)).toContainText('And their skin?');
+    await expect(log(page)).toContainText('What is their skin tone?');
     await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
-    await expect(log(page)).toContainText('What sort of build?');
-    // what has been tapped so far is one answer of yours, and it grows
-    await expect(log(page).locator('.sc-convo-turn[data-who="you"]').last()).toContainText(
-      'A woman in their 30s with shoulder-length black hair, olive skin',
-    );
+    await expect(log(page)).toContainText('And their build?');
+    // every step is its own exchange: its question, and its answer under it
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-who"]')).toContainText('Woman');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-length"]')).toContainText('Shoulder');
     await log(page).getByRole('button', { name: 'Athletic', exact: true }).click();
-    // nothing is drawn until it is read back and agreed to
-    await expect(log(page)).toContainText('Shall I draw them?');
+    // nothing is drawn until the whole person is read back and agreed to
+    await expect(log(page)).toContainText(
+      'A woman in their 30s with shoulder-length black hair, olive skin, an athletic build. Shall I draw them?',
+    );
     await log(page).getByRole('button', { name: 'Draw them' }).click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     const tapped = await draftsOf(page, brand.id);
@@ -224,7 +225,10 @@ test.describe('a person from scratch', () => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Who are we drawing?');
+    await expect(log(page)).toContainText('Who are we making?');
+    // the steps own the answer; saying it in words is asked for
+    await log(page).getByRole('button', { name: 'Describe instead' }).click();
+    await expect(log(page)).toContainText('Describe them.');
     await send(page, 'black curly hair');
     await expect(log(page)).toContainText('cannot tell yet');
     await page.getByRole('radio', { name: 'Man', exact: true }).click();
@@ -249,11 +253,11 @@ test.describe('a person from scratch', () => {
     await page.waitForTimeout(300);
     calls.reset();
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Who are we drawing?');
+    await expect(log(page)).toContainText('Who are we making?');
     await page.waitForTimeout(900);
     expect(calls.urls()).toBe('');
     // one sentence, one node's text, from the first frame
-    await expect(log(page).locator('.sc-convo-say').last()).toHaveText('Who are we drawing?');
+    await expect(log(page).locator('.sc-convo-say').last()).toHaveText('Who are we making?');
   });
 
   test('reduced motion: no arrival plays, the line simply stands', async ({ page }) => {
@@ -261,7 +265,7 @@ test.describe('a person from scratch', () => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Who are we drawing?');
+    await expect(log(page)).toContainText('Who are we making?');
     await expect(page.locator('[data-reveal] .sc-convo-w')).toHaveCount(0);
   });
 
@@ -314,9 +318,15 @@ test.describe('a person from scratch', () => {
     await send(page, 'Marren');
     await expect(log(page)).toContainText('Marren is ready.');
     const before = await draftOf(page, brand.id, draftId);
-    await log(page).getByRole('button', { name: 'Change this answer' }).last().click();
-    await expect(composer(page)).toHaveValue('Marren');
-    await send(page, 'Maren');
+    await log(page)
+      .locator('.sc-convo-turn', { hasText: 'Marren' })
+      .getByRole('button', { name: 'Change this answer' })
+      .click();
+    // the answer itself becomes the field, with the words already in it
+    const rewrite = log(page).locator('.sc-convo-rewrite');
+    await expect(rewrite).toHaveValue('Marren');
+    await rewrite.fill('Maren');
+    await log(page).getByRole('button', { name: 'Save', exact: true }).click();
     await expect(log(page)).toContainText('Maren is ready.');
     const after = await draftOf(page, brand.id, draftId);
     expect(after.name).toBe('Maren');
@@ -334,9 +344,11 @@ test.describe('a person from scratch', () => {
       .locator('.sc-convo-turn', { hasText: 'a man in his 30s' })
       .getByRole('button', { name: 'Change this answer' })
       .click();
+    const said = log(page).locator('.sc-convo-rewrite');
+    await expect(said).toHaveValue('a man in his 30s');
+    await said.fill('a woman in her 50s with silver hair');
+    await log(page).getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Redraw the face' }).click();
-    await expect(composer(page)).toHaveValue('a man in his 30s');
-    await send(page, 'a woman in her 50s with silver hair');
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).direction, { timeout: 20_000 })
       .toBe('a woman in her 50s with silver hair');
@@ -656,13 +668,14 @@ test.describe('what answers nothing', () => {
     await expect(log(page).locator('.sc-convo-q[data-picked] .sc-convo-choice[data-on]')).toHaveText(
       'Describe someone',
     );
-    await expect(log(page)).toContainText('Who are we drawing?');
+    await expect(log(page)).toContainText('Who are we making?');
     await expect(log(page).locator('.sc-convo-q[data-picked]')).toHaveCount(0);
+    await log(page).getByRole('button', { name: 'Describe instead' }).click();
     await send(page, 'hey');
-    // the reply thinks first: three dots stand where the words will
-    await expect(log(page).locator('.sc-convo-dots').first()).toBeVisible();
+    // the reply arrives with its words: nothing pretends to think about a line
+    // it already had
     await expect(log(page)).toContainText('Hi. A few words about them is enough');
-    await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0, { timeout: 4000 });
+    await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0);
     // an answer changed from its pencil goes with a fade, and the question asked again arrives again
     await log(page)
       .locator('.sc-convo-turn', { hasText: 'Describe someone' })
@@ -675,7 +688,6 @@ test.describe('what answers nothing', () => {
     // the other door arrives with its beat too, and has a way back
     await answer(page, 'Add photos').click();
     await expect(log(page)).toContainText('Add one clear photo of their face.');
-    await expect(log(page).locator('.sc-convo-dots').first()).toBeVisible();
     await expect(answer(page, 'Describe someone instead')).toBeVisible();
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.reload();

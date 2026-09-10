@@ -59,7 +59,7 @@ export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClo
       onOpenChange={(o) => {
         if (!o) f.setConfirming(null);
       }}
-      onConfirm={f.redescribe}
+      onConfirm={f.redrawFromSaid}
     />
   );
 

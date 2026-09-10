@@ -201,6 +201,27 @@
   animation-delay: calc(var(--sc-convo-start, 0ms) + 120ms);
 }
 
+/* Scenri, working: the name where the next line will come from, the word for
+   what is being waited for, and three dots after it. It stands only while
+   something genuinely takes time, and the line replaces it when it arrives. */
+.sc-convo-turn[data-working] .sc-convo-say {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  color: var(--sc-fg3);
+}
+
+.sc-convo-work {
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.sc-convo-turn[data-working] .sc-convo-dots {
+  position: static;
+  height: 22px;
+}
+
 /* The beat before a line: three dots stand where the words will, and the
    mark breathes. The dots step aside the moment the words start. */
 .sc-convo-dots {
@@ -463,6 +484,13 @@ button.sc-convo-shot-do {
   gap: var(--sc-space-5);
 }
 
+/* the ways past a question sit under what it offers, never inside its grid */
+.sc-convo-ways {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-3);
+}
+
 /* not `.sc-convo-row`: that is the composer's own row, and it aligns to its far
    edge, which pushed every swatch to the right of the rail */
 .sc-convo-look-row {
@@ -480,9 +508,9 @@ button.sc-convo-shot-do {
 /* a row of tiles reads as a grid, three across, rather than a wrapping line */
 .sc-convo-swatches:has(.sc-convo-tile) {
   display: grid;
-  grid-template-columns: repeat(3, max-content);
-  justify-content: start;
-  align-items: end;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sc-space-4);
+  align-items: stretch;
 }
 
 .sc-convo-swatches {
@@ -529,9 +557,8 @@ button.sc-convo-shot-do {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  width: 70px;
-  padding: 6px 0 0;
+  gap: 6px;
+  padding: 12px 10px 0;
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-lg);
   background: var(--sc-raised);
@@ -548,16 +575,19 @@ button.sc-convo-shot-do {
   padding-bottom: 5px;
 }
 
-/* one cell of the sheet its row was drawn on */
+/* One cell of the sheet its row was drawn on, as a mask rather than a picture:
+   the figure is the card's own ink on the card's own surface, so no plate of
+   another colour sits inside the card. */
 .sc-look-art {
   display: block;
-  border-radius: var(--sc-radius-md);
-  background-color: var(--sc-chip);
-  background-repeat: no-repeat;
-  background-size: calc(100% * var(--sc-look-cols)) calc(100% * var(--sc-look-rows));
-  background-position: calc(var(--sc-look-x) * 100% / (var(--sc-look-cols) - 1))
+  width: 100%;
+  aspect-ratio: 1;
+  background-color: currentColor;
+  mask-repeat: no-repeat;
+  mask-size: calc(100% * var(--sc-look-cols)) calc(100% * var(--sc-look-rows));
+  mask-position: calc(var(--sc-look-x) * 100% / (var(--sc-look-cols) - 1))
     calc(var(--sc-look-y) * 100% / (var(--sc-look-rows) - 1));
-  opacity: 0.75;
+  opacity: 0.62;
   transition: opacity var(--sc-dur-fast) var(--sc-ease);
 }
 
@@ -565,28 +595,29 @@ button.sc-convo-shot-do {
   --sc-look-cols: 3;
   --sc-look-rows: 2;
 
-  width: 42px;
-  height: 60px;
-  background-image: url("../../assets/look/hair.webp");
+  /* the hair sheet's cells are taller than they are wide */
+  aspect-ratio: 2 / 3;
 }
 
 .sc-look-art[data-kind="build"] {
-  --sc-look-cols: 2;
-  --sc-look-rows: 2;
-
-  width: 54px;
-  height: 54px;
-  background-image: url("../../assets/look/build.webp");
+  --sc-look-cols: 3;
+  --sc-look-rows: 3;
 }
 
-.sc-convo-tile:hover {
-  border-color: var(--sc-line-strong);
-  color: var(--sc-fg);
+.sc-look-art[data-kind="hair"][data-cast="woman"] {
+  mask-image: url("../../assets/look/hair-woman.webp");
 }
 
-.sc-convo-tile[data-on] {
-  border-color: var(--sc-fg);
-  color: var(--sc-fg);
+.sc-look-art[data-kind="hair"][data-cast="man"] {
+  mask-image: url("../../assets/look/hair-man.webp");
+}
+
+.sc-look-art[data-kind="build"][data-cast="woman"] {
+  mask-image: url("../../assets/look/build-woman.webp");
+}
+
+.sc-look-art[data-kind="build"][data-cast="man"] {
+  mask-image: url("../../assets/look/build-man.webp");
 }
 
 .sc-convo-tile:hover .sc-look-art,
@@ -600,6 +631,27 @@ button.sc-convo-shot-do {
 }
 
 /* a colour of your own: the wheel until it is chosen, then the colour itself */
+/* A colour of your own is a choosing, not a choice: the swatch shows what is
+   under the pointer, and the check beside it takes it. */
+.sc-convo-own {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sc-convo-own-take {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+  cursor: pointer;
+}
+
 .sc-convo-swatch-own {
   background: conic-gradient(from 0deg, #f0605d, #f7bc50, #7ac74f, #4aa3f0, #8b6ff2, #f0605d);
 }

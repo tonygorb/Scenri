@@ -1,3 +1,4 @@
+import { Check, PencilSimple } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
 import { LookArt } from './LookArt.js';
@@ -40,6 +41,7 @@ export function QuestionBlock({
   onAnswer,
   onPick,
   onStarter,
+  onDescribe,
 }: {
   question: Question;
   /** The turn's key, on the element, for what watches the transcript. */
@@ -60,6 +62,8 @@ export function QuestionBlock({
   onPick?: (questionId: string, picked: Picked) => void;
   /** A starter sentence fills the composer; the flow owns the composer's text. */
   onStarter?: (text: string) => void;
+  /** Say it in words instead: the composer takes the answer from here. */
+  onDescribe?: () => void;
 }) {
   // the timing a turn arrives by is fixed when it mounts, whatever renders after
   const [start] = useState(delay);
@@ -213,7 +217,7 @@ export function QuestionBlock({
                   >
                     {o.art ? (
                       <>
-                        <LookArt kind={o.art} id={o.id} />
+                        <LookArt kind={o.art} id={o.id} who={question.who} />
                         <span>{o.label}</span>
                       </>
                     ) : o.color ? null : (
@@ -223,36 +227,58 @@ export function QuestionBlock({
                 </Tip>
               ))}
               {question.row.custom && (
-                <Tip label="A colour of your own">
-                  <span
-                    className="sc-convo-swatch sc-convo-swatch-own"
-                    data-picked={!!own || undefined}
-                    style={own ? ({ '--sc-swatch': own } as CSSProperties) : undefined}
-                  >
-                    <input
-                      type="color"
-                      aria-label="A colour of your own"
-                      value={own ?? '#7b5230'}
-                      onInput={(e) => setOwn((e.target as HTMLInputElement).value)}
-                      onChange={(e) => {
-                        setOwn(e.target.value);
-                        commit(e.target.value, { kind: 'swatches', picks: { [question.row.id]: e.target.value } });
-                      }}
-                    />
-                  </span>
-                </Tip>
-              )}
-              {question.skip && (
-                <button
-                  type="button"
-                  className="sc-chip sc-convo-choice sc-convo-pass"
-                  data-on={picked === 'skip' || undefined}
-                  onClick={() => commit('skip', { kind: 'skip' })}
-                >
-                  {question.skip}
-                </button>
+                <span className="sc-convo-own">
+                  <Tip label="A colour of your own">
+                    <span
+                      className="sc-convo-swatch sc-convo-swatch-own"
+                      data-picked={!!own || undefined}
+                      style={own ? ({ '--sc-swatch': own } as CSSProperties) : undefined}
+                    >
+                      <input
+                        type="color"
+                        aria-label="A colour of your own"
+                        value={own ?? '#7b5230'}
+                        // the swatch is the colour under the pointer while it
+                        // moves; choosing a colour is not the same as being done
+                        onInput={(e) => setOwn((e.target as HTMLInputElement).value)}
+                        onChange={(e) => setOwn(e.target.value)}
+                      />
+                    </span>
+                  </Tip>
+                  {own && (
+                    <Tip label="Use this colour">
+                      <button
+                        type="button"
+                        className="sc-convo-own-take"
+                        aria-label="Use this colour"
+                        onClick={() => commit(own, { kind: 'swatches', picks: { [question.row.id]: own } })}
+                      >
+                        <Check size={12} weight="bold" />
+                      </button>
+                    </Tip>
+                  )}
+                </span>
               )}
             </div>
+            {(question.skip || question.describe) && (
+              <div className="sc-convo-ways">
+                {question.skip && (
+                  <button
+                    type="button"
+                    className="sc-chip sc-convo-choice sc-convo-pass"
+                    data-on={picked === 'skip' || undefined}
+                    onClick={() => commit('skip', { kind: 'skip' })}
+                  >
+                    {question.skip}
+                  </button>
+                )}
+                {question.describe && onDescribe && (
+                  <button type="button" className="sc-chip sc-convo-choice sc-convo-pass" onClick={onDescribe}>
+                    {question.describe}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 

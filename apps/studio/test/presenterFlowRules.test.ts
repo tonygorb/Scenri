@@ -4,22 +4,20 @@ import { activeQuestion } from '../src/create/presenter/presenterFlowRules.js';
 import type { Question, Turn } from '../src/conversation/question.js';
 import {
   EMPTY_SETUP,
-  lastLookStep,
   PASSED,
-  directionFrom,
-  lookLine,
-  lookSentence,
   STARTERS,
   type Setup,
   UNSURE_LINE,
   asideReply,
-  filedLine,
-  settleUnsure,
   composerFor,
   descriptionGaps,
   directionFrom,
   editEffect,
+  filedLine,
+  lookLine,
+  lookSentence,
   needsFollowUp,
+  settleUnsure,
   sourceFromText,
   turnsFor,
 } from '../src/create/presenter/presenterFlowRules.js';
@@ -104,15 +102,21 @@ describe('the transcript is a function of state', () => {
     // one row of colours, with a colour of your own at the end of it
     expect(hair?.kind === 'swatches' && hair.row.options.every((o) => !!o.color)).toBe(true);
     expect(hair?.kind === 'swatches' && [hair.row.options.length, hair.row.custom]).toEqual([9, true]);
-    // an answer already given is taken back with its pencil, as any answer is
+    // every step answered is its own exchange, with its own pencil
     const said = turnsFor({
       setup: setup({ source: 'scratch', look: { who: 'woman', age: '30s' } }),
       draft: null,
       canGenerate: true,
       ui,
     });
-    expect(said.find((t) => t.kind === 'you' && t.id === 'look')).toMatchObject({ editable: true });
-    expect(lastLookStep({ who: 'woman', age: '30s' })).toBe('age');
+    const ids = said.map((t) => (t.kind === 'question' ? `q:${t.question.id}` : `${t.kind}:${t.id}`));
+    expect(ids).toContain('scenri:asked-look-who');
+    expect(ids).toContain('you:look-who');
+    expect(ids).toContain('you:look-age');
+    expect(said.find((t) => t.kind === 'you' && t.id === 'look-age')).toMatchObject({
+      text: '30s',
+      editable: true,
+    });
     const length = ask({ who: 'woman', age: '30s', hair: 'black' });
     expect(length?.kind === 'swatches' && length.row.options.every((o) => o.art === 'hair')).toBe(true);
     // a sentence still answers the whole thing, and answers it whole
@@ -120,7 +124,14 @@ describe('the transcript is a function of state', () => {
   });
 
   it('what was tapped is said as a person, with a colour of your own named as the nearest we have', () => {
-    const look = { who: 'woman', age: '30s', hair: 'dark brown', length: 'shoulder-length', skin: 'olive', build: 'slender' };
+    const look = {
+      who: 'woman',
+      age: '30s',
+      hair: 'dark brown',
+      length: 'shoulder-length',
+      skin: 'olive',
+      build: 'slender',
+    };
     expect(lookSentence(look)).toBe(
       'a woman in their 30s with shoulder-length dark brown hair, olive skin, a slender build',
     );

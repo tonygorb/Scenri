@@ -28,12 +28,16 @@ const CELL: Record<string, Record<string, [number, number]>> = {
   },
 };
 
-export function LookArt({ kind, id }: { kind: 'hair' | 'build'; id: string }) {
+export function LookArt({ kind, id, who }: { kind: 'hair' | 'build'; id: string; who?: string }) {
   const [x, y] = CELL[kind]?.[id] ?? [0, 0];
+  // a man's hair on a man's head: the figures follow who is being made, and
+  // anyone who has not said stands with the fuller of the two
+  const cast = who === 'man' ? 'man' : 'woman';
   return (
     <span
       className="sc-look-art"
       data-kind={kind}
+      data-cast={cast}
       style={{ '--sc-look-x': x, '--sc-look-y': y } as CSSProperties}
       aria-hidden="true"
     />

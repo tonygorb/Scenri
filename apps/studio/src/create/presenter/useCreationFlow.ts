@@ -17,7 +17,10 @@ import {
   composerFor,
   directionFrom,
   lastLookStep,
+  LOOK_STEPS,
   nextLookStep,
+  rewindAsides,
+  rewindSetup,
   PASSED,
   editEffect,
   needsFollowUp,
@@ -119,6 +122,10 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [busySetup, setBusySetup] = useState(false);
   const [confirming, setConfirming] = useState<'start-over' | 'redescribe' | null>(null);
+  // the words said again, waiting on the question about the face drawn from the old ones
+  const [said, setSaid] = useState<string | null>(null);
+  // pressed "Change something": the composer takes the focus, nothing else moves
+  const [changing, setChanging] = useState(0);
   const [booting, setBooting] = useState(!draftId);
   // the page opened on a draft: its conversation was had before this page
   const [resumed] = useState(!!draftId);
@@ -373,8 +380,10 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           if (a.kind !== 'confirm') return;
           // agreed: what was tapped is the person, and the face is drawn from it
           if (a.id === 'draw') void startScratch(setup);
+          // a detail the steps could not ask for, in their own words
+          if (a.id === 'add') setUi((u) => ({ ...u, saying: 'agree' }));
           // or the last step comes back, to be tapped again
-          if (a.id === 'change') onEditRef.current?.('look');
+          if (a.id === 'change') onEditRef.current?.(`look-${lastLookStep(setup.look ?? null) ?? 'who'}`);
           return;
         }
         case 'look-who':
@@ -425,6 +434,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
             setUi((u) => ({ ...u, collapsed: true }));
           }
           if (a.id === 'again') void s.generate('portrait');
+          // changing the person is said in words: the composer takes it from here
+          if (a.id === 'change') setChanging((n) => n + 1);
           return;
         case 'revision':
         case 'view-revision': {
@@ -478,6 +489,42 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       if (!sentence) return false;
       setAskErr(null);
       const open = question?.id;
+      // a step being answered in words takes the sentence, and nothing else does
+      if (ui.saying === 'agree') {
+        setUi((u) => ({ ...u, saying: null }));
+        const next = { ...setup, description: sentence };
+        setSetup(next);
+        setText('');
+        void startScratch(next);
+        return true;
+      }
+      if (ui.saying) {
+        const step = ui.saying;
+        // words in place of a tap are still words: what says nothing is bounced
+        // the way it is anywhere else, and the step stays open
+        const empty = answersNothing(sentence, readsAsPerson);
+        if (empty) {
+          setUi((u) => ({
+            ...u,
+            asides: [
+              ...(u.asides ?? []),
+              {
+                said: sentence,
+                reply: asideReply(empty, 'describe', false, sentence),
+                q: `look-${step}`,
+                at: nowIso(),
+              },
+            ],
+          }));
+          setText('');
+          return true;
+        }
+        const had = setup.look && setup.look !== 'skipped' ? setup.look : {};
+        setUi((u) => ({ ...u, saying: null }));
+        setSetup({ look: { ...had, [step]: sentence } });
+        setText('');
+        return true;
+      }
       const qid = ui.reasking ?? (open === 'unsure' ? (ui.unsure?.q ?? 'source') : open);
       const phase: AsidePhase =
         qid === 'source'
@@ -594,13 +641,22 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const onEditRef = useRef<((turnId: string) => void) | null>(null);
   const onEdit = useCallback(
     (turnId: string) => {
-      // a look answer goes back one step, so it can be tapped again
-      if (turnId === 'look') {
-        const back = lastLookStep(setup.look ?? null);
-        if (!back) return;
-        const rest = { ...(setup.look && setup.look !== 'skipped' ? setup.look : {}) };
-        delete rest[back];
-        setSetup({ look: Object.keys(rest).length ? rest : null });
+      // a text answer is said again where it stands, not somewhere else
+      if (turnId === 'describe' || turnId === 'name') {
+        setUi((u) => ({ ...u, editing: turnId }));
+        return;
+      }
+      // a step's own pencil takes that step back, and everything asked after it
+      if (turnId.startsWith('look-')) {
+        const id = turnId.slice('look-'.length);
+        const had = setup.look && setup.look !== 'skipped' ? setup.look : {};
+        const kept: Record<string, string> = {};
+        for (const st of LOOK_STEPS) {
+          if (st.row.id === id) break;
+          if (had[st.row.id]) kept[st.row.id] = had[st.row.id];
+        }
+        setUi((u) => ({ ...u, asides: rewindAsides(u.asides ?? [], 'look') }));
+        setSetup({ look: Object.keys(kept).length ? kept : null });
         return;
       }
       const effect = editEffect(turnId, !!d);
@@ -632,7 +688,61 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   );
   onEditRef.current = onEdit;
 
-  const composerBase = composerFor(question, d, view);
+  /**
+   * An answer said again. Everything the flow asked after it is taken back, in
+   * the transcript and in what is drawn from, because the future it belonged to
+   * is gone; nothing before it is touched.
+   */
+  const onSaveEdit = useCallback(
+    (turnId: string, said: string) => {
+      const text = said.trim();
+      if (!text) return;
+      setUi((u) => ({ ...u, editing: null, asides: rewindAsides(u.asides ?? [], turnId), unsure: null }));
+      if (turnId === 'name') {
+        if (d) void s.update({ name: text });
+        return;
+      }
+      if (turnId === 'describe') {
+        // a face already drawn from the old words is asked about, never quietly
+        // replaced; before there is one, the new words simply stand
+        if (d) {
+          setSaid(text);
+          setConfirming('redescribe');
+          return;
+        }
+        setSetup({ ...rewindSetup(setup, 'describe'), description: text });
+      }
+    },
+    [d, s.update, setSetup, setup],
+  );
+
+  /** The words said again, once the face drawn from the old ones is agreed to go. */
+  const redrawFromSaid = useCallback(() => {
+    if (!said) return;
+    setConfirming(null);
+    setSetup({ ...rewindSetup(setup, 'describe'), description: said });
+    void (async () => {
+      await s.update({ direction: said });
+      await s.redo('portrait');
+    })();
+    setSaid(null);
+  }, [said, s.update, s.redo, setSetup, setup]);
+  const onCancelEdit = useCallback(() => setUi((u) => ({ ...u, editing: null })), []);
+
+  /**
+   * A step answered in words. The first step hands the whole look to a sentence;
+   * any other hands the composer that one step, and only that one.
+   */
+  const onDescribe = useCallback(() => {
+    const step = nextLookStep(setup.look ?? null);
+    if (!step || step.row.id === 'who') {
+      setSetup({ look: 'skipped' });
+      return;
+    }
+    setUi((u) => ({ ...u, saying: step.row.id }));
+  }, [setSetup, setup.look]);
+
+  const composerBase = composerFor(question, d, view, ui.saying ?? null);
   const scope =
     d && identityLocked(d) && !composerBase.off && !question?.id.match(/^(name|describe)$/)
       ? (() => {
@@ -661,6 +771,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     saving,
     saveErr,
     confirming,
+    redrawFromSaid,
     setConfirming,
     startOver,
     redescribe: () => {
@@ -680,6 +791,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       resumed,
       turns,
       busy: s.busy || busySetup,
+      // Truthful: only where something is actually being waited for. A question
+      // the flow already has arrives without anyone pretending to think.
+      working: d?.stage === 'analyzing' ? 'Reading the photos' : d?.activeView ? 'Drawing' : busySetup || s.busy,
       stage: d
         ? {
             hash: shownHash,
@@ -715,7 +829,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         disabled: s.busy || busySetup || booting || !!composerBase.off,
         working: !!d && !!d.activeView && question?.id !== 'name',
         onStop: d?.activeView ? () => void s.stop() : undefined,
-        focusKey: question ? `${question.id}:${d?.id ?? 'setup'}` : undefined,
+        focusKey: question ? `${question.id}:${d?.id ?? 'setup'}:${changing}` : undefined,
         onAttach: !d && question?.id === 'source' ? () => setSetup({ source: 'photos' }) : undefined,
       },
       text,
@@ -724,6 +838,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       onAnswer,
       onRestore: (view: string, hash: string) => void s.restore(view as StudioView, hash),
       onEdit,
+      onSaveEdit,
+      onCancelEdit,
+      onDescribe,
       onExpand: () => setUi((u) => ({ ...u, collapsed: false })),
       footnote: capsNote(''),
       onPaste: !d ? (files: File[]) => void addFiles(files) : undefined,

@@ -74,6 +74,10 @@ export type Question =
       row: SwatchRow;
       /** A quiet way past this one. */
       skip?: string;
+      /** A way to say it in words instead, which hands the answer to the composer. */
+      describe?: string;
+      /** Who is being made, so the figures on the tiles are theirs. */
+      who?: string;
     })
   | (QuestionBase & {
       kind: 'photos';
@@ -122,6 +126,12 @@ export type Turn =
       photos?: string[];
       /** The answer can be changed from here. */
       editable?: boolean;
+      /**
+       * The answer is being rewritten in place: the bubble is a field with the
+       * words already in it. Saving it is saying it again, which is what a
+       * conversation does with a correction; cancelling changes nothing.
+       */
+      editing?: boolean;
     }
   | {
       kind: 'scenri';
@@ -149,7 +159,15 @@ export const turnKey = (t: Turn): string => (t.kind === 'question' ? `q:${t.ques
  * for. The words are real text nodes, so a screen reader hears one sentence.
  */
 /** The beat before a line arrives: the mark breathes and three dots stand where the words will. */
-export const THINK_MS = 700;
+/**
+ * The beat before a line: long enough to see who is speaking and that they are
+ * composing, short enough that tapping through six questions never waits on it.
+ *
+ * It used to be seven hundred milliseconds, which read as theatre on a line the
+ * flow already had in hand. Real waiting is a different thing and says so under
+ * Scenri's own name (`Working`), for as long as it actually takes.
+ */
+export const THINK_MS = 320;
 export const REVEAL_LEAD_MS = 180;
 export const REVEAL_STEP_MS = 28;
 export const REVEAL_MAX_MS = 700;

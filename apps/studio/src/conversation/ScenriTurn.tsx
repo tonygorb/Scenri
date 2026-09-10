@@ -109,6 +109,23 @@ export function Eyebrow({ thinking }: { thinking?: boolean }) {
   );
 }
 
+/**
+ * Scenri, working: the mark and the name where the next line will come from,
+ * with three dots after them. It stands only while something is genuinely being
+ * waited for, and it is what resolves into the line when it arrives.
+ */
+export function Working({ what = 'Thinking' }: { what?: string }) {
+  return (
+    <div className="sc-convo-turn" data-who="scenri" data-working="true">
+      <Eyebrow thinking />
+      <p className="sc-convo-say" role="status">
+        <span className="sc-convo-work">{what}</span>
+        <Thinking />
+      </p>
+    </div>
+  );
+}
+
 /** Three dots where the words will be, for the beat before they arrive. */
 export function Thinking() {
   return (
