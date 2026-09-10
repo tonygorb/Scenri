@@ -641,6 +641,38 @@ export interface ComposerFor {
 
 const QUIET: ComposerFor = { placeholder: 'Nothing to type yet', label: 'Message', action: 'Send' };
 
+/**
+ * A look step, asked in words.
+ *
+ * `handed` is whether the step was given to the composer on purpose, with the
+ * Describe button, or is merely open with its chips still on screen. Both take
+ * words; only the second has to say so without shouting over the chips, which
+ * are still the faster answer and still the first one.
+ */
+const lookComposer = (step: LookStep, handed: boolean): ComposerFor => ({
+  placeholder: handed
+    ? (LOOK_SAYS_PLACEHOLDER[step] ?? 'In your words')
+    : LOOK_COLOUR.has(step)
+      ? 'Tap a swatch above, or say the colour'
+      : 'Tap one above, or describe it',
+  label: 'Describe it',
+  action: 'Send',
+  color: LOOK_COLOUR.has(step),
+});
+
+/** A detail, asked in words: what it looks like, or where it is. */
+function traitComposer(qid: string, handed: boolean): ComposerFor {
+  const trait = traitOfQid(qid);
+  const t = trait ? traitOf(trait.id) : undefined;
+  // the words, not the picture: what to attach is said on the way in
+  const said = trait?.part === 'where' ? 'Where it is, in your words' : (t?.saying ?? 'What it looks like');
+  const beside =
+    trait?.part === 'where'
+      ? 'Tap one above, or say where it is'
+      : `Tap one above, or ${(t?.saying ?? 'describe it').toLowerCase()}`;
+  return { placeholder: handed ? said : beside, label: t?.saying ?? 'Describe it', action: 'Send' };
+}
+
 export function composerFor(
   q: Question | null,
   state: CreationState,
@@ -656,31 +688,19 @@ export function composerFor(
     return { placeholder: KEEP_PLACEHOLDER, label: 'What should stay the same about them', action: 'Send' };
   }
   if (state.saying && isLookQid(state.saying)) {
-    const step = state.saying.slice('look-'.length) as LookStep;
-    return {
-      placeholder: LOOK_SAYS_PLACEHOLDER[step] ?? 'In your words',
-      label: 'Describe it',
-      action: 'Send',
-      color: LOOK_COLOUR.has(step),
-    };
+    return lookComposer(state.saying.slice('look-'.length) as LookStep, true);
   }
-  if (state.saying) {
-    const trait = traitOfQid(state.saying);
-    const t = trait ? traitOf(trait.id) : undefined;
-    return {
-      // the words, not the picture: what to attach is said on the way in
-      placeholder: trait?.part === 'where' ? 'Where it is, in your words' : (t?.saying ?? 'What it looks like'),
-      label: t?.saying ?? 'Describe it',
-      action: 'Send',
-    };
-  }
+  if (state.saying) return traitComposer(state.saying, true);
   // An answer is being changed above, in its own block: the line waits for it
   // rather than offering to answer a question that is not the one on the floor.
   if (state.editing !== null) return { ...QUIET, off: 'Finish the change above.' };
   if (q) {
-    // A question with things to tap owns the answer: the composer stands down
-    // rather than competing with it, and says where the answer is.
-    if (isLookQid(q.id) || q.id.startsWith('trait-')) return { ...QUIET, off: 'Tap one above.' };
+    // A question with things to tap is still a question, and a sentence is
+    // still an answer to it. The composer used to stand down here and point at
+    // the chips, which made the one place a person types the one place they
+    // could not: what is typed is simply the custom answer to what is open.
+    if (isLookQid(q.id)) return lookComposer(q.id.slice('look-'.length) as LookStep, false);
+    if (q.id.startsWith('trait-')) return traitComposer(q.id, false);
     switch (q.id) {
       case 'source':
         return { placeholder: 'Describe them, or choose above', label: 'Describe them', action: 'Send' };
@@ -704,10 +724,22 @@ export function composerFor(
           label: 'Anything else that is always true of them',
           action: 'Send',
         };
+      // Not one of the rows, then: a detail said in a sentence is exactly what
+      // else is always true of them, so it is taken as that.
       case 'traits':
-        return { ...QUIET, off: 'Choose above.' };
+        return {
+          placeholder: 'Tap any above, or say it in your own words',
+          label: 'Anything else that is always true of them',
+          action: 'Send',
+        };
+      // What the description was missing, said rather than tapped. It joins the
+      // description, and the question closes itself if the words filled it.
       case 'gaps':
-        return { ...QUIET, off: 'Pick above, or skip.' };
+        return {
+          placeholder: 'Tap one above, or say it in your own words',
+          label: 'Fill in what is missing',
+          action: 'Send',
+        };
       case 'photos':
         return { ...QUIET, off: 'Add their photos above.' };
       case 'noengine':
@@ -741,6 +773,10 @@ function composerPlaceholder(selected: StudioView, d: DraftLike): string {
 export function sentenceTarget(state: CreationState, open: Question | null): Qid | 'keep' | null {
   if (state.saying) return state.saying;
   if (open && isQid(open.id) && (open.id === 'source' || open.id === 'describe')) return open.id;
+  // An open step or detail takes words without being handed over first: typing
+  // is the same custom answer the Describe button opens, and the only one a
+  // person reaches for when none of the chips is them.
+  if (open && isQid(open.id) && (isLookQid(open.id) || open.id.startsWith('trait-'))) return open.id;
   // the read-back's line is open the whole time: what is typed there is what
   // else is always true of them
   if (open?.id === 'agree') return 'keep';

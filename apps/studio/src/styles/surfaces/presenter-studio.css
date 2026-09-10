@@ -442,10 +442,19 @@
 
 /* ---- rail foot: the composer, the decision, the footnote ----------------- */
 .sc-pstudio-foot {
+  --sc-pstudio-fade: 28px;
   display: flex;
   flex-direction: column;
   gap: var(--sc-space-4);
   padding: var(--sc-space-7);
+  /* The composer sits on no shelf. The foot is pulled up over the scroller by
+     the height of its own fade and paints last, so a line scrolling out of the
+     transcript dissolves into the rail's colour instead of meeting a hard
+     edge. The same transparent-to-ground gradient the overlay docks use. */
+  margin-top: calc(-1 * var(--sc-pstudio-fade));
+  padding-top: calc(var(--sc-space-7) + var(--sc-pstudio-fade));
+  position: relative;
+  z-index: 1;
 }
 
 .sc-pstudio-foot .sc-dlg-foot {
@@ -503,6 +512,54 @@
   .sc-pstudio-foot {
     border-left: 1px solid var(--sc-line);
     background: var(--sc-panel);
+  }
+
+  .sc-pstudio-foot {
+    background: linear-gradient(to bottom, transparent, var(--sc-panel) var(--sc-pstudio-fade));
+  }
+}
+
+/* ---- the seam between stage and rail is a handle ------------------------- */
+@media (min-width: 1280px) {
+  .sc-pstudio {
+    /* Only here: the two narrower desktop widths have one right answer each
+       and nothing to drag. */
+    --sc-pstudio-rail: var(--sc-pstudio-rail-set, 500px);
+  }
+
+  .sc-pstudio-resize {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: calc(var(--sc-pstudio-rail) - 3px);
+    width: 7px;
+    z-index: 12;
+    cursor: col-resize;
+  }
+
+  .sc-pstudio-resize::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 3px;
+    width: 1px;
+    background: var(--sc-line-hover);
+    opacity: 0;
+    transition: opacity var(--sc-dur-fast) var(--sc-ease);
+  }
+
+  .sc-pstudio-resize:hover::before,
+  .sc-pstudio-resize:focus-visible::before,
+  .sc-pstudio-resize:active::before {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1279px) {
+  /* no seam to drag: the rail's width is the layout's, not the reader's */
+  .sc-pstudio-resize {
+    display: none;
   }
 }
 
@@ -623,13 +680,16 @@
   }
 
   /* The bottom of the conversation, not a bar bolted under it: the same ground
-     as the talk above it and no seam across the screen. It is opaque, so what
-     scrolls under it is covered without a line having to say so. */
+     as the talk above it and no seam across the screen. It is already sticky
+     over the one scroller, so the fade is all it needs; the pull-up the desktop
+     rail uses would only lift it off its own bottom. */
   .sc-pstudio-foot {
     position: sticky;
     bottom: 0;
-    padding: var(--sc-space-5) var(--sc-space-6) calc(var(--sc-space-5) + var(--sc-bottom-inset));
-    background: var(--sc-panel);
+    margin-top: 0;
+    padding: calc(var(--sc-space-5) + var(--sc-pstudio-fade)) var(--sc-space-6)
+      calc(var(--sc-space-5) + var(--sc-bottom-inset));
+    background: linear-gradient(to bottom, transparent, var(--sc-panel) var(--sc-pstudio-fade));
   }
 }
 

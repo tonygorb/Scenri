@@ -198,6 +198,36 @@ test.describe('a person from scratch', () => {
     expect((await draftsOf(page, brand.id)).drafts).toHaveLength(0);
   });
 
+  test('a step with chips still takes words, and small talk at it is answered by that step', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await answer(page, 'Describe someone').click();
+    await expect(log(page)).toContainText('Who are they?');
+    // the composer is live in front of a question made of chips: it is the
+    // only place a person can say the thing none of the chips is
+    const field = page.locator('.sc-convo-composer textarea');
+    await expect(field).not.toBeDisabled();
+    // small talk is answered by the step that is open, and the step stays open
+    await send(page, 'hi');
+    await expect(log(page)).toContainText('hi');
+    await expect(log(page)).toContainText('Who are they?');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-who"]')).toHaveCount(0);
+    // and a real answer in words is that step's answer, chips or no chips
+    await send(page, 'a non-binary person');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-who"]')).toContainText(/non-binary person/i);
+    await expect(log(page)).toContainText('Roughly how old?');
+    // the same holds for a detail: the chooser takes a detail said in words
+    await log(page).getByRole('button', { name: '30s', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Black', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Shoulder', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Solid', exact: true }).click();
+    await expect(log(page)).toContainText('Anything else that is always true of them?');
+    await send(page, 'a chipped front tooth');
+    await expect(log(page)).toContainText('Here is the presenter, in full. Ready to draw?');
+    await expect(log(page).locator('.sc-convo-brief-text')).toContainText('a chipped front tooth');
+  });
+
   test('the look is tapped one step at a time, and what was tapped is the person', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
@@ -260,7 +290,8 @@ test.describe('a person from scratch', () => {
     await hatch.click();
     await expect(hatch).toHaveAttribute('aria-pressed', 'false');
     await expect(page.locator('.sc-convo-field .sc-token')).toHaveCount(0);
-    await expect(page.locator('.sc-convo-field textarea')).toBeDisabled();
+    // the step is still open, so the field is still a way to answer it in words
+    await expect(page.locator('.sc-convo-field textarea')).toBeEnabled();
     await hatch.click();
     await expect(chip).toHaveText('Pick a colour');
 

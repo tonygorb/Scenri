@@ -1,6 +1,6 @@
 import { FocusScope } from '@radix-ui/react-focus-scope';
 import { X } from '@phosphor-icons/react';
-import { type ReactNode, useEffect, useRef } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   type ComposerColour,
@@ -11,8 +11,21 @@ import {
 import type { Answer, Turn } from '../../conversation/question.js';
 import { Transcript } from '../../conversation/Transcript.js';
 import { Tip } from '../../layout/Tip.js';
+import { PREF, useLocalPref } from '../../prefs.js';
 import type { StripItem, Take, StudioView } from './presenterStudioRules.js';
 import { StudioStage } from './StudioStage.js';
+
+/**
+ * How wide the conversation may be made.
+ *
+ * The default is the width it has always had. The floor is where the question
+ * cards stop reading as cards, the ceiling is where the stage stops being the
+ * larger half, which is the whole point of the surface.
+ */
+const RAIL_DEFAULT = 500;
+const RAIL_MIN = 400;
+const RAIL_MAX = 760;
+const clampRail = (w: number) => Math.min(RAIL_MAX, Math.max(RAIL_MIN, Math.round(w)));
 
 /** The stage, as a flow describes it. */
 export interface StageSurface {
@@ -150,6 +163,10 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
     return () => window.removeEventListener('keydown', onKey);
   }, [decide, s.busy, s.onAnswer]);
 
+  const [railW, setRailW] = useLocalPref<number>(PREF.pstudioRailW, RAIL_DEFAULT);
+  const dragX = useRef(0);
+  const dragRaf = useRef(0);
+
   return createPortal(
     <FocusScope
       trapped
@@ -164,6 +181,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
         ref={rootRef}
         tabIndex={-1}
         className="sc-pstudio"
+        style={{ '--sc-pstudio-rail-set': `${clampRail(railW)}px` } as CSSProperties}
         role="dialog"
         aria-modal="true"
         aria-labelledby="sc-pstudio-title"
@@ -178,6 +196,55 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
         {/* Before there is anything to look at, the phone gives the whole screen
             to the conversation: an empty plate is not worth a third of it. */}
         <div className="sc-pstudio-grid" data-phase={s.stage?.hash ? 'made' : 'setup'}>
+          {/* The seam between stage and conversation is the handle, exactly as
+              it is between a shot and its details: drag to size the rail,
+              double-click to put it back, arrow keys from the keyboard. During
+              a drag only the custom property moves; the preference is written
+              once, on release. */}
+          {/* biome-ignore lint/a11y/useSemanticElements: an <hr> cannot be a focusable window splitter; ARIA's separator-as-widget pattern is exactly a focusable div with valuenow */}
+          <div
+            className="sc-pstudio-resize"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize the conversation"
+            aria-valuemin={RAIL_MIN}
+            aria-valuemax={RAIL_MAX}
+            aria-valuenow={clampRail(railW)}
+            tabIndex={0}
+            onPointerDown={(e) => {
+              if (e.button !== 0) return;
+              e.preventDefault();
+              e.stopPropagation();
+              e.currentTarget.setPointerCapture(e.pointerId);
+            }}
+            onPointerMove={(e) => {
+              if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+              const root = e.currentTarget.closest<HTMLElement>('.sc-pstudio');
+              // one write per frame: a write per pointer event forced a layout
+              // per event for the whole conversation while it was being dragged
+              dragX.current = e.clientX;
+              if (dragRaf.current) return;
+              dragRaf.current = requestAnimationFrame(() => {
+                dragRaf.current = 0;
+                root?.style.setProperty('--sc-pstudio-rail-set', `${clampRail(window.innerWidth - dragX.current)}px`);
+              });
+            }}
+            onPointerUp={(e) => {
+              e.currentTarget.releasePointerCapture(e.pointerId);
+              if (dragRaf.current) {
+                cancelAnimationFrame(dragRaf.current);
+                dragRaf.current = 0;
+              }
+              setRailW(clampRail(window.innerWidth - e.clientX));
+            }}
+            onDoubleClick={() => setRailW(RAIL_DEFAULT)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowLeft') setRailW((w) => clampRail(w + 16));
+              else if (e.key === 'ArrowRight') setRailW((w) => clampRail(w - 16));
+              else return;
+              e.preventDefault();
+            }}
+          />
           <Tip label="Close (esc)">
             <button type="button" className="sc-pstudio-close" onClick={onClose} aria-label="Close">
               <X size={13} />

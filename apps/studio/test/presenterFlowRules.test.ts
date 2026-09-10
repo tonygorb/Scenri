@@ -12,10 +12,13 @@ import {
   composerFor,
   editCost,
   flowContext,
+  sentenceTarget,
   turnsFor,
 } from '../src/create/presenter/presenterFlowRules.ts';
+import { asideReply } from '../src/create/presenter/presenterCopy.ts';
+import { answersNothing } from '../src/conversation/question.ts';
 import type { Answers } from '../src/create/presenter/presenterQuestions.ts';
-import { type DraftLike, emptySlot } from '../src/create/presenter/presenterStudioRules.ts';
+import { type DraftLike, emptySlot, readsAsPerson } from '../src/create/presenter/presenterStudioRules.ts';
 
 const state = (answers: Answers, over: Partial<CreationState> = {}): CreationState => ({
   ...EMPTY_STATE,
@@ -84,8 +87,11 @@ describe('the transcript is a function of state', () => {
       const T = turns(state(a));
       expect(keys(T).at(-1)).toBe(`q:${next}`);
       expect(keys(T)).toContain(`you:${id}`);
-      // a tap question owns the answer: the composer says where it is
-      expect(composerFor(open(T), state(a), null, 'portrait').off).toBe('Tap one above.');
+      // a tap question does not own the answer: the composer stays live and
+      // asks the same step in words, for the person none of the chips is
+      const c = composerFor(open(T), state(a), null, 'portrait');
+      expect(c.off).toBeUndefined();
+      expect(c.action).toBe('Send');
     }
     a = { ...a, 'look-build': 'lean' };
     // the rows done, what is always true of them is the one question that opens more
@@ -272,6 +278,58 @@ describe('the transcript is a function of state', () => {
       views: { ...draft().views, portrait: { ...approved('h1'), origin: 'photo' } },
     });
     expect(open(turns(state(p), d, false))?.id).toBe('blind');
+  });
+});
+
+describe('a question with chips still takes words', () => {
+  const at = (a: Answers) => {
+    const T = turns(state(a));
+    const q = open(T);
+    return { q, c: composerFor(q, state(a), null, 'portrait') };
+  };
+
+  it('a look step asks itself in words, and a typed sentence is aimed at that step', () => {
+    const a: Answers = { source: { door: 'scratch', via: 'taps' }, 'look-who': 'woman' };
+    const { q, c } = at(a);
+    expect(q?.id).toBe('look-age');
+    expect(c.off).toBeUndefined();
+    expect(sentenceTarget(state(a), q)).toBe('look-age');
+  });
+
+  it('a colour step carries the colour control without being handed over first', () => {
+    const a: Answers = { source: { door: 'scratch', via: 'taps' }, 'look-who': 'woman', 'look-age': '30s' };
+    const { q, c } = at(a);
+    expect(q?.id).toBe('look-hair');
+    expect(c.color).toBe(true);
+    expect(c.off).toBeUndefined();
+  });
+
+  it('a detail asks what it looks like, and the sentence goes to that detail', () => {
+    const a: Answers = { ...TAPPED, traits: ['glasses'] };
+    const { q, c } = at(a);
+    expect(q?.id).toBe('trait-glasses');
+    expect(c.off).toBeUndefined();
+    expect(sentenceTarget(state(a), q)).toBe('trait-glasses');
+  });
+
+  it('the chooser of details takes a detail in words, and the gaps question takes the words it was missing', () => {
+    const chooser = at({ ...TAPPED });
+    expect(chooser.q?.id).toBe('traits');
+    expect(chooser.c.off).toBeUndefined();
+    const gaps = at({ source: { door: 'scratch', via: 'typed' }, describe: 'tall' });
+    expect(gaps.q?.id).toBe('gaps');
+    expect(gaps.c.off).toBeUndefined();
+  });
+
+  it('what a person types instead of tapping is answered as that step, not as noise', () => {
+    // the step's own ask is what comes back, so small talk at the hair row is
+    // answered by the hair row rather than by a general apology
+    expect(answersNothing('hi', readsAsPerson)).toBe('greeting');
+    expect(answersNothing('what can you do?', readsAsPerson)).toBe('question');
+    expect(answersNothing('auburn, past the shoulder', readsAsPerson)).toBeNull();
+    const reply = asideReply('greeting', 'look', false, 'hi', 'colour');
+    expect(reply.length).toBeGreaterThan(0);
+    expect(reply).not.toMatch(/nothing to type/i);
   });
 });
 

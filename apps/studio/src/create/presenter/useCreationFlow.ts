@@ -589,8 +589,11 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       // A colour in the chip is an answer on its own. Words beside it are the
       // person's own words about that colour, so the two read as one answer in
       // the order they are seen: the chip's colour, then what was typed.
-      const heldNow = st.saying && st.colour?.step === st.saying ? st.colour.hex : null;
-      const step = st.saying && isLookQid(st.saying) ? (st.saying.slice('look-'.length) as LookStep) : null;
+      // Both read the step the sentence is aimed at, not the one that was
+      // handed over: a step that is merely open takes words and a colour the
+      // same way one opened with Describe does.
+      const heldNow = target && st.colour?.step === target ? st.colour.hex : null;
+      const step = target && isLookQid(target) ? (target.slice('look-'.length) as LookStep) : null;
       const chosen = heldNow && step ? colourName(heldNow, colourRow(step), step) : '';
       // A picture of the thing is an answer of its own, the way a colour is.
       const shown =
@@ -654,6 +657,35 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       }
       const open = question?.id ?? null;
       const qid = open === 'unsure' ? (st.unsure?.q ?? 'source') : open;
+      // The chooser of extra details takes words too. A detail said in a
+      // sentence is not one of the rows, it is what else is always true of
+      // them, so it answers the chooser as none of them and is kept as that.
+      if (open === 'traits') {
+        const empty = answersNothing(sentence, readsAsPerson);
+        if (empty) {
+          bounce(sentence, asideReply(empty, 'detail', again(open), sentence), open);
+          return true;
+        }
+        const had = st.answers.keep;
+        commitAnswer({
+          traits: [],
+          keep: { words: [had?.words?.trim(), sentence].filter(Boolean).join(', '), refs: had?.refs ?? [] },
+        });
+        return true;
+      }
+      // What the description was missing, said rather than tapped: it joins the
+      // description itself, so the same words that fill the gap also close the
+      // question, and anything still missing is asked for again.
+      if (open === 'gaps') {
+        const empty = answersNothing(sentence, readsAsPerson);
+        if (empty) {
+          bounce(sentence, asideReply(empty, 'describe', again(open), sentence), open);
+          return true;
+        }
+        const said = (st.answers.describe ?? '').trim().replace(/[.\s]+$/, '');
+        commitAnswer({ describe: said ? `${said}, ${sentence}` : sentence });
+        return true;
+      }
       const phase: AsidePhase =
         qid === 'source' ? 'source' : qid === 'describe' ? 'describe' : qid === 'name' ? 'name' : 'refine';
       const door = qid === 'source' ? sourceFromText(sentence) : null;

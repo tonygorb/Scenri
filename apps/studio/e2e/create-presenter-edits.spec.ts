@@ -236,12 +236,10 @@ test.describe('a picture of the thing itself', () => {
     await answer(page, 'Continue').click();
     await expect(log(page)).toContainText('What glasses do they wear?');
 
-    // a question with things to tap owns the answer: the card stands down, and
-    // the way in stands where it is, dimmed, until the card can take a picture
+    // the question takes words, so it takes a picture too: the way in is live
+    // from the moment the question is, with no button to press first
     const plus = page.getByRole('button', { name: 'Add the picture of the glasses' });
     await expect(plus).toBeVisible();
-    await expect(plus).toHaveAttribute('aria-disabled', 'true');
-    await answer(page, 'Describe the glasses').click();
     await expect(plus).not.toHaveAttribute('aria-disabled', /.*/);
     // the picture goes in the line, in the chip the rest of the app uses for one
     await plus.click();
@@ -315,8 +313,6 @@ test.describe('a picture of the thing itself', () => {
     // left as it was, the conversation is back on the glasses: the way in is
     // there again, and saying it in words makes it usable
     await turn(page, 'q:look-hair').getByRole('button', { name: 'Cancel' }).click();
-    await expect(plus).toHaveAttribute('aria-disabled', 'true');
-    await answer(page, 'Describe the glasses').click();
     await expect(plus).not.toHaveAttribute('aria-disabled', /.*/);
   });
 
@@ -379,12 +375,13 @@ test.describe('on a phone', () => {
     const room = async () => (await foot.boundingBox())?.height ?? 0;
     const atDoor = await room();
 
-    // a question with things to tap: the card cannot be written in and says so,
-    // and it holds exactly the room it held a moment ago
+    // a question with things to tap: the card can still be written in, because
+    // words are an answer to it too, and it holds exactly the room it held a
+    // moment ago
     await answer(page, 'Describe someone').click();
     await expect(log(page)).toContainText('Who are they?');
-    await expect(card).toHaveAttribute('data-quiet', 'true');
-    await expect(card.locator('textarea')).toHaveAttribute('placeholder', 'Tap one above.');
+    await expect(card).not.toHaveAttribute('data-quiet', 'true');
+    await expect(card.locator('textarea')).toBeEnabled();
     expect(await room()).toBe(atDoor);
     await answer(page, 'Woman').click();
     await expect(log(page)).toContainText('Roughly how old?');
