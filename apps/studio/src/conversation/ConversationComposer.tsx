@@ -11,6 +11,22 @@ export interface ComposerScope {
 }
 
 /**
+ * A picture riding with the answer, in the chip the rest of the app uses for
+ * one: the thumbnail, its word, and an X. It is in the line because that is
+ * where the answer is being written, and it is there the moment the file is
+ * chosen, whatever the upload is still doing.
+ */
+export interface ComposerRef {
+  key: string;
+  /** What to show now: the file itself while it travels, the stored picture after. */
+  src: string;
+  label: string;
+  /** Still on its way: the chip says so rather than pretending. */
+  busy?: boolean;
+  onRemove: () => void;
+}
+
+/**
  * A colour as an answer, in the chip the rest of the app already uses for one.
  *
  * The chip is the brief line's: a swatch, the colour's name, and an X to take
@@ -58,6 +74,7 @@ export function ConversationComposer({
   onStop,
   onAttach,
   colour,
+  refs,
   onSend,
 }: {
   placeholder: string;
@@ -87,6 +104,8 @@ export function ConversationComposer({
   onAttach?: () => void;
   /** The answer is a colour: the app's own chip carries it, over the field. */
   colour?: ComposerColour | null;
+  /** Pictures riding with the answer, each as its own chip in the line. */
+  refs?: ComposerRef[];
   /** True when the sentence was taken; the flow then clears `value`. */
   onSend: (text: string) => boolean;
 }) {
@@ -153,6 +172,15 @@ export function ConversationComposer({
           </div>
         )}
         <div className="sc-convo-field">
+          {refs?.map((r) => (
+            <span key={r.key} className="sc-token" data-kind="image" data-busy={r.busy || undefined} dir="ltr">
+              <img src={r.src} alt="" />
+              <span className="sc-token-label">{r.label}</span>
+              <button type="button" className="sc-convo-chip-x" aria-label={`Remove ${r.label}`} onClick={r.onRemove}>
+                <X size={11} weight="bold" />
+              </button>
+            </span>
+          ))}
           {colour && (
             <span className="sc-token" data-kind="color" data-empty={colour.hex ? undefined : ''} dir="ltr">
               <ColorPicker
@@ -182,6 +210,8 @@ export function ConversationComposer({
             aria-label={label}
             // the chip already says what the answer is; the invitation to type
             // would only crowd it
+            // a colour chosen is the answer, so the invitation would crowd it;
+            // a picture rides with words that are still wanted, so it stays
             placeholder={colour?.hex && !value ? '' : placeholder}
             value={value}
             disabled={disabled}

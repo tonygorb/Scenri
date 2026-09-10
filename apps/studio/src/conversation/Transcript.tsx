@@ -71,7 +71,6 @@ export function Transcript({
   onStarter,
   onDescribe,
   onAttach,
-  onDetach,
   onRestore,
 }: {
   turns: Turn[];
@@ -96,8 +95,6 @@ export function Transcript({
   onDescribe?: () => void;
   /** Pictures of the thing the open question is about. */
   onAttach?: (files: File[]) => void;
-  /** One of those pictures, taken off. */
-  onDetach?: (hash: string) => void;
   /** A picture from before, put back on its view. */
   onRestore?: (view: string, hash: string) => void;
 }) {
@@ -553,7 +550,6 @@ export function Transcript({
           onStarter={onStarter}
           onDescribe={onDescribe}
           onAttach={onAttach}
-          onDetach={onDetach}
           onCancel={onCancelEdit}
         />,
       );

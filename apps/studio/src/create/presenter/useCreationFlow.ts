@@ -102,6 +102,15 @@ export interface CreationFlowArgs extends Pick<FlowProps, 'onStarted' | 'caps' |
 const sameRefs = (x: Record<string, string[]> | undefined, y: Record<string, string[]>) =>
   JSON.stringify(x ?? {}) === JSON.stringify(y);
 
+/** What a picture is called in its chip: the file's own name, short enough to read. */
+const refLabel = (name: string): string => {
+  const said = name
+    .replace(/\.[a-z0-9]+$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .trim();
+  return said ? said.slice(0, 24) : 'Reference';
+};
+
 export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted, caps, capsNote }: CreationFlowArgs) {
   const { brand } = useBrand();
   const { presenterCategories } = useAppData();
@@ -133,6 +142,10 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const [pendingEdit, setPendingEdit] = useState<Qid | null>(null);
   // pressed "Change something": the composer takes the focus, nothing else moves
   const [changing, setChanging] = useState(0);
+  // the pictures on their way to the store, each shown from the file itself
+  const [carrying, setCarrying] = useState<{ key: string; id: TraitQid; url: string; label: string }[]>([]);
+  // what each stored picture was called when it was chosen, so its chip keeps its name
+  const refNames = useRef(new Map<string, string>());
   const [booting, setBooting] = useState(!draftId);
   // the page opened on a draft: its conversation was had before this page
   const [resumed] = useState(!!draftId);
@@ -738,29 +751,37 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     return trait && trait.part === 'what' ? (`trait-${trait.id}` as TraitQid) : null;
   }, [ctx]);
 
+  /**
+   * A picture of the thing itself, chosen and there at once.
+   *
+   * The chip stands in the line from the moment the file is picked, drawn from
+   * the file in the browser, and the upload happens behind it; when the store
+   * has it the chip keeps its place and simply points at the stored picture.
+   * Waiting on a round trip to show a thumbnail is a wait for nothing: the
+   * browser already has the bytes.
+   */
   const onAttachTrait = useCallback(
-    async (files: File[]) => {
+    (files: File[]) => {
       const id = traitTarget();
       if (!id) return;
       setAskErr(null);
-      dispatch({ type: 'upload-begin' });
-      try {
-        for (const f of files) {
-          const h = await uploadImage(f);
-          dispatch({ type: 'ref', id, hash: h });
-        }
-      } catch (e: any) {
-        setAskErr(String(e?.message ?? e));
-      } finally {
-        dispatch({ type: 'upload-end' });
+      // the line takes the answer from here, so the chip has somewhere to stand
+      if (stateRef.current.saying !== id) dispatch({ type: 'say', id });
+      for (const f of files) {
+        const key = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const url = URL.createObjectURL(f);
+        setCarrying((c) => [...c, { key, id, url, label: refLabel(f.name) }]);
+        void uploadImage(f)
+          .then((hash) => {
+            refNames.current.set(hash, refLabel(f.name));
+            dispatch({ type: 'ref', id, hash });
+          })
+          .catch((e: any) => setAskErr(String(e?.message ?? e)))
+          .finally(() => {
+            setCarrying((c) => c.filter((x) => x.key !== key));
+            URL.revokeObjectURL(url);
+          });
       }
-    },
-    [traitTarget],
-  );
-  const onDetachTrait = useCallback(
-    (hash: string) => {
-      const id = traitTarget();
-      if (id) dispatch({ type: 'ref', id, hash, remove: true });
     },
     [traitTarget],
   );
@@ -777,6 +798,32 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       const hex = sw.color ? normalizeHex(sw.color) : null;
       return hex ? [{ hex, name: sw.label, slot: 'accent' as const }] : [];
     });
+
+  /**
+   * The pictures riding with the answer being written: the ones still on their
+   * way, from the file itself, then the ones the store holds.
+   */
+  const sayingTrait = state.saying && traitOfQid(state.saying);
+  const refTarget = sayingTrait && sayingTrait.part === 'what' ? (`trait-${sayingTrait.id}` as TraitQid) : null;
+  const composerRefs = refTarget
+    ? [
+        ...(state.answers[refTarget]?.refs ?? []).map((hash) => ({
+          key: hash,
+          src: thumbUrl(hash, 'micro'),
+          label: refNames.current.get(hash) ?? 'Reference',
+          onRemove: () => dispatch({ type: 'ref', id: refTarget, hash, remove: true }),
+        })),
+        ...carrying
+          .filter((c) => c.id === refTarget)
+          .map((c) => ({
+            key: c.key,
+            src: c.url,
+            label: c.label,
+            busy: true,
+            onRemove: () => setCarrying((x) => x.filter((y) => y.key !== c.key)),
+          })),
+      ]
+    : undefined;
 
   const composerBase = composerFor(question, state, d, view);
   const sayingStep = state.saying && isLookQid(state.saying) ? (state.saying.slice('look-'.length) as LookStep) : null;
@@ -874,6 +921,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           !d && question?.id === 'source' ? () => commitAnswer({ source: { door: 'photos', via: 'taps' } }) : undefined,
         // A colour step takes a swatch as readily as it takes words, and the
         // colour rides in the chip the rest of the app already uses for one.
+        refs: composerRefs,
         colour:
           colours && sayingStep
             ? {
@@ -896,8 +944,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       onSaveEdit,
       onCancelEdit,
       onDescribe,
-      onAttachTrait: (files: File[]) => void onAttachTrait(files),
-      onDetachTrait,
+      onAttachTrait,
       // A chip is a way to start saying something: it opens the composer on the
       // question it belongs to and leaves the words there to be finished. It
       // never answers, because "tattoo, yes" is not an answer to anything.

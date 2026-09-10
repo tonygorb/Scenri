@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   type ComposerColour,
+  type ComposerRef,
   ConversationComposer,
   type ComposerScope,
 } from '../../conversation/ConversationComposer.js';
@@ -47,6 +48,8 @@ export interface ComposerSurface {
   onAttach?: () => void;
   /** The answer is a colour: the app's own chip carries it over the field. */
   colour?: ComposerColour | null;
+  /** Pictures riding with the answer, each as its own chip in the line. */
+  refs?: ComposerRef[];
   /** Stop what is drawing; only while something is. */
   onStop?: () => void;
 }
@@ -78,8 +81,6 @@ export interface StudioSurface {
   onDescribe?: () => void;
   /** Pictures of the thing the open question is about. */
   onAttachTrait?: (files: File[]) => void;
-  /** One of those pictures, taken off. */
-  onDetachTrait?: (hash: string) => void;
   /** A chip that starts a sentence rather than answering: it opens the composer on it. */
   onStarter?: (text: string) => void;
   /** An answer said again, where it stands. */
@@ -226,7 +227,6 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 onStarter={(text) => (s.onStarter ?? s.onText)(text)}
                 onDescribe={s.onDescribe}
                 onAttach={s.onAttachTrait}
-                onDetach={s.onDetachTrait}
               />
             </div>
           </div>
@@ -250,6 +250,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 focusKey={s.composer.focusKey}
                 onAttach={s.composer.onAttach}
                 colour={s.composer.colour}
+                refs={s.composer.refs}
                 onStop={s.composer.onStop}
                 onSend={s.onSend}
               />

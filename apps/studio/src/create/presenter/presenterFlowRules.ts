@@ -337,8 +337,6 @@ function questionFor(id: Qid, state: CreationState, _ctx: FlowContext, reopened:
       options: t.options.map((o) => ({ id: o.id, label: o.label, card: o.card })),
       describe: t.saying,
       attach: 'Add a reference',
-      refs: what?.refs ?? [],
-      attaching: state.uploading > 0,
       saying: state.saying === id,
       given: what?.words,
       ...base,
@@ -399,8 +397,13 @@ function answerLine(id: Qid, a: Answers, draft: DraftLike | null): { text: strin
     const v = a[id as `trait-${TraitId}-where`] ?? '';
     return { text: t.where?.options.find((o) => o.id === v)?.label ?? cap(v) };
   }
-  const words = a[`trait-${trait.id}`]?.words ?? '';
-  return { text: t.options.find((o) => o.id === words)?.label ?? cap(words) };
+  const what = a[`trait-${trait.id}`];
+  const words = what?.words ?? '';
+  // the pictures ride with the answer, the way the photographs do
+  return {
+    text: t.options.find((o) => o.id === words)?.label ?? cap(words),
+    photos: what?.refs.length ? what.refs : undefined,
+  };
 }
 
 /* ----------------------------------------------------------- transcript */

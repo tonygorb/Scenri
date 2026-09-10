@@ -126,11 +126,13 @@ describe('the transcript is a function of state', () => {
     expect(said('traits').text).toBe('Glasses and Tattoo');
     expect(said('trait-glasses').text).toBe('Rimless');
     expect(said('trait-tattoo-where').text).toBe('Left forearm');
-    // the pictures of a detail ride its question
+    // a picture of the thing itself can be attached, and rides with the answer
     const tq = open(turns(state(b)));
     expect(tq?.kind === 'choice' && tq.attach).toBe('Add a reference');
-    const tq2 = open(turns(state({ ...b, 'trait-tattoo': { refs: ['h-ink'] } })));
-    expect(tq2?.kind === 'choice' && tq2.refs).toEqual(['h-ink']);
+    const withPicture = T.find((t) => t.kind === 'you' && t.id === 'trait-tattoo');
+    expect(withPicture?.kind === 'you' && withPicture.photos).toEqual(['h-ink']);
+    const without = T.find((t) => t.kind === 'you' && t.id === 'trait-glasses');
+    expect(without?.kind === 'you' && without.photos).toBeUndefined();
   });
 
   it('a question open again stands where its answer was, with the answer in it, and nothing else asks', () => {

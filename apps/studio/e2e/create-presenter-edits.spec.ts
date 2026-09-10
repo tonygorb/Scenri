@@ -227,6 +227,59 @@ test.describe('changing an answer', () => {
   });
 });
 
+test.describe('a picture of the thing itself', () => {
+  test('lands in the line as a chip the moment it is chosen, and rides with the answer', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await tapThrough(page);
+    await answer(page, 'Glasses').click();
+    await answer(page, 'Continue').click();
+    await expect(log(page)).toContainText('What glasses do they wear?');
+
+    // the picture goes in the line, in the chip the rest of the app uses for one
+    await answer(page, 'Add a reference').click();
+    await page
+      .locator('.sc-convo-turn[data-turn="q:trait-glasses"] input[type="file"]')
+      .setInputFiles({ name: 'thin-black.png', mimeType: 'image/png', buffer: PNG });
+    const chip = page.locator('.sc-convo-field .sc-token[data-kind="image"]');
+    await expect(chip).toHaveCount(1);
+    await expect(chip).toContainText('thin black');
+    // the line takes the answer from here, so words can go beside the picture
+    await expect(composer(page)).toBeEnabled();
+
+    // tapping a card answers, and the picture stays with the answer
+    await answer(page, 'Thin black').click();
+    await expect(turn(page, 'you:trait-glasses')).toContainText('Thin black');
+    await expect(turn(page, 'you:trait-glasses').locator('img')).toHaveCount(1);
+    await expect(page.locator('.sc-convo-field .sc-token[data-kind="image"]')).toHaveCount(0);
+
+    // and it reaches the draft as a picture of the detail, not of a person
+    await answer(page, 'Draw them').click();
+    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+    await expect
+      .poll(async () => Object.keys((await draftOf(page, brand.id)).detailRefs ?? {}), { timeout: 20_000 })
+      .toEqual(['glasses']);
+  });
+
+  test('comes off again from its own chip', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await tapThrough(page);
+    await answer(page, 'Glasses').click();
+    await answer(page, 'Continue').click();
+    await answer(page, 'Add a reference').click();
+    await page
+      .locator('.sc-convo-turn[data-turn="q:trait-glasses"] input[type="file"]')
+      .setInputFiles({ name: 'thin-black.png', mimeType: 'image/png', buffer: PNG });
+    const chip = page.locator('.sc-convo-field .sc-token[data-kind="image"]');
+    await expect(chip).toHaveCount(1);
+    await chip.getByRole('button').click();
+    await expect(page.locator('.sc-convo-field .sc-token[data-kind="image"]')).toHaveCount(0);
+    await answer(page, 'Thin black').click();
+    await expect(turn(page, 'you:trait-glasses').locator('img')).toHaveCount(0);
+  });
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 

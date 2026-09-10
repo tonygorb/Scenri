@@ -1,6 +1,4 @@
-import { X } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
-import { thumbUrl } from '../api.js';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
 import { CardStrip } from './CardStrip.js';
 import { LookStrip } from './LookStrip.js';
@@ -55,7 +53,6 @@ export function QuestionBlock({
   onStarter,
   onDescribe,
   onAttach,
-  onDetach,
   onCancel,
 }: {
   question: Question;
@@ -81,10 +78,8 @@ export function QuestionBlock({
   onStarter?: (text: string) => void;
   /** Say it in words instead: the composer takes the answer from here. */
   onDescribe?: () => void;
-  /** Pictures of the thing this question is about. */
+  /** Pictures of the thing this question is about; they ride in the composer. */
   onAttach?: (files: File[]) => void;
-  /** One of those pictures, taken off again. */
-  onDetach?: (hash: string) => void;
   /** A question open again is left as it was. */
   onCancel?: () => void;
 }) {
@@ -212,26 +207,6 @@ export function QuestionBlock({
               ))}
             </div>
           )}
-
-        {question.kind === 'choice' && question.refs && question.refs.length > 0 && (
-          <div className="sc-convo-refs">
-            {question.refs.map((h, i) => (
-              <span key={h} className="sc-convo-ref">
-                <img src={thumbUrl(h, 'micro')} alt={`Reference ${i + 1} of ${question.refs?.length ?? 0}`} />
-                {onDetach && (
-                  <button
-                    type="button"
-                    className="sc-convo-ref-x"
-                    aria-label={`Remove reference ${i + 1}`}
-                    onClick={() => onDetach(h)}
-                  >
-                    <X size={10} weight="bold" />
-                  </button>
-                )}
-              </span>
-            ))}
-          </div>
-        )}
 
         {question.kind === 'choice' && (question.describe || question.attach) && (
           <div className="sc-convo-ways">
