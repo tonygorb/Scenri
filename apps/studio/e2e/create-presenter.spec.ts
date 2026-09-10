@@ -149,15 +149,17 @@ test.describe('a person from scratch', () => {
     test.setTimeout(60_000);
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
-    await expect(log(page)).toContainText('Who are we creating?');
+    await expect(log(page)).toContainText('Who are we making?');
     // the whole sentence is in the log from its first frame, never a character at a time
     await expect(log(page).locator('.sc-convo-say').last()).toHaveText(
-      'Who are we creating? Describe someone new, or add photos of a real person.',
+      'Who are we making? Describe someone new, or add photos of a real person.',
     );
     await expect(composer(page)).toBeFocused();
 
     // a typed sentence is the description; no door is asked
     await send(page, 'Late 30s woman, Mediterranean appearance, dark shoulder-length hair, slim build, elegant.');
+    // one more question before the draw: what else is always true of them
+    await answer(page, 'Nothing else').click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     await expect(answer(page, 'Describe someone')).toHaveCount(0);
     await expect(answer(page, 'Add photos')).toHaveCount(0);
@@ -193,32 +195,35 @@ test.describe('a person from scratch', () => {
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
     // one row, one tap, then the next row: who, age, hair, its length, skin, build
-    await expect(log(page)).toContainText('Who are we making?');
+    await expect(log(page)).toContainText('Who are they?');
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
-    await expect(log(page)).toContainText('Roughly what age?');
+    await expect(log(page)).toContainText('Roughly how old?');
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
     await expect(log(page)).toContainText('What colour is their hair?');
     await log(page).getByRole('button', { name: 'Black', exact: true }).click();
-    await expect(log(page)).toContainText('How long is it?');
+    await expect(log(page)).toContainText('And the length?');
     // length and build are shapes rather than words
-    await expect(log(page).locator('.sc-convo-tile .sc-look-art').first()).toBeVisible();
+    await expect(log(page).locator('.sc-convo-plate .sc-look-art').first()).toBeVisible();
     await log(page).getByRole('button', { name: 'Shoulder', exact: true }).click();
-    await expect(log(page)).toContainText('What is their skin tone?');
+    await expect(log(page)).toContainText('And their skin?');
     await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
     await expect(log(page)).toContainText('And their build?');
     // every step is its own exchange: its question, and its answer under it
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-who"]')).toContainText('Woman');
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-length"]')).toContainText('Shoulder');
-    await log(page).getByRole('button', { name: 'Athletic', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Solid', exact: true }).click();
+    // the rows done, what else is always true of them is asked once
+    await expect(log(page)).toContainText('Anything else that is always true of them?');
+    await answer(page, 'Nothing else').click();
     // nothing is drawn until the whole person is read back and agreed to
     await expect(log(page)).toContainText(
-      'A woman in their 30s with shoulder-length black hair, olive skin, an athletic build. Shall I draw them?',
+      'A woman in their 30s with shoulder-length black hair, olive skin, a solid build. Shall I draw them?',
     );
     await log(page).getByRole('button', { name: 'Draw them' }).click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     const tapped = await draftsOf(page, brand.id);
     const first = await draftOf(page, brand.id, tapped.drafts[0].id);
-    expect(first.direction).toBe('a woman in their 30s with shoulder-length black hair, olive skin, an athletic build');
+    expect(first.direction).toBe('a woman in their 30s with shoulder-length black hair, olive skin, a solid build');
   });
 
   test('a colour of your own rides in the chip the app uses for a colour', async ({ page }) => {
@@ -230,29 +235,43 @@ test.describe('a person from scratch', () => {
     await expect(log(page)).toContainText('What colour is their hair?');
 
     // the escape hatch hands the step to the composer, with the chip in the
-    // writing area rather than a colour control of its own
-    await log(page).getByRole('button', { name: 'Describe the colour' }).click();
+    // writing area rather than a colour control of its own, and says so
+    const hatch = log(page).getByRole('button', { name: 'Describe the colour' });
+    await hatch.click();
+    await expect(hatch).toHaveAttribute('data-on', 'true');
+    await expect(hatch).toHaveAttribute('aria-pressed', 'true');
     const chip = page.locator('.sc-convo-field .sc-token');
     await expect(chip).toHaveText('Pick a colour');
+    await expect(page.getByRole('button', { name: 'Send' })).toHaveAttribute('aria-disabled', 'true');
 
-    // pressed, it opens the app's colour menu, and a named colour answers the step
-    await chip.click();
-    const menu = page.locator('.sc-swap[data-kind="color"]');
-    await expect(menu).toBeVisible();
-    await menu.getByRole('option', { name: /Auburn/ }).click();
-    await expect(menu).toBeHidden();
-    await expect(chip).toHaveText('Auburn');
-    // the row above agrees: a colour of the row's own reads as chosen there too
-    await expect(log(page).getByRole('button', { name: 'Auburn', exact: true })).toHaveAttribute('data-on', 'true');
+    // a way in that reads as pressed can be pressed again: the step goes back
+    // to its swatches and takes the open attempt with it
+    await hatch.click();
+    await expect(hatch).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('.sc-convo-field .sc-token')).toHaveCount(0);
+    await expect(page.locator('.sc-convo-field textarea')).toBeDisabled();
+    await hatch.click();
+    await expect(chip).toHaveText('Pick a colour');
+
+    // pressed, it opens the app's own picker: a colour of your own, since the
+    // colours this step has names for are the row above
+    await chip.getByRole('button', { name: 'Pick a colour' }).click();
+    await expect(page.locator('.sc-cp')).toBeVisible();
+    await page.locator('.sc-cp-hex').fill('#8C3B26');
+    await expect(chip).toContainText('Auburn');
+    // the row is not answered by the chip: one pending answer, in one place
+    await expect(log(page).getByRole('button', { name: 'Auburn', exact: true })).not.toHaveAttribute('data-on', /.*/);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.sc-cp')).toBeHidden();
 
     // words typed beside it are words about that colour: the chip is read as
     // the first of them, in the order the two are seen
     await page.locator('.sc-convo-field textarea').fill('with copper ends');
     await page.getByRole('button', { name: 'Send' }).click();
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toContainText(
-      'auburn with copper ends',
+      'Auburn with copper ends',
     );
-    await expect(log(page)).toContainText('How long is it?');
+    await expect(log(page)).toContainText('And the length?');
     // the next step is not a colour, so no chip stands in its field
     await expect(page.locator('.sc-convo-field .sc-token')).toHaveCount(0);
   });
@@ -265,55 +284,113 @@ test.describe('a person from scratch', () => {
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
     await log(page).getByRole('button', { name: 'Describe the colour' }).click();
     const chip = page.locator('.sc-convo-field .sc-token');
-    await chip.click();
-    await page.locator('.sc-swap[data-kind="color"]').getByRole('option', { name: /Ginger/ }).click();
+    await chip.getByRole('button', { name: 'Pick a colour' }).click();
+    // not the colour the wheel opens on, which would be no change at all
+    await page.locator('.sc-cp-hex').fill('#D8AC63');
+    // the chip paints as the picker moves, so it reads the colour before it closes
+    await expect(chip).toContainText('Blonde');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.sc-cp')).toBeHidden();
     await page.locator('.sc-convo-field textarea').fill('sdf');
     await page.getByRole('button', { name: 'Send' }).click();
-    // the step stays open, the nonsense is answered, and the colour stands
+    // the step stays open, answered about hair rather than about the whole
+    // person, and the colour stands
     await expect(log(page)).toContainText('sdf');
-    // answered about hair, not about the whole person
     await expect(log(page)).toContainText('That is not a hair colour.');
     await expect(log(page)).not.toContainText('presence.');
     await expect(log(page)).toContainText('What colour is their hair?');
-    await expect(chip).toHaveText('Ginger');
-    // the chip is the answer, not a word in a sentence: it carries no remove of
-    // its own, and the menu's Remove colour empties it back to a choice to make
-    await expect(chip.getByRole('button')).toHaveCount(0);
-    await chip.click();
-    await page.locator('.sc-swap[data-kind="color"]').getByRole('button', { name: 'Remove colour' }).click();
-    await expect(chip).toHaveText('Pick a colour');
-    await expect(page.getByRole('button', { name: 'Send' })).toHaveAttribute('aria-disabled', 'true');
+    await expect(chip).toContainText('Blonde');
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toHaveCount(0);
+
+    // the X takes the colour off and the pill goes back to a choice to make
+    await chip.getByRole('button', { name: 'Remove colour' }).click();
+    await expect(chip).toHaveText('Pick a colour');
+    await page.locator('.sc-convo-field textarea').fill('');
+    await expect(page.getByRole('button', { name: 'Send' })).toHaveAttribute('aria-disabled', 'true');
   });
 
-  test('an answer is said again where it stands, and the future it had is taken back', async ({ page }) => {
+  test('an answer open again drops what was held for it, and asks from nothing when it comes round', async ({
+    page,
+  }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Who are we making?');
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
-    await expect(log(page)).toContainText('Roughly what age?');
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
-    await expect(log(page)).toContainText('What colour is their hair?');
-    await log(page).getByRole('button', { name: 'Black', exact: true }).click();
-    await expect(log(page)).toContainText('How long is it?');
 
-    // the pencil on an earlier answer takes that answer back, and everything the
-    // flow asked after it goes with it
+    // a colour held in the composer, not yet sent
+    const hatch = () => log(page).getByRole('button', { name: 'Describe the colour' });
+    await hatch().click();
+    const chip = page.locator('.sc-convo-field .sc-token');
+    await chip.getByRole('button', { name: 'Pick a colour' }).click();
+    await page.locator('.sc-cp-hex').fill('#7F3FBF');
+    await page.keyboard.press('Escape');
+    await expect(chip).toContainText('Dyed purple');
+
+    // an earlier answer opened again takes the composer back: the held colour goes with it
     await log(page)
       .locator('.sc-convo-turn[data-turn="you:look-age"]')
       .getByRole('button', { name: 'Change this answer' })
       .click();
-    await expect(log(page)).toContainText('Roughly what age?');
-    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-age"]')).toHaveCount(0);
-    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toHaveCount(0);
-    // what came before it is untouched
-    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-who"]')).toContainText('Woman');
-    // and the conversation carries on from the corrected answer
-    const open = log(page).locator('.sc-convo-q:not([data-picked])').last();
-    await open.getByRole('button', { name: '40s', exact: true }).click();
+    await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-age"][data-reopened]')).toHaveCount(1);
+    await expect(page.locator('.sc-convo-field .sc-token')).toHaveCount(0);
+    // the hair question waits while the age is open again
+    await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-hair"]')).toHaveCount(0);
+
+    // and the step, when it comes round again, asks from nothing
+    await log(page).locator('.sc-convo-turn[data-turn="q:look-age"]').getByRole('button', { name: '40s' }).click();
     await expect(log(page)).toContainText('What colour is their hair?');
+    await expect(hatch()).not.toHaveAttribute('data-on', /.*/);
+    await expect(page.locator('.sc-convo-field .sc-token')).toHaveCount(0);
+    await hatch().click();
+    await expect(page.locator('.sc-convo-field .sc-token')).toHaveText('Pick a colour');
+    await expect(page.getByRole('button', { name: 'Send' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  test('an answer opens again where it stands, with the answer lit, and what came after it stays', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await answer(page, 'Describe someone').click();
+    await expect(log(page)).toContainText('Who are they?');
+    await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
+    await expect(log(page)).toContainText('Roughly how old?');
+    await log(page).getByRole('button', { name: '30s', exact: true }).click();
+    await expect(log(page)).toContainText('What colour is their hair?');
+    await log(page).getByRole('button', { name: 'Black', exact: true }).click();
+    await expect(log(page)).toContainText('And the length?');
+
+    // the pencil opens that one question again, in its place, with the answer lit
+    await log(page)
+      .locator('.sc-convo-turn[data-turn="you:look-age"]')
+      .getByRole('button', { name: 'Change this answer' })
+      .click();
+    const reopened = log(page).locator('.sc-convo-turn[data-turn="q:look-age"]');
+    await expect(reopened).toHaveAttribute('data-reopened', 'true');
+    await expect(reopened.getByRole('button', { name: '30s', exact: true })).toHaveAttribute('data-on', 'true');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-age"]')).toHaveCount(0);
+    // what came before and after it is untouched: the hair does not depend on the age
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-who"]')).toContainText('Woman');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toContainText('Black');
+    // and only one question stands while it is open
+    await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-length"]')).toHaveCount(0);
+
+    // leaving it as it was changes nothing
+    await reopened.getByRole('button', { name: 'Cancel' }).click();
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-age"]')).toContainText('30s');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-length"]')).toHaveCount(1);
+
+    // changing it carries on from where the conversation was, with the corrected answer in place
+    await log(page)
+      .locator('.sc-convo-turn[data-turn="you:look-age"]')
+      .getByRole('button', { name: 'Change this answer' })
+      .click();
+    await log(page)
+      .locator('.sc-convo-turn[data-turn="q:look-age"]')
+      .getByRole('button', { name: '40s', exact: true })
+      .click();
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-age"]')).toContainText('40s');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toContainText('Black');
+    await expect(log(page)).toContainText('And the length?');
   });
 
   test('a text answer is rewritten in place, and cancelling changes nothing', async ({ page }) => {
@@ -323,31 +400,33 @@ test.describe('a person from scratch', () => {
     await log(page).getByRole('button', { name: 'Describe instead' }).click();
     await expect(log(page)).toContainText('Describe them.');
     await send(page, 'a woman in her 30s with dark curls');
+    await answer(page, 'Nothing else').click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 30_000 });
 
-    // cancelling leaves the answer exactly as it was
+    // a face is already drawn from the words, so changing them is asked about first
     await log(page)
       .locator('.sc-convo-turn', { hasText: 'dark curls' })
       .getByRole('button', { name: 'Change this answer' })
       .click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Change it' }).click();
+    // cancelling leaves the answer exactly as it was
     const field = log(page).locator('.sc-convo-rewrite');
     await expect(field).toHaveValue('a woman in her 30s with dark curls');
     await field.fill('something else entirely');
     await log(page).getByRole('button', { name: 'Cancel' }).click();
     await expect(log(page).locator('.sc-convo-rewrite')).toHaveCount(0);
-    await expect(log(page).locator('.sc-convo-turn[data-who="you"]').last()).toContainText('dark curls');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:describe"]')).toContainText('dark curls');
 
     // saying it again replaces it, and it is what the drawing is asked for
     await log(page)
       .locator('.sc-convo-turn', { hasText: 'dark curls' })
       .getByRole('button', { name: 'Change this answer' })
       .click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Change it' }).click();
     await log(page).locator('.sc-convo-rewrite').fill('a man in his 50s with a shaved head');
     await log(page).getByRole('button', { name: 'Save', exact: true }).click();
-    // a face is already drawn from the old words, so it is asked about
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Redraw the face' }).click();
-    await expect(log(page).locator('.sc-convo-turn[data-who="you"]').last()).toContainText('shaved head');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:describe"]')).toContainText('shaved head');
     const { drafts } = await draftsOf(page, brand.id);
     await expect
       .poll(async () => (await draftOf(page, brand.id, drafts[0].id)).direction, { timeout: 20_000 })
@@ -358,7 +437,7 @@ test.describe('a person from scratch', () => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Who are we making?');
+    await expect(log(page)).toContainText('Who are they?');
     // the steps own the answer; saying it in words is asked for
     await log(page).getByRole('button', { name: 'Describe instead' }).click();
     await expect(log(page)).toContainText('Describe them.');
@@ -368,6 +447,7 @@ test.describe('a person from scratch', () => {
     await page.getByRole('radio', { name: '20s' }).click();
     await page.getByRole('radio', { name: 'Athletic' }).click();
     await answer(page, 'Continue').click();
+    await answer(page, 'Nothing else').click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     const { drafts } = await draftsOf(page, brand.id);
     const d = await draftOf(page, brand.id, drafts[0].id);
@@ -386,11 +466,11 @@ test.describe('a person from scratch', () => {
     await page.waitForTimeout(300);
     calls.reset();
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Who are we making?');
+    await expect(log(page)).toContainText('Who are they?');
     await page.waitForTimeout(900);
     expect(calls.urls()).toBe('');
     // one sentence, one node's text, from the first frame
-    await expect(log(page).locator('.sc-convo-say').last()).toHaveText('Who are we making?');
+    await expect(log(page).locator('.sc-convo-say').last()).toHaveText('Who are they?');
   });
 
   test('reduced motion: no arrival plays, the line simply stands', async ({ page }) => {
@@ -398,7 +478,7 @@ test.describe('a person from scratch', () => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Who are we making?');
+    await expect(log(page)).toContainText('Who are they?');
     await expect(page.locator('[data-reveal] .sc-convo-w')).toHaveCount(0);
   });
 
@@ -477,11 +557,12 @@ test.describe('a person from scratch', () => {
       .locator('.sc-convo-turn', { hasText: 'a man in his 30s' })
       .getByRole('button', { name: 'Change this answer' })
       .click();
+    // asked first: the face was drawn from the old words
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Change it' }).click();
     const said = log(page).locator('.sc-convo-rewrite');
     await expect(said).toHaveValue('a man in his 30s');
     await said.fill('a woman in her 50s with silver hair');
     await log(page).getByRole('button', { name: 'Save', exact: true }).click();
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Redraw the face' }).click();
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).direction, { timeout: 20_000 })
       .toBe('a woman in her 50s with silver hair');
@@ -657,6 +738,8 @@ test.describe('from photos', () => {
     await cont.click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     await expect(log(page)).toContainText('Face from your photo', { timeout: 20_000 });
+    // the photographs are asked once what is always true of them, before the set
+    await answer(page, 'Nothing to add').click();
     await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 30_000 });
     // the photo is never redrawn, and an identity ask against it is refused
     await send(page, 'make her nose smaller');
@@ -717,7 +800,7 @@ test.describe('the doors', () => {
     await page.goto(`/${brand.slug}/presenters`);
     await page.getByRole('button', { name: 'Create presenter' }).first().click();
     await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
-    await expect(log(page)).toContainText('Who are we creating?');
+    await expect(log(page)).toContainText('Who are we making?');
   });
 
   test('an existing presenter still opens from the library', async ({ page }) => {
@@ -740,7 +823,7 @@ test.describe('what answers nothing', () => {
       if (r.method() === 'POST' && /\/presenter-drafts$/.test(r.url())) drafts++;
     });
     await page.goto(`/${brand.slug}/presenters/new`);
-    await expect(log(page)).toContainText('Who are we creating?');
+    await expect(log(page)).toContainText('Who are we making?');
     await send(page, 'how are you?');
     await expect(log(page)).toContainText('This is where the person is described');
     await send(page, 'bullshit');
@@ -768,6 +851,7 @@ test.describe('what answers nothing', () => {
     await answer(page, 'Use it anyway').click();
     await expect(log(page)).toContainText('cannot tell yet');
     await answer(page, 'Skip, draw as is').click();
+    await answer(page, 'Nothing else').click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     expect(drafts).toBe(1);
   });
@@ -795,13 +879,13 @@ test.describe('what answers nothing', () => {
   test('a line takes a beat to arrive, and none at all under reduced motion', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
-    await expect(log(page)).toContainText('Who are we creating?');
+    await expect(log(page)).toContainText('Who are we making?');
     // a tap is seen before it is taken: the chosen chip lights and the row steps back, then the turn takes its place
     await answer(page, 'Describe someone').click();
     await expect(log(page).locator('.sc-convo-q[data-picked] .sc-convo-choice[data-on]')).toHaveText(
       'Describe someone',
     );
-    await expect(log(page)).toContainText('Who are we making?');
+    await expect(log(page)).toContainText('Who are they?');
     await expect(log(page).locator('.sc-convo-q[data-picked]')).toHaveCount(0);
     await log(page).getByRole('button', { name: 'Describe instead' }).click();
     await send(page, 'hey');
@@ -809,24 +893,25 @@ test.describe('what answers nothing', () => {
     // it already had
     await expect(log(page)).toContainText('Hi. A few words about them is enough');
     await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0);
-    // an answer changed from its pencil goes with a fade, and the question asked again arrives again
+    // an answer opened again from its pencil is there at once, where it was: nothing types it out
     await log(page)
       .locator('.sc-convo-turn', { hasText: 'Describe someone' })
       .getByRole('button', { name: 'Change this answer' })
       .click();
-    await expect(log(page).locator('.sc-convo-turn[data-leave]').first()).toBeAttached();
+    await expect(log(page).locator('.sc-convo-turn[data-turn="q:source"][data-reopened]')).toBeAttached();
     await expect(answer(page, 'Add photos')).toBeVisible();
+    await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0);
+    // the other door arrives with its beat, and has a way back
+    await answer(page, 'Add photos').click();
     await expect(log(page).locator('.sc-convo-dots').first()).toBeVisible();
     await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0, { timeout: 4000 });
-    // the other door arrives with its beat too, and has a way back
-    await answer(page, 'Add photos').click();
     await expect(log(page)).toContainText('Add one clear photo of their face.');
     await expect(answer(page, 'Describe someone instead')).toBeVisible();
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.reload();
     await expect(log(page)).toContainText('Add one clear photo of their face.');
     await answer(page, 'Describe someone instead').click();
-    await expect(log(page)).toContainText('Who are we creating?');
+    await expect(log(page)).toContainText('Who are we making?');
     await send(page, 'hello');
     await expect(log(page)).toContainText('Hi. Describe them in a sentence, or pick one above.');
     await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0);

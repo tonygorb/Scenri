@@ -76,10 +76,15 @@ export interface StudioSurface {
   onEdit?: (turnId: string) => void;
   /** A tap question answered in words instead. */
   onDescribe?: () => void;
+  /** Pictures of the thing the open question is about. */
+  onAttachTrait?: (files: File[]) => void;
+  /** One of those pictures, taken off. */
+  onDetachTrait?: (hash: string) => void;
+  /** A chip that starts a sentence rather than answering: it opens the composer on it. */
+  onStarter?: (text: string) => void;
   /** An answer said again, where it stands. */
   onSaveEdit?: (turnId: string, text: string) => void;
   onCancelEdit?: () => void;
-  onExpand?: () => void;
   /** A picture from before, put back on its view. */
   onRestore?: (view: string, hash: string) => void;
   /** The head's one quiet action: Start over, Discard changes. */
@@ -217,10 +222,11 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 onEdit={s.onEdit}
                 onSaveEdit={s.onSaveEdit}
                 onCancelEdit={s.onCancelEdit}
-                onExpand={s.onExpand}
                 onRestore={s.onRestore}
-                onStarter={(text) => s.onText(text)}
+                onStarter={(text) => (s.onStarter ?? s.onText)(text)}
                 onDescribe={s.onDescribe}
+                onAttach={s.onAttachTrait}
+                onDetach={s.onDetachTrait}
               />
             </div>
           </div>

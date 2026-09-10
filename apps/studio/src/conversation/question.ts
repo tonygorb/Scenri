@@ -2,19 +2,22 @@
  * The Question: one thing Scenri asks, and the shape of its answer.
  *
  * A conversational surface in Scenri is a transcript of turns, and the turns
- * a person can act on are questions. Four kinds cover what the presenter
- * studio needs today: a sentence, one choice out of a few (optionally a few
- * rows of choices answered together), photographs, and a decision. Every
- * question has a stable id, which is what a flow keys its state on; nothing
- * is ever keyed on a turn's position or its words.
+ * a person can act on are questions. Five kinds: a sentence, one choice out of
+ * a few (or several at once, or a few rows answered together), a row of
+ * swatches, photographs, and a decision. Every question has a stable id, which
+ * is what a flow keys its state on; nothing is ever keyed on a turn's position
+ * or its words.
  *
- * This file is pure. The transcript renders it; a flow's rules produce it.
+ * This file is pure and knows no flow: the transcript renders it, a flow's
+ * rules produce it, and the words a flow reads answers by are the flow's own.
  */
 export type QuestionTone = 'alert' | 'warn';
 
 export interface ChoiceOption {
   id: string;
   label: string;
+  /** The picture on its card, when the question is answered by looking. */
+  card?: string;
 }
 
 /** A row of choices inside one question: the row's label, its options, and what is picked. */
@@ -30,8 +33,8 @@ export interface Swatch {
   label: string;
   /** The colour it stands for, when it is a colour. */
   color?: string;
-  /** The figure it stands for, when it is a shape: hair around a head, or a build. */
-  art?: 'hair' | 'build';
+  /** The figure it stands for, when it is drawn: one cell of a sprite sheet the stylesheet names. */
+  art?: { sheet: string; x: number; y: number };
 }
 
 /** A row inside a swatch question: what it is about, and what can be tapped. */
@@ -49,14 +52,23 @@ interface QuestionBase {
   /** A quiet line under the prompt. */
   hint?: string;
   tone?: QuestionTone;
+  /**
+   * Ready words that fill the composer rather than answering: a few on the
+   * chip, the whole phrase into the field, with the caret after it. A tap is
+   * a way to start saying something, never the saying of it, so nothing is
+   * committed and every one of them is editable before it is sent.
+   */
+  starters?: { label: string; text: string }[];
+  /**
+   * The question is open again from its answer. It shows with the answer in
+   * it, offers a way to leave it as it was, and answering it is a change.
+   */
+  reopened?: boolean;
 }
 
 export type Question =
   | (QuestionBase & {
       kind: 'text';
-      /** Tappable sentences that fill the composer, for a blank-canvas question. */
-      /** Ready sentences: a few words on the chip, the whole sentence into the composer. */
-      starters?: { label: string; text: string }[];
     })
   | (QuestionBase & {
       kind: 'choice';
@@ -67,6 +79,24 @@ export type Question =
       submit?: string;
       /** A second, quiet way out of a grouped question. */
       skip?: string;
+      /**
+       * Several of the options at once, answered by the submit rather than by
+       * the tap. A tap here is a choosing, not an answer: it has to be, or
+       * picking a second one would be impossible.
+       */
+      multi?: boolean;
+      /** A way to say it in words instead, which hands the answer to the composer. */
+      describe?: string;
+      /** A way to attach a picture of the thing itself. */
+      attach?: string;
+      /** The pictures attached so far, when the question takes them. */
+      refs?: string[];
+      /** This question is being answered in words right now, so the way in stands lit. */
+      saying?: boolean;
+      /** A picture is on its way in. */
+      attaching?: boolean;
+      /** The answer as it stands, when the question is open again: an option, several, or one per row. */
+      given?: string | string[] | Record<string, string>;
     })
   | (QuestionBase & {
       kind: 'swatches';
@@ -76,10 +106,12 @@ export type Question =
       skip?: string;
       /** A way to say it in words instead, which hands the answer to the composer. */
       describe?: string;
-      /** Who is being made, so the figures on the tiles are theirs. */
-      who?: string;
-      /** The option the composer is holding but has not sent, shown as chosen. */
-      pending?: string;
+      /** Which figure the drawn options show, when a sheet draws more than one. */
+      cast?: string;
+      /** This step is being answered in words right now, so the way in stands lit. */
+      saying?: boolean;
+      /** The answer as it stands, when the step is open again. */
+      given?: string;
     })
   | (QuestionBase & {
       kind: 'photos';
@@ -119,7 +151,7 @@ export type Answer =
   | { kind: 'photos'; action: PhotosAction }
   | { kind: 'confirm'; id: string };
 
-/** A turn in the transcript: yours, Scenri's, a question, or a folded stretch of setup. */
+/** A turn in the transcript: yours, Scenri's, or a question. */
 export type Turn =
   | {
       kind: 'you';
@@ -140,6 +172,12 @@ export type Turn =
       id: string;
       text: string;
       tone?: QuestionTone;
+      /**
+       * The line of a question already read and answered: it arrives with the
+       * answer, takes no beat and plays no reveal. Nothing is being said to
+       * the person again.
+       */
+      quiet?: boolean;
       /** A picture the line is about, shown small under it. */
       thumb?: string;
       /** The picture's name under it: the view and its number. */
@@ -149,8 +187,7 @@ export type Turn =
       /** The picture can be put back as it was, one to one. */
       restore?: { view: string; hash: string };
     }
-  | { kind: 'question'; question: Question }
-  | { kind: 'summary'; id: string; text: string };
+  | { kind: 'question'; question: Question };
 
 export const turnKey = (t: Turn): string => (t.kind === 'question' ? `q:${t.question.id}` : `${t.kind}:${t.id}`);
 
@@ -191,12 +228,15 @@ export function groupsAnswered(groups: ChoiceGroup[], picks: Record<string, stri
 
 /**
  * A typed sentence at a choice question: the option it names, if it names
- * one. "photos", "upload", "from my photos" pick the photos door; "describe",
- * "from scratch", "make someone up" pick the description door. A sentence
- * that names neither is not a choice at all, and the flow decides what a
- * free sentence means there (for the presenter, it is the description).
+ * one, by its label, its id, or the words the flow says stand for it. A
+ * sentence that names none is not a choice at all, and the flow decides what
+ * a free sentence means there.
  */
-export function choiceFromText(text: string, options: ChoiceOption[]): string | null {
+export function choiceFromText(
+  text: string,
+  options: ChoiceOption[],
+  synonyms: Record<string, RegExp> = {},
+): string | null {
   const t = text.trim().toLowerCase();
   if (!t) return null;
   const words = t.split(/\s+/);
@@ -205,10 +245,6 @@ export function choiceFromText(text: string, options: ChoiceOption[]): string | 
     const label = o.label.toLowerCase();
     if (t === label || t === o.id.toLowerCase()) return o.id;
   }
-  const synonyms: Record<string, RegExp> = {
-    photos: /\b(photos?|pictures?|pics?|upload|images?|selfies?)\b/,
-    scratch: /\b(scratch|describe|description|invent|make (someone|one|them) up|imagine|new person)\b/,
-  };
   for (const o of options) {
     const re = synonyms[o.id];
     if (re?.test(t)) return o.id;
@@ -221,10 +257,6 @@ export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
-
-/** Words that describe a person: with any of these, a short sentence is an answer, not small talk. */
-const DESCRIBES =
-  /\b(wom[ae]n|m[ae]n|male|female|lady|girl|boy|guy|person|she|he|they|\d0s|\d\d|young|old|teen|adult|hair|bald|beard|skin|freckle|build|slim|slender|athletic|average|fuller|tall|short|eyes?|face|smile|presence|calm|warm|confident|elegant|blonde?|brunette|dark|light|tan|olive|brown|black|white|silver|grey|gray|red|curly|straight|wavy|photos?|pictures?|selfies?|uploads?|older|younger|taller|shorter|longer|slimmer|leaner|heavier|broader|bigger|smaller|thinner|thicker|softer|sharper|natural|scratch|describe)\b/i;
 
 /** Why a sentence is not an answer, so the reply can point back in the right words. */
 export type NothingKind =
@@ -265,21 +297,20 @@ const REGION =
 /**
  * What a sentence that answers nothing is: a greeting, a nod, a question to
  * Scenri, a way out, a push to go, a call for help, the task restated, noise,
- * a named person to copy, or a word or two that describes nobody. Null for
- * anything that could be an answer. `describes` says what counts as one for
- * the question at hand; a sentence that describes is never nothing, except
- * when it names a real person to copy.
+ * a named person to copy, or a word or two that answers nobody. Null for
+ * anything that could be an answer. `describes` is the flow's own test for
+ * what counts as one at the question at hand; a sentence that describes is
+ * never nothing, except when it names a real person to copy.
  */
-export function answersNothing(
-  text: string,
-  describes: (t: string) => boolean = (t) => DESCRIBES.test(t),
-): NothingKind | null {
+export function answersNothing(text: string, describes: (t: string) => boolean): NothingKind | null {
   const t = text.trim();
   if (!t) return null;
   const like = LIKENESS.exec(t);
   if (like && !REGION.test(like[2])) return 'likeness';
   if (describes(t)) return null;
-  if (!/[a-z]/i.test(t)) return HELP.test(t) ? 'help' : 'nonsense';
+  // no letters in any script is noise; a name or a sentence in Hebrew, Arabic
+  // or anything else is not
+  if (!/\p{L}/u.test(t)) return HELP.test(t) ? 'help' : 'nonsense';
   const words = t.split(/\s+/).filter(Boolean);
   const n = words.length;
   if (HELP.test(t)) return 'help';
@@ -298,7 +329,7 @@ export function answersNothing(
 }
 
 /** True for anything that is not an answer. */
-export const smallTalk = (text: string, describes?: (t: string) => boolean): boolean =>
+export const smallTalk = (text: string, describes: (t: string) => boolean): boolean =>
   answersNothing(text, describes) !== null;
 
 /**

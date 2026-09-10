@@ -10,6 +10,10 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  /* the transcript places the reader itself: a block opening in place, the
+     newest turn, the open question; the browser's own anchoring would move
+     the view a second time when an answer becomes its question */
+  overflow-anchor: none;
   display: flex;
   flex-direction: column;
   padding: 32px;
@@ -22,11 +26,17 @@
    above it; they slide to their new places rather than being teleported there
    (`Transcript` measures each turn's place every render and plays the
    difference back), so the conversation reads as one moving thing. */
+/*
+ * Top-anchored, the way every chat is. A conversation shorter than its box
+ * starts at the top and leaves the room below empty; a turn that grows (an
+ * answer opened again into its question) pushes only what is under it, and
+ * stays where the eye is. Bottom-anchoring moved everything above a growing
+ * turn upward, the opened block included, which read as the page jumping.
+ */
 .sc-convo-turns {
   display: flex;
   flex-direction: column;
   gap: 32px;
-  margin-top: auto;
 }
 
 .sc-convo-turn {
@@ -217,9 +227,38 @@
   line-height: 22px;
 }
 
-.sc-convo-turn[data-working] .sc-convo-dots {
-  position: static;
-  height: 22px;
+/* A word still being said finishes itself: three full stops in the line's own
+   type, tight against the word, each arriving in turn. Not beads beside the
+   text, which read as a second element rather than as the sentence going on. */
+.sc-convo-ell {
+  display: inline;
+  white-space: nowrap;
+}
+
+.sc-convo-ell i {
+  font-style: inherit;
+  opacity: 0.2;
+  animation: sc-convo-ell 1400ms var(--sc-ease) infinite;
+}
+
+.sc-convo-ell i:nth-child(2) {
+  animation-delay: 200ms;
+}
+
+.sc-convo-ell i:nth-child(3) {
+  animation-delay: 400ms;
+}
+
+@keyframes sc-convo-ell {
+  0%,
+  70%,
+  100% {
+    opacity: 0.2;
+  }
+  25%,
+  45% {
+    opacity: 1;
+  }
 }
 
 /* The beat before a line: three dots stand where the words will, and the
@@ -299,6 +338,11 @@
   .sc-convo-q[data-reveal] > *,
   .sc-convo-turn[data-arrive],
   .sc-convo-turn[data-leave] {
+    animation: none;
+    opacity: 1;
+  }
+
+  .sc-convo-ell i {
     animation: none;
     opacity: 1;
   }
@@ -424,18 +468,193 @@ button.sc-convo-shot-do {
 /* A colour chosen for an answer wears the chip the rest of the app uses for a
    colour, and it wears it where the words go: the chip sits on the first line
    of the writing area, the way a chip sits in the brief's sentence, and typing
-   carries on beside it. Pressed, it opens that same colour menu. */
+   carries on beside it. The pill is a container; the colour inside it is the
+   button, and it opens the app's picker. */
 .sc-convo-field .sc-token {
   align-self: flex-start;
+  align-items: center;
   margin-block: 1px;
+  padding-inline-end: 0.5em;
   font-size: 13px;
+  cursor: default;
+}
+
+/* Both children are buttons, so both have to be taken out of the line's
+   floating-X geometry: the colour is the pill's body and the X sits after it. */
+.sc-convo-field .sc-token > .sc-convo-chip,
+.sc-convo-field .sc-token > .sc-convo-chip-x {
+  position: static;
+  width: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  opacity: 1;
   cursor: pointer;
+}
+
+.sc-convo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.48em;
+  border-radius: var(--sc-radius-full);
+  color: inherit;
+  font: inherit;
+}
+
+/* The X stands in the pill rather than floating over its right edge: this chip
+   holds one short word, and the floating reveal covered it. Only the X: the
+   colour beside it is a button too, and it keeps the swatch flush left the way
+   every other chip in the app has it. */
+.sc-convo-chip-x {
+  display: inline-flex;
+  align-items: center;
 }
 
 /* No colour chosen yet: the swatch is its ring alone, so the chip reads as an
    invitation rather than as a colour someone already picked. */
 .sc-convo-field .sc-token[data-empty] .sc-token-swatch {
   background: none;
+}
+
+/* ---- the pictures a distinctive detail is chosen from -----------------------
+   A card is a photograph of the thing itself, and every card in a row was
+   drawn in one pass on the same face or the same forearm under the same light,
+   so the only thing that changes down a row is the thing being chosen. Wide
+   enough to judge: a pair of frames or a fine-line tattoo is not a shape that
+   survives thumbnail size, which is why these are cards and the look plates
+   are plates. */
+/* A photographed plate: the picture is the plate's surface, cropped to it. */
+.sc-convo-plate-in[data-card] {
+  background-color: var(--sc-raised);
+  background-position: 50% 35%;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+.sc-convo-plate-in[data-card="freckles-1"] {
+  background-image: url("../../assets/traits/freckles-1.webp");
+}
+.sc-convo-plate-in[data-card="freckles-2"] {
+  background-image: url("../../assets/traits/freckles-2.webp");
+}
+.sc-convo-plate-in[data-card="freckles-3"] {
+  background-image: url("../../assets/traits/freckles-3.webp");
+}
+.sc-convo-plate-in[data-card="freckles-4"] {
+  background-image: url("../../assets/traits/freckles-4.webp");
+}
+.sc-convo-plate-in[data-card="freckles-5"] {
+  background-image: url("../../assets/traits/freckles-5.webp");
+}
+.sc-convo-plate-in[data-card="freckles-6"] {
+  background-image: url("../../assets/traits/freckles-6.webp");
+}
+.sc-convo-plate-in[data-card="glasses-1"] {
+  background-image: url("../../assets/traits/glasses-1.webp");
+}
+.sc-convo-plate-in[data-card="glasses-2"] {
+  background-image: url("../../assets/traits/glasses-2.webp");
+}
+.sc-convo-plate-in[data-card="glasses-3"] {
+  background-image: url("../../assets/traits/glasses-3.webp");
+}
+.sc-convo-plate-in[data-card="glasses-4"] {
+  background-image: url("../../assets/traits/glasses-4.webp");
+}
+.sc-convo-plate-in[data-card="glasses-5"] {
+  background-image: url("../../assets/traits/glasses-5.webp");
+}
+.sc-convo-plate-in[data-card="glasses-6"] {
+  background-image: url("../../assets/traits/glasses-6.webp");
+}
+.sc-convo-plate-in[data-card="makeup-1"] {
+  background-image: url("../../assets/traits/makeup-1.webp");
+}
+.sc-convo-plate-in[data-card="makeup-2"] {
+  background-image: url("../../assets/traits/makeup-2.webp");
+}
+.sc-convo-plate-in[data-card="makeup-3"] {
+  background-image: url("../../assets/traits/makeup-3.webp");
+}
+.sc-convo-plate-in[data-card="makeup-4"] {
+  background-image: url("../../assets/traits/makeup-4.webp");
+}
+.sc-convo-plate-in[data-card="makeup-5"] {
+  background-image: url("../../assets/traits/makeup-5.webp");
+}
+.sc-convo-plate-in[data-card="makeup-6"] {
+  background-image: url("../../assets/traits/makeup-6.webp");
+}
+.sc-convo-plate-in[data-card="piercing-1"] {
+  background-image: url("../../assets/traits/piercing-1.webp");
+}
+.sc-convo-plate-in[data-card="piercing-2"] {
+  background-image: url("../../assets/traits/piercing-2.webp");
+}
+.sc-convo-plate-in[data-card="piercing-3"] {
+  background-image: url("../../assets/traits/piercing-3.webp");
+}
+.sc-convo-plate-in[data-card="piercing-4"] {
+  background-image: url("../../assets/traits/piercing-4.webp");
+}
+.sc-convo-plate-in[data-card="piercing-5"] {
+  background-image: url("../../assets/traits/piercing-5.webp");
+}
+.sc-convo-plate-in[data-card="piercing-6"] {
+  background-image: url("../../assets/traits/piercing-6.webp");
+}
+.sc-convo-plate-in[data-card="prosthetic-1"] {
+  background-image: url("../../assets/traits/prosthetic-1.webp");
+}
+.sc-convo-plate-in[data-card="prosthetic-2"] {
+  background-image: url("../../assets/traits/prosthetic-2.webp");
+}
+.sc-convo-plate-in[data-card="prosthetic-3"] {
+  background-image: url("../../assets/traits/prosthetic-3.webp");
+}
+.sc-convo-plate-in[data-card="prosthetic-4"] {
+  background-image: url("../../assets/traits/prosthetic-4.webp");
+}
+.sc-convo-plate-in[data-card="prosthetic-5"] {
+  background-image: url("../../assets/traits/prosthetic-5.webp");
+}
+.sc-convo-plate-in[data-card="prosthetic-6"] {
+  background-image: url("../../assets/traits/prosthetic-6.webp");
+}
+.sc-convo-plate-in[data-card="scar-1"] {
+  background-image: url("../../assets/traits/scar-1.webp");
+}
+.sc-convo-plate-in[data-card="scar-2"] {
+  background-image: url("../../assets/traits/scar-2.webp");
+}
+.sc-convo-plate-in[data-card="scar-3"] {
+  background-image: url("../../assets/traits/scar-3.webp");
+}
+.sc-convo-plate-in[data-card="scar-4"] {
+  background-image: url("../../assets/traits/scar-4.webp");
+}
+.sc-convo-plate-in[data-card="scar-5"] {
+  background-image: url("../../assets/traits/scar-5.webp");
+}
+.sc-convo-plate-in[data-card="scar-6"] {
+  background-image: url("../../assets/traits/scar-6.webp");
+}
+.sc-convo-plate-in[data-card="tattoo-1"] {
+  background-image: url("../../assets/traits/tattoo-1.webp");
+}
+.sc-convo-plate-in[data-card="tattoo-2"] {
+  background-image: url("../../assets/traits/tattoo-2.webp");
+}
+.sc-convo-plate-in[data-card="tattoo-3"] {
+  background-image: url("../../assets/traits/tattoo-3.webp");
+}
+.sc-convo-plate-in[data-card="tattoo-4"] {
+  background-image: url("../../assets/traits/tattoo-4.webp");
+}
+.sc-convo-plate-in[data-card="tattoo-5"] {
+  background-image: url("../../assets/traits/tattoo-5.webp");
+}
+.sc-convo-plate-in[data-card="tattoo-6"] {
+  background-image: url("../../assets/traits/tattoo-6.webp");
 }
 
 /* ---- a question's answer controls ----------------------------------------- */
@@ -509,6 +728,72 @@ button.sc-convo-shot-do {
   gap: var(--sc-space-4);
   margin-top: var(--sc-space-2);
 }
+/* The pictures attached to a detail: small, in a row, each with its X. */
+.sc-convo-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-3);
+  margin-top: var(--sc-space-3);
+}
+.sc-convo-ref {
+  position: relative;
+  display: block;
+  width: 44px;
+  height: 44px;
+}
+.sc-convo-ref img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--sc-radius-sm);
+  background: var(--sc-hover);
+}
+.sc-convo-ref-x {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: 999px;
+  background: var(--sc-bg);
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+.sc-convo-ref-x:hover {
+  color: var(--sc-fg);
+}
+/* A question open again from its answer: its Cancel is the quiet way out, and
+   when it is brought into view it keeps a breath from the edges. */
+.sc-convo-cancel {
+  margin-left: auto;
+}
+.sc-convo-turn[data-reopened] {
+  scroll-margin-top: var(--sc-space-6);
+  scroll-margin-bottom: var(--sc-space-6);
+}
+/* An answer being rewritten in place: the words as they were, in a field where they stand. */
+.sc-convo-rewrite {
+  width: 100%;
+  min-width: 220px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  resize: none;
+  outline: none;
+}
+.sc-convo-rewrite-do {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sc-space-2);
+  margin-top: var(--sc-space-3);
+}
 
 /* not `.sc-convo-row`: that is the composer's own row, and it aligns to its far
    edge, which pushed every swatch to the right of the rail */
@@ -525,11 +810,149 @@ button.sc-convo-shot-do {
 }
 
 /* a row of tiles reads as a grid, three across, rather than a wrapping line */
-.sc-convo-swatches:has(.sc-convo-tile) {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+/* ---- drawn options, on the strip's own plates -------------------------------
+   A hair length and a build are shapes, so they are shown rather than named,
+   on the plate the stage already uses for its views. The row scrolls: nine of
+   them in a grid was a wall, and a wall is not a question. */
+.sc-convo-strip {
+  position: relative;
+  min-width: 0;
+}
+
+.sc-convo-plates {
+  display: flex;
+  flex-wrap: nowrap;
   gap: var(--sc-space-4);
-  align-items: stretch;
+  align-items: flex-start;
+  min-width: 0;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  /* Each edge fades only while it is hiding something: the row tells you which
+     way it carries on, and stops claiming it when there is nothing there. */
+  --sc-strip-l: 0px;
+  --sc-strip-r: 0px;
+
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--sc-strip-l),
+    #000 calc(100% - var(--sc-strip-r)),
+    transparent 100%
+  );
+}
+
+.sc-convo-strip[data-fade="both"] .sc-convo-plates,
+.sc-convo-strip[data-fade="back"] .sc-convo-plates {
+  --sc-strip-l: 40px;
+}
+
+.sc-convo-strip[data-fade="both"] .sc-convo-plates,
+.sc-convo-strip[data-fade="on"] .sc-convo-plates {
+  --sc-strip-r: 40px;
+}
+
+.sc-convo-plates::-webkit-scrollbar {
+  display: none;
+}
+
+.sc-convo-plate {
+  flex: none;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sc-space-3);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--sc-fg2);
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+  opacity: 0.85;
+  transition:
+    opacity var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+
+.sc-convo-plate:hover,
+.sc-convo-plate[data-on] {
+  color: var(--sc-fg);
+  opacity: 1;
+}
+
+.sc-convo-plate-in {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 90px;
+  height: 112px;
+  overflow: hidden;
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-raised);
+}
+
+.sc-convo-plate[data-on] .sc-convo-plate-in {
+  outline: 2px solid var(--sc-fg);
+  outline-offset: -2px;
+}
+
+/* The two ends, for a hand with no swipe in it: they straddle the row's edge,
+   appear while it is hovered or has focus in it, and dim rather than vanish
+   where there is nowhere left to go. Never drawn where a finger would swipe. */
+.sc-convo-strip-go {
+  position: absolute;
+  top: 42px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: 50%;
+  background: var(--sc-panel);
+  color: var(--sc-fg);
+  box-shadow: var(--sc-shadow-float);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+
+.sc-convo-strip-go[data-dir="back"] {
+  left: 0;
+  translate: -50% 0;
+}
+
+.sc-convo-strip-go[data-dir="on"] {
+  right: 0;
+  translate: 50% 0;
+}
+
+.sc-convo-strip-go[data-spent] {
+  color: var(--sc-fg3);
+  cursor: default;
+}
+
+/* Keyboard focus on a plate shows them too, but a mouse press must not:
+   `:focus-within` counts the press that just moved the row, which left the
+   controls standing after the pointer had gone. */
+.sc-convo-strip:hover .sc-convo-strip-go,
+.sc-convo-strip:has(.sc-convo-plate:focus-visible) .sc-convo-strip-go {
+  opacity: 1;
+}
+
+.sc-convo-strip:hover .sc-convo-strip-go[data-spent],
+.sc-convo-strip:has(.sc-convo-plate:focus-visible) .sc-convo-strip-go[data-spent] {
+  opacity: 0.3;
+}
+
+@media (hover: none) {
+  .sc-convo-strip-go {
+    display: none;
+  }
 }
 
 .sc-convo-swatches {
@@ -572,41 +995,36 @@ button.sc-convo-shot-do {
 
 /* Length and build are shapes: a small figure in a square, with its word under
    it. Faster to recognise than "chin-length" is to read. */
-.sc-convo-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 12px 10px 0;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-lg);
-  background: var(--sc-raised);
-  color: var(--sc-fg2);
-  font-size: 11px;
-  line-height: 14px;
-  cursor: pointer;
-  transition:
-    border-color var(--sc-dur-fast) var(--sc-ease),
-    color var(--sc-dur-fast) var(--sc-ease);
-}
-
-.sc-convo-tile span {
-  padding-bottom: 5px;
-}
-
 /* One cell of the sheet its row was drawn on, as a mask rather than a picture:
    the figure is the card's own ink on the card's own surface, so no plate of
    another colour sits inside the card. */
 .sc-look-art {
   display: block;
-  width: 100%;
+  /* The figure is a thumbnail, not a portrait: at the size the sheet drew it
+     the tiles were 210 tall and the row of six ran off the rail. Capped, the
+     silhouettes keep their air and the whole question fits in a glance. */
+  height: 100%;
   aspect-ratio: 1;
-  background-color: currentColor;
-  mask-repeat: no-repeat;
-  mask-size: calc(100% * var(--sc-look-cols)) calc(100% * var(--sc-look-rows));
-  mask-position: calc(var(--sc-look-x) * 100% / (var(--sc-look-cols) - 1))
-    calc(var(--sc-look-y) * 100% / (var(--sc-look-rows) - 1));
-  opacity: 0.62;
+  --sc-look-fade: 74%;
+  /* Light ink on the plate's dark ground: the figure was drawn from the tile's
+     own text colour, which on a raised plate left it darker than the surface it
+     stood on and all but invisible at this size. */
+  background-color: var(--sc-fg2);
+  /* Two masks, intersected: the sheet's own cell, and a fade at the foot of it.
+     The cells are bust crops, so without the fade every figure ends on the same
+     hard horizontal line a few pixels above its label, which reads as a picture
+     that did not finish loading rather than as a drawing. */
+  mask-image: var(--sc-look-sheet), linear-gradient(to bottom, #000 var(--sc-look-fade), transparent 96%);
+  mask-repeat: no-repeat, no-repeat;
+  mask-size:
+    calc(100% * var(--sc-look-cols)) calc(100% * var(--sc-look-rows)),
+    100% 100%;
+  mask-position:
+    calc(var(--sc-look-x) * 100% / (var(--sc-look-cols) - 1)) calc(var(--sc-look-y) * 100% / (var(--sc-look-rows) - 1)),
+    0 0;
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+  opacity: 0.75;
   transition: opacity var(--sc-dur-fast) var(--sc-ease);
 }
 
@@ -618,30 +1036,45 @@ button.sc-convo-shot-do {
   aspect-ratio: 2 / 3;
 }
 
+/* A whole figure, standing: it wants the height a bust does not, and it ends
+   at the floor of its own cell rather than at a crop, so it barely fades. */
 .sc-look-art[data-kind="build"] {
   --sc-look-cols: 3;
   --sc-look-rows: 3;
+  --sc-look-fade: 98%;
+
+  /* a whole figure stands in its plate: head under the top edge, feet on the
+     floor of it, so nothing of the person is cut away */
+  height: 100%;
 }
 
 .sc-look-art[data-kind="hair"][data-cast="woman"] {
-  mask-image: url("../../assets/look/hair-woman.webp");
+  --sc-look-sheet: url("../../assets/look/hair-woman.webp");
 }
 
 .sc-look-art[data-kind="hair"][data-cast="man"] {
-  mask-image: url("../../assets/look/hair-man.webp");
+  --sc-look-sheet: url("../../assets/look/hair-man.webp");
 }
 
 .sc-look-art[data-kind="build"][data-cast="woman"] {
-  mask-image: url("../../assets/look/build-woman.webp");
+  --sc-look-sheet: url("../../assets/look/build-woman.webp");
 }
 
 .sc-look-art[data-kind="build"][data-cast="man"] {
-  mask-image: url("../../assets/look/build-man.webp");
+  --sc-look-sheet: url("../../assets/look/build-man.webp");
 }
 
-.sc-convo-tile:hover .sc-look-art,
-.sc-convo-tile[data-on] .sc-look-art {
+.sc-convo-plate:hover .sc-look-art,
+.sc-convo-plate[data-on] .sc-look-art {
+  background-color: var(--sc-fg);
   opacity: 1;
+}
+
+.sc-look-art[data-kind="hair"] {
+  /* The cut is the whole question, so the plate holds the head and not the
+     chest: the drawing stands taller than its plate and the plate crops it. */
+  align-self: flex-start;
+  height: 142%;
 }
 
 /* the quiet way past a step, at the end of its row */
@@ -744,6 +1177,21 @@ button.sc-convo-shot-do {
     border-color var(--sc-dur-fast) var(--sc-ease);
 }
 
+/* Chosen: the answer's own ink, the way a set chip reads everywhere else. This
+   rule exists because the taller conversation chip above restates background
+   and colour, which at equal weight and later in the manifest was quietly
+   winning over the primitive's [data-on]. It says where the answer is being
+   given: the way in that was pressed, and the pass that was taken. */
+.sc-chip.sc-convo-choice[data-on] {
+  border-color: transparent;
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+}
+
+.sc-chip.sc-convo-choice[data-on]:hover {
+  background: var(--sc-inv-bg);
+}
+
 .sc-convo-groups {
   display: flex;
   flex-direction: column;
@@ -826,23 +1274,6 @@ button.sc-convo-shot-do {
 }
 
 /* the folded setup: one quiet row where the answered questions were */
-.sc-convo-summary {
-  align-self: flex-start;
-  padding: var(--sc-space-4) var(--sc-space-5);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius);
-  background: none;
-  color: var(--sc-fg2);
-  font-size: var(--sc-text-body);
-  text-align: left;
-  cursor: pointer;
-}
-
-.sc-convo-summary:hover {
-  border-color: var(--sc-line-strong);
-  color: var(--sc-fg);
-}
-
 /* ---- the composer ---------------------------------------------------------- */
 .sc-convo-composer {
   display: flex;

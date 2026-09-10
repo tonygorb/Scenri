@@ -1,6 +1,7 @@
 import { Confirm } from '../../Confirm.js';
 import { StudioShell } from './StudioShell.js';
 import { type CreationFlowArgs, useCreationFlow } from './useCreationFlow.js';
+import { REDRAW_BODY, REDRAW_BODY_PHOTOS, REDRAW_TITLE } from './presenterCopy.js';
 import { VIEW_NAME, worthKeeping } from './presenterStudioRules.js';
 
 /**
@@ -15,8 +16,8 @@ import { VIEW_NAME, worthKeeping } from './presenterStudioRules.js';
 export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClose: () => void }) {
   const f = useCreationFlow(args);
   const d = f.d;
-  const headAction = d ? (
-    worthKeeping(d) ? (
+  const headAction = f.begun ? (
+    d && worthKeeping(d) ? (
       <Confirm
         label="Start over"
         tone="quiet"
@@ -49,17 +50,19 @@ export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClo
     </>
   );
 
+  // A changed answer under a drawn face is asked about once, before the
+  // answer opens: what was drawn from the old answer is drawn again.
   const overlay = (
     <Confirm
-      label="Redraw the face"
-      title="Describe them again?"
-      body="The face is drawn again from the new description, and the views built on it follow. Nothing already saved changes."
+      label="Change it"
+      title={REDRAW_TITLE}
+      body={d?.source === 'photos' ? REDRAW_BODY_PHOTOS : REDRAW_BODY}
       busy={false}
-      open={f.confirming === 'redescribe'}
+      open={f.confirming === 'redraw'}
       onOpenChange={(o) => {
         if (!o) f.setConfirming(null);
       }}
-      onConfirm={f.redrawFromSaid}
+      onConfirm={f.confirmEdit}
     />
   );
 

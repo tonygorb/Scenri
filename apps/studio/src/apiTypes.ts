@@ -381,6 +381,10 @@ export interface PresenterDraft {
   brandId: string;
   source: 'synthetic' | 'photos';
   direction?: string;
+  /** What the person said should stay the same whenever this presenter appears. */
+  keep?: string;
+  /** Pictures of the details themselves, by detail. */
+  detailRefs?: Record<string, string[]>;
   name: string;
   facets: string[];
   attestation?: { attestedAt: string; version: string };

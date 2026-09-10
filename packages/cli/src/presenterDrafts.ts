@@ -43,6 +43,7 @@ import {
   EXTRA_VIEWS,
   PRESENTER_VIEWS,
   studioPrompt,
+  keepFor,
   syntheticIdentitySubject,
   viewSubject,
   whoIs,
@@ -116,6 +117,20 @@ export interface PresenterDraftRecord {
   source: PresenterSource;
   /** The sentence a synthetic person is rolled from. Inert once the portrait is approved. */
   direction?: string;
+  /**
+   * What the person said should stay the same whenever this presenter appears:
+   * a tattoo, glasses they always wear, a scar, a prosthetic limb, the long
+   * tail nobody can enumerate. Their own words, in one sentence, and the only
+   * thing here that is meant to outlive the draft: it rides every view's
+   * prompt and becomes the record's identity notes on save.
+   */
+  keep?: string;
+  /**
+   * Pictures of the details themselves, by detail: a pair of frames, a
+   * tattoo's design. Drawn from with the `detail` role, which takes the thing
+   * and nothing of whoever is wearing it in the picture.
+   */
+  detailRefs?: Record<string, string[]>;
   name: string;
   facets: string[];
   /** Recorded when the photographs are of a real person. Never on a synthetic one. */
@@ -220,6 +235,9 @@ function fromRow(row: { id: string; brandId: string; json: unknown; createdAt: s
     updatedAt: row.updatedAt,
   };
   if (j.direction) rec.direction = String(j.direction);
+  if (j.keep) rec.keep = String(j.keep);
+  const detailRefs = detailRefsOf(j.detailRefs);
+  if (detailRefs) rec.detailRefs = detailRefs;
   if (j.attestation) rec.attestation = j.attestation;
   if (j.analysis) rec.analysis = j.analysis;
   if (j.readError) rec.readError = String(j.readError);
@@ -344,12 +362,34 @@ export function sweepPresenterDrafts(core: Core): number {
   return swept;
 }
 
+/** Pictures of the details, by detail: a few hashes each, and only ones that are here. */
+function detailRefsOf(raw: unknown, has?: (h: string) => boolean): Record<string, string[]> | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out: Record<string, string[]> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>).slice(0, 8)) {
+    const key = str(k, 40);
+    if (!key || !Array.isArray(v)) continue;
+    const hashes = v
+      .map(String)
+      .filter((h) => HASH.test(h) && (!has || has(h)))
+      .slice(0, 4);
+    if (hashes.length) out[key] = hashes;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+type RefRole = 'character' | 'detail';
+
 /* ---------------------------------------------------------------- create */
 
 export interface CreateDraftInput {
   brandId: string;
   source: PresenterSource;
   direction?: string;
+  /** What should stay the same about them, in their own words. */
+  keep?: string;
+  /** Pictures of the details themselves, by detail. */
+  detailRefs?: Record<string, string[]>;
   imageHashes?: string[];
   /** The likeness confirmation, given. Required for photographs of a real person. */
   attestation?: boolean;
@@ -368,6 +408,7 @@ export async function createPresenterDraft(
   if (!brand) throw fail('brand not found', 404);
   const source: PresenterSource = input.source === 'synthetic' ? 'synthetic' : 'photos';
   const direction = str(input.direction, 400);
+  const keep = str(input.keep, 240);
   const sources = (input.imageHashes ?? []).map(String).filter((h) => HASH.test(h) && core.images.has(h));
   if (source === 'synthetic' && !direction) throw fail('describe who they are in a sentence', 400);
   // A person from a description is nothing but what an engine draws.
@@ -400,6 +441,9 @@ export async function createPresenterDraft(
     createdAt: '',
     updatedAt: '',
   };
+  if (keep) rec.keep = keep;
+  const detailRefs = detailRefsOf(input.detailRefs, (h) => core.images.has(h));
+  if (detailRefs) rec.detailRefs = detailRefs;
   if (source === 'synthetic') rec.direction = direction;
   else {
     rec.attestation = { attestedAt: new Date().toISOString(), version: LIKENESS_VERSION };
@@ -762,7 +806,7 @@ async function drawView(
     }
     if (signal.aborted) throw new Error('cancelled');
 
-    const { prompt, refs } = planStep(rec, view, adjustment, caps.maxReferenceImages);
+    const { prompt, refs, roles } = planStep(rec, view, adjustment, caps.maxReferenceImages);
     const paths: string[] = [];
     for (const h of refs) {
       const p = core.images.pathFor(h);
@@ -771,7 +815,7 @@ async function drawView(
     const drawn = await draw(deps, {
       prompt,
       brandId: rec.brandId,
-      ...(paths.length ? { referenceImages: paths, referenceRoles: paths.map(() => 'character' as const) } : {}),
+      ...(paths.length ? { referenceImages: paths, referenceRoles: roles } : {}),
       signal,
     });
     // Before anything chains off it: a bar left on the anchor is a bar the
@@ -824,14 +868,56 @@ async function drawView(
   }
 }
 
+/**
+ * The sentence a face is rolled from: who they are, and then what should stay
+ * the same about them. The second half is the person's own words, so a scar or
+ * a pair of glasses is drawn into the face rather than described beside it.
+ */
+export function rolledFrom(rec: Pick<PresenterDraftRecord, 'direction' | 'keep'>): string {
+  const said = (rec.direction ?? '').trim().replace(/[.\s]+$/, '');
+  const keep = keepFor('portrait', rec.keep);
+  if (!keep) return said;
+  return said ? `${said}, ${keep}` : keep;
+}
+
+/** A sentence that names a side: a trait on the left is not the same trait on the right. */
+export const namesASide = (text: string | undefined): boolean => /\b(left|right)\b/i.test(text ?? '');
+
+/**
+ * Which approved views a view is actually drawn from.
+ *
+ * The right profile normally rides the left one, which is the best reference
+ * a profile can have and the worst one for a person whose scar, tattoo or
+ * prosthetic is on one side: the surest way to copy a trait onto the wrong
+ * side is to draw it from a picture of the other. When their own words name a
+ * side, the right view is drawn from the face and the front instead.
+ */
+export function refDeps(rec: PresenterDraftRecord, view: PresenterView): PresenterView[] {
+  const deps = DEPENDS[view];
+  if (view !== 'right' || !namesASide(rec.keep)) return deps;
+  return deps.filter((d) => d !== 'left');
+}
+
 /** What a step is drawn from and asked for. Pure, so the choice is testable and the manifest honest. */
 export function planStep(
   rec: PresenterDraftRecord,
   view: PresenterView,
   adjustment: string | undefined,
   cap: number,
-): { prompt: string; refs: string[] } {
+): { prompt: string; refs: string[]; roles: RefRole[] } {
   const slot = rec.views[view];
+  // The pictures of the details ride after the pictures of the person, in
+  // whatever room the budget leaves: a reference for a pair of frames never
+  // costs the face its place.
+  const details = [...new Set(Object.values(rec.detailRefs ?? {}).flat())];
+  const withDetails = (identity: string[]) => {
+    const room = Math.max(0, Math.max(1, cap) - identity.length);
+    const extra = details.filter((h) => !identity.includes(h)).slice(0, room);
+    return {
+      refs: [...identity, ...extra],
+      roles: [...identity.map((): RefRole => 'character'), ...extra.map((): RefRole => 'detail')],
+    };
+  };
   // The identity roll: nothing to condition on but the sentence, unless the
   // person is being nudged, in which case the candidate rides so a nudge
   // keeps the person and a new roll does not.
@@ -839,15 +925,15 @@ export function planStep(
     const nudge = adjustment && slot.hash ? [slot.hash] : [];
     return {
       prompt: studioPrompt(
-        syntheticIdentitySubject(rec.direction ?? '', { adjustment: nudge.length ? adjustment : undefined }),
+        syntheticIdentitySubject(rolledFrom(rec), { adjustment: nudge.length ? adjustment : undefined }),
       ),
-      refs: nudge,
+      ...withDetails(nudge),
     };
   }
   // Approved views first, in dependency order, then the photographs the
   // draft started from, inside the engine's budget.
   const refs: string[] = [];
-  for (const dep of DEPENDS[view]) {
+  for (const dep of refDeps(rec, view)) {
     const h = rec.views[dep].hash;
     if (h && rec.views[dep].status === 'approved' && !refs.includes(h)) refs.push(h);
   }
@@ -856,16 +942,16 @@ export function planStep(
   // after them; with no words yet, the edits still ride so a photo person's
   // later views follow the change rather than the originals.
   const edits = rec.identityEdits ?? [];
-  const words = rec.analysis
-    ? { ...rec.analysis, identityEdits: edits }
-    : edits.length
-      ? { promptName: ATTACHED_PERSON, identityEdits: edits }
+  const keep = keepFor(view, rec.keep);
+  const words =
+    rec.analysis || edits.length || keep
+      ? { ...(rec.analysis ?? { promptName: ATTACHED_PERSON }), identityEdits: edits, keep }
       : null;
   const who = whoIs(rec.name || 'this person', words);
   const subject = adjustment
     ? `${viewSubject(view, who)}, and for this view only: ${adjustment}`
     : viewSubject(view, who);
-  return { prompt: studioPrompt(subject), refs: refs.slice(0, Math.max(1, cap)) };
+  return { prompt: studioPrompt(subject), ...withDetails(refs.slice(0, Math.max(1, cap))) };
 }
 
 /* ---------------------------------------------------------------- decide */
@@ -1048,7 +1134,14 @@ export async function usePhotoForView(
 export async function updatePresenterDraft(
   core: Core,
   id: string,
-  patch: { name?: unknown; facets?: unknown; direction?: unknown; extras?: unknown },
+  patch: {
+    name?: unknown;
+    facets?: unknown;
+    direction?: unknown;
+    keep?: unknown;
+    detailRefs?: unknown;
+    extras?: unknown;
+  },
 ): Promise<PresenterDraftRecord> {
   return mutate(core, id, (r) => {
     if (patch.extras !== undefined) r.extras = patch.extras === true;
@@ -1059,6 +1152,8 @@ export async function updatePresenterDraft(
         .filter(Boolean)
         .slice(0, 8);
     if (patch.direction !== undefined) r.direction = str(patch.direction, 400) || undefined;
+    if (patch.keep !== undefined) r.keep = str(patch.keep, 240) || undefined;
+    if (patch.detailRefs !== undefined) r.detailRefs = detailRefsOf(patch.detailRefs, (h) => core.images.has(h));
   });
 }
 
@@ -1122,7 +1217,7 @@ export async function savePresenterDraft(
     descriptor: a?.descriptor,
     ageRange: a?.ageRange,
     hair: a?.hair,
-    identityNotes: a?.identityNotes,
+    identityNotes: keptNotes(rec, a),
     negativeConstraints: a?.negativeConstraints,
     // What the person filing this chose wins over what the analyzer guessed.
     suitableCategories: rec.facets.length ? rec.facets : a?.suitableCategories,
@@ -1139,6 +1234,23 @@ export async function savePresenterDraft(
   core.store.deletePresenterDraft(id);
   removeUnreferenced(core, letGoOf(rec), hooks);
   return { presenter: built.presenter, brand: core.store.getBrand(rec.brandId) };
+}
+
+/**
+ * What the record says stays the same about this person.
+ *
+ * Their own words lead, because the field is capped and whichever goes second
+ * is what a cap eats; the analyzer's read of the approved face follows. For a
+ * person drawn from a description the analyzer only ever sees the portrait, so
+ * a tattoo on a forearm can reach the record no other way.
+ */
+export function keptNotes(
+  rec: Pick<PresenterDraftRecord, 'keep'>,
+  a: { identityNotes?: string } | undefined,
+): string | undefined {
+  const keep = rec.keep?.trim();
+  const said = keep ? (/[.!?]$/.test(keep) ? keep : `${keep}.`) : '';
+  return [said, a?.identityNotes ?? ''].filter(Boolean).join(' ') || undefined;
 }
 
 /**

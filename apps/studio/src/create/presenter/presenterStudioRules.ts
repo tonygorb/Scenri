@@ -48,6 +48,8 @@ export const MAX_PHOTOS = 4;
 
 export type DraftLike = Pick<PresenterDraft, 'source' | 'name' | 'views' | 'activeView' | 'stage'> & {
   direction?: string;
+  /** What the person said stays the same about them, in their own words. */
+  keep?: string;
   sources?: string[];
   analysis?: PresenterDraft['analysis'];
   readError?: string;

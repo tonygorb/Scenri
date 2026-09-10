@@ -433,6 +433,40 @@ describe('saving', () => {
     expect(getPresenterDraft(core, d.id)).toBeNull();
   });
 
+  it('carries what stays the same from the first answer to the record', async () => {
+    const made = await createPresenterDraft(deps(), {
+      brandId,
+      source: 'synthetic',
+      direction: 'a woman in her 30s',
+      keep: 'thin black glasses and a scar through her left eyebrow',
+    });
+    expect(made.keep).toBe('thin black glasses and a scar through her left eyebrow');
+    // it can be added later, and cleared
+    const more = await updatePresenterDraft(core, made.id, { keep: 'a floral tattoo on her right forearm' });
+    expect(more.keep).toBe('a floral tattoo on her right forearm');
+    expect((await updatePresenterDraft(core, made.id, { keep: '' })).keep).toBeUndefined();
+  });
+
+  it('keeps what the person said stays the same, ahead of what the analyzer read', async () => {
+    const d = await cast();
+    await updatePresenterDraft(core, d.id, {
+      name: 'Ilse',
+      keep: 'a floral tattoo on her right forearm',
+    });
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    // their own words lead, because a cap eats whatever goes second
+    expect(presenter.identityNotes?.startsWith('a floral tattoo on her right forearm.')).toBe(true);
+    // and the read of the approved face is still there, after them
+    expect(presenter.identityNotes).toContain('the strong brow and the silver crop');
+  });
+
+  it('leaves the notes to the analyzer when nothing was said to keep', async () => {
+    const d = await cast();
+    await updatePresenterDraft(core, d.id, { name: 'Ilse' });
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    expect(presenter.identityNotes).toBe('the strong brow and the silver crop must survive every generation');
+  });
+
   it('refuses to save without a name, or with a step still running', async () => {
     const d = await cast();
     await expect(savePresenterDraft(deps(), d.id)).rejects.toThrow(/name/i);
@@ -715,6 +749,59 @@ describe('the view contract: three core, three on request', () => {
     );
     expect(synth.refs).toEqual([]);
     expect(synth.prompt).toContain('a woman in her 30s');
+  });
+
+  it('carries what stays the same about them into every view that can show it', () => {
+    const empty = { status: 'empty' as const, attempts: 0, rejected: [] };
+    const rec = {
+      source: 'photos' as const,
+      direction: '',
+      name: 'Ilse',
+      keep: 'a floral tattoo on her right forearm',
+      analysis: { promptName: 'a woman' },
+      sources: ['s1'],
+      identityEdits: [],
+      views: {
+        portrait: { ...empty, status: 'approved' as const, hash: 'p' },
+        front: { ...empty, status: 'approved' as const, hash: 'f' },
+        'three-quarter': empty,
+        back: empty,
+        left: { ...empty, status: 'approved' as const, hash: 'l' },
+        right: empty,
+      },
+    } as unknown as PresenterDraftRecord;
+    // their own words, verbatim, side and all: a normalised side is a wrong side
+    for (const v of ['front', 'three-quarter', 'back', 'left', 'right'] as const) {
+      expect(planStep(rec, v, undefined, 5).prompt).toContain('a floral tattoo on her right forearm');
+    }
+    // a forearm cannot be drawn in a frame that stops at the collarbone
+    const face = { ...rec, keep: 'thin black glasses' } as PresenterDraftRecord;
+    expect(planStep(face, 'front', undefined, 5).prompt).toContain('thin black glasses');
+    expect(planStep(face, 'back', undefined, 5).prompt).not.toContain('thin black glasses');
+
+    // a side named is a side kept: the right view stops being drawn from the left one
+    expect(planStep(rec, 'right', undefined, 5).refs).toEqual(['p', 'f', 's1']);
+    const noSide = { ...rec, keep: 'a septum piercing' } as PresenterDraftRecord;
+    expect(planStep(noSide, 'right', undefined, 5).refs).toEqual(['p', 'f', 'l', 's1']);
+
+    // and with no analyzer and no edits, the words still ride
+    const bare = { ...rec, analysis: undefined } as PresenterDraftRecord;
+    expect(planStep(bare, 'front', undefined, 5).prompt).toContain('a floral tattoo on her right forearm');
+
+    // the face is rolled from the description and what stays, together
+    const synth = planStep(
+      {
+        ...rec,
+        source: 'synthetic',
+        direction: 'a woman in her 30s',
+        keep: 'thin black glasses',
+        views: { ...rec.views, portrait: empty },
+      } as PresenterDraftRecord,
+      'portrait',
+      undefined,
+      5,
+    );
+    expect(synth.prompt).toContain('a woman in her 30s, thin black glasses');
   });
 });
 

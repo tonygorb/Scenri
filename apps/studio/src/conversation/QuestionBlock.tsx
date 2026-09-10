@@ -1,7 +1,9 @@
-import { PencilSimple } from '@phosphor-icons/react';
+import { X } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { thumbUrl } from '../api.js';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
-import { LookArt } from './LookArt.js';
+import { CardStrip } from './CardStrip.js';
+import { LookStrip } from './LookStrip.js';
 import { RefStrip } from '../create/RefStrip.js';
 import { Tip } from '../layout/Tip.js';
 import { type Answer, type Question, groupsAnswered, revealPlan } from './question.js';
@@ -14,6 +16,10 @@ import { Eyebrow, RevealWords, Thinking, arrivalVars, useLeave, useRevealOnce } 
  * their own count, removal and confirmation; a decision is one primary and
  * its quieter alternatives. A sentence has no control here: the composer
  * under the transcript is the answer, and the starters only fill it.
+ *
+ * A question open again from its answer arrives with that answer lit, and a
+ * quiet way to leave it as it was. It knows nothing of what the answer means:
+ * the flow hands it `given` and takes back whatever is tapped.
  */
 /**
  * The beat a tap is seen for: the chosen control keeps its light, the rest
@@ -29,6 +35,11 @@ export interface Picked {
   picks: Record<string, string>;
 }
 
+const asOne = (given: unknown): string | null => (typeof given === 'string' ? given : null);
+const asMany = (given: unknown): string[] => (Array.isArray(given) ? given : []);
+const asRows = (given: unknown): Record<string, string> =>
+  given && typeof given === 'object' && !Array.isArray(given) ? (given as Record<string, string>) : {};
+
 export function QuestionBlock({
   question,
   reveal,
@@ -42,6 +53,9 @@ export function QuestionBlock({
   onPick,
   onStarter,
   onDescribe,
+  onAttach,
+  onDetach,
+  onCancel,
 }: {
   question: Question;
   /** The turn's key, on the element, for what watches the transcript. */
@@ -64,13 +78,23 @@ export function QuestionBlock({
   onStarter?: (text: string) => void;
   /** Say it in words instead: the composer takes the answer from here. */
   onDescribe?: () => void;
+  /** Pictures of the thing this question is about. */
+  onAttach?: (files: File[]) => void;
+  /** One of those pictures, taken off again. */
+  onDetach?: (hash: string) => void;
+  /** A question open again is left as it was. */
+  onCancel?: () => void;
 }) {
   // the timing a turn arrives by is fixed when it mounts, whatever renders after
   const [start] = useState(delay);
   const going = useLeave(leave, start);
   const { playing, thinking } = useRevealOnce(reveal, question.prompt, start, going === 'true');
-  const [picks, setPicks] = useState<Record<string, string>>({});
+  const given = 'given' in question ? question.given : undefined;
+  const [picks, setPicks] = useState<Record<string, string>>(() => asRows(given));
   const [picked, setPicked] = useState<string | null>(null);
+  /** What is chosen so far in a question that takes several at once. */
+  const [many, setMany] = useState<Set<string>>(() => new Set(asMany(given)));
+  const files = useRef<HTMLInputElement>(null);
   // A block that went and is back as the same question (Try again, a retry)
   // is live again. One whose answer is still in flight stays as it was.
   const wasSpent = useRef(false);
@@ -87,8 +111,15 @@ export function QuestionBlock({
     onPick?.(question.id, { picked: id, picks });
     onAnswer(answer);
   };
+  // the control that stands lit: what was just tapped, else the answer as it was
+  const on = picked ?? asOne(given);
   const plan = revealPlan(question.prompt);
   const promptId = `sc-convo-q-${question.id}`;
+  const cancel = question.reopened && onCancel && (
+    <button type="button" className="sc-btn sc-btn-ghost sc-convo-cancel" onClick={onCancel}>
+      Cancel
+    </button>
+  );
   return (
     <div
       className="sc-convo-turn"
@@ -96,14 +127,23 @@ export function QuestionBlock({
       data-arrive={playing || undefined}
       data-leave={going}
       data-turn={turnId}
+      data-reopened={question.reopened || undefined}
       style={playing ? ({ ...arrivalVars(start), '--sc-convo-after': `${plan.total}ms` } as CSSProperties) : undefined}
     >
-      {eyebrow && <Eyebrow thinking={thinking} />}
-      <p className="sc-convo-say" id={promptId} data-tone={question.tone} data-reveal={playing || undefined}>
-        {thinking && <Thinking />}
-        <RevealWords text={question.prompt} playing={playing} />
-      </p>
-      {question.hint && (
+      {/* a question open again stands under the line it was asked with: only the way to answer is here */}
+      {!question.reopened && eyebrow && <Eyebrow thinking={thinking} />}
+      {!question.reopened && (
+        <p className="sc-convo-say" id={promptId} data-tone={question.tone} data-reveal={playing || undefined}>
+          {thinking && <Thinking />}
+          <RevealWords text={question.prompt} playing={playing} />
+        </p>
+      )}
+      {question.reopened && (
+        <span id={promptId} hidden>
+          {question.prompt}
+        </span>
+      )}
+      {!question.reopened && question.hint && (
         <p className="sc-convo-hint" data-reveal={playing || undefined}>
           {question.hint}
         </p>
@@ -116,7 +156,7 @@ export function QuestionBlock({
         data-picked={!!picked || undefined}
         disabled={busy || undefined}
       >
-        {question.kind === 'text' && question.starters && question.starters.length > 0 && (
+        {question.starters && question.starters.length > 0 && (
           <div className="sc-convo-starters">
             {question.starters.map((s) => (
               <Tip key={s.text} label={s.text}>
@@ -128,19 +168,131 @@ export function QuestionBlock({
           </div>
         )}
 
-        {question.kind === 'choice' && question.options && !question.groups && (
-          <div className="sc-convo-choices">
-            {question.options.map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                className="sc-chip sc-convo-choice"
-                data-on={picked === o.id || undefined}
-                onClick={() => commit(o.id, { kind: 'choice', id: o.id })}
-              >
-                {o.label}
-              </button>
+        {/* a question answered by looking: the cards are the options */}
+        {question.kind === 'choice' && question.options?.some((o) => o.card) && (
+          <CardStrip options={question.options} picked={on} onPick={(id) => commit(id, { kind: 'choice', id })} />
+        )}
+
+        {question.kind === 'choice' &&
+          question.options &&
+          !question.groups &&
+          !question.options.some((o) => o.card) && (
+            <div className="sc-convo-choices">
+              {question.options.map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  className="sc-chip sc-convo-choice"
+                  // several at once are chosen, not answered: the tap toggles and
+                  // the submit below is what answers, or a second choice would be
+                  // impossible to make
+                  aria-pressed={question.multi ? many.has(o.id) : undefined}
+                  data-on={(question.multi ? many.has(o.id) : on === o.id) || undefined}
+                  onClick={() =>
+                    question.multi
+                      ? setMany((m) => {
+                          const next = new Set(m);
+                          if (!next.delete(o.id)) next.add(o.id);
+                          return next;
+                        })
+                      : commit(o.id, { kind: 'choice', id: o.id })
+                  }
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+        {question.kind === 'choice' && question.refs && question.refs.length > 0 && (
+          <div className="sc-convo-refs">
+            {question.refs.map((h, i) => (
+              <span key={h} className="sc-convo-ref">
+                <img src={thumbUrl(h, 'micro')} alt={`Reference ${i + 1} of ${question.refs?.length ?? 0}`} />
+                {onDetach && (
+                  <button
+                    type="button"
+                    className="sc-convo-ref-x"
+                    aria-label={`Remove reference ${i + 1}`}
+                    onClick={() => onDetach(h)}
+                  >
+                    <X size={10} weight="bold" />
+                  </button>
+                )}
+              </span>
             ))}
+          </div>
+        )}
+
+        {question.kind === 'choice' && (question.describe || question.attach) && (
+          <div className="sc-convo-ways">
+            {question.describe && onDescribe && (
+              <button
+                type="button"
+                className="sc-chip sc-convo-choice sc-convo-pass"
+                aria-pressed={question.saying === undefined ? undefined : question.saying}
+                data-on={question.saying || undefined}
+                onClick={onDescribe}
+              >
+                {question.describe}
+              </button>
+            )}
+            {question.attach && onAttach && (
+              <>
+                <button
+                  type="button"
+                  className="sc-chip sc-convo-choice sc-convo-pass"
+                  aria-busy={question.attaching || undefined}
+                  onClick={() => files.current?.click()}
+                >
+                  {question.attaching ? 'Adding' : question.attach}
+                </button>
+                <input
+                  ref={files}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  aria-label={question.attach}
+                  onChange={(e) => {
+                    const chosen = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith('image/'));
+                    e.target.value = '';
+                    if (chosen.length) onAttach(chosen);
+                  }}
+                />
+              </>
+            )}
+            {!question.multi && cancel}
+          </div>
+        )}
+
+        {question.kind === 'choice' && !question.groups && !question.describe && !question.attach && cancel && (
+          <div className="sc-convo-ways">{cancel}</div>
+        )}
+
+        {question.kind === 'choice' && question.multi && (
+          <div className="sc-convo-decide">
+            <button
+              type="button"
+              className="sc-btn sc-btn-primary"
+              data-on={picked === 'submit' || undefined}
+              onClick={() =>
+                commit('submit', { kind: 'choices', picks: Object.fromEntries([...many].map((id) => [id, 'on'])) })
+              }
+            >
+              {question.submit ?? 'Continue'}
+            </button>
+            {question.skip && (
+              <button
+                type="button"
+                className="sc-btn sc-btn-ghost"
+                data-on={picked === 'skip' || undefined}
+                onClick={() => commit('skip', { kind: 'skip' })}
+              >
+                {question.skip}
+              </button>
+            )}
+            {cancel}
           </div>
         )}
 
@@ -196,36 +348,39 @@ export function QuestionBlock({
                   {question.skip}
                 </button>
               )}
+              {cancel}
             </div>
           </div>
         )}
 
         {question.kind === 'swatches' && (
           <div className="sc-convo-look">
-            <div className="sc-convo-swatches">
-              {question.row.options.map((o) => (
-                <Tip key={o.id} label={o.label}>
-                  <button
-                    type="button"
-                    className={o.color ? 'sc-convo-swatch' : o.art ? 'sc-convo-tile' : 'sc-chip sc-convo-choice'}
-                    style={o.color ? ({ '--sc-swatch': o.color } as CSSProperties) : undefined}
-                    aria-label={o.label}
-                    data-on={picked === o.id || (!picked && question.pending === o.id) || undefined}
-                    onClick={() => commit(o.id, { kind: 'swatches', picks: { [question.row.id]: o.id } })}
-                  >
-                    {o.art ? (
-                      <>
-                        <LookArt kind={o.art} id={o.id} who={question.who} />
-                        <span>{o.label}</span>
-                      </>
-                    ) : o.color ? null : (
-                      o.label
-                    )}
-                  </button>
-                </Tip>
-              ))}
-            </div>
-            {(question.skip || question.describe || question.row.custom) && (
+            {question.row.options.some((o) => o.art) ? (
+              <LookStrip
+                options={question.row.options}
+                cast={question.cast}
+                on={on}
+                onPick={(id) => commit(id, { kind: 'swatches', picks: { [question.row.id]: id } })}
+              />
+            ) : (
+              <div className="sc-convo-swatches">
+                {question.row.options.map((o) => (
+                  <Tip key={o.id} label={o.label}>
+                    <button
+                      type="button"
+                      className={o.color ? 'sc-convo-swatch' : 'sc-chip sc-convo-choice'}
+                      style={o.color ? ({ '--sc-swatch': o.color } as CSSProperties) : undefined}
+                      aria-label={o.label}
+                      data-on={on === o.id || undefined}
+                      onClick={() => commit(o.id, { kind: 'swatches', picks: { [question.row.id]: o.id } })}
+                    >
+                      {o.color ? null : o.label}
+                    </button>
+                  </Tip>
+                ))}
+              </div>
+            )}
+            {(question.skip || question.describe || cancel) && (
               <div className="sc-convo-ways">
                 {question.skip && (
                   <button
@@ -238,10 +393,19 @@ export function QuestionBlock({
                   </button>
                 )}
                 {question.describe && onDescribe && (
-                  <button type="button" className="sc-chip sc-convo-choice sc-convo-pass" onClick={onDescribe}>
+                  <button
+                    type="button"
+                    className="sc-chip sc-convo-choice sc-convo-pass"
+                    // pressed, the answer moved to the composer: the way in says
+                    // so, and pressing it again hands the step back to its taps
+                    aria-pressed={question.saying === undefined ? undefined : question.saying}
+                    data-on={question.saying || undefined}
+                    onClick={onDescribe}
+                  >
                     {question.describe}
                   </button>
                 )}
+                {cancel}
               </div>
             )}
           </div>
@@ -309,6 +473,7 @@ export function QuestionBlock({
                 {o.label}
               </button>
             ))}
+            {cancel}
           </div>
         )}
       </fieldset>

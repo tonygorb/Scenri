@@ -72,6 +72,8 @@ export function registerPresenterDraftRoutes(
         brandId: brand.id,
         source: body.source === 'synthetic' ? 'synthetic' : 'photos',
         direction: body.direction == null ? undefined : String(body.direction),
+        keep: body.keep == null ? undefined : String(body.keep),
+        detailRefs: body.detailRefs,
         imageHashes: Array.isArray(body.imageHashes) ? body.imageHashes.map((h: unknown) => String(h)) : [],
         attestation: body.attestation === true,
         name: body.name == null ? undefined : String(body.name),
@@ -109,6 +111,8 @@ export function registerPresenterDraftRoutes(
         name: body.name,
         facets: body.facets,
         direction: body.direction,
+        keep: body.keep,
+        detailRefs: body.detailRefs,
         extras: body.extras,
       }),
     );

@@ -119,10 +119,27 @@ export function Working({ what = 'Thinking' }: { what?: string }) {
     <div className="sc-convo-turn" data-who="scenri" data-working="true">
       <Eyebrow thinking />
       <p className="sc-convo-say" role="status">
-        <span className="sc-convo-work">{what}</span>
-        <Thinking />
+        <span className="sc-convo-work">
+          {what}
+          <Ellipsis />
+        </span>
       </p>
     </div>
+  );
+}
+
+/**
+ * The three dots of a word still being said, as three full stops in that
+ * word's own type rather than beads beside it. A reader hears "Drawing", once,
+ * with no punctuation read out; the eye sees the sentence finish itself.
+ */
+export function Ellipsis() {
+  return (
+    <span className="sc-convo-ell" aria-hidden="true">
+      <i>.</i>
+      <i>.</i>
+      <i>.</i>
+    </span>
   );
 }
 

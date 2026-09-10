@@ -1,167 +1,112 @@
-import { normalizeHex } from '../../brand/palette.js';
-import type { Question, Swatch, SwatchRow, Turn } from '../../conversation/question.js';
 import {
+  type Answer,
   type Aside,
-  type NothingKind,
+  type Question,
+  type Turn,
   asideTurns,
   choiceFromText,
   isAsideTurn,
   openQuestionId,
 } from '../../conversation/question.js';
+import { type CreationState, UNSURE_LINE } from './creationState.js';
+import {
+  ATTEST_TEXT,
+  DOOR_WORDS,
+  PROMPT,
+  SOURCE_OPTIONS,
+  STARTERS,
+  UNSURE_PROMPT,
+  gapsPrompt,
+  photosHint,
+  photosLine,
+} from './presenterCopy.js';
+import {
+  AGE_OPTIONS,
+  LOOK_COLOUR,
+  LOOK_ROWS,
+  LOOK_SAYS,
+  LOOK_SAYS_PLACEHOLDER,
+  WHO_OPTIONS,
+  answerLabel,
+  castFor,
+  lookLine,
+  lookSentence,
+} from './presenterLook.js';
+import {
+  type Answers,
+  type FlowContext,
+  type Gap,
+  type LookStep,
+  PASSED,
+  type Qid,
+  type Source,
+  answeredIn,
+  descriptionGaps,
+  inTableOrder,
+  isLookQid,
+  isQid,
+  lookOf,
+  nextQuestion,
+  traitDetails,
+  traitOfQid,
+} from './presenterQuestions.js';
+import { recordTurns } from './presenterRecordTurns.js';
 import {
   type Age,
-  EXTRA_VIEWS,
-  type DraftDecision,
   type DraftLike,
-  type DraftResult,
+  MAX_PHOTOS,
   type Steer,
   type StudioView,
-  VIEW_LABEL,
   VIEW_NAME,
-  allApproved,
   castSentence,
-  coverageLine,
   drawing,
   identityLocked,
-  saysAge,
-  saysWho,
 } from './presenterStudioRules.js';
+import { TRAITS, type TraitId, keepSentence, traitOf } from './presenterTraits.js';
 
 /**
  * The creation conversation, as rules.
  *
  * A presenter is made in a short exchange: who are we creating, then the
- * sentence or the photographs, one follow-up at most when the sentence
- * leaves out what a roll cannot guess, then the face, decided; then the
- * set, built without a click; then a name if none was given while it drew,
- * and Save. Every Scenri line is product copy from here; nothing asks a
- * model for words.
+ * rows or the sentence or the photographs, then anything else that is always
+ * true of them, then the face, decided; then the set, built without a click;
+ * then a name if none was given while it drew, and Save. Every Scenri line
+ * is product copy; nothing asks a model for words.
  *
- * The transcript is `turnsFor()`, a function of the setup before a draft
- * exists and of the server draft after. No turn is stored and no rendered
- * text is ever read back: change the state and the transcript follows.
+ * The transcript is `turnsFor()`, a pure function of the creation state and
+ * of the server draft. No turn is stored and no rendered text is ever read
+ * back: change the state and the transcript follows. Which questions exist
+ * and what depends on what is `presenterQuestions`; this file only says how
+ * each one looks and reads.
  */
-export type Source = 'scratch' | 'photos';
-
-/** What is known before the server holds a draft. */
-export interface Setup {
-  source: Source | null;
-  description: string;
-  /** The look, tapped rather than typed: colours and words by row, `'skipped'`, or null. */
-  look?: Record<string, string> | 'skipped' | null;
-  /** The follow-up's picks, `'skipped'`, or null while unanswered. */
-  gaps: Record<string, string> | 'skipped' | null;
-  /** The follow-up was shown; it is shown at most once. */
-  gapsAsked: boolean;
-  photoHashes: string[];
-  attested: boolean;
-  uploading: boolean;
-  /** The description was typed at the first question, so no door was chosen. */
-  typed?: boolean;
-}
-
-export const EMPTY_SETUP: Setup = {
-  source: null,
-  description: '',
-  look: null,
-  gaps: null,
-  gapsAsked: false,
-  photoHashes: [],
-  attested: false,
-  uploading: false,
-};
-
-/** What the page holds beside the draft: the folded setup, and the extras decision. */
-export interface FlowUi {
-  collapsed: boolean;
-  /** "Save as is" was chosen once; the extras question is not asked again. */
-  extrasDeclined: boolean;
-  /** An answered question asked again from its pencil: the name, or the description. */
-  reasking: 'name' | 'describe' | null;
-  /** A draw request that never reached the engine, said once with a Retry. */
-  failed?: string | null;
-  /** Sentences that answered nothing, each kept where it was said. */
-  asides?: Aside[];
-  /** The answer being said again, in the place it was said. */
-  editing?: string | null;
-  /** The one step being answered in words rather than tapped. */
-  saying?: string | null;
-  /** A sentence with nothing of a person in it, waiting to be drawn from anyway or replaced. */
-  unsure?: { said: string; q: string | null; at: string } | null;
-}
-
-export const MAX_PHOTOS = 4;
-
-export const SOURCE_OPTIONS = [
-  { id: 'photos', label: 'Add photos' },
-  { id: 'scratch', label: 'Describe someone' },
-];
-
-/**
- * Five ready answers to the question as it is asked: who, age, skin, hair,
- * build and presence, in one sentence. A few words on the chip, the whole
- * sentence on hover and into the composer.
- */
-export const STARTERS = [
-  {
-    label: 'Late 30s, warm',
-    text: 'A woman in her late 30s, Mediterranean, olive skin, dark shoulder-length hair, slim build, warm and composed.',
-  },
-  {
-    label: 'Early 20s, bright',
-    text: 'A man in his early 20s, fair skin with freckles, short blond hair, athletic build, bright and easygoing.',
-  },
-  {
-    label: 'Mid 40s, quiet',
-    text: 'A man in his mid 40s, East Asian, close-cropped black hair, lean build, quietly confident.',
-  },
-  {
-    label: 'Late 20s, easy',
-    text: 'A woman in her late 20s, deep brown skin, natural curls, tall and graceful, with an easy laugh.',
-  },
-  {
-    label: 'Sixties, calm',
-    text: 'A woman in her early sixties, light skin, silver hair in a soft bob, broad build, calm and assured.',
-  },
-];
-
-export const ATTEST_TEXT = "I have permission to use this person's likeness.";
-
-const BUILD_WORDS =
-  /\b(slim|slender|athletic|average|fuller|curvy|broad|lean|muscular|petite|stocky|heavy|thin|plus.size)\b/i;
-
-export type Gap = 'who' | 'age' | 'build';
-
-/**
- * What a description leaves out that a roll cannot guess. Who and age are
- * load-bearing: unsteered, the roll returns the same narrow default. Build
- * is asked only alongside them, when the sentence is short.
- */
-export function descriptionGaps(text: string): Gap[] {
-  const t = text.trim();
-  const words = t.split(/\s+/).filter(Boolean).length;
-  const gaps: Gap[] = [];
-  if (!saysWho.test(t)) gaps.push('who');
-  if (!saysAge.test(t)) gaps.push('age');
-  if (gaps.length && !BUILD_WORDS.test(t) && words < 8) gaps.push('build');
-  return gaps;
-}
+export type { Source };
+export { MAX_PHOTOS };
+export {
+  PROMPT,
+  STARTERS,
+  SOURCE_OPTIONS,
+  ATTEST_TEXT,
+  UNSURE_PROMPT,
+  asideReply,
+  type AsidePhase,
+  gapsPrompt,
+} from './presenterCopy.js';
+export { descriptionGaps } from './presenterQuestions.js';
+export {
+  HAIR_COLOURS,
+  HAIR_LENGTHS,
+  SKIN_TONES,
+  BUILDS,
+  LOOK_STEPS,
+  colourName,
+  nearestSwatch,
+} from './presenterLook.js';
 
 export const needsFollowUp = (text: string): boolean => descriptionGaps(text).length > 0;
 
-const GAP_GROUPS: Record<Gap, { label: string; options: { id: string; label: string }[] }> = {
-  who: {
-    label: 'Who',
-    options: [
-      { id: 'woman', label: 'Woman' },
-      { id: 'man', label: 'Man' },
-      { id: 'androgynous', label: 'Androgynous' },
-    ],
-  },
-  age: {
-    label: 'Age',
-    options: ['20s', '30s', '40s', '50s', '60+'].map((a) => ({ id: a, label: a })),
-  },
+export const GAP_GROUPS: Record<Gap, { label: string; options: { id: string; label: string }[] }> = {
+  who: { label: 'Who', options: WHO_OPTIONS },
+  age: { label: 'Age', options: AGE_OPTIONS },
   build: {
     label: 'Build',
     options: ['slender', 'average', 'athletic', 'fuller'].map((b) => ({
@@ -171,301 +116,301 @@ const GAP_GROUPS: Record<Gap, { label: string; options: { id: string; label: str
   },
 };
 
-/**
- * The look, as things to tap rather than words to find: hair by colour and by
- * length, skin by tone, each a swatch of the colour it stands for. A colour of
- * your own is allowed on both rows, and is read back as the nearest name we
- * have a word for, because a hex code means nothing to a model.
- */
-export const HAIR_COLOURS: Swatch[] = [
-  { id: 'black', label: 'Black', color: '#15120f' },
-  { id: 'dark brown', label: 'Dark brown', color: '#3b2418' },
-  { id: 'brown', label: 'Brown', color: '#6b4630' },
-  { id: 'auburn', label: 'Auburn', color: '#8c3b26' },
-  { id: 'ginger', label: 'Ginger', color: '#c2622a' },
-  { id: 'blonde', label: 'Blonde', color: '#d8ac63' },
-  { id: 'platinum blonde', label: 'Platinum', color: '#e9e1d0' },
-  { id: 'grey', label: 'Grey', color: '#9b9b99' },
-  { id: 'white', label: 'White', color: '#f0efed' },
-];
-
-export const HAIR_LENGTHS: Swatch[] = [
-  { id: 'buzzed', label: 'Buzzed' },
-  { id: 'cropped', label: 'Cropped' },
-  { id: 'short', label: 'Short' },
-  { id: 'chin-length', label: 'Chin' },
-  { id: 'shoulder-length', label: 'Shoulder' },
-  { id: 'long', label: 'Long' },
-];
-
-export const SKIN_TONES: Swatch[] = [
-  { id: 'porcelain', label: 'Porcelain', color: '#f4e0d4' },
-  { id: 'fair', label: 'Fair', color: '#edcdb6' },
-  { id: 'light olive', label: 'Light olive', color: '#ddb894' },
-  { id: 'olive', label: 'Olive', color: '#c2935f' },
-  { id: 'tan', label: 'Tan', color: '#a9713f' },
-  { id: 'brown', label: 'Brown', color: '#7c4f2c' },
-  { id: 'deep brown', label: 'Deep brown', color: '#57351d' },
-  { id: 'deep', label: 'Deep', color: '#3a2114' },
-];
-
-/**
- * The look, one question at a time. Each is a single row answered by one tap,
- * so nothing is a form: the block asks, you tap, the next one comes. Length and
- * build are drawn rather than named, because a shape is read faster than the
- * word for it.
- */
-/**
- * Nine builds, read left to right and top to bottom as a spectrum from the
- * slightest to the most compact. Every one is a word a person would use about
- * themselves; none is clinical, and none is a near-copy of its neighbour.
- */
-export const BUILDS: Swatch[] = [
-  { id: 'slight', label: 'Slight', art: 'build' },
-  { id: 'lean', label: 'Lean', art: 'build' },
-  { id: 'average', label: 'Average', art: 'build' },
-  { id: 'athletic', label: 'Athletic', art: 'build' },
-  { id: 'muscular', label: 'Muscular', art: 'build' },
-  { id: 'curvy', label: 'Curvy', art: 'build' },
-  { id: 'broad', label: 'Broad', art: 'build' },
-  { id: 'full', label: 'Full', art: 'build' },
-  { id: 'stocky', label: 'Stocky', art: 'build' },
-];
-
-export const LOOK_STEPS: { row: SwatchRow; prompt: string }[] = [
-  { row: { id: 'who', label: 'Who', options: GAP_GROUPS.who.options }, prompt: 'Who are we making?' },
-  { row: { id: 'age', label: 'Age', options: GAP_GROUPS.age.options }, prompt: 'Roughly what age?' },
-  { row: { id: 'hair', label: 'Hair', options: HAIR_COLOURS }, prompt: 'What colour is their hair?' },
-  {
-    row: { id: 'length', label: 'Length', options: HAIR_LENGTHS.map((o) => ({ ...o, art: 'hair' as const })) },
-    prompt: 'How long is it?',
-  },
-  { row: { id: 'skin', label: 'Skin', options: SKIN_TONES }, prompt: 'What is their skin tone?' },
-  { row: { id: 'build', label: 'Build', options: BUILDS }, prompt: 'And their build?' },
-];
-
-/** The step before this one, so any answer can be taken back from where you are. */
-export function stepBefore(id: string): string | null {
-  const at = LOOK_STEPS.findIndex((s) => s.row.id === id);
-  return at > 0 ? LOOK_STEPS[at - 1].row.id : null;
-}
-
-/**
- * The steps a person can answer in their own words instead of tapping.
- *
- * The presets are there for speed, not to say what a presenter may be: nine
- * builds are nine good starting points, and the tenth person is described. Who
- * and age take no describing, because the bands already cover what they ask.
- */
-export const LOOK_SAYS: Record<string, string> = {
-  hair: 'Describe the colour',
-  length: 'Describe the cut',
-  skin: 'Describe their skin',
-  build: 'Describe the build',
-};
-
-/** What the composer asks for while a step is being answered in words. */
-/** The steps whose answer is a colour, and so carry the colour control. */
-export const LOOK_COLOUR = new Set(['hair', 'skin']);
-
-export const LOOK_SAYS_PLACEHOLDER: Record<string, string> = {
-  hair: 'Their hair colour, in words or a swatch',
-  length: 'Their cut, in your words',
-  skin: 'Their skin, in words or a swatch',
-  build: 'Their build, in your words',
-};
-
-/** The step still to ask, or null once every one of them has been answered or passed. */
-export function nextLookStep(look: Setup['look']): (typeof LOOK_STEPS)[number] | null {
-  if (look === 'skipped') return null;
-  const done = look ?? {};
-  return LOOK_STEPS.find((s) => !done[s.row.id]) ?? null;
-}
-
-/**
- * Plain colour names, for a colour that is nobody's hair or skin.
- *
- * A colour picked deliberately is often not a natural one, and the nearest
- * natural swatch is the wrong word for it: purple hair snapped to "grey", which
- * is what the engine would then have been told. Anything far from every swatch
- * on its row is named from here instead, and on the hair row it is dyed.
- */
-const PLAIN: Swatch[] = [
-  { id: 'black', label: 'Black', color: '#111111' },
-  { id: 'white', label: 'White', color: '#f4f4f4' },
-  { id: 'grey', label: 'Grey', color: '#8d8d8d' },
-  { id: 'red', label: 'Red', color: '#c62f2f' },
-  { id: 'orange', label: 'Orange', color: '#e07b28' },
-  { id: 'yellow', label: 'Yellow', color: '#e9c93f' },
-  { id: 'green', label: 'Green', color: '#4a9c5c' },
-  { id: 'teal', label: 'Teal', color: '#2f9c96' },
-  { id: 'blue', label: 'Blue', color: '#3a6fd0' },
-  { id: 'purple', label: 'Purple', color: '#8154c9' },
-  { id: 'pink', label: 'Pink', color: '#e074a8' },
-  { id: 'brown', label: 'Brown', color: '#6b4630' },
-];
-
-/** How far a colour may sit from a swatch and still take its name. */
-const NEAR = 9000;
-
-/** The name for a colour that was picked rather than tapped. */
-export function colourName(hex: string, among: Swatch[], row?: string): string {
-  const near = nearestSwatch(hex, among, true);
-  if (near.far < NEAR) return near.id;
-  const plain = nearestSwatch(hex, PLAIN, true);
-  return row === 'hair' ? `dyed ${plain.id}` : plain.id;
-}
-
-/** The name we have for a colour of someone's own: the nearest one on its row. */
-export function nearestSwatch(hex: string, among: Swatch[]): string;
-export function nearestSwatch(hex: string, among: Swatch[], withDistance: true): { id: string; far: number };
-export function nearestSwatch(hex: string, among: Swatch[], withDistance?: true): string | { id: string; far: number } {
-  const rgb = (h: string) => {
-    const v = h.replace('#', '');
-    const n = v.length === 3 ? v.split('').map((c) => c + c) : [v.slice(0, 2), v.slice(2, 4), v.slice(4, 6)];
-    return n.map((p) => Number.parseInt(p, 16) || 0);
-  };
-  const [r, g, b] = rgb(hex);
-  let best = among[0];
-  let far = Number.POSITIVE_INFINITY;
-  for (const one of among) {
-    if (!one.color) continue;
-    const [x, y, z] = rgb(one.color);
-    const d = (r - x) ** 2 + (g - y) ** 2 + (b - z) ** 2;
-    if (d < far) {
-      far = d;
-      best = one;
-    }
-  }
-  return withDistance ? { id: best.id, far } : best.id;
-}
-
-/** A step passed over: remembered, so it is asked once. */
-export const PASSED = 'either';
-
-/** What was tapped, said as a person: the sentence the engine is given. */
-export function lookSentence(look: Record<string, string>): string {
-  const name = (id: string | undefined, among: Swatch[], row?: string) =>
-    !id || id === PASSED ? '' : id.startsWith('#') ? colourName(id, among, row) : id.toLowerCase();
-  const who =
-    look.who === 'androgynous'
-      ? 'an androgynous person'
-      : look.who === 'man'
-        ? 'a man'
-        : look.who === 'woman'
-          ? 'a woman'
-          : 'a person';
-  const parts: string[] = [who];
-  if (look.age) parts.push(look.age === '60+' ? 'in their 60s or older' : `in their ${look.age}`);
-  const hair = [name(look.length, HAIR_LENGTHS), name(look.hair, HAIR_COLOURS, 'hair')].filter(Boolean).join(' ');
-  const has: string[] = [];
-  if (hair) has.push(`${hair} hair`);
-  const skin = name(look.skin, SKIN_TONES, 'skin');
-  if (skin) has.push(`${skin} skin`);
-  if (look.build && look.build !== PASSED) has.push(`${/^[aeiou]/.test(look.build) ? 'an' : 'a'} ${look.build} build`);
-  if (has.length) parts.push(`with ${has.join(', ')}`);
-  return parts.join(' ');
-}
-
-/** What one tap said, as the answer in the transcript. */
-export function answerLabel(row: SwatchRow, given: string): string {
-  if (given === PASSED) return 'Either way';
-  if (given.startsWith('#')) return cap(colourName(given, row.options, row.id));
-  // said in words rather than tapped: the words are the answer
-  return row.options.find((o) => o.id === given)?.label ?? given;
-}
-
-/** What was tapped, as the answer in the transcript. */
-export function lookLine(look: Setup['look']): string {
-  if (!look || look === 'skipped') return 'Surprise me';
-  return cap(lookSentence(look));
-}
-
-/** The sentence the engine is given: the description with the follow-up's picks folded in. */
-export function directionFrom(setup: Setup): string {
-  const look = setup.look && setup.look !== 'skipped' ? setup.look : null;
-  if (look) {
-    // what was tapped is the person; anything typed after it is what else they are
-    const said = setup.description.trim().replace(/[.\s]+$/, '');
-    const from = lookSentence(look);
-    return said ? `${from}, ${said}` : from;
-  }
-  const picks = setup.gaps && setup.gaps !== 'skipped' ? setup.gaps : {};
-  const build = picks.build
-    ? `${setup.description.trim().replace(/[.\s]+$/, '')}, ${picks.build} build`
-    : setup.description;
-  return castSentence(
-    { steer: (picks.who as Steer) ?? null, age: (picks.age as Age) ?? null, tone: null, hair: null },
-    build,
-  );
-}
-
-/** Which question a typed sentence at the source question answers, if any. */
-export const sourceFromText = (text: string): Source | null => choiceFromText(text, SOURCE_OPTIONS) as Source | null;
-
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** The follow-up's answer, as a sentence in the transcript. */
-export function gapsLine(gaps: Setup['gaps']): string {
+export function gapsLine(gaps: Answers['gaps']): string {
   if (!gaps || gaps === 'skipped') return 'Draw as is';
   return Object.values(gaps)
     .map((v) => cap(v))
     .join(', ');
 }
 
-export function photosLine(n: number): string {
-  return n === 1 ? 'One photo' : `${n} photos`;
+/** The details chosen, said back as one line. */
+export function traitsLine(ids: TraitId[]): string {
+  const names = ids.map((id) => traitOf(id)?.label ?? id);
+  if (!names.length) return 'Nothing distinctive';
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
 }
 
-export function photosHint(n: number): string {
-  if (n === 0) return 'The same person, face clear. Different angles help.';
-  if (n === 1) return 'One photo works. Two to four, from different angles, hold the likeness better.';
-  if (n < MAX_PHOTOS) return `${n} photos. More angles hold the likeness better.`;
-  return 'Four angles. The reference set comes from these.';
-}
+/** Which door a typed sentence at the first question names, if any. */
+export const sourceFromText = (text: string): Source | null =>
+  choiceFromText(text, SOURCE_OPTIONS, DOOR_WORDS) as Source | null;
 
-/** Every line Scenri says as a question, once, so the record repeats it exactly. */
-export const PROMPT = {
-  source: 'Who are we creating? Describe someone new, or add photos of a real person.',
-  describe: 'Describe them. Age, hair, build, skin and presence all help; one or two sentences is enough.',
-  look: 'What do they look like?',
-  lookHint: 'Tap what fits. Anything you skip is ours to choose.',
-  lookMore: 'Anything else about them?',
-  photos: 'Add one clear photo of their face. Up to three more angles hold the likeness better.',
-  name: 'What should we call them?',
-  nameWhileDrawing: 'While it draws: what should we call them?',
-  nameWhileReading: 'While I read them: what should we call them?',
-  identity: (who: string) => `Here is ${who === 'them' ? 'the face' : who}. Use this person, or change something.`,
-  change: 'What should change?',
-  extras: 'Add back and profile views? They help shots from behind or in profile.',
-};
+/* ------------------------------------------------------------- compiling */
 
-export const gapsPrompt = (n: number): string =>
-  n === 1
-    ? 'One thing I cannot tell yet.'
-    : n === 2
-      ? 'Two things I cannot tell yet.'
-      : 'A few things I cannot tell yet.';
-
-export interface FlowArgs {
-  setup: Setup;
-  draft: DraftLike | null;
-  canGenerate: boolean;
-  ui: FlowUi;
-  /** A colour held in the composer and not sent yet, so its swatch reads as chosen. */
-  pending?: string | null;
+/** The sentence the engine is given: the rows as a person, or the description with the follow-up folded in. */
+export function compileDirection(a: Answers): string {
+  if (a.source?.via === 'taps') return lookSentence(lookOf(a));
+  const said = (a.describe ?? '').trim();
+  const picks = a.gaps && a.gaps !== 'skipped' ? a.gaps : {};
+  const build = picks.build ? `${said.replace(/[.\s]+$/, '')}, ${picks.build} build` : said;
+  return castSentence(
+    { steer: (picks.who as Steer) ?? null, age: (picks.age as Age) ?? null, tone: null, hair: null },
+    build,
+  );
 }
 
 /**
- * The swatch a held colour is, when it is one of the row's own.
- *
- * A colour of one's own is nobody's swatch, and the chip in the composer is
- * where it shows; the row only ever lights one of its own.
+ * Everything that stays the same about them, as one sentence: the details
+ * they chose and answered, in the table's order, and then anything else they
+ * said at the last moment. One sentence, because that is what a prompt
+ * carries and what the record's identity notes hold.
  */
-export function pendingSwatch(hex: string | null | undefined, row: SwatchRow): string | undefined {
-  const want = hex ? normalizeHex(hex) : null;
-  if (!want) return undefined;
-  return row.options.find((o) => o.color && normalizeHex(o.color) === want)?.id;
+export function compileKeep(a: Answers): string {
+  const details = keepSentence(traitDetails(a), inTableOrder(a.traits ?? []));
+  const said = (a.keep ?? '').trim();
+  return [details, said].filter(Boolean).join(', ');
+}
+
+/** The pictures of each detail, for the draft to draw them from. */
+export function compileRefs(a: Answers): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const [id, detail] of Object.entries(traitDetails(a))) if (detail?.refs?.length) out[id] = detail.refs;
+  return out;
+}
+
+/**
+ * The answers a draft carries, for a page opened on it with none of its own:
+ * another tab, a cleared session, a draft seeded from outside. The person is
+ * already drawn, so the setup reads as done, and every pencil still works.
+ */
+export function seedFromDraft(d: DraftLike): Answers {
+  if (d.source === 'photos') {
+    return { source: { door: 'photos', via: 'taps' }, photos: { hashes: d.sources ?? [], attested: true } };
+  }
+  return { source: { door: 'scratch', via: 'typed' }, describe: d.direction ?? '', traits: [] };
+}
+
+/** What the setup questions can see of the draft. */
+export const flowContext = (draft: DraftLike | null, canGenerate: boolean): FlowContext => ({
+  draft: draft
+    ? {
+        source: draft.source,
+        stage: draft.stage,
+        keep: draft.keep,
+        views: { portrait: { status: draft.views.portrait.status } },
+      }
+    : null,
+  canGenerate,
+});
+
+/* -------------------------------------------------------------- answers */
+
+/**
+ * What a tap on a block means for the answers, or null when the block's
+ * action is not an answer (a photograph added, a door stepped back from).
+ */
+export function answerPatch(qid: Qid, a: Answer, answers: Answers): Partial<Answers> | null {
+  if (qid === 'source') return a.kind === 'choice' ? { source: { door: a.id as Source, via: 'taps' } } : null;
+  if (isLookQid(qid)) {
+    if (a.kind === 'swatches') return { [qid]: a.picks[qid.slice('look-'.length)] ?? Object.values(a.picks)[0] };
+    if (a.kind === 'skip') return { [qid]: PASSED };
+    return null;
+  }
+  if (qid === 'gaps') {
+    if (a.kind === 'choices') return { gaps: a.picks };
+    if (a.kind === 'skip') return { gaps: 'skipped' };
+    return null;
+  }
+  if (qid === 'traits') {
+    if (a.kind === 'choices') return { traits: TRAITS.map((t) => t.id).filter((id) => a.picks[id]) };
+    if (a.kind === 'skip') return { traits: [] };
+    return null;
+  }
+  const trait = traitOfQid(qid);
+  if (trait && a.kind === 'choice') {
+    if (trait.part === 'where') return { [qid]: a.id };
+    const had = answers[`trait-${trait.id}`];
+    return { [qid]: { words: a.id, refs: had?.refs ?? [] } };
+  }
+  return null;
+}
+
+/** The questions answered in a sentence typed into their own field, in place. */
+export const TEXT_QIDS: ReadonlySet<Qid> = new Set<Qid>(['describe', 'keep']);
+
+/** What changing an answer costs, once a draft exists. */
+export type EditCost = 'plain' | 'metadata' | 'redraw' | 'start-over';
+
+export function editCost(id: Qid | 'name', draft: DraftLike | null): EditCost {
+  if (id === 'name') return 'metadata';
+  if (!draft) return 'plain';
+  if (id === 'source' || id === 'photos') return 'start-over';
+  return 'redraw';
+}
+
+/* ------------------------------------------------------------ questions */
+
+function questionFor(id: Qid, state: CreationState, _ctx: FlowContext, reopened: boolean): Question {
+  const a = state.answers;
+  const base = reopened ? { reopened: true } : {};
+  switch (id) {
+    case 'source':
+      return { id, kind: 'choice', prompt: PROMPT.source, options: SOURCE_OPTIONS, given: a.source?.door, ...base };
+    case 'photos': {
+      const p = a.photos ?? { hashes: [], attested: false };
+      return {
+        id,
+        kind: 'photos',
+        prompt: PROMPT.photos,
+        hint: photosHint(p.hashes.length, MAX_PHOTOS),
+        hashes: p.hashes,
+        max: MAX_PHOTOS,
+        busy: state.uploading > 0,
+        attest: { text: ATTEST_TEXT, checked: p.attested },
+        submit: 'Continue',
+        back: 'Describe someone instead',
+      };
+    }
+    case 'describe':
+      return { id, kind: 'text', prompt: PROMPT.describe, starters: STARTERS };
+    case 'gaps': {
+      const gaps = descriptionGaps(a.describe ?? '');
+      return {
+        id,
+        kind: 'choice',
+        prompt: gapsPrompt(gaps.length),
+        groups: gaps.map((g) => ({ id: g, ...GAP_GROUPS[g] })),
+        submit: 'Continue',
+        skip: 'Skip, draw as is',
+        given: a.gaps && a.gaps !== 'skipped' ? a.gaps : undefined,
+        ...base,
+      };
+    }
+    case 'traits': {
+      const photos = a.source?.door === 'photos';
+      return {
+        id,
+        kind: 'choice',
+        prompt: photos ? PROMPT.traitsPhotos : PROMPT.traits,
+        multi: true,
+        options: TRAITS.map((t) => ({ id: t.id, label: t.label })),
+        submit: 'Continue',
+        skip: photos ? 'Nothing to add' : 'Nothing else',
+        given: a.traits,
+        ...base,
+      };
+    }
+    case 'keep':
+      return { id, kind: 'text', prompt: PROMPT.keep };
+  }
+  if (isLookQid(id)) {
+    const step = id.slice('look-'.length) as LookStep;
+    const { row, prompt } = LOOK_ROWS[step];
+    return {
+      id,
+      kind: 'swatches',
+      prompt,
+      hint: step === 'who' ? PROMPT.lookHint : undefined,
+      row,
+      cast: castFor(a['look-who']),
+      skip: 'Skip',
+      describe: step === 'who' ? 'Describe instead' : LOOK_SAYS[step],
+      saying: state.saying === id,
+      given: a[id],
+      ...base,
+    };
+  }
+  const trait = traitOfQid(id);
+  const t = trait ? traitOf(trait.id) : undefined;
+  if (trait && t && trait.part === 'where' && t.where) {
+    return {
+      id,
+      kind: 'choice',
+      prompt: t.where.ask,
+      options: t.where.options.map((o) => ({ id: o.id, label: o.label })),
+      describe: 'Say where',
+      saying: state.saying === id,
+      given: a[id as `trait-${TraitId}-where`],
+      ...base,
+    };
+  }
+  if (trait && t) {
+    const what = a[`trait-${trait.id}`];
+    return {
+      id,
+      kind: 'choice',
+      prompt: t.ask,
+      hint: t.hint,
+      options: t.options.map((o) => ({ id: o.id, label: o.label, card: o.card })),
+      describe: t.saying,
+      attach: 'Add a reference',
+      refs: what?.refs ?? [],
+      attaching: state.uploading > 0,
+      saying: state.saying === id,
+      given: what?.words,
+      ...base,
+    };
+  }
+  return { id, kind: 'text', prompt: '' };
+}
+
+/** The line a question was asked with, for its exchange. */
+function askedLine(id: Qid, a: Answers): string {
+  switch (id) {
+    case 'source':
+      return PROMPT.source;
+    case 'photos':
+      return PROMPT.photos;
+    case 'describe':
+      return a.source?.via === 'typed' ? PROMPT.source : PROMPT.describe;
+    case 'gaps':
+      return gapsPrompt(descriptionGaps(a.describe ?? '').length);
+    case 'traits':
+      return a.source?.door === 'photos' ? PROMPT.traitsPhotos : PROMPT.traits;
+    case 'keep':
+      return PROMPT.keep;
+  }
+  if (isLookQid(id)) return LOOK_ROWS[id.slice('look-'.length) as LookStep].prompt;
+  const trait = traitOfQid(id);
+  const t = trait ? traitOf(trait.id) : undefined;
+  if (!trait || !t) return '';
+  return trait.part === 'where' ? (t.where?.ask ?? '') : t.ask;
+}
+
+/** The answer as it reads in the transcript. */
+function answerLine(id: Qid, a: Answers, draft: DraftLike | null): { text: string; photos?: string[] } {
+  switch (id) {
+    case 'source':
+      return { text: a.source?.door === 'photos' ? 'Add photos' : 'Describe someone' };
+    case 'photos': {
+      const hashes = draft?.sources ?? a.photos?.hashes ?? [];
+      return { text: photosLine(hashes.length), photos: hashes };
+    }
+    case 'describe':
+      return { text: (a.describe ?? '').trim() };
+    case 'gaps':
+      return { text: gapsLine(a.gaps) };
+    case 'traits':
+      return { text: traitsLine(inTableOrder(a.traits ?? [])) };
+    case 'keep':
+      return { text: (a.keep ?? '').trim() };
+  }
+  if (isLookQid(id)) {
+    const step = id.slice('look-'.length) as LookStep;
+    return { text: answerLabel(LOOK_ROWS[step].row, a[id] ?? '') };
+  }
+  const trait = traitOfQid(id);
+  const t = trait ? traitOf(trait.id) : undefined;
+  if (!trait || !t) return { text: '' };
+  if (trait.part === 'where') {
+    const v = a[id as `trait-${TraitId}-where`] ?? '';
+    return { text: t.where?.options.find((o) => o.id === v)?.label ?? cap(v) };
+  }
+  const words = a[`trait-${trait.id}`]?.words ?? '';
+  return { text: t.options.find((o) => o.id === words)?.label ?? cap(words) };
+}
+
+/* ----------------------------------------------------------- transcript */
+
+export interface FlowArgs {
+  state: CreationState;
+  draft: DraftLike | null;
+  canGenerate: boolean;
+  /** A request that never reached the engine, said once with a Retry. */
+  failed?: string | null;
 }
 
 /**
@@ -473,73 +418,23 @@ export function pendingSwatch(hex: string | null | undefined, row: SwatchRow): s
  * when there is one; `activeQuestion()` reads it off.
  */
 export function turnsFor(args: FlowArgs): Turn[] {
-  const asides = args.ui.asides ?? [];
+  const asides = args.state.asides;
   // Where an aside goes depends on which question is open, so the transcript
   // is shaped once without them to learn it.
   const openId = asides.length ? openQuestionId(shape(args, [], null)) : null;
   return shape(args, asides, openId);
 }
 
-/** A draw that was stopped is said quietly and offered again; one that failed says why, with a Retry. */
-export function stoppedOrFailed(view: StudioView, error: string): Question {
-  const name = view === 'portrait' ? 'face' : VIEW_NAME[view];
-  return error === 'cancelled'
-    ? {
-        id: 'retry',
-        kind: 'confirm',
-        quiet: true,
-        prompt: `Stopped drawing the ${name}. Nothing finished was touched.`,
-        options: [{ id: 'retry', label: 'Draw it again' }],
-      }
-    : {
-        id: 'retry',
-        kind: 'confirm',
-        tone: 'alert',
-        prompt: `The ${name} could not be drawn: ${error}. Nothing finished was touched.`,
-        options: [{ id: 'retry', label: 'Retry' }],
-      };
-}
-
-/** Where the analyzer filed them, said once at the save; the presenter page is where it changes. */
-export function filedLine(d: DraftLike): string {
-  const cats = (d.analysis?.suitableCategories ?? []).filter(Boolean);
-  if (!cats.length) return '';
-  const list = cats.length === 1 ? cats[0] : `${cats.slice(0, -1).join(', ')} and ${cats[cats.length - 1]}`;
-  return ` Filed under ${list}; that can change on their page.`;
-}
-
-/** The moment the record last moved: what was said before it belongs to the record, not to the open question. */
-export function recordEdge(d: DraftLike | null): string {
-  if (!d) return '';
-  const ats = [...(d.asks ?? []), ...(d.results ?? []), ...(d.decisions ?? [])].map((x) => x.at);
-  return ats.length ? ats.reduce((m, at) => (at > m ? at : m)) : '';
-}
+const byAt = (x: { at: string }, y: { at: string }) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0);
 
 function shape(args: FlowArgs, asides: Aside[], openId: string | null): Turn[] {
   const placed = new Set<Aside>();
-  let T = turnsBase(args, asides, openId, placed);
-  if (args.ui.reasking) {
-    const kept = T[T.length - 1]?.kind === 'question' ? T.slice(0, -1) : T;
-    T =
-      args.ui.reasking === 'name'
-        ? [...kept, { kind: 'question', question: { id: 'name', kind: 'text', prompt: PROMPT.name } }]
-        : [
-            ...kept,
-            {
-              kind: 'question',
-              question: {
-                id: 'describe',
-                kind: 'text',
-                prompt: 'Describe them again. The face is drawn from the new sentence.',
-              },
-            },
-          ];
-  }
+  const T = build(args, asides, openId, placed);
   // A sentence with nothing of a person in it waits on its own question. What
   // was said follows the last turn, in order: before that question when it
   // came before, after it when it came after.
   const left = asides.filter((a) => !placed.has(a)).sort(byAt);
-  const u = args.ui.unsure;
+  const u = args.state.unsure;
   for (const a of left) if (!u || a.at < u.at) T.push(...asideTurns(a));
   if (u) {
     T.push({ kind: 'you', id: `unsure-${u.at}`, text: u.said, editable: false });
@@ -558,164 +453,61 @@ function shape(args: FlowArgs, asides: Aside[], openId: string | null): Turn[] {
   return T;
 }
 
-/** Where the conversation is when a sentence answers nothing: what the reply points back to. */
-export type AsidePhase = 'source' | 'describe' | 'look' | 'name' | 'refine';
-
-const HOW: Record<AsidePhase, string> = {
-  source: 'describe them in a sentence, or pick one above',
-  describe: 'a few words about them is enough: age, hair, build, skin, presence',
-  look: 'tap one above, or say it in your own words',
-  name: 'a name, so the rest of the conversation can use it',
-  refine: 'say what should change: hair, age or build change the person; anything else changes the view on the stage',
-};
-
-/**
- * One step of the look, in its own words.
- *
- * A step asks one thing, so what comes back is answered about that thing: a
- * hair colour is not answered with the whole person's description, which is
- * what the describe phase would have said. `thing` names what was expected;
- * `how` says the two ways to give it.
- */
-const LOOK_ASK: Record<string, { thing: string; how: string }> = {
-  who: { thing: 'a person', how: 'tap who they are above' },
-  age: { thing: 'an age', how: 'tap an age above' },
-  hair: { thing: 'a hair colour', how: 'tap a colour above, or say it: dark auburn, salt and pepper' },
-  length: { thing: 'a length', how: 'tap a length above, or say it: a chin-length bob' },
-  skin: { thing: 'a skin tone', how: 'tap a tone above, or say it: warm olive' },
-  build: { thing: 'a build', how: 'tap a build above, or say it: lean and tall' },
-};
-
-/** The question again, in words that answer what was actually said. Different words the second time. */
-export function asideReply(kind: NothingKind, phase: AsidePhase, again: boolean, said = '', step?: string): string {
-  const ask = phase === 'look' ? (LOOK_ASK[step ?? ''] ?? null) : null;
-  const how = ask?.how ?? HOW[phase];
-  switch (kind) {
-    case 'likeness':
-      return 'Describe them by looks. Scenri does not draw a named person.';
-    case 'help':
-      return ask
-        ? `${cap(how)}.`
-        : phase === 'refine'
-          ? 'Select a view and say what is wrong with it, or say what should change about them: hair, age, build, skin.'
-          : phase === 'name'
-            ? 'Any name will do; it can be changed later.'
-            : 'Describe the person in a sentence: age, hair, build, skin, presence. Or add photos of a real person.';
-    case 'question':
-      return ask
-        ? `This step asks for ${ask.thing}: ${how}.`
-        : phase === 'refine'
-          ? `This is where the picture is changed: ${how}.`
-          : phase === 'name'
-            ? `This is where they get a name: ${how}.`
-            : `This is where the person is described: ${how}.`;
-    case 'nav':
-      return 'To begin again, use Start over at the top. Close keeps the draft where it is.';
-    case 'go':
-      return phase === 'refine'
-        ? 'Try again redraws it as it is; a sentence says what should change.'
-        : `Nothing to draw yet. ${cap(how)}.`;
-    case 'intent':
-      return ask
-        ? `${cap(how)}.`
-        : phase === 'refine'
-          ? `Nothing changes until it is said what: ${how}.`
-          : `That is what we are here for. Who are they? ${cap(how)}.`;
-    case 'nonsense':
-      return ask
-        ? `That is not ${ask.thing}. ${cap(how)}.`
-        : phase === 'name'
-          ? `That is not a name. ${cap(how)}.`
-          : phase === 'refine'
-            ? `That does not say what should change. ${cap(how)}.`
-            : `That does not describe anyone. ${cap(how)}.`;
-    case 'greeting':
-      return again
-        ? `Still here. ${cap(how)}.`
-        : /^(hi|hello|hey|heya|hiya|yo|hola|shalom|good)\b/i.test(said.trim())
-          ? `Hi. ${cap(how)}.`
-          : `${cap(how)}.`;
-    case 'ack':
-      return again ? `Still here. ${cap(how)}.` : `Go ahead: ${how}.`;
-    case 'vague':
-      return again ? `Still here. ${cap(how)}.` : `${cap(how)}.`;
-  }
-}
-
-/** A sentence with nothing of a person in it, once a proper one came: the record's word for it. */
-export const UNSURE_LINE = 'That did not read as a description of someone.';
-export const UNSURE_PROMPT =
-  'That does not read as a description yet. Draw from it anyway, or describe them: age, hair, build, skin, presence.';
-
-/** The waiting sentence, once something else was said: kept as the record's line, with what was said under it. */
-export function settleUnsure(u: FlowUi): FlowUi {
-  const w = u.unsure;
-  if (!w) return u;
-  const asides = (u.asides ?? []).map((a) => (a.q === 'unsure' ? { ...a, q: w.q } : a));
-  return { ...u, unsure: null, asides: [...asides, { said: w.said, reply: UNSURE_LINE, q: w.q, at: w.at }] };
-}
-
-const byAt = (x: { at: string }, y: { at: string }) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0);
-
-/** The questions of the setup: folded with it, and their asides with them. */
-const SETUP_QS = new Set(['source', 'describe', 'gaps', 'photos', 'noengine', 'blind', 'name']);
-
-function turnsBase(
-  { setup, draft: d, canGenerate, ui, pending }: FlowArgs,
+function build(
+  { state, draft, canGenerate, failed }: FlowArgs,
   asides: Aside[],
   openId: string | null,
   placed: Set<Aside>,
-): Turn[] {
-  const T: Turn[] = [{ kind: 'you', id: 'intent', text: 'Create a presenter' }];
-  const folded = ui.collapsed && !!d && identityLocked(d);
-  // the setup's chatter folds with it; the name's only once the name is given and folded with it
-  if (folded) {
-    for (const a of asides) if (a.q && SETUP_QS.has(a.q) && (a.q !== 'name' || !!d?.name?.trim())) placed.add(a);
-  }
+) {
+  const ctx = flowContext(draft, canGenerate);
+  const a = state.answers;
+  const lead: Turn[] = [{ kind: 'you', id: 'intent', text: 'Create a presenter' }];
+  // the details the photographs were asked about belong after the read of them
+  const after: Turn[] = [];
+  const photosDoor = a.source?.door === 'photos';
   // What was said at a question, once it is answered, sits between its line and the answer.
-  const attach = (ids: string[]) => {
-    const mine = asides.filter((a) => !placed.has(a) && !!a.q && a.q !== openId && ids.includes(a.q)).sort(byAt);
-    for (const a of mine) {
-      placed.add(a);
-      T.push(...asideTurns(a));
+  const attach = (into: Turn[], ids: string[]) => {
+    const mine = asides.filter((x) => !placed.has(x) && !!x.q && x.q !== openId && ids.includes(x.q)).sort(byAt);
+    for (const x of mine) {
+      placed.add(x);
+      into.push(...asideTurns(x));
     }
   };
   // An answer keeps the line it answered above it: the exchange is the record.
-  const you = (id: string, text: string, asked: string, extra?: { photos?: string[]; editable?: boolean }) => {
-    if (!folded) T.push({ kind: 'scenri', id: `asked-${id}`, text: asked });
+  const exchange = (into: Turn[], id: Qid) => {
+    into.push({ kind: 'scenri', id: `asked-${id}`, text: askedLine(id, a), quiet: true });
     // A typed sentence answered the first question, so what was said there stays with it.
-    attach(id === 'describe' && setup.typed ? ['source', 'describe'] : [id]);
-    T.push({
+    attach(into, id === 'describe' && a.source?.via === 'typed' ? ['source', 'describe'] : [id]);
+    const line = answerLine(id, a, draft);
+    into.push({
       kind: 'you',
       id,
-      text,
-      editable: extra?.editable ?? true,
-      editing: ui.editing === id || undefined,
-      photos: extra?.photos,
+      text: line.text,
+      photos: line.photos,
+      editable: true,
+      editing: (state.editing === id && TEXT_QIDS.has(id)) || undefined,
     });
   };
-  const say = (id: string, text: string, tone?: 'alert' | 'warn') => T.push({ kind: 'scenri', id, text, tone });
-  const ask = (question: Question) => T.push({ kind: 'question', question });
-  const name = d?.name?.trim() ?? '';
-  const who = name || 'them';
-  // A draft opened at its address carries its own answers; the setup mirror is only for before.
-  const source: Source | null = setup.source ?? (d ? (d.source === 'photos' ? 'photos' : 'scratch') : null);
-
-  if (!source) {
-    ask({
-      id: 'source',
-      kind: 'choice',
-      prompt: PROMPT.source,
-      options: SOURCE_OPTIONS,
-    });
-    return T;
+  for (const id of answeredIn(a, ctx)) {
+    const into = photosDoor && draft && id !== 'source' && id !== 'photos' ? after : lead;
+    // A question open again from its answer: its line stays exactly where it
+    // was, and the block stands where the answer was, under it. Nothing above
+    // the answer moves.
+    if (state.editing === id && !TEXT_QIDS.has(id)) {
+      into.push({ kind: 'scenri', id: `asked-${id}`, text: askedLine(id, a), quiet: true });
+      into.push({ kind: 'question', question: questionFor(id, state, ctx, true) });
+      continue;
+    }
+    // the sentence typed at the first question is the door's answer too
+    if (id === 'source' && a.source?.via === 'typed') continue;
+    exchange(into, id);
   }
-
-  if (!folded && !setup.typed) you('source', source === 'photos' ? 'Add photos' : 'Describe someone', PROMPT.source);
-
-  if (source === 'scratch') {
-    if (!canGenerate && !d) {
-      ask({
+  // one question at a time: while an answer is open again, nothing else asks
+  const editingSetup = state.editing !== null && state.editing !== 'name';
+  let open: Question | null = null;
+  if (!editingSetup) {
+    if (a.source?.door === 'scratch' && !canGenerate && !draft) {
+      open = {
         id: 'noengine',
         kind: 'confirm',
         quiet: true,
@@ -724,417 +516,54 @@ function turnsBase(
           { id: 'setup', label: 'Set up' },
           { id: 'photos', label: 'Add photos instead' },
         ],
-      });
-      return T;
-    }
-    // Tapped before typed: the look is a few rows of colours and words, and the
-    // composer is still there for anyone who would rather say it in a sentence.
-    const step = setup.description.trim() || d ? null : nextLookStep(setup.look ?? null);
-    // Every step is its own exchange: the question as it was asked, the answer
-    // under it, and its own pencil. The whole person is read back at the end.
-    if (!folded && setup.look && setup.look !== 'skipped') {
-      for (const st of LOOK_STEPS) {
-        const given = setup.look[st.row.id];
-        if (given) you(`look-${st.row.id}`, answerLabel(st.row, given), st.prompt);
+      };
+    } else {
+      const next = nextQuestion(a, ctx);
+      if (next) open = questionFor(next, state, ctx, false);
+      else if (!draft && a.source?.door === 'scratch') {
+        if (a.source.via === 'taps') {
+          // The last word before anything is drawn: the whole person in one
+          // sentence, and a way to add what the rows could not ask for.
+          open = {
+            id: 'agree',
+            kind: 'confirm',
+            prompt: `${lookLine(lookOf(a))}. Shall I draw them?`,
+            options: [
+              { id: 'draw', label: 'Draw them' },
+              { id: 'add', label: a.keep?.trim() ? 'Add another' : 'Add a detail' },
+            ],
+          };
+        } else if (failed) {
+          open = {
+            id: 'retry',
+            kind: 'confirm',
+            tone: 'alert',
+            prompt: `That did not go through: ${failed}. Nothing was drawn.`,
+            options: [{ id: 'retry', label: 'Retry' }],
+          };
+        }
       }
     }
-    // the look handed over to words: the sentence is the answer again
-    if (setup.look === 'skipped' && !setup.description.trim() && !d) {
-      if (!folded) T.push({ kind: 'scenri', id: 'asked-describe', text: PROMPT.describe });
-      attach(['describe']);
-      ask({ id: 'describe', kind: 'text', prompt: PROMPT.describe, starters: STARTERS });
-      return T;
-    }
-    if (step && !d) {
-      ask({
-        // each step is its own question, so each arrives on its own beat and
-        // carries its own answer rather than the one before it
-        id: `look-${step.row.id}`,
-        kind: 'swatches',
-        prompt: step.prompt,
-        hint: step.row.id === 'who' ? PROMPT.lookHint : undefined,
-        row: step.row,
-        pending: pendingSwatch(pending, step.row),
-        who: setup.look && setup.look !== 'skipped' ? setup.look.who : undefined,
-        skip: 'Skip',
-        describe: step.row.id === 'who' ? 'Describe instead' : LOOK_SAYS[step.row.id],
-      });
-      return T;
-    }
-    // every step answered: what we have is read back before anything is drawn
-    if (!d && setup.look && setup.look !== 'skipped' && !setup.description.trim()) {
-      ask({
-        id: 'agree',
-        kind: 'confirm',
-        prompt: `${cap(lookSentence(setup.look))}. Shall I draw them?`,
-        options: [
-          { id: 'draw', label: 'Draw them' },
-          { id: 'add', label: 'Add a detail' },
-          { id: 'change', label: 'Change something' },
-        ],
-      });
-      return T;
-    }
-    if (!folded && setup.description.trim()) {
-      you(
-        'describe',
-        setup.description.trim(),
-        setup.look ? PROMPT.lookMore : setup.typed ? PROMPT.source : PROMPT.describe,
-      );
-    } else if (!folded && !setup.look) {
-      you('describe', d?.direction ?? '', setup.typed ? PROMPT.source : PROMPT.describe);
-    }
-    if (setup.gapsAsked && !setup.gaps && !d) {
-      const gaps = descriptionGaps(setup.description);
-      ask({
-        id: 'gaps',
-        kind: 'choice',
-        prompt: gapsPrompt(gaps.length),
-        groups: gaps.map((g) => ({ id: g, ...GAP_GROUPS[g] })),
-        submit: 'Continue',
-        skip: 'Skip, draw as is',
-      });
-      return T;
-    }
-    if (setup.gaps && !folded) you('gaps', gapsLine(setup.gaps), gapsPrompt(descriptionGaps(setup.description).length));
-  } else {
-    if (!d) {
-      ask({
-        id: 'photos',
-        kind: 'photos',
-        prompt: PROMPT.photos,
-        hint: photosHint(setup.photoHashes.length),
-        hashes: setup.photoHashes,
-        max: MAX_PHOTOS,
-        busy: setup.uploading,
-        attest: { text: ATTEST_TEXT, checked: setup.attested },
-        submit: 'Continue',
-        back: 'Describe someone instead',
-      });
-      return T;
-    }
-    if (!folded) {
-      const n = d.sources?.length ?? 0;
-      you('photos', photosLine(n), PROMPT.photos, { photos: d.sources ?? [], editable: true });
-    }
   }
-
-  if (!d) return T;
-
-  if (folded) {
-    T.push({
-      kind: 'summary',
-      id: 'setup',
-      text: `Setup: ${source === 'photos' ? photosLine(d.sources?.length ?? 0) : 'described'}${name ? `, named ${name}` : ''}. Show`,
-    });
+  if (!draft) {
+    if (open) lead.push({ kind: 'question', question: open });
+    return lead;
   }
-
-  const askName = (prompt: string) => ask({ id: 'name', kind: 'text', prompt });
-
-  if (d.stage === 'analyzing') {
-    say('reading', 'Reading the photos.');
-    if (name) you('name', name, PROMPT.name);
-    else askName(PROMPT.nameWhileReading);
-    return T;
-  }
-
-  const coverage = coverageLine(d, canGenerate);
-  if (coverage && !folded) say('coverage', coverage.text, coverage.tone);
-
-  if (!canGenerate && d.source === 'photos') {
-    if (name && !folded) you('name', name, PROMPT.name);
-    if (!name) {
-      askName(PROMPT.name);
-      return T;
-    }
-    ask({
-      id: 'blind',
-      kind: 'confirm',
-      prompt: 'No engine here can draw the other views. Save them from the photos as they are?',
-      options: [
-        { id: 'save', label: 'Save with photos' },
-        { id: 'setup', label: 'Set up' },
-      ],
-    });
-    return T;
-  }
-
-  const p = d.views.portrait;
-  const active = d.activeView as StudioView | null;
-
-  // Every sentence sent to redraw a view is an exchange of its own, in the
-  // order it was sent, and stays whatever is sent after it. The last one is
-  // still open while its view draws, waits on a decision or failed; the lines
-  // below close it. The rest closed when their view landed.
-  const asks = d.asks ?? [];
-  const last = asks[asks.length - 1];
-  const lastSlot = last ? d.views[last.view] : null;
-  const lastOpen =
-    !!last &&
-    !!lastSlot &&
-    ((lastSlot.status === 'generating' && d.activeView === last.view) ||
-      (lastSlot.status === 'candidate' && lastSlot.adjustment === last.text) ||
-      !!lastSlot.error);
-  const askedFor = (v: StudioView) => (v === 'portrait' && !identityLocked(d) ? PROMPT.identity(who) : PROMPT.change);
-  // The record: every sentence sent to redraw a view, every picture that
-  // landed (a restore point while it is not the one on the view), every
-  // decision taken, and whatever was said in between, in the order it
-  // happened. What was said at the open question is not here; it follows
-  // that question.
-  // Only a picture that was drawn is a line. Putting one back moves the mark
-  // from one card to another; it says nothing new, so the log does not grow.
-  const results = (d.results ?? []).filter((r) => r.how !== 'restored');
-  const decisions = d.decisions ?? [];
-  const idle = !d.activeView && d.stage === 'idle';
-  // every picture drawn for a view is numbered in the order it first landed;
-  // a restored one keeps its number, and the one on the view right now is
-  // marked as such on its latest line
-  const numbers = new Map<string, number>();
-  const perView = new Map<string, number>();
-  const latest = new Map<string, DraftResult>();
-  for (const r of results) {
-    const key = `${r.view}:${r.hash}`;
-    latest.set(key, r);
-    if (numbers.has(key)) continue;
-    const n = (perView.get(r.view) ?? 0) + 1;
-    perView.set(r.view, n);
-    numbers.set(key, n);
-  }
-  const numberOf = (r: DraftResult) => numbers.get(`${r.view}:${r.hash}`) ?? 1;
-  const shot = (r: DraftResult, id: string): Turn => {
-    const n = numberOf(r);
-    const onView = d.views[r.view].hash === r.hash;
-    // the mark is only worth saying where a view has more than one picture
-    const several = (perView.get(r.view) ?? 0) > 1;
-    return {
-      kind: 'scenri',
-      id,
-      text: `Here is ${VIEW_NAME[r.view]} ${n}.`,
-      thumb: r.hash,
-      label: `${VIEW_LABEL[r.view]} ${n}`,
-      current: several && onView && latest.get(`${r.view}:${r.hash}`) === r,
-      restore: idle && !onView ? { view: r.view, hash: r.hash } : undefined,
-    };
-  };
-  // a drawn picture answers the ask before it on its view, once
-  const taken = new Set<DraftResult>();
-  const outcomes = new Map(
-    asks.map((a) => {
-      const r = results.find(
-        (x) => !taken.has(x) && x.how === 'drawn' && x.view === a.view && x.ask === a.text && x.at >= a.at,
-      );
-      if (r) taken.add(r);
-      return [a, r] as const;
-    }),
-  );
-  const firstUse = decisions.find((x) => x.view === 'portrait' && x.what === 'use');
-  const revisionPrompt = (v: StudioView) =>
-    v === 'portrait'
-      ? `Here is ${who} with the change. Use this, or keep the previous one. Using it redraws the views built on the face.`
-      : `Redrew the ${VIEW_NAME[v]}. Use it, or keep the previous one.`;
-  const decided = (x: DraftDecision): Turn[] => {
-    const identity = x.view === 'portrait' && x === firstUse;
-    const label =
-      x.what === 'again'
-        ? 'Try again'
-        : x.what === 'keep'
-          ? 'Keep previous'
-          : identity
-            ? 'Use this person'
-            : x.view === 'portrait'
-              ? 'Use this'
-              : 'Use it';
-    return [
-      { kind: 'scenri', id: `asked-decided-${x.at}`, text: identity ? PROMPT.identity(who) : revisionPrompt(x.view) },
-      { kind: 'you', id: `decided-${x.at}`, text: label, editable: false },
-    ];
-  };
-  const pastAsks = () => {
-    const closed = lastOpen ? asks.slice(0, -1) : asks;
-    // what was said at the open question stays with it only while nothing has been recorded since;
-    // once the record moved on, it is part of the record and does not follow the question around
-    const edge = recordEdge(d);
-    const chatter = asides.filter((a) => !placed.has(a) && (a.q !== openId || a.at <= edge));
-    for (const a of chatter) placed.add(a);
-    const firstExtra = results.find((r) => (EXTRA_VIEWS as readonly string[]).includes(r.view));
-    const record: { at: string; turns: Turn[] }[] = [
-      ...closed.map((a) => {
-        const r = outcomes.get(a);
-        return {
-          at: a.at,
-          turns: [
-            { kind: 'scenri' as const, id: `asked-ask-${a.at}`, text: askedFor(a.view) },
-            { kind: 'you' as const, id: `ask-${a.at}`, text: a.text, editable: false },
-            ...(r ? [shot(r, `redrew-${a.at}`)] : []),
-          ],
-        };
-      }),
-      ...results
-        .filter((r) => !taken.has(r))
-        .map((r) => ({
-          at: r.at,
-          turns: [shot(r, `result-${r.at}`)],
-        })),
-      ...decisions.map((x) => ({ at: x.at, turns: decided(x) })),
-      ...chatter.map((a) => ({ at: a.at, turns: asideTurns(a) })),
-      // the extras decision sits between the core set and what it added
-      ...(identityLocked(d) && (d.extras || ui.extrasDeclined)
-        ? [
-            {
-              at: firstExtra ? firstExtra.at.slice(0, -1) : '~',
-              turns: [
-                { kind: 'scenri' as const, id: 'asked-extras', text: PROMPT.extras },
-                { kind: 'you' as const, id: 'extras', text: d.extras ? 'Add them' : 'Save as is', editable: false },
-              ],
-            },
-          ]
-        : []),
-    ];
-    record.sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0));
-    for (const r of record) T.push(...r.turns);
-  };
-  const openAsk = () => {
-    if (lastOpen && last) you(`ask-${last.at}`, last.text, askedFor(last.view), { editable: false });
-  };
-
-  if (!identityLocked(d)) {
-    const drawingFace = p.status === 'generating' || (active === 'portrait' && p.status !== 'candidate');
-    if (drawingFace && !asks.length) {
-      // The first draw: the name is asked under the line that says it is
-      // drawing, and the answer stays there.
-      say('drawing-face', 'Drawing their face.');
-      if (name) you('name', name, PROMPT.name);
-      else askName(PROMPT.nameWhileDrawing);
-      return T;
-    }
-    if (name) you('name', name, PROMPT.name);
-    pastAsks();
-    if (drawingFace) {
-      openAsk();
-      say('drawing-face', lastOpen ? 'Adjusting the face. Everything else stays.' : 'Drawing their face.');
-      if (!name) askName(PROMPT.nameWhileDrawing);
-      return T;
-    }
-    if (ui.failed) {
-      ask({
-        id: 'retry',
-        kind: 'confirm',
-        tone: 'alert',
-        prompt: `That did not go through: ${ui.failed}. Nothing finished was touched.`,
-        options: [{ id: 'retry', label: 'Retry' }],
-      });
-      return T;
-    }
-    if (p.error) {
-      openAsk();
-      ask(stoppedOrFailed('portrait', p.error));
-      return T;
-    }
-    if (p.status === 'candidate') {
-      openAsk();
-      ask({
-        id: 'identity',
-        kind: 'confirm',
-        prompt: lastOpen ? 'Adjusted. Use this person, or try again.' : PROMPT.identity(who),
-        options: [
-          { id: 'use', label: 'Use this person' },
-          { id: 'again', label: 'Try again' },
-          { id: 'change', label: 'Change something' },
-        ],
-      });
-      return T;
-    }
-    return T;
-  }
-
-  if (name && !folded) you('name', name, PROMPT.name);
-  pastAsks();
-
-  const views = Object.keys(d.views) as StudioView[];
-  const candidate = views.find((v) => d.views[v].status === 'candidate');
-  const failed = views.find((v) => !!d.views[v].error);
-
-  if (ui.failed && !active) {
-    ask({
-      id: 'retry',
-      kind: 'confirm',
-      tone: 'alert',
-      prompt: `That did not go through: ${ui.failed}. Nothing finished was touched.`,
-      options: [{ id: 'retry', label: 'Retry' }],
-    });
-    return T;
-  }
-
-  if (active) {
-    openAsk();
-    say(
-      `drawing-${active}`,
-      lastOpen && last?.view === active
-        ? `Redrawing the ${VIEW_NAME[active]}.`
-        : active === 'front' && !d.views.front.hash
-          ? 'Building the reference set from this face. The full body first.'
-          : `Drawing the ${VIEW_NAME[active]}.`,
-    );
-    // a person whose face came from a photograph has had no draw to be named during
-    if (!name) askName(PROMPT.nameWhileDrawing);
-    return T;
-  }
-
-  if (candidate) {
-    openAsk();
-    ask({
-      id: candidate === 'portrait' ? 'revision' : 'view-revision',
-      kind: 'confirm',
-      prompt:
-        candidate === 'portrait'
-          ? `Here is ${who} with the change. Use this, or keep the previous one. Using it redraws the views built on the face.`
-          : `Redrew the ${VIEW_NAME[candidate]}. Use it, or keep the previous one.`,
-      options: [
-        { id: 'use', label: candidate === 'portrait' ? 'Use this' : 'Use it' },
-        { id: 'keep', label: 'Keep previous' },
-        { id: 'again', label: 'Try again' },
-      ],
-    });
-    return T;
-  }
-
-  if (failed) {
-    openAsk();
-    ask(stoppedOrFailed(failed, d.views[failed].error ?? ''));
-    return T;
-  }
-
-  if (!allApproved(d)) {
-    // between two draws of the set there is still no name and still nothing else to ask
-    if (!name) askName(PROMPT.nameWhileDrawing);
-    return T;
-  }
-
-  if (!d.extras && !ui.extrasDeclined) {
-    say('set-ready', 'The set is ready. Select a view and say what is wrong to redraw it.');
-    ask({
-      id: 'extras',
-      kind: 'confirm',
-      prompt: PROMPT.extras,
-      options: [
-        { id: 'add', label: 'Add them' },
-        { id: 'save', label: 'Save as is' },
-      ],
-    });
-    return T;
-  }
-
-  if (!name) {
-    askName(PROMPT.name);
-    return T;
-  }
-
-  ask({
-    id: 'save',
-    kind: 'confirm',
-    prompt: `${cap(who)} is ready.${filedLine(d)}`,
-    options: [{ id: 'save', label: 'Save presenter' }],
+  const record = recordTurns({
+    draft,
+    canGenerate,
+    ui: { extrasDeclined: state.extrasDeclined, failed, editingName: state.editing === 'name' },
+    afterCoverage: after,
+    asides,
+    openId,
+    placed,
   });
+  const T = [...lead, ...record];
+  // One question at a time. A setup question, open or open again, is the one
+  // thing being asked: the record's own question waits, and the open one
+  // stands last, after everything that already happened.
+  if ((editingSetup || open) && T[T.length - 1]?.kind === 'question') T.pop();
+  if (open) T.push({ kind: 'question', question: open });
   return T;
 }
 
@@ -1148,79 +577,8 @@ export function activeQuestion(turns: Turn[]): Question | null {
   return null;
 }
 
-/**
- * The order the setup is answered in.
- *
- * It is the whole of the dependency model, deliberately: this is a short
- * ordered run of questions, not a graph. What comes after an answer depends on
- * it; what comes before it does not. Changing an answer therefore takes back
- * everything after it and nothing before it.
- */
-export const SETUP_ORDER = ['source', 'look', 'describe', 'gaps', 'name'] as const;
-export type SetupAnswer = (typeof SETUP_ORDER)[number];
+/* ------------------------------------------------------------- composer */
 
-const AT = (id: string): number => SETUP_ORDER.indexOf(id as SetupAnswer);
-
-/**
- * The setup as it stands after an answer is changed: that answer's own value is
- * the caller's to set, and everything the flow asked after it is taken back, so
- * no answer that is no longer on the screen can reach the drawing.
- */
-export function rewindSetup(setup: Setup, id: string): Partial<Setup> {
-  const at = AT(id);
-  if (at < 0) return {};
-  const back: Partial<Setup> = {};
-  // at the answer itself, everything after it goes; the answer's own new value
-  // is the caller's to set
-  if (at <= AT('source')) {
-    // the photographs belong to the door they were added under
-    back.photoHashes = [];
-    back.attested = false;
-  }
-  if (at <= AT('look')) back.look = null;
-  if (at < AT('describe')) {
-    back.description = '';
-    back.typed = false;
-  }
-  if (at < AT('gaps')) {
-    back.gaps = null;
-    back.gapsAsked = false;
-  }
-  return back;
-}
-
-/** What was said in passing after an answer, and so belongs to a future that is gone. */
-export function rewindAsides(asides: Aside[], id: string): Aside[] {
-  const at = AT(id);
-  if (at < 0) return asides;
-  // a remark made at a question that came later goes with it; one made at this
-  // question or before it stays where it was said
-  return asides.filter((a) => {
-    const q = a.q ? a.q.replace(/^look-.*/, 'look') : null;
-    const when = q ? AT(q) : -1;
-    return when <= at;
-  });
-}
-
-/** What changing an earlier answer costs. */
-export type EditEffect = 'plain' | 'metadata' | 'redraw-identity' | 'start-over';
-
-/** The step a look answer goes back to when it is taken back: the last one given. */
-export function lastLookStep(look: Setup['look']): string | null {
-  if (!look || look === 'skipped') return null;
-  const given = LOOK_STEPS.filter((s) => look[s.row.id]);
-  return given.length ? given[given.length - 1].row.id : null;
-}
-
-export function editEffect(turnId: string, hasDraft: boolean): EditEffect {
-  if (turnId === 'name') return 'metadata';
-  if (!hasDraft) return 'plain';
-  if (turnId === 'describe' || turnId === 'gaps') return 'redraw-identity';
-  if (turnId === 'source' || turnId === 'photos') return 'start-over';
-  return 'plain';
-}
-
-/** The composer's placeholder and pill for the open question, or null when the question answers itself. */
 /**
  * The composer is the one place a sentence is typed, so it is always there.
  * When a sentence cannot be the answer (a choice to pick, photos to add, a
@@ -1239,29 +597,44 @@ const QUIET: ComposerFor = { placeholder: 'Nothing to type yet', label: 'Message
 
 export function composerFor(
   q: Question | null,
+  state: CreationState,
   d: DraftLike | null,
   selected: StudioView,
-  /** The one step being answered in words, when a step was asked to be described. */
-  saying?: string | null,
 ): ComposerFor {
+  // an answer being rewritten has its own field; the composer waits
+  if (state.editing !== null && (state.editing === 'name' || TEXT_QIDS.has(state.editing))) {
+    return { ...QUIET, off: 'Finish the change above.' };
+  }
+  // A tap question handed to the composer: it takes that one question, and only that one.
+  if (state.saying === 'keep') {
+    return {
+      placeholder: 'A tattoo, glasses, a scar: something always true of them',
+      label: 'What should stay the same about them',
+      action: 'Send',
+    };
+  }
+  if (state.saying && isLookQid(state.saying)) {
+    const step = state.saying.slice('look-'.length) as LookStep;
+    return {
+      placeholder: LOOK_SAYS_PLACEHOLDER[step] ?? 'In your words',
+      label: 'Describe it',
+      action: 'Send',
+      color: LOOK_COLOUR.has(step),
+    };
+  }
+  if (state.saying) {
+    const trait = traitOfQid(state.saying);
+    const t = trait ? traitOf(trait.id) : undefined;
+    return {
+      placeholder: trait?.part === 'where' ? 'Where it is, in your words' : (t?.refHint ?? 'What it looks like'),
+      label: t?.saying ?? 'Describe it',
+      action: 'Send',
+    };
+  }
   if (q) {
     // A question with things to tap owns the answer: the composer stands down
-    // rather than competing with it, and says where the answer is. Asking to
-    // describe a step hands the composer that one step, and only that one.
-    if (q.id.startsWith('look-')) {
-      const step = q.id.slice('look-'.length);
-      if (saying === step) {
-        return {
-          placeholder: LOOK_SAYS_PLACEHOLDER[step] ?? 'In your words',
-          label: 'Describe it',
-          action: 'Send',
-          // a colour can be said or picked: the composer carries the app's own
-          // colour control while a colour step is the question
-          color: LOOK_COLOUR.has(step),
-        };
-      }
-      return { ...QUIET, off: 'Tap one above.' };
-    }
+    // rather than competing with it, and says where the answer is.
+    if (isLookQid(q.id) || q.id.startsWith('trait-')) return { ...QUIET, off: 'Tap one above.' };
     switch (q.id) {
       case 'source':
         return { placeholder: 'Describe them, or choose above', label: 'Describe them', action: 'Send' };
@@ -1270,16 +643,15 @@ export function composerFor(
         return { placeholder: 'Describe them', label: 'Describe them', action: 'Send' };
       case 'name':
         return { placeholder: 'Their name', label: 'Their name', action: 'Send' };
-      case 'agree':
-        return saying === 'agree'
-          ? { placeholder: 'Anything that makes them them', label: 'Add a detail', action: 'Send' }
-          : { ...QUIET, off: 'Choose above.' };
       case 'identity':
         return {
           placeholder: 'What should change? Shorter hair, older',
           label: 'What should change',
           action: 'Refine',
         };
+      case 'agree':
+      case 'traits':
+        return { ...QUIET, off: 'Choose above.' };
       case 'gaps':
         return { ...QUIET, off: 'Pick above, or skip.' };
       case 'photos':
@@ -1310,3 +682,12 @@ function composerPlaceholder(selected: StudioView, d: DraftLike): string {
   const who = d.name?.trim() || 'them';
   return selected === 'portrait' ? `What should change about ${who}?` : `Change this view: ${VIEW_NAME[selected]}`;
 }
+
+/** The setup question a typed sentence goes to: the one being said in words, else the open text question. */
+export function sentenceTarget(state: CreationState, open: Question | null): Qid | 'keep' | null {
+  if (state.saying) return state.saying;
+  if (open && isQid(open.id) && (open.id === 'source' || open.id === 'describe')) return open.id;
+  return null;
+}
+
+export { UNSURE_LINE };

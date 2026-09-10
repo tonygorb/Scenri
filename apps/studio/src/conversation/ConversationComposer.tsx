@@ -1,7 +1,6 @@
-import { ArrowUp, Plus } from '@phosphor-icons/react';
+import { ArrowUp, Plus, X } from '@phosphor-icons/react';
 import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Swatch } from '../brand/palette.js';
-import { ColorChipMenu } from '../composer/ColorChipMenu.js';
+import { ColorPicker } from '../layout/ColorPicker.js';
 import { Tip } from '../layout/Tip.js';
 
 /** What the card shows around the sentence: which picture the pill will touch, and what that means. */
@@ -14,18 +13,16 @@ export interface ComposerScope {
 /**
  * A colour as an answer, in the chip the rest of the app already uses for one.
  *
- * The same chip and the same menu as the brief line: a swatch, the colour's
- * name, and on the chip's press the app's colour menu with the named colours
- * this step knows, a custom one, and remove. Nothing here is a second colour
- * control; it is that one, in a composer that has no sentence to carry it.
+ * The chip is the brief line's: a swatch, the colour's name, and an X to take
+ * it off. What it opens is the app's colour picker and nothing else, because
+ * the colours a step has names for are already a row of swatches in the
+ * question above; this is where a colour it has no name for comes from.
  */
 export interface ComposerColour {
   /** The colour so far, or null while the chip stands empty. */
   hex: string | null;
   /** What the chip reads: the colour's name, or the invitation to pick one. */
   label: string;
-  /** The named colours the menu offers, this step's own. */
-  palette: Swatch[];
   /** Where a colour of one's own starts, before anything is chosen. */
   seed?: string;
   onPick: (hex: string) => void;
@@ -120,13 +117,6 @@ export function ConversationComposer({
     }
   }, [focusKey, focusedOnce, disabled]);
 
-  // The chip is the menu's anchor, so the element the press came from is what
-  // opens it: no ref read during a render can be a frame behind the chip.
-  const [menu, setMenu] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    if (!colour) setMenu(null);
-  }, [colour]);
-
   const off = disabled || working;
   // a colour already chosen is an answer, even with nothing typed beside it
   const empty = !value.trim() && !allowEmpty && !colour?.hex;
@@ -164,36 +154,24 @@ export function ConversationComposer({
         )}
         <div className="sc-convo-field">
           {colour && (
-            /* biome-ignore lint/a11y/useSemanticElements: a <button> cannot hold the remove <button> the chip pattern carries; the sentence's own chips are the same span-as-button */
-            <span
-              className="sc-token"
-              data-kind="color"
-              data-empty={colour.hex ? undefined : ''}
-              data-open={menu ? '' : undefined}
-              dir="ltr"
-              role="button"
-              tabIndex={0}
-              aria-haspopup="dialog"
-              aria-expanded={!!menu}
-              aria-label={colour.hex ? `${colour.label}. Change the colour.` : 'Pick a colour'}
-              onClick={(e) => {
-                const el = e.currentTarget;
-                setMenu((open) => (open ? null : el));
-              }}
-              onKeyDown={(e) => {
-                // the X inside bubbles its keys up here; only the chip's own
-                if (e.target !== e.currentTarget) return;
-                if (e.key !== 'Enter' && e.key !== ' ') return;
-                e.preventDefault();
-                setMenu(e.currentTarget);
-              }}
-            >
-              <span className="sc-token-swatch" style={colour.hex ? { background: colour.hex } : undefined} />
-              {/* No X here, unlike a chip in a sentence: this chip is the step's
-                  answer rather than one word of many, and the menu it opens
-                  already has Remove colour, which empties it back to a choice
-                  waiting to be made. */}
-              <span className="sc-token-label">{colour.label}</span>
+            <span className="sc-token" data-kind="color" data-empty={colour.hex ? undefined : ''} dir="ltr">
+              <ColorPicker
+                className="sc-convo-chip"
+                triggerStyle={{ background: 'none' }}
+                value={colour.hex ?? colour.seed ?? '#808080'}
+                commitMode="live"
+                align="start"
+                label={colour.hex ? `${colour.label}. Change the colour.` : 'Pick a colour'}
+                onChange={colour.onPick}
+              >
+                <span className="sc-token-swatch" style={colour.hex ? { background: colour.hex } : undefined} />
+                <span className="sc-token-label">{colour.label}</span>
+              </ColorPicker>
+              {colour.hex && (
+                <button type="button" className="sc-convo-chip-x" aria-label="Remove colour" onClick={colour.onClear}>
+                  <X size={11} weight="bold" />
+                </button>
+              )}
             </span>
           )}
           <textarea
@@ -215,25 +193,6 @@ export function ConversationComposer({
             }}
           />
         </div>
-        {menu && colour && (
-          <ColorChipMenu
-            anchor={menu}
-            currentHex={colour.hex}
-            currentName={colour.hex ? colour.label : undefined}
-            palette={colour.palette}
-            seed={colour.seed}
-            onPick={(picked, opts) => {
-              colour.onPick(picked.hex);
-              // a drag on the wheel paints as it moves; only a chosen colour closes
-              if (!opts?.live) setMenu(null);
-            }}
-            onRemove={() => {
-              colour.onClear();
-              setMenu(null);
-            }}
-            onClose={() => setMenu(null)}
-          />
-        )}
         <div className="sc-convo-row">
           {onAttach && (
             <Tip label="Add photos">

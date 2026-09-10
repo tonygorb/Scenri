@@ -5,6 +5,8 @@ import {
   EXTRA_VIEWS,
   PRESENTER_VIEWS,
   STUDIO_SET,
+  keepFor,
+  sideNote,
   studioPrompt,
   viewSubject,
   syntheticIdentitySubject,
@@ -154,15 +156,89 @@ describe('an ask on the face', () => {
     });
     expect(blue).toContain('changed only in this: change her eyes to blue.');
     expect(blue).toContain('overrides anything below that describes it otherwise');
-    // the ask is about the face, so the face is not also held identical
-    expect(blue).toContain('Otherwise identical to the attached image in the rest of the face, hair, age and build');
+    // the ask is about the face, so the face is not also held identical; what
+    // the person carries is held whatever the ask, so a nudge cannot quietly
+    // take a tattoo or a prosthetic away with it
+    expect(blue).toContain(
+      'Otherwise identical to the attached image in the rest of the face, hair, age, build and marks and limbs',
+    );
     const longer = syntheticIdentitySubject('a woman in her late 30s', { adjustment: 'longer hair' });
-    expect(longer).toContain('Otherwise identical to the attached image in face, age and build');
+    expect(longer).toContain('Otherwise identical to the attached image in face, age, build and marks and limbs');
     const both = syntheticIdentitySubject('a woman', { adjustment: 'blue eyes and longer hair' });
-    expect(both).toContain('Otherwise identical to the attached image in the rest of the face, age and build');
+    expect(both).toContain(
+      'Otherwise identical to the attached image in the rest of the face, age, build and marks and limbs',
+    );
     // an ask about nothing nameable still holds the person
     expect(syntheticIdentitySubject('a woman', { adjustment: 'make it warmer' })).toContain(
-      'Otherwise identical to the attached image in face, hair, age and build',
+      'Otherwise identical to the attached image in face, hair, age, build and marks and limbs',
     );
+  });
+
+  it('is not contradicted when it is about a mark or a limb either', () => {
+    const scar = syntheticIdentitySubject('a man in his 40s', {
+      adjustment: 'a small scar through the left eyebrow',
+    });
+    // the scar is on the face and it is a mark, so neither is held identical
+    expect(scar).toContain(
+      'Otherwise identical to the attached image in the rest of the face, hair, age, build and their other marks and limbs',
+    );
+    const arm = syntheticIdentitySubject('a woman', { adjustment: 'a prosthetic left arm' });
+    expect(arm).toContain(
+      'Otherwise identical to the attached image in face, hair, age, build and their other marks and limbs',
+    );
+  });
+});
+
+describe('what stays the same about them', () => {
+  it('is said in their own words, before any later change', () => {
+    const plain = whoIs('Maren', { promptName: 'a woman in her 30s' });
+    // with nothing kept, the words are exactly what they were
+    expect(plain).toBe('a woman in her 30s');
+    const kept = whoIs('Maren', { promptName: 'a woman in her 30s', keep: 'thin black glasses' });
+    expect(kept).toContain('a woman in her 30s, who also has thin black glasses');
+    expect(kept).toContain('drawn in this view whether or not the attached images show it');
+    // a later change still reads last, so the newest instruction wins
+    const both = whoIs('Maren', {
+      promptName: 'a woman in her 30s',
+      keep: 'thin black glasses',
+      identityEdits: ['shorter hair'],
+    });
+    expect(both.indexOf('who also has')).toBeLessThan(both.indexOf('except as changed here'));
+    expect(both).toContain('except as changed here: shorter hair; the attached drawn views show the change');
+  });
+
+  it('says whose left it is, only when a side is named', () => {
+    expect(sideNote('a floral tattoo on her right forearm')).toContain('their own left and right');
+    expect(sideNote('a septum piercing')).toBe('');
+    expect(whoIs('Ilse', { promptName: 'a woman', keep: 'a scar through her left eyebrow' })).toContain(
+      'their own left and right',
+    );
+  });
+
+  it('goes to the views that can show it, and no further', () => {
+    const face = 'thin black glasses and a scar through her left eyebrow';
+    const body = 'a floral tattoo on her right forearm';
+    const both = 'thin black glasses and a tattoo on her right forearm';
+    // a face is not in a back view, and a forearm is not in a head-and-shoulders portrait
+    expect(keepFor('back', face)).toBeUndefined();
+    expect(keepFor('portrait', face)).toBe(face);
+    expect(keepFor('portrait', body)).toBeUndefined();
+    expect(keepFor('front', body)).toBe(body);
+    expect(keepFor('back', body)).toBe(body);
+    // anything we cannot place rides everywhere: leaving their words out is worse
+    for (const v of PRESENTER_VIEWS) {
+      expect(keepFor(v, both)).toBe(both);
+      expect(keepFor(v, 'she is always in silver')).toBe('she is always in silver');
+      expect(keepFor(v, '   ')).toBeUndefined();
+      expect(keepFor(v, undefined)).toBeUndefined();
+    }
+  });
+
+  it('tells a profile that it is a turn of the same body, not a mirror of it', () => {
+    for (const v of ['left', 'right'] as const) {
+      expect(viewSubject(v, 'Maren')).toContain('never a mirror image of it');
+    }
+    expect(viewSubject('front', 'Maren')).not.toContain('mirror');
+    expect(viewSubject('back', 'Maren')).not.toContain('mirror');
   });
 });

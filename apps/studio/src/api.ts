@@ -236,6 +236,10 @@ export const api = {
     p: {
       source: 'synthetic' | 'photos';
       direction?: string;
+      /** What should stay the same about them, in their own words. */
+      keep?: string;
+      /** Pictures of the details themselves, by detail. */
+      detailRefs?: Record<string, string[]>;
       imageHashes?: string[];
       attestation?: boolean;
       name?: string;
@@ -250,7 +254,14 @@ export const api = {
   updatePresenterDraft: (
     brandId: string,
     draftId: string,
-    p: { name?: string; facets?: string[]; direction?: string; extras?: boolean },
+    p: {
+      name?: string;
+      facets?: string[];
+      direction?: string;
+      keep?: string;
+      detailRefs?: Record<string, string[]>;
+      extras?: boolean;
+    },
   ) => req<PresenterDraft>('PATCH', `/api/brands/${brandId}/presenter-drafts/${draftId}`, p),
   /** With `decide: 'auto'` the view lands approved; the face never does. */
   generateDraftView: (

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { api, type PresenterDraft, thumbUrl, uploadImage } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { normalizeHex, type Swatch as PaletteSwatch } from '../../brand/palette.js';
@@ -7,30 +7,35 @@ import { useOpenSetup } from '../../app/dialogs.js';
 import { type Answer, type Swatch, answersNothing, nowIso } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
+import { EMPTY_STATE, deserialize, readyToDraw, reduce, serialize } from './creationState.js';
+import { type AsidePhase, asideReply } from './presenterCopy.js';
 import {
-  type AsidePhase,
-  asideReply,
-  settleUnsure,
-  EMPTY_SETUP,
-  type FlowUi,
-  type Setup,
+  TEXT_QIDS,
   activeQuestion,
+  answerPatch,
+  compileDirection,
+  compileKeep,
+  compileRefs,
   composerFor,
-  directionFrom,
-  lastLookStep,
-  LOOK_STEPS,
-  colourName,
-  HAIR_COLOURS,
-  SKIN_TONES,
-  nextLookStep,
-  rewindAsides,
-  rewindSetup,
-  PASSED,
-  editEffect,
-  needsFollowUp,
+  editCost,
+  flowContext,
+  seedFromDraft,
+  sentenceTarget,
   sourceFromText,
   turnsFor,
 } from './presenterFlowRules.js';
+import { colourName, colourRow } from './presenterLook.js';
+import {
+  type Answers,
+  type LookStep,
+  type Qid,
+  type TraitQid,
+  commit,
+  isLookQid,
+  isQid,
+  nextQuestion,
+  traitOfQid,
+} from './presenterQuestions.js';
 import {
   MAX_PHOTOS,
   type StudioView,
@@ -54,10 +59,14 @@ import { usePresenterDraft } from './usePresenterDraft.js';
  * The creation flow: what the studio shell shows while a person is being
  * made, and what each answer does.
  *
- * Before a draft exists the answers live in `setup`, mirrored to session
- * storage so a reload lands where it left off; from the first generation on
- * the server draft is the only state. The transcript is computed from both
- * on every render (`turnsFor`), never stored.
+ * The answers and the conversation around them are one reducer's state
+ * (`creationState`), mirrored to session storage so a reload lands where it
+ * left off; the server draft is the other truth, from the first generation
+ * on. The transcript is computed from both on every render (`turnsFor`),
+ * never stored. This hook wires taps and sentences to actions, and runs the
+ * side effects (uploads, the draft, the drawing) at the edge, each one
+ * checked against the revision it started under before it is allowed to
+ * change anything.
  */
 const setupKey = (brandId: string) => `scenri:presenter-setup:${brandId}`;
 const pointerKey = (brandId: string) => `scenri:presenter-draft:${brandId}`;
@@ -85,22 +94,14 @@ const session = {
   },
 };
 
-function readSetup(brandId: string): Setup {
-  const raw = session.read(setupKey(brandId));
-  if (!raw) return EMPTY_SETUP;
-  try {
-    const s = JSON.parse(raw) as Partial<Setup>;
-    return { ...EMPTY_SETUP, ...s, uploading: false };
-  } catch {
-    return EMPTY_SETUP;
-  }
-}
-
 export interface CreationFlowArgs extends Pick<FlowProps, 'onStarted' | 'caps' | 'capsNote'> {
   draftId: string | null;
   onOpenDraft: (id: string, replace?: boolean) => void;
   onLeaveDraft: () => void;
 }
+
+const sameRefs = (x: Record<string, string[]> | undefined, y: Record<string, string[]>) =>
+  JSON.stringify(x ?? {}) === JSON.stringify(y);
 
 export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted, caps, capsNote }: CreationFlowArgs) {
   const { brand } = useBrand();
@@ -108,16 +109,18 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const openSetup = useOpenSetup();
   const canDraw = !!caps?.canGenerate;
 
-  const [setup, setSetupState] = useState<Setup>(() => readSetup(brand.id));
-  const [ui, setUi] = useState<FlowUi>({
-    collapsed: false,
-    extrasDeclined: false,
-    reasking: null,
-    failed: null,
-    asides: [],
-    unsure: null,
+  const [state, dispatch] = useReducer(reduce, brand.id, (id) => {
+    const back = deserialize(session.read(setupKey(id)));
+    return back ? { ...EMPTY_STATE, answers: back.answers, revision: back.revision } : EMPTY_STATE;
   });
-  const [text, setText] = useState('');
+  // the latest state, for work that finishes after the render it started in
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const stored = serialize(state);
+  useEffect(() => {
+    session.write(setupKey(brand.id), stored);
+  }, [brand.id, stored]);
+
   const [focus, setFocus] = useState<StudioView | null>(null);
   const [compare, setCompare] = useState(false);
   const [askErr, setAskErr] = useState<string | null>(null);
@@ -125,47 +128,35 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [busySetup, setBusySetup] = useState(false);
-  const [confirming, setConfirming] = useState<'start-over' | 'redescribe' | null>(null);
-  // the words said again, waiting on the question about the face drawn from the old ones
-  const [said, setSaid] = useState<string | null>(null);
+  // what is being asked before something expensive: starting over, or a
+  // changed answer that redraws what was drawn from the old one
+  const [confirming, setConfirming] = useState<'start-over' | 'redraw' | null>(null);
+  const [pendingEdit, setPendingEdit] = useState<Qid | null>(null);
   // pressed "Change something": the composer takes the focus, nothing else moves
   const [changing, setChanging] = useState(0);
-  // a colour chosen from the picker, waiting on Send like any other answer
-  const [picked, setPickedColour] = useState<string | null>(null);
   const [booting, setBooting] = useState(!draftId);
   // the page opened on a draft: its conversation was had before this page
   const [resumed] = useState(!!draftId);
   const catsSeeded = useRef(false);
   const started = useRef('');
-
-  const setSetup = useCallback(
-    (patch: Partial<Setup> | ((s: Setup) => Setup)) => {
-      setSetupState((cur) => {
-        const next = typeof patch === 'function' ? patch(cur) : { ...cur, ...patch };
-        session.write(setupKey(brand.id), JSON.stringify({ ...next, uploading: false }));
-        return next;
-      });
-    },
-    [brand.id],
-  );
-  const clearSetup = useCallback(
-    (draftId?: string) => {
-      session.remove(setupKey(brand.id));
-      forgetSaid(`presenter-create:${brand.id}:new`);
-      if (draftId) forgetSaid(`presenter-create:${brand.id}:${draftId}`);
-      setSetupState(EMPTY_SETUP);
-    },
-    [brand.id],
-  );
+  const syncing = useRef(false);
+  // the revision a draft was started from without a click, so one person is
+  // one draft however many renders the start takes
+  const autoStarted = useRef(-1);
+  // which draft's answers were read into the conversation, once each
+  const seededFor = useRef<string | null>(null);
+  const leaving = useRef(false);
 
   const s = usePresenterDraft(brand.id, draftId);
   const d = s.draft;
+  const ctx = useMemo(() => flowContext(d, canDraw), [d, canDraw]);
 
   // A new draft starts its own count of what was drawn without a click.
   useEffect(() => {
     started.current = '';
     catsSeeded.current = false;
     setFacets([]);
+    if (!draftId) leaving.current = false;
   }, [draftId]);
 
   // A fresh start resumes the draft this session pointed at, in place.
@@ -212,17 +203,23 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     }
   }, [s.gone, brand.id, onLeaveDraft]);
 
-  // The next view is drawn with no click: the face first, then the set from
-  // it, each landed view deciding itself; only the face waits for a person.
+  // A draft opened with no answers of its own carries them: the person was
+  // drawn from what the draft holds, and the conversation reads from there.
+  const carried = !!d && !state.answers.source;
   useEffect(() => {
-    if (!d || s.busy || !canDraw || s.err) return;
-    const view = nextToDraw(d);
-    if (!view) return;
-    const key = `${view}:${d.views[view].attempts}:${d.generations}:${d.views[view].status}`;
-    if (started.current === key) return;
-    started.current = key;
-    void s.generate(view, undefined, view === 'portrait' ? undefined : 'auto');
-  }, [d, s.busy, s.generate, canDraw, s.err]);
+    if (!carried || !d || leaving.current || seededFor.current === d.id) return;
+    seededFor.current = d.id;
+    dispatch({ type: 'restore', answers: seedFromDraft(d), revision: stateRef.current.revision + 1 });
+  }, [carried, d]);
+
+  const clearSetup = useCallback(
+    (draftId?: string) => {
+      session.remove(setupKey(brand.id));
+      forgetSaid(`presenter-create:${brand.id}:new`);
+      if (draftId) forgetSaid(`presenter-create:${brand.id}:${draftId}`);
+    },
+    [brand.id],
+  );
 
   const openDraft = useCallback(
     (id: string) => {
@@ -232,83 +229,117 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     [brand.id, onOpenDraft],
   );
 
-  const startScratch = useCallback(
-    async (next: Setup) => {
-      if (!canDraw || busySetup) return;
-      setBusySetup(true);
-      setAskErr(null);
-      try {
-        const draft = await api.createPresenterDraft(brand.id, { source: 'synthetic', direction: directionFrom(next) });
-        openDraft(draft.id);
-      } catch (e: any) {
-        setAskErr(String(e?.message ?? e));
-      } finally {
-        setBusySetup(false);
-      }
-    },
-    [brand.id, canDraw, busySetup, openDraft],
-  );
-
-  const startPhotos = useCallback(async () => {
-    if (!setup.photoHashes.length || !setup.attested || busySetup) return;
+  /**
+   * The draft, made from the answers as they stand. If the answers moved
+   * while it was being made, the draft is of somebody else and is let go.
+   */
+  const startScratch = useCallback(async () => {
+    const st = stateRef.current;
+    if (!canDraw || busySetup) return;
+    const rev = st.revision;
     setBusySetup(true);
     setAskErr(null);
     try {
+      const keep = compileKeep(st.answers);
+      const refs = compileRefs(st.answers);
       const draft = await api.createPresenterDraft(brand.id, {
-        source: 'photos',
-        imageHashes: setup.photoHashes,
-        attestation: true,
+        source: 'synthetic',
+        direction: compileDirection(st.answers),
+        ...(keep ? { keep } : {}),
+        ...(Object.keys(refs).length ? { detailRefs: refs } : {}),
       });
+      if (stateRef.current.revision !== rev) {
+        void api.deletePresenterDraft(brand.id, draft.id).catch(() => undefined);
+        return;
+      }
       openDraft(draft.id);
     } catch (e: any) {
       setAskErr(String(e?.message ?? e));
     } finally {
       setBusySetup(false);
     }
-  }, [brand.id, setup.photoHashes, setup.attested, busySetup, openDraft]);
+  }, [brand.id, canDraw, busySetup, openDraft]);
 
-  const addFiles = useCallback(
-    async (files: File[]) => {
-      setAskErr(null);
-      setSetup({ uploading: true, source: 'photos' });
-      try {
-        for (const f of files) {
-          const h = await uploadImage(f);
-          setSetup((cur) => ({
-            ...cur,
-            photoHashes:
-              cur.photoHashes.includes(h) || cur.photoHashes.length >= MAX_PHOTOS
-                ? cur.photoHashes
-                : [...cur.photoHashes, h],
-          }));
-        }
-      } catch (e: any) {
-        setAskErr(String(e?.message ?? e));
-      } finally {
-        setSetup({ uploading: false });
-      }
-    },
-    [setSetup],
-  );
-
-  const describe = useCallback(
-    (sentence: string) => {
-      const next: Setup = {
-        ...setup,
-        source: 'scratch',
-        typed: setup.source === null,
-        description: sentence.trim(),
-        gaps: null,
-        gapsAsked: false,
-      };
-      if (needsFollowUp(next.description)) {
-        setSetup({ ...next, gapsAsked: true });
+  const startPhotos = useCallback(async () => {
+    const st = stateRef.current;
+    const photos = st.answers.photos;
+    if (!photos?.hashes.length || !photos.attested || busySetup) return;
+    const rev = st.revision;
+    setBusySetup(true);
+    setAskErr(null);
+    try {
+      const draft = await api.createPresenterDraft(brand.id, {
+        source: 'photos',
+        imageHashes: photos.hashes,
+        attestation: true,
+      });
+      if (stateRef.current.revision !== rev) {
+        void api.deletePresenterDraft(brand.id, draft.id).catch(() => undefined);
         return;
       }
-      setSetup(next);
-      void startScratch(next);
+      openDraft(draft.id);
+    } catch (e: any) {
+      setAskErr(String(e?.message ?? e));
+    } finally {
+      setBusySetup(false);
+    }
+  }, [brand.id, busySetup, openDraft]);
+
+  // A person described in words starts drawing the moment nothing is left to
+  // ask; the rows end at a read-back and a tap instead.
+  const complete =
+    !d && readyToDraw(state, ctx) && state.answers.source?.door === 'scratch' && state.answers.source.via !== 'taps';
+  useEffect(() => {
+    if (!complete || !canDraw || busySetup || askErr || booting || draftId) return;
+    if (autoStarted.current === state.revision) return;
+    autoStarted.current = state.revision;
+    void startScratch();
+  }, [complete, canDraw, busySetup, askErr, booting, draftId, state.revision, startScratch]);
+
+  const addFiles = useCallback(async (files: File[]) => {
+    setAskErr(null);
+    dispatch({ type: 'upload-begin' });
+    try {
+      for (const f of files) {
+        const h = await uploadImage(f);
+        // the reducer refuses a photograph the door no longer wants
+        dispatch({ type: 'uploaded', hash: h, max: MAX_PHOTOS });
+      }
+    } catch (e: any) {
+      setAskErr(String(e?.message ?? e));
+    } finally {
+      dispatch({ type: 'upload-end' });
+    }
+  }, []);
+
+  /**
+   * An answer, given or changed. With a draft on the stage the change reaches
+   * it: the words are updated and the face, or the set drawn from the
+   * photographs, is drawn again from them.
+   */
+  const commitAnswer = useCallback(
+    (patch: Partial<Answers>) => {
+      const st = stateRef.current;
+      dispatch({ type: 'answer', patch, ctx });
+      if (!d) return;
+      const next = commit(st.answers, patch, ctx);
+      const direction = compileDirection(next);
+      const keep = compileKeep(next);
+      const refs = compileRefs(next);
+      const wordsMoved =
+        d.source === 'synthetic'
+          ? (d.direction ?? '') !== direction || (d.keep ?? '') !== keep
+          : (d.keep ?? '') !== keep;
+      if (!wordsMoved && sameRefs(d.detailRefs, refs)) return;
+      void (async () => {
+        await s.update({ ...(d.source === 'synthetic' ? { direction } : {}), keep, detailRefs: refs });
+        // the photographs stand; what was drawn from them is drawn again
+        if (d.source === 'photos') {
+          if (d.views.front.hash) await s.redo('front');
+        } else if (d.views.portrait.hash) await s.redo('portrait');
+      })();
     },
-    [setup, setSetup, startScratch],
+    [ctx, d, s.update, s.redo],
   );
 
   const save = useCallback(async () => {
@@ -325,6 +356,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       const r = await api.savePresenterDraft(brand.id, d.id);
       session.remove(pointerKey(brand.id));
       clearSetup(d.id);
+      dispatch({ type: 'start-over' });
       onStarted({ kind: 'presenter', id: r.presenter.id, name: r.presenter.name });
     } catch (e: any) {
       setSaving(false);
@@ -333,7 +365,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   }, [d, saving, canDraw, brand.id, facets, clearSetup, onStarted]);
 
   const startOver = useCallback(async () => {
-    const keep = setup.description || d?.direction || '';
+    const st = stateRef.current;
+    const text = st.answers.describe || d?.direction || '';
+    leaving.current = true;
     if (d) {
       try {
         await api.deletePresenterDraft(brand.id, d.id);
@@ -343,18 +377,17 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     }
     session.remove(pointerKey(brand.id));
     clearSetup(d?.id);
-    setUi({ collapsed: false, extrasDeclined: false, reasking: null, failed: null, asides: [], unsure: null });
-    setText(keep);
+    dispatch({ type: 'start-over', text });
+    setAskErr(null);
     setConfirming(null);
+    setPendingEdit(null);
+    autoStarted.current = -1;
     onLeaveDraft();
-  }, [setup.description, d, brand.id, clearSetup, onLeaveDraft]);
+  }, [d, brand.id, clearSetup, onLeaveDraft]);
 
-  // A request the engine never saw is said the way a failed draw is: once, with a Retry.
-  const failed = s.err && d && !isDrawing(d) ? s.err : null;
-  const turns = useMemo(
-    () => turnsFor({ setup, draft: d, canGenerate: canDraw, ui: { ...ui, failed }, pending: picked }),
-    [setup, d, canDraw, ui, failed, picked],
-  );
+  // What is being waited for that never reached the engine, said once with a Retry.
+  const failed = d ? (s.err && !isDrawing(d) ? s.err : null) : askErr;
+  const turns = useMemo(() => turnsFor({ state, draft: d, canGenerate: canDraw, failed }), [state, d, canDraw, failed]);
   const question = activeQuestion(turns);
   const view: StudioView = d ? selectedView(d, focus) : 'portrait';
   const slot = d ? d.views[view] : null;
@@ -362,74 +395,84 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   // a picture is only put back while nothing is being drawn
   const idleNow = !!d && !d.activeView && d.stage === 'idle';
 
+  // What the answers say stays the same reaches the draft as soon as it is
+  // whole, and nothing is drawn until the draft has it: the set is drawn
+  // from the photographs and the sentence together, never from a promise.
+  const ready = readyToDraw(state, ctx);
+  const keepWanted = compileKeep(state.answers);
+  const refsWanted = compileRefs(state.answers);
+  const keepSynced = !d || ((d.keep ?? '') === keepWanted && sameRefs(d.detailRefs, refsWanted));
+  const refsKey = JSON.stringify(refsWanted);
+  useEffect(() => {
+    if (!d || !ready || keepSynced || s.busy || syncing.current) return;
+    syncing.current = true;
+    void s.update({ keep: keepWanted, detailRefs: JSON.parse(refsKey) as Record<string, string[]> }).finally(() => {
+      syncing.current = false;
+    });
+  }, [d, ready, keepSynced, s.busy, s.update, keepWanted, refsKey]);
+
+  // The next view is drawn with no click: the face first, then the set from
+  // it, each landed view deciding itself; only the face waits for a person.
+  // Nothing is drawn while an answer is open, or before the draft holds what
+  // the answers say.
+  useEffect(() => {
+    if (!d || s.busy || !canDraw || s.err || !ready || !keepSynced) return;
+    const view = nextToDraw(d);
+    if (!view) return;
+    const key = `${view}:${d.views[view].attempts}:${d.generations}:${d.views[view].status}`;
+    if (started.current === key) return;
+    started.current = key;
+    void s.generate(view, undefined, view === 'portrait' ? undefined : 'auto');
+  }, [d, s.busy, s.generate, canDraw, s.err, ready, keepSynced]);
+
+  /** A sentence that answered nothing, kept where it was said. */
+  const bounce = useCallback((said: string, reply: string, q: string | null) => {
+    dispatch({ type: 'aside', aside: { said, reply, q, at: nowIso() } });
+  }, []);
+
   const onAnswer = useCallback(
     (qid: string, a: Answer) => {
       setAskErr(null);
-      // anything else answered settles the sentence that was waiting
-      if (qid !== 'unsure') setUi(settleUnsure);
-      switch (qid) {
-        case 'unsure': {
-          if (a.kind !== 'confirm' || a.id !== 'use' || !ui.unsure) return;
-          const said = ui.unsure.said;
-          setUi((u) => ({ ...u, unsure: null }));
-          describe(said);
+      const st = stateRef.current;
+      if (isQid(qid)) {
+        const patch = answerPatch(qid, a, st.answers);
+        if (patch) {
+          commitAnswer(patch);
           return;
         }
-        case 'source':
-          if (a.kind === 'choice') setSetup({ source: a.id as Setup['source'] });
+        if (qid === 'photos' && a.kind === 'photos') {
+          const act = a.action;
+          if (act.type === 'add') void addFiles(act.files);
+          if (act.type === 'remove') dispatch({ type: 'remove-photo', hash: act.hash });
+          if (act.type === 'attest') dispatch({ type: 'attest', checked: act.checked });
+          if (act.type === 'reject') setAskErr('That was not an image. Drop a photo, or choose a file.');
+          if (act.type === 'submit') void startPhotos();
+          // the door opens again, and the photographs go with the one it was
+          if (act.type === 'back') commitAnswer({ source: undefined });
+        }
+        return;
+      }
+      switch (qid) {
+        case 'unsure': {
+          if (a.kind !== 'confirm' || a.id !== 'use' || !st.unsure) return;
+          const said = st.unsure.said;
+          const at = st.unsure.q === 'describe' ? 'describe' : 'source';
+          dispatch({ type: 'settle-unsure' });
+          commitAnswer(
+            at === 'describe' ? { describe: said } : { source: { door: 'scratch', via: 'typed' }, describe: said },
+          );
           return;
+        }
         case 'noengine':
           if (a.kind === 'confirm' && a.id === 'setup') openSetup();
-          if (a.kind === 'confirm' && a.id === 'photos') setSetup({ source: 'photos' });
+          if (a.kind === 'confirm' && a.id === 'photos') commitAnswer({ source: { door: 'photos', via: 'taps' } });
           return;
         case 'agree': {
           if (a.kind !== 'confirm') return;
           // agreed: what was tapped is the person, and the face is drawn from it
-          if (a.id === 'draw') void startScratch(setup);
-          // a detail the steps could not ask for, in their own words
-          if (a.id === 'add') setUi((u) => ({ ...u, saying: 'agree' }));
-          // or the last step comes back, to be tapped again
-          if (a.id === 'change') onEditRef.current?.(`look-${lastLookStep(setup.look ?? null) ?? 'who'}`);
-          return;
-        }
-        case 'look-who':
-        case 'look-age':
-        case 'look-hair':
-        case 'look-length':
-        case 'look-skin':
-        case 'look-build': {
-          const step = nextLookStep(setup.look ?? null);
-          if (!step) return;
-          const had = setup.look && setup.look !== 'skipped' ? setup.look : {};
-          const picks = a.kind === 'swatches' ? a.picks : a.kind === 'skip' ? { [step.row.id]: PASSED } : null;
-          if (!picks) return;
-          // one tap answers one step; nothing is drawn until it is all agreed to
-          setSetup({ ...setup, look: { ...had, ...picks } });
-          return;
-        }
-        case 'gaps': {
-          if (a.kind === 'choices') {
-            const next = { ...setup, gaps: a.picks };
-            setSetup(next);
-            void startScratch(next);
-          }
-          if (a.kind === 'skip') {
-            const next = { ...setup, gaps: 'skipped' as const };
-            setSetup(next);
-            void startScratch(next);
-          }
-          return;
-        }
-        case 'photos': {
-          if (a.kind !== 'photos') return;
-          const act = a.action;
-          if (act.type === 'add') void addFiles(act.files);
-          if (act.type === 'remove')
-            setSetup((cur) => ({ ...cur, photoHashes: cur.photoHashes.filter((h) => h !== act.hash) }));
-          if (act.type === 'attest') setSetup({ attested: act.checked });
-          if (act.type === 'reject') setAskErr('That was not an image. Drop a photo, or choose a file.');
-          if (act.type === 'submit') void startPhotos();
-          if (act.type === 'back') setSetup({ source: null });
+          if (a.id === 'draw') void startScratch();
+          // a detail the rows could not ask for, in their own words
+          if (a.id === 'add') dispatch({ type: 'say', id: 'keep' });
           return;
         }
         case 'identity':
@@ -437,7 +480,6 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           if (a.id === 'use') {
             void s.approve('portrait');
             setFocus(null);
-            setUi((u) => ({ ...u, collapsed: true }));
           }
           if (a.id === 'again') void s.generate('portrait');
           // changing the person is said in words: the composer takes it from here
@@ -457,7 +499,12 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           return;
         }
         case 'retry': {
-          if (!d) return;
+          if (!d) {
+            // the draft that never started is started again, from a clean slate
+            autoStarted.current = -1;
+            setAskErr(null);
+            return;
+          }
           if (s.err) {
             // the request that failed is drawn again by the auto-draw, from a clean count
             s.clearErr();
@@ -474,7 +521,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         case 'extras':
           if (a.kind !== 'confirm') return;
           if (a.id === 'add') void s.update({ extras: true });
-          if (a.id === 'save') setUi((u) => ({ ...u, extrasDeclined: true }));
+          if (a.id === 'save') dispatch({ type: 'extras-declined' });
           return;
         case 'blind':
           if (a.kind !== 'confirm') return;
@@ -486,131 +533,91 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           return;
       }
     },
-    [setup, setSetup, openSetup, startScratch, addFiles, startPhotos, d, s, view, save, ui.unsure, describe],
+    [commitAnswer, addFiles, startPhotos, startScratch, openSetup, d, s, view, save],
   );
 
   const onSend = useCallback(
     (raw: string): boolean => {
       const typed = raw.trim();
+      const st = stateRef.current;
+      const target = sentenceTarget(st, question);
       // A colour in the chip is an answer on its own. Words beside it are the
       // person's own words about that colour, so the two read as one answer in
       // the order they are seen: the chip's colour, then what was typed.
-      const chosen = ui.saying && picked ? colourName(picked, colourRow(ui.saying), ui.saying) : '';
-      const sentence = typed || (chosen ? picked : '');
+      const heldNow = st.saying && st.colour?.step === st.saying ? st.colour.hex : null;
+      const step = st.saying && isLookQid(st.saying) ? (st.saying.slice('look-'.length) as LookStep) : null;
+      const chosen = heldNow && step ? colourName(heldNow, colourRow(step), step) : '';
+      const sentence = typed || heldNow || '';
       if (!sentence) return false;
       setAskErr(null);
-      const open = question?.id;
-      // a step being answered in words takes the sentence, and nothing else does
-      if (ui.saying === 'agree') {
-        setUi((u) => ({ ...u, saying: null }));
-        const next = { ...setup, description: sentence };
-        setSetup(next);
-        setText('');
-        void startScratch(next);
+      const again = (q: string | null) => st.asides.some((x) => x.q === q);
+
+      // A detail in their own words: it answers the open half of that trait,
+      // and the placement question follows only if the words did not say it.
+      if (target && target !== 'keep' && target.startsWith('trait-')) {
+        const trait = traitOfQid(target);
+        if (!trait) return false;
+        const empty = answersNothing(typed, readsAsPerson);
+        if (!typed || empty) {
+          bounce(typed, asideReply(empty ?? 'vague', 'detail', again(target), typed), target);
+          return true;
+        }
+        if (trait.part === 'where') commitAnswer({ [target]: typed });
+        else {
+          const had = st.answers[target as TraitQid];
+          commitAnswer({ [target]: { words: typed, refs: had?.refs ?? [] } });
+        }
         return true;
       }
-      if (ui.saying) {
-        const step = ui.saying;
+      // What is said here is what stays true of them: a second detail joins
+      // the first rather than replacing it.
+      if (target === 'keep') {
+        const keep = [st.answers.keep?.trim(), typed].filter(Boolean).join(', ');
+        commitAnswer({ keep });
+        return true;
+      }
+      // a step being answered in words takes the sentence, and nothing else does
+      if (target && isLookQid(target) && step) {
         // words in place of a tap are still words: what says nothing is bounced
         // the way it is anywhere else, and the step stays open. A swatch says
         // what it is, so only typed words are read this way, chip or no chip.
         const empty = typed && !/^#[0-9a-f]{6}$/i.test(typed) ? answersNothing(typed, readsAsPerson) : null;
         if (empty) {
-          // the step's own words, not the whole person's: a hair colour is
-          // answered about hair, and a second miss says it differently
-          const again = (ui.asides ?? []).some((a) => a.q === `look-${step}`);
-          setUi((u) => ({
-            ...u,
-            asides: [
-              ...(u.asides ?? []),
-              {
-                said: typed,
-                reply: asideReply(empty, 'look', again, typed, step),
-                q: `look-${step}`,
-                at: nowIso(),
-              },
-            ],
-          }));
-          setText('');
+          bounce(typed, asideReply(empty, 'look', again(target), typed, step), target);
           return true;
         }
-        const had = setup.look && setup.look !== 'skipped' ? setup.look : {};
-        setUi((u) => ({ ...u, saying: null }));
-        setSetup({ look: { ...had, [step]: chosen && typed ? `${chosen} ${typed}` : sentence } });
-        setPickedColour(null);
-        setText('');
+        commitAnswer({ [target]: chosen && typed ? `${chosen} ${typed}` : sentence });
         return true;
       }
-      const qid = ui.reasking ?? (open === 'unsure' ? (ui.unsure?.q ?? 'source') : open);
+      const open = question?.id ?? null;
+      const qid = open === 'unsure' ? (st.unsure?.q ?? 'source') : open;
       const phase: AsidePhase =
-        qid === 'source'
-          ? 'source'
-          : qid?.startsWith('look-')
-            ? 'look'
-            : qid === 'describe' || qid?.startsWith('look')
-              ? 'describe'
-              : qid === 'name'
-                ? 'name'
-                : 'refine';
+        qid === 'source' ? 'source' : qid === 'describe' ? 'describe' : qid === 'name' ? 'name' : 'refine';
       const door = qid === 'source' ? sourceFromText(sentence) : null;
       // What answers nothing is answered with the question, in words for what
       // was said, and stays in the conversation. A word or two that describes
       // nobody can still be a name, or a change to a view.
       const kind = door ? null : answersNothing(sentence, readsAsPerson);
-      if (kind && (phase === 'source' || phase === 'describe' || phase === 'look' || kind !== 'vague')) {
-        const again = (ui.asides ?? []).some((a) => a.q === (open ?? null));
-        const aside = {
-          said: sentence,
-          reply: asideReply(kind, phase, again, sentence, qid?.startsWith('look-') ? qid.slice(5) : undefined),
-          q: open ?? null,
-          at: nowIso(),
-        };
-        setUi((u) => ({ ...u, asides: [...(u.asides ?? []), aside] }));
-        setText('');
+      if (kind && (phase === 'source' || phase === 'describe' || kind !== 'vague')) {
+        bounce(sentence, asideReply(kind, phase, again(open), sentence), open);
         return true;
       }
       // Before a face exists, a sentence with nothing of a person in it is asked about, not drawn.
-      if (
-        (qid === 'source' || qid === 'describe' || qid === 'look') &&
-        !door &&
-        !ui.reasking &&
-        !readsAsPerson(sentence)
-      ) {
-        const unsure = { said: sentence, q: open ?? null, at: nowIso() };
-        setUi((u) => ({ ...settleUnsure(u), unsure }));
-        setText('');
+      if ((qid === 'source' || qid === 'describe') && !door && !readsAsPerson(sentence)) {
+        dispatch({ type: 'unsure', unsure: { said: sentence, q: open, at: nowIso() } });
         return true;
       }
-      if (qid === 'source' || qid === 'describe' || qid?.startsWith('look')) setUi(settleUnsure);
+      if (qid === 'source' || qid === 'describe') dispatch({ type: 'settle-unsure' });
       if (qid === 'source') {
-        const door = sourceFromText(sentence);
         if (door) {
-          setSetup({ source: door });
-          setText('');
+          commitAnswer({ source: { door, via: 'taps' } });
           return true;
         }
-        if (!canDraw) {
-          setSetup({ source: 'scratch', description: sentence });
-          setText('');
-          return true;
-        }
-        describe(sentence);
-        setText('');
+        commitAnswer({ source: { door: 'scratch', via: 'typed' }, describe: sentence });
         return true;
       }
-      if (qid === 'describe' || qid?.startsWith('look')) {
-        if (d && ui.reasking === 'describe') {
-          void (async () => {
-            await s.update({ direction: sentence });
-            await s.redo('portrait');
-          })();
-          setUi((u) => ({ ...u, reasking: null, collapsed: false }));
-          setSetup({ description: sentence });
-          setText('');
-          return true;
-        }
-        describe(sentence);
-        setText('');
+      if (qid === 'describe') {
+        commitAnswer({ describe: sentence });
         return true;
       }
       // A bare name, typed before any name was asked (a fast engine lands the face
@@ -623,7 +630,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         !readsAsPerson(sentence)
       ) {
         void s.update({ name: sentence.slice(0, 60) });
-        setText('');
+        dispatch({ type: 'text', text: '' });
         return true;
       }
       if (qid === 'name') {
@@ -631,117 +638,128 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           sentence.replace(/^(?:(?:her|his|their|the|my)\s+name\s+is|call\s+(?:her|him|them)|name:)\s*/i, '').trim() ||
           sentence;
         if (d) void s.update({ name: name.slice(0, 60) });
-        setUi((u) => ({ ...u, reasking: null }));
-        setText('');
+        dispatch({ type: 'text', text: '' });
         return true;
       }
       if (!d) return false;
       if (qid === 'identity') {
         void s.generate('portrait', sentence);
-        setText('');
+        dispatch({ type: 'text', text: '' });
         return true;
       }
-      const target = refineTarget(sentence, view, d);
-      if ('blocked' in target) {
-        setAskErr(target.blocked);
+      const target2 = refineTarget(sentence, view, d);
+      if ('blocked' in target2) {
+        setAskErr(target2.blocked);
         return false;
       }
-      setFocus(target.view);
+      setFocus(target2.view);
       setCompare(false);
-      void s.generate(target.view, sentence, target.scope === 'view' ? 'auto' : undefined);
-      setText('');
+      void s.generate(target2.view, sentence, target2.scope === 'view' ? 'auto' : undefined);
+      dispatch({ type: 'text', text: '' });
       return true;
     },
-    [
-      ui.reasking,
-      ui.asides,
-      ui.unsure,
-      ui.saying,
-      picked,
-      setup,
-      question?.id,
-      canDraw,
-      setSetup,
-      describe,
-      d,
-      s,
-      view,
-    ],
+    [question, commitAnswer, bounce, d, s, view],
   );
-
-  // onAnswer can need what the pencil does, and is declared before it
-  const onEditRef = useRef<((turnId: string) => void) | null>(null);
-  const onEdit = useCallback(
-    (turnId: string) => {
-      // a text answer is said again where it stands, not somewhere else
-      if (turnId === 'describe' || turnId === 'name') {
-        setUi((u) => ({ ...u, editing: turnId }));
-        return;
-      }
-      // a step's own pencil takes that step back, and everything asked after it
-      if (turnId.startsWith('look-')) {
-        const id = turnId.slice('look-'.length);
-        const had = setup.look && setup.look !== 'skipped' ? setup.look : {};
-        const kept: Record<string, string> = {};
-        for (const st of LOOK_STEPS) {
-          if (st.row.id === id) break;
-          if (had[st.row.id]) kept[st.row.id] = had[st.row.id];
-        }
-        setUi((u) => ({ ...u, asides: rewindAsides(u.asides ?? [], 'look') }));
-        setSetup({ look: Object.keys(kept).length ? kept : null });
-        return;
-      }
-      const effect = editEffect(turnId, !!d);
-      if (turnId === 'name') {
-        setText(d?.name ?? '');
-        setUi((u) => ({ ...u, reasking: 'name' }));
-        return;
-      }
-      if (effect === 'plain') {
-        // One rule for taking an answer back, wherever the pencil is: this
-        // answer goes, everything the flow asked after it goes with it, and
-        // nothing before it moves. The door used to clear only itself, so
-        // choosing it again brought back every answer that had followed it.
-        const at = turnId === 'photos' ? 'source' : turnId;
-        setUi((u) => ({ ...u, unsure: null, saying: null, asides: rewindAsides(u.asides ?? [], at) }));
-        if (turnId === 'describe' || turnId === 'gaps') setText(setup.description);
-        setSetup({ ...rewindSetup(setup, at), ...(at === 'source' ? { source: null, typed: false } : {}) });
-        return;
-      }
-      if (effect === 'redraw-identity') setConfirming('redescribe');
-      if (effect === 'start-over') setConfirming('start-over');
-    },
-    // setup.look too: taking an answer back reads what has been given so far
-    [d, setup.description, setup.look, setSetup],
-  );
-  onEditRef.current = onEdit;
 
   /**
-   * An answer said again. Everything the flow asked after it is taken back, in
-   * the transcript and in what is drawn from, because the future it belonged to
-   * is gone; nothing before it is touched.
+   * An answer opened again from its pencil. Before a draft it simply opens;
+   * with one on the stage it is asked about first, because the face and the
+   * set were drawn from the old answer. The door and the photographs cannot
+   * change under a draft: those start over.
    */
+  const onEdit = useCallback(
+    (turnId: string) => {
+      if (turnId === 'name') {
+        dispatch({ type: 'edit', id: 'name' });
+        return;
+      }
+      if (!isQid(turnId)) return;
+      const cost = editCost(turnId, d);
+      if (cost === 'start-over') {
+        setConfirming('start-over');
+        return;
+      }
+      if (cost === 'redraw') {
+        setPendingEdit(turnId);
+        setConfirming('redraw');
+        return;
+      }
+      dispatch({ type: 'edit', id: turnId });
+    },
+    [d],
+  );
+
+  /** The redraw agreed to: the answer opens, and what is tapped next redraws. */
+  const confirmEdit = useCallback(() => {
+    setConfirming(null);
+    if (pendingEdit) dispatch({ type: 'edit', id: pendingEdit });
+    setPendingEdit(null);
+  }, [pendingEdit]);
+
   const onSaveEdit = useCallback(
     (turnId: string, said: string) => {
       const text = said.trim();
       if (!text) return;
-      setUi((u) => ({ ...u, editing: null, asides: rewindAsides(u.asides ?? [], turnId), unsure: null }));
       if (turnId === 'name') {
-        if (d) void s.update({ name: text });
+        dispatch({ type: 'cancel-edit' });
+        if (d) void s.update({ name: text.slice(0, 60) });
         return;
       }
-      if (turnId === 'describe') {
-        // a face already drawn from the old words is asked about, never quietly
-        // replaced; before there is one, the new words simply stand
-        if (d) {
-          setSaid(text);
-          setConfirming('redescribe');
-          return;
+      if (isQid(turnId) && TEXT_QIDS.has(turnId)) commitAnswer({ [turnId]: text });
+    },
+    [d, s.update, commitAnswer],
+  );
+  const onCancelEdit = useCallback(() => dispatch({ type: 'cancel-edit' }), []);
+
+  /**
+   * A tap question answered in words instead. The first row hands the whole
+   * look to a sentence; any other hands the composer that one question, and
+   * only that one.
+   */
+  const onDescribe = useCallback(() => {
+    const st = stateRef.current;
+    const id = st.editing && st.editing !== 'name' && !TEXT_QIDS.has(st.editing) ? st.editing : question?.id;
+    if (!id || !isQid(id)) return;
+    if (id === 'look-who') {
+      commitAnswer({ source: { door: 'scratch', via: 'words' } });
+      return;
+    }
+    dispatch({ type: 'say', id });
+  }, [question?.id, commitAnswer]);
+
+  /** The detail question a picture belongs to: the one open again, else the one being asked. */
+  const traitTarget = useCallback((): TraitQid | null => {
+    const st = stateRef.current;
+    const id = st.editing && st.editing !== 'name' ? st.editing : nextQuestion(st.answers, ctx);
+    const trait = id ? traitOfQid(id) : null;
+    return trait && trait.part === 'what' ? (`trait-${trait.id}` as TraitQid) : null;
+  }, [ctx]);
+
+  const onAttachTrait = useCallback(
+    async (files: File[]) => {
+      const id = traitTarget();
+      if (!id) return;
+      setAskErr(null);
+      dispatch({ type: 'upload-begin' });
+      try {
+        for (const f of files) {
+          const h = await uploadImage(f);
+          dispatch({ type: 'ref', id, hash: h });
         }
-        setSetup({ ...rewindSetup(setup, 'describe'), description: text });
+      } catch (e: any) {
+        setAskErr(String(e?.message ?? e));
+      } finally {
+        dispatch({ type: 'upload-end' });
       }
     },
-    [d, s.update, setSetup, setup],
+    [traitTarget],
+  );
+  const onDetachTrait = useCallback(
+    (hash: string) => {
+      const id = traitTarget();
+      if (id) dispatch({ type: 'ref', id, hash, remove: true });
+    },
+    [traitTarget],
   );
 
   /** A colour's own name, as the chip shows it. */
@@ -750,50 +768,23 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     return name.charAt(0).toUpperCase() + name.slice(1);
   };
 
-  /** The swatches a colour step is named against. */
-  const colourRow = (step?: string | null): Swatch[] =>
-    step === 'skin' ? SKIN_TONES : step === 'hair' ? HAIR_COLOURS : HAIR_COLOURS;
-
   /** The same swatches as a palette, for the colour menu the app already has. */
-  const colourPalette = (step?: string | null): PaletteSwatch[] =>
-    colourRow(step).flatMap((s) => {
-      const hex = s.color ? normalizeHex(s.color) : null;
-      return hex ? [{ hex, name: s.label, slot: 'accent' as const }] : [];
+  const colourPalette = (step: LookStep): PaletteSwatch[] =>
+    colourRow(step).flatMap((sw) => {
+      const hex = sw.color ? normalizeHex(sw.color) : null;
+      return hex ? [{ hex, name: sw.label, slot: 'accent' as const }] : [];
     });
 
-  /** The words said again, once the face drawn from the old ones is agreed to go. */
-  const redrawFromSaid = useCallback(() => {
-    if (!said) return;
-    setConfirming(null);
-    setSetup({ ...rewindSetup(setup, 'describe'), description: said });
-    void (async () => {
-      await s.update({ direction: said });
-      await s.redo('portrait');
-    })();
-    setSaid(null);
-  }, [said, s.update, s.redo, setSetup, setup]);
-  const onCancelEdit = useCallback(() => setUi((u) => ({ ...u, editing: null })), []);
-
-  /**
-   * A step answered in words. The first step hands the whole look to a sentence;
-   * any other hands the composer that one step, and only that one.
-   */
-  const onDescribe = useCallback(() => {
-    const step = nextLookStep(setup.look ?? null);
-    if (!step || step.row.id === 'who') {
-      setSetup({ look: 'skipped' });
-      return;
-    }
-    setUi((u) => ({ ...u, saying: step.row.id }));
-  }, [setSetup, setup.look]);
-
-  const composerBase = composerFor(question, d, view, ui.saying ?? null);
+  const composerBase = composerFor(question, state, d, view);
+  const sayingStep = state.saying && isLookQid(state.saying) ? (state.saying.slice('look-'.length) as LookStep) : null;
   /** The colours this step is answered with, when it is answered with one. */
-  const colours = composerBase.color ? colourPalette(ui.saying) : null;
+  const colours = composerBase.color && sayingStep ? colourPalette(sayingStep) : null;
+  /** The colour in the composer, only while the step it was picked on is open. */
+  const held = state.saying && state.colour?.step === state.saying ? state.colour.hex : null;
   const scope =
     d && identityLocked(d) && !composerBase.off && !question?.id.match(/^(name|describe)$/)
       ? (() => {
-          const st = composerState(text, view, d);
+          const st = composerState(state.text, view, d);
           const h = st.chip ? d.views[st.chip.view].hash : undefined;
           return {
             chip: st.chip ? { label: st.chip.label, thumb: h ? thumbUrl(h, 'micro') : undefined } : null,
@@ -818,14 +809,15 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     saving,
     saveErr,
     confirming,
-    redrawFromSaid,
     setConfirming,
+    confirmEdit,
+    pendingEdit,
     startOver,
-    redescribe: () => {
-      setConfirming(null);
-      setText(d?.direction ?? setup.description);
-      setUi((u) => ({ ...u, reasking: 'describe' }));
-    },
+    /** Anything answered, or drawn: something to start over from. */
+    begun: Object.keys(state.answers).length > 0 || !!d,
+    /** The answers as they stand, for what watches the flow. */
+    revision: state.revision,
+    open: question?.id ?? null,
     keepPrevious:
       slot && slot.status === 'approved' && slot.prior && !drawingNow && !d?.activeView && d?.stage === 'idle'
         ? () => void s.revert(view)
@@ -868,33 +860,32 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         label: composerBase.label,
         action: composerBase.action,
         scope,
-        // nothing is said under the composer: what cannot be answered there is
-        // plain from the question above it, and the pill carries the reason
         hint: null,
         why: composerBase.off ?? undefined,
         error: askErr ?? saveErr,
         disabled: s.busy || busySetup || booting || !!composerBase.off,
         working: !!d && !!d.activeView && question?.id !== 'name',
         onStop: d?.activeView ? () => void s.stop() : undefined,
-        focusKey: question ? `${question.id}:${d?.id ?? 'setup'}:${changing}` : undefined,
-        onAttach: !d && question?.id === 'source' ? () => setSetup({ source: 'photos' }) : undefined,
+        focusKey: question ? `${question.id}:${d?.id ?? 'setup'}:${changing}:${state.saying ?? ''}` : undefined,
+        onAttach:
+          !d && question?.id === 'source' ? () => commitAnswer({ source: { door: 'photos', via: 'taps' } }) : undefined,
         // A colour step takes a swatch as readily as it takes words, and the
         // colour rides in the chip the rest of the app already uses for one.
-        colour: colours
-          ? {
-              hex: picked,
-              label: picked ? colourLabel(picked, colourRow(ui.saying), ui.saying ?? undefined) : 'Pick a colour',
-              palette: colours,
-              // a colour of one's own starts from the middle of this row, not
-              // from a brand colour: a green is no way to begin picking skin
-              seed: colours[Math.floor(colours.length / 2)]?.hex,
-              onPick: (hex: string) => setPickedColour(hex),
-              onClear: () => setPickedColour(null),
-            }
-          : null,
+        colour:
+          colours && sayingStep
+            ? {
+                hex: held,
+                label: held ? colourLabel(held, colourRow(sayingStep), sayingStep) : 'Pick a colour',
+                // a colour of one's own starts from the middle of this step's own
+                // row: a green is no way to begin picking skin
+                seed: colours[Math.floor(colours.length / 2)]?.hex,
+                onPick: (hex: string) => dispatch({ type: 'colour', hex }),
+                onClear: () => dispatch({ type: 'colour', hex: null }),
+              }
+            : null,
       },
-      text,
-      onText: setText,
+      text: state.text,
+      onText: (text: string) => dispatch({ type: 'text', text }),
       onSend,
       onAnswer,
       onRestore: (view: string, hash: string) => void s.restore(view as StudioView, hash),
@@ -902,7 +893,15 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       onSaveEdit,
       onCancelEdit,
       onDescribe,
-      onExpand: () => setUi((u) => ({ ...u, collapsed: false })),
+      onAttachTrait: (files: File[]) => void onAttachTrait(files),
+      onDetachTrait,
+      // A chip is a way to start saying something: it opens the composer on the
+      // question it belongs to and leaves the words there to be finished. It
+      // never answers, because "tattoo, yes" is not an answer to anything.
+      onStarter: (text: string) => {
+        if (question?.id === 'agree') dispatch({ type: 'say', id: 'keep' });
+        dispatch({ type: 'text', text });
+      },
       footnote: capsNote(''),
       onPaste: !d ? (files: File[]) => void addFiles(files) : undefined,
     },

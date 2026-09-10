@@ -19,8 +19,6 @@ export interface ColorChipMenuProps {
   currentHex: string | null;
   currentName?: string;
   palette: Swatch[];
-  /** Where a custom colour starts when none is set. Defaults to the next brand colour. */
-  seed?: string;
   onPick: (token: Extract<SentenceToken, { t: 'color' }>, opts?: { live?: boolean }) => void;
   onRemove: () => void;
   onClose: (reason: CloseReason) => void;
@@ -47,7 +45,7 @@ function sameHex(a: string | null | undefined, b: string | null | undefined): bo
   return !!left && left === right;
 }
 
-function ColorBody({ currentHex, currentName, palette, seed, onPick, onRemove, onClose, onMove }: ColorChipMenuProps) {
+function ColorBody({ currentHex, currentName, palette, onPick, onRemove, onClose, onMove }: ColorChipMenuProps) {
   const rows = useMemo(() => {
     const seen = new Set<string>();
     const out: Swatch[] = [];
@@ -194,7 +192,7 @@ function ColorBody({ currentHex, currentName, palette, seed, onPick, onRemove, o
         <ColorPicker
           className="sc-swap-swatch sc-swap-custom"
           triggerStyle={{ background: 'none' }}
-          value={currentHex ?? seed ?? nextHex(palette)}
+          value={currentHex ?? nextHex(palette)}
           presets={palette.map((s) => s.hex)}
           commitMode="live"
           align="start"

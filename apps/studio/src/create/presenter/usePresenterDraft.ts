@@ -99,8 +99,14 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
       act(() => api.restoreDraftView(brandId, draftId ?? '', view, hash)),
     placePhoto: (view: PresenterDraftView, hash: string) =>
       act(() => api.placeDraftPhoto(brandId, draftId ?? '', view, hash)),
-    update: (patch: { name?: string; facets?: string[]; direction?: string; extras?: boolean }) =>
-      act(() => api.updatePresenterDraft(brandId, draftId ?? '', patch)),
+    update: (patch: {
+      name?: string;
+      facets?: string[];
+      direction?: string;
+      keep?: string;
+      detailRefs?: Record<string, string[]>;
+      extras?: boolean;
+    }) => act(() => api.updatePresenterDraft(brandId, draftId ?? '', patch)),
     clearErr: () => setErr(null),
   };
 }

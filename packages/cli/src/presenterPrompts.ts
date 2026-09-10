@@ -66,11 +66,11 @@ export function viewSubject(view: PresenterView, who: string): string {
     case 'three-quarter':
       return `${who}: the same person as the attached images, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, turned about forty-five degrees from the camera so that both eyes stay in frame (a three-quarter view), the head turned with the body, their own hair exactly as the attached images show it, the same plain studio backdrop and even light`;
     case 'left':
-      return `${who}: the same person as the attached images, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, turned so that their left side faces the camera in a full profile, the head in profile too, their own hair exactly as the attached images show it, the same plain studio backdrop and even light`;
+      return `${who}: the same person as the attached images, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, turned so that their left side faces the camera in a full profile, the head in profile too, this being a turn of the same body and never a mirror image of it so anything on one side of them stays on that side, their own hair exactly as the attached images show it, the same plain studio backdrop and even light`;
     case 'back':
       return `${who}: the same person as the attached images, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, turned to face directly away from the camera so the back of the head, the shoulders and the legs are to the lens, their own hair exactly as the attached images show it, the same plain studio backdrop and even light`;
     case 'right':
-      return `${who}: the same person as the attached images, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, turned so that their right side faces the camera in a full profile, the head in profile too, their own hair exactly as the attached images show it, the same plain studio backdrop and even light`;
+      return `${who}: the same person as the attached images, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, turned so that their right side faces the camera in a full profile, the head in profile too, this being a turn of the same body and never a mirror image of it so anything on one side of them stays on that side, their own hair exactly as the attached images show it, the same plain studio backdrop and even light`;
   }
 }
 
@@ -111,7 +111,7 @@ const ASPECTS: { name: string; except?: string; words: RegExp }[] = [
     name: 'face',
     except: 'the rest of the face',
     words:
-      /\b(face|facial|jaw|chin|cheeks?|cheekbones?|nose|mouth|lips?|teeth|smile|eyes?|eyelids?|eyebrows?|brows?|lashes|freckles?|beard|moustache|mustache|stubble|glasses|expression|skin|complexion|wrinkles?)\b/i,
+      /\b(face|facial|jaw|chin|cheeks?|cheekbones?|nose|mouth|lips?|teeth|smile|eyes?|eyelids?|eyebrows?|brows?|lashes|freckles?|beard|moustache|mustache|stubble|glasses|expression|skin|complexion|wrinkles?|scars?|birthmarks?|moles?|piercings?|studs?|makeup|make-up|eyeliner|lipstick)\b/i,
   },
   {
     name: 'hair',
@@ -123,6 +123,16 @@ const ASPECTS: { name: string; except?: string; words: RegExp }[] = [
     name: 'build',
     words:
       /\b(build|body|frame|slim|slimmer|slender|thin|athletic|muscular|heavier|leaner|fuller|broader|broad|shoulders|weight|taller|shorter)\b/i,
+  },
+  {
+    // What a body carries rather than what shape it is. Without this row an ask
+    // for a tattoo or a prosthetic arm shipped "otherwise identical in face,
+    // hair, age and build" beside it, which is a contradiction: the picture
+    // being asked for is not identical, that is the point of asking.
+    name: 'marks and limbs',
+    except: 'their other marks and limbs',
+    words:
+      /\b(tattoos?|tattooed|scars?|birthmarks?|moles?|piercings?|prosthetics?|prosthesis|bionic|limbs?|arms?|hands?|legs?)\b/i,
   },
 ];
 
@@ -144,16 +154,67 @@ export const ATTACHED_PERSON = 'the exact person in the attached photographs';
  * change rather than the photographs it was originally read from; the drawn
  * views attached ahead of the photographs carry the picture of it.
  */
+/**
+ * Their own left and right, said out loud.
+ *
+ * A trait on one side is the one thing a turned view can get exactly wrong,
+ * and the word for the side is the only thing carrying it. Said only when a
+ * side is named, so nobody else's prompt grows a clause about handedness.
+ */
+export function sideNote(keep: string): string {
+  return /\b(left|right)\b/i.test(keep) ? " (their own left and right, not the viewer's)" : '';
+}
+
+/**
+ * The kept words a view can actually show.
+ *
+ * A portrait is framed from above the head to the collarbone, so an
+ * instruction about a forearm can only be obeyed by reframing it, which would
+ * cost the face every view is drawn from. A back view cannot show a face. So
+ * a detail that is only about the face is left out of the back, a detail that
+ * is only about the body is left out of the portrait, and anything else, or
+ * anything we cannot place, rides everywhere: leaving a person's own words out
+ * is the worse mistake of the two.
+ */
+const KEEP_FACE =
+  /\b(face|facial|jaw|chin|cheeks?|cheekbones?|nose|nostrils?|septum|mouth|lips?|teeth|smile|eyes?|eyelids?|eyebrows?|brows?|lashes|freckles?|beard|moustache|mustache|stubble|glasses|spectacles|ears?|lobes?|temples?|forehead|skin|complexion|wrinkles?|makeup|make-up|eyeliner|lipstick)\b/i;
+const KEEP_BODY =
+  /\b(arms?|forearms?|wrists?|hands?|knuckles?|fingers?|shoulders?|back|chest|collarbones?|torso|stomach|waist|hips?|legs?|thighs?|calf|calves|ankles?|feet|foot|toes?|knees?|prosthetics?|prosthesis|bionic|limbs?|sleeve)\b/i;
+
+export function keepFor(view: PresenterView, keep: string | undefined): string | undefined {
+  const said = keep?.trim();
+  if (!said) return undefined;
+  const face = KEEP_FACE.test(said);
+  const body = KEEP_BODY.test(said);
+  if (face && !body) return view === 'back' ? undefined : said;
+  if (body && !face) return view === 'portrait' ? undefined : said;
+  return said;
+}
+
 export function whoIs(
   name: string,
-  draft: { promptName?: string; hair?: string; identityNotes?: string; identityEdits?: string[] } | null,
+  draft: {
+    promptName?: string;
+    hair?: string;
+    identityNotes?: string;
+    identityEdits?: string[];
+    keep?: string;
+  } | null,
 ): string {
   if (!draft) return ATTACHED_PERSON;
   const promptName = draft.promptName ?? '';
   const bits = [promptName];
   if (draft.hair && !promptName.toLowerCase().includes(draft.hair.toLowerCase())) bits.push(draft.hair);
   if (draft.identityNotes) bits.push(draft.identityNotes);
-  const who = bits.filter(Boolean).join(', ') || name;
+  const said = bits.filter(Boolean).join(', ') || name;
+  // What the person said should stay, in their own words, before any later
+  // change: a view drawn from pictures that cannot show a trait still knows
+  // they have it. It stays a noun phrase, because the view's own clauses are
+  // appended to it.
+  const keep = draft.keep?.trim();
+  const who = keep
+    ? `${said}, who also has ${keep}${sideNote(keep)}, which is part of who they are and is drawn in this view whether or not the attached images show it`
+    : said;
   const edits = (draft.identityEdits ?? []).filter(Boolean);
   if (!edits.length) return who;
   return `${who}, except as changed here: ${edits.join('; ')}; the attached drawn views show the change`;

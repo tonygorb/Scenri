@@ -238,12 +238,26 @@ function judge(
   const byId = new Map<number, Ev[]>();
   for (const e of events) byId.set(e.id, [...(byId.get(e.id) ?? []), e]);
   const at = (g: Ev[], ev: string) => g.find((e) => e.ev === ev)?.t;
+  // An answer opened again into its question, or a question closed back into
+  // its answer, is one turn changing shape in place: the one goes as the other
+  // comes, with no fade and no beat, and neither is held to arriving or leaving.
+  const other = (turn: string) =>
+    turn.startsWith('you:') ? `q:${turn.slice(4)}` : turn.startsWith('q:') ? `you:${turn.slice(2)}` : '';
+  const swapped = (ev: Ev) =>
+    events.some(
+      (x) =>
+        x.turn === other(ev.turn) &&
+        x.ev !== ev.ev &&
+        (x.ev === 'mount' || x.ev === 'unmount') &&
+        Math.abs(x.t - ev.t) < 120,
+    );
   for (const [id, g] of byId) {
     const m = g[0];
     if (m.ev !== 'mount' || first.has(id)) continue;
     const label = `${m.turn || m.who} "${m.text}"`;
     const record = m.turn.startsWith('scenri:asked-');
     const un = g.find((e) => e.ev === 'unmount');
+    if (swapped(m)) continue;
     if (opts.reduced) {
       if (g.some((e) => e.ev === 'dots on' || e.ev === 'leave' || e.ev === 'picked'))
         out.push(`${label}: motion under reduced motion`);
@@ -280,7 +294,7 @@ function judge(
       if (g.some((e) => e.ev === 'under dots')) out.push(`${label}: something shown under the dots`);
     }
     if (m.who === 'you' && (m.op ?? 1) >= 1 && !m.folded) out.push(`${label}: answer simply there, never arrived`);
-    if (un && !un.leave && !un.picked && !un.folded) out.push(`${label}: cut, never seen going`);
+    if (un && !un.leave && !un.picked && !un.folded && !swapped(un)) out.push(`${label}: cut, never seen going`);
   }
   // one line thinks at a time
   const thinking = new Set<number>();
@@ -328,7 +342,7 @@ test.describe('the conversation in motion', () => {
     test.setTimeout(120_000);
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
-    await expect(log(page)).toContainText('Who are we creating?');
+    await expect(log(page)).toContainText('Who are we making?');
     await settle(page);
     await watch(page);
 
@@ -336,11 +350,11 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('This is where the person is described');
     await settle(page);
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Who are we making?');
+    await expect(log(page)).toContainText('Who are they?');
     await settle(page);
     // the look is tapped a step at a time, each step arriving on its own beat
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
-    await expect(log(page)).toContainText('Roughly what age?');
+    await expect(log(page)).toContainText('Roughly how old?');
     await settle(page);
     await log(page).getByRole('button', { name: 'Skip' }).click();
     await expect(log(page)).toContainText('What colour is their hair?');
@@ -349,7 +363,8 @@ test.describe('the conversation in motion', () => {
     await log(page).getByRole('button', { name: 'Describe the colour' }).click();
     await settle(page);
     await send(page, 'bullshit');
-    await expect(log(page)).toContainText('That does not describe anyone.');
+    // a step answers about itself, not about the whole person
+    await expect(log(page)).toContainText('That is not a hair colour.');
     await settle(page);
     await pencil(page, 'Describe someone').click();
     await expect(answer(page, 'Add photos')).toBeVisible();
@@ -374,6 +389,10 @@ test.describe('the conversation in motion', () => {
     await settle(page, 400);
     await answer(page, 'Continue').click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 20_000 });
+    // the photographs are asked once what is always true of them, before the set
+    await expect(answer(page, 'Nothing to add')).toBeVisible({ timeout: 20_000 });
+    await settle(page);
+    await answer(page, 'Nothing to add').click();
     await expect(log(page)).toContainText('what should we call them?', { timeout: 20_000 });
     await settle(page);
     await send(page, 'Noor');
@@ -399,11 +418,12 @@ test.describe('the conversation in motion', () => {
     test.setTimeout(120_000);
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
-    await expect(log(page)).toContainText('Who are we creating?');
+    await expect(log(page)).toContainText('Who are we making?');
     await settle(page);
     await watch(page);
 
     await send(page, 'Late 30s woman, Mediterranean, dark shoulder-length hair, slim, warm and composed');
+    await answer(page, 'Nothing else').click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 20_000 });
     // the demo engine lands the face before a name can be typed: the decision comes first
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
@@ -436,10 +456,6 @@ test.describe('the conversation in motion', () => {
     await settle(page);
     await page.locator('.sc-pstudio-offer').getByRole('button', { name: 'Keep previous' }).click();
     await settle(page);
-    await log(page)
-      .getByRole('button', { name: /^Setup:/ })
-      .click();
-    await settle(page, 600);
     await pencil(page, 'Maren').click();
     // a text answer is rewritten where it stands
     await expect(log(page).locator('.sc-convo-rewrite')).toHaveValue('Maren');
@@ -464,6 +480,7 @@ test.describe('the conversation in motion', () => {
     // a person to edit, made the quick way
     await page.goto(`/${brand.slug}/presenters/new`);
     await send(page, 'a man in his 40s with a grey beard, broad build, calm');
+    await answer(page, 'Nothing else').click();
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
     await send(page, 'Idan');
     await answer(page, 'Use this person').click();
@@ -503,10 +520,10 @@ test.describe('the conversation in motion', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
-    await expect(log(page)).toContainText('Who are we creating?');
+    await expect(log(page)).toContainText('Who are we making?');
     await watch(page);
     await answer(page, 'Describe someone').click();
-    await expect(log(page)).toContainText('Who are we making?');
+    await expect(log(page)).toContainText('Who are they?');
     await pencil(page, 'Describe someone').click();
     await expect(answer(page, 'Add photos')).toBeVisible();
     await send(page, 'hey');

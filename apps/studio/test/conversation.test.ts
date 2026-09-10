@@ -11,29 +11,38 @@ import {
   smallTalk,
   turnKey,
 } from '../src/conversation/question.js';
+import { DOOR_WORDS } from '../src/create/presenter/presenterCopy.js';
+import { sourceFromText } from '../src/create/presenter/presenterFlowRules.js';
+import { readsAsPerson } from '../src/create/presenter/presenterStudioRules.js';
 
 const doors = [
   { id: 'photos', label: 'Add photos' },
   { id: 'scratch', label: 'Describe someone' },
 ];
+/** The words the presenter flow reads a choice by: the primitive takes them, it does not own them. */
+const choice = (text: string) => choiceFromText(text, doors, DOOR_WORDS);
+/** What the presenter flow reads as an answer at its first question: a person, or a door named. */
+const answers = (text: string) => readsAsPerson(text) || !!sourceFromText(text);
+const nothing = (text: string) => answersNothing(text, answers);
+const small = (text: string) => smallTalk(text, answers);
 
 describe('a typed sentence at a choice question', () => {
   it('names an option by its label or its id', () => {
-    expect(choiceFromText('Add photos', doors)).toBe('photos');
-    expect(choiceFromText('describe someone', doors)).toBe('scratch');
-    expect(choiceFromText('scratch', doors)).toBe('scratch');
+    expect(choice('Add photos')).toBe('photos');
+    expect(choice('describe someone')).toBe('scratch');
+    expect(choice('scratch')).toBe('scratch');
   });
   it('names an option by a plain synonym', () => {
-    expect(choiceFromText('I have photos', doors)).toBe('photos');
-    expect(choiceFromText('from my pictures', doors)).toBe('photos');
-    expect(choiceFromText('upload', doors)).toBe('photos');
-    expect(choiceFromText('from scratch', doors)).toBe('scratch');
-    expect(choiceFromText('make someone up', doors)).toBe('scratch');
+    expect(choice('I have photos')).toBe('photos');
+    expect(choice('from my pictures')).toBe('photos');
+    expect(choice('upload')).toBe('photos');
+    expect(choice('from scratch')).toBe('scratch');
+    expect(choice('make someone up')).toBe('scratch');
   });
   it('is not a choice when the sentence is the answer itself', () => {
-    expect(choiceFromText('Late 30s, Mediterranean, dark shoulder-length hair, slim build, elegant', doors)).toBeNull();
-    expect(choiceFromText('', doors)).toBeNull();
-    expect(choiceFromText('Maren', doors)).toBeNull();
+    expect(choice('Late 30s, Mediterranean, dark shoulder-length hair, slim build, elegant')).toBeNull();
+    expect(choice('')).toBeNull();
+    expect(choice('Maren')).toBeNull();
   });
 });
 
@@ -73,7 +82,7 @@ describe('turn keys', () => {
 describe('small talk', () => {
   it('is a greeting, a thanks, a test, or a word or two that describes nobody', () => {
     for (const t of ['hello', 'Hi!', 'hey there', 'thanks', 'ok', 'test', '?', 'yes', 'help'])
-      expect(smallTalk(t)).toBe(true);
+      expect(small(t)).toBe(true);
   });
   it('is named for what it is, so the reply can answer it', () => {
     const table: Record<string, string[]> = {
@@ -102,7 +111,7 @@ describe('small talk', () => {
       vague: ['nothing much', 'maybe later'],
     };
     for (const [kind, texts] of Object.entries(table))
-      for (const t of texts) expect([t, answersNothing(t)]).toEqual([t, kind]);
+      for (const t of texts) expect([t, nothing(t)]).toEqual([t, kind]);
     for (const t of [
       'a woman',
       'late 30s',
@@ -115,7 +124,13 @@ describe('small talk', () => {
       'like Mediterranean women, olive skin',
       'a florist from Paris who sells tulips',
     ])
-      expect([t, answersNothing(t)]).toEqual([t, null]);
+      expect([t, nothing(t)]).toEqual([t, null]);
+  });
+  it('is not noise in another script: a Hebrew or Arabic name is a name', () => {
+    expect(nothing('נועה')).toBe('vague');
+    expect(nothing('نور')).toBe('vague');
+    expect(nothing('אישה בשנות השלושים עם שיער כהה')).toBeNull();
+    expect(nothing('!!!')).toBe('nonsense');
   });
   it('is not a sentence about a person, however short', () => {
     for (const t of [
@@ -129,6 +144,6 @@ describe('small talk', () => {
       'two photos',
       'from scratch',
     ])
-      expect(smallTalk(t)).toBe(false);
+      expect(small(t)).toBe(false);
   });
 });
