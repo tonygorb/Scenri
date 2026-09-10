@@ -46,6 +46,10 @@ export interface ComposerSurface {
   allowEmpty?: boolean;
   focusKey?: string;
   onAttach?: () => void;
+  /** Or it opens the file chooser and hands the pictures over. */
+  onAttachFiles?: (files: File[]) => void;
+  /** What the attach button is for, in a few words. */
+  attachLabel?: string;
   /** The answer is a colour: the app's own chip carries it over the field. */
   colour?: ComposerColour | null;
   /** Pictures riding with the answer, each as its own chip in the line. */
@@ -79,8 +83,7 @@ export interface StudioSurface {
   onEdit?: (turnId: string) => void;
   /** A tap question answered in words instead. */
   onDescribe?: () => void;
-  /** Pictures of the thing the open question is about. */
-  onAttachTrait?: (files: File[]) => void;
+
   /** A chip that starts a sentence rather than answering: it opens the composer on it. */
   onStarter?: (text: string) => void;
   /** An answer said again, where it stands. */
@@ -226,7 +229,6 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 onRestore={s.onRestore}
                 onStarter={(text) => (s.onStarter ?? s.onText)(text)}
                 onDescribe={s.onDescribe}
-                onAttach={s.onAttachTrait}
               />
             </div>
           </div>
@@ -249,6 +251,8 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 error={s.composer.error}
                 focusKey={s.composer.focusKey}
                 onAttach={s.composer.onAttach}
+                onAttachFiles={s.composer.onAttachFiles}
+                attachLabel={s.composer.attachLabel}
                 colour={s.composer.colour}
                 refs={s.composer.refs}
                 onStop={s.composer.onStop}

@@ -70,7 +70,6 @@ export function Transcript({
   onCancelEdit,
   onStarter,
   onDescribe,
-  onAttach,
   onRestore,
 }: {
   turns: Turn[];
@@ -93,8 +92,7 @@ export function Transcript({
   onStarter?: (text: string) => void;
   /** A question with things to tap was answered in words instead. */
   onDescribe?: () => void;
-  /** Pictures of the thing the open question is about. */
-  onAttach?: (files: File[]) => void;
+
   /** A picture from before, put back on its view. */
   onRestore?: (view: string, hash: string) => void;
 }) {
@@ -549,7 +547,6 @@ export function Transcript({
           onPick={onPick}
           onStarter={onStarter}
           onDescribe={onDescribe}
-          onAttach={onAttach}
           onCancel={onCancelEdit}
         />,
       );

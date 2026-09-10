@@ -228,6 +228,15 @@ export function answerPatch(qid: Qid, a: Answer, answers: Answers): Partial<Answ
   return null;
 }
 
+/**
+ * A detail answered by its picture alone: the words say exactly that, so a
+ * prompt reads as a sentence and the picture it names rides beside it.
+ */
+export function attachedWords(id: TraitId, n: number): string {
+  const label = traitOf(id)?.label.toLowerCase() ?? 'detail';
+  return `the ${label} in the attached ${n === 1 ? 'picture' : 'pictures'}`;
+}
+
 /** The questions answered in a sentence typed into their own field, in place. */
 export const TEXT_QIDS: ReadonlySet<Qid> = new Set<Qid>(['describe', 'keep']);
 
@@ -336,7 +345,6 @@ function questionFor(id: Qid, state: CreationState, _ctx: FlowContext, reopened:
       hint: t.hint,
       options: t.options.map((o) => ({ id: o.id, label: o.label, card: o.card })),
       describe: t.saying,
-      attach: 'Add a reference',
       saying: state.saying === id,
       given: what?.words,
       ...base,
@@ -399,7 +407,7 @@ function answerLine(id: Qid, a: Answers, draft: DraftLike | null): { text: strin
   }
   const what = a[`trait-${trait.id}`];
   const words = what?.words ?? '';
-  // the pictures ride with the answer, the way the photographs do
+  // the picture rides with the answer, the way the photographs do
   return {
     text: t.options.find((o) => o.id === words)?.label ?? cap(words),
     photos: what?.refs.length ? what.refs : undefined,
@@ -632,7 +640,8 @@ export function composerFor(
     const trait = traitOfQid(state.saying);
     const t = trait ? traitOf(trait.id) : undefined;
     return {
-      placeholder: trait?.part === 'where' ? 'Where it is, in your words' : (t?.refHint ?? 'What it looks like'),
+      // the words, not the picture: what to attach is said on the way in
+      placeholder: trait?.part === 'where' ? 'Where it is, in your words' : (t?.saying ?? 'What it looks like'),
       label: t?.saying ?? 'Describe it',
       action: 'Send',
     };

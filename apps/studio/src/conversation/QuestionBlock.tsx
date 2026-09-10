@@ -52,7 +52,6 @@ export function QuestionBlock({
   onPick,
   onStarter,
   onDescribe,
-  onAttach,
   onCancel,
 }: {
   question: Question;
@@ -78,8 +77,6 @@ export function QuestionBlock({
   onStarter?: (text: string) => void;
   /** Say it in words instead: the composer takes the answer from here. */
   onDescribe?: () => void;
-  /** Pictures of the thing this question is about; they ride in the composer. */
-  onAttach?: (files: File[]) => void;
   /** A question open again is left as it was. */
   onCancel?: () => void;
 }) {
@@ -92,7 +89,6 @@ export function QuestionBlock({
   const [picked, setPicked] = useState<string | null>(null);
   /** What is chosen so far in a question that takes several at once. */
   const [many, setMany] = useState<Set<string>>(() => new Set(asMany(given)));
-  const files = useRef<HTMLInputElement>(null);
   // A block that went and is back as the same question (Try again, a retry)
   // is live again. One whose answer is still in flight stays as it was.
   const wasSpent = useRef(false);
@@ -208,9 +204,9 @@ export function QuestionBlock({
             </div>
           )}
 
-        {question.kind === 'choice' && (question.describe || question.attach) && (
+        {question.kind === 'choice' && question.describe && (
           <div className="sc-convo-ways">
-            {question.describe && onDescribe && (
+            {onDescribe && (
               <button
                 type="button"
                 className="sc-chip sc-convo-choice sc-convo-pass"
@@ -221,36 +217,11 @@ export function QuestionBlock({
                 {question.describe}
               </button>
             )}
-            {question.attach && onAttach && (
-              <>
-                <button
-                  type="button"
-                  className="sc-chip sc-convo-choice sc-convo-pass"
-                  aria-busy={question.attaching || undefined}
-                  onClick={() => files.current?.click()}
-                >
-                  {question.attaching ? 'Adding' : question.attach}
-                </button>
-                <input
-                  ref={files}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  hidden
-                  aria-label={question.attach}
-                  onChange={(e) => {
-                    const chosen = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith('image/'));
-                    e.target.value = '';
-                    if (chosen.length) onAttach(chosen);
-                  }}
-                />
-              </>
-            )}
             {!question.multi && cancel}
           </div>
         )}
 
-        {question.kind === 'choice' && !question.groups && !question.describe && !question.attach && cancel && (
+        {question.kind === 'choice' && !question.groups && !question.describe && cancel && (
           <div className="sc-convo-ways">{cancel}</div>
         )}
 

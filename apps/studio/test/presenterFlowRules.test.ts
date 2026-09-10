@@ -5,6 +5,7 @@ import {
   PROMPT,
   activeQuestion,
   answerPatch,
+  attachedWords,
   compileDirection,
   compileKeep,
   compileRefs,
@@ -126,9 +127,7 @@ describe('the transcript is a function of state', () => {
     expect(said('traits').text).toBe('Glasses and Tattoo');
     expect(said('trait-glasses').text).toBe('Rimless');
     expect(said('trait-tattoo-where').text).toBe('Left forearm');
-    // a picture of the thing itself can be attached, and rides with the answer
-    const tq = open(turns(state(b)));
-    expect(tq?.kind === 'choice' && tq.attach).toBe('Add a reference');
+    // a picture of the thing itself rides with the answer
     const withPicture = T.find((t) => t.kind === 'you' && t.id === 'trait-tattoo');
     expect(withPicture?.kind === 'you' && withPicture.photos).toEqual(['h-ink']);
     const without = T.find((t) => t.kind === 'you' && t.id === 'trait-glasses');
@@ -316,6 +315,34 @@ describe('the record once a face is drawn', () => {
     const q = open(turns(state(a), d));
     expect(q?.id).toBe('retry');
     expect(q?.kind === 'confirm' && q.prompt).toContain('engine offline');
+  });
+});
+
+describe('a picture of the thing itself', () => {
+  it('is an answer of its own, in words that say exactly that', () => {
+    expect(attachedWords('glasses', 1)).toBe('the glasses in the attached picture');
+    expect(attachedWords('tattoo', 2)).toBe('the tattoo in the attached pictures');
+    expect(attachedWords('prosthetic', 1)).toBe('the prosthetic limb in the attached picture');
+  });
+
+  it('rides with the answer rather than standing in the question', () => {
+    const a: Answers = {
+      ...TAPPED,
+      traits: ['glasses'],
+      'trait-glasses': { words: 'the glasses in the attached picture', refs: ['h-frames'] },
+    };
+    const T = turns(state(a));
+    const answer = T.find((t) => t.kind === 'you' && t.id === 'trait-glasses');
+    expect(answer?.kind === 'you' && answer.photos).toEqual(['h-frames']);
+    // the question itself carries no way in for it: pictures come in beside the
+    // pill, where they come in everywhere else in the app
+    const asking = open(turns(state({ ...a, 'trait-glasses': { refs: ['h-frames'] } })));
+    expect(asking?.kind === 'choice' && 'attach' in asking).toBe(false);
+  });
+
+  it('leaves the field asking for words, not for a photograph', () => {
+    const s = state({ ...TAPPED, traits: ['glasses'] }, { saying: 'trait-glasses' });
+    expect(composerFor(open(turns(s)), s, null, 'portrait').placeholder).toBe('Describe the glasses');
   });
 });
 

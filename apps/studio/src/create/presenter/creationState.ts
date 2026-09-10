@@ -81,7 +81,12 @@ export type Action =
   | { type: 'answer'; patch: Partial<Answers>; ctx: FlowContext }
   /** A question reopened from its answer. */
   | { type: 'edit'; id: Qid | 'name' }
-  /** A picture of a detail landed, or was taken off. Refused once the detail is no longer chosen. */
+  /**
+   * A picture of a detail landed, or was taken off. One at a time: a detail
+   * rides after the person in the engine's budget, so a second angle of the
+   * same thing is dropped before it is drawn from, and a chip that promises
+   * otherwise is a lie. Refused once the detail is no longer chosen.
+   */
   | { type: 'ref'; id: TraitQid; hash: string; remove?: boolean }
   | { type: 'cancel-edit' }
   /** A tap question handed to the composer, or taken back from it. */
@@ -192,12 +197,8 @@ export function reduce(s: CreationState, action: Action): CreationState {
       const trait = action.id.slice('trait-'.length) as TraitId;
       if (!s.answers.traits?.includes(trait)) return s;
       const had = s.answers[action.id] ?? { refs: [] };
-      const refs = action.remove
-        ? had.refs.filter((h) => h !== action.hash)
-        : had.refs.includes(action.hash)
-          ? had.refs
-          : [...had.refs, action.hash];
-      if (refs.length === had.refs.length) return s;
+      const refs = action.remove ? had.refs.filter((h) => h !== action.hash) : [action.hash];
+      if (refs.join() === had.refs.join()) return s;
       return { ...s, answers: { ...s.answers, [action.id]: { ...had, refs } }, revision: s.revision + 1 };
     }
     case 'extras-declined':

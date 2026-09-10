@@ -7,12 +7,13 @@ import { useOpenSetup } from '../../app/dialogs.js';
 import { type Answer, type Swatch, answersNothing, nowIso } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
-import { EMPTY_STATE, deserialize, readyToDraw, reduce, serialize } from './creationState.js';
+import { type CreationState, EMPTY_STATE, deserialize, readyToDraw, reduce, serialize } from './creationState.js';
 import { type AsidePhase, asideReply } from './presenterCopy.js';
 import {
   TEXT_QIDS,
   activeQuestion,
   answerPatch,
+  attachedWords,
   compileDirection,
   compileKeep,
   compileRefs,
@@ -25,8 +26,10 @@ import {
   turnsFor,
 } from './presenterFlowRules.js';
 import { colourName, colourRow } from './presenterLook.js';
+import { type TraitId, traitOf } from './presenterTraits.js';
 import {
   type Answers,
+  type FlowContext,
   type LookStep,
   type Qid,
   type TraitQid,
@@ -102,14 +105,21 @@ export interface CreationFlowArgs extends Pick<FlowProps, 'onStarted' | 'caps' |
 const sameRefs = (x: Record<string, string[]> | undefined, y: Record<string, string[]>) =>
   JSON.stringify(x ?? {}) === JSON.stringify(y);
 
-/** What a picture is called in its chip: the file's own name, short enough to read. */
-const refLabel = (name: string): string => {
-  const said = name
-    .replace(/\.[a-z0-9]+$/i, '')
-    .replace(/[_-]+/g, ' ')
-    .trim();
-  return said ? said.slice(0, 24) : 'Reference';
-};
+/**
+ * The detail a picture belongs to right now, or none.
+ *
+ * Whatever the conversation is on is what a picture would join: the answer
+ * being changed, else the question being answered in words, else the one being
+ * asked. One reading for the button and for what the button does, so the two
+ * can never mean different questions; and none at all while some other answer
+ * is being changed, because that answer is the only thing being acted on.
+ */
+function pictureFor(state: CreationState, ctx: FlowContext): { id: TraitId; part: 'what' | 'where' } | null {
+  const focus =
+    state.editing && state.editing !== 'name' ? state.editing : (state.saying ?? nextQuestion(state.answers, ctx));
+  const trait = focus && focus !== 'keep' ? traitOfQid(focus) : null;
+  return trait && trait.part === 'what' ? trait : null;
+}
 
 export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted, caps, capsNote }: CreationFlowArgs) {
   const { brand } = useBrand();
@@ -143,12 +153,19 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   // pressed "Change something": the composer takes the focus, nothing else moves
   const [changing, setChanging] = useState(0);
   // the pictures on their way to the store, each shown from the file itself
-  const [carrying, setCarrying] = useState<{ key: string; id: TraitQid; url: string; label: string }[]>([]);
-  // what each stored picture was called when it was chosen, so its chip keeps its name
-  const refNames = useRef(new Map<string, string>());
+  const [carrying, setCarrying] = useState<{ key: string; id: TraitQid; url: string }[]>([]);
+  // the picture the browser holds for each one stored, so a chip shows the
+  // thing itself rather than waiting on a thumbnail to be made
+  const refShots = useRef(new Map<string, string>());
   const [booting, setBooting] = useState(!draftId);
   // the page opened on a draft: its conversation was had before this page
   const [resumed] = useState(!!draftId);
+  useEffect(
+    () => () => {
+      for (const url of refShots.current.values()) URL.revokeObjectURL(url);
+    },
+    [],
+  );
   const catsSeeded = useRef(false);
   const started = useRef('');
   const syncing = useRef(false);
@@ -563,8 +580,13 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       const heldNow = st.saying && st.colour?.step === st.saying ? st.colour.hex : null;
       const step = st.saying && isLookQid(st.saying) ? (st.saying.slice('look-'.length) as LookStep) : null;
       const chosen = heldNow && step ? colourName(heldNow, colourRow(step), step) : '';
+      // A picture of the thing is an answer of its own, the way a colour is.
+      const shown =
+        target && target !== 'keep' && target.startsWith('trait-')
+          ? (st.answers[target as TraitQid]?.refs ?? []).length
+          : 0;
       const sentence = typed || heldNow || '';
-      if (!sentence) return false;
+      if (!sentence && !shown) return false;
       setAskErr(null);
       const again = (q: string | null) => st.asides.some((x) => x.q === q);
 
@@ -573,6 +595,13 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       if (target && target !== 'keep' && target.startsWith('trait-')) {
         const trait = traitOfQid(target);
         if (!trait) return false;
+        // A picture and nothing else is an answer: the words say so, and the
+        // picture it names rides with them.
+        const held = trait.part === 'what' ? (st.answers[target as TraitQid]?.refs ?? []) : [];
+        if (!typed && held.length) {
+          commitAnswer({ [target]: { words: attachedWords(trait.id, held.length), refs: held } });
+          return true;
+        }
         const empty = answersNothing(typed, readsAsPerson);
         if (!typed || empty) {
           bounce(typed, asideReply(empty ?? 'vague', 'detail', again(target), typed), target);
@@ -743,12 +772,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     dispatch({ type: 'say', id });
   }, [question?.id, commitAnswer]);
 
-  /** The detail question a picture belongs to: the one open again, else the one being asked. */
   const traitTarget = useCallback((): TraitQid | null => {
-    const st = stateRef.current;
-    const id = st.editing && st.editing !== 'name' ? st.editing : nextQuestion(st.answers, ctx);
-    const trait = id ? traitOfQid(id) : null;
-    return trait && trait.part === 'what' ? (`trait-${trait.id}` as TraitQid) : null;
+    const t = pictureFor(stateRef.current, ctx);
+    return t ? (`trait-${t.id}` as TraitQid) : null;
   }, [ctx]);
 
   /**
@@ -767,17 +793,21 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       setAskErr(null);
       // the line takes the answer from here, so the chip has somewhere to stand
       if (stateRef.current.saying !== id) dispatch({ type: 'say', id });
-      for (const f of files) {
+      // one picture of a thing: a second one chosen takes the first one's place
+      for (const f of files.slice(0, 1)) {
         const key = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const url = URL.createObjectURL(f);
-        setCarrying((c) => [...c, { key, id, url, label: refLabel(f.name) }]);
+        setCarrying((c) => [...c, { key, id, url }]);
         void uploadImage(f)
           .then((hash) => {
-            refNames.current.set(hash, refLabel(f.name));
+            // the same picture keeps its place: the chip never waits on a
+            // thumbnail being made when the browser is holding the bytes
+            refShots.current.set(hash, url);
             dispatch({ type: 'ref', id, hash });
+            setCarrying((c) => c.filter((x) => x.key !== key));
           })
-          .catch((e: any) => setAskErr(String(e?.message ?? e)))
-          .finally(() => {
+          .catch((e: any) => {
+            setAskErr(String(e?.message ?? e));
             setCarrying((c) => c.filter((x) => x.key !== key));
             URL.revokeObjectURL(url);
           });
@@ -805,25 +835,35 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
    */
   const sayingTrait = state.saying && traitOfQid(state.saying);
   const refTarget = sayingTrait && sayingTrait.part === 'what' ? (`trait-${sayingTrait.id}` as TraitQid) : null;
-  const composerRefs = refTarget
-    ? [
-        ...(state.answers[refTarget]?.refs ?? []).map((hash) => ({
-          key: hash,
-          src: thumbUrl(hash, 'micro'),
-          label: refNames.current.get(hash) ?? 'Reference',
-          onRemove: () => dispatch({ type: 'ref', id: refTarget, hash, remove: true }),
-        })),
-        ...carrying
-          .filter((c) => c.id === refTarget)
-          .map((c) => ({
-            key: c.key,
-            src: c.url,
-            label: c.label,
-            busy: true,
-            onRemove: () => setCarrying((x) => x.filter((y) => y.key !== c.key)),
-          })),
-      ]
-    : undefined;
+  const composerRefs = (() => {
+    if (!refTarget || !sayingTrait) return undefined;
+    const held = state.answers[refTarget]?.refs ?? [];
+    const mine = carrying.filter((c) => c.id === refTarget);
+    // a chip is named for what it is a picture of, the way every chip in the
+    // app is; several of the same thing are numbered, the way a view is
+    const name = traitOf(sayingTrait.id)?.label ?? 'Reference';
+    const many = held.length + mine.length > 1;
+    let n = 0;
+    const label = () => (many ? `${name} ${++n}` : name);
+    return [
+      ...held.map((hash) => ({
+        key: hash,
+        src: refShots.current.get(hash) ?? thumbUrl(hash, 'micro'),
+        label: label(),
+        onRemove: () => dispatch({ type: 'ref', id: refTarget, hash, remove: true }),
+      })),
+      ...mine.map((c) => ({
+        key: c.key,
+        src: c.url,
+        label: label(),
+        busy: true,
+        onRemove: () => setCarrying((x) => x.filter((y) => y.key !== c.key)),
+      })),
+    ];
+  })();
+
+  // where a picture would go if one were added right now
+  const attachTarget = pictureFor(state, ctx);
 
   const composerBase = composerFor(question, state, d, view);
   const sayingStep = state.saying && isLookQid(state.saying) ? (state.saying.slice('look-'.length) as LookStep) : null;
@@ -917,8 +957,20 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         working: !!d && !!d.activeView && question?.id !== 'name',
         onStop: d?.activeView ? () => void s.stop() : undefined,
         focusKey: question ? `${question.id}:${d?.id ?? 'setup'}:${changing}:${state.saying ?? ''}` : undefined,
+        // The way in for a picture is where it always is: beside the pill. At
+        // the door it opens the photographs; on a detail it takes a picture of
+        // the thing itself, the same as the way in on the question above.
         onAttach:
-          !d && question?.id === 'source' ? () => commitAnswer({ source: { door: 'photos', via: 'taps' } }) : undefined,
+          !attachTarget && !d && question?.id === 'source'
+            ? () => commitAnswer({ source: { door: 'photos', via: 'taps' } })
+            : undefined,
+        onAttachFiles: attachTarget ? onAttachTrait : undefined,
+        // the tooltip and the name a reader hears are the same words, short
+        attachLabel: attachTarget
+          ? `${state.answers[`trait-${attachTarget.id}`]?.refs.length ? 'Replace' : 'Add'} the picture of the ${(
+              traitOf(attachTarget.id)?.label ?? 'detail'
+            ).toLowerCase()}`
+          : 'Add photos',
         // A colour step takes a swatch as readily as it takes words, and the
         // colour rides in the chip the rest of the app already uses for one.
         refs: composerRefs,

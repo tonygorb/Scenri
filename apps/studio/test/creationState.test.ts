@@ -144,6 +144,10 @@ describe('the state of a presenter being made', () => {
     expect(s.answers['trait-tattoo']).toEqual({ refs: ['h-ink'] });
     expect(s.revision).toBe(rev + 1);
     expect(s.editing).toBe('trait-tattoo');
+    // one picture of a thing: another chosen takes its place
+    s = reduce(s, { type: 'ref', id: 'trait-tattoo', hash: 'h-other' });
+    expect(s.answers['trait-tattoo']).toEqual({ refs: ['h-other'] });
+    s = reduce(s, { type: 'ref', id: 'trait-tattoo', hash: 'h-ink' });
     s = reduce(s, { type: 'ref', id: 'trait-tattoo', hash: 'h-ink', remove: true });
     expect(s.answers['trait-tattoo']).toEqual({ refs: [] });
     // a picture for a detail nobody chose is refused

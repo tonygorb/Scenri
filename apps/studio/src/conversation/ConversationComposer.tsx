@@ -73,6 +73,8 @@ export function ConversationComposer({
   focusKey,
   onStop,
   onAttach,
+  onAttachFiles,
+  attachLabel,
   colour,
   refs,
   onSend,
@@ -100,8 +102,12 @@ export function ConversationComposer({
   focusKey?: string;
   /** While it works: stop what is drawing. The pill says Stop and does that. */
   onStop?: () => void;
-  /** An attach button beside the pill: photographs can come in here too. */
+  /** An attach button beside the pill: pressed, it is the flow's to answer. */
   onAttach?: () => void;
+  /** Or the same button opens the file chooser and hands the pictures over. */
+  onAttachFiles?: (files: File[]) => void;
+  /** What that button is for, in a few words. */
+  attachLabel?: string;
   /** The answer is a colour: the app's own chip carries it, over the field. */
   colour?: ComposerColour | null;
   /** Pictures riding with the answer, each as its own chip in the line. */
@@ -110,6 +116,7 @@ export function ConversationComposer({
   onSend: (text: string) => boolean;
 }) {
   const field = useRef<HTMLTextAreaElement>(null);
+  const files = useRef<HTMLInputElement>(null);
   const [focusedOnce, setFocusedOnce] = useState<string | undefined>(undefined);
 
   useLayoutEffect(() => {
@@ -137,8 +144,10 @@ export function ConversationComposer({
   }, [focusKey, focusedOnce, disabled]);
 
   const off = disabled || working;
-  // a colour already chosen is an answer, even with nothing typed beside it
-  const empty = !value.trim() && !allowEmpty && !colour?.hex;
+  // a colour chosen, or a picture attached, is an answer even with nothing
+  // typed beside it
+  const ready = !!colour?.hex || !!refs?.some((r) => !r.busy);
+  const empty = !value.trim() && !allowEmpty && !ready;
   const send = () => {
     if (off || empty) return;
     onSend(value);
@@ -224,12 +233,33 @@ export function ConversationComposer({
           />
         </div>
         <div className="sc-convo-row">
-          {onAttach && (
-            <Tip label="Add photos">
-              <button type="button" className="sc-convo-attach" aria-label="Add photos" onClick={onAttach}>
-                <Plus size={16} weight="bold" />
-              </button>
-            </Tip>
+          {(onAttach || onAttachFiles) && (
+            <>
+              <Tip label={attachLabel ?? 'Add photos'}>
+                <button
+                  type="button"
+                  className="sc-convo-attach"
+                  aria-label={attachLabel ?? 'Add photos'}
+                  onClick={onAttachFiles ? () => files.current?.click() : onAttach}
+                >
+                  <Plus size={16} weight="bold" />
+                </button>
+              </Tip>
+              {onAttachFiles && (
+                <input
+                  ref={files}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  aria-label={attachLabel ?? 'Add a picture'}
+                  onChange={(e) => {
+                    const chosen = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith('image/'));
+                    e.target.value = '';
+                    if (chosen.length) onAttachFiles(chosen);
+                  }}
+                />
+              )}
+            </>
           )}
           {reason ? <Tip label={reason}>{pill}</Tip> : pill}
         </div>

@@ -87,12 +87,8 @@ export type Question =
       multi?: boolean;
       /** A way to say it in words instead, which hands the answer to the composer. */
       describe?: string;
-      /** A way to attach a picture of the thing itself; it rides in the composer. */
-      attach?: string;
       /** This question is being answered in words right now, so the way in stands lit. */
       saying?: boolean;
-      /** A picture is on its way in. */
-      attaching?: boolean;
       /** The answer as it stands, when the question is open again: an option, several, or one per row. */
       given?: string | string[] | Record<string, string>;
     })

@@ -237,13 +237,14 @@ test.describe('a picture of the thing itself', () => {
     await expect(log(page)).toContainText('What glasses do they wear?');
 
     // the picture goes in the line, in the chip the rest of the app uses for one
-    await answer(page, 'Add a reference').click();
+    await page.getByRole('button', { name: 'Add the picture of the glasses' }).click();
     await page
-      .locator('.sc-convo-turn[data-turn="q:trait-glasses"] input[type="file"]')
+      .locator('.sc-convo-card input[type="file"]')
       .setInputFiles({ name: 'thin-black.png', mimeType: 'image/png', buffer: PNG });
     const chip = page.locator('.sc-convo-field .sc-token[data-kind="image"]');
     await expect(chip).toHaveCount(1);
-    await expect(chip).toContainText('thin black');
+    // a chip is named for what it is a picture of, never for the file it came from
+    await expect(chip).toContainText('Glasses');
     // the line takes the answer from here, so words can go beside the picture
     await expect(composer(page)).toBeEnabled();
 
@@ -261,15 +262,60 @@ test.describe('a picture of the thing itself', () => {
       .toEqual(['glasses']);
   });
 
+  test('is added from the composer too, and answers on its own', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await tapThrough(page);
+    await answer(page, 'Glasses').click();
+    await answer(page, 'Continue').click();
+
+    // the way in is where it is everywhere: beside the pill
+    const plus = page.getByRole('button', { name: 'Add the picture of the glasses' });
+    await expect(plus).toBeVisible();
+    await plus.click();
+    await page
+      .locator('.sc-convo-card input[type="file"]')
+      .setInputFiles({ name: 'frames.png', mimeType: 'image/png', buffer: PNG });
+    await expect(page.locator('.sc-convo-field .sc-token[data-kind="image"]')).toHaveCount(1);
+    // the field asks for words, and the picture alone is enough to send
+    await expect(composer(page)).toHaveAttribute('placeholder', 'Describe the glasses');
+    await page.getByRole('button', { name: 'Send' }).click();
+    await expect(turn(page, 'you:trait-glasses')).toContainText('The glasses in the attached picture');
+    await expect(turn(page, 'you:trait-glasses').locator('img')).toHaveCount(1);
+    await expect(page.locator('.sc-convo-field .sc-token[data-kind="image"]')).toHaveCount(0);
+  });
+
+  test('belongs to whatever the conversation is on, and to nothing while an answer is being changed', async ({
+    page,
+  }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await tapThrough(page);
+    await answer(page, 'Glasses').click();
+    await answer(page, 'Continue').click();
+    const plus = page.getByRole('button', { name: 'Add the picture of the glasses' });
+    await expect(plus).toBeVisible();
+
+    // an answer opened again elsewhere: the way in belongs to that change, and
+    // a detail's picture has nowhere to go
+    await pencil(page, 'you:look-hair').click();
+    await expect(page.getByRole('button', { name: /picture of the/ })).toHaveCount(0);
+    await expect(page.locator('.sc-convo-attach')).toHaveCount(0);
+
+    // left as it was, it is back where it was
+    await turn(page, 'q:look-hair').getByRole('button', { name: 'Cancel' }).click();
+    await expect(plus).toBeVisible();
+  });
+
   test('comes off again from its own chip', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await tapThrough(page);
     await answer(page, 'Glasses').click();
     await answer(page, 'Continue').click();
-    await answer(page, 'Add a reference').click();
+    await page.getByRole('button', { name: 'Add the picture of the glasses' }).click();
     await page
-      .locator('.sc-convo-turn[data-turn="q:trait-glasses"] input[type="file"]')
+      .locator('.sc-convo-card input[type="file"]')
       .setInputFiles({ name: 'thin-black.png', mimeType: 'image/png', buffer: PNG });
     const chip = page.locator('.sc-convo-field .sc-token[data-kind="image"]');
     await expect(chip).toHaveCount(1);
