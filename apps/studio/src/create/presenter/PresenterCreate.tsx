@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Confirm } from '../../Confirm.js';
 import { StudioShell } from './StudioShell.js';
 import { type CreationFlowArgs, useCreationFlow } from './useCreationFlow.js';
@@ -16,6 +17,19 @@ import { VIEW_NAME, worthKeeping } from './presenterStudioRules.js';
 export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClose: () => void }) {
   const f = useCreationFlow(args);
   const d = f.d;
+  /**
+   * Closing with answers and nothing drawn from them yet would throw the
+   * answers away, so it is asked about first. Once a draft exists it is the
+   * record, offered back on the presenters page, and closing costs nothing.
+   */
+  const [leaving, setLeaving] = useState(false);
+  const close = () => {
+    if (f.unsaved) {
+      setLeaving(true);
+      return;
+    }
+    onClose();
+  };
   const headAction = f.begun ? (
     d && worthKeeping(d) ? (
       <Confirm
@@ -66,5 +80,26 @@ export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClo
     />
   );
 
-  return <StudioShell surface={{ ...f.surface, headAction, dock, overlay }} onClose={onClose} />;
+  const asked = (
+    <>
+      {overlay}
+      <Confirm
+        label="Leave"
+        title="Leave without drawing them?"
+        body="Nothing has been drawn yet, so the answers are not kept. Starting again starts from the first question."
+        busy={false}
+        open={leaving}
+        onOpenChange={(o) => {
+          if (!o) setLeaving(false);
+        }}
+        onConfirm={() => {
+          setLeaving(false);
+          f.leave();
+          onClose();
+        }}
+      />
+    </>
+  );
+
+  return <StudioShell surface={{ ...f.surface, headAction, dock, overlay: asked }} onClose={close} />;
 }

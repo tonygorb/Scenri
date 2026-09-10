@@ -31,6 +31,9 @@ export type TraitQid = `trait-${TraitId}`;
 export type WhereQid = `trait-${TraitId}-where`;
 export type Qid = 'source' | 'photos' | LookQid | 'describe' | 'gaps' | 'traits' | TraitQid | WhereQid | 'keep';
 
+/** The answers a picture can ride with: the chosen details, and anything else said at the last moment. */
+export type RefQid = TraitQid | 'keep';
+
 /**
  * Which door, and how the person behind it is given: tapped one row at a
  * time, described in a sentence after the door was chosen, or typed straight
@@ -64,7 +67,11 @@ export type Values = {
   describe: string;
   gaps: Record<string, string> | 'skipped';
   traits: TraitId[];
-  keep: string;
+  /**
+   * Anything the rows could not ask for, in their own words, with a picture of
+   * it if there is one: the same shape as a detail, because that is what it is.
+   */
+  keep: TraitWhat;
 } & { [K in LookQid]: string } & { [K in TraitQid]: TraitWhat } & { [K in WhereQid]: string };
 
 export type Answers = { [K in Qid]?: Values[K] };

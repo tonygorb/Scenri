@@ -93,10 +93,13 @@ describe('the transcript is a function of state', () => {
     const T = turns(state({ ...a, traits: [] }));
     const q = open(T);
     expect(q?.id).toBe('agree');
-    expect(q?.kind === 'confirm' && q.prompt).toBe(
-      'A woman in their 30s with long brown hair, olive skin, a lean build. Shall I draw them?',
+    // the ask is short; the whole person is set apart above it, to be read or taken
+    expect(q?.kind === 'confirm' && q.prompt).toBe('Here is the presenter, in full. Ready to draw?');
+    expect(q?.kind === 'confirm' && q.quote).toBe(
+      'A woman in their 30s with long brown hair, olive skin, a lean build.',
     );
-    expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Draw them', 'Add a detail']);
+    // one way on, and it says what is being drawn
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Draw the presenter']);
     // and everything that is always true of them is in that last word too
     const withDetails = turns(
       state({
@@ -110,8 +113,8 @@ describe('the transcript is a function of state', () => {
       }),
     );
     const said = open(withDetails);
-    expect(said?.kind === 'confirm' && said.prompt).toBe(
-      'A woman in their 30s with long brown hair, olive skin, a lean build, and always thin black rectangular metal frames, a solid blackwork tattoo on their right forearm and a prosthetic limb in a bright painted finish in place of their right arm. Shall I draw them?',
+    expect(said?.kind === 'confirm' && said.quote).toBe(
+      'A woman in their 30s with long brown hair, olive skin, a lean build, and always thin black rectangular metal frames, a solid blackwork tattoo on their right forearm and a prosthetic limb in a bright painted finish in place of their right arm.',
     );
     // the swatch questions know who is being drawn
     const who = open(turns(state({ source: { door: 'scratch', via: 'taps' }, 'look-who': 'man' })));
@@ -350,10 +353,12 @@ describe('a picture of the thing itself', () => {
     const T = turns(state(a));
     const answer = T.find((t) => t.kind === 'you' && t.id === 'trait-glasses');
     expect(answer?.kind === 'you' && answer.photos).toEqual(['h-frames']);
-    // the question itself carries no way in for it: pictures come in beside the
-    // pill, where they come in everywhere else in the app
-    const asking = open(turns(state({ ...a, 'trait-glasses': { refs: ['h-frames'] } })));
-    expect(asking?.kind === 'choice' && 'attach' in asking).toBe(false);
+    // the question offers the same way in as the pill beside the composer, and
+    // says which of the two it is doing
+    const asking = open(turns(state({ ...a, 'trait-glasses': { refs: [] } })));
+    expect(asking?.kind === 'choice' && asking.attach).toBe('Add a reference');
+    const again = open(turns(state({ ...a, 'trait-glasses': { refs: ['h-frames'] } })));
+    expect(again?.kind === 'choice' && again.attach).toBe('Replace the reference');
   });
 
   it('leaves the field asking for words, not for a photograph', () => {
@@ -400,13 +405,13 @@ describe('what a tap means', () => {
       'trait-glasses': { words: 'thin black rectangular metal frames', refs: ['h-frames'] },
       'trait-tattoo': { words: 'a small geometric line tattoo', refs: [] },
       'trait-tattoo-where': 'on their right forearm',
-      keep: 'a red thread bracelet',
+      keep: { words: 'a red thread bracelet', refs: ['h-bracelet'] },
     };
     expect(compileDirection(a)).toBe('a woman in their 30s with long dyed purple hair, olive skin, a lean build');
     expect(compileKeep(a)).toBe(
       'thin black rectangular metal frames, a small geometric line tattoo on their right forearm, a red thread bracelet',
     );
-    expect(compileRefs(a)).toEqual({ glasses: ['h-frames'] });
+    expect(compileRefs(a)).toEqual({ glasses: ['h-frames'], keep: ['h-bracelet'] });
     // a detail chosen but not yet answered is not in the sentence
     expect(compileKeep({ ...TAPPED, traits: ['scar'] })).toBe('');
     // the typed path folds the follow-up into the sentence without repeating it
@@ -429,9 +434,12 @@ describe('the composer follows the state', () => {
     expect(composerFor(open(turns(t)), t, null, 'portrait').label).toBe('Describe the scar');
     const k = state({ ...TAPPED, traits: [] }, { saying: 'keep' });
     expect(composerFor(open(turns(k)), k, null, 'portrait').label).toBe('What should stay the same about them');
-    // and stands down at the read-back otherwise
+    // and the read-back's line is open the whole time: it is the free hand over
+    // the rows, for whatever no question thought to ask
     const r = state({ ...TAPPED, traits: [] });
-    expect(composerFor(open(turns(r)), r, null, 'portrait').off).toBe('Choose above.');
+    const c2 = composerFor(open(turns(r)), r, null, 'portrait');
+    expect(c2.off).toBeUndefined();
+    expect(c2.placeholder).toBe('Anything else? A scar, a ring, something we did not ask about');
   });
 
   it('turns into the refinement field once the face is used, and asks the name while a view draws', () => {

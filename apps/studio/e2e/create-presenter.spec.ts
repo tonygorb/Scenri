@@ -215,11 +215,14 @@ test.describe('a person from scratch', () => {
     // the rows done, what else is always true of them is asked once
     await expect(log(page)).toContainText('Anything else that is always true of them?');
     await answer(page, 'Nothing else').click();
-    // nothing is drawn until the whole person is read back and agreed to
-    await expect(log(page)).toContainText(
-      'A woman in their 30s with shoulder-length black hair, olive skin, a solid build. Shall I draw them?',
+    // nothing is drawn until the whole person is read back and agreed to: the
+    // brief stands apart from the talk, with a way to take a copy of it
+    await expect(log(page)).toContainText('Here is the presenter, in full. Ready to draw?');
+    await expect(log(page).locator('.sc-convo-brief-text')).toHaveText(
+      'A woman in their 30s with shoulder-length black hair, olive skin, a solid build.',
     );
-    await log(page).getByRole('button', { name: 'Draw them' }).click();
+    await expect(log(page).getByRole('button', { name: 'Copy' })).toBeAttached();
+    await log(page).getByRole('button', { name: 'Draw the presenter' }).click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     const tapped = await draftsOf(page, brand.id);
     const first = await draftOf(page, brand.id, tapped.drafts[0].id);
@@ -485,6 +488,40 @@ test.describe('a person from scratch', () => {
     await answer(page, 'Describe someone').click();
     await expect(log(page)).toContainText('Who are they?');
     await expect(page.locator('[data-reveal] .sc-convo-w')).toHaveCount(0);
+  });
+
+  test('leaving before anything is drawn asks, and what it forgets is really forgotten', async ({ page }) => {
+    const brand = await currentBrand(page);
+    // the file shares one library, so what matters is that these answers add nothing
+    const before = (await draftsOf(page, brand.id)).drafts.length;
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await answer(page, 'Describe someone').click();
+    await answer(page, 'Woman').click();
+    await expect(log(page)).toContainText('Roughly how old?');
+
+    // Escape with answers and nothing drawn: the flow asks before it costs anything
+    await page.keyboard.press('Escape');
+    const asked = page.getByRole('alertdialog').filter({ hasText: 'Leave without drawing them?' });
+    await expect(asked).toBeVisible();
+    await asked.getByRole('button', { name: 'Cancel' }).click();
+    await expect(studio(page)).toBeVisible();
+    await expect(log(page)).toContainText('Roughly how old?');
+
+    // agreed: the flow closes and the answers go with it. The dialog is asked
+    // for again from scratch, so the one that was dismissed has to be gone
+    // before the new one is clicked, or the click lands on a leaving node.
+    await expect(asked).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(asked).toBeVisible();
+    await asked.getByRole('button', { name: 'Leave' }).click();
+    await expect(studio(page)).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
+    expect((await draftsOf(page, brand.id)).drafts).toHaveLength(before);
+
+    // and the next one starts at the first question, with nothing behind it
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await expect(answer(page, 'Describe someone')).toBeVisible();
+    await expect(log(page)).not.toContainText('Roughly how old?');
   });
 
   test('a draft has an address: reload keeps the step, close keeps the draft, reopen resumes it', async ({ page }) => {

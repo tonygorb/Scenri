@@ -70,6 +70,7 @@ export function Transcript({
   onCancelEdit,
   onStarter,
   onDescribe,
+  onAttachFiles,
   onRestore,
 }: {
   turns: Turn[];
@@ -92,6 +93,8 @@ export function Transcript({
   onStarter?: (text: string) => void;
   /** A question with things to tap was answered in words instead. */
   onDescribe?: () => void;
+  /** A picture chosen from a question, for the answer being written. */
+  onAttachFiles?: (files: File[]) => void;
 
   /** A picture from before, put back on its view. */
   onRestore?: (view: string, hash: string) => void;
@@ -224,6 +227,9 @@ export function Transcript({
     const stored = memoryKey ? readSaid(memoryKey) : null;
     seen.current = stored ?? new Set(resumed || turns.length > 2 ? turns.map(turnKey) : []);
   }
+  // when each turn was first said, kept beside the said-lines for the same reason
+  const times = useRef<Map<string, number> | null>(null);
+  if (times.current === null) times.current = (memoryKey ? readTimes(memoryKey) : null) ?? new Map();
   if (askAgain.current) {
     seen.current.delete(askAgain.current);
     askAgain.current = null;
@@ -297,6 +303,7 @@ export function Transcript({
       if (!leaving?.gone.has(k)) set.add(k);
     }
     if (memoryKey) writeSaid(memoryKey, set);
+    if (memoryKey && times.current) writeTimes(memoryKey, times.current);
   });
 
   // The newest turn stays in view unless the reader scrolled up to read. On a
@@ -467,6 +474,15 @@ export function Transcript({
     bright.add(`scenri:asked-${id}`);
   }
 
+  // When each turn first stood on screen. A conversation is a record of when
+  // things were said, so the times outlive a reload the way the said-lines do;
+  // a turn that arrives while the page is settling from a draft takes the time
+  // it was first seen, not the time the page opened.
+  for (const t of shown) {
+    const k = turnKey(t);
+    if (t.kind !== 'question' && !times.current.has(k)) times.current.set(k, Date.now());
+  }
+
   let firstYou = true;
   let prevScenri = false;
   const out: ReactNode[] = [];
@@ -505,6 +521,7 @@ export function Transcript({
           delay={delay}
           turnId={k}
           dim={dim}
+          at={times.current.get(k)}
           onEdit={t.editable && onEdit ? () => onEdit(t.id) : undefined}
           onSave={onSaveEdit ? (said) => onSaveEdit(t.id, said) : undefined}
           onCancel={onCancelEdit}
@@ -522,6 +539,7 @@ export function Transcript({
           delay={delay}
           turnId={k}
           dim={dim}
+          at={times.current.get(k)}
           thumb={t.thumb}
           label={t.label}
           current={t.current}
@@ -547,6 +565,7 @@ export function Transcript({
           onPick={onPick}
           onStarter={onStarter}
           onDescribe={onDescribe}
+          onAttachFiles={onAttachFiles}
           onCancel={onCancelEdit}
         />,
       );
@@ -664,6 +683,26 @@ const saidKey = (memoryKey: string) => `scenri:convo-said:${memoryKey}`;
 export function forgetSaid(memoryKey: string) {
   try {
     sessionStorage.removeItem(saidKey(memoryKey));
+    sessionStorage.removeItem(timeKey(memoryKey));
+  } catch {
+    /* private mode */
+  }
+}
+
+const timeKey = (memoryKey: string) => `scenri:convo-at:${memoryKey}`;
+
+function readTimes(memoryKey: string): Map<string, number> | null {
+  try {
+    const raw = sessionStorage.getItem(timeKey(memoryKey));
+    return raw ? new Map(Object.entries(JSON.parse(raw) as Record<string, number>)) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeTimes(memoryKey: string, at: Map<string, number>) {
+  try {
+    sessionStorage.setItem(timeKey(memoryKey), JSON.stringify(Object.fromEntries(at)));
   } catch {
     /* private mode */
   }

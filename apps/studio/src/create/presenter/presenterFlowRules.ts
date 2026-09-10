@@ -159,7 +159,7 @@ export function compileDirection(a: Answers): string {
  */
 export function keepItems(a: Answers): string[] {
   const details = traitDetails(a);
-  const said = (a.keep ?? '').trim();
+  const said = (a.keep?.words ?? '').trim();
   const items = inTableOrder(a.traits ?? [])
     .map((id) => {
       const one = details[id];
@@ -188,6 +188,7 @@ export function keepLine(a: Answers): string {
 export function compileRefs(a: Answers): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   for (const [id, detail] of Object.entries(traitDetails(a))) if (detail?.refs?.length) out[id] = detail.refs;
+  if (a.keep?.refs.length) out.keep = a.keep.refs;
   return out;
 }
 
@@ -256,6 +257,12 @@ export function attachedWords(id: TraitId, n: number): string {
   const label = traitOf(id)?.label.toLowerCase() ?? 'detail';
   return `the ${label} in the attached ${n === 1 ? 'picture' : 'pictures'}`;
 }
+
+/**
+ * The line at the read-back and wherever else a last-moment detail is written:
+ * the free hand over the rows, for what no question thought to ask.
+ */
+const KEEP_PLACEHOLDER = 'Anything else? A scar, a ring, something we did not ask about';
 
 /** The questions answered in a sentence typed into their own field, in place. */
 export const TEXT_QIDS: ReadonlySet<Qid> = new Set<Qid>(['describe', 'keep']);
@@ -365,6 +372,8 @@ function questionFor(id: Qid, state: CreationState, _ctx: FlowContext, reopened:
       hint: t.hint,
       options: t.options.map((o) => ({ id: o.id, label: o.label, card: o.card })),
       describe: t.saying,
+      // the same way in as the plus beside the pill, where the question is
+      attach: what?.refs.length ? 'Replace the reference' : 'Add a reference',
       saying: state.saying === id,
       given: what?.words,
       ...base,
@@ -412,7 +421,7 @@ function answerLine(id: Qid, a: Answers, draft: DraftLike | null): { text: strin
     case 'traits':
       return { text: traitsLine(inTableOrder(a.traits ?? [])) };
     case 'keep':
-      return { text: (a.keep ?? '').trim() };
+      return { text: (a.keep?.words ?? '').trim(), photos: a.keep?.refs };
   }
   if (isLookQid(id)) {
     const step = id.slice('look-'.length) as LookStep;
@@ -559,18 +568,18 @@ function build(
     else if (!draft && a.source?.door === 'scratch') {
       if (a.source.via === 'taps') {
         // The last word before anything is drawn: the whole person in one
-        // sentence, and a way to add what the rows could not ask for.
+        // sentence, set apart because it is the brief the picture is drawn
+        // from, and the line under the transcript stands open for anything the
+        // rows could not ask for.
         open = {
           id: 'agree',
           kind: 'confirm',
+          prompt: PROMPT.agree,
           // The whole person, and everything that is always true of them: the
           // last word before anything is drawn says all of it, or a run of
           // questions reads as though nothing had been listening.
-          prompt: `${lookLine(lookOf(a))}${keepLine(a) ? `, and always ${keepLine(a)}` : ''}. Shall I draw them?`,
-          options: [
-            { id: 'draw', label: 'Draw them' },
-            { id: 'add', label: a.keep?.trim() ? 'Add another' : 'Add a detail' },
-          ],
+          quote: `${lookLine(lookOf(a))}${keepLine(a) ? `, and always ${keepLine(a)}` : ''}.`,
+          options: [{ id: 'draw', label: 'Draw the presenter' }],
         };
       } else if (failed) {
         open = {
@@ -644,11 +653,7 @@ export function composerFor(
   }
   // A tap question handed to the composer: it takes that one question, and only that one.
   if (state.saying === 'keep') {
-    return {
-      placeholder: 'A tattoo, glasses, a scar: something always true of them',
-      label: 'What should stay the same about them',
-      action: 'Send',
-    };
+    return { placeholder: KEEP_PLACEHOLDER, label: 'What should stay the same about them', action: 'Send' };
   }
   if (state.saying && isLookQid(state.saying)) {
     const step = state.saying.slice('look-'.length) as LookStep;
@@ -669,6 +674,9 @@ export function composerFor(
       action: 'Send',
     };
   }
+  // An answer is being changed above, in its own block: the line waits for it
+  // rather than offering to answer a question that is not the one on the floor.
+  if (state.editing !== null) return { ...QUIET, off: 'Finish the change above.' };
   if (q) {
     // A question with things to tap owns the answer: the composer stands down
     // rather than competing with it, and says where the answer is.
@@ -687,7 +695,15 @@ export function composerFor(
           label: 'What should change',
           action: 'Refine',
         };
+      // The last word is a decision with a door left open: what the rows could
+      // not ask for is said here, in words or in a picture, and it joins what
+      // is always true of them.
       case 'agree':
+        return {
+          placeholder: KEEP_PLACEHOLDER,
+          label: 'Anything else that is always true of them',
+          action: 'Send',
+        };
       case 'traits':
         return { ...QUIET, off: 'Choose above.' };
       case 'gaps':
@@ -725,6 +741,9 @@ function composerPlaceholder(selected: StudioView, d: DraftLike): string {
 export function sentenceTarget(state: CreationState, open: Question | null): Qid | 'keep' | null {
   if (state.saying) return state.saying;
   if (open && isQid(open.id) && (open.id === 'source' || open.id === 'describe')) return open.id;
+  // the read-back's line is open the whole time: what is typed there is what
+  // else is always true of them
+  if (open?.id === 'agree') return 'keep';
   return null;
 }
 

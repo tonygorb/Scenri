@@ -87,6 +87,8 @@ export type Question =
       multi?: boolean;
       /** A way to say it in words instead, which hands the answer to the composer. */
       describe?: string;
+      /** A way to answer with a picture of the thing, in the same row as the words. */
+      attach?: string;
       /** This question is being answered in words right now, so the way in stands lit. */
       saying?: boolean;
       /** The answer as it stands, when the question is open again: an option, several, or one per row. */
@@ -123,6 +125,18 @@ export type Question =
       options: ChoiceOption[];
       /** No primary: every option is a quiet button (an aside rather than a decision). */
       quiet?: boolean;
+      /**
+       * The words the decision is about, set apart above the ask and copyable:
+       * a sentence that is going somewhere else (a prompt, a brief) rather
+       * than a line of talk.
+       */
+      quote?: string;
+      /** A way to say something instead of deciding, which hands the composer this question. */
+      describe?: string;
+      /** A way to answer with a picture of the thing, in the same row as the words. */
+      attach?: string;
+      /** That way in is pressed right now, so it stands lit and pressing it again closes it. */
+      saying?: boolean;
     });
 
 export type QuestionKind = Question['kind'];

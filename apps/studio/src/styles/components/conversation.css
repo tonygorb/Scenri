@@ -1,3 +1,89 @@
+/* ---- the brief, before anything is drawn ------------------------------------
+   The last word before a picture is drawn is not a line of talk: it is the
+   brief the picture is made from. It gets a panel of its own, at the width of
+   the conversation, with a head that says what it is and a plain way to take a
+   copy of it. Bigger type and more air than the talk around it, because it is
+   the one thing on this screen a person reads twice. */
+.sc-convo-brief {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+  width: 100%;
+  margin: var(--sc-space-2) 0 0;
+  padding: var(--sc-space-5) var(--sc-space-6) var(--sc-space-6);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-raised);
+}
+
+.sc-convo-brief-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+}
+
+.sc-convo-brief-lb {
+  font-size: var(--sc-text-caption);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sc-fg3);
+}
+
+/* The way to take it away. It is quiet until the panel is under the cursor,
+   and it is always there for the keyboard and for a finger. */
+.sc-convo-brief-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  font-size: var(--sc-text-caption);
+  font-weight: 500;
+  color: var(--sc-fg3);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease),
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    background var(--sc-dur-fast) var(--sc-ease);
+}
+
+.sc-convo-brief:hover .sc-convo-brief-copy,
+.sc-convo-brief-copy:focus-visible,
+.sc-convo-brief-copy[data-took] {
+  opacity: 1;
+}
+
+.sc-convo-brief-copy:hover {
+  border-color: var(--sc-line-strong);
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+
+.sc-convo-brief-copy[data-took] {
+  color: var(--sc-fg);
+}
+
+.sc-convo-brief-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--sc-fg);
+}
+
+/* a finger has no hover: the way to copy is simply there */
+@media (hover: none) {
+  .sc-convo-brief-copy {
+    opacity: 1;
+  }
+}
+
 /* ==========================================================================
    The conversation: a transcript of turns, questions native to it, and the
    composer under it. Shared by every conversational surface (the presenter
@@ -62,6 +148,66 @@
   font-weight: 500;
   line-height: 20px;
   color: var(--sc-fg3);
+}
+
+/* ---- when a turn was said ---------------------------------------------------
+   There for the asking, never in the way: a conversation reads as talk, and a
+   standing column of clock times reads as a log. Scenri's sits beside the name
+   in the row that is already there; yours sits over the bubble, out of the
+   flow, so nothing moves when it appears. */
+.sc-convo-time {
+  font-size: 11px;
+  font-weight: 450;
+  line-height: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-fg3);
+  opacity: 0;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+
+/* Beside the name, a dot holds the two apart: a name and a time read as two
+   things, "Scenri 06:13 PM" as one broken phrase. The dot is drawn, never
+   typed: the middle-dot glyph sits on its own font's centre, which is not the
+   centre of the row it stands in, and that is what reads as misaligned. */
+.sc-convo-who .sc-convo-time {
+  display: inline-flex;
+  align-items: center;
+}
+
+.sc-convo-who .sc-convo-time::before {
+  content: "";
+  width: 3px;
+  height: 3px;
+  margin: 0 7px 0 4px;
+  border-radius: 50%;
+  background: currentcolor;
+  opacity: 0.5;
+}
+
+.sc-convo-turn[data-who="you"] {
+  position: relative;
+}
+
+/* Over the bubble and close to it: out of the flow, so nothing moves when it
+   shows, and one line's worth of air under it rather than a gap of its own. */
+.sc-convo-turn[data-who="you"] > .sc-convo-time {
+  position: absolute;
+  top: -16px;
+  right: 4px;
+}
+
+/* It shows for the row it belongs to, and only that row: Scenri's when the
+   line's own name row is under the cursor, yours when the bubble is. A turn is
+   as wide as the column, and lighting the time from anywhere in that band read
+   as a time belonging to the empty space beside the words. */
+.sc-convo-who:hover .sc-convo-time,
+.sc-convo-turn[data-who="you"]:has(.sc-convo-bubble:hover) > .sc-convo-time {
+  opacity: 1;
+}
+
+/* while an answer somewhere else is being changed, the times stay out of it */
+.sc-convo-turn[data-dim] .sc-convo-time {
+  opacity: 0;
 }
 
 .sc-convo-mark {
@@ -698,8 +844,21 @@ button.sc-convo-shot-do {
   animation: sc-convo-out 160ms var(--sc-ease) 140ms forwards;
 }
 
-.sc-convo-decide .sc-btn[data-on] {
+.sc-convo-decide .sc-btn[data-on]:not([aria-pressed]) {
   transform: scale(0.98);
+}
+
+/* A way in that is open, not a decision that was taken: it fills quietly and
+   keeps its edge, so the one primary beside it stays the only primary, and the
+   same word plainly closes what it opened. */
+.sc-convo-decide .sc-btn[aria-pressed="true"] {
+  background: var(--sc-chip);
+  border-color: var(--sc-line-hover);
+  color: var(--sc-fg);
+}
+
+.sc-convo-decide .sc-btn[aria-pressed="true"]:hover {
+  background: var(--sc-chip-hover);
 }
 
 @keyframes sc-convo-dim {
@@ -737,6 +896,73 @@ button.sc-convo-shot-do {
   align-items: center;
   gap: var(--sc-space-4);
   margin-top: var(--sc-space-2);
+}
+
+/* The way into a picture, beside the way into words: the same chip, with the
+   clip that means an attachment everywhere else in the app. */
+.sc-convo-pass svg {
+  margin-right: 6px;
+  opacity: 0.7;
+}
+
+/* ---- the words a decision is about -----------------------------------------
+   The last word before a picture is drawn is not talk: it is the brief, and it
+   is set apart so it reads as one thing that can be taken away whole. The way
+   to take it sits in the corner, quiet until the block is hovered or the
+   keyboard reaches it. */
+.sc-convo-quote {
+  position: relative;
+  margin-top: var(--sc-space-4);
+  padding: var(--sc-space-4) var(--sc-space-5);
+  border: 1px solid var(--sc-line);
+  border-left: 2px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-raised);
+}
+
+.sc-convo-quote-text {
+  margin: 0;
+  padding-right: 26px;
+  font-size: var(--sc-text-body);
+  line-height: 1.55;
+  color: var(--sc-fg);
+}
+
+.sc-convo-quote-copy {
+  position: absolute;
+  top: var(--sc-space-3);
+  right: var(--sc-space-3);
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  color: var(--sc-fg3);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease),
+    background var(--sc-dur-fast) var(--sc-ease);
+}
+
+.sc-convo-quote:hover .sc-convo-quote-copy,
+.sc-convo-quote-copy:focus-visible {
+  opacity: 1;
+}
+
+.sc-convo-quote-copy:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+
+/* a finger has no hover: the way to copy is simply there */
+@media (hover: none) {
+  .sc-convo-quote-copy {
+    opacity: 1;
+  }
 }
 /* A picture riding with the answer, in the chip the rest of the app uses for
    one. While it is still on its way to the store it is drawn from the file in
@@ -1287,6 +1513,11 @@ button.sc-convo-shot-do {
   gap: var(--sc-space-3);
 }
 
+/* The same card the rest of the app writes into, in the same three states.
+   No float shadow: this one is docked in the foot of the conversation rather
+   than floating over a feed, so the shadow was drawing an edge that is
+   already drawn. Both properties that change on focus are on one clock, or
+   the edge reads as a shake (see .sc-promptcard). */
 .sc-convo-card {
   position: relative;
   display: flex;
@@ -1294,8 +1525,27 @@ button.sc-convo-shot-do {
   border: 1px solid var(--sc-line-strong);
   border-radius: var(--sc-radius-float);
   background: var(--sc-hover);
-  box-shadow: var(--sc-shadow-float);
-  transition: border-color var(--sc-dur-slow) var(--sc-ease);
+  transition:
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    box-shadow var(--sc-dur-fast) var(--sc-ease),
+    opacity var(--sc-dur-fast) var(--sc-ease);
+}
+
+.sc-convo-card:hover:not([data-quiet]) {
+  border-color: var(--sc-line-hover);
+}
+
+/* lit by the caret, and by nothing else in the card */
+.sc-convo-card:has(.sc-in:focus) {
+  border-color: var(--sc-line-focus);
+  box-shadow: 0 0 0 2px var(--sc-focus-halo);
+}
+
+/* Nothing here can be answered right now: the card sits back rather than
+   standing in ink over an answer that is somewhere else. */
+.sc-convo-card[data-quiet] {
+  border-color: var(--sc-line);
+  background: none;
 }
 
 /* an answer reopened for a change: the card lights once, then settles */

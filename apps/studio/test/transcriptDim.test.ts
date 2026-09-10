@@ -44,6 +44,19 @@ const ANSWERED: Turn[] = [
   said('look-build', 'Lean'),
 ];
 
+describe('a line already answered', () => {
+  it('carries the time it was said, on both sides', () => {
+    render([
+      { kind: 'you', id: 'intent', text: 'Create a presenter' },
+      asked('look-who', 'Who are they?'),
+      said('look-who', 'Woman'),
+    ]);
+    const times = [...host.querySelectorAll<HTMLTimeElement>('.sc-convo-time')];
+    expect(times.length).toBeGreaterThanOrEqual(2);
+    expect(times.every((t) => !!t.dateTime)).toBe(true);
+  });
+});
+
 describe('an answer being changed', () => {
   it('leaves nothing dim while the conversation simply runs', () => {
     render([...ANSWERED, { kind: 'question', question: { id: 'traits', kind: 'text', prompt: 'Anything else?' } }]);

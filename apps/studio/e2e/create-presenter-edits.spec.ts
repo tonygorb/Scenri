@@ -55,7 +55,7 @@ test.describe('changing an answer', () => {
     await page.goto(`/${brand.slug}/presenters/new`);
     await tapThrough(page);
     await answer(page, 'Nothing else').click();
-    await expect(log(page)).toContainText('Shall I draw them?');
+    await expect(log(page)).toContainText('Here is the presenter, in full. Ready to draw?');
 
     await pencil(page, 'you:look-hair').click();
     const reopened = turn(page, 'q:look-hair');
@@ -68,7 +68,7 @@ test.describe('changing an answer', () => {
     await expect(turn(page, 'you:look-who')).toHaveAttribute('data-dim', 'true');
     // the question the conversation is on still stands, and takes no answer
     await expect(turn(page, 'q:agree')).toHaveAttribute('data-dim', 'true');
-    await expect(turn(page, 'q:agree').getByRole('button', { name: 'Draw them' })).toBeDisabled();
+    await expect(turn(page, 'q:agree').getByRole('button', { name: 'Draw the presenter' })).toBeDisabled();
     // nothing before it moved, and everything after it is still readable
     await expect(turn(page, 'you:look-age')).toContainText('30s');
     await expect(turn(page, 'you:look-length')).toContainText('Long');
@@ -88,7 +88,7 @@ test.describe('changing an answer', () => {
     await answer(page, 'Solid').click();
     await answer(page, 'Nothing else').click();
     await expect(log(page)).toContainText('short blonde hair');
-    await answer(page, 'Draw them').click();
+    await answer(page, 'Draw the presenter').click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     await expect.poll(async () => (await draftOf(page, brand.id)).direction, { timeout: 20_000 }).toContain('blonde');
   });
@@ -104,7 +104,7 @@ test.describe('changing an answer', () => {
     await answer(page, 'On the chin').click();
     await answer(page, 'Floral').click();
     await answer(page, 'Right forearm').click();
-    await expect(log(page)).toContainText('Shall I draw them?');
+    await expect(log(page)).toContainText('Here is the presenter, in full. Ready to draw?');
     await expect(turn(page, 'you:traits')).toContainText('Glasses, Scar and Tattoo');
 
     // the chooser opens again with the three lit; the middle one goes
@@ -121,9 +121,9 @@ test.describe('changing an answer', () => {
     await answer(page, 'Thin black').click();
     await expect(log(page)).toContainText('What scar do they have?');
     await answer(page, 'On the chin').click();
-    await expect(answer(page, 'Draw them')).toBeVisible();
+    await expect(answer(page, 'Draw the presenter')).toBeVisible();
 
-    await answer(page, 'Draw them').click();
+    await answer(page, 'Draw the presenter').click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     await expect
       .poll(async () => (await draftOf(page, brand.id)).keep as string, { timeout: 20_000 })
@@ -176,7 +176,7 @@ test.describe('changing an answer', () => {
     await page.goto(`/${brand.slug}/presenters/new`);
     await tapThrough(page);
     await answer(page, 'Nothing else').click();
-    await answer(page, 'Draw them').click();
+    await answer(page, 'Draw the presenter').click();
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 30_000 });
     const before = await draftOf(page, brand.id);
     expect(before.generations).toBe(1);
@@ -262,7 +262,7 @@ test.describe('a picture of the thing itself', () => {
     await expect(page.locator('.sc-convo-field .sc-token[data-kind="image"]')).toHaveCount(0);
 
     // and it reaches the draft as a picture of the detail, not of a person
-    await answer(page, 'Draw them').click();
+    await answer(page, 'Draw the presenter').click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     await expect
       .poll(async () => Object.keys((await draftOf(page, brand.id)).detailRefs ?? {}), { timeout: 20_000 })

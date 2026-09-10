@@ -2,7 +2,7 @@ import { PencilSimple } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { thumbUrl } from '../api.js';
 import { Tip } from '../layout/Tip.js';
-import { useLeave } from './ScenriTurn.js';
+import { TurnTime, useLeave } from './ScenriTurn.js';
 
 /**
  * Your answer: a bubble on the right, under the line it answered, and a
@@ -12,6 +12,7 @@ import { useLeave } from './ScenriTurn.js';
 export function YouTurn({
   text,
   photos,
+  at,
   editable,
   editing,
   first,
@@ -28,6 +29,8 @@ export function YouTurn({
   turnId?: string;
   text: string;
   photos?: string[];
+  /** When the answer was given, for the time over the bubble. */
+  at?: number;
   editable?: boolean;
   /** The first answer carries the "You" word; the rest are told by their side. */
   first?: boolean;
@@ -60,7 +63,16 @@ export function YouTurn({
       data-dim={dim || undefined}
       style={arriving ? ({ '--sc-convo-start': `${start}ms` } as CSSProperties) : undefined}
     >
-      {first && <span className="sc-convo-who">You</span>}
+      {/* the first answer carries the word "You", and the time goes in that row
+          rather than over it; every other answer wears it above the bubble */}
+      {first ? (
+        <span className="sc-convo-who">
+          You
+          {at ? <TurnTime at={at} /> : null}
+        </span>
+      ) : at ? (
+        <TurnTime at={at} />
+      ) : null}
       {editing && onSave && onCancel ? (
         <Rewrite text={text} onSave={onSave} onCancel={onCancel} />
       ) : (

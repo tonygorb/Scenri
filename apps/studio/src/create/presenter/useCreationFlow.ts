@@ -32,6 +32,7 @@ import {
   type FlowContext,
   type LookStep,
   type Qid,
+  type RefQid,
   type TraitQid,
   isLookQid,
   isQid,
@@ -114,11 +115,20 @@ const sameRefs = (x: Record<string, string[]> | undefined, y: Record<string, str
  * can never mean different questions; and none at all while some other answer
  * is being changed, because that answer is the only thing being acted on.
  */
-function pictureFor(state: CreationState, ctx: FlowContext): { id: TraitId; part: 'what' | 'where' } | null {
+function attachWords(state: CreationState, id: RefQid): string {
+  const what = id === 'keep' ? 'detail' : (traitOf(traitOfQid(id)?.id ?? 'glasses')?.label.toLowerCase() ?? 'detail');
+  return `${state.answers[id]?.refs.length ? 'Replace' : 'Add'} the picture of the ${what}`;
+}
+
+function pictureFor(state: CreationState, ctx: FlowContext, open: string | null): RefQid | null {
   const focus =
     state.editing && state.editing !== 'name' ? state.editing : (state.saying ?? nextQuestion(state.answers, ctx));
-  const trait = focus && focus !== 'keep' ? traitOfQid(focus) : null;
-  return trait && trait.part === 'what' ? trait : null;
+  // the read-back's line is open the whole time, and what is said there is a
+  // detail like any other: it takes a picture like one
+  if (focus === 'keep' || (!focus && open === 'agree')) return 'keep';
+  if (!focus) return null;
+  const trait = traitOfQid(focus);
+  return trait && trait.part === 'what' ? (`trait-${trait.id}` as TraitQid) : null;
 }
 
 export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted, caps, capsNote }: CreationFlowArgs) {
@@ -153,7 +163,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   // pressed "Change something": the composer takes the focus, nothing else moves
   const [changing, setChanging] = useState(0);
   // the pictures on their way to the store, each shown from the file itself
-  const [carrying, setCarrying] = useState<{ key: string; id: TraitQid; url: string }[]>([]);
+  const [carrying, setCarrying] = useState<{ key: string; id: RefQid; url: string }[]>([]);
   // the picture the browser holds for each one stored, so a chip shows the
   // thing itself rather than waiting on a thumbnail to be made
   const refShots = useRef(new Map<string, string>());
@@ -401,6 +411,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const failed = d ? (s.err && !isDrawing(d) ? s.err : null) : askErr;
   const turns = useMemo(() => turnsFor({ state, draft: d, canGenerate: canDraw, failed }), [state, d, canDraw, failed]);
   const question = activeQuestion(turns);
+  // the question on the floor, for work that runs after the render it started in
+  const questionRef = useRef<string | null>(null);
+  questionRef.current = question?.id ?? null;
   const view: StudioView = d ? selectedView(d, focus) : 'portrait';
   const slot = d ? d.views[view] : null;
   const drawingNow = !!d && (d.activeView === view || d.stage === 'analyzing');
@@ -504,8 +517,6 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           if (a.kind !== 'confirm') return;
           // agreed: what was tapped is the person, and the face is drawn from it
           if (a.id === 'draw') void startScratch();
-          // a detail the rows could not ask for, in their own words
-          if (a.id === 'add') dispatch({ type: 'say', id: 'keep' });
           return;
         }
         case 'identity':
@@ -582,9 +593,11 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       const chosen = heldNow && step ? colourName(heldNow, colourRow(step), step) : '';
       // A picture of the thing is an answer of its own, the way a colour is.
       const shown =
-        target && target !== 'keep' && target.startsWith('trait-')
-          ? (st.answers[target as TraitQid]?.refs ?? []).length
-          : 0;
+        target === 'keep'
+          ? (st.answers.keep?.refs ?? []).length
+          : target?.startsWith('trait-')
+            ? (st.answers[target as TraitQid]?.refs ?? []).length
+            : 0;
       const sentence = typed || heldNow || '';
       if (!sentence && !shown) return false;
       setAskErr(null);
@@ -615,10 +628,14 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         return true;
       }
       // What is said here is what stays true of them: a second detail joins
-      // the first rather than replacing it.
+      // the first rather than replacing it, and a picture with no words says
+      // exactly what it is a picture of.
       if (target === 'keep') {
-        const keep = [st.answers.keep?.trim(), typed].filter(Boolean).join(', ');
-        commitAnswer({ keep });
+        const had = st.answers.keep;
+        const refs = had?.refs ?? [];
+        const words = typed || (refs.length && !had?.words ? 'the detail in the attached picture' : '');
+        if (!words) return false;
+        commitAnswer({ keep: { words: [had?.words?.trim(), words].filter(Boolean).join(', '), refs } });
         return true;
       }
       // a step being answered in words takes the sentence, and nothing else does
@@ -764,6 +781,11 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const onDescribe = useCallback(() => {
     const st = stateRef.current;
     const id = st.editing && st.editing !== 'name' && !TEXT_QIDS.has(st.editing) ? st.editing : question?.id;
+    // the read-back: a detail the rows could not ask for, in their own words
+    if (id === 'agree') {
+      dispatch({ type: 'say', id: 'keep' });
+      return;
+    }
     if (!id || !isQid(id)) return;
     if (id === 'look-who') {
       commitAnswer({ source: { door: 'scratch', via: 'words' } });
@@ -772,10 +794,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     dispatch({ type: 'say', id });
   }, [question?.id, commitAnswer]);
 
-  const traitTarget = useCallback((): TraitQid | null => {
-    const t = pictureFor(stateRef.current, ctx);
-    return t ? (`trait-${t.id}` as TraitQid) : null;
-  }, [ctx]);
+  const refTargetNow = useCallback((): RefQid | null => pictureFor(stateRef.current, ctx, questionRef.current), [ctx]);
 
   /**
    * A picture of the thing itself, chosen and there at once.
@@ -786,9 +805,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
    * Waiting on a round trip to show a thumbnail is a wait for nothing: the
    * browser already has the bytes.
    */
-  const onAttachTrait = useCallback(
+  const onAttachRef = useCallback(
     (files: File[]) => {
-      const id = traitTarget();
+      const id = refTargetNow();
       if (!id) return;
       setAskErr(null);
       // the line takes the answer from here, so the chip has somewhere to stand
@@ -813,7 +832,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           });
       }
     },
-    [traitTarget],
+    [refTargetNow],
   );
 
   /** A colour's own name, as the chip shows it. */
@@ -833,15 +852,22 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
    * The pictures riding with the answer being written: the ones still on their
    * way, from the file itself, then the ones the store holds.
    */
-  const sayingTrait = state.saying && traitOfQid(state.saying);
-  const refTarget = sayingTrait && sayingTrait.part === 'what' ? (`trait-${sayingTrait.id}` as TraitQid) : null;
+  const refTarget = pictureFor(state, ctx, question?.id ?? null);
   const composerRefs = (() => {
-    if (!refTarget || !sayingTrait) return undefined;
-    const held = state.answers[refTarget]?.refs ?? [];
+    if (!refTarget) return undefined;
+    const all = state.answers[refTarget]?.refs ?? [];
+    // The line carries the answer being written, and nothing else. A detail's
+    // one picture is that answer, so it stands in the line whenever the detail
+    // is open; the last-moment list is a new thing each time it is sent, so the
+    // line shows only what has been attached since it opened.
+    const held =
+      refTarget === 'keep' ? all.slice(state.composing?.id === 'keep' ? state.composing.refs.length : all.length) : all;
     const mine = carrying.filter((c) => c.id === refTarget);
+    if (!held.length && !mine.length) return undefined;
     // a chip is named for what it is a picture of, the way every chip in the
     // app is; several of the same thing are numbered, the way a view is
-    const name = traitOf(sayingTrait.id)?.label ?? 'Reference';
+    const trait = refTarget === 'keep' ? null : traitOfQid(refTarget);
+    const name = (trait && traitOf(trait.id)?.label) || 'Detail';
     const many = held.length + mine.length > 1;
     let n = 0;
     const label = () => (many ? `${name} ${++n}` : name);
@@ -873,7 +899,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const composerOff = s.busy || busySetup || booting || !!composerBase.off;
   // The detail a picture belongs to, whether or not the card can take one yet:
   // the way in stays on screen and says why, rather than coming and going.
-  const attachTarget = pictureFor(state, ctx);
+  const attachTarget = refTarget;
   const sayingStep = state.saying && isLookQid(state.saying) ? (state.saying.slice('look-'.length) as LookStep) : null;
   /** The colours this step is answered with, when it is answered with one. */
   const colours = composerBase.color && sayingStep ? colourPalette(sayingStep) : null;
@@ -913,6 +939,17 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     startOver,
     /** Anything answered, or drawn: something to start over from. */
     begun: Object.keys(state.answers).length > 0 || !!d,
+    /**
+     * What closing the page would throw away: the answers, while they are only
+     * answers. Once a draft holds them the draft is the record and is offered
+     * back on the presenters page, so closing costs nothing and asks nothing.
+     */
+    unsaved: !d && Object.keys(state.answers).length > 0,
+    /** Leave, and take the answers with it. */
+    leave: () => {
+      clearSetup();
+      dispatch({ type: 'start-over' });
+    },
     /** The answers as they stand, for what watches the flow. */
     revision: state.revision,
     open: question?.id ?? null,
@@ -964,7 +1001,14 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         disabled: composerOff,
         working: !!d && !!d.activeView && question?.id !== 'name',
         onStop: d?.activeView ? () => void s.stop() : undefined,
-        focusKey: question ? `${question.id}:${d?.id ?? 'setup'}:${changing}:${state.saying ?? ''}` : undefined,
+        // The keyboard follows a question that is answered in words. The last
+        // word is a decision with a line open beside it, so the caret waits to
+        // be asked for: on a phone, taking it would put the keyboard over the
+        // one button the question is about.
+        focusKey:
+          question && !(question.id === 'agree' && !state.saying)
+            ? `${question.id}:${d?.id ?? 'setup'}:${changing}:${state.saying ?? ''}:${state.says}`
+            : undefined,
         // The way in for a picture is where it always is: beside the pill. At
         // the door it opens the photographs; on a detail it takes a picture of
         // the thing itself, the same as the way in on the question above.
@@ -972,13 +1016,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           !attachTarget && !d && question?.id === 'source'
             ? () => commitAnswer({ source: { door: 'photos', via: 'taps' } })
             : undefined,
-        onAttachFiles: attachTarget ? onAttachTrait : undefined,
+        onAttachFiles: attachTarget ? onAttachRef : undefined,
         // the tooltip and the name a reader hears are the same words, short
-        attachLabel: attachTarget
-          ? `${state.answers[`trait-${attachTarget.id}`]?.refs.length ? 'Replace' : 'Add'} the picture of the ${(
-              traitOf(attachTarget.id)?.label ?? 'detail'
-            ).toLowerCase()}`
-          : 'Add photos',
+        attachLabel: attachTarget ? attachWords(state, attachTarget) : 'Add photos',
         // A colour step takes a swatch as readily as it takes words, and the
         // colour rides in the chip the rest of the app already uses for one.
         refs: composerRefs,
@@ -1004,7 +1044,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       onSaveEdit,
       onCancelEdit,
       onDescribe,
-      onAttachTrait,
+      onAttachRef,
       // A chip is a way to start saying something: it opens the composer on the
       // question it belongs to and leaves the words there to be finished. It
       // never answers, because "tattoo, yes" is not an answer to anything.

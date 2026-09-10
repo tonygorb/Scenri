@@ -4,6 +4,7 @@ import {
   type FlowContext,
   NO_DRAFT,
   type Qid,
+  type RefQid,
   type TraitQid,
   applies,
   commit,
@@ -48,6 +49,13 @@ export interface CreationState {
    * whatever text question is open, or to the draft.
    */
   saying: Qid | 'keep' | null;
+  /**
+   * How many times a question has been handed to the line. The line takes the
+   * keyboard each time it is opened, and opening the same question twice is
+   * two openings: without this the second press handed it nothing new to react
+   * to, and the caret stayed where it was.
+   */
+  says: number;
   text: string;
   /** A colour picked for a colour step, waiting on Send with any words beside it. */
   colour: { step: Qid; hex: string } | null;
@@ -57,7 +65,7 @@ export interface CreationState {
    * written, like the words beside it: kept when the answer is given, and put
    * back as it was when the line closes without one.
    */
-  composing: { id: TraitQid; refs: string[] } | null;
+  composing: { id: RefQid; refs: string[] } | null;
   /** Sentences that answered nothing, each kept where it was said. */
   asides: Aside[];
   /** A sentence with nothing of a person in it, waiting to be drawn from anyway or replaced. */
@@ -73,6 +81,7 @@ export const EMPTY_STATE: CreationState = {
   revision: 0,
   editing: null,
   saying: null,
+  says: 0,
   text: '',
   colour: null,
   composing: null,
@@ -96,7 +105,7 @@ export type Action =
    * same thing is dropped before it is drawn from, and a chip that promises
    * otherwise is a lie. Refused once the detail is no longer chosen.
    */
-  | { type: 'ref'; id: TraitQid; hash: string; remove?: boolean }
+  | { type: 'ref'; id: RefQid; hash: string; remove?: boolean }
   | { type: 'cancel-edit' }
   /** A tap question handed to the composer, or taken back from it. */
   | { type: 'say'; id: Qid | 'keep' | null }
@@ -121,8 +130,10 @@ export type Action =
 const same = (x: unknown, y: unknown) => JSON.stringify(x) === JSON.stringify(y);
 
 /** The detail a question is about, when it is the half a picture belongs to. */
-function pictureQid(id: Qid | 'keep' | 'name' | null): TraitQid | null {
-  if (!id || id === 'keep' || id === 'name') return null;
+function pictureQid(id: Qid | 'keep' | 'name' | null): RefQid | null {
+  if (!id || id === 'name') return null;
+  // what is said at the last moment is a detail like any other, picture and all
+  if (id === 'keep') return 'keep';
   const t = traitOfQid(id);
   return t && t.part === 'what' ? (`trait-${t.id}` as TraitQid) : null;
 }
@@ -199,6 +210,7 @@ export function reduce(s: CreationState, action: Action): CreationState {
         answers: restored(s),
         composing: opening(s, saying),
         saying,
+        says: s.says + 1,
         colour: null,
         text: '',
       };
@@ -250,10 +262,22 @@ export function reduce(s: CreationState, action: Action): CreationState {
       };
     }
     case 'ref': {
-      const trait = action.id.slice('trait-'.length) as TraitId;
-      if (!s.answers.traits?.includes(trait)) return s;
+      // a detail's picture belongs to a detail that is still chosen; what is
+      // said at the last moment belongs to nothing but itself
+      if (action.id !== 'keep') {
+        const trait = action.id.slice('trait-'.length) as TraitId;
+        if (!s.answers.traits?.includes(trait)) return s;
+      }
       const had = s.answers[action.id] ?? { refs: [] };
-      const refs = action.remove ? had.refs.filter((h) => h !== action.hash) : [action.hash];
+      // One picture per detail, replaced when another is chosen: a second angle
+      // of the same thing is dropped before it is ever drawn from. What is said
+      // at the last moment is not one detail but a list of them, so its
+      // pictures gather, one per thing said.
+      const refs = action.remove
+        ? had.refs.filter((h) => h !== action.hash)
+        : action.id === 'keep'
+          ? [...had.refs.filter((h) => h !== action.hash), action.hash].slice(-4)
+          : [action.hash];
       if (refs.join() === had.refs.join()) return s;
       return { ...s, answers: { ...s.answers, [action.id]: { ...had, refs } }, revision: s.revision + 1 };
     }
@@ -281,7 +305,7 @@ export function readyToDraw(s: CreationState, ctx: FlowContext): boolean {
  * composer's half sentence, a question being said again, the chatter, all of
  * it is the moment, and the moment is over.
  */
-const STORED = 2;
+const STORED = 3;
 
 export function serialize(s: CreationState): string {
   return JSON.stringify({ v: STORED, answers: s.answers, revision: s.revision });
@@ -291,10 +315,14 @@ export function deserialize(raw: string | null): { answers: Answers; revision: n
   if (!raw) return null;
   try {
     const p = JSON.parse(raw) as { v?: number; answers?: Record<string, unknown>; revision?: number };
-    if (p.v !== STORED || !p.answers || typeof p.answers !== 'object') return null;
+    // v2 wrote the last-moment detail as bare words; it carries a picture now
+    if ((p.v !== STORED && p.v !== 2) || !p.answers || typeof p.answers !== 'object') return null;
     const answers: Answers = {};
     // a question the table no longer has is forgotten, never carried
-    for (const [k, v] of Object.entries(p.answers)) if (isQid(k)) (answers as Record<string, unknown>)[k] = v;
+    for (const [k, v] of Object.entries(p.answers)) {
+      if (!isQid(k)) continue;
+      (answers as Record<string, unknown>)[k] = k === 'keep' && typeof v === 'string' ? { words: v, refs: [] } : v;
+    }
     return { answers, revision: typeof p.revision === 'number' ? p.revision : 0 };
   } catch {
     return null;

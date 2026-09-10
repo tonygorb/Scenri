@@ -1,3 +1,4 @@
+import { Check, Copy, Paperclip } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
 import { CardStrip } from './CardStrip.js';
@@ -52,6 +53,7 @@ export function QuestionBlock({
   onPick,
   onStarter,
   onDescribe,
+  onAttachFiles,
   onCancel,
 }: {
   question: Question;
@@ -77,6 +79,8 @@ export function QuestionBlock({
   onStarter?: (text: string) => void;
   /** Say it in words instead: the composer takes the answer from here. */
   onDescribe?: () => void;
+  /** A picture of the thing itself, chosen here: it rides with the answer being written. */
+  onAttachFiles?: (files: File[]) => void;
   /** A question open again is left as it was. */
   onCancel?: () => void;
 }) {
@@ -109,10 +113,36 @@ export function QuestionBlock({
   const on = picked ?? asOne(given);
   const plan = revealPlan(question.prompt);
   const promptId = `sc-convo-q-${question.id}`;
+  const files = useRef<HTMLInputElement>(null);
   const cancel = question.reopened && onCancel && (
     <button type="button" className="sc-btn sc-btn-ghost sc-convo-cancel" onClick={onCancel}>
       Cancel
     </button>
+  );
+  /**
+   * A picture of the thing, chosen from the question itself. It is the same
+   * way in as the plus beside the pill and does the same thing: the answer
+   * being written takes the picture, and the words go on beside it.
+   */
+  const attach = 'attach' in question && question.attach && onAttachFiles && (
+    <>
+      <button type="button" className="sc-chip sc-convo-choice sc-convo-pass" onClick={() => files.current?.click()}>
+        <Paperclip size={14} weight="bold" />
+        {question.attach}
+      </button>
+      <input
+        ref={files}
+        type="file"
+        accept="image/*"
+        hidden
+        aria-label={question.attach}
+        onChange={(e) => {
+          const chosen = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith('image/'));
+          e.target.value = '';
+          if (chosen.length) onAttachFiles(chosen);
+        }}
+      />
+    </>
   );
   return (
     <div
@@ -204,9 +234,9 @@ export function QuestionBlock({
             </div>
           )}
 
-        {question.kind === 'choice' && question.describe && (
+        {question.kind === 'choice' && (question.describe || question.attach) && (
           <div className="sc-convo-ways">
-            {onDescribe && (
+            {question.describe && onDescribe && (
               <button
                 type="button"
                 className="sc-chip sc-convo-choice sc-convo-pass"
@@ -217,11 +247,12 @@ export function QuestionBlock({
                 {question.describe}
               </button>
             )}
+            {attach}
             {!question.multi && cancel}
           </div>
         )}
 
-        {question.kind === 'choice' && !question.groups && !question.describe && cancel && (
+        {question.kind === 'choice' && !question.groups && !question.describe && !question.attach && cancel && (
           <div className="sc-convo-ways">{cancel}</div>
         )}
 
@@ -415,6 +446,8 @@ export function QuestionBlock({
           </div>
         )}
 
+        {question.kind === 'confirm' && question.quote && <Quote text={question.quote} />}
+
         {question.kind === 'confirm' && (
           <div className="sc-convo-decide">
             {question.options.map((o, i) => (
@@ -428,11 +461,62 @@ export function QuestionBlock({
                 {o.label}
               </button>
             ))}
+            {/* saying something instead of deciding is a way in, not a decision:
+                it lights while it is open and closes when it is pressed again */}
+            {question.describe && onDescribe && (
+              <button
+                type="button"
+                className="sc-btn sc-btn-ghost"
+                aria-pressed={question.saying === undefined ? undefined : question.saying}
+                data-on={question.saying || undefined}
+                onClick={onDescribe}
+              >
+                {question.describe}
+              </button>
+            )}
+            {attach}
             {cancel}
           </div>
         )}
       </fieldset>
     </div>
+  );
+}
+
+/**
+ * Words the question is about, set apart from the talk: the sentence that is
+ * going somewhere else, in a block of its own, with a quiet way to take a copy
+ * of it. The copy button is there on hover and whenever the keyboard reaches
+ * it, so it is never a thing only a mouse can find.
+ */
+function Quote({ text, label = 'The brief' }: { text: string; label?: string }) {
+  const [took, setTook] = useState(false);
+  useEffect(() => {
+    if (!took) return;
+    const t = setTimeout(() => setTook(false), 1600);
+    return () => clearTimeout(t);
+  }, [took]);
+  return (
+    <figure className="sc-convo-brief">
+      <figcaption className="sc-convo-brief-head">
+        <span className="sc-convo-brief-lb">{label}</span>
+        <button
+          type="button"
+          className="sc-convo-brief-copy"
+          data-took={took || undefined}
+          onClick={() => {
+            void navigator.clipboard?.writeText(text).then(
+              () => setTook(true),
+              () => undefined,
+            );
+          }}
+        >
+          {took ? <Check size={13} weight="bold" /> : <Copy size={13} weight="bold" />}
+          {took ? 'Copied' : 'Copy'}
+        </button>
+      </figcaption>
+      <p className="sc-convo-brief-text">{text}</p>
+    </figure>
   );
 }
 

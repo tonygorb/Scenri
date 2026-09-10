@@ -21,13 +21,17 @@ afterEach(() => {
   host.remove();
 });
 
-const render = (question: Question, on: { onAnswer?: (a: Answer) => void; onCancel?: () => void } = {}) =>
+const render = (
+  question: Question,
+  on: { onAnswer?: (a: Answer) => void; onCancel?: () => void; onDescribe?: () => void } = {},
+) =>
   act(() => {
     root.render(
       createElement(QuestionBlock, {
         question,
         onAnswer: on.onAnswer ?? (() => undefined),
         onCancel: on.onCancel,
+        onDescribe: on.onDescribe,
       }),
     );
   });
@@ -90,6 +94,36 @@ describe('a question block', () => {
     // the second tap lands on a block already answered, and is not a second answer
     expect(onAnswer).toHaveBeenCalledTimes(1);
     expect(onAnswer).toHaveBeenCalledWith({ kind: 'confirm', id: 'draw' });
+  });
+
+  it('offers a decision a way to say something instead, and the same word closes it again', () => {
+    const onDescribe = vi.fn();
+    const onAnswer = vi.fn();
+    const say = (saying: boolean) =>
+      render(
+        {
+          id: 'agree',
+          kind: 'confirm',
+          prompt: 'Shall I draw them?',
+          options: [{ id: 'draw', label: 'Draw them' }],
+          describe: 'Add a detail',
+          saying,
+        },
+        { onAnswer, onDescribe },
+      );
+    say(false);
+    expect(button('Add a detail').getAttribute('aria-pressed')).toBe('false');
+    expect(button('Add a detail').dataset.on).toBeUndefined();
+    act(() => button('Add a detail').click());
+    expect(onDescribe).toHaveBeenCalledTimes(1);
+    // it is a way in, never an answer: the decision is still open
+    expect(onAnswer).not.toHaveBeenCalled();
+    // and while the line is open it is lit, so the same word is the way out
+    say(true);
+    expect(button('Add a detail').getAttribute('aria-pressed')).toBe('true');
+    expect(button('Add a detail').dataset.on).toBe('true');
+    act(() => button('Add a detail').click());
+    expect(onDescribe).toHaveBeenCalledTimes(2);
   });
 
   it('shows a fresh question with its line and nothing lit', () => {

@@ -24,6 +24,9 @@ export const PROMPT = {
   traits: 'Anything else that is always true of them?',
   traitsPhotos: 'Anything in these photos that is always true of them?',
   keep: 'Anything else about them?',
+  // The last word before a picture is drawn: the whole person is set out above
+  // it, so the ask itself is one short question and nothing more.
+  agree: 'Here is the presenter, in full. Ready to draw?',
   identity: (who: string) => `Here is ${who === 'them' ? 'the face' : who}. Use this person, or change something.`,
   change: 'What should change?',
   extras: 'Add back and profile views? They help shots from behind or in profile.',

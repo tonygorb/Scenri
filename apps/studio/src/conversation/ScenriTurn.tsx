@@ -17,6 +17,7 @@ import { type QuestionTone, REVEAL_LEAD_MS, THINK_MS, revealPlan } from './quest
 export function ScenriTurn({
   text,
   tone,
+  at,
   reveal,
   eyebrow = true,
   delay = 0,
@@ -31,6 +32,8 @@ export function ScenriTurn({
 }: {
   text: string;
   tone?: QuestionTone;
+  /** When the line was said, for the time beside the name. */
+  at?: number;
   /** A picture the line is about, shown small under it. */
   thumb?: string;
   /** Its name: the view and its number. */
@@ -70,7 +73,7 @@ export function ScenriTurn({
           : undefined
       }
     >
-      {eyebrow && <Eyebrow thinking={thinking} />}
+      {eyebrow && <Eyebrow thinking={thinking} at={at} />}
       <p className="sc-convo-say" data-tone={tone} data-reveal={playing || undefined}>
         {thinking && <Thinking />}
         <RevealWords text={text} playing={playing} />
@@ -104,12 +107,29 @@ export const arrivalVars = (delay: number): CSSProperties =>
  * type, never the lockup artwork, which reads heavier than a line of chat at
  * this size. The mark breathes while a line is on its way.
  */
-export function Eyebrow({ thinking }: { thinking?: boolean }) {
+export function Eyebrow({ thinking, at }: { thinking?: boolean; at?: number }) {
   return (
     <span className="sc-convo-who" data-thinking={thinking || undefined}>
       <ScenriMark className="sc-convo-mark" />
       Scenri
+      {at ? <TurnTime at={at} /> : null}
     </span>
+  );
+}
+
+/**
+ * When a turn was said, beside the name or over the bubble. It is there for
+ * the asking rather than always: a conversation reads as talk, and a column of
+ * clock times reads as a log. It is a real `<time>`, so what it says is
+ * available to a screen reader whether or not it is on screen.
+ */
+export function TurnTime({ at }: { at: number }) {
+  const d = new Date(at);
+  const short = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return (
+    <time className="sc-convo-time" dateTime={d.toISOString()}>
+      {short}
+    </time>
   );
 }
 

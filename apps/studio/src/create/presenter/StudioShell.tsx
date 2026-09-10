@@ -83,6 +83,8 @@ export interface StudioSurface {
   onEdit?: (turnId: string) => void;
   /** A tap question answered in words instead. */
   onDescribe?: () => void;
+  /** A picture of the thing, chosen from the question itself. */
+  onAttachRef?: (files: File[]) => void;
 
   /** A chip that starts a sentence rather than answering: it opens the composer on it. */
   onStarter?: (text: string) => void;
@@ -229,6 +231,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 onRestore={s.onRestore}
                 onStarter={(text) => (s.onStarter ?? s.onText)(text)}
                 onDescribe={s.onDescribe}
+                onAttachFiles={s.onAttachRef}
               />
             </div>
           </div>
