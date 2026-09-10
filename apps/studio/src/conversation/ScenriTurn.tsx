@@ -1,6 +1,7 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { thumbUrl } from '../api.js';
 import { ScenriMark } from '../layout/ScenriMark.js';
+import { fullTime, sayTime } from './turnTime.js';
 import { type QuestionTone, REVEAL_LEAD_MS, THINK_MS, revealPlan } from './question.js';
 
 /**
@@ -18,6 +19,7 @@ export function ScenriTurn({
   text,
   tone,
   at,
+  now,
   reveal,
   eyebrow = true,
   delay = 0,
@@ -34,6 +36,8 @@ export function ScenriTurn({
   tone?: QuestionTone;
   /** When the line was said, for the time beside the name. */
   at?: number;
+  /** The clock the whole transcript reads by, so no two times disagree. */
+  now?: number;
   /** A picture the line is about, shown small under it. */
   thumb?: string;
   /** Its name: the view and its number. */
@@ -73,7 +77,7 @@ export function ScenriTurn({
           : undefined
       }
     >
-      {eyebrow && <Eyebrow thinking={thinking} at={at} />}
+      {eyebrow && <Eyebrow thinking={thinking} at={at} now={now} />}
       <p className="sc-convo-say" data-tone={tone} data-reveal={playing || undefined}>
         {thinking && <Thinking />}
         <RevealWords text={text} playing={playing} />
@@ -107,29 +111,45 @@ export const arrivalVars = (delay: number): CSSProperties =>
  * type, never the lockup artwork, which reads heavier than a line of chat at
  * this size. The mark breathes while a line is on its way.
  */
-export function Eyebrow({ thinking, at }: { thinking?: boolean; at?: number }) {
+export function Eyebrow({ thinking, at, now }: { thinking?: boolean; at?: number; now?: number }) {
   return (
     <span className="sc-convo-who" data-thinking={thinking || undefined}>
       <ScenriMark className="sc-convo-mark" />
       Scenri
-      {at ? <TurnTime at={at} /> : null}
+      {at ? <TurnTime at={at} now={now} /> : null}
     </span>
   );
 }
 
 /**
- * When a turn was said, beside the name or over the bubble. It is there for
- * the asking rather than always: a conversation reads as talk, and a column of
- * clock times reads as a log. It is a real `<time>`, so what it says is
- * available to a screen reader whether or not it is on screen.
+ * When a turn was said, beside the name or over the bubble, for the one turn
+ * the cursor is on.
+ *
+ * It answers in the words the question was asked in: "just now" and "12 min
+ * ago" while that is what a person means, the clock once it is not. The exact
+ * moment is on the title for anyone who wants it, and it is a real `<time>`,
+ * so what it says reaches a screen reader whether or not it is on screen.
  */
-export function TurnTime({ at }: { at: number }) {
-  const d = new Date(at);
-  const short = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+export function TurnTime({ at, now }: { at: number; now?: number }) {
   return (
-    <time className="sc-convo-time" dateTime={d.toISOString()}>
-      {short}
+    <time className="sc-convo-time" dateTime={new Date(at).toISOString()} title={fullTime(at)}>
+      {sayTime(at, now)}
     </time>
+  );
+}
+
+/**
+ * Where the conversation paused, said once, in the flow.
+ *
+ * This is the time a reader actually reads: a run of turns is one moment, and
+ * the only place a clock carries information is between two of them. It stands
+ * on its own line, quiet, and is never hovered for.
+ */
+export function WhenMark({ text }: { text: string }) {
+  return (
+    <div className="sc-convo-when">
+      <span>{text}</span>
+    </div>
   );
 }
 

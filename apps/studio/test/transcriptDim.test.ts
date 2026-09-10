@@ -45,6 +45,18 @@ const ANSWERED: Turn[] = [
 ];
 
 describe('a line already answered', () => {
+  it('says where the conversation paused, once, in the flow', () => {
+    render([
+      { kind: 'you', id: 'intent', text: 'Create a presenter' },
+      asked('look-who', 'Who are they?'),
+      said('look-who', 'Woman'),
+    ]);
+    // one sitting, one mark: the clock is not repeated down the column
+    const marks = [...host.querySelectorAll('.sc-convo-when')];
+    expect(marks).toHaveLength(1);
+    expect(marks[0].textContent).toMatch(/^Today /);
+  });
+
   it('carries the time it was said, on both sides', () => {
     render([
       { kind: 'you', id: 'intent', text: 'Create a presenter' },
@@ -54,6 +66,9 @@ describe('a line already answered', () => {
     const times = [...host.querySelectorAll<HTMLTimeElement>('.sc-convo-time')];
     expect(times.length).toBeGreaterThanOrEqual(2);
     expect(times.every((t) => !!t.dateTime)).toBe(true);
+    // in the words the question was asked in, with the whole truth on the title
+    expect(times.every((t) => t.textContent === 'just now')).toBe(true);
+    expect(times.every((t) => !!t.title)).toBe(true);
   });
 });
 

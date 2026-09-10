@@ -13,6 +13,7 @@ export function YouTurn({
   text,
   photos,
   at,
+  now,
   editable,
   editing,
   first,
@@ -31,6 +32,8 @@ export function YouTurn({
   photos?: string[];
   /** When the answer was given, for the time over the bubble. */
   at?: number;
+  /** The clock the whole transcript reads by, so no two times disagree. */
+  now?: number;
   editable?: boolean;
   /** The first answer carries the "You" word; the rest are told by their side. */
   first?: boolean;
@@ -68,10 +71,10 @@ export function YouTurn({
       {first ? (
         <span className="sc-convo-who">
           You
-          {at ? <TurnTime at={at} /> : null}
+          {at ? <TurnTime at={at} now={now} /> : null}
         </span>
       ) : at ? (
-        <TurnTime at={at} />
+        <TurnTime at={at} now={now} />
       ) : null}
       {editing && onSave && onCancel ? (
         <Rewrite text={text} onSave={onSave} onCancel={onCancel} />

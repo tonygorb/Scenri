@@ -1,8 +1,9 @@
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { REVEAL_LEAD_MS, THINK_MS, type Answer, type Turn, prefersReducedMotion, turnKey } from './question.js';
 import { PICK_MS, type Picked, QuestionBlock } from './QuestionBlock.js';
-import { ScenriTurn, Working } from './ScenriTurn.js';
+import { ScenriTurn, WhenMark, Working } from './ScenriTurn.js';
 import { YouTurn } from './YouTurn.js';
+import { whenMark } from './turnTime.js';
 
 /** The beat a turn takes to go when it leaves: a reverted answer, a question that is over. */
 export const LEAVE_MS = 180;
@@ -230,6 +231,18 @@ export function Transcript({
   // when each turn was first said, kept beside the said-lines for the same reason
   const times = useRef<Map<string, number> | null>(null);
   if (times.current === null) times.current = (memoryKey ? readTimes(memoryKey) : null) ?? new Map();
+  // One clock, read by every time on screen, moved on a minute at a time so
+  // "just now" stops saying so when it stops being true. It stands still once
+  // nothing on screen is younger than an hour, because nothing it says would
+  // change: past that, a time is a clock time and clock times do not move.
+  const [clock, setClock] = useState(() => Date.now());
+  const youngest = Math.max(0, ...times.current.values());
+  const ticking = clock - youngest < 3_600_000;
+  useEffect(() => {
+    if (!ticking) return;
+    const t = window.setInterval(() => setClock(Date.now()), 30_000);
+    return () => window.clearInterval(t);
+  }, [ticking]);
   if (askAgain.current) {
     seen.current.delete(askAgain.current);
     askAgain.current = null;
@@ -480,15 +493,24 @@ export function Transcript({
   // it was first seen, not the time the page opened.
   for (const t of shown) {
     const k = turnKey(t);
-    if (t.kind !== 'question' && !times.current.has(k)) times.current.set(k, Date.now());
+    if (!times.current.has(k)) times.current.set(k, Date.now());
   }
 
   let firstYou = true;
   let prevScenri = false;
+  // the time of the turn before this one, for the mark between two sittings
+  let ago: number | undefined;
   const out: ReactNode[] = [];
   for (const t of shown) {
     const k = turnKey(t);
     const dim = !!changing && !bright.has(k);
+    // Where the conversation paused, said once, in the flow.
+    const at = times.current.get(k);
+    if (at !== undefined) {
+      const mark = whenMark(at, ago, clock);
+      ago = at;
+      if (mark && !leaving?.gone.has(k)) out.push(<WhenMark key={`when:${k}`} text={mark} />);
+    }
     const going = !!leaving?.gone.has(k);
     // a block that was tapped goes as its ghost, not as a fade
     const ghost = going && t.kind === 'question' && leaving?.look?.qid === t.question.id;
@@ -521,7 +543,8 @@ export function Transcript({
           delay={delay}
           turnId={k}
           dim={dim}
-          at={times.current.get(k)}
+          at={at}
+          now={clock}
           onEdit={t.editable && onEdit ? () => onEdit(t.id) : undefined}
           onSave={onSaveEdit ? (said) => onSaveEdit(t.id, said) : undefined}
           onCancel={onCancelEdit}
@@ -539,7 +562,8 @@ export function Transcript({
           delay={delay}
           turnId={k}
           dim={dim}
-          at={times.current.get(k)}
+          at={at}
+          now={clock}
           thumb={t.thumb}
           label={t.label}
           current={t.current}
@@ -561,6 +585,8 @@ export function Transcript({
           // while one answer is being changed, no other question takes one
           busy={busy || dim}
           eyebrow={!afterScenri}
+          at={at}
+          now={clock}
           onAnswer={(a) => onAnswer(t.question.id, a)}
           onPick={onPick}
           onStarter={onStarter}
@@ -572,7 +598,14 @@ export function Transcript({
     }
   }
   return (
-    <div ref={box} className="sc-convo-log" role="log" aria-live="polite" aria-relevant="additions">
+    <div
+      ref={box}
+      className="sc-convo-log"
+      role="log"
+      aria-live="polite"
+      aria-relevant="additions"
+      data-changing={changing ? 'true' : undefined}
+    >
       <div className="sc-convo-turns">
         {out}
         {working && <Working what={working === true ? undefined : working} />}

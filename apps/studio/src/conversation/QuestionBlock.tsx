@@ -49,6 +49,8 @@ export function QuestionBlock({
   spent,
   turnId,
   dim,
+  at,
+  now,
   onAnswer,
   onPick,
   onStarter,
@@ -72,6 +74,10 @@ export function QuestionBlock({
   spent?: boolean;
   /** An answer is being changed elsewhere: this block steps back while it is. */
   dim?: boolean;
+  /** When the question was asked, for the time beside the name. */
+  at?: number;
+  /** The clock the whole transcript reads by. */
+  now?: number;
   onAnswer: (answer: Answer) => void;
   /** A tap was taken: what the block looked like, so the transcript keeps its ghost while the row goes. */
   onPick?: (questionId: string, picked: Picked) => void;
@@ -156,7 +162,7 @@ export function QuestionBlock({
       style={playing ? ({ ...arrivalVars(start), '--sc-convo-after': `${plan.total}ms` } as CSSProperties) : undefined}
     >
       {/* a question open again stands under the line it was asked with: only the way to answer is here */}
-      {!question.reopened && eyebrow && <Eyebrow thinking={thinking} />}
+      {!question.reopened && eyebrow && <Eyebrow thinking={thinking} at={at} now={now} />}
       {!question.reopened && (
         <p className="sc-convo-say" id={promptId} data-tone={question.tone} data-reveal={playing || undefined}>
           {thinking && <Thinking />}
