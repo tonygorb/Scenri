@@ -137,9 +137,20 @@ const LOOK_ASK: Record<string, { thing: string; how: string }> = {
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** The question again, in words that answer what was actually said. Different words the second time. */
-export function asideReply(kind: NothingKind, phase: AsidePhase, again: boolean, said = '', step?: string): string {
+/**
+ * The answer to something that answered nothing.
+ *
+ * `again` is how many times this same question has already been answered this
+ * way. The same sentence three times running reads as a wall rather than as a
+ * reply, so once somebody is plainly stuck the way out is named instead.
+ */
+export function asideReply(kind: NothingKind, phase: AsidePhase, again: number, said = '', step?: string): string {
   const ask = phase === 'look' ? (LOOK_ASK[step ?? ''] ?? null) : null;
   const how = ask?.how ?? HOW[phase];
+  // said twice already: point at the way past it rather than asking a third time
+  if (again >= 2 && kind !== 'likeness') {
+    return phase === 'look' || phase === 'detail' ? `${cap(how)}. Or Skip it and we will choose.` : `${cap(how)}.`;
+  }
   switch (kind) {
     case 'likeness':
       return 'Describe them by looks. Scenri does not draw a named person.';

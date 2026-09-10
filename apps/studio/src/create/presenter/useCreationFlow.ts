@@ -11,6 +11,8 @@ import { type CreationState, EMPTY_STATE, deserialize, readyToDraw, reduce, seri
 import { type AsidePhase, asideReply } from './presenterCopy.js';
 import {
   TEXT_QIDS,
+  answeredInWords,
+  notAnAnswerAtAStep,
   activeQuestion,
   answerPatch,
   attachedWords,
@@ -605,7 +607,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       const sentence = typed || heldNow || '';
       if (!sentence && !shown) return false;
       setAskErr(null);
-      const again = (q: string | null) => st.asides.some((x) => x.q === q);
+      // how many times this same question has already been answered with
+      // something that was not an answer
+      const again = (q: string | null) => st.asides.filter((x) => x.q === q).length;
 
       // A detail in their own words: it answers the open half of that trait,
       // and the placement question follows only if the words did not say it.
@@ -619,7 +623,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           commitAnswer({ [target]: { words: attachedWords(trait.id, held.length), refs: held } });
           return true;
         }
-        const empty = answersNothing(typed, readsAsPerson);
+        const empty = notAnAnswerAtAStep(typed, readsAsPerson);
         if (!typed || empty) {
           bounce(typed, asideReply(empty ?? 'vague', 'detail', again(target), typed), target);
           return true;
@@ -647,7 +651,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         // words in place of a tap are still words: what says nothing is bounced
         // the way it is anywhere else, and the step stays open. A swatch says
         // what it is, so only typed words are read this way, chip or no chip.
-        const empty = typed && !/^#[0-9a-f]{6}$/i.test(typed) ? answersNothing(typed, readsAsPerson) : null;
+        const empty = typed && !/^#[0-9a-f]{6}$/i.test(typed) ? notAnAnswerAtAStep(typed, readsAsPerson) : null;
         if (empty) {
           bounce(typed, asideReply(empty, 'look', again(target), typed, step), target);
           return true;
@@ -800,7 +804,15 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         if (d) void s.update({ name: text.slice(0, 60) });
         return;
       }
-      if (isQid(turnId) && TEXT_QIDS.has(turnId)) commitAnswer({ [turnId]: text });
+      if (!isQid(turnId) || !answeredInWords(turnId, stateRef.current.answers)) return;
+      // A detail keeps whatever pictures were attached to it: the words are
+      // being changed, not what they were said about.
+      if (turnId.startsWith('trait-') && !turnId.endsWith('-where')) {
+        const had = stateRef.current.answers[turnId as TraitQid];
+        commitAnswer({ [turnId]: { words: text, refs: had?.refs ?? [] } });
+        return;
+      }
+      commitAnswer({ [turnId]: text });
     },
     [d, s.update, commitAnswer],
   );
@@ -813,7 +825,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
    */
   const onDescribe = useCallback(() => {
     const st = stateRef.current;
-    const id = st.editing && st.editing !== 'name' && !TEXT_QIDS.has(st.editing) ? st.editing : question?.id;
+    const id =
+      st.editing && st.editing !== 'name' && !answeredInWords(st.editing, st.answers) ? st.editing : question?.id;
     // the read-back: a detail the rows could not ask for, in their own words
     if (id === 'agree') {
       dispatch({ type: 'say', id: 'keep' });

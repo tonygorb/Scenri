@@ -930,7 +930,7 @@ export function DetailOverlay({
               field is already waiting when the picture lands. */}
           </div>
           {(hasImage || node.status === 'running') && (
-            <div className="sc-ovl-edit">
+            <div className="sc-ovl-edit sc-dock">
               {/* In here the target is the whole screen, so it is stated rather
               than chosen: `target` is this shot and there is no chip, because
               there is nothing else this composer could be talking about. The

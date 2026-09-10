@@ -441,20 +441,14 @@
 }
 
 /* ---- rail foot: the composer, the decision, the footnote ----------------- */
+/* The composer sits on no shelf: .sc-dock in shells.css does the fading, and
+   this says only what it is standing on. */
 .sc-pstudio-foot {
-  --sc-pstudio-fade: 28px;
+  --sc-dock-ground: var(--sc-bg);
   display: flex;
   flex-direction: column;
   gap: var(--sc-space-4);
   padding: var(--sc-space-7);
-  /* The composer sits on no shelf. The foot is pulled up over the scroller by
-     the height of its own fade and paints last, so a line scrolling out of the
-     transcript dissolves into the rail's colour instead of meeting a hard
-     edge. The same transparent-to-ground gradient the overlay docks use. */
-  margin-top: calc(-1 * var(--sc-pstudio-fade));
-  padding-top: calc(var(--sc-space-7) + var(--sc-pstudio-fade));
-  position: relative;
-  z-index: 1;
 }
 
 .sc-pstudio-foot .sc-dlg-foot {
@@ -508,14 +502,15 @@
 
   /* the rail is the lighter surface, the stage the darker one: ink-900 on ink-950 */
   .sc-pstudio-head,
-  .sc-pstudio-body,
-  .sc-pstudio-foot {
+  .sc-pstudio-body {
     border-left: 1px solid var(--sc-line);
     background: var(--sc-panel);
   }
 
+  /* the foot stands on the rail's colour; the dock paints it */
   .sc-pstudio-foot {
-    background: linear-gradient(to bottom, transparent, var(--sc-panel) var(--sc-pstudio-fade));
+    --sc-dock-ground: var(--sc-panel);
+    border-left: 1px solid var(--sc-line);
   }
 }
 
@@ -680,16 +675,13 @@
   }
 
   /* The bottom of the conversation, not a bar bolted under it: the same ground
-     as the talk above it and no seam across the screen. It is already sticky
-     over the one scroller, so the fade is all it needs; the pull-up the desktop
-     rail uses would only lift it off its own bottom. */
+     as the talk above it and no seam across the screen. Sticky over the one
+     scroller, so the talk passes under the fade on its way out. */
   .sc-pstudio-foot {
+    --sc-dock-ground: var(--sc-panel);
     position: sticky;
     bottom: 0;
-    margin-top: 0;
-    padding: calc(var(--sc-space-5) + var(--sc-pstudio-fade)) var(--sc-space-6)
-      calc(var(--sc-space-5) + var(--sc-bottom-inset));
-    background: linear-gradient(to bottom, transparent, var(--sc-panel) var(--sc-pstudio-fade));
+    padding: var(--sc-space-5) var(--sc-space-6) calc(var(--sc-space-5) + var(--sc-bottom-inset));
   }
 }
 

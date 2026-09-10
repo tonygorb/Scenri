@@ -629,7 +629,8 @@
 .sc-ovl-edit {
   flex-shrink: 0;
   margin-top: auto;
-  background: var(--sc-bg);
+  /* the sections scroll above it and dissolve into it: .sc-dock in shells.css */
+  --sc-dock-ground: var(--sc-bg);
   /* the frames inset the composer card 20px on every side */
   padding: var(--sc-space-7);
 }

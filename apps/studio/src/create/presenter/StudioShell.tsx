@@ -302,7 +302,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
               />
             </div>
           </div>
-          <div className="sc-pstudio-foot">
+          <div className="sc-pstudio-foot sc-dock">
             {s.dock}
             {s.composer && (
               <ConversationComposer

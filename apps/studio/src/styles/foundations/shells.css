@@ -77,3 +77,46 @@
     --sc-tabbar-h: 58px;
   }
 }
+
+/* ---- a docked composer, and the ground arriving under the scroller -------
+   A composer at the foot of a column, outside the scroller above it, meets
+   that scroller at a hard edge unless something is done about it. What is done
+   about it is the same wherever it happens: a strip of the foot's own ground,
+   fading upwards, is drawn over the last of the scroller, so a line leaving the
+   column dissolves rather than stopping against an edge.
+
+   It is a layer above the foot, not part of it: a surface keeps whatever
+   padding and whatever margin it already had, and says only what colour it
+   stands on. The rest is here, once, so no surface writes a gradient of its
+   own and no two of them drift apart.
+
+   The stops are eased, not linear. A straight ramp from transparent to a solid
+   reads as a band, because the eye finds the two places where the rate of
+   change starts and stops; a curve that begins slowly has neither. The first
+   stop is the ground at zero rather than `transparent`, so the fade keeps its
+   own hue instead of passing through grey. */
+.sc-dock {
+  --sc-dock-fade: 56px;
+  position: relative;
+  z-index: 1;
+  background: var(--sc-dock-ground);
+}
+
+.sc-dock::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 100%;
+  height: var(--sc-dock-fade);
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--sc-dock-ground) 0%, transparent) 0%,
+    color-mix(in srgb, var(--sc-dock-ground) 5%, transparent) 20%,
+    color-mix(in srgb, var(--sc-dock-ground) 17%, transparent) 36%,
+    color-mix(in srgb, var(--sc-dock-ground) 37%, transparent) 52%,
+    color-mix(in srgb, var(--sc-dock-ground) 63%, transparent) 68%,
+    color-mix(in srgb, var(--sc-dock-ground) 86%, transparent) 84%,
+    var(--sc-dock-ground) 100%
+  );
+}

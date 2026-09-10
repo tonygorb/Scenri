@@ -12,9 +12,13 @@ import {
   composerFor,
   editCost,
   flowContext,
+  answeredInWords,
+  notAnAnswerAtAStep,
   sentenceTarget,
   turnsFor,
 } from '../src/create/presenter/presenterFlowRules.ts';
+import { HAIR_LENGTHS } from '../src/create/presenter/presenterLook.ts';
+import { TRAITS } from '../src/create/presenter/presenterTraits.ts';
 import { asideReply } from '../src/create/presenter/presenterCopy.ts';
 import { answersNothing } from '../src/conversation/question.ts';
 import type { Answers } from '../src/create/presenter/presenterQuestions.ts';
@@ -327,9 +331,65 @@ describe('a question with chips still takes words', () => {
     expect(answersNothing('hi', readsAsPerson)).toBe('greeting');
     expect(answersNothing('what can you do?', readsAsPerson)).toBe('question');
     expect(answersNothing('auburn, past the shoulder', readsAsPerson)).toBeNull();
-    const reply = asideReply('greeting', 'look', false, 'hi', 'colour');
+    const reply = asideReply('greeting', 'look', 0, 'hi', 'colour');
     expect(reply.length).toBeGreaterThan(0);
     expect(reply).not.toMatch(/nothing to type/i);
+  });
+
+  it('a short answer to a short question is an answer, not noise', () => {
+    // Every one of these was refused at "And the length?" and sent the same
+    // sentence back five times. They describe nobody, which is the general
+    // test, and they answer the question, which is the only test that matters
+    // at a step.
+    for (const said of ['pony tail', 'kare', 'CARE', 'buzz cut', 'not fat', 'extra fat']) {
+      expect(notAnAnswerAtAStep(said, readsAsPerson), said).toBeNull();
+    }
+    // the general test is what refused them, and it still says what it said
+    expect(answersNothing('pony tail', readsAsPerson)).toBe('vague');
+    expect(answersNothing('kare', readsAsPerson)).toBe('vague');
+    // and what is plainly conversation still is, at a step as anywhere else
+    for (const said of ['hi', 'what can you do?', 'go back']) {
+      expect(notAnAnswerAtAStep(said, readsAsPerson), said).not.toBeNull();
+    }
+  });
+
+  it('the same reply is not sent a third time; the way out is named instead', () => {
+    const first = asideReply('greeting', 'look', 0, 'hi', 'length');
+    const second = asideReply('greeting', 'look', 1, 'hi', 'length');
+    const third = asideReply('greeting', 'look', 2, 'hi', 'length');
+    expect(second).not.toBe(first);
+    expect(third).not.toBe(second);
+    expect(third).toMatch(/Skip/);
+  });
+});
+
+describe('changing an answer that was typed', () => {
+  it('is rewritten where it stands, and one that was tapped reopens its row', () => {
+    const typed: Answers = { 'look-length': 'a pony tail' };
+    const tapped: Answers = { 'look-length': HAIR_LENGTHS[0].id };
+    expect(answeredInWords('look-length', typed)).toBe(true);
+    expect(answeredInWords('look-length', tapped)).toBe(false);
+    // the free-text questions are always rewritten, whatever they hold
+    expect(answeredInWords('describe', { describe: 'a tall woman' })).toBe(true);
+    expect(answeredInWords('keep', { keep: { words: 'a scar', refs: [] } })).toBe(true);
+  });
+
+  it('holds for a detail too, and a detail said in words keeps its pictures', () => {
+    const t = TRAITS[0];
+    expect(answeredInWords(`trait-${t.id}`, { [`trait-${t.id}`]: { words: t.options[0].id, refs: [] } })).toBe(false);
+    expect(answeredInWords(`trait-${t.id}`, { [`trait-${t.id}`]: { words: 'wire aviators', refs: ['h1'] } })).toBe(
+      true,
+    );
+  });
+
+  it('the answer standing in the transcript is the one being rewritten', () => {
+    const a: Answers = { ...TAPPED, 'look-length': 'a pony tail' };
+    const T = turns(state(a, { editing: 'look-length' }));
+    const you = T.find((t) => t.kind === 'you' && t.id === 'look-length');
+    expect(you?.kind === 'you' && you.editing).toBe(true);
+    // and a tapped one reopens as its row instead
+    const T2 = turns(state({ ...TAPPED }, { editing: 'look-length' }));
+    expect(T2.some((t) => t.kind === 'question' && t.question.id === 'look-length')).toBe(true);
   });
 });
 

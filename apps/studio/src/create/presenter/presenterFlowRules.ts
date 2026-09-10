@@ -1,8 +1,10 @@
 import {
   type Answer,
   type Aside,
+  type NothingKind,
   type Question,
   type Turn,
+  answersNothing,
   asideTurns,
   choiceFromText,
   isAsideTurn,
@@ -40,6 +42,9 @@ import {
   PASSED,
   type Qid,
   type Source,
+  type TraitQid,
+  type TraitWhat,
+  type WhereQid,
   answeredIn,
   descriptionGaps,
   inTableOrder,
@@ -266,6 +271,61 @@ const KEEP_PLACEHOLDER = 'A scar, a ring, anything we missed';
 
 /** The questions answered in a sentence typed into their own field, in place. */
 export const TEXT_QIDS: ReadonlySet<Qid> = new Set<Qid>(['describe', 'keep']);
+
+/**
+ * The kinds that are conversation rather than an answer, whatever is asked.
+ *
+ * Every one of these is recognised by what it actually says: a greeting, a
+ * question mark, a request to go somewhere, a real person's name. `vague` is
+ * not among them, because `vague` only means "two words that do not describe a
+ * whole person", and a step asking for a cut or a build is answered in two
+ * words more often than not. "pony tail" and "buzz cut" describe nobody and
+ * are exactly the right answer to "And the length?".
+ */
+const CONVERSATION: ReadonlySet<NothingKind> = new Set<NothingKind>([
+  'likeness',
+  'help',
+  'question',
+  'greeting',
+  'ack',
+  'nav',
+  'intent',
+  'go',
+  'nonsense',
+]);
+
+/**
+ * Whether this answer is the person's own words rather than something tapped.
+ *
+ * It decides how the answer is changed: words are rewritten where they stand,
+ * and a tap reopens the row it was tapped from. Reopening a row under a typed
+ * answer threw the words away and offered the chips that were not them in the
+ * first place, which is the one case where a person most wants their sentence
+ * back. There is no flag to read for this: an answer that is not one of the
+ * question's own option ids was typed, and that is the whole test.
+ */
+export function answeredInWords(id: Qid | null, a: Answers): boolean {
+  if (!id) return false;
+  if (TEXT_QIDS.has(id)) return true;
+  const notAnOption = (v: unknown, options: readonly { id: string }[]) =>
+    typeof v === 'string' && !!v && !options.some((o) => o.id === v);
+  if (isLookQid(id)) {
+    const step = id.slice('look-'.length) as LookStep;
+    return notAnOption(a[id], LOOK_ROWS[step].row.options);
+  }
+  const trait = traitOfQid(id);
+  if (!trait) return false;
+  const t = traitOf(trait.id);
+  if (!t) return false;
+  if (trait.part === 'where') return notAnOption(a[id as WhereQid], t.where?.options ?? []);
+  return notAnOption((a[id as TraitQid] as TraitWhat | undefined)?.words, t.options);
+}
+
+/** What a sentence is, at a step that asks for a short phrase. Null when it answers it. */
+export const notAnAnswerAtAStep = (text: string, describes: (t: string) => boolean): NothingKind | null => {
+  const kind = answersNothing(text, describes);
+  return kind && CONVERSATION.has(kind) ? kind : null;
+};
 
 /** What changing an answer costs, once a draft exists. */
 export type EditCost = 'plain' | 'metadata' | 'redraw' | 'start-over';
@@ -525,7 +585,7 @@ function build(
       text: line.text,
       photos: line.photos,
       editable: true,
-      editing: (state.editing === id && TEXT_QIDS.has(id)) || undefined,
+      editing: (state.editing === id && answeredInWords(id, a)) || undefined,
     });
   };
   for (const id of answeredIn(a, ctx)) {
@@ -533,7 +593,7 @@ function build(
     // A question open again from its answer: its line stays exactly where it
     // was, and the block stands where the answer was, under it. Nothing above
     // the answer moves.
-    if (state.editing === id && !TEXT_QIDS.has(id)) {
+    if (state.editing === id && !answeredInWords(id, a)) {
       into.push({ kind: 'scenri', id: `asked-${id}`, text: askedLine(id, a), quiet: true });
       into.push({ kind: 'question', question: questionFor(id, state, ctx, true) });
       continue;
@@ -680,7 +740,7 @@ export function composerFor(
   selected: StudioView,
 ): ComposerFor {
   // an answer being rewritten has its own field; the composer waits
-  if (state.editing !== null && (state.editing === 'name' || TEXT_QIDS.has(state.editing))) {
+  if (state.editing !== null && (state.editing === 'name' || answeredInWords(state.editing, state.answers))) {
     return { ...QUIET, off: 'Finish the change above.' };
   }
   // A tap question handed to the composer: it takes that one question, and only that one.
