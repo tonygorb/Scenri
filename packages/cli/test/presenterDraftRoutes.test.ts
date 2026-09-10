@@ -188,10 +188,18 @@ describe('presenter draft routes', () => {
     const byHand = await j('POST', `${base}/${made.id}/views/portrait/generate`, { decide: 'auto' });
     expect(byHand.status).toBe(400);
     expect(byHand.body.error).toMatch(/by hand/);
-    // a full body that decides itself lands approved
-    await j('POST', `${base}/${made.id}/views/front/generate`, { decide: 'auto' });
+    // and so is the full body: it comes back a candidate and waits
+    const bodyByHand = await j('POST', `${base}/${made.id}/views/front/generate`, { decide: 'auto' });
+    expect(bodyByHand.status).toBe(400);
+    expect(bodyByHand.body.error).toMatch(/by hand/);
+    await j('POST', `${base}/${made.id}/views/front/generate`, {});
     let d = await settled(brand.id, made.id);
-    expect(d.views.front.status).toBe('approved');
+    expect(d.views.front.status).toBe('candidate');
+    await j('POST', `${base}/${made.id}/views/front/approve`);
+    // a three-quarter that decides itself lands approved with no one asked
+    await j('POST', `${base}/${made.id}/views/three-quarter/generate`, { decide: 'auto' });
+    d = await settled(brand.id, made.id);
+    expect(d.views['three-quarter'].status).toBe('approved');
     // an extra waits for the switch
     const early = await j('POST', `${base}/${made.id}/views/back/generate`, {});
     expect(early.status).toBe(400);

@@ -107,10 +107,13 @@ async function seedDraft(
   if (upTo === 'portrait-candidate') return draft.id as string;
   await p.request.post(`${base}/${draft.id}/views/portrait/approve`);
   if (upTo === 'portrait-approved') return draft.id as string;
-  for (const view of ['front', 'three-quarter'] as const) {
-    await p.request.post(`${base}/${draft.id}/views/${view}/generate`, { data: { decide: 'auto' } });
-    await settledView(p, brandId, draft.id, view, 'approved');
-  }
+  // The full body is decided by hand like the face, so it is drawn and then
+  // approved; only the views nobody decides may be asked to decide themselves.
+  await p.request.post(`${base}/${draft.id}/views/front/generate`, { data: {} });
+  await settledView(p, brandId, draft.id, 'front', 'candidate');
+  await p.request.post(`${base}/${draft.id}/views/front/approve`);
+  await p.request.post(`${base}/${draft.id}/views/three-quarter/generate`, { data: { decide: 'auto' } });
+  await settledView(p, brandId, draft.id, 'three-quarter', 'approved');
   return draft.id as string;
 }
 
@@ -167,7 +170,12 @@ test.describe('a person from scratch', () => {
     await expect(page.locator('.sc-pstudio-slot')).toHaveCount(3);
 
     await answer(page, 'Use this person').click();
-    // the set builds itself: no Use per view
+    // the full body is the second and last decision: it stands on its own
+    // first landing, so there is nothing previous to keep
+    await expect(log(page)).toContainText('Here is the full body', { timeout: 30_000 });
+    await expect(answer(page, 'Keep previous')).toHaveCount(0);
+    await answer(page, 'Use it').click();
+    // and the rest of the set builds itself: no Use per view after that
     await expect(log(page)).toContainText('The set is ready', { timeout: 30_000 });
     await expect(
       page.locator('.sc-pstudio-slot[data-state="approved"], .sc-pstudio-slot[data-state="current"]'),
@@ -637,7 +645,13 @@ test.describe('a person from scratch', () => {
     expect(revised.views.portrait.status).toBe('candidate');
     expect(revised.views.portrait.prior).toBe(before.views.portrait.hash);
     await answer(page, 'Use this').click();
-    // the dependents go stale and rebuild on their own, conditioned on the new face
+    // the full body is rebuilt from the new face and asks, as it always does.
+    // Nothing is offered back: the picture it replaces was drawn from the old
+    // face, so there is no previous full body worth keeping.
+    await expect(log(page)).toContainText('Here is the full body', { timeout: 30_000 });
+    await expect(answer(page, 'Keep previous')).toHaveCount(0);
+    await answer(page, 'Use it').click();
+    // the rest goes stale and rebuilds on its own, conditioned on the new face
     await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 30_000 });
     const after = await draftOf(page, brand.id, draftId);
     expect(after.views.portrait.hash).toBe(revised.views.portrait.hash);
@@ -658,17 +672,19 @@ test.describe('a person from scratch', () => {
     await page.locator('.sc-pstudio-slot[data-view="front"]').click();
     await expect(page.locator('.sc-convo-scope')).toHaveText('Refining the full body');
     await send(page, 'turn slightly more to camera');
-    await expect(page.locator('.sc-pstudio-offer')).toContainText('Redrew the full body.', { timeout: 20_000 });
+    await expect(log(page)).toContainText('Redrew the full body. Use it, or keep the previous one.', {
+      timeout: 20_000,
+    });
     const redrawn = await draftOf(page, brand.id, draftId);
-    expect(redrawn.views.front.status).toBe('approved');
+    expect(redrawn.views.front.status).toBe('candidate');
     expect(redrawn.views.front.prior).toBe(before.views.front.hash);
     expect(redrawn.views.portrait.hash).toBe(before.views.portrait.hash);
     expect(redrawn.views['three-quarter'].hash).toBe(before.views['three-quarter'].hash);
-    await page.locator('.sc-pstudio-offer').getByRole('button', { name: 'Keep previous' }).click();
+    await answer(page, 'Keep previous').click();
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).views.front.hash)
       .toBe(before.views.front.hash);
-    await expect(page.locator('.sc-pstudio-offer')).toHaveCount(0);
+    await expect(answer(page, 'Keep previous')).toHaveCount(0);
     // every picture drawn for a view keeps its own card, numbered, and the one
     // on the stage says so; the other is the press that puts it back
     await expect(log(page)).toContainText('Keep previous');
@@ -756,6 +772,8 @@ test.describe('a person from scratch', () => {
     await expect(answer(page, 'Retry')).toBeVisible({ timeout: 20_000 });
     await expect(log(page)).toContainText('Nothing finished was touched.');
     await answer(page, 'Retry').click();
+    await expect(log(page)).toContainText('Here is the full body', { timeout: 30_000 });
+    await answer(page, 'Use it').click();
     await expect(log(page)).toContainText('The set is ready', { timeout: 30_000 });
     const d = await draftOf(page, brand.id, draftId);
     expect(d.views.portrait.status).toBe('approved');
@@ -784,6 +802,8 @@ test.describe('from photos', () => {
     await expect(log(page)).toContainText('Face from your photo', { timeout: 20_000 });
     // the photographs are asked once what is always true of them, before the set
     await answer(page, 'Nothing to add').click();
+    await expect(log(page)).toContainText('Here is the full body', { timeout: 30_000 });
+    await answer(page, 'Use it').click();
     await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 30_000 });
     // the photo is never redrawn, and an identity ask against it is refused
     await send(page, 'make her nose smaller');

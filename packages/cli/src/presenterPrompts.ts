@@ -70,7 +70,7 @@ export interface ViewRole {
  */
 export const VIEW_ROLES: readonly ViewRole[] = [
   { id: 'portrait', tier: 'core', gate: true, from: [], label: 'face' },
-  { id: 'front', tier: 'core', from: ['portrait'], label: 'front view' },
+  { id: 'front', tier: 'core', gate: true, from: ['portrait'], label: 'front view' },
   { id: 'three-quarter', tier: 'core', from: ['portrait', 'front'], label: 'three-quarter view' },
   { id: 'back', tier: 'supplementary', from: ['portrait', 'front'], label: 'back view' },
   { id: 'left', tier: 'supplementary', from: ['portrait', 'front'], label: 'left view' },

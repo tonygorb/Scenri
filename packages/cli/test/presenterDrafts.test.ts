@@ -1010,91 +1010,103 @@ describe('extras are built on request', () => {
 });
 
 describe('a landed view can decide itself', () => {
+  // The face and the full body are decided by hand, so the view that stands
+  // for every self-deciding view here is the left, and the right is what is
+  // drawn from it: the one dependency left among the views nobody decides.
   it('lands approved with no prior on an empty slot, and the next view is drawn from it', async () => {
     let d = await synthetic();
-    d = await step(d.id, 'portrait');
-    await approveView(deps(), d.id, 'portrait');
-    d = await step(d.id, 'front', undefined, 'auto');
-    expect(view(d, 'front')).toMatchObject({ status: 'approved', origin: 'generated' });
-    expect(view(d, 'front').prior).toBeUndefined();
-    expect(view(d, 'front').attempts).toBe(1);
-    d = await step(d.id, 'three-quarter', undefined, 'auto');
-    expect(refsOf(generated.at(-1)!)).toEqual([view(d, 'portrait').hash, view(d, 'front').hash]);
-    expect(view(d, 'three-quarter').status).toBe('approved');
+    await updatePresenterDraft(core, d.id, { extras: true });
+    d = await build(d.id, ['portrait', 'front', 'three-quarter', 'back']);
+    d = await step(d.id, 'left', undefined, 'auto');
+    expect(view(d, 'left')).toMatchObject({ status: 'approved', origin: 'generated' });
+    expect(view(d, 'left').prior).toBeUndefined();
+    expect(view(d, 'left').attempts).toBe(1);
+    d = await step(d.id, 'right', undefined, 'auto');
+    expect(refsOf(generated.at(-1)!)).toEqual([view(d, 'portrait').hash, view(d, 'front').hash, view(d, 'left').hash]);
+    expect(view(d, 'right').status).toBe('approved');
   });
 
   it('replacing an approved view keeps it as the prior, so Keep previous still works, and stales what was drawn from it', async () => {
-    let d = await cast();
-    const front = view(d, 'front').hash!;
-    const threeQuarter = view(d, 'three-quarter').hash!;
-    d = await step(d.id, 'front', 'arms relaxed', 'auto');
-    expect(view(d, 'front')).toMatchObject({ status: 'approved', prior: front, adjustment: 'arms relaxed' });
-    expect(view(d, 'front').hash).not.toBe(front);
-    expect(view(d, 'front').rejected).not.toContain(front);
-    expect(existsSync(core.images.pathFor(front))).toBe(true);
-    // the three-quarter was drawn from the old front
-    expect(view(d, 'three-quarter').status).toBe('stale');
-    expect(view(d, 'three-quarter').hash).toBe(threeQuarter);
-    await revertView(deps(), d.id, 'front');
+    let d = await castWithExtras();
+    const left = view(d, 'left').hash!;
+    const right = view(d, 'right').hash!;
+    d = await step(d.id, 'left', 'chin up', 'auto');
+    expect(view(d, 'left')).toMatchObject({ status: 'approved', prior: left, adjustment: 'chin up' });
+    expect(view(d, 'left').hash).not.toBe(left);
+    expect(view(d, 'left').rejected).not.toContain(left);
+    expect(existsSync(core.images.pathFor(left))).toBe(true);
+    // the right was drawn from the old left
+    expect(view(d, 'right').status).toBe('stale');
+    expect(view(d, 'right').hash).toBe(right);
+    await revertView(deps(), d.id, 'left');
     d = getPresenterDraft(core, d.id)!;
-    expect(view(d, 'front')).toMatchObject({ status: 'approved', hash: front });
-    expect(view(d, 'front').prior).toBeUndefined();
+    expect(view(d, 'left')).toMatchObject({ status: 'approved', hash: left });
+    expect(view(d, 'left').prior).toBeUndefined();
   });
 
   it('Use on a view that decided itself settles it: the prior retires and nothing is staled twice', async () => {
-    let d = await cast();
-    const front = view(d, 'front').hash!;
-    d = await step(d.id, 'front', undefined, 'auto');
-    expect(view(d, 'front').prior).toBe(front);
-    d = await step(d.id, 'three-quarter', undefined, 'auto');
-    expect(view(d, 'three-quarter').status).toBe('approved');
-    await approveView(deps(), d.id, 'front');
+    let d = await castWithExtras();
+    const left = view(d, 'left').hash!;
+    d = await step(d.id, 'left', undefined, 'auto');
+    expect(view(d, 'left').prior).toBe(left);
+    d = await step(d.id, 'right', undefined, 'auto');
+    expect(view(d, 'right').status).toBe('approved');
+    await approveView(deps(), d.id, 'left');
     d = getPresenterDraft(core, d.id)!;
-    expect(view(d, 'front')).toMatchObject({ status: 'approved' });
-    expect(view(d, 'front').prior).toBeUndefined();
-    expect(view(d, 'front').rejected).toContain(front);
-    expect(view(d, 'three-quarter').status).toBe('approved');
+    expect(view(d, 'left')).toMatchObject({ status: 'approved' });
+    expect(view(d, 'left').prior).toBeUndefined();
+    expect(view(d, 'left').rejected).toContain(left);
+    expect(view(d, 'right').status).toBe('approved');
   });
 
   it('a save retires a prior that was never decided against, and never keeps its picture', async () => {
-    let d = await cast();
-    const front = view(d, 'front').hash!;
-    d = await step(d.id, 'front', undefined, 'auto');
-    d = await step(d.id, 'three-quarter', undefined, 'auto');
+    let d = await castWithExtras();
+    const left = view(d, 'left').hash!;
+    d = await step(d.id, 'left', undefined, 'auto');
+    d = await step(d.id, 'right', undefined, 'auto');
     await updatePresenterDraft(core, d.id, { name: 'Ilse' });
     const { presenter } = await savePresenterDraft(deps(), d.id);
-    expect(presenter.shots?.map((s) => s.file)).toContain(`asset:${view(d, 'front').hash}`);
-    expect(presenter.shots?.map((s) => s.file)).not.toContain(`asset:${front}`);
-    expect(existsSync(core.images.pathFor(front))).toBe(false);
+    expect(presenter.shots?.map((s) => s.file)).toContain(`asset:${view(d, 'left').hash}`);
+    expect(presenter.shots?.map((s) => s.file)).not.toContain(`asset:${left}`);
+    expect(existsSync(core.images.pathFor(left))).toBe(false);
   });
 
   it('a second self-deciding draw lets the older prior go and keeps the newest', async () => {
-    let d = await cast();
-    const first = view(d, 'front').hash!;
-    d = await step(d.id, 'front', undefined, 'auto');
-    const second = view(d, 'front').hash!;
-    d = await step(d.id, 'front', undefined, 'auto');
-    expect(view(d, 'front').prior).toBe(second);
-    expect(view(d, 'front').rejected).toContain(first);
+    let d = await castWithExtras();
+    const first = view(d, 'left').hash!;
+    d = await step(d.id, 'left', undefined, 'auto');
+    const second = view(d, 'left').hash!;
+    d = await step(d.id, 'left', undefined, 'auto');
+    expect(view(d, 'left').prior).toBe(second);
+    expect(view(d, 'left').rejected).toContain(first);
   });
 
-  it('the face is always decided by hand', async () => {
+  it('the views a person decides are refused a decision of their own', async () => {
     const d = await synthetic();
     await expect(generateView(deps(), d.id, 'portrait', { decide: 'auto' })).rejects.toMatchObject({
       statusCode: 400,
       message: 'the face is always decided by hand',
     });
     expect(view(getPresenterDraft(core, d.id)!, 'portrait').status).toBe('empty');
+    // and the full body the same way, because the gate is a row in the table
+    // and not a comparison against one view's name
+    await step(d.id, 'portrait');
+    await approveView(deps(), d.id, 'portrait');
+    await expect(generateView(deps(), d.id, 'front', { decide: 'auto' })).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'the front view is always decided by hand',
+    });
+    expect(view(getPresenterDraft(core, d.id)!, 'front').status).toBe('empty');
   });
 
   it('a failure lands the same way whichever way the decision was going', async () => {
-    let d = await cast();
-    const front = view(d, 'front').hash!;
+    let d = await castWithExtras();
+    const left = view(d, 'left').hash!;
     failNext = new Error('the engine timed out');
-    d = await step(d.id, 'front', undefined, 'auto');
-    expect(view(d, 'front')).toMatchObject({ status: 'approved', hash: front, error: 'the engine timed out' });
-    expect(view(d, 'front').prior).toBeUndefined();
-    expect(view(d, 'three-quarter').status).toBe('approved');
+    d = await step(d.id, 'left', undefined, 'auto');
+    expect(view(d, 'left')).toMatchObject({ status: 'approved', hash: left, error: 'the engine timed out' });
+    expect(view(d, 'left').prior).toBeUndefined();
+    expect(view(d, 'right').status).toBe('approved');
   });
 });
 
@@ -1426,14 +1438,14 @@ describe('the asks a draft keeps', () => {
   it('every sentence sent to redraw a view stays, in order; the same one sent to the same view again is Try again, not a second ask', async () => {
     let d = await cast();
     expect(d.asks).toEqual([]);
-    d = await step(d.id, 'front', 'arms relaxed', 'auto');
-    d = await step(d.id, 'front', 'arms relaxed', 'auto');
+    d = await step(d.id, 'three-quarter', 'arms relaxed', 'auto');
+    d = await step(d.id, 'three-quarter', 'arms relaxed', 'auto');
     // a plain redraw sends no sentence, so it adds nothing
     d = await step(d.id, 'three-quarter', undefined, 'auto');
-    expect(d.asks.map((a) => [a.view, a.text])).toEqual([['front', 'arms relaxed']]);
+    expect(d.asks.map((a) => [a.view, a.text])).toEqual([['three-quarter', 'arms relaxed']]);
     d = await step(d.id, 'portrait', 'shorter hair');
     expect(d.asks.map((a) => [a.view, a.text])).toEqual([
-      ['front', 'arms relaxed'],
+      ['three-quarter', 'arms relaxed'],
       ['portrait', 'shorter hair'],
     ]);
     expect(d.asks.every((a) => !Number.isNaN(Date.parse(a.at)))).toBe(true);
@@ -1445,37 +1457,41 @@ describe('the asks a draft keeps', () => {
 describe('the record: results, decisions, and a picture restored from before', () => {
   it('every landed picture is a result, every decision is kept, and a restore puts a picture back one to one', async () => {
     let d = await cast();
-    const front0 = view(d, 'front').hash!;
+    const tq0 = view(d, 'three-quarter').hash!;
     expect(d.results.map((r) => [r.view, r.how])).toEqual([
       ['portrait', 'drawn'],
       ['front', 'drawn'],
       ['three-quarter', 'drawn'],
     ]);
-    d = await step(d.id, 'front', 'arms relaxed', 'auto');
-    const front1 = view(d, 'front').hash!;
-    expect(d.results.at(-1)).toMatchObject({ view: 'front', hash: front1, ask: 'arms relaxed', how: 'drawn' });
-    d = await step(d.id, 'front', 'arms up', 'auto');
-    const front2 = view(d, 'front').hash!;
-    expect(view(d, 'front').rejected).toContain(front0);
-    d = await restoreView(deps(), d.id, 'front', front0);
-    expect(view(d, 'front')).toMatchObject({ status: 'approved', hash: front0, prior: front2, origin: 'generated' });
-    expect(view(d, 'front').adjustment).toBeUndefined();
-    expect(view(d, 'front').rejected).not.toContain(front0);
-    expect(view(d, 'three-quarter').status).toBe('stale');
-    expect(existsSync(core.images.pathFor(front0))).toBe(true);
+    d = await step(d.id, 'three-quarter', 'arms relaxed', 'auto');
+    const tq1 = view(d, 'three-quarter').hash!;
+    expect(d.results.at(-1)).toMatchObject({ view: 'three-quarter', hash: tq1, ask: 'arms relaxed', how: 'drawn' });
+    d = await step(d.id, 'three-quarter', 'arms up', 'auto');
+    const tq2 = view(d, 'three-quarter').hash!;
+    expect(view(d, 'three-quarter').rejected).toContain(tq0);
+    d = await restoreView(deps(), d.id, 'three-quarter', tq0);
+    expect(view(d, 'three-quarter')).toMatchObject({
+      status: 'approved',
+      hash: tq0,
+      prior: tq2,
+      origin: 'generated',
+    });
+    expect(view(d, 'three-quarter').adjustment).toBeUndefined();
+    expect(view(d, 'three-quarter').rejected).not.toContain(tq0);
+    expect(existsSync(core.images.pathFor(tq0))).toBe(true);
     // putting one back writes no row: the record is what was drawn, so going
     // back and forth never pushes the early draws out of the capped list
-    expect(d.results.filter((r) => r.view === 'front')).toHaveLength(3);
+    expect(d.results.filter((r) => r.view === 'three-quarter')).toHaveLength(3);
     expect(d.results.every((r) => r.how === 'drawn')).toBe(true);
     // the same picture again is nothing; a stranger is refused
-    expect((await restoreView(deps(), d.id, 'front', front0)).results).toHaveLength(d.results.length);
-    await expect(restoreView(deps(), d.id, 'front', 'deadbeefdeadbeefdeadbeefdeadbeef')).rejects.toMatchObject({
+    expect((await restoreView(deps(), d.id, 'three-quarter', tq0)).results).toHaveLength(d.results.length);
+    await expect(restoreView(deps(), d.id, 'three-quarter', 'deadbeefdeadbeefdeadbeefdeadbeef')).rejects.toMatchObject({
       statusCode: 400,
     });
     // Keep previous takes the replaced picture back, and the decisions say so
-    d = await revertView(deps(), d.id, 'front');
-    expect(view(d, 'front').hash).toBe(front2);
-    await redoView(deps(), d.id, 'front');
+    d = await revertView(deps(), d.id, 'three-quarter');
+    expect(view(d, 'three-quarter').hash).toBe(tq2);
+    await redoView(deps(), d.id, 'three-quarter');
     d = getPresenterDraft(core, d.id)!;
     expect(d.decisions.map((x) => x.what).slice(-2)).toEqual(['keep', 'again']);
   });
@@ -1484,17 +1500,17 @@ describe('the record: results, decisions, and a picture restored from before', (
 describe('a draft from before the record was kept', () => {
   it('reads its pictures off the slots as results, and an adjustment as the ask it came from', async () => {
     let d = await cast();
-    d = await step(d.id, 'front', 'arms relaxed', 'auto');
+    d = await step(d.id, 'three-quarter', 'arms relaxed', 'auto');
     // strip the record the way an older row has none, and read it back
     const { id, brandId, createdAt: _c, updatedAt: _u, ...json } = d;
     core.store.putPresenterDraft({ id, brandId, json: { ...json, asks: [], results: [], decisions: [] } });
     const back = getPresenterDraft(core, id)!;
     expect(back.results.map((r) => [r.view, r.hash, r.ask ?? null])).toEqual([
       ['portrait', d.views.portrait.hash, null],
-      ['front', d.views.front.hash, 'arms relaxed'],
-      ['three-quarter', d.views['three-quarter'].hash, null],
+      ['front', d.views.front.hash, null],
+      ['three-quarter', d.views['three-quarter'].hash, 'arms relaxed'],
     ]);
-    expect(back.asks).toEqual([expect.objectContaining({ view: 'front', text: 'arms relaxed' })]);
+    expect(back.asks).toEqual([expect.objectContaining({ view: 'three-quarter', text: 'arms relaxed' })]);
     expect(back.decisions).toEqual([]);
   });
 });
@@ -1502,24 +1518,24 @@ describe('a draft from before the record was kept', () => {
 describe('stopping a draw', () => {
   it('aborts the job, puts the slot back as it was with cancelled as the reason, and the draft goes idle', async () => {
     const d = await cast();
-    const front = view(d, 'front').hash!;
+    const tq = view(d, 'three-quarter').hash!;
     holdNext = {};
-    await generateView(deps(), d.id, 'front', { adjustment: 'arms relaxed', decide: 'auto' });
+    await generateView(deps(), d.id, 'three-quarter', { adjustment: 'arms relaxed', decide: 'auto' });
     await new Promise((r) => setTimeout(r, 20));
     expect(runningDraftJobCount()).toBe(1);
-    expect(getPresenterDraft(core, d.id)!.activeView).toBe('front');
+    expect(getPresenterDraft(core, d.id)!.activeView).toBe('three-quarter');
     const stopped = await stopPresenterDraft(deps(), d.id);
     expect(runningDraftJobCount()).toBe(0);
     expect(stopped.activeView).toBeNull();
     expect(stopped.stage).toBe('idle');
-    expect(view(stopped, 'front')).toMatchObject({ status: 'approved', hash: front, error: 'cancelled' });
-    expect(stopped.results.filter((r) => r.view === 'front')).toHaveLength(1);
+    expect(view(stopped, 'three-quarter')).toMatchObject({ status: 'approved', hash: tq, error: 'cancelled' });
+    expect(stopped.results.filter((r) => r.view === 'three-quarter')).toHaveLength(1);
     // nothing running: a stop is nothing
-    expect((await stopPresenterDraft(deps(), d.id)).views.front.error).toBe('cancelled');
+    expect((await stopPresenterDraft(deps(), d.id)).views['three-quarter'].error).toBe('cancelled');
     // asked again, it draws
-    const again = await step(d.id, 'front', 'arms relaxed', 'auto');
-    expect(view(again, 'front').error).toBeUndefined();
-    expect(view(again, 'front').hash).not.toBe(front);
+    const again = await step(d.id, 'three-quarter', 'arms relaxed', 'auto');
+    expect(view(again, 'three-quarter').error).toBeUndefined();
+    expect(view(again, 'three-quarter').hash).not.toBe(tq);
   });
 });
 
@@ -1527,8 +1543,12 @@ describe('a draw that failed', () => {
   it('keeps the ask it was for on the slot, so a retry can draw it again with the ask', async () => {
     const d = await cast();
     failNext = new Error('the limit');
-    const failed = await step(d.id, 'front', 'arms relaxed', 'auto');
-    expect(view(failed, 'front')).toMatchObject({ status: 'approved', error: 'the limit', adjustment: 'arms relaxed' });
-    expect(failed.results.filter((r) => r.view === 'front')).toHaveLength(1);
+    const failed = await step(d.id, 'three-quarter', 'arms relaxed', 'auto');
+    expect(view(failed, 'three-quarter')).toMatchObject({
+      status: 'approved',
+      error: 'the limit',
+      adjustment: 'arms relaxed',
+    });
+    expect(failed.results.filter((r) => r.view === 'three-quarter')).toHaveLength(1);
   });
 });

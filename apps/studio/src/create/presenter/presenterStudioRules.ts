@@ -34,7 +34,7 @@ export interface ViewRole {
  */
 export const VIEW_ROLES: readonly ViewRole[] = [
   { id: 'portrait', tier: 'core', gate: true, from: [], strip: 'Face', name: 'face' },
-  { id: 'front', tier: 'core', from: ['portrait'], strip: 'Full body', name: 'full body' },
+  { id: 'front', tier: 'core', gate: true, from: ['portrait'], strip: 'Full body', name: 'full body' },
   {
     id: 'three-quarter',
     tier: 'core',

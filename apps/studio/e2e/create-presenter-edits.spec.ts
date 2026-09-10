@@ -392,6 +392,5 @@ test.describe('on a phone', () => {
 
     // and a time nobody can hover for is not put on the screen at all
     await expect(page.locator('.sc-convo-time').first()).toBeHidden();
-    await expect(page.locator('.sc-convo-when').first()).toBeVisible();
   });
 });

@@ -27,14 +27,19 @@ async function seedPresenter(req: APIRequestContext, brandId: string): Promise<s
     await new Promise((r) => setTimeout(r, 50));
   }
   await req.post(`${base}/${draft.id}/views/portrait/approve`);
-  for (const view of ['front', 'three-quarter']) {
-    await req.post(`${base}/${draft.id}/views/${view}/generate`, { data: { decide: 'auto' } });
+  const settle = async (view: string, want: string) => {
     for (let i = 0; i < 200; i++) {
       const d = await (await req.get(`${base}/${draft.id}`)).json();
-      if (d.views[view].status === 'approved' && !d.activeView) break;
+      if (d.views[view].status === want && !d.activeView) break;
       await new Promise((r) => setTimeout(r, 50));
     }
-  }
+  };
+  // the full body is decided by hand like the face; the three-quarter decides itself
+  await req.post(`${base}/${draft.id}/views/front/generate`, { data: {} });
+  await settle('front', 'candidate');
+  await req.post(`${base}/${draft.id}/views/front/approve`);
+  await req.post(`${base}/${draft.id}/views/three-quarter/generate`, { data: { decide: 'auto' } });
+  await settle('three-quarter', 'approved');
   return (await (await req.post(`${base}/${draft.id}/save`)).json()).presenter.id as string;
 }
 

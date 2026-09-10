@@ -41,6 +41,7 @@ import {
   ATTACHED_PERSON,
   CORE_VIEWS,
   DEPENDS,
+  HAND_APPROVED,
   VIEW_LABEL,
   EXTRA_VIEWS,
   PRESENTER_VIEWS,
@@ -735,7 +736,8 @@ export async function generateView(
   if (!rec) throw fail('draft not found', 404);
   if (running.has(id)) throw fail('a view is still being drawn', 409);
   if (isExtra(view) && !rec.extras) throw fail('extra views are built on request', 400);
-  if (opts.decide === 'auto' && view === 'portrait') throw fail('the face is always decided by hand', 400);
+  if (opts.decide === 'auto' && HAND_APPROVED.has(view))
+    throw fail(`the ${VIEW_LABEL[view]} is always decided by hand`, 400);
   for (const dep of DEPENDS[view]) {
     if (rec.views[dep].status !== 'approved') throw fail(`approve the ${VIEW_LABEL[dep]} first`, 400);
   }

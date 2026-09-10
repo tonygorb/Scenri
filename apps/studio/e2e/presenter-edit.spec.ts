@@ -52,10 +52,13 @@ async function seedPresenter(
   await req.post(`${base}/${draft.id}/views/portrait/generate`, { data: {} });
   await settled(req, brandId, draft.id, 'portrait', 'candidate');
   await req.post(`${base}/${draft.id}/views/portrait/approve`);
-  for (const view of ['front', 'three-quarter']) {
-    await req.post(`${base}/${draft.id}/views/${view}/generate`, { data: { decide: 'auto' } });
-    await settled(req, brandId, draft.id, view, 'approved');
-  }
+  // The full body is decided by hand like the face; only the views nobody
+  // decides may be asked to decide themselves.
+  await req.post(`${base}/${draft.id}/views/front/generate`, { data: {} });
+  await settled(req, brandId, draft.id, 'front', 'candidate');
+  await req.post(`${base}/${draft.id}/views/front/approve`);
+  await req.post(`${base}/${draft.id}/views/three-quarter/generate`, { data: { decide: 'auto' } });
+  await settled(req, brandId, draft.id, 'three-quarter', 'approved');
   const r = await (await req.post(`${base}/${draft.id}/save`)).json();
   return { id: r.presenter.id as string, shots: (r.presenter.shots as { file: string }[]).map((s) => s.file) };
 }
@@ -142,6 +145,10 @@ test('a change to the person is decided first, then the views built on the face 
   await page.locator('.sc-pstudio-compare').click();
   await expect(page.locator('.sc-pstudio-compare')).toHaveAttribute('aria-pressed', 'true');
   await answer(page, 'Use this').click();
+  // the full body is rebuilt from the new face and is decided by hand too. It
+  // had a picture of its own before the change, so that one is offered back.
+  await expect(log(page)).toContainText('Redrew the full body.', { timeout: 30_000 });
+  await answer(page, 'Use it').click();
   await expect(log(page)).toContainText('Save changes when you are done.', { timeout: 30_000 });
   await expect(log(page)).toContainText('Make his hair shorter');
   await expect(log(page)).toContainText('Changed Idan.');
@@ -178,6 +185,9 @@ test('Discard leaves the record as it was, and a sentence for Create generates n
   await answer(page, 'The presenter').click();
   await expect(log(page)).toContainText('with the change', { timeout: 20_000 });
   await answer(page, 'Use this').click();
+  // the full body is rebuilt from the new face and is decided by hand too
+  await expect(log(page)).toContainText('Redrew the full body.', { timeout: 30_000 });
+  await answer(page, 'Use it').click();
   await expect(log(page)).toContainText('Save changes when you are done.', { timeout: 30_000 });
   await page.getByRole('button', { name: 'Discard changes', exact: true }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Discard changes', exact: true }).click();
@@ -196,10 +206,15 @@ test('a refresh mid-edit resumes the session, and a save after the record moved 
   await page.goto(`/${brand.slug}/presenters/${person.id}/edit`);
   await page.locator('.sc-pstudio-slot[data-view="front"]').click();
   await send(page, 'turn slightly more to camera');
-  await expect(page.locator('.sc-pstudio-offer')).toContainText('Redrew the full body.', { timeout: 20_000 });
+  await expect(log(page)).toContainText('Redrew the full body. Use it, or keep the previous one.', {
+    timeout: 20_000,
+  });
   await page.reload();
-  await expect(log(page)).toContainText('Save changes when you are done.', { timeout: 20_000 });
+  // the decision survives the reload: the session resumes where it paused
+  await expect(log(page)).toContainText('Redrew the full body.', { timeout: 20_000 });
   await expect(log(page)).toContainText('turn slightly more to camera');
+  await answer(page, 'Use it').click();
+  await expect(log(page)).toContainText('Save changes when you are done.', { timeout: 20_000 });
 
   // elsewhere, the same person is renamed and saved in place
   const other = await browser.newContext({ baseURL: page.url().split('/').slice(0, 3).join('/') });

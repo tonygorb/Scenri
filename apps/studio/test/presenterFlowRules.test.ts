@@ -303,6 +303,35 @@ describe('the record once a face is drawn', () => {
     expect(composerFor(q, state(a), d, 'portrait').action).toBe('Refine');
   });
 
+  it('the full body is the second decision, and a first landing has no previous to keep', () => {
+    const d = draft({
+      views: {
+        ...draft().views,
+        portrait: approved('p1'),
+        front: { ...emptySlot(), status: 'candidate', hash: 'f1' },
+      },
+    });
+    const q = open(turns(state(a), d));
+    expect(q?.id).toBe('view-revision');
+    expect(q?.prompt).toBe('Here is the full body. Use it, or try again.');
+    // nothing stood here before it, so there is nothing to go back to
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.id)).toEqual(['use', 'again']);
+  });
+
+  it('a redrawn view is a revision, and that one does offer the previous picture', () => {
+    const d = draft({
+      views: {
+        ...draft().views,
+        portrait: approved('p1'),
+        front: { ...emptySlot(), status: 'candidate', hash: 'f2', prior: 'f1' },
+      },
+    });
+    const q = open(turns(state(a), d));
+    expect(q?.id).toBe('view-revision');
+    expect(q?.prompt).toBe('Redrew the full body. Use it, or keep the previous one.');
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.id)).toEqual(['use', 'keep', 'again']);
+  });
+
   it('the set builds without a question, then offers the extras once, then the save', () => {
     const core = draft({
       name: 'Maren',

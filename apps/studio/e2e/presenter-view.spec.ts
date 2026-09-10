@@ -36,10 +36,13 @@ async function seedPresenter(req: APIRequestContext, brandId: string): Promise<s
   await req.post(`${base}/${draft.id}/views/portrait/generate`, { data: {} });
   await settled(req, brandId, draft.id, 'portrait', 'candidate');
   await req.post(`${base}/${draft.id}/views/portrait/approve`);
-  for (const view of ['front', 'three-quarter']) {
-    await req.post(`${base}/${draft.id}/views/${view}/generate`, { data: { decide: 'auto' } });
-    await settled(req, brandId, draft.id, view, 'approved');
-  }
+  // The full body is decided by hand like the face; only the views nobody
+  // decides may be asked to decide themselves.
+  await req.post(`${base}/${draft.id}/views/front/generate`, { data: {} });
+  await settled(req, brandId, draft.id, 'front', 'candidate');
+  await req.post(`${base}/${draft.id}/views/front/approve`);
+  await req.post(`${base}/${draft.id}/views/three-quarter/generate`, { data: { decide: 'auto' } });
+  await settled(req, brandId, draft.id, 'three-quarter', 'approved');
   return (await (await req.post(`${base}/${draft.id}/save`)).json()).presenter.id as string;
 }
 
@@ -74,9 +77,11 @@ test('a session under way is offered back, never shown as the presenter', async 
   // a session with a redrawn view, left open
   const d = await (await page.request.post(`/api/brands/${brand.id}/presenters/${id}/edit`)).json();
   await page.request.post(`/api/brands/${brand.id}/presenter-drafts/${d.id}/views/front/generate`, {
-    data: { adjustment: 'to camera', decide: 'auto' },
+    data: { adjustment: 'to camera' },
   });
-  await settled(page.request, brand.id, d.id, 'front', 'approved');
+  // the full body is decided by hand, so a redraw of it stands as a candidate:
+  // an unfinished session, which is what this test is about
+  await settled(page.request, brand.id, d.id, 'front', 'candidate');
   await page.reload();
   await expect(page.getByRole('link', { name: 'Continue editing' })).toBeVisible();
   // the page still shows the saved pictures

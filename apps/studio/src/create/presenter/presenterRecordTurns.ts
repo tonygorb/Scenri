@@ -2,6 +2,7 @@ import { type Aside, type Question, type Turn, asideTurns } from '../../conversa
 import { PROMPT } from './presenterCopy.js';
 import {
   EXTRA_VIEWS,
+  HAND_APPROVED,
   type DraftDecision,
   type DraftLike,
   type DraftResult,
@@ -11,6 +12,7 @@ import {
   allApproved,
   coverageLine,
   identityLocked,
+  viewsOf,
 } from './presenterStudioRules.js';
 
 /**
@@ -185,13 +187,17 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
       return [a, r] as const;
     }),
   );
-  const firstUse = decisions.find((x) => x.view === 'portrait' && x.what === 'use');
+  // The first time each view was accepted. Its question was a landing, not a
+  // revision, and the record has to replay the words that were actually shown.
+  const firstUse = new Map<StudioView, DraftDecision>();
+  for (const x of decisions) if (x.what === 'use' && !firstUse.has(x.view)) firstUse.set(x.view, x);
   const revisionPrompt = (v: StudioView) =>
     v === 'portrait'
       ? `Here is ${who} with the change. Use this, or keep the previous one. Using it redraws the views built on the face.`
       : `Redrew the ${VIEW_NAME[v]}. Use it, or keep the previous one.`;
   const decided = (x: DraftDecision): Turn[] => {
-    const identity = x.view === 'portrait' && x === firstUse;
+    const landing = x === firstUse.get(x.view);
+    const identity = x.view === 'portrait' && landing;
     const label =
       x.what === 'again'
         ? 'Try again'
@@ -206,7 +212,7 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
       {
         kind: 'scenri',
         id: `asked-decided-${x.at}`,
-        text: identity ? PROMPT.identity(who) : revisionPrompt(x.view),
+        text: identity ? PROMPT.identity(who) : landing ? PROMPT.landed(VIEW_NAME[x.view]) : revisionPrompt(x.view),
         quiet: true,
       },
       { kind: 'you', id: `decided-${x.at}`, text: label, editable: false },
@@ -317,6 +323,11 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
   pastAsks();
 
   const views = Object.keys(d.views) as StudioView[];
+  // The last view a person decides, and the first the draft decides for them:
+  // the seam between establishing who this is and building the coverage.
+  const inPlay = viewsOf(d);
+  const lastGate = [...inPlay].reverse().find((v) => HAND_APPROVED.has(v));
+  const firstFree = inPlay.find((v) => !HAND_APPROVED.has(v));
   const candidate = views.find((v) => d.views[v].status === 'candidate');
   const failed = views.find((v) => !!d.views[v].error);
 
@@ -337,9 +348,11 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
       `drawing-${active}`,
       lastOpen && last?.view === active
         ? `Redrawing the ${VIEW_NAME[active]}.`
-        : active === 'front' && !d.views.front.hash
-          ? 'Building the reference set from this face. The full body first.'
-          : `Drawing the ${VIEW_NAME[active]}.`,
+        : active === lastGate && !d.views[active].hash
+          ? `Drawing the ${VIEW_NAME[active]} from this face.`
+          : active === firstFree && !d.views[active].hash && lastGate
+            ? `Building the rest of the set from the ${VIEW_NAME[lastGate]}.`
+            : `Drawing the ${VIEW_NAME[active]}.`,
     );
     // a person whose face came from a photograph has had no draw to be named during
     if (!name) askName(PROMPT.nameWhileDrawing);
@@ -348,16 +361,20 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
 
   if (candidate) {
     openAsk();
+    // A gated view standing for the first time has no earlier picture behind
+    // it, so offering to keep the previous one would be offering nothing.
+    const revising = !!d.views[candidate].prior;
     ask({
       id: candidate === 'portrait' ? 'revision' : 'view-revision',
       kind: 'confirm',
-      prompt:
-        candidate === 'portrait'
+      prompt: !revising
+        ? PROMPT.landed(VIEW_NAME[candidate])
+        : candidate === 'portrait'
           ? `Here is ${who} with the change. Use this, or keep the previous one. Using it redraws the views built on the face.`
           : `Redrew the ${VIEW_NAME[candidate]}. Use it, or keep the previous one.`,
       options: [
         { id: 'use', label: candidate === 'portrait' ? 'Use this' : 'Use it' },
-        { id: 'keep', label: 'Keep previous' },
+        ...(revising ? [{ id: 'keep', label: 'Keep previous' }] : []),
         { id: 'again', label: 'Try again' },
       ],
     });
