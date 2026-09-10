@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   TRAITS,
@@ -28,6 +30,29 @@ describe('the distinctive details a presenter can carry', () => {
       // an option's id is the words an engine is given, not a code
       for (const o of t.options) expect(o.id.split(' ').length).toBeGreaterThan(1);
     }
+  });
+
+  it('has a picture for every option, and no picture without an option', () => {
+    // The stylesheet names every file: no bundler glob, no runtime fetch. So
+    // the three have to agree, or a row shows a plate with nothing on it, or a
+    // file rides in the bundle that nothing can ever choose.
+    // vitest runs the studio from its own package root
+    const css = readFileSync(join(process.cwd(), 'src/styles/components/conversation.css'), 'utf8');
+    const art = new Set(readdirSync(join(process.cwd(), 'src/assets/traits')).map((f) => f.replace(/\.webp$/, '')));
+    const wanted = new Set<string>();
+    for (const t of TRAITS) {
+      for (const o of t.options) {
+        expect(o.card).toBeTruthy();
+        wanted.add(o.card as string);
+        expect(css).toContain(`[data-card="${o.card}"]`);
+        expect(art.has(o.card as string)).toBe(true);
+      }
+    }
+    expect([...art].filter((f) => !wanted.has(f))).toEqual([]);
+    // and the third direction: a rule pointing at a file nothing chooses, or
+    // at a file that is not there at all, which the build would only find later
+    const named = [...css.matchAll(/\[data-card="([^"]+)"\]/g)].map((m) => m[1]);
+    expect(named.filter((id) => !wanted.has(id))).toEqual([]);
   });
 
   it('asks where it is only where the answer is incomplete without it', () => {

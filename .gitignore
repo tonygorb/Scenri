@@ -60,6 +60,9 @@ apps/studio/visual/__screenshots__/
 # No trailing slash on docs/design: it may be a symlink, and a trailing slash
 # would miss it.
 docs/design
+# a session's own bench: generated art before it is chosen, contact sheets,
+# one-off scripts. Nothing here is ever part of the app.
+.scratch/
 docs/research/
 docs/product/
 /PRODUCT.md
