@@ -502,7 +502,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         const step = ui.saying;
         // words in place of a tap are still words: what says nothing is bounced
         // the way it is anywhere else, and the step stays open
-        const empty = answersNothing(sentence, readsAsPerson);
+        // a swatch says what it is: a hex is the answer itself, not a sentence
+        const empty = /^#[0-9a-f]{6}$/i.test(sentence) ? null : answersNothing(sentence, readsAsPerson);
         if (empty) {
           setUi((u) => ({
             ...u,
@@ -827,6 +828,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         onStop: d?.activeView ? () => void s.stop() : undefined,
         focusKey: question ? `${question.id}:${d?.id ?? 'setup'}:${changing}` : undefined,
         onAttach: !d && question?.id === 'source' ? () => setSetup({ source: 'photos' }) : undefined,
+        // a colour step takes a swatch as readily as it takes words
+        onColor: composerBase.color ? (hex: string) => setText(hex) : undefined,
+        colorValue: composerBase.color && /^#[0-9a-f]{6}$/i.test(text) ? text : null,
       },
       text,
       onText: setText,

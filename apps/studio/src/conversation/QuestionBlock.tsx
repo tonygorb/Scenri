@@ -1,4 +1,4 @@
-import { PencilSimple, Plus } from '@phosphor-icons/react';
+import { PencilSimple } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
 import { LookArt } from './LookArt.js';
@@ -70,8 +70,6 @@ export function QuestionBlock({
   const going = useLeave(leave, start);
   const { playing, thinking } = useRevealOnce(reveal, question.prompt, start, going === 'true');
   const [picks, setPicks] = useState<Record<string, string>>({});
-  // a colour of your own, as it is being chosen
-  const [own, setOwn] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   // A block that went and is back as the same question (Try again, a retry)
   // is live again. One whose answer is still in flight stays as it was.
@@ -229,37 +227,6 @@ export function QuestionBlock({
             </div>
             {(question.skip || question.describe || question.row.custom) && (
               <div className="sc-convo-ways">
-                {question.row.custom && (
-                  <span className="sc-convo-own" data-picked={!!own || undefined}>
-                    <Tip label="A colour of your own">
-                      <span
-                        className="sc-convo-swatch sc-convo-swatch-own"
-                        style={own ? ({ '--sc-swatch': own } as CSSProperties) : undefined}
-                      >
-                        <input
-                          type="color"
-                          aria-label="A colour of your own"
-                          value={own ?? '#7b5230'}
-                          // the swatch is the colour under the pointer while it
-                          // moves; choosing a colour is not the same as being done
-                          onInput={(e) => setOwn((e.target as HTMLInputElement).value)}
-                          onChange={(e) => setOwn(e.target.value)}
-                        />
-                        {!own && <Plus size={12} weight="bold" />}
-                      </span>
-                    </Tip>
-                    {own && (
-                      <button
-                        type="button"
-                        className="sc-convo-own-take"
-                        onClick={() => commit(own, { kind: 'swatches', picks: { [question.row.id]: own } })}
-                      >
-                        Use it
-                      </button>
-                    )}
-                  </span>
-                )}
-
                 {question.skip && (
                   <button
                     type="button"

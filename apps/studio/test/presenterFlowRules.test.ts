@@ -4,6 +4,10 @@ import { activeQuestion } from '../src/create/presenter/presenterFlowRules.js';
 import type { Question, Turn } from '../src/conversation/question.js';
 import {
   EMPTY_SETUP,
+  SKIN_TONES,
+  HAIR_COLOURS,
+  answerLabel,
+  colourName,
   rewindAsides,
   rewindSetup,
   PASSED,
@@ -101,9 +105,13 @@ describe('the transcript is a function of state', () => {
     expect(ask({ ...so })?.prompt).toContain('Shall I draw them?');
     // colours are colours, hair and skin take one of your own, and shapes are drawn
     const hair = ask({ who: 'woman', age: '30s' });
-    // one row of colours, with a colour of your own at the end of it
+    // one row of colours, and one way past them: the colour is said or picked
+    // in the composer, which carries the app's own colour control
     expect(hair?.kind === 'swatches' && hair.row.options.every((o) => !!o.color)).toBe(true);
-    expect(hair?.kind === 'swatches' && [hair.row.options.length, hair.row.custom]).toEqual([9, true]);
+    expect(hair?.kind === 'swatches' && [hair.row.options.length, hair.row.custom]).toEqual([9, undefined]);
+    expect(hair?.kind === 'swatches' && hair.describe).toBe('Describe the colour');
+    expect(composerFor(hair, null, 'portrait', 'hair')).toMatchObject({ color: true });
+    expect(composerFor(hair, null, 'portrait', 'build')).toMatchObject({ off: 'Tap one above.' });
     // every step answered is its own exchange, with its own pencil
     const said = turnsFor({
       setup: setup({ source: 'scratch', look: { who: 'woman', age: '30s' } }),
@@ -699,5 +707,19 @@ describe('one answer surface at a time', () => {
     expect(composerFor({ id: 'identity', kind: 'confirm', prompt: '', options: [] }, null, 'portrait')).toMatchObject({
       action: 'Refine',
     });
+  });
+});
+
+describe('a colour picked rather than tapped', () => {
+  it('is named for what it is, and dyed hair is called dyed', () => {
+    // close to a swatch on its own row: it takes that row's word
+    expect(colourName('#3a2317', HAIR_COLOURS, 'hair')).toBe('dark brown');
+    expect(colourName('#c1935f', SKIN_TONES, 'skin')).toBe('olive');
+    // far from every natural colour: the plain word for it, and hair is dyed
+    expect(colourName('#7f3fbf', HAIR_COLOURS, 'hair')).toBe('dyed purple');
+    expect(colourName('#2f9c96', HAIR_COLOURS, 'hair')).toBe('dyed teal');
+    // and it reads that way in the record and in the sentence the engine is given
+    expect(answerLabel({ id: 'hair', label: 'Hair', options: HAIR_COLOURS }, '#7f3fbf')).toBe('Dyed purple');
+    expect(lookSentence({ who: 'woman', hair: '#7f3fbf' })).toBe('a woman with dyed purple hair');
   });
 });

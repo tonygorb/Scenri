@@ -1,5 +1,6 @@
 import { ArrowUp, Plus } from '@phosphor-icons/react';
 import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { ColorPicker } from '../layout/ColorPicker.js';
 import { Tip } from '../layout/Tip.js';
 
 /** What the card shows around the sentence: which picture the pill will touch, and what that means. */
@@ -37,6 +38,8 @@ export function ConversationComposer({
   focusKey,
   onStop,
   onAttach,
+  onColor,
+  colorValue,
   onSend,
 }: {
   placeholder: string;
@@ -64,6 +67,9 @@ export function ConversationComposer({
   onStop?: () => void;
   /** An attach button beside the pill: photographs can come in here too. */
   onAttach?: () => void;
+  /** The answer is a colour: the app's own picker, beside the field. */
+  onColor?: (hex: string) => void;
+  colorValue?: string | null;
   /** True when the sentence was taken; the flow then clears `value`. */
   onSend: (text: string) => boolean;
 }) {
@@ -145,6 +151,17 @@ export function ConversationComposer({
           }}
         />
         <div className="sc-convo-row">
+          {onColor && (
+            <ColorPicker
+              value={colorValue ?? '#7b5230'}
+              onChange={onColor}
+              commitMode="close"
+              label="Pick a colour"
+              tip
+              className="sc-convo-attach sc-convo-hex"
+              triggerStyle={{ background: colorValue || undefined }}
+            />
+          )}
           {onAttach && (
             <Tip label="Add photos">
               <button type="button" className="sc-convo-attach" aria-label="Add photos" onClick={onAttach}>

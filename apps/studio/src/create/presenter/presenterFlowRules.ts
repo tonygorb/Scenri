@@ -234,12 +234,12 @@ export const BUILDS: Swatch[] = [
 export const LOOK_STEPS: { row: SwatchRow; prompt: string }[] = [
   { row: { id: 'who', label: 'Who', options: GAP_GROUPS.who.options }, prompt: 'Who are we making?' },
   { row: { id: 'age', label: 'Age', options: GAP_GROUPS.age.options }, prompt: 'Roughly what age?' },
-  { row: { id: 'hair', label: 'Hair', options: HAIR_COLOURS, custom: true }, prompt: 'What colour is their hair?' },
+  { row: { id: 'hair', label: 'Hair', options: HAIR_COLOURS }, prompt: 'What colour is their hair?' },
   {
     row: { id: 'length', label: 'Length', options: HAIR_LENGTHS.map((o) => ({ ...o, art: 'hair' as const })) },
     prompt: 'How long is it?',
   },
-  { row: { id: 'skin', label: 'Skin', options: SKIN_TONES, custom: true }, prompt: 'What is their skin tone?' },
+  { row: { id: 'skin', label: 'Skin', options: SKIN_TONES }, prompt: 'What is their skin tone?' },
   { row: { id: 'build', label: 'Build', options: BUILDS }, prompt: 'And their build?' },
 ];
 
@@ -264,10 +264,13 @@ export const LOOK_SAYS: Record<string, string> = {
 };
 
 /** What the composer asks for while a step is being answered in words. */
+/** The steps whose answer is a colour, and so carry the colour control. */
+export const LOOK_COLOUR = new Set(['hair', 'skin']);
+
 export const LOOK_SAYS_PLACEHOLDER: Record<string, string> = {
-  hair: 'Their hair colour, in your words',
+  hair: 'Their hair colour, in words or a swatch',
   length: 'Their cut, in your words',
-  skin: 'Their skin, in your words',
+  skin: 'Their skin, in words or a swatch',
   build: 'Their build, in your words',
 };
 
@@ -278,8 +281,44 @@ export function nextLookStep(look: Setup['look']): (typeof LOOK_STEPS)[number] |
   return LOOK_STEPS.find((s) => !done[s.row.id]) ?? null;
 }
 
+/**
+ * Plain colour names, for a colour that is nobody's hair or skin.
+ *
+ * A colour picked deliberately is often not a natural one, and the nearest
+ * natural swatch is the wrong word for it: purple hair snapped to "grey", which
+ * is what the engine would then have been told. Anything far from every swatch
+ * on its row is named from here instead, and on the hair row it is dyed.
+ */
+const PLAIN: Swatch[] = [
+  { id: 'black', label: 'Black', color: '#111111' },
+  { id: 'white', label: 'White', color: '#f4f4f4' },
+  { id: 'grey', label: 'Grey', color: '#8d8d8d' },
+  { id: 'red', label: 'Red', color: '#c62f2f' },
+  { id: 'orange', label: 'Orange', color: '#e07b28' },
+  { id: 'yellow', label: 'Yellow', color: '#e9c93f' },
+  { id: 'green', label: 'Green', color: '#4a9c5c' },
+  { id: 'teal', label: 'Teal', color: '#2f9c96' },
+  { id: 'blue', label: 'Blue', color: '#3a6fd0' },
+  { id: 'purple', label: 'Purple', color: '#8154c9' },
+  { id: 'pink', label: 'Pink', color: '#e074a8' },
+  { id: 'brown', label: 'Brown', color: '#6b4630' },
+];
+
+/** How far a colour may sit from a swatch and still take its name. */
+const NEAR = 9000;
+
+/** The name for a colour that was picked rather than tapped. */
+export function colourName(hex: string, among: Swatch[], row?: string): string {
+  const near = nearestSwatch(hex, among, true);
+  if (near.far < NEAR) return near.id;
+  const plain = nearestSwatch(hex, PLAIN, true);
+  return row === 'hair' ? `dyed ${plain.id}` : plain.id;
+}
+
 /** The name we have for a colour of someone's own: the nearest one on its row. */
-export function nearestSwatch(hex: string, among: Swatch[]): string {
+export function nearestSwatch(hex: string, among: Swatch[]): string;
+export function nearestSwatch(hex: string, among: Swatch[], withDistance: true): { id: string; far: number };
+export function nearestSwatch(hex: string, among: Swatch[], withDistance?: true): string | { id: string; far: number } {
   const rgb = (h: string) => {
     const v = h.replace('#', '');
     const n = v.length === 3 ? v.split('').map((c) => c + c) : [v.slice(0, 2), v.slice(2, 4), v.slice(4, 6)];
@@ -297,7 +336,7 @@ export function nearestSwatch(hex: string, among: Swatch[]): string {
       best = one;
     }
   }
-  return best.id;
+  return withDistance ? { id: best.id, far } : best.id;
 }
 
 /** A step passed over: remembered, so it is asked once. */
@@ -305,8 +344,8 @@ export const PASSED = 'either';
 
 /** What was tapped, said as a person: the sentence the engine is given. */
 export function lookSentence(look: Record<string, string>): string {
-  const name = (id: string | undefined, among: Swatch[]) =>
-    !id || id === PASSED ? '' : id.startsWith('#') ? nearestSwatch(id, among) : id.toLowerCase();
+  const name = (id: string | undefined, among: Swatch[], row?: string) =>
+    !id || id === PASSED ? '' : id.startsWith('#') ? colourName(id, among, row) : id.toLowerCase();
   const who =
     look.who === 'androgynous'
       ? 'an androgynous person'
@@ -317,10 +356,10 @@ export function lookSentence(look: Record<string, string>): string {
           : 'a person';
   const parts: string[] = [who];
   if (look.age) parts.push(look.age === '60+' ? 'in their 60s or older' : `in their ${look.age}`);
-  const hair = [name(look.length, HAIR_LENGTHS), name(look.hair, HAIR_COLOURS)].filter(Boolean).join(' ');
+  const hair = [name(look.length, HAIR_LENGTHS), name(look.hair, HAIR_COLOURS, 'hair')].filter(Boolean).join(' ');
   const has: string[] = [];
   if (hair) has.push(`${hair} hair`);
-  const skin = name(look.skin, SKIN_TONES);
+  const skin = name(look.skin, SKIN_TONES, 'skin');
   if (skin) has.push(`${skin} skin`);
   if (look.build && look.build !== PASSED) has.push(`${/^[aeiou]/.test(look.build) ? 'an' : 'a'} ${look.build} build`);
   if (has.length) parts.push(`with ${has.join(', ')}`);
@@ -330,7 +369,7 @@ export function lookSentence(look: Record<string, string>): string {
 /** What one tap said, as the answer in the transcript. */
 export function answerLabel(row: SwatchRow, given: string): string {
   if (given === PASSED) return 'Either way';
-  if (given.startsWith('#')) return cap(nearestSwatch(given, row.options));
+  if (given.startsWith('#')) return cap(colourName(given, row.options, row.id));
   // said in words rather than tapped: the words are the answer
   return row.options.find((o) => o.id === given)?.label ?? given;
 }
@@ -1149,6 +1188,8 @@ export interface ComposerFor {
   label: string;
   action: string;
   off?: string;
+  /** The answer is a colour: the composer carries the app's own colour control. */
+  color?: boolean;
 }
 
 const QUIET: ComposerFor = { placeholder: 'Nothing to type yet', label: 'Message', action: 'Send' };
@@ -1171,6 +1212,9 @@ export function composerFor(
           placeholder: LOOK_SAYS_PLACEHOLDER[step] ?? 'In your words',
           label: 'Describe it',
           action: 'Send',
+          // a colour can be said or picked: the composer carries the app's own
+          // colour control while a colour step is the question
+          color: LOOK_COLOUR.has(step),
         };
       }
       return { ...QUIET, off: 'Tap one above.' };
