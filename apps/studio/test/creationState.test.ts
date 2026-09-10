@@ -133,4 +133,28 @@ describe('the state of a presenter being made', () => {
     expect(s.text).toBe('a man in his 40s');
     expect(s.revision).toBe(rev + 1);
   });
+
+  it('keeps a picture of a detail only while the detail is chosen', () => {
+    let s = reduce(EMPTY_STATE, { type: 'answer', patch: { ...scratch, traits: ['tattoo'] }, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'edit', id: 'trait-tattoo' });
+    const rev = s.revision;
+    s = reduce(s, { type: 'ref', id: 'trait-tattoo', hash: 'h-ink' });
+    s = reduce(s, { type: 'ref', id: 'trait-tattoo', hash: 'h-ink' });
+    // the picture landed once, the answer it belongs to is still open
+    expect(s.answers['trait-tattoo']).toEqual({ refs: ['h-ink'] });
+    expect(s.revision).toBe(rev + 1);
+    expect(s.editing).toBe('trait-tattoo');
+    s = reduce(s, { type: 'ref', id: 'trait-tattoo', hash: 'h-ink', remove: true });
+    expect(s.answers['trait-tattoo']).toEqual({ refs: [] });
+    // a picture for a detail nobody chose is refused
+    const t = reduce(s, { type: 'ref', id: 'trait-scar', hash: 'h-late' });
+    expect(t.answers['trait-scar']).toBeUndefined();
+    // and the pictures go with the detail
+    const u = reduce(reduce(s, { type: 'ref', id: 'trait-tattoo', hash: 'h-ink' }), {
+      type: 'answer',
+      patch: { traits: [] },
+      ctx: NO_DRAFT,
+    });
+    expect(u.answers['trait-tattoo']).toBeUndefined();
+  });
 });

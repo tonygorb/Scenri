@@ -716,6 +716,42 @@ describe('the view contract: three core, three on request', () => {
     expect(DEPENDS.right).toEqual(['portrait', 'front', 'left']);
   });
 
+  it('planStep rides the pictures of a detail after the person, with their own role, in whatever room the budget leaves', () => {
+    const empty = { status: 'empty' as const, attempts: 0, rejected: [] };
+    const rec = {
+      source: 'synthetic' as const,
+      direction: 'a woman in her 30s',
+      keep: 'thin black rectangular metal frames',
+      detailRefs: { glasses: ['g1', 'g2'], tattoo: ['t1'] },
+      name: 'Noa',
+      analysis: { promptName: 'a woman' },
+      sources: [],
+      views: {
+        portrait: { ...empty, status: 'approved' as const, hash: 'p' },
+        front: { ...empty, status: 'approved' as const, hash: 'f' },
+        'three-quarter': empty,
+        back: empty,
+        left: empty,
+        right: empty,
+      },
+    } as unknown as PresenterDraftRecord;
+    // the face roll: nothing of a person to attach, so the details ride alone
+    const face = planStep({ ...rec, views: { ...rec.views, portrait: empty } }, 'portrait', undefined, 5);
+    expect(face.refs).toEqual(['g1', 'g2', 't1']);
+    expect(face.roles).toEqual(['detail', 'detail', 'detail']);
+    // a later view: the person first as the person, then the details as details
+    const tq = planStep(rec, 'three-quarter', undefined, 5);
+    expect(tq.refs).toEqual(['p', 'f', 'g1', 'g2', 't1']);
+    expect(tq.roles).toEqual(['character', 'character', 'detail', 'detail', 'detail']);
+    // a tight budget keeps the person and drops details, never the other way round
+    const tight = planStep(rec, 'three-quarter', undefined, 3);
+    expect(tight.refs).toEqual(['p', 'f', 'g1']);
+    expect(tight.roles).toEqual(['character', 'character', 'detail']);
+    // with nothing attached, every reference is the person
+    const plain = planStep({ ...rec, detailRefs: undefined }, 'three-quarter', undefined, 5);
+    expect(plain.roles).toEqual(['character', 'character']);
+  });
+
   it('planStep attaches approved views first, then the photographs, inside the cap', () => {
     const empty = { status: 'empty' as const, attempts: 0, rejected: [] };
     const rec = {
