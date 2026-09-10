@@ -7,41 +7,74 @@ import type { PresenterDraft, PresenterDraftSlot, PresenterDraftView } from '../
  * flows read these; nothing here reads a component.
  */
 export type StudioView = PresenterDraftView;
-/** The server's save order: three core views, then the three built on request. */
-export const VIEWS: readonly StudioView[] = ['portrait', 'front', 'three-quarter', 'back', 'left', 'right'];
-export const CORE_VIEWS: readonly StudioView[] = ['portrait', 'front', 'three-quarter'];
-export const EXTRA_VIEWS: readonly StudioView[] = ['back', 'left', 'right'];
+
+/** What one view is. The studio's half of the server's own table. */
+export interface ViewRole {
+  id: StudioView;
+  /** Built by default, or only once somebody asks for the whole set. */
+  tier: 'core' | 'supplementary';
+  /** A person decides this one; the draft does not advance past it alone. */
+  gate?: true;
+  /** The approved views it is drawn from, in the order they are attached. */
+  from: StudioView[];
+  /** The strip's word for it. */
+  strip: string;
+  /** The same view inside a sentence. */
+  name: string;
+}
+
+/**
+ * The six views, in the order they are built and saved.
+ *
+ * This is the server's table (presenterPrompts.ts) with the two columns the
+ * browser needs and none of the prompt prose it does not. The studio has no
+ * dependency on any Scenri package by design, so the two are kept level by
+ * presenterViewParity.test.ts rather than by an import: change one side alone
+ * and that test goes red.
+ */
+export const VIEW_ROLES: readonly ViewRole[] = [
+  { id: 'portrait', tier: 'core', gate: true, from: [], strip: 'Face', name: 'face' },
+  { id: 'front', tier: 'core', from: ['portrait'], strip: 'Full body', name: 'full body' },
+  {
+    id: 'three-quarter',
+    tier: 'core',
+    from: ['portrait', 'front'],
+    strip: 'Three-quarter',
+    name: 'three-quarter view',
+  },
+  { id: 'back', tier: 'supplementary', from: ['portrait', 'front'], strip: 'Back', name: 'back view' },
+  { id: 'left', tier: 'supplementary', from: ['portrait', 'front'], strip: 'Left', name: 'left view' },
+  { id: 'right', tier: 'supplementary', from: ['portrait', 'front', 'left'], strip: 'Right', name: 'right view' },
+];
+
+const idsWhere = (want: (r: ViewRole) => boolean): readonly StudioView[] => VIEW_ROLES.filter(want).map((r) => r.id);
+
+export const VIEWS: readonly StudioView[] = idsWhere(() => true);
+export const CORE_VIEWS: readonly StudioView[] = idsWhere((r) => r.tier === 'core');
+export const EXTRA_VIEWS: readonly StudioView[] = idsWhere((r) => r.tier === 'supplementary');
 
 /** The strip's word for a view. */
-export const VIEW_LABEL: Record<StudioView, string> = {
-  portrait: 'Face',
-  front: 'Full body',
-  'three-quarter': 'Three-quarter',
-  back: 'Back',
-  left: 'Left',
-  right: 'Right',
-};
+export const VIEW_LABEL = Object.fromEntries(VIEW_ROLES.map((r) => [r.id, r.strip])) as Record<StudioView, string>;
 
 /** The view inside a sentence. */
-export const VIEW_NAME: Record<StudioView, string> = {
-  portrait: 'face',
-  front: 'full body',
-  'three-quarter': 'three-quarter view',
-  back: 'back view',
-  left: 'left view',
-  right: 'right view',
-};
+export const VIEW_NAME = Object.fromEntries(VIEW_ROLES.map((r) => [r.id, r.name])) as Record<StudioView, string>;
 const lower = (v: StudioView) => VIEW_NAME[v];
 
 /** Which approved views a view is drawn from. Mirrors the server's plan. */
-export const DEPENDS: Record<StudioView, StudioView[]> = {
-  portrait: [],
-  front: ['portrait'],
-  'three-quarter': ['portrait', 'front'],
-  back: ['portrait', 'front'],
-  left: ['portrait', 'front'],
-  right: ['portrait', 'front', 'left'],
-};
+export const DEPENDS = Object.fromEntries(VIEW_ROLES.map((r) => [r.id, r.from])) as Record<StudioView, StudioView[]>;
+
+/** The views a person decides rather than the draft deciding for them. */
+export const HAND_APPROVED: ReadonlySet<StudioView> = new Set(idsWhere((r) => r.gate === true));
+
+/**
+ * Whether a draw may decide for itself.
+ *
+ * A gated view comes back as a candidate and waits; every other view lands
+ * approved. This is one function rather than nine copies of a comparison
+ * against 'portrait', so gating a second view is a flag on a row and never a
+ * hunt through two hooks for the places that forgot.
+ */
+export const autoFor = (v: StudioView): 'auto' | undefined => (HAND_APPROVED.has(v) ? undefined : 'auto');
 
 /** Four is the working ceiling: past that a photo adds nothing an engine reads. */
 export const MAX_PHOTOS = 4;
@@ -62,8 +95,17 @@ export type DraftLike = Pick<PresenterDraft, 'source' | 'name' | 'views' | 'acti
 export type DraftResult = NonNullable<DraftLike['results']>[number];
 export type DraftDecision = NonNullable<DraftLike['decisions']>[number];
 
-/** The views this draft is building: the core three, and the extras once asked for. */
-export const viewsOf = (d: DraftLike): readonly StudioView[] => (d.extras ? VIEWS : CORE_VIEWS);
+/**
+ * The views this draft is building: the core ones, whatever supplementary
+ * views it already holds, and the whole set once somebody asked for it.
+ *
+ * The middle clause is what keeps a person who holds one extra view from
+ * being asked to finish a set they never started: a record carrying a back
+ * view and no profiles used to read as "extras are on" and then refuse to
+ * save until two views nobody asked for had been drawn.
+ */
+export const viewsOf = (d: DraftLike): readonly StudioView[] =>
+  idsWhere((r) => r.tier === 'core' || !!d.extras || d.views[r.id]?.status !== 'empty');
 
 export type Phase = 'identity' | 'build' | 'review';
 

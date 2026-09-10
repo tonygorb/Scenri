@@ -40,6 +40,8 @@ import { draw, presenterCrops, trimEdgeBars, type AssetBuildDeps } from './custo
 import {
   ATTACHED_PERSON,
   CORE_VIEWS,
+  DEPENDS,
+  VIEW_LABEL,
   EXTRA_VIEWS,
   PRESENTER_VIEWS,
   studioPrompt,
@@ -178,25 +180,9 @@ export interface PresenterDraftRecord {
   updatedAt: string;
 }
 
-/** Which approved views a view is drawn from. The order is the attachment order. */
-export const DEPENDS: Record<PresenterView, PresenterView[]> = {
-  portrait: [],
-  front: ['portrait'],
-  'three-quarter': ['portrait', 'front'],
-  back: ['portrait', 'front'],
-  left: ['portrait', 'front'],
-  right: ['portrait', 'front', 'left'],
-};
-
-/** How a view is named in a sentence a person reads. */
-export const VIEW_LABEL: Record<PresenterView, string> = {
-  portrait: 'face',
-  front: 'front view',
-  'three-quarter': 'three-quarter view',
-  back: 'back view',
-  left: 'left view',
-  right: 'right view',
-};
+// Both are the view table's own, re-exported from here because this is where
+// the draft machinery and its tests have always reached for them.
+export { DEPENDS, VIEW_LABEL } from './presenterPrompts.js';
 
 const isView = (v: unknown): v is PresenterView => (PRESENTER_VIEWS as readonly string[]).includes(String(v));
 const isExtra = (v: PresenterView) => EXTRA_VIEWS.includes(v);
@@ -514,7 +500,10 @@ export function seedDraftFromPresenter(core: Core, brandId: string, presenter: C
       .slice(0, 8),
     sources,
     views,
-    extras: EXTRA_VIEWS.some((v) => views[v].status !== 'empty'),
+    // Every one of them, not any: a record carrying a single supplementary
+    // view was never a record whose owner asked for the whole set, and
+    // reading it that way made the save demand two more nobody wanted.
+    extras: EXTRA_VIEWS.every((v) => views[v].status !== 'empty'),
     generations: 0,
     activeView: null,
     stage: 'idle',

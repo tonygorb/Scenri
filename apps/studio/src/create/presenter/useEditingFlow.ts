@@ -20,15 +20,16 @@ import {
   turnsForEdit,
 } from './presenterEditRules.js';
 import {
+  autoFor,
+  doingLine,
+  nextToDraw,
+  readsAsPerson,
+  selectedView,
+  stripItems,
+  takesOf,
   type StudioView,
   VIEW_LABEL,
   VIEW_NAME,
-  nextToDraw,
-  selectedView,
-  stripItems,
-  readsAsPerson,
-  doingLine,
-  takesOf,
 } from './presenterStudioRules.js';
 import { usePresenterDraft } from './usePresenterDraft.js';
 
@@ -112,7 +113,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
     const key = `${view}:${d.views[view].attempts}:${d.generations}:${d.views[view].status}`;
     if (started.current === key) return;
     started.current = key;
-    void s.generate(view, undefined, view === 'portrait' ? undefined : 'auto');
+    void s.generate(view, undefined, autoFor(view));
   }, [d, s.busy, s.generate, canDraw, s.err, ui.building]);
 
   const view: StudioView = d ? selectedView(d, focus) : 'portrait';
@@ -202,7 +203,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
           const v = (Object.keys(d.views) as StudioView[]).find((x) => d.views[x].status === 'candidate') ?? view;
           if (a.id === 'use') void s.approve(v);
           if (a.id === 'keep') void s.revert(v);
-          if (a.id === 'again') void s.generate(v, d.views[v].adjustment, v === 'portrait' ? undefined : 'auto');
+          if (a.id === 'again') void s.generate(v, d.views[v].adjustment, autoFor(v));
           setCompare(false);
           return;
         }
@@ -215,7 +216,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
           const failedView = (Object.keys(d.views) as StudioView[]).find((x) => !!d.views[x].error);
           if (failedView) {
             // drawn again as it was asked for, not from scratch
-            void s.generate(failedView, d.views[failedView].adjustment, failedView === 'portrait' ? undefined : 'auto');
+            void s.generate(failedView, d.views[failedView].adjustment, autoFor(failedView));
           }
           return;
         }
@@ -291,7 +292,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
       setUi((u) => leaveScope(u));
       setFocus(i.view);
       setCompare(false);
-      void s.generate(i.view, sentence, i.scope === 'view' ? 'auto' : undefined);
+      void s.generate(i.view, sentence, i.scope === 'view' ? autoFor(i.view) : undefined);
       setText('');
       return true;
     },

@@ -35,9 +35,23 @@ export function studioPrompt(subject: string): string {
   );
 }
 
+export type PresenterView = 'portrait' | 'front' | 'three-quarter' | 'back' | 'left' | 'right';
+
+/** What one view is, and what the rest of the system may derive from it. */
+export interface ViewRole {
+  id: PresenterView;
+  /** Built by default, or only once somebody asks for the whole set. */
+  tier: 'core' | 'supplementary';
+  /** A person decides this one; the draft does not advance past it alone. */
+  gate?: true;
+  /** The approved views it is drawn from, in the order they are attached. */
+  from: PresenterView[];
+  /** How it is named in a sentence a person reads. */
+  label: string;
+}
+
 /**
- * The six views a person can be cast in: three core, built by default, and
- * three extras, built only on request.
+ * The six views a person can be cast in, as one table.
  *
  * `portrait` is the identity: the face at face size, which is the only place
  * identity can be judged (a full-length frame renders it at ~105px brow to
@@ -49,12 +63,39 @@ export function studioPrompt(subject: string): string {
  * complete the casting sheet only when asked for. The compiler swaps one of
  * them in when the shot's own words ask for that side (askedView).
  *
- * PRESENTER_VIEWS is the save order.
+ * Row order is the save order and the build order, and there is no second
+ * ordering anywhere in the system. Everything under the table derives from it,
+ * so what a view IS costs one row to change rather than a sweep through five
+ * files that used to hold the same list and had nothing keeping them level.
  */
-export type PresenterView = 'portrait' | 'front' | 'three-quarter' | 'back' | 'left' | 'right';
-export const CORE_VIEWS: readonly PresenterView[] = ['portrait', 'front', 'three-quarter'];
-export const EXTRA_VIEWS: readonly PresenterView[] = ['back', 'left', 'right'];
-export const PRESENTER_VIEWS: readonly PresenterView[] = [...CORE_VIEWS, ...EXTRA_VIEWS];
+export const VIEW_ROLES: readonly ViewRole[] = [
+  { id: 'portrait', tier: 'core', gate: true, from: [], label: 'face' },
+  { id: 'front', tier: 'core', from: ['portrait'], label: 'front view' },
+  { id: 'three-quarter', tier: 'core', from: ['portrait', 'front'], label: 'three-quarter view' },
+  { id: 'back', tier: 'supplementary', from: ['portrait', 'front'], label: 'back view' },
+  { id: 'left', tier: 'supplementary', from: ['portrait', 'front'], label: 'left view' },
+  // Never from the left: drawing one profile off the other is the surest way
+  // to put a trait on the wrong side of a face. See refDeps.
+  { id: 'right', tier: 'supplementary', from: ['portrait', 'front', 'left'], label: 'right view' },
+];
+
+const idsWhere = (want: (r: ViewRole) => boolean): readonly PresenterView[] => VIEW_ROLES.filter(want).map((r) => r.id);
+
+export const PRESENTER_VIEWS: readonly PresenterView[] = idsWhere(() => true);
+export const CORE_VIEWS: readonly PresenterView[] = idsWhere((r) => r.tier === 'core');
+export const EXTRA_VIEWS: readonly PresenterView[] = idsWhere((r) => r.tier === 'supplementary');
+
+/** Which approved views a view is drawn from. The order is the attachment order. */
+export const DEPENDS = Object.fromEntries(VIEW_ROLES.map((r) => [r.id, r.from])) as Record<
+  PresenterView,
+  PresenterView[]
+>;
+
+/** How a view is named in a sentence a person reads. */
+export const VIEW_LABEL = Object.fromEntries(VIEW_ROLES.map((r) => [r.id, r.label])) as Record<PresenterView, string>;
+
+/** The views a person decides rather than the draft deciding for them. */
+export const HAND_APPROVED: ReadonlySet<PresenterView> = new Set(idsWhere((r) => r.gate === true));
 
 /** What a view asks for, about the person named in `who`. */
 export function viewSubject(view: PresenterView, who: string): string {

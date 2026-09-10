@@ -40,21 +40,22 @@ import {
   traitOfQid,
 } from './presenterQuestions.js';
 import {
-  MAX_PHOTOS,
-  type StudioView,
-  VIEW_LABEL,
+  autoFor,
   composerState,
+  doingLine,
   drawing as isDrawing,
   identityLocked,
+  MAX_PHOTOS,
   nextToDraw,
+  readsAsPerson,
   refineTarget,
   saveBlocker,
   seedCategories,
   selectedView,
   stripItems,
-  readsAsPerson,
-  doingLine,
   takesOf,
+  type StudioView,
+  VIEW_LABEL,
 } from './presenterStudioRules.js';
 import { usePresenterDraft } from './usePresenterDraft.js';
 
@@ -468,7 +469,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     const key = `${view}:${d.views[view].attempts}:${d.generations}:${d.views[view].status}`;
     if (started.current === key) return;
     started.current = key;
-    void s.generate(view, undefined, view === 'portrait' ? undefined : 'auto');
+    void s.generate(view, undefined, autoFor(view));
   }, [d, s.busy, s.generate, canDraw, s.err, ready, synced]);
 
   /** A sentence that answered nothing, kept where it was said. */
@@ -538,7 +539,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
               : ((Object.keys(d.views) as StudioView[]).find((x) => d.views[x].status === 'candidate') ?? view);
           if (a.id === 'use') void s.approve(v);
           if (a.id === 'keep') void s.revert(v);
-          if (a.id === 'again') void s.generate(v, d.views[v].adjustment, v === 'portrait' ? undefined : 'auto');
+          if (a.id === 'again') void s.generate(v, d.views[v].adjustment, autoFor(v));
           setCompare(false);
           return;
         }
@@ -558,7 +559,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           const failedView = (Object.keys(d.views) as StudioView[]).find((x) => !!d.views[x].error);
           if (failedView) {
             // drawn again as it was asked for, not from scratch
-            void s.generate(failedView, d.views[failedView].adjustment, failedView === 'portrait' ? undefined : 'auto');
+            void s.generate(failedView, d.views[failedView].adjustment, autoFor(failedView));
           }
           return;
         }
@@ -716,7 +717,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       }
       setFocus(target2.view);
       setCompare(false);
-      void s.generate(target2.view, sentence, target2.scope === 'view' ? 'auto' : undefined);
+      void s.generate(target2.view, sentence, target2.scope === 'view' ? autoFor(target2.view) : undefined);
       dispatch({ type: 'text', text: '' });
       return true;
     },

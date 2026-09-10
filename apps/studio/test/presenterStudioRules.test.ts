@@ -25,6 +25,7 @@ import {
   type DraftLike,
   type StudioView,
   readsAsPerson,
+  viewsOf,
 } from '../src/create/presenter/presenterStudioRules.js';
 
 const slot = (p: Partial<PresenterDraftSlot>): PresenterDraftSlot => ({ ...emptySlot(), ...p });
@@ -135,6 +136,27 @@ describe('the strip is the progress', () => {
     expect(stripItems(d, 'portrait')[0]).toMatchObject({ state: 'current', label: 'Face', photo: false });
     const photos = draft({ source: 'photos', views: { portrait: approved('a', 'photo') } });
     expect(stripItems(photos, 'front')[0]).toMatchObject({ state: 'approved', photo: true });
+  });
+});
+
+describe('which views a draft is building', () => {
+  it('holding one supplementary view is not asking for the whole set', () => {
+    // A record that carries a back view and no profiles used to read as
+    // "extras are on", which put left and right in the strip and then refused
+    // to save until two views nobody asked for had been drawn.
+    const d = draft({ views: { portrait: approved('p'), front: approved('f'), back: approved('b') } });
+    expect(viewsOf(d)).toEqual(['portrait', 'front', 'three-quarter', 'back']);
+    expect(stripItems(d, 'portrait')).toHaveLength(4);
+    expect(saveBlocker({ ...d, views: { ...d.views, 'three-quarter': approved('t') } }, 'Noor', true)).toBeNull();
+  });
+
+  it('asking for the set puts every view in play, drawn or not', () => {
+    const d = draft({ extras: true, views: { portrait: approved('p') } });
+    expect(viewsOf(d)).toEqual(VIEWS);
+  });
+
+  it('a plain draft builds the core views and nothing else', () => {
+    expect(viewsOf(draft())).toEqual(['portrait', 'front', 'three-quarter']);
   });
 });
 
