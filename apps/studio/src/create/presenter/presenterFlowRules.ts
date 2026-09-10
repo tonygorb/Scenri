@@ -262,7 +262,7 @@ export function attachedWords(id: TraitId, n: number): string {
  * The line at the read-back and wherever else a last-moment detail is written:
  * the free hand over the rows, for what no question thought to ask.
  */
-const KEEP_PLACEHOLDER = 'Anything else? A scar, a ring, something we did not ask about';
+const KEEP_PLACEHOLDER = 'A scar, a ring, anything we missed';
 
 /** The questions answered in a sentence typed into their own field, in place. */
 export const TEXT_QIDS: ReadonlySet<Qid> = new Set<Qid>(['describe', 'keep']);

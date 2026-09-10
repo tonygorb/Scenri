@@ -622,12 +622,14 @@
     padding: var(--sc-space-5) var(--sc-space-6);
   }
 
+  /* The bottom of the conversation, not a bar bolted under it: the same ground
+     as the talk above it and no seam across the screen. It is opaque, so what
+     scrolls under it is covered without a line having to say so. */
   .sc-pstudio-foot {
     position: sticky;
     bottom: 0;
     padding: var(--sc-space-5) var(--sc-space-6) calc(var(--sc-space-5) + var(--sc-bottom-inset));
-    background: var(--sc-bg);
-    border-top: 1px solid var(--sc-line);
+    background: var(--sc-panel);
   }
 }
 

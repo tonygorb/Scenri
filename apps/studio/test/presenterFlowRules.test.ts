@@ -439,7 +439,7 @@ describe('the composer follows the state', () => {
     const r = state({ ...TAPPED, traits: [] });
     const c2 = composerFor(open(turns(r)), r, null, 'portrait');
     expect(c2.off).toBeUndefined();
-    expect(c2.placeholder).toBe('Anything else? A scar, a ring, something we did not ask about');
+    expect(c2.placeholder).toBe('A scar, a ring, anything we missed');
   });
 
   it('turns into the refinement field once the face is used, and asks the name while a view draws', () => {

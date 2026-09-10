@@ -369,4 +369,29 @@ test.describe('on a phone', () => {
     const wide = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(wide).toBe(false);
   });
+
+  test('the composer stands down where it is, and never leaves the screen', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    const card = page.locator('.sc-convo-card');
+    const foot = page.locator('.sc-pstudio-foot');
+    await expect(card).toBeVisible();
+    const room = async () => (await foot.boundingBox())?.height ?? 0;
+    const atDoor = await room();
+
+    // a question with things to tap: the card cannot be written in and says so,
+    // and it holds exactly the room it held a moment ago
+    await answer(page, 'Describe someone').click();
+    await expect(log(page)).toContainText('Who are they?');
+    await expect(card).toHaveAttribute('data-quiet', 'true');
+    await expect(card.locator('textarea')).toHaveAttribute('placeholder', 'Tap one above.');
+    expect(await room()).toBe(atDoor);
+    await answer(page, 'Woman').click();
+    await expect(log(page)).toContainText('Roughly how old?');
+    expect(await room()).toBe(atDoor);
+
+    // and a time nobody can hover for is not put on the screen at all
+    await expect(page.locator('.sc-convo-time').first()).toBeHidden();
+    await expect(page.locator('.sc-convo-when').first()).toBeVisible();
+  });
 });

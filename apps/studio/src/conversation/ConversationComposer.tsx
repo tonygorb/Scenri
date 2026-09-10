@@ -221,7 +221,10 @@ export function ConversationComposer({
             // would only crowd it
             // a colour chosen is the answer, so the invitation would crowd it;
             // a picture rides with words that are still wanted, so it stays
-            placeholder={colour?.hex && !value ? '' : placeholder}
+            // A field that cannot be typed into says why, in the field: the pill's
+            // tooltip is the same words, and on a touch screen a tooltip is a
+            // thing that never happens.
+            placeholder={colour?.hex && !value ? '' : disabled && why ? why : placeholder}
             value={value}
             disabled={disabled}
             onChange={(e) => onValue(e.target.value)}
