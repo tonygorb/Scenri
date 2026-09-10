@@ -134,6 +134,34 @@ describe('the state of a presenter being made', () => {
     expect(s.revision).toBe(rev + 1);
   });
 
+  it('holds a picture the way it holds the words beside it: kept on an answer, put back on a cancel', () => {
+    const chosen: Answers = { ...scratch, traits: ['tattoo'] };
+    let s = reduce(EMPTY_STATE, { type: 'answer', patch: chosen, ctx: NO_DRAFT });
+    // said in words, a picture added, then the line closed without an answer
+    s = reduce(s, { type: 'say', id: 'trait-tattoo' });
+    s = reduce(s, { type: 'ref', id: 'trait-tattoo', hash: 'h-first' });
+    expect(s.answers['trait-tattoo']?.refs).toEqual(['h-first']);
+    s = reduce(s, { type: 'say', id: 'trait-tattoo' });
+    expect(s.answers['trait-tattoo']).toBeUndefined();
+
+    // added and answered: the picture came with the answer and stays
+    s = reduce(s, { type: 'say', id: 'trait-tattoo' });
+    s = reduce(s, { type: 'ref', id: 'trait-tattoo', hash: 'h-kept' });
+    s = reduce(s, {
+      type: 'answer',
+      patch: { 'trait-tattoo': { words: 'a solid blackwork tattoo', refs: ['h-kept'] } },
+      ctx: NO_DRAFT,
+    });
+    expect(s.answers['trait-tattoo']).toEqual({ words: 'a solid blackwork tattoo', refs: ['h-kept'] });
+
+    // opened again, the picture replaced, then cancelled: it is as it was
+    s = reduce(s, { type: 'edit', id: 'trait-tattoo' });
+    s = reduce(s, { type: 'ref', id: 'trait-tattoo', hash: 'h-other' });
+    expect(s.answers['trait-tattoo']?.refs).toEqual(['h-other']);
+    s = reduce(s, { type: 'cancel-edit' });
+    expect(s.answers['trait-tattoo']).toEqual({ words: 'a solid blackwork tattoo', refs: ['h-kept'] });
+  });
+
   it('keeps a picture of a detail only while the detail is chosen', () => {
     let s = reduce(EMPTY_STATE, { type: 'answer', patch: { ...scratch, traits: ['tattoo'] }, ctx: NO_DRAFT });
     s = reduce(s, { type: 'edit', id: 'trait-tattoo' });

@@ -9,6 +9,7 @@ import {
   commit,
   isQid,
   nextQuestion,
+  traitOfQid,
 } from './presenterQuestions.js';
 import type { TraitId } from './presenterTraits.js';
 
@@ -50,6 +51,13 @@ export interface CreationState {
   text: string;
   /** A colour picked for a colour step, waiting on Send with any words beside it. */
   colour: { step: Qid; hex: string } | null;
+  /**
+   * A detail whose picture is being changed, and the picture it had when the
+   * line was opened on it. A picture in the line is part of the answer being
+   * written, like the words beside it: kept when the answer is given, and put
+   * back as it was when the line closes without one.
+   */
+  composing: { id: TraitQid; refs: string[] } | null;
   /** Sentences that answered nothing, each kept where it was said. */
   asides: Aside[];
   /** A sentence with nothing of a person in it, waiting to be drawn from anyway or replaced. */
@@ -67,6 +75,7 @@ export const EMPTY_STATE: CreationState = {
   saying: null,
   text: '',
   colour: null,
+  composing: null,
   asides: [],
   unsure: null,
   extrasDeclined: false,
@@ -111,6 +120,34 @@ export type Action =
 
 const same = (x: unknown, y: unknown) => JSON.stringify(x) === JSON.stringify(y);
 
+/** The detail a question is about, when it is the half a picture belongs to. */
+function pictureQid(id: Qid | 'keep' | 'name' | null): TraitQid | null {
+  if (!id || id === 'keep' || id === 'name') return null;
+  const t = traitOfQid(id);
+  return t && t.part === 'what' ? (`trait-${t.id}` as TraitQid) : null;
+}
+
+/** The line opens on a detail: what its picture is now is what a cancel puts back. */
+function opening(s: CreationState, id: Qid | 'keep' | 'name' | null): CreationState['composing'] {
+  const q = pictureQid(id);
+  return q ? { id: q, refs: s.answers[q]?.refs ?? [] } : null;
+}
+
+/** The line closed without an answer: the picture it was given back as it was. */
+function restored(s: CreationState): Answers {
+  const was = s.composing;
+  if (!was) return s.answers;
+  const now = s.answers[was.id];
+  if (!now || same(now.refs, was.refs)) return s.answers;
+  // a detail that had nothing but the picture is simply not answered
+  if (!now.words && !was.refs.length) {
+    const rest = { ...s.answers };
+    delete rest[was.id];
+    return rest;
+  }
+  return { ...s.answers, [was.id]: { ...now, refs: was.refs } };
+}
+
 /** The asides that still have a question to stand under. */
 function keptAsides(asides: Aside[], answers: Answers, ctx: FlowContext): Aside[] {
   return asides.filter((a) => !a.q || !isQid(a.q) || applies(a.q, answers, ctx));
@@ -138,15 +175,34 @@ export function reduce(s: CreationState, action: Action): CreationState {
         editing: null,
         saying: null,
         colour: null,
+        // the answer was given: the picture that came with it stays
+        composing: null,
         text: '',
       };
     }
     case 'edit':
-      return { ...s, editing: action.id, saying: null, colour: null, text: '' };
+      return {
+        ...s,
+        answers: restored(s),
+        composing: opening(s, action.id),
+        editing: action.id,
+        saying: null,
+        colour: null,
+        text: '',
+      };
     case 'cancel-edit':
-      return { ...s, editing: null, saying: null, colour: null, text: '' };
-    case 'say':
-      return { ...s, saying: s.saying === action.id ? null : action.id, colour: null, text: '' };
+      return { ...s, answers: restored(s), composing: null, editing: null, saying: null, colour: null, text: '' };
+    case 'say': {
+      const saying = s.saying === action.id ? null : action.id;
+      return {
+        ...s,
+        answers: restored(s),
+        composing: opening(s, saying),
+        saying,
+        colour: null,
+        text: '',
+      };
+    }
     case 'text':
       return s.text === action.text ? s : { ...s, text: action.text };
     case 'colour':

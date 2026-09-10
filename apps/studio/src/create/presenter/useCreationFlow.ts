@@ -862,10 +862,17 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     ];
   })();
 
-  // where a picture would go if one were added right now
-  const attachTarget = pictureFor(state, ctx);
-
   const composerBase = composerFor(question, state, d, view);
+  /**
+   * The card stands down while a question with things to tap owns the answer,
+   * and everything in it stands down with it: a way in that still worked
+   * inside a card that plainly cannot be typed into is the card saying two
+   * things at once. Say it in your own words and the card comes back, with
+   * both the words and the way in for a picture.
+   */
+  const composerOff = s.busy || busySetup || booting || !!composerBase.off;
+  // where a picture would go if one were added right now
+  const attachTarget = composerOff ? null : pictureFor(state, ctx);
   const sayingStep = state.saying && isLookQid(state.saying) ? (state.saying.slice('look-'.length) as LookStep) : null;
   /** The colours this step is answered with, when it is answered with one. */
   const colours = composerBase.color && sayingStep ? colourPalette(sayingStep) : null;
@@ -953,7 +960,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         hint: null,
         why: composerBase.off ?? undefined,
         error: askErr ?? saveErr,
-        disabled: s.busy || busySetup || booting || !!composerBase.off,
+        disabled: composerOff,
         working: !!d && !!d.activeView && question?.id !== 'name',
         onStop: d?.activeView ? () => void s.stop() : undefined,
         focusKey: question ? `${question.id}:${d?.id ?? 'setup'}:${changing}:${state.saying ?? ''}` : undefined,

@@ -236,6 +236,10 @@ test.describe('a picture of the thing itself', () => {
     await answer(page, 'Continue').click();
     await expect(log(page)).toContainText('What glasses do they wear?');
 
+    // a question with things to tap owns the answer: the card stands down, and
+    // the way in for a picture stands down with it
+    await expect(page.locator('.sc-convo-attach')).toHaveCount(0);
+    await answer(page, 'Describe the glasses').click();
     // the picture goes in the line, in the chip the rest of the app uses for one
     await page.getByRole('button', { name: 'Add the picture of the glasses' }).click();
     await page
@@ -269,7 +273,9 @@ test.describe('a picture of the thing itself', () => {
     await answer(page, 'Glasses').click();
     await answer(page, 'Continue').click();
 
-    // the way in is where it is everywhere: beside the pill
+    // the way in is where it is everywhere: beside the pill, once the line has
+    // the answer
+    await answer(page, 'Describe the glasses').click();
     const plus = page.getByRole('button', { name: 'Add the picture of the glasses' });
     await expect(plus).toBeVisible();
     await plus.click();
@@ -293,6 +299,7 @@ test.describe('a picture of the thing itself', () => {
     await tapThrough(page);
     await answer(page, 'Glasses').click();
     await answer(page, 'Continue').click();
+    await answer(page, 'Describe the glasses').click();
     const plus = page.getByRole('button', { name: 'Add the picture of the glasses' });
     await expect(plus).toBeVisible();
 
@@ -302,8 +309,11 @@ test.describe('a picture of the thing itself', () => {
     await expect(page.getByRole('button', { name: /picture of the/ })).toHaveCount(0);
     await expect(page.locator('.sc-convo-attach')).toHaveCount(0);
 
-    // left as it was, it is back where it was
+    // left as it was, the conversation is back on the glasses; saying it in
+    // words is a fresh start, and the way in comes with it
     await turn(page, 'q:look-hair').getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.locator('.sc-convo-attach')).toHaveCount(0);
+    await answer(page, 'Describe the glasses').click();
     await expect(plus).toBeVisible();
   });
 
@@ -313,6 +323,7 @@ test.describe('a picture of the thing itself', () => {
     await tapThrough(page);
     await answer(page, 'Glasses').click();
     await answer(page, 'Continue').click();
+    await answer(page, 'Describe the glasses').click();
     await page.getByRole('button', { name: 'Add the picture of the glasses' }).click();
     await page
       .locator('.sc-convo-card input[type="file"]')
