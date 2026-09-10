@@ -242,10 +242,43 @@ test.describe('a person from scratch', () => {
     await menu.getByRole('option', { name: /Auburn/ }).click();
     await expect(menu).toBeHidden();
     await expect(chip).toHaveText('Auburn');
+
+    // words typed beside it are words about that colour: the chip is read as
+    // the first of them, in the order the two are seen
+    await page.locator('.sc-convo-field textarea').fill('with copper ends');
     await page.getByRole('button', { name: 'Send' }).click();
-    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toContainText('Auburn');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toContainText(
+      'auburn with copper ends',
+    );
     await expect(log(page)).toContainText('How long is it?');
+    // the next step is not a colour, so no chip stands in its field
     await expect(page.locator('.sc-convo-field .sc-token')).toHaveCount(0);
+  });
+
+  test('what says nothing beside a colour is bounced, and the colour is kept', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await answer(page, 'Describe someone').click();
+    await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
+    await log(page).getByRole('button', { name: '30s', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Describe the colour' }).click();
+    const chip = page.locator('.sc-convo-field .sc-token');
+    await chip.click();
+    await page.locator('.sc-swap[data-kind="color"]').getByRole('option', { name: /Ginger/ }).click();
+    await page.locator('.sc-convo-field textarea').fill('asdkjhasd');
+    await page.getByRole('button', { name: 'Send' }).click();
+    // the step stays open, the nonsense is answered, and the colour stands
+    await expect(log(page)).toContainText('asdkjhasd');
+    await expect(log(page)).toContainText('What colour is their hair?');
+    await expect(chip).toHaveText('Ginger');
+    // the chip is the answer, not a word in a sentence: it carries no remove of
+    // its own, and the menu's Remove colour empties it back to a choice to make
+    await expect(chip.getByRole('button')).toHaveCount(0);
+    await chip.click();
+    await page.locator('.sc-swap[data-kind="color"]').getByRole('button', { name: 'Remove colour' }).click();
+    await expect(chip).toHaveText('Pick a colour');
+    await expect(page.getByRole('button', { name: 'Send' })).toHaveAttribute('aria-disabled', 'true');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toHaveCount(0);
   });
 
   test('an answer is said again where it stands, and the future it had is taken back', async ({ page }) => {

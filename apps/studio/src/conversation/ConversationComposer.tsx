@@ -1,4 +1,4 @@
-import { ArrowUp, Plus, X } from '@phosphor-icons/react';
+import { ArrowUp, Plus } from '@phosphor-icons/react';
 import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Swatch } from '../brand/palette.js';
 import { ColorChipMenu } from '../composer/ColorChipMenu.js';
@@ -189,19 +189,11 @@ export function ConversationComposer({
               }}
             >
               <span className="sc-token-swatch" style={colour.hex ? { background: colour.hex } : undefined} />
+              {/* No X here, unlike a chip in a sentence: this chip is the step's
+                  answer rather than one word of many, and the menu it opens
+                  already has Remove colour, which empties it back to a choice
+                  waiting to be made. */}
               <span className="sc-token-label">{colour.label}</span>
-              {colour.hex && (
-                <button
-                  type="button"
-                  aria-label="Remove colour"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    colour.onClear();
-                  }}
-                >
-                  <X size={11} weight="bold" />
-                </button>
-              )}
             </span>
           )}
           <textarea

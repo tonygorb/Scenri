@@ -491,8 +491,12 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
 
   const onSend = useCallback(
     (raw: string): boolean => {
-      // a colour chosen from the picker is the answer when nothing was typed
-      const sentence = raw.trim() || (ui.saying && picked ? picked : '');
+      const typed = raw.trim();
+      // A colour in the chip is an answer on its own. Words beside it are the
+      // person's own words about that colour, so the two read as one answer in
+      // the order they are seen: the chip's colour, then what was typed.
+      const chosen = ui.saying && picked ? colourName(picked, colourRow(ui.saying), ui.saying) : '';
+      const sentence = typed || (chosen ? picked : '');
       if (!sentence) return false;
       setAskErr(null);
       const open = question?.id;
@@ -508,17 +512,17 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       if (ui.saying) {
         const step = ui.saying;
         // words in place of a tap are still words: what says nothing is bounced
-        // the way it is anywhere else, and the step stays open
-        // a swatch says what it is: a hex is the answer itself, not a sentence
-        const empty = /^#[0-9a-f]{6}$/i.test(sentence) ? null : answersNothing(sentence, readsAsPerson);
+        // the way it is anywhere else, and the step stays open. A swatch says
+        // what it is, so only typed words are read this way, chip or no chip.
+        const empty = typed && !/^#[0-9a-f]{6}$/i.test(typed) ? answersNothing(typed, readsAsPerson) : null;
         if (empty) {
           setUi((u) => ({
             ...u,
             asides: [
               ...(u.asides ?? []),
               {
-                said: sentence,
-                reply: asideReply(empty, 'describe', false, sentence),
+                said: typed,
+                reply: asideReply(empty, 'describe', false, typed),
                 q: `look-${step}`,
                 at: nowIso(),
               },
@@ -529,7 +533,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         }
         const had = setup.look && setup.look !== 'skipped' ? setup.look : {};
         setUi((u) => ({ ...u, saying: null }));
-        setSetup({ look: { ...had, [step]: sentence } });
+        setSetup({ look: { ...had, [step]: chosen && typed ? `${chosen} ${typed}` : sentence } });
         setPickedColour(null);
         setText('');
         return true;
@@ -643,7 +647,21 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       setText('');
       return true;
     },
-    [ui.reasking, ui.asides, ui.unsure, question?.id, canDraw, setSetup, describe, d, s, view],
+    [
+      ui.reasking,
+      ui.asides,
+      ui.unsure,
+      ui.saying,
+      picked,
+      setup,
+      question?.id,
+      canDraw,
+      setSetup,
+      describe,
+      d,
+      s,
+      view,
+    ],
   );
 
   // onAnswer can need what the pencil does, and is declared before it
