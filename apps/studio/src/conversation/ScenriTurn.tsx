@@ -22,6 +22,7 @@ export function ScenriTurn({
   delay = 0,
   leave,
   turnId,
+  dim,
   thumb,
   label,
   current,
@@ -48,6 +49,8 @@ export function ScenriTurn({
   leave?: boolean;
   /** How long after the turn before it this one starts, when several arrive together. */
   delay?: number;
+  /** An answer is being changed elsewhere: this line steps back while it is. */
+  dim?: boolean;
 }) {
   // the timing a turn arrives by is fixed when it mounts, whatever renders after
   const [start] = useState(delay);
@@ -60,6 +63,7 @@ export function ScenriTurn({
       data-arrive={playing || undefined}
       data-leave={going}
       data-turn={turnId}
+      data-dim={dim || undefined}
       style={
         playing
           ? ({ ...arrivalVars(start), '--sc-convo-after': `${revealPlan(text).total}ms` } as CSSProperties)
@@ -196,6 +200,17 @@ export function useRevealOnce(
 ): { playing: boolean; thinking: boolean } {
   const [playing, setPlaying] = useState(!!reveal);
   const [thinking, setThinking] = useState(!!reveal);
+  // A line can be said twice without leaving in between: a question that was
+  // standing, asked again because the answer behind it changed. It plays from
+  // the beginning, the way it would if it had arrived for the first time.
+  const was = useRef(!!reveal);
+  useEffect(() => {
+    if (reveal && !was.current) {
+      setPlaying(true);
+      setThinking(true);
+    }
+    was.current = !!reveal;
+  }, [reveal]);
   useEffect(() => {
     if (!playing) return;
     const t = setTimeout(() => {

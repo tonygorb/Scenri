@@ -19,6 +19,7 @@ export function YouTurn({
   leave,
   delay = 0,
   turnId,
+  dim,
   onEdit,
   onSave,
   onCancel,
@@ -36,6 +37,8 @@ export function YouTurn({
   leave?: boolean;
   /** How long to wait first: the beat the answered block takes to go. */
   delay?: number;
+  /** Another answer is being changed: this one steps back while it is. */
+  dim?: boolean;
   /** The answer is being rewritten in place. */
   editing?: boolean;
   onEdit?: () => void;
@@ -54,6 +57,7 @@ export function YouTurn({
       data-arrive={arriving || undefined}
       data-leave={going}
       data-turn={turnId}
+      data-dim={dim || undefined}
       style={arriving ? ({ '--sc-convo-start': `${start}ms` } as CSSProperties) : undefined}
     >
       {first && <span className="sc-convo-who">You</span>}

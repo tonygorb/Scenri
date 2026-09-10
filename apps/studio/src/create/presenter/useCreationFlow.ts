@@ -30,7 +30,6 @@ import {
   type LookStep,
   type Qid,
   type TraitQid,
-  commit,
   isLookQid,
   isQid,
   nextQuestion,
@@ -313,33 +312,16 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   }, []);
 
   /**
-   * An answer, given or changed. With a draft on the stage the change reaches
-   * it: the words are updated and the face, or the set drawn from the
-   * photographs, is drawn again from them.
+   * An answer, given or changed. Nothing is drawn from it here: a change takes
+   * back everything the conversation asked after it, so the person is not whole
+   * again until those questions are answered, and drawing from each one on the
+   * way would spend a generation on somebody half-described.
    */
   const commitAnswer = useCallback(
     (patch: Partial<Answers>) => {
-      const st = stateRef.current;
       dispatch({ type: 'answer', patch, ctx });
-      if (!d) return;
-      const next = commit(st.answers, patch, ctx);
-      const direction = compileDirection(next);
-      const keep = compileKeep(next);
-      const refs = compileRefs(next);
-      const wordsMoved =
-        d.source === 'synthetic'
-          ? (d.direction ?? '') !== direction || (d.keep ?? '') !== keep
-          : (d.keep ?? '') !== keep;
-      if (!wordsMoved && sameRefs(d.detailRefs, refs)) return;
-      void (async () => {
-        await s.update({ ...(d.source === 'synthetic' ? { direction } : {}), keep, detailRefs: refs });
-        // the photographs stand; what was drawn from them is drawn again
-        if (d.source === 'photos') {
-          if (d.views.front.hash) await s.redo('front');
-        } else if (d.views.portrait.hash) await s.redo('portrait');
-      })();
     },
-    [ctx, d, s.update, s.redo],
+    [ctx],
   );
 
   const save = useCallback(async () => {
@@ -395,35 +377,56 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   // a picture is only put back while nothing is being drawn
   const idleNow = !!d && !d.activeView && d.stage === 'idle';
 
-  // What the answers say stays the same reaches the draft as soon as it is
-  // whole, and nothing is drawn until the draft has it: the set is drawn
-  // from the photographs and the sentence together, never from a promise.
+  /**
+   * The draft carries what the answers say, once they are whole again.
+   *
+   * One place, one moment: the words reach the draft when there is nothing
+   * left to ask, and what was already drawn from the old words is drawn again,
+   * once. Nothing is drawn while a question is open, so a person half way
+   * through changing their mind never spends a generation.
+   */
   const ready = readyToDraw(state, ctx);
+  const wordsWanted = compileDirection(state.answers);
   const keepWanted = compileKeep(state.answers);
   const refsWanted = compileRefs(state.answers);
-  const keepSynced = !d || ((d.keep ?? '') === keepWanted && sameRefs(d.detailRefs, refsWanted));
+  const synced =
+    !d ||
+    ((d.source !== 'synthetic' || (d.direction ?? '') === wordsWanted) &&
+      (d.keep ?? '') === keepWanted &&
+      sameRefs(d.detailRefs, refsWanted));
   const refsKey = JSON.stringify(refsWanted);
   useEffect(() => {
-    if (!d || !ready || keepSynced || s.busy || syncing.current) return;
+    if (!d || !ready || synced || s.busy || syncing.current) return;
     syncing.current = true;
-    void s.update({ keep: keepWanted, detailRefs: JSON.parse(refsKey) as Record<string, string[]> }).finally(() => {
+    // what a picture was drawn from is what a redraw is worth: an empty view
+    // is simply drawn when its turn comes
+    const again =
+      d.source === 'photos' ? (d.views.front.hash ? 'front' : null) : d.views.portrait.hash ? 'portrait' : null;
+    void (async () => {
+      await s.update({
+        ...(d.source === 'synthetic' ? { direction: wordsWanted } : {}),
+        keep: keepWanted,
+        detailRefs: JSON.parse(refsKey) as Record<string, string[]>,
+      });
+      if (again) await s.redo(again);
+    })().finally(() => {
       syncing.current = false;
     });
-  }, [d, ready, keepSynced, s.busy, s.update, keepWanted, refsKey]);
+  }, [d, ready, synced, s.busy, s.update, s.redo, wordsWanted, keepWanted, refsKey]);
 
   // The next view is drawn with no click: the face first, then the set from
   // it, each landed view deciding itself; only the face waits for a person.
   // Nothing is drawn while an answer is open, or before the draft holds what
   // the answers say.
   useEffect(() => {
-    if (!d || s.busy || !canDraw || s.err || !ready || !keepSynced) return;
+    if (!d || s.busy || !canDraw || s.err || !ready || !synced) return;
     const view = nextToDraw(d);
     if (!view) return;
     const key = `${view}:${d.views[view].attempts}:${d.generations}:${d.views[view].status}`;
     if (started.current === key) return;
     started.current = key;
     void s.generate(view, undefined, view === 'portrait' ? undefined : 'auto');
-  }, [d, s.busy, s.generate, canDraw, s.err, ready, keepSynced]);
+  }, [d, s.busy, s.generate, canDraw, s.err, ready, synced]);
 
   /** A sentence that answered nothing, kept where it was said. */
   const bounce = useCallback((said: string, reply: string, q: string | null) => {

@@ -526,8 +526,12 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('Who are they?');
     await pencil(page, 'Describe someone').click();
     await expect(answer(page, 'Add photos')).toBeVisible();
+    // the door is open again: it takes the answer, and the composer stands down
+    await answer(page, 'Describe someone').click();
+    await expect(log(page)).toContainText('Who are they?');
+    await log(page).getByRole('button', { name: 'Describe instead' }).click();
     await send(page, 'hey');
-    await expect(log(page)).toContainText('Hi. Describe them in a sentence');
+    await expect(log(page)).toContainText('Hi. A few words about them is enough');
     await settle(page, 800);
     const { events, initial, maxGap, end } = await record(page);
     const bad = judge(events, initial, { reduced: true, maxGap, end });

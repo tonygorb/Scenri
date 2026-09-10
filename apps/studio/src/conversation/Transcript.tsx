@@ -33,12 +33,8 @@ const ANSWER_MS = 220;
 /** How long the place of a changed answer stays in view before the reader is moved on. */
 const FOLLOW_MS = 450;
 
-/**
- * How long a line that left is remembered as read. A question that comes back
- * within this (an answer changed above it, the read-back standing again) was
- * seen moments ago and is not said again; one that comes back later is.
- */
-const RECENT_MS = 10_000;
+/** How much of a block open again may sit under the fold before it is brought up. */
+const CUT_OFF = 48;
 
 interface Leaving {
   /** The turns as they were, with the ones that are going marked. */
@@ -134,8 +130,10 @@ export function Transcript({
   // comes next waits until it is gone. Folding and unfolding the setup is
   // not going anywhere, and plays nothing.
   const last = useRef<Turn[]>(turns);
-  // when each line that stepped aside for a change left: back within a moment, it is not new
-  const left = useRef(new Map<string, number>());
+  // the question to say again because an answer behind it changed, and what
+  // that answer said before it was opened
+  const askAgain = useRef<string | null>(null);
+  const wasAnswer = useRef<{ key: string; text: string } | null>(null);
   const leave = useRef<Leaving | null>(null);
   const look = useRef<{ qid: string; look: Picked } | null>(null);
   const gone = useRef<string[]>([]);
@@ -145,7 +143,13 @@ export function Transcript({
   const due = useRef(new Map<string, number>());
   const free = useRef(0);
   const now = performance.now();
+  // Whether the conversation itself changed this render. A turn that moved
+  // because the conversation changed is played back from where it was; one
+  // that moved because a font or a picture finished loading is not moving at
+  // all, and playing it would be the page appearing to slide for no reason.
+  const moved = useRef(false);
   if (turns !== last.current) {
+    moved.current = true;
     // What is going is what the turns were and are not any more, plus whatever
     // was still on its way out of them. Diffed against the turns themselves,
     // never against what happened to be painted: a render landing mid-fade
@@ -166,12 +170,24 @@ export function Transcript({
       (k.startsWith('you:') && reopenedNow.has(otherShape(k))) ||
       (k.startsWith('q:') && reopenedThen.has(k) && cur.has(otherShape(k)));
     gone.current = prev.map(turnKey).filter((k) => !cur.has(k) && !swapped(k));
-    // A line that steps aside for an answer being changed (the open question,
-    // the read-back) was read moments ago; back after the change, it is not
-    // said again. Only Scenri's lines, and only around a change: an answer
-    // given again, or a question asked again for its own reasons, arrives.
-    if (reopenedNow.size || reopenedThen.size)
-      for (const k of gone.current) if (!k.startsWith('you:') && !left.current.has(k)) left.current.set(k, now);
+    // An answer opened again: remember what it said, so its own words can say
+    // whether anything actually changed when it closes.
+    if (reopenedNow.size && !reopenedThen.size) {
+      const answer = otherShape([...reopenedNow][0]);
+      const before = prev.find((t) => turnKey(t) === answer);
+      wasAnswer.current = before?.kind === 'you' ? { key: answer, text: before.text } : null;
+    }
+    // It closed on a different answer: whatever the conversation asks now is
+    // being asked again, and is said again, even when it is the same question
+    // that was standing all along, because what it was asked about has changed.
+    if (reopenedThen.size > 0 && reopenedNow.size === 0) {
+      const was = wasAnswer.current;
+      wasAnswer.current = null;
+      const now = was ? turns.find((t) => turnKey(t) === was.key) : undefined;
+      const changedAnswer = !!was && (now?.kind !== 'you' || now.text !== was.text);
+      const end = turns[turns.length - 1];
+      askAgain.current = changedAnswer && end?.kind === 'question' ? turnKey(end) : null;
+    }
     if (!reduced && gone.current.length) {
       const fresh = gone.current.some((k) => !fading?.gone.has(k));
       const kept = fading?.look && gone.current.includes(`q:${fading.look.qid}`) ? fading.look : null;
@@ -213,21 +229,21 @@ export function Transcript({
     const stored = memoryKey ? readSaid(memoryKey) : null;
     seen.current = stored ?? new Set(resumed || turns.length > 2 ? turns.map(turnKey) : []);
   }
+  if (askAgain.current) {
+    seen.current.delete(askAgain.current);
+    askAgain.current = null;
+  }
   const fresh = new Set<string>();
   for (const t of list) {
     const k = turnKey(t);
+    // An answer opened again is that answer, in its place: it is simply there,
+    // and nothing types it out. It is not remembered as said either, because
+    // it was never said: it is an answer being changed, and the question it
+    // belongs to may well be asked again later, which is a line like any other.
+    if (t.kind === 'question' && t.question.reopened) continue;
     if (seen.current.has(k)) continue;
-    // An answer opened again is the answer, where it was: it is there at
-    // once, and nothing types it out. A line back within a moment likewise.
-    const at = left.current.get(k);
-    const back = at !== undefined && now - at < RECENT_MS;
-    if ((t.kind === 'question' && t.question.reopened) || back) {
-      seen.current.add(k);
-      continue;
-    }
     fresh.add(k);
   }
-  for (const k of list.map(turnKey)) left.current.delete(k);
   // A conversation that was already had is not had again. A page opened on a
   // draft gets its history a moment later and in more than one go: the draft
   // answers, then the pictures it names, then whatever settles after them. All
@@ -280,6 +296,8 @@ export function Transcript({
     if (!set) return;
     for (const k of gone.current) set.delete(k);
     for (const t of shown) {
+      // a question open again is an editor, not a line that was said
+      if (t.kind === 'question' && t.question.reopened) continue;
       const k = turnKey(t);
       if (!leaving?.gone.has(k)) set.add(k);
     }
@@ -300,27 +318,84 @@ export function Transcript({
     return () => parent.removeEventListener('scroll', onScroll);
   }, []);
 
-  // an answer open again holds the reader where it is: the bottom is not the point
-  const reopenedKey =
-    turns.find((t): t is Extract<Turn, { kind: 'question' }> => t.kind === 'question' && !!t.question.reopened) ?? null;
-  const reopened = reopenedKey ? turnKey(reopenedKey) : null;
+  /**
+   * The answer being changed: a question open again from it, or a sentence
+   * being rewritten where it stands. One at a time, by construction.
+   */
+  const changing = (() => {
+    const block = turns.find((t) => t.kind === 'question' && t.question.reopened);
+    if (block) return turnKey(block);
+    const said = turns.find((t) => t.kind === 'you' && t.editing);
+    return said ? turnKey(said) : null;
+  })();
+  // The newest turn stays in view, except while an answer is being changed:
+  // then the reader is with that answer, and the bottom is not the point.
   useLayoutEffect(() => {
     const el = box.current;
-    if (!el || !pinned.current || reopened) return;
+    if (!el || !pinned.current || changing) return;
     const parent = scrollParent(el);
     parent.scrollTop = parent.scrollHeight;
   });
-  const shownReopened = useRef<string | null>(null);
+
+  /**
+   * An answer opened again is not somewhere else: the block takes the place
+   * the answer held, under the line that asked for it, and grows downward
+   * from there. Nothing is scrolled for it. The view moving as well as the
+   * block appearing is the whole of what read as a jump, and the block was
+   * always already on screen, because its own pencil was pressed.
+   *
+   * What does move is the keyboard: the pencil that was pressed is gone with
+   * the answer, so the block takes the focus, and when the change is over the
+   * answer's pencil takes it back. Without that the keyboard lands on nothing
+   * and the reader loses the thread as surely as the eye would.
+   */
+  const focused = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (reopened === shownReopened.current) return;
-    shownReopened.current = reopened;
-    if (!reopened) return;
-    // the reader is with the answer they opened, wherever it is: the bottom
-    // is not held again until they, or the open question, go back there
-    pinned.current = false;
-    const node = box.current?.querySelector<HTMLElement>(`[data-turn="${CSS.escape(reopened)}"]`);
-    node?.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+    if (changing === focused.current) return;
+    const was = focused.current;
+    focused.current = changing;
+    const el = box.current;
+    if (!el) return;
+    const here = document.activeElement;
+    // the keyboard is only taken from the conversation itself, never from the
+    // composer or from anything outside
+    const ours = !here || here === document.body || el.contains(here);
+    if (!ours) return;
+    if (changing) {
+      pinned.current = false;
+      // a sentence rewritten in place already puts the caret in its field
+      if (changing.startsWith('you:')) return;
+      // the question as a group: its own controls carry tooltips, and one of
+      // them taking the keyboard would put a label over the answer being changed
+      turnNode(el, changing)?.querySelector<HTMLElement>('.sc-convo-q')?.focus({ preventScroll: true });
+      return;
+    }
+    if (!was) return;
+    // back to the pencil of the answer it became
+    const answer = was.startsWith('q:') ? otherShape(was) : was;
+    turnNode(el, answer)?.querySelector<HTMLElement>('.sc-convo-edit')?.focus({ preventScroll: true });
   });
+
+  /**
+   * A block that opened at the very bottom of the view has its own controls
+   * under the fold. Once everything that was moving has settled, and only
+   * then, it is brought up by the least that shows it: one movement, after
+   * the others, rather than a second one competing with them.
+   */
+  useEffect(() => {
+    if (!changing) return;
+    const t = window.setTimeout(() => {
+      const node = turnNode(box.current, changing);
+      const parent = box.current && scrollParent(box.current);
+      if (!node || !parent) return;
+      const a = node.getBoundingClientRect();
+      const b = parent.getBoundingClientRect();
+      if (a.bottom - b.bottom > CUT_OFF) show(node, reduced);
+    }, SLIDE_MS);
+    return () => window.clearTimeout(t);
+    // a delayed move has to outlive the renders between it and its moment: with
+    // no dependencies the cleanup ran on every render and cancelled it
+  }, [changing, reduced]);
 
   // A question that opens while the reader is somewhere else (an answer far
   // up was changed, and the conversation carries on from the bottom) is
@@ -334,74 +409,75 @@ export function Transcript({
   useEffect(() => {
     if (openKey === followed.current) return;
     if (!openKey) {
-      if (reopened) beforeEdit.current = followed.current;
+      if (changing) beforeEdit.current = followed.current;
       followed.current = null;
       return;
     }
-    const node = box.current?.querySelector<HTMLElement>(`[data-turn="${CSS.escape(openKey)}"]`);
+    const node = turnNode(box.current, openKey);
     if (!node) return;
     followed.current = openKey;
     const afterEdit = beforeEdit.current !== null;
     const same = beforeEdit.current === openKey;
     beforeEdit.current = null;
     if (pinned.current || (afterEdit && same)) return;
-    const go = () => node.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+    // a question already on screen is not scrolled to
+    const go = () => {
+      if (!onScreen(node, box.current)) show(node, reduced);
+    };
     if (!afterEdit) {
       go();
       return;
     }
-    // after a change far up, the edited place stays a beat before the reader is moved on
+    // after a change far up, the edited place stays a beat before the reader is
+    // moved on; the wait outlives the renders in between, which a cleanup on
+    // every render used to cancel
     const t = window.setTimeout(go, FOLLOW_MS);
     return () => window.clearTimeout(t);
-  });
+  }, [openKey, changing, reduced]);
 
   // Nothing is teleported. A turn that was on screen last render and is
   // somewhere else this one is put back where it was and played forward to
   // where it is now, so a block arriving or going reads as the conversation
   // moving rather than as the page jumping. Turns arriving play their own
   // arrival and are left alone; under reduced motion nothing moves at all.
-  const spots = useRef(new Map<string, { at: number; height: number; reopened: boolean }>());
+  const spots = useRef(new Map<string, number>());
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
-    const next = new Map<string, { at: number; height: number; reopened: boolean }>();
-    const grows: (() => void)[] = [];
-    const slides: (() => void)[] = [];
+    const next = new Map<string, number>();
+    const play = moved.current;
+    moved.current = false;
     for (const node of el.querySelectorAll<HTMLElement>('.sc-convo-turn')) {
       const key = node.dataset.turn ?? '';
       const at = node.offsetTop;
-      const height = node.offsetHeight;
-      const isReopened = node.dataset.reopened === 'true';
-      next.set(key, { at, height, reopened: isReopened });
+      next.set(key, at);
       const was = spots.current.get(key);
-      if (reduced) continue;
-      if (was === undefined) {
-        // an answer that opened into its question, or a question that closed
-        // back into its answer, grows or shrinks from the shape it had rather
-        // than popping; an ordinary answer arrives on its own
-        const other = spots.current.get(otherShape(key));
-        if (other && (isReopened || other.reopened) && Math.abs(other.height - height) > 1)
-          grows.push(() => grow(node, other.height, height));
-        continue;
-      }
       // a turn seen here for the first time plays its own arrival; everything
-      // else that has moved is played back from where it was
-      if (Math.abs(was.at - at) < 1) continue;
-      slides.push(() => slide(node, was.at - at));
+      // else the conversation moved is played back from where it was
+      if (!play || reduced || was === undefined || Math.abs(was - at) < 1) continue;
+      slide(node, was - at);
     }
-    // A turn growing carries everything under it as its height changes; playing
-    // those turns back from where they were as well would move them twice, so
-    // on a pass where something grows, nothing slides.
-    if (grows.length) for (const g of grows) g();
-    else for (const sl of slides) sl();
     spots.current = next;
   });
+
+  // While one answer is being changed, that exchange is the conversation: its
+  // line and the thing being answered stand, and everything else steps back.
+  // Nothing is disabled by it, because changing your mind twice is allowed;
+  // the dim only says which answer the next tap belongs to.
+  const bright = new Set<string>();
+  if (changing) {
+    bright.add(changing);
+    // the line it was asked with stands with it
+    const id = changing.slice(changing.indexOf(':') + 1);
+    bright.add(`scenri:asked-${id}`);
+  }
 
   let firstYou = true;
   let prevScenri = false;
   const out: ReactNode[] = [];
   for (const t of shown) {
     const k = turnKey(t);
+    const dim = !!changing && !bright.has(k);
     const going = !!leaving?.gone.has(k);
     // a block that was tapped goes as its ghost, not as a fade
     const ghost = going && t.kind === 'question' && leaving?.look?.qid === t.question.id;
@@ -433,6 +509,7 @@ export function Transcript({
           leave={going}
           delay={delay}
           turnId={k}
+          dim={dim}
           onEdit={t.editable && onEdit ? () => onEdit(t.id) : undefined}
           onSave={onSaveEdit ? (said) => onSaveEdit(t.id, said) : undefined}
           onCancel={onCancelEdit}
@@ -449,6 +526,7 @@ export function Transcript({
           eyebrow={!afterScenri}
           delay={delay}
           turnId={k}
+          dim={dim}
           thumb={t.thumb}
           label={t.label}
           current={t.current}
@@ -466,7 +544,9 @@ export function Transcript({
           spent={going}
           delay={delay}
           turnId={k}
-          busy={busy}
+          dim={dim}
+          // while one answer is being changed, no other question takes one
+          busy={busy || dim}
           eyebrow={!afterScenri}
           onAnswer={(a) => onAnswer(t.question.id, a)}
           onPick={onPick}
@@ -535,6 +615,31 @@ function slide(node: HTMLElement, from: number) {
   };
 }
 
+/** Is this turn's beginning inside the part of the conversation on screen? */
+function onScreen(node: HTMLElement, box: HTMLElement | null): boolean {
+  if (!box) return false;
+  const parent = scrollParent(box);
+  const a = node.getBoundingClientRect();
+  const b = parent.getBoundingClientRect();
+  return a.top >= b.top && a.top <= b.bottom - 24;
+}
+
+/** Bring a turn into view by the shortest move that shows it, where the platform can. */
+function show(node: HTMLElement | null, reduced: boolean) {
+  node?.scrollIntoView?.({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+}
+
+/**
+ * The turn with this key, found by reading the keys rather than by building a
+ * selector out of one: a turn key carries a colon, and escaping it needs a
+ * `CSS.escape` that is not there in every environment the studio is rendered in.
+ */
+function turnNode(box: HTMLElement | null, key: string): HTMLElement | null {
+  if (!box) return null;
+  for (const node of box.querySelectorAll<HTMLElement>('.sc-convo-turn')) if (node.dataset.turn === key) return node;
+  return null;
+}
+
 /** The questions open again from their answers, by key. */
 function reopenedKeys(list: Turn[]): Set<string> {
   const out = new Set<string>();
@@ -547,30 +652,6 @@ function otherShape(key: string): string {
   if (key.startsWith('you:')) return `q:${key.slice('you:'.length)}`;
   if (key.startsWith('q:')) return `you:${key.slice('q:'.length)}`;
   return '';
-}
-
-/**
- * Play a turn from one height to another: the bubble opening into its block,
- * the block closing into its bubble. The rest of the conversation slides the
- * same distance over the same beat, so the whole thing reads as one shape
- * changing rather than a piece popping in.
- */
-function grow(node: HTMLElement, from: number, to: number) {
-  for (const old of node.getAnimations()) if (old.id === 'grow') old.cancel();
-  const overflow = node.style.overflow;
-  node.style.overflow = 'hidden';
-  const run = node.animate(
-    [
-      { height: `${from}px`, opacity: from < to ? 0.4 : 1 },
-      { height: `${to}px`, opacity: 1 },
-    ],
-    { duration: SLIDE_MS, easing: SLIDE_EASE, fill: 'both' },
-  );
-  run.id = 'grow';
-  run.onfinish = () => {
-    node.style.overflow = overflow;
-    run.cancel();
-  };
 }
 
 /** The element that scrolls this one: itself when it overflows, else the nearest ancestor that does. */

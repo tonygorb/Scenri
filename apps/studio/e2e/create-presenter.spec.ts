@@ -334,8 +334,8 @@ test.describe('a person from scratch', () => {
       .click();
     await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-age"][data-reopened]')).toHaveCount(1);
     await expect(page.locator('.sc-convo-field .sc-token')).toHaveCount(0);
-    // the hair question waits while the age is open again
-    await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-hair"]')).toHaveCount(0);
+    // the question the conversation is on stands where it is, and takes no answer
+    await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-hair"]')).toHaveAttribute('data-dim', 'true');
 
     // and the step, when it comes round again, asks from nothing
     await log(page).locator('.sc-convo-turn[data-turn="q:look-age"]').getByRole('button', { name: '40s' }).click();
@@ -371,15 +371,17 @@ test.describe('a person from scratch', () => {
     // what came before and after it is untouched: the hair does not depend on the age
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-who"]')).toContainText('Woman');
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toContainText('Black');
-    // and only one question stands while it is open
-    await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-length"]')).toHaveCount(0);
+    // the question the conversation is on stands, dim, and takes no answer meanwhile
+    const standing = log(page).locator('.sc-convo-turn[data-turn="q:look-length"]');
+    await expect(standing).toHaveAttribute('data-dim', 'true');
+    await expect(standing.getByRole('button', { name: 'Long', exact: true })).toBeDisabled();
 
     // leaving it as it was changes nothing
     await reopened.getByRole('button', { name: 'Cancel' }).click();
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-age"]')).toContainText('30s');
-    await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-length"]')).toHaveCount(1);
+    await expect(log(page).locator('.sc-convo-turn[data-dim]')).toHaveCount(0);
 
-    // changing it carries on from where the conversation was, with the corrected answer in place
+    // changing it takes back what the conversation asked after it, and asks again from there
     await log(page)
       .locator('.sc-convo-turn[data-turn="you:look-age"]')
       .getByRole('button', { name: 'Change this answer' })
@@ -389,8 +391,9 @@ test.describe('a person from scratch', () => {
       .getByRole('button', { name: '40s', exact: true })
       .click();
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-age"]')).toContainText('40s');
-    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toContainText('Black');
-    await expect(log(page)).toContainText('And the length?');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-who"]')).toContainText('Woman');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toHaveCount(0);
+    await expect(log(page)).toContainText('What colour is their hair?');
   });
 
   test('a text answer is rewritten in place, and cancelling changes nothing', async ({ page }) => {
@@ -427,6 +430,8 @@ test.describe('a person from scratch', () => {
     await log(page).locator('.sc-convo-rewrite').fill('a man in his 50s with a shaved head');
     await log(page).getByRole('button', { name: 'Save', exact: true }).click();
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:describe"]')).toContainText('shaved head');
+    // the run carries on from the change; the words reach the draft once it is whole
+    await answer(page, 'Nothing else').click();
     const { drafts } = await draftsOf(page, brand.id);
     await expect
       .poll(async () => (await draftOf(page, brand.id, drafts[0].id)).direction, { timeout: 20_000 })
@@ -563,6 +568,8 @@ test.describe('a person from scratch', () => {
     await expect(said).toHaveValue('a man in his 30s');
     await said.fill('a woman in her 50s with silver hair');
     await log(page).getByRole('button', { name: 'Save', exact: true }).click();
+    // the run carries on from the change; the words reach the draft once it is whole
+    await answer(page, 'Nothing else').click();
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).direction, { timeout: 20_000 })
       .toBe('a woman in her 50s with silver hair');

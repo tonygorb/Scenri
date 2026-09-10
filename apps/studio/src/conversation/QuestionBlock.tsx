@@ -49,6 +49,7 @@ export function QuestionBlock({
   leave,
   spent,
   turnId,
+  dim,
   onAnswer,
   onPick,
   onStarter,
@@ -71,6 +72,8 @@ export function QuestionBlock({
   leave?: boolean;
   /** The block was answered and is on its way out; off again once the same question is live again. */
   spent?: boolean;
+  /** An answer is being changed elsewhere: this block steps back while it is. */
+  dim?: boolean;
   onAnswer: (answer: Answer) => void;
   /** A tap was taken: what the block looked like, so the transcript keeps its ghost while the row goes. */
   onPick?: (questionId: string, picked: Picked) => void;
@@ -127,6 +130,7 @@ export function QuestionBlock({
       data-arrive={playing || undefined}
       data-leave={going}
       data-turn={turnId}
+      data-dim={dim || undefined}
       data-reopened={question.reopened || undefined}
       style={playing ? ({ ...arrivalVars(start), '--sc-convo-after': `${plan.total}ms` } as CSSProperties) : undefined}
     >
@@ -151,6 +155,11 @@ export function QuestionBlock({
       <fieldset
         className="sc-convo-q"
         aria-labelledby={promptId}
+        // A question open again takes the keyboard as a group, never as one of
+        // its own controls: landing on a control would open that control's
+        // tooltip, which is a label nobody asked for over the answer they are
+        // changing. From the group, Tab reaches the first choice.
+        tabIndex={question.reopened ? -1 : undefined}
         data-kind={question.kind}
         data-reveal={playing || undefined}
         data-picked={!!picked || undefined}

@@ -150,7 +150,7 @@ const photosMoment = (a: Answers, ctx: FlowContext) =>
  * passed, and a detail is then added from the chooser's own pencil.
  */
 const traitsMoment = (a: Answers, ctx: FlowContext) =>
-  taps(a) ? lookDone(a) && !ctx.draft : words(a) ? describeDone(a) && !ctx.draft : photosMoment(a, ctx);
+  taps(a) ? lookDone(a) : words(a) ? describeDone(a) : photosMoment(a, ctx);
 /** A detail is about a person: one described, or one whose photographs a draft already holds. */
 const traitsApply = (a: Answers, ctx: FlowContext) => scratch(a) || (photos(a) && !!ctx.draft);
 
@@ -237,20 +237,38 @@ export function askable(id: Qid, a: Answers, ctx: FlowContext): boolean {
 }
 
 /**
- * The answers after a change. The changed answers take their new values; every
- * answer given in the light of one of them is taken back; every answer to a
- * question that no longer exists goes too, until nothing else has to. What is
- * not named goes untouched, which is the point: a hair colour changed leaves
- * the build, and the glasses, exactly where they were.
+ * The answers after a change.
+ *
+ * The changed answers take their new values, and the conversation carries on
+ * from there: everything asked after the earliest of them is taken back and
+ * asked again. A conversation reads forward, so an answer changed halfway up
+ * makes the rest of it a reply to a question that was not the one asked; the
+ * only honest thing is to ask again from that point. It is also what a chat
+ * does, and this is a chat.
+ *
+ * Then the two rules that outlive the order: an answer given in the light of a
+ * changed one goes with it, and an answer to a question that no longer exists
+ * goes too, until nothing else has to.
  */
 export function commit(a: Answers, patch: Partial<Answers>, ctx: FlowContext): Answers {
   const next: Answers = { ...a };
   const changed = new Set<Qid>();
+  const given = new Set(Object.keys(patch) as Qid[]);
   for (const [k, v] of Object.entries(patch) as [Qid, Values[Qid] | undefined][]) {
     if (!differs(a[k], v)) continue;
     if (v === undefined) delete next[k];
     else (next as Record<string, unknown>)[k] = v;
     changed.add(k);
+  }
+  // everything the conversation asked after the earliest thing that changed
+  if (changed.size) {
+    const order = SPECS.map((s) => s.id);
+    const first = Math.min(...[...changed].map((id) => order.indexOf(id)));
+    for (const s of SPECS) {
+      if (order.indexOf(s.id) <= first || given.has(s.id) || next[s.id] === undefined) continue;
+      delete next[s.id];
+      changed.add(s.id);
+    }
   }
   let moved = true;
   while (moved) {

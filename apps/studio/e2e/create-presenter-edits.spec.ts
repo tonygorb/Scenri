@@ -50,7 +50,7 @@ async function tapThrough(p: Page) {
 }
 
 test.describe('changing an answer', () => {
-  test('A: an answer three back changes in place, and everything independent of it stays', async ({ page }) => {
+  test('A: an answer three back opens in place, and the run carries on from it', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await tapThrough(page);
@@ -61,28 +61,40 @@ test.describe('changing an answer', () => {
     const reopened = turn(page, 'q:look-hair');
     await expect(reopened).toHaveAttribute('data-reopened', 'true');
     await expect(reopened.getByRole('button', { name: 'Brown', exact: true })).toHaveAttribute('data-on', 'true');
-    // it stands where the answer was; the length, skin and build stay where they were
+    // while it is open, that exchange is the conversation and the rest steps back
+    await expect(turn(page, 'q:look-hair')).not.toHaveAttribute('data-dim', /.*/);
+    await expect(turn(page, 'scenri:asked-look-hair')).not.toHaveAttribute('data-dim', /.*/);
+    await expect(turn(page, 'you:look-build')).toHaveAttribute('data-dim', 'true');
+    await expect(turn(page, 'you:look-who')).toHaveAttribute('data-dim', 'true');
+    // the question the conversation is on still stands, and takes no answer
+    await expect(turn(page, 'q:agree')).toHaveAttribute('data-dim', 'true');
+    await expect(turn(page, 'q:agree').getByRole('button', { name: 'Draw them' })).toBeDisabled();
+    // nothing before it moved, and everything after it is still readable
+    await expect(turn(page, 'you:look-age')).toContainText('30s');
     await expect(turn(page, 'you:look-length')).toContainText('Long');
-    await expect(turn(page, 'you:look-build')).toContainText('Lean');
-    await expect(turn(page, 'you:traits')).toContainText('Nothing distinctive');
-    // one question at a time: the read-back waits
-    await expect(answer(page, 'Draw them')).toHaveCount(0);
 
+    // answering it takes the rest of the run back, and asks again from there
     await reopened.getByRole('button', { name: 'Blonde', exact: true }).click();
     await expect(turn(page, 'you:look-hair')).toContainText('Blonde');
-    await expect(turn(page, 'you:look-length')).toContainText('Long');
-    await expect(log(page)).toContainText('long blonde hair');
-    await expect(answer(page, 'Draw them')).toBeVisible();
+    await expect(turn(page, 'you:look-length')).toHaveCount(0);
+    await expect(turn(page, 'you:traits')).toHaveCount(0);
+    await expect(turn(page, 'you:look-age')).toContainText('30s');
+    await expect(log(page).locator('.sc-convo-turn[data-dim]')).toHaveCount(0);
+    await expect(log(page)).toContainText('And the length?');
 
-    // and what is drawn is the corrected person
+    // answered again, the person is whole and is what gets drawn
+    await answer(page, 'Short').click();
+    await answer(page, 'Fair').click();
+    await answer(page, 'Solid').click();
+    await answer(page, 'Nothing else').click();
+    await expect(log(page)).toContainText('short blonde hair');
     await answer(page, 'Draw them').click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     await expect.poll(async () => (await draftOf(page, brand.id)).direction, { timeout: 20_000 }).toContain('blonde');
   });
 
-  test('B: three details answered, the middle one taken away, another added: only its own question follows', async ({
-    page,
-  }) => {
+  test('B: three details answered, the choosing changed, the rest asked again', async ({ page }) => {
+    test.setTimeout(60_000);
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await tapThrough(page);
@@ -102,29 +114,21 @@ test.describe('changing an answer', () => {
       await expect(chooser.getByRole('button', { name: chip })).toHaveAttribute('aria-pressed', 'true');
     await chooser.getByRole('button', { name: 'Tattoo' }).click();
     await chooser.getByRole('button', { name: 'Continue' }).click();
+    // the choosing changed, so the details are asked again, in the table order
     await expect(turn(page, 'you:trait-tattoo')).toHaveCount(0);
     await expect(turn(page, 'you:trait-tattoo-where')).toHaveCount(0);
-    await expect(turn(page, 'you:trait-glasses')).toContainText('Thin black');
-    await expect(turn(page, 'you:trait-scar')).toContainText('On the chin');
-    await expect(answer(page, 'Draw them')).toBeVisible();
-
-    // one added asks only its own question
-    await pencil(page, 'you:traits').click();
-    await turn(page, 'q:traits').getByRole('button', { name: 'Piercing' }).click();
-    await turn(page, 'q:traits').getByRole('button', { name: 'Continue' }).click();
-    await expect(log(page)).toContainText('What piercing do they wear?');
-    await expect(turn(page, 'you:trait-glasses')).toContainText('Thin black');
-    await answer(page, 'Nose stud').click();
+    await expect(log(page)).toContainText('What glasses do they wear?');
+    await answer(page, 'Thin black').click();
+    await expect(log(page)).toContainText('What scar do they have?');
+    await answer(page, 'On the chin').click();
     await expect(answer(page, 'Draw them')).toBeVisible();
 
     await answer(page, 'Draw them').click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
-    const keep = await expect
+    await expect
       .poll(async () => (await draftOf(page, brand.id)).keep as string, { timeout: 20_000 })
-      .toContain('nose stud');
-    void keep;
+      .toContain('thin black');
     const d = await draftOf(page, brand.id);
-    expect(d.keep).toContain('thin black');
     expect(d.keep).toContain('chin');
     expect(d.keep).not.toContain('floral');
   });
@@ -166,6 +170,8 @@ test.describe('changing an answer', () => {
   test('D: an answer changed under a drawn face is asked about, then redraws the face from the change', async ({
     page,
   }) => {
+    // a face, a change, and the run answered again: well past a default budget
+    test.setTimeout(60_000);
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await tapThrough(page);
@@ -183,10 +189,17 @@ test.describe('changing an answer', () => {
     await expect(turn(page, 'you:look-hair')).toContainText('Brown');
     expect((await draftOf(page, brand.id)).generations).toBe(1);
 
-    // agreed: the answer opens, and the new one redraws the face
+    // agreed: the answer opens, the run carries on from it, and only once the
+    // person is whole again is anything drawn
     await pencil(page, 'you:look-hair').click();
     await dialog.getByRole('button', { name: 'Change it' }).click();
-    await turn(page, 'q:look-hair').getByRole('button', { name: 'Blonde' }).click();
+    await turn(page, 'q:look-hair').getByRole('button', { name: 'Blonde', exact: true }).click();
+    await expect(log(page)).toContainText('And the length?');
+    expect((await draftOf(page, brand.id)).generations).toBe(1);
+    await answer(page, 'Short').click();
+    await answer(page, 'Fair').click();
+    await answer(page, 'Solid').click();
+    await answer(page, 'Nothing else').click();
     await expect.poll(async () => (await draftOf(page, brand.id)).direction, { timeout: 20_000 }).toContain('blonde');
     await expect.poll(async () => (await draftOf(page, brand.id)).generations, { timeout: 20_000 }).toBe(2);
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 30_000 });
@@ -230,7 +243,10 @@ test.describe('on a phone', () => {
     await expect(reopened).toHaveAttribute('data-reopened', 'true');
     await reopened.getByRole('button', { name: '40s' }).click();
     await expect(turn(page, 'you:look-age')).toContainText('40s');
-    await expect(turn(page, 'you:look-hair')).toContainText('Brown');
+    // the run carries on from the change: the colour is asked again
+    await expect(turn(page, 'you:look-hair')).toHaveCount(0);
+    await expect(log(page)).toContainText('What colour is their hair?');
+    await answer(page, 'Black').click();
     await expect(log(page)).toContainText('And the length?');
     await log(page).getByRole('button', { name: 'Describe the cut' }).click();
     await send(page, 'a messy bob');

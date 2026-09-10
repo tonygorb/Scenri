@@ -44,6 +44,9 @@
   flex-direction: column;
   gap: var(--sc-space-4);
   min-width: 0;
+  /* the step back while another answer is being changed, both ways; an arrival
+     or a departure is an animation and takes the property while it runs */
+  transition: opacity var(--sc-dur-slow) var(--sc-ease);
 }
 
 .sc-convo-turn[data-who="you"] {
@@ -176,8 +179,11 @@
 }
 
 /* a new turn takes its place: a short fade and a 4px rise; an answer a touch slower, so it is seen to land */
+/* An arrival holds its first frame through any delay and then lets go: with
+   `both` the finished animation kept the property for the life of the turn,
+   so an answer that had once arrived could never be dimmed again. */
 .sc-convo-turn[data-arrive] {
-  animation: sc-convo-arrive var(--sc-dur-fast) var(--sc-ease) both;
+  animation: sc-convo-arrive var(--sc-dur-fast) var(--sc-ease) backwards;
 }
 
 .sc-convo-turn[data-who="you"][data-arrive] {
@@ -330,6 +336,10 @@
 @media (prefers-reduced-motion: reduce) {
   .sc-convo-card[data-flash] {
     animation: none;
+  }
+
+  .sc-convo-turn {
+    transition: none;
   }
 
   .sc-convo-say[data-reveal] .sc-convo-w,
@@ -767,6 +777,17 @@ button.sc-convo-shot-do {
 .sc-convo-ref-x:hover {
   color: var(--sc-fg);
 }
+/* While one answer is being changed, the rest of the conversation steps back:
+   the exchange being changed is what the next tap belongs to, and the dim says
+   so without taking anything away. Everything stays readable and reachable. */
+.sc-convo-turn[data-dim] {
+  opacity: 0.4;
+}
+.sc-convo-turn[data-dim]:hover,
+.sc-convo-turn[data-dim]:focus-within {
+  opacity: 0.72;
+}
+
 /* A question open again from its answer: its Cancel is the quiet way out, and
    when it is brought into view it keeps a breath from the edges. */
 .sc-convo-cancel {
@@ -775,6 +796,11 @@ button.sc-convo-shot-do {
 .sc-convo-turn[data-reopened] {
   scroll-margin-top: var(--sc-space-6);
   scroll-margin-bottom: var(--sc-space-6);
+}
+/* the group takes the keyboard when it opens; it is not a control, so it wears
+   no ring of its own and the first Tab goes to the first choice */
+.sc-convo-q:focus {
+  outline: none;
 }
 /* An answer being rewritten in place: the words as they were, in a field where they stand. */
 .sc-convo-rewrite {
@@ -862,6 +888,11 @@ button.sc-convo-shot-do {
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* The picture is the plate's width, so every plate in a row is the same width
+     and the gaps between them are equal. A word longer than the picture used to
+     make its own plate wider and push its neighbours along, which read as a row
+     with the spacing broken. */
+  width: 90px;
   gap: var(--sc-space-3);
   padding: 0;
   border: none;
@@ -880,6 +911,14 @@ button.sc-convo-shot-do {
 .sc-convo-plate[data-on] {
   color: var(--sc-fg);
   opacity: 1;
+}
+
+/* The word under a plate, inside the plate's own width: a long one wraps
+   rather than widening its plate and pushing the row about. */
+.sc-convo-plate-lb {
+  width: 100%;
+  text-align: center;
+  text-wrap: balance;
 }
 
 .sc-convo-plate-in {

@@ -75,19 +75,27 @@ describe('the presenter questions, as one table', () => {
     sound(b);
   });
 
-  it('edits an answer three questions back and keeps everything independent of it', () => {
+  it('edits an answer three questions back and asks the rest of the run again', () => {
     const b = commit(TAPPED, { 'look-hair': 'blonde' }, NO_DRAFT);
     expect(b['look-hair']).toBe('blonde');
-    // 6: the length, skin and build were not given in the light of the colour
-    expect(b['look-length']).toBe('long');
-    expect(b['look-skin']).toBe('olive');
-    expect(b['look-build']).toBe('lean');
-    // and neither were the details
-    expect(b.traits).toEqual(['glasses', 'tattoo']);
-    expect(b['trait-tattoo-where']).toBe('on their right forearm');
-    // nothing is left to ask: the read-back is next
-    expect(nextQuestion(b, NO_DRAFT)).toBeNull();
+    // the conversation carries on from the change: everything it asked after
+    // the colour was answered to a run that no longer stands
+    expect(b['look-length']).toBeUndefined();
+    expect(b['look-skin']).toBeUndefined();
+    expect(b['look-build']).toBeUndefined();
+    expect(b.traits).toBeUndefined();
+    expect(b['trait-tattoo']).toBeUndefined();
+    expect(b['trait-tattoo-where']).toBeUndefined();
+    // and what came before it is exactly as it was
+    expect(b['look-who']).toBe('woman');
+    expect(b['look-age']).toBe('30s');
+    expect(nextQuestion(b, NO_DRAFT)).toBe('look-length');
     sound(b);
+  });
+
+  it('changes nothing when the same answer is given again', () => {
+    expect(commit(TAPPED, { 'look-hair': 'brown' }, NO_DRAFT)).toEqual(TAPPED);
+    expect(commit(TAPPED, { traits: ['glasses', 'tattoo'] }, NO_DRAFT)).toEqual(TAPPED);
   });
 
   it('takes everything back when the foundation changes', () => {
@@ -112,33 +120,34 @@ describe('the presenter questions, as one table', () => {
     const w = commit(TAPPED, { source: { door: 'scratch', via: 'words' }, describe: 'a woman in her 30s' }, NO_DRAFT);
     expect(w['look-hair']).toBeUndefined();
     expect(w.describe).toBe('a woman in her 30s');
-    // the details were about the same person and stay
-    expect(w.traits).toEqual(['glasses', 'tattoo']);
+    // and the run carries on from the door: what came after it is asked again
+    expect(w.traits).toBeUndefined();
+    expect(Object.keys(w).sort()).toEqual(['describe', 'source']);
     sound(w);
   });
 
-  it('takes back what depended on a changed answer, and only that', () => {
+  it('takes back the follow-up to a sentence, and asks the run again from it', () => {
     const typed = commit({}, { source: { door: 'scratch', via: 'typed' }, describe: 'tall with a hat' }, NO_DRAFT);
     expect(nextQuestion(typed, NO_DRAFT)).toBe('gaps');
     const a = commit(typed, { gaps: { who: 'woman', age: '30s', build: 'lean' }, traits: [] }, NO_DRAFT);
     expect(nextQuestion(a, NO_DRAFT)).toBeNull();
-    // the sentence changed, so the follow-up about it goes, and is asked again
+    // the sentence changed, so the follow-up about it goes, and so does the
+    // rest of the run: it is asked again from there
     const b = commit(a, { describe: 'short with a beard' }, NO_DRAFT);
     expect(b.gaps).toBeUndefined();
-    // what was said about the person after the sentence was not said about the sentence
-    expect(b.traits).toEqual([]);
+    expect(b.traits).toBeUndefined();
     expect(nextQuestion(b, NO_DRAFT)).toBe('gaps');
     sound(b);
-    // a sentence that says everything leaves nothing to ask, and nothing is stuck
+    // a sentence that says everything has no follow-up, and the run carries on
     const c = commit(a, { describe: 'a woman in her 30s with a lean build and short black hair' }, NO_DRAFT);
     expect(descriptionGaps(c.describe as string)).toEqual([]);
-    expect(nextQuestion(c, NO_DRAFT)).toBeNull();
+    expect(nextQuestion(c, NO_DRAFT)).toBe('traits');
     sound(c);
     // the same sentence again changes nothing
     expect(commit(a, { describe: 'tall with a hat' }, NO_DRAFT)).toEqual(a);
   });
 
-  it('removes one detail without touching the others', () => {
+  it('re-asks the details it still has when the choosing changes', () => {
     const three: Answers = {
       ...TAPPED,
       traits: ['glasses', 'tattoo', 'scar'],
@@ -146,31 +155,39 @@ describe('the presenter questions, as one table', () => {
     };
     sound(three);
     const b = commit(three, { traits: ['glasses', 'scar'] }, NO_DRAFT);
+    // the tattoo is gone with its placement and its pictures
     expect(b['trait-tattoo']).toBeUndefined();
     expect(b['trait-tattoo-where']).toBeUndefined();
-    expect(b['trait-glasses']?.words).toBe('thin black rectangular metal frames');
-    expect(b['trait-scar']?.words).toBe('a small scar on the chin');
-    expect(nextQuestion(b, NO_DRAFT)).toBeNull();
-    // 11: the pictures of the tattoo went with it
     expect(traitDetails(b).tattoo).toBeUndefined();
+    // and the two that remain are asked again, from the top of the details
+    expect(b['trait-glasses']).toBeUndefined();
+    expect(b['trait-scar']).toBeUndefined();
+    expect(nextQuestion(b, NO_DRAFT)).toBe('trait-glasses');
     sound(b);
   });
 
-  it('adds a detail back and asks only its own question', () => {
+  it('asks a detail added later, in the table order, from nothing', () => {
     const two = commit(TAPPED, { traits: ['glasses'] }, NO_DRAFT);
-    const b = commit(two, { traits: ['glasses', 'tattoo'] }, NO_DRAFT);
-    // it is asked again from nothing: the old answer does not come back
+    const answered1 = commit(
+      two,
+      { 'trait-glasses': { words: 'rimless frames with thin temples', refs: [] } },
+      NO_DRAFT,
+    );
+    const b = commit(answered1, { traits: ['glasses', 'tattoo'] }, NO_DRAFT);
+    // the choosing changed, so both are asked again, the face before the body
+    expect(b['trait-glasses']).toBeUndefined();
     expect(b['trait-tattoo']).toBeUndefined();
-    expect(nextQuestion(b, NO_DRAFT)).toBe('trait-tattoo');
-    expect(b['trait-glasses']?.words).toBe('thin black rectangular metal frames');
+    expect(nextQuestion(b, NO_DRAFT)).toBe('trait-glasses');
     sound(b);
-    // answered, it asks where, and then nothing
-    const c = commit(b, { 'trait-tattoo': { words: 'a small geometric line tattoo', refs: [] } }, NO_DRAFT);
-    expect(nextQuestion(c, NO_DRAFT)).toBe('trait-tattoo-where');
+    const c = commit(b, { 'trait-glasses': { words: 'tortoiseshell acetate frames', refs: [] } }, NO_DRAFT);
+    expect(nextQuestion(c, NO_DRAFT)).toBe('trait-tattoo');
+    // answered, a tattoo asks where it is
+    const d = commit(c, { 'trait-tattoo': { words: 'a small geometric line tattoo', refs: [] } }, NO_DRAFT);
+    expect(nextQuestion(d, NO_DRAFT)).toBe('trait-tattoo-where');
     // words that already say where skip the placement question
-    const d = commit(b, { 'trait-tattoo': { words: 'a script tattoo along the left forearm', refs: [] } }, NO_DRAFT);
-    expect(nextQuestion(d, NO_DRAFT)).toBeNull();
-    sound(d);
+    const e = commit(c, { 'trait-tattoo': { words: 'a script tattoo along the left forearm', refs: [] } }, NO_DRAFT);
+    expect(nextQuestion(e, NO_DRAFT)).toBeNull();
+    sound(e);
   });
 
   it('replaces words of their own with a tap, and a tap with words, leaving no trace', () => {
@@ -184,18 +201,14 @@ describe('the presenter questions, as one table', () => {
 
   it('keeps the pictures of a detail while its words change, and places it again', () => {
     const a = commit(TAPPED, { 'trait-tattoo': { words: 'a solid blackwork tattoo', refs: ['h-ink'] } }, NO_DRAFT);
+    // the pictures belong to the detail, not to the words, so they stay
     expect(a['trait-tattoo']?.refs).toEqual(['h-ink']);
-    // the placement was given about the old tattoo
+    // the placement was given about the old tattoo, so it is asked again
     expect(a['trait-tattoo-where']).toBeUndefined();
     expect(nextQuestion(a, NO_DRAFT)).toBe('trait-tattoo-where');
-    // a picture added changes nothing else
-    const b = commit(
-      TAPPED,
-      { 'trait-tattoo': { ...TAPPED['trait-tattoo'], refs: ['h-ink', 'h-two'] } as Answers['trait-tattoo'] },
-      NO_DRAFT,
-    );
-    expect(b['trait-tattoo-where']).toBe('on their right forearm');
-    sound(b);
+    // and what was chosen and answered before it is untouched
+    expect(a['trait-glasses']?.words).toBe('thin black rectangular metal frames');
+    sound(a);
   });
 
   it('asks the photographs what stays only between the face and the set', () => {
@@ -264,7 +277,8 @@ describe('the presenter questions, as one table', () => {
       a = commit(a, patch, ctx);
       sound(a, ctx);
     }
-    expect(a).toEqual({ source: { door: 'scratch', via: 'typed' }, describe: 'a kind man in his 60s', traits: [] });
-    expect(nextQuestion(a, ctx)).toBeNull();
+    // the last thing said was the sentence, so the run carries on from it
+    expect(a).toEqual({ source: { door: 'scratch', via: 'typed' }, describe: 'a kind man in his 60s' });
+    expect(nextQuestion(a, ctx)).toBe('traits');
   });
 });

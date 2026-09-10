@@ -147,9 +147,11 @@ describe('the transcript is a function of state', () => {
     expect(k.indexOf('q:look-hair')).toBe(k.indexOf('you:look-age') + 2);
     expect(k[k.indexOf('q:look-hair') - 1]).toBe('scenri:asked-look-hair');
     expect(k[k.indexOf('q:look-hair') + 1]).toBe('scenri:asked-look-length');
-    // everything after it is still there, and the read-back is not asked meanwhile
+    // everything after it is still there, and the question the conversation is
+    // on still stands: taking it away would pull the ground from under a
+    // reader at the bottom of a long conversation
     expect(k).toContain('you:trait-glasses');
-    expect(k.at(-1)).toBe('you:trait-glasses');
+    expect(k.at(-1)).toBe('q:agree');
     const q = T.find((t) => t.kind === 'question' && t.question.id === 'look-hair');
     expect(q?.kind === 'question' && q.question.reopened).toBe(true);
     expect(q?.kind === 'question' && q.question.kind === 'swatches' && q.question.given).toBe('brown');
@@ -165,7 +167,10 @@ describe('the transcript is a function of state', () => {
     const T3 = turns(state(w, { editing: 'describe' }));
     const you = T3.find((t) => t.kind === 'you' && t.id === 'describe');
     expect(you?.kind === 'you' && you.editing).toBe(true);
-    expect(keys(T3).at(-1)).toBe('you:describe');
+    // the sentence is rewritten where it stands, and the question the
+    // conversation is on stays where it is
+    expect(keys(T3)).toContain('you:describe');
+    expect(keys(T3).at(-1)).toBe('q:traits');
     expect(composerFor(open(T3), state(w, { editing: 'describe' }), null, 'portrait').off).toBe(
       'Finish the change above.',
     );
@@ -293,10 +298,12 @@ describe('the record once a face is drawn', () => {
     expect(editCost('traits', core)).toBe('redraw');
     expect(editCost('source', core)).toBe('start-over');
     expect(editCost('look-hair', null)).toBe('plain');
-    // the reopened answer is the one thing being asked: the save waits
+    // the answer opens where it stands, and the question the conversation is on
+    // stays exactly where it was
     const T = turns(state(a, { extrasDeclined: true, editing: 'look-build' }), core);
-    expect(keys(T).at(-1)).not.toBe('q:save');
+    expect(keys(T).at(-1)).toBe('q:save');
     expect(keys(T)).toContain('q:look-build');
+    expect(keys(T)).not.toContain('you:look-build');
   });
 
   it('a failed view asks for a retry and touches nothing else', () => {

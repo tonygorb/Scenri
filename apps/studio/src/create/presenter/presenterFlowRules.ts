@@ -502,46 +502,50 @@ function build(
     if (id === 'source' && a.source?.via === 'typed') continue;
     exchange(into, id);
   }
-  // one question at a time: while an answer is open again, nothing else asks
-  const editingSetup = state.editing !== null && state.editing !== 'name';
+  /**
+   * The question the conversation is on. It stands whether or not an answer is
+   * being changed: taking it off the screen for the length of a change took a
+   * block's worth of height out from under the reader, and a conversation
+   * scrolled to the bottom went with it. It is still not answerable while a
+   * change is open, which the transcript says by dimming it and standing its
+   * controls down.
+   */
   let open: Question | null = null;
-  if (!editingSetup) {
-    if (a.source?.door === 'scratch' && !canGenerate && !draft) {
-      open = {
-        id: 'noengine',
-        kind: 'confirm',
-        quiet: true,
-        prompt: 'Describing someone needs image generation, which is not set up yet.',
-        options: [
-          { id: 'setup', label: 'Set up' },
-          { id: 'photos', label: 'Add photos instead' },
-        ],
-      };
-    } else {
-      const next = nextQuestion(a, ctx);
-      if (next) open = questionFor(next, state, ctx, false);
-      else if (!draft && a.source?.door === 'scratch') {
-        if (a.source.via === 'taps') {
-          // The last word before anything is drawn: the whole person in one
-          // sentence, and a way to add what the rows could not ask for.
-          open = {
-            id: 'agree',
-            kind: 'confirm',
-            prompt: `${lookLine(lookOf(a))}. Shall I draw them?`,
-            options: [
-              { id: 'draw', label: 'Draw them' },
-              { id: 'add', label: a.keep?.trim() ? 'Add another' : 'Add a detail' },
-            ],
-          };
-        } else if (failed) {
-          open = {
-            id: 'retry',
-            kind: 'confirm',
-            tone: 'alert',
-            prompt: `That did not go through: ${failed}. Nothing was drawn.`,
-            options: [{ id: 'retry', label: 'Retry' }],
-          };
-        }
+  if (a.source?.door === 'scratch' && !canGenerate && !draft) {
+    open = {
+      id: 'noengine',
+      kind: 'confirm',
+      quiet: true,
+      prompt: 'Describing someone needs image generation, which is not set up yet.',
+      options: [
+        { id: 'setup', label: 'Set up' },
+        { id: 'photos', label: 'Add photos instead' },
+      ],
+    };
+  } else {
+    const next = nextQuestion(a, ctx);
+    if (next) open = questionFor(next, state, ctx, false);
+    else if (!draft && a.source?.door === 'scratch') {
+      if (a.source.via === 'taps') {
+        // The last word before anything is drawn: the whole person in one
+        // sentence, and a way to add what the rows could not ask for.
+        open = {
+          id: 'agree',
+          kind: 'confirm',
+          prompt: `${lookLine(lookOf(a))}. Shall I draw them?`,
+          options: [
+            { id: 'draw', label: 'Draw them' },
+            { id: 'add', label: a.keep?.trim() ? 'Add another' : 'Add a detail' },
+          ],
+        };
+      } else if (failed) {
+        open = {
+          id: 'retry',
+          kind: 'confirm',
+          tone: 'alert',
+          prompt: `That did not go through: ${failed}. Nothing was drawn.`,
+          options: [{ id: 'retry', label: 'Retry' }],
+        };
       }
     }
   }
@@ -559,10 +563,9 @@ function build(
     placed,
   });
   const T = [...lead, ...record];
-  // One question at a time. A setup question, open or open again, is the one
-  // thing being asked: the record's own question waits, and the open one
-  // stands last, after everything that already happened.
-  if ((editingSetup || open) && T[T.length - 1]?.kind === 'question') T.pop();
+  // A setup question is the one thing being asked: the record's own question
+  // waits, and the setup's stands last, after everything that already happened.
+  if (open && T[T.length - 1]?.kind === 'question') T.pop();
   if (open) T.push({ kind: 'question', question: open });
   return T;
 }
