@@ -1,4 +1,4 @@
-import { ArrowUp, Plus } from '@phosphor-icons/react';
+import { ArrowUp, Plus, X } from '@phosphor-icons/react';
 import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ColorPicker } from '../layout/ColorPicker.js';
 import { Tip } from '../layout/Tip.js';
@@ -39,7 +39,7 @@ export function ConversationComposer({
   onStop,
   onAttach,
   onColor,
-  colorValue,
+  token,
   onSend,
 }: {
   placeholder: string;
@@ -69,7 +69,8 @@ export function ConversationComposer({
   onAttach?: () => void;
   /** The answer is a colour: the app's own picker, beside the field. */
   onColor?: (hex: string) => void;
-  colorValue?: string | null;
+  /** A colour already chosen, as the chip the rest of the app uses for one. */
+  token?: { hex: string; label: string; onClear: () => void } | null;
   /** True when the sentence was taken; the flow then clears `value`. */
   onSend: (text: string) => boolean;
 }) {
@@ -101,7 +102,8 @@ export function ConversationComposer({
   }, [focusKey, focusedOnce, disabled]);
 
   const off = disabled || working;
-  const empty = !value.trim() && !allowEmpty;
+  // a colour already chosen is an answer, even with nothing typed beside it
+  const empty = !value.trim() && !allowEmpty && !token;
   const send = () => {
     if (off || empty) return;
     onSend(value);
@@ -134,6 +136,17 @@ export function ConversationComposer({
             </span>
           </div>
         )}
+        {token && (
+          <div className="sc-convo-token">
+            <span className="sc-token" data-kind="color" dir="ltr">
+              <span className="sc-token-swatch" style={{ background: token.hex }} />
+              <span className="sc-token-label">{token.label}</span>
+              <button type="button" aria-label={`Remove ${token.label}`} onClick={token.onClear}>
+                <X size={11} weight="bold" />
+              </button>
+            </span>
+          </div>
+        )}
         <textarea
           ref={field}
           className="sc-in"
@@ -153,13 +166,13 @@ export function ConversationComposer({
         <div className="sc-convo-row">
           {onColor && (
             <ColorPicker
-              value={colorValue ?? '#7b5230'}
+              value={token?.hex ?? '#7b5230'}
               onChange={onColor}
               commitMode="close"
               label="Pick a colour"
               tip
               className="sc-convo-attach sc-convo-hex"
-              triggerStyle={{ background: colorValue || undefined }}
+              triggerStyle={token ? { background: token.hex } : undefined}
             />
           )}
           {onAttach && (

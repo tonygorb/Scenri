@@ -3,7 +3,7 @@ import { api, type PresenterDraft, thumbUrl, uploadImage } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useOpenSetup } from '../../app/dialogs.js';
-import { type Answer, answersNothing, nowIso } from '../../conversation/question.js';
+import { type Answer, type Swatch, answersNothing, nowIso } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
 import {
@@ -18,6 +18,9 @@ import {
   directionFrom,
   lastLookStep,
   LOOK_STEPS,
+  colourName,
+  HAIR_COLOURS,
+  SKIN_TONES,
   nextLookStep,
   rewindAsides,
   rewindSetup,
@@ -126,6 +129,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const [said, setSaid] = useState<string | null>(null);
   // pressed "Change something": the composer takes the focus, nothing else moves
   const [changing, setChanging] = useState(0);
+  // a colour chosen from the picker, waiting on Send like any other answer
+  const [picked, setPickedColour] = useState<string | null>(null);
   const [booting, setBooting] = useState(!draftId);
   // the page opened on a draft: its conversation was had before this page
   const [resumed] = useState(!!draftId);
@@ -485,7 +490,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
 
   const onSend = useCallback(
     (raw: string): boolean => {
-      const sentence = raw.trim();
+      // a colour chosen from the picker is the answer when nothing was typed
+      const sentence = raw.trim() || (ui.saying && picked ? picked : '');
       if (!sentence) return false;
       setAskErr(null);
       const open = question?.id;
@@ -523,6 +529,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         const had = setup.look && setup.look !== 'skipped' ? setup.look : {};
         setUi((u) => ({ ...u, saying: null }));
         setSetup({ look: { ...had, [step]: sentence } });
+        setPickedColour(null);
         setText('');
         return true;
       }
@@ -713,6 +720,16 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     [d, s.update, setSetup, setup],
   );
 
+  /** A colour's own name, as the chip shows it. */
+  const colourLabel = (hex: string, among: Swatch[], row?: string) => {
+    const name = colourName(hex, among, row);
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  };
+
+  /** The swatches a colour step is named against. */
+  const colourRow = (step?: string | null): Swatch[] =>
+    step === 'skin' ? SKIN_TONES : step === 'hair' ? HAIR_COLOURS : HAIR_COLOURS;
+
   /** The words said again, once the face drawn from the old ones is agreed to go. */
   const redrawFromSaid = useCallback(() => {
     if (!said) return;
@@ -828,9 +845,17 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         onStop: d?.activeView ? () => void s.stop() : undefined,
         focusKey: question ? `${question.id}:${d?.id ?? 'setup'}:${changing}` : undefined,
         onAttach: !d && question?.id === 'source' ? () => setSetup({ source: 'photos' }) : undefined,
-        // a colour step takes a swatch as readily as it takes words
-        onColor: composerBase.color ? (hex: string) => setText(hex) : undefined,
-        colorValue: composerBase.color && /^#[0-9a-f]{6}$/i.test(text) ? text : null,
+        // A colour step takes a swatch as readily as it takes words, and a
+        // chosen colour reads as the chip the rest of the app uses for one.
+        onColor: composerBase.color ? (hex: string) => setPickedColour(hex) : undefined,
+        token:
+          composerBase.color && picked
+            ? {
+                hex: picked,
+                label: colourLabel(picked, colourRow(ui.saying), ui.saying ?? undefined),
+                onClear: () => setPickedColour(null),
+              }
+            : null,
       },
       text,
       onText: setText,

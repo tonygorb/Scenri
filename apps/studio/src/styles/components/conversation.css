@@ -421,6 +421,31 @@ button.sc-convo-shot-do {
   text-wrap: pretty;
 }
 
+/* A colour chosen for an answer wears the chip the rest of the app uses for a
+   colour: the swatch, its name, and the way to take it off again. */
+.sc-convo-token {
+  display: flex;
+  padding: 0 0 var(--sc-space-3);
+}
+
+.sc-convo-token .sc-token {
+  font-size: 13px;
+}
+
+.sc-convo-token .sc-token button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--sc-fg3);
+  cursor: pointer;
+}
+
+.sc-convo-token .sc-token button:hover {
+  color: var(--sc-fg);
+}
+
 /* ---- a question's answer controls ----------------------------------------- */
 .sc-convo-q {
   display: flex;

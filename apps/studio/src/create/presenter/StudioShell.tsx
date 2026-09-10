@@ -43,7 +43,8 @@ export interface ComposerSurface {
   onAttach?: () => void;
   /** The answer is a colour: the app's own picker sits beside the field. */
   onColor?: (hex: string) => void;
-  colorValue?: string | null;
+  /** A colour already chosen, as the app's own chip. */
+  token?: { hex: string; label: string; onClear: () => void } | null;
   /** Stop what is drawing; only while something is. */
   onStop?: () => void;
 }
@@ -241,7 +242,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 focusKey={s.composer.focusKey}
                 onAttach={s.composer.onAttach}
                 onColor={s.composer.onColor}
-                colorValue={s.composer.colorValue}
+                token={s.composer.token}
                 onStop={s.composer.onStop}
                 onSend={s.onSend}
               />
