@@ -1,6 +1,7 @@
 import { ArrowUp, Plus, X } from '@phosphor-icons/react';
 import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ColorPicker } from '../layout/ColorPicker.js';
+import type { Swatch } from '../brand/palette.js';
+import { ColorChipMenu } from '../composer/ColorChipMenu.js';
 import { Tip } from '../layout/Tip.js';
 
 /** What the card shows around the sentence: which picture the pill will touch, and what that means. */
@@ -8,6 +9,27 @@ export interface ComposerScope {
   chip: { label: string; thumb?: string } | null;
   hint: string;
   tone?: 'alert';
+}
+
+/**
+ * A colour as an answer, in the chip the rest of the app already uses for one.
+ *
+ * The same chip and the same menu as the brief line: a swatch, the colour's
+ * name, and on the chip's press the app's colour menu with the named colours
+ * this step knows, a custom one, and remove. Nothing here is a second colour
+ * control; it is that one, in a composer that has no sentence to carry it.
+ */
+export interface ComposerColour {
+  /** The colour so far, or null while the chip stands empty. */
+  hex: string | null;
+  /** What the chip reads: the colour's name, or the invitation to pick one. */
+  label: string;
+  /** The named colours the menu offers, this step's own. */
+  palette: Swatch[];
+  /** Where a colour of one's own starts, before anything is chosen. */
+  seed?: string;
+  onPick: (hex: string) => void;
+  onClear: () => void;
 }
 
 /**
@@ -38,8 +60,7 @@ export function ConversationComposer({
   focusKey,
   onStop,
   onAttach,
-  onColor,
-  token,
+  colour,
   onSend,
 }: {
   placeholder: string;
@@ -67,10 +88,8 @@ export function ConversationComposer({
   onStop?: () => void;
   /** An attach button beside the pill: photographs can come in here too. */
   onAttach?: () => void;
-  /** The answer is a colour: the app's own picker, beside the field. */
-  onColor?: (hex: string) => void;
-  /** A colour already chosen, as the chip the rest of the app uses for one. */
-  token?: { hex: string; label: string; onClear: () => void } | null;
+  /** The answer is a colour: the app's own chip carries it, over the field. */
+  colour?: ComposerColour | null;
   /** True when the sentence was taken; the flow then clears `value`. */
   onSend: (text: string) => boolean;
 }) {
@@ -101,9 +120,16 @@ export function ConversationComposer({
     }
   }, [focusKey, focusedOnce, disabled]);
 
+  // The chip is the menu's anchor, so the element the press came from is what
+  // opens it: no ref read during a render can be a frame behind the chip.
+  const [menu, setMenu] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!colour) setMenu(null);
+  }, [colour]);
+
   const off = disabled || working;
   // a colour already chosen is an answer, even with nothing typed beside it
-  const empty = !value.trim() && !allowEmpty && !token;
+  const empty = !value.trim() && !allowEmpty && !colour?.hex;
   const send = () => {
     if (off || empty) return;
     onSend(value);
@@ -136,45 +162,87 @@ export function ConversationComposer({
             </span>
           </div>
         )}
-        {token && (
-          <div className="sc-convo-token">
-            <span className="sc-token" data-kind="color" dir="ltr">
-              <span className="sc-token-swatch" style={{ background: token.hex }} />
-              <span className="sc-token-label">{token.label}</span>
-              <button type="button" aria-label={`Remove ${token.label}`} onClick={token.onClear}>
-                <X size={11} weight="bold" />
-              </button>
+        <div className="sc-convo-field">
+          {colour && (
+            /* biome-ignore lint/a11y/useSemanticElements: a <button> cannot hold the remove <button> the chip pattern carries; the sentence's own chips are the same span-as-button */
+            <span
+              className="sc-token"
+              data-kind="color"
+              data-empty={colour.hex ? undefined : ''}
+              data-open={menu ? '' : undefined}
+              dir="ltr"
+              role="button"
+              tabIndex={0}
+              aria-haspopup="dialog"
+              aria-expanded={!!menu}
+              aria-label={colour.hex ? `${colour.label}. Change the colour.` : 'Pick a colour'}
+              onClick={(e) => {
+                const el = e.currentTarget;
+                setMenu((open) => (open ? null : el));
+              }}
+              onKeyDown={(e) => {
+                // the X inside bubbles its keys up here; only the chip's own
+                if (e.target !== e.currentTarget) return;
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                setMenu(e.currentTarget);
+              }}
+            >
+              <span className="sc-token-swatch" style={colour.hex ? { background: colour.hex } : undefined} />
+              <span className="sc-token-label">{colour.label}</span>
+              {colour.hex && (
+                <button
+                  type="button"
+                  aria-label="Remove colour"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    colour.onClear();
+                  }}
+                >
+                  <X size={11} weight="bold" />
+                </button>
+              )}
             </span>
-          </div>
-        )}
-        <textarea
-          ref={field}
-          className="sc-in"
-          rows={1}
-          maxLength={400}
-          aria-label={label}
-          placeholder={placeholder}
-          value={value}
-          disabled={disabled}
-          onChange={(e) => onValue(e.target.value)}
-          onKeyDown={(e: KeyboardEvent) => {
-            if (e.key !== 'Enter' || e.shiftKey) return;
-            e.preventDefault();
-            send();
-          }}
-        />
-        <div className="sc-convo-row">
-          {onColor && (
-            <ColorPicker
-              value={token?.hex ?? '#7b5230'}
-              onChange={onColor}
-              commitMode="close"
-              label="Pick a colour"
-              tip
-              className="sc-convo-attach sc-convo-hex"
-              triggerStyle={token ? { background: token.hex } : undefined}
-            />
           )}
+          <textarea
+            ref={field}
+            className="sc-in"
+            rows={1}
+            maxLength={400}
+            aria-label={label}
+            // the chip already says what the answer is; the invitation to type
+            // would only crowd it
+            placeholder={colour?.hex && !value ? '' : placeholder}
+            value={value}
+            disabled={disabled}
+            onChange={(e) => onValue(e.target.value)}
+            onKeyDown={(e: KeyboardEvent) => {
+              if (e.key !== 'Enter' || e.shiftKey) return;
+              e.preventDefault();
+              send();
+            }}
+          />
+        </div>
+        {menu && colour && (
+          <ColorChipMenu
+            anchor={menu}
+            currentHex={colour.hex}
+            currentName={colour.hex ? colour.label : undefined}
+            palette={colour.palette}
+            seed={colour.seed}
+            onPick={(picked, opts) => {
+              colour.onPick(picked.hex);
+              // a drag on the wheel paints as it moves; only a chosen colour closes
+              if (!opts?.live) setMenu(null);
+            }}
+            onRemove={() => {
+              colour.onClear();
+              setMenu(null);
+            }}
+            onClose={() => setMenu(null)}
+          />
+        )}
+        <div className="sc-convo-row">
           {onAttach && (
             <Tip label="Add photos">
               <button type="button" className="sc-convo-attach" aria-label="Add photos" onClick={onAttach}>

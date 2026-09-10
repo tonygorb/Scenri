@@ -2,7 +2,11 @@ import { FocusScope } from '@radix-ui/react-focus-scope';
 import { X } from '@phosphor-icons/react';
 import { type ReactNode, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ConversationComposer, type ComposerScope } from '../../conversation/ConversationComposer.js';
+import {
+  type ComposerColour,
+  ConversationComposer,
+  type ComposerScope,
+} from '../../conversation/ConversationComposer.js';
 import type { Answer, Turn } from '../../conversation/question.js';
 import { Transcript } from '../../conversation/Transcript.js';
 import { Tip } from '../../layout/Tip.js';
@@ -41,10 +45,8 @@ export interface ComposerSurface {
   allowEmpty?: boolean;
   focusKey?: string;
   onAttach?: () => void;
-  /** The answer is a colour: the app's own picker sits beside the field. */
-  onColor?: (hex: string) => void;
-  /** A colour already chosen, as the app's own chip. */
-  token?: { hex: string; label: string; onClear: () => void } | null;
+  /** The answer is a colour: the app's own chip carries it over the field. */
+  colour?: ComposerColour | null;
   /** Stop what is drawing; only while something is. */
   onStop?: () => void;
 }
@@ -241,8 +243,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 error={s.composer.error}
                 focusKey={s.composer.focusKey}
                 onAttach={s.composer.onAttach}
-                onColor={s.composer.onColor}
-                token={s.composer.token}
+                colour={s.composer.colour}
                 onStop={s.composer.onStop}
                 onSend={s.onSend}
               />

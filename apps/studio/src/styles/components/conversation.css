@@ -422,28 +422,20 @@ button.sc-convo-shot-do {
 }
 
 /* A colour chosen for an answer wears the chip the rest of the app uses for a
-   colour: the swatch, its name, and the way to take it off again. */
-.sc-convo-token {
-  display: flex;
-  padding: 0 0 var(--sc-space-3);
-}
-
-.sc-convo-token .sc-token {
+   colour, and it wears it where the words go: the chip sits on the first line
+   of the writing area, the way a chip sits in the brief's sentence, and typing
+   carries on beside it. Pressed, it opens that same colour menu. */
+.sc-convo-field .sc-token {
+  align-self: flex-start;
+  margin-block: 1px;
   font-size: 13px;
-}
-
-.sc-convo-token .sc-token button {
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--sc-fg3);
   cursor: pointer;
 }
 
-.sc-convo-token .sc-token button:hover {
-  color: var(--sc-fg);
+/* No colour chosen yet: the swatch is its ring alone, so the chip reads as an
+   invitation rather than as a colour someone already picked. */
+.sc-convo-field .sc-token[data-empty] .sc-token-swatch {
+  background: none;
 }
 
 /* ---- a question's answer controls ----------------------------------------- */
@@ -910,12 +902,24 @@ button.sc-convo-shot-do {
   object-fit: cover;
 }
 
-.sc-convo-card textarea.sc-in {
-  min-height: 44px;
-  max-height: 140px;
+/* The writing area: what is typed, and any chip that answers alongside it.
+   The padding lives here rather than on the field, so a chip is inside the
+   area a person writes in and not a row stacked above it. */
+.sc-convo-field {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-3);
   padding: 16px 16px 0;
+  min-height: 44px;
+}
+
+.sc-convo-card textarea.sc-in {
+  flex: 1;
+  min-width: 0;
+  min-height: 28px;
+  max-height: 140px;
+  padding: 0;
   border: none;
-  border-radius: var(--sc-radius-float) var(--sc-radius-float) 0 0;
   background: none;
   font-size: 15px;
   line-height: 28px;

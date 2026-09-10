@@ -221,6 +221,33 @@ test.describe('a person from scratch', () => {
     expect(first.direction).toBe('a woman in their 30s with shoulder-length black hair, olive skin, an athletic build');
   });
 
+  test('a colour of your own rides in the chip the app uses for a colour', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await answer(page, 'Describe someone').click();
+    await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
+    await log(page).getByRole('button', { name: '30s', exact: true }).click();
+    await expect(log(page)).toContainText('What colour is their hair?');
+
+    // the escape hatch hands the step to the composer, with the chip in the
+    // writing area rather than a colour control of its own
+    await log(page).getByRole('button', { name: 'Describe the colour' }).click();
+    const chip = page.locator('.sc-convo-field .sc-token');
+    await expect(chip).toHaveText('Pick a colour');
+
+    // pressed, it opens the app's colour menu, and a named colour answers the step
+    await chip.click();
+    const menu = page.locator('.sc-swap[data-kind="color"]');
+    await expect(menu).toBeVisible();
+    await menu.getByRole('option', { name: /Auburn/ }).click();
+    await expect(menu).toBeHidden();
+    await expect(chip).toHaveText('Auburn');
+    await page.getByRole('button', { name: 'Send' }).click();
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toContainText('Auburn');
+    await expect(log(page)).toContainText('How long is it?');
+    await expect(page.locator('.sc-convo-field .sc-token')).toHaveCount(0);
+  });
+
   test('an answer is said again where it stands, and the future it had is taken back', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);

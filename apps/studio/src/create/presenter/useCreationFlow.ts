@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, type PresenterDraft, thumbUrl, uploadImage } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
+import { normalizeHex, type Swatch as PaletteSwatch } from '../../brand/palette.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useOpenSetup } from '../../app/dialogs.js';
 import { type Answer, type Swatch, answersNothing, nowIso } from '../../conversation/question.js';
@@ -730,6 +731,13 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const colourRow = (step?: string | null): Swatch[] =>
     step === 'skin' ? SKIN_TONES : step === 'hair' ? HAIR_COLOURS : HAIR_COLOURS;
 
+  /** The same swatches as a palette, for the colour menu the app already has. */
+  const colourPalette = (step?: string | null): PaletteSwatch[] =>
+    colourRow(step).flatMap((s) => {
+      const hex = s.color ? normalizeHex(s.color) : null;
+      return hex ? [{ hex, name: s.label, slot: 'accent' as const }] : [];
+    });
+
   /** The words said again, once the face drawn from the old ones is agreed to go. */
   const redrawFromSaid = useCallback(() => {
     if (!said) return;
@@ -757,6 +765,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   }, [setSetup, setup.look]);
 
   const composerBase = composerFor(question, d, view, ui.saying ?? null);
+  /** The colours this step is answered with, when it is answered with one. */
+  const colours = composerBase.color ? colourPalette(ui.saying) : null;
   const scope =
     d && identityLocked(d) && !composerBase.off && !question?.id.match(/^(name|describe)$/)
       ? (() => {
@@ -845,17 +855,20 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         onStop: d?.activeView ? () => void s.stop() : undefined,
         focusKey: question ? `${question.id}:${d?.id ?? 'setup'}:${changing}` : undefined,
         onAttach: !d && question?.id === 'source' ? () => setSetup({ source: 'photos' }) : undefined,
-        // A colour step takes a swatch as readily as it takes words, and a
-        // chosen colour reads as the chip the rest of the app uses for one.
-        onColor: composerBase.color ? (hex: string) => setPickedColour(hex) : undefined,
-        token:
-          composerBase.color && picked
-            ? {
-                hex: picked,
-                label: colourLabel(picked, colourRow(ui.saying), ui.saying ?? undefined),
-                onClear: () => setPickedColour(null),
-              }
-            : null,
+        // A colour step takes a swatch as readily as it takes words, and the
+        // colour rides in the chip the rest of the app already uses for one.
+        colour: colours
+          ? {
+              hex: picked,
+              label: picked ? colourLabel(picked, colourRow(ui.saying), ui.saying ?? undefined) : 'Pick a colour',
+              palette: colours,
+              // a colour of one's own starts from the middle of this row, not
+              // from a brand colour: a green is no way to begin picking skin
+              seed: colours[Math.floor(colours.length / 2)]?.hex,
+              onPick: (hex: string) => setPickedColour(hex),
+              onClear: () => setPickedColour(null),
+            }
+          : null,
       },
       text,
       onText: setText,
