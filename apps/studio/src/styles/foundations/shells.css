@@ -95,8 +95,14 @@
    change starts and stops; a curve that begins slowly has neither. The first
    stop is the ground at zero rather than `transparent`, so the fade keeps its
    own hue instead of passing through grey. */
-.sc-dock {
+/* How far the fade reaches above the dock. Declared here rather than on the
+   dock itself because what sits underneath has to clear it: a scroller whose
+   last line ends under the fade has its last line half faded out. */
+:root {
   --sc-dock-fade: 56px;
+}
+
+.sc-dock {
   position: relative;
   z-index: 1;
   background: var(--sc-dock-ground);

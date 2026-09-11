@@ -105,6 +105,10 @@
   padding: 32px;
   scrollbar-width: thin;
   scrollbar-color: var(--sc-sb) transparent;
+  /* Clear of the composer's fade: the dock lays it over whatever is above,
+     so a conversation that ended right on the boundary had its last line
+     dimmed into the ground. */
+  padding-bottom: calc(var(--sc-dock-fade) + var(--sc-space-5));
 }
 
 /* The conversation sits on the bottom edge of the rail, beside the composer,
@@ -662,6 +666,52 @@ button.sc-convo-shot-do {
   background: none;
   opacity: 1;
   cursor: pointer;
+}
+
+/* A brief chip's button carries a fade to its left, so a long label passes
+   under the X instead of ending against it. These have no background for a
+   label to pass under, and the fade sat outside the pill: clipped away while
+   the chip hid its overflow, and a grey block beside the swatch the moment it
+   stopped. */
+.sc-convo-field .sc-token > .sc-convo-chip::before,
+.sc-convo-field .sc-token > .sc-convo-chip-x::before {
+  content: none;
+}
+
+/* A chip is sized to sit in a line of text, and a finger is not: twenty-one
+   pixels of pill is a miss more often than a tap, and the colour picker read
+   as broken on a phone because of it. The reach grows past the chip without
+   moving it or changing how it looks, and only downwards and up, so it can
+   never take a tap meant for the X beside it. */
+/* A brief chip's own button is its remove, and on touch it is made inert so a
+   tap lands on the chip and opens the sheet that owns removal there
+   (composer-brief.css, "Touch keeps the button inert below"). The chip in a
+   conversation is the other way round: its button IS the way in, there is no
+   sheet under it, and made inert it read as a colour picker that does nothing
+   on a phone. Both of its buttons answer a finger here.
+
+   And the reach grows past the pill without moving it. Twenty-one pixels is
+   what a chip needs to sit in a line of text and not what a finger needs; the
+   chip clips its children so an image keeps the pill's corners, which a colour
+   and a word do not need. Up and down only, so it can never take a tap meant
+   for the X beside it. */
+@media (hover: none) {
+  .sc-convo-field .sc-token > .sc-convo-chip,
+  .sc-convo-field .sc-token > .sc-convo-chip-x {
+    pointer-events: auto;
+    position: relative;
+  }
+
+  .sc-convo-field .sc-token[data-kind="color"] {
+    overflow: visible;
+  }
+
+  .sc-convo-field .sc-token > .sc-convo-chip::after,
+  .sc-convo-field .sc-token > .sc-convo-chip-x::after {
+    content: "";
+    position: absolute;
+    inset: -12px 0;
+  }
 }
 
 .sc-convo-chip {
@@ -1707,6 +1757,9 @@ button.sc-convo-shot-do {
 @media (max-width: 767px) {
   .sc-convo-log {
     padding: var(--sc-space-6) 14px;
+    /* the same clearance as the wider layout: the shorthand above would
+       otherwise put the last line back under the composer's fade */
+    padding-bottom: calc(var(--sc-dock-fade) + var(--sc-space-5));
   }
 
   /* A question with things to tap owns the answer, but the composer is not

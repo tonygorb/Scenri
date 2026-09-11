@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { REVEAL_LEAD_MS, THINK_MS, type Answer, type Turn, prefersReducedMotion, turnKey } from './question.js';
 import { PICK_MS, type Picked, QuestionBlock } from './QuestionBlock.js';
 import { ScenriTurn, Working } from './ScenriTurn.js';
@@ -318,19 +318,39 @@ export function Transcript({
     if (memoryKey && times.current) writeTimes(memoryKey, times.current);
   });
 
-  // The newest turn stays in view unless the reader scrolled up to read. On a
-  // desktop the log is the scroller; on a phone the studio column is, so the
-  // nearest scrolling ancestor is what moves and what is watched.
-  useEffect(() => {
+  /**
+   * Which element is actually scrolling this, right now.
+   *
+   * It is not the same element at every width, and not the same one at every
+   * moment: on a desktop the log scrolls itself, on a phone the studio column
+   * does, and neither counts as a scroller until there is enough in it to
+   * overflow. Resolved once and kept, and resolved again the moment the one we
+   * are holding has stopped scrolling. Frozen at mount, this was read before
+   * anything had arrived, came back as the log itself on a phone, and every
+   * scroll after that was heard by nothing.
+   */
+  const scroller = useRef<HTMLElement | null>(null);
+  const scrollingNow = useCallback((): HTMLElement | null => {
     const el = box.current;
-    if (!el) return;
-    const parent = scrollParent(el);
-    const onScroll = () => {
-      pinned.current = parent.scrollHeight - parent.scrollTop - parent.clientHeight < 24;
-    };
-    parent.addEventListener('scroll', onScroll, { passive: true });
-    return () => parent.removeEventListener('scroll', onScroll);
+    if (!el) return null;
+    const held = scroller.current;
+    if (held?.isConnected && held.scrollHeight > held.clientHeight) return held;
+    scroller.current = scrollParent(el);
+    return scroller.current;
   }, []);
+
+  // The newest turn stays in view unless the reader scrolled up to read.
+  useEffect(() => {
+    // Heard on the way down rather than on one element: a scroll does not
+    // bubble, so a listener on the wrong node hears nothing at all, and the
+    // reader stayed pinned to the bottom however far up they had scrolled.
+    const onScroll = () => {
+      const parent = scrollingNow();
+      if (parent) pinned.current = parent.scrollHeight - parent.scrollTop - parent.clientHeight < 24;
+    };
+    document.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    return () => document.removeEventListener('scroll', onScroll, { capture: true });
+  }, [scrollingNow]);
 
   /**
    * The answer being changed: a question open again from it, or a sentence
@@ -345,10 +365,9 @@ export function Transcript({
   // The newest turn stays in view, except while an answer is being changed:
   // then the reader is with that answer, and the bottom is not the point.
   useLayoutEffect(() => {
-    const el = box.current;
-    if (!el || !pinned.current || changing) return;
-    const parent = scrollParent(el);
-    parent.scrollTop = parent.scrollHeight;
+    if (!pinned.current || changing) return;
+    const parent = scrollingNow();
+    if (parent) parent.scrollTop = parent.scrollHeight;
   });
 
   /**
