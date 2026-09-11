@@ -68,6 +68,13 @@ const recordOf = async (req: APIRequestContext, brandId: string, id: string) => 
   return (brands.find((b: any) => b.id === brandId).json.characters ?? []).find((c: any) => c.id === id);
 };
 
+/** The list is card summaries; the whole row is asked for by id. */
+async function draftRow(page: Page, brandId: string, n = 0) {
+  const list = await (await page.request.get(`/api/brands/${brandId}/presenter-drafts`)).json();
+  const id = list.drafts[n].id;
+  return { list, row: await (await page.request.get(`/api/brands/${brandId}/presenter-drafts/${id}`)).json() };
+}
+
 test('the editor opens on the record, repairs one view, and Save changes writes a revision the old shots do not follow', async ({
   page,
 }) => {
@@ -102,10 +109,10 @@ test('the editor opens on the record, repairs one view, and Save changes writes 
   await expect(log(page)).toContainText('What would you like to change about Maren?');
   await expect(page.locator('.sc-pstudio-slot')).toHaveCount(3);
   // opening spends nothing
-  const drafts = await (await page.request.get(`/api/brands/${brand.id}/presenter-drafts`)).json();
-  expect(drafts.drafts).toHaveLength(1);
-  expect(drafts.drafts[0].presenterId).toBe(person.id);
-  expect(drafts.drafts[0].generations).toBe(0);
+  const { list, row } = await draftRow(page, brand.id);
+  expect(list.drafts).toHaveLength(1);
+  expect(list.drafts[0].presenterId).toBe(person.id);
+  expect(row.generations).toBe(0);
 
   await page.locator('.sc-pstudio-slot[data-view="three-quarter"]').click();
   await expect(page.locator('.sc-convo-scope')).toHaveCount(0);
@@ -152,8 +159,7 @@ test('a change to the person is decided first, then the views built on the face 
   await expect(log(page)).toContainText('Save changes when you are done.', { timeout: 30_000 });
   await expect(log(page)).toContainText('Make his hair shorter');
   await expect(log(page)).toContainText('Changed Idan.');
-  const drafts = await (await page.request.get(`/api/brands/${brand.id}/presenter-drafts`)).json();
-  const d = drafts.drafts[0];
+  const { row: d } = await draftRow(page, brand.id);
   expect(d.identityEdits).toEqual(['Make his hair shorter']);
   expect(d.views.front.conditionedOn).toContain(d.views.portrait.hash);
   expect(d.views['three-quarter'].status).toBe('approved');
@@ -251,6 +257,6 @@ test('a legacy one-photo presenter opens, is offered its missing views, and save
   await expect(log(page)).not.toContainText('Build the full body');
   await expect(page.locator('.sc-pstudio-slot')).toHaveCount(3);
   // nothing was drawn by opening or declining
-  const drafts = await (await page.request.get(`/api/brands/${brand.id}/presenter-drafts`)).json();
-  expect(drafts.drafts[0].generations).toBe(0);
+  const { row } = await draftRow(page, brand.id);
+  expect(row.generations).toBe(0);
 });

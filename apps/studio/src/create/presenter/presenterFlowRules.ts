@@ -59,6 +59,7 @@ import {
 } from './presenterQuestions.js';
 import { recordTurns } from './presenterRecordTurns.js';
 import {
+  readsAsPerson,
   type Age,
   type DraftLike,
   MAX_PHOTOS,
@@ -150,7 +151,13 @@ export const sourceFromText = (text: string): Source | null =>
 
 /** The sentence the engine is given: the rows as a person, or the description with the follow-up folded in. */
 export function compileDirection(a: Answers): string {
-  if (a.source?.via === 'taps') return lookSentence(lookOf(a));
+  if (a.source?.via === 'taps') {
+    const look = lookOf(a);
+    // The row names a kind of person, and now carries any words typed into it.
+    // Words that describe nobody are not a kind of person: they are something
+    // about them, and `stepHolds` keeps them as that instead.
+    return lookSentence(look.who && !readsAsPerson(look.who) ? { ...look, who: undefined } : look);
+  }
   const said = (a.describe ?? '').trim();
   const picks = a.gaps && a.gaps !== 'skipped' ? a.gaps : {};
   const build = picks.build ? `${said.replace(/[.\s]+$/, '')}, ${picks.build} build` : said;

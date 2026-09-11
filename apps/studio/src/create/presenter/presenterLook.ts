@@ -172,14 +172,17 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 export function lookSentence(look: Partial<Record<LookStep, string>>): string {
   const name = (id: string | undefined, among: Swatch[], row?: string) =>
     !id || id === PASSED ? '' : id.startsWith('#') ? colourName(id, among, row) : id.toLowerCase();
-  const who =
-    look.who === 'androgynous'
-      ? 'an androgynous person'
-      : look.who === 'man'
-        ? 'a man'
-        : look.who === 'woman'
-          ? 'a woman'
-          : 'a person';
+  // The three the row offers, and then whatever else was typed into it. A
+  // switch with a default dropped every other answer on the floor: somebody
+  // who said "a non-binary person" watched it land in the conversation and
+  // be drawn as "a person".
+  const KNOWN: Record<string, string> = {
+    androgynous: 'an androgynous person',
+    man: 'a man',
+    woman: 'a woman',
+  };
+  const said = look.who && look.who !== PASSED ? look.who.trim() : '';
+  const who = KNOWN[said] ?? (said ? (/^(a|an|the)\s/i.test(said) ? said : `a ${said}`) : 'a person');
   const parts: string[] = [who];
   if (look.age && look.age !== PASSED)
     parts.push(look.age === '60+' ? 'in their 60s or older' : `in their ${look.age}`);

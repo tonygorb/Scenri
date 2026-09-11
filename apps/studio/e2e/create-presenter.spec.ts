@@ -639,7 +639,11 @@ test.describe('a person from scratch', () => {
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).views.portrait.attempts, { timeout: 20_000 })
       .toBe(2);
-    await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
+    // the face it replaced is kept rather than thrown away, so the new one is
+    // offered as a revision: asking for another picture cannot cost you the
+    // one you had, and a draw that never lands puts it back
+    await expect(answer(page, 'Use this')).toBeVisible({ timeout: 20_000 });
+    await expect(answer(page, 'Keep previous')).toBeVisible();
   });
 
   test('after the lock, a sentence about the person redraws the face and Use redraws the views built on it', async ({
@@ -710,38 +714,38 @@ test.describe('a person from scratch', () => {
         .getByText(/^Here is full body \d+\.$/)
         .count();
     expect(await pictures()).toBe(2);
-    const calls = apiCalls(page);
-    // the picture the view wears is marked and says so; the other carries the press
+    // the picture the view wears is marked and says so
     await expect(log(page).locator('.sc-convo-shot[data-current] img')).toHaveAttribute('alt', 'Full body 1, active');
+    // and neither picture can be put in the other's place from here. The
+    // three-quarter was drawn from this view, so swapping it stales that too:
+    // offered as a press or an arrow, it is a demolition sold as an undo. The
+    // swap lives where nothing is standing on the picture yet.
+    await expect(log(page).locator('.sc-convo-restore')).toHaveCount(0);
+    await expect(page.locator('.sc-pstudio-vers')).toHaveCount(0);
+  });
+
+  test('the pictures of a view are stepped through while nothing is built on it', async ({ page }) => {
+    const brand = await currentBrand(page);
+    const draftId = await seedDraft(page, brand.id, 'portrait-candidate');
+    await openDraft(page, brand, draftId);
+    await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
+    const first = (await draftOf(page, brand.id, draftId)).views.portrait.hash;
+    await send(page, 'make the hair shorter');
+    await expect(log(page)).toContainText('Adjusted.', { timeout: 20_000 });
+    // two faces and nothing drawn from either, so both ways back are offered
+    // and neither of them costs a generation
+    const calls = apiCalls(page);
+    const vers = page.locator('.sc-pstudio-vers');
+    await expect(vers).toContainText('Version 2 of 2');
+    await page.getByRole('button', { name: 'The version before' }).click();
+    await expect(vers).toContainText('Version 1 of 2');
     const restore = log(page).locator('.sc-convo-restore');
     await expect(restore).toHaveCount(1);
-    await expect(restore).toHaveText('Put back');
-    // the stage says which of the two it is showing, and steps between them without drawing
-    const vers = page.locator('.sc-pstudio-vers');
-    await expect(vers).toContainText('Version 1 of 2');
-    await expect(vers).toContainText('Active');
-    await page.getByRole('button', { name: 'The version after' }).click();
-    await expect(vers).toContainText('Version 2 of 2');
-    await expect(vers.getByRole('button', { name: 'Put back' })).toBeVisible();
-    expect(calls.urls()).toBe('');
     await restore.click();
     await expect
-      .poll(async () => (await draftOf(page, brand.id, draftId)).views.front.hash)
-      .toBe(redrawn.views.front.hash);
-    // the full body is back from its file; only the view built on it is drawn again
-    expect(calls.urls()).not.toContain('/views/front/generate');
-    // putting it back moves the mark from one picture to the other and says nothing new
-    await expect(log(page).locator('.sc-convo-shot[data-current] img')).toHaveAttribute('alt', 'Full body 2, active');
-    expect(await pictures()).toBe(2);
-    // and the stage is on it, with nothing left to put back there
-    await expect(vers).toContainText('Version 2 of 2');
-    await expect(vers).toContainText('Active');
-    const back = await draftOf(page, brand.id, draftId);
-    expect(back.views.front.prior).toBe(before.views.front.hash);
-    // what was built on the replaced full body is drawn again on its own
-    await expect
-      .poll(async () => (await draftOf(page, brand.id, draftId)).views['three-quarter'].attempts, { timeout: 20_000 })
-      .toBeGreaterThan(before.views['three-quarter'].attempts);
+      .poll(async () => (await draftOf(page, brand.id, draftId)).views.portrait.hash, { timeout: 20_000 })
+      .toBe(first);
+    expect(calls.urls()).not.toContain('/generate');
   });
 
   test('Add them builds the back and profile views, and the strip grows to six', async ({ page }) => {

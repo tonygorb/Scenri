@@ -202,7 +202,10 @@ test.describe('changing an answer', () => {
     await answer(page, 'Nothing else').click();
     await expect.poll(async () => (await draftOf(page, brand.id)).direction, { timeout: 20_000 }).toContain('blonde');
     await expect.poll(async () => (await draftOf(page, brand.id)).generations, { timeout: 20_000 }).toBe(2);
-    await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 30_000 });
+    // the face it replaced is kept rather than thrown away, so the new one is
+    // offered as a revision with the old one still on hand
+    await expect(answer(page, 'Use this')).toBeVisible({ timeout: 30_000 });
+    await expect(answer(page, 'Keep previous')).toBeVisible();
     // the first face stays in the record; the answer reads as it is now
     await expect(log(page).locator('.sc-convo-shot')).toHaveCount(2);
     await expect(turn(page, 'you:look-hair')).toContainText('Blonde');
