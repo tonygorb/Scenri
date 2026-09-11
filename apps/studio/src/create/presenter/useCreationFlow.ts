@@ -187,9 +187,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     [],
   );
   const catsSeeded = useRef(false);
-  // What the flow last did on its own, by what it was for: the one latch, in
-  // place of one per kind of step. See presenterSteps.
-  const fired = useRef('');
+  // Every step the flow has done on its own, by what it was for: the one latch,
+  // in place of one per kind of step. See presenterSteps.
+  const fired = useRef<Set<string>>(new Set());
   // a step that is two calls long is in flight between them
   const inflight = useRef(false);
   // which draft's answers were read into the conversation, once each
@@ -202,7 +202,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
 
   // A new draft starts its own count of what was drawn without a click.
   useEffect(() => {
-    fired.current = '';
+    fired.current = new Set();
     catsSeeded.current = false;
     setFacets([]);
     if (!draftId) leaving.current = false;
@@ -393,7 +393,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     setAskErr(null);
     setConfirming(null);
     setPendingEdit(null);
-    fired.current = '';
+    fired.current = new Set();
     onLeaveDraft();
   }, [d, brand.id, clearSetup, onLeaveDraft]);
 
@@ -429,6 +429,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     booting,
     draftId,
     seededFor: seededFor.current,
+    done: fired.current,
   };
   const step = nextStep(stepInputs);
   const stepRef = useRef(step);
@@ -439,18 +440,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     // never will: a half-changed answer later is somebody at work
     if (d && seededFor.current !== d.id && stepRef.current?.kind !== 'seed') seededFor.current = d.id;
     const todo = stepRef.current;
-    if (!todo) return;
-    if (key === fired.current) {
-      // The same sync asked for twice means the first one landed nothing: a
-      // server that answers and changes nothing is worse than one that fails,
-      // because the step would ask for the same thing forever and nothing on
-      // screen would say so. It is said once, and the asking stops.
-      if (todo.kind === 'sync' && !inflight.current) {
-        setAskErr('The draft did not take the change. The server may be out of date: restart it and try again.');
-      }
-      return;
-    }
-    fired.current = key;
+    if (!todo || fired.current.has(key)) return;
+    fired.current.add(key);
     switch (todo.kind) {
       case 'seed':
         seededFor.current = d?.id ?? null;
@@ -548,14 +539,14 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         case 'retry': {
           if (!d) {
             // the draft that never started is started again, from a clean slate
-            fired.current = '';
+            fired.current = new Set();
             setAskErr(null);
             return;
           }
           if (s.err) {
             // the request that failed is drawn again by the auto-draw, from a clean count
             s.clearErr();
-            fired.current = '';
+            fired.current = new Set();
             return;
           }
           const failedView = (Object.keys(d.views) as StudioView[]).find((x) => !!d.views[x].error);

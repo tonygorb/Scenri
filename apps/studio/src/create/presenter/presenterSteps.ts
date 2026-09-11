@@ -42,6 +42,21 @@ export interface SyncPatch {
 export type StepDraft = DraftLike & Pick<PresenterDraft, 'id' | 'generations' | 'detailRefs'>;
 
 export interface StepInputs {
+  /**
+   * Every step this page has already done, by key.
+   *
+   * A step whose key is in here is not done again. It is what stops the flow
+   * asking for something it cannot get: the server is the authority on what it
+   * can store, and it truncates long text and drops pictures it does not hold,
+   * so what it keeps can differ from what was asked for and no amount of asking
+   * will close the gap. Asked once, then the flow goes on to what it can still
+   * do, which is draw.
+   *
+   * All of them, not the last one: with only the last, a sync that would not
+   * take and a draw would take turns being "not the last thing" forever, which
+   * is the same loop wearing a different hat.
+   */
+  done: ReadonlySet<string>;
   state: CreationState;
   draft: StepDraft | null;
   ctx: FlowContext;
@@ -81,31 +96,49 @@ export function syncPatch(state: CreationState, d: DraftLike): SyncPatch {
 export const redoAfterSync = (d: DraftLike): StudioView | null =>
   d.source === 'photos' ? (d.views.front.hash ? 'front' : null) : d.views.portrait.hash ? 'portrait' : null;
 
-export function nextStep(i: StepInputs): Step | null {
+/** Everything the flow could do right now, best first. */
+function candidates(i: StepInputs): Step[] {
   const { state, draft: d, ctx } = i;
-  if (i.busy || i.err) return null;
+  if (i.busy || i.err) return [];
   if (d) {
     const ready = readyToDraw(state, ctx);
     // A page arriving at a draft with answers that cannot draw it reads them
     // off the draft: another tab, a cleared session, answers left over from a
     // run that is over. Once per draft, so a person halfway through changing
     // their mind on a draft this page has been driving is left alone.
-    if (i.seededFor !== d.id && (!state.answers.source || !ready)) return { kind: 'seed', answers: seedFromDraft(d) };
+    if (i.seededFor !== d.id && (!state.answers.source || !ready)) return [{ kind: 'seed', answers: seedFromDraft(d) }];
     // a question is open, or an answer is being changed: nothing draws
-    if (!ready) return null;
-    if (!inStep(state, d)) return { kind: 'sync', patch: syncPatch(state, d), redo: redoAfterSync(d) };
-    if (!i.canDraw) return null;
-    const view = nextToDraw(d);
-    return view ? { kind: 'draw', view, decide: autoFor(view) } : null;
+    if (!ready) return [];
+    const out: Step[] = [];
+    if (!inStep(state, d)) out.push({ kind: 'sync', patch: syncPatch(state, d), redo: redoAfterSync(d) });
+    const view = i.canDraw ? nextToDraw(d) : null;
+    if (view) out.push({ kind: 'draw', view, decide: autoFor(view) });
+    return out;
   }
   // a draft is on its way, or the page is still finding out
-  if (i.booting || i.draftId) return null;
-  if (!i.canDraw || !readyToDraw(state, ctx)) return null;
+  if (i.booting || i.draftId) return [];
+  if (!i.canDraw || !readyToDraw(state, ctx)) return [];
   // A person described in words starts drawing the moment nothing is left to
   // ask. The rows end at a read-back and a tap, and the photographs at a
   // Continue: those two begin from the press, never from here.
   const src = state.answers.source;
-  return src?.door === 'scratch' && src.via !== 'taps' ? { kind: 'start' } : null;
+  return src?.door === 'scratch' && src.via !== 'taps' ? [{ kind: 'start' }] : [];
+}
+
+/**
+ * The one thing to do next, or nothing.
+ *
+ * The first thing the flow can do that it has not just done. Telling the draft
+ * what the answers say comes before drawing it, but it never holds the drawing
+ * up: a sync that did not take is asked for once and then stepped over, because
+ * a picture drawn from what the draft actually holds is worth more than a
+ * conversation that will not go on until a word lands that never will.
+ */
+export function nextStep(i: StepInputs): Step | null {
+  for (const step of candidates(i)) {
+    if (!i.done.has(stepKey(step, i))) return step;
+  }
+  return null;
 }
 
 /**

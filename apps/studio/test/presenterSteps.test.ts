@@ -68,6 +68,7 @@ const inputs = (over: Partial<StepInputs> = {}): StepInputs => {
     booting: false,
     draftId: d?.id ?? null,
     seededFor: d?.id ?? null,
+    done: new Set<string>(),
     ...over,
   };
 };
@@ -145,6 +146,35 @@ describe('what the flow does next', () => {
     expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TYPED }, draftId: 'pd-2' }))).toBeNull();
     // nor with nothing that can draw
     expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TYPED }, canDraw: false }))).toBeNull();
+  });
+
+  it('a sync that will never take is asked for once, and never holds the drawing up', () => {
+    // The server is the authority on what it can store: it truncates long text
+    // and drops pictures it does not hold, so what it keeps can differ from
+    // what was asked for and no amount of asking closes the gap. This used to
+    // ask forever, with the draw stuck behind it and nothing on screen to say
+    // so, which is the deadest of dead ends.
+    const stuck = draft({ direction: 'what the server kept, which is not what was asked for' });
+    const first = nextStep(inputs({ draft: stuck }));
+    expect(first?.kind).toBe('sync');
+    if (!first) return;
+    const key = stepKey(first, inputs({ draft: stuck }));
+    // asked once; now the flow steps over it and draws what the draft holds
+    const after = nextStep(inputs({ draft: stuck, done: new Set([key]) }));
+    expect(after).toEqual({ kind: 'draw', view: 'portrait', decide: undefined });
+    // and it does not go back to asking: with only the last step remembered,
+    // the sync and the draw would take turns being the one not just done
+    const drawKey = stepKey(after, inputs({ draft: stuck }));
+    expect(nextStep(inputs({ draft: stuck, done: new Set([key, drawKey]) }))).toBeNull();
+  });
+
+  it('a draw that will not take is asked for once, and then the flow rests', () => {
+    const d = draft();
+    const i = inputs({ draft: d });
+    const step = nextStep(i);
+    expect(step?.kind).toBe('draw');
+    if (!step) return;
+    expect(nextStep(inputs({ draft: d, done: new Set([stepKey(step, i)]) }))).toBeNull();
   });
 
   it('a step is keyed by what it is for, so it fires once and again only when that changes', () => {

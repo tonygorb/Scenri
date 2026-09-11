@@ -307,6 +307,7 @@ function check(s: CreationState, step: number, seed: number, action: Action) {
         booting: false,
         draftId: sd.id,
         seededFor: seeded,
+        done: new Set<string>(),
       });
       const ready = nextQuestion(s.answers, ctx) === null && !s.editing && !s.saying;
       const toDraw = Object.values(sd.views).some((v) => v.status === 'empty' || v.status === 'stale');
