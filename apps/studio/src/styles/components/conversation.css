@@ -552,6 +552,20 @@
   background: var(--sc-chip);
 }
 
+/* On a phone there is no stage beside the conversation, so a picture in it is
+   the picture rather than a thumbnail of one. Wide enough to judge a face,
+   short of the full column so it still reads as something said in a turn. */
+@media (max-width: 767px) {
+  .sc-convo-shot,
+  .sc-convo-shot img {
+    width: min(248px, 66vw);
+  }
+  .sc-convo-shot img {
+    height: auto;
+    aspect-ratio: 4 / 5;
+  }
+}
+
 .sc-convo-shot[data-current] {
   outline: 1px solid var(--sc-fg);
   outline-offset: 1px;

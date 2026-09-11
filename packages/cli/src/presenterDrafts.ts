@@ -361,6 +361,8 @@ export interface PresenterDraftSummary {
   name: string;
   source: PresenterSource;
   updatedAt: string;
+  /** When it was started. The wall is ordered by this, so choosing one never moves it. */
+  createdAt: string;
   stage: 'idle' | 'analyzing' | 'drawing';
   /** Set when this is an edit of somebody already saved, which is not unfinished work. */
   presenterId?: string;
@@ -385,6 +387,7 @@ export function summarisePresenterDraft(rec: PresenterDraftRecord): PresenterDra
     name: rec.name,
     source: rec.source,
     updatedAt: rec.updatedAt,
+    createdAt: rec.createdAt,
     stage: rec.stage,
     approved: wanted.filter((v) => rec.views[v].status === 'approved').length,
     of: wanted.length,
@@ -398,7 +401,13 @@ export function summarisePresenterDraft(rec: PresenterDraftRecord): PresenterDra
 
 /** The brand's unfinished people, newest first. */
 export function listPresenterDraftSummaries(core: Core, brandId: string): PresenterDraftSummary[] {
-  return listPresenterDrafts(core, brandId).map(summarisePresenterDraft);
+  // Oldest first, by when they were started. The rows come back by when they
+  // were last touched, which is right for finding the one somebody is working
+  // on and wrong for a wall: opening a draft touches it, so the cards
+  // rearranged themselves under the finger that had just chosen one.
+  return listPresenterDrafts(core, brandId)
+    .map(summarisePresenterDraft)
+    .sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : 1));
 }
 
 export function listPresenterDrafts(core: Core, brandId: string): PresenterDraftRecord[] {

@@ -84,7 +84,15 @@ export function ScenriTurn({
       </p>
       {thumb && (
         <span className="sc-convo-shot" data-reveal={playing || undefined} data-current={current || undefined}>
-          <img src={thumbUrl(thumb, 'micro')} alt={current && label ? `${label}, active` : (label ?? '')} />
+          {/* A thumbnail beside a stage on a desktop, and the picture itself on a
+              phone, where there is no stage. One source for each, so neither
+              pays for the other: 160 is sharp at 128px and soft at 238. */}
+          <img
+            src={thumbUrl(thumb, 'micro')}
+            srcSet={`${thumbUrl(thumb, 'micro')} 160w, ${thumbUrl(thumb, 'small')} 320w, ${thumbUrl(thumb, 'tile')} 640w`}
+            sizes="(max-width: 767px) 248px, 128px"
+            alt={current && label ? `${label}, active` : (label ?? '')}
+          />
           {restore && onRestore ? (
             <button
               type="button"

@@ -12,6 +12,7 @@ import type { Answer, Turn } from '../../conversation/question.js';
 import { Transcript } from '../../conversation/Transcript.js';
 import { Tip } from '../../layout/Tip.js';
 import { PREF, useLocalPref } from '../../prefs.js';
+import { PHONE, useMediaQuery } from '../../useMediaQuery.js';
 import type { StripItem, Take, StudioView } from './presenterStudioRules.js';
 import { StudioStage } from './StudioStage.js';
 
@@ -128,6 +129,7 @@ export interface StudioSurface {
  * keyboard.
  */
 export function StudioShell({ surface, onClose }: { surface: StudioSurface; onClose: () => void }) {
+  const phone = useMediaQuery(PHONE);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Escape leaves, as it does the shot overlay, unless a popover or a Confirm
@@ -260,7 +262,12 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
             </button>
           </div>
           <div className="sc-pstudio-scroll">
-            {s.stage ? (
+            {/* No stage on a phone, in any phase. A screen this size cannot
+                hold a gallery and a conversation at once: it took the top
+                forty per cent and showed the same picture the log was already
+                showing. Not rendered rather than hidden, so a phone does not
+                fetch a full-size picture it will never put on screen. */}
+            {phone ? null : s.stage ? (
               <StudioStage
                 hash={s.stage.hash}
                 alt={s.stage.alt}

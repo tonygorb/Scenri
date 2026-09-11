@@ -2,6 +2,7 @@ import { ArrowUp, Plus, X } from '@phosphor-icons/react';
 import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ColorPicker } from '../layout/ColorPicker.js';
 import { Tip } from '../layout/Tip.js';
+import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 
 /** What the card shows around the sentence: which picture the pill will touch, and what that means. */
 export interface ComposerScope {
@@ -129,9 +130,16 @@ export function ConversationComposer({
   }, [value]);
 
   const [flash, setFlash] = useState(false);
+  // A phone answers a focus with its keyboard, and the keyboard takes half the
+  // screen. Arriving at a question made of swatches with the keys already up,
+  // over the swatches, is the keyboard answering a question nobody asked: a
+  // finger opens it by tapping the field, the way every other app on a phone
+  // behaves. A pointer has no such cost, so nothing changes there.
+  const phone = useMediaQuery(PHONE);
   useEffect(() => {
     if (!focusKey || focusKey === focusedOnce || disabled) return;
     setFocusedOnce(focusKey);
+    if (phone) return;
     const el = field.current;
     el?.focus({ preventScroll: true });
     // an answer reopened for a change arrives with its words selected and the card lit once
@@ -141,7 +149,7 @@ export function ConversationComposer({
       const t = setTimeout(() => setFlash(false), 700);
       return () => clearTimeout(t);
     }
-  }, [focusKey, focusedOnce, disabled]);
+  }, [focusKey, focusedOnce, disabled, phone]);
 
   const off = disabled || working;
   // a colour chosen, or a picture attached, is an answer even with nothing

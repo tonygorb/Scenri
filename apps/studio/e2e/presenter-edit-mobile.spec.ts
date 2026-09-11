@@ -48,16 +48,21 @@ test('the phone editor stacks and keeps the composer in reach; the tablet keeps 
   const id = await seedPresenter(page.request, brand.id);
   await page.goto(`/${brand.slug}/presenters/${id}/edit`);
   await expect(page.getByRole('log')).toContainText('What would you like to change about Maren?');
-  await expect(page.locator('.sc-pstudio-slot')).toHaveCount(3);
   const vw = page.viewportSize()!;
   const phone = vw.width < 768;
-  const stage = await page.locator('.sc-pstudio-stage').boundingBox();
+  // the strip of views belongs to the stage, and a phone has no stage
+  await expect(page.locator('.sc-pstudio-slot')).toHaveCount(phone ? 0 : 3);
+  // asked for, not waited on: a phone has no stage to measure
+  const stage = (await page.locator('.sc-pstudio-stage').count())
+    ? await page.locator('.sc-pstudio-stage').boundingBox()
+    : null;
   const head = await page.locator('.sc-pstudio-head').boundingBox();
   const card = await page.locator('.sc-convo-card').boundingBox();
-  expect(stage && head && card).toBeTruthy();
+  expect(head && card).toBeTruthy();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   if (phone) {
-    expect(head!.y).toBeLessThan(stage!.y);
+    // no stage on a phone: the conversation is the screen, pictures and all
+    expect(stage).toBeNull();
     expect(card!.y + card!.height).toBeLessThanOrEqual(vw.height + 1);
     // one close on a phone, the head's own
     await expect(page.getByRole('button', { name: 'Close' })).toHaveCount(1);

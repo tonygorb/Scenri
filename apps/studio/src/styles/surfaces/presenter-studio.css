@@ -646,14 +646,14 @@
     height: min(100cqh, calc(100cqw * 5 / 4));
   }
 
-  .sc-pstudio-grid[data-phase="setup"] .sc-pstudio-stage {
+  /* No stage on a phone, in any phase.
+     A screen this size cannot hold a gallery and a conversation at once: the
+     stage took the top forty per cent and left the talking in a band at the
+     bottom, with the same picture in both places. The conversation carries the
+     work here, pictures and all, which is what a chat on a phone is. The
+     stage is a desktop affordance and stays one. */
+  .sc-pstudio-stage {
     display: none;
-  }
-
-  /* and once there is, it takes the top of the screen and stays there while the
-     conversation moves under it */
-  .sc-pstudio-grid[data-phase="made"] .sc-pstudio-wrap {
-    height: min(38dvh, calc((100vw - 32px) * 5 / 4));
   }
 
   .sc-pstudio-strip {

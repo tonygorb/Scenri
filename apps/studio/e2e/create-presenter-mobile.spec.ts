@@ -33,7 +33,7 @@ async function seedCandidate(p: Page, brandId: string): Promise<string> {
   return draft.id as string;
 }
 
-test('the phone stacks: stage held, newest turn in view, composer above the fold; the tablet keeps the rail', async ({
+test('the phone is the conversation: no stage, the picture in the log, composer above the fold; the tablet keeps the rail', async ({
   page,
   isMobile,
 }) => {
@@ -46,21 +46,28 @@ test('the phone stacks: stage held, newest turn in view, composer above the fold
   const use = page.getByRole('log').getByRole('button', { name: 'Use this person' });
   await expect(use).toBeVisible({ timeout: 20_000 });
   const vw = page.viewportSize()!;
-  const stage = await page.locator('.sc-pstudio-stage').boundingBox();
+  // asked for, not waited on: a phone has no stage to measure
+  const stage = (await page.locator('.sc-pstudio-stage').count())
+    ? await page.locator('.sc-pstudio-stage').boundingBox()
+    : null;
   const rail = await page.locator('.sc-pstudio-head').boundingBox();
   const decide = await use.boundingBox();
   const composer = await page.locator('.sc-convo-card').boundingBox();
-  expect(stage && rail && decide && composer).toBeTruthy();
+  expect(rail && decide && composer).toBeTruthy();
   // no horizontal overflow anywhere
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   if (phone) {
-    // one column: the head above the stage, the decision and the composer both inside the viewport
-    expect(rail!.y).toBeLessThan(stage!.y);
-    expect(stage!.width).toBeGreaterThan(vw.width * 0.8);
+    // No stage here. A screen this size cannot hold a gallery and a
+    // conversation at once, and it was showing the same picture twice: the
+    // conversation carries the work, pictures and all, the way a chat does.
+    expect(stage).toBeNull();
+    // and the picture in the log is the picture, not a thumbnail beside one
+    const shot = await page.getByRole('log').locator('.sc-convo-shot').first().boundingBox();
+    expect(shot).toBeTruthy();
+    expect(shot!.width).toBeGreaterThan(vw.width * 0.5);
+    // the decision and the composer are both inside the viewport
     expect(decide!.y + decide!.height).toBeLessThanOrEqual(composer!.y + 1);
     expect(composer!.y + composer!.height).toBeLessThanOrEqual(vw.height + 1);
-    // the strip scrolls sideways rather than wrapping
-    expect(await page.locator('.sc-pstudio-strip').evaluate((el) => getComputedStyle(el).overflowX)).toBe('auto');
     // a finger never hovers, so what can be done with a picture stands on it
     // (a view with one picture has nothing to say, so there is nothing to show)
     const act = page.getByRole('log').locator('.sc-convo-shot-do').first();
@@ -87,12 +94,9 @@ test('the composer stays reachable with the keyboard up', async ({ page }) => {
   const box = await field.boundingBox();
   const vh = page.viewportSize()!.height;
   expect(box!.y + box!.height).toBeLessThanOrEqual(vh - 300 + 1);
-  await expect(page.locator('.sc-pstudio-stage')).toBeVisible();
 });
 
-test('a second picture of a view: the press to put one back stands on the picture, and the stage steps between them', async ({
-  page,
-}) => {
+test('a second picture of a view: the press to put one back stands on the picture, in the log', async ({ page }) => {
   test.skip(page.viewportSize()!.width >= 768, 'the phone is what has no hover');
   const brand = await currentBrand(page);
   const base = `/api/brands/${brand.id}/presenter-drafts`;
@@ -112,11 +116,9 @@ test('a second picture of a view: the press to put one back stands on the pictur
   // no hover on a finger: what can be done is on the picture, at a finger's size
   expect(await act.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
   expect((await act.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  // and the stage steps between the two without drawing anything
-  const vers = page.locator('.sc-pstudio-vers');
-  await expect(vers).toContainText('of 2');
-  const step = page.getByRole('button', { name: 'The version before' });
-  expect((await step.boundingBox())!.height).toBeGreaterThanOrEqual(32);
-  await step.click();
-  await expect(vers.getByRole('button', { name: 'Put back' })).toBeVisible();
+  // Both pictures are in the log, each with its own press, and there is no
+  // stage on a phone to step between them with: the conversation is the record
+  // here, which is where a chat keeps what it has shown you.
+  await expect(page.locator('.sc-pstudio-vers')).toHaveCount(0);
+  await expect(act).toHaveText('Put back');
 });

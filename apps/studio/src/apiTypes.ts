@@ -389,6 +389,8 @@ export interface PresenterDraftSummary {
   name: string;
   source: 'synthetic' | 'photos';
   updatedAt: string;
+  /** When it was started. The wall is ordered by this, so choosing one never moves it. */
+  createdAt: string;
   stage: 'idle' | 'analyzing' | 'drawing';
   /** Set when this is an edit of somebody already saved, which is not unfinished work. */
   presenterId?: string;

@@ -15,6 +15,7 @@ const draft = (over: Partial<PresenterDraftSummary> = {}): PresenterDraftSummary
   name: '',
   source: 'synthetic',
   updatedAt: '2026-09-12 00:00:00.000',
+  createdAt: '2026-09-12 00:00:00.000',
   stage: 'idle',
   approved: 0,
   of: 3,
