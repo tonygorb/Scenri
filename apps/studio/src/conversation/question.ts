@@ -359,6 +359,16 @@ export interface Aside {
   /** When it was said, ISO: the key of its turns and its place in the record. */
   at: string;
   /**
+   * True when its question already had an answer when this was said.
+   *
+   * It decides which side of that answer it stands on. An aside said while a
+   * question is open interrupted it, and belongs between the question and the
+   * answer that eventually came. One said afterwards is a refused attempt to
+   * change that answer, and putting it above read backwards: three rejections
+   * and then the accepted answer, in the order nothing happened in.
+   */
+  after?: true;
+  /**
    * What was wrong with it, when something was.
    *
    * It is what decides whether the next reply is a repeat: the same complaint

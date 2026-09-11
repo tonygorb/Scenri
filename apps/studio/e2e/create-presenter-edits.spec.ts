@@ -366,6 +366,35 @@ test.describe('an answer written again', () => {
     await expect(log(page)).toContainText('And their build?');
   });
 
+  test('a refusal stands after the answer it failed to change, and becomes the answer when it is fixed', async ({
+    page,
+  }) => {
+    const bubble = await toLength(page);
+    // two attempts that say nothing, one after the other
+    for (const junk of ['Lungo1', 'Lungo123']) {
+      await bubble.getByRole('button', { name: 'Change this answer' }).click();
+      await bubble.locator('textarea').fill(junk);
+      await bubble.locator('textarea').press('Enter');
+      await expect(log(page)).toContainText(junk);
+    }
+    // they stand where they were said: after the answer, in the order they were
+    // made, not filed above the answer they failed to change
+    const said = await log(page).locator('.sc-convo-turn[data-who="you"]').allInnerTexts();
+    const order = said.map((t) => t.replace(/\s+/g, ' ').trim());
+    expect(order.findIndex((t) => t.includes('Lungo1'))).toBeGreaterThan(order.findIndex((t) => t.endsWith('Lungo')));
+
+    // fixed, it is no longer a stray sentence: it answers the question it was
+    // said at, so the run goes back there and these words are the answer
+    const stray = log(page).locator('.sc-convo-turn[data-turn^="you:aside-said-"]').first();
+    await stray.getByRole('button', { name: 'Change this answer' }).click();
+    await stray.locator('textarea').fill('a chin-length bob');
+    await stray.locator('textarea').press('Enter');
+
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-length"]')).toContainText('chin-length bob');
+    await expect(log(page).locator('.sc-convo-turn[data-turn^="you:aside-said-"]')).toHaveCount(0);
+    await expect(log(page)).not.toContainText('Lungo123');
+  });
+
   test('words that answer it take back what was asked after it, and that question is asked again', async ({ page }) => {
     const bubble = await toLength(page);
     await bubble.getByRole('button', { name: 'Change this answer' }).click();

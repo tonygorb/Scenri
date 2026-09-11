@@ -327,7 +327,11 @@ export function reduce(s: CreationState, action: Action): CreationState {
       // sends one, but the codec refuses it on the way back in, and a state
       // that cannot survive its own reload is a state that should not exist.
       if (!action.aside.said.trim() || !action.aside.reply.trim()) return { ...s, text: '' };
-      return { ...s, asides: [...s.asides, withFreeAt(s.asides, action.aside)], text: '' };
+      // Which side of the answer it stands on is a fact about the moment it was
+      // said, so it is written down here rather than guessed at render time.
+      const answered = !!action.aside.q && isQid(action.aside.q) && s.answers[action.aside.q] !== undefined;
+      const said = answered ? { ...action.aside, after: true as const } : action.aside;
+      return { ...s, asides: [...s.asides, withFreeAt(s.asides, said)], text: '' };
     }
     case 'unsure':
       return { ...settleUnsure(s), unsure: action.unsure, text: '' };
@@ -439,7 +443,16 @@ function asideFrom(v: unknown): Aside | null {
   const q = typeof a.q === 'string' ? a.q : null;
   const rev = typeof a.rev === 'number' && a.rev > 0 ? a.rev : undefined;
   const kind = typeof a.kind === 'string' ? (a.kind as Aside['kind']) : undefined;
-  return { said: a.said, reply: a.reply, q, at: a.at, ...(rev ? { rev } : {}), ...(kind ? { kind } : {}) };
+  const after = a.after === true ? true : undefined;
+  return {
+    said: a.said,
+    reply: a.reply,
+    q,
+    at: a.at,
+    ...(rev ? { rev } : {}),
+    ...(kind ? { kind } : {}),
+    ...(after ? { after } : {}),
+  };
 }
 
 export function deserialize(raw: string | null): { answers: Answers; revision: number; asides: Aside[] } | null {

@@ -836,6 +836,25 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     setPendingEdit(null);
   }, [pendingEdit]);
 
+  /**
+   * Words, written into whatever shape their question keeps its answer in.
+   *
+   * A detail and the last word hold their pictures beside their words, so they
+   * are written as a detail is; everything else is the sentence itself. One
+   * place, because writing a bare string into one of the two threw on render.
+   */
+  const commitWords = useCallback(
+    (id: Qid, text: string) => {
+      if (id === 'keep' || (id.startsWith('trait-') && !id.endsWith('-where'))) {
+        const had = stateRef.current.answers[id as TraitQid | 'keep'];
+        commitAnswer({ [id]: { words: text, refs: had?.refs ?? [] } });
+        return;
+      }
+      commitAnswer({ [id]: text });
+    },
+    [commitAnswer],
+  );
+
   const onSaveEdit = useCallback(
     (turnId: string, said: string) => {
       const text = said.trim();
@@ -851,15 +870,18 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         const was = st.asides.find((a) => a.at === at);
         if (!was) return;
         // Said again, and read again. If the new words answer the question it
-        // was said at, and that question is still the one on the floor, it
-        // stops being an aside and becomes the answer.
-        const openNow = question?.id ?? null;
-        const kind = answersNothing(text, readsAsPerson);
-        if (!kind && was.q && was.q === openNow && onSend(text)) {
+        // was said at, it stops being a sentence said in passing and becomes
+        // that question's answer: the run goes back to the question, exactly as
+        // it would for any other change made there, and the words are given to
+        // it. Whether that question happens to be the one on the floor right
+        // now does not come into it, because going back is what makes it so.
+        const asQid = was.q && isQid(was.q) ? (was.q as Qid) : null;
+        const kind = asQid ? judgeAnswer(asQid, text, readsAsPerson) : answersNothing(text, readsAsPerson);
+        if (!kind && asQid) {
           dispatch({ type: 'drop-aside', at });
+          commitWords(asQid, text);
           return;
         }
-        const asQid = was.q && isQid(was.q) ? (was.q as Qid) : null;
         const phase = asidePhaseFor(asQid, was.q, !!d?.views.portrait.hash);
         const step = asQid && isLookQid(asQid) ? (asQid.slice('look-'.length) as LookStep) : undefined;
         const k = kind ?? 'vague';
@@ -889,18 +911,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         bounce(text, asideReply(wrong, phase, before, text, step), turnId, wrong);
         return;
       }
-      // A detail keeps whatever pictures were attached to it: the words are
-      // being changed, not what they were said about. `keep` is shaped like a
-      // detail and has to be written like one, or everything that reads its
-      // pictures gets a bare string where an answer should be.
-      if (turnId === 'keep' || (turnId.startsWith('trait-') && !turnId.endsWith('-where'))) {
-        const had = stateRef.current.answers[turnId as TraitQid | 'keep'];
-        commitAnswer({ [turnId]: { words: text, refs: had?.refs ?? [] } });
-        return;
-      }
-      commitAnswer({ [turnId]: text });
+      commitWords(turnId, text);
     },
-    [d, s.update, commitAnswer, onSend, question],
+    [d, s.update, commitAnswer, commitWords, onSend, question, ctx],
   );
   const onCancelEdit = useCallback(() => dispatch({ type: 'cancel-edit' }), []);
 

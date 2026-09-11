@@ -680,8 +680,10 @@ function build(
   const after: Turn[] = [];
   const photosDoor = a.source?.door === 'photos';
   // What was said at a question, once it is answered, sits between its line and the answer.
-  const attach = (into: Turn[], ids: string[]) => {
-    const mine = asides.filter((x) => !placed.has(x) && !!x.q && x.q !== openId && ids.includes(x.q)).sort(byAt);
+  const attach = (into: Turn[], ids: string[], after = false) => {
+    const mine = asides
+      .filter((x) => !placed.has(x) && !!x.q && x.q !== openId && ids.includes(x.q) && !!x.after === after)
+      .sort(byAt);
     for (const x of mine) {
       placed.add(x);
       into.push(...asideTurns(x, beingSaidAgain(state, x)));
@@ -701,6 +703,10 @@ function build(
       editable: true,
       editing: (state.editing === id && answeredInWords(id, a)) || undefined,
     });
+    // What was said after this was answered stands after it, which is where it
+    // was said. A refused attempt to change an answer used to be filed above
+    // the answer it failed to change.
+    attach(into, [id], true);
   };
   for (const id of answeredIn(a, ctx)) {
     const into = photosDoor && draft && id !== 'source' && id !== 'photos' ? after : lead;
