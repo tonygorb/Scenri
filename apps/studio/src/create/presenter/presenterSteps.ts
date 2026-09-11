@@ -1,7 +1,8 @@
 import type { PresenterDraft } from '../../api.js';
+import type { Aside } from '../../conversation/question.js';
 import type { CreationState } from './creationState.js';
 import { readyToDraw } from './creationState.js';
-import { compileDirection, compileItems, type KeptItem, seedFromDraft } from './presenterFlowRules.js';
+import { compileDirection, compileItems, type KeptItem, seedStateFromDraft } from './presenterFlowRules.js';
 import type { Answers, FlowContext } from './presenterQuestions.js';
 import { type DraftLike, type StudioView, autoFor, nextToDraw } from './presenterStudioRules.js';
 
@@ -24,7 +25,7 @@ import { type DraftLike, type StudioView, autoFor, nextToDraw } from './presente
  */
 export type Step =
   /** A page arrived at a draft with answers that cannot draw it: they are read off the draft. */
-  | { kind: 'seed'; answers: Answers }
+  | { kind: 'seed'; answers: Answers; asides: Aside[] }
   /** Nothing is left to ask of a described person: the draft is made. */
   | { kind: 'start' }
   /** The answers moved under a draft: it is told, and what was drawn from the old words is redrawn. */
@@ -122,7 +123,7 @@ function candidates(i: StepInputs): Step[] {
     // off the draft: another tab, a cleared session, answers left over from a
     // run that is over. Once per draft, so a person halfway through changing
     // their mind on a draft this page has been driving is left alone.
-    if (i.seededFor !== d.id && (!state.answers.source || !ready)) return [{ kind: 'seed', answers: seedFromDraft(d) }];
+    if (i.seededFor !== d.id && (!state.answers.source || !ready)) return [{ kind: 'seed', ...seedStateFromDraft(d) }];
     // a question is open, or an answer is being changed: nothing draws
     if (!ready) return [];
     const out: Step[] = [];

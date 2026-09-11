@@ -116,6 +116,7 @@ export function registerPresenterDraftRoutes(
         direction: body.direction,
         keep: body.keep,
         keepItems: body.keepItems,
+        setup: body.setup,
         detailRefs: body.detailRefs,
         extras: body.extras,
       }),

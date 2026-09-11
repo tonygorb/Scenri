@@ -408,6 +408,8 @@ export interface PresenterDraft {
   keep?: string;
   /** The same, one thing at a time, which is the form the draft stores. */
   keepItems?: { id: string; words: string; refs?: string[] }[];
+  /** The conversation's own answers, as the studio holds them. Opaque to the server. */
+  setup?: string;
   /** Pictures of the details themselves, by detail. Derived from the items. */
   detailRefs?: Record<string, string[]>;
   name: string;

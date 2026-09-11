@@ -154,6 +154,16 @@ export interface PresenterDraftRecord {
    */
   keepItems?: KeepItem[];
   /**
+   * The conversation's own answers, as the studio holds them. Opaque here.
+   *
+   * What the server needs is compiled out of these before it arrives, so it
+   * has no use for them and never reads them. The page does: without them a
+   * draft opened in another tab, or after the browser was closed, came back as
+   * one typed sentence with every aside gone, because a compiled direction
+   * cannot be un-compiled into the taps that made it.
+   */
+  setup?: string;
+  /**
    * Pictures of the details themselves, by detail: a pair of frames, a
    * tattoo's design. Drawn from with the `detail` role, which takes the thing
    * and nothing of whoever is wearing it in the picture.
@@ -251,6 +261,7 @@ function fromRow(row: { id: string; brandId: string; json: unknown; createdAt: s
   };
   if (j.direction) rec.direction = String(j.direction);
   if (j.keep) rec.keep = String(j.keep);
+  if (j.setup) rec.setup = String(j.setup);
   // A draft stored before items existed holds only the sentence; it is read
   // back as items the first time it is asked for, never rewritten in place.
   const keepItems = keepItemsOf(j.keepItems);
@@ -437,6 +448,8 @@ export function sweepPresenterDrafts(core: Core): number {
 
 /** How much of one kept thing is stored, and how many of them. */
 const KEEP_ITEM_CHARS = 200;
+/** Room for the answers and the forty asides the studio keeps, and no more. */
+const SETUP_CHARS = 40_000;
 const KEEP_ITEMS_MAX = 12;
 
 /**
@@ -1356,6 +1369,7 @@ export async function updatePresenterDraft(
     direction?: unknown;
     keep?: unknown;
     keepItems?: unknown;
+    setup?: unknown;
     detailRefs?: unknown;
     extras?: unknown;
   },
@@ -1369,6 +1383,7 @@ export async function updatePresenterDraft(
         .filter(Boolean)
         .slice(0, 8);
     if (patch.direction !== undefined) r.direction = str(patch.direction, 400) || undefined;
+    if (patch.setup !== undefined) r.setup = str(patch.setup, SETUP_CHARS) || undefined;
     // Items are the truth and bring the sentence and the picture map with
     // them; the two older fields are still taken on their own so a client
     // that has not moved yet keeps working.

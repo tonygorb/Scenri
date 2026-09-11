@@ -258,6 +258,8 @@ export const api = {
       facets?: string[];
       direction?: string;
       keepItems?: { id: string; words: string; refs?: string[] }[];
+      /** The conversation's own answers, kept so another tab can pick it up. */
+      setup?: string;
       extras?: boolean;
     },
   ) => req<PresenterDraft>('PATCH', `/api/brands/${brandId}/presenter-drafts/${draftId}`, p),

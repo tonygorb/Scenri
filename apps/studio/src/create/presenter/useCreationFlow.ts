@@ -171,6 +171,32 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     if (draftId) session.remove(setupKey(brand.id, null));
   }, [brand.id, draftId, stored]);
 
+  /**
+   * And the same answers onto the draft itself, once it has one.
+   *
+   * The tab's own copy dies with the tab. The draft outlives it, and a person
+   * who opens one somewhere else should find the conversation they had, not a
+   * reconstruction of it: what the server is given is compiled, and a compiled
+   * sentence cannot be turned back into the taps that made it or the asides
+   * said beside them.
+   *
+   * Deliberately not part of the sync step. That patch is hashed whole to
+   * decide whether a step has already fired, so putting a string that changes
+   * with every answer into it would make every answer a new step. This is its
+   * own write, settled after a pause, and nothing waits on it.
+   */
+  const wroteSetup = useRef<string | null>(null);
+  useEffect(() => {
+    if (!draftId || wroteSetup.current === stored) return;
+    const t = setTimeout(() => {
+      wroteSetup.current = stored;
+      void api.updatePresenterDraft(brand.id, draftId, { setup: stored }).catch(() => {
+        wroteSetup.current = null;
+      });
+    }, 800);
+    return () => clearTimeout(t);
+  }, [brand.id, draftId, stored]);
+
   const [focus, setFocus] = useState<StudioView | null>(null);
   const [compare, setCompare] = useState(false);
   const [askErr, setAskErr] = useState<string | null>(null);
@@ -465,7 +491,12 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     switch (todo.kind) {
       case 'seed':
         seededFor.current = d?.id ?? null;
-        dispatch({ type: 'restore', answers: todo.answers, revision: stateRef.current.revision + 1 });
+        dispatch({
+          type: 'restore',
+          answers: todo.answers,
+          revision: stateRef.current.revision + 1,
+          asides: todo.asides,
+        });
         return;
       case 'start':
         void startScratch();

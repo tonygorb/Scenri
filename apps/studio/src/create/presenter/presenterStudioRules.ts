@@ -85,6 +85,8 @@ export type DraftLike = Pick<PresenterDraft, 'source' | 'name' | 'views' | 'acti
   keep?: string;
   /** The same, one thing at a time, which is what a resumed page reads back. */
   keepItems?: PresenterDraft['keepItems'];
+  /** The answers that made it, for a page that has none of its own. */
+  setup?: string;
   sources?: string[];
   analysis?: PresenterDraft['analysis'];
   readError?: string;

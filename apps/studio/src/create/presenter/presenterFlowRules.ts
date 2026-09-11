@@ -10,7 +10,7 @@ import {
   isAsideTurn,
   openQuestionId,
 } from '../../conversation/question.js';
-import { type CreationState, UNSURE_LINE, asideEditAt, isAsideEdit } from './creationState.js';
+import { type CreationState, UNSURE_LINE, asideEditAt, deserialize, isAsideEdit } from './creationState.js';
 import type { AsidePhase as Phase } from './presenterCopy.js';
 import {
   ATTEST_TEXT,
@@ -289,7 +289,27 @@ export function compileRefs(a: Answers): Record<string, string[]> {
  * over from a run that is over. The person is already being drawn, so the
  * setup reads as done, and every pencil still works.
  */
+/**
+ * Everything a page takes off a draft it has not been driving: the answers,
+ * and the conversation beside them.
+ *
+ * The asides are the sentences that answered nothing, said in passing and
+ * replied to. They are part of what a person sees when they come back, and
+ * they exist nowhere else, so a resume that dropped them lost the half of the
+ * conversation that was theirs.
+ */
+export function seedStateFromDraft(d: DraftLike): { answers: Answers; asides: Aside[] } {
+  const held = deserialize(d.setup ?? null);
+  if (held && Object.keys(held.answers).length) return { answers: held.answers, asides: held.asides };
+  return { answers: seedFromDraft(d), asides: [] };
+}
+
 export function seedFromDraft(d: DraftLike): Answers {
+  // What the page itself wrote, if the draft is carrying it. A compiled
+  // direction cannot be un-compiled into the taps that made it, so read back
+  // any other way a run of chosen answers comes home as one typed sentence.
+  const held = deserialize(d.setup ?? null);
+  if (held && Object.keys(held.answers).length) return held.answers;
   if (d.source === 'photos') {
     return {
       source: { door: 'photos', via: 'taps' },
