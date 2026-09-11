@@ -374,6 +374,8 @@ export interface PresenterDraftSlot {
   adjustment?: string;
   conditionedOn?: string[];
   error?: string;
+  /** When the step now running began: the clock measures the step, not the row. */
+  startedAt?: string;
 }
 /** A presenter being cast: the server's row, whole, on every answer. */
 export interface PresenterDraft {

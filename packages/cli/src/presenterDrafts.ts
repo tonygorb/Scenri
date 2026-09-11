@@ -83,6 +83,16 @@ export interface ViewSlot {
   conditionedOn?: string[];
   /** Why the last attempt did not land. Cleared by the next one. */
   error?: string;
+  /**
+   * When the step now running began.
+   *
+   * The clock a person watches has to measure the work, and the row's own
+   * updated stamp measures something else entirely: every write touches it,
+   * so the analyzer finishing, or a name typed while the picture draws, sent
+   * the elapsed time back to 0:00 and read as the whole thing starting over.
+   * Written once when the job is admitted, gone when it lands.
+   */
+  startedAt?: string;
 }
 
 /** One sentence sent to redraw a view. The conversation is read off these, in the order they were sent. */
@@ -361,6 +371,7 @@ export function sweepPresenterDrafts(core: Core): number {
         const slot = rec.views[v];
         slot.status = slot.hash ? 'candidate' : 'empty';
         slot.error = 'interrupted: server restarted mid-generation';
+        slot.startedAt = undefined;
       }
       rec.activeView = null;
       rec.stage = 'idle';
@@ -825,6 +836,8 @@ export async function generateView(
   const saved = mutate(core, id, (r) => {
     r.views[view].status = 'generating';
     r.views[view].error = undefined;
+    // The one stamp the clock measures: this step, from here.
+    r.views[view].startedAt = new Date().toISOString();
     r.activeView = view;
     r.stage = 'drawing';
     // The sentence joins the record once: the same one sent to the same view
@@ -910,6 +923,7 @@ async function drawView(
       slot.conditionedOn = refs;
       slot.adjustment = adjustment;
       slot.error = undefined;
+      slot.startedAt = undefined;
       r.generations += 1;
       r.results = [
         ...r.results,
@@ -931,6 +945,7 @@ async function drawView(
       // the ask it was for stays on the slot, so drawing it again is drawing it again with the ask
       if (adjustment) slot.adjustment = adjustment;
       slot.error = signal.aborted ? 'cancelled' : String(err?.message ?? 'the view could not be drawn');
+      slot.startedAt = undefined;
       r.generations += 1;
     });
   }

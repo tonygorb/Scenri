@@ -52,6 +52,7 @@ import {
   autoFor,
   composerState,
   doingLine,
+  drawingSince,
   drawing as isDrawing,
   identityLocked,
   MAX_PHOTOS,
@@ -423,7 +424,12 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     draft: d,
     ctx,
     canDraw,
-    busy: s.busy || busySetup || inflight.current || leaving.current,
+    // The server drawing counts as busy here. It used not to: `busy` only
+    // covered a request in flight, and admitting a job returns in
+    // milliseconds, so a sync could fire against a draft mid-draw, land its
+    // patch, and have its redo refused. Nothing autonomous runs while a
+    // picture is being made; it all waits for the step to end.
+    busy: s.busy || busySetup || inflight.current || leaving.current || (d ? isDrawing(d) : false),
     err: !!s.err || !!askErr,
     booting,
     draftId,
@@ -1108,7 +1114,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
             hash: shownHash,
             alt: `${VIEW_LABEL[view]}${slot?.status === 'candidate' ? ', candidate' : ''}`,
             drawing: drawingNow,
-            since: d.updatedAt,
+            since: drawingSince(d),
             doing: doingLine(d),
             takes: takesOf(d, view),
             onTake: idleNow ? (hash: string) => void s.restore(view, hash) : undefined,

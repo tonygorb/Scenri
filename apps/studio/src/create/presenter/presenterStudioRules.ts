@@ -500,6 +500,17 @@ export function coverageLine(d: DraftLike, canGenerate: boolean): { text: string
 export const emptySlot = (): PresenterDraftSlot => ({ status: 'empty', attempts: 0, rejected: [] });
 
 /** What the stage is doing, in a few words: the view being drawn, and whether it is drawn over a picture it already has. */
+/**
+ * When the step now running began.
+ *
+ * The row's own updated stamp moves on every write, so the analyzer finishing
+ * or a name typed while the picture draws sent the clock back to 0:00 and read
+ * as the whole thing starting over. The slot carries the moment its step was
+ * admitted, and that is what a person is watching.
+ */
+export const drawingSince = (d: DraftLike & { updatedAt?: string }): string | undefined =>
+  (d.activeView ? d.views[d.activeView]?.startedAt : undefined) ?? d.updatedAt;
+
 export function doingLine(d: DraftLike): string | undefined {
   if (d.stage === 'analyzing') return `Reading ${d.source === 'photos' ? 'the photos' : 'the face'}`;
   const v = d.activeView;

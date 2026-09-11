@@ -22,6 +22,7 @@ import {
 import {
   autoFor,
   doingLine,
+  drawingSince,
   nextToDraw,
   readsAsPerson,
   selectedView,
@@ -364,7 +365,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
             hash: stageHash,
             alt: `${VIEW_LABEL[view]}${slot?.status === 'candidate' ? ', candidate' : ''}`,
             drawing: drawingNow,
-            since: d.updatedAt,
+            since: drawingSince(d),
             doing: doingLine(d),
             takes: takesOf(d, view),
             onTake: idleNow ? (hash: string) => void s.restore(view, hash) : undefined,

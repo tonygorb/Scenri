@@ -137,6 +137,19 @@
   opacity: 0.8;
 }
 
+/* The well is the largest surface the sweep crosses in the app, so it takes
+   the slowest pass, the way the stage does: one apparent speed everywhere
+   rather than a highlight that races across a big box. The slot is small and
+   takes the quick one. */
+.sc-pstudio-well > .sc-shimmer {
+  --sc-shimmer-dur: 2.9s;
+  border-radius: inherit;
+}
+.sc-pstudio-slot-inner > .sc-shimmer {
+  --sc-shimmer-dur: 1.15s;
+  border-radius: inherit;
+}
+
 /* a light sweeps the picture while its view is drawn again: worked on, not gone */
 .sc-pstudio-veil {
   position: absolute;

@@ -82,6 +82,11 @@ export function StudioStage({
               {!drawing && <UserCircle size={96} weight="thin" />}
             </span>
           )}
+          {/* Waiting reads as one thing everywhere in Scenri: the same gold
+              sweep the feed uses while a shot renders. Over a picture being
+              drawn again a light passes across it instead, because there is
+              something to look at and the state is "worked on", not "empty". */}
+          {drawing && !hash && <span className="sc-shimmer" aria-hidden />}
           {drawing && hash && <span className="sc-pstudio-veil" aria-hidden />}
           {drawing && (
             <span className="sc-pstudio-doing" role="status">
@@ -153,7 +158,10 @@ export function StudioStage({
                 >
                   <span className="sc-pstudio-slot-inner">
                     {it.hash ? <img src={thumbUrl(it.hash, 'micro')} alt="" /> : null}
-                    {it.drawing ? <span className="sc-pstudio-slot-work sc-pstudio-ring" aria-hidden /> : null}
+                    {it.drawing && !it.hash ? <span className="sc-shimmer" aria-hidden /> : null}
+                    {it.drawing && it.hash ? (
+                      <span className="sc-pstudio-slot-work sc-pstudio-ring" aria-hidden />
+                    ) : null}
                     {it.approved && !it.drawing ? (
                       <span className="sc-pstudio-slot-mark" aria-hidden>
                         <Check size={11} weight="bold" />

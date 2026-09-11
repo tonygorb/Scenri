@@ -65,13 +65,22 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
         take(await work());
         return true;
       } catch (e: any) {
-        if (alive.current) setErr(String(e?.message ?? e));
+        if (!alive.current) return false;
+        // "A view is still being drawn" is not a failure: the work this asked
+        // for is already happening. Said as an error it latched, stopped every
+        // step the flow takes on its own, and stayed hidden until the drawing
+        // ended. Read the row again instead, and carry on.
+        if (e?.status === 409) {
+          void load();
+          return false;
+        }
+        setErr(String(e?.message ?? e));
         return false;
       } finally {
         if (alive.current) setBusy(false);
       }
     },
-    [take],
+    [take, load],
   );
 
   return {

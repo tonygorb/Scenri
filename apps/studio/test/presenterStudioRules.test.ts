@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PresenterDraftSlot } from '../src/api.js';
 import {
+  drawingSince,
   doingLine,
   takesOf,
   type Traits,
@@ -434,5 +435,42 @@ describe('takesOf', () => {
     ]);
     // one picture is not a choice, so there is nothing to show
     expect(takesOf(d, 'front')).toEqual([]);
+  });
+});
+
+describe('the clock a person watches', () => {
+  const slot = (over: Record<string, unknown> = {}) => ({ status: 'empty', attempts: 0, rejected: [], ...over });
+  const draft = (over: Record<string, unknown> = {}) =>
+    ({
+      source: 'synthetic',
+      stage: 'drawing',
+      activeView: 'front',
+      updatedAt: '2026-09-11 12:00:30.000',
+      extras: false,
+      views: {
+        portrait: slot({ status: 'approved', hash: 'p' }),
+        front: slot({ status: 'generating', startedAt: '2026-09-11T12:00:00.000Z' }),
+        'three-quarter': slot(),
+        back: slot(),
+        left: slot(),
+        right: slot(),
+      },
+      ...over,
+    }) as never;
+
+  it('measures the step, not the last time the row was written', () => {
+    // the row moves on every write: the analyzer finishing, a name typed while
+    // the picture draws. Keyed to that, the elapsed time went back to 0:00 and
+    // read as the whole thing starting over.
+    expect(drawingSince(draft())).toBe('2026-09-11T12:00:00.000Z');
+    const later = draft({ updatedAt: '2026-09-11 12:00:59.000' });
+    expect(drawingSince(later)).toBe('2026-09-11T12:00:00.000Z');
+  });
+
+  it('falls back to the row when nothing is running, and for a draft drawn before this stamp existed', () => {
+    expect(drawingSince(draft({ activeView: null }))).toBe('2026-09-11 12:00:30.000');
+    const old = draft();
+    (old as unknown as { views: Record<string, { startedAt?: string }> }).views.front.startedAt = undefined;
+    expect(drawingSince(old)).toBe('2026-09-11 12:00:30.000');
   });
 });

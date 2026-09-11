@@ -1539,6 +1539,25 @@ describe('stopping a draw', () => {
   });
 });
 
+describe('the clock measures the step', () => {
+  async function settled(id: string) {
+    for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
+    return getPresenterDraft(core, id)!;
+  }
+
+  it('stamps the slot when the step is admitted and clears it when the step ends', async () => {
+    const d = await createPresenterDraft(deps(), { brandId, source: 'synthetic', direction: 'a woman in her 30s' });
+    // the stamp is the moment the work began; the row's own updated stamp
+    // moves on every later write, which is why the clock cannot read it
+    const { draft: started } = await generateView(deps(), d.id, 'portrait', {});
+    expect(started.views.portrait.status).toBe('generating');
+    expect(started.views.portrait.startedAt).toBeTruthy();
+    const done = await settled(d.id);
+    expect(done.views.portrait.status).toBe('candidate');
+    expect(done.views.portrait.startedAt).toBeUndefined();
+  });
+});
+
 describe('a draw that failed', () => {
   it('keeps the ask it was for on the slot, so a retry can draw it again with the ask', async () => {
     const d = await cast();
