@@ -130,7 +130,12 @@
 .sc-lookcard[data-build] .sc-lookcard-cap b {
   color: var(--sc-fg);
 }
+/* Touch hides a card's second caption line, because on a finished card it is
+   a description you can do without. On these it is the whole point: "Face
+   ready", "3 of 6 views ready", "Ready to save". Hidden, a draft on a phone
+   was a name and a badge and no word about how far along it was. */
 .sc-lookcard[data-build] .sc-lookcard-cap span {
+  display: block;
   color: var(--sc-fg3);
 }
 /* An unfinished person carries a face, and a face on a card reads as somebody

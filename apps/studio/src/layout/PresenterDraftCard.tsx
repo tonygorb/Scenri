@@ -15,6 +15,12 @@ import { type PresenterDraftSummary, thumbUrl } from '../api.js';
  * presenter. What marks it out is the caption, which is always visible here
  * and hover-revealed on a finished card: a card whose job is to say "this is
  * not done" cannot hide that behind a pointer.
+ *
+ * One tap opens it, where a finished card on touch takes two. That is not an
+ * inconsistency: the finished card arms on the first tap because it has a
+ * second action to reveal and no hover to reveal it with. This has one thing
+ * you can do, so asking for a tap to reveal it and another to take it would be
+ * friction for nothing. Discard is a press of its own, always there.
  */
 export function PresenterDraftCard({
   draft,
