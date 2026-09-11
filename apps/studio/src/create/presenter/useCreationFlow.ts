@@ -83,7 +83,17 @@ import { usePresenterDraft } from './usePresenterDraft.js';
  * checked against the revision it started under before it is allowed to
  * change anything.
  */
-const setupKey = (brandId: string) => `scenri:presenter-setup:${brandId}`;
+/**
+ * The answers this page is holding, kept per draft rather than per brand.
+ *
+ * Held per brand, a tab that had gathered answers for one person applied them
+ * to whichever draft was opened next: the flow saw a disagreement with a draft
+ * it had never asked a question about, and the sync it sent to put that right
+ * wrote those answers over the top. A finished person came back with their
+ * details gone. Answers gathered before a draft exists live under `new` and
+ * move to the draft the moment it has an id.
+ */
+const setupKey = (brandId: string, draftId?: string | null) => `scenri:presenter-setup:${brandId}:${draftId ?? 'new'}`;
 const pointerKey = (brandId: string) => `scenri:presenter-draft:${brandId}`;
 const session = {
   read(key: string): string | null {
@@ -146,8 +156,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const openSetup = useOpenSetup();
   const canDraw = !!caps?.canGenerate;
 
-  const [state, dispatch] = useReducer(reduce, brand.id, (id) => {
-    const back = deserialize(session.read(setupKey(id)));
+  const [state, dispatch] = useReducer(reduce, { brandId: brand.id, draftId }, (at) => {
+    const back = deserialize(session.read(setupKey(at.brandId, at.draftId)));
     return back ? { ...EMPTY_STATE, answers: back.answers, revision: back.revision, asides: back.asides } : EMPTY_STATE;
   });
   // the latest state, for work that finishes after the render it started in
@@ -155,8 +165,11 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   stateRef.current = state;
   const stored = serialize(state);
   useEffect(() => {
-    session.write(setupKey(brand.id), stored);
-  }, [brand.id, stored]);
+    session.write(setupKey(brand.id, draftId), stored);
+    // Once the draft has an id the answers belong to it, and the ones left
+    // under `new` would otherwise be picked up by the next person started here.
+    if (draftId) session.remove(setupKey(brand.id, null));
+  }, [brand.id, draftId, stored]);
 
   const [focus, setFocus] = useState<StudioView | null>(null);
   const [compare, setCompare] = useState(false);
@@ -182,7 +195,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   // a draft came with it. Before this the setup half read as new on every
   // reload and played its arrivals again, which after the asides began to be
   // kept meant a screenful of old lines flying in one after another.
-  const [resumed] = useState(() => !!draftId || !!deserialize(session.read(setupKey(brand.id))));
+  const [resumed] = useState(() => !!draftId || !!deserialize(session.read(setupKey(brand.id, draftId))));
   useEffect(
     () => () => {
       for (const url of refShots.current.values()) URL.revokeObjectURL(url);
@@ -257,7 +270,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
 
   const clearSetup = useCallback(
     (draftId?: string) => {
-      session.remove(setupKey(brand.id));
+      session.remove(setupKey(brand.id, null));
+      if (draftId) session.remove(setupKey(brand.id, draftId));
       forgetSaid(`presenter-create:${brand.id}:new`);
       if (draftId) forgetSaid(`presenter-create:${brand.id}:${draftId}`);
     },
