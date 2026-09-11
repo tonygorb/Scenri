@@ -24,7 +24,7 @@ import {
   reduce,
   serialize,
 } from './creationState.js';
-import { type AsidePhase, asideReply } from './presenterCopy.js';
+import { type AsidePhase, asideReply, readingWhat } from './presenterCopy.js';
 import {
   TEXT_QIDS,
   answeredInWords,
@@ -1119,7 +1119,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       busy: s.busy || busySetup,
       // Truthful: only where something is actually being waited for. A question
       // the flow already has arrives without anyone pretending to think.
-      working: d?.stage === 'analyzing' ? 'Reading the photos' : d?.activeView ? 'Drawing' : busySetup || s.busy,
+      working:
+        d?.stage === 'analyzing' ? `Reading ${readingWhat(d.source)}` : d?.activeView ? 'Drawing' : busySetup || s.busy,
       stage: d
         ? {
             hash: shownHash,

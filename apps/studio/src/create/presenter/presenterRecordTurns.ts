@@ -1,5 +1,5 @@
 import { type Aside, type Question, type Turn, asideTurns } from '../../conversation/question.js';
-import { PROMPT } from './presenterCopy.js';
+import { PROMPT, readingWhat } from './presenterCopy.js';
 import {
   EXTRA_VIEWS,
   HAND_APPROVED,
@@ -95,7 +95,7 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
   const askName = (prompt: string) => ask({ id: 'name', kind: 'text', prompt });
 
   if (d.stage === 'analyzing') {
-    say('reading', 'Reading the photos.');
+    say('reading', `Reading ${readingWhat(d.source)}.`);
     if (name) named();
     else askName(PROMPT.nameWhileReading);
     return T;

@@ -501,7 +501,7 @@ export const emptySlot = (): PresenterDraftSlot => ({ status: 'empty', attempts:
 
 /** What the stage is doing, in a few words: the view being drawn, and whether it is drawn over a picture it already has. */
 export function doingLine(d: DraftLike): string | undefined {
-  if (d.stage === 'analyzing') return 'Reading the photos';
+  if (d.stage === 'analyzing') return `Reading ${d.source === 'photos' ? 'the photos' : 'the face'}`;
   const v = d.activeView;
   if (!v) return undefined;
   const again = !!d.views[v]?.hash;

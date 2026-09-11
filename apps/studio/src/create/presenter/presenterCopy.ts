@@ -35,6 +35,16 @@ export const PROMPT = {
   extras: 'Add back and profile views? They help shots from behind or in profile.',
 };
 
+/**
+ * What is being read, while it is being read.
+ *
+ * The words that describe a person are read off their photographs when they
+ * have some, and off their own drawn face when they do not. Saying "reading the
+ * photos" to somebody who described a person in a sentence names a thing that
+ * does not exist, and reads as the app having lost the plot.
+ */
+export const readingWhat = (source: string | undefined): string => (source === 'photos' ? 'the photos' : 'the face');
+
 export const SOURCE_OPTIONS = [
   { id: 'photos', label: 'Add photos' },
   { id: 'scratch', label: 'Describe someone' },

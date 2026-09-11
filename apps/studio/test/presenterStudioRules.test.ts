@@ -398,7 +398,10 @@ describe('what reads as a person', () => {
 
 describe('doingLine', () => {
   it('names the view being drawn, and says when it is drawn over a picture it already has', () => {
-    expect(doingLine(draft({ stage: 'analyzing' }))).toBe('Reading the photos');
+    // what is read is what there is: a described person has no photographs, and
+    // being told theirs are being read names a thing that does not exist
+    expect(doingLine(draft({ stage: 'analyzing', source: 'photos' }))).toBe('Reading the photos');
+    expect(doingLine(draft({ stage: 'analyzing' }))).toBe('Reading the face');
     expect(doingLine(draft({ stage: 'idle', activeView: null }))).toBeUndefined();
     expect(doingLine(draft({ stage: 'drawing', activeView: 'portrait' }))).toBe('Drawing the face');
     expect(doingLine(draft({ stage: 'drawing', activeView: 'portrait', views: { portrait: approved('p0') } }))).toBe(

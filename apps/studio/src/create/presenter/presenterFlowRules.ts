@@ -95,6 +95,7 @@ export {
   UNSURE_PROMPT,
   type AsidePhase,
   asideReply,
+  readingWhat,
   gapsPrompt,
 } from './presenterCopy.js';
 export { descriptionGaps } from './presenterQuestions.js';
@@ -934,7 +935,8 @@ export function composerFor(
     }
   }
   if (!d) return { ...QUIET, off: 'Starting the draft.' };
-  if (d.stage === 'analyzing') return { ...QUIET, off: 'Reading the photos.' };
+  if (d.stage === 'analyzing')
+    return { ...QUIET, off: `Reading ${d.source === 'photos' ? 'the photos' : 'the face'}.` };
   if (drawing(d)) {
     // the stage says what is being drawn and for how long; saying it again
     // under the composer is the same sentence twice
