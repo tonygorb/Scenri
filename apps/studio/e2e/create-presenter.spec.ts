@@ -748,6 +748,34 @@ test.describe('a person from scratch', () => {
     expect(calls.urls()).not.toContain('/generate');
   });
 
+  test('an unfinished person is offered back from the library, and can be let go', async ({ page }) => {
+    const brand = await currentBrand(page);
+    const draftId = await seedDraft(page, brand.id, 'portrait-candidate', 'Halden');
+    await page.goto(`/${brand.slug}/presenters`);
+    // the wall carries them first, marked, with how far along they are: the
+    // work used to be reachable only from the tab it was started in
+    const card = page.locator(`.sc-lookcard[data-build]:has(a[href$="/presenters/new/${draftId}"])`);
+    await expect(card).toHaveCount(1);
+    await expect(card).toContainText('Draft');
+    await expect(card).toContainText('Halden');
+    await expect(card).toContainText('A face to decide');
+
+    // and opening one resumes the conversation where it was left, without
+    // spending anything or writing over what the draft holds
+    const before = await draftOf(page, brand.id, draftId);
+    await card.getByRole('link').click();
+    await expect(page).toHaveURL(new RegExp(`/presenters/new/${draftId}$`));
+    await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
+    const after = await draftOf(page, brand.id, draftId);
+    expect(after.generations).toBe(before.generations);
+    expect(after.views.portrait.hash).toBe(before.views.portrait.hash);
+
+    // letting it go takes it off the wall
+    await page.goto(`/${brand.slug}/presenters`);
+    await card.getByRole('button', { name: /Discard/ }).click();
+    await expect(card).toHaveCount(0);
+  });
+
   test('Add them builds the back and profile views, and the strip grows to six', async ({ page }) => {
     test.setTimeout(60_000);
     const brand = await currentBrand(page);
