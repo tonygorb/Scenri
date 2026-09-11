@@ -333,6 +333,53 @@ test.describe('a picture of the thing itself', () => {
   });
 });
 
+test.describe('an answer written again', () => {
+  const toLength = async (page: Page) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await answer(page, 'Describe someone').click();
+    for (const label of ['Woman', '30s', 'Black']) {
+      await log(page).getByRole('button', { name: label, exact: true }).click();
+    }
+    await expect(log(page)).toContainText('And the length?');
+    await send(page, 'Lungo');
+    await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
+    await expect(log(page)).toContainText('And their build?');
+    return log(page).locator('.sc-convo-turn[data-turn="you:look-length"]');
+  };
+
+  test('words that would be refused under the question are refused over it, and nothing below is taken back', async ({
+    page,
+  }) => {
+    const bubble = await toLength(page);
+    await bubble.getByRole('button', { name: 'Change this answer' }).click();
+    await bubble.locator('textarea').fill('Lungo1234');
+    await bubble.locator('textarea').press('Enter');
+
+    // the answer stands as it was, and what was said is answered where it was said
+    await expect(bubble).toContainText('Lungo');
+    await expect(bubble).not.toContainText('Lungo1234');
+    await expect(log(page)).toContainText('Lungo1234');
+    await expect(log(page)).toContainText('That is not a length.');
+    // nothing under it moved: the skin still stands and the build is still the ask
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-skin"]')).toContainText('Olive');
+    await expect(log(page)).toContainText('And their build?');
+  });
+
+  test('words that answer it take back what was asked after it, and that question is asked again', async ({ page }) => {
+    const bubble = await toLength(page);
+    await bubble.getByRole('button', { name: 'Change this answer' }).click();
+    await bubble.locator('textarea').fill('a long braid');
+    await bubble.locator('textarea').press('Enter');
+
+    await expect(bubble).toContainText('long braid');
+    // the skin was answered after it, so it is asked again and its answer is gone
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-skin"]')).toHaveCount(0);
+    await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-skin"]')).toHaveCount(1);
+    await expect(log(page)).not.toContainText('And their build?');
+  });
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
