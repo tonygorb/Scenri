@@ -1221,7 +1221,7 @@ export async function restoreView(
     s.adjustment = from?.ask;
     s.conditionedOn = undefined;
     s.error = undefined;
-    if (s.status === 'approved') staleDependents(r, view);
+    if (s.status === 'approved') reconcileDependents(r, view);
     // Putting a picture back writes no history: the record is the pictures that
     // were drawn, and which one a view wears is the view's own business. It
     // used to append a row, so going back and forth a few times pushed the
@@ -1235,6 +1235,47 @@ function dependents(view: PresenterView): PresenterView[] {
 }
 function reaches(from: PresenterView, to: PresenterView): boolean {
   return DEPENDS[from].some((d) => d === to || reaches(d, to));
+}
+
+/**
+ * Whether a view still stands on what it was actually drawn from.
+ *
+ * Every slot records the pictures its own was made from, so this is a question
+ * with an answer rather than a guess: if each of its dependencies still wears
+ * a picture that is in that list, nothing under it has moved.
+ */
+function stillStands(r: PresenterDraftRecord, view: PresenterView): boolean {
+  const on = r.views[view].conditionedOn;
+  if (!on?.length) return false;
+  // Asked as "has anything it was drawn from been replaced", never as "does it
+  // reference each of its dependencies". Which dependencies a view is drawn
+  // from is itself a decision that can change under it - the right profile
+  // skips the left one when their own words name a side - and a view drawn
+  // under one rule must not read as out of date under another.
+  for (const h of on) {
+    const owner = r.results.find((x) => x.hash === h)?.view;
+    if (!owner || owner === view) continue;
+    if (r.views[owner].hash !== h) return false;
+  }
+  return true;
+}
+
+/**
+ * Out of date, or back in date.
+ *
+ * Staling one way only meant a picture put back exactly as it was left
+ * everything under it marked out of date against the very picture it was drawn
+ * from, and the only way out was to draw them all again. What a view was made
+ * from is recorded, so the question can be asked properly in both directions.
+ */
+function reconcileDependents(r: PresenterDraftRecord, view: PresenterView): void {
+  for (const d of dependents(view)) {
+    const s = r.views[d];
+    if (!s.hash) continue;
+    if (stillStands(r, d)) {
+      if (s.status === 'stale') s.status = 'approved';
+    } else if (s.status === 'approved' || s.status === 'candidate') s.status = 'stale';
+  }
 }
 
 function staleDependents(r: PresenterDraftRecord, view: PresenterView): void {

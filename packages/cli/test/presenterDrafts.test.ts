@@ -1548,6 +1548,48 @@ describe('stopping a draw', () => {
   });
 });
 
+describe('putting a picture back', () => {
+  it('brings the views drawn from it back in date, rather than leaving them stranded', async () => {
+    const d = await castWithExtras();
+    const face = view(d, 'portrait').hash as string;
+    const bodies = ['front', 'three-quarter', 'back', 'left', 'right'] as const;
+
+    // another face is drawn and used: everything under it is out of date
+    await redoView(deps(), d.id, 'portrait');
+    await step(d.id, 'portrait');
+    let now = await approveView(deps(), d.id, 'portrait');
+    expect(now.views.portrait.hash).not.toBe(face);
+    for (const v of bodies) expect(now.views[v].status).toBe('stale');
+
+    // and the first face is put back. Those views were drawn from it and it is
+    // what they are standing on again, so they are not out of date at all.
+    // Marked stale for ever, the only way out was to draw all five again.
+    now = await restoreView(deps(), d.id, 'portrait', face);
+    expect(now.views.portrait.hash).toBe(face);
+    for (const v of bodies) expect(now.views[v].status).toBe('approved');
+  });
+
+  it('asks what a view was drawn from, not what it could have been', async () => {
+    // the right profile is drawn without the left one when their own words
+    // name a side, so checking it against the full list found the left's
+    // picture missing from its references and left it stranded as stale
+    const d = await createPresenterDraft(deps(), {
+      brandId,
+      source: 'synthetic',
+      direction: 'a man in his 30s',
+      keepItems: [{ id: 'prosthetic', words: 'a prosthetic limb in place of their left arm' }],
+    });
+    await updatePresenterDraft(core, d.id, { extras: true });
+    await build(d.id, PRESENTER_VIEWS);
+    const face = getPresenterDraft(core, d.id)!.views.portrait.hash as string;
+    await redoView(deps(), d.id, 'portrait');
+    await step(d.id, 'portrait');
+    await approveView(deps(), d.id, 'portrait');
+    const back = await restoreView(deps(), d.id, 'portrait', face);
+    expect(back.views.right.status).toBe('approved');
+  });
+});
+
 describe('asking for another picture', () => {
   it('keeps the one it has until another lands, and puts it back when none does', async () => {
     // the face, the full body, and the three-quarter drawn from both
