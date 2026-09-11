@@ -204,12 +204,29 @@ function reachesBack(patch: Partial<Answers>): number | undefined {
   return ids.length ? Math.min(...ids.map(orderOf)) : undefined;
 }
 
+/**
+ * An aside, with an `at` nothing else is using.
+ *
+ * The `at` is the turn's identity, so two sentences sharing one are two turns
+ * with one key: React reuses a node for a line it does not belong to, and the
+ * wrong one animates, dims or opens for editing. Two can share it honestly, a
+ * settled sentence carrying the time it was first said, and `nowIso` has only
+ * millisecond resolution besides.
+ */
+function withFreeAt(asides: Aside[], a: Aside): Aside {
+  if (!asides.some((x) => x.at === a.at)) return a;
+  let n = 1;
+  while (asides.some((x) => x.at === `${a.at}#${n}`)) n += 1;
+  return { ...a, at: `${a.at}#${n}` };
+}
+
 /** The waiting sentence, folded into the record when something else was said. */
 function settleUnsure(s: CreationState): CreationState {
   const w = s.unsure;
   if (!w) return s;
   const asides = s.asides.map((a) => (a.q === 'unsure' ? { ...a, q: w.q } : a));
-  return { ...s, unsure: null, asides: [...asides, { said: w.said, reply: UNSURE_LINE, q: w.q, at: w.at }] };
+  const settled = withFreeAt(asides, { said: w.said, reply: UNSURE_LINE, q: w.q, at: w.at });
+  return { ...s, unsure: null, asides: [...asides, settled] };
 }
 
 export function reduce(s: CreationState, action: Action): CreationState {
@@ -258,18 +275,27 @@ export function reduce(s: CreationState, action: Action): CreationState {
       const was = s.asides.find((a) => a.at === action.at);
       const q = was?.q && isQid(was.q) ? (was.q as Qid) : null;
       const answers = q && s.answers[q] !== undefined ? commit(s.answers, { [q]: undefined }, action.ctx) : s.answers;
+      // Two orderings had to be made to agree here. The answers are taken back
+      // by the run's order; the sentences used to be taken back by the clock.
+      // They line up while the clock only ever moves forward, and the moment
+      // anything does not, a sentence is left standing at a question that is
+      // neither answered nor open. Both are applied.
+      const kept = keptAsides(
+        s.asides.filter((a) => a.at <= action.at),
+        answers,
+        action.ctx,
+        q ? orderOf(q) : undefined,
+      );
       return {
         ...s,
         answers,
         revision: answers === s.answers ? s.revision : s.revision + 1,
         editing: null,
-        asides: s.asides
-          .filter((a) => a.at <= action.at)
-          .map((a) =>
-            a.at === action.at
-              ? { ...a, said: action.said, reply: action.reply, kind: action.kind, rev: (a.rev ?? 0) + 1 }
-              : a,
-          ),
+        asides: kept.map((a) =>
+          a.at === action.at
+            ? { ...a, said: action.said, reply: action.reply, kind: action.kind, rev: (a.rev ?? 0) + 1 }
+            : a,
+        ),
       };
     }
     case 'drop-aside':
@@ -296,8 +322,13 @@ export function reduce(s: CreationState, action: Action): CreationState {
       // The step comes with the action: the control is shown for whatever step
       // is open, which is no longer the same thing as one handed over by hand.
       return action.step && action.step !== 'keep' ? { ...s, colour: { step: action.step, hex: action.hex } } : s;
-    case 'aside':
-      return { ...s, asides: [...s.asides, action.aside], text: '' };
+    case 'aside': {
+      // A sentence with no words in it is not a sentence. Nothing in the flow
+      // sends one, but the codec refuses it on the way back in, and a state
+      // that cannot survive its own reload is a state that should not exist.
+      if (!action.aside.said.trim() || !action.aside.reply.trim()) return { ...s, text: '' };
+      return { ...s, asides: [...s.asides, withFreeAt(s.asides, action.aside)], text: '' };
+    }
     case 'unsure':
       return { ...settleUnsure(s), unsure: action.unsure, text: '' };
     case 'settle-unsure':
