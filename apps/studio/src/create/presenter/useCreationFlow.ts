@@ -869,6 +869,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           said: text,
           reply: asideReply(k, phase, before, text, step),
           kind: k,
+          ctx,
         });
         return;
       }

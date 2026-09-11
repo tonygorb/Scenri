@@ -106,7 +106,7 @@ export type Action =
   /** A question reopened from its answer. */
   | { type: 'edit'; id: Qid | 'name' | AsideEdit }
   /** An aside said again, in the same place: new words, and the answer to them. */
-  | { type: 'amend-aside'; at: string; said: string; reply: string; kind: NothingKind }
+  | { type: 'amend-aside'; at: string; said: string; reply: string; kind: NothingKind; ctx: FlowContext }
   /** An aside that turned out to be an answer after all: it goes, the answer stays. */
   | { type: 'drop-aside'; at: string }
   /**
@@ -246,16 +246,32 @@ export function reduce(s: CreationState, action: Action): CreationState {
     // happened. An answer truncates the answers under it; a sentence said in
     // passing truncates the sentences said after it. It never touches an
     // answer, because nothing was ever conditioned on chatter.
-    case 'amend-aside':
+    // One rule for every turn in this conversation: a turn said again is a turn
+    // re-said, and the conversation goes back to where it was said. A sentence
+    // said in passing was said AT a question, so going back to it goes back to
+    // that question: its answer, and everything after it, is from a run that no
+    // longer happened, exactly as if the pencil on that answer had been pressed.
+    // This used to leave the answers alone, on the grounds that nothing is ever
+    // conditioned on chatter. What that produced was a sentence changed at a
+    // question whose answer still stood underneath it, unchanged.
+    case 'amend-aside': {
+      const was = s.asides.find((a) => a.at === action.at);
+      const q = was?.q && isQid(was.q) ? (was.q as Qid) : null;
+      const answers = q && s.answers[q] !== undefined ? commit(s.answers, { [q]: undefined }, action.ctx) : s.answers;
       return {
         ...s,
+        answers,
+        revision: answers === s.answers ? s.revision : s.revision + 1,
         editing: null,
         asides: s.asides
           .filter((a) => a.at <= action.at)
           .map((a) =>
-            a.at === action.at ? { ...a, said: action.said, reply: action.reply, rev: (a.rev ?? 0) + 1 } : a,
+            a.at === action.at
+              ? { ...a, said: action.said, reply: action.reply, kind: action.kind, rev: (a.rev ?? 0) + 1 }
+              : a,
           ),
       };
+    }
     case 'drop-aside':
       return { ...s, editing: null, asides: s.asides.filter((a) => a.at < action.at) };
     case 'cancel-edit':

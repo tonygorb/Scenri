@@ -394,12 +394,23 @@ const TOPICS = new Set([
 ]);
 
 /** What a sentence is, at a step that asks for a short phrase. Null when it answers it. */
+/**
+ * A word with a number stuck on the end: "lol3", "test1", "zzz999".
+ *
+ * Short answers have to be let through at a step, or "pony tail" and "kare" are
+ * refused, and this shape comes through with them. It is what somebody types to
+ * see what happens, and nothing a person calls a hair length or a build looks
+ * like it. A number LEADING is left alone: "90s" and "50s bob" are real.
+ */
+const TRAILING_DIGITS = /^[a-z]{1,10}\d+$/i;
+
+/** What a sentence is, at a step that asks for a short phrase. Null when it answers it. */
 export const notAnAnswerAtAStep = (text: string, describes: (t: string) => boolean): NothingKind | null => {
-  const bare = text
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z ]/g, '');
+  const said = text.trim();
+  const bare = said.toLowerCase().replace(/[^a-z ]/g, '');
   if (TOPICS.has(bare) || TOPICS.has(bare.replace(/^(the|their|its|his|her)\s+/, ''))) return 'nonsense';
+  const words = said.split(/\s+/).filter(Boolean);
+  if (words.length <= 2 && words.some((w) => TRAILING_DIGITS.test(w))) return 'nonsense';
   const kind = answersNothing(text, describes);
   return kind && CONVERSATION.has(kind) ? kind : null;
 };

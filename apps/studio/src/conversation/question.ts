@@ -294,7 +294,7 @@ const HELP =
 const INTENT =
   /\b(presenters?|avatars?|characters?|Scenri|create|creating|generate|generating|images?|pictures?|shoot|campaign|brand|product)\b/i;
 const NONSENSE =
-  /^(test|testing|blah|lorem|ipsum|foo|bar|baz|dummy|sample|placeholder|xxx+|abc|asdf\w*|qwer\w*|zxcv\w*|hjkl|jkl|sdfg?|dfgh?|fghj?|bull\w*|shit\w*|crap|fuck\w*|damn|wtf|stfu|bs|rofl)$/i;
+  /^(test|testing|blah|lorem|ipsum|foo|bar|baz|dummy|sample|placeholder|xxx+|abc|asdf\w*|qwer\w*|zxcv\w*|hjkl|jkl|sdfg?|dfgh?|fghj?|bull\w*|shit\w*|crap|fuck\w*|damn|wtf|stfu|bs|rofl|lol+|lmao+|haha\w*|hehe\w*|meh|idk|nvm)$/i;
 const NO_VOWEL = /^[b-df-hj-np-tv-xz]{3,}$/i;
 const REPEAT = /(.)\1{3,}/;
 const LIKENESS =

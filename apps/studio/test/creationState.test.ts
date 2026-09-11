@@ -101,6 +101,39 @@ describe('the state of a presenter being made', () => {
     expect(s.asides).toEqual([]);
   });
 
+  it('saying something again at a question takes that question back, answer and all', () => {
+    // Tony's sequence: two strays at the length, then a real answer, then the
+    // skin. Changing the first stray goes back to the length, so the answer
+    // given after it and the skin that followed are both taken back.
+    let s = reduce(EMPTY_STATE, { type: 'answer', patch: { ...scratch }, ctx: NO_DRAFT });
+    for (const [id, v] of [
+      ['look-who', 'woman'],
+      ['look-age', '30s'],
+      ['look-hair', 'blonde'],
+    ] as const) {
+      s = reduce(s, { type: 'answer', patch: { [id]: v }, ctx: NO_DRAFT });
+    }
+    s = reduce(s, { type: 'aside', aside: { said: 'lol3', reply: 'Not a length.', q: 'look-length', at: '1' } });
+    s = reduce(s, { type: 'answer', patch: { 'look-length': 'Lungo' }, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'answer', patch: { 'look-skin': 'olive' }, ctx: NO_DRAFT });
+    expect(s.answers['look-length']).toBe('Lungo');
+
+    const back = reduce(s, {
+      type: 'amend-aside',
+      at: '1',
+      said: 'lol34',
+      reply: 'Still not a length.',
+      kind: 'vague',
+      ctx: NO_DRAFT,
+    });
+    expect(back.answers['look-length']).toBeUndefined();
+    expect(back.answers['look-skin']).toBeUndefined();
+    // and everything asked before it is exactly as it was
+    expect(back.answers['look-hair']).toBe('blonde');
+    expect(back.asides.map((a) => a.said)).toEqual(['lol34']);
+    expect(back.revision).toBe(s.revision + 1);
+  });
+
   it('a rewind takes back the sentences said after the point it reaches to', () => {
     const at = (n: string, q: string) => ({ said: n, reply: 'Say more.', q, at: n });
     let s = reduce(EMPTY_STATE, { type: 'answer', patch: { ...scratch }, ctx: NO_DRAFT });
@@ -126,7 +159,14 @@ describe('the state of a presenter being made', () => {
     for (const a of [said('1', 'one'), said('2', 'two'), said('3', 'three')]) {
       s = reduce(s, { type: 'aside', aside: a });
     }
-    const amended = reduce(s, { type: 'amend-aside', at: '2', said: 'two, again', reply: 'Still not it.' });
+    const amended = reduce(s, {
+      type: 'amend-aside',
+      at: '2',
+      said: 'two, again',
+      reply: 'Still not it.',
+      kind: 'vague',
+      ctx: NO_DRAFT,
+    });
     expect(amended.asides.map((a) => [a.at, a.said])).toEqual([
       ['1', 'one'],
       ['2', 'two, again'],
@@ -134,9 +174,16 @@ describe('the state of a presenter being made', () => {
     // the reply to new words is a new line, so it is written out again rather
     // than changing under the reader; the words keep their own id
     expect(amended.asides.at(-1)?.rev).toBe(1);
-    const twice = reduce(amended, { type: 'amend-aside', at: '2', said: 'and again', reply: 'Nor that.' });
+    const twice = reduce(amended, {
+      type: 'amend-aside',
+      at: '2',
+      said: 'and again',
+      reply: 'Nor that.',
+      kind: 'vague',
+      ctx: NO_DRAFT,
+    });
     expect(twice.asides.at(-1)?.rev).toBe(2);
-    // the answer given before any of it is untouched: nothing was conditioned on chatter
+    // the answers before it stand: what was said at look-age is not about them
     expect(amended.answers['look-who']).toBe('woman');
     expect(amended.editing).toBeNull();
     // and one that turned out to be an answer takes the later ones with it too

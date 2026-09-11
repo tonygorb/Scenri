@@ -371,6 +371,19 @@ describe('a question with chips still takes words', () => {
     for (const said of ['dark hair', 'hair to the shoulder', 'olive skin']) {
       expect(notAnAnswerAtAStep(said, readsAsPerson), said).toBeNull();
     }
+    // a word with a number stuck on it is somebody seeing what happens
+    for (const said of ['lol3', 'lol34', 'test1', 'zzz999']) {
+      expect(notAnAnswerAtAStep(said, readsAsPerson), said).toBe('nonsense');
+    }
+    // and the words people type when they are not answering are not answers,
+    // whichever kind they land under
+    for (const said of ['lol', 'haha', 'idk', 'meh', 'nvm']) {
+      expect(notAnAnswerAtAStep(said, readsAsPerson), said).not.toBeNull();
+    }
+    // a number in front is a real answer, and is left alone
+    for (const said of ['90s', '50s bob', 'a 40s wave']) {
+      expect(notAnAnswerAtAStep(said, readsAsPerson), said).toBeNull();
+    }
   });
 
   it('the same reply is not sent a third time; the way out is named instead', () => {
