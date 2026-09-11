@@ -275,27 +275,16 @@ test.describe('a person from scratch', () => {
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
     await expect(log(page)).toContainText('What colour is their hair?');
 
-    // the escape hatch hands the step to the composer, with the chip in the
-    // writing area rather than a colour control of its own, and says so
-    const hatch = log(page).getByRole('button', { name: 'Describe the colour' });
-    await hatch.click();
-    await expect(hatch).toHaveAttribute('data-on', 'true');
-    await expect(hatch).toHaveAttribute('aria-pressed', 'true');
+    // A colour step carries its colour control in the writing area, with no
+    // chip to press first: the field is live in front of the swatches, so a
+    // second way in would be a second door to the same room.
     const chip = page.locator('.sc-convo-field .sc-token');
     await expect(chip).toHaveText('Pick a colour');
     await expect(page.getByRole('button', { name: 'Send' })).toHaveAttribute('aria-disabled', 'true');
-
-    // a way in that reads as pressed can be pressed again: the step goes back
-    // to its swatches and takes the open attempt with it
-    await hatch.click();
-    await expect(hatch).toHaveAttribute('aria-pressed', 'false');
-    await expect(page.locator('.sc-convo-field .sc-token')).toHaveCount(0);
-    // the step is still open, so the field is still a way to answer it in words
     await expect(page.locator('.sc-convo-field textarea')).toBeEnabled();
-    await hatch.click();
-    await expect(chip).toHaveText('Pick a colour');
+    await expect(log(page).getByRole('button', { name: 'Describe the colour' })).toHaveCount(0);
 
-    // pressed, it opens the app's own picker: a colour of your own, since the
+    // it opens the app's own picker: a colour of your own, since the
     // colours this step has names for are the row above
     await chip.getByRole('button', { name: 'Pick a colour' }).click();
     await expect(page.locator('.sc-cp')).toBeVisible();
@@ -324,7 +313,6 @@ test.describe('a person from scratch', () => {
     await answer(page, 'Describe someone').click();
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
-    await log(page).getByRole('button', { name: 'Describe the colour' }).click();
     const chip = page.locator('.sc-convo-field .sc-token');
     await chip.getByRole('button', { name: 'Pick a colour' }).click();
     // not the colour the wheel opens on, which would be no change at all
@@ -361,8 +349,6 @@ test.describe('a person from scratch', () => {
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
 
     // a colour held in the composer, not yet sent
-    const hatch = () => log(page).getByRole('button', { name: 'Describe the colour' });
-    await hatch().click();
     const chip = page.locator('.sc-convo-field .sc-token');
     await chip.getByRole('button', { name: 'Pick a colour' }).click();
     await page.locator('.sc-cp-hex').fill('#7F3FBF');
@@ -375,6 +361,7 @@ test.describe('a person from scratch', () => {
       .getByRole('button', { name: 'Change this answer' })
       .click();
     await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-age"][data-reopened]')).toHaveCount(1);
+    // an answer is being changed, so the composer waits and carries nothing
     await expect(page.locator('.sc-convo-field .sc-token')).toHaveCount(0);
     // the question the conversation is on stands where it is, and takes no answer
     await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-hair"]')).toHaveAttribute('data-dim', 'true');
@@ -382,9 +369,8 @@ test.describe('a person from scratch', () => {
     // and the step, when it comes round again, asks from nothing
     await log(page).locator('.sc-convo-turn[data-turn="q:look-age"]').getByRole('button', { name: '40s' }).click();
     await expect(log(page)).toContainText('What colour is their hair?');
-    await expect(hatch()).not.toHaveAttribute('data-on', /.*/);
-    await expect(page.locator('.sc-convo-field .sc-token')).toHaveCount(0);
-    await hatch().click();
+    // the control is there because the step is, and it holds no colour: what
+    // was picked for the run that was taken back did not come with it
     await expect(page.locator('.sc-convo-field .sc-token')).toHaveText('Pick a colour');
     await expect(page.getByRole('button', { name: 'Send' })).toHaveAttribute('aria-disabled', 'true');
   });
@@ -442,7 +428,7 @@ test.describe('a person from scratch', () => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
-    await log(page).getByRole('button', { name: 'Describe instead' }).click();
+    await log(page).getByRole('button', { name: 'Describe them instead' }).click();
     await expect(log(page)).toContainText('Describe them.');
     await send(page, 'a woman in her 30s with dark curls');
     await answer(page, 'Nothing else').click();
@@ -486,7 +472,7 @@ test.describe('a person from scratch', () => {
     await answer(page, 'Describe someone').click();
     await expect(log(page)).toContainText('Who are they?');
     // the steps own the answer; saying it in words is asked for
-    await log(page).getByRole('button', { name: 'Describe instead' }).click();
+    await log(page).getByRole('button', { name: 'Describe them instead' }).click();
     await expect(log(page)).toContainText('Describe them.');
     await send(page, 'black curly hair');
     await expect(log(page)).toContainText('cannot tell yet');
@@ -982,7 +968,7 @@ test.describe('what answers nothing', () => {
     );
     await expect(log(page)).toContainText('Who are they?');
     await expect(log(page).locator('.sc-convo-q[data-picked]')).toHaveCount(0);
-    await log(page).getByRole('button', { name: 'Describe instead' }).click();
+    await log(page).getByRole('button', { name: 'Describe them instead' }).click();
     await send(page, 'hey');
     // the reply arrives with its words: nothing pretends to think about a line
     // it already had

@@ -120,7 +120,8 @@ export type Action =
   /** A tap question handed to the composer, or taken back from it. */
   | { type: 'say'; id: Qid | 'keep' | null }
   | { type: 'text'; text: string }
-  | { type: 'colour'; hex: string | null }
+  /** A colour picked for a step. `step` is the step the control was shown for. */
+  | { type: 'colour'; hex: string | null; step: Qid | 'keep' | null }
   | { type: 'aside'; aside: Aside }
   | { type: 'unsure'; unsure: Unsure }
   /** The waiting sentence is settled: kept in the record, with nothing drawn from it. */
@@ -275,8 +276,10 @@ export function reduce(s: CreationState, action: Action): CreationState {
       return s.text === action.text ? s : { ...s, text: action.text };
     case 'colour':
       if (!action.hex) return { ...s, colour: null };
-      // a colour belongs to the step it was picked on, and to this visit to it
-      return s.saying && s.saying !== 'keep' ? { ...s, colour: { step: s.saying, hex: action.hex } } : s;
+      // A colour belongs to the step it was picked on, and to this visit to it.
+      // The step comes with the action: the control is shown for whatever step
+      // is open, which is no longer the same thing as one handed over by hand.
+      return action.step && action.step !== 'keep' ? { ...s, colour: { step: action.step, hex: action.hex } } : s;
     case 'aside':
       return { ...s, asides: [...s.asides, action.aside], text: '' };
     case 'unsure':

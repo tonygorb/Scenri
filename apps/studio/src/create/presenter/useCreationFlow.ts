@@ -637,7 +637,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       // One place decides which voice an aside is answered in, so no branch can
       // reach for a different one. Nothing is refined before a picture exists.
       const voice = (t: Qid | 'keep' | null, openId: string | null = null) =>
-        asidePhaseFor(t, openId, !!d && identityLocked(d));
+        asidePhaseFor(t, openId, !!d?.views.portrait.hash);
 
       // A detail in their own words: it answers the open half of that trait,
       // and the placement question follows only if the words did not say it.
@@ -859,7 +859,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           return;
         }
         const asQid = was.q && isQid(was.q) ? (was.q as Qid) : null;
-        const phase = asidePhaseFor(asQid, was.q, !!d && identityLocked(d));
+        const phase = asidePhaseFor(asQid, was.q, !!d?.views.portrait.hash);
         const step = asQid && isLookQid(asQid) ? (asQid.slice('look-'.length) as LookStep) : undefined;
         const k = kind ?? 'vague';
         const before = st.asides.filter((a) => a.q === was.q && a.at < was.at && a.kind === k).length;
@@ -874,9 +874,11 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       }
       if (!isQid(turnId) || !answeredInWords(turnId, stateRef.current.answers)) return;
       // A detail keeps whatever pictures were attached to it: the words are
-      // being changed, not what they were said about.
-      if (turnId.startsWith('trait-') && !turnId.endsWith('-where')) {
-        const had = stateRef.current.answers[turnId as TraitQid];
+      // being changed, not what they were said about. `keep` is shaped like a
+      // detail and has to be written like one, or everything that reads its
+      // pictures gets a bare string where an answer should be.
+      if (turnId === 'keep' || (turnId.startsWith('trait-') && !turnId.endsWith('-where'))) {
+        const had = stateRef.current.answers[turnId as TraitQid | 'keep'];
         commitAnswer({ [turnId]: { words: text, refs: had?.refs ?? [] } });
         return;
       }
@@ -1014,11 +1016,18 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   // The detail a picture belongs to, whether or not the card can take one yet:
   // the way in stays on screen and says why, rather than coming and going.
   const attachTarget = refTarget;
-  const sayingStep = state.saying && isLookQid(state.saying) ? (state.saying.slice('look-'.length) as LookStep) : null;
+  // The colour control belongs to the step the composer is aimed at, not to the
+  // one that was handed over: with the field always live, a colour step open on
+  // its own is a colour step, and reading `saying` here left the picker
+  // reachable only through a chip that says what the field already says.
+  const colourTarget = sentenceTarget(state, question);
+  const sayingStep = colourTarget && isLookQid(colourTarget) ? (colourTarget.slice('look-'.length) as LookStep) : null;
   /** The colours this step is answered with, when it is answered with one. */
   const colours = composerBase.color && sayingStep ? colourPalette(sayingStep) : null;
   /** The colour in the composer, only while the step it was picked on is open. */
-  const held = state.saying && state.colour?.step === state.saying ? state.colour.hex : null;
+  // the colour that stands for the step the control is showing for, which is
+  // the step the composer is aimed at rather than one handed over by hand
+  const held = colourTarget && state.colour?.step === colourTarget ? state.colour.hex : null;
   const scope =
     d && identityLocked(d) && !composerBase.off && !question?.id.match(/^(name|describe)$/)
       ? (() => {
@@ -1144,8 +1153,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
                 // a colour of one's own starts from the middle of this step's own
                 // row: a green is no way to begin picking skin
                 seed: colours[Math.floor(colours.length / 2)]?.hex,
-                onPick: (hex: string) => dispatch({ type: 'colour', hex }),
-                onClear: () => dispatch({ type: 'colour', hex: null }),
+                onPick: (hex: string) => dispatch({ type: 'colour', hex, step: colourTarget }),
+                onClear: () => dispatch({ type: 'colour', hex: null, step: colourTarget }),
               }
             : null,
       },

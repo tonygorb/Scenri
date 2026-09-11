@@ -276,7 +276,6 @@ test.describe('a picture of the thing itself', () => {
 
     // the way in is where it is everywhere: beside the pill, once the line has
     // the answer
-    await answer(page, 'Describe the glasses').click();
     const plus = page.getByRole('button', { name: 'Add the picture of the glasses' });
     await expect(plus).toBeVisible();
     await plus.click();
@@ -300,7 +299,6 @@ test.describe('a picture of the thing itself', () => {
     await tapThrough(page);
     await answer(page, 'Glasses').click();
     await answer(page, 'Continue').click();
-    await answer(page, 'Describe the glasses').click();
     const plus = page.getByRole('button', { name: 'Add the picture of the glasses' });
     await expect(plus).toBeVisible();
 
@@ -322,7 +320,6 @@ test.describe('a picture of the thing itself', () => {
     await tapThrough(page);
     await answer(page, 'Glasses').click();
     await answer(page, 'Continue').click();
-    await answer(page, 'Describe the glasses').click();
     await page.getByRole('button', { name: 'Add the picture of the glasses' }).click();
     await page
       .locator('.sc-convo-card input[type="file"]')
@@ -357,7 +354,6 @@ test.describe('on a phone', () => {
     await expect(log(page)).toContainText('What colour is their hair?');
     await answer(page, 'Black').click();
     await expect(log(page)).toContainText('And the length?');
-    await log(page).getByRole('button', { name: 'Describe the cut' }).click();
     await send(page, 'a messy bob');
     await expect(turn(page, 'you:look-length')).toContainText('A messy bob');
     await expect(log(page)).toContainText('And their skin?');

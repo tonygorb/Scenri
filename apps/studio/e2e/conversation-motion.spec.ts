@@ -360,7 +360,6 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('What colour is their hair?');
     await settle(page, 600);
     // the step owns the answer; saying it in words is asked for first
-    await log(page).getByRole('button', { name: 'Describe the colour' }).click();
     await settle(page);
     await send(page, 'bullshit');
     // a step answers about itself, not about the whole person
@@ -396,6 +395,8 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('what should we call them?', { timeout: 20_000 });
     await settle(page);
     await send(page, 'Noor');
+    // the full body is decided by hand before the rest of the set follows
+    await answer(page, 'Use it').click();
     await expect(log(page)).toContainText('The set is ready', { timeout: 30_000 });
     await settle(page);
     await send(page, '?');
@@ -438,6 +439,8 @@ test.describe('the conversation in motion', () => {
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
     await settle(page);
     await answer(page, 'Use this person').click();
+    // the full body is decided by hand before the rest of the set follows
+    await answer(page, 'Use it').click();
     await expect(log(page)).toContainText('The set is ready', { timeout: 30_000 });
     await settle(page);
     await answer(page, 'Add them').click();
@@ -452,9 +455,11 @@ test.describe('the conversation in motion', () => {
     await settle(page);
     await page.locator('.sc-pstudio-slot[data-view="front"]').click();
     await send(page, 'arms relaxed');
-    await expect(page.locator('.sc-pstudio-offer')).toContainText('Redrew the full body.', { timeout: 20_000 });
+    // the full body is decided by hand, so a redraw of it asks in the
+    // conversation rather than offering itself from the dock
+    await expect(log(page)).toContainText('Redrew the full body.', { timeout: 20_000 });
     await settle(page);
-    await page.locator('.sc-pstudio-offer').getByRole('button', { name: 'Keep previous' }).click();
+    await answer(page, 'Keep previous').click();
     await settle(page);
     await pencil(page, 'Maren').click();
     // a text answer is rewritten where it stands
@@ -484,6 +489,8 @@ test.describe('the conversation in motion', () => {
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
     await send(page, 'Idan');
     await answer(page, 'Use this person').click();
+    // the full body is decided by hand before the rest of the set follows
+    await answer(page, 'Use it').click();
     await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 30_000 });
     await answer(page, 'Save as is').click();
     await answer(page, 'Save presenter').click();
@@ -507,6 +514,9 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('Here is Idan with the change', { timeout: 20_000 });
     await settle(page);
     await answer(page, 'Use this').click();
+    // the full body is decided by hand before the rest of the set follows
+    await expect(log(page)).toContainText('Redrew the full body.', { timeout: 30_000 });
+    await answer(page, 'Use it').click();
     await expect(log(page)).toContainText('Save changes when you are done.', { timeout: 30_000 });
     await settle(page);
 
@@ -529,7 +539,7 @@ test.describe('the conversation in motion', () => {
     // the door is open again: it takes the answer, and the composer stands down
     await answer(page, 'Describe someone').click();
     await expect(log(page)).toContainText('Who are they?');
-    await log(page).getByRole('button', { name: 'Describe instead' }).click();
+    await log(page).getByRole('button', { name: 'Describe them instead' }).click();
     await send(page, 'hey');
     await expect(log(page)).toContainText('Hi. A few words about them is enough');
     await settle(page, 800);

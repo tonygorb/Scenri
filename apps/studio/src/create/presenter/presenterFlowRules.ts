@@ -194,7 +194,7 @@ export function keepLine(a: Answers): string {
 export function compileRefs(a: Answers): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   for (const [id, detail] of Object.entries(traitDetails(a))) if (detail?.refs?.length) out[id] = detail.refs;
-  if (a.keep?.refs.length) out.keep = a.keep.refs;
+  if (a.keep?.refs?.length) out.keep = a.keep.refs;
   return out;
 }
 
@@ -331,8 +331,10 @@ export function answeredInWords(id: Qid | null, a: Answers): boolean {
  * somebody four questions away from a picture: the step fell through to the
  * last case, and the last case was the one for a presenter already drawn.
  *
- * `drawn` is the floor under that: there is nothing to refine before there is a
- * picture, so setup cannot speak in the refine voice whatever else is wrong.
+ * `drawn` is the floor under that: there is nothing to refine before a picture
+ * exists, so setup cannot speak in the refine voice whatever else is wrong. It
+ * means a face has been drawn, not approved: a candidate on the stage is very
+ * much something to say "what should change" about.
  */
 export function asidePhaseFor(target: Qid | 'keep' | null, open: string | null, drawn: boolean): Phase {
   if (target && isLookQid(target)) return 'look';
@@ -355,8 +357,49 @@ export function asidePhaseFor(target: Qid | 'keep' | null, open: string | null, 
   }
 }
 
+/**
+ * The words this flow uses for its own topics.
+ *
+ * Naming the subject is not answering the question: "Hair" at "And the length?"
+ * is somebody saying what they are looking at, and it was being taken as the
+ * cut, because a bare capitalised word is allowed to be a name and a short
+ * phrase is allowed to be an answer. Both of those are right in general and
+ * wrong for exactly this list, which is small, closed and the app's own.
+ */
+const TOPICS = new Set([
+  'who',
+  'age',
+  'hair',
+  'colour',
+  'color',
+  'length',
+  'cut',
+  'skin',
+  'build',
+  'body',
+  'name',
+  'look',
+  'style',
+  'face',
+  'person',
+  'presenter',
+  'glasses',
+  'scar',
+  'scars',
+  'tattoo',
+  'piercing',
+  'makeup',
+  'freckles',
+  'prosthetic',
+]);
+
 /** What a sentence is, at a step that asks for a short phrase. Null when it answers it. */
 export const notAnAnswerAtAStep = (text: string, describes: (t: string) => boolean): NothingKind | null => {
+  const bare = text
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z ]/g, '');
+  if (TOPICS.has(bare) || TOPICS.has(bare.replace(/^(the|their|its|his|her)\s+/, ''))) return 'nonsense';
   const kind = answersNothing(text, describes);
   return kind && CONVERSATION.has(kind) ? kind : null;
 };
@@ -437,7 +480,12 @@ function questionFor(id: Qid, state: CreationState, _ctx: FlowContext, reopened:
       row,
       cast: castFor(a['look-who']),
       skip: 'Skip',
-      describe: step === 'who' ? 'Describe instead' : LOOK_SAYS[step],
+      // Only the first row keeps a way in of its own, and it is not a way to
+      // type: it leaves the rows behind and takes the whole person in one
+      // sentence. Every other row's "describe it" chip opened a field that is
+      // already open and already says it takes words, which is one room with
+      // two doors and a person wondering what the difference is.
+      describe: step === 'who' ? 'Describe them instead' : undefined,
       saying: state.saying === id,
       given: a[id],
       ...base,
@@ -451,7 +499,6 @@ function questionFor(id: Qid, state: CreationState, _ctx: FlowContext, reopened:
       kind: 'choice',
       prompt: t.where.ask,
       options: t.where.options.map((o) => ({ id: o.id, label: o.label })),
-      describe: 'Say where',
       saying: state.saying === id,
       given: a[id as `trait-${TraitId}-where`],
       ...base,
@@ -465,7 +512,6 @@ function questionFor(id: Qid, state: CreationState, _ctx: FlowContext, reopened:
       prompt: t.ask,
       hint: t.hint,
       options: t.options.map((o) => ({ id: o.id, label: o.label, card: o.card })),
-      describe: t.saying,
       // the same way in as the plus beside the pill, where the question is
       attach: what?.refs.length ? 'Replace the reference' : 'Add a reference',
       saying: state.saying === id,

@@ -53,7 +53,7 @@ describe('the state of a presenter being made', () => {
     s = reduce(s, { type: 'edit', id: 'look-who' });
     s = reduce(s, { type: 'say', id: 'look-who' });
     s = reduce(s, { type: 'text', text: 'someone' });
-    s = reduce(s, { type: 'colour', hex: '#123456' });
+    s = reduce(s, { type: 'colour', hex: '#123456', step: 'look-who' });
     expect(s.editing).toBe('look-who');
     expect(s.colour).toEqual({ step: 'look-who', hex: '#123456' });
     s = reduce(s, { type: 'answer', patch: { 'look-who': 'man' }, ctx: NO_DRAFT });

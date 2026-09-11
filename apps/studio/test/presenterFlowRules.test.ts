@@ -361,6 +361,16 @@ describe('a question with chips still takes words', () => {
     for (const said of ['bob', 'a bob', 'kare', 'pony tail']) {
       expect(notAnAnswerAtAStep(said, readsAsPerson), said).toBeNull();
     }
+    // naming the subject is not answering the question. "Hair" at "And the
+    // length?" was taken as the cut, because a bare capitalised word is
+    // allowed to be a name and a short phrase is allowed to be an answer.
+    for (const said of ['Hair', 'hair', 'the hair', 'Length', 'skin', 'Build', 'colour', 'tattoo']) {
+      expect(notAnAnswerAtAStep(said, readsAsPerson), said).toBe('nonsense');
+    }
+    // a real answer that merely contains one of those words is untouched
+    for (const said of ['dark hair', 'hair to the shoulder', 'olive skin']) {
+      expect(notAnAnswerAtAStep(said, readsAsPerson), said).toBeNull();
+    }
   });
 
   it('the same reply is not sent a third time; the way out is named instead', () => {
@@ -446,6 +456,18 @@ describe('changing an answer that was typed', () => {
     // the free-text questions are always rewritten, whatever they hold
     expect(answeredInWords('describe', { describe: 'a tall woman' })).toBe(true);
     expect(answeredInWords('keep', { keep: { words: 'a scar', refs: [] } })).toBe(true);
+  });
+
+  it('the last word is written back in its own shape, pictures and all', () => {
+    // It is shaped like a detail, so rewriting it as a bare string handed
+    // everything that reads its pictures an answer with no pictures on it,
+    // and compiling them threw on the spot.
+    const a: Answers = { ...TAPPED, keep: { words: 'a chipped tooth', refs: ['h1'] } };
+    expect(answeredInWords('keep', a)).toBe(true);
+    expect(compileRefs(a)).toEqual({ keep: ['h1'] });
+    // and an answer with no pictures compiles to nothing rather than throwing
+    expect(compileRefs({ ...TAPPED, keep: { words: 'a chipped tooth', refs: [] } })).toEqual({});
+    expect(compileRefs({ ...TAPPED })).toEqual({});
   });
 
   it('holds for a detail too, and a detail said in words keeps its pictures', () => {
