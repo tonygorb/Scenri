@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PresenterDraftSlot } from '../src/api.js';
 import {
+  builtOn,
   drawingSince,
   doingLine,
   takesOf,
@@ -472,5 +473,63 @@ describe('the clock a person watches', () => {
     const old = draft();
     (old as unknown as { views: Record<string, { startedAt?: string }> }).views.front.startedAt = undefined;
     expect(drawingSince(old)).toBe('2026-09-11 12:00:30.000');
+  });
+});
+
+describe('which picture a view wears', () => {
+  const slot = (over: Record<string, unknown> = {}) => ({ status: 'empty', attempts: 0, rejected: [], ...over });
+  const draft = (views: Record<string, unknown>) =>
+    ({
+      source: 'synthetic',
+      stage: 'idle',
+      activeView: null,
+      extras: true,
+      views: {
+        portrait: slot(),
+        front: slot(),
+        'three-quarter': slot(),
+        back: slot(),
+        left: slot(),
+        right: slot(),
+        ...views,
+      },
+    }) as never;
+
+  it('can be swapped while nothing rests on it', () => {
+    // three faces drawn, none used for anything yet: choosing between them
+    // costs nothing and throws nothing away
+    const deciding = draft({ portrait: slot({ status: 'candidate', hash: 'p3' }) });
+    expect(builtOn(deciding, 'portrait')).toBe(false);
+    // and still after it is approved, right up until the first view is drawn
+    const approved = draft({ portrait: slot({ status: 'approved', hash: 'p3' }) });
+    expect(builtOn(approved, 'portrait')).toBe(false);
+  });
+
+  it('cannot, once something was drawn from it', () => {
+    // one tap of an arrow here used to stale the full body and everything
+    // after it: a demolition offered as an undo
+    const built = draft({
+      portrait: slot({ status: 'approved', hash: 'p3' }),
+      front: slot({ status: 'candidate', hash: 'f1' }),
+    });
+    expect(builtOn(built, 'portrait')).toBe(true);
+    // the front itself is still free while nothing stands on it
+    expect(builtOn(built, 'front')).toBe(false);
+  });
+
+  it('counts what stands on it through the whole chain, not only its own children', () => {
+    // the right view is drawn from the left one, which is drawn from the front,
+    // which is drawn from the face
+    const whole = draft({
+      portrait: slot({ status: 'approved', hash: 'p' }),
+      front: slot({ status: 'approved', hash: 'f' }),
+      left: slot({ status: 'approved', hash: 'l' }),
+      right: slot({ status: 'candidate', hash: 'r' }),
+    });
+    expect(builtOn(whole, 'portrait')).toBe(true);
+    expect(builtOn(whole, 'front')).toBe(true);
+    expect(builtOn(whole, 'left')).toBe(true);
+    // nothing is ever drawn from the right view, so it is never locked
+    expect(builtOn(whole, 'right')).toBe(false);
   });
 });

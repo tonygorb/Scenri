@@ -1,6 +1,7 @@
 import { type Aside, type Question, type Turn, asideTurns } from '../../conversation/question.js';
 import { PROMPT, readingWhat } from './presenterCopy.js';
 import {
+  builtOn,
   EXTRA_VIEWS,
   HAND_APPROVED,
   type DraftDecision,
@@ -173,7 +174,11 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
       thumb: r.hash,
       label: `${VIEW_LABEL[r.view]} ${n}`,
       current: several && onView && latest.get(`${r.view}:${r.hash}`) === r,
-      restore: idle && !onView ? { view: r.view, hash: r.hash } : undefined,
+      // The log keeps every picture that was drawn, which is where a chat
+      // remembers things. Putting one back is a different matter: once
+      // something was drawn from this view, doing so stales it, so the offer
+      // is withdrawn here for the same reason the stage withdraws its arrows.
+      restore: idle && !onView && !builtOn(d, r.view) ? { view: r.view, hash: r.hash } : undefined,
     };
   };
   // a drawn picture answers the ask before it on its view, once

@@ -530,6 +530,38 @@ export interface Take {
 }
 
 /**
+ * Whether anything has been drawn from this view yet.
+ *
+ * Swapping which picture a view wears is honest while that view is the only
+ * thing standing on it, and destructive the moment something else was drawn
+ * from it: the server stales every dependent, so one tap of an arrow on a face
+ * that a full body and four more views were built from throws all five away.
+ * That is not an undo, it is a demolition, and it was one tap with nothing
+ * said.
+ *
+ * So the swap is offered while nothing rests on the picture and withdrawn
+ * after. Going back to an earlier face once a body exists is a decision to
+ * rebuild, and the flow already has the words for it: Try again, or change
+ * something. The pictures themselves are not lost either way, because the
+ * conversation keeps them: every one that was drawn is still a turn in the
+ * log, which is where a chat remembers things.
+ */
+export function builtOn(d: DraftLike, view: StudioView): boolean {
+  const after = new Set<StudioView>();
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const v of VIEWS) {
+      if (v === view || after.has(v)) continue;
+      if (DEPENDS[v].some((dep) => dep === view || after.has(dep))) {
+        after.add(v);
+        grew = true;
+      }
+    }
+  }
+  return [...after].some((v) => !!d.views[v].hash);
+}
+
+/**
  * Every picture drawn for a view, oldest first. The strip under the stage says
  * which view you are looking at; this says which of its pictures, so a person
  * who has gone back and forth can see them side by side at a glance instead of

@@ -51,6 +51,7 @@ import {
 import {
   autoFor,
   composerState,
+  builtOn,
   doingLine,
   drawingSince,
   drawing as isDrawing,
@@ -1116,7 +1117,8 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
             drawing: drawingNow,
             since: drawingSince(d),
             doing: doingLine(d),
-            takes: takesOf(d, view),
+            // withdrawn once something was drawn from this view: see builtOn
+            takes: builtOn(d, view) ? [] : takesOf(d, view),
             onTake: idleNow ? (hash: string) => void s.restore(view, hash) : undefined,
             items,
             onPick: (v: StudioView) => {
