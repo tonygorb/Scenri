@@ -14,14 +14,7 @@ import {
 } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
-import {
-  type CreationState,
-  EMPTY_STATE,
-  deserialize,
-  isAsideEdit,
-  reduce,
-  serialize,
-} from './creationState.js';
+import { type CreationState, EMPTY_STATE, deserialize, isAsideEdit, reduce, serialize } from './creationState.js';
 import { asideReply, readingWhat } from './presenterCopy.js';
 import {
   answeredInWords,
