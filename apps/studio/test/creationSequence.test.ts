@@ -30,6 +30,7 @@ import {
   nextQuestion,
   unsound,
 } from '../src/create/presenter/presenterQuestions.ts';
+import { type StepDraft, nextStep } from '../src/create/presenter/presenterSteps.ts';
 import { type DraftLike, emptySlot, readsAsPerson } from '../src/create/presenter/presenterStudioRules.ts';
 import { TRAITS } from '../src/create/presenter/presenterTraits.ts';
 
@@ -285,6 +286,40 @@ function check(s: CreationState, step: number, seed: number, action: Action) {
           `${where}: draft ${i}`,
         ).not.toBe('refine');
       }
+    }
+  }
+  // 9. The flow is never silently stuck. A draft that stands idle with a view
+  //    still to draw, answers whole, nothing in flight, must produce a step:
+  //    a seed, a sync or a draw, never nothing. The one state this rules out
+  //    is the one a person sat in this morning: draft made, direction on it,
+  //    nothing drawing, nothing said.
+  for (const [i, d] of step % 7 === 0 ? DRAFTS.entries() : [].entries()) {
+    if (!d || d.stage !== 'idle' || d.activeView) continue;
+    const sd: StepDraft = { ...d, id: `pd-${i}`, generations: 0, detailRefs: {} };
+    for (const seeded of [null, sd.id]) {
+      const stepOut = nextStep({
+        state: s,
+        draft: sd,
+        ctx,
+        canDraw: true,
+        busy: false,
+        err: false,
+        booting: false,
+        draftId: sd.id,
+        seededFor: seeded,
+      });
+      const ready = nextQuestion(s.answers, ctx) === null && !s.editing && !s.saying;
+      const toDraw = Object.values(sd.views).some((v) => v.status === 'empty' || v.status === 'stale');
+      const candidate = Object.values(sd.views).some((v) => v.status === 'candidate');
+      if (ready && toDraw && !candidate) {
+        expect(
+          stepOut,
+          `${where}: draft ${i} seeded=${!!seeded}: idle draft with a view to draw yielded nothing`,
+        ).not.toBeNull();
+      }
+      // and it never draws over a question, an edit, or a view waiting on a person
+      if (!ready || candidate) expect(stepOut?.kind, `${where}: draft ${i}`).not.toBe('draw');
+      if (s.editing || s.saying) expect(stepOut?.kind, `${where}: draft ${i}`).not.toBe('start');
     }
   }
   const turns = turnsFor({ state: s, draft: null, canGenerate: true });

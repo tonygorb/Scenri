@@ -17,20 +17,16 @@ import type { FlowProps } from '../flow.js';
 import {
   type CreationState,
   EMPTY_STATE,
-  asideEditAt,
   deserialize,
   isAsideEdit,
-  readyToDraw,
   reduce,
   serialize,
 } from './creationState.js';
-import { type AsidePhase, asideReply, readingWhat } from './presenterCopy.js';
+import { asideReply, readingWhat } from './presenterCopy.js';
 import {
-  TEXT_QIDS,
   answeredInWords,
   asidePhaseFor,
   judgeAnswer,
-  notAnAnswerAtAStep,
   activeQuestion,
   answerPatch,
   attachedWords,
@@ -40,13 +36,12 @@ import {
   composerFor,
   editCost,
   flowContext,
-  seedFromDraft,
   sentenceTarget,
   sourceFromText,
   turnsFor,
 } from './presenterFlowRules.js';
 import { colourName, colourRow } from './presenterLook.js';
-import { type TraitId, traitOf } from './presenterTraits.js';
+import { traitOf } from './presenterTraits.js';
 import {
   type Answers,
   type FlowContext,
@@ -66,7 +61,6 @@ import {
   drawing as isDrawing,
   identityLocked,
   MAX_PHOTOS,
-  nextToDraw,
   readsAsPerson,
   refineTarget,
   saveBlocker,
@@ -77,6 +71,7 @@ import {
   type StudioView,
   VIEW_LABEL,
 } from './presenterStudioRules.js';
+import { type StepInputs, nextStep, stepKey } from './presenterSteps.js';
 import { usePresenterDraft } from './usePresenterDraft.js';
 
 /**
@@ -123,9 +118,6 @@ export interface CreationFlowArgs extends Pick<FlowProps, 'onStarted' | 'caps' |
   onOpenDraft: (id: string, replace?: boolean) => void;
   onLeaveDraft: () => void;
 }
-
-const sameRefs = (x: Record<string, string[]> | undefined, y: Record<string, string[]>) =>
-  JSON.stringify(x ?? {}) === JSON.stringify(y);
 
 /**
  * The detail a picture belongs to right now, or none.
@@ -202,11 +194,11 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     [],
   );
   const catsSeeded = useRef(false);
-  const started = useRef('');
-  const syncing = useRef(false);
-  // the revision a draft was started from without a click, so one person is
-  // one draft however many renders the start takes
-  const autoStarted = useRef(-1);
+  // What the flow last did on its own, by what it was for: the one latch, in
+  // place of one per kind of step. See presenterSteps.
+  const fired = useRef('');
+  // a step that is two calls long is in flight between them
+  const inflight = useRef(false);
   // which draft's answers were read into the conversation, once each
   const seededFor = useRef<string | null>(null);
   const leaving = useRef(false);
@@ -217,7 +209,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
 
   // A new draft starts its own count of what was drawn without a click.
   useEffect(() => {
-    started.current = '';
+    fired.current = '';
     catsSeeded.current = false;
     setFacets([]);
     if (!draftId) leaving.current = false;
@@ -266,28 +258,6 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       onLeaveDraft();
     }
   }, [s.gone, brand.id, onLeaveDraft]);
-
-  /**
-   * A draft is the truth once it exists.
-   *
-   * A page that arrives at one holding answers that cannot draw it reads them
-   * off the draft instead. That covers a draft opened with no answers at all,
-   * another tab, a cleared session, and the case that had no way out: answers
-   * left over from a run that is over, which are not empty and are not enough.
-   * Nothing draws while an answer is missing, so those answers sat there
-   * vetoing the draw with nothing on screen to say so, forever.
-   *
-   * It happens on the first sight of a draft and never again, which is what
-   * keeps it from touching somebody who is halfway through changing their mind
-   * on a draft this page has been driving all along.
-   */
-  useEffect(() => {
-    if (!d || leaving.current || seededFor.current === d.id) return;
-    seededFor.current = d.id;
-    const st = stateRef.current;
-    if (st.answers.source && readyToDraw(st, ctx)) return;
-    dispatch({ type: 'restore', answers: seedFromDraft(d), revision: st.revision + 1 });
-  }, [d, ctx]);
 
   const clearSetup = useCallback(
     (draftId?: string) => {
@@ -362,17 +332,6 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     }
   }, [brand.id, busySetup, openDraft]);
 
-  // A person described in words starts drawing the moment nothing is left to
-  // ask; the rows end at a read-back and a tap instead.
-  const complete =
-    !d && readyToDraw(state, ctx) && state.answers.source?.door === 'scratch' && state.answers.source.via !== 'taps';
-  useEffect(() => {
-    if (!complete || !canDraw || busySetup || askErr || booting || draftId) return;
-    if (autoStarted.current === state.revision) return;
-    autoStarted.current = state.revision;
-    void startScratch();
-  }, [complete, canDraw, busySetup, askErr, booting, draftId, state.revision, startScratch]);
-
   const addFiles = useCallback(async (files: File[]) => {
     setAskErr(null);
     dispatch({ type: 'upload-begin' });
@@ -441,7 +400,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     setAskErr(null);
     setConfirming(null);
     setPendingEdit(null);
-    autoStarted.current = -1;
+    fired.current = '';
     onLeaveDraft();
   }, [d, brand.id, clearSetup, onLeaveDraft]);
 
@@ -459,55 +418,58 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const idleNow = !!d && !d.activeView && d.stage === 'idle';
 
   /**
-   * The draft carries what the answers say, once they are whole again.
+   * Everything the flow does on its own: decided in one place, done here.
    *
-   * One place, one moment: the words reach the draft when there is nothing
-   * left to ask, and what was already drawn from the old words is drawn again,
-   * once. Nothing is drawn while a question is open, so a person half way
-   * through changing their mind never spends a generation.
+   * `nextStep` is a pure function of what the page knows, and `stepKey` says
+   * what a step is for, so a step is done once per thing it is for and again
+   * only when that changes. What used to be four effects with four latches
+   * over four lists of the same conditions, and every stall and double-fire
+   * in this area was two of them disagreeing, is one decision and one latch.
    */
-  const ready = readyToDraw(state, ctx);
-  const wordsWanted = compileDirection(state.answers);
-  const keepWanted = compileKeep(state.answers);
-  const refsWanted = compileRefs(state.answers);
-  const synced =
-    !d ||
-    ((d.source !== 'synthetic' || (d.direction ?? '') === wordsWanted) &&
-      (d.keep ?? '') === keepWanted &&
-      sameRefs(d.detailRefs, refsWanted));
-  const refsKey = JSON.stringify(refsWanted);
+  const stepInputs: StepInputs = {
+    state,
+    draft: d,
+    ctx,
+    canDraw,
+    busy: s.busy || busySetup || inflight.current || leaving.current,
+    err: !!s.err || !!askErr,
+    booting,
+    draftId,
+    seededFor: seededFor.current,
+  };
+  const step = nextStep(stepInputs);
+  const stepRef = useRef(step);
+  stepRef.current = step;
+  const key = step ? stepKey(step, stepInputs) : '';
   useEffect(() => {
-    if (!d || !ready || synced || s.busy || syncing.current) return;
-    syncing.current = true;
-    // what a picture was drawn from is what a redraw is worth: an empty view
-    // is simply drawn when its turn comes
-    const again =
-      d.source === 'photos' ? (d.views.front.hash ? 'front' : null) : d.views.portrait.hash ? 'portrait' : null;
-    void (async () => {
-      await s.update({
-        ...(d.source === 'synthetic' ? { direction: wordsWanted } : {}),
-        keep: keepWanted,
-        detailRefs: JSON.parse(refsKey) as Record<string, string[]>,
-      });
-      if (again) await s.redo(again);
-    })().finally(() => {
-      syncing.current = false;
-    });
-  }, [d, ready, synced, s.busy, s.update, s.redo, wordsWanted, keepWanted, refsKey]);
-
-  // The next view is drawn with no click: the face first, then the set from
-  // it, each landed view deciding itself; only the face waits for a person.
-  // Nothing is drawn while an answer is open, or before the draft holds what
-  // the answers say.
-  useEffect(() => {
-    if (!d || s.busy || !canDraw || s.err || !ready || !synced) return;
-    const view = nextToDraw(d);
-    if (!view) return;
-    const key = `${view}:${d.views[view].attempts}:${d.generations}:${d.views[view].status}`;
-    if (started.current === key) return;
-    started.current = key;
-    void s.generate(view, undefined, autoFor(view));
-  }, [d, s.busy, s.generate, canDraw, s.err, ready, synced]);
+    // the first sight of a draft with whole answers reads nothing off it, and
+    // never will: a half-changed answer later is somebody at work
+    if (d && seededFor.current !== d.id && stepRef.current?.kind !== 'seed') seededFor.current = d.id;
+    const todo = stepRef.current;
+    if (!todo || key === fired.current) return;
+    fired.current = key;
+    switch (todo.kind) {
+      case 'seed':
+        seededFor.current = d?.id ?? null;
+        dispatch({ type: 'restore', answers: todo.answers, revision: stateRef.current.revision + 1 });
+        return;
+      case 'start':
+        void startScratch();
+        return;
+      case 'sync':
+        inflight.current = true;
+        void (async () => {
+          await s.update(todo.patch);
+          if (todo.redo) await s.redo(todo.redo);
+        })().finally(() => {
+          inflight.current = false;
+        });
+        return;
+      case 'draw':
+        void s.generate(todo.view, undefined, todo.decide);
+        return;
+    }
+  }, [key, d, startScratch, s.update, s.redo, s.generate]);
 
   /** A sentence that answered nothing, kept where it was said. */
   const bounce = useCallback((said: string, reply: string, q: string | null, kind: NothingKind) => {
@@ -583,14 +545,14 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         case 'retry': {
           if (!d) {
             // the draft that never started is started again, from a clean slate
-            autoStarted.current = -1;
+            fired.current = '';
             setAskErr(null);
             return;
           }
           if (s.err) {
             // the request that failed is drawn again by the auto-draw, from a clean count
             s.clearErr();
-            started.current = '';
+            fired.current = '';
             return;
           }
           const failedView = (Object.keys(d.views) as StudioView[]).find((x) => !!d.views[x].error);

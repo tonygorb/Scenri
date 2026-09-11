@@ -1,0 +1,167 @@
+import { describe, expect, it } from 'vitest';
+import { EMPTY_STATE, NO_DRAFT } from '../src/create/presenter/creationState.ts';
+import { compileDirection, flowContext } from '../src/create/presenter/presenterFlowRules.ts';
+import type { Answers } from '../src/create/presenter/presenterQuestions.ts';
+import { type StepDraft, type StepInputs, nextStep, stepKey } from '../src/create/presenter/presenterSteps.ts';
+import { emptySlot } from '../src/create/presenter/presenterStudioRules.ts';
+
+/**
+ * What the flow does next, situation by situation.
+ *
+ * Every row is a state the app has actually been in, most of them one it got
+ * stuck in. The decision is a pure function now, so the table is the whole
+ * contract: change the function and a row goes red with the situation named.
+ */
+const slot = (over: Record<string, unknown> = {}) => ({ ...emptySlot(), ...over });
+const approved = (hash: string) => slot({ status: 'approved', hash });
+
+const TAPPED: Answers = {
+  source: { door: 'scratch', via: 'taps' },
+  'look-who': 'woman',
+  'look-age': '30s',
+  'look-hair': 'black',
+  'look-length': 'shoulder',
+  'look-skin': 'olive',
+  'look-build': 'solid',
+  traits: [],
+};
+const TYPED: Answers = {
+  source: { door: 'scratch', via: 'typed' },
+  describe: 'a woman in her 30s with shoulder-length black hair, olive skin, a solid build',
+  traits: [],
+};
+
+const draft = (over: Partial<StepDraft> = {}): StepDraft => ({
+  id: 'pd-1',
+  generations: 0,
+  source: 'synthetic',
+  name: '',
+  // a draft made from these answers carries exactly what they compile to
+  direction: compileDirection(TAPPED),
+  keep: '',
+  detailRefs: {},
+  views: {
+    portrait: emptySlot(),
+    front: emptySlot(),
+    'three-quarter': emptySlot(),
+    back: emptySlot(),
+    left: emptySlot(),
+    right: emptySlot(),
+  },
+  activeView: null,
+  stage: 'idle',
+  asks: [],
+  results: [],
+  decisions: [],
+  ...over,
+});
+
+const inputs = (over: Partial<StepInputs> = {}): StepInputs => {
+  const d = over.draft === undefined ? null : over.draft;
+  return {
+    state: { ...EMPTY_STATE, answers: TAPPED },
+    draft: d,
+    ctx: d ? flowContext(d, true) : NO_DRAFT,
+    canDraw: true,
+    busy: false,
+    err: false,
+    booting: false,
+    draftId: d?.id ?? null,
+    seededFor: d?.id ?? null,
+    ...over,
+  };
+};
+
+describe('what the flow does next', () => {
+  it('nothing, while anything is in flight or standing in the way', () => {
+    const d = draft();
+    expect(nextStep(inputs({ draft: d, busy: true }))).toBeNull();
+    expect(nextStep(inputs({ draft: d, err: true }))).toBeNull();
+    expect(nextStep(inputs({ busy: true }))).toBeNull();
+  });
+
+  it('draws the face of a fresh draft whose answers are whole', () => {
+    expect(nextStep(inputs({ draft: draft() }))).toEqual({ kind: 'draw', view: 'portrait', decide: undefined });
+  });
+
+  it('the full body decides itself no more than the face does, and the rest decide themselves', () => {
+    const d = draft({ views: { ...draft().views, portrait: approved('p') } });
+    expect(nextStep(inputs({ draft: d }))).toEqual({ kind: 'draw', view: 'front', decide: undefined });
+    const d2 = draft({ views: { ...d.views, front: approved('f') } });
+    expect(nextStep(inputs({ draft: d2 }))).toEqual({ kind: 'draw', view: 'three-quarter', decide: 'auto' });
+  });
+
+  it('nothing, while a view waits on a person or is being drawn', () => {
+    const waiting = draft({ views: { ...draft().views, portrait: slot({ status: 'candidate', hash: 'p' }) } });
+    expect(nextStep(inputs({ draft: waiting }))).toBeNull();
+    const drawing = draft({ stage: 'drawing', activeView: 'portrait' });
+    expect(nextStep(inputs({ draft: drawing }))).toBeNull();
+  });
+
+  it('nothing, while an answer is open or being changed, whatever the draft wants', () => {
+    const d = draft();
+    expect(nextStep(inputs({ draft: d, state: { ...EMPTY_STATE, answers: TAPPED, editing: 'look-hair' } }))).toBeNull();
+    expect(nextStep(inputs({ draft: d, state: { ...EMPTY_STATE, answers: TAPPED, saying: 'look-hair' } }))).toBeNull();
+    const half: Answers = { source: { door: 'scratch', via: 'taps' }, 'look-who': 'woman' };
+    expect(nextStep(inputs({ draft: d, state: { ...EMPTY_STATE, answers: half } }))).toBeNull();
+  });
+
+  it('reads the answers off a draft the page arrived at with answers that cannot draw it, once', () => {
+    // The stall: a draft with a direction on it, answers left over from a run
+    // that is over, nothing drawing and nothing said. Opening the same draft in
+    // a clean tab drew at once, which is how it showed itself.
+    const d = draft();
+    const half: Answers = { source: { door: 'scratch', via: 'taps' }, 'look-who': 'woman' };
+    const step = nextStep(inputs({ draft: d, seededFor: null, state: { ...EMPTY_STATE, answers: half } }));
+    expect(step?.kind).toBe('seed');
+    // with no answers at all, the same
+    expect(nextStep(inputs({ draft: d, seededFor: null, state: EMPTY_STATE }))?.kind).toBe('seed');
+    // already read for this draft: a half-changed answer is somebody at work, and is left alone
+    expect(nextStep(inputs({ draft: d, seededFor: d.id, state: { ...EMPTY_STATE, answers: half } }))).toBeNull();
+    // whole answers on first sight need no reading: they draw
+    expect(nextStep(inputs({ draft: d, seededFor: null }))?.kind).toBe('draw');
+  });
+
+  it('brings a draft in step with answers that moved, before anything is drawn from the old words', () => {
+    const moved = draft({ direction: 'somebody else entirely', views: { ...draft().views, portrait: approved('p') } });
+    const step = nextStep(inputs({ draft: moved }));
+    expect(step?.kind).toBe('sync');
+    if (step?.kind === 'sync') {
+      expect(step.patch.direction).toBe(compileDirection(TAPPED));
+      // the face was drawn from the old words, so it is drawn again
+      expect(step.redo).toBe('portrait');
+    }
+    // nothing drawn yet: nothing to redo, the empty view is simply drawn when its turn comes
+    const fresh = nextStep(inputs({ draft: draft({ direction: 'somebody else' }) }));
+    expect(fresh?.kind === 'sync' && fresh.redo).toBeNull();
+  });
+
+  it('starts a draft from a description the moment nothing is left to ask, and never from the rows', () => {
+    expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TYPED } }))).toEqual({ kind: 'start' });
+    // the rows end at a read-back and a tap: the press starts it, not this
+    expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TAPPED } }))).toBeNull();
+    // and not while the page is still finding out, or a draft is on its way
+    expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TYPED }, booting: true }))).toBeNull();
+    expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TYPED }, draftId: 'pd-2' }))).toBeNull();
+    // nor with nothing that can draw
+    expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TYPED }, canDraw: false }))).toBeNull();
+  });
+
+  it('a step is keyed by what it is for, so it fires once and again only when that changes', () => {
+    const d = draft();
+    const i = inputs({ draft: d });
+    const step = nextStep(i);
+    expect(step).not.toBeNull();
+    if (!step) return;
+    const key = stepKey(step, i);
+    expect(stepKey(step, i)).toBe(key);
+    // the same view, tried once more: a different key
+    const tried = { ...i, draft: draft({ views: { ...d.views, portrait: slot({ attempts: 1 }) } }) };
+    const again = nextStep(tried);
+    expect(again && stepKey(again, tried)).not.toBe(key);
+    // a start is keyed by the answers' revision, one draft per person
+    const s = inputs({ state: { ...EMPTY_STATE, answers: TYPED, revision: 4 } });
+    const start = nextStep(s);
+    expect(start && stepKey(start, s)).toBe('start:4');
+  });
+});
