@@ -136,7 +136,7 @@ export const TRAITS: Trait[] = [
       { id: 'a fine-line botanical tattoo', label: 'Fine line', card: 'tattoo-1' },
       { id: 'a small geometric line tattoo', label: 'Geometric', card: 'tattoo-2' },
       { id: 'a floral tattoo in soft grey shading', label: 'Floral', card: 'tattoo-3' },
-      { id: 'a bold traditional tattoo in heavy black and red', label: 'Traditional', card: 'tattoo-4' },
+      { id: 'a bold traditional red rose tattoo with heavy black linework', label: 'Traditional', card: 'tattoo-4' },
       { id: 'a solid blackwork tattoo', label: 'Blackwork', card: 'tattoo-5' },
       { id: 'a small script tattoo in thin lettering', label: 'Script', card: 'tattoo-6' },
     ],
@@ -160,13 +160,44 @@ export const TRAITS: Trait[] = [
     id: 'prosthetic',
     label: 'Prosthetic limb',
     ask: 'What does their limb look like?',
+    // Every card in this row is one articulated hard-surface arm in a
+    // different finish, and the words used to name the finish alone: "a
+    // bright painted finish" for a glossy red mechanical limb said nothing
+    // about colour, material or form, and painted invites decoration. A
+    // presenter came back with a floral prosthetic. The words say what the
+    // picture shows, and none of them says "arm": the placement question
+    // below is what names the limb, and `saysWhere` would skip it.
     options: [
-      { id: 'a prosthetic limb in a matte black finish', label: 'Matte black', card: 'prosthetic-1' },
-      { id: 'a bionic limb in a brushed metal finish', label: 'Brushed metal', card: 'prosthetic-2' },
-      { id: 'a prosthetic limb in a woven carbon fibre finish', label: 'Carbon fibre', card: 'prosthetic-3' },
-      { id: 'a prosthetic limb in a soft skin-tone finish', label: 'Skin tone', card: 'prosthetic-4' },
-      { id: 'a prosthetic limb in a bright painted finish', label: 'Painted', card: 'prosthetic-5' },
-      { id: 'a bionic limb in a matte white finish with visible joints', label: 'Matte white', card: 'prosthetic-6' },
+      {
+        id: 'a matte black mechanical prosthetic limb with dark articulated joints',
+        label: 'Matte black',
+        card: 'prosthetic-1',
+      },
+      {
+        id: 'a brushed steel mechanical prosthetic limb with dark articulated joints',
+        label: 'Brushed steel',
+        card: 'prosthetic-2',
+      },
+      {
+        id: 'a woven carbon fibre mechanical prosthetic limb with dark articulated joints',
+        label: 'Carbon fibre',
+        card: 'prosthetic-3',
+      },
+      {
+        id: 'a skin-tone mechanical prosthetic limb with dark articulated joints',
+        label: 'Skin tone',
+        card: 'prosthetic-4',
+      },
+      {
+        id: 'a glossy bright red mechanical prosthetic limb with dark articulated joints',
+        label: 'Red',
+        card: 'prosthetic-5',
+      },
+      {
+        id: 'a matte white mechanical prosthetic limb with dark articulated joints',
+        label: 'Matte white',
+        card: 'prosthetic-6',
+      },
     ],
     saying: 'Describe it',
     refHint: 'A clear photograph showing its shape and finish.',

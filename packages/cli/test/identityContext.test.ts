@@ -28,7 +28,9 @@ const TABLE = readFileSync(
 function worstOf(trait: string): string {
   const block = TABLE.split(`id: '${trait}',`)[1] ?? '';
   const upTo = block.split('saying:')[0];
-  const words = [...upTo.matchAll(/\{ id: '([^']+)'/g)].map((m) => m[1]);
+  // the options are written one per line or one per block, so the id is
+  // matched on its own rather than on the brace that happens to precede it
+  const words = [...upTo.matchAll(/id: '([^']+)'/g)].map((m) => m[1]);
   expect(words.length).toBeGreaterThan(2);
   return words.sort((a, b) => b.length - a.length)[0];
 }
@@ -37,7 +39,7 @@ function worstOf(trait: string): string {
 function sideOf(trait: string, side: 'left' | 'right'): string {
   const block = TABLE.split(`id: '${trait}',`)[1] ?? '';
   const where = block.split('where: {')[1]?.split('],')[0] ?? '';
-  const found = [...where.matchAll(/\{ id: '([^']+)'/g)].map((m) => m[1]).find((w) => w.includes(side));
+  const found = [...where.matchAll(/id: '([^']+)'/g)].map((m) => m[1]).find((w) => w.includes(side));
   expect(found, `${trait} has a ${side} placement`).toBeTruthy();
   return found as string;
 }

@@ -55,6 +55,29 @@ describe('the distinctive details a presenter can carry', () => {
     expect(named.filter((id) => !wanted.has(id))).toEqual([]);
   });
 
+  it('points each card at its own picture, not at the one beside it', () => {
+    // The selector and the file inside the rule are typed out by hand, one
+    // pair per card. Checking only that a rule exists leaves the pairing
+    // unguarded: [data-card="scar-3"] naming scar-4.webp would pass, and a
+    // person would choose one scar and be shown another.
+    const css = readFileSync(join(process.cwd(), 'src/styles/components/conversation.css'), 'utf8');
+    const rules = [...css.matchAll(/\[data-card="([^"]+)"\]\s*\{[^}]*url\("[^"]*\/([^"/]+)\.webp"\)/g)];
+    expect(rules.length).toBe(TRAITS.reduce((n, t) => n + t.options.length, 0));
+    for (const [, card, file] of rules) expect(file).toBe(card);
+  });
+
+  it('never lets a preset answer the placement question for itself', () => {
+    // `saysWhere` skips the follow-up when the words already name a place, so
+    // a preset that said "arm" would take the side with it and a prosthetic
+    // would have no left or right at all. The rows that ask must keep asking.
+    for (const t of TRAITS) {
+      if (!t.where) continue;
+      for (const o of t.options) {
+        expect(saysWhere(o.id), `${t.id}: ${o.id}`).toBe(false);
+      }
+    }
+  });
+
   it('asks where it is only where the answer is incomplete without it', () => {
     // a tattoo nobody placed is not a tattoo; a limb has a side
     expect(traitOf('tattoo')?.where?.options.length).toBeGreaterThan(4);
