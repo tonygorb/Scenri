@@ -29,6 +29,7 @@ import {
   TEXT_QIDS,
   answeredInWords,
   asidePhaseFor,
+  judgeAnswer,
   notAnAnswerAtAStep,
   activeQuestion,
   answerPatch,
@@ -651,7 +652,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           commitAnswer({ [target]: { words: attachedWords(trait.id, held.length), refs: held } });
           return true;
         }
-        const empty = notAnAnswerAtAStep(typed, readsAsPerson);
+        const empty = judgeAnswer(target, typed, readsAsPerson);
         if (!typed || empty) {
           bounce(
             typed,
@@ -684,7 +685,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         // words in place of a tap are still words: what says nothing is bounced
         // the way it is anywhere else, and the step stays open. A swatch says
         // what it is, so only typed words are read this way, chip or no chip.
-        const empty = typed && !/^#[0-9a-f]{6}$/i.test(typed) ? notAnAnswerAtAStep(typed, readsAsPerson) : null;
+        const empty = typed && !/^#[0-9a-f]{6}$/i.test(typed) ? judgeAnswer(target, typed, readsAsPerson) : null;
         if (empty) {
           bounce(typed, asideReply(empty, voice(target), again(target, empty), typed, step), target, empty);
           return true;
@@ -874,6 +875,20 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         return;
       }
       if (!isQid(turnId) || !answeredInWords(turnId, stateRef.current.answers)) return;
+      // An answer written again is read again. Words that would have been
+      // refused under the question are refused over it too, and are answered
+      // the same way: the answer stands as it was, and what was said joins the
+      // conversation where it was said.
+      const wrong = judgeAnswer(turnId, text, readsAsPerson);
+      if (wrong) {
+        const st = stateRef.current;
+        const phase = asidePhaseFor(turnId, turnId, !!d?.views.portrait.hash);
+        const step = isLookQid(turnId) ? (turnId.slice('look-'.length) as LookStep) : undefined;
+        const before = st.asides.filter((a) => a.q === turnId && a.kind === wrong).length;
+        dispatch({ type: 'cancel-edit' });
+        bounce(text, asideReply(wrong, phase, before, text, step), turnId, wrong);
+        return;
+      }
       // A detail keeps whatever pictures were attached to it: the words are
       // being changed, not what they were said about. `keep` is shaped like a
       // detail and has to be written like one, or everything that reads its

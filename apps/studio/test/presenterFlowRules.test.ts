@@ -14,6 +14,7 @@ import {
   flowContext,
   answeredInWords,
   asidePhaseFor,
+  judgeAnswer,
   notAnAnswerAtAStep,
   sentenceTarget,
   turnsFor,
@@ -456,6 +457,38 @@ describe('every question answers a stray sentence in its own voice', () => {
           if (phase !== 'refine') expect(said, `${phase}/${kind}`).not.toMatch(/view on the stage/i);
         }
       }
+    }
+  });
+});
+
+describe('an answer is judged the same whichever way it arrives', () => {
+  // Tony's case: "Lungo123" typed at the length is refused, and the very same
+  // words written over the answer used to be accepted, because only the send
+  // path asked. Both doors ask now, and they ask the same thing.
+  const cases: [Qid, string, boolean][] = [
+    ['look-length', 'Lungo123', false],
+    ['look-length', 'a chin-length bob', true],
+    ['look-length', 'pony tail', true],
+    ['look-length', 'Hair', false],
+    ['look-length', 'hi', false],
+    ['look-hair', 'zzz999', false],
+    ['look-hair', 'auburn', true],
+    ['trait-glasses', 'test1', false],
+    ['trait-glasses', 'wire aviators', true],
+    ['keep', 'lol3', false],
+    ['keep', 'a chipped front tooth', true],
+    ['describe', 'hi', false],
+    ['describe', 'a tall woman in her 30s with dark hair', true],
+  ];
+
+  it.each(cases)('%s: %s', (id, said, answers) => {
+    const verdict = judgeAnswer(id, said, readsAsPerson);
+    expect(verdict === null, `${id} / ${said}`).toBe(answers);
+  });
+
+  it('nothing at all is never an answer, whatever is being asked', () => {
+    for (const id of ['look-who', 'look-build', 'trait-glasses', 'keep', 'describe'] as Qid[]) {
+      expect(judgeAnswer(id, '   ', readsAsPerson), id).not.toBeNull();
     }
   });
 });

@@ -323,6 +323,25 @@ export function answeredInWords(id: Qid | null, a: Answers): boolean {
 }
 
 /**
+ * Whether these words answer this question, and what is wrong when they do not.
+ *
+ * One judgement, for both ways an answer can arrive: typed into the line, or
+ * written again over an answer that already stands. It lived only in the send
+ * path, so a question that refused "Lungo123" accepted the very same words the
+ * moment they were written over an answer instead of typed under one. A rule
+ * that only one of two doors enforces is not a rule.
+ */
+export function judgeAnswer(id: Qid, text: string, describes: (t: string) => boolean): NothingKind | null {
+  const said = text.trim();
+  if (!said) return 'vague';
+  // A step, a detail, and the last word all ask for a short phrase about them.
+  if (isLookQid(id) || id.startsWith('trait-') || id === 'keep') return notAnAnswerAtAStep(said, describes);
+  // The door and the description ask for a person, in a sentence.
+  if (id === 'describe' || id === 'source') return answersNothing(said, describes);
+  return null;
+}
+
+/**
  * The voice a sentence that answered nothing is answered in.
  *
  * It is a function of what the sentence was aimed at, never of which branch
