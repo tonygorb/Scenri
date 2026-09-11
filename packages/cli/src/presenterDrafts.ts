@@ -993,7 +993,15 @@ async function drawView(
   } catch (err: any) {
     mutate(core, id, (r) => {
       const slot = r.views[view];
-      slot.status = before === 'generating' ? (slot.hash ? 'candidate' : 'empty') : before;
+      if (!slot.hash && slot.prior) {
+        // It was asked for another picture and did not get one, so it wears
+        // what it wore. Approved is the honest status when something was drawn
+        // from it: a view can only be drawn from an approved one.
+        slot.hash = slot.prior;
+        slot.prior = undefined;
+        slot.origin = 'generated';
+        slot.status = dependents(view).some((v) => r.views[v].hash) ? 'approved' : 'candidate';
+      } else slot.status = before === 'generating' ? (slot.hash ? 'candidate' : 'empty') : before;
       slot.attempts += 1;
       // the ask it was for stays on the slot, so drawing it again is drawing it again with the ask
       if (adjustment) slot.adjustment = adjustment;
@@ -1249,9 +1257,21 @@ export async function redoView(deps: AssetBuildDeps, id: string, view: Presenter
   if (running.has(id)) throw fail('a view is still being drawn', 409);
   return mutate(deps.core, id, (r) => {
     const slot = r.views[view];
-    const gone = [slot.hash, slot.prior].filter((h): h is string => !!h && !r.sources.includes(h));
-    r.views[view] = { ...emptySlot(), attempts: slot.attempts, rejected: [...slot.rejected, ...gone] };
-    staleDependents(r, view);
+    // The picture it wears is kept until another one lands, the way a revision
+    // keeps the approved one. Thrown away up front, a draw that then failed
+    // for any reason at all left the view with nothing, its dependents staled
+    // for a redraw that never happened, and the person told that nothing
+    // finished had been touched. A quota running out is enough to do it.
+    const gone = [slot.prior].filter((h): h is string => !!h && h !== slot.hash && !r.sources.includes(h));
+    r.views[view] = {
+      ...emptySlot(),
+      attempts: slot.attempts,
+      rejected: [...slot.rejected, ...gone],
+      ...(slot.hash && !r.sources.includes(slot.hash) ? { prior: slot.hash } : {}),
+    };
+    // Nothing downstream has moved yet either: what those views were drawn
+    // from is still the picture standing here. They stale when the new one is
+    // used, which approveView and the auto-decide path already do.
     if (view === 'portrait' && r.source === 'synthetic') r.analysis = undefined;
     r.decisions = [...r.decisions, { view, what: 'again' as const, at: new Date().toISOString() }].slice(-RESULTS_MAX);
   });

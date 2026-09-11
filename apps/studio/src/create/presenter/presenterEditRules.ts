@@ -6,6 +6,7 @@ import {
   asideTurns,
   openQuestionId,
 } from '../../conversation/question.js';
+import { reason } from './presenterCopy.js';
 import {
   CORE_VIEWS,
   type DraftLike,
@@ -437,8 +438,8 @@ function shapeEdit(
       prompt: stopped
         ? `Stopped drawing the ${VIEW_NAME[failedView as StudioView]}. Nothing finished was touched.`
         : failedView
-          ? `The ${VIEW_NAME[failedView]} could not be drawn: ${d.views[failedView].error}. Nothing finished was touched.`
-          : `That did not go through: ${ui.failed}. Nothing finished was touched.`,
+          ? `The ${VIEW_NAME[failedView]} could not be drawn: ${reason(d.views[failedView].error ?? '')}. Nothing finished was touched.`
+          : `That did not go through: ${reason(ui.failed ?? '')}. Nothing finished was touched.`,
       options: [{ id: 'retry', label: stopped ? 'Draw it again' : 'Retry' }],
     });
     return done();

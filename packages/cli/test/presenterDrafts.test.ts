@@ -305,13 +305,18 @@ describe('redoing an upstream view', () => {
     await redoView(deps(), d.id, 'portrait');
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'portrait').status).toBe('empty');
-    for (const v of PRESENTER_VIEWS) if (v !== 'portrait') expect(view(d, v).status).toBe('stale');
+    // Nothing downstream has moved yet: what those views were drawn from is
+    // still the picture standing here, kept until another one is used.
+    for (const v of PRESENTER_VIEWS) if (v !== 'portrait') expect(view(d, v).status).toBe('approved');
     // the identity is being re-rolled: the words read off the old face go too
     expect(d.analysis).toBeUndefined();
     await updatePresenterDraft(core, d.id, { name: 'Ilse' });
     await expect(savePresenterDraft(deps(), d.id)).rejects.toThrow(/face/i);
     d = await step(d.id, 'portrait');
     await approveView(deps(), d.id, 'portrait');
+    // used, and now everything built on the old face is out of date
+    d = getPresenterDraft(core, d.id)!;
+    for (const v of PRESENTER_VIEWS) if (v !== 'portrait') expect(view(d, v).status).toBe('stale');
     await expect(savePresenterDraft(deps(), d.id)).rejects.toThrow(/full body|front/i);
     d = await build(d.id, ['front', 'three-quarter']);
     // the extras were built on the old face too, and a stale extra blocks the save
@@ -324,9 +329,11 @@ describe('redoing an upstream view', () => {
   it('redoing the front stales the turned views and leaves the face', async () => {
     let d = await castWithExtras();
     await redoView(deps(), d.id, 'front');
+    await step(d.id, 'front');
+    await approveView(deps(), d.id, 'front');
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'portrait').status).toBe('approved');
-    expect(view(d, 'front').status).toBe('empty');
+    expect(view(d, 'front').status).toBe('approved');
     expect(view(d, 'three-quarter').status).toBe('stale');
     expect(view(d, 'back').status).toBe('stale');
     expect(view(d, 'left').status).toBe('stale');
@@ -337,8 +344,10 @@ describe('redoing an upstream view', () => {
   it('redoing the left stales only the right, which is drawn from it', async () => {
     let d = await castWithExtras();
     await redoView(deps(), d.id, 'left');
+    await step(d.id, 'left');
+    await approveView(deps(), d.id, 'left');
     d = getPresenterDraft(core, d.id)!;
-    expect(view(d, 'left').status).toBe('empty');
+    expect(view(d, 'left').status).toBe('approved');
     expect(view(d, 'right').status).toBe('stale');
     for (const v of ['portrait', 'front', 'three-quarter', 'back'] as const) expect(view(d, v).status).toBe('approved');
   });
@@ -1536,6 +1545,49 @@ describe('stopping a draw', () => {
     const again = await step(d.id, 'three-quarter', 'arms relaxed', 'auto');
     expect(view(again, 'three-quarter').error).toBeUndefined();
     expect(view(again, 'three-quarter').hash).not.toBe(tq);
+  });
+});
+
+describe('asking for another picture', () => {
+  it('keeps the one it has until another lands, and puts it back when none does', async () => {
+    // the face, the full body, and the three-quarter drawn from both
+    const d = await cast();
+    const face = view(d, 'portrait').hash;
+    expect(face).toBeTruthy();
+
+    // asked for another face: nothing downstream has moved yet, because what
+    // those views were drawn from is still the picture standing here
+    const again = await redoView(deps(), d.id, 'portrait');
+    expect(again.views.portrait.hash).toBeUndefined();
+    expect(again.views.portrait.prior).toBe(face);
+    expect(again.views.front.status).toBe('approved');
+    expect(again.views['three-quarter'].status).toBe('approved');
+
+    // and the draw fails, as it does when a plan's limit runs out
+    failNext = new Error("Your Codex plan's usage limit is used up until 6:13 PM.");
+    const after = await step(d.id, 'portrait');
+    // the view wears what it wore. Thrown away up front, this left the face
+    // empty, five views staled for a redraw that never happened, and the
+    // person told that nothing finished had been touched.
+    expect(after.views.portrait.hash).toBe(face);
+    expect(after.views.portrait.prior).toBeUndefined();
+    expect(after.views.portrait.status).toBe('approved');
+    expect(after.views.portrait.error).toContain('usage limit');
+    expect(after.views.front.status).toBe('approved');
+    expect(after.views['three-quarter'].status).toBe('approved');
+  });
+
+  it('stales what was built on it only once the new picture is used', async () => {
+    const d = await cast();
+    const face = view(d, 'portrait').hash;
+    await redoView(deps(), d.id, 'portrait');
+    const drawn = await step(d.id, 'portrait');
+    expect(drawn.views.portrait.hash).not.toBe(face);
+    expect(drawn.views.front.status).toBe('approved');
+    // used, and now what was drawn from the old face no longer stands
+    const used = await approveView(deps(), d.id, 'portrait');
+    expect(used.views.front.status).toBe('stale');
+    expect(used.views['three-quarter'].status).toBe('stale');
   });
 });
 

@@ -1,5 +1,5 @@
 import { type Aside, type Question, type Turn, asideTurns } from '../../conversation/question.js';
-import { PROMPT, readingWhat } from './presenterCopy.js';
+import { PROMPT, readingWhat, reason } from './presenterCopy.js';
 import {
   builtOn,
   EXTRA_VIEWS,
@@ -60,7 +60,7 @@ export function stoppedOrFailed(view: StudioView, error: string): Question {
         id: 'retry',
         kind: 'confirm',
         tone: 'alert',
-        prompt: `The ${name} could not be drawn: ${error}. Nothing finished was touched.`,
+        prompt: `The ${name} could not be drawn: ${reason(error)}. Nothing finished was touched.`,
         options: [{ id: 'retry', label: 'Retry' }],
       };
 }
@@ -297,7 +297,7 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
         id: 'retry',
         kind: 'confirm',
         tone: 'alert',
-        prompt: `That did not go through: ${ui.failed}. Nothing finished was touched.`,
+        prompt: `That did not go through: ${reason(ui.failed ?? '')}. Nothing finished was touched.`,
         options: [{ id: 'retry', label: 'Retry' }],
       });
       return T;
@@ -341,7 +341,7 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
       id: 'retry',
       kind: 'confirm',
       tone: 'alert',
-      prompt: `That did not go through: ${ui.failed}. Nothing finished was touched.`,
+      prompt: `That did not go through: ${reason(ui.failed ?? '')}. Nothing finished was touched.`,
       options: [{ id: 'retry', label: 'Retry' }],
     });
     return T;

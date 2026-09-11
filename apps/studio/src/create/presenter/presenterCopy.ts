@@ -218,3 +218,12 @@ export function asideReply(kind: NothingKind, phase: AsidePhase, again: number, 
       return again ? `Still here. ${cap(how)}.` : `${cap(how)}.`;
   }
 }
+
+/**
+ * What an engine said, said in a sentence of ours.
+ *
+ * Its message is already a sentence and already ends in a full stop, so
+ * putting one after it read "...add credits from your Codex account.. Nothing
+ * finished was touched."
+ */
+export const reason = (text: string): string => text.trim().replace(/[.\s]+$/, '');
