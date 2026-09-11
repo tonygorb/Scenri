@@ -201,14 +201,20 @@ export function compileRefs(a: Answers): Record<string, string[]> {
 
 /**
  * The answers a draft carries, for a page opened on it with none of its own:
- * another tab, a cleared session, a draft seeded from outside. The person is
- * already drawn, so the setup reads as done, and every pencil still works.
+ * another tab, a cleared session, a draft seeded from outside, answers left
+ * over from a run that is over. The person is already being drawn, so the
+ * setup reads as done, and every pencil still works.
  */
 export function seedFromDraft(d: DraftLike): Answers {
   if (d.source === 'photos') {
     return { source: { door: 'photos', via: 'taps' }, photos: { hashes: d.sources ?? [], attested: true } };
   }
-  return { source: { door: 'scratch', via: 'typed' }, describe: d.direction ?? '', traits: [] };
+  // `gaps` is answered with the rest. A draft's own direction is settled,
+  // however thin it reads, and the follow-up that asks what a thin description
+  // left out would otherwise stand open over a draft that is ready to draw,
+  // holding it there: the conversation asking to finish something that has
+  // already begun.
+  return { source: { door: 'scratch', via: 'typed' }, describe: d.direction ?? '', gaps: 'skipped', traits: [] };
 }
 
 /** What the setup questions can see of the draft. */

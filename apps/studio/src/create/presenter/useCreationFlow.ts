@@ -267,14 +267,27 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     }
   }, [s.gone, brand.id, onLeaveDraft]);
 
-  // A draft opened with no answers of its own carries them: the person was
-  // drawn from what the draft holds, and the conversation reads from there.
-  const carried = !!d && !state.answers.source;
+  /**
+   * A draft is the truth once it exists.
+   *
+   * A page that arrives at one holding answers that cannot draw it reads them
+   * off the draft instead. That covers a draft opened with no answers at all,
+   * another tab, a cleared session, and the case that had no way out: answers
+   * left over from a run that is over, which are not empty and are not enough.
+   * Nothing draws while an answer is missing, so those answers sat there
+   * vetoing the draw with nothing on screen to say so, forever.
+   *
+   * It happens on the first sight of a draft and never again, which is what
+   * keeps it from touching somebody who is halfway through changing their mind
+   * on a draft this page has been driving all along.
+   */
   useEffect(() => {
-    if (!carried || !d || leaving.current || seededFor.current === d.id) return;
+    if (!d || leaving.current || seededFor.current === d.id) return;
     seededFor.current = d.id;
-    dispatch({ type: 'restore', answers: seedFromDraft(d), revision: stateRef.current.revision + 1 });
-  }, [carried, d]);
+    const st = stateRef.current;
+    if (st.answers.source && readyToDraw(st, ctx)) return;
+    dispatch({ type: 'restore', answers: seedFromDraft(d), revision: st.revision + 1 });
+  }, [d, ctx]);
 
   const clearSetup = useCallback(
     (draftId?: string) => {
