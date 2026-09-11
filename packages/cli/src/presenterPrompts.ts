@@ -103,7 +103,10 @@ export function viewSubject(view: PresenterView, who: string): string {
     case 'portrait':
       return `${who}, head-and-shoulders portrait framing from just above the top of the head down to the collarbone, facing the camera straight-on, relaxed neutral expression, eyes to the lens, their own hair exactly as the references show it, the same plain studio backdrop and even frontal light`;
     case 'front':
-      return `${who}, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, facing the camera straight-on`;
+      // The front is drawn from the approved face and was the one view that
+      // never said so, nor that the hair is theirs. Both clauses ride every
+      // other turned view; their absence here was an oversight, not a choice.
+      return `${who}: the same person as the attached images, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, facing the camera straight-on, their own hair exactly as the attached images show it, the same plain studio backdrop and even light`;
     case 'three-quarter':
       return `${who}: the same person as the attached images, wearing ${CAPTURE_UNIFORM}, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, turned about forty-five degrees from the camera so that both eyes stay in frame (a three-quarter view), the head turned with the body, their own hair exactly as the attached images show it, the same plain studio backdrop and even light`;
     case 'left':
@@ -185,16 +188,37 @@ function keptAspects(adjustment: string): string {
   return `Otherwise identical to the attached image in ${list}`;
 }
 
-/** The person the frames show, for a draft that has no words yet. */
-export const ATTACHED_PERSON = 'the exact person in the attached photographs';
-
 /**
- * What the frames are told they are looking at, from the record we will
- * store. An edit session's accepted identity edits ride as one clause after
- * the record's words, so a view drawn after "shorter hair" follows the
- * change rather than the photographs it was originally read from; the drawn
- * views attached ahead of the photographs carry the picture of it.
+ * One thing that stays true about a person, kept whole.
+ *
+ * A list, not a sentence. A sentence has one length, and a cap cuts it
+ * wherever it happens to land: with four details joined, "in place of their
+ * left arm" reached the store as "in place of their le" and the side was
+ * gone. Each item is carried, capped and filtered on its own, so a long one
+ * can never cost a short one and the last one chosen is not the first one
+ * lost. Which detail a picture belongs to survives for the same reason.
  */
+export interface KeepItem {
+  /** The row it came from ('glasses', 'tattoo'), or 'said' for their own words. */
+  id: string;
+  /** What it is, in the words the person chose, placement included. */
+  words: string;
+  /** Pictures of the thing itself, never of a person. */
+  refs?: string[];
+}
+
+/** The one sentence the items make, which is what a record stores and a person reads. */
+export const keepSentenceOf = (items: readonly KeepItem[]): string => items.map((i) => i.words).join(', ');
+
+/** A sentence stored before there were items, read back as items. */
+export function itemsFromKeep(keep: string | undefined): KeepItem[] {
+  return (keep ?? '')
+    .split(',')
+    .map((w) => w.trim())
+    .filter(Boolean)
+    .map((words, i) => ({ id: `said-${i}`, words }));
+}
+
 /**
  * Their own left and right, said out loud.
  *
@@ -207,7 +231,7 @@ export function sideNote(keep: string): string {
 }
 
 /**
- * The kept words a view can actually show.
+ * What a view can actually show.
  *
  * A portrait is framed from above the head to the collarbone, so an
  * instruction about a forearm can only be obeyed by reframing it, which would
@@ -216,47 +240,129 @@ export function sideNote(keep: string): string {
  * is only about the body is left out of the portrait, and anything else, or
  * anything we cannot place, rides everywhere: leaving a person's own words out
  * is the worse mistake of the two.
+ *
+ * Judged per item. Judged on the joined sentence, as it was, one glasses plus
+ * one forearm tattoo read as both face and body, so the tattoo was asked for
+ * in a head-and-shoulders portrait and the glasses in a back view.
  */
 const KEEP_FACE =
   /\b(face|facial|jaw|chin|cheeks?|cheekbones?|nose|nostrils?|septum|mouth|lips?|teeth|smile|eyes?|eyelids?|eyebrows?|brows?|lashes|freckles?|beard|moustache|mustache|stubble|glasses|spectacles|ears?|lobes?|temples?|forehead|skin|complexion|wrinkles?|makeup|make-up|eyeliner|lipstick)\b/i;
 const KEEP_BODY =
   /\b(arms?|forearms?|wrists?|hands?|knuckles?|fingers?|shoulders?|back|chest|collarbones?|torso|stomach|waist|hips?|legs?|thighs?|calf|calves|ankles?|feet|foot|toes?|knees?|prosthetics?|prosthesis|bionic|limbs?|sleeve)\b/i;
 
-export function keepFor(view: PresenterView, keep: string | undefined): string | undefined {
-  const said = keep?.trim();
-  if (!said) return undefined;
-  const face = KEEP_FACE.test(said);
-  const body = KEEP_BODY.test(said);
-  if (face && !body) return view === 'back' ? undefined : said;
-  if (body && !face) return view === 'portrait' ? undefined : said;
-  return said;
+/**
+ * Where a detail lives, for the rows whose answer never says.
+ *
+ * The words a row produces are the words a person would use for the thing
+ * itself, and those do not always name the part of a body they are on: "bold
+ * thick black rectangular acetate frames" is a pair of glasses with the word
+ * glasses nowhere in it, so read as words alone it was unplaceable and asked
+ * for in a back view. A row that always lives in one place says so here; the
+ * two rows that move (a tattoo, a prosthetic limb) carry their placement in
+ * their own words, and those are read.
+ */
+const ROW_LIVES: Record<string, 'face' | 'body'> = {
+  glasses: 'face',
+  freckles: 'face',
+  makeup: 'face',
+  scar: 'face',
+  piercing: 'face',
+};
+
+function shows(view: PresenterView, item: KeepItem): boolean {
+  const lives = ROW_LIVES[item.id];
+  const face = lives ? lives === 'face' : KEEP_FACE.test(item.words);
+  const body = lives ? lives === 'body' : KEEP_BODY.test(item.words);
+  if (face && !body) return view !== 'back';
+  if (body && !face) return view !== 'portrait';
+  return true;
 }
 
-export function whoIs(
-  name: string,
-  draft: {
-    promptName?: string;
-    hair?: string;
-    identityNotes?: string;
-    identityEdits?: string[];
-    keep?: string;
-  } | null,
-): string {
-  if (!draft) return ATTACHED_PERSON;
-  const promptName = draft.promptName ?? '';
-  const bits = [promptName];
-  if (draft.hair && !promptName.toLowerCase().includes(draft.hair.toLowerCase())) bits.push(draft.hair);
-  if (draft.identityNotes) bits.push(draft.identityNotes);
-  const said = bits.filter(Boolean).join(', ') || name;
+/** The items this view can show, in the order they were kept. */
+export function itemsFor(view: PresenterView, items: readonly KeepItem[]): KeepItem[] {
+  return items.filter((i) => shows(view, i));
+}
+
+/** And the same, as the clause a prompt carries. */
+export function keepFor(view: PresenterView, items: readonly KeepItem[]): string {
+  return keepSentenceOf(itemsFor(view, items));
+}
+
+/** The person the frames show, for a draft that has no words yet. */
+export const ATTACHED_PERSON = 'the exact person in the attached photographs';
+
+/** What a read of the approved face found. */
+export interface AnalyzerWords {
+  promptName?: string;
+  hair?: string;
+  identityNotes?: string;
+}
+
+/**
+ * Who this person is, right now, from every source with a claim on it.
+ *
+ * One value, so no view has to work out for itself what the person looks
+ * like. What they said leads, because they said it; a read of the approved
+ * face adds to it and never replaces it, which is the way round it has to be:
+ * a face crop cannot see a build, and it used to be the only thing a full
+ * body view was told. Their kept details follow whole, and any change
+ * accepted in this session comes last, because it is the most recent thing
+ * they asked for.
+ */
+export interface PresenterIdentity {
+  said: string;
+  read: AnalyzerWords | null;
+  items: KeepItem[];
+  edits: string[];
+}
+
+export function identityOf(rec: {
+  direction?: string;
+  keep?: string;
+  keepItems?: KeepItem[];
+  analysis?: AnalyzerWords;
+  identityEdits?: string[];
+}): PresenterIdentity {
+  return {
+    said: (rec.direction ?? '').trim(),
+    read: rec.analysis ?? null,
+    items: rec.keepItems ?? itemsFromKeep(rec.keep),
+    edits: (rec.identityEdits ?? []).filter(Boolean),
+  };
+}
+
+/**
+ * The noun phrase every view is built on: who they are, then what stays true
+ * of them that this view can show, then whatever has changed since.
+ */
+export function whoIs(id: PresenterIdentity | null, view: PresenterView): string {
+  if (!id) return ATTACHED_PERSON;
+  const bits: string[] = [];
+  const read = id.read;
+  // A read of the approved face leads when there is one: the face was
+  // decided, so it is what this person looks like. What they described
+  // follows it rather than being replaced by it, because a portrait crop
+  // cannot show a build and the description is the only thing that knows.
+  // With nothing read, the description carries the view on its own.
+  const named = read?.promptName ?? '';
+  // A description that already contains the read name says both at once; two
+  // of them side by side is a stutter in the middle of the subject.
+  if (named && id.said.toLowerCase().includes(named.toLowerCase())) bits.push(id.said);
+  else if (named) bits.push(named);
+  else if (id.said) bits.push(id.said);
+  const already = (v: string) => bits.some((b) => b.toLowerCase().includes(v.toLowerCase()));
+  if (read?.hair && !already(read.hair)) bits.push(read.hair);
+  if (read?.identityNotes) bits.push(read.identityNotes);
+  if (id.said && !already(id.said)) bits.push(id.said);
+  const said = bits.filter(Boolean).join(', ') || ATTACHED_PERSON;
   // What the person said should stay, in their own words, before any later
   // change: a view drawn from pictures that cannot show a trait still knows
   // they have it. It stays a noun phrase, because the view's own clauses are
   // appended to it.
-  const keep = draft.keep?.trim();
+  const keep = keepFor(view, id.items);
   const who = keep
     ? `${said}, who also has ${keep}${sideNote(keep)}, which is part of who they are and is drawn in this view whether or not the attached images show it`
     : said;
-  const edits = (draft.identityEdits ?? []).filter(Boolean);
-  if (!edits.length) return who;
-  return `${who}, except as changed here: ${edits.join('; ')}; the attached drawn views show the change`;
+  if (!id.edits.length) return who;
+  return `${who}, except as changed here: ${id.edits.join('; ')}; the attached drawn views show the change`;
 }

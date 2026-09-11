@@ -7,6 +7,7 @@ import {
   getPresenterDraft,
   listPresenterDrafts,
   openPresenterEdit,
+  planStep,
   redoView,
   restoreView,
   stopPresenterDraft,
@@ -16,7 +17,7 @@ import {
   usePhotoForView,
   type PresenterDraftRecord,
 } from '../presenterDrafts.js';
-import type { PresenterView } from '../presenterPrompts.js';
+import { PRESENTER_VIEWS, type PresenterView } from '../presenterPrompts.js';
 import type { ThumbStore } from '../thumbs.js';
 import { makeBuildDeps, type BuildRouteDeps } from './assetBuilds.js';
 
@@ -73,6 +74,7 @@ export function registerPresenterDraftRoutes(
         source: body.source === 'synthetic' ? 'synthetic' : 'photos',
         direction: body.direction == null ? undefined : String(body.direction),
         keep: body.keep == null ? undefined : String(body.keep),
+        keepItems: body.keepItems,
         detailRefs: body.detailRefs,
         imageHashes: Array.isArray(body.imageHashes) ? body.imageHashes.map((h: unknown) => String(h)) : [],
         attestation: body.attestation === true,
@@ -112,10 +114,48 @@ export function registerPresenterDraftRoutes(
         facets: body.facets,
         direction: body.direction,
         keep: body.keep,
+        keepItems: body.keepItems,
         detailRefs: body.detailRefs,
         extras: body.extras,
       }),
     );
+  });
+  /**
+   * What this view would be drawn from, as it stands. Dev only.
+   *
+   * A normal shot can be inspected before it is drawn (POST /api/brief/preview);
+   * the presenter studio was the one generation path with no equivalent, so
+   * every claim about what reached the engine was a claim about the code
+   * rather than about a run. Gated on SCENRI_DEBUG like the transport
+   * manifest, and it draws nothing: planStep is pure.
+   */
+  app.get('/api/brands/:id/presenter-drafts/:draftId/views/:view/plan', async (req, reply) => {
+    if (!process.env.SCENRI_DEBUG) return reply.status(404).send({ error: 'not found' });
+    const draft = draftOr404(req, reply);
+    if (!draft) return;
+    const view = viewOf(req);
+    if (!(PRESENTER_VIEWS as readonly string[]).includes(view))
+      return reply.status(400).send({ error: 'no such view' });
+    return answer(reply, async () => {
+      const { engine } = await buildDeps();
+      const cap = engine?.capabilities().maxReferenceImages ?? 0;
+      const adjustment = (req.query as any)?.adjustment;
+      const step = planStep(draft, view, adjustment == null ? undefined : String(adjustment), cap);
+      return {
+        view,
+        cap,
+        ...step,
+        held: {
+          source: draft.source,
+          direction: draft.direction ?? '',
+          keep: draft.keep ?? '',
+          detailRefs: draft.detailRefs ?? null,
+          identityEdits: draft.identityEdits ?? [],
+          analysis: draft.analysis ?? null,
+          sources: draft.sources,
+        },
+      };
+    });
   });
   app.post('/api/brands/:id/presenter-drafts/:draftId/views/:view/generate', async (req, reply) => {
     const draft = draftOr404(req, reply);

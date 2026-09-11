@@ -24,8 +24,7 @@ import {
   answerPatch,
   attachedWords,
   compileDirection,
-  compileKeep,
-  compileRefs,
+  compileItems,
   composerFor,
   editCost,
   flowContext,
@@ -280,13 +279,11 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     setBusySetup(true);
     setAskErr(null);
     try {
-      const keep = compileKeep(st.answers);
-      const refs = compileRefs(st.answers);
+      const items = compileItems(st.answers);
       const draft = await api.createPresenterDraft(brand.id, {
         source: 'synthetic',
         direction: compileDirection(st.answers),
-        ...(keep ? { keep } : {}),
-        ...(Object.keys(refs).length ? { detailRefs: refs } : {}),
+        ...(items.length ? { keepItems: items } : {}),
       });
       if (stateRef.current.revision !== rev) {
         void api.deletePresenterDraft(brand.id, draft.id).catch(() => undefined);

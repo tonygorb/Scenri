@@ -45,6 +45,10 @@ import {
   VIEW_LABEL,
   EXTRA_VIEWS,
   PRESENTER_VIEWS,
+  identityOf,
+  itemsFor,
+  type KeepItem,
+  keepSentenceOf,
   studioPrompt,
   keepFor,
   syntheticIdentitySubject,
@@ -129,9 +133,23 @@ export interface PresenterDraftRecord {
    */
   keep?: string;
   /**
+   * The same, one thing at a time, which is the form that survives.
+   *
+   * `keep` is the sentence they make and is kept in step with them for
+   * anything that reads a draft as words; this is the truth. A sentence has
+   * one length and a cap cuts it wherever it lands, so four details joined
+   * once reached the store as "in place of their le" with the side gone. Each
+   * item is capped on its own, and carries its own pictures, so which detail
+   * a picture belongs to survives too.
+   */
+  keepItems?: KeepItem[];
+  /**
    * Pictures of the details themselves, by detail: a pair of frames, a
    * tattoo's design. Drawn from with the `detail` role, which takes the thing
    * and nothing of whoever is wearing it in the picture.
+   *
+   * Derived from `keepItems` whenever those are given, so the two cannot
+   * disagree about which picture belongs to which detail.
    */
   detailRefs?: Record<string, string[]>;
   name: string;
@@ -223,6 +241,10 @@ function fromRow(row: { id: string; brandId: string; json: unknown; createdAt: s
   };
   if (j.direction) rec.direction = String(j.direction);
   if (j.keep) rec.keep = String(j.keep);
+  // A draft stored before items existed holds only the sentence; it is read
+  // back as items the first time it is asked for, never rewritten in place.
+  const keepItems = keepItemsOf(j.keepItems);
+  if (keepItems) rec.keepItems = keepItems;
   const detailRefs = detailRefsOf(j.detailRefs);
   if (detailRefs) rec.detailRefs = detailRefs;
   if (j.attestation) rec.attestation = j.attestation;
@@ -349,6 +371,55 @@ export function sweepPresenterDrafts(core: Core): number {
   return swept;
 }
 
+/** How much of one kept thing is stored, and how many of them. */
+const KEEP_ITEM_CHARS = 200;
+const KEEP_ITEMS_MAX = 12;
+
+/**
+ * The kept things, each carried whole.
+ *
+ * The cap is per item, which is the whole point of the shape: the sentence
+ * they used to arrive as was capped at 240 and the cut landed mid-clause, so
+ * the last detail chosen was the first one lost and "in place of their left
+ * arm" became "in place of their le". Two hundred characters is more than
+ * twice the longest thing the rows can produce, and an item longer than that
+ * loses its own tail rather than somebody else's.
+ */
+function keepItemsOf(raw: unknown, has?: (h: string) => boolean): KeepItem[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: KeepItem[] = [];
+  const seen = new Set<string>();
+  for (const r of raw.slice(0, KEEP_ITEMS_MAX)) {
+    if (!r || typeof r !== 'object') continue;
+    const words = str((r as { words?: unknown }).words, KEEP_ITEM_CHARS);
+    if (!words) continue;
+    let id = str((r as { id?: unknown }).id, 40) || 'said';
+    while (seen.has(id)) id = `${id}+`;
+    seen.add(id);
+    const refs = (Array.isArray((r as { refs?: unknown }).refs) ? ((r as { refs: unknown[] }).refs as unknown[]) : [])
+      .map(String)
+      .filter((h) => HASH.test(h) && (!has || has(h)))
+      .slice(0, 4);
+    out.push(refs.length ? { id, words, refs } : { id, words });
+  }
+  return out;
+}
+
+/**
+ * The sentence and the picture map the items make.
+ *
+ * Written beside the items rather than derived at every read, so anything
+ * that still reads a draft as words (the save, a client, a test) sees the
+ * same thing the prompts do, and the two cannot drift apart.
+ */
+function writeItems(r: PresenterDraftRecord, items: KeepItem[]): void {
+  r.keepItems = items.length ? items : undefined;
+  r.keep = keepSentenceOf(items) || undefined;
+  const refs: Record<string, string[]> = {};
+  for (const i of items) if (i.refs?.length) refs[i.id] = i.refs;
+  r.detailRefs = Object.keys(refs).length ? refs : undefined;
+}
+
 /** Pictures of the details, by detail: a few hashes each, and only ones that are here. */
 function detailRefsOf(raw: unknown, has?: (h: string) => boolean): Record<string, string[]> | undefined {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
@@ -375,6 +446,8 @@ export interface CreateDraftInput {
   direction?: string;
   /** What should stay the same about them, in their own words. */
   keep?: string;
+  /** The same, one thing at a time. Given, these win: see writeItems. */
+  keepItems?: KeepItem[];
   /** Pictures of the details themselves, by detail. */
   detailRefs?: Record<string, string[]>;
   imageHashes?: string[];
@@ -396,6 +469,7 @@ export async function createPresenterDraft(
   const source: PresenterSource = input.source === 'synthetic' ? 'synthetic' : 'photos';
   const direction = str(input.direction, 400);
   const keep = str(input.keep, 240);
+  const keepItems = keepItemsOf(input.keepItems, (h) => core.images.has(h));
   const sources = (input.imageHashes ?? []).map(String).filter((h) => HASH.test(h) && core.images.has(h));
   if (source === 'synthetic' && !direction) throw fail('describe who they are in a sentence', 400);
   // A person from a description is nothing but what an engine draws.
@@ -428,9 +502,12 @@ export async function createPresenterDraft(
     createdAt: '',
     updatedAt: '',
   };
-  if (keep) rec.keep = keep;
-  const detailRefs = detailRefsOf(input.detailRefs, (h) => core.images.has(h));
-  if (detailRefs) rec.detailRefs = detailRefs;
+  if (keepItems) writeItems(rec, keepItems);
+  else {
+    if (keep) rec.keep = keep;
+    const detailRefs = detailRefsOf(input.detailRefs, (h) => core.images.has(h));
+    if (detailRefs) rec.detailRefs = detailRefs;
+  }
   if (source === 'synthetic') rec.direction = direction;
   else {
     rec.attestation = { attestedAt: new Date().toISOString(), version: LIKENESS_VERSION };
@@ -864,9 +941,10 @@ async function drawView(
  * the same about them. The second half is the person's own words, so a scar or
  * a pair of glasses is drawn into the face rather than described beside it.
  */
-export function rolledFrom(rec: Pick<PresenterDraftRecord, 'direction' | 'keep'>): string {
-  const said = (rec.direction ?? '').trim().replace(/[.\s]+$/, '');
-  const keep = keepFor('portrait', rec.keep);
+export function rolledFrom(rec: Pick<PresenterDraftRecord, 'direction' | 'keep' | 'keepItems'>): string {
+  const id = identityOf(rec);
+  const said = id.said.replace(/[.\s]+$/, '');
+  const keep = keepFor('portrait', id.items);
   if (!keep) return said;
   return said ? `${said}, ${keep}` : keep;
 }
@@ -895,54 +973,72 @@ export function planStep(
   view: PresenterView,
   adjustment: string | undefined,
   cap: number,
-): { prompt: string; refs: string[]; roles: RefRole[] } {
+): { prompt: string; refs: string[]; roles: RefRole[]; dropped: string[] } {
   const slot = rec.views[view];
-  // The pictures of the details ride after the pictures of the person, in
-  // whatever room the budget leaves: a reference for a pair of frames never
-  // costs the face its place.
-  const details = [...new Set(Object.values(rec.detailRefs ?? {}).flat())];
-  const withDetails = (identity: string[]) => {
-    const room = Math.max(0, Math.max(1, cap) - identity.length);
-    const extra = details.filter((h) => !identity.includes(h)).slice(0, room);
-    return {
-      refs: [...identity, ...extra],
-      roles: [...identity.map((): RefRole => 'character'), ...extra.map((): RefRole => 'detail')],
-    };
-  };
-  // The identity roll: nothing to condition on but the sentence, unless the
+  const id = identityOf(rec);
+  const room = Math.max(1, cap);
+  // Only the details this view could show: a picture of a pair of frames is
+  // worth nothing to a back view, and a face crop cannot use one of a
+  // forearm tattoo.
+  const shown = itemsFor(view, id.items);
+  // A draft written before items carries its pictures in a flat map with
+  // nothing saying which detail each one is of. They still ride, on every
+  // view: the association is not recoverable from it, and losing the picture
+  // is worse than not being able to name it.
+  const wanted = rec.keepItems
+    ? [...new Set(shown.flatMap((i) => i.refs ?? []))]
+    : [...new Set(Object.values(rec.detailRefs ?? {}).flat())];
+
+  // The identity roll conditions on nothing but the sentence, unless the
   // person is being nudged, in which case the candidate rides so a nudge
-  // keeps the person and a new roll does not.
-  if (rec.source === 'synthetic' && view === 'portrait') {
-    const nudge = adjustment && slot.hash ? [slot.hash] : [];
-    return {
-      prompt: studioPrompt(
-        syntheticIdentitySubject(rolledFrom(rec), { adjustment: nudge.length ? adjustment : undefined }),
-      ),
-      ...withDetails(nudge),
-    };
+  // keeps the person and a new roll does not. Every other view rides the
+  // approved views in dependency order, then the photographs.
+  const roll = rec.source === 'synthetic' && view === 'portrait';
+  const identity: string[] = [];
+  if (roll) {
+    if (adjustment && slot.hash) identity.push(slot.hash);
+  } else {
+    for (const dep of refDeps(rec, view)) {
+      const h = rec.views[dep].hash;
+      if (h && rec.views[dep].status === 'approved' && !identity.includes(h)) identity.push(h);
+    }
+    for (const h of rec.sources) if (!identity.includes(h)) identity.push(h);
   }
-  // Approved views first, in dependency order, then the photographs the
-  // draft started from, inside the engine's budget.
-  const refs: string[] = [];
-  for (const dep of refDeps(rec, view)) {
-    const h = rec.views[dep].hash;
-    if (h && rec.views[dep].status === 'approved' && !refs.includes(h)) refs.push(h);
-  }
-  for (const h of rec.sources) if (!refs.includes(h)) refs.push(h);
-  // The record's words, with the identity edits accepted in this session
-  // after them; with no words yet, the edits still ride so a photo person's
-  // later views follow the change rather than the originals.
-  const edits = rec.identityEdits ?? [];
-  const keep = keepFor(view, rec.keep);
-  const words =
-    rec.analysis || edits.length || keep
-      ? { ...(rec.analysis ?? { promptName: ATTACHED_PERSON }), identityEdits: edits, keep }
-      : null;
-  const who = whoIs(rec.name || 'this person', words);
-  const subject = adjustment
-    ? `${viewSubject(view, who)}, and for this view only: ${adjustment}`
-    : viewSubject(view, who);
-  return { prompt: studioPrompt(subject), ...withDetails(refs.slice(0, Math.max(1, cap))) };
+
+  // One seat is held for a detail when the budget is already full. Without
+  // it a person built from four photographs spent the whole budget on
+  // identity and the picture of their prosthetic reached no view at all,
+  // which is the one thing it was attached for. The seat comes off the end
+  // of the list, which is the last photograph, never an approved view: those
+  // are what the person is.
+  const hold = wanted.length && identity.length >= room ? 1 : 0;
+  const kept = identity.slice(0, Math.max(1, room - hold));
+  const extra = wanted.filter((h) => !kept.includes(h)).slice(0, Math.max(0, room - kept.length));
+  // What could not ride, and why. Nobody is shown this; it exists so that
+  // "the reference was sent" is something that can be checked rather than
+  // assumed.
+  const dropped = [
+    ...identity.slice(kept.length).map((h) => `identity ${h}: no room`),
+    ...wanted.filter((h) => !kept.includes(h) && !extra.includes(h)).map((h) => `detail ${h}: no room`),
+    ...id.items
+      .filter((i) => i.refs?.length && !shown.includes(i))
+      .map((i) => `detail ${i.id}: not shown in this view`),
+  ];
+  const refs = [...kept, ...extra];
+  const roles: RefRole[] = [...kept.map((): RefRole => 'character'), ...extra.map((): RefRole => 'detail')];
+  // Which detail picture is which. Flattened into one anonymous list they
+  // arrived as several pictures with nothing saying what any of them was of.
+  const named = shown.filter((i) => (i.refs ?? []).some((h) => extra.includes(h)));
+  const legend = named.length
+    ? ` The attached detail pictures show, in this order: ${named.map((i) => i.words).join('; ')}.`
+    : '';
+  const who = whoIs(id, view);
+  const subject = roll
+    ? syntheticIdentitySubject(rolledFrom(rec), { adjustment: kept.length ? adjustment : undefined })
+    : adjustment
+      ? `${viewSubject(view, who)}, and for this view only: ${adjustment}`
+      : viewSubject(view, who);
+  return { prompt: studioPrompt(subject) + legend, refs, roles, dropped };
 }
 
 /* ---------------------------------------------------------------- decide */
@@ -1130,6 +1226,7 @@ export async function updatePresenterDraft(
     facets?: unknown;
     direction?: unknown;
     keep?: unknown;
+    keepItems?: unknown;
     detailRefs?: unknown;
     extras?: unknown;
   },
@@ -1143,8 +1240,15 @@ export async function updatePresenterDraft(
         .filter(Boolean)
         .slice(0, 8);
     if (patch.direction !== undefined) r.direction = str(patch.direction, 400) || undefined;
-    if (patch.keep !== undefined) r.keep = str(patch.keep, 240) || undefined;
-    if (patch.detailRefs !== undefined) r.detailRefs = detailRefsOf(patch.detailRefs, (h) => core.images.has(h));
+    // Items are the truth and bring the sentence and the picture map with
+    // them; the two older fields are still taken on their own so a client
+    // that has not moved yet keeps working.
+    const items = keepItemsOf(patch.keepItems, (h) => core.images.has(h));
+    if (items) writeItems(r, items);
+    else {
+      if (patch.keep !== undefined) r.keep = str(patch.keep, 240) || undefined;
+      if (patch.detailRefs !== undefined) r.detailRefs = detailRefsOf(patch.detailRefs, (h) => core.images.has(h));
+    }
   });
 }
 

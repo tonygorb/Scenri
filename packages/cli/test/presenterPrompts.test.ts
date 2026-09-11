@@ -5,6 +5,7 @@ import {
   EXTRA_VIEWS,
   PRESENTER_VIEWS,
   STUDIO_SET,
+  identityOf,
   keepFor,
   sideNote,
   studioPrompt,
@@ -116,35 +117,69 @@ describe('a person from a description', () => {
   });
 });
 
+/** A read of the approved face, as identityOf hands it to whoIs. */
+const read = (analysis: Record<string, string>, rest: Record<string, unknown> = {}) =>
+  identityOf({ analysis, ...rest });
+/** Their own words, one item each. */
+const kept = (...words: string[]) => words.map((w, i) => ({ id: `k${i}`, words: w }));
+
 describe('whoIs', () => {
   it('names the person from the record, hair once, notes after', () => {
-    expect(whoIs('Mara', null)).toBe('the exact person in the attached photographs');
+    expect(whoIs(null, 'front')).toBe('the exact person in the attached photographs');
     expect(
-      whoIs('Mara', {
-        promptName: 'a woman with dark waves',
-        hair: 'dark waves',
-        identityNotes: 'the wide-set eyes must survive',
-      }),
+      whoIs(
+        read({
+          promptName: 'a woman with dark waves',
+          hair: 'dark waves',
+          identityNotes: 'the wide-set eyes must survive',
+        }),
+        'front',
+      ),
     ).toBe('a woman with dark waves, the wide-set eyes must survive');
-    expect(whoIs('Mara', { promptName: 'a woman', hair: 'silver crop', identityNotes: '' })).toBe(
+    expect(whoIs(read({ promptName: 'a woman', hair: 'silver crop', identityNotes: '' }), 'front')).toBe(
       'a woman, silver crop',
+    );
+  });
+
+  it('keeps what the person said beside what was read off the face', () => {
+    // the half a face crop cannot see: a build is described, never read off a
+    // portrait, and the full body view used to be told only what was read
+    const id = identityOf({
+      direction: 'a man in his 30s, tan skin, a full build',
+      analysis: { promptName: 'a man in his thirties with auburn waves', hair: 'chin-length auburn' },
+    });
+    const who = whoIs(id, 'front');
+    // the approved face leads, because it was decided
+    expect(who.startsWith('a man in his thirties with auburn waves')).toBe(true);
+    expect(who).toContain('chin-length auburn');
+    expect(who).toContain('a full build');
+    // with nothing read, the description still carries every view on its own
+    expect(whoIs(identityOf({ direction: 'a man in his 30s, a full build' }), 'left')).toBe(
+      'a man in his 30s, a full build',
     );
   });
 
   it('carries the accepted identity edits as one clause after the record, so later views follow the change', () => {
     expect(
-      whoIs('Mara', {
-        promptName: 'a woman with dark waves',
-        hair: 'dark waves',
-        identityNotes: 'the wide-set eyes must survive',
-        identityEdits: ['shorter hair', 'no glasses'],
-      }),
+      whoIs(
+        read(
+          {
+            promptName: 'a woman with dark waves',
+            hair: 'dark waves',
+            identityNotes: 'the wide-set eyes must survive',
+          },
+          { identityEdits: ['shorter hair', 'no glasses'] },
+        ),
+        'front',
+      ),
     ).toBe(
       'a woman with dark waves, the wide-set eyes must survive, except as changed here: shorter hair; no glasses; the attached drawn views show the change',
     );
-    expect(whoIs('Mara', { promptName: 'a woman', identityEdits: [] })).toBe('a woman');
-    expect(whoIs('Mara', { promptName: '', identityEdits: ['shorter hair'] })).toBe(
-      'Mara, except as changed here: shorter hair; the attached drawn views show the change',
+    expect(whoIs(read({ promptName: 'a woman' }, { identityEdits: [] }), 'front')).toBe('a woman');
+    // a name is what they are called, never what they look like: with nothing
+    // described and nothing read, the frames are the whole answer
+    expect(whoIs(read({ promptName: '' }, { identityEdits: ['shorter hair'] }), 'front')).toBe(
+      'the exact person in the attached photographs, except as changed here: shorter hair; the attached drawn views show the change',
     );
   });
 });
@@ -191,18 +226,23 @@ describe('an ask on the face', () => {
 
 describe('what stays the same about them', () => {
   it('is said in their own words, before any later change', () => {
-    const plain = whoIs('Maren', { promptName: 'a woman in her 30s' });
+    const plain = whoIs(read({ promptName: 'a woman in her 30s' }), 'front');
     // with nothing kept, the words are exactly what they were
     expect(plain).toBe('a woman in her 30s');
-    const kept = whoIs('Maren', { promptName: 'a woman in her 30s', keep: 'thin black glasses' });
-    expect(kept).toContain('a woman in her 30s, who also has thin black glasses');
-    expect(kept).toContain('drawn in this view whether or not the attached images show it');
+    const withKeep = whoIs(
+      read({ promptName: 'a woman in her 30s' }, { keepItems: kept('thin black glasses') }),
+      'front',
+    );
+    expect(withKeep).toContain('a woman in her 30s, who also has thin black glasses');
+    expect(withKeep).toContain('drawn in this view whether or not the attached images show it');
     // a later change still reads last, so the newest instruction wins
-    const both = whoIs('Maren', {
-      promptName: 'a woman in her 30s',
-      keep: 'thin black glasses',
-      identityEdits: ['shorter hair'],
-    });
+    const both = whoIs(
+      read(
+        { promptName: 'a woman in her 30s' },
+        { keepItems: kept('thin black glasses'), identityEdits: ['shorter hair'] },
+      ),
+      'front',
+    );
     expect(both.indexOf('who also has')).toBeLessThan(both.indexOf('except as changed here'));
     expect(both).toContain('except as changed here: shorter hair; the attached drawn views show the change');
   });
@@ -210,27 +250,30 @@ describe('what stays the same about them', () => {
   it('says whose left it is, only when a side is named', () => {
     expect(sideNote('a floral tattoo on her right forearm')).toContain('their own left and right');
     expect(sideNote('a septum piercing')).toBe('');
-    expect(whoIs('Ilse', { promptName: 'a woman', keep: 'a scar through her left eyebrow' })).toContain(
-      'their own left and right',
-    );
+    expect(
+      whoIs(read({ promptName: 'a woman' }, { keepItems: kept('a scar through her left eyebrow') }), 'front'),
+    ).toContain('their own left and right');
   });
 
   it('goes to the views that can show it, and no further', () => {
-    const face = 'thin black glasses and a scar through her left eyebrow';
+    const face = 'thin black glasses';
     const body = 'a floral tattoo on her right forearm';
-    const both = 'thin black glasses and a tattoo on her right forearm';
+    const unplaceable = 'she is always in silver';
     // a face is not in a back view, and a forearm is not in a head-and-shoulders portrait
-    expect(keepFor('back', face)).toBeUndefined();
-    expect(keepFor('portrait', face)).toBe(face);
-    expect(keepFor('portrait', body)).toBeUndefined();
-    expect(keepFor('front', body)).toBe(body);
-    expect(keepFor('back', body)).toBe(body);
+    expect(keepFor('back', kept(face))).toBe('');
+    expect(keepFor('portrait', kept(face))).toBe(face);
+    expect(keepFor('portrait', kept(body))).toBe('');
+    expect(keepFor('front', kept(body))).toBe(body);
+    expect(keepFor('back', kept(body))).toBe(body);
+    // judged one item at a time: a face detail and a body detail together used
+    // to read as both, so the forearm was asked for in a portrait crop
+    expect(keepFor('portrait', kept(face, body))).toBe(face);
+    expect(keepFor('back', kept(face, body))).toBe(body);
+    expect(keepFor('front', kept(face, body))).toBe(`${face}, ${body}`);
     // anything we cannot place rides everywhere: leaving their words out is worse
     for (const v of PRESENTER_VIEWS) {
-      expect(keepFor(v, both)).toBe(both);
-      expect(keepFor(v, 'she is always in silver')).toBe('she is always in silver');
-      expect(keepFor(v, '   ')).toBeUndefined();
-      expect(keepFor(v, undefined)).toBeUndefined();
+      expect(keepFor(v, kept(unplaceable))).toBe(unplaceable);
+      expect(keepFor(v, [])).toBe('');
     }
   });
 

@@ -383,7 +383,9 @@ export interface PresenterDraft {
   direction?: string;
   /** What the person said should stay the same whenever this presenter appears. */
   keep?: string;
-  /** Pictures of the details themselves, by detail. */
+  /** The same, one thing at a time, which is the form the draft stores. */
+  keepItems?: { id: string; words: string; refs?: string[] }[];
+  /** Pictures of the details themselves, by detail. Derived from the items. */
   detailRefs?: Record<string, string[]>;
   name: string;
   facets: string[];

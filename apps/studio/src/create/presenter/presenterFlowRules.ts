@@ -165,15 +165,53 @@ export function compileDirection(a: Answers): string {
  * said at the last moment.
  */
 export function keepItems(a: Answers): string[] {
+  return compileItems(a).map((i) => i.words);
+}
+
+/**
+ * What the draft will store of one item, to the character.
+ *
+ * Mirrors the server (`keepItemsOf` in `presenterDrafts.ts`), and has to: the
+ * flow asks the draft to hold what the answers say and stops asking once it
+ * does, so a cap only one side applies is a question that can never be
+ * answered. `presenterKeepParity.test.ts` reads both files and fails if they
+ * drift.
+ */
+const KEEP_ITEM_CHARS = 200;
+const KEEP_ITEMS_MAX = 12;
+
+/** One thing kept, as the draft stores it: what it is, and the pictures of it. */
+export interface KeptItem {
+  id: string;
+  words: string;
+  refs?: string[];
+}
+
+/**
+ * Everything that stays the same about them, one item at a time.
+ *
+ * The list is the thing that travels. Joined into a sentence it used to be
+ * cut to length wherever the cut landed, which took the last detail chosen
+ * and severed the side off the one before it; and flattened into a map of
+ * pictures, nothing said which picture was of which detail. Both problems are
+ * the same problem, so both are fixed by the same shape.
+ */
+export function compileItems(a: Answers): KeptItem[] {
   const details = traitDetails(a);
+  const item = (id: string, words: string, refs?: string[]): KeptItem => ({
+    id,
+    words: words.slice(0, KEEP_ITEM_CHARS),
+    ...(refs?.length ? { refs: refs.slice(0, 4) } : {}),
+  });
+  const items: KeptItem[] = [];
+  for (const id of inTableOrder(a.traits ?? [])) {
+    const one = details[id];
+    const words = one ? traitSentence(id, one) : '';
+    if (words) items.push(item(id, words, one?.refs));
+  }
   const said = (a.keep?.words ?? '').trim();
-  const items = inTableOrder(a.traits ?? [])
-    .map((id) => {
-      const one = details[id];
-      return one ? traitSentence(id, one) : '';
-    })
-    .filter(Boolean);
-  return said ? [...items, said] : items;
+  if (said) items.push(item('said', said, a.keep?.refs));
+  return items.slice(0, KEEP_ITEMS_MAX);
 }
 
 /**

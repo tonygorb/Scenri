@@ -1,7 +1,7 @@
 import type { PresenterDraft } from '../../api.js';
 import type { CreationState } from './creationState.js';
 import { readyToDraw } from './creationState.js';
-import { compileDirection, compileKeep, compileRefs, seedFromDraft } from './presenterFlowRules.js';
+import { compileDirection, compileItems, type KeptItem, seedFromDraft } from './presenterFlowRules.js';
 import type { Answers, FlowContext } from './presenterQuestions.js';
 import { type DraftLike, type StudioView, autoFor, nextToDraw } from './presenterStudioRules.js';
 
@@ -34,12 +34,11 @@ export type Step =
 
 export interface SyncPatch {
   direction?: string;
-  keep: string;
-  detailRefs: Record<string, string[]>;
+  keepItems: KeptItem[];
 }
 
 /** The draft as the hook holds it: the rules' view of it, plus what a step is keyed by. */
-export type StepDraft = DraftLike & Pick<PresenterDraft, 'id' | 'generations' | 'detailRefs'>;
+export type StepDraft = DraftLike & Pick<PresenterDraft, 'id' | 'generations' | 'keepItems'>;
 
 export interface StepInputs {
   /**
@@ -78,17 +77,34 @@ export interface StepInputs {
 export function inStep(state: CreationState, d: StepDraft): boolean {
   return (
     (d.source !== 'synthetic' || (d.direction ?? '') === compileDirection(state.answers)) &&
-    (d.keep ?? '') === compileKeep(state.answers) &&
-    sameRefs(d.detailRefs, compileRefs(state.answers))
+    sameItems(d.keepItems, compileItems(state.answers))
   );
+}
+
+/**
+ * Whether the draft is holding these items.
+ *
+ * The words have to match exactly, and both sides cap them the same way so
+ * that is a question with an answer. The pictures only have to be a subset:
+ * the store is the authority on which hashes it holds, and it drops the ones
+ * it does not. Asking for a picture the server will not keep, forever, is how
+ * a draft used to sit in step with nothing.
+ */
+function sameItems(held: readonly KeptItem[] | undefined, want: readonly KeptItem[]): boolean {
+  const has = held ?? [];
+  if (has.length !== want.length) return false;
+  return want.every((w, i) => {
+    const h = has[i];
+    if (!h || h.id !== w.id || h.words !== w.words) return false;
+    return (h.refs ?? []).every((r) => (w.refs ?? []).includes(r));
+  });
 }
 
 /** What a sync tells the draft. */
 export function syncPatch(state: CreationState, d: DraftLike): SyncPatch {
   return {
     ...(d.source === 'synthetic' ? { direction: compileDirection(state.answers) } : {}),
-    keep: compileKeep(state.answers),
-    detailRefs: compileRefs(state.answers),
+    keepItems: compileItems(state.answers),
   };
 }
 
@@ -162,6 +178,3 @@ export function stepKey(step: Step, i: StepInputs): string {
     }
   }
 }
-
-const sameRefs = (x: Record<string, string[]> | undefined, y: Record<string, string[]>) =>
-  JSON.stringify(x ?? {}) === JSON.stringify(y);
