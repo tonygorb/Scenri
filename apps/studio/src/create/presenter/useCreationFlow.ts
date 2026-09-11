@@ -23,8 +23,10 @@ import {
   activeQuestion,
   answerPatch,
   attachedWords,
+  asKept,
   compileDirection,
   compileItems,
+  stepHolds,
   composerFor,
   editCost,
   flowContext,
@@ -656,7 +658,21 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           bounce(typed, asideReply(empty, voice(target), again(target, empty), typed, step), target, empty);
           return true;
         }
-        commitAnswer({ [target]: chosen && typed ? `${chosen} ${typed}` : sentence });
+        const value = chosen && typed ? `${chosen} ${typed}` : sentence;
+        // A fact about a person is a fact about them wherever it was typed.
+        // Told "he has a left prosthetic arm" at "Who are they?", this used to
+        // take it as the answer and then lose it: that row compiles through a
+        // fixed set, so the words went nowhere and the read-back said "a
+        // person". What the step cannot hold is kept about them instead, and
+        // the step stays open, because it still has not been answered.
+        if (typed && !stepHolds(st.answers, target, value, typed)) {
+          const had = st.answers.keep;
+          commitAnswer({
+            keep: { words: [had?.words?.trim(), asKept(typed)].filter(Boolean).join(', '), refs: had?.refs ?? [] },
+          });
+          return true;
+        }
+        commitAnswer({ [target]: value });
         return true;
       }
       const open = question?.id ?? null;

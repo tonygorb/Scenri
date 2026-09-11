@@ -7,8 +7,10 @@ import {
   answerPatch,
   attachedWords,
   compileDirection,
+  compileItems,
   compileKeep,
   compileRefs,
+  stepHolds,
   composerFor,
   editCost,
   flowContext,
@@ -786,5 +788,29 @@ describe('what was said in passing', () => {
       canGenerate: true,
     });
     expect(flowContext(null, false)).toEqual({ draft: null, canGenerate: false });
+  });
+});
+
+describe('a step that cannot hold what was typed into it', () => {
+  const tapped: Answers = { source: { door: 'scratch', via: 'taps' } };
+
+  it('knows when the compile keeps the words, and when it drops them', () => {
+    // the rows that take any words at all keep them
+    expect(stepHolds(tapped, 'look-hair', 'dark auburn', 'dark auburn')).toBe(true);
+    expect(stepHolds(tapped, 'look-length', 'a long pony tail', 'a long pony tail')).toBe(true);
+    // and the row that compiles through a fixed set does not
+    expect(stepHolds(tapped, 'look-who', 'he has a left prosthetic arm', 'he has a left prosthetic arm')).toBe(false);
+    // one of its own answers is held, which is the point of the row
+    expect(stepHolds(tapped, 'look-who', 'woman', 'woman')).toBe(true);
+  });
+
+  it('keeps what the step dropped, rather than losing it', () => {
+    // the reported shape: said at the first question, gone by the read-back
+    const said = 'he has a left prosthetic arm';
+    expect(compileDirection({ ...tapped, 'look-who': said } as Answers)).not.toContain('prosthetic');
+    // kept about them instead, it reaches the sentence every view is built on
+    const kept: Answers = { ...tapped, keep: { words: said, refs: [] } };
+    expect(compileKeep(kept)).toBe(said);
+    expect(compileItems(kept)).toEqual([{ id: 'said', words: said }]);
   });
 });

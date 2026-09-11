@@ -106,6 +106,20 @@ interface Spec {
   dependsOn?: { on: Qid; changed?: (before: unknown, after: unknown) => boolean }[];
   /** The question never blocks: the flow goes on without an answer. */
   optional?: boolean;
+  /**
+   * Not taken back by a change earlier in the run.
+   *
+   * The order rule below is the semantic of this conversation and holds for
+   * every question that is a reply: one given halfway up was given to a run
+   * that no longer stands, so it is asked again. It has exactly one
+   * exception, and `keep` is it. Nothing asks for what is in it, so there is
+   * no question to ask again: a fact volunteered about the person would
+   * simply be gone, and gone silently, which is how somebody could say "he
+   * has a prosthetic left arm", watch it land in the conversation, change
+   * their mind about a hair colour, and have it not be true of the presenter
+   * any more. It still goes when it no longer applies.
+   */
+  sticky?: true;
 }
 
 const scratch = (a: Answers) => a.source?.door === 'scratch';
@@ -196,7 +210,7 @@ export const SPECS: readonly Spec[] = [
     },
   ]),
   // what else stays true of them, in their own words: never required
-  { id: 'keep', applies: scratch, ready: traitsDone, optional: true },
+  { id: 'keep', applies: scratch, ready: traitsDone, optional: true, sticky: true },
 ];
 
 const SPEC = new Map(SPECS.map((s) => [s.id, s]));
@@ -281,7 +295,7 @@ export function commit(a: Answers, patch: Partial<Answers>, ctx: FlowContext): A
     const order = SPECS.map((s) => s.id);
     const first = Math.min(...[...changed].map((id) => order.indexOf(id)));
     for (const s of SPECS) {
-      if (order.indexOf(s.id) <= first || given.has(s.id) || next[s.id] === undefined) continue;
+      if (order.indexOf(s.id) <= first || given.has(s.id) || next[s.id] === undefined || s.sticky) continue;
       delete next[s.id];
       changed.add(s.id);
     }

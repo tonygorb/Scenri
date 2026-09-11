@@ -50,6 +50,7 @@ import {
   descriptionGaps,
   inTableOrder,
   isLookQid,
+  type LookQid,
   isQid,
   lookOf,
   nextQuestion,
@@ -227,6 +228,44 @@ export function keepLine(a: Answers): string {
   const items = keepItems(a);
   if (items.length < 2) return items[0] ?? '';
   return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+/**
+ * Whether a step can actually hold what was typed into it.
+ *
+ * A row takes words as well as taps, and some rows can carry any words at
+ * all: a hair colour nobody named, a length said in their own way. Others
+ * cannot. "Who are they?" compiles through a fixed set, so a sentence typed
+ * at it was accepted, dropped on the floor by the compile, and the person was
+ * told nothing: the read-back said "a person" and the thing they had told us
+ * about them was gone.
+ *
+ * The test is the compile itself rather than a vocabulary per row, so a row
+ * added tomorrow needs nothing written here: if the words are not in what the
+ * answer compiles to, the answer could not hold them. Short words are ignored
+ * because "a" and "in" appear in every sentence ever compiled.
+ */
+/**
+ * A sentence about them, said as a thing they have.
+ *
+ * What is kept is read back as "and always X" and reaches a prompt as "who
+ * also has X", so a whole clause typed in passing lands as "and always he has
+ * a left prosthetic arm". The subject is dropped and the rest is theirs.
+ */
+export function asKept(text: string): string {
+  const said = text.trim().replace(/[.\s]+$/, '');
+  const bare = said.replace(/^(?:he|she|they|it)\s+(?:has|have|had|has got|have got|is|are|wears?|carries)\s+/i, '');
+  return bare || said;
+}
+
+export function stepHolds(a: Answers, id: LookQid, value: string, typed: string): boolean {
+  const said = typed
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 2);
+  if (!said.length) return true;
+  const made = compileDirection({ ...a, [id]: value }).toLowerCase();
+  return said.every((w) => made.includes(w));
 }
 
 /** The pictures of each detail, for the draft to draw them from. */

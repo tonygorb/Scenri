@@ -147,6 +147,24 @@ describe('the presenter questions, as one table', () => {
     expect(commit(a, { describe: 'tall with a hat' }, NO_DRAFT)).toEqual(a);
   });
 
+  it('keeps what they volunteered about the person when something above it changes', () => {
+    // the one exception to reading forward: nothing asks for this, so taking
+    // it back does not ask again, it simply loses it
+    const said = commit(
+      commit(TAPPED, { traits: [] }, NO_DRAFT),
+      { keep: { words: 'he has a prosthetic left arm', refs: [] } },
+      NO_DRAFT,
+    );
+    sound(said);
+    const b = commit(said, { 'look-hair': 'blonde' }, NO_DRAFT);
+    expect(b.keep?.words).toBe('he has a prosthetic left arm');
+    sound(b);
+    // and it still goes when the question it belongs to stops existing
+    const c = commit(said, { source: { door: 'photos', via: 'taps' } }, NO_DRAFT);
+    expect(c.keep).toBeUndefined();
+    sound(c);
+  });
+
   it('re-asks the details it still has when the choosing changes', () => {
     const three: Answers = {
       ...TAPPED,
