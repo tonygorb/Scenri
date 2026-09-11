@@ -1,6 +1,11 @@
 import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+
+// Resolved from this file, never from the working directory: run from the repo
+// root rather than the package and cwd-relative reads fail for no real reason.
+const STUDIO = join(dirname(fileURLToPath(import.meta.url)), '..');
 import {
   TRAITS,
   type TraitAnswers,
@@ -37,8 +42,8 @@ describe('the distinctive details a presenter can carry', () => {
     // the three have to agree, or a row shows a plate with nothing on it, or a
     // file rides in the bundle that nothing can ever choose.
     // vitest runs the studio from its own package root
-    const css = readFileSync(join(process.cwd(), 'src/styles/components/conversation.css'), 'utf8');
-    const art = new Set(readdirSync(join(process.cwd(), 'src/assets/traits')).map((f) => f.replace(/\.webp$/, '')));
+    const css = readFileSync(join(STUDIO, 'src/styles/components/conversation.css'), 'utf8');
+    const art = new Set(readdirSync(join(STUDIO, 'src/assets/traits')).map((f) => f.replace(/\.webp$/, '')));
     const wanted = new Set<string>();
     for (const t of TRAITS) {
       for (const o of t.options) {
@@ -60,7 +65,7 @@ describe('the distinctive details a presenter can carry', () => {
     // pair per card. Checking only that a rule exists leaves the pairing
     // unguarded: [data-card="scar-3"] naming scar-4.webp would pass, and a
     // person would choose one scar and be shown another.
-    const css = readFileSync(join(process.cwd(), 'src/styles/components/conversation.css'), 'utf8');
+    const css = readFileSync(join(STUDIO, 'src/styles/components/conversation.css'), 'utf8');
     const rules = [...css.matchAll(/\[data-card="([^"]+)"\]\s*\{[^}]*url\("[^"]*\/([^"/]+)\.webp"\)/g)];
     expect(rules.length).toBe(TRAITS.reduce((n, t) => n + t.options.length, 0));
     for (const [, card, file] of rules) expect(file).toBe(card);
