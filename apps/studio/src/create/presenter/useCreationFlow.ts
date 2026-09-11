@@ -446,7 +446,17 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     // never will: a half-changed answer later is somebody at work
     if (d && seededFor.current !== d.id && stepRef.current?.kind !== 'seed') seededFor.current = d.id;
     const todo = stepRef.current;
-    if (!todo || key === fired.current) return;
+    if (!todo) return;
+    if (key === fired.current) {
+      // The same sync asked for twice means the first one landed nothing: a
+      // server that answers and changes nothing is worse than one that fails,
+      // because the step would ask for the same thing forever and nothing on
+      // screen would say so. It is said once, and the asking stops.
+      if (todo.kind === 'sync' && !inflight.current) {
+        setAskErr('The draft did not take the change. The server may be out of date: restart it and try again.');
+      }
+      return;
+    }
     fired.current = key;
     switch (todo.kind) {
       case 'seed':
