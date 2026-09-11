@@ -137,7 +137,7 @@ export const TRAITS: Trait[] = [
       { id: 'a small geometric line tattoo', label: 'Geometric', card: 'tattoo-2' },
       { id: 'a floral tattoo in soft grey shading', label: 'Floral', card: 'tattoo-3' },
       { id: 'a bold traditional red rose tattoo with heavy black linework', label: 'Traditional', card: 'tattoo-4' },
-      { id: 'a solid blackwork tattoo', label: 'Blackwork', card: 'tattoo-5' },
+      { id: 'a solid blackwork snake tattoo in heavy black ink', label: 'Blackwork', card: 'tattoo-5' },
       { id: 'a small script tattoo in thin lettering', label: 'Script', card: 'tattoo-6' },
     ],
     saying: 'Describe the tattoo',
