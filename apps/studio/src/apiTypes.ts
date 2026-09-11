@@ -378,6 +378,27 @@ export interface PresenterDraftSlot {
   startedAt?: string;
 }
 /** A presenter being cast: the server's row, whole, on every answer. */
+/**
+ * An unfinished person, as a card needs them.
+ *
+ * Not the whole row: that carries every ask, result and decision of the
+ * conversation, and a library page drawing ten cards has no use for any of it.
+ */
+export interface PresenterDraftSummary {
+  id: string;
+  name: string;
+  source: 'synthetic' | 'photos';
+  updatedAt: string;
+  stage: 'idle' | 'analyzing' | 'drawing';
+  /** Set when this is an edit of somebody already saved, which is not unfinished work. */
+  presenterId?: string;
+  /** The best picture it has: the face, else a photograph it was given. */
+  hash?: string;
+  approved: number;
+  of: number;
+  drawing: boolean;
+}
+
 export interface PresenterDraft {
   id: string;
   brandId: string;

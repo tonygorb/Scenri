@@ -337,6 +337,59 @@ export function getPresenterDraft(core: Core, id: string): PresenterDraftRecord 
   return row ? fromRow(row) : null;
 }
 
+/**
+ * What a card needs to offer an unfinished person back.
+ *
+ * A row carries its whole conversation: every ask, every result, every
+ * decision. A library page drawing ten cards has no use for any of it, and
+ * hydrating ten conversations to render ten thumbnails is the kind of thing
+ * that makes a page feel slow for no reason anyone can see.
+ */
+export interface PresenterDraftSummary {
+  id: string;
+  name: string;
+  source: PresenterSource;
+  updatedAt: string;
+  stage: 'idle' | 'analyzing' | 'drawing';
+  /** Set when this is an edit of somebody already saved, which is not unfinished work. */
+  presenterId?: string;
+  /** The best picture it has: the face if it has one, else a photograph it was given. */
+  hash?: string;
+  /** Views decided so far, out of the set this draft is building. */
+  approved: number;
+  of: number;
+  drawing: boolean;
+}
+
+/** The face first, because that is the person; then anything else drawn; then their own photographs. */
+function bestPicture(rec: PresenterDraftRecord): string | undefined {
+  const drawn = PRESENTER_VIEWS.map((v) => rec.views[v]).find((s) => s.hash);
+  return rec.views.portrait.hash ?? drawn?.hash ?? rec.sources[0];
+}
+
+export function summarisePresenterDraft(rec: PresenterDraftRecord): PresenterDraftSummary {
+  const wanted = rec.extras ? PRESENTER_VIEWS : CORE_VIEWS;
+  const summary: PresenterDraftSummary = {
+    id: rec.id,
+    name: rec.name,
+    source: rec.source,
+    updatedAt: rec.updatedAt,
+    stage: rec.stage,
+    approved: wanted.filter((v) => rec.views[v].status === 'approved').length,
+    of: wanted.length,
+    drawing: rec.stage !== 'idle' || !!rec.activeView,
+  };
+  const hash = bestPicture(rec);
+  if (hash) summary.hash = hash;
+  if (rec.presenterId) summary.presenterId = rec.presenterId;
+  return summary;
+}
+
+/** The brand's unfinished people, newest first. */
+export function listPresenterDraftSummaries(core: Core, brandId: string): PresenterDraftSummary[] {
+  return listPresenterDrafts(core, brandId).map(summarisePresenterDraft);
+}
+
 export function listPresenterDrafts(core: Core, brandId: string): PresenterDraftRecord[] {
   return core.store.listPresenterDrafts(brandId).map(fromRow);
 }

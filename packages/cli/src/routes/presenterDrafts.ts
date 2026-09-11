@@ -5,7 +5,7 @@ import {
   discardPresenterDraft,
   generateView,
   getPresenterDraft,
-  listPresenterDrafts,
+  listPresenterDraftSummaries,
   openPresenterEdit,
   planStep,
   redoView,
@@ -87,7 +87,8 @@ export function registerPresenterDraftRoutes(
   app.get('/api/brands/:id/presenter-drafts', async (req, reply) => {
     const brand = brandOr404(req, reply);
     if (!brand) return;
-    return { drafts: listPresenterDrafts(core, brand.id) };
+    // Summaries: a library page draws cards, not conversations.
+    return { drafts: listPresenterDraftSummaries(core, brand.id) };
   });
   /**
    * Edit a saved person: the session already open on them, else one seeded

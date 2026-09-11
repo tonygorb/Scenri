@@ -284,14 +284,58 @@ export function compileRefs(a: Answers): Record<string, string[]> {
  */
 export function seedFromDraft(d: DraftLike): Answers {
   if (d.source === 'photos') {
-    return { source: { door: 'photos', via: 'taps' }, photos: { hashes: d.sources ?? [], attested: true } };
+    return {
+      source: { door: 'photos', via: 'taps' },
+      photos: { hashes: d.sources ?? [], attested: true },
+      ...keptBack(d),
+    };
   }
   // `gaps` is answered with the rest. A draft's own direction is settled,
   // however thin it reads, and the follow-up that asks what a thin description
   // left out would otherwise stand open over a draft that is ready to draw,
   // holding it there: the conversation asking to finish something that has
   // already begun.
-  return { source: { door: 'scratch', via: 'typed' }, describe: d.direction ?? '', gaps: 'skipped', traits: [] };
+  return {
+    source: { door: 'scratch', via: 'typed' },
+    describe: d.direction ?? '',
+    gaps: 'skipped',
+    traits: [],
+    ...keptBack(d),
+  };
+}
+
+/**
+ * The details a draft holds, read back as the answers that made them.
+ *
+ * This is why an item carries the row it came from. Without it a resumed page
+ * knew nothing of their glasses or their prosthetic limb, the flow saw answers
+ * that disagreed with the draft, and the sync it sent to put that right wrote
+ * the emptiness back: a person with six approved views came back from the
+ * library with their details gone and their face redrawn. Read back this way
+ * the answers already agree, so nothing is sent and nothing is redrawn.
+ */
+function keptBack(d: DraftLike): Partial<Answers> {
+  const items = d.keepItems ?? [];
+  if (!items.length) return {};
+  const out: Partial<Answers> = {};
+  const traits: TraitId[] = [];
+  let said: { words: string; refs: string[] } | undefined;
+  for (const item of items) {
+    const row = TRAITS.find((t) => t.id === item.id);
+    if (row) {
+      traits.push(row.id);
+      (out as Record<string, unknown>)[`trait-${row.id}`] = { words: item.words, refs: item.refs ?? [] };
+      continue;
+    }
+    // Anything that did not come from a row is what they said themselves.
+    said = {
+      words: [said?.words, item.words].filter(Boolean).join(', '),
+      refs: [...(said?.refs ?? []), ...(item.refs ?? [])],
+    };
+  }
+  out.traits = traits;
+  if (said) out.keep = said;
+  return out;
 }
 
 /** What the setup questions can see of the draft. */

@@ -83,6 +83,8 @@ export type DraftLike = Pick<PresenterDraft, 'source' | 'name' | 'views' | 'acti
   direction?: string;
   /** What the person said stays the same about them, in their own words. */
   keep?: string;
+  /** The same, one thing at a time, which is what a resumed page reads back. */
+  keepItems?: PresenterDraft['keepItems'];
   sources?: string[];
   analysis?: PresenterDraft['analysis'];
   readError?: string;

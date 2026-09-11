@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_STATE, NO_DRAFT } from '../src/create/presenter/creationState.ts';
-import { compileDirection, flowContext } from '../src/create/presenter/presenterFlowRules.ts';
+import {
+  compileDirection,
+  compileItems,
+  flowContext,
+  seedFromDraft,
+} from '../src/create/presenter/presenterFlowRules.ts';
 import type { Answers } from '../src/create/presenter/presenterQuestions.ts';
-import { type StepDraft, type StepInputs, nextStep, stepKey } from '../src/create/presenter/presenterSteps.ts';
+import { type StepDraft, type StepInputs, inStep, nextStep, stepKey } from '../src/create/presenter/presenterSteps.ts';
 import { emptySlot } from '../src/create/presenter/presenterStudioRules.ts';
 
 /**
@@ -193,5 +198,44 @@ describe('what the flow does next', () => {
     const s = inputs({ state: { ...EMPTY_STATE, answers: TYPED, revision: 4 } });
     const start = nextStep(s);
     expect(start && stepKey(start, s)).toBe('start:4');
+  });
+});
+
+describe('a draft opened again', () => {
+  const slot = (over: Record<string, unknown> = {}) => ({ status: 'empty', attempts: 0, rejected: [], ...over });
+  const finished = {
+    id: 'pd-1',
+    source: 'synthetic' as const,
+    name: 'Halden',
+    direction: 'a man in their 30s with cropped brown hair, light olive skin, an average build',
+    keepItems: [
+      { id: 'glasses', words: 'bold thick black rectangular acetate frames' },
+      { id: 'prosthetic', words: 'a glossy bright red mechanical prosthetic limb in place of their left arm' },
+      { id: 'said', words: 'a chipped front tooth' },
+    ],
+    generations: 6,
+    extras: false,
+    activeView: null,
+    stage: 'idle' as const,
+    views: {
+      portrait: slot({ status: 'approved', hash: 'p' }),
+      front: slot({ status: 'approved', hash: 'f' }),
+      'three-quarter': slot({ status: 'approved', hash: 't' }),
+      back: slot(),
+      left: slot(),
+      right: slot(),
+    },
+  } as never;
+
+  it('is already in step with what it holds, so nothing is sent and nothing is redrawn', () => {
+    // Read back with no details, the answers disagreed with the draft, the
+    // sync to put that right wrote the emptiness back, and the redraw that
+    // followed staled every view built on the face. Six approved views, gone.
+    const answers = seedFromDraft(finished);
+    expect(answers.traits).toEqual(['glasses', 'prosthetic']);
+    expect(answers.keep?.words).toBe('a chipped front tooth');
+    const state = { ...EMPTY_STATE, answers };
+    expect(compileItems(answers)).toEqual(finished.keepItems);
+    expect(inStep(state, finished)).toBe(true);
   });
 });

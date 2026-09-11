@@ -133,6 +133,24 @@
 .sc-lookcard[data-build] .sc-lookcard-cap span {
   color: var(--sc-fg3);
 }
+/* An unfinished person carries a face, and a face on a card reads as somebody
+   finished. The mark is what separates the two at a glance, quiet enough that
+   a wall of them is not a wall of labels. */
+.sc-draftmark {
+  position: absolute;
+  inset: 8px auto auto 8px;
+  padding: 2px 7px;
+  border-radius: var(--sc-radius-sm);
+  z-index: 3;
+  background: var(--sc-scrim);
+  color: var(--sc-scrim-fg);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
 /* What the build noticed on the way: a view it could not draw, or which photo
    would buy more consistency next time. Muted and under the caption, because
    none of it is an error — the asset still landed. */

@@ -42,6 +42,7 @@ import type {
   VersionInfo,
   Workspace,
   PresenterDraft,
+  PresenterDraftSummary,
   PresenterDraftView,
 } from './apiTypes.js';
 
@@ -246,7 +247,7 @@ export const api = {
     },
   ) => req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts`, p),
   presenterDrafts: (brandId: string) =>
-    req<{ drafts: PresenterDraft[] }>('GET', `/api/brands/${brandId}/presenter-drafts`),
+    req<{ drafts: PresenterDraftSummary[] }>('GET', `/api/brands/${brandId}/presenter-drafts`),
   presenterDraft: (brandId: string, draftId: string) =>
     req<PresenterDraft>('GET', `/api/brands/${brandId}/presenter-drafts/${draftId}`),
   updatePresenterDraft: (
