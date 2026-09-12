@@ -849,17 +849,41 @@ describe('the composer follows the state', () => {
   });
 });
 
+describe('an answer that was changed', () => {
+  it('stays where it was said, and the question is asked again under it', () => {
+    // A conversation is added to, never rewritten. The answer that was given
+    // keeps its place and its key, so the moment of the change moves nothing on
+    // screen; the run after it goes, and the question is asked again at the end.
+    const was = { id: 'look-length' as const, value: { pick: 'chin-length' }, at: '2026-01-01T00:00:01Z' };
+    const s = state({ ...TAPPED, 'look-length': undefined } as Answers, { past: [was] });
+    const k = keys(turns(s));
+    expect(k).toContain('you:look-length');
+    expect(k.at(-1)).toBe('q:look-length');
+    const bubble = turns(s).find((t) => t.kind === 'you' && t.id === 'look-length');
+    expect(bubble?.kind === 'you' && bubble.was).toBe(true);
+    expect(bubble?.kind === 'you' && bubble.text).toBe('Chin');
+    // answered again, the new line is its own, under what was said
+    const again = state({ ...TAPPED, 'look-length': { pick: 'long' } } as Answers, { past: [was] });
+    const k2 = keys(turns(again));
+    expect(k2.indexOf('you:look-length')).toBeLessThan(k2.indexOf('you:look-length:now1'));
+    const now = turns(again).find((t) => t.kind === 'you' && t.id === 'look-length:now1');
+    expect(now?.kind === 'you' && now.text).toBe('Long');
+    expect(now?.kind === 'you' && now.was).toBeUndefined();
+  });
+});
+
 describe('what was said in passing', () => {
   it('stays under the question it interrupted, and a waiting sentence stands last', () => {
     let s = reduce(state({ source: { door: 'scratch', via: 'taps' } }), {
       type: 'aside',
       aside: { said: 'hi', reply: 'Hi.', q: 'look-who', at: '2026-01-01T00:00:01Z' },
     });
-    // open: the aside follows the question
+    // open: what was said stands where it was said, and the question still
+    // being asked is the last line, with the controls to answer it
     expect(keys(turns(s)).slice(-3)).toEqual([
-      'q:look-who',
       'you:aside-said-2026-01-01T00:00:01Z',
       'scenri:aside-reply-2026-01-01T00:00:01Z',
+      'q:look-who',
     ]);
     // answered: it sits between the line and the answer
     s = reduce(s, { type: 'answer', patch: { 'look-who': { pick: 'woman' } }, ctx: NO_DRAFT });

@@ -10,7 +10,14 @@ import {
   isAsideTurn,
   openQuestionId,
 } from '../../conversation/question.js';
-import { type CreationState, UNSURE_LINE, asideEditAt, deserialize, isAsideEdit } from './creationState.js';
+import {
+  type CreationState,
+  UNSURE_LINE,
+  type WasAnswered,
+  asideEditAt,
+  deserialize,
+  isAsideEdit,
+} from './creationState.js';
 import type { AsidePhase as Phase } from './presenterCopy.js';
 import {
   ATTEST_TEXT,
@@ -53,6 +60,7 @@ import {
   isLookQid,
   type LookQid,
   isQid,
+  SPEC_ORDER,
   lookOf,
   nextQuestion,
   saidOf,
@@ -303,10 +311,10 @@ export function compileRefs(a: Answers): Record<string, string[]> {
  * they exist nowhere else, so a resume that dropped them lost the half of the
  * conversation that was theirs.
  */
-export function seedStateFromDraft(d: DraftLike): { answers: Answers; asides: Aside[] } {
+export function seedStateFromDraft(d: DraftLike): { answers: Answers; asides: Aside[]; past: WasAnswered[] } {
   const held = deserialize(d.setup ?? null);
-  if (held && Object.keys(held.answers).length) return { answers: held.answers, asides: held.asides };
-  return { answers: seedFromDraft(d), asides: [] };
+  if (held && Object.keys(held.answers).length) return { answers: held.answers, asides: held.asides, past: held.past };
+  return { answers: seedFromDraft(d), asides: [], past: [] };
 }
 
 export function seedFromDraft(d: DraftLike): Answers {
@@ -860,12 +868,28 @@ const beingSaidAgain = (state: CreationState, x: Aside) =>
 function shape(args: FlowArgs, asides: Aside[], openId: string | null): Turn[] {
   const placed = new Set<Aside>();
   const T = build(args, asides, openId, placed);
+  /**
+   * The question being asked is the last line of the conversation.
+   *
+   * Its controls are what a person answers with, so they belong under
+   * everything that has been said, never above it. Built in place and then
+   * written over by the sentences said at it, the row of cards ended up two
+   * exchanges up the screen: somebody who typed twice and then wanted to tap
+   * had to scroll back for it. The reply to each of those sentences is the
+   * question again in words, so the cards under them read as the same question
+   * asked once more, which is what it is.
+   */
+  const open = T.length && T[T.length - 1].kind === 'question' ? (T.pop() as Turn) : null;
   // A sentence with nothing of a person in it waits on its own question. What
   // was said follows the last turn, in order: before that question when it
   // came before, after it when it came after.
   const left = asides.filter((a) => !placed.has(a)).sort(byAt);
   const u = args.state.unsure;
   for (const a of left) if (!u || a.at < u.at) T.push(...asideTurns(a, beingSaidAgain(args.state, a)));
+  // Under the saying, and above the one decision that outranks it: a sentence
+  // with nothing of a person in it is waiting to be settled, and nothing else
+  // can be answered until it is.
+  if (open) T.push(open);
   if (u) {
     T.push({ kind: 'you', id: `unsure-${u.at}`, text: u.said, editable: false });
     T.push({
@@ -905,15 +929,47 @@ function build(
       into.push(...asideTurns(x, beingSaidAgain(state, x)));
     }
   };
+  /**
+   * What was answered here before, in the order it was said.
+   *
+   * A chat adds to itself; it does not rewrite what was said. So an answer
+   * that was changed stays where it stood, quietly, and the conversation
+   * carries on underneath it. It keeps the key it already had, so the moment
+   * of the change moves nothing on screen: the bubble a person is looking at
+   * is the same bubble, and only what comes after it is new.
+   */
+  const past = (into: Turn[], id: Qid) => {
+    const mine = state.past.filter((x) => x.id === id);
+    mine.forEach((x, i) => {
+      into.push({
+        kind: 'you',
+        id: i === 0 ? id : `${id}:was${i}`,
+        text: answerLine(id, { ...a, [id]: x.value } as Answers, draft).text,
+        was: true,
+      });
+    });
+    return mine.length;
+  };
   // An answer keeps the line it answered above it: the exchange is the record.
-  const exchange = (into: Turn[], id: Qid) => {
+  const exchange = (into: Turn[], id: Qid, answered = true) => {
     into.push({ kind: 'scenri', id: `asked-${id}`, text: askedLine(id, a), quiet: true });
+    // What was answered here before comes first: it was said before anything
+    // that was said about changing it.
+    const were = past(into, id);
     // A typed sentence answered the first question, so what was said there stays with it.
     attach(into, id === 'describe' && a.source?.via === 'typed' ? ['source', 'describe'] : [id]);
+    if (!answered) {
+      // changed, and not answered again yet: what was said stays, the question
+      // is asked again at the end, and there is nothing else to show here
+      attach(into, [id], true);
+      return;
+    }
     const line = answerLine(id, a, draft);
     into.push({
       kind: 'you',
-      id,
+      // the first answer keeps the plain key; one given after a change is a
+      // new line and takes a new one, so neither animates as the other
+      id: were ? `${id}:now${were}` : id,
       text: line.text,
       photos: line.photos,
       editable: true,
@@ -924,7 +980,12 @@ function build(
     // the answer it failed to change.
     attach(into, [id], true);
   };
-  for (const id of answeredIn(a, ctx)) {
+  // Every question that has anything to show: one that is answered, and one
+  // that was answered and then changed, which keeps what was said even though
+  // the answer itself has gone.
+  const told = new Set(answeredIn(a, ctx));
+  const shown = SPEC_ORDER.filter((id) => told.has(id) || state.past.some((x) => x.id === id));
+  for (const id of shown) {
     const into = photosDoor && draft && id !== 'source' && id !== 'photos' ? after : lead;
     // A question open again from its answer: its line stays exactly where it
     // was, and the block stands where the answer was, under it. Nothing above
@@ -944,7 +1005,7 @@ function build(
     }
     // the sentence typed at the first question is the door's answer too
     if (id === 'source' && a.source?.via === 'typed') continue;
-    exchange(into, id);
+    exchange(into, id, told.has(id));
   }
   /**
    * The question the conversation is on. It stands whether or not an answer is

@@ -1032,7 +1032,7 @@ test.describe('what answers nothing', () => {
     await answer(page, 'Describe someone instead').click();
     await expect(log(page)).toContainText('Who are we making?');
     await send(page, 'hello');
-    await expect(log(page)).toContainText('Hi. Describe them in a sentence, or pick one above.');
+    await expect(log(page)).toContainText('Hi. Describe them in a sentence, or pick one.');
     await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0);
   });
 });

@@ -186,6 +186,12 @@ export type Turn =
        * conversation does with a correction; cancelling changes nothing.
        */
       editing?: boolean;
+      /**
+       * Said, and then changed. It stays where it was said, because a
+       * conversation is added to rather than rewritten, and it reads as
+       * history: quieter, and with no way to change it a second time.
+       */
+      was?: boolean;
     }
   | {
       kind: 'scenri';

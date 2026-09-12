@@ -16,6 +16,7 @@ export function YouTurn({
   now,
   editable,
   editing,
+  was,
   arrive,
   leave,
   delay = 0,
@@ -44,6 +45,8 @@ export function YouTurn({
   dim?: boolean;
   /** The answer is being rewritten in place. */
   editing?: boolean;
+  /** Said, and then changed: it stays as history, quieter, and cannot be changed again. */
+  was?: boolean;
   onEdit?: () => void;
   /** Said again, in the same place: the conversation carries on from here. */
   onSave?: (text: string) => void;
@@ -60,6 +63,7 @@ export function YouTurn({
       data-arrive={arriving || undefined}
       data-leave={going}
       data-turn={turnId}
+      data-was={was || undefined}
       data-dim={dim || undefined}
       style={arriving ? ({ '--sc-convo-start': `${start}ms` } as CSSProperties) : undefined}
     >
@@ -72,7 +76,7 @@ export function YouTurn({
         <Rewrite text={text} onSave={onSave} onCancel={onCancel} />
       ) : (
         <div className="sc-convo-bubble">
-          {editable && onEdit && (
+          {editable && !was && onEdit && (
             <Tip label="Change this answer">
               <button type="button" className="sc-convo-edit" aria-label="Change this answer" onClick={onEdit}>
                 <PencilSimple size={13} />

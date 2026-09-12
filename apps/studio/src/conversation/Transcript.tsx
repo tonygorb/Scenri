@@ -560,6 +560,7 @@ export function Transcript({
           photos={t.photos}
           editable={t.editable}
           editing={t.editing}
+          was={t.was}
           arrive={reveal}
           leave={going}
           delay={delay}

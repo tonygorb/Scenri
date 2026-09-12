@@ -165,7 +165,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
 
   const [state, dispatch] = useReducer(reduce, { brandId: brand.id, draftId }, (at) => {
     const back = deserialize(session.read(setupKey(at.brandId, at.draftId)));
-    return back ? { ...EMPTY_STATE, answers: back.answers, revision: back.revision, asides: back.asides } : EMPTY_STATE;
+    return back
+      ? { ...EMPTY_STATE, answers: back.answers, revision: back.revision, asides: back.asides, past: back.past }
+      : EMPTY_STATE;
   });
   // the latest state, for work that finishes after the render it started in
   const stateRef = useRef(state);
@@ -721,7 +723,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         if (!typed || empty) {
           refuse(
             typed,
-            asideReply(empty ?? 'vague', voice(target), again(target, empty ?? 'vague'), typed),
+            asideReply(empty ?? 'vague', voice(target), again(target, empty ?? 'vague'), typed, undefined, true),
             target,
             empty ?? 'vague',
           );
@@ -759,7 +761,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         // what it is, so only typed words are read this way, chip or no chip.
         const empty = typed && !/^#[0-9a-f]{6}$/i.test(typed) ? judgeAnswer(target, typed, readsAsPerson) : null;
         if (empty) {
-          refuse(typed, asideReply(empty, voice(target), again(target, empty), typed, step), target, empty);
+          refuse(typed, asideReply(empty, voice(target), again(target, empty), typed, step, true), target, empty);
           return true;
         }
         // The chip and the words are two halves of one answer and are never

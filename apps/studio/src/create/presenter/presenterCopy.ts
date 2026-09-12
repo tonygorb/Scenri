@@ -119,14 +119,24 @@ export const REDRAW_BODY_PHOTOS =
 export type AsidePhase = 'source' | 'describe' | 'look' | 'name' | 'refine' | 'detail';
 
 const HOW: Record<AsidePhase, string> = {
-  source: 'describe them in a sentence, or pick one above',
+  source: 'describe them in a sentence, or pick one',
   describe: 'a few words about them is enough: age, hair, build, skin, presence',
-  look: 'tap one above, or say it in your own words',
+  look: 'tap one, or say it in your own words',
   name: 'a name, so the rest of the conversation can use it',
   refine: 'say what should change: hair, age or build change the person; anything else changes the view on the stage',
-  detail: 'tap one above, or say what it looks like',
+  detail: 'tap one, or say what it looks like',
 };
 
+/**
+ * Where the row is, relative to the words that point at it.
+ *
+ * The question being asked is the last line of the conversation, so its row
+ * of cards is under whatever was just said, never over it. Every one of these
+ * used to say "above", which was true while the row was built in place and
+ * became a plain falsehood the moment the question moved to the end. They name
+ * no direction now: the row is the only one on screen, and it is the thing
+ * right there.
+ */
 /**
  * One step of the look, in its own words.
  *
@@ -136,12 +146,12 @@ const HOW: Record<AsidePhase, string> = {
  * `how` says the two ways to give it.
  */
 const LOOK_ASK: Record<string, { thing: string; how: string }> = {
-  who: { thing: 'a person', how: 'tap who they are above' },
-  age: { thing: 'an age', how: 'tap an age above' },
-  hair: { thing: 'a hair colour', how: 'tap a colour above, or say it: dark auburn, salt and pepper' },
-  length: { thing: 'a length', how: 'tap a length above, or say it: a chin-length bob' },
-  skin: { thing: 'a skin tone', how: 'tap a tone above, or say it: warm olive' },
-  build: { thing: 'a build', how: 'tap a build above, or say it: lean and tall' },
+  who: { thing: 'a person', how: 'tap who they are' },
+  age: { thing: 'an age', how: 'tap an age' },
+  hair: { thing: 'a hair colour', how: 'tap a colour, or say it: dark auburn, salt and pepper' },
+  length: { thing: 'a length', how: 'tap a length, or say it: a chin-length bob' },
+  skin: { thing: 'a skin tone', how: 'tap a tone, or say it: warm olive' },
+  build: { thing: 'a build', how: 'tap a build, or say it: lean and tall' },
 };
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -154,19 +164,38 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  * way. The same sentence three times running reads as a wall rather than as a
  * reply, so once somebody is plainly stuck the way out is named instead.
  */
-export function asideReply(kind: NothingKind, phase: AsidePhase, again: number, said = '', step?: string): string {
+export function asideReply(
+  kind: NothingKind,
+  phase: AsidePhase,
+  again: number,
+  said = '',
+  step?: string,
+  asked = false,
+): string {
   const ask = phase === 'look' ? (LOOK_ASK[step ?? ''] ?? null) : null;
   const how = ask?.how ?? HOW[phase];
+  /**
+   * How to answer, unless the question is standing right underneath.
+   *
+   * The question being asked is the last line of the conversation, so after a
+   * refusal it is drawn again with its row directly below these words. Saying
+   * "tap a length, or say it" there makes the app repeat itself twice over: the
+   * reply says it, and then the question says it with the cards in hand. The
+   * reply's job is to say what was wrong with what was said; the question's job
+   * is to ask. `asked` is the flow saying which of those two is about to happen.
+   */
+  const tail = asked ? '' : ` ${cap(how)}.`;
   // said twice already: point at the way past it rather than asking a third time
   if (again >= 2 && kind !== 'likeness') {
-    return phase === 'look' || phase === 'detail' ? `${cap(how)}. Or Skip it and we will choose.` : `${cap(how)}.`;
+    const out = phase === 'look' || phase === 'detail' ? 'Or Skip it and we will choose.' : '';
+    return asked ? out || `${cap(how)}.` : `${cap(how)}.${out ? ` ${out}` : ''}`;
   }
   switch (kind) {
     case 'likeness':
       return 'Describe them by looks. Scenri does not draw a named person.';
     case 'help':
       return ask
-        ? `${cap(how)}.`
+        ? `${cap(how)}.` // help asks how, so it is answered with how, standing question or not
         : phase === 'refine'
           ? 'Select a view and say what is wrong with it, or say what should change about them: hair, age, build, skin.'
           : phase === 'name'
@@ -198,7 +227,7 @@ export function asideReply(kind: NothingKind, phase: AsidePhase, again: number, 
           : `That is what we are here for. Who are they? ${cap(how)}.`;
     case 'nonsense':
       return ask
-        ? `That is not ${ask.thing}. ${cap(how)}.`
+        ? `That is not ${ask.thing}.${tail}`
         : phase === 'name'
           ? `That is not a name. ${cap(how)}.`
           : phase === 'refine'
@@ -208,12 +237,12 @@ export function asideReply(kind: NothingKind, phase: AsidePhase, again: number, 
               : `That does not describe anyone. ${cap(how)}.`;
     case 'greeting':
       return again
-        ? `Still here. ${cap(how)}.`
+        ? `Still here.${tail}`
         : /^(hi|hello|hey|heya|hiya|yo|hola|shalom|good)\b/i.test(said.trim())
-          ? `Hi. ${cap(how)}.`
+          ? `Hi.${tail}`
           : `${cap(how)}.`;
     case 'ack':
-      return again ? `Still here. ${cap(how)}.` : `Go ahead: ${how}.`;
+      return again ? `Still here.${tail}` : asked ? 'Go ahead.' : `Go ahead: ${how}.`;
     case 'vague':
       return again ? `Still here. ${cap(how)}.` : `${cap(how)}.`;
   }

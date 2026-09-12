@@ -259,6 +259,9 @@ export const SPECS: readonly Spec[] = [
 
 const SPEC = new Map(SPECS.map((s) => [s.id, s]));
 
+/** Every question, in the order they are asked: the order the transcript reads in. */
+export const SPEC_ORDER: readonly Qid[] = SPECS.map((s) => s.id);
+
 /**
  * Where a question stands in the run, for anything that has to reason about
  * "after". Unknown ids sort last, so a stray one is never treated as early.
