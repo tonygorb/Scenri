@@ -2,7 +2,6 @@ import { Check, Copy, Paperclip } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
 import { CardStrip } from './CardStrip.js';
-import { LookStrip } from './LookStrip.js';
 import { RefStrip } from '../create/RefStrip.js';
 import { Tip } from '../layout/Tip.js';
 import { type Answer, type Question, groupsAnswered, revealPlan } from './question.js';
@@ -354,13 +353,6 @@ export function QuestionBlock({
               <CardStrip
                 options={question.row.options}
                 picked={on}
-                onPick={(id) => commit(id, { kind: 'swatches', picks: { [question.row.id]: id } })}
-              />
-            ) : question.row.options.some((o) => o.art) ? (
-              <LookStrip
-                options={question.row.options}
-                cast={question.cast}
-                on={on}
                 onPick={(id) => commit(id, { kind: 'swatches', picks: { [question.row.id]: id } })}
               />
             ) : (

@@ -33,8 +33,6 @@ export interface Swatch {
   label: string;
   /** The colour it stands for, when it is a colour. */
   color?: string;
-  /** The figure it stands for, when it is drawn: one cell of a sprite sheet the stylesheet names. */
-  art?: { sheet: string; x: number; y: number };
   /**
    * The picture on its card, when the thing being chosen has to be seen rather
    * than shaped. A sprite sheet is the app's own ink and can only show a
@@ -127,8 +125,6 @@ export type Question =
       skip?: string;
       /** A way to say it in words instead, which hands the answer to the composer. */
       describe?: string;
-      /** Which figure the drawn options show, when a sheet draws more than one. */
-      cast?: string;
       /** This step is being answered in words right now, so the way in stands lit. */
       saying?: boolean;
       /** The answer as it stands, when the step is open again. */

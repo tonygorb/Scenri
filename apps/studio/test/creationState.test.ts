@@ -82,7 +82,6 @@ describe('the state of a presenter being made', () => {
       'look-skin': { pick: 'olive' },
       'look-build': { pick: 'lean' },
       'look-heritage': { pick: 'Mediterranean' },
-      'look-texture': { pick: 'wavy' },
       'look-eyes': { pick: 'green' },
       'look-height': { pick: 'tall' },
       traits: [],
@@ -129,7 +128,7 @@ describe('the state of a presenter being made', () => {
     }
     s = reduce(s, { type: 'aside', aside: { said: 'lol3', reply: 'Not a length.', q: 'look-length', at: '1' } });
     s = reduce(s, { type: 'answer', patch: { 'look-length': { words: 'Lungo' } }, ctx: NO_DRAFT });
-    s = reduce(s, { type: 'answer', patch: { 'look-texture': { pick: 'wavy' } }, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'answer', patch: { 'look-facial': { pick: 'clean-shaven' } }, ctx: NO_DRAFT });
     expect(s.answers['look-length']).toEqual({ words: 'Lungo' });
 
     const back = reduce(s, {
@@ -141,7 +140,7 @@ describe('the state of a presenter being made', () => {
       ctx: NO_DRAFT,
     });
     expect(back.answers['look-length']).toBeUndefined();
-    expect(back.answers['look-texture']).toBeUndefined();
+    expect(back.answers['look-facial']).toBeUndefined();
     // and everything asked before it is exactly as it was
     expect(back.answers['look-hair']).toBe('blonde');
     expect(back.answers['look-skin']).toBe('olive');

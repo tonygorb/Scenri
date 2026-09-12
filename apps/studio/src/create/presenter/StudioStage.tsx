@@ -58,7 +58,6 @@ export function StudioStage({
   );
   const looking = list[at];
   // a new picture, or another view, and the well is back on what the view wears
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the picture on the view is the reset
   useEffect(() => setPeek(null), [hash]);
   const shown = usePainted(peek && list.some((t) => t.hash === peek) ? peek : hash);
   const step = (d: 1 | -1) => {

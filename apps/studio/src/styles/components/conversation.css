@@ -820,26 +820,95 @@ button.sc-convo-shot-do {
 .sc-convo-plate-in[data-card="length-6-androgynous"] {
   background-image: url("../../assets/traits/length-6-androgynous.webp");
 }
-.sc-convo-plate-in[data-card="eyes-1"] {
-  background-image: url("../../assets/traits/eyes-1.webp");
+.sc-convo-plate-in[data-card="height-1-woman"] {
+  background-image: url("../../assets/traits/height-1-woman.webp");
 }
-.sc-convo-plate-in[data-card="eyes-2"] {
-  background-image: url("../../assets/traits/eyes-2.webp");
+.sc-convo-plate-in[data-card="height-1-man"] {
+  background-image: url("../../assets/traits/height-1-man.webp");
 }
-.sc-convo-plate-in[data-card="eyes-3"] {
-  background-image: url("../../assets/traits/eyes-3.webp");
+.sc-convo-plate-in[data-card="height-1-androgynous"] {
+  background-image: url("../../assets/traits/height-1-androgynous.webp");
 }
-.sc-convo-plate-in[data-card="eyes-4"] {
-  background-image: url("../../assets/traits/eyes-4.webp");
+.sc-convo-plate-in[data-card="height-2-woman"] {
+  background-image: url("../../assets/traits/height-2-woman.webp");
 }
-.sc-convo-plate-in[data-card="eyes-5"] {
-  background-image: url("../../assets/traits/eyes-5.webp");
+.sc-convo-plate-in[data-card="height-2-man"] {
+  background-image: url("../../assets/traits/height-2-man.webp");
 }
-.sc-convo-plate-in[data-card="eyes-6"] {
-  background-image: url("../../assets/traits/eyes-6.webp");
+.sc-convo-plate-in[data-card="height-2-androgynous"] {
+  background-image: url("../../assets/traits/height-2-androgynous.webp");
 }
-.sc-convo-plate-in[data-card="eyes-7"] {
-  background-image: url("../../assets/traits/eyes-7.webp");
+.sc-convo-plate-in[data-card="height-3-woman"] {
+  background-image: url("../../assets/traits/height-3-woman.webp");
+}
+.sc-convo-plate-in[data-card="height-3-man"] {
+  background-image: url("../../assets/traits/height-3-man.webp");
+}
+.sc-convo-plate-in[data-card="height-3-androgynous"] {
+  background-image: url("../../assets/traits/height-3-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="height-4-woman"] {
+  background-image: url("../../assets/traits/height-4-woman.webp");
+}
+.sc-convo-plate-in[data-card="height-4-man"] {
+  background-image: url("../../assets/traits/height-4-man.webp");
+}
+.sc-convo-plate-in[data-card="height-4-androgynous"] {
+  background-image: url("../../assets/traits/height-4-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="height-5-woman"] {
+  background-image: url("../../assets/traits/height-5-woman.webp");
+}
+.sc-convo-plate-in[data-card="height-5-man"] {
+  background-image: url("../../assets/traits/height-5-man.webp");
+}
+.sc-convo-plate-in[data-card="height-5-androgynous"] {
+  background-image: url("../../assets/traits/height-5-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="build-1-woman"] {
+  background-image: url("../../assets/traits/build-1-woman.webp");
+}
+.sc-convo-plate-in[data-card="build-1-man"] {
+  background-image: url("../../assets/traits/build-1-man.webp");
+}
+.sc-convo-plate-in[data-card="build-1-androgynous"] {
+  background-image: url("../../assets/traits/build-1-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="build-2-woman"] {
+  background-image: url("../../assets/traits/build-2-woman.webp");
+}
+.sc-convo-plate-in[data-card="build-2-man"] {
+  background-image: url("../../assets/traits/build-2-man.webp");
+}
+.sc-convo-plate-in[data-card="build-2-androgynous"] {
+  background-image: url("../../assets/traits/build-2-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="build-3-woman"] {
+  background-image: url("../../assets/traits/build-3-woman.webp");
+}
+.sc-convo-plate-in[data-card="build-3-man"] {
+  background-image: url("../../assets/traits/build-3-man.webp");
+}
+.sc-convo-plate-in[data-card="build-3-androgynous"] {
+  background-image: url("../../assets/traits/build-3-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="build-4-woman"] {
+  background-image: url("../../assets/traits/build-4-woman.webp");
+}
+.sc-convo-plate-in[data-card="build-4-man"] {
+  background-image: url("../../assets/traits/build-4-man.webp");
+}
+.sc-convo-plate-in[data-card="build-4-androgynous"] {
+  background-image: url("../../assets/traits/build-4-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="build-5-woman"] {
+  background-image: url("../../assets/traits/build-5-woman.webp");
+}
+.sc-convo-plate-in[data-card="build-5-man"] {
+  background-image: url("../../assets/traits/build-5-man.webp");
+}
+.sc-convo-plate-in[data-card="build-5-androgynous"] {
+  background-image: url("../../assets/traits/build-5-androgynous.webp");
 }
 .sc-convo-plate-in[data-card="facial-1"] {
   background-image: url("../../assets/traits/facial-1.webp");
@@ -858,24 +927,6 @@ button.sc-convo-shot-do {
 }
 .sc-convo-plate-in[data-card="facial-6"] {
   background-image: url("../../assets/traits/facial-6.webp");
-}
-.sc-convo-plate-in[data-card="texture-1"] {
-  background-image: url("../../assets/traits/texture-1.webp");
-}
-.sc-convo-plate-in[data-card="texture-2"] {
-  background-image: url("../../assets/traits/texture-2.webp");
-}
-.sc-convo-plate-in[data-card="texture-3"] {
-  background-image: url("../../assets/traits/texture-3.webp");
-}
-.sc-convo-plate-in[data-card="texture-4"] {
-  background-image: url("../../assets/traits/texture-4.webp");
-}
-.sc-convo-plate-in[data-card="texture-5"] {
-  background-image: url("../../assets/traits/texture-5.webp");
-}
-.sc-convo-plate-in[data-card="texture-6"] {
-  background-image: url("../../assets/traits/texture-6.webp");
 }
 .sc-convo-plate-in[data-card="freckles-1"] {
   background-image: url("../../assets/traits/freckles-1.webp");
@@ -1374,84 +1425,11 @@ button.sc-convo-shot-do {
 /* One cell of the sheet its row was drawn on, as a mask rather than a picture:
    the figure is the card's own ink on the card's own surface, so no plate of
    another colour sits inside the card. */
-.sc-look-art {
-  display: block;
-  /* The figure is a thumbnail, not a portrait: at the size the sheet drew it
-     the tiles were 210 tall and the row of six ran off the rail. Capped, the
-     silhouettes keep their air and the whole question fits in a glance. */
-  height: 100%;
-  aspect-ratio: 1;
-  --sc-look-fade: 74%;
-  /* Light ink on the plate's dark ground: the figure was drawn from the tile's
-     own text colour, which on a raised plate left it darker than the surface it
-     stood on and all but invisible at this size. */
-  background-color: var(--sc-fg2);
-  /* Two masks, intersected: the sheet's own cell, and a fade at the foot of it.
-     The cells are bust crops, so without the fade every figure ends on the same
-     hard horizontal line a few pixels above its label, which reads as a picture
-     that did not finish loading rather than as a drawing. */
-  mask-image: var(--sc-look-sheet), linear-gradient(to bottom, #000 var(--sc-look-fade), transparent 96%);
-  mask-repeat: no-repeat, no-repeat;
-  mask-size:
-    calc(100% * var(--sc-look-cols)) calc(100% * var(--sc-look-rows)),
-    100% 100%;
-  mask-position:
-    calc(var(--sc-look-x) * 100% / (var(--sc-look-cols) - 1)) calc(var(--sc-look-y) * 100% / (var(--sc-look-rows) - 1)),
-    0 0;
-  mask-composite: intersect;
-  -webkit-mask-composite: source-in;
-  opacity: 0.75;
-  transition: opacity var(--sc-dur-fast) var(--sc-ease);
-}
-
-.sc-look-art[data-kind="hair"] {
-  --sc-look-cols: 3;
-  --sc-look-rows: 2;
-
-  /* the hair sheet's cells are taller than they are wide */
-  aspect-ratio: 2 / 3;
-}
 
 /* A whole figure, standing: it wants the height a bust does not, and it ends
    at the floor of its own cell rather than at a crop, so it barely fades. */
-.sc-look-art[data-kind="build"] {
-  --sc-look-cols: 3;
-  --sc-look-rows: 3;
-  --sc-look-fade: 98%;
 
-  /* a whole figure stands in its plate: head under the top edge, feet on the
-     floor of it, so nothing of the person is cut away */
-  height: 100%;
-}
-
-.sc-look-art[data-kind="hair"][data-cast="woman"] {
-  --sc-look-sheet: url("../../assets/look/hair-woman.webp");
-}
-
-.sc-look-art[data-kind="hair"][data-cast="man"] {
-  --sc-look-sheet: url("../../assets/look/hair-man.webp");
-}
-
-.sc-look-art[data-kind="build"][data-cast="woman"] {
-  --sc-look-sheet: url("../../assets/look/build-woman.webp");
-}
-
-.sc-look-art[data-kind="build"][data-cast="man"] {
-  --sc-look-sheet: url("../../assets/look/build-man.webp");
-}
-
-.sc-convo-plate:hover .sc-look-art,
-.sc-convo-plate[data-on] .sc-look-art {
-  background-color: var(--sc-fg);
-  opacity: 1;
-}
-
-.sc-look-art[data-kind="hair"] {
-  /* The cut is the whole question, so the plate holds the head and not the
-     chest: the drawing stands taller than its plate and the plate crops it. */
-  align-self: flex-start;
-  height: 142%;
-}
+.sc-convo-plate:hover
 
 /* the quiet way past a step, at the end of its row */
 .sc-convo-pass {

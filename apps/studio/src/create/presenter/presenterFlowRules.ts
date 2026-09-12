@@ -33,7 +33,6 @@ import {
   answerLabel,
   CAST_ROWS,
   cardCast,
-  castFor,
   lookLine,
   lookSentence,
 } from './presenterLook.js';
@@ -735,7 +734,6 @@ function questionFor(id: Qid, state: CreationState, ctx: FlowContext, reopened: 
       prompt,
       hint: step === 'who' ? PROMPT.lookHint : undefined,
       row: shown,
-      cast: castFor(a['look-who']?.pick),
       skip: 'Skip',
       // Only the first row keeps a way in of its own, and it is not a way to
       // type: it leaves the rows behind and takes the whole person in one

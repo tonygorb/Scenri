@@ -26,7 +26,6 @@ const TAPPED: Answers = {
   'look-skin': { pick: 'olive' },
   'look-build': { pick: 'lean' },
   'look-heritage': { pick: 'Mediterranean' },
-  'look-texture': { pick: 'wavy' },
   'look-eyes': { pick: 'green' },
   'look-height': { pick: 'tall' },
   traits: ['glasses', 'tattoo'],
@@ -86,7 +85,6 @@ describe('the presenter questions, as one table', () => {
     // the conversation carries on from the change: everything it asked after
     // the colour was answered to a run that no longer stands
     expect(b['look-length']).toBeUndefined();
-    expect(b['look-texture']).toBeUndefined();
     expect(b['look-facial']).toBeUndefined();
     expect(b['look-eyes']).toBeUndefined();
     expect(b['look-build']).toBeUndefined();
@@ -273,7 +271,6 @@ describe('the presenter questions, as one table', () => {
     expect(gone['look-hair']).toBeUndefined();
     // everything the conversation asked after it goes with it
     expect(gone['look-length']).toBeUndefined();
-    expect(gone['look-texture']).toBeUndefined();
     expect(gone['look-height']).toBeUndefined();
     expect(gone.traits).toBeUndefined();
     expect(gone['trait-tattoo']).toBeUndefined();

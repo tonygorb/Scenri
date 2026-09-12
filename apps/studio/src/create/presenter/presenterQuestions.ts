@@ -43,7 +43,6 @@ export const LOOK_ORDER = [
   'skin',
   'hair',
   'length',
-  'texture',
   'facial',
   'eyes',
   'build',
@@ -249,11 +248,11 @@ const whereApplies = (id: TraitId) => (a: Answers) =>
 const among = (v: unknown, id: TraitId) => Array.isArray(v) && (v as TraitId[]).includes(id);
 
 const traitsDone = (a: Answers, ctx: FlowContext): boolean =>
-  // `?.every` would read "no details chosen yet" as done, because an optional
-  // chain on nothing is undefined and undefined is not false.
+  // The fallback is what keeps "no details chosen yet" from reading as done: an
+  // optional chain on nothing is undefined, and undefined is not false.
   traitsMoment(a, ctx) &&
-  a.traits !== undefined &&
-  a.traits.every((id) => traitAnswered(id)(a) && (!whereApplies(id)(a) || a[`trait-${id}-where`] !== undefined));
+  (a.traits?.every((id) => traitAnswered(id)(a) && (!whereApplies(id)(a) || a[`trait-${id}-where`] !== undefined)) ??
+    false);
 
 const differs = (x: unknown, y: unknown) => JSON.stringify(x) !== JSON.stringify(y);
 

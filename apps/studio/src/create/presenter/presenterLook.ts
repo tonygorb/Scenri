@@ -3,13 +3,16 @@ import { colourWords, grownHair } from './colourWords.js';
 import { type Given, LOOK_ORDER, type LookStep, PASSED } from './presenterQuestions.js';
 
 /**
- * The look, as things to tap rather than words to find: who, an age, hair by
- * colour and by length, skin by tone, a build. Each row is one question and
- * one tap answers it. Colours are swatches of the colour they stand for; a
- * length and a build are drawn, because a shape is read faster than the word
- * for it. A colour of your own is allowed on the colour rows and is read back
- * as the nearest name we have a word for, since a hex code means nothing to a
- * model.
+ * The look, as things to tap rather than words to find. Each row is one
+ * question and one tap answers it, in the order `LOOK_ORDER` sets: who they
+ * are, then their face, then their hair, then their body.
+ *
+ * Two forms, and which one a row takes follows what is being chosen. A colour
+ * is a swatch of the colour it stands for, because nothing reads a colour
+ * faster than the colour. Everything else is a photograph, because a shape is
+ * read faster than the word for it. A colour of your own is allowed on the
+ * colour rows and is read back as the nearest name we have a word for, since a
+ * hex code means nothing to a model.
  */
 export const HAIR_COLOURS: Swatch[] = [
   { id: 'black', label: 'Black', color: '#15120f' },
@@ -24,9 +27,10 @@ export const HAIR_COLOURS: Swatch[] = [
 ];
 
 /**
- * The drawn rows. Each option is one cell of a sheet drawn once for the whole
- * row (`assets/look`), so every plate in a row shares a hand. The cell is
- * named here, beside the option, and nowhere else.
+ * The drawn rows. Each option names one card in `assets/traits`, and the cards
+ * of a row are cut from a single sheet drawn in one pass, so the whole row
+ * shares a camera, a light and a figure and differs only in the thing it is
+ * asking about. The card is named here, beside the option, and nowhere else.
  */
 export const HAIR_LENGTHS: Swatch[] = [
   { id: 'buzzed', label: 'Buzzed', card: 'length-1' },
@@ -60,11 +64,11 @@ export const SKIN_TONES: Swatch[] = [
  * that differ most from one another.
  */
 export const BUILDS: Swatch[] = [
-  { id: 'slight', label: 'Slight', art: { sheet: 'build', x: 0, y: 0 } },
-  { id: 'lean', label: 'Lean', art: { sheet: 'build', x: 2, y: 0 } },
-  { id: 'average', label: 'Average', art: { sheet: 'build', x: 0, y: 1 } },
-  { id: 'solid', label: 'Solid', art: { sheet: 'build', x: 0, y: 2 } },
-  { id: 'full', label: 'Full', art: { sheet: 'build', x: 1, y: 2 } },
+  { id: 'slight', label: 'Slight', card: 'build-1' },
+  { id: 'lean', label: 'Lean', card: 'build-2' },
+  { id: 'average', label: 'Average', card: 'build-3' },
+  { id: 'solid', label: 'Solid', card: 'build-4' },
+  { id: 'full', label: 'Full', card: 'build-5' },
 ];
 
 /**
@@ -97,22 +101,22 @@ export const HERITAGES: Swatch[] = [
 ];
 
 /**
- * Eyes, drawn as eyes.
+ * Eyes, by colour.
  *
- * The one row whose cards are a macro crop rather than the figure: an iris is
- * too small to read at 90x112 on a person, and a bare circle of colour does
- * not say "eye" the way a swatch of hair colour says "hair". The row is
- * internally consistent, all seven at the same crop, which is what keeps the
- * one-framing rule true everywhere it still applies.
+ * A swatch, the same control the hair and the skin already use, rather than a
+ * row of drawn faces. An iris is a colour and the app has a way of asking for
+ * one: seven faces that differ in four pixels each is a worse answer to the
+ * same question, and the picker beside it lets somebody have an eye colour the
+ * row does not name.
  */
 export const EYE_COLOURS: Swatch[] = [
-  { id: 'dark brown', label: 'Dark brown', card: 'eyes-1' },
-  { id: 'brown', label: 'Brown', card: 'eyes-2' },
-  { id: 'hazel', label: 'Hazel', card: 'eyes-3' },
-  { id: 'amber', label: 'Amber', card: 'eyes-4' },
-  { id: 'green', label: 'Green', card: 'eyes-5' },
-  { id: 'blue', label: 'Blue', card: 'eyes-6' },
-  { id: 'grey', label: 'Grey', card: 'eyes-7' },
+  { id: 'dark brown', label: 'Dark brown', color: '#3b2a1d' },
+  { id: 'brown', label: 'Brown', color: '#6b4423' },
+  { id: 'hazel', label: 'Hazel', color: '#8a7340' },
+  { id: 'amber', label: 'Amber', color: '#b07d1a' },
+  { id: 'green', label: 'Green', color: '#5b7a4b' },
+  { id: 'blue', label: 'Blue', color: '#4a7ba7' },
+  { id: 'grey', label: 'Grey', color: '#8b949c' },
 ];
 
 /**
@@ -132,43 +136,6 @@ export const FACIAL_HAIR: Swatch[] = [
 ];
 
 /**
- * How the hair grows, which the length row cannot say.
- *
- * `chin-length` and `shoulder-length` measure how far hair hangs, which is a
- * straight-hair metric: the whole of coily and locked hair had no way to be
- * tapped. The first four are adjectives that sit in front of "hair"; the last
- * two are what the hair IS, so they replace the noun rather than qualify it
- * (`HAIR_AS_NOUN`), because "long locs brown hair" is not a sentence.
- */
-export const HAIR_TEXTURES: Swatch[] = [
-  { id: 'straight', label: 'Straight', card: 'texture-1' },
-  { id: 'wavy', label: 'Wavy', card: 'texture-2' },
-  { id: 'curly', label: 'Curly', card: 'texture-3' },
-  { id: 'coily', label: 'Coily', card: 'texture-4' },
-  { id: 'locs', label: 'Locs', card: 'texture-5' },
-  { id: 'braids', label: 'Braids', card: 'texture-6' },
-];
-
-/*
- * Height is the one row that cannot be a card.
- *
- * Every card is measured and placed into the same box (`place.mjs`), which is
- * exactly what makes a row read as one row, and it would normalise away the
- * only thing a height has to show. Three figures side by side at one scale is
- * a single picture, not a row of six, so the words stand.
- *
- * The eye row very nearly went the same way. "One framing, always" forbids a
- * zoom on the part a detail sits on, so an iris is about four pixels at
- * 90x112. Measured at plate size: blue and amber are unmistakable, green and
- * the two browns are told apart, and grey is nearly invisible against a grey
- * face. It ships because a card stands above its label rather than instead of
- * it, so the picture carries the colour and the word still says which.
- */
-
-/** The textures that are the hair rather than a word in front of it. */
-const HAIR_AS_NOUN = new Set(['locs', 'braids']);
-
-/**
  * How tall, in three.
  *
  * Height cannot be read off a figure standing alone, so the plates draw the
@@ -177,13 +144,21 @@ const HAIR_AS_NOUN = new Set(['locs', 'braids']);
  * the front view along with the build.
  */
 export const HEIGHTS: Swatch[] = [
-  { id: 'short', label: 'Short' },
-  { id: 'average', label: 'Average' },
-  { id: 'tall', label: 'Tall' },
+  { id: 'very short', label: 'Very short', card: 'height-1' },
+  { id: 'short', label: 'Short', card: 'height-2' },
+  { id: 'average height', label: 'Average', card: 'height-3' },
+  { id: 'tall', label: 'Tall', card: 'height-4' },
+  { id: 'very tall', label: 'Very tall', card: 'height-5' },
 ];
 
-/** How a height is said, since "average" alone is not how anybody says it. */
-const HEIGHT_WORDS: Record<string, string> = { short: 'short', average: 'average height', tall: 'tall' };
+/**
+ * How a height is said.
+ *
+ * The ids are already the words, because a height has no shorter name than
+ * itself: "tall" is what a person says and what an engine is given. The table
+ * stays as the one place a reading could differ from the id if it ever has to.
+ */
+const HEIGHT_WORDS: Record<string, string> = {};
 
 export const WHO_OPTIONS = [
   { id: 'woman', label: 'Woman' },
@@ -215,7 +190,6 @@ export const LOOK_ROWS: Record<LookStep, { row: SwatchRow; prompt: string }> = {
   facial: { row: { id: 'facial', label: 'Facial hair', options: FACIAL_HAIR }, prompt: 'Any facial hair?' },
   hair: { row: { id: 'hair', label: 'Hair', options: HAIR_COLOURS }, prompt: 'What colour is their hair?' },
   length: { row: { id: 'length', label: 'Length', options: HAIR_LENGTHS }, prompt: 'And the length?' },
-  texture: { row: { id: 'texture', label: 'Texture', options: HAIR_TEXTURES }, prompt: 'And how does it grow?' },
   build: { row: { id: 'build', label: 'Build', options: BUILDS }, prompt: 'And their build?' },
   height: { row: { id: 'height', label: 'Height', options: HEIGHTS }, prompt: 'And how tall?' },
 };
@@ -223,7 +197,7 @@ export const LOOK_ROWS: Record<LookStep, { row: SwatchRow; prompt: string }> = {
 export const LOOK_STEPS = LOOK_ORDER.map((id) => LOOK_ROWS[id]);
 
 /** The steps whose answer is a colour, and so carry the colour control. */
-export const LOOK_COLOUR = new Set<LookStep>(['hair', 'skin']);
+export const LOOK_COLOUR = new Set<LookStep>(['hair', 'skin', 'eyes']);
 
 /** What the composer asks for while a row is being answered in words. */
 export const LOOK_SAYS_PLACEHOLDER: Partial<Record<LookStep, string>> = {
@@ -232,16 +206,12 @@ export const LOOK_SAYS_PLACEHOLDER: Partial<Record<LookStep, string>> = {
   heritage: 'Where they are from, in your words',
   hair: 'Their hair colour, in words or a swatch',
   length: 'Their cut, in your words',
-  texture: 'How their hair grows, in your words',
   facial: 'Their facial hair, in your words',
   eyes: 'Their eye colour, in words or a swatch',
   skin: 'Their skin, in words or a swatch',
   build: 'Their build, in your words',
   height: 'How tall they are, in your words',
 };
-
-/** The figure the drawn rows show: a man's hair on a man's head; anyone else stands with the fuller of the two. */
-export const castFor = (who: string | undefined): string => (who === 'man' ? 'man' : 'woman');
 
 /**
  * Which figure a row of cards is drawn on: three, not two.
@@ -262,7 +232,7 @@ export const cardCast = (who: string | undefined): string =>
  * the same picture, and a row that pretends otherwise is the row Tony kept
  * pointing at. A detail worn on a face is not: glasses are glasses.
  */
-export const CAST_ROWS = new Set<LookStep>(['length']);
+export const CAST_ROWS = new Set<LookStep>(['length', 'height', 'build']);
 
 /**
  * How far a colour may sit from a swatch and still take its name, as a squared
@@ -313,7 +283,8 @@ export function nearestSwatch(hex: string, among: Swatch[], withDistance?: true)
 }
 
 /** The swatches a colour step is named against. */
-export const colourRow = (step: string | null | undefined): Swatch[] => (step === 'skin' ? SKIN_TONES : HAIR_COLOURS);
+export const colourRow = (step: string | null | undefined): Swatch[] =>
+  step === 'skin' ? SKIN_TONES : step === 'eyes' ? EYE_COLOURS : HAIR_COLOURS;
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -371,16 +342,12 @@ export function lookSentence(look: Partial<Record<LookStep, Given>>): string {
   if (age) parts.push(join(aged, qual(look.age)));
 
   const has: string[] = [];
-  // Hair is one noun phrase built from three rows. A texture that is what the
-  // hair IS takes the noun: "long brown locs", never "long locs brown hair".
+  // Hair is one noun phrase built from two rows: how long it is and what
+  // colour it is.
   const length = lower(look.length, HAIR_LENGTHS);
-  const texture = lower(look.texture, HAIR_TEXTURES);
   const colour = lower(look.hair, HAIR_COLOURS, 'hair');
-  const asNoun = HAIR_AS_NOUN.has(texture);
-  const hair = asNoun
-    ? [length, colour, texture].filter(Boolean).join(' ')
-    : [length, texture, colour].filter(Boolean).join(' ');
-  if (hair) has.push(join(asNoun ? hair : `${hair} hair`, qual(look.length), qual(look.texture), qual(look.hair)));
+  const hair = [length, colour].filter(Boolean).join(' ');
+  if (hair) has.push(join(`${hair} hair`, qual(look.length), qual(look.hair)));
 
   const facial = lower(look.facial, FACIAL_HAIR);
   if (facial) has.push(join(facial, qual(look.facial)));

@@ -29,7 +29,6 @@ const TAPPED: Answers = {
   'look-skin': { pick: 'olive' },
   'look-build': { pick: 'solid' },
   'look-heritage': { pick: 'Mediterranean' },
-  'look-texture': { pick: 'wavy' },
   'look-eyes': { pick: 'green' },
   'look-height': { pick: 'tall' },
   traits: [],

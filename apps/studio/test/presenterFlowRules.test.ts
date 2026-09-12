@@ -72,7 +72,6 @@ const TAPPED: Answers = {
   'look-skin': { pick: 'olive' },
   'look-build': { pick: 'lean' },
   'look-heritage': { pick: 'Mediterranean' },
-  'look-texture': { pick: 'wavy' },
   'look-eyes': { pick: 'green' },
   'look-height': { pick: 'tall' },
 };
@@ -96,8 +95,7 @@ describe('the transcript is a function of state', () => {
       ['look-heritage', 'Mediterranean', 'look-skin'],
       ['look-skin', 'olive', 'look-hair'],
       ['look-hair', 'brown', 'look-length'],
-      ['look-length', 'long', 'look-texture'],
-      ['look-texture', 'wavy', 'look-eyes'],
+      ['look-length', 'long', 'look-eyes'],
       ['look-eyes', 'green', 'look-build'],
       ['look-build', 'lean', 'look-height'],
       ['look-height', 'tall', 'traits'],
@@ -121,7 +119,7 @@ describe('the transcript is a function of state', () => {
     // the ask is short; the whole person is set apart above it, to be read or taken
     expect(q?.kind === 'confirm' && q.prompt).toBe('Here is the presenter, in full. Ready to draw?');
     expect(q?.kind === 'confirm' && q.quote).toBe(
-      'A Mediterranean woman in their 30s with long wavy brown hair, green eyes, olive skin, tall with a lean build.',
+      'A Mediterranean woman in their 30s with long brown hair, green eyes, olive skin, tall with a lean build.',
     );
     // one way on, and it says what is being drawn
     expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Draw the presenter']);
@@ -139,11 +137,29 @@ describe('the transcript is a function of state', () => {
     );
     const said = open(withDetails);
     expect(said?.kind === 'confirm' && said.quote).toBe(
-      'A Mediterranean woman in their 30s with long wavy brown hair, green eyes, olive skin, tall with a lean build, and always thin black rectangular metal frames, a solid blackwork tattoo on their right forearm and a prosthetic limb in a bright painted finish in place of their right arm.',
+      'A Mediterranean woman in their 30s with long brown hair, green eyes, olive skin, tall with a lean build, and always thin black rectangular metal frames, a solid blackwork tattoo on their right forearm and a prosthetic limb in a bright painted finish in place of their right arm.',
     );
-    // the swatch questions know who is being drawn
-    const who = open(turns(state({ source: { door: 'scratch', via: 'taps' }, 'look-who': { pick: 'man' } })));
-    expect(who?.kind === 'swatches' && who.cast).toBe('man');
+    // A row drawn per cast asks for that cast's own cards. It used to be told
+    // the cast and pick the picture itself; the flow resolves it into the card
+    // id now, so the block stays a thing that renders whatever it is handed.
+    const asMan = { source: { door: 'scratch' as const, via: 'taps' as const }, 'look-who': { pick: 'man' } };
+    const toLength = {
+      ...asMan,
+      'look-age': { pick: '30s' },
+      'look-heritage': { pick: 'Nordic' },
+      'look-skin': { pick: 'fair' },
+      'look-hair': { pick: 'brown' },
+    };
+    const row = open(turns(state(toLength)));
+    expect(row?.id).toBe('look-length');
+    expect(row?.kind === 'swatches' && row.row.options.map((o) => o.card)).toEqual([
+      'length-1-man',
+      'length-2-man',
+      'length-3-man',
+      'length-4-man',
+      'length-5-man',
+      'length-6-man',
+    ]);
   });
 
   it('the details chosen each ask their own question, in the table order, then read back as exchanges', () => {
@@ -810,7 +826,7 @@ describe('what a tap means', () => {
       keep: { words: 'a red thread bracelet', refs: ['h-bracelet'] },
     };
     expect(compileDirection(a)).toBe(
-      'a Mediterranean woman in their 30s with long wavy dyed purple hair, green eyes, olive skin, tall with a lean build',
+      'a Mediterranean woman in their 30s with long dyed purple hair, green eyes, olive skin, tall with a lean build',
     );
     expect(compileKeep(a)).toBe(
       'thin black rectangular metal frames, a small geometric line tattoo on their right forearm, a red thread bracelet',
@@ -876,7 +892,7 @@ describe('an answer that was changed', () => {
     const reopen = (a: Answers, id: Qid) =>
       turns(state(a, { editing: id })).find((t) => t.kind === 'question' && t.question.id === id);
     const deep = reopen(TAPPED, 'look-hair');
-    expect(deep?.kind === 'question' && deep.question.cost).toBe('Changing this asks the 5 after it again.');
+    expect(deep?.kind === 'question' && deep.question.cost).toBe('Changing this asks the 4 after it again.');
     const one = reopen(TAPPED, 'look-build');
     expect(one?.kind === 'question' && one.question.cost).toBe('Changing this asks the one after it again.');
     // the last answer has nothing after it, so there is nothing to say

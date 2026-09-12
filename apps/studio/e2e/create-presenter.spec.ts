@@ -230,7 +230,6 @@ test.describe('a person from scratch', () => {
     await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
     await log(page).getByRole('button', { name: 'Black', exact: true }).click();
     await log(page).getByRole('button', { name: 'Shoulder', exact: true }).click();
-    await log(page).getByRole('button', { name: 'Wavy', exact: true }).click();
     // this one said they are non-binary rather than tapping Woman, so the
     // facial hair row does stand for them: it is only a woman it is not asked of
     await expect(log(page)).toContainText('Any facial hair?');
@@ -266,8 +265,6 @@ test.describe('a person from scratch', () => {
     await expect(log(page).locator('.sc-convo-plate-in[data-card^="length-"]').first()).toBeVisible();
     await expect(log(page).locator('.sc-convo-plate-in[data-card="length-5-woman"]')).toHaveCount(1);
     await log(page).getByRole('button', { name: 'Shoulder', exact: true }).click();
-    await expect(log(page)).toContainText('And how does it grow?');
-    await log(page).getByRole('button', { name: 'Wavy', exact: true }).click();
     // she is never asked about facial hair, so the eyes come straight after
     await expect(log(page)).toContainText('What colour are their eyes?');
     await log(page).getByRole('button', { name: 'Green', exact: true }).click();
@@ -285,7 +282,7 @@ test.describe('a person from scratch', () => {
     // brief stands apart from the talk, with a way to take a copy of it
     await expect(log(page)).toContainText('Here is the presenter, in full. Ready to draw?');
     await expect(log(page).locator('.sc-convo-brief-text')).toHaveText(
-      'A Mediterranean woman in their 30s with shoulder-length wavy black hair, green eyes, olive skin, average height with a solid build.',
+      'A Mediterranean woman in their 30s with shoulder-length black hair, green eyes, olive skin, average height with a solid build.',
     );
     await expect(log(page).getByRole('button', { name: 'Copy' })).toBeAttached();
     await log(page).getByRole('button', { name: 'Draw the presenter' }).click();
@@ -293,7 +290,7 @@ test.describe('a person from scratch', () => {
     const tapped = await draftsOf(page, brand.id);
     const first = await draftOf(page, brand.id, tapped.drafts[0].id);
     expect(first.direction).toBe(
-      'a Mediterranean woman in their 30s with shoulder-length wavy black hair, green eyes, olive skin, average height with a solid build',
+      'a Mediterranean woman in their 30s with shoulder-length black hair, green eyes, olive skin, average height with a solid build',
     );
   });
 
