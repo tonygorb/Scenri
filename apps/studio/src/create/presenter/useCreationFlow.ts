@@ -673,6 +673,24 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       // reach for a different one. Nothing is refined before a picture exists.
       const voice = (t: Qid | 'keep' | null, openId: string | null = null) =>
         asidePhaseFor(t, openId, !!d?.views.portrait.hash);
+      /**
+       * Where a refusal goes.
+       *
+       * Normally into the conversation, under the question it was said at,
+       * because it was said out loud and was answered out loud. But while an
+       * answer is being changed it is not a turn in the conversation at all:
+       * filed as one it lands in the middle of the run, under the answer being
+       * changed and above answers given after it, which reads as a message
+       * inserted into the past. It belongs to the change, so it goes under the
+       * line it was typed into, and the words stay there to be fixed.
+       */
+      const refuse = (said: string, reply: string, q: Qid | 'keep' | null, kind: NothingKind) => {
+        if (q !== null && st.editing === q) {
+          setAskErr(reply);
+          return;
+        }
+        bounce(said, reply, q, kind);
+      };
 
       // A detail in their own words: it answers the open half of that trait,
       // and the placement question follows only if the words did not say it.
@@ -694,7 +712,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         }
         const empty = judgeAnswer(target, typed, readsAsPerson);
         if (!typed || empty) {
-          bounce(
+          refuse(
             typed,
             asideReply(empty ?? 'vague', voice(target), again(target, empty ?? 'vague'), typed),
             target,
@@ -734,7 +752,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         // what it is, so only typed words are read this way, chip or no chip.
         const empty = typed && !/^#[0-9a-f]{6}$/i.test(typed) ? judgeAnswer(target, typed, readsAsPerson) : null;
         if (empty) {
-          bounce(typed, asideReply(empty, voice(target), again(target, empty), typed, step), target, empty);
+          refuse(typed, asideReply(empty, voice(target), again(target, empty), typed, step), target, empty);
           return true;
         }
         // The chip and the words are two halves of one answer and are never
@@ -871,6 +889,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
    */
   const onEdit = useCallback(
     (turnId: string) => {
+      setAskErr(null);
       if (turnId === 'name') {
         dispatch({ type: 'edit', id: 'name' });
         return;
@@ -997,7 +1016,10 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     },
     [d, s.update, commitAnswer, commitWords, onSend, question, ctx],
   );
-  const onCancelEdit = useCallback(() => dispatch({ type: 'cancel-edit' }), []);
+  const onCancelEdit = useCallback(() => {
+    setAskErr(null);
+    dispatch({ type: 'cancel-edit' });
+  }, []);
 
   /**
    * A tap question answered in words instead. The first row hands the whole
@@ -1272,7 +1294,13 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
             : null,
       },
       text: state.text,
-      onText: (text: string) => dispatch({ type: 'text', text }),
+      onText: (text: string) => {
+        // A refusal under the line is about what was in the line: typing again
+        // is the answer to it, so it goes then rather than standing over words
+        // it is no longer about.
+        setAskErr(null);
+        dispatch({ type: 'text', text });
+      },
       onSend,
       onAnswer,
       onRestore: (view: string, hash: string) => void s.restore(view as StudioView, hash),
