@@ -1,6 +1,6 @@
 import type { Swatch, SwatchRow } from '../../conversation/question.js';
 import { colourWords, grownHair } from './colourWords.js';
-import { LOOK_ORDER, type LookStep, PASSED } from './presenterQuestions.js';
+import { type Given, LOOK_ORDER, type LookStep, PASSED } from './presenterQuestions.js';
 
 /**
  * The look, as things to tap rather than words to find: who, an age, hair by
@@ -168,10 +168,28 @@ export const colourRow = (step: string | null | undefined): Swatch[] => (step ==
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** What was tapped, said as a person: the sentence the engine is given. */
-export function lookSentence(look: Partial<Record<LookStep, string>>): string {
-  const name = (id: string | undefined, among: Swatch[], row?: string) =>
-    !id || id === PASSED ? '' : id.startsWith('#') ? colourName(id, among, row) : id.toLowerCase();
+/**
+ * What was said at the rows, as a person: the sentence the engine is given.
+ *
+ * A row can carry a chip, their own words, or both. The chip is the base and
+ * the words qualify it, and the qualifier goes **after** the phrase its row
+ * owns rather than inside it: every row but the first sits in front of a noun
+ * ("a lean build"), so putting the words in the middle would say "a lean, with
+ * narrower shoulders build". A row with words and no chip has nothing to
+ * qualify, so the words are the base, which is what a described row has always
+ * done.
+ */
+export function lookSentence(look: Partial<Record<LookStep, Given>>): string {
+  /** The chip, if there is one that says anything: the way past says nothing. */
+  const pickOf = (v: Given | undefined) => (v?.pick && v.pick !== PASSED ? v.pick : '');
+  const base = (v: Given | undefined, among: Swatch[], row?: string) => {
+    const p = pickOf(v);
+    if (p) return p.startsWith('#') ? colourName(p, among, row) : p.toLowerCase();
+    return v?.words?.trim().toLowerCase() ?? '';
+  };
+  /** Their words, when something was tapped for them to be about. */
+  const qual = (v: Given | undefined) => (pickOf(v) ? (v?.words?.trim() ?? '') : '');
+  const join = (phrase: string, ...words: string[]) => [phrase, ...words.filter(Boolean)].join(' ');
   // The three the row offers, and then whatever else was typed into it. A
   // switch with a default dropped every other answer on the floor: somebody
   // who said "a non-binary person" watched it land in the conversation and
@@ -181,30 +199,48 @@ export function lookSentence(look: Partial<Record<LookStep, string>>): string {
     man: 'a man',
     woman: 'a woman',
   };
-  const said = look.who && look.who !== PASSED ? look.who.trim() : '';
+  const said = base(look.who, []);
   const who = KNOWN[said] ?? (said ? (/^(a|an|the)\s/i.test(said) ? said : `a ${said}`) : 'a person');
   const parts: string[] = [who];
-  if (look.age && look.age !== PASSED)
-    parts.push(look.age === '60+' ? 'in their 60s or older' : `in their ${look.age}`);
-  const hair = [name(look.length, HAIR_LENGTHS), name(look.hair, HAIR_COLOURS, 'hair')].filter(Boolean).join(' ');
+  const age = base(look.age, []);
+  // The row offers decades, so "in their 40s" is the shape; a number of their
+  // own is a number, and "in their 90" is not how anybody says it.
+  const aged = age === '60+' ? 'in their 60s or older' : /^\d{1,3}$/.test(age) ? `aged ${age}` : `in their ${age}`;
+  if (age) parts.push(join(aged, qual(look.age)));
+  const hair = [base(look.length, HAIR_LENGTHS), base(look.hair, HAIR_COLOURS, 'hair')].filter(Boolean).join(' ');
   const has: string[] = [];
-  if (hair) has.push(`${hair} hair`);
-  const skin = name(look.skin, SKIN_TONES, 'skin');
-  if (skin) has.push(`${skin} skin`);
-  if (look.build && look.build !== PASSED) has.push(`${/^[aeiou]/.test(look.build) ? 'an' : 'a'} ${look.build} build`);
+  if (hair) has.push(join(`${hair} hair`, qual(look.length), qual(look.hair)));
+  const skin = base(look.skin, SKIN_TONES, 'skin');
+  if (skin) has.push(join(`${skin} skin`, qual(look.skin)));
+  const build = base(look.build, []);
+  if (build) has.push(join(`${/^[aeiou]/.test(build) ? 'an' : 'a'} ${build} build`, qual(look.build)));
   if (has.length) parts.push(`with ${has.join(', ')}`);
-  return parts.join(' ');
+  // The subject is the one row that is not a phrase in front of a noun, so
+  // its words ride at the end, as a clause about the whole person.
+  return join(parts.join(' '), qual(look.who));
 }
 
-/** What one tap said, as the answer in the transcript. */
-export function answerLabel(row: SwatchRow, given: string): string {
-  if (given === PASSED) return 'Either way';
-  if (given.startsWith('#')) return cap(colourName(given, row.options, row.id));
+/**
+ * What was said at one row, as the answer in the transcript: what was tapped,
+ * and their own words about it after a comma.
+ */
+export function answerLabel(row: SwatchRow, given: Given): string {
+  const pick = given.pick;
+  const chosen =
+    pick === PASSED
+      ? 'Either way'
+      : pick?.startsWith('#')
+        ? cap(colourName(pick, row.options, row.id))
+        : pick
+          ? (row.options.find((o) => o.id === pick)?.label ?? cap(pick))
+          : '';
+  const said = given.words?.trim() ?? '';
   // said in words rather than tapped: the words are the answer
-  return row.options.find((o) => o.id === given)?.label ?? cap(given);
+  if (!chosen) return cap(said);
+  return said ? `${chosen}, ${said}` : chosen;
 }
 
 /** The whole look, read back as one line. */
-export function lookLine(look: Partial<Record<LookStep, string>>): string {
+export function lookLine(look: Partial<Record<LookStep, Given>>): string {
   return cap(lookSentence(look));
 }

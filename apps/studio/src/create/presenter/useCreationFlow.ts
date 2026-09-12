@@ -24,6 +24,7 @@ import {
   answerPatch,
   attachedWords,
   asKept,
+  asQualifier,
   compileDirection,
   compileItems,
   stepHolds,
@@ -39,10 +40,14 @@ import { traitOf } from './presenterTraits.js';
 import {
   type Answers,
   type FlowContext,
+  type Given,
+  type LookQid,
   type LookStep,
   type Qid,
   type RefQid,
   type TraitQid,
+  type TraitWhat,
+  type WhereQid,
   isLookQid,
   isQid,
   nextQuestion,
@@ -528,7 +533,15 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       if (isQid(qid)) {
         const patch = answerPatch(qid, a, st.answers);
         if (patch) {
-          commitAnswer(patch);
+          // Words already in the line belong to the answer being given: a
+          // person who writes "with narrower shoulders" and then taps Lean
+          // means both, and meant them in one act. Without this the tap
+          // answered and the words were left behind, pointed at whatever
+          // question opened next.
+          const said = st.text.trim();
+          const one = patch[qid as keyof typeof patch] as Given | undefined;
+          const holds = (isLookQid(qid) || !!traitOfQid(qid)) && one && typeof one === 'object' && !one.words;
+          commitAnswer(holds && said ? { ...patch, [qid]: { ...one, words: asQualifier(said) } } : patch);
           return;
         }
         if (qid === 'photos' && a.kind === 'photos') {
@@ -669,7 +682,13 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         // picture it names rides with them.
         const held = trait.part === 'what' ? (st.answers[target as TraitQid]?.refs ?? []) : [];
         if (!typed && held.length) {
-          commitAnswer({ [target]: { words: attachedWords(trait.id, held.length), refs: held } });
+          commitAnswer({
+            [target]: {
+              pick: st.answers[target as TraitQid]?.pick,
+              words: attachedWords(trait.id, held.length),
+              refs: held,
+            },
+          });
           return true;
         }
         const empty = judgeAnswer(target, typed, readsAsPerson);
@@ -682,10 +701,15 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           );
           return true;
         }
-        if (trait.part === 'where') commitAnswer({ [target]: typed });
-        else {
+        // Words at an answer that already has a chip qualify that chip rather
+        // than replacing it, so both halves are kept and the conjunction that
+        // joined them is dropped: it was the join, not part of what was said.
+        if (trait.part === 'where') {
+          const had = st.answers[target as WhereQid];
+          commitAnswer({ [target]: { pick: had?.pick, words: asQualifier(typed) } });
+        } else {
           const had = st.answers[target as TraitQid];
-          commitAnswer({ [target]: { words: typed, refs: had?.refs ?? [] } });
+          commitAnswer({ [target]: { pick: had?.pick, words: asQualifier(typed), refs: had?.refs ?? [] } });
         }
         return true;
       }
@@ -710,14 +734,19 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           bounce(typed, asideReply(empty, voice(target), again(target, empty), typed, step), target, empty);
           return true;
         }
-        const value = chosen && typed ? `${chosen} ${typed}` : sentence;
+        // The chip and the words are two halves of one answer and are never
+        // joined here: joined, a colour of their own plus a word about it read
+        // back as "dyed purple dyed, with darker roots", the colour said twice.
+        const had = st.answers[target];
+        const pick = heldNow ?? (typed ? had?.pick : undefined);
+        const value: Given = { pick, words: typed ? asQualifier(typed) : had?.words };
         // A fact about a person is a fact about them wherever it was typed.
         // Told "he has a left prosthetic arm" at "Who are they?", this used to
         // take it as the answer and then lose it: that row compiles through a
         // fixed set, so the words went nowhere and the read-back said "a
         // person". What the step cannot hold is kept about them instead, and
         // the step stays open, because it still has not been answered.
-        if (typed && !stepHolds(st.answers, target, value, typed)) {
+        if (typed && !pick && !stepHolds(st.answers, target, value, typed)) {
           const had = st.answers.keep;
           commitAnswer({
             keep: { words: [had?.words?.trim(), asKept(typed)].filter(Boolean).join(', '), refs: had?.refs ?? [] },
@@ -879,9 +908,21 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
    */
   const commitWords = useCallback(
     (id: Qid, text: string) => {
+      const answers = stateRef.current.answers;
       if (id === 'keep' || (id.startsWith('trait-') && !id.endsWith('-where'))) {
-        const had = stateRef.current.answers[id as TraitQid | 'keep'];
-        commitAnswer({ [id]: { words: text, refs: had?.refs ?? [] } });
+        const had = answers[id as TraitQid | 'keep'];
+        commitAnswer({
+          [id]: {
+            pick: id === 'keep' ? undefined : (had as TraitWhat | undefined)?.pick,
+            words: text,
+            refs: had?.refs ?? [],
+          },
+        });
+        return;
+      }
+      if (isLookQid(id) || id.startsWith('trait-')) {
+        const had = answers[id as LookQid | WhereQid];
+        commitAnswer({ [id]: { pick: had?.pick, words: text } });
         return;
       }
       commitAnswer({ [id]: text });

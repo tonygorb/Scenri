@@ -35,11 +35,21 @@ const send = async (p: Page, text: string) => {
 const answer = (p: Page, label: string) => log(p).getByRole('button', { name: label, exact: true });
 const turn = (p: Page, key: string) => log(p).locator(`.sc-convo-turn[data-turn="${key}"]`);
 const pencil = (p: Page, key: string) => turn(p, key).getByRole('button', { name: 'Change this answer' });
+/**
+ * The draft this page is on, read off its own address.
+ *
+ * It used to read the first draft the brand had, which is the oldest: every
+ * test after the first one in this file then asserted about a draft an earlier
+ * test had made, and the assertion passed or failed on the wrong person.
+ */
 const draftOf = async (p: Page, brandId: string) => {
-  const { drafts } = (await (await p.request.get(`/api/brands/${brandId}/presenter-drafts`)).json()) as {
-    drafts: { id: string }[];
-  };
-  return (await p.request.get(`/api/brands/${brandId}/presenter-drafts/${drafts[0].id}`)).json();
+  const here = /\/(pd-[a-z0-9]+)/.exec(new URL(p.url()).pathname)?.[1];
+  const id =
+    here ??
+    (
+      (await (await p.request.get(`/api/brands/${brandId}/presenter-drafts`)).json()) as { drafts: { id: string }[] }
+    ).drafts.at(-1)?.id;
+  return (await p.request.get(`/api/brands/${brandId}/presenter-drafts/${id}`)).json();
 };
 
 /** The rows, tapped through to the read-back. */
@@ -93,7 +103,7 @@ test.describe('changing an answer', () => {
     await expect.poll(async () => (await draftOf(page, brand.id)).direction, { timeout: 20_000 }).toContain('blonde');
   });
 
-  test('B: three details answered, the choosing changed, the rest asked again', async ({ page }) => {
+  test('B: three details answered, one taken away, and the others left alone', async ({ page }) => {
     test.setTimeout(60_000);
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
@@ -114,13 +124,21 @@ test.describe('changing an answer', () => {
       await expect(chooser.getByRole('button', { name: chip })).toHaveAttribute('aria-pressed', 'true');
     await chooser.getByRole('button', { name: 'Tattoo' }).click();
     await chooser.getByRole('button', { name: 'Continue' }).click();
-    // the choosing changed, so the details are asked again, in the table order
+    // the one taken away goes, with its placement and its pictures
     await expect(turn(page, 'you:trait-tattoo')).toHaveCount(0);
     await expect(turn(page, 'you:trait-tattoo-where')).toHaveCount(0);
-    await expect(log(page)).toContainText('What glasses do they wear?');
-    await answer(page, 'Thin black').click();
-    await expect(log(page)).toContainText('What scar do they have?');
-    await answer(page, 'On the chin').click();
+    // and the two nobody touched are still answered: a detail is answered
+    // about itself, so taking another one away says nothing about it
+    await expect(turn(page, 'you:trait-glasses')).toContainText('Thin black');
+    await expect(turn(page, 'you:trait-scar')).toContainText('On the chin');
+    await expect(answer(page, 'Draw the presenter')).toBeVisible();
+    // one taken in is the only thing asked
+    await pencil(page, 'you:traits').click();
+    await turn(page, 'q:traits').getByRole('button', { name: 'Piercing' }).click();
+    await turn(page, 'q:traits').getByRole('button', { name: 'Continue' }).click();
+    await expect(log(page)).toContainText('What piercing do they wear?');
+    await expect(turn(page, 'you:trait-glasses')).toContainText('Thin black');
+    await answer(page, 'Nose stud').click();
     await expect(answer(page, 'Draw the presenter')).toBeVisible();
 
     await answer(page, 'Draw the presenter').click();
@@ -130,6 +148,7 @@ test.describe('changing an answer', () => {
       .toContain('thin black');
     const d = await draftOf(page, brand.id);
     expect(d.keep).toContain('chin');
+    expect(d.keep).toContain('nose stud');
     expect(d.keep).not.toContain('floral');
   });
 

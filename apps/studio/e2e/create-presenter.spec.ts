@@ -48,6 +48,14 @@ const draftsOf = async (p: Page, brandId: string) =>
   };
 const draftOf = async (p: Page, brandId: string, draftId: string) =>
   (await p.request.get(`/api/brands/${brandId}/presenter-drafts/${draftId}`)).json();
+/**
+ * The draft this page is on, by its own address.
+ *
+ * The brand's list is oldest first, so `drafts[0]` is whichever draft the
+ * first test in this file left behind, and a later test asserting through it
+ * was reading somebody else's person.
+ */
+const here = (p: Page): string => /\/(pd-[a-z0-9]+)/.exec(new URL(p.url()).pathname)?.[1] ?? '';
 const personNamed = async (p: Page, brandId: string, name: string) => {
   const brands = await (await p.request.get('/api/brands')).json();
   return (brands.find((b: any) => b.id === brandId).json.characters ?? []).find((c: any) => c.name === name);
@@ -300,7 +308,7 @@ test.describe('a person from scratch', () => {
     await page.locator('.sc-convo-field textarea').fill('with copper ends');
     await page.getByRole('button', { name: 'Send' }).click();
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toContainText(
-      'Auburn with copper ends',
+      'Auburn, with copper ends',
     );
     await expect(log(page)).toContainText('And the length?');
     // the next step is not a colour, so no chip stands in its field
@@ -460,9 +468,8 @@ test.describe('a person from scratch', () => {
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:describe"]')).toContainText('shaved head');
     // the run carries on from the change; the words reach the draft once it is whole
     await answer(page, 'Nothing else').click();
-    const { drafts } = await draftsOf(page, brand.id);
     await expect
-      .poll(async () => (await draftOf(page, brand.id, drafts[0].id)).direction, { timeout: 20_000 })
+      .poll(async () => (await draftOf(page, brand.id, here(page))).direction, { timeout: 20_000 })
       .toBe('a man in his 50s with a shaved head');
   });
 
@@ -482,8 +489,7 @@ test.describe('a person from scratch', () => {
     await answer(page, 'Continue').click();
     await answer(page, 'Nothing else').click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
-    const { drafts } = await draftsOf(page, brand.id);
-    const d = await draftOf(page, brand.id, drafts[0].id);
+    const d = await draftOf(page, brand.id, here(page));
     expect(d.direction).toBe('a man in his 20s, black curly hair, athletic build');
     // the follow-up was asked once and is answered in the record
     await expect(log(page)).toContainText('Man, 20s, Athletic');

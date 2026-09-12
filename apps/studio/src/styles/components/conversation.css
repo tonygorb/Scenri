@@ -641,6 +641,17 @@ button.sc-convo-shot-do {
   text-wrap: pretty;
 }
 
+/* The words an answer carries beside what was chosen, under the controls that
+   hold the choice. Quieter than the hint above the block, because this is the
+   answer speaking rather than the question. */
+.sc-convo-note {
+  margin: var(--sc-space-3) 0 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--sc-fg2);
+  text-wrap: pretty;
+}
+
 /* A colour chosen for an answer wears the chip the rest of the app uses for a
    colour, and it wears it where the words go: the chip sits on the first line
    of the writing area, the way a chip sits in the brief's sentence, and typing

@@ -50,16 +50,49 @@ export interface PhotosAnswer {
   attested: boolean;
 }
 
-/** One distinctive detail: what it looks like, and pictures of the thing itself. */
-export interface TraitWhat {
-  /** The chosen option's words, or their own. Unanswered until this is set. */
+/**
+ * What was said at a question that offers options: what was tapped, and their
+ * own words about it.
+ *
+ * The two are kept apart on purpose. A chip is a base, and words beside it
+ * qualify that base rather than replace it: somebody who taps Athletic and
+ * then says "narrower shoulders" means both, and a single field could only
+ * keep one of them. They are joined where a sentence is built and nowhere
+ * else, which is what makes it impossible for the pick to end up inside the
+ * words and be said twice.
+ */
+export interface Given {
+  /** The option tapped, by id, which is the words an engine is given. A hex on a colour row, PASSED for the way past. */
+  pick?: string;
+  /** Their own words: the whole answer when nothing was tapped, a qualifier of the pick when something was. */
   words?: string;
+}
+
+/** One distinctive detail: what it looks like, and pictures of the thing itself. */
+export interface TraitWhat extends Given {
   /** Pictures of the detail, never of a person. Kept while the trait is chosen. */
   refs: string[];
 }
 
 /** A step passed over: remembered, so it is asked once. */
 export const PASSED = 'either';
+
+/**
+ * The whole of what was said at one question, for a compiler, a comparator or
+ * a read-back. The way past says nothing, so it contributes nothing.
+ */
+export const saidOf = (v: Given | undefined): string =>
+  [v?.pick === PASSED ? '' : v?.pick?.trim(), v?.words?.trim()].filter(Boolean).join(', ');
+
+/**
+ * Whether anything was said at all: a chip, words, or both.
+ *
+ * Not the same question as `saidOf`, and the difference is the way past. Skip
+ * is an answer, and a real one, but it contributes nothing to the sentence, so
+ * a question that counted answers by what they compile to asked the skipped
+ * row again forever.
+ */
+export const wasGiven = (v: Given | undefined): boolean => !!(v?.pick || v?.words?.trim());
 
 export type Values = {
   source: Door;
@@ -72,7 +105,7 @@ export type Values = {
    * it if there is one: the same shape as a detail, because that is what it is.
    */
   keep: TraitWhat;
-} & { [K in LookQid]: string } & { [K in TraitQid]: TraitWhat } & { [K in WhereQid]: string };
+} & { [K in LookQid]: Given } & { [K in TraitQid]: TraitWhat } & { [K in WhereQid]: Given };
 
 export type Answers = { [K in Qid]?: Values[K] };
 
@@ -176,9 +209,12 @@ const traitsMoment = (a: Answers, ctx: FlowContext) =>
 const traitsApply = (a: Answers, ctx: FlowContext) => scratch(a) || (photos(a) && !!ctx.draft);
 
 const traitChosen = (id: TraitId) => (a: Answers) => !!a.traits?.includes(id);
-const traitAnswered = (id: TraitId) => (a: Answers) => !!a[`trait-${id}`]?.words;
+const traitAnswered = (id: TraitId) => (a: Answers) => wasGiven(a[`trait-${id}`]);
 const whereApplies = (id: TraitId) => (a: Answers) =>
-  traitChosen(id)(a) && traitAnswered(id)(a) && !!traitOf(id)?.where && !saysWhere(a[`trait-${id}`]?.words);
+  traitChosen(id)(a) && traitAnswered(id)(a) && !!traitOf(id)?.where && !saysWhere(saidOf(a[`trait-${id}`]));
+
+/** Whether a detail was among the ones chosen, for the comparator below. */
+const among = (v: unknown, id: TraitId) => Array.isArray(v) && (v as TraitId[]).includes(id);
 
 const traitsDone = (a: Answers, ctx: FlowContext): boolean =>
   traitsMoment(a, ctx) &&
@@ -196,7 +232,14 @@ export const SPECS: readonly Spec[] = [
   { id: 'gaps', applies: gapsApply, dependsOn: [{ on: 'describe' }] },
   { id: 'traits', applies: traitsApply, ready: traitsMoment },
   ...TRAITS.flatMap((t): Spec[] => [
-    { id: `trait-${t.id}`, applies: traitChosen(t.id) },
+    // A detail is answered about itself, so it survives the other details
+    // changing: choosing one more says nothing about the glasses already
+    // described. Declaring it here is what lifts it out of the order rule.
+    {
+      id: `trait-${t.id}`,
+      applies: traitChosen(t.id),
+      dependsOn: [{ on: 'traits', changed: (b, a) => among(b, t.id) !== among(a, t.id) }],
+    },
     {
       id: `trait-${t.id}-where`,
       applies: whereApplies(t.id),
@@ -204,8 +247,9 @@ export const SPECS: readonly Spec[] = [
       dependsOn: [
         {
           on: `trait-${t.id}`,
-          changed: (b, a) => (b as TraitWhat | undefined)?.words !== (a as TraitWhat | undefined)?.words,
+          changed: (b, a) => saidOf(b as TraitWhat | undefined) !== saidOf(a as TraitWhat | undefined),
         },
+        { on: 'traits', changed: (b, a) => among(b, t.id) !== among(a, t.id) },
       ],
     },
   ]),
@@ -238,7 +282,10 @@ export function answered(id: Qid, a: Answers, ctx: FlowContext): boolean {
   if (id === 'photos') return !!ctx.draft && ctx.draft.source === 'photos';
   const v = a[id];
   if (v === undefined) return false;
-  if (id.startsWith('trait-') && !id.endsWith('-where')) return !!(v as TraitWhat).words;
+  // A question with options is answered by what was said at it, whichever
+  // half said it: a chip, their own words, or both. An empty pair is not an
+  // answer, and neither are pictures on their own.
+  if (isLookQid(id) || isTraitQid(id)) return wasGiven(v as Given);
   return true;
 }
 
@@ -294,8 +341,16 @@ export function commit(a: Answers, patch: Partial<Answers>, ctx: FlowContext): A
   if (changed.size) {
     const order = SPECS.map((s) => s.id);
     const first = Math.min(...[...changed].map((id) => order.indexOf(id)));
+    // What a question says it was answered in the light of is more specific
+    // than where it sits, so a declaration wins over the order: the details
+    // already described are not replies to the chooser, and taking one more
+    // detail must not ask for all of them again. Read from the changes as
+    // they stood before this pass, so the pass cannot widen its own reason.
+    const already = new Set(changed);
+    const declared = (s: Spec) => (s.dependsOn ?? []).some((d) => already.has(d.on));
     for (const s of SPECS) {
       if (order.indexOf(s.id) <= first || given.has(s.id) || next[s.id] === undefined || s.sticky) continue;
+      if (declared(s)) continue;
       delete next[s.id];
       changed.add(s.id);
     }
@@ -305,9 +360,13 @@ export function commit(a: Answers, patch: Partial<Answers>, ctx: FlowContext): A
     moved = false;
     for (const s of SPECS) {
       if (next[s.id] === undefined) continue;
-      const dependent = (s.dependsOn ?? []).some(
-        (d) => changed.has(d.on) && (d.changed ? d.changed(a[d.on], next[d.on]) : true),
-      );
+      const dependent =
+        // An answer given in this very change is the change, never a casualty
+        // of it: choosing a detail and answering it in one go must not take
+        // the answer straight back out again. The order rule above already
+        // says this about position; it has to hold for a declaration too.
+        !given.has(s.id) &&
+        (s.dependsOn ?? []).some((d) => changed.has(d.on) && (d.changed ? d.changed(a[d.on], next[d.on]) : true));
       if (dependent || !s.applies(next, ctx)) {
         delete next[s.id];
         changed.add(s.id);
@@ -334,14 +393,20 @@ export function traitDetails(
   for (const id of a.traits ?? []) {
     const what = a[`trait-${id}`];
     if (!what) continue;
-    out[id] = { words: what.words, where: a[`trait-${id}-where`], refs: what.refs.length ? what.refs : undefined };
+    // The two halves of each answer are joined here and nowhere else: what was
+    // tapped, then their words about it.
+    out[id] = {
+      words: saidOf(what) || undefined,
+      where: saidOf(a[`trait-${id}-where`]) || undefined,
+      refs: what.refs.length ? what.refs : undefined,
+    };
   }
   return out;
 }
 
-/** The look as tapped, by row, for the sentence and the read-back. */
-export function lookOf(a: Answers): Partial<Record<LookStep, string>> {
-  const out: Partial<Record<LookStep, string>> = {};
+/** The look as answered, by row, for the sentence and the read-back. */
+export function lookOf(a: Answers): Partial<Record<LookStep, Given>> {
+  const out: Partial<Record<LookStep, Given>> = {};
   for (const s of LOOK_ORDER) {
     const v = a[`look-${s}`];
     if (v !== undefined) out[s] = v;

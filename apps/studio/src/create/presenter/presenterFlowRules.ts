@@ -39,6 +39,7 @@ import {
   type Answers,
   type FlowContext,
   type Gap,
+  type Given,
   type LookStep,
   PASSED,
   type Qid,
@@ -54,12 +55,15 @@ import {
   isQid,
   lookOf,
   nextQuestion,
+  saidOf,
   traitDetails,
   traitOfQid,
 } from './presenterQuestions.js';
 import { recordTurns } from './presenterRecordTurns.js';
 import {
+  readsAsAge,
   readsAsPerson,
+  saysOnlyAPerson,
   type Age,
   type DraftLike,
   MAX_PHOTOS,
@@ -156,7 +160,8 @@ export function compileDirection(a: Answers): string {
     // The row names a kind of person, and now carries any words typed into it.
     // Words that describe nobody are not a kind of person: they are something
     // about them, and `stepHolds` keeps them as that instead.
-    return lookSentence(look.who && !readsAsPerson(look.who) ? { ...look, who: undefined } : look);
+    const who = saidOf(look.who);
+    return lookSentence(who && !readsAsPerson(who) ? { ...look, who: undefined } : look);
   }
   const said = (a.describe ?? '').trim();
   const picks = a.gaps && a.gaps !== 'skipped' ? a.gaps : {};
@@ -265,7 +270,7 @@ export function asKept(text: string): string {
   return bare || said;
 }
 
-export function stepHolds(a: Answers, id: LookQid, value: string, typed: string): boolean {
+export function stepHolds(a: Answers, id: LookQid, value: Given, typed: string): boolean {
   const said = typed
     .toLowerCase()
     .split(/[^a-z0-9]+/)
@@ -387,8 +392,13 @@ export const flowContext = (draft: DraftLike | null, canGenerate: boolean): Flow
 export function answerPatch(qid: Qid, a: Answer, answers: Answers): Partial<Answers> | null {
   if (qid === 'source') return a.kind === 'choice' ? { source: { door: a.id as Source, via: 'taps' } } : null;
   if (isLookQid(qid)) {
-    if (a.kind === 'swatches') return { [qid]: a.picks[qid.slice('look-'.length)] ?? Object.values(a.picks)[0] };
-    if (a.kind === 'skip') return { [qid]: PASSED };
+    // A chip is a base and the words beside it qualify it, so a tap keeps the
+    // words the answer already carries rather than throwing them away.
+    const words = answers[qid]?.words;
+    const said = words ? { words } : {};
+    if (a.kind === 'swatches')
+      return { [qid]: { pick: a.picks[qid.slice('look-'.length)] ?? Object.values(a.picks)[0], ...said } };
+    if (a.kind === 'skip') return { [qid]: { pick: PASSED, ...said } };
     return null;
   }
   if (qid === 'gaps') {
@@ -403,9 +413,12 @@ export function answerPatch(qid: Qid, a: Answer, answers: Answers): Partial<Answ
   }
   const trait = traitOfQid(qid);
   if (trait && a.kind === 'choice') {
-    if (trait.part === 'where') return { [qid]: a.id };
+    if (trait.part === 'where') {
+      const said = answers[qid as WhereQid]?.words;
+      return { [qid]: { pick: a.id, ...(said ? { words: said } : {}) } };
+    }
     const had = answers[`trait-${trait.id}`];
-    return { [qid]: { words: a.id, refs: had?.refs ?? [] } };
+    return { [qid]: { pick: a.id, ...(had?.words ? { words: had.words } : {}), refs: had?.refs ?? [] } };
   }
   return null;
 }
@@ -451,30 +464,49 @@ const CONVERSATION: ReadonlySet<NothingKind> = new Set<NothingKind>([
 ]);
 
 /**
+ * What was chosen and what was said about it, as one line for a bubble.
+ *
+ * A comma, and nothing clever: "Lean, with narrower shoulders". Words with
+ * nothing chosen are the answer on their own.
+ */
+export function labelled(chosen: string, words: string | undefined): string {
+  const said = words?.trim() ?? '';
+  if (!chosen) return cap(said);
+  return said ? `${chosen}, ${said}` : chosen;
+}
+
+/**
+ * Their words, said as a qualifier of something already chosen.
+ *
+ * "Athletic" and then "but with narrower shoulders" is one answer, and the
+ * conjunction is the join between the halves rather than part of what was
+ * said: kept, it reads back as "and always but with narrower shoulders". The
+ * list is closed and deterministic, the same family as `asKept`.
+ */
+export function asQualifier(text: string): string {
+  const said = text.trim().replace(/[.\s]+$/, '');
+  return said.replace(/^(?:but|and|though|although|only|just|except(?: that)?)\s+/i, '').trim();
+}
+
+/**
  * Whether this answer is the person's own words rather than something tapped.
  *
- * It decides how the answer is changed: words are rewritten where they stand,
- * and a tap reopens the row it was tapped from. Reopening a row under a typed
- * answer threw the words away and offered the chips that were not them in the
- * first place, which is the one case where a person most wants their sentence
- * back. There is no flag to read for this: an answer that is not one of the
- * question's own option ids was typed, and that is the whole test.
+ * It decides how the answer is changed: words alone are rewritten where they
+ * stand, and anything with a chip in it reopens the row it was tapped from,
+ * where the chip lights and the words that qualify it go back into the line.
+ * This used to be inferred (an answer that was not one of the question's own
+ * option ids was taken to be typed), which quietly made two things into
+ * sentences that were never typed at all: the way past, whose sentinel is not
+ * an option id, and a colour of one's own, whose hex is not either. Reopening
+ * a skipped row then offered a text field holding the words "Either way", and
+ * saving it wrote them into the person.
  */
 export function answeredInWords(id: Qid | null, a: Answers): boolean {
   if (!id) return false;
   if (TEXT_QIDS.has(id)) return true;
-  const notAnOption = (v: unknown, options: readonly { id: string }[]) =>
-    typeof v === 'string' && !!v && !options.some((o) => o.id === v);
-  if (isLookQid(id)) {
-    const step = id.slice('look-'.length) as LookStep;
-    return notAnOption(a[id], LOOK_ROWS[step].row.options);
-  }
-  const trait = traitOfQid(id);
-  if (!trait) return false;
-  const t = traitOf(trait.id);
-  if (!t) return false;
-  if (trait.part === 'where') return notAnOption(a[id as WhereQid], t.where?.options ?? []);
-  return notAnOption((a[id as TraitQid] as TraitWhat | undefined)?.words, t.options);
+  if (!isLookQid(id) && !traitOfQid(id)) return false;
+  const v = a[id] as Given | undefined;
+  return !!v && !v.pick && !!v.words;
 }
 
 /**
@@ -489,6 +521,13 @@ export function answeredInWords(id: Qid | null, a: Answers): boolean {
 export function judgeAnswer(id: Qid, text: string, describes: (t: string) => boolean): NothingKind | null {
   const said = text.trim();
   if (!said) return 'vague';
+  // The one question whose answer is a number. Everything else reads "no
+  // letters at all" as noise, which is right everywhere but here: 90 is an
+  // age, and refusing it is the app arguing with a fact about the person.
+  if (id === 'look-age' && readsAsAge(said)) return null;
+  // Words that name nobody but a person answer the first row and nothing else:
+  // every other question asks about a property, and who they are is not one.
+  if (id !== 'look-who' && (isLookQid(id) || id.startsWith('trait-')) && saysOnlyAPerson(said)) return 'nonsense';
   // A step, a detail, and the last word all ask for a short phrase about them.
   if (isLookQid(id) || id.startsWith('trait-') || id === 'keep') return notAnAnswerAtAStep(said, describes);
   // The door and the description ask for a person, in a sentence.
@@ -663,7 +702,7 @@ function questionFor(id: Qid, state: CreationState, _ctx: FlowContext, reopened:
       prompt,
       hint: step === 'who' ? PROMPT.lookHint : undefined,
       row,
-      cast: castFor(a['look-who']),
+      cast: castFor(a['look-who']?.pick),
       skip: 'Skip',
       // Only the first row keeps a way in of its own, and it is not a way to
       // type: it leaves the rows behind and takes the whole person in one
@@ -672,7 +711,9 @@ function questionFor(id: Qid, state: CreationState, _ctx: FlowContext, reopened:
       // two doors and a person wondering what the difference is.
       describe: step === 'who' ? 'Describe them instead' : undefined,
       saying: state.saying === id,
-      given: a[id],
+      given: a[id]?.pick === PASSED ? undefined : a[id]?.pick,
+      skipped: a[id]?.pick === PASSED,
+      note: a[id]?.words,
       ...base,
     };
   }
@@ -685,7 +726,8 @@ function questionFor(id: Qid, state: CreationState, _ctx: FlowContext, reopened:
       prompt: t.where.ask,
       options: t.where.options.map((o) => ({ id: o.id, label: o.label })),
       saying: state.saying === id,
-      given: a[id as `trait-${TraitId}-where`],
+      given: a[id as `trait-${TraitId}-where`]?.pick,
+      note: a[id as `trait-${TraitId}-where`]?.words,
       ...base,
     };
   }
@@ -700,7 +742,8 @@ function questionFor(id: Qid, state: CreationState, _ctx: FlowContext, reopened:
       // the same way in as the plus beside the pill, where the question is
       attach: what?.refs.length ? 'Replace the reference' : 'Add a reference',
       saying: state.saying === id,
-      given: what?.words,
+      given: what?.pick,
+      note: what?.words,
       ...base,
     };
   }
@@ -750,20 +793,21 @@ function answerLine(id: Qid, a: Answers, draft: DraftLike | null): { text: strin
   }
   if (isLookQid(id)) {
     const step = id.slice('look-'.length) as LookStep;
-    return { text: answerLabel(LOOK_ROWS[step].row, a[id] ?? '') };
+    return { text: answerLabel(LOOK_ROWS[step].row, a[id] ?? {}) };
   }
   const trait = traitOfQid(id);
   const t = trait ? traitOf(trait.id) : undefined;
   if (!trait || !t) return { text: '' };
   if (trait.part === 'where') {
-    const v = a[id as `trait-${TraitId}-where`] ?? '';
-    return { text: t.where?.options.find((o) => o.id === v)?.label ?? cap(v) };
+    const v = a[id as `trait-${TraitId}-where`] ?? {};
+    const chosen = v.pick ? (t.where?.options.find((o) => o.id === v.pick)?.label ?? cap(v.pick)) : '';
+    return { text: labelled(chosen, v.words) };
   }
   const what = a[`trait-${trait.id}`];
-  const words = what?.words ?? '';
+  const chosen = what?.pick ? (t.options.find((o) => o.id === what.pick)?.label ?? cap(what.pick)) : '';
   // the picture rides with the answer, the way the photographs do
   return {
-    text: t.options.find((o) => o.id === words)?.label ?? cap(words),
+    text: labelled(chosen, what?.words),
     photos: what?.refs.length ? what.refs : undefined,
   };
 }

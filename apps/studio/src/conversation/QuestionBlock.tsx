@@ -258,9 +258,12 @@ export function QuestionBlock({
           </div>
         )}
 
-        {question.kind === 'choice' && !question.groups && !question.describe && !question.attach && cancel && (
-          <div className="sc-convo-ways">{cancel}</div>
-        )}
+        {question.kind === 'choice' &&
+          !question.groups &&
+          !question.multi &&
+          !question.describe &&
+          !question.attach &&
+          cancel && <div className="sc-convo-ways">{cancel}</div>}
 
         {question.kind === 'choice' && question.multi && (
           <div className="sc-convo-decide">
@@ -278,7 +281,7 @@ export function QuestionBlock({
               <button
                 type="button"
                 className="sc-btn sc-btn-ghost"
-                data-on={picked === 'skip' || undefined}
+                data-on={picked === 'skip' || (!picked && question.skipped) || undefined}
                 onClick={() => commit('skip', { kind: 'skip' })}
               >
                 {question.skip}
@@ -334,7 +337,7 @@ export function QuestionBlock({
                 <button
                   type="button"
                   className="sc-btn sc-btn-ghost"
-                  data-on={picked === 'skip' || undefined}
+                  data-on={picked === 'skip' || (!picked && question.skipped) || undefined}
                   onClick={() => commit('skip', { kind: 'skip' })}
                 >
                   {question.skip}
@@ -378,7 +381,7 @@ export function QuestionBlock({
                   <button
                     type="button"
                     className="sc-chip sc-convo-choice sc-convo-pass"
-                    data-on={picked === 'skip' || undefined}
+                    data-on={picked === 'skip' || (!picked && question.skipped) || undefined}
                     onClick={() => commit('skip', { kind: 'skip' })}
                   >
                     {question.skip}
@@ -483,6 +486,13 @@ export function QuestionBlock({
             {attach}
             {cancel}
           </div>
+        )}
+        {question.note && (
+          // Words this answer already carries beside its choice. A block that
+          // lights a chip and shows nothing else is lying about an answer that
+          // had words with it, and the hint line cannot say it: that one
+          // belongs to the question and is hidden once it is open again.
+          <p className="sc-convo-note">{question.note}</p>
         )}
       </fieldset>
     </div>

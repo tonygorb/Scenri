@@ -22,12 +22,12 @@ const approved = (hash: string) => slot({ status: 'approved', hash });
 
 const TAPPED: Answers = {
   source: { door: 'scratch', via: 'taps' },
-  'look-who': 'woman',
-  'look-age': '30s',
-  'look-hair': 'black',
-  'look-length': 'shoulder',
-  'look-skin': 'olive',
-  'look-build': 'solid',
+  'look-who': { pick: 'woman' },
+  'look-age': { pick: '30s' },
+  'look-hair': { pick: 'black' },
+  'look-length': { words: 'shoulder' },
+  'look-skin': { pick: 'olive' },
+  'look-build': { pick: 'solid' },
   traits: [],
 };
 const TYPED: Answers = {
@@ -108,7 +108,7 @@ describe('what the flow does next', () => {
     const d = draft();
     expect(nextStep(inputs({ draft: d, state: { ...EMPTY_STATE, answers: TAPPED, editing: 'look-hair' } }))).toBeNull();
     expect(nextStep(inputs({ draft: d, state: { ...EMPTY_STATE, answers: TAPPED, saying: 'look-hair' } }))).toBeNull();
-    const half: Answers = { source: { door: 'scratch', via: 'taps' }, 'look-who': 'woman' };
+    const half: Answers = { source: { door: 'scratch', via: 'taps' }, 'look-who': { pick: 'woman' } };
     expect(nextStep(inputs({ draft: d, state: { ...EMPTY_STATE, answers: half } }))).toBeNull();
   });
 
@@ -117,7 +117,7 @@ describe('what the flow does next', () => {
     // that is over, nothing drawing and nothing said. Opening the same draft in
     // a clean tab drew at once, which is how it showed itself.
     const d = draft();
-    const half: Answers = { source: { door: 'scratch', via: 'taps' }, 'look-who': 'woman' };
+    const half: Answers = { source: { door: 'scratch', via: 'taps' }, 'look-who': { pick: 'woman' } };
     const step = nextStep(inputs({ draft: d, seededFor: null, state: { ...EMPTY_STATE, answers: half } }));
     expect(step?.kind).toBe('seed');
     // with no answers at all, the same

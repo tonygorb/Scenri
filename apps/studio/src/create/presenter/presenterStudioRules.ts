@@ -296,9 +296,54 @@ const TONE_WORDS: Record<Tone, string> = {
 /** Words that say who the person is, which is the one thing a roll cannot guess. */
 export const saysWho =
   /\b(wom[ae]n|m[ae]n|male|female|lady|ladies|girl|boy|guy|gentlem[ae]n|nonbinary|non-binary|androgynous|masculine|feminine|transgender|trans|mother|father|mum|mom|dad|sister|brother|daughter|son|grandmother|grandfather|she|he|her|his)\b/i;
+/**
+ * Filler that carries no answer on its own: address, politeness, articles.
+ */
+const FILLER =
+  /^(my|a|an|the|this|that|is|it|its|their|there|hey|hi|hello|yo|ok|okay|please|thanks|thank|you|your|dear|bro|bruh|dude|mate|sir|maam|madam|just|like|some)$/i;
+
+/**
+ * Whether the words name nobody but a person: an address rather than an answer.
+ *
+ * Every row after the first asks about a property of somebody, so words that
+ * say only who that somebody is say nothing about the property. "My man" typed
+ * at the hair row was taken as the hair, because it contains the word "man"
+ * and a word that names a person is how the app decides a sentence describes
+ * one. What it told the engine was "with my man hair".
+ */
+export function saysOnlyAPerson(text: string): boolean {
+  const words = text
+    .trim()
+    .split(/[^\p{L}\p{N}']+/u)
+    .filter(Boolean);
+  if (!words.some((w) => saysWho.test(w))) return false;
+  return words.every((w) => FILLER.test(w) || saysWho.test(w));
+}
+
 /** Words that already put an age on them. */
 export const saysAge =
   /\b(\d0s|\d{2}\s*(years|yo)|teen|twenties|thirties|forties|fifties|sixties|seventies|elderly|young|old(er)?|middle-aged|adult)\b/i;
+/**
+ * The oldest a person gets, for reading a number typed at the age row.
+ *
+ * A number on its own has no letters in it, and "no letters at all" is how
+ * every other question tells noise from an answer. At the age row it is the
+ * answer: somebody who types 90 means ninety, and being told "that is not an
+ * age" is the app arguing with a fact. 123 and 999 are still noise, which is
+ * what the bound is for.
+ */
+const OLDEST = 120;
+
+/** Whether what was typed names an age a person can be: on its own, or inside a phrase. */
+export function readsAsAge(text: string): boolean {
+  const nums = text.match(/\d+/g);
+  if (!nums?.length) return false;
+  return nums.every((n) => {
+    const v = Number(n);
+    return v >= 1 && v <= OLDEST;
+  });
+}
+
 /** Words that already say what their hair is. */
 const SAYS_HAIR = /\b(hair|bald|shaved|buzz|blonde?|brunette|redhead|ginger|greying|silver|auburn|platinum)\b/i;
 /** Words that already say what their skin is like. */

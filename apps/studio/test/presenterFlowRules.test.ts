@@ -63,12 +63,12 @@ const open = (T: Turn[]): Question | null => activeQuestion(T);
 
 const TAPPED: Answers = {
   source: { door: 'scratch', via: 'taps' },
-  'look-who': 'woman',
-  'look-age': '30s',
-  'look-hair': 'brown',
-  'look-length': 'long',
-  'look-skin': 'olive',
-  'look-build': 'lean',
+  'look-who': { pick: 'woman' },
+  'look-age': { pick: '30s' },
+  'look-hair': { pick: 'brown' },
+  'look-length': { pick: 'long' },
+  'look-skin': { pick: 'olive' },
+  'look-build': { pick: 'lean' },
 };
 
 describe('the transcript is a function of state', () => {
@@ -91,7 +91,7 @@ describe('the transcript is a function of state', () => {
       ['look-length', 'long', 'look-skin'],
       ['look-skin', 'olive', 'look-build'],
     ] as const) {
-      a = { ...a, [id]: v };
+      a = { ...a, [id]: { pick: v } };
       const T = turns(state(a));
       expect(keys(T).at(-1)).toBe(`q:${next}`);
       expect(keys(T)).toContain(`you:${id}`);
@@ -101,7 +101,7 @@ describe('the transcript is a function of state', () => {
       expect(c.off).toBeUndefined();
       expect(c.action).toBe('Send');
     }
-    a = { ...a, 'look-build': 'lean' };
+    a = { ...a, 'look-build': { pick: 'lean' } };
     // the rows done, what is always true of them is the one question that opens more
     expect(keys(turns(state(a))).at(-1)).toBe('q:traits');
     const T = turns(state({ ...a, traits: [] }));
@@ -119,11 +119,11 @@ describe('the transcript is a function of state', () => {
       state({
         ...a,
         traits: ['glasses', 'tattoo', 'prosthetic'],
-        'trait-glasses': { words: 'thin black rectangular metal frames', refs: [] },
+        'trait-glasses': { pick: 'thin black rectangular metal frames', refs: [] },
         'trait-tattoo': { words: 'a solid blackwork tattoo', refs: [] },
-        'trait-tattoo-where': 'on their right forearm',
+        'trait-tattoo-where': { pick: 'on their right forearm' },
         'trait-prosthetic': { words: 'a prosthetic limb in a bright painted finish', refs: [] },
-        'trait-prosthetic-where': 'in place of their right arm',
+        'trait-prosthetic-where': { pick: 'in place of their right arm' },
       }),
     );
     const said = open(withDetails);
@@ -131,7 +131,7 @@ describe('the transcript is a function of state', () => {
       'A woman in their 30s with long brown hair, olive skin, a lean build, and always thin black rectangular metal frames, a solid blackwork tattoo on their right forearm and a prosthetic limb in a bright painted finish in place of their right arm.',
     );
     // the swatch questions know who is being drawn
-    const who = open(turns(state({ source: { door: 'scratch', via: 'taps' }, 'look-who': 'man' })));
+    const who = open(turns(state({ source: { door: 'scratch', via: 'taps' }, 'look-who': { pick: 'man' } })));
     expect(who?.kind === 'swatches' && who.cast).toBe('man');
   });
 
@@ -139,11 +139,11 @@ describe('the transcript is a function of state', () => {
     const a: Answers = { ...TAPPED, traits: ['tattoo', 'glasses'] };
     // the face before the body, whatever order they were tapped
     expect(open(turns(state(a)))?.id).toBe('trait-glasses');
-    const b: Answers = { ...a, 'trait-glasses': { words: 'rimless frames with thin temples', refs: [] } };
+    const b: Answers = { ...a, 'trait-glasses': { pick: 'rimless frames with thin temples', refs: [] } };
     expect(open(turns(state(b)))?.id).toBe('trait-tattoo');
     const c: Answers = { ...b, 'trait-tattoo': { words: 'a solid blackwork tattoo', refs: ['h-ink'] } };
     expect(open(turns(state(c)))?.id).toBe('trait-tattoo-where');
-    const d: Answers = { ...c, 'trait-tattoo-where': 'on their left forearm' };
+    const d: Answers = { ...c, 'trait-tattoo-where': { pick: 'on their left forearm' } };
     const T = turns(state(d));
     expect(keys(T).slice(-9)).toEqual([
       'scenri:asked-traits',
@@ -171,7 +171,7 @@ describe('the transcript is a function of state', () => {
     const a: Answers = {
       ...TAPPED,
       traits: ['glasses'],
-      'trait-glasses': { words: 'tortoiseshell acetate frames', refs: [] },
+      'trait-glasses': { pick: 'tortoiseshell acetate frames', refs: [] },
     };
     const T = turns(state(a, { editing: 'look-hair' }));
     const k = keys(T);
@@ -268,7 +268,7 @@ describe('the transcript is a function of state', () => {
     const answered: Answers = {
       ...p,
       traits: ['glasses'],
-      'trait-glasses': { words: 'thin black rectangular metal frames', refs: [] },
+      'trait-glasses': { pick: 'thin black rectangular metal frames', refs: [] },
     };
     const drawing = draft({ ...d, keep: 'thin black rectangular metal frames', activeView: 'front', stage: 'drawing' });
     const T3 = turns(state(answered), drawing);
@@ -297,7 +297,7 @@ describe('a question with chips still takes words', () => {
   };
 
   it('a look step asks itself in words, and a typed sentence is aimed at that step', () => {
-    const a: Answers = { source: { door: 'scratch', via: 'taps' }, 'look-who': 'woman' };
+    const a: Answers = { source: { door: 'scratch', via: 'taps' }, 'look-who': { pick: 'woman' } };
     const { q, c } = at(a);
     expect(q?.id).toBe('look-age');
     expect(c.off).toBeUndefined();
@@ -305,7 +305,11 @@ describe('a question with chips still takes words', () => {
   });
 
   it('a colour step carries the colour control without being handed over first', () => {
-    const a: Answers = { source: { door: 'scratch', via: 'taps' }, 'look-who': 'woman', 'look-age': '30s' };
+    const a: Answers = {
+      source: { door: 'scratch', via: 'taps' },
+      'look-who': { pick: 'woman' },
+      'look-age': { pick: '30s' },
+    };
     const { q, c } = at(a);
     expect(q?.id).toBe('look-hair');
     expect(c.color).toBe(true);
@@ -495,10 +499,75 @@ describe('an answer is judged the same whichever way it arrives', () => {
   });
 });
 
+describe('an answer that is a fact rather than a sentence', () => {
+  // Reported from the app: typing 90 at the age row was answered "That is not
+  // an age. Tap an age above." twice, and then told to Skip. Ninety is an age.
+  // The rule underneath is right everywhere else: a line with no letters in it
+  // is noise at every question whose answer is a description.
+  it('takes a number at the age row, and still refuses one nobody can be', () => {
+    for (const said of ['90', '80', '45', '7', '120', 'early 40s', '35 or so']) {
+      expect(judgeAnswer('look-age', said, readsAsPerson), said).toBeNull();
+    }
+    for (const said of ['123', '999', '0', '2026']) {
+      expect(judgeAnswer('look-age', said, readsAsPerson), said).toBe('nonsense');
+    }
+    // and the age row is the only one: a number is not a hair colour
+    expect(judgeAnswer('look-hair', '90', readsAsPerson)).toBe('nonsense');
+    expect(judgeAnswer('look-build', '999', readsAsPerson)).toBe('nonsense');
+    // what is not an answer at any question is still not one here
+    expect(judgeAnswer('look-age', 'hello', readsAsPerson)).toBe('greeting');
+    expect(judgeAnswer('look-age', 'what do I do?', readsAsPerson)).toBe('help');
+  });
+
+  it('takes a measurement as a build, and a short phrase as a cut', () => {
+    // A measurement is a description of a person, and the digits in it are not
+    // what makes it one. A short answer to a short question is an answer.
+    for (const said of ['6 foot 2', '1.80m', 'size 12', 'broad shouldered']) {
+      expect(judgeAnswer('look-build', said, readsAsPerson), said).toBeNull();
+    }
+    for (const said of ['pony tail', 'buzz cut', 'bob']) {
+      expect(judgeAnswer('look-length', said, readsAsPerson), said).toBeNull();
+    }
+    // and the last word takes anything at all, because nothing asks for it
+    for (const said of ['a chipped tooth', 'always barefoot', '3 freckles']) {
+      expect(judgeAnswer('keep', said, readsAsPerson), said).toBeNull();
+    }
+  });
+
+  it('refuses words that name nobody but a person, at every row but the first', () => {
+    // Reported from the app: "My man" was taken as the hair colour, because it
+    // holds the word that decides a sentence describes a person. It told the
+    // engine "with my man hair".
+    for (const said of ['My man', 'my man', 'hey man', 'she', 'the lady']) {
+      expect(judgeAnswer('look-hair', said, readsAsPerson), said).toBe('nonsense');
+      expect(judgeAnswer('look-build', said, readsAsPerson), said).toBe('nonsense');
+      expect(judgeAnswer('trait-glasses', said, readsAsPerson), said).toBe('nonsense');
+    }
+    // a greeting is still answered as a greeting, which says more than "nonsense"
+    expect(judgeAnswer('look-hair', 'yo bro', readsAsPerson)).toBe('greeting');
+    // the first row is the one that asks who they are, so there it is an answer
+    expect(judgeAnswer('look-who', 'my man', readsAsPerson)).toBeNull();
+    // and words that say something about the property are untouched, whoever
+    // else they mention
+    for (const said of ['a man\'s short back and sides', 'dark auburn', 'her natural colour']) {
+      expect(judgeAnswer('look-hair', said, readsAsPerson), said).toBeNull();
+    }
+  });
+
+  it('says a number of their own as a number, and a decade as a decade', () => {
+    expect(compileDirection({ ...TAPPED, 'look-age': { words: '90' } } as Answers)).toContain('aged 90');
+    expect(compileDirection({ ...TAPPED, 'look-age': { pick: '30s' } } as Answers)).toContain('in their 30s');
+    expect(compileDirection({ ...TAPPED, 'look-age': { pick: '60+' } } as Answers)).toContain('in their 60s or older');
+    expect(compileDirection({ ...TAPPED, 'look-age': { words: 'early 40s' } } as Answers)).toContain(
+      'in their early 40s',
+    );
+  });
+});
+
 describe('changing an answer that was typed', () => {
   it('is rewritten where it stands, and one that was tapped reopens its row', () => {
-    const typed: Answers = { 'look-length': 'a pony tail' };
-    const tapped: Answers = { 'look-length': HAIR_LENGTHS[0].id };
+    const typed: Answers = { 'look-length': { words: 'a pony tail' } };
+    const tapped: Answers = { 'look-length': { pick: HAIR_LENGTHS[0].id } };
     expect(answeredInWords('look-length', typed)).toBe(true);
     expect(answeredInWords('look-length', tapped)).toBe(false);
     // the free-text questions are always rewritten, whatever they hold
@@ -520,14 +589,21 @@ describe('changing an answer that was typed', () => {
 
   it('holds for a detail too, and a detail said in words keeps its pictures', () => {
     const t = TRAITS[0];
-    expect(answeredInWords(`trait-${t.id}`, { [`trait-${t.id}`]: { words: t.options[0].id, refs: [] } })).toBe(false);
+    expect(answeredInWords(`trait-${t.id}`, { [`trait-${t.id}`]: { pick: t.options[0].id, refs: [] } })).toBe(false);
     expect(answeredInWords(`trait-${t.id}`, { [`trait-${t.id}`]: { words: 'wire aviators', refs: ['h1'] } })).toBe(
       true,
     );
+    // a chip with words about it reopens its row, where both halves can be changed
+    expect(
+      answeredInWords(`trait-${t.id}`, { [`trait-${t.id}`]: { pick: t.options[0].id, words: 'in amber', refs: [] } }),
+    ).toBe(false);
+    // and the two that are not words at all: the way past, and a colour of their own
+    expect(answeredInWords('look-build', { 'look-build': { pick: 'either' } })).toBe(false);
+    expect(answeredInWords('look-hair', { 'look-hair': { pick: '#7f3fbf' } })).toBe(false);
   });
 
   it('the answer standing in the transcript is the one being rewritten', () => {
-    const a: Answers = { ...TAPPED, 'look-length': 'a pony tail' };
+    const a: Answers = { ...TAPPED, 'look-length': { words: 'a pony tail' } };
     const T = turns(state(a, { editing: 'look-length' }));
     const you = T.find((t) => t.kind === 'you' && t.id === 'look-length');
     expect(you?.kind === 'you' && you.editing).toBe(true);
@@ -664,9 +740,9 @@ describe('what a tap means', () => {
       source: { door: 'photos', via: 'taps' },
     });
     expect(answerPatch('look-hair', { kind: 'swatches', picks: { hair: 'auburn' } }, {})).toEqual({
-      'look-hair': 'auburn',
+      'look-hair': { pick: 'auburn' },
     });
-    expect(answerPatch('look-build', { kind: 'skip' }, {})).toEqual({ 'look-build': 'either' });
+    expect(answerPatch('look-build', { kind: 'skip' }, {})).toEqual({ 'look-build': { pick: 'either' } });
     expect(answerPatch('gaps', { kind: 'choices', picks: { who: 'man' } }, {})).toEqual({ gaps: { who: 'man' } });
     expect(answerPatch('gaps', { kind: 'skip' }, {})).toEqual({ gaps: 'skipped' });
     // the chooser keeps the table's order, whatever order the chips were tapped in
@@ -681,9 +757,9 @@ describe('what a tap means', () => {
         { kind: 'choice', id: 'a solid blackwork tattoo' },
         { 'trait-tattoo': { refs: ['h'] } },
       ),
-    ).toEqual({ 'trait-tattoo': { words: 'a solid blackwork tattoo', refs: ['h'] } });
+    ).toEqual({ 'trait-tattoo': { pick: 'a solid blackwork tattoo', refs: ['h'] } });
     expect(answerPatch('trait-tattoo-where', { kind: 'choice', id: 'on their hand' }, {})).toEqual({
-      'trait-tattoo-where': 'on their hand',
+      'trait-tattoo-where': { pick: 'on their hand' },
     });
     expect(answerPatch('photos', { kind: 'photos', action: { type: 'attest', checked: true } }, {})).toBeNull();
   });
@@ -691,11 +767,11 @@ describe('what a tap means', () => {
   it('compiles the rows into the sentence, the details into what stays, and the pictures by detail', () => {
     const a: Answers = {
       ...TAPPED,
-      'look-hair': '#7f3fbf',
+      'look-hair': { pick: '#7f3fbf' },
       traits: ['glasses', 'tattoo'],
-      'trait-glasses': { words: 'thin black rectangular metal frames', refs: ['h-frames'] },
-      'trait-tattoo': { words: 'a small geometric line tattoo', refs: [] },
-      'trait-tattoo-where': 'on their right forearm',
+      'trait-glasses': { pick: 'thin black rectangular metal frames', refs: ['h-frames'] },
+      'trait-tattoo': { pick: 'a small geometric line tattoo', refs: [] },
+      'trait-tattoo-where': { pick: 'on their right forearm' },
       keep: { words: 'a red thread bracelet', refs: ['h-bracelet'] },
     };
     expect(compileDirection(a)).toBe('a woman in their 30s with long dyed purple hair, olive skin, a lean build');
@@ -769,7 +845,7 @@ describe('what was said in passing', () => {
       'scenri:aside-reply-2026-01-01T00:00:01Z',
     ]);
     // answered: it sits between the line and the answer
-    s = reduce(s, { type: 'answer', patch: { 'look-who': 'woman' }, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'answer', patch: { 'look-who': { pick: 'woman' } }, ctx: NO_DRAFT });
     expect(keys(turns(s)).slice(3, 7)).toEqual([
       'scenri:asked-look-who',
       'you:aside-said-2026-01-01T00:00:01Z',
@@ -796,18 +872,24 @@ describe('a step that cannot hold what was typed into it', () => {
 
   it('knows when the compile keeps the words, and when it drops them', () => {
     // the rows that take any words at all keep them
-    expect(stepHolds(tapped, 'look-hair', 'dark auburn', 'dark auburn')).toBe(true);
-    expect(stepHolds(tapped, 'look-length', 'a long pony tail', 'a long pony tail')).toBe(true);
+    expect(stepHolds(tapped, 'look-hair', { words: 'dark auburn' }, 'dark auburn')).toBe(true);
+    expect(stepHolds(tapped, 'look-length', { words: 'a long pony tail' }, 'a long pony tail')).toBe(true);
     // and the row that compiles through a fixed set does not
-    expect(stepHolds(tapped, 'look-who', 'he has a left prosthetic arm', 'he has a left prosthetic arm')).toBe(false);
+    expect(
+      stepHolds(tapped, 'look-who', { words: 'he has a left prosthetic arm' }, 'he has a left prosthetic arm'),
+    ).toBe(false);
     // one of its own answers is held, which is the point of the row
-    expect(stepHolds(tapped, 'look-who', 'woman', 'woman')).toBe(true);
+    expect(stepHolds(tapped, 'look-who', { pick: 'woman' }, 'woman')).toBe(true);
+    // and words that qualify a chip are held by it, because the chip is still there
+    expect(
+      stepHolds(tapped, 'look-build', { pick: 'lean', words: 'with narrow shoulders' }, 'with narrow shoulders'),
+    ).toBe(true);
   });
 
   it('keeps what the step dropped, rather than losing it', () => {
     // the reported shape: said at the first question, gone by the read-back
     const said = 'he has a left prosthetic arm';
-    expect(compileDirection({ ...tapped, 'look-who': said } as Answers)).not.toContain('prosthetic');
+    expect(compileDirection({ ...tapped, 'look-who': { words: said } } as Answers)).not.toContain('prosthetic');
     // kept about them instead, it reaches the sentence every view is built on
     const kept: Answers = { ...tapped, keep: { words: said, refs: [] } };
     expect(compileKeep(kept)).toBe(said);

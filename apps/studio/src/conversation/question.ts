@@ -64,6 +64,14 @@ interface QuestionBase {
    * it, offers a way to leave it as it was, and answering it is a change.
    */
   reopened?: boolean;
+  /**
+   * Words this answer already carries beside what was chosen, shown under the
+   * controls. A block that lights a chip and shows nothing else is lying about
+   * an answer that had words with it, and the hint line cannot say it: that
+   * one belongs to the question rather than to the answer, and is deliberately
+   * hidden once a question is open again.
+   */
+  note?: string;
 }
 
 export type Question =
@@ -93,6 +101,8 @@ export type Question =
       saying?: boolean;
       /** The answer as it stands, when the question is open again: an option, several, or one per row. */
       given?: string | string[] | Record<string, string>;
+      /** The answer as it stands is the way past, so the way past stands lit. */
+      skipped?: boolean;
     })
   | (QuestionBase & {
       kind: 'swatches';
@@ -108,6 +118,8 @@ export type Question =
       saying?: boolean;
       /** The answer as it stands, when the step is open again. */
       given?: string;
+      /** The answer as it stands is the way past, so the way past stands lit. */
+      skipped?: boolean;
     })
   | (QuestionBase & {
       kind: 'photos';

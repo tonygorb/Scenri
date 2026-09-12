@@ -22,7 +22,7 @@ describe('the state of a presenter being made', () => {
     // the same answer again is no change
     s = reduce(s, { type: 'answer', patch: scratch, ctx: NO_DRAFT });
     expect(s.revision).toBe(1);
-    s = reduce(s, { type: 'answer', patch: { 'look-who': 'woman' }, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'answer', patch: { 'look-who': { pick: 'woman' } }, ctx: NO_DRAFT });
     expect(s.revision).toBe(2);
   });
 
@@ -49,14 +49,18 @@ describe('the state of a presenter being made', () => {
   });
 
   it('closes whatever was open when an answer lands', () => {
-    let s = reduce(EMPTY_STATE, { type: 'answer', patch: { ...scratch, 'look-who': 'woman' }, ctx: NO_DRAFT });
+    let s = reduce(EMPTY_STATE, {
+      type: 'answer',
+      patch: { ...scratch, 'look-who': { pick: 'woman' } },
+      ctx: NO_DRAFT,
+    });
     s = reduce(s, { type: 'edit', id: 'look-who' });
     s = reduce(s, { type: 'say', id: 'look-who' });
     s = reduce(s, { type: 'text', text: 'someone' });
     s = reduce(s, { type: 'colour', hex: '#123456', step: 'look-who' });
     expect(s.editing).toBe('look-who');
     expect(s.colour).toEqual({ step: 'look-who', hex: '#123456' });
-    s = reduce(s, { type: 'answer', patch: { 'look-who': 'man' }, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'answer', patch: { 'look-who': { pick: 'man' } }, ctx: NO_DRAFT });
     expect(s.editing).toBeNull();
     expect(s.saying).toBeNull();
     expect(s.colour).toBeNull();
@@ -71,12 +75,12 @@ describe('the state of a presenter being made', () => {
   it('is ready to draw only when nothing stands open', () => {
     const full: Answers = {
       ...scratch,
-      'look-who': 'woman',
-      'look-age': '30s',
-      'look-hair': 'brown',
-      'look-length': 'long',
-      'look-skin': 'olive',
-      'look-build': 'lean',
+      'look-who': { pick: 'woman' },
+      'look-age': { pick: '30s' },
+      'look-hair': { pick: 'brown' },
+      'look-length': { pick: 'long' },
+      'look-skin': { pick: 'olive' },
+      'look-build': { pick: 'lean' },
       traits: [],
     };
     const s = reduce(EMPTY_STATE, { type: 'answer', patch: full, ctx: NO_DRAFT });
@@ -89,11 +93,15 @@ describe('the state of a presenter being made', () => {
   });
 
   it('keeps chatter where it was said, and drops it with the question it was said at', () => {
-    let s = reduce(EMPTY_STATE, { type: 'answer', patch: { ...scratch, 'look-who': 'woman' }, ctx: NO_DRAFT });
+    let s = reduce(EMPTY_STATE, {
+      type: 'answer',
+      patch: { ...scratch, 'look-who': { pick: 'woman' } },
+      ctx: NO_DRAFT,
+    });
     s = reduce(s, { type: 'aside', aside: { said: 'hi', reply: 'Hi.', q: 'look-age', at: '1' } });
     s = reduce(s, { type: 'unsure', unsure: { said: 'blue', q: 'look-age', at: '2' } });
     // an answer settles the waiting sentence into the record
-    s = reduce(s, { type: 'answer', patch: { 'look-age': '30s' }, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'answer', patch: { 'look-age': { pick: '30s' } }, ctx: NO_DRAFT });
     expect(s.unsure).toBeNull();
     expect(s.asides.map((a) => a.reply)).toEqual(['Hi.', UNSURE_LINE]);
     // the door changes: the age question is gone, and what was said at it goes too
@@ -114,9 +122,9 @@ describe('the state of a presenter being made', () => {
       s = reduce(s, { type: 'answer', patch: { [id]: v }, ctx: NO_DRAFT });
     }
     s = reduce(s, { type: 'aside', aside: { said: 'lol3', reply: 'Not a length.', q: 'look-length', at: '1' } });
-    s = reduce(s, { type: 'answer', patch: { 'look-length': 'Lungo' }, ctx: NO_DRAFT });
-    s = reduce(s, { type: 'answer', patch: { 'look-skin': 'olive' }, ctx: NO_DRAFT });
-    expect(s.answers['look-length']).toBe('Lungo');
+    s = reduce(s, { type: 'answer', patch: { 'look-length': { words: 'Lungo' } }, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'answer', patch: { 'look-skin': { pick: 'olive' } }, ctx: NO_DRAFT });
+    expect(s.answers['look-length']).toEqual({ words: 'Lungo' });
 
     const back = reduce(s, {
       type: 'amend-aside',
@@ -137,25 +145,29 @@ describe('the state of a presenter being made', () => {
   it('a rewind takes back the sentences said after the point it reaches to', () => {
     const at = (n: string, q: string) => ({ said: n, reply: 'Say more.', q, at: n });
     let s = reduce(EMPTY_STATE, { type: 'answer', patch: { ...scratch }, ctx: NO_DRAFT });
-    s = reduce(s, { type: 'answer', patch: { 'look-who': 'woman' }, ctx: NO_DRAFT });
-    s = reduce(s, { type: 'answer', patch: { 'look-age': '30s' }, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'answer', patch: { 'look-who': { pick: 'woman' } }, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'answer', patch: { 'look-age': { pick: '30s' } }, ctx: NO_DRAFT });
     s = reduce(s, { type: 'aside', aside: at('1', 'look-who') });
     s = reduce(s, { type: 'aside', aside: at('2', 'look-hair') });
     s = reduce(s, { type: 'aside', aside: at('3', 'look-length') });
     // the age is answered again: the hair and the length are asked again with
     // it, so what was said at them was said in a run that no longer happened
-    const back = reduce(s, { type: 'answer', patch: { 'look-age': '50s' }, ctx: NO_DRAFT });
-    expect(back.answers['look-age']).toBe('50s');
+    const back = reduce(s, { type: 'answer', patch: { 'look-age': { pick: '50s' } }, ctx: NO_DRAFT });
+    expect(back.answers['look-age']).toEqual({ pick: '50s' });
     expect(back.asides.map((a) => a.at)).toEqual(['1']);
     // answering the question a sentence was said at keeps it: it stands under
     // that exchange. What was said at a later question still goes.
-    const on = reduce(s, { type: 'answer', patch: { 'look-hair': 'black' }, ctx: NO_DRAFT });
+    const on = reduce(s, { type: 'answer', patch: { 'look-hair': { pick: 'black' } }, ctx: NO_DRAFT });
     expect(on.asides.map((a) => a.at)).toEqual(['1', '2']);
   });
 
   it('a sentence said again takes the sentences said after it, and never an answer', () => {
     const said = (at: string, text: string) => ({ said: text, reply: 'Say more.', q: 'look-age', at });
-    let s = reduce(EMPTY_STATE, { type: 'answer', patch: { ...scratch, 'look-who': 'woman' }, ctx: NO_DRAFT });
+    let s = reduce(EMPTY_STATE, {
+      type: 'answer',
+      patch: { ...scratch, 'look-who': { pick: 'woman' } },
+      ctx: NO_DRAFT,
+    });
     for (const a of [said('1', 'one'), said('2', 'two'), said('3', 'three')]) {
       s = reduce(s, { type: 'aside', aside: a });
     }
@@ -184,7 +196,7 @@ describe('the state of a presenter being made', () => {
     });
     expect(twice.asides.at(-1)?.rev).toBe(2);
     // the answers before it stand: what was said at look-age is not about them
-    expect(amended.answers['look-who']).toBe('woman');
+    expect(amended.answers['look-who']).toEqual({ pick: 'woman' });
     expect(amended.editing).toBeNull();
     // and one that turned out to be an answer takes the later ones with it too
     const dropped = reduce(s, { type: 'drop-aside', at: '2' });
@@ -193,7 +205,11 @@ describe('the state of a presenter being made', () => {
 
   it('remembers the answers, their revision and what was said beside them, and nothing of the moment', () => {
     const said = { said: 'hi', reply: 'Hi.', q: 'look-age', at: '1' };
-    let s = reduce(EMPTY_STATE, { type: 'answer', patch: { ...scratch, 'look-who': 'woman' }, ctx: NO_DRAFT });
+    let s = reduce(EMPTY_STATE, {
+      type: 'answer',
+      patch: { ...scratch, 'look-who': { pick: 'woman' } },
+      ctx: NO_DRAFT,
+    });
     s = reduce(s, { type: 'say', id: 'look-age' });
     s = reduce(s, { type: 'text', text: 'about forty' });
     s = reduce(s, { type: 'aside', aside: said });
@@ -211,23 +227,27 @@ describe('the state of a presenter being made', () => {
     // what an older studio wrote is not carried, and a question the table lost is dropped
     expect(deserialize(JSON.stringify({ source: 'scratch', look: { who: 'woman' } }))).toBeNull();
     // v3 kept no asides at all, and reads back with none rather than being refused
-    expect(deserialize(JSON.stringify({ v: 3, answers: { 'look-who': 'man' }, revision: 1 }))).toEqual({
-      answers: { 'look-who': 'man' },
+    expect(deserialize(JSON.stringify({ v: 3, answers: { 'look-who': { pick: 'man' } }, revision: 1 }))).toEqual({
+      answers: { 'look-who': { pick: 'man' } },
       revision: 1,
       asides: [],
     });
-    expect(deserialize(JSON.stringify({ v: 2, answers: { 'look-who': 'man', 'look-hat': 'x' }, revision: 3 }))).toEqual(
-      {
-        answers: { 'look-who': 'man' },
-        revision: 3,
-        asides: [],
-      },
-    );
+    expect(
+      deserialize(JSON.stringify({ v: 2, answers: { 'look-who': { pick: 'man' }, 'look-hat': 'x' }, revision: 3 })),
+    ).toEqual({
+      answers: { 'look-who': { pick: 'man' } },
+      revision: 3,
+      asides: [],
+    });
     expect(deserialize('not json')).toBeNull();
   });
 
   it('starts over with nothing but the words to begin from', () => {
-    let s = reduce(EMPTY_STATE, { type: 'answer', patch: { ...scratch, 'look-who': 'woman' }, ctx: NO_DRAFT });
+    let s = reduce(EMPTY_STATE, {
+      type: 'answer',
+      patch: { ...scratch, 'look-who': { pick: 'woman' } },
+      ctx: NO_DRAFT,
+    });
     s = reduce(s, { type: 'extras-declined' });
     const rev = s.revision;
     s = reduce(s, { type: 'start-over', text: 'a man in his 40s' });

@@ -32,7 +32,7 @@ import {
 } from '../src/create/presenter/presenterQuestions.ts';
 import { type StepDraft, nextStep } from '../src/create/presenter/presenterSteps.ts';
 import { type DraftLike, emptySlot, readsAsPerson } from '../src/create/presenter/presenterStudioRules.ts';
-import { TRAITS } from '../src/create/presenter/presenterTraits.ts';
+import { TRAITS, type TraitId, traitOf } from '../src/create/presenter/presenterTraits.ts';
 
 /**
  * The flow, walked at random, checked after every step.
@@ -101,9 +101,18 @@ const VALUES: Partial<Record<string, unknown[]>> = {
 const valueFor = (id: Qid, r: () => number): unknown => {
   const known = VALUES[id];
   if (known) return known[Math.floor(r() * known.length)];
-  if (id.endsWith('-where')) return 'on the left forearm';
-  if (id.startsWith('trait-')) return { words: SENTENCES[Math.floor(r() * SENTENCES.length)], refs: [] };
-  return SENTENCES[Math.floor(r() * SENTENCES.length)];
+  const said = SENTENCES[Math.floor(r() * SENTENCES.length)];
+  // A question with options holds two halves: what was tapped and the words
+  // about it. The walk gives it both, one time in three, so the codec and the
+  // compile are exercised on a qualified answer as well as a bare one.
+  const both = r() < 0.34;
+  if (id.endsWith('-where')) return both ? { pick: 'on the left forearm', words: said } : { words: said };
+  if (id.startsWith('trait-')) {
+    const t = traitOf(id.slice('trait-'.length) as TraitId);
+    return both && t ? { pick: t.options[0].id, words: said, refs: [] } : { words: said, refs: [] };
+  }
+  if (id.startsWith('look-')) return both ? { pick: 'either', words: said } : { words: said };
+  return said;
 };
 
 /**

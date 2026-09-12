@@ -7,18 +7,24 @@ export const asideEditAt = (v: AsideEdit): string => v.slice('aside:'.length);
 import {
   type Answers,
   type FlowContext,
+  type Given,
   NO_DRAFT,
+  PASSED,
   type Qid,
   type RefQid,
   type TraitQid,
   applies,
   commit,
+  isLookQid,
   isQid,
+  saidOf,
   orderOf,
   nextQuestion,
   traitOfQid,
+  type LookStep,
 } from './presenterQuestions.js';
-import type { TraitId } from './presenterTraits.js';
+import { LOOK_ROWS } from './presenterLook.js';
+import { type TraitId, traitOf } from './presenterTraits.js';
 
 /**
  * The state of a presenter being made, and every way it changes.
@@ -162,12 +168,34 @@ function restored(s: CreationState): Answers {
   const now = s.answers[was.id];
   if (!now || same(now.refs, was.refs)) return s.answers;
   // a detail that had nothing but the picture is simply not answered
-  if (!now.words && !was.refs.length) {
+  if (!saidOf(now) && !was.refs.length) {
     const rest = { ...s.answers };
     delete rest[was.id];
     return rest;
   }
   return { ...s.answers, [was.id]: { ...now, refs: was.refs } };
+}
+
+/**
+ * What the line is given when an answer with options is reopened.
+ *
+ * Only for a question that offers options: the text questions rewrite their
+ * words in their own bubble and have never needed the line. A colour of their
+ * own goes back into the colour control, which is the only way back to it once
+ * a colour row has been answered.
+ */
+function reopened(
+  s: CreationState,
+  id: Qid,
+): { saying: Qid; text: string; colour: CreationState['colour'] } | undefined {
+  if (!isLookQid(id) && !traitOfQid(id)) return undefined;
+  const v = s.answers[id] as Given | undefined;
+  if (!v) return undefined;
+  return {
+    saying: id,
+    text: v.words ?? '',
+    colour: v.pick?.startsWith('#') ? { step: id, hex: v.pick } : null,
+  };
 }
 
 /**
@@ -248,16 +276,26 @@ export function reduce(s: CreationState, action: Action): CreationState {
         text: '',
       };
     }
-    case 'edit':
+    case 'edit': {
+      // An answer reopened is reopened whole: the chip lights in its row, and
+      // the words that ride with it go back into the line, with the colour
+      // control holding a colour of their own. Handing the line the question
+      // is what makes the line live at all while an answer is being changed,
+      // and it is the only way a chip and words can be changed together. A
+      // line that opened empty would also lose a qualifier to the first
+      // keystroke, silently.
+      const held = isAsideEdit(action.id) || action.id === 'name' ? undefined : reopened(s, action.id);
       return {
         ...s,
         answers: restored(s),
         composing: isAsideEdit(action.id) ? null : opening(s, action.id),
         editing: action.id,
-        saying: null,
-        colour: null,
-        text: '',
+        saying: held?.saying ?? null,
+        says: held ? s.says + 1 : s.says,
+        colour: held?.colour ?? null,
+        text: held?.text ?? '',
       };
+    }
     // One rule for every turn in this conversation: a turn said again is a turn
     // re-said, and what came after it was said in a conversation that no longer
     // happened. An answer truncates the answers under it; a sentence said in
@@ -421,7 +459,7 @@ export function readyToDraw(s: CreationState, ctx: FlowContext): boolean {
  * composer's half sentence and a question being said again are still the
  * moment, and those are still dropped.
  */
-const STORED = 4;
+const STORED = 5;
 /** The most that is carried: a long sitting is a long conversation, not a log. */
 const ASIDES_MAX = 40;
 
@@ -455,6 +493,44 @@ function asideFrom(v: unknown): Aside | null {
   };
 }
 
+/** The options a question offers, for reading an answer written before they were kept apart. */
+function optionsOf(id: Qid): readonly { id: string }[] {
+  if (isLookQid(id)) return LOOK_ROWS[id.slice('look-'.length) as LookStep].row.options;
+  const part = traitOfQid(id);
+  const trait = part && traitOf(part.id);
+  if (!trait) return [];
+  return part.part === 'where' ? (trait.where?.options ?? []) : trait.options;
+}
+
+/**
+ * One stored string, read as the chip it names or as the words it is.
+ *
+ * This is the reading the old code made on every render to decide how an
+ * answer should be reopened. Making it once, here, is the whole of the
+ * upgrade: a string that is one of the question's own option ids was a tap,
+ * the way past and a colour of one's own were taps too, and anything else was
+ * somebody typing. Both halves compile to the sentence they always compiled
+ * to, so a draft resumed this way is not out of step with what it holds.
+ */
+function asGiven(id: Qid, v: string): Given {
+  if (v === PASSED || /^#[0-9a-f]{6}$/i.test(v)) return { pick: v };
+  return optionsOf(id).some((o) => o.id === v) ? { pick: v } : { words: v };
+}
+
+/** One answer off storage, in the shape this version keeps. */
+function upgrade(id: Qid, v: unknown): unknown {
+  if (id === 'keep') return typeof v === 'string' ? { words: v, refs: [] } : v;
+  if (typeof v === 'string' && (isLookQid(id) || !!traitOfQid(id))) return asGiven(id, v);
+  const part = traitOfQid(id);
+  if (part?.part === 'what' && v && typeof v === 'object') {
+    const had = v as { words?: unknown; pick?: unknown; refs?: unknown };
+    const refs = Array.isArray(had.refs) ? (had.refs as string[]) : [];
+    if (had.pick !== undefined || typeof had.words !== 'string') return { ...had, refs };
+    return { ...asGiven(id, had.words), refs };
+  }
+  return v;
+}
+
 export function deserialize(raw: string | null): { answers: Answers; revision: number; asides: Aside[] } | null {
   if (!raw) return null;
   try {
@@ -466,12 +542,16 @@ export function deserialize(raw: string | null): { answers: Answers; revision: n
     };
     // v2 wrote the last-moment detail as bare words; it carries a picture now.
     // v3 kept no asides, and reads back with none rather than being thrown away.
-    if ((p.v !== STORED && p.v !== 3 && p.v !== 2) || !p.answers || typeof p.answers !== 'object') return null;
+    // v4 kept one field per option question and worked out afterwards whether
+    // it held a chip or somebody's own words; `upgrade` below makes that same
+    // reading once, on the way in, and writes it down.
+    if ((p.v !== STORED && p.v !== 4 && p.v !== 3 && p.v !== 2) || !p.answers || typeof p.answers !== 'object')
+      return null;
     const answers: Answers = {};
     // a question the table no longer has is forgotten, never carried
     for (const [k, v] of Object.entries(p.answers)) {
       if (!isQid(k)) continue;
-      (answers as Record<string, unknown>)[k] = k === 'keep' && typeof v === 'string' ? { words: v, refs: [] } : v;
+      (answers as Record<string, unknown>)[k] = upgrade(k, v);
     }
     const asides = (Array.isArray(p.asides) ? p.asides : [])
       .map(asideFrom)

@@ -18,16 +18,16 @@ import {
 /** A person tapped all the way to the read-back, with two details answered. */
 const TAPPED: Answers = {
   source: { door: 'scratch', via: 'taps' },
-  'look-who': 'woman',
-  'look-age': '30s',
-  'look-hair': 'brown',
-  'look-length': 'long',
-  'look-skin': 'olive',
-  'look-build': 'lean',
+  'look-who': { pick: 'woman' },
+  'look-age': { pick: '30s' },
+  'look-hair': { pick: 'brown' },
+  'look-length': { pick: 'long' },
+  'look-skin': { pick: 'olive' },
+  'look-build': { pick: 'lean' },
   traits: ['glasses', 'tattoo'],
-  'trait-glasses': { words: 'thin black rectangular metal frames', refs: [] },
-  'trait-tattoo': { words: 'a floral tattoo in soft grey shading', refs: ['h-ink'] },
-  'trait-tattoo-where': 'on their right forearm',
+  'trait-glasses': { pick: 'thin black rectangular metal frames', refs: [] },
+  'trait-tattoo': { pick: 'a floral tattoo in soft grey shading', refs: ['h-ink'] },
+  'trait-tattoo-where': { pick: 'on their right forearm' },
 };
 
 const photosDraft = (keep?: string, portrait = 'approved'): FlowContext => ({
@@ -62,22 +62,22 @@ describe('the presenter questions, as one table', () => {
     const a = commit({}, { source: { door: 'scratch', via: 'taps' } }, NO_DRAFT);
     expect(nextQuestion(a, NO_DRAFT)).toBe('look-who');
     sound(a);
-    const b = commit(a, { 'look-who': 'man' }, NO_DRAFT);
+    const b = commit(a, { 'look-who': { pick: 'man' } }, NO_DRAFT);
     expect(nextQuestion(b, NO_DRAFT)).toBe('look-age');
     sound(b);
   });
 
   it('edits the same answer in place', () => {
-    const a = commit({}, { source: { door: 'scratch', via: 'taps' }, 'look-who': 'man' }, NO_DRAFT);
-    const b = commit(a, { 'look-who': 'woman' }, NO_DRAFT);
-    expect(b['look-who']).toBe('woman');
+    const a = commit({}, { source: { door: 'scratch', via: 'taps' }, 'look-who': { pick: 'man' } }, NO_DRAFT);
+    const b = commit(a, { 'look-who': { pick: 'woman' } }, NO_DRAFT);
+    expect(b['look-who']).toEqual({ pick: 'woman' });
     expect(answeredIn(b, NO_DRAFT)).toEqual(['source', 'look-who']);
     sound(b);
   });
 
   it('edits an answer three questions back and asks the rest of the run again', () => {
-    const b = commit(TAPPED, { 'look-hair': 'blonde' }, NO_DRAFT);
-    expect(b['look-hair']).toBe('blonde');
+    const b = commit(TAPPED, { 'look-hair': { pick: 'blonde' } }, NO_DRAFT);
+    expect(b['look-hair']).toEqual({ pick: 'blonde' });
     // the conversation carries on from the change: everything it asked after
     // the colour was answered to a run that no longer stands
     expect(b['look-length']).toBeUndefined();
@@ -87,14 +87,14 @@ describe('the presenter questions, as one table', () => {
     expect(b['trait-tattoo']).toBeUndefined();
     expect(b['trait-tattoo-where']).toBeUndefined();
     // and what came before it is exactly as it was
-    expect(b['look-who']).toBe('woman');
-    expect(b['look-age']).toBe('30s');
+    expect(b['look-who']).toEqual({ pick: 'woman' });
+    expect(b['look-age']).toEqual({ pick: '30s' });
     expect(nextQuestion(b, NO_DRAFT)).toBe('look-length');
     sound(b);
   });
 
   it('changes nothing when the same answer is given again', () => {
-    expect(commit(TAPPED, { 'look-hair': 'brown' }, NO_DRAFT)).toEqual(TAPPED);
+    expect(commit(TAPPED, { 'look-hair': { pick: 'brown' } }, NO_DRAFT)).toEqual(TAPPED);
     expect(commit(TAPPED, { traits: ['glasses', 'tattoo'] }, NO_DRAFT)).toEqual(TAPPED);
   });
 
@@ -156,7 +156,7 @@ describe('the presenter questions, as one table', () => {
       NO_DRAFT,
     );
     sound(said);
-    const b = commit(said, { 'look-hair': 'blonde' }, NO_DRAFT);
+    const b = commit(said, { 'look-hair': { pick: 'blonde' } }, NO_DRAFT);
     expect(b.keep?.words).toBe('he has a prosthetic left arm');
     sound(b);
     // and it still goes when the question it belongs to stops existing
@@ -165,11 +165,11 @@ describe('the presenter questions, as one table', () => {
     sound(c);
   });
 
-  it('re-asks the details it still has when the choosing changes', () => {
+  it('keeps the details it still has when the choosing changes', () => {
     const three: Answers = {
       ...TAPPED,
       traits: ['glasses', 'tattoo', 'scar'],
-      'trait-scar': { words: 'a small scar on the chin', refs: [] },
+      'trait-scar': { pick: 'a small scar on the chin', refs: [] },
     };
     sound(three);
     const b = commit(three, { traits: ['glasses', 'scar'] }, NO_DRAFT);
@@ -177,30 +177,53 @@ describe('the presenter questions, as one table', () => {
     expect(b['trait-tattoo']).toBeUndefined();
     expect(b['trait-tattoo-where']).toBeUndefined();
     expect(traitDetails(b).tattoo).toBeUndefined();
-    // and the two that remain are asked again, from the top of the details
-    expect(b['trait-glasses']).toBeUndefined();
-    expect(b['trait-scar']).toBeUndefined();
-    expect(nextQuestion(b, NO_DRAFT)).toBe('trait-glasses');
+    // and the two that were not touched are still answered: a detail is
+    // answered about itself, so taking another one away says nothing about it
+    expect(b['trait-glasses']).toEqual(TAPPED['trait-glasses']);
+    expect(b['trait-scar']).toEqual(three['trait-scar']);
+    expect(nextQuestion(b, NO_DRAFT)).toBeNull();
     sound(b);
+    // one taken away and another taken in the same change: the one that went
+    // goes with its placement, the new one is asked, and the two nobody
+    // touched are still answered
+    const c = commit(three, { traits: ['glasses', 'scar', 'piercing'] }, NO_DRAFT);
+    expect(c['trait-tattoo']).toBeUndefined();
+    expect(c['trait-tattoo-where']).toBeUndefined();
+    expect(c['trait-glasses']).toEqual(TAPPED['trait-glasses']);
+    expect(c['trait-scar']).toEqual(three['trait-scar']);
+    expect(c['trait-piercing']).toBeUndefined();
+    expect(nextQuestion(c, NO_DRAFT)).toBe('trait-piercing');
+    sound(c);
+  });
+
+  it('asks a detail taken away and taken again from nothing', () => {
+    const b = commit(TAPPED, { traits: ['glasses'] }, NO_DRAFT);
+    expect(b['trait-tattoo']).toBeUndefined();
+    const c = commit(b, { traits: ['glasses', 'tattoo'] }, NO_DRAFT);
+    // nothing resurrects: a detail discarded and chosen again is asked again
+    expect(c['trait-tattoo']).toBeUndefined();
+    expect(c['trait-tattoo-where']).toBeUndefined();
+    expect(nextQuestion(c, NO_DRAFT)).toBe('trait-tattoo');
+    sound(c);
   });
 
   it('asks a detail added later, in the table order, from nothing', () => {
     const two = commit(TAPPED, { traits: ['glasses'] }, NO_DRAFT);
     const answered1 = commit(
       two,
-      { 'trait-glasses': { words: 'rimless frames with thin temples', refs: [] } },
+      { 'trait-glasses': { pick: 'rimless frames with thin temples', refs: [] } },
       NO_DRAFT,
     );
     const b = commit(answered1, { traits: ['glasses', 'tattoo'] }, NO_DRAFT);
-    // the choosing changed, so both are asked again, the face before the body
-    expect(b['trait-glasses']).toBeUndefined();
+    // only the one taken in is asked: the glasses were not a reply to the chooser
+    expect(b['trait-glasses']).toEqual(answered1['trait-glasses']);
     expect(b['trait-tattoo']).toBeUndefined();
-    expect(nextQuestion(b, NO_DRAFT)).toBe('trait-glasses');
+    expect(nextQuestion(b, NO_DRAFT)).toBe('trait-tattoo');
     sound(b);
-    const c = commit(b, { 'trait-glasses': { words: 'tortoiseshell acetate frames', refs: [] } }, NO_DRAFT);
+    const c = commit(b, { 'trait-glasses': { pick: 'tortoiseshell acetate frames', refs: [] } }, NO_DRAFT);
     expect(nextQuestion(c, NO_DRAFT)).toBe('trait-tattoo');
     // answered, a tattoo asks where it is
-    const d = commit(c, { 'trait-tattoo': { words: 'a small geometric line tattoo', refs: [] } }, NO_DRAFT);
+    const d = commit(c, { 'trait-tattoo': { pick: 'a small geometric line tattoo', refs: [] } }, NO_DRAFT);
     expect(nextQuestion(d, NO_DRAFT)).toBe('trait-tattoo-where');
     // words that already say where skip the placement question
     const e = commit(c, { 'trait-tattoo': { words: 'a script tattoo along the left forearm', refs: [] } }, NO_DRAFT);
@@ -208,24 +231,50 @@ describe('the presenter questions, as one table', () => {
     sound(e);
   });
 
-  it('replaces words of their own with a tap, and a tap with words, leaving no trace', () => {
-    const a = commit(TAPPED, { 'look-hair': 'dark auburn with a silver streak' }, NO_DRAFT);
-    expect(a['look-hair']).toBe('dark auburn with a silver streak');
-    const b = commit(a, { 'look-hair': 'blonde' }, NO_DRAFT);
-    expect(b['look-hair']).toBe('blonde');
-    expect(JSON.stringify(b)).not.toContain('auburn');
+  it('counts the way past as an answer, though it says nothing about them', () => {
+    // Skip contributes nothing to the sentence, which is not the same as
+    // saying nothing: a row that measured answers by what they compile to
+    // asked the skipped one again for ever, and the run could not move.
+    const a = commit(
+      { source: { door: 'scratch', via: 'taps' }, 'look-who': { pick: 'woman' } },
+      { 'look-age': { pick: 'either' } },
+      NO_DRAFT,
+    );
+    expect(answered('look-age', a, NO_DRAFT)).toBe(true);
+    expect(nextQuestion(a, NO_DRAFT)).toBe('look-hair');
+    // and words beside the way past are still an answer of their own
+    const b = commit(a, { 'look-age': { pick: 'either', words: 'not a teenager' } }, NO_DRAFT);
+    expect(answered('look-age', b, NO_DRAFT)).toBe(true);
+    // an empty pair is not an answer at all
+    const c = commit(a, { 'look-age': {} }, NO_DRAFT);
+    expect(answered('look-age', c, NO_DRAFT)).toBe(false);
+    expect(nextQuestion(c, NO_DRAFT)).toBe('look-age');
+  });
+
+  it('keeps a chip and the words about it as one answer, and replaces each on its own', () => {
+    // words of their own, with nothing tapped
+    const a = commit(TAPPED, { 'look-hair': { words: 'dark auburn with a silver streak' } }, NO_DRAFT);
+    expect(a['look-hair']).toEqual({ words: 'dark auburn with a silver streak' });
+    // a tap over them, keeping the words: both halves stand
+    const b = commit(a, { 'look-hair': { pick: 'blonde', words: 'with a silver streak' } }, NO_DRAFT);
+    expect(b['look-hair']).toEqual({ pick: 'blonde', words: 'with a silver streak' });
     sound(b);
+    // and words again over that: the chip is what it was, the words are new
+    const c = commit(b, { 'look-hair': { pick: 'blonde', words: 'with darker roots' } }, NO_DRAFT);
+    expect(c['look-hair']).toEqual({ pick: 'blonde', words: 'with darker roots' });
+    expect(JSON.stringify(c)).not.toContain('silver');
+    sound(c);
   });
 
   it('keeps the pictures of a detail while its words change, and places it again', () => {
-    const a = commit(TAPPED, { 'trait-tattoo': { words: 'a solid blackwork tattoo', refs: ['h-ink'] } }, NO_DRAFT);
+    const a = commit(TAPPED, { 'trait-tattoo': { pick: 'a solid blackwork tattoo', refs: ['h-ink'] } }, NO_DRAFT);
     // the pictures belong to the detail, not to the words, so they stay
     expect(a['trait-tattoo']?.refs).toEqual(['h-ink']);
     // the placement was given about the old tattoo, so it is asked again
     expect(a['trait-tattoo-where']).toBeUndefined();
     expect(nextQuestion(a, NO_DRAFT)).toBe('trait-tattoo-where');
     // and what was chosen and answered before it is untouched
-    expect(a['trait-glasses']?.words).toBe('thin black rectangular metal frames');
+    expect(a['trait-glasses']?.pick).toBe('thin black rectangular metal frames');
     sound(a);
   });
 
@@ -242,7 +291,7 @@ describe('the presenter questions, as one table', () => {
     // but its own answer still reads back beside it
     const answered1 = commit(
       p,
-      { traits: ['glasses'], 'trait-glasses': { words: 'thin black frames', refs: [] } },
+      { traits: ['glasses'], 'trait-glasses': { pick: 'thin black frames', refs: [] } },
       photosDraft(),
     );
     expect(answeredIn(answered1, photosDraft('thin black frames'))).toEqual([
@@ -260,7 +309,7 @@ describe('the presenter questions, as one table', () => {
     expect(answeredIn(shuffled, NO_DRAFT)).toEqual(answeredIn(TAPPED, NO_DRAFT));
     expect(nextQuestion(shuffled, NO_DRAFT)).toBeNull();
     // an id nobody knows is unsound, never a crash
-    expect(unsound({ ...TAPPED, ['look-hat' as Qid]: 'x' } as Answers, NO_DRAFT)).toEqual(['look-hat']);
+    expect(unsound({ ...TAPPED, ['look-hat' as Qid]: { pick: 'x' } } as Answers, NO_DRAFT)).toEqual(['look-hat']);
   });
 
   it('survives a long, changeable person without ever going unsound', () => {
@@ -268,22 +317,22 @@ describe('the presenter questions, as one table', () => {
     let a: Answers = {};
     const steps: Partial<Answers>[] = [
       { source: { door: 'scratch', via: 'taps' } },
-      { 'look-who': 'woman' },
-      { 'look-age': '30s' },
-      { 'look-who': 'man' },
-      { 'look-hair': '#7f3fbf' },
-      { 'look-length': 'short' },
-      { 'look-skin': 'tan' },
-      { 'look-build': 'solid' },
+      { 'look-who': { pick: 'woman' } },
+      { 'look-age': { pick: '30s' } },
+      { 'look-who': { pick: 'man' } },
+      { 'look-hair': { pick: '#7f3fbf' } },
+      { 'look-length': { pick: 'short' } },
+      { 'look-skin': { pick: 'tan', words: 'weathered' } },
+      { 'look-build': { pick: 'solid' } },
       { traits: ['glasses', 'tattoo', 'scar'] },
-      { 'trait-glasses': { words: 'rimless frames with thin temples', refs: [] } },
-      { 'look-hair': 'black' },
-      { 'trait-scar': { words: 'a thin pale scar through one eyebrow', refs: ['h-scar'] } },
+      { 'trait-glasses': { pick: 'rimless frames with thin temples', refs: [] } },
+      { 'look-hair': { pick: 'black' } },
+      { 'trait-scar': { pick: 'a thin pale scar through one eyebrow', refs: ['h-scar'] } },
       { traits: ['glasses', 'scar'] },
       { traits: ['glasses', 'scar', 'piercing'] },
-      { 'trait-piercing': { words: 'a silver septum ring', refs: [] } },
-      { keep: 'always a red thread bracelet' },
-      { 'look-age': '50s' },
+      { 'trait-piercing': { pick: 'a silver septum ring', words: 'high on the ear' } },
+      { keep: { words: 'always a red thread bracelet', refs: [] } },
+      { 'look-age': { pick: '50s' } },
       { source: { door: 'photos', via: 'taps' } },
       { photos: { hashes: ['h1', 'h2'], attested: true } },
       { source: { door: 'scratch', via: 'typed' }, describe: 'someone kind' },
