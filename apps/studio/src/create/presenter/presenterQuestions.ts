@@ -204,7 +204,15 @@ export function descriptionGaps(text: string): Gap[] {
   return gaps;
 }
 
-const lookDone = (a: Answers) => LOOK_ORDER.every((s) => a[`look-${s}`] !== undefined);
+/**
+ * Every row that exists for this person, answered.
+ *
+ * A row that does not apply is not a row waiting to be answered: counting it
+ * left the rows never finished, so nothing after them was ever ready and the
+ * run walked off the end of itself.
+ */
+const lookDone = (a: Answers, ctx: FlowContext) =>
+  LOOK_ORDER.every((s) => !applies(`look-${s}`, a, ctx) || a[`look-${s}`] !== undefined);
 const gapsApply = (a: Answers) => words(a) && a.describe !== undefined && descriptionGaps(a.describe).length > 0;
 const describeDone = (a: Answers) => words(a) && a.describe !== undefined && (!gapsApply(a) || a.gaps !== undefined);
 
@@ -228,7 +236,7 @@ const photosMoment = (a: Answers, ctx: FlowContext) =>
  * passed, and a detail is then added from the chooser's own pencil.
  */
 const traitsMoment = (a: Answers, ctx: FlowContext) =>
-  taps(a) ? lookDone(a) : words(a) ? describeDone(a) : photosMoment(a, ctx);
+  taps(a) ? lookDone(a, ctx) : words(a) ? describeDone(a) : photosMoment(a, ctx);
 /** A detail is about a person: one described, or one whose photographs a draft already holds. */
 const traitsApply = (a: Answers, ctx: FlowContext) => scratch(a) || (photos(a) && !!ctx.draft);
 
@@ -253,7 +261,16 @@ const differs = (x: unknown, y: unknown) => JSON.stringify(x) !== JSON.stringify
 export const SPECS: readonly Spec[] = [
   { id: 'source', applies: () => true },
   { id: 'photos', applies: photos },
-  ...LOOK_ORDER.map((s): Spec => ({ id: `look-${s}`, applies: taps })),
+  ...LOOK_ORDER.map(
+    (s): Spec => ({
+      id: `look-${s}`,
+      // Facial hair is not asked of a woman. Every other row is asked of
+      // everybody, because every other row is a thing anybody can have; this
+      // one is the exception, and leaving it in read as the app not having
+      // listened to the answer before it.
+      applies: s === 'facial' ? (a) => taps(a) && a['look-who']?.pick !== 'woman' : taps,
+    }),
+  ),
   { id: 'describe', applies: words },
   { id: 'gaps', applies: gapsApply, dependsOn: [{ on: 'describe' }] },
   { id: 'traits', applies: traitsApply, ready: traitsMoment },

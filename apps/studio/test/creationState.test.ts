@@ -83,7 +83,6 @@ describe('the state of a presenter being made', () => {
       'look-build': { pick: 'lean' },
       'look-heritage': { pick: 'Mediterranean' },
       'look-texture': { pick: 'wavy' },
-      'look-facial': { pick: 'clean-shaven' },
       'look-eyes': { pick: 'green' },
       'look-height': { pick: 'tall' },
       traits: [],

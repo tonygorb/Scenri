@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 // Resolved from this file, never from the working directory: run from the repo
 // root rather than the package and cwd-relative reads fail for no real reason.
 const STUDIO = join(dirname(fileURLToPath(import.meta.url)), '..');
+import { LOOK_ROWS } from '../src/create/presenter/presenterLook.ts';
+import { LOOK_ORDER } from '../src/create/presenter/presenterQuestions.ts';
 import {
   TRAITS,
   type TraitAnswers,
@@ -53,6 +55,18 @@ describe('the distinctive details a presenter can carry', () => {
         expect(art.has(o.card as string)).toBe(true);
       }
     }
+    // The look rows draw from the same place. How hair grows and what a beard
+    // is cannot be a silhouette, so those two rows carry cards rather than
+    // sprite cells, and they have to agree with the files and the stylesheet
+    // exactly as a detail's row does.
+    for (const step of LOOK_ORDER) {
+      for (const o of LOOK_ROWS[step].row.options) {
+        if (!o.card) continue;
+        wanted.add(o.card);
+        expect(css).toContain(`[data-card="${o.card}"]`);
+        expect(art.has(o.card), o.card).toBe(true);
+      }
+    }
     expect([...art].filter((f) => !wanted.has(f))).toEqual([]);
     // and the third direction: a rule pointing at a file nothing chooses, or
     // at a file that is not there at all, which the build would only find later
@@ -67,7 +81,10 @@ describe('the distinctive details a presenter can carry', () => {
     // person would choose one scar and be shown another.
     const css = readFileSync(join(STUDIO, 'src/styles/components/conversation.css'), 'utf8');
     const rules = [...css.matchAll(/\[data-card="([^"]+)"\]\s*\{[^}]*url\("[^"]*\/([^"/]+)\.webp"\)/g)];
-    expect(rules.length).toBe(TRAITS.reduce((n, t) => n + t.options.length, 0));
+    const cards =
+      TRAITS.reduce((n, t) => n + t.options.length, 0) +
+      LOOK_ORDER.reduce((n, s) => n + LOOK_ROWS[s].row.options.filter((o) => o.card).length, 0);
+    expect(rules.length).toBe(cards);
     for (const [, card, file] of rules) expect(file).toBe(card);
   });
 

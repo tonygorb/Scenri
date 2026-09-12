@@ -27,7 +27,7 @@ export interface ChoiceGroup {
   options: ChoiceOption[];
 }
 
-/** One thing to tap inside a row: a colour, a drawn figure, or a word. */
+/** One thing to tap inside a row: a colour, a drawn figure, a photographed card, or a word. */
 export interface Swatch {
   id: string;
   label: string;
@@ -35,6 +35,14 @@ export interface Swatch {
   color?: string;
   /** The figure it stands for, when it is drawn: one cell of a sprite sheet the stylesheet names. */
   art?: { sheet: string; x: number; y: number };
+  /**
+   * The picture on its card, when the thing being chosen has to be seen rather
+   * than shaped. A sprite sheet is the app's own ink and can only show a
+   * silhouette, which is enough for a length and a build and says nothing at
+   * all about how hair grows or what a beard looks like. Same file convention
+   * as a detail's card, and the stylesheet names every one.
+   */
+  card?: string;
 }
 
 /** A row inside a swatch question: what it is about, and what can be tapped. */

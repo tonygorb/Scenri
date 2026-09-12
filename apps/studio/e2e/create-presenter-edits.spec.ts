@@ -55,7 +55,11 @@ const draftOf = async (p: Page, brandId: string) => {
 /** The rows, tapped through to the read-back. */
 async function tapThrough(p: Page) {
   await answer(p, 'Describe someone').click();
-  for (const label of ['Woman', '30s', 'Brown', 'Long', 'Olive', 'Lean']) await answer(p, label).click();
+  // who they are, their face, their hair, their body: the order the rows are
+  // asked in. One row is on screen at a time, so a label two rows share (Brown,
+  // Average) is never ambiguous.
+  const rows = ['Woman', '30s', 'Mediterranean', 'Olive', 'Brown', 'Long', 'Wavy', 'Green', 'Lean', 'Average'];
+  for (const label of rows) await answer(p, label).click();
   await expect(log(p)).toContainText('Anything else that is always true of them?');
 }
 
@@ -93,11 +97,11 @@ test.describe('changing an answer', () => {
     await expect(log(page)).toContainText('And the length?');
 
     // answered again, the person is whole and is what gets drawn
-    await answer(page, 'Short').click();
-    await answer(page, 'Fair').click();
-    await answer(page, 'Solid').click();
+    for (const label of ['Short', 'Wavy', 'Green', 'Solid', 'Average']) {
+      await answer(page, label).click();
+    }
     await answer(page, 'Nothing else').click();
-    await expect(log(page)).toContainText('short blonde hair');
+    await expect(log(page)).toContainText('short wavy blonde hair');
     await answer(page, 'Draw the presenter').click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     await expect.poll(async () => (await draftOf(page, brand.id)).direction, { timeout: 20_000 }).toContain('blonde');
@@ -156,11 +160,10 @@ test.describe('changing an answer', () => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
-    for (const label of ['Woman', '30s', 'Brown']) await answer(page, label).click();
+    for (const label of ['Woman', '30s', 'Mediterranean', 'Olive', 'Brown']) await answer(page, label).click();
     await answer(page, 'Long').click();
     // answered on, so there are answers after the one about to be changed
-    await answer(page, 'Olive').click();
-    await answer(page, 'Lean').click();
+    for (const label of ['Wavy', 'Green', 'Lean', 'Average']) await answer(page, label).click();
     await expect(log(page)).toContainText('Anything else that is always true of them?');
 
     // A change is a change: pressing Send at a reopened answer says that
@@ -179,8 +182,10 @@ test.describe('changing an answer', () => {
     await expect(turn(page, 'you:look-length')).not.toContainText('Long');
     await expect(log(page).locator('.sc-convo-turn[data-turn^="you:aside-said"]')).toHaveCount(0);
     // and the answers given after it are gone
-    await expect(turn(page, 'you:look-skin')).toHaveCount(0);
+    await expect(turn(page, 'you:look-texture')).toHaveCount(0);
     await expect(turn(page, 'you:look-build')).toHaveCount(0);
+    // and the skin, asked before the hair, is exactly where it was
+    await expect(turn(page, 'you:look-skin')).toContainText('Olive');
     // the question is simply being asked again, not held half open
     await expect(turn(page, 'q:look-length')).toHaveCount(1);
     await expect(turn(page, 'q:look-length')).not.toHaveAttribute('data-reopened', /.*/);
@@ -197,10 +202,10 @@ test.describe('changing an answer', () => {
     // gone with the reply to it: a correction in progress is not a thing said
     await expect(turn(page, 'you:look-length')).toContainText('A shaggy shoulder-length cut');
     await expect(log(page)).not.toContainText('ksjfhklsjdfsdf');
-    await expect(log(page)).toContainText('And their skin?');
+    await expect(log(page)).toContainText('And how does it grow?');
 
     // a phrase that carries on from the chip keeps it, and reads as one answer
-    await answer(page, 'Olive').click();
+    for (const label of ['Wavy', 'Green']) await answer(page, label).click();
     await answer(page, 'Lean').click();
     await pencil(page, 'you:look-build').click();
     await send(page, 'but with narrower shoulders');
@@ -271,9 +276,7 @@ test.describe('changing an answer', () => {
     await turn(page, 'q:look-hair').getByRole('button', { name: 'Blonde', exact: true }).click();
     await expect(log(page)).toContainText('And the length?');
     expect((await draftOf(page, brand.id)).generations).toBe(1);
-    await answer(page, 'Short').click();
-    await answer(page, 'Fair').click();
-    await answer(page, 'Solid').click();
+    for (const label of ['Short', 'Wavy', 'Green', 'Solid', 'Average']) await answer(page, label).click();
     await answer(page, 'Nothing else').click();
     await expect.poll(async () => (await draftOf(page, brand.id)).direction, { timeout: 20_000 }).toContain('blonde');
     await expect.poll(async () => (await draftOf(page, brand.id)).generations, { timeout: 20_000 }).toBe(2);
@@ -292,6 +295,8 @@ test.describe('changing an answer', () => {
     await answer(page, 'Describe someone').click();
     await answer(page, 'Woman').click();
     await answer(page, '30s').click();
+    await answer(page, 'Mediterranean').click();
+    await answer(page, 'Olive').click();
     await answer(page, 'Brown').click();
     await expect(log(page)).toContainText('And the length?');
     await page.reload();
@@ -416,12 +421,14 @@ test.describe('an answer written again', () => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
-    for (const label of ['Woman', '30s', 'Black']) {
+    for (const label of ['Woman', '30s', 'Mediterranean', 'Olive', 'Black']) {
       await log(page).getByRole('button', { name: label, exact: true }).click();
     }
     await expect(log(page)).toContainText('And the length?');
     await send(page, 'Lungo');
-    await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
+    for (const label of ['Wavy', 'Green']) {
+      await log(page).getByRole('button', { name: label, exact: true }).click();
+    }
     await expect(log(page)).toContainText('And their build?');
     return log(page).locator('.sc-convo-turn[data-turn="you:look-length"]');
   };
@@ -436,7 +443,9 @@ test.describe('an answer written again', () => {
     // everything the conversation asked after it. The words could not be taken
     // as the new answer, so the question comes back waiting rather than answered.
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-length"]')).toContainText('Lungo1234');
-    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-skin"]')).toHaveCount(0);
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-texture"]')).toHaveCount(0);
+    // the skin is asked before the hair, so it was never after the length
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-skin"]')).toContainText('Olive');
     await expect(log(page)).toContainText('And the length?');
     // and what was said is answered where it was said
     await expect(log(page)).toContainText('Lungo1234');
@@ -479,9 +488,9 @@ test.describe('an answer written again', () => {
     await bubble.locator('textarea').press('Enter');
 
     await expect(bubble).toContainText('long braid');
-    // the skin was answered after it, so it is asked again and its answer is gone
-    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-skin"]')).toHaveCount(0);
-    await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-skin"]')).toHaveCount(1);
+    // the texture was answered after it, so it is asked again and its answer is gone
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-texture"]')).toHaveCount(0);
+    await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-texture"]')).toHaveCount(1);
     await expect(log(page)).not.toContainText('And their build?');
   });
 });
@@ -495,6 +504,8 @@ test.describe('on a phone', () => {
     await answer(page, 'Describe someone').click();
     await answer(page, 'Woman').click();
     await answer(page, '30s').click();
+    await answer(page, 'Mediterranean').click();
+    await answer(page, 'Olive').click();
     await answer(page, 'Brown').click();
     await expect(log(page)).toContainText('And the length?');
     await pencil(page, 'you:look-age').click();
@@ -502,8 +513,11 @@ test.describe('on a phone', () => {
     await expect(reopened).toHaveAttribute('data-reopened', 'true');
     await reopened.getByRole('button', { name: '40s' }).click();
     await expect(turn(page, 'you:look-age')).toContainText('40s');
-    // the run carries on from the change: the colour is asked again
+    // the run carries on from the change: everything after the age is asked again
     await expect(turn(page, 'you:look-hair')).toHaveCount(0);
+    await expect(log(page)).toContainText('Where are they from?');
+    await answer(page, 'Mediterranean').click();
+    await answer(page, 'Olive').click();
     await expect(log(page)).toContainText('What colour is their hair?');
     await answer(page, 'Black').click();
     await expect(log(page)).toContainText('And the length?');

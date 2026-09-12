@@ -73,7 +73,6 @@ const TAPPED: Answers = {
   'look-build': { pick: 'lean' },
   'look-heritage': { pick: 'Mediterranean' },
   'look-texture': { pick: 'wavy' },
-  'look-facial': { pick: 'clean-shaven' },
   'look-eyes': { pick: 'green' },
   'look-height': { pick: 'tall' },
 };
@@ -98,8 +97,7 @@ describe('the transcript is a function of state', () => {
       ['look-skin', 'olive', 'look-hair'],
       ['look-hair', 'brown', 'look-length'],
       ['look-length', 'long', 'look-texture'],
-      ['look-texture', 'wavy', 'look-facial'],
-      ['look-facial', 'clean-shaven', 'look-eyes'],
+      ['look-texture', 'wavy', 'look-eyes'],
       ['look-eyes', 'green', 'look-build'],
       ['look-build', 'lean', 'look-height'],
       ['look-height', 'tall', 'traits'],
@@ -123,7 +121,7 @@ describe('the transcript is a function of state', () => {
     // the ask is short; the whole person is set apart above it, to be read or taken
     expect(q?.kind === 'confirm' && q.prompt).toBe('Here is the presenter, in full. Ready to draw?');
     expect(q?.kind === 'confirm' && q.quote).toBe(
-      'A Mediterranean woman in their 30s with long wavy brown hair, clean-shaven, green eyes, olive skin, tall with a lean build.',
+      'A Mediterranean woman in their 30s with long wavy brown hair, green eyes, olive skin, tall with a lean build.',
     );
     // one way on, and it says what is being drawn
     expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Draw the presenter']);
@@ -141,7 +139,7 @@ describe('the transcript is a function of state', () => {
     );
     const said = open(withDetails);
     expect(said?.kind === 'confirm' && said.quote).toBe(
-      'A Mediterranean woman in their 30s with long wavy brown hair, clean-shaven, green eyes, olive skin, tall with a lean build, and always thin black rectangular metal frames, a solid blackwork tattoo on their right forearm and a prosthetic limb in a bright painted finish in place of their right arm.',
+      'A Mediterranean woman in their 30s with long wavy brown hair, green eyes, olive skin, tall with a lean build, and always thin black rectangular metal frames, a solid blackwork tattoo on their right forearm and a prosthetic limb in a bright painted finish in place of their right arm.',
     );
     // the swatch questions know who is being drawn
     const who = open(turns(state({ source: { door: 'scratch', via: 'taps' }, 'look-who': { pick: 'man' } })));
@@ -812,7 +810,7 @@ describe('what a tap means', () => {
       keep: { words: 'a red thread bracelet', refs: ['h-bracelet'] },
     };
     expect(compileDirection(a)).toBe(
-      'a Mediterranean woman in their 30s with long wavy dyed purple hair, clean-shaven, green eyes, olive skin, tall with a lean build',
+      'a Mediterranean woman in their 30s with long wavy dyed purple hair, green eyes, olive skin, tall with a lean build',
     );
     expect(compileKeep(a)).toBe(
       'thin black rectangular metal frames, a small geometric line tattoo on their right forearm, a red thread bracelet',
@@ -878,7 +876,7 @@ describe('an answer that was changed', () => {
     const reopen = (a: Answers, id: Qid) =>
       turns(state(a, { editing: id })).find((t) => t.kind === 'question' && t.question.id === id);
     const deep = reopen(TAPPED, 'look-hair');
-    expect(deep?.kind === 'question' && deep.question.cost).toBe('Changing this asks the 6 after it again.');
+    expect(deep?.kind === 'question' && deep.question.cost).toBe('Changing this asks the 5 after it again.');
     const one = reopen(TAPPED, 'look-build');
     expect(one?.kind === 'question' && one.question.cost).toBe('Changing this asks the one after it again.');
     // the last answer has nothing after it, so there is nothing to say

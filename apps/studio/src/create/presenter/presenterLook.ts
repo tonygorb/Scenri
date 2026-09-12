@@ -106,13 +106,13 @@ export const HERITAGES: Swatch[] = [
  * one-framing rule true everywhere it still applies.
  */
 export const EYE_COLOURS: Swatch[] = [
-  { id: 'dark brown', label: 'Dark brown', art: { sheet: 'eyes', x: 0, y: 0 } },
-  { id: 'brown', label: 'Brown', art: { sheet: 'eyes', x: 1, y: 0 } },
-  { id: 'hazel', label: 'Hazel', art: { sheet: 'eyes', x: 2, y: 0 } },
-  { id: 'amber', label: 'Amber', art: { sheet: 'eyes', x: 0, y: 1 } },
-  { id: 'green', label: 'Green', art: { sheet: 'eyes', x: 1, y: 1 } },
-  { id: 'blue', label: 'Blue', art: { sheet: 'eyes', x: 2, y: 1 } },
-  { id: 'grey', label: 'Grey', art: { sheet: 'eyes', x: 0, y: 2 } },
+  { id: 'dark brown', label: 'Dark brown', card: 'eyes-1' },
+  { id: 'brown', label: 'Brown', card: 'eyes-2' },
+  { id: 'hazel', label: 'Hazel', card: 'eyes-3' },
+  { id: 'amber', label: 'Amber', card: 'eyes-4' },
+  { id: 'green', label: 'Green', card: 'eyes-5' },
+  { id: 'blue', label: 'Blue', card: 'eyes-6' },
+  { id: 'grey', label: 'Grey', card: 'eyes-7' },
 ];
 
 /**
@@ -123,12 +123,12 @@ export const EYE_COLOURS: Swatch[] = [
  * only offered beards would make "no beard" the one thing you cannot ask for.
  */
 export const FACIAL_HAIR: Swatch[] = [
-  { id: 'clean-shaven', label: 'Clean shaven', art: { sheet: 'facial', x: 0, y: 0 } },
-  { id: 'light stubble', label: 'Stubble', art: { sheet: 'facial', x: 1, y: 0 } },
-  { id: 'a moustache', label: 'Moustache', art: { sheet: 'facial', x: 2, y: 0 } },
-  { id: 'a goatee', label: 'Goatee', art: { sheet: 'facial', x: 0, y: 1 } },
-  { id: 'a short beard', label: 'Short beard', art: { sheet: 'facial', x: 1, y: 1 } },
-  { id: 'a full beard', label: 'Full beard', art: { sheet: 'facial', x: 2, y: 1 } },
+  { id: 'clean-shaven', label: 'Clean shaven', card: 'facial-1' },
+  { id: 'light stubble', label: 'Stubble', card: 'facial-2' },
+  { id: 'a moustache', label: 'Moustache', card: 'facial-3' },
+  { id: 'a goatee', label: 'Goatee', card: 'facial-4' },
+  { id: 'a short beard', label: 'Short beard', card: 'facial-5' },
+  { id: 'a full beard', label: 'Full beard', card: 'facial-6' },
 ];
 
 /**
@@ -141,13 +141,29 @@ export const FACIAL_HAIR: Swatch[] = [
  * (`HAIR_AS_NOUN`), because "long locs brown hair" is not a sentence.
  */
 export const HAIR_TEXTURES: Swatch[] = [
-  { id: 'straight', label: 'Straight', art: { sheet: 'texture', x: 0, y: 0 } },
-  { id: 'wavy', label: 'Wavy', art: { sheet: 'texture', x: 1, y: 0 } },
-  { id: 'curly', label: 'Curly', art: { sheet: 'texture', x: 2, y: 0 } },
-  { id: 'coily', label: 'Coily', art: { sheet: 'texture', x: 0, y: 1 } },
-  { id: 'locs', label: 'Locs', art: { sheet: 'texture', x: 1, y: 1 } },
-  { id: 'braids', label: 'Braids', art: { sheet: 'texture', x: 2, y: 1 } },
+  { id: 'straight', label: 'Straight', card: 'texture-1' },
+  { id: 'wavy', label: 'Wavy', card: 'texture-2' },
+  { id: 'curly', label: 'Curly', card: 'texture-3' },
+  { id: 'coily', label: 'Coily', card: 'texture-4' },
+  { id: 'locs', label: 'Locs', card: 'texture-5' },
+  { id: 'braids', label: 'Braids', card: 'texture-6' },
 ];
+
+/*
+ * Height is the one row that cannot be a card.
+ *
+ * Every card is measured and placed into the same box (`place.mjs`), which is
+ * exactly what makes a row read as one row, and it would normalise away the
+ * only thing a height has to show. Three figures side by side at one scale is
+ * a single picture, not a row of six, so the words stand.
+ *
+ * The eye row very nearly went the same way. "One framing, always" forbids a
+ * zoom on the part a detail sits on, so an iris is about four pixels at
+ * 90x112. Measured at plate size: blue and amber are unmistakable, green and
+ * the two browns are told apart, and grey is nearly invisible against a grey
+ * face. It ships because a card stands above its label rather than instead of
+ * it, so the picture carries the colour and the word still says which.
+ */
 
 /** The textures that are the hair rather than a word in front of it. */
 const HAIR_AS_NOUN = new Set(['locs', 'braids']);
@@ -161,9 +177,9 @@ const HAIR_AS_NOUN = new Set(['locs', 'braids']);
  * the front view along with the build.
  */
 export const HEIGHTS: Swatch[] = [
-  { id: 'short', label: 'Short', art: { sheet: 'height', x: 0, y: 0 } },
-  { id: 'average', label: 'Average', art: { sheet: 'height', x: 1, y: 0 } },
-  { id: 'tall', label: 'Tall', art: { sheet: 'height', x: 2, y: 0 } },
+  { id: 'short', label: 'Short' },
+  { id: 'average', label: 'Average' },
+  { id: 'tall', label: 'Tall' },
 ];
 
 /** How a height is said, since "average" alone is not how anybody says it. */

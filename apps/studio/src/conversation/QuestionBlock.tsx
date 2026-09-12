@@ -350,7 +350,13 @@ export function QuestionBlock({
 
         {question.kind === 'swatches' && (
           <div className="sc-convo-look">
-            {question.row.options.some((o) => o.art) ? (
+            {question.row.options.some((o) => o.card) ? (
+              <CardStrip
+                options={question.row.options}
+                picked={on}
+                onPick={(id) => commit(id, { kind: 'swatches', picks: { [question.row.id]: id } })}
+              />
+            ) : question.row.options.some((o) => o.art) ? (
               <LookStrip
                 options={question.row.options}
                 cast={question.cast}

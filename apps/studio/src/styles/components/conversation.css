@@ -766,6 +766,63 @@ button.sc-convo-shot-do {
   background-size: cover;
   background-repeat: no-repeat;
 }
+.sc-convo-plate-in[data-card="eyes-1"] {
+  background-image: url("../../assets/traits/eyes-1.webp");
+}
+.sc-convo-plate-in[data-card="eyes-2"] {
+  background-image: url("../../assets/traits/eyes-2.webp");
+}
+.sc-convo-plate-in[data-card="eyes-3"] {
+  background-image: url("../../assets/traits/eyes-3.webp");
+}
+.sc-convo-plate-in[data-card="eyes-4"] {
+  background-image: url("../../assets/traits/eyes-4.webp");
+}
+.sc-convo-plate-in[data-card="eyes-5"] {
+  background-image: url("../../assets/traits/eyes-5.webp");
+}
+.sc-convo-plate-in[data-card="eyes-6"] {
+  background-image: url("../../assets/traits/eyes-6.webp");
+}
+.sc-convo-plate-in[data-card="eyes-7"] {
+  background-image: url("../../assets/traits/eyes-7.webp");
+}
+.sc-convo-plate-in[data-card="facial-1"] {
+  background-image: url("../../assets/traits/facial-1.webp");
+}
+.sc-convo-plate-in[data-card="facial-2"] {
+  background-image: url("../../assets/traits/facial-2.webp");
+}
+.sc-convo-plate-in[data-card="facial-3"] {
+  background-image: url("../../assets/traits/facial-3.webp");
+}
+.sc-convo-plate-in[data-card="facial-4"] {
+  background-image: url("../../assets/traits/facial-4.webp");
+}
+.sc-convo-plate-in[data-card="facial-5"] {
+  background-image: url("../../assets/traits/facial-5.webp");
+}
+.sc-convo-plate-in[data-card="facial-6"] {
+  background-image: url("../../assets/traits/facial-6.webp");
+}
+.sc-convo-plate-in[data-card="texture-1"] {
+  background-image: url("../../assets/traits/texture-1.webp");
+}
+.sc-convo-plate-in[data-card="texture-2"] {
+  background-image: url("../../assets/traits/texture-2.webp");
+}
+.sc-convo-plate-in[data-card="texture-3"] {
+  background-image: url("../../assets/traits/texture-3.webp");
+}
+.sc-convo-plate-in[data-card="texture-4"] {
+  background-image: url("../../assets/traits/texture-4.webp");
+}
+.sc-convo-plate-in[data-card="texture-5"] {
+  background-image: url("../../assets/traits/texture-5.webp");
+}
+.sc-convo-plate-in[data-card="texture-6"] {
+  background-image: url("../../assets/traits/texture-6.webp");
+}
 .sc-convo-plate-in[data-card="freckles-1"] {
   background-image: url("../../assets/traits/freckles-1.webp");
 }

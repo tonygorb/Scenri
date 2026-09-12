@@ -226,10 +226,18 @@ test.describe('a person from scratch', () => {
     await expect(log(page)).toContainText('Roughly how old?');
     // the same holds for a detail: the chooser takes a detail said in words
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Mediterranean', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
     await log(page).getByRole('button', { name: 'Black', exact: true }).click();
     await log(page).getByRole('button', { name: 'Shoulder', exact: true }).click();
-    await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Wavy', exact: true }).click();
+    // this one said they are non-binary rather than tapping Woman, so the
+    // facial hair row does stand for them: it is only a woman it is not asked of
+    await expect(log(page)).toContainText('Any facial hair?');
+    await log(page).getByRole('button', { name: 'Clean shaven', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Green', exact: true }).click();
     await log(page).getByRole('button', { name: 'Solid', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Average', exact: true }).click();
     await expect(log(page)).toContainText('Anything else that is always true of them?');
     await send(page, 'a chipped front tooth');
     await expect(log(page)).toContainText('Here is the presenter, in full. Ready to draw?');
@@ -240,24 +248,34 @@ test.describe('a person from scratch', () => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
-    // one row, one tap, then the next row: who, age, hair, its length, skin, build
+    // one row, one tap, then the next row, in the order a person describes
+    // somebody: who they are, their face, their hair, their body
     await expect(log(page)).toContainText('Who are they?');
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
     await expect(log(page)).toContainText('Roughly how old?');
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
+    await expect(log(page)).toContainText('Where are they from?');
+    await log(page).getByRole('button', { name: 'Mediterranean', exact: true }).click();
+    await expect(log(page)).toContainText('And their skin?');
+    await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
     await expect(log(page)).toContainText('What colour is their hair?');
     await log(page).getByRole('button', { name: 'Black', exact: true }).click();
     await expect(log(page)).toContainText('And the length?');
     // length and build are shapes rather than words
     await expect(log(page).locator('.sc-convo-plate .sc-look-art').first()).toBeVisible();
     await log(page).getByRole('button', { name: 'Shoulder', exact: true }).click();
-    await expect(log(page)).toContainText('And their skin?');
-    await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
+    await expect(log(page)).toContainText('And how does it grow?');
+    await log(page).getByRole('button', { name: 'Wavy', exact: true }).click();
+    // she is never asked about facial hair, so the eyes come straight after
+    await expect(log(page)).toContainText('What colour are their eyes?');
+    await log(page).getByRole('button', { name: 'Green', exact: true }).click();
     await expect(log(page)).toContainText('And their build?');
     // every step is its own exchange: its question, and its answer under it
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-who"]')).toContainText('Woman');
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-length"]')).toContainText('Shoulder');
     await log(page).getByRole('button', { name: 'Solid', exact: true }).click();
+    await expect(log(page)).toContainText('And how tall?');
+    await log(page).getByRole('button', { name: 'Average', exact: true }).click();
     // the rows done, what else is always true of them is asked once
     await expect(log(page)).toContainText('Anything else that is always true of them?');
     await answer(page, 'Nothing else').click();
@@ -265,14 +283,16 @@ test.describe('a person from scratch', () => {
     // brief stands apart from the talk, with a way to take a copy of it
     await expect(log(page)).toContainText('Here is the presenter, in full. Ready to draw?');
     await expect(log(page).locator('.sc-convo-brief-text')).toHaveText(
-      'A woman in their 30s with shoulder-length black hair, olive skin, a solid build.',
+      'A Mediterranean woman in their 30s with shoulder-length wavy black hair, green eyes, olive skin, average height with a solid build.',
     );
     await expect(log(page).getByRole('button', { name: 'Copy' })).toBeAttached();
     await log(page).getByRole('button', { name: 'Draw the presenter' }).click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
     const tapped = await draftsOf(page, brand.id);
     const first = await draftOf(page, brand.id, tapped.drafts[0].id);
-    expect(first.direction).toBe('a woman in their 30s with shoulder-length black hair, olive skin, a solid build');
+    expect(first.direction).toBe(
+      'a Mediterranean woman in their 30s with shoulder-length wavy black hair, green eyes, olive skin, average height with a solid build',
+    );
   });
 
   test('a colour of your own rides in the chip the app uses for a colour', async ({ page }) => {
@@ -281,6 +301,8 @@ test.describe('a person from scratch', () => {
     await answer(page, 'Describe someone').click();
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Mediterranean', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
     await expect(log(page)).toContainText('What colour is their hair?');
 
     // A colour step carries its colour control in the writing area, with no
@@ -321,6 +343,8 @@ test.describe('a person from scratch', () => {
     await answer(page, 'Describe someone').click();
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Mediterranean', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
     const chip = page.locator('.sc-convo-field .sc-token');
     await chip.getByRole('button', { name: 'Pick a colour' }).click();
     // not the colour the wheel opens on, which would be no change at all
@@ -355,6 +379,8 @@ test.describe('a person from scratch', () => {
     await answer(page, 'Describe someone').click();
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Mediterranean', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
 
     // a colour held in the composer, not yet sent
     const chip = page.locator('.sc-convo-field .sc-token');
@@ -374,8 +400,12 @@ test.describe('a person from scratch', () => {
     // the question the conversation is on stands where it is, and takes no answer
     await expect(log(page).locator('.sc-convo-turn[data-turn="q:look-hair"]')).toHaveAttribute('data-dim', 'true');
 
-    // and the step, when it comes round again, asks from nothing
+    // and the step, when it comes round again, asks from nothing. The age is
+    // asked before the heritage and the skin, so both of those come back too.
     await log(page).locator('.sc-convo-turn[data-turn="q:look-age"]').getByRole('button', { name: '40s' }).click();
+    await expect(log(page)).toContainText('Where are they from?');
+    await log(page).getByRole('button', { name: 'Mediterranean', exact: true }).click();
+    await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
     await expect(log(page)).toContainText('What colour is their hair?');
     // the control is there because the step is, and it holds no colour: what
     // was picked for the run that was taken back did not come with it
@@ -391,6 +421,10 @@ test.describe('a person from scratch', () => {
     await log(page).getByRole('button', { name: 'Woman', exact: true }).click();
     await expect(log(page)).toContainText('Roughly how old?');
     await log(page).getByRole('button', { name: '30s', exact: true }).click();
+    await expect(log(page)).toContainText('Where are they from?');
+    await log(page).getByRole('button', { name: 'Mediterranean', exact: true }).click();
+    await expect(log(page)).toContainText('And their skin?');
+    await log(page).getByRole('button', { name: 'Olive', exact: true }).click();
     await expect(log(page)).toContainText('What colour is their hair?');
     await log(page).getByRole('button', { name: 'Black', exact: true }).click();
     await expect(log(page)).toContainText('And the length?');
@@ -429,7 +463,8 @@ test.describe('a person from scratch', () => {
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-age"]')).toContainText('40s');
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-who"]')).toContainText('Woman');
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-hair"]')).toHaveCount(0);
-    await expect(log(page)).toContainText('What colour is their hair?');
+    // the heritage and the skin were asked after the age, so they come back too
+    await expect(log(page)).toContainText('Where are they from?');
   });
 
   test('a text answer is rewritten in place, and cancelling changes nothing', async ({ page }) => {

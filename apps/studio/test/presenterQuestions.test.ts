@@ -8,6 +8,7 @@ import {
   answered,
   answeredIn,
   applies,
+  LOOK_ORDER,
   commit,
   descriptionGaps,
   nextQuestion,
@@ -26,7 +27,6 @@ const TAPPED: Answers = {
   'look-build': { pick: 'lean' },
   'look-heritage': { pick: 'Mediterranean' },
   'look-texture': { pick: 'wavy' },
-  'look-facial': { pick: 'clean-shaven' },
   'look-eyes': { pick: 'green' },
   'look-height': { pick: 'tall' },
   traits: ['glasses', 'tattoo'],
@@ -103,6 +103,28 @@ describe('the presenter questions, as one table', () => {
     expect(b['look-skin']).toEqual({ pick: 'olive' });
     expect(nextQuestion(b, NO_DRAFT)).toBe('look-length');
     sound(b);
+  });
+
+  it('never asks a woman about facial hair, and asks everybody else', () => {
+    const rows = (who: string) => {
+      const a = commit({ source: { door: 'scratch', via: 'taps' } }, { 'look-who': { pick: who } }, NO_DRAFT);
+      return LOOK_ORDER.filter((s) => applies(`look-${s}`, a, NO_DRAFT));
+    };
+    expect(rows('woman')).not.toContain('facial');
+    expect(rows('man')).toContain('facial');
+    expect(rows('androgynous')).toContain('facial');
+    // the way past is not an answer of "woman", so the row still stands
+    expect(rows('either')).toContain('facial');
+
+    // and a run that reached the end without it is finished, not stuck: the
+    // row that does not exist is not a row waiting to be answered
+    const her: Answers = { ...TAPPED, 'look-who': { pick: 'woman' } };
+    expect(unsound(her, NO_DRAFT)).toEqual([]);
+    expect(nextQuestion(her, NO_DRAFT)).not.toBe('look-facial');
+
+    // changing her to a man asks it, because the rows after who are asked again
+    const him = commit(her, { 'look-who': { pick: 'man' } }, NO_DRAFT);
+    expect(applies('look-facial', him, NO_DRAFT)).toBe(true);
   });
 
   it('changes nothing when the same answer is given again', () => {
