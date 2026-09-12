@@ -674,22 +674,23 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       const voice = (t: Qid | 'keep' | null, openId: string | null = null) =>
         asidePhaseFor(t, openId, !!d?.views.portrait.hash);
       /**
-       * Where a refusal goes.
+       * Where a sentence that answered nothing is filed.
        *
-       * Normally into the conversation, under the question it was said at,
-       * because it was said out loud and was answered out loud. But while an
-       * answer is being changed it is not a turn in the conversation at all:
-       * filed as one it lands in the middle of the run, under the answer being
-       * changed and above answers given after it, which reads as a message
-       * inserted into the past. It belongs to the change, so it goes under the
-       * line it was typed into, and the words stay there to be fixed.
+       * It was said out loud and it is answered out loud: it is a turn in the
+       * conversation like any other, and it goes where a chat puts a new
+       * message, at the end.
+       *
+       * The question it is filed at is the question that was **on the floor**,
+       * never the answer being changed. Filed at the answer, it was drawn in
+       * the middle of the run, under that answer and above answers given after
+       * it, and then moved the moment the block closed. Filed where it was
+       * actually said, it arrives at the bottom and stays there, and when that
+       * question is answered it settles into that exchange, which is where the
+       * conversation had got to when the words were typed.
        */
       const refuse = (said: string, reply: string, q: Qid | 'keep' | null, kind: NothingKind) => {
-        if (q !== null && st.editing === q) {
-          setAskErr(reply);
-          return;
-        }
-        bounce(said, reply, q, kind);
+        const here = st.editing && st.editing === q ? (question?.id ?? null) : q;
+        bounce(said, reply, here, kind);
       };
 
       // A detail in their own words: it answers the open half of that trait,
@@ -889,7 +890,6 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
    */
   const onEdit = useCallback(
     (turnId: string) => {
-      setAskErr(null);
       if (turnId === 'name') {
         dispatch({ type: 'edit', id: 'name' });
         return;
@@ -1016,10 +1016,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     },
     [d, s.update, commitAnswer, commitWords, onSend, question, ctx],
   );
-  const onCancelEdit = useCallback(() => {
-    setAskErr(null);
-    dispatch({ type: 'cancel-edit' });
-  }, []);
+  const onCancelEdit = useCallback(() => dispatch({ type: 'cancel-edit' }), []);
 
   /**
    * A tap question answered in words instead. The first row hands the whole
@@ -1294,13 +1291,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
             : null,
       },
       text: state.text,
-      onText: (text: string) => {
-        // A refusal under the line is about what was in the line: typing again
-        // is the answer to it, so it goes then rather than standing over words
-        // it is no longer about.
-        setAskErr(null);
-        dispatch({ type: 'text', text });
-      },
+      onText: (text: string) => dispatch({ type: 'text', text }),
       onSend,
       onAnswer,
       onRestore: (view: string, hash: string) => void s.restore(view as StudioView, hash),

@@ -534,14 +534,17 @@ export function Transcript({
     const id = changing.slice(changing.indexOf(':') + 1);
     bright.add(`scenri:asked-${id}`);
     // And what was said at it. A sentence typed while the block is open is
-    // answered right there, and both halves of that were being drawn at 0.4:
-    // the newest thing on screen, and the reply to what had just been asked,
-    // greyed out as though the conversation had moved past it.
+    // answered out loud, and both halves of that were being drawn at 0.4: the
+    // newest thing on screen, and the reply to what had just been asked,
+    // greyed out as though the conversation had moved past it. Two places it
+    // can stand: beside the answer being changed, when it was said at that
+    // question before, and at the end, which is where a new one arrives.
     const at = shown.findIndex((t) => turnKey(t) === changing);
     if (at >= 0) {
       for (let i = at + 1; i < shown.length && isAsideTurn(shown[i]); i++) bright.add(turnKey(shown[i]));
       for (let i = at - 1; i >= 0 && isAsideTurn(shown[i]); i--) bright.add(turnKey(shown[i]));
     }
+    for (let i = shown.length - 1; i >= 0 && isAsideTurn(shown[i]); i--) bright.add(turnKey(shown[i]));
   }
 
   // When each turn first stood on screen. A conversation is a record of when

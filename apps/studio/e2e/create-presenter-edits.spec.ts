@@ -164,22 +164,26 @@ test.describe('changing an answer', () => {
     await answer(page, 'Olive').click();
     await expect(log(page)).toContainText('And their build?');
 
-    // a sentence the question cannot take is refused under the line it was
-    // typed into, not filed into the middle of the conversation: nothing is
-    // added above the answers given after it, and nothing is taken back
+    // A sentence the question cannot take is answered out loud, the way it is
+    // anywhere else, and it arrives where a chat puts a new line: at the end.
+    // It is filed at the question that was on the floor, never at the answer
+    // being changed, so it is not drawn into the middle of the run and has
+    // nothing to move to when the block closes.
     await pencil(page, 'you:look-length').click();
-    const standing = await log(page).locator('.sc-convo-turn').count();
     await send(page, 'Yo man');
-    await expect(page.locator('.sc-convo-line', { hasText: 'That is not a length.' })).toBeVisible();
-    await expect(log(page).locator('.sc-convo-turn')).toHaveCount(standing);
+    const reply = log(page).locator('.sc-convo-turn[data-turn^="scenri:aside-reply"]');
+    await expect(reply).toContainText('That is not a length.');
+    // last in the conversation, and not dimmed: it is the newest thing said
+    await expect(log(page).locator('.sc-convo-turn').last()).toHaveAttribute('data-turn', /^scenri:aside-reply/);
+    await expect(reply).not.toHaveAttribute('data-dim', /.*/);
+    // nothing answered after the one being changed was taken back: a refused
+    // sentence changed no answer
     await expect(turn(page, 'you:look-skin')).toContainText('Olive');
-    // the change is still open, with the words still there to be fixed
+    // and the change is still open, so it can simply be answered again
     await expect(turn(page, 'q:look-length')).toHaveAttribute('data-reopened', 'true');
-    await expect(composer(page)).toHaveValue('Yo man');
 
     // a phrase that stands on its own is the answer: the card it replaces goes
     // out, the change closes, and what was asked after it is asked again
-    await composer(page).fill('');
     await expect(turn(page, 'q:look-length')).toHaveAttribute('data-reopened', 'true');
     await expect(turn(page, 'q:look-length').getByRole('button', { name: 'Long', exact: true })).toHaveAttribute(
       'data-on',
