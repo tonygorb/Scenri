@@ -19,7 +19,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
-import type { BrandContext, Core, EngineAdapter } from '@scenri/core';
+import type { BrandContext, Core, EngineAdapter, ReferenceRole } from '@scenri/core';
 import type { PresenterDraft, SceneDraft } from '@scenri/engine-codex';
 
 /* --------------------------------------------------------------- records */
@@ -97,6 +97,7 @@ export interface Analyzer {
       correction?: string;
       priorDraft?: unknown;
       vocabulary?: { collections?: string[]; verticals?: string[]; categories?: string[] };
+      classifyPhotos?: boolean;
     },
     signal?: AbortSignal,
   ): Promise<PresenterDraft | SceneDraft>;
@@ -115,7 +116,8 @@ export interface AssetBuildDeps {
 
 export interface StartBuildInput {
   brandId: string;
-  kind: 'presenter' | 'scene';
+  /** Only scenes build here now; a presenter is cast in the studio (presenterDrafts.ts). */
+  kind: 'scene';
   name: string;
   instruction?: string;
   imageHashes: string[];
@@ -185,10 +187,7 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
     ? input.imageHashes
     : ((prior as CustomScene | undefined)?.refs ?? []).map((r) => String(r?.file ?? '').replace(/^asset:/, ''));
   const hashes = supplied.filter((h) => /^[a-f0-9]{32}$/.test(h) && core.images.has(h));
-  if (input.kind === 'presenter' && !hashes.length) {
-    throw Object.assign(new Error('add at least one photo of this person'), { statusCode: 400 });
-  }
-  if (input.kind === 'scene' && !hashes.length && !input.instruction?.trim()) {
+  if (!hashes.length && !input.instruction?.trim()) {
     throw Object.assign(new Error('add a reference image, or describe the place in a sentence'), { statusCode: 400 });
   }
 
@@ -196,10 +195,10 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
     id: `ab-${randomUUID().slice(0, 8)}`,
     brandId: brand.id,
     kind: input.kind,
-    name: str(input.name, 60) || (input.kind === 'presenter' ? 'New presenter' : 'New scene'),
+    name: str(input.name, 60) || 'New scene',
     stage: 'queued',
     step: 0,
-    steps: input.kind === 'presenter' ? STUDIO_FRAMES.length : 1,
+    steps: 1,
     message: null,
     assetId: null,
     previewHash: null,
@@ -237,8 +236,7 @@ async function runBuild(
   signal: AbortSignal,
 ): Promise<void> {
   try {
-    if (job.kind === 'presenter') await runPresenterBuild(deps, job, hashes, instruction, signal);
-    else await runSceneBuild(deps, job, hashes, instruction, signal);
+    await runSceneBuild(deps, job, hashes, instruction, signal);
   } catch (err: any) {
     if (signal.aborted) {
       patch(job, { stage: 'cancelled', message: null, finished: true });
@@ -246,245 +244,6 @@ async function runBuild(
     }
     patch(job, { stage: 'failed', error: err?.message ?? 'build failed', message: null, finished: true });
   }
-}
-
-/* ----------------------------------------------------- presenter pipeline */
-
-/**
- * The identity plan, ported from the curated roster's own set recipes.
- *
- * The front view is drawn from the person's photographs; every other view is
- * drawn from the front view, so the four frames are the same person seen four
- * ways rather than four attempts at a description. The right profile chains off
- * the left and asks for a mirror, which is what stops it drifting into a
- * different face.
- */
-const STUDIO_FRAMES: {
-  angle: string;
-  from: 'sources' | 'front' | 'left-profile';
-  subject: (who: string) => string;
-}[] = [
-  /*
-   * The identity frame, and it comes first because that is the order a brief
-   * attaches: `shots[0]` is the essential character reference.
-   *
-   * Every other frame here is full-length head-to-toe, which is right for
-   * build, proportion and wardrobe and useless for a face — in a 1024x1280
-   * full-length frame the face is about 105px brow to chin, while a portrait
-   * output renders it at four times that. Measured 2026-08-30 against the
-   * reported failure: four outputs of one brief, four different jaws, and
-   * drift that tracked nothing but how big the face was in the output.
-   *
-   * Drawn `from: 'sources'` rather than chained off the front view, because
-   * the user's own photographs are the only real face evidence in the system
-   * and a chain would just enlarge the same 105px.
-   */
-  {
-    angle: 'portrait',
-    from: 'sources',
-    subject: (who) =>
-      `${who}, head-and-shoulders portrait framing from just above the top of the head down to the collarbone, facing the camera straight-on, relaxed neutral expression, eyes to the lens, their own hair exactly as the references show it, the same plain studio backdrop and even frontal light`,
-  },
-  {
-    angle: 'front',
-    from: 'sources',
-    subject: (who) =>
-      `${who}, wearing a fitted off-white ribbed tank top and matching fitted off-white leggings, barefoot, standing naturally in a relaxed straight standing pose, full-length head-to-toe framing, facing the camera straight-on`,
-  },
-  {
-    angle: 'left-profile',
-    from: 'front',
-    subject: () =>
-      'the same person in the identical standing pose, full-length head-to-toe framing, rotated a full 90 degrees to show their left side in full profile, facing screen-left, same wardrobe',
-  },
-  {
-    angle: 'right-profile',
-    from: 'left-profile',
-    subject: () =>
-      'the attached image shows this exact same person in full left profile, standing: generate the precise mirror-flipped view of that same pose, the same person now in full right profile, facing the exact opposite horizontal direction, same standing pose, same wardrobe, same lighting and background',
-  },
-  {
-    angle: 'back',
-    from: 'front',
-    subject: () =>
-      'the same person in the identical standing pose, full-length head-to-toe framing, rotated to face fully away from the camera, back view, same wardrobe',
-  },
-];
-
-/** The studio itself. Identical for every person, which is the entire point. */
-const STUDIO_SET =
-  'against a solid seamless white studio background, eye-level camera with gentle 85mm-equivalent portrait compression and a soft shallow depth of field, one large soft key light with gentle fill producing even, flattering, true-to-life beauty light, while keeping fine natural skin texture at pore scale and true-to-life proportions, the complexion even and uniform in tone across face, neck and shoulders, never airbrushed, plastic, or synthetic-looking, a calm quietly confident expression, true-to-life color grade with minimal retouch';
-
-function studioPrompt(subject: string): string {
-  // "No logos" here is deliberate, not a gap: a built asset is neutral raw
-  // material, and a brand mark enters a shot exactly one way, as the mark chip
-  // the user places (see docs/brand-marks.md). Baking a logo into an asset
-  // would put a second uncontrolled copy of it into every future shot.
-  //
-  // The clause that arrives first wins, so the full-bleed instruction leads:
-  // without it the backdrop stops short and leaves flat bands down the sides.
-  return (
-    'Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind, ' +
-    'the seamless studio backdrop runs past all four edges and is the only thing behind the subject at every edge of the frame. ' +
-    `${subject}, ${STUDIO_SET}. ` +
-    'No text, no logos, no watermarks anywhere in the frame.'
-  );
-}
-
-/** What the frames are told they are looking at, from the record we will store. */
-function whoIs(name: string, draft: PresenterDraft | null): string {
-  if (!draft) return `the exact person in the attached photographs`;
-  const bits = [draft.promptName];
-  if (draft.hair && !draft.promptName.toLowerCase().includes(draft.hair.toLowerCase())) bits.push(draft.hair);
-  if (draft.identityNotes) bits.push(draft.identityNotes);
-  return bits.filter(Boolean).join(', ') || name;
-}
-
-async function runPresenterBuild(
-  deps: AssetBuildDeps,
-  job: AssetBuild,
-  hashes: string[],
-  instruction: string,
-  signal: AbortSignal,
-): Promise<void> {
-  const { core } = deps;
-  const sourcePaths = hashes.map((h) => core.images.pathFor(h));
-
-  let draft: PresenterDraft | null = null;
-  if (deps.analyzer) {
-    patch(job, { stage: 'analyzing', message: 'Reading the photos' });
-    draft = (await deps.analyzer.analyze(
-      {
-        kind: 'presenter',
-        imagePaths: sourcePaths,
-        name: job.name,
-        instruction: instruction || undefined,
-        vocabulary: deps.vocabulary,
-      },
-      signal,
-    )) as PresenterDraft;
-    patch(job, { coverage: draft.coverage ?? [] });
-  }
-  if (signal.aborted) throw new Error('cancelled');
-
-  // Without an engine the photographs are the presenter: fewer views than a
-  // curated one has, but a working person rather than a blocked flow.
-  let shotHashes = hashes;
-  let shotAngles: string[] = [];
-  const warnings: string[] = [];
-  if (deps.engine) {
-    patch(job, { stage: 'building', steps: STUDIO_FRAMES.length, message: 'Building the studio views' });
-    const built = await generateStudioSet(deps, job, whoIs(job.name, draft), sourcePaths, signal);
-    if (built.hashes.length) {
-      shotHashes = built.hashes;
-      shotAngles = built.angles;
-    } else warnings.push('The studio views could not be drawn, so the photos are being used directly.');
-  } else {
-    warnings.push('No engine could draw the studio views, so the photos are being used directly.');
-  }
-  if (signal.aborted) throw new Error('cancelled');
-
-  patch(job, { stage: 'saving', message: null });
-  // The geometric top-anchored crops assume an engine-drawn full-length
-  // standing front view. On the no-engine path the frame is whatever the user
-  // photographed — a waist-up selfie, a landscape — and top-16% is a square
-  // of forehead or ceiling. Saliency picks the subject instead.
-  const generated = shotHashes !== hashes;
-  // The card crops are geometric and measured from a STANDING FIGURE, so they
-  // come off the full-length front view by name. They used to read shots[0],
-  // which was the same picture until the portrait frame took that seat: fed a
-  // head-and-shoulders frame, `figureBox` would have found a head where it
-  // expected a body and cropped an avatar out of a forehead.
-  const frontIndex = shotAngles.indexOf('front');
-  const cardSource = frontIndex === -1 ? shotHashes[0] : shotHashes[frontIndex];
-  const { previewHash, avatarHash } = await presenterCrops(core, cardSource, generated ? 'generated' : 'upload');
-  const built = presenterRecordFrom({
-    name: job.name,
-    shotHashes,
-    shotAngles,
-    sourceHashes: hashes,
-    previewHash,
-    avatarHash,
-    promptName: draft?.promptName,
-    presentation: draft?.presentation,
-    descriptor: draft?.descriptor,
-    ageRange: draft?.ageRange,
-    hair: draft?.hair,
-    identityNotes: draft?.identityNotes,
-    negativeConstraints: draft?.negativeConstraints,
-    // What the caller asked for wins over what the analyzer guessed: the
-    // person choosing where this belongs knows their own library.
-    suitableCategories: job.facets.length ? job.facets : draft?.suitableCategories,
-  });
-  if (!built.ok) throw new Error(built.error);
-  commit(core, job.brandId, (json) => {
-    json.characters = [...brandCharacters(json), built.presenter];
-  });
-  patch(job, {
-    stage: 'done',
-    step: job.steps,
-    assetId: built.presenter.id,
-    previewHash: previewHash ?? cardSource ?? null,
-    warnings: [...job.warnings, ...warnings],
-    finished: true,
-  });
-}
-
-/**
- * Draw the four normalized views, front first so the rest can chain off it.
- *
- * A frame that fails does not fail the presenter: the views that did land are
- * kept in plan order, and the first of them is the one a brief attaches.
- */
-async function generateStudioSet(
-  deps: AssetBuildDeps,
-  job: AssetBuild,
-  who: string,
-  sourcePaths: string[],
-  signal: AbortSignal,
-): Promise<{ hashes: string[]; angles: string[] }> {
-  const engine = deps.engine;
-  if (!engine) return { hashes: [], angles: [] };
-  const caps = engine.capabilities();
-  if (!caps.maxReferenceImages) return { hashes: [], angles: [] };
-  const byAngle = new Map<string, string>();
-
-  for (const frame of STUDIO_FRAMES) {
-    if (signal.aborted) throw new Error('cancelled');
-    const refs =
-      frame.from === 'sources'
-        ? sourcePaths.slice(0, caps.maxReferenceImages)
-        : [byAngle.get(frame.from)].filter((h): h is string => !!h).map((h) => deps.core.images.pathFor(h));
-    // A chained frame with no anchor would be a fresh guess at a face.
-    if (!refs.length) continue;
-    try {
-      const drawn = await draw(deps, {
-        prompt: studioPrompt(frame.subject(who)),
-        brandId: job.brandId,
-        referenceImages: refs,
-        referenceRoles: refs.map(() => 'character' as const),
-        signal,
-      });
-      // Before anything chains off it: a bar left on the anchor is a bar the
-      // next frame is conditioned on and faithfully reproduces.
-      const hash = await trimEdgeBars(deps.core, drawn);
-      byAngle.set(frame.angle, hash);
-      patch(job, {
-        step: byAngle.size,
-        previewHash: job.previewHash ?? hash,
-        message: `Building the studio views (${byAngle.size} of ${STUDIO_FRAMES.length})`,
-      });
-    } catch (err: any) {
-      if (signal.aborted) throw err;
-      // The front view is the anchor; without it there is nothing to chain from.
-      // The portrait anchors nothing, so losing it costs face conditioning and
-      // not the build.
-      if (frame.angle === 'front') throw err;
-      patch(job, { warnings: [...job.warnings, `The ${frame.angle} view could not be drawn.`] });
-    }
-  }
-  const kept = STUDIO_FRAMES.filter((f) => byAngle.get(f.angle));
-  return { hashes: kept.map((f) => byAngle.get(f.angle) as string), angles: kept.map((f) => f.angle) };
 }
 
 /**
@@ -606,11 +365,11 @@ async function cardCrop(core: Core, hash: string | undefined): Promise<string | 
 const AVATAR_FIGURE_FRACTION = 0.22;
 const AVATAR_HEADROOM = 0.1;
 /**
- * Stored avatar cap. The largest render is the presenter page's 88px hero
- * circle — 264px at 3x — so 512 covers every surface with margin; a smaller
- * native crop is stored as-is rather than inflated into blur.
+ * Stored avatar cap. The curated roster ships a 1024 square, and a portrait
+ * frame is 1024 wide, so the square off an approved face is stored whole; a
+ * smaller native crop is stored as-is rather than inflated into blur.
  */
-const AVATAR_MAX_PX = 512;
+const AVATAR_MAX_PX = 1024;
 /**
  * Backdrop trim passes, in order. 12 reads a seamless white sweep; some
  * generated frames stand on a soft gray gradient that 12 cannot tell from
@@ -861,11 +620,25 @@ async function figureBox(buf: Buffer): Promise<{ left: number; top: number; widt
  * spend). Either way a failed first choice falls through to the other before
  * giving up, so a presenter no longer silently ships with no avatar at all.
  */
+export type PresenterCropMode = 'generated' | 'upload' | 'portrait';
+
 export async function presenterCrops(
   core: Core,
   hash: string | undefined,
-  mode: 'generated' | 'upload',
+  mode: PresenterCropMode,
 ): Promise<{ previewHash: string | undefined; avatarHash: string | undefined }> {
+  // A `portrait` is head-and-shoulders by construction, framed "from just
+  // above the top of the head down to the collarbone" with the headroom
+  // already in the picture. The standing geometry read one as a whole figure
+  // and carved an avatar out of a forehead, which is what every engine-built
+  // presenter got on its next boot once the portrait frame led. So: the card
+  // is the frame itself (already the 4:5 a card wants), and the avatar is the
+  // full-width square off its top. No saliency, no figure box: deterministic,
+  // and byte-identical between the build, the boot repair and a re-order.
+  if (mode === 'portrait') {
+    const exists = !!hash && core.images.has(hash);
+    return { previewHash: exists ? hash : undefined, avatarHash: await portraitAvatarCrop(core, hash) };
+  }
   const previewHash =
     mode === 'generated'
       ? ((await cardCrop(core, hash)) ?? (await cardCropSmart(core, hash)))
@@ -875,6 +648,19 @@ export async function presenterCrops(
       ? ((await avatarCrop(core, hash)) ?? (await avatarCropSmart(core, hash)))
       : ((await avatarCropSmart(core, hash)) ?? (await avatarCrop(core, hash)));
   return { previewHash, avatarHash };
+}
+
+/** The square off the top of a portrait frame, full width, stored at the avatar cap. */
+async function portraitAvatarCrop(core: Core, hash: string | undefined): Promise<string | undefined> {
+  return crop(
+    core,
+    hash,
+    (w, h) => {
+      const size = Math.min(w, h);
+      return { left: Math.max(0, Math.round((w - size) / 2)), top: 0, width: size, height: size };
+    },
+    AVATAR_MAX_PX,
+  );
 }
 
 /** The largest 4:5 window on the picture, placed by saliency. Best effort. */
@@ -1106,15 +892,24 @@ export function scenePreviewPrompt(scene: CustomScene): string {
 
 /* ----------------------------------------------------------- shared parts */
 
-/** One image, through whichever engine the brand builds with. */
-async function draw(
+/**
+ * One image, through whichever engine the brand builds with.
+ *
+ * Shared by the studio-set pipeline, the scene preview and the presenter
+ * studio's view steps: the same cost gate the composer answers to, the same
+ * ledger line (a build is generation, not metadata), no node minted.
+ */
+export async function draw(
   deps: AssetBuildDeps,
   req: {
     prompt: string;
     brandId: string;
     referenceImages?: string[];
-    referenceRoles?: ('character' | 'scene')[];
+    referenceRoles?: ReferenceRole[];
     signal: AbortSignal;
+    /** Defaults to the 4:5 every curated asset ships at. */
+    width?: number;
+    height?: number;
   },
 ): Promise<string> {
   const engine = deps.engine;
@@ -1125,8 +920,8 @@ async function draw(
     brand: deps.brandContext(req.brandId),
     referenceImages: req.referenceImages,
     referenceRoles: req.referenceRoles,
-    width: ASSET_WIDTH,
-    height: ASSET_HEIGHT,
+    width: req.width ?? ASSET_WIDTH,
+    height: req.height ?? ASSET_HEIGHT,
     count: 1,
   };
   // Same budget the composer answers to: a build is generation, not metadata.

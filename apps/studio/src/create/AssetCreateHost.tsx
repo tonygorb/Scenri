@@ -5,22 +5,29 @@ import { useAppData, useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { CreateKind, PendingState } from '../createDraft.js';
-import { P, hubPath, productPath } from '../routes.js';
+import { P, hubPath, presenterStudioPath, productPath } from '../routes.js';
 import { useToasts } from '../toasts.js';
 import { AssetKindPicker } from './AssetKindPicker.js';
-import { PresenterForm } from './PresenterForm.js';
 import { ProductForm } from './ProductForm.js';
 import { SceneForm } from './SceneForm.js';
 import type { Created } from './flow.js';
 
 /**
- * The one place any of the three creation flows is ever mounted.
+ * The one place any of the three creation flows is ever opened.
  *
- * Which one is showing lives in the URL (`?new=`), on exactly the terms
- * SettingsDialog's `?settings=` already set: opening pushes an entry so Back
- * closes it, moving between the chooser and a flow replaces, and closing
- * consumes. So the top bar's +, a library page's button, a Home card and a
- * pasted link are all the same code path, and none of them owns a dialog.
+ * Product and Scene are short forms, so they are dialogs, and which one is
+ * showing lives in the URL (`?new=`), on exactly the terms SettingsDialog's
+ * `?settings=` already set: opening pushes an entry so Back closes it, moving
+ * between the chooser and a flow replaces, and closing consumes. So the top
+ * bar's +, a library page's button, a Home card and a pasted link are all the
+ * same code path, and none of them owns a dialog.
+ *
+ * A presenter is not a short form: five drawn views, a refine loop and a
+ * draft that outlives the session. That flow is a place of its own
+ * (`/presenters/new`, `/presenters/new/:draftId`, see PresenterStudioRoute), so
+ * asking for it here navigates, and the old `?new=presenter` forwards there.
+ * What the flows share, the engine's capabilities and the one announcement
+ * of what was made, stays here so every door says the same thing.
  *
  * The one thing the URL cannot carry is a callback — the composer needs the id
  * of the product it just made so it can drop a chip into a brief that is still
@@ -38,14 +45,28 @@ const isKind = (v: string | null): v is CreateKind => !!v && (KINDS as readonly 
 
 interface CreateApi {
   open: (kind: CreateKind | 'choose', opts?: { onCreated?: (made: Created) => void }) => void;
+  /** Say what was made, once, and tell whoever asked for it. Does not close anything. */
+  announce: (made: Created) => void;
+  caps: AssetBuildCapabilities | null;
+  capsNote: (whenKnown: string) => ReactNode;
 }
 const Ctx = createContext<CreateApi | null>(null);
 
-/** Open a creation flow from anywhere, without a dialog of your own. */
-export function useCreateAsset(): CreateApi['open'] {
+function useCreateCtx(): CreateApi {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error('useCreateAsset must be used inside AssetCreateHost');
-  return ctx.open;
+  return ctx;
+}
+
+/** Open a creation flow from anywhere, without a dialog of your own. */
+export function useCreateAsset(): CreateApi['open'] {
+  return useCreateCtx().open;
+}
+
+/** What a flow mounted elsewhere (the presenter studio's route) shares with the dialogs here. */
+export function useCreateFlow(): Pick<CreateApi, 'announce' | 'caps' | 'capsNote'> {
+  const { announce, caps, capsNote } = useCreateCtx();
+  return { announce, caps, capsNote };
 }
 
 export function AssetCreateHost({ children }: { children: ReactNode }) {
@@ -62,6 +83,10 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   const onPresenters = !!useMatch({ path: P.presenters, end: false });
   const onScenes = !!useMatch({ path: P.scenes, end: false });
   const here: CreateKind | null = onProducts ? 'product' : onPresenters ? 'presenter' : onScenes ? 'scene' : null;
+  // the studio is a route, not a param, and it needs the engine's answer too
+  // the two route-mounted flows share the probe with the dialogs: creation and the editor
+  const onStudio = !!useMatch({ path: P.presenterStudio });
+  const onEditor = !!useMatch({ path: P.presenterEdit });
 
   const [caps, setCaps] = useState<AssetBuildCapabilities | null>(null);
   const [capsFailed, setCapsFailed] = useState(false);
@@ -89,13 +114,24 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   const open = useCallback<CreateApi['open']>(
     (kind, opts) => {
       createdRef.current = kind === 'choose' || !opts?.onCreated ? null : { kind, fn: opts.onCreated };
+      if (kind === 'presenter') {
+        // a place, not a dialog: the studio's own route, the param left clean
+        navigate(presenterStudioPath(brand));
+        return;
+      }
       openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setCameFromChooser(kind === 'choose');
       setRestore(false);
       openParam(kind === 'choose' ? CHOOSER : kind);
     },
-    [openParam],
+    [openParam, navigate, brand],
   );
+
+  // the address the studio had before it was a place: forwarded, so a
+  // bookmark, a notification or an older link still lands in it
+  useEffect(() => {
+    if (value === 'presenter') navigate(presenterStudioPath(brand), { replace: true });
+  }, [value, navigate, brand]);
 
   const close = useCallback(() => {
     createdRef.current = null;
@@ -150,8 +186,9 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   // Asked once per opening, and retried once if the answer never came: a silent
   // null used to erase the whole cost line, so the dialog said nothing at all
   // about what pressing the button would spend.
+  const wantCaps = value !== null || onStudio || onEditor;
   useEffect(() => {
-    if (value === null) return;
+    if (!wantCaps) return;
     let alive = true;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     setCapsFailed(false);
@@ -169,7 +206,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
       alive = false;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [value]);
+  }, [wantCaps]);
 
   /** Never an empty footnote: say what will happen, or say it could not be checked. */
   const capsNote = useCallback(
@@ -198,10 +235,10 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
    * What was made, said once. A product exists the moment this fires; a build
    * has only started, and its own finish is announced by the bell later.
    */
-  const onStarted = useCallback(
+  const announce = useCallback(
     (made: Created) => {
       const cb = createdRef.current;
-      close();
+      createdRef.current = null;
       poke();
       if (made.kind === 'product') {
         // an import has no product of its own yet — the bell carries that one
@@ -221,17 +258,35 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         });
         return;
       }
+      if (made.kind === 'presenter') {
+        void refreshBrands();
+        if (cb?.kind === 'presenter') cb.fn(made);
+        push({
+          kind: 'success',
+          title: `${made.name} added`,
+          actions: [
+            { label: 'Use in a shot', onClick: () => navigate(`${hubPath(brand)}?presenter=${made.id}&compose=1`) },
+          ],
+        });
+        return;
+      }
       if (cb?.kind === made.kind) cb.fn(made);
-      push({
-        kind: 'success',
-        title: `Building ${made.name}`,
-        detail: made.kind === 'presenter' ? 'Four studio views. The bell will say when.' : 'The bell will say when.',
-      });
+      push({ kind: 'success', title: `Building ${made.name}`, detail: 'The bell will say when.' });
     },
-    [brand, close, navigate, poke, push, refreshBrands],
+    [brand, navigate, poke, push, refreshBrands],
   );
 
-  const api2 = useMemo<CreateApi>(() => ({ open }), [open]);
+  /** A dialog's flow: what was made is announced, and the dialog goes. */
+  const onStarted = useCallback(
+    (made: Created) => {
+      // announce first: closing forgets who asked
+      announce(made);
+      close();
+    },
+    [close, announce],
+  );
+
+  const api2 = useMemo<CreateApi>(() => ({ open, announce, caps, capsNote }), [open, announce, caps, capsNote]);
 
   const kind = isKind(value) ? value : null;
   const flowProps = {
@@ -251,6 +306,11 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         <AssetKindPicker
           suggest={here}
           onPick={(k) => {
+            if (k === 'presenter') {
+              // the chooser's entry is consumed by the studio's own address
+              navigate(presenterStudioPath(brand), { replace: true });
+              return;
+            }
             setCameFromChooser(true);
             setParam(k);
           }}
@@ -259,7 +319,6 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
       {/* Keyed by kind so switching flows remounts rather than carrying one
           form's fields into another's. */}
       {kind === 'product' && <ProductForm key="product" {...flowProps} />}
-      {kind === 'presenter' && <PresenterForm key="presenter" {...flowProps} />}
       {kind === 'scene' && <SceneForm key="scene" {...flowProps} />}
     </Ctx.Provider>
   );

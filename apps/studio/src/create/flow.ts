@@ -5,7 +5,8 @@ import type { PendingState } from '../createDraft.js';
 /** What the host just made, for whoever asked for it. */
 export type Created =
   | { kind: 'product'; id: string; name: string }
-  | { kind: 'presenter' | 'scene'; jobId: string; name: string };
+  | { kind: 'presenter'; id: string; name: string }
+  | { kind: 'scene'; jobId: string; name: string };
 
 /**
  * Everything the host hands a flow. Deliberately small: a flow owns its own

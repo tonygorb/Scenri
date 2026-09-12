@@ -16,7 +16,7 @@
  *
  * So the lifetime rule is one line: a draft is written when an attempt is sent,
  * and it ends when the asset exists, when the attempt is abandoned, or when the
- * tab does. Photographs from last week refilling a form headed "New presenter"
+ * tab does. Photographs from last week refilling a form headed "Create presenter"
  * is how somebody casts a presenter from the previous presenter's face.
  *
  * Sibling of draft.ts, which stays in localStorage on purpose: a brief you are

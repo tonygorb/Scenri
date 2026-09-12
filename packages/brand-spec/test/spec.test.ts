@@ -68,6 +68,28 @@ describe('validateBrand', () => {
       false,
     );
   });
+  it('records where a person came from, and refuses a source it has no policy for', () => {
+    const base = { specVersion: '0.1', meta: { name: 'Acme' } };
+    const person = (extra: Record<string, unknown>) =>
+      validateBrand({ ...base, characters: [{ id: 'mara', name: 'Mara', origin: 'custom', ...extra }] });
+    expect(person({ source: 'synthetic' }).valid).toBe(true);
+    expect(person({ source: 'photos' }).valid).toBe(true);
+    expect(person({ source: 'celebrity' }).valid).toBe(false);
+    expect(person({ likeness: { attestedAt: '2026-09-08T00:00:00Z', version: 'v1' } }).valid).toBe(true);
+    expect(person({ likeness: { version: 'v1' } }).valid).toBe(false);
+    expect(person({ likeness: { attestedAt: '2026-09-08T00:00:00Z', version: 'v2' } }).valid).toBe(false);
+    expect(person({ facial: 'oval face, high cheekbones', skin: 'deep brown', build: 'slender' }).valid).toBe(true);
+  });
+  it('records a revision chain and the identity edits a revision was drawn under', () => {
+    const base = { specVersion: '0.1', meta: { name: 'Acme' } };
+    const person = (extra: Record<string, unknown>) =>
+      validateBrand({ ...base, characters: [{ id: 'up-2', name: 'Mara', origin: 'custom', ...extra }] });
+    expect(person({ revisionOf: 'up-1' }).valid).toBe(true);
+    expect(person({ supersededBy: 'up-3' }).valid).toBe(true);
+    expect(person({ revisionOf: 'up-1', identityEdits: ['shorter hair', 'a fuller beard'] }).valid).toBe(true);
+    expect(person({ identityEdits: 'shorter hair' }).valid).toBe(false);
+    expect(person({ revisionOf: 7 }).valid).toBe(false);
+  });
   it('accepts a brand-owned scene', () => {
     const r = validateBrand({
       specVersion: '0.1',

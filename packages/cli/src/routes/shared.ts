@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import sharp from 'sharp';
-import type { BrandContext, Core, GenerateRequest } from '@scenri/core';
+import type { BrandContext, Core, GenerateRequest, EngineAdapter } from '@scenri/core';
 import { fileSize, isThumbWidth, THUMB_WIDTH_LIST, type ThumbStore } from '../thumbs.js';
 
 /** Human-readable "A", "A and B", "A, B and C" for error copy. */
@@ -222,3 +222,30 @@ export const serveJpegSized = async (
     .header('content-length', String(size));
   return reply.send(thumbs.stream(made));
 };
+
+/**
+ * Which engine draws a person's studio views and a scene's preview.
+ *
+ * Prefers codex-cli: it is local, adds no bill of ours on top of the plan the
+ * user already pays for, and carries five references, which is what a chained
+ * identity plan needs. Any available engine that can take a reference at all
+ * will do; one that takes none could not hold a face, so it is not offered.
+ * A placeholder engine is refused unless a test says otherwise: its pictures
+ * are not pictures, and a person cast on it would be a gradient.
+ */
+export async function pickBuildEngine(
+  engines: { all(): EngineAdapter[] },
+  opts: { allowPlaceholder?: boolean } = {},
+): Promise<EngineAdapter | null> {
+  const ordered = [...engines.all()].sort((a, b) => {
+    const rank = (e: EngineAdapter) => (e.capabilities().id === 'codex-cli' ? 0 : 1);
+    return rank(a) - rank(b);
+  });
+  for (const engine of ordered) {
+    const caps = engine.capabilities();
+    if (!caps.maxReferenceImages) continue;
+    if (caps.placeholder && !opts.allowPlaceholder) continue;
+    if ((await engine.isAvailable()).ok) return engine;
+  }
+  return null;
+}

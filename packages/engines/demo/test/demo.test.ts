@@ -131,6 +131,16 @@ describe('progressive delivery', () => {
     expect(res.raw).toMatchObject({ variantIndexes: [0] });
   });
 
+  it('can be told to read references, so a browser test can cast a presenter without a real engine', () => {
+    expect(createDemoEngine(saver()).capabilities().maxReferenceImages).toBe(0);
+    const e = createDemoEngine(saver(), { maxReferenceImages: 5 });
+    expect(e.capabilities().maxReferenceImages).toBe(5);
+    // still a placeholder: the pictures are not real, whatever it reads
+    expect(e.capabilities().placeholder).toBe(true);
+    expect(demoOptionsFromEnv({ SCENRI_DEMO_REFS: '5' })).toEqual({ maxReferenceImages: 5 });
+    expect(demoOptionsFromEnv({ SCENRI_DEMO_REFS: 'lots' })).toEqual({});
+  });
+
   it('reads its knobs from the environment, and none by default', () => {
     expect(demoOptionsFromEnv({})).toEqual({});
     expect(

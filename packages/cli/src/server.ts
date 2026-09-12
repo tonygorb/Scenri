@@ -85,6 +85,8 @@ import { registerCatalogImportRoutes } from './routes/catalogImport.js';
 import { registerSceneRoutes } from './routes/scenes.js';
 import { registerPresenterRoutes } from './routes/presenters.js';
 import { registerAssetBuildRoutes } from './routes/assetBuilds.js';
+import { registerPresenterDraftRoutes } from './routes/presenterDrafts.js';
+import { runningDraftJobCount, sweepAbandonedPresenterDrafts, sweepPresenterDrafts } from './presenterDrafts.js';
 import { registerDemoProductRoutes } from './routes/demoProducts.js';
 import { registerShowcaseRoutes } from './routes/showcase.js';
 import { registerProjectRoutes } from './routes/projects.js';
@@ -495,6 +497,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // already prefers `characters[]` over the presenter catalog, and the scene
   // resolver below prefers `scenes[]` over the scene catalog.
   registerAssetBuildRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters });
+  // A draft's step lives in this process; after a restart the row still says
+  // it is drawing. Put those back before anyone reads them.
+  sweepPresenterDrafts(core);
+  sweepAbandonedPresenterDrafts(core, { evict: (hash) => thumbs.evict(hash) });
+  registerPresenterDraftRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters, thumbs });
 
   // ---- demo products (curated, fictional-but-premium product catalog). A
   // demo product attaches straight into a brief like a Presenter does — see
@@ -2416,7 +2423,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // one physical run counts once, however many sibling nodes share its
     // controller — an update gate held open by a 4-shot batch is still held
     // open by exactly one piece of work
-    busyCount: () => new Set(runningGenerations.values()).size + runningImportCount() + runningAssetBuildCount(),
+    busyCount: () =>
+      new Set(runningGenerations.values()).size +
+      runningImportCount() +
+      runningAssetBuildCount() +
+      runningDraftJobCount(),
   });
 
   // Settle in-flight work before the process goes away (Ctrl-C, update
@@ -2443,7 +2454,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     core,
     runtime,
     exitImpl: opts.exitImpl,
-    busyCount: () => new Set(runningGenerations.values()).size + runningImportCount() + runningAssetBuildCount(),
+    busyCount: () =>
+      new Set(runningGenerations.values()).size +
+      runningImportCount() +
+      runningAssetBuildCount() +
+      runningDraftJobCount(),
   });
 
   // ---- studio SPA

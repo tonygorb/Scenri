@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { createCore, type Core, type EngineCapabilities } from '@scenri/core';
 import { compileBrief, brandRuleDirectives, validateBrief, PRODUCT_REF_MAX, type Brief } from '../src/brief.js';
-import { shotAsksForAPerson } from '../src/briefDirectives.js';
+import { askedView, characterRefs, shotAsksForAPerson } from '../src/briefDirectives.js';
 import { loadScenes, sceneResolver, defaultScenesDir } from '../src/scenes.js';
 import { waitDone } from './helpers.js';
 
@@ -54,6 +54,24 @@ const ctx = (over: Partial<Parameters<typeof compileBrief>[1]> = {}) => ({
 });
 
 describe('compileBrief', () => {
+  it('a person built here carries facial, skin and build prose the way a curated one does', () => {
+    const brand = brandWith(productHash);
+    (brand.characters[0] as any).origin = 'custom';
+    (brand.characters[0] as any).promptName = 'a man in his forties with cropped grey hair';
+    (brand.characters[0] as any).facial = 'square jaw, deep-set eyes';
+    (brand.characters[0] as any).skin = 'fair with visible freckles';
+    (brand.characters[0] as any).build = 'broad shoulders, athletic';
+    const r = compileBrief({ tokens: [{ t: 'character', id: 'c1' }] }, ctx({ brand }));
+    const who = 'a man in his forties with cropped grey hair';
+    expect(r.prompt).toContain(
+      `${who}'s face, which must survive every generation unchanged: square jaw, deep-set eyes.`,
+    );
+    expect(r.prompt).toContain(
+      `${who}'s skin, exactly as the reference photographs show it: fair with visible freckles.`,
+    );
+    expect(r.prompt).toContain(`${who}'s build: broad shoulders, athletic.`);
+  });
+
   it('a character names itself, attaches its shot, and asks for the identity to hold', () => {
     const r = compileBrief(
       {
@@ -1909,5 +1927,78 @@ describe('shotAsksForAPerson: the words that put a person in the shot', () => {
   it('leaves objects and compounds alone', () => {
     for (const t of ['hand-painted label', 'the watch face', 'an armchair by the window', 'worn kraft edges', 'x'])
       expect(shotAsksForAPerson(t), t).toBe(false);
+  });
+});
+
+describe('the view a shot asks for', () => {
+  it('reads back, profile and three-quarter off the typed words, and nothing off anything else', () => {
+    expect(askedView('walking away down the beach')).toBe('back');
+    expect(askedView('seen from behind, looking at the sea')).toBe('back');
+    expect(askedView('a rear view of the jacket')).toBe('back');
+    expect(askedView('in profile against the window')).toBe('profile');
+    expect(askedView('a side view of her')).toBe('profile');
+    expect(askedView('from the side')).toBe('profile');
+    expect(askedView('a three-quarter portrait')).toBe('three-quarter');
+    expect(askedView('three quarter view')).toBe('three-quarter');
+    expect(askedView('looking over the shoulder')).toBe('three-quarter');
+    expect(askedView('an over-the-shoulder glance')).toBe('three-quarter');
+    expect(askedView('turned toward the light')).toBe('three-quarter');
+    expect(askedView('')).toBeNull();
+    expect(askedView('holding the bottle up to camera')).toBeNull();
+    // the words are matched whole: a backpack is not a back view
+    expect(askedView('a backpack on the back seat')).toBeNull();
+    expect(askedView('the profiled aluminium edge')).toBeNull();
+  });
+
+  it('characterRefs: the leading view first, the asked view second, the full body third, the rest as stored', () => {
+    const studio = [
+      { file: 'asset:p', angle: 'portrait' },
+      { file: 'asset:f', angle: 'front' },
+      { file: 'asset:q', angle: 'three-quarter' },
+      { file: 'asset:b', angle: 'back' },
+      { file: 'asset:l', angle: 'left' },
+      { file: 'asset:r', angle: 'right' },
+    ];
+    const angles = (shots: { angle?: string }[]) => shots.map((s) => s.angle);
+    // no words: the stored order, cut at the cap
+    expect(angles(characterRefs(studio, '', 3))).toEqual(['portrait', 'front', 'three-quarter']);
+    expect(angles(characterRefs(studio, 'holding it up', 6))).toEqual(angles(studio));
+    expect(angles(characterRefs(studio, 'from behind', 3))).toEqual(['portrait', 'back', 'front']);
+    expect(angles(characterRefs(studio, 'in profile', 3))).toEqual(['portrait', 'left', 'front']);
+    expect(angles(characterRefs(studio, 'three-quarter', 3))).toEqual(['portrait', 'three-quarter', 'front']);
+    // the rest follow in stored order once the asked view and the full body have boarded
+    expect(angles(characterRefs(studio, 'from behind', 6))).toEqual([
+      'portrait',
+      'back',
+      'front',
+      'three-quarter',
+      'left',
+      'right',
+    ]);
+    // a profile falls through left, right, then the curated names
+    const curated = [
+      { file: 'asset:p', angle: 'portrait' },
+      { file: 'asset:f', angle: 'front' },
+      { file: 'asset:rp', angle: 'right-profile' },
+      { file: 'asset:b', angle: 'back' },
+    ];
+    expect(angles(characterRefs(curated, 'side view', 3))).toEqual(['portrait', 'right-profile', 'front']);
+    // no portrait: the first stored shot leads, whatever it is called
+    const legacy = [
+      { file: 'asset:i', angle: 'identity' },
+      { file: 'asset:f', angle: 'front' },
+      { file: 'asset:b', angle: 'back' },
+    ];
+    expect(angles(characterRefs(legacy, 'seen from behind', 2))).toEqual(['identity', 'back']);
+    expect(angles(characterRefs(legacy, '', 2))).toEqual(['identity', 'front']);
+    // the same file stored twice rides once
+    const twice = [
+      { file: 'asset:p', angle: 'portrait' },
+      { file: 'asset:p', angle: 'front' },
+      { file: 'asset:b', angle: 'back' },
+    ];
+    expect(angles(characterRefs(twice, '', 3))).toEqual(['portrait', 'back']);
+    expect(characterRefs([], 'from behind', 3)).toEqual([]);
+    expect(characterRefs(studio, 'from behind', 0)).toEqual([]);
   });
 });

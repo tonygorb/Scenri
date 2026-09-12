@@ -1,17 +1,16 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { presenterSearchText } from '../displayName.js';
-import { useNavigate } from 'react-router';
+import { Outlet, useNavigate } from 'react-router';
 import { Plus } from '@phosphor-icons/react';
-import { api } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { useTaskCenter } from '../app/TaskCenter.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { customPresentersOf } from '../brandAssets.js';
-import { presenterPath } from '../routes.js';
-import { AssetBuildCard } from '../layout/AssetBuildCard.js';
+import { api, type PresenterDraftSummary } from '../api.js';
+import { presenterPath, presenterStudioPath } from '../routes.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
+import { PresenterDraftCard } from '../layout/PresenterDraftCard.js';
 import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
@@ -51,10 +50,8 @@ export function PresentersView() {
   // One poll for the whole app, owned by TaskCenter: a build started from the
   // top bar on any screen has to stay visible after you leave the screen that
   // started it.
-  const { builds, poke: refreshBuilds } = useTaskCenter();
   const createAsset = useCreateAsset();
   const mine = useMemo(() => customPresentersOf(brand), [brand]);
-  const running = builds.filter((b) => b.kind === 'presenter' && (!b.finished || b.stage === 'failed'));
   const [tile, setTile] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
   const density = normalizeDensity(tile);
   const setDensity = (cols: DensityCols) => setTile(cols);
@@ -88,6 +85,36 @@ export function PresentersView() {
     </button>
   );
 
+  /**
+   * The people this brand started and did not finish.
+   *
+   * Their work is minutes of drawing and it lived behind a pointer held in one
+   * tab: close the tab and a finished face and a full body were unreachable.
+   * They are read here so the library is the door back to them, which is what
+   * the creation page has always claimed happens.
+   */
+  const [drafts, setDrafts] = useState<PresenterDraftSummary[]>([]);
+  const loadDrafts = useCallback(() => {
+    let alive = true;
+    void api
+      .presenterDrafts(brand.id)
+      // An edit of somebody already saved is not unfinished work: they are on
+      // the wall already, and their own page offers the session back.
+      .then((r) => alive && setDrafts(r.drafts.filter((d) => !d.presenterId)))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [brand.id]);
+  useEffect(() => loadDrafts(), [loadDrafts]);
+  const discardDraft = useCallback(
+    (id: string) => {
+      setDrafts((cur) => cur.filter((d) => d.id !== id));
+      void api.deletePresenterDraft(brand.id, id).finally(() => loadDrafts());
+    },
+    [brand.id, loadDrafts],
+  );
+
   /** A person the brand owns, narrowed by whatever the wall is narrowed by. */
   const minePlusBuilds = useMemo(
     () =>
@@ -105,8 +132,10 @@ export function PresentersView() {
    * narrowing to a category your one presenter is not in read as losing the
    * page, chrome and all, and snapping back to the first-run offer.
    */
-  const owned = mine.length > 0 || running.length > 0;
-  const showMine = running.length > 0 || minePlusBuilds.length > 0;
+  const owned = mine.length > 0 || drafts.length > 0;
+  // A draft is not categorised and carries no search text, so it rides above
+  // the filter rather than being hidden by one.
+  const showMine = minePlusBuilds.length > 0 || drafts.length > 0;
   /**
    * Nothing of your own yet: the page leads with its offer.
    *
@@ -176,13 +205,12 @@ export function PresentersView() {
                 <h2 className="sc-sec-title">Your presenters</h2>
               </div>
               <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
-                {running.map((b) => (
-                  <AssetBuildCard
-                    key={b.id}
-                    build={b}
-                    onCancel={(id) => void api.cancelAssetBuild(brand.id, id).then(refreshBuilds)}
-                    onDismiss={(id) => void api.deleteAssetBuild(brand.id, id).then(refreshBuilds)}
-                    onRetry={() => createAsset('presenter')}
+                {drafts.map((d) => (
+                  <PresenterDraftCard
+                    key={d.id}
+                    draft={d}
+                    href={presenterStudioPath(brand, d.id)}
+                    onDiscard={discardDraft}
                   />
                 ))}
                 {minePlusBuilds.map((p) => (
@@ -280,6 +308,9 @@ export function PresentersView() {
           )}
         </main>
       </ScrollPane>
+      {/* the presenter studio, when its route is open: full-bleed over this
+          library, which stays mounted and scrolled where it was */}
+      <Outlet />
     </WallDensityCtx.Provider>
   );
 }

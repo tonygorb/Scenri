@@ -12,7 +12,15 @@
  */
 
 /** Why a reference image is attached — the compiler's only defence against one image bleeding into a dimension it does not own. */
-export type ReferenceRole = 'product' | 'character' | 'brand' | 'scene' | 'composition' | 'style' | 'reference';
+export type ReferenceRole =
+  | 'product'
+  | 'character'
+  | 'detail'
+  | 'brand'
+  | 'scene'
+  | 'composition'
+  | 'style'
+  | 'reference';
 
 /**
  * What each reference role means, in the words an adapter puts in front of the
@@ -24,6 +32,13 @@ export const REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   product: 'the exact product — preserve its label, shape, colors and design faithfully; do not redesign it',
   character:
     'the exact person — match their face, facial structure, skin, hair and build exactly; their clothing, pose and background are capture context, not styling to reproduce',
+  // One thing in the picture, and nothing else in it. A person uploads a pair
+  // of glasses they like, or the exact tattoo, and every other role would have
+  // handed the model a second face to blend with the first: `character` says
+  // "this is who they are", `style` takes the mood of the whole frame. This
+  // says take the object and leave the rest of the photograph behind.
+  detail:
+    'a reference for one detail only — match the design, shape, proportions, colours and finish of the thing itself, exactly as drawn or made. Take nothing else from this image: not the identity of anyone in it, not their face, skin, hair, body or build, not their clothing, not the background, not the lighting. The person in the picture being drawn is somebody else entirely',
   brand:
     "the brand's own mark — if the direction calls for the mark to appear, reproduce it exactly as drawn, same colours, letterforms and proportions, every character down to the smallest secondary lettering, in its original script and reading direction, never translated, transliterated or re-spelled; otherwise take only its colour and treatment, and never its subject, geometry or composition",
   // Only a figure-led scene attaches one of these now, so this says what that
@@ -54,6 +69,8 @@ export const EDIT_REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   product: 'the exact product: keep or restore its label, shape and design faithfully',
   character:
     "the exact person: keep their face, facial structure, skin, hair and build faithfully; take no clothing, pose or background from this reference, and keep the source image's existing outfit unless the instruction changes it",
+  detail:
+    'one detail to match: its design, shape, colours and finish only. Take no identity, skin, hair, body, clothing or background from it',
   brand:
     "the brand's own mark: reproduce it exactly as drawn wherever it appears — every character down to the smallest secondary lettering, in its original script and reading direction — never redrawn, re-lettered, translated or transliterated",
   scene: 'a reference for environment, light and treatment only — take no identity from any person in it',

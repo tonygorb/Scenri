@@ -356,9 +356,108 @@ export interface AssetBuild {
   finished: boolean;
 }
 
+/**
+ * The views a presenter is cast in, in save order: three core views built by
+ * default (face, full body, three-quarter) and three built on request (back,
+ * left, right).
+ */
+export type PresenterDraftView = 'portrait' | 'front' | 'three-quarter' | 'back' | 'left' | 'right';
+export type PresenterDraftSlotStatus = 'empty' | 'generating' | 'candidate' | 'approved' | 'stale';
+export interface PresenterDraftSlot {
+  status: PresenterDraftSlotStatus;
+  hash?: string;
+  /** The approved picture a revised candidate would replace, until Use or Keep previous. */
+  prior?: string;
+  origin?: 'generated' | 'photo';
+  attempts: number;
+  rejected: string[];
+  adjustment?: string;
+  conditionedOn?: string[];
+  error?: string;
+  /** When the step now running began: the clock measures the step, not the row. */
+  startedAt?: string;
+}
+/** A presenter being cast: the server's row, whole, on every answer. */
+/**
+ * An unfinished person, as a card needs them.
+ *
+ * Not the whole row: that carries every ask, result and decision of the
+ * conversation, and a library page drawing ten cards has no use for any of it.
+ */
+export interface PresenterDraftSummary {
+  id: string;
+  name: string;
+  source: 'synthetic' | 'photos';
+  updatedAt: string;
+  /** When it was started. The wall is ordered by this, so choosing one never moves it. */
+  createdAt: string;
+  stage: 'idle' | 'analyzing' | 'drawing';
+  /** Set when this is an edit of somebody already saved, which is not unfinished work. */
+  presenterId?: string;
+  /** The best picture it has: the face, else a photograph it was given. */
+  hash?: string;
+  approved: number;
+  of: number;
+  drawing: boolean;
+}
+
+export interface PresenterDraft {
+  id: string;
+  brandId: string;
+  source: 'synthetic' | 'photos';
+  direction?: string;
+  /** What the person said should stay the same whenever this presenter appears. */
+  keep?: string;
+  /** The same, one thing at a time, which is the form the draft stores. */
+  keepItems?: { id: string; words: string; refs?: string[] }[];
+  /** The conversation's own answers, as the studio holds them. Opaque to the server. */
+  setup?: string;
+  /** Pictures of the details themselves, by detail. Derived from the items. */
+  detailRefs?: Record<string, string[]>;
+  name: string;
+  facets: string[];
+  attestation?: { attestedAt: string; version: string };
+  sources: string[];
+  analysis?: {
+    promptName?: string;
+    descriptor?: string;
+    /** The analyzer's one line when the photographs seem to show more than one person. */
+    conflict?: string;
+    /** What the engine read this person as being cast for; the user's own picks override it. */
+    suitableCategories?: string[];
+    photos?: { index: number; view: string; usable: boolean; note: string }[];
+  } | null;
+  /** Why the photos could not be read; the first photo is the face regardless. */
+  readError?: string;
+  views: Record<PresenterDraftView, PresenterDraftSlot>;
+  /** Whether the extra views may be drawn. Off until asked for. */
+  extras: boolean;
+  generations: number;
+  activeView: PresenterDraftView | null;
+  stage: 'idle' | 'analyzing' | 'drawing';
+  /** The presenter an edit session works on, the head when it was opened. Absent on a creation. */
+  presenterId?: string;
+  /** The head's id when the session opened; the save answers 409 when it has moved since. */
+  baseId?: string;
+  /** Identity-wide instructions accepted in this session, newest last. */
+  identityEdits: string[];
+  /** Every sentence sent to redraw a view, oldest first. The conversation is read off these. */
+  asks: { view: PresenterDraftView; text: string; at: string }[];
+  /** Every picture that landed on a view, oldest first: the record's restore points while the draft lives. */
+  results: { view: PresenterDraftView; hash: string; at: string; ask?: string; how: 'drawn' | 'restored' }[];
+  /** Every decision taken on a view, oldest first. */
+  decisions: { view: PresenterDraftView; what: 'use' | 'again' | 'keep'; at: string }[];
+  /** Shots the record holds under an angle the studio has no slot for. Written back untouched on save. */
+  keptShots?: { file: string; angle?: string }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PresenterPatch {
   name?: string;
   descriptor?: string;
+  /** Where they are filed in the library: the verticals they suit. */
+  suitableCategories?: string[];
   ageRange?: string;
   hair?: string;
   identityNotes?: string;

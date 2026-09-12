@@ -1,0 +1,1882 @@
+/* ---- the brief, before anything is drawn ------------------------------------
+   The last word before a picture is drawn is not a line of talk: it is the
+   brief the picture is made from. It gets a panel of its own, at the width of
+   the conversation, with a head that says what it is and a plain way to take a
+   copy of it. Bigger type and more air than the talk around it, because it is
+   the one thing on this screen a person reads twice. */
+.sc-convo-brief {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+  width: 100%;
+  margin: var(--sc-space-2) 0 0;
+  padding: var(--sc-space-5) var(--sc-space-6) var(--sc-space-6);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-raised);
+}
+
+.sc-convo-brief-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+}
+
+.sc-convo-brief-lb {
+  font-size: var(--sc-text-caption);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sc-fg3);
+}
+
+/* The way to take it away. It is quiet until the panel is under the cursor,
+   and it is always there for the keyboard and for a finger. */
+.sc-convo-brief-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  font-size: var(--sc-text-caption);
+  font-weight: 500;
+  color: var(--sc-fg3);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease),
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    background var(--sc-dur-fast) var(--sc-ease);
+}
+
+.sc-convo-brief:hover .sc-convo-brief-copy,
+.sc-convo-brief-copy:focus-visible,
+.sc-convo-brief-copy[data-took] {
+  opacity: 1;
+}
+
+.sc-convo-brief-copy:hover {
+  border-color: var(--sc-line-strong);
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+
+.sc-convo-brief-copy[data-took] {
+  color: var(--sc-fg);
+}
+
+.sc-convo-brief-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--sc-fg);
+}
+
+/* a finger has no hover: the way to copy is simply there */
+@media (hover: none) {
+  .sc-convo-brief-copy {
+    opacity: 1;
+  }
+}
+
+/* ==========================================================================
+   The conversation: a transcript of turns, questions native to it, and the
+   composer under it. Shared by every conversational surface (the presenter
+   studio first). Geometry is the Figma rail: 32px gutters, You bubbles on
+   the raised ground at radius 18 and 320 wide at most, Scenri's lines plain
+   at 15/22 under a 13px eyebrow, the composer card at radius 22.
+   ========================================================================== */
+
+.sc-convo-log {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* the transcript places the reader itself: a block opening in place, the
+     newest turn, the open question; the browser's own anchoring would move
+     the view a second time when an answer becomes its question */
+  overflow-anchor: none;
+  display: flex;
+  flex-direction: column;
+  padding: 32px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sc-sb) transparent;
+  /* Clear of the composer's fade: the dock lays it over whatever is above,
+     so a conversation that ended right on the boundary had its last line
+     dimmed into the ground. */
+  padding-bottom: calc(var(--sc-dock-fade) + var(--sc-space-5));
+}
+
+/* The conversation sits on the bottom edge of the rail, beside the composer,
+   and grows upward from it. A block arriving or going therefore moves the ones
+   above it; they slide to their new places rather than being teleported there
+   (`Transcript` measures each turn's place every render and plays the
+   difference back), so the conversation reads as one moving thing. */
+/*
+ * Top-anchored, the way every chat is. A conversation shorter than its box
+ * starts at the top and leaves the room below empty; a turn that grows (an
+ * answer opened again into its question) pushes only what is under it, and
+ * stays where the eye is. Bottom-anchoring moved everything above a growing
+ * turn upward, the opened block included, which read as the page jumping.
+ */
+.sc-convo-turns {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.sc-convo-turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+  min-width: 0;
+  /* the step back while another answer is being changed, both ways; an arrival
+     or a departure is an animation and takes the property while it runs */
+  transition: opacity var(--sc-dur-slow) var(--sc-ease);
+}
+
+.sc-convo-turn[data-who="you"] {
+  align-items: flex-end;
+}
+
+.sc-convo-who {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  min-height: 32px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--sc-fg3);
+}
+
+/* ---- when a turn was said ---------------------------------------------------
+   There for the asking, never in the way: a conversation reads as talk, and a
+   standing column of clock times reads as a log. Scenri's sits beside the name
+   in the row that is already there; yours sits over the bubble, out of the
+   flow, so nothing moves when it appears. */
+.sc-convo-time {
+  font-size: 11px;
+  font-weight: 450;
+  line-height: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-fg3);
+  opacity: 0;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+
+/* Beside the name, held apart by air alone: at this weight the time is quiet
+   enough that nothing has to stand between the two. */
+.sc-convo-who .sc-convo-time {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+}
+
+.sc-convo-turn[data-who="you"] {
+  position: relative;
+}
+
+/* Over the bubble and close to it: out of the flow, so nothing moves when it
+   shows, and one line's worth of air under it rather than a gap of its own. */
+.sc-convo-turn[data-who="you"] > .sc-convo-time {
+  position: absolute;
+  top: -16px;
+  right: 4px;
+}
+
+/* It shows for the row it belongs to, and only that row: Scenri's when the
+   line's own name row is under the cursor, yours when the bubble is. A turn is
+   as wide as the column, and lighting the time from anywhere in that band read
+   as a time belonging to the empty space beside the words. */
+.sc-convo-who:hover .sc-convo-time,
+.sc-convo-turn[data-who="you"]:has(.sc-convo-bubble:hover) > .sc-convo-time {
+  opacity: 0.7;
+}
+
+/* while an answer somewhere else is being changed, the times stay out of it */
+.sc-convo-turn[data-dim] .sc-convo-time {
+  opacity: 0;
+}
+
+/* A finger cannot hover, so a time that only answers a cursor is a time nobody
+   there can ever read: on a touch screen the marks between sittings carry the
+   whole of it, and the turns say nothing. */
+@media (hover: none), (pointer: coarse) {
+  /* every place a time is put, or the more particular rules that place them
+     would go on winning */
+  .sc-convo-time,
+  .sc-convo-who .sc-convo-time,
+  .sc-convo-turn[data-who="you"] > .sc-convo-time {
+    display: none;
+  }
+}
+
+.sc-convo-mark {
+  width: 14px;
+  height: 14px;
+}
+
+.sc-convo-bubble {
+  position: relative;
+  max-width: 320px;
+  padding: var(--sc-space-7);
+  border-radius: var(--sc-radius-xl);
+  background: var(--sc-hover);
+  /* ink-300: an answer reads a step quieter than Scenri's line */
+  color: color-mix(in srgb, var(--sc-fg) 90%, var(--sc-bg));
+}
+
+.sc-convo-bubble p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 22px;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.sc-convo-edit {
+  position: absolute;
+  top: 50%;
+  left: -32px;
+  translate: 0 -50%;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  color: var(--sc-fg3);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+
+.sc-convo-turn[data-who="you"]:hover .sc-convo-edit,
+.sc-convo-edit:focus-visible {
+  opacity: 1;
+}
+
+.sc-convo-edit:hover {
+  color: var(--sc-fg);
+}
+
+.sc-convo-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-3);
+  margin-top: var(--sc-space-5);
+}
+
+.sc-convo-photos img {
+  width: 44px;
+  height: 55px;
+  object-fit: cover;
+  border-radius: var(--sc-radius-sm);
+  background: var(--sc-hover);
+}
+
+/* ---- Scenri's line, and its arrival --------------------------------------- */
+.sc-convo-say {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--sc-fg);
+  text-wrap: pretty;
+}
+
+.sc-convo-say[data-tone="alert"] {
+  color: var(--sc-red);
+}
+
+.sc-convo-say[data-tone="warn"] {
+  color: var(--sc-warn);
+}
+
+/* The words of an arriving line, each a beat after the last; the text is
+   whole underneath from the first frame. Any key or click ends it early. */
+.sc-convo-say[data-reveal] .sc-convo-w {
+  opacity: 0;
+  animation: sc-convo-word 160ms var(--sc-ease) forwards;
+  /* the line thinks first, then starts a beat later; a line arriving after another waits its turn */
+  animation-delay: calc(
+    var(--sc-convo-start, 0ms) +
+    var(--sc-convo-think, 0ms) +
+    var(--sc-convo-lead, 180ms) +
+    var(--sc-convo-word-delay, 0ms)
+  );
+}
+
+@keyframes sc-convo-word {
+  to {
+    opacity: 1;
+  }
+}
+
+/* a question's controls, its hint, and a line's picture follow the line once it has been read */
+.sc-convo-hint[data-reveal],
+.sc-convo-shot[data-reveal],
+.sc-convo-q[data-reveal] > * {
+  opacity: 0;
+  animation: sc-convo-word 160ms var(--sc-ease) forwards;
+  animation-delay: calc(var(--sc-convo-start, 0ms) + var(--sc-convo-after, 400ms));
+}
+
+/* a new turn takes its place: a short fade and a 4px rise; an answer a touch slower, so it is seen to land */
+/* An arrival holds its first frame through any delay and then lets go: with
+   `both` the finished animation kept the property for the life of the turn,
+   so an answer that had once arrived could never be dimmed again. */
+.sc-convo-turn[data-arrive] {
+  animation: sc-convo-arrive var(--sc-dur-fast) var(--sc-ease) backwards;
+}
+
+.sc-convo-turn[data-who="you"][data-arrive] {
+  animation-duration: var(--sc-dur-slow);
+  animation-delay: var(--sc-convo-start, 0ms);
+}
+
+/* a turn that goes: a short fade and a 4px drop, and nothing in it can be pressed */
+.sc-convo-turn[data-leave] {
+  pointer-events: none;
+}
+
+.sc-convo-turn[data-leave="true"] {
+  animation: sc-convo-leave var(--sc-dur-fast) var(--sc-ease) forwards;
+}
+
+@keyframes sc-convo-leave {
+  to {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
+/* told to go before its arrival began: never seen, while its arrival keeps
+   running underneath in case it is back a frame later */
+.sc-convo-turn[data-leave="early"] {
+  visibility: hidden;
+}
+
+.sc-convo-turn[data-who="scenri"][data-arrive] {
+  animation-delay: calc(var(--sc-convo-start, 0ms) + 120ms);
+}
+
+/* Scenri, working: the name where the next line will come from, the word for
+   what is being waited for, and three dots after it. It stands only while
+   something genuinely takes time, and the line replaces it when it arrives. */
+.sc-convo-turn[data-working] .sc-convo-say {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  color: var(--sc-fg3);
+}
+
+.sc-convo-work {
+  font-size: 15px;
+  line-height: 22px;
+}
+
+/* A word still being said finishes itself: three full stops in the line's own
+   type, tight against the word, each arriving in turn. Not beads beside the
+   text, which read as a second element rather than as the sentence going on. */
+.sc-convo-ell {
+  display: inline;
+  white-space: nowrap;
+}
+
+.sc-convo-ell i {
+  font-style: inherit;
+  opacity: 0.2;
+  animation: sc-convo-ell 1400ms var(--sc-ease) infinite;
+}
+
+.sc-convo-ell i:nth-child(2) {
+  animation-delay: 200ms;
+}
+
+.sc-convo-ell i:nth-child(3) {
+  animation-delay: 400ms;
+}
+
+@keyframes sc-convo-ell {
+  0%,
+  70%,
+  100% {
+    opacity: 0.2;
+  }
+  25%,
+  45% {
+    opacity: 1;
+  }
+}
+
+/* The beat before a line: three dots stand where the words will, and the
+   mark breathes. The dots step aside the moment the words start. */
+.sc-convo-dots {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+}
+
+.sc-convo-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sc-fg2);
+  opacity: 0.35;
+  animation: sc-convo-dot 900ms var(--sc-ease) infinite;
+}
+
+.sc-convo-dots i:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.sc-convo-dots i:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+@keyframes sc-convo-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    translate: 0 0;
+  }
+  30% {
+    opacity: 1;
+    translate: 0 -3px;
+  }
+}
+
+.sc-convo-who[data-thinking] .sc-convo-mark {
+  animation: sc-convo-breathe 1100ms ease-in-out infinite;
+}
+
+@keyframes sc-convo-breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes sc-convo-arrive {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-convo-card[data-flash] {
+    animation: none;
+  }
+
+  .sc-convo-turn {
+    transition: none;
+  }
+
+  .sc-convo-say[data-reveal] .sc-convo-w,
+  .sc-convo-hint[data-reveal],
+  .sc-convo-shot[data-reveal],
+  .sc-convo-q[data-reveal] > *,
+  .sc-convo-turn[data-arrive],
+  .sc-convo-turn[data-leave] {
+    animation: none;
+    opacity: 1;
+  }
+
+  .sc-convo-ell i {
+    animation: none;
+    opacity: 1;
+  }
+
+  .sc-convo-dots {
+    display: none;
+  }
+
+  .sc-convo-spin {
+    animation: none;
+    border-right-color: currentColor;
+    opacity: 0.5;
+  }
+
+  .sc-convo-q[data-picked] > *,
+  .sc-convo-q[data-picked] .sc-convo-choice:not([data-on]),
+  .sc-convo-q[data-picked] .sc-btn:not([data-on]) {
+    animation: none;
+  }
+
+  .sc-convo-who[data-thinking] .sc-convo-mark {
+    animation: none;
+  }
+}
+
+/* the picture a line is about: the strip's tile size, with Restore beside it when it can be put back */
+/* ---- a picture in the record ---------------------------------------------
+   The picture the line is about, under it, plain: no card and no caption, the
+   way a picture arrives in a chat. The line above it already names it, so the
+   only thing over its foot is what can be done with it, and only while it is
+   pointed at or focused. The picture the view wears carries a thin ring and the
+   word for it. */
+.sc-convo-shot {
+  position: relative;
+  /* the turn is a column, so a picture takes its own width, never the rail's */
+  align-self: flex-start;
+  display: block;
+  width: 128px;
+  margin-top: var(--sc-space-3);
+  border-radius: var(--sc-radius-md);
+  overflow: hidden;
+  line-height: 0;
+}
+
+.sc-convo-shot img {
+  width: 128px;
+  height: 160px;
+  object-fit: cover;
+  background: var(--sc-chip);
+}
+
+/* On a phone there is no stage beside the conversation, so a picture in it is
+   the picture rather than a thumbnail of one. Wide enough to judge a face,
+   short of the full column so it still reads as something said in a turn. */
+@media (max-width: 767px) {
+  .sc-convo-shot,
+  .sc-convo-shot img {
+    width: min(248px, 66vw);
+  }
+  .sc-convo-shot img {
+    height: auto;
+    aspect-ratio: 4 / 5;
+  }
+}
+
+.sc-convo-shot[data-current] {
+  outline: 1px solid var(--sc-fg);
+  outline-offset: 1px;
+}
+
+/* what can be done with it, over its foot */
+.sc-convo-shot-do {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 18px 10px 8px;
+  border: none;
+  background: linear-gradient(to top, rgb(0 0 0 / 72%), rgb(0 0 0 / 0%));
+  color: #fff;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--sc-dur-1) var(--sc-ease);
+}
+
+/* the ring has to read on any picture, so it is the picture's own light */
+.sc-convo-shot-do:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+
+button.sc-convo-shot-do {
+  width: 100%;
+  /* not `font: inherit`: the picture's own line-height is zero, to keep the
+     frame flush, and inheriting it collapsed the press to two thirds height */
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.sc-convo-shot:hover .sc-convo-shot-do,
+.sc-convo-shot:focus-within .sc-convo-shot-do {
+  opacity: 1;
+}
+
+/* the one in use says so without being pointed at */
+.sc-convo-shot[data-current] .sc-convo-shot-do {
+  opacity: 1;
+  font-weight: 400;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-convo-shot-do {
+    transition: none;
+  }
+}
+
+/* a coarse pointer never hovers, so the press stands on the picture, and it is
+   a finger's worth of it */
+@media (hover: none) {
+  .sc-convo-shot-do {
+    opacity: 1;
+    padding-top: 24px;
+    padding-bottom: 12px;
+  }
+}
+
+.sc-convo-hint {
+  margin: -2px 0 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--sc-fg2);
+  text-wrap: pretty;
+}
+
+/* The words an answer carries beside what was chosen, under the controls that
+   hold the choice. Quieter than the hint above the block, because this is the
+   answer speaking rather than the question. */
+.sc-convo-note {
+  margin: var(--sc-space-3) 0 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--sc-fg2);
+  text-wrap: pretty;
+}
+
+/* A colour chosen for an answer wears the chip the rest of the app uses for a
+   colour, and it wears it where the words go: the chip sits on the first line
+   of the writing area, the way a chip sits in the brief's sentence, and typing
+   carries on beside it. The pill is a container; the colour inside it is the
+   button, and it opens the app's picker. */
+.sc-convo-field .sc-token {
+  align-self: flex-start;
+  align-items: center;
+  margin-block: 1px;
+  padding-inline-end: 0.5em;
+  font-size: 13px;
+  cursor: default;
+}
+
+/* Both children are buttons, so both have to be taken out of the line's
+   floating-X geometry: the colour is the pill's body and the X sits after it. */
+.sc-convo-field .sc-token > .sc-convo-chip,
+.sc-convo-field .sc-token > .sc-convo-chip-x {
+  position: static;
+  width: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  opacity: 1;
+  cursor: pointer;
+}
+
+/* A brief chip's button carries a fade to its left, so a long label passes
+   under the X instead of ending against it. These have no background for a
+   label to pass under, and the fade sat outside the pill: clipped away while
+   the chip hid its overflow, and a grey block beside the swatch the moment it
+   stopped. */
+.sc-convo-field .sc-token > .sc-convo-chip::before,
+.sc-convo-field .sc-token > .sc-convo-chip-x::before {
+  content: none;
+}
+
+/* A chip is sized to sit in a line of text, and a finger is not: twenty-one
+   pixels of pill is a miss more often than a tap, and the colour picker read
+   as broken on a phone because of it. The reach grows past the chip without
+   moving it or changing how it looks, and only downwards and up, so it can
+   never take a tap meant for the X beside it. */
+/* A brief chip's own button is its remove, and on touch it is made inert so a
+   tap lands on the chip and opens the sheet that owns removal there
+   (composer-brief.css, "Touch keeps the button inert below"). The chip in a
+   conversation is the other way round: its button IS the way in, there is no
+   sheet under it, and made inert it read as a colour picker that does nothing
+   on a phone. Both of its buttons answer a finger here.
+
+   And the reach grows past the pill without moving it. Twenty-one pixels is
+   what a chip needs to sit in a line of text and not what a finger needs; the
+   chip clips its children so an image keeps the pill's corners, which a colour
+   and a word do not need. Up and down only, so it can never take a tap meant
+   for the X beside it. */
+@media (hover: none) {
+  .sc-convo-field .sc-token > .sc-convo-chip,
+  .sc-convo-field .sc-token > .sc-convo-chip-x {
+    pointer-events: auto;
+    position: relative;
+  }
+
+  .sc-convo-field .sc-token[data-kind="color"] {
+    overflow: visible;
+  }
+
+  .sc-convo-field .sc-token > .sc-convo-chip::after,
+  .sc-convo-field .sc-token > .sc-convo-chip-x::after {
+    content: "";
+    position: absolute;
+    inset: -12px 0;
+  }
+}
+
+.sc-convo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.48em;
+  border-radius: var(--sc-radius-full);
+  color: inherit;
+  font: inherit;
+}
+
+/* The X stands in the pill rather than floating over its right edge: this chip
+   holds one short word, and the floating reveal covered it. Only the X: the
+   colour beside it is a button too, and it keeps the swatch flush left the way
+   every other chip in the app has it. */
+.sc-convo-chip-x {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* No colour chosen yet: the swatch is its ring alone, so the chip reads as an
+   invitation rather than as a colour someone already picked. */
+.sc-convo-field .sc-token[data-empty] .sc-token-swatch {
+  background: none;
+}
+
+/* ---- the pictures a distinctive detail is chosen from -----------------------
+   A card is a photograph of the thing itself, and every card in a row was
+   drawn in one pass on the same face or the same forearm under the same light,
+   so the only thing that changes down a row is the thing being chosen. Wide
+   enough to judge: a pair of frames or a fine-line tattoo is not a shape that
+   survives thumbnail size, which is why these are cards and the look plates
+   are plates. */
+/* A photographed plate: the picture is the plate's surface, cropped to it. */
+.sc-convo-plate-in[data-card] {
+  background-color: var(--sc-raised);
+  /* The card is drawn at the plate's own shape and the subject is measured into
+     the same place on every one of them, so there is nothing left to crop or to
+     aim: the picture is the plate. */
+  background-position: 50% 50%;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+.sc-convo-plate-in[data-card="length-1-woman"] {
+  background-image: url("../../assets/traits/length-1-woman.webp");
+}
+.sc-convo-plate-in[data-card="length-1-man"] {
+  background-image: url("../../assets/traits/length-1-man.webp");
+}
+.sc-convo-plate-in[data-card="length-1-androgynous"] {
+  background-image: url("../../assets/traits/length-1-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="length-2-woman"] {
+  background-image: url("../../assets/traits/length-2-woman.webp");
+}
+.sc-convo-plate-in[data-card="length-2-man"] {
+  background-image: url("../../assets/traits/length-2-man.webp");
+}
+.sc-convo-plate-in[data-card="length-2-androgynous"] {
+  background-image: url("../../assets/traits/length-2-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="length-3-woman"] {
+  background-image: url("../../assets/traits/length-3-woman.webp");
+}
+.sc-convo-plate-in[data-card="length-3-man"] {
+  background-image: url("../../assets/traits/length-3-man.webp");
+}
+.sc-convo-plate-in[data-card="length-3-androgynous"] {
+  background-image: url("../../assets/traits/length-3-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="length-4-woman"] {
+  background-image: url("../../assets/traits/length-4-woman.webp");
+}
+.sc-convo-plate-in[data-card="length-4-man"] {
+  background-image: url("../../assets/traits/length-4-man.webp");
+}
+.sc-convo-plate-in[data-card="length-4-androgynous"] {
+  background-image: url("../../assets/traits/length-4-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="length-5-woman"] {
+  background-image: url("../../assets/traits/length-5-woman.webp");
+}
+.sc-convo-plate-in[data-card="length-5-man"] {
+  background-image: url("../../assets/traits/length-5-man.webp");
+}
+.sc-convo-plate-in[data-card="length-5-androgynous"] {
+  background-image: url("../../assets/traits/length-5-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="length-6-woman"] {
+  background-image: url("../../assets/traits/length-6-woman.webp");
+}
+.sc-convo-plate-in[data-card="length-6-man"] {
+  background-image: url("../../assets/traits/length-6-man.webp");
+}
+.sc-convo-plate-in[data-card="length-6-androgynous"] {
+  background-image: url("../../assets/traits/length-6-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="height-1-woman"] {
+  background-image: url("../../assets/traits/height-1-woman.webp");
+}
+.sc-convo-plate-in[data-card="height-1-man"] {
+  background-image: url("../../assets/traits/height-1-man.webp");
+}
+.sc-convo-plate-in[data-card="height-1-androgynous"] {
+  background-image: url("../../assets/traits/height-1-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="height-2-woman"] {
+  background-image: url("../../assets/traits/height-2-woman.webp");
+}
+.sc-convo-plate-in[data-card="height-2-man"] {
+  background-image: url("../../assets/traits/height-2-man.webp");
+}
+.sc-convo-plate-in[data-card="height-2-androgynous"] {
+  background-image: url("../../assets/traits/height-2-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="height-3-woman"] {
+  background-image: url("../../assets/traits/height-3-woman.webp");
+}
+.sc-convo-plate-in[data-card="height-3-man"] {
+  background-image: url("../../assets/traits/height-3-man.webp");
+}
+.sc-convo-plate-in[data-card="height-3-androgynous"] {
+  background-image: url("../../assets/traits/height-3-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="height-4-woman"] {
+  background-image: url("../../assets/traits/height-4-woman.webp");
+}
+.sc-convo-plate-in[data-card="height-4-man"] {
+  background-image: url("../../assets/traits/height-4-man.webp");
+}
+.sc-convo-plate-in[data-card="height-4-androgynous"] {
+  background-image: url("../../assets/traits/height-4-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="height-5-woman"] {
+  background-image: url("../../assets/traits/height-5-woman.webp");
+}
+.sc-convo-plate-in[data-card="height-5-man"] {
+  background-image: url("../../assets/traits/height-5-man.webp");
+}
+.sc-convo-plate-in[data-card="height-5-androgynous"] {
+  background-image: url("../../assets/traits/height-5-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="build-1-woman"] {
+  background-image: url("../../assets/traits/build-1-woman.webp");
+}
+.sc-convo-plate-in[data-card="build-1-man"] {
+  background-image: url("../../assets/traits/build-1-man.webp");
+}
+.sc-convo-plate-in[data-card="build-1-androgynous"] {
+  background-image: url("../../assets/traits/build-1-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="build-2-woman"] {
+  background-image: url("../../assets/traits/build-2-woman.webp");
+}
+.sc-convo-plate-in[data-card="build-2-man"] {
+  background-image: url("../../assets/traits/build-2-man.webp");
+}
+.sc-convo-plate-in[data-card="build-2-androgynous"] {
+  background-image: url("../../assets/traits/build-2-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="build-3-woman"] {
+  background-image: url("../../assets/traits/build-3-woman.webp");
+}
+.sc-convo-plate-in[data-card="build-3-man"] {
+  background-image: url("../../assets/traits/build-3-man.webp");
+}
+.sc-convo-plate-in[data-card="build-3-androgynous"] {
+  background-image: url("../../assets/traits/build-3-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="build-4-woman"] {
+  background-image: url("../../assets/traits/build-4-woman.webp");
+}
+.sc-convo-plate-in[data-card="build-4-man"] {
+  background-image: url("../../assets/traits/build-4-man.webp");
+}
+.sc-convo-plate-in[data-card="build-4-androgynous"] {
+  background-image: url("../../assets/traits/build-4-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="build-5-woman"] {
+  background-image: url("../../assets/traits/build-5-woman.webp");
+}
+.sc-convo-plate-in[data-card="build-5-man"] {
+  background-image: url("../../assets/traits/build-5-man.webp");
+}
+.sc-convo-plate-in[data-card="build-5-androgynous"] {
+  background-image: url("../../assets/traits/build-5-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="facial-1"] {
+  background-image: url("../../assets/traits/facial-1.webp");
+}
+.sc-convo-plate-in[data-card="facial-2"] {
+  background-image: url("../../assets/traits/facial-2.webp");
+}
+.sc-convo-plate-in[data-card="facial-3"] {
+  background-image: url("../../assets/traits/facial-3.webp");
+}
+.sc-convo-plate-in[data-card="facial-4"] {
+  background-image: url("../../assets/traits/facial-4.webp");
+}
+.sc-convo-plate-in[data-card="facial-5"] {
+  background-image: url("../../assets/traits/facial-5.webp");
+}
+.sc-convo-plate-in[data-card="facial-6"] {
+  background-image: url("../../assets/traits/facial-6.webp");
+}
+.sc-convo-plate-in[data-card="freckles-1"] {
+  background-image: url("../../assets/traits/freckles-1.webp");
+}
+.sc-convo-plate-in[data-card="freckles-2"] {
+  background-image: url("../../assets/traits/freckles-2.webp");
+}
+.sc-convo-plate-in[data-card="freckles-3"] {
+  background-image: url("../../assets/traits/freckles-3.webp");
+}
+.sc-convo-plate-in[data-card="freckles-4"] {
+  background-image: url("../../assets/traits/freckles-4.webp");
+}
+.sc-convo-plate-in[data-card="freckles-5"] {
+  background-image: url("../../assets/traits/freckles-5.webp");
+}
+.sc-convo-plate-in[data-card="glasses-1"] {
+  background-image: url("../../assets/traits/glasses-1.webp");
+}
+.sc-convo-plate-in[data-card="glasses-2"] {
+  background-image: url("../../assets/traits/glasses-2.webp");
+}
+.sc-convo-plate-in[data-card="glasses-3"] {
+  background-image: url("../../assets/traits/glasses-3.webp");
+}
+.sc-convo-plate-in[data-card="glasses-4"] {
+  background-image: url("../../assets/traits/glasses-4.webp");
+}
+.sc-convo-plate-in[data-card="glasses-5"] {
+  background-image: url("../../assets/traits/glasses-5.webp");
+}
+.sc-convo-plate-in[data-card="glasses-6"] {
+  background-image: url("../../assets/traits/glasses-6.webp");
+}
+.sc-convo-plate-in[data-card="makeup-1"] {
+  background-image: url("../../assets/traits/makeup-1.webp");
+}
+.sc-convo-plate-in[data-card="makeup-2"] {
+  background-image: url("../../assets/traits/makeup-2.webp");
+}
+.sc-convo-plate-in[data-card="makeup-3"] {
+  background-image: url("../../assets/traits/makeup-3.webp");
+}
+.sc-convo-plate-in[data-card="makeup-4"] {
+  background-image: url("../../assets/traits/makeup-4.webp");
+}
+.sc-convo-plate-in[data-card="makeup-5"] {
+  background-image: url("../../assets/traits/makeup-5.webp");
+}
+.sc-convo-plate-in[data-card="makeup-6"] {
+  background-image: url("../../assets/traits/makeup-6.webp");
+}
+.sc-convo-plate-in[data-card="piercing-1"] {
+  background-image: url("../../assets/traits/piercing-1.webp");
+}
+.sc-convo-plate-in[data-card="piercing-2"] {
+  background-image: url("../../assets/traits/piercing-2.webp");
+}
+.sc-convo-plate-in[data-card="piercing-3"] {
+  background-image: url("../../assets/traits/piercing-3.webp");
+}
+.sc-convo-plate-in[data-card="piercing-4"] {
+  background-image: url("../../assets/traits/piercing-4.webp");
+}
+.sc-convo-plate-in[data-card="piercing-5"] {
+  background-image: url("../../assets/traits/piercing-5.webp");
+}
+.sc-convo-plate-in[data-card="piercing-6"] {
+  background-image: url("../../assets/traits/piercing-6.webp");
+}
+.sc-convo-plate-in[data-card="prosthetic-1"] {
+  background-image: url("../../assets/traits/prosthetic-1.webp");
+}
+.sc-convo-plate-in[data-card="prosthetic-2"] {
+  background-image: url("../../assets/traits/prosthetic-2.webp");
+}
+.sc-convo-plate-in[data-card="prosthetic-3"] {
+  background-image: url("../../assets/traits/prosthetic-3.webp");
+}
+.sc-convo-plate-in[data-card="prosthetic-4"] {
+  background-image: url("../../assets/traits/prosthetic-4.webp");
+}
+.sc-convo-plate-in[data-card="prosthetic-5"] {
+  background-image: url("../../assets/traits/prosthetic-5.webp");
+}
+.sc-convo-plate-in[data-card="prosthetic-6"] {
+  background-image: url("../../assets/traits/prosthetic-6.webp");
+}
+.sc-convo-plate-in[data-card="scar-1"] {
+  background-image: url("../../assets/traits/scar-1.webp");
+}
+.sc-convo-plate-in[data-card="scar-2"] {
+  background-image: url("../../assets/traits/scar-2.webp");
+}
+.sc-convo-plate-in[data-card="scar-3"] {
+  background-image: url("../../assets/traits/scar-3.webp");
+}
+.sc-convo-plate-in[data-card="scar-4"] {
+  background-image: url("../../assets/traits/scar-4.webp");
+}
+.sc-convo-plate-in[data-card="scar-5"] {
+  background-image: url("../../assets/traits/scar-5.webp");
+}
+.sc-convo-plate-in[data-card="scar-6"] {
+  background-image: url("../../assets/traits/scar-6.webp");
+}
+.sc-convo-plate-in[data-card="tattoo-1"] {
+  background-image: url("../../assets/traits/tattoo-1.webp");
+}
+.sc-convo-plate-in[data-card="tattoo-2"] {
+  background-image: url("../../assets/traits/tattoo-2.webp");
+}
+.sc-convo-plate-in[data-card="tattoo-3"] {
+  background-image: url("../../assets/traits/tattoo-3.webp");
+}
+.sc-convo-plate-in[data-card="tattoo-4"] {
+  background-image: url("../../assets/traits/tattoo-4.webp");
+}
+.sc-convo-plate-in[data-card="tattoo-5"] {
+  background-image: url("../../assets/traits/tattoo-5.webp");
+}
+.sc-convo-plate-in[data-card="tattoo-6"] {
+  background-image: url("../../assets/traits/tattoo-6.webp");
+}
+
+/* ---- a question's answer controls ----------------------------------------- */
+.sc-convo-q {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-5);
+  min-width: 0;
+  margin: var(--sc-space-2) 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.sc-convo-q:disabled {
+  opacity: 0.7;
+}
+
+/* A tap is seen before it is taken: the chosen control keeps its light, the
+   others step back at once, and the row goes. The answer was taken on the
+   tap; this is its ghost, kept by the transcript for PICK_MS. */
+.sc-convo-q[data-picked] .sc-convo-choice:not([data-on]),
+.sc-convo-q[data-picked] .sc-btn:not([data-on]) {
+  animation: sc-convo-dim var(--sc-dur-fast) var(--sc-ease) forwards;
+}
+
+.sc-convo-q[data-picked] {
+  pointer-events: none;
+}
+
+.sc-convo-q[data-picked] > * {
+  animation: sc-convo-out 160ms var(--sc-ease) 140ms forwards;
+}
+
+.sc-convo-decide .sc-btn[data-on]:not([aria-pressed]) {
+  transform: scale(0.98);
+}
+
+/* A way in that is open, not a decision that was taken: it fills quietly and
+   keeps its edge, so the one primary beside it stays the only primary, and the
+   same word plainly closes what it opened. */
+.sc-convo-decide .sc-btn[aria-pressed="true"] {
+  background: var(--sc-chip);
+  border-color: var(--sc-line-hover);
+  color: var(--sc-fg);
+}
+
+.sc-convo-decide .sc-btn[aria-pressed="true"]:hover {
+  background: var(--sc-chip-hover);
+}
+
+@keyframes sc-convo-dim {
+  to {
+    opacity: 0.35;
+  }
+}
+
+@keyframes sc-convo-out {
+  to {
+    opacity: 0;
+  }
+}
+
+.sc-convo-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-4);
+}
+
+/* ---- the look, tapped ------------------------------------------------------
+   Rows of colours and words: hair by colour and by length, skin by tone, each
+   swatch the colour it stands for so the eye picks rather than the reader. A
+   colour of your own sits at the end of a row and opens the system picker. */
+.sc-convo-look {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-5);
+}
+
+/* the ways past a question sit under what it offers, never inside its grid */
+.sc-convo-ways {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-4);
+  margin-top: var(--sc-space-2);
+}
+
+/* The way into a picture, beside the way into words: the same chip, with the
+   clip that means an attachment everywhere else in the app. */
+.sc-convo-pass svg {
+  margin-right: 6px;
+  opacity: 0.7;
+}
+
+/* A picture riding with the answer, in the chip the rest of the app uses for
+   one. While it is still on its way to the store it is drawn from the file in
+   the browser and says so by breathing; nothing waits on the round trip. */
+.sc-token[data-busy] img {
+  animation: sc-convo-breathe 1.4s var(--sc-ease) infinite;
+}
+/* While one answer is being changed, the rest of the conversation steps back:
+   the exchange being changed is what the next tap belongs to, and the dim says
+   so without taking anything away. Everything stays readable and reachable. */
+.sc-convo-turn[data-dim] {
+  opacity: 0.4;
+}
+.sc-convo-turn[data-dim]:hover,
+.sc-convo-turn[data-dim]:focus-within {
+  opacity: 0.72;
+}
+
+/* A question open again from its answer: its Cancel is the quiet way out, and
+   when it is brought into view it keeps a breath from the edges. */
+.sc-convo-cancel {
+  margin-left: auto;
+}
+.sc-convo-turn[data-reopened] {
+  scroll-margin-top: var(--sc-space-6);
+  scroll-margin-bottom: var(--sc-space-6);
+}
+/* the group takes the keyboard when it opens; it is not a control, so it wears
+   no ring of its own and the first Tab goes to the first choice */
+.sc-convo-q:focus {
+  outline: none;
+}
+/* An answer being rewritten in place: the words as they were, in a field where they stand. */
+.sc-convo-rewrite {
+  width: 100%;
+  min-width: 220px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  resize: none;
+  outline: none;
+}
+.sc-convo-rewrite-do {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sc-space-2);
+  margin-top: var(--sc-space-3);
+}
+
+/* not `.sc-convo-row`: that is the composer's own row, and it aligns to its far
+   edge, which pushed every swatch to the right of the rail */
+.sc-convo-look-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+
+.sc-convo-look-lb {
+  font-size: var(--sc-text-caption);
+  line-height: 16px;
+  color: var(--sc-fg3);
+}
+
+/* a row of tiles reads as a grid, three across, rather than a wrapping line */
+/* ---- drawn options, on the strip's own plates -------------------------------
+   A hair length and a build are shapes, so they are shown rather than named,
+   on the plate the stage already uses for its views. The row scrolls: nine of
+   them in a grid was a wall, and a wall is not a question. */
+.sc-convo-strip {
+  position: relative;
+  min-width: 0;
+}
+
+.sc-convo-plates {
+  /* The plates take the row's own width between them, at a locked shape, so a
+     conversation made wider shows bigger cards rather than a wider gap. Six is
+     what a row is built to seat; the clamp keeps them legible when the rail is
+     at its narrowest and stops them becoming posters when it is at its widest.
+     The source art is 240x300, which is this shape at 2x. */
+  --sc-plate-w: clamp(72px, calc((100% - 5 * var(--sc-space-4)) / 6), 132px);
+  --sc-plate-ratio: 90 / 112;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--sc-space-4);
+  align-items: flex-start;
+  min-width: 0;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  /* Each edge fades only while it is hiding something: the row tells you which
+     way it carries on, and stops claiming it when there is nothing there. */
+  --sc-strip-l: 0px;
+  --sc-strip-r: 0px;
+
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--sc-strip-l),
+    #000 calc(100% - var(--sc-strip-r)),
+    transparent 100%
+  );
+}
+
+.sc-convo-strip[data-fade="both"] .sc-convo-plates,
+.sc-convo-strip[data-fade="back"] .sc-convo-plates {
+  --sc-strip-l: 40px;
+}
+
+.sc-convo-strip[data-fade="both"] .sc-convo-plates,
+.sc-convo-strip[data-fade="on"] .sc-convo-plates {
+  --sc-strip-r: 40px;
+}
+
+.sc-convo-plates::-webkit-scrollbar {
+  display: none;
+}
+
+.sc-convo-plate {
+  flex: none;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* The picture is the plate's width, so every plate in a row is the same width
+     and the gaps between them are equal. A word longer than the picture used to
+     make its own plate wider and push its neighbours along, which read as a row
+     with the spacing broken. */
+  width: var(--sc-plate-w, 90px);
+  gap: var(--sc-space-3);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--sc-fg2);
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+  opacity: 0.85;
+  transition:
+    opacity var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+
+.sc-convo-plate:hover,
+.sc-convo-plate[data-on] {
+  color: var(--sc-fg);
+  opacity: 1;
+}
+
+/* The word under a plate, inside the plate's own width: a long one wraps
+   rather than widening its plate and pushing the row about. */
+.sc-convo-plate-lb {
+  width: 100%;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.sc-convo-plate-in {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  /* the shape is locked, so the picture grows and shrinks whole */
+  aspect-ratio: var(--sc-plate-ratio, 90 / 112);
+  overflow: hidden;
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-raised);
+}
+
+.sc-convo-plate[data-on] .sc-convo-plate-in {
+  outline: 2px solid var(--sc-fg);
+  outline-offset: -2px;
+}
+
+/* The two ends, for a hand with no swipe in it: they straddle the row's edge,
+   appear while it is hovered or has focus in it, and dim rather than vanish
+   where there is nowhere left to go. Never drawn where a finger would swipe. */
+.sc-convo-strip-go {
+  position: absolute;
+  /* Halfway down the picture at any size. The picture is as tall as the plate
+     is wide times its shape, which `top` cannot be told in a percentage (a
+     percentage there is of the height, not the width). So the control is given
+     the whole column minus the label under it and centred in what is left,
+     which is the picture, whatever size it has grown to. */
+  top: 0;
+  bottom: calc(20px + var(--sc-space-3));
+  margin-block: auto;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: 50%;
+  background: var(--sc-panel);
+  color: var(--sc-fg);
+  box-shadow: var(--sc-shadow-float);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+
+.sc-convo-strip-go[data-dir="back"] {
+  left: 0;
+  translate: -50% 0;
+}
+
+.sc-convo-strip-go[data-dir="on"] {
+  right: 0;
+  translate: 50% 0;
+}
+
+.sc-convo-strip-go[data-spent] {
+  color: var(--sc-fg3);
+  cursor: default;
+}
+
+/* Keyboard focus on a plate shows them too, but a mouse press must not:
+   `:focus-within` counts the press that just moved the row, which left the
+   controls standing after the pointer had gone. */
+.sc-convo-strip:hover .sc-convo-strip-go,
+.sc-convo-strip:has(.sc-convo-plate:focus-visible) .sc-convo-strip-go {
+  opacity: 1;
+}
+
+.sc-convo-strip:hover .sc-convo-strip-go[data-spent],
+.sc-convo-strip:has(.sc-convo-plate:focus-visible) .sc-convo-strip-go[data-spent] {
+  opacity: 0.3;
+}
+
+@media (hover: none) {
+  .sc-convo-strip-go {
+    display: none;
+  }
+}
+
+.sc-convo-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sc-space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.sc-convo-swatch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--sc-line);
+  border-radius: 50%;
+  background: var(--sc-swatch, var(--sc-chip));
+  cursor: pointer;
+  transition:
+    outline-color var(--sc-dur-fast) var(--sc-ease),
+    scale var(--sc-dur-fast) var(--sc-ease);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+.sc-convo-swatch:hover {
+  scale: 1.08;
+}
+
+.sc-convo-swatch[data-on] {
+  outline-color: var(--sc-fg);
+}
+
+/* Length and build are shapes: a small figure in a square, with its word under
+   it. Faster to recognise than "chin-length" is to read. */
+/* One cell of the sheet its row was drawn on, as a mask rather than a picture:
+   the figure is the card's own ink on the card's own surface, so no plate of
+   another colour sits inside the card. */
+
+/* A whole figure, standing: it wants the height a bust does not, and it ends
+   at the floor of its own cell rather than at a crop, so it barely fades. */
+
+.sc-convo-plate:hover
+
+/* the quiet way past a step, at the end of its row */
+.sc-convo-pass {
+  color: var(--sc-fg3);
+}
+
+/* a colour of your own: the wheel until it is chosen, then the colour itself */
+/* A colour of your own is a choosing, not a choice: the swatch shows what is
+   under the pointer, and the check beside it takes it. */
+.sc-convo-own {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sc-convo-own-take {
+  flex: none;
+  height: 28px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+  font-size: var(--sc-text-caption);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sc-convo-own-take:hover {
+  opacity: 0.9;
+}
+
+.sc-convo-swatch-own {
+  color: var(--sc-fg);
+  background: conic-gradient(from 0deg, #f0605d, #f7bc50, #7ac74f, #4aa3f0, #8b6ff2, #f0605d);
+  opacity: 0.85;
+}
+
+.sc-convo-swatch-own svg {
+  position: relative;
+  mix-blend-mode: luminosity;
+}
+
+/* once a colour is under the pointer, the swatch is that colour */
+.sc-convo-own[data-picked] .sc-convo-swatch-own {
+  background: var(--sc-swatch);
+  outline-color: var(--sc-fg);
+  opacity: 1;
+}
+
+.sc-convo-swatch-own input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  opacity: 0;
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .sc-convo-swatch {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-convo-swatch {
+    transition: none;
+  }
+
+  .sc-convo-swatch:hover {
+    scale: 1;
+  }
+}
+
+/* a choice inside a conversation is a chip at hand height: the same chip
+   primitive, taller, with the ink of an answer on the one that is set */
+.sc-chip.sc-convo-choice {
+  height: 36px;
+  padding: 0 14px;
+  font-size: var(--sc-text-control);
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+  background: var(--sc-chip);
+}
+
+.sc-chip.sc-convo-choice:hover {
+  background: var(--sc-chip-hover);
+}
+
+.sc-chip.sc-convo-choice {
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease),
+    border-color var(--sc-dur-fast) var(--sc-ease);
+}
+
+/* Chosen: the answer's own ink, the way a set chip reads everywhere else. This
+   rule exists because the taller conversation chip above restates background
+   and colour, which at equal weight and later in the manifest was quietly
+   winning over the primitive's [data-on]. It says where the answer is being
+   given: the way in that was pressed, and the pass that was taken. */
+.sc-chip.sc-convo-choice[data-on] {
+  border-color: transparent;
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+}
+
+.sc-chip.sc-convo-choice[data-on]:hover {
+  background: var(--sc-inv-bg);
+}
+
+.sc-convo-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-5);
+}
+
+.sc-convo-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+
+.sc-convo-group-lb {
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
+}
+
+/* starters: three ready people, each a soft filled pill with a few words on
+   it; the whole sentence goes into the composer on the tap */
+.sc-convo-starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-3);
+}
+
+.sc-convo-starter {
+  max-width: 100%;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--sc-radius-xl);
+  background: var(--sc-chip);
+  color: var(--sc-fg2);
+  font-size: 13px;
+  line-height: 18px;
+  text-align: left;
+  text-wrap: pretty;
+  cursor: pointer;
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+
+.sc-convo-starter:hover {
+  background: var(--sc-chip-hover);
+  color: var(--sc-fg);
+}
+
+.sc-convo-starter:active {
+  background: var(--sc-chip-active);
+}
+
+.sc-convo-decide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-4);
+}
+
+.sc-convo-decide .sc-btn {
+  height: 40px;
+}
+
+.sc-convo-photos-q {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-5);
+}
+
+.sc-convo-attest {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-4);
+  font-size: var(--sc-text-body);
+  line-height: 18px;
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+
+.sc-convo-attest input {
+  margin: 2px 0 0;
+}
+
+/* the folded setup: one quiet row where the answered questions were */
+/* ---- the composer ---------------------------------------------------------- */
+.sc-convo-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+
+/* The same card the rest of the app writes into, in the same three states.
+   No float shadow: this one is docked in the foot of the conversation rather
+   than floating over a feed, so the shadow was drawing an edge that is
+   already drawn. Both properties that change on focus are on one clock, or
+   the edge reads as a shake (see .sc-promptcard). */
+.sc-convo-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-float);
+  background: var(--sc-hover);
+  transition:
+    border-color var(--sc-dur-fast) var(--sc-ease),
+    box-shadow var(--sc-dur-fast) var(--sc-ease),
+    opacity var(--sc-dur-fast) var(--sc-ease);
+}
+
+.sc-convo-card:hover:not([data-quiet]) {
+  border-color: var(--sc-line-hover);
+}
+
+/* lit by the caret, and by nothing else in the card */
+.sc-convo-card:has(.sc-in:focus) {
+  border-color: var(--sc-line-focus);
+  box-shadow: 0 0 0 2px var(--sc-focus-halo);
+}
+
+/* Nothing here can be answered right now: the card sits back rather than
+   standing in ink over an answer that is somewhere else. */
+.sc-convo-card[data-quiet] {
+  border-color: var(--sc-line);
+  background: none;
+}
+
+/* an answer reopened for a change: the card lights once, then settles */
+.sc-convo-card[data-flash] {
+  animation: sc-convo-flash 700ms var(--sc-ease);
+}
+
+@keyframes sc-convo-flash {
+  0% {
+    border-color: var(--sc-fg);
+  }
+  100% {
+    border-color: var(--sc-line-strong);
+  }
+}
+
+.sc-convo-scope-row {
+  display: flex;
+  padding: 16px 16px 0;
+}
+
+.sc-convo-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-3);
+  height: 22px;
+  padding: 0 10px 0 2px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+  font-size: var(--sc-text-micro);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sc-convo-scope img {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--sc-radius-full);
+  object-fit: cover;
+}
+
+/* The writing area: what is typed, and any chip that answers alongside it.
+   The padding lives here rather than on the field, so a chip is inside the
+   area a person writes in and not a row stacked above it. */
+.sc-convo-field {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-3);
+  padding: 16px 16px 0;
+  min-height: 44px;
+}
+
+.sc-convo-card textarea.sc-in {
+  flex: 1;
+  min-width: 0;
+  min-height: 28px;
+  max-height: 140px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 15px;
+  line-height: 28px;
+  resize: none;
+  overflow-y: hidden;
+}
+
+.sc-convo-card textarea.sc-in:focus {
+  outline: none;
+}
+
+.sc-convo-card textarea.sc-in::placeholder {
+  color: var(--sc-fg3);
+}
+
+.sc-convo-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--sc-space-6);
+  padding: var(--sc-space-6);
+}
+
+.sc-convo-attach {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-well);
+  color: var(--sc-fg);
+  cursor: pointer;
+}
+
+.sc-convo-attach:hover:not([aria-disabled="true"]) {
+  border-color: var(--sc-line-strong);
+}
+
+/* nothing to attach to right now: it stands where it is, and says so */
+.sc-convo-attach[aria-disabled="true"] {
+  color: var(--sc-fg3);
+  cursor: default;
+}
+
+.sc-convo-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sc-space-4);
+  height: 38px;
+  min-width: 38px;
+  margin-left: auto;
+  padding: 0 var(--sc-space-5);
+  border: none;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-chip);
+  color: var(--sc-fg2);
+  font-size: var(--sc-text-control);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sc-convo-send:not([aria-disabled="true"]) {
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+}
+
+.sc-convo-send:hover:not([aria-disabled="true"]) {
+  opacity: 0.92;
+}
+
+.sc-convo-send[aria-disabled="true"] {
+  cursor: default;
+}
+
+/* the arrow, or the spinner while it works: the same 17px box the shot composer's send uses */
+.sc-convo-send-ico {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+
+/* a ring that turns: the rail sits outside the theme root, so it is its own and needs no token */
+.sc-convo-spin {
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: sc-convo-spin 720ms linear infinite;
+}
+
+@keyframes sc-convo-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* while a view draws the pill is Stop: pressable, with the ring still turning */
+.sc-convo-send[data-stop] {
+  cursor: pointer;
+  background: var(--sc-chip);
+  color: var(--sc-fg);
+}
+
+.sc-convo-send[data-stop]:hover {
+  background: var(--sc-chip-hover);
+}
+
+.sc-convo-line {
+  padding: 0 var(--sc-space-2);
+  font-size: var(--sc-text-micro);
+  line-height: 16px;
+  color: var(--sc-fg3);
+}
+
+.sc-convo-line[data-tone="alert"] {
+  color: var(--sc-red);
+}
+
+/* ---- a phone: the same pieces, hand width ---------------------------------- */
+@media (max-width: 767px) {
+  .sc-convo-log {
+    padding: var(--sc-space-6) 14px;
+    /* the same clearance as the wider layout: the shorthand above would
+       otherwise put the last line back under the composer's fade */
+    padding-bottom: calc(var(--sc-dock-fade) + var(--sc-space-5));
+  }
+
+  /* A question with things to tap owns the answer, but the composer is not
+     taken away for it: removing the card moved every turn above it by its whole
+     height on the way in and again on the way out, and left the screen ending
+     on an empty strip. It stands down here exactly as it does anywhere else. */
+
+  .sc-convo-turns {
+    gap: var(--sc-space-7);
+  }
+
+  .sc-convo-bubble {
+    max-width: 84%;
+  }
+
+  .sc-convo-edit {
+    opacity: 1;
+    left: -28px;
+  }
+}

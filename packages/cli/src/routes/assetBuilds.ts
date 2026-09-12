@@ -26,43 +26,33 @@ import {
   type CustomScene,
 } from '../customAssets.js';
 import { presenterCropMode } from '../presenterRepair.js';
-import { brandContext, COST_PROBE } from './shared.js';
+import { brandContext, COST_PROBE, pickBuildEngine } from './shared.js';
 
-export function registerAssetBuildRoutes(
-  app: FastifyInstance,
-  deps: {
-    core: Core;
-    engines: EngineRegistry;
-    analyzer?: Analyzer;
-    scenes: Scene[];
-    presenters: Presenter[];
-  },
-): void {
+export interface BuildRouteDeps {
+  core: Core;
+  engines: EngineRegistry;
+  analyzer?: Analyzer;
+  scenes: Scene[];
+  presenters: Presenter[];
+}
+
+/**
+ * What a build needs, answered fresh each time: the engine that can hold a
+ * face right now, the analyzer if codex is here, the filters that already
+ * exist. Shared by the asset builds and the presenter drafts, so both pick
+ * the same engine by the same rule.
+ */
+export function makeBuildDeps(deps: BuildRouteDeps): {
+  buildEngine: () => Promise<EngineAdapter | null>;
+  buildDeps: () => Promise<AssetBuildDeps>;
+  analyzer: Analyzer | null;
+} {
   const { core, engines, scenes, presenters } = deps;
   const analyzer: Analyzer | null = deps.analyzer ?? createCodexAnalyzer({ runner: engines.codexRunner });
-
-  /**
-   * Which engine draws a person's studio views and a scene's preview.
-   *
-   * Prefers codex-cli: it is local, adds no bill of ours on top of the plan the
-   * user already pays for, and carries six references, which is what a chained
-   * identity plan needs. Any
-   * available engine that can take a reference at all will do; one that takes
-   * none could not hold a face, so it is not offered.
-   */
-  const buildEngine = async (): Promise<EngineAdapter | null> => {
-    const ordered = [...engines.all()].sort((a, b) => {
-      const rank = (e: EngineAdapter) => (e.capabilities().id === 'codex-cli' ? 0 : 1);
-      return rank(a) - rank(b);
-    });
-    for (const engine of ordered) {
-      const caps = engine.capabilities();
-      if (!caps.maxReferenceImages || caps.placeholder) continue;
-      if ((await engine.isAvailable()).ok) return engine;
-    }
-    return null;
-  };
-
+  // The one test seam: the browser suite runs on the demo engine, which is a
+  // placeholder the picker would otherwise refuse. Set only by that harness.
+  const allowPlaceholder = process.env.SCENRI_DEMO_BUILDS === '1';
+  const buildEngine = (): Promise<EngineAdapter | null> => pickBuildEngine(engines, { allowPlaceholder });
   const buildDeps = async (): Promise<AssetBuildDeps> => ({
     core,
     engine: await buildEngine(),
@@ -72,10 +62,19 @@ export function registerAssetBuildRoutes(
     // person can actually click rather than inventing a category of one.
     vocabulary: { ...facetsOf(scenes), categories: presenterFacetsOf(presenters).categories },
   });
+  return { buildEngine, buildDeps, analyzer };
+}
+
+export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteDeps): void {
+  const { core } = deps;
+  const { buildEngine, buildDeps, analyzer } = makeBuildDeps(deps);
 
   /** What a creation flow needs to know before it promises anything. */
   app.get('/api/asset-builds/capabilities', async () => {
-    const [engine, probe] = await Promise.all([buildEngine(), analyzer?.isAvailable() ?? { ok: false }]);
+    const [engine, probe] = await Promise.all([
+      buildEngine(),
+      analyzer?.isAvailable() ?? Promise.resolve<{ ok: boolean; reason?: string }>({ ok: false }),
+    ]);
     return {
       canAnalyze: probe.ok,
       analyzeReason: probe.ok ? null : (probe.reason ?? null),
@@ -107,8 +106,13 @@ export function registerAssetBuildRoutes(
     if (!brand) return;
     const body = (req.body ?? {}) as any;
     const kind = String(body.kind ?? '');
-    if (kind !== 'presenter' && kind !== 'scene')
-      return reply.status(400).send({ error: 'kind must be presenter|scene' });
+    // The bulk five-view presenter build is gone: a person is cast one
+    // approved view at a time in the studio, on its own routes.
+    if (kind === 'presenter')
+      return reply
+        .status(400)
+        .send({ error: 'presenters are cast in the studio now: POST /api/brands/:id/presenter-drafts' });
+    if (kind !== 'scene') return reply.status(400).send({ error: 'kind must be scene' });
     try {
       return startAssetBuild(await buildDeps(), {
         brandId: brand.id,
@@ -196,6 +200,42 @@ export function registerAssetBuildRoutes(
     }
     return { presenter: built.presenter, brand: core.store.getBrand(brand.id) };
   });
+  /**
+   * Revert last change: the record this head replaced becomes the head again.
+   *
+   * An edit that changed a picture was written as a new record with the old
+   * one kept and marked superseded, so going back is a swap of two markers:
+   * the older record's `supersededBy` is cleared and the current one is
+   * pointed at it. Nothing is deleted, and a shot made against either record
+   * keeps refining against the pictures it was made from. One step per call.
+   */
+  app.post('/api/brands/:id/presenters/:presenterId/revert', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const id = String((req.params as any).presenterId);
+    const rows = brandCharacters(brand.json);
+    const current = rows.find((c: any) => c.id === id);
+    if (!current) return reply.status(404).send({ error: 'presenter not found' });
+    if (!isCustomPresenter(current)) return reply.status(400).send({ error: 'this presenter is not editable' });
+    const older =
+      current.revisionOf && !current.supersededBy ? rows.find((c: any) => c.id === current.revisionOf) : undefined;
+    if (!older) return reply.status(400).send({ error: 'nothing to revert' });
+    try {
+      commit(core, brand.id, (json) => {
+        json.characters = brandCharacters(json).map((c: any) => {
+          if (c.id === older.id) {
+            const { supersededBy: _cleared, ...head } = c;
+            return head;
+          }
+          return c.id === current.id ? { ...c, supersededBy: older.id } : c;
+        });
+      });
+    } catch (err: any) {
+      return reply.status(err.statusCode ?? 500).send({ error: err.message });
+    }
+    const after = core.store.getBrand(brand.id);
+    return { presenter: brandCharacters(after?.json).find((c: any) => c.id === older.id), brand: after };
+  });
   app.delete('/api/brands/:id/presenters/:presenterId', async (req, reply) => {
     const brand = brandOr404(req, reply);
     if (!brand) return;
@@ -205,6 +245,9 @@ export function registerAssetBuildRoutes(
     if (!isCustomPresenter(base)) return reply.status(400).send({ error: 'this presenter is not editable' });
     // Shots already made keep their prompt and their pixels. A brief that names
     // this person again will say so; see compileBrief's roster warning.
+    // Deleting the head of a revision chain removes only that record: the
+    // records it superseded stay, still marked superseded, and still what
+    // their own shots refine against.
     commit(core, brand.id, (json) => {
       json.characters = brandCharacters(json).filter((c: any) => c.id !== id);
     });
@@ -353,15 +396,20 @@ export function registerAssetBuildRoutes(
 async function withDerivedCrops(
   core: Core,
   body: Record<string, unknown>,
-  base?: { sourceRefs?: { file?: string }[] },
+  base?: { sourceRefs?: { file?: string }[]; shots?: { file?: string; angle?: string }[] },
 ): Promise<Record<string, unknown>> {
   const shots = Array.isArray(body?.shotHashes) ? (body.shotHashes as unknown[]) : null;
   if (!shots?.length || (body.previewHash !== undefined && body.avatarHash !== undefined)) return body;
   const firstShot = `asset:${String(shots[0])}`;
-  const firstSource = Array.isArray(body.sourceHashes)
-    ? `asset:${String((body.sourceHashes as unknown[])[0])}`
-    : base?.sourceRefs?.[0]?.file;
-  const derived = await presenterCrops(core, String(shots[0]), presenterCropMode(firstShot, firstSource));
+  const sourceFiles = Array.isArray(body.sourceHashes)
+    ? (body.sourceHashes as unknown[]).map((h) => `asset:${String(h)}`)
+    : (base?.sourceRefs ?? []).map((s) => s?.file);
+  // The leading angle rides in the body when the caller knows it, and is
+  // otherwise recovered from the record by hash: a re-order is the same
+  // frames in a new order, and a portrait stays a portrait wherever it lands.
+  const angles = Array.isArray(body.shotAngles) ? (body.shotAngles as unknown[]) : [];
+  const firstAngle = angles[0] ?? base?.shots?.find((s) => s?.file === firstShot)?.angle;
+  const derived = await presenterCrops(core, String(shots[0]), presenterCropMode(firstShot, sourceFiles, firstAngle));
   return {
     ...body,
     ...(body.previewHash === undefined && derived.previewHash ? { previewHash: derived.previewHash } : {}),

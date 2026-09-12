@@ -1,0 +1,1044 @@
+/* ---------- the presenter studio ------------------------------------------
+   A person is established visually, at a place of its own: /presenters/new,
+   a full-bleed surface over the library, the way the shot overlay stands over
+   the hub (same z, 80). The geometry is the Figma studio frames (5301:9997 ..
+   5301:11090) read at 1x: a 500 rail, the stage padded 40 with the round
+   close at 40/40, a strip of labelled 90 x 112 tiles in 1.5px frames, 44px
+   radius-10 buttons, a 16px regular title, a 15px status line, a radius-22
+   composer card with a Send pill, and 44px inputs on the ink-800 field
+   ground. Tokens carry every value the palette has; the two Figma greys the
+   palette lacks (ink-300 labels, ink-500 placeholders) are mixed from it. On
+   a phone the same pieces stack into one column with one scroller and a
+   bottom that stays put. */
+
+.sc-pstudio {
+  --sc-pstudio-rail: 500px;
+  --sc-pstudio-field: var(--sc-hover); /* ink-800 */
+  --sc-pstudio-label: color-mix(in srgb, var(--sc-fg) 90%, var(--sc-bg)); /* ink-300 */
+  --sc-pstudio-placeholder: color-mix(in srgb, var(--sc-fg3) 78%, var(--sc-bg)); /* ink-500 */
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* the rail's own surface: the stage paints the darker ground itself */
+  background: var(--sc-panel);
+  color: var(--sc-fg);
+  outline: none;
+}
+
+.sc-pstudio-grid {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ---- close: on the stage, top left, a hairline circle -------------------- */
+.sc-pstudio-close {
+  position: absolute;
+  top: 40px;
+  left: 40px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: none;
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+
+.sc-pstudio-close:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+
+/* ---- head ---------------------------------------------------------------- */
+.sc-pstudio-head {
+  min-height: 65px;
+  padding: var(--sc-space-6) var(--sc-space-7);
+  border-bottom: 1px solid var(--sc-line);
+  margin: 0;
+}
+
+.sc-pstudio-head .sc-newdlg-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: -0.02em;
+}
+
+.sc-pstudio-head .sc-btn {
+  flex: none;
+  height: 30px;
+  padding: 0 var(--sc-space-5);
+  font-size: var(--sc-text-body);
+  font-weight: 500;
+  color: var(--sc-fg2);
+}
+
+/* ---- the two ways to start: a compact switch in the title row ------------ */
+
+/* ---- stage: padded 20, the well 20 further in, the strip block 180 ------- */
+.sc-pstudio-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--sc-space-7);
+  background: var(--sc-bg);
+  /* The strip's own height: 20 + 20 padding, a 112 tile, an 8 gap and a 20
+     line of label. Written once, because two rules below have to agree with
+     it exactly or the sign moves when the draft lands. */
+  --sc-pstudio-strip-h: 180px;
+}
+
+.sc-pstudio-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--sc-space-7) 0;
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sc-pstudio-well {
+  position: relative;
+  height: min(100cqh, calc(100cqw * 5 / 4));
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-raised);
+}
+
+/* Nothing drawn and nothing drawing: the well keeps its box, so the picture
+   and the sweep arrive into the same geometry, and gives up its fill, because
+   a plate of raised grey this size reads as a picture that failed to load
+   rather than as a space one is coming to. The fill is back the instant
+   something is being drawn, under the sweep, where it belongs. */
+.sc-pstudio-well[data-empty]:not([data-drawing]) {
+  background: none;
+}
+
+.sc-pstudio-well img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* a new picture, a candidate, or the one it replaces on Compare: fades in over the last */
+  animation: sc-pstudio-well-in var(--sc-dur-slow) var(--sc-ease);
+}
+
+@keyframes sc-pstudio-well-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sc-pstudio-well[data-drawing] img {
+  opacity: 0.8;
+}
+
+/* The well is the largest surface the sweep crosses in the app, so it takes
+   the slowest pass, the way the stage does: one apparent speed everywhere
+   rather than a highlight that races across a big box. The slot is small and
+   takes the quick one. */
+.sc-pstudio-well > .sc-shimmer {
+  --sc-shimmer-dur: 2.9s;
+  border-radius: inherit;
+}
+.sc-pstudio-slot-inner > .sc-shimmer {
+  --sc-shimmer-dur: 1.15s;
+  border-radius: inherit;
+}
+
+/* a light sweeps the picture while its view is drawn again: worked on, not gone */
+.sc-pstudio-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.16) 50%, transparent 65%);
+  background-size: 260% 100%;
+  animation: sc-pstudio-sweep 1800ms ease-in-out infinite;
+}
+
+@keyframes sc-pstudio-sweep {
+  from {
+    background-position: 120% 0;
+  }
+
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* what is being drawn, and for how long, in one pill at the foot of the stage */
+.sc-pstudio-doing {
+  position: absolute;
+  inset: auto auto 12px 50%;
+  translate: -50% 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px 0 10px;
+  border-radius: var(--sc-radius-full);
+  background: color-mix(in srgb, var(--sc-bg) 78%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--sc-fg);
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.sc-pstudio-doing time {
+  color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-pstudio-slot-work {
+  position: absolute;
+  inset: auto 6px 6px auto;
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-ring {
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: sc-pstudio-ring 720ms linear infinite;
+}
+
+@keyframes sc-pstudio-ring {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-pstudio-veil {
+    animation: none;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .sc-pstudio-ring {
+    animation: none;
+    border-right-color: currentColor;
+    opacity: 0.5;
+  }
+}
+
+.sc-pstudio-well-blank {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+/* ---- the sign that stands where the portrait will ------------------------ */
+
+/* One small thing in a large calm field, at a fixed size: a wider window is
+   meant to buy more quiet, not a bigger sign. Figma 5351:1537. */
+.sc-pstudio-empty {
+  display: grid;
+  justify-items: center;
+  /* the plate's own box to the first line; the rings live inside that gap */
+  gap: 32px;
+  text-align: center;
+  /* The well is where the picture goes, and it is held clear of the strip, so
+     its middle is half a strip above the middle of the stage. The sign is not
+     a picture: it belongs in the middle of the workspace, so it comes back
+     down by that half. */
+  transform: translateY(calc(var(--sc-pstudio-strip-h) / 2));
+}
+
+.sc-pstudio-empty-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 122px;
+  height: 122px;
+  border-radius: var(--sc-radius-md);
+  /* A face lit from above: the plate is the app's raised grey with the
+     faintest lift across its top, so it sits in the ground rather than on it. */
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--sc-fg) 4%, transparent), transparent 60%), var(--sc-raised);
+  color: var(--sc-fg);
+}
+
+/* The plate's edge, as light rather than as a line.
+ *
+ * A hairline of one colour all the way round reads as a drawn box, and a drawn
+ * box at this size is a second card on a surface that is meant to be quiet. So
+ * the edge is a gradient that is brightest where the light is and gone by the
+ * bottom: the mask keeps the one-pixel frame and throws the middle away.
+ * Written in the foreground ink rather than in white, so the light theme gets
+ * a dark edge instead of an invisible one.
+ */
+.sc-pstudio-empty-mark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    170deg,
+    color-mix(in srgb, var(--sc-fg) 26%, transparent),
+    color-mix(in srgb, var(--sc-fg) 7%, transparent) 45%,
+    color-mix(in srgb, var(--sc-fg) 3%, transparent)
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* Two rings stepping outwards, each dimmer than the last, and each drawn as
+   its four corners only: the mask keeps the ends of both axes and takes their
+   intersection, which is the corners. Where a browser cannot composite masks
+   the whole rounded outline survives, which is the same drawing with more of
+   it, so nothing needs to be said twice. */
+.sc-pstudio-empty-ring {
+  position: absolute;
+  border: 1px solid color-mix(in srgb, var(--sc-fg) var(--sc-bracket-ink), transparent);
+  /* Three masks, intersected: the ends of one axis, the ends of the other, and
+     the light falling away down the frame. The first two leave the four
+     corners; the third takes the bottom pair back towards the ground, so the
+     cluster is lit from one place instead of being outlined. */
+  mask-image:
+    linear-gradient(
+      to right,
+      #000 0 var(--sc-bracket),
+      transparent var(--sc-bracket) calc(100% - var(--sc-bracket)),
+      #000 calc(100% - var(--sc-bracket)) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      #000 0 var(--sc-bracket),
+      transparent var(--sc-bracket) calc(100% - var(--sc-bracket)),
+      #000 calc(100% - var(--sc-bracket)) 100%
+    ),
+    linear-gradient(180deg, #000, rgb(0 0 0 / 0.45));
+  -webkit-mask-composite: source-in, source-in;
+  mask-composite: intersect, intersect;
+}
+
+/* Two steps out, and a step quieter each time: the plate, then its echo, then
+   the last of it. Same weight throughout, because a hairline that changes
+   thickness reads as two different lines rather than one idea at two
+   distances. */
+.sc-pstudio-empty-ring[data-at="near"] {
+  --sc-bracket: 17px;
+  --sc-bracket-ink: 20%;
+  inset: -9px;
+  border-radius: 14px;
+}
+
+.sc-pstudio-empty-ring[data-at="far"] {
+  --sc-bracket: 24px;
+  --sc-bracket-ink: 8%;
+  inset: -17px;
+  border-radius: 20px;
+}
+
+.sc-pstudio-empty-say {
+  display: grid;
+  /* Wide enough that each line is a line. The reference measures 194, which is
+     the width of its own text to the pixel and leaves ours a word short. */
+  max-width: 240px;
+  font-size: 15px;
+  line-height: 22px;
+  text-wrap: pretty;
+}
+
+/* What the space is for, then the way to fill it: one step apart in ink, no
+   step apart in size, because they are one thought. */
+.sc-pstudio-empty-say > span:first-child {
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-empty-say > span + span {
+  color: var(--sc-fg3);
+}
+
+/* Before the draft exists there are no views, so the strip is not drawn and
+   the wrap is a strip taller. Reserving that height keeps the sign on one
+   line of the screen from the first question to the first picture. */
+.sc-pstudio-stage[data-reserve] .sc-pstudio-wrap {
+  padding-bottom: calc(var(--sc-space-7) + var(--sc-pstudio-strip-h));
+}
+
+/* The pictures this view has worn: small, numbered, oldest first, the one on
+   the stage outlined. Pressing one puts it back; the log keeps the story, this
+   is the way to see them side by side at a glance. */
+/* the strip: five tiles at a 98 pitch, the label centred under each, the
+   one on the stage outlined in ink and the rest at half strength */
+.sc-pstudio-strip {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  gap: var(--sc-space-4);
+  list-style: none;
+  margin: 0;
+  padding: var(--sc-space-7) 0;
+}
+
+.sc-pstudio-strip li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sc-space-4);
+}
+
+.sc-pstudio-slot-lb {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--sc-fg2);
+}
+
+.sc-pstudio-slot-lb[data-on] {
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-slot {
+  display: block;
+  padding: 0;
+  border: none;
+  border-radius: var(--sc-radius-md);
+  background: none;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+
+.sc-pstudio-slot:disabled {
+  cursor: default;
+}
+
+.sc-pstudio-slot[data-state="current"] {
+  opacity: 1;
+}
+
+.sc-pstudio-slot[data-state="current"] .sc-pstudio-slot-inner {
+  outline: 2px solid var(--sc-fg);
+  outline-offset: -2px;
+}
+
+.sc-pstudio-slot-inner {
+  position: relative;
+  display: block;
+  width: 90px;
+  height: 112px;
+  overflow: hidden;
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-pstudio-field);
+}
+
+.sc-pstudio-slot-inner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sc-pstudio-slot[data-state="stale"] img {
+  opacity: 0.35;
+}
+
+/* what stands: a filled disc with the app's own check in it, never a glyph */
+.sc-pstudio-slot-mark {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-green);
+  color: var(--sc-inv-fg);
+}
+
+/* ---- rail body ----------------------------------------------------------- */
+.sc-pstudio-body {
+  min-height: 0;
+  padding: var(--sc-space-7);
+}
+
+.sc-pstudio-body[data-end] {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--sc-space-4);
+  padding: var(--sc-space-8) var(--sc-space-8) var(--sc-space-5);
+}
+
+.sc-pstudio .sc-in {
+  width: 100%;
+  min-height: 44px;
+  height: auto;
+  padding: 8px 12px;
+  border: 1.5px solid var(--sc-line);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-pstudio-field);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.sc-pstudio .sc-in::placeholder {
+  color: var(--sc-pstudio-placeholder);
+}
+
+/* a value that opens a list: the rail's own field, with the caret at its end */
+.sc-pstudio-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1.5px solid var(--sc-line);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-pstudio-field);
+  color: var(--sc-fg);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sc-pstudio-picker:hover {
+  border-color: var(--sc-line-strong);
+}
+
+.sc-pstudio-picker[data-state="open"] {
+  border-color: var(--sc-focus);
+}
+
+.sc-pstudio-picker > svg {
+  flex: none;
+  color: var(--sc-fg3);
+}
+
+.sc-pstudio-picker-lb {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sc-pstudio-picker-lb[data-empty] {
+  color: var(--sc-pstudio-placeholder);
+}
+
+/* the list itself: the app's menu, with a box at the top that narrows it */
+.sc-pstudio-menu {
+  width: var(--radix-dropdown-menu-trigger-width, 280px);
+  max-height: min(52vh, 380px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sc-pstudio-menu-find {
+  flex: none;
+  width: 100%;
+  height: 34px;
+  margin-bottom: var(--sc-space-3);
+  padding: 0 10px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+  font: inherit;
+  font-size: 13.5px;
+  outline: none;
+}
+
+.sc-pstudio-menu-find:focus {
+  border-color: var(--sc-focus);
+}
+
+.sc-pstudio-menu-find::placeholder {
+  color: var(--sc-fg3);
+}
+
+.sc-pstudio-menu-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sc-pstudio-menu .sc-menu-lb {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sc-pstudio-menu-none {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--sc-fg3);
+}
+
+/* ---- rail foot: the composer, the decision, the footnote ----------------- */
+/* The composer sits on no shelf: .sc-dock in shells.css does the fading, and
+   this says only what it is standing on. */
+.sc-pstudio-foot {
+  --sc-dock-ground: var(--sc-bg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-4);
+  /* No padding at the top: the fade above it is the space between the talk and
+     the composer, and a padding under the fade only pushes the two apart. */
+  padding: 0 var(--sc-space-7) var(--sc-space-7);
+}
+
+.sc-pstudio-foot .sc-dlg-foot {
+  margin-top: 0;
+}
+
+.sc-pstudio-foot .sc-dlg-foot {
+  margin-top: 0;
+  font-size: var(--sc-text-micro);
+  line-height: 16px;
+}
+
+/* ---- the desktop surface: stage left, rail right ------------------------- */
+@media (min-width: 768px) {
+  .sc-pstudio-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--sc-pstudio-rail);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "stage head"
+      "stage body"
+      "stage foot";
+  }
+
+  .sc-pstudio-scroll {
+    display: contents;
+  }
+
+  .sc-pstudio-stage {
+    grid-area: stage;
+  }
+
+  .sc-pstudio-head {
+    grid-area: head;
+  }
+
+  .sc-pstudio-head .sc-newdlg-close {
+    display: none;
+  }
+
+  .sc-pstudio-body {
+    grid-area: body;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: var(--sc-space-5);
+  }
+
+  .sc-pstudio-foot {
+    grid-area: foot;
+  }
+
+  /* the rail is the lighter surface, the stage the darker one: ink-900 on ink-950 */
+  .sc-pstudio-head,
+  .sc-pstudio-body {
+    border-left: 1px solid var(--sc-line);
+    background: var(--sc-panel);
+  }
+
+  /* the foot stands on the rail's colour; the dock paints it */
+  .sc-pstudio-foot {
+    --sc-dock-ground: var(--sc-panel);
+    border-left: 1px solid var(--sc-line);
+  }
+}
+
+/* ---- the seam between stage and rail is a handle ------------------------- */
+@media (min-width: 1280px) {
+  .sc-pstudio {
+    /* Only here: the two narrower desktop widths have one right answer each
+       and nothing to drag. */
+    --sc-pstudio-rail: var(--sc-pstudio-rail-set, 500px);
+  }
+
+  .sc-pstudio-resize {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: calc(var(--sc-pstudio-rail) - 3px);
+    width: 7px;
+    z-index: 12;
+    cursor: col-resize;
+  }
+
+  .sc-pstudio-resize::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 3px;
+    width: 1px;
+    background: var(--sc-line-hover);
+    opacity: 0;
+    transition: opacity var(--sc-dur-fast) var(--sc-ease);
+  }
+
+  .sc-pstudio-resize:hover::before,
+  .sc-pstudio-resize:focus-visible::before,
+  .sc-pstudio-resize:active::before {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1279px) {
+  /* no seam to drag: the rail's width is the layout's, not the reader's */
+  .sc-pstudio-resize {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .sc-pstudio {
+    --sc-pstudio-rail: 420px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .sc-pstudio {
+    --sc-pstudio-rail: 320px;
+  }
+
+  .sc-pstudio-close {
+    top: 24px;
+    left: 24px;
+  }
+
+  /* a 320 rail cannot seat the title and the switch on one line without the
+     title breaking in two; the switch drops under it, as it does on a phone */
+  .sc-pstudio-head {
+    flex-wrap: wrap;
+    padding: var(--sc-space-5) var(--sc-space-6);
+  }
+
+  .sc-pstudio-body[data-end] {
+    padding: var(--sc-space-7);
+  }
+}
+
+/* ---- the phone: one column, one scroller, a bottom that stays ------------ */
+@media (max-width: 767px) {
+  .sc-pstudio-close {
+    display: none;
+  }
+
+  .sc-pstudio-grid {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* the whole screen now, so the head clears the notch */
+  .sc-pstudio-head {
+    min-height: 52px;
+    flex-wrap: wrap;
+    padding: max(var(--sc-space-4), env(safe-area-inset-top)) var(--sc-space-4) var(--sc-space-5) var(--sc-space-6);
+  }
+
+  .sc-pstudio-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    /* the transcript places the reader itself; see .sc-convo-log */
+    overflow-anchor: none;
+    overscroll-behavior: contain;
+  }
+
+  .sc-pstudio-stage {
+    flex: none;
+    padding: var(--sc-space-5) var(--sc-space-6) var(--sc-space-4);
+  }
+
+  /* a definite height, so the well's own height has something to read */
+  .sc-pstudio-wrap {
+    flex: none;
+    height: min(46dvh, calc((100vw - 32px) * 5 / 4));
+    padding: 0;
+  }
+
+  .sc-pstudio-well {
+    height: min(100cqh, calc(100cqw * 5 / 4));
+  }
+
+  /* No stage on a phone, in any phase.
+     A screen this size cannot hold a gallery and a conversation at once: the
+     stage took the top forty per cent and left the talking in a band at the
+     bottom, with the same picture in both places. The conversation carries the
+     work here, pictures and all, which is what a chat on a phone is. The
+     stage is a desktop affordance and stays one. */
+  .sc-pstudio-stage {
+    display: none;
+  }
+
+  .sc-pstudio-strip {
+    justify-content: flex-start;
+    margin: 0 calc(-1 * var(--sc-space-6));
+    padding: var(--sc-space-5) var(--sc-space-6) 0;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .sc-pstudio-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sc-pstudio-strip li {
+    flex: none;
+    scroll-snap-align: start;
+  }
+
+  .sc-pstudio-slot-inner {
+    width: 72px;
+    height: 90px;
+  }
+
+  .sc-pstudio-body {
+    flex: none;
+    padding: var(--sc-space-5) var(--sc-space-6);
+  }
+
+  .sc-pstudio-body[data-end] {
+    justify-content: flex-start;
+    padding: var(--sc-space-5) var(--sc-space-6);
+  }
+
+  /* The bottom of the conversation, not a bar bolted under it: the same ground
+     as the talk above it and no seam across the screen. Sticky over the one
+     scroller, so the talk passes under the fade on its way out. */
+  .sc-pstudio-foot {
+    --sc-dock-ground: var(--sc-panel);
+    position: sticky;
+    bottom: 0;
+    padding: 0 var(--sc-space-6) calc(var(--sc-space-5) + var(--sc-bottom-inset));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-pstudio-well img {
+    animation: none;
+  }
+}
+
+/* ---- the conversation rail ------------------------------------------------ */
+/* The rail's body holds the transcript, which is the one scroll region on a
+   desktop; on a phone the column scrolls and the transcript does not. */
+.sc-pstudio-body[data-convo] {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+@media (min-width: 768px) {
+  .sc-pstudio-body[data-convo] {
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+}
+
+/* a redrawn view still has the one it replaced behind it: one quiet offer */
+.sc-pstudio-offer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-4);
+  padding: var(--sc-space-4) var(--sc-space-5);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  font-size: 13px;
+  color: var(--sc-fg2);
+}
+
+.sc-pstudio-offer .sc-btn {
+  height: 28px;
+  padding: 0 12px;
+  font-size: var(--sc-text-body);
+}
+
+/* the filed-under line, beside the save turn */
+
+/* a candidate over a picture that stands: press to see the one it replaces */
+/* The versions of this view, on the picture itself: one press moves through
+   them, the picture under it follows, and what it says is what you are looking
+   at. Nothing is put back until it is asked for, so stepping costs nothing and
+   fifty read exactly as three do. It speaks the Compare press's language,
+   at the foot of the picture where it is out of the face's way. */
+.sc-pstudio-vers {
+  position: absolute;
+  inset: auto auto 12px 50%;
+  translate: -50% 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 4px;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-glass);
+  backdrop-filter: blur(8px);
+  color: var(--sc-fg);
+  font-size: var(--sc-text-caption);
+  white-space: nowrap;
+}
+
+.sc-pstudio-vers-step {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sc-pstudio-vers-step:hover {
+  background: color-mix(in srgb, var(--sc-fg) 12%, transparent);
+}
+
+.sc-pstudio-vers-step[aria-disabled] {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sc-pstudio-vers-step[aria-disabled]:hover {
+  background: none;
+}
+
+.sc-pstudio-vers-n {
+  padding: 0 2px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-pstudio-vers-on {
+  padding: 0 8px 0 6px;
+  color: var(--sc-fg3);
+}
+
+/* a finger gets its own room */
+@media (pointer: coarse) {
+  .sc-pstudio-vers {
+    height: 40px;
+    gap: 4px;
+    padding: 0 6px;
+  }
+
+  .sc-pstudio-vers-step {
+    width: 34px;
+    height: 34px;
+  }
+
+  .sc-pstudio-vers-put {
+    height: 32px;
+  }
+}
+
+.sc-pstudio-vers-put {
+  height: 22px;
+  margin-left: 4px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+  font-size: var(--sc-text-caption);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.sc-pstudio-compare {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-glass);
+  color: var(--sc-fg);
+  font-size: var(--sc-text-caption);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.sc-pstudio-compare[aria-pressed="true"] {
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+}
+
+@media (max-width: 767px) {
+  /* the stage stays put while the conversation scrolls under it */
+  .sc-pstudio-stage {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .sc-pstudio-wrap {
+    height: min(32dvh, calc(100dvh - var(--sc-kb) - 340px));
+  }
+
+  .sc-pstudio-slot-inner {
+    width: 56px;
+    height: 70px;
+  }
+
+  .sc-pstudio-slot-lb {
+    font-size: var(--sc-text-caption);
+    line-height: 16px;
+  }
+
+  .sc-pstudio-strip {
+    padding-top: var(--sc-space-4);
+  }
+
+  .sc-pstudio-body[data-convo] .sc-convo-log {
+    flex: none;
+    overflow: visible;
+  }
+
+  .sc-pstudio-foot .sc-dlg-foot {
+    display: none;
+  }
+}
+
+.sc-pstudio-slot-mark[data-tone="alert"] {
+  background: var(--sc-red);
+  color: var(--sc-inv-fg);
+}

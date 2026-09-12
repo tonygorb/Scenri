@@ -1,0 +1,456 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import sharp from 'sharp';
+import { createCore, type Core, type EngineAdapter, type GenerateRequest } from '@scenri/core';
+import { buildServer } from '../src/server.js';
+import { resetAssetBuilds } from '../src/customAssets.js';
+import { resetPresenterDrafts, runningDraftJobCount } from '../src/presenterDrafts.js';
+
+/**
+ * The presenter studio's API: a draft is created, its views are drawn and
+ * decided one at a time, and the save is a presenter like any other. The
+ * engine is the same spy the asset-build tests use.
+ */
+describe('presenter draft routes', () => {
+  let home: string;
+  let templatesDir: string;
+  let core: Core;
+  let app: ReturnType<typeof buildServer>;
+  let generated: GenerateRequest[];
+
+  const png = (tint: string, w = 1024, h = 1280) =>
+    sharp({ create: { width: w, height: h, channels: 3, background: tint } })
+      .png()
+      .toBuffer();
+
+  const engine = (): EngineAdapter => ({
+    capabilities: () => ({
+      id: 'spy',
+      displayName: 'Spy',
+      localOnly: false,
+      supportsEdit: true,
+      supportsMask: false,
+      maxReferenceImages: 5,
+    }),
+    isAvailable: async () => ({ ok: true }),
+    costEstimate: async () => 0,
+    generate: async (req) => {
+      generated.push(req);
+      const shade = (0x20 + generated.length * 0x0b).toString(16).padStart(2, '0');
+      return { images: [core.images.save(await png(`#${shade}4050`))], costUsd: 0 };
+    },
+    edit: async () => ({ images: [], costUsd: 0 }),
+  });
+
+  const analyzer = () => ({
+    isAvailable: async () => ({ ok: true }),
+    analyze: async (req: any) => ({
+      promptName: 'a man in his thirties with a dark beard',
+      presentation: 'man' as const,
+      descriptor: 'Warm · dark beard · direct',
+      ageRange: 'mid 30s',
+      hair: 'short dark hair',
+      identityNotes: 'the beard and the heavy brow must survive every generation',
+      negativeConstraints: [],
+      suitableCategories: [],
+      coverage: [],
+      ...(req.classifyPhotos ? { photos: [{ index: 0, view: 'portrait' as const, usable: true, note: 'sharp' }] } : {}),
+    }),
+  });
+
+  const start = () => {
+    const e = engine();
+    return buildServer({
+      core,
+      engines: { all: () => [e], get: (id) => (id === 'spy' ? e : null) },
+      templatesDir,
+      analyzer: analyzer(),
+    });
+  };
+
+  beforeEach(() => {
+    resetAssetBuilds();
+    resetPresenterDrafts();
+    generated = [];
+    templatesDir = mkdtempSync(join(tmpdir(), 'sc-pdr-templates-'));
+    mkdirSync(join(templatesDir, 'presenters'), { recursive: true });
+    home = mkdtempSync(join(tmpdir(), 'sc-pdr-home-'));
+    core = createCore(home);
+    app = start();
+  });
+
+  afterEach(async () => {
+    resetPresenterDrafts();
+    resetAssetBuilds();
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    rmSync(templatesDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  const newBrand = async () =>
+    (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', meta: { name: 'Acme' } } },
+      })
+    ).json() as { id: string };
+
+  const j = async (method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: unknown) => {
+    const opts: Record<string, unknown> = { method, url };
+    if (payload !== undefined) opts.payload = payload;
+    const res = await app.inject(opts as any);
+    return { status: res.statusCode, body: res.json() as any };
+  };
+
+  /** Wait for whatever the draft is drawing. */
+  const settled = async (brandId: string, draftId: string) => {
+    for (let i = 0; i < 400; i++) {
+      const { body } = await j('GET', `/api/brands/${brandId}/presenter-drafts/${draftId}`);
+      if (body.stage === 'idle' && !body.activeView && runningDraftJobCount() === 0) return body;
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    throw new Error('the draft never settled');
+  };
+
+  it('creates, draws, decides and saves a person from scratch', async () => {
+    const brand = await newBrand();
+    const base = `/api/brands/${brand.id}/presenter-drafts`;
+    const created = await j('POST', base, { source: 'synthetic', direction: 'a man in his 30s with a dark beard' });
+    expect(created.status).toBe(200);
+    const id = created.body.id as string;
+    expect(id).toMatch(/^pd-[a-f0-9]{8}$/);
+    expect((await j('GET', base)).body.drafts.map((d: any) => d.id)).toEqual([id]);
+
+    const started = await j('POST', `${base}/${id}/views/portrait/generate`, {});
+    expect(started.status).toBe(200);
+    expect(started.body.draft.views.portrait.status).toBe('generating');
+    expect((await j('POST', `${base}/${id}/views/portrait/generate`, {})).status).toBe(409);
+    let d = await settled(brand.id, id);
+    expect(d.views.portrait.status).toBe('candidate');
+
+    expect((await j('POST', `${base}/${id}/views/portrait/approve`)).body.views.portrait.status).toBe('approved');
+    await j('POST', `${base}/${id}/views/front/generate`, {});
+    d = await settled(brand.id, id);
+    expect(d.views.front.conditionedOn).toEqual([d.views.portrait.hash]);
+    await j('POST', `${base}/${id}/views/front/approve`);
+    await j('POST', `${base}/${id}/views/three-quarter/generate`, { adjustment: 'a touch more smile' });
+    d = await settled(brand.id, id);
+    expect(d.views['three-quarter'].adjustment).toBe('a touch more smile');
+    expect(d.asks).toEqual([expect.objectContaining({ view: 'three-quarter', text: 'a touch more smile' })]);
+    expect(d.results.at(-1)).toMatchObject({ view: 'three-quarter', ask: 'a touch more smile', how: 'drawn' });
+    const before = d.results.find((r: any) => r.view === 'three-quarter').hash;
+    const back = await j('POST', `${base}/${id}/views/three-quarter/restore`, { hash: before });
+    expect(back.status).toBe(200);
+    expect(back.body.views['three-quarter'].hash).toBe(before);
+    await j('POST', `${base}/${id}/views/three-quarter/approve`);
+
+    expect((await j('POST', `${base}/${id}/save`)).status).toBe(400); // no name yet
+    expect((await j('PATCH', `${base}/${id}`, { name: 'Tomas', facets: ['Beauty'] })).body.name).toBe('Tomas');
+    const saved = await j('POST', `${base}/${id}/save`);
+    expect(saved.status).toBe(200);
+    expect(saved.body.presenter).toMatchObject({ name: 'Tomas', origin: 'custom', source: 'synthetic' });
+    expect(saved.body.presenter.shots.map((s: any) => s.angle)).toEqual(['portrait', 'front', 'three-quarter']);
+    expect(saved.body.brand.json.characters).toHaveLength(1);
+    expect((await j('GET', `${base}/${id}`)).status).toBe(404);
+  });
+
+  it('a revised approved view can be used or kept as it was, through the route', async () => {
+    const brand = await newBrand();
+    const base = `/api/brands/${brand.id}/presenter-drafts`;
+    const { body: made } = await j('POST', base, { source: 'synthetic', direction: 'someone' });
+    await j('POST', `${base}/${made.id}/views/portrait/generate`, {});
+    let d = await settled(brand.id, made.id);
+    await j('POST', `${base}/${made.id}/views/portrait/approve`);
+    const face = d.views.portrait.hash;
+    // nothing to keep yet
+    expect((await j('POST', `${base}/${made.id}/views/portrait/revert`)).status).toBe(400);
+    await j('POST', `${base}/${made.id}/views/portrait/generate`, { adjustment: 'shorter hair' });
+    d = await settled(brand.id, made.id);
+    expect(d.views.portrait).toMatchObject({ status: 'candidate', prior: face });
+    const kept = await j('POST', `${base}/${made.id}/views/portrait/revert`);
+    expect(kept.status).toBe(200);
+    expect(kept.body.views.portrait).toMatchObject({ status: 'approved', hash: face });
+    expect(kept.body.views.portrait.prior).toBeUndefined();
+  });
+
+  it('extras are switched on through the row, and a landed view can decide itself through the body', async () => {
+    const brand = await newBrand();
+    const base = `/api/brands/${brand.id}/presenter-drafts`;
+    const { body: made } = await j('POST', base, { source: 'synthetic', direction: 'someone' });
+    expect(made.extras).toBe(false);
+    await j('POST', `${base}/${made.id}/views/portrait/generate`, {});
+    await settled(brand.id, made.id);
+    await j('POST', `${base}/${made.id}/views/portrait/approve`);
+    // the face is always decided by hand
+    const byHand = await j('POST', `${base}/${made.id}/views/portrait/generate`, { decide: 'auto' });
+    expect(byHand.status).toBe(400);
+    expect(byHand.body.error).toMatch(/by hand/);
+    // and so is the full body: it comes back a candidate and waits
+    const bodyByHand = await j('POST', `${base}/${made.id}/views/front/generate`, { decide: 'auto' });
+    expect(bodyByHand.status).toBe(400);
+    expect(bodyByHand.body.error).toMatch(/by hand/);
+    await j('POST', `${base}/${made.id}/views/front/generate`, {});
+    let d = await settled(brand.id, made.id);
+    expect(d.views.front.status).toBe('candidate');
+    await j('POST', `${base}/${made.id}/views/front/approve`);
+    // a three-quarter that decides itself lands approved with no one asked
+    await j('POST', `${base}/${made.id}/views/three-quarter/generate`, { decide: 'auto' });
+    d = await settled(brand.id, made.id);
+    expect(d.views['three-quarter'].status).toBe('approved');
+    // an extra waits for the switch
+    const early = await j('POST', `${base}/${made.id}/views/back/generate`, {});
+    expect(early.status).toBe(400);
+    expect(early.body.error).toMatch(/on request/);
+    const on = await j('PATCH', `${base}/${made.id}`, { extras: true });
+    expect(on.status).toBe(200);
+    expect(on.body.extras).toBe(true);
+    await j('POST', `${base}/${made.id}/views/back/generate`, { decide: 'auto' });
+    d = await settled(brand.id, made.id);
+    expect(d.views.back.status).toBe('approved');
+    expect((await j('PATCH', `${base}/${made.id}`, { extras: false })).body.extras).toBe(false);
+    // and the switch can be set at creation
+    const { body: asked } = await j('POST', base, { source: 'synthetic', direction: 'someone', extras: true });
+    expect(asked.extras).toBe(true);
+  });
+
+  it('a draft belongs to its brand', async () => {
+    const acme = await newBrand();
+    const other = await newBrand();
+    const { body } = await j('POST', `/api/brands/${acme.id}/presenter-drafts`, {
+      source: 'synthetic',
+      direction: 'x',
+    });
+    expect((await j('GET', `/api/brands/${other.id}/presenter-drafts/${body.id}`)).status).toBe(404);
+    expect((await j('DELETE', `/api/brands/${other.id}/presenter-drafts/${body.id}`)).status).toBe(404);
+    expect((await j('GET', `/api/brands/${other.id}/presenter-drafts`)).body.drafts).toEqual([]);
+  });
+
+  it('refuses what the module refuses, with the reason', async () => {
+    const brand = await newBrand();
+    const base = `/api/brands/${brand.id}/presenter-drafts`;
+    const noWords = await j('POST', base, { source: 'synthetic', direction: '' });
+    expect(noWords.status).toBe(400);
+    expect(noWords.body.error).toMatch(/describe/);
+    const photo = core.images.save(await png('#a08070', 800, 1000));
+    const noConsent = await j('POST', base, { source: 'photos', imageHashes: [photo] });
+    expect(noConsent.status).toBe(400);
+    expect(noConsent.body.error).toMatch(/permission/);
+    const { body } = await j('POST', base, { source: 'synthetic', direction: 'someone' });
+    const early = await j('POST', `${base}/${body.id}/views/front/generate`, {});
+    expect(early.status).toBe(400);
+    expect(early.body.error).toMatch(/face/);
+    expect((await j('POST', `${base}/${body.id}/views/sideways/generate`, {})).status).toBe(400);
+  });
+
+  it('from photos: the likeness is confirmed, a photo can be placed by hand, the originals are kept', async () => {
+    const brand = await newBrand();
+    const base = `/api/brands/${brand.id}/presenter-drafts`;
+    const a = core.images.save(await png('#a08070', 800, 1000));
+    const b = core.images.save(await png('#b09080', 800, 1000));
+    const created = await j('POST', base, { source: 'photos', imageHashes: [a, b], attestation: true, name: 'Noor' });
+    expect(created.status).toBe(200);
+    let d = await settled(brand.id, created.body.id);
+    expect(d.attestation.version).toBe('v1');
+    expect(d.views.portrait).toMatchObject({ status: 'approved', hash: a, origin: 'photo' });
+    const placed = await j('POST', `${base}/${d.id}/views/front/use-photo`, { hash: b });
+    expect(placed.status).toBe(200);
+    expect(placed.body.views.front).toMatchObject({ status: 'approved', hash: b, origin: 'photo' });
+    expect((await j('POST', `${base}/${d.id}/views/front/use-photo`, { hash: 'f'.repeat(32) })).status).toBe(400);
+    const redone = await j('POST', `${base}/${d.id}/views/front/redo`);
+    expect(redone.body.views.front.status).toBe('empty');
+    await j('POST', `${base}/${d.id}/views/front/generate`, {});
+    d = await settled(brand.id, d.id);
+    await j('POST', `${base}/${d.id}/views/front/approve`);
+    await j('POST', `${base}/${d.id}/views/three-quarter/generate`, {});
+    d = await settled(brand.id, d.id);
+    await j('POST', `${base}/${d.id}/views/three-quarter/approve`);
+    const saved = await j('POST', `${base}/${d.id}/save`);
+    expect(saved.status).toBe(200);
+    expect(saved.body.presenter.source).toBe('photos');
+    expect(saved.body.presenter.likeness.version).toBe('v1');
+    expect(saved.body.presenter.sourceRefs.map((s: any) => s.file)).toEqual([`asset:${a}`, `asset:${b}`]);
+    expect(existsSync(core.images.pathFor(a))).toBe(true);
+    expect(existsSync(core.images.pathFor(b))).toBe(true);
+  });
+
+  it('discarding stops a running step and takes the pictures and their thumbnails with it', async () => {
+    const brand = await newBrand();
+    const base = `/api/brands/${brand.id}/presenter-drafts`;
+    const { body } = await j('POST', base, { source: 'synthetic', direction: 'someone' });
+    await j('POST', `${base}/${body.id}/views/portrait/generate`, {});
+    let d = await settled(brand.id, body.id);
+    const first = d.views.portrait.hash as string;
+    await j('POST', `${base}/${body.id}/views/portrait/generate`, {});
+    d = await settled(brand.id, body.id);
+    const second = d.views.portrait.hash as string;
+    // a thumbnail exists for a picture the stage showed
+    expect((await app.inject({ method: 'GET', url: `/api/images/${first}/thumb?w=160` })).statusCode).toBe(200);
+    const thumb = join(home, 'thumbs', `${first}-w160.webp`);
+    expect(existsSync(thumb)).toBe(true);
+    await j('POST', `${base}/${body.id}/views/portrait/generate`, {});
+    expect(runningDraftJobCount()).toBe(1);
+    expect((await j('DELETE', `${base}/${body.id}`)).status).toBe(200);
+    expect(runningDraftJobCount()).toBe(0);
+    expect((await j('GET', `${base}/${body.id}`)).status).toBe(404);
+    expect(existsSync(core.images.pathFor(first))).toBe(false);
+    expect(existsSync(core.images.pathFor(second))).toBe(false);
+    expect(existsSync(thumb)).toBe(false);
+  });
+
+  it('a slot left generating by a crash is swept when the server starts', async () => {
+    const brand = await newBrand();
+    const base = `/api/brands/${brand.id}/presenter-drafts`;
+    const { body } = await j('POST', base, { source: 'synthetic', direction: 'someone' });
+    const row = core.store.getPresenterDraft(body.id)!.json as any;
+    row.views.portrait.status = 'generating';
+    row.activeView = 'portrait';
+    row.stage = 'drawing';
+    core.store.putPresenterDraft({ id: body.id, brandId: brand.id, json: row });
+    // the restart: the process goes, the library stays
+    await app.drain();
+    core = createCore(home);
+    app = start();
+    const { body: d } = await j('GET', `${base}/${body.id}`);
+    expect(d.views.portrait.status).toBe('empty');
+    expect(d.views.portrait.error).toMatch(/restart/);
+    expect(d.activeView).toBeNull();
+  });
+
+  /**
+   * A saved shot names only the presenter's id, so an edit that changes a
+   * picture is a new record and the old one stays. Revert walks that chain
+   * back one record at a time.
+   */
+  describe('reverting a revision', () => {
+    const person = (id: string, hash: string, extra: Record<string, unknown> = {}) => ({
+      id,
+      name: 'Ilse',
+      origin: 'custom',
+      shots: [{ file: `asset:${hash}`, angle: 'portrait', locked: true }],
+      ...extra,
+    });
+    const chainBrand = async () => {
+      const [a, b, c] = ['a', 'b', 'c'].map((ch) => ch.repeat(32));
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: {
+          brand: {
+            specVersion: '0.1',
+            meta: { name: 'Acme' },
+            characters: [
+              person('up-00000001', a, { supersededBy: 'up-00000002' }),
+              person('up-00000002', b, { revisionOf: 'up-00000001', supersededBy: 'up-00000003' }),
+              person('up-00000003', c, { revisionOf: 'up-00000002' }),
+            ],
+          },
+        },
+      });
+      expect(res.statusCode).toBe(200);
+      return res.json() as { id: string };
+    };
+
+    it('puts the previous record back as the head, one step per call, and refuses when nothing is older', async () => {
+      const brand = await chainBrand();
+      const url = (id: string) => `/api/brands/${brand.id}/presenters/${id}/revert`;
+      // only a head reverts
+      expect((await j('POST', url('up-00000002'))).status).toBe(400);
+      const once = await j('POST', url('up-00000003'));
+      expect(once.status).toBe(200);
+      expect(once.body.presenter.id).toBe('up-00000002');
+      expect(once.body.presenter.supersededBy).toBeUndefined();
+      const rows = once.body.brand.json.characters as any[];
+      // the reverted record stays, pointing at the head again
+      expect(rows.find((c) => c.id === 'up-00000003').supersededBy).toBe('up-00000002');
+      expect(rows).toHaveLength(3);
+      const twice = await j('POST', url('up-00000002'));
+      expect(twice.status).toBe(200);
+      expect(twice.body.presenter.id).toBe('up-00000001');
+      const nothing = await j('POST', url('up-00000001'));
+      expect(nothing.status).toBe(400);
+      expect(nothing.body.error).toMatch(/nothing to revert/i);
+      expect((await j('POST', url('up-nobody'))).status).toBe(404);
+    });
+  });
+
+  describe('editing a saved presenter', () => {
+    /** A synthetic person cast through the routes and saved. */
+    const castSynthetic = async (brandId: string, name = 'Tomas') => {
+      const base = `/api/brands/${brandId}/presenter-drafts`;
+      const { body: made } = await j('POST', base, { source: 'synthetic', direction: 'a man in his 30s' });
+      for (const view of ['portrait', 'front', 'three-quarter'] as const) {
+        await j('POST', `${base}/${made.id}/views/${view}/generate`, {});
+        await settled(brandId, made.id);
+        await j('POST', `${base}/${made.id}/views/${view}/approve`);
+      }
+      await j('PATCH', `${base}/${made.id}`, { name });
+      const saved = await j('POST', `${base}/${made.id}/save`);
+      expect(saved.status).toBe(200);
+      return saved.body.presenter as any;
+    };
+
+    it('opens one session seeded from the record, lists it by presenter, and refuses what is not editable', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: {
+          brand: { specVersion: '0.1', meta: { name: 'Acme' }, characters: [{ id: 'legacy', name: 'Old Cast' }] },
+        },
+      });
+      const brand = res.json() as { id: string };
+      const p = await castSynthetic(brand.id);
+      expect((await j('POST', `/api/brands/${brand.id}/presenters/nobody/edit`)).status).toBe(404);
+      const curated = await j('POST', `/api/brands/${brand.id}/presenters/legacy/edit`);
+      expect(curated.status).toBe(400);
+      expect(curated.body.error).toMatch(/not editable/);
+      const opened = await j('POST', `/api/brands/${brand.id}/presenters/${p.id}/edit`);
+      expect(opened.status).toBe(200);
+      expect(opened.body.presenterId).toBe(p.id);
+      expect(opened.body.baseId).toBe(p.id);
+      expect(opened.body.identityEdits).toEqual([]);
+      expect(opened.body.views.portrait).toMatchObject({
+        status: 'approved',
+        origin: 'generated',
+        hash: p.shots[0].file.slice(6),
+      });
+      expect(opened.body.stage).toBe('idle');
+      // opening again is the same session
+      expect((await j('POST', `/api/brands/${brand.id}/presenters/${p.id}/edit`)).body.id).toBe(opened.body.id);
+      const { body: listed } = await j('GET', `/api/brands/${brand.id}/presenter-drafts`);
+      expect(listed.drafts.map((d: any) => [d.id, d.presenterId])).toEqual([[opened.body.id, p.id]]);
+    });
+
+    it('a saved repair is a new record, an old id opens the head, and revert walks back to it', async () => {
+      const brand = await newBrand();
+      const p = await castSynthetic(brand.id);
+      const base = `/api/brands/${brand.id}/presenter-drafts`;
+      const { body: d } = await j('POST', `/api/brands/${brand.id}/presenters/${p.id}/edit`);
+      await j('POST', `${base}/${d.id}/views/three-quarter/generate`, { adjustment: 'a touch more smile' });
+      await settled(brand.id, d.id);
+      await j('POST', `${base}/${d.id}/views/three-quarter/approve`);
+      const saved = await j('POST', `${base}/${d.id}/save`);
+      expect(saved.status).toBe(200);
+      const head = saved.body.presenter;
+      expect(head.id).not.toBe(p.id);
+      expect(head.revisionOf).toBe(p.id);
+      const rows = saved.body.brand.json.characters as any[];
+      expect(rows).toHaveLength(2);
+      expect(rows.find((c) => c.id === p.id).supersededBy).toBe(head.id);
+      expect((await j('GET', `${base}/${d.id}`)).status).toBe(404);
+      // the old id opens a session on the head
+      const reopened = await j('POST', `/api/brands/${brand.id}/presenters/${p.id}/edit`);
+      expect(reopened.body.presenterId).toBe(head.id);
+      expect(reopened.body.views['three-quarter'].hash).toBe(head.shots[2].file.slice(6));
+      await j('DELETE', `${base}/${reopened.body.id}`);
+      // and revert puts the first record back as the head
+      const reverted = await j('POST', `/api/brands/${brand.id}/presenters/${head.id}/revert`);
+      expect(reverted.status).toBe(200);
+      expect(reverted.body.presenter.id).toBe(p.id);
+      expect(reverted.body.presenter.supersededBy).toBeUndefined();
+      expect((await j('POST', `/api/brands/${brand.id}/presenters/${head.id}/edit`)).body.presenterId).toBe(p.id);
+    });
+  });
+});

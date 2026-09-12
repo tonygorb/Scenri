@@ -1,10 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   customPresenterById,
   customPresentersOf,
   customSceneById,
   customScenesOf,
+  headPresenterId,
   withCustomFirst,
+  withHeadPresenters,
 } from '../src/brandAssets.js';
 import type { Brand } from '../src/api.js';
 
@@ -55,6 +57,32 @@ const PLACE = {
 };
 
 describe('customPresentersOf', () => {
+  it('reads the casting prose and the origin a studio-built person carries, and leaves an older record empty', () => {
+    const [p] = customPresentersOf(
+      brandWith({
+        characters: [
+          {
+            ...PERSON,
+            source: 'photos',
+            likeness: { attestedAt: '2026-09-08T00:00:00Z', version: 'v1' },
+            facial: 'oval face',
+            skin: 'olive',
+            build: 'slender',
+          },
+        ],
+      }),
+    );
+    expect(p.source).toBe('photos');
+    expect(p.likeness).toEqual({ attestedAt: '2026-09-08T00:00:00Z', version: 'v1' });
+    expect(p.facial).toBe('oval face');
+    expect(p.skin).toBe('olive');
+    expect(p.build).toBe('slender');
+    const [old] = customPresentersOf(brandWith({ characters: [PERSON] }));
+    expect(old.source).toBeUndefined();
+    expect(old.likeness).toBeUndefined();
+    expect(old.facial).toBe('');
+  });
+
   it('reads a person the brand built, in the catalog shape every card takes', () => {
     const [p] = customPresentersOf(brandWith({ characters: [PERSON] }));
     expect(p.id).toBe('up-1234abcd');
@@ -87,6 +115,23 @@ describe('customPresentersOf', () => {
     expect(customPresentersOf(null)).toEqual([]);
     expect(customPresenterById(brandWith({ characters: [PERSON] }), 'up-1234abcd')?.name).toBe('Mara');
     expect(customPresenterById(brandWith({ characters: [PERSON] }), 'nobody')).toBeUndefined();
+  });
+
+  it('lists only the heads, resolves a superseded id, and maps any id to its head', () => {
+    const old = { ...PERSON, id: 'up-old', supersededBy: 'up-1234abcd' };
+    const head = { ...PERSON, revisionOf: 'up-old', identityEdits: ['shorter hair'] };
+    const brand = brandWith({ characters: [old, head] });
+    const listed = customPresentersOf(brand);
+    expect(listed.map((p) => p.id)).toEqual(['up-1234abcd']);
+    expect(listed[0].revisionOf).toBe('up-old');
+    expect(listed[0].supersededBy).toBeUndefined();
+    expect(listed[0].identityEdits).toEqual(['shorter hair']);
+    // an old shot still names the old record, and its page still opens
+    expect(customPresenterById(brand, 'up-old')?.supersededBy).toBe('up-1234abcd');
+    expect(customPresenterById(brand, 'up-old')?.identityEdits).toEqual([]);
+    expect(headPresenterId(brand, 'up-old')).toBe('up-1234abcd');
+    expect(headPresenterId(brand, 'up-1234abcd')).toBe('up-1234abcd');
+    expect(headPresenterId(brand, 'nobody')).toBe('nobody');
   });
 });
 
@@ -134,5 +179,29 @@ describe('withCustomFirst', () => {
     const merged = withCustomFirst([{ id: 'studio-shelf', mine: true }], [{ id: 'studio-shelf', mine: false }]);
     expect(merged).toHaveLength(1);
     expect((merged[0] as any).mine).toBe(true);
+  });
+});
+
+describe('a brief started from an old shot', () => {
+  it('carries each person as they are now, and leaves every other token alone', () => {
+    const brand = {
+      json: {
+        characters: [
+          { id: 'up-a', name: 'Maren', origin: 'custom', supersededBy: 'up-b' },
+          { id: 'up-b', name: 'Maren', origin: 'custom', revisionOf: 'up-a' },
+        ],
+      },
+    } as any;
+    const tokens = [
+      { t: 'character', id: 'up-a' },
+      { t: 'product', id: 'p1' },
+      { t: 'text', v: 'by a window' },
+    ];
+    expect(withHeadPresenters(brand, tokens)).toEqual([
+      { t: 'character', id: 'up-b' },
+      { t: 'product', id: 'p1' },
+      { t: 'text', v: 'by a window' },
+    ]);
+    expect(withHeadPresenters(brand, [{ t: 'character', id: 'unknown' }])).toEqual([{ t: 'character', id: 'unknown' }]);
   });
 });

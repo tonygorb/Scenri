@@ -13,10 +13,20 @@ import { assetUrl, type Brand, type Presenter, type Scene } from './api.js';
 
 export interface CustomPresenter extends Presenter {
   custom: true;
+  /** Made here from a description, or built from photographs of a real person. Absent on older records: photos. */
+  source?: 'synthetic' | 'photos';
+  /** The likeness confirmation given for a real person. */
+  likeness?: { attestedAt: string; version: string };
   /** The photographs this person was built from. Never generated. */
   sourceRefs: string[];
   /** The normalized views, in the order a brief attaches them. */
   shots: string[];
+  /** The record this one replaced, when an edit that changed a picture made it. */
+  revisionOf?: string;
+  /** The record that replaced this one. Absent on the head, the only record a list shows. */
+  supersededBy?: string;
+  /** The identity-wide instructions accepted when this record's views were drawn. */
+  identityEdits?: string[];
 }
 
 export interface CustomScene extends Scene {
@@ -34,14 +44,37 @@ export interface CustomScene extends Scene {
 const urls = (rows: unknown): string[] =>
   Array.isArray(rows) ? rows.map((r: any) => assetUrl(r?.file)).filter((u): u is string => !!u) : [];
 
-/** A brand's own people, newest last, exactly as its document lists them. */
+const customRows = (brand: Brand | null | undefined): any[] =>
+  ((brand?.json?.characters ?? []) as any[]).filter((c) => c?.origin === 'custom');
+
+/**
+ * A brand's own people, newest last, exactly as its document lists them:
+ * one record per person, the current one. A record an edit replaced stays
+ * in the document for the shots made against it, and never in a list.
+ */
 export function customPresentersOf(brand: Brand | null | undefined): CustomPresenter[] {
-  const rows: any[] = brand?.json?.characters ?? [];
-  return rows.filter((c) => c?.origin === 'custom').map(toPresenter);
+  return customRows(brand)
+    .filter((c) => !c.supersededBy)
+    .map(toPresenter);
 }
 
+/** Any record by id, the head or one an edit replaced, so an old shot's presenter still opens. */
 export function customPresenterById(brand: Brand | null | undefined, id: string): CustomPresenter | undefined {
-  return customPresentersOf(brand).find((p) => p.id === id);
+  const row = customRows(brand).find((c) => c.id === id);
+  return row ? toPresenter(row) : undefined;
+}
+
+/** The current record for any presenter id, following the chain of replacements; an unknown id is its own head. */
+export function headPresenterId(brand: Brand | null | undefined, id: string): string {
+  const rows = customRows(brand);
+  const seen = new Set<string>([id]);
+  let cur = id;
+  for (;;) {
+    const next = rows.find((c) => c.id === cur)?.supersededBy;
+    if (typeof next !== 'string' || !next || seen.has(next) || !rows.some((c) => c.id === next)) return cur;
+    seen.add(next);
+    cur = next;
+  }
 }
 
 function toPresenter(c: any): CustomPresenter {
@@ -59,14 +92,13 @@ function toPresenter(c: any): CustomPresenter {
     hair: String(c.hair ?? ''),
     identityNotes: String(c.identityNotes ?? ''),
     negativeConstraints: Array.isArray(c.negativeConstraints) ? c.negativeConstraints.map(String) : [],
-    // A curated presenter carries these from its casting sheet. A person built
-    // here has them folded into identityNotes instead, so they stay empty
-    // rather than being invented to fill a shape. `suitableCategories` is the
-    // exception: it is what the category tabs filter on, so a person with none
-    // would be invisible under every tab but "Every presenter".
-    facial: '',
-    skin: '',
-    build: '',
+    // The casting-sheet prose a person built in the studio carries, the same
+    // three the curated roster does; an older record has none and stays
+    // empty rather than being invented to fill a shape. `wardrobeDefault` is
+    // the capture uniform and never rides.
+    facial: String(c.facial ?? ''),
+    skin: String(c.skin ?? ''),
+    build: String(c.build ?? ''),
     wardrobeDefault: '',
     suitableCategories: Array.isArray(c.suitableCategories) ? c.suitableCategories.map(String) : [],
     suitableStyles: [],
@@ -80,6 +112,13 @@ function toPresenter(c: any): CustomPresenter {
     custom: true,
     shots,
     sourceRefs,
+    identityEdits: Array.isArray(c.identityEdits) ? c.identityEdits.map(String) : [],
+    ...(c.revisionOf ? { revisionOf: String(c.revisionOf) } : {}),
+    ...(c.supersededBy ? { supersededBy: String(c.supersededBy) } : {}),
+    ...(c.source === 'synthetic' || c.source === 'photos' ? { source: c.source } : {}),
+    ...(c.likeness?.attestedAt
+      ? { likeness: { attestedAt: String(c.likeness.attestedAt), version: String(c.likeness.version ?? 'v1') } }
+      : {}),
   };
 }
 
@@ -129,4 +168,19 @@ function toScene(s: any): CustomScene {
 export function withCustomFirst<T extends { id: string }>(mine: T[], catalog: T[]): T[] {
   const owned = new Set(mine.map((m) => m.id));
   return [...mine, ...catalog.filter((c) => !owned.has(c.id))];
+}
+
+/**
+ * A brief's presenter tokens, moved to the current revision of each person.
+ *
+ * A stored shot names the record it was made with, and that record keeps its
+ * pictures so a refine of the shot conditions on the person in it. A new shot
+ * started from the old one is a new shot of the person as they are now, so
+ * its tokens are mapped to the head before they enter the composer.
+ */
+export function withHeadPresenters<T extends { t: string; id?: string }>(
+  brand: Brand | null | undefined,
+  tokens: T[],
+): T[] {
+  return tokens.map((t) => (t.t === 'character' && t.id ? { ...t, id: headPresenterId(brand, t.id) } : t));
 }

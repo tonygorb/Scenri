@@ -41,6 +41,9 @@ import type {
   UsageDay,
   VersionInfo,
   Workspace,
+  PresenterDraft,
+  PresenterDraftSummary,
+  PresenterDraftView,
 } from './apiTypes.js';
 
 export const api = {
@@ -202,7 +205,8 @@ export const api = {
   startAssetBuild: (
     brandId: string,
     p: {
-      kind: 'presenter' | 'scene';
+      /** Only scenes build here; a presenter is cast in the create dialog (createPresenterDraft). */
+      kind: 'scene';
       name: string;
       instruction?: string;
       imageHashes: string[];
@@ -227,6 +231,70 @@ export const api = {
    */
   createProduct: (brandId: string, p: { name: string; imageHashes: string[]; category?: string }) =>
     req<Brand & { productId: string }>('POST', `/api/brands/${brandId}/products`, p),
+  // ---- a presenter being cast: one person, one approved view at a time
+  createPresenterDraft: (
+    brandId: string,
+    p: {
+      source: 'synthetic' | 'photos';
+      direction?: string;
+      /** What should stay the same about them, one thing at a time. */
+      keepItems?: { id: string; words: string; refs?: string[] }[];
+      imageHashes?: string[];
+      attestation?: boolean;
+      name?: string;
+      facets?: string[];
+      extras?: boolean;
+    },
+  ) => req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts`, p),
+  presenterDrafts: (brandId: string) =>
+    req<{ drafts: PresenterDraftSummary[] }>('GET', `/api/brands/${brandId}/presenter-drafts`),
+  presenterDraft: (brandId: string, draftId: string) =>
+    req<PresenterDraft>('GET', `/api/brands/${brandId}/presenter-drafts/${draftId}`),
+  updatePresenterDraft: (
+    brandId: string,
+    draftId: string,
+    p: {
+      name?: string;
+      facets?: string[];
+      direction?: string;
+      keepItems?: { id: string; words: string; refs?: string[] }[];
+      /** The conversation's own answers, kept so another tab can pick it up. */
+      setup?: string;
+      extras?: boolean;
+    },
+  ) => req<PresenterDraft>('PATCH', `/api/brands/${brandId}/presenter-drafts/${draftId}`, p),
+  /** With `decide: 'auto'` the view lands approved; the face never does. */
+  generateDraftView: (
+    brandId: string,
+    draftId: string,
+    view: PresenterDraftView,
+    p: { adjustment?: string; decide?: 'auto' } = {},
+  ) =>
+    req<{ draft: PresenterDraft }>(
+      'POST',
+      `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/generate`,
+      p,
+    ),
+  approveDraftView: (brandId: string, draftId: string, view: PresenterDraftView) =>
+    req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/approve`),
+  redoDraftView: (brandId: string, draftId: string, view: PresenterDraftView) =>
+    req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/redo`),
+  /** Keep the previous approved picture; the revision goes. */
+  revertDraftView: (brandId: string, draftId: string, view: PresenterDraftView) =>
+    req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/revert`),
+  stopDraft: (brandId: string, draftId: string) =>
+    req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/stop`),
+  restoreDraftView: (brandId: string, draftId: string, view: PresenterDraftView, hash: string) =>
+    req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/restore`, { hash }),
+  placeDraftPhoto: (brandId: string, draftId: string, view: PresenterDraftView, hash: string) =>
+    req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts/${draftId}/views/${view}/use-photo`, { hash }),
+  savePresenterDraft: (brandId: string, draftId: string) =>
+    req<{ presenter: { id: string; name: string }; brand: Brand }>(
+      'POST',
+      `/api/brands/${brandId}/presenter-drafts/${draftId}/save`,
+    ),
+  deletePresenterDraft: (brandId: string, draftId: string) =>
+    req<{ ok: true }>('DELETE', `/api/brands/${brandId}/presenter-drafts/${draftId}`),
   /** Write a presenter with no build behind it: the photos become the references. */
   createPresenter: (brandId: string, p: { name: string; shotHashes: string[]; sourceHashes?: string[] }) =>
     req<{ presenter: unknown; brand: Brand }>('POST', `/api/brands/${brandId}/presenters`, p),
@@ -234,6 +302,20 @@ export const api = {
     req<{ presenter: unknown; brand: Brand }>('PATCH', `/api/brands/${brandId}/presenters/${presenterId}`, patch),
   deletePresenter: (brandId: string, presenterId: string) =>
     req<{ ok: true }>('DELETE', `/api/brands/${brandId}/presenters/${presenterId}`),
+  /**
+   * Edit a saved person: the session already open on them, else one seeded
+   * from the record. Any id in their history opens the head. The save on the
+   * returned draft answers the head: a new record when a picture or the
+   * identity prose changed, the same record patched in place otherwise.
+   */
+  editPresenter: (brandId: string, presenterId: string) =>
+    req<PresenterDraft>('POST', `/api/brands/${brandId}/presenters/${presenterId}/edit`),
+  /** Revert last change: the record this one replaced becomes the head again. 400 when nothing is older. */
+  revertPresenter: (brandId: string, presenterId: string) =>
+    req<{ presenter: { id: string; name: string }; brand: Brand }>(
+      'POST',
+      `/api/brands/${brandId}/presenters/${presenterId}/revert`,
+    ),
   createScene: (brandId: string, p: ScenePatch) =>
     req<{ scene: unknown; warnings: string[]; brand: Brand }>('POST', `/api/brands/${brandId}/scenes`, p),
   updateScene: (brandId: string, sceneId: string, patch: ScenePatch) =>
