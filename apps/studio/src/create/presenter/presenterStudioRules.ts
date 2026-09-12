@@ -324,23 +324,30 @@ export function saysOnlyAPerson(text: string): boolean {
 export const saysAge =
   /\b(\d0s|\d{2}\s*(years|yo)|teen|twenties|thirties|forties|fifties|sixties|seventies|elderly|young|old(er)?|middle-aged|adult)\b/i;
 /**
- * The oldest a person gets, for reading a number typed at the age row.
+ * The ages a presenter can be, for reading a number typed at the age row.
  *
  * A number on its own has no letters in it, and "no letters at all" is how
  * every other question tells noise from an answer. At the age row it is the
  * answer: somebody who types 90 means ninety, and being told "that is not an
  * age" is the app arguing with a fact. 123 and 999 are still noise, which is
- * what the bound is for.
+ * what the upper bound is for.
+ *
+ * The lower bound is not about noise, it is about what Scenri draws. Every
+ * identity roll asks for "an adult" with "mature adult facial structure"
+ * (`syntheticIdentitySubject`), so a row that accepted 8 took the answer,
+ * said "aged 8" in the sentence, and then had the prompt contradict it in the
+ * next clause. Refusing it is the only reading that does not lie.
  */
 const OLDEST = 120;
+const YOUNGEST = 18;
 
-/** Whether what was typed names an age a person can be: on its own, or inside a phrase. */
+/** Whether what was typed names an age a presenter can be: on its own, or inside a phrase. */
 export function readsAsAge(text: string): boolean {
   const nums = text.match(/\d+/g);
   if (!nums?.length) return false;
   return nums.every((n) => {
     const v = Number(n);
-    return v >= 1 && v <= OLDEST;
+    return v >= YOUNGEST && v <= OLDEST;
   });
 }
 

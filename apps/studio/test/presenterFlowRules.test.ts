@@ -506,11 +506,18 @@ describe('an answer that is a fact rather than a sentence', () => {
   // an age. Tap an age above." twice, and then told to Skip. Ninety is an age.
   // The rule underneath is right everywhere else: a line with no letters in it
   // is noise at every question whose answer is a description.
-  it('takes a number at the age row, and still refuses one nobody can be', () => {
-    for (const said of ['90', '80', '45', '7', '120', 'early 40s', '35 or so']) {
+  it('takes a number at the age row, and still refuses one no presenter can be', () => {
+    for (const said of ['90', '80', '45', '18', '120', 'early 40s', '35 or so']) {
       expect(judgeAnswer('look-age', said, readsAsPerson), said).toBeNull();
     }
     for (const said of ['123', '999', '0', '2026']) {
+      expect(judgeAnswer('look-age', said, readsAsPerson), said).toBe('nonsense');
+    }
+    // A child is not noise, it is a person Scenri does not draw. Every identity
+    // roll asks for "an adult" with "mature adult facial structure", so a row
+    // that took 7 said "aged 7" in the sentence and was contradicted by the
+    // next clause of its own prompt. This used to accept 7.
+    for (const said of ['7', '8', '12', '17']) {
       expect(judgeAnswer('look-age', said, readsAsPerson), said).toBe('nonsense');
     }
     // and the age row is the only one: a number is not a hair colour

@@ -87,20 +87,6 @@ export const LOOK_ROWS: Record<LookStep, { row: SwatchRow; prompt: string }> = {
 
 export const LOOK_STEPS = LOOK_ORDER.map((id) => LOOK_ROWS[id]);
 
-/**
- * The steps a person can answer in their own words instead of tapping.
- *
- * The presets are there for speed, not to say what a presenter may be: five
- * builds are five good starting points, and the sixth person is described. Who
- * and age take no describing, because the bands already cover what they ask.
- */
-export const LOOK_SAYS: Partial<Record<LookStep, string>> = {
-  hair: 'Describe the colour',
-  length: 'Describe the cut',
-  skin: 'Describe their skin',
-  build: 'Describe the build',
-};
-
 /** The steps whose answer is a colour, and so carry the colour control. */
 export const LOOK_COLOUR = new Set<LookStep>(['hair', 'skin']);
 

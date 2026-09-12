@@ -163,7 +163,7 @@ const HOW: Record<AsidePhase, string> = {
  */
 const LOOK_ASK: Record<string, { thing: string; how: string }> = {
   who: { thing: 'a person', how: 'tap who they are' },
-  age: { thing: 'an age', how: 'tap an age' },
+  age: { thing: 'an age', how: 'tap an age, or type one: Scenri draws adults' },
   hair: { thing: 'a hair colour', how: 'tap a colour, or say it: dark auburn, salt and pepper' },
   length: { thing: 'a length', how: 'tap a length, or say it: a chin-length bob' },
   skin: { thing: 'a skin tone', how: 'tap a tone, or say it: warm olive' },

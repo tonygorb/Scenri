@@ -912,6 +912,31 @@ describe('revising an approved view', () => {
   });
 });
 
+describe('a described person needs the description that describes them', () => {
+  // The patch route takes a cleared direction and nothing revalidated it, so
+  // the roll went out as "an adult, : an original person ...", a sentence with
+  // a hole where the person should be. The draw refuses it in the same words
+  // creation would have.
+  it('refuses to draw a synthetic draft whose direction was cleared', async () => {
+    const d = await synthetic();
+    await updatePresenterDraft(core, d.id, { direction: '' });
+    await expect(generateView(deps(), d.id, 'portrait', {})).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'describe who they are in a sentence',
+    });
+    await expect(generateView(deps(), d.id, 'front', {})).rejects.toThrow(/describe who they are/);
+  });
+
+  it('draws again the moment a description is back', async () => {
+    const d = await synthetic();
+    await updatePresenterDraft(core, d.id, { direction: '   ' });
+    await expect(generateView(deps(), d.id, 'portrait', {})).rejects.toThrow(/describe who they are/);
+    await updatePresenterDraft(core, d.id, { direction: 'a woman in their 40s' });
+    const back = await step(d.id, 'portrait');
+    expect(view(back, 'portrait').status).toBe('candidate');
+  });
+});
+
 describe('extras are built on request', () => {
   it('refuses an extra until the extras are switched on, and draws it from the approved core views after', async () => {
     let d = await cast();

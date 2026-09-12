@@ -899,6 +899,14 @@ export async function generateView(
   if (!rec) throw fail('draft not found', 404);
   if (running.has(id)) throw fail('a view is still being drawn', 409);
   if (isExtra(view) && !rec.extras) throw fail('extra views are built on request', 400);
+  // A described person is drawn from that description, and a draft can lose
+  // it: the patch route takes a cleared direction (`updatePresenterDraft`) and
+  // nothing revalidated it, so the roll went out as "an adult, : an original
+  // person who does not resemble any real, famous or public figure". These are
+  // the words the draft would have been refused with at creation.
+  if (rec.source === 'synthetic' && !rec.direction?.trim()) {
+    throw fail('describe who they are in a sentence', 400);
+  }
   if (opts.decide === 'auto' && HAND_APPROVED.has(view))
     throw fail(`the ${VIEW_LABEL[view]} is always decided by hand`, 400);
   for (const dep of DEPENDS[view]) {
