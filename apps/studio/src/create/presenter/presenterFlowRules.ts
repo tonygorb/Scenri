@@ -10,14 +10,7 @@ import {
   isAsideTurn,
   openQuestionId,
 } from '../../conversation/question.js';
-import {
-  type CreationState,
-  UNSURE_LINE,
-  type WasAnswered,
-  asideEditAt,
-  deserialize,
-  isAsideEdit,
-} from './creationState.js';
+import { type CreationState, UNSURE_LINE, asideEditAt, deserialize, isAsideEdit } from './creationState.js';
 import type { AsidePhase as Phase } from './presenterCopy.js';
 import {
   ATTEST_TEXT,
@@ -311,10 +304,10 @@ export function compileRefs(a: Answers): Record<string, string[]> {
  * they exist nowhere else, so a resume that dropped them lost the half of the
  * conversation that was theirs.
  */
-export function seedStateFromDraft(d: DraftLike): { answers: Answers; asides: Aside[]; past: WasAnswered[] } {
+export function seedStateFromDraft(d: DraftLike): { answers: Answers; asides: Aside[] } {
   const held = deserialize(d.setup ?? null);
-  if (held && Object.keys(held.answers).length) return { answers: held.answers, asides: held.asides, past: held.past };
-  return { answers: seedFromDraft(d), asides: [], past: [] };
+  if (held && Object.keys(held.answers).length) return { answers: held.answers, asides: held.asides };
+  return { answers: seedFromDraft(d), asides: [] };
 }
 
 export function seedFromDraft(d: DraftLike): Answers {
@@ -930,46 +923,36 @@ function build(
     }
   };
   /**
-   * What was answered here before, in the order it was said.
+   * The attempt to change this answer, when one was made and could not be taken.
    *
-   * A chat adds to itself; it does not rewrite what was said. So an answer
-   * that was changed stays where it stood, quietly, and the conversation
-   * carries on underneath it. It keeps the key it already had, so the moment
-   * of the change moves nothing on screen: the bubble a person is looking at
-   * is the same bubble, and only what comes after it is new.
+   * Editing a message rewrites that message, so words typed at an answer stand
+   * in that answer's own bubble rather than as a second line under it. They are
+   * what is showing until the question is answered again, and they go when it
+   * is: a correction in progress is not a thing that was said to anybody.
    */
-  const past = (into: Turn[], id: Qid) => {
-    const mine = state.past.filter((x) => x.id === id);
-    mine.forEach((x, i) => {
-      into.push({
-        kind: 'you',
-        id: i === 0 ? id : `${id}:was${i}`,
-        text: answerLine(id, { ...a, [id]: x.value } as Answers, draft).text,
-        was: true,
-      });
-    });
-    return mine.length;
-  };
+  const attempt = (id: Qid) => asides.find((x) => x.edit && x.q === id && !placed.has(x));
   // An answer keeps the line it answered above it: the exchange is the record.
   const exchange = (into: Turn[], id: Qid, answered = true) => {
     into.push({ kind: 'scenri', id: `asked-${id}`, text: askedLine(id, a), quiet: true });
-    // What was answered here before comes first: it was said before anything
-    // that was said about changing it.
-    const were = past(into, id);
     // A typed sentence answered the first question, so what was said there stays with it.
     attach(into, id === 'describe' && a.source?.via === 'typed' ? ['source', 'describe'] : [id]);
     if (!answered) {
-      // changed, and not answered again yet: what was said stays, the question
-      // is asked again at the end, and there is nothing else to show here
+      // Changed, and not answered again yet: the bubble holds what was typed,
+      // the reply to it stands under it, and the question is asked again at the
+      // end of the conversation with its row.
+      const tried = attempt(id);
+      if (tried) {
+        placed.add(tried);
+        into.push({ kind: 'you', id, text: tried.said });
+        into.push(...asideTurns(tried, beingSaidAgain(state, tried), true));
+      }
       attach(into, [id], true);
       return;
     }
     const line = answerLine(id, a, draft);
     into.push({
       kind: 'you',
-      // the first answer keeps the plain key; one given after a change is a
-      // new line and takes a new one, so neither animates as the other
-      id: were ? `${id}:now${were}` : id,
+      id,
       text: line.text,
       photos: line.photos,
       editable: true,
@@ -984,7 +967,7 @@ function build(
   // that was answered and then changed, which keeps what was said even though
   // the answer itself has gone.
   const told = new Set(answeredIn(a, ctx));
-  const shown = SPEC_ORDER.filter((id) => told.has(id) || state.past.some((x) => x.id === id));
+  const shown = SPEC_ORDER.filter((id) => told.has(id) || asides.some((x) => x.edit && x.q === id));
   for (const id of shown) {
     const into = photosDoor && draft && id !== 'source' && id !== 'photos' ? after : lead;
     // A question open again from its answer: its line stays exactly where it

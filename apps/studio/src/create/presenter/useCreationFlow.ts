@@ -165,9 +165,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
 
   const [state, dispatch] = useReducer(reduce, { brandId: brand.id, draftId }, (at) => {
     const back = deserialize(session.read(setupKey(at.brandId, at.draftId)));
-    return back
-      ? { ...EMPTY_STATE, answers: back.answers, revision: back.revision, asides: back.asides, past: back.past }
-      : EMPTY_STATE;
+    return back ? { ...EMPTY_STATE, answers: back.answers, revision: back.revision, asides: back.asides } : EMPTY_STATE;
   });
   // the latest state, for work that finishes after the render it started in
   const stateRef = useRef(state);
@@ -526,8 +524,11 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   }, [key, d, startScratch, s.update, s.redo, s.generate]);
 
   /** A sentence that answered nothing, kept where it was said. */
-  const bounce = useCallback((said: string, reply: string, q: string | null, kind: NothingKind) => {
-    dispatch({ type: 'aside', aside: { said, reply, q, at: nowIso(), kind } });
+  const bounce = useCallback((said: string, reply: string, q: string | null, kind: NothingKind, edit = false) => {
+    dispatch({
+      type: 'aside',
+      aside: { said, reply, q, at: nowIso(), kind, ...(edit ? { edit: true as const } : {}) },
+    });
   }, []);
 
   const onAnswer = useCallback(
@@ -697,8 +698,9 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
        * are the ones the flow has.
        */
       const refuse = (said: string, reply: string, q: Qid | 'keep' | null, kind: NothingKind) => {
-        if (q !== null && st.editing === q) commitAnswer({ [q]: undefined });
-        bounce(said, reply, q, kind);
+        const changing = q !== null && st.editing === q;
+        if (changing) commitAnswer({ [q]: undefined });
+        bounce(said, reply, q, kind, changing);
       };
 
       // A detail in their own words: it answers the open half of that trait,

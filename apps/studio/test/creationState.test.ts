@@ -214,7 +214,7 @@ describe('the state of a presenter being made', () => {
     s = reduce(s, { type: 'text', text: 'about forty' });
     s = reduce(s, { type: 'aside', aside: said });
     const back = deserialize(serialize(s));
-    expect(back).toEqual({ answers: s.answers, revision: s.revision, asides: [said], past: [] });
+    expect(back).toEqual({ answers: s.answers, revision: s.revision, asides: [said] });
     const r = reduce(EMPTY_STATE, { type: 'restore', ...(back as NonNullable<ReturnType<typeof deserialize>>) });
     // the half sentence and the question being said again are the moment, and
     // the moment is over; what a person typed and was answered is not
@@ -225,18 +225,18 @@ describe('the state of a presenter being made', () => {
     const half = JSON.stringify({ v: 4, answers: {}, revision: 0, asides: [{ said: 'hi' }, said] });
     expect(deserialize(half)?.asides).toEqual([said]);
 
-    // what was answered and then changed comes back with it, and a blob
-    // written before there was a history reads back with none
+    // an attempt to change an answer is carried with its own flag, and goes
+    // when that question is answered again
+    const tried = { said: '123', reply: 'That is not a length.', q: 'look-length', at: '2', edit: true as const };
     let e = reduce(EMPTY_STATE, {
       type: 'answer',
       patch: { ...scratch, 'look-who': { pick: 'woman' } },
       ctx: NO_DRAFT,
     });
-    e = reduce(e, { type: 'answer', patch: { 'look-who': undefined }, ctx: NO_DRAFT });
-    expect(e.past.map((x) => x.id)).toEqual(['look-who']);
-    expect(e.past[0].value).toEqual({ pick: 'woman' });
-    expect(deserialize(serialize(e))?.past).toEqual(e.past);
-    expect(deserialize(half)?.past).toEqual([]);
+    e = reduce(e, { type: 'aside', aside: tried });
+    expect(deserialize(serialize(e))?.asides).toEqual([tried]);
+    e = reduce(e, { type: 'answer', patch: { 'look-length': { pick: 'long' } }, ctx: NO_DRAFT });
+    expect(e.asides).toEqual([]);
     // what an older studio wrote is not carried, and a question the table lost is dropped
     expect(deserialize(JSON.stringify({ source: 'scratch', look: { who: 'woman' } }))).toBeNull();
     // v3 kept no asides at all, and reads back with none rather than being refused
@@ -244,7 +244,6 @@ describe('the state of a presenter being made', () => {
       answers: { 'look-who': { pick: 'man' } },
       revision: 1,
       asides: [],
-      past: [],
     });
     expect(
       deserialize(JSON.stringify({ v: 2, answers: { 'look-who': { pick: 'man' }, 'look-hat': 'x' }, revision: 3 })),
@@ -252,7 +251,6 @@ describe('the state of a presenter being made', () => {
       answers: { 'look-who': { pick: 'man' } },
       revision: 3,
       asides: [],
-      past: [],
     });
     expect(deserialize('not json')).toBeNull();
   });

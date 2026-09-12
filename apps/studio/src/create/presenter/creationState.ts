@@ -50,32 +50,8 @@ export interface Unsure {
   at: string;
 }
 
-/**
- * An answer that was given and then changed: the conversation's own history.
- *
- * A chat does not rewrite what was said, it adds to it. So changing an answer
- * takes back everything the conversation asked after it, but what was actually
- * said stays where it was said, as a line that happened. Without this the
- * bubble simply vanished from the middle of the run, which reads as the app
- * losing it rather than as the person changing their mind.
- *
- * The value is kept raw rather than as words, so the transcript reads it back
- * in whatever words it would use for a live answer, with no second spelling of
- * the same thing to keep in step.
- */
-export interface WasAnswered {
-  id: Qid;
-  value: unknown;
-  at: string;
-}
-
-/** The most that is kept: a long sitting is a conversation, not an audit trail. */
-const PAST_MAX = 20;
-
 export interface CreationState {
   answers: Answers;
-  /** What was answered here before, in the order it was said. */
-  past: WasAnswered[];
   revision: number;
   /** A question reopened from its answer, until it is saved or cancelled. The name lives on the draft. */
   editing: Qid | 'name' | AsideEdit | null;
@@ -114,7 +90,6 @@ export interface CreationState {
 
 export const EMPTY_STATE: CreationState = {
   answers: {},
-  past: [],
   revision: 0,
   editing: null,
   saying: null,
@@ -167,7 +142,7 @@ export type Action =
   /** Everything goes, except words to start the next person from. */
   | { type: 'start-over'; text?: string }
   /** What the session remembered, at a reload. */
-  | { type: 'restore'; answers: Answers; revision: number; asides?: Aside[]; past?: WasAnswered[] };
+  | { type: 'restore'; answers: Answers; revision: number; asides?: Aside[] };
 
 const same = (x: unknown, y: unknown) => JSON.stringify(x) === JSON.stringify(y);
 
@@ -237,6 +212,12 @@ function keptAsides(asides: Aside[], answers: Answers, ctx: FlowContext, from?: 
   return asides.filter((a) => {
     if (!a.q || !isQid(a.q)) return true;
     if (!applies(a.q, answers, ctx)) return false;
+    // An attempt to change an answer stands in that answer's own bubble until
+    // the question is answered again, and goes when it is: a correction in
+    // progress is not a thing that was said to anybody, and leaving it behind
+    // would put the words somebody thought better of under the answer they
+    // replaced them with.
+    if (a.edit && answers[a.q] !== undefined) return false;
     // said at the question being answered, or before it: it stands. Said after
     // it: that question is being asked again, so it does not.
     return from === undefined || orderOf(a.q) <= from;
@@ -288,20 +269,9 @@ export function reduce(s: CreationState, action: Action): CreationState {
       const answers = commit(s.answers, action.patch, action.ctx);
       const moved = !same(answers, s.answers);
       const settled = settleUnsure(s);
-      // What the change was made to stays in the conversation. Only the one
-      // being changed: the answers under it were asked again, and a question
-      // asked again is not a line that was said, it is a line that was taken
-      // back. `at` is free of the asides so the two orders can be read as one.
-      const gone = (Object.keys(action.patch) as Qid[]).filter(
-        (id) => s.answers[id] !== undefined && answers[id] === undefined,
-      );
-      const past = gone.length
-        ? [...settled.past, ...gone.map((id) => ({ id, value: s.answers[id], at: nowIso() }))].slice(-PAST_MAX)
-        : settled.past;
       return {
         ...settled,
         answers,
-        past,
         revision: moved ? s.revision + 1 : s.revision,
         asides: keptAsides(settled.asides, answers, action.ctx, reachesBack(action.patch)),
         editing: null,
@@ -470,13 +440,7 @@ export function reduce(s: CreationState, action: Action): CreationState {
     case 'start-over':
       return { ...EMPTY_STATE, revision: s.revision + 1, text: action.text ?? '' };
     case 'restore':
-      return {
-        ...EMPTY_STATE,
-        answers: action.answers,
-        revision: action.revision,
-        asides: action.asides ?? [],
-        past: action.past ?? [],
-      };
+      return { ...EMPTY_STATE, answers: action.answers, revision: action.revision, asides: action.asides ?? [] };
   }
 }
 
@@ -509,7 +473,6 @@ export function serialize(s: CreationState): string {
   return JSON.stringify({
     v: STORED,
     answers: s.answers,
-    past: s.past,
     revision: s.revision,
     asides: s.asides.slice(-ASIDES_MAX),
   });
@@ -525,6 +488,7 @@ function asideFrom(v: unknown): Aside | null {
   const rev = typeof a.rev === 'number' && a.rev > 0 ? a.rev : undefined;
   const kind = typeof a.kind === 'string' ? (a.kind as Aside['kind']) : undefined;
   const after = a.after === true ? true : undefined;
+  const edit = a.edit === true ? true : undefined;
   return {
     said: a.said,
     reply: a.reply,
@@ -533,6 +497,7 @@ function asideFrom(v: unknown): Aside | null {
     ...(rev ? { rev } : {}),
     ...(kind ? { kind } : {}),
     ...(after ? { after } : {}),
+    ...(edit ? { edit } : {}),
   };
 }
 
@@ -574,9 +539,7 @@ function upgrade(id: Qid, v: unknown): unknown {
   return v;
 }
 
-export function deserialize(
-  raw: string | null,
-): { answers: Answers; revision: number; asides: Aside[]; past: WasAnswered[] } | null {
+export function deserialize(raw: string | null): { answers: Answers; revision: number; asides: Aside[] } | null {
   if (!raw) return null;
   try {
     const p = JSON.parse(raw) as {
@@ -584,7 +547,6 @@ export function deserialize(
       answers?: Record<string, unknown>;
       revision?: number;
       asides?: unknown;
-      past?: unknown;
     };
     // v2 wrote the last-moment detail as bare words; it carries a picture now.
     // v3 kept no asides, and reads back with none rather than being thrown away.
@@ -603,18 +565,7 @@ export function deserialize(
       .map(asideFrom)
       .filter((a): a is Aside => a !== null)
       .slice(-ASIDES_MAX);
-    // What was answered here before: every field read, nothing assumed, and a
-    // blob written before there was a history reads back with none.
-    const past = (Array.isArray(p.past) ? p.past : [])
-      .map((v) => {
-        const x = v as { id?: unknown; value?: unknown; at?: unknown };
-        return typeof x?.id === 'string' && isQid(x.id) && typeof x.at === 'string' && x.value !== undefined
-          ? ({ id: x.id, value: x.value, at: x.at } as WasAnswered)
-          : null;
-      })
-      .filter((x): x is WasAnswered => x !== null)
-      .slice(-PAST_MAX);
-    return { answers, revision: typeof p.revision === 'number' ? p.revision : 0, asides, past };
+    return { answers, revision: typeof p.revision === 'number' ? p.revision : 0, asides };
   } catch {
     return null;
   }

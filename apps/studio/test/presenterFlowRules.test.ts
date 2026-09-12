@@ -850,25 +850,36 @@ describe('the composer follows the state', () => {
 });
 
 describe('an answer that was changed', () => {
-  it('stays where it was said, and the question is asked again under it', () => {
-    // A conversation is added to, never rewritten. The answer that was given
-    // keeps its place and its key, so the moment of the change moves nothing on
-    // screen; the run after it goes, and the question is asked again at the end.
-    const was = { id: 'look-length' as const, value: { pick: 'chin-length' }, at: '2026-01-01T00:00:01Z' };
-    const s = state({ ...TAPPED, 'look-length': undefined } as Answers, { past: [was] });
+  it('is rewritten in its own bubble, and the question is asked again under it', () => {
+    // Editing a message rewrites that message, the way it does in any chat.
+    // What was typed stands in the answer's own bubble, the reply to it under
+    // that, and the question again at the end with its row.
+    const tried = {
+      said: '123',
+      reply: 'That is not a length.',
+      q: 'look-length',
+      at: '2026-01-01T00:00:01Z',
+      edit: true as const,
+    };
+    const s = state({ ...TAPPED, 'look-length': undefined } as Answers, { asides: [tried] });
     const k = keys(turns(s));
-    expect(k).toContain('you:look-length');
-    expect(k.at(-1)).toBe('q:look-length');
+    // one bubble for the question, holding what was typed
+    expect(k.filter((x) => x === 'you:look-length')).toHaveLength(1);
     const bubble = turns(s).find((t) => t.kind === 'you' && t.id === 'look-length');
-    expect(bubble?.kind === 'you' && bubble.was).toBe(true);
-    expect(bubble?.kind === 'you' && bubble.text).toBe('Chin');
-    // answered again, the new line is its own, under what was said
-    const again = state({ ...TAPPED, 'look-length': { pick: 'long' } } as Answers, { past: [was] });
-    const k2 = keys(turns(again));
-    expect(k2.indexOf('you:look-length')).toBeLessThan(k2.indexOf('you:look-length:now1'));
-    const now = turns(again).find((t) => t.kind === 'you' && t.id === 'look-length:now1');
+    expect(bubble?.kind === 'you' && bubble.text).toBe('123');
+    // and no second line for the same words
+    expect(k).not.toContain('you:aside-said-2026-01-01T00:00:01Z');
+    expect(k).toContain('scenri:aside-reply-2026-01-01T00:00:01Z');
+    // the question is asked again, last, with the row to answer it
+    expect(k.at(-1)).toBe('q:look-length');
+    // answered again, the attempt goes and the bubble is the answer
+    const done = reduce(s, { type: 'answer', patch: { 'look-length': { pick: 'long' } }, ctx: NO_DRAFT });
+    expect(done.asides).toEqual([]);
+    const after = turns(done);
+    expect(keys(after).filter((x) => x === 'you:look-length')).toHaveLength(1);
+    const now = after.find((t) => t.kind === 'you' && t.id === 'look-length');
     expect(now?.kind === 'you' && now.text).toBe('Long');
-    expect(now?.kind === 'you' && now.was).toBeUndefined();
+    expect(keys(after)).not.toContain('scenri:aside-reply-2026-01-01T00:00:01Z');
   });
 });
 

@@ -641,12 +641,6 @@ button.sc-convo-shot-do {
   text-wrap: pretty;
 }
 
-/* An answer that was given and then changed keeps the look of every other line
-   that was said. It is history, not a disabled control: dimming it borrowed
-   the one thing dim already means here, which is "another answer is being
-   changed and this is the background". What marks it out is that there is
-   nothing to press on it. */
-
 /* The words an answer carries beside what was chosen, under the controls that
    hold the choice. Quieter than the hint above the block, because this is the
    answer speaking rather than the question. */

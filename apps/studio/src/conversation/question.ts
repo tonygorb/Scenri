@@ -186,12 +186,6 @@ export type Turn =
        * conversation does with a correction; cancelling changes nothing.
        */
       editing?: boolean;
-      /**
-       * Said, and then changed. It stays where it was said, because a
-       * conversation is added to rather than rewritten, and it reads as
-       * history: quieter, and with no way to change it a second time.
-       */
-      was?: boolean;
     }
   | {
       kind: 'scenri';
@@ -387,6 +381,16 @@ export interface Aside {
    */
   after?: true;
   /**
+   * It was typed to change an answer that already stood.
+   *
+   * An edit rewrites the message it was made to, the way editing does in any
+   * chat, so these words are drawn in that answer's own bubble rather than as a
+   * second line under it, and the reply follows underneath. It lasts only until
+   * the question is answered, because an attempt that was corrected is not a
+   * thing that was said to anybody; it is a correction in progress.
+   */
+  edit?: true;
+  /**
    * What was wrong with it, when something was.
    *
    * It is what decides whether the next reply is a repeat: the same complaint
@@ -414,10 +418,14 @@ export const asideTurnId = (at: string): string => `aside-said-${at}`;
 export const asideAtOf = (turnId: string): string | null =>
   turnId.startsWith('aside-said-') ? turnId.slice('aside-said-'.length) : null;
 
-export const asideTurns = (a: Aside, editing = false): Turn[] => [
+export const asideTurns = (a: Aside, editing = false, replyOnly = false): Turn[] => [
   // Words a person typed are words a person can change, wherever they landed.
-  // An aside is not an answer, but it is still theirs.
-  { kind: 'you', id: asideTurnId(a.at), text: a.said, editable: true, editing: editing || undefined },
+  // An aside is not an answer, but it is still theirs. Unless it was typed to
+  // change an answer, in which case the answer's own bubble is already showing
+  // these words and a second copy of them would be the bug it fixes.
+  ...(replyOnly
+    ? []
+    : [{ kind: 'you' as const, id: asideTurnId(a.at), text: a.said, editable: true, editing: editing || undefined }]),
   { kind: 'scenri', id: `aside-reply-${a.at}${a.rev ? `-${a.rev}` : ''}`, text: a.reply },
 ];
 

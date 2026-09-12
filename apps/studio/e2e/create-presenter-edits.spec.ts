@@ -173,11 +173,11 @@ test.describe('changing an answer', () => {
     await expect(log(page).locator('.sc-convo-turn[data-turn^="scenri:aside-reply"]')).toContainText(
       'That is not a length.',
     );
-    // what was answered stays where it was said, as history, with nothing to
-    // press on it: a conversation is added to rather than rewritten
-    await expect(turn(page, 'you:look-length')).toHaveAttribute('data-was', 'true');
-    await expect(turn(page, 'you:look-length')).toContainText('Long');
-    await expect(turn(page, 'you:look-length').getByRole('button', { name: 'Change this answer' })).toHaveCount(0);
+    // editing a message rewrites that message: one bubble, holding what was
+    // typed, and no second line anywhere for the same words
+    await expect(turn(page, 'you:look-length')).toContainText('ksjfhklsjdfsdf');
+    await expect(turn(page, 'you:look-length')).not.toContainText('Long');
+    await expect(log(page).locator('.sc-convo-turn[data-turn^="you:aside-said"]')).toHaveCount(0);
     // and the answers given after it are gone
     await expect(turn(page, 'you:look-skin')).toHaveCount(0);
     await expect(turn(page, 'you:look-build')).toHaveCount(0);
@@ -193,12 +193,10 @@ test.describe('changing an answer', () => {
     // answer, and the card they replace is not lit under them
     await send(page, 'a shaggy shoulder-length cut');
     await expect(turn(page, 'q:look-length')).toHaveCount(0);
-    // the new answer is its own line, under what was said, and the one it
-    // replaced is still there above it as history
-    await expect(log(page).locator('.sc-convo-turn[data-turn^="you:look-length"]').last()).toContainText(
-      'A shaggy shoulder-length cut',
-    );
-    await expect(turn(page, 'you:look-length')).toContainText('Long');
+    // the same bubble, now holding the answer, and the attempt that failed has
+    // gone with the reply to it: a correction in progress is not a thing said
+    await expect(turn(page, 'you:look-length')).toContainText('A shaggy shoulder-length cut');
+    await expect(log(page)).not.toContainText('ksjfhklsjdfsdf');
     await expect(log(page)).toContainText('And their skin?');
 
     // a phrase that carries on from the chip keeps it, and reads as one answer
@@ -437,7 +435,7 @@ test.describe('an answer written again', () => {
     // writing over an answer says it no longer stands, so it goes, and so does
     // everything the conversation asked after it. The words could not be taken
     // as the new answer, so the question comes back waiting rather than answered.
-    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-length"]')).toHaveAttribute('data-was', 'true');
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-length"]')).toContainText('Lungo1234');
     await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-skin"]')).toHaveCount(0);
     await expect(log(page)).toContainText('And the length?');
     // and what was said is answered where it was said
@@ -469,9 +467,7 @@ test.describe('an answer written again', () => {
     await stray.locator('textarea').fill('a chin-length bob');
     await stray.locator('textarea').press('Enter');
 
-    await expect(log(page).locator('.sc-convo-turn[data-turn^="you:look-length"]').last()).toContainText(
-      'chin-length bob',
-    );
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-length"]')).toContainText('chin-length bob');
     await expect(log(page).locator('.sc-convo-turn[data-turn^="you:aside-said-"]')).toHaveCount(0);
     await expect(log(page)).not.toContainText('Lungo123');
   });
