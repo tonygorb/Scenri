@@ -143,7 +143,7 @@ export function ConversationComposer({
     const el = field.current;
     el?.focus({ preventScroll: true });
     // an answer reopened for a change arrives with its words selected and the card lit once
-    if (el && el.value) {
+    if (el?.value) {
       el.select();
       setFlash(true);
       const t = setTimeout(() => setFlash(false), 700);

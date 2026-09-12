@@ -22,7 +22,6 @@ import {
   turnsFor,
 } from '../src/create/presenter/presenterFlowRules.ts';
 import {
-  type Answers,
   type Qid,
   SPECS,
   answeredIn,
@@ -303,7 +302,7 @@ function check(s: CreationState, step: number, seed: number, action: Action) {
   //    is the one a person sat in this morning: draft made, direction on it,
   //    nothing drawing, nothing said.
   for (const [i, d] of step % 7 === 0 ? DRAFTS.entries() : [].entries()) {
-    if (!d || d.stage !== 'idle' || d.activeView) continue;
+    if (d?.stage !== 'idle' || d.activeView) continue;
     const sd: StepDraft = { ...d, id: `pd-${i}`, generations: 0, detailRefs: {} };
     for (const seeded of [null, sd.id]) {
       const stepOut = nextStep({

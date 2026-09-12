@@ -487,6 +487,14 @@ export function QuestionBlock({
             {cancel}
           </div>
         )}
+        {question.cost && (
+          // What answering again costs, where the answering happens. Said once,
+          // quietly, under the controls: a person about to change something is
+          // looking at the thing they are changing, not at an overlay.
+          <p className="sc-convo-note" data-cost>
+            {question.cost}
+          </p>
+        )}
         {question.note && (
           // Words this answer already carries beside its choice. A block that
           // lights a chip and shows nothing else is lying about an answer that

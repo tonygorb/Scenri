@@ -15,6 +15,7 @@ import type { AsidePhase as Phase } from './presenterCopy.js';
 import {
   ATTEST_TEXT,
   DOOR_WORDS,
+  changeCost,
   PROMPT,
   SOURCE_OPTIONS,
   STARTERS,
@@ -27,7 +28,6 @@ import {
   AGE_OPTIONS,
   LOOK_COLOUR,
   LOOK_ROWS,
-  LOOK_SAYS,
   LOOK_SAYS_PLACEHOLDER,
   WHO_OPTIONS,
   answerLabel,
@@ -44,8 +44,6 @@ import {
   PASSED,
   type Qid,
   type Source,
-  type TraitQid,
-  type TraitWhat,
   type WhereQid,
   answeredIn,
   descriptionGaps,
@@ -53,6 +51,7 @@ import {
   isLookQid,
   type LookQid,
   isQid,
+  orderOf,
   SPEC_ORDER,
   lookOf,
   nextQuestion,
@@ -658,9 +657,16 @@ export function editCost(id: Qid | 'name', draft: DraftLike | null): EditCost {
 
 /* ------------------------------------------------------------ questions */
 
-function questionFor(id: Qid, state: CreationState, _ctx: FlowContext, reopened: boolean): Question {
+function questionFor(id: Qid, state: CreationState, ctx: FlowContext, reopened: boolean): Question {
   const a = state.answers;
-  const base = reopened ? { reopened: true } : {};
+  // Open again from its own answer: it says what changing it costs, which is
+  // the answers the conversation asked after it and will ask again.
+  const base = reopened
+    ? {
+        reopened: true as const,
+        cost: changeCost(answeredIn(a, ctx).filter((x) => x !== 'keep' && orderOf(x) > orderOf(id)).length),
+      }
+    : {};
   switch (id) {
     case 'source':
       return { id, kind: 'choice', prompt: PROMPT.source, options: SOURCE_OPTIONS, given: a.source?.door, ...base };

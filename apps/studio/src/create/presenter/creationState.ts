@@ -1,4 +1,4 @@
-import { type Aside, type NothingKind, nowIso } from '../../conversation/question.js';
+import type { Aside, NothingKind } from '../../conversation/question.js';
 
 /** An aside being rewritten, named by when it was said. */
 export type AsideEdit = `aside:${string}`;

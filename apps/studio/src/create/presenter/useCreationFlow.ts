@@ -21,7 +21,6 @@ import {
   asidePhaseFor,
   judgeAnswer,
   activeQuestion,
-  answerLine,
   answerPatch,
   attachedWords,
   asKept,
@@ -656,7 +655,6 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       // same way one opened with Describe does.
       const heldNow = target && st.colour?.step === target ? st.colour.hex : null;
       const step = target && isLookQid(target) ? (target.slice('look-'.length) as LookStep) : null;
-      const chosen = heldNow && step ? colourName(heldNow, colourRow(step), step) : '';
       // A picture of the thing is an answer of its own, the way a colour is.
       const shown =
         target === 'keep'

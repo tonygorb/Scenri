@@ -65,6 +65,13 @@ interface QuestionBase {
    */
   reopened?: boolean;
   /**
+   * What answering this again costs, when it costs anything: shown under the
+   * controls while the question stands open from its own answer. It is said
+   * where the decision is being made rather than in front of it, because a
+   * thing that can be cancelled does not need a gate.
+   */
+  cost?: string;
+  /**
    * Words this answer already carries beside what was chosen, shown under the
    * controls. A block that lights a chip and shows nothing else is lying about
    * an answer that had words with it, and the hint line cannot say it: that

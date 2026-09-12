@@ -850,6 +850,23 @@ describe('the composer follows the state', () => {
 });
 
 describe('an answer that was changed', () => {
+  it('says what changing it costs, and says nothing when it costs nothing', () => {
+    // Said in the block that is changing it, not in front of it: a person
+    // about to change something is looking at the thing they are changing.
+    const reopen = (a: Answers, id: Qid) =>
+      turns(state(a, { editing: id })).find((t) => t.kind === 'question' && t.question.id === id);
+    const deep = reopen(TAPPED, 'look-hair');
+    expect(deep?.kind === 'question' && deep.question.cost).toBe('Changing this asks the 3 after it again.');
+    const one = reopen(TAPPED, 'look-skin');
+    expect(one?.kind === 'question' && one.question.cost).toBe('Changing this asks the one after it again.');
+    // the last answer has nothing after it, so there is nothing to say
+    const last = reopen(TAPPED, 'look-build');
+    expect(last?.kind === 'question' && last.question.cost).toBeUndefined();
+    // and a question standing open for the first time never says it
+    const fresh = turns(state(TAPPED)).find((t) => t.kind === 'question');
+    expect(fresh?.kind === 'question' && fresh.question.cost).toBeUndefined();
+  });
+
   it('is rewritten in its own bubble, and the question is asked again under it', () => {
     // Editing a message rewrites that message, the way it does in any chat.
     // What was typed stands in the answer's own bubble, the reply to it under

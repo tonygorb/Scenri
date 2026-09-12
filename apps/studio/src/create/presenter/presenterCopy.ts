@@ -108,6 +108,22 @@ export function photosHint(n: number, max: number): string {
 export const UNSURE_PROMPT =
   'That does not read as a description yet. Draw from it anyway, or describe them: age, hair, build, skin, presence.';
 
+/**
+ * What changing this answer costs, said in the block that is changing it.
+ *
+ * A conversation reads forward, so an answer changed halfway up takes back
+ * everything said after it and those questions are asked again. Worth knowing
+ * before the tap rather than after, and worth knowing without being stopped:
+ * it is information at the moment of the decision, not a gate in front of it.
+ * Nothing to lose, nothing said.
+ */
+export const changeCost = (after: number): string | undefined =>
+  after === 0
+    ? undefined
+    : after === 1
+      ? 'Changing this asks the one after it again.'
+      : `Changing this asks the ${after} after it again.`;
+
 /** What is asked once before a face is drawn from a changed answer. */
 export const REDRAW_TITLE = 'Change this answer?';
 export const REDRAW_BODY =
