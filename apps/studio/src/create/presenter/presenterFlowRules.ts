@@ -914,7 +914,15 @@ function build(
     // the answer moves.
     if (state.editing === id && !answeredInWords(id, a)) {
       into.push({ kind: 'scenri', id: `asked-${id}`, text: askedLine(id, a), quiet: true });
+      attach(into, [id]);
       into.push({ kind: 'question', question: questionFor(id, state, ctx, true) });
+      // What was said while the answer stood open was said here, so it stands
+      // here. Left unplaced it fell to the end of the conversation, under the
+      // question the reader was not answering, and then flew back up the
+      // moment the block closed: measured at 466px, swapping places with that
+      // question on the way. An exchange is the same exchange whether its
+      // answer is a bubble or a block.
+      attach(into, [id], true);
       continue;
     }
     // the sentence typed at the first question is the door's answer too

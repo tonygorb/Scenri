@@ -857,6 +857,32 @@ describe('what was said in passing', () => {
     expect(open(turns(w))?.id).toBe('unsure');
   });
 
+  it('stands in the same place whether its answer is a bubble or a block', () => {
+    // Reported from the app: said while an answer was open, a refusal was
+    // filed at the end of the conversation, under a question the reader was
+    // not answering, and then flew 466px back up the moment the block closed,
+    // swapping places with that question on the way.
+    const answers: Answers = {
+      source: { door: 'scratch', via: 'taps' },
+      'look-who': { pick: 'woman' },
+      'look-age': { pick: '30s' },
+      'look-hair': { pick: 'ginger' },
+    };
+    const said = { said: 'my man', reply: 'That is not a hair colour.', q: 'look-hair', at: '2026-01-01T00:00:03Z' };
+    const shut = reduce(state(answers), { type: 'aside', aside: said });
+    const openAgain = { ...shut, editing: 'look-hair' as const };
+    const home = (t: ReturnType<typeof turns>) => keys(t).indexOf('you:aside-said-2026-01-01T00:00:03Z');
+    // the exchange it belongs to, whichever way that exchange is drawn
+    expect(keys(turns(openAgain))[home(turns(openAgain)) - 1]).toBe('q:look-hair');
+    expect(keys(turns(shut))[home(turns(shut)) - 1]).toBe('you:look-hair');
+    // and the question the conversation is on stays under it in both
+    expect(keys(turns(openAgain)).at(-1)).toBe('q:look-length');
+    expect(keys(turns(shut)).at(-1)).toBe('q:look-length');
+    // the order is the same order: nothing moves past anything else
+    const swap = (k: string) => (k === 'q:look-hair' ? 'you:look-hair' : k);
+    expect(keys(turns(openAgain)).map(swap)).toEqual(keys(turns(shut)));
+  });
+
   it('the draft the setup sees is the small part of it that decides a question', () => {
     const d = draft({ source: 'photos', keep: 'x', views: { ...draft().views, portrait: approved('h1') } });
     expect(flowContext(d, true)).toEqual({
