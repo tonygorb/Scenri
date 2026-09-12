@@ -1,8 +1,9 @@
-import { CaretLeft, CaretRight, Check, UserCircle, Warning } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight, Check, Warning } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
 import { imgUrl, thumbUrl } from '../../api.js';
 import { elapsedLabel } from '../../tasks.js';
 import type { StripItem, StudioView, Take } from './presenterStudioRules.js';
+import { StageEmpty } from './StageEmpty.js';
 
 /**
  * The picture, and the views under it.
@@ -26,6 +27,7 @@ export function StudioStage({
   doing,
   takes,
   onTake,
+  empty,
 }: {
   /** The frame on the stage; none draws the empty well. */
   hash?: string;
@@ -43,6 +45,8 @@ export function StudioStage({
   takes?: Take[];
   /** Put one of them back on the view. */
   onTake?: (hash: string) => void;
+  /** What the stage says while it is waiting for its first picture. */
+  empty?: { lead: string; hint?: string };
 }) {
   const now = useNow(drawing);
   // The well keeps the picture it is showing until the next one is decoded, and
@@ -77,8 +81,8 @@ export function StudioStage({
               decoding="async"
             />
           ) : (
-            <span className="sc-pstudio-well-blank" aria-hidden>
-              {!drawing && <UserCircle size={96} weight="thin" />}
+            <span className="sc-pstudio-well-blank">
+              {!drawing && <StageEmpty lead={empty?.lead} hint={empty?.hint} />}
             </span>
           )}
           {/* Waiting reads as one thing everywhere in Scenri: the same gold

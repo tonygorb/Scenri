@@ -165,6 +165,10 @@ test.describe('a person from scratch', () => {
     await expect(log(page).locator('.sc-convo-say').last()).toHaveText(
       'Who are we making? Describe someone new, or add photos of a real person.',
     );
+    // Nothing is drawn yet, so the stage is a sign and not a picture frame: no
+    // plate of raised grey standing in for a portrait that does not exist.
+    await expect(page.locator('.sc-pstudio-empty')).toContainText('First portrait appears here');
+    await expect(page.locator('.sc-pstudio-well')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await expect(composer(page)).toBeFocused();
 
     // a typed sentence is the description; no door is asked

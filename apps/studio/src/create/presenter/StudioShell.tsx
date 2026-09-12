@@ -14,6 +14,7 @@ import { Tip } from '../../layout/Tip.js';
 import { PREF, useLocalPref } from '../../prefs.js';
 import { PHONE, useMediaQuery } from '../../useMediaQuery.js';
 import type { StripItem, Take, StudioView } from './presenterStudioRules.js';
+import { StageEmpty } from './StageEmpty.js';
 import { StudioStage } from './StudioStage.js';
 
 /**
@@ -88,6 +89,15 @@ export interface StudioSurface {
   /** The page opened on a conversation that was already had. */
   resumed?: boolean;
   stage: StageSurface | null;
+  /**
+   * What the stage says while it has no picture yet.
+   *
+   * On the surface rather than on the stage, because the stage is null until
+   * the draft exists and the words are wanted before that. A flow that leaves
+   * it out gets the sign without words, which is right for a view standing in
+   * a presenter who already has a face.
+   */
+  stageEmpty?: { lead: string; hint?: string };
   composer: ComposerSurface | null;
   text: string;
   onText: (next: string) => void;
@@ -279,13 +289,18 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 items={s.stage.items}
                 onPick={s.stage.onPick}
                 compare={s.stage.compare}
+                empty={s.stageEmpty}
               />
             ) : (
-              <div className="sc-pstudio-stage">
+              /* The same stage, minus the strip, which has no views to show
+                 until the draft exists. `data-reserve` holds the height that
+                 strip will take, so the sign is in the same place before and
+                 after the draft lands rather than stepping up the screen. */
+              <div className="sc-pstudio-stage" data-reserve>
                 <div className="sc-pstudio-wrap">
                   <div className="sc-pstudio-well" data-empty>
-                    <span className="sc-pstudio-well-blank" aria-hidden>
-                      The face comes first
+                    <span className="sc-pstudio-well-blank">
+                      <StageEmpty lead={s.stageEmpty?.lead} hint={s.stageEmpty?.hint} />
                     </span>
                   </div>
                 </div>

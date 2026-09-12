@@ -15,7 +15,7 @@ import {
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
 import { type CreationState, EMPTY_STATE, deserialize, isAsideEdit, reduce, serialize } from './creationState.js';
-import { asideReply, readingWhat } from './presenterCopy.js';
+import { asideReply, readingWhat, STAGE_LEAD, stageHint } from './presenterCopy.js';
 import {
   answeredInWords,
   asidePhaseFor,
@@ -1232,6 +1232,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       // the flow already has arrives without anyone pretending to think.
       working:
         d?.stage === 'analyzing' ? `Reading ${readingWhat(d.source)}` : d?.activeView ? 'Drawing' : busySetup || s.busy,
+      stageEmpty: { lead: STAGE_LEAD, hint: stageHint(question?.id ?? null) },
       stage: d
         ? {
             hash: shownHash,

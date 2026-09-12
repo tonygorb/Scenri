@@ -86,6 +86,29 @@ export const STARTERS = [
 
 export const ATTEST_TEXT = "I have permission to use this person's likeness.";
 
+/**
+ * What the stage says while it is waiting for the first portrait.
+ *
+ * Two lines and no more: one that says what the space is for, one that points
+ * back at the conversation, which is where the work is until there is a
+ * picture. A sign, not an explanation, and never an action: the only thing to
+ * do is already in the conversation, and a button here would be a second copy
+ * of it.
+ *
+ * The second line follows what is actually being asked, because "keep
+ * describing" is a small lie at the two moments when describing is not what is
+ * wanted: when photographs are, and when there is nothing left to say and the
+ * offer to draw is standing. It stays one line either way, so the sign does
+ * not change height under the reader.
+ */
+export const STAGE_LEAD = 'First portrait appears here';
+
+export function stageHint(asking: string | null): string {
+  if (asking === 'agree') return 'Ready when you are';
+  if (asking === 'photos') return 'Add their photos';
+  return 'Keep describing your presenter';
+}
+
 export const gapsPrompt = (n: number): string =>
   n === 1
     ? 'One thing I cannot tell yet.'

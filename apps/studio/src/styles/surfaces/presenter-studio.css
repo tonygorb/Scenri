@@ -94,6 +94,10 @@
   min-height: 0;
   padding: var(--sc-space-7);
   background: var(--sc-bg);
+  /* The strip's own height: 20 + 20 padding, a 112 tile, an 8 gap and a 20
+     line of label. Written once, because two rules below have to agree with
+     it exactly or the sign moves when the draft lands. */
+  --sc-pstudio-strip-h: 180px;
 }
 
 .sc-pstudio-wrap {
@@ -113,6 +117,15 @@
   overflow: hidden;
   border-radius: var(--sc-radius-lg);
   background: var(--sc-raised);
+}
+
+/* Nothing drawn and nothing drawing: the well keeps its box, so the picture
+   and the sweep arrive into the same geometry, and gives up its fill, because
+   a plate of raised grey this size reads as a picture that failed to load
+   rather than as a space one is coming to. The fill is back the instant
+   something is being drawn, under the sweep, where it belongs. */
+.sc-pstudio-well[data-empty]:not([data-drawing]) {
+  background: none;
 }
 
 .sc-pstudio-well img {
@@ -233,8 +246,140 @@
   inset: 0;
   display: grid;
   place-items: center;
+}
+
+/* ---- the sign that stands where the portrait will ------------------------ */
+
+/* One small thing in a large calm field, at a fixed size: a wider window is
+   meant to buy more quiet, not a bigger sign. Figma 5351:1537. */
+.sc-pstudio-empty {
+  display: grid;
+  justify-items: center;
+  /* the plate's own box to the first line; the rings live inside that gap */
+  gap: 32px;
+  text-align: center;
+  /* The well is where the picture goes, and it is held clear of the strip, so
+     its middle is half a strip above the middle of the stage. The sign is not
+     a picture: it belongs in the middle of the workspace, so it comes back
+     down by that half. */
+  transform: translateY(calc(var(--sc-pstudio-strip-h) / 2));
+}
+
+.sc-pstudio-empty-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 122px;
+  height: 122px;
+  border-radius: var(--sc-radius-md);
+  /* A face lit from above: the plate is the app's raised grey with the
+     faintest lift across its top, so it sits in the ground rather than on it. */
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--sc-fg) 4%, transparent), transparent 60%), var(--sc-raised);
+  color: var(--sc-fg);
+}
+
+/* The plate's edge, as light rather than as a line.
+ *
+ * A hairline of one colour all the way round reads as a drawn box, and a drawn
+ * box at this size is a second card on a surface that is meant to be quiet. So
+ * the edge is a gradient that is brightest where the light is and gone by the
+ * bottom: the mask keeps the one-pixel frame and throws the middle away.
+ * Written in the foreground ink rather than in white, so the light theme gets
+ * a dark edge instead of an invisible one.
+ */
+.sc-pstudio-empty-mark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    170deg,
+    color-mix(in srgb, var(--sc-fg) 26%, transparent),
+    color-mix(in srgb, var(--sc-fg) 7%, transparent) 45%,
+    color-mix(in srgb, var(--sc-fg) 3%, transparent)
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* Two rings stepping outwards, each dimmer than the last, and each drawn as
+   its four corners only: the mask keeps the ends of both axes and takes their
+   intersection, which is the corners. Where a browser cannot composite masks
+   the whole rounded outline survives, which is the same drawing with more of
+   it, so nothing needs to be said twice. */
+.sc-pstudio-empty-ring {
+  position: absolute;
+  border: 1px solid color-mix(in srgb, var(--sc-fg) var(--sc-bracket-ink), transparent);
+  /* Three masks, intersected: the ends of one axis, the ends of the other, and
+     the light falling away down the frame. The first two leave the four
+     corners; the third takes the bottom pair back towards the ground, so the
+     cluster is lit from one place instead of being outlined. */
+  mask-image:
+    linear-gradient(
+      to right,
+      #000 0 var(--sc-bracket),
+      transparent var(--sc-bracket) calc(100% - var(--sc-bracket)),
+      #000 calc(100% - var(--sc-bracket)) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      #000 0 var(--sc-bracket),
+      transparent var(--sc-bracket) calc(100% - var(--sc-bracket)),
+      #000 calc(100% - var(--sc-bracket)) 100%
+    ),
+    linear-gradient(180deg, #000, rgb(0 0 0 / 0.45));
+  -webkit-mask-composite: source-in, source-in;
+  mask-composite: intersect, intersect;
+}
+
+/* Two steps out, and a step quieter each time: the plate, then its echo, then
+   the last of it. Same weight throughout, because a hairline that changes
+   thickness reads as two different lines rather than one idea at two
+   distances. */
+.sc-pstudio-empty-ring[data-at="near"] {
+  --sc-bracket: 17px;
+  --sc-bracket-ink: 20%;
+  inset: -9px;
+  border-radius: 14px;
+}
+
+.sc-pstudio-empty-ring[data-at="far"] {
+  --sc-bracket: 24px;
+  --sc-bracket-ink: 8%;
+  inset: -17px;
+  border-radius: 20px;
+}
+
+.sc-pstudio-empty-say {
+  display: grid;
+  /* Wide enough that each line is a line. The reference measures 194, which is
+     the width of its own text to the pixel and leaves ours a word short. */
+  max-width: 240px;
+  font-size: 15px;
+  line-height: 22px;
+  text-wrap: pretty;
+}
+
+/* What the space is for, then the way to fill it: one step apart in ink, no
+   step apart in size, because they are one thought. */
+.sc-pstudio-empty-say > span:first-child {
+  color: var(--sc-fg);
+}
+
+.sc-pstudio-empty-say > span + span {
   color: var(--sc-fg3);
-  opacity: 0.5;
+}
+
+/* Before the draft exists there are no views, so the strip is not drawn and
+   the wrap is a strip taller. Reserving that height keeps the sign on one
+   line of the screen from the first question to the first picture. */
+.sc-pstudio-stage[data-reserve] .sc-pstudio-wrap {
+  padding-bottom: calc(var(--sc-space-7) + var(--sc-pstudio-strip-h));
 }
 
 /* The pictures this view has worn: small, numbered, oldest first, the one on
