@@ -16,6 +16,8 @@ import {
   flowContext,
   answeredInWords,
   asidePhaseFor,
+  asQualifier,
+  carriesOn,
   judgeAnswer,
   notAnAnswerAtAStep,
   sentenceTarget,
@@ -519,6 +521,21 @@ describe('an answer that is a fact rather than a sentence', () => {
     expect(judgeAnswer('look-age', 'what do I do?', readsAsPerson)).toBe('help');
   });
 
+  it('knows words that carry on from a chip from words that replace it', () => {
+    // Reported from the app: a description typed over a tapped answer left the
+    // card lit above words that had replaced it.
+    for (const said of ['but with narrower shoulders', 'and a little taller', 'with a silver streak', 'just shorter']) {
+      expect(carriesOn(said), said).toBe(true);
+    }
+    for (const said of ['a shaggy shoulder-length cut', 'a chin-length bob', 'dark auburn', 'buzzed at the sides']) {
+      expect(carriesOn(said), said).toBe(false);
+    }
+    // the join is the join, not part of what was said
+    expect(asQualifier('but with narrower shoulders')).toBe('with narrower shoulders');
+    expect(asQualifier('with a silver streak')).toBe('with a silver streak');
+    expect(asQualifier('and a little taller.')).toBe('a little taller');
+  });
+
   it('takes a measurement as a build, and a short phrase as a cut', () => {
     // A measurement is a description of a person, and the digits in it are not
     // what makes it one. A short answer to a short question is an answer.
@@ -549,7 +566,7 @@ describe('an answer that is a fact rather than a sentence', () => {
     expect(judgeAnswer('look-who', 'my man', readsAsPerson)).toBeNull();
     // and words that say something about the property are untouched, whoever
     // else they mention
-    for (const said of ['a man\'s short back and sides', 'dark auburn', 'her natural colour']) {
+    for (const said of ["a man's short back and sides", 'dark auburn', 'her natural colour']) {
       expect(judgeAnswer('look-hair', said, readsAsPerson), said).toBeNull();
     }
   });

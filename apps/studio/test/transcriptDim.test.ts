@@ -86,6 +86,30 @@ describe('an answer being changed', () => {
     expect(dimmed()).toContain('you:intent');
   });
 
+  it('stands what was said at that answer while it is open', () => {
+    // Reported from the app: a sentence typed while the block was open, and
+    // Scenri's answer to it, were both drawn at 0.4 under a bright block. The
+    // newest thing on screen, and the reply to what had just been asked, greyed
+    // out as though the conversation had moved past them.
+    render([
+      ...ANSWERED.slice(0, 4),
+      {
+        kind: 'question',
+        question: { id: 'look-hair', kind: 'text', prompt: 'What colour is their hair?', reopened: true },
+      },
+      { kind: 'you', id: 'aside-said-2026-01-01T00:00:01Z', text: 'hey yo', editable: true },
+      { kind: 'scenri', id: 'aside-reply-2026-01-01T00:00:01Z', text: 'Hi. Tap a colour above.' },
+      ...ANSWERED.slice(5),
+      { kind: 'question', question: { id: 'look-build', kind: 'text', prompt: 'And their build?' } },
+    ]);
+    expect(dimmed()).not.toContain('q:look-hair');
+    expect(dimmed()).not.toContain('you:aside-said-2026-01-01T00:00:01Z');
+    expect(dimmed()).not.toContain('scenri:aside-reply-2026-01-01T00:00:01Z');
+    // and the question the conversation is on still steps back
+    expect(dimmed()).toContain('q:look-build');
+    expect(dimmed()).toContain('you:look-who');
+  });
+
   it('stands the question the conversation is on, and lets it take no answer', () => {
     const openQuestion: Turn = {
       kind: 'question',

@@ -25,6 +25,7 @@ import {
   attachedWords,
   asKept,
   asQualifier,
+  carriesOn,
   compileDirection,
   compileItems,
   stepHolds,
@@ -704,12 +705,14 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         // Words at an answer that already has a chip qualify that chip rather
         // than replacing it, so both halves are kept and the conjunction that
         // joined them is dropped: it was the join, not part of what was said.
+        const on = carriesOn(typed);
+        const words = on ? asQualifier(typed) : typed;
         if (trait.part === 'where') {
           const had = st.answers[target as WhereQid];
-          commitAnswer({ [target]: { pick: had?.pick, words: asQualifier(typed) } });
+          commitAnswer({ [target]: { pick: on ? had?.pick : undefined, words } });
         } else {
           const had = st.answers[target as TraitQid];
-          commitAnswer({ [target]: { pick: had?.pick, words: asQualifier(typed), refs: had?.refs ?? [] } });
+          commitAnswer({ [target]: { pick: on ? had?.pick : undefined, words, refs: had?.refs ?? [] } });
         }
         return true;
       }
@@ -737,9 +740,13 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         // The chip and the words are two halves of one answer and are never
         // joined here: joined, a colour of their own plus a word about it read
         // back as "dyed purple dyed, with darker roots", the colour said twice.
+        // Words that carry on from the chip keep it; words that stand on
+        // their own are the answer, and the chip goes with the mind that was
+        // changed. A colour in the chip is always the chip.
         const had = st.answers[target];
-        const pick = heldNow ?? (typed ? had?.pick : undefined);
-        const value: Given = { pick, words: typed ? asQualifier(typed) : had?.words };
+        const on = !typed || carriesOn(typed);
+        const pick = heldNow ?? (on ? had?.pick : undefined);
+        const value: Given = { pick, words: typed ? (on ? asQualifier(typed) : typed) : had?.words };
         // A fact about a person is a fact about them wherever it was typed.
         // Told "he has a left prosthetic arm" at "Who are they?", this used to
         // take it as the answer and then lose it: that row compiles through a

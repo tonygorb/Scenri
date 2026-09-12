@@ -476,12 +476,29 @@ export function labelled(chosen: string, words: string | undefined): string {
 }
 
 /**
- * Their words, said as a qualifier of something already chosen.
+ * How words typed at an answer that already has a chip stand to that chip.
  *
- * "Athletic" and then "but with narrower shoulders" is one answer, and the
- * conjunction is the join between the halves rather than part of what was
- * said: kept, it reads back as "and always but with narrower shoulders". The
- * list is closed and deterministic, the same family as `asKept`.
+ * "Athletic", then "but with narrower shoulders", is one answer in two halves:
+ * the words carry on from the chip, so the chip stays and the words qualify
+ * it. "Athletic", then "a shaggy shoulder-length cut", is somebody changing
+ * their mind: the words stand on their own, so they are the answer and the
+ * chip goes. Which it is, is in the words themselves, and the list is closed:
+ * a phrase that opens with a conjunction or with "with" is carrying on, and
+ * anything else is starting again.
+ *
+ * Keeping the chip either way is what put a lit card above a description that
+ * had replaced it.
+ */
+const CARRIES_ON = /^(?:but|and|though|although|only|just|except(?: that)?|with|without|plus)\s+/i;
+
+export const carriesOn = (text: string): boolean => CARRIES_ON.test(text.trim());
+
+/**
+ * Their words with the join taken off, when the join was all it was.
+ *
+ * Kept, the conjunction reads back as "and always but with narrower
+ * shoulders". Same family as `asKept`, and only ever applied to words that
+ * carry on from something.
  */
 export function asQualifier(text: string): string {
   const said = text.trim().replace(/[.\s]+$/, '');

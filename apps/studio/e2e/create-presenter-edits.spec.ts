@@ -152,6 +152,36 @@ test.describe('changing an answer', () => {
     expect(d.keep).not.toContain('floral');
   });
 
+  test('a description over a tapped answer replaces it, and words that carry on do not', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await answer(page, 'Describe someone').click();
+    for (const label of ['Woman', '30s', 'Brown']) await answer(page, label).click();
+    await answer(page, 'Long').click();
+    await expect(log(page)).toContainText('And their skin?');
+
+    // a phrase that stands on its own is the answer: the card it replaces goes
+    // out, and the change closes
+    await pencil(page, 'you:look-length').click();
+    await expect(turn(page, 'q:look-length')).toHaveAttribute('data-reopened', 'true');
+    await expect(turn(page, 'q:look-length').getByRole('button', { name: 'Long', exact: true })).toHaveAttribute(
+      'data-on',
+      'true',
+    );
+    await send(page, 'a shaggy shoulder-length cut');
+    await expect(turn(page, 'q:look-length')).toHaveCount(0);
+    await expect(turn(page, 'you:look-length')).toContainText('A shaggy shoulder-length cut');
+    await expect(turn(page, 'you:look-length')).not.toContainText('Long');
+
+    // a phrase that carries on from the chip keeps it, and reads as one answer
+    await answer(page, 'Olive').click();
+    await answer(page, 'Lean').click();
+    await pencil(page, 'you:look-build').click();
+    await send(page, 'but with narrower shoulders');
+    await expect(turn(page, 'q:look-build')).toHaveCount(0);
+    await expect(turn(page, 'you:look-build')).toContainText('Lean, with narrower shoulders');
+  });
+
   test('C: from scratch to photos: the rows go with the door, and the photographs are the answer', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
