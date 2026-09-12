@@ -24,7 +24,31 @@ import { saysAge, saysWho } from './presenterStudioRules.js';
  */
 export type Source = 'scratch' | 'photos';
 
-export const LOOK_ORDER = ['who', 'age', 'hair', 'length', 'skin', 'build'] as const;
+/**
+ * The rows the look is asked in, one question each, in the order a person
+ * describes somebody: who they are, then their face, then their hair, then
+ * their body.
+ *
+ * Six of these existed before 2026-09-12 and could not say where somebody is
+ * from, how their hair grows, whether they have a beard, what colour their
+ * eyes are, or how tall they are. Measured the same day: asked for `deep` skin
+ * alone the roll returned a mid-brown woman with straight hair, and asked for
+ * `Nigerian` beside it returned deep skin and coily hair, so heritage steers
+ * more than one attribute and none of the five was decoration.
+ */
+export const LOOK_ORDER = [
+  'who',
+  'age',
+  'heritage',
+  'skin',
+  'hair',
+  'length',
+  'texture',
+  'facial',
+  'eyes',
+  'build',
+  'height',
+] as const;
 export type LookStep = (typeof LOOK_ORDER)[number];
 export type LookQid = `look-${LookStep}`;
 export type TraitQid = `trait-${TraitId}`;

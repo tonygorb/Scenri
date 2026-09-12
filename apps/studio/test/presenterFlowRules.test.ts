@@ -71,6 +71,11 @@ const TAPPED: Answers = {
   'look-length': { pick: 'long' },
   'look-skin': { pick: 'olive' },
   'look-build': { pick: 'lean' },
+  'look-heritage': { pick: 'Mediterranean' },
+  'look-texture': { pick: 'wavy' },
+  'look-facial': { pick: 'clean-shaven' },
+  'look-eyes': { pick: 'green' },
+  'look-height': { pick: 'tall' },
 };
 
 describe('the transcript is a function of state', () => {
@@ -88,10 +93,16 @@ describe('the transcript is a function of state', () => {
     expect(T0[1]).toMatchObject({ kind: 'scenri', quiet: true, text: PROMPT.source });
     for (const [id, v, next] of [
       ['look-who', 'woman', 'look-age'],
-      ['look-age', '30s', 'look-hair'],
+      ['look-age', '30s', 'look-heritage'],
+      ['look-heritage', 'Mediterranean', 'look-skin'],
+      ['look-skin', 'olive', 'look-hair'],
       ['look-hair', 'brown', 'look-length'],
-      ['look-length', 'long', 'look-skin'],
-      ['look-skin', 'olive', 'look-build'],
+      ['look-length', 'long', 'look-texture'],
+      ['look-texture', 'wavy', 'look-facial'],
+      ['look-facial', 'clean-shaven', 'look-eyes'],
+      ['look-eyes', 'green', 'look-build'],
+      ['look-build', 'lean', 'look-height'],
+      ['look-height', 'tall', 'traits'],
     ] as const) {
       a = { ...a, [id]: { pick: v } };
       const T = turns(state(a));
@@ -112,7 +123,7 @@ describe('the transcript is a function of state', () => {
     // the ask is short; the whole person is set apart above it, to be read or taken
     expect(q?.kind === 'confirm' && q.prompt).toBe('Here is the presenter, in full. Ready to draw?');
     expect(q?.kind === 'confirm' && q.quote).toBe(
-      'A woman in their 30s with long brown hair, olive skin, a lean build.',
+      'A Mediterranean woman in their 30s with long wavy brown hair, clean-shaven, green eyes, olive skin, tall with a lean build.',
     );
     // one way on, and it says what is being drawn
     expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Draw the presenter']);
@@ -130,7 +141,7 @@ describe('the transcript is a function of state', () => {
     );
     const said = open(withDetails);
     expect(said?.kind === 'confirm' && said.quote).toBe(
-      'A woman in their 30s with long brown hair, olive skin, a lean build, and always thin black rectangular metal frames, a solid blackwork tattoo on their right forearm and a prosthetic limb in a bright painted finish in place of their right arm.',
+      'A Mediterranean woman in their 30s with long wavy brown hair, clean-shaven, green eyes, olive skin, tall with a lean build, and always thin black rectangular metal frames, a solid blackwork tattoo on their right forearm and a prosthetic limb in a bright painted finish in place of their right arm.',
     );
     // the swatch questions know who is being drawn
     const who = open(turns(state({ source: { door: 'scratch', via: 'taps' }, 'look-who': { pick: 'man' } })));
@@ -179,8 +190,8 @@ describe('the transcript is a function of state', () => {
     const k = keys(T);
     expect(k).toContain('q:look-hair');
     expect(k).not.toContain('you:look-hair');
-    // where the answer was: under its own line, between the age and the length
-    expect(k.indexOf('q:look-hair')).toBe(k.indexOf('you:look-age') + 2);
+    // where the answer was: under its own line, between the skin and the length
+    expect(k.indexOf('q:look-hair')).toBe(k.indexOf('you:look-skin') + 2);
     expect(k[k.indexOf('q:look-hair') - 1]).toBe('scenri:asked-look-hair');
     expect(k[k.indexOf('q:look-hair') + 1]).toBe('scenri:asked-look-length');
     // everything after it is still there, and the question the conversation is
@@ -311,6 +322,8 @@ describe('a question with chips still takes words', () => {
       source: { door: 'scratch', via: 'taps' },
       'look-who': { pick: 'woman' },
       'look-age': { pick: '30s' },
+      'look-heritage': { pick: 'Mediterranean' },
+      'look-skin': { pick: 'olive' },
     };
     const { q, c } = at(a);
     expect(q?.id).toBe('look-hair');
@@ -798,7 +811,9 @@ describe('what a tap means', () => {
       'trait-tattoo-where': { pick: 'on their right forearm' },
       keep: { words: 'a red thread bracelet', refs: ['h-bracelet'] },
     };
-    expect(compileDirection(a)).toBe('a woman in their 30s with long dyed purple hair, olive skin, a lean build');
+    expect(compileDirection(a)).toBe(
+      'a Mediterranean woman in their 30s with long wavy dyed purple hair, clean-shaven, green eyes, olive skin, tall with a lean build',
+    );
     expect(compileKeep(a)).toBe(
       'thin black rectangular metal frames, a small geometric line tattoo on their right forearm, a red thread bracelet',
     );
@@ -863,11 +878,11 @@ describe('an answer that was changed', () => {
     const reopen = (a: Answers, id: Qid) =>
       turns(state(a, { editing: id })).find((t) => t.kind === 'question' && t.question.id === id);
     const deep = reopen(TAPPED, 'look-hair');
-    expect(deep?.kind === 'question' && deep.question.cost).toBe('Changing this asks the 3 after it again.');
-    const one = reopen(TAPPED, 'look-skin');
+    expect(deep?.kind === 'question' && deep.question.cost).toBe('Changing this asks the 6 after it again.');
+    const one = reopen(TAPPED, 'look-build');
     expect(one?.kind === 'question' && one.question.cost).toBe('Changing this asks the one after it again.');
     // the last answer has nothing after it, so there is nothing to say
-    const last = reopen(TAPPED, 'look-build');
+    const last = reopen(TAPPED, 'look-height');
     expect(last?.kind === 'question' && last.question.cost).toBeUndefined();
     // and a question standing open for the first time never says it
     const fresh = turns(state(TAPPED)).find((t) => t.kind === 'question');
@@ -929,7 +944,11 @@ describe('what was said in passing', () => {
       'you:look-who',
     ]);
     // a sentence with nothing of a person in it waits on its own question
-    const w = reduce(state({}), { type: 'unsure', unsure: { said: 'blue', q: 'source', at: '2026-01-01T00:00:02Z' } });
+    const w = reduce(state({}), {
+      type: 'unsure',
+      unsure: { said: 'blue', q: 'source', at: '2026-01-01T00:00:02Z' },
+      ctx: NO_DRAFT,
+    });
     expect(open(turns(w))?.id).toBe('unsure');
   });
 
@@ -942,6 +961,8 @@ describe('what was said in passing', () => {
       source: { door: 'scratch', via: 'taps' },
       'look-who': { pick: 'woman' },
       'look-age': { pick: '30s' },
+      'look-heritage': { pick: 'Mediterranean' },
+      'look-skin': { pick: 'olive' },
       'look-hair': { pick: 'ginger' },
     };
     const said = { said: 'my man', reply: 'That is not a hair colour.', q: 'look-hair', at: '2026-01-01T00:00:03Z' };

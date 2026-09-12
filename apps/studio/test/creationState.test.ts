@@ -81,6 +81,11 @@ describe('the state of a presenter being made', () => {
       'look-length': { pick: 'long' },
       'look-skin': { pick: 'olive' },
       'look-build': { pick: 'lean' },
+      'look-heritage': { pick: 'Mediterranean' },
+      'look-texture': { pick: 'wavy' },
+      'look-facial': { pick: 'clean-shaven' },
+      'look-eyes': { pick: 'green' },
+      'look-height': { pick: 'tall' },
       traits: [],
     };
     const s = reduce(EMPTY_STATE, { type: 'answer', patch: full, ctx: NO_DRAFT });
@@ -99,7 +104,7 @@ describe('the state of a presenter being made', () => {
       ctx: NO_DRAFT,
     });
     s = reduce(s, { type: 'aside', aside: { said: 'hi', reply: 'Hi.', q: 'look-age', at: '1' } });
-    s = reduce(s, { type: 'unsure', unsure: { said: 'blue', q: 'look-age', at: '2' } });
+    s = reduce(s, { type: 'unsure', unsure: { said: 'blue', q: 'look-age', at: '2' }, ctx: NO_DRAFT });
     // an answer settles the waiting sentence into the record
     s = reduce(s, { type: 'answer', patch: { 'look-age': { pick: '30s' } }, ctx: NO_DRAFT });
     expect(s.unsure).toBeNull();
@@ -117,13 +122,15 @@ describe('the state of a presenter being made', () => {
     for (const [id, v] of [
       ['look-who', 'woman'],
       ['look-age', '30s'],
+      ['look-heritage', 'Mediterranean'],
+      ['look-skin', 'olive'],
       ['look-hair', 'blonde'],
     ] as const) {
       s = reduce(s, { type: 'answer', patch: { [id]: v }, ctx: NO_DRAFT });
     }
     s = reduce(s, { type: 'aside', aside: { said: 'lol3', reply: 'Not a length.', q: 'look-length', at: '1' } });
     s = reduce(s, { type: 'answer', patch: { 'look-length': { words: 'Lungo' } }, ctx: NO_DRAFT });
-    s = reduce(s, { type: 'answer', patch: { 'look-skin': { pick: 'olive' } }, ctx: NO_DRAFT });
+    s = reduce(s, { type: 'answer', patch: { 'look-texture': { pick: 'wavy' } }, ctx: NO_DRAFT });
     expect(s.answers['look-length']).toEqual({ words: 'Lungo' });
 
     const back = reduce(s, {
@@ -135,9 +142,10 @@ describe('the state of a presenter being made', () => {
       ctx: NO_DRAFT,
     });
     expect(back.answers['look-length']).toBeUndefined();
-    expect(back.answers['look-skin']).toBeUndefined();
+    expect(back.answers['look-texture']).toBeUndefined();
     // and everything asked before it is exactly as it was
     expect(back.answers['look-hair']).toBe('blonde');
+    expect(back.answers['look-skin']).toBe('olive');
     expect(back.asides.map((a) => a.said)).toEqual(['lol34']);
     expect(back.revision).toBe(s.revision + 1);
   });

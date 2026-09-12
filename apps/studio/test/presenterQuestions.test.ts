@@ -24,6 +24,11 @@ const TAPPED: Answers = {
   'look-length': { pick: 'long' },
   'look-skin': { pick: 'olive' },
   'look-build': { pick: 'lean' },
+  'look-heritage': { pick: 'Mediterranean' },
+  'look-texture': { pick: 'wavy' },
+  'look-facial': { pick: 'clean-shaven' },
+  'look-eyes': { pick: 'green' },
+  'look-height': { pick: 'tall' },
   traits: ['glasses', 'tattoo'],
   'trait-glasses': { pick: 'thin black rectangular metal frames', refs: [] },
   'trait-tattoo': { pick: 'a floral tattoo in soft grey shading', refs: ['h-ink'] },
@@ -81,14 +86,21 @@ describe('the presenter questions, as one table', () => {
     // the conversation carries on from the change: everything it asked after
     // the colour was answered to a run that no longer stands
     expect(b['look-length']).toBeUndefined();
-    expect(b['look-skin']).toBeUndefined();
+    expect(b['look-texture']).toBeUndefined();
+    expect(b['look-facial']).toBeUndefined();
+    expect(b['look-eyes']).toBeUndefined();
     expect(b['look-build']).toBeUndefined();
+    expect(b['look-height']).toBeUndefined();
     expect(b.traits).toBeUndefined();
     expect(b['trait-tattoo']).toBeUndefined();
     expect(b['trait-tattoo-where']).toBeUndefined();
-    // and what came before it is exactly as it was
+    // and what came before it is exactly as it was. Skin is asked before the
+    // hair since 2026-09-12, when the rows were ordered the way a person
+    // describes somebody, so it survives a colour changing.
     expect(b['look-who']).toEqual({ pick: 'woman' });
     expect(b['look-age']).toEqual({ pick: '30s' });
+    expect(b['look-heritage']).toEqual({ pick: 'Mediterranean' });
+    expect(b['look-skin']).toEqual({ pick: 'olive' });
     expect(nextQuestion(b, NO_DRAFT)).toBe('look-length');
     sound(b);
   });
@@ -239,12 +251,15 @@ describe('the presenter questions, as one table', () => {
     expect(gone['look-hair']).toBeUndefined();
     // everything the conversation asked after it goes with it
     expect(gone['look-length']).toBeUndefined();
-    expect(gone['look-skin']).toBeUndefined();
+    expect(gone['look-texture']).toBeUndefined();
+    expect(gone['look-height']).toBeUndefined();
     expect(gone.traits).toBeUndefined();
     expect(gone['trait-tattoo']).toBeUndefined();
-    // and what came before it is exactly as it was
+    // and what came before it is exactly as it was, the skin included: it is
+    // asked before the hair, not after it
     expect(gone['look-who']).toEqual(TAPPED['look-who']);
     expect(gone['look-age']).toEqual(TAPPED['look-age']);
+    expect(gone['look-skin']).toEqual(TAPPED['look-skin']);
     // the question is the one being asked again
     expect(nextQuestion(gone, NO_DRAFT)).toBe('look-hair');
     sound(gone);
@@ -267,7 +282,7 @@ describe('the presenter questions, as one table', () => {
       NO_DRAFT,
     );
     expect(answered('look-age', a, NO_DRAFT)).toBe(true);
-    expect(nextQuestion(a, NO_DRAFT)).toBe('look-hair');
+    expect(nextQuestion(a, NO_DRAFT)).toBe('look-heritage');
     // and words beside the way past are still an answer of their own
     const b = commit(a, { 'look-age': { pick: 'either', words: 'not a teenager' } }, NO_DRAFT);
     expect(answered('look-age', b, NO_DRAFT)).toBe(true);

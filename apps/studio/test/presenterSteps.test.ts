@@ -28,6 +28,11 @@ const TAPPED: Answers = {
   'look-length': { words: 'shoulder' },
   'look-skin': { pick: 'olive' },
   'look-build': { pick: 'solid' },
+  'look-heritage': { pick: 'Mediterranean' },
+  'look-texture': { pick: 'wavy' },
+  'look-facial': { pick: 'clean-shaven' },
+  'look-eyes': { pick: 'green' },
+  'look-height': { pick: 'tall' },
   traits: [],
 };
 const TYPED: Answers = {

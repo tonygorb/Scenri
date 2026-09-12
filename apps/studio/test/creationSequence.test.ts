@@ -163,8 +163,8 @@ function nextAction(s: CreationState, r: () => number): Action {
   if (roll < 0.95) return { type: 'remove-photo', hash: 'h1' };
   if (roll < 0.96) return { type: 'extras-declined' };
   if (roll < 0.97) return { type: 'attest', checked: r() < 0.5 };
-  if (roll < 0.98) return { type: 'settle-unsure' };
-  if (roll < 0.99) return { type: 'unsure', unsure: { said: SENTENCES[0], q: open ?? null, at: at(r) } };
+  if (roll < 0.98) return { type: 'settle-unsure', ctx };
+  if (roll < 0.99) return { type: 'unsure', unsure: { said: SENTENCES[0], q: open ?? null, at: at(r) }, ctx };
   return { type: 'start-over' };
 }
 

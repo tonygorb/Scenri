@@ -129,9 +129,9 @@ export type Action =
   /** A colour picked for a step. `step` is the step the control was shown for. */
   | { type: 'colour'; hex: string | null; step: Qid | 'keep' | null }
   | { type: 'aside'; aside: Aside }
-  | { type: 'unsure'; unsure: Unsure }
+  | { type: 'unsure'; unsure: Unsure; ctx: FlowContext }
   /** The waiting sentence is settled: kept in the record, with nothing drawn from it. */
-  | { type: 'settle-unsure' }
+  | { type: 'settle-unsure'; ctx: FlowContext }
   | { type: 'upload-begin' }
   /** A photograph landed. Refused when the photographs are no longer the question. */
   | { type: 'uploaded'; hash: string; max: number }
@@ -255,12 +255,26 @@ function withFreeAt(asides: Aside[], a: Aside): Aside {
 }
 
 /** The waiting sentence, folded into the record when something else was said. */
-function settleUnsure(s: CreationState): CreationState {
+function settleUnsure(s: CreationState, ctx: FlowContext): CreationState {
   const w = s.unsure;
   if (!w) return s;
-  const asides = s.asides.map((a) => (a.q === 'unsure' ? { ...a, q: w.q } : a));
-  const settled = withFreeAt(asides, { said: w.said, reply: UNSURE_LINE, q: w.q, at: w.at });
-  return { ...s, unsure: null, asides: [...asides, settled] };
+  /**
+   * The question a settled sentence belongs under, if it still belongs under
+   * one.
+   *
+   * A sentence waiting to be settled outlives the question it was said at: an
+   * answer changed meanwhile can leave that question unasked and unanswered,
+   * and filing words under it then puts them at a question nobody is on.
+   * Answered, it stands between the question and its answer; still open, it
+   * stands under it; otherwise it is simply something that was said, and the
+   * record places it by time.
+   */
+  const open = nextQuestion(s.answers, ctx);
+  const stands = (q: string | null): string | null =>
+    q && (q === open || (isQid(q) && s.answers[q] !== undefined)) ? q : null;
+  const asides = s.asides.map((a) => (a.q === 'unsure' ? { ...a, q: stands(w.q) } : a));
+  const settled = withFreeAt(asides, { said: w.said, reply: UNSURE_LINE, q: stands(w.q), at: w.at });
+  return { ...s, unsure: null, asides: keptAsides([...asides, settled], s.answers, ctx) };
 }
 
 export function reduce(s: CreationState, action: Action): CreationState {
@@ -268,7 +282,7 @@ export function reduce(s: CreationState, action: Action): CreationState {
     case 'answer': {
       const answers = commit(s.answers, action.patch, action.ctx);
       const moved = !same(answers, s.answers);
-      const settled = settleUnsure(s);
+      const settled = settleUnsure(s, action.ctx);
       return {
         ...settled,
         answers,
@@ -378,9 +392,9 @@ export function reduce(s: CreationState, action: Action): CreationState {
       return { ...s, asides: [...s.asides, withFreeAt(s.asides, said)], text: '' };
     }
     case 'unsure':
-      return { ...settleUnsure(s), unsure: action.unsure, text: '' };
+      return { ...settleUnsure(s, action.ctx), unsure: action.unsure, text: '' };
     case 'settle-unsure':
-      return settleUnsure(s);
+      return settleUnsure(s, action.ctx);
     case 'upload-begin':
       return { ...s, uploading: s.uploading + 1 };
     case 'upload-end':

@@ -565,7 +565,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
           if (a.kind !== 'confirm' || a.id !== 'use' || !st.unsure) return;
           const said = st.unsure.said;
           const at = st.unsure.q === 'describe' ? 'describe' : 'source';
-          dispatch({ type: 'settle-unsure' });
+          dispatch({ type: 'settle-unsure', ctx });
           commitAnswer(
             at === 'describe' ? { describe: said } : { source: { door: 'scratch', via: 'typed' }, describe: said },
           );
@@ -833,10 +833,10 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       }
       // Before a face exists, a sentence with nothing of a person in it is asked about, not drawn.
       if ((qid === 'source' || qid === 'describe') && !door && !readsAsPerson(sentence)) {
-        dispatch({ type: 'unsure', unsure: { said: sentence, q: open, at: nowIso() } });
+        dispatch({ type: 'unsure', unsure: { said: sentence, q: open, at: nowIso() }, ctx });
         return true;
       }
-      if (qid === 'source' || qid === 'describe') dispatch({ type: 'settle-unsure' });
+      if (qid === 'source' || qid === 'describe') dispatch({ type: 'settle-unsure', ctx });
       if (qid === 'source') {
         if (door) {
           commitAnswer({ source: { door, via: 'taps' } });
