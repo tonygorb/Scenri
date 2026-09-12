@@ -476,28 +476,6 @@ export function Transcript({
     return () => window.clearTimeout(t);
   }, [openKey, changing, reduced]);
 
-  /**
-   * A sentence said while an answer is open is answered under that answer, and
-   * the bottom pin is suspended for the length of a change. So the reply could
-   * land under the fold, behind the line it was typed into: said something,
-   * was answered, saw nothing happen. It is the reader's own line and their
-   * own action, so it is shown, once, by the shortest move that shows it.
-   */
-  let lastSaid: Turn | null = null;
-  for (const t of turns) if (isAsideTurn(t)) lastSaid = t;
-  const saidKey = lastSaid ? turnKey(lastSaid) : null;
-  const answered = useRef<string | null>(saidKey);
-  useEffect(() => {
-    if (saidKey === answered.current) return;
-    answered.current = saidKey;
-    if (!saidKey || !changing) return;
-    const t = window.setTimeout(() => {
-      const node = turnNode(box.current, saidKey);
-      if (node) showClear(node, box.current, reduced);
-    }, SLIDE_MS);
-    return () => window.clearTimeout(t);
-  }, [saidKey, changing, reduced]);
-
   // Nothing is teleported. A turn that was on screen last render and is
   // somewhere else this one is put back where it was and played forward to
   // where it is now, so a block arriving or going reads as the conversation
@@ -533,18 +511,14 @@ export function Transcript({
     // the line it was asked with stands with it
     const id = changing.slice(changing.indexOf(':') + 1);
     bright.add(`scenri:asked-${id}`);
-    // And what was said at it. A sentence typed while the block is open is
-    // answered out loud, and both halves of that were being drawn at 0.4: the
-    // newest thing on screen, and the reply to what had just been asked,
-    // greyed out as though the conversation had moved past it. Two places it
-    // can stand: beside the answer being changed, when it was said at that
-    // question before, and at the end, which is where a new one arrives.
+    // And what was said at it, which stands with it: a sentence said at that
+    // question is part of that exchange, and dimming it while the exchange is
+    // the whole conversation reads as though it belonged to something else.
     const at = shown.findIndex((t) => turnKey(t) === changing);
     if (at >= 0) {
       for (let i = at + 1; i < shown.length && isAsideTurn(shown[i]); i++) bright.add(turnKey(shown[i]));
       for (let i = at - 1; i >= 0 && isAsideTurn(shown[i]); i--) bright.add(turnKey(shown[i]));
     }
-    for (let i = shown.length - 1; i >= 0 && isAsideTurn(shown[i]); i--) bright.add(turnKey(shown[i]));
   }
 
   // When each turn first stood on screen. A conversation is a record of when
@@ -720,24 +694,6 @@ function onScreen(node: HTMLElement, box: HTMLElement | null): boolean {
 /** Bring a turn into view by the shortest move that shows it, where the platform can. */
 function show(node: HTMLElement | null, reduced: boolean) {
   node?.scrollIntoView?.({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
-}
-
-/**
- * The same, clear of the line a person types into.
- *
- * `scrollIntoView` puts a turn's bottom edge at the scroller's bottom edge,
- * and the composer floats over that edge with a fade under it: a turn shown
- * that way clears by a pixel and is read through the gradient. This lands it
- * above the dock instead, which is where the last line of a conversation
- * already sits at rest.
- */
-function showClear(node: HTMLElement | null, box: HTMLElement | null, reduced: boolean) {
-  if (!node || !box) return;
-  const parent = scrollParent(box);
-  const fade = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sc-dock-fade')) || 56;
-  const over = node.getBoundingClientRect().bottom - (parent.getBoundingClientRect().bottom - fade);
-  if (over > 0) parent.scrollBy({ top: over, behavior: reduced ? 'auto' : 'smooth' });
-  else show(node, reduced);
 }
 
 /**

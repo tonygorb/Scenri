@@ -152,49 +152,42 @@ test.describe('changing an answer', () => {
     expect(d.keep).not.toContain('floral');
   });
 
-  test('a description over a tapped answer replaces it, and words that carry on do not', async ({ page }) => {
+  test('sending at an answer that is open for change takes it back, whatever was sent', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters/new`);
     await answer(page, 'Describe someone').click();
     for (const label of ['Woman', '30s', 'Brown']) await answer(page, label).click();
     await answer(page, 'Long').click();
-    await expect(log(page)).toContainText('And their skin?');
-
     // answered on, so there are answers after the one about to be changed
     await answer(page, 'Olive').click();
-    await expect(log(page)).toContainText('And their build?');
+    await answer(page, 'Lean').click();
+    await expect(log(page)).toContainText('Anything else that is always true of them?');
 
-    // A sentence the question cannot take is answered out loud, the way it is
-    // anywhere else, and it arrives where a chat puts a new line: at the end.
-    // It is filed at the question that was on the floor, never at the answer
-    // being changed, so it is not drawn into the middle of the run and has
-    // nothing to move to when the block closes.
+    // A change is a change: pressing Send at a reopened answer says that
+    // answer no longer stands, and a conversation reads forward, so everything
+    // it asked after that question goes with it. Words the question cannot
+    // take end the same way as words it can; the only difference is whether it
+    // comes back answered or waiting.
     await pencil(page, 'you:look-length').click();
-    await send(page, 'Yo man');
-    const reply = log(page).locator('.sc-convo-turn[data-turn^="scenri:aside-reply"]');
-    await expect(reply).toContainText('That is not a length.');
-    // last in the conversation, and not dimmed: it is the newest thing said
-    await expect(log(page).locator('.sc-convo-turn').last()).toHaveAttribute('data-turn', /^scenri:aside-reply/);
-    await expect(reply).not.toHaveAttribute('data-dim', /.*/);
-    // nothing answered after the one being changed was taken back: a refused
-    // sentence changed no answer
-    await expect(turn(page, 'you:look-skin')).toContainText('Olive');
-    // and the change is still open, so it can simply be answered again
-    await expect(turn(page, 'q:look-length')).toHaveAttribute('data-reopened', 'true');
-
-    // a phrase that stands on its own is the answer: the card it replaces goes
-    // out, the change closes, and what was asked after it is asked again
-    await expect(turn(page, 'q:look-length')).toHaveAttribute('data-reopened', 'true');
-    await expect(turn(page, 'q:look-length').getByRole('button', { name: 'Long', exact: true })).toHaveAttribute(
-      'data-on',
-      'true',
+    await send(page, 'ksjfhklsjdfsdf');
+    await expect(log(page).locator('.sc-convo-turn[data-turn^="scenri:aside-reply"]')).toContainText(
+      'That is not a length.',
     );
+    await expect(turn(page, 'you:look-length')).toHaveCount(0);
+    await expect(turn(page, 'you:look-skin')).toHaveCount(0);
+    await expect(turn(page, 'you:look-build')).toHaveCount(0);
+    // the question is simply being asked again, not held half open
+    await expect(turn(page, 'q:look-length')).toHaveCount(1);
+    await expect(turn(page, 'q:look-length')).not.toHaveAttribute('data-reopened', /.*/);
+    // and the sentence stands under it, last, as the newest thing said
+    await expect(log(page).locator('.sc-convo-turn').last()).toHaveAttribute('data-turn', /^scenri:aside-reply/);
+
+    // answered for real, in words that stand on their own: they are the
+    // answer, and the card they replace is not lit under them
     await send(page, 'a shaggy shoulder-length cut');
     await expect(turn(page, 'q:look-length')).toHaveCount(0);
     await expect(turn(page, 'you:look-length')).toContainText('A shaggy shoulder-length cut');
     await expect(turn(page, 'you:look-length')).not.toContainText('Long');
-    // the run carries on from the change: the skin answered after it is gone
-    await expect(turn(page, 'you:look-skin')).toHaveCount(0);
     await expect(log(page)).toContainText('And their skin?');
 
     // a phrase that carries on from the chip keeps it, and reads as one answer
@@ -424,40 +417,39 @@ test.describe('an answer written again', () => {
     return log(page).locator('.sc-convo-turn[data-turn="you:look-length"]');
   };
 
-  test('words that would be refused under the question are refused over it, and nothing below is taken back', async ({
-    page,
-  }) => {
+  test('words written over an answer take it back, whether or not they can be taken', async ({ page }) => {
     const bubble = await toLength(page);
     await bubble.getByRole('button', { name: 'Change this answer' }).click();
     await bubble.locator('textarea').fill('Lungo1234');
     await bubble.locator('textarea').press('Enter');
 
-    // the answer stands as it was, and what was said is answered where it was said
-    await expect(bubble).toContainText('Lungo');
-    await expect(bubble).not.toContainText('Lungo1234');
+    // writing over an answer says it no longer stands, so it goes, and so does
+    // everything the conversation asked after it. The words could not be taken
+    // as the new answer, so the question comes back waiting rather than answered.
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-length"]')).toHaveCount(0);
+    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-skin"]')).toHaveCount(0);
+    await expect(log(page)).toContainText('And the length?');
+    // and what was said is answered where it was said
     await expect(log(page)).toContainText('Lungo1234');
     await expect(log(page)).toContainText('That is not a length.');
-    // nothing under it moved: the skin still stands and the build is still the ask
-    await expect(log(page).locator('.sc-convo-turn[data-turn="you:look-skin"]')).toContainText('Olive');
-    await expect(log(page)).toContainText('And their build?');
   });
 
-  test('a refusal stands after the answer it failed to change, and becomes the answer when it is fixed', async ({
-    page,
-  }) => {
+  test('a refusal stands where it was said, and becomes the answer when it is fixed', async ({ page }) => {
     const bubble = await toLength(page);
-    // two attempts that say nothing, one after the other
-    for (const junk of ['Lungo1', 'Lungo123']) {
-      await bubble.getByRole('button', { name: 'Change this answer' }).click();
-      await bubble.locator('textarea').fill(junk);
-      await bubble.locator('textarea').press('Enter');
-      await expect(log(page)).toContainText(junk);
-    }
-    // they stand where they were said: after the answer, in the order they were
-    // made, not filed above the answer they failed to change
+    // the first attempt takes the answer back and leaves the question waiting
+    await bubble.getByRole('button', { name: 'Change this answer' }).click();
+    await bubble.locator('textarea').fill('Lungo1');
+    await bubble.locator('textarea').press('Enter');
+    await expect(log(page)).toContainText('Lungo1');
+    // the second is typed at the question itself, which is now the open one
+    await send(page, 'Lungo123');
+    await expect(log(page)).toContainText('Lungo123');
+    // both stand where they were said, in the order they were made
     const said = await log(page).locator('.sc-convo-turn[data-who="you"]').allInnerTexts();
     const order = said.map((t) => t.replace(/\s+/g, ' ').trim());
-    expect(order.findIndex((t) => t.includes('Lungo1'))).toBeGreaterThan(order.findIndex((t) => t.endsWith('Lungo')));
+    expect(order.findIndex((t) => t.includes('Lungo123'))).toBeGreaterThan(
+      order.findIndex((t) => t.includes('Lungo1')),
+    );
 
     // fixed, it is no longer a stray sentence: it answers the question it was
     // said at, so the run goes back there and these words are the answer

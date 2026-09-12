@@ -231,6 +231,32 @@ describe('the presenter questions, as one table', () => {
     sound(e);
   });
 
+  it('takes an answer away exactly as changing it does', () => {
+    // Sending at an answer that is open for change takes it back, whatever was
+    // sent, so this is now the call that carries a refusal as well as a
+    // change. One rule, and it has to truncate the same way.
+    const gone = commit(TAPPED, { 'look-hair': undefined }, NO_DRAFT);
+    expect(gone['look-hair']).toBeUndefined();
+    // everything the conversation asked after it goes with it
+    expect(gone['look-length']).toBeUndefined();
+    expect(gone['look-skin']).toBeUndefined();
+    expect(gone.traits).toBeUndefined();
+    expect(gone['trait-tattoo']).toBeUndefined();
+    // and what came before it is exactly as it was
+    expect(gone['look-who']).toEqual(TAPPED['look-who']);
+    expect(gone['look-age']).toEqual(TAPPED['look-age']);
+    // the question is the one being asked again
+    expect(nextQuestion(gone, NO_DRAFT)).toBe('look-hair');
+    sound(gone);
+    // which is the same shape as changing it, minus the new answer
+    const changed = commit(TAPPED, { 'look-hair': { pick: 'blonde' } }, NO_DRAFT);
+    expect(Object.keys(gone).sort()).toEqual(
+      Object.keys(changed)
+        .filter((k) => k !== 'look-hair')
+        .sort(),
+    );
+  });
+
   it('counts the way past as an answer, though it says nothing about them', () => {
     // Skip contributes nothing to the sentence, which is not the same as
     // saying nothing: a row that measured answers by what they compile to

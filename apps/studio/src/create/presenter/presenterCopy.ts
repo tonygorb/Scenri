@@ -154,36 +154,19 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  * way. The same sentence three times running reads as a wall rather than as a
  * reply, so once somebody is plainly stuck the way out is named instead.
  */
-export function asideReply(
-  kind: NothingKind,
-  phase: AsidePhase,
-  again: number,
-  said = '',
-  step?: string,
-  standing?: string,
-): string {
+export function asideReply(kind: NothingKind, phase: AsidePhase, again: number, said = '', step?: string): string {
   const ask = phase === 'look' ? (LOOK_ASK[step ?? ''] ?? null) : null;
   const how = ask?.how ?? HOW[phase];
-  /**
-   * What the answer still is, when the words were said at one being changed.
-   *
-   * Without it, a sentence that could not be taken reads as an answer that
-   * was: the conversation says what it wanted instead and never says that
-   * nothing moved, so somebody who has gone back two questions to change
-   * something is left to work out whether it changed.
-   */
-  const stands = standing ? ` ${standing} still stands.` : '';
-  const put = (reply: string) => (stands ? `${reply}${stands}` : reply);
   // said twice already: point at the way past it rather than asking a third time
   if (again >= 2 && kind !== 'likeness') {
-    return put(phase === 'look' || phase === 'detail' ? `${cap(how)}. Or Skip it and we will choose.` : `${cap(how)}.`);
+    return phase === 'look' || phase === 'detail' ? `${cap(how)}. Or Skip it and we will choose.` : `${cap(how)}.`;
   }
   switch (kind) {
     case 'likeness':
       return 'Describe them by looks. Scenri does not draw a named person.';
     case 'help':
       return ask
-        ? put(`${cap(how)}.`)
+        ? `${cap(how)}.`
         : phase === 'refine'
           ? 'Select a view and say what is wrong with it, or say what should change about them: hair, age, build, skin.'
           : phase === 'name'
@@ -193,7 +176,7 @@ export function asideReply(
               : 'Describe the person in a sentence: age, hair, build, skin, presence. Or add photos of a real person.';
     case 'question':
       return ask
-        ? put(`This step asks for ${ask.thing}: ${how}.`)
+        ? `This step asks for ${ask.thing}: ${how}.`
         : phase === 'refine'
           ? `This is where the picture is changed: ${how}.`
           : phase === 'name'
@@ -209,13 +192,13 @@ export function asideReply(
         : `Nothing to draw yet. ${cap(how)}.`;
     case 'intent':
       return ask
-        ? put(`${cap(how)}.`)
+        ? `${cap(how)}.`
         : phase === 'refine'
           ? `Nothing changes until it is said what: ${how}.`
           : `That is what we are here for. Who are they? ${cap(how)}.`;
     case 'nonsense':
       return ask
-        ? put(`That is not ${ask.thing}. ${cap(how)}.`)
+        ? `That is not ${ask.thing}. ${cap(how)}.`
         : phase === 'name'
           ? `That is not a name. ${cap(how)}.`
           : phase === 'refine'
@@ -224,15 +207,13 @@ export function asideReply(
               ? `That does not say what it looks like. ${cap(how)}.`
               : `That does not describe anyone. ${cap(how)}.`;
     case 'greeting':
-      return put(
-        again
-          ? `Still here. ${cap(how)}.`
-          : /^(hi|hello|hey|heya|hiya|yo|hola|shalom|good)\b/i.test(said.trim())
-            ? `Hi. ${cap(how)}.`
-            : `${cap(how)}.`,
-      );
+      return again
+        ? `Still here. ${cap(how)}.`
+        : /^(hi|hello|hey|heya|hiya|yo|hola|shalom|good)\b/i.test(said.trim())
+          ? `Hi. ${cap(how)}.`
+          : `${cap(how)}.`;
     case 'ack':
-      return put(again ? `Still here. ${cap(how)}.` : `Go ahead: ${how}.`);
+      return again ? `Still here. ${cap(how)}.` : `Go ahead: ${how}.`;
     case 'vague':
       return again ? `Still here. ${cap(how)}.` : `${cap(how)}.`;
   }

@@ -675,34 +675,29 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       const voice = (t: Qid | 'keep' | null, openId: string | null = null) =>
         asidePhaseFor(t, openId, !!d?.views.portrait.hash);
       /**
-       * Where a sentence that answered nothing is filed.
+       * A sentence that answered nothing, filed where it was said.
        *
-       * It was said out loud and it is answered out loud: it is a turn in the
-       * conversation like any other, and it goes where a chat puts a new
-       * message, at the end.
+       * It was said out loud and it is answered out loud: a turn in the
+       * conversation like any other, arriving where a chat puts a new line.
        *
-       * The question it is filed at is the question that was **on the floor**,
-       * never the answer being changed. Filed at the answer, it was drawn in
-       * the middle of the run, under that answer and above answers given after
-       * it, and then moved the moment the block closed. Filed where it was
-       * actually said, it arrives at the bottom and stays there, and when that
-       * question is answered it settles into that exchange, which is where the
-       * conversation had got to when the words were typed.
+       * **Sending at an answer that is open for change takes that answer
+       * back**, whatever was sent. A change is a change: pressing Send there
+       * says the answer no longer stands, and a conversation reads forward, so
+       * everything asked after that question goes with it and the question is
+       * asked again. Good words and bad words end the same way, which is what
+       * makes the rule a rule; the only difference is whether the question
+       * comes back answered or waiting. Leaving the run intact when the words
+       * could not be taken made a change look as though it had not happened,
+       * and made this one question behave unlike every other.
+       *
+       * Taking the answer back is the same call a changed answer makes, so the
+       * truncation, the revision bump and the guards on work already in flight
+       * are the ones the flow has.
        */
       const refuse = (said: string, reply: string, q: Qid | 'keep' | null, kind: NothingKind) => {
-        const here = st.editing && st.editing === q ? (question?.id ?? null) : q;
-        bounce(said, reply, here, kind);
+        if (q !== null && st.editing === q) commitAnswer({ [q]: undefined });
+        bounce(said, reply, q, kind);
       };
-      /**
-       * The answer as it stands, when the words were said at one being changed.
-       *
-       * A refusal that only says what it wanted reads as an answer that was
-       * taken: somebody two questions back, changing something on purpose, is
-       * left to work out whether it changed. Saying what still stands is the
-       * only honest end to that sentence.
-       */
-      const stands = (t: Qid | 'keep' | null) =>
-        t && t !== 'keep' && st.editing === t ? answerLine(t, st.answers, d).text || undefined : undefined;
 
       // A detail in their own words: it answers the open half of that trait,
       // and the placement question follows only if the words did not say it.
@@ -726,14 +721,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         if (!typed || empty) {
           refuse(
             typed,
-            asideReply(
-              empty ?? 'vague',
-              voice(target),
-              again(target, empty ?? 'vague'),
-              typed,
-              undefined,
-              stands(target),
-            ),
+            asideReply(empty ?? 'vague', voice(target), again(target, empty ?? 'vague'), typed),
             target,
             empty ?? 'vague',
           );
@@ -771,12 +759,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         // what it is, so only typed words are read this way, chip or no chip.
         const empty = typed && !/^#[0-9a-f]{6}$/i.test(typed) ? judgeAnswer(target, typed, readsAsPerson) : null;
         if (empty) {
-          refuse(
-            typed,
-            asideReply(empty, voice(target), again(target, empty), typed, step, stands(target)),
-            target,
-            empty,
-          );
+          refuse(typed, asideReply(empty, voice(target), again(target, empty), typed, step), target, empty);
           return true;
         }
         // The chip and the words are two halves of one answer and are never
@@ -1021,17 +1004,19 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         return;
       }
       if (!isQid(turnId) || !answeredInWords(turnId, stateRef.current.answers)) return;
-      // An answer written again is read again. Words that would have been
-      // refused under the question are refused over it too, and are answered
-      // the same way: the answer stands as it was, and what was said joins the
-      // conversation where it was said.
+      // An answer written again is read again. Words the question would have
+      // refused under it are refused over it too, and the answer goes either
+      // way: writing over an answer says it no longer stands, and a
+      // conversation reads forward, so what was asked after it is asked again.
+      // The same rule as a block sent at, and for the same reason: a change is
+      // a change whether or not the words could be taken.
       const wrong = judgeAnswer(turnId, text, readsAsPerson);
       if (wrong) {
         const st = stateRef.current;
         const phase = asidePhaseFor(turnId, turnId, !!d?.views.portrait.hash);
         const step = isLookQid(turnId) ? (turnId.slice('look-'.length) as LookStep) : undefined;
         const before = st.asides.filter((a) => a.q === turnId && a.kind === wrong).length;
-        dispatch({ type: 'cancel-edit' });
+        commitAnswer({ [turnId]: undefined });
         bounce(text, asideReply(wrong, phase, before, text, step), turnId, wrong);
         return;
       }
