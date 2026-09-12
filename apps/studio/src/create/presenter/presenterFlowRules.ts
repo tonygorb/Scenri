@@ -791,7 +791,7 @@ function askedLine(id: Qid, a: Answers): string {
 }
 
 /** The answer as it reads in the transcript. */
-function answerLine(id: Qid, a: Answers, draft: DraftLike | null): { text: string; photos?: string[] } {
+export function answerLine(id: Qid, a: Answers, draft: DraftLike | null): { text: string; photos?: string[] } {
   switch (id) {
     case 'source':
       return { text: a.source?.door === 'photos' ? 'Add photos' : 'Describe someone' };

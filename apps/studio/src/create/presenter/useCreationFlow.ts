@@ -21,6 +21,7 @@ import {
   asidePhaseFor,
   judgeAnswer,
   activeQuestion,
+  answerLine,
   answerPatch,
   attachedWords,
   asKept,
@@ -692,6 +693,16 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         const here = st.editing && st.editing === q ? (question?.id ?? null) : q;
         bounce(said, reply, here, kind);
       };
+      /**
+       * The answer as it stands, when the words were said at one being changed.
+       *
+       * A refusal that only says what it wanted reads as an answer that was
+       * taken: somebody two questions back, changing something on purpose, is
+       * left to work out whether it changed. Saying what still stands is the
+       * only honest end to that sentence.
+       */
+      const stands = (t: Qid | 'keep' | null) =>
+        t && t !== 'keep' && st.editing === t ? answerLine(t, st.answers, d).text || undefined : undefined;
 
       // A detail in their own words: it answers the open half of that trait,
       // and the placement question follows only if the words did not say it.
@@ -715,7 +726,14 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         if (!typed || empty) {
           refuse(
             typed,
-            asideReply(empty ?? 'vague', voice(target), again(target, empty ?? 'vague'), typed),
+            asideReply(
+              empty ?? 'vague',
+              voice(target),
+              again(target, empty ?? 'vague'),
+              typed,
+              undefined,
+              stands(target),
+            ),
             target,
             empty ?? 'vague',
           );
@@ -753,7 +771,12 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         // what it is, so only typed words are read this way, chip or no chip.
         const empty = typed && !/^#[0-9a-f]{6}$/i.test(typed) ? judgeAnswer(target, typed, readsAsPerson) : null;
         if (empty) {
-          refuse(typed, asideReply(empty, voice(target), again(target, empty), typed, step), target, empty);
+          refuse(
+            typed,
+            asideReply(empty, voice(target), again(target, empty), typed, step, stands(target)),
+            target,
+            empty,
+          );
           return true;
         }
         // The chip and the words are two halves of one answer and are never

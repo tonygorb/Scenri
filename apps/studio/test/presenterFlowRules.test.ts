@@ -521,6 +521,21 @@ describe('an answer that is a fact rather than a sentence', () => {
     expect(judgeAnswer('look-age', 'what do I do?', readsAsPerson)).toBe('help');
   });
 
+  it('says what still stands when the words were said at an answer being changed', () => {
+    // A refusal that only says what it wanted reads as an answer that was
+    // taken. Somebody two questions back, changing something on purpose, was
+    // left to work out whether it had changed.
+    const plain = asideReply('greeting', 'look', 0, 'Hey bro', 'length');
+    expect(plain).not.toContain('still stands');
+    const changing = asideReply('greeting', 'look', 0, 'Hey bro', 'length', 'Chin');
+    expect(changing).toContain('Chin still stands.');
+    // every voice a refusal speaks in says it, not only one of them
+    expect(asideReply('nonsense', 'look', 0, 'zzz', 'length', 'Chin')).toContain('Chin still stands.');
+    expect(asideReply('question', 'look', 0, 'what?', 'length', 'Chin')).toContain('Chin still stands.');
+    // and the third time, when the way out is named instead of asking again
+    expect(asideReply('greeting', 'look', 2, 'hi', 'length', 'Chin')).toContain('Chin still stands.');
+  });
+
   it('knows words that carry on from a chip from words that replace it', () => {
     // Reported from the app: a description typed over a tapped answer left the
     // card lit above words that had replaced it.
