@@ -766,6 +766,60 @@ button.sc-convo-shot-do {
   background-size: cover;
   background-repeat: no-repeat;
 }
+.sc-convo-plate-in[data-card="length-1-woman"] {
+  background-image: url("../../assets/traits/length-1-woman.webp");
+}
+.sc-convo-plate-in[data-card="length-1-man"] {
+  background-image: url("../../assets/traits/length-1-man.webp");
+}
+.sc-convo-plate-in[data-card="length-1-androgynous"] {
+  background-image: url("../../assets/traits/length-1-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="length-2-woman"] {
+  background-image: url("../../assets/traits/length-2-woman.webp");
+}
+.sc-convo-plate-in[data-card="length-2-man"] {
+  background-image: url("../../assets/traits/length-2-man.webp");
+}
+.sc-convo-plate-in[data-card="length-2-androgynous"] {
+  background-image: url("../../assets/traits/length-2-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="length-3-woman"] {
+  background-image: url("../../assets/traits/length-3-woman.webp");
+}
+.sc-convo-plate-in[data-card="length-3-man"] {
+  background-image: url("../../assets/traits/length-3-man.webp");
+}
+.sc-convo-plate-in[data-card="length-3-androgynous"] {
+  background-image: url("../../assets/traits/length-3-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="length-4-woman"] {
+  background-image: url("../../assets/traits/length-4-woman.webp");
+}
+.sc-convo-plate-in[data-card="length-4-man"] {
+  background-image: url("../../assets/traits/length-4-man.webp");
+}
+.sc-convo-plate-in[data-card="length-4-androgynous"] {
+  background-image: url("../../assets/traits/length-4-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="length-5-woman"] {
+  background-image: url("../../assets/traits/length-5-woman.webp");
+}
+.sc-convo-plate-in[data-card="length-5-man"] {
+  background-image: url("../../assets/traits/length-5-man.webp");
+}
+.sc-convo-plate-in[data-card="length-5-androgynous"] {
+  background-image: url("../../assets/traits/length-5-androgynous.webp");
+}
+.sc-convo-plate-in[data-card="length-6-woman"] {
+  background-image: url("../../assets/traits/length-6-woman.webp");
+}
+.sc-convo-plate-in[data-card="length-6-man"] {
+  background-image: url("../../assets/traits/length-6-man.webp");
+}
+.sc-convo-plate-in[data-card="length-6-androgynous"] {
+  background-image: url("../../assets/traits/length-6-androgynous.webp");
+}
 .sc-convo-plate-in[data-card="eyes-1"] {
   background-image: url("../../assets/traits/eyes-1.webp");
 }

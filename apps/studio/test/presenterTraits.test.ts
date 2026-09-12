@@ -6,7 +6,10 @@ import { describe, expect, it } from 'vitest';
 // Resolved from this file, never from the working directory: run from the repo
 // root rather than the package and cwd-relative reads fail for no real reason.
 const STUDIO = join(dirname(fileURLToPath(import.meta.url)), '..');
-import { LOOK_ROWS } from '../src/create/presenter/presenterLook.ts';
+import { CAST_ROWS, LOOK_ROWS } from '../src/create/presenter/presenterLook.ts';
+
+/** The three figures a cast-aware row is drawn on. */
+const CASTS = ['woman', 'man', 'androgynous'];
 import { LOOK_ORDER } from '../src/create/presenter/presenterQuestions.ts';
 import {
   TRAITS,
@@ -62,9 +65,14 @@ describe('the distinctive details a presenter can carry', () => {
     for (const step of LOOK_ORDER) {
       for (const o of LOOK_ROWS[step].row.options) {
         if (!o.card) continue;
-        wanted.add(o.card);
-        expect(css).toContain(`[data-card="${o.card}"]`);
-        expect(art.has(o.card), o.card).toBe(true);
+        // A row drawn per cast names one card per cast, and all three have to
+        // be there: a set with two of them shows a man a blank plate.
+        const ids = CAST_ROWS.has(step) ? CASTS.map((c) => `${o.card}-${c}`) : [o.card];
+        for (const id of ids) {
+          wanted.add(id);
+          expect(css).toContain(`[data-card="${id}"]`);
+          expect(art.has(id), id).toBe(true);
+        }
       }
     }
     expect([...art].filter((f) => !wanted.has(f))).toEqual([]);
@@ -83,7 +91,10 @@ describe('the distinctive details a presenter can carry', () => {
     const rules = [...css.matchAll(/\[data-card="([^"]+)"\]\s*\{[^}]*url\("[^"]*\/([^"/]+)\.webp"\)/g)];
     const cards =
       TRAITS.reduce((n, t) => n + t.options.length, 0) +
-      LOOK_ORDER.reduce((n, s) => n + LOOK_ROWS[s].row.options.filter((o) => o.card).length, 0);
+      LOOK_ORDER.reduce(
+        (n, s) => n + LOOK_ROWS[s].row.options.filter((o) => o.card).length * (CAST_ROWS.has(s) ? CASTS.length : 1),
+        0,
+      );
     expect(rules.length).toBe(cards);
     for (const [, card, file] of rules) expect(file).toBe(card);
   });

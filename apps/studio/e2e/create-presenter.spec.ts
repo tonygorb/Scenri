@@ -261,8 +261,10 @@ test.describe('a person from scratch', () => {
     await expect(log(page)).toContainText('What colour is their hair?');
     await log(page).getByRole('button', { name: 'Black', exact: true }).click();
     await expect(log(page)).toContainText('And the length?');
-    // length and build are shapes rather than words
-    await expect(log(page).locator('.sc-convo-plate .sc-look-art').first()).toBeVisible();
+    // the length is looked at, not read, and it is drawn on the figure the
+    // subject said they were: she was tapped a woman, so these are her cards
+    await expect(log(page).locator('.sc-convo-plate-in[data-card^="length-"]').first()).toBeVisible();
+    await expect(log(page).locator('.sc-convo-plate-in[data-card="length-5-woman"]')).toHaveCount(1);
     await log(page).getByRole('button', { name: 'Shoulder', exact: true }).click();
     await expect(log(page)).toContainText('And how does it grow?');
     await log(page).getByRole('button', { name: 'Wavy', exact: true }).click();

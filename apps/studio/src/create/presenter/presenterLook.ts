@@ -29,12 +29,12 @@ export const HAIR_COLOURS: Swatch[] = [
  * named here, beside the option, and nowhere else.
  */
 export const HAIR_LENGTHS: Swatch[] = [
-  { id: 'buzzed', label: 'Buzzed', art: { sheet: 'hair', x: 0, y: 0 } },
-  { id: 'cropped', label: 'Cropped', art: { sheet: 'hair', x: 1, y: 0 } },
-  { id: 'short', label: 'Short', art: { sheet: 'hair', x: 2, y: 0 } },
-  { id: 'chin-length', label: 'Chin', art: { sheet: 'hair', x: 0, y: 1 } },
-  { id: 'shoulder-length', label: 'Shoulder', art: { sheet: 'hair', x: 1, y: 1 } },
-  { id: 'long', label: 'Long', art: { sheet: 'hair', x: 2, y: 1 } },
+  { id: 'buzzed', label: 'Buzzed', card: 'length-1' },
+  { id: 'cropped', label: 'Cropped', card: 'length-2' },
+  { id: 'short', label: 'Short', card: 'length-3' },
+  { id: 'chin-length', label: 'Chin', card: 'length-4' },
+  { id: 'shoulder-length', label: 'Shoulder', card: 'length-5' },
+  { id: 'long', label: 'Long', card: 'length-6' },
 ];
 
 export const SKIN_TONES: Swatch[] = [
@@ -242,6 +242,27 @@ export const LOOK_SAYS_PLACEHOLDER: Partial<Record<LookStep, string>> = {
 
 /** The figure the drawn rows show: a man's hair on a man's head; anyone else stands with the fuller of the two. */
 export const castFor = (who: string | undefined): string => (who === 'man' ? 'man' : 'woman');
+
+/**
+ * Which figure a row of cards is drawn on: three, not two.
+ *
+ * The sprite sheets above have a man and a woman and send everybody else to
+ * the woman, which is a decision about who exists made by a fallback. A card
+ * row is drawn per cast and has no such excuse, so an androgynous person is
+ * drawn as one. Anyone who skipped the question or typed their own words is
+ * drawn that way too: it is the reading that assumes least.
+ */
+export const cardCast = (who: string | undefined): string =>
+  who === 'man' ? 'man' : who === 'woman' ? 'woman' : 'androgynous';
+
+/**
+ * The rows whose cards are drawn once per cast.
+ *
+ * Hair is the whole of it: a woman's shoulder-length hair and a man's are not
+ * the same picture, and a row that pretends otherwise is the row Tony kept
+ * pointing at. A detail worn on a face is not: glasses are glasses.
+ */
+export const CAST_ROWS = new Set<LookStep>(['length']);
 
 /**
  * How far a colour may sit from a swatch and still take its name, as a squared

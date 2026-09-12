@@ -31,6 +31,8 @@ import {
   LOOK_SAYS_PLACEHOLDER,
   WHO_OPTIONS,
   answerLabel,
+  CAST_ROWS,
+  cardCast,
   castFor,
   lookLine,
   lookSentence,
@@ -720,12 +722,19 @@ function questionFor(id: Qid, state: CreationState, ctx: FlowContext, reopened: 
   if (isLookQid(id)) {
     const step = id.slice('look-'.length) as LookStep;
     const { row, prompt } = LOOK_ROWS[step];
+    // A row drawn per cast names its cards by cast, and the flow is where that
+    // is resolved: the block renders whatever card id it is handed, and the
+    // conversation layer goes on knowing nothing about presenters.
+    const cast = cardCast(a['look-who']?.pick);
+    const shown = CAST_ROWS.has(step)
+      ? { ...row, options: row.options.map((o) => (o.card ? { ...o, card: `${o.card}-${cast}` } : o)) }
+      : row;
     return {
       id,
       kind: 'swatches',
       prompt,
       hint: step === 'who' ? PROMPT.lookHint : undefined,
-      row,
+      row: shown,
       cast: castFor(a['look-who']?.pick),
       skip: 'Skip',
       // Only the first row keeps a way in of its own, and it is not a way to
