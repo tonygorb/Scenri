@@ -37,11 +37,11 @@ export function shouldOfferDesktop(i: {
 }
 
 export const OFFER_QUESTION = '  Add Scenri to your desktop? Then you can open it without a terminal. [Y/n] ';
-export const LATER_LINE = '  Not now. Add it later with: npx scenri desktop, or from Settings > About.';
-export const STILL_RUNNING_LINE = '  Scenri is running anyway. Add the icon later from Settings > About.';
+const LATER_LINE = '  Not now. Add it later with: npx scenri desktop, or from Settings > About.';
+const STILL_RUNNING_LINE = '  Scenri is running anyway. Add the icon later from Settings > About.';
 
 /** Nobody is at the keyboard forever. After this the prompt gives up and the boot moves on. */
-export const ASK_TIMEOUT_MS = 120_000;
+const ASK_TIMEOUT_MS = 120_000;
 
 /**
  * What a typed answer means. Empty is yes because the prompt reads [Y/n], and

@@ -68,7 +68,7 @@ export function presentConflictKeys(env: NodeJS.ProcessEnv, ignored: readonly st
 }
 
 /** "CODEX_API_KEY" / "CODEX_API_KEY and OPENAI_API_KEY" / "CODEX_API_KEY, CODEX_ACCESS_TOKEN and ..." */
-export function listKeys(keys: readonly string[]): string {
+function listKeys(keys: readonly string[]): string {
   if (keys.length === 0) return '';
   if (keys.length === 1) return keys[0];
   return `${keys.slice(0, -1).join(', ')} and ${keys[keys.length - 1]}`;

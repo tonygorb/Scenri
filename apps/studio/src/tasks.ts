@@ -214,7 +214,7 @@ export function batchTask(siblings: ActivityNode[], brand: { slug: string }, now
  * perfectly. Old rows are read the same way, so the ones already on disk stop
  * reading as failures too.
  */
-export function isShoplessSite(j: Pick<CatalogImportJob, 'stage' | 'errors'>): boolean {
+function isShoplessSite(j: Pick<CatalogImportJob, 'stage' | 'errors'>): boolean {
   return j.stage === 'no_catalog' || (j.stage === 'failed' && j.errors?.[0]?.code === 'empty_catalog');
 }
 

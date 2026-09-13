@@ -16,7 +16,7 @@ export interface ColorHit {
   weight: number;
 }
 
-export function hexToHsl(hex: string): { h: number; s: number; l: number } {
+function hexToHsl(hex: string): { h: number; s: number; l: number } {
   const r = Number.parseInt(hex.slice(1, 3), 16) / 255;
   const g = Number.parseInt(hex.slice(3, 5), 16) / 255;
   const b = Number.parseInt(hex.slice(5, 7), 16) / 255;
@@ -121,7 +121,7 @@ export function selectorIsLive(selector: string, live: readonly string[]): boole
 }
 
 /** The slots a site can name for itself. `dark` and `light` are a theme's own, not greys. */
-export type DeclaredRole = 'primary' | 'secondary' | 'accent' | 'dark' | 'light';
+type DeclaredRole = 'primary' | 'secondary' | 'accent' | 'dark' | 'light';
 
 /** `--brand-primary-dark` -> `{ role: 'primary', variant: true }` */
 export function roleOfProperty(property: string): { role: DeclaredRole; variant: boolean } | null {
@@ -138,7 +138,7 @@ export function roleOfProperty(property: string): { role: DeclaredRole; variant:
   return { role: base[1] as DeclaredRole, variant: Boolean(base[2]) };
 }
 
-export interface DeclaredPalette {
+interface DeclaredPalette {
   primary?: string;
   secondary?: string;
   accent?: string;
@@ -154,7 +154,7 @@ export interface DeclaredPalette {
  * than any amount of counting. Later declarations win, as the cascade does,
  * and a `-dark` or `-hover` variant never takes the base slot.
  */
-export function declaredPalette(hits: readonly CssColor[], live: readonly string[]): DeclaredPalette {
+function declaredPalette(hits: readonly CssColor[], live: readonly string[]): DeclaredPalette {
   const best = new Map<DeclaredRole, { hex: string; rank: number }>();
   for (const hit of hits) {
     const named = roleOfProperty(hit.property);
@@ -239,7 +239,7 @@ export function dropSingletons(hits: readonly ColorHit[]): ColorHit[] {
  * every grey mistaken for a brand colour sat under 0.03 chroma and every real
  * brand colour over 0.22, so the gap is wide and the threshold is not delicate.
  */
-export function chromaOf(hex: string): number {
+function chromaOf(hex: string): number {
   const r = Number.parseInt(hex.slice(1, 3), 16) / 255;
   const g = Number.parseInt(hex.slice(3, 5), 16) / 255;
   const b = Number.parseInt(hex.slice(5, 7), 16) / 255;
@@ -247,7 +247,7 @@ export function chromaOf(hex: string): number {
 }
 
 /** A colour that says nothing about a brand: a grey, a near-white, a near-black. */
-export function isNeutral(hex: string): boolean {
+function isNeutral(hex: string): boolean {
   const { l } = hexToHsl(hex);
   return chromaOf(hex) < 0.1 || l < 0.06 || l > 0.96;
 }

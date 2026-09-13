@@ -9,7 +9,4 @@ export {
 } from './buildFromUrl.js';
 export { mergeScrape, type MergeScrapeResult } from './mergeScrape.js';
 export { normalizeSiteUrl, type SiteUrl, type SiteUrlReason } from './siteUrl.js';
-export { ScrapeError, urlRefusal, type ScrapeErrorCode } from './scrapeError.js';
-export { createGuardedFetch, isPrivateAddress, type GuardOptions } from './safeFetch.js';
-export { toHex } from './colorParse.js';
-export { logoCandidates, svgAsMark, type LogoCandidate, type LogoSource } from './logoCandidates.js';
+export { ScrapeError, type ScrapeErrorCode } from './scrapeError.js';
