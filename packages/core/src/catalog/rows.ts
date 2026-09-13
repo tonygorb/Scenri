@@ -8,13 +8,6 @@ export type CatalogPlatform = 'shopify' | 'woocommerce' | 'webflow' | 'generic' 
  */
 export type ImportStage =
   | 'queued'
-  /**
-   * A bounded look for a shop that writes no products: it reports how many a
-   * site appears to have and reads a couple of dozen as a preview. Kept apart
-   * from `discovering` because that stage belongs to an import someone asked
-   * for, and this one runs to answer a question.
-   */
-  | 'scanning'
   | 'discovering'
   | 'fetching_products'
   | 'processing_assets'

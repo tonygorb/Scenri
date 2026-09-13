@@ -2,8 +2,6 @@ export type Platform = 'shopify' | 'woocommerce' | 'webflow' | 'generic' | 'unkn
 
 export type ImportStage =
   | 'queued'
-  /** A bounded look for a shop, before anything is written. */
-  | 'scanning'
   | 'discovering'
   | 'fetching_products'
   | 'processing_assets'

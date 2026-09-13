@@ -66,7 +66,7 @@ export async function scanForCandidates(opts: ScanOptions): Promise<ScanResult> 
   const robots = await fetchRobots(ctx);
   if (robots.crawlDelayMs) warnings.push('This site asks readers to go slowly, so the preview is smaller');
 
-  opts.onProgress?.({ stage: 'scanning', message: 'Looking for a shop' });
+  opts.onProgress?.({ stage: 'discovering', message: 'Looking for a shop' });
   const detection = await detectPlatform(ctx);
   const adapter = adapterFor(detection.platform);
 
@@ -94,7 +94,7 @@ export async function scanForCandidates(opts: ScanOptions): Promise<ScanResult> 
     return done(verdict, [], [], 0, countSource, warnings);
   }
 
-  opts.onProgress?.({ stage: 'scanning', discovered: urls.length, message: 'Reading a few products' });
+  opts.onProgress?.({ stage: 'discovering', discovered: urls.length, message: 'Reading a few products' });
   const preview = dedupeProducts(
     await fetchProductPages(ctx, urls, {
       limit: budget.maxPreviewPages,
@@ -103,7 +103,7 @@ export async function scanForCandidates(opts: ScanOptions): Promise<ScanResult> 
       maxTotalBytes: budget.maxTotalBytes,
       delayMs: robots.crawlDelayMs,
       deadline,
-      onProduct: (fetched) => opts.onProgress?.({ stage: 'scanning', fetched, discovered: urls.length }),
+      onProduct: (fetched) => opts.onProgress?.({ stage: 'fetching_products', fetched, discovered: urls.length }),
     }),
   );
 

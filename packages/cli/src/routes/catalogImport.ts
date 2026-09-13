@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Core } from '@scenri/core';
 import { cancelCatalogImport, startCatalogImport } from '../catalogImport.js';
+import { getScan, startCatalogScan } from '../catalogScan.js';
 
 export function registerCatalogImportRoutes(
   app: FastifyInstance,
@@ -20,14 +21,61 @@ export function registerCatalogImportRoutes(
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
     return { source: core.catalog.getSourceForBrand(brand.id) };
   });
-  app.post('/api/brands/:id/catalog/import', async (req, reply) => {
+  // A bounded look for a shop. Writes nothing: it answers how many products
+  // a site appears to have and reads a couple of dozen as a preview, so the
+  // person can see what they would be importing before anything is imported.
+  app.post('/api/brands/:id/catalog/scan', async (req, reply) => {
     const brandId = (req.params as any).id;
     const brand = core.store.getBrand(brandId);
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
     const url = String((req.body as any)?.url ?? (brand.json as any)?.meta?.website ?? '');
     if (!url.trim()) return reply.status(400).send({ error: 'url required' });
     try {
-      return startCatalogImport({ core, fetchImpl }, brandId, url);
+      return startCatalogScan({ core, fetchImpl }, brandId, url);
+    } catch (err: any) {
+      return reply.status(err.statusCode ?? 500).send({ error: err.message ?? 'scan failed' });
+    }
+  });
+  app.get('/api/brands/:id/catalog/scans/:scanId', async (req, reply) => {
+    const brandId = (req.params as any).id;
+    const scan = getScan((req.params as any).scanId);
+    if (!scan || scan.brandId !== brandId) return reply.status(404).send({ error: 'scan not found' });
+    return scan;
+  });
+  app.post('/api/brands/:id/catalog/import', async (req, reply) => {
+    const brandId = (req.params as any).id;
+    const brand = core.store.getBrand(brandId);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    const url = String((req.body as any)?.url ?? (brand.json as any)?.meta?.website ?? '');
+    if (!url.trim()) return reply.status(400).send({ error: 'url required' });
+    // Given a chosen set, import exactly those pages. Given none, crawl the
+    // catalog as before - the Products page has always meant the whole store.
+    const asked = (req.body as any)?.urls;
+    let only: string[] | undefined;
+    if (asked != null) {
+      if (!Array.isArray(asked) || asked.some((u) => typeof u !== 'string')) {
+        return reply.status(400).send({ error: 'urls must be a list of product addresses' });
+      }
+      // Same origin as the store being imported, so a chosen list cannot
+      // become a way to point the importer at somewhere else entirely.
+      let origin: string;
+      try {
+        origin = new URL(url.startsWith('http') ? url : `https://${url}`).origin;
+      } catch {
+        return reply.status(400).send({ error: 'url required' });
+      }
+      only = (asked as string[]).filter((u) => {
+        try {
+          return new URL(u).origin === origin;
+        } catch {
+          return false;
+        }
+      });
+      if (!only.length) return reply.status(400).send({ error: 'none of those products belong to this site' });
+      if (only.length > 500) only = only.slice(0, 500);
+    }
+    try {
+      return startCatalogImport({ core, fetchImpl }, brandId, url, { only });
     } catch (err: any) {
       return reply.status(err.statusCode ?? 500).send({ error: err.message ?? 'import failed' });
     }
