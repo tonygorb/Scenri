@@ -18,6 +18,7 @@ const product = (handle: string) =>
 function storefront(count: number, opts: { robots?: string; pdpStatus?: number; deadEveryOther?: boolean } = {}) {
   const handles = Array.from({ length: count }, (_, i) => `item-${i + 1}`);
   const calls: string[] = [];
+  const seen = calls;
   const fetchImpl = (async (input: any) => {
     const url = String(input);
     calls.push(url);
@@ -57,7 +58,7 @@ function storefront(count: number, opts: { robots?: string; pdpStatus?: number; 
       headers: { 'content-type': 'text/html' },
     });
   }) as typeof fetch;
-  return { fetchImpl, calls };
+  return { fetchImpl, calls, seen };
 }
 
 describe('scanning a website for a shop', () => {
@@ -173,5 +174,74 @@ describe('scanning a website for a shop', () => {
     expect(read).toBeGreaterThan(6);
     // and still bounded: three addresses per product wanted, never the catalog
     expect(read).toBeLessThanOrEqual(18);
+  });
+});
+
+/**
+ * gymshark.com answers 301 to us.checkout.gymshark.com, a checkout host with
+ * no catalog on it, while www.gymshark.com is the store. Following the
+ * redirect is the obvious fix and the wrong one.
+ */
+describe('a bare domain that is not where the shop lives', () => {
+  /** Products only under www; the apex knows nothing. */
+  function splitHost() {
+    const seen: string[] = [];
+    const fetchImpl = (async (input: any) => {
+      const url = String(input);
+      seen.push(url);
+      const onWww = url.includes('//www.');
+      if (url.endsWith('/robots.txt')) return new Response('', { status: 404 });
+      if (/\/products\.json/.test(url)) return new Response('no', { status: 403 });
+      if (url.endsWith('/sitemap.xml') && onWww)
+        return new Response(
+          `<?xml version="1.0"?><sitemapindex><sitemap><loc>https://www.shop.example/sitemap_products_1.xml</loc></sitemap></sitemapindex>`,
+          { status: 200 },
+        );
+      if (url.includes('sitemap_products') && onWww)
+        return new Response(
+          `<?xml version="1.0"?><urlset>${['a', 'b', 'c']
+            .map((h) => `<url><loc>https://www.shop.example/products/${h}</loc></url>`)
+            .join('')}</urlset>`,
+          { status: 200 },
+        );
+      if (url.includes('sitemap')) return new Response('<urlset></urlset>', { status: 200 });
+      const handle = /\/products\/([^/?#.]+)$/.exec(url)?.[1];
+      if (handle && onWww)
+        return new Response(
+          `<html><head><script type="application/ld+json">${JSON.stringify({
+            '@type': 'Product',
+            name: handle,
+            url,
+            offers: { price: 10, priceCurrency: 'USD' },
+          })}</script></head></html>`,
+          { status: 200, headers: { 'content-type': 'text/html' } },
+        );
+      return new Response('<html><body>nothing here</body></html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      });
+    }) as typeof fetch;
+    return { fetchImpl, seen };
+  }
+
+  it('finds the shop that only answers under www', async () => {
+    const { fetchImpl } = splitHost();
+    const scan = await scanForCandidates({ url: 'shop.example', fetchImpl });
+    expect(scan.verdict).toBe('found');
+    expect(scan.baseUrl).toBe('https://www.shop.example');
+    expect(scan.count).toBe(3);
+  });
+
+  it('does not pay for the second look when the first one found a shop', async () => {
+    const { fetchImpl, seen } = storefront(10);
+    await scanForCandidates({ url: 'https://shop.example', fetchImpl, budget: { maxPreviewPages: 2 } });
+    expect(seen.filter((u) => u.includes('//www.'))).toHaveLength(0);
+  });
+
+  it('leaves a host that already names a subdomain alone', async () => {
+    const { fetchImpl, seen } = splitHost();
+    const scan = await scanForCandidates({ url: 'https://shop.acme.example', fetchImpl });
+    expect(scan.verdict).toBe('none');
+    expect(seen.filter((u) => u.includes('//www.'))).toHaveLength(0);
   });
 });

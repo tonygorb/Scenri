@@ -87,7 +87,12 @@ async function runJob(
         await fetchProductPages(ctx, only, {
           concurrency: 4,
           maxBytes: 1_500_000,
-          onProduct: (fetched) => patch({ fetched }),
+          // Every tenth, matching the upsert loop. `updateJob` rewrites the
+          // whole row, and one write per product is 2203 of them on a store
+          // this size.
+          onProduct: (fetched) => {
+            if (fetched % 10 === 0) patch({ fetched });
+          },
         }),
       );
       if (!products.length) {
@@ -114,25 +119,37 @@ async function runJob(
 
     patch({ stage: 'discovering', message: 'Detecting store platform' });
 
+    // The adapters emit once per product fetched, and `updateJob` rewrites the
+    // whole row, so a 2203-product store used to mean 2203 row writes. A stage
+    // change or a message is always worth recording; a bare count is worth it
+    // every tenth.
+    let lastStage = '';
+    let lastMessage: string | null = null;
     const result = await runCatalogIngestion({
       url,
       fetchImpl,
       signal,
       onProgress: (p: JobProgress) => {
+        const stage = p.stage === 'queued' ? 'discovering' : p.stage;
+        const message = p.message ?? null;
+        const notable = stage !== lastStage || message !== lastMessage || p.fetched % 10 === 0;
+        if (!notable) return;
+        lastStage = stage;
+        lastMessage = message;
         patch({
-          stage: p.stage === 'queued' ? 'discovering' : p.stage,
+          stage,
           platform: p.platform,
           discovered: p.discovered,
           fetched: p.fetched,
           warnings: p.warnings,
           errors: p.errors,
-          message: p.message ?? null,
+          message,
         });
       },
     });
 
     if (signal.aborted) {
-      patch({ stage: 'failed', message: 'Import cancelled', finished: true });
+      patch({ stage: 'cancelled', message: 'Import stopped', finished: true });
       return;
     }
 
@@ -174,6 +191,18 @@ async function runJob(
   }
 }
 
+/**
+ * How many pictures of one product are worth keeping on this machine.
+ *
+ * Measured on gymshark.com: a product page offers about eleven images, and
+ * Scenri re-encodes each to PNG, which turns a 262 KB source JPEG into 2.8 MB.
+ * The whole catalog at eleven each is 24,233 images and roughly 70 GB. Three
+ * is a front, a back and a detail - enough to recognise and to shoot with -
+ * and the rest of the URLs stay recorded, so a product can be filled out later
+ * without crawling the store again.
+ */
+export const IMAGES_PER_PRODUCT = 3;
+
 interface PersistOptions {
   discovered: number;
   warnings: string[];
@@ -186,6 +215,8 @@ interface PersistOptions {
    * the person did not tick this time is still perfectly real.
    */
   sweep: boolean;
+  /** Pictures kept per product. Defaults to `IMAGES_PER_PRODUCT`. */
+  imagesPerProduct?: number;
 }
 
 /**
@@ -255,8 +286,15 @@ async function persistProducts(
   patch({ upserted, fetched: products.length });
   if (opts.sweep) core.catalog.markMissingUnavailable(source.id, seenKeys);
 
-  // Download images
-  const pending = core.catalog.listImagesNeedingAssets(brandId, 50_000);
+  // Download images, the first few of each product only.
+  const everyImage = core.catalog.listImagesNeedingAssets(brandId, 50_000);
+  const perProduct = new Map<string, number>();
+  const pending = everyImage.filter((img) => {
+    const n = perProduct.get(img.productId) ?? 0;
+    if (n >= (opts.imagesPerProduct ?? IMAGES_PER_PRODUCT)) return false;
+    perProduct.set(img.productId, n + 1);
+    return true;
+  });
   patch({
     stage: 'processing_assets',
     imagesTotal: pending.length,
@@ -309,12 +347,16 @@ async function persistProducts(
   );
 
   if (signal.aborted) {
-    patch({ stage: 'failed', message: 'Import cancelled', errors, finished: true });
-    core.catalog.setSourceStatus(source.id, 'failed', true);
+    // Stopping something you started is not a failure, and a red row for it
+    // reads as one. The products already written stay written.
+    patch({ stage: 'cancelled', message: `Stopped after ${upserted} products`, errors, finished: true });
+    core.catalog.setSourceStatus(source.id, 'partial', true);
     return;
   }
 
-  const stillMissing = core.catalog.listImagesNeedingAssets(brandId, 1).length;
+  // Deliberately not `listImagesNeedingAssets` again: the images this run
+  // chose to skip are not missing, they are the ones past the cap.
+  const stillMissing = pending.filter((img) => !img.assetRef).length - imagesDone;
   const partial =
     !!errors.length || stillMissing > 0 || (opts.discovered > 0 && products.length < opts.discovered * 0.9);
 

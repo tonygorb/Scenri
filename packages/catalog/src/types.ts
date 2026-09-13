@@ -7,6 +7,7 @@ export type ImportStage =
   | 'processing_assets'
   | 'completed'
   | 'partial'
+  | 'cancelled'
   | 'failed';
 
 export interface CatalogVariant {

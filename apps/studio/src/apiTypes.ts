@@ -607,6 +607,8 @@ export type CatalogImportStage =
   | 'partial'
   /** Read fine, no shop on it. A fact about the site, not a fault. */
   | 'no_catalog'
+  /** Stopped by the person who started it. Not a fault, and not red. */
+  | 'cancelled'
   | 'failed';
 
 export interface CatalogImportJob {

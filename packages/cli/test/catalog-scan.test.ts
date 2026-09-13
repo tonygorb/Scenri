@@ -46,7 +46,7 @@ function storeFetch(input: any) {
       name: handle,
       url: `https://shop.example/products/${handle}`,
       sku: handle.toUpperCase(),
-      image: `https://cdn.example/${handle}.jpg`,
+      image: [1, 2, 3, 4, 5].map((n) => `https://cdn.example/${handle}-${n}.jpg`),
       offers: { '@type': 'Offer', price: 20, priceCurrency: 'USD' },
     };
     return res(`<html><head><script type="application/ld+json">${JSON.stringify(ld)}</script></head></html>`);
@@ -160,6 +160,35 @@ describe('scanning a site, then importing only what was chosen', () => {
     });
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toMatch(/belong to this site/i);
+  });
+
+  /**
+   * A product page offers about eleven images and Scenri re-encodes each to
+   * PNG, so a 2203-product store is 24,233 images and roughly 70 GB. Three per
+   * product is a front, a back and a detail; the rest of the URLs stay
+   * recorded for later.
+   */
+  it('keeps a few pictures of each product, not all of them', async () => {
+    const state = await scan();
+    const job = await importUrls((state.result.candidateUrls as string[]).slice(0, 3));
+    expect(await library()).toHaveLength(3);
+    // The fixture offers five pictures of each of the three. Three per product
+    // are fetched, so nine rather than fifteen. (Asserted on the job's own
+    // count because the fixture serves one identical PNG for every URL, and
+    // content-addressed storage folds those into a single asset.)
+    expect(job.imagesTotal).toBe(9);
+    expect(job.imagesDone).toBe(9);
+  });
+
+  it('refuses to quietly drop products from a list too long to honour', async () => {
+    const many = Array.from({ length: 2100 }, (_, i) => `https://shop.example/products/item-${i + 1}`);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brandId}/catalog/import`,
+      payload: { url: 'https://shop.example', urls: many },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toMatch(/whole catalogue/i);
   });
 
   it('still imports the whole catalog when nothing is chosen', async () => {

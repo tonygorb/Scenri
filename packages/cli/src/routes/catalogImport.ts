@@ -72,7 +72,12 @@ export function registerCatalogImportRoutes(
         }
       });
       if (!only.length) return reply.status(400).send({ error: 'none of those products belong to this site' });
-      if (only.length > 500) only = only.slice(0, 500);
+      // Truncating a chosen list silently drops products someone picked. Past
+      // this many, importing the catalog outright is both cheaper and what
+      // they meant, and the studio offers exactly that.
+      if (only.length > 2000) {
+        return reply.status(400).send({ error: 'That is nearly the whole catalogue. Import everything instead.' });
+      }
     }
     try {
       return startCatalogImport({ core, fetchImpl }, brandId, url, { only });

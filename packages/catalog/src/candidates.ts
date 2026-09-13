@@ -73,11 +73,44 @@ export interface ScanOptions {
   onProgress?: (update: Partial<JobProgress>) => void;
 }
 
+/**
+ * A bare domain that turns up no shop, tried once more at `www.`.
+ *
+ * Nobody types `https://www.`, and the apex is often not where the store is.
+ * Following the redirect is the obvious fix and the wrong one: measured
+ * 2026-09-13, `gymshark.com` answers 301 to `us.checkout.gymshark.com`, a
+ * checkout host with no catalog on it, while `www.gymshark.com` is the store.
+ * allbirds.com and oatly.com redirect to their own `www` and would survive
+ * either way. So the host is guessed rather than followed, and only when the
+ * first look found nothing worth keeping - a site that has a shop never pays
+ * for this.
+ */
+function wwwVariant(baseUrl: string): string | null {
+  try {
+    const url = new URL(baseUrl);
+    const labels = url.hostname.split('.');
+    // Only a bare registrable domain: never `shop.acme.com`, never an IP.
+    if (labels.length !== 2 || /^\d+$/.test(labels[labels.length - 1])) return null;
+    url.hostname = `www.${url.hostname}`;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
 export async function scanForCandidates(opts: ScanOptions): Promise<ScanResult> {
+  const first = await scanOnce(opts, originOf(normalizeStoreUrl(opts.url)));
+  if (first.verdict !== 'none') return first;
+  const alternate = wwwVariant(first.baseUrl);
+  if (!alternate) return first;
+  const second = await scanOnce(opts, alternate);
+  return second.verdict === 'none' ? first : second;
+}
+
+async function scanOnce(opts: ScanOptions, baseUrl: string): Promise<ScanResult> {
   const started = Date.now();
   const budget = { ...DEFAULT_SCAN_BUDGET, ...opts.budget };
   const deadline = started + budget.budgetMs;
-  const baseUrl = originOf(normalizeStoreUrl(opts.url));
   const fetchImpl = opts.fetchImpl ?? fetch;
   const ctx: AdapterContext = {
     fetchImpl,

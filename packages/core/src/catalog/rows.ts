@@ -14,6 +14,8 @@ export type ImportStage =
   | 'completed'
   | 'partial'
   | 'no_catalog'
+  /** Stopped by the person who started it. Not a fault, and not red. */
+  | 'cancelled'
   | 'failed';
 
 export interface CatalogSourceRow {
