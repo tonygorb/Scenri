@@ -1,15 +1,16 @@
-import { Spinner } from '@radix-ui/themes';
 import { ArrowClockwise, X } from '@phosphor-icons/react';
-import { type AssetBuild, thumbUrl } from '../api.js';
+import { type AssetBuild } from '../api.js';
 import { describeFailure } from '../failure.js';
+import { RunningTag } from './canvas/RunningTag.js';
 
 /**
  * A presenter or scene while it is still being built.
  *
  * Sits in the same wall as the finished cards so the shape of the page does not
- * jump when it lands. It shows real progress rather than a spinner alone: a
- * build runs for minutes, and "3 of 4" is the difference between waiting and
- * wondering whether anything is happening.
+ * jump when it lands. While it runs it is only the wait: gold shimmer, elapsed
+ * clock, a way to stop. No name, no stage copy — those used to sit under the
+ * tile and make a generating card taller than the ones around it. The name
+ * arrives with the finished card. A failure still says what died.
  *
  * Only two states ever reach here: running and failed. A cancelled build is one
  * you stopped yourself, and a card reporting on that is furniture — the pages
@@ -28,7 +29,6 @@ export function AssetBuildCard({
   onDismiss?: (id: string) => void;
 }) {
   const failed = build.stage === 'failed';
-  const pct = build.steps > 0 ? Math.round((build.step / build.steps) * 100) : 0;
   /*
    * A failed build used to put the raw thrown string in the caption, where the
    * card has one line for it — so a build that died on a missing API key
@@ -36,30 +36,24 @@ export function AssetBuildCard({
    * way every other failure in the app is; the raw text stays on the title.
    */
   const failure = failed ? describeFailure(build.error) : null;
-  const status = failure ? failure.title : (build.message ?? 'Starting');
-
-  /*
-   * What the build wants to tell you that is not its status: a view that could
-   * not be drawn, or which further photo would buy consistency. Both travel all
-   * the way from the analyzer and used to stop here, unread.
-   */
-  const notes = [...build.warnings, ...build.coverage];
 
   return (
-    // data-build carries the always-visible caption; data-building is the
-    // running half of that. A card whose whole job is to report progress
-    // cannot hide its status behind a hover the way a finished card does.
-    <div className="sc-lookcard" data-variant="plain" data-size="grid" data-build data-building={!failed || undefined}>
+    // data-build is only the failed footer: a running tile has no caption, the
+    // same as a Create shot still drawing. The name is in the stop control.
+    <div
+      className="sc-lookcard"
+      data-variant="plain"
+      data-size="grid"
+      data-build={failed || undefined}
+      data-building={!failed || undefined}
+    >
       <div className="sc-lookcard-media">
-        {build.previewHash ? (
-          <img src={thumbUrl(build.previewHash, 'tile')} alt="" />
-        ) : (
-          <span className="sc-lookcard-blank">{failed ? null : <Spinner />}</span>
-        )}
+        <span className="sc-lookcard-blank" />
         {!failed && (
-          <span className="sc-buildbar" aria-hidden>
-            <span style={{ width: `${Math.max(6, pct)}%` }} />
-          </span>
+          <>
+            <span className="sc-shimmer" />
+            <RunningTag since={build.startedAt} />
+          </>
         )}
         {!failed && onCancel && (
           <button
@@ -87,17 +81,12 @@ export function AssetBuildCard({
           </button>
         )}
       </div>
-      <span className="sc-lookcard-cap" title={failure?.raw || status}>
-        <b dir="auto">{build.name}</b>
-        <span>{status}</span>
-      </span>
-      {notes.length > 0 && (
-        <ul className="sc-buildnotes">
-          {notes.slice(0, 2).map((n) => (
-            <li key={n}>{n}</li>
-          ))}
-        </ul>
-      )}
+      {failure ? (
+        <span className="sc-lookcard-cap" title={failure.raw}>
+          <b dir="auto">{build.name}</b>
+          <span>{failure.title}</span>
+        </span>
+      ) : null}
     </div>
   );
 }
