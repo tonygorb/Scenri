@@ -686,6 +686,35 @@ describe('from photos: the originals are the truth', () => {
     expect(generated).toHaveLength(0);
   });
 
+  it('does not call a photograph the face when the read found more than one person in the pictures', async () => {
+    filesAs = () => 'other';
+    const [a, b] = await photos(2);
+    const twoPeople: AssetBuildDeps = {
+      ...deps(),
+      analyzer: {
+        isAvailable: async () => ({ ok: true }),
+        analyze: async () => ({
+          promptName: 'a woman',
+          conflict: 'Image 0 contains two distinct people; this sheet describes the woman on the left.',
+          photos: [
+            { index: 0, view: 'other', usable: true, note: 'two subjects' },
+            { index: 1, view: 'other', usable: true, note: 'clear' },
+          ],
+        }),
+      } as any,
+    };
+    let d = await createPresenterDraft(twoPeople, {
+      brandId,
+      source: 'photos',
+      imageHashes: [a, b],
+      attestation: true,
+    });
+    d = await settled(d.id);
+    // the draw settles which person it is; a frame with two faces in it is a
+    // poor thing to call somebody's face
+    expect(view(d, 'portrait').status).toBe('empty');
+  });
+
   it('still draws the face when the read says no photograph is usable for one', async () => {
     filesAs = () => 'other';
     const [a] = await photos(1);
@@ -798,6 +827,65 @@ describe('the view contract: three core, three on request', () => {
     // with nothing attached, every reference is the person
     const plain = planStep({ ...rec, detailRefs: undefined }, 'three-quarter', undefined, 5);
     expect(plain.roles).toEqual(['character', 'character']);
+  });
+
+  it('never presents a photograph the read rejected as the person', () => {
+    const empty = { status: 'empty' as const, attempts: 0, rejected: [] as string[] };
+    // The read found two different people and stood behind only the first.
+    // Every reference in this list is handed over as `character`, which says
+    // "the exact person, match their face exactly", so the rejected one was
+    // being introduced as the same human being.
+    const rec = {
+      id: 'pd-x',
+      source: 'photos' as const,
+      sources: ['s1', 's2', 's3'],
+      analysis: {
+        promptName: 'a woman',
+        conflict: 'Images 0 and 1 appear to show different people.',
+        photos: [
+          { index: 0, view: 'other', usable: true, note: 'clear' },
+          { index: 1, view: 'other', usable: false, note: 'apparent person mismatch' },
+          { index: 2, view: 'other', usable: true, note: 'clear' },
+        ],
+      },
+      views: {
+        portrait: { ...empty, status: 'approved' as const, hash: 'p' },
+        front: empty,
+        'three-quarter': empty,
+        back: empty,
+        left: empty,
+        right: empty,
+      },
+    } as unknown as PresenterDraftRecord;
+    const front = planStep(rec, 'front', undefined, 5);
+    expect(front.refs).toEqual(['p', 's1', 's3']);
+    expect(front.refs).not.toContain('s2');
+    expect(front.roles.every((r) => r === 'character')).toBe(true);
+  });
+
+  it('keeps every photograph when the read liked none of them, because something of them beats nothing', () => {
+    const empty = { status: 'empty' as const, attempts: 0, rejected: [] as string[] };
+    const rec = {
+      id: 'pd-y',
+      source: 'photos' as const,
+      sources: ['s1', 's2'],
+      analysis: {
+        promptName: 'a man',
+        photos: [
+          { index: 0, view: 'other', usable: false, note: 'severely blurred' },
+          { index: 1, view: 'other', usable: false, note: 'strongly underexposed' },
+        ],
+      },
+      views: {
+        portrait: { ...empty, status: 'approved' as const, hash: 'p' },
+        front: empty,
+        'three-quarter': empty,
+        back: empty,
+        left: empty,
+        right: empty,
+      },
+    } as unknown as PresenterDraftRecord;
+    expect(planStep(rec, 'front', undefined, 5).refs).toEqual(['p', 's1', 's2']);
   });
 
   it('planStep attaches approved views first, then the photographs, inside the cap', () => {

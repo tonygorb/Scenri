@@ -371,6 +371,48 @@ describe('photos', () => {
       tone: 'warn',
     });
   });
+
+  it('says so when it could read a face in none of them, rather than quietly inventing one', () => {
+    // Measured against a real read of a blurred, an underexposed and a 64px
+    // photograph: all three came back unusable, the face was drawn from the
+    // description, and the studio said nothing at all.
+    const none = draft({
+      source: 'photos',
+      sources: ['a', 'b', 'c'],
+      analysis: {
+        photos: [
+          { index: 0, view: 'other', usable: false, note: 'severely blurred' },
+          { index: 1, view: 'other', usable: false, note: 'strongly underexposed' },
+          { index: 2, view: 'other', usable: false, note: 'too small for facial detail' },
+        ],
+      },
+    });
+    const said = coverageLine(none, true);
+    expect(said?.tone).toBe('warn');
+    expect(said?.text).toContain('None of those photos is clear enough');
+    expect(said?.text).toContain('drawn from the description');
+
+    const onlyOne = draft({
+      source: 'photos',
+      sources: ['a'],
+      analysis: { photos: [{ index: 0, view: 'other', usable: false, note: 'severely blurred' }] },
+    });
+    expect(coverageLine(onlyOne, true)?.text).toContain('That photo is too unclear');
+
+    // one good one among them is not a warning
+    const mixed = draft({
+      source: 'photos',
+      sources: ['a', 'b'],
+      views: { portrait: approved('a', 'photo') },
+      analysis: {
+        photos: [
+          { index: 0, view: 'other', usable: true, note: 'clear' },
+          { index: 1, view: 'other', usable: false, note: 'blurred' },
+        ],
+      },
+    });
+    expect(coverageLine(mixed, true)?.tone).toBeUndefined();
+  });
 });
 
 describe('what reads as a person', () => {

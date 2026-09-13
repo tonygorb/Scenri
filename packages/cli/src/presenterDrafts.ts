@@ -856,7 +856,11 @@ async function filePhotos(deps: AssetBuildDeps, id: string, signal: AbortSignal)
     //
     // Their own picture takes the slot instead, which is what the studio has
     // always told them would happen: "Your first photo is the face."
-    if (r.views.portrait.status === 'empty') {
+    // A read that found more than one person in the pictures has not told us
+    // which one to keep, and a photograph with two faces in it is a poor thing
+    // to call somebody's face. The draw settles it instead, from the person
+    // the read actually described, and the warning stands either way.
+    if (r.views.portrait.status === 'empty' && !analysis?.conflict) {
       const usable = analysis ? filings.find((p) => p.usable && r.sources[p.index]) : undefined;
       // With no read at all, the first photograph is the only thing to go on.
       const pick = analysis ? (usable ? r.sources[usable.index] : undefined) : r.sources[0];
@@ -1088,6 +1092,20 @@ export function refDeps(rec: PresenterDraftRecord, view: PresenterView): Present
 }
 
 /** What a step is drawn from and asked for. Pure, so the choice is testable and the manifest honest. */
+/**
+ * Did the read stand behind this photograph?
+ *
+ * A photograph it never filed is fine: the filing is by framing, and most
+ * photographs fit no named view. One it filed and marked unusable is not.
+ */
+function usableSource(rec: PresenterDraftRecord, hash: string): boolean {
+  const filings = rec.analysis?.photos;
+  if (!filings?.length) return true;
+  const i = rec.sources.indexOf(hash);
+  const said = filings.find((p) => p.index === i);
+  return said ? said.usable !== false : true;
+}
+
 export function planStep(
   rec: PresenterDraftRecord,
   view: PresenterView,
@@ -1122,7 +1140,16 @@ export function planStep(
       const h = rec.views[dep].hash;
       if (h && rec.views[dep].status === 'approved' && !identity.includes(h)) identity.push(h);
     }
-    for (const h of rec.sources) if (!identity.includes(h)) identity.push(h);
+    // Only the photographs the read stood behind. Every reference here is
+    // handed to the engine as `character`, which says "the exact person, match
+    // their face exactly", so a photograph the read called a different person
+    // was being presented as the same person: measured on two uploads of two
+    // people, where the second came back `usable: false, apparent person
+    // mismatch` and rode anyway. A badly blurred or underexposed one is the
+    // same argument more quietly. If the read liked none of them they all
+    // ride, because something of the person is better than nothing.
+    const stood = rec.sources.filter((h) => usableSource(rec, h));
+    for (const h of stood.length ? stood : rec.sources) if (!identity.includes(h)) identity.push(h);
   }
 
   // One seat is held for a detail when the budget is already full. Without

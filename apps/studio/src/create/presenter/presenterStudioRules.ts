@@ -544,6 +544,21 @@ export function coverageLine(d: DraftLike, canGenerate: boolean): { text: string
   }
   const conflict = d.analysis?.conflict?.trim();
   if (conflict) return { text: `These photos may show more than one person: ${conflict}`, tone: 'warn' };
+  // Every photograph rejected: the face is about to be invented, and saying so
+  // is the difference between a person who adds a better picture and a person
+  // who wonders why it does not look like them. Measured on a blurred, an
+  // underexposed and a 64px one: all three came back unusable and the studio
+  // said nothing at all.
+  const filed = d.analysis?.photos ?? [];
+  if (filed.length && filed.every((p) => p.usable === false)) {
+    return {
+      text:
+        filed.length === 1
+          ? 'That photo is too unclear to read a face from, so the face is drawn from the description instead. A sharper one would hold the likeness better.'
+          : 'None of those photos is clear enough to read a face from, so the face is drawn from the description instead. A sharper one would hold the likeness better.',
+      tone: 'warn',
+    };
+  }
   const inPlay = viewsOf(d);
   const photo = inPlay.filter((v) => d.views[v].origin === 'photo');
   const drawn = inPlay.filter((v) => d.views[v].origin !== 'photo');
