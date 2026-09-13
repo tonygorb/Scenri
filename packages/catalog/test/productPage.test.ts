@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { extractJsonLdProducts, productsFromPage } from '../src/adapters/productPage.js';
+import { preferCanonicalLocale } from '../src/url.js';
 
 const ld = (obj: unknown) => `<script type="application/ld+json">${JSON.stringify(obj)}</script>`;
 const page = (head: string, body = '') => `<!doctype html><html><head>${head}</head><body>${body}</body></html>`;
@@ -116,5 +117,34 @@ describe('product pictures', () => {
     const got = productsFromPage(page(many, gallery), 'https://shop.example/collections/all');
     expect(got).toHaveLength(2);
     for (const p of got) expect(p.images).toHaveLength(1);
+  });
+});
+
+/**
+ * gymshark.com's sitemap index lists a product sitemap per market, so
+ * discovery found 4404 URLs for a catalog of 2202 - twice the pages to read
+ * and a count twice the truth, caught only later by external key.
+ */
+describe('the same catalog listed once per language', () => {
+  it('keeps the canonical path and drops the localised copies', () => {
+    const got = preferCanonicalLocale([
+      'https://shop.example/products/a',
+      'https://shop.example/es-US/products/a',
+      'https://shop.example/de/products/a',
+      'https://shop.example/products/b',
+      'https://shop.example/fr-FR/products/b',
+    ]);
+    expect(got).toEqual(['https://shop.example/products/a', 'https://shop.example/products/b']);
+  });
+
+  it('keeps every locale when the store publishes no canonical path', () => {
+    const only = ['https://shop.example/es-US/products/a', 'https://shop.example/de/products/a'];
+    expect(preferCanonicalLocale(only)).toEqual(only);
+  });
+
+  it('does not mistake a two-letter path segment for a language', () => {
+    // `/products/` is not a locale, and neither is a handle that happens to be short.
+    const urls = ['https://shop.example/products/ab', 'https://shop.example/products/xy-zz'];
+    expect(preferCanonicalLocale(urls)).toEqual(urls);
   });
 });

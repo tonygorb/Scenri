@@ -1,5 +1,5 @@
 import { httpText } from '../http/fetch.js';
-import { absolutize, originOf } from '../url.js';
+import { absolutize, originOf, preferCanonicalLocale } from '../url.js';
 import { attr, loadHtml } from '../html.js';
 import { extractJsonLdProducts, fetchProductPages, stableKey } from './productPage.js';
 import type { AdapterContext, CatalogAdapter, CatalogProduct, DetectResult, DiscoverResult } from '../types.js';
@@ -46,7 +46,7 @@ export async function extractSitemapUrls(
     }
     if (seen.size > 200) break;
   }
-  return [...out];
+  return preferCanonicalLocale([...out]);
 }
 async function extractFeedUrls(ctx: AdapterContext): Promise<string[]> {
   const origin = originOf(ctx.baseUrl);

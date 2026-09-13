@@ -1,5 +1,5 @@
 import { httpJson, httpText, mapPool } from '../http/fetch.js';
-import { absolutize, originOf } from '../url.js';
+import { absolutize, originOf, preferCanonicalLocale } from '../url.js';
 import { normalizeProduct } from '../normalize.js';
 import { fetchProductPages } from './productPage.js';
 import type { AdapterContext, CatalogAdapter, CatalogProduct, DetectResult, DiscoverResult } from '../types.js';
@@ -114,7 +114,7 @@ async function collectSitemapProductUrls(ctx: AdapterContext): Promise<string[]>
       }
     }
   }
-  return [...urls];
+  return preferCanonicalLocale([...urls]);
 }
 
 export const shopifyAdapter: CatalogAdapter = {
