@@ -1,6 +1,44 @@
 import type { DB } from '../db.js';
 import { imagesForBrand, productsFor, variantsForBrand, type LibraryProduct } from './rows.js';
 
+/**
+ * What a product grid and an ingredient search actually need.
+ *
+ * The full read carries every image, every hidden image and every variant, and
+ * a 600-product store measured 0.78 MB of it - 2.9 MB at gymshark's 2,201 -
+ * of which the card reads one field. Variants alone are 813 bytes a product
+ * and no client surface reads them at all. This shape is 177 bytes a product,
+ * 7.4 times smaller, and it is everything the studio touches outside the
+ * product page.
+ */
+export interface LibraryEntry {
+  id: string;
+  name: string;
+  origin: 'manual' | 'catalog';
+  category?: string | null;
+  variant?: string | null;
+  material?: string | null;
+  dimensions?: string | null;
+  status?: string;
+  /** The first picture only, kept as a one-element `shots` so callers read it unchanged. */
+  shots: { file: string; locked?: boolean; angle?: string | null; alt?: string | null }[];
+  /** How many pictures the product really has, since `shots` is trimmed. */
+  shotCount: number;
+}
+
+const lighten = (p: LibraryProduct): LibraryEntry => ({
+  id: p.id,
+  name: p.name,
+  origin: p.origin,
+  category: p.category ?? null,
+  variant: p.variant ?? null,
+  material: p.material ?? null,
+  dimensions: p.dimensions ?? null,
+  status: p.status,
+  shots: p.shots.slice(0, 1),
+  shotCount: p.shots.length,
+});
+
 export function libraryMethods(db: DB) {
   return {
     listLibraryProducts(brandId: string, brandJson: any): LibraryProduct[] {
@@ -71,6 +109,22 @@ export function libraryMethods(db: DB) {
       });
 
       return [...manual, ...catalog];
+    },
+
+    /**
+     * The whole library, in the shape the studio reads.
+     *
+     * Newest first, so an import lands where someone is watching and nothing
+     * already on screen moves under them. Manual products keep their place at
+     * the head - they are the ones a person made by hand.
+     */
+    listLibraryIndex(brandId: string, brandJson: any): LibraryEntry[] {
+      return this.listLibraryProducts(brandId, brandJson).map(lighten);
+    },
+
+    /** One product, whole, for the page that shows all of its pictures. */
+    libraryProduct(brandId: string, brandJson: any, productId: string): LibraryProduct | null {
+      return this.listLibraryProducts(brandId, brandJson).find((p) => p.id === productId) ?? null;
     },
   };
 }

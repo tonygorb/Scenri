@@ -230,4 +230,79 @@ describe('catalog store', () => {
     const done = core.catalog.updateJob(job.id, { stage: 'completed', upserted: 10, finished: true })!;
     expect(done.finishedAt).toBeTruthy();
   });
+  /**
+   * The grid read is the hot one: the studio asks for it on mount, on every
+   * brand edit, and every two seconds while an import runs. It used to be a
+   * `SELECT *` that parsed `raw` for every product and then threw it away -
+   * 14.2 KB a product of page HTML, 32 MB across a 2,201-product store, none
+   * of which any client surface reads.
+   */
+  it('the light index carries a card, not a page: no raw, no description html, one shot', () => {
+    const brand = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any);
+    const source = core.catalog.upsertSource(brand.id, 'https://acme.example', 'shopify');
+    core.catalog.upsertProduct({
+      sourceId: source.id,
+      brandId: brand.id,
+      externalKey: '1',
+      title: 'Candle',
+      url: 'https://acme.example/products/candle',
+      descriptionHtml: '<p>a very long description</p>',
+      raw: { whole: 'page', of: 'html' },
+      images: [
+        { sourceUrl: 'https://img/a.jpg', position: 0, assetRef: `asset:${'a'.repeat(32)}` },
+        { sourceUrl: 'https://img/b.jpg', position: 1, assetRef: `asset:${'b'.repeat(32)}` },
+        { sourceUrl: 'https://img/c.jpg', position: 2, assetRef: `asset:${'c'.repeat(32)}` },
+      ],
+      variants: [{ externalKey: 'v1', sku: 'C-1', price: 20 }],
+    });
+
+    const [entry] = core.catalog.listLibraryIndex(brand.id, core.store.getBrand(brand.id)!.json);
+    const keys = Object.keys(entry).sort();
+    expect(keys).not.toContain('raw');
+    expect(keys).not.toContain('descriptionHtml');
+    expect(keys).not.toContain('variants');
+    // One picture travels, the count tells the card there are more.
+    expect(entry.shots).toHaveLength(1);
+    expect(entry.shotCount).toBe(3);
+    // Cheap enough to poll: the whole entry, serialised, stays small.
+    expect(JSON.stringify(entry).length).toBeLessThan(400);
+  });
+
+  /**
+   * Newest first, so an arriving import lands at the head of the grid where it
+   * can be watched, and a reader deeper down is never pushed.
+   */
+  it('lists newest first', () => {
+    const brand = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any);
+    const source = core.catalog.upsertSource(brand.id, 'https://acme.example', 'shopify');
+    for (const n of ['one', 'two', 'three']) {
+      core.catalog.upsertProduct({
+        sourceId: source.id,
+        brandId: brand.id,
+        externalKey: n,
+        title: n,
+        url: `https://acme.example/products/${n}`,
+      });
+    }
+    const names = core.catalog
+      .listLibraryIndex(brand.id, core.store.getBrand(brand.id)!.json)
+      .filter((e) => e.origin === 'catalog')
+      .map((e) => e.name);
+    expect(names).toEqual(['three', 'two', 'one']);
+  });
+
+  /**
+   * A cancel used to be overwritten by a progress emit that was already in
+   * flight: the row went `cancelled`, then a late `fetching_products` landed on
+   * top of it with `finishedAt` still set, and the bell showed a finished job
+   * as running for ever.
+   */
+  it('a finished job is immutable', () => {
+    const brand = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any);
+    const job = core.catalog.createJob({ brandId: brand.id, url: 'https://acme.example' });
+    core.catalog.updateJob(job.id, { stage: 'cancelled', finished: true });
+    const late = core.catalog.updateJob(job.id, { stage: 'fetching_products', fetched: 99 })!;
+    expect(late.stage).toBe('cancelled');
+    expect(late.fetched).not.toBe(99);
+  });
 });

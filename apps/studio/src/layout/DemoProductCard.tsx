@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { DemoProduct } from '../api.js';
 import { productLabel } from '../displayName.js';
 import { categoryLabel } from '../productCategories.js';
@@ -14,7 +15,7 @@ export type DemoProductCardSize = Exclude<CatalogCardSize, 'shelf'>;
  * exactly like a real product would — it never gets written into the
  * brand's own products[].
  */
-export function DemoProductCard({
+function DemoProductCardInner({
   product,
   variant,
   onOpen,
@@ -53,3 +54,10 @@ export function DemoProductCard({
     />
   );
 }
+
+/**
+ * Memoised: nothing here re-renders unless its own props change.
+ * A wall of these re-rendered in full on every Products render, and during
+ * an import that was every 1.5 seconds.
+ */
+export const DemoProductCard = memo(DemoProductCardInner);

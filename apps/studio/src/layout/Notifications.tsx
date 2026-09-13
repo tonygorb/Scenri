@@ -44,6 +44,14 @@ export function NotificationsButton() {
   // the bar outlives the screen now, so an open panel would follow you around
   useEffect(() => setPanelOpen(false), [pathname, setPanelOpen]);
 
+  // A dialog taking the screen closes the panel: two floating surfaces in one
+  // corner, and the one the person just asked for should win.
+  useEffect(() => {
+    const close = () => setPanelOpen(false);
+    window.addEventListener('scenri:modal-open', close);
+    return () => window.removeEventListener('scenri:modal-open', close);
+  }, [setPanelOpen]);
+
   const label =
     'Notifications' +
     (unread ? `, ${unread} unread` : '') +

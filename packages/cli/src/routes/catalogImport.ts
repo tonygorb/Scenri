@@ -10,12 +10,25 @@ export function registerCatalogImportRoutes(
 ): void {
   const { core, fetchImpl } = deps;
   // ---- catalog import (store URL → full product library)
+  // The library the studio reads, in the shape it reads.
+  //
+  // This returned every product with every image, every hidden image and every
+  // variant: 0.78 MB for 600 products, 2.9 MB at gymshark's 2,201, of which a
+  // card uses one field. The light shape is 177 bytes a product. The whole
+  // product, with all of its pictures, is one request away below.
   app.get('/api/brands/:id/products-library', async (req, reply) => {
     const brand = core.store.getBrand((req.params as any).id);
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
-    const products = core.catalog.listLibraryProducts(brand.id, brand.json);
+    const products = core.catalog.listLibraryIndex(brand.id, brand.json);
     const source = core.catalog.getSourceForBrand(brand.id);
     return { products, source };
+  });
+  app.get('/api/brands/:id/products-library/:productId', async (req, reply) => {
+    const brand = core.store.getBrand((req.params as any).id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    const product = core.catalog.libraryProduct(brand.id, brand.json, String((req.params as any).productId));
+    if (!product) return reply.status(404).send({ error: 'product not found' });
+    return { product };
   });
   app.get('/api/brands/:id/catalog/source', async (req, reply) => {
     const brand = core.store.getBrand((req.params as any).id);

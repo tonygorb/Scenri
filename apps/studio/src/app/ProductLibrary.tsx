@@ -40,20 +40,44 @@ export function ProductLibraryProvider({ brand, children }: { brand: Brand; chil
   const lastRef = useRef<string | null>(null);
   const { tasks } = useTaskCenter();
   /** Where every import job stands, as one string: a change means the library moved. */
+  /**
+   * Which catalog work exists, not how far along it is.
+   *
+   * This carried `percent` and `subtitle`, and the subtitle holds live counters
+   * ("read 812 of 2,199"). The task centre polls every 1.5 seconds while
+   * anything runs, so the signature changed on every tick and every tick
+   * refetched the entire library, stringified all of it on the main thread and
+   * handed React a new array - which re-rendered every mounted card. That is
+   * what made the app feel frozen during an import.
+   *
+   * Arrivals are picked up by the poll below instead, which asks only for what
+   * is new.
+   */
   const catalogSignature = tasks
     .filter((t) => t.kind === 'catalog')
-    .map((t) => `${t.id}:${t.state}:${t.percent ?? ''}:${t.subtitle ?? ''}`)
+    .map((t) => `${t.id}:${t.state}`)
     .join('|');
+  const importing = tasks.some((t) => t.kind === 'catalog' && t.state === 'running');
 
   const load = useCallback(async () => {
     try {
       const r = await api.productsLibrary(brandId);
       const text = JSON.stringify(r.products);
-      setState((cur) => {
-        if (cur.loaded && lastRef.current === text) return cur;
-        lastRef.current = text;
-        return { products: r.products, loaded: true };
-      });
+      // Compared and recorded HERE, never inside the updater below.
+      //
+      // This guard used to live in a `setState(cur => ...)` updater that wrote
+      // `lastRef.current` as a side effect. React calls an updater twice in
+      // StrictMode and keeps the second answer: the first call recorded the new
+      // signature and returned the new list, the second saw its own write, took
+      // the early return and handed back the OLD state. Every poll during an
+      // import threw its own result away, so products only ever appeared on a
+      // reload. An updater has to be pure; the bookkeeping belongs out here.
+      //
+      // `null` is "nothing accepted yet", so the first answer always lands,
+      // including an honest empty one.
+      if (lastRef.current === text) return;
+      lastRef.current = text;
+      setState({ products: r.products, loaded: true });
     } catch {
       // A failed read is not "this brand has nothing": keep what is on screen
       // and let the next event correct it.
@@ -76,6 +100,20 @@ export function ProductLibraryProvider({ brand, children }: { brand: Brand; chil
       alive = false;
     };
   }, [load, brand.updatedAt, catalogSignature]);
+
+  /**
+   * While an import runs, products keep arriving. Re-read the light index on a
+   * calm cadence so they turn up without the user refreshing, and let the
+   * identity check below drop the ticks where nothing changed.
+   *
+   * Two seconds, not the task centre's 1.5: this is a list of 177-byte entries
+   * and nobody is waiting on the difference.
+   */
+  useEffect(() => {
+    if (!importing) return;
+    const id = setInterval(() => void load(), 2000);
+    return () => clearInterval(id);
+  }, [importing, load]);
 
   const value = useMemo<ProductLibraryValue>(
     () => ({ products: state.products, productsLoaded: state.loaded, refreshProducts: load }),

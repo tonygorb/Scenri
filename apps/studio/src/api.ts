@@ -176,6 +176,9 @@ export const api = {
   /** The reference frames a scene has on disk, if any. */
   sceneFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/scene-previews/${id}`),
   deleteData: (scope: 'shots' | 'all') => req<{ ok: true; scope: string }>('DELETE', `/api/data?scope=${scope}`),
+  /** One product with all of its pictures; the library list carries only the first. */
+  libraryProduct: (brandId: string, productId: string) =>
+    req<{ product: Product }>('GET', `/api/brands/${brandId}/products-library/${encodeURIComponent(productId)}`),
   productsLibrary: (brandId: string) =>
     req<{ products: Product[]; source: CatalogSource | null }>('GET', `/api/brands/${brandId}/products-library`),
   catalogImport: (brandId: string, url: string, urls?: string[]) =>

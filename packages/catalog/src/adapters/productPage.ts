@@ -162,8 +162,12 @@ function fromSingle(n: any, pageUrl: string): CatalogProduct {
   });
 }
 
-export function extractJsonLdProducts(html: string, pageUrl: string): CatalogProduct[] {
-  const root = loadHtml(html);
+export function extractJsonLdProducts(
+  html: string,
+  pageUrl: string,
+  doc?: ReturnType<typeof loadHtml>,
+): CatalogProduct[] {
+  const root = doc ?? loadHtml(html);
   const groups: any[] = [];
   const singles: any[] = [];
   for (const el of root.querySelectorAll('script[type="application/ld+json"]')) {
@@ -221,8 +225,8 @@ const BUILD_ASSET = /\/_next\/static\/|\/static\/media\/|\/assets\/(icons|flags|
 const NOT_A_PACKSHOT =
   /logo|icon|sprite|pixel|avatar|\bflags?\b|\/flags?\/|locale|country|currency|badge|payment|social/i;
 
-export function looksLikeProduct(html: string): boolean {
-  const $ = loadHtml(html);
+export function looksLikeProduct(html: string, doc?: ReturnType<typeof loadHtml>): boolean {
+  const $ = doc ?? loadHtml(html);
   for (const sel of PRODUCT_MARKERS) {
     try {
       if ($.querySelector(sel)) return true;
@@ -258,11 +262,15 @@ function galleryImages($: ReturnType<typeof loadHtml>, pageUrl: string, cap = 12
   return images;
 }
 
-export function parseProductHtml(html: string, pageUrl: string): CatalogProduct | null {
+export function parseProductHtml(
+  html: string,
+  pageUrl: string,
+  doc?: ReturnType<typeof loadHtml>,
+): CatalogProduct | null {
   // A page that never claims to sell anything is not a product, whatever else
   // it has on it. This is the line between importing a catalog and inventing one.
-  if (!looksLikeProduct(html)) return null;
-  const $ = loadHtml(html);
+  const $ = doc ?? loadHtml(html);
+  if (!looksLikeProduct(html, $)) return null;
   const title =
     attr($.querySelector('meta[property="og:title"]'), 'content') ||
     textOf($.querySelector('h1')) ||
@@ -311,9 +319,9 @@ function sellsSomething(p: CatalogProduct): boolean {
  * and plenty of real storefronts render the button in the browser. A page
  * that clears either gate is a product page.
  */
-function withGallery(product: CatalogProduct, html: string, pageUrl: string): CatalogProduct {
+function withGallery(product: CatalogProduct, doc: ReturnType<typeof loadHtml>, pageUrl: string): CatalogProduct {
   const have = new Set((product.images ?? []).map((i) => i.url));
-  const extra = galleryImages(loadHtml(html), pageUrl).filter((i) => !have.has(i.url));
+  const extra = galleryImages(doc, pageUrl).filter((i) => !have.has(i.url));
   if (!extra.length) return product;
   const images = [...(product.images ?? [])];
   for (const img of extra) {
@@ -324,18 +332,22 @@ function withGallery(product: CatalogProduct, html: string, pageUrl: string): Ca
 }
 
 export function productsFromPage(html: string, url: string): CatalogProduct[] {
-  const declared = looksLikeProduct(html);
-  const fromLd = extractJsonLdProducts(html, url);
+  // Parsed once. This called `loadHtml` three times on the same string, and a
+  // gymshark page is 2.4 MB: 16 ms and 10 MB of heap per parse, three times
+  // over, 2,201 times.
+  const doc = loadHtml(html);
+  const declared = looksLikeProduct(html, doc);
+  const fromLd = extractJsonLdProducts(html, url, doc);
   const selling = declared ? fromLd : fromLd.filter(sellsSomething);
   // One structured product means this page is about that product, so its
   // gallery belongs to it. Stores commonly declare a single hero image in
   // JSON-LD while showing six angles on the page, and Scenri wants the
   // angles. Several products means a listing, where the pictures belong to
   // no single one of them.
-  if (selling.length === 1) return [withGallery(selling[0], html, url)];
+  if (selling.length === 1) return [withGallery(selling[0], doc, url)];
   if (selling.length) return selling;
   if (!declared) return [];
-  const one = parseProductHtml(html, url);
+  const one = parseProductHtml(html, url, doc);
   return one ? [one] : [];
 }
 

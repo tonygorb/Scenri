@@ -80,6 +80,39 @@ describe('pageSlice', () => {
     expect(visible).toHaveLength(130);
     expect(remaining).toBe(0);
   });
+
+  /**
+   * The grid grows by page rather than replacing what is on screen, and a
+   * scroll sentinel fires it. A page that repeated an item or dropped one at a
+   * boundary would show a duplicate card or lose a product, so walk the whole
+   * set the way the sentinel does.
+   */
+  it('successive pages cover the set exactly once', () => {
+    const seen: number[] = [];
+    for (let shown = 60; ; shown += 60) {
+      const { visible, remaining } = pageSlice(items, shown);
+      seen.length = 0;
+      seen.push(...visible);
+      if (remaining === 0) break;
+    }
+    expect(seen).toEqual(items);
+    expect(new Set(seen).size).toBe(items.length);
+  });
+
+  it('the last page is short, not padded, and ends the walk', () => {
+    const { visible, remaining } = pageSlice(items, 120);
+    expect(visible).toHaveLength(120);
+    expect(remaining).toBe(10);
+    const last = pageSlice(items, 180);
+    expect(last.visible).toHaveLength(130);
+    expect(last.remaining).toBe(0);
+  });
+
+  it('an empty set has nothing to page', () => {
+    const { visible, remaining } = pageSlice([], 60);
+    expect(visible).toEqual([]);
+    expect(remaining).toBe(0);
+  });
 });
 
 describe('bookmarkedFirst', () => {

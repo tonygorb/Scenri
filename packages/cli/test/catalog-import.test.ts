@@ -240,3 +240,104 @@ describe('a website with no shop on it', () => {
     expect(job.finishedAt).toBeTruthy();
   });
 });
+
+/**
+ * A 2,201-product import used to write nothing until every page had been read.
+ * The bell said "0 of 2,199" for sixteen minutes, the Products page stayed
+ * empty, and an OOM at minute nineteen left zero products behind for all of it.
+ * Products are persisted in batches now, so what has landed is readable while
+ * the rest is still arriving.
+ */
+describe('a large import is readable while it runs', () => {
+  let home: string;
+  let core: ReturnType<typeof createCore>;
+  let app: Awaited<ReturnType<typeof buildServer>>;
+  /** Held until the test lets go, so the job cannot finish before it is looked at. */
+  let openTheGate: () => void;
+  let gate: Promise<void>;
+
+  const COUNT = 30;
+
+  beforeEach(async () => {
+    gate = new Promise<void>((r) => {
+      openTheGate = r;
+    });
+    home = mkdtempSync(join(tmpdir(), 'sc-cli-prog-'));
+    core = createCore(home);
+    app = buildServer({
+      core,
+      engines: registryWith(createDemoEngine((b) => core.images.save(b))),
+      fetchImpl: (async (input: any) => {
+        const url = String(input);
+        if (url.includes('/products.json')) {
+          const page = Number(new URL(url).searchParams.get('page') ?? '1');
+          if (page > 1) return new Response(JSON.stringify({ products: [] }), { status: 200 });
+          return new Response(
+            JSON.stringify({
+              products: Array.from({ length: COUNT }, (_, i) => ({
+                id: i + 1,
+                title: `Product ${i + 1}`,
+                handle: `product-${i + 1}`,
+                variants: [{ id: 1000 + i, title: 'Default', sku: `P-${i}`, price: '10.00', available: true }],
+                images: [{ src: `https://cdn.example/p${i}.jpg`, position: 1 }],
+              })),
+            }),
+            { status: 200 },
+          );
+        }
+        if (url.includes('sitemap')) return new Response('<urlset></urlset>', { status: 200 });
+        if (url.includes('.jpg')) {
+          // The pictures are the long tail of a real import. Holding them here
+          // is what keeps the job running long enough to be observed.
+          await gate;
+          return new Response(PNG, { status: 200, headers: { 'content-type': 'image/jpeg' } });
+        }
+        return new Response('', { status: 404 });
+      }) as any,
+    });
+    await app.ready();
+  });
+  afterEach(async () => {
+    openTheGate();
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  it('serves the products that have landed before the job is finished', async () => {
+    const brand = await app.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'Acme', website: 'https://shop.example' } } },
+    });
+    const brandId = brand.json().id;
+    const start = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brandId}/catalog/import`,
+      payload: { url: 'https://shop.example' },
+    });
+    const jobId = start.json().jobId;
+
+    let landed = 0;
+    let job: any = null;
+    for (let i = 0; i < 100 && landed === 0; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      const lib = await app.inject({ method: 'GET', url: `/api/brands/${brandId}/products-library` });
+      landed = lib.json().products.length;
+      job = (await app.inject({ method: 'GET', url: `/api/brands/${brandId}/catalog/jobs/${jobId}` })).json();
+    }
+
+    // Readable, and the job that is writing them has not finished.
+    expect(landed).toBeGreaterThan(0);
+    expect(job.finishedAt).toBeFalsy();
+
+    openTheGate();
+    for (let i = 0; i < 200; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      job = (await app.inject({ method: 'GET', url: `/api/brands/${brandId}/catalog/jobs/${jobId}` })).json();
+      if (job.finishedAt) break;
+    }
+    expect(job.upserted).toBe(COUNT);
+    const lib = await app.inject({ method: 'GET', url: `/api/brands/${brandId}/products-library` });
+    expect(lib.json().products).toHaveLength(COUNT);
+  });
+});

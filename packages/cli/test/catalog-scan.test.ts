@@ -19,6 +19,15 @@ const PNG = Buffer.from(
 const HANDLES = Array.from({ length: 40 }, (_, i) => `item-${i + 1}`);
 // IMPORT_BATCH is 25, so forty products is two rounds.
 
+/**
+ * How long a product page takes to answer.
+ *
+ * Zero for every test but cancellation, which needs the import to still be
+ * running when it asks it to stop. The import got fast enough that a
+ * forty-product fixture finished inside the gap.
+ */
+let pdpDelay = 0;
+
 /** A storefront whose API is shut and whose product pages are open. */
 function storeFetch(input: any) {
   const url = String(input);
@@ -50,7 +59,12 @@ function storeFetch(input: any) {
       image: [1, 2, 3, 4, 5].map((n) => `https://cdn.example/${handle}-${n}.jpg`),
       offers: { '@type': 'Offer', price: 20, priceCurrency: 'USD' },
     };
-    return res(`<html><head><script type="application/ld+json">${JSON.stringify(ld)}</script></head></html>`);
+    const body = `<html><head><script type="application/ld+json">${JSON.stringify(ld)}</script></head></html>`;
+    if (pdpDelay)
+      return new Promise<Response>((r) =>
+        setTimeout(() => r(new Response(body, { status: 200, headers: { 'content-type': 'text/html' } })), pdpDelay),
+      );
+    return res(body);
   }
   return res('<html><body>shop <script src="https://cdn.shopify.com/x.js"></script></body></html>');
 }
@@ -78,6 +92,7 @@ describe('scanning a site, then importing only what was chosen', () => {
     brandId = brand.json().id;
   });
   afterEach(async () => {
+    pdpDelay = 0;
     await app.drain();
     rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
@@ -218,6 +233,8 @@ describe('scanning a site, then importing only what was chosen', () => {
    * stop, not the site.
    */
   it('reports a stopped import as stopped, with no invented faults', async () => {
+    // Slow enough that it is still running when we ask it to stop.
+    pdpDelay = 40;
     const start = await app.inject({
       method: 'POST',
       url: `/api/brands/${brandId}/catalog/import`,
@@ -228,7 +245,7 @@ describe('scanning a site, then importing only what was chosen', () => {
     await app.inject({ method: 'POST', url: `/api/brands/${brandId}/catalog/jobs/${jobId}/cancel` });
 
     let job: any;
-    for (let i = 0; i < 120; i++) {
+    for (let i = 0; i < 300; i++) {
       await new Promise((r) => setTimeout(r, 50));
       job = (await app.inject({ method: 'GET', url: `/api/brands/${brandId}/catalog/jobs/${jobId}` })).json();
       if (job.finishedAt) break;

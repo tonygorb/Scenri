@@ -8,6 +8,7 @@ import {
   dedupeProducts,
   fetchProductPages,
   type CatalogProduct,
+  type ImportStage,
   type JobProgress,
   type Platform,
 } from '@scenri/catalog';
@@ -90,9 +91,11 @@ async function runJob(
       const tally: Tally = { fetched: 0, upserted: 0, imagesDone: 0, imagesTotal: 0, errors: [] };
       let readAny = false;
 
-      for (let at = 0; at < only.length; at += IMPORT_BATCH) {
+      for (let at = 0; at < only.length; ) {
         if (signal.aborted) break;
-        const slice = only.slice(at, at + IMPORT_BATCH);
+        const size = at === 0 ? Math.min(FIRST_BATCH, only.length) : IMPORT_BATCH;
+        const slice = only.slice(at, at + size);
+        at += size;
         const products = dedupeProducts(
           await fetchProductPages(ctx, slice, {
             concurrency: 4,
@@ -114,7 +117,7 @@ async function runJob(
           // then twelve more.
           sweep: false,
           tally,
-          finalize: at + IMPORT_BATCH >= only.length,
+          finalize: at >= only.length,
         });
       }
 
@@ -146,7 +149,13 @@ async function runJob(
       fetchImpl,
       signal,
       onProgress: (p: JobProgress) => {
-        const stage = p.stage === 'queued' ? 'discovering' : p.stage;
+        // Progress never ends a job. The pipeline reports `partial` mid-run
+        // when a fetch fails and then carries on, and writing that through
+        // closed the job where it stood: `finished_at` set, counters frozen,
+        // and the real ending - cancelled, completed - refused as a write to
+        // an already-finished row. How a run ends is decided below, once.
+        const reported = p.stage === 'queued' ? 'discovering' : p.stage;
+        const stage: ImportStage = TERMINAL.has(reported) ? 'fetching_products' : reported;
         const message = p.message ?? null;
         mostRead = Math.max(mostRead, p.fetched);
         const notable = stage !== lastStage || message !== lastMessage || p.fetched % 10 === 0;
@@ -242,7 +251,19 @@ export const IMAGES_PER_PRODUCT = 3;
  * Small enough that the first ones appear within a few seconds of a large
  * store, big enough that the per-batch bookkeeping is not the cost.
  */
+/** Stages that mean a job is over. Only `runJob` may write one. */
+const TERMINAL: ReadonlySet<string> = new Set(['completed', 'partial', 'no_catalog', 'cancelled', 'failed']);
+
 const IMPORT_BATCH = 25;
+
+/**
+ * The first round is small, so the first products land in seconds.
+ *
+ * Time to the first visible product matters more than total time: a wall that
+ * starts filling at three seconds reads as alive, and the same import behind
+ * one twenty-five-page round does not.
+ */
+const FIRST_BATCH = 5;
 
 /**
  * What a job has done so far, across however many batches it takes.
@@ -329,7 +350,9 @@ async function persistProducts(
       compareAtPrice: p.compareAtPrice,
       currency: p.currency,
       available: p.available,
-      raw: p.raw,
+      // `raw` is the whole crawled payload, 14.2 KB a product on gymshark and
+      // 32 MB across its catalog, written to sqlite and read back by nothing.
+      raw: null,
       variants: p.variants,
       images: (p.images ?? []).map((img) => ({
         sourceUrl: img.url,
@@ -390,9 +413,23 @@ async function persistProducts(
           errors.push({ code: 'image_empty', message: 'Empty image', url: img.sourceUrl });
           return;
         }
-        const png = await sharp(buf).rotate().png().toBuffer();
-        const meta = await sharp(png).metadata();
-        const hash = core.images.save(png);
+        // Keep the bytes the store served.
+        //
+        // This re-encoded every picture to PNG, which turned a 269 KB jpeg into
+        // 2.90 MB: gymshark's 6,603 pictures were 19.1 GB on disk and 1.9
+        // minutes of encoding, for a format nothing asks for. Display reads the
+        // WebP thumbnail derivative and generation reads the file through
+        // sharp, which sniffs whatever it finds.
+        //
+        // `metadata()` is also the validation: bytes that are not a picture
+        // throw here, exactly as the decode used to.
+        const probe = await sharp(buf).metadata();
+        const turned = (probe.orientation ?? 1) > 1;
+        // The one case worth paying for: an EXIF-rotated photograph looks wrong
+        // everywhere if the bytes are kept as they are.
+        const keep = turned ? await sharp(buf).rotate().toBuffer() : buf;
+        const meta = turned ? await sharp(keep).metadata() : probe;
+        const hash = core.images.save(keep, meta.format ?? probe.format ?? 'png');
         core.catalog.setImageAsset(img.productId, img.sourceUrl, `asset:${hash}`, {
           width: meta.width,
           height: meta.height,

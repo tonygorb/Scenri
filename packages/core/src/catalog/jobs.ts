@@ -48,6 +48,17 @@ export function jobMethods(db: DB) {
     ): ImportJobRow | null {
       const cur = jobById(db, id);
       if (!cur) return null;
+      /**
+       * A finished job stays finished.
+       *
+       * Work already in flight keeps reporting for a moment after a job ends -
+       * a cancelled import's last workers drain, and the pipeline emits one
+       * closing "Fetched 0 products" on its way out. Those landed after the
+       * terminal write and put the row back to `fetching_products` with a
+       * `finished_at` already set, so a stopped import read as one still
+       * running, for good.
+       */
+      if (cur.finishedAt) return cur;
       const stage = patch.stage ?? cur.stage;
       const finished =
         patch.finished ||

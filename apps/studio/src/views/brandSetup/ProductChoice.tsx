@@ -89,17 +89,20 @@ export function ProductChoice({
         .catalogDetails(brandId, group)
         .then(({ products }) => {
           if (!mounted.current) return;
-          setDetails((prev) => {
-            const next = new Map(prev);
-            for (const p of products) if (p.url) next.set(p.url, p);
-            // The page's canonical address is not always the one the sitemap
-            // listed, and the card is keyed by the one we asked for.
-            for (let i = 0; i < products.length && i < group.length; i++) {
-              if (!next.has(group[i])) next.set(group[i], products[i]);
-            }
-            haveRef.current = next;
-            return next;
-          });
+          // Merged out here, not in a `setDetails(prev => ...)` updater.
+          // React calls an updater twice in StrictMode, so a ref written
+          // inside one is written from a call whose result may be discarded.
+          // `haveRef` is the accumulator either way, so read it directly and
+          // hand React a finished map.
+          const next = new Map(haveRef.current);
+          for (const p of products) if (p.url) next.set(p.url, p);
+          // The page's canonical address is not always the one the sitemap
+          // listed, and the card is keyed by the one we asked for.
+          for (let i = 0; i < products.length && i < group.length; i++) {
+            if (!next.has(group[i])) next.set(group[i], products[i]);
+          }
+          haveRef.current = next;
+          setDetails(next);
         })
         .catch(() => {
           // A card that will not load keeps its name and stays selectable.
