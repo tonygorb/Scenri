@@ -38,8 +38,18 @@ type TabKey = 'tasks' | 'feed';
 
 export function NotificationsButton() {
   const { running, unread, panelOpen, setPanelOpen, markSeen } = useTaskCenter();
+  const { brand } = useBrand();
   const { pathname } = useLocation();
   const phone = useMediaQuery(PHONE);
+  /**
+   * The import someone opened, held HERE rather than in the panel.
+   *
+   * The panel closes when a dialog opens, and this dialog is one. Owned by the
+   * panel, it unmounted with the surface that had just opened it: the import
+   * dialog flashed and vanished on every click. It has to outlive the panel,
+   * so it lives beside it.
+   */
+  const [detailJob, setDetailJob] = useState<string | null>(null);
 
   // the bar outlives the screen now, so an open panel would follow you around
   useEffect(() => setPanelOpen(false), [pathname, setPanelOpen]);
@@ -81,23 +91,29 @@ export function NotificationsButton() {
           <Bell size={16} weight={running ? 'fill' : 'regular'} />
           {badge}
         </button>
-        {panelOpen ? <Sheet onClose={() => setPanelOpen(false)} onSeen={markSeen} /> : null}
+        {panelOpen ? <Sheet onClose={() => setPanelOpen(false)} onSeen={markSeen} onOpenDetail={setDetailJob} /> : null}
+        {detailJob ? (
+          <ImportProgress brandId={brand.id} jobId={detailJob} onDismiss={() => setDetailJob(null)} />
+        ) : null}
       </>
     );
   }
 
   return (
-    <Popover.Root open={panelOpen} onOpenChange={setPanelOpen}>
-      <Popover.Trigger>
-        <button type="button" className="sc-icon-btn sc-notif-btn" aria-label={label} title="Notifications">
-          <Bell size={16} weight={running ? 'fill' : 'regular'} />
-          {badge}
-        </button>
-      </Popover.Trigger>
-      <Popover.Content align="end" className="sc-notif-pop">
-        <Panel onClose={() => setPanelOpen(false)} onSeen={markSeen} />
-      </Popover.Content>
-    </Popover.Root>
+    <>
+      <Popover.Root open={panelOpen} onOpenChange={setPanelOpen}>
+        <Popover.Trigger>
+          <button type="button" className="sc-icon-btn sc-notif-btn" aria-label={label} title="Notifications">
+            <Bell size={16} weight={running ? 'fill' : 'regular'} />
+            {badge}
+          </button>
+        </Popover.Trigger>
+        <Popover.Content align="end" className="sc-notif-pop">
+          <Panel onClose={() => setPanelOpen(false)} onSeen={markSeen} onOpenDetail={setDetailJob} />
+        </Popover.Content>
+      </Popover.Root>
+      {detailJob ? <ImportProgress brandId={brand.id} jobId={detailJob} onDismiss={() => setDetailJob(null)} /> : null}
+    </>
   );
 }
 
@@ -105,7 +121,15 @@ export function NotificationsButton() {
  * Escape and an outside click are what a sheet owes you; Radix gives those to
  * the popover for free and this is the half of the app that has to earn them.
  */
-function Sheet({ onClose, onSeen }: { onClose: () => void; onSeen: () => void }) {
+function Sheet({
+  onClose,
+  onSeen,
+  onOpenDetail,
+}: {
+  onClose: () => void;
+  onSeen: () => void;
+  onOpenDetail: (jobId: string) => void;
+}) {
   const { sheet, grip } = useSheetDrag(onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -122,21 +146,27 @@ function Sheet({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
         <div className="sc-shotsheet-grip" {...grip}>
           <span className="sc-shotsheet-bar" aria-hidden />
         </div>
-        <Panel onClose={onClose} onSeen={onSeen} />
+        <Panel onClose={onClose} onSeen={onSeen} onOpenDetail={onOpenDetail} />
       </div>
     </>,
     document.body,
   );
 }
 
-function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void }) {
+function Panel({
+  onClose,
+  onSeen,
+  onOpenDetail,
+}: {
+  onClose: () => void;
+  onSeen: () => void;
+  onOpenDetail: (jobId: string) => void;
+}) {
   const { tasks, feed, unread, clearFeed } = useTaskCenter();
   const { brand } = useBrand();
   const { push } = useToasts();
   const [tab, setTab] = useState<TabKey>('tasks');
   const tabsRef = useRef<HTMLDivElement>(null);
-  /** The import someone opened, if any. */
-  const [detailJob, setDetailJob] = useState<string | null>(null);
   // seconds tick on their own; the poll is slower than the clock
   const now = useNow(1000);
 
@@ -225,7 +255,7 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
                 now={now}
                 onNavigate={onClose}
                 onCancel={cancelTask}
-                onOpenDetail={setDetailJob}
+                onOpenDetail={onOpenDetail}
               />
             ))
           )
@@ -243,7 +273,6 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
           </button>
         </div>
       ) : null}
-      {detailJob && <ImportProgress brandId={brand.id} jobId={detailJob} onDismiss={() => setDetailJob(null)} />}
     </>
   );
 }

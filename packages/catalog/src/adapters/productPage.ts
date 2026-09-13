@@ -374,6 +374,16 @@ export interface PageFetchOptions {
   /** A store asking to be read slowly, from its robots.txt. */
   delayMs?: number;
   onProduct?: (total: number) => void;
+  /**
+   * Each product, the moment its page parsed.
+   *
+   * Given this, the crawl keeps nothing: the caller owns every product as it
+   * arrives and the returned array stays empty. That is what lets an import
+   * write a product a second into a store of thousands without ever holding
+   * the catalogue, and what puts them on screen one at a time instead of in
+   * visible steps.
+   */
+  onEach?: (p: CatalogProduct) => void;
   /** Filled in as work happens, so a caller can report what it really spent. */
   stats?: { pages: number; bytes: number };
 }
@@ -386,40 +396,6 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * Deduped by `externalKey` as it goes, so a store that lists the same item
  * under several paths costs pages but never yields copies.
  */
-/**
- * The same crawl, handed over a batch at a time and keeping none of it.
- *
- * A 2,201-page store is minutes of reading. Fetching every page before writing
- * a row meant nothing was on screen until the last one landed, and all 2,201
- * products sat in memory waiting for it - which is the shape the import died
- * in. The first batch is small so something appears within seconds; after that
- * the batch size is what makes the bookkeeping cheap rather than the work.
- *
- * `onBatch` is awaited, so the next batch is not read until the last one is
- * written: that is what bounds the memory.
- */
-export async function fetchProductPagesInBatches(
-  ctx: AdapterContext,
-  urls: string[],
-  opts: PageFetchOptions & {
-    /** Products in the first round. Small, so the wall fills early. */
-    firstBatch: number;
-    /** Products in every round after it. */
-    batch: number;
-    onBatch: (products: CatalogProduct[], at: { done: number; total: number; last: boolean }) => Promise<void>;
-  },
-): Promise<void> {
-  const { firstBatch, batch, onBatch, ...page } = opts;
-  for (let at = 0; at < urls.length; ) {
-    if (ctx.signal?.aborted) return;
-    const size = at === 0 ? Math.min(firstBatch, urls.length) : batch;
-    const slice = urls.slice(at, at + size);
-    at += size;
-    const products = await fetchProductPages(ctx, slice, page);
-    await onBatch(products, { done: at, total: urls.length, last: at >= urls.length });
-  }
-}
-
 export async function fetchProductPages(
   ctx: AdapterContext,
   urls: string[],
@@ -427,6 +403,8 @@ export async function fetchProductPages(
 ): Promise<CatalogProduct[]> {
   const out: CatalogProduct[] = [];
   const seen = new Set<string>();
+  /** Products yielded, whether or not they were kept here. */
+  let kept = 0;
   const want = opts.want ?? Number.POSITIVE_INFINITY;
   // Three addresses per product wanted, so a site full of stubs costs a
   // bounded amount more rather than an unbounded one.
@@ -437,7 +415,7 @@ export async function fetchProductPages(
     take,
     opts.delayMs ? 1 : (opts.concurrency ?? 5),
     async (u) => {
-      if (out.length >= want) return;
+      if (kept >= want) return;
       if (opts.deadline != null && Date.now() > opts.deadline) return;
       if (opts.maxTotalBytes != null && bytes >= opts.maxTotalBytes) return;
       try {
@@ -457,9 +435,11 @@ export async function fetchProductPages(
         for (const p of productsFromPage(text, url)) {
           if (seen.has(p.externalKey)) continue;
           seen.add(p.externalKey);
-          out.push(p);
+          kept++;
+          if (opts.onEach) opts.onEach(p);
+          else out.push(p);
         }
-        opts.onProduct?.(out.length);
+        opts.onProduct?.(kept);
       } catch {
         // One unreadable page is not a reason to abandon the rest.
       }

@@ -257,6 +257,8 @@ describe('a large import is readable while it runs', () => {
   let gate: Promise<void>;
 
   const COUNT = 30;
+  /** Pages past this one are held, so the crawl cannot finish on its own. */
+  const HELD_FROM = 20;
 
   beforeEach(async () => {
     gate = new Promise<void>((r) => {
@@ -290,6 +292,10 @@ describe('a large import is readable while it runs', () => {
         const page = /\/products\/product-(\d+)$/.exec(url);
         if (page) {
           const i = Number(page[1]);
+          // The tail of the crawl is held until the test lets go, so what is
+          // on screen while it waits is what a real import shows you partway
+          // through a store of thousands.
+          if (i > HELD_FROM) await gate;
           return new Response(
             `<html><head><script type="application/ld+json">${JSON.stringify({
               '@context': 'https://schema.org',
@@ -303,12 +309,7 @@ describe('a large import is readable while it runs', () => {
             { status: 200 },
           );
         }
-        if (url.includes('.jpg')) {
-          // The pictures are the long tail of a real import. Holding them here
-          // is what keeps the job running long enough to be observed.
-          await gate;
-          return new Response(PNG, { status: 200, headers: { 'content-type': 'image/jpeg' } });
-        }
+        if (url.includes('.jpg')) return new Response(PNG, { status: 200, headers: { 'content-type': 'image/jpeg' } });
         return new Response('', { status: 404 });
       }) as any,
     });
@@ -348,13 +349,13 @@ describe('a large import is readable while it runs', () => {
       job = (await app.inject({ method: 'GET', url: `/api/brands/${brandId}/catalog/jobs/${jobId}` })).json();
     }
 
-    // Readable, and the job that is writing them has not finished. A PART of
-    // the catalogue, not all of it: the pictures of the first batch are held
-    // at the gate, so what is on screen is the first batch alone. That is the
-    // whole point - the old pipeline read all thirty pages before writing a
-    // row, and the Products page stayed empty for the entire run.
+    // A PART of the catalogue is readable, while the crawl that is writing it
+    // is still going: products reach the database as their pages parse, one at
+    // a time, rather than after every page has been read. The old pipeline
+    // read all thirty pages before writing a row, and the Products page stayed
+    // empty for the whole run.
     expect(landed).toBeGreaterThan(0);
-    expect(landed).toBeLessThan(COUNT);
+    expect(landed).toBeLessThanOrEqual(HELD_FROM);
     expect(job.finishedAt).toBeFalsy();
 
     openTheGate();

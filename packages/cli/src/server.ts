@@ -28,7 +28,12 @@ import type { stageVersion } from './update/stage.js';
 import { validateBrand, buildFromUrl, mergeScrape, normalizeSiteUrl } from '@scenri/brand';
 import { inspectMark } from './markShape.js';
 import { IGNORE_ENV_KEYS_SETTING, ignoreEnvKeysGetter, type EngineRegistry } from './engines.js';
-import { brandJsonWithCatalogProducts, resolveLibraryProduct, runningImportCount } from './catalogImport.js';
+import {
+  brandJsonWithCatalogProducts,
+  resolveLibraryProduct,
+  runningImportCount,
+  settleCatalogImports,
+} from './catalogImport.js';
 import {
   brandCharacters,
   brandJsonWithIdentityCrops,
@@ -2461,6 +2466,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       while (runningGenerations.size > 0 && Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 25));
       }
+      await settleCatalogImports();
       await thumbs.settle();
       await app.close();
       core.close();
