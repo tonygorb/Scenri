@@ -35,8 +35,32 @@ beforeEach(() => {
   productHash = core.images.save(Buffer.from('product-bytes'));
   refHash = core.images.save(Buffer.from('reference-bytes'));
 });
-afterEach(() => {
-  core.close();
+/**
+ * Every server a test in this file builds, so teardown can settle it.
+ *
+ * A server owns a thumbnail queue that writes into the home directory, and it
+ * keeps writing after the test body returns. Closing the core and removing the
+ * directory under it is `ENOTEMPTY: rmdir '<home>/thumbs'`, which failed this
+ * file on CI three times in one evening - once on a commit that changed
+ * nothing at all. `rmSync` already retried for a second and still lost the
+ * race, because the retry waits on the directory rather than on the work.
+ *
+ * `drain` is what settles that queue; `close` alone does not. It is the same
+ * rule the rest of the suite follows.
+ */
+const servers: { drain(): Promise<void> }[] = [];
+const track = <T extends { drain(): Promise<void> }>(app: T): T => {
+  servers.push(app);
+  return app;
+};
+
+afterEach(async () => {
+  for (const app of servers.splice(0)) await app.drain().catch(() => {});
+  try {
+    core.close();
+  } catch {
+    // A drained server closes the core on its way out; closing twice throws.
+  }
   rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
@@ -639,10 +663,12 @@ describe('brief through the API', () => {
     const { buildServer } = await import('../src/server.js');
     const { createDemoEngine } = await import('@scenri/engine-demo');
     const mock = createDemoEngine((b) => core.images.save(b));
-    const app = buildServer({
-      core,
-      engines: { all: () => [mock], get: (id: string) => (id === 'demo' ? mock : null) },
-    });
+    const app = track(
+      buildServer({
+        core,
+        engines: { all: () => [mock], get: (id: string) => (id === 'demo' ? mock : null) },
+      }),
+    );
 
     const brand = (
       await app.inject({
@@ -707,7 +733,7 @@ describe('brief through the API', () => {
     const { buildServer } = await import('../src/server.js');
     const { createDemoEngine } = await import('@scenri/engine-demo');
     const mock = createDemoEngine((b) => core.images.save(b));
-    const app = buildServer({ core, engines: { all: () => [mock], get: () => mock } });
+    const app = track(buildServer({ core, engines: { all: () => [mock], get: () => mock } }));
     const brand = (
       await app.inject({
         method: 'POST',
@@ -776,7 +802,7 @@ describe('brief through the API', () => {
     // The demo engine's own generate and edit, behind a five-slot contract:
     // the preview only ever asks an engine for its capabilities.
     const mock = { ...demo, capabilities: () => caps(5) };
-    const app = buildServer({ core, engines: { all: () => [mock], get: () => mock } });
+    const app = track(buildServer({ core, engines: { all: () => [mock], get: () => mock } }));
     const brand = (
       await app.inject({
         method: 'POST',
@@ -843,7 +869,7 @@ describe('brief through the API', () => {
     const tokens = seven.map((p) => ({ t: 'product', id: p.id }));
 
     const roomy = { ...demo, capabilities: () => caps(5) };
-    const app = buildServer({ core, engines: { all: () => [roomy], get: () => roomy } });
+    const app = track(buildServer({ core, engines: { all: () => [roomy], get: () => roomy } }));
     const brand = (await app.inject({ method: 'POST', url: '/api/brands', payload: { brand: brandSpec } })).json();
     const proj = (
       await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
@@ -861,7 +887,7 @@ describe('brief through the API', () => {
     await app.close();
 
     const blind = { ...demo, capabilities: () => caps(0) };
-    const app2 = buildServer({ core, engines: { all: () => [blind], get: () => blind } });
+    const app2 = track(buildServer({ core, engines: { all: () => [blind], get: () => blind } }));
     const refused = await app2.inject({
       method: 'POST',
       url: '/api/nodes',
@@ -878,7 +904,7 @@ describe('brief through the API', () => {
     const { buildServer } = await import('../src/server.js');
     const { createDemoEngine } = await import('@scenri/engine-demo');
     const mock = createDemoEngine((b) => core.images.save(b));
-    const app = buildServer({ core, engines: { all: () => [mock], get: () => mock } });
+    const app = track(buildServer({ core, engines: { all: () => [mock], get: () => mock } }));
     const brand = (
       await app.inject({
         method: 'POST',
@@ -934,7 +960,7 @@ describe('brief through the API', () => {
     const { buildServer } = await import('../src/server.js');
     const { createDemoEngine } = await import('@scenri/engine-demo');
     const mock = createDemoEngine((b) => core.images.save(b));
-    const app = buildServer({ core, engines: { all: () => [mock], get: () => mock } });
+    const app = track(buildServer({ core, engines: { all: () => [mock], get: () => mock } }));
     const brand = (
       await app.inject({
         method: 'POST',
