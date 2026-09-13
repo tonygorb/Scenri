@@ -29,6 +29,8 @@ import {
   chipOpensPicker,
   chipOpensSheet,
   findIngredient,
+  INSERT_EMPTY,
+  insertPageSize,
   insertShortlist,
   previewHashOf,
   type Candidate,
@@ -245,6 +247,7 @@ export const BriefInput = forwardRef<
     flagRef.current = flag;
   }, [flag]);
   const [query, setQuery] = useState('');
+  const [insertShown, setInsertShown] = useState(INSERT_EMPTY.Products);
   const [activeOptionId, setActiveOptionId] = useState<string | null>(null);
   const pasted = useRef(false);
   const uidSeq = useRef(0);
@@ -786,6 +789,7 @@ export const BriefInput = forwardRef<
     },
     openMenu: (anchor) => {
       setQuery('');
+      setInsertShown(insertPageSize('$'));
       setMenu({ anchor });
     },
     focus: () => caretToEnd(rootRef.current),
@@ -815,8 +819,8 @@ export const BriefInput = forwardRef<
 
   const bookmarked = useMemo(() => new Set(bookmarkedScenes(brand.id)), [brand.id]);
 
-  const shownOptions: MenuOption[] = useMemo(() => {
-    if (!menu) return [];
+  const insertList = useMemo(() => {
+    if (!menu) return { items: [], remaining: 0, total: 0 };
     return insertShortlist(
       menu.sigil ?? '$',
       {
@@ -825,12 +829,23 @@ export const BriefInput = forwardRef<
         scenes: scenesSitOut ? [] : buildCandidates('scene', catalog),
         colors: flattenPalette(brand.json?.palette),
       },
-      { query, bookmarked },
-    ).map((c) => ({
-      ...c,
-      run: () => (c.token.t === 'template' ? onTemplatePick(c.token.id) : placeRef.current(c.token)),
-    }));
-  }, [menu, catalog, query, bookmarked, onTemplatePick, scenesSitOut, brand.json?.palette]);
+      { query, bookmarked, shown: insertShown },
+    );
+  }, [menu, catalog, query, bookmarked, insertShown, scenesSitOut, brand.json?.palette]);
+
+  const shownOptions: MenuOption[] = useMemo(
+    () =>
+      insertList.items.map((c) => ({
+        ...c,
+        run: () => (c.token.t === 'template' ? onTemplatePick(c.token.id) : placeRef.current(c.token)),
+      })),
+    [insertList.items, onTemplatePick],
+  );
+
+  const loadMoreInsert = useCallback(() => {
+    if (insertList.remaining <= 0) return;
+    setInsertShown((n) => n + insertPageSize(menu?.sigil));
+  }, [insertList.remaining, menu?.sigil]);
 
   const onClick = (e: React.MouseEvent) => {
     const root = rootRef.current;
@@ -1089,6 +1104,7 @@ export const BriefInput = forwardRef<
       // an empty contenteditable's range is the whole block — freezing that is
       // how the menu sat in the middle of the composer on a bare trigger.
       setQuery('');
+      setInsertShown(insertPageSize(e.key));
       setMenu({
         anchor: {
           getBoundingClientRect: () => caretRect() ?? root?.getBoundingClientRect() ?? new DOMRect(),
@@ -1155,7 +1171,10 @@ export const BriefInput = forwardRef<
     }
     const next = chipped ? { open: false as const } : menuFromInput(sigilAtCaret(root), fromPaste);
     if (next.open) {
-      if (menu) setQuery(next.query);
+      if (menu) {
+        if (next.query !== query) setInsertShown(insertPageSize(next.sigil));
+        setQuery(next.query);
+      }
     } else if (menu) {
       setMenu(null);
       setQuery('');
@@ -1422,7 +1441,10 @@ export const BriefInput = forwardRef<
           }}
           query={query}
           options={shownOptions}
+          remaining={insertList.remaining}
+          total={insertList.total}
           sigil={menu.sigil}
+          onMore={loadMoreInsert}
           onActiveId={setActiveOptionId}
           onClose={() => {
             setMenu(null);

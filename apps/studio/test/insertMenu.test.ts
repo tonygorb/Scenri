@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import {
+  caretFromLine,
+  caretOnLine,
   composingEvent,
   emptyInsertCopy,
   enterSubmits,
   insertLabel,
   menuFromInput,
+  neededInsertHeight,
+  pickInsertCaret,
+  placeOnScroll,
+  sameInsertPos,
+  shouldAskMore,
   splitMatch,
 } from '../src/composer/insertMenu.js';
 
@@ -84,5 +91,86 @@ describe('enterSubmits', () => {
     // The state says no menu, because accepting a row closed it. Submitting
     // here fires the shot on the keystroke that placed the chip.
     expect(enterSubmits({ menuOpen: false, handled: true })).toBe(false);
+  });
+});
+
+describe('placeOnScroll', () => {
+  it('ignores a scroll that started inside the menu, so paging does not re-anchor', () => {
+    const menu = { contains: (n: unknown) => n === 'row' };
+    expect(placeOnScroll('row', menu)).toBe(false);
+    expect(placeOnScroll(menu, menu)).toBe(false);
+  });
+
+  it('still places when the window or the composer scrolls', () => {
+    const menu = { contains: () => false };
+    expect(placeOnScroll(window, menu)).toBe(true);
+    expect(placeOnScroll(null, menu)).toBe(true);
+  });
+});
+
+describe('pickInsertCaret', () => {
+  const live = { top: 700, bottom: 718, left: 40, right: 48 };
+  const last = { top: 680, bottom: 698, left: 20, right: 28 };
+
+  it('keeps the snapshot while the search field holds focus', () => {
+    expect(pickInsertCaret(null, last, true)).toEqual(last);
+    expect(pickInsertCaret(live, last, true)).toEqual(last);
+  });
+
+  it('follows a live caret, then the snapshot, once the brief has it again', () => {
+    expect(pickInsertCaret(live, last, false)).toEqual(live);
+    expect(pickInsertCaret(null, last, false)).toEqual(last);
+  });
+});
+
+describe('caretOnLine', () => {
+  it('rebuilds the same caret after the line moves', () => {
+    const line = { top: 740, bottom: 780, left: 100, right: 500 };
+    const caret = { top: 748, bottom: 766, left: 140, right: 148 };
+    const moved = { ...line, top: 200, bottom: 240 };
+    expect(caretFromLine(moved, caretOnLine(caret, line))).toEqual({
+      top: 208,
+      bottom: 226,
+      left: 140,
+      right: 148,
+    });
+  });
+});
+
+describe('sameInsertPos', () => {
+  const box = { left: 10, top: 20, width: 320, maxHeight: 240, side: 'above', shell: 'caret' };
+  it('is true when the box did not move', () => {
+    expect(sameInsertPos(box, { ...box })).toBe(true);
+    expect(sameInsertPos(null, null)).toBe(true);
+  });
+
+  it('is false when the box moved or is missing', () => {
+    expect(sameInsertPos(box, { ...box, top: 21 })).toBe(false);
+    expect(sameInsertPos(box, null)).toBe(false);
+  });
+});
+
+describe('shouldAskMore', () => {
+  it('asks once per already-drawn page, never twice for the same length', () => {
+    expect(shouldAskMore(0, 8, 20)).toBe(true);
+    expect(shouldAskMore(8, 8, 20)).toBe(false);
+    expect(shouldAskMore(8, 16, 12)).toBe(true);
+  });
+
+  it('does not ask when the catalog is exhausted or the list is empty', () => {
+    expect(shouldAskMore(0, 8, 0)).toBe(false);
+    expect(shouldAskMore(0, 0, 20)).toBe(false);
+  });
+});
+
+describe('neededInsertHeight', () => {
+  it('grows from the list scroll height, not the last painted cap', () => {
+    // A miss painted at 70px; `/qa` then has two rows (72px) plus 48px of chrome.
+    expect(neededInsertHeight(48, 10, 320)).toBe(58);
+    expect(neededInsertHeight(48, 72, 320)).toBe(120);
+  });
+
+  it('never exceeds the insert menu cap', () => {
+    expect(neededInsertHeight(48, 400, 320)).toBe(320);
   });
 });

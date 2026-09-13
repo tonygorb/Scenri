@@ -36,7 +36,7 @@ const LINE_BOX = 48;
  * whole block; using that as a caret parks a 320px panel on the composer
  * instead of on the `#`.
  */
-function caretReliable(caret: AnchorRect | null, vp: Viewport): boolean {
+export function caretReliable(caret: AnchorRect | null, vp: Viewport): boolean {
   if (!caret) return false;
   if (caret.top === 0 && caret.left === 0 && caret.right === 0 && caret.bottom === 0) return false;
   if (caret.bottom < 0 || caret.top > vp.height) return false;

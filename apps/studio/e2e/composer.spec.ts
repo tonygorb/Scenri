@@ -506,7 +506,7 @@ test('a chip lands at the caret, not at the end', async ({ page }) => {
 test('$ reaches for a product and typing carries on', async ({ page }) => {
   await page.keyboard.type('put the ');
   await page.keyboard.type('$');
-  await expect(page.locator('.sc-cmd-group')).toHaveText('Products');
+  await expect(page.locator('.sc-cmd-group')).toHaveText(/^Products\s+\d+$/);
   await page.locator('.sc-cmd-row').first().click();
   expect(await chips(page).first().getAttribute('data-tok')).toMatch(/^p:/);
   await page.keyboard.type('on ice');
@@ -518,7 +518,7 @@ test('$ reaches for a product and typing carries on', async ({ page }) => {
 test('/ reaches for a scene and typing carries on', async ({ page }) => {
   await page.keyboard.type('in ');
   await page.keyboard.type('/');
-  await expect(page.locator('.sc-cmd-group')).toHaveText('Scenes');
+  await expect(page.locator('.sc-cmd-group')).toHaveText(/^Scenes\s+\d+$/);
   await page.locator('.sc-cmd-row').first().click();
   expect(await chips(page).first().getAttribute('data-tok')).toMatch(/^t:/);
   await page.keyboard.type('at dawn');
@@ -530,7 +530,7 @@ test('/ reaches for a scene and typing carries on', async ({ page }) => {
 test('@ reaches for a presenter and typing carries on', async ({ page }) => {
   await page.keyboard.type('with ');
   await page.keyboard.type('@');
-  await expect(page.locator('.sc-cmd-group')).toHaveText('Presenters');
+  await expect(page.locator('.sc-cmd-group')).toHaveText(/^Presenters\s+\d+$/);
   await page.locator('.sc-cmd-row').first().click();
   expect(await chips(page).first().getAttribute('data-tok')).toMatch(/^h:/);
   await page.keyboard.type('on ice');
@@ -1559,12 +1559,36 @@ test('a chip is reachable, openable and removable from the keyboard', async ({ p
   expect(await sentence(page)).toMatch(/^AAAA/);
 });
 
-test('an empty trigger is a shortlist, not a catalog dump', async ({ page }) => {
+test('a query that finds rows after a miss grows the menu', async ({ page }) => {
   await page.keyboard.type('#');
+  const menu = page.locator('.sc-cmd');
+  await menu.locator('.sc-cmd-row').first().waitFor();
+  await page.keyboard.type('zzzzzz');
+  await expect(menu.locator('.sc-cmd-empty')).toBeVisible();
+  for (let i = 0; i < 6; i++) await page.keyboard.press('Backspace');
+  await page.keyboard.type('ink');
+  const row = menu.locator('.sc-cmd-row').first();
+  await expect(row).toBeVisible();
+  expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(30);
+  const card = (await page.locator('.sc-promptcard').first().boundingBox())!;
+  const box = (await menu.boundingBox())!;
+  expect(card.y - (box.y + box.height)).toBeLessThanOrEqual(16);
+  expect(await sentence(page)).toContain('#ink');
+});
+
+test('an empty trigger is a shortlist, not a catalog dump', async ({ page }) => {
+  await page.keyboard.type('$');
   await page.locator('.sc-cmd-row').first().waitFor();
+  await expect(page.locator('.sc-cmd-group')).toHaveText(/^Products\s+\d+$/);
   await expect(page.locator('.sc-cmd-capped')).toHaveCount(0);
   await expect(page.locator('.sc-cmd-foot')).toHaveCount(0);
-  expect(await page.locator('.sc-cmd-row').count()).toBeLessThanOrEqual(40);
+  const first = await page.locator('.sc-cmd-row').count();
+  expect(first).toBeLessThanOrEqual(8);
+  await expect(page.locator('.sc-cmd-count')).toBeVisible();
+  await expect(page.locator('.sc-cmd-count')).toHaveText(/^\d+ of \d+$/);
+
+  for (let i = 0; i < first; i++) await page.keyboard.press('ArrowDown');
+  await expect.poll(async () => page.locator('.sc-cmd-row').count()).toBeGreaterThan(first);
 });
 
 test('typing after a trigger narrows, and a miss stays open', async ({ page }) => {
@@ -1615,7 +1639,7 @@ test('Enter and Tab insert, Escape and an outside click leave the text', async (
 
   await page.keyboard.type(' and @');
   await page.locator('.sc-cmd-row').first().waitFor();
-  await expect(page.locator('.sc-cmd-group')).toHaveText('Presenters');
+  await expect(page.locator('.sc-cmd-group')).toHaveText(/^Presenters\s+\d+$/);
   await page.keyboard.press('Tab');
   await expect(chips(page)).toHaveCount(2);
   expect(await chips(page).nth(1).getAttribute('data-tok')).toMatch(/^h:/);
