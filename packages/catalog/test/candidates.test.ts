@@ -117,9 +117,31 @@ describe('scanning a website for a shop', () => {
     expect(scan.warnings.join(' ')).toMatch(/robots\.txt/);
   });
 
-  it('reads nothing once the time budget is spent', async () => {
+  /**
+   * Discovery on a large store can run long. When it overran the whole budget
+   * the preview read nothing and the store was reported as one we could not
+   * open, from a site answering every request with a 200. Being slow to list a
+   * catalog is not the same as being shut.
+   */
+  it('still previews when discovery has spent the whole budget', async () => {
     const { fetchImpl, calls } = storefront(40);
-    const scan = await scanForCandidates({ url: 'https://shop.example', fetchImpl, budget: { budgetMs: -1 } });
+    const scan = await scanForCandidates({
+      url: 'https://shop.example',
+      fetchImpl,
+      budget: { budgetMs: -1, maxPreviewPages: 4 },
+    });
+    expect(calls.filter((u) => /\/products\/item-/.test(u)).length).toBeGreaterThan(0);
+    expect(scan.verdict).toBe('found');
+    expect(scan.count).toBe(40);
+  });
+
+  it('stops for real when the floor is spent too', async () => {
+    const { fetchImpl, calls } = storefront(40);
+    const scan = await scanForCandidates({
+      url: 'https://shop.example',
+      fetchImpl,
+      budget: { budgetMs: -1, previewFloorMs: -1 },
+    });
     expect(calls.filter((u) => /\/products\/item-/.test(u))).toHaveLength(0);
     expect(scan.verdict).toBe('blocked');
     expect(scan.count).toBe(40);

@@ -40,6 +40,15 @@ export const DEFAULT_SCAN_BUDGET: ScanBudget = {
   maxTotalBytes: 40_000_000,
   budgetMs: 25_000,
   concurrency: 4,
+  /**
+   * Time the preview is owed even when discovery has already spent the lot.
+   *
+   * Discovery on a large store can run long, and when it overran the whole
+   * budget the preview read zero pages and the store was reported as one we
+   * could not open - from a site that was answering every request with a 200.
+   * Being slow to list a catalog is not the same as being shut.
+   */
+  previewFloorMs: 12_000,
 };
 
 /**
@@ -69,8 +78,9 @@ export async function scanForCandidates(opts: ScanOptions): Promise<ScanResult> 
   const budget = { ...DEFAULT_SCAN_BUDGET, ...opts.budget };
   const deadline = started + budget.budgetMs;
   const baseUrl = originOf(normalizeStoreUrl(opts.url));
+  const fetchImpl = opts.fetchImpl ?? fetch;
   const ctx: AdapterContext = {
-    fetchImpl: opts.fetchImpl ?? fetch,
+    fetchImpl,
     baseUrl,
     signal: opts.signal,
     onProgress: opts.onProgress,
@@ -117,6 +127,8 @@ export async function scanForCandidates(opts: ScanOptions): Promise<ScanResult> 
   }
 
   opts.onProgress?.({ stage: 'discovering', discovered: urls.length, message: 'Reading a few products' });
+  // Whatever discovery cost, the preview still gets its floor.
+  const previewDeadline = Math.max(deadline, Date.now() + budget.previewFloorMs);
   const read = dedupeProducts(
     await fetchProductPages(ctx, urls, {
       want: budget.maxPreviewPages,
@@ -125,7 +137,7 @@ export async function scanForCandidates(opts: ScanOptions): Promise<ScanResult> 
       maxBytes: budget.maxBytesPerPage,
       maxTotalBytes: budget.maxTotalBytes,
       delayMs: robots.crawlDelayMs,
-      deadline,
+      deadline: previewDeadline,
       onProduct: (fetched) => opts.onProgress?.({ stage: 'fetching_products', fetched, discovered: urls.length }),
     }),
   );

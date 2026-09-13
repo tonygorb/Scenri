@@ -134,6 +134,8 @@ export interface ScanBudget {
   maxTotalBytes: number;
   budgetMs: number;
   concurrency: number;
+  /** Time the preview is owed even when discovery has spent the whole budget. */
+  previewFloorMs: number;
 }
 
 export interface ScanResult {
