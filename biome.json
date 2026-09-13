@@ -17,7 +17,8 @@
       "!**/playwright-report",
       "!**/pnpm-lock.yaml",
       "!docs/design",
-      "!templates/previews"
+      "!templates/previews",
+      "!packages/brand-spec/test/fixtures"
     ]
   },
   "formatter": {

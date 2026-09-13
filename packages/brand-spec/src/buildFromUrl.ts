@@ -12,7 +12,7 @@
  * and the kit editor is one click away either way.
  */
 import * as cheerio from 'cheerio';
-import { paletteFrom } from './colors.js';
+import { liveClassTokens, paletteFrom } from './colors.js';
 import { type LogoCandidate, type LogoSource, logoCandidates, svgAsMark } from './logoCandidates.js';
 import { type GuardOptions, type GuardedFetch, createGuardedFetch } from './safeFetch.js';
 import { ScrapeError, urlRefusal } from './scrapeError.js';
@@ -115,7 +115,9 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
       warnings.push('Stylesheet fetch failed; palette from inline styles only.');
     }
   }
-  const palette = paletteFrom(sources);
+  // The classes the document is wearing decide which of a page builder's
+  // dozen shipped themes is the live one.
+  const palette = paletteFrom(sources, liveClassTokens($));
   if (!palette.primary) warnings.push('No confident palette found. Set colors manually.');
   const colorCount = [palette.primary, palette.secondary, ...palette.accent, ...palette.neutrals].filter(
     Boolean,

@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { collectColors, dedupeNearby, dropSingletons, paletteFrom, pickPalette, weightOf } from '../src/colors.js';
+import { load } from 'cheerio';
+import {
+  collectColors,
+  dedupeNearby,
+  dropSingletons,
+  liveClassTokens,
+  paletteFrom,
+  pickPalette,
+  roleOfProperty,
+  selectorIsLive,
+  weightOf,
+} from '../src/colors.js';
 
 /**
  * A palette is a decision, not an inventory. A homepage carries forty colours,
@@ -75,5 +86,104 @@ describe('the palette that comes out', () => {
   it('counts the same colour from two sheets once, with both weights', () => {
     const hits = collectColors([{ css: '.a{color:#4d61fc}' }, { css: '.b{color:#4d61fc}' }]);
     expect(hits).toEqual([{ hex: '#4d61fc', weight: 2 }]);
+  });
+});
+
+/**
+ * A page builder ships every theme it offers in one stylesheet and marks the
+ * live one on the html element. The real www.lucid.now declares
+ * `.style-blue-3 { --primary: #518ce8; --secondary: #f80673 }` and wears
+ * `class="style-blue-3"`, and a flat count handed back a pink primary lifted
+ * from a theme it does not use, with two greens for accents.
+ */
+describe('a site that declares its own palette', () => {
+  const THEMED = `
+    .style-blue-1{--primary:#4d61fc;--primary-dark:#344bfb;--accent:#4d61fc;--secondary:#f80673}
+    .style-green-2{--primary:#0a6b01;--accent:#4addb4;--secondary:#4bca81}
+    .style-blue-3:not(.custom-colors-enabled){--primary:#518ce8;--primary-dark:#397ee5;--accent:#518ce8;--secondary:#f80673}
+    .style-blue-3{--dark:#01396b;--light:#e8f1ff}
+    .style-green-2 .hero{background:#4addb4;color:#4bca81;border-color:#4addb4}
+    .style-blue-3 .btn-primary{background:#518ce8}
+    body{color:#303030}
+  `;
+
+  it('believes the names the designer wrote, for the theme the page is wearing', () => {
+    const p = paletteFrom([{ css: THEMED }], ['style-blue-3']);
+    expect(p.primary).toBe('#518ce8');
+    expect(p.secondary).toBe('#f80673');
+  });
+
+  it('ignores the palettes of every theme the page is not wearing', () => {
+    const p = paletteFrom([{ css: THEMED }], ['style-blue-3']);
+    const shipped = [p.primary, p.secondary, ...p.accent, ...p.neutrals];
+    // The greens belong to .style-green-2 and appear more often than anything.
+    expect(shipped).not.toContain('#4addb4');
+    expect(shipped).not.toContain('#4bca81');
+  });
+
+  it('never lets a -dark or -hover variant take the base slot', () => {
+    expect(paletteFrom([{ css: THEMED }], ['style-blue-3']).primary).not.toBe('#397ee5');
+  });
+
+  it('does not show the same colour twice when accent repeats primary', () => {
+    const p = paletteFrom([{ css: THEMED }], ['style-blue-3']);
+    expect(p.accent).not.toContain(p.primary);
+  });
+
+  /**
+   * The real page ships three kinds of --accent: its live theme's, a dozen
+   * other themes', and a bundled widget's bare :root (Tailwind sky-500, and
+   * last in the file). Source order alone handed back the widget's.
+   */
+  it('prefers the theme the page wears over the defaults a bundled widget brought', () => {
+    const withWidget = `${THEMED}\n:root{--foreground:#0f172a;--muted:#475569;--accent:#0ea5e9}`;
+    const p = paletteFrom([{ css: withWidget }], ['style-blue-3']);
+    expect([p.primary, p.secondary, ...p.accent]).not.toContain('#0ea5e9');
+  });
+
+  it('takes the dark and light a theme declares as accents, since they are brand colours', () => {
+    const p = paletteFrom([{ css: THEMED }], ['style-blue-3']);
+    expect(p.accent).toEqual(['#01396b', '#e8f1ff']);
+  });
+
+  // An ordinary site names nothing and scopes nothing; counting is all there is.
+  it('changes nothing for a page with one plain stylesheet', () => {
+    const plain = '.btn{background:#4d61fc}.hero{color:#f90473}body{color:#303030}';
+    expect(paletteFrom([{ css: plain }], ['some-class']).primary).toBe(paletteFrom([{ css: plain }]).primary);
+  });
+});
+
+describe('reading the live theme off the document', () => {
+  it('takes the classes from html and body together', () => {
+    const $ = load('<html class="style-blue-3 comps"><body class="font-work-sans"></body></html>');
+    expect(liveClassTokens($).sort()).toEqual(['comps', 'font-work-sans', 'style-blue-3']);
+  });
+
+  it.each([
+    [':root', true],
+    ['html', true],
+    ['.style-blue-3', true],
+    ['.style-blue-3:not(.custom-colors-enabled)', true],
+    ['.style-blue-1, .style-blue-2, .style-blue-3', true],
+    ['.style-green-2', false],
+    ['.style-green-2 .hero', false],
+  ])('reads %j as live=%s', (selector, live) => {
+    expect(selectorIsLive(selector, ['style-blue-3'])).toBe(live);
+  });
+
+  it.each([
+    ['--primary', 'primary', false],
+    ['--brand-primary', 'primary', false],
+    ['--color-secondary', 'secondary', false],
+    ['--accent', 'accent', false],
+    ['--primary-dark', 'primary', true],
+    ['--secondary-hover', 'secondary', true],
+    ['--accent-600', 'accent', true],
+  ])('reads %j as the %s slot (variant=%s)', (property, role, variant) => {
+    expect(roleOfProperty(property)).toEqual({ role, variant });
+  });
+
+  it.each(['--radius', '--font-body', 'color', '--primarily-wrong'])('reads %j as no slot at all', (property) => {
+    expect(roleOfProperty(property)).toBeNull();
   });
 });
