@@ -235,8 +235,52 @@ describe('buildFromUrl', () => {
     expect(validateBrand(brand).valid).toBe(true);
   });
 
-  it('throws on HTTP error', async () => {
+  // A person reads this, so it names the site and says what happened rather
+  // than quoting a status line at them.
+  it('says what a refusing site answered, in a sentence', async () => {
     const err = (async () => new Response('nope', { status: 500 })) as unknown as typeof fetch;
-    await expect(buildFromUrl('https://down.example/', { fetchImpl: err })).rejects.toThrow(/HTTP 500/);
+    await expect(buildFromUrl('https://down.example/', { fetchImpl: err })).rejects.toThrow(
+      'down.example answered 500, so there was nothing to read.',
+    );
+  });
+
+  /**
+   * The 0.9.2 report. A pasted address with a leading space used to become
+   * `https://  https://...`, and the TypeError reached the screen as "Invalid
+   * URL" under a site that was perfectly fine.
+   */
+  it('reads a pasted address with a leading space, and fetches the site it meant', async () => {
+    const asked: string[] = [];
+    const spy = (async (u: string) => {
+      asked.push(String(u));
+      return new Response('<title>Acme</title>', { status: 200 });
+    }) as unknown as typeof fetch;
+    await buildFromUrl('  https://acme.example/', { fetchImpl: spy });
+    expect(asked[0]).toBe('https://acme.example/');
+  });
+
+  // The studio used to write meta.website back over the kit after creating it.
+  // It was always a no-op, and it was the last place the malformed string
+  // could land, so it is gone. This is what made that safe.
+  it('always records the website itself, whatever the caller passed', async () => {
+    const page = (async () => new Response('<title>Acme</title>', { status: 200 })) as unknown as typeof fetch;
+    for (const input of ['acme.example', '  https://acme.example/pricing?x=1']) {
+      const { brand } = await buildFromUrl(input, { fetchImpl: page });
+      expect((brand.meta as { website: string }).website).toBe('https://acme.example');
+    }
+  });
+
+  it('refuses what is not a web address with a sentence, never a parser message', async () => {
+    const never = (async () => {
+      throw new Error('should not have been fetched');
+    }) as unknown as typeof fetch;
+    for (const [input, sentence] of [
+      ['file:///etc/passwd', /http or https/],
+      ['', /Paste a website address/],
+      ['acme', /does not look like a website address/],
+    ] as const) {
+      await expect(buildFromUrl(input, { fetchImpl: never })).rejects.toThrow(sentence);
+      await expect(buildFromUrl(input, { fetchImpl: never })).rejects.not.toThrow(/Invalid URL/);
+    }
   });
 });

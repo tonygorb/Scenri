@@ -49,7 +49,8 @@ export function jobMethods(db: DB) {
       const cur = jobById(db, id);
       if (!cur) return null;
       const stage = patch.stage ?? cur.stage;
-      const finished = patch.finished || stage === 'completed' || stage === 'partial' || stage === 'failed';
+      const finished =
+        patch.finished || stage === 'completed' || stage === 'partial' || stage === 'no_catalog' || stage === 'failed';
       db.prepare(
         `UPDATE import_jobs SET
           source_id=?, platform=?, stage=?, discovered=?, fetched=?, upserted=?,

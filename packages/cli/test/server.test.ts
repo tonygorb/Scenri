@@ -304,6 +304,62 @@ describe('brands API', () => {
       payload: { url: 'file:///etc/passwd' },
     });
     expect(res.statusCode).toBe(400);
+    expect(res.json().error).toMatch(/http or https/);
+  });
+
+  /**
+   * The 0.9.2 report. A pasted address with a leading space used to reach an
+   * unguarded `new URL`, and Node's bare "Invalid URL" was sent to the browser
+   * as the whole explanation - under a website that was perfectly fine.
+   */
+  it.each([
+    ['', /Paste a website address/],
+    ['   ', /Paste a website address/],
+    ['javascript:alert(1)', /http or https/],
+    ['acme .example', /cannot contain a space/],
+    ['acme', /does not look like a website address/],
+  ])('answers %j with a sentence and a 400, never a 500', async (url, sentence) => {
+    const res = await app.inject({ method: 'POST', url: '/api/brands/from-url', payload: { url } });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toMatch(sentence);
+    expect(res.json().error).not.toMatch(/Invalid URL/);
+  });
+
+  it('reads a pasted address with a leading space rather than refusing it', async () => {
+    const asked: string[] = [];
+    const local = buildServer({
+      core,
+      engines: registryWith(),
+      fetchImpl: (async (input: any) => {
+        asked.push(String(input));
+        return new Response('<title>Acme</title>', { status: 200 });
+      }) as unknown as typeof fetch,
+    });
+    const res = await local.inject({
+      method: 'POST',
+      url: '/api/brands/from-url',
+      payload: { url: '  https://acme.example/' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(asked[0]).toBe('https://acme.example/');
+    expect(res.json().json.meta.website).toBe('https://acme.example');
+    await local.close();
+  });
+
+  it('says what a refusing site answered, as a sentence', async () => {
+    const local = buildServer({
+      core,
+      engines: registryWith(),
+      fetchImpl: (async () => new Response('no', { status: 403 })) as unknown as typeof fetch,
+    });
+    const res = await local.inject({
+      method: 'POST',
+      url: '/api/brands/from-url',
+      payload: { url: 'https://walled.example' },
+    });
+    expect(res.statusCode).toBe(502);
+    expect(res.json().error).toBe('walled.example answered 403, so there was nothing to read.');
+    await local.close();
   });
 });
 

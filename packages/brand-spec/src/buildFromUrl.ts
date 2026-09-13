@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import * as cheerio from 'cheerio';
+import { ScrapeError, urlRefusal } from './scrapeError.js';
+import { normalizeSiteUrl } from './siteUrl.js';
 
 export interface BuildOptions {
   fetchImpl?: typeof fetch;
@@ -63,6 +65,12 @@ function pickPalette(colors: string[]): { primary?: string; secondary?: string; 
 export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promise<BuildResult> {
   const fetchImpl = opts.fetchImpl ?? fetch;
   const warnings: string[] = [];
+  // Normalised here as well as at the route, so no caller can reach an
+  // unguarded parse. This line used to be `new URL(url)`, and the TypeError it
+  // threw is what a tester read as their website being rejected.
+  const normalized = normalizeSiteUrl(url);
+  if (!normalized.ok) throw urlRefusal(normalized.reason, normalized.message);
+  url = normalized.url;
   const origin = new URL(url);
 
   const controller = new AbortController();
@@ -75,14 +83,16 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
       signal: controller.signal,
     });
   } catch (err) {
+    if (err instanceof ScrapeError) throw err;
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error(`Timed out fetching ${url}`);
+      throw new ScrapeError('timeout', `${origin.hostname} took too long to answer.`);
     }
-    throw new Error(`Could not reach that site: ${url}`);
+    throw new ScrapeError('unreachable', `Could not reach ${origin.hostname}.`);
   } finally {
     clearTimeout(timeoutId);
   }
-  if (!res.ok) throw new Error(`Could not fetch ${url}: HTTP ${res.status}`);
+  if (!res.ok)
+    throw new ScrapeError('http_status', `${origin.hostname} answered ${res.status}, so there was nothing to read.`);
   const html = await res.text();
   const $ = cheerio.load(html);
 

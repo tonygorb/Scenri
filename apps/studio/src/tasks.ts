@@ -1,5 +1,5 @@
 import { type ActivityNode, type AssetBuild, type CatalogImportJob, nodeLabel } from './api.js';
-import { kitPath, presenterPath, scenePath, shotPath } from './routes.js';
+import { kitPath, presenterPath, productsPath, scenePath, shotPath } from './routes.js';
 import { local } from './storage.js';
 
 /**
@@ -120,6 +120,7 @@ export function catalogPercent(j: CatalogImportJob | null): number {
     return 60 + Math.min(35, Math.round((j.imagesDone / t) * 35));
   }
   if (j.stage === 'completed') return 100;
+  if (j.stage === 'no_catalog') return 100;
   if (j.stage === 'partial') return 95;
   return 5;
 }
@@ -203,9 +204,31 @@ export function batchTask(siblings: ActivityNode[], brand: { slug: string }, now
     : task;
 }
 
+/**
+ * A website with no shop on it is not a failed import.
+ *
+ * It used to be: every /setup URL is offered to the catalog importer, a
+ * marketing site discovers nothing, and the job was written as `failed`, so a
+ * tester who had just been told their kit was built also got a red bell
+ * reading "No public product catalog found". The brand half had worked
+ * perfectly. Old rows are read the same way, so the ones already on disk stop
+ * reading as failures too.
+ */
+export function isShoplessSite(j: Pick<CatalogImportJob, 'stage' | 'errors'>): boolean {
+  return j.stage === 'no_catalog' || (j.stage === 'failed' && j.errors?.[0]?.code === 'empty_catalog');
+}
+
 export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string }): Task {
-  const state: TaskState =
-    j.stage === 'completed' ? 'done' : j.stage === 'partial' ? 'partial' : j.stage === 'failed' ? 'error' : 'running';
+  const shopless = isShoplessSite(j);
+  const state: TaskState = shopless
+    ? 'done'
+    : j.stage === 'completed'
+      ? 'done'
+      : j.stage === 'partial'
+        ? 'partial'
+        : j.stage === 'failed'
+          ? 'error'
+          : 'running';
   let host = j.url;
   try {
     host = new URL(j.url).hostname.replace(/^www\./, '');
@@ -218,11 +241,17 @@ export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string })
     kind: 'catalog',
     state,
     title: host,
-    subtitle: state === 'error' ? `Catalog import · ${j.message ?? 'failed'}` : `Catalog import · ${count}`,
+    subtitle: shopless
+      ? 'Catalog import · no shop on this site'
+      : state === 'error'
+        ? `Catalog import · ${j.message ?? 'failed'}`
+        : `Catalog import · ${count}`,
     thumb: null,
-    percent: catalogPercent(j),
+    percent: shopless ? 100 : catalogPercent(j),
     startedAt: j.createdAt,
-    href: kitPath(brand),
+    // A shop-less site has nothing to show in the kit; the products page is
+    // where someone would add one by hand.
+    href: shopless ? productsPath(brand) : kitPath(brand),
   };
 }
 

@@ -595,6 +595,8 @@ export type CatalogImportStage =
   | 'processing_assets'
   | 'completed'
   | 'partial'
+  /** Read fine, no shop on it. A fact about the site, not a fault. */
+  | 'no_catalog'
   | 'failed';
 
 export interface CatalogImportJob {

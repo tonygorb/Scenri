@@ -59,17 +59,21 @@ export function BrandSetup() {
     setBusy(true);
     setErr(null);
     try {
-      const full = /^https?:\/\//.test(url) ? url : `https://${url}`;
-      const b = await api.brandFromUrl(full);
-      // Persist website on the kit so a refresh and a catalog import can re-use it.
-      const saved = await api.updateBrand(b.id, {
-        ...b.json,
-        meta: { ...b.json?.meta, website: b.json?.meta?.website || full },
-      });
+      // The raw field, verbatim. Building the URL here is what broke: this
+      // line tested the untrimmed value, so a pasted leading space produced
+      // `https://  https://...` and the server's parser error reached the
+      // screen as "Invalid URL". One normaliser now owns the rule, server-side.
+      const b = await api.brandFromUrl(url);
       // Fire and forget, exactly as the products step did: a storefront fills
       // the product library in the background while the user gets on with it.
-      void api.catalogImport(saved.id, full).catch(() => {});
-      await land(saved);
+      // Every site is offered to it, because a splash page can still have a
+      // shop behind it; a site with no shop is not an error.
+      //
+      // The raw value, not the kit's meta.website: the kit records the origin,
+      // and someone who pasted a collection page meant that page. The catalog
+      // importer has its own normaliser for the rest.
+      void api.catalogImport(b.id, url).catch(() => {});
+      await land(b);
     } catch (e: any) {
       setErr(String(e.message ?? e));
       setBusy(false);

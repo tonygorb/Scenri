@@ -79,15 +79,22 @@ async function runJob(
     core.catalog.setSourceStatus(source.id, 'importing');
 
     if (!result.products.length) {
-      const stage = result.progress.stage === 'failed' ? 'failed' : 'failed';
+      // Two different outcomes, and they used to be the same one. Nothing
+      // discoverable means there is no shop here, which is a fact about the
+      // site and not a fault: a portfolio, an agency page or a company
+      // homepage is a perfectly good brand source. URLs that WERE found and
+      // then would not parse is a real failure, and a shop owner needs to see
+      // it. (The line this replaces read `x === 'failed' ? 'failed' : 'failed'`
+      // - someone meant to make this distinction and it collapsed.)
+      const noShop = result.progress.errors.some((e) => e.code === 'empty_catalog');
       patch({
-        stage,
-        errors: result.progress.errors,
+        stage: noShop ? 'no_catalog' : 'failed',
+        errors: noShop ? [] : result.progress.errors,
         warnings: result.progress.warnings,
-        message: result.progress.errors[0]?.message ?? 'No products imported',
+        message: noShop ? 'No shop found on this site' : (result.progress.errors[0]?.message ?? 'No products imported'),
         finished: true,
       });
-      core.catalog.setSourceStatus(source.id, 'failed', true);
+      core.catalog.setSourceStatus(source.id, noShop ? 'empty' : 'failed', true);
       return;
     }
 

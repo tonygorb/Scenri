@@ -1,6 +1,11 @@
 import type { DB } from '../db.js';
 
 export type CatalogPlatform = 'shopify' | 'woocommerce' | 'webflow' | 'generic' | 'unknown';
+/**
+ * `no_catalog` is a terminal outcome, not a failure: the site was read and has
+ * no shop on it. A brand does not need one, and a marketing site that came
+ * back with a name, a logo and a palette should not also ring a red bell.
+ */
 export type ImportStage =
   | 'queued'
   | 'discovering'
@@ -8,6 +13,7 @@ export type ImportStage =
   | 'processing_assets'
   | 'completed'
   | 'partial'
+  | 'no_catalog'
   | 'failed';
 
 export interface CatalogSourceRow {
