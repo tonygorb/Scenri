@@ -9,6 +9,36 @@ export interface HttpOptions {
   retries?: number;
   headers?: Record<string, string>;
   accept?: string;
+  /**
+   * Stop reading a body past this many bytes and keep what arrived.
+   *
+   * `res.text()` has no ceiling, and product pages are not small: a single
+   * gymshark.com page is 2.4 MB, so a catalog-sized crawl of them is
+   * gigabytes. Truncating is safe for our readers - the HTML parser is
+   * tolerant, and the JSON-LD block that carries the product sits about a
+   * third of the way into that page, well inside any cap worth setting.
+   */
+  maxBytes?: number;
+}
+
+/** Read a response body, stopping at `maxBytes` rather than wherever it ends. */
+async function readBounded(res: Response, maxBytes?: number): Promise<string> {
+  if (!maxBytes || !res.body) return res.text();
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let out = '';
+  let seen = 0;
+  try {
+    while (seen < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      seen += value.byteLength;
+      out += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+  return out + decoder.decode();
 }
 
 function sleep(ms: number) {
@@ -75,7 +105,7 @@ export async function httpText(
   opts: HttpOptions = {},
 ): Promise<{ ok: boolean; status: number; text: string; url: string }> {
   const res = await httpGet(url, opts);
-  const text = await res.text();
+  const text = await readBounded(res, opts.maxBytes);
   return { ok: res.ok, status: res.status, text, url: res.url || url };
 }
 

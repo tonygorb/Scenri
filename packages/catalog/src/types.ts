@@ -2,6 +2,8 @@ export type Platform = 'shopify' | 'woocommerce' | 'webflow' | 'generic' | 'unkn
 
 export type ImportStage =
   | 'queued'
+  /** A bounded look for a shop, before anything is written. */
+  | 'scanning'
   | 'discovering'
   | 'fetching_products'
   | 'processing_assets'
@@ -114,3 +116,42 @@ export interface CatalogAdapter {
 }
 
 export type FetchImpl = typeof fetch;
+
+/**
+ * What a bounded look at a website concluded about commerce.
+ *
+ * Deliberately not a boolean. "No products" and "a shop we could not read"
+ * are different facts that need different words on screen, and reporting the
+ * second as the first is how a working store came to ring a red bell.
+ */
+export type CommerceVerdict = 'none' | 'found' | 'likely' | 'blocked';
+
+/** Where a product count came from, because a count that lies is worse than none. */
+export type CountSource = 'api' | 'sitemap' | 'listing' | 'preview' | 'none';
+
+export interface ScanBudget {
+  /** Product pages actually read. The count never costs this. */
+  maxPreviewPages: number;
+  maxBytesPerPage: number;
+  maxTotalBytes: number;
+  budgetMs: number;
+  concurrency: number;
+}
+
+export interface ScanResult {
+  baseUrl: string;
+  platform: Platform;
+  signals: string[];
+  verdict: CommerceVerdict;
+  /** How many products the site appears to have, which is not how many were read. */
+  count: number;
+  countSource: CountSource;
+  /** Read and parsed: a preview, never the catalog. */
+  candidates: CatalogProduct[];
+  /** Every product URL discovery found, so an import need not discover again. */
+  candidateUrls: string[];
+  /** True when there is more catalog than the preview shows. */
+  truncated: boolean;
+  warnings: string[];
+  spent: { pages: number; ms: number };
+}

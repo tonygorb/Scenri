@@ -344,8 +344,18 @@ export interface PageFetchOptions {
   concurrency?: number;
   /** Hard ceiling on pages read, whatever was discovered. */
   limit?: number;
+  /** Bytes kept from one page. Product pages reach megabytes. */
+  maxBytes?: number;
+  /** A ceiling across the whole run, so heavy pages stop it sooner. */
+  maxTotalBytes?: number;
+  /** `Date.now()` past which no further page is requested. */
+  deadline?: number;
+  /** A store asking to be read slowly, from its robots.txt. */
+  delayMs?: number;
   onProduct?: (total: number) => void;
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Read a bounded set of product pages and return what they claim to sell.
@@ -361,16 +371,22 @@ export async function fetchProductPages(
   const out: CatalogProduct[] = [];
   const seen = new Set<string>();
   const take = opts.limit != null ? urls.slice(0, opts.limit) : urls;
+  let bytes = 0;
   await mapPool(
     take,
-    opts.concurrency ?? 5,
+    opts.delayMs ? 1 : (opts.concurrency ?? 5),
     async (u) => {
+      if (opts.deadline != null && Date.now() > opts.deadline) return;
+      if (opts.maxTotalBytes != null && bytes >= opts.maxTotalBytes) return;
       try {
+        if (opts.delayMs) await sleep(opts.delayMs);
         const { ok, text, url } = await httpText(u, {
           fetchImpl: ctx.fetchImpl,
           signal: ctx.signal,
           accept: 'text/html',
+          maxBytes: opts.maxBytes,
         });
+        bytes += text.length;
         if (!ok) return;
         for (const p of productsFromPage(text, url)) {
           if (seen.has(p.externalKey)) continue;
