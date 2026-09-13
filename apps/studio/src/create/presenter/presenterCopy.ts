@@ -87,6 +87,36 @@ export const STARTERS = [
 export const ATTEST_TEXT = "I have permission to use this person's likeness.";
 
 /**
+ * What happened to the photographs that did not arrive.
+ *
+ * Choosing files is one action and it can go wrong several ways at once: some
+ * are past the ceiling, one is already here, one cannot be read. Every one of
+ * those used to be silent, so the file chooser looked broken, and the one that
+ * did speak said "VipsJpeg: premature end of JPEG image". One line, in the
+ * order the person cares about: what was lost, then why.
+ */
+export function photoTrouble(r: { over: number; same: number; failed: string[]; max: number }): string | null {
+  const said: string[] = [];
+  if (r.over > 0) {
+    said.push(
+      r.over === 1
+        ? `That is one more than ${r.max} photos, so the last one was not added.`
+        : `That is ${r.over} more than ${r.max} photos, so the last ${r.over} were not added.`,
+    );
+  }
+  if (r.same > 0) said.push(r.same === 1 ? 'One of those is already here.' : `${r.same} of those are already here.`);
+  if (r.failed.length) said.push(r.failed.join(' '));
+  return said.length ? said.join(' ') : null;
+}
+
+/** Why one file could not be used, named so the person knows which one. */
+export const photoTooBig = (name: string, max: number): string =>
+  `${name} is larger than ${Math.round(max / 1024 / 1024)}MB. Choose a smaller copy of it.`;
+
+export const photoUnreadable = (name: string): string =>
+  `${name} could not be read as a photograph. JPEG, PNG, WebP and HEIC all work.`;
+
+/**
  * What the stage says while it is waiting for the first portrait.
  *
  * Two lines and no more: one that says what the space is for, one that points
@@ -102,6 +132,17 @@ export const ATTEST_TEXT = "I have permission to use this person's likeness.";
  * not change height under the reader.
  */
 export const STAGE_LEAD = 'First portrait appears here';
+
+/**
+ * What the empty stage is waiting for, named.
+ *
+ * "First portrait appears here" is true at the first question and a plain
+ * falsehood on the photo path, where the portrait is the person's own
+ * photograph and exists before the stage is ever empty. What the stage is
+ * actually waiting for is whichever view is being worked on, so it says that.
+ */
+export const stageLead = (view: string | undefined, name: string | undefined): string =>
+  !view || view === 'portrait' || !name ? STAGE_LEAD : `The ${name} appears here`;
 
 export function stageHint(asking: string | null): string {
   if (asking === 'agree') return 'Ready when you are';

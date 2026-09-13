@@ -413,9 +413,17 @@ export function reduce(s: CreationState, action: Action): CreationState {
     case 'remove-photo': {
       const had = s.answers.photos;
       if (!had?.hashes.includes(action.hash)) return s;
+      const hashes = had.hashes.filter((h) => h !== action.hash);
       return {
         ...s,
-        answers: { ...s.answers, photos: { ...had, hashes: had.hashes.filter((h) => h !== action.hash) } },
+        answers: {
+          ...s.answers,
+          // Permission was given about particular photographs. Take the last of
+          // them away and it is given about nothing, so it is asked again for
+          // whatever comes next: the tick used to survive an empty set and
+          // carry silently onto a different person's pictures.
+          photos: { hashes, attested: hashes.length ? had.attested : false },
+        },
         revision: s.revision + 1,
       };
     }

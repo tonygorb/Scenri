@@ -192,6 +192,54 @@ describe('the danger zone', () => {
   });
 });
 
+describe('a file chosen that is not a photograph', () => {
+  /** Multipart by hand: fastify-multipart wants a real boundary, not a helper. */
+  const upload = (bytes: Buffer, name: string) => {
+    const b = '----scenriQA';
+    const head = `--${b}\r\nContent-Disposition: form-data; name="file"; filename="${name}"\r\nContent-Type: application/octet-stream\r\n\r\n`;
+    return {
+      method: 'POST' as const,
+      url: '/api/images',
+      headers: { 'content-type': `multipart/form-data; boundary=${b}` },
+      payload: Buffer.concat([Buffer.from(head), bytes, Buffer.from(`\r\n--${b}--\r\n`)]),
+    };
+  };
+
+  it('is refused as a bad request in words a person can act on, never as a server fault', async () => {
+    // A PDF dragged onto a dropzone is an ordinary mistake. This route used to
+    // decode inline, so sharp threw past it into the error handler and the
+    // person was shown a 500 carrying libvips's own words.
+    const pdf = await app.inject(upload(Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>\nendobj\n'), 'notes.pdf'));
+    expect(pdf.statusCode).toBe(400);
+    expect(pdf.json().error).toBe('that file is not an image we can read');
+
+    // A half-downloaded photograph is the same kind of ordinary.
+    const whole = await sharp({ create: { width: 8, height: 8, channels: 3, background: '#888' } })
+      .jpeg()
+      .toBuffer();
+    const cut = await app.inject(upload(whole.subarray(0, 40), 'holiday.jpg'));
+    expect(cut.statusCode).toBe(400);
+    expect(cut.json().error).toBe('that file is not an image we can read');
+    expect(JSON.stringify(cut.json())).not.toContain('Vips');
+
+    const empty = await app.inject(upload(Buffer.alloc(0), 'nothing.jpg'));
+    expect(empty.statusCode).toBe(400);
+    expect(empty.json().error).toBe('empty file');
+  });
+
+  it('still takes a real photograph, and stands it upright from its EXIF tag', async () => {
+    const sideways = await sharp({ create: { width: 40, height: 20, channels: 3, background: '#4488cc' } })
+      .jpeg()
+      .withMetadata({ orientation: 6 })
+      .toBuffer();
+    const res = await app.inject(upload(sideways, 'phone.jpg'));
+    expect(res.statusCode).toBe(200);
+    const meta = await sharp(core.images.read(res.json().hash)).metadata();
+    // orientation 6 means "turn it a quarter clockwise to show it"
+    expect([meta.width, meta.height]).toEqual([20, 40]);
+  });
+});
+
 describe('images and their derivatives', () => {
   it('streams the original with its hash as the ETag', async () => {
     const { ids } = await brandWithShots(1);

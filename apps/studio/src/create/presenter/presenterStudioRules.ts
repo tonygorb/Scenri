@@ -79,6 +79,15 @@ export const autoFor = (v: StudioView): 'auto' | undefined => (HAND_APPROVED.has
 /** Four is the working ceiling: past that a photo adds nothing an engine reads. */
 export const MAX_PHOTOS = 4;
 
+/**
+ * The largest photograph the server will take, in bytes.
+ *
+ * It is the multipart limit in `packages/cli/src/server.ts`, repeated here so
+ * a file too big to land can be named before it is sent rather than after,
+ * when all the server can say is "request file too large".
+ */
+export const MAX_PHOTO_BYTES = 25 * 1024 * 1024;
+
 export type DraftLike = Pick<PresenterDraft, 'source' | 'name' | 'views' | 'activeView' | 'stage'> & {
   direction?: string;
   /** What the person said stays the same about them, in their own words. */

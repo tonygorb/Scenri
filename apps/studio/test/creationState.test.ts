@@ -48,6 +48,19 @@ describe('the state of a presenter being made', () => {
     expect(s.answers.photos).toEqual({ hashes: ['a', 'c', 'd'], attested: true });
   });
 
+  it('gives permission back when the last photograph it was given for is taken away', () => {
+    let s = reduce(EMPTY_STATE, { type: 'answer', patch: { source: { door: 'photos', via: 'taps' } }, ctx: NO_DRAFT });
+    for (const h of ['a', 'b']) s = reduce(s, { type: 'uploaded', hash: h, max: 4 });
+    s = reduce(s, { type: 'attest', checked: true });
+    s = reduce(s, { type: 'remove-photo', hash: 'a' });
+    // one still stands, so the permission given for it stands too
+    expect(s.answers.photos).toEqual({ hashes: ['b'], attested: true });
+    s = reduce(s, { type: 'remove-photo', hash: 'b' });
+    // nothing is left to have permission about, and the next photograph must
+    // not inherit a tick made about a different person's picture
+    expect(s.answers.photos).toEqual({ hashes: [], attested: false });
+  });
+
   it('closes whatever was open when an answer lands', () => {
     let s = reduce(EMPTY_STATE, {
       type: 'answer',

@@ -201,8 +201,18 @@
 }
 .sc-assetform-refs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Four across where four fit. A hard `repeat(4, 1fr)` held on a phone too,
+     where the conversation column is about 330px: four tiles and a fifth
+     dropzone cell came out near 60px each, which is smaller than the picture
+     needs to be recognised and smaller than a finger. */
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
   gap: var(--sc-space-4);
+}
+
+@media (min-width: 768px) {
+  .sc-assetform-refs {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 .sc-assetform-refs .sc-dropzone {
   min-height: 0;
@@ -241,6 +251,21 @@
   cursor: pointer;
   color: var(--sc-bg);
   background: color-mix(in srgb, var(--sc-fg) 78%, transparent);
+}
+
+/* The only way to take a photograph back, so on a touch screen it has to be
+   catchable: the mark stays 20px, and the target around it grows to the tap
+   floor without moving the picture under it. */
+@media (pointer: coarse) {
+  .sc-assetform-drop::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+    transform: translate(-50%, -50%);
+  }
 }
 .sc-assetform-drop:hover {
   background: var(--sc-fg);

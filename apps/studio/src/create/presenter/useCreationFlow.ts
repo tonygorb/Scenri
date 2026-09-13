@@ -15,7 +15,15 @@ import {
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
 import { type CreationState, EMPTY_STATE, deserialize, isAsideEdit, reduce, serialize } from './creationState.js';
-import { asideReply, readingWhat, STAGE_LEAD, stageHint } from './presenterCopy.js';
+import {
+  asideReply,
+  photoTooBig,
+  photoTrouble,
+  photoUnreadable,
+  readingWhat,
+  stageHint,
+  stageLead,
+} from './presenterCopy.js';
 import {
   answeredInWords,
   asidePhaseFor,
@@ -62,6 +70,7 @@ import {
   drawingSince,
   drawing as isDrawing,
   identityLocked,
+  MAX_PHOTO_BYTES,
   MAX_PHOTOS,
   readsAsPerson,
   refineTarget,
@@ -72,6 +81,7 @@ import {
   takesOf,
   type StudioView,
   VIEW_LABEL,
+  VIEW_NAME,
 } from './presenterStudioRules.js';
 import { type StepInputs, nextStep, stepKey } from './presenterSteps.js';
 import { usePresenterDraft } from './usePresenterDraft.js';
@@ -372,20 +382,45 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     }
   }, [brand.id, busySetup, openDraft]);
 
+  /**
+   * The photographs a person just chose, taken one at a time.
+   *
+   * Three things used to happen quietly here and all of them looked like a
+   * broken file chooser. A file past the ceiling was uploaded and stored and
+   * then dropped by the reducer, leaving a picture on disk that nothing would
+   * ever reference. A photograph already in the set landed on its own hash and
+   * changed nothing. And one file that could not be read ended the whole batch
+   * from inside the try, so the good photographs chosen after it were never
+   * sent at all. Each file now stands or falls on its own, and whatever did not
+   * arrive is said in one line.
+   */
   const addFiles = useCallback(async (files: File[]) => {
     setAskErr(null);
+    const held = () => stateRef.current.answers.photos?.hashes ?? [];
+    // Never spend a round trip on a photograph that cannot land.
+    const taking = files.slice(0, Math.max(0, MAX_PHOTOS - held().length));
+    const failed: string[] = [];
+    let same = 0;
     dispatch({ type: 'upload-begin' });
     try {
-      for (const f of files) {
-        const h = await uploadImage(f);
-        // the reducer refuses a photograph the door no longer wants
-        dispatch({ type: 'uploaded', hash: h, max: MAX_PHOTOS });
+      for (const f of taking) {
+        if (f.size > MAX_PHOTO_BYTES) {
+          failed.push(photoTooBig(f.name, MAX_PHOTO_BYTES));
+          continue;
+        }
+        try {
+          const h = await uploadImage(f);
+          if (held().includes(h)) same += 1;
+          // the reducer refuses a photograph the door no longer wants
+          dispatch({ type: 'uploaded', hash: h, max: MAX_PHOTOS });
+        } catch {
+          failed.push(photoUnreadable(f.name));
+        }
       }
-    } catch (e: any) {
-      setAskErr(String(e?.message ?? e));
     } finally {
       dispatch({ type: 'upload-end' });
     }
+    setAskErr(photoTrouble({ over: files.length - taking.length, same, failed, max: MAX_PHOTOS }));
   }, []);
 
   /**
@@ -1232,7 +1267,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       // the flow already has arrives without anyone pretending to think.
       working:
         d?.stage === 'analyzing' ? `Reading ${readingWhat(d.source)}` : d?.activeView ? 'Drawing' : busySetup || s.busy,
-      stageEmpty: { lead: STAGE_LEAD, hint: stageHint(question?.id ?? null) },
+      stageEmpty: { lead: stageLead(d ? view : undefined, VIEW_NAME[view]), hint: stageHint(question?.id ?? null) },
       stage: d
         ? {
             hash: shownHash,

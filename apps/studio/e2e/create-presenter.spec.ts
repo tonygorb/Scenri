@@ -926,9 +926,49 @@ test.describe('from photos', () => {
     await page.locator('input[type="file"]').setInputFiles(files);
     await expect(page.locator('.sc-assetform-ref')).toHaveCount(4);
     await expect(log(page)).toContainText('Four angles.');
+    // The fifth is refused out loud. It used to be uploaded, stored, and then
+    // dropped by the reducer with nothing said, which read as a broken chooser
+    // and left a picture on disk that nothing would ever reference again.
+    await expect(page.locator('[role="alert"]')).toContainText('was not added');
     await page.getByRole('button', { name: 'Remove reference 4' }).click();
     await expect(page.locator('.sc-assetform-ref')).toHaveCount(3);
     await expect(log(page)).toContainText('3 photos.');
+  });
+
+  test('a file that is not a photograph is refused by name, and the good ones chosen after it still arrive', async ({
+    page,
+  }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await answer(page, 'Add photos').click();
+    // A half-downloaded photograph between two good ones. The batch used to end
+    // at the bad file from inside one try, so the picture after it was never
+    // uploaded at all, and what the person was shown was libvips's own words.
+    await page.locator('input[type="file"]').setInputFiles([
+      { name: 'good-1.png', mimeType: 'image/png', buffer: png(30, 90, 120) },
+      { name: 'holiday.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('\xff\xd8\xff\xe0 not really a jpeg', 'binary') },
+      { name: 'good-2.png', mimeType: 'image/png', buffer: png(80, 140, 60) },
+    ]);
+    await expect(page.locator('.sc-assetform-ref')).toHaveCount(2);
+    const said = page.locator('[role="alert"]');
+    await expect(said).toContainText('holiday.jpg');
+    await expect(said).not.toContainText('Vips');
+  });
+
+  test('permission is asked again when the last photograph it was given for is taken away', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await answer(page, 'Add photos').click();
+    await page
+      .locator('input[type="file"]')
+      .setInputFiles({ name: 'one.png', mimeType: 'image/png', buffer: png(60, 100, 140) });
+    await expect(page.locator('.sc-assetform-ref')).toHaveCount(1);
+    await page.getByRole('checkbox').check();
+    await expect(page.getByRole('checkbox')).toBeChecked();
+    await page.getByRole('button', { name: 'Remove reference 1' }).click();
+    await expect(page.locator('.sc-assetform-ref')).toHaveCount(0);
+    // the tick was about that picture, and it is gone
+    await expect(page.getByRole('checkbox')).not.toBeChecked();
   });
 });
 
