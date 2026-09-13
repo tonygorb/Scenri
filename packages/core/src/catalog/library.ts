@@ -119,7 +119,14 @@ export function libraryMethods(db: DB) {
      * the head - they are the ones a person made by hand.
      */
     listLibraryIndex(brandId: string, brandJson: any): LibraryEntry[] {
-      return this.listLibraryProducts(brandId, brandJson).map(lighten);
+      return this.listLibraryProducts(brandId, brandJson).map((p) =>
+        // Only what came from a store. A manual product's pictures are already
+        // in the brand document this was built from, so trimming them saves
+        // nothing - and the product page asks the server for the whole record
+        // only for catalog products, so a hand-made product with four
+        // references was left showing one, everywhere, for good.
+        p.origin === 'catalog' ? lighten(p) : { ...lighten(p), shots: p.shots, shotCount: p.shots.length },
+      );
     },
 
     /** One product, whole, for the page that shows all of its pictures. */

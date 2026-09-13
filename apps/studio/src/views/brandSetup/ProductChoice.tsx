@@ -198,9 +198,10 @@ export function ProductChoice({
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) setShown((n) => n + BATCH);
       },
-      // Further ahead than the picture lookahead above, since a card has to
-      // exist before it can be seen and asked for.
-      { root, rootMargin: '0px 0px 400% 0px' },
+      // Just beyond the picture lookahead above, since a card has to exist
+      // before it can be seen and asked for. Much further than that and the
+      // bottom of the list is a band of card-shaped shimmer nobody asked for.
+      { root, rootMargin: '0px 0px 300% 0px' },
     );
     io.observe(endEl);
     return () => io.disconnect();

@@ -249,14 +249,36 @@ test('a shop on the site is offered, counted, and imported only where asked', as
   // Everything is ticked, including the ones no card has loaded for yet.
   await expect(sheet.getByRole('button', { name: `Import ${SHOP_HANDLES.length} products` })).toBeVisible();
 
-  // Every card ends up with its picture, and the screen stops saying it is
-  // working. The first version leaked its in-flight count - the effect's own
-  // cleanup cancelled the requests that same render had started - so one card
-  // shimmered for good under a "Loading products" that never went away.
+  // Every card ON SCREEN ends up with its picture, and the screen stops saying
+  // it is working. Not every card that exists: a picture is one page read of
+  // somebody's live shop, so they are paid for by what a person actually
+  // scrolled to, and cards below the fold are card-shaped until they are
+  // reached. The first version read for every card that had ever rendered and
+  // held the next page of cards back until all of them landed, which paced
+  // appearing - which is free - by fetching, which is not.
+  //
+  // It also leaked its in-flight count - the effect's own cleanup cancelled
+  // the requests that same render had started - so one card shimmered for good
+  // under a "Loading products" that never went away.
+  const picturedInView = async () =>
+    sheet.locator('.sc-wizpick-grid').evaluate((g) => {
+      const gr = g.getBoundingClientRect();
+      const inView = [...g.querySelectorAll('.sc-lookcard')].filter((c) => {
+        const r = c.getBoundingClientRect();
+        return r.bottom > gr.top + 4 && r.top < gr.bottom - 4;
+      });
+      return { inView: inView.length, withPicture: inView.filter((c) => c.querySelector('img')).length };
+    });
   await expect(sheet.locator('.sc-wizpick-loading')).toHaveCount(0, { timeout: 30_000 });
-  await expect(sheet.locator('.sc-lookcard .sc-shimmer')).toHaveCount(0, { timeout: 30_000 });
-  const loaded = await sheet.locator('.sc-lookcard img').count();
-  expect(loaded).toBe(await sheet.locator('.sc-lookcard').count());
+  await expect
+    .poll(
+      async () => {
+        const { inView, withPicture } = await picturedInView();
+        return inView > 0 && withPicture === inView;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
   const cards = sheet.locator('.sc-lookcard');
   const shown = await cards.count();
   expect(shown).toBeGreaterThan(2);
@@ -281,7 +303,16 @@ test('a shop on the site is offered, counted, and imported only where asked', as
   }
   await expect(sheet.locator('.sc-wizpick-loading')).toHaveCount(0, { timeout: 30_000 });
   expect(await cards.count()).toBeGreaterThan(firstScreen);
-  await expect(sheet.locator('.sc-lookcard .sc-shimmer')).toHaveCount(0, { timeout: 30_000 });
+  // And the cards scrolling brought into view got their pictures too.
+  await expect
+    .poll(
+      async () => {
+        const { inView, withPicture } = await picturedInView();
+        return inView > 0 && withPicture === inView;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
 
   // Drop two and the button counts down with them.
   await cards.nth(0).click();
