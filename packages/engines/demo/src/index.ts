@@ -158,3 +158,41 @@ export function createDemoEngine(saveImage: (buf: Buffer) => string, opts: DemoO
     },
   };
 }
+
+/**
+ * A read of some photographs that never spawns anything.
+ *
+ * The real read is codex, so a browser suite that runs with `SCENRI_NO_CODEX=1`
+ * has no analyzer at all, and every branch that turns on what the read made of
+ * the pictures is unreachable from a spec. That includes the one that stops a
+ * run when no photograph is clear enough to draw a face from, which is a thing
+ * the studio does on a person's behalf and ought to be pinned.
+ *
+ * It answers with a fixed draft. `photos` says what it made of each picture:
+ * `usable` files the first as the portrait and the rest as ordinary snaps, and
+ * `unusable` rejects every one of them, which is the case worth testing.
+ */
+export function createDemoAnalyzer(opts: { photos?: 'usable' | 'unusable' } = {}) {
+  const rejects = opts.photos === 'unusable';
+  const filing = (i: number) => ({
+    index: i,
+    view: (rejects || i > 0 ? 'other' : 'portrait') as 'other' | 'portrait',
+    usable: !rejects,
+    note: rejects ? 'too unclear to read a face from' : 'sharp enough',
+  });
+  return {
+    isAvailable: async () => ({ ok: true }),
+    analyze: async (req: { imagePaths: string[] }) => ({
+      promptName: 'a person in their thirties',
+      presentation: 'woman' as const,
+      descriptor: 'Demo read',
+      ageRange: '30s',
+      hair: 'dark hair',
+      identityNotes: 'read by the demo analyzer, which never looked at anything',
+      negativeConstraints: [] as string[],
+      suitableCategories: [] as string[],
+      coverage: [] as string[],
+      photos: req.imagePaths.map((_, i) => filing(i)),
+    }),
+  };
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  photosHint,
   photoTooBig,
   photoTrouble,
   photoUnreadable,
@@ -90,5 +91,26 @@ describe('what the empty stage says it is waiting for', () => {
   it('names the view being waited for once the face is settled', () => {
     expect(stageLead('front', 'full body')).toBe('The full body appears here');
     expect(stageLead('three-quarter', 'three-quarter view')).toBe('The three-quarter view appears here');
+  });
+});
+
+/**
+ * The order photographs arrive in decides which one is the face and which one
+ * gives up its seat when a later view has more references than the engine
+ * takes. Nothing ranks them, so the ordering is said rather than guessed at.
+ */
+describe('what to add next', () => {
+  it('asks for the clearest one first, while there is still nothing to order', () => {
+    expect(photosHint(0, 4)).toContain('clearest one first');
+  });
+
+  it('says the first one leads once the set is full', () => {
+    expect(photosHint(4, 4)).toContain('the first one leading');
+    expect(photosHint(4, 4)).toContain('Four angles');
+  });
+
+  it('counts what is there in between', () => {
+    expect(photosHint(1, 4)).toContain('One photo works');
+    expect(photosHint(2, 4)).toBe('2 photos. More angles hold the likeness better.');
   });
 });

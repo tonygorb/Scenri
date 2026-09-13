@@ -166,11 +166,21 @@ export function photosLine(n: number): string {
   return n === 1 ? 'One photo' : `${n} photos`;
 }
 
+/**
+ * What to add next, and which one to add first.
+ *
+ * The order is not decoration. The first photograph is the one filed as the
+ * face, and when a later view has more references than an engine will take,
+ * the seat that goes is the last photograph, never an approved view. Somebody
+ * whose clearest picture happens to be last loses that one at depth. Nothing
+ * ranks them, and a ranking would be a guess about somebody's own pictures, so
+ * the ordering is said out loud instead and left in their hands.
+ */
 export function photosHint(n: number, max: number): string {
-  if (n === 0) return 'The same person, face clear. Different angles help.';
+  if (n === 0) return 'The same person, face clear. Add the clearest one first.';
   if (n === 1) return 'One photo works. Two to four, from different angles, hold the likeness better.';
   if (n < max) return `${n} photos. More angles hold the likeness better.`;
-  return 'Four angles. The reference set comes from these.';
+  return 'Four angles. The reference set comes from these, the first one leading.';
 }
 
 /** A sentence with nothing of a person in it, waiting to be drawn from anyway or replaced. */
