@@ -16,6 +16,11 @@ export const PROMPT = {
   describe: 'Describe them. Age, hair, build, skin and presence all help; one or two sentences is enough.',
   lookHint: 'Skip anything you would rather leave to us.',
   photos: 'Add one clear photo of their face. Up to three more angles hold the likeness better.',
+  // Said instead of drawing, not over the top of a drawing: a face invented
+  // from photographs nobody could read is not their presenter, and finding
+  // that out after the wait is worse than being asked before it.
+  weakPhotos:
+    'I cannot read a face in any of those photos, so anything I draw now would be a stranger rather than them.',
   name: 'What should we call them?',
   nameWhileDrawing: 'While it draws: what should we call them?',
   nameWhileReading: 'While I read them: what should we call them?',

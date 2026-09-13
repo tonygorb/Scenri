@@ -101,7 +101,13 @@ export const HAND_APPROVED: ReadonlySet<PresenterView> = new Set(idsWhere((r) =>
 export function viewSubject(view: PresenterView, who: string): string {
   switch (view) {
     case 'portrait':
-      return `${who}, head-and-shoulders portrait framing from just above the top of the head down to the collarbone, facing the camera straight-on, relaxed neutral expression, eyes to the lens, their own hair exactly as the references show it, the same plain studio backdrop and even frontal light`;
+      // The uniform rides here too. This was the one view of the seven that
+      // never named it, so a face drawn from photographs wore whatever the
+      // photographs wore: a black t-shirt off the person's own camera roll in
+      // one run, and nothing at all in another. The other six views and the
+      // described-person roll have always named it, and a canonical reference
+      // set that agrees with itself is the whole point of the uniform.
+      return `${who}, head-and-shoulders portrait framing from just above the top of the head down to the collarbone, facing the camera straight-on, relaxed neutral expression, eyes to the lens, wearing ${CAPTURE_UNIFORM}, their own hair exactly as the references show it, the same plain studio backdrop and even frontal light`;
     case 'front':
       // The front is drawn from the approved face and was the one view that
       // never said so, nor that the hair is theirs. Both clauses ride every

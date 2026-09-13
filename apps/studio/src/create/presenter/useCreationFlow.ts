@@ -570,6 +570,20 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       setAskErr(null);
       const st = stateRef.current;
       if (isQid(qid)) {
+        // Two ways on from photographs nobody could read, and neither is an
+        // answer `answerPatch` can express: one throws the draft away and one
+        // is a decision to remember. Both are decided here, before the general
+        // path, the way the photographs themselves are.
+        if (qid === 'weakphotos' && a.kind === 'confirm') {
+          // Different photographs are a different person's evidence, and
+          // nothing has been drawn yet, so starting again costs only the
+          // choosing.
+          if (a.id === 'again') void startOver();
+          // Or draw anyway, said once and remembered, so the question does not
+          // stand in front of every later view.
+          if (a.id === 'anyway') commitAnswer({ weakphotos: { pick: 'anyway' } });
+          return;
+        }
         const patch = answerPatch(qid, a, st.answers);
         if (patch) {
           // Words already in the line belong to the answer being given: a
@@ -700,6 +714,20 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       const sentence = typed || heldNow || '';
       if (!sentence && !shown) return false;
       setAskErr(null);
+      // What somebody is called is their business, so it is taken as typed and
+      // never judged. This used to fall through to the machinery below, where a
+      // name had to match a pattern written for spotting a bare name typed at
+      // some other question: one or two capitalised words. At the one question
+      // that asks for a name that refused "uploading test", "jean-luc",
+      // "O'Brien" and every name that is not two tidy English words.
+      if (target === 'name') {
+        const name =
+          sentence.replace(/^(?:(?:her|his|their|the|my)\s+name\s+is|call\s+(?:her|him|them)|name:)\s*/i, '').trim() ||
+          sentence;
+        if (d) void s.update({ name: name.slice(0, 60) });
+        dispatch({ type: 'text', text: '' });
+        return true;
+      }
       // how many times this same question has already been answered with
       // something that was not an answer
       // The same complaint twice at the same question is a repeat; two different
@@ -1195,7 +1223,10 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   // one that was handed over: with the field always live, a colour step open on
   // its own is a colour step, and reading `saying` here left the picker
   // reachable only through a chip that says what the field already says.
-  const colourTarget = sentenceTarget(state, question);
+  // The colour chip belongs to a step. The name is not a step and never wears
+  // one, so it is not a colour target.
+  const named = sentenceTarget(state, question);
+  const colourTarget = named === 'name' ? null : named;
   const sayingStep = colourTarget && isLookQid(colourTarget) ? (colourTarget.slice('look-'.length) as LookStep) : null;
   /** The colours this step is answered with, when it is answered with one. */
   const colours = composerBase.color && sayingStep ? colourPalette(sayingStep) : null;

@@ -409,3 +409,50 @@ describe('the presenter questions, as one table', () => {
     expect(nextQuestion(a, ctx)).toBe('traits');
   });
 });
+
+describe('photographs nobody could read', () => {
+  const unreadable = (n: number) => ({
+    source: 'photos' as const,
+    stage: 'idle',
+    views: { portrait: { status: 'empty' } },
+    analysis: { photos: Array.from({ length: n }, (_, i) => ({ index: i, usable: false })) },
+  });
+  const photos = { source: { door: 'photos', via: 'taps' } } as Answers;
+
+  it('stops and asks instead of drawing a stranger', () => {
+    // An open question holds the draw on its own, so asking here is what keeps
+    // a generation from being spent inventing somebody.
+    expect(nextQuestion(photos, { draft: unreadable(3), canGenerate: true })).toBe('weakphotos');
+  });
+
+  it('asks once: drawing anyway is remembered, and later views are not asked again', () => {
+    const said = { ...photos, weakphotos: { pick: 'anyway' } } as Answers;
+    expect(nextQuestion(said, { draft: unreadable(3), canGenerate: true })).not.toBe('weakphotos');
+  });
+
+  it('does not ask while the read is still running, or once a face stands', () => {
+    expect(nextQuestion(photos, { draft: { ...unreadable(2), stage: 'analyzing' }, canGenerate: true })).not.toBe(
+      'weakphotos',
+    );
+    const withFace = { ...unreadable(2), views: { portrait: { status: 'approved' } } };
+    expect(nextQuestion(photos, { draft: withFace, canGenerate: true })).not.toBe('weakphotos');
+  });
+
+  it('does not ask when the read liked even one of them', () => {
+    const mixed = {
+      ...unreadable(2),
+      analysis: {
+        photos: [
+          { index: 0, usable: true },
+          { index: 1, usable: false },
+        ],
+      },
+    };
+    expect(nextQuestion(photos, { draft: mixed, canGenerate: true })).not.toBe('weakphotos');
+  });
+
+  it('does not ask a described person anything about photographs', () => {
+    const scratch = { source: { door: 'scratch', via: 'taps' } } as Answers;
+    expect(nextQuestion(scratch, { draft: unreadable(3), canGenerate: true })).not.toBe('weakphotos');
+  });
+});

@@ -52,7 +52,17 @@ export type LookStep = (typeof LOOK_ORDER)[number];
 export type LookQid = `look-${LookStep}`;
 export type TraitQid = `trait-${TraitId}`;
 export type WhereQid = `trait-${TraitId}-where`;
-export type Qid = 'source' | 'photos' | LookQid | 'describe' | 'gaps' | 'traits' | TraitQid | WhereQid | 'keep';
+export type Qid =
+  | 'source'
+  | 'photos'
+  | 'weakphotos'
+  | LookQid
+  | 'describe'
+  | 'gaps'
+  | 'traits'
+  | TraitQid
+  | WhereQid
+  | 'keep';
 
 /** The answers a picture can ride with: the chosen details, and anything else said at the last moment. */
 export type RefQid = TraitQid | 'keep';
@@ -120,6 +130,8 @@ export const wasGiven = (v: Given | undefined): boolean => !!(v?.pick || v?.word
 export type Values = {
   source: Door;
   photos: PhotosAnswer;
+  /** Drawing from photographs the read could not use: decided once, out loud. */
+  weakphotos: Given;
   describe: string;
   gaps: Record<string, string> | 'skipped';
   traits: TraitId[];
@@ -139,6 +151,8 @@ export interface FlowContext {
     stage: string;
     keep?: string;
     views: { portrait: { status: string } };
+    /** What the read made of each photograph, when there was a read. */
+    analysis?: { photos?: { index: number; usable?: boolean }[] };
   } | null;
   canGenerate: boolean;
 }
@@ -257,9 +271,26 @@ const traitsDone = (a: Answers, ctx: FlowContext): boolean =>
 const differs = (x: unknown, y: unknown) => JSON.stringify(x) !== JSON.stringify(y);
 
 /** The questions, in the order they are asked. */
+/**
+ * Every photograph was too poor to read a face from.
+ *
+ * Drawing anyway does not make a picture of their person; it invents somebody
+ * from the words the read managed anyway, which is the one thing the photo
+ * door exists not to do. So the run stops and asks, rather than spending a
+ * generation on a stranger and leaving a warning above it. An open question
+ * holds the draw on its own (`presenterSteps`), so nothing else has to.
+ */
+const weakPhotos = (a: Answers, ctx: FlowContext) => {
+  if (!photos(a) || !ctx.draft || ctx.draft.stage === 'analyzing') return false;
+  if (ctx.draft.views.portrait.status !== 'empty') return false;
+  const filed = ctx.draft.analysis?.photos ?? [];
+  return filed.length > 0 && filed.every((p) => p.usable === false);
+};
+
 export const SPECS: readonly Spec[] = [
   { id: 'source', applies: () => true },
   { id: 'photos', applies: photos },
+  { id: 'weakphotos', applies: weakPhotos },
   ...LOOK_ORDER.map(
     (s): Spec => ({
       id: `look-${s}`,

@@ -454,9 +454,8 @@ test.describe('the conversation in motion', () => {
     await expect(page.locator('.sc-pstudio-slot')).toHaveCount(6, { timeout: 30_000 });
     await expect(log(page)).toContainText('What should we call them?', { timeout: 30_000 });
     await settle(page);
-    await send(page, 'wtf');
-    await expect(log(page)).toContainText('That is not a name.');
-    await settle(page);
+    // What somebody is called is their business, so the name is taken as typed
+    // whatever it is. That rule has its own test; this walk just names her.
     await send(page, 'Maren');
     await expect(answer(page, 'Save presenter')).toBeVisible({ timeout: 30_000 });
     await settle(page);

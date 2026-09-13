@@ -331,6 +331,15 @@ describe('a question with chips still takes words', () => {
     expect(sentenceTarget(state(a), q)).toBe('look-age');
   });
 
+  it('the question that asks what to call them takes what is typed at it', () => {
+    // Without this the name fell through as "no target" and had to get past a
+    // pattern meant for spotting a bare name typed at some *other* question,
+    // one or two capitalised words. The one question that asks for a name was
+    // refusing "uploading test", "jean-luc", "O'Brien" and "Ana Maria".
+    const q = { id: 'name', kind: 'text' } as unknown as Parameters<typeof sentenceTarget>[1];
+    expect(sentenceTarget(state({}), q)).toBe('name');
+  });
+
   it('a colour step carries the colour control without being handed over first', () => {
     const a: Answers = {
       source: { door: 'scratch', via: 'taps' },

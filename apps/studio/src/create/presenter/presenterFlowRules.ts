@@ -379,6 +379,7 @@ export const flowContext = (draft: DraftLike | null, canGenerate: boolean): Flow
         stage: draft.stage,
         keep: draft.keep,
         views: { portrait: { status: draft.views.portrait.status } },
+        analysis: draft.analysis ? { photos: draft.analysis.photos } : undefined,
       }
     : null,
   canGenerate,
@@ -567,7 +568,7 @@ export function judgeAnswer(id: Qid, text: string, describes: (t: string) => boo
  * means a face has been drawn, not approved: a candidate on the stage is very
  * much something to say "what should change" about.
  */
-export function asidePhaseFor(target: Qid | 'keep' | null, open: string | null, drawn: boolean): Phase {
+export function asidePhaseFor(target: Qid | 'keep' | 'name' | null, open: string | null, drawn: boolean): Phase {
   if (target && isLookQid(target)) return 'look';
   if (target === 'keep' || target?.startsWith('trait-')) return 'detail';
   const id = target ?? open;
@@ -671,6 +672,20 @@ function questionFor(id: Qid, state: CreationState, ctx: FlowContext, reopened: 
   switch (id) {
     case 'source':
       return { id, kind: 'choice', prompt: PROMPT.source, options: SOURCE_OPTIONS, given: a.source?.door, ...base };
+    case 'weakphotos':
+      // Nothing was clear enough to read a face from. Drawing now would invent
+      // somebody rather than keep them, so the run stops here and the choice is
+      // theirs. Nothing has been drawn yet, which is what makes starting again
+      // cheap enough to offer first.
+      return {
+        id,
+        kind: 'confirm',
+        prompt: PROMPT.weakPhotos,
+        options: [
+          { id: 'again', label: 'Use different photos' },
+          { id: 'anyway', label: 'Draw from these anyway' },
+        ],
+      };
     case 'photos': {
       const p = a.photos ?? { hashes: [], attested: false };
       return {
@@ -1235,7 +1250,7 @@ function composerPlaceholder(selected: StudioView, d: DraftLike): string {
 }
 
 /** The setup question a typed sentence goes to: the one being said in words, else the open text question. */
-export function sentenceTarget(state: CreationState, open: Question | null): Qid | 'keep' | null {
+export function sentenceTarget(state: CreationState, open: Question | null): Qid | 'keep' | 'name' | null {
   if (state.saying) return state.saying;
   if (open && isQid(open.id) && (open.id === 'source' || open.id === 'describe')) return open.id;
   // An open step or detail takes words without being handed over first: typing
@@ -1245,6 +1260,13 @@ export function sentenceTarget(state: CreationState, open: Question | null): Qid
   // the read-back's line is open the whole time: what is typed there is what
   // else is always true of them
   if (open?.id === 'agree') return 'keep';
+  // The question that asks what to call them takes what is typed at it. It
+  // used to fall through here as "no target", and a name then had to get past
+  // a pattern written for guessing a bare name typed at some *other* question:
+  // one or two capitalised words. So the one question that asks for a name
+  // refused "uploading test", "jean-luc", "O'Brien" and "Ana Maria". What
+  // somebody is called is their business.
+  if (open?.id === 'name') return 'name';
   return null;
 }
 
