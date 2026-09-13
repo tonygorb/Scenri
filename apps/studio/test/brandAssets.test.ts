@@ -5,6 +5,7 @@ import {
   customSceneById,
   customScenesOf,
   newestFirst,
+  productsNewestFirst,
   withCustomFirst,
 } from '../src/brandAssets.js';
 import type { Brand } from '../src/api.js';
@@ -133,10 +134,7 @@ describe('customScenesOf', () => {
 
   it('shows the newest place first, even though the document appends', () => {
     const later = { ...PLACE, id: 'us-later', name: 'Fog Pier' };
-    expect(customScenesOf(brandWith({ scenes: [PLACE, later] })).map((s) => s.id)).toEqual([
-      'us-later',
-      'us-9876fedc',
-    ]);
+    expect(customScenesOf(brandWith({ scenes: [PLACE, later] })).map((s) => s.id)).toEqual(['us-later', 'us-9876fedc']);
   });
 });
 
@@ -147,6 +145,40 @@ describe('newestFirst', () => {
     const rows = ['old', 'new'];
     expect(newestFirst(rows)).toEqual(['new', 'old']);
     expect(rows).toEqual(['old', 'new']);
+  });
+});
+
+/**
+ * The two halves of the product library are sorted by different people, and
+ * this is where that nearly went wrong. `newestFirst` is a whole-array reverse,
+ * and it was applied to the unified library at a moment when the server had
+ * just started returning imported products newest first. Nothing conflicted
+ * textually, so it merged silently; the visible result would have been a
+ * store's catalogue in oldest order with the hand-made products behind it.
+ */
+describe('productsNewestFirst', () => {
+  const mine = (id: string) => ({ id, origin: 'manual' as const });
+  const store = (id: string) => ({ id, origin: 'catalog' as const });
+
+  it('reverses the hand-made half and leaves the store half as the server sorted it', () => {
+    const rows = [mine('m1'), mine('m2'), store('c-newest'), store('c-oldest')];
+    expect(productsNewestFirst(rows).map((p) => p.id)).toEqual(['m2', 'm1', 'c-newest', 'c-oldest']);
+  });
+
+  it('is a plain reverse when nothing came from a store', () => {
+    const rows = [mine('m1'), mine('m2')];
+    expect(productsNewestFirst(rows).map((p) => p.id)).toEqual(['m2', 'm1']);
+  });
+
+  it('leaves a store-only library exactly as it arrived', () => {
+    const rows = [store('c1'), store('c2'), store('c3')];
+    expect(productsNewestFirst(rows).map((p) => p.id)).toEqual(['c1', 'c2', 'c3']);
+  });
+
+  it('never mutates its input', () => {
+    const rows = [mine('m1'), mine('m2'), store('c1')];
+    productsNewestFirst(rows);
+    expect(rows.map((p) => p.id)).toEqual(['m1', 'm2', 'c1']);
   });
 });
 

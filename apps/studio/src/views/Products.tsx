@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { productSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
 import { Plus } from '@phosphor-icons/react';
-import { newestFirst } from '../brandAssets.js';
+import { productsNewestFirst } from '../brandAssets.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { useAppData } from '../app/AppShell.js';
@@ -71,7 +71,7 @@ export function ProductsView() {
 
   /** Yours, for the section above the seam. Newest first, so a product just added sits top-left. */
   const mine = useMemo(
-    () => newestFirst(products).map((p) => ({ product: p as any, category: effectiveCategory(p), own: true })),
+    () => productsNewestFirst(products).map((p) => ({ product: p as any, category: effectiveCategory(p), own: true })),
     [products],
   );
   /** Ours, for the wall below it. Always present, at every catalog size. */

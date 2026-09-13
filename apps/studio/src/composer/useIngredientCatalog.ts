@@ -1,7 +1,13 @@
 import { useMemo } from 'react';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { customPresentersOf, customScenesOf, newestFirst, withCustomFirst } from '../brandAssets.js';
+import {
+  customPresentersOf,
+  customScenesOf,
+  newestFirst,
+  productsNewestFirst,
+  withCustomFirst,
+} from '../brandAssets.js';
 import type { IngredientCatalog } from './ingredientOptions.js';
 
 /**
@@ -42,7 +48,7 @@ export function useIngredientCatalog(productCategory?: string | null): Ingredien
 
   return useMemo(
     () => ({
-      libraryProducts: newestFirst(products),
+      libraryProducts: productsNewestFirst(products),
       brandProducts,
       demoProducts,
       presenters,

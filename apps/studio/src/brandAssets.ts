@@ -46,6 +46,22 @@ export function newestFirst<T>(rows: readonly T[]): T[] {
   return rows.length < 2 ? [...rows] : rows.slice().reverse();
 }
 
+/**
+ * The unified product library, newest first, without disturbing the store's half.
+ *
+ * Products come from two places and only one of them appends. The brand
+ * document still lists hand-made products oldest first, so that half reverses
+ * like presenters and scenes do. The imported half arrives already sorted
+ * newest first by the server (`catalog/rows.ts`, `created_at DESC, rowid DESC`),
+ * and reversing the whole array would have put a store's catalogue in oldest
+ * order and pushed the hand-made products to the end behind it.
+ */
+export function productsNewestFirst<T extends { origin?: string | null }>(rows: readonly T[]): T[] {
+  const own = rows.filter((p) => p.origin !== 'catalog');
+  if (own.length === rows.length) return newestFirst(rows);
+  return [...newestFirst(own), ...rows.filter((p) => p.origin === 'catalog')];
+}
+
 /** A brand's own people, newest first for display; the document still appends. */
 export function customPresentersOf(brand: Brand | null | undefined): CustomPresenter[] {
   const rows: any[] = brand?.json?.characters ?? [];
