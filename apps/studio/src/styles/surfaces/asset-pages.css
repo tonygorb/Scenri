@@ -113,9 +113,8 @@
 .sc-lookcard[data-building] .sc-lookcard-media {
   background: var(--sc-well);
 }
-/* Its caption is the point, so it sits under the card and stays put. Every
-   other card overlays its caption on the image and reveals it on hover, which
-   for a progress card would hide the one thing it exists to say. */
+/* Failed only: the name and why it died sit under the tile. A running card
+   has no caption — the shimmer and the clock are the whole of it. */
 .sc-lookcard[data-build] {
   overflow: visible;
   background: none;
@@ -133,34 +132,10 @@
 .sc-lookcard[data-build] .sc-lookcard-cap span {
   color: var(--sc-fg3);
 }
-/* What the build noticed on the way: a view it could not draw, or which photo
-   would buy more consistency next time. Muted and under the caption, because
-   none of it is an error — the asset still landed. */
-.sc-buildnotes {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0 2px;
-  color: var(--sc-fg3);
-  font-size: 11px;
-  line-height: 1.4;
-  text-wrap: pretty;
-}
-.sc-buildnotes li + li {
-  margin-top: 2px;
-}
-.sc-buildbar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  background: var(--sc-line);
-}
-.sc-buildbar > span {
-  display: block;
-  height: 100%;
-  background: var(--sc-fg);
-  transition: width 400ms ease;
+/* The elapsed clock is the same .sc-cell-tag the feed uses. On a lookcard it
+   sits on the media, not under the name — so the caption height never moves. */
+.sc-lookcard[data-building] .sc-cell-tag {
+  z-index: 2;
 }
 
 /* ---------- 6.4 making a presenter or a scene ----------
