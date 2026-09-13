@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import type { spawn } from 'node:child_process';
-import { createCodexSetup, INSTALL_COMMAND } from '../src/setup.js';
+import { createCodexSetup, INSTALL_COMMAND_WINDOWS, INSTALL_COMMAND } from '../src/setup.js';
 
 class FakeChild extends EventEmitter {
   kill = vi.fn(() => true);
@@ -93,6 +93,29 @@ describe('install', () => {
     expect(res.ok).toBe(false);
     expect(res.fallbackCommand).toBe('sudo npm install -g @openai/codex');
     expect(res.detail).toMatch(/password/i);
+  });
+
+  // Windows npm writes into %AppData%\\npm, which is the user's own folder. An
+  // EPERM there is Codex running or antivirus, and an administrator fixes
+  // neither, so the wizard must not send anyone to an elevated PowerShell.
+  it('never suggests an administrator on Windows, and offers the installer that skips npm', async () => {
+    const { spawnImpl } = fakeSpawn(({ cmd, child }) => {
+      if (cmd === 'npm') {
+        child.stderr.emit(
+          'data',
+          "npm error Error: EPERM: operation not permitted, unlink 'C:\\Users\\Sam\\AppData\\Roaming\\npm\\codex.cmd'\n",
+        );
+        return void child.emit('exit', 1, null);
+      }
+      child.emit('exit', 1, null);
+    });
+    const setup = createCodexSetup({ platform: 'win32', spawnImpl });
+    const res = await setup.install();
+    expect(res.ok).toBe(false);
+    expect(res.fallbackCommand).toBe(INSTALL_COMMAND_WINDOWS);
+    expect(res.fallbackCommand).not.toMatch(/sudo/);
+    expect(res.detail).toMatch(/close Codex/i);
+    expect(res.detail).not.toMatch(/run as administrator|administrator PowerShell|Terminal \(Admin\)/i);
   });
 
   it('trusts the probe over the exit code: installed but not on PATH still fails', async () => {

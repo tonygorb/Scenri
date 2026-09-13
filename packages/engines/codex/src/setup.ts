@@ -28,6 +28,18 @@ export const INSTALL_DOCS_URL = 'https://developers.openai.com/codex/cli';
  */
 export const INSTALL_COMMAND_SUDO = 'sudo npm install -g @openai/codex';
 
+/**
+ * Windows is not the same story and must not be told the same way. With the
+ * stock Node installer npm's global folder lives inside the user's own
+ * account, so an EPERM there is almost never a privilege problem: it is Codex
+ * already running, or security software holding the files. Elevating fixes
+ * neither, and sending a designer to an administrator PowerShell for a
+ * per-user folder is the advice this release is trying to delete. OpenAI's own
+ * installer sidesteps npm's folder entirely, so that is the real fallback.
+ */
+export const INSTALL_COMMAND_WINDOWS =
+  'powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"';
+
 export type CodexSetupState = 'not-installed' | 'not-authenticated' | 'update-needed' | 'unverified' | 'ready';
 
 export interface CodexInstallResult {
@@ -148,6 +160,15 @@ export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
           };
         }
         return { ok: true };
+      }
+      if (platform === 'win32' && /EPERM|EACCES|EBUSY|permission denied|operation not permitted/i.test(res.stderr)) {
+        return {
+          ok: false,
+          fallbackCommand: INSTALL_COMMAND_WINDOWS,
+          docsUrl: INSTALL_DOCS_URL,
+          detail:
+            'npm could not write its files. This is almost never about administrator rights: close Codex and any terminal window using it, then try again. If it keeps failing, the command below is OpenAI\u2019s own installer, which does not go through npm.',
+        };
       }
       if (platform !== 'win32' && /EACCES|permission denied/i.test(res.stderr)) {
         return {
