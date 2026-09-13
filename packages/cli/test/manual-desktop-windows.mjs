@@ -194,13 +194,14 @@ const runScenri = (args, extraEnv = {}) =>
 // CI step can never reach it - only a pseudo-console can. node-pty is
 // installed by the workflow with --no-save so it touches no lockfile and no
 // other job; without it this says so loudly rather than passing quietly.
+let offerPort = PORT + 2;
 async function offerScenario(label, keys, expectIcon) {
   const root2 = join(root, `offer-${label}`);
   const home2 = join(root2, 'home');
   const data2 = join(root2, 'data');
   const desk2 = join(root2, 'Desktop');
   for (const d of [home2, data2, desk2]) mkdirSync(d, { recursive: true });
-  const port2 = PORT + 2;
+  const port2 = offerPort++;
 
   let pty;
   try {
@@ -274,6 +275,14 @@ async function offerScenario(label, keys, expectIcon) {
     ok(`"${label}" at a real console: icon ${iconThere ? 'added' : 'skipped'}, Scenri still running`);
     return true;
   } finally {
+    // Stop it properly. Killing the pty leaves the server it started behind,
+    // and the teardown check at the end of this file counts every process of
+    // ours - three orphans there read as a leak that never happened.
+    await fetch(`http://127.0.0.1:${port2}/api/system/quit`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(5000),
+    }).catch(() => null);
+    await waitFor(`the "${label}" server to stop`, async () => !(await portAnswers(port2)), 20_000).catch(() => null);
     try {
       term.kill();
     } catch {
@@ -281,6 +290,11 @@ async function offerScenario(label, keys, expectIcon) {
     }
   }
 }
+
+const portAnswers = (port) =>
+  fetch(`http://127.0.0.1:${port}/api/version`, { signal: AbortSignal.timeout(2000) })
+    .then((r) => r.ok)
+    .catch(() => false);
 
 {
   const yes = await offerScenario('Y', 'Y\r', true);
