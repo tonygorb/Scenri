@@ -23,6 +23,30 @@ export function jobMethods(db: DB) {
       return r ? rowJob(r) : null;
     },
 
+    /**
+     * What the notifications bell needs: work in flight, and what has just
+     * stopped.
+     *
+     * `listJobs` answers with every import the brand has ever run, and the
+     * bell rendered all of them as tasks - so one finished import sat in the
+     * Tasks tab, and in its count, for ever, and a brand with a few imports
+     * behind it opened onto a list of things that were over. An hour is long
+     * enough for the panel to still be showing you what landed while you were
+     * on another screen, and short enough that it is never a history.
+     */
+    listRecentJobs(brandId: string): ImportJobRow[] {
+      return (
+        db
+          .prepare(
+            `SELECT * FROM import_jobs
+              WHERE brand_id=?
+                AND (finished_at IS NULL OR finished_at > datetime('now','-1 hour'))
+              ORDER BY created_at DESC`,
+          )
+          .all(brandId) as any[]
+      ).map(rowJob);
+    },
+
     listJobs(brandId: string): ImportJobRow[] {
       return (
         db.prepare('SELECT * FROM import_jobs WHERE brand_id=? ORDER BY created_at DESC').all(brandId) as any[]

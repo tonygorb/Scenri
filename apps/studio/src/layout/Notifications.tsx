@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router';
 import { Popover } from '@radix-ui/themes';
@@ -185,10 +185,20 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
     tabsRef.current?.querySelector<HTMLButtonElement>(`#sc-notif-tab-${next}`)?.focus();
   };
 
+  /**
+   * Work in flight, which is what this tab says it holds.
+   *
+   * `tasks` carries every state, because that is how a stop is noticed and
+   * turned into a notification. Rendering all of it put finished imports in
+   * the Tasks tab and in its count - the empty line under it says "Nothing
+   * running", and a row sitting above that line contradicted it.
+   */
+  const running = useMemo(() => tasks.filter((t) => t.state === 'running'), [tasks]);
+
   return (
     <>
       <div className="sc-notif-tabs" role="tablist" aria-label="Notifications" ref={tabsRef} onKeyDown={onKeyDown}>
-        <Tab id="tasks" tab={tab} onSelect={setTab} count={tasks.length}>
+        <Tab id="tasks" tab={tab} onSelect={setTab} count={running.length}>
           Tasks
         </Tab>
         <Tab id="feed" tab={tab} onSelect={setTab} count={unread || undefined}>
@@ -205,10 +215,10 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
         tabIndex={0}
       >
         {tab === 'tasks' ? (
-          tasks.length === 0 ? (
+          running.length === 0 ? (
             <p className="sc-notif-empty">Nothing running. Generations show up here as they go.</p>
           ) : (
-            tasks.map((t) => (
+            running.map((t) => (
               <TaskRow
                 key={t.id}
                 task={t}

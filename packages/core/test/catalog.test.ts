@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import Database from 'better-sqlite3';
 import { createCore, type Core } from '../src/index.js';
 
 let home: string;
@@ -327,5 +328,32 @@ describe('catalog store', () => {
     expect(after.message).toContain('40');
     // A job that had already ended is untouched.
     expect(core.catalog.getJob(done.id)!.stage).toBe('completed');
+  });
+  /**
+   * The bell is about work in flight and what just landed, not a history. The
+   * list it reads used to be every import the brand had ever run, so one
+   * finished import sat in the Tasks tab, and in its count, for ever.
+   */
+  it('the bell reads work in flight and the last hour, not every import ever run', () => {
+    const brand = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any);
+    const live = core.catalog.createJob({ brandId: brand.id, url: 'https://acme.example' });
+    core.catalog.updateJob(live.id, { stage: 'fetching_products' });
+    const justDone = core.catalog.createJob({ brandId: brand.id, url: 'https://b.example' });
+    core.catalog.updateJob(justDone.id, { stage: 'completed', finished: true });
+    const longDone = core.catalog.createJob({ brandId: brand.id, url: 'https://c.example' });
+    core.catalog.updateJob(longDone.id, { stage: 'completed', finished: true });
+    // Aged past the window by hand. `Core` has no business exposing its
+    // database for a test, so this reaches the file the same way the store does.
+    const raw = new Database(join(home, 'scenri.db'));
+    raw.prepare(`UPDATE import_jobs SET finished_at=datetime('now','-3 hours') WHERE id=?`).run(longDone.id);
+    raw.close();
+
+    const ids = core.catalog.listRecentJobs(brand.id).map((j) => j.id);
+    expect(ids).toContain(live.id);
+    // Still there, so the client can see it stop and say so.
+    expect(ids).toContain(justDone.id);
+    expect(ids).not.toContain(longDone.id);
+    // The full list is unchanged for anything that wants the history.
+    expect(core.catalog.listJobs(brand.id)).toHaveLength(3);
   });
 });
