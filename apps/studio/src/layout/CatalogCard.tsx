@@ -124,6 +124,7 @@ function CatalogCardInner({
       <button
         type="button"
         className="sc-lookcard"
+        data-fb-id={id}
         data-variant="select"
         data-size={size}
         data-on={selected || undefined}

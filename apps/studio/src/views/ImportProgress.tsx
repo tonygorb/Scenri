@@ -16,7 +16,16 @@ import { catalogPercent } from '../tasks.js';
  * The stages are the server's own, not invented here, and each line is a real
  * counter the job already reports.
  */
-const POLL_MS = 1200;
+/**
+ * How often the dialog re-reads the job while it is open.
+ *
+ * This was 1200 ms, and an import saving four products a second then appeared
+ * to arrive in steps of five - which is what a one-at-a-time import looks like
+ * through a slow window. Measured: the request this makes is a single indexed
+ * row read, 1.0 ms average over twenty calls against a local server. Three a
+ * second, only while somebody is watching, and only until the job finishes.
+ */
+const POLL_MS = 300;
 
 const STAGE_LABEL: Record<string, string> = {
   queued: 'Waiting to start',

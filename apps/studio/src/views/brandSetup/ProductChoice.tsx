@@ -21,14 +21,15 @@ import { matches, nameFromUrl } from './productNames.js';
  */
 const BATCH = 24;
 /**
- * Details are asked for in small groups rather than one big one.
+ * Details are asked for in groups rather than one big request.
  *
- * Twenty-four real product pages take about eight seconds against a live
- * store, and asking for all of them at once means eight seconds of nothing
- * followed by everything. In eights the first cards land in about three, and
- * the rest fill in behind them.
+ * A group is one round trip and the server reads its pages twelve at a time,
+ * so a group of twelve lands in roughly one page's latency: measured against
+ * gymshark.com, 124 ms a page at that concurrency. Smaller groups would
+ * re-prioritise more often and waste round trips; larger ones would make the
+ * screen you are looking at wait behind pages you have already passed.
  */
-const CHUNK = 8;
+const CHUNK = 12;
 
 export function ProductChoice({
   brandId,
@@ -64,27 +65,55 @@ export function ProductChoice({
     };
   }, []);
   const [endEl, setEndEl] = useState<HTMLDivElement | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const named = useMemo(() => all.map((url) => ({ url, name: nameFromUrl(url) })), [all]);
   const found = useMemo(() => named.filter((p) => matches(p.name, query)), [named, query]);
   const visible = useMemo(() => found.slice(0, shown), [found, shown]);
-  // A stable identity for "which cards are on screen". Depending on the array
-  // itself re-runs the effect below on every render, and its cleanup then
-  // cancels the requests that same render just started.
-  const visibleKey = visible.map((p) => p.url).join('|');
-
   useEffect(() => setShown(BATCH), [query]);
 
-  // Pay for the cards that are actually on screen, once each, in small groups
-  // so the grid fills in rather than arriving all at once.
-  useEffect(() => {
-    const wanted = visibleKey.split('|').filter((u) => u && !haveRef.current.has(u) && !asking.current.has(u));
-    if (!wanted.length) return;
-    for (const u of wanted) asking.current.add(u);
-    const groups: string[][] = [];
-    for (let i = 0; i < wanted.length; i += CHUNK) groups.push(wanted.slice(i, i + CHUNK));
-    setInFlight((n) => n + groups.length);
-    for (const group of groups) {
+  /**
+   * Details are paid for by what a person actually looked at.
+   *
+   * Every card's name and address come from the sitemap, so a card costs
+   * nothing to show. Only its picture costs a page read. This used to ask for
+   * details for every card that had been rendered, and hold the next page of
+   * cards back until all of them landed - so appearing, which is free, was
+   * paced by fetching, which is not: 24 cards every 505 ms against a fixture
+   * with 180 ms pages, and about four minutes to reach the end of a
+   * 2,201-product store with one-second pages. Scrolling is instant now, and
+   * the pictures follow the viewport.
+   */
+  const queue = useRef<string[]>([]);
+  const inFlightRef = useRef(0);
+  const pumpRef = useRef<() => void>(() => {});
+
+  /**
+   * Detail requests open at once.
+   *
+   * Two of twelve, and the server reads twelve pages per request, so a live
+   * shop sees at most twenty-four reads from us at a time. That is the
+   * politeness ceiling rather than a throughput one.
+   */
+  const MAX_PARALLEL = 2;
+  /**
+   * How many looked-at cards may be waiting for a picture.
+   *
+   * A flick through two thousand cards puts every one it passes on the queue,
+   * and draining all of them is a page read each against somebody's live shop
+   * for cards nobody stopped on. Requests are taken from the END of this, so
+   * the oldest entries are exactly the ones flown past: dropping them is the
+   * cheap thing to do, and a card that comes back into view asks again.
+   */
+  const MAX_QUEUED = 120;
+
+  const pump = useCallback(() => {
+    while (inFlightRef.current < MAX_PARALLEL && queue.current.length) {
+      // From the end: what is on screen now wins over what was flicked past.
+      const group = queue.current.splice(Math.max(0, queue.current.length - CHUNK));
+      if (!group.length) return;
+      inFlightRef.current++;
+      setInFlight(inFlightRef.current);
       void api
         .catalogDetails(brandId, group)
         .then(({ products }) => {
@@ -109,32 +138,73 @@ export function ProductChoice({
           for (const u of group) asking.current.delete(u);
         })
         .finally(() => {
-          // Not guarded on a per-effect flag: this effect re-runs whenever the
-          // visible set changes, and cancelling the count there is what left
-          // "Loading products" on screen for good.
-          if (mounted.current) setInFlight((n) => Math.max(0, n - 1));
+          inFlightRef.current = Math.max(0, inFlightRef.current - 1);
+          if (!mounted.current) return;
+          setInFlight(inFlightRef.current);
+          pumpRef.current();
         });
     }
-  }, [visibleKey, brandId]);
+  }, [brandId]);
+  pumpRef.current = pump;
+
+  // Which cards have been on screen. A card scrolled past at speed never
+  // intersects, so it is never paid for.
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        let added = false;
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          const url = (e.target as HTMLElement).dataset.fbId;
+          io.unobserve(e.target);
+          if (!url || haveRef.current.has(url) || asking.current.has(url)) continue;
+          asking.current.add(url);
+          queue.current.push(url);
+          // Forget the ones scrolled past long ago, so they can be asked for
+          // again if they are ever looked at.
+          while (queue.current.length > MAX_QUEUED) {
+            const dropped = queue.current.shift();
+            if (dropped) asking.current.delete(dropped);
+          }
+          added = true;
+        }
+        if (added) pumpRef.current();
+      },
+      // Two and a half screens of lookahead, because one page of a real store
+      // takes about a second and a half to read: asking as the card arrives
+      // means waiting that long looking at a shimmer. Asked two screens early,
+      // the picture is usually there before the card is. Cards themselves are
+      // free and the sentinel below runs further ahead still.
+      { root: grid, rootMargin: '250% 0px' },
+    );
+    for (const el of grid.querySelectorAll('[data-fb-id]')) io.observe(el);
+    return () => io.disconnect();
+  }, [shown, query]);
 
   // One sentinel below the last card, the shape Canvas and AttachBody use.
   //
-  // Paced on what has actually arrived rather than on how fast someone
-  // scrolls: a flick to the bottom of a 2,200-product store queued 240 page
-  // reads in one go, which is the runaway this whole screen exists to avoid.
-  // Nothing more is asked for until the last lot lands.
+  // It used to stand down while any detail request was in flight, to stop a
+  // flick to the bottom of a 2,200-product store queueing 240 page reads. That
+  // bounded the reads by refusing to show cards, and cards are free: appearing
+  // was paced by fetching, 24 cards every 505 ms. The runaway is bounded where
+  // it actually lives now - the queue above only holds cards somebody looked
+  // at - so this is free to keep up with a scroll.
   useEffect(() => {
-    if (!endEl || shown >= found.length || inFlight > 0) return;
+    if (!endEl || shown >= found.length) return;
     const root = endEl.closest('.sc-wizpick-grid');
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) setShown((n) => n + BATCH);
       },
-      { root, rootMargin: '0px 0px 320px 0px' },
+      // Further ahead than the picture lookahead above, since a card has to
+      // exist before it can be seen and asked for.
+      { root, rootMargin: '0px 0px 400% 0px' },
     );
     io.observe(endEl);
     return () => io.disconnect();
-  }, [endEl, shown, found.length, inFlight]);
+  }, [endEl, shown, found.length]);
 
   const toggle = useCallback((url: string) => {
     setPicked((prev) => {
@@ -193,7 +263,7 @@ export function ProductChoice({
         <span className="sc-wizpick-count">{count.toLocaleString()} selected</span>
       </div>
 
-      <div className="sc-wizpick-grid">
+      <div className="sc-wizpick-grid" ref={gridRef}>
         {visible.map((p) => {
           const got = details.get(p.url);
           return (

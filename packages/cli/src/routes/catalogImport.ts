@@ -95,9 +95,24 @@ export function registerCatalogImportRoutes(
     if (!sameSite.length) {
       return reply.status(400).send({ error: 'none of those products belong to this site' });
     }
+    // Measured against gymshark.com, the same sixteen warmed product pages at
+    // each setting, milliseconds per page: 4 -> 276, 8 -> 180 and 159,
+    // 12 -> 124, 16 -> 114 and 78. Fourteen of the sixteen parsed at every
+    // setting, so the two that did not are those pages rather than pressure,
+    // and reading harder costs nothing in what comes back.
+    //
+    // Twelve, with the studio holding at most two of these requests open at a
+    // time, so a live shop sees at most twenty-four reads at once. That is the
+    // politeness ceiling and it is the binding one: the curve was still
+    // improving at sixteen.
+    //
+    // 512 KB rather than 1.5 MB. A card needs the title, one picture and a
+    // price, and those are in the JSON-LD near the top: 345 ms a page at
+    // 1.5 MB against 283 at 512 KB, with all eight products still parsed.
+    // (128 KB parsed none of them, so the block does sit past that.)
     const products = await fetchProductPages({ fetchImpl: fetchImpl ?? fetch, baseUrl: origin }, sameSite, {
-      concurrency: 4,
-      maxBytes: 1_500_000,
+      concurrency: 12,
+      maxBytes: 512_000,
     });
     return { products };
   });
