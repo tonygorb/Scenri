@@ -184,3 +184,37 @@
     padding: 18px 16px 40px;
   }
 }
+
+/* What the site gave up, said line by line.
+   Partial is the normal outcome here: a logo and no colours is a kit with a
+   logo in it, and it has to read that way rather than as a failure. So every
+   part gets its own line and a missing one is stated plainly, not hidden. */
+.sc-kit-lines {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--sc-line);
+  display: grid;
+  gap: 7px;
+}
+.sc-kit-lines li {
+  display: grid;
+  grid-template-columns: 14px 58px 1fr;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  color: var(--sc-fg3);
+}
+.sc-kit-lines li[data-found] {
+  color: var(--sc-fg2);
+}
+.sc-kit-lines li svg {
+  justify-self: center;
+}
+.sc-kit-line-label {
+  font-weight: 600;
+  color: var(--sc-fg3);
+}
+.sc-kit-lines li[data-found] .sc-kit-line-value {
+  color: var(--sc-fg);
+}

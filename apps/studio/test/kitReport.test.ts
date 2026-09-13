@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ScrapeReport } from '../src/api.js';
-import { kitLines, kitNeedsHand, kitSummary } from '../src/views/kitReport.js';
+import { kitLines, kitNeedsHand } from '../src/views/kitReport.js';
 
 /**
  * "No products found" was never the failure. This is: a kit that came back
@@ -43,35 +43,6 @@ describe('kitLines', () => {
   it('reports each part on its own, so one miss does not hide two hits', () => {
     const lines = kitLines(report({ logo: { status: 'none', source: null } }));
     expect(lines.filter((l) => l.found).map((l) => l.key)).toEqual(['name', 'colors']);
-  });
-});
-
-describe('kitSummary', () => {
-  it('leads with what landed and names only what did not', () => {
-    const s = kitSummary(report({ logo: { status: 'none', source: null } }));
-    expect(s).toBe('Found the name Lucid and 4 colours. No logo yet.');
-    expect(s).not.toMatch(/fail|error/i);
-  });
-
-  // A brand name is a name, and a toast that lowercases it reads like a bug.
-  it('keeps the brand name spelled the way the site spells it', () => {
-    expect(kitSummary(report({ name: { value: 'Lucid', source: 'title' } }))).toContain('Lucid');
-  });
-
-  it('says so plainly when a page gave up nothing useful, and still offers a way on', () => {
-    const s = kitSummary(
-      report({
-        name: { value: 'lucid.example', source: 'hostname' },
-        logo: { status: 'none', source: null },
-        colors: { count: 0 },
-      }),
-    );
-    expect(s).toContain('add them by hand');
-    expect(s).not.toMatch(/product|shop|catalog/i);
-  });
-
-  it('never mentions products, because a brand does not need any', () => {
-    expect(kitSummary(report())).not.toMatch(/product/i);
   });
 });
 

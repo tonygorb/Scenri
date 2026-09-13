@@ -68,7 +68,12 @@ test('a pasted address with a leading space builds the kit it meant', async ({ p
   await page.locator('#sc-wiz-url').fill(`  http://${origin}/`);
   await page.getByRole('button', { name: 'Build the kit' }).click();
 
-  // Landed on a brand, not on a red banner.
+  // The kit is shown and held, not flashed past: this panel used to be set and
+  // navigated away from in the same tick.
+  await expect(page.locator('.sc-wiz-cap')).toHaveText('Your kit', { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/setup/);
+
+  await page.getByRole('button', { name: 'Looks right' }).click();
   await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
   await expect(page.locator('.sc-wiz-form')).toHaveCount(0);
 });
@@ -81,13 +86,18 @@ test('a site with no shop on it is a brand source, and says what it found', asyn
   // guard is doing its job. Say yes to it.
   const anyway = page.getByRole('button', { name: 'Create anyway' });
   if (await anyway.isVisible().catch(() => false)) await anyway.click();
-  await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
 
-  // The report a person reads, rather than a silent navigation.
-  const toast = page.locator('.sc-toast').filter({ hasText: 'Kit built' }).first();
-  await expect(toast).toContainText('Found');
-  await expect(toast).toContainText('Lucid');
-  await expect(toast).not.toContainText(/product|shop|catalog/i);
+  // What the site gave up, said line by line, and held until someone reads it.
+  const lines = page.locator('.sc-kit-lines');
+  await expect(lines).toBeVisible({ timeout: 30_000 });
+  await expect(lines).toContainText('Lucid');
+  await expect(lines).toContainText('Logo');
+  await expect(lines).toContainText('Colours');
+  // A brand needs no shop, and nothing here may suggest otherwise.
+  await expect(page.locator('.sc-wiz')).not.toContainText(/product|shop|catalog/i);
+
+  await page.getByRole('button', { name: 'Looks right' }).click();
+  await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
 
   // And no failed-looking task for the catalog import that found no shop.
   await expect
