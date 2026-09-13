@@ -546,57 +546,6 @@
 }
 
 /* the list itself: the app's menu, with a box at the top that narrows it */
-.sc-pstudio-menu {
-  width: var(--radix-dropdown-menu-trigger-width, 280px);
-  max-height: min(52vh, 380px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.sc-pstudio-menu-find {
-  flex: none;
-  width: 100%;
-  height: 34px;
-  margin-bottom: var(--sc-space-3);
-  padding: 0 10px;
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-sm);
-  background: var(--sc-hover);
-  color: var(--sc-fg);
-  font: inherit;
-  font-size: 13.5px;
-  outline: none;
-}
-
-.sc-pstudio-menu-find:focus {
-  border-color: var(--sc-focus);
-}
-
-.sc-pstudio-menu-find::placeholder {
-  color: var(--sc-fg3);
-}
-
-.sc-pstudio-menu-list {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.sc-pstudio-menu .sc-menu-lb {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.sc-pstudio-menu-none {
-  margin: 0;
-  padding: 8px 10px;
-  font-size: 13px;
-  color: var(--sc-fg3);
-}
 
 /* ---- rail foot: the composer, the decision, the footnote ----------------- */
 /* The composer sits on no shelf: .sc-dock in shells.css does the fading, and

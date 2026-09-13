@@ -57,9 +57,19 @@ export function editIntent(text: string, selected: StudioView, d: DraftLike): Ed
   const trait = IDENTITY_WORDS.test(t);
   const likeness = LIKENESS.test(t);
   const deixis = DEIXIS.test(t);
-  if (selected === 'portrait') return { scope: 'identity', view: 'portrait' };
-  if (trait && likeness && !deixis) return { scope: 'ambiguous' };
-  if (trait && !deixis) return { scope: 'identity', view: 'portrait' };
+  // A person built from somebody's photographs is that person. Their views can
+  // be repaired; who they are is not ours to change, and the permission that
+  // was attested was for them and not for a redraw of them.
+  const fromPhotos = d.source === 'photos';
+  if (selected === 'portrait') {
+    if (fromPhotos) return { blocked: 'Their photos define who they are. Change a drawn view instead.' };
+    return { scope: 'identity', view: 'portrait' };
+  }
+  if (trait && likeness && !deixis) return fromPhotos ? { scope: 'view', view: selected } : { scope: 'ambiguous' };
+  if (trait && !deixis) {
+    if (fromPhotos) return { blocked: 'Their photos define who they are. Change a drawn view instead.' };
+    return { scope: 'identity', view: 'portrait' };
+  }
   const slot = d.views[selected];
   if (slot.origin === 'photo') return { blocked: 'Your photo stands as it is. Pick a drawn view to change.' };
   if (slot.status !== 'approved' && slot.status !== 'candidate')

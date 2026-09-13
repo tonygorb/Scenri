@@ -1,49 +1,69 @@
-import { CaretDown, Check, Plus } from '@phosphor-icons/react';
+import { Check, Plus } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
 import { useEffect, useRef, useState } from 'react';
+import { ChipField } from './ChipField.js';
 
 /**
- * What a presenter is cast for, as one line.
+ * A list of short words, chosen from a menu or typed into it.
  *
- * A wall of category chips in a creation form is a taxonomy chore standing
- * between a person and their face: eleven toggles, three rows of the rail,
- * and every one of them a decision nobody has the information to make yet.
- * The engine already answers this question, from the photographs or from the
- * portrait it drew, and what the user picks here only overrides that answer.
+ * One control, two intentions. What describes a presenter and what they are
+ * filed under are the same act — putting a few words on a record — and they
+ * were built as two different controls, one a field you type into and one a
+ * menu you open, which is what made the sheet they share look assembled.
+ * Here the field is the same in both and only the words on offer differ.
  *
- * So it is a field that reads like a field, and a menu that behaves like a
- * menu: at rest one line naming what is chosen; open, the brand's own
- * categories with a mark against the ones that are on, a box at the top that
- * narrows the list as you type, and one row that takes a word the brand has
- * never used. The list is an overlay, so nothing under it moves, and
- * choosing does not close it, because choosing two is the common case.
+ * The field reads like a field: the chosen words as chips, and the whole of
+ * it opens the menu, which is where one is taken off again. The menu is a box
+ * that
+ * narrows the list as you type, the words already known with a mark against
+ * the ones that are on, and a row that takes a word nobody has used before.
+ * Choosing does not close it, because choosing two is the common case.
+ *
+ * Anchored on the field and not on a caret: a popper is sized from its
+ * trigger, and a caret-sized trigger gave a menu clipped to a caret-sized
+ * strip.
  */
-export function CategoryMenu({
+export function ChipPicker({
   value,
-  categories,
   onChange,
-  placeholder = 'Whatever they suit',
+  options,
+  label,
+  placeholder = 'Any',
+  findPlaceholder = 'Find or add',
+  emptyNote = 'Nothing by that name.',
+  max = 12,
+  maxLength = 40,
 }: {
   value: string[];
-  /** The brand's own categories, offered first. */
-  categories: string[];
   onChange: (next: string[]) => void;
+  /** The words already known here, offered first. */
+  options: string[];
+  /** What the field is, for a screen reader. */
+  label: string;
   placeholder?: string;
+  findPlaceholder?: string;
+  emptyNote?: string;
+  max?: number;
+  maxLength?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const field = useRef<HTMLInputElement>(null);
 
-  const known = [...categories, ...value.filter((v) => !categories.some((c) => same(c, v)))];
+  const known = [...options, ...value.filter((v) => !options.some((c) => same(c, v)))];
   const q = query.trim();
   const shown = q ? known.filter((c) => c.toLowerCase().includes(q.toLowerCase())) : known;
-  const isNew = q.length > 0 && !known.some((c) => same(c, q));
+  const full = value.length >= max;
+  const isNew = q.length > 0 && !known.some((c) => same(c, q)) && !full;
 
-  const toggle = (c: string) =>
-    onChange(value.some((v) => same(v, c)) ? value.filter((v) => !same(v, c)) : [...value, c]);
+  const toggle = (c: string) => {
+    const on = value.some((v) => same(v, c));
+    if (!on && full) return;
+    onChange(on ? value.filter((v) => !same(v, c)) : [...value, c]);
+  };
   const add = () => {
     if (!isNew) return;
-    onChange([...value, q.slice(0, 30)]);
+    onChange([...value, q.slice(0, maxLength)]);
     setQuery('');
     field.current?.focus();
   };
@@ -66,22 +86,17 @@ export function CategoryMenu({
       }}
     >
       <DropdownMenu.Trigger>
-        <button type="button" className="sc-pstudio-picker" aria-label="Categories">
-          <span className="sc-pstudio-picker-lb" data-empty={value.length === 0 || undefined}>
-            {value.length ? value.join(', ') : placeholder}
-          </span>
-          <CaretDown size={13} />
-        </button>
+        <ChipField items={value} placeholder={placeholder} label={label} />
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content align="start" sideOffset={6} className="sc-menu sc-pstudio-menu">
+      <DropdownMenu.Content align="start" sideOffset={6} className="sc-menu sc-chippick-menu">
         <input
           ref={field}
-          className="sc-pstudio-menu-find"
+          className="sc-chippick-find"
           type="text"
           value={query}
-          maxLength={30}
-          placeholder="Find or add"
-          aria-label="Find or add a category"
+          maxLength={maxLength}
+          placeholder={findPlaceholder}
+          aria-label={findPlaceholder}
           onChange={(e) => setQuery(e.target.value)}
           // the menu's own typeahead would eat every letter
           onKeyDown={(e) => {
@@ -95,7 +110,7 @@ export function CategoryMenu({
             }
           }}
         />
-        <div className="sc-pstudio-menu-list">
+        <div className="sc-chippick-list">
           {shown.map((c) => {
             const on = value.some((v) => same(v, c));
             return (
@@ -103,6 +118,7 @@ export function CategoryMenu({
                 key={c}
                 className="sc-menu-item"
                 data-on={on || undefined}
+                data-off={!on && full ? '' : undefined}
                 // choosing two is the common case, so the menu stays open
                 onSelect={(e) => {
                   e.preventDefault();
@@ -114,7 +130,7 @@ export function CategoryMenu({
               </DropdownMenu.Item>
             );
           })}
-          {!shown.length && !isNew && <p className="sc-pstudio-menu-none">Nothing by that name.</p>}
+          {!shown.length && !isNew && <p className="sc-chippick-none">{emptyNote}</p>}
         </div>
         {isNew && (
           <>
@@ -131,6 +147,7 @@ export function CategoryMenu({
             </DropdownMenu.Item>
           </>
         )}
+        {full && <p className="sc-chippick-none">That is as many as this holds.</p>}
       </DropdownMenu.Content>
     </DropdownMenu.Root>
   );

@@ -1,22 +1,20 @@
 import { useState } from 'react';
 import type { PresenterPatch } from '../api.js';
-import { CategoryMenu } from '../create/presenter/CategoryMenu.js';
-import { ChipsInput } from '../layout/ChipsInput.js';
+import { ChipPicker } from '../layout/ChipPicker.js';
 import { DialogSheet, SheetClose, SheetTitle } from '../layout/DialogSheet.js';
 
 /**
  * The words on a presenter's record, changed in one place.
  *
- * These used to be fields standing in for the heading and the caption, so a
- * saved person read as a half-filled form and the page could not say what was
- * a title and what was an input. They are details, they are edited rarely,
- * and they cost nothing to generate, so they belong behind one quiet verb
- * rather than in the shape of the page.
+ * A name, and two lists of short words. The two lists are the same control
+ * and differ only in the words it offers: the phrases this brand already
+ * describes people by, or the categories it already files them under. They
+ * were three controls borrowed from three other surfaces once, and it showed.
  *
- * The caption is edited as what it is: every descriptor Scenri writes is
- * three phrases with an interpunct between them, so it is a list stored as a
- * string, and a single text field made the reader guess the separator. The
- * phrases are chips; the caption they compose is shown back underneath.
+ * The description is edited as what it is. Every descriptor Scenri writes is
+ * three phrases with an interpunct between them, so it was a list stored as a
+ * string all along, and a single text field made the reader guess the
+ * separator and retype the line to change one word.
  *
  * Not to be confused with Edit presenter, which opens the studio and changes
  * what they look like. Nothing here touches a picture.
@@ -26,6 +24,7 @@ export function PresenterDetailsDialog({
   descriptor,
   categories,
   known,
+  phrases,
   busy,
   error,
   onSave,
@@ -36,6 +35,8 @@ export function PresenterDetailsDialog({
   categories: string[];
   /** Every category this brand already files presenters under. */
   known: string[];
+  /** Phrases the brand's other presenters are described by, offered first. */
+  phrases: string[];
   busy?: boolean;
   error?: string | null;
   onSave: (patch: PresenterPatch) => void;
@@ -45,14 +46,7 @@ export function PresenterDetailsDialog({
   const [traits, setTraits] = useState(() => splitCaption(descriptor));
   const [draftCategories, setCategories] = useState(categories);
 
-  // The caption is these traits, joined. It is not a second field: every
-  // descriptor in the library is already three phrases with an interpunct
-  // between them, so the string was a list all along and only ever looked
-  // like prose because it was edited as one.
   const draftDescriptor = traits.join(CAPTION_SEP);
-  // The server keeps 120 characters of it. Rather than let it cut what was
-  // typed, the list simply stops accepting more once the caption is full.
-  const room = draftDescriptor.length < CAPTION_MAX - 12 && traits.length < 6;
 
   const trimmed = draftName.trim();
   // A name is theirs to choose, so anything with a character in it stands.
@@ -74,10 +68,11 @@ export function PresenterDetailsDialog({
         <SheetTitle className="sc-newdlg-title">Details</SheetTitle>
         <SheetClose asChild>
           <button type="button" className="sc-set-close sc-newdlg-close" aria-label="Close">
-            <CloseGlyph />
+            <span aria-hidden>{'×'}</span>
           </button>
         </SheetClose>
       </div>
+
       <div className="sc-newdlg-body">
         <label className="sc-pdetails-row">
           <span className="sc-pdetails-lb">Name</span>
@@ -89,33 +84,49 @@ export function PresenterDetailsDialog({
             onKeyDown={(e) => e.key === 'Enter' && submit()}
           />
         </label>
+
         <div className="sc-pdetails-row">
-          <span className="sc-pdetails-lb">What describes them</span>
-          <ChipsInput
+          <span className="sc-pdetails-lb">Description</span>
+          <ChipPicker
             value={traits}
             onChange={setTraits}
-            label="What describes them"
-            placeholder={traits.length ? 'Add another' : 'Athletic build'}
-            max={room ? 6 : traits.length}
+            options={phrases}
+            label="Description"
+            placeholder="Athletic build"
+            findPlaceholder="Find or add a phrase"
+            emptyNote="No phrase by that name yet."
+            max={6}
             maxLength={40}
           />
           <span className="sc-pdetails-hint">
             {draftDescriptor ? (
               <>
-                Their caption reads <b>{draftDescriptor}</b>
+                Reads as <b>{draftDescriptor}</b> under their name.
               </>
             ) : (
-              'One phrase at a time. Together they are the caption under their name, and on their card.'
+              'A few phrases. Together they are the line under their name.'
             )}
           </span>
         </div>
+
         <div className="sc-pdetails-row">
-          <span className="sc-pdetails-lb">Filed under</span>
-          <CategoryMenu value={draftCategories} categories={known} onChange={setCategories} placeholder="Nothing yet" />
+          <span className="sc-pdetails-lb">Categories</span>
+          <ChipPicker
+            value={draftCategories}
+            onChange={setCategories}
+            options={known}
+            label="Categories"
+            placeholder="Any"
+            findPlaceholder="Find or add a category"
+            emptyNote="Nothing by that name."
+            maxLength={30}
+          />
           <span className="sc-pdetails-hint">The verticals they suit, so they surface where you work.</span>
         </div>
+
         {error && <p className="sc-assetform-err">{error}</p>}
       </div>
+
       <div className="sc-newdlg-foot">
         <button type="button" className="sc-btn sc-btn-ghost" onClick={onDismiss}>
           Cancel
@@ -135,15 +146,9 @@ export function PresenterDetailsDialog({
 }
 
 /** How a caption is written down, and how it comes apart again. */
-const CAPTION_SEP = ' \u00b7 ';
-const CAPTION_MAX = 120;
+const CAPTION_SEP = ' · ';
 export const splitCaption = (caption: string): string[] =>
   caption
-    .split('\u00b7')
+    .split('·')
     .map((part) => part.trim())
     .filter(Boolean);
-
-/** The same glyph the other sheets close with. */
-function CloseGlyph() {
-  return <span aria-hidden>{'×'}</span>;
-}

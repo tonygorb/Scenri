@@ -1207,13 +1207,12 @@
 }
 
 /* ---- the details sheet ----
-   One field, three controls. The sheet borrows a plain input, the chips field
-   the brand settings use, and the studio's category picker, each built for a
-   different surface. Measured side by side they stood 34, 58 and 44 tall, on
-   three different grounds, with the chips field carrying no border at all and
-   running 14px wider than its neighbours, so the column had no edge to read
-   down. They wear the same skin here: the app's field radius, its hairline,
-   the panel ground, and the one focus treatment. */
+   Three rows, one field. The sheet used to borrow a plain input, the brand
+   settings' chips field and the studio's category picker: measured side by
+   side they stood 34, 58 and 44 tall on three grounds at three type sizes,
+   and one of them carried no border at all. The two lists are
+   `components/chip-field.css` now and only the plain input is described here,
+   in the same terms. */
 .sc-pdetails .sc-newdlg-foot {
   display: flex;
   justify-content: flex-end;
@@ -1232,61 +1231,33 @@
   flex-direction: column;
   gap: var(--sc-space-3);
   text-align: left;
+  min-width: 0;
 }
 .sc-pdetails-lb {
   font-size: var(--sc-text-body);
   font-weight: 500;
   color: var(--sc-fg);
 }
-
-.sc-pdetails-field,
-.sc-pdetails .sc-chips,
-.sc-pdetails .sc-pstudio-picker {
+.sc-pdetails-field {
   box-sizing: border-box;
   width: 100%;
-  min-height: 34px;
+  height: 34px;
+  padding: 0 12px;
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius);
   background: var(--sc-panel);
   color: var(--sc-fg);
   font: 400 var(--sc-text-input) / 1.4 var(--sc-font);
 }
-.sc-pdetails-field,
-.sc-pdetails .sc-pstudio-picker {
-  height: 34px;
-  padding: 0 12px;
-}
-/* The one that grows: a caption of five phrases is taller than a line, and
-   the padding is what keeps its chips off the hairline. */
-.sc-pdetails .sc-chips {
-  padding: 4px 6px;
-  gap: var(--sc-space-2);
-}
-.sc-pdetails .sc-chips-in {
-  min-height: 26px;
-  padding-inline: 6px;
-  font-size: var(--sc-text-input);
-}
-.sc-pdetails-field::placeholder,
-.sc-pdetails .sc-chips-in::placeholder {
+.sc-pdetails-field::placeholder {
   color: var(--sc-fg3);
 }
-/* A chip and the caret beside it stand on the same line. */
-.sc-pdetails .sc-chips-item {
-  min-height: 26px;
+.sc-pdetails-field:hover:not(:focus) {
+  border-color: var(--sc-line-hover);
 }
-/* One focus treatment for all three, the way a field states it everywhere
-   else: the border becomes ink, and nothing glows. */
-.sc-pdetails-field:focus,
-.sc-pdetails .sc-chips:focus-within,
-.sc-pdetails .sc-pstudio-picker:focus-visible {
+.sc-pdetails-field:focus {
   outline: none;
   border-color: var(--sc-focus);
-}
-.sc-pdetails-field:hover:not(:focus),
-.sc-pdetails .sc-chips:hover:not(:focus-within),
-.sc-pdetails .sc-pstudio-picker:hover {
-  border-color: var(--sc-line-hover);
 }
 .sc-pdetails-hint {
   font-size: var(--sc-text-caption);

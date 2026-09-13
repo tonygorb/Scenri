@@ -471,8 +471,8 @@ export type RefineTarget = { view: StudioView; scope: 'identity' | 'view' } | { 
  * ask nudges the face candidate. After it, an ask on the face, or one naming
  * something that belongs to the person (hair, skin, age, build...), changes
  * the person and redraws the face; anything else changes only the view on
- * the stage. A photograph is never redrawn: the person's own photos are who
- * they are.
+ * the stage. A person built from photographs is never re-identified: their
+ * photos are who they are, whoever drew the frame.
  */
 export function refineTarget(text: string, selected: StudioView, d: DraftLike): RefineTarget {
   if (!text.trim()) return { blocked: 'Say what should change.' };
@@ -482,7 +482,12 @@ export function refineTarget(text: string, selected: StudioView, d: DraftLike): 
   }
   const identity = selected === 'portrait' || IDENTITY_WORDS.test(text);
   if (identity) {
-    if (d.views.portrait.origin === 'photo') {
+    // Keyed on where the person came from, not on what happens to be in the
+    // portrait slot. The face is drawn from the photographs now rather than
+    // adopted from them, so a guard that asked whether the slot held a
+    // photograph would have quietly stopped guarding the moment that changed,
+    // and a real person's identity would have become editable.
+    if (d.source === 'photos') {
       return { blocked: 'Their photos define who they are. Change a drawn view instead.' };
     }
     return { view: 'portrait', scope: 'identity' };
@@ -497,7 +502,7 @@ export function refineTarget(text: string, selected: StudioView, d: DraftLike): 
 /** The one line under the composer saying what Refine will do, before it is pressed. */
 export function refineHint(selected: StudioView, d: DraftLike): string {
   if (!identityLocked(d)) return 'An adjustment keeps this person. Try again rolls a new one.';
-  if (d.views.portrait.origin === 'photo') return 'Changes this view only. Their photos define who they are.';
+  if (d.source === 'photos') return 'Changes this view only. Their photos define who they are.';
   if (selected === 'portrait') return 'Changes the person. The other views are redrawn after you use it.';
   return 'Changes this view only. Hair, skin, age or build change the person.';
 }
@@ -540,7 +545,7 @@ export function coverageLine(d: DraftLike, canGenerate: boolean): { text: string
   const readError = d.readError?.trim();
   if (readError) {
     const reason = /[.!?]$/.test(readError) ? readError : `${readError}.`;
-    return { text: `The photos could not be read: ${reason} Your first photo is the face.`, tone: 'warn' };
+    return { text: `The photos could not be read: ${reason} Their face is drawn from them anyway.`, tone: 'warn' };
   }
   const conflict = d.analysis?.conflict?.trim();
   if (conflict) return { text: `These photos may show more than one person: ${conflict}`, tone: 'warn' };

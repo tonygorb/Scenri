@@ -335,7 +335,7 @@ describe('what the person is filed under', () => {
 });
 
 describe('photos', () => {
-  it('a failed read is said out loud, with the first photo standing in as the face', () => {
+  it('a failed read is said out loud, and the face is still drawn from the photographs', () => {
     const d = draft({
       source: 'photos',
       sources: ['a', 'b'],
@@ -345,7 +345,7 @@ describe('photos', () => {
     const line = coverageLine(d, true);
     expect(line?.tone).toBe('warn');
     expect(line?.text).toBe(
-      'The photos could not be read: the usage limit is used up until 11:17 PM. Your first photo is the face.',
+      'The photos could not be read: the usage limit is used up until 11:17 PM. Their face is drawn from them anyway.',
     );
   });
 

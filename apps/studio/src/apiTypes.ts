@@ -427,7 +427,7 @@ export interface PresenterDraft {
     suitableCategories?: string[];
     photos?: { index: number; view: string; usable: boolean; note: string }[];
   } | null;
-  /** Why the photos could not be read; the first photo is the face regardless. */
+  /** Why the photos could not be read; the face is drawn from them regardless. */
   readError?: string;
   views: Record<PresenterDraftView, PresenterDraftSlot>;
   /** Whether the extra views may be drawn. Off until asked for. */
