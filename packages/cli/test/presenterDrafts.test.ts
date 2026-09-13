@@ -863,6 +863,44 @@ describe('the view contract: three core, three on request', () => {
     expect(front.roles.every((r) => r === 'character')).toBe(true);
   });
 
+  it('at four photographs the deepest view gives up the last one, and only the last one', () => {
+    // Measured live on four photographs of one man, codex's hard cap of five:
+    //   front  [p1 p2 p3 p4]                     every original
+    //   left   [portrait front p2 p3 p4]         every original
+    //   right  [portrait front left p2 p3]       p4 gives up its seat
+    // The picture that goes is the last uploaded, never an approved view, and
+    // the views already carry the person. Judged by eye against the source the
+    // right profile is the same man, so the trim is survivable — but it is by
+    // upload order, not by what the read thought of each photograph, so
+    // somebody whose sharpest picture is last loses that one. Pinned here so a
+    // change to the budget cannot quietly make it worse.
+    const empty = { status: 'empty' as const, attempts: 0, rejected: [] as string[] };
+    const approved = (hash: string) => ({ ...empty, status: 'approved' as const, hash });
+    const rec = {
+      id: 'pd-four',
+      source: 'photos' as const,
+      sources: ['p1', 'p2', 'p3', 'p4'],
+      views: {
+        portrait: approved('p1'),
+        front: approved('gen-front'),
+        'three-quarter': approved('p2'),
+        back: empty,
+        left: approved('gen-left'),
+        right: empty,
+      },
+    } as unknown as PresenterDraftRecord;
+
+    const left = planStep({ ...rec, views: { ...rec.views, left: empty } }, 'left', undefined, 5);
+    expect(left.refs).toEqual(['p1', 'gen-front', 'p2', 'p3', 'p4']);
+
+    const right = planStep(rec, 'right', undefined, 5);
+    expect(right.refs).toEqual(['p1', 'gen-front', 'gen-left', 'p2', 'p3']);
+    expect(right.refs).not.toContain('p4');
+    expect(right.dropped.join(' ')).toContain('p4');
+    // the person is never what pays for the room
+    expect(right.refs.slice(0, 3)).toEqual(['p1', 'gen-front', 'gen-left']);
+  });
+
   it('keeps every photograph when the read liked none of them, because something of them beats nothing', () => {
     const empty = { status: 'empty' as const, attempts: 0, rejected: [] as string[] };
     const rec = {
