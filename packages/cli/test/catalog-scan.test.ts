@@ -17,6 +17,7 @@ const PNG = Buffer.from(
 );
 
 const HANDLES = Array.from({ length: 40 }, (_, i) => `item-${i + 1}`);
+// IMPORT_BATCH is 25, so forty products is two rounds.
 
 /** A storefront whose API is shut and whose product pages are open. */
 function storeFetch(input: any) {
@@ -150,6 +151,25 @@ describe('scanning a site, then importing only what was chosen', () => {
     expect(both).toHaveLength(6);
     expect(both.every((p: any) => p.shots?.length > 0)).toBe(true);
     for (const name of first) expect(both.map((p: any) => p.name)).toContain(name);
+  });
+
+  /**
+   * A chosen set larger than one batch is read and written a batch at a time,
+   * so the products show up as they arrive. Fetching all of them before
+   * writing a single row is what left a 2,199-product import reporting "0 of
+   * 2,199" for its whole sixteen minutes.
+   */
+  it('writes a large chosen set in batches rather than all at the end', async () => {
+    const state = await scan();
+    const urls = (state.result.candidateUrls as string[]).slice(0, 40);
+    const job = await importUrls(urls);
+    expect(['completed', 'partial']).toContain(job.stage);
+    expect(await library()).toHaveLength(40);
+    // Counted across the whole import rather than per batch: reporting one
+    // batch's own numbers sent the row back to zero every time a new one began.
+    expect(job.upserted).toBe(40);
+    expect(job.imagesTotal).toBe(40 * 3);
+    expect(job.imagesDone).toBe(job.imagesTotal);
   });
 
   it('refuses a chosen list that points somewhere else', async () => {

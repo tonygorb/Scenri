@@ -80,40 +80,53 @@ async function runJob(
     // already known, and re-crawling a store to find what someone just
     // pointed at would be both slower and ruder.
     if (only?.length) {
+      // In batches, so the products show up as they arrive rather than all at
+      // the end. Reading 2,199 gymshark pages is about sixteen minutes, and
+      // fetching every one before writing a single row is how the task came to
+      // read "0 of 2,199" for the whole of it.
       patch({ stage: 'fetching_products', message: `Importing ${only.length} products`, discovered: only.length });
       const ctx = { fetchImpl: fetchImpl ?? fetch, baseUrl: url, signal };
       const detection = await detectPlatform(ctx);
-      const products = dedupeProducts(
-        await fetchProductPages(ctx, only, {
-          concurrency: 4,
-          maxBytes: 1_500_000,
-          // Every tenth, matching the upsert loop. `updateJob` rewrites the
-          // whole row, and one write per product is 2203 of them on a store
-          // this size.
-          onProduct: (fetched) => {
-            if (fetched % 10 === 0) patch({ fetched });
-          },
-        }),
-      );
-      if (!products.length) {
+      const tally: Tally = { fetched: 0, upserted: 0, imagesDone: 0, imagesTotal: 0, errors: [] };
+      let readAny = false;
+
+      for (let at = 0; at < only.length; at += IMPORT_BATCH) {
+        if (signal.aborted) break;
+        const slice = only.slice(at, at + IMPORT_BATCH);
+        const products = dedupeProducts(
+          await fetchProductPages(ctx, slice, {
+            concurrency: 4,
+            maxBytes: 1_500_000,
+            onProduct: (n) => {
+              if (n % 10 === 0) patch({ fetched: tally.fetched + n });
+            },
+          }),
+        );
+        if (!products.length) continue;
+        readAny = true;
+        await persistProducts(deps, jobId, brandId, url, detection.platform, products, {
+          discovered: only.length,
+          warnings: [],
+          signal,
+          // Never sweep a chosen set. `markMissingUnavailable` flags everything
+          // outside this batch as gone, which is right for a full catalog
+          // refresh and destructive when someone imports twelve products and
+          // then twelve more.
+          sweep: false,
+          tally,
+          finalize: at + IMPORT_BATCH >= only.length,
+        });
+      }
+
+      if (signal.aborted) return;
+      if (!readAny) {
         patch({
           stage: 'failed',
           message: 'None of the chosen products could be read',
           errors: [{ code: 'no_products_fetched', message: 'None of the chosen products could be read' }],
           finished: true,
         });
-        return;
       }
-      await persistProducts(deps, jobId, brandId, url, detection.platform, products, {
-        discovered: only.length,
-        warnings: [],
-        signal,
-        // Never sweep a selective import. `markMissingUnavailable` flags
-        // everything outside this batch as gone, which is right for a full
-        // catalog refresh and destructive when someone imports twelve
-        // products and then twelve more.
-        sweep: false,
-      });
       return;
     }
 
@@ -223,8 +236,36 @@ async function runJob(
  */
 export const IMAGES_PER_PRODUCT = 3;
 
+/**
+ * Products read and written per round of a chosen import.
+ *
+ * Small enough that the first ones appear within a few seconds of a large
+ * store, big enough that the per-batch bookkeeping is not the cost.
+ */
+const IMPORT_BATCH = 25;
+
+/**
+ * What a job has done so far, across however many batches it takes.
+ *
+ * A 2,200-product store is about sixteen minutes of reading, and the old shape
+ * fetched every page before writing a single row - so the task said "0 of
+ * 2,199" for the whole of it and nothing appeared on the products page until
+ * the end. Batches share this, and each one writes.
+ */
+interface Tally {
+  fetched: number;
+  upserted: number;
+  imagesDone: number;
+  imagesTotal: number;
+  errors: unknown[];
+}
+
 interface PersistOptions {
   discovered: number;
+  /** Accumulated across batches; a single-batch run just passes a fresh one. */
+  tally?: Tally;
+  /** False while more batches are coming, so the job is not closed early. */
+  finalize?: boolean;
   warnings: string[];
   signal: AbortSignal;
   /**
@@ -257,14 +298,17 @@ async function persistProducts(
 ): Promise<void> {
   const { core, fetchImpl } = deps;
   const { signal } = opts;
+  const tally = opts.tally ?? { fetched: 0, upserted: 0, imagesDone: 0, imagesTotal: 0, errors: [] };
+  const finalize = opts.finalize ?? true;
   const patch = (p: Parameters<typeof core.catalog.updateJob>[1]) => core.catalog.updateJob(jobId, p);
 
   const source = core.catalog.upsertSource(brandId, baseUrl, platform);
   patch({ sourceId: source.id, platform });
   core.catalog.setSourceStatus(source.id, 'importing');
 
-  patch({ stage: 'fetching_products', fetched: products.length, message: 'Saving products' });
-  let upserted = 0;
+  tally.fetched += products.length;
+  patch({ stage: 'fetching_products', fetched: tally.fetched, message: 'Saving products' });
+  let upserted = tally.upserted;
   const seenKeys: string[] = [];
 
   for (const p of products) {
@@ -301,29 +345,34 @@ async function persistProducts(
     });
     seenKeys.push(p.externalKey);
     upserted++;
-    if (upserted % 10 === 0) patch({ upserted, fetched: products.length });
+    if (upserted % 10 === 0) patch({ upserted, fetched: tally.fetched });
   }
-  patch({ upserted, fetched: products.length });
+  tally.upserted = upserted;
+  patch({ upserted, fetched: tally.fetched });
   if (opts.sweep) core.catalog.markMissingUnavailable(source.id, seenKeys);
 
   // Download images, the first few of each product only.
-  const everyImage = core.catalog.listImagesNeedingAssets(brandId, 50_000);
-  const perProduct = new Map<string, number>();
-  const pending = everyImage.filter((img) => {
-    const n = perProduct.get(img.productId) ?? 0;
-    if (n >= (opts.imagesPerProduct ?? IMAGES_PER_PRODUCT)) return false;
-    perProduct.set(img.productId, n + 1);
-    return true;
-  });
+  //
+  // Capped on the image's own position rather than by counting as we go. A
+  // running count is per call, so the second batch of an import saw the images
+  // the first batch had deliberately skipped as fresh work and fetched them -
+  // forty products asked for 170 pictures instead of 120. Position is a fact
+  // about the image, so it says the same thing on every batch and on every
+  // re-import.
+  const cap = opts.imagesPerProduct ?? IMAGES_PER_PRODUCT;
+  const pending = core.catalog.listImagesNeedingAssets(brandId, 50_000).filter((img) => img.position < cap);
+  const errors = [...(core.catalog.getJob(jobId)?.errors ?? [])] as any[];
+  const imagesBefore = tally.imagesDone;
+  tally.imagesTotal += pending.length;
+  let imagesDone = 0;
+  // Counted across the whole import, not per batch. Reporting this batch's own
+  // numbers made the row jump back to 0 of 25 every time a new one started.
   patch({
     stage: 'processing_assets',
-    imagesTotal: pending.length,
-    imagesDone: 0,
-    message: `Downloading ${pending.length} images`,
+    imagesTotal: tally.imagesTotal,
+    imagesDone: tally.imagesDone,
+    message: `Downloading ${tally.imagesTotal.toLocaleString()} images`,
   });
-
-  const errors = [...(core.catalog.getJob(jobId)?.errors ?? [])] as any[];
-  let imagesDone = 0;
 
   await mapPool(
     pending,
@@ -358,8 +407,9 @@ async function persistProducts(
         });
       } finally {
         imagesDone++;
+        tally.imagesDone = imagesBefore + imagesDone;
         if (imagesDone % 5 === 0 || imagesDone === pending.length) {
-          patch({ imagesDone, imagesTotal: pending.length, errors });
+          patch({ imagesDone: tally.imagesDone, imagesTotal: tally.imagesTotal, errors });
         }
       }
     },
@@ -374,17 +424,25 @@ async function persistProducts(
     return;
   }
 
+  tally.errors = errors;
+  if (!finalize) {
+    // More batches to come: record what this one did and leave the job open.
+    patch({ upserted, fetched: tally.fetched, imagesDone: tally.imagesDone, imagesTotal: tally.imagesTotal, errors });
+    core.catalog.setSourceStatus(source.id, 'importing');
+    return;
+  }
+
   // Deliberately not `listImagesNeedingAssets` again: the images this run
   // chose to skip are not missing, they are the ones past the cap.
   const stillMissing = pending.filter((img) => !img.assetRef).length - imagesDone;
   const partial =
-    !!errors.length || stillMissing > 0 || (opts.discovered > 0 && products.length < opts.discovered * 0.9);
+    !!errors.length || stillMissing > 0 || (opts.discovered > 0 && tally.upserted < opts.discovered * 0.9);
 
   patch({
     stage: partial ? 'partial' : 'completed',
     upserted,
-    imagesDone,
-    imagesTotal: pending.length,
+    imagesDone: tally.imagesDone,
+    imagesTotal: tally.imagesTotal,
     errors,
     warnings: opts.warnings,
     message: partial

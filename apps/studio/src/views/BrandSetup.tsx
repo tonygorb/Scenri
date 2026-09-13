@@ -189,7 +189,22 @@ export function BrandSetup() {
                 said "Looks right", it meant "and no products", and the step
                 was walked straight past.
               */}
-              {hasCatalog(scan) ? (
+              {scanning ? (
+                // Still looking. The obvious button said "Looks right" while a
+                // shop was being found, so pressing it landed on the brand and
+                // quietly threw the search away - the products were never
+                // offered and nothing said they had been missed.
+                <>
+                  <button type="button" className="sc-wiz-cta" disabled>
+                    <Spinner size="1" /> Looking for products
+                  </button>
+                  <div>
+                    <button type="button" className="sc-wiz-skip" onClick={() => void land(made)}>
+                      Skip and add the brand only
+                    </button>
+                  </div>
+                </>
+              ) : hasCatalog(scan) ? (
                 <>
                   <button type="button" className="sc-wiz-cta" onClick={() => setChoosing(true)}>
                     Add brand and products <ArrowRight size={12} />

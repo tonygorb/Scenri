@@ -20,12 +20,26 @@ const GIVE_UP_MS = 45_000;
 export interface CommerceScanState {
   scan: CommerceScan | null;
   scanning: boolean;
+  /**
+   * The look has finished, whatever it concluded.
+   *
+   * `!scanning` is not the same thing: there is a tick between asking for a
+   * scan and the request being in flight, and a caller that acts on the
+   * absence of a result during it acts before anything has been looked at.
+   */
+  settled: boolean;
   retry: () => void;
 }
 
-export function useCommerceScan(brandId: string | null): CommerceScanState {
+/**
+ * @param url the address to look at. Omitted on `/setup`, where the brand was
+ * just built from its own website; supplied on the products page, where
+ * someone types a store address of their own.
+ */
+export function useCommerceScan(brandId: string | null, url?: string): CommerceScanState {
   const [scan, setScan] = useState<CommerceScan | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [settled, setSettled] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const live = useRef(true);
 
@@ -41,16 +55,18 @@ export function useCommerceScan(brandId: string | null): CommerceScanState {
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     setScanning(true);
+    setSettled(false);
     setScan(null);
 
     const run = async () => {
       try {
-        const { scanId } = await api.catalogScan(brandId);
+        const { scanId } = await api.catalogScan(brandId, url);
         const deadline = Date.now() + GIVE_UP_MS;
         const poll = async () => {
           if (stopped || !live.current) return;
           if (Date.now() > deadline) {
             setScanning(false);
+            setSettled(true);
             return;
           }
           try {
@@ -64,13 +80,18 @@ export function useCommerceScan(brandId: string | null): CommerceScanState {
             // and nothing was lost, so the line simply says no catalog.
             setScan(state.result ?? null);
             setScanning(false);
+            setSettled(true);
           } catch {
             setScanning(false);
+            setSettled(true);
           }
         };
         timer = setTimeout(poll, POLL_MS);
       } catch {
-        if (!stopped) setScanning(false);
+        if (!stopped) {
+          setScanning(false);
+          setSettled(true);
+        }
       }
     };
     void run();
@@ -79,8 +100,8 @@ export function useCommerceScan(brandId: string | null): CommerceScanState {
       stopped = true;
       if (timer) clearTimeout(timer);
     };
-  }, [brandId, attempt]);
+  }, [brandId, url, attempt]);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
-  return { scan, scanning, retry };
+  return { scan, scanning, settled, retry };
 }

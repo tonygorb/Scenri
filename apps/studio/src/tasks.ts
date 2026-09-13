@@ -237,7 +237,22 @@ export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string })
   } catch {
     /* a job url we cannot parse is still a job */
   }
-  const count = j.discovered ? `${j.upserted} of ${j.discovered} products` : `${j.upserted} products`;
+  // What the job is doing right now, not only what it has saved. Reading
+  // 2,199 pages takes about sixteen minutes and writes nothing until a batch
+  // lands, so counting `upserted` alone left the row reading "0 of 2,199" for
+  // the whole of it.
+  const count =
+    j.stage === 'discovering'
+      ? j.discovered
+        ? `${j.discovered.toLocaleString()} found`
+        : 'looking for products'
+      : j.stage === 'fetching_products' && j.fetched > j.upserted
+        ? `read ${j.fetched.toLocaleString()} of ${j.discovered.toLocaleString()}`
+        : j.stage === 'processing_assets' && j.imagesTotal
+          ? `${j.imagesDone.toLocaleString()} of ${j.imagesTotal.toLocaleString()} pictures`
+          : j.discovered
+            ? `${j.upserted.toLocaleString()} of ${j.discovered.toLocaleString()} products`
+            : `${j.upserted.toLocaleString()} products`;
   return {
     id: `catalog:${j.id}`,
     kind: 'catalog',
