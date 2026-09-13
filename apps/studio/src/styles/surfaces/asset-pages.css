@@ -925,26 +925,35 @@
    arrows sit on the middle of the picture, not of the row: every reference
    carries its role in a line underneath. */
 .sc-refset-rail {
-  --sc-rail-arrow-y: calc((100% - 23px) / 2);
+  --sc-refset-n: min(3, var(--sc-rail-count, 3));
+  --sc-refset-gap: 18px;
+  --sc-refset-max: 400px;
+  --sc-refset-w: min(
+    var(--sc-refset-max),
+    calc((100% - 4px - (var(--sc-refset-n) - 1) * var(--sc-refset-gap)) / var(--sc-refset-n))
+  );
+  /* The caption band under every reference: a fixed 20px line 8px below the
+     picture. Fixed, because the arrows are placed from it. A percentage
+     inside a custom property resolves where it is used, not where it is
+     written, so a width expression put into `top` became a share of the
+     row's height and threw the arrows 128px up the page. This is the
+     row's height less the band, halved, which is the middle of the picture
+     and nothing else. */
+  --sc-refset-cap: 28px;
+  --sc-rail-arrow-y: calc(50% - var(--sc-refset-cap) / 2);
 }
 .sc-refset-rail::before,
 .sc-refset-rail::after {
   content: none;
 }
 .sc-refset {
-  --sc-refset-count: 3;
-  --sc-refset-n: min(3, var(--sc-refset-count));
-  --sc-refset-gap: 18px;
-  --sc-refset-max: 400px;
   gap: var(--sc-refset-gap);
 }
 .sc-refset > li {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sc-space-4);
-  flex: 0 0
-    min(var(--sc-refset-max), calc((100% - (var(--sc-refset-n) - 1) * var(--sc-refset-gap)) / var(--sc-refset-n)));
+  flex: 0 0 var(--sc-refset-w);
 }
 .sc-refset-tile {
   display: block;
@@ -971,9 +980,17 @@
   height: 100%;
   object-fit: contain;
 }
+/* The band the arrows are measured against: one line, never two. */
 .sc-refset-lb {
+  height: 20px;
+  margin-top: 8px;
+  max-width: 100%;
   font-size: var(--sc-text-body);
+  line-height: 20px;
   color: var(--sc-fg2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* The photographs they were built from. Provenance, so they sit under the
@@ -1048,8 +1065,8 @@
 @media (max-width: 767px) {
   /* A phone shows three at the floor and scrolls the rest, and the row bleeds
      to the gutter so the first tile can start at the screen edge. */
-  .sc-refset {
-    --sc-refset-n: min(2, var(--sc-refset-count));
+  .sc-refset-rail {
+    --sc-refset-n: min(2, var(--sc-rail-count, 2));
     --sc-refset-gap: 10px;
   }
   .sc-presenterpage-source {

@@ -104,13 +104,23 @@
 .sc-rail-arrow:focus-visible {
   opacity: 1;
 }
-/* A direction with nothing left in it fades out and stops taking presses. It
-   is not removed: a control that disappears under the cursor moves the one
-   beside it, and the row twitches every time you reach the end. */
+/* A direction with nothing left in it dims and stops taking presses. It is
+   neither removed nor made invisible: a control that disappears under the
+   cursor moves the one beside it, and one you cannot see at all leaves you
+   wondering whether the row ended or the arrow broke. The system's one
+   disabled strength says which it is. */
 .sc-rail:not([data-overflow-left]) .sc-rail-arrow.prev,
 .sc-rail:not([data-overflow-right]) .sc-rail-arrow.next {
-  opacity: 0;
   pointer-events: none;
+}
+.sc-rail:hover:not([data-overflow-left]) .sc-rail-arrow.prev,
+.sc-rail:hover:not([data-overflow-right]) .sc-rail-arrow.next {
+  opacity: var(--sc-disabled);
+}
+/* A row that fits offers nothing to press in either direction, so it says so
+   by having no arrows, rather than by showing two dead ones. */
+.sc-rail:not([data-overflow-left]):not([data-overflow-right]) .sc-rail-arrow {
+  display: none;
 }
 
 /* Touch widths: the swipe is the control, and an arrow only fights it. The

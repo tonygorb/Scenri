@@ -23,7 +23,9 @@ import { useRefRail } from './useRefRail.js';
  * references want different widths, so the surface sets those on the track;
  * where the arrows sit vertically is `--sc-rail-arrow-y` (the middle of the
  * row by default, which is wrong wherever the items carry a caption under
- * them); and a surface that does not want the edge fades turns them off.
+ * them); and a surface that does not want the edge fades turns them off. The
+ * count is put back on the row as `--sc-rail-count`, so a surface can size
+ * its items from it without being handed the number twice.
  */
 export function Rail({
   count,
@@ -46,7 +48,11 @@ export function Rail({
 }) {
   const { shellRef, railRef, page } = useRefRail<HTMLDivElement, HTMLOListElement>(count);
   return (
-    <div className={className ? `sc-rail ${className}` : 'sc-rail'} ref={shellRef}>
+    <div
+      className={className ? `sc-rail ${className}` : 'sc-rail'}
+      ref={shellRef}
+      style={{ '--sc-rail-count': count } as CSSProperties}
+    >
       <button type="button" className="sc-rail-arrow prev" aria-label={`${label}, earlier`} onClick={() => page(-1)}>
         <CaretLeft size={13} weight="bold" />
       </button>

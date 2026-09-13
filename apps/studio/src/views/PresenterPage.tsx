@@ -275,13 +275,7 @@ export function PresenterPage() {
             the frames are 4:5 already, and a legacy or curated one that is
             not letterboxes rather than losing its feet. */}
         {frames.length > 0 ? (
-          <Rail
-            count={frames.length}
-            label="Reference set"
-            className="sc-refset-rail"
-            trackClassName="sc-refset"
-            style={{ '--sc-refset-count': frames.length } as CSSProperties}
-          >
+          <Rail count={frames.length} label="Reference set" className="sc-refset-rail" trackClassName="sc-refset">
             {frames.map((f) => (
               <li key={f.src}>
                 <button
