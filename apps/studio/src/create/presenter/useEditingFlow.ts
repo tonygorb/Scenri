@@ -100,10 +100,23 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
 
   const s = usePresenterDraft(brand.id, draftId);
   const d = s.draft;
-  // one conversation per edit session, so a second visit to the same person
-  // arrives line by line rather than already said
-  const memoryKey = `presenter-edit:${brand.id}:${presenterId}:${d?.id ?? 'new'}`;
-  const [resumed] = useState(!!s.draft);
+  // One conversation per edit session, so a second visit to the same person
+  // arrives line by line rather than already said. Held back until the draft
+  // is here: keyed on 'new' it wrote a slot of its own for the render or two
+  // before the draft landed, which no `forgetSaid` ever cleared.
+  const memoryKey = d ? `presenter-edit:${brand.id}:${presenterId}:${d.id}` : undefined;
+  /**
+   * An edit session's opening transcript is seeded from the saved record, not
+   * spoken to you.
+   *
+   * This read `useState(!!s.draft)`, which could never be true: the editor
+   * opens the draft in an effect on mount, so the first render always has
+   * none. The transcript therefore arrived as four to six brand new lines the
+   * moment the draft landed, each waiting a beat for the one before it, and
+   * the panel grew in steps while you watched. What is on screen when the
+   * record arrives is history; only what happens after it is conversation.
+   */
+  const resumed = true;
 
   // Only a stale view, or a missing one once Build them was chosen, is drawn
   // without a click: opening the editor never spends a generation.
@@ -134,7 +147,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
 
   const leave = useCallback(
     (to: string) => {
-      forgetSaid(memoryKey);
+      if (memoryKey) forgetSaid(memoryKey);
       onLeave(to);
     },
     [memoryKey, onLeave],

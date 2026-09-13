@@ -924,16 +924,25 @@
   --sc-refset-n: 3;
   --sc-refset-gap: 14px;
   --sc-refset-floor: 150px;
-  --sc-refset-max: 380px;
+  --sc-refset-max: 400px;
   display: flex;
   flex-wrap: nowrap;
   /* `safe` centres a set that fits and falls back to the start edge when it
      does not, so a long set never puts its first reference out of reach. */
   justify-content: safe center;
   gap: var(--sc-refset-gap);
-  width: 100%;
-  margin: 0 auto;
-  padding: 2px 0;
+  /* The one thing on this page that leaves the column.
+     Six full-length views divided by 1016px is a 155px tile, and a standing
+     figure inside one is about forty pixels of person: a row that cannot be
+     read is not a turnaround. The words keep the measure they are readable
+     at; the pictures take the window, which is the whole point of the page.
+     `overflow-x: hidden` on the pane clips any scrollbar overshoot, and the
+     padding is deep enough that the clip never reaches a tile. */
+  width: 100vw;
+  max-width: 100vw;
+  margin-inline: calc(50% - 50vw);
+  padding: 2px max(32px, env(safe-area-inset-left));
+  scroll-padding-inline: max(32px, env(safe-area-inset-left));
   list-style: none;
   overflow-x: auto;
   scroll-snap-type: x proximity;
@@ -1054,7 +1063,6 @@
   .sc-refset {
     --sc-refset-gap: 10px;
     --sc-refset-floor: 104px;
-    margin-inline: calc(var(--sc-gutter) * -1);
     padding-inline: var(--sc-gutter);
     scroll-padding-inline: var(--sc-gutter);
   }
