@@ -119,11 +119,11 @@
 .sc-rail:hover:not([data-overflow-right]) .sc-rail-arrow.next {
   opacity: var(--sc-disabled);
 }
-/* A row that fits offers nothing to press in either direction, so it says so
-   by having no arrows, rather than by showing two dead ones. */
-.sc-rail:not([data-overflow-left]):not([data-overflow-right]) .sc-rail-arrow {
-  display: none;
-}
+/* A row that fits keeps its arrows and shows them spent. Taking them away was
+   tried and is the same fault in another place: a control that is there under
+   one presenter and gone under the next reads as broken, and the rule was
+   always that an end dims rather than disappears. They are still absent on a
+   touch width, where the swipe is the control. */
 
 /* Touch widths: the swipe is the control, and an arrow only fights it. The
    same line every other rail in the app draws. */
