@@ -27,8 +27,6 @@ import {
 export const NOT_INSTALLED_REASON = 'Codex CLI is not installed on this computer';
 export const NOT_AUTHENTICATED_REASON = 'Codex CLI is installed but not signed in';
 export const UNVERIFIED_REASON = 'Could not verify Codex on this computer';
-/** @deprecated kept so older callers still compile; prefer the two specific reasons. */
-export const NOT_AVAILABLE_REASON = 'Codex CLI not found or not signed in (run: codex login)';
 export const DEFAULT_TIMEOUT_MS = 300_000;
 /** A probe answer is either quick or worthless: past this it is "could not verify". */
 export const PROBE_TIMEOUT_MS = 10_000;
