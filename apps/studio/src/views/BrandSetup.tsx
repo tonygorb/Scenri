@@ -134,7 +134,7 @@ export function BrandSetup() {
   const { scan, scanning, retry } = useCommerceScan(made?.id ?? null);
   const products = productLine(scan, scanning);
 
-  const importChosen = async (urls: string[]) => {
+  const startImport = async (urls?: string[]) => {
     if (!made) return;
     setImporting(true);
     try {
@@ -182,14 +182,36 @@ export function BrandSetup() {
         <div className="sc-wiz-fields">
           {made ? (
             <div style={{ textAlign: 'center' }}>
-              <button type="button" className="sc-wiz-cta" onClick={() => void land(made)}>
-                Looks right <ArrowRight size={12} />
-              </button>
-              <div>
-                <button type="button" className="sc-wiz-skip" onClick={() => void land(made, 'brand')}>
-                  {report && kitNeedsHand(report) ? 'Finish the kit first' : 'Edit the kit first'}
-                </button>
-              </div>
+              {/*
+                A shop on the site is not a side quest. When one is found the
+                main button goes to the products, because the alternative is
+                what happened the first time this shipped: the obvious button
+                said "Looks right", it meant "and no products", and the step
+                was walked straight past.
+              */}
+              {hasCatalog(scan) ? (
+                <>
+                  <button type="button" className="sc-wiz-cta" onClick={() => setChoosing(true)}>
+                    Add brand and products <ArrowRight size={12} />
+                  </button>
+                  <div>
+                    <button type="button" className="sc-wiz-skip" onClick={() => void land(made)}>
+                      Just the brand
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button type="button" className="sc-wiz-cta" onClick={() => void land(made)}>
+                    Looks right <ArrowRight size={12} />
+                  </button>
+                  <div>
+                    <button type="button" className="sc-wiz-skip" onClick={() => void land(made, 'brand')}>
+                      {report && kitNeedsHand(report) ? 'Finish the kit first' : 'Edit the kit first'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ) : !scratch ? (
             <>
@@ -376,11 +398,6 @@ export function BrandSetup() {
                     ))}
                   </ul>
                 )}
-                {hasCatalog(scan) && (
-                  <button type="button" className="sc-wizpick-open" onClick={() => setChoosing(true)}>
-                    Choose products
-                  </button>
-                )}
                 {!scanning && scan && (scan.verdict === 'blocked' || scan.verdict === 'likely') && (
                   <button type="button" className="sc-wizpick-open" onClick={retry}>
                     Try the catalogue again
@@ -391,8 +408,15 @@ export function BrandSetup() {
           </div>
         </div>
       </div>
-      {choosing && scan && (
-        <ProductChoice scan={scan} busy={importing} onImport={importChosen} onDismiss={() => setChoosing(false)} />
+      {choosing && scan && made && (
+        <ProductChoice
+          brandId={made.id}
+          scan={scan}
+          busy={importing}
+          onImport={(urls) => void startImport(urls)}
+          onImportAll={() => void startImport()}
+          onDismiss={() => setChoosing(false)}
+        />
       )}
     </div>
   );

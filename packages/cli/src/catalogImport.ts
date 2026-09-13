@@ -125,6 +125,9 @@ async function runJob(
     // every tenth.
     let lastStage = '';
     let lastMessage: string | null = null;
+    // The high-water mark, because aborting `fetchAll` throws away the
+    // products it had and the pipeline's closing emit then reports zero.
+    let mostRead = 0;
     const result = await runCatalogIngestion({
       url,
       fetchImpl,
@@ -132,6 +135,7 @@ async function runJob(
       onProgress: (p: JobProgress) => {
         const stage = p.stage === 'queued' ? 'discovering' : p.stage;
         const message = p.message ?? null;
+        mostRead = Math.max(mostRead, p.fetched);
         const notable = stage !== lastStage || message !== lastMessage || p.fetched % 10 === 0;
         if (!notable) return;
         lastStage = stage;
@@ -149,7 +153,17 @@ async function runJob(
     });
 
     if (signal.aborted) {
-      patch({ stage: 'cancelled', message: 'Import stopped', finished: true });
+      // Aborting mid-fetch makes the pipeline throw `fetch_failed: aborted`
+      // and then conclude `no_products_fetched`, which reads as "this store
+      // could not be read" about a store that was answering perfectly. Both
+      // describe the stop, not the site, so neither is kept.
+      patch({
+        stage: 'cancelled',
+        fetched: mostRead,
+        errors: [],
+        message: mostRead ? `Stopped after reading ${mostRead} products` : 'Stopped before anything was saved',
+        finished: true,
+      });
       return;
     }
 
@@ -182,6 +196,12 @@ async function runJob(
       sweep: true,
     });
   } catch (err: any) {
+    // Stopping during discovery throws out of the pipeline, and the throw is
+    // the stop rather than a fault of the site's.
+    if (signal.aborted) {
+      patch({ stage: 'cancelled', errors: [], message: 'Stopped before anything was saved', finished: true });
+      return;
+    }
     patch({
       stage: 'failed',
       message: String(err?.message ?? err),

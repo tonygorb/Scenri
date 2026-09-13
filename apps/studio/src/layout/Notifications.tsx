@@ -12,6 +12,7 @@ import {
   XCircle,
 } from '@phosphor-icons/react';
 import { api, thumbUrl } from '../api.js';
+import { ImportProgress } from '../views/ImportProgress.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { agoLabel, elapsedLabel, elapsedSec, type NotificationItem, type Task } from '../tasks.js';
@@ -126,6 +127,8 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
   const { push } = useToasts();
   const [tab, setTab] = useState<TabKey>('tasks');
   const tabsRef = useRef<HTMLDivElement>(null);
+  /** The import someone opened, if any. */
+  const [detailJob, setDetailJob] = useState<string | null>(null);
   // seconds tick on their own; the poll is slower than the clock
   const now = useNow(1000);
 
@@ -142,6 +145,14 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
       void api
         .cancelAssetBuild(brand.id, taskId.slice(6))
         .catch((e) => push(failureToast(e, 'Could not stop this build')));
+      return;
+    }
+    // A catalog import can be stopped too. The route has always existed and
+    // nothing ever called it, so a 2,000-product import was unstoppable.
+    if (taskId.startsWith('catalog:')) {
+      void api
+        .cancelCatalogJob(brand.id, taskId.slice(8))
+        .catch((e) => push(failureToast(e, 'Could not stop this import')));
     }
   };
 
@@ -189,7 +200,16 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
           tasks.length === 0 ? (
             <p className="sc-notif-empty">Nothing running. Generations show up here as they go.</p>
           ) : (
-            tasks.map((t) => <TaskRow key={t.id} task={t} now={now} onNavigate={onClose} onCancel={cancelTask} />)
+            tasks.map((t) => (
+              <TaskRow
+                key={t.id}
+                task={t}
+                now={now}
+                onNavigate={onClose}
+                onCancel={cancelTask}
+                onOpenDetail={setDetailJob}
+              />
+            ))
           )
         ) : feed.length === 0 ? (
           <p className="sc-notif-empty">You have no notifications yet.</p>
@@ -205,6 +225,7 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
           </button>
         </div>
       ) : null}
+      {detailJob && <ImportProgress brandId={brand.id} jobId={detailJob} onDismiss={() => setDetailJob(null)} />}
     </>
   );
 }
@@ -257,19 +278,27 @@ function TaskRow({
   now,
   onNavigate,
   onCancel,
+  onOpenDetail,
 }: {
   task: Task;
   now: number;
   /** The row is a real Link; this only closes the panel behind it. */
   onNavigate: () => void;
   onCancel: (taskId: string) => void;
+  /** A running import opens onto itself rather than navigating somewhere else. */
+  onOpenDetail: (jobId: string) => void;
 }) {
   const running = task.state === 'running';
-  // Both kinds of work that can actually be stopped. A catalog import cannot.
-  const stoppable = task.id.startsWith('node:') || task.id.startsWith('build:');
+  // Every kind of work that can actually be stopped. A catalog import can:
+  // its route existed from the start and the UI simply never called it.
+  const stoppable = task.id.startsWith('node:') || task.id.startsWith('build:') || task.id.startsWith('catalog:');
   // past 60s, the cancel control is the one thing on this row worth making
   // louder than the rest, since it is the only way out of a stuck run
   const urgent = running && elapsedSec(task.startedAt, now) >= 60;
+  // While a catalog import runs, the useful destination is the import itself:
+  // the products it is writing are not all there yet, so sending someone to
+  // the products page mid-run shows them a half-filled shelf.
+  const detailJobId = running && task.id.startsWith('catalog:') ? task.id.slice(8) : null;
   const body = (
     <>
       <span className="sc-notif-thumb">
@@ -291,7 +320,17 @@ function TaskRow({
   );
   return (
     <div className="sc-notif-row-wrap">
-      {task.href ? (
+      {detailJobId ? (
+        <button
+          type="button"
+          className="sc-notif-row"
+          data-state={task.state}
+          data-running={running || undefined}
+          onClick={() => onOpenDetail(detailJobId)}
+        >
+          {body}
+        </button>
+      ) : task.href ? (
         // A real Link: the row's destination survives middle click and Cmd
         // click; a plain click still closes the panel behind the navigation.
         <Link

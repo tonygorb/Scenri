@@ -20,6 +20,7 @@ import type {
   CodexSetupResult,
   CodexSetupState,
   CodexStatus,
+  CatalogCandidate,
   CommerceScan,
   CommerceScanState,
   ScrapeReport,
@@ -181,6 +182,8 @@ export const api = {
     req<{ jobId: string }>('POST', `/api/brands/${brandId}/catalog/import`, urls ? { url, urls } : { url }),
   catalogScan: (brandId: string, url?: string) =>
     req<{ scanId: string }>('POST', `/api/brands/${brandId}/catalog/scan`, url ? { url } : {}),
+  catalogDetails: (brandId: string, urls: string[]) =>
+    req<{ products: CatalogCandidate[] }>('POST', `/api/brands/${brandId}/catalog/details`, { urls }),
   catalogScanState: (brandId: string, scanId: string) =>
     req<CommerceScanState>('GET', `/api/brands/${brandId}/catalog/scans/${scanId}`),
   catalogJob: (brandId: string, jobId: string) =>

@@ -191,6 +191,33 @@ describe('scanning a site, then importing only what was chosen', () => {
     expect(res.json().error).toMatch(/whole catalogue/i);
   });
 
+  /**
+   * Aborting mid-fetch makes the pipeline throw `fetch_failed: aborted` and
+   * then conclude `no_products_fetched`, which reads as "this store could not
+   * be read" about a store that was answering every request. Both describe the
+   * stop, not the site.
+   */
+  it('reports a stopped import as stopped, with no invented faults', async () => {
+    const start = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brandId}/catalog/import`,
+      payload: { url: 'https://shop.example' },
+    });
+    const { jobId } = start.json();
+    await new Promise((r) => setTimeout(r, 60));
+    await app.inject({ method: 'POST', url: `/api/brands/${brandId}/catalog/jobs/${jobId}/cancel` });
+
+    let job: any;
+    for (let i = 0; i < 120; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      job = (await app.inject({ method: 'GET', url: `/api/brands/${brandId}/catalog/jobs/${jobId}` })).json();
+      if (job.finishedAt) break;
+    }
+    expect(job.stage).toBe('cancelled');
+    expect(job.errors).toHaveLength(0);
+    expect(job.message).toMatch(/^Stopped/);
+  });
+
   it('still imports the whole catalog when nothing is chosen', async () => {
     const job = await importUrls();
     expect(['completed', 'partial']).toContain(job.stage);

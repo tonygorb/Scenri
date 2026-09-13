@@ -1,5 +1,5 @@
 import { type ActivityNode, type AssetBuild, type CatalogImportJob, nodeLabel } from './api.js';
-import { kitPath, presenterPath, productsPath, scenePath, shotPath } from './routes.js';
+import { presenterPath, productsPath, scenePath, shotPath } from './routes.js';
 import { local } from './storage.js';
 
 /**
@@ -226,9 +226,11 @@ export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string })
       ? 'done'
       : j.stage === 'partial'
         ? 'partial'
-        : j.stage === 'failed'
-          ? 'error'
-          : 'running';
+        : j.stage === 'cancelled'
+          ? 'cancelled'
+          : j.stage === 'failed'
+            ? 'error'
+            : 'running';
   let host = j.url;
   try {
     host = new URL(j.url).hostname.replace(/^www\./, '');
@@ -243,15 +245,18 @@ export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string })
     title: host,
     subtitle: shopless
       ? 'Catalog import · no shop on this site'
-      : state === 'error'
+      : state === 'error' || state === 'cancelled'
         ? `Catalog import · ${j.message ?? 'failed'}`
         : `Catalog import · ${count}`,
     thumb: null,
     percent: shopless ? 100 : catalogPercent(j),
     startedAt: j.createdAt,
     // A shop-less site has nothing to show in the kit; the products page is
-    // where someone would add one by hand.
-    href: shopless ? productsPath(brand) : kitPath(brand),
+    // where someone would add one by hand. Everything else goes to the
+    // products it is importing - this used to point at `kitPath`, which
+    // redirects to the brand kit settings pane, a screen with nothing to do
+    // with the import on it.
+    href: productsPath(brand),
   };
 }
 

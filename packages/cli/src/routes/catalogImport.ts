@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Core } from '@scenri/core';
 import { cancelCatalogImport, startCatalogImport } from '../catalogImport.js';
 import { getScan, startCatalogScan } from '../catalogScan.js';
+import { fetchProductPages } from '@scenri/catalog';
 
 export function registerCatalogImportRoutes(
   app: FastifyInstance,
@@ -41,6 +42,39 @@ export function registerCatalogImportRoutes(
     const scan = getScan((req.params as any).scanId);
     if (!scan || scan.brandId !== brandId) return reply.status(404).send({ error: 'scan not found' });
     return scan;
+  });
+  // Details for a handful of products the chooser has scrolled to.
+  //
+  // Discovery hands back every product URL for free, because a sitemap is a
+  // list of addresses. Turning an address into a card costs one page read, so
+  // those are paid for as someone scrolls rather than all at once.
+  app.post('/api/brands/:id/catalog/details', async (req, reply) => {
+    const brand = core.store.getBrand((req.params as any).id);
+    if (!brand) return reply.status(404).send({ error: 'brand not found' });
+    const asked = (req.body as any)?.urls;
+    if (!Array.isArray(asked) || asked.some((u) => typeof u !== 'string')) {
+      return reply.status(400).send({ error: 'urls must be a list of product addresses' });
+    }
+    const urls = (asked as string[]).slice(0, 48);
+    if (!urls.length) return { products: [] };
+    let origin: string;
+    try {
+      origin = new URL(urls[0]).origin;
+    } catch {
+      return reply.status(400).send({ error: 'urls must be a list of product addresses' });
+    }
+    const sameSite = urls.filter((u) => {
+      try {
+        return new URL(u).origin === origin;
+      } catch {
+        return false;
+      }
+    });
+    const products = await fetchProductPages({ fetchImpl: fetchImpl ?? fetch, baseUrl: origin }, sameSite, {
+      concurrency: 4,
+      maxBytes: 1_500_000,
+    });
+    return { products };
   });
   app.post('/api/brands/:id/catalog/import', async (req, reply) => {
     const brandId = (req.params as any).id;
