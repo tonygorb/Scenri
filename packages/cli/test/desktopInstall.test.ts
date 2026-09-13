@@ -301,3 +301,60 @@ describe('stableExecPath', () => {
     );
   });
 });
+
+/**
+ * The icon is offered after the server is already listening, so installDesktop
+ * answers with a value for every way it can fail. A rejection here used to
+ * unwind through serve() to the process-level catch and exit(1): a tester on
+ * 0.9.2 pressed Y and lost a running Scenri.
+ */
+describe('installDesktop never throws', () => {
+  it('reports probe-failed when the OS will not say where the Desktop is', async () => {
+    const d = deps('win32', {
+      env: { PATH: 'C:\\Windows\\System32' },
+      runImpl: async () => {
+        throw Object.assign(new Error('powershell.exe timed out after 30000ms'), { code: 'ETIMEDOUT' });
+      },
+    });
+    const res = await installDesktop(d);
+    expect(res).toMatchObject({ ok: false, reason: 'probe-failed' });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toContain('Desktop folder');
+    expect(existsSync(join(launcherDir(root), 'launcher.json'))).toBe(false);
+  });
+
+  it('reports no-desktop when the OS answers with nothing', async () => {
+    const d = deps('win32', { env: { PATH: 'C:\\Windows\\System32' }, runImpl: async () => '   \n' });
+    expect(await installDesktop(d)).toMatchObject({ ok: false, reason: 'no-desktop' });
+  });
+
+  it('reports a failure when the launcher assets cannot be copied', async () => {
+    const d = deps('darwin', { assetsDir: join(root, 'no-such-launcher-dir') });
+    const res = await installDesktop(d);
+    expect(res).toMatchObject({ ok: false, reason: 'failed' });
+    if (!res.ok) {
+      expect(res.message).toContain('launcher files');
+      // One line for a person, never a stack.
+      expect(res.message.split('\n')).toHaveLength(1);
+    }
+  });
+
+  it('reports a failure, with one line and no stack, when the artifact cannot be written', async () => {
+    const d = deps('win32', {
+      runImpl: async (_cmd, args, opts) => {
+        if (args.join(' ').includes('CreateShortcut') && opts?.env?.SCENRI_TARGET) {
+          throw new Error('Access is denied\n   at Microsoft.PowerShell.Commands\n   at System.Management');
+        }
+        return '';
+      },
+    });
+    const res = await installDesktop(d);
+    expect(res).toMatchObject({ ok: false, reason: 'failed' });
+    if (!res.ok) {
+      expect(res.message).toContain('Access is denied');
+      expect(res.message).not.toContain('at System.Management');
+      expect(res.message.split('\n')).toHaveLength(1);
+    }
+    expect(existsSync(join(launcherDir(root), 'launcher.json'))).toBe(false);
+  });
+});

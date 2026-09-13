@@ -13,7 +13,7 @@ import { compareSemver, defaultHome, entryOf, listStaged, newestStaged } from '.
 import { adoptRunningInstall, type VerifyImpl } from './adopt.js';
 import { openInBrowser } from './browser.js';
 import { showDialog } from './dialog.js';
-import { type InstallDeps, type InstallResult, installDesktop, removeDesktop } from './install.js';
+import { type InstallDeps, type InstallResult, failureDetail, installDesktop, removeDesktop } from './install.js';
 import { appendLog } from './log.js';
 import { openScenri } from './open.js';
 import { serveStartingPage } from './startingPage.js';
@@ -67,6 +67,23 @@ export async function addToDesktop(
   ownEntry: string,
   say: (line: string) => void = console.log,
   over: Partial<InstallDeps & { installKind: InstallKind; pkg: string; verifyImpl: VerifyImpl }> = {},
+): Promise<InstallResult> {
+  try {
+    return await addOrRepair(ownEntry, say, over);
+  } catch (err) {
+    // Adoption copies a build and runs a verify hop; reading the package meta
+    // touches disk. All of it can fail, and none of it may take Scenri down:
+    // this is an optional icon, offered after the server is already listening.
+    const message = `Scenri could not add the desktop icon (${failureDetail(err)}).`;
+    say(`  ${message}`);
+    return { ok: false, reason: 'failed', message };
+  }
+}
+
+async function addOrRepair(
+  ownEntry: string,
+  say: (line: string) => void,
+  over: Partial<InstallDeps & { installKind: InstallKind; pkg: string; verifyImpl: VerifyImpl }>,
 ): Promise<InstallResult> {
   const deps: InstallDeps = { ...installDeps(ownEntry), ...over };
   const pkg = over.pkg ?? readMeta().name;

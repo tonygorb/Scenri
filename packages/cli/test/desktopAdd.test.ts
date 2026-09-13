@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { addToDesktop } from '../src/desktop/cli.js';
+import { offerDesktop } from '../src/desktop/offer.js';
 import { entryOf } from '../src/update/versionsDir.js';
 
 /**
@@ -72,5 +73,69 @@ describe('addToDesktop', () => {
     });
     expect(res).toMatchObject({ ok: false, reason: 'unsupported' });
     expect(existsSync(join(root, 'Desktop', 'Scenri.app'))).toBe(false);
+  });
+});
+
+/**
+ * The whole point of the 0.9.2 fix: yes attempts, no skips, and neither can
+ * stop a server that is already listening. These wire the real addToDesktop
+ * into the real offerDesktop, exactly as serve() does, and then break the
+ * things underneath it.
+ */
+describe('the first-run offer, composed as serve() composes it', () => {
+  const askYes = async () => 'Y';
+
+  it('answers rather than throwing when adoption itself blows up', async () => {
+    const said: string[] = [];
+    const ownEntry = join(root, 'nowhere', 'dist', 'index.js');
+    await expect(
+      offerDesktop({
+        ask: askYes,
+        add: () => addToDesktop(ownEntry, (l) => said.push(l), base(ownEntry, true)),
+        decline: () => expect.unreachable('a yes is not a decline'),
+        say: (l) => said.push(l),
+      }),
+    ).resolves.toBeUndefined();
+    expect(said.join('\n')).toContain('Scenri is running anyway');
+    expect(existsSync(join(root, 'Desktop', 'Scenri.app'))).toBe(false);
+  });
+
+  it('answers rather than throwing when the OS will not say where the Desktop is', async () => {
+    const said: string[] = [];
+    const entry = plantNpx('0.8.4');
+    await expect(
+      offerDesktop({
+        ask: askYes,
+        add: () =>
+          addToDesktop(entry, (l) => said.push(l), {
+            ...base(entry, true),
+            platform: 'win32',
+            env: { PATH: 'C:\\Windows\\System32' },
+            runImpl: async () => {
+              throw new Error('powershell.exe timed out after 30000ms');
+            },
+          }),
+        decline: () => expect.unreachable('a yes is not a decline'),
+        say: (l) => said.push(l),
+      }),
+    ).resolves.toBeUndefined();
+    expect(said.join('\n')).toContain('Scenri is running anyway');
+  });
+
+  it('skips the attempt entirely on a no, and writes nothing', async () => {
+    const said: string[] = [];
+    const entry = plantNpx('0.8.4');
+    let declined = 0;
+    await offerDesktop({
+      ask: async () => 'n',
+      add: () => addToDesktop(entry, (l) => said.push(l), base(entry, true)),
+      decline: () => {
+        declined++;
+      },
+      say: (l) => said.push(l),
+    });
+    expect(declined).toBe(1);
+    expect(existsSync(join(root, 'Desktop', 'Scenri.app'))).toBe(false);
+    expect(existsSync(join(root, '.scenri', 'launcher', 'launcher.json'))).toBe(false);
   });
 });
