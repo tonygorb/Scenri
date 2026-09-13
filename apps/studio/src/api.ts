@@ -19,6 +19,8 @@ import type {
   CatalogSource,
   CodexSetupResult,
   CodexSetupState,
+  CodexStatus,
+  ScrapeReport,
   DemoProduct,
   EngineInfo,
   FeedNode,
@@ -48,7 +50,8 @@ export const api = {
   /** Every brand as the switcher and the route resolver need it, never the document. */
   /** One brand's whole document. */
   createBrand: (brand: any) => req<Brand>('POST', '/api/brands', { brand }),
-  brandFromUrl: (url: string) => req<Brand & { warnings: string[] }>('POST', '/api/brands/from-url', { url }),
+  brandFromUrl: (url: string) =>
+    req<Brand & { warnings: string[]; report: ScrapeReport }>('POST', '/api/brands/from-url', { url }),
   updateBrand: (id: string, brand: any) => req<Brand>('PUT', `/api/brands/${id}`, { brand }),
   deleteBrand: (id: string) => req<{ ok: true }>('DELETE', `/api/brands/${id}`),
   /**
@@ -91,8 +94,13 @@ export const api = {
     req<{ ok: true; added: number; nodeIds: string[] }>('POST', `/api/sets/${id}/nodes`, { nodeIds }),
   removeFromSet: (id: string, nodeId: string) => req<{ ok: true }>('DELETE', `/api/sets/${id}/nodes/${nodeId}`),
   engines: () => req<EngineInfo[]>('GET', '/api/engines'),
-  codexStatus: () =>
-    req<{ state: CodexSetupState; reason?: string; platform?: SetupPlatform }>('GET', '/api/engines/codex/status'),
+  /** `force` pays for a real `codex exec` rather than reading the last verdict. */
+  codexStatus: (o: { force?: boolean } = {}) =>
+    req<CodexStatus>('GET', `/api/engines/codex/status${o.force ? '?force=1' : ''}`),
+  /** Stop passing named credentials to codex. Nothing on the machine changes. */
+  repairCodexEnv: (keys: string[]) =>
+    req<CodexStatus & { ok: true }>('POST', '/api/engines/codex/repair-env', { keys }),
+  restoreCodexEnv: () => req<CodexStatus & { ok: true }>('POST', '/api/engines/codex/restore-env'),
   installCodex: () => req<CodexSetupResult>('POST', '/api/engines/codex/install'),
   /** Resolves when the browser sign-in finishes; poll codexStatus alongside it. */
   loginCodex: () => req<CodexSetupResult>('POST', '/api/engines/codex/login'),

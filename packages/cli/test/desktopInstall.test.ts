@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  failureDetail,
   installDesktop,
   removeDesktop,
   desktopStatus,
@@ -299,5 +300,109 @@ describe('stableExecPath', () => {
     expect(stableExecPath('/opt/homebrew/bin/node', 'darwin', () => '/opt/homebrew/Cellar/node/22.1/bin/node')).toBe(
       '/opt/homebrew/bin/node',
     );
+  });
+});
+
+/**
+ * The icon is offered after the server is already listening, so installDesktop
+ * answers with a value for every way it can fail. A rejection here used to
+ * unwind through serve() to the process-level catch and exit(1): a tester on
+ * 0.9.2 pressed Y and lost a running Scenri.
+ */
+describe('installDesktop never throws', () => {
+  it('reports probe-failed when the OS will not say where the Desktop is', async () => {
+    const d = deps('win32', {
+      env: { PATH: 'C:\\Windows\\System32' },
+      runImpl: async () => {
+        throw Object.assign(new Error('powershell.exe timed out after 30000ms'), { code: 'ETIMEDOUT' });
+      },
+    });
+    const res = await installDesktop(d);
+    expect(res).toMatchObject({ ok: false, reason: 'probe-failed' });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toContain('Desktop folder');
+    expect(existsSync(join(launcherDir(root), 'launcher.json'))).toBe(false);
+  });
+
+  it('reports no-desktop when the OS answers with nothing', async () => {
+    const d = deps('win32', { env: { PATH: 'C:\\Windows\\System32' }, runImpl: async () => '   \n' });
+    expect(await installDesktop(d)).toMatchObject({ ok: false, reason: 'no-desktop' });
+  });
+
+  it('reports a failure when the launcher assets cannot be copied', async () => {
+    const d = deps('darwin', { assetsDir: join(root, 'no-such-launcher-dir') });
+    const res = await installDesktop(d);
+    expect(res).toMatchObject({ ok: false, reason: 'failed' });
+    if (!res.ok) {
+      expect(res.message).toContain('launcher files');
+      // One line for a person, never a stack.
+      expect(res.message.split('\n')).toHaveLength(1);
+    }
+  });
+
+  it('reports a failure, with one line and no stack, when the artifact cannot be written', async () => {
+    const d = deps('win32', {
+      runImpl: async (_cmd, args, opts) => {
+        if (args.join(' ').includes('CreateShortcut') && opts?.env?.SCENRI_TARGET) {
+          throw new Error('Access is denied\n   at Microsoft.PowerShell.Commands\n   at System.Management');
+        }
+        return '';
+      },
+    });
+    const res = await installDesktop(d);
+    expect(res).toMatchObject({ ok: false, reason: 'failed' });
+    if (!res.ok) {
+      expect(res.message).toContain('Access is denied');
+      expect(res.message).not.toContain('at System.Management');
+      expect(res.message.split('\n')).toHaveLength(1);
+    }
+    expect(existsSync(join(launcherDir(root), 'launcher.json'))).toBe(false);
+  });
+});
+
+/**
+ * Caught by the first CI run of the Windows icon job, which is the reason that
+ * job exists. Node prefixes an execFile failure with the whole command, so the
+ * first line of the message is PowerShell and not the reason - and the length
+ * cap then cut it mid-word.
+ */
+describe('failureDetail', () => {
+  it('says the reason, never the command that produced it', () => {
+    const err = Object.assign(
+      new Error(
+        'Command failed: C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -NonInteractive -Command $s = New-Object -ComObject WScript.Shell; $l = $s.CreateShortcut($env:SCENRI_LNK); $l.TargetPath = $env:SCENRI_TARGET\nException calling "Save" with "0" argument(s): "The system cannot find the path specified."',
+      ),
+      {
+        stderr:
+          'Exception calling "Save" with "0" argument(s): "The system cannot find the path specified."\n    at <ScriptBlock>, <No file>: line 1',
+      },
+    );
+    const detail = failureDetail(err);
+    expect(detail).toBe('Exception calling "Save" with "0" argument(s): "The system cannot find the path specified."');
+    expect(detail).not.toContain('powershell.exe');
+    expect(detail).not.toContain('-NoProfile');
+    expect(detail).not.toContain('Command failed');
+  });
+
+  it('falls back past the command line when there is no stderr at all', () => {
+    const err = new Error('Command failed: powershell.exe -Command $x\nAccess is denied.');
+    expect(failureDetail(err)).toBe('Access is denied.');
+  });
+
+  it('says so plainly when the command simply never answered', () => {
+    expect(failureDetail(Object.assign(new Error('Command failed: powershell.exe'), { killed: true }))).toBe(
+      'it did not answer in time',
+    );
+    expect(failureDetail(Object.assign(new Error('boom'), { code: 'ETIMEDOUT' }))).toBe('it did not answer in time');
+  });
+
+  it('never returns a stack, and never runs long', () => {
+    const err = new Error(`nope\n    at Object.<anonymous> (/x.js:1:1)\n    at Module._compile`);
+    expect(failureDetail(err)).toBe('nope');
+    expect(failureDetail(new Error('x'.repeat(500))).length).toBe(200);
+  });
+
+  it('has something to say about a value that is not an Error', () => {
+    expect(failureDetail('plain string')).toBe('plain string');
   });
 });

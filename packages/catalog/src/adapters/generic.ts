@@ -114,7 +114,46 @@ export function extractJsonLdProducts(html: string, pageUrl: string): CatalogPro
   });
 }
 
+/**
+ * Things only a page that sells something has.
+ *
+ * Deliberately strict, and every one of them is a claim the page makes about
+ * itself rather than a shape we inferred. A title and a picture are not a
+ * product: without this, oatly.com came back with 201 of them, made out of
+ * blog posts, because every page on the web has a title and a picture.
+ */
+const PRODUCT_MARKERS = [
+  'meta[property="og:type"][content="product"]',
+  'meta[property="product:price:amount"]',
+  'meta[property="og:price:amount"]',
+  '[itemtype*="schema.org/Product"]',
+  '[itemprop="price"]',
+  '[itemprop="offers"]',
+  'form[action*="/cart/add"]',
+  '[name="add"]',
+];
+const BUY_WORDS = /add to (cart|bag|basket)|buy now|add to my bag/i;
+
+export function looksLikeProduct(html: string): boolean {
+  const $ = loadHtml(html);
+  for (const sel of PRODUCT_MARKERS) {
+    try {
+      if ($.querySelector(sel)) return true;
+    } catch {
+      // A selector this parser will not take is not evidence either way.
+    }
+  }
+  for (const el of $.querySelectorAll('button, input[type="submit"], a')) {
+    const words = `${textOf(el)} ${attr(el, 'value') ?? ''} ${attr(el, 'aria-label') ?? ''}`;
+    if (BUY_WORDS.test(words)) return true;
+  }
+  return false;
+}
+
 export function parseProductHtml(html: string, pageUrl: string): CatalogProduct | null {
+  // A page that never claims to sell anything is not a product, whatever else
+  // it has on it. This is the line between importing a catalog and inventing one.
+  if (!looksLikeProduct(html)) return null;
   const $ = loadHtml(html);
   const title =
     attr($.querySelector('meta[property="og:title"]'), 'content') ||

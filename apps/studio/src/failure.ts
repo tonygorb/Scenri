@@ -76,7 +76,31 @@ interface Rule {
 
 const RULES: Rule[] = [
   // ---- the key ----
-  // Codex first: its session is a ChatGPT sign-in, not an API key, and its
+  /**
+   * Above the signed-out rule, which would otherwise claim this and say the
+   * wrong thing. A tester on 0.9.2 was told "Codex is signed out on this
+   * machine" and offered a Sign in button, on a machine that was signed in:
+   * the engine had thrown a 401 because a stale CODEX_API_KEY in the
+   * environment outranks a ChatGPT session for `codex exec`, which is what
+   * Scenri runs. Signing in again fixes nothing, and the button was a dead
+   * end dressed as a way out.
+   *
+   * Matched on the sentence the engine writes for exactly this case, not on
+   * the 401 itself, so nothing else can drift into it.
+   */
+  {
+    re: /environment is overriding that sign-in/i,
+    kind: 'auth',
+    title: () => 'An API key on this computer is overriding your Codex sign-in.',
+    fix: 'Tell Scenri to ignore it, then run this again.',
+    remedy: { label: 'Fix this', opens: 'setup' },
+    // A deliberate departure from the rule two paragraphs down. The remedy
+    // renders primary and Try again ghost, so it reads "fix this, then try
+    // again" - and someone who already fixed it elsewhere should not be told
+    // the shot is unrecoverable.
+    retryable: true,
+  },
+  // Codex next: its session is a ChatGPT sign-in, not an API key, and its
   // mid-job auth failures surface as a bare 401/unauthorized inside "codex
   // exited with code N: ..." — the generic key rule below would claim those
   // with the wrong remedy.

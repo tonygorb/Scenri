@@ -126,11 +126,22 @@ export async function runCatalogIngestion(opts: RunCatalogOptions): Promise<Cata
   });
 
   if (!products.length) {
+    // Two different facts, and they used to share a message. Nothing on a
+    // site we never identified as a shop looked like a product: that is a
+    // statement about the site, and a brand does not need one. A storefront
+    // we DID identify, coming back with nothing, is a real problem and the
+    // person who runs it needs to see it.
+    const guessing = detection.platform === 'generic';
     emit({
       stage: 'failed',
       errors: [
         ...progress.errors,
-        { code: 'no_products_fetched', message: 'Discovery found URLs but no product payloads could be parsed.' },
+        guessing
+          ? { code: 'empty_catalog', message: 'No shop found on this site.' }
+          : {
+              code: 'no_products_fetched',
+              message: `Found pages on this ${detection.platform} store but could not read a product from any of them. The store may be blocking automated readers.`,
+            },
       ],
     });
   }

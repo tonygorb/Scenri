@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { validateBrand, buildFromUrl } from '../src/index.js';
+import { nameFromTitle } from '../src/buildFromUrl.js';
 
 describe('validateBrand', () => {
   it('accepts minimal brand', () => {
@@ -131,6 +132,21 @@ describe('validateBrand', () => {
   });
 });
 
+describe('nameFromTitle', () => {
+  // "Page Title | Site Name" is the near-universal convention, and taking the
+  // first half named a tester's company after its homepage headline.
+  it.each([
+    ['One Solution for All Your Business Finances | Lucid', 'Lucid'],
+    ['Bookkeeping, Tax and CFO Services – Lucid', 'Lucid'],
+    ['Acme Coffee', 'Acme Coffee'],
+    ['Acme Coffee | Slow mornings for people with somewhere to be', 'Acme Coffee'],
+    ['Home · Studio Ora', 'Studio Ora'],
+    ['', ''],
+  ])('reads %j as %j', (title, expected) => {
+    expect(nameFromTitle(title)).toBe(expected);
+  });
+});
+
 describe('buildFromUrl', () => {
   const HTML = `<!doctype html><html><head>
     <title>Acme Coffee — Slow mornings</title>
@@ -205,7 +221,7 @@ describe('buildFromUrl', () => {
     const { brand, warnings } = await buildFromUrl('https://acme.coffee/', {
       fetchImpl,
       saveAsset: async () => 'asset:beefbeef',
-      probeLongEdge: async () => 32,
+      inspectMark: async () => ({ longEdge: 32, width: 32, height: 32, blank: false }),
     });
     const b = brand as any;
     expect(b.logos[0]).toEqual({ role: 'alternate', file: 'asset:beefbeef' });
@@ -217,7 +233,7 @@ describe('buildFromUrl', () => {
     const { brand, warnings } = await buildFromUrl('https://acme.coffee/', {
       fetchImpl,
       saveAsset: async () => 'asset:beefbeef',
-      probeLongEdge: async () => 1024,
+      inspectMark: async () => ({ longEdge: 1024, width: 1024, height: 1024, blank: false }),
     });
     expect((brand as any).logos[0].role).toBe('primary');
     expect(warnings).toEqual([]);
@@ -235,8 +251,123 @@ describe('buildFromUrl', () => {
     expect(validateBrand(brand).valid).toBe(true);
   });
 
-  it('throws on HTTP error', async () => {
+  // A person reads this, so it names the site and says what happened rather
+  // than quoting a status line at them.
+  it('says what a refusing site answered, in a sentence a person can act on', async () => {
     const err = (async () => new Response('nope', { status: 500 })) as unknown as typeof fetch;
-    await expect(buildFromUrl('https://down.example/', { fetchImpl: err })).rejects.toThrow(/HTTP 500/);
+    await expect(buildFromUrl('https://down.example/', { fetchImpl: err })).rejects.toThrow(
+      'down.example had trouble answering. Try again in a moment.',
+    );
+  });
+
+  // A number is not an explanation, and 403 is almost always a CDN refusing
+  // anything that is not a browser - not something the person did.
+  it('explains a refusal instead of quoting its status code', async () => {
+    const walled = (async () => new Response('no', { status: 403 })) as unknown as typeof fetch;
+    await expect(buildFromUrl('https://walled.example/', { fetchImpl: walled })).rejects.toThrow(
+      /would not let Scenri read it.*by hand/s,
+    );
+  });
+
+  /**
+   * The 0.9.2 report. A pasted address with a leading space used to become
+   * `https://  https://...`, and the TypeError reached the screen as "Invalid
+   * URL" under a site that was perfectly fine.
+   */
+  it('reads a pasted address with a leading space, and fetches the site it meant', async () => {
+    const asked: string[] = [];
+    const spy = (async (u: string) => {
+      asked.push(String(u));
+      return new Response('<title>Acme</title>', { status: 200 });
+    }) as unknown as typeof fetch;
+    await buildFromUrl('  https://acme.example/', { fetchImpl: spy });
+    expect(asked[0]).toBe('https://acme.example/');
+  });
+
+  // The studio used to write meta.website back over the kit after creating it.
+  // It was always a no-op, and it was the last place the malformed string
+  // could land, so it is gone. This is what made that safe.
+  it('always records the website itself, whatever the caller passed', async () => {
+    const page = (async () => new Response('<title>Acme</title>', { status: 200 })) as unknown as typeof fetch;
+    for (const input of ['acme.example', '  https://acme.example/pricing?x=1']) {
+      const { brand } = await buildFromUrl(input, { fetchImpl: page });
+      expect((brand.meta as { website: string }).website).toBe('https://acme.example');
+    }
+  });
+
+  it('refuses what is not a web address with a sentence, never a parser message', async () => {
+    const never = (async () => {
+      throw new Error('should not have been fetched');
+    }) as unknown as typeof fetch;
+    for (const [input, sentence] of [
+      ['file:///etc/passwd', /http or https/],
+      ['', /Paste a website address/],
+      ['acme', /does not look like a website address/],
+    ] as const) {
+      await expect(buildFromUrl(input, { fetchImpl: never })).rejects.toThrow(sentence);
+      await expect(buildFromUrl(input, { fetchImpl: never })).rejects.not.toThrow(/Invalid URL/);
+    }
+  });
+});
+
+/**
+ * What a mark turns out to be once it has been decoded, which is the only
+ * place some of this is knowable. Every case here was a real site handing back
+ * a confidently wrong logo.
+ */
+describe('a mark has to survive being looked at', () => {
+  const html = `<html><head><title>Acme</title></head><body>
+    <header><img src="/mark.png" alt="Acme logo" width="200" height="60"></header>
+  </body></html>`;
+  const bytes = Buffer.from([1, 2, 3]);
+  const fetchImpl = (async (input: any) =>
+    String(input).endsWith('/mark.png') ? new Response(bytes) : new Response(html)) as unknown as typeof fetch;
+
+  const build = (shape: Partial<Record<string, unknown>> | null) =>
+    buildFromUrl('https://acme.example/', {
+      fetchImpl,
+      saveAsset: async () => 'asset:mark',
+      inspectMark: async () =>
+        shape === null ? null : ({ longEdge: 600, width: 600, height: 200, blank: false, ...shape } as never),
+    });
+
+  it('crowns a mark that is large, visible and a sensible shape', async () => {
+    const { report } = await build({});
+    expect(report.logo.status).toBe('primary');
+  });
+
+  // linear.app's header mark is white-on-dark: on a light background it is
+  // nothing at all, and a mark nobody can see reads as a broken image.
+  it('refuses a mark that would be invisible, rather than saving it', async () => {
+    const { brand, warnings } = await build({ blank: true });
+    expect(brand.logos).toBeUndefined();
+    expect(warnings.join(' ')).toMatch(/no logo/i);
+  });
+
+  // paulgraham.com's only image is a 69x399 column of nav buttons.
+  it('will not call a tall column the logo, but keeps it as an alternate', async () => {
+    const { report, warnings } = await build({ width: 69, height: 399, longEdge: 399 });
+    expect(report.logo.status).toBe('alternate');
+    expect(warnings.join(' ')).toMatch(/taller than it is wide/i);
+  });
+
+  it('says out loud when it is not sure, instead of asserting', async () => {
+    const weak = `<html><head><title>Acme</title><link rel="icon" href="/mark.png"></head><body></body></html>`;
+    const weakFetch = (async (input: any) =>
+      String(input).endsWith('/mark.png') ? new Response(bytes) : new Response(weak)) as unknown as typeof fetch;
+    const { report, warnings } = await buildFromUrl('https://acme.example/', {
+      fetchImpl: weakFetch,
+      saveAsset: async () => 'asset:mark',
+      inspectMark: async () => ({ longEdge: 300, width: 300, height: 300, blank: false }),
+    });
+    expect(report.logo.status).toBe('alternate');
+    expect(warnings.join(' ')).toMatch(/not confident/i);
+  });
+
+  // A caller that supplies no way to measure has opted out of the judgement
+  // rather than failed it.
+  it('does not hold a missing measurement against a candidate', async () => {
+    const { report } = await build(null);
+    expect(report.logo.status).toBe('primary');
   });
 });

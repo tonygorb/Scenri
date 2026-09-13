@@ -39,6 +39,11 @@ That white or black window is where the one Scenri command goes.
    **If PowerShell was already open before you installed Node, close it and open a new one.**
    A window opened before the install cannot see Node yet.
 
+If the next step answers `running scripts is disabled on this system`, that is a stock Windows
+setting and not a fault. Type `npx.cmd scenri` instead, or use Command Prompt rather than
+PowerShell. You do not need an administrator; the [troubleshooting section](#troubleshooting) has
+the detail.
+
 ### Linux
 
 Install Node.js 22 or newer from [nodejs.org](https://nodejs.org/en/download) or your
@@ -222,16 +227,36 @@ terminal window is older than the installation. Install Node.js from
 current LTS from [nodejs.org](https://nodejs.org); it replaces the old one. Open a new terminal
 window afterwards.
 
-**`npm error EACCES: permission denied`** (or `EPERM` on Windows)**.** Your computer keeps
-npm's global folder in a place only an administrator may write to, so the Codex CLI install is
-refused.
+**`npx.ps1 cannot be loaded because running scripts is disabled on this system.`** Windows ships
+PowerShell with script files switched off, and npm installs its commands as script files. Nothing
+is wrong with your computer or with Scenri, and you do not need an administrator. Either:
+
+- run `npx.cmd scenri` instead of `npx scenri`, which uses the other copy of the same command; or
+- use **Command Prompt** rather than PowerShell: press the Windows key, type `cmd`, press Enter,
+  then `npx scenri`.
+
+To fix it once for every tool, run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` in
+PowerShell. That scope changes the setting for your account only and does not ask for an
+administrator. Leave the machine-wide setting alone.
+
+**`npm error EACCES: permission denied`** (or `EPERM` on Windows)**.** npm could not write into its
+global folder, so the Codex CLI install was refused.
 
 - On macOS or Linux: run `sudo npm install -g @openai/codex` in the terminal and type your
-  computer's password when asked (it stays invisible while you type).
-- On Windows: open PowerShell as administrator (right-click Start, then "Terminal (Admin)")
-  and run `npm install -g @openai/codex` there.
+  computer's password when asked (it stays invisible while you type). This is npm's folder, not
+  Scenri's; Scenri never asks for your password.
+- On Windows: this is usually not a permissions problem at all. npm's global folder is inside your
+  own account, and an administrator changes nothing. Close Codex and any terminal window using it,
+  then try again. If it keeps failing, use OpenAI's own installer, which does not go through npm:
+  `powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"`.
 
 Then reopen the setup window in Scenri.
+
+**The desktop icon could not be added.** Scenri says so in one sentence and keeps running; nothing
+else is affected. Try again later from Settings, then About, then **Add to desktop**, or run
+`npx scenri desktop` in a terminal. Scenri only ever writes the icon to your own Desktop folder and
+never needs an administrator to do it, so a failure here is usually a folder that moved (OneDrive
+taking over your Desktop mid-install) or security software holding the file open.
 
 **`Port 4747 is in use by another app.`** Some other program on your computer answers on Scenri's
 port. The message shows the fix: run the command it prints, which starts Scenri on the next port

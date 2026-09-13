@@ -18,6 +18,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { CLI, npm, packFixture } from './pack-fixture.mjs';
 
 if (process.platform !== 'win32') {
@@ -185,6 +186,123 @@ ok(`installed at ${entry}`);
 
 const runScenri = (args, extraEnv = {}) =>
   spawnSync(process.execPath, [entry, ...args], { encoding: 'utf8', env: { ...env, ...extraEnv }, timeout: 300_000 });
+
+// ---- 1b. the question itself, answered at a real console
+//
+// This is the bug the branch is named for: a tester pressed Y and lost a
+// running Scenri. The gate needs a TTY on both stdin and stdout, so a piped
+// CI step can never reach it - only a pseudo-console can. node-pty is
+// installed by the workflow with --no-save so it touches no lockfile and no
+// other job; without it this says so loudly rather than passing quietly.
+let offerPort = PORT + 2;
+async function offerScenario(label, keys, expectIcon) {
+  const root2 = join(root, `offer-${label}`);
+  const home2 = join(root2, 'home');
+  const data2 = join(root2, 'data');
+  const desk2 = join(root2, 'Desktop');
+  for (const d of [home2, data2, desk2]) mkdirSync(d, { recursive: true });
+  const port2 = offerPort++;
+
+  let pty;
+  try {
+    // A Windows absolute path is not a module specifier: dynamic import wants
+    // a file: URL, and handing it D:\a\... fails every time.
+    const spec = process.env.SCENRI_PTY ? pathToFileURL(process.env.SCENRI_PTY).href : 'node-pty';
+    pty = await import(spec);
+  } catch (err) {
+    console.log(`  NOTICE: node-pty unavailable, the "${label}" keypress was NOT tested`);
+    console.log(`          (${String(err?.message ?? err).split('\n')[0]})`);
+    return false;
+  }
+
+  // The gate stays quiet under CI on purpose - a build agent has no Desktop
+  // and nobody to ask. Simulating a person means being one, so the marker
+  // comes off for this child alone.
+  const personEnv = { ...env };
+  for (const k of ['CI', 'GITHUB_ACTIONS', 'BUILD_NUMBER', 'SSH_TTY']) delete personEnv[k];
+
+  const term = pty.spawn(process.execPath, [entry, 'serve'], {
+    name: 'xterm-color',
+    cols: 120,
+    rows: 30,
+    env: {
+      ...personEnv,
+      USERPROFILE: home2,
+      HOME: home2,
+      SCENRI_HOME: data2,
+      SCENRI_DESKTOP_DIR: desk2,
+      SCENRI_PORT: String(port2),
+      SCENRI_NO_OPEN: '1',
+    },
+  });
+  let out = '';
+  term.onData((d) => {
+    out += d;
+  });
+
+  const until = (re, ms, what) =>
+    new Promise((resolve, reject) => {
+      const t = setInterval(() => {
+        if (re.test(out)) {
+          clearInterval(t);
+          resolve(true);
+        }
+      }, 100);
+      setTimeout(() => {
+        clearInterval(t);
+        reject(new Error(`${what}; saw:\n${out.slice(-600)}`));
+      }, ms);
+    });
+
+  try {
+    await until(/Add Scenri to your desktop\?/, 120_000, 'the question never appeared');
+    term.write(keys);
+    await until(
+      expectIcon ? /Added Scenri to your desktop|could not/i : /Not now/i,
+      120_000,
+      'no answer to the answer',
+    );
+
+    const iconThere = existsSync(join(desk2, 'Scenri.lnk'));
+    if (iconThere !== expectIcon)
+      fail(`"${label}": icon ${iconThere ? 'appeared' : 'did not appear'}, expected the opposite`);
+
+    // The whole point: whatever the answer, Scenri is still running.
+    const alive = await fetch(`http://127.0.0.1:${port2}/api/version`, { signal: AbortSignal.timeout(5000) })
+      .then((r) => r.ok)
+      .catch(() => false);
+    if (!alive) fail(`"${label}": the server stopped answering after the question`);
+    ok(`"${label}" at a real console: icon ${iconThere ? 'added' : 'skipped'}, Scenri still running`);
+    return true;
+  } finally {
+    // Stop it properly. Killing the pty leaves the server it started behind,
+    // and the teardown check at the end of this file counts every process of
+    // ours - three orphans there read as a leak that never happened.
+    await fetch(`http://127.0.0.1:${port2}/api/system/quit`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(5000),
+    }).catch(() => null);
+    await waitFor(`the "${label}" server to stop`, async () => !(await portAnswers(port2)), 20_000).catch(() => null);
+    try {
+      term.kill();
+    } catch {
+      /* already gone */
+    }
+  }
+}
+
+const portAnswers = (port) =>
+  fetch(`http://127.0.0.1:${port}/api/version`, { signal: AbortSignal.timeout(2000) })
+    .then((r) => r.ok)
+    .catch(() => false);
+
+{
+  const yes = await offerScenario('Y', 'Y\r', true);
+  if (yes) {
+    await offerScenario('n', 'n\r', false);
+    await offerScenario('Enter', '\r', true);
+  }
+}
 
 // ---- 2. a Desktop with a non-ASCII path: install twice (the second reads the .lnk back), then remove
 
@@ -394,6 +512,65 @@ const again = await waitFor('the server again', upNow, 120_000);
 if (again.version !== '99.0.0') fail(`third click booted ${again.version}`);
 ok('click 3 booted it again');
 await quit();
+
+// L11.5: the invariant the 0.9.2 tester lost a running Scenri to.
+//
+// Yes to the icon means ATTEMPT the icon. It has never meant "and if that
+// fails, stop Scenri" - but a rejection from the launcher step used to unwind
+// to index.ts and exit(1) on a server that was already listening. The prompt
+// itself needs a real console, so the keypress stays a VM check; what runs
+// here is the same composition behind it, through the route Settings > About
+// uses, on real Windows with real PowerShell and a Desktop that cannot be
+// written.
+{
+  const brokenDesktop = join(root, 'not-a-folder');
+  writeFileSync(brokenDesktop, 'this is a file, so nothing can be written inside it');
+  const port = PORT + 1;
+  const child = spawn(process.execPath, [entry, 'serve'], {
+    env: { ...env, SCENRI_DESKTOP_DIR: brokenDesktop, SCENRI_PORT: String(port), SCENRI_NO_OPEN: '1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  let output = '';
+  child.stdout.on('data', (d) => {
+    output += String(d);
+  });
+  child.stderr.on('data', (d) => {
+    output += String(d);
+  });
+  const at = async (path, init) => {
+    const res = await fetch(`http://127.0.0.1:${port}${path}`, { signal: AbortSignal.timeout(3000), ...init });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+  const alive = () =>
+    at('/api/version')
+      .then((r) => (r.status === 200 ? r.body : null))
+      .catch(() => null);
+  await waitFor('the server on a broken Desktop', alive, 120_000);
+  ok('a Desktop that cannot be written does not stop Scenri from starting');
+
+  // The route answers 409 with { error, reason }: a refusal a person can read,
+  // never a 500 and never a crash.
+  const res = await at('/api/desktop/install', { method: 'POST' });
+  if (res.status >= 500) fail(`installing onto a broken Desktop answered ${res.status}: ${JSON.stringify(res.body)}`);
+  if (res.status === 200) fail(`installing onto a broken Desktop claimed success: ${JSON.stringify(res.body)}`);
+  if (!res.body?.reason) fail(`the refusal named no reason: ${JSON.stringify(res.body)}`);
+  const message = String(res.body?.error ?? '');
+  if (message.split('\n').length !== 1) fail(`the failure was more than one line: ${message}`);
+  if (/\n\s+at /.test(message)) fail(`the failure carried a stack: ${message}`);
+  // The thing this whole branch is about: a person is never handed PowerShell.
+  if (/powershell\.exe|-NoProfile|New-Object -ComObject|Command failed:/i.test(message))
+    fail(`the failure reads out the command instead of the reason: ${message}`);
+  ok(`the failure is one sentence: ${message}`);
+
+  if (!(await alive())) fail('the server died while failing to add an icon');
+  if (child.exitCode !== null) fail(`the server exited ${child.exitCode} while failing to add an icon:\n${output}`);
+  ok('the server is still answering after a failed icon install');
+
+  await at('/api/system/quit', { method: 'POST' }).catch(() => null);
+  await waitFor('the broken-Desktop server to stop', async () => !(await alive()), 20_000);
+  rmSync(brokenDesktop, { force: true });
+}
 
 // L12: remove
 {

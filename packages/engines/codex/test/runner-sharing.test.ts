@@ -122,6 +122,9 @@ describe('setup invalidates the shared probe', () => {
       invalidateProbe() {
         r.invalidations++;
       },
+      connect: vi.fn(async () => ({ outcome: 'proven' as const, at: 0, fingerprint: 'x' })),
+      invalidateConnection: vi.fn(),
+      noteConnection: vi.fn(),
     };
     return r as unknown as CodexRunner & { invalidations: number };
   }

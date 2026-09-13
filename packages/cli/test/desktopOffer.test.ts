@@ -1,5 +1,6 @@
+import { PassThrough } from 'node:stream';
 import { describe, it, expect } from 'vitest';
-import { offerDesktop, shouldOfferDesktop } from '../src/desktop/offer.js';
+import { askOnTerminal, offerDesktop, parseOfferAnswer, shouldOfferDesktop } from '../src/desktop/offer.js';
 
 /**
  * The one question the first run asks, and the gate in front of it. The gate
@@ -90,5 +91,90 @@ describe('offerDesktop', () => {
     await offerDesktop(deps);
     expect(calls.added).toBe(0);
     expect(calls.declined).toBe(0);
+  });
+});
+
+describe('parseOfferAnswer', () => {
+  it.each(['y', 'Y', 'yes', 'YES', ' Yes ', '', '   '])('reads %j as yes', (raw) => {
+    expect(parseOfferAnswer(raw)).toBe('yes');
+  });
+
+  // Empty is yes because the prompt reads [Y/n]. Everything else is no, on
+  // purpose: guessing that an unrecognised word means yes would put a file on
+  // someone's Desktop they never asked for.
+  it.each(['n', 'N', 'no', 'NO', 'later', 'q', 'maybe', '?'])('reads %j as no', (raw) => {
+    expect(parseOfferAnswer(raw)).toBe('no');
+  });
+});
+
+describe('a launcher that cannot be written', () => {
+  /** The reported 0.9.2 bug: Y threw, the throw reached index.ts, and a listening server exited 1. */
+  it('never rethrows when add() rejects, and says Scenri is still running', async () => {
+    const said: string[] = [];
+    await expect(
+      offerDesktop({
+        ask: async () => 'Y',
+        add: async () => {
+          throw new Error('powershell.exe timed out after 30000ms');
+        },
+        decline: () => expect.unreachable('a yes is not a decline'),
+        say: (line) => said.push(line),
+      }),
+    ).resolves.toBeUndefined();
+    expect(said.join('\n')).toContain('Scenri is running anyway');
+  });
+
+  it('says the same when add() answers with a failure instead of throwing', async () => {
+    const said: string[] = [];
+    await offerDesktop({
+      ask: async () => '',
+      add: async () => ({ ok: false as const, reason: 'probe-failed' as const, message: 'no Desktop folder' }),
+      decline: () => expect.unreachable('a yes is not a decline'),
+      say: (line) => said.push(line),
+    });
+    expect(said.join('\n')).toContain('Scenri is running anyway');
+  });
+
+  it('does not remember a decline when nobody answered', async () => {
+    const said: string[] = [];
+    let declined = 0;
+    await offerDesktop({
+      ask: async () => {
+        throw new Error('nobody answered');
+      },
+      add: async () => expect.unreachable('no answer is not a yes'),
+      decline: () => {
+        declined++;
+      },
+      say: (line) => said.push(line),
+    });
+    expect(declined).toBe(0);
+    expect(said.join('\n')).toContain('npx scenri desktop');
+  });
+});
+
+describe('askOnTerminal', () => {
+  it('resolves with the line that was typed', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const answer = askOnTerminal('q? ', 5_000, { input, output });
+    input.write('Y\n');
+    await expect(answer).resolves.toBe('Y');
+  });
+
+  // The prompt runs after the browser is already open. A console that never
+  // delivers a line must not hold it open for the rest of the session.
+  it('gives up when nobody answers', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    await expect(askOnTerminal('q? ', 20, { input, output })).rejects.toThrow('nobody answered');
+  });
+
+  it('gives up when the stream ends first', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const answer = askOnTerminal('q? ', 5_000, { input, output });
+    input.end();
+    await expect(answer).rejects.toThrow('stdin closed');
   });
 });

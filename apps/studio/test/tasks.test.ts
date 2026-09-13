@@ -539,3 +539,68 @@ describe('sameByValue', () => {
     expect(sameByValue(prev, [prev[1], prev[0]])).toBe(false);
   });
 });
+
+/**
+ * A website with no shop on it is a fine brand source. It used to ring a red
+ * bell: /setup offers every URL to the catalog importer, a marketing site
+ * discovers nothing, and the job was written as failed - so the same run that
+ * said "kit built" also said "No public product catalog found".
+ */
+describe('a site with no shop on it', () => {
+  const job = (over: Partial<CatalogImportJob> = {}): CatalogImportJob =>
+    ({
+      id: 'j1',
+      brandId: 'b1',
+      sourceId: null,
+      url: 'https://lucid.example',
+      platform: 'generic',
+      stage: 'no_catalog',
+      discovered: 0,
+      fetched: 0,
+      upserted: 0,
+      imagesDone: 0,
+      imagesTotal: 0,
+      errors: [],
+      warnings: [],
+      message: 'No shop found on this site',
+      createdAt: '2026-09-13T09:00:00Z',
+      updatedAt: '2026-09-13T09:00:05Z',
+      finishedAt: '2026-09-13T09:00:05Z',
+      ...over,
+    }) as unknown as CatalogImportJob;
+
+  it('reads as finished, not as an error', () => {
+    const t = taskFromCatalogJob(job(), { slug: 'lucid' });
+    expect(t.state).toBe('done');
+    expect(t.percent).toBe(100);
+    expect(t.subtitle).toBe('Catalog import · no shop on this site');
+    expect(t.subtitle).not.toMatch(/fail/i);
+  });
+
+  it('points at the products page, where a person would add one by hand', () => {
+    expect(taskFromCatalogJob(job(), { slug: 'lucid' }).href).toBe('/lucid/products');
+  });
+
+  // The rows already on disk were written before the stage existed.
+  it('reads an old failed row the same way when nothing was discoverable', () => {
+    const old = job({
+      stage: 'failed',
+      errors: [{ code: 'empty_catalog', message: 'No public product catalog found' }],
+    });
+    expect(taskFromCatalogJob(old, { slug: 'lucid' }).state).toBe('done');
+  });
+
+  // URLs found and then unparseable IS a failure, and a shop owner needs it.
+  it('still reports a real import failure as one', () => {
+    const broken = job({
+      stage: 'failed',
+      message: 'Discovery found URLs but no product payloads could be parsed.',
+      errors: [
+        { code: 'no_products_fetched', message: 'Discovery found URLs but no product payloads could be parsed.' },
+      ],
+    });
+    const t = taskFromCatalogJob(broken, { slug: 'lucid' });
+    expect(t.state).toBe('error');
+    expect(t.subtitle).toContain('no product payloads');
+  });
+});

@@ -304,6 +304,66 @@ describe('brands API', () => {
       payload: { url: 'file:///etc/passwd' },
     });
     expect(res.statusCode).toBe(400);
+    expect(res.json().error).toMatch(/http or https/);
+  });
+
+  /**
+   * The 0.9.2 report. A pasted address with a leading space used to reach an
+   * unguarded `new URL`, and Node's bare "Invalid URL" was sent to the browser
+   * as the whole explanation - under a website that was perfectly fine.
+   */
+  it.each([
+    ['', /Paste a website address/],
+    ['   ', /Paste a website address/],
+    ['javascript:alert(1)', /http or https/],
+    ['acme .example', /cannot contain a space/],
+    ['acme', /does not look like a website address/],
+  ])('answers %j with a sentence and a 400, never a 500', async (url, sentence) => {
+    const res = await app.inject({ method: 'POST', url: '/api/brands/from-url', payload: { url } });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toMatch(sentence);
+    expect(res.json().error).not.toMatch(/Invalid URL/);
+  });
+
+  it('reads a pasted address with a leading space rather than refusing it', async () => {
+    const asked: string[] = [];
+    const local = buildServer({
+      core,
+      engines: registryWith(),
+      fetchImpl: (async (input: any) => {
+        asked.push(String(input));
+        return new Response('<title>Acme</title>', { status: 200 });
+      }) as unknown as typeof fetch,
+    });
+    const res = await local.inject({
+      method: 'POST',
+      url: '/api/brands/from-url',
+      payload: { url: '  https://acme.example/' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(asked[0]).toBe('https://acme.example/');
+    expect(res.json().json.meta.website).toBe('https://acme.example');
+    await local.close();
+  });
+
+  it('says what a refusing site answered, as a sentence', async () => {
+    const local = buildServer({
+      core,
+      engines: registryWith(),
+      fetchImpl: (async () => new Response('no', { status: 403 })) as unknown as typeof fetch,
+    });
+    const res = await local.inject({
+      method: 'POST',
+      url: '/api/brands/from-url',
+      payload: { url: 'https://walled.example' },
+    });
+    expect(res.statusCode).toBe(502);
+    // A status code is not an explanation. 403 on a public page is nearly
+    // always a CDN refusing anything that is not a browser, which is not
+    // something the person did or can fix by trying harder.
+    expect(res.json().error).toMatch(/would not let Scenri read it/);
+    expect(res.json().error).toMatch(/by hand/);
+    await local.close();
   });
 });
 
@@ -1439,13 +1499,22 @@ describe('diff + export + settings', () => {
 
 describe('codex setup', () => {
   /** A scripted stand-in for the local Codex CLI, so no test touches a real binary. */
-  function fakeSetup(states: ('not-installed' | 'not-authenticated' | 'ready')[]) {
-    const seen = { install: 0, login: 0 };
+  function fakeSetup(states: ('not-installed' | 'not-authenticated' | 'env-conflict' | 'ready')[]) {
+    const seen = { install: 0, login: 0, forced: 0 };
     let i = 0;
     return {
       seen,
       setup: {
-        status: async () => ({ state: states[Math.min(i, states.length - 1)], platform: 'mac' as const }),
+        status: async (o: { force?: boolean } = {}) => {
+          if (o.force) seen.forced++;
+          const state = states[Math.min(i, states.length - 1)];
+          return {
+            state,
+            platform: 'mac' as const,
+            conflictKeys: state === 'env-conflict' ? ['CODEX_API_KEY'] : [],
+            ignoredKeys: [],
+          };
+        },
         install: async () => {
           seen.install++;
           i++;
@@ -1465,7 +1534,7 @@ describe('codex setup', () => {
     const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
     const res = await local.inject({ method: 'GET', url: '/api/engines/codex/status' });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ state: 'not-installed', platform: 'mac' });
+    expect(res.json()).toEqual({ state: 'not-installed', platform: 'mac', conflictKeys: [], ignoredKeys: [] });
     await local.close();
   });
 
@@ -1497,7 +1566,12 @@ describe('codex setup', () => {
       release = r;
     });
     const setup = {
-      status: async () => ({ state: 'not-installed' as const, platform: 'mac' as const }),
+      status: async () => ({
+        state: 'not-installed' as const,
+        platform: 'mac' as const,
+        conflictKeys: [],
+        ignoredKeys: [],
+      }),
       install: async () => {
         await gate;
         return { ok: true };
@@ -1513,6 +1587,79 @@ describe('codex setup', () => {
     release();
     await first;
     await local.close();
+  });
+
+  /**
+   * The repair the 0.9.2 tester needed. A stale CODEX_API_KEY outranks a
+   * healthy ChatGPT sign-in for `codex exec` and nothing else sees it, so the
+   * fix is to stop passing the variable down to codex - for that child only.
+   * The user's machine is never touched, and the list is theirs to undo.
+   */
+  describe('the environment repair', () => {
+    it('records only the names codex itself reads, and re-checks afterwards', async () => {
+      const { setup, seen } = fakeSetup(['env-conflict', 'ready']);
+      const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+      const before = await local.inject({ method: 'GET', url: '/api/engines/codex/status' });
+      expect(before.json()).toMatchObject({ state: 'env-conflict', conflictKeys: ['CODEX_API_KEY'] });
+
+      const res = await local.inject({
+        method: 'POST',
+        url: '/api/engines/codex/repair-env',
+        payload: { keys: ['CODEX_API_KEY'] },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(core.store.getSetting('codex.ignore_env_keys')).toBe('CODEX_API_KEY');
+      // A repair that does not re-prove the connection has claimed nothing.
+      expect(seen.forced).toBe(1);
+      await local.close();
+    });
+
+    it('is case-insensitive about the name, because Windows is', async () => {
+      const { setup } = fakeSetup(['ready']);
+      const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+      await local.inject({
+        method: 'POST',
+        url: '/api/engines/codex/repair-env',
+        payload: { keys: ['codex_api_key'] },
+      });
+      expect(core.store.getSetting('codex.ignore_env_keys')).toBe('CODEX_API_KEY');
+      await local.close();
+    });
+
+    it('refuses anything that is not a Codex credential', async () => {
+      const { setup } = fakeSetup(['ready']);
+      const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+      for (const keys of [['PATH'], ['HOME', 'CODEX_API_KEY'], []]) {
+        const res = await local.inject({ method: 'POST', url: '/api/engines/codex/repair-env', payload: { keys } });
+        expect(res.statusCode).toBe(400);
+      }
+      expect(core.store.getSetting('codex.ignore_env_keys') ?? '').not.toContain('PATH');
+      await local.close();
+    });
+
+    it('puts the key back when asked', async () => {
+      const { setup } = fakeSetup(['ready']);
+      const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+      await local.inject({
+        method: 'POST',
+        url: '/api/engines/codex/repair-env',
+        payload: { keys: ['CODEX_API_KEY'] },
+      });
+      const res = await local.inject({ method: 'POST', url: '/api/engines/codex/restore-env' });
+      expect(res.statusCode).toBe(200);
+      expect(core.store.getSetting('codex.ignore_env_keys')).toBe('');
+      await local.close();
+    });
+
+    it('spends a turn of the plan only when asked to', async () => {
+      const { setup, seen } = fakeSetup(['ready']);
+      const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+      await local.inject({ method: 'GET', url: '/api/engines/codex/status' });
+      expect(seen.forced).toBe(0);
+      await local.inject({ method: 'GET', url: '/api/engines/codex/status?force=1' });
+      expect(seen.forced).toBe(1);
+      await local.close();
+    });
   });
 
   it('tells /api/engines which step an engine is missing', async () => {

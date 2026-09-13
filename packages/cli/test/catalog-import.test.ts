@@ -177,3 +177,66 @@ describe('catalog import API', () => {
     expect(espresso.description).toBe('shot');
   });
 });
+
+/**
+ * Every URL typed at /setup is offered to the catalog importer, because a shop
+ * can sit behind a splash page and skipping one would lose products. What
+ * changed is only what a zero-product result is called: a site with no shop on
+ * it is a fact about the site, and used to be written as `failed` - so a
+ * tester whose brand kit had just been built perfectly also got a red bell
+ * reading "No public product catalog found".
+ */
+describe('a website with no shop on it', () => {
+  let home: string;
+  let core: ReturnType<typeof createCore>;
+  let app: ReturnType<typeof buildServer>;
+
+  /** A real site, and a real 404 for every shop-shaped thing asked of it. */
+  const marketingSite = (async (input: any) => {
+    const url = String(input);
+    if (url === 'https://lucid.example/' || url === 'https://lucid.example')
+      return new Response('<title>Lucid</title><p>We do bookkeeping.</p>', {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      });
+    return new Response('not found', { status: 404 });
+  }) as unknown as typeof fetch;
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'sc-noshop-'));
+    core = createCore(home);
+    app = buildServer({ core, engines: registryWith(), fetchImpl: marketingSite });
+  });
+  afterEach(async () => {
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  it('finishes as no_catalog rather than failed, and says so plainly', async () => {
+    const brand = await app.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'Lucid' } } },
+    });
+    const brandId = brand.json().id;
+    const start = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brandId}/catalog/import`,
+      payload: { url: 'https://lucid.example' },
+    });
+    expect(start.statusCode).toBe(200);
+
+    let job: any;
+    for (let i = 0; i < 120; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      job = (
+        await app.inject({ method: 'GET', url: `/api/brands/${brandId}/catalog/jobs/${start.json().jobId}` })
+      ).json();
+      if (job.finishedAt) break;
+    }
+    expect(job.stage).toBe('no_catalog');
+    expect(job.message).toBe('No shop found on this site');
+    expect(job.errors).toEqual([]);
+    expect(job.finishedAt).toBeTruthy();
+  });
+});

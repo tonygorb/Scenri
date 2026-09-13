@@ -199,7 +199,7 @@ test('the row stays readable at a phone width', async ({ page }) => {
 
 test('a failed codex install shows the way out, and a recovered machine clears it', async ({ page }) => {
   const slug = await currentSlug(page);
-  await page.route('**/api/engines/codex/status', (route) =>
+  await page.route('**/api/engines/codex/status**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{"state":"not-installed"}' }),
   );
   let install = {
@@ -229,7 +229,7 @@ test('a failed codex install shows the way out, and a recovered machine clears i
 test('an unverifiable codex never says Connected, and Check again is the way out', async ({ page }) => {
   const slug = await currentSlug(page);
   let status = { state: 'unverified', reason: 'Could not verify Codex on this computer', platform: 'windows' };
-  await page.route('**/api/engines/codex/status', (route) =>
+  await page.route('**/api/engines/codex/status**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(status) }),
   );
 
@@ -246,7 +246,7 @@ test('an unverifiable codex never says Connected, and Check again is the way out
 
 test('a codex below the version floor asks for an update, with PowerShell wording on Windows', async ({ page }) => {
   const slug = await currentSlug(page);
-  await page.route('**/api/engines/codex/status', (route) =>
+  await page.route('**/api/engines/codex/status**', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -285,4 +285,76 @@ test('the pane gives an unverified codex row a button and its reason, never a Co
   await expect(codex.getByRole('button', { name: /Set up/ })).toBeVisible();
   await expect(codex.locator('.sc-stat-why')).toContainText('Could not verify');
   await expect(codex.locator('.sc-stat:not(.sc-stat-why)')).toHaveCount(0);
+});
+
+/**
+ * The 0.9.2 tester's machine: Codex installed, Codex signed in, and every shot
+ * dying with a 401 because a stale CODEX_API_KEY in the environment outranks
+ * the ChatGPT session for `codex exec`. The old dialog could not see it at all,
+ * and the old failure note called it a signed-out machine.
+ */
+test('a key that is overriding the sign-in is named, and one press fixes it', async ({ page }) => {
+  const slug = await currentSlug(page);
+  let repaired = false;
+  await page.route('**/api/engines/codex/status**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(
+        repaired
+          ? { state: 'ready', platform: 'windows', conflictKeys: [], ignoredKeys: ['CODEX_API_KEY'] }
+          : { state: 'env-conflict', platform: 'windows', conflictKeys: ['CODEX_API_KEY'], ignoredKeys: [] },
+      ),
+    }),
+  );
+  await page.route('**/api/engines/codex/repair-env', (route) => {
+    repaired = true;
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ok: true,
+        state: 'ready',
+        platform: 'windows',
+        conflictKeys: [],
+        ignoredKeys: ['CODEX_API_KEY'],
+      }),
+    });
+  });
+
+  await page.goto(`/${slug}?setup=codex-cli`);
+  const body = page.locator('.sc-setup-body');
+  await expect(body).toContainText('turned it down');
+  // Install and Sign in are done; the machine is what is in the way.
+  await expect(page.locator('.sc-setup-steps li').nth(1)).toHaveAttribute('data-on', '');
+  await expect(page.locator('.sc-setup-steps li').nth(2)).not.toHaveAttribute('data-on', '');
+  await expect(body).toContainText('CODEX_API_KEY');
+  await expect(body).toContainText('Nothing on your computer changes');
+
+  await page.getByRole('button', { name: 'Ignore that key' }).click();
+  await expect(body).toContainText('Codex CLI is ready');
+  // The third dot is the claim that a real run authenticated.
+  await expect(page.locator('.sc-setup-steps li').nth(2)).toHaveAttribute('data-on', '');
+  await expect(body).toContainText('without the CODEX_API_KEY variable');
+  await expect(page.getByRole('button', { name: 'Use it again' })).toBeVisible();
+});
+
+test('Check again asks for a real run, not the answer it already had', async ({ page }) => {
+  const slug = await currentSlug(page);
+  const asked: string[] = [];
+  await page.route('**/api/engines/codex/status**', (route) => {
+    asked.push(new URL(route.request().url()).search);
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ state: 'ready', platform: 'mac', conflictKeys: [], ignoredKeys: [] }),
+    });
+  });
+
+  await page.goto(`/${slug}?setup=codex-cli`);
+  await expect(page.locator('.sc-setup-body')).toContainText('Codex CLI is ready');
+  await page.getByRole('button', { name: 'Check again' }).click();
+  await expect.poll(() => asked.some((s) => s.includes('force=1'))).toBe(true);
+  // Opening the dialog must not spend a turn of the plan on its own.
+  expect(asked[0]).not.toContain('force=1');
 });

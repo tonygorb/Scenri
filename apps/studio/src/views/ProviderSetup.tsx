@@ -11,12 +11,13 @@ import {
   Warning,
   X,
 } from '@phosphor-icons/react';
-import { api, type CodexSetupState, type EngineInfo, type SetupPlatform } from '../api.js';
+import { api, type EngineInfo, type SetupPlatform } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
 import { focusSelfOnOpen, useOpenSetup } from '../app/dialogs.js';
 import { engineTitle } from '../engines/active.js';
 import { EngineMark, engineTile, keyProviderFor, type KeyProvider } from '../engines/providers.jsx';
 import { Confirm } from '../Confirm.js';
+import { type Phase, repairNote, repairedNote, stepState } from './providerSetupRules.js';
 
 /**
  * Connecting one provider: how a person who has never opened a terminal gets
@@ -36,8 +37,6 @@ import { Confirm } from '../Confirm.js';
 /** How long to keep polling after `codex login` opens a browser tab. */
 const LOGIN_POLL_MS = 2_000;
 const LOGIN_TIMEOUT_MS = 5 * 60_000;
-
-type Phase = 'checking' | CodexSetupState | 'installing' | 'signing-in' | 'no-plan';
 
 export function ProviderSetup({ engines, onSaved }: { engines: EngineInfo[]; onSaved: () => void }) {
   const setup = useDialogParam('setup');
@@ -271,6 +270,10 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
   // moved config.toml to a model this CLI predates; the wizard used to claim
   // the first for both.
   const [reason, setReason] = useState<string | null>(null);
+  // Which variables are in the way, and which Scenri is already keeping out of
+  // codex's environment. Names only; a value never crosses this boundary.
+  const [conflictKeys, setConflictKeys] = useState<string[]>([]);
+  const [ignoredKeys, setIgnoredKeys] = useState<string[]>([]);
   const pollRef = useRef<number | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -280,10 +283,12 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
     }
   }, []);
 
-  const probe = useCallback(async () => {
-    const { state, reason: why, platform: p } = await api.codexStatus();
+  const probe = useCallback(async (force = false) => {
+    const { state, reason: why, platform: p, conflictKeys: c, ignoredKeys: ig } = await api.codexStatus({ force });
     if (p) setPlatform(p);
     setReason(why ?? null);
+    setConflictKeys(c ?? []);
+    setIgnoredKeys(ig ?? []);
     setPhase(state);
     return state;
   }, []);
@@ -297,11 +302,42 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
     return stopPolling;
   }, [probe, stopPolling]);
 
+  // The one control that deliberately spends a turn of the user's plan: it
+  // runs a real `codex exec` rather than repeating the last verdict, which is
+  // the only way "ready" can mean anything.
   const checkAgain = useCallback(() => {
     setProblem(null);
     setPhase('checking');
-    void probe().catch(() => setPhase('unverified'));
+    void probe(true).catch(() => setPhase('unverified'));
   }, [probe]);
+
+  const repairEnv = async () => {
+    setProblem(null);
+    setPhase('repairing');
+    try {
+      const { state, conflictKeys: c, ignoredKeys: ig, reason: why } = await api.repairCodexEnv(conflictKeys);
+      setConflictKeys(c ?? []);
+      setIgnoredKeys(ig ?? []);
+      setReason(why ?? null);
+      setPhase(state);
+    } catch (err) {
+      setProblem({ detail: (err as Error).message });
+      setPhase('env-conflict');
+    }
+  };
+
+  const restoreEnv = async () => {
+    setProblem(null);
+    setPhase('checking');
+    try {
+      const { state, conflictKeys: c, ignoredKeys: ig } = await api.restoreCodexEnv();
+      setConflictKeys(c ?? []);
+      setIgnoredKeys(ig ?? []);
+      setPhase(state);
+    } catch {
+      void probe().catch(() => setPhase('unverified'));
+    }
+  };
 
   // A ready engine is worth telling the rest of the app about, so the composer
   // banner and the engine picker catch up without a reload.
@@ -398,7 +434,7 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
       <div className="sc-setup-body">
         {phase === 'checking' && (
           <p className="sc-setup-lead">
-            <Spinner size="1" /> Checking this computer.
+            <Spinner size="1" /> Checking that Codex can actually reach OpenAI from this computer.
           </p>
         )}
 
@@ -467,6 +503,35 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
                 <ArrowsClockwise size={14} /> Check again
               </button>
             </div>
+            {ignoredKeys.length > 0 && (
+              <>
+                <p className="sc-setup-note">{repairedNote(ignoredKeys)}</p>
+                <button type="button" className="sc-setup-alt" onClick={restoreEnv}>
+                  Use it again
+                </button>
+              </>
+            )}
+          </>
+        )}
+
+        {(phase === 'env-conflict' || phase === 'repairing') && (
+          <>
+            <p className="sc-setup-lead">
+              Codex is signed in, but an old OpenAI API key on this computer is being used instead of your ChatGPT plan,
+              and OpenAI turned it down.
+            </p>
+            <div className="sc-setup-acts">
+              <button
+                type="button"
+                className="sc-btn sc-btn-primary"
+                onClick={repairEnv}
+                disabled={phase === 'repairing'}
+              >
+                {phase === 'repairing' ? <Spinner size="1" /> : <Key size={15} />}
+                {phase === 'repairing' ? 'Ignoring' : 'Ignore that key'}
+              </button>
+            </div>
+            <p className="sc-setup-note">{repairNote(conflictKeys)}</p>
           </>
         )}
 
@@ -577,27 +642,24 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
   );
 }
 
-/** Two dots, because there are exactly two things to do and people count them. */
+/**
+ * Three dots, because installing and signing in can both be done and
+ * generation can still fail. The third is the one the 0.9.2 tester needed:
+ * it only lights when a real Scenri-spawned codex authenticated.
+ */
 function Steps({ phase }: { phase: Phase }) {
   if (phase === 'no-plan') return null;
-  // Update-needed means a codex IS installed, just an old one; unverified
-  // claims nothing, so neither dot lights.
-  const installed =
-    phase === 'not-authenticated' || phase === 'signing-in' || phase === 'update-needed' || phase === 'ready';
-  const signedIn = phase === 'ready';
+  const { installed, signedIn, connected, now } = stepState(phase);
   return (
     <ol className="sc-setup-steps">
-      <li
-        data-on={installed ? '' : undefined}
-        data-now={phase === 'not-installed' || phase === 'installing' ? '' : undefined}
-      >
+      <li data-on={installed ? '' : undefined} data-now={now === 'install' ? '' : undefined}>
         {installed ? <Check size={12} /> : <span className="d" />} Install
       </li>
-      <li
-        data-on={signedIn ? '' : undefined}
-        data-now={phase === 'not-authenticated' || phase === 'signing-in' ? '' : undefined}
-      >
+      <li data-on={signedIn ? '' : undefined} data-now={now === 'signin' ? '' : undefined}>
         {signedIn ? <Check size={12} /> : <span className="d" />} Sign in
+      </li>
+      <li data-on={connected ? '' : undefined} data-now={now === 'connect' ? '' : undefined}>
+        {connected ? <Check size={12} /> : <span className="d" />} Connect
       </li>
     </ol>
   );
