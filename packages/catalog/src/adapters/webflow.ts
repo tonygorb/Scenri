@@ -1,7 +1,8 @@
-import { httpText, mapPool } from '../http/fetch.js';
+import { httpText } from '../http/fetch.js';
 import { absolutize, originOf } from '../url.js';
 import { attr, loadHtml } from '../html.js';
-import { extractJsonLdProducts, extractSitemapUrls, parseProductHtml } from './generic.js';
+import { extractSitemapUrls } from './generic.js';
+import { fetchProductPages } from './productPage.js';
 import type { CatalogAdapter, CatalogProduct, DetectResult, DiscoverResult } from '../types.js';
 
 export const webflowAdapter: CatalogAdapter = {
@@ -78,37 +79,9 @@ export const webflowAdapter: CatalogAdapter = {
   },
 
   async fetchAll(ctx, discovered): Promise<CatalogProduct[]> {
-    const out: CatalogProduct[] = [];
-    const seen = new Set<string>();
-    await mapPool(
-      discovered.productUrls,
-      5,
-      async (u) => {
-        try {
-          const { ok, text, url } = await httpText(u, {
-            fetchImpl: ctx.fetchImpl,
-            signal: ctx.signal,
-            accept: 'text/html',
-          });
-          if (!ok) return;
-          const fromLd = extractJsonLdProducts(text, url);
-          const list = fromLd.length ? fromLd : ([parseProductHtml(text, url)].filter(Boolean) as CatalogProduct[]);
-          for (const p of list) {
-            if (seen.has(p.externalKey)) continue;
-            seen.add(p.externalKey);
-            out.push(p);
-          }
-          ctx.onProgress?.({
-            stage: 'fetching_products',
-            fetched: out.length,
-            discovered: discovered.productUrls.length,
-          });
-        } catch {
-          /* skip */
-        }
-      },
-      ctx.signal,
-    );
-    return out;
+    return fetchProductPages(ctx, discovered.productUrls, {
+      onProduct: (fetched) =>
+        ctx.onProgress?.({ stage: 'fetching_products', fetched, discovered: discovered.productUrls.length }),
+    });
   },
 };

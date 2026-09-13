@@ -68,6 +68,14 @@ export interface DiscoverResult {
   estimatedTotal: number | null;
   collections?: CatalogCollection[];
   warnings: string[];
+  /**
+   * What discovery learned that changes how fetching should work.
+   *
+   * `json-blocked` means the platform's own product API answered but refused
+   * us, so the per-product API calls it would normally make are a wasted
+   * request each - 2202 of them, in the case this was written for.
+   */
+  hints?: string[];
 }
 
 export interface AdapterContext {

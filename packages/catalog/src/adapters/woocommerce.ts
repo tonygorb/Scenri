@@ -1,8 +1,9 @@
-import { httpJson, httpText, mapPool } from '../http/fetch.js';
+import { httpJson, httpText } from '../http/fetch.js';
 import { absolutize, originOf } from '../url.js';
 import { normalizeProduct } from '../normalize.js';
 import { attr, loadHtml } from '../html.js';
-import { extractJsonLdProducts, extractSitemapUrls, parseProductHtml } from './generic.js';
+import { extractSitemapUrls } from './generic.js';
+import { fetchProductPages } from './productPage.js';
 import type { AdapterContext, CatalogAdapter, CatalogProduct, DetectResult, DiscoverResult } from '../types.js';
 
 async function tryStoreApi(ctx: AdapterContext, page: number, perPage = 100): Promise<any[] | null> {
@@ -159,33 +160,13 @@ export const woocommerceAdapter: CatalogAdapter = {
     if (apiWorked && out.length) return out;
 
     const urls = discovered.productUrls.length ? discovered.productUrls : [...new Set(discovered.productKeys)];
-    await mapPool(
-      urls,
-      5,
-      async (u) => {
-        try {
-          const {
-            ok,
-            text,
-            url: finalUrl,
-          } = await httpText(u, { fetchImpl: ctx.fetchImpl, signal: ctx.signal, accept: 'text/html' });
-          if (!ok) return;
-          const fromLd = extractJsonLdProducts(text, finalUrl);
-          const products = fromLd.length
-            ? fromLd
-            : ([parseProductHtml(text, finalUrl)].filter(Boolean) as CatalogProduct[]);
-          for (const p of products) {
-            if (seen.has(p.externalKey)) continue;
-            seen.add(p.externalKey);
-            out.push(p);
-          }
-          ctx.onProgress?.({ stage: 'fetching_products', fetched: out.length });
-        } catch {
-          /* skip */
-        }
-      },
-      ctx.signal,
-    );
+    for (const p of await fetchProductPages(ctx, urls, {
+      onProduct: (fetched) => ctx.onProgress?.({ stage: 'fetching_products', fetched: out.length + fetched }),
+    })) {
+      if (seen.has(p.externalKey)) continue;
+      seen.add(p.externalKey);
+      out.push(p);
+    }
 
     return out;
   },

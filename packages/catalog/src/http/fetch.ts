@@ -39,10 +39,16 @@ export async function httpGet(url: string, opts: HttpOptions = {}): Promise<Resp
       });
       // Deliberately not 403. One retry of a single brand page is worth it,
       // because a CDN refuses a share of requests and serves the next one
-      // fine. A crawl is the opposite case: gymshark.com discovered 4406
-      // product URLs and every one answered 403, so retrying turned a wasted
-      // 4406 requests into a wasted 17624. When a store blocks readers it
-      // blocks all of them, and the fast answer is the kind one.
+      // fine. A crawl is the opposite case: retrying a refused endpoint once
+      // per product turns a wasted 2202 requests into a wasted 4404.
+      //
+      // An earlier version of this comment read that gymshark.com "discovered
+      // 4406 product URLs and every one answered 403". That was wrong, and it
+      // cost a working import: measured 2026-09-13, the 403s were the JSON
+      // endpoints (`/products.json`, `/products/<handle>.json`), while every
+      // product *page* answered 200 with a complete ProductGroup in its
+      // JSON-LD. A refused API is not a refused store, which is why discovery
+      // now says so and `productPage.ts` reads the pages instead.
       if ((res.status === 429 || res.status >= 500) && attempt < retries) {
         await sleep(400 * 2 ** attempt);
         continue;
