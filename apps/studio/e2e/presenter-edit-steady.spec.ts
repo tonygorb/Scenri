@@ -71,9 +71,7 @@ async function watchShifts(p: Page) {
 const shifts = (p: Page) =>
   p.evaluate(() => (window as unknown as { __shifts: number[] }).__shifts.reduce((a, b) => a + b, 0));
 
-test('the editor opens on the record already said, and the panel does not grow while you read it', async ({
-  page,
-}) => {
+test('the editor opens on the record already said, and the panel does not grow while you read it', async ({ page }) => {
   test.setTimeout(60_000);
   const brand = await currentBrand(page);
   const id = await seedPresenter(page.request, brand.id, 'Steady');

@@ -875,7 +875,7 @@ test.describe('a person from scratch', () => {
 });
 
 test.describe('from photos', () => {
-  test('one photo: the photo is the face, the rest is drawn from it, and the record keeps the originals', async ({
+  test('one photo: the face is drawn from it, the rest follows, and the record keeps the originals', async ({
     page,
   }) => {
     test.setTimeout(90_000);
@@ -892,13 +892,18 @@ test.describe('from photos', () => {
     await expect(cont).not.toHaveAttribute('aria-disabled', 'true');
     await cont.click();
     await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
-    await expect(log(page)).toContainText('Face from your photo', { timeout: 20_000 });
     // the photographs are asked once what is always true of them, before the set
     await answer(page, 'Nothing to add').click();
+    // the face is drawn from the photograph, not adopted from it, and is
+    // decided like any other view before the body is built on it
+    await expect(log(page)).toContainText('Here is the face', { timeout: 30_000 });
+    // the drawn face is theirs to accept: it is an approximation of a real
+    // person now, not one of their own photographs
+    await answer(page, 'Use this person').click();
     await expect(log(page)).toContainText('Here is the full body', { timeout: 30_000 });
     await answer(page, 'Use it').click();
     await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 30_000 });
-    // the photo is never redrawn, and an identity ask against it is refused
+    // a person built from photographs is never re-identified, whoever drew the frame
     await send(page, 'make her nose smaller');
     await expect(page.locator('.sc-convo-line[role="alert"]')).toContainText('Their photos define who they are.');
     await answer(page, 'Save as is').click();
@@ -909,8 +914,44 @@ test.describe('from photos', () => {
     expect(person.source).toBe('photos');
     expect(person.sourceRefs).toHaveLength(1);
     expect(person.shots[0].angle).toBe('portrait');
-    expect(person.shots[0].file).toBe(person.sourceRefs[0].file);
+    // drawn, not the upload: the uploads are kept as what they are
+    expect(person.shots[0].file).not.toBe(person.sourceRefs[0].file);
+    expect(person.shots.map((x: { file: string }) => x.file)).not.toContain(person.sourceRefs[0].file);
     expect(person.likeness.version).toBe('v1');
+  });
+
+  test('what is always true of them is asked before the face is drawn, and the face is drawn with it', async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await answer(page, 'Add photos').click();
+    await page.locator('input[type="file"]').setInputFiles({ name: 'noor.png', mimeType: 'image/png', buffer: PNG });
+    await page.getByRole('checkbox').check();
+    await answer(page, 'Continue').click();
+    await expect(page).toHaveURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+
+    // The question stands while nothing has been drawn. It used to wait for the
+    // face to be approved, which was harmless while the face was one of their
+    // own photographs and impossible once it is drawn from them: glasses, a
+    // scar or a tattoo could never reach the one view that shows them.
+    await expect(log(page)).toContainText('always true of them', { timeout: 30_000 });
+    const id = page.url().split('/').pop() as string;
+    const before = await draftOf(page, brand.id, id);
+    expect(before.views.portrait.status).toBe('empty');
+
+    await answer(page, 'Glasses').click();
+    await answer(page, 'Continue').click();
+    // a swatch answers on the tap; only a grouped row waits for its button
+    await answer(page, 'Round metal').click();
+
+    await expect(log(page)).toContainText('Here is the face', { timeout: 40_000 });
+    // and the record carries it, so every view's prompt does too
+    const after = await draftOf(page, brand.id, id);
+    expect(`${after.keep ?? ''} ${(after.keepItems ?? []).map((k: { words: string }) => k.words).join(' ')}`).toMatch(
+      /gold metal frames|round thin gold/i,
+    );
   });
 
   test('four photos ride, a fifth is refused, and a photo can be taken back before continuing', async ({ page }) => {

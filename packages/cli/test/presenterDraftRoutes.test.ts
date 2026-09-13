@@ -254,7 +254,12 @@ describe('presenter draft routes', () => {
     expect(created.status).toBe(200);
     let d = await settled(brand.id, created.body.id);
     expect(d.attestation.version).toBe('v1');
-    expect(d.views.portrait).toMatchObject({ status: 'approved', hash: a, origin: 'photo' });
+    // the photographs fill no view: the face is drawn from them and decided
+    expect(d.views.portrait.status).toBe('empty');
+    await j('POST', `${base}/${d.id}/views/portrait/generate`, {});
+    d = await settled(brand.id, d.id);
+    await j('POST', `${base}/${d.id}/views/portrait/approve`);
+    // and one of them can still be put on a view by hand
     const placed = await j('POST', `${base}/${d.id}/views/front/use-photo`, { hash: b });
     expect(placed.status).toBe(200);
     expect(placed.body.views.front).toMatchObject({ status: 'approved', hash: b, origin: 'photo' });

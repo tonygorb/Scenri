@@ -230,9 +230,19 @@ const gapsApply = (a: Answers) => words(a) && a.describe !== undefined && descri
 const describeDone = (a: Answers) => words(a) && a.describe !== undefined && (!gapsApply(a) || a.gaps !== undefined);
 
 /**
- * The photographs are asked what stays once, between the face and the rest of
- * the set: after the draft holds them and the face stands, before anything is
- * drawn from it. A draft that already carries the answer is not asked again.
+ * The photographs are asked what stays once: after the read, and before the
+ * face is drawn.
+ *
+ * It used to wait for the face to be approved, which was harmless while the
+ * face was one of their own photographs: nothing had been drawn, so nothing
+ * could have missed a detail. Now the face is drawn from the photographs, and
+ * asking after it meant glasses, a scar or a tattoo could never reach it. The
+ * prompt for every view carries the kept details "whether or not the attached
+ * images show it" (`presenterPrompts.ts`), so the only thing that has to be
+ * true is that the answer is in hand before the first draw. A question open
+ * holds every draw, so moving it here is enough.
+ *
+ * A draft that already carries the answer is not asked again.
  */
 const photosMoment = (a: Answers, ctx: FlowContext) =>
   photos(a) &&
@@ -240,7 +250,6 @@ const photosMoment = (a: Answers, ctx: FlowContext) =>
   ctx.draft.source === 'photos' &&
   ctx.canGenerate &&
   ctx.draft.stage !== 'analyzing' &&
-  ctx.draft.views.portrait.status === 'approved' &&
   (a.traits !== undefined || !ctx.draft.keep?.trim());
 
 /**

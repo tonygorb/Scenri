@@ -817,10 +817,12 @@ export function mergeIdentityEdits(existing: string[], adjustment: string): stri
 
 /**
  * Read the photographs once, and let the ones that already are a canonical
- * view fill that slot as the original. Without an analyzer the first photo
- * is the portrait: the face the user chose to lead with. A read that fails
- * (the engine's limit, a dropped connection) lands the same way, with the
- * reason on the row, so the draft never sits empty and silent.
+ * view say so on the record, and ride as references when a view is drawn.
+ * None of them becomes a view: what a photograph shows is evidence of the
+ * person, not a frame of the set. A read that fails (the engine's limit, a
+ * dropped connection) lands the same way, with the reason on the row, so the
+ * draft never sits empty and silent, and the face is still drawn from the
+ * pictures that were given.
  */
 async function filePhotos(deps: AssetBuildDeps, id: string, signal: AbortSignal): Promise<void> {
   const { core, analyzer } = deps;
@@ -853,32 +855,20 @@ async function filePhotos(deps: AssetBuildDeps, id: string, signal: AbortSignal)
   mutate(core, id, (r) => {
     if (analysis) r.analysis = analysis;
     r.readError = readError;
-    const filings = analysis?.photos ?? [];
-    for (const v of PRESENTER_VIEWS) {
-      const hit = filings.find((p) => p.view === v && p.usable && r.sources[p.index]);
-      if (hit) r.views[v] = { ...emptySlot(), status: 'approved', hash: r.sources[hit.index], origin: 'photo' };
-    }
-    // A read that files no photograph as the portrait is not a read that found
-    // no face. The analyzer files by framing, so a clear frontal photograph
-    // that is not a head-and-shoulders crop comes back as `other`: measured on
-    // a real read, three good photographs of one man were all marked usable and
-    // the first was described as a "Clear frontal upper-body view", and the
-    // portrait slot was still left empty. The draft then spent a generation
-    // drawing a face it had already been handed, and the canonical face became
-    // a redraw of the person instead of the person.
+    // The photographs are evidence, never a canonical view.
     //
-    // Their own picture takes the slot instead, which is what the studio has
-    // always told them would happen: "Your first photo is the face."
-    // A read that found more than one person in the pictures has not told us
-    // which one to keep, and a photograph with two faces in it is a poor thing
-    // to call somebody's face. The draw settles it instead, from the person
-    // the read actually described, and the warning stands either way.
-    if (r.views.portrait.status === 'empty' && !analysis?.conflict) {
-      const usable = analysis ? filings.find((p) => p.usable && r.sources[p.index]) : undefined;
-      // With no read at all, the first photograph is the only thing to go on.
-      const pick = analysis ? (usable ? r.sources[usable.index] : undefined) : r.sources[0];
-      if (pick) r.views.portrait = { ...emptySlot(), status: 'approved', hash: pick, origin: 'photo' };
-    }
+    // They used to be adopted straight into whatever slot the read filed them
+    // under, and the face on top of that, so a presenter built from three
+    // pictures kept two raw uploads and one drawn frame as its reference set.
+    // Every shot of that person was then conditioned on a mix of studio frames
+    // and a phone photograph in whatever clothes and light it was taken in,
+    // which is the one thing the capture uniform exists to prevent, and the
+    // face Scenri leads with was not a face Scenri had ever drawn.
+    //
+    // So nothing is adopted. The face is drawn from the photographs first and
+    // decided like any other, the views built on the face follow it, and the
+    // originals stay where they belong: on the record as the photographs that
+    // were given, and in the references that ride with every draw.
   });
 }
 

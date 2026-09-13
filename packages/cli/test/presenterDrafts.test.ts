@@ -165,6 +165,21 @@ async function step(draftId: string, view: PresenterView, adjustment?: string, d
   return getPresenterDraft(core, draftId)!;
 }
 
+/**
+ * The face, drawn from whatever the draft holds and accepted.
+ *
+ * A photographs draft used to open with its portrait already approved, taken
+ * from one of the uploads. The face is drawn now, so anything built on it has
+ * to draw and accept it first, the way the flow does.
+ */
+async function faceFirst(draftId: string) {
+  await step(draftId, 'portrait');
+  await approveView(deps(), draftId, 'portrait');
+  // approving a face can set the views built on it going; let that land
+  for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
+  return getPresenterDraft(core, draftId)!;
+}
+
 const refsOf = (req: GenerateRequest) =>
   (req.referenceImages ?? []).map((p) =>
     p
@@ -534,7 +549,7 @@ describe('saving', () => {
 });
 
 describe('with no engine that can draw', () => {
-  it('a photos draft still saves: the portrait leads and the other photographs follow as they are', async () => {
+  it('a photos draft cannot be finished with no engine, and keeps the photographs it was given', async () => {
     analyzerOn = false;
     const a = core.images.save(await png('#a08070', 800, 1000));
     const b = core.images.save(await png('#b09080', 800, 1000));
@@ -542,15 +557,16 @@ describe('with no engine that can draw', () => {
     let d = await createPresenterDraft(blind, { brandId, source: 'photos', imageHashes: [a, b], attestation: true });
     for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
     d = getPresenterDraft(core, d.id)!;
-    expect(view(d, 'portrait')).toMatchObject({ status: 'approved', hash: a, origin: 'photo' });
+    // The face is drawn from the photographs, so with nothing able to draw
+    // there is no face and no set. A photograph is not put in its place: that
+    // is what this door used to do, and what it saved was two phone pictures
+    // called a reference set.
+    expect(view(d, 'portrait').status).toBe('empty');
+    expect(d.sources).toEqual([a, b]);
     await updatePresenterDraft(core, d.id, { name: 'Noor' });
-    const { presenter } = await savePresenterDraft(blind, d.id);
-    expect(presenter.shots?.map((s) => s.file)).toEqual([`asset:${a}`, `asset:${b}`]);
-    expect(presenter.shots?.[0].angle).toBe('portrait');
-    expect(presenter.shots?.[1].angle).toBeUndefined();
-    expect(presenter.sourceRefs?.map((s) => s.file)).toEqual([`asset:${a}`, `asset:${b}`]);
-    expect(presenter.avatar).toMatch(/^asset:/);
-    expect(presenter.preview).toMatch(/^asset:/);
+    await expect(savePresenterDraft(blind, d.id)).rejects.toThrow('approve the face first');
+    // and nothing of theirs was thrown away by the refusal
+    for (const h of [a, b]) expect(existsSync(core.images.pathFor(h))).toBe(true);
   });
 
   it('a person from a description cannot be started', async () => {
@@ -574,6 +590,7 @@ describe('discarding', () => {
     });
     let d = await createPresenterDraft(deps(), { brandId, source: 'photos', imageHashes: [photo], attestation: true });
     for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
+    d = await faceFirst(d.id);
     d = await step(d.id, 'front');
     const front = view(d, 'front').hash!;
     await discardPresenterDraft(deps(), d.id);
@@ -598,7 +615,7 @@ describe('discarding', () => {
   });
 });
 
-describe('from photos: the originals are the truth', () => {
+describe('from photos: the originals are evidence, never a view', () => {
   async function photos(n: number) {
     const out: string[] = [];
     for (let i = 0; i < n; i++)
@@ -620,7 +637,7 @@ describe('from photos: the originals are the truth', () => {
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  it('a read that fails says why and files the first photo as the face, the way no analyzer does', async () => {
+  it('a read that fails says why, and the face is still drawn from the photographs', async () => {
     const [a, b] = await photos(2);
     const broken: AssetBuildDeps = {
       ...deps(),
@@ -642,13 +659,16 @@ describe('from photos: the originals are the truth', () => {
     expect(d.activeView).toBeNull();
     expect(d.readError).toContain('usage limit');
     expect(d.analysis).toBeUndefined();
-    expect(d.views.portrait).toMatchObject({ status: 'approved', origin: 'photo', hash: a });
+    // Nothing is adopted, whatever the read managed: the photographs are what
+    // the face is drawn from, and they stay what they are.
+    expect(d.views.portrait.status).toBe('empty');
     expect(d.views.front.status).toBe('empty');
+    expect(d.sources).toEqual([a, b]);
     // the row remembers it across a reload
     expect(getPresenterDraft(core, created.id)?.readError).toContain('usage limit');
   });
 
-  it('files the photos by view: a usable portrait fills its slot as the original, pre-approved', async () => {
+  it('reads the photos and fills no slot with one: the set is drawn from them', async () => {
     const [portrait, snap] = await photos(2);
     let d = await createPresenterDraft(deps(), {
       brandId,
@@ -659,16 +679,21 @@ describe('from photos: the originals are the truth', () => {
     d = await settled(d.id);
     expect(analyzed[0].classifyPhotos).toBe(true);
     expect(d.sources).toEqual([portrait, snap]);
-    expect(view(d, 'portrait')).toMatchObject({ status: 'approved', hash: portrait, origin: 'photo' });
+    // The read files them, and none of them becomes a view: a phone photograph
+    // in the reference set is the one thing the capture uniform exists to keep
+    // out of it.
+    expect(view(d, 'portrait').status).toBe('empty');
     expect(view(d, 'front').status).toBe('empty');
     expect(d.attestation?.version).toBe('v1');
-    // the front is drawn from the approved portrait first, then the other photos, inside the cap
+    // the front is drawn from the approved face first, then the photographs, inside the cap
+    d = await faceFirst(d.id);
     d = await step(d.id, 'front');
+    // the first draw is the face, from the photographs themselves
     expect(refsOf(generated[0])).toEqual([portrait, snap]);
     expect(generated[0].referenceRoles).toEqual(['character', 'character']);
   });
 
-  it('takes the face from a photograph the read liked, even when it fits no named view', async () => {
+  it('draws the face whatever the read could place, and places nothing itself', async () => {
     // The analyzer files by framing, so a clear frontal photograph that is not
     // a head-and-shoulders crop comes back as `other` and matches no slot.
     // Measured on a real read of three good photographs of one man: every one
@@ -679,10 +704,13 @@ describe('from photos: the originals are the truth', () => {
     const [a, b] = await photos(2);
     let d = await createPresenterDraft(deps(), { brandId, source: 'photos', imageHashes: [a, b], attestation: true });
     d = await settled(d.id);
-    expect(view(d, 'portrait')).toMatchObject({ status: 'approved', hash: a, origin: 'photo' });
-    // the one the read did place still goes where it belongs
-    expect(view(d, 'three-quarter')).toMatchObject({ status: 'approved', hash: b, origin: 'photo' });
-    // and nothing was drawn: the face was already theirs
+    // Whatever the read could place, no slot is filled with a photograph: the
+    // one it named is evidence like the rest of them.
+    expect(view(d, 'portrait').status).toBe('empty');
+    expect(view(d, 'three-quarter').status).toBe('empty');
+    expect(d.sources).toEqual([a, b]);
+    // and nothing is drawn until it is asked for: opening the door spends no
+    // generation of its own
     expect(generated).toHaveLength(0);
   });
 
@@ -733,25 +761,33 @@ describe('from photos: the originals are the truth', () => {
     expect(view(d, 'portrait').status).toBe('empty');
   });
 
-  it('one photo is enough: with nothing to read it, the photo is the portrait', async () => {
+  it('one photo is enough, and with nothing to read it the face is still drawn from it', async () => {
     analyzerOn = false;
     const [p] = await photos(1);
     let d = await createPresenterDraft(deps(), { brandId, source: 'photos', imageHashes: [p], attestation: true });
     d = await settled(d.id);
-    expect(view(d, 'portrait')).toMatchObject({ status: 'approved', hash: p, origin: 'photo' });
+    expect(view(d, 'portrait').status).toBe('empty');
+    expect(d.sources).toEqual([p]);
+    d = await faceFirst(d.id);
+    // drawn, and the photograph it was drawn from is still only a source
+    expect(view(d, 'portrait')).toMatchObject({ status: 'approved', origin: 'generated' });
+    expect(view(d, 'portrait').hash).not.toBe(p);
   });
 
   it('four photos stay one person: one record, the originals kept, the confirmation recorded', async () => {
     const four = await photos(4);
     let d = await createPresenterDraft(deps(), { brandId, source: 'photos', imageHashes: four, attestation: true });
     d = await settled(d.id);
+    d = await faceFirst(d.id);
     d = await build(d.id, ['front', 'three-quarter']);
     await updatePresenterDraft(core, d.id, { name: 'Noor' });
     const { presenter } = await savePresenterDraft(deps(), d.id);
     expect(presenter.source).toBe('photos');
     expect(presenter.likeness?.version).toBe('v1');
     expect(presenter.sourceRefs?.map((s) => s.file)).toEqual(four.map((h) => `asset:${h}`));
-    expect(presenter.shots?.[0]).toMatchObject({ file: `asset:${four[0]}`, angle: 'portrait' });
+    // the face is drawn, so the first shot is not one of the uploads
+    expect(presenter.shots?.[0]?.angle).toBe('portrait');
+    expect(presenter.shots?.map((x) => x.file)).not.toContain(`asset:${four[0]}`);
     expect(presenter.promptName).toBe('a woman in her forties with a short silver crop');
     // one analysis, over the photographs, not one per view
     expect(analyzed).toHaveLength(1);
@@ -765,6 +801,9 @@ describe('from photos: the originals are the truth', () => {
     const [a, b] = await photos(2);
     let d = await createPresenterDraft(deps(), { brandId, source: 'photos', imageHashes: [a, b], attestation: true });
     d = await settled(d.id);
+    // Putting one there by hand is still yours to do; what changed is that the
+    // draft never does it for you.
+    d = await faceFirst(d.id);
     await usePhotoForView(deps(), d.id, 'front', b);
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'front')).toMatchObject({ status: 'approved', hash: b, origin: 'photo' });
@@ -1174,7 +1213,7 @@ describe('extras are built on request', () => {
     expect(presenter.shots?.map((s) => s.angle)).toEqual(['portrait', 'front', 'three-quarter', 'back']);
   });
 
-  it('a photograph the analyzer files as an extra fills that slot as the original', async () => {
+  it('a photograph the analyzer files as an extra still fills no slot', async () => {
     const [portrait, back] = [
       core.images.save(await png('#607080', 800, 1000)),
       core.images.save(await png('#708090', 800, 1000)),
@@ -1200,8 +1239,13 @@ describe('extras are built on request', () => {
     });
     for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
     d = getPresenterDraft(core, d.id)!;
-    expect(view(d, 'back')).toMatchObject({ status: 'approved', hash: back, origin: 'photo' });
-    d = await build(d.id, ['front', 'three-quarter']);
+    // filed, and still only evidence: the back view is drawn like the rest
+    expect(view(d, 'back').status).toBe('empty');
+    expect(d.sources).toContain(back);
+    d = await faceFirst(d.id);
+    // the back is an extra like any other now, drawn when it is asked for
+    await updatePresenterDraft(core, d.id, { extras: true });
+    d = await build(d.id, ['front', 'three-quarter', 'back']);
     await updatePresenterDraft(core, d.id, { name: 'Noor' });
     const { presenter } = await savePresenterDraft(deps(), d.id);
     expect(presenter.shots?.map((s) => s.angle)).toEqual(['portrait', 'front', 'three-quarter', 'back']);
@@ -1339,8 +1383,9 @@ describe('abandoned drafts', () => {
     });
     for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
     const later = Date.now() + ABANDONED_DRAFT_MS + 60_000;
-    // b is drawing: it stays, and the photo it holds stays with it
-    await generateView(deps(), b.id, 'front', {});
+    // b is drawing: it stays, and the photo it holds stays with it. The face is
+    // what it draws, because that is the first thing a photographs draft draws.
+    await generateView(deps(), b.id, 'portrait', {});
     expect(sweepAbandonedPresenterDrafts(core, {}, later)).toBe(1);
     expect(getPresenterDraft(core, a.id)).toBeNull();
     expect(getPresenterDraft(core, b.id)).not.toBeNull();
@@ -1417,13 +1462,17 @@ describe('editing a saved presenter', () => {
       name: 'Noor',
     });
     d = await settled(d.id);
+    d = await faceFirst(d.id);
     d = await build(d.id, ['front', 'three-quarter']);
     const { presenter } = await savePresenterDraft(deps(), d.id);
     const e = seedDraftFromPresenter(core, brandId, presenter);
     expect(e.source).toBe('photos');
     expect(e.sources).toEqual([a, b]);
     expect(e.attestation?.version).toBe('v1');
-    expect(view(e, 'portrait')).toMatchObject({ status: 'approved', hash: a, origin: 'photo' });
+    // the face on the record was drawn from the photographs, so the session
+    // seeded from it holds a drawn face too, and never one of the uploads
+    expect(view(e, 'portrait')).toMatchObject({ status: 'approved', origin: 'generated' });
+    expect(view(e, 'portrait').hash).not.toBe(a);
     expect(view(e, 'front')).toMatchObject({ status: 'approved', origin: 'generated' });
     expect(view(e, 'three-quarter').status).toBe('approved');
     expect(e.extras).toBe(false);
