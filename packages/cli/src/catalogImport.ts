@@ -290,7 +290,15 @@ async function runJob(
       return;
     }
 
-    run.finish({ sweep, warnings, errors: pictureErrors, refused: stats.refused });
+    run.finish({
+      sweep,
+      warnings,
+      errors: pictureErrors,
+      refused: stats.refused,
+      // Every address was read. A bulk API hands the catalogue over whole, so
+      // there is nothing to cover.
+      covered: bulk ? true : stats.pages >= urls.length,
+    });
   } catch (err: any) {
     // Stopping during discovery throws out of the pipeline, and the throw is
     // the stop rather than a fault of the site's.
@@ -445,7 +453,9 @@ function beginWrite(
       warnings,
       errors,
       refused = 0,
+      covered = true,
     }: {
+      covered?: boolean;
       sweep: boolean;
       warnings: string[];
       errors: unknown[];
@@ -455,7 +465,18 @@ function beginWrite(
       // run wrote, and until the crawl ended there were more coming.
       if (sweep) core.catalog.markMissingUnavailable(source.id, tally.seenKeys);
       tally.errors = errors;
-      const partial = !!errors.length || refused > 0 || (discovered > 0 && tally.upserted < discovered * 0.9);
+      /**
+       * Partial means the catalogue was not read, not that a picture failed.
+       *
+       * This compared products saved against addresses discovered, and a store
+       * lists several addresses for one product - gymshark.com's 2,206 URLs are
+       * 1,052 products, because a colourway is an address and `ProductGroup` is
+       * one product. So a run that read every address it was given, saved
+       * every product behind them and lost two pictures out of 1,909 called
+       * itself partial. Reading every address is the thing worth asserting;
+       * failed pictures are recorded as errors and show on the card.
+       */
+      const partial = !covered || refused > 0;
       // A shop that turned us away is the headline, not a footnote under a
       // count of picture problems. Saying "imported 413 products with 209
       // issues" about a run that was refused 1,794 pages describes the wrong
