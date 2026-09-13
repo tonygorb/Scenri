@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  INSERT_CAP,
   INSERT_EMPTY,
+  insertPageSize,
   NOUN,
   PAGE,
   buildCandidates,
@@ -523,8 +523,8 @@ describe('pickList', () => {
   });
 });
 
-const choiceIds = (rows: ReturnType<typeof insertShortlist>) =>
-  rows.map((r) => ('id' in r.token ? r.token.id : r.label));
+const choiceIds = (list: ReturnType<typeof insertShortlist>) =>
+  list.items.map((r) => ('id' in r.token ? r.token.id : r.label));
 
 describe('insertShortlist', () => {
   const manyProducts = () =>
@@ -572,54 +572,90 @@ describe('insertShortlist', () => {
     colors: palette,
   });
 
+  it('insertPageSize is the first page for that sigil', () => {
+    expect(insertPageSize('$')).toBe(INSERT_EMPTY.Products);
+    expect(insertPageSize('/')).toBe(INSERT_EMPTY.Scenes);
+    expect(insertPageSize('@')).toBe(INSERT_EMPTY.Presenters);
+    expect(insertPageSize('#')).toBe(INSERT_EMPTY.Colors);
+    expect(insertPageSize(undefined)).toBe(INSERT_EMPTY.Products);
+  });
+
   it('empty $ is products only, yours first', () => {
-    const rows = insertShortlist('$', pools(), { query: '' });
-    expect(rows.every((r) => r.group === 'Products')).toBe(true);
-    expect(choiceIds(rows)[0]).toBe('mine');
-    expect(rows.length).toBeLessThanOrEqual(INSERT_EMPTY.Products);
+    const list = insertShortlist('$', pools(), { query: '' });
+    expect(list.items.every((r) => r.group === 'Products')).toBe(true);
+    expect(choiceIds(list)[0]).toBe('mine');
+    expect(list.items.length).toBeLessThanOrEqual(INSERT_EMPTY.Products);
+    expect(list.total).toBe(21);
+    expect(list.remaining).toBe(list.total - list.items.length);
   });
 
   it('empty / is scenes only, yours first', () => {
-    const rows = insertShortlist('/', pools(), { query: '', bookmarked: new Set(['marked']) });
-    expect(rows.every((r) => r.group === 'Scenes')).toBe(true);
-    expect(choiceIds(rows).slice(0, 3)).toEqual(['us-mine', 'marked', 'suited']);
-    expect(rows.length).toBeLessThanOrEqual(INSERT_EMPTY.Scenes);
+    const list = insertShortlist('/', pools(), { query: '', bookmarked: new Set(['marked']) });
+    expect(list.items.every((r) => r.group === 'Scenes')).toBe(true);
+    expect(choiceIds(list).slice(0, 3)).toEqual(['us-mine', 'marked', 'suited']);
+    expect(list.items.length).toBeLessThanOrEqual(INSERT_EMPTY.Scenes);
+    expect(list.total).toBe(15);
+    expect(list.remaining).toBe(list.total - list.items.length);
   });
 
   it('empty @ is presenters only, yours first', () => {
-    const rows = insertShortlist('@', pools(), { query: '' });
-    expect(rows.every((r) => r.group === 'Presenters')).toBe(true);
-    expect(rows[0]?.token).toMatchObject({ t: 'character', id: 'up-mine' });
-    expect(rows.length).toBeLessThanOrEqual(INSERT_EMPTY.Presenters);
+    const list = insertShortlist('@', pools(), { query: '' });
+    expect(list.items.every((r) => r.group === 'Presenters')).toBe(true);
+    expect(list.items[0]?.token).toMatchObject({ t: 'character', id: 'up-mine' });
+    expect(list.items.length).toBeLessThanOrEqual(INSERT_EMPTY.Presenters);
+    expect(list.total).toBe(10);
+    expect(list.remaining).toBe(list.total - list.items.length);
   });
 
   it('empty # is colours only', () => {
-    const rows = insertShortlist('#', pools(), { query: '' });
-    expect(rows.every((r) => r.group === 'Colors')).toBe(true);
-    expect(rows.map((r) => r.label)).toEqual(['Terracotta', 'Ink', 'Gold']);
-    expect(rows[0]?.token).toMatchObject({ t: 'color', hex: '#D96C3B', name: 'Terracotta' });
-    expect(rows.length).toBeLessThanOrEqual(INSERT_EMPTY.Colors);
+    const list = insertShortlist('#', pools(), { query: '' });
+    expect(list.items.every((r) => r.group === 'Colors')).toBe(true);
+    expect(list.items.map((r) => r.label)).toEqual(['Terracotta', 'Ink', 'Gold']);
+    expect(list.items[0]?.token).toMatchObject({ t: 'color', hex: '#D96C3B', name: 'Terracotta' });
+    expect(list.items.length).toBeLessThanOrEqual(INSERT_EMPTY.Colors);
+    expect(list.total).toBe(3);
+    expect(list.remaining).toBe(0);
+  });
+
+  it('shown pages past the first shortlist', () => {
+    const first = insertShortlist('$', pools(), { query: '' });
+    const next = insertShortlist('$', pools(), { query: '', shown: INSERT_EMPTY.Products * 2 });
+    expect(first.items).toHaveLength(INSERT_EMPTY.Products);
+    expect(next.items.length).toBeGreaterThan(first.items.length);
+    expect(next.items.length).toBeLessThanOrEqual(INSERT_EMPTY.Products * 2);
+    expect(next.remaining).toBe(next.total - next.items.length);
+    expect(choiceIds(next).slice(0, first.items.length)).toEqual(choiceIds(first));
   });
 
   it('typing # searches colours, not scenes', () => {
-    const rows = insertShortlist('#', pools(), { query: 'ink' });
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.token).toMatchObject({ t: 'color', hex: '#1F2933' });
-    expect(insertShortlist('#', pools(), { query: 'f5c' }).map((r) => r.label)).toEqual(['Gold']);
-    expect(insertShortlist('#', pools(), { query: 'our set' })).toEqual([]);
+    const list = insertShortlist('#', pools(), { query: 'ink' });
+    expect(list.items).toHaveLength(1);
+    expect(list.total).toBe(1);
+    expect(list.remaining).toBe(0);
+    expect(list.items[0]?.token).toMatchObject({ t: 'color', hex: '#1F2933' });
+    expect(insertShortlist('#', pools(), { query: 'f5c' }).items.map((r) => r.label)).toEqual(['Gold']);
+    expect(insertShortlist('#', pools(), { query: 'our set' })).toEqual({ items: [], remaining: 0, total: 0 });
   });
 
-  it('typing searches that catalog and caps silently at INSERT_CAP', () => {
+  it('typing searches that catalog and pages, never a silent cap', () => {
     const products = buildCandidates(
       'product',
       catalog({ libraryProducts: Array.from({ length: 80 }, (_, i) => owned({ id: `can-${i}`, name: `Can ${i}` })) }),
     );
-    const rows = insertShortlist('$', { products, presenters: [] }, { query: 'can' });
-    expect(rows).toHaveLength(INSERT_CAP);
-    expect(rows.every((r) => r.group === 'Products')).toBe(true);
+    const first = insertShortlist('$', { products, presenters: [] }, { query: 'can' });
+    expect(first.items).toHaveLength(INSERT_EMPTY.Products);
+    expect(first.items.every((r) => r.group === 'Products')).toBe(true);
+    expect(first.total).toBe(80);
+    expect(first.remaining).toBe(72);
+    const all = insertShortlist('$', { products, presenters: [] }, { query: 'can', shown: 80 });
+    expect(all.items).toHaveLength(80);
+    expect(all.remaining).toBe(0);
   });
 
   it('a typed query that matches nothing is an empty list, not a close', () => {
-    expect(insertShortlist('@', { products: [], presenters: manyPresenters() }, { query: 'zzzz' })).toHaveLength(0);
+    const list = insertShortlist('@', { products: [], presenters: manyPresenters() }, { query: 'zzzz' });
+    expect(list.items).toHaveLength(0);
+    expect(list.total).toBe(0);
+    expect(list.remaining).toBe(0);
   });
 });

@@ -227,13 +227,17 @@
 }
 
 /* ---------- insert menu (portal, caret or composer-docked) ----------
-   `/` `@` `#` share this shell. It is a shortlist you arrow through while
-   the brief keeps focus — not a command palette, not a second search field. */
+   `$` `/` `@` `#` share this shell. Typing in the brief is the filter. */
 .sc-cmd {
   position: fixed;
   z-index: var(--sc-z-popover);
-  overflow-x: hidden;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  /* clip, not hidden: hidden is still a scroll container, and a reserved
+     gutter on the shell stacked a second 10px seam beside the list's bar. */
+  overflow: clip;
+  scrollbar-gutter: auto;
+  overflow-anchor: none;
   padding: 5px;
   border: 1px solid var(--sc-line-strong);
   border-radius: var(--sc-radius-xl);
@@ -254,11 +258,27 @@
     animation: none;
   }
 }
+.sc-cmd-list {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* Sit on the shell's right edge so the bar is not inset by the 5px pad. */
+  margin-right: -5px;
+  scrollbar-gutter: auto;
+}
 .sc-cmd-group {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
   font-size: var(--sc-text-micro);
   font-weight: 600;
   color: var(--sc-fg3);
   padding: 8px 10px 4px;
+}
+.sc-cmd-n {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 .sc-cmd-row {
   display: flex;
@@ -318,6 +338,17 @@
   padding: 14px 10px;
   font-size: 12.5px;
   color: var(--sc-fg3);
+}
+.sc-cmd-sentinel {
+  height: 1px;
+}
+.sc-cmd-count {
+  margin: 0;
+  padding: 6px 10px 4px;
+  text-align: center;
+  font-size: var(--sc-text-micro);
+  color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
 }
 @media (pointer: coarse) {
   .sc-cmd-row {

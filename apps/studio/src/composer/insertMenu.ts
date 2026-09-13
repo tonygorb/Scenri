@@ -64,3 +64,98 @@ export function splitMatch(label: string, query: string): { text: string; hit: b
     ...(end < label.length ? [{ text: label.slice(end), hit: false }] : []),
   ];
 }
+
+type ScrollHost = { contains(node: unknown): boolean };
+type Rect = { top: number; bottom: number; left: number; right: number };
+
+/** Caret as an offset on the brief, so a later line box can rebuild it. */
+export type CaretOnLine = { x: number; y: number; w: number; h: number };
+
+export function copyRect(r: Rect): Rect {
+  return { top: r.top, bottom: r.bottom, left: r.left, right: r.right };
+}
+
+export function caretOnLine(caret: Rect, line: Rect): CaretOnLine {
+  return {
+    x: caret.left - line.left,
+    y: caret.top - line.top,
+    w: caret.right - caret.left,
+    h: caret.bottom - caret.top,
+  };
+}
+
+export function caretFromLine(line: Rect, at: CaretOnLine): Rect {
+  return {
+    left: line.left + at.x,
+    top: line.top + at.y,
+    right: line.left + at.x + at.w,
+    bottom: line.top + at.y + at.h,
+  };
+}
+
+/**
+ * Which caret the insert menu should follow.
+ *
+ * The search field takes focus on purpose. A live range then sits in the
+ * input (or is gone), and placing off that lie — or off the whole brief —
+ * is the fly-away. A snapshot taken while the caret was still in the line
+ * stays good; `held` is that field having focus.
+ */
+export function pickInsertCaret(live: Rect | null, last: Rect | null, held: boolean): Rect | null {
+  if (held) return last;
+  if (live) return live;
+  return last;
+}
+
+/**
+ * Whether a scroll event should re-place the insert menu.
+ *
+ * The menu itself scrolls when a page lands. That event hits the window
+ * capture listener that follows the caret — treating it as a new place is
+ * what made the box jump on every load-more.
+ */
+export function placeOnScroll(target: unknown, menu: ScrollHost | null): boolean {
+  if (!menu || target == null) return true;
+  if (target === menu) return false;
+  return !menu.contains(target);
+}
+
+export function sameInsertPos<
+  T extends { left: number; top: number; width: number; maxHeight: number; side: string; shell: string },
+>(a: T | null, b: T | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.left === b.left &&
+    a.top === b.top &&
+    a.width === b.width &&
+    a.maxHeight === b.maxHeight &&
+    a.side === b.side &&
+    a.shell === b.shell
+  );
+}
+
+/**
+ * How tall the insert menu wants to be.
+ *
+ * `offsetHeight` is the painted box, which is already capped by the last
+ * `maxHeight`. After a miss that cap is ~80px, so measuring it again can
+ * never grow when `/q` becomes `/qa`. The list's scroll height is the
+ * content; chrome is the search field and padding around it.
+ */
+export function neededInsertHeight(chrome: number, listScroll: number, cap: number): number {
+  return Math.min(cap, Math.max(0, chrome) + Math.max(0, listScroll));
+}
+
+/** One ask per already-drawn page, so ArrowDown and the sentinel cannot double-fire. */
+export function shouldAskMore(askedAtLength: number, visible: number, remaining: number): boolean {
+  return remaining > 0 && visible > 0 && askedAtLength !== visible;
+}
+
+/** Move a row inside the menu without asking the window to scroll. */
+export function scrollChildIntoNearest(root: HTMLElement, child: HTMLElement): void {
+  const r = child.getBoundingClientRect();
+  const b = root.getBoundingClientRect();
+  if (r.bottom > b.bottom) root.scrollTop += r.bottom - b.bottom;
+  else if (r.top < b.top) root.scrollTop -= b.top - r.top;
+}

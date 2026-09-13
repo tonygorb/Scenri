@@ -305,7 +305,6 @@
    strips) never reserve space and don't need this. */
 .sc-home,
 .sc-notif-scroll,
-.sc-cmd,
 .sc-canvas,
 .sc-assets,
 .sc-ovl-meta,
