@@ -288,7 +288,7 @@ export function PresenterPage() {
               aria-label="Reference set"
               data-count={frames.length}
               ref={rail.railRef}
-              style={{ '--sc-refset-n': Math.min(frames.length, 3) } as CSSProperties}
+              style={{ '--sc-refset-count': frames.length } as CSSProperties}
             >
               {frames.map((f) => (
                 <li key={f.src}>

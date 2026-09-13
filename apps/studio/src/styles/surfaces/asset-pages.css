@@ -930,7 +930,11 @@
   margin: 0 auto;
 }
 .sc-refset {
-  --sc-refset-n: 3;
+  /* How many stand at a time: three, or the whole set when it is smaller.
+     The count comes in on the element so the rule covers any number, and
+     the cap stays in CSS so a narrower screen can lower it. */
+  --sc-refset-count: 3;
+  --sc-refset-n: min(3, var(--sc-refset-count));
   --sc-refset-gap: 18px;
   --sc-refset-max: 400px;
   display: flex;
@@ -1109,7 +1113,7 @@
   /* A phone shows three at the floor and scrolls the rest, and the row bleeds
      to the gutter so the first tile can start at the screen edge. */
   .sc-refset {
-    --sc-refset-n: 2;
+    --sc-refset-n: min(2, var(--sc-refset-count));
     --sc-refset-gap: 10px;
   }
   .sc-presenterpage-source {
