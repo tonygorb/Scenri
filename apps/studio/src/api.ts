@@ -20,6 +20,7 @@ import type {
   CodexSetupResult,
   CodexSetupState,
   CodexStatus,
+  ScrapeReport,
   DemoProduct,
   EngineInfo,
   FeedNode,
@@ -49,7 +50,8 @@ export const api = {
   /** Every brand as the switcher and the route resolver need it, never the document. */
   /** One brand's whole document. */
   createBrand: (brand: any) => req<Brand>('POST', '/api/brands', { brand }),
-  brandFromUrl: (url: string) => req<Brand & { warnings: string[] }>('POST', '/api/brands/from-url', { url }),
+  brandFromUrl: (url: string) =>
+    req<Brand & { warnings: string[]; report: ScrapeReport }>('POST', '/api/brands/from-url', { url }),
   updateBrand: (id: string, brand: any) => req<Brand>('PUT', `/api/brands/${id}`, { brand }),
   deleteBrand: (id: string) => req<{ ok: true }>('DELETE', `/api/brands/${id}`),
   /**

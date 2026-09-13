@@ -244,6 +244,16 @@ export interface CodexSetupResult {
   detail?: string;
 }
 
+/** What a website gave up, as facts rather than prose. Mirrors @scenri/brand. */
+export interface ScrapeReport {
+  url: string;
+  host: string;
+  name: { value: string; source: 'json-ld' | 'og:site_name' | 'title' | 'hostname' };
+  tagline: string | null;
+  logo: { status: 'primary' | 'alternate' | 'none'; source: string | null; note?: string };
+  colors: { count: number };
+}
+
 export interface EngineInfo {
   id: string;
   displayName: string;

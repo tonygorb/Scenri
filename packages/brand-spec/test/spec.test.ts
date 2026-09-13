@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { validateBrand, buildFromUrl } from '../src/index.js';
+import { nameFromTitle } from '../src/buildFromUrl.js';
 
 describe('validateBrand', () => {
   it('accepts minimal brand', () => {
@@ -128,6 +129,21 @@ describe('validateBrand', () => {
     expect(validateBrand({ specVersion: '0.1', meta: { name: 'x' }, extensions: { noNamespace: {} } }).valid).toBe(
       false,
     );
+  });
+});
+
+describe('nameFromTitle', () => {
+  // "Page Title | Site Name" is the near-universal convention, and taking the
+  // first half named a tester's company after its homepage headline.
+  it.each([
+    ['One Solution for All Your Business Finances | Lucid', 'Lucid'],
+    ['Bookkeeping, Tax and CFO Services – Lucid', 'Lucid'],
+    ['Acme Coffee', 'Acme Coffee'],
+    ['Acme Coffee | Slow mornings for people with somewhere to be', 'Acme Coffee'],
+    ['Home · Studio Ora', 'Studio Ora'],
+    ['', ''],
+  ])('reads %j as %j', (title, expected) => {
+    expect(nameFromTitle(title)).toBe(expected);
   });
 });
 

@@ -9,6 +9,9 @@ import { flattenPalette } from '../brand/palette.js';
 import { primaryMark } from '../brand/marks.js';
 import { brandName } from '../layout/nav.js';
 import { duplicateOf } from './brandDupes.js';
+import { kitNeedsHand, kitSummary } from './kitReport.js';
+import { useToasts } from '../toasts.js';
+import { useOpenSettings } from '../app/dialogs.js';
 
 /**
  * First run: name the brand, or hand over a website and let the scrape do it.
@@ -28,6 +31,8 @@ export function BrandSetup() {
   const navigate = useNavigate();
   /** Back from here has nowhere to go on a true first run. */
   const canCancel = brands.length > 0;
+  const { push } = useToasts();
+  const openSettings = useOpenSettings();
   const [url, setUrl] = useState('');
   const [scratchName, setScratchName] = useState('');
   const [scratch, setScratch] = useState(false);
@@ -64,6 +69,17 @@ export function BrandSetup() {
       // `https://  https://...` and the server's parser error reached the
       // screen as "Invalid URL". One normaliser now owns the rule, server-side.
       const b = await api.brandFromUrl(url);
+      // Say what the site gave up. The scraper always knew; this screen used to
+      // throw it away and navigate, so a kit with no logo looked identical to
+      // one with a logo. Partial is the normal case and reads as success.
+      push({
+        kind: 'success',
+        title: `Kit built from ${b.report.host}`,
+        detail: kitSummary(b.report),
+        ...(kitNeedsHand(b.report)
+          ? { action: { label: 'Finish the kit', onClick: () => openSettings('brand') } }
+          : {}),
+      });
       // Fire and forget, exactly as the products step did: a storefront fills
       // the product library in the background while the user gets on with it.
       // Every site is offered to it, because a splash page can still have a

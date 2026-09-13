@@ -198,6 +198,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       .send({ error: leaksPath || rawRuntime ? 'unexpected error' : (e.message ?? 'unexpected error') });
   });
 
+  /**
+   * Bounds and address rules for anything the brand scraper fetches. Loopback
+   * and private addresses are refused, because a brand field is not a way to
+   * probe someone's own network; the e2e fixture serves from 127.0.0.1 and is
+   * the only thing that ever lifts it.
+   */
+  const scrapeGuard = () => ({ allowPrivateHosts: process.env.SCENRI_SCRAPE_ALLOW_PRIVATE === '1' });
+
   // ---- brands
   app.get('/api/brands', async () => core.store.listBrands());
   app.post('/api/brands', async (req, reply) => {
@@ -212,8 +220,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const asked = normalizeSiteUrl((req.body as any)?.url);
     if (!asked.ok) return reply.status(400).send({ error: asked.message });
     const url = asked.url;
-    const { brand, warnings } = await buildFromUrl(url, {
+    const { brand, warnings, report } = await buildFromUrl(url, {
       fetchImpl: opts.fetchImpl,
+      guard: scrapeGuard(),
       // The store names every blob `<hash>.png` and /api/images/:hash always
       // serves image/png, so an un-normalized .ico or .svg here is a file lying
       // about its own format — broken in the marks grid, and mislabelled to any
@@ -228,7 +237,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       createdWith: `${meta.name}/${meta.version}`,
     });
     const row = core.store.createBrand(brand as any);
-    return { ...row, warnings };
+    return { ...row, warnings, report };
   });
   app.put('/api/brands/:id', async (req, reply) => {
     const json = (req.body as any)?.brand;
@@ -353,6 +362,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const url = asked.url;
     const { brand: scraped, warnings } = await buildFromUrl(url, {
       fetchImpl: opts.fetchImpl,
+      guard: scrapeGuard(),
       saveAsset: async (buf) => `asset:${core.images.save(await toMarkPng(buf))}`,
       probeLongEdge: async (buf) => {
         const m = await sharp(await toMarkPng(buf)).metadata();

@@ -1,5 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
+/**
+ * A brand kit, from a website.
+ *
+ * Any website. A shop is one kind of brand source and not the interesting
+ * kind: a portfolio, an agency page or a company homepage all carry a name, a
+ * mark and a palette, and none of them carry products. Nothing here knows what
+ * a product is.
+ *
+ * The contract is a useful first draft, never a reverse-engineered brand
+ * guideline. Everything found is reported, everything missing is said plainly,
+ * and the kit editor is one click away either way.
+ */
 import * as cheerio from 'cheerio';
+import { paletteFrom } from './colors.js';
+import { type LogoCandidate, type LogoSource, logoCandidates, svgAsMark } from './logoCandidates.js';
+import { type GuardOptions, type GuardedFetch, createGuardedFetch } from './safeFetch.js';
 import { ScrapeError, urlRefusal } from './scrapeError.js';
 import { normalizeSiteUrl } from './siteUrl.js';
 
@@ -16,179 +31,107 @@ export interface BuildOptions {
    * to reproduce exactly from pixels that cannot say what it looks like.
    */
   probeLongEdge?: (buf: Buffer) => Promise<number | null>;
+  /** Bounds and address rules for everything this fetches. */
+  guard?: GuardOptions;
+}
+
+export type NameSource = 'json-ld' | 'og:site_name' | 'title' | 'hostname';
+
+/**
+ * What the scrape found, as facts rather than prose.
+ *
+ * The warnings are kept because the kit editor already shows them; this is the
+ * same information in a shape the setup screen can render without parsing
+ * sentences. Partial is the normal case: a logo and no colours is a success.
+ */
+export interface ScrapeReport {
+  /** The URL actually read, after redirects. */
+  url: string;
+  host: string;
+  name: { value: string; source: NameSource };
+  tagline: string | null;
+  logo: { status: 'primary' | 'alternate' | 'none'; source: LogoSource | null; note?: string };
+  colors: { count: number };
 }
 
 export interface BuildResult {
   brand: Record<string, unknown>;
   warnings: string[];
+  report: ScrapeReport;
 }
 
-const HEX_RE = /#[0-9a-fA-F]{6}\b/g;
-const FETCH_TIMEOUT_MS = 15_000;
-
-function hexToHsl(hex: string): { h: number; s: number; l: number } {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-  const max = Math.max(r, g, b),
-    min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  if (max === min) return { h: 0, s: 0, l };
-  const d = max - min;
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  let h = 0;
-  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-  else if (max === g) h = ((b - r) / d + 2) / 6;
-  else h = ((r - g) / d + 4) / 6;
-  return { h: h * 360, s, l };
-}
-
-function pickPalette(colors: string[]): { primary?: string; secondary?: string; accent: string[]; neutrals: string[] } {
-  const counts = new Map<string, number>();
-  for (const c of colors) counts.set(c.toLowerCase(), (counts.get(c.toLowerCase()) ?? 0) + 1);
-  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c);
-  const saturated: string[] = [];
-  const neutrals: string[] = [];
-  for (const c of sorted) {
-    const { s, l } = hexToHsl(c);
-    if (s < 0.12 || l < 0.06 || l > 0.96) neutrals.push(c);
-    else saturated.push(c);
-  }
-  return {
-    primary: saturated[0],
-    secondary: saturated[1],
-    accent: saturated.slice(2, 4),
-    neutrals: neutrals.slice(0, 2),
-  };
-}
+/** How many candidate marks are worth a download before settling for what we have. */
+const LOGO_TRIES = 3;
+/** Stylesheets are read for colour, and four is already more than any palette needs. */
+const MAX_SHEETS = 4;
+const SHEET_RANK = /(theme|main|app|style|tailwind|global|site|brand)/i;
+const SHEET_SKIP = /(font|icon|fontawesome|bootstrap-icons|swiper|slick|slider|lightbox|print)/i;
 
 export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promise<BuildResult> {
-  const fetchImpl = opts.fetchImpl ?? fetch;
   const warnings: string[] = [];
   // Normalised here as well as at the route, so no caller can reach an
   // unguarded parse. This line used to be `new URL(url)`, and the TypeError it
   // threw is what a tester read as their website being rejected.
   const normalized = normalizeSiteUrl(url);
   if (!normalized.ok) throw urlRefusal(normalized.reason, normalized.message);
-  url = normalized.url;
-  const origin = new URL(url);
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  let res: Response;
-  try {
-    res = await fetchImpl(url, {
-      redirect: 'follow',
-      headers: { 'user-agent': 'scenri/0.1 (+https://scenri.co)' },
-      signal: controller.signal,
-    });
-  } catch (err) {
-    if (err instanceof ScrapeError) throw err;
-    if (err instanceof Error && err.name === 'AbortError') {
-      throw new ScrapeError('timeout', `${origin.hostname} took too long to answer.`);
-    }
-    throw new ScrapeError('unreachable', `Could not reach ${origin.hostname}.`);
-  } finally {
-    clearTimeout(timeoutId);
-  }
-  if (!res.ok)
-    throw new ScrapeError('http_status', `${origin.hostname} answered ${res.status}, so there was nothing to read.`);
-  const html = await res.text();
-  const $ = cheerio.load(html);
+  // An injected fetch is a test or a fixture serving invented hostnames, and
+  // resolving those would only fail. It wins over the caller's guard on that
+  // one point; production passes no fetch and gets the whole thing.
+  const get: GuardedFetch = createGuardedFetch({
+    ...opts.guard,
+    ...(opts.fetchImpl ? { fetchImpl: opts.fetchImpl, allowPrivateHosts: true } : {}),
+  });
 
-  const name =
-    $('meta[property="og:site_name"]').attr('content')?.trim() ||
-    $('title')
-      .first()
-      .text()
-      .trim()
-      .split(/\s+[|–—-]\s+/)[0] ||
-    origin.hostname.replace(/^www\./, '');
+  const page = await get(normalized.url, 'html');
+  const origin = new URL(page.finalUrl);
+  const $ = cheerio.load(page.text);
+  const base = baseOf($, origin);
+
+  const named = pickName($, origin);
   const tagline =
     $('meta[name="description"]').attr('content')?.trim() ||
     $('meta[property="og:description"]').attr('content')?.trim();
 
-  // colors: theme-color first (weighted), then inline styles + <style> blocks
-  const colorSources: string[] = [];
-  const themeColor = $('meta[name="theme-color"]').attr('content');
-  if (themeColor && /^#[0-9a-fA-F]{6}$/.test(themeColor.trim())) {
-    for (let i = 0; i < 5; i++) colorSources.push(themeColor.trim());
+  // ---- colours
+  const sources: { css: string; weightScale?: number }[] = [];
+  const themeColor = $('meta[name="theme-color"]').attr('content')?.trim();
+  const tileColor = $('meta[name="msapplication-TileColor"]').attr('content')?.trim();
+  // A declared theme colour is the one colour the site states outright, so it
+  // is fed in as a named brand variable rather than as one more fill.
+  for (const [value, scale] of [
+    [themeColor, 2],
+    [tileColor, 1],
+  ] as const) {
+    if (value) sources.push({ css: `:root{--brand-theme:${value}}`, weightScale: scale });
   }
-  const styleText =
-    $('[style]')
-      .map((_, el) => $(el).attr('style'))
-      .get()
-      .join('\n') +
-    '\n' +
-    $('style')
-      .map((_, el) => $(el).text())
-      .get()
-      .join('\n');
-  colorSources.push(...(styleText.match(HEX_RE) ?? []));
-
-  // first same-site stylesheet, best-effort
-  const cssHref = $('link[rel="stylesheet"]').first().attr('href');
-  if (cssHref) {
+  sources.push({ css: inlineCss($) });
+  for (const href of sheetHrefs($, base)) {
+    if (get.remaining() <= 0) break;
     try {
-      const cssUrl = new URL(cssHref, origin).toString();
-      const cssRes = await fetchImpl(cssUrl, { redirect: 'follow' });
-      if (cssRes.ok) colorSources.push(...((await cssRes.text()).match(HEX_RE) ?? []));
+      const sheet = await get(href, 'css');
+      sources.push({ css: sheet.text });
     } catch {
       warnings.push('Stylesheet fetch failed; palette from inline styles only.');
     }
   }
-  const palette = pickPalette(colorSources);
+  const palette = paletteFrom(sources);
   if (!palette.primary) warnings.push('No confident palette found. Set colors manually.');
+  const colorCount = [palette.primary, palette.secondary, ...palette.accent, ...palette.neutrals].filter(
+    Boolean,
+  ).length;
 
-  // logo: largest icon, else og:image. The og:image fallback is usually a
-  // marketing photograph, not a mark: it is still saved so the brand has a
-  // face, but never called the primary logo, because "primary" is what the
-  // compiler asks a model to reproduce exactly as drawn.
-  let logoRef: string | undefined;
-  let logoFromOg = false;
-  let logoTiny = false;
-  let iconHref = $('link[rel="apple-touch-icon"]').attr('href') || $('link[rel~="icon"]').attr('href');
-  if (!iconHref) {
-    iconHref = $('meta[property="og:image"]').attr('content');
-    logoFromOg = Boolean(iconHref);
-  }
-  if (iconHref && opts.saveAsset) {
-    try {
-      const iconRes = await fetchImpl(new URL(iconHref, origin).toString(), { redirect: 'follow' });
-      if (iconRes.ok) {
-        const buf = Buffer.from(await iconRes.arrayBuffer());
-        if (buf.length > 0) {
-          logoRef = await opts.saveAsset(buf, 'logo');
-          // A favicon-sized icon must never be crowned the primary mark: the
-          // compiler asks a model to reproduce the primary exactly as drawn,
-          // and 32px of pixels cannot say what to reproduce.
-          if (!logoFromOg && opts.probeLongEdge) {
-            const edge = await opts.probeLongEdge(buf).catch(() => null);
-            if (edge !== null && edge < 256) {
-              logoTiny = true;
-              warnings.push(
-                `The site icon is favicon-sized (${edge}px), so it was saved as an alternate mark, not the logo. Upload your real logo in Settings.`,
-              );
-            }
-          }
-        }
-      }
-    } catch {
-      warnings.push('Logo download failed.');
-    }
-  }
-  if (!logoRef) warnings.push('No logo captured. Add one manually.');
-  else if (logoFromOg)
-    warnings.push(
-      'No site icon was found; the social share image was saved as an alternate mark. Check it before treating it as the logo.',
-    );
+  // ---- the mark
+  const manifest = await readManifest($, base, get);
+  const candidates = logoCandidates($, base, manifest);
+  const picked = await downloadMark(candidates, get, opts, warnings);
 
   const brand: Record<string, unknown> = {
     specVersion: '0.1',
     meta: {
-      name,
+      name: named.value,
       slug:
-        name
+        named.value
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-+|-+$/g, '')
@@ -208,7 +151,244 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
           },
         }
       : {}),
-    ...(logoRef ? { logos: [{ role: logoFromOg || logoTiny ? 'alternate' : 'primary', file: logoRef }] } : {}),
+    ...(picked.ref
+      ? {
+          logos: [
+            {
+              role: picked.role,
+              file: picked.ref,
+              ...(picked.background ? { background: picked.background } : {}),
+            },
+          ],
+        }
+      : {}),
   };
-  return { brand, warnings };
+
+  return {
+    brand,
+    warnings,
+    report: {
+      url: page.finalUrl,
+      host: origin.hostname,
+      name: named,
+      tagline: tagline ?? null,
+      logo: {
+        status: picked.ref ? picked.role : 'none',
+        source: picked.source,
+        ...(picked.note ? { note: picked.note } : {}),
+      },
+      colors: { count: colorCount },
+    },
+  };
 }
+
+function baseOf($: cheerio.CheerioAPI, origin: URL): URL {
+  const declared = $('base[href]').attr('href');
+  if (!declared) return origin;
+  try {
+    return new URL(declared, origin);
+  } catch {
+    return origin;
+  }
+}
+
+function pickName($: cheerio.CheerioAPI, origin: URL): { value: string; source: NameSource } {
+  const ld = jsonLdName($);
+  if (ld) return { value: ld, source: 'json-ld' };
+  const og = $('meta[property="og:site_name"]').attr('content')?.trim();
+  if (og) return { value: og, source: 'og:site_name' };
+  const title = nameFromTitle($('title').first().text());
+  if (title) return { value: title, source: 'title' };
+  return { value: origin.hostname.replace(/^www\./, ''), source: 'hostname' };
+}
+
+/**
+ * A page title is usually two things with a separator between them, and the
+ * brand is the short half. "Page Title | Site Name" is the near-universal
+ * convention, so taking the first segment named a tester's company after its
+ * homepage headline: "One Solution for All Your Business Finances" rather than
+ * "Lucid". The short, few-worded end wins; a title with no separator is taken
+ * whole.
+ */
+export function nameFromTitle(raw: string): string {
+  const parts = raw
+    .trim()
+    .split(/\s+[|\u00b7\u2022\u2013\u2014]\s+|\s+-\s+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length < 2) return parts[0] ?? '';
+  const first = parts[0];
+  const last = parts[parts.length - 1];
+  const words = (v: string) => v.split(/\s+/).length;
+  // "Home", "Index" and friends name the page, never the company.
+  if (/^(home|homepage|index|welcome|start|main)$/i.test(first)) return last;
+  if (words(last) <= 4 && words(first) > words(last)) return last;
+  return first;
+}
+
+function jsonLdName($: cheerio.CheerioAPI): string | null {
+  for (const node of $('script[type="application/ld+json"]').toArray()) {
+    try {
+      const data = JSON.parse($(node).text()) as unknown;
+      const found = findOrgName(data, 0);
+      if (found) return found;
+    } catch {
+      // A malformed block is not a reason to stop reading the page.
+    }
+  }
+  return null;
+}
+
+function findOrgName(node: unknown, depth: number): string | null {
+  if (depth > 6 || node === null || typeof node !== 'object') return null;
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = findOrgName(item, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  const obj = node as Record<string, unknown>;
+  const type = String(obj['@type'] ?? '');
+  if (/Organization|Corporation|LocalBusiness/i.test(type) && typeof obj.name === 'string' && obj.name.trim())
+    return obj.name.trim();
+  for (const value of Object.values(obj)) {
+    const found = findOrgName(value, depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
+
+/** Inline styles and embedded blocks, as one sheet. */
+function inlineCss($: cheerio.CheerioAPI): string {
+  const attrs = $('[style]')
+    .map((_, el) => `x{${$(el).attr('style')}}`)
+    .get()
+    .join('\n');
+  const blocks = $('style')
+    .map((_, el) => $(el).text())
+    .get()
+    .join('\n');
+  return `${attrs}\n${blocks}`;
+}
+
+function sheetHrefs($: cheerio.CheerioAPI, base: URL): string[] {
+  const hrefs: string[] = [];
+  for (const el of $('link[rel="stylesheet"]').toArray()) {
+    const href = $(el).attr('href');
+    if (!href || SHEET_SKIP.test(href)) continue;
+    try {
+      hrefs.push(new URL(href, base).toString());
+    } catch {
+      // A stylesheet we cannot address is one we cannot read.
+    }
+  }
+  return hrefs.sort((a, b) => Number(SHEET_RANK.test(b)) - Number(SHEET_RANK.test(a))).slice(0, MAX_SHEETS);
+}
+
+async function readManifest(
+  $: cheerio.CheerioAPI,
+  base: URL,
+  get: GuardedFetch,
+): Promise<{ icons?: { src?: string; sizes?: string }[] } | undefined> {
+  const href = $('link[rel="manifest"]').attr('href');
+  if (!href || get.remaining() <= 0) return undefined;
+  try {
+    const res = await get(new URL(href, base).toString(), 'css');
+    return JSON.parse(res.text) as { icons?: { src?: string; sizes?: string }[] };
+  } catch {
+    return undefined;
+  }
+}
+
+interface PickedMark {
+  ref?: string;
+  role: 'primary' | 'alternate';
+  source: LogoSource | null;
+  background?: 'light' | 'dark';
+  note?: string;
+}
+
+/**
+ * Walk the ranked candidates, best first, until one decodes into something a
+ * mark can be made from. A small one is kept as the fallback rather than
+ * crowned: "primary" is what the compiler promises to reproduce exactly as
+ * drawn, and 32px of favicon cannot say what to reproduce.
+ */
+async function downloadMark(
+  candidates: readonly LogoCandidate[],
+  get: GuardedFetch,
+  opts: BuildOptions,
+  warnings: string[],
+): Promise<PickedMark> {
+  if (!opts.saveAsset || candidates.length === 0) {
+    if (candidates.length === 0) warnings.push('No logo captured. Add one manually.');
+    return { role: 'primary', source: null };
+  }
+  let fallback: PickedMark | null = null;
+  let tried = 0;
+  let failed = false;
+
+  for (const candidate of candidates) {
+    if (tried >= LOGO_TRIES || get.remaining() <= 0) break;
+    let buf: Buffer | null = null;
+    if (candidate.svg) {
+      const sized = svgAsMark(candidate.svg);
+      if (!sized) continue;
+      buf = Buffer.from(sized, 'utf8');
+    } else if (candidate.url?.startsWith('data:')) {
+      const comma = candidate.url.indexOf(',');
+      const body = candidate.url.slice(comma + 1);
+      buf = candidate.url.slice(0, comma).includes(';base64')
+        ? Buffer.from(body, 'base64')
+        : Buffer.from(decodeURIComponent(body), 'utf8');
+    } else if (candidate.url) {
+      tried++;
+      try {
+        buf = (await get(candidate.url, 'asset')).bytes;
+      } catch {
+        failed = true;
+        continue;
+      }
+    }
+    if (!buf || buf.length === 0) continue;
+
+    // Saving is the caller's normaliser, and it refuses bytes that are not an
+    // image it can render. That is a candidate that did not work out, not a
+    // failed scrape: try the next one.
+    let ref: string;
+    try {
+      ref = await opts.saveAsset(buf, 'logo');
+    } catch {
+      failed = true;
+      continue;
+    }
+    // A vector was sized on the way in, so the floor does not apply to it.
+    const edge = candidate.svg || !opts.probeLongEdge ? null : await opts.probeLongEdge(buf).catch(() => null);
+    const tiny = edge !== null && edge < 256;
+    const role: 'primary' | 'alternate' = candidate.role === 'alternate' || tiny ? 'alternate' : 'primary';
+    const picked: PickedMark = {
+      ref,
+      role,
+      source: candidate.source,
+      ...(candidate.background ? { background: candidate.background } : {}),
+    };
+    if (role === 'primary') return picked;
+    if (tiny)
+      picked.note = `The site icon is favicon-sized (${edge}px), so it was saved as an alternate mark, not the logo. Upload your real logo in Settings.`;
+    else if (candidate.source === 'og-image')
+      picked.note =
+        'No site icon was found; the social share image was saved as an alternate mark. Check it before treating it as the logo.';
+    fallback ??= picked;
+  }
+
+  if (fallback) {
+    if (fallback.note) warnings.push(fallback.note);
+    return fallback;
+  }
+  if (failed) warnings.push('Logo download failed.');
+  warnings.push('No logo captured. Add one manually.');
+  return { role: 'primary', source: null };
+}
+
+export { ScrapeError };
