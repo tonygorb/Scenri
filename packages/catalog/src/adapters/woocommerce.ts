@@ -125,6 +125,9 @@ export const woocommerceAdapter: CatalogAdapter = {
       productKeys: [...keys],
       productUrls: [...productUrls],
       estimatedTotal: keys.size || productUrls.size || null,
+      // The WooCommerce store API answers in pages of a hundred, so the whole
+      // catalogue is a handful of requests and needs no batching of ours.
+      byPage: false,
       warnings,
     };
   },

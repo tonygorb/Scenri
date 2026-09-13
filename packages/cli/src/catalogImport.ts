@@ -1,12 +1,12 @@
 import sharp from 'sharp';
 import {
-  runCatalogIngestion,
+  discoverCatalog,
   mapPool,
   httpGet,
   normalizeStoreUrl,
   detectPlatform,
   dedupeProducts,
-  fetchProductPages,
+  fetchProductPagesInBatches,
   type CatalogProduct,
   type ImportStage,
   type JobProgress,
@@ -65,6 +65,39 @@ export function startCatalogImport(
 
   return { jobId: job.id };
 }
+/**
+ * Discovery progress, written to the job row without flooding it.
+ *
+ * `updateJob` rewrites the whole row, and the adapters emit once per product,
+ * so a 2,203-product store was 2,203 row writes. A stage change or a new
+ * message is always worth recording; a bare count is worth it every tenth.
+ * Progress never ends a job either: the pipeline reports `partial` mid-run
+ * when a fetch fails and then carries on, and writing that through closed the
+ * job where it stood. How a run ends is decided in one place, by `runJob`.
+ */
+function progressWriter(patch: (p: any) => unknown): (p: JobProgress) => void {
+  let lastStage = '';
+  let lastMessage: string | null = null;
+  return (p: JobProgress) => {
+    const reported = p.stage === 'queued' ? 'discovering' : p.stage;
+    const stage: ImportStage = TERMINAL.has(reported) ? 'fetching_products' : reported;
+    const message = p.message ?? null;
+    const notable = stage !== lastStage || message !== lastMessage || p.fetched % 10 === 0;
+    if (!notable) return;
+    lastStage = stage;
+    lastMessage = message;
+    patch({
+      stage,
+      platform: p.platform,
+      discovered: p.discovered,
+      fetched: p.fetched,
+      warnings: p.warnings,
+      errors: p.errors,
+      message,
+    });
+  };
+}
+
 async function runJob(
   deps: CatalogImportDeps,
   jobId: string,
@@ -77,146 +110,145 @@ async function runJob(
   const patch = (p: Parameters<typeof core.catalog.updateJob>[1]) => core.catalog.updateJob(jobId, p);
 
   try {
-    // A chosen set of products skips discovery entirely: the pages are
-    // already known, and re-crawling a store to find what someone just
-    // pointed at would be both slower and ruder.
+    // One path, whether someone ticked twelve products or asked for the whole
+    // store. Both read product pages, and both have to write what they have
+    // read before they have read everything: a 2,201-page store is minutes of
+    // crawling, and holding all of it to persist at the end is what left the
+    // Products page empty for the whole run and the heap carrying a catalogue
+    // it was not using. The two differ in where the addresses come from and in
+    // whether products missing from the run have genuinely gone.
+    const tally: Tally = { fetched: 0, upserted: 0, imagesDone: 0, imagesTotal: 0, errors: [], seenKeys: [] };
+    const ctx = { fetchImpl: fetchImpl ?? fetch, baseUrl: url, signal };
+
+    let urls: string[];
+    let baseUrl: string;
+    let platform: Platform;
+    let discovered: number;
+    let warnings: string[] = [];
+    /** Only a full run may retire what the store no longer lists. */
+    const sweep = !only?.length;
+
     if (only?.length) {
-      // In batches, so the products show up as they arrive rather than all at
-      // the end. Reading 2,199 gymshark pages is about sixteen minutes, and
-      // fetching every one before writing a single row is how the task came to
-      // read "0 of 2,199" for the whole of it.
+      // Re-crawling a store to find what someone just pointed at would be both
+      // slower and ruder, so a chosen set skips discovery entirely.
       patch({ stage: 'fetching_products', message: `Importing ${only.length} products`, discovered: only.length });
-      const ctx = { fetchImpl: fetchImpl ?? fetch, baseUrl: url, signal };
       const detection = await detectPlatform(ctx);
-      const tally: Tally = { fetched: 0, upserted: 0, imagesDone: 0, imagesTotal: 0, errors: [] };
-      let readAny = false;
+      urls = only;
+      baseUrl = url;
+      platform = detection.platform;
+      discovered = only.length;
+    } else {
+      patch({ stage: 'discovering', message: 'Detecting store platform' });
+      const found = await discoverCatalog({ url, fetchImpl, signal, onProgress: progressWriter(patch) });
+      baseUrl = found.baseUrl;
+      platform = found.detection.platform;
+      discovered = found.estimatedTotal;
+      warnings = found.progress.warnings;
 
-      for (let at = 0; at < only.length; ) {
-        if (signal.aborted) break;
-        const size = at === 0 ? Math.min(FIRST_BATCH, only.length) : IMPORT_BATCH;
-        const slice = only.slice(at, at + size);
-        at += size;
-        const products = dedupeProducts(
-          await fetchProductPages(ctx, slice, {
-            concurrency: 4,
-            maxBytes: 1_500_000,
-            onProduct: (n) => {
-              if (n % 10 === 0) patch({ fetched: tally.fetched + n });
-            },
-          }),
-        );
-        if (!products.length) continue;
-        readAny = true;
-        await persistProducts(deps, jobId, brandId, url, detection.platform, products, {
-          discovered: only.length,
-          warnings: [],
-          signal,
-          // Never sweep a chosen set. `markMissingUnavailable` flags everything
-          // outside this batch as gone, which is right for a full catalog
-          // refresh and destructive when someone imports twelve products and
-          // then twelve more.
-          sweep: false,
-          tally,
-          finalize: at >= only.length,
-        });
-      }
-
-      if (signal.aborted) return;
-      if (!readAny) {
+      if (found.empty || !found.estimatedTotal) {
+        const source = core.catalog.upsertSource(brandId, found.baseUrl, platform);
+        patch({ sourceId: source.id, platform });
+        // Two different outcomes, and they used to be the same one. Nothing
+        // discoverable means there is no shop here, which is a fact about the
+        // site and not a fault: a portfolio, an agency page or a company
+        // homepage is a perfectly good brand source.
         patch({
-          stage: 'failed',
-          message: 'None of the chosen products could be read',
-          errors: [{ code: 'no_products_fetched', message: 'None of the chosen products could be read' }],
+          stage: 'no_catalog',
+          errors: [],
+          warnings: found.progress.warnings,
+          message: 'No shop found on this site',
           finished: true,
         });
+        core.catalog.setSourceStatus(source.id, 'empty', true);
+        return;
       }
-      return;
+
+      if (!found.byPage) {
+        // A platform answering its own bulk API: shopify, woocommerce,
+        // webflow. That is a handful of paged requests and already bounded, so
+        // it stays one round. A Shopify store that refuses `products.json` is
+        // NOT this case - it comes back as a wall of pages, and takes the
+        // batched crawl below, which is the case this was all written for.
+        const products = await found.fetchAll();
+        if (signal.aborted) {
+          patch({ stage: 'cancelled', errors: [], message: 'Stopped before anything was saved', finished: true });
+          return;
+        }
+        if (!products.length) {
+          const source = core.catalog.upsertSource(brandId, baseUrl, platform);
+          patch({ sourceId: source.id, platform });
+          patch({
+            stage: 'failed',
+            errors: found.progress.errors,
+            warnings: found.progress.warnings,
+            message: found.progress.errors[0]?.message ?? 'No products imported',
+            finished: true,
+          });
+          core.catalog.setSourceStatus(source.id, 'failed', true);
+          return;
+        }
+        await persistProducts(deps, jobId, brandId, baseUrl, platform, products, {
+          discovered: found.progress.discovered,
+          warnings: found.progress.warnings,
+          signal,
+          sweep: true,
+          tally,
+        });
+        return;
+      }
+      urls = found.productUrls;
+      patch({ stage: 'fetching_products', discovered, message: `Reading ${discovered.toLocaleString()} products` });
     }
 
-    patch({ stage: 'discovering', message: 'Detecting store platform' });
-
-    // The adapters emit once per product fetched, and `updateJob` rewrites the
-    // whole row, so a 2203-product store used to mean 2203 row writes. A stage
-    // change or a message is always worth recording; a bare count is worth it
-    // every tenth.
-    let lastStage = '';
-    let lastMessage: string | null = null;
-    // The high-water mark, because aborting `fetchAll` throws away the
-    // products it had and the pipeline's closing emit then reports zero.
-    let mostRead = 0;
-    const result = await runCatalogIngestion({
-      url,
-      fetchImpl,
-      signal,
-      onProgress: (p: JobProgress) => {
-        // Progress never ends a job. The pipeline reports `partial` mid-run
-        // when a fetch fails and then carries on, and writing that through
-        // closed the job where it stood: `finished_at` set, counters frozen,
-        // and the real ending - cancelled, completed - refused as a write to
-        // an already-finished row. How a run ends is decided below, once.
-        const reported = p.stage === 'queued' ? 'discovering' : p.stage;
-        const stage: ImportStage = TERMINAL.has(reported) ? 'fetching_products' : reported;
-        const message = p.message ?? null;
-        mostRead = Math.max(mostRead, p.fetched);
-        const notable = stage !== lastStage || message !== lastMessage || p.fetched % 10 === 0;
-        if (!notable) return;
-        lastStage = stage;
-        lastMessage = message;
-        patch({
-          stage,
-          platform: p.platform,
-          discovered: p.discovered,
-          fetched: p.fetched,
-          warnings: p.warnings,
-          errors: p.errors,
-          message,
+    let readAny = false;
+    await fetchProductPagesInBatches(ctx, urls, {
+      firstBatch: FIRST_BATCH,
+      batch: IMPORT_BATCH,
+      concurrency: 4,
+      maxBytes: 1_500_000,
+      onProduct: (n) => {
+        if (n % 10 === 0) patch({ fetched: tally.fetched + n });
+      },
+      onBatch: async (batch, at) => {
+        const products = dedupeProducts(batch);
+        if (!products.length) return;
+        readAny = true;
+        await persistProducts(deps, jobId, brandId, baseUrl, platform, products, {
+          discovered,
+          warnings,
+          signal,
+          sweep,
+          tally,
+          finalize: at.last,
         });
       },
     });
 
     if (signal.aborted) {
-      // Aborting mid-fetch makes the pipeline throw `fetch_failed: aborted`
-      // and then conclude `no_products_fetched`, which reads as "this store
-      // could not be read" about a store that was answering perfectly. Both
-      // describe the stop, not the site, so neither is kept.
+      // Stopping mid-crawl is not a fault of the site's, and what was already
+      // written stays written.
       patch({
         stage: 'cancelled',
-        fetched: mostRead,
         errors: [],
-        message: mostRead ? `Stopped after reading ${mostRead} products` : 'Stopped before anything was saved',
+        message: tally.upserted
+          ? `Stopped after saving ${tally.upserted.toLocaleString()} products`
+          : 'Stopped before anything was saved',
         finished: true,
       });
       return;
     }
 
-    if (!result.products.length) {
-      const source = core.catalog.upsertSource(brandId, result.baseUrl, result.detection.platform);
-      patch({ sourceId: source.id, platform: result.detection.platform });
-      // Two different outcomes, and they used to be the same one. Nothing
-      // discoverable means there is no shop here, which is a fact about the
-      // site and not a fault: a portfolio, an agency page or a company
-      // homepage is a perfectly good brand source. URLs that WERE found and
-      // then would not parse is a real failure, and a shop owner needs to see
-      // it. (The line this replaces read `x === 'failed' ? 'failed' : 'failed'`
-      // - someone meant to make this distinction and it collapsed.)
-      const noShop = result.progress.errors.some((e) => e.code === 'empty_catalog');
+    if (!readAny) {
+      const message = only?.length
+        ? 'None of the chosen products could be read'
+        : `Found pages on this ${platform} store but could not read a product from any of them. The store may be blocking automated readers.`;
       patch({
-        stage: noShop ? 'no_catalog' : 'failed',
-        errors: noShop ? [] : result.progress.errors,
-        warnings: result.progress.warnings,
-        message: noShop ? 'No shop found on this site' : (result.progress.errors[0]?.message ?? 'No products imported'),
+        stage: 'failed',
+        message,
+        errors: [{ code: 'no_products_fetched', message }],
         finished: true,
       });
-      core.catalog.setSourceStatus(source.id, noShop ? 'empty' : 'failed', true);
-      return;
     }
-
-    await persistProducts(deps, jobId, brandId, result.baseUrl, result.detection.platform, result.products, {
-      discovered: result.progress.discovered,
-      warnings: result.progress.warnings,
-      signal,
-      sweep: true,
-    });
   } catch (err: any) {
     // Stopping during discovery throws out of the pipeline, and the throw is
     // the stop rather than a fault of the site's.
@@ -254,6 +286,28 @@ export const IMAGES_PER_PRODUCT = 3;
 /** Stages that mean a job is over. Only `runJob` may write one. */
 const TERMINAL: ReadonlySet<string> = new Set(['completed', 'partial', 'no_catalog', 'cancelled', 'failed']);
 
+/**
+ * How many pictures are downloaded at once.
+ *
+ * Six was inherited and never measured. Swept against the fixture store, 600
+ * images behind a 120 ms CDN delay, two runs at each of the contested points
+ * (seconds for the picture stage, peak RSS in MB):
+ *
+ *   4  23.6  452      12  11.0 / 11.2  492 / 506
+ *   6  20.9  486      16   8.4         497
+ *   8  14.6 / 14.3  423 / 446      24   7.9         520
+ *
+ * The curve is still falling at 12 and flat by 16, and memory climbs steadily
+ * from 8 up. Twelve takes 2.1x off the inherited six and sits under the
+ * flattening point, so the last increments are bought with resident decoded
+ * frames rather than with time.
+ *
+ * It is also a politeness ceiling, and that is the harder limit of the two:
+ * this points at somebody's shop. Twelve is twice a browser's per-host budget
+ * and nowhere near a level that reads as an attack; 24 would buy half a second.
+ */
+const IMAGE_CONCURRENCY = 12;
+
 const IMPORT_BATCH = 25;
 
 /**
@@ -279,6 +333,15 @@ interface Tally {
   imagesDone: number;
   imagesTotal: number;
   errors: unknown[];
+  /**
+   * Every external key this run has written, across all of its batches.
+   *
+   * A full catalog run retires what the store no longer lists, and it now
+   * writes in batches: sweeping on one batch's keys alone would mark the whole
+   * rest of the catalogue as gone. So the keys accumulate and the sweep waits
+   * for the last batch.
+   */
+  seenKeys: string[];
 }
 
 interface PersistOptions {
@@ -319,7 +382,7 @@ async function persistProducts(
 ): Promise<void> {
   const { core, fetchImpl } = deps;
   const { signal } = opts;
-  const tally = opts.tally ?? { fetched: 0, upserted: 0, imagesDone: 0, imagesTotal: 0, errors: [] };
+  const tally = opts.tally ?? { fetched: 0, upserted: 0, imagesDone: 0, imagesTotal: 0, errors: [], seenKeys: [] };
   const finalize = opts.finalize ?? true;
   const patch = (p: Parameters<typeof core.catalog.updateJob>[1]) => core.catalog.updateJob(jobId, p);
 
@@ -330,7 +393,7 @@ async function persistProducts(
   tally.fetched += products.length;
   patch({ stage: 'fetching_products', fetched: tally.fetched, message: 'Saving products' });
   let upserted = tally.upserted;
-  const seenKeys: string[] = [];
+  const seenKeys = tally.seenKeys;
 
   for (const p of products) {
     if (signal.aborted) break;
@@ -372,7 +435,9 @@ async function persistProducts(
   }
   tally.upserted = upserted;
   patch({ upserted, fetched: tally.fetched });
-  if (opts.sweep) core.catalog.markMissingUnavailable(source.id, seenKeys);
+  // Only once the last batch is in. Sweeping on a single batch's keys would
+  // retire the rest of the catalogue the run had not reached yet.
+  if (opts.sweep && finalize) core.catalog.markMissingUnavailable(source.id, seenKeys);
 
   // Download images, the first few of each product only.
   //
@@ -399,7 +464,7 @@ async function persistProducts(
 
   await mapPool(
     pending,
-    6,
+    IMAGE_CONCURRENCY,
     async (img) => {
       if (signal.aborted) return;
       try {

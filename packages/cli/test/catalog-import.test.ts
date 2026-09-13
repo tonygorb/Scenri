@@ -269,23 +269,40 @@ describe('a large import is readable while it runs', () => {
       engines: registryWith(createDemoEngine((b) => core.images.save(b))),
       fetchImpl: (async (input: any) => {
         const url = String(input);
-        if (url.includes('/products.json')) {
-          const page = Number(new URL(url).searchParams.get('page') ?? '1');
-          if (page > 1) return new Response(JSON.stringify({ products: [] }), { status: 200 });
+        // gymshark.com's shape: a Shopify store whose own product API refuses
+        // us, so the catalogue is a wall of pages read one at a time. This is
+        // the run that takes minutes and the only one batching is about; the
+        // bulk-API path is a handful of requests and stays one round.
+        if (url.includes('/products.json')) return new Response('blocked', { status: 403 });
+        if (url.endsWith('/sitemap.xml'))
           return new Response(
-            JSON.stringify({
-              products: Array.from({ length: COUNT }, (_, i) => ({
-                id: i + 1,
-                title: `Product ${i + 1}`,
-                handle: `product-${i + 1}`,
-                variants: [{ id: 1000 + i, title: 'Default', sku: `P-${i}`, price: '10.00', available: true }],
-                images: [{ src: `https://cdn.example/p${i}.jpg`, position: 1 }],
-              })),
-            }),
+            `<?xml version="1.0"?><sitemapindex><sitemap><loc>https://shop.example/sitemap_products_1.xml</loc></sitemap></sitemapindex>`,
+            { status: 200 },
+          );
+        if (url.includes('sitemap_products_1'))
+          return new Response(
+            `<?xml version="1.0"?><urlset>${Array.from(
+              { length: COUNT },
+              (_, i) => `<url><loc>https://shop.example/products/product-${i + 1}</loc></url>`,
+            ).join('')}</urlset>`,
+            { status: 200 },
+          );
+        const page = /\/products\/product-(\d+)$/.exec(url);
+        if (page) {
+          const i = Number(page[1]);
+          return new Response(
+            `<html><head><script type="application/ld+json">${JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Product',
+              name: `Product ${i}`,
+              sku: `P-${i}`,
+              url,
+              image: [`https://cdn.example/p${i}.jpg`],
+              offers: { '@type': 'Offer', price: 10, priceCurrency: 'USD' },
+            })}</script></head><body><button>Add to cart</button></body></html>`,
             { status: 200 },
           );
         }
-        if (url.includes('sitemap')) return new Response('<urlset></urlset>', { status: 200 });
         if (url.includes('.jpg')) {
           // The pictures are the long tail of a real import. Holding them here
           // is what keeps the job running long enough to be observed.
@@ -298,12 +315,17 @@ describe('a large import is readable while it runs', () => {
     await app.ready();
   });
   afterEach(async () => {
+    // Let the run end before the home goes away. The job keeps writing
+    // progress, and tearing the database out from under it surfaces as an
+    // unhandled rejection that has nothing to do with the test.
     openTheGate();
     await app.drain();
     rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
-  it('serves the products that have landed before the job is finished', async () => {
+  // Polls a real import through the HTTP surface, so it needs more than the
+  // 5 s default.
+  it('serves the products that have landed before the job is finished', { timeout: 20_000 }, async () => {
     const brand = await app.inject({
       method: 'POST',
       url: '/api/brands',
@@ -326,8 +348,13 @@ describe('a large import is readable while it runs', () => {
       job = (await app.inject({ method: 'GET', url: `/api/brands/${brandId}/catalog/jobs/${jobId}` })).json();
     }
 
-    // Readable, and the job that is writing them has not finished.
+    // Readable, and the job that is writing them has not finished. A PART of
+    // the catalogue, not all of it: the pictures of the first batch are held
+    // at the gate, so what is on screen is the first batch alone. That is the
+    // whole point - the old pipeline read all thirty pages before writing a
+    // row, and the Products page stayed empty for the entire run.
     expect(landed).toBeGreaterThan(0);
+    expect(landed).toBeLessThan(COUNT);
     expect(job.finishedAt).toBeFalsy();
 
     openTheGate();

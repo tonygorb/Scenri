@@ -168,6 +168,8 @@ export const genericAdapter: CatalogAdapter = {
       productKeys: [...productUrls].map(stableKey),
       productUrls: [...productUrls],
       estimatedTotal: productUrls.size || null,
+      // Nothing here but addresses: every product is its own page fetch.
+      byPage: true,
       warnings,
     };
   },

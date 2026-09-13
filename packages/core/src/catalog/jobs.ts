@@ -29,6 +29,33 @@ export function jobMethods(db: DB) {
       ).map(rowJob);
     },
 
+    /**
+     * Close every job that was still running when the process last stopped.
+     *
+     * A job lives in the database and its worker lives in the process, so a
+     * quit, a crash or a restart leaves a row that says `fetching_products`
+     * with no `finished_at` and nothing on earth still working on it. The bell
+     * then shows a task running for ever, and no later write can correct it
+     * because nothing is left to do the writing. Nothing is in flight at
+     * startup by definition, so anything unfinished here was interrupted.
+     *
+     * Whatever it had already saved stays saved; only the row is closed.
+     */
+    reconcileInterruptedJobs(): number {
+      const { changes } = db
+        .prepare(
+          `UPDATE import_jobs
+              SET stage='cancelled',
+                  finished_at=datetime('now'),
+                  message=CASE WHEN upserted > 0
+                    THEN 'Interrupted when Scenri stopped, after saving ' || upserted || ' products'
+                    ELSE 'Interrupted when Scenri stopped' END
+            WHERE finished_at IS NULL`,
+        )
+        .run();
+      return changes;
+    },
+
     updateJob(
       id: string,
       patch: Partial<{

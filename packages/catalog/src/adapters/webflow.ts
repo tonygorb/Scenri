@@ -74,6 +74,8 @@ export const webflowAdapter: CatalogAdapter = {
       productKeys: [...productUrls],
       productUrls: [...productUrls],
       estimatedTotal: productUrls.size || null,
+      // Webflow has no catalogue API to ask: every product is its own page.
+      byPage: true,
       warnings,
     };
   },

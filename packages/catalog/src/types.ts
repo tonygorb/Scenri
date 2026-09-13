@@ -77,6 +77,17 @@ export interface DiscoverResult {
    * request each - 2202 of them, in the case this was written for.
    */
   hints?: string[];
+  /**
+   * Whether reading this catalogue means one page request per product.
+   *
+   * True for a sitemap crawl, and for a Shopify store whose `products.json`
+   * refused us (gymshark.com does). Those runs take minutes, so the caller
+   * reads them in batches and writes each one down before asking for the next:
+   * products appear while the import is still going, and the heap never holds
+   * a whole catalogue. False for a platform answering its own bulk API, where
+   * the catalogue is a handful of paged requests and already bounded.
+   */
+  byPage?: boolean;
 }
 
 export interface AdapterContext {

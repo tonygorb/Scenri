@@ -8,5 +8,5 @@ export { shopifyAdapter } from './adapters/shopify.js';
 export { woocommerceAdapter } from './adapters/woocommerce.js';
 export { webflowAdapter } from './adapters/webflow.js';
 export { genericAdapter, extractJsonLdProducts, extractSitemapUrls, parseProductHtml } from './adapters/generic.js';
-export { productsFromPage, fetchProductPages } from './adapters/productPage.js';
+export { productsFromPage, fetchProductPages, fetchProductPagesInBatches } from './adapters/productPage.js';
 export { httpGet, httpJson, httpText, mapPool, USER_AGENT } from './http/fetch.js';

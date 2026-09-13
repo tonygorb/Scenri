@@ -203,6 +203,10 @@ export const shopifyAdapter: CatalogAdapter = {
       productKeys: [...keys],
       productUrls: [...productUrls],
       estimatedTotal: keys.size || productUrls.size || null,
+      // A store whose own product API answered but refused us leaves nothing
+      // to read but the pages themselves, one request each. That is what
+      // gymshark.com does, and it is the run worth batching.
+      byPage: hints.includes(JSON_BLOCKED),
       warnings,
       hints,
     };

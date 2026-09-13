@@ -305,4 +305,27 @@ describe('catalog store', () => {
     expect(late.stage).toBe('cancelled');
     expect(late.fetched).not.toBe(99);
   });
+  /**
+   * A job lives in the database and its worker lives in the process. A quit or
+   * a crash mid-import left a row reading `fetching_products` with nothing
+   * running, and the bell showed a task in flight for ever because nothing was
+   * left that could write the ending.
+   */
+  it('closes jobs that were still running when the process stopped', () => {
+    const brand = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any);
+    const live = core.catalog.createJob({ brandId: brand.id, url: 'https://acme.example' });
+    core.catalog.updateJob(live.id, { stage: 'fetching_products', fetched: 1020, upserted: 40 });
+    const done = core.catalog.createJob({ brandId: brand.id, url: 'https://other.example' });
+    core.catalog.updateJob(done.id, { stage: 'completed', upserted: 2, finished: true });
+
+    expect(core.catalog.reconcileInterruptedJobs()).toBe(1);
+    const after = core.catalog.getJob(live.id)!;
+    expect(after.stage).toBe('cancelled');
+    expect(after.finishedAt).toBeTruthy();
+    // What it had already saved is still saved, and the row says so.
+    expect(after.upserted).toBe(40);
+    expect(after.message).toContain('40');
+    // A job that had already ended is untouched.
+    expect(core.catalog.getJob(done.id)!.stage).toBe('completed');
+  });
 });
