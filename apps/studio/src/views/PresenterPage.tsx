@@ -18,26 +18,6 @@ import { EmptyRefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js'
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { PresenterDetailsDialog } from './PresenterDetailsDialog.js';
 
-/**
- * The phrases this brand already describes its people by.
- *
- * A blank field assumes you know what belongs in it. The descriptors Scenri
- * writes are three phrases each, so the brand's own vocabulary is already
- * there to offer, and picking one is faster and more consistent than typing
- * the same words again.
- */
-function phraseBank(brand: { json?: { characters?: unknown[] } | null }): string[] {
-  const rows = (brand.json?.characters ?? []) as { descriptor?: string }[];
-  const seen = new Map<string, string>();
-  for (const row of rows) {
-    for (const part of String(row?.descriptor ?? '').split('\u00b7')) {
-      const phrase = part.trim();
-      if (phrase) seen.set(phrase.toLowerCase(), phrase);
-    }
-  }
-  return [...seen.values()].sort((a, b) => a.localeCompare(b));
-}
-
 /** The word under a reference tile, by the angle the record gives it. */
 const ROLE_LABEL: Record<string, string> = {
   portrait: 'Face',
@@ -372,10 +352,8 @@ export function PresenterPage() {
         {details && owned && (
           <PresenterDetailsDialog
             name={owned.name}
-            descriptor={owned.descriptor ?? ''}
             categories={presenter.suitableCategories}
             known={presenterCategories}
-            phrases={phraseBank(brand)}
             busy={busy}
             error={err}
             onSave={(next) => void save(next)}

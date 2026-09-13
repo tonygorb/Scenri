@@ -6,60 +6,49 @@ import { DialogSheet, SheetClose, SheetTitle } from '../layout/DialogSheet.js';
 /**
  * The words on a presenter's record, changed in one place.
  *
- * A name, and two lists of short words. The two lists are the same control
- * and differ only in the words it offers: the phrases this brand already
- * describes people by, or the categories it already files them under. They
- * were three controls borrowed from three other surfaces once, and it showed.
+ * Two things, and only the two that are actually yours: what they are called,
+ * and what you file them under.
  *
- * The description is edited as what it is. Every descriptor Scenri writes is
- * three phrases with an interpunct between them, so it was a list stored as a
- * string all along, and a single text field made the reader guess the
- * separator and retype the line to change one word.
+ * The caption under their name is not here, and was briefly. Creation never
+ * asks for it: the analyser writes it from the face it drew or the
+ * photographs it read, and it is then used as a label wherever the person
+ * appears. Offering it as a list to curate asked for work nobody signed up
+ * for and implied it was the reader's sentence to write. If it is wrong, the
+ * person is what to change, and it is rewritten with them.
  *
  * Not to be confused with Edit presenter, which opens the studio and changes
  * what they look like. Nothing here touches a picture.
  */
 export function PresenterDetailsDialog({
   name,
-  descriptor,
   categories,
   known,
-  phrases,
   busy,
   error,
   onSave,
   onDismiss,
 }: {
   name: string;
-  descriptor: string;
   categories: string[];
   /** Every category this brand already files presenters under. */
   known: string[];
-  /** Phrases the brand's other presenters are described by, offered first. */
-  phrases: string[];
   busy?: boolean;
   error?: string | null;
   onSave: (patch: PresenterPatch) => void;
   onDismiss: () => void;
 }) {
   const [draftName, setName] = useState(name);
-  const [traits, setTraits] = useState(() => splitCaption(descriptor));
   const [draftCategories, setCategories] = useState(categories);
-
-  const draftDescriptor = traits.join(CAPTION_SEP);
 
   const trimmed = draftName.trim();
   // A name is theirs to choose, so anything with a character in it stands.
   const ready = trimmed.length > 0;
-  const changed =
-    trimmed !== name.trim() ||
-    draftDescriptor.trim() !== descriptor.trim() ||
-    draftCategories.join(' ') !== categories.join(' ');
+  const changed = trimmed !== name.trim() || draftCategories.join(' ') !== categories.join(' ');
 
   const submit = () => {
     if (!ready || busy) return;
     if (!changed) return onDismiss();
-    onSave({ name: trimmed, descriptor: draftDescriptor.trim(), suitableCategories: draftCategories });
+    onSave({ name: trimmed, suitableCategories: draftCategories });
   };
 
   return (
@@ -84,30 +73,6 @@ export function PresenterDetailsDialog({
             onKeyDown={(e) => e.key === 'Enter' && submit()}
           />
         </label>
-
-        <div className="sc-pdetails-row">
-          <span className="sc-pdetails-lb">Description</span>
-          <ChipPicker
-            value={traits}
-            onChange={setTraits}
-            options={phrases}
-            label="Description"
-            placeholder="Athletic build"
-            findPlaceholder="Find or add a phrase"
-            emptyNote="No phrase by that name yet."
-            max={6}
-            maxLength={40}
-          />
-          <span className="sc-pdetails-hint">
-            {draftDescriptor ? (
-              <>
-                Reads as <b>{draftDescriptor}</b> under their name.
-              </>
-            ) : (
-              'A few phrases. Together they are the line under their name.'
-            )}
-          </span>
-        </div>
 
         <div className="sc-pdetails-row">
           <span className="sc-pdetails-lb">Categories</span>
@@ -144,11 +109,3 @@ export function PresenterDetailsDialog({
     </DialogSheet>
   );
 }
-
-/** How a caption is written down, and how it comes apart again. */
-const CAPTION_SEP = ' · ';
-export const splitCaption = (caption: string): string[] =>
-  caption
-    .split('·')
-    .map((part) => part.trim())
-    .filter(Boolean);
