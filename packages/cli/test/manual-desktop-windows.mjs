@@ -214,12 +214,18 @@ async function offerScenario(label, keys, expectIcon) {
     return false;
   }
 
+  // The gate stays quiet under CI on purpose - a build agent has no Desktop
+  // and nobody to ask. Simulating a person means being one, so the marker
+  // comes off for this child alone.
+  const personEnv = { ...env };
+  for (const k of ['CI', 'GITHUB_ACTIONS', 'BUILD_NUMBER', 'SSH_TTY']) delete personEnv[k];
+
   const term = pty.spawn(process.execPath, [entry, 'serve'], {
     name: 'xterm-color',
     cols: 120,
     rows: 30,
     env: {
-      ...env,
+      ...personEnv,
       USERPROFILE: home2,
       HOME: home2,
       SCENRI_HOME: data2,
