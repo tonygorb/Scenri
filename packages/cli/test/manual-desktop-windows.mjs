@@ -395,6 +395,59 @@ if (again.version !== '99.0.0') fail(`third click booted ${again.version}`);
 ok('click 3 booted it again');
 await quit();
 
+// L11.5: the invariant the 0.9.2 tester lost a running Scenri to.
+//
+// Yes to the icon means ATTEMPT the icon. It has never meant "and if that
+// fails, stop Scenri" - but a rejection from the launcher step used to unwind
+// to index.ts and exit(1) on a server that was already listening. The prompt
+// itself needs a real console, so the keypress stays a VM check; what runs
+// here is the same composition behind it, through the route Settings > About
+// uses, on real Windows with real PowerShell and a Desktop that cannot be
+// written.
+{
+  const brokenDesktop = join(root, 'not-a-folder');
+  writeFileSync(brokenDesktop, 'this is a file, so nothing can be written inside it');
+  const port = PORT + 1;
+  const child = spawn(process.execPath, [entry, 'serve'], {
+    env: { ...env, SCENRI_DESKTOP_DIR: brokenDesktop, SCENRI_PORT: String(port), SCENRI_NO_OPEN: '1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  let output = '';
+  child.stdout.on('data', (d) => {
+    output += String(d);
+  });
+  child.stderr.on('data', (d) => {
+    output += String(d);
+  });
+  const at = async (path, init) => {
+    const res = await fetch(`http://127.0.0.1:${port}${path}`, { signal: AbortSignal.timeout(3000), ...init });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+  const alive = () =>
+    at('/api/version')
+      .then((r) => (r.status === 200 ? r.body : null))
+      .catch(() => null);
+  await waitFor('the server on a broken Desktop', alive, 120_000);
+  ok('a Desktop that cannot be written does not stop Scenri from starting');
+
+  const res = await at('/api/desktop/install', { method: 'POST' });
+  if (res.status >= 500) fail(`installing onto a broken Desktop answered ${res.status}: ${JSON.stringify(res.body)}`);
+  if (res.body?.ok !== false) fail(`installing onto a broken Desktop claimed success: ${JSON.stringify(res.body)}`);
+  const message = String(res.body?.message ?? '');
+  if (message.split('\n').length !== 1) fail(`the failure was more than one line: ${message}`);
+  if (/\n\s+at /.test(message)) fail(`the failure carried a stack: ${message}`);
+  ok(`the failure is one sentence: ${message}`);
+
+  if (!(await alive())) fail('the server died while failing to add an icon');
+  if (child.exitCode !== null) fail(`the server exited ${child.exitCode} while failing to add an icon:\n${output}`);
+  ok('the server is still answering after a failed icon install');
+
+  await at('/api/system/quit', { method: 'POST' }).catch(() => null);
+  await waitFor('the broken-Desktop server to stop', async () => !(await alive()), 20_000);
+  rmSync(brokenDesktop, { force: true });
+}
+
 // L12: remove
 {
   const r = runScenri(['desktop', '--remove']);
