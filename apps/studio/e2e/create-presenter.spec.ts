@@ -946,7 +946,11 @@ test.describe('from photos', () => {
     // uploaded at all, and what the person was shown was libvips's own words.
     await page.locator('input[type="file"]').setInputFiles([
       { name: 'good-1.png', mimeType: 'image/png', buffer: png(30, 90, 120) },
-      { name: 'holiday.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('\xff\xd8\xff\xe0 not really a jpeg', 'binary') },
+      {
+        name: 'holiday.jpg',
+        mimeType: 'image/jpeg',
+        buffer: Buffer.from('\xff\xd8\xff\xe0 not really a jpeg', 'binary'),
+      },
       { name: 'good-2.png', mimeType: 'image/png', buffer: png(80, 140, 60) },
     ]);
     await expect(page.locator('.sc-assetform-ref')).toHaveCount(2);

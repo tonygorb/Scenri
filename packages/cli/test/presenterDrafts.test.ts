@@ -59,6 +59,8 @@ let failNext: Error | null;
 let holdNext: { release?: () => void } | null = null;
 let analyzed: any[];
 let analyzerOn: boolean;
+/** Which view the stubbed read files each photograph under; a test can widen it. */
+let filesAs: (i: number) => string;
 
 const png = async (tint: string, w = 1024, h = 1280) =>
   sharp({ create: { width: w, height: h, channels: 3, background: tint } })
@@ -119,7 +121,7 @@ const analyzer = () => ({
         ? {
             photos: req.imagePaths.map((_: string, i: number) => ({
               index: i,
-              view: i === 0 ? 'portrait' : 'other',
+              view: filesAs(i),
               usable: true,
               note: i === 0 ? 'sharp, well lit' : 'a holiday snap',
             })),
@@ -146,6 +148,7 @@ beforeEach(async () => {
   analyzed = [];
   failNext = null;
   analyzerOn = true;
+  filesAs = (i) => (i === 0 ? 'portrait' : 'other');
   brandId = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any).id;
 });
 afterEach(() => {
@@ -663,6 +666,42 @@ describe('from photos: the originals are the truth', () => {
     d = await step(d.id, 'front');
     expect(refsOf(generated[0])).toEqual([portrait, snap]);
     expect(generated[0].referenceRoles).toEqual(['character', 'character']);
+  });
+
+  it('takes the face from a photograph the read liked, even when it fits no named view', async () => {
+    // The analyzer files by framing, so a clear frontal photograph that is not
+    // a head-and-shoulders crop comes back as `other` and matches no slot.
+    // Measured on a real read of three good photographs of one man: every one
+    // was marked usable, the first was described as a "Clear frontal
+    // upper-body view", and the portrait slot was still left empty. The draft
+    // then spent a generation drawing a face it had already been handed.
+    filesAs = (i) => (i === 1 ? 'three-quarter' : 'other');
+    const [a, b] = await photos(2);
+    let d = await createPresenterDraft(deps(), { brandId, source: 'photos', imageHashes: [a, b], attestation: true });
+    d = await settled(d.id);
+    expect(view(d, 'portrait')).toMatchObject({ status: 'approved', hash: a, origin: 'photo' });
+    // the one the read did place still goes where it belongs
+    expect(view(d, 'three-quarter')).toMatchObject({ status: 'approved', hash: b, origin: 'photo' });
+    // and nothing was drawn: the face was already theirs
+    expect(generated).toHaveLength(0);
+  });
+
+  it('still draws the face when the read says no photograph is usable for one', async () => {
+    filesAs = () => 'other';
+    const [a] = await photos(1);
+    const picky: AssetBuildDeps = {
+      ...deps(),
+      analyzer: {
+        isAvailable: async () => ({ ok: true }),
+        analyze: async () => ({
+          promptName: 'a person',
+          photos: [{ index: 0, view: 'other', usable: false, note: 'too blurred to read a face from' }],
+        }),
+      } as any,
+    };
+    let d = await createPresenterDraft(picky, { brandId, source: 'photos', imageHashes: [a], attestation: true });
+    d = await settled(d.id);
+    expect(view(d, 'portrait').status).toBe('empty');
   });
 
   it('one photo is enough: with nothing to read it, the photo is the portrait', async () => {

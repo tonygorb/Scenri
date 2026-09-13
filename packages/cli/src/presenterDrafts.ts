@@ -845,8 +845,22 @@ async function filePhotos(deps: AssetBuildDeps, id: string, signal: AbortSignal)
       const hit = filings.find((p) => p.view === v && p.usable && r.sources[p.index]);
       if (hit) r.views[v] = { ...emptySlot(), status: 'approved', hash: r.sources[hit.index], origin: 'photo' };
     }
-    if (!analysis && r.views.portrait.status === 'empty') {
-      r.views.portrait = { ...emptySlot(), status: 'approved', hash: r.sources[0], origin: 'photo' };
+    // A read that files no photograph as the portrait is not a read that found
+    // no face. The analyzer files by framing, so a clear frontal photograph
+    // that is not a head-and-shoulders crop comes back as `other`: measured on
+    // a real read, three good photographs of one man were all marked usable and
+    // the first was described as a "Clear frontal upper-body view", and the
+    // portrait slot was still left empty. The draft then spent a generation
+    // drawing a face it had already been handed, and the canonical face became
+    // a redraw of the person instead of the person.
+    //
+    // Their own picture takes the slot instead, which is what the studio has
+    // always told them would happen: "Your first photo is the face."
+    if (r.views.portrait.status === 'empty') {
+      const usable = analysis ? filings.find((p) => p.usable && r.sources[p.index]) : undefined;
+      // With no read at all, the first photograph is the only thing to go on.
+      const pick = analysis ? (usable ? r.sources[usable.index] : undefined) : r.sources[0];
+      if (pick) r.views.portrait = { ...emptySlot(), status: 'approved', hash: pick, origin: 'photo' };
     }
   });
 }
