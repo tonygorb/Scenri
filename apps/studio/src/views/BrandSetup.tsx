@@ -9,7 +9,9 @@ import { flattenPalette } from '../brand/palette.js';
 import { primaryMark } from '../brand/marks.js';
 import { brandName } from '../layout/nav.js';
 import { duplicateOf } from './brandDupes.js';
-import { kitLines, kitNeedsHand } from './kitReport.js';
+import { hasCatalog, kitLines, kitNeedsHand, productLine } from './kitReport.js';
+import { useCommerceScan } from './brandSetup/useCommerceScan.js';
+import { ProductChoice } from './brandSetup/ProductChoice.js';
 
 /** Cut on a word, never through one: "you could possibly think of, a" is not a tagline. */
 function clip(text: string, max: number): string {
@@ -29,9 +31,11 @@ function clip(text: string, max: number): string {
  * see. Editing now lives in Settings → Brand kit, products on the Products
  * page, bookmarks on the scene cards themselves.
  *
- * What the extra steps were genuinely for is kept: a scraped site with a
- * storefront still triggers a catalog import, headlessly, the moment the brand
- * exists.
+ * Products are a second question, asked after the kit is already on screen.
+ * A website may or may not be a shop, and the answer changes nothing about
+ * whether the brand import worked: a portfolio is a complete success with no
+ * products line at all, and a store we cannot read says so without calling
+ * itself empty.
  */
 export function BrandSetup() {
   const { brands, refresh } = useAppData();
@@ -52,6 +56,8 @@ export function BrandSetup() {
    * and no colours, say - was indistinguishable from a complete one.
    */
   const [made, setMade] = useState<Brand | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [report, setReport] = useState<ScrapeReport | null>(null);
   /**
    * The brand this input would duplicate, when one exists. Creating it anyway
@@ -124,6 +130,24 @@ export function BrandSetup() {
 
   const cancel = () => navigate('/', { replace: true });
 
+  // Asked only once the brand exists, and never blocking it.
+  const { scan, scanning, retry } = useCommerceScan(made?.id ?? null);
+  const products = productLine(scan, scanning);
+
+  const startImport = async (urls?: string[]) => {
+    if (!made) return;
+    setImporting(true);
+    try {
+      await api.catalogImport(made.id, String(made.json?.meta?.website ?? url), urls);
+    } catch {
+      // The import is a background job with its own row; a failure to start
+      // it is not a reason to hold someone on the setup screen.
+    }
+    setImporting(false);
+    setChoosing(false);
+    await land(made);
+  };
+
   const palette = made ? flattenPalette(made.json?.palette) : [];
   const logo = made ? assetUrl(primaryMark(made.json)?.file) : null;
 
@@ -158,14 +182,51 @@ export function BrandSetup() {
         <div className="sc-wiz-fields">
           {made ? (
             <div style={{ textAlign: 'center' }}>
-              <button type="button" className="sc-wiz-cta" onClick={() => void land(made)}>
-                Looks right <ArrowRight size={12} />
-              </button>
-              <div>
-                <button type="button" className="sc-wiz-skip" onClick={() => void land(made, 'brand')}>
-                  {report && kitNeedsHand(report) ? 'Finish the kit first' : 'Edit the kit first'}
-                </button>
-              </div>
+              {/*
+                A shop on the site is not a side quest. When one is found the
+                main button goes to the products, because the alternative is
+                what happened the first time this shipped: the obvious button
+                said "Looks right", it meant "and no products", and the step
+                was walked straight past.
+              */}
+              {scanning ? (
+                // Still looking. The obvious button said "Looks right" while a
+                // shop was being found, so pressing it landed on the brand and
+                // quietly threw the search away - the products were never
+                // offered and nothing said they had been missed.
+                <>
+                  <button type="button" className="sc-wiz-cta" disabled>
+                    <Spinner size="1" /> Looking for products
+                  </button>
+                  <div>
+                    <button type="button" className="sc-wiz-skip" onClick={() => void land(made)}>
+                      Skip and add the brand only
+                    </button>
+                  </div>
+                </>
+              ) : hasCatalog(scan) ? (
+                <>
+                  <button type="button" className="sc-wiz-cta" onClick={() => setChoosing(true)}>
+                    Add brand and products <ArrowRight size={12} />
+                  </button>
+                  <div>
+                    <button type="button" className="sc-wiz-skip" onClick={() => void land(made)}>
+                      Just the brand
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button type="button" className="sc-wiz-cta" onClick={() => void land(made)}>
+                    Looks right <ArrowRight size={12} />
+                  </button>
+                  <div>
+                    <button type="button" className="sc-wiz-skip" onClick={() => void land(made, 'brand')}>
+                      {report && kitNeedsHand(report) ? 'Finish the kit first' : 'Edit the kit first'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ) : !scratch ? (
             <>
@@ -337,20 +398,41 @@ export function BrandSetup() {
                 )}
                 {report && (
                   <ul className="sc-kit-lines">
-                    {kitLines(report).map((line) => (
+                    {[...kitLines(report), ...(products ? [products] : [])].map((line) => (
                       <li key={line.key} data-found={line.found ? '' : undefined}>
-                        {line.found ? <Check size={12} weight="bold" /> : <Minus size={12} />}
+                        {line.key === 'products' && scanning ? (
+                          <Spinner size="1" />
+                        ) : line.found ? (
+                          <Check size={12} weight="bold" />
+                        ) : (
+                          <Minus size={12} />
+                        )}
                         <span className="sc-kit-line-label">{line.label}</span>
                         <span className="sc-kit-line-value">{line.value}</span>
                       </li>
                     ))}
                   </ul>
                 )}
+                {!scanning && scan && (scan.verdict === 'blocked' || scan.verdict === 'likely') && (
+                  <button type="button" className="sc-wizpick-open" onClick={retry}>
+                    Try the catalogue again
+                  </button>
+                )}
               </>
             )}
           </div>
         </div>
       </div>
+      {choosing && scan && made && (
+        <ProductChoice
+          brandId={made.id}
+          scan={scan}
+          busy={importing}
+          onImport={(urls) => void startImport(urls)}
+          onImportAll={() => void startImport()}
+          onDismiss={() => setChoosing(false)}
+        />
+      )}
     </div>
   );
 }

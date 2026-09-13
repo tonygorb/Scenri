@@ -65,7 +65,7 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectRouteDe
     const brand = core.store.getBrand((req.params as any).id);
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
     const limit = Math.min(Number((req.query as any).limit) || 60, 200);
-    return { nodes: core.store.recentActivity(brand.id, limit), jobs: core.catalog.listJobs(brand.id) };
+    return { nodes: core.store.recentActivity(brand.id, limit), jobs: core.catalog.listRecentJobs(brand.id) };
   });
 
   // ---- workspace + feed + sets

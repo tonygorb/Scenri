@@ -102,6 +102,9 @@ importers:
 
   packages/catalog:
     dependencies:
+      '@scenri/brand':
+        specifier: workspace:*
+        version: link:../brand-spec
       node-html-parser:
         specifier: ^9.0.1
         version: 9.0.1

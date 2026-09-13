@@ -20,6 +20,9 @@ import type {
   CodexSetupResult,
   CodexSetupState,
   CodexStatus,
+  CatalogCandidate,
+  CommerceScan,
+  CommerceScanState,
   ScrapeReport,
   DemoProduct,
   EngineInfo,
@@ -173,10 +176,19 @@ export const api = {
   /** The reference frames a scene has on disk, if any. */
   sceneFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/scene-previews/${id}`),
   deleteData: (scope: 'shots' | 'all') => req<{ ok: true; scope: string }>('DELETE', `/api/data?scope=${scope}`),
+  /** One product with all of its pictures; the library list carries only the first. */
+  libraryProduct: (brandId: string, productId: string) =>
+    req<{ product: Product }>('GET', `/api/brands/${brandId}/products-library/${encodeURIComponent(productId)}`),
   productsLibrary: (brandId: string) =>
     req<{ products: Product[]; source: CatalogSource | null }>('GET', `/api/brands/${brandId}/products-library`),
-  catalogImport: (brandId: string, url: string) =>
-    req<{ jobId: string }>('POST', `/api/brands/${brandId}/catalog/import`, { url }),
+  catalogImport: (brandId: string, url: string, urls?: string[]) =>
+    req<{ jobId: string }>('POST', `/api/brands/${brandId}/catalog/import`, urls ? { url, urls } : { url }),
+  catalogScan: (brandId: string, url?: string) =>
+    req<{ scanId: string }>('POST', `/api/brands/${brandId}/catalog/scan`, url ? { url } : {}),
+  catalogDetails: (brandId: string, urls: string[]) =>
+    req<{ products: CatalogCandidate[] }>('POST', `/api/brands/${brandId}/catalog/details`, { urls }),
+  catalogScanState: (brandId: string, scanId: string) =>
+    req<CommerceScanState>('GET', `/api/brands/${brandId}/catalog/scans/${scanId}`),
   catalogJob: (brandId: string, jobId: string) =>
     req<CatalogImportJob>('GET', `/api/brands/${brandId}/catalog/jobs/${jobId}`),
   catalogJobs: (brandId: string) => req<{ jobs: CatalogImportJob[] }>('GET', `/api/brands/${brandId}/catalog/jobs`),
@@ -267,3 +279,5 @@ export const api = {
  * the photos as they arrive, and a place from a sentence. The creation flow
  * reads this so it can say which of those is about to happen.
  */
+
+export type { CommerceScan, CatalogCandidate } from './apiTypes.js';

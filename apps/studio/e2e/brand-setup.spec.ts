@@ -124,3 +124,215 @@ test('a refusal is a sentence, and the manual path is still one click away', asy
   await page.getByRole('button', { name: 'Start from scratch instead' }).click();
   await expect(page.locator('#sc-wiz-name')).toBeVisible();
 });
+
+/**
+ * The other half: a website that does have a shop on it.
+ *
+ * Shaped after gymshark.com as measured on 2026-09-13 - a Shopify store whose
+ * CDN answers 403 to `/products.json` and to every `/products/<handle>.json`,
+ * while serving the product pages themselves 200 with a full `ProductGroup` in
+ * their JSON-LD. That combination imported nothing at all before this, and it
+ * is the reason any of this exists.
+ */
+const SHOP_HANDLES = Array.from({ length: 60 }, (_, i) => `jacket-${i + 1}`);
+
+let shop: Server;
+let shopOrigin: string;
+
+test.beforeAll(async () => {
+  shop = createServer((req, res) => {
+    const path = (req.url ?? '/').split('?')[0];
+    const html = (body: string) => {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(body);
+    };
+    if (path === '/robots.txt') {
+      res.writeHead(404, { 'content-type': 'text/plain' });
+      return res.end('');
+    }
+    // The two doors this kind of store keeps shut.
+    if (path === '/products.json' || /^\/products\/[^/]+\.json$/.test(path)) {
+      res.writeHead(403, { 'content-type': 'text/html' });
+      return res.end('<html>403</html>');
+    }
+    if (path === '/sitemap.xml') {
+      res.writeHead(200, { 'content-type': 'application/xml' });
+      return res.end(
+        `<?xml version="1.0"?><sitemapindex><sitemap><loc>http://${shopOrigin}/sitemap_products_1.xml</loc></sitemap></sitemapindex>`,
+      );
+    }
+    if (path.includes('sitemap_products')) {
+      res.writeHead(200, { 'content-type': 'application/xml' });
+      return res.end(
+        `<?xml version="1.0"?><urlset>${SHOP_HANDLES.map(
+          (h) => `<url><loc>http://${shopOrigin}/products/${h}</loc></url>`,
+        ).join('')}</urlset>`,
+      );
+    }
+    if (path.includes('sitemap')) {
+      res.writeHead(200, { 'content-type': 'application/xml' });
+      return res.end('<urlset></urlset>');
+    }
+    if (path.endsWith('.png')) {
+      res.writeHead(200, { 'content-type': 'image/png' });
+      return res.end(PNG);
+    }
+    const handle = /^\/products\/([^/]+)$/.exec(path)?.[1];
+    if (handle) {
+      const n = SHOP_HANDLES.indexOf(handle) + 1;
+      const group = {
+        '@context': 'https://schema.org',
+        '@type': 'ProductGroup',
+        name: `Field Jacket ${n}`,
+        url: `http://${shopOrigin}/products/${handle}`,
+        brand: { '@type': 'Brand', name: 'Northwind' },
+        category: 'Outerwear',
+        image: [`http://${shopOrigin}/img/${handle}.png`],
+        productGroupID: `pg-${n}`,
+        variesBy: ['https://schema.org/size'],
+        hasVariant: ['s', 'm', 'l'].map((size) => ({
+          '@type': 'Product',
+          name: `Field Jacket ${n}`,
+          sku: `NW-${n}`,
+          size,
+          url: `http://${shopOrigin}/products/${handle}`,
+          offers: { '@type': 'Offer', price: 120, priceCurrency: 'USD' },
+        })),
+      };
+      return html(
+        `<!doctype html><html lang="en"><head><title>Field Jacket ${n} | Northwind</title>
+         <script type="application/ld+json">${JSON.stringify(group)}</script></head><body></body></html>`,
+      );
+    }
+    html(
+      `<!doctype html><html lang="en"><head><title>Northwind | Workwear</title>
+       <meta name="description" content="Jackets built to last.">
+       <style>:root{--brand-primary:#2f4858;--brand-accent:#c0703a}</style>
+       <script src="https://cdn.shopify.com/s/files/x.js"></script></head>
+       <body><header><img src="/img/logo.png" alt="Northwind logo" width="240" height="64"></header></body></html>`,
+    );
+  });
+  await new Promise<void>((r) => shop.listen(0, '127.0.0.1', r));
+  const address = shop.address();
+  shopOrigin = `127.0.0.1:${typeof address === 'object' && address ? address.port : 0}`;
+});
+
+test.afterAll(async () => {
+  await new Promise<void>((r) => shop.close(() => r()));
+});
+
+test('a shop on the site is offered, counted, and imported only where asked', async ({ page }) => {
+  await page.goto('/setup');
+  await page.locator('#sc-wiz-url').fill(`http://${shopOrigin}/`);
+  await page.getByRole('button', { name: 'Build the kit' }).click();
+  // Every fixture in this file is on 127.0.0.1, so by now the duplicate guard
+  // recognises the host from the tests above. Say yes to it.
+  const anyway = page.getByRole('button', { name: 'Create anyway' });
+  if (await anyway.isVisible().catch(() => false)) await anyway.click();
+
+  // The brand lands first and is never held up by the search for a catalog.
+  const lines = page.locator('.sc-kit-lines');
+  await expect(lines).toBeVisible({ timeout: 30_000 });
+  await expect(lines).toContainText('Logo');
+
+  // Then the products line resolves on its own, with the whole catalog
+  // counted rather than the handful that were read.
+  await expect(lines).toContainText('60 found', { timeout: 45_000 });
+
+  // The products step is the main button, not a link beside it: the first
+  // version said "Looks right", quietly meant "and no products", and was
+  // walked straight past.
+  await page.getByRole('button', { name: 'Add brand and products' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Products on your site' });
+  await expect(sheet).toBeVisible();
+
+  // Everything is ticked, including the ones no card has loaded for yet.
+  await expect(sheet.getByRole('button', { name: `Import ${SHOP_HANDLES.length} products` })).toBeVisible();
+
+  // Every card ON SCREEN ends up with its picture, and the screen stops saying
+  // it is working. Not every card that exists: a picture is one page read of
+  // somebody's live shop, so they are paid for by what a person actually
+  // scrolled to, and cards below the fold are card-shaped until they are
+  // reached. The first version read for every card that had ever rendered and
+  // held the next page of cards back until all of them landed, which paced
+  // appearing - which is free - by fetching, which is not.
+  //
+  // It also leaked its in-flight count - the effect's own cleanup cancelled
+  // the requests that same render had started - so one card shimmered for good
+  // under a "Loading products" that never went away.
+  const picturedInView = async () =>
+    sheet.locator('.sc-wizpick-grid').evaluate((g) => {
+      const gr = g.getBoundingClientRect();
+      const inView = [...g.querySelectorAll('.sc-lookcard')].filter((c) => {
+        const r = c.getBoundingClientRect();
+        return r.bottom > gr.top + 4 && r.top < gr.bottom - 4;
+      });
+      return { inView: inView.length, withPicture: inView.filter((c) => c.querySelector('img')).length };
+    });
+  await expect(sheet.locator('.sc-wizpick-loading')).toHaveCount(0, { timeout: 30_000 });
+  await expect
+    .poll(
+      async () => {
+        const { inView, withPicture } = await picturedInView();
+        return inView > 0 && withPicture === inView;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+  const cards = sheet.locator('.sc-lookcard');
+  const shown = await cards.count();
+  expect(shown).toBeGreaterThan(2);
+  expect(shown).toBeLessThan(SHOP_HANDLES.length);
+
+  // Search reaches a product that is not on screen, by the name its address
+  // already carries.
+  await sheet.getByRole('searchbox').fill('jacket-29');
+  await expect(cards).toHaveCount(1);
+  await sheet.getByRole('searchbox').fill('');
+  await expect(sheet.getByRole('button', { name: `Import ${SHOP_HANDLES.length} products` })).toBeVisible();
+
+  // Scrolling asks for more, and only once the last lot has landed: a flick
+  // to the bottom of a 2,200-product store queued 240 page reads at once.
+  const grid = sheet.locator('.sc-wizpick-grid');
+  const firstScreen = await cards.count();
+  for (let i = 0; i < 3; i++) {
+    await grid.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    await page.waitForTimeout(400);
+  }
+  await expect(sheet.locator('.sc-wizpick-loading')).toHaveCount(0, { timeout: 30_000 });
+  expect(await cards.count()).toBeGreaterThan(firstScreen);
+  // And the cards scrolling brought into view got their pictures too.
+  await expect
+    .poll(
+      async () => {
+        const { inView, withPicture } = await picturedInView();
+        return inView > 0 && withPicture === inView;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+
+  // Drop two and the button counts down with them.
+  await cards.nth(0).click();
+  await cards.nth(1).click();
+  await expect(sheet.getByRole('button', { name: `Import ${SHOP_HANDLES.length - 2} products` })).toBeVisible();
+
+  await sheet.getByRole('button', { name: /^Import / }).click();
+  await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
+
+  // And exactly those products exist, with their pictures kept locally.
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(async () => {
+          const brands = await (await fetch('/api/brands')).json();
+          const last = brands[brands.length - 1];
+          const lib = await (await fetch(`/api/brands/${last.id}/products-library`)).json();
+          return lib.products.length;
+        }),
+      { timeout: 60_000 },
+    )
+    .toBe(SHOP_HANDLES.length - 2);
+});

@@ -2,6 +2,8 @@ import { detectPlatform, adapterFor } from './detect.js';
 import { dedupeProducts } from './normalize.js';
 import { normalizeStoreUrl, originOf } from './url.js';
 import type {
+  AdapterContext,
+  CatalogAdapter,
   CatalogProduct,
   DetectResult,
   FetchImpl,
@@ -25,6 +27,40 @@ export interface CatalogRunResult {
   progress: JobProgress;
 }
 
+/**
+ * What a store said about itself, before a single product page was read.
+ *
+ * Split out of `runCatalogIngestion` so a caller can crawl the addresses in
+ * batches and persist as it goes, rather than holding a whole catalogue in
+ * memory to hand over at the end. `runCatalogIngestion` is the same function
+ * it always was, built on this.
+ */
+export interface CatalogDiscovery {
+  baseUrl: string;
+  detection: DetectResult;
+  adapter: CatalogAdapter;
+  ctx: AdapterContext;
+  /** Product page addresses, when the platform is discovered by crawling. */
+  productUrls: string[];
+  /** Identifiers the platform's own bulk API answers to, when there is one. */
+  productKeys: string[];
+  /**
+   * Whether reading this catalogue means one page request per product.
+   *
+   * The adapter says so (`DiscoverResult.byPage`); this only adds that there
+   * has to be something to crawl.
+   */
+  byPage: boolean;
+  /** What the store claims to hold, which can exceed what discovery listed. */
+  estimatedTotal: number;
+  progress: JobProgress;
+  /** Set when there is nothing to import; the caller decides how to say so. */
+  empty: ImportError | null;
+  /** Everything at once, for a platform whose catalogue is a JSON API rather than pages. */
+  fetchAll(): Promise<CatalogProduct[]>;
+  emit(patch: Partial<JobProgress> & { stage?: ImportStage }): void;
+}
+
 function baseProgress(platform: Platform = 'unknown'): JobProgress {
   return {
     stage: 'queued',
@@ -39,8 +75,8 @@ function baseProgress(platform: Platform = 'unknown'): JobProgress {
   };
 }
 
-/** Discover + fetch + normalize + dedupe. Persistence/assets are the caller's job. */
-export async function runCatalogIngestion(opts: RunCatalogOptions): Promise<CatalogRunResult> {
+/** Detect + discover. Reading the products is the caller's next move. */
+export async function discoverCatalog(opts: RunCatalogOptions): Promise<CatalogDiscovery> {
   const fetchImpl = opts.fetchImpl ?? fetch;
   const progress = baseProgress();
   const emit = (patch: Partial<JobProgress> & { stage?: ImportStage }) => {
@@ -89,35 +125,53 @@ export async function runCatalogIngestion(opts: RunCatalogOptions): Promise<Cata
     message: `Found ${discovered.estimatedTotal ?? discovered.productUrls.length} products`,
   });
 
-  if (!(discovered.estimatedTotal ?? discovered.productUrls.length)) {
-    emit({
-      stage: 'failed',
-      errors: [
-        ...progress.errors,
-        {
-          code: 'empty_catalog',
-          message:
-            detection.platform === 'generic'
-              ? 'No public product catalog found. This store may be JavaScript-rendered or require authentication.'
-              : `No products discovered on this ${detection.platform} store.`,
-        },
-      ],
-    });
-    return { baseUrl: detection.baseUrl, detection, products: [], progress };
+  const estimatedTotal = discovered.estimatedTotal ?? discovered.productUrls.length;
+  let empty: ImportError | null = null;
+  if (!estimatedTotal) {
+    empty = {
+      code: 'empty_catalog',
+      message:
+        detection.platform === 'generic'
+          ? 'No public product catalog found. This store may be JavaScript-rendered or require authentication.'
+          : `No products discovered on this ${detection.platform} store.`,
+    };
+    emit({ stage: 'failed', errors: [...progress.errors, empty] });
   }
 
-  emit({ stage: 'fetching_products', message: 'Fetching product details' });
-  let products: CatalogProduct[] = [];
-  try {
-    products = await adapter.fetchAll({ ...ctx, baseUrl: detection.baseUrl }, discovered);
-  } catch (err: any) {
-    emit({
-      stage: 'partial',
-      errors: [...progress.errors, { code: 'fetch_failed', message: String(err?.message ?? err), retryable: true }],
-    });
-  }
+  return {
+    baseUrl: detection.baseUrl,
+    detection,
+    adapter,
+    ctx: { ...ctx, baseUrl: detection.baseUrl },
+    productUrls: discovered.productUrls,
+    productKeys: discovered.productKeys,
+    byPage: (discovered.byPage ?? false) && discovered.productUrls.length > 0,
+    estimatedTotal,
+    progress,
+    empty,
+    emit,
+    async fetchAll() {
+      emit({ stage: 'fetching_products', message: 'Fetching product details' });
+      try {
+        return dedupeProducts(await adapter.fetchAll({ ...ctx, baseUrl: detection.baseUrl }, discovered));
+      } catch (err: any) {
+        emit({
+          stage: 'partial',
+          errors: [...progress.errors, { code: 'fetch_failed', message: String(err?.message ?? err), retryable: true }],
+        });
+        return [];
+      }
+    },
+  };
+}
 
-  products = dedupeProducts(products);
+/** Discover + fetch + normalize + dedupe. Persistence/assets are the caller's job. */
+export async function runCatalogIngestion(opts: RunCatalogOptions): Promise<CatalogRunResult> {
+  const d = await discoverCatalog(opts);
+  const { detection, progress, emit } = d;
+  if (d.empty) return { baseUrl: d.baseUrl, detection, products: [], progress };
+
+  const products = await d.fetchAll();
   emit({
     stage: products.length ? 'fetching_products' : progress.stage,
     fetched: products.length,

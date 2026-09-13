@@ -1,5 +1,5 @@
 import { type ActivityNode, type AssetBuild, type CatalogImportJob, nodeLabel } from './api.js';
-import { kitPath, presenterPath, productsPath, scenePath, shotPath } from './routes.js';
+import { presenterPath, productsPath, scenePath, shotPath } from './routes.js';
 import { local } from './storage.js';
 
 /**
@@ -226,16 +226,33 @@ export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string })
       ? 'done'
       : j.stage === 'partial'
         ? 'partial'
-        : j.stage === 'failed'
-          ? 'error'
-          : 'running';
+        : j.stage === 'cancelled'
+          ? 'cancelled'
+          : j.stage === 'failed'
+            ? 'error'
+            : 'running';
   let host = j.url;
   try {
     host = new URL(j.url).hostname.replace(/^www\./, '');
   } catch {
     /* a job url we cannot parse is still a job */
   }
-  const count = j.discovered ? `${j.upserted} of ${j.discovered} products` : `${j.upserted} products`;
+  // What the job is doing right now, not only what it has saved. Reading
+  // 2,199 pages takes about sixteen minutes and writes nothing until a batch
+  // lands, so counting `upserted` alone left the row reading "0 of 2,199" for
+  // the whole of it.
+  const count =
+    j.stage === 'discovering'
+      ? j.discovered
+        ? `${j.discovered.toLocaleString()} found`
+        : 'looking for products'
+      : j.stage === 'fetching_products' && j.fetched > j.upserted
+        ? `read ${j.fetched.toLocaleString()} of ${j.discovered.toLocaleString()}`
+        : j.stage === 'processing_assets' && j.imagesTotal
+          ? `${j.imagesDone.toLocaleString()} of ${j.imagesTotal.toLocaleString()} pictures`
+          : j.discovered
+            ? `${j.upserted.toLocaleString()} of ${j.discovered.toLocaleString()} products`
+            : `${j.upserted.toLocaleString()} products`;
   return {
     id: `catalog:${j.id}`,
     kind: 'catalog',
@@ -243,15 +260,18 @@ export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string })
     title: host,
     subtitle: shopless
       ? 'Catalog import · no shop on this site'
-      : state === 'error'
+      : state === 'error' || state === 'cancelled'
         ? `Catalog import · ${j.message ?? 'failed'}`
         : `Catalog import · ${count}`,
     thumb: null,
     percent: shopless ? 100 : catalogPercent(j),
     startedAt: j.createdAt,
     // A shop-less site has nothing to show in the kit; the products page is
-    // where someone would add one by hand.
-    href: shopless ? productsPath(brand) : kitPath(brand),
+    // where someone would add one by hand. Everything else goes to the
+    // products it is importing - this used to point at `kitPath`, which
+    // redirects to the brand kit settings pane, a screen with nothing to do
+    // with the import on it.
+    href: productsPath(brand),
   };
 }
 

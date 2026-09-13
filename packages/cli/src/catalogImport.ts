@@ -1,5 +1,16 @@
 import sharp from 'sharp';
-import { runCatalogIngestion, mapPool, httpGet, normalizeStoreUrl, type JobProgress } from '@scenri/catalog';
+import {
+  discoverCatalog,
+  mapPool,
+  httpGet,
+  normalizeStoreUrl,
+  detectPlatform,
+  fetchProductPages,
+  type CatalogProduct,
+  type ImportStage,
+  type JobProgress,
+  type Platform,
+} from '@scenri/catalog';
 import type { Core } from '@scenri/core';
 
 export interface CatalogImportDeps {
@@ -7,17 +18,50 @@ export interface CatalogImportDeps {
   fetchImpl?: typeof fetch;
 }
 
-const running = new Map<string, AbortController>();
+const running = new Map<string, { ctrl: AbortController; done: Promise<void> }>();
 
 export function cancelCatalogImport(jobId: string): boolean {
-  const ctrl = running.get(jobId);
-  if (!ctrl) return false;
-  ctrl.abort();
+  const job = running.get(jobId);
+  if (!job) return false;
+  job.ctrl.abort();
   return true;
 }
 
+/**
+ * Stop every import and wait for it, before the database goes away.
+ *
+ * An import runs on its own after the request that started it has answered, so
+ * a quit or a restart used to pull the database out from under one mid-write:
+ * the next progress patch threw `The database connection is not open` with
+ * nobody to catch it. Abort is the same path the cancel button takes, so the
+ * job lands as stopped and keeps whatever it had saved.
+ */
+export async function settleCatalogImports(timeoutMs = 5000): Promise<void> {
+  if (!running.size) return;
+  for (const { ctrl } of running.values()) ctrl.abort();
+  await Promise.race([
+    Promise.allSettled([...running.values()].map((j) => j.done)),
+    new Promise((r) => setTimeout(r, timeoutMs)),
+  ]);
+}
+
+export interface StartImportOptions {
+  /**
+   * Import exactly these product pages instead of discovering a catalog.
+   *
+   * This is how a chosen set of candidates becomes products: the same job,
+   * the same writer, no second path and no second model.
+   */
+  only?: string[];
+}
+
 /** Start an async catalog import job. Returns immediately with the job id. */
-export function startCatalogImport(deps: CatalogImportDeps, brandId: string, url: string): { jobId: string } {
+export function startCatalogImport(
+  deps: CatalogImportDeps,
+  brandId: string,
+  url: string,
+  opts: StartImportOptions = {},
+): { jobId: string } {
   const { core } = deps;
   if (!core.store.getBrand(brandId)) throw Object.assign(new Error('brand not found'), { statusCode: 404 });
 
@@ -30,13 +74,47 @@ export function startCatalogImport(deps: CatalogImportDeps, brandId: string, url
 
   const job = core.catalog.createJob({ brandId, url: normalized });
   const ctrl = new AbortController();
-  running.set(job.id, ctrl);
 
-  void runJob(deps, job.id, brandId, normalized, ctrl.signal).finally(() => {
+  const done = runJob(deps, job.id, brandId, normalized, ctrl.signal, opts.only).finally(() => {
     running.delete(job.id);
   });
+  // Held so `settleCatalogImports` can wait for it; the caller gets the id now.
+  void done.catch(() => {});
+  running.set(job.id, { ctrl, done });
 
   return { jobId: job.id };
+}
+/**
+ * Discovery progress, written to the job row without flooding it.
+ *
+ * `updateJob` rewrites the whole row, and the adapters emit once per product,
+ * so a 2,203-product store was 2,203 row writes. A stage change or a new
+ * message is always worth recording; a bare count is worth it every tenth.
+ * Progress never ends a job either: the pipeline reports `partial` mid-run
+ * when a fetch fails and then carries on, and writing that through closed the
+ * job where it stood. How a run ends is decided in one place, by `runJob`.
+ */
+function progressWriter(patch: (p: any) => unknown): (p: JobProgress) => void {
+  let lastStage = '';
+  let lastMessage: string | null = null;
+  return (p: JobProgress) => {
+    const reported = p.stage === 'queued' ? 'discovering' : p.stage;
+    const stage: ImportStage = TERMINAL.has(reported) ? 'fetching_products' : reported;
+    const message = p.message ?? null;
+    const notable = stage !== lastStage || message !== lastMessage || p.fetched % 10 === 0;
+    if (!notable) return;
+    lastStage = stage;
+    lastMessage = message;
+    patch({
+      stage,
+      platform: p.platform,
+      discovered: p.discovered,
+      fetched: p.fetched,
+      warnings: p.warnings,
+      errors: p.errors,
+      message,
+    });
+  };
 }
 
 async function runJob(
@@ -45,65 +123,289 @@ async function runJob(
   brandId: string,
   url: string,
   signal: AbortSignal,
+  only?: string[],
 ): Promise<void> {
   const { core, fetchImpl } = deps;
   const patch = (p: Parameters<typeof core.catalog.updateJob>[1]) => core.catalog.updateJob(jobId, p);
 
   try {
-    patch({ stage: 'discovering', message: 'Detecting store platform' });
+    // One path, whether someone ticked twelve products or asked for the whole
+    // store. Both read product pages, and both have to write what they have
+    // read before they have read everything: a 2,201-page store is minutes of
+    // crawling, and holding all of it to persist at the end is what left the
+    // Products page empty for the whole run and the heap carrying a catalogue
+    // it was not using. The two differ in where the addresses come from and in
+    // whether products missing from the run have genuinely gone.
+    const tally: Tally = { fetched: 0, upserted: 0, imagesDone: 0, imagesTotal: 0, errors: [], seenKeys: [] };
+    const ctx = { fetchImpl: fetchImpl ?? fetch, baseUrl: url, signal };
 
-    const result = await runCatalogIngestion({
-      url,
-      fetchImpl,
-      signal,
-      onProgress: (p: JobProgress) => {
+    let urls: string[] = [];
+    /** A bulk API answered with the whole catalogue; there is nothing to crawl. */
+    let bulk: CatalogProduct[] | null = null;
+    let baseUrl: string;
+    let platform: Platform;
+    let discovered: number;
+    let warnings: string[] = [];
+    /** Only a full run may retire what the store no longer lists. */
+    const sweep = !only?.length;
+
+    if (only?.length) {
+      // Re-crawling a store to find what someone just pointed at would be both
+      // slower and ruder, so a chosen set skips discovery entirely.
+      patch({ stage: 'fetching_products', message: `Importing ${only.length} products`, discovered: only.length });
+      const detection = await detectPlatform(ctx);
+      urls = only;
+      baseUrl = url;
+      platform = detection.platform;
+      discovered = only.length;
+    } else {
+      patch({ stage: 'discovering', message: 'Detecting store platform' });
+      const found = await discoverCatalog({ url, fetchImpl, signal, onProgress: progressWriter(patch) });
+      baseUrl = found.baseUrl;
+      platform = found.detection.platform;
+      discovered = found.estimatedTotal;
+      warnings = found.progress.warnings;
+
+      if (found.empty || !found.estimatedTotal) {
+        const source = core.catalog.upsertSource(brandId, found.baseUrl, platform);
+        patch({ sourceId: source.id, platform });
+        // Two different outcomes, and they used to be the same one. Nothing
+        // discoverable means there is no shop here, which is a fact about the
+        // site and not a fault: a portfolio, an agency page or a company
+        // homepage is a perfectly good brand source.
         patch({
-          stage: p.stage === 'queued' ? 'discovering' : p.stage,
-          platform: p.platform,
-          discovered: p.discovered,
-          fetched: p.fetched,
-          warnings: p.warnings,
-          errors: p.errors,
-          message: p.message ?? null,
+          stage: 'no_catalog',
+          errors: [],
+          warnings: found.progress.warnings,
+          message: 'No shop found on this site',
+          finished: true,
         });
-      },
-    });
+        core.catalog.setSourceStatus(source.id, 'empty', true);
+        return;
+      }
+
+      if (!found.byPage) {
+        // A platform answering its own bulk API: shopify, woocommerce,
+        // webflow. That is a handful of paged requests and already bounded, so
+        // it stays one round. A Shopify store that refuses `products.json` is
+        // NOT this case - it comes back as a wall of pages, and takes the
+        // batched crawl below, which is the case this was all written for.
+        const products = await found.fetchAll();
+        if (signal.aborted) {
+          patch({ stage: 'cancelled', errors: [], message: 'Stopped before anything was saved', finished: true });
+          return;
+        }
+        if (!products.length) {
+          const source = core.catalog.upsertSource(brandId, baseUrl, platform);
+          patch({ sourceId: source.id, platform });
+          patch({
+            stage: 'failed',
+            errors: found.progress.errors,
+            warnings: found.progress.warnings,
+            message: found.progress.errors[0]?.message ?? 'No products imported',
+            finished: true,
+          });
+          core.catalog.setSourceStatus(source.id, 'failed', true);
+          return;
+        }
+        // Written one at a time through the same writer as a crawl, with the
+        // same picture drain beside it: the catalogue arrived in one answer,
+        // but it still reaches the screen steadily rather than all at once
+        // after every picture has downloaded.
+        bulk = products;
+        discovered = found.progress.discovered;
+        warnings = found.progress.warnings;
+      }
+      if (!bulk) {
+        urls = found.productUrls;
+        patch({ stage: 'fetching_products', discovered, message: `Reading ${discovered.toLocaleString()} products` });
+      }
+    }
+
+    const run = beginWrite(deps, jobId, brandId, baseUrl, platform, tally, discovered);
+    const pictures = drainPictures(deps, jobId, brandId, tally, signal);
+
+    // A product goes in the moment its page parsed, and its pictures start
+    // downloading beside the crawl rather than after it.
+    //
+    // This read twenty-five pages, wrote twenty-five rows, then stopped
+    // everything to fetch their pictures before reading the next twenty-five.
+    // The wall jumped twenty-five at a time and then sat still, which is a
+    // worse thing to watch than the same work arriving steadily, and the
+    // download pool spent half the import idle waiting on the crawl.
+    let pictureErrors: unknown[];
+    // What the crawl really spent, so a shop that stops answering can be told
+    // apart from a shop with very few products.
+    const stats = { pages: 0, bytes: 0, refused: 0 };
+    try {
+      if (bulk) for (const p of bulk) run.write(p);
+      else
+        await fetchProductPages(ctx, urls, {
+          concurrency: IMPORT_CONCURRENCY,
+          maxBytes: 1_500_000,
+          onEach: run.write,
+          stats,
+        });
+      if (!signal.aborted && tally.upserted) {
+        patch({
+          stage: 'processing_assets',
+          message: `Downloading ${tally.imagesTotal.toLocaleString()} pictures`,
+          upserted: tally.upserted,
+          fetched: tally.fetched,
+        });
+      }
+    } finally {
+      // No more products are coming, whether the crawl ended or threw. Without
+      // this a throw left the drain looping and writing for ever.
+      pictures.stop();
+      pictureErrors = await pictures.done;
+    }
 
     if (signal.aborted) {
-      patch({ stage: 'failed', message: 'Import cancelled', finished: true });
-      return;
-    }
-
-    const source = core.catalog.upsertSource(brandId, result.baseUrl, result.detection.platform);
-    patch({ sourceId: source.id, platform: result.detection.platform });
-    core.catalog.setSourceStatus(source.id, 'importing');
-
-    if (!result.products.length) {
-      // Two different outcomes, and they used to be the same one. Nothing
-      // discoverable means there is no shop here, which is a fact about the
-      // site and not a fault: a portfolio, an agency page or a company
-      // homepage is a perfectly good brand source. URLs that WERE found and
-      // then would not parse is a real failure, and a shop owner needs to see
-      // it. (The line this replaces read `x === 'failed' ? 'failed' : 'failed'`
-      // - someone meant to make this distinction and it collapsed.)
-      const noShop = result.progress.errors.some((e) => e.code === 'empty_catalog');
+      // Stopping mid-crawl is not a fault of the site's, and what was already
+      // written stays written.
       patch({
-        stage: noShop ? 'no_catalog' : 'failed',
-        errors: noShop ? [] : result.progress.errors,
-        warnings: result.progress.warnings,
-        message: noShop ? 'No shop found on this site' : (result.progress.errors[0]?.message ?? 'No products imported'),
+        stage: 'cancelled',
+        errors: [],
+        message: tally.upserted
+          ? `Stopped after saving ${tally.upserted.toLocaleString()} products`
+          : 'Stopped before anything was saved',
         finished: true,
       });
-      core.catalog.setSourceStatus(source.id, noShop ? 'empty' : 'failed', true);
+      core.catalog.setSourceStatus(run.sourceId, 'partial', true);
       return;
     }
 
-    patch({ stage: 'fetching_products', fetched: result.products.length, message: 'Saving products' });
-    let upserted = 0;
-    const seenKeys: string[] = [];
+    if (!tally.upserted) {
+      const message = only?.length
+        ? 'None of the chosen products could be read'
+        : `Found pages on this ${platform} store but could not read a product from any of them. The store may be blocking automated readers.`;
+      patch({
+        stage: 'failed',
+        message,
+        errors: [{ code: 'no_products_fetched', message }],
+        finished: true,
+      });
+      core.catalog.setSourceStatus(run.sourceId, 'failed', true);
+      return;
+    }
 
-    for (const p of result.products) {
-      if (signal.aborted) break;
+    run.finish({
+      sweep,
+      warnings,
+      errors: pictureErrors,
+      refused: stats.refused,
+      // Every address was read. A bulk API hands the catalogue over whole, so
+      // there is nothing to cover.
+      covered: bulk ? true : stats.pages >= urls.length,
+    });
+  } catch (err: any) {
+    // Stopping during discovery throws out of the pipeline, and the throw is
+    // the stop rather than a fault of the site's.
+    if (signal.aborted) {
+      patch({ stage: 'cancelled', errors: [], message: 'Stopped before anything was saved', finished: true });
+      return;
+    }
+    patch({
+      stage: 'failed',
+      message: String(err?.message ?? err),
+      errors: [{ code: 'import_failed', message: String(err?.message ?? err) }],
+      finished: true,
+    });
+  }
+}
+
+/**
+ * How many pictures of one product are worth keeping on this machine.
+ *
+ * Measured on gymshark.com: a product page offers about eleven images, and
+ * Scenri re-encodes each to PNG, which turns a 262 KB source JPEG into 2.8 MB.
+ * The whole catalog at eleven each is 24,233 images and roughly 70 GB. Three
+ * is a front, a back and a detail - enough to recognise and to shoot with -
+ * and the rest of the URLs stay recorded, so a product can be filled out later
+ * without crawling the store again.
+ */
+export const IMAGES_PER_PRODUCT = 3;
+
+/**
+ * Products read and written per round of a chosen import.
+ *
+ * Small enough that the first ones appear within a few seconds of a large
+ * store, big enough that the per-batch bookkeeping is not the cost.
+ */
+/** Stages that mean a job is over. Only `runJob` may write one. */
+const TERMINAL: ReadonlySet<string> = new Set(['completed', 'partial', 'no_catalog', 'cancelled', 'failed']);
+
+/**
+ * How many pictures are downloaded at once.
+ *
+ * Four, and like the page rate this is about the shop rather than the clock.
+ *
+ * A fixture sweep made twelve look obviously right: 600 pictures behind a
+ * 120 ms delay took 20.9 s at six and 11.0 at twelve, flat by sixteen. A
+ * fixture has no bot check. Against gymshark.com the pictures are requested
+ * from the same host as the pages, so the real budget was four page reads plus
+ * twelve picture downloads - sixteen at once, sustained - and the run was shut
+ * out twice.
+ *
+ * Four and four is eight, near a browser's own per-host ceiling, and the
+ * latency it costs is hidden by asking early rather than by asking harder.
+ */
+const IMAGE_CONCURRENCY = 4;
+
+/**
+ * What a job has done so far, across however many batches it takes.
+ *
+ * A 2,200-product store is about sixteen minutes of reading, and the old shape
+ * fetched every page before writing a single row - so the task said "0 of
+ * 2,199" for the whole of it and nothing appeared on the products page until
+ * the end. Batches share this, and each one writes.
+ */
+interface Tally {
+  fetched: number;
+  upserted: number;
+  imagesDone: number;
+  imagesTotal: number;
+  errors: unknown[];
+  /**
+   * Every external key this run has written, across all of its batches.
+   *
+   * A full catalog run retires what the store no longer lists, and it now
+   * writes in batches: sweeping on one batch's keys alone would mark the whole
+   * rest of the catalogue as gone. So the keys accumulate and the sweep waits
+   * for the last batch.
+   */
+  seenKeys: string[];
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * The writer for one import: rows in, one product at a time.
+ *
+ * `upsertProduct` is the only writer of catalog rows on this path, and it is
+ * called the moment a product's page has been parsed rather than once a batch
+ * of them has. Nothing is held: a store of any size costs one product of
+ * memory here.
+ */
+function beginWrite(
+  deps: CatalogImportDeps,
+  jobId: string,
+  brandId: string,
+  baseUrl: string,
+  platform: Platform,
+  tally: Tally,
+  discovered: number,
+) {
+  const { core } = deps;
+  const patch = (p: Parameters<typeof core.catalog.updateJob>[1]) => core.catalog.updateJob(jobId, p);
+  const source = core.catalog.upsertSource(brandId, baseUrl, platform);
+  patch({ sourceId: source.id, platform });
+  core.catalog.setSourceStatus(source.id, 'importing');
+
+  return {
+    sourceId: source.id,
+    write(p: CatalogProduct) {
       core.catalog.upsertProduct({
         sourceId: source.id,
         brandId,
@@ -120,7 +422,9 @@ async function runJob(
         compareAtPrice: p.compareAtPrice,
         currency: p.currency,
         available: p.available,
-        raw: p.raw,
+        // `raw` is the whole crawled payload, 14.2 KB a product on gymshark
+        // and 32 MB across its catalog, written to sqlite and read by nothing.
+        raw: null,
         variants: p.variants,
         images: (p.images ?? []).map((img) => ({
           sourceUrl: img.url,
@@ -129,105 +433,212 @@ async function runJob(
           height: img.height,
           alt: img.alt,
         })),
-        collections: (p.collections ?? []).map((c) => ({
-          externalKey: c,
-          title: c,
-        })),
+        collections: (p.collections ?? []).map((c) => ({ externalKey: c, title: c })),
       });
-      seenKeys.push(p.externalKey);
-      upserted++;
-      if (upserted % 10 === 0) patch({ upserted, fetched: result.products.length });
-    }
-    patch({ upserted, fetched: result.products.length });
-    core.catalog.markMissingUnavailable(source.id, seenKeys);
-
-    // Download images
-    const pending = core.catalog.listImagesNeedingAssets(brandId, 50_000);
-    patch({
-      stage: 'processing_assets',
-      imagesTotal: pending.length,
-      imagesDone: 0,
-      message: `Downloading ${pending.length} images`,
-    });
-
-    const errors = [...(core.catalog.getJob(jobId)?.errors ?? [])] as any[];
-    let imagesDone = 0;
-
-    await mapPool(
-      pending,
-      6,
-      async (img) => {
-        if (signal.aborted) return;
-        try {
-          const res = await httpGet(img.sourceUrl, { fetchImpl, signal, timeoutMs: 40_000, retries: 2 });
-          if (!res.ok) {
-            errors.push({ code: 'image_http', message: `HTTP ${res.status}`, url: img.sourceUrl });
-            return;
-          }
-          const buf = Buffer.from(await res.arrayBuffer());
-          if (!buf.length) {
-            errors.push({ code: 'image_empty', message: 'Empty image', url: img.sourceUrl });
-            return;
-          }
-          const png = await sharp(buf).rotate().png().toBuffer();
-          const meta = await sharp(png).metadata();
-          const hash = core.images.save(png);
-          core.catalog.setImageAsset(img.productId, img.sourceUrl, `asset:${hash}`, {
-            width: meta.width,
-            height: meta.height,
-          });
-        } catch (err: any) {
-          if (signal.aborted) return;
-          errors.push({
-            code: 'image_failed',
-            message: String(err?.message ?? err),
-            url: img.sourceUrl,
-            retryable: true,
-          });
-        } finally {
-          imagesDone++;
-          if (imagesDone % 5 === 0 || imagesDone === pending.length) {
-            patch({ imagesDone, imagesTotal: pending.length, errors });
-          }
-        }
-      },
-      signal,
-    );
-
-    if (signal.aborted) {
-      patch({ stage: 'failed', message: 'Import cancelled', errors, finished: true });
-      core.catalog.setSourceStatus(source.id, 'failed', true);
-      return;
-    }
-
-    const stillMissing = core.catalog.listImagesNeedingAssets(brandId, 1).length;
-    const productCount = result.products.length;
-    const partial =
-      !!errors.length ||
-      stillMissing > 0 ||
-      (result.progress.discovered > 0 && productCount < result.progress.discovered * 0.9);
-
-    patch({
-      stage: partial ? 'partial' : 'completed',
-      upserted,
-      imagesDone,
-      imagesTotal: pending.length,
+      tally.seenKeys.push(p.externalKey);
+      tally.upserted++;
+      tally.fetched++;
+      // Every product, not every fifth.
+      //
+      // `updateJob` rewrites the whole row, so this was throttled - and the
+      // dialog then counted in steps of five, which is what a one-at-a-time
+      // import looked like from the outside. Measured: 2,201 of these row
+      // writes take 115 ms in total, 52 microseconds each, against a WAL
+      // database. That is noise across a two-minute import, and it is the
+      // difference between watching an import and watching a counter tick.
+      patch({ upserted: tally.upserted, fetched: tally.fetched });
+    },
+    finish({
+      sweep,
+      warnings,
       errors,
-      warnings: result.progress.warnings,
-      message: partial
-        ? `Imported ${upserted} products with ${errors.length} issue${errors.length === 1 ? '' : 's'}`
-        : `Imported ${upserted} products`,
-      finished: true,
-    });
-    core.catalog.setSourceStatus(source.id, partial ? 'partial' : 'ready', true);
-  } catch (err: any) {
-    patch({
-      stage: 'failed',
-      message: String(err?.message ?? err),
-      errors: [{ code: 'import_failed', message: String(err?.message ?? err) }],
-      finished: true,
-    });
-  }
+      refused = 0,
+      covered = true,
+    }: {
+      covered?: boolean;
+      sweep: boolean;
+      warnings: string[];
+      errors: unknown[];
+      refused?: number;
+    }) {
+      // Only now: retiring what the store no longer lists needs every key this
+      // run wrote, and until the crawl ended there were more coming.
+      if (sweep) core.catalog.markMissingUnavailable(source.id, tally.seenKeys);
+      tally.errors = errors;
+      /**
+       * Partial means the catalogue was not read, not that a picture failed.
+       *
+       * This compared products saved against addresses discovered, and a store
+       * lists several addresses for one product - gymshark.com's 2,206 URLs are
+       * 1,052 products, because a colourway is an address and `ProductGroup` is
+       * one product. So a run that read every address it was given, saved
+       * every product behind them and lost two pictures out of 1,909 called
+       * itself partial. Reading every address is the thing worth asserting;
+       * failed pictures are recorded as errors and show on the card.
+       */
+      const partial = !covered || refused > 0;
+      // A shop that turned us away is the headline, not a footnote under a
+      // count of picture problems. Saying "imported 413 products with 209
+      // issues" about a run that was refused 1,794 pages describes the wrong
+      // thing entirely.
+      const shut = refused > 0 && refused >= Math.max(20, tally.upserted * 0.25);
+      const message = shut
+        ? `The store stopped answering after ${tally.upserted.toLocaleString()} of ${discovered.toLocaleString()} products. Try again later.`
+        : partial
+          ? `Imported ${tally.upserted.toLocaleString()} products with ${(errors.length + refused).toLocaleString()} issue${errors.length + refused === 1 ? '' : 's'}`
+          : `Imported ${tally.upserted.toLocaleString()} products`;
+      patch({
+        stage: partial ? 'partial' : 'completed',
+        upserted: tally.upserted,
+        fetched: tally.fetched,
+        imagesDone: tally.imagesDone,
+        imagesTotal: tally.imagesTotal,
+        errors: shut
+          ? [...errors, { code: 'store_refused', message: `${refused.toLocaleString()} pages were refused` }]
+          : errors,
+        warnings,
+        message,
+        finished: true,
+      });
+      core.catalog.setSourceStatus(source.id, partial ? 'partial' : 'ready', true);
+    },
+  };
+}
+
+/**
+ * Product pages read at once during an import.
+ *
+ * Four, and this number is about the shop rather than about us.
+ *
+ * A burst benchmark said otherwise and it was wrong. Sixteen warmed
+ * gymshark.com pages measured 300 ms each at four and 86 at twelve, with every
+ * product and every variant coming back at both, so twelve looked free. It is
+ * not free over a whole catalogue: twelve page reads alongside twelve picture
+ * downloads, sustained, tripped gymshark's WAF after about 413 products and
+ * seventy-five seconds. Every request after that answered HTTP 405 with
+ * `x-amzn-waf-action: captcha`, so the run ended having read 413 of 2,207 and
+ * the site stayed shut to us for some time afterwards.
+ *
+ * Four is the rate a real 1,020-page run had already sustained without being
+ * challenged. A burst of sixteen is not evidence about an hour of crawling,
+ * and the only honest test of a limit like this is the long one.
+ */
+const IMPORT_CONCURRENCY = 4;
+
+/** A round of pictures to ask for at once. Small, because more are arriving. */
+const PICTURE_ROUND = 60;
+
+/**
+ * Pictures, downloaded continuously beside the crawl until nothing is left.
+ *
+ * Rows come back ordered by position, so every product gets the picture its
+ * card draws before any product gets its second: the wall fills with real
+ * thumbnails as it grows rather than in a second pass at the end.
+ *
+ * Capped on the image's own position rather than by counting as we go. A
+ * running count is per call, so a later round saw the pictures an earlier one
+ * had deliberately skipped as fresh work and fetched them - forty products
+ * asked for 170 pictures instead of 120. Position is a fact about the image,
+ * so it says the same thing on every round and on every re-import.
+ */
+function drainPictures(
+  deps: CatalogImportDeps,
+  jobId: string,
+  brandId: string,
+  tally: Tally,
+  signal: AbortSignal,
+  imagesPerProduct = IMAGES_PER_PRODUCT,
+): { stop(): void; done: Promise<unknown[]> } {
+  const { core, fetchImpl } = deps;
+  const patch = (p: Parameters<typeof core.catalog.updateJob>[1]) => core.catalog.updateJob(jobId, p);
+  const errors = [...(core.catalog.getJob(jobId)?.errors ?? [])] as any[];
+  let stopped = false;
+
+  const done = (async () => {
+    while (!signal.aborted) {
+      const round = core.catalog
+        .listImagesNeedingAssets(brandId, PICTURE_ROUND)
+        .filter((img) => img.position < imagesPerProduct);
+      if (!round.length) {
+        if (stopped) break;
+        // Nothing to do yet: the crawl is still turning up products.
+        await sleep(150);
+        continue;
+      }
+      tally.imagesTotal += round.length;
+      await mapPool(
+        round,
+        IMAGE_CONCURRENCY,
+        async (img) => {
+          if (signal.aborted) return;
+          try {
+            const res = await httpGet(img.sourceUrl, { fetchImpl, signal, timeoutMs: 40_000, retries: 2 });
+            if (!res.ok) {
+              errors.push({ code: 'image_http', message: `HTTP ${res.status}`, url: img.sourceUrl });
+              return;
+            }
+            const buf = Buffer.from(await res.arrayBuffer());
+            if (!buf.length) {
+              errors.push({ code: 'image_empty', message: 'Empty image', url: img.sourceUrl });
+              return;
+            }
+            // Keep the bytes the store served.
+            //
+            // This re-encoded every picture to PNG, which turned a 269 KB jpeg
+            // into 2.90 MB: gymshark's 6,603 pictures were 19.1 GB on disk and
+            // 1.9 minutes of encoding, for a format nothing asks for. Display
+            // reads the WebP thumbnail derivative and generation reads the file
+            // through sharp, which sniffs whatever it finds.
+            //
+            // `metadata()` is also the validation: bytes that are not a picture
+            // throw here, exactly as the decode used to.
+            const probe = await sharp(buf).metadata();
+            const turned = (probe.orientation ?? 1) > 1;
+            // The one case worth paying for: an EXIF-rotated photograph looks
+            // wrong everywhere if the bytes are kept as they are.
+            const keep = turned ? await sharp(buf).rotate().toBuffer() : buf;
+            const meta = turned ? await sharp(keep).metadata() : probe;
+            const hash = core.images.save(keep, meta.format ?? probe.format ?? 'png');
+            core.catalog.setImageAsset(img.productId, img.sourceUrl, `asset:${hash}`, {
+              width: meta.width,
+              height: meta.height,
+            });
+          } catch (err: any) {
+            if (signal.aborted) return;
+            errors.push({
+              code: 'image_failed',
+              message: String(err?.message ?? err),
+              url: img.sourceUrl,
+              retryable: true,
+            });
+          } finally {
+            tally.imagesDone++;
+            patch({ imagesDone: tally.imagesDone, imagesTotal: tally.imagesTotal, errors });
+          }
+        },
+        signal,
+      );
+      // A row that keeps failing would come back in the next round for ever.
+      // `setImageAsset` is what takes one out of the list, so anything still
+      // here after its turn is a picture this run could not get.
+      const stuck = core.catalog
+        .listImagesNeedingAssets(brandId, PICTURE_ROUND)
+        .filter((img) => img.position < imagesPerProduct);
+      if (stuck.length && stuck[0]?.id === round[0]?.id) {
+        errors.push({ code: 'images_stalled', message: 'Some pictures could not be downloaded' });
+        break;
+      }
+    }
+    patch({ imagesDone: tally.imagesDone, imagesTotal: tally.imagesTotal, errors });
+    return errors;
+  })();
+
+  return {
+    stop() {
+      stopped = true;
+    },
+    done,
+  };
 }
 
 /** Resolve a library product id (manual or cat-*) into generation-friendly shape. */

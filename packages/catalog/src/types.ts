@@ -7,6 +7,7 @@ export type ImportStage =
   | 'processing_assets'
   | 'completed'
   | 'partial'
+  | 'cancelled'
   | 'failed';
 
 export interface CatalogVariant {
@@ -68,6 +69,25 @@ export interface DiscoverResult {
   estimatedTotal: number | null;
   collections?: CatalogCollection[];
   warnings: string[];
+  /**
+   * What discovery learned that changes how fetching should work.
+   *
+   * `json-blocked` means the platform's own product API answered but refused
+   * us, so the per-product API calls it would normally make are a wasted
+   * request each - 2202 of them, in the case this was written for.
+   */
+  hints?: string[];
+  /**
+   * Whether reading this catalogue means one page request per product.
+   *
+   * True for a sitemap crawl, and for a Shopify store whose `products.json`
+   * refused us (gymshark.com does). Those runs take minutes, so the caller
+   * reads them in batches and writes each one down before asking for the next:
+   * products appear while the import is still going, and the heap never holds
+   * a whole catalogue. False for a platform answering its own bulk API, where
+   * the catalogue is a handful of paged requests and already bounded.
+   */
+  byPage?: boolean;
 }
 
 export interface AdapterContext {
@@ -106,3 +126,45 @@ export interface CatalogAdapter {
 }
 
 export type FetchImpl = typeof fetch;
+
+/**
+ * What a bounded look at a website concluded about commerce.
+ *
+ * Deliberately not a boolean. "No products" and "a shop we could not read"
+ * are different facts that need different words on screen, and reporting the
+ * second as the first is how a working store came to ring a red bell.
+ */
+export type CommerceVerdict = 'none' | 'found' | 'likely' | 'blocked';
+
+/** Where a product count came from, because a count that lies is worse than none. */
+export type CountSource = 'api' | 'sitemap' | 'listing' | 'preview' | 'none';
+
+export interface ScanBudget {
+  /** Product pages actually read. The count never costs this. */
+  maxPreviewPages: number;
+  maxBytesPerPage: number;
+  maxTotalBytes: number;
+  budgetMs: number;
+  concurrency: number;
+  /** Time the preview is owed even when discovery has spent the whole budget. */
+  previewFloorMs: number;
+}
+
+export interface ScanResult {
+  baseUrl: string;
+  platform: Platform;
+  signals: string[];
+  verdict: CommerceVerdict;
+  /** How many products the site appears to have, which is not how many were read. */
+  count: number;
+  countSource: CountSource;
+  /** Read and parsed: a preview, never the catalog. */
+  candidates: CatalogProduct[];
+  /** Every product URL discovery found, so an import need not discover again. */
+  candidateUrls: string[];
+  /** True when there is more catalog than the preview shows. */
+  truncated: boolean;
+  warnings: string[];
+  /** What the look actually cost: pages requested, bytes kept, wall clock. */
+  spent: { pages: number; bytes: number; ms: number };
+}

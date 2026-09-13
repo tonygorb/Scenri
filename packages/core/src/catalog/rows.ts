@@ -14,6 +14,8 @@ export type ImportStage =
   | 'completed'
   | 'partial'
   | 'no_catalog'
+  /** Stopped by the person who started it. Not a fault, and not red. */
+  | 'cancelled'
   | 'failed';
 
 export interface CatalogSourceRow {
@@ -231,11 +233,40 @@ export const productById = (db: DB, id: string): CatalogProductRow | null => {
   const r = db.prepare('SELECT * FROM catalog_products WHERE id=?').get(id) as any;
   return r ? rowProduct(r) : null;
 };
+/**
+ * Newest first, so a running import lands at the head of the library where
+ * someone can watch it arrive, and a scroll position further down does not
+ * move. This was alphabetical, which scattered each arriving product across
+ * 2,200 positions and shifted the grid under whoever was reading it.
+ */
+/**
+ * Every column except `raw`.
+ *
+ * `raw` is the whole crawled store payload - 14.2 KB a product on gymshark -
+ * and `SELECT *` pulled it off disk and `JSON.parse`d it for every row of
+ * every list read, only for `LibraryProduct` to never carry it. 2,201 products
+ * was 32 MB read and parsed to be thrown away.
+ */
+const LIST_COLS =
+  'id, source_id, brand_id, external_key, title, description_html, url, handle, vendor, product_type, ' +
+  'tags, category, price, compare_at_price, currency, available, status, variant, material, dimensions, ' +
+  'created_at, updated_at';
+
+/**
+ * Newest first, so an arriving import lands at the head of the grid where it
+ * can be watched and a reader further down is never pushed.
+ *
+ * The tiebreak is `rowid`, not `id`. `created_at` defaults to `datetime('now')`,
+ * which is whole seconds, and an import persists about 170 products a second -
+ * so a whole second of arrivals ties, and breaking that tie on a random uuid
+ * put products imported later underneath ones imported earlier. `rowid` is
+ * SQLite's own insertion order, monotonic and free.
+ */
 export const productsFor = (db: DB, brandId: string): CatalogProductRow[] =>
   (
     db
       .prepare(
-        "SELECT * FROM catalog_products WHERE brand_id=? AND status!='unavailable' ORDER BY title COLLATE NOCASE",
+        `SELECT ${LIST_COLS} FROM catalog_products WHERE brand_id=? AND status!='unavailable' ORDER BY created_at DESC, rowid DESC`,
       )
       .all(brandId) as any[]
   ).map(rowProduct);

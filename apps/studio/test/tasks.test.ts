@@ -218,8 +218,46 @@ describe('taskFromCatalogJob', () => {
   it('survives a url it cannot parse', () => {
     expect(taskFromCatalogJob(job({ url: 'not a url' }), brand).title).toBe('not a url');
   });
-  it('points a finished catalog import at the kit, where the products landed', () => {
-    expect(taskFromCatalogJob(job({ stage: 'completed' }), brand).href).toBe('/b1/kit');
+  /**
+   * This pointed at `kitPath`, which redirects to the brand kit settings pane
+   * - a screen with nothing about the import on it. Products land on the
+   * products page, so that is where the row goes.
+   */
+  it('points a catalog import at the products it imported', () => {
+    expect(taskFromCatalogJob(job({ stage: 'completed' }), brand).href).toBe('/b1/products');
+    expect(taskFromCatalogJob(job({ stage: 'no_catalog' }), brand).href).toBe('/b1/products');
+  });
+
+  /**
+   * Reading 2,199 pages is about sixteen minutes and writes nothing until a
+   * batch lands, so a row counting only what was saved sat at "0 of 2,199"
+   * for the whole of it.
+   */
+  it('says what the import is doing now, not only what it has saved', () => {
+    const at = (over: Partial<CatalogImportJob>) => taskFromCatalogJob(job(over), brand).subtitle;
+    expect(at({ stage: 'discovering', discovered: 0 })).toContain('looking for products');
+    expect(at({ stage: 'discovering', discovered: 2199 })).toContain('2,199 found');
+    expect(at({ stage: 'fetching_products', discovered: 2199, fetched: 340, upserted: 0 })).toContain(
+      'read 340 of 2,199',
+    );
+    expect(at({ stage: 'processing_assets', discovered: 200, imagesDone: 65, imagesTotal: 200 })).toContain(
+      '65 of 200 pictures',
+    );
+    expect(at({ stage: 'completed', discovered: 200, upserted: 200 })).toContain('200 of 200 products');
+  });
+
+  it('never reports zero saved while it is still reading', () => {
+    const sub = taskFromCatalogJob(
+      job({ stage: 'fetching_products', discovered: 2199, fetched: 12, upserted: 0 }),
+      brand,
+    ).subtitle;
+    expect(sub).not.toContain('0 of 2,199 products');
+  });
+
+  it('reads a stopped import as cancelled, never as an error', () => {
+    const stopped = taskFromCatalogJob(job({ stage: 'cancelled', message: 'Stopped after 40 products' }), brand);
+    expect(stopped.state).toBe('cancelled');
+    expect(stopped.subtitle).toContain('Stopped after 40 products');
   });
 });
 

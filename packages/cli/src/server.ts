@@ -28,7 +28,12 @@ import type { stageVersion } from './update/stage.js';
 import { validateBrand, buildFromUrl, mergeScrape, normalizeSiteUrl } from '@scenri/brand';
 import { inspectMark } from './markShape.js';
 import { IGNORE_ENV_KEYS_SETTING, ignoreEnvKeysGetter, type EngineRegistry } from './engines.js';
-import { brandJsonWithCatalogProducts, resolveLibraryProduct, runningImportCount } from './catalogImport.js';
+import {
+  brandJsonWithCatalogProducts,
+  resolveLibraryProduct,
+  runningImportCount,
+  settleCatalogImports,
+} from './catalogImport.js';
 import {
   brandCharacters,
   brandJsonWithIdentityCrops,
@@ -167,6 +172,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   const runningGenerations = new Map<string, AbortController>();
   // Derivatives for every picture shown smaller than it is. Made when a shot
   // lands and on first request; the originals stay where they were.
+  // Nothing is importing at the moment a server starts, so any job the
+  // database still calls unfinished belongs to a process that is gone. Left
+  // alone it shows in the bell as work in flight for ever, with nothing left
+  // that could ever close it.
+  core.catalog.reconcileInterruptedJobs();
+
   const thumbs = createThumbStore(core);
   const { scenes } = loadScenes(opts.templatesDir);
   // resolves a scene by its id or by any id it used to answer to
@@ -2455,6 +2466,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       while (runningGenerations.size > 0 && Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 25));
       }
+      await settleCatalogImports();
       await thumbs.settle();
       await app.close();
       core.close();

@@ -218,3 +218,199 @@
 .sc-kit-lines li[data-found] .sc-kit-line-value {
   color: var(--sc-fg);
 }
+
+/* ---------- products found on the site ---------- */
+/* One button under the kit lines, never two: the line above already says what
+   happened, so this only carries the single thing left to do about it. */
+.sc-wizpick-open {
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--sc-line);
+  background: var(--sc-bg);
+  color: var(--sc-fg);
+  border-radius: var(--sc-radius-full);
+  height: 32px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sc-wizpick-open:hover {
+  border-color: var(--sc-fg3);
+}
+
+.sc-wizpick .sc-wizpick-sub {
+  color: var(--sc-fg2);
+  font-size: 12.5px;
+  margin: 0 0 14px;
+}
+.sc-wizpick-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--sc-line);
+}
+/* Search is the way to reach product 1,900 of 2,203 without loading 1,900
+   cards, so it leads the row and takes the space. */
+.sc-wizpick-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-bg);
+  color: var(--sc-fg3);
+  min-width: 0;
+}
+.sc-wizpick-search:focus-within {
+  border-color: var(--sc-focus);
+}
+.sc-wizpick-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--sc-fg);
+  font-size: 12.5px;
+  font-family: var(--sc-font);
+}
+.sc-wizpick-search input::-webkit-search-cancel-button {
+  appearance: none;
+}
+.sc-wizpick-tools .sc-wiz-skip {
+  white-space: nowrap;
+}
+.sc-wizpick-empty {
+  grid-column: 1 / -1;
+  color: var(--sc-fg3);
+  font-size: 12.5px;
+  margin: 18px 0;
+  text-align: center;
+}
+/* The sentinel the scroll watcher observes. Spans the row so it cannot be
+   missed between columns. */
+.sc-wizpick-end {
+  grid-column: 1 / -1;
+  height: 1px;
+}
+.sc-wizpick-tools .sc-wiz-skip {
+  margin-top: 0;
+}
+.sc-wizpick-count {
+  font-size: 12px;
+  color: var(--sc-fg3);
+}
+/* The sheet holds the scroll, so a long catalog never grows the dialog past
+   the viewport and the footer buttons stay reachable on a phone. */
+.sc-wizpick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 12px;
+  padding: 14px 0;
+  max-height: min(52vh, 460px);
+  overflow-y: auto;
+}
+.sc-wizpick-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--sc-line);
+}
+.sc-wizpick-foot .sc-wiz-skip {
+  margin-top: 0;
+}
+/* Sits between Not now and the import button, so the one thing it explains is
+   the one thing it sits next to. */
+.sc-wizpick-loading {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--sc-fg3);
+}
+/* The card's own media slot is the frame; the shimmer fills it. */
+.sc-wizpick-grid .sc-lookcard .sc-shimmer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+@media (max-width: 767px) {
+  .sc-wizpick-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    max-height: 46vh;
+  }
+}
+
+/* ---------- what an import is doing ---------- */
+.sc-imp .sc-imp-sub {
+  color: var(--sc-fg2);
+  font-size: 12.5px;
+  margin: 0 0 14px;
+}
+.sc-imp-meter {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--sc-line);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.sc-imp-meter > div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--sc-fg);
+  transition: width 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.sc-imp-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.sc-imp-lines li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+  color: var(--sc-fg3);
+}
+.sc-imp-lines b {
+  color: var(--sc-fg);
+  font-variant-numeric: tabular-nums;
+}
+.sc-imp-errs {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--sc-fg3);
+}
+.sc-imp-errs ul {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 4px;
+}
+.sc-imp-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--sc-line);
+}
+.sc-imp-foot .sc-wiz-skip {
+  margin-top: 0;
+}
+.sc-imp-done {
+  font-size: 12px;
+  color: var(--sc-fg3);
+}

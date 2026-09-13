@@ -1,4 +1,53 @@
+import { lookup as dnsLookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
+import { assertPublicHost } from '@scenri/brand';
 import type { FetchImpl } from '../types.js';
+
+/**
+ * Where a crawl is allowed to go.
+ *
+ * A store URL arrives from a request body, and every page it names can
+ * redirect somewhere else, so both the address asked for and the address each
+ * hop lands on have to be checked. Without this a request naming
+ * `169.254.169.254` - or a public domain redirecting to it - made the server
+ * fetch it and hand the contents back.
+ *
+ * The rule itself lives in `@scenri/brand` and is imported rather than
+ * copied: a security control with two implementations has two places to get
+ * it wrong, and only one of them gets fixed.
+ */
+const ALLOW_PRIVATE = process.env.SCENRI_SCRAPE_ALLOW_PRIVATE === '1';
+
+/**
+ * @param real whether this request is going to the actual network. A caller
+ * that injects its own `fetchImpl` is a test double or an already-guarded
+ * implementation, and resolving names for it would be both pointless and, for
+ * the reserved `.example` domains tests use, slow enough to matter. A literal
+ * address and the scheme are checked either way, because those need nobody's
+ * help to be dangerous.
+ */
+async function assertReachable(url: string, real: boolean): Promise<void> {
+  const u = new URL(url);
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw new Error(`Scenri reads http and https addresses only, not ${u.protocol.replace(':', '')}`);
+  }
+  if (ALLOW_PRIVATE) return;
+  const host = u.hostname.replace(/^\[|\]$/g, '');
+  if (isIP(host)) {
+    assertPublicHost(u.hostname, [host], false);
+    return;
+  }
+  if (!real) return;
+  let addresses: string[];
+  try {
+    addresses = (await dnsLookup(host, { all: true })).map((a) => a.address);
+  } catch {
+    // A name that will not resolve for us will not resolve for the fetch
+    // either, so there is nothing here to reach and nothing to refuse.
+    return;
+  }
+  assertPublicHost(u.hostname, addresses, false);
+}
 
 export const USER_AGENT = 'scenri-catalog/0.1 (+https://scenri.co)';
 
@@ -9,6 +58,36 @@ export interface HttpOptions {
   retries?: number;
   headers?: Record<string, string>;
   accept?: string;
+  /**
+   * Stop reading a body past this many bytes and keep what arrived.
+   *
+   * `res.text()` has no ceiling, and product pages are not small: a single
+   * gymshark.com page is 2.4 MB, so a catalog-sized crawl of them is
+   * gigabytes. Truncating is safe for our readers - the HTML parser is
+   * tolerant, and the JSON-LD block that carries the product sits about a
+   * third of the way into that page, well inside any cap worth setting.
+   */
+  maxBytes?: number;
+}
+
+/** Read a response body, stopping at `maxBytes` rather than wherever it ends. */
+async function readBounded(res: Response, maxBytes?: number): Promise<string> {
+  if (!maxBytes || !res.body) return res.text();
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let out = '';
+  let seen = 0;
+  try {
+    while (seen < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      seen += value.byteLength;
+      out += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+  return out + decoder.decode();
 }
 
 function sleep(ms: number) {
@@ -28,21 +107,50 @@ export async function httpGet(url: string, opts: HttpOptions = {}): Promise<Resp
     opts.signal?.addEventListener('abort', onAbort, { once: true });
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
-      const res = await fetchImpl(url, {
-        redirect: 'follow',
-        signal: ctrl.signal,
-        headers: {
-          'user-agent': USER_AGENT,
-          accept: opts.accept ?? 'application/json, text/html, application/xml, text/xml, */*;q=0.8',
-          ...(opts.headers ?? {}),
-        },
-      });
+      // Manual redirects, so every hop is checked rather than only the first.
+      // `follow` hands the whole chain to undici and a public address that
+      // redirects to a private one lands there unseen.
+      let current = url;
+      let res!: Response;
+      for (let hop = 0; ; hop++) {
+        await assertReachable(current, !opts.fetchImpl);
+        res = await fetchImpl(current, {
+          redirect: 'manual',
+          signal: ctrl.signal,
+          headers: {
+            'user-agent': USER_AGENT,
+            accept: opts.accept ?? 'application/json, text/html, application/xml, text/xml, */*;q=0.8',
+            ...(opts.headers ?? {}),
+          },
+        });
+        if (res.status < 300 || res.status >= 400) break;
+        const location = res.headers.get('location');
+        await res.body?.cancel().catch(() => {});
+        if (!location || hop >= 5) break;
+        current = new URL(location, current).toString();
+      }
+      // A manually-redirected response reports the URL of the request that
+      // produced it, which is the hop before the last one. Callers resolve
+      // relative links against this, so it has to name where we ended up.
+      if (res.url !== current) {
+        try {
+          Object.defineProperty(res, 'url', { value: current, configurable: true });
+        } catch {
+          /* a response that will not take the property still carries its body */
+        }
+      }
       // Deliberately not 403. One retry of a single brand page is worth it,
       // because a CDN refuses a share of requests and serves the next one
-      // fine. A crawl is the opposite case: gymshark.com discovered 4406
-      // product URLs and every one answered 403, so retrying turned a wasted
-      // 4406 requests into a wasted 17624. When a store blocks readers it
-      // blocks all of them, and the fast answer is the kind one.
+      // fine. A crawl is the opposite case: retrying a refused endpoint once
+      // per product turns a wasted 2202 requests into a wasted 4404.
+      //
+      // An earlier version of this comment read that gymshark.com "discovered
+      // 4406 product URLs and every one answered 403". That was wrong, and it
+      // cost a working import: measured 2026-09-13, the 403s were the JSON
+      // endpoints (`/products.json`, `/products/<handle>.json`), while every
+      // product *page* answered 200 with a complete ProductGroup in its
+      // JSON-LD. A refused API is not a refused store, which is why discovery
+      // now says so and `productPage.ts` reads the pages instead.
       if ((res.status === 429 || res.status >= 500) && attempt < retries) {
         await sleep(400 * 2 ** attempt);
         continue;
@@ -69,7 +177,7 @@ export async function httpText(
   opts: HttpOptions = {},
 ): Promise<{ ok: boolean; status: number; text: string; url: string }> {
   const res = await httpGet(url, opts);
-  const text = await res.text();
+  const text = await readBounded(res, opts.maxBytes);
   return { ok: res.ok, status: res.status, text, url: res.url || url };
 }
 

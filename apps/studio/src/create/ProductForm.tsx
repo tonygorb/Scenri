@@ -1,4 +1,6 @@
-import { useState, type KeyboardEvent } from 'react';
+import { type KeyboardEvent, useEffect, useState } from 'react';
+import { ProductChoice } from '../views/brandSetup/ProductChoice.js';
+import { useCommerceScan } from '../views/brandSetup/useCommerceScan.js';
 import { api } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { PRODUCT_CATEGORIES } from '../productCategories.js';
@@ -52,14 +54,24 @@ export function ProductForm({ onBack, onStarted, restore, onDiscarded }: FlowPro
     }
   };
 
-  const startImport = async () => {
-    const url = f.fields.importUrl.trim() || (brand.json?.meta?.website ?? '');
-    if (!url) return;
+  /**
+   * Look first, then choose - the same two steps `/setup` takes.
+   *
+   * This used to start a whole-catalog crawl the moment someone pressed
+   * Import, so a large store gave no idea what was coming, no way to take part
+   * of it, and nothing on screen until it finished.
+   */
+  const [scanUrl, setScanUrl] = useState<string | null>(null);
+  const { scan, scanning, settled } = useCommerceScan(scanUrl ? brand.id : null, scanUrl ?? undefined);
+
+  const runImport = async (urls?: string[]) => {
+    const url = scanUrl ?? f.fields.importUrl.trim() ?? '';
     setImporting(true);
     f.setErr(null);
     try {
-      await api.catalogImport(brand.id, url);
+      await api.catalogImport(brand.id, url, urls);
       f.set({ importUrl: '' });
+      setScanUrl(null);
       onStarted({ kind: 'product', id: '', name: url });
     } catch (e: any) {
       f.setErr(String(e.message ?? e));
@@ -67,6 +79,21 @@ export function ProductForm({ onBack, onStarted, restore, onDiscarded }: FlowPro
       setImporting(false);
     }
   };
+
+  const startImport = () => {
+    const url = f.fields.importUrl.trim() || (brand.json?.meta?.website ?? '');
+    if (!url) return;
+    f.setErr(null);
+    setScanUrl(url);
+  };
+
+  // A store we could look at offers its products; one we could not is imported
+  // the way it always was, because the person asked for it by name.
+  useEffect(() => {
+    if (!scanUrl || !settled) return;
+    if (scan && scan.verdict === 'found' && scan.candidates.length) return;
+    void runImport();
+  }, [scan, settled, scanUrl]);
 
   const submitOnEnter = (e: KeyboardEvent) => {
     if (e.key !== 'Enter') return;
@@ -150,16 +177,16 @@ export function ProductForm({ onBack, onStarted, restore, onDiscarded }: FlowPro
                 value={f.fields.importUrl}
                 onChange={(e) => f.set({ importUrl: e.target.value })}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') void startImport();
+                  if (e.key === 'Enter') startImport();
                 }}
               />
               <button
                 type="button"
                 className="sc-btn sc-btn-ghost"
-                disabled={importing}
-                onClick={() => void startImport()}
+                disabled={importing || scanning}
+                onClick={startImport}
               >
-                {importing ? 'Starting…' : 'Import'}
+                {scanning ? 'Looking…' : importing ? 'Starting…' : 'Import'}
               </button>
             </div>
           </>
@@ -169,6 +196,16 @@ export function ProductForm({ onBack, onStarted, restore, onDiscarded }: FlowPro
           </button>
         )}
       </div>
+      {scan && scan.verdict === 'found' && scan.candidates.length > 0 && (
+        <ProductChoice
+          brandId={brand.id}
+          scan={scan}
+          busy={importing}
+          onImport={(urls: string[]) => void runImport(urls)}
+          onImportAll={() => void runImport()}
+          onDismiss={() => setScanUrl(null)}
+        />
+      )}
     </AssetCreateShell>
   );
 }

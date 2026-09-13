@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import type { ClipboardEvent, CSSProperties, ReactNode } from 'react';
 import * as Primitive from '@radix-ui/react-dialog';
 import { focusSelfOnOpen } from '../app/dialogs.js';
@@ -36,6 +37,18 @@ export function DialogSheet({
   onPaste?: (e: ClipboardEvent<HTMLDivElement>) => void;
 }) {
   const { sheet, grip } = useSheetDrag(onDismiss);
+  /**
+   * Say so, once, when a dialog takes the screen.
+   *
+   * Transient surfaces - the notifications panel above all - have no way to
+   * know a modal has opened over them, so the bell stayed open underneath the
+   * import dialog with two floating surfaces fighting for the same corner.
+   * Announced from the shared shell rather than from any one dialog, so every
+   * dialog gets the behaviour and no caller has to remember it.
+   */
+  useEffect(() => {
+    if (open) window.dispatchEvent(new CustomEvent('scenri:modal-open'));
+  }, [open]);
   const openFocus = onOpenAutoFocus ?? focusSelfOnOpen;
   // Default: let Radix restore focus to whatever opened the sheet. The old
   // default suppressed that, so closing any sheet built on this shell dropped

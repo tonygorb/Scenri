@@ -1,13 +1,15 @@
-import { createHash } from 'node:crypto';
-import { httpText, mapPool } from '../http/fetch.js';
-import { absolutize, originOf } from '../url.js';
-import { normalizeProduct } from '../normalize.js';
-import { attr, loadHtml, textOf } from '../html.js';
+import { httpText } from '../http/fetch.js';
+import { absolutize, originOf, preferCanonicalLocale } from '../url.js';
+import { attr, loadHtml } from '../html.js';
+import { extractJsonLdProducts, fetchProductPages, stableKey } from './productPage.js';
 import type { AdapterContext, CatalogAdapter, CatalogProduct, DetectResult, DiscoverResult } from '../types.js';
 
-function stableKey(url: string): string {
-  return createHash('sha256').update(url).digest('hex').slice(0, 16);
-}
+/**
+ * Reading a single product page moved to `productPage.ts`, so Shopify could
+ * use it too. These three keep their old home: WooCommerce, Webflow, the
+ * package barrel and the tests all import them from here.
+ */
+export { extractJsonLdProducts, looksLikeProduct, parseProductHtml } from './productPage.js';
 
 export async function extractSitemapUrls(
   ctx: AdapterContext,
@@ -44,154 +46,8 @@ export async function extractSitemapUrls(
     }
     if (seen.size > 200) break;
   }
-  return [...out];
+  return preferCanonicalLocale([...out]);
 }
-
-function walkJsonLd(node: unknown, out: any[]): void {
-  if (!node) return;
-  if (Array.isArray(node)) {
-    for (const n of node) walkJsonLd(n, out);
-    return;
-  }
-  if (typeof node !== 'object') return;
-  const obj = node as Record<string, unknown>;
-  const type = obj['@type'];
-  const types = Array.isArray(type) ? type : type ? [type] : [];
-  if (types.some((t) => String(t).toLowerCase() === 'product')) out.push(obj);
-  if (obj['@graph']) walkJsonLd(obj['@graph'], out);
-  for (const v of Object.values(obj)) {
-    if (v && typeof v === 'object') walkJsonLd(v, out);
-  }
-}
-
-/** An `image` entry in schema.org JSON-LD: a URL, or an ImageObject carrying one. */
-type JsonLdImage = string | { url?: string; contentUrl?: string };
-
-export function extractJsonLdProducts(html: string, pageUrl: string): CatalogProduct[] {
-  const root = loadHtml(html);
-  const nodes: any[] = [];
-  for (const el of root.querySelectorAll('script[type="application/ld+json"]')) {
-    const raw = el.innerHTML;
-    if (!raw) continue;
-    try {
-      walkJsonLd(JSON.parse(raw), nodes);
-    } catch {
-      /* ignore broken blocks */
-    }
-  }
-
-  return nodes.map((n) => {
-    const offers = Array.isArray(n.offers) ? n.offers[0] : n.offers;
-    // schema.org lets `image` be a bare URL, an ImageObject, or an array
-    // mixing both. Typing this as string[] made the object branch dead code to
-    // the compiler while it still ran at runtime.
-    const images = ([] as JsonLdImage[])
-      .concat(n.image ?? [])
-      .flat()
-      .map((img) => (typeof img === 'string' ? img : (img?.url ?? img?.contentUrl)))
-      .filter(Boolean)
-      .map((u, i) => ({ url: absolutize(pageUrl, String(u))!, position: i, width: null, height: null, alt: null }))
-      .filter((img) => img.url);
-
-    const url = String(n.url ?? n['@id'] ?? pageUrl);
-    return normalizeProduct({
-      externalKey: String(n.sku || n.productID || n.mpn || stableKey(url)),
-      title: String(n.name ?? 'Product'),
-      descriptionHtml: n.description ? String(n.description) : null,
-      url: absolutize(pageUrl, url) ?? pageUrl,
-      vendor: n.brand?.name ?? (typeof n.brand === 'string' ? n.brand : null),
-      productType: n.category ? String(n.category) : null,
-      category: n.category ? String(n.category) : null,
-      price: offers?.price != null ? Number(offers.price) : null,
-      compareAtPrice: null,
-      currency: offers?.priceCurrency ?? null,
-      available: offers?.availability ? /instock/i.test(String(offers.availability)) : null,
-      tags: [],
-      variants: [],
-      images,
-      raw: n,
-    });
-  });
-}
-
-/**
- * Things only a page that sells something has.
- *
- * Deliberately strict, and every one of them is a claim the page makes about
- * itself rather than a shape we inferred. A title and a picture are not a
- * product: without this, oatly.com came back with 201 of them, made out of
- * blog posts, because every page on the web has a title and a picture.
- */
-const PRODUCT_MARKERS = [
-  'meta[property="og:type"][content="product"]',
-  'meta[property="product:price:amount"]',
-  'meta[property="og:price:amount"]',
-  '[itemtype*="schema.org/Product"]',
-  '[itemprop="price"]',
-  '[itemprop="offers"]',
-  'form[action*="/cart/add"]',
-  '[name="add"]',
-];
-const BUY_WORDS = /add to (cart|bag|basket)|buy now|add to my bag/i;
-
-export function looksLikeProduct(html: string): boolean {
-  const $ = loadHtml(html);
-  for (const sel of PRODUCT_MARKERS) {
-    try {
-      if ($.querySelector(sel)) return true;
-    } catch {
-      // A selector this parser will not take is not evidence either way.
-    }
-  }
-  for (const el of $.querySelectorAll('button, input[type="submit"], a')) {
-    const words = `${textOf(el)} ${attr(el, 'value') ?? ''} ${attr(el, 'aria-label') ?? ''}`;
-    if (BUY_WORDS.test(words)) return true;
-  }
-  return false;
-}
-
-export function parseProductHtml(html: string, pageUrl: string): CatalogProduct | null {
-  // A page that never claims to sell anything is not a product, whatever else
-  // it has on it. This is the line between importing a catalog and inventing one.
-  if (!looksLikeProduct(html)) return null;
-  const $ = loadHtml(html);
-  const title =
-    attr($.querySelector('meta[property="og:title"]'), 'content') ||
-    textOf($.querySelector('h1')) ||
-    textOf($.querySelector('title'));
-  if (!title) return null;
-  const desc =
-    attr($.querySelector('meta[property="og:description"]'), 'content') ||
-    attr($.querySelector('meta[name="description"]'), 'content') ||
-    null;
-  const images: { url: string; position: number; width: null; height: null; alt: string | null }[] = [];
-  const og = attr($.querySelector('meta[property="og:image"]'), 'content');
-  if (og) {
-    const abs = absolutize(pageUrl, og);
-    if (abs) images.push({ url: abs, position: 0, width: null, height: null, alt: null });
-  }
-  for (const el of $.querySelectorAll('img[src]')) {
-    if (images.length >= 12) break;
-    const src = attr(el, 'src') || attr(el, 'data-src');
-    const abs = src ? absolutize(pageUrl, src) : null;
-    if (!abs || /logo|icon|sprite|pixel|avatar/i.test(abs)) continue;
-    if (images.some((x) => x.url === abs)) continue;
-    images.push({ url: abs, position: images.length, width: null, height: null, alt: attr(el, 'alt') ?? null });
-  }
-  const canonical = attr($.querySelector('link[rel="canonical"]'), 'href');
-  const url = canonical ? (absolutize(pageUrl, canonical) ?? pageUrl) : pageUrl;
-  return normalizeProduct({
-    externalKey: stableKey(url),
-    title,
-    descriptionHtml: desc,
-    url,
-    images,
-    variants: [],
-    tags: [],
-    raw: { source: 'html' },
-  });
-}
-
 async function extractFeedUrls(ctx: AdapterContext): Promise<string[]> {
   const origin = originOf(ctx.baseUrl);
   const candidates = [
@@ -312,42 +168,16 @@ export const genericAdapter: CatalogAdapter = {
       productKeys: [...productUrls].map(stableKey),
       productUrls: [...productUrls],
       estimatedTotal: productUrls.size || null,
+      // Nothing here but addresses: every product is its own page fetch.
+      byPage: true,
       warnings,
     };
   },
 
   async fetchAll(ctx, discovered): Promise<CatalogProduct[]> {
-    const out: CatalogProduct[] = [];
-    const seen = new Set<string>();
-    await mapPool(
-      discovered.productUrls,
-      5,
-      async (u) => {
-        try {
-          const { ok, text, url } = await httpText(u, {
-            fetchImpl: ctx.fetchImpl,
-            signal: ctx.signal,
-            accept: 'text/html',
-          });
-          if (!ok) return;
-          const fromLd = extractJsonLdProducts(text, url);
-          const list = fromLd.length ? fromLd : ([parseProductHtml(text, url)].filter(Boolean) as CatalogProduct[]);
-          for (const p of list) {
-            if (seen.has(p.externalKey)) continue;
-            seen.add(p.externalKey);
-            out.push(p);
-          }
-          ctx.onProgress?.({
-            stage: 'fetching_products',
-            fetched: out.length,
-            discovered: discovered.productUrls.length,
-          });
-        } catch {
-          /* skip */
-        }
-      },
-      ctx.signal,
-    );
-    return out;
+    return fetchProductPages(ctx, discovered.productUrls, {
+      onProduct: (fetched) =>
+        ctx.onProgress?.({ stage: 'fetching_products', fetched, discovered: discovered.productUrls.length }),
+    });
   },
 };
