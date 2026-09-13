@@ -99,22 +99,17 @@ test('a site with no shop on it is a brand source, and says what it found', asyn
   await page.getByRole('button', { name: 'Looks right' }).click();
   await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
 
-  // And no failed-looking task for the catalog import that found no shop.
-  await expect
-    .poll(
-      async () => {
-        const jobs = await page.evaluate(async () => {
-          const brands = await (await fetch('/api/brands')).json();
-          const rows = await Promise.all(
-            brands.map(async (b: { id: string }) => (await (await fetch(`/api/brands/${b.id}/activity`)).json()) ?? {}),
-          );
-          return rows;
-        });
-        return JSON.stringify(jobs);
-      },
-      { timeout: 20_000 },
-    )
-    .not.toContain('"stage":"failed"');
+  // And no catalog crawl at all: this screen was asked for a brand kit. The
+  // Products page is where someone asks for products, with the website already
+  // filled in from the kit.
+  const jobs = await page.evaluate(async () => {
+    const brands = await (await fetch('/api/brands')).json();
+    const rows = await Promise.all(
+      brands.map(async (b: { id: string }) => (await (await fetch(`/api/brands/${b.id}/catalog/jobs`)).json()) ?? {}),
+    );
+    return rows.flatMap((r: { jobs?: unknown[] }) => r.jobs ?? []);
+  });
+  expect(jobs).toHaveLength(0);
 });
 
 test('a refusal is a sentence, and the manual path is still one click away', async ({ page }) => {

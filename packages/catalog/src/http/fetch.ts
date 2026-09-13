@@ -37,6 +37,12 @@ export async function httpGet(url: string, opts: HttpOptions = {}): Promise<Resp
           ...(opts.headers ?? {}),
         },
       });
+      // Deliberately not 403. One retry of a single brand page is worth it,
+      // because a CDN refuses a share of requests and serves the next one
+      // fine. A crawl is the opposite case: gymshark.com discovered 4406
+      // product URLs and every one answered 403, so retrying turned a wasted
+      // 4406 requests into a wasted 17624. When a store blocks readers it
+      // blocks all of them, and the fast answer is the kind one.
       if ((res.status === 429 || res.status >= 500) && attempt < retries) {
         await sleep(400 * 2 ** attempt);
         continue;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ScrapeError } from '../src/scrapeError.js';
-import { assertPublicHost, createGuardedFetch, isPrivateAddress } from '../src/safeFetch.js';
+import { assertPublicHost, createGuardedFetch, isPrivateAddress, statusSentence } from '../src/safeFetch.js';
 
 /**
  * The guard on a URL a person pasted. Scenri is local-first and this is the
@@ -152,5 +152,79 @@ describe('the guarded fetch', () => {
     const get = createGuardedFetch({ lookup: publicLookup, budgetMs: 5_000 });
     expect(get.remaining()).toBeGreaterThan(0);
     expect(get.remaining()).toBeLessThanOrEqual(5_000);
+  });
+});
+
+/**
+ * A CDN in front of a big storefront refuses a share of requests and serves
+ * the next one fine. gymshark.com answered 403 in the app and 200 from a shell
+ * a minute later, same user agent. One dead end, no reason, nothing to do.
+ */
+describe('a site that answers differently the second time', () => {
+  const flaky = (statuses: number[]) => {
+    let i = 0;
+    return (async () => {
+      const status = statuses[Math.min(i++, statuses.length - 1)];
+      return status === 200
+        ? page('<title>Acme</title>')
+        : new Response('no', { status, headers: { 'content-type': 'text/plain' } });
+    }) as never;
+  };
+
+  it.each([[403], [429], [503], [500]])('tries once more after a %s, and takes the answer', async (status) => {
+    const get = createGuardedFetch({ lookup: publicLookup, fetchImpl: flaky([status, 200]) });
+    await expect(get('https://acme.example/', 'html')).resolves.toMatchObject({ status: 200 });
+  });
+
+  it('gives up after one retry rather than hammering a site that means it', async () => {
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls++;
+      return new Response('no', { status: 403, headers: { 'content-type': 'text/plain' } });
+    }) as never;
+    const get = createGuardedFetch({ lookup: publicLookup, fetchImpl });
+    await expect(get('https://walled.example/', 'html')).rejects.toThrow(/would not let Scenri read it/);
+    expect(calls).toBe(2);
+  });
+
+  it('does not retry a 404, because the page is not coming back', async () => {
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls++;
+      return new Response('no', { status: 404, headers: { 'content-type': 'text/plain' } });
+    }) as never;
+    const get = createGuardedFetch({ lookup: publicLookup, fetchImpl });
+    await expect(get('https://acme.example/gone', 'html')).rejects.toThrow(/no page at that address/);
+    expect(calls).toBe(1);
+  });
+
+  // A retry is the same request again; a redirect is the site sending us
+  // elsewhere. Spending one budget on the other makes the cap a lie.
+  it('does not let a retry eat a redirect hop', async () => {
+    let n = 0;
+    const fetchImpl = (async () => {
+      n++;
+      return new Response(null, { status: 302, headers: { location: `https://acme.example/${n}` } });
+    }) as never;
+    const get = createGuardedFetch({ lookup: publicLookup, fetchImpl, maxRedirects: 2 });
+    await expect(get('https://acme.example/', 'html')).rejects.toThrow(/kept redirecting/);
+    expect(n).toBe(3);
+  });
+});
+
+describe('statusSentence', () => {
+  it.each([
+    [403, /would not let Scenri read it/],
+    [401, /would not let Scenri read it/],
+    [404, /no page at that address/],
+    [429, /slow down/],
+    [503, /trouble answering/],
+    [418, /answered 418/],
+  ])('turns %i into something a person can read', (status, re) => {
+    expect(statusSentence('acme.example', status)).toMatch(re);
+  });
+
+  it('never leaves a bare number as the whole explanation for a refusal', () => {
+    expect(statusSentence('acme.example', 403)).not.toMatch(/^acme\.example answered/);
   });
 });

@@ -82,15 +82,17 @@ export function BrandSetup() {
       // `https://  https://...` and the server's parser error reached the
       // screen as "Invalid URL". One normaliser now owns the rule, server-side.
       const b = await api.brandFromUrl(url);
-      // Fire and forget, exactly as the products step did: a storefront fills
-      // the product library in the background while the user gets on with it.
-      // Every site is offered to it, because a splash page can still have a
-      // shop behind it; a site with no shop is not an error.
+      // No catalog crawl here, on purpose. This screen was asked for a brand
+      // kit, and it used to answer by crawling the whole site for products
+      // too: oatly.com got 588 pages read and 201 invented products, and
+      // gymshark.com got 4406 requests sent to a live store for nothing, ending
+      // in a red bell on someone's first run. Nobody asked for any of it.
       //
-      // The raw value, not the kit's meta.website: the kit records the origin,
-      // and someone who pasted a collection page meant that page. The catalog
-      // importer has its own normaliser for the rest.
-      void api.catalogImport(b.id, url).catch(() => {});
+      // Importing a catalog is still one click, on the Products page, where a
+      // person chooses it and the website is already filled in from the kit
+      // (create/ProductForm.tsx reads meta.website). A failure there is an
+      // answer to a question that was actually asked.
+      //
       // Show it, and wait. The brand exists either way - this is a reveal, not
       // a confirmation that could still be refused.
       setMade(b);

@@ -147,7 +147,12 @@ export function createGuardedFetch(opts: GuardOptions = {}): GuardedFetch {
 
   async function once(url: string, as: FetchKind): Promise<GuardedResponse> {
     let current = url;
-    for (let hop = 0; hop <= o.maxRedirects; hop++) {
+    // Two separate budgets: a redirect is the site sending us somewhere else,
+    // a retry is the same request again. Spending one on the other is how a
+    // redirect cap stops meaning what it says.
+    let hops = 0;
+    let attempts = 0;
+    for (;;) {
       const u = new URL(current);
       if (u.protocol !== 'http:' && u.protocol !== 'https:')
         throw new ScrapeError(
@@ -188,11 +193,28 @@ export function createGuardedFetch(opts: GuardOptions = {}): GuardedFetch {
         // Cancel rather than leak the socket while we decide about the next hop.
         await res.body?.cancel().catch(() => {});
         if (!location) throw new ScrapeError('http_status', `${u.hostname} answered ${res.status} with nowhere to go.`);
+        if (++hops > o.maxRedirects)
+          throw new ScrapeError(
+            'too_many_redirects',
+            `${new URL(url).hostname} kept redirecting, so nothing was read.`,
+          );
         current = new URL(location, current).toString();
         continue;
       }
-      if (!res.ok)
-        throw new ScrapeError('http_status', `${u.hostname} answered ${res.status}, so there was nothing to read.`);
+      if (!res.ok) {
+        // A CDN in front of a big storefront refuses a share of requests and
+        // serves the next one fine: gymshark.com answered 403 once and 200 a
+        // minute later, to the same user agent. One patient retry turns a dead
+        // end into a kit. The catalog fetcher has backed off like this for as
+        // long as it has existed.
+        if (RETRYABLE.has(res.status) && attempts < 1 && remaining() > 2_000) {
+          await res.body?.cancel().catch(() => {});
+          await sleep(700);
+          attempts++;
+          continue;
+        }
+        throw new ScrapeError('http_status', statusSentence(u.hostname, res.status));
+      }
 
       const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
       const cap = o[LIMIT[as]];
@@ -207,7 +229,6 @@ export function createGuardedFetch(opts: GuardOptions = {}): GuardedFetch {
         truncated,
       };
     }
-    throw new ScrapeError('too_many_redirects', `${new URL(url).hostname} kept redirecting, so nothing was read.`);
   }
 
   const guarded = ((url: string, as: FetchKind) => once(url, as)) as GuardedFetch;
@@ -216,6 +237,35 @@ export function createGuardedFetch(opts: GuardOptions = {}): GuardedFetch {
 }
 
 export const USER_AGENT = 'scenri/0.1 (+https://scenri.co)';
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Statuses a site can answer once and not the next time.
+ *
+ * 403 is in here on evidence rather than principle. A real permission refusal
+ * will not change, but the overwhelmingly common 403 on a public marketing
+ * page is a CDN bot check, and those do change: gymshark.com answered 403 in
+ * the app and 200 from a shell a minute later, to the same user agent. One
+ * extra request is a fair price for that.
+ */
+const RETRYABLE = new Set([403, 408, 425, 429, 500, 502, 503, 504]);
+
+/**
+ * What a status means to a person who did not ask for a number.
+ *
+ * "answered 403" is accurate and useless: nobody can act on it, and the most
+ * common cause by far is a CDN refusing anything that is not a browser, which
+ * is not the person's fault and not something they can fix by trying harder.
+ */
+export function statusSentence(host: string, status: number): string {
+  if (status === 401 || status === 403)
+    return `${host} would not let Scenri read it. Some sites block anything that is not a person in a browser; you can still add the logo and colours by hand.`;
+  if (status === 404) return `There is no page at that address on ${host}.`;
+  if (status === 429) return `${host} asked Scenri to slow down. Try again in a minute.`;
+  if (status >= 500) return `${host} had trouble answering. Try again in a moment.`;
+  return `${host} answered ${status}, so there was nothing to read.`;
+}
 
 const ACCEPT: Record<FetchKind, string> = {
   html: 'text/html,application/xhtml+xml',

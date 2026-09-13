@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractJsonLdProducts, parseProductHtml, genericAdapter } from '../src/adapters/generic.js';
+import { extractJsonLdProducts, parseProductHtml, genericAdapter, looksLikeProduct } from '../src/adapters/generic.js';
 import { woocommerceAdapter } from '../src/adapters/woocommerce.js';
 import { webflowAdapter } from '../src/adapters/webflow.js';
 
@@ -58,8 +58,9 @@ describe('JSON-LD + HTML product parse', () => {
     expect(products[0].images!.map((i) => i.url)).toEqual(['https://img.example/vase.jpg']);
   });
 
-  it('falls back to og tags', () => {
+  it('falls back to og tags on a page that sells something', () => {
     const html = `<html><head>
+      <meta property="og:type" content="product">
       <meta property="og:title" content="Mug">
       <meta property="og:image" content="/mug.jpg">
       <link rel="canonical" href="https://store.example/product/mug">
@@ -67,6 +68,39 @@ describe('JSON-LD + HTML product parse', () => {
     const p = parseProductHtml(html, 'https://store.example/product/mug');
     expect(p?.title).toBe('Mug');
     expect(p?.images?.[0].url).toBe('https://store.example/mug.jpg');
+  });
+});
+
+/**
+ * Every page on the web has a title and a picture. Treating that as a product
+ * is how oatly.com - a brand site, not a shop - came back with 201 of them,
+ * made out of blog posts and landing pages.
+ */
+describe('what counts as a product page', () => {
+  const page = (body: string, head = '') =>
+    `<html><head><meta property="og:title" content="Thing"><meta property="og:image" content="/t.jpg">${head}</head><body>${body}</body></html>`;
+
+  it.each([
+    ['an og:type of product', '', '<meta property="og:type" content="product">'],
+    ['a declared price', '', '<meta property="product:price:amount" content="12.00">'],
+    ['schema.org Product microdata', '<div itemtype="https://schema.org/Product"></div>', ''],
+    ['an offers itemprop', '<div itemprop="offers"></div>', ''],
+    ['a cart form', '<form action="/cart/add"></form>', ''],
+    ['an add to cart button', '<button>Add to cart</button>', ''],
+    ['an add to bag button', '<button aria-label="Add to bag">+</button>', ''],
+  ])('reads %s as a product', (_what, body, head) => {
+    expect(looksLikeProduct(page(body, head))).toBe(true);
+    expect(parseProductHtml(page(body, head), 'https://store.example/p/thing')).not.toBeNull();
+  });
+
+  it.each([
+    ['a blog post', '<article><h1>Why oats</h1><p>Words.</p></article>'],
+    ['an about page', '<h1>About us</h1><img src="/team.jpg">'],
+    ['a landing page with a picture', '<h1>Hello</h1><img src="/hero.jpg"><a href="/contact">Contact</a>'],
+    ['a page with a cart link but nothing for sale', '<a href="/cart">Cart</a>'],
+  ])('refuses %s', (_what, body) => {
+    expect(looksLikeProduct(page(body))).toBe(false);
+    expect(parseProductHtml(page(body), 'https://brand.example/story')).toBeNull();
   });
 });
 

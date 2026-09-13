@@ -358,7 +358,11 @@ describe('brands API', () => {
       payload: { url: 'https://walled.example' },
     });
     expect(res.statusCode).toBe(502);
-    expect(res.json().error).toBe('walled.example answered 403, so there was nothing to read.');
+    // A status code is not an explanation. 403 on a public page is nearly
+    // always a CDN refusing anything that is not a browser, which is not
+    // something the person did or can fix by trying harder.
+    expect(res.json().error).toMatch(/would not let Scenri read it/);
+    expect(res.json().error).toMatch(/by hand/);
     await local.close();
   });
 });

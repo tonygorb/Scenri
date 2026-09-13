@@ -253,10 +253,19 @@ describe('buildFromUrl', () => {
 
   // A person reads this, so it names the site and says what happened rather
   // than quoting a status line at them.
-  it('says what a refusing site answered, in a sentence', async () => {
+  it('says what a refusing site answered, in a sentence a person can act on', async () => {
     const err = (async () => new Response('nope', { status: 500 })) as unknown as typeof fetch;
     await expect(buildFromUrl('https://down.example/', { fetchImpl: err })).rejects.toThrow(
-      'down.example answered 500, so there was nothing to read.',
+      'down.example had trouble answering. Try again in a moment.',
+    );
+  });
+
+  // A number is not an explanation, and 403 is almost always a CDN refusing
+  // anything that is not a browser - not something the person did.
+  it('explains a refusal instead of quoting its status code', async () => {
+    const walled = (async () => new Response('no', { status: 403 })) as unknown as typeof fetch;
+    await expect(buildFromUrl('https://walled.example/', { fetchImpl: walled })).rejects.toThrow(
+      /would not let Scenri read it.*by hand/s,
     );
   });
 
