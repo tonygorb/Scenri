@@ -274,7 +274,8 @@ export function PresenterPage() {
           <Rail
             count={frames.length}
             label="Reference set"
-            className="sc-refset"
+            className="sc-refset-rail"
+            trackClassName="sc-refset"
             style={{ '--sc-refset-count': frames.length } as CSSProperties}
           >
             {frames.map((f) => (

@@ -65,7 +65,9 @@
 /* ---- the arrows: the app's 34px circle, straddling the edge ---- */
 .sc-rail-arrow {
   position: absolute;
-  top: 50%;
+  /* The middle of the row, unless the surface says otherwise: items that
+     carry a caption under them put the middle of the picture higher up. */
+  top: var(--sc-rail-arrow-y, 50%);
   z-index: 4;
   width: 34px;
   height: 34px;

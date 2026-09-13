@@ -919,6 +919,18 @@
    size at which a full-length figure can be read, and the rest are a press or
    a swipe away. The count comes in on the element so the rule covers any
    number, and the cap stays here so a narrower screen can lower it. */
+/* No edge fade on this row. Over photographs shot on a white sweep the page's
+   ground reads as a grey wash on the first and last picture rather than as an
+   edge, and the reference cut by the edge already says there is more. The
+   arrows sit on the middle of the picture, not of the row: every reference
+   carries its role in a line underneath. */
+.sc-refset-rail {
+  --sc-rail-arrow-y: calc((100% - 23px) / 2);
+}
+.sc-refset-rail::before,
+.sc-refset-rail::after {
+  content: none;
+}
 .sc-refset {
   --sc-refset-count: 3;
   --sc-refset-n: min(3, var(--sc-refset-count));

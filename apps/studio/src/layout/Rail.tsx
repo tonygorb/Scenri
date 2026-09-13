@@ -19,13 +19,17 @@ import { useRefRail } from './useRefRail.js';
  * are no arrows at all, because the swipe is the control; and reduced motion
  * removes every transition. Paging is one item per press.
  *
- * What it does not do is size its own children. A row of cards and a row of
- * references want different widths, so the surface sets those on the track.
+ * What it does not do is decide for the surface. A row of cards and a row of
+ * references want different widths, so the surface sets those on the track;
+ * where the arrows sit vertically is `--sc-rail-arrow-y` (the middle of the
+ * row by default, which is wrong wherever the items carry a caption under
+ * them); and a surface that does not want the edge fades turns them off.
  */
 export function Rail({
   count,
   label,
   className,
+  trackClassName,
   style,
   children,
 }: {
@@ -33,14 +37,16 @@ export function Rail({
   count: number;
   /** What the row is, for a screen reader. */
   label: string;
-  /** The surface's own class on the track, where it sets its widths. */
+  /** The surface's own class on the row, where it tunes chrome it does not want. */
   className?: string;
+  /** The surface's own class on the track, where it sets its widths. */
+  trackClassName?: string;
   style?: CSSProperties;
   children: ReactNode;
 }) {
   const { shellRef, railRef, page } = useRefRail<HTMLDivElement, HTMLOListElement>(count);
   return (
-    <div className="sc-rail" ref={shellRef}>
+    <div className={className ? `sc-rail ${className}` : 'sc-rail'} ref={shellRef}>
       <button type="button" className="sc-rail-arrow prev" aria-label={`${label}, earlier`} onClick={() => page(-1)}>
         <CaretLeft size={13} weight="bold" />
       </button>
@@ -48,7 +54,7 @@ export function Rail({
         <CaretRight size={13} weight="bold" />
       </button>
       <ol
-        className={className ? `sc-rail-track ${className}` : 'sc-rail-track'}
+        className={trackClassName ? `sc-rail-track ${trackClassName}` : 'sc-rail-track'}
         aria-label={label}
         ref={railRef}
         style={style}
