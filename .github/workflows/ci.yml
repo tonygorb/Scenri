@@ -283,7 +283,15 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Only here, and never in the lockfile: the pseudo-console is the one way
+      # to press a key at a prompt that requires a TTY, and no other job needs
+      # it. --no-save keeps it out of pnpm's graph entirely.
+      - name: A console to press keys at
+        run: npm i --no-save --prefix "$env:RUNNER_TEMP/pty" node-pty@1.1.0
+
       - name: Click the icon
+        env:
+          SCENRI_PTY: ${{ runner.temp }}/pty/node_modules/node-pty/lib/index.js
         run: node packages/cli/test/manual-desktop-windows.mjs
 
       - name: Keep the launcher logs

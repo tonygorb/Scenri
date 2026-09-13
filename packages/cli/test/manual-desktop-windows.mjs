@@ -186,6 +186,99 @@ ok(`installed at ${entry}`);
 const runScenri = (args, extraEnv = {}) =>
   spawnSync(process.execPath, [entry, ...args], { encoding: 'utf8', env: { ...env, ...extraEnv }, timeout: 300_000 });
 
+// ---- 1b. the question itself, answered at a real console
+//
+// This is the bug the branch is named for: a tester pressed Y and lost a
+// running Scenri. The gate needs a TTY on both stdin and stdout, so a piped
+// CI step can never reach it - only a pseudo-console can. node-pty is
+// installed by the workflow with --no-save so it touches no lockfile and no
+// other job; without it this says so loudly rather than passing quietly.
+async function offerScenario(label, keys, expectIcon) {
+  const root2 = join(root, `offer-${label}`);
+  const home2 = join(root2, 'home');
+  const data2 = join(root2, 'data');
+  const desk2 = join(root2, 'Desktop');
+  for (const d of [home2, data2, desk2]) mkdirSync(d, { recursive: true });
+  const port2 = PORT + 2;
+
+  let pty;
+  try {
+    pty = await import(process.env.SCENRI_PTY ?? 'node-pty');
+  } catch {
+    console.log(`  NOTICE: node-pty unavailable, the "${label}" keypress was NOT tested`);
+    return false;
+  }
+
+  const term = pty.spawn(process.execPath, [entry, 'serve'], {
+    name: 'xterm-color',
+    cols: 120,
+    rows: 30,
+    env: {
+      ...env,
+      USERPROFILE: home2,
+      HOME: home2,
+      SCENRI_HOME: data2,
+      SCENRI_DESKTOP_DIR: desk2,
+      SCENRI_PORT: String(port2),
+      SCENRI_NO_OPEN: '1',
+    },
+  });
+  let out = '';
+  term.onData((d) => {
+    out += d;
+  });
+
+  const until = (re, ms, what) =>
+    new Promise((resolve, reject) => {
+      const t = setInterval(() => {
+        if (re.test(out)) {
+          clearInterval(t);
+          resolve(true);
+        }
+      }, 100);
+      setTimeout(() => {
+        clearInterval(t);
+        reject(new Error(`${what}; saw:\n${out.slice(-600)}`));
+      }, ms);
+    });
+
+  try {
+    await until(/Add Scenri to your desktop\?/, 120_000, 'the question never appeared');
+    term.write(keys);
+    await until(
+      expectIcon ? /Added Scenri to your desktop|could not/i : /Not now/i,
+      120_000,
+      'no answer to the answer',
+    );
+
+    const iconThere = existsSync(join(desk2, 'Scenri.lnk'));
+    if (iconThere !== expectIcon)
+      fail(`"${label}": icon ${iconThere ? 'appeared' : 'did not appear'}, expected the opposite`);
+
+    // The whole point: whatever the answer, Scenri is still running.
+    const alive = await fetch(`http://127.0.0.1:${port2}/api/version`, { signal: AbortSignal.timeout(5000) })
+      .then((r) => r.ok)
+      .catch(() => false);
+    if (!alive) fail(`"${label}": the server stopped answering after the question`);
+    ok(`"${label}" at a real console: icon ${iconThere ? 'added' : 'skipped'}, Scenri still running`);
+    return true;
+  } finally {
+    try {
+      term.kill();
+    } catch {
+      /* already gone */
+    }
+  }
+}
+
+{
+  const yes = await offerScenario('Y', 'Y\r', true);
+  if (yes) {
+    await offerScenario('n', 'n\r', false);
+    await offerScenario('Enter', '\r', true);
+  }
+}
+
 // ---- 2. a Desktop with a non-ASCII path: install twice (the second reads the .lnk back), then remove
 
 const umlaut = join(root, 'Bürö');
