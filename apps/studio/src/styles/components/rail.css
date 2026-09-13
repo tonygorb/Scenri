@@ -9,6 +9,11 @@
   position: relative;
   width: 100%;
   margin: 0 auto;
+  /* The row inside scrolls; this never does. The arrows sit centred on its
+     ends, so half of each hangs outside it, and that overhang is enough to
+     make this a scroll container of its own and clip them: measured 1061
+     against 1044 of room, exactly the 17px they lean out by. */
+  overflow: visible;
 }
 
 .sc-rail-track {
