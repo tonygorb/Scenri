@@ -239,17 +239,31 @@ test('a shop on the site is offered, counted, and imported only where asked', as
   // counted rather than the handful that were read.
   await expect(lines).toContainText('30 found', { timeout: 45_000 });
 
-  await page.getByRole('button', { name: 'Choose products' }).click();
+  // The products step is the main button, not a link beside it: the first
+  // version said "Looks right", quietly meant "and no products", and was
+  // walked straight past.
+  await page.getByRole('button', { name: 'Add brand and products' }).click();
   const sheet = page.getByRole('dialog', { name: 'Products on your site' });
   await expect(sheet).toBeVisible();
 
-  // Everything is ticked; drop two and the button counts down with them.
+  // Everything is ticked, including the ones no card has loaded for yet.
+  await expect(sheet.getByRole('button', { name: `Import ${SHOP_HANDLES.length} products` })).toBeVisible();
   const cards = sheet.locator('.sc-lookcard');
   const shown = await cards.count();
   expect(shown).toBeGreaterThan(2);
+  expect(shown).toBeLessThan(SHOP_HANDLES.length);
+
+  // Search reaches a product that is not on screen, by the name its address
+  // already carries.
+  await sheet.getByRole('searchbox').fill('jacket-29');
+  await expect(cards).toHaveCount(1);
+  await sheet.getByRole('searchbox').fill('');
+  await expect(sheet.getByRole('button', { name: `Import ${SHOP_HANDLES.length} products` })).toBeVisible();
+
+  // Drop two and the button counts down with them.
   await cards.nth(0).click();
   await cards.nth(1).click();
-  await expect(sheet.getByRole('button', { name: `Import ${shown - 2} products` })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: `Import ${SHOP_HANDLES.length - 2} products` })).toBeVisible();
 
   await sheet.getByRole('button', { name: /^Import / }).click();
   await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
@@ -266,5 +280,5 @@ test('a shop on the site is offered, counted, and imported only where asked', as
         }),
       { timeout: 60_000 },
     )
-    .toBe(shown - 2);
+    .toBe(SHOP_HANDLES.length - 2);
 });
