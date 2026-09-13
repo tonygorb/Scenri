@@ -682,3 +682,45 @@ export interface BriefPreview {
     reason?: 'budget' | 'missing';
   }[];
 }
+
+/**
+ * What a bounded look at a website concluded about commerce.
+ *
+ * Four words rather than a boolean, because "no shop here" and "a shop we
+ * could not read" need different sentences on screen. Reporting the second as
+ * the first is how a working store came to ring a red bell on a first run.
+ */
+export type CommerceVerdict = 'none' | 'found' | 'likely' | 'blocked';
+
+export interface CommerceScan {
+  verdict: CommerceVerdict;
+  /** How many products the site appears to have, which is not how many were read. */
+  count: number;
+  countSource: 'api' | 'sitemap' | 'listing' | 'preview' | 'none';
+  /** A preview, read and parsed. Nothing here is saved until someone says so. */
+  candidates: CatalogCandidate[];
+  candidateUrls: string[];
+  truncated: boolean;
+  warnings: string[];
+}
+
+/** A product that has been read but not saved. */
+export interface CatalogCandidate {
+  externalKey: string;
+  title: string;
+  url?: string | null;
+  price?: number | null;
+  currency?: string | null;
+  category?: string | null;
+  images?: { url: string }[];
+  variants?: unknown[];
+}
+
+export interface CommerceScanState {
+  id: string;
+  brandId: string;
+  url: string;
+  status: 'running' | 'done' | 'error';
+  result?: CommerceScan;
+  error?: string;
+}
