@@ -431,12 +431,18 @@ await quit();
   await waitFor('the server on a broken Desktop', alive, 120_000);
   ok('a Desktop that cannot be written does not stop Scenri from starting');
 
+  // The route answers 409 with { error, reason }: a refusal a person can read,
+  // never a 500 and never a crash.
   const res = await at('/api/desktop/install', { method: 'POST' });
   if (res.status >= 500) fail(`installing onto a broken Desktop answered ${res.status}: ${JSON.stringify(res.body)}`);
-  if (res.body?.ok !== false) fail(`installing onto a broken Desktop claimed success: ${JSON.stringify(res.body)}`);
-  const message = String(res.body?.message ?? '');
+  if (res.status === 200) fail(`installing onto a broken Desktop claimed success: ${JSON.stringify(res.body)}`);
+  if (!res.body?.reason) fail(`the refusal named no reason: ${JSON.stringify(res.body)}`);
+  const message = String(res.body?.error ?? '');
   if (message.split('\n').length !== 1) fail(`the failure was more than one line: ${message}`);
   if (/\n\s+at /.test(message)) fail(`the failure carried a stack: ${message}`);
+  // The thing this whole branch is about: a person is never handed PowerShell.
+  if (/powershell\.exe|-NoProfile|New-Object -ComObject|Command failed:/i.test(message))
+    fail(`the failure reads out the command instead of the reason: ${message}`);
   ok(`the failure is one sentence: ${message}`);
 
   if (!(await alive())) fail('the server died while failing to add an icon');

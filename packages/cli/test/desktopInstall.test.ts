@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  failureDetail,
   installDesktop,
   removeDesktop,
   desktopStatus,
@@ -356,5 +357,52 @@ describe('installDesktop never throws', () => {
       expect(res.message.split('\n')).toHaveLength(1);
     }
     expect(existsSync(join(launcherDir(root), 'launcher.json'))).toBe(false);
+  });
+});
+
+/**
+ * Caught by the first CI run of the Windows icon job, which is the reason that
+ * job exists. Node prefixes an execFile failure with the whole command, so the
+ * first line of the message is PowerShell and not the reason - and the length
+ * cap then cut it mid-word.
+ */
+describe('failureDetail', () => {
+  it('says the reason, never the command that produced it', () => {
+    const err = Object.assign(
+      new Error(
+        'Command failed: C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -NonInteractive -Command $s = New-Object -ComObject WScript.Shell; $l = $s.CreateShortcut($env:SCENRI_LNK); $l.TargetPath = $env:SCENRI_TARGET\nException calling "Save" with "0" argument(s): "The system cannot find the path specified."',
+      ),
+      {
+        stderr:
+          'Exception calling "Save" with "0" argument(s): "The system cannot find the path specified."\n    at <ScriptBlock>, <No file>: line 1',
+      },
+    );
+    const detail = failureDetail(err);
+    expect(detail).toBe('Exception calling "Save" with "0" argument(s): "The system cannot find the path specified."');
+    expect(detail).not.toContain('powershell.exe');
+    expect(detail).not.toContain('-NoProfile');
+    expect(detail).not.toContain('Command failed');
+  });
+
+  it('falls back past the command line when there is no stderr at all', () => {
+    const err = new Error('Command failed: powershell.exe -Command $x\nAccess is denied.');
+    expect(failureDetail(err)).toBe('Access is denied.');
+  });
+
+  it('says so plainly when the command simply never answered', () => {
+    expect(failureDetail(Object.assign(new Error('Command failed: powershell.exe'), { killed: true }))).toBe(
+      'it did not answer in time',
+    );
+    expect(failureDetail(Object.assign(new Error('boom'), { code: 'ETIMEDOUT' }))).toBe('it did not answer in time');
+  });
+
+  it('never returns a stack, and never runs long', () => {
+    const err = new Error(`nope\n    at Object.<anonymous> (/x.js:1:1)\n    at Module._compile`);
+    expect(failureDetail(err)).toBe('nope');
+    expect(failureDetail(new Error('x'.repeat(500))).length).toBe(200);
+  });
+
+  it('has something to say about a value that is not an Error', () => {
+    expect(failureDetail('plain string')).toBe('plain string');
   });
 });

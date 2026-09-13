@@ -69,10 +69,36 @@ const DENIED =
 // package template, and a copy would read as stale to the refresh.
 const SUPPORT_FILES = ['launch.mjs', 'Scenri.icns', 'scenri.ico'] as const;
 
-/** The first line of whatever went wrong. Never a stack, never a PowerShell dump. */
+/**
+ * Why something failed, in one line, for a person.
+ *
+ * Node prefixes an execFile failure with the ENTIRE command it ran, so the
+ * first line of the message is the command and not the reason. Taking it
+ * showed a Windows tester `Command failed: C:\Windows\...\powershell.exe
+ * -NoProfile -NonInteractive -Command $s = New-Object -ComObject
+ * WScript.Shell; $l = $s.CreateShortcut($env:SCENRI_LNK); $l.Targ)` - cut
+ * mid-word by the length cap, and no use to anybody. The command is never the
+ * reason; stderr is, when there is any.
+ */
 export function failureDetail(err: unknown): string {
-  const line = err instanceof Error ? err.message.split('\n')[0] : String(err);
-  return line.trim().slice(0, 200);
+  const e = err as { stderr?: unknown; message?: unknown; code?: unknown; killed?: unknown };
+  const lineOf = (text: string) =>
+    text
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)[0] ?? '';
+
+  const stderr = typeof e.stderr === 'string' ? lineOf(e.stderr) : '';
+  if (stderr) return stderr.slice(0, 200);
+  if (e.killed === true || e.code === 'ETIMEDOUT') return 'it did not answer in time';
+
+  const message = err instanceof Error ? err.message : String(err);
+  const useful = message
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .find((l) => !/^Command failed:/i.test(l));
+  return (useful ?? 'the command did not finish').slice(0, 200);
 }
 
 export async function installDesktop(deps: InstallDeps): Promise<InstallResult> {
