@@ -1197,9 +1197,13 @@
   flex: none;
 }
 @media (max-width: 640px) {
+  /* The note above, the verb under it, and the verb stays the size of its own
+     words. Stretched to the column it became a full-width red bar, which is
+     the shape of a primary action and the loudest thing on the page, for the
+     one thing here that cannot be undone. */
   .sc-prec {
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
     gap: var(--sc-space-7);
     margin-top: 40px;
     text-align: center;

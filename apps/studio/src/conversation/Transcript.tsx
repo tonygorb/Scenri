@@ -136,6 +136,8 @@ export function Transcript({
   // comes next waits until it is gone. Folding and unfolding the setup is
   // not going anywhere, and plays nothing.
   const last = useRef<Turn[]>(turns);
+  /** What the turns said last render, for telling a change from a re-read. */
+  const lastSig = useRef<string | null>(null);
   // the question to say again because an answer behind it changed, and what
   // that answer said before it was opened
   const askAgain = useRef<string | null>(null);
@@ -154,7 +156,20 @@ export function Transcript({
   // that moved because a font or a picture finished loading is not moving at
   // all, and playing it would be the page appearing to slide for no reason.
   const moved = useRef(false);
-  if (turns !== last.current) {
+  // Identity is not change.
+  //
+  // A flow that is waiting on a picture reads its draft again every 1500ms,
+  // and every read is a new object, so the turns are rebuilt with exactly the
+  // same words in them. Guarding on the array's identity made each of those
+  // reads "the conversation changed": it armed the slide below, which then
+  // pulled every turn whose position had drifted a pixel (a picture decoding,
+  // a font landing) through a 220ms move. On screen that is the conversation
+  // reloading and sliding every few seconds while nothing is happening. What
+  // the guard means to ask is whether the turns say something different, so
+  // it asks that.
+  const sig = signatureOf(turns);
+  if (sig !== lastSig.current) {
+    lastSig.current = sig;
     moved.current = true;
     // What is going is what the turns were and are not any more, plus whatever
     // was still on its way out of them. Diffed against the turns themselves,
@@ -708,6 +723,32 @@ function turnNode(box: HTMLElement | null, key: string): HTMLElement | null {
 }
 
 /** The questions open again from their answers, by key. */
+/**
+ * What the turns say, in one string.
+ *
+ * Everything that decides whether a turn arrived, went, changed shape or
+ * changed height: its key, the words in it, the picture under it, and for a
+ * question whether it is open again and what it offers. Two lists with the
+ * same signature are the same conversation, however many times it was read.
+ */
+export function signatureOf(list: Turn[]): string {
+  const out: string[] = [];
+  for (const t of list) {
+    const key = turnKey(t);
+    if (t.kind === 'question') {
+      const q = t.question;
+      const opts = 'options' in q && Array.isArray(q.options) ? q.options.map((o) => o.id).join(',') : '';
+      out.push(`${key}~${q.reopened ? 1 : 0}~${q.prompt}~${q.hint ?? ''}~${opts}`);
+      continue;
+    }
+    const photos = 'photos' in t && Array.isArray(t.photos) ? t.photos.length : 0;
+    const thumb = 'thumb' in t ? (t.thumb ?? '') : '';
+    const editing = 'editing' in t && t.editing ? 1 : 0;
+    out.push(`${key}~${t.text ?? ''}~${thumb}~${photos}~${editing}`);
+  }
+  return out.join('\u0001');
+}
+
 function reopenedKeys(list: Turn[]): Set<string> {
   const out = new Set<string>();
   for (const t of list) if (t.kind === 'question' && t.question.reopened) out.add(turnKey(t));
