@@ -456,3 +456,28 @@ describe('photographs nobody could read', () => {
     expect(nextQuestion(scratch, { draft: unreadable(3), canGenerate: true })).not.toBe('weakphotos');
   });
 });
+
+describe('changing one detail', () => {
+  it('keeps every other detail that was already answered', () => {
+    // Answering the details again used to restart the run at the first one,
+    // because the positional truncation deleted every spec after `traits` and
+    // all the follow-ups sit after it. A detail's question depends on its own
+    // membership now, so only the one that changed goes.
+    const before = {
+      source: { door: 'scratch', via: 'taps' },
+      traits: ['glasses', 'scar', 'tattoo'],
+      'trait-glasses': { words: 'thin black frames' },
+      'trait-scar': { words: 'a small scar above one eyebrow' },
+      'trait-tattoo': { words: 'a blackwork sleeve' },
+      'trait-tattoo-where': { pick: 'their right forearm' },
+    } as unknown as Answers;
+    const after = commit(before, { traits: ['glasses', 'scar', 'prosthetic'] }, NO_DRAFT);
+    expect(after['trait-glasses']).toEqual({ words: 'thin black frames' });
+    expect(after['trait-scar']).toEqual({ words: 'a small scar above one eyebrow' });
+    // the one taken away goes, and its placement with it
+    expect(after['trait-tattoo']).toBeUndefined();
+    expect(after['trait-tattoo-where']).toBeUndefined();
+    // the one just added has not been asked yet
+    expect(after['trait-prosthetic']).toBeUndefined();
+  });
+});

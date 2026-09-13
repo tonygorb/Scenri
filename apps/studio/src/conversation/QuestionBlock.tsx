@@ -181,6 +181,13 @@ export function QuestionBlock({
       <fieldset
         className="sc-convo-q"
         aria-labelledby={promptId}
+        // A question whose answer is typed into the composer has no controls of
+        // its own. Rendering the group anyway put an empty labelled fieldset in
+        // the page and in the accessibility tree, announced as a group with
+        // nothing in it. It stands only when it holds something.
+        hidden={
+          question.kind === 'text' && !question.starters?.length && !question.cost && !question.note ? true : undefined
+        }
         // A question open again takes the keyboard as a group, never as one of
         // its own controls: landing on a control would open that control's
         // tooltip, which is a label nobody asked for over the answer they are

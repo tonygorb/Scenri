@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Question, Turn } from '../src/conversation/question.ts';
 import { type CreationState, EMPTY_STATE, NO_DRAFT, reduce } from '../src/create/presenter/creationState.ts';
 import {
+  asKept,
   PROMPT,
   activeQuestion,
   answerPatch,
@@ -1040,5 +1041,26 @@ describe('a step that cannot hold what was typed into it', () => {
     const kept: Answers = { ...tapped, keep: { words: said, refs: [] } };
     expect(compileKeep(kept)).toBe(said);
     expect(compileItems(kept)).toEqual([{ id: 'said', words: said }]);
+  });
+});
+
+describe('words kept about them', () => {
+  it('drops the word that joined them to what came before', () => {
+    // Kept words are read back as "and always X", so a sentence that opens
+    // with its own join arrived as "and always but with narrower shoulders".
+    expect(asKept('but with narrower shoulders')).toBe('with narrower shoulders');
+    expect(asKept('and a bit of grey at the temples')).toBe('a bit of grey at the temples');
+    expect(asKept('also, a small scar')).toBe('a small scar');
+    expect(asKept('though he wears glasses')).toBe('glasses');
+  });
+
+  it('leaves words that merely start with those letters alone', () => {
+    expect(asKept('butterfly tattoo on one shoulder')).toBe('butterfly tattoo on one shoulder');
+    expect(asKept('android grey eyes')).toBe('android grey eyes');
+  });
+
+  it('still drops a subject, and still gives the words back when there is nothing else', () => {
+    expect(asKept('she has a prosthetic left arm')).toBe('a prosthetic left arm');
+    expect(asKept('but')).toBe('but');
   });
 });

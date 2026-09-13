@@ -267,8 +267,12 @@ export function keepLine(a: Answers): string {
  */
 export function asKept(text: string): string {
   const said = text.trim().replace(/[.\s]+$/, '');
-  const bare = said.replace(/^(?:he|she|they|it)\s+(?:has|have|had|has got|have got|is|are|wears?|carries)\s+/i, '');
-  return bare || said;
+  // Words typed after an answer usually open with the word that joins them to
+  // it. What is kept is already read back as "and always X", so the join
+  // arrived twice: "a solid build, and always but with narrower shoulders".
+  const joined = said.replace(/^(?:but|and|also|plus|though|although|however)\b[\s,]*/i, '');
+  const bare = joined.replace(/^(?:he|she|they|it)\s+(?:has|have|had|has got|have got|is|are|wears?|carries)\s+/i, '');
+  return bare || joined || said;
 }
 
 export function stepHolds(a: Answers, id: LookQid, value: Given, typed: string): boolean {

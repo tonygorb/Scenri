@@ -1053,6 +1053,12 @@ button.sc-convo-shot-do {
 }
 
 /* ---- a question's answer controls ----------------------------------------- */
+/* A group with nothing in it is not a group: the flex display would otherwise
+   beat the browser's own rule for a hidden element. */
+.sc-convo-q[hidden] {
+  display: none;
+}
+
 .sc-convo-q {
   display: flex;
   flex-direction: column;
