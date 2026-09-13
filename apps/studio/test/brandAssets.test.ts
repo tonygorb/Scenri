@@ -4,6 +4,7 @@ import {
   customPresentersOf,
   customSceneById,
   customScenesOf,
+  newestFirst,
   withCustomFirst,
 } from '../src/brandAssets.js';
 import type { Brand } from '../src/api.js';
@@ -88,6 +89,14 @@ describe('customPresentersOf', () => {
     expect(customPresenterById(brandWith({ characters: [PERSON] }), 'up-1234abcd')?.name).toBe('Mara');
     expect(customPresenterById(brandWith({ characters: [PERSON] }), 'nobody')).toBeUndefined();
   });
+
+  it('shows the newest person first, even though the document appends', () => {
+    const later = { ...PERSON, id: 'up-later', name: 'Nia' };
+    expect(customPresentersOf(brandWith({ characters: [PERSON, later] })).map((p) => p.id)).toEqual([
+      'up-later',
+      'up-1234abcd',
+    ]);
+  });
 });
 
 describe('customScenesOf', () => {
@@ -120,6 +129,24 @@ describe('customScenesOf', () => {
   it('answers nothing for a brand with no scenes, and finds one by id', () => {
     expect(customScenesOf(brandWith({}))).toEqual([]);
     expect(customSceneById(brandWith({ scenes: [PLACE] }), 'us-9876fedc')?.name).toBe('Wet Basalt Shore');
+  });
+
+  it('shows the newest place first, even though the document appends', () => {
+    const later = { ...PLACE, id: 'us-later', name: 'Fog Pier' };
+    expect(customScenesOf(brandWith({ scenes: [PLACE, later] })).map((s) => s.id)).toEqual([
+      'us-later',
+      'us-9876fedc',
+    ]);
+  });
+});
+
+describe('newestFirst', () => {
+  it('leaves a short list alone and reverses a longer one without mutating it', () => {
+    expect(newestFirst([])).toEqual([]);
+    expect(newestFirst(['only'])).toEqual(['only']);
+    const rows = ['old', 'new'];
+    expect(newestFirst(rows)).toEqual(['new', 'old']);
+    expect(rows).toEqual(['old', 'new']);
   });
 });
 

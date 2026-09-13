@@ -34,10 +34,22 @@ export interface CustomScene extends Scene {
 const urls = (rows: unknown): string[] =>
   Array.isArray(rows) ? rows.map((r: any) => assetUrl(r?.file)).filter((u): u is string => !!u) : [];
 
-/** A brand's own people, newest last, exactly as its document lists them. */
+/**
+ * Newest first for every "yours" wall.
+ *
+ * The brand document still appends: an edit keeps its slot, and an older
+ * brand is not rewritten. Display is the other direction, so a card that
+ * sat top-left while it built stays top-left when it lands — the same rule
+ * the Create feed already keeps for shots.
+ */
+export function newestFirst<T>(rows: readonly T[]): T[] {
+  return rows.length < 2 ? [...rows] : rows.slice().reverse();
+}
+
+/** A brand's own people, newest first for display; the document still appends. */
 export function customPresentersOf(brand: Brand | null | undefined): CustomPresenter[] {
   const rows: any[] = brand?.json?.characters ?? [];
-  return rows.filter((c) => c?.origin === 'custom').map(toPresenter);
+  return newestFirst(rows.filter((c) => c?.origin === 'custom').map(toPresenter));
 }
 
 export function customPresenterById(brand: Brand | null | undefined, id: string): CustomPresenter | undefined {
@@ -83,10 +95,10 @@ function toPresenter(c: any): CustomPresenter {
   };
 }
 
-/** A brand's own places. */
+/** A brand's own places, newest first for display; the document still appends. */
 export function customScenesOf(brand: Brand | null | undefined): CustomScene[] {
   const rows: any[] = brand?.json?.scenes ?? [];
-  return rows.map(toScene);
+  return newestFirst(rows.map(toScene));
 }
 
 export function customSceneById(brand: Brand | null | undefined, id: string): CustomScene | undefined {
