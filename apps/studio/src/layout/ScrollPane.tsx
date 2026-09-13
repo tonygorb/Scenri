@@ -1,21 +1,6 @@
 import { type ReactNode, useEffect, useLayoutEffect, useRef } from 'react';
 import { useLocation } from 'react-router';
-
-/**
- * Where each history entry was scrolled to.
- *
- * A module-level Map rather than sessionStorage: this is about Back inside a
- * session. A reload rebuilds every pane from a cold catalog, and the browser
- * has nothing to restore an inner div to anyway.
- */
-const offsets = new Map<string, number>();
-/** Places remembered. A Map keeps insertion order, so the oldest key is the first one. */
-const OFFSETS_CAP = 50;
-function remember(key: string, top: number): void {
-  offsets.delete(key);
-  remember(key, top);
-  while (offsets.size > OFFSETS_CAP) offsets.delete(offsets.keys().next().value as string);
-}
+import { recall, remember } from './scrollOffsets.js';
 
 /** How long a pane keeps waiting for late content before it settles for what it has. */
 const SETTLE_MS = 1000;
@@ -44,7 +29,7 @@ export function ScrollPane({ className = 'sc-home', children }: { className?: st
   // before paint, so a restored pane never shows its top edge first
   useLayoutEffect(() => {
     const el = ref.current;
-    const target = offsets.get(key);
+    const target = recall(key);
     if (!el || !target) return;
 
     /**
