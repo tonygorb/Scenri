@@ -234,6 +234,9 @@ async function runJob(
     // worse thing to watch than the same work arriving steadily, and the
     // download pool spent half the import idle waiting on the crawl.
     let pictureErrors: unknown[];
+    // What the crawl really spent, so a shop that stops answering can be told
+    // apart from a shop with very few products.
+    const stats = { pages: 0, bytes: 0, refused: 0 };
     try {
       if (bulk) for (const p of bulk) run.write(p);
       else
@@ -241,6 +244,7 @@ async function runJob(
           concurrency: IMPORT_CONCURRENCY,
           maxBytes: 1_500_000,
           onEach: run.write,
+          stats,
         });
       if (!signal.aborted && tally.upserted) {
         patch({
@@ -286,7 +290,7 @@ async function runJob(
       return;
     }
 
-    run.finish({ sweep, warnings, errors: pictureErrors });
+    run.finish({ sweep, warnings, errors: pictureErrors, refused: stats.refused });
   } catch (err: any) {
     // Stopping during discovery throws out of the pipeline, and the throw is
     // the stop rather than a fault of the site's.
@@ -441,23 +445,43 @@ function beginWrite(
       // difference between watching an import and watching a counter tick.
       patch({ upserted: tally.upserted, fetched: tally.fetched });
     },
-    finish({ sweep, warnings, errors }: { sweep: boolean; warnings: string[]; errors: unknown[] }) {
+    finish({
+      sweep,
+      warnings,
+      errors,
+      refused = 0,
+    }: {
+      sweep: boolean;
+      warnings: string[];
+      errors: unknown[];
+      refused?: number;
+    }) {
       // Only now: retiring what the store no longer lists needs every key this
       // run wrote, and until the crawl ended there were more coming.
       if (sweep) core.catalog.markMissingUnavailable(source.id, tally.seenKeys);
       tally.errors = errors;
-      const partial = !!errors.length || (discovered > 0 && tally.upserted < discovered * 0.9);
+      const partial = !!errors.length || refused > 0 || (discovered > 0 && tally.upserted < discovered * 0.9);
+      // A shop that turned us away is the headline, not a footnote under a
+      // count of picture problems. Saying "imported 413 products with 209
+      // issues" about a run that was refused 1,794 pages describes the wrong
+      // thing entirely.
+      const shut = refused > 0 && refused >= Math.max(20, tally.upserted * 0.25);
+      const message = shut
+        ? `The store stopped answering after ${tally.upserted.toLocaleString()} of ${discovered.toLocaleString()} products. Try again later.`
+        : partial
+          ? `Imported ${tally.upserted.toLocaleString()} products with ${(errors.length + refused).toLocaleString()} issue${errors.length + refused === 1 ? '' : 's'}`
+          : `Imported ${tally.upserted.toLocaleString()} products`;
       patch({
         stage: partial ? 'partial' : 'completed',
         upserted: tally.upserted,
         fetched: tally.fetched,
         imagesDone: tally.imagesDone,
         imagesTotal: tally.imagesTotal,
-        errors,
+        errors: shut
+          ? [...errors, { code: 'store_refused', message: `${refused.toLocaleString()} pages were refused` }]
+          : errors,
         warnings,
-        message: partial
-          ? `Imported ${tally.upserted.toLocaleString()} products with ${errors.length} issue${errors.length === 1 ? '' : 's'}`
-          : `Imported ${tally.upserted.toLocaleString()} products`,
+        message,
         finished: true,
       });
       core.catalog.setSourceStatus(source.id, partial ? 'partial' : 'ready', true);
@@ -468,17 +492,22 @@ function beginWrite(
 /**
  * Product pages read at once during an import.
  *
- * Four was inherited and never measured. Sixteen warmed gymshark pages, full
- * 1.5 MB reads, milliseconds per page: 4 -> 300, 8 -> 130, 12 -> 149 and 86,
- * 16 -> 89. All sixteen products parsed with all 111 variants and all 16
- * prices at every setting, so reading harder costs nothing in what comes back;
- * eight and above are within each other's noise and four is the outlier.
+ * Four, and this number is about the shop rather than about us.
  *
- * Twelve, matching the preview route, so a shop sees the same ceiling from an
- * import as from the picker. With the picture drain alongside at twelve, one
- * import is at most twenty-four requests at a time.
+ * A burst benchmark said otherwise and it was wrong. Sixteen warmed
+ * gymshark.com pages measured 300 ms each at four and 86 at twelve, with every
+ * product and every variant coming back at both, so twelve looked free. It is
+ * not free over a whole catalogue: twelve page reads alongside twelve picture
+ * downloads, sustained, tripped gymshark's WAF after about 413 products and
+ * seventy-five seconds. Every request after that answered HTTP 405 with
+ * `x-amzn-waf-action: captcha`, so the run ended having read 413 of 2,207 and
+ * the site stayed shut to us for some time afterwards.
+ *
+ * Four is the rate a real 1,020-page run had already sustained without being
+ * challenged. A burst of sixteen is not evidence about an hour of crawling,
+ * and the only honest test of a limit like this is the long one.
  */
-const IMPORT_CONCURRENCY = 12;
+const IMPORT_CONCURRENCY = 4;
 
 /** A round of pictures to ask for at once. Small, because more are arriving. */
 const PICTURE_ROUND = 60;

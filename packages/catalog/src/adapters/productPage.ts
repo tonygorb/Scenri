@@ -384,8 +384,17 @@ export interface PageFetchOptions {
    * visible steps.
    */
   onEach?: (p: CatalogProduct) => void;
-  /** Filled in as work happens, so a caller can report what it really spent. */
-  stats?: { pages: number; bytes: number };
+  /**
+   * Filled in as work happens, so a caller can report what it really spent.
+   *
+   * `refused` counts pages the site would not serve. A crawl swallows those so
+   * one bad address cannot end a run, which also meant a shop that started
+   * turning us away mid-catalogue looked exactly like a shop with very few
+   * products: gymshark.com answered 413 pages and then 405 with
+   * `x-amzn-waf-action: captcha` for the rest, and the import called itself
+   * finished. Counting them is what lets a caller say which happened.
+   */
+  stats?: { pages: number; bytes: number; refused?: number };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -431,7 +440,10 @@ export async function fetchProductPages(
           opts.stats.pages += 1;
           opts.stats.bytes = bytes;
         }
-        if (!ok) return;
+        if (!ok) {
+          if (opts.stats) opts.stats.refused = (opts.stats.refused ?? 0) + 1;
+          return;
+        }
         for (const p of productsFromPage(text, url)) {
           if (seen.has(p.externalKey)) continue;
           seen.add(p.externalKey);

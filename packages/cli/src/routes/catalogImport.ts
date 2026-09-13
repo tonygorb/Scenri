@@ -95,27 +95,28 @@ export function registerCatalogImportRoutes(
     if (!sameSite.length) {
       return reply.status(400).send({ error: 'none of those products belong to this site' });
     }
-    // Measured against gymshark.com, the same sixteen warmed product pages at
-    // each setting, milliseconds per page: 4 -> 276, 8 -> 180 and 159,
-    // 12 -> 124, 16 -> 114 and 78. Fourteen of the sixteen parsed at every
-    // setting, so the two that did not are those pages rather than pressure,
-    // and reading harder costs nothing in what comes back.
+    // Four at a time, and the reason is the shop rather than the clock.
     //
-    // Twelve, with the studio holding at most two of these requests open at a
-    // time, so a live shop sees at most twenty-four reads at once. That is the
-    // politeness ceiling and it is the binding one: the curve was still
-    // improving at sixteen.
+    // A burst benchmark said twelve was free: sixteen warmed gymshark.com
+    // pages measured 300 ms each at four and 86 at twelve, every product and
+    // variant intact at both. Then a whole-catalogue import at that rate
+    // tripped gymshark's WAF after about 413 products, and every request after
+    // it answered HTTP 405 with `x-amzn-waf-action: captcha`. A burst is not
+    // evidence about sustained reading, and the picker and the import draw on
+    // the same budget at the same shop.
     //
-    // The full page, because reading less buys nothing and costs the price.
-    // Sixteen warmed gymshark pages at concurrency 12: 1.5 MB -> 133 ms a
-    // page, 1 MB -> 134, 896 KB -> 80, and repeats of one setting swing
-    // between 86 and 149, so the spread is noise and latency is the whole
-    // cost. Below that the JSON-LD starts getting cut off: 768 KB dropped a
-    // third of the variants and five of sixteen prices, 640 KB nearly all of
-    // both. A first pass here shipped 512 KB on a measurement that checked
-    // titles and pictures and never looked at price.
+    // The latency is hidden by asking early instead - the picker requests a
+    // card's picture two and a half screens before it is reached - which costs
+    // the store nothing.
+    //
+    // The full page, too. Reading less buys nothing: 1.5 MB, 1 MB and 896 KB
+    // all measure the same to within the noise of repeating one setting,
+    // because latency is the whole cost. Below that the JSON-LD gets cut off -
+    // 768 KB dropped a third of the variants and five of sixteen prices, 640 KB
+    // nearly all of both. A first pass here shipped 512 KB on a measurement
+    // that checked titles and pictures and never looked at price.
     const products = await fetchProductPages({ fetchImpl: fetchImpl ?? fetch, baseUrl: origin }, sameSite, {
-      concurrency: 12,
+      concurrency: 4,
       maxBytes: 1_500_000,
     });
     return { products };

@@ -369,3 +369,97 @@ describe('a large import is readable while it runs', () => {
     expect(lib.json().products).toHaveLength(COUNT);
   });
 });
+
+/**
+ * A shop that starts turning us away mid-catalogue used to look exactly like a
+ * shop with very few products. A real gymshark.com run answered 413 pages and
+ * then HTTP 405 with `x-amzn-waf-action: captcha` for the remaining 1,794, and
+ * the job called itself "Imported 413 products with 209 issues" - a sentence
+ * about pictures, for a run that had been shut out.
+ */
+describe('a store that stops answering', () => {
+  let home: string;
+  let core: ReturnType<typeof createCore>;
+  let app: Awaited<ReturnType<typeof buildServer>>;
+  const COUNT = 40;
+  /** Pages past this one are refused, the way a bot check refuses them. */
+  const OPEN_UNTIL = 10;
+
+  beforeEach(async () => {
+    home = mkdtempSync(join(tmpdir(), 'sc-cli-shut-'));
+    core = createCore(home);
+    app = buildServer({
+      core,
+      engines: registryWith(createDemoEngine((b) => core.images.save(b))),
+      fetchImpl: (async (input: any) => {
+        const url = String(input);
+        if (url.includes('/products.json')) return new Response('blocked', { status: 403 });
+        if (url.endsWith('/sitemap.xml'))
+          return new Response(
+            `<?xml version="1.0"?><sitemapindex><sitemap><loc>https://shop.example/sitemap_products_1.xml</loc></sitemap></sitemapindex>`,
+            { status: 200 },
+          );
+        if (url.includes('sitemap_products_1'))
+          return new Response(
+            `<?xml version="1.0"?><urlset>${Array.from(
+              { length: COUNT },
+              (_, i) => `<url><loc>https://shop.example/products/product-${i + 1}</loc></url>`,
+            ).join('')}</urlset>`,
+            { status: 200 },
+          );
+        const page = /\/products\/product-(\d+)$/.exec(url);
+        if (page) {
+          const i = Number(page[1]);
+          if (i > OPEN_UNTIL) return new Response('<html><body>captcha</body></html>', { status: 405 });
+          return new Response(
+            `<html><head><script type="application/ld+json">${JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Product',
+              name: `Product ${i}`,
+              sku: `P-${i}`,
+              url,
+              image: [`https://cdn.example/p${i}.jpg`],
+              offers: { '@type': 'Offer', price: 10, priceCurrency: 'USD' },
+            })}</script></head><body><button>Add to cart</button></body></html>`,
+            { status: 200 },
+          );
+        }
+        if (url.includes('.jpg')) return new Response(PNG, { status: 200, headers: { 'content-type': 'image/jpeg' } });
+        return new Response('', { status: 404 });
+      }) as any,
+    });
+    await app.ready();
+  });
+  afterEach(async () => {
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  it('says the store stopped answering, and keeps what it read', async () => {
+    const brand = await app.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'Acme', website: 'https://shop.example' } } },
+    });
+    const brandId = brand.json().id;
+    const start = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brandId}/catalog/import`,
+      payload: { url: 'https://shop.example' },
+    });
+    const jobId = start.json().jobId;
+    let job: any;
+    for (let i = 0; i < 200; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      job = (await app.inject({ method: 'GET', url: `/api/brands/${brandId}/catalog/jobs/${jobId}` })).json();
+      if (job.finishedAt) break;
+    }
+    expect(job.stage).toBe('partial');
+    expect(job.message).toMatch(/stopped answering/i);
+    expect(job.message).toContain(String(OPEN_UNTIL));
+    expect((job.errors ?? []).some((e: any) => e.code === 'store_refused')).toBe(true);
+    // What it did read is kept, not thrown away.
+    const lib = await app.inject({ method: 'GET', url: `/api/brands/${brandId}/products-library` });
+    expect(lib.json().products).toHaveLength(OPEN_UNTIL);
+  });
+});
