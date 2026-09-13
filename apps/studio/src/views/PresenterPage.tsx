@@ -1,4 +1,4 @@
-import { CaretLeft, CaretRight, PencilSimple } from '@phosphor-icons/react';
+import { PencilSimple } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { api, type PresenterPatch, thumbOf } from '../api.js';
@@ -12,8 +12,8 @@ import { presenterEditPath, presenterPath, presentersPath, shotPath } from '../r
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { Confirm } from '../Confirm.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
+import { Rail } from '../layout/Rail.js';
 import { Tip } from '../layout/Tip.js';
-import { useRefRail } from '../layout/useRefRail.js';
 import { EmptyRefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { PresenterDetailsDialog } from './PresenterDetailsDialog.js';
@@ -108,7 +108,6 @@ export function PresenterPage() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [details, setDetails] = useState(false);
-  const rail = useRefRail<HTMLDivElement, HTMLOListElement>(owned?.shots?.length ?? refs.length);
 
   /**
    * The words on the record, written once when the dialog is saved.
@@ -208,7 +207,6 @@ export function PresenterPage() {
   // generator, and the caption beside it already says the short version
   // ("copper curls", "tousled blond waves"); printing both put a paragraph
   // of grey prose where two words belong. The full text stays in the editor.
-  const facts = presenter.ageRange ?? '';
   // A face, at face size. `presenterVisual` is the one chain that answers
   // "what goes in a presenter's circle": the purpose-built square head crop
   // when the record has one, and a `crop` hint when it had to fall back to a
@@ -219,12 +217,6 @@ export function PresenterPage() {
   return (
     <ScrollPane>
       <main className="sc-lookpage sc-presenterpage" id="main">
-        <div className="sc-lookpage-crumb">
-          <Link to={presentersPath(brand)}>Presenters</Link>
-          <span>/</span>
-          <span>{owned ? 'Yours' : (presenter.suitableStyles[0] ?? presenter.presentation)}</span>
-        </div>
-
         {face.src && (
           <div className="sc-presenterpage-avatar">
             <img src={thumbOf(face.src, 'small')} alt="" data-crop={face.crop} />
@@ -233,6 +225,19 @@ export function PresenterPage() {
 
         <h1>{presenter.name}</h1>
         {presenter.descriptor && <p className="sc-lookpage-lede">{presenter.descriptor}</p>}
+
+        {/* The verticals they suit, as the app's own chips. They belong with
+            the person, not in the record below: this is the thing you scan a
+            presenter for. Changing them is in Details. */}
+        {presenter.suitableCategories.length > 0 && (
+          <ul className="sc-presenterpage-cats" aria-label="Filed under">
+            {presenter.suitableCategories.map((c) => (
+              <li key={c} className="sc-chip" data-static>
+                {c}
+              </li>
+            ))}
+          </ul>
+        )}
 
         <div className="sc-lookpage-acts">
           <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyPresenter(presenterId)}>
@@ -266,47 +271,28 @@ export function PresenterPage() {
             the frames are 4:5 already, and a legacy or curated one that is
             not letterboxes rather than losing its feet. */}
         {frames.length > 0 ? (
-          <div className="sc-refset-shell" ref={rail.shellRef}>
-            <button
-              type="button"
-              className="sc-refset-arrow prev"
-              aria-label="Earlier references"
-              onClick={() => rail.page(-1)}
-            >
-              <CaretLeft size={16} weight="bold" />
-            </button>
-            <button
-              type="button"
-              className="sc-refset-arrow next"
-              aria-label="Later references"
-              onClick={() => rail.page(1)}
-            >
-              <CaretRight size={16} weight="bold" />
-            </button>
-            <ol
-              className="sc-refset"
-              aria-label="Reference set"
-              data-count={frames.length}
-              ref={rail.railRef}
-              style={{ '--sc-refset-count': frames.length } as CSSProperties}
-            >
-              {frames.map((f) => (
-                <li key={f.src}>
-                  <button
-                    type="button"
-                    className="sc-refset-tile"
-                    aria-label={`${f.label}, open`}
-                    onClick={() => setOpen(f)}
-                  >
-                    <img src={thumbOf(f.src, 'small')} alt="" loading="lazy" decoding="async" />
-                  </button>
-                  <span className="sc-refset-lb" aria-hidden>
-                    {f.label}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
+          <Rail
+            count={frames.length}
+            label="Reference set"
+            className="sc-refset"
+            style={{ '--sc-refset-count': frames.length } as CSSProperties}
+          >
+            {frames.map((f) => (
+              <li key={f.src}>
+                <button
+                  type="button"
+                  className="sc-refset-tile"
+                  aria-label={`${f.label}, open`}
+                  onClick={() => setOpen(f)}
+                >
+                  <img src={thumbOf(f.src, 'small')} alt="" loading="lazy" decoding="async" />
+                </button>
+                <span className="sc-refset-lb" aria-hidden>
+                  {f.label}
+                </span>
+              </li>
+            ))}
+          </Rail>
         ) : (
           <EmptyRefFrame />
         )}
@@ -330,46 +316,22 @@ export function PresenterPage() {
           </section>
         )}
 
-        {/* The record, under the pictures it describes. A label and a value
-            per line, left aligned the way the other look pages set their owned
-            block: age and filing used to be two more centred grey rows above
-            the actions, where they competed with the name for the same
-            attention and gave the page no base at all. */}
-        <dl className="sc-prec">
-          {facts && (
-            <>
-              <dt>Age</dt>
-              <dd>{facts}</dd>
-            </>
-          )}
-          {presenter.suitableCategories.length > 0 && (
-            <>
-              <dt>Filed under</dt>
-              <dd>{presenter.suitableCategories.join(', ')}</dd>
-            </>
-          )}
-          {owned && (
-            <>
-              <dt>Origin</dt>
-              {/* Where they came from is kept, never inferred: a person made
-                  from a description is not a real person, and an advertiser
-                  has to say so where the law asks. */}
-              <dd>
-                {owned.source === 'synthetic'
-                  ? 'Created in Scenri from a description. Not a real person. Ads that use them must say so where the law asks.'
-                  : owned.source === 'photos'
-                    ? 'Built from photographs you provided.'
-                    : 'Saved in Scenri.'}
-                {owned.likeness
-                  ? ` Likeness permission confirmed ${new Date(owned.likeness.attestedAt).toLocaleDateString()}.`
-                  : ''}
-              </dd>
-            </>
-          )}
-        </dl>
-
+        {/* What is left to say about the record is a footnote and one verb.
+            It was a list of label and value, which needs more than two things
+            in it to be a list; the line is a disclosure, not a field, and it
+            says what is true about the record rather than lecturing about
+            advertising law, which is not this page's job to teach. */}
         {owned && (
-          <div className="sc-prec-manage">
+          <div className="sc-prec">
+            <p className="sc-prec-note">
+              {presenter.ageRange ? `${presenter.ageRange} \u00b7 ` : ''}
+              {owned.source === 'synthetic'
+                ? 'Created in Scenri. Not a real person.'
+                : owned.source === 'photos'
+                  ? 'Built from your photographs.'
+                  : 'Saved in Scenri.'}
+              {owned.likeness ? ` Likeness confirmed ${new Date(owned.likeness.attestedAt).toLocaleDateString()}.` : ''}
+            </p>
             <Confirm
               label="Delete presenter"
               title={`Delete ${owned.name}?`}

@@ -45,6 +45,7 @@
 @import "./overrides/composer-polish.css";
 @import "./surfaces/library.css";
 @import "./components/lookcard.css";
+@import "./components/rail.css";
 @import "./surfaces/look-page.css";
 @import "./surfaces/settings.css";
 @import "./overrides/composer-island.css";

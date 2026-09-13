@@ -914,108 +914,25 @@
    read across, at one height, the way a character turnaround has always been
    drawn. So the set is one row, always, however many there are.
 
-   The width of a tile is the row divided by the count, held between a floor
-   and a ceiling: one reference is a portrait rather than a banner, six still
-   fit the column, and a set too large to fit at the floor scrolls rather than
-   wrapping into a second row that breaks the comparison. `--sc-refset-n` is
-   set on the element, so the rule covers any count rather than the handful
-   somebody thought to write a selector for. */
-/* The shell holds the row, its arrows and its edge fades; the row itself is
-   what scrolls. Three references stand at a time, which is the size at which
-   a full-length figure can actually be read, and the rest are a press or a
-   swipe away. */
-.sc-refset-shell {
-  position: relative;
-  width: 100%;
-  margin: 0 auto;
-}
+   The row itself is `components/rail.css` behind `layout/Rail.tsx`; all this
+   surface says is how wide a reference is. Three stand at a time, which is the
+   size at which a full-length figure can be read, and the rest are a press or
+   a swipe away. The count comes in on the element so the rule covers any
+   number, and the cap stays here so a narrower screen can lower it. */
 .sc-refset {
-  /* How many stand at a time: three, or the whole set when it is smaller.
-     The count comes in on the element so the rule covers any number, and
-     the cap stays in CSS so a narrower screen can lower it. */
   --sc-refset-count: 3;
   --sc-refset-n: min(3, var(--sc-refset-count));
   --sc-refset-gap: 18px;
   --sc-refset-max: 400px;
-  display: flex;
-  flex-wrap: nowrap;
-  /* `safe` centres a set that fits and falls back to the start edge when it
-     does not, so a long set never puts its first reference out of reach. */
-  justify-content: safe center;
   gap: var(--sc-refset-gap);
-  width: 100%;
-  padding: 2px;
-  margin: 0;
-  list-style: none;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
 }
-.sc-refset::-webkit-scrollbar {
-  display: none;
-}
-.sc-refset li {
+.sc-refset > li {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sc-space-4);
-  min-width: 0;
-  scroll-snap-align: center;
   flex: 0 0
     min(var(--sc-refset-max), calc((100% - (var(--sc-refset-n) - 1) * var(--sc-refset-gap)) / var(--sc-refset-n)));
-}
-
-/* The arrows are the page's own: they appear when the row has somewhere to
-   go and the pointer is over it, and they never exist on a touch width,
-   where the swipe is the control (look-page.css draws the same line at
-   1024px for every other rail in the app). */
-.sc-refset-arrow {
-  position: absolute;
-  top: 0;
-  bottom: 28px;
-  z-index: 1;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  padding: 0;
-  border: none;
-  border-radius: var(--sc-radius-lg);
-  background: none;
-  color: var(--sc-fg);
-  opacity: 0;
-  cursor: pointer;
-  transition: opacity var(--sc-dur-fast) var(--sc-ease);
-}
-.sc-refset-arrow.prev {
-  left: 0;
-}
-.sc-refset-arrow.next {
-  right: 0;
-}
-.sc-refset-shell:hover .sc-refset-arrow,
-.sc-refset-arrow:focus-visible {
-  opacity: 1;
-}
-/* A direction with nowhere to go is not offered. */
-.sc-refset-shell:not([data-overflow-left]) .sc-refset-arrow.prev,
-.sc-refset-shell:not([data-overflow-right]) .sc-refset-arrow.next {
-  display: none;
-}
-.sc-refset-arrow > * {
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-scrim);
-  color: var(--sc-scrim-fg);
-  padding: 7px;
-}
-
-/* No edge fade. A gradient in the page's ground over a photograph shot on a
-   white sweep is a grey smudge on the picture, not a soft edge to the row.
-   The reference cut by the edge says there is more, and the arrow says it
-   again on hover. */
-@media (max-width: 1024px) {
-  .sc-refset-arrow {
-    display: none;
-  }
 }
 .sc-refset-tile {
   display: block;
@@ -1063,23 +980,30 @@
   justify-content: center;
   gap: var(--sc-space-4);
 }
+/* The photographs you handed over, as small cards of the same family as the
+   set above: the same 4:5, the same hairline, the same corner. Squares of
+   letterboxed phone pictures read as broken thumbnails rather than as a
+   provenance row. */
 .sc-presenterpage-source {
-  width: 72px;
-  aspect-ratio: 1;
+  width: 92px;
+  aspect-ratio: 4 / 5;
   padding: 0;
-  border: none;
+  border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius);
   overflow: hidden;
   background: var(--sc-raised);
   cursor: zoom-in;
 }
-/* A phone camera hands over whatever shape it was held at, so these are the
-   one set on the page with no ratio in common. Contain again. */
+/* A phone camera hands over whatever shape it was held at, and these are
+   pictures of a person: fill the card and weight the crop towards the face,
+   the way every other small picture of somebody in the app is framed. The
+   whole frame is a press away in the lightbox. */
 .sc-presenterpage-source img {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: 50% 25%;
 }
 
 /* What is true about them, under the pictures that show it. */
@@ -1117,7 +1041,7 @@
     --sc-refset-gap: 10px;
   }
   .sc-presenterpage-source {
-    width: 60px;
+    width: 74px;
   }
   .sc-lookpage-acts {
     width: 100%;
@@ -1183,6 +1107,23 @@
   transform-origin: 50% 16%;
 }
 
+/* Where they are filed. The app's chip, at rest: these say what is true, and
+   nothing here is pressed, so they carry no hover, no focus and no
+   aria-pressed. The verb that changes them lives in Details. */
+.sc-presenterpage-cats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sc-space-3);
+  margin: var(--sc-space-6) auto 0;
+  padding: 0;
+  max-width: var(--sc-measure-lede);
+  list-style: none;
+}
+.sc-chip[data-static] {
+  cursor: default;
+}
+
 /* Tight inside the identity, generous between it and what follows: the beats
    are what say these are three things rather than nine. */
 .sc-presenterpage h1 {
@@ -1196,57 +1137,50 @@
   margin-bottom: 44px;
 }
 
-/* The record: label and value, left aligned, the width of a read line. */
+/* The record's last word: the disclosure it must carry, and the one verb
+   that is not reversible, on one line with the page's width between them.
+   This was a definition list, which wants more than two rows to be one. */
 .sc-prec {
-  display: grid;
-  grid-template-columns: 132px minmax(0, 620px);
-  gap: var(--sc-space-5) var(--sc-space-7);
-  justify-content: start;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-8);
   width: 100%;
   margin: 56px auto 0;
   padding-top: var(--sc-space-8);
   border-top: 1px solid var(--sc-line);
   text-align: left;
 }
-.sc-prec:empty {
-  display: none;
-}
-.sc-prec dt {
+.sc-prec-note {
   margin: 0;
+  max-width: var(--sc-measure-prose);
   font-size: var(--sc-text-caption);
+  line-height: 1.55;
   color: var(--sc-fg3);
-}
-.sc-prec dd {
-  margin: 0;
-  font-size: var(--sc-text-body);
-  line-height: 1.6;
-  color: var(--sc-fg2);
   text-wrap: pretty;
 }
-.sc-prec-manage {
-  display: flex;
-  justify-content: flex-end;
-  width: 100%;
-  margin: var(--sc-space-7) auto 0;
+.sc-prec .sc-btn {
+  flex: none;
 }
 @media (max-width: 640px) {
   .sc-prec {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--sc-space-2) 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sc-space-7);
     margin-top: 40px;
-  }
-  .sc-prec dt {
-    margin-top: var(--sc-space-5);
-  }
-  .sc-prec dt:first-of-type {
-    margin-top: 0;
-  }
-  .sc-prec-manage {
-    justify-content: center;
+    text-align: center;
   }
 }
 
 /* ---- the details sheet ---- */
+.sc-pdetails .sc-newdlg-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sc-space-4);
+  margin-top: var(--sc-space-7);
+  padding-top: var(--sc-space-6);
+  border-top: 1px solid var(--sc-line);
+}
 .sc-pdetails .sc-newdlg-body {
   display: flex;
   flex-direction: column;
