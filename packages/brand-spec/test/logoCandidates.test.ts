@@ -110,3 +110,53 @@ describe('svgAsMark', () => {
     expect(svgAsMark('<svg><path d="M0 0h1v1H0z"/></svg>')).toBeNull();
   });
 });
+
+/**
+ * The real www.lucid.now, reduced to its shape, after the first live run picked
+ * a circular team photo.
+ *
+ * Four things were wrong at once, and each is its own assertion below: the
+ * whole page sits inside one element called `header`, so "in the header" said
+ * nothing; the wordmark declares `height="35"`, which is a layout hint and was
+ * being read as if the file were favicon-sized; being explicitly called a logo
+ * was worth less than sitting in a header; and the site is served from
+ * cdn.lucidreams.example, so "named after the site" was paying out on every
+ * asset the company owns.
+ */
+describe('a page whose whole body is inside something called a header', () => {
+  const ranked = () => logoCandidates(fixture('nav-logo-in-wrapper.html'), new URL('https://www.lucid.example/'));
+
+  it('takes the wordmark out of the nav bar', () => {
+    const top = ranked()[0];
+    expect(top.url).toBe('https://cdn.lucidreams.example/2d690f3b?optimizer=gif');
+    expect(top.why).toContain('called a logo');
+  });
+
+  it('does not punish a wordmark for being 35 pixels tall in a nav bar', () => {
+    const top = ranked()[0];
+    expect(top.why).not.toContain('favicon-sized');
+    expect(top.why).not.toContain('icon-shaped');
+  });
+
+  it('beats the circular team photos two elements later', () => {
+    const scores = ranked();
+    const logo = scores.find((c) => c.url?.includes('2d690f3b'));
+    const photo = scores.find((c) => c.url?.includes('image_16r4dm0'));
+    expect((logo?.score ?? 0) > (photo?.score ?? 0)).toBe(true);
+  });
+
+  it('does not take a partner logo out of a trusted-by strip', () => {
+    const partner = ranked().find((c) => c.url?.includes('111b3fd7'));
+    expect(partner?.score ?? 0).toBeLessThan(ranked()[0].score);
+  });
+
+  it('never pays out for the brand name appearing in the CDN host', () => {
+    for (const c of ranked()) {
+      if (c.url?.includes('Our%20Key%20Services')) expect(c.why).not.toContain('named after the site');
+    }
+  });
+
+  it('skips the tracking pixel that is the very first image on the page', () => {
+    expect(ranked().some((c) => c.url?.includes('facebook.com/tr'))).toBe(false);
+  });
+});

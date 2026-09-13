@@ -37,8 +37,15 @@ export interface LogoCandidate {
   why: string[];
 }
 
+/**
+ * Starting points, before evidence. `json-ld` sits above anything the DOM
+ * heuristics can add up to (75 in the header, 20 for being first, 40 for being
+ * called a logo, and the small terms after that): a site that states its own
+ * logo in machine-readable form has settled the question, and no amount of
+ * guessing should outvote it.
+ */
 const BASE: Record<LogoSource, number> = {
-  'json-ld': 100,
+  'json-ld': 170,
   manifest: 85,
   'apple-touch-icon': 80,
   'header-img': 75,
@@ -51,7 +58,7 @@ const BASE: Record<LogoSource, number> = {
 const LOGOISH = /(^|[^a-z])(logo|wordmark|brandmark|lockup|masthead)([^a-z]|$)/i;
 /** Sections that are full of other people's logos. */
 const NOT_OURS =
-  /(client|customer|partner|sponsor|press|award|integrat|logos?-(wall|grid|cloud|strip)|testimonial|marquee|as-seen)/i;
+  /(client|customer|partner|sponsor|press|award|integrat|collab|affiliat|featured-in|trusted-by|logos?-(wall|grid|cloud|strip)|testimonial|marquee|as-seen)/i;
 const SOCIAL = /(facebook|instagram|twitter|linkedin|youtube|tiktok|pinterest|threads|whatsapp|x-logo|social)/i;
 const TRACKER = /(pixel|1x1|spacer|blank|beacon|analytics|doubleclick|facebook\.com\/tr)/i;
 const PHOTOISH = /(hero|banner|cover|photo|screenshot|slide|\bbg\b|background)/i;
@@ -95,6 +102,23 @@ function declaredEdgeOf(sizes: string | undefined, w?: string, h?: string): numb
   const fromAttrs = Math.max(Number(w ?? 0) || 0, Number(h ?? 0) || 0);
   const edge = Math.max(fromSizes, fromAttrs);
   return edge > 0 ? edge : null;
+}
+
+/**
+ * A `sizes` attribute on a link, or a manifest entry, is a claim about the
+ * FILE. An img's width and height are a claim about the layout: a wordmark 35
+ * pixels tall in a nav is a normal wordmark, not a favicon, and penalising it
+ * as one is how a real page's logo lost to a circular team photo. Only a
+ * genuinely icon-shaped box says anything, and it says it quietly.
+ */
+function layoutTerm(w: string | undefined, h: string | undefined, why: string[]): number {
+  const width = Number(w ?? 0) || 0;
+  const height = Number(h ?? 0) || 0;
+  if (width > 0 && height > 0 && width <= 32 && height <= 32) {
+    why.push('icon-shaped');
+    return -20;
+  }
+  return 0;
 }
 
 function sizeTerm(edge: number | null, why: string[]): number {
@@ -200,7 +224,16 @@ export function logoCandidates($: CheerioAPI, base: URL, manifest?: ManifestLike
     const why: string[] = [];
     let score = inHeader ? BASE['header-img'] : BASE['header-img'] - 20;
     if (inHeader) why.push('in the header');
-    score += sizeTerm(declaredEdgeOf(undefined, node.attr('width'), node.attr('height')), why);
+    // The mark is the first thing in the bar, and everything after it is
+    // content. A page whose whole body sits inside <header class="header-29">
+    // makes "in the header" say nothing on its own; document order still does.
+    if (index <= 2) {
+      why.push('first image on the page');
+      score += 20;
+    } else if (index <= 6) {
+      score += 6;
+    }
+    score += layoutTerm(node.attr('width'), node.attr('height'), why);
     score += semanticTerms(text, ancestry, host, why);
     if (node.parent().children('img').length >= 3) {
       why.push('one of a row of logos');
@@ -210,7 +243,7 @@ export function logoCandidates($: CheerioAPI, base: URL, manifest?: ManifestLike
       url,
       source: 'header-img',
       score,
-      declaredEdge: declaredEdgeOf(undefined, node.attr('width'), node.attr('height')),
+      declaredEdge: null,
       role: 'primary',
       ...(DARKISH.test(text) ? { background: 'dark' as const } : {}),
       why,
@@ -258,13 +291,23 @@ export function logoCandidates($: CheerioAPI, base: URL, manifest?: ManifestLike
   return out.sort((a, b) => b.score - a.score);
 }
 
+/** Everything after the host, so a CDN's own name never counts as the brand's. */
+function pathOf(text: string): string {
+  return text.replace(/https?:\/\/[^/\s]+/gi, '');
+}
+
 function semanticTerms(text: string, ancestry: string, host: string, why: string[]): number {
   let score = 0;
+  // The strongest DOM signal there is, and it used to be worth less than
+  // sitting inside something called a header. A real page named its wordmark
+  // nav-02__logo_img and lost to a circular team photo two elements later.
   if (LOGOISH.test(text)) {
     why.push('called a logo');
-    score += 10;
+    score += 40;
   }
-  if (host.length >= 3 && text.toLowerCase().includes(host.toLowerCase())) {
+  // The PATH, never the host: a site served from lucidreams.b-cdn.net was
+  // handing this bonus to every asset it owns, logo or not.
+  if (host.length >= 3 && pathOf(text).toLowerCase().includes(host.toLowerCase())) {
     why.push('named after the site');
     score += 6;
   }
