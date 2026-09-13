@@ -110,6 +110,29 @@ export const str = (v: unknown, max: number): string =>
   String(v ?? '')
     .trim()
     .slice(0, max);
+/**
+ * The same, for a field a person reads and a generator is told.
+ *
+ * A hard slice cuts mid-word: stored hair read "...worn loosely tousl" and
+ * "...densely curled into loose ringlets. Worn with" on almost every
+ * presenter, and that text is both printed on the page and sent in the
+ * prompt. Take the last whole sentence that fits, or failing that the last
+ * whole word, and drop any punctuation left dangling at the new end.
+ */
+export const phrase = (v: unknown, max: number): string => {
+  const whole = String(v ?? '').trim();
+  if (whole.length <= max) return whole;
+  const cut = whole.slice(0, max);
+  const stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
+  // A sentence only counts if it leaves most of the budget used; otherwise
+  // one early full stop would throw away everything after it.
+  if (stop >= max * 0.6) return cut.slice(0, stop + 1);
+  const space = cut.lastIndexOf(' ');
+  // A word boundary that gives most of the budget back is worse than a clean
+  // slice: one very long token would otherwise leave almost nothing.
+  if (space < max * 0.6) return cut;
+  return cut.slice(0, space).replace(/[\s,;:]+$/, '');
+};
 export const strList = (v: unknown, max: number, each: number): string[] =>
   Array.isArray(v)
     ? v
@@ -375,13 +398,13 @@ export function presenterRecordFrom(
   if (promptName) presenter.promptName = promptName;
   const presentation = has('presentation') ? str(input.presentation, 10).toLowerCase() : base?.presentation;
   if (presentation === 'woman' || presentation === 'man') presenter.presentation = presentation;
-  const descriptor = has('descriptor') ? str(input.descriptor, 120) : base?.descriptor;
+  const descriptor = has('descriptor') ? phrase(input.descriptor, 120) : base?.descriptor;
   if (descriptor) presenter.descriptor = descriptor;
   const ageRange = has('ageRange') ? str(input.ageRange, 40) : base?.ageRange;
   if (ageRange) presenter.ageRange = ageRange;
-  const hair = has('hair') ? str(input.hair, 120) : base?.hair;
+  const hair = has('hair') ? phrase(input.hair, 120) : base?.hair;
   if (hair) presenter.hair = hair;
-  const identityNotes = has('identityNotes') ? str(input.identityNotes, 900) : base?.identityNotes;
+  const identityNotes = has('identityNotes') ? phrase(input.identityNotes, 900) : base?.identityNotes;
   if (identityNotes) presenter.identityNotes = identityNotes;
   const negatives = has('negativeConstraints') ? strList(input.negativeConstraints, 8, 160) : base?.negativeConstraints;
   if (negatives?.length) presenter.negativeConstraints = negatives;
