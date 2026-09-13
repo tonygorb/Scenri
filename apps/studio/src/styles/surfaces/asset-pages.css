@@ -920,10 +920,18 @@
    wrapping into a second row that breaks the comparison. `--sc-refset-n` is
    set on the element, so the rule covers any count rather than the handful
    somebody thought to write a selector for. */
+/* The shell holds the row, its arrows and its edge fades; the row itself is
+   what scrolls. Three references stand at a time, which is the size at which
+   a full-length figure can actually be read, and the rest are a press or a
+   swipe away. */
+.sc-refset-shell {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+}
 .sc-refset {
   --sc-refset-n: 3;
-  --sc-refset-gap: 14px;
-  --sc-refset-floor: 150px;
+  --sc-refset-gap: 18px;
   --sc-refset-max: 400px;
   display: flex;
   flex-wrap: nowrap;
@@ -931,18 +939,9 @@
      does not, so a long set never puts its first reference out of reach. */
   justify-content: safe center;
   gap: var(--sc-refset-gap);
-  /* The one thing on this page that leaves the column.
-     Six full-length views divided by 1016px is a 155px tile, and a standing
-     figure inside one is about forty pixels of person: a row that cannot be
-     read is not a turnaround. The words keep the measure they are readable
-     at; the pictures take the window, which is the whole point of the page.
-     `overflow-x: hidden` on the pane clips any scrollbar overshoot, and the
-     padding is deep enough that the clip never reaches a tile. */
-  width: 100vw;
-  max-width: 100vw;
-  margin-inline: calc(50% - 50vw);
-  padding: 2px max(32px, env(safe-area-inset-left));
-  scroll-padding-inline: max(32px, env(safe-area-inset-left));
+  width: 100%;
+  padding: 2px;
+  margin: 0;
   list-style: none;
   overflow-x: auto;
   scroll-snap-type: x proximity;
@@ -959,11 +958,60 @@
   min-width: 0;
   scroll-snap-align: center;
   flex: 0 0
-    clamp(
-      var(--sc-refset-floor),
-      calc((100% - (var(--sc-refset-n) - 1) * var(--sc-refset-gap)) / var(--sc-refset-n)),
-      var(--sc-refset-max)
-    );
+    min(var(--sc-refset-max), calc((100% - (var(--sc-refset-n) - 1) * var(--sc-refset-gap)) / var(--sc-refset-n)));
+}
+
+/* The arrows are the page's own: they appear when the row has somewhere to
+   go and the pointer is over it, and they never exist on a touch width,
+   where the swipe is the control (look-page.css draws the same line at
+   1024px for every other rail in the app). */
+.sc-refset-arrow {
+  position: absolute;
+  top: 0;
+  bottom: 28px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  padding: 0;
+  border: none;
+  border-radius: var(--sc-radius-lg);
+  background: none;
+  color: var(--sc-fg);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-refset-arrow.prev {
+  left: 0;
+}
+.sc-refset-arrow.next {
+  right: 0;
+}
+.sc-refset-shell:hover .sc-refset-arrow,
+.sc-refset-arrow:focus-visible {
+  opacity: 1;
+}
+/* A direction with nowhere to go is not offered. */
+.sc-refset-shell:not([data-overflow-left]) .sc-refset-arrow.prev,
+.sc-refset-shell:not([data-overflow-right]) .sc-refset-arrow.next {
+  display: none;
+}
+.sc-refset-arrow > * {
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-scrim);
+  color: var(--sc-scrim-fg);
+  padding: 7px;
+}
+
+/* No edge fade. A gradient in the page's ground over a photograph shot on a
+   white sweep is a grey smudge on the picture, not a soft edge to the row.
+   The reference cut by the edge says there is more, and the arrow says it
+   again on hover. */
+@media (max-width: 1024px) {
+  .sc-refset-arrow {
+    display: none;
+  }
 }
 .sc-refset-tile {
   display: block;
@@ -1061,10 +1109,8 @@
   /* A phone shows three at the floor and scrolls the rest, and the row bleeds
      to the gutter so the first tile can start at the screen edge. */
   .sc-refset {
+    --sc-refset-n: 2;
     --sc-refset-gap: 10px;
-    --sc-refset-floor: 104px;
-    padding-inline: var(--sc-gutter);
-    scroll-padding-inline: var(--sc-gutter);
   }
   .sc-presenterpage-source {
     width: 60px;
@@ -1123,8 +1169,8 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scale(1.55);
-  transform-origin: 50% 22%;
+  transform: scale(1.22);
+  transform-origin: 50% 26%;
 }
 /* The CSS half of the `presenterVisual` contract: no avatar existed, so this
    picture was framed for something else and has to be pulled much further. */

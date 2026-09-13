@@ -1,4 +1,4 @@
-import { PencilSimple } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight, PencilSimple } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { api, type PresenterPatch, thumbOf } from '../api.js';
@@ -13,6 +13,7 @@ import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { Confirm } from '../Confirm.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { Tip } from '../layout/Tip.js';
+import { useRefRail } from '../layout/useRefRail.js';
 import { EmptyRefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { PresenterDetailsDialog } from './PresenterDetailsDialog.js';
@@ -107,6 +108,7 @@ export function PresenterPage() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [details, setDetails] = useState(false);
+  const rail = useRefRail<HTMLDivElement, HTMLOListElement>(owned?.shots?.length ?? refs.length);
 
   /**
    * The words on the record, written once when the dialog is saved.
@@ -264,28 +266,47 @@ export function PresenterPage() {
             the frames are 4:5 already, and a legacy or curated one that is
             not letterboxes rather than losing its feet. */}
         {frames.length > 0 ? (
-          <ol
-            className="sc-refset"
-            aria-label="Reference set"
-            data-count={frames.length}
-            style={{ '--sc-refset-n': frames.length } as CSSProperties}
-          >
-            {frames.map((f) => (
-              <li key={f.src}>
-                <button
-                  type="button"
-                  className="sc-refset-tile"
-                  aria-label={`${f.label}, open`}
-                  onClick={() => setOpen(f)}
-                >
-                  <img src={thumbOf(f.src, 'small')} alt="" loading="lazy" decoding="async" />
-                </button>
-                <span className="sc-refset-lb" aria-hidden>
-                  {f.label}
-                </span>
-              </li>
-            ))}
-          </ol>
+          <div className="sc-refset-shell" ref={rail.shellRef}>
+            <button
+              type="button"
+              className="sc-refset-arrow prev"
+              aria-label="Earlier references"
+              onClick={() => rail.page(-1)}
+            >
+              <CaretLeft size={16} weight="bold" />
+            </button>
+            <button
+              type="button"
+              className="sc-refset-arrow next"
+              aria-label="Later references"
+              onClick={() => rail.page(1)}
+            >
+              <CaretRight size={16} weight="bold" />
+            </button>
+            <ol
+              className="sc-refset"
+              aria-label="Reference set"
+              data-count={frames.length}
+              ref={rail.railRef}
+              style={{ '--sc-refset-n': Math.min(frames.length, 3) } as CSSProperties}
+            >
+              {frames.map((f) => (
+                <li key={f.src}>
+                  <button
+                    type="button"
+                    className="sc-refset-tile"
+                    aria-label={`${f.label}, open`}
+                    onClick={() => setOpen(f)}
+                  >
+                    <img src={thumbOf(f.src, 'small')} alt="" loading="lazy" decoding="async" />
+                  </button>
+                  <span className="sc-refset-lb" aria-hidden>
+                    {f.label}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
         ) : (
           <EmptyRefFrame />
         )}
