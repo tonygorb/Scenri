@@ -331,24 +331,19 @@ const TERMINAL: ReadonlySet<string> = new Set(['completed', 'partial', 'no_catal
 /**
  * How many pictures are downloaded at once.
  *
- * Six was inherited and never measured. Swept against the fixture store, 600
- * images behind a 120 ms CDN delay, two runs at each of the contested points
- * (seconds for the picture stage, peak RSS in MB):
+ * Four, and like the page rate this is about the shop rather than the clock.
  *
- *   4  23.6  452      12  11.0 / 11.2  492 / 506
- *   6  20.9  486      16   8.4         497
- *   8  14.6 / 14.3  423 / 446      24   7.9         520
+ * A fixture sweep made twelve look obviously right: 600 pictures behind a
+ * 120 ms delay took 20.9 s at six and 11.0 at twelve, flat by sixteen. A
+ * fixture has no bot check. Against gymshark.com the pictures are requested
+ * from the same host as the pages, so the real budget was four page reads plus
+ * twelve picture downloads - sixteen at once, sustained - and the run was shut
+ * out twice.
  *
- * The curve is still falling at 12 and flat by 16, and memory climbs steadily
- * from 8 up. Twelve takes 2.1x off the inherited six and sits under the
- * flattening point, so the last increments are bought with resident decoded
- * frames rather than with time.
- *
- * It is also a politeness ceiling, and that is the harder limit of the two:
- * this points at somebody's shop. Twelve is twice a browser's per-host budget
- * and nowhere near a level that reads as an attack; 24 would buy half a second.
+ * Four and four is eight, near a browser's own per-host ceiling, and the
+ * latency it costs is hidden by asking early rather than by asking harder.
  */
-const IMAGE_CONCURRENCY = 12;
+const IMAGE_CONCURRENCY = 4;
 
 /**
  * What a job has done so far, across however many batches it takes.

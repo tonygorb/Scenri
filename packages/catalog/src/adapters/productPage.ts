@@ -387,12 +387,19 @@ export interface PageFetchOptions {
   /**
    * Filled in as work happens, so a caller can report what it really spent.
    *
-   * `refused` counts pages the site would not serve. A crawl swallows those so
-   * one bad address cannot end a run, which also meant a shop that started
-   * turning us away mid-catalogue looked exactly like a shop with very few
-   * products: gymshark.com answered 413 pages and then 405 with
-   * `x-amzn-waf-action: captcha` for the rest, and the import called itself
-   * finished. Counting them is what lets a caller say which happened.
+   * `refused` counts pages the site would not give us - both the ones that
+   * answered with a status we cannot use and the ones whose request never
+   * completed. A crawl swallows both so one bad address cannot end a run,
+   * which also meant a shop that started turning us away mid-catalogue looked
+   * exactly like a shop with very few products: gymshark.com answered 413
+   * pages and then 405 with `x-amzn-waf-action: captcha` for the rest, and the
+   * import called itself finished. Counting them is what lets a caller say
+   * which happened.
+   *
+   * Both paths, because counting only the first missed the whole thing: a
+   * second run under the same bot check recorded 202 products of 2,206 with
+   * zero refusals, since under real pressure the requests threw rather than
+   * returning a status.
    */
   stats?: { pages: number; bytes: number; refused?: number };
 }
@@ -453,7 +460,9 @@ export async function fetchProductPages(
         }
         opts.onProduct?.(kept);
       } catch {
-        // One unreadable page is not a reason to abandon the rest.
+        // One unreadable page is not a reason to abandon the rest, but it is
+        // still a page the site did not give us.
+        if (opts.stats) opts.stats.refused = (opts.stats.refused ?? 0) + 1;
       }
     },
     ctx.signal,
