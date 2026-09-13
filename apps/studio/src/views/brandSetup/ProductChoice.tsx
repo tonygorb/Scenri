@@ -20,6 +20,15 @@ import { matches, nameFromUrl } from './productNames.js';
  * the first version of this walked into and wrote a sentence to apologise for.
  */
 const BATCH = 24;
+/**
+ * Details are asked for in small groups rather than one big one.
+ *
+ * Twenty-four real product pages take about eight seconds against a live
+ * store, and asking for all of them at once means eight seconds of nothing
+ * followed by everything. In eights the first cards land in about three, and
+ * the rest fill in behind them.
+ */
+const CHUNK = 8;
 
 export function ProductChoice({
   brandId,
@@ -44,42 +53,75 @@ export function ProductChoice({
     () => new Map(scan.candidates.filter((c) => c.url).map((c) => [c.url as string, c])),
   );
   const asking = useRef<Set<string>>(new Set());
+  /** Read inside the fetch effect without making it a dependency. */
+  const haveRef = useRef(details);
+  const mounted = useRef(true);
+  const [inFlight, setInFlight] = useState(0);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const [endEl, setEndEl] = useState<HTMLDivElement | null>(null);
 
   const named = useMemo(() => all.map((url) => ({ url, name: nameFromUrl(url) })), [all]);
   const found = useMemo(() => named.filter((p) => matches(p.name, query)), [named, query]);
-  const visible = found.slice(0, shown);
+  const visible = useMemo(() => found.slice(0, shown), [found, shown]);
+  // A stable identity for "which cards are on screen". Depending on the array
+  // itself re-runs the effect below on every render, and its cleanup then
+  // cancels the requests that same render just started.
+  const visibleKey = visible.map((p) => p.url).join('|');
 
   useEffect(() => setShown(BATCH), [query]);
 
-  // Pay for the cards that are actually on screen, once each.
+  // Pay for the cards that are actually on screen, once each, in small groups
+  // so the grid fills in rather than arriving all at once.
   useEffect(() => {
-    const wanted = visible.map((p) => p.url).filter((u) => !details.has(u) && !asking.current.has(u));
+    const wanted = visibleKey.split('|').filter((u) => u && !haveRef.current.has(u) && !asking.current.has(u));
     if (!wanted.length) return;
     for (const u of wanted) asking.current.add(u);
-    let live = true;
-    void api
-      .catalogDetails(brandId, wanted)
-      .then(({ products }) => {
-        if (!live) return;
-        setDetails((prev) => {
-          const next = new Map(prev);
-          for (const p of products) if (p.url) next.set(p.url, p);
-          return next;
+    const groups: string[][] = [];
+    for (let i = 0; i < wanted.length; i += CHUNK) groups.push(wanted.slice(i, i + CHUNK));
+    setInFlight((n) => n + groups.length);
+    for (const group of groups) {
+      void api
+        .catalogDetails(brandId, group)
+        .then(({ products }) => {
+          if (!mounted.current) return;
+          setDetails((prev) => {
+            const next = new Map(prev);
+            for (const p of products) if (p.url) next.set(p.url, p);
+            // The page's canonical address is not always the one the sitemap
+            // listed, and the card is keyed by the one we asked for.
+            for (let i = 0; i < products.length && i < group.length; i++) {
+              if (!next.has(group[i])) next.set(group[i], products[i]);
+            }
+            haveRef.current = next;
+            return next;
+          });
+        })
+        .catch(() => {
+          // A card that will not load keeps its name and stays selectable.
+          for (const u of group) asking.current.delete(u);
+        })
+        .finally(() => {
+          // Not guarded on a per-effect flag: this effect re-runs whenever the
+          // visible set changes, and cancelling the count there is what left
+          // "Loading products" on screen for good.
+          if (mounted.current) setInFlight((n) => Math.max(0, n - 1));
         });
-      })
-      .catch(() => {
-        // A card that will not load keeps its name and stays selectable.
-        for (const u of wanted) asking.current.delete(u);
-      });
-    return () => {
-      live = false;
-    };
-  }, [visible, details, brandId]);
+    }
+  }, [visibleKey, brandId]);
 
   // One sentinel below the last card, the shape Canvas and AttachBody use.
+  //
+  // Paced on what has actually arrived rather than on how fast someone
+  // scrolls: a flick to the bottom of a 2,200-product store queued 240 page
+  // reads in one go, which is the runaway this whole screen exists to avoid.
+  // Nothing more is asked for until the last lot lands.
   useEffect(() => {
-    if (!endEl || shown >= found.length) return;
+    if (!endEl || shown >= found.length || inFlight > 0) return;
     const root = endEl.closest('.sc-wizpick-grid');
     const io = new IntersectionObserver(
       (entries) => {
@@ -89,7 +131,7 @@ export function ProductChoice({
     );
     io.observe(endEl);
     return () => io.disconnect();
-  }, [endEl, shown, found.length]);
+  }, [endEl, shown, found.length, inFlight]);
 
   const toggle = useCallback((url: string) => {
     setPicked((prev) => {
@@ -156,6 +198,7 @@ export function ProductChoice({
               key={p.url}
               id={p.url}
               previewUrl={got?.images?.[0]?.url ?? null}
+              pending={!got}
               title={got?.title ?? p.name}
               primary={got?.title ?? p.name}
               secondary={got?.price != null ? `${got.currency ?? ''} ${got.price}`.trim() : (got?.category ?? '')}
@@ -175,10 +218,14 @@ export function ProductChoice({
         <button type="button" className="sc-wiz-skip" onClick={onDismiss}>
           Not now
         </button>
+        {inFlight > 0 && <span className="sc-wizpick-loading">Loading products</span>}
         <button
           type="button"
           className="sc-wiz-cta"
-          disabled={!count || busy}
+          // Nothing has arrived yet, so there is nothing to have looked at.
+          // Once the first cards land the rest can keep filling in behind a
+          // decision that is already an informed one.
+          disabled={!count || busy || (details.size === 0 && inFlight > 0)}
           // Everything means everything: the server reads the catalogue itself
           // rather than being handed two thousand addresses to check.
           onClick={() => (wholeCatalogue ? onImportAll() : onImport([...picked]))}

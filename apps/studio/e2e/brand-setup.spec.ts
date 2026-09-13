@@ -134,7 +134,7 @@ test('a refusal is a sentence, and the manual path is still one click away', asy
  * their JSON-LD. That combination imported nothing at all before this, and it
  * is the reason any of this exists.
  */
-const SHOP_HANDLES = Array.from({ length: 30 }, (_, i) => `jacket-${i + 1}`);
+const SHOP_HANDLES = Array.from({ length: 60 }, (_, i) => `jacket-${i + 1}`);
 
 let shop: Server;
 let shopOrigin: string;
@@ -237,7 +237,7 @@ test('a shop on the site is offered, counted, and imported only where asked', as
 
   // Then the products line resolves on its own, with the whole catalog
   // counted rather than the handful that were read.
-  await expect(lines).toContainText('30 found', { timeout: 45_000 });
+  await expect(lines).toContainText('60 found', { timeout: 45_000 });
 
   // The products step is the main button, not a link beside it: the first
   // version said "Looks right", quietly meant "and no products", and was
@@ -248,6 +248,15 @@ test('a shop on the site is offered, counted, and imported only where asked', as
 
   // Everything is ticked, including the ones no card has loaded for yet.
   await expect(sheet.getByRole('button', { name: `Import ${SHOP_HANDLES.length} products` })).toBeVisible();
+
+  // Every card ends up with its picture, and the screen stops saying it is
+  // working. The first version leaked its in-flight count - the effect's own
+  // cleanup cancelled the requests that same render had started - so one card
+  // shimmered for good under a "Loading products" that never went away.
+  await expect(sheet.locator('.sc-wizpick-loading')).toHaveCount(0, { timeout: 30_000 });
+  await expect(sheet.locator('.sc-lookcard .sc-shimmer')).toHaveCount(0, { timeout: 30_000 });
+  const loaded = await sheet.locator('.sc-lookcard img').count();
+  expect(loaded).toBe(await sheet.locator('.sc-lookcard').count());
   const cards = sheet.locator('.sc-lookcard');
   const shown = await cards.count();
   expect(shown).toBeGreaterThan(2);
@@ -259,6 +268,20 @@ test('a shop on the site is offered, counted, and imported only where asked', as
   await expect(cards).toHaveCount(1);
   await sheet.getByRole('searchbox').fill('');
   await expect(sheet.getByRole('button', { name: `Import ${SHOP_HANDLES.length} products` })).toBeVisible();
+
+  // Scrolling asks for more, and only once the last lot has landed: a flick
+  // to the bottom of a 2,200-product store queued 240 page reads at once.
+  const grid = sheet.locator('.sc-wizpick-grid');
+  const firstScreen = await cards.count();
+  for (let i = 0; i < 3; i++) {
+    await grid.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    await page.waitForTimeout(400);
+  }
+  await expect(sheet.locator('.sc-wizpick-loading')).toHaveCount(0, { timeout: 30_000 });
+  expect(await cards.count()).toBeGreaterThan(firstScreen);
+  await expect(sheet.locator('.sc-lookcard .sc-shimmer')).toHaveCount(0, { timeout: 30_000 });
 
   // Drop two and the button counts down with them.
   await cards.nth(0).click();
