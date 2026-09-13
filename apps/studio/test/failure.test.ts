@@ -29,6 +29,9 @@ const REAL = {
   codexCodeMode: 'codex exited with code 1: ERROR: code-mode host exited during handshake',
   codexNeverStarted: 'Codex CLI produced no output for 60s after launch, treating it as stuck',
   codexAuthMidJob: 'codex exited with code 1: ERROR: unexpected status 401 Unauthorized',
+  /** The sentence run.ts writes when a variable here outranks the sign-in. */
+  codexEnvConflict:
+    "Codex is signed in, but CODEX_API_KEY in this computer's environment is overriding that sign-in and OpenAI rejected it.",
   codexExitSaysTimeout: 'codex exited with code 124: timeout',
   nodeBudget: 'generation timed out after 11 minutes',
   replicateTimeout: 'Replicate prediction timed out after 300000ms',
@@ -147,6 +150,24 @@ describe('describeFailure', () => {
     expect(rep.title).toBe('Replicate took too long to answer.');
   });
 
+  /**
+   * The 0.9.2 tester's screen: "Codex is signed out on this machine", with a
+   * Sign in button, on a machine that was signed in. A stale CODEX_API_KEY
+   * outranks a ChatGPT session for `codex exec`, so signing in again fixes
+   * nothing. This rule must sit above the signed-out one.
+   */
+  it('names the key that is overriding the sign-in, and never calls it signed out', () => {
+    const f = describeFailure(REAL.codexEnvConflict, 'Codex');
+    expect(f.kind).toBe('auth');
+    expect(f.title).toBe('An API key on this computer is overriding your Codex sign-in.');
+    expect(f.title).not.toMatch(/signed out/i);
+    expect(f.remedy).toEqual({ label: 'Fix this', opens: 'setup' });
+    expect(f.retryable).toBe(true);
+  });
+
+  it('still calls a plain mid-job 401 a signed-out session, so the new rule has not over-claimed', () => {
+    expect(describeFailure(REAL.codexAuthMidJob, 'Codex').title).toBe('Codex is signed out on this machine.');
+  });
   it('reads a mid-job 401 as a sign-in, not as an API-key problem', () => {
     const f = describeFailure(REAL.codexAuthMidJob, 'Codex');
     expect(f.kind).toBe('auth');

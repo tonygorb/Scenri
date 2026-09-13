@@ -336,7 +336,13 @@ export function budgetSize(width: number, height: number, pixelBudget: number): 
  * one-step fix the Settings pane covers. `unverified` is the honest answer
  * when the probe itself could not finish: unknown is never available.
  */
-export type UnavailableCode = 'not-installed' | 'not-authenticated' | 'update-needed' | 'unverified';
+/**
+ * Why an engine is not usable, as a token the UI can switch on rather than
+ * prose it would have to match. `env-conflict` is the one that is not about
+ * the engine at all: Codex is installed and signed in, and a credential in
+ * this computer's environment is outranking that sign-in.
+ */
+export type UnavailableCode = 'not-installed' | 'not-authenticated' | 'update-needed' | 'unverified' | 'env-conflict';
 
 export interface EngineAvailability {
   ok: boolean;

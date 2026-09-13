@@ -2,7 +2,7 @@ import type { Core, EngineAdapter } from '@scenri/core';
 import { createOpenRouterEngine } from '@scenri/engine-openrouter';
 import { createReplicateEngine } from '@scenri/engine-replicate';
 import { createFalEngine } from '@scenri/engine-fal';
-import { createCodexEngine, createRunner, type CodexRunner } from '@scenri/engine-codex';
+import { CONFLICT_ENV_KEYS, createCodexEngine, createRunner, type CodexRunner } from '@scenri/engine-codex';
 
 export interface EngineRegistry {
   all(): EngineAdapter[];
@@ -21,9 +21,31 @@ function keyGetter(core: Core, settingKey: string, envVar: string): () => string
   return () => core.store.getSetting(settingKey) || process.env[envVar] || null;
 }
 
+/** The setting that records which variables the user asked Scenri to ignore. */
+export const IGNORE_ENV_KEYS_SETTING = 'codex.ignore_env_keys';
+
+/**
+ * Names to keep out of every codex child, read fresh on each spawn so a repair
+ * lands on the very next run with no restart.
+ *
+ * Allowlisted on read as well as on write. The setting is a comma-separated
+ * list of variable names, and a list of names that gets removed from a child
+ * process is exactly the sort of thing that should not accept arbitrary input
+ * from a hand-edited sqlite row.
+ */
+export function ignoreEnvKeysGetter(core: Core): () => readonly string[] {
+  return () =>
+    (core.store.getSetting(IGNORE_ENV_KEYS_SETTING) ?? '')
+      .split(',')
+      .map((name) => name.trim().toUpperCase())
+      .filter((name): name is (typeof CONFLICT_ENV_KEYS)[number] =>
+        (CONFLICT_ENV_KEYS as readonly string[]).includes(name),
+      );
+}
+
 export function createEngineRegistry(core: Core, extra: EngineAdapter[] = []): EngineRegistry {
   const saveImage = (buf: Buffer) => core.images.save(buf);
-  const codexRunner = createRunner();
+  const codexRunner = createRunner({ ignoreEnvKeys: ignoreEnvKeysGetter(core) });
   // No demo engine here on purpose. It draws a placeholder gradient and reads
   // zero reference images, so it can neither honour a Product nor a Presenter —
   // it made the picker look like a working option while proving nothing. Tests

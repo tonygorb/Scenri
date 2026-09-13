@@ -48,7 +48,13 @@ describe('status', () => {
     await expect(notSignedIn.status()).resolves.toMatchObject({ state: 'not-authenticated' });
 
     const ready = createCodexSetup({ platform: 'linux', spawnImpl: scripted({}).spawnImpl });
-    await expect(ready.status()).resolves.toEqual({ state: 'ready', reason: undefined, platform: 'linux' });
+    await expect(ready.status()).resolves.toEqual({
+      state: 'ready',
+      reason: undefined,
+      platform: 'linux',
+      conflictKeys: [],
+      ignoredKeys: [],
+    });
   });
 
   it('names the platform in the wizard words, so copy can say PowerShell', async () => {

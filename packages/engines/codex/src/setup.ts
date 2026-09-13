@@ -15,6 +15,7 @@
 import { spawn as nodeSpawn } from 'node:child_process';
 import type { EngineAvailability } from '@scenri/core';
 import { createRunner, killTree, type CodexRunner, type RunnerOptions } from './run.js';
+import { CONFLICT_ENV_KEYS } from './classify.js';
 
 /** The one command we would otherwise ask a non-developer to type. */
 export const INSTALL_COMMAND = 'npm install -g @openai/codex';
@@ -40,7 +41,13 @@ export const INSTALL_COMMAND_SUDO = 'sudo npm install -g @openai/codex';
 export const INSTALL_COMMAND_WINDOWS =
   'powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"';
 
-export type CodexSetupState = 'not-installed' | 'not-authenticated' | 'update-needed' | 'unverified' | 'ready';
+export type CodexSetupState =
+  | 'not-installed'
+  | 'not-authenticated'
+  | 'update-needed'
+  | 'unverified'
+  | 'env-conflict'
+  | 'ready';
 
 export interface CodexInstallResult {
   ok: boolean;
@@ -60,9 +67,23 @@ export interface CodexLoginResult {
 /** The server's platform in the wizard's words, so copy says PowerShell where it should. */
 export type SetupPlatform = 'windows' | 'mac' | 'linux';
 
+export interface CodexStatusResult {
+  state: CodexSetupState;
+  reason?: string;
+  platform: SetupPlatform;
+  /** Named variables that are overriding the sign-in. Empty unless the state is env-conflict. */
+  conflictKeys: string[];
+  /** Named variables Scenri is already keeping out of codex's environment. */
+  ignoredKeys: string[];
+}
+
 export interface CodexSetup {
-  /** Same probe the engine uses, mapped to the state the wizard switches on. */
-  status(): Promise<{ state: CodexSetupState; reason?: string; platform: SetupPlatform }>;
+  /**
+   * What the wizard switches on. Runs the real connection check, so "ready"
+   * means a Scenri-spawned codex authenticated, not that a binary exists.
+   * `force` throws away the stored verdict and pays for a fresh one.
+   */
+  status(opts?: { force?: boolean }): Promise<CodexStatusResult>;
   install(): Promise<CodexInstallResult>;
   login(): Promise<CodexLoginResult>;
 }
@@ -74,6 +95,8 @@ export interface CodexSetupOptions extends RunnerOptions {
   installTimeoutMs?: number;
   /** The process-wide runner, so setup shares the engine's probe cache. */
   runner?: CodexRunner;
+  /** Names Scenri keeps out of codex's environment, for reporting them back. */
+  ignoreEnvKeys?: () => readonly string[];
 }
 
 const DEFAULT_INSTALL_TIMEOUT_MS = 180_000;
@@ -84,6 +107,7 @@ function stateFrom(avail: EngineAvailability): CodexSetupState {
     case 'not-authenticated':
     case 'update-needed':
     case 'unverified':
+    case 'env-conflict':
       return avail.code;
     default:
       return 'not-installed';
@@ -95,6 +119,7 @@ export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
   const platform = opts.platform ?? process.platform;
   const runner = opts.runner ?? createRunner(opts);
   const installTimeoutMs = opts.installTimeoutMs ?? DEFAULT_INSTALL_TIMEOUT_MS;
+  const ignoreEnvKeys = opts.ignoreEnvKeys ?? (() => [] as readonly string[]);
 
   /** Run a command to completion, collecting stderr for the failure detail. */
   function run(
@@ -135,13 +160,26 @@ export function createCodexSetup(opts: CodexSetupOptions = {}): CodexSetup {
   }
 
   return {
-    async status() {
+    async status(o: { force?: boolean } = {}) {
       // This endpoint IS the check the wizard offers, and the sign-in poll
       // rides on it, so it always asks fresh rather than serving the cache.
       runner.invalidateProbe();
+      // Check again is the one control that is allowed to spend a turn of the
+      // user's plan on purpose; every other caller reads the stored verdict.
+      if (o.force) runner.invalidateConnection();
+      const conn = await runner.connect();
       const avail = await runner.probe();
+      const state = stateFrom(avail);
       const setupPlatform: SetupPlatform = platform === 'win32' ? 'windows' : platform === 'darwin' ? 'mac' : 'linux';
-      return { state: stateFrom(avail), reason: avail.reason, platform: setupPlatform };
+      return {
+        state,
+        reason: avail.reason,
+        platform: setupPlatform,
+        conflictKeys: state === 'env-conflict' ? (conn.failure?.conflictKeys ?? []) : [],
+        ignoredKeys: [...ignoreEnvKeys()].filter((k): k is (typeof CONFLICT_ENV_KEYS)[number] =>
+          (CONFLICT_ENV_KEYS as readonly string[]).includes(k),
+        ),
+      };
     },
 
     async install() {

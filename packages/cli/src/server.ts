@@ -26,7 +26,7 @@ import { createUpdateChecker, type UpdateChecker } from './update/check.js';
 import { createContentFetcher, type ContentFetcher } from './content/fetch.js';
 import type { stageVersion } from './update/stage.js';
 import { validateBrand, buildFromUrl, mergeScrape } from '@scenri/brand';
-import type { EngineRegistry } from './engines.js';
+import { IGNORE_ENV_KEYS_SETTING, ignoreEnvKeysGetter, type EngineRegistry } from './engines.js';
 import { brandJsonWithCatalogProducts, resolveLibraryProduct, runningImportCount } from './catalogImport.js';
 import {
   brandCharacters,
@@ -821,7 +821,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     engineNames: () => engines.all().map((e) => ({ id: e.capabilities().id, name: e.capabilities().displayName })),
   });
 
-  registerCodexSetupRoutes(app, { codexSetup: opts.codexSetup, codexRunner: engines.codexRunner });
+  registerCodexSetupRoutes(app, {
+    codexSetup: opts.codexSetup,
+    codexRunner: engines.codexRunner,
+    envRepair: {
+      get: () => [...ignoreEnvKeysGetter(core)()],
+      set: (keys) => core.store.setSetting(IGNORE_ENV_KEYS_SETTING, keys.join(',')),
+    },
+  });
 
   // ---- engines / caps / costs
   app.get('/api/engines', async () => {
