@@ -100,11 +100,15 @@ function wwwVariant(baseUrl: string): string | null {
 
 export async function scanForCandidates(opts: ScanOptions): Promise<ScanResult> {
   const first = await scanOnce(opts, originOf(normalizeStoreUrl(opts.url)));
-  if (first.verdict !== 'none') return first;
+  // Anything short of a catalogue is worth one more look, not just an empty
+  // one. gymshark.com redirects to a checkout host, where discovery finds
+  // 16,778 addresses and can read none of them - a `blocked` verdict from a
+  // store that is perfectly readable one label to the left.
+  if (first.verdict === 'found') return first;
   const alternate = wwwVariant(first.baseUrl);
   if (!alternate) return first;
   const second = await scanOnce(opts, alternate);
-  return second.verdict === 'none' ? first : second;
+  return second.verdict === 'found' ? second : first;
 }
 
 async function scanOnce(opts: ScanOptions, baseUrl: string): Promise<ScanResult> {

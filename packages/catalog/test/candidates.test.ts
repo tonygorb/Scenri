@@ -245,3 +245,57 @@ describe('a bare domain that is not where the shop lives', () => {
     expect(seen.filter((u) => u.includes('//www.'))).toHaveLength(0);
   });
 });
+
+/**
+ * The apex redirects to a checkout host where discovery finds thousands of
+ * addresses and can read none of them. That is `blocked`, not `none`, and
+ * only retrying on `none` left it there.
+ */
+it('tries www after a blocked look, not only an empty one', async () => {
+  const fetchImpl = (async (input: any) => {
+    const url = String(input);
+    const onWww = url.includes('//www.');
+    if (url.endsWith('/robots.txt')) return new Response('', { status: 404 });
+    if (/\/products\.json/.test(url)) return new Response('no', { status: 403 });
+    if (url.endsWith('/sitemap.xml'))
+      return new Response(
+        `<?xml version="1.0"?><sitemapindex><sitemap><loc>${
+          onWww ? 'https://www.shop.example' : 'https://shop.example'
+        }/sitemap_products_1.xml</loc></sitemap></sitemapindex>`,
+        { status: 200 },
+      );
+    if (url.includes('sitemap_products')) {
+      const host = onWww ? 'https://www.shop.example' : 'https://shop.example';
+      return new Response(
+        `<?xml version="1.0"?><urlset>${['a', 'b']
+          .map((h) => `<url><loc>${host}/products/${h}</loc></url>`)
+          .join('')}</urlset>`,
+        { status: 200 },
+      );
+    }
+    if (url.includes('sitemap')) return new Response('<urlset></urlset>', { status: 200 });
+    const handle = /\/products\/([^/?#.]+)$/.exec(url)?.[1];
+    if (handle) {
+      // The apex lists products and then refuses to serve any of them.
+      if (!onWww) return new Response('nope', { status: 403 });
+      return new Response(
+        `<html><head><script type="application/ld+json">${JSON.stringify({
+          '@type': 'Product',
+          name: handle,
+          url,
+          offers: { price: 10, priceCurrency: 'USD' },
+        })}</script></head></html>`,
+        { status: 200, headers: { 'content-type': 'text/html' } },
+      );
+    }
+    return new Response('<html><body>shop</body></html>', {
+      status: 200,
+      headers: { 'content-type': 'text/html' },
+    });
+  }) as typeof fetch;
+
+  const scan = await scanForCandidates({ url: 'shop.example', fetchImpl });
+  expect(scan.verdict).toBe('found');
+  expect(scan.baseUrl).toBe('https://www.shop.example');
+  expect(scan.candidates.length).toBeGreaterThan(0);
+});

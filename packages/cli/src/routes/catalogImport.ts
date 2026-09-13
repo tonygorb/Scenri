@@ -57,11 +57,20 @@ export function registerCatalogImportRoutes(
     }
     const urls = (asked as string[]).slice(0, 48);
     if (!urls.length) return { products: [] };
+    // The origin comes from the brand's own website, never from the request.
+    //
+    // Taking it from the first url sent - which is what this did - made the
+    // same-origin filter below self-referential: it proved the addresses
+    // agreed with each other and nothing else, so a caller could hand over
+    // `http://169.254.169.254/...` and have the server fetch it and hand the
+    // contents back. The brand's website is the only origin this route has
+    // any business reading.
+    const site = String((brand.json as any)?.meta?.website ?? '');
     let origin: string;
     try {
-      origin = new URL(urls[0]).origin;
+      origin = new URL(site.startsWith('http') ? site : `https://${site}`).origin;
     } catch {
-      return reply.status(400).send({ error: 'urls must be a list of product addresses' });
+      return reply.status(400).send({ error: 'this brand has no website to read products from' });
     }
     const sameSite = urls.filter((u) => {
       try {
@@ -70,6 +79,9 @@ export function registerCatalogImportRoutes(
         return false;
       }
     });
+    if (!sameSite.length) {
+      return reply.status(400).send({ error: 'none of those products belong to this site' });
+    }
     const products = await fetchProductPages({ fetchImpl: fetchImpl ?? fetch, baseUrl: origin }, sameSite, {
       concurrency: 4,
       maxBytes: 1_500_000,
