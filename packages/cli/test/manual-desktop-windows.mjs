@@ -18,6 +18,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { CLI, npm, packFixture } from './pack-fixture.mjs';
 
 if (process.platform !== 'win32') {
@@ -203,9 +204,13 @@ async function offerScenario(label, keys, expectIcon) {
 
   let pty;
   try {
-    pty = await import(process.env.SCENRI_PTY ?? 'node-pty');
-  } catch {
+    // A Windows absolute path is not a module specifier: dynamic import wants
+    // a file: URL, and handing it D:\a\... fails every time.
+    const spec = process.env.SCENRI_PTY ? pathToFileURL(process.env.SCENRI_PTY).href : 'node-pty';
+    pty = await import(spec);
+  } catch (err) {
     console.log(`  NOTICE: node-pty unavailable, the "${label}" keypress was NOT tested`);
+    console.log(`          (${String(err?.message ?? err).split('\n')[0]})`);
     return false;
   }
 
