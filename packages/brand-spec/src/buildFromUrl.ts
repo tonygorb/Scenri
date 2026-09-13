@@ -30,12 +30,44 @@ export interface BuildOptions {
    * 32px icon saved as the primary mark is a logo the compiler will promise
    * to reproduce exactly from pixels that cannot say what it looks like.
    */
-  probeLongEdge?: (buf: Buffer) => Promise<number | null>;
+  inspectMark?: (buf: Buffer) => Promise<MarkShape | null>;
   /** Bounds and address rules for everything this fetches. */
   guard?: GuardOptions;
 }
 
 export type NameSource = 'json-ld' | 'og:site_name' | 'title' | 'hostname';
+
+/**
+ * What an image turns out to be once it has actually been decoded, which is
+ * the only place some of this can be known. Measured across a dozen real
+ * sites: linear.app's header mark is a white-on-dark SVG that rasterises to
+ * nothing on a light background, and paulgraham.com's only image is a 69x399
+ * nav strip. Both were being crowned.
+ */
+export interface MarkShape {
+  longEdge: number | null;
+  width: number | null;
+  height: number | null;
+  /** Effectively invisible: transparent, or a single near-white field. */
+  blank: boolean;
+}
+
+/** Taller than this and it is a column of something, not a wordmark or a mark. */
+const MAX_PORTRAIT_RATIO = 2.5;
+
+/**
+ * How much evidence a candidate needs before it is called the logo.
+ *
+ * Measured across twelve real sites: every correct pick scored 93 or more and
+ * every wrong one 67 or less, with nothing in between. Below the floor a mark
+ * is still saved - it is usually the best thing on the page - but as an
+ * alternate, so the kit asks instead of asserting. A confidently wrong logo is
+ * worse than an honest blank, and it is the first thing a new user sees.
+ */
+const CONFIDENT_SCORE = 80;
+
+/** Sources that say "this is the site's own icon" rather than guessing from position. */
+const ICON_SOURCES = new Set<LogoSource>(['json-ld', 'manifest', 'apple-touch-icon', 'link-icon']);
 
 /**
  * What the scrape found, as facts rather than prose.
@@ -50,7 +82,7 @@ export interface ScrapeReport {
   host: string;
   name: { value: string; source: NameSource };
   tagline: string | null;
-  logo: { status: 'primary' | 'alternate' | 'none'; source: LogoSource | null; note?: string };
+  logo: { status: 'primary' | 'alternate' | 'none'; source: LogoSource | null; score?: number; note?: string };
   colors: { count: number };
 }
 
@@ -62,9 +94,11 @@ export interface BuildResult {
 
 /** How many candidate marks are worth a download before settling for what we have. */
 const LOGO_TRIES = 3;
-/** Stylesheets are read for colour, and four is already more than any palette needs. */
-const MAX_SHEETS = 4;
-const SHEET_RANK = /(theme|main|app|style|tailwind|global|site|brand)/i;
+/** Stylesheets are read for colour. A site with forty-eight of them still keeps its palette in one. */
+const MAX_SHEETS = 6;
+// `root` and `variables` earn their place: basecamp.com keeps every colour it
+// has in root.css, ships forty-eight sheets, and came back with none.
+const SHEET_RANK = /(root|variables|tokens|colou?rs|palette|theme|main|app|style|tailwind|global|site|brand|base)/i;
 const SHEET_SKIP = /(font|icon|fontawesome|bootstrap-icons|swiper|slick|slider|lightbox|print)/i;
 
 export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promise<BuildResult> {
@@ -177,6 +211,7 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
       logo: {
         status: picked.ref ? picked.role : 'none',
         source: picked.source,
+        ...(picked.score != null ? { score: picked.score } : {}),
         ...(picked.note ? { note: picked.note } : {}),
       },
       colors: { count: colorCount },
@@ -307,6 +342,7 @@ interface PickedMark {
   ref?: string;
   role: 'primary' | 'alternate';
   source: LogoSource | null;
+  score?: number;
   background?: 'light' | 'dark';
   note?: string;
 }
@@ -365,19 +401,48 @@ async function downloadMark(
       failed = true;
       continue;
     }
+    const shape = opts.inspectMark ? await opts.inspectMark(buf).catch(() => null) : null;
+    // An invisible mark is worse than none: it looks like a broken image
+    // everywhere it is used, and nobody can tell why. Try the next candidate.
+    if (shape?.blank) continue;
     // A vector was sized on the way in, so the floor does not apply to it.
-    const edge = candidate.svg || !opts.probeLongEdge ? null : await opts.probeLongEdge(buf).catch(() => null);
+    const edge = candidate.svg ? null : (shape?.longEdge ?? null);
     const tiny = edge !== null && edge < 256;
-    const role: 'primary' | 'alternate' = candidate.role === 'alternate' || tiny ? 'alternate' : 'primary';
+    const tall =
+      shape?.width != null &&
+      shape?.height != null &&
+      shape.width > 0 &&
+      shape.height / shape.width > MAX_PORTRAIT_RATIO;
+    // Size is evidence the score cannot see: a 1024px icon a site went to the
+    // trouble of shipping is a logo, whatever the markup around it said. Not
+    // for a vector, because that size is one we synthesised on the way in. And
+    // a caller that supplies no way to measure has opted out of this judgement
+    // rather than failed it, so it is not held against the candidate.
+    // ...but only where the source already claims to BE the site's icon. A
+    // header image is a positional guess, and allbirds.com's first one is a
+    // 2000px product photo, so size there is evidence of nothing.
+    const declaredIcon = ICON_SOURCES.has(candidate.source);
+    const unmeasured = !candidate.svg && shape === null;
+    const bigEnough = edge !== null ? declaredIcon && edge >= 512 : unmeasured;
+    const unsure = candidate.score < CONFIDENT_SCORE && !bigEnough;
+    const role: 'primary' | 'alternate' =
+      candidate.role === 'alternate' || tiny || tall || unsure ? 'alternate' : 'primary';
     const picked: PickedMark = {
       ref,
       role,
       source: candidate.source,
+      score: candidate.score,
       ...(candidate.background ? { background: candidate.background } : {}),
     };
     if (role === 'primary') return picked;
     if (tiny)
       picked.note = `The site icon is favicon-sized (${edge}px), so it was saved as an alternate mark, not the logo. Upload your real logo in Settings.`;
+    else if (tall)
+      picked.note =
+        'The only image we could find is much taller than it is wide, so it was saved as an alternate mark rather than the logo. Upload your real logo in Settings.';
+    else if (unsure)
+      picked.note =
+        'We are not confident this is your logo, so it was saved as an alternate mark. Check it, or upload your real logo in Settings.';
     else if (candidate.source === 'og-image')
       picked.note =
         'No site icon was found; the social share image was saved as an alternate mark. Check it before treating it as the logo.';

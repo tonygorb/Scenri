@@ -41,9 +41,32 @@ export function hexToHsl(hex: string): { h: number; s: number; l: number } {
  * both as one occurrence is how a palette ends up being four greys.
  */
 const BRANDISH_VAR = /--(?:[\w-]*)(brand|primary|accent|secondary|theme|main)/i;
+
+/**
+ * A framework's catalogue, not a brand's decision.
+ *
+ * Tailwind v4 ships its whole default palette as `--color-red-500` and friends,
+ * plus a few hundred `--tw-*` machinery variables, straight into the
+ * stylesheet. Counting those measures Tailwind. Vercel's homepage declares 527
+ * colour properties this way and almost none of them are Vercel's.
+ *
+ * `--color-primary` is deliberately still counted: the shade number is what
+ * marks a catalogue entry.
+ */
+const FRAMEWORK_VAR = /^--(tw-|[\w-]*-(?:50|\d{3})$)/i;
+
+/**
+ * A generated utility class, which is the framework's output rather than the
+ * site's design. `.bg-gray-700`, `.fill-red-500\/70` and their dark variants
+ * repeat across a whole stylesheet and would otherwise out-count anything a
+ * designer chose: tailwindcss.com's own homepage came back slate-700.
+ */
+const UTILITY_CLASS =
+  /\.(bg|text|border|fill|stroke|ring|from|via|to|shadow|outline|divide|accent|caret|decoration|placeholder)-[a-z]+-\d{2,3}\b/i;
 const INTERACTIVE = /(btn|button|cta|primary|brand|badge|header|nav\b|link|hero)/i;
 
 export function weightOf(hit: CssColor): number {
+  if (FRAMEWORK_VAR.test(hit.property) || UTILITY_CLASS.test(hit.context)) return 0;
   if (hit.property.startsWith('--')) return BRANDISH_VAR.test(hit.property) ? 6 : 2;
   if (INTERACTIVE.test(hit.context) || INTERACTIVE.test(hit.property)) return 3;
   return 1;
@@ -135,7 +158,7 @@ export function declaredPalette(hits: readonly CssColor[], live: readonly string
   const best = new Map<DeclaredRole, { hex: string; rank: number }>();
   for (const hit of hits) {
     const named = roleOfProperty(hit.property);
-    if (!named || !selectorIsLive(hit.context, live)) continue;
+    if (!named || FRAMEWORK_VAR.test(hit.property) || !selectorIsLive(hit.context, live)) continue;
     // Specificity in miniature, because it settles real disagreements. A rule
     // scoped to a class the document is actually wearing is this site stating
     // its own theme; a rule scoped to some other class is a component's
@@ -171,7 +194,9 @@ export function collectColors(
       // colour. Without this, a builder that ships a dozen palettes hands
       // back whichever one it happens to repeat most.
       if (live.length > 0 && !selectorIsLive(hit.context, live)) continue;
-      counts.set(hit.hex, (counts.get(hit.hex) ?? 0) + weightOf(hit) * weightScale);
+      const weight = weightOf(hit) * weightScale;
+      if (weight <= 0) continue;
+      counts.set(hit.hex, (counts.get(hit.hex) ?? 0) + weight);
     }
   }
   return [...counts.entries()].map(([hex, weight]) => ({ hex, weight }));
@@ -188,8 +213,9 @@ export function dedupeNearby(hits: readonly ColorHit[]): ColorHit[] {
   const buckets = new Map<string, ColorHit>();
   for (const hit of [...hits].sort((a, b) => b.weight - a.weight)) {
     const { h, s, l } = hexToHsl(hit.hex);
-    const key =
-      s < 0.12 ? `grey:${Math.round(l * 8)}` : `${Math.round(h / 12)}:${Math.round(s * 8)}:${Math.round(l * 8)}`;
+    const key = isNeutral(hit.hex)
+      ? `grey:${Math.round(l * 8)}`
+      : `${Math.round(h / 12)}:${Math.round(s * 8)}:${Math.round(l * 8)}`;
     const seen = buckets.get(key);
     if (seen) seen.weight += hit.weight;
     else buckets.set(key, { ...hit });
@@ -202,6 +228,28 @@ export function dropSingletons(hits: readonly ColorHit[]): ColorHit[] {
   if (hits.length < 12) return [...hits];
   const kept = hits.filter((h) => h.weight > 1);
   return kept.length > 0 ? kept : [...hits];
+}
+
+/**
+ * How far a colour is from grey, on its own terms.
+ *
+ * HSL saturation cannot answer this near the lightness extremes, because it
+ * divides by a vanishing denominator: #f6f6ef reports 0.28 saturation and is a
+ * grey, #0d1012 reports 0.16 and is black. Measured across a dozen real sites,
+ * every grey mistaken for a brand colour sat under 0.03 chroma and every real
+ * brand colour over 0.22, so the gap is wide and the threshold is not delicate.
+ */
+export function chromaOf(hex: string): number {
+  const r = Number.parseInt(hex.slice(1, 3), 16) / 255;
+  const g = Number.parseInt(hex.slice(3, 5), 16) / 255;
+  const b = Number.parseInt(hex.slice(5, 7), 16) / 255;
+  return Math.max(r, g, b) - Math.min(r, g, b);
+}
+
+/** A colour that says nothing about a brand: a grey, a near-white, a near-black. */
+export function isNeutral(hex: string): boolean {
+  const { l } = hexToHsl(hex);
+  return chromaOf(hex) < 0.1 || l < 0.06 || l > 0.96;
 }
 
 export interface Palette {
@@ -222,8 +270,7 @@ export function pickPalette(hits: readonly ColorHit[]): Palette {
   const saturated: string[] = [];
   const neutrals: string[] = [];
   for (const c of sorted) {
-    const { s, l } = hexToHsl(c);
-    if (s < 0.12 || l < 0.06 || l > 0.96) neutrals.push(c);
+    if (isNeutral(c)) neutrals.push(c);
     else saturated.push(c);
   }
   return {

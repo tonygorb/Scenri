@@ -160,3 +160,35 @@ describe('a page whose whole body is inside something called a header', () => {
     expect(ranked().some((c) => c.url?.includes('facebook.com/tr'))).toBe(false);
   });
 });
+
+/**
+ * allbirds.com opens with a country picker, and the first image in its header
+ * is `cdn.shopify.com/static/images/flags/us.svg`. It was crowned. Handing
+ * someone the flag of a country as their brand mark is the kind of wrong that
+ * loses a person before they have started.
+ */
+describe('a region switcher is not a brand', () => {
+  const page = (body: string) => cheerio.load(`<html><body><header>${body}</header></body></html>`);
+
+  it.each([
+    ['a flag in the path', '<img src="https://cdn.shop.example/static/images/flags/us.svg" alt="United States">'],
+    ['a country class', '<img src="/a.png" class="country-select__icon" alt="">'],
+    ['a locale switcher', '<img src="/b.png" alt="Change locale">'],
+    ['a currency picker', '<img src="/c.png" class="currency-flag" alt="">'],
+  ])('refuses %s', (_what, markup) => {
+    const found = logoCandidates(page(markup), new URL('https://shop.example/'));
+    expect(found.every((c) => (c.score ?? 0) <= 0 || c.why.includes('a flag or a region switcher'))).toBe(true);
+  });
+
+  // The plural is the whole point: a CDN path says "flags/", not "flag", and
+  // an anchored \bflag\b matched neither.
+  it('matches the plural, which is how a CDN actually spells it', () => {
+    const withFlag = page('<img src="https://cdn.shop.example/static/images/flags/us.svg" alt="United States">');
+    const plain = page('<img src="https://cdn.shop.example/static/images/us.svg" alt="United States">');
+    const flagScore = logoCandidates(withFlag, new URL('https://shop.example/'))[0]?.score ?? 0;
+    const plainScore = logoCandidates(plain, new URL('https://shop.example/'))[0]?.score ?? 0;
+    expect(flagScore).toBeLessThan(plainScore);
+    // Far enough below the confidence floor that it can never be called the logo.
+    expect(flagScore).toBeLessThan(80);
+  });
+});

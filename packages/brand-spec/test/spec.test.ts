@@ -221,7 +221,7 @@ describe('buildFromUrl', () => {
     const { brand, warnings } = await buildFromUrl('https://acme.coffee/', {
       fetchImpl,
       saveAsset: async () => 'asset:beefbeef',
-      probeLongEdge: async () => 32,
+      inspectMark: async () => ({ longEdge: 32, width: 32, height: 32, blank: false }),
     });
     const b = brand as any;
     expect(b.logos[0]).toEqual({ role: 'alternate', file: 'asset:beefbeef' });
@@ -233,7 +233,7 @@ describe('buildFromUrl', () => {
     const { brand, warnings } = await buildFromUrl('https://acme.coffee/', {
       fetchImpl,
       saveAsset: async () => 'asset:beefbeef',
-      probeLongEdge: async () => 1024,
+      inspectMark: async () => ({ longEdge: 1024, width: 1024, height: 1024, blank: false }),
     });
     expect((brand as any).logos[0].role).toBe('primary');
     expect(warnings).toEqual([]);
@@ -298,5 +298,67 @@ describe('buildFromUrl', () => {
       await expect(buildFromUrl(input, { fetchImpl: never })).rejects.toThrow(sentence);
       await expect(buildFromUrl(input, { fetchImpl: never })).rejects.not.toThrow(/Invalid URL/);
     }
+  });
+});
+
+/**
+ * What a mark turns out to be once it has been decoded, which is the only
+ * place some of this is knowable. Every case here was a real site handing back
+ * a confidently wrong logo.
+ */
+describe('a mark has to survive being looked at', () => {
+  const html = `<html><head><title>Acme</title></head><body>
+    <header><img src="/mark.png" alt="Acme logo" width="200" height="60"></header>
+  </body></html>`;
+  const bytes = Buffer.from([1, 2, 3]);
+  const fetchImpl = (async (input: any) =>
+    String(input).endsWith('/mark.png') ? new Response(bytes) : new Response(html)) as unknown as typeof fetch;
+
+  const build = (shape: Partial<Record<string, unknown>> | null) =>
+    buildFromUrl('https://acme.example/', {
+      fetchImpl,
+      saveAsset: async () => 'asset:mark',
+      inspectMark: async () =>
+        shape === null ? null : ({ longEdge: 600, width: 600, height: 200, blank: false, ...shape } as never),
+    });
+
+  it('crowns a mark that is large, visible and a sensible shape', async () => {
+    const { report } = await build({});
+    expect(report.logo.status).toBe('primary');
+  });
+
+  // linear.app's header mark is white-on-dark: on a light background it is
+  // nothing at all, and a mark nobody can see reads as a broken image.
+  it('refuses a mark that would be invisible, rather than saving it', async () => {
+    const { brand, warnings } = await build({ blank: true });
+    expect(brand.logos).toBeUndefined();
+    expect(warnings.join(' ')).toMatch(/no logo/i);
+  });
+
+  // paulgraham.com's only image is a 69x399 column of nav buttons.
+  it('will not call a tall column the logo, but keeps it as an alternate', async () => {
+    const { report, warnings } = await build({ width: 69, height: 399, longEdge: 399 });
+    expect(report.logo.status).toBe('alternate');
+    expect(warnings.join(' ')).toMatch(/taller than it is wide/i);
+  });
+
+  it('says out loud when it is not sure, instead of asserting', async () => {
+    const weak = `<html><head><title>Acme</title><link rel="icon" href="/mark.png"></head><body></body></html>`;
+    const weakFetch = (async (input: any) =>
+      String(input).endsWith('/mark.png') ? new Response(bytes) : new Response(weak)) as unknown as typeof fetch;
+    const { report, warnings } = await buildFromUrl('https://acme.example/', {
+      fetchImpl: weakFetch,
+      saveAsset: async () => 'asset:mark',
+      inspectMark: async () => ({ longEdge: 300, width: 300, height: 300, blank: false }),
+    });
+    expect(report.logo.status).toBe('alternate');
+    expect(warnings.join(' ')).toMatch(/not confident/i);
+  });
+
+  // A caller that supplies no way to measure has opted out of the judgement
+  // rather than failed it.
+  it('does not hold a missing measurement against a candidate', async () => {
+    const { report } = await build(null);
+    expect(report.logo.status).toBe('primary');
   });
 });

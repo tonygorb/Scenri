@@ -60,6 +60,14 @@ const LOGOISH = /(^|[^a-z])(logo|wordmark|brandmark|lockup|masthead)([^a-z]|$)/i
 const NOT_OURS =
   /(client|customer|partner|sponsor|press|award|integrat|collab|affiliat|featured-in|trusted-by|logos?-(wall|grid|cloud|strip)|testimonial|marquee|as-seen)/i;
 const SOCIAL = /(facebook|instagram|twitter|linkedin|youtube|tiktok|pinterest|threads|whatsapp|x-logo|social)/i;
+/**
+ * A region switcher, not a brand.
+ *
+ * allbirds.com opens with a country picker, and its first header image is the
+ * flag of the United States. Nothing about a flag says logo, and handing one to
+ * someone as their brand mark is the kind of wrong that is worse than empty.
+ */
+const FLAGGISH = /(\bflags?\b|locale|country|region|currency|\blang(uage)?\b)/i;
 const TRACKER = /(pixel|1x1|spacer|blank|beacon|analytics|doubleclick|facebook\.com\/tr)/i;
 const PHOTOISH = /(hero|banner|cover|photo|screenshot|slide|\bbg\b|background)/i;
 const DARKISH = /(dark|inverse|inverted|white|light-on)/i;
@@ -320,6 +328,10 @@ function semanticTerms(text: string, ancestry: string, host: string, why: string
   }
   if (SOCIAL.test(text)) {
     why.push('a social icon');
+    score -= 60;
+  }
+  if (FLAGGISH.test(text)) {
+    why.push('a flag or a region switcher');
     score -= 60;
   }
   if (TRACKER.test(text)) {

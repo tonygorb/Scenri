@@ -26,6 +26,7 @@ import { createUpdateChecker, type UpdateChecker } from './update/check.js';
 import { createContentFetcher, type ContentFetcher } from './content/fetch.js';
 import type { stageVersion } from './update/stage.js';
 import { validateBrand, buildFromUrl, mergeScrape, normalizeSiteUrl } from '@scenri/brand';
+import { inspectMark } from './markShape.js';
 import { IGNORE_ENV_KEYS_SETTING, ignoreEnvKeysGetter, type EngineRegistry } from './engines.js';
 import { brandJsonWithCatalogProducts, resolveLibraryProduct, runningImportCount } from './catalogImport.js';
 import {
@@ -230,10 +231,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       saveAsset: async (buf) => `asset:${core.images.save(await toMarkPng(buf))}`,
       // Measured as stored (post-toMarkPng), so the scrape judges the same
       // pixels the compiler will one day attach.
-      probeLongEdge: async (buf) => {
-        const m = await sharp(await toMarkPng(buf)).metadata();
-        return Math.max(m.width ?? 0, m.height ?? 0) || null;
-      },
+      inspectMark: (buf) => inspectMark(buf, toMarkPng),
       createdWith: `${meta.name}/${meta.version}`,
     });
     const row = core.store.createBrand(brand as any);
@@ -364,10 +362,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       fetchImpl: opts.fetchImpl,
       guard: scrapeGuard(),
       saveAsset: async (buf) => `asset:${core.images.save(await toMarkPng(buf))}`,
-      probeLongEdge: async (buf) => {
-        const m = await sharp(await toMarkPng(buf)).metadata();
-        return Math.max(m.width ?? 0, m.height ?? 0) || null;
-      },
+      inspectMark: (buf) => inspectMark(buf, toMarkPng),
       createdWith: `${meta.name}/${meta.version}`,
     });
     const { brand: merged, suggestions } = mergeScrape(brand.json, scraped);
