@@ -458,7 +458,9 @@ function fromCandidate(c: Candidate): InsertChoice {
 }
 
 function rankedKind(kind: IngredientKind, items: Candidate[], bookmarked: ReadonlySet<string>): InsertChoice[] {
-  return pickList(kind, items, { currentId: null, query: '', bookmarked, shown: items.length }).items.map(fromCandidate);
+  return pickList(kind, items, { currentId: null, query: '', bookmarked, shown: items.length }).items.map(
+    fromCandidate,
+  );
 }
 
 function listed(items: InsertChoice[], shown: number): InsertList {

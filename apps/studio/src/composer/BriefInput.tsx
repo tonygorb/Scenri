@@ -29,7 +29,6 @@ import {
   chipOpensPicker,
   chipOpensSheet,
   findIngredient,
-  INSERT_EMPTY,
   insertPageSize,
   insertShortlist,
   previewHashOf,
@@ -247,7 +246,9 @@ export const BriefInput = forwardRef<
     flagRef.current = flag;
   }, [flag]);
   const [query, setQuery] = useState('');
-  const [insertShown, setInsertShown] = useState(INSERT_EMPTY.Products);
+  // Through the accessor, not the literal: `INSERT_EMPTY` is `as const`, so
+  // reading the member directly types this state as `8` rather than a number.
+  const [insertShown, setInsertShown] = useState(insertPageSize('$'));
   const [activeOptionId, setActiveOptionId] = useState<string | null>(null);
   const pasted = useRef(false);
   const uidSeq = useRef(0);

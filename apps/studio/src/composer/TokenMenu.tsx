@@ -113,8 +113,7 @@ export function TokenMenu({
       const liveOk = live && caretReliable(live, vp) ? live : null;
       if (liveOk) snapRef.current = caretOnLine(liveOk, lineRect);
       const snapped = snapRef.current ? caretFromLine(lineRect, snapRef.current) : null;
-      const caret =
-        pickInsertCaret(liveOk, snapped, held) ?? (held ? null : (anchor?.getBoundingClientRect() ?? null));
+      const caret = pickInsertCaret(liveOk, snapped, held) ?? (held ? null : (anchor?.getBoundingClientRect() ?? null));
       return placeInsertMenu(caret, card, vp, { phone, line: lineRect, height });
     },
     [anchor, composer, line, phone],

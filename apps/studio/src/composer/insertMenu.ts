@@ -76,7 +76,12 @@ export function copyRect(r: Rect): Rect {
 }
 
 export function caretOnLine(caret: Rect, line: Rect): CaretOnLine {
-  return { x: caret.left - line.left, y: caret.top - line.top, w: caret.right - caret.left, h: caret.bottom - caret.top };
+  return {
+    x: caret.left - line.left,
+    y: caret.top - line.top,
+    w: caret.right - caret.left,
+    h: caret.bottom - caret.top,
+  };
 }
 
 export function caretFromLine(line: Rect, at: CaretOnLine): Rect {
