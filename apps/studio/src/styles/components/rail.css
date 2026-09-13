@@ -80,6 +80,7 @@
   background: var(--sc-panel);
   color: var(--sc-fg2);
   opacity: 0;
+  transform: translateY(-50%);
   transition:
     opacity 160ms ease,
     color 160ms ease,
@@ -89,15 +90,15 @@
   color: var(--sc-fg);
   border-color: var(--sc-line-strong);
 }
-/* The centre of the control sits on the edge of the row, so it reads as the
-   row's handle rather than as something parked on the first picture. */
+/* Inside the row, the way the product page's thumb rail has always drawn it.
+   Straddling the edge was tried and reads as a control belonging to the page
+   rather than to the row, and it drifts further from the pictures the wider
+   the window gets. */
 .sc-rail-arrow.prev {
-  left: 0;
-  transform: translate(-50%, -50%);
+  left: 8px;
 }
 .sc-rail-arrow.next {
-  right: 0;
-  transform: translate(50%, -50%);
+  right: 8px;
 }
 .sc-rail:hover .sc-rail-arrow,
 .sc-rail-arrow:focus-visible {

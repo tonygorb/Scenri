@@ -224,11 +224,13 @@ export function PresenterPage() {
         )}
 
         <h1>{presenter.name}</h1>
-        {presenter.descriptor && <p className="sc-lookpage-lede">{presenter.descriptor}</p>}
-
         {/* The verticals they suit, as the app's own chips. They belong with
             the person, not in the record below: this is the thing you scan a
-            presenter for. Changing them is in Details. */}
+            presenter for. Changing them is in Details.
+
+            Above the caption, not under it: chips and buttons are the same
+            pill, so a row of each with nothing between them read as one bank
+            of controls. The caption is the thing that keeps them apart. */}
         {presenter.suitableCategories.length > 0 && (
           <ul className="sc-presenterpage-cats" aria-label="Filed under">
             {presenter.suitableCategories.map((c) => (
@@ -238,6 +240,8 @@ export function PresenterPage() {
             ))}
           </ul>
         )}
+
+        {presenter.descriptor && <p className="sc-lookpage-lede">{presenter.descriptor}</p>}
 
         <div className="sc-lookpage-acts">
           <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyPresenter(presenterId)}>
