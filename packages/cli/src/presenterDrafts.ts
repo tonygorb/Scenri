@@ -611,8 +611,21 @@ const hashOfFile = (file: unknown): string | null => {
   return s.startsWith('asset:') && HASH.test(s.slice(6)) ? s.slice(6) : null;
 };
 
-/** The record's own words, cut the way the session's direction is seeded from them, so an unchanged direction compares equal. */
-const seedDirection = (p: CustomPresenter) => str(p.identityNotes ?? p.descriptor, 400);
+/**
+ * The record's own words, cut the way the session's direction is seeded from
+ * them, so an unchanged direction compares equal.
+ *
+ * `promptName` is last and it is the one that matters for a person who was
+ * described rather than photographed: the save writes their direction there
+ * (`promptName: a?.promptName ?? rec.direction`), and neither of the other two
+ * is written at all unless an analyzer filled them. So an edit session opened
+ * on a described presenter came back with no direction, and the guard that
+ * refuses to draw a synthetic draft without one turned every redraw in that
+ * session into "describe who they are in a sentence". Five browser tests
+ * failed on it and the whole edit flow was unusable for anybody who typed a
+ * person instead of uploading one.
+ */
+const seedDirection = (p: CustomPresenter) => str(p.identityNotes ?? p.descriptor ?? p.promptName, 400);
 
 /**
  * A record's shots as the six slots, plus whatever it holds under an angle

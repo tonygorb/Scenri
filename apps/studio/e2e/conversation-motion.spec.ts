@@ -357,6 +357,13 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('Roughly how old?');
     await settle(page);
     await log(page).getByRole('button', { name: 'Skip' }).click();
+    // heritage and skin now stand between the age and the hair
+    await expect(log(page)).toContainText('Where are they from?');
+    await settle(page);
+    await log(page).getByRole('button', { name: 'Skip' }).click();
+    await expect(log(page)).toContainText('And their skin?');
+    await settle(page);
+    await log(page).getByRole('button', { name: 'Skip' }).click();
     await expect(log(page)).toContainText('What colour is their hair?');
     await settle(page, 600);
     // the step owns the answer; saying it in words is asked for first
