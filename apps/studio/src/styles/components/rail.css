@@ -90,15 +90,17 @@
   color: var(--sc-fg);
   border-color: var(--sc-line-strong);
 }
-/* Inside the row, the way the product page's thumb rail has always drawn it.
-   Straddling the edge was tried and reads as a control belonging to the page
-   rather than to the row, and it drifts further from the pictures the wider
-   the window gets. */
+/* The centre of the control sits on the row's edge line: half of it over the
+   first or last item, half in the margin beside it. It reads as the handle of
+   the row rather than as something parked on a picture, and it never covers
+   a whole reference. */
 .sc-rail-arrow.prev {
-  left: 8px;
+  left: 0;
+  transform: translate(-50%, -50%);
 }
 .sc-rail-arrow.next {
-  right: 8px;
+  right: 0;
+  transform: translate(50%, -50%);
 }
 .sc-rail:hover .sc-rail-arrow,
 .sc-rail-arrow:focus-visible {

@@ -1149,7 +1149,12 @@
   max-width: var(--sc-measure-lede);
   list-style: none;
 }
+/* Not a pill. A full radius is the app's shape for something you press, and
+   these are labels: rounding them like a field instead of like a button is
+   what stops a row of categories reading as a second bank of controls under
+   the name. Nothing here has a hover, a focus or a pressed state either. */
 .sc-chip[data-static] {
+  border-radius: var(--sc-radius);
   cursor: default;
 }
 
