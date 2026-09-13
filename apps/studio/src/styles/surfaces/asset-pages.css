@@ -907,59 +907,126 @@
   color: var(--sc-fg3);
 }
 
-/* ---- 6.9 a presenter's reference set: the pictures Scenri understands them by ---- */
+/* ---- 6.9 a presenter's reference set: the pictures Scenri understands them by ----
+   A product's references are the same object inspected one at a time, which is
+   why 6.7 gives them a stage. A presenter's are the same person from several
+   sides, and the only question they answer is whether the sides agree: that is
+   read across, at one height, the way a character turnaround has always been
+   drawn. So the set is one row, always, however many there are.
+
+   The width of a tile is the row divided by the count, held between a floor
+   and a ceiling: one reference is a portrait rather than a banner, six still
+   fit the column, and a set too large to fit at the floor scrolls rather than
+   wrapping into a second row that breaks the comparison. `--sc-refset-n` is
+   set on the element, so the rule covers any count rather than the handful
+   somebody thought to write a selector for. */
 .sc-refset {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  --sc-refset-n: 3;
+  --sc-refset-gap: 14px;
+  --sc-refset-floor: 150px;
+  --sc-refset-max: 380px;
+  display: flex;
+  flex-wrap: nowrap;
+  /* `safe` centres a set that fits and falls back to the start edge when it
+     does not, so a long set never puts its first reference out of reach. */
+  justify-content: safe center;
+  gap: var(--sc-refset-gap);
   width: 100%;
-  max-width: 640px;
-  margin: 8px auto 0;
-  padding: 0;
+  margin: 0 auto;
+  padding: 2px 0;
   list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
 }
-.sc-refset[data-count="1"] {
-  grid-template-columns: minmax(0, 1fr);
-  max-width: 300px;
-}
-.sc-refset[data-count="2"] {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  max-width: 460px;
-}
-.sc-refset[data-count="4"],
-.sc-refset[data-count="5"],
-.sc-refset[data-count="6"] {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
-  max-width: 920px;
+.sc-refset::-webkit-scrollbar {
+  display: none;
 }
 .sc-refset li {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--sc-space-4);
   min-width: 0;
+  scroll-snap-align: center;
+  flex: 0 0
+    clamp(
+      var(--sc-refset-floor),
+      calc((100% - (var(--sc-refset-n) - 1) * var(--sc-refset-gap)) / var(--sc-refset-n)),
+      var(--sc-refset-max)
+    );
 }
 .sc-refset-tile {
   display: block;
   width: 100%;
   aspect-ratio: 4 / 5;
   padding: 0;
-  border: none;
+  /* A hairline, because these photographs are shot on a white sweep and the
+     raised ground is near-white in the light theme: without an edge the tiles
+     dissolve into the page and the row stops reading as a set of frames. */
+  border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-lg);
   overflow: hidden;
   background: var(--sc-raised);
   cursor: zoom-in;
 }
+/* contain, not cover. Every frame Scenri draws is 4:5 already, so for the
+   ordinary set this is the same pixels either way. It is the legacy and
+   curated records that differ, and a full-body reference squared off to fit
+   loses the feet it exists to show. A letterbox is honest; an amputation is
+   not. */
 .sc-refset-tile img {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 .sc-refset-lb {
   font-size: var(--sc-text-body);
   color: var(--sc-fg2);
+}
+
+/* The photographs they were built from. Provenance, so they sit under the
+   set rather than in it, and small enough to read as a footnote to it. */
+.sc-presenterpage-sources {
+  margin-top: var(--sc-space-8);
+}
+.sc-presenterpage-sources-lb {
+  margin: 0 0 var(--sc-space-5);
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
+}
+.sc-presenterpage-sources-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sc-space-4);
+}
+.sc-presenterpage-source {
+  width: 72px;
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: var(--sc-radius);
+  overflow: hidden;
+  background: var(--sc-raised);
+  cursor: zoom-in;
+}
+/* A phone camera hands over whatever shape it was held at, so these are the
+   one set on the page with no ratio in common. Contain again. */
+.sc-presenterpage-source img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* What is true about them, under the pictures that show it. */
+.sc-presenterpage-meta {
+  margin-top: var(--sc-space-8);
+}
+.sc-presenterpage-meta .sc-lookpage-facts {
+  margin-bottom: 0;
 }
 .sc-presenterpage-cont {
   display: inline-flex;
@@ -981,27 +1048,18 @@
   text-align: center;
   gap: 18px;
 }
-.sc-presenterpage-sources-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-}
-.sc-presenterpage-sources-row .sc-refset-tile {
-  width: 56px;
-  aspect-ratio: 4 / 5;
-  border-radius: var(--sc-radius-sm);
-}
 @media (max-width: 767px) {
-  .sc-refset,
-  .sc-refset[data-count="4"],
-  .sc-refset[data-count="5"],
-  .sc-refset[data-count="6"] {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+  /* A phone shows three at the floor and scrolls the rest, and the row bleeds
+     to the gutter so the first tile can start at the screen edge. */
+  .sc-refset {
+    --sc-refset-gap: 10px;
+    --sc-refset-floor: 104px;
+    margin-inline: calc(var(--sc-gutter) * -1);
+    padding-inline: var(--sc-gutter);
+    scroll-padding-inline: var(--sc-gutter);
   }
-  .sc-refset[data-count="6"] {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .sc-presenterpage-source {
+    width: 60px;
   }
   .sc-lookpage-acts {
     width: 100%;
@@ -1014,7 +1072,7 @@
   align-items: center;
   gap: var(--sc-space-4);
   max-width: var(--sc-measure-lede);
-  margin: 0 auto var(--sc-space-8);
+  margin: var(--sc-space-5) auto 0;
 }
 
 .sc-presenterpage-filed-lb {
@@ -1026,4 +1084,145 @@
 .sc-presenterpage-filed > :last-child {
   flex: 1;
   min-width: 0;
+}
+
+/* ---- 6.10 a presenter's own page: the face, the record, the details ----
+   Three zones, not one list. The identity is centred and tight (a circle, a
+   name, a caption); the reference row is the widest thing on the page and the
+   only thing at full contrast; the record is a left-aligned footer. The page
+   used to stack six centred rows of the same weight before the first picture,
+   which gave the eye nothing to land on and the page no base. */
+
+/* The circle above the name. It is a crop of the portrait view, which is a
+   head already, so it needs no enlarging; a record with no portrait keeps the
+   old top-weighted hint, and nothing is scaled up to fake one. */
+.sc-presenterpage-avatar {
+  width: 112px;
+  height: 112px;
+  margin: 0 auto var(--sc-space-6);
+  border-radius: var(--sc-radius-full);
+  overflow: hidden;
+  background: var(--sc-raised);
+  border: 1px solid var(--sc-line);
+}
+/* The record's avatar is a square head-and-shoulders portrait, which is the
+   right framing for a 15px chip and too loose for a circle this size: the
+   head lands at about a third of its height and reads as a torso. A round
+   frame wants the face, so this surface closes in. The source is 512px and
+   shown at 112, so there is resolution to spare for it. */
+.sc-presenterpage-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.55);
+  transform-origin: 50% 22%;
+}
+/* The CSS half of the `presenterVisual` contract: no avatar existed, so this
+   picture was framed for something else and has to be pulled much further. */
+.sc-presenterpage-avatar img[data-crop="top"] {
+  transform: scale(3.2);
+  transform-origin: 50% 16%;
+}
+
+/* Tight inside the identity, generous between it and what follows: the beats
+   are what say these are three things rather than nine. */
+.sc-presenterpage h1 {
+  margin-bottom: var(--sc-space-5);
+}
+.sc-presenterpage .sc-lookpage-lede {
+  margin-bottom: 0;
+}
+.sc-presenterpage .sc-lookpage-acts {
+  margin-top: var(--sc-space-8);
+  margin-bottom: 44px;
+}
+
+/* The record: label and value, left aligned, the width of a read line. */
+.sc-prec {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 620px);
+  gap: var(--sc-space-5) var(--sc-space-7);
+  justify-content: start;
+  width: 100%;
+  margin: 56px auto 0;
+  padding-top: var(--sc-space-8);
+  border-top: 1px solid var(--sc-line);
+  text-align: left;
+}
+.sc-prec:empty {
+  display: none;
+}
+.sc-prec dt {
+  margin: 0;
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
+}
+.sc-prec dd {
+  margin: 0;
+  font-size: var(--sc-text-body);
+  line-height: 1.6;
+  color: var(--sc-fg2);
+  text-wrap: pretty;
+}
+.sc-prec-manage {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin: var(--sc-space-7) auto 0;
+}
+@media (max-width: 640px) {
+  .sc-prec {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sc-space-2) 0;
+    margin-top: 40px;
+  }
+  .sc-prec dt {
+    margin-top: var(--sc-space-5);
+  }
+  .sc-prec dt:first-of-type {
+    margin-top: 0;
+  }
+  .sc-prec-manage {
+    justify-content: center;
+  }
+}
+
+/* ---- the details sheet ---- */
+.sc-pdetails .sc-newdlg-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-7);
+}
+.sc-pdetails-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  text-align: left;
+}
+.sc-pdetails-lb {
+  font-size: var(--sc-text-body);
+  font-weight: 500;
+  color: var(--sc-fg);
+}
+.sc-pdetails-field {
+  width: 100%;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: var(--sc-panel);
+  color: var(--sc-fg);
+  font: 400 var(--sc-text-input) / 1.4 var(--sc-font);
+}
+.sc-pdetails-field::placeholder {
+  color: var(--sc-fg3);
+}
+.sc-pdetails-field:focus {
+  outline: none;
+  border-color: var(--sc-focus);
+}
+.sc-pdetails-hint {
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
 }

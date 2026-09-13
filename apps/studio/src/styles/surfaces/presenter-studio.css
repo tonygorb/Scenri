@@ -445,7 +445,7 @@
   height: 112px;
   overflow: hidden;
   border-radius: var(--sc-radius-md);
-  background: var(--sc-pstudio-field);
+  background: var(--sc-pstudio-field, var(--sc-hover));
 }
 
 .sc-pstudio-slot-inner img {
@@ -494,13 +494,13 @@
   padding: 8px 12px;
   border: 1.5px solid var(--sc-line);
   border-radius: var(--sc-radius-md);
-  background: var(--sc-pstudio-field);
+  background: var(--sc-pstudio-field, var(--sc-hover));
   font-size: 15px;
   line-height: 22px;
 }
 
 .sc-pstudio .sc-in::placeholder {
-  color: var(--sc-pstudio-placeholder);
+  color: var(--sc-pstudio-placeholder, var(--sc-fg3));
 }
 
 /* a value that opens a list: the rail's own field, with the caret at its end */
@@ -513,7 +513,7 @@
   padding: 0 12px;
   border: 1.5px solid var(--sc-line);
   border-radius: var(--sc-radius-md);
-  background: var(--sc-pstudio-field);
+  background: var(--sc-pstudio-field, var(--sc-hover));
   color: var(--sc-fg);
   font-size: 15px;
   text-align: left;
@@ -542,7 +542,7 @@
 }
 
 .sc-pstudio-picker-lb[data-empty] {
-  color: var(--sc-pstudio-placeholder);
+  color: var(--sc-pstudio-placeholder, var(--sc-fg3));
 }
 
 /* the list itself: the app's menu, with a box at the top that narrows it */
