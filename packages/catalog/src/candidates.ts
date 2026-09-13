@@ -42,6 +42,20 @@ export const DEFAULT_SCAN_BUDGET: ScanBudget = {
   concurrency: 4,
 };
 
+/**
+ * Signals that mean a shop, rather than a platform that can host one.
+ *
+ * `webflow-html` is deliberately absent: it fires on any site built with
+ * Webflow, and on a few that only talk about it.
+ */
+const COMMERCE_SIGNALS = new Set([
+  'products.json',
+  'shopify-html',
+  'wc-store-api',
+  'woocommerce-html',
+  'webflow-commerce',
+]);
+
 export interface ScanOptions {
   url: string;
   fetchImpl?: typeof fetch;
@@ -62,6 +76,8 @@ export async function scanForCandidates(opts: ScanOptions): Promise<ScanResult> 
     onProgress: opts.onProgress,
   };
   const warnings: string[] = [];
+  // Declared up here because every early return reports through `done`.
+  const stats = { pages: 0, bytes: 0 };
 
   const robots = await fetchRobots(ctx);
   if (robots.crawlDelayMs) warnings.push('This site asks readers to go slowly, so the preview is smaller');
@@ -90,14 +106,21 @@ export async function scanForCandidates(opts: ScanOptions): Promise<ScanResult> 
     // A site we never identified as a shop, with nothing shop-shaped on it,
     // simply is not one. A storefront we *did* identify that yielded no list
     // is a different story, and the screen must not call it "no products".
-    const verdict: CommerceVerdict = detection.platform === 'generic' ? 'none' : 'likely';
-    return done(verdict, [], [], 0, countSource, warnings);
+    //
+    // "Identified" has to mean commerce evidence, not a platform guess. The
+    // Webflow detector matches the bare word "webflow" anywhere in a page, so
+    // tailwindcss.com - which merely mentions it four times in its copy - came
+    // back as a shop whose catalog we had failed to load. A site built with
+    // Webflow is not a shop; one carrying `w-commerce` markup is.
+    const commerce = detection.signals.some((sig) => COMMERCE_SIGNALS.has(sig));
+    return done(commerce ? 'likely' : 'none', [], [], 0, countSource, warnings);
   }
 
   opts.onProgress?.({ stage: 'discovering', discovered: urls.length, message: 'Reading a few products' });
-  const preview = dedupeProducts(
+  const read = dedupeProducts(
     await fetchProductPages(ctx, urls, {
-      limit: budget.maxPreviewPages,
+      want: budget.maxPreviewPages,
+      stats,
       concurrency: budget.concurrency,
       maxBytes: budget.maxBytesPerPage,
       maxTotalBytes: budget.maxTotalBytes,
@@ -106,6 +129,10 @@ export async function scanForCandidates(opts: ScanOptions): Promise<ScanResult> 
       onProduct: (fetched) => opts.onProgress?.({ stage: 'fetching_products', fetched, discovered: urls.length }),
     }),
   );
+  // Requests in flight when the target is reached can carry it past the
+  // preview size, and a preview of a settled size is worth more than the
+  // extra card or two.
+  const preview = read.slice(0, budget.maxPreviewPages);
 
   // URLs we could list but not read means a store that is there and shut to
   // us, which is worth saying plainly rather than reporting as an empty shop.
@@ -131,7 +158,7 @@ export async function scanForCandidates(opts: ScanOptions): Promise<ScanResult> 
       candidateUrls,
       truncated: count > candidates.length,
       warnings: notes,
-      spent: { pages: candidates.length, ms: Date.now() - started },
+      spent: { pages: stats.pages, bytes: stats.bytes, ms: Date.now() - started },
     };
   }
 }

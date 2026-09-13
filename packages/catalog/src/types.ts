@@ -151,5 +151,6 @@ export interface ScanResult {
   /** True when there is more catalog than the preview shows. */
   truncated: boolean;
   warnings: string[];
-  spent: { pages: number; ms: number };
+  /** What the look actually cost: pages requested, bytes kept, wall clock. */
+  spent: { pages: number; bytes: number; ms: number };
 }

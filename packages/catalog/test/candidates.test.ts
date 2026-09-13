@@ -15,7 +15,7 @@ const product = (handle: string) =>
   })}</head><body></body></html>`;
 
 /** A store of `count` products, reachable only through its sitemap. */
-function storefront(count: number, opts: { robots?: string; pdpStatus?: number } = {}) {
+function storefront(count: number, opts: { robots?: string; pdpStatus?: number; deadEveryOther?: boolean } = {}) {
   const handles = Array.from({ length: count }, (_, i) => `item-${i + 1}`);
   const calls: string[] = [];
   const fetchImpl = (async (input: any) => {
@@ -43,6 +43,13 @@ function storefront(count: number, opts: { robots?: string; pdpStatus?: number }
     const handle = /\/products\/([^/?#.]+)$/.exec(url)?.[1];
     if (handle) {
       if (opts.pdpStatus && opts.pdpStatus !== 200) return new Response('nope', { status: opts.pdpStatus });
+      // Half the addresses are stubs that answer 200 and sell nothing.
+      if (opts.deadEveryOther && Number(handle.split('-')[1]) % 2 === 0) {
+        return new Response('<html><head><title>Redirecting</title></head><body></body></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html' },
+        });
+      }
       return new Response(product(handle), { status: 200, headers: { 'content-type': 'text/html' } });
     }
     return new Response('<html><body>shop <script src="https://cdn.shopify.com/x.js"></script></body></html>', {
@@ -63,7 +70,11 @@ describe('scanning a website for a shop', () => {
     expect(scan.candidates).toHaveLength(6);
     expect(scan.truncated).toBe(true);
     // The count is two sitemap requests; it must never cost 200 page reads.
-    expect(calls.filter((u) => /\/products\/item-/.test(u))).toHaveLength(6);
+    // Requests already in flight when the sixth product arrives still land,
+    // so this is bounded rather than exact.
+    const read = calls.filter((u) => /\/products\/item-/.test(u)).length;
+    expect(read).toBeGreaterThanOrEqual(6);
+    expect(read).toBeLessThanOrEqual(18);
   });
 
   it('hands back every discovered url, so importing need not discover again', async () => {
@@ -114,10 +125,31 @@ describe('scanning a website for a shop', () => {
     expect(scan.count).toBe(40);
   });
 
-  it('reports what it spent', async () => {
+  it('reports what it spent, in pages rather than products', async () => {
     const { fetchImpl } = storefront(12);
     const scan = await scanForCandidates({ url: 'https://shop.example', fetchImpl, budget: { maxPreviewPages: 5 } });
-    expect(scan.spent.pages).toBe(5);
+    expect(scan.candidates).toHaveLength(5);
+    // Requests already in flight when the target is met still cost something,
+    // so pages read is at least the preview and never the whole catalog.
+    expect(scan.spent.pages).toBeGreaterThanOrEqual(5);
+    expect(scan.spent.pages).toBeLessThan(12);
+    expect(scan.spent.bytes).toBeGreaterThan(0);
     expect(scan.spent.ms).toBeGreaterThanOrEqual(0);
+  });
+
+  /**
+   * A sitemap is a list of addresses and some lead nowhere: oatly.com's bare
+   * product URLs are 301 stubs, and six in a row yielded one product. Reading
+   * exactly the first N addresses would show a preview of one card under a
+   * count of 130.
+   */
+  it('keeps reading past the addresses that yield nothing', async () => {
+    const { fetchImpl, calls } = storefront(60, { deadEveryOther: true });
+    const scan = await scanForCandidates({ url: 'https://shop.example', fetchImpl, budget: { maxPreviewPages: 6 } });
+    expect(scan.candidates).toHaveLength(6);
+    const read = calls.filter((u) => /\/products\/item-/.test(u)).length;
+    expect(read).toBeGreaterThan(6);
+    // and still bounded: three addresses per product wanted, never the catalog
+    expect(read).toBeLessThanOrEqual(18);
   });
 });

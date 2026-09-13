@@ -342,8 +342,17 @@ export function productsFromPage(html: string, url: string): CatalogProduct[] {
 export interface PageFetchOptions {
   /** Requests in flight. A stranger's live store, so this stays small. */
   concurrency?: number;
-  /** Hard ceiling on pages read, whatever was discovered. */
-  limit?: number;
+  /**
+   * How many products the caller wants, not how many pages to read.
+   *
+   * A sitemap is a list of addresses and some of them lead nowhere useful:
+   * oatly.com's bare product URLs are 301 stubs that redirect to a locale,
+   * and six of them in a row yielded one product. Reading exactly the first N
+   * addresses would hand someone a preview of one card and a count of 130.
+   */
+  want?: number;
+  /** The real ceiling on requests, however few products they turn up. */
+  maxPages?: number;
   /** Bytes kept from one page. Product pages reach megabytes. */
   maxBytes?: number;
   /** A ceiling across the whole run, so heavy pages stop it sooner. */
@@ -353,6 +362,8 @@ export interface PageFetchOptions {
   /** A store asking to be read slowly, from its robots.txt. */
   delayMs?: number;
   onProduct?: (total: number) => void;
+  /** Filled in as work happens, so a caller can report what it really spent. */
+  stats?: { pages: number; bytes: number };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -370,12 +381,17 @@ export async function fetchProductPages(
 ): Promise<CatalogProduct[]> {
   const out: CatalogProduct[] = [];
   const seen = new Set<string>();
-  const take = opts.limit != null ? urls.slice(0, opts.limit) : urls;
+  const want = opts.want ?? Number.POSITIVE_INFINITY;
+  // Three addresses per product wanted, so a site full of stubs costs a
+  // bounded amount more rather than an unbounded one.
+  const ceiling = opts.maxPages ?? (Number.isFinite(want) ? want * 3 : urls.length);
+  const take = urls.slice(0, ceiling);
   let bytes = 0;
   await mapPool(
     take,
     opts.delayMs ? 1 : (opts.concurrency ?? 5),
     async (u) => {
+      if (out.length >= want) return;
       if (opts.deadline != null && Date.now() > opts.deadline) return;
       if (opts.maxTotalBytes != null && bytes >= opts.maxTotalBytes) return;
       try {
@@ -387,6 +403,10 @@ export async function fetchProductPages(
           maxBytes: opts.maxBytes,
         });
         bytes += text.length;
+        if (opts.stats) {
+          opts.stats.pages += 1;
+          opts.stats.bytes = bytes;
+        }
         if (!ok) return;
         for (const p of productsFromPage(text, url)) {
           if (seen.has(p.externalKey)) continue;
