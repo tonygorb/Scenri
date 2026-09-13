@@ -106,13 +106,17 @@ export function registerCatalogImportRoutes(
     // politeness ceiling and it is the binding one: the curve was still
     // improving at sixteen.
     //
-    // 512 KB rather than 1.5 MB. A card needs the title, one picture and a
-    // price, and those are in the JSON-LD near the top: 345 ms a page at
-    // 1.5 MB against 283 at 512 KB, with all eight products still parsed.
-    // (128 KB parsed none of them, so the block does sit past that.)
+    // The full page, because reading less buys nothing and costs the price.
+    // Sixteen warmed gymshark pages at concurrency 12: 1.5 MB -> 133 ms a
+    // page, 1 MB -> 134, 896 KB -> 80, and repeats of one setting swing
+    // between 86 and 149, so the spread is noise and latency is the whole
+    // cost. Below that the JSON-LD starts getting cut off: 768 KB dropped a
+    // third of the variants and five of sixteen prices, 640 KB nearly all of
+    // both. A first pass here shipped 512 KB on a measurement that checked
+    // titles and pictures and never looked at price.
     const products = await fetchProductPages({ fetchImpl: fetchImpl ?? fetch, baseUrl: origin }, sameSite, {
       concurrency: 12,
-      maxBytes: 512_000,
+      maxBytes: 1_500_000,
     });
     return { products };
   });

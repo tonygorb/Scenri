@@ -238,7 +238,7 @@ async function runJob(
       if (bulk) for (const p of bulk) run.write(p);
       else
         await fetchProductPages(ctx, urls, {
-          concurrency: 4,
+          concurrency: IMPORT_CONCURRENCY,
           maxBytes: 1_500_000,
           onEach: run.write,
         });
@@ -464,6 +464,21 @@ function beginWrite(
     },
   };
 }
+
+/**
+ * Product pages read at once during an import.
+ *
+ * Four was inherited and never measured. Sixteen warmed gymshark pages, full
+ * 1.5 MB reads, milliseconds per page: 4 -> 300, 8 -> 130, 12 -> 149 and 86,
+ * 16 -> 89. All sixteen products parsed with all 111 variants and all 16
+ * prices at every setting, so reading harder costs nothing in what comes back;
+ * eight and above are within each other's noise and four is the outlier.
+ *
+ * Twelve, matching the preview route, so a shop sees the same ceiling from an
+ * import as from the picker. With the picture drain alongside at twelve, one
+ * import is at most twenty-four requests at a time.
+ */
+const IMPORT_CONCURRENCY = 12;
 
 /** A round of pictures to ask for at once. Small, because more are arriving. */
 const PICTURE_ROUND = 60;
