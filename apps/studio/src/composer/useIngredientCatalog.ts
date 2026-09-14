@@ -1,7 +1,13 @@
 import { useMemo } from 'react';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { customPresentersOf, customScenesOf, withCustomFirst } from '../brandAssets.js';
+import {
+  customPresentersOf,
+  customScenesOf,
+  newestFirst,
+  productsNewestFirst,
+  withCustomFirst,
+} from '../brandAssets.js';
 import type { IngredientCatalog } from './ingredientOptions.js';
 
 /**
@@ -38,11 +44,11 @@ export function useIngredientCatalog(productCategory?: string | null): Ingredien
    * person twice in every picker, once tagged `catalog` and once `brand`.
    */
   const cast = useMemo(() => ((brand?.json?.characters ?? []) as any[]).filter((c) => c?.origin !== 'custom'), [brand]);
-  const brandProducts = useMemo(() => (brand?.json?.products ?? []) as any[], [brand]);
+  const brandProducts = useMemo(() => newestFirst((brand?.json?.products ?? []) as any[]), [brand]);
 
   return useMemo(
     () => ({
-      libraryProducts: products,
+      libraryProducts: productsNewestFirst(products),
       brandProducts,
       demoProducts,
       presenters,

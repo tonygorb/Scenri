@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@scenri/brand": "workspace:*",
     "node-html-parser": "^9.0.1"
   },
   "private": true

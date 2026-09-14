@@ -1,14 +1,26 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Callout, Spinner } from '@radix-ui/themes';
-import { ArrowRight, CaretLeft, ImageSquare } from '@phosphor-icons/react';
-import { api, assetUrl, type Brand } from '../api.js';
+import { ArrowRight, CaretLeft, Check, ImageSquare, Minus } from '@phosphor-icons/react';
+import { api, assetUrl, type Brand, type ScrapeReport } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { brandPath } from '../routes.js';
 import { flattenPalette } from '../brand/palette.js';
 import { primaryMark } from '../brand/marks.js';
 import { brandName } from '../layout/nav.js';
 import { duplicateOf } from './brandDupes.js';
+import { hasCatalog, kitLines, kitNeedsHand, productLine } from './kitReport.js';
+import { useCommerceScan } from './brandSetup/useCommerceScan.js';
+import { ProductChoice } from './brandSetup/ProductChoice.js';
+
+/** Cut on a word, never through one: "you could possibly think of, a" is not a tagline. */
+function clip(text: string, max: number): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,;:.]+$/, '')}...`;
+}
 
 /**
  * First run: name the brand, or hand over a website and let the scrape do it.
@@ -19,9 +31,11 @@ import { duplicateOf } from './brandDupes.js';
  * see. Editing now lives in Settings → Brand kit, products on the Products
  * page, bookmarks on the scene cards themselves.
  *
- * What the extra steps were genuinely for is kept: a scraped site with a
- * storefront still triggers a catalog import, headlessly, the moment the brand
- * exists.
+ * Products are a second question, asked after the kit is already on screen.
+ * A website may or may not be a shop, and the answer changes nothing about
+ * whether the brand import worked: a portfolio is a complete success with no
+ * products line at all, and a store we cannot read says so without calling
+ * itself empty.
  */
 export function BrandSetup() {
   const { brands, refresh } = useAppData();
@@ -33,8 +47,18 @@ export function BrandSetup() {
   const [scratch, setScratch] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  /** Only ever set for the moment between "created" and "navigated". */
+  /**
+   * The kit that was just built, held until the person says go.
+   *
+   * This used to be set and navigated past in the same tick, so the panel
+   * filled in for one frame and vanished: you watched a kit get built and then
+   * the app moved without showing you what it found. A partial result - a logo
+   * and no colours, say - was indistinguishable from a complete one.
+   */
   const [made, setMade] = useState<Brand | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [report, setReport] = useState<ScrapeReport | null>(null);
   /**
    * The brand this input would duplicate, when one exists. Creating it anyway
    * is allowed — the second click says so — but never by accident: this is
@@ -42,10 +66,10 @@ export function BrandSetup() {
    */
   const [dupe, setDupe] = useState<Brand | null>(null);
 
-  const land = async (b: Brand) => {
+  const land = async (b: Brand, settings?: 'brand') => {
     setMade(b);
     await refresh();
-    navigate(brandPath(b), { replace: true });
+    navigate(`${brandPath(b)}${settings ? `?settings=${settings}` : ''}`, { replace: true });
   };
 
   const buildFromUrl = async (force = false) => {
@@ -59,17 +83,27 @@ export function BrandSetup() {
     setBusy(true);
     setErr(null);
     try {
-      const full = /^https?:\/\//.test(url) ? url : `https://${url}`;
-      const b = await api.brandFromUrl(full);
-      // Persist website on the kit so a refresh and a catalog import can re-use it.
-      const saved = await api.updateBrand(b.id, {
-        ...b.json,
-        meta: { ...b.json?.meta, website: b.json?.meta?.website || full },
-      });
-      // Fire and forget, exactly as the products step did: a storefront fills
-      // the product library in the background while the user gets on with it.
-      void api.catalogImport(saved.id, full).catch(() => {});
-      await land(saved);
+      // The raw field, verbatim. Building the URL here is what broke: this
+      // line tested the untrimmed value, so a pasted leading space produced
+      // `https://  https://...` and the server's parser error reached the
+      // screen as "Invalid URL". One normaliser now owns the rule, server-side.
+      const b = await api.brandFromUrl(url);
+      // No catalog crawl here, on purpose. This screen was asked for a brand
+      // kit, and it used to answer by crawling the whole site for products
+      // too: oatly.com got 588 pages read and 201 invented products, and
+      // gymshark.com got 4406 requests sent to a live store for nothing, ending
+      // in a red bell on someone's first run. Nobody asked for any of it.
+      //
+      // Importing a catalog is still one click, on the Products page, where a
+      // person chooses it and the website is already filled in from the kit
+      // (create/ProductForm.tsx reads meta.website). A failure there is an
+      // answer to a question that was actually asked.
+      //
+      // Show it, and wait. The brand exists either way - this is a reveal, not
+      // a confirmation that could still be refused.
+      setMade(b);
+      setReport(b.report);
+      setBusy(false);
     } catch (e: any) {
       setErr(String(e.message ?? e));
       setBusy(false);
@@ -96,6 +130,24 @@ export function BrandSetup() {
 
   const cancel = () => navigate('/', { replace: true });
 
+  // Asked only once the brand exists, and never blocking it.
+  const { scan, scanning, retry } = useCommerceScan(made?.id ?? null);
+  const products = productLine(scan, scanning);
+
+  const startImport = async (urls?: string[]) => {
+    if (!made) return;
+    setImporting(true);
+    try {
+      await api.catalogImport(made.id, String(made.json?.meta?.website ?? url), urls);
+    } catch {
+      // The import is a background job with its own row; a failure to start
+      // it is not a reason to hold someone on the setup screen.
+    }
+    setImporting(false);
+    setChoosing(false);
+    await land(made);
+  };
+
   const palette = made ? flattenPalette(made.json?.palette) : [];
   const logo = made ? assetUrl(primaryMark(made.json)?.file) : null;
 
@@ -118,11 +170,65 @@ export function BrandSetup() {
           Your <em>brand</em>
         </h1>
         <p className="sc-wiz-sub">
-          Paste a website and the kit builds itself: name, logo, palette. You can also start from nothing and fill it in
-          later from Settings.
+          {made && report ? (
+            <>Built from {report.host}. Everything here can be changed later, from Settings.</>
+          ) : (
+            <>
+              Paste a website and the kit builds itself: name, logo, palette. You can also start from nothing and fill
+              it in later from Settings.
+            </>
+          )}
         </p>
         <div className="sc-wiz-fields">
-          {!scratch ? (
+          {made ? (
+            <div style={{ textAlign: 'center' }}>
+              {/*
+                A shop on the site is not a side quest. When one is found the
+                main button goes to the products, because the alternative is
+                what happened the first time this shipped: the obvious button
+                said "Looks right", it meant "and no products", and the step
+                was walked straight past.
+              */}
+              {scanning ? (
+                // Still looking. The obvious button said "Looks right" while a
+                // shop was being found, so pressing it landed on the brand and
+                // quietly threw the search away - the products were never
+                // offered and nothing said they had been missed.
+                <>
+                  <button type="button" className="sc-wiz-cta" disabled>
+                    <Spinner size="1" /> Looking for products
+                  </button>
+                  <div>
+                    <button type="button" className="sc-wiz-skip" onClick={() => void land(made)}>
+                      Skip and add the brand only
+                    </button>
+                  </div>
+                </>
+              ) : hasCatalog(scan) ? (
+                <>
+                  <button type="button" className="sc-wiz-cta" onClick={() => setChoosing(true)}>
+                    Add brand and products <ArrowRight size={12} />
+                  </button>
+                  <div>
+                    <button type="button" className="sc-wiz-skip" onClick={() => void land(made)}>
+                      Just the brand
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button type="button" className="sc-wiz-cta" onClick={() => void land(made)}>
+                    Looks right <ArrowRight size={12} />
+                  </button>
+                  <div>
+                    <button type="button" className="sc-wiz-skip" onClick={() => void land(made, 'brand')}>
+                      {report && kitNeedsHand(report) ? 'Finish the kit first' : 'Edit the kit first'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : !scratch ? (
             <>
               <label htmlFor="sc-wiz-url">Website</label>
               <input
@@ -242,7 +348,9 @@ export function BrandSetup() {
 
       <div className="sc-wiz-preview">
         <div className="sc-wiz-card">
-          <div className="sc-wiz-cap">{busy ? `Reading ${url || 'the site'}` : 'Live kit preview'}</div>
+          <div className="sc-wiz-cap">
+            {made ? 'Your kit' : busy ? `Reading ${url || 'the site'}` : 'Live kit preview'}
+          </div>
           <div className="sc-wiz-body">
             {busy && !made && (
               // one honest indeterminate spinner, not staged rows claiming
@@ -267,7 +375,7 @@ export function BrandSetup() {
                     </b>
                     {made.json?.meta?.tagline && (
                       <small dir="auto" style={{ display: 'block', color: 'var(--sc-fg3)', fontSize: 11.5 }}>
-                        {String(made.json.meta.tagline).slice(0, 60)}
+                        {clip(String(made.json.meta.tagline), 72)}
                       </small>
                     )}
                   </span>
@@ -288,11 +396,43 @@ export function BrandSetup() {
                     ))}
                   </div>
                 )}
+                {report && (
+                  <ul className="sc-kit-lines">
+                    {[...kitLines(report), ...(products ? [products] : [])].map((line) => (
+                      <li key={line.key} data-found={line.found ? '' : undefined}>
+                        {line.key === 'products' && scanning ? (
+                          <Spinner size="1" />
+                        ) : line.found ? (
+                          <Check size={12} weight="bold" />
+                        ) : (
+                          <Minus size={12} />
+                        )}
+                        <span className="sc-kit-line-label">{line.label}</span>
+                        <span className="sc-kit-line-value">{line.value}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {!scanning && scan && (scan.verdict === 'blocked' || scan.verdict === 'likely') && (
+                  <button type="button" className="sc-wizpick-open" onClick={retry}>
+                    Try the catalogue again
+                  </button>
+                )}
               </>
             )}
           </div>
         </div>
       </div>
+      {choosing && scan && made && (
+        <ProductChoice
+          brandId={made.id}
+          scan={scan}
+          busy={importing}
+          onImport={(urls) => void startImport(urls)}
+          onImportAll={() => void startImport()}
+          onDismiss={() => setChoosing(false)}
+        />
+      )}
     </div>
   );
 }

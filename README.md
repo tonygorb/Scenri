@@ -63,7 +63,9 @@ Scenri runs on [Node.js](https://nodejs.org), version 22 or newer. If you are no
 npx scenri
 ```
 
-That is the whole install. npm asks once whether to proceed, downloads the current release, and opens `http://127.0.0.1:4747`. Keep the terminal window open while you work; closing it stops Scenri. Tomorrow the same command opens it again, with everything where you left it.
+That is the whole install. npm asks once whether to proceed, downloads the current release, and opens `http://127.0.0.1:4747`. Keep the terminal window open while you work; closing it stops Scenri. Tomorrow the same command opens it again, with everything where you left it. Nothing here needs an administrator.
+
+On Windows, if PowerShell answers `npx.ps1 cannot be loaded because running scripts is disabled on this system`, that is a stock Windows setting, not a fault: type `npx.cmd scenri` instead, or use Command Prompt. Still no administrator required.
 
 On macOS and Windows, Scenri then asks once whether to put a **Scenri icon on your desktop**. Say yes and from then on a double-click starts Scenri and opens it in your browser, no terminal needed; the icon works offline and keeps working across updates. Said no? Settings, then About, then **Add to desktop**, or `npx scenri desktop` in a terminal. Scenri stays what it is, a local server and your browser: the icon is a launcher, not an app.
 

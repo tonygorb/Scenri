@@ -218,8 +218,46 @@ describe('taskFromCatalogJob', () => {
   it('survives a url it cannot parse', () => {
     expect(taskFromCatalogJob(job({ url: 'not a url' }), brand).title).toBe('not a url');
   });
-  it('points a finished catalog import at the kit, where the products landed', () => {
-    expect(taskFromCatalogJob(job({ stage: 'completed' }), brand).href).toBe('/b1/kit');
+  /**
+   * This pointed at `kitPath`, which redirects to the brand kit settings pane
+   * - a screen with nothing about the import on it. Products land on the
+   * products page, so that is where the row goes.
+   */
+  it('points a catalog import at the products it imported', () => {
+    expect(taskFromCatalogJob(job({ stage: 'completed' }), brand).href).toBe('/b1/products');
+    expect(taskFromCatalogJob(job({ stage: 'no_catalog' }), brand).href).toBe('/b1/products');
+  });
+
+  /**
+   * Reading 2,199 pages is about sixteen minutes and writes nothing until a
+   * batch lands, so a row counting only what was saved sat at "0 of 2,199"
+   * for the whole of it.
+   */
+  it('says what the import is doing now, not only what it has saved', () => {
+    const at = (over: Partial<CatalogImportJob>) => taskFromCatalogJob(job(over), brand).subtitle;
+    expect(at({ stage: 'discovering', discovered: 0 })).toContain('looking for products');
+    expect(at({ stage: 'discovering', discovered: 2199 })).toContain('2,199 found');
+    expect(at({ stage: 'fetching_products', discovered: 2199, fetched: 340, upserted: 0 })).toContain(
+      'read 340 of 2,199',
+    );
+    expect(at({ stage: 'processing_assets', discovered: 200, imagesDone: 65, imagesTotal: 200 })).toContain(
+      '65 of 200 pictures',
+    );
+    expect(at({ stage: 'completed', discovered: 200, upserted: 200 })).toContain('200 of 200 products');
+  });
+
+  it('never reports zero saved while it is still reading', () => {
+    const sub = taskFromCatalogJob(
+      job({ stage: 'fetching_products', discovered: 2199, fetched: 12, upserted: 0 }),
+      brand,
+    ).subtitle;
+    expect(sub).not.toContain('0 of 2,199 products');
+  });
+
+  it('reads a stopped import as cancelled, never as an error', () => {
+    const stopped = taskFromCatalogJob(job({ stage: 'cancelled', message: 'Stopped after 40 products' }), brand);
+    expect(stopped.state).toBe('cancelled');
+    expect(stopped.subtitle).toContain('Stopped after 40 products');
   });
 });
 
@@ -537,5 +575,70 @@ describe('sameByValue', () => {
     expect(sameByValue(prev, [prev[0], { ...prev[1], status: 'done' }])).toBe(false);
     expect(sameByValue(prev, [prev[0]])).toBe(false);
     expect(sameByValue(prev, [prev[1], prev[0]])).toBe(false);
+  });
+});
+
+/**
+ * A website with no shop on it is a fine brand source. It used to ring a red
+ * bell: /setup offers every URL to the catalog importer, a marketing site
+ * discovers nothing, and the job was written as failed - so the same run that
+ * said "kit built" also said "No public product catalog found".
+ */
+describe('a site with no shop on it', () => {
+  const job = (over: Partial<CatalogImportJob> = {}): CatalogImportJob =>
+    ({
+      id: 'j1',
+      brandId: 'b1',
+      sourceId: null,
+      url: 'https://lucid.example',
+      platform: 'generic',
+      stage: 'no_catalog',
+      discovered: 0,
+      fetched: 0,
+      upserted: 0,
+      imagesDone: 0,
+      imagesTotal: 0,
+      errors: [],
+      warnings: [],
+      message: 'No shop found on this site',
+      createdAt: '2026-09-13T09:00:00Z',
+      updatedAt: '2026-09-13T09:00:05Z',
+      finishedAt: '2026-09-13T09:00:05Z',
+      ...over,
+    }) as unknown as CatalogImportJob;
+
+  it('reads as finished, not as an error', () => {
+    const t = taskFromCatalogJob(job(), { slug: 'lucid' });
+    expect(t.state).toBe('done');
+    expect(t.percent).toBe(100);
+    expect(t.subtitle).toBe('Catalog import · no shop on this site');
+    expect(t.subtitle).not.toMatch(/fail/i);
+  });
+
+  it('points at the products page, where a person would add one by hand', () => {
+    expect(taskFromCatalogJob(job(), { slug: 'lucid' }).href).toBe('/lucid/products');
+  });
+
+  // The rows already on disk were written before the stage existed.
+  it('reads an old failed row the same way when nothing was discoverable', () => {
+    const old = job({
+      stage: 'failed',
+      errors: [{ code: 'empty_catalog', message: 'No public product catalog found' }],
+    });
+    expect(taskFromCatalogJob(old, { slug: 'lucid' }).state).toBe('done');
+  });
+
+  // URLs found and then unparseable IS a failure, and a shop owner needs it.
+  it('still reports a real import failure as one', () => {
+    const broken = job({
+      stage: 'failed',
+      message: 'Discovery found URLs but no product payloads could be parsed.',
+      errors: [
+        { code: 'no_products_fetched', message: 'Discovery found URLs but no product payloads could be parsed.' },
+      ],
+    });
+    const t = taskFromCatalogJob(broken, { slug: 'lucid' });
+    expect(t.state).toBe('error');
+    expect(t.subtitle).toContain('no product payloads');
   });
 });

@@ -786,7 +786,7 @@ async function runSceneBuild(
   );
   if (!built.ok) throw new Error(built.error);
   const scene = built.scene;
-  // The channel already exists, is already rendered by AssetBuildCard, and until
+  // The channel already exists and rides the job (bell, finished record). Until
   // now only the presenter path ever filled it. This is where a scene says its
   // references look like different places, or are a portrait with no world in it.
   if (draft?.coverage?.length) patch(job, { coverage: draft.coverage });

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import Database from 'better-sqlite3';
 import { createCore, type Core } from '../src/index.js';
 
 let home: string;
@@ -229,5 +230,130 @@ describe('catalog store', () => {
     expect(updated.discovered).toBe(10);
     const done = core.catalog.updateJob(job.id, { stage: 'completed', upserted: 10, finished: true })!;
     expect(done.finishedAt).toBeTruthy();
+  });
+  /**
+   * The grid read is the hot one: the studio asks for it on mount, on every
+   * brand edit, and every two seconds while an import runs. It used to be a
+   * `SELECT *` that parsed `raw` for every product and then threw it away -
+   * 14.2 KB a product of page HTML, 32 MB across a 2,201-product store, none
+   * of which any client surface reads.
+   */
+  it('the light index carries a card, not a page: no raw, no description html, one shot', () => {
+    const brand = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any);
+    const source = core.catalog.upsertSource(brand.id, 'https://acme.example', 'shopify');
+    core.catalog.upsertProduct({
+      sourceId: source.id,
+      brandId: brand.id,
+      externalKey: '1',
+      title: 'Candle',
+      url: 'https://acme.example/products/candle',
+      descriptionHtml: '<p>a very long description</p>',
+      raw: { whole: 'page', of: 'html' },
+      images: [
+        { sourceUrl: 'https://img/a.jpg', position: 0, assetRef: `asset:${'a'.repeat(32)}` },
+        { sourceUrl: 'https://img/b.jpg', position: 1, assetRef: `asset:${'b'.repeat(32)}` },
+        { sourceUrl: 'https://img/c.jpg', position: 2, assetRef: `asset:${'c'.repeat(32)}` },
+      ],
+      variants: [{ externalKey: 'v1', sku: 'C-1', price: 20 }],
+    });
+
+    const [entry] = core.catalog.listLibraryIndex(brand.id, core.store.getBrand(brand.id)!.json);
+    const keys = Object.keys(entry).sort();
+    expect(keys).not.toContain('raw');
+    expect(keys).not.toContain('descriptionHtml');
+    expect(keys).not.toContain('variants');
+    // One picture travels, the count tells the card there are more.
+    expect(entry.shots).toHaveLength(1);
+    expect(entry.shotCount).toBe(3);
+    // Cheap enough to poll: the whole entry, serialised, stays small.
+    expect(JSON.stringify(entry).length).toBeLessThan(400);
+  });
+
+  /**
+   * Newest first, so an arriving import lands at the head of the grid where it
+   * can be watched, and a reader deeper down is never pushed.
+   */
+  it('lists newest first', () => {
+    const brand = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any);
+    const source = core.catalog.upsertSource(brand.id, 'https://acme.example', 'shopify');
+    for (const n of ['one', 'two', 'three']) {
+      core.catalog.upsertProduct({
+        sourceId: source.id,
+        brandId: brand.id,
+        externalKey: n,
+        title: n,
+        url: `https://acme.example/products/${n}`,
+      });
+    }
+    const names = core.catalog
+      .listLibraryIndex(brand.id, core.store.getBrand(brand.id)!.json)
+      .filter((e) => e.origin === 'catalog')
+      .map((e) => e.name);
+    expect(names).toEqual(['three', 'two', 'one']);
+  });
+
+  /**
+   * A cancel used to be overwritten by a progress emit that was already in
+   * flight: the row went `cancelled`, then a late `fetching_products` landed on
+   * top of it with `finishedAt` still set, and the bell showed a finished job
+   * as running for ever.
+   */
+  it('a finished job is immutable', () => {
+    const brand = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any);
+    const job = core.catalog.createJob({ brandId: brand.id, url: 'https://acme.example' });
+    core.catalog.updateJob(job.id, { stage: 'cancelled', finished: true });
+    const late = core.catalog.updateJob(job.id, { stage: 'fetching_products', fetched: 99 })!;
+    expect(late.stage).toBe('cancelled');
+    expect(late.fetched).not.toBe(99);
+  });
+  /**
+   * A job lives in the database and its worker lives in the process. A quit or
+   * a crash mid-import left a row reading `fetching_products` with nothing
+   * running, and the bell showed a task in flight for ever because nothing was
+   * left that could write the ending.
+   */
+  it('closes jobs that were still running when the process stopped', () => {
+    const brand = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any);
+    const live = core.catalog.createJob({ brandId: brand.id, url: 'https://acme.example' });
+    core.catalog.updateJob(live.id, { stage: 'fetching_products', fetched: 1020, upserted: 40 });
+    const done = core.catalog.createJob({ brandId: brand.id, url: 'https://other.example' });
+    core.catalog.updateJob(done.id, { stage: 'completed', upserted: 2, finished: true });
+
+    expect(core.catalog.reconcileInterruptedJobs()).toBe(1);
+    const after = core.catalog.getJob(live.id)!;
+    expect(after.stage).toBe('cancelled');
+    expect(after.finishedAt).toBeTruthy();
+    // What it had already saved is still saved, and the row says so.
+    expect(after.upserted).toBe(40);
+    expect(after.message).toContain('40');
+    // A job that had already ended is untouched.
+    expect(core.catalog.getJob(done.id)!.stage).toBe('completed');
+  });
+  /**
+   * The bell is about work in flight and what just landed, not a history. The
+   * list it reads used to be every import the brand had ever run, so one
+   * finished import sat in the Tasks tab, and in its count, for ever.
+   */
+  it('the bell reads work in flight and the last hour, not every import ever run', () => {
+    const brand = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any);
+    const live = core.catalog.createJob({ brandId: brand.id, url: 'https://acme.example' });
+    core.catalog.updateJob(live.id, { stage: 'fetching_products' });
+    const justDone = core.catalog.createJob({ brandId: brand.id, url: 'https://b.example' });
+    core.catalog.updateJob(justDone.id, { stage: 'completed', finished: true });
+    const longDone = core.catalog.createJob({ brandId: brand.id, url: 'https://c.example' });
+    core.catalog.updateJob(longDone.id, { stage: 'completed', finished: true });
+    // Aged past the window by hand. `Core` has no business exposing its
+    // database for a test, so this reaches the file the same way the store does.
+    const raw = new Database(join(home, 'scenri.db'));
+    raw.prepare(`UPDATE import_jobs SET finished_at=datetime('now','-3 hours') WHERE id=?`).run(longDone.id);
+    raw.close();
+
+    const ids = core.catalog.listRecentJobs(brand.id).map((j) => j.id);
+    expect(ids).toContain(live.id);
+    // Still there, so the client can see it stop and say so.
+    expect(ids).toContain(justDone.id);
+    expect(ids).not.toContain(longDone.id);
+    // The full list is unchanged for anything that wants the history.
+    expect(core.catalog.listJobs(brand.id)).toHaveLength(3);
   });
 });

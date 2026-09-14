@@ -247,12 +247,16 @@ async function run(): Promise<void> {
     declined: core.store.getSetting('desktop.prompt') === 'declined',
   });
   if (offer) {
+    // The last thing a boot does, and the least important. Everything inside
+    // already answers instead of throwing; this catch is the guarantee that no
+    // future edit in there can reach index.ts's exit(1) and take a listening
+    // server down over an optional icon.
     await offerDesktop({
       ask: askOnTerminal,
       add: () => addToDesktop(ownEntry),
       decline: () => core.store.setSetting('desktop.prompt', 'declined'),
       say: (line) => console.log(line),
-    });
+    }).catch(() => console.log('  Could not ask about the desktop icon. Scenri is running anyway.'));
     console.log('');
   }
 }

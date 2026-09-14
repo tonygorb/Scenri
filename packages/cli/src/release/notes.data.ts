@@ -51,6 +51,29 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.9.3',
+    date: '2026-09-14',
+    title: 'Paste a website, get the brand and its products.',
+    sections: [
+      {
+        heading: 'Brand',
+        body: 'A website address is enough to start a brand. Scenri reads the logo, the wordmark and the palette a site actually declares, and says plainly what it found and what it could not.',
+      },
+      {
+        heading: 'Products',
+        body: 'The same address brings in the store. Pick the products you want or take the whole catalogue, and watch them arrive: each one appears in your library as it lands, with its picture, newest first. A large store no longer runs out of memory partway through, and a shop that stops answering says so instead of looking empty.',
+      },
+      {
+        heading: 'Create',
+        body: 'The insert menus reach everything. Typing $, @, / or # opens a shortlist that pages through the rest of that catalogue, with a count so nothing is quietly cut off, and the box stays where the caret is.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'A first run on Windows no longer stops at the desktop icon question, and never asks for an administrator it does not need. Codex reports itself ready only once a real run has authenticated.',
+      },
+    ],
+  },
+  {
     version: '0.9.2',
     date: '2026-09-07',
     sections: [

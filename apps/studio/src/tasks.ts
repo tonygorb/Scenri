@@ -1,5 +1,5 @@
 import { type ActivityNode, type AssetBuild, type CatalogImportJob, nodeLabel } from './api.js';
-import { kitPath, presenterPath, scenePath, shotPath } from './routes.js';
+import { presenterPath, productsPath, scenePath, shotPath } from './routes.js';
 import { local } from './storage.js';
 
 /**
@@ -120,6 +120,7 @@ export function catalogPercent(j: CatalogImportJob | null): number {
     return 60 + Math.min(35, Math.round((j.imagesDone / t) * 35));
   }
   if (j.stage === 'completed') return 100;
+  if (j.stage === 'no_catalog') return 100;
   if (j.stage === 'partial') return 95;
   return 5;
 }
@@ -203,26 +204,74 @@ export function batchTask(siblings: ActivityNode[], brand: { slug: string }, now
     : task;
 }
 
+/**
+ * A website with no shop on it is not a failed import.
+ *
+ * It used to be: every /setup URL is offered to the catalog importer, a
+ * marketing site discovers nothing, and the job was written as `failed`, so a
+ * tester who had just been told their kit was built also got a red bell
+ * reading "No public product catalog found". The brand half had worked
+ * perfectly. Old rows are read the same way, so the ones already on disk stop
+ * reading as failures too.
+ */
+function isShoplessSite(j: Pick<CatalogImportJob, 'stage' | 'errors'>): boolean {
+  return j.stage === 'no_catalog' || (j.stage === 'failed' && j.errors?.[0]?.code === 'empty_catalog');
+}
+
 export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string }): Task {
-  const state: TaskState =
-    j.stage === 'completed' ? 'done' : j.stage === 'partial' ? 'partial' : j.stage === 'failed' ? 'error' : 'running';
+  const shopless = isShoplessSite(j);
+  const state: TaskState = shopless
+    ? 'done'
+    : j.stage === 'completed'
+      ? 'done'
+      : j.stage === 'partial'
+        ? 'partial'
+        : j.stage === 'cancelled'
+          ? 'cancelled'
+          : j.stage === 'failed'
+            ? 'error'
+            : 'running';
   let host = j.url;
   try {
     host = new URL(j.url).hostname.replace(/^www\./, '');
   } catch {
     /* a job url we cannot parse is still a job */
   }
-  const count = j.discovered ? `${j.upserted} of ${j.discovered} products` : `${j.upserted} products`;
+  // What the job is doing right now, not only what it has saved. Reading
+  // 2,199 pages takes about sixteen minutes and writes nothing until a batch
+  // lands, so counting `upserted` alone left the row reading "0 of 2,199" for
+  // the whole of it.
+  const count =
+    j.stage === 'discovering'
+      ? j.discovered
+        ? `${j.discovered.toLocaleString()} found`
+        : 'looking for products'
+      : j.stage === 'fetching_products' && j.fetched > j.upserted
+        ? `read ${j.fetched.toLocaleString()} of ${j.discovered.toLocaleString()}`
+        : j.stage === 'processing_assets' && j.imagesTotal
+          ? `${j.imagesDone.toLocaleString()} of ${j.imagesTotal.toLocaleString()} pictures`
+          : j.discovered
+            ? `${j.upserted.toLocaleString()} of ${j.discovered.toLocaleString()} products`
+            : `${j.upserted.toLocaleString()} products`;
   return {
     id: `catalog:${j.id}`,
     kind: 'catalog',
     state,
     title: host,
-    subtitle: state === 'error' ? `Catalog import · ${j.message ?? 'failed'}` : `Catalog import · ${count}`,
+    subtitle: shopless
+      ? 'Catalog import · no shop on this site'
+      : state === 'error' || state === 'cancelled'
+        ? `Catalog import · ${j.message ?? 'failed'}`
+        : `Catalog import · ${count}`,
     thumb: null,
-    percent: catalogPercent(j),
+    percent: shopless ? 100 : catalogPercent(j),
     startedAt: j.createdAt,
-    href: kitPath(brand),
+    // A shop-less site has nothing to show in the kit; the products page is
+    // where someone would add one by hand. Everything else goes to the
+    // products it is importing - this used to point at `kitPath`, which
+    // redirects to the brand kit settings pane, a screen with nothing to do
+    // with the import on it.
+    href: productsPath(brand),
   };
 }
 

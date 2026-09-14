@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { assetUrl, type Product } from '../api.js';
 import { productLabel } from '../displayName.js';
 import { categoryLabel } from '../productCategories.js';
@@ -12,7 +13,7 @@ export type ProductCardSize = CatalogCardSize;
  * variant, when set), the fast path is "Use in a shot". A thin adapter
  * over `CatalogCard` — see CatalogCard.tsx for the shared shell.
  */
-export function ProductCard({
+function ProductCardInner({
   product,
   variant,
   onOpen,
@@ -59,3 +60,10 @@ export function ProductCard({
 export function ProductCardSkeleton(props: { size?: ProductCardSize; count?: number }) {
   return <CatalogCardSkeleton {...props} />;
 }
+
+/**
+ * Memoised: nothing here re-renders unless its own props change.
+ * A wall of these re-rendered in full on every Products render, and during
+ * an import that was every 1.5 seconds.
+ */
+export const ProductCard = memo(ProductCardInner);

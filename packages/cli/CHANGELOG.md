@@ -1,5 +1,67 @@
 # Changelog
 
+## [0.9.3](https://github.com/tonygorb/Scenri/compare/v0.9.2...v0.9.3) (2026-09-14)
+
+
+### Features
+
+* **catalog:** look for a shop without reading the whole catalog ([65774cd](https://github.com/tonygorb/Scenri/commit/65774cdcc7e45dc5468b564bfb7596d2fcbb1500))
+* **catalog:** make a whole-catalogue import something a machine can hold ([9c44842](https://github.com/tonygorb/Scenri/commit/9c44842e2f421671543a418cb2a884b12e02f26e))
+* **cli:** scan a site for a shop, and import only what was chosen ([3f02cc5](https://github.com/tonygorb/Scenri/commit/3f02cc592ec025ba920de6e63683977113e5854f))
+* **composer:** the insert menu pages, and stops moving under the caret ([d3fa697](https://github.com/tonygorb/Scenri/commit/d3fa69744e02cd69ae6ab708b095ef7c45933f48))
+* one website, a brand and its products ([ced5f4c](https://github.com/tonygorb/Scenri/commit/ced5f4cccbb5aedc500332b166d4e42c95d344ac))
+* **studio:** reach every product, take them all, and watch it happen ([3f19576](https://github.com/tonygorb/Scenri/commit/3f195767d59204c68fdd8c0870f2faf2349585a5))
+* **studio:** say what a website had on it, products included ([45665e7](https://github.com/tonygorb/Scenri/commit/45665e70c10a8f307bf57ee22f4a22ee936d6870))
+* the composer insert menu pages, and stops moving under the caret ([1c36667](https://github.com/tonygorb/Scenri/commit/1c3666772b46552b4c4a76123f4a00fd7b651c69))
+
+
+### Bug Fixes
+
+* **brand:** a website is a brand source, and "Invalid URL" is not a sentence ([cde0841](https://github.com/tonygorb/Scenri/commit/cde0841bcd79c49f8d0d3ed29da4c3429718f284))
+* **brand:** find the logo and the colours a site actually has, safely ([a6e7d3b](https://github.com/tonygorb/Scenri/commit/a6e7d3be87196fd0386448c91f6dca712dfc0b94))
+* **brand:** never crown a logo the evidence does not support ([07b427d](https://github.com/tonygorb/Scenri/commit/07b427d7e7b4acd4d4c03ac3f23ed4722f297b61))
+* **brand:** pick the wordmark out of the nav, not a photo two elements later ([55cb444](https://github.com/tonygorb/Scenri/commit/55cb444b1c00abdd4ec28640375dc5dad518f8f0))
+* **brand:** read the palette a site declares, for the theme it is wearing ([323b722](https://github.com/tonygorb/Scenri/commit/323b7229c8f89c2dac9b58c60d596eb157362715))
+* **brand:** show the kit that was just built, instead of flashing it ([5f5672f](https://github.com/tonygorb/Scenri/commit/5f5672ff811f54e83fa44442e2f7db9a40f272cb))
+* **brand:** stop inventing products, and stop crawling sites nobody asked about ([5a70c7d](https://github.com/tonygorb/Scenri/commit/5a70c7d9cff539ae4c8cae6a8b40f4c219ee5e49))
+* **catalog:** a finished import says finished ([640a8a1](https://github.com/tonygorb/Scenri/commit/640a8a1fa8f08d1920fe83078f054303958646cd))
+* **catalog:** a slow catalog is not a shut one ([06c8ba4](https://github.com/tonygorb/Scenri/commit/06c8ba491a4c2e65d585c33d2543cda286c5aba9))
+* **catalog:** four pictures at once too, and count a refusal that threw ([c773029](https://github.com/tonygorb/Scenri/commit/c77302904c933f3b4b1c220a7ff2c8d529536b5f))
+* **catalog:** import in batches, and stop the setup screen losing the products ([4257515](https://github.com/tonygorb/Scenri/commit/4257515a46bb07594dd88657d87046daa665a850))
+* **catalog:** read a shop at a rate it will tolerate, and say when it stops ([98c2e53](https://github.com/tonygorb/Scenri/commit/98c2e53d573d037ba4f1f72e5212b97083f5afab))
+* **catalog:** read the product pages a blocked storefront API still serves ([21ab82b](https://github.com/tonygorb/Scenri/commit/21ab82b0427f0cc30a6884637663439981bd1c29))
+* **catalog:** stop reading the same catalog once per language ([1a870aa](https://github.com/tonygorb/Scenri/commit/1a870aabd1fd5b627d36e253787d6ef08b33337f))
+* **catalog:** stop the crawler being pointed anywhere a caller likes ([d4a0204](https://github.com/tonygorb/Scenri/commit/d4a0204892b3cb7c6f94e03153505a9bad8d97e4))
+* **catalog:** two things eight real websites found ([1c938f6](https://github.com/tonygorb/Scenri/commit/1c938f6babc0da62b55fa1fce6d04de069e04ae4))
+* **codex:** ready now means a real codex run authenticated ([33cf286](https://github.com/tonygorb/Scenri/commit/33cf28653d63cdfeab267db9557ae0b696197bd0))
+* **composer:** type the insert menu's page state as a number ([86ec924](https://github.com/tonygorb/Scenri/commit/86ec924f70c56e7d96e0bc5772331883ee64ef88))
+* **deps:** take the patched vitest line, closing three Dependabot alerts ([9ec12d0](https://github.com/tonygorb/Scenri/commit/9ec12d0989b3cb9b033a61bb00c1b3c7e891bd32))
+* **desktop:** say why the icon failed, not which PowerShell command failed ([8108827](https://github.com/tonygorb/Scenri/commit/81088274944b8df1042e2095451552d09a33c6df))
+* **desktop:** the icon offer can no longer stop Scenri from starting ([dacdbba](https://github.com/tonygorb/Scenri/commit/dacdbba142709d11e7fac0c57828cbdd9acf0a2d))
+* **install:** stop sending Windows users to an administrator they do not need ([42c43ea](https://github.com/tonygorb/Scenri/commit/42c43ea36f6b9d22bc4dae0d296a0cee7634cf18))
+* **notifications:** the Tasks tab holds work in flight, not every import ever run ([8d67c75](https://github.com/tonygorb/Scenri/commit/8d67c7598b6a217478021274d91184a5d5bb957b))
+* **products:** a hand-made product keeps all of its pictures ([14e6120](https://github.com/tonygorb/Scenri/commit/14e6120da46ee78cabf6e86fc0f2661255037259))
+* **studio:** a building card is the wait, not a caption ([7ddc983](https://github.com/tonygorb/Scenri/commit/7ddc98337e8d98452e408798e0ec7cc88a561b33))
+* **studio:** keep the store's half of the library as the server sorted it ([11bb05f](https://github.com/tonygorb/Scenri/commit/11bb05fd75edf5a0c4d8efed8227f7e0357b8f2a))
+* **studio:** show the products arriving, and stop asking for more than can land ([62ebca0](https://github.com/tonygorb/Scenri/commit/62ebca0a0cff29bf0a5e914499363d750ecd0ee0))
+* **studio:** your own work, newest first ([4bbfda2](https://github.com/tonygorb/Scenri/commit/4bbfda2d3e17bf586d974a93cad822af2e84d09f))
+* Windows first run, Codex readiness and website brand import ([0831502](https://github.com/tonygorb/Scenri/commit/0831502163385fb12a04919d26acf5677d761427))
+* your own work newest first, and a quieter building card ([20c4e1c](https://github.com/tonygorb/Scenri/commit/20c4e1c1cfd629ef88e4aa512e855103ad3e502a))
+
+
+### Performance Improvements
+
+* **catalog:** crawl a whole store in batches, and close jobs a crash left open ([98f1ce9](https://github.com/tonygorb/Scenri/commit/98f1ce9daaa5fa70e97ac308c075269fdcbe3254))
+* **catalog:** import one product at a time, pictures alongside ([a86abc8](https://github.com/tonygorb/Scenri/commit/a86abc886ae644ba265cdf5c6d316dc15dbad09b))
+* **catalog:** make a large import progressive, bounded and watchable ([fff18dc](https://github.com/tonygorb/Scenri/commit/fff18dca84156b794d9eb67a582709f55b3f94b3))
+* **catalog:** read twelve product pages at once, and stop cutting them short ([c137cfd](https://github.com/tonygorb/Scenri/commit/c137cfd3dc319093f8484e2b719f5aaae607ee87))
+* **products:** a waiting card holds its space, and its picture is asked for early ([5a20f91](https://github.com/tonygorb/Scenri/commit/5a20f91c960ceeecfa813d503c437965449091f7))
+
+
+### Miscellaneous Chores
+
+* **release:** pin the next version to 0.9.3 ([1b019ba](https://github.com/tonygorb/Scenri/commit/1b019bae1ab357421287c10d1765111e843134ae))
+
 ## [0.9.2](https://github.com/tonygorb/Scenri/compare/v0.9.1...v0.9.2) (2026-09-07)
 
 

@@ -30,11 +30,21 @@ import {
   type OnImageLanded,
 } from '@scenri/core';
 import { DEFAULT_TIMEOUT_MS, createRunner, execArgs, type CodexRunner, type RunnerOptions } from './run.js';
+import { classifyCodexFailure } from './classify.js';
+import { outcomeFor } from './connect.js';
 
 export { createCodexAnalyzer } from './analyzer.js';
-export { createCodexSetup, INSTALL_COMMAND, type CodexSetup, type CodexSetupState } from './setup.js';
+export {
+  createCodexSetup,
+  INSTALL_COMMAND,
+  type CodexSetup,
+  type CodexSetupState,
+  type CodexStatusResult,
+} from './setup.js';
 export type { AnalyzeRequest, CodexAnalyzer, PresenterDraft, SceneDraft } from './analyzer.js';
 export { createRunner, type CodexRunner } from './run.js';
+export { CONFLICT_ENV_KEYS, type CodexFailure, type CodexFailureCode } from './classify.js';
+export { CONNECT_PROMPT, type CodexConnection } from './connect.js';
 
 /**
  * How many execs one node runs at once. Two halves the upload contention of
@@ -330,6 +340,9 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
                 // The world changed under the cached probe: the next
                 // /api/engines and preflight must see it, not "Connected".
                 runner.invalidateProbe();
+                // A shot that died on the machine's own setup has already paid
+                // for the answer the connection check would spend a turn on.
+                noteFromError(err);
               }
             }
           }
@@ -419,7 +432,10 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
         try {
           await runCodex(args, signal, { stdin: promptText, label: `edit refs=${editRefs.length}` });
         } catch (err) {
-          if (isFatalSetupError(err)) runner.invalidateProbe();
+          if (isFatalSetupError(err)) {
+            runner.invalidateProbe();
+            noteFromError(err);
+          }
           throw err;
         }
         const images = await collectImages(dir, before);
@@ -439,9 +455,22 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
    * plus codex's stable not-signed-in wording.
    */
   function isFatalSetupError(err: unknown): boolean {
-    return /failed to spawn|ENOENT|not logged in|login required|401|unauthorized|is too old/i.test(
+    return /failed to spawn|ENOENT|not logged in|login required|401|unauthorized|is too old|environment is overriding/i.test(
       String((err as Error)?.message ?? err),
     );
+  }
+
+  /**
+   * Hand a real failure to the runner as a connection verdict. Recording it
+   * means the engine row, the composer banner and the setup dialog all catch
+   * up with no further spawn and no further plan spend.
+   */
+  function noteFromError(err: unknown): void {
+    const failure = classifyCodexFailure({
+      text: String((err as Error)?.message ?? err),
+      env: process.env,
+    });
+    runner.noteConnection(outcomeFor(failure.code), failure);
   }
 
   function buildPrompt(req: GenerateRequest, index: number, roles: ReferenceRole[]): string {

@@ -164,6 +164,23 @@ test('the panel does not follow you to the next screen', async ({ page }) => {
   await expect(pop(page)).toHaveCount(0);
 });
 
+/**
+ * Two floating surfaces in the same corner. Opening the import dialog with the
+ * bell panel already up left the popover sitting over the dialog's own scrim,
+ * which read as a stuck menu. The shared dialog shell announces itself and the
+ * bell stands down.
+ */
+test('a dialog taking the screen closes the panel', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}/products`);
+  await bell(page).click();
+  await expect(pop(page)).toBeVisible();
+
+  await page.locator('button', { hasText: 'Add product' }).first().click();
+  await expect(page.locator('[role="dialog"]').first()).toBeVisible();
+  await expect(pop(page)).toHaveCount(0);
+});
+
 test('clearing empties the record', async ({ page }) => {
   const brand = await currentBrand(page);
   await page.goto(`/${brand.slug}`);

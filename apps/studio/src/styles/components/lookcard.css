@@ -40,6 +40,17 @@
   color: var(--sc-fg3);
   background: var(--sc-raised);
 }
+/* A card waiting for its picture holds the space the picture will take.
+   The shimmer is `position: absolute; inset: 0`, and the image that normally
+   gives this plane its height is not there yet, so the plane collapsed to
+   nothing: a wall of pending cards measured zero pixels tall. That reads as a
+   blank page, jumps the layout as each picture lands, and leaves a scroll
+   sentinel with no content between it and the top, so a paged grid ran away to
+   thousands of rows at once. Measured on a 2,199-product store: pending cards
+   0px, loaded cards 208px. */
+.sc-lookcard-media:has(> .sc-shimmer) {
+  aspect-ratio: 4 / 5;
+}
 .sc-lookcard:hover img {
   transform: scale(1.03);
 }

@@ -77,7 +77,34 @@ export function ProductPage() {
   const [err, setErr] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const product = products.find((p) => p.id === productId);
+  const listed = products.find((p) => p.id === productId);
+  /**
+   * The whole product, fetched for this page alone.
+   *
+   * The library list carries one picture per product on purpose - all of them
+   * for 2,201 products was 2.9 MB of response the grid never read. This page
+   * is the one surface that shows every picture, so it is the one that asks.
+   */
+  const [full, setFull] = useState<Product | null>(null);
+  useEffect(() => {
+    if (listed?.origin !== 'catalog') {
+      setFull(null);
+      return;
+    }
+    let alive = true;
+    void api
+      .libraryProduct(brand.id, listed.id)
+      .then((r) => {
+        if (alive) setFull(r.product);
+      })
+      .catch(() => {
+        // The listed entry still has a name and a picture; it is not nothing.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [brand.id, listed]);
+  const product = full && listed && full.id === listed.id ? { ...listed, ...full } : listed;
   const demoProduct = useMemo(
     () => (product ? undefined : demoProducts.find((d) => d.id === productId)),
     [product, demoProducts, productId],

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { thumbOf } from '../api.js';
 import { useHoverNone } from '../useMediaQuery.js';
 import { Link } from 'react-router';
@@ -22,9 +22,10 @@ export type CatalogCardSize = 'shelf' | 'grid' | 'slider' | 'wizard';
  * footer under the image; first tap arms (shows use like hover); pill →
  * create; second tap on image → detail. Context menu is desktop-only.
  */
-export function CatalogCard({
+function CatalogCardInner({
   id,
   previewUrl,
+  pending,
   title,
   primary,
   secondary,
@@ -41,6 +42,14 @@ export function CatalogCard({
 }: {
   id: string;
   previewUrl?: string | null;
+  /**
+   * The picture is on its way, rather than absent.
+   *
+   * Without this a card waiting on its details showed the same empty-frame
+   * glyph as a product that genuinely has no picture, so a whole grid mid-load
+   * read as a grid of broken products.
+   */
+  pending?: boolean;
   title: string;
   primary: string;
   secondary: string;
@@ -92,6 +101,8 @@ export function CatalogCard({
   const preview =
     previewUrl && !broken ? (
       <img src={thumbOf(previewUrl, 'tile')} alt="" loading="lazy" onError={() => setBroken(true)} />
+    ) : pending ? (
+      <span className="sc-shimmer" />
     ) : (
       <span className="sc-lookcard-blank">
         <ImageSquare size={20} />
@@ -113,6 +124,7 @@ export function CatalogCard({
       <button
         type="button"
         className="sc-lookcard"
+        data-fb-id={id}
         data-variant="select"
         data-size={size}
         data-on={selected || undefined}
@@ -247,3 +259,10 @@ export function CatalogCardSkeleton({ size = 'grid', count = 4 }: { size?: Catal
     </>
   );
 }
+
+/**
+ * Memoised: nothing here re-renders unless its own props change.
+ * A wall of these re-rendered in full on every Products render, and during
+ * an import that was every 1.5 seconds.
+ */
+export const CatalogCard = memo(CatalogCardInner);

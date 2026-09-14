@@ -404,12 +404,10 @@ export const INSERT_KIND: Record<Exclude<InsertSigil, '#'>, IngredientKind> = {
   '@': 'presenter',
 };
 
-/** Rows a typed query will draw. Past this, typing is faster than scrolling. */
-export const INSERT_CAP = 40;
-
 /**
- * Empty-query cap. Opening `$` on a 700-product library used to dump the
- * first forty; a shortlist is what makes typing the obvious next move.
+ * First page, and each load-more step. Opening `$` on a 700-product library
+ * used to dump the first forty; a shortlist is what makes typing the next
+ * move. The rest pages in the same menu — never a silent cap.
  */
 export const INSERT_EMPTY = {
   Products: 8,
@@ -426,6 +424,11 @@ export const INSERT_LABEL: Record<InsertSigil, InsertGroup> = {
   '@': 'Presenters',
   '#': 'Colors',
 };
+
+/** First page and each load-more step for this sigil. */
+export function insertPageSize(sigil: InsertSigil | undefined): number {
+  return INSERT_EMPTY[INSERT_LABEL[sigil ?? '$']];
+}
 
 /** What TokenMenu renders. `run` is attached at the call site. */
 export interface InsertChoice {
@@ -454,20 +457,30 @@ function fromCandidate(c: Candidate): InsertChoice {
   };
 }
 
-function rankedKind(
-  kind: IngredientKind,
-  items: Candidate[],
-  bookmarked: ReadonlySet<string>,
-  shown: number,
-): InsertChoice[] {
-  return pickList(kind, items, { currentId: null, query: '', bookmarked, shown }).items.map(fromCandidate);
+function rankedKind(kind: IngredientKind, items: Candidate[], bookmarked: ReadonlySet<string>): InsertChoice[] {
+  return pickList(kind, items, { currentId: null, query: '', bookmarked, shown: items.length }).items.map(
+    fromCandidate,
+  );
+}
+
+function listed(items: InsertChoice[], shown: number): InsertList {
+  const { visible, remaining } = pageSlice(items, shown);
+  return { items: visible, remaining, total: items.length };
+}
+
+/** What `$` `/` `@` `#` show after paging. */
+export interface InsertList {
+  items: InsertChoice[];
+  remaining: number;
+  total: number;
 }
 
 /**
  * What `$` `/` `@` `#` show. One catalog each — never a mixed list.
  *
  * `$` products, `/` scenes, `@` presenters, `#` brand colours.
- * Marks and shots stay on the attach panel.
+ * Marks and shots stay on the attach panel. The first page is the shortlist;
+ * `shown` is how the rest arrives.
  */
 export function insertShortlist(
   sigil: InsertSigil,
@@ -477,19 +490,20 @@ export function insertShortlist(
     scenes?: Candidate[];
     colors?: Swatch[];
   },
-  o: { query: string; bookmarked?: ReadonlySet<string> } = { query: '' },
-): InsertChoice[] {
+  o: { query: string; bookmarked?: ReadonlySet<string>; shown?: number } = { query: '' },
+): InsertList {
   const q = o.query.trim();
   const bookmarked = o.bookmarked ?? new Set<string>();
+  const shown = o.shown ?? INSERT_EMPTY[INSERT_LABEL[sigil]];
   if (sigil === '#') {
     const colors = (pools.colors ?? []).map(fromSwatch);
-    if (!q) return colors.slice(0, INSERT_EMPTY.Colors);
-    return colors.filter((c) => matchesQuery(c.search ?? c.label, q)).slice(0, INSERT_CAP);
+    const hits = q ? colors.filter((c) => matchesQuery(c.search ?? c.label, q)) : colors;
+    return listed(hits, shown);
   }
   const kind = INSERT_KIND[sigil];
   const items = kind === 'product' ? pools.products : kind === 'presenter' ? pools.presenters : (pools.scenes ?? []);
-  if (!q) return rankedKind(kind, items, bookmarked, INSERT_EMPTY[INSERT_LABEL[sigil]]);
-  return filterCandidates(items, q).map(fromCandidate).slice(0, INSERT_CAP);
+  const hits = q ? filterCandidates(items, q).map(fromCandidate) : rankedKind(kind, items, bookmarked);
+  return listed(hits, shown);
 }
 
 function fromSwatch(s: Swatch): InsertChoice {

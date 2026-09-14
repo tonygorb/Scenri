@@ -4,6 +4,12 @@
  * on the Desktop. The Desktop is the user's: an artifact is replaced only when
  * it is ours, removed only when it is ours, and a name clash is reported, not
  * resolved by renaming anything.
+ *
+ * installDesktop answers, it never throws. The icon is a convenience offered
+ * after the server is already listening, so every way it can fail has to be a
+ * value the caller can print. A rejection here used to unwind through serve()
+ * to the process-level catch and exit(1), which killed a running Scenri for
+ * the crime of not finding a Desktop folder.
  */
 import { copyFileSync, existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -36,9 +42,11 @@ export interface InstallDeps {
   runImpl: RunImpl;
 }
 
+export type InstallFailure = 'unsupported' | 'no-desktop' | 'probe-failed' | 'collision' | 'desktop-denied' | 'failed';
+
 export type InstallResult =
   | { ok: true; kind: 'macos-app' | 'windows-lnk'; path: string }
-  | { ok: false; reason: 'unsupported' | 'no-desktop' | 'collision' | 'desktop-denied' | 'failed'; message: string };
+  | { ok: false; reason: InstallFailure; message: string };
 
 export interface DesktopStatus {
   supported: boolean;
@@ -52,6 +60,7 @@ export interface DesktopStatus {
 
 export const UNSUPPORTED = 'Desktop shortcuts are not available on this system yet.';
 const NO_DESKTOP = 'Your Desktop folder could not be found.';
+const PROBE_FAILED = 'This computer did not answer where your Desktop folder is.';
 const COLLISION = 'Something else named Scenri is already on your desktop. Move or rename it, then try again.';
 const DENIED =
   'macOS did not allow writing to your Desktop. Allow it under System Settings > Privacy & Security > Files and Folders, then try again.';
@@ -60,9 +69,59 @@ const DENIED =
 // package template, and a copy would read as stale to the refresh.
 const SUPPORT_FILES = ['launch.mjs', 'Scenri.icns', 'scenri.ico'] as const;
 
+/**
+ * Why something failed, in one line, for a person.
+ *
+ * Node prefixes an execFile failure with the ENTIRE command it ran, so the
+ * first line of the message is the command and not the reason. Taking it
+ * showed a Windows tester `Command failed: C:\Windows\...\powershell.exe
+ * -NoProfile -NonInteractive -Command $s = New-Object -ComObject
+ * WScript.Shell; $l = $s.CreateShortcut($env:SCENRI_LNK); $l.Targ)` - cut
+ * mid-word by the length cap, and no use to anybody. The command is never the
+ * reason; stderr is, when there is any.
+ */
+export function failureDetail(err: unknown): string {
+  const e = err as { stderr?: unknown; message?: unknown; code?: unknown; killed?: unknown };
+  const lineOf = (text: string) =>
+    text
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)[0] ?? '';
+
+  const stderr = typeof e.stderr === 'string' ? lineOf(e.stderr) : '';
+  if (stderr) return stderr.slice(0, 200);
+  if (e.killed === true || e.code === 'ETIMEDOUT') return 'it did not answer in time';
+
+  const message = err instanceof Error ? err.message : String(err);
+  const useful = message
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .find((l) => !/^Command failed:/i.test(l));
+  return (useful ?? 'the command did not finish').slice(0, 200);
+}
+
 export async function installDesktop(deps: InstallDeps): Promise<InstallResult> {
+  try {
+    return await install(deps);
+  } catch (err) {
+    // Anything left: a support file that would not copy, a record that would
+    // not write, a runImpl that rejected somewhere new. Still a value.
+    return { ok: false, reason: 'failed', message: `Scenri could not add the desktop icon (${failureDetail(err)}).` };
+  }
+}
+
+async function install(deps: InstallDeps): Promise<InstallResult> {
   if (!isSupportedPlatform(deps.platform)) return { ok: false, reason: 'unsupported', message: UNSUPPORTED };
-  const desktop = await desktopDir(deps);
+
+  // Asking the OS where the Desktop is runs a process on Windows, and a
+  // process can fail to start, answer late, or answer nothing.
+  let desktop: string | null;
+  try {
+    desktop = await desktopDir(deps);
+  } catch (err) {
+    return { ok: false, reason: 'probe-failed', message: `${PROBE_FAILED} (${failureDetail(err)})` };
+  }
   if (!desktop) return { ok: false, reason: 'no-desktop', message: NO_DESKTOP };
 
   const darwin = deps.platform === 'darwin';
@@ -79,7 +138,15 @@ export async function installDesktop(deps: InstallDeps): Promise<InstallResult> 
 
   const nodeMajor = runningNodeMajor();
   const nodePath = stableExecPath(deps.execPath, deps.platform);
-  writeSupportFiles({ ...deps, execPath: nodePath, nodeMajor }, support);
+  try {
+    writeSupportFiles({ ...deps, execPath: nodePath, nodeMajor }, support);
+  } catch (err) {
+    return {
+      ok: false,
+      reason: 'failed',
+      message: `Scenri could not write its launcher files to ${support} (${failureDetail(err)}).`,
+    };
+  }
   try {
     if (darwin) {
       writeMacBundle({
@@ -101,19 +168,28 @@ export async function installDesktop(deps: InstallDeps): Promise<InstallResult> 
     const code = (err as { code?: string }).code;
     if (darwin && (code === 'EPERM' || code === 'EACCES'))
       return { ok: false, reason: 'desktop-denied', message: DENIED };
-    const detail = err instanceof Error ? err.message.split('\n')[0] : String(err);
-    return { ok: false, reason: 'failed', message: `Scenri could not write ${artifact} (${detail}).` };
+    return { ok: false, reason: 'failed', message: `Scenri could not write ${artifact} (${failureDetail(err)}).` };
   }
 
-  writeLauncherRecord(deps.homedir, {
-    schema: LAUNCHER_SCHEMA,
-    createdBy: deps.version,
-    home: deps.home,
-    nodePath,
-    nodeMajor,
-    env: recordedEnv(deps.env),
-    artifact: { kind, path: artifact },
-  });
+  try {
+    writeLauncherRecord(deps.homedir, {
+      schema: LAUNCHER_SCHEMA,
+      createdBy: deps.version,
+      home: deps.home,
+      nodePath,
+      nodeMajor,
+      env: recordedEnv(deps.env),
+      artifact: { kind, path: artifact },
+    });
+  } catch (err) {
+    // The icon exists but nothing can find the version behind it, so this is
+    // a failure even though a file landed on the Desktop.
+    return {
+      ok: false,
+      reason: 'failed',
+      message: `Scenri added the icon but could not record where it points (${failureDetail(err)}).`,
+    };
+  }
   return { ok: true, kind, path: artifact };
 }
 

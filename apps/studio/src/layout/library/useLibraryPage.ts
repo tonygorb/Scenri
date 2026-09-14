@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { pageSlice } from './libraryRules.js';
 
 const PAGE = 60;
@@ -17,7 +17,9 @@ export function useLibraryPage<T>(items: T[], resetKey: string) {
   }, [resetKey]);
 
   const { visible, remaining } = pageSlice(items, shown);
-  const showMore = () => setShown((n) => n + PAGE);
+  // Stable, because the scroll sentinel observes on its identity: a fresh
+  // arrow each render tore the observer down and rebuilt it every time.
+  const showMore = useCallback(() => setShown((n) => n + PAGE), []);
 
   return { visible, remaining, showMore };
 }

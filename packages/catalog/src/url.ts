@@ -54,3 +54,43 @@ export function upgradeImageUrl(url: string): string {
     return url;
   }
 }
+
+/**
+ * The same catalog, listed once per language, collapsed back to once.
+ *
+ * A store that sells in several markets publishes a product sitemap per
+ * locale, and the sitemap index lists all of them. gymshark.com's index
+ * carries both `/sitemap_products_1.xml` and `/es-US/sitemap_products_1.xml`,
+ * so discovery came back with 4404 URLs for 2202 products - half the pages we
+ * would read, and a count twice the size of the catalog, before a single
+ * duplicate was caught downstream by external key.
+ *
+ * A locale segment is two letters, optionally with a region ("/es-US/",
+ * "/de/"), and it only counts as one when the same path exists without it.
+ * A store that publishes nothing but localised URLs keeps all of them: there
+ * is no canonical form there to prefer.
+ */
+const LOCALE_SEGMENT = /^\/[a-z]{2}(?:-[A-Za-z]{2})?\//;
+
+export function preferCanonicalLocale(urls: string[]): string[] {
+  const canonical = new Set<string>();
+  for (const u of urls) {
+    try {
+      const parsed = new URL(u);
+      if (!LOCALE_SEGMENT.test(parsed.pathname)) canonical.add(`${parsed.origin}${parsed.pathname}`);
+    } catch {
+      /* an unparseable entry is left where it is */
+    }
+  }
+  if (!canonical.size) return urls;
+  return urls.filter((u) => {
+    try {
+      const parsed = new URL(u);
+      if (!LOCALE_SEGMENT.test(parsed.pathname)) return true;
+      const stripped = parsed.pathname.replace(LOCALE_SEGMENT, '/');
+      return !canonical.has(`${parsed.origin}${stripped}`);
+    } catch {
+      return true;
+    }
+  });
+}

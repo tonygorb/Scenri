@@ -64,12 +64,15 @@ export function engineMeta(e: Pick<EngineInfo, 'free' | 'localOnly' | 'perGenera
 export function rowAction(
   e: Pick<EngineInfo, 'id' | 'available' | 'code'>,
   hasKeyProvider: boolean,
-): 'Manage' | 'Connect' | 'Set up' | 'Update' | null {
+): 'Manage' | 'Connect' | 'Set up' | 'Update' | 'Fix' | null {
   if (hasKeyProvider) return e.available ? 'Manage' : 'Connect';
   if (e.available) return e.id === FALLBACK_ENGINE_ID ? 'Manage' : null;
   switch (e.code) {
     case 'update-needed':
       return 'Update';
+    // Nothing to install and nothing to sign into: the machine is in the way.
+    case 'env-conflict':
+      return 'Fix';
     case 'not-installed':
     case 'not-authenticated':
     case 'unverified':

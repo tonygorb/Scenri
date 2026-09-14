@@ -48,14 +48,44 @@ const customRows = (brand: Brand | null | undefined): any[] =>
   ((brand?.json?.characters ?? []) as any[]).filter((c) => c?.origin === 'custom');
 
 /**
- * A brand's own people, newest last, exactly as its document lists them:
- * one record per person, the current one. A record an edit replaced stays
- * in the document for the shots made against it, and never in a list.
+ * Newest first for every "yours" wall.
+ *
+ * The brand document still appends: an edit keeps its slot, and an older
+ * brand is not rewritten. Display is the other direction, so a card that
+ * sat top-left while it built stays top-left when it lands - the same rule
+ * the Create feed already keeps for shots.
+ */
+export function newestFirst<T>(rows: readonly T[]): T[] {
+  return rows.length < 2 ? [...rows] : rows.slice().reverse();
+}
+
+/**
+ * The unified product library, newest first, without disturbing the store's half.
+ *
+ * Products come from two places and only one of them appends. The brand
+ * document still lists hand-made products oldest first, so that half reverses
+ * like presenters and scenes do. The imported half arrives already sorted
+ * newest first by the server (`catalog/rows.ts`, `created_at DESC, rowid DESC`),
+ * and reversing the whole array would have put a store's catalogue in oldest
+ * order and pushed the hand-made products to the end behind it.
+ */
+export function productsNewestFirst<T extends { origin?: string | null }>(rows: readonly T[]): T[] {
+  const own = rows.filter((p) => p.origin !== 'catalog');
+  if (own.length === rows.length) return newestFirst(rows);
+  return [...newestFirst(own), ...rows.filter((p) => p.origin === 'catalog')];
+}
+
+/**
+ * A brand's own people, newest first for display: one record per person, the
+ * current one. A record an edit replaced stays in the document for the shots
+ * made against it, and never in a list. The document still appends.
  */
 export function customPresentersOf(brand: Brand | null | undefined): CustomPresenter[] {
-  return customRows(brand)
-    .filter((c) => !c.supersededBy)
-    .map(toPresenter);
+  return newestFirst(
+    customRows(brand)
+      .filter((c) => !c.supersededBy)
+      .map(toPresenter),
+  );
 }
 
 /** Any record by id, the head or one an edit replaced, so an old shot's presenter still opens. */
@@ -122,10 +152,10 @@ function toPresenter(c: any): CustomPresenter {
   };
 }
 
-/** A brand's own places. */
+/** A brand's own places, newest first for display; the document still appends. */
 export function customScenesOf(brand: Brand | null | undefined): CustomScene[] {
   const rows: any[] = brand?.json?.scenes ?? [];
-  return rows.map(toScene);
+  return newestFirst(rows.map(toScene));
 }
 
 export function customSceneById(brand: Brand | null | undefined, id: string): CustomScene | undefined {

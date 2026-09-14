@@ -177,3 +177,289 @@ describe('catalog import API', () => {
     expect(espresso.description).toBe('shot');
   });
 });
+
+/**
+ * Every URL typed at /setup is offered to the catalog importer, because a shop
+ * can sit behind a splash page and skipping one would lose products. What
+ * changed is only what a zero-product result is called: a site with no shop on
+ * it is a fact about the site, and used to be written as `failed` - so a
+ * tester whose brand kit had just been built perfectly also got a red bell
+ * reading "No public product catalog found".
+ */
+describe('a website with no shop on it', () => {
+  let home: string;
+  let core: ReturnType<typeof createCore>;
+  let app: ReturnType<typeof buildServer>;
+
+  /** A real site, and a real 404 for every shop-shaped thing asked of it. */
+  const marketingSite = (async (input: any) => {
+    const url = String(input);
+    if (url === 'https://lucid.example/' || url === 'https://lucid.example')
+      return new Response('<title>Lucid</title><p>We do bookkeeping.</p>', {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      });
+    return new Response('not found', { status: 404 });
+  }) as unknown as typeof fetch;
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'sc-noshop-'));
+    core = createCore(home);
+    app = buildServer({ core, engines: registryWith(), fetchImpl: marketingSite });
+  });
+  afterEach(async () => {
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  it('finishes as no_catalog rather than failed, and says so plainly', async () => {
+    const brand = await app.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'Lucid' } } },
+    });
+    const brandId = brand.json().id;
+    const start = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brandId}/catalog/import`,
+      payload: { url: 'https://lucid.example' },
+    });
+    expect(start.statusCode).toBe(200);
+
+    let job: any;
+    for (let i = 0; i < 120; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      job = (
+        await app.inject({ method: 'GET', url: `/api/brands/${brandId}/catalog/jobs/${start.json().jobId}` })
+      ).json();
+      if (job.finishedAt) break;
+    }
+    expect(job.stage).toBe('no_catalog');
+    expect(job.message).toBe('No shop found on this site');
+    expect(job.errors).toEqual([]);
+    expect(job.finishedAt).toBeTruthy();
+  });
+});
+
+/**
+ * A 2,201-product import used to write nothing until every page had been read.
+ * The bell said "0 of 2,199" for sixteen minutes, the Products page stayed
+ * empty, and an OOM at minute nineteen left zero products behind for all of it.
+ * Products are persisted in batches now, so what has landed is readable while
+ * the rest is still arriving.
+ */
+describe('a large import is readable while it runs', () => {
+  let home: string;
+  let core: ReturnType<typeof createCore>;
+  let app: Awaited<ReturnType<typeof buildServer>>;
+  /** Held until the test lets go, so the job cannot finish before it is looked at. */
+  let openTheGate: () => void;
+  let gate: Promise<void>;
+
+  const COUNT = 30;
+  /** Pages past this one are held, so the crawl cannot finish on its own. */
+  const HELD_FROM = 20;
+
+  beforeEach(async () => {
+    gate = new Promise<void>((r) => {
+      openTheGate = r;
+    });
+    home = mkdtempSync(join(tmpdir(), 'sc-cli-prog-'));
+    core = createCore(home);
+    app = buildServer({
+      core,
+      engines: registryWith(createDemoEngine((b) => core.images.save(b))),
+      fetchImpl: (async (input: any) => {
+        const url = String(input);
+        // gymshark.com's shape: a Shopify store whose own product API refuses
+        // us, so the catalogue is a wall of pages read one at a time. This is
+        // the run that takes minutes and the only one batching is about; the
+        // bulk-API path is a handful of requests and stays one round.
+        if (url.includes('/products.json')) return new Response('blocked', { status: 403 });
+        if (url.endsWith('/sitemap.xml'))
+          return new Response(
+            `<?xml version="1.0"?><sitemapindex><sitemap><loc>https://shop.example/sitemap_products_1.xml</loc></sitemap></sitemapindex>`,
+            { status: 200 },
+          );
+        if (url.includes('sitemap_products_1'))
+          return new Response(
+            `<?xml version="1.0"?><urlset>${Array.from(
+              { length: COUNT },
+              (_, i) => `<url><loc>https://shop.example/products/product-${i + 1}</loc></url>`,
+            ).join('')}</urlset>`,
+            { status: 200 },
+          );
+        const page = /\/products\/product-(\d+)$/.exec(url);
+        if (page) {
+          const i = Number(page[1]);
+          // The tail of the crawl is held until the test lets go, so what is
+          // on screen while it waits is what a real import shows you partway
+          // through a store of thousands.
+          if (i > HELD_FROM) await gate;
+          return new Response(
+            `<html><head><script type="application/ld+json">${JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Product',
+              name: `Product ${i}`,
+              sku: `P-${i}`,
+              url,
+              image: [`https://cdn.example/p${i}.jpg`],
+              offers: { '@type': 'Offer', price: 10, priceCurrency: 'USD' },
+            })}</script></head><body><button>Add to cart</button></body></html>`,
+            { status: 200 },
+          );
+        }
+        if (url.includes('.jpg')) return new Response(PNG, { status: 200, headers: { 'content-type': 'image/jpeg' } });
+        return new Response('', { status: 404 });
+      }) as any,
+    });
+    await app.ready();
+  });
+  afterEach(async () => {
+    // Let the run end before the home goes away. The job keeps writing
+    // progress, and tearing the database out from under it surfaces as an
+    // unhandled rejection that has nothing to do with the test.
+    openTheGate();
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  // Polls a real import through the HTTP surface, so it needs more than the
+  // 5 s default.
+  it('serves the products that have landed before the job is finished', { timeout: 20_000 }, async () => {
+    const brand = await app.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'Acme', website: 'https://shop.example' } } },
+    });
+    const brandId = brand.json().id;
+    const start = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brandId}/catalog/import`,
+      payload: { url: 'https://shop.example' },
+    });
+    const jobId = start.json().jobId;
+
+    let landed = 0;
+    let job: any = null;
+    for (let i = 0; i < 100 && landed === 0; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      const lib = await app.inject({ method: 'GET', url: `/api/brands/${brandId}/products-library` });
+      landed = lib.json().products.length;
+      job = (await app.inject({ method: 'GET', url: `/api/brands/${brandId}/catalog/jobs/${jobId}` })).json();
+    }
+
+    // A PART of the catalogue is readable, while the crawl that is writing it
+    // is still going: products reach the database as their pages parse, one at
+    // a time, rather than after every page has been read. The old pipeline
+    // read all thirty pages before writing a row, and the Products page stayed
+    // empty for the whole run.
+    expect(landed).toBeGreaterThan(0);
+    expect(landed).toBeLessThanOrEqual(HELD_FROM);
+    expect(job.finishedAt).toBeFalsy();
+
+    openTheGate();
+    for (let i = 0; i < 200; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      job = (await app.inject({ method: 'GET', url: `/api/brands/${brandId}/catalog/jobs/${jobId}` })).json();
+      if (job.finishedAt) break;
+    }
+    expect(job.upserted).toBe(COUNT);
+    const lib = await app.inject({ method: 'GET', url: `/api/brands/${brandId}/products-library` });
+    expect(lib.json().products).toHaveLength(COUNT);
+  });
+});
+
+/**
+ * A shop that starts turning us away mid-catalogue used to look exactly like a
+ * shop with very few products. A real gymshark.com run answered 413 pages and
+ * then HTTP 405 with `x-amzn-waf-action: captcha` for the remaining 1,794, and
+ * the job called itself "Imported 413 products with 209 issues" - a sentence
+ * about pictures, for a run that had been shut out.
+ */
+describe('a store that stops answering', () => {
+  let home: string;
+  let core: ReturnType<typeof createCore>;
+  let app: Awaited<ReturnType<typeof buildServer>>;
+  const COUNT = 40;
+  /** Pages past this one are refused, the way a bot check refuses them. */
+  const OPEN_UNTIL = 10;
+
+  beforeEach(async () => {
+    home = mkdtempSync(join(tmpdir(), 'sc-cli-shut-'));
+    core = createCore(home);
+    app = buildServer({
+      core,
+      engines: registryWith(createDemoEngine((b) => core.images.save(b))),
+      fetchImpl: (async (input: any) => {
+        const url = String(input);
+        if (url.includes('/products.json')) return new Response('blocked', { status: 403 });
+        if (url.endsWith('/sitemap.xml'))
+          return new Response(
+            `<?xml version="1.0"?><sitemapindex><sitemap><loc>https://shop.example/sitemap_products_1.xml</loc></sitemap></sitemapindex>`,
+            { status: 200 },
+          );
+        if (url.includes('sitemap_products_1'))
+          return new Response(
+            `<?xml version="1.0"?><urlset>${Array.from(
+              { length: COUNT },
+              (_, i) => `<url><loc>https://shop.example/products/product-${i + 1}</loc></url>`,
+            ).join('')}</urlset>`,
+            { status: 200 },
+          );
+        const page = /\/products\/product-(\d+)$/.exec(url);
+        if (page) {
+          const i = Number(page[1]);
+          if (i > OPEN_UNTIL) return new Response('<html><body>captcha</body></html>', { status: 405 });
+          return new Response(
+            `<html><head><script type="application/ld+json">${JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Product',
+              name: `Product ${i}`,
+              sku: `P-${i}`,
+              url,
+              image: [`https://cdn.example/p${i}.jpg`],
+              offers: { '@type': 'Offer', price: 10, priceCurrency: 'USD' },
+            })}</script></head><body><button>Add to cart</button></body></html>`,
+            { status: 200 },
+          );
+        }
+        if (url.includes('.jpg')) return new Response(PNG, { status: 200, headers: { 'content-type': 'image/jpeg' } });
+        return new Response('', { status: 404 });
+      }) as any,
+    });
+    await app.ready();
+  });
+  afterEach(async () => {
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  it('says the store stopped answering, and keeps what it read', async () => {
+    const brand = await app.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'Acme', website: 'https://shop.example' } } },
+    });
+    const brandId = brand.json().id;
+    const start = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brandId}/catalog/import`,
+      payload: { url: 'https://shop.example' },
+    });
+    const jobId = start.json().jobId;
+    let job: any;
+    for (let i = 0; i < 200; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      job = (await app.inject({ method: 'GET', url: `/api/brands/${brandId}/catalog/jobs/${jobId}` })).json();
+      if (job.finishedAt) break;
+    }
+    expect(job.stage).toBe('partial');
+    expect(job.message).toMatch(/stopped answering/i);
+    expect(job.message).toContain(String(OPEN_UNTIL));
+    expect((job.errors ?? []).some((e: any) => e.code === 'store_refused')).toBe(true);
+    // What it did read is kept, not thrown away.
+    const lib = await app.inject({ method: 'GET', url: `/api/brands/${brandId}/products-library` });
+    expect(lib.json().products).toHaveLength(OPEN_UNTIL);
+  });
+});

@@ -73,7 +73,18 @@ export function createThumbStore(core: Core, opts: { concurrency?: number } = {}
   const pathFor = (key: string, w: ThumbWidth) => join(dir, `${key}-w${w}.webp`);
   const inflight = new Map<string, Promise<string | null>>();
   const failed = new Set<string>();
-  const concurrency = Math.max(1, opts.concurrency ?? 2);
+  /**
+   * Two was inherited and never measured, and a cold sixty-card page is sixty
+   * WebP encodes. Measured on the real store, 60 catalog jpegs to the 320 wide
+   * derivative, total milliseconds:
+   *
+   *   2  1092    3  597    4  461    6  462    8  457    10  472
+   *
+   * Flat from four, because sharp drives libvips' own thread pool underneath
+   * and four JS workers already saturate it. Four is the elbow: 2.4x off the
+   * cold page, and nothing above it is bought.
+   */
+  const concurrency = Math.max(1, opts.concurrency ?? 4);
   let active = 0;
   const waiting: (() => void)[] = [];
   const acquire = () =>

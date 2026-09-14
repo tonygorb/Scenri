@@ -1,6 +1,7 @@
 import { httpJson, httpText, mapPool } from '../http/fetch.js';
-import { absolutize, originOf } from '../url.js';
+import { absolutize, originOf, preferCanonicalLocale } from '../url.js';
 import { normalizeProduct } from '../normalize.js';
+import { fetchProductPages } from './productPage.js';
 import type { AdapterContext, CatalogAdapter, CatalogProduct, DetectResult, DiscoverResult } from '../types.js';
 
 function mapShopifyProduct(base: string, p: any): CatalogProduct {
@@ -61,13 +62,30 @@ function mapShopifyProduct(base: string, p: any): CatalogProduct {
   });
 }
 
-async function fetchProductsJsonPage(ctx: AdapterContext, page: number, limit = 250): Promise<any[]> {
+/**
+ * One page of the storefront product API.
+ *
+ * `blocked` separates "this store has no more products" from "this store will
+ * not serve us its API", which are the same empty array and very different
+ * facts. gymshark.com answers 403 here and 200 on every product page.
+ */
+async function fetchProductsJsonPage(
+  ctx: AdapterContext,
+  page: number,
+  limit = 250,
+): Promise<{ products: any[]; blocked: boolean }> {
   const origin = originOf(ctx.baseUrl);
   const url = `${origin}/products.json?limit=${limit}&page=${page}`;
-  const { ok, json } = await httpJson<{ products?: any[] }>(url, { fetchImpl: ctx.fetchImpl, signal: ctx.signal });
-  if (!ok || !json?.products) return [];
-  return json.products;
+  const { ok, status, json } = await httpJson<{ products?: any[] }>(url, {
+    fetchImpl: ctx.fetchImpl,
+    signal: ctx.signal,
+  });
+  if (ok && json?.products) return { products: json.products, blocked: false };
+  return { products: [], blocked: status === 401 || status === 403 || status === 404 || status >= 500 };
 }
+
+/** Discovery's word that the product API refused us, so fetching must not ask it again. */
+const JSON_BLOCKED = 'json-blocked';
 
 async function collectSitemapProductUrls(ctx: AdapterContext): Promise<string[]> {
   const origin = originOf(ctx.baseUrl);
@@ -96,7 +114,7 @@ async function collectSitemapProductUrls(ctx: AdapterContext): Promise<string[]>
       }
     }
   }
-  return [...urls];
+  return preferCanonicalLocale([...urls]);
 }
 
 export const shopifyAdapter: CatalogAdapter = {
@@ -136,6 +154,7 @@ export const shopifyAdapter: CatalogAdapter = {
 
   async discover(ctx): Promise<DiscoverResult> {
     const warnings: string[] = [];
+    const hints: string[] = [];
     const keys = new Set<string>();
     const productUrls = new Set<string>();
     const origin = originOf(ctx.baseUrl);
@@ -145,8 +164,12 @@ export const shopifyAdapter: CatalogAdapter = {
     let emptyStreak = 0;
     while (emptyStreak < 1) {
       if (ctx.signal?.aborted) throw new Error('aborted');
-      const products = await fetchProductsJsonPage(ctx, page);
+      const { products, blocked } = await fetchProductsJsonPage(ctx, page);
       ctx.onProgress?.({ stage: 'discovering', discovered: keys.size, message: `Shopify page ${page}` });
+      if (blocked && page === 1) {
+        hints.push(JSON_BLOCKED);
+        warnings.push('This store does not serve its product API, so the product pages were read instead');
+      }
       if (!products.length) {
         emptyStreak++;
         break;
@@ -180,7 +203,12 @@ export const shopifyAdapter: CatalogAdapter = {
       productKeys: [...keys],
       productUrls: [...productUrls],
       estimatedTotal: keys.size || productUrls.size || null,
+      // A store whose own product API answered but refused us leaves nothing
+      // to read but the pages themselves, one request each. That is what
+      // gymshark.com does, and it is the run worth batching.
+      byPage: hints.includes(JSON_BLOCKED),
       warnings,
+      hints,
     };
   },
 
@@ -188,12 +216,15 @@ export const shopifyAdapter: CatalogAdapter = {
     const origin = originOf(ctx.baseUrl);
     const out: CatalogProduct[] = [];
     const seen = new Set<string>();
+    const jsonBlocked = discovered.hints?.includes(JSON_BLOCKED) ?? false;
 
-    // Primary: walk products.json pages again for full payloads
+    // Primary: walk products.json pages again for full payloads. Skipped
+    // outright when discovery already found the API refuses us, because the
+    // per-handle backfill below would then be one wasted request per product.
     let page = 1;
-    while (true) {
+    while (!jsonBlocked) {
       if (ctx.signal?.aborted) throw new Error('aborted');
-      const products = await fetchProductsJsonPage(ctx, page);
+      const { products } = await fetchProductsJsonPage(ctx, page);
       if (!products.length) break;
       for (const p of products) {
         const mapped = mapShopifyProduct(origin, p);
@@ -211,34 +242,57 @@ export const shopifyAdapter: CatalogAdapter = {
       if (page > 10_000) break;
     }
 
-    // Fetch any sitemap-only handles missing from JSON
-    const missingUrls = discovered.productUrls.filter((u) => {
-      const handle = /\/products\/([^/?#]+)/i.exec(u)?.[1];
-      return handle && !out.some((p) => p.handle === decodeURIComponent(handle));
-    });
+    const handleOf = (u: string) => {
+      const raw = /\/products\/([^/?#]+)/i.exec(u)?.[1];
+      return raw ? decodeURIComponent(raw) : null;
+    };
+    const stillMissing = () =>
+      discovered.productUrls.filter((u) => {
+        const handle = handleOf(u);
+        return handle && !out.some((p) => p.handle === handle);
+      });
 
-    if (missingUrls.length) {
-      await mapPool(
-        missingUrls,
-        6,
-        async (u) => {
-          const handle = /\/products\/([^/?#]+)/i.exec(u)?.[1];
-          if (!handle) return;
-          const { ok, json } = await httpJson<{ product?: any }>(`${origin}/products/${handle}.json`, {
-            fetchImpl: ctx.fetchImpl,
-            signal: ctx.signal,
-          });
-          if (ok && json?.product) {
-            const mapped = mapShopifyProduct(origin, json.product);
-            if (!seen.has(mapped.externalKey)) {
-              seen.add(mapped.externalKey);
-              out.push(mapped);
-              ctx.onProgress?.({ stage: 'fetching_products', fetched: out.length });
+    // Second: the per-product API, for handles the listing did not carry.
+    if (!jsonBlocked) {
+      const missingUrls = stillMissing();
+      if (missingUrls.length) {
+        await mapPool(
+          missingUrls,
+          6,
+          async (u) => {
+            const handle = handleOf(u);
+            if (!handle) return;
+            const { ok, json } = await httpJson<{ product?: any }>(`${origin}/products/${handle}.json`, {
+              fetchImpl: ctx.fetchImpl,
+              signal: ctx.signal,
+            });
+            if (ok && json?.product) {
+              const mapped = mapShopifyProduct(origin, json.product);
+              if (!seen.has(mapped.externalKey)) {
+                seen.add(mapped.externalKey);
+                out.push(mapped);
+                ctx.onProgress?.({ stage: 'fetching_products', fetched: out.length });
+              }
             }
-          }
-        },
-        ctx.signal,
-      );
+          },
+          ctx.signal,
+        );
+      }
+    }
+
+    // Last: the product pages themselves, which a headless storefront serves
+    // freely even when its JSON is refused. This is what turns gymshark.com
+    // from an empty catalog into a readable one.
+    const unread = stillMissing();
+    if (unread.length) {
+      for (const p of await fetchProductPages(ctx, unread, {
+        concurrency: 4,
+        onProduct: (fetched) => ctx.onProgress?.({ stage: 'fetching_products', fetched: out.length + fetched }),
+      })) {
+        if (seen.has(p.externalKey)) continue;
+        seen.add(p.externalKey);
+        out.push(p);
+      }
     }
 
     return out;

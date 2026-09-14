@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { productSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
 import { Plus } from '@phosphor-icons/react';
+import { productsNewestFirst } from '../brandAssets.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { useAppData } from '../app/AppShell.js';
@@ -62,13 +63,15 @@ export function ProductsView() {
   const category = facets.category;
   const [tile, setTile] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
   const density = normalizeDensity(tile);
-  const setDensity = (cols: DensityCols) => setTile(cols);
-  const wallStyle = densityWallStyle(density);
+  const setDensity = useCallback((cols: DensityCols) => setTile(cols), [setTile]);
+  // Both were fresh objects/arrows on every render, handed to every card, which
+  // is what made one Products render re-render all of them.
+  const wallStyle = useMemo(() => densityWallStyle(density), [density]);
   const densityAttr = densitySize(density);
 
-  /** Yours, for the section above the seam. */
+  /** Yours, for the section above the seam. Newest first, so a product just added sits top-left. */
   const mine = useMemo(
-    () => products.map((p) => ({ product: p as any, category: effectiveCategory(p), own: true })),
+    () => productsNewestFirst(products).map((p) => ({ product: p as any, category: effectiveCategory(p), own: true })),
     [products],
   );
   /** Ours, for the wall below it. Always present, at every catalog size. */
@@ -92,7 +95,7 @@ export function ProductsView() {
   );
   const mode = facetMode(presentCategories.length);
 
-  const openProduct = (id: string) => navigate(productPath(brand, id));
+  const openProduct = useCallback((id: string) => navigate(productPath(brand, id)), [navigate, brand]);
 
   /** The facet and the search, applied to either half by the same rule. */
   const narrow = useCallback(
@@ -115,6 +118,32 @@ export function ProductsView() {
    * unchanging library behind a button is chrome for nothing.
    */
   const { visible: mineVisible, remaining, showMore } = useLibraryPage(mineFiltered, `${category ?? ''}|${q}`);
+
+  /**
+   * Grow the wall before the bottom arrives, the shape the feed already uses
+   * (`layout/Canvas.tsx`): one sentinel after the last card, two screens of
+   * margin. This page only had a "Show more" button, so reaching the end of
+   * sixty products was always a stop.
+   *
+   * The button stays below for the keyboard, and because a sentinel that never
+   * intersects - a short page, a hidden tab - must not be the only way on.
+   */
+  const [endEl, setEndEl] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!endEl || remaining <= 0) return;
+    // Observed against the page's own scroller, the way the feed does it. This
+    // page scrolls `.sc-home`, not the window, and a viewport-rooted observer
+    // reads the wrong distance.
+    const root = endEl.closest('.sc-home');
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) showMore();
+      },
+      { root, rootMargin: '200% 0px' },
+    );
+    io.observe(endEl);
+    return () => io.disconnect();
+  }, [endEl, remaining, showMore]);
 
   const facetGroup = {
     key: 'category',
@@ -199,6 +228,7 @@ export function ProductsView() {
                   />
                 ))}
               </div>
+              {remaining > 0 && <div ref={setEndEl} aria-hidden />}
               {remaining > 0 && (
                 <div className="sc-lib-more">
                   <button type="button" className="sc-btn sc-btn-ghost" onClick={showMore}>

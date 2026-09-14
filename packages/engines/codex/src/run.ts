@@ -12,12 +12,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { EngineAvailability } from '@scenri/core';
 import { MIN_CODEX_VERSION, parseCodexVersion, resolveCodex, versionAtLeast, type ResolvedCodex } from './locate.js';
+import { buildChildEnv } from './childEnv.js';
+import { type CodexFailure, classifyCodexFailure, conflictReason, presentConflictKeys } from './classify.js';
+import {
+  CONNECT_PROMPT,
+  CONNECT_TIMEOUT_MS,
+  CONNECT_TTL_MS,
+  type CodexConnection,
+  availabilityFrom,
+  connectFingerprint,
+  outcomeFor,
+} from './connect.js';
 
 export const NOT_INSTALLED_REASON = 'Codex CLI is not installed on this computer';
 export const NOT_AUTHENTICATED_REASON = 'Codex CLI is installed but not signed in';
 export const UNVERIFIED_REASON = 'Could not verify Codex on this computer';
-/** @deprecated kept so older callers still compile; prefer the two specific reasons. */
-export const NOT_AVAILABLE_REASON = 'Codex CLI not found or not signed in (run: codex login)';
 export const DEFAULT_TIMEOUT_MS = 300_000;
 /** A probe answer is either quick or worthless: past this it is "could not verify". */
 export const PROBE_TIMEOUT_MS = 10_000;
@@ -51,6 +60,18 @@ export interface RunnerOptions {
   firstOutputMs?: number;
   /** Tests pin this so the spawn contract does not fork with the CI host OS. */
   platform?: NodeJS.Platform;
+  /** How long a proven connection stays proven; 0 disables the rung entirely. */
+  connectTtlMs?: number;
+  /** The connection check's own cap. */
+  connectTimeoutMs?: number;
+  /**
+   * Names to keep out of every codex child's environment, read per spawn so a
+   * repair takes effect on the next run without rebuilding the runner. The
+   * parent process is never touched.
+   */
+  ignoreEnvKeys?: () => readonly string[];
+  /** The environment children inherit from. Injected for tests; process.env otherwise. */
+  env?: NodeJS.ProcessEnv;
 }
 
 /** Per-call knobs for one exec; the runner's own options are the defaults. */
@@ -68,6 +89,16 @@ export interface CodexRunner {
   probe(): Promise<EngineAvailability>;
   /** Forget the cached probe answer: something (install, login, failure) changed the world. */
   invalidateProbe(): void;
+  /**
+   * Run one real `codex exec` and report what it proved. Costs a turn of the
+   * user's plan, so only an explicit check calls it; everything else reads the
+   * verdict a check or a generation already left behind.
+   */
+  connect(opts?: { force?: boolean }): Promise<CodexConnection>;
+  /** Forget the connection verdict only. Sign-in, an env repair and Check again call this. */
+  invalidateConnection(): void;
+  /** Record what a real generation already proved, so nothing is tested twice. */
+  noteConnection(outcome: 'proven' | 'refused' | 'unproven', failure?: CodexFailure): void;
 }
 
 /**
@@ -177,6 +208,19 @@ export function codexFailureDetail(stderr: string, stdout: string): string {
  */
 const MODEL_NEEDS_NEWER_CODEX = /The '([^']+)' model requires a newer version of Codex/;
 
+/**
+ * The other half of a conflict 401. Captured live on codex-cli 0.153.4
+ * (2026-09-13) with a bogus CODEX_API_KEY exported and a healthy ChatGPT
+ * sign-in in place:
+ *
+ *   ERROR: unexpected status 401 Unauthorized: Incorrect API key provided:
+ *   sk-proj-****s000.
+ *
+ * A 401 without this wording is a refused session and keeps the signed-out
+ * reading; this wording without a variable set here is not ours to blame.
+ */
+const BAD_KEY_401 = /incorrect api key provided|invalid_api_key|invalid api key/i;
+
 /** The sentence both the failed exec and the probe say about it; the exec adds what to do. */
 function tooOldForModel(version: string | null, model: string): string {
   return `Codex CLI ${version ?? 'on this computer'} is too old for the model it is set to, ${model}.`;
@@ -250,6 +294,10 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
   const probeTtlMs = opts.probeTtlMs ?? PROBE_TTL_MS;
   const firstOutputMs = opts.firstOutputMs ?? FIRST_OUTPUT_TIMEOUT_MS;
   const platform = opts.platform ?? process.platform;
+  const connectTtlMs = opts.connectTtlMs ?? CONNECT_TTL_MS;
+  const connectTimeoutMs = opts.connectTimeoutMs ?? CONNECT_TIMEOUT_MS;
+  const parentEnv = opts.env ?? process.env;
+  const ignoreEnvKeys = opts.ignoreEnvKeys ?? (() => [] as readonly string[]);
 
   const killCodex = (child: ReturnType<typeof nodeSpawn>) => killTree(child, platform, spawnImpl);
 
@@ -297,9 +345,13 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
     // so killTree's -pid SIGTERM reaches codex's descendants. Never on the
     // win32 shell branch, where detachment has different semantics and
     // taskkill /T already owns tree teardown.
+    // One environment for every codex child, the check included: the whole
+    // point of the connection check is that codex cannot tell it apart from a
+    // real shot. Built per spawn so a repair lands on the next run.
+    const env = buildChildEnv(parentEnv, ignoreEnvKeys());
     return exe.direct
-      ? spawnImpl(exe.command, args, { stdio, ...(platform !== 'win32' ? { detached: true } : {}) })
-      : spawnImpl([exe.command, ...args.map(winArg)].join(' '), [], { stdio, shell: true });
+      ? spawnImpl(exe.command, args, { stdio, env, ...(platform !== 'win32' ? { detached: true } : {}) })
+      : spawnImpl([exe.command, ...args.map(winArg)].join(' '), [], { stdio, env, shell: true });
   };
 
   /** Run `codex <args>`, resolving on exit 0; kill + reject on a blown budget. */
@@ -445,6 +497,19 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
           );
           return;
         }
+        // A 401 that names a bad API key, on a machine that is exporting one,
+        // is not a signed-out session. Codex's own tail is dropped here: it
+        // carries the masked key fragment and nothing a person needs.
+        const conflicting = presentConflictKeys(parentEnv, ignoreEnvKeys());
+        if (conflicting.length > 0 && /\b401\b|unauthorized/i.test(stderr) && BAD_KEY_401.test(stderr)) {
+          noteConnection('refused', {
+            code: 'CODEX_AUTH_CONFLICT',
+            conflictKeys: conflicting,
+            reason: conflictReason(conflicting),
+          });
+          finish(`exit-${code ?? 'unknown'}`, () => reject(new Error(conflictReason(conflicting))));
+          return;
+        }
         const snippet = codexFailureDetail(stderr, stdout);
         finish(`exit-${code ?? 'unknown'}`, () =>
           reject(new Error(`codex exited with code ${code ?? 'unknown'}${snippet ? `: ${snippet}` : ''}`)),
@@ -529,6 +594,27 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
    * parse it is not a failure).
    */
   let cached: { at: number; value: EngineAvailability } | null = null;
+  let connCache: CodexConnection | null = null;
+  let connectInFlight: Promise<CodexConnection> | null = null;
+
+  /** Everything that could make a proven connection stop being true. */
+  function fingerprintFor(exe: ResolvedCodex, version: string | null): string {
+    const ignored = ignoreEnvKeys();
+    return connectFingerprint({
+      command: exe.command,
+      version,
+      present: presentConflictKeys(parentEnv, ignored),
+      ignored,
+    });
+  }
+
+  /** The stored verdict, if it is still fresh and still about this machine. */
+  function freshConnection(exe: ResolvedCodex, version: string | null): CodexConnection | null {
+    if (!connCache || connectTtlMs <= 0) return null;
+    if (Date.now() - connCache.at >= connectTtlMs) return null;
+    if (connCache.fingerprint !== fingerprintFor(exe, version)) return null;
+    return connCache;
+  }
 
   async function probe(): Promise<EngineAvailability> {
     // Test servers set this so the machine's own codex login cannot turn a
@@ -547,7 +633,20 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
     return value;
   }
 
+  /**
+   * The verdict, corrected by whatever a real run already proved.
+   *
+   * This never spawns an exec of its own. GET /api/engines is awaited on every
+   * page load, so spending a turn of the user's plan here - or blocking it for
+   * the length of one - is not on offer. The fifth rung is asked by the setup
+   * dialog and answered for free by every generation.
+   */
   async function probeUncached(): Promise<EngineAvailability> {
+    const { avail, exe, version } = await probeLadder();
+    return availabilityFrom(avail, freshConnection(exe, version));
+  }
+
+  async function probeLadder(): Promise<{ avail: EngineAvailability; exe: ResolvedCodex; version: string | null }> {
     // Fresh every probe: an install that happened after Scenri started must be
     // found on the next check, not after a restart.
     resolved = await resolveCodex(platform, spawnImpl);
@@ -555,31 +654,47 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
 
     const ver = await probeSpawn(exe, ['--version']);
     if (ver.outcome === 'timeout') {
-      return verdict({ ok: false, reason: UNVERIFIED_REASON, code: 'unverified' }, exe, null);
+      return {
+        avail: verdict({ ok: false, reason: UNVERIFIED_REASON, code: 'unverified' }, exe, null),
+        exe,
+        version: null,
+      };
     }
     if (ver.outcome !== 'ok') {
-      return verdict({ ok: false, reason: NOT_INSTALLED_REASON, code: 'not-installed' }, exe, null);
+      return {
+        avail: verdict({ ok: false, reason: NOT_INSTALLED_REASON, code: 'not-installed' }, exe, null),
+        exe,
+        version: null,
+      };
     }
     const version = parseCodexVersion(ver.stdout);
     knownVersion = version;
     if (version && !versionAtLeast(version, MIN_CODEX_VERSION)) {
-      return verdict(
-        {
-          ok: false,
-          reason: `Codex CLI ${version} is too old. Scenri needs ${MIN_CODEX_VERSION} or newer.`,
-          code: 'update-needed',
-        },
+      return {
+        avail: verdict(
+          {
+            ok: false,
+            reason: `Codex CLI ${version} is too old. Scenri needs ${MIN_CODEX_VERSION} or newer.`,
+            code: 'update-needed',
+          },
+          exe,
+          version,
+        ),
         exe,
         version,
-      );
+      };
     }
     if (tooOldFor) {
       if (version === tooOldFor.version) {
-        return verdict(
-          { ok: false, reason: tooOldForModel(version, tooOldFor.model), code: 'update-needed' },
+        return {
+          avail: verdict(
+            { ok: false, reason: tooOldForModel(version, tooOldFor.model), code: 'update-needed' },
+            exe,
+            version,
+          ),
           exe,
           version,
-        );
+        };
       }
       // A different codex is a different question; that verdict said nothing about it.
       tooOldFor = null;
@@ -587,12 +702,79 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
 
     const login = await probeSpawn(exe, ['login', 'status']);
     if (login.outcome === 'ok') {
-      return verdict({ ok: true }, exe, version);
+      return { avail: verdict({ ok: true }, exe, version), exe, version };
     }
     if (login.outcome === 'nonzero') {
-      return verdict({ ok: false, reason: NOT_AUTHENTICATED_REASON, code: 'not-authenticated' }, exe, version);
+      return {
+        avail: verdict({ ok: false, reason: NOT_AUTHENTICATED_REASON, code: 'not-authenticated' }, exe, version),
+        exe,
+        version,
+      };
     }
-    return verdict({ ok: false, reason: UNVERIFIED_REASON, code: 'unverified' }, exe, version);
+    return { avail: verdict({ ok: false, reason: UNVERIFIED_REASON, code: 'unverified' }, exe, version), exe, version };
+  }
+
+  /**
+   * The fifth question, asked for real: can THIS process start codex and have
+   * OpenAI accept it. Nothing cheaper answers it - `codex login status` prints
+   * "Logged in using ChatGPT" and exits 0 on a machine where every `codex
+   * exec` 401s, because exec reads CODEX_API_KEY and login status does not.
+   */
+  async function connect(o: { force?: boolean } = {}): Promise<CodexConnection> {
+    if (connectInFlight) return connectInFlight;
+    const pending = (async (): Promise<CodexConnection> => {
+      const { avail, exe, version } = await probeLadder();
+      const fingerprint = fingerprintFor(exe, version);
+      if (!o.force) {
+        const fresh = freshConnection(exe, version);
+        if (fresh) return fresh;
+      }
+      // Nothing to prove: the ladder already knows why this machine cannot
+      // run codex, and spending a turn to hear it again helps nobody.
+      if (!avail.ok) {
+        return { outcome: 'unproven', at: Date.now(), fingerprint };
+      }
+      let result: CodexConnection;
+      try {
+        await withWorkDir((dir) =>
+          run(execArgs(dir), undefined, {
+            stdin: CONNECT_PROMPT,
+            timeoutMs: connectTimeoutMs,
+            label: 'connect',
+          }),
+        );
+        result = { outcome: 'proven', at: Date.now(), fingerprint };
+      } catch (err) {
+        const failure = classifyCodexFailure({
+          text: err instanceof Error ? err.message : String(err),
+          env: parentEnv,
+          ignored: ignoreEnvKeys(),
+        });
+        result = { outcome: outcomeFor(failure.code), failure, at: Date.now(), fingerprint };
+      }
+      connCache = result;
+      cached = null;
+      return result;
+    })();
+    connectInFlight = pending;
+    try {
+      return await pending;
+    } finally {
+      connectInFlight = null;
+    }
+  }
+
+  /**
+   * A finished shot is stronger proof than any check, and a shot that died on
+   * a conflict has already paid for the answer. Recording it here means the
+   * engine list and the composer banner catch up without spawning anything.
+   */
+  function noteConnection(outcome: 'proven' | 'refused' | 'unproven', failure?: CodexFailure): void {
+    if (outcome === 'unproven') return;
+    const exe = resolved;
+    if (!exe) return;
+    connCache = { outcome, failure, at: Date.now(), fingerprint: fingerprintFor(exe, knownVersion) };
+    cached = null;
   }
 
   function invalidateProbe(): void {
@@ -600,5 +782,10 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
     resolved = null;
   }
 
-  return { run, withWorkDir, probe, invalidateProbe };
+  function invalidateConnection(): void {
+    connCache = null;
+    cached = null;
+  }
+
+  return { run, withWorkDir, probe, invalidateProbe, connect, invalidateConnection, noteConnection };
 }

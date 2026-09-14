@@ -25,9 +25,15 @@ import { readMeta } from './meta.js';
 import { createUpdateChecker, type UpdateChecker } from './update/check.js';
 import { createContentFetcher, type ContentFetcher } from './content/fetch.js';
 import type { stageVersion } from './update/stage.js';
-import { validateBrand, buildFromUrl, mergeScrape } from '@scenri/brand';
-import type { EngineRegistry } from './engines.js';
-import { brandJsonWithCatalogProducts, resolveLibraryProduct, runningImportCount } from './catalogImport.js';
+import { validateBrand, buildFromUrl, mergeScrape, normalizeSiteUrl } from '@scenri/brand';
+import { inspectMark } from './markShape.js';
+import { IGNORE_ENV_KEYS_SETTING, ignoreEnvKeysGetter, type EngineRegistry } from './engines.js';
+import {
+  brandJsonWithCatalogProducts,
+  resolveLibraryProduct,
+  runningImportCount,
+  settleCatalogImports,
+} from './catalogImport.js';
 import {
   brandCharacters,
   brandJsonWithIdentityCrops,
@@ -168,6 +174,12 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   const runningGenerations = new Map<string, AbortController>();
   // Derivatives for every picture shown smaller than it is. Made when a shot
   // lands and on first request; the originals stay where they were.
+  // Nothing is importing at the moment a server starts, so any job the
+  // database still calls unfinished belongs to a process that is gone. Left
+  // alone it shows in the bell as work in flight for ever, with nothing left
+  // that could ever close it.
+  core.catalog.reconcileInterruptedJobs();
+
   const thumbs = createThumbStore(core);
   const { scenes } = loadScenes(opts.templatesDir);
   // resolves a scene by its id or by any id it used to answer to
@@ -189,8 +201,24 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // fs errors embed absolute paths ("ENOENT: … open '/Users/…'"); the path
     // belongs in the terminal, not in a response a browser can read.
     const leaksPath = typeof e.code === 'string' && /^(ENOENT|EACCES|EPERM|EISDIR|ENOTDIR)$/.test(e.code);
-    reply.status(status).send({ error: leaksPath ? 'unexpected error' : (e.message ?? 'unexpected error') });
+    // The same rule, for the other kind of leak. An unguarded `new URL` threw a
+    // bare "Invalid URL" that this handler forwarded verbatim, and a tester
+    // read it as their own website being rejected. A runtime error nobody chose
+    // to write is never a sentence for a person; the terminal gets it instead.
+    const rawRuntime = !e.statusCode && (err instanceof TypeError || err instanceof RangeError);
+    if (rawRuntime) console.error('unexpected error:', err);
+    reply
+      .status(status)
+      .send({ error: leaksPath || rawRuntime ? 'unexpected error' : (e.message ?? 'unexpected error') });
   });
+
+  /**
+   * Bounds and address rules for anything the brand scraper fetches. Loopback
+   * and private addresses are refused, because a brand field is not a way to
+   * probe someone's own network; the e2e fixture serves from 127.0.0.1 and is
+   * the only thing that ever lifts it.
+   */
+  const scrapeGuard = () => ({ allowPrivateHosts: process.env.SCENRI_SCRAPE_ALLOW_PRIVATE === '1' });
 
   // ---- brands
   app.get('/api/brands', async () => core.store.listBrands());
@@ -201,10 +229,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return core.store.createBrand(json);
   });
   app.post('/api/brands/from-url', async (req, reply) => {
-    const url = String((req.body as any)?.url ?? '');
-    if (!/^https?:\/\//.test(url)) return reply.status(400).send({ error: 'url must be http(s)' });
-    const { brand, warnings } = await buildFromUrl(url, {
+    // One normaliser, here and in buildFromUrl, so a leading space, a pasted
+    // smart quote or a scheme nobody meant becomes a sentence rather than a 500.
+    const asked = normalizeSiteUrl((req.body as any)?.url);
+    if (!asked.ok) return reply.status(400).send({ error: asked.message });
+    const url = asked.url;
+    const { brand, warnings, report } = await buildFromUrl(url, {
       fetchImpl: opts.fetchImpl,
+      guard: scrapeGuard(),
       // The store names every blob `<hash>.png` and /api/images/:hash always
       // serves image/png, so an un-normalized .ico or .svg here is a file lying
       // about its own format — broken in the marks grid, and mislabelled to any
@@ -212,14 +244,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       saveAsset: async (buf) => `asset:${core.images.save(await toMarkPng(buf))}`,
       // Measured as stored (post-toMarkPng), so the scrape judges the same
       // pixels the compiler will one day attach.
-      probeLongEdge: async (buf) => {
-        const m = await sharp(await toMarkPng(buf)).metadata();
-        return Math.max(m.width ?? 0, m.height ?? 0) || null;
-      },
+      inspectMark: (buf) => inspectMark(buf, toMarkPng),
       createdWith: `${meta.name}/${meta.version}`,
     });
     const row = core.store.createBrand(brand as any);
-    return { ...row, warnings };
+    return { ...row, warnings, report };
   });
   app.put('/api/brands/:id', async (req, reply) => {
     const json = (req.body as any)?.brand;
@@ -339,15 +368,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   app.post('/api/brands/:id/refresh-from-url', async (req, reply) => {
     const brand = core.store.getBrand((req.params as any).id);
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
-    const url = String((req.body as any)?.url ?? (brand.json as any)?.meta?.website ?? '');
-    if (!/^https?:\/\//.test(url)) return reply.status(400).send({ error: 'url must be http(s)' });
+    const asked = normalizeSiteUrl((req.body as any)?.url ?? (brand.json as any)?.meta?.website);
+    if (!asked.ok) return reply.status(400).send({ error: asked.message });
+    const url = asked.url;
     const { brand: scraped, warnings } = await buildFromUrl(url, {
       fetchImpl: opts.fetchImpl,
+      guard: scrapeGuard(),
       saveAsset: async (buf) => `asset:${core.images.save(await toMarkPng(buf))}`,
-      probeLongEdge: async (buf) => {
-        const m = await sharp(await toMarkPng(buf)).metadata();
-        return Math.max(m.width ?? 0, m.height ?? 0) || null;
-      },
+      inspectMark: (buf) => inspectMark(buf, toMarkPng),
       createdWith: `${meta.name}/${meta.version}`,
     });
     const { brand: merged, suggestions } = mergeScrape(brand.json, scraped);
@@ -828,7 +856,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     engineNames: () => engines.all().map((e) => ({ id: e.capabilities().id, name: e.capabilities().displayName })),
   });
 
-  registerCodexSetupRoutes(app, { codexSetup: opts.codexSetup, codexRunner: engines.codexRunner });
+  registerCodexSetupRoutes(app, {
+    codexSetup: opts.codexSetup,
+    codexRunner: engines.codexRunner,
+    envRepair: {
+      get: () => [...ignoreEnvKeysGetter(core)()],
+      set: (keys) => core.store.setSetting(IGNORE_ENV_KEYS_SETTING, keys.join(',')),
+    },
+  });
 
   // ---- engines / caps / costs
   app.get('/api/engines', async () => {
@@ -2442,6 +2477,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       while (runningGenerations.size > 0 && Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 25));
       }
+      await settleCatalogImports();
       await thumbs.settle();
       await app.close();
       core.close();

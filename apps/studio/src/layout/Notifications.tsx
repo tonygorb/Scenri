@@ -12,6 +12,7 @@ import {
   XCircle,
 } from '@phosphor-icons/react';
 import { api, thumbUrl } from '../api.js';
+import { ImportProgress } from '../views/ImportProgress.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { agoLabel, elapsedLabel, elapsedSec, type NotificationItem, type Task } from '../tasks.js';
@@ -37,11 +38,29 @@ type TabKey = 'tasks' | 'feed';
 
 export function NotificationsButton() {
   const { running, unread, panelOpen, setPanelOpen, markSeen } = useTaskCenter();
+  const { brand } = useBrand();
   const { pathname } = useLocation();
   const phone = useMediaQuery(PHONE);
+  /**
+   * The import someone opened, held HERE rather than in the panel.
+   *
+   * The panel closes when a dialog opens, and this dialog is one. Owned by the
+   * panel, it unmounted with the surface that had just opened it: the import
+   * dialog flashed and vanished on every click. It has to outlive the panel,
+   * so it lives beside it.
+   */
+  const [detailJob, setDetailJob] = useState<string | null>(null);
 
   // the bar outlives the screen now, so an open panel would follow you around
   useEffect(() => setPanelOpen(false), [pathname, setPanelOpen]);
+
+  // A dialog taking the screen closes the panel: two floating surfaces in one
+  // corner, and the one the person just asked for should win.
+  useEffect(() => {
+    const close = () => setPanelOpen(false);
+    window.addEventListener('scenri:modal-open', close);
+    return () => window.removeEventListener('scenri:modal-open', close);
+  }, [setPanelOpen]);
 
   const label =
     'Notifications' +
@@ -72,23 +91,29 @@ export function NotificationsButton() {
           <Bell size={16} weight={running ? 'fill' : 'regular'} />
           {badge}
         </button>
-        {panelOpen ? <Sheet onClose={() => setPanelOpen(false)} onSeen={markSeen} /> : null}
+        {panelOpen ? <Sheet onClose={() => setPanelOpen(false)} onSeen={markSeen} onOpenDetail={setDetailJob} /> : null}
+        {detailJob ? (
+          <ImportProgress brandId={brand.id} jobId={detailJob} onDismiss={() => setDetailJob(null)} />
+        ) : null}
       </>
     );
   }
 
   return (
-    <Popover.Root open={panelOpen} onOpenChange={setPanelOpen}>
-      <Popover.Trigger>
-        <button type="button" className="sc-icon-btn sc-notif-btn" aria-label={label} title="Notifications">
-          <Bell size={16} weight={running ? 'fill' : 'regular'} />
-          {badge}
-        </button>
-      </Popover.Trigger>
-      <Popover.Content align="end" className="sc-notif-pop">
-        <Panel onClose={() => setPanelOpen(false)} onSeen={markSeen} />
-      </Popover.Content>
-    </Popover.Root>
+    <>
+      <Popover.Root open={panelOpen} onOpenChange={setPanelOpen}>
+        <Popover.Trigger>
+          <button type="button" className="sc-icon-btn sc-notif-btn" aria-label={label} title="Notifications">
+            <Bell size={16} weight={running ? 'fill' : 'regular'} />
+            {badge}
+          </button>
+        </Popover.Trigger>
+        <Popover.Content align="end" className="sc-notif-pop">
+          <Panel onClose={() => setPanelOpen(false)} onSeen={markSeen} onOpenDetail={setDetailJob} />
+        </Popover.Content>
+      </Popover.Root>
+      {detailJob ? <ImportProgress brandId={brand.id} jobId={detailJob} onDismiss={() => setDetailJob(null)} /> : null}
+    </>
   );
 }
 
@@ -96,7 +121,15 @@ export function NotificationsButton() {
  * Escape and an outside click are what a sheet owes you; Radix gives those to
  * the popover for free and this is the half of the app that has to earn them.
  */
-function Sheet({ onClose, onSeen }: { onClose: () => void; onSeen: () => void }) {
+function Sheet({
+  onClose,
+  onSeen,
+  onOpenDetail,
+}: {
+  onClose: () => void;
+  onSeen: () => void;
+  onOpenDetail: (jobId: string) => void;
+}) {
   const { sheet, grip } = useSheetDrag(onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -113,14 +146,22 @@ function Sheet({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
         <div className="sc-shotsheet-grip" {...grip}>
           <span className="sc-shotsheet-bar" aria-hidden />
         </div>
-        <Panel onClose={onClose} onSeen={onSeen} />
+        <Panel onClose={onClose} onSeen={onSeen} onOpenDetail={onOpenDetail} />
       </div>
     </>,
     document.body,
   );
 }
 
-function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void }) {
+function Panel({
+  onClose,
+  onSeen,
+  onOpenDetail,
+}: {
+  onClose: () => void;
+  onSeen: () => void;
+  onOpenDetail: (jobId: string) => void;
+}) {
   const { tasks, feed, unread, clearFeed } = useTaskCenter();
   const { brand } = useBrand();
   const { push } = useToasts();
@@ -142,6 +183,14 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
       void api
         .cancelAssetBuild(brand.id, taskId.slice(6))
         .catch((e) => push(failureToast(e, 'Could not stop this build')));
+      return;
+    }
+    // A catalog import can be stopped too. The route has always existed and
+    // nothing ever called it, so a 2,000-product import was unstoppable.
+    if (taskId.startsWith('catalog:')) {
+      void api
+        .cancelCatalogJob(brand.id, taskId.slice(8))
+        .catch((e) => push(failureToast(e, 'Could not stop this import')));
     }
   };
 
@@ -189,7 +238,16 @@ function Panel({ onClose, onSeen }: { onClose: () => void; onSeen: () => void })
           tasks.length === 0 ? (
             <p className="sc-notif-empty">Nothing running. Generations show up here as they go.</p>
           ) : (
-            tasks.map((t) => <TaskRow key={t.id} task={t} now={now} onNavigate={onClose} onCancel={cancelTask} />)
+            tasks.map((t) => (
+              <TaskRow
+                key={t.id}
+                task={t}
+                now={now}
+                onNavigate={onClose}
+                onCancel={cancelTask}
+                onOpenDetail={onOpenDetail}
+              />
+            ))
           )
         ) : feed.length === 0 ? (
           <p className="sc-notif-empty">You have no notifications yet.</p>
@@ -257,19 +315,27 @@ function TaskRow({
   now,
   onNavigate,
   onCancel,
+  onOpenDetail,
 }: {
   task: Task;
   now: number;
   /** The row is a real Link; this only closes the panel behind it. */
   onNavigate: () => void;
   onCancel: (taskId: string) => void;
+  /** A running import opens onto itself rather than navigating somewhere else. */
+  onOpenDetail: (jobId: string) => void;
 }) {
   const running = task.state === 'running';
-  // Both kinds of work that can actually be stopped. A catalog import cannot.
-  const stoppable = task.id.startsWith('node:') || task.id.startsWith('build:');
+  // Every kind of work that can actually be stopped. A catalog import can:
+  // its route existed from the start and the UI simply never called it.
+  const stoppable = task.id.startsWith('node:') || task.id.startsWith('build:') || task.id.startsWith('catalog:');
   // past 60s, the cancel control is the one thing on this row worth making
   // louder than the rest, since it is the only way out of a stuck run
   const urgent = running && elapsedSec(task.startedAt, now) >= 60;
+  // While a catalog import runs, the useful destination is the import itself:
+  // the products it is writing are not all there yet, so sending someone to
+  // the products page mid-run shows them a half-filled shelf.
+  const detailJobId = running && task.id.startsWith('catalog:') ? task.id.slice(8) : null;
   const body = (
     <>
       <span className="sc-notif-thumb">
@@ -291,7 +357,17 @@ function TaskRow({
   );
   return (
     <div className="sc-notif-row-wrap">
-      {task.href ? (
+      {detailJobId ? (
+        <button
+          type="button"
+          className="sc-notif-row"
+          data-state={task.state}
+          data-running={running || undefined}
+          onClick={() => onOpenDetail(detailJobId)}
+        >
+          {body}
+        </button>
+      ) : task.href ? (
         // A real Link: the row's destination survives middle click and Cmd
         // click; a plain click still closes the panel behind the navigation.
         <Link

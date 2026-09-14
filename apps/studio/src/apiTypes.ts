@@ -207,10 +207,30 @@ export interface TextLayer {
   background?: { color: string; paddingX: number; paddingY: number; radius: number } | null;
   stroke?: { color: string; width: number } | null;
 }
-/** Which setup step would make an engine ready, when the engine knows. */
-export type UnavailableCode = 'not-installed' | 'not-authenticated' | 'update-needed' | 'unverified';
+/**
+ * Which setup step would make an engine ready, when the engine knows.
+ * `env-conflict` is the odd one: the engine is installed and signed in, and a
+ * credential in this computer's environment is outranking that sign-in.
+ */
+export type UnavailableCode = 'not-installed' | 'not-authenticated' | 'update-needed' | 'unverified' | 'env-conflict';
 
-export type CodexSetupState = 'not-installed' | 'not-authenticated' | 'update-needed' | 'unverified' | 'ready';
+export type CodexSetupState =
+  | 'not-installed'
+  | 'not-authenticated'
+  | 'update-needed'
+  | 'unverified'
+  | 'env-conflict'
+  | 'ready';
+
+export interface CodexStatus {
+  state: CodexSetupState;
+  reason?: string;
+  platform?: SetupPlatform;
+  /** Variables overriding the sign-in. Empty unless the state is env-conflict. */
+  conflictKeys?: string[];
+  /** Variables Scenri is already keeping out of codex's environment. */
+  ignoredKeys?: string[];
+}
 
 /** The server's own platform, so setup copy says PowerShell where it should. */
 export type SetupPlatform = 'windows' | 'mac' | 'linux';
@@ -222,6 +242,16 @@ export interface CodexSetupResult {
   fallbackCommand?: string;
   docsUrl?: string;
   detail?: string;
+}
+
+/** What a website gave up, as facts rather than prose. Mirrors @scenri/brand. */
+export interface ScrapeReport {
+  url: string;
+  host: string;
+  name: { value: string; source: 'json-ld' | 'og:site_name' | 'title' | 'hostname' };
+  tagline: string | null;
+  logo: { status: 'primary' | 'alternate' | 'none'; source: string | null; note?: string };
+  colors: { count: number };
 }
 
 export interface EngineInfo {
@@ -674,6 +704,10 @@ export type CatalogImportStage =
   | 'processing_assets'
   | 'completed'
   | 'partial'
+  /** Read fine, no shop on it. A fact about the site, not a fault. */
+  | 'no_catalog'
+  /** Stopped by the person who started it. Not a fault, and not red. */
+  | 'cancelled'
   | 'failed';
 
 export interface CatalogImportJob {
@@ -748,4 +782,46 @@ export interface BriefPreview {
     /** Why it did not ride: lost the budget, or never had a usable photo. */
     reason?: 'budget' | 'missing';
   }[];
+}
+
+/**
+ * What a bounded look at a website concluded about commerce.
+ *
+ * Four words rather than a boolean, because "no shop here" and "a shop we
+ * could not read" need different sentences on screen. Reporting the second as
+ * the first is how a working store came to ring a red bell on a first run.
+ */
+export type CommerceVerdict = 'none' | 'found' | 'likely' | 'blocked';
+
+export interface CommerceScan {
+  verdict: CommerceVerdict;
+  /** How many products the site appears to have, which is not how many were read. */
+  count: number;
+  countSource: 'api' | 'sitemap' | 'listing' | 'preview' | 'none';
+  /** A preview, read and parsed. Nothing here is saved until someone says so. */
+  candidates: CatalogCandidate[];
+  candidateUrls: string[];
+  truncated: boolean;
+  warnings: string[];
+}
+
+/** A product that has been read but not saved. */
+export interface CatalogCandidate {
+  externalKey: string;
+  title: string;
+  url?: string | null;
+  price?: number | null;
+  currency?: string | null;
+  category?: string | null;
+  images?: { url: string }[];
+  variants?: unknown[];
+}
+
+export interface CommerceScanState {
+  id: string;
+  brandId: string;
+  url: string;
+  status: 'running' | 'done' | 'error';
+  result?: CommerceScan;
+  error?: string;
 }
