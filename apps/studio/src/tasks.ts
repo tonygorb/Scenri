@@ -260,7 +260,10 @@ export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string })
     title: host,
     subtitle: shopless
       ? 'Catalog import · no shop on this site'
-      : state === 'error' || state === 'cancelled'
+      : // A run that ended short says why, not just how far it got. "44 of 60
+        // products" is true and useless; the store having asked us to slow down
+        // is the part that tells someone to try again in a minute.
+        state === 'error' || state === 'cancelled' || state === 'partial'
         ? `Catalog import · ${j.message ?? 'failed'}`
         : `Catalog import · ${count}`,
     thumb: null,

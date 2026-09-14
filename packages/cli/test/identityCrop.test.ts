@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { createCore, type Core, type EngineAdapter, type GenerateRequest } from '@scenri/core';
 import { buildServer } from '../src/server.js';
+import { drainTracked, track } from './servers.js';
 import type { FastifyInstance } from 'fastify';
 import { brandJsonWithIdentityCrops, identityCrop } from '../src/customAssets.js';
 
@@ -44,8 +45,16 @@ beforeEach(async () => {
   home = mkdtempSync(join(tmpdir(), 'sc-identity-'));
   core = createCore(home);
 });
-afterEach(() => {
-  core.close();
+afterEach(async () => {
+  // Drain rather than close, and every server rather than the one a variable
+  // happens to hold: a thumbnail write outliving the home is ENOTEMPTY on
+  // Linux and EBUSY on Windows.
+  await drainTracked();
+  try {
+    core.close();
+  } catch {
+    // A drained server closes the core on its way out; closing twice throws.
+  }
   rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
@@ -242,12 +251,8 @@ describe('a generation conditions on the face', () => {
   beforeEach(() => {
     sent = [];
     const e = engine();
-    app = buildServer({ core, engines: { all: () => [e], get: (id) => (id === 'spy' ? e : null) } });
+    app = track(buildServer({ core, engines: { all: () => [e], get: (id) => (id === 'spy' ? e : null) } }));
   });
-  afterEach(async () => {
-    await app.close();
-  });
-
   it('sends the crop as the presenter, ahead of the full-length frames', async () => {
     const front = core.images.save(await studioFrame());
     const second = core.images.save(await studioFrame({ r: 180, g: 178, b: 172 }));

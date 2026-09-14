@@ -1,4 +1,5 @@
 export * from './types.js';
+export * from './failures.js';
 export * from './url.js';
 export * from './normalize.js';
 export * from './detect.js';

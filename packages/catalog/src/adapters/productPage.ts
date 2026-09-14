@@ -18,6 +18,7 @@ import { httpText, mapPool } from '../http/fetch.js';
 import { absolutize } from '../url.js';
 import { normalizeProduct } from '../normalize.js';
 import { attr, loadHtml, textOf } from '../html.js';
+import { pageFailure, tally, thrownFailure, type FailureTally } from '../failures.js';
 import type { AdapterContext, CatalogProduct, CatalogVariant } from '../types.js';
 
 export function stableKey(url: string): string {
@@ -385,6 +386,17 @@ export interface PageFetchOptions {
    */
   onEach?: (p: CatalogProduct) => void;
   /**
+   * Stop once this many pages in a row have been refused.
+   *
+   * A store that is throttling refuses faster than it serves, and the cooldown
+   * that keeps us polite also makes giving up slow: a 150-page crawl of a
+   * limited store spent ten minutes to save forty-six products, the last three
+   * of those minutes waiting without a single success. Past a run of
+   * refusals the answer is not going to change inside this import, and a
+   * prompt honest partial beats a long one. Reset by any success.
+   */
+  giveUpAfterRefusals?: number;
+  /**
    * Filled in as work happens, so a caller can report what it really spent.
    *
    * `refused` counts pages the site would not give us - both the ones that
@@ -401,7 +413,7 @@ export interface PageFetchOptions {
    * zero refusals, since under real pressure the requests threw rather than
    * returning a status.
    */
-  stats?: { pages: number; bytes: number; refused?: number };
+  stats?: { pages: number; bytes: number; refused?: number; reasons?: FailureTally };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -421,6 +433,10 @@ export async function fetchProductPages(
   const seen = new Set<string>();
   /** Products yielded, whether or not they were kept here. */
   let kept = 0;
+  /** Refusals since the last page that worked. */
+  let refusedRun = 0;
+  const giveUpAt = opts.giveUpAfterRefusals ?? Number.POSITIVE_INFINITY;
+  let givenUp = false;
   const want = opts.want ?? Number.POSITIVE_INFINITY;
   // Three addresses per product wanted, so a site full of stubs costs a
   // bounded amount more rather than an unbounded one.
@@ -431,12 +447,12 @@ export async function fetchProductPages(
     take,
     opts.delayMs ? 1 : (opts.concurrency ?? 5),
     async (u) => {
-      if (kept >= want) return;
+      if (kept >= want || givenUp) return;
       if (opts.deadline != null && Date.now() > opts.deadline) return;
       if (opts.maxTotalBytes != null && bytes >= opts.maxTotalBytes) return;
       try {
         if (opts.delayMs) await sleep(opts.delayMs);
-        const { ok, text, url } = await httpText(u, {
+        const { ok, status, text, url } = await httpText(u, {
           fetchImpl: ctx.fetchImpl,
           signal: ctx.signal,
           accept: 'text/html',
@@ -448,9 +464,14 @@ export async function fetchProductPages(
           opts.stats.bytes = bytes;
         }
         if (!ok) {
-          if (opts.stats) opts.stats.refused = (opts.stats.refused ?? 0) + 1;
+          if (opts.stats) {
+            opts.stats.refused = (opts.stats.refused ?? 0) + 1;
+            if (opts.stats.reasons) tally(opts.stats.reasons, pageFailure(status));
+          }
+          if (++refusedRun >= giveUpAt) givenUp = true;
           return;
         }
+        refusedRun = 0;
         for (const p of productsFromPage(text, url)) {
           if (seen.has(p.externalKey)) continue;
           seen.add(p.externalKey);
@@ -459,10 +480,13 @@ export async function fetchProductPages(
           else out.push(p);
         }
         opts.onProduct?.(kept);
-      } catch {
+      } catch (err) {
         // One unreadable page is not a reason to abandon the rest, but it is
         // still a page the site did not give us.
-        if (opts.stats) opts.stats.refused = (opts.stats.refused ?? 0) + 1;
+        if (opts.stats) {
+          opts.stats.refused = (opts.stats.refused ?? 0) + 1;
+          if (opts.stats.reasons) tally(opts.stats.reasons, thrownFailure(err, ctx.signal?.aborted));
+        }
       }
     },
     ctx.signal,
