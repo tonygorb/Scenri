@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.9.4](https://github.com/tonygorb/Scenri/compare/v0.9.3...v0.9.4) (2026-09-14)
+
+
+### Bug Fixes
+
+* a rate-limited store is not an empty one ([1eef6eb](https://github.com/tonygorb/Scenri/commit/1eef6eb7471e1d2de97ccedcafba7962a5d393ad))
+* **catalog:** a rate-limited store is not an empty one ([2e7f45a](https://github.com/tonygorb/Scenri/commit/2e7f45a07adcb202722fd07972d4e5d63bbda944))
+* **catalog:** keep an AVIF picture, and say why a page was refused ([7e08137](https://github.com/tonygorb/Scenri/commit/7e08137b543d6b491e91cc6c7f4de9aa67be4b9e))
+* **catalog:** keep the enum out of the error list, and cut what nothing produces ([1201832](https://github.com/tonygorb/Scenri/commit/1201832ac7df892506647224e790dbbaea080092))
+* **catalog:** stop waiting out a store that has made up its mind ([8f6751a](https://github.com/tonygorb/Scenri/commit/8f6751a6462b6e44b06b08a6b2dc2aa12ad456d1))
+
 ## [0.9.3](https://github.com/tonygorb/Scenri/compare/v0.9.2...v0.9.3) (2026-09-14)
 
 
