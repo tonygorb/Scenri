@@ -422,13 +422,33 @@ function shapeEdit(
 
   if (candidate) {
     openAsk();
+    // The picture first, then the question about it.
+    //
+    // Every other picture here arrives as a line carrying the thumbnail, but
+    // those are built from the draft's results, and a candidate is not a
+    // result: a picture is only recorded once it has been accepted. So the one
+    // picture a person is actually being asked about was the only one the
+    // conversation never showed, and it appeared as soon as they looked at
+    // another view and came back, which is what made it read as broken. The
+    // stage covered for it on a desktop; a phone has no stage.
+    const slot = d.views[candidate];
+    if (slot.hash) {
+      T.push({
+        kind: 'scenri',
+        id: `candidate-${candidate}-${slot.hash}`,
+        text: candidate === 'portrait' ? `Here is ${name} with the change.` : `Redrew the ${VIEW_NAME[candidate]}.`,
+        thumb: slot.hash,
+        label: VIEW_LABEL[candidate],
+      });
+    }
     ask({
       id: candidate === 'portrait' ? 'revision' : 'view-revision',
       kind: 'confirm',
+      // The words the picture already said are not said again underneath it.
       prompt:
         candidate === 'portrait'
-          ? `Here is ${name} with the change. Use this, or keep the previous one. Using it redraws the views built on the face.`
-          : `Redrew the ${VIEW_NAME[candidate]}. Use it, or keep the previous one.`,
+          ? 'Use this, or keep the previous one. Using it redraws the views built on the face.'
+          : 'Use it, or keep the previous one.',
       options: [
         { id: 'use', label: candidate === 'portrait' ? 'Use this' : 'Use it' },
         { id: 'keep', label: 'Keep previous' },

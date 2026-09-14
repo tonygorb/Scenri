@@ -710,9 +710,14 @@ describe('the record once a face is drawn', () => {
         front: { ...emptySlot(), status: 'candidate', hash: 'f1' },
       },
     });
-    const q = open(turns(state(a), d));
+    const T = turns(state(a), d);
+    const q = open(T);
     expect(q?.id).toBe('view-revision');
-    expect(q?.prompt).toBe('Here is the full body. Use it, or try again.');
+    // the picture being asked about stands above the question, carrying the
+    // sentence, so the question itself only asks
+    const shown = T.find((t) => t.kind === 'scenri' && t.thumb === 'f1');
+    expect(shown).toMatchObject({ text: 'Here is the full body.', thumb: 'f1' });
+    expect(q?.prompt).toBe('Use it, or try again.');
     // nothing stood here before it, so there is nothing to go back to
     expect(q?.kind === 'confirm' && q.options.map((o) => o.id)).toEqual(['use', 'again']);
   });
@@ -725,9 +730,13 @@ describe('the record once a face is drawn', () => {
         front: { ...emptySlot(), status: 'candidate', hash: 'f2', prior: 'f1' },
       },
     });
-    const q = open(turns(state(a), d));
+    const T = turns(state(a), d);
+    const q = open(T);
     expect(q?.id).toBe('view-revision');
-    expect(q?.prompt).toBe('Redrew the full body. Use it, or keep the previous one.');
+    // the redraw itself, not the one it would replace
+    expect(T.find((t) => t.kind === 'scenri' && t.thumb === 'f2')).toMatchObject({ text: 'Redrew the full body.' });
+    expect(T.some((t) => t.kind === 'scenri' && t.thumb === 'f1')).toBe(false);
+    expect(q?.prompt).toBe('Use it, or keep the previous one.');
     expect(q?.kind === 'confirm' && q.options.map((o) => o.id)).toEqual(['use', 'keep', 'again']);
   });
 

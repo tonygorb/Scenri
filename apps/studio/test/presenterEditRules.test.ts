@@ -180,7 +180,19 @@ describe('the editor transcript', () => {
       canGenerate: true,
       ui: EMPTY_EDIT_UI,
     });
-    expect(ids(t)).toEqual(['scenri:opening', 'scenri:asked-ask-a1', 'you:ask-a1', 'q:revision']);
+    // the redraw itself stands between the words that asked for it and the
+    // question about it, because that picture is what the question is about
+    expect(ids(t)).toEqual([
+      'scenri:opening',
+      'scenri:asked-ask-a1',
+      'you:ask-a1',
+      'scenri:candidate-portrait-p2',
+      'q:revision',
+    ]);
+    expect(t.find((x) => x.kind === 'scenri' && x.id === 'candidate-portrait-p2')).toMatchObject({
+      text: 'Here is Maren with the change.',
+      thumb: 'p2',
+    });
     const redrew = draft({
       asks: [{ view: 'front', text: 'to camera', at: 'a2' }],
       results: [{ view: 'front', hash: 'f2', at: 'a2', ask: 'to camera', how: 'drawn' }],

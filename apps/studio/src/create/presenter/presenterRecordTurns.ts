@@ -271,19 +271,6 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
     if (!lastOpen || !last) return;
     T.push({ kind: 'scenri', id: `asked-ask-${last.at}`, text: askedFor(last.view), quiet: true });
     T.push({ kind: 'you', id: `ask-${last.at}`, text: last.text, editable: false });
-    // And the picture it produced, which is the thing the question underneath
-    // is about.
-    //
-    // A drawn picture becomes a turn where its ask is recorded, and an ask
-    // stays open until it is decided, so the one moment the picture was needed
-    // on screen — being asked whether to keep it — was the one moment nothing
-    // showed it. The stage carried it on a desktop and there is no stage on a
-    // phone, so there the conversation said "Here is Idan with the change" and
-    // showed no change. It is the same turn the record uses once the ask
-    // closes, under the same id, so nothing appears twice and nothing moves
-    // when it does.
-    const drawn = outcomes.get(last);
-    if (drawn) T.push(shot(drawn, `redrew-${last.at}`));
   };
 
   if (!identityLocked(d)) {
@@ -380,15 +367,40 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
     openAsk();
     // A gated view standing for the first time has no earlier picture behind
     // it, so offering to keep the previous one would be offering nothing.
-    const revising = !!d.views[candidate].prior;
+    const slot = d.views[candidate];
+    const revising = !!slot.prior;
+    // The picture first, then the question about it.
+    //
+    // Every other picture in this conversation arrives as a line of its own
+    // carrying the thumbnail, but those are built from the draft's results,
+    // and a candidate is not a result: a picture is only recorded once it has
+    // been accepted. So the one picture a person is actually being asked
+    // about was the only one the conversation never showed, and it appeared
+    // the moment they looked at another view and came back, which is what
+    // made it read as broken. The stage covered for it on a desktop; a phone
+    // has no stage, so there the question was about nothing at all.
+    if (slot.hash) {
+      T.push({
+        kind: 'scenri',
+        id: `candidate-${candidate}-${slot.hash}`,
+        text: !revising
+          ? `Here is the ${VIEW_NAME[candidate]}.`
+          : candidate === 'portrait'
+            ? `Here is ${who} with the change.`
+            : `Redrew the ${VIEW_NAME[candidate]}.`,
+        thumb: slot.hash,
+        label: VIEW_LABEL[candidate],
+      });
+    }
     ask({
       id: candidate === 'portrait' ? 'revision' : 'view-revision',
       kind: 'confirm',
+      // The words the picture already said are not said again underneath it.
       prompt: !revising
-        ? PROMPT.landed(VIEW_NAME[candidate])
+        ? 'Use it, or try again.'
         : candidate === 'portrait'
-          ? `Here is ${who} with the change. Use this, or keep the previous one. Using it redraws the views built on the face.`
-          : `Redrew the ${VIEW_NAME[candidate]}. Use it, or keep the previous one.`,
+          ? 'Use this, or keep the previous one. Using it redraws the views built on the face.'
+          : 'Use it, or keep the previous one.',
       options: [
         { id: 'use', label: candidate === 'portrait' ? 'Use this' : 'Use it' },
         ...(revising ? [{ id: 'keep', label: 'Keep previous' }] : []),

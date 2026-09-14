@@ -132,12 +132,17 @@ test('the picture being asked about is in the conversation, on a phone too', asy
   await composer.fill('make the hair shorter');
   await composer.press('Enter');
 
-  // the question about the redraw stands, and the redraw stands with it
+  // The question about the redraw stands, and the redraw stands with it. The
+  // picture has to be the candidate's own turn: asserting "an image somewhere
+  // in the log" passed while this was broken, because the views drawn earlier
+  // were still there above it.
   await expect(page.getByRole('log')).toContainText('with the change', { timeout: 40_000 });
-  const shot = page.getByRole('log').locator('img').last();
+  const candidate = page.locator('[data-turn^="scenri:candidate-portrait-"]');
+  await expect(candidate).toHaveCount(1);
+  await expect(candidate).toContainText('with the change');
+  const shot = candidate.locator('img');
   await expect(shot).toBeVisible();
   expect(await shot.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
-  // and it is said once, not twice
-  const asked = await page.getByRole('log').getByText('make the hair shorter').count();
-  expect(asked).toBe(1);
+  // and what was asked is said once, not twice
+  expect(await page.getByRole('log').getByText('make the hair shorter').count()).toBe(1);
 });

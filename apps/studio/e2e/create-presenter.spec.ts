@@ -737,7 +737,7 @@ test.describe('a person from scratch', () => {
     await page.locator('.sc-pstudio-slot[data-view="front"]').click();
     await expect(page.locator('.sc-convo-scope')).toHaveText('Refining the full body');
     await send(page, 'turn slightly more to camera');
-    await expect(log(page)).toContainText('Redrew the full body. Use it, or keep the previous one.', {
+    await expect(log(page)).toContainText('Redrew the full body.', {
       timeout: 20_000,
     });
     const redrawn = await draftOf(page, brand.id, draftId);

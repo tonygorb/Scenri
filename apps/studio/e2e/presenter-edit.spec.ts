@@ -212,7 +212,7 @@ test('a refresh mid-edit resumes the session, and a save after the record moved 
   await page.goto(`/${brand.slug}/presenters/${person.id}/edit`);
   await page.locator('.sc-pstudio-slot[data-view="front"]').click();
   await send(page, 'turn slightly more to camera');
-  await expect(log(page)).toContainText('Redrew the full body. Use it, or keep the previous one.', {
+  await expect(log(page)).toContainText('Redrew the full body.', {
     timeout: 20_000,
   });
   await page.reload();
