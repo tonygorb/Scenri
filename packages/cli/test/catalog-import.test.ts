@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { createCore, type EngineAdapter } from '@scenri/core';
 import { createDemoEngine } from '@scenri/engine-demo';
 import { buildServer } from '../src/server.js';
@@ -698,8 +698,14 @@ describe('titles never become filenames', () => {
     // the picture is reachable, and its path is the hash rather than the words
     expect(core.images.has(hash)).toBe(true);
     expect(core.images.pathFor(hash)).toMatch(/[a-f0-9]{32}\.png$/);
+    // `basename`, not `split('/')`: on Windows the separator is a backslash,
+    // so splitting on a slash hands back the whole path and the drive letter's
+    // own legal colon reads as an illegal one. Measured on windows-latest.
+    const file = basename(core.images.pathFor(hash));
     for (const ch of ['/', ':', '?', '"', '<', '>', '|', '*', '\\']) {
-      expect(core.images.pathFor(hash).split('/').pop()).not.toContain(ch);
+      expect(file, `${ch} in ${file}`).not.toContain(ch);
     }
+    // the stronger statement: not one character of the title is in the name
+    expect(file).toBe(`${hash}.png`);
   });
 });
