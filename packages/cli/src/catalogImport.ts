@@ -514,19 +514,13 @@ function beginWrite(
           (partial
             ? `Imported ${tally.upserted.toLocaleString()} products with ${(errors.length + refused).toLocaleString()} issue${errors.length + refused === 1 ? '' : 's'}`
             : `Imported ${tally.upserted.toLocaleString()} products`));
-      // The reason tally rides along so a later report can say what happened
-      // without re-reading every individual error.
-      const reasonRows = Object.entries(reasons).map(([code, count]) => ({
-        code: `reason_${code.toLowerCase()}`,
-        message: `${count} ${code}`,
-      }));
       patch({
         stage,
         upserted: tally.upserted,
         fetched: tally.fetched,
         imagesDone: tally.imagesDone,
         imagesTotal: tally.imagesTotal,
-        errors: [...errors, ...reasonRows],
+        errors,
         warnings,
         message,
         finished: true,

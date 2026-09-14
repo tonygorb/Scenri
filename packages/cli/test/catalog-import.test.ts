@@ -459,7 +459,8 @@ describe('a store that stops answering', () => {
     expect(job.message).toContain(String(COUNT - OPEN_UNTIL));
     expect(job.message).toContain(String(COUNT));
     expect(job.message).not.toMatch(/40[0-9]|error|failed/i);
-    expect((job.errors ?? []).some((e: any) => e.code === 'reason_page_blocked')).toBe(true);
+    // and the error list stays a list of things that went wrong, not a summary of them
+    expect((job.errors ?? []).every((e: any) => !/^[A-Z_]+$/.test(e.message ?? ''))).toBe(true);
     // What it did read is kept, not thrown away.
     const lib = await app.inject({ method: 'GET', url: `/api/brands/${brandId}/products-library` });
     expect(lib.json().products).toHaveLength(OPEN_UNTIL);
@@ -568,7 +569,7 @@ describe('a store that is rate limiting us', () => {
     // The sentence a person reads: what happened and what to do, no status code.
     expect(job.message).toMatch(/slow down/i);
     expect(job.message).not.toMatch(/429|error|null|undefined/i);
-    expect((job.errors ?? []).some((e: any) => e.code === 'reason_rate_limited')).toBe(true);
+    expect(JSON.stringify(job.errors ?? [])).not.toContain('RATE_LIMITED');
   });
 
   /**

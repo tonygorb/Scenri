@@ -79,7 +79,7 @@ describe('summarise', () => {
   });
 
   it('never leaks a status code or an enum name', () => {
-    for (const reason of ['RATE_LIMITED', 'PAGE_BLOCKED', 'IMAGE_FORBIDDEN', 'PRODUCT_SAVE_FAILED'] as const) {
+    for (const reason of ['RATE_LIMITED', 'PAGE_BLOCKED', 'IMAGE_FORBIDDEN', 'IMAGE_TIMEOUT'] as const) {
       const said = summarise(t(reason, 3), 0, 10);
       expect(said).toBeTruthy();
       expect(said!).not.toMatch(/[45]\d\d|_|undefined|null/);

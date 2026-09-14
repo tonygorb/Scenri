@@ -20,10 +20,7 @@ export type FailureReason =
   | 'IMAGE_NOT_FOUND'
   | 'IMAGE_TIMEOUT'
   | 'IMAGE_EMPTY'
-  | 'IMAGE_UNREADABLE'
   | 'DOWNLOAD_FAILED'
-  | 'MEDIA_SAVE_FAILED'
-  | 'PRODUCT_SAVE_FAILED'
   | 'ABORTED'
   | 'UNKNOWN';
 
@@ -61,7 +58,7 @@ export function tally(into: FailureTally, reason: FailureReason, n = 1): void {
 }
 
 /** Whichever reason dominates a run, or null when nothing failed. */
-export function leadingReason(t: FailureTally): FailureReason | null {
+function leadingReason(t: FailureTally): FailureReason | null {
   const rows = Object.entries(t) as [FailureReason, number][];
   if (!rows.length) return null;
   return rows.sort((a, b) => b[1] - a[1])[0][0];
@@ -93,14 +90,10 @@ export function summarise(t: FailureTally, saved: number, asked: number): string
     case 'IMAGE_NOT_FOUND':
     case 'IMAGE_TIMEOUT':
     case 'IMAGE_EMPTY':
-    case 'IMAGE_UNREADABLE':
     case 'DOWNLOAD_FAILED':
       return none
         ? 'We found the products, but none of their pictures could be downloaded.'
         : 'Some pictures could not be downloaded. The products they belong to are still here.';
-    case 'MEDIA_SAVE_FAILED':
-    case 'PRODUCT_SAVE_FAILED':
-      return 'Some products could not be saved on this computer.';
     case 'ABORTED':
       return null;
     default:
