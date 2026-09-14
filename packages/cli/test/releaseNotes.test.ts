@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createCore, type Core } from '@scenri/core';
 import { buildServer } from '../src/server.js';
+import { drainTracked, track } from './servers.js';
 import { RELEASES, isNewsworthy, releaseFor, validateReleases } from '../src/release/notes.data.js';
 import type { ReleaseEntry } from '../src/release/notes.data.js';
 import type { FastifyInstance } from 'fastify';
@@ -21,12 +22,19 @@ beforeEach(() => {
   app = null;
 });
 afterEach(async () => {
-  await app?.close();
-  core.close();
+  // Drain rather than close, and every server rather than the one a variable
+  // happens to hold: a thumbnail write outliving the home is ENOTEMPTY on
+  // Linux and EBUSY on Windows.
+  await drainTracked();
+  try {
+    core.close();
+  } catch {
+    // A drained server closes the core on its way out; closing twice throws.
+  }
   rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
-const build = () => buildServer({ core, engines: { all: () => [], get: () => null } });
+const build = () => track(buildServer({ core, engines: { all: () => [], get: () => null } }));
 
 describe('the authored release notes', () => {
   it('is publishable: the validator finds nothing wrong with the real records', () => {
@@ -102,14 +110,16 @@ describe('GET /api/release/notes', () => {
 
   it('never asks the network for any of it', async () => {
     let called = false;
-    app = buildServer({
-      core,
-      engines: { all: () => [], get: () => null },
-      fetchImpl: (async () => {
-        called = true;
-        return new Response('{}', { status: 200 });
-      }) as typeof fetch,
-    });
+    app = track(
+      buildServer({
+        core,
+        engines: { all: () => [], get: () => null },
+        fetchImpl: (async () => {
+          called = true;
+          return new Response('{}', { status: 200 });
+        }) as typeof fetch,
+      }),
+    );
     await app.inject({ method: 'GET', url: '/api/release/notes' });
     expect(called).toBe(false);
   });

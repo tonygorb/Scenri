@@ -619,16 +619,37 @@ describe('image formats a real catalog can serve', () => {
     rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
-  it('keeps and finds jpeg, png, webp, gif and avif', async () => {
+  it('keeps and finds the formats a store serves', async () => {
     const sharp = (await import('sharp')).default;
     const src = sharp({ create: { width: 8, height: 8, channels: 3, background: '#c33' } });
-    for (const fmt of ['jpeg', 'png', 'webp', 'avif', 'gif'] as const) {
+    // AVIF is in here because it is what the bug was: sharp reads an AVIF
+    // file's format as `heif`, and that string is what reaches `save`.
+    // Measured, since the encoder has a reputation: encoding all five costs
+    // 6 MB of RSS against 2 MB for the other four, so it is not the reason a
+    // CI worker ever died.
+    for (const fmt of ['jpeg', 'png', 'webp', 'gif', 'avif'] as const) {
       const buf = await (src.clone() as any)[fmt]().toBuffer();
-      // exactly how the importer decides the extension
       const read = await sharp(buf).metadata();
       const hash = core.images.save(buf, read.format ?? 'png');
       expect(core.images.has(hash), `${fmt}, which sharp reads as ${read.format}`).toBe(true);
       expect(core.images.read(hash).length).toBe(buf.length);
+    }
+  });
+
+  /**
+   * The same defect from the other side, over every extension at once.
+   *
+   * The importer passes whatever sharp read straight to `save`, and `heif`
+   * was not among the extensions a hash resolves against, so those bytes were
+   * written and then unreachable - `has` said no and `read` threw, leaving a
+   * product that looked imported with a primary image nothing could open.
+   */
+  it('finds a picture again whatever extension sharp reported for it', () => {
+    for (const ext of ['heif', 'heic', 'avif', 'webp', 'gif', 'jpeg', 'jpg', 'png']) {
+      const hash = core.images.save(Buffer.from(`bytes-for-${ext}`), ext);
+      expect(core.images.has(hash), ext).toBe(true);
+      expect(core.images.read(hash).toString()).toBe(`bytes-for-${ext}`);
+      expect(core.images.pathFor(hash)).toContain(`.${ext}`);
     }
   });
 });

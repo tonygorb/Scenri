@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { createCore, type Core, type EngineAdapter } from '@scenri/core';
 import { createDemoEngine } from '@scenri/engine-demo';
 import { buildServer } from '../src/server.js';
+import { drainTracked, track } from './servers.js';
 import { hostnameOf, ACCESS_COOKIE } from '../src/access.js';
 import type { FastifyInstance } from 'fastify';
 
@@ -17,14 +18,22 @@ function registryWith(...adapters: EngineAdapter[]) {
 }
 
 const serve = (access?: Parameters<typeof buildServer>[0]['access']) =>
-  buildServer({ core, engines: registryWith(createDemoEngine((b) => core.images.save(b))), access });
+  track(buildServer({ core, engines: registryWith(createDemoEngine((b) => core.images.save(b))), access }));
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'sc-access-'));
   core = createCore(home);
 });
-afterEach(() => {
-  core.close();
+afterEach(async () => {
+  // Drain rather than close, and every server rather than the one a variable
+  // happens to hold: the demo engine saves images, so a thumbnail write can
+  // outlive the test body and the home it writes into.
+  await drainTracked();
+  try {
+    core.close();
+  } catch {
+    // A drained server closes the core on its way out; closing twice throws.
+  }
   rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
@@ -51,7 +60,6 @@ describe('hostnameOf', () => {
 
 describe('host allowlist', () => {
   let app: FastifyInstance;
-  afterEach(async () => await app.close());
 
   it('allows loopback names by default', async () => {
     app = serve();
@@ -95,7 +103,6 @@ describe('host allowlist', () => {
 
 describe('cross-site request blocking', () => {
   let app: FastifyInstance;
-  afterEach(async () => await app.close());
 
   // The CSRF shape: a page on another origin firing a body-less POST at the
   // loopback port. No content-type means no preflight, and the Host header is
@@ -159,7 +166,6 @@ describe('LAN access token', () => {
   beforeEach(() => {
     app = serve({ allowedHosts: ['192.168.1.20'], token });
   });
-  afterEach(async () => await app.close());
 
   const lan = (extra: Record<string, string> = {}) => ({ host: '192.168.1.20:4747', ...extra });
 
