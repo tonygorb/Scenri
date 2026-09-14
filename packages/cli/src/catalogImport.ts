@@ -5,6 +5,11 @@ import {
   httpGet,
   normalizeStoreUrl,
   detectPlatform,
+  imageFailure,
+  summarise,
+  tally as countFailure,
+  thrownFailure,
+  type FailureTally,
   fetchProductPages,
   type CatalogProduct,
   type ImportStage,
@@ -234,9 +239,10 @@ async function runJob(
     // worse thing to watch than the same work arriving steadily, and the
     // download pool spent half the import idle waiting on the crawl.
     let pictureErrors: unknown[];
+    let pictureReasons: FailureTally = {};
     // What the crawl really spent, so a shop that stops answering can be told
     // apart from a shop with very few products.
-    const stats = { pages: 0, bytes: 0, refused: 0 };
+    const stats = { pages: 0, bytes: 0, refused: 0, reasons: {} as FailureTally };
     try {
       if (bulk) for (const p of bulk) run.write(p);
       else
@@ -258,7 +264,9 @@ async function runJob(
       // No more products are coming, whether the crawl ended or threw. Without
       // this a throw left the drain looping and writing for ever.
       pictures.stop();
-      pictureErrors = await pictures.done;
+      const settled = await pictures.done;
+      pictureErrors = settled.errors;
+      pictureReasons = settled.reasons;
     }
 
     if (signal.aborted) {
@@ -276,25 +284,13 @@ async function runJob(
       return;
     }
 
-    if (!tally.upserted) {
-      const message = only?.length
-        ? 'None of the chosen products could be read'
-        : `Found pages on this ${platform} store but could not read a product from any of them. The store may be blocking automated readers.`;
-      patch({
-        stage: 'failed',
-        message,
-        errors: [{ code: 'no_products_fetched', message }],
-        finished: true,
-      });
-      core.catalog.setSourceStatus(run.sourceId, 'failed', true);
-      return;
-    }
-
     run.finish({
       sweep,
       warnings,
       errors: pictureErrors,
       refused: stats.refused,
+      reasons: { ...stats.reasons, ...pictureReasons },
+      asked: bulk ? bulk.length : urls.length,
       // Every address was read. A bulk API hands the catalogue over whole, so
       // there is nothing to cover.
       covered: bulk ? true : stats.pages >= urls.length,
@@ -454,16 +450,35 @@ function beginWrite(
       errors,
       refused = 0,
       covered = true,
+      reasons = {},
+      asked = 0,
     }: {
       covered?: boolean;
       sweep: boolean;
       warnings: string[];
       errors: unknown[];
       refused?: number;
+      /** What went wrong and how often, for the sentence a person reads. */
+      reasons?: FailureTally;
+      /** How many products this run set out to save. */
+      asked?: number;
     }) {
-      // Only now: retiring what the store no longer lists needs every key this
-      // run wrote, and until the crawl ended there were more coming.
-      if (sweep) core.catalog.markMissingUnavailable(source.id, tally.seenKeys);
+      /**
+       * Retire what the store no longer lists - but only from a run entitled
+       * to say so.
+       *
+       * `markMissingUnavailable` marks every key this run did not write, and
+       * with no keys at all it marks the whole source. A full re-import that a
+       * rate limiter cut down to seventeen products would therefore hide the
+       * eleven hundred a previous run had imported perfectly well, and the
+       * library filters `unavailable` out, so they simply vanish. A run that
+       * was refused pages does not know what is gone; it only knows what it
+       * was allowed to read.
+       *
+       * So: every address covered, nothing refused, something saved.
+       */
+      const mayRetire = sweep && covered && refused === 0 && tally.upserted > 0;
+      if (mayRetire) core.catalog.markMissingUnavailable(source.id, tally.seenKeys);
       tally.errors = errors;
       /**
        * Partial means the catalogue was not read, not that a picture failed.
@@ -477,30 +492,42 @@ function beginWrite(
        * failed pictures are recorded as errors and show on the card.
        */
       const partial = !covered || refused > 0;
-      // A shop that turned us away is the headline, not a footnote under a
-      // count of picture problems. Saying "imported 413 products with 209
-      // issues" about a run that was refused 1,794 pages describes the wrong
-      // thing entirely.
-      const shut = refused > 0 && refused >= Math.max(20, tally.upserted * 0.25);
-      const message = shut
-        ? `The store stopped answering after ${tally.upserted.toLocaleString()} of ${discovered.toLocaleString()} products. Try again later.`
-        : partial
-          ? `Imported ${tally.upserted.toLocaleString()} products with ${(errors.length + refused).toLocaleString()} issue${errors.length + refused === 1 ? '' : 's'}`
-          : `Imported ${tally.upserted.toLocaleString()} products`;
+      /**
+       * Nothing saved is a failure, whatever else is true.
+       *
+       * This was reachable as `completed`: a store behind a rate limiter
+       * answered 429 to every page, the crawl read each one as a page with no
+       * product on it, and the job ended saying it had imported zero products.
+       * The user was told their products were found and then handed silence.
+       * A run that saved nothing has failed, and the reason goes with it.
+       */
+      const savedNothing = tally.upserted === 0;
+      const said = summarise(reasons, tally.upserted, asked || discovered || tally.fetched);
+      const stage: ImportStage = savedNothing ? 'failed' : partial ? 'partial' : 'completed';
+      const message = savedNothing
+        ? (said ?? 'We found the products on this site, but none of them could be imported.')
+        : (said ??
+          (partial
+            ? `Imported ${tally.upserted.toLocaleString()} products with ${(errors.length + refused).toLocaleString()} issue${errors.length + refused === 1 ? '' : 's'}`
+            : `Imported ${tally.upserted.toLocaleString()} products`));
+      // The reason tally rides along so a later report can say what happened
+      // without re-reading every individual error.
+      const reasonRows = Object.entries(reasons).map(([code, count]) => ({
+        code: `reason_${code.toLowerCase()}`,
+        message: `${count} ${code}`,
+      }));
       patch({
-        stage: partial ? 'partial' : 'completed',
+        stage,
         upserted: tally.upserted,
         fetched: tally.fetched,
         imagesDone: tally.imagesDone,
         imagesTotal: tally.imagesTotal,
-        errors: shut
-          ? [...errors, { code: 'store_refused', message: `${refused.toLocaleString()} pages were refused` }]
-          : errors,
+        errors: [...errors, ...reasonRows],
         warnings,
         message,
         finished: true,
       });
-      core.catalog.setSourceStatus(source.id, partial ? 'partial' : 'ready', true);
+      core.catalog.setSourceStatus(source.id, savedNothing ? 'failed' : partial ? 'partial' : 'ready', true);
     },
   };
 }
@@ -548,10 +575,11 @@ function drainPictures(
   tally: Tally,
   signal: AbortSignal,
   imagesPerProduct = IMAGES_PER_PRODUCT,
-): { stop(): void; done: Promise<unknown[]> } {
+): { stop(): void; done: Promise<{ errors: unknown[]; reasons: FailureTally }> } {
   const { core, fetchImpl } = deps;
   const patch = (p: Parameters<typeof core.catalog.updateJob>[1]) => core.catalog.updateJob(jobId, p);
   const errors = [...(core.catalog.getJob(jobId)?.errors ?? [])] as any[];
+  const reasons: FailureTally = {};
   let stopped = false;
 
   const done = (async () => {
@@ -575,11 +603,13 @@ function drainPictures(
             const res = await httpGet(img.sourceUrl, { fetchImpl, signal, timeoutMs: 40_000, retries: 2 });
             if (!res.ok) {
               errors.push({ code: 'image_http', message: `HTTP ${res.status}`, url: img.sourceUrl });
+              countFailure(reasons, imageFailure(res.status));
               return;
             }
             const buf = Buffer.from(await res.arrayBuffer());
             if (!buf.length) {
               errors.push({ code: 'image_empty', message: 'Empty image', url: img.sourceUrl });
+              countFailure(reasons, 'IMAGE_EMPTY');
               return;
             }
             // Keep the bytes the store served.
@@ -605,6 +635,7 @@ function drainPictures(
             });
           } catch (err: any) {
             if (signal.aborted) return;
+            countFailure(reasons, thrownFailure(err, signal.aborted));
             errors.push({
               code: 'image_failed',
               message: String(err?.message ?? err),
@@ -630,7 +661,7 @@ function drainPictures(
       }
     }
     patch({ imagesDone: tally.imagesDone, imagesTotal: tally.imagesTotal, errors });
-    return errors;
+    return { errors, reasons };
   })();
 
   return {

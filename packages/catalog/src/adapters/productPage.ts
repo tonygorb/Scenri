@@ -18,6 +18,7 @@ import { httpText, mapPool } from '../http/fetch.js';
 import { absolutize } from '../url.js';
 import { normalizeProduct } from '../normalize.js';
 import { attr, loadHtml, textOf } from '../html.js';
+import { pageFailure, tally, thrownFailure, type FailureTally } from '../failures.js';
 import type { AdapterContext, CatalogProduct, CatalogVariant } from '../types.js';
 
 export function stableKey(url: string): string {
@@ -401,7 +402,7 @@ export interface PageFetchOptions {
    * zero refusals, since under real pressure the requests threw rather than
    * returning a status.
    */
-  stats?: { pages: number; bytes: number; refused?: number };
+  stats?: { pages: number; bytes: number; refused?: number; reasons?: FailureTally };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -436,7 +437,7 @@ export async function fetchProductPages(
       if (opts.maxTotalBytes != null && bytes >= opts.maxTotalBytes) return;
       try {
         if (opts.delayMs) await sleep(opts.delayMs);
-        const { ok, text, url } = await httpText(u, {
+        const { ok, status, text, url } = await httpText(u, {
           fetchImpl: ctx.fetchImpl,
           signal: ctx.signal,
           accept: 'text/html',
@@ -448,7 +449,10 @@ export async function fetchProductPages(
           opts.stats.bytes = bytes;
         }
         if (!ok) {
-          if (opts.stats) opts.stats.refused = (opts.stats.refused ?? 0) + 1;
+          if (opts.stats) {
+            opts.stats.refused = (opts.stats.refused ?? 0) + 1;
+            if (opts.stats.reasons) tally(opts.stats.reasons, pageFailure(status));
+          }
           return;
         }
         for (const p of productsFromPage(text, url)) {
@@ -459,10 +463,13 @@ export async function fetchProductPages(
           else out.push(p);
         }
         opts.onProduct?.(kept);
-      } catch {
+      } catch (err) {
         // One unreadable page is not a reason to abandon the rest, but it is
         // still a page the site did not give us.
-        if (opts.stats) opts.stats.refused = (opts.stats.refused ?? 0) + 1;
+        if (opts.stats) {
+          opts.stats.refused = (opts.stats.refused ?? 0) + 1;
+          if (opts.stats.reasons) tally(opts.stats.reasons, thrownFailure(err, ctx.signal?.aborted));
+        }
       }
     },
     ctx.signal,

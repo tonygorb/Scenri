@@ -255,13 +255,30 @@ export function productImportMethods(db: DB) {
           .run(sourceId);
         return r.changes;
       }
-      const placeholders = seenExternalKeys.map(() => '?').join(',');
+      /**
+       * Marked in one pass over a temporary table, not one bound parameter per
+       * product.
+       *
+       * `NOT IN (?, ?, ...)` needed a placeholder for every key this run wrote,
+       * and SQLite stops at 32,766 of them (measured on 3.53.2, which this
+       * build carries): a store past that threw `too many SQL variables` from
+       * inside the run's own completion, turning a finished import into a
+       * failure after every product had already been saved.
+       */
+      db.exec('CREATE TEMP TABLE IF NOT EXISTS seen_keys (k TEXT PRIMARY KEY)');
+      db.exec('DELETE FROM seen_keys');
+      const add = db.prepare('INSERT OR IGNORE INTO seen_keys (k) VALUES (?)');
+      db.transaction((keys: string[]) => {
+        for (const k of keys) add.run(k);
+      })(seenExternalKeys);
       const r = db
         .prepare(
           `UPDATE catalog_products SET status='unavailable', updated_at=datetime('now')
-         WHERE source_id=? AND status='active' AND external_key NOT IN (${placeholders})`,
+         WHERE source_id=? AND status='active'
+           AND external_key NOT IN (SELECT k FROM seen_keys)`,
         )
-        .run(sourceId, ...seenExternalKeys);
+        .run(sourceId);
+      db.exec('DELETE FROM seen_keys');
       return r.changes;
     },
   };

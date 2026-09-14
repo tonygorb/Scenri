@@ -455,11 +455,143 @@ describe('a store that stops answering', () => {
       if (job.finishedAt) break;
     }
     expect(job.stage).toBe('partial');
-    expect(job.message).toMatch(/stopped answering/i);
-    expect(job.message).toContain(String(OPEN_UNTIL));
-    expect((job.errors ?? []).some((e: any) => e.code === 'store_refused')).toBe(true);
+    // It names the shortfall in products, not a status code, and records why.
+    expect(job.message).toContain(String(COUNT - OPEN_UNTIL));
+    expect(job.message).toContain(String(COUNT));
+    expect(job.message).not.toMatch(/40[0-9]|error|failed/i);
+    expect((job.errors ?? []).some((e: any) => e.code === 'reason_page_blocked')).toBe(true);
     // What it did read is kept, not thrown away.
     const lib = await app.inject({ method: 'GET', url: `/api/brands/${brandId}/products-library` });
     expect(lib.json().products).toHaveLength(OPEN_UNTIL);
+  });
+});
+
+/**
+ * The reported failure, as a fixture.
+ *
+ * A real store behind Cloudflare answered 429 to nearly every product page. The
+ * crawl swallowed each one as a page with no product on it, the run ended
+ * saying it had imported zero products, and the user - who had just been told
+ * their 1,186 products were found - got silence. Two things were wrong: a run
+ * that saves nothing called itself finished, and a refused page carried no
+ * reason, so a rate-limited store was indistinguishable from an empty one.
+ */
+describe('a store that is rate limiting us', () => {
+  let home: string;
+  let core: ReturnType<typeof createCore>;
+  let app: Awaited<ReturnType<typeof buildServer>>;
+  const COUNT = 12;
+  /** Every product page answers 429, the way a limiter does once tripped. */
+  let refuseAll = true;
+
+  beforeEach(async () => {
+    refuseAll = true;
+    home = mkdtempSync(join(tmpdir(), 'sc-cli-429-'));
+    core = createCore(home);
+    app = buildServer({
+      core,
+      engines: registryWith(createDemoEngine((b) => core.images.save(b))),
+      fetchImpl: (async (input: any) => {
+        const url = String(input);
+        if (url.includes('/products.json')) return new Response('blocked', { status: 403 });
+        if (url.endsWith('/sitemap.xml'))
+          return new Response(
+            `<?xml version="1.0"?><sitemapindex><sitemap><loc>https://shop.example/sitemap_products_1.xml</loc></sitemap></sitemapindex>`,
+            { status: 200 },
+          );
+        if (url.includes('sitemap_products_1'))
+          return new Response(
+            `<?xml version="1.0"?><urlset>${Array.from(
+              { length: COUNT },
+              (_, i) => `<url><loc>https://shop.example/products/product-${i + 1}</loc></url>`,
+            ).join('')}</urlset>`,
+            { status: 200 },
+          );
+        const page = /\/products\/product-(\d+)$/.exec(url);
+        if (page) {
+          if (refuseAll) return new Response('slow down', { status: 429, headers: { 'retry-after': '0' } });
+          const i = Number(page[1]);
+          return new Response(
+            `<html><head><script type="application/ld+json">${JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Product',
+              name: `מוצר ${i}`,
+              sku: `P-${i}`,
+              url,
+              image: [`https://cdn.example/p${i}.jpg`],
+              offers: { '@type': 'Offer', price: 10, priceCurrency: 'USD' },
+            })}</script></head><body><button>Add to cart</button></body></html>`,
+            { status: 200 },
+          );
+        }
+        if (url.includes('.jpg')) return new Response(PNG, { status: 200, headers: { 'content-type': 'image/jpeg' } });
+        return new Response('', { status: 404 });
+      }) as any,
+    });
+    await app.ready();
+  });
+  afterEach(async () => {
+    await app.drain();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  const brandId = async () =>
+    (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', meta: { name: 'Acme', website: 'https://shop.example' } } },
+      })
+    ).json().id;
+
+  const runImport = async (id: string) => {
+    const start = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${id}/catalog/import`,
+      payload: { url: 'https://shop.example' },
+    });
+    const jobId = start.json().jobId;
+    for (let i = 0; i < 300; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      const j = (await app.inject({ method: 'GET', url: `/api/brands/${id}/catalog/jobs/${jobId}` })).json();
+      if (j.finishedAt) return j;
+    }
+    throw new Error('import never finished');
+  };
+
+  it('saving nothing is a failure that says why, never a finished import', async () => {
+    const id = await brandId();
+    const job = await runImport(id);
+
+    expect(job.stage).toBe('failed');
+    expect(job.upserted).toBe(0);
+    // The sentence a person reads: what happened and what to do, no status code.
+    expect(job.message).toMatch(/slow down/i);
+    expect(job.message).not.toMatch(/429|error|null|undefined/i);
+    expect((job.errors ?? []).some((e: any) => e.code === 'reason_rate_limited')).toBe(true);
+  });
+
+  /**
+   * The dangerous one. `markMissingUnavailable` marks every key a run did not
+   * write, and the library hides `unavailable` rows - so a re-import that a
+   * limiter cut short would have retired the catalogue an earlier run had
+   * imported perfectly well. A run that was refused pages does not know what
+   * is gone.
+   */
+  it('a refused re-import never retires the products an earlier one saved', async () => {
+    const id = await brandId();
+    refuseAll = false;
+    const first = await runImport(id);
+    expect(first.upserted).toBe(COUNT);
+    const before = (await app.inject({ method: 'GET', url: `/api/brands/${id}/products-library` })).json().products
+      .length;
+    expect(before).toBe(COUNT);
+
+    refuseAll = true;
+    const second = await runImport(id);
+    expect(second.upserted).toBe(0);
+
+    const after = (await app.inject({ method: 'GET', url: `/api/brands/${id}/products-library` })).json().products;
+    expect(after).toHaveLength(COUNT);
   });
 });
