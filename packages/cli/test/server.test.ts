@@ -13,6 +13,7 @@ import {
 } from '@scenri/core';
 import { createDemoEngine } from '@scenri/engine-demo';
 import { buildServer } from '../src/server.js';
+import { drainTracked, track } from './servers.js';
 import { waitDone as waitDoneOn, waitRendered as waitRenderedOn } from './helpers.js';
 import type { FastifyInstance } from 'fastify';
 
@@ -36,7 +37,12 @@ afterEach(async () => {
   // drain, not close: a finished shot is still writing its thumbs after the
   // reply, and removing the home under the writer is ENOTEMPTY on Linux and
   // EBUSY on Windows. drain settles the writer, then closes the app and core.
-  await app.drain();
+  //
+  // Every server, not just this one. Tests here build their own as well, and
+  // draining only the one `beforeEach` made left the rest writing into a home
+  // that was about to be deleted.
+  await app.drain().catch(() => {});
+  await drainTracked();
   rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
@@ -194,7 +200,7 @@ describe('brand marks', () => {
     const html = `<html><head><title>Zen Tea Company</title><meta name="description" content="Buy tea online"><meta name="theme-color" content="#2A6F4E"><link rel="icon" href="/i.gif"></head></html>`;
     const fetchImpl = (async (input: any) =>
       String(input).endsWith('/i.gif') ? new Response(GIF_1PX) : new Response(html)) as unknown as typeof fetch;
-    const srv = buildServer({ core, engines: registryWith(), fetchImpl });
+    const srv = track(buildServer({ core, engines: registryWith(), fetchImpl }));
     const made = await srv.inject({
       method: 'POST',
       url: '/api/brands',
@@ -262,7 +268,7 @@ describe('brands API', () => {
     const html = `<html><head><title>Zen Tea</title><meta name="theme-color" content="#2A6F4E"><link rel="icon" href="/i.png"></head></html>`;
     const fetchImpl = (async (input: any) =>
       String(input).endsWith('/i.png') ? new Response(GIF_1PX) : new Response(html)) as unknown as typeof fetch;
-    const srv = buildServer({ core, engines: registryWith(), fetchImpl });
+    const srv = track(buildServer({ core, engines: registryWith(), fetchImpl }));
     const res = await srv.inject({
       method: 'POST',
       url: '/api/brands/from-url',
@@ -285,7 +291,7 @@ describe('brands API', () => {
       String(input).endsWith('/i.ico')
         ? new Response(Buffer.from([1, 2, 3]))
         : new Response(html)) as unknown as typeof fetch;
-    const srv = buildServer({ core, engines: registryWith(), fetchImpl });
+    const srv = track(buildServer({ core, engines: registryWith(), fetchImpl }));
     const res = await srv.inject({
       method: 'POST',
       url: '/api/brands/from-url',
@@ -327,14 +333,16 @@ describe('brands API', () => {
 
   it('reads a pasted address with a leading space rather than refusing it', async () => {
     const asked: string[] = [];
-    const local = buildServer({
-      core,
-      engines: registryWith(),
-      fetchImpl: (async (input: any) => {
-        asked.push(String(input));
-        return new Response('<title>Acme</title>', { status: 200 });
-      }) as unknown as typeof fetch,
-    });
+    const local = track(
+      buildServer({
+        core,
+        engines: registryWith(),
+        fetchImpl: (async (input: any) => {
+          asked.push(String(input));
+          return new Response('<title>Acme</title>', { status: 200 });
+        }) as unknown as typeof fetch,
+      }),
+    );
     const res = await local.inject({
       method: 'POST',
       url: '/api/brands/from-url',
@@ -347,11 +355,13 @@ describe('brands API', () => {
   });
 
   it('says what a refusing site answered, as a sentence', async () => {
-    const local = buildServer({
-      core,
-      engines: registryWith(),
-      fetchImpl: (async () => new Response('no', { status: 403 })) as unknown as typeof fetch,
-    });
+    const local = track(
+      buildServer({
+        core,
+        engines: registryWith(),
+        fetchImpl: (async () => new Response('no', { status: 403 })) as unknown as typeof fetch,
+      }),
+    );
     const res = await local.inject({
       method: 'POST',
       url: '/api/brands/from-url',
@@ -659,7 +669,7 @@ describe('generation flow', () => {
   };
 
   const growWith = async (engine: EngineAdapter) => {
-    const srv = buildServer({ core, engines: registryWith(engine) });
+    const srv = track(buildServer({ core, engines: registryWith(engine) }));
     const brand = await mkBrand();
     const proj = await srv.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } });
     const projectId = proj.json().project.id;
@@ -812,7 +822,7 @@ describe('generation flow', () => {
         throw new Error('codex exited with code 3: rate limited');
       },
     };
-    const srv = buildServer({ core, engines: registryWith(engine) });
+    const srv = track(buildServer({ core, engines: registryWith(engine) }));
     const brand = await mkBrand();
     const proj = await srv.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } });
     const projectId = proj.json().project.id;
@@ -1105,7 +1115,7 @@ describe('generation flow', () => {
       generate: async () => ({ images: [], costUsd: 0.5 }),
       edit: async () => ({ images: [], costUsd: 0.5 }),
     };
-    const srv = buildServer({ core, engines: registryWith(paid) });
+    const srv = track(buildServer({ core, engines: registryWith(paid) }));
     core.ledger.setCap('paid', 0.3);
     const brand = await mkBrand();
     const proj = await srv.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } });
@@ -1182,7 +1192,7 @@ describe('diff + export + settings', () => {
       },
       edit: async () => ({ images: [], costUsd: 0 }),
     };
-    const srv = buildServer({ core, engines: registryWith(slow) });
+    const srv = track(buildServer({ core, engines: registryWith(slow) }));
     core.ledger.setCap('slow', 0.5);
     const brand = await mkBrand();
     const proj = (
@@ -1531,7 +1541,7 @@ describe('codex setup', () => {
 
   it('reports the state the wizard switches on', async () => {
     const { setup } = fakeSetup(['not-installed']);
-    const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+    const local = track(buildServer({ core, engines: registryWith(), codexSetup: setup }));
     const res = await local.inject({ method: 'GET', url: '/api/engines/codex/status' });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ state: 'not-installed', platform: 'mac', conflictKeys: [], ignoredKeys: [] });
@@ -1540,7 +1550,7 @@ describe('codex setup', () => {
 
   it('installs, then reports what the probe now says', async () => {
     const { setup, seen } = fakeSetup(['not-installed', 'not-authenticated']);
-    const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+    const local = track(buildServer({ core, engines: registryWith(), codexSetup: setup }));
     const res = await local.inject({ method: 'POST', url: '/api/engines/codex/install' });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ ok: true, state: 'not-authenticated' });
@@ -1550,7 +1560,7 @@ describe('codex setup', () => {
 
   it('signs in, then reports ready', async () => {
     const { setup, seen } = fakeSetup(['not-authenticated', 'ready']);
-    const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+    const local = track(buildServer({ core, engines: registryWith(), codexSetup: setup }));
     const res = await local.inject({ method: 'POST', url: '/api/engines/codex/login' });
     expect(res.json()).toEqual({ ok: true, state: 'ready' });
     expect(seen.login).toBe(1);
@@ -1578,7 +1588,7 @@ describe('codex setup', () => {
       },
       login: async () => ({ ok: true }),
     };
-    const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+    const local = track(buildServer({ core, engines: registryWith(), codexSetup: setup }));
     const first = local.inject({ method: 'POST', url: '/api/engines/codex/install' });
     // let the first request take the lock before the second arrives
     await new Promise((r) => setTimeout(r, 10));
@@ -1598,7 +1608,7 @@ describe('codex setup', () => {
   describe('the environment repair', () => {
     it('records only the names codex itself reads, and re-checks afterwards', async () => {
       const { setup, seen } = fakeSetup(['env-conflict', 'ready']);
-      const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+      const local = track(buildServer({ core, engines: registryWith(), codexSetup: setup }));
       const before = await local.inject({ method: 'GET', url: '/api/engines/codex/status' });
       expect(before.json()).toMatchObject({ state: 'env-conflict', conflictKeys: ['CODEX_API_KEY'] });
 
@@ -1616,7 +1626,7 @@ describe('codex setup', () => {
 
     it('is case-insensitive about the name, because Windows is', async () => {
       const { setup } = fakeSetup(['ready']);
-      const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+      const local = track(buildServer({ core, engines: registryWith(), codexSetup: setup }));
       await local.inject({
         method: 'POST',
         url: '/api/engines/codex/repair-env',
@@ -1628,7 +1638,7 @@ describe('codex setup', () => {
 
     it('refuses anything that is not a Codex credential', async () => {
       const { setup } = fakeSetup(['ready']);
-      const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+      const local = track(buildServer({ core, engines: registryWith(), codexSetup: setup }));
       for (const keys of [['PATH'], ['HOME', 'CODEX_API_KEY'], []]) {
         const res = await local.inject({ method: 'POST', url: '/api/engines/codex/repair-env', payload: { keys } });
         expect(res.statusCode).toBe(400);
@@ -1639,7 +1649,7 @@ describe('codex setup', () => {
 
     it('puts the key back when asked', async () => {
       const { setup } = fakeSetup(['ready']);
-      const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+      const local = track(buildServer({ core, engines: registryWith(), codexSetup: setup }));
       await local.inject({
         method: 'POST',
         url: '/api/engines/codex/repair-env',
@@ -1653,7 +1663,7 @@ describe('codex setup', () => {
 
     it('spends a turn of the plan only when asked to', async () => {
       const { setup, seen } = fakeSetup(['ready']);
-      const local = buildServer({ core, engines: registryWith(), codexSetup: setup });
+      const local = track(buildServer({ core, engines: registryWith(), codexSetup: setup }));
       await local.inject({ method: 'GET', url: '/api/engines/codex/status' });
       expect(seen.forced).toBe(0);
       await local.inject({ method: 'GET', url: '/api/engines/codex/status?force=1' });
@@ -1677,14 +1687,14 @@ describe('codex setup', () => {
       generate: async () => ({ images: [], costUsd: 0 }),
       edit: async () => ({ images: [], costUsd: 0 }),
     };
-    const local = buildServer({ core, engines: registryWith(stub) });
+    const local = track(buildServer({ core, engines: registryWith(stub) }));
     const res = await local.inject({ method: 'GET', url: '/api/engines' });
     expect(res.json()[0]).toMatchObject({ available: false, code: 'not-authenticated' });
     await local.close();
   });
 
   it('reports no code for an engine whose fix is just a key', async () => {
-    const local = buildServer({ core, engines: registryWith(createDemoEngine((b) => core.images.save(b))) });
+    const local = track(buildServer({ core, engines: registryWith(createDemoEngine((b) => core.images.save(b))) }));
     const res = await local.inject({ method: 'GET', url: '/api/engines' });
     expect(res.json()[0].code).toBeNull();
     await local.close();
@@ -1715,7 +1725,7 @@ describe('node watchdog', () => {
   });
 
   it('fails a node that outlives the cap as a timeout, not a cancel', async () => {
-    const local = buildServer({ core, engines: registryWith(hang()), nodeTimeoutMs: 300 });
+    const local = track(buildServer({ core, engines: registryWith(hang()), nodeTimeoutMs: 300 }));
     const b = await local.inject({
       method: 'POST',
       url: '/api/brands',
@@ -1747,7 +1757,7 @@ describe('node watchdog', () => {
   });
 
   it('still records a user cancel as cancelled, never as a timeout', async () => {
-    const local = buildServer({ core, engines: registryWith(hang()), nodeTimeoutMs: 60_000 });
+    const local = track(buildServer({ core, engines: registryWith(hang()), nodeTimeoutMs: 60_000 }));
     const b = await local.inject({
       method: 'POST',
       url: '/api/brands',
@@ -1779,7 +1789,7 @@ describe('node watchdog', () => {
   });
 
   it('cancelling one sibling of a batch cancels the whole shared call', async () => {
-    const local = buildServer({ core, engines: registryWith(hang()), nodeTimeoutMs: 60_000 });
+    const local = track(buildServer({ core, engines: registryWith(hang()), nodeTimeoutMs: 60_000 }));
     const b = await local.inject({
       method: 'POST',
       url: '/api/brands',
@@ -1847,7 +1857,7 @@ describe('node watchdog', () => {
         throw new Error('unsupported');
       },
     });
-    const local = buildServer({ core, engines: registryWith(partial()) });
+    const local = track(buildServer({ core, engines: registryWith(partial()) }));
     const b = await local.inject({
       method: 'POST',
       url: '/api/brands',
@@ -1961,7 +1971,7 @@ describe('a refinement carries marks and references, not just subjects', () => {
 
   it('an inherited mark and reference reach the engine, and the record says so', async () => {
     const { engine, edits } = capture(6);
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     const { brand, projectId, genNode, productHash, logoHash, refHash } = await seed(local);
 
     const edit = await local.inject({
@@ -2034,7 +2044,7 @@ describe('a refinement carries marks and references, not just subjects', () => {
   // nothing said to anyone - the silent brand-fidelity loss, fixed here.
   it('a refine says when a carried mark has since left the kit', async () => {
     const { engine } = capture(6);
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     const { brand, projectId, genNode, logoHash } = await seed(local);
 
     const del = await local.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/logos/${logoHash}` });
@@ -2095,7 +2105,7 @@ describe('a refinement carries marks and references, not just subjects', () => {
       },
       edit: async () => ({ images: [core.images.save(PNG_1PX)], costUsd: 0 }),
     };
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     const { logoHash } = await seed(local);
     const req = gens[0];
     const idx = req.referenceImages?.indexOf(core.images.pathFor(logoHash)) ?? -1;
@@ -2106,7 +2116,7 @@ describe('a refinement carries marks and references, not just subjects', () => {
 
   it('under a tight budget the subject boards first and the rest is carried in words, not announced as lost', async () => {
     const { engine, edits } = capture(2); // the source frame keeps one slot: one left
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     const { projectId, genNode, productHash } = await seed(local);
 
     const edit = await local.inject({
@@ -2231,7 +2241,7 @@ describe('a refinement keeps its canvas', () => {
     timeout: 20_000,
   }, async () => {
     const { engine, edits, state } = sizeSpy();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       // The engine drifts the 4:5 request to 3:4 pixels, inside the aspect
       // tolerance; the thread's nominal format stays 4:5.
@@ -2266,7 +2276,7 @@ describe('a refinement keeps its canvas', () => {
     timeout: 20_000,
   }, async () => {
     const { engine, state } = sizeSpy();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       state.genSize = { width: 320, height: 400 };
       const { project, genNode } = await seed(local, { w: 320, h: 400 });
@@ -2287,7 +2297,7 @@ describe('a refinement keeps its canvas', () => {
 
   it('fails an answer below the floor rather than shrinking the thread', { timeout: 20_000 }, async () => {
     const { engine, state } = sizeSpy();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       state.genSize = { width: 320, height: 400 };
       const { project, genNode } = await seed(local, { w: 320, h: 400 });
@@ -2305,7 +2315,7 @@ describe('a refinement keeps its canvas', () => {
 
   it('an exact answer is stored untouched', { timeout: 20_000 }, async () => {
     const { engine, state } = sizeSpy();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       state.genSize = { width: 320, height: 400 };
       const { project, genNode } = await seed(local, { w: 320, h: 400 });
@@ -2324,7 +2334,7 @@ describe('a refinement keeps its canvas', () => {
 
   it('a genuinely different format is still an implicit expansion', { timeout: 20_000 }, async () => {
     const { engine, edits, state } = sizeSpy();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       state.genSize = { width: 320, height: 400 };
       const { project, genNode } = await seed(local, { w: 320, h: 400 });
@@ -2448,7 +2458,7 @@ describe('a refinement chain keeps the whole identity record', () => {
 
   it('the third refinement still carries the product, and states its facts', { timeout: 30_000 }, async () => {
     const { engine, edits } = capture(6);
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       const { projectId, genNode, productHash } = await seedChain(local, 1);
       const { node: e1 } = await refineOf(local, projectId, genNode, 'a more editorial and cinematic feel');
@@ -2473,7 +2483,7 @@ describe('a refinement chain keeps the whole identity record', () => {
 
   it('a product borrows one corroboration angle when the budget has room', { timeout: 20_000 }, async () => {
     const { engine, edits } = capture(6);
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       const { projectId, genNode, productHash, angleHash } = await seedChain(local, 2);
       await refineOf(local, projectId, genNode, 'a more editorial and cinematic feel');
@@ -2490,7 +2500,7 @@ describe('a refinement chain keeps the whole identity record', () => {
     // and reference are seated, the corroboration angle is not - and the
     // warning must not read as though the product itself was left out.
     const { engine, edits } = capture(4);
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       const { projectId, genNode, productHash, angleHash, logoHash, refHash } = await seedChain(local, 2, true);
       const { warnings } = await refineOf(local, projectId, genNode, 'a more editorial and cinematic feel');
@@ -2579,7 +2589,7 @@ describe('engine images are validated, oriented, and conformed before storing', 
     timeout: 20_000,
   }, async () => {
     const { engine, state } = shapedSpy();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       // landscape pixels tagged to display portrait: after normalization the
       // stored file must MEASURE portrait, so every surface agrees with sharp
@@ -2601,7 +2611,7 @@ describe('engine images are validated, oriented, and conformed before storing', 
 
   it('the real-world tail: a 20 percent drifted answer is cropped, not failed', { timeout: 20_000 }, async () => {
     const { engine, state } = shapedSpy();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       // the release-night wall: figure prompts pulled the tool to 1003x1568
       // for a 1024x1280 ask, 20.04 percent off - inside the net now
@@ -2618,7 +2628,7 @@ describe('engine images are validated, oriented, and conformed before storing', 
 
   it('an unrelated shape still fails the node', { timeout: 20_000 }, async () => {
     const { engine, state } = shapedSpy();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       state.genBuf = await png(500, 320); // landscape for a portrait ask, ~95 percent off
       const { genNode } = await seedShaped(local, { w: 1024, h: 1280 });
@@ -2631,7 +2641,7 @@ describe('engine images are validated, oriented, and conformed before storing', 
 
   it('undecodable engine output fails the node with a clear message', { timeout: 20_000 }, async () => {
     const { engine, state } = shapedSpy();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       state.genBuf = Buffer.from('this is not an image at all');
       const { genNode } = await seedShaped(local, { w: 320, h: 400 });
@@ -2646,7 +2656,7 @@ describe('engine images are validated, oriented, and conformed before storing', 
     timeout: 20_000,
   }, async () => {
     const { engine, state, edits } = shapedSpy();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       const { project, genNode } = await seedShaped(local, { w: 320, h: 400 });
       expect(genNode.status).toBe('done');
@@ -2728,7 +2738,7 @@ describe('refines on a pixel-budget engine step down honestly', () => {
       edits.push(req);
       return { images: [core.images.save(await png(82, 79))], costUsd: 0 };
     };
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     const brand = (
       await local.inject({
         method: 'POST',
@@ -2778,7 +2788,7 @@ describe('refines on a pixel-budget engine step down honestly', () => {
 
   it('sends the budget-size source, keeps the native answer, and records the step-down once', async () => {
     const { engine, edits } = budgetEngine();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     const brand = (
       await local.inject({
         method: 'POST',
@@ -2903,7 +2913,7 @@ describe('a refinement never re-sends scene imagery', () => {
         return { images: [core.images.save(PNG_1PX)], costUsd: 0 };
       },
     };
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     const sceneRef = core.images.save(Buffer.concat([PNG_1PX, Buffer.from([7])]));
     const plate = core.images.save(Buffer.concat([PNG_1PX, Buffer.from([8])]));
     const castShot = core.images.save(Buffer.concat([PNG_1PX, Buffer.from([9])]));
@@ -3012,7 +3022,7 @@ describe('a formatless edit brief never reshapes', () => {
         return { images: [core.images.save(await png(req.width ?? 800, req.height ?? 1000))], costUsd: 0 };
       },
     };
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     const brand = (
       await local.inject({
         method: 'POST',
@@ -3173,7 +3183,7 @@ describe('grade-only refines keep the original pixels', () => {
 
   it('ships graded original pixels and records it; a thing-naming ask bypasses', async () => {
     const { engine } = gradeEngine();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     const brand = (
       await local.inject({
         method: 'POST',
@@ -3316,7 +3326,7 @@ describe('a reshape is classified by the server and planned at the engine budget
 
   it('an over-budget extend is fitted, drawn native, and never upscaled', async () => {
     const { engine, edits } = budgetEngine();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       const { projectId, genNode } = await seedOn(local, 100, 100);
 
@@ -3389,7 +3399,7 @@ describe('a reshape is classified by the server and planned at the engine budget
 
   it('growth past the bound becomes a crop when nothing was asked by name, and refuses an explicit extend', async () => {
     const { engine, edits } = budgetEngine();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       const { projectId, genNode } = await seedOn(local, 176, 100, 'landscape');
 
@@ -3439,7 +3449,7 @@ describe('a reshape is classified by the server and planned at the engine budget
 
   it('growth just past the assist threshold gives up a capped slice and records it', async () => {
     const { engine, edits } = budgetEngine();
-    const local = buildServer({ core, engines: registryWith(engine) });
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
     try {
       const { projectId, genNode } = await seedOn(local, 100, 125, 'portrait');
 
@@ -3550,11 +3560,13 @@ describe('progressive delivery', () => {
   };
 
   const boot = async (s: ReturnType<typeof staged>, count: number, nodeTimeoutMs?: number) => {
-    const local = buildServer({
-      core,
-      engines: registryWith(s.adapter),
-      ...(nodeTimeoutMs ? { nodeTimeoutMs } : {}),
-    });
+    const local = track(
+      buildServer({
+        core,
+        engines: registryWith(s.adapter),
+        ...(nodeTimeoutMs ? { nodeTimeoutMs } : {}),
+      }),
+    );
     const b = await local.inject({
       method: 'POST',
       url: '/api/brands',
