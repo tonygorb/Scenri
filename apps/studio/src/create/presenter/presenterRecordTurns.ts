@@ -268,10 +268,22 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
     for (const r of record) T.push(...r.turns);
   };
   const openAsk = () => {
-    if (lastOpen && last) {
-      T.push({ kind: 'scenri', id: `asked-ask-${last.at}`, text: askedFor(last.view), quiet: true });
-      T.push({ kind: 'you', id: `ask-${last.at}`, text: last.text, editable: false });
-    }
+    if (!lastOpen || !last) return;
+    T.push({ kind: 'scenri', id: `asked-ask-${last.at}`, text: askedFor(last.view), quiet: true });
+    T.push({ kind: 'you', id: `ask-${last.at}`, text: last.text, editable: false });
+    // And the picture it produced, which is the thing the question underneath
+    // is about.
+    //
+    // A drawn picture becomes a turn where its ask is recorded, and an ask
+    // stays open until it is decided, so the one moment the picture was needed
+    // on screen — being asked whether to keep it — was the one moment nothing
+    // showed it. The stage carried it on a desktop and there is no stage on a
+    // phone, so there the conversation said "Here is Idan with the change" and
+    // showed no change. It is the same turn the record uses once the ask
+    // closes, under the same id, so nothing appears twice and nothing moves
+    // when it does.
+    const drawn = outcomes.get(last);
+    if (drawn) T.push(shot(drawn, `redrew-${last.at}`));
   };
 
   if (!identityLocked(d)) {

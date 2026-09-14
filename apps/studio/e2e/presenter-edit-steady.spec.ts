@@ -115,3 +115,29 @@ test('a view being drawn is read again every beat without moving what is on scre
   // twitch on every poll. Anything above this is a visible jump.
   expect(moved).toBeLessThan(0.1);
 });
+
+test('the picture being asked about is in the conversation, on a phone too', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await currentBrand(page);
+  const id = await seedPresenter(page.request, brand.id, 'Shown');
+
+  // the phone has no stage at all, so the conversation is the only place a
+  // candidate can be looked at
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/${brand.slug}/presenters/${id}/edit`);
+  await expect(page.getByRole('log')).toContainText('What would you like to change about Shown?');
+  expect(await page.locator('.sc-pstudio-stage').isVisible()).toBe(false);
+
+  const composer = page.locator('.sc-convo-card textarea');
+  await composer.fill('make the hair shorter');
+  await composer.press('Enter');
+
+  // the question about the redraw stands, and the redraw stands with it
+  await expect(page.getByRole('log')).toContainText('with the change', { timeout: 40_000 });
+  const shot = page.getByRole('log').locator('img').last();
+  await expect(shot).toBeVisible();
+  expect(await shot.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
+  // and it is said once, not twice
+  const asked = await page.getByRole('log').getByText('make the hair shorter').count();
+  expect(asked).toBe(1);
+});
