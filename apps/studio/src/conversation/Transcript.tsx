@@ -80,6 +80,7 @@ export function Transcript({
   onDescribe,
   onAttachFiles,
   onRestore,
+  onShow,
 }: {
   turns: Turn[];
   busy?: boolean;
@@ -106,6 +107,9 @@ export function Transcript({
 
   /** A picture from before, put back on its view. */
   onRestore?: (view: string, hash: string) => void;
+
+  /** Put a picture's view on the stage, from the picture itself. */
+  onShow?: (view: string) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -606,6 +610,7 @@ export function Transcript({
           current={t.current}
           restore={t.restore}
           onRestore={onRestore}
+          onShow={onShow}
         />,
       );
     } else {

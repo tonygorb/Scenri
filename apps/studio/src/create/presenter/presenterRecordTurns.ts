@@ -172,6 +172,7 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
       id,
       text: `Here is ${VIEW_NAME[r.view]} ${n}.`,
       thumb: r.hash,
+      view: r.view,
       label: `${VIEW_LABEL[r.view]} ${n}`,
       current: several && onView && latest.get(`${r.view}:${r.hash}`) === r,
       // The log keeps every picture that was drawn, which is where a chat
@@ -390,6 +391,9 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
             : `Redrew the ${VIEW_NAME[candidate]}.`,
         thumb: slot.hash,
         label: VIEW_LABEL[candidate],
+        view: candidate,
+        // it is the picture on its view: the strip and the stage agree
+        current: true,
       });
     }
     ask({

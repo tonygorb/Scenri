@@ -213,6 +213,8 @@ export type Turn =
       thumb?: string;
       /** The picture's name under it: the view and its number. */
       label?: string;
+      /** The view it belongs to, so the conversation can put it on the stage. */
+      view?: string;
       /** The picture is the one on its view right now. */
       current?: boolean;
       /** The picture can be put back as it was, one to one. */

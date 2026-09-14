@@ -1703,6 +1703,34 @@ describe('the asks a draft keeps', () => {
 });
 
 describe('the record: results, decisions, and a picture restored from before', () => {
+  it('putting a picture back while a candidate stands decides it, and leaves no view whose previous is itself', async () => {
+    // The state this came from, measured on a real draft: a face redrawn twice
+    // and then an earlier one put back, and the slot stood as a candidate
+    // whose hash and whose prior were the same picture. "Use this" and "Keep
+    // previous" then offered the same face, and the two that had actually been
+    // drawn were reachable only from the log.
+    let d = await cast();
+    const face0 = view(d, 'portrait').hash!;
+    d = await step(d.id, 'portrait', 'a younger version of him');
+    const face1 = view(d, 'portrait').hash!;
+    expect(view(d, 'portrait')).toMatchObject({ status: 'candidate', prior: face0 });
+    expect(face1).not.toBe(face0);
+
+    d = await restoreView(deps(), d.id, 'portrait', face0);
+    const p = view(d, 'portrait');
+    expect(p.hash).toBe(face0);
+    // decided, not still waiting to be decided
+    expect(p.status).toBe('approved');
+    // and nothing offers to take you back to the picture you are already on
+    expect(p.prior).not.toBe(p.hash);
+    // the one that was standing is still reachable from the log
+    expect(p.rejected).toContain(face1);
+    expect(d.results.some((r) => r.view === 'portrait' && r.hash === face1)).toBe(true);
+    // and the views built on the face were reconciled against what it wears now
+    d = await restoreView(deps(), d.id, 'portrait', face1);
+    expect(view(d, 'portrait')).toMatchObject({ status: 'approved', hash: face1 });
+  });
+
   it('every landed picture is a result, every decision is kept, and a restore puts a picture back one to one', async () => {
     let d = await cast();
     const tq0 = view(d, 'three-quarter').hash!;

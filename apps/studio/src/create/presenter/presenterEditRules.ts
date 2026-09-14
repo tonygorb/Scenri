@@ -329,6 +329,7 @@ function shapeEdit(
       id,
       text: `Here is ${VIEW_NAME[r.view]} ${n}.`,
       thumb: r.hash,
+      view: r.view,
       label: `${VIEW_LABEL[r.view]} ${n}`,
       current: several && onView && latest.get(`${r.view}:${r.hash}`) === r,
       restore: idle && !onView ? { view: r.view, hash: r.hash } : undefined,
@@ -439,6 +440,9 @@ function shapeEdit(
         text: candidate === 'portrait' ? `Here is ${name} with the change.` : `Redrew the ${VIEW_NAME[candidate]}.`,
         thumb: slot.hash,
         label: VIEW_LABEL[candidate],
+        view: candidate,
+        // it is the picture on its view: the strip and the stage agree
+        current: true,
       });
     }
     ask({

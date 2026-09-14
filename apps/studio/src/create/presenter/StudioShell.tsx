@@ -158,6 +158,12 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
   // keyboard: Use this person, Save presenter, Retry, without reaching for
   // the mouse. A sentence in the composer keeps Enter for itself.
   const s = surface;
+  // A picture in the conversation belongs to a view, and pressing it puts that
+  // view on the stage. The stage's picker is the one that already does this
+  // for the strip; the conversation only knows the view by name, so the two
+  // are joined here rather than in either of them.
+  const pick = s.stage?.onPick;
+  const show = pick ? (view: string) => pick(view as StudioView) : undefined;
   const open = s.turns[s.turns.length - 1];
   const decide =
     open?.kind === 'question' && open.question.kind === 'confirm' && !open.question.quiet ? open.question : null;
@@ -318,6 +324,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
                 onSaveEdit={s.onSaveEdit}
                 onCancelEdit={s.onCancelEdit}
                 onRestore={s.onRestore}
+                onShow={show}
                 onStarter={(text) => (s.onStarter ?? s.onText)(text)}
                 onDescribe={s.onDescribe}
                 onAttachFiles={s.onAttachRef}

@@ -28,9 +28,11 @@ export function ScenriTurn({
   dim,
   thumb,
   label,
+  view,
   current,
   restore,
   onRestore,
+  onShow,
 }: {
   text: string;
   tone?: QuestionTone;
@@ -42,10 +44,14 @@ export function ScenriTurn({
   thumb?: string;
   /** Its name: the view and its number. */
   label?: string;
+  /** The view it belongs to, so pressing it can bring it to the stage. */
+  view?: string;
   /** It is the one on its view right now. */
   current?: boolean;
   /** The picture can be put back as it was; the button says so. */
   restore?: { view: string; hash: string };
+  /** Put this picture's view on the stage. */
+  onShow?: (view: string) => void;
   onRestore?: (view: string, hash: string) => void;
   /** The turn's key, on the element, for what watches the transcript. */
   turnId?: string;
@@ -87,12 +93,22 @@ export function ScenriTurn({
           {/* A thumbnail beside a stage on a desktop, and the picture itself on a
               phone, where there is no stage. One source for each, so neither
               pays for the other: 160 is sharp at 128px and soft at 238. */}
-          <img
-            src={thumbUrl(thumb, 'micro')}
-            srcSet={`${thumbUrl(thumb, 'micro')} 160w, ${thumbUrl(thumb, 'small')} 320w, ${thumbUrl(thumb, 'tile')} 640w`}
-            sizes="(max-width: 767px) 248px, 128px"
-            alt={current && label ? `${label}, active` : (label ?? '')}
-          />
+          {/* Pressing a picture brings its view to the stage. Every picture
+              here belonged to a view and none of them could be got back to
+              without hunting for it in the strip, which is the long way round
+              from the thing you are already looking at. */}
+          {view && onShow ? (
+            <button
+              type="button"
+              className="sc-convo-shot-pick"
+              aria-label={label ? `Show ${label} on the stage` : 'Show this on the stage'}
+              onClick={() => onShow(view)}
+            >
+              <Shot thumb={thumb} label={label} current={current} />
+            </button>
+          ) : (
+            <Shot thumb={thumb} label={label} current={current} />
+          )}
           {restore && onRestore ? (
             <button
               type="button"
@@ -274,4 +290,16 @@ export function useLeave(
   const mounted = useRef(performance.now());
   if (!leave) return undefined;
   return performance.now() - mounted.current < start + seenAfter ? 'early' : 'true';
+}
+
+/** The picture itself, pressed or not. */
+function Shot({ thumb, label, current }: { thumb: string; label?: string; current?: boolean }) {
+  return (
+    <img
+      src={thumbUrl(thumb, 'micro')}
+      srcSet={`${thumbUrl(thumb, 'micro')} 160w, ${thumbUrl(thumb, 'small')} 320w, ${thumbUrl(thumb, 'tile')} 640w`}
+      sizes="(max-width: 767px) 248px, 128px"
+      alt={current && label ? `${label}, active` : (label ?? '')}
+    />
+  );
 }

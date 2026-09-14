@@ -1,5 +1,5 @@
 import { ArrowClockwise, X } from '@phosphor-icons/react';
-import { type AssetBuild } from '../api.js';
+import type { AssetBuild } from '../api.js';
 import { describeFailure } from '../failure.js';
 import { RunningTag } from './canvas/RunningTag.js';
 

@@ -1291,11 +1291,21 @@ export async function restoreView(
     s.rejected = s.rejected.filter((h) => h !== hash);
     s.hash = hash;
     s.origin = r.sources.includes(hash) ? 'photo' : 'generated';
-    if (s.status !== 'candidate') s.status = 'approved';
+    // Putting a picture back is a decision, so it ends any candidacy: the
+    // thing that was waiting to be decided is not on the view any more.
+    //
+    // It used to leave the slot a candidate while replacing what it held, and
+    // the slot then said things that were not true of it. Measured on a real
+    // draft: a face redrawn twice, then an earlier one put back, and the view
+    // stood as a candidate whose hash and whose prior were the same picture,
+    // so "Use this" and "Keep previous" offered the same face and the two
+    // that had actually been drawn were reachable only from the log.
+    s.status = 'approved';
+    if (s.prior === hash) s.prior = undefined;
     s.adjustment = from?.ask;
     s.conditionedOn = undefined;
     s.error = undefined;
-    if (s.status === 'approved') reconcileDependents(r, view);
+    reconcileDependents(r, view);
     // Putting a picture back writes no history: the record is the pictures that
     // were drawn, and which one a view wears is the view's own business. It
     // used to append a row, so going back and forth a few times pushed the
