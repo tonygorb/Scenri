@@ -595,3 +595,90 @@ describe('a store that is rate limiting us', () => {
     expect(after).toHaveLength(COUNT);
   });
 });
+
+/**
+ * What a store may legally hand us, and what we must be able to hand back.
+ *
+ * The store image path takes its extension from what sharp reads, and sharp
+ * reports an AVIF file as `heif`. `heif` was not among the extensions a hash
+ * resolves against, so those bytes were written and then unreachable: `has`
+ * said no, `read` threw, and the product looked imported with an image nothing
+ * could open. A format we cannot keep must fail that one picture loudly, never
+ * produce a product that only looks finished.
+ */
+describe('image formats a real catalog can serve', () => {
+  let home: string;
+  let core: ReturnType<typeof createCore>;
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'sc-fmt-'));
+    core = createCore(home);
+  });
+  afterEach(() => {
+    core.close();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  it('keeps and finds jpeg, png, webp, gif and avif', async () => {
+    const sharp = (await import('sharp')).default;
+    const src = sharp({ create: { width: 8, height: 8, channels: 3, background: '#c33' } });
+    for (const fmt of ['jpeg', 'png', 'webp', 'avif', 'gif'] as const) {
+      const buf = await (src.clone() as any)[fmt]().toBuffer();
+      // exactly how the importer decides the extension
+      const read = await sharp(buf).metadata();
+      const hash = core.images.save(buf, read.format ?? 'png');
+      expect(core.images.has(hash), `${fmt}, which sharp reads as ${read.format}`).toBe(true);
+      expect(core.images.read(hash).length).toBe(buf.length);
+    }
+  });
+});
+
+/**
+ * A product title is prose, and prose is not a path.
+ *
+ * Titles arrive in any language and carry anything a shop felt like typing.
+ * The reported store's own catalogue contains `Star Trek: U.S.S. …` - a colon,
+ * illegal in a Windows filename - alongside Hebrew throughout. None of it may
+ * reach the filesystem: pictures are content-addressed by hash, and the title
+ * only ever goes into a database column.
+ */
+describe('titles never become filenames', () => {
+  let home: string;
+  let core: ReturnType<typeof createCore>;
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'sc-title-'));
+    core = createCore(home);
+  });
+  afterEach(() => {
+    core.close();
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
+
+  it('stores a title full of path characters, Hebrew and an emoji, and keeps its picture findable', () => {
+    const brand = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any);
+    const source = core.catalog.upsertSource(brand.id, 'https://shop.example', 'shopify');
+    const nasty = 'לגו Icons: U.S.S. / Enterprise? "NCC-1701" <set> | 🧱 \\ *';
+    const hash = core.images.save(Buffer.from('picture-bytes'), 'png');
+    const p = core.catalog.upsertProduct({
+      sourceId: source.id,
+      brandId: brand.id,
+      externalKey: '11385',
+      title: nasty,
+      url: 'https://shop.example/products/x',
+      images: [{ sourceUrl: 'https://cdn.example/a.png', position: 0, assetRef: `asset:${hash}` }],
+    });
+
+    expect(p.title).toBe(nasty);
+    const [entry] = core.catalog
+      .listLibraryIndex(brand.id, core.store.getBrand(brand.id)!.json)
+      .filter((e) => e.origin === 'catalog');
+    expect(entry.name).toBe(nasty);
+    // the picture is reachable, and its path is the hash rather than the words
+    expect(core.images.has(hash)).toBe(true);
+    expect(core.images.pathFor(hash)).toMatch(/[a-f0-9]{32}\.png$/);
+    for (const ch of ['/', ':', '?', '"', '<', '>', '|', '*', '\\']) {
+      expect(core.images.pathFor(hash).split('/').pop()).not.toContain(ch);
+    }
+  });
+});

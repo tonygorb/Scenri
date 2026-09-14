@@ -48,8 +48,11 @@ export function imageFailure(status: number): FailureReason {
 /** What a thrown request means, which is usually the network rather than the site. */
 export function thrownFailure(err: unknown, aborted = false): FailureReason {
   if (aborted) return 'ABORTED';
+  // Node says "The operation was aborted" and "The operation timed out", and
+  // undici says "fetch failed" with the reason underneath. Matching only the
+  // word "timeout" missed every real one of them.
   const m = String((err as any)?.message ?? err).toLowerCase();
-  if (m.includes('abort') || m.includes('timeout')) return 'IMAGE_TIMEOUT';
+  if (m.includes('abort') || m.includes('timed out') || m.includes('timeout')) return 'IMAGE_TIMEOUT';
   return 'DOWNLOAD_FAILED';
 }
 
