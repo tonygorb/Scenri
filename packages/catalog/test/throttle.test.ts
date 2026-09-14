@@ -91,3 +91,49 @@ describe('summarise', () => {
     expect(summarise(t('ABORTED'), 3, 10)).toBeNull();
   });
 });
+
+/**
+ * Politeness and patience are the same mechanism, and past a point patience
+ * stops buying products. A 150-page crawl of a throttling store spent ten
+ * minutes to save forty-six, the last three of them waiting without a single
+ * success. A run of refusals is the signal to stop and say so.
+ */
+describe('giving up on a store that keeps refusing', () => {
+  const page = (i: number) =>
+    `<html><head><script type="application/ld+json">${JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: `p${i}`,
+      sku: `S-${i}`,
+      url: `https://shop.example/products/p${i}`,
+      image: ['https://cdn.example/a.jpg'],
+      offers: { '@type': 'Offer', price: 1, priceCurrency: 'USD' },
+    })}</script></head><body><button>Add to cart</button></body></html>`;
+
+  it('stops after a run of refusals, and a success resets the run', async () => {
+    const { fetchProductPages } = await import('../src/adapters/productPage.js');
+    const urls = Array.from({ length: 60 }, (_, i) => `https://shop.example/products/p${i}`);
+    let asked = 0;
+    const ctx = {
+      baseUrl: 'https://shop.example',
+      fetchImpl: (async (input: any) => {
+        asked++;
+        const i = Number(/p(\d+)$/.exec(String(input))?.[1] ?? 0);
+        // the first ten serve, everything after is refused
+        return i < 10
+          ? new Response(page(i), { status: 200 })
+          : new Response('slow down', { status: 429, headers: { 'retry-after': '0' } });
+      }) as any,
+    } as any;
+
+    const stats = { pages: 0, bytes: 0, refused: 0, reasons: {} };
+    const got = await fetchProductPages(ctx, urls, { concurrency: 2, stats, giveUpAfterRefusals: 8 });
+
+    expect(got.length).toBe(10);
+    // it stopped rather than walking all sixty
+    expect(asked).toBeLessThan(urls.length);
+    expect(stats.reasons).toHaveProperty('RATE_LIMITED');
+    // and the caller can tell it did not cover the catalogue
+    expect(stats.pages).toBeLessThan(urls.length);
+  });
+});

@@ -251,6 +251,10 @@ async function runJob(
           maxBytes: 1_500_000,
           onEach: run.write,
           stats,
+          // Past this many refusals in a row the store is not going to change
+          // its mind inside this import, and waiting out its cooldown for the
+          // rest of the catalogue is time nobody gets a product for.
+          giveUpAfterRefusals: 24,
         });
       if (!signal.aborted && tally.upserted) {
         patch({
