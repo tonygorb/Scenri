@@ -51,6 +51,21 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.9.4',
+    date: '2026-09-14',
+    title: 'A store that asks Scenri to slow down no longer looks like an empty one.',
+    sections: [
+      {
+        heading: 'Products',
+        body: 'Some stores limit how fast anything can read them. Scenri now waits the way such a store asks and says what happened: an import that could not read anything tells you to try again in a few minutes, and one that got part way says how much is left. Products from an earlier import are never retired by a run that was refused, and a store that keeps saying no ends the import early rather than grinding on.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'A product picture saved in a newer format such as AVIF is found again instead of going missing.',
+      },
+    ],
+  },
+  {
     version: '0.9.3',
     date: '2026-09-14',
     title: 'Paste a website, get the brand and its products.',
