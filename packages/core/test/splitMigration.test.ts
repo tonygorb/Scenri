@@ -126,7 +126,9 @@ describe('splitMultiImageNodes', () => {
     again.close();
   });
 
-  it('carries the batch columns through the status-check rebuild of a very old library', () => {
+  // Rebuilds a whole table to widen a CHECK, which on a Windows runner has run
+  // past vitest's five-second default.
+  it('carries the batch columns through the status-check rebuild of a very old library', { timeout: 20_000 }, () => {
     // Hand-build a pre-'cancelled' nodes table: openDb must first ADD the batch
     // columns and then rebuild the table for the widened CHECK — if the
     // rebuild's hard-coded column lists ever miss the new columns, this loses

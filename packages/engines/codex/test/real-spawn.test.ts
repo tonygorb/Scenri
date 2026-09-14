@@ -67,7 +67,15 @@ afterEach(() => {
   for (const dir of scratch.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
-describe('real spawn: probe verdicts', () => {
+/*
+ * These spawn a real child process and wait for it.
+ *
+ * Vitest's default budget is five seconds, which is generous on this machine
+ * and not always enough on a Windows runner: process creation there is slower
+ * to begin with, and a loaded runner has taken longer than five seconds just
+ * to get the fake codex started. The work is unchanged; only the patience is.
+ */
+describe('real spawn: probe verdicts', { timeout: 20_000 }, () => {
   it('reports ready on a healthy fake codex', async () => {
     useFakeCodex('ok');
     const runner = createRunner({ probeTtlMs: 0 });
@@ -100,7 +108,7 @@ describe('real spawn: probe verdicts', () => {
   }, 20_000);
 });
 
-describe('real spawn: generation lifecycle', () => {
+describe('real spawn: generation lifecycle', { timeout: 20_000 }, () => {
   const brand = { brand: {}, assetPaths: {} };
 
   it('generates through a real child and ingests the image it wrote', async () => {
