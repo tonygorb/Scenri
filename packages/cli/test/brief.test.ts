@@ -8,6 +8,7 @@ import { compileBrief, brandRuleDirectives, validateBrief, PRODUCT_REF_MAX, type
 import { shotAsksForAPerson } from '../src/briefDirectives.js';
 import { loadScenes, sceneResolver, defaultScenesDir } from '../src/scenes.js';
 import { waitDone } from './helpers.js';
+import { drainTracked, track } from './servers.js';
 
 let home: string;
 let core: Core;
@@ -35,27 +36,8 @@ beforeEach(() => {
   productHash = core.images.save(Buffer.from('product-bytes'));
   refHash = core.images.save(Buffer.from('reference-bytes'));
 });
-/**
- * Every server a test in this file builds, so teardown can settle it.
- *
- * A server owns a thumbnail queue that writes into the home directory, and it
- * keeps writing after the test body returns. Closing the core and removing the
- * directory under it is `ENOTEMPTY: rmdir '<home>/thumbs'`, which failed this
- * file on CI three times in one evening - once on a commit that changed
- * nothing at all. `rmSync` already retried for a second and still lost the
- * race, because the retry waits on the directory rather than on the work.
- *
- * `drain` is what settles that queue; `close` alone does not. It is the same
- * rule the rest of the suite follows.
- */
-const servers: { drain(): Promise<void> }[] = [];
-const track = <T extends { drain(): Promise<void> }>(app: T): T => {
-  servers.push(app);
-  return app;
-};
-
 afterEach(async () => {
-  for (const app of servers.splice(0)) await app.drain().catch(() => {});
+  await drainTracked();
   try {
     core.close();
   } catch {
