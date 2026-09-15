@@ -1,4 +1,4 @@
-import { httpJson, httpText, mapPool } from '../http/fetch.js';
+import { httpJson, httpText, mapPool, outOfTime } from '../http/fetch.js';
 import { absolutize, originOf, preferCanonicalLocale } from '../url.js';
 import { normalizeProduct } from '../normalize.js';
 import { fetchProductPages } from './productPage.js';
@@ -87,6 +87,22 @@ async function fetchProductsJsonPage(
 /** Discovery's word that the product API refused us, so fetching must not ask it again. */
 const JSON_BLOCKED = 'json-blocked';
 
+/**
+ * Refusals from the per-product API before we stop asking it at all.
+ *
+ * `JSON_BLOCKED` covers a store that refuses `/products.json` outright, which
+ * is the case discovery can see. A store can serve that bulk endpoint happily
+ * and still guard the per-handle one, and that gap is what emptied a 1,186
+ * product catalogue: the backfill asked for every missing handle, each answer
+ * armed a host-wide cooldown, and the product pages that would have worked
+ * waited behind it. Three consecutive refusals is a pattern, not bad luck, and
+ * a challenge needs no second opinion at all.
+ */
+const JSON_GIVE_UP = 3;
+
+/** Sitemap documents one store's index may send us to before we stop following. */
+const MAX_SITEMAPS = 40;
+
 async function collectSitemapProductUrls(ctx: AdapterContext): Promise<string[]> {
   const origin = originOf(ctx.baseUrl);
   const urls = new Set<string>();
@@ -94,7 +110,9 @@ async function collectSitemapProductUrls(ctx: AdapterContext): Promise<string[]>
   const queue = [...candidates];
   const seen = new Set<string>();
 
-  while (queue.length) {
+  // A sitemap index can name hundreds of children, and this walked all of them
+  // one at a time with nothing watching the clock.
+  while (queue.length && seen.size < MAX_SITEMAPS && !outOfTime(ctx.deadline)) {
     const next = queue.shift()!;
     if (seen.has(next)) continue;
     seen.add(next);
@@ -164,6 +182,11 @@ export const shopifyAdapter: CatalogAdapter = {
     let emptyStreak = 0;
     while (emptyStreak < 1) {
       if (ctx.signal?.aborted) throw new Error('aborted');
+      // What has been listed so far is a result. Waiting for the rest is not.
+      if (outOfTime(ctx.deadline)) {
+        warnings.push('This store was slow to list its catalogue, so only part of it was read');
+        break;
+      }
       const { products, blocked } = await fetchProductsJsonPage(ctx, page);
       ctx.onProgress?.({ stage: 'discovering', discovered: keys.size, message: `Shopify page ${page}` });
       if (blocked && page === 1) {
@@ -253,20 +276,36 @@ export const shopifyAdapter: CatalogAdapter = {
       });
 
     // Second: the per-product API, for handles the listing did not carry.
-    if (!jsonBlocked) {
+    // Skipped when the bulk walk already returned everything discovery counted
+    // - the leftovers are then sitemap aliases of products we hold, and asking
+    // for each one is a request per alias against the endpoint most likely to
+    // be guarded.
+    const bulkCoveredAll = out.length > 0 && out.length >= discovered.productKeys.length;
+    if (!jsonBlocked && !bulkCoveredAll) {
       const missingUrls = stillMissing();
       if (missingUrls.length) {
+        let refusedRun = 0;
+        let abandoned = false;
         await mapPool(
           missingUrls,
-          6,
+          4,
           async (u) => {
+            if (abandoned) return;
             const handle = handleOf(u);
             if (!handle) return;
-            const { ok, json } = await httpJson<{ product?: any }>(`${origin}/products/${handle}.json`, {
+            const { ok, json, challenged } = await httpJson<{ product?: any }>(`${origin}/products/${handle}.json`, {
               fetchImpl: ctx.fetchImpl,
               signal: ctx.signal,
             });
-            if (ok && json?.product) {
+            if (!ok) {
+              // Stop asking the endpoint, not the store. Whatever is still
+              // missing falls through to the product pages below, which a
+              // storefront serves freely even when its JSON is guarded.
+              if (challenged || ++refusedRun >= JSON_GIVE_UP) abandoned = true;
+              return;
+            }
+            refusedRun = 0;
+            if (json?.product) {
               const mapped = mapShopifyProduct(origin, json.product);
               if (!seen.has(mapped.externalKey)) {
                 seen.add(mapped.externalKey);

@@ -95,6 +95,15 @@ export interface AdapterContext {
   baseUrl: string;
   signal?: AbortSignal;
   onProgress?: (update: Partial<JobProgress>) => void;
+  /**
+   * `Date.now()` past which discovery stops listing and works with what it has.
+   *
+   * The scan has always had a budget, but it only ever reached the page reads:
+   * detection and discovery ran unbounded underneath it, so a store whose
+   * catalogue was slow to list could spend minutes before the budget was
+   * consulted once. A partial list is a result; an open-ended wait is not.
+   */
+  deadline?: number;
 }
 
 export interface JobProgress {

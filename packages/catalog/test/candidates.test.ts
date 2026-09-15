@@ -110,6 +110,38 @@ describe('scanning a website for a shop', () => {
     expect(scan.candidates).toHaveLength(0);
   });
 
+  /**
+   * Found by running the real web: anthropic.com, a company site with no shop
+   * anywhere on it, came back `blocked` with five products. The generic and
+   * Webflow readers collect any link carrying the word "product", so a
+   * marketing page about a product listed five addresses and read none, and
+   * the screen told its owner we could not load their catalogue.
+   *
+   * Addresses are a guess. Only commerce evidence makes a shop.
+   */
+  it('does not call a marketing site a shop it could not open', async () => {
+    const fetchImpl = (async (input: any) => {
+      const url = String(input);
+      if (url.endsWith('/robots.txt')) return new Response('', { status: 404 });
+      // Nothing shop-shaped: no storefront API, no commerce markup.
+      if (/\/products\.json|\/wp-json\//.test(url)) return new Response('no', { status: 404 });
+      if (url.includes('sitemap')) {
+        return new Response(
+          `<?xml version="1.0"?><urlset>${['claude', 'api', 'enterprise']
+            .map((p) => `<url><loc>https://company.example/product/${p}</loc></url>`)
+            .join('')}</urlset>`,
+          { status: 200 },
+        );
+      }
+      // A page about a product is not a product page.
+      return new Response('<!doctype html><html><body><h1>Our product</h1></body></html>', { status: 200 });
+    }) as typeof fetch;
+
+    const scan = await scanForCandidates({ url: 'https://company.example', fetchImpl });
+    expect(scan.verdict).toBe('none');
+    expect(scan.candidates).toHaveLength(0);
+  });
+
   it('leaves alone what robots.txt disallows', async () => {
     const { fetchImpl, calls } = storefront(10, { robots: 'User-agent: *\nDisallow: /products/' });
     const scan = await scanForCandidates({ url: 'https://shop.example', fetchImpl });

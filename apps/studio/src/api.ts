@@ -187,8 +187,10 @@ export const api = {
     req<{ scanId: string }>('POST', `/api/brands/${brandId}/catalog/scan`, url ? { url } : {}),
   catalogDetails: (brandId: string, urls: string[]) =>
     req<{ products: CatalogCandidate[] }>('POST', `/api/brands/${brandId}/catalog/details`, { urls }),
-  catalogScanState: (brandId: string, scanId: string) =>
-    req<CommerceScanState>('GET', `/api/brands/${brandId}/catalog/scans/${scanId}`),
+  catalogScanState: (brandId: string, scanId: string, signal?: AbortSignal) =>
+    req<CommerceScanState>('GET', `/api/brands/${brandId}/catalog/scans/${scanId}`, undefined, signal),
+  cancelCatalogScan: (brandId: string, scanId: string) =>
+    req<{ ok: boolean }>('POST', `/api/brands/${brandId}/catalog/scans/${scanId}/cancel`),
   catalogJob: (brandId: string, jobId: string) =>
     req<CatalogImportJob>('GET', `/api/brands/${brandId}/catalog/jobs/${jobId}`),
   catalogJobs: (brandId: string) => req<{ jobs: CatalogImportJob[] }>('GET', `/api/brands/${brandId}/catalog/jobs`),

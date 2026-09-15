@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Core } from '@scenri/core';
 import { cancelCatalogImport, startCatalogImport } from '../catalogImport.js';
-import { getScan, startCatalogScan } from '../catalogScan.js';
+import { cancelScan, getScan, startCatalogScan } from '../catalogScan.js';
 import { fetchProductPages } from '@scenri/catalog';
 
 export function registerCatalogImportRoutes(
@@ -55,6 +55,15 @@ export function registerCatalogImportRoutes(
     const scan = getScan((req.params as any).scanId);
     if (!scan || scan.brandId !== brandId) return reply.status(404).send({ error: 'scan not found' });
     return scan;
+  });
+  // Leaving the screen stops the crawl. Without this the look carried on
+  // against a stranger's store with nobody left to read the answer.
+  app.post('/api/brands/:id/catalog/scans/:scanId/cancel', async (req, reply) => {
+    const brandId = (req.params as any).id;
+    const scanId = (req.params as any).scanId;
+    const scan = getScan(scanId);
+    if (!scan || scan.brandId !== brandId) return reply.status(404).send({ error: 'scan not found' });
+    return { ok: cancelScan(scanId) };
   });
   // Details for a handful of products the chooser has scrolled to.
   //

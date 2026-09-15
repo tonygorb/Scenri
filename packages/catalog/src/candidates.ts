@@ -52,6 +52,17 @@ export const DEFAULT_SCAN_BUDGET: ScanBudget = {
 };
 
 /**
+ * The least time discovery gets, whatever the budget says.
+ *
+ * Not part of `ScanBudget`: a caller tightening the budget is asking for a
+ * shorter look, not for a scan that never looks at all. Measured against real
+ * stores, listing takes 1.8 s (lego.certifiedstore.co.il), 3.5 s
+ * (allbirds.com) and 22 s (gymshark.com, 2,509 products), so this covers an
+ * ordinary catalogue outright and lets the budget govern the large ones.
+ */
+const DISCOVERY_FLOOR_MS = 8_000;
+
+/**
  * Signals that mean a shop, rather than a platform that can host one.
  *
  * `webflow-html` is deliberately absent: it fires on any site built with
@@ -115,12 +126,36 @@ async function scanOnce(opts: ScanOptions, baseUrl: string): Promise<ScanResult>
   const started = Date.now();
   const budget = { ...DEFAULT_SCAN_BUDGET, ...opts.budget };
   const deadline = started + budget.budgetMs;
+  /**
+   * Discovery gets the budget, and the preview is owed its floor after it.
+   *
+   * The budget used to reach only the page reads: `detectPlatform` and
+   * `adapter.discover` ran underneath it with nothing watching the clock, so a
+   * store that was slow to list could spend minutes before the budget was
+   * consulted once.
+   *
+   * Holding back the preview's floor from discovery was the obvious split and
+   * the wrong one. Counting a catalogue is the slow part on a large store, and
+   * thirteen seconds is not enough of it: measured 2026-09-16, allbirds.com
+   * counted 294 products against the 588 it has, and a count we cut short is a
+   * number we made up. `previewFloorMs` already exists to keep the preview
+   * whole when discovery spends everything, so discovery can have the budget
+   * and the preview still gets its twelve seconds after it. Worst case is
+   * those two added together, which the scan's own hard stop sits above.
+   *
+   * The floor is the same idea one step earlier: a deadline is read before
+   * each request, so a budget already spent when the scan starts would stop
+   * discovery before its first one and report a shop as no shop. Being out of
+   * time is a reason to stop listing, never a reason not to look.
+   */
+  const discoveryDeadline = Math.max(deadline, started + DISCOVERY_FLOOR_MS);
   const fetchImpl = opts.fetchImpl ?? fetch;
   const ctx: AdapterContext = {
     fetchImpl,
     baseUrl,
     signal: opts.signal,
     onProgress: opts.onProgress,
+    deadline: discoveryDeadline,
   };
   const warnings: string[] = [];
   // Declared up here because every early return reports through `done`.
@@ -149,6 +184,9 @@ async function scanOnce(opts: ScanOptions, baseUrl: string): Promise<ScanResult>
   const fromApi = detection.platform !== 'generic' && !discovered.hints?.includes('json-blocked');
   const countSource: CountSource = urls.length === 0 ? 'none' : fromApi ? 'api' : 'sitemap';
 
+  /** Evidence of a shop, as opposed to a platform that can host one. */
+  const commerce = detection.signals.some((sig) => COMMERCE_SIGNALS.has(sig));
+
   if (urls.length === 0) {
     // A site we never identified as a shop, with nothing shop-shaped on it,
     // simply is not one. A storefront we *did* identify that yielded no list
@@ -159,7 +197,6 @@ async function scanOnce(opts: ScanOptions, baseUrl: string): Promise<ScanResult>
     // tailwindcss.com - which merely mentions it four times in its copy - came
     // back as a shop whose catalog we had failed to load. A site built with
     // Webflow is not a shop; one carrying `w-commerce` markup is.
-    const commerce = detection.signals.some((sig) => COMMERCE_SIGNALS.has(sig));
     return done(commerce ? 'likely' : 'none', [], [], 0, countSource, warnings);
   }
 
@@ -185,7 +222,15 @@ async function scanOnce(opts: ScanOptions, baseUrl: string): Promise<ScanResult>
 
   // URLs we could list but not read means a store that is there and shut to
   // us, which is worth saying plainly rather than reporting as an empty shop.
-  const verdict: CommerceVerdict = preview.length ? 'found' : 'blocked';
+  //
+  // Only when there was a store. This said `blocked` on the strength of the
+  // addresses alone, and the addresses are a guess: the generic and Webflow
+  // readers collect any link with the word "product" in it, so anthropic.com -
+  // a company site with no shop anywhere on it - listed five and read none,
+  // and the screen told its owner we could not load their catalogue. The same
+  // evidence that separates "no shop" from "a shop we could not list" has to
+  // separate "no shop" from "a shop we could not read".
+  const verdict: CommerceVerdict = preview.length ? 'found' : commerce ? 'blocked' : 'none';
   return done(verdict, preview, urls, urls.length, countSource, warnings);
 
   function done(

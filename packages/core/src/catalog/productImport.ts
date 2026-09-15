@@ -246,6 +246,41 @@ export function productImportMethods(db: DB) {
       }));
     },
 
+    /**
+     * Hide pictures that turn up on product after product.
+     *
+     * A photograph of a thing belongs to that thing. A picture the crawl found
+     * on eighteen different product pages is the shop talking, not the
+     * product: a promotion flash, a collection sticker, a delivery badge.
+     * Measured on a real storefront, three addresses out of 265 were shared
+     * past this threshold and all three were merchandising furniture, while
+     * every genuine packshot appeared once.
+     *
+     * Names nothing and knows nothing about any platform, which is the point:
+     * the badges that caused this carry no word a filter could match, and the
+     * next store's will be different words.
+     *
+     * Excluded rather than deleted, the same state the picture chooser uses,
+     * so anything wrongly caught is still there to be put back.
+     */
+    excludeSharedImages(sourceId: string, minProducts = 3): number {
+      const r = db
+        .prepare(
+          `UPDATE catalog_images SET excluded=1
+             WHERE excluded=0
+               AND product_id IN (SELECT id FROM catalog_products WHERE source_id=?)
+               AND source_url IN (
+                 SELECT ci.source_url FROM catalog_images ci
+                   JOIN catalog_products cp ON cp.id = ci.product_id
+                  WHERE cp.source_id=?
+                  GROUP BY ci.source_url
+                 HAVING COUNT(DISTINCT ci.product_id) >= ?
+               )`,
+        )
+        .run(sourceId, sourceId, minProducts);
+      return r.changes;
+    },
+
     markMissingUnavailable(sourceId: string, seenExternalKeys: string[]): number {
       if (!seenExternalKeys.length) {
         const r = db

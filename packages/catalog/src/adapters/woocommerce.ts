@@ -1,4 +1,4 @@
-import { httpJson, httpText } from '../http/fetch.js';
+import { httpJson, httpText, outOfTime } from '../http/fetch.js';
 import { absolutize, originOf } from '../url.js';
 import { normalizeProduct } from '../normalize.js';
 import { attr, loadHtml } from '../html.js';
@@ -96,6 +96,12 @@ export const woocommerceAdapter: CatalogAdapter = {
     let page = 1;
     let usedApi = false;
     while (true) {
+      if (ctx.signal?.aborted) throw new Error('aborted');
+      // What has been listed so far is a result. Waiting for the rest is not.
+      if (outOfTime(ctx.deadline)) {
+        warnings.push('This store was slow to list its catalogue, so only part of it was read');
+        break;
+      }
       const batch = await tryStoreApi(ctx, page, 100);
       if (batch === null) break;
       usedApi = true;

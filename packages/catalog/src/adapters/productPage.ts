@@ -226,6 +226,44 @@ const BUILD_ASSET = /\/_next\/static\/|\/static\/media\/|\/assets\/(icons|flags|
 const NOT_A_PACKSHOT =
   /logo|icon|sprite|pixel|avatar|\bflags?\b|\/flags?\/|locale|country|currency|badge|payment|social/i;
 
+/**
+ * The furniture every page of a shop carries, which is not what it sells.
+ *
+ * Measured 2026-09-16: a real storefront's `login-svg.svg` became picture two
+ * of all twenty-five products imported from it. None of the words above catch
+ * it, so every product spent an image slot on the header's account icon.
+ */
+const SITE_CHROME = /login|sign-?in|account|\bcart\b|\bsearch\b|\bmenu\b|burger|newsletter|placeholder|spacer|spinner/i;
+
+/**
+ * A packshot is a photograph, and a storefront's vectors are its interface.
+ *
+ * Excluded for a second reason too: the image store keeps what it is given and
+ * serves a fixed set of raster types, so an SVG saved from a page became a
+ * product picture whose address answered 404 - a reference to a file nothing
+ * could ever show.
+ */
+const VECTOR = /\.svgz?(\?|#|$)/i;
+
+/**
+ * Below this, on the page's own say-so, it is furniture.
+ *
+ * Only trusted when the markup states a size. A product photograph is never
+ * declared at forty pixels; the account icon that caused this was.
+ */
+const MIN_PACKSHOT_PX = 100;
+
+/** Scheme-insensitive identity, so one picture offered twice is imported once. */
+function imageKey(url: string): string {
+  return url.replace(/^https?:/i, '').toLowerCase();
+}
+
+/** A stated pixel size, when the markup states one. */
+function declaredPx(value: string | null | undefined): number | null {
+  const n = Number(String(value ?? '').trim());
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export function looksLikeProduct(html: string, doc?: ReturnType<typeof loadHtml>): boolean {
   const $ = doc ?? loadHtml(html);
   for (const sel of PRODUCT_MARKERS) {
@@ -247,17 +285,31 @@ type PageImage = { url: string; position: number; width: null; height: null; alt
 /** The pictures a page shows, og:image first, interface furniture dropped. */
 function galleryImages($: ReturnType<typeof loadHtml>, pageUrl: string, cap = 12): PageImage[] {
   const images: PageImage[] = [];
+  const taken = new Set<string>();
   const og = attr($.querySelector('meta[property="og:image"]'), 'content');
   if (og) {
     const abs = absolutize(pageUrl, og);
-    if (abs) images.push({ url: abs, position: 0, width: null, height: null, alt: null });
+    if (abs && !VECTOR.test(abs)) {
+      images.push({ url: abs, position: 0, width: null, height: null, alt: null });
+      taken.add(imageKey(abs));
+    }
   }
   for (const el of $.querySelectorAll('img[src]')) {
     if (images.length >= cap) break;
     const src = attr(el, 'src') || attr(el, 'data-src');
     const abs = src ? absolutize(pageUrl, src) : null;
     if (!abs || NOT_A_PACKSHOT.test(abs) || BUILD_ASSET.test(abs)) continue;
-    if (images.some((x) => x.url === abs)) continue;
+    if (SITE_CHROME.test(abs) || VECTOR.test(abs)) continue;
+    // The page's own stated size, where it states one. A photograph declared
+    // at forty pixels is an icon.
+    const w = declaredPx(attr(el, 'width'));
+    const h = declaredPx(attr(el, 'height'));
+    if ((w !== null && w < MIN_PACKSHOT_PX) || (h !== null && h < MIN_PACKSHOT_PX)) continue;
+    // Keyed rather than compared, because the same picture offered once over
+    // http and once over https used to import as two.
+    const key = imageKey(abs);
+    if (taken.has(key)) continue;
+    taken.add(key);
     images.push({ url: abs, position: images.length, width: null, height: null, alt: attr(el, 'alt') ?? null });
   }
   return images;
@@ -452,7 +504,7 @@ export async function fetchProductPages(
       if (opts.maxTotalBytes != null && bytes >= opts.maxTotalBytes) return;
       try {
         if (opts.delayMs) await sleep(opts.delayMs);
-        const { ok, status, text, url } = await httpText(u, {
+        const { ok, status, text, url, challenged } = await httpText(u, {
           fetchImpl: ctx.fetchImpl,
           signal: ctx.signal,
           accept: 'text/html',
@@ -466,7 +518,7 @@ export async function fetchProductPages(
         if (!ok) {
           if (opts.stats) {
             opts.stats.refused = (opts.stats.refused ?? 0) + 1;
-            if (opts.stats.reasons) tally(opts.stats.reasons, pageFailure(status));
+            if (opts.stats.reasons) tally(opts.stats.reasons, pageFailure(status, challenged));
           }
           if (++refusedRun >= giveUpAt) givenUp = true;
           return;
@@ -487,6 +539,12 @@ export async function fetchProductPages(
           opts.stats.refused = (opts.stats.refused ?? 0) + 1;
           if (opts.stats.reasons) tally(opts.stats.reasons, thrownFailure(err, ctx.signal?.aborted));
         }
+        // A refusal that threw counts like one that answered. Without this the
+        // circuit breaker was dead in the case it was written for: under real
+        // WAF pressure the requests throw rather than returning a status, so
+        // 202 of 2,206 products failed having tripped nothing. A deliberate
+        // stop is not a refusal.
+        if (!ctx.signal?.aborted && ++refusedRun >= giveUpAt) givenUp = true;
       }
     },
     ctx.signal,

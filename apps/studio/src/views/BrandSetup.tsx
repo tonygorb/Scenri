@@ -9,7 +9,7 @@ import { flattenPalette } from '../brand/palette.js';
 import { primaryMark } from '../brand/marks.js';
 import { brandName } from '../layout/nav.js';
 import { duplicateOf } from './brandDupes.js';
-import { hasCatalog, kitLines, kitNeedsHand, productLine } from './kitReport.js';
+import { hasCatalog, kitLines, kitNeedsHand, productLine, scanRetryable } from './kitReport.js';
 import { useCommerceScan } from './brandSetup/useCommerceScan.js';
 import { ProductChoice } from './brandSetup/ProductChoice.js';
 
@@ -131,8 +131,12 @@ export function BrandSetup() {
   const cancel = () => navigate('/', { replace: true });
 
   // Asked only once the brand exists, and never blocking it.
-  const { scan, scanning, retry } = useCommerceScan(made?.id ?? null);
-  const products = productLine(scan, scanning);
+  const { scan, scanning, outcome, retry } = useCommerceScan(made?.id ?? null);
+  const products = productLine(outcome);
+  // A look that concluded nothing is not a look that found nothing. Offering
+  // "Looks right" here is what let a readable store land as a brand with no
+  // products and nothing said about it.
+  const scanFailed = outcome.kind === 'timeout' || outcome.kind === 'error';
 
   const startImport = async (urls?: string[]) => {
     if (!made) return;
@@ -201,6 +205,17 @@ export function BrandSetup() {
                   <div>
                     <button type="button" className="sc-wiz-skip" onClick={() => void land(made)}>
                       Skip and add the brand only
+                    </button>
+                  </div>
+                </>
+              ) : scanFailed ? (
+                <>
+                  <button type="button" className="sc-wiz-cta" onClick={retry}>
+                    Look for products again <ArrowRight size={12} />
+                  </button>
+                  <div>
+                    <button type="button" className="sc-wiz-skip" onClick={() => void land(made)}>
+                      Continue without products
                     </button>
                   </div>
                 </>
@@ -413,7 +428,7 @@ export function BrandSetup() {
                     ))}
                   </ul>
                 )}
-                {!scanning && scan && (scan.verdict === 'blocked' || scan.verdict === 'likely') && (
+                {!scanning && !scanFailed && scanRetryable(outcome) && (
                   <button type="button" className="sc-wizpick-open" onClick={retry}>
                     Try the catalogue again
                   </button>
