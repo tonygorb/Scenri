@@ -354,7 +354,16 @@ describe('photos', () => {
     expect(coverageLine(one, true)?.text).toBe(
       'Face from your photo. Full body and three-quarter view are drawn from them.',
     );
-    expect(coverageLine(one, false)?.text).toContain('saved from the photos as they are');
+    // Nothing that can draw: only the face is kept, and the line says so. It
+    // used to claim every view was saved from the photos as they are, which
+    // promised a set that is never made and left the save refusing for a face
+    // nothing had placed.
+    expect(coverageLine(one, false)?.text).toBe('Face from your photo. The other views need an engine that can draw.');
+    // and before anything is placed, it says where the face will come from
+    const none = draft({ source: 'photos', sources: ['a'] });
+    expect(coverageLine(none, false)?.text).toBe(
+      'The face is kept from your photo as it is. The other views need an engine that can draw.',
+    );
     const two = draft({
       source: 'photos',
       sources: ['a', 'b'],

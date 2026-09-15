@@ -564,11 +564,21 @@ export function coverageLine(d: DraftLike, canGenerate: boolean): { text: string
       : `${vs.slice(0, -1).map(lower).join(', ')} and ${lower(vs[vs.length - 1])}`;
   const from = photo.length ? `${cap(list(photo))} from your ${photo.length === 1 ? 'photo' : 'photos'}.` : '';
   if (!drawn.length) return { text: from };
-  const how = canGenerate ? 'drawn from them' : 'saved from the photos as they are';
+  // Nothing here can draw, so only the face is kept, from one of their own
+  // photographs. This used to say every view was "saved from the photos as
+  // they are", which stopped being true when photographs became evidence for a
+  // drawn face rather than views in themselves: it promised a set that is
+  // never made, and the save then refused for a face nothing had placed.
+  if (!canGenerate)
+    return {
+      text: [from || 'The face is kept from your photo as it is.', 'The other views need an engine that can draw.']
+        .filter(Boolean)
+        .join(' '),
+    };
   const rest =
     drawn.length >= 3 && photo.length
-      ? `The rest are ${how}.`
-      : `${cap(list(drawn))} ${drawn.length === 1 ? 'is' : 'are'} ${how}.`;
+      ? 'The rest are drawn from them.'
+      : `${cap(list(drawn))} ${drawn.length === 1 ? 'is' : 'are'} drawn from them.`;
   return { text: [from, rest].filter(Boolean).join(' ') };
 }
 

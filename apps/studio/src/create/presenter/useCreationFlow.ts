@@ -449,26 +449,60 @@ export function useCreationFlow({
     [ctx],
   );
 
-  const save = useCallback(async () => {
+  const save = useCallback(
+    async (from?: PresenterDraft) => {
+      const draft = from ?? d;
+      if (!draft || saving) return;
+      const blocker = saveBlocker(draft, draft.name, canDraw);
+      if (blocker) {
+        setSaveErr(blocker);
+        return;
+      }
+      setSaving(true);
+      setSaveErr(null);
+      try {
+        await api.updatePresenterDraft(brand.id, draft.id, { facets });
+        const r = await api.savePresenterDraft(brand.id, draft.id);
+        clearSetup();
+        dispatch({ type: 'start-over' });
+        onStarted({ kind: 'presenter', id: r.presenter.id, name: r.presenter.name });
+      } catch (e: any) {
+        setSaving(false);
+        setSaveErr(String(e?.message ?? e));
+      }
+    },
+    [d, saving, canDraw, brand.id, facets, clearSetup, onStarted],
+  );
+
+  /**
+   * No engine, and photographs: the face is one of their own pictures.
+   *
+   * Nothing here can draw, and `filePhotos` deliberately adopts nothing, so
+   * the face slot is empty and stays empty. This path offered "Save with
+   * photos", refused it with "Use the face first", and had no control anywhere
+   * that placed one: a dead end reachable by anyone who opens Scenri before
+   * setting an engine up. The first photograph is the face, placed here, and
+   * the save runs against the draft that comes back rather than the one this
+   * closure was rendered with.
+   */
+  const saveFromPhotos = useCallback(async () => {
     if (!d || saving) return;
-    const blocker = saveBlocker(d, d.name, canDraw);
-    if (blocker) {
-      setSaveErr(blocker);
+    const first = d.sources?.[0];
+    if (!first || d.views.portrait.status === 'approved') {
+      void save();
       return;
     }
     setSaving(true);
     setSaveErr(null);
     try {
-      await api.updatePresenterDraft(brand.id, d.id, { facets });
-      const r = await api.savePresenterDraft(brand.id, d.id);
-      clearSetup();
-      dispatch({ type: 'start-over' });
-      onStarted({ kind: 'presenter', id: r.presenter.id, name: r.presenter.name });
+      const placed = await api.placeDraftPhoto(brand.id, d.id, 'portrait', first);
+      setSaving(false);
+      await save(placed);
     } catch (e: any) {
       setSaving(false);
       setSaveErr(String(e?.message ?? e));
     }
-  }, [d, saving, canDraw, brand.id, facets, clearSetup, onStarted]);
+  }, [d, saving, brand.id, save]);
 
   const startOver = useCallback(async () => {
     const st = stateRef.current;
@@ -690,7 +724,7 @@ export function useCreationFlow({
           return;
         case 'blind':
           if (a.kind !== 'confirm') return;
-          if (a.id === 'save') void save();
+          if (a.id === 'save') void saveFromPhotos();
           if (a.id === 'setup') openSetup();
           return;
         case 'save':

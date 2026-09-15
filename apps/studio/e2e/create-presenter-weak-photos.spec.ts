@@ -43,8 +43,14 @@ test('a read that can use none of them stops, says why, and draws nothing until 
   expect((await draft()).views.portrait.status).toBe('empty');
   expect((await draft()).activeView).toBeNull();
 
-  // told to draw anyway, it draws
+  // told to draw anyway, what stays true of them is still asked before the
+  // face, exactly as it is for photographs that read well: drawing anyway
+  // answers the read, it does not skip the rest of the conversation
   await log(page).getByRole('button', { name: 'Draw from these anyway', exact: true }).click();
+  await expect(log(page).getByRole('button', { name: 'Nothing to add', exact: true })).toBeVisible({
+    timeout: 20_000,
+  });
+  await log(page).getByRole('button', { name: 'Nothing to add', exact: true }).click();
   await expect.poll(async () => (await draft()).views.portrait.status, { timeout: 40_000 }).not.toBe('empty');
 });
 
