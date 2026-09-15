@@ -7,6 +7,7 @@ import {
   useNavigate,
   useParams,
   useRouteError,
+  Outlet,
 } from 'react-router';
 import { Flex } from '@radix-ui/themes';
 import { AppShell } from './app/AppShell.js';
@@ -19,6 +20,8 @@ import { ScenesView } from './views/Scenes.js';
 import { ScenePage } from './views/ScenePage.js';
 import { PresentersView } from './views/Presenters.js';
 import { PresenterPage } from './views/PresenterPage.js';
+import { PresenterEditRoute } from './views/PresenterEditRoute.js';
+import { PresenterStudioRoute } from './views/PresenterStudioRoute.js';
 import { ProductsView } from './views/Products.js';
 import { ProductPage } from './views/ProductPage.js';
 import { CreateView } from './views/Create.js';
@@ -136,7 +139,12 @@ function SceneRoute() {
 
 function PresenterRoute() {
   const { presenterId } = useParams();
-  return <PresenterPage key={presenterId} />;
+  return (
+    <>
+      <PresenterPage key={presenterId} />
+      <Outlet />
+    </>
+  );
 }
 
 function ProductRoute() {
@@ -181,8 +189,20 @@ export const router = createBrowserRouter([
           { path: P.product, element: <ProductRoute /> },
           { path: P.scenes, element: <ScenesView /> },
           { path: P.scene, element: <SceneRoute /> },
-          { path: P.presenters, element: <PresentersView /> },
-          { path: P.presenter, element: <PresenterRoute /> },
+          // the presenter studio is a child route for the same reason the shot
+          // overlay is: the library stays mounted underneath, and a draft in
+          // progress has an address of its own
+          {
+            path: P.presenters,
+            element: <PresentersView />,
+            children: [{ path: P.presenterStudio, element: <PresenterStudioRoute /> }],
+          },
+          // the editor is a child of the page for the reason the studio is a child of the library
+          {
+            path: P.presenter,
+            element: <PresenterRoute />,
+            children: [{ path: P.presenterEdit, element: <PresenterEditRoute /> }],
+          },
         ],
       },
       { path: P.notFound, element: <Navigate to={P.root} replace /> },

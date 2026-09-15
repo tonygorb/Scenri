@@ -198,6 +198,24 @@ export function uniqueSetSlug(db: DB, brandId: string, name: string, id: string)
  */
 const SET_NAME_SEP = String.fromCharCode(31);
 
+/**
+ * A presenter being cast: approved views, the current candidate, the photos it
+ * started from. Opaque JSON to the core, the way a brand document is, because
+ * only the CLI knows the slot shape; the row exists so the work survives a
+ * reload and a server restart, and goes with its brand.
+ */
+export interface PresenterDraftRow {
+  id: string;
+  brandId: string;
+  json: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function rowToPresenterDraft(r: any): PresenterDraftRow {
+  return { id: r.id, brandId: r.brand_id, json: JSON.parse(r.json), createdAt: r.created_at, updatedAt: r.updated_at };
+}
+
 function rowToSet(r: any): SetRow {
   return {
     id: r.id,
@@ -436,6 +454,25 @@ export function createStore(db: DB) {
       );
       return this.getBrand(id);
     },
+    /**
+     * A draft becoming a saved asset: the document and the row move together.
+     *
+     * These were two statements with nothing holding them. A crash between
+     * them left the presenter in the brand AND its draft row alive, so the
+     * wall showed a finished person and an unfinished one, and saving that
+     * draft again appended a second copy of the same person.
+     */
+    updateBrandAndDropPresenterDraft(
+      id: string,
+      json: { meta: { name: string } } & Record<string, unknown>,
+      draftId: string,
+    ): BrandRow | null {
+      return db.transaction(() => {
+        const row = this.updateBrand(id, json);
+        this.deletePresenterDraft(draftId);
+        return row;
+      })();
+    },
     deleteBrand(id: string): void {
       db.prepare('DELETE FROM brands WHERE id=?').run(id);
     },
@@ -568,6 +605,52 @@ export function createStore(db: DB) {
       return (
         db.prepare('SELECT node_id FROM set_nodes WHERE set_id=? ORDER BY added_at, node_id').all(setId) as any[]
       ).map((r) => r.node_id);
+    },
+
+    // presenter drafts
+    /** Upsert: the same id replaces the json and moves updated_at forward; created_at stays. */
+    putPresenterDraft(row: { id: string; brandId: string; json: unknown }): PresenterDraftRow {
+      db.prepare(
+        // Millisecond stamps, the nodes table's own format: a draft is touched
+        // on every step, and two touches inside one second must still order.
+        `INSERT INTO presenter_drafts (id, brand_id, json, created_at, updated_at)
+           VALUES (?,?,?, strftime('%Y-%m-%d %H:%M:%f','now'), strftime('%Y-%m-%d %H:%M:%f','now'))
+         ON CONFLICT(id) DO UPDATE SET json=excluded.json, updated_at=strftime('%Y-%m-%d %H:%M:%f','now')`,
+      ).run(row.id, row.brandId, JSON.stringify(row.json));
+      return this.getPresenterDraft(row.id)!;
+    },
+    getPresenterDraft(id: string): PresenterDraftRow | null {
+      const r = db.prepare('SELECT * FROM presenter_drafts WHERE id=?').get(id) as any;
+      return r ? rowToPresenterDraft(r) : null;
+    },
+    /** Most recently touched first, the same order sets keep. */
+    listPresenterDrafts(brandId: string): PresenterDraftRow[] {
+      return (
+        db
+          .prepare('SELECT * FROM presenter_drafts WHERE brand_id=? ORDER BY updated_at DESC, created_at DESC, id')
+          .all(brandId) as any[]
+      ).map(rowToPresenterDraft);
+    },
+    deletePresenterDraft(id: string): void {
+      db.prepare('DELETE FROM presenter_drafts WHERE id=?').run(id);
+    },
+    /**
+     * Whether any row still points at a stored image: a shot's images, a
+     * shot's brief (source image, attachments), an imported catalog image, or
+     * another presenter draft. The store is content-addressed, so the same
+     * photo uploaded twice is one file; whoever removes an image asks this
+     * first, and the brand documents are the caller's half of the answer.
+     */
+    imageReferenced(hash: string): boolean {
+      if (!/^[a-f0-9]{32}$/.test(hash)) return false;
+      const like = `%${hash}%`;
+      const hit = (sql: string, ...args: unknown[]) => !!db.prepare(sql).get(...args);
+      return (
+        hit('SELECT 1 FROM nodes WHERE images LIKE ? LIMIT 1', `%"${hash}"%`) ||
+        hit('SELECT 1 FROM nodes WHERE brief LIKE ? LIMIT 1', like) ||
+        hit('SELECT 1 FROM catalog_images WHERE asset_ref LIKE ? LIMIT 1', like) ||
+        hit('SELECT 1 FROM presenter_drafts WHERE json LIKE ? LIMIT 1', like)
+      );
     },
 
     // nodes / version tree

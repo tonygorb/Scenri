@@ -1,0 +1,139 @@
+/* ---------- the chip field: a list of short words, on one line ----------
+   Behind `layout/ChipField.tsx`. One control, filled two ways: a caret you
+   type into, or a caret that opens a list. Both wear the app's field skin,
+   because two fields in one sheet that do not match are what makes a sheet
+   look assembled rather than designed. */
+.sc-chipfield {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-2);
+  width: 100%;
+  min-height: 34px;
+  padding: 3px 8px 3px 6px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: var(--sc-panel);
+  color: var(--sc-fg);
+  text-align: left;
+  cursor: pointer;
+}
+.sc-chipfield:hover:not(:focus-visible) {
+  border-color: var(--sc-line-hover);
+}
+/* The one focus treatment: the border becomes ink, and nothing glows. */
+.sc-chipfield:focus-visible {
+  outline: none;
+  border-color: var(--sc-focus);
+}
+.sc-chipfield[data-state="open"] {
+  border-color: var(--sc-focus);
+}
+
+/* One line, always. When the words outrun it the row scrolls to them. */
+.sc-chipfield-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--sc-space-2);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sc-chipfield-row::-webkit-scrollbar {
+  display: none;
+}
+.sc-chipfield-ph {
+  flex: none;
+  padding-inline: 2px;
+  color: var(--sc-fg3);
+  font-size: var(--sc-text-input);
+  white-space: nowrap;
+}
+.sc-chipfield-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-sel);
+  color: var(--sc-fg);
+  font-size: var(--sc-text-body);
+  white-space: nowrap;
+}
+/* There is more that way. The row scrolls to it. */
+.sc-chipfield-more {
+  flex: none;
+  padding: 0 2px;
+  color: var(--sc-fg3);
+  font-size: var(--sc-text-body);
+  line-height: 1;
+}
+.sc-chipfield-caret {
+  flex: none;
+  display: block;
+  color: var(--sc-fg2);
+}
+
+/* ---------- the picker's menu: find, choose, or add one ----------
+   Behind `layout/ChipPicker.tsx`. It used to live in the presenter studio's
+   stylesheet and read two of that surface's private tokens, which are not
+   declared anywhere else, so on any other surface it rendered with a
+   transparent ground and an inherited placeholder colour. */
+.sc-chippick-menu {
+  width: var(--radix-dropdown-menu-trigger-width, 280px);
+  max-height: min(52vh, 380px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sc-chippick-find {
+  flex: none;
+  width: 100%;
+  height: 34px;
+  margin-bottom: var(--sc-space-3);
+  padding: 0 10px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-sm);
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+  font: inherit;
+  font-size: 13.5px;
+  outline: none;
+}
+
+.sc-chippick-find:focus {
+  border-color: var(--sc-focus);
+}
+
+.sc-chippick-find::placeholder {
+  color: var(--sc-fg3);
+}
+
+.sc-chippick-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sc-pstudio-menu .sc-menu-lb {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sc-chippick-none {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--sc-fg3);
+}
+
+.sc-chippick-menu .sc-menu-item[data-off] {
+  opacity: var(--sc-disabled);
+}

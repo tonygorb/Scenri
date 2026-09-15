@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { AlertDialog, Button, Flex } from '@radix-ui/themes';
 
 /** A destructive action behind a real confirm, not a toast — for anything
@@ -13,6 +14,7 @@ export function Confirm({
   fullWidth,
   open,
   onOpenChange,
+  tone = 'red',
 }: {
   label: string;
   title: string;
@@ -24,14 +26,39 @@ export function Confirm({
   /** Controlled, for a confirm opened from somewhere that unmounts on select (a menu item): no trigger is rendered. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** The trigger's colour: red for a delete, quiet for an act that only throws work away. The confirm itself stays red. */
+  tone?: 'red' | 'quiet';
 }) {
+  /**
+   * One confirm is one act.
+   *
+   * The trigger is disabled while busy, but the action inside the dialog never
+   * was, and `busy` is state that does not change inside a tick. A double
+   * press on a delete sent two deletes, and on a Start over two discards. The
+   * latch is per opening, so confirming, cancelling and confirming again works.
+   */
+  const acted = useRef(false);
+  useEffect(() => {
+    acted.current = false;
+  }, [open]);
+  const confirm = () => {
+    if (acted.current) return;
+    acted.current = true;
+    onConfirm();
+  };
   return (
-    <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
+    <AlertDialog.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (next) acted.current = false;
+        onOpenChange?.(next);
+      }}
+    >
       {open === undefined && (
         <AlertDialog.Trigger>
           <button
             type="button"
-            className="sc-btn sc-btn-ghost sc-btn-red"
+            className={tone === 'red' ? 'sc-btn sc-btn-ghost sc-btn-red' : 'sc-btn sc-btn-ghost'}
             disabled={busy}
             style={fullWidth ? { width: '100%' } : undefined}
           >
@@ -49,7 +76,7 @@ export function Confirm({
             </Button>
           </AlertDialog.Cancel>
           <AlertDialog.Action>
-            <Button color="red" onClick={onConfirm}>
+            <Button color="red" onClick={confirm} disabled={busy}>
               {label}
             </Button>
           </AlertDialog.Action>

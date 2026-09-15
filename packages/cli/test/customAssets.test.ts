@@ -188,85 +188,59 @@ describe('custom presenters and scenes', () => {
     throw new Error('build never finished');
   };
 
+  /**
+   * Cast a person through the studio's own routes: the photographs in, the
+   * three core views drawn and approved, a name, a save. What the old bulk
+   * build did in one call, walked the way a person now walks it.
+   */
+  const castPresenter = async (brandId: string, name: string, photos: string[]) => {
+    const base = `/api/brands/${brandId}/presenter-drafts`;
+    const created = await app.inject({
+      method: 'POST',
+      url: base,
+      payload: { source: 'photos', imageHashes: photos, attestation: true, name },
+    });
+    expect(created.statusCode).toBe(200);
+    const id = created.json().id as string;
+    const settledDraft = async () => {
+      for (let i = 0; i < 400; i++) {
+        const d = (await app.inject({ method: 'GET', url: `${base}/${id}` })).json();
+        if (d.stage === 'idle' && !d.activeView) return d;
+        await new Promise((r) => setTimeout(r, 5));
+      }
+      throw new Error('the draft never settled');
+    };
+    let d = await settledDraft();
+    for (const view of ['portrait', 'front', 'three-quarter'] as const) {
+      if (d.views[view].status === 'approved') continue;
+      await app.inject({ method: 'POST', url: `${base}/${id}/views/${view}/generate`, payload: {} });
+      d = await settledDraft();
+      await app.inject({ method: 'POST', url: `${base}/${id}/views/${view}/approve` });
+      d = await settledDraft();
+    }
+    const saved = await app.inject({ method: 'POST', url: `${base}/${id}/save` });
+    expect(saved.statusCode).toBe(200);
+    return saved.json().presenter as any;
+  };
+
   /* ------------------------------------------------------------ presenters */
 
-  it('builds a presenter: photos analysed, four studio views drawn, photos kept', async () => {
+  it('an edit that changes only the name patches the record in place, through the studio routes', async () => {
     const brand = await newBrand();
-    const photos = [await savePhoto('#884422'), await savePhoto('#224488')];
-    const { job } = await runBuild(brand.id, { kind: 'presenter', name: 'Mara', imageHashes: photos });
-
-    expect(job.stage).toBe('done');
-    expect(job.coverage[0]).toContain('three-quarter');
-
-    const person = brandJson(brand.id).characters[0];
-    expect(person.id).toMatch(/^up-[a-f0-9]{8}$/);
-    expect(person.origin).toBe('custom');
-    expect(person.name).toBe('Mara');
-    expect(person.promptName).toBe('a woman in her early thirties with dark waves');
-    expect(person.identityNotes).toContain('wide-set eyes');
-    // Filed under a tab that already exists, so they are reachable from it.
-    expect(person.suitableCategories).toEqual(['Beauty']);
-    // The five normalized views are what a brief attaches, and the portrait
-    // leads: shots[0] is the essential character reference, and every other
-    // view is full-length, which carries build and proportion and about 105px
-    // of face. Four outputs of one brief came back with four different jaws.
-    expect(person.shots).toHaveLength(5);
-    expect(person.shots.every((s: any) => s.locked)).toBe(true);
-    // The photographs are the evidence and are never replaced by a drawing.
-    expect(person.sourceRefs.map((r: any) => r.file)).toEqual(photos.map((h) => `asset:${h}`));
-    // Both thumbnails are crops of the full-length FRONT view, never pictures
-    // of their own, so neither can show a different person than the references
-    // do. Not shots[0] any more: that seat belongs to the portrait, and the
-    // crops are geometric off a standing figure.
-    expect(person.preview).toMatch(/^asset:[a-f0-9]{32}$/);
-    expect(person.preview).not.toBe(person.shots[1].file);
-    expect(person.avatar).toMatch(/^asset:[a-f0-9]{32}$/);
-    expect(person.avatar).not.toBe(person.preview);
-
-    // The portrait and the front view are both drawn from the photographs -
-    // the only real face evidence in the system - and every other view chains
-    // off the front.
-    expect(generated).toHaveLength(5);
-    expect(generated[0].prompt).toContain('head-and-shoulders portrait framing');
-    expect(generated[0].prompt).toContain('down to the collarbone');
-    expect(generated[1].referenceImages).toHaveLength(2);
-    expect(generated[1].referenceRoles).toEqual(['character', 'character']);
-    expect(generated[1].prompt).toContain('facing the camera straight-on');
-    expect(generated[1].prompt).toContain('a woman in her early thirties with dark waves');
-    // The capture uniform is a contract: the compiler's wardrobe-release
-    // directive names it as neutral capture clothing, so the front frame must
-    // keep drawing exactly this outfit — a drift here would quietly desync
-    // what the release clause is releasing.
-    expect(generated[1].prompt).toContain('off-white ribbed tank');
-    // Both source-drawn frames read the photographs; only the chained ones
-    // stand on a single anchor.
-    expect(generated[0].referenceImages).toHaveLength(2);
-    for (const later of generated.slice(2)) expect(later.referenceImages).toHaveLength(1);
-    expect(generated[4].prompt).toContain('back view');
-    expect(analyzed[0].kind).toBe('presenter');
-    expect(analyzed[0].imagePaths).toHaveLength(2);
-  });
-
-  it('falls back to the photographs themselves when nothing can draw or read them', async () => {
-    await app.close();
-    engineAvailable = false;
-    app = start({ analyzer: analyzer(false) });
-    const brand = await newBrand();
-    const photos = [await savePhoto()];
-    const { job } = await runBuild(brand.id, { kind: 'presenter', name: 'Mara', imageHashes: photos });
-
-    expect(job.stage).toBe('done');
-    expect(job.warnings.join(' ')).toContain('photos are being used directly');
-    const person = brandJson(brand.id).characters[0];
-    expect(person.shots.map((s: any) => s.file)).toEqual([`asset:${photos[0]}`]);
-    expect(person.promptName).toBeUndefined();
-    expect(generated).toHaveLength(0);
-    expect(analyzed).toHaveLength(0);
-    // This path used to run the top-anchored studio-frame geometry over an
-    // arbitrary photograph — a square of forehead as the avatar. It now
-    // derives both thumbnails saliency-first, and they always exist.
-    expect(person.preview).toMatch(/^asset:[a-f0-9]{32}$/);
-    expect(person.avatar).toMatch(/^asset:[a-f0-9]{32}$/);
+    const p = await castPresenter(brand.id, 'Mara', [await savePhoto()]);
+    const opened = await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/presenters/${p.id}/edit` });
+    expect(opened.statusCode).toBe(200);
+    const draft = opened.json();
+    expect(draft.presenterId).toBe(p.id);
+    expect(draft.views.portrait.status).toBe('approved');
+    expect(draft.views.front.status).toBe('approved');
+    const base = `/api/brands/${brand.id}/presenter-drafts/${draft.id}`;
+    await app.inject({ method: 'PATCH', url: base, payload: { name: 'Mara Lind' } });
+    const saved = await app.inject({ method: 'POST', url: `${base}/save` });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().presenter).toMatchObject({ id: p.id, name: 'Mara Lind' });
+    expect(saved.json().presenter.shots).toEqual(p.shots);
+    expect(brandJson(brand.id).characters).toHaveLength(1);
   });
 
   it('a manual create and a shot replacement both derive fresh thumbnails', async () => {
@@ -308,43 +282,19 @@ describe('custom presenters and scenes', () => {
     expect(explicit.json().presenter.preview).toBe(`asset:${first}`);
   });
 
-  it('files under the categories the person chose, over the ones read off the photos', async () => {
-    const brand = await newBrand();
-    await runBuild(brand.id, {
-      kind: 'presenter',
-      name: 'Mara',
-      imageHashes: [await savePhoto()],
-      facets: ['Apparel', 'Footwear'],
-    });
-    expect(brandJson(brand.id).characters[0].suitableCategories).toEqual(['Apparel', 'Footwear']);
-
-    const scene = await runBuild(brand.id, {
-      kind: 'scene',
-      name: 'Shore',
-      instruction: 'a beach',
-      imageHashes: [],
-      facets: ['Home'],
-    });
-    expect(scene.job.stage).toBe('done');
-    expect(brandJson(brand.id).scenes[0].verticals).toEqual(['Home']);
-  });
-
-  it('refuses a presenter with no photo', async () => {
+  it('refuses the old bulk presenter build: a person is cast in the studio now', async () => {
     const brand = await newBrand();
     const res = await app.inject({
       method: 'POST',
       url: `/api/brands/${brand.id}/asset-builds`,
-      payload: { kind: 'presenter', name: 'Mara', imageHashes: [] },
+      payload: { kind: 'presenter', name: 'Mara', imageHashes: [await savePhoto()] },
     });
     expect(res.statusCode).toBe(400);
-    expect(res.json().error).toMatch(/at least one photo/);
+    expect(res.json().error).toMatch(/studio/);
   });
-
   it('reaches a brief by promptName, attaching the identity views only', async () => {
     const brand = await newBrand();
-    const photos = [await savePhoto()];
-    await runBuild(brand.id, { kind: 'presenter', name: 'Mara', imageHashes: photos });
-    const id = brandJson(brand.id).characters[0].id;
+    const { id } = await castPresenter(brand.id, 'Mara', [await savePhoto()]);
 
     const res = await app.inject({
       method: 'POST',
@@ -356,8 +306,13 @@ describe('custom presenters and scenes', () => {
     expect(compiled.prompt).not.toContain('Mara');
     expect(compiled.prompt).toContain('the wide-set eyes must survive');
     expect(compiled.prompt).toContain('Avoid: no straightened hair');
-    // three of the four studio views since the likeness bump (CHARACTER_REF_MAX)
+    // the three canonical views, the portrait essential (CHARACTER_REF_MAX)
     expect(compiled.attachments.filter((a: any) => a.role === 'character')).toHaveLength(3);
+    expect(compiled.attachments.filter((a: any) => a.role === 'character').map((a: any) => a.angle)).toEqual([
+      'portrait',
+      'front',
+      'three-quarter',
+    ]);
     expect(compiled.attachments[0].essential).toBe(true);
   });
 
@@ -367,9 +322,7 @@ describe('custom presenters and scenes', () => {
       meta: { name: 'Acme' },
       characters: [{ id: 'legacy', name: 'Old Cast' }],
     });
-    const photos = [await savePhoto()];
-    await runBuild(brand.id, { kind: 'presenter', name: 'Mara', imageHashes: photos });
-    const id = brandJson(brand.id).characters.find((c: any) => c.origin === 'custom').id;
+    const { id } = await castPresenter(brand.id, 'Mara', [await savePhoto()]);
 
     const patched = await app.inject({
       method: 'PATCH',
@@ -381,7 +334,7 @@ describe('custom presenters and scenes', () => {
     expect(person.name).toBe('Mara Vance');
     expect(person.descriptor).toBe('Quiet, editorial');
     expect(person.promptName).toBe('a woman in her early thirties with dark waves'); // frozen
-    expect(person.shots).toHaveLength(5); // untouched by a field edit
+    expect(person.shots).toHaveLength(3); // untouched by a field edit
 
     const legacy = await app.inject({
       method: 'PATCH',
@@ -394,7 +347,7 @@ describe('custom presenters and scenes', () => {
 
   it('reorders the views a brief attaches', async () => {
     const brand = await newBrand();
-    await runBuild(brand.id, { kind: 'presenter', name: 'Mara', imageHashes: [await savePhoto()] });
+    await castPresenter(brand.id, 'Mara', [await savePhoto()]);
     const person = brandJson(brand.id).characters[0];
     const reversed = [...person.shots].reverse().map((s: any) => s.file.slice(6));
 
@@ -408,8 +361,7 @@ describe('custom presenters and scenes', () => {
 
   it('deleting one leaves the shots it made alone, and says so on the next run', async () => {
     const brand = await newBrand();
-    await runBuild(brand.id, { kind: 'presenter', name: 'Mara', imageHashes: [await savePhoto()] });
-    const id = brandJson(brand.id).characters[0].id;
+    const { id } = await castPresenter(brand.id, 'Mara', [await savePhoto()]);
 
     const del = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/presenters/${id}` });
     expect(del.statusCode).toBe(200);
@@ -868,7 +820,7 @@ describe('custom presenters and scenes', () => {
 
   it('carries both kinds into a .brand bundle, evidence included', async () => {
     const brand = await newBrand();
-    await runBuild(brand.id, { kind: 'presenter', name: 'Mara', imageHashes: [await savePhoto()] });
+    await castPresenter(brand.id, 'Mara', [await savePhoto()]);
     await runBuild(brand.id, { kind: 'scene', name: 'Shore', instruction: 'a volcanic beach', imageHashes: [] });
 
     const res = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/export` });
@@ -877,7 +829,10 @@ describe('custom presenters and scenes', () => {
     const json = JSON.parse(await (zip.file('brand.json') as any).async('string'));
     expect(json.scenes).toHaveLength(1);
     expect(json.characters[0].sourceRefs[0].file).toMatch(/^assets\/characters\/up-[a-f0-9]{8}-source-01\.png$/);
-    expect(json.characters[0].preview).toMatch(/^assets\/characters\/up-[a-f0-9]{8}-card\.png$/);
+    // the card is the portrait frame itself now, and the rewriter writes one
+    // file per set of bytes, so the preview points at the portrait's file
+    expect(json.characters[0].preview).toMatch(/^assets\/characters\/up-[a-f0-9]{8}-(card|portrait)\.png$/);
+    expect(json.characters[0].preview).toBe(json.characters[0].shots[0].file);
     expect(json.scenes[0].preview).toMatch(/^assets\/scenes\/us-[a-f0-9]{8}-preview\.png$/);
     for (const path of [json.characters[0].sourceRefs[0].file, json.scenes[0].preview]) {
       expect(zip.file(path)).toBeTruthy();
@@ -889,7 +844,7 @@ describe('custom presenters and scenes', () => {
     const started = await app.inject({
       method: 'POST',
       url: `/api/brands/${brand.id}/asset-builds`,
-      payload: { kind: 'presenter', name: 'Mara', imageHashes: [await savePhoto()] },
+      payload: { kind: 'scene', name: 'Shore', instruction: 'a volcanic beach', imageHashes: [] },
     });
     const { jobId } = started.json();
     const cancelled = await app.inject({
@@ -915,7 +870,7 @@ describe('custom presenters and scenes', () => {
       await app.inject({
         method: 'POST',
         url: `/api/brands/${brand.id}/asset-builds`,
-        payload: { kind: 'presenter', name: 'Mara', imageHashes: [await savePhoto()] },
+        payload: { kind: 'scene', name: 'Shore', instruction: 'a volcanic beach', imageHashes: [] },
       })
     ).json();
 

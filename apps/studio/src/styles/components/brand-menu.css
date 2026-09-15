@@ -85,3 +85,16 @@
   font-size: 12px;
   user-select: none;
 }
+
+/* A menu opened from inside a dialog.
+ *
+ * A modal dialog puts `pointer-events: none` on the body while it is open and
+ * re-enables it on its own panel. A dropdown portals to the body, outside that
+ * panel, so its layer inherits none: the menu paints, the rows light up under
+ * the cursor, and every click lands on the dialog's scrim behind it. Measured
+ * on the presenter details sheet, where the categories menu opened with eleven
+ * rows and not one of them could be chosen. The menu's own layer says
+ * otherwise. */
+body > div:has(.sc-menu) {
+  pointer-events: auto;
+}

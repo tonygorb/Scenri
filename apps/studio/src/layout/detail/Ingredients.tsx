@@ -119,7 +119,8 @@ export function BriefLine({
       return {
         key: `h${t.id}`,
         kind: 'presenter',
-        label: c?.name ?? pr?.name ?? 'someone',
+        // a record edited since this shot keeps its name here, and says so
+        label: c?.supersededBy ? `${c.name}, edited since` : (c?.name ?? pr?.name ?? 'someone'),
         thumb: av.src,
         crop: av.crop,
         to: brand && pid ? presenterPath(brand, pid) : undefined,

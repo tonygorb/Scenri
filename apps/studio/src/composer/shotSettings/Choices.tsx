@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react';
+import { type ComponentPropsWithoutRef, forwardRef, useRef, type ReactNode } from 'react';
 import { Check } from '@phosphor-icons/react';
 
 /**
@@ -100,29 +100,31 @@ export function Choices({
   );
 }
 
-export function Choice({
-  id,
-  on,
-  unavailable,
-  label,
-  onPick,
-  className,
-  children,
-}: {
-  id: string;
-  on: boolean;
-  unavailable?: boolean;
-  label: string;
-  onPick: () => void;
-  className: string;
-  children: ReactNode;
-}) {
+/**
+ * The ref and the rest of the button's props pass through, so a `Tip` can
+ * wrap one when the option is only a picture (a colour) and needs its word on
+ * hover.
+ */
+export const Choice = forwardRef<
+  HTMLButtonElement,
+  {
+    id: string;
+    on: boolean;
+    unavailable?: boolean;
+    label: string;
+    onPick: () => void;
+    className: string;
+    children: ReactNode;
+  } & Omit<ComponentPropsWithoutRef<'button'>, 'id' | 'className' | 'children' | 'type'>
+>(function Choice({ id, on, unavailable, label, onPick, className, children, ...rest }, ref) {
   return (
     /* A native radio cannot carry the shape swatch, the name and the ratio as
        one hit target, and its own dot would be a second selected-state beside
        the row's lift. */
     // biome-ignore lint/a11y/useSemanticElements: see above
     <button
+      {...rest}
+      ref={ref}
       type="button"
       role="radio"
       data-id={id}
@@ -133,14 +135,15 @@ export function Choice({
       data-on={on || undefined}
       // the set option is the group's one tab stop; the arrows reach the rest
       tabIndex={on ? 0 : -1}
-      onClick={() => {
+      onClick={(e) => {
+        rest.onClick?.(e);
         if (!unavailable) onPick();
       }}
     >
       {children}
     </button>
   );
-}
+});
 
 /** The line under a list that says what the engine will not do with it. */
 export const Foot = ({ children }: { children: ReactNode }) => <p className="sc-setpop-foot">{children}</p>;

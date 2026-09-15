@@ -1,3 +1,4 @@
+import { withHeadPresenters } from '../brandAssets.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useNavigate, useSearchParams } from 'react-router';
 import { api, nodeLabel, type FeedNode, type FeedQuery, type ShotSet } from '../api.js';
@@ -929,7 +930,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       // text token; without this the composer opened empty.
       const own = n.brief?.tokens;
       const text = (n as FeedNode & { prompt?: string }).prompt ?? n.promptHead;
-      const brief = own?.length || !text ? n.brief : { ...n.brief, tokens: [{ t: 'text' as const, v: text }] };
+      const started = own?.length || !text ? n.brief : { ...n.brief, tokens: [{ t: 'text' as const, v: text }] };
+      // a person edited since this shot: the new shot is of them as they are now
+      const brief = started?.tokens ? { ...started, tokens: withHeadPresenters(brand, started.tokens) } : started;
       setRemixBrief({ ...brief, _at: Date.now() });
       // durable against a reload landing between this click and the hub
       // Composer actually consuming the live prop above: the same persisted

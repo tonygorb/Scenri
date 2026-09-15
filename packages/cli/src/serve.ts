@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 import { homedir, networkInterfaces } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import { createEngineRegistry } from './engines.js';
-import { createDemoEngine, demoOptionsFromEnv } from '@scenri/engine-demo';
+import { createDemoAnalyzer, createDemoEngine, demoOptionsFromEnv } from '@scenri/engine-demo';
 import { buildServer } from './server.js';
 import { detectInstallKind } from './installKind.js';
 import { repairPresenterCrops } from './presenterRepair.js';
@@ -62,6 +62,13 @@ async function run(): Promise<void> {
       ? [createDemoEngine((b: Buffer) => core.images.save(b), demoOptionsFromEnv(process.env))]
       : [];
   const engines = createEngineRegistry(core, stubs);
+  // The read is codex, so a suite that runs without it cannot reach anything
+  // the studio decides from what the read made of the photographs. Opted in
+  // the same way and in the same place as the demo engine, and nowhere else.
+  const analyzer =
+    process.env.SCENRI_DEMO_ANALYSIS === 'usable' || process.env.SCENRI_DEMO_ANALYSIS === 'unusable'
+      ? createDemoAnalyzer({ photos: process.env.SCENRI_DEMO_ANALYSIS })
+      : undefined;
   const here = dirname(fileURLToPath(import.meta.url));
   // dev: monorepo path; published: bundled dist
   const candidates = [join(here, '..', '..', '..', 'apps', 'studio', 'dist'), join(here, '..', 'studio-dist')];
@@ -79,6 +86,7 @@ async function run(): Promise<void> {
   const app = buildServer({
     core,
     engines,
+    analyzer,
     studioDist,
     access: { allowedHosts: reachableAt, token },
     runtime: {

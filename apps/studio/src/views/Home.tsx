@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router';
 import { Badge } from '@radix-ui/themes';
 import { Aperture, Mountains, Package, User } from '@phosphor-icons/react';
 import { assetUrl, type ShowcaseEntry, thumbOf } from '../api.js';
+import { presenterAvatar } from '../presenterVisual.js';
 import { useAppData } from '../app/AppShell.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { useApplyScene } from '../app/useApplyScene.js';
@@ -162,7 +163,7 @@ export function HomeView() {
       productId: product?.id ?? null,
       presenterName: presenter?.name ?? null,
       // .sc-showcase-chip img is a circle — the square portrait fills it cleanly.
-      presenterPreviewUrl: presenter?.avatarUrl ?? presenter?.previewUrl ?? null,
+      presenterPreviewUrl: presenter ? presenterAvatar(presenter).src : null,
       presenterId: presenter?.id ?? null,
       sceneName: scene ? sceneLabel(scene, 'chip') : null,
       scenePreviewUrl: scene?.previewUrl ?? null,
@@ -271,10 +272,11 @@ export function HomeView() {
         anyShowcase('product'),
       // Identity ref — Maren's square portrait, which fills the 1:1 glyph exactly
       presenter:
-        claim(presenters.find((p) => p.id === 'maren')?.avatarUrl) ??
-        claim(presenters.find((p) => p.avatarUrl)?.avatarUrl) ??
-        claim(presenters.find((p) => p.previewUrl)?.previewUrl) ??
-        anyShowcase('character'),
+        claim(
+          presenterAvatar(
+            presenters.find((p) => p.id === 'maren') ?? presenters.find((p) => p.avatarUrl) ?? presenters[0] ?? {},
+          ).src,
+        ) ?? anyShowcase('character'),
       // Place / light — scene catalog first, then environment-led showcase
       scene:
         fromSceneIds([

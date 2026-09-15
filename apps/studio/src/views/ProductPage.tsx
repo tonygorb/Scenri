@@ -14,6 +14,7 @@ import { DemoProductCard } from '../layout/DemoProductCard.js';
 import { ProductCard } from '../layout/ProductCard.js';
 import { ProductReferences, type ProductRef } from '../layout/ProductReferences.js';
 import { ShotThumb, Slider } from '../layout/ReferenceGallery.js';
+import { LineField } from '../layout/LineField.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { categoryLabel, effectiveCategory } from '../productCategories.js';
 
@@ -53,44 +54,6 @@ function firstSentence(text: string, max: number): string {
   if (stop > 40) return text.slice(0, stop + 1);
   const cut = text.lastIndexOf(' ', max);
   return `${text.slice(0, cut > 40 ? cut : max).trimEnd()}\u2026`;
-}
-
-/**
- * The heading, editable in place.
- *
- * A textarea rather than a field: product names run long ("Wide mechanical
- * keyboard, tenkeyless, walnut"), the static heading wraps to a measure, and a
- * single-line input would cut the same name off mid-word the moment it became
- * editable. Grows to its content so the page never scrolls a heading sideways.
- */
-function TitleField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const grow = (el: HTMLTextAreaElement | null) => {
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  };
-  useEffect(() => grow(ref.current), [value]);
-  return (
-    <textarea
-      ref={ref}
-      className="sc-lookpage-titleedit"
-      rows={1}
-      dir="auto"
-      aria-label="Product name"
-      value={value}
-      onChange={(e) => {
-        grow(e.currentTarget);
-        onChange(e.target.value);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          e.currentTarget.blur();
-        }
-      }}
-    />
-  );
 }
 
 /**
@@ -346,7 +309,8 @@ export function ProductPage() {
           </p>
         )}
         {editable === 'full' ? (
-          <TitleField
+          <LineField
+            label="Product name"
             value={name}
             onChange={(v) => {
               setName(v);

@@ -1095,6 +1095,11 @@ export const Composer = forwardRef<
     // carry was dropped with no mark on the chip that asked for it.
     if (t.t === 'character') {
       const c = presenters.find((x) => x.id === t.id);
+      // Deleted while this brief sat open. The chip read "missing person" and
+      // said nothing about what to do, and the shot rendered without them on a
+      // compiler warning nobody sees. Guarded on the roster being loaded, so a
+      // cold start does not flash "deleted" over every chip it has.
+      if (!c && presenters.length > 0) return 'This presenter is no longer in your roster. Remove them from the brief.';
       if (c && !stickyPreview.attachments.some((a) => a.role === 'character' && a.id === c.id)) {
         return missingIdentity('character', c.id) ? `${c.name} has no usable photo. Re-add one, or remove this.` : null;
       }

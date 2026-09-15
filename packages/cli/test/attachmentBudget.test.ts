@@ -247,3 +247,96 @@ describe('a hand-attached reference outranks the scene', () => {
     expect(dropped.map((a) => a.hash)).toContain('s1');
   });
 });
+
+/**
+ * The presenter boarding matrix.
+ *
+ * How many of a person's stored views actually reach a model is not a property
+ * of the presenter, it is a property of the rest of the brief: every chip in
+ * the line takes a seat before any chip takes a second one. So a presenter's
+ * third view exists only in a shot the presenter leads, and the moment a
+ * product joins the line that view is never sent at all.
+ *
+ * That is the fact the reference set is designed around, so it is pinned here
+ * rather than rediscovered. Hashes are asserted whole and in order: a count
+ * passes just as happily when the wrong view boards, which is the failure this
+ * table exists to catch.
+ */
+describe('how many presenter views reach the model', () => {
+  const P = [
+    att('product', 'p1', { id: 'prod', label: 'House Blend', essential: true }),
+    att('product', 'p2', { id: 'prod', label: 'House Blend' }),
+    att('product', 'p3', { id: 'prod', label: 'House Blend' }),
+  ];
+  // Named for the views they are, so a wrong row reads as a wrong view.
+  const C = [
+    att('character', 'portrait', { id: 'pers', label: 'Ilse', essential: true }),
+    att('character', 'front', { id: 'pers', label: 'Ilse' }),
+    att('character', 'three-quarter', { id: 'pers', label: 'Ilse' }),
+  ];
+  const S = att('scene', 's1', { id: 'scn', label: 'Cracked Clay' });
+  const M = att('brand', 'm1', { id: 'mark', label: 'Acme' });
+  const R = att('reference', 'r1', { label: 'Reference shot' });
+
+  /** codex, the engine every one of these numbers was measured against. */
+  const atFive: [string, Attachment[], string[]][] = [
+    ['a presenter alone', [...C], ['portrait', 'front', 'three-quarter']],
+    ['with a scene', [...C, S], ['portrait', 'front', 'three-quarter', 's1']],
+    ['with a mark', [...C, M], ['portrait', 'front', 'three-quarter', 'm1']],
+    ['with a reference', [...C, R], ['portrait', 'front', 'three-quarter', 'r1']],
+    ['with a mark and a scene', [...C, M, S], ['portrait', 'front', 'three-quarter', 'm1', 's1']],
+    ['with a mark, a scene and a reference', [...C, M, S, R], ['portrait', 'front', 'm1', 'r1', 's1']],
+    ['with a product', [...P, ...C], ['p1', 'portrait', 'p2', 'p3', 'front']],
+    ['with a product and a scene', [...P, ...C, S], ['p1', 'portrait', 'p2', 'front', 's1']],
+    ['with a product, a scene and a mark', [...P, ...C, S, M], ['p1', 'portrait', 'p2', 'm1', 's1']],
+    ['with everything', [...P, ...C, S, M, R], ['p1', 'portrait', 'm1', 'r1', 's1']],
+  ];
+
+  /** openrouter, one seat tighter, where the person loses a view sooner. */
+  const atFour: [string, Attachment[], string[]][] = [
+    ['a presenter alone', [...C], ['portrait', 'front', 'three-quarter']],
+    ['with a scene', [...C, S], ['portrait', 'front', 'three-quarter', 's1']],
+    ['with a mark', [...C, M], ['portrait', 'front', 'three-quarter', 'm1']],
+    ['with a reference', [...C, R], ['portrait', 'front', 'three-quarter', 'r1']],
+    ['with a mark and a scene', [...C, M, S], ['portrait', 'front', 'm1', 's1']],
+    ['with a mark, a scene and a reference', [...C, M, S, R], ['portrait', 'm1', 'r1', 's1']],
+    ['with a product', [...P, ...C], ['p1', 'portrait', 'p2', 'front']],
+    ['with a product and a scene', [...P, ...C, S], ['p1', 'portrait', 'p2', 's1']],
+    ['with a product, a scene and a mark', [...P, ...C, S, M], ['p1', 'portrait', 'm1', 's1']],
+    ['with everything', [...P, ...C, S, M, R], ['p1', 'portrait', 'm1', 's1']],
+  ];
+
+  const check = (cap: number) => (name: string, atts: Attachment[], want: string[]) => {
+    const { kept, dropped } = allocateAttachments(atts, cap);
+    expect(
+      kept.map((a) => a.hash),
+      name,
+    ).toEqual(want);
+    expect(kept.length).toBeLessThanOrEqual(cap);
+    // Nothing the compiler called essential may be dropped by arithmetic
+    // alone: that is the refusal path's job, and it fires on a missing file.
+    expect(
+      dropped.filter((a) => a.essential).map((a) => a.hash),
+      name,
+    ).toEqual([]);
+  };
+
+  it.each(atFive)('at five seats, %s', check(5));
+  it.each(atFour)('at four seats, %s', check(4));
+
+  it('the third view is never sent once a product is in the line', () => {
+    for (const cap of [5, 4]) {
+      for (const rest of [[], [S], [S, M], [S, M, R]]) {
+        const { kept } = allocateAttachments([...P, ...C, ...rest], cap);
+        expect(kept.map((a) => a.hash)).not.toContain('three-quarter');
+      }
+    }
+  });
+
+  it('where the person sits in the line does not change how many views ride', () => {
+    const before = allocateAttachments([...C, ...P, S, M], 5).kept.map((a) => a.hash);
+    const after = allocateAttachments([...P, ...C, S, M], 5).kept.map((a) => a.hash);
+    // The seats are the same seats; only the order they are listed in moves.
+    expect([...before].sort()).toEqual([...after].sort());
+  });
+});

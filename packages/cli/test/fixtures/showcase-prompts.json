@@ -1977,13 +1977,13 @@
         "role": "character",
         "id": "astrid",
         "essential": false,
-        "angle": "front"
+        "angle": "back"
       },
       {
         "role": "character",
         "id": "astrid",
         "essential": false,
-        "angle": "left-profile"
+        "angle": "front"
       }
     ],
     "warnings": []

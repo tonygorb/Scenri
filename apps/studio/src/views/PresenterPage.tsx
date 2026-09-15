@@ -1,38 +1,59 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
-import { TextArea, TextField } from '@radix-ui/themes';
-import { api, type PresenterPatch } from '../api.js';
-import { useAppData, useFilterParam } from '../app/AppShell.js';
+import { ImageSquare, PencilSimple } from '@phosphor-icons/react';
+import { type CSSProperties, useEffect, useState } from 'react';
+import { Link, Navigate, useMatch, useNavigate, useParams } from 'react-router';
+import { api, type PresenterPatch, thumbOf } from '../api.js';
+import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useMadeWith } from './useMadeWith.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
-import { customPresenterById } from '../brandAssets.js';
+import { assetUrl } from '../apiUploads.js';
+import { customPresenterById, customPresentersOf, headPresenterId } from '../brandAssets.js';
 import { presenterAvatar } from '../presenterVisual.js';
-import { presenterPath, presentersPath, shotPath } from '../routes.js';
+import { P, presenterEditPath, presenterPath, presentersPath, shotPath } from '../routes.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { Confirm } from '../Confirm.js';
-import { PresenterCard } from '../layout/PresenterCard.js';
-import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
+import { ImageLightbox } from '../composer/ImageLightbox.js';
+import { Rail } from '../layout/Rail.js';
+import { Tip } from '../layout/Tip.js';
+import { EmptyRefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
+import { PresenterDetailsDialog } from './PresenterDetailsDialog.js';
 
-/** Every presenter ships exactly 4 frames (front/left/right/back), so this never triggers "See the whole set" — kept as a cap rather than a magic 4 in the slice call below in case a future presenter ships more. */
-const FRONT_ANGLES = 4;
+/** The word under a reference tile, by the angle the record gives it. */
+const ROLE_LABEL: Record<string, string> = {
+  portrait: 'Face',
+  identity: 'Face',
+  front: 'Full body',
+  'three-quarter': 'Three-quarter',
+  back: 'Back',
+  left: 'Left',
+  right: 'Right',
+  'left-profile': 'Left',
+  'right-profile': 'Right',
+};
+/** A curated presenter's frames arrive in this order, with no angle on them. */
+const CURATED_LABELS = ['Front', 'Left', 'Right', 'Back'];
 
 /**
- * One presenter. The reference set says who they are — face, profile, hair,
- * build — from the same controlled setup every time; it is ours and is
- * deliberately not clickable. Everything below is yours: what you have made
- * with them so far.
+ * One presenter: who they are right now.
+ *
+ * A calm asset profile. The avatar, the name and a caption, the few facts
+ * worth reading, two things to do (use them in a shot, or edit them), and
+ * the reference set: the pictures Scenri uses to understand this person,
+ * each labelled by its role and opening at full size. A presenter built from
+ * photographs keeps the originals in a small row of their own. Anything that
+ * changes a picture or who they are lives in the editor, never here.
  */
 export function PresenterPage() {
   const { presenterId = '' } = useParams();
-  const { presenters, presentersLoaded, presentersError, refetchPresenters, applyBrand } = useAppData();
+  const { presenters, presentersLoaded, presentersError, refetchPresenters, applyBrand, presenterCategories } =
+    useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
   const applyPresenter = useApplyPresenter();
   const [refs, setRefs] = useState<string[]>([]);
-  const [allParam, setOpenAll] = useFilterParam('all');
-  const openAll = allParam === '1';
+  const [open, setOpen] = useState<{ src: string; label: string } | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
 
   // The brand's own people come before the catalog, the same order the
   // compiler resolves them in.
@@ -41,15 +62,11 @@ export function PresenterPage() {
   useTitleEntity(presenter?.name);
 
   // The boolean, never `owned` itself: the adapter builds a fresh object every
-  // render, and an effect keyed on that identity re-runs on every commit. With
-  // setRefs inside, that was a silent infinite commit loop that starved every
-  // router transition — the page painted, then nothing in the app responded.
+  // render, and an effect keyed on that identity re-runs on every commit.
   const isOwned = !!owned;
   useEffect(() => {
     let alive = true;
     setRefs([]);
-    // A person built here carries their views in the brand document; only a
-    // curated one has frames sitting on disk to go and ask about.
     if (isOwned) return;
     void api
       .presenterFrames(presenterId)
@@ -64,53 +81,86 @@ export function PresenterPage() {
     };
   }, [presenterId, isOwned]);
 
+  /**
+   * An edit session under way for this person is offered back, never shown as
+   * them. Read again when the editor closes over this page, never while it is
+   * open: the editor is this page's own child route, so the page stays mounted
+   * underneath and this answer would otherwise be whatever it was before the
+   * session existed. Saving or discarding in there left "Continue editing"
+   * standing over a session that had just ended.
+   */
+  const inEditor = !!useMatch({ path: P.presenterEdit });
+  useEffect(() => {
+    let alive = true;
+    setEditing(null);
+    if (!isOwned || inEditor) return;
+    void api
+      .presenterDrafts(brand.id)
+      .then((r) => {
+        if (!alive) return;
+        const mine = r.drafts.find((d) => (d as { presenterId?: string }).presenterId === presenterId);
+        setEditing(mine?.id ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [brand.id, presenterId, isOwned, inEditor]);
+
   // Older brands may still have a roster copy from before presenters attached
-  // straight from the catalog — its shots used the copy's own id, not the
-  // presenter's, so both are matched here to keep that history visible.
+  // straight from the catalog; both ids are matched to keep that history visible.
   const roster: any[] = (brand.json?.characters ?? []) as any[];
   const inRoster = roster.find((c) => c.presenterId === presenterId);
-
-  /** Shots whose brief attached this presenter, directly or via an old roster copy. */
+  const record = roster.find((c) => c.id === presenterId);
   const made = useMadeWith(brand.id, [presenterId ?? '', inRoster?.id ?? '']);
 
-  const [draftName, setDraftName] = useState(owned?.name ?? '');
-  const [draftDescriptor, setDraftDescriptor] = useState(owned?.descriptor ?? '');
-  const [draftIdentity, setDraftIdentity] = useState(owned?.identityNotes ?? '');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [details, setDetails] = useState(false);
 
-  useEffect(() => {
-    // Resync only on a different person, so a poll landing mid-keystroke
-    // cannot overwrite what is being typed.
-    setDraftName(owned?.name ?? '');
-    setDraftDescriptor(owned?.descriptor ?? '');
-    setDraftIdentity(owned?.identityNotes ?? '');
-  }, [owned?.id]);
-
-  /** Field edits are plain writes: nothing here costs a generation. */
-  const patch = (next: PresenterPatch) => {
+  /**
+   * The words on the record, written once when the dialog is saved.
+   *
+   * This used to be a 500ms debounce behind two inline fields, with a flush
+   * on unmount to catch the last keystroke. A dialog with a Save has one
+   * moment to write in, so the timer, the pending patch and the unmount
+   * flush all go: there is nothing left to lose on the way out.
+   */
+  const save = async (next: PresenterPatch) => {
     if (!owned) return;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      void api
-        .updatePresenter(brand.id, owned.id, next)
-        .then((r) => applyBrand(r.brand))
-        .catch((e: any) => setErr(String(e.message ?? e)));
-    }, 500);
+    setBusy(true);
+    setErr(null);
+    try {
+      const r = await api.updatePresenter(brand.id, owned.id, next);
+      applyBrand(r.brand);
+      setDetails(false);
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const remove = async () => {
     if (!owned) return;
     setBusy(true);
     try {
-      await api.deletePresenter(brand.id, owned.id);
+      const r = await api.deletePresenter(brand.id, owned.id);
+      // Before navigating, not after: the wall this lands on is rendered from
+      // the brand, and without this it still carried the card, the picker still
+      // offered them and an existing chip still resolved, all until a reload.
+      applyBrand(r.brand);
       navigate(presentersPath(brand));
     } catch (e: any) {
       setErr(String(e.message ?? e));
       setBusy(false);
     }
   };
+
+  // A superseded revision's address lands on the current one, the way a
+  // brand reached by id lands on its slug: old links keep working.
+  const head = headPresenterId(brand, presenterId);
+  if (head !== presenterId) return <Navigate to={presenterPath(brand, head)} replace />;
 
   if (!presentersLoaded && !owned) {
     return (
@@ -154,141 +204,173 @@ export function PresenterPage() {
     );
   }
 
-  const ownedFrames = owned?.shots ?? [];
-  const visibleRefs = openAll ? refs : refs.slice(0, FRONT_ANGLES);
-  const frames = owned ? ownedFrames : refs.length ? visibleRefs : presenter.previewUrl ? [presenter.previewUrl] : [];
-  const others = presenters.filter((p) => p.id !== presenter.id).slice(0, 8);
-  // A real square portrait needs no cropping trickery; the 4:5 fallback still
-  // does. The chain is the canonical one (presenterVisual.ts), plus this
-  // page's own last resort: a catalog reference frame.
-  const heroAv = presenterAvatar(owned ?? presenter);
-  const hasAvatar = Boolean(heroAv.src && !heroAv.crop);
-  const avatarSrc = heroAv.src ?? refs[0] ?? null;
+  /**
+   * The reference set, each picture with the role the record gives it.
+   *
+   * One walk of the record, so the two cannot come apart. The labels used to
+   * be indexed off the raw shots while the pictures came from the filtered
+   * url list, so a single ref that resolved to nothing shifted every later
+   * role word by one: a full body captioned Face.
+   */
+  const frames: { src: string; label: string }[] = owned
+    ? ((Array.isArray(record?.shots) ? record.shots : []) as any[])
+        .map((sh, i) => ({ src: assetUrl(sh?.file), label: ROLE_LABEL[sh?.angle ?? ''] ?? `Reference ${i + 1}` }))
+        .filter((f): f is { src: string; label: string } => !!f.src)
+    : refs.length
+      ? refs.map((src, i) => ({ src, label: CURATED_LABELS[i] ?? `Reference ${i + 1}` }))
+      : presenter.previewUrl
+        ? [{ src: presenter.previewUrl, label: 'Preview' }]
+        : [];
+  // One way into the editor. A session already under way is the same door
+  // with the honest word on it, never a third button beside the other two.
+  const editHref = presenterEditPath(brand, presenterId);
+  // Age only. `hair` is a sentence of up to 120 characters written for the
+  // generator, and the caption beside it already says the short version
+  // ("copper curls", "tousled blond waves"); printing both put a paragraph
+  // of grey prose where two words belong. The full text stays in the editor.
+  // A face, at face size. `presenterVisual` is the one chain that answers
+  // "what goes in a presenter's circle": the purpose-built square head crop
+  // when the record has one, and a `crop` hint when it had to fall back to a
+  // picture framed for something else. Both of these records carry a real
+  // avatar, so the circle is a real face rather than a torso squeezed round.
+  const face = presenterAvatar(owned ?? presenter);
+
+  /**
+   * What to offer when filing them.
+   *
+   * The catalog's own facets are read off the curated presenters, so a category
+   * this brand invented could never be picked again: it was not in the list, and
+   * the person who had just typed it had to type it a second time.
+   */
+  const known = [
+    ...new Set([...presenterCategories, ...customPresentersOf(brand).flatMap((p) => p.suitableCategories ?? [])]),
+  ].sort((a, b) => a.localeCompare(b));
 
   return (
     <ScrollPane>
       <main className="sc-lookpage sc-presenterpage" id="main">
-        <div className="sc-lookpage-crumb">
-          <Link to={presentersPath(brand)}>Presenters</Link>
-          <span>/</span>
-          <span>{owned ? 'Yours' : (presenter.suitableStyles[0] ?? presenter.presentation)}</span>
-        </div>
-
-        {avatarSrc ? (
-          // the person's own portrait is content, not decoration: it was
-          // aria-hidden, so the face this page is about had no presence in
-          // the accessibility tree at all
-          <div className="sc-presenterpage-avatar" data-avatar={hasAvatar || undefined}>
-            <img src={avatarSrc} alt={presenter.name} />
+        {face.src && (
+          <div className="sc-presenterpage-avatar">
+            <Shown src={thumbOf(face.src, 'small')} crop={face.crop} />
           </div>
-        ) : null}
+        )}
 
-        {owned ? (
-          <TextField.Root
-            className="sc-ownededit-title"
-            value={draftName}
-            aria-label="Their name"
-            onChange={(e) => {
-              setDraftName(e.target.value);
-              patch({ name: e.target.value });
-            }}
-          />
-        ) : (
-          <h1>{presenter.name}</h1>
+        <h1>{presenter.name}</h1>
+        {/* The verticals they suit, as the app's own chips. They belong with
+            the person, not in the record below: this is the thing you scan a
+            presenter for. Changing them is in Details.
+
+            Above the caption, not under it: chips and buttons are the same
+            pill, so a row of each with nothing between them read as one bank
+            of controls. The caption is the thing that keeps them apart. */}
+        {presenter.suitableCategories.length > 0 && (
+          <ul className="sc-presenterpage-cats" aria-label="Filed under">
+            {presenter.suitableCategories.map((c) => (
+              <li key={c} className="sc-chip" data-static>
+                {c}
+              </li>
+            ))}
+          </ul>
         )}
-        {owned ? (
-          <TextField.Root
-            className="sc-ownededit-lede"
-            value={draftDescriptor}
-            placeholder="A short caption for the card"
-            aria-label="Caption"
-            onChange={(e) => {
-              setDraftDescriptor(e.target.value);
-              patch({ descriptor: e.target.value });
-            }}
-          />
-        ) : (
-          <p className="sc-lookpage-lede">{presenter.descriptor}</p>
-        )}
-        <p className="sc-lookpage-facts">
-          {[presenter.ageRange, presenter.hair, presenter.suitableCategories.join(', ')].filter(Boolean).join(' · ')}
-        </p>
+
+        {presenter.descriptor && <p className="sc-lookpage-lede">{presenter.descriptor}</p>}
+
         <div className="sc-lookpage-acts">
           <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyPresenter(presenterId)}>
             Use in a shot
           </button>
+          {owned && (
+            <Link className="sc-btn sc-btn-ghost" to={editHref}>
+              {editing ? 'Continue editing' : 'Edit presenter'}
+            </Link>
+          )}
+          {owned && (
+            <Tip label="Edit name and details">
+              <button
+                type="button"
+                className="sc-icon-btn"
+                aria-label="Edit name and details"
+                aria-haspopup="dialog"
+                onClick={() => setDetails(true)}
+              >
+                <PencilSimple size={17} />
+              </button>
+            </Tip>
+          )}
         </div>
         {err && <p className="sc-assetform-err">{err}</p>}
 
+        {/* The set is read across, not through: these are one person from
+            several sides, and the question they answer is whether the sides
+            agree. So every reference stands at once, at the same height, the
+            way a turnaround is drawn. Nothing is cropped to make them match:
+            the frames are 4:5 already, and a legacy or curated one that is
+            not letterboxes rather than losing its feet. */}
         {frames.length > 0 ? (
-          <>
-            <div className="sc-lookpage-refs">
-              {frames.map((src, i) => (
-                <div key={src} className="sc-ownedref" data-engine={owned && i < 2 ? '' : undefined}>
-                  <RefFrame src={src} />
-                  {/* Two references per person reach the engine, and they are
-                      the first two. Saying which is the difference between a
-                      gallery and knowing what your shots are built from. */}
-                  {owned && i < 2 && <span className="sc-ownedref-tag">Used in shots</span>}
-                </div>
-              ))}
-            </div>
-            {!owned && refs.length > FRONT_ANGLES && (
-              <button type="button" className="sc-lookpage-expand" onClick={() => setOpenAll(openAll ? null : '1')}>
-                {openAll ? 'Enough, close it' : 'See the whole set'}
-              </button>
-            )}
-          </>
+          <Rail count={frames.length} label="Reference set" className="sc-refset-rail" trackClassName="sc-refset">
+            {frames.map((f) => (
+              // by role, not by picture: two roles can resolve to the same one
+              <li key={f.label}>
+                <button
+                  type="button"
+                  className="sc-refset-tile"
+                  aria-label={`${f.label}, open`}
+                  onClick={() => setOpen(f)}
+                >
+                  <Shown src={thumbOf(f.src, 'small')} />
+                </button>
+                <span className="sc-refset-lb" aria-hidden>
+                  {f.label}
+                </span>
+              </li>
+            ))}
+          </Rail>
         ) : (
           <EmptyRefFrame />
         )}
 
-        {owned && (
-          <div className="sc-ownedbits">
-            {owned.sourceRefs.length > 0 && (
-              <section>
-                <p className="sc-bandhead">Your photos</p>
-                <p className="sc-ownedbits-note">
-                  What this presenter was built from. Kept as they arrived, and never replaced by anything generated.
-                </p>
-                <div className="sc-lookpage-refs">
-                  {owned.sourceRefs.map((src) => (
-                    <RefFrame key={src} src={src} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            <section>
-              <p className="sc-bandhead">What must stay the same</p>
-              <p className="sc-ownedbits-note">Sent with every shot they appear in.</p>
-              <TextArea
-                value={draftIdentity}
-                rows={3}
-                placeholder="For example: the wide-set eyes and the small scar above the left brow must survive every generation."
-                onChange={(e) => {
-                  setDraftIdentity(e.target.value);
-                  patch({ identityNotes: e.target.value });
-                }}
-              />
-              {owned.negativeConstraints.length > 0 && (
-                <ul className="sc-ownedbits-list">
-                  {owned.negativeConstraints.map((n) => (
-                    <li key={n}>{n}</li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <div className="sc-lookpage-acts">
-              <Confirm
-                label="Delete presenter"
-                title={`Delete ${owned.name}?`}
-                body="Shots already made with them keep their images and their recipe. Only future shots lose them."
-                busy={busy}
-                onConfirm={() => void remove()}
-              />
+        {owned && owned.sourceRefs.length > 0 && (
+          <section className="sc-presenterpage-sources">
+            <p className="sc-presenterpage-sources-lb">From your photos</p>
+            <div className="sc-presenterpage-sources-row">
+              {owned.sourceRefs.map((src, i) => (
+                <button
+                  key={src}
+                  type="button"
+                  className="sc-presenterpage-source"
+                  aria-label={`Source photo ${i + 1}, open`}
+                  onClick={() => setOpen({ src, label: `Source photo ${i + 1}` })}
+                >
+                  <Shown src={thumbOf(src, 'micro')} />
+                </button>
+              ))}
             </div>
+          </section>
+        )}
+
+        {/* What is left to say about the record is a footnote and one verb.
+            It was a list of label and value, which needs more than two things
+            in it to be a list; the line is a disclosure, not a field, and it
+            says what is true about the record rather than lecturing about
+            advertising law, which is not this page's job to teach. */}
+        {owned && (
+          <div className="sc-prec">
+            <p className="sc-prec-note">
+              {presenter.ageRange ? `${presenter.ageRange} \u00b7 ` : ''}
+              {owned.source === 'synthetic'
+                ? 'Created in Scenri. Not a real person.'
+                : owned.source === 'photos'
+                  ? 'Built from your photographs.'
+                  : 'Saved in Scenri.'}
+              {owned.likeness ? ` Likeness confirmed ${new Date(owned.likeness.attestedAt).toLocaleDateString()}.` : ''}
+            </p>
+            <Confirm
+              label="Delete presenter"
+              title={`Delete ${owned.name}?`}
+              body="Shots already made with them keep their images and their recipe. Only future shots lose them."
+              busy={busy}
+              onConfirm={() => void remove()}
+            />
           </div>
         )}
 
@@ -300,21 +382,56 @@ export function PresenterPage() {
           </Slider>
         )}
 
-        {others.length > 0 && (
-          <Slider label="Other presenters">
-            {others.map((p) => (
-              <PresenterCard
-                key={p.id}
-                presenter={p}
-                variant="navigate"
-                size="slider"
-                onOpen={(id) => navigate(presenterPath(brand, id))}
-                href={presenterPath(brand, p.id)}
-              />
-            ))}
-          </Slider>
+        {details && owned && (
+          <PresenterDetailsDialog
+            name={owned.name}
+            categories={presenter.suitableCategories}
+            known={known}
+            busy={busy}
+            error={err}
+            onSave={(next) => void save(next)}
+            onDismiss={() => setDetails(false)}
+          />
+        )}
+
+        {open && (
+          <ImageLightbox
+            src={open.src}
+            kind="presenter"
+            label={open.label}
+            noun={presenter.name}
+            onClose={() => setOpen(null)}
+          />
         )}
       </main>
     </ScrollPane>
+  );
+}
+
+/**
+ * A picture the record points at that may not be there any more.
+ *
+ * A hash outlives its file: a library restored without its images, a record
+ * older than a sweep. Every picture on this page drew the browser's own broken
+ * glyph instead of saying so. The same fallback `RefFrame` uses, in this
+ * page's markup.
+ */
+function Shown({ src, crop }: { src: string; crop?: string }) {
+  const [broken, setBroken] = useState(false);
+  if (broken)
+    return (
+      <span className="sc-lookpage-ref-blank" aria-hidden>
+        <ImageSquare size={20} />
+      </span>
+    );
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      {...(crop ? { 'data-crop': crop } : {})}
+      onError={() => setBroken(true)}
+    />
   );
 }

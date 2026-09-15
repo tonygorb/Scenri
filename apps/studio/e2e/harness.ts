@@ -81,6 +81,11 @@ const OWNED_SCENE = {
 type SeedOptions = {
   /** Seed a scene the brand owns, so the Scenes library renders warm (no first-run offer). */
   scene?: boolean;
+  /**
+   * Seed the demo shot the feed and plus menu need. Off when this file cannot
+   * register the demo engine (the no-engine presenter path).
+   */
+  shot?: boolean;
   /** Extra environment for this file's own Scenri: the demo engine's timing knobs, say. */
   env?: Record<string, string>;
 };
@@ -189,6 +194,8 @@ class ScenriFixture {
     const brand = opts.scene ? { ...FIXTURE, scenes: [OWNED_SCENE] } : FIXTURE;
 
     const made = await call<{ id: string }>('POST', '/api/brands', 200, { brand });
+
+    if (opts.shot === false) return;
 
     // the brand's one workspace, made by asking for it rather than by inventing
     // a project — nothing in the app creates containers any more

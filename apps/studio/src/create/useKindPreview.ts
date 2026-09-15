@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { assetUrl, thumbOf } from '../api.js';
+import { presenterAvatar } from '../presenterVisual.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { customPresentersOf, customScenesOf } from '../brandAssets.js';
@@ -68,7 +69,8 @@ export function useKindPreview(): Record<CreateKind, KindPreview> {
 
     // newest first: the thing you just made is the thing you recognise
     const ownProduct = firstUrl([...products].reverse(), (p: any) => assetUrl(p?.shots?.[0]?.file));
-    const ownPresenter = firstUrl(mine.presenters, (p) => p.previewUrl);
+    // the card asset first, then the canonical chain: one order for yours and ours
+    const ownPresenter = firstUrl(mine.presenters, (p) => p.previewUrl ?? presenterAvatar(p).src);
     const ownScene = firstUrl(mine.scenes, (s) => s.previewUrl);
 
     return {
@@ -79,7 +81,10 @@ export function useKindPreview(): Record<CreateKind, KindPreview> {
       },
       presenter: {
         url:
-          ownPresenter ?? fromShowcase('character') ?? firstUrl(presenters, (p) => p.previewUrl ?? p.avatarUrl) ?? null,
+          ownPresenter ??
+          fromShowcase('character') ??
+          firstUrl(presenters, (p) => p.previewUrl ?? presenterAvatar(p).src) ??
+          null,
         count: mine.presenters.length,
         own: !!ownPresenter,
       },
