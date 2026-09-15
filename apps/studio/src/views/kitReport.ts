@@ -1,4 +1,5 @@
 import type { CommerceScan, ScrapeReport } from '../apiTypes.js';
+import type { ScanOutcome } from './brandSetup/useCommerceScan.js';
 
 /**
  * What a website actually gave up, said plainly.
@@ -47,33 +48,61 @@ export function kitNeedsHand(report: ScrapeReport): boolean {
   return report.logo.status !== 'primary' || report.colors.count === 0 || report.name.source === 'hostname';
 }
 
+const line = (value: string, found = false): KitLine => ({ key: 'products', found, label: 'Products', value });
+
 /**
  * The products line, or nothing at all.
  *
- * Nothing at all is the important case. A portfolio has no shop, has never
- * wanted one, and a row reading "0 products" turns a complete brand import
- * into a scoreboard with a zero on it. So a site with no commerce signal says
- * nothing about products, exactly as this screen did before there was a scan.
+ * Nothing at all is the important case, and it is narrower than it looks. A
+ * portfolio has no shop, has never wanted one, and a row reading "0 products"
+ * turns a complete brand import into a scoreboard with a zero on it. So a site
+ * with no commerce signal says nothing about products, exactly as this screen
+ * did before there was a scan.
+ *
+ * Only that case. This used to read `if (!scan || scan.verdict === 'none')`,
+ * and the first half of that swallowed every way a scan can fail: a timeout, a
+ * server error, an unread poll. All four drew as the portfolio, so the row
+ * vanished and the screen offered "Looks right" over a store with 1,186
+ * readable products in it. A failure is not an absence, and it gets said.
  *
  * A count from a sitemap is approximate on purpose: a sitemap lists addresses,
  * not products, and some of those addresses are the same item in another
  * market. "About 2,200" is true where "2,200" would be a number we made up.
  */
-export function productLine(scan: CommerceScan | null, scanning: boolean): KitLine | null {
-  if (scanning) return { key: 'products', found: false, label: 'Products', value: 'looking for a shop' };
-  if (!scan || scan.verdict === 'none') return null;
-  if (scan.verdict === 'found') {
-    const about = scan.countSource === 'sitemap' && scan.count > 20;
-    return {
-      key: 'products',
-      found: true,
-      label: 'Products',
-      value: `${about ? 'about ' : ''}${scan.count.toLocaleString()} found`,
-    };
+export function productLine(outcome: ScanOutcome): KitLine | null {
+  switch (outcome.kind) {
+    case 'idle':
+      return null;
+    case 'scanning':
+      return line('looking for a shop');
+    case 'timeout':
+      return line('this site took too long to search');
+    case 'error':
+      return line('the search did not finish');
+    case 'result': {
+      const { scan } = outcome;
+      // The one silence, and the only one.
+      if (scan.verdict === 'none') return null;
+      if (scan.verdict === 'found') {
+        const about = scan.countSource === 'sitemap' && scan.count > 20;
+        return line(`${about ? 'about ' : ''}${scan.count.toLocaleString()} found`, true);
+      }
+      // Listed but unreadable, or a storefront we could not list at all. Both
+      // are a shop we failed to open, which is not a site without one.
+      return line('we could not load the catalogue');
+    }
   }
-  // Listed but unreadable, or a storefront we could not list at all. Both are
-  // a shop we failed to open, which is not the same as a site without one.
-  return { key: 'products', found: false, label: 'Products', value: 'we could not load the catalogue' };
+}
+
+/**
+ * Whether the look ended in a way the person should be offered another go at.
+ *
+ * A site with no shop is finished business. Everything else that did not
+ * produce a catalogue is worth one more press, and used to offer none.
+ */
+export function scanRetryable(outcome: ScanOutcome): boolean {
+  if (outcome.kind === 'timeout' || outcome.kind === 'error') return true;
+  return outcome.kind === 'result' && (outcome.scan.verdict === 'blocked' || outcome.scan.verdict === 'likely');
 }
 
 /** Whether there is a catalog worth offering to import. */

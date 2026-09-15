@@ -336,3 +336,56 @@ test('a shop on the site is offered, counted, and imported only where asked', as
     )
     .toBe(SHOP_HANDLES.length - 2);
 });
+
+/**
+ * The regression this whole pass exists for.
+ *
+ * A tester pasted a real Shopify store, watched it search for several minutes,
+ * and then watched the Products row disappear and "Looks right" light up. No
+ * products were imported and nothing said why. The scan had failed, and a
+ * failed scan reached the screen as `null` - exactly what a site with no shop
+ * looks like - so the screen drew the row for a portfolio: it removed it.
+ *
+ * A failure has to be visible, and it has to be retryable.
+ */
+test('a scan that fails says so, and offers another go', async ({ page }) => {
+  // The server's own answer, replaced with the one it gives when a look could
+  // not be finished. Everything else on the screen is real.
+  await page.route('**/catalog/scans/**', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ id: 'x', brandId: 'x', url: 'x', status: 'error', error: 'boom', startedAt: Date.now() }),
+    });
+  });
+
+  await page.goto('/setup');
+  await page.locator('#sc-wiz-url').fill(`http://${origin}/`);
+  await page.getByRole('button', { name: 'Build the kit' }).click();
+  const anyway = page.getByRole('button', { name: 'Create anyway' });
+  if (await anyway.isVisible().catch(() => false)) await anyway.click();
+
+  const lines = page.locator('.sc-kit-lines');
+  await expect(lines).toBeVisible({ timeout: 30_000 });
+
+  // Waited for first, and deliberately. While the look is still running the
+  // row already reads "Products / looking for a shop", so asserting on the
+  // word alone passes against the in-flight row and proves nothing. This
+  // button appears only once the scan has settled and settled badly.
+  await expect(page.getByRole('button', { name: /Look for products again/i })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Continue without products' })).toBeVisible();
+  // "Looks right" over a shop we never managed to read is the sentence that
+  // made this a silent failure.
+  await expect(page.getByRole('button', { name: 'Looks right' })).toHaveCount(0);
+
+  // And now the row: still there, having survived the failure. This is what
+  // the old code could not do - it removed the line entirely.
+  await expect(lines).toContainText('Products');
+  await expect(lines).not.toContainText(/\bno products\b|\b0 products\b/i);
+  await expect(page.locator('.sc-wiz')).not.toContainText(/boom|HTTP|undefined|null/);
+
+  // The quieter option still works.
+  await page.getByRole('button', { name: 'Continue without products' }).click();
+  await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
+});
