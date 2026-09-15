@@ -50,7 +50,7 @@ export interface EditingFlowArgs extends Pick<FlowProps, 'caps' | 'capsNote'> {
 
 export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: EditingFlowArgs) {
   const { brand } = useBrand();
-  const { applyBrand } = useAppData();
+  const { applyBrand, refresh } = useAppData();
   const openSetup = useOpenSetup();
   const canDraw = !!caps?.canGenerate;
 
@@ -236,14 +236,25 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
           return;
         }
         case 'conflict':
-          window.location.reload();
+          /**
+           * They changed somewhere else while this session was open.
+           *
+           * This used to reload the document, which is not a way of holding
+           * state: it threw away the conversation, the scroll and anything
+           * else open, to get what one refetch gives. Read the brand again and
+           * leave to their page, which is where the record as it now stands
+           * is, and where the editor is opened on it.
+           */
+          setUi((u) => ({ ...u, conflict: null }));
+          setLeaving(true);
+          void refresh().finally(() => leave(presenterId));
           return;
         case 'save':
           void save();
           return;
       }
     },
-    [d, ui.scopeAsk, s, view, save],
+    [d, ui.scopeAsk, s, view, save, refresh, leave, presenterId],
   );
 
   const onSend = useCallback(

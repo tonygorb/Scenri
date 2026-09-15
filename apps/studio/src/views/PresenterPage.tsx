@@ -1,15 +1,15 @@
 import { ImageSquare, PencilSimple } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useState } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router';
+import { Link, Navigate, useMatch, useNavigate, useParams } from 'react-router';
 import { api, type PresenterPatch, thumbOf } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useMadeWith } from './useMadeWith.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
 import { assetUrl } from '../apiUploads.js';
-import { customPresenterById, headPresenterId } from '../brandAssets.js';
+import { customPresenterById, customPresentersOf, headPresenterId } from '../brandAssets.js';
 import { presenterAvatar } from '../presenterVisual.js';
-import { presenterEditPath, presenterPath, presentersPath, shotPath } from '../routes.js';
+import { P, presenterEditPath, presenterPath, presentersPath, shotPath } from '../routes.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { Confirm } from '../Confirm.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
@@ -81,11 +81,19 @@ export function PresenterPage() {
     };
   }, [presenterId, isOwned]);
 
-  // An edit session under way for this person is offered back, never shown as them.
+  /**
+   * An edit session under way for this person is offered back, never shown as
+   * them. Read again when the editor closes over this page, never while it is
+   * open: the editor is this page's own child route, so the page stays mounted
+   * underneath and this answer would otherwise be whatever it was before the
+   * session existed. Saving or discarding in there left "Continue editing"
+   * standing over a session that had just ended.
+   */
+  const inEditor = !!useMatch({ path: P.presenterEdit });
   useEffect(() => {
     let alive = true;
     setEditing(null);
-    if (!isOwned) return;
+    if (!isOwned || inEditor) return;
     void api
       .presenterDrafts(brand.id)
       .then((r) => {
@@ -97,7 +105,7 @@ export function PresenterPage() {
     return () => {
       alive = false;
     };
-  }, [brand.id, presenterId, isOwned]);
+  }, [brand.id, presenterId, isOwned, inEditor]);
 
   // Older brands may still have a roster copy from before presenters attached
   // straight from the catalog; both ids are matched to keep that history visible.
@@ -226,6 +234,17 @@ export function PresenterPage() {
   // picture framed for something else. Both of these records carry a real
   // avatar, so the circle is a real face rather than a torso squeezed round.
   const face = presenterAvatar(owned ?? presenter);
+
+  /**
+   * What to offer when filing them.
+   *
+   * The catalog's own facets are read off the curated presenters, so a category
+   * this brand invented could never be picked again: it was not in the list, and
+   * the person who had just typed it had to type it a second time.
+   */
+  const known = [
+    ...new Set([...presenterCategories, ...customPresentersOf(brand).flatMap((p) => p.suitableCategories ?? [])]),
+  ].sort((a, b) => a.localeCompare(b));
 
   return (
     <ScrollPane>
@@ -367,7 +386,7 @@ export function PresenterPage() {
           <PresenterDetailsDialog
             name={owned.name}
             categories={presenter.suitableCategories}
-            known={presenterCategories}
+            known={known}
             busy={busy}
             error={err}
             onSave={(next) => void save(next)}
