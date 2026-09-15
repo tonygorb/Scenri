@@ -11,7 +11,17 @@ import { isolate } from './harness.js';
  * a conversation is named by the history entry it is being had in, and takes
  * the draft's id once it has one.
  */
-isolate({ env: { SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5' } });
+/**
+ * Every draw takes real time here.
+ *
+ * A presenter draw is one picture, so `SCENRI_DEMO_STAGGER_MS` never slowed it:
+ * each view appeared in the frame the press landed in, and the specs tested
+ * none of the states a person actually sits in, where a draw takes tens of
+ * seconds and what it reads from can be decided, redrawn or put back
+ * underneath it. Three of the four bugs reported by hand on 2026-09-16 lived
+ * in that gap. `SCENRI_DEMO_DELAY_MS` delays the first picture too.
+ */
+isolate({ env: { SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5', SCENRI_DEMO_DELAY_MS: '400' } });
 
 const log = (p: Page) => p.getByRole('log');
 const answer = (p: Page, label: string) => log(p).getByRole('button', { name: label, exact: true });
@@ -213,7 +223,7 @@ test('discarding a drawn draft asks first, and cancelling keeps it', async ({ pa
   expect(left.drafts.map((d) => d.id)).not.toContain(drawn);
 });
 
-test('Start over throws away the draft it is on and leaves the others reachable', async ({ page }) => {
+test('Start over begins a new conversation and leaves every draft where it was', async ({ page }) => {
   test.setTimeout(120_000);
   const brand = await currentBrand(page);
   const a = await seedDraft(page.request, brand.id, 'a woman in her 30s, dark curly hair');
@@ -226,16 +236,23 @@ test('Start over throws away the draft it is on and leaves the others reachable'
   await expect(dialog).toContainText('Start over?');
   await dialog.getByRole('button', { name: 'Start over' }).click();
 
-  // that one is gone, and only that one
+  // a new conversation, and not one draft fewer. Agreeing to begin again is
+  // about the conversation, never about the work it has already produced:
+  // Start over used to delete the draft it was on, and a half-built set with a
+  // face and a full body in it went with it. Reported 2026-09-16. Discard on
+  // the card is the one destructive act, and it asks separately.
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
   const left = (await (await page.request.get(`/api/brands/${brand.id}/presenter-drafts`)).json()) as {
     drafts: { id: string }[];
   };
-  expect(left.drafts.map((d) => d.id)).not.toContain(a);
+  expect(left.drafts.map((d) => d.id)).toContain(a);
   expect(left.drafts.map((d) => d.id)).toContain(b);
 
-  // and the other is still reachable from the wall, at its own stage
+  // and both are still reachable from the wall, each at its own stage
   await page.goto(`/${brand.slug}/presenters`);
-  await page.locator(`a[href$="/presenters/new/${b}"]`).click();
-  await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
+  for (const id of [a, b]) {
+    await page.locator(`a[href$="/presenters/new/${id}"]`).click();
+    await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
+    await page.goto(`/${brand.slug}/presenters`);
+  }
 });

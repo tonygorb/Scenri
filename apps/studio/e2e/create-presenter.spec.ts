@@ -16,7 +16,17 @@ import { isolate } from './harness.js';
  * through `conditionedOn` on the draft. SCENRI_NO_CODEX keeps the analyzer
  * off, so the photos path files the first photo as the face.
  */
-isolate({ env: { SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5' } });
+/**
+ * Every draw takes real time here.
+ *
+ * A presenter draw is one picture, so `SCENRI_DEMO_STAGGER_MS` never slowed it:
+ * each view appeared in the frame the press landed in, and the specs tested
+ * none of the states a person actually sits in, where a draw takes tens of
+ * seconds and what it reads from can be decided, redrawn or put back
+ * underneath it. Three of the four bugs reported by hand on 2026-09-16 lived
+ * in that gap. `SCENRI_DEMO_DELAY_MS` delays the first picture too.
+ */
+isolate({ env: { SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5', SCENRI_DEMO_DELAY_MS: '400' } });
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -762,7 +772,9 @@ test.describe('a person from scratch', () => {
       log(page)
         .getByText(/^Here is full body \d+\.$/)
         .count();
-    expect(await pictures()).toBe(2);
+    // polled, not counted once: a turn arrives with the transcript's own beat,
+    // so the second card is a frame or two behind the line that announces it
+    await expect.poll(pictures).toBe(2);
     // the picture the view wears is marked and says so
     await expect(log(page).locator('.sc-convo-shot[data-current] img')).toHaveAttribute('alt', 'Full body 1, active');
     // and neither picture can be put in the other's place from here. The

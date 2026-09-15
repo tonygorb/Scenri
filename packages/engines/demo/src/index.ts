@@ -17,6 +17,18 @@ import {
 export interface DemoOptions {
   /** Milliseconds between one slot landing and the next. */
   staggerMs?: number;
+  /**
+   * Milliseconds before every slot, the first one included.
+   *
+   * `staggerMs` only delays what comes after the first picture, so a request
+   * for one picture is never slowed by it at all. That is every presenter
+   * draw: a spec casting a person watched each view appear in the same frame
+   * the press landed in, and so tested none of the states a person actually
+   * sits in, where a draw takes tens of seconds and what it reads from can be
+   * decided, redrawn or put back underneath it. Three of the four bugs
+   * reported by hand on 2026-09-16 lived in exactly that gap.
+   */
+  delayMs?: number;
   /** `reverse` lands the last slot first: the out-of-order case a feed has to survive. */
   order?: 'request' | 'reverse';
   /** A slot that fails, reported the way codex reports a partial run. */
@@ -35,6 +47,8 @@ export function demoOptionsFromEnv(env: Record<string, string | undefined>): Dem
   const out: DemoOptions = {};
   const stagger = Number(env.SCENRI_DEMO_STAGGER_MS);
   if (env.SCENRI_DEMO_STAGGER_MS && Number.isFinite(stagger) && stagger > 0) out.staggerMs = stagger;
+  const delay = Number(env.SCENRI_DEMO_DELAY_MS);
+  if (env.SCENRI_DEMO_DELAY_MS && Number.isFinite(delay) && delay > 0) out.delayMs = delay;
   if (env.SCENRI_DEMO_ORDER === 'reverse') out.order = 'reverse';
   const fail = Number(env.SCENRI_DEMO_FAIL_SLOT);
   if (env.SCENRI_DEMO_FAIL_SLOT && Number.isInteger(fail) && fail >= 0) out.failSlot = fail;
@@ -120,6 +134,7 @@ export function createDemoEngine(saveImage: (buf: Buffer) => string, opts: DemoO
       const landed = new Map<number, string>();
       const failures: string[] = [];
       for (const [position, slot] of slots.entries()) {
+        if (opts.delayMs) await sleep(opts.delayMs, signal);
         if (position > 0 && opts.staggerMs) await sleep(opts.staggerMs, signal);
         if (signal?.aborted) {
           // a budget abort keeps what landed; a cancel is the user asking for the stop

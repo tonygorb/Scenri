@@ -70,6 +70,36 @@ because it only moves views that are approved or candidate and a view being
 drawn is `generating`. The picture is kept, because it cost a generation and the
 log can offer it back, but the set says it has to be drawn again.
 
+## What each control does, and what it costs
+
+Every control that can spend a generation or throw work away, in one place. All
+four defects reported by hand on 2026-09-16 were a control doing one of the
+other rows' jobs, so a new one goes in this table before it goes in the UI.
+
+| Control | Changes | Spends a generation | Throws anything away |
+|---|---|---|---|
+| Use this / Use it | the view is decided, and the views drawn from it are asked whether they still stand | yes, for whatever it stales | the picture it replaced, if nothing chose it |
+| Keep previous | the view wears the picture it replaced | no | the picture that was on it |
+| Try again | the view is drawn again from the same words | yes, one | nothing: the picture stays in the log |
+| Put back (a version) | the view wears an earlier picture; the one it takes off becomes the other side of the decision | no | nothing |
+| The version arrows | nothing at all, it is a look | no | nothing |
+| Start over | the conversation begins again from the first question | no | nothing: the draft stays on the wall |
+| Discard (on the card) | the draft is gone | no | the draft and the pictures nothing else holds |
+| Delete (a presenter) | the record is gone, and any session open on it ends | no | the record and the pictures nothing else holds |
+
+Two of them are worth saying in words, because both have been got wrong:
+
+**Put back is a swap, never a verdict.** It leaves the view's status exactly as
+it found it, so a picture still waiting to be decided is still waiting, and the
+question standing over it is the way on. It settled the view `approved` for one
+day, and `nextToDraw` reads approved as "go on", so pressing it started the next
+generation before the pictures being chosen between could be stepped through.
+
+**Start over is about the conversation.** Agreeing to begin again never means
+destroy what has already been drawn. The draft stays, with everything on it, and
+the wall offers it back. Discard on the card is the one destructive act and asks
+on its own.
+
 ## Changing a person after they are drawn
 
 One decision, in one function (`editIntent`):
@@ -96,6 +126,14 @@ the person's own photographs are kept.
 A picture-changing edit mints a new record with `revisionOf`/`supersededBy`, so
 shots made with the old one still refine against the person they were made with.
 A words-only edit patches in place.
+
+A record's own shots that claim no canonical view (a supplementary angle, a
+curated `left-profile`, the second and third shots of a legacy record) ride into
+the revision **only while the face has not moved**. Nothing stales them, nothing
+requires them and nothing checks them against the face, so carrying them through
+an identity change saved a person holding a picture of who they used to be, and
+`characterRefs` boarded it into a brief beside the new views, all of them under
+"match their face exactly".
 
 ## After it is saved
 
@@ -139,6 +177,25 @@ fields, and where it says nothing at all the sentence typed at it becomes its
 description. A build that cannot work is not offered. Every picture falls back to
 a blank frame rather than the browser's broken glyph.
 
+## Known limits, recorded rather than fixed
+
+Neither is reachable through the studio today. Both are written down so that
+whoever makes them reachable solves them first.
+
+**Photographs still say "match their face exactly" after an accepted face
+change.** The originals ride as `character` references, and the only thing
+resolving the contradiction is one prose fragment saying the drawn views show
+the change. Identity edits are refused outright for a person built from
+photographs (`presenterEditRules.ts`), so nothing reaches it. Relaxing that
+refusal means deciding what the photographs are for first.
+
+**A view seeded from a saved record has no record of what it was drawn from.**
+`conditionedOn` is written at draw time only, so `reconcileDependents` cannot
+tell a seeded view that a face put back is the one it came with, and stales it.
+That costs a generation on a change of mind inside an editing session. It is
+conservative in the safe direction: the alternative is a view marked current
+while wearing a face nobody used.
+
 ## The 0.10.0 release checklist
 
 Run on the demo engine unless a row says otherwise. Automated coverage in
@@ -155,7 +212,7 @@ brackets; a row with none is a manual pass.
 - [ ] Create presenter is new however many drafts wait (`presenter-drafts`)
 - [ ] Three drafts keep their own answers and pictures (`presenter-drafts`)
 - [ ] Continue resumes that draft at its stage (`create-presenter`)
-- [ ] Start over throws away one draft and leaves the others (`presenter-drafts`)
+- [ ] Start over begins again and leaves every draft where it was (`presenter-drafts`, `create-presenter`)
 - [ ] Discarding drawn work asks; an empty conversation does not (`presenter-drafts`)
 
 **Editing and rewind**
@@ -165,6 +222,8 @@ brackets; a row with none is a manual pass.
 
 **The set**
 - [ ] View-specific repair leaves every other view alone (`presenter-edit`)
+- [ ] Put back steps between pictures and spends nothing (`create-presenter`)
+- [ ] A revision drops a picture of the face it replaced (`presenterDrafts`)
 - [ ] Identity-wide change reconciles the set before it can be saved (`presenter-edit`)
 - [ ] A photographed person cannot be re-identified (`presenterEditRules`)
 - [ ] A draw whose face moved lands stale (`presenterDrafts`)

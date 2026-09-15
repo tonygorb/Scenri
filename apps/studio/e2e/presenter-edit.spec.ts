@@ -9,7 +9,17 @@ import { isolate } from './harness.js';
  * that belongs to Create is said so, and an old shot keeps refining against
  * the person it was made with while a new one carries them as they are.
  */
-isolate({ env: { SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5' } });
+/**
+ * Every draw takes real time here.
+ *
+ * A presenter draw is one picture, so `SCENRI_DEMO_STAGGER_MS` never slowed it:
+ * each view appeared in the frame the press landed in, and the specs tested
+ * none of the states a person actually sits in, where a draw takes tens of
+ * seconds and what it reads from can be decided, redrawn or put back
+ * underneath it. Three of the four bugs reported by hand on 2026-09-16 lived
+ * in that gap. `SCENRI_DEMO_DELAY_MS` delays the first picture too.
+ */
+isolate({ env: { SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5', SCENRI_DEMO_DELAY_MS: '400' } });
 
 async function currentBrand(p: Page): Promise<{ slug: string; id: string }> {
   await p.goto('/');
