@@ -95,7 +95,14 @@ test('a deleted presenter is gone from the Create picker too, in the same commit
   // exactly the reload this is meant to prove unnecessary.
   await page.getByRole('link', { name: 'Create', exact: true }).click();
   await expect(page).toHaveURL(/\/create/);
-  await expect(page.getByText('Picker', { exact: true })).toHaveCount(0);
+
+  // and the list is actually opened, because an assertion against a picker
+  // nobody reached passes whatever the picker holds
+  await page.locator('.sc-brief').click();
+  await page.keyboard.type('with @');
+  await expect(page.locator('.sc-cmd-group')).toHaveText(/^Presenters\s+\d+$/);
+  await expect(page.locator('.sc-cmd-row', { hasText: 'Picker' })).toHaveCount(0);
+  await expect(page.locator('.sc-cmd-row').first()).toBeVisible();
 });
 
 test('deleting a presenter ends the editing session that was open on them', async ({ page }) => {
