@@ -26,6 +26,26 @@ const controllers = new Map<string, AbortController>();
 /** Enough for the handful a session looks at; the oldest fall off the back. */
 const KEEP = 32;
 
+/**
+ * When we stop a scan ourselves.
+ *
+ * The scan budgets itself at 25 seconds, but nothing enforced that from
+ * outside, so a crawl that never returned left a row reading `running`
+ * forever and a screen waiting on it. The client gives up at 45 seconds; this
+ * sits below that, so the answer a screen gets is a finished scan rather than
+ * its own patience running out.
+ */
+const HARD_STOP_MS = 40_000;
+
+/**
+ * How long a settled scan stays readable.
+ *
+ * Long enough to survive a reload and a look, short enough that a scan cannot
+ * be answered from an hour-old crawl. Independent of `KEEP`, which bounds how
+ * many we hold rather than how old they may be.
+ */
+const KEEP_MS = 10 * 60_000;
+
 function remember(state: ScanState): void {
   scans.set(state.id, state);
   while (scans.size > KEEP) {
@@ -37,7 +57,16 @@ function remember(state: ScanState): void {
 }
 
 export function getScan(scanId: string): ScanState | undefined {
-  return scans.get(scanId);
+  const state = scans.get(scanId);
+  if (!state) return undefined;
+  // An expired scan is gone rather than stale. A screen that asks about one
+  // gets a clean miss it can say something about, not an old answer.
+  if (state.status !== 'running' && Date.now() - state.startedAt > KEEP_MS) {
+    scans.delete(scanId);
+    controllers.delete(scanId);
+    return undefined;
+  }
+  return state;
 }
 
 export function cancelScan(scanId: string): boolean {
@@ -61,6 +90,16 @@ export function startCatalogScan(
   remember(state);
   controllers.set(id, ctrl);
 
+  // Nothing outside the crawl was watching it. A scan that never settled sat
+  // `running` until it was evicted, and the screen waiting on it had only its
+  // own patience to end on.
+  let hardStopped = false;
+  const stopper = setTimeout(() => {
+    hardStopped = true;
+    ctrl.abort();
+  }, HARD_STOP_MS);
+  stopper.unref?.();
+
   void scanForCandidates({ url, fetchImpl, signal: ctrl.signal })
     .then((result) => {
       state.result = result;
@@ -68,9 +107,16 @@ export function startCatalogScan(
     })
     .catch((err: unknown) => {
       state.status = 'error';
-      state.error = err instanceof Error ? err.message : String(err);
+      state.error = hardStopped
+        ? 'This site took too long to look through.'
+        : err instanceof Error
+          ? err.message
+          : String(err);
     })
-    .finally(() => controllers.delete(id));
+    .finally(() => {
+      clearTimeout(stopper);
+      controllers.delete(id);
+    });
 
   return { scanId: id };
 }

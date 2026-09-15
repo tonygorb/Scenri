@@ -153,6 +153,33 @@ export function retryAfterMs(header: string | null, now = Date.now()): number | 
   return Math.min(Math.max(0, at - now), RETRY_AFTER_CAP_MS);
 }
 
+/**
+ * Whether a refusal is an anti-bot challenge rather than a rate limit.
+ *
+ * The two arrive as the same status and mean opposite things. A rate limit is
+ * a queue: wait, and the next request works. A challenge is a door: it asks
+ * for a browser we are not, so every retry fails the same way, and each one
+ * re-arms the cooldown that `waitForHost` makes every other request share.
+ *
+ * Measured 2026-09-16 on a Shopify store behind Cloudflare: twenty-four
+ * requests to `/products/<handle>.json` answered 429 with `cf-mitigated:
+ * challenge` and no `Retry-After`, after which `products.json` and
+ * `sitemap.xml` - both 200 a minute earlier - answered the same challenge for
+ * minutes. Meanwhile `/products/<handle>` served 200 to all twenty-four at
+ * eight wide. Treating that as a rate limit parked the whole host and starved
+ * the one endpoint that worked, so 1,186 readable products imported as none.
+ *
+ * Headers only, deliberately: the body is the caller's to read, and a
+ * challenge announces itself before it. `Retry-After` is the tell for a real
+ * limiter - a server that tells us when to come back means it.
+ */
+export function isChallenge(res: Response): boolean {
+  if (res.status !== 429 && res.status !== 503) return false;
+  if (res.headers.get('cf-mitigated')) return true;
+  if (res.headers.get('retry-after')) return false;
+  return /text\/html/i.test(res.headers.get('content-type') ?? '');
+}
+
 /** Backoff for a host that is refusing us: seconds, not milliseconds, and jittered. */
 function throttleBackoff(attempt: number): number {
   const base = Math.min(1000 * 2 ** attempt, 16_000);
@@ -227,6 +254,11 @@ export async function httpGet(url: string, opts: HttpOptions = {}): Promise<Resp
       // about 2.8 seconds, which is nothing to a CDN limiter. A crawl of a
       // rate-limited store burned that budget on every page in parallel and
       // then reported each one as a page with no product on it.
+      // A door, not a queue. Retrying costs three more identical refusals and
+      // the cooldown they arm is shared, so the endpoints that do answer wait
+      // behind an endpoint that never will. Hand it back and let the caller
+      // stop asking this one thing.
+      if (isChallenge(res)) return res;
       if (res.status === 429 || res.status === 503) {
         const asked = retryAfterMs(res.headers.get('retry-after'));
         const wait = asked ?? throttleBackoff(attempt);
@@ -261,18 +293,22 @@ export async function httpGet(url: string, opts: HttpOptions = {}): Promise<Resp
 export async function httpText(
   url: string,
   opts: HttpOptions = {},
-): Promise<{ ok: boolean; status: number; text: string; url: string }> {
+): Promise<{ ok: boolean; status: number; text: string; url: string; challenged: boolean }> {
   const res = await httpGet(url, opts);
+  const challenged = isChallenge(res);
   const text = await readBounded(res, opts.maxBytes);
-  return { ok: res.ok, status: res.status, text, url: res.url || url };
+  return { ok: res.ok, status: res.status, text, url: res.url || url, challenged };
 }
 
 export async function httpJson<T = unknown>(
   url: string,
   opts: HttpOptions = {},
-): Promise<{ ok: boolean; status: number; json: T | null; url: string; text: string }> {
+): Promise<{ ok: boolean; status: number; json: T | null; url: string; text: string; challenged: boolean }> {
   const res = await httpGet(url, { ...opts, accept: opts.accept ?? 'application/json' });
-  const text = await res.text();
+  const challenged = isChallenge(res);
+  // A refused JSON endpoint answers with a whole HTML page, and this used to
+  // read it with no ceiling at all.
+  const text = await readBounded(res, opts.maxBytes ?? 2_000_000);
   let json: T | null = null;
   if (res.ok) {
     try {
@@ -281,7 +317,17 @@ export async function httpJson<T = unknown>(
       json = null;
     }
   }
-  return { ok: res.ok && json !== null, status: res.status, json, url: res.url || url, text };
+  return { ok: res.ok && json !== null, status: res.status, json, url: res.url || url, text, challenged };
+}
+
+/**
+ * Whether a discovery deadline has passed.
+ *
+ * Lives here rather than beside the type because every adapter already imports
+ * this module for its value exports, and `types.ts` is imported as types only.
+ */
+export function outOfTime(deadline: number | undefined): boolean {
+  return deadline != null && Date.now() > deadline;
 }
 
 /** Run async work over items with a concurrency limit. */

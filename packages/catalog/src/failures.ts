@@ -13,6 +13,7 @@
  */
 export type FailureReason =
   | 'RATE_LIMITED'
+  | 'CHALLENGED'
   | 'PAGE_BLOCKED'
   | 'PAGE_NOT_FOUND'
   | 'PAGE_UNREADABLE'
@@ -20,14 +21,22 @@ export type FailureReason =
   | 'IMAGE_NOT_FOUND'
   | 'IMAGE_TIMEOUT'
   | 'IMAGE_EMPTY'
+  | 'UNSUPPORTED_MEDIA'
   | 'DOWNLOAD_FAILED'
   | 'ABORTED'
   | 'UNKNOWN';
 
 export type FailureTally = Partial<Record<FailureReason, number>>;
 
-/** What an HTTP status means for a product page we tried to read. */
-export function pageFailure(status: number): FailureReason {
+/**
+ * What an HTTP status means for a product page we tried to read.
+ *
+ * `challenged` separates a door from a queue. Both arrive as 429, but waiting
+ * fixes one and never fixes the other, so telling someone to try again later
+ * would be advice that cannot work.
+ */
+export function pageFailure(status: number, challenged = false): FailureReason {
+  if (challenged) return 'CHALLENGED';
   if (status === 429 || status === 503) return 'RATE_LIMITED';
   if (status === 401 || status === 403 || status === 405) return 'PAGE_BLOCKED';
   if (status === 404 || status === 410) return 'PAGE_NOT_FOUND';
@@ -80,6 +89,12 @@ export function summarise(t: FailureTally, saved: number, asked: number): string
       return none
         ? 'The store asked us to slow down, so nothing could be read. Waiting a few minutes and trying again usually works.'
         : `The store asked us to slow down partway, so ${asked - saved} of ${asked} products were skipped. Trying again picks up the rest.`;
+    // Never "try again in a few minutes": this one does not clear with time,
+    // and saying so would be advice that cannot work.
+    case 'CHALLENGED':
+      return none
+        ? 'This store checks that visitors are a web browser, so its catalogue could not be read automatically. You can still add products by hand.'
+        : `This store started checking that visitors are a web browser, so ${asked - saved} of ${asked} products were skipped.`;
     case 'PAGE_BLOCKED':
       return none
         ? 'This store would not let us read its product pages.'
@@ -90,6 +105,7 @@ export function summarise(t: FailureTally, saved: number, asked: number): string
     case 'IMAGE_NOT_FOUND':
     case 'IMAGE_TIMEOUT':
     case 'IMAGE_EMPTY':
+    case 'UNSUPPORTED_MEDIA':
     case 'DOWNLOAD_FAILED':
       return none
         ? 'We found the products, but none of their pictures could be downloaded.'

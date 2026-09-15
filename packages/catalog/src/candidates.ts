@@ -115,12 +115,23 @@ async function scanOnce(opts: ScanOptions, baseUrl: string): Promise<ScanResult>
   const started = Date.now();
   const budget = { ...DEFAULT_SCAN_BUDGET, ...opts.budget };
   const deadline = started + budget.budgetMs;
+  /**
+   * Discovery's share, which is the budget minus the preview's floor.
+   *
+   * The budget used to reach only the page reads: `detectPlatform` and
+   * `adapter.discover` ran underneath it with nothing watching the clock, so a
+   * store that was slow to list could spend minutes before the budget was
+   * consulted once. Capping discovery at the point where the preview would
+   * still get its floor is what makes the 25 seconds mean 25 seconds.
+   */
+  const discoveryDeadline = started + Math.max(1_000, budget.budgetMs - budget.previewFloorMs);
   const fetchImpl = opts.fetchImpl ?? fetch;
   const ctx: AdapterContext = {
     fetchImpl,
     baseUrl,
     signal: opts.signal,
     onProgress: opts.onProgress,
+    deadline: discoveryDeadline,
   };
   const warnings: string[] = [];
   // Declared up here because every early return reports through `done`.

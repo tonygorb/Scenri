@@ -251,6 +251,11 @@ async function runJob(
           maxBytes: 1_500_000,
           onEach: run.write,
           stats,
+          // A run that cannot finish still has to end. Generous enough for a
+          // 2,200 page catalogue, which measures around sixteen minutes, and
+          // short of the forever this had before. Stopping here leaves the run
+          // `partial` with what it saved, never `completed`.
+          deadline: Date.now() + IMPORT_DEADLINE_MS,
           // Past this many refusals in a row the store is not going to change
           // its mind inside this import, and waiting out its cooldown for the
           // rest of the catalogue is time nobody gets a product for.
@@ -483,6 +488,9 @@ function beginWrite(
        */
       const mayRetire = sweep && covered && refused === 0 && tally.upserted > 0;
       if (mayRetire) core.catalog.markMissingUnavailable(source.id, tally.seenKeys);
+      // Only knowable once the run has seen every product: a picture is shop
+      // furniture when it belongs to lots of them. Hidden, not deleted.
+      if (tally.upserted > 0) core.catalog.excludeSharedImages(source.id);
       tally.errors = errors;
       /**
        * Partial means the catalogue was not read, not that a picture failed.
@@ -549,6 +557,16 @@ function beginWrite(
  * and the only honest test of a limit like this is the long one.
  */
 const IMPORT_CONCURRENCY = 4;
+
+/**
+ * The longest one crawl may run before it reports what it has.
+ *
+ * Measured: gymshark's 2,201 pages take about sixteen minutes at four wide, so
+ * forty leaves room for a slower store of the same size without leaving a job
+ * that can run all day. Reaching it is a `partial`, with every product already
+ * saved kept.
+ */
+const IMPORT_DEADLINE_MS = 40 * 60_000;
 
 /** A round of pictures to ask for at once. Small, because more are arriving. */
 const PICTURE_ROUND = 60;
@@ -621,6 +639,16 @@ function drainPictures(
             // `metadata()` is also the validation: bytes that are not a picture
             // throw here, exactly as the decode used to.
             const probe = await sharp(buf).metadata();
+            // A picture the library could never show is worse than no picture:
+            // it is a product that looks imported pointing at a 404. The image
+            // store serves a fixed set of raster types, so a vector saved here
+            // resolved to a `.png` that was never written. Sharp reads SVG
+            // happily, which is exactly why this has to be refused by name.
+            if (probe.format === 'svg') {
+              errors.push({ code: 'image_unsupported', message: 'Not a photograph', url: img.sourceUrl });
+              countFailure(reasons, 'UNSUPPORTED_MEDIA');
+              return;
+            }
             const turned = (probe.orientation ?? 1) > 1;
             // The one case worth paying for: an EXIF-rotated photograph looks
             // wrong everywhere if the bytes are kept as they are.
