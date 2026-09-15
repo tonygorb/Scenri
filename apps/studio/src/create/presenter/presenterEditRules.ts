@@ -129,7 +129,15 @@ const hashOf = (file: string) => file.replace(/^asset:/, '');
 export function isDirty(d: DraftLike, base: EditBase): boolean {
   const edits = d.identityEdits ?? [];
   if (edits.join('\n') !== (base.identityEdits ?? []).join('\n')) return true;
-  const saved = new Map(base.shots.map((s) => [s.angle ?? '', hashOf(s.file)]));
+  // The record is read the way the session reads it: with no shot claiming the
+  // portrait, the server promotes the first one to it (`slotsFromRecord`). Keyed
+  // by the raw angle instead, that promoted face matched nothing, so every
+  // presenter saved before angles were written offered "Discard changes" the
+  // moment its editor opened, with nothing changed.
+  const named = base.shots.some((s) => s.angle === 'portrait' && s.file);
+  const saved = new Map(
+    base.shots.map((s, i) => [!named && i === 0 ? 'portrait' : (s.angle ?? ''), hashOf(s.file)] as const),
+  );
   for (const v of viewsOf(d)) {
     const slot = d.views[v];
     if (slot.status === 'candidate' || slot.status === 'stale' || slot.prior) return true;
@@ -248,7 +256,25 @@ function shapeEdit(
   if (!d) return done();
 
   const missing = missingCore(d);
-  if (missing.length && !ui.building && !ui.buildDeclined && !drawing(d) && canGenerate) {
+  /**
+   * Something to build them from.
+   *
+   * A record from before the studio can carry a name and some pictures and
+   * nothing else. Offered "Build them" anyway, the press refused with "describe
+   * who they are in a sentence" while the composer sat disabled behind the
+   * question saying "Decide above": the one control on screen could not work
+   * and the one that could was switched off. Not offering it puts the line
+   * back, which is where they can be described.
+   */
+  // The server's own refusal, mirrored: a described person is drawn from that
+  // description, so a synthetic record with none cannot draw anything.
+  const canBuild = d.source !== 'synthetic' || !!d.direction?.trim();
+  // A picture waiting to be decided comes first. Asked over the top of one,
+  // this question hid the decision that was actually on the floor: a face had
+  // just been drawn and the page was asking whether to build the views instead
+  // of whether to use it.
+  const deciding = viewsOf(d).some((v) => d.views[v].status === 'candidate');
+  if (missing.length && canBuild && !deciding && !ui.building && !ui.buildDeclined && !drawing(d) && canGenerate) {
     const have = viewsOf(d).filter((v) => d.views[v].status === 'approved').length;
     ask({
       id: 'legacy',

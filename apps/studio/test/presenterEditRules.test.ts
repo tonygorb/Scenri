@@ -115,8 +115,27 @@ describe('the editor transcript', () => {
       ),
     ).toEqual(['scenri:opening']);
   });
+  it('offers no build to a record that says nothing about them, and leaves the line open', () => {
+    // A record from before the studio can carry a name and some pictures and
+    // nothing else. Offered "Build them", the press refused with "describe who
+    // they are in a sentence" while the composer sat disabled behind the
+    // question: the one control on screen could not work and the one that
+    // could was switched off.
+    const wordless = draft({ source: 'synthetic', direction: '', views: views({ portrait: approved('a') }) });
+    const t = turnsForEdit({
+      draft: wordless,
+      base: { shots: [{ file: 'asset:a' }] },
+      name: 'Wordless',
+      selected: 'portrait',
+      canGenerate: true,
+      ui: EMPTY_EDIT_UI,
+    });
+    expect(ids(t)).not.toContain('q:legacy');
+  });
+
   it('offers a legacy presenter its missing views once', () => {
-    const legacy = draft({ views: views({ portrait: approved('a', 'photo') }) });
+    // photo-origin shots mean the record had photographs, so it reads as one
+    const legacy = draft({ source: 'photos', sources: ['a'], views: views({ portrait: approved('a', 'photo') }) });
     expect(missingCore(legacy)).toEqual(['front', 'three-quarter']);
     const t = turnsForEdit({
       draft: legacy,

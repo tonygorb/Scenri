@@ -1,4 +1,4 @@
-import { PencilSimple } from '@phosphor-icons/react';
+import { ImageSquare, PencilSimple } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { api, type PresenterPatch, thumbOf } from '../api.js';
@@ -6,6 +6,7 @@ import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useMadeWith } from './useMadeWith.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
+import { assetUrl } from '../apiUploads.js';
 import { customPresenterById, headPresenterId } from '../brandAssets.js';
 import { presenterAvatar } from '../presenterVisual.js';
 import { presenterEditPath, presenterPath, presentersPath, shotPath } from '../routes.js';
@@ -195,10 +196,18 @@ export function PresenterPage() {
     );
   }
 
-  // The reference set, each picture with the role the record gives it.
-  const angles: (string | undefined)[] = Array.isArray(record?.shots) ? record.shots.map((s: any) => s?.angle) : [];
+  /**
+   * The reference set, each picture with the role the record gives it.
+   *
+   * One walk of the record, so the two cannot come apart. The labels used to
+   * be indexed off the raw shots while the pictures came from the filtered
+   * url list, so a single ref that resolved to nothing shifted every later
+   * role word by one: a full body captioned Face.
+   */
   const frames: { src: string; label: string }[] = owned
-    ? (owned.shots ?? []).map((src, i) => ({ src, label: ROLE_LABEL[angles[i] ?? ''] ?? `Reference ${i + 1}` }))
+    ? ((Array.isArray(record?.shots) ? record.shots : []) as any[])
+        .map((sh, i) => ({ src: assetUrl(sh?.file), label: ROLE_LABEL[sh?.angle ?? ''] ?? `Reference ${i + 1}` }))
+        .filter((f): f is { src: string; label: string } => !!f.src)
     : refs.length
       ? refs.map((src, i) => ({ src, label: CURATED_LABELS[i] ?? `Reference ${i + 1}` }))
       : presenter.previewUrl
@@ -223,7 +232,7 @@ export function PresenterPage() {
       <main className="sc-lookpage sc-presenterpage" id="main">
         {face.src && (
           <div className="sc-presenterpage-avatar">
-            <img src={thumbOf(face.src, 'small')} alt="" data-crop={face.crop} />
+            <Shown src={thumbOf(face.src, 'small')} crop={face.crop} />
           </div>
         )}
 
@@ -281,14 +290,15 @@ export function PresenterPage() {
         {frames.length > 0 ? (
           <Rail count={frames.length} label="Reference set" className="sc-refset-rail" trackClassName="sc-refset">
             {frames.map((f) => (
-              <li key={f.src}>
+              // by role, not by picture: two roles can resolve to the same one
+              <li key={f.label}>
                 <button
                   type="button"
                   className="sc-refset-tile"
                   aria-label={`${f.label}, open`}
                   onClick={() => setOpen(f)}
                 >
-                  <img src={thumbOf(f.src, 'small')} alt="" loading="lazy" decoding="async" />
+                  <Shown src={thumbOf(f.src, 'small')} />
                 </button>
                 <span className="sc-refset-lb" aria-hidden>
                   {f.label}
@@ -312,7 +322,7 @@ export function PresenterPage() {
                   aria-label={`Source photo ${i + 1}, open`}
                   onClick={() => setOpen({ src, label: `Source photo ${i + 1}` })}
                 >
-                  <img src={thumbOf(src, 'micro')} alt="" loading="lazy" decoding="async" />
+                  <Shown src={thumbOf(src, 'micro')} />
                 </button>
               ))}
             </div>
@@ -376,5 +386,33 @@ export function PresenterPage() {
         )}
       </main>
     </ScrollPane>
+  );
+}
+
+/**
+ * A picture the record points at that may not be there any more.
+ *
+ * A hash outlives its file: a library restored without its images, a record
+ * older than a sweep. Every picture on this page drew the browser's own broken
+ * glyph instead of saying so. The same fallback `RefFrame` uses, in this
+ * page's markup.
+ */
+function Shown({ src, crop }: { src: string; crop?: string }) {
+  const [broken, setBroken] = useState(false);
+  if (broken)
+    return (
+      <span className="sc-lookpage-ref-blank" aria-hidden>
+        <ImageSquare size={20} />
+      </span>
+    );
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      {...(crop ? { 'data-crop': crop } : {})}
+      onError={() => setBroken(true)}
+    />
   );
 }

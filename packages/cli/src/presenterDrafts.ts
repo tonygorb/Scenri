@@ -625,7 +625,17 @@ const hashOfFile = (file: unknown): string | null => {
  * failed on it and the whole edit flow was unusable for anybody who typed a
  * person instead of uploading one.
  */
-const seedDirection = (p: CustomPresenter) => str(p.identityNotes ?? p.descriptor ?? p.promptName, 400);
+const seedDirection = (p: CustomPresenter) => {
+  const said = str(p.identityNotes ?? p.descriptor ?? p.promptName, 400);
+  if (said) return said;
+  // A record written before any prose was kept still says things about them.
+  // With none of the three above, the session opened with no direction and
+  // every draw was refused with "describe who they are in a sentence", from
+  // Build them to a retry to an identity edit, with nothing on the page that
+  // could supply one: a dead end on the oldest presenters in a library. Their
+  // own fields are the sentence.
+  return str([p.presentation, p.ageRange, p.hair && `${p.hair} hair`].filter(Boolean).join(', '), 400);
+};
 
 /**
  * A record's shots as the six slots, plus whatever it holds under an angle
@@ -916,7 +926,7 @@ export async function generateView(
 ): Promise<{ draft: PresenterDraftRecord }> {
   const { core, engine } = deps;
   if (!isView(view)) throw fail('no such view', 400);
-  const rec = getPresenterDraft(core, id);
+  let rec = getPresenterDraft(core, id);
   if (!rec) throw fail('draft not found', 404);
   if (running.has(id)) throw fail('a view is still being drawn', 409);
   if (isExtra(view) && !rec.extras) throw fail('extra views are built on request', 400);
@@ -926,7 +936,20 @@ export async function generateView(
   // person who does not resemble any real, famous or public figure". These are
   // the words the draft would have been refused with at creation.
   if (rec.source === 'synthetic' && !rec.direction?.trim()) {
-    throw fail('describe who they are in a sentence', 400);
+    /**
+     * A record that says nothing about them at all.
+     *
+     * Editing one of these refused every draw with this message and offered
+     * nothing anywhere that could answer it: Build them, a retry and an
+     * identity edit all 400, and the only way out was to leave. A sentence
+     * typed at a person who has no description is that description, not an
+     * adjustment to one that does not exist.
+     */
+    const said = str(opts.adjustment, 400);
+    if (!said) throw fail('describe who they are in a sentence', 400);
+    rec = mutate(core, id, (r) => {
+      r.direction = said;
+    });
   }
   if (opts.decide === 'auto' && HAND_APPROVED.has(view))
     throw fail(`the ${VIEW_LABEL[view]} is always decided by hand`, 400);
