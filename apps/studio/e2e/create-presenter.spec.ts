@@ -1167,9 +1167,11 @@ test.describe('what answers nothing', () => {
     await page.reload();
     await expect(log(page)).toContainText('Add one clear photo of their face.');
     await answer(page, 'Describe someone instead').click();
-    await expect(log(page)).toContainText('Who are we making?');
-    await send(page, 'hello');
-    await expect(log(page)).toContainText('Hi. Describe them in a sentence, or pick one.');
+    // It describes someone, rather than asking again which it was going to be.
+    // Clearing the door reopened "Who are we making?" and left the way on the
+    // person had just named sitting there to be chosen a second time.
+    await expect(log(page)).toContainText('Who are they?');
+    await expect(answer(page, 'Describe someone')).toHaveCount(0);
     await expect(log(page).locator('.sc-convo-dots')).toHaveCount(0);
   });
 });

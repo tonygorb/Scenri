@@ -240,8 +240,12 @@ test.describe('changing an answer', () => {
     await answer(page, 'Add photos').click();
     await page.locator('input[type="file"]').setInputFiles({ name: 'noor.png', mimeType: 'image/png', buffer: PNG });
     await expect(page.locator('.sc-assetform-ref')).toHaveCount(1);
+    // the way out of the photographs describes someone, and goes straight there
     await answer(page, 'Describe someone instead').click();
-    await expect(log(page)).toContainText('Who are we making?');
+    await expect(log(page)).toContainText('Who are they?');
+    // and the door itself is changed the way every other answer is, from its
+    // own pencil: the photographs do not come back with it
+    await pencil(page, 'you:source').click();
     await answer(page, 'Add photos').click();
     await expect(page.locator('.sc-assetform-ref')).toHaveCount(0);
   });

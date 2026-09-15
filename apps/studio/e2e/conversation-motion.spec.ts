@@ -379,6 +379,11 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('Add one clear photo of their face.');
     await settle(page);
     await answer(page, 'Describe someone instead').click();
+    // it goes where it says: the rows start rather than the door being asked again
+    await expect(log(page)).toContainText('Who are they?');
+    await settle(page);
+    // back to the photographs the way any answer is changed, from its pencil
+    await pencil(page, 'Describe someone').click();
     await expect(answer(page, 'Add photos')).toBeVisible();
     await settle(page);
     await answer(page, 'Add photos').click();

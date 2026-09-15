@@ -648,8 +648,17 @@ export function useCreationFlow({
           if (act.type === 'attest') dispatch({ type: 'attest', checked: act.checked });
           if (act.type === 'reject') setAskErr('That was not an image. Drop a photo, or choose a file.');
           if (act.type === 'submit') void startPhotos();
-          // the door opens again, and the photographs go with the one it was
-          if (act.type === 'back') commitAnswer({ source: undefined });
+          /**
+           * "Describe someone instead" describes someone, rather than asking
+           * again which it was going to be.
+           *
+           * It used to clear the door, which reopened "Who are we making?" and
+           * left the one way on the person had just chosen sitting there to be
+           * chosen a second time. A control that names where it goes has to go
+           * there. The photographs go with the door, as they always did: the
+           * question no longer applies, so `commit` drops its answer.
+           */
+          if (act.type === 'back') commitAnswer({ source: { door: 'scratch', via: 'taps' } });
         }
         return;
       }
