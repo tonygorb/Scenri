@@ -51,9 +51,6 @@ async function seedPresenter(req: APIRequestContext, brandId: string, name: stri
   return (await (await req.post(`${base}/${draft.id}/save`)).json()).presenter.id as string;
 }
 
-/** Their card on the presenters wall, under "Your presenters". */
-const wallCard = (p: Page, name: string) => p.getByRole('link', { name: new RegExp(name) });
-
 test('deleting a presenter takes them off every surface without a reload', async ({ page }) => {
   test.setTimeout(90_000);
   const brand = await currentBrand(page);
@@ -93,8 +90,11 @@ test('a deleted presenter is gone from the Create picker too, in the same commit
   await page.getByRole('alertdialog').getByRole('button', { name: /Delete/ }).click();
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
 
-  // straight to Create without a reload: the picker reads the same brand
-  await page.goto(`/${brand.slug}/create?compose=1`);
+  // Through the app's own nav rather than `goto`: a fresh document load
+  // refetches the brand and would pass whatever delete answered, which is
+  // exactly the reload this is meant to prove unnecessary.
+  await page.getByRole('link', { name: 'Create', exact: true }).click();
+  await expect(page).toHaveURL(/\/create/);
   await expect(page.getByText('Picker', { exact: true })).toHaveCount(0);
 });
 
@@ -124,15 +124,28 @@ test('deleting a presenter ends the editing session that was open on them', asyn
   expect(after.drafts.filter((d) => d.presenterId === id)).toHaveLength(0);
 });
 
-test('a saved presenter appears on the wall the moment it is saved', async ({ page }) => {
+/**
+ * The wall is the studio's parent route, so it stays mounted underneath and
+ * its draft list is whatever it was fetched before. With the brand pointer
+ * gone the wall is the only way back to a draft, so a list that predates the
+ * draft you just started reads as the work having been thrown away.
+ */
+test('the wall reads its drafts again when the studio closes over it', async ({ page }) => {
   test.setTimeout(90_000);
   const brand = await currentBrand(page);
   await page.goto(`/${brand.slug}/presenters`);
-  await expect(page.getByRole('button', { name: 'Create presenter' })).toBeVisible();
-  await seedPresenter(page.request, brand.id, 'Fresh');
+  await expect(page.getByRole('link', { name: /^Continue / })).toHaveCount(0);
 
-  // seeded behind the page's back, so this asserts only that the wall reads
-  // again when it is returned to, never that it polls
-  await page.goto(`/${brand.slug}/presenters`);
-  await expect(wallCard(page, 'Fresh').first()).toBeVisible();
+  // open the studio over the wall, then mint a draft behind it, which is what
+  // answering through to a face does
+  await page.getByRole('button', { name: 'Create presenter' }).click();
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+  await page.request.post(`/api/brands/${brand.id}/presenter-drafts`, {
+    data: { source: 'synthetic', direction: 'a woman in her 30s', name: 'Behind' },
+  });
+
+  // close it: no document load, so the wall can only be right if it read again
+  await page.keyboard.press('Escape');
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
+  await expect(page.getByRole('link', { name: /^Continue / })).toHaveCount(1);
 });
