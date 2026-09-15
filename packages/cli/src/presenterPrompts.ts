@@ -187,7 +187,7 @@ const ASPECTS: { name: string; except?: string; words: RegExp }[] = [
 ];
 
 /** The "otherwise identical" clause with whatever the ask names taken out of it. */
-function keptAspects(adjustment: string): string {
+export function keptAspects(adjustment: string): string {
   const kept = ASPECTS.map((a) => (a.words.test(adjustment) ? a.except : a.name)).filter((x): x is string => !!x);
   if (!kept.length) return 'Otherwise the same person as the attached image';
   const list = kept.length === 1 ? kept[0] : `${kept.slice(0, -1).join(', ')} and ${kept.at(-1)}`;

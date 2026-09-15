@@ -245,6 +245,33 @@ describe('from scratch: the identity is one person, rolled and then locked', () 
     expect(view(d, 'portrait').conditionedOn).toEqual([candidate]);
   });
 
+  it('a repair to one view wins over the clauses that view pins, and holds still what it does not name', async () => {
+    // Every non-face subject pins "the same person as the attached images" and
+    // "their own hair exactly as the attached images show it". A repair that
+    // named hair or a feature therefore asked for one thing and was told the
+    // opposite in the same breath, with nothing saying which of the two the
+    // picture was for. A second "otherwise identical" would not have settled
+    // that; saying which one wins does.
+    let d = await synthetic();
+    d = await step(d.id, 'portrait');
+    await approveView(deps(), d.id, 'portrait');
+    d = await step(d.id, 'front');
+    await approveView(deps(), d.id, 'front');
+    await step(d.id, 'front', 'sweep the fringe off her eye');
+    const prompt = generated.at(-1)!.prompt;
+    expect(prompt).toContain('For this view only: sweep the fringe off her eye');
+    expect(prompt).toContain('overrides anything above that describes it otherwise');
+    // the ask names the hair and an eye, so the hair is not held still at all
+    // and the face is held still everywhere the ask does not reach
+    expect(prompt).toContain('Otherwise identical to the attached image in the rest of the face, age, build');
+    expect(prompt).not.toContain('identical to the attached image in face, hair');
+    // and an ask about none of them holds all of them
+    await step(d.id, 'front', 'stand a little further from the camera');
+    expect(generated.at(-1)!.prompt).toContain(
+      'Otherwise identical to the attached image in face, hair, age, build and marks and limbs',
+    );
+  });
+
   it('once approved, the portrait is what the next view is drawn from, and the record is read off it', async () => {
     let d = await synthetic();
     d = await step(d.id, 'portrait');
@@ -1528,6 +1555,38 @@ describe('editing a saved presenter', () => {
     // a back was added and the face was not touched: same card, same avatar
     expect(presenter.avatar).toBe(p.avatar);
     expect(presenter.preview).toBe(p.preview);
+    expect(existsSync(core.images.pathFor(odd))).toBe(true);
+  });
+
+  it('drops a shot of the face it replaced when the identity changed', async () => {
+    // The shot claims no canonical view, so nothing stales it, nothing requires
+    // it and nothing checks it against the face: it used to be appended to
+    // every revision unread, and a brief then rode three views of the new
+    // person and one of the old one, all under "match their face exactly".
+    const p = await saved();
+    const odd = core.images.save(await png('#303040'));
+    commit(core, brandId, (json) => {
+      json.characters = brandCharacters(json).map((c: any) =>
+        c.id === p.id ? { ...c, shots: [...c.shots, { file: `asset:${odd}`, angle: 'seated' }] } : c,
+      );
+    });
+    const d = seedDraftFromPresenter(core, brandId, record(p.id));
+    expect(d.keptShots).toHaveLength(1);
+
+    // change the face, and reconcile the views drawn from it
+    await step(d.id, 'portrait', 'a chin-length bob');
+    await approveView(deps(), d.id, 'portrait');
+    for (const v of ['front', 'three-quarter'] as const) {
+      await step(d.id, v);
+      await approveView(deps(), d.id, v);
+    }
+    const { presenter } = await savePresenterDraft(deps(), d.id);
+    expect(presenter.id).not.toBe(p.id);
+    expect(presenter.shots?.map((s) => s.angle)).toEqual(['portrait', 'front', 'three-quarter']);
+    expect(presenter.shots?.some((s) => s.file === `asset:${odd}`)).toBe(false);
+    // and the record it came from still has it, so shots made with that person
+    // still refine against the person they were made with
+    expect(record(p.id).shots?.some((s) => s.file === `asset:${odd}`)).toBe(true);
     expect(existsSync(core.images.pathFor(odd))).toBe(true);
   });
 

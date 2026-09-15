@@ -47,6 +47,7 @@ import {
   PRESENTER_VIEWS,
   identityOf,
   itemsFor,
+  keptAspects,
   type KeepItem,
   keepSentenceOf,
   studioPrompt,
@@ -1241,7 +1242,16 @@ export function planStep(
   const subject = roll
     ? syntheticIdentitySubject(rolledFrom(rec), { adjustment: kept.length ? adjustment : undefined })
     : adjustment
-      ? `${viewSubject(view, who)}, and for this view only: ${adjustment}`
+      ? // The ask is scoped to this view and has to win where it meets the
+        // view's own fixed clauses, which is why the override sentence rides
+        // with it: every non-face subject already pins "the same person as the
+        // attached images" and "their own hair exactly as the attached images
+        // show it", so a repair that names hair or a feature was asking for one
+        // thing and being told the opposite in the same breath. A second
+        // "otherwise identical" would not have settled that; saying which one
+        // wins does. What the ask does not name is then held still, the same
+        // way it is on a described person's face.
+        `${viewSubject(view, who)}. For this view only: ${adjustment}. That change is the point of this picture and overrides anything above that describes it otherwise. ${keptAspects(adjustment)}`
       : viewSubject(view, who);
   return { prompt: studioPrompt(subject) + legend, refs, roles, dropped };
 }
@@ -1743,8 +1753,26 @@ async function saveEdit(
       ...readWords(rec.analysis),
     });
     if (!built.ok) throw fail(built.error, 400);
-    const minted = kept.length
-      ? { ...built.presenter, shots: [...(built.presenter.shots ?? []), ...kept] }
+    /**
+     * A picture of the face this revision replaces does not come with it.
+     *
+     * `keptShots` are the record's own shots that claimed no canonical view:
+     * a supplementary angle, a curated `left-profile`, the second and third
+     * shots of a legacy record. They are appended verbatim to every revision,
+     * are never staled (`staleDependents` walks the six views only), never
+     * required at save, and never checked against the face. So a person whose
+     * identity was changed and reconciled could still be saved carrying a
+     * picture of who they used to be, and `characterRefs` boards it into a
+     * brief alongside the new views, all of them under "match their face
+     * exactly". The set was coherent and the record was not.
+     *
+     * They carry whenever the face did not move, which is every repair of a
+     * single view and every words-only change.
+     */
+    const faceMoved = rec.views.portrait.hash !== seeded.views.portrait.hash;
+    const carried = faceMoved ? [] : kept;
+    const minted = carried.length
+      ? { ...built.presenter, shots: [...(built.presenter.shots ?? []), ...carried] }
       : built.presenter;
     commit(core, rec.brandId, (json) => {
       if (headOf(json, baseId) !== baseId) throw moved();

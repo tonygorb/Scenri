@@ -797,24 +797,25 @@ test.describe('a person from scratch', () => {
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).views.portrait.hash, { timeout: 20_000 })
       .toBe(first);
-    // Putting a picture back settles the view: the face stands approved rather
-    // than waiting to be decided again, because what was waiting to be decided
-    // is not on the view any more.
+    // Putting one back swaps which picture the view wears and decides nothing:
+    // the face is still waiting to be decided, so nothing is drawn from it and
+    // both faces stay one press from being worn again. The point of stepping
+    // through them is being able to keep stepping.
+    //
+    // This assertion was rewritten once to accept the draw that followed a
+    // restore, and the rewrite hid the bug it was put here to catch: Put back
+    // started the next generation. Reported by hand an hour later.
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).views.portrait.status, { timeout: 20_000 })
-      .toBe('approved');
-    // And it is still not a green light. Settling a view is not the same act as
-    // asking for the next one, so nothing is drawn and both faces stay
-    // reachable: the point of stepping through them is being able to keep
-    // stepping. This assertion was rewritten once to accept the draw that
-    // followed a restore, and the rewrite hid the bug it was put here to catch.
+      .toBe('candidate');
     await expect(vers).toContainText('Version 1 of 2');
     await page.getByRole('button', { name: 'The version after' }).click();
     await expect(vers).toContainText('Version 2 of 2');
     expect(calls.urls()).not.toContain('/generate');
+    expect((await draftOf(page, brand.id, draftId)).views.front.status).toBe('empty');
 
-    // The next view draws when the person says to go on.
-    await send(page, 'go on');
+    // and the question standing over it is the way on
+    await answer(page, 'Use this').click();
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).views.front.status, { timeout: 20_000 })
       .not.toBe('empty');
@@ -862,17 +863,26 @@ test.describe('a person from scratch', () => {
     expect(['back', 'left', 'right'].every((v) => d.views[v].status === 'approved')).toBe(true);
   });
 
-  test('Start over asks, then leaves nothing behind and keeps the sentence', async ({ page }) => {
+  test('Start over asks, begins again, and leaves the half-built person on the wall', async ({ page }) => {
+    // Agreeing to begin a conversation again never means destroy the work it
+    // produced. Reported 2026-09-16: a half-built set, a face and a full body
+    // among it, was gone the moment Start over was agreed to, and the only
+    // notice was a dialog that talked about the conversation.
     const brand = await currentBrand(page);
     const draftId = await seedDraft(page, brand.id, 'portrait-approved');
     await openDraft(page, brand, draftId);
     await expect(page.getByRole('button', { name: 'Start over', exact: true })).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Start over', exact: true }).click();
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Start over', exact: true }).click();
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toContainText('stays on your wall');
+    await dialog.getByRole('button', { name: 'Start over', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
     await expect(answer(page, 'Describe someone')).toBeVisible();
     await expect(composer(page)).toHaveValue('a man in his 30s');
-    expect((await page.request.get(`/api/brands/${brand.id}/presenter-drafts/${draftId}`)).status()).toBe(404);
+    // the draft is untouched, and the wall offers it back
+    expect((await page.request.get(`/api/brands/${brand.id}/presenter-drafts/${draftId}`)).status()).toBe(200);
+    await page.goto(`/${brand.slug}/presenters`);
+    await expect(page.locator(`.sc-lookcard[data-build]:has(a[href$="/presenters/new/${draftId}"])`)).toHaveCount(1);
   });
 
   test('a failed draw offers Retry and keeps the rest of the person', async ({ page }) => {
