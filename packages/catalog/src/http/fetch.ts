@@ -306,9 +306,18 @@ export async function httpJson<T = unknown>(
 ): Promise<{ ok: boolean; status: number; json: T | null; url: string; text: string; challenged: boolean }> {
   const res = await httpGet(url, { ...opts, accept: opts.accept ?? 'application/json' });
   const challenged = isChallenge(res);
-  // A refused JSON endpoint answers with a whole HTML page, and this used to
-  // read it with no ceiling at all.
-  const text = await readBounded(res, opts.maxBytes ?? 2_000_000);
+  /**
+   * A refused JSON endpoint answers with a whole HTML page, and this used to
+   * read it with no ceiling at all.
+   *
+   * The ceiling has to clear a real answer by a wide margin, because a
+   * truncated body is not a smaller answer - it is a parse error, and the
+   * store reads as empty. Measured 2026-09-16: one page of 250 products from
+   * www.rothys.com is 2,333,750 bytes, and a 2 MB cap turned that store into
+   * "no products found" while every request answered 200. Sixteen leaves room
+   * for a catalogue with far longer descriptions and still bounds the reply.
+   */
+  const text = await readBounded(res, opts.maxBytes ?? 16_000_000);
   let json: T | null = null;
   if (res.ok) {
     try {

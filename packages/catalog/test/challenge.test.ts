@@ -192,3 +192,39 @@ describe('giving up when the refusals throw', () => {
     // has to count them.
   }, 30_000);
 });
+
+/**
+ * A truncated JSON body is not a smaller answer, it is a parse error, and a
+ * store that answered 200 to everything then reads as empty. Caught on
+ * www.rothys.com, whose 250-product page is 2,333,750 bytes.
+ */
+describe('reading a large storefront answer', () => {
+  it('does not truncate a real page of products into nothing', async () => {
+    const products = Array.from({ length: 250 }, (_, i) => ({
+      id: i + 1,
+      title: `Product ${i + 1}`,
+      handle: `product-${i + 1}`,
+      // Padded to put the page well past two megabytes, as a real one is.
+      body_html: 'x'.repeat(10_000),
+      variants: [{ id: i + 1, title: 'Default', price: '1.00', available: true }],
+      images: [{ src: `https://cdn.example/p${i + 1}.jpg`, position: 1 }],
+    }));
+    const body = JSON.stringify({ products });
+    expect(body.length).toBeGreaterThan(2_000_000);
+
+    const fetchImpl = (async (input: any) => {
+      const url = String(input);
+      if (url.includes('/products.json')) {
+        const page = Number(new URL(url).searchParams.get('page') ?? '1');
+        return new Response(page > 1 ? JSON.stringify({ products: [] }) : body, {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response('nope', { status: 404 });
+    }) as typeof fetch;
+
+    const discovered = await shopifyAdapter.discover({ fetchImpl, baseUrl: 'https://big.example' });
+    expect(discovered.productKeys.length).toBe(250);
+  });
+});

@@ -31,11 +31,16 @@ const KEEP = 32;
  *
  * The scan budgets itself at 25 seconds, but nothing enforced that from
  * outside, so a crawl that never returned left a row reading `running`
- * forever and a screen waiting on it. The client gives up at 45 seconds; this
- * sits below that, so the answer a screen gets is a finished scan rather than
- * its own patience running out.
+ * forever and a screen waiting on it.
+ *
+ * Three numbers in a row, and the order matters: a scan that spends
+ * everything takes its 25 second budget for discovery plus the 12 second
+ * floor the preview is owed after it, so 37; this backstop sits above that so
+ * it only ever catches a crawl that is genuinely stuck; and the client gives
+ * up at 45, above this, so the answer a screen gets is a finished scan rather
+ * than its own patience running out.
  */
-const HARD_STOP_MS = 40_000;
+const HARD_STOP_MS = 42_000;
 
 /**
  * How long a settled scan stays readable.
