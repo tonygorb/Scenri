@@ -13,6 +13,15 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   # A manual full run, browser suite included, on any branch. No PR needed.
   workflow_dispatch:
+  # The Windows desktop chain only, once a day.
+  #
+  # Its gate below is a diff gate, and the things that have actually broken it
+  # are not diffs: a runner image rollout, a Node bump on the image, Windows
+  # changing when it hands a console to a detached process. No file changes for
+  # any of those, so nothing would run and the first sign would be a release.
+  # This is the clock covering what the diff cannot.
+  schedule:
+    - cron: '17 4 * * *'
 
 # A second push cancels the first run rather than queueing behind it. One group
 # covers the whole pipeline: everything in a superseded run was testing a stale
@@ -41,6 +50,7 @@ jobs:
     outputs:
       e2e: ${{ steps.classify.outputs.e2e }}
       updater: ${{ steps.classify.outputs.updater }}
+      desktop: ${{ steps.classify.outputs.desktop }}
     steps:
       - name: Classify the changed files
         id: classify
@@ -55,6 +65,7 @@ jobs:
           set -euo pipefail
           e2e=true
           updater=true
+          desktop=true
           files=""
           case "$EVENT" in
             pull_request)
@@ -65,6 +76,13 @@ jobs:
               # a clean ancestor range.
               files=$(gh api "repos/$REPO/compare/$BEFORE...$AFTER" --paginate --jq '.files[].filename') || files="__ERROR__"
               ;;
+            schedule)
+              # The nightly is for the desktop chain and nothing else.
+              echo "e2e=false" >> "$GITHUB_OUTPUT"
+              echo "updater=false" >> "$GITHUB_OUTPUT"
+              echo "desktop=true" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
             *)
               files="__FORCE__"
               ;;
@@ -73,6 +91,7 @@ jobs:
           if [ "$files" != "__ERROR__" ] && [ "$files" != "__FORCE__" ] && [ "$count" -gt 0 ] && [ "$count" -lt 300 ]; then
             e2e=false
             updater=false
+            desktop=false
             while IFS= read -r f; do
               case "$f" in
                 # In a bash case pattern * matches "/" too, so these behave as
@@ -104,10 +123,33 @@ jobs:
                 apps/studio/e2e/desktop.spec.ts) updater=true ;;
                 .github/workflows/ci.yml|.github/workflows/publish.yml) updater=true ;;
               esac
-              if [ "$e2e" = "true" ] && [ "$updater" = "true" ]; then break; fi
+              # The Windows icon chain is a much smaller surface than the
+              # updater's. It clicks a shortcut, reads it back through COM and
+              # follows the bootstrap handoff, so what can break it is the
+              # desktop code, the launcher assets and the dispatch that `open`
+              # arrives through - not the catalog importer or the brief
+              # compiler, which is what `packages/cli/*` also means. Measured
+              # over the fifty commits of 0.9.3: thirty-one matched the updater
+              # gate, nine touched anything below.
+              case "$f" in
+                packages/cli/src/desktop/*) desktop=true ;;
+                packages/cli/launcher/*) desktop=true ;;
+                packages/cli/src/launcher.ts) desktop=true ;;
+                packages/cli/src/installKind.ts) desktop=true ;;
+                packages/cli/src/index.ts) desktop=true ;;
+                packages/cli/src/serve.ts) desktop=true ;;
+                packages/cli/src/routes/desktop.ts) desktop=true ;;
+                packages/cli/src/update/versionsDir.ts) desktop=true ;;
+                packages/cli/test/manual-desktop-windows.mjs) desktop=true ;;
+                apps/studio/src/app/desktopRules.ts) desktop=true ;;
+                apps/studio/e2e/desktop.spec.ts) desktop=true ;;
+                .github/workflows/ci.yml|.github/workflows/publish.yml) desktop=true ;;
+              esac
+              if [ "$e2e" = "true" ] && [ "$updater" = "true" ] && [ "$desktop" = "true" ]; then break; fi
             done <<< "$files"
           fi
           echo "e2e=$e2e" >> "$GITHUB_OUTPUT"
+          echo "desktop=$desktop" >> "$GITHUB_OUTPUT"
           echo "updater=$updater" >> "$GITHUB_OUTPUT"
           if [ "$e2e" = "true" ]; then
             echo "Runtime change, full E2E required (update loop: $updater)." >> "$GITHUB_STEP_SUMMARY"
@@ -261,7 +303,7 @@ jobs:
     name: windows desktop icon
     needs: changes
     if: >-
-      needs.changes.outputs.updater == 'true' &&
+      needs.changes.outputs.desktop == 'true' &&
       (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
     runs-on: windows-latest
     timeout-minutes: 25
@@ -458,6 +500,7 @@ jobs:
           UPDATE_LOOP: ${{ needs.update-loop.result }}
           E2E_REQUIRED: ${{ needs.changes.outputs.e2e }}
           UPDATER_REQUIRED: ${{ needs.changes.outputs.updater }}
+          DESKTOP_REQUIRED: ${{ needs.changes.outputs.desktop }}
           DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}
         run: |
           fail() { echo "::error::CI gate: $1"; exit 1; }
@@ -482,7 +525,7 @@ jobs:
             esac
           }
           leg windows "$WINDOWS" "$E2E_REQUIRED"
-          leg windows-desktop "$WINDOWS_DESKTOP" "$UPDATER_REQUIRED"
+          leg windows-desktop "$WINDOWS_DESKTOP" "$DESKTOP_REQUIRED"
           leg E2E "$E2E" "$E2E_REQUIRED"
           leg update-loop "$UPDATE_LOOP" "$UPDATER_REQUIRED"
           echo "All checks green."

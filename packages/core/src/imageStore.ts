@@ -28,7 +28,14 @@ export function createImageStore(homeDir: string): ImageStore {
    * they are, and a hash now resolves against whichever extension it was
    * written with. Every existing `.png` keeps working untouched.
    */
-  const EXTS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'] as const;
+  //
+  // `heif` and `heic` are here because sharp reports an AVIF file as `heif`,
+  // and `save` takes its extension from what sharp read. Without them the
+  // bytes were written as `<hash>.heif` and then never found again: `resolve`
+  // fell through to `<hash>.png`, `has` said no and `read` threw. A store
+  // serving AVIF produced products that looked imported and had an image
+  // nothing could open.
+  const EXTS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'heif', 'heic'] as const;
   const fileFor = (hash: string, ext = 'png') => join(dir, `${hash}.${ext}`);
   const resolve = (hash: string) => {
     for (const ext of EXTS) {

@@ -501,7 +501,16 @@ async function quit() {
   const r = await api('/api/system/quit', { method: 'POST' });
   if (r.status !== 200) fail(`quit refused: ${r.status}`);
   await waitFor('the server to stop', async () => !(await upNow()), 20_000);
-  await waitFor('our processes to leave', async () => ourProcesses().length === 0, 20_000);
+  // Sixty, not twenty, because `open` is entitled to most of that.
+  //
+  // After the studio answers, `open` holds the starting page open until a
+  // browser fetches it - `PAGE_FETCH_GRACE_MS`, fifteen seconds - and only
+  // then opens the studio directly and exits. Twenty seconds left five
+  // seconds of headroom for a browser launch, a handover and three process
+  // teardowns, and a loaded runner spent it: this is what failed the job four
+  // times in one evening, always here, with every assertion before it passed.
+  // A process that is genuinely stuck still fails, just later.
+  await waitFor('our processes to leave', async () => ourProcesses().length === 0, 60_000);
 }
 await quit();
 ok('Shut down stopped the server and the supervisor');
