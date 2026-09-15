@@ -130,8 +130,11 @@ test('the editor opens on the record, repairs one view, and Save changes writes 
   const head = await recordOf(page.request, brand.id, headId);
   expect(old.supersededBy).toBe(headId);
   expect(head.revisionOf).toBe(person.id);
+  // the view that was named moved, and only that one: the face and the full
+  // body are the same pictures they were
   expect(head.shots[2].file).not.toBe(old.shots[2].file);
   expect(head.shots[0].file).toBe(old.shots[0].file);
+  expect(head.shots[1].file).toBe(old.shots[1].file);
   // an old shot refines against the person it was made with; a new one gets them as they are
   expect(await preview(person.id)).toEqual(before);
   expect(await preview(headId)).not.toEqual(before);

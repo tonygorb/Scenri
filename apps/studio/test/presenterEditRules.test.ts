@@ -92,6 +92,30 @@ describe('what a sentence in the editor is aimed at', () => {
     expect(editIntent('turn more to camera', 'back', d)).toEqual({ blocked: 'Nothing drawn for the back view yet.' });
     expect(editIntent('   ', 'front', d)).toEqual({ blocked: 'Say what should change.' });
   });
+  /**
+   * A person built from somebody's photographs is that person. Their views can
+   * be repaired; who they are is not ours to change, and the permission that
+   * was attested was for them and not for a redraw of them. The refusal has to
+   * say so and leave a way on, rather than reading as a failure.
+   */
+  it('refuses to re-identify a person built from photographs, and says where to go instead', () => {
+    const shot = draft({ source: 'photos', sources: ['a'], views: views({ portrait: approved('a', 'photo') }) });
+    expect(editIntent('Make her older', 'portrait', shot)).toEqual({
+      blocked: 'Their photos define who they are. Change a drawn view instead.',
+    });
+    // a trait named at any view is the same change, and the same refusal
+    expect(editIntent('shorter hair', 'front', shot)).toEqual({
+      blocked: 'Their photos define who they are. Change a drawn view instead.',
+    });
+    // the same person drawn rather than photographed has no such limit
+    const drawn = draft({ source: 'synthetic', views: views({ portrait: approved('a') }) });
+    expect(editIntent('Make her older', 'portrait', drawn)).toEqual({ scope: 'identity', view: 'portrait' });
+    // and it is said while the sentence is written, not after it is spent
+    expect(editComposerState('Make her older', 'portrait', shot, 'Noor')).toMatchObject({
+      hint: 'Their photos define who they are. Change a drawn view instead.',
+      tone: 'alert',
+    });
+  });
   it('the composer says what will happen before Send', () => {
     expect(editComposerState('', 'front', d, 'Maren').hint).toContain('Say what is wrong');
     expect(editComposerState('shorter hair', 'front', d, 'Maren').chip?.label).toBe('Changing the person');
