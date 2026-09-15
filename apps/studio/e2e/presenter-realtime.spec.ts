@@ -65,7 +65,10 @@ test('deleting a presenter takes them off every surface without a reload', async
   // delete from their own page, which is the only place that offers it
   await page.goto(`/${brand.slug}/presenters/${id}`);
   await page.getByRole('button', { name: 'Delete presenter' }).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: /Delete/ }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: /Delete/ })
+    .click();
 
   // the wall it lands on is drawn from the brand, so the card is already gone.
   // No reload anywhere in this test: that is the whole assertion.
@@ -87,7 +90,10 @@ test('a deleted presenter is gone from the Create picker too, in the same commit
 
   await page.goto(`/${brand.slug}/presenters/${id}`);
   await page.getByRole('button', { name: 'Delete presenter' }).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: /Delete/ }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: /Delete/ })
+    .click();
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
 
   // Through the app's own nav rather than `goto`: a fresh document load
@@ -120,7 +126,10 @@ test('deleting a presenter ends the editing session that was open on them', asyn
 
   await page.goto(`/${brand.slug}/presenters/${id}`);
   await page.getByRole('button', { name: 'Delete presenter' }).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: /Delete/ }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: /Delete/ })
+    .click();
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
 
   // the session goes with them rather than drawing on into an orphan and

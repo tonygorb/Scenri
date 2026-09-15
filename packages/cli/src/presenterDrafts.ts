@@ -1765,7 +1765,11 @@ export async function releasePresenter(
     presenter.preview,
     presenter.avatar,
   ];
-  removeUnreferenced(deps.core, held.map(hashOfFile).filter((h): h is string => !!h), hooks);
+  removeUnreferenced(
+    deps.core,
+    held.map(hashOfFile).filter((h): h is string => !!h),
+    hooks,
+  );
 }
 
 /** Fourteen days untouched is abandoned. */

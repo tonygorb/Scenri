@@ -92,7 +92,12 @@ test('the old brand-scoped session keys are not read', async ({ page }) => {
       sessionStorage.setItem(`scenri:presenter-draft:${brandId}`, id);
       sessionStorage.setItem(
         `scenri:presenter-setup:${brandId}:new`,
-        JSON.stringify({ v: 5, answers: { source: { door: 'scratch', via: 'taps' }, 'look-who': 'woman' }, revision: 3, asides: [] }),
+        JSON.stringify({
+          v: 5,
+          answers: { source: { door: 'scratch', via: 'taps' }, 'look-who': 'woman' },
+          revision: 3,
+          asides: [],
+        }),
       );
     },
     { id: seeded, brandId: brand.id },
