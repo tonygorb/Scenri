@@ -454,6 +454,25 @@ export function createStore(db: DB) {
       );
       return this.getBrand(id);
     },
+    /**
+     * A draft becoming a saved asset: the document and the row move together.
+     *
+     * These were two statements with nothing holding them. A crash between
+     * them left the presenter in the brand AND its draft row alive, so the
+     * wall showed a finished person and an unfinished one, and saving that
+     * draft again appended a second copy of the same person.
+     */
+    updateBrandAndDropPresenterDraft(
+      id: string,
+      json: { meta: { name: string } } & Record<string, unknown>,
+      draftId: string,
+    ): BrandRow | null {
+      return db.transaction(() => {
+        const row = this.updateBrand(id, json);
+        this.deletePresenterDraft(draftId);
+        return row;
+      })();
+    },
     deleteBrand(id: string): void {
       db.prepare('DELETE FROM brands WHERE id=?').run(id);
     },

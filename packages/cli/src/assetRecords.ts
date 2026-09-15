@@ -498,12 +498,16 @@ export function lintSceneProse(brandJson: any, scene: CustomScene): string[] {
  * writes to the same document, and a stale copy here would silently drop
  * whatever it wrote while an engine was busy.
  */
-export function commit(core: Core, brandId: string, mutate: (json: any) => void): any {
+export function commit(core: Core, brandId: string, mutate: (json: any) => void, dropDraftId?: string): any {
   const brand = core.store.getBrand(brandId);
   if (!brand) throw Object.assign(new Error('brand not found'), { statusCode: 404 });
   const json = { ...(brand.json as any) };
   mutate(json);
   const v = validateBrand(json);
   if (!v.valid) throw Object.assign(new Error(`brand became invalid: ${v.errors.join('; ')}`), { statusCode: 400 });
-  return core.store.updateBrand(brand.id, json);
+  // A draft becoming this record goes in the same transaction, so a crash
+  // cannot leave the saved person and the unfinished one side by side.
+  return dropDraftId
+    ? core.store.updateBrandAndDropPresenterDraft(brand.id, json, dropDraftId)
+    : core.store.updateBrand(brand.id, json);
 }

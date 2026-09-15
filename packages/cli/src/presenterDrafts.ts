@@ -1593,10 +1593,15 @@ export async function savePresenterDraft(
     ...(rec.source === 'photos' && rec.attestation ? { likeness: rec.attestation } : {}),
   });
   if (!built.ok) throw fail(built.error, 400);
-  commit(core, rec.brandId, (json) => {
-    json.characters = [...brandCharacters(json), built.presenter];
-  });
-  core.store.deletePresenterDraft(id);
+  commit(
+    core,
+    rec.brandId,
+    (json) => {
+      json.characters = [...brandCharacters(json), built.presenter];
+    },
+    // the row goes with the append, in one transaction: see `commit`
+    id,
+  );
   removeUnreferenced(core, letGoOf(rec), hooks);
   return { presenter: built.presenter, brand: core.store.getBrand(rec.brandId) };
 }

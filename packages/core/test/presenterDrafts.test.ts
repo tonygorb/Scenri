@@ -124,6 +124,41 @@ describe('imageReferenced: what stops a stored image from being removed', () => 
   });
 });
 
+describe('a draft becoming a saved asset', () => {
+  /**
+   * The append and the row moved separately, so a crash between them left the
+   * presenter in the brand AND its draft row alive: the wall showed a finished
+   * person and an unfinished one, and saving that draft again appended a second
+   * copy of the same person.
+   */
+  it('writes the document and drops the row together', () => {
+    const brand = core.store.createBrand(brandJson as any);
+    core.store.putPresenterDraft({ id: 'pd-1', brandId: brand.id, json: { source: 'synthetic' } });
+    const json = { ...(brand.json as any), characters: [{ id: 'up-1', name: 'Maren', origin: 'custom' }] };
+
+    const after = core.store.updateBrandAndDropPresenterDraft(brand.id, json, 'pd-1');
+    expect(after).not.toBeNull();
+    expect((after as { json: any }).json.characters).toHaveLength(1);
+    expect(core.store.getPresenterDraft('pd-1')).toBeNull();
+  });
+
+  /**
+   * What a unit test can reach. The transaction's real work is a crash between
+   * the two statements, which cannot be simulated here; this pins the half that
+   * can be: a write that throws leaves the draft where it was.
+   */
+  it('keeps the row when the document cannot be written', () => {
+    const brand = core.store.createBrand(brandJson as any);
+    core.store.putPresenterDraft({ id: 'pd-1', brandId: brand.id, json: { source: 'synthetic' } });
+    // a json the driver refuses to serialize: the append fails inside the
+    // transaction, so the row it was going to replace has to still be there
+    const circular: any = { meta: { name: 'Acme' } };
+    circular.self = circular;
+    expect(() => core.store.updateBrandAndDropPresenterDraft(brand.id, circular, 'pd-1')).toThrow();
+    expect(core.store.getPresenterDraft('pd-1')).not.toBeNull();
+  });
+});
+
 describe('images.remove', () => {
   it('unlinks a stored image and reports whether there was one', () => {
     const hash = core.images.save(Buffer.from('not really a png'));
