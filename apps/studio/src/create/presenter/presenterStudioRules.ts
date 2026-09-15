@@ -433,13 +433,6 @@ export function worthKeeping(d: DraftLike): boolean {
   });
 }
 
-/** A draft that is worth offering back when the studio reopens. */
-export function resumable(d: DraftLike): boolean {
-  if (d.sources?.length) return true;
-  if (d.direction?.trim()) return true;
-  return worthKeeping(d);
-}
-
 /**
  * What stops a save, first thing first: the sentence a disabled button
  * carries. A view that decided itself and still holds the one it replaced

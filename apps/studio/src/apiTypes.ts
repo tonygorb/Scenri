@@ -429,6 +429,8 @@ export interface PresenterDraftSummary {
   approved: number;
   of: number;
   drawing: boolean;
+  /** Pictures drawn for it, decided or not: what a discard would throw away. */
+  drawn: boolean;
 }
 
 export interface PresenterDraft {

@@ -11,6 +11,7 @@ import { api, type PresenterDraftSummary } from '../api.js';
 import { P, presenterPath, presenterStudioPath } from '../routes.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 import { PresenterDraftCard } from '../layout/PresenterDraftCard.js';
+import { Confirm } from '../Confirm.js';
 import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
@@ -120,12 +121,29 @@ export function PresentersView() {
     if (inStudio) return;
     return loadDrafts();
   }, [inStudio, loadDrafts]);
-  const discardDraft = useCallback(
+  const drop = useCallback(
     (id: string) => {
       setDrafts((cur) => cur.filter((d) => d.id !== id));
       void api.deletePresenterDraft(brand.id, id).finally(() => loadDrafts());
     },
     [brand.id, loadDrafts],
+  );
+  /**
+   * Throwing away drawn work asks first.
+   *
+   * The puck on a card went straight to the delete, so a face somebody had
+   * decided on went with one press and no word, and nothing offers it back.
+   * A draft with nothing drawn on it costs only the answering, so that one
+   * still goes at once.
+   */
+  const [discarding, setDiscarding] = useState<PresenterDraftSummary | null>(null);
+  const discardDraft = useCallback(
+    (id: string) => {
+      const d = drafts.find((x) => x.id === id);
+      if (d?.drawn) setDiscarding(d);
+      else drop(id);
+    },
+    [drafts, drop],
   );
 
   /** A person the brand owns, narrowed by whatever the wall is narrowed by. */
@@ -226,6 +244,22 @@ export function PresentersView() {
                     onDiscard={discardDraft}
                   />
                 ))}
+                {discarding && (
+                  <Confirm
+                    label="Discard"
+                    title={`Discard ${discarding.name.trim() || 'this unfinished presenter'}?`}
+                    body="The views drawn so far are thrown away. Nothing was saved to the library."
+                    open
+                    busy={false}
+                    onOpenChange={(o) => {
+                      if (!o) setDiscarding(null);
+                    }}
+                    onConfirm={() => {
+                      drop(discarding.id);
+                      setDiscarding(null);
+                    }}
+                  />
+                )}
                 {minePlusBuilds.map((p) => (
                   <PresenterCard
                     key={p.id}

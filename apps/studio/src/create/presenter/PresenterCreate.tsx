@@ -30,13 +30,28 @@ export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClo
     }
     onClose();
   };
+  /**
+   * Start over has one meaning: throw this unfinished person away and begin
+   * again. It asks whenever there is one to throw away, which is whenever a
+   * draft exists, and says what is actually lost.
+   *
+   * It used to ask only when something had been drawn, and the quiet path took
+   * the same route: `startOver` deletes the row either way, so a draft with
+   * photographs placed on it was destroyed without a word. Before a draft
+   * exists there is nothing on the server and the button only clears the
+   * answers on screen, so that one still asks nothing.
+   */
   const headAction = f.begun ? (
-    d && worthKeeping(d) ? (
+    d ? (
       <Confirm
         label="Start over"
         tone="quiet"
         title="Start over?"
-        body="The views drawn so far are thrown away. Nothing was saved to the library."
+        body={
+          worthKeeping(d)
+            ? 'The views drawn so far are thrown away. Nothing was saved to the library.'
+            : 'This unfinished presenter is thrown away, with anything added to it.'
+        }
         open={f.confirming === 'start-over' || undefined}
         busy={false}
         onOpenChange={(o) => {

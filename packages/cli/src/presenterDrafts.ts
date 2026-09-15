@@ -372,6 +372,8 @@ export interface PresenterDraftSummary {
   approved: number;
   of: number;
   drawing: boolean;
+  /** Pictures drawn for it, decided or not: what a discard would throw away. */
+  drawn: boolean;
 }
 
 /** The face first, because that is the person; then anything else drawn; then their own photographs. */
@@ -392,6 +394,13 @@ export function summarisePresenterDraft(rec: PresenterDraftRecord): PresenterDra
     approved: wanted.filter((v) => rec.views[v].status === 'approved').length,
     of: wanted.length,
     drawing: rec.stage !== 'idle' || !!rec.activeView,
+    // Drawn work a discard would throw away, decided or not. A photograph is
+    // still on disk as itself, so it does not count; a candidate face does,
+    // which counting approved views alone would have missed.
+    drawn: PRESENTER_VIEWS.some((v) => {
+      const s = rec.views[v];
+      return !!s.hash && s.origin !== 'photo' && s.status !== 'empty';
+    }),
   };
   const hash = bestPicture(rec);
   if (hash) summary.hash = hash;

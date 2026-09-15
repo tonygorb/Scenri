@@ -172,6 +172,47 @@ test('switching between drafts quickly never shows the one you left', async ({ p
   await expect(page.locator('.sc-pstudio-well img')).not.toHaveAttribute('src', new RegExp(faceB));
 });
 
+/**
+ * Throwing drawn work away asks; throwing away an empty conversation does not.
+ *
+ * The puck on a card went straight to the delete, so a face somebody had
+ * waited on went with one press and no word, and nothing offers it back.
+ */
+test('discarding a drawn draft asks first, and cancelling keeps it', async ({ page }) => {
+  test.setTimeout(120_000);
+  const brand = await currentBrand(page);
+  const drawn = await seedDraft(page.request, brand.id, 'a woman in her 30s, dark curly hair');
+  const bare = await (
+    await page.request.post(`/api/brands/${brand.id}/presenter-drafts`, {
+      data: { source: 'synthetic', direction: 'a man in his 20s' },
+    })
+  ).json();
+
+  await page.goto(`/${brand.slug}/presenters`);
+  const puck = (id: string) => page.locator(`a[href$="/presenters/new/${id}"]`).locator('..').getByRole('button');
+
+  // the drawn one asks, and Cancel leaves it where it was
+  await puck(drawn).click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('The views drawn so far are thrown away');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.locator(`a[href$="/presenters/new/${drawn}"]`)).toHaveCount(1);
+
+  // a conversation with nothing drawn on it costs only the answering, so it goes at once
+  await puck(bare.id).click();
+  await expect(page.locator(`a[href$="/presenters/new/${bare.id}"]`)).toHaveCount(0);
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+
+  // and agreeing really does throw the drawn one away
+  await puck(drawn).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Discard' }).click();
+  await expect(page.locator(`a[href$="/presenters/new/${drawn}"]`)).toHaveCount(0);
+  const left = (await (await page.request.get(`/api/brands/${brand.id}/presenter-drafts`)).json()) as {
+    drafts: { id: string }[];
+  };
+  expect(left.drafts.map((d) => d.id)).not.toContain(drawn);
+});
+
 test('Start over throws away the draft it is on and leaves the others reachable', async ({ page }) => {
   test.setTimeout(120_000);
   const brand = await currentBrand(page);

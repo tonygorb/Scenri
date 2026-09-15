@@ -18,7 +18,6 @@ import {
   phaseOf,
   refineHint,
   refineTarget,
-  resumable,
   saveBlocker,
   seedCategories,
   selectedView,
@@ -234,12 +233,6 @@ describe('leaving and saving', () => {
       false,
     );
     expect(worthKeeping(draft({ views: { portrait: candidate('c') } }))).toBe(true);
-  });
-
-  it('a draft with a sentence, a photo or a picture is offered back', () => {
-    expect(resumable(draft({ direction: '' }))).toBe(false);
-    expect(resumable(draft({ direction: 'someone' }))).toBe(true);
-    expect(resumable(draft({ direction: '', source: 'photos', sources: ['a'] }))).toBe(true);
   });
 
   it('the save blocker says the first thing in the way', () => {
