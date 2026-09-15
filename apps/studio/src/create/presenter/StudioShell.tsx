@@ -169,12 +169,23 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
     open?.kind === 'question' && open.question.kind === 'confirm' && !open.question.quiet ? open.question : null;
   useEffect(() => {
     if (!decide || s.busy) return;
+    /**
+     * One press answers one question.
+     *
+     * This path calls `onAnswer` directly rather than going through the
+     * block's own control, so it never had the block's `picked` latch, and
+     * `s.busy` is state that does not change inside a tick: two fast Enters on
+     * a decision both fired, and Use sent two approvals. The effect re-runs
+     * with each new question, so a question asked again gets its own press.
+     */
+    let answered = false;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Enter' || e.shiftKey || e.defaultPrevented) return;
+      if (e.key !== 'Enter' || e.shiftKey || e.defaultPrevented || answered) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.isContentEditable))
         return;
       e.preventDefault();
+      answered = true;
       s.onAnswer(decide.id, { kind: 'confirm', id: decide.options[0].id });
     };
     window.addEventListener('keydown', onKey);
