@@ -828,9 +828,11 @@ test.describe('a person from scratch', () => {
     expect(after.generations).toBe(before.generations);
     expect(after.views.portrait.hash).toBe(before.views.portrait.hash);
 
-    // letting it go takes it off the wall
+    // letting it go asks first, because a face was drawn for it, and then
+    // takes it off the wall
     await page.goto(`/${brand.slug}/presenters`);
     await card.getByRole('button', { name: /Discard/ }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Discard' }).click();
     await expect(card).toHaveCount(0);
   });
 
