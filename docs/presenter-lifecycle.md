@@ -83,7 +83,7 @@ other rows' jobs, so a new one goes in this table before it goes in the UI.
 | Try again | the view is drawn again from the same words | yes, one | nothing: the picture stays in the log |
 | Put back (a version) | the view wears an earlier picture; the one it takes off becomes the other side of the decision | no | nothing |
 | The version arrows | nothing at all, it is a look | no | nothing |
-| Start over | the conversation begins again from the first question | no | nothing: the draft stays on the wall |
+| Start over | the conversation begins again from the first question | no | nothing, while anything is drawn: the draft stays on the wall. A draft with no picture on it goes |
 | Discard (on the card) | the draft is gone | no | the draft and the pictures nothing else holds |
 | Delete (a presenter) | the record is gone, and any session open on it ends | no | the record and the pictures nothing else holds |
 
@@ -96,9 +96,11 @@ day, and `nextToDraw` reads approved as "go on", so pressing it started the next
 generation before the pictures being chosen between could be stepped through.
 
 **Start over is about the conversation.** Agreeing to begin again never means
-destroy what has already been drawn. The draft stays, with everything on it, and
-the wall offers it back. Discard on the card is the one destructive act and asks
-on its own.
+destroy what has already been drawn: the draft stays, with everything on it, and
+the wall offers it back. A draft nothing was drawn on is not a document and does
+go, which is the same line the card's own discard draws, and the dialog says
+which side of it this draft is on before the press. Discard on the card is the
+destructive act for everything above that line, and asks on its own.
 
 ## Changing a person after they are drawn
 

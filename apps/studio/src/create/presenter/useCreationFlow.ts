@@ -82,6 +82,7 @@ import {
   type StudioView,
   VIEW_LABEL,
   VIEW_NAME,
+  worthKeeping,
 } from './presenterStudioRules.js';
 import { type StepInputs, nextStep, stepKey } from './presenterSteps.js';
 import { usePresenterDraft } from './usePresenterDraft.js';
@@ -505,15 +506,20 @@ export function useCreationFlow({
   }, [d, saving, brand.id, save]);
 
   /**
-   * Begin again, without throwing anything away.
+   * Begin again, without throwing drawn work away.
    *
-   * This used to delete the draft. A person with a face and a full body drawn
-   * pressed Start over, agreed to a dialog, and the generations were gone:
-   * reported 2026-09-16. Nothing about starting a new conversation requires
-   * destroying the last one, and the wall exists to offer an unfinished person
-   * back. So the draft stays exactly where it is, reachable by Continue, and
-   * this only leaves it. Discarding is the card's own X, which asks first when
-   * there is drawn work on it.
+   * This used to delete the draft whatever was on it. A person with a face and
+   * a full body drawn pressed Start over, agreed to a dialog that talked about
+   * the conversation, and the generations were gone: reported 2026-09-16.
+   * Nothing about starting a new conversation requires destroying the last
+   * one, and the wall exists to offer an unfinished person back.
+   *
+   * A draft nothing was drawn on is a different thing, and goes. It is a
+   * questionnaire, not a document: a card with no picture on it is worse than
+   * no card, and the one route that reaches here by itself is the way out of
+   * photographs nobody could read, where keeping the draft means keeping a
+   * person nobody can see. This is the same line the card's own discard draws,
+   * and the dialog above says which side of it this draft is on.
    */
   const startOver = useCallback(async () => {
     const st = stateRef.current;
@@ -525,6 +531,7 @@ export function useCreationFlow({
     setConfirming(null);
     setPendingEdit(null);
     fired.current = new Set();
+    if (d && !worthKeeping(d)) await api.deletePresenterDraft(brand.id, d.id).catch(() => {});
     onLeaveDraft();
   }, [d, brand.id, clearSetup, onLeaveDraft]);
 

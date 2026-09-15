@@ -47,10 +47,13 @@ export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClo
         label="Start over"
         tone="quiet"
         title="Start over?"
+        // Which side of the line this draft is on, in the dialog rather than
+        // after the press: drawn work is kept and offered back from the wall,
+        // and a conversation with no picture on it is not a document.
         body={`This conversation begins again from the first question. ${
           worthKeeping(d)
             ? 'The views drawn so far are kept: the unfinished presenter stays on your wall.'
-            : 'The unfinished presenter stays on your wall, with anything added to it.'
+            : 'Nothing has been drawn yet, so nothing is kept.'
         }`}
         open={f.confirming === 'start-over' || undefined}
         busy={false}

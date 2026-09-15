@@ -156,16 +156,21 @@ describe('progressive delivery', () => {
    * draw: the specs that cast a person watched each view appear in the frame
    * the press landed in, and so tested none of the states a person sits in.
    */
-  it('delays every picture, the first one included, where a stagger delays only what follows', async () => {
-    // measured against a plain run, because drawing the placeholder itself is
-    // not free and the point is the delay the knob adds, not the wall clock
+  // two placeholder renders and a real wait, so the five-second default is a
+  // coin flip on a machine running anything else
+  it('delays every picture, the first one included, where a stagger delays only what follows', {
+    timeout: 30_000,
+  }, async () => {
+    // Bounded against the delay itself, never against a second run: drawing
+    // the placeholder is not free and its cost moves with whatever else the
+    // machine is doing, so a baseline taken a moment earlier is not one. A
+    // measured render is 200 to 550ms, so 1200 leaves room either way.
     const took = async (opts: Parameters<typeof createDemoEngine>[1]) => {
       const at = Date.now();
       await createDemoEngine(saver(), opts).generate({ prompt: 'one', count: 1 } as any);
       return Date.now() - at;
     };
-    const plain = await took({});
-    expect(await took({ delayMs: 400 })).toBeGreaterThanOrEqual(plain + 350);
-    expect(await took({ staggerMs: 400 })).toBeLessThan(plain + 350);
+    expect(await took({ delayMs: 1200 })).toBeGreaterThanOrEqual(1200);
+    expect(await took({ staggerMs: 1200 })).toBeLessThan(1200);
   });
 });

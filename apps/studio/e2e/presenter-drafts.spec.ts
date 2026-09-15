@@ -237,10 +237,12 @@ test('Start over begins a new conversation and leaves every draft where it was',
   await dialog.getByRole('button', { name: 'Start over' }).click();
 
   // a new conversation, and not one draft fewer. Agreeing to begin again is
-  // about the conversation, never about the work it has already produced:
-  // Start over used to delete the draft it was on, and a half-built set with a
-  // face and a full body in it went with it. Reported 2026-09-16. Discard on
-  // the card is the one destructive act, and it asks separately.
+  // about the conversation, never about the drawn work it has already
+  // produced: Start over used to delete the draft it was on whatever was on
+  // it, and a half-built set with a face and a full body in it went with it.
+  // Reported 2026-09-16. A draft with no picture on it still goes, which is
+  // `create-presenter-weak-photos`; discard on the card covers the rest, and
+  // asks separately.
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
   const left = (await (await page.request.get(`/api/brands/${brand.id}/presenter-drafts`)).json()) as {
     drafts: { id: string }[];
