@@ -1815,6 +1815,53 @@ describe('stopping a draw', () => {
   });
 });
 
+describe('a draw whose face moved under it', () => {
+  /**
+   * The incoherent set, as a race.
+   *
+   * A draw takes tens of seconds, and the face it is reading from can be
+   * decided, redrawn or put back while it runs. `staleDependents` cannot help:
+   * it only moves views that are approved or candidate, and a view being drawn
+   * is `generating`. So the result used to land as a current picture of the
+   * previous person, which is the new face in the portrait and the old one in
+   * the full body that nobody could explain.
+   */
+  it('lands stale rather than current, and is drawn again from the face that now stands', async () => {
+    const d = await cast();
+    const firstFace = view(d, 'portrait').hash as string;
+
+    // the full body starts drawing from the face as it stands
+    const hold: { release?: () => void } = {};
+    holdNext = hold;
+    const drawing = generateView(deps(), d.id, 'front', { adjustment: 'arms relaxed' });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(getPresenterDraft(core, d.id)!.activeView).toBe('front');
+
+    // the face is replaced underneath it, through the store rather than a
+    // route, because every route that could do it refuses while a view draws
+    const row = core.store.getPresenterDraft(d.id)!.json as any;
+    row.views.portrait.hash = 'f'.repeat(32);
+    core.store.putPresenterDraft({ id: d.id, brandId, json: row });
+
+    hold.release?.();
+    await drawing;
+    for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 10));
+    const after = getPresenterDraft(core, d.id)!;
+    expect(view(after, 'front').status).toBe('stale');
+    // the picture is kept: it cost a generation and the log can offer it back
+    const front = view(after, 'front').hash;
+    expect(front).toBeTruthy();
+    expect(after.results.filter((r) => r.view === 'front').at(-1)?.hash).toBe(front);
+    expect(firstFace).not.toBe(view(after, 'portrait').hash);
+  });
+
+  it('lands as usual when nothing moved under it', async () => {
+    const d = await cast();
+    const drawn = await step(d.id, 'front', 'arms relaxed');
+    expect(view(drawn, 'front').status).toBe('candidate');
+  });
+});
+
 describe('putting a picture back', () => {
   it('brings the views drawn from it back in date, rather than leaving them stranded', async () => {
     const d = await castWithExtras();

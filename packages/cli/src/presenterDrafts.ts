@@ -992,6 +992,18 @@ async function drawView(
     if (signal.aborted) throw new Error('cancelled');
 
     const { prompt, refs, roles } = planStep(rec, view, adjustment, caps.maxReferenceImages);
+    /**
+     * The pictures this draw is conditioned on, as they stand right now.
+     *
+     * A draw takes tens of seconds, and what it is built on can move while it
+     * runs: the face it is reading from is approved, redrawn, put back or
+     * restored. `staleDependents` cannot help, because it only moves views
+     * that are approved or candidate and this one is `generating`. So the
+     * result landed as a current picture of the previous person: the new face
+     * in the portrait, the old one in the full body, which is the incoherent
+     * set nobody could explain.
+     */
+    const builtOn = new Map(refDeps(rec, view).map((v) => [v, rec.views[v].hash]));
     const paths: string[] = [];
     for (const h of refs) {
       const p = core.images.pathFor(h);
@@ -1039,6 +1051,17 @@ async function drawView(
         // was drawn from the old picture no longer stands, as on Use.
         slot.status = 'approved';
         if (slot.prior) staleDependents(r, view);
+      }
+      // What it was drawn from moved while it drew, so this is a picture of
+      // the person as they were. It is kept, because it cost a generation and
+      // the log can offer it back, but it stands as stale: the set says it has
+      // to be drawn again, and `nextToDraw` draws it from the face that now
+      // stands. See `builtOn`.
+      for (const [v, was] of builtOn) {
+        if (r.views[v].hash !== was) {
+          slot.status = 'stale';
+          break;
+        }
       }
     });
   } catch (err: any) {
