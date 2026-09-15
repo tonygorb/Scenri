@@ -103,14 +103,16 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     [take, load],
   );
 
-  return {
-    draft,
-    gone,
-    err,
-    busy,
-    drawing,
-    reload: load,
-    generate: (view: PresenterDraftView, adjustment?: string, decide?: 'auto') =>
+  /**
+   * Stable while the draft is.
+   *
+   * These were inline arrows, so every render handed back new functions and
+   * the flow's one step effect, which depends on them, re-ran on every render.
+   * The fired-key set was then the only thing between a render and a
+   * generation, rather than the second guard it is meant to be.
+   */
+  const generate = useCallback(
+    (view: PresenterDraftView, adjustment?: string, decide?: 'auto') =>
       act(
         async () =>
           (
@@ -120,15 +122,31 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
             })
           ).draft,
       ),
-    approve: (view: PresenterDraftView) => act(() => api.approveDraftView(brandId, draftId ?? '', view)),
-    redo: (view: PresenterDraftView) => act(() => api.redoDraftView(brandId, draftId ?? '', view)),
-    revert: (view: PresenterDraftView) => act(() => api.revertDraftView(brandId, draftId ?? '', view)),
-    stop: () => act(() => api.stopDraft(brandId, draftId ?? '')),
-    restore: (view: PresenterDraftView, hash: string) =>
-      act(() => api.restoreDraftView(brandId, draftId ?? '', view, hash)),
-    placePhoto: (view: PresenterDraftView, hash: string) =>
-      act(() => api.placeDraftPhoto(brandId, draftId ?? '', view, hash)),
-    update: (patch: {
+    [act, brandId, draftId],
+  );
+  const approve = useCallback(
+    (view: PresenterDraftView) => act(() => api.approveDraftView(brandId, draftId ?? '', view)),
+    [act, brandId, draftId],
+  );
+  const redo = useCallback(
+    (view: PresenterDraftView) => act(() => api.redoDraftView(brandId, draftId ?? '', view)),
+    [act, brandId, draftId],
+  );
+  const revert = useCallback(
+    (view: PresenterDraftView) => act(() => api.revertDraftView(brandId, draftId ?? '', view)),
+    [act, brandId, draftId],
+  );
+  const stop = useCallback(() => act(() => api.stopDraft(brandId, draftId ?? '')), [act, brandId, draftId]);
+  const restore = useCallback(
+    (view: PresenterDraftView, hash: string) => act(() => api.restoreDraftView(brandId, draftId ?? '', view, hash)),
+    [act, brandId, draftId],
+  );
+  const placePhoto = useCallback(
+    (view: PresenterDraftView, hash: string) => act(() => api.placeDraftPhoto(brandId, draftId ?? '', view, hash)),
+    [act, brandId, draftId],
+  );
+  const update = useCallback(
+    (patch: {
       name?: string;
       facets?: string[];
       direction?: string;
@@ -136,6 +154,25 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
       detailRefs?: Record<string, string[]>;
       extras?: boolean;
     }) => act(() => api.updatePresenterDraft(brandId, draftId ?? '', patch)),
-    clearErr: () => setErr(null),
+    [act, brandId, draftId],
+  );
+  const clearErr = useCallback(() => setErr(null), []);
+
+  return {
+    draft,
+    gone,
+    err,
+    busy,
+    drawing,
+    reload: load,
+    generate,
+    approve,
+    redo,
+    revert,
+    stop,
+    restore,
+    placePhoto,
+    update,
+    clearErr,
   };
 }

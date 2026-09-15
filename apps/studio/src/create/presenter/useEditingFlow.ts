@@ -63,7 +63,15 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
   const [askErr, setAskErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [leaving, setLeaving] = useState(false);
-  const started = useRef('');
+  /**
+   * Every draw this flow has started on its own, by what it was for.
+   *
+   * All of them, not the last one. With a single slot two steps take turns
+   * being "not the last thing" and both fire forever, which is the loop
+   * `presenterSteps` describes and guards against on the creation side. Same
+   * shape here, so the bug class cannot come back through the other door.
+   */
+  const started = useRef<Set<string>>(new Set());
 
   // The record, raw, for the session's base and the words on the page.
   const record = ((brand.json?.characters ?? []) as any[]).find((c) => c.id === presenterId) as
@@ -126,8 +134,8 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
     if (!view) return;
     if (d.views[view].status === 'empty' && !ui.building) return;
     const key = `${view}:${d.views[view].attempts}:${d.generations}:${d.views[view].status}`;
-    if (started.current === key) return;
-    started.current = key;
+    if (started.current.has(key)) return;
+    started.current.add(key);
     void s.generate(view, undefined, autoFor(view));
   }, [d, s.busy, s.generate, canDraw, s.err, ui.building]);
 
@@ -225,7 +233,7 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
         case 'retry': {
           if (s.err) {
             s.clearErr();
-            started.current = '';
+            started.current = new Set();
             return;
           }
           const failedView = (Object.keys(d.views) as StudioView[]).find((x) => !!d.views[x].error);
