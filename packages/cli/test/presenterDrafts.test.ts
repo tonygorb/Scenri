@@ -1703,12 +1703,19 @@ describe('the asks a draft keeps', () => {
 });
 
 describe('the record: results, decisions, and a picture restored from before', () => {
-  it('putting a picture back while a candidate stands decides it, and leaves no view whose previous is itself', async () => {
-    // The state this came from, measured on a real draft: a face redrawn twice
-    // and then an earlier one put back, and the slot stood as a candidate
-    // whose hash and whose prior were the same picture. "Use this" and "Keep
-    // previous" then offered the same face, and the two that had actually been
-    // drawn were reachable only from the log.
+  it('putting a picture back swaps which one is worn, decides nothing, and leaves no view whose previous is itself', async () => {
+    // Two bugs, in opposite directions, both from this one line.
+    //
+    // First, measured on a real draft: a face redrawn twice and then an earlier
+    // one put back, and the slot stood as a candidate whose hash and whose
+    // prior were the same picture. "Use this" and "Keep previous" then offered
+    // the same face, and the two that had actually been drawn were reachable
+    // only from the log.
+    //
+    // Then, fixing that by settling the slot approved: Put back also became
+    // "build the next one", so the next generation started before the person
+    // could step between the pictures they were choosing between, which is
+    // exactly what putting one back is for. Reported 2026-09-16.
     let d = await cast();
     const face0 = view(d, 'portrait').hash!;
     d = await step(d.id, 'portrait', 'a younger version of him');
@@ -1719,16 +1726,60 @@ describe('the record: results, decisions, and a picture restored from before', (
     d = await restoreView(deps(), d.id, 'portrait', face0);
     const p = view(d, 'portrait');
     expect(p.hash).toBe(face0);
-    // decided, not still waiting to be decided
-    expect(p.status).toBe('approved');
-    // and nothing offers to take you back to the picture you are already on
+    // still waiting to be decided, because putting one back is a swap and not a
+    // verdict. The question standing over it is the way on, and while it stands
+    // nothing under the face draws.
+    expect(p.status).toBe('candidate');
+    // the two sides of that question are the two faces, never one of them twice
+    expect(p.prior).toBe(face1);
     expect(p.prior).not.toBe(p.hash);
-    // the one that was standing is still reachable from the log
-    expect(p.rejected).toContain(face1);
+    expect(p.rejected).not.toContain(face1);
     expect(d.results.some((r) => r.view === 'portrait' && r.hash === face1)).toBe(true);
-    // and the views built on the face were reconciled against what it wears now
+    // and it swaps back as freely as it swapped, still deciding nothing
     d = await restoreView(deps(), d.id, 'portrait', face1);
+    expect(view(d, 'portrait')).toMatchObject({ status: 'candidate', hash: face1, prior: face0 });
+    // one press on the question is what decides it, and that is what stales the
+    // views drawn from the face
+    d = await approveView(deps(), d.id, 'portrait');
     expect(view(d, 'portrait')).toMatchObject({ status: 'approved', hash: face1 });
+    expect(view(d, 'front').status).toBe('stale');
+  });
+
+  /**
+   * Changing your mind about a face edit costs nothing.
+   *
+   * A decision used to be read as "the face moved" whenever the slot held a
+   * prior, which is true of every redraw and says nothing about whether the
+   * picture being used is the one the other views were actually drawn from.
+   * Put a face back and use it and all its dependents were marked stale and
+   * had to be drawn again, from the same picture they already stood on.
+   *
+   * The honest question is the one `reconcileDependents` asks: is each view
+   * still wearing pictures it was drawn from.
+   */
+  it('a face put back to the one the other views were drawn from leaves them standing', async () => {
+    let d = await cast();
+    const face0 = view(d, 'portrait').hash!;
+    const front0 = view(d, 'front').hash!;
+    expect(view(d, 'front').conditionedOn).toContain(face0);
+
+    d = await step(d.id, 'portrait', 'a lot older');
+    const face1 = view(d, 'portrait').hash!;
+    expect(face1).not.toBe(face0);
+
+    // put the first face back and use it: the set stands on exactly what it was
+    // drawn from, so nothing is out of date and nothing is drawn again
+    d = await restoreView(deps(), d.id, 'portrait', face0);
+    d = await approveView(deps(), d.id, 'portrait');
+    expect(view(d, 'portrait')).toMatchObject({ status: 'approved', hash: face0 });
+    expect(view(d, 'front')).toMatchObject({ status: 'approved', hash: front0 });
+    expect(view(d, 'three-quarter').status).toBe('approved');
+
+    // and using the other face still stales them, because now they are not
+    d = await restoreView(deps(), d.id, 'portrait', face1);
+    d = await approveView(deps(), d.id, 'portrait');
+    expect(view(d, 'front').status).toBe('stale');
+    expect(view(d, 'three-quarter').status).toBe('stale');
   });
 
   it('every landed picture is a result, every decision is kept, and a restore puts a picture back one to one', async () => {

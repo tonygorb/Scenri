@@ -126,6 +126,10 @@ function candidates(i: StepInputs): Step[] {
     if (!ready) return [];
     const out: Step[] = [];
     if (!inStep(state, d)) out.push({ kind: 'sync', patch: syncPatch(state, d), redo: redoAfterSync(d) });
+    // A picture just put back draws nothing, and needs no rule here: a restore
+    // keeps the status the view had, so a view still waiting to be decided is
+    // still a candidate and `nextToDraw` refuses it. Put back means "wear this
+    // one", never "build the next one". Reported 2026-09-16.
     const view = i.canDraw ? nextToDraw(d) : null;
     if (view) out.push({ kind: 'draw', view, decide: autoFor(view) });
     return out;

@@ -797,13 +797,27 @@ test.describe('a person from scratch', () => {
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).views.portrait.hash, { timeout: 20_000 })
       .toBe(first);
-    // Putting a picture back is a decision: it ends the candidacy, so the face
-    // stands approved and the set carries on from it rather than waiting to be
-    // decided again. Asserting no generation here read the old rule, where a
-    // restore onto a candidate left the view still waiting.
+    // Putting a picture back settles the view: the face stands approved rather
+    // than waiting to be decided again, because what was waiting to be decided
+    // is not on the view any more.
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).views.portrait.status, { timeout: 20_000 })
       .toBe('approved');
+    // And it is still not a green light. Settling a view is not the same act as
+    // asking for the next one, so nothing is drawn and both faces stay
+    // reachable: the point of stepping through them is being able to keep
+    // stepping. This assertion was rewritten once to accept the draw that
+    // followed a restore, and the rewrite hid the bug it was put here to catch.
+    await expect(vers).toContainText('Version 1 of 2');
+    await page.getByRole('button', { name: 'The version after' }).click();
+    await expect(vers).toContainText('Version 2 of 2');
+    expect(calls.urls()).not.toContain('/generate');
+
+    // The next view draws when the person says to go on.
+    await send(page, 'go on');
+    await expect
+      .poll(async () => (await draftOf(page, brand.id, draftId)).views.front.status, { timeout: 20_000 })
+      .not.toBe('empty');
   });
 
   test('an unfinished person is offered back from the library, and can be let go', async ({ page }) => {

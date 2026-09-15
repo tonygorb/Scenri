@@ -504,17 +504,21 @@ export function useCreationFlow({
     }
   }, [d, saving, brand.id, save]);
 
+  /**
+   * Begin again, without throwing anything away.
+   *
+   * This used to delete the draft. A person with a face and a full body drawn
+   * pressed Start over, agreed to a dialog, and the generations were gone:
+   * reported 2026-09-16. Nothing about starting a new conversation requires
+   * destroying the last one, and the wall exists to offer an unfinished person
+   * back. So the draft stays exactly where it is, reachable by Continue, and
+   * this only leaves it. Discarding is the card's own X, which asks first when
+   * there is drawn work on it.
+   */
   const startOver = useCallback(async () => {
     const st = stateRef.current;
     const text = st.answers.describe || d?.direction || '';
     leaving.current = true;
-    if (d) {
-      try {
-        await api.deletePresenterDraft(brand.id, d.id);
-      } catch {
-        /* a draft that is already gone is what we wanted */
-      }
-    }
     clearSetup();
     dispatch({ type: 'start-over', text });
     setAskErr(null);

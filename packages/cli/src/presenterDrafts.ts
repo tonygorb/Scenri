@@ -1275,17 +1275,32 @@ export async function approveView(
     s.status = 'approved';
     r.decisions = [...r.decisions, { view, what: 'use' as const, at: new Date().toISOString() }].slice(-RESULTS_MAX);
     if (s.prior) {
-      // A revision took an approved picture's place: whatever was drawn from
-      // the old one no longer stands, and is drawn again from this one.
+      // A revision took an approved picture's place, and the picture it
+      // replaced is let go of.
       if (!r.sources.includes(s.prior)) s.rejected = [...s.rejected, s.prior];
       s.prior = undefined;
-      staleDependents(r, view);
-      // In an edit session, a face redrawn with an instruction and then used
-      // is an identity edit: it rides on every view drawn after it, and on
-      // the record. Keep previous never records one.
-      if (view === 'portrait' && r.presenterId && s.adjustment) {
-        r.identityEdits = mergeIdentityEdits(r.identityEdits, s.adjustment);
-      }
+    }
+    /**
+     * Whatever was drawn from this view is asked whether it still stands.
+     *
+     * Not conditional on `prior`, and not `staleDependents`. `prior` is only
+     * written when the slot was already approved before the redraw, so a face
+     * changed while it was still a candidate was approved with nothing staled
+     * and nothing recorded: the other views kept the old face and were marked
+     * current, silently.
+     *
+     * `reconcileDependents` asks each one whether the pictures it was actually
+     * drawn from are still worn, which is the honest question in every case at
+     * once: a changed face stales them, a face put back to the one they were
+     * drawn from leaves them alone, and on a first approval there is nothing
+     * drawn from it to ask about.
+     */
+    reconcileDependents(r, view);
+    // In an edit session, a face redrawn with an instruction and then used is
+    // an identity edit: it rides on every view drawn after it, and on the
+    // record. Keep previous never records one, because it never reaches here.
+    if (view === 'portrait' && r.presenterId && s.adjustment) {
+      r.identityEdits = mergeIdentityEdits(r.identityEdits, s.adjustment);
     }
   });
 }
@@ -1339,24 +1354,37 @@ export async function restoreView(
   return mutate(deps.core, id, (r) => {
     const s = r.views[view];
     const was = s.hash;
-    if (s.status === 'approved' && was) {
-      if (s.prior && s.prior !== was && !r.sources.includes(s.prior)) s.rejected = [...s.rejected, s.prior];
-      s.prior = was;
-    } else if (was && !r.sources.includes(was)) s.rejected = [...s.rejected, was];
+    /**
+     * The picture being taken off becomes the other side of the decision.
+     *
+     * Putting one back is a swap, never a verdict: the view wears the other
+     * picture and both are still one press from being worn again. So the slot
+     * keeps the status it had. A candidate stays a candidate, and the question
+     * already standing over it ("Use it, or keep the previous one") is what
+     * says go on; an approved view stays approved, because nothing was waiting
+     * to be decided on it.
+     *
+     * Two bugs have come out of this one line, in opposite directions:
+     *
+     * - It used to leave `prior` alone, so putting back the picture that WAS
+     *   the prior left a candidate whose hash and prior were the same picture:
+     *   "Use this" and "Keep previous" offered the same face, and the two that
+     *   were really drawn were reachable only from the log.
+     * - Fixing that by settling the slot `approved` instead made Put back mean
+     *   both "wear this one" and "I have decided, build the next one": the next
+     *   generation started before the person could step between the pictures
+     *   they were choosing between. Reported 2026-09-16.
+     *
+     * Writing `prior` is what both of them needed. It cannot equal `hash`,
+     * because a restore onto the picture already worn returns above.
+     */
+    if (s.prior && s.prior !== was && s.prior !== hash && !r.sources.includes(s.prior)) {
+      s.rejected = [...s.rejected, s.prior];
+    }
+    if (was) s.prior = was;
     s.rejected = s.rejected.filter((h) => h !== hash);
     s.hash = hash;
     s.origin = r.sources.includes(hash) ? 'photo' : 'generated';
-    // Putting a picture back is a decision, so it ends any candidacy: the
-    // thing that was waiting to be decided is not on the view any more.
-    //
-    // It used to leave the slot a candidate while replacing what it held, and
-    // the slot then said things that were not true of it. Measured on a real
-    // draft: a face redrawn twice, then an earlier one put back, and the view
-    // stood as a candidate whose hash and whose prior were the same picture,
-    // so "Use this" and "Keep previous" offered the same face and the two
-    // that had actually been drawn were reachable only from the log.
-    s.status = 'approved';
-    if (s.prior === hash) s.prior = undefined;
     s.adjustment = from?.ask;
     s.conditionedOn = undefined;
     s.error = undefined;

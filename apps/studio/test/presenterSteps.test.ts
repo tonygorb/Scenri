@@ -130,6 +130,25 @@ describe('what the flow does next', () => {
     expect(nextStep(inputs({ draft: d, seededFor: null }))?.kind).toBe('draw');
   });
 
+  /**
+   * A view still waiting to be decided draws nothing, and nothing under it
+   * draws either.
+   *
+   * This is what makes Put back safe with no rule of its own: `restoreView`
+   * keeps the status the view had, so putting a picture back onto a candidate
+   * leaves a candidate. Pressing Put back used to settle the view `approved`,
+   * and `nextToDraw` reads approved as "go on", so it started the next
+   * generation before the person could step between the pictures they were
+   * choosing between. Reported 2026-09-16.
+   */
+  it('draws nothing while a picture is still waiting to be decided', () => {
+    const undecided = draft({ views: { ...draft().views, portrait: { ...approved('p'), status: 'candidate' } } });
+    expect(nextStep(inputs({ draft: undecided, seededFor: 'pd-1' }))).toBeNull();
+    // and the moment it is decided, the next view is drawn without a click
+    const decided = draft({ views: { ...draft().views, portrait: approved('p') } });
+    expect(nextStep(inputs({ draft: decided }))).toEqual({ kind: 'draw', view: 'front', decide: undefined });
+  });
+
   it('brings a draft in step with answers that moved, before anything is drawn from the old words', () => {
     const moved = draft({ direction: 'somebody else entirely', views: { ...draft().views, portrait: approved('p') } });
     const step = nextStep(inputs({ draft: moved }));

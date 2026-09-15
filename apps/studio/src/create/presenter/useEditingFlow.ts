@@ -129,6 +129,9 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
   // Only a stale view, or a missing one once Build them was chosen, is drawn
   // without a click: opening the editor never spends a generation.
   useEffect(() => {
+    // A picture just put back needs no guard here: a restore keeps the status
+    // the view had, so a view waiting to be decided is still a candidate and
+    // `nextToDraw` refuses it and every view under it. Reported 2026-09-16.
     if (!d || s.busy || !canDraw || s.err) return;
     const view = nextToDraw(d);
     if (!view) return;
@@ -216,7 +219,10 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
           const sentence = ui.scopeAsk?.said ?? '';
           setUi((u) => ({ ...u, scopeAsk: null }));
           if (a.id === 'identity') void s.generate('portrait', sentence);
-          else void s.generate(view, sentence, 'auto');
+          // `autoFor`, never a literal: the full body is decided by hand, and
+          // asking it to decide itself is refused by the server, so answering
+          // "this view" on a gated view threw the sentence away with a 400.
+          else void s.generate(view, sentence, autoFor(view));
           setFocus(a.id === 'identity' ? 'portrait' : view);
           return;
         }
