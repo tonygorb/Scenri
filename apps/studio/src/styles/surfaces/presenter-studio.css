@@ -110,10 +110,20 @@
   justify-content: center;
 }
 
+/* The well is the shape of the picture in it.
+   A drawn view arrives at whatever shape the engine gave it, and `trimEdgeBars`
+   cuts any baked-in side bars off, so a full-length frame is often taller than
+   4:5 rather than exactly it. Held at 4:5 and covered, the well took that
+   difference off the top and the bottom, which on a standing figure is the head
+   and the feet. Contained instead, it letterboxed, which trades a crop for grey
+   bars. So the box takes the picture's own ratio and covers it exactly: nothing
+   cropped, nothing bordered. `--sc-well-ar` is set from the decoded image (see
+   `usePainted`); 0.8 is 4:5, the shape everything is asked for and the one an
+   empty well keeps. */
 .sc-pstudio-well {
   position: relative;
-  height: min(100cqh, calc(100cqw * 5 / 4));
-  aspect-ratio: 4 / 5;
+  height: min(100cqh, calc(100cqw / var(--sc-well-ar, 0.8)));
+  aspect-ratio: var(--sc-well-ar, 0.8);
   overflow: hidden;
   border-radius: var(--sc-radius-lg);
   background: var(--sc-raised);
@@ -132,6 +142,7 @@
   display: block;
   width: 100%;
   height: 100%;
+  /* Cover is exact here: the box above is the picture's own ratio. */
   object-fit: cover;
   /* a new picture, a candidate, or the one it replaces on Compare: fades in over the last */
   animation: sc-pstudio-well-in var(--sc-dur-slow) var(--sc-ease);

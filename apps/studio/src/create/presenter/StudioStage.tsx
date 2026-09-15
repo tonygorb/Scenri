@@ -1,5 +1,5 @@
 import { CaretLeft, CaretRight, Check, Warning } from '@phosphor-icons/react';
-import { useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useState } from 'react';
 import { imgUrl, thumbUrl } from '../../api.js';
 import { elapsedLabel } from '../../tasks.js';
 import type { StripItem, StudioView, Take } from './presenterStudioRules.js';
@@ -64,6 +64,17 @@ export function StudioStage({
   // a new picture, or another view, and the well is back on what the view wears
   useEffect(() => setPeek(null), [hash]);
   const shown = usePainted(peek && list.some((t) => t.hash === peek) ? peek : hash);
+  /**
+   * The shape of the picture on the stage, read off the one that is actually
+   * rendered rather than a second decode, so it is right whether the file is
+   * new, cached, or picked from the srcset. The well takes it (`--sc-well-ar`):
+   * a drawn view arrives at whatever shape the engine gave it, and the trim
+   * that removes baked-in side bars makes a full-length frame taller than 4:5
+   * rather than exactly it. Held at 4:5 that difference came off the head and
+   * the feet.
+   */
+  const [ar, setAr] = useState<number | undefined>(undefined);
+  useEffect(() => setAr(undefined), [hash]);
   const step = (d: 1 | -1) => {
     const next = list[at + d];
     if (next) setPeek(next.hash);
@@ -71,7 +82,12 @@ export function StudioStage({
   return (
     <div className="sc-pstudio-stage">
       <div className="sc-pstudio-wrap">
-        <div className="sc-pstudio-well" data-drawing={drawing || undefined} data-empty={!hash || undefined}>
+        <div
+          className="sc-pstudio-well"
+          data-drawing={drawing || undefined}
+          data-empty={!hash || undefined}
+          style={ar ? ({ '--sc-well-ar': ar } as CSSProperties) : undefined}
+        >
           {hash && shown ? (
             <img
               src={imgUrl(shown)}
@@ -79,6 +95,10 @@ export function StudioStage({
               sizes="(max-width: 767px) 92vw, 44vw"
               alt={alt}
               decoding="async"
+              onLoad={(e) => {
+                const el = e.currentTarget;
+                if (el.naturalWidth && el.naturalHeight) setAr(el.naturalWidth / el.naturalHeight);
+              }}
             />
           ) : (
             <span className="sc-pstudio-well-blank">
