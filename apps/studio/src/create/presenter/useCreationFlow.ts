@@ -567,9 +567,21 @@ export function useCreationFlow({
   stepRef.current = step;
   const key = step ? stepKey(step, stepInputs) : '';
   useEffect(() => {
-    // the first sight of a draft with whole answers reads nothing off it, and
-    // never will: a half-changed answer later is somebody at work
-    if (d && seededFor.current !== d.id && stepRef.current?.kind !== 'seed') seededFor.current = d.id;
+    /**
+     * The first sight of a draft with whole answers reads nothing off it, and
+     * never will: a half-changed answer later is somebody at work.
+     *
+     * Only when a step could actually have been a seed. `nextStep` returns
+     * nothing at all while anything is in flight, and a draw counts, so
+     * arriving at a draft that was drawing latched the seed as done without it
+     * ever running: the conversation sat on "Who are we making?" with that
+     * draft's face on the stage beside it, and stayed there after the draw
+     * landed because the latch had already been set. Only a slow draw makes it
+     * reachable, which is why no spec had seen it.
+     */
+    if (d && seededFor.current !== d.id && !stepInputs.busy && stepRef.current?.kind !== 'seed') {
+      seededFor.current = d.id;
+    }
     const todo = stepRef.current;
     if (!todo || fired.current.has(key)) return;
     fired.current.add(key);
