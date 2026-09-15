@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, type PresenterDraft, type PresenterDraftView } from '../../api.js';
+import { acceptsDraft } from './draftTransport.js';
 
 /**
  * The draft the dialog is holding, as the server holds it. Every action
@@ -20,11 +21,18 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     };
   }, []);
 
-  // Answers can cross: a poll sent before an action lands after it. The row's
-  // own clock decides, so an older answer never overwrites a newer draft.
+  // The id this hook is asking about, readable from work that started before
+  // the page moved. A ref rather than the closure's own `draftId`, so an answer
+  // is judged against where the page is now, not where it was when asked.
+  const want = useRef(draftId);
+  want.current = draftId;
+
+  // Answers can cross, in two ways: an older read for this draft can land after
+  // a newer one, and a read for a draft the page has since left can land at
+  // all. `acceptsDraft` refuses both. See its note for what the second one did.
   const take = useCallback((next: PresenterDraft) => {
     if (!alive.current) return;
-    setDraft((cur) => (cur && cur.id === next.id && next.updatedAt < cur.updatedAt ? cur : next));
+    setDraft((cur) => (acceptsDraft(cur, next, want.current) ? next : cur));
   }, []);
 
   // A different address is a different draft: nothing of the last one carries over.
@@ -32,14 +40,20 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     setDraft(null);
     setGone(false);
     setErr(null);
+    setBusy(false);
   }, [draftId]);
 
   const load = useCallback(async () => {
     if (!draftId) return;
+    const asked = draftId;
     try {
-      take(await api.presenterDraft(brandId, draftId));
+      take(await api.presenterDraft(brandId, asked));
     } catch (e: any) {
       if (!alive.current) return;
+      // A failure belongs to the draft it was asked about. A 404 for a draft
+      // the page has since left would otherwise redirect out of the one it is
+      // on, and its error would be shown against somebody else's conversation.
+      if (want.current !== asked) return;
       if (/HTTP 404|not found/i.test(String(e?.message ?? e))) setGone(true);
       else setErr(String(e?.message ?? e));
     }
@@ -59,6 +73,7 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
   /** One action at a time, its answer taken as the new truth, its failure said once. */
   const act = useCallback(
     async (work: () => Promise<PresenterDraft>) => {
+      const asked = want.current;
       setBusy(true);
       setErr(null);
       try {
@@ -66,6 +81,9 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
         return true;
       } catch (e: any) {
         if (!alive.current) return false;
+        // Whatever this was, it was about the draft it was asked for. Once the
+        // page has moved, its failure is not this conversation's to report.
+        if (want.current !== asked) return false;
         // "A view is still being drawn" is not a failure: the work this asked
         // for is already happening. Said as an error it latched, stopped every
         // step the flow takes on its own, and stayed hidden until the drawing
@@ -77,6 +95,8 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
         setErr(String(e?.message ?? e));
         return false;
       } finally {
+        // Always cleared, whether or not the page moved: a stale action that
+        // left `busy` standing would hold the new conversation still forever.
         if (alive.current) setBusy(false);
       }
     },
