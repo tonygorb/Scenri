@@ -136,7 +136,11 @@ export function PresenterPage() {
     if (!owned) return;
     setBusy(true);
     try {
-      await api.deletePresenter(brand.id, owned.id);
+      const r = await api.deletePresenter(brand.id, owned.id);
+      // Before navigating, not after: the wall this lands on is rendered from
+      // the brand, and without this it still carried the card, the picker still
+      // offered them and an existing chip still resolved, all until a reload.
+      applyBrand(r.brand);
       navigate(presentersPath(brand));
     } catch (e: any) {
       setErr(String(e.message ?? e));

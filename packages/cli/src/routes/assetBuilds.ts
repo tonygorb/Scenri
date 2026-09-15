@@ -26,6 +26,7 @@ import {
   type CustomScene,
 } from '../customAssets.js';
 import { presenterCropMode } from '../presenterRepair.js';
+import { releasePresenter } from '../presenterDrafts.js';
 import { brandContext, COST_PROBE, pickBuildEngine } from './shared.js';
 
 export interface BuildRouteDeps {
@@ -34,6 +35,8 @@ export interface BuildRouteDeps {
   analyzer?: Analyzer;
   scenes: Scene[];
   presenters: Presenter[];
+  /** So a picture let go of also leaves the thumbnail cache. */
+  thumbs?: { evict: (hash: string) => void };
 }
 
 /**
@@ -68,6 +71,7 @@ export function makeBuildDeps(deps: BuildRouteDeps): {
 export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteDeps): void {
   const { core } = deps;
   const { buildEngine, buildDeps, analyzer } = makeBuildDeps(deps);
+  const hooks = { evict: (hash: string) => deps.thumbs?.evict(hash) };
 
   /** What a creation flow needs to know before it promises anything. */
   app.get('/api/asset-builds/capabilities', async () => {
@@ -251,7 +255,15 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     commit(core, brand.id, (json) => {
       json.characters = brandCharacters(json).filter((c: any) => c.id !== id);
     });
-    return { ok: true };
+    // After the record has left the document, never before: an open editing
+    // session ends here rather than drawing on into an orphan, and the pictures
+    // nothing else holds are let go. See releasePresenter.
+    await releasePresenter(await buildDeps(), brand.id, base, hooks);
+    // The brand comes back, the way every other presenter mutation answers, so
+    // the wall, the page, the pickers and the chips all stop showing them in
+    // the same commit. Returning `{ok:true}` left every one of them stale until
+    // a reload, which is how a deleted presenter stayed on the wall.
+    return { ok: true, brand: core.store.getBrand(brand.id) };
   });
 
   app.post('/api/brands/:id/scenes', async (req, reply) => {

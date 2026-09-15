@@ -1714,6 +1714,37 @@ export async function discardPresenterDraft(deps: AssetBuildDeps, id: string, ho
   dropDraft(deps.core, rec, hooks);
 }
 
+/**
+ * A presenter is gone from the brand: let go of what was held on their behalf.
+ *
+ * Two things outlived a delete. An editing session is a draft row carrying
+ * `presenterId`, and it was left behind pointing at a record that no longer
+ * exists: its running draw finished and wrote to an orphan, and the row itself
+ * sat there until the fourteen-day sweep. And every picture the record held
+ * stayed on disk, because this route never let go of anything.
+ *
+ * Call it after the record has left the brand document, never before: the
+ * release scans every brand and every draft for a hash before removing it, and
+ * the record it is releasing must not be among them.
+ */
+export async function releasePresenter(
+  deps: AssetBuildDeps,
+  brandId: string,
+  presenter: { id: string; shots?: { file?: unknown }[]; sourceRefs?: unknown[]; preview?: unknown; avatar?: unknown },
+  hooks: CleanupHooks = {},
+): Promise<void> {
+  for (const d of listPresenterDrafts(deps.core, brandId)) {
+    if (d.presenterId === presenter.id) await discardPresenterDraft(deps, d.id, hooks);
+  }
+  const held = [
+    ...(presenter.shots ?? []).map((s) => s?.file),
+    ...(presenter.sourceRefs ?? []),
+    presenter.preview,
+    presenter.avatar,
+  ];
+  removeUnreferenced(deps.core, held.map(hashOfFile).filter((h): h is string => !!h), hooks);
+}
+
 /** Fourteen days untouched is abandoned. */
 export const ABANDONED_DRAFT_MS = 14 * 24 * 60 * 60 * 1000;
 

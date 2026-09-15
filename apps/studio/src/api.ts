@@ -320,8 +320,9 @@ export const api = {
     req<{ presenter: unknown; brand: Brand }>('POST', `/api/brands/${brandId}/presenters`, p),
   updatePresenter: (brandId: string, presenterId: string, patch: PresenterPatch) =>
     req<{ presenter: unknown; brand: Brand }>('PATCH', `/api/brands/${brandId}/presenters/${presenterId}`, patch),
+  /** The brand comes back so every surface stops showing them in one commit. */
   deletePresenter: (brandId: string, presenterId: string) =>
-    req<{ ok: true }>('DELETE', `/api/brands/${brandId}/presenters/${presenterId}`),
+    req<{ ok: true; brand: Brand }>('DELETE', `/api/brands/${brandId}/presenters/${presenterId}`),
   /**
    * Edit a saved person: the session already open on them, else one seeded
    * from the record. Any id in their history opens the head. The save on the

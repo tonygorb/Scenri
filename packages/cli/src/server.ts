@@ -524,7 +524,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // this point treats them identically to the curated ones: compileBrief
   // already prefers `characters[]` over the presenter catalog, and the scene
   // resolver below prefers `scenes[]` over the scene catalog.
-  registerAssetBuildRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters });
+  registerAssetBuildRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters, thumbs });
   // A draft's step lives in this process; after a restart the row still says
   // it is drawing. Put those back before anyone reads them.
   sweepPresenterDrafts(core);

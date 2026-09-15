@@ -1,0 +1,138 @@
+import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
+import { isolate } from './harness.js';
+
+/**
+ * A mutation reaches every surface in the same commit, or it is not done.
+ *
+ * Owned presenters are read off the brand document that the shell holds, so
+ * one `applyBrand` updates the wall, the page, the ingredient picker and the
+ * chips together. Every presenter mutation answered with the brand and did
+ * that, except delete, which answered `{ok:true}` and left every one of them
+ * showing somebody who was gone until a reload.
+ *
+ * These are the surfaces a person would actually look at next, driven through
+ * the UI rather than the API, because the point is what they see.
+ */
+isolate({ env: { SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5' } });
+
+async function currentBrand(p: Page): Promise<{ slug: string; id: string }> {
+  await p.goto('/');
+  await p.waitForURL((u) => {
+    const seg = u.pathname.split('/').filter(Boolean);
+    return seg.length === 1 && seg[0] !== 'setup';
+  });
+  const slug = decodeURIComponent(new URL(p.url()).pathname.split('/')[1]);
+  const brands = (await (await p.request.get('/api/brands')).json()) as { id: string; slug: string }[];
+  return { slug, id: brands.find((b) => b.slug === slug)?.id ?? brands[0].id };
+}
+
+async function settled(req: APIRequestContext, brandId: string, draftId: string, view: string, want: string) {
+  for (let i = 0; i < 200; i++) {
+    const d = await (await req.get(`/api/brands/${brandId}/presenter-drafts/${draftId}`)).json();
+    if (d.views[view].status === want && !d.activeView) return d;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  throw new Error(`${view} never became ${want}`);
+}
+
+async function seedPresenter(req: APIRequestContext, brandId: string, name: string): Promise<string> {
+  const base = `/api/brands/${brandId}/presenter-drafts`;
+  const draft = await (
+    await req.post(base, { data: { source: 'synthetic', direction: `${name}, a woman in her 30s`, name } })
+  ).json();
+  await req.post(`${base}/${draft.id}/views/portrait/generate`, { data: {} });
+  await settled(req, brandId, draft.id, 'portrait', 'candidate');
+  await req.post(`${base}/${draft.id}/views/portrait/approve`);
+  await req.post(`${base}/${draft.id}/views/front/generate`, { data: {} });
+  await settled(req, brandId, draft.id, 'front', 'candidate');
+  await req.post(`${base}/${draft.id}/views/front/approve`);
+  await req.post(`${base}/${draft.id}/views/three-quarter/generate`, { data: { decide: 'auto' } });
+  await settled(req, brandId, draft.id, 'three-quarter', 'approved');
+  return (await (await req.post(`${base}/${draft.id}/save`)).json()).presenter.id as string;
+}
+
+/** Their card on the presenters wall, under "Your presenters". */
+const wallCard = (p: Page, name: string) => p.getByRole('link', { name: new RegExp(name) });
+
+test('deleting a presenter takes them off every surface without a reload', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await currentBrand(page);
+  const id = await seedPresenter(page.request, brand.id, 'Vanish');
+  await seedPresenter(page.request, brand.id, 'Stays');
+
+  // the wall has both, and so does the picker the composer offers
+  await page.goto(`/${brand.slug}/presenters`);
+  await expect(page.getByText('Vanish', { exact: true })).toBeVisible();
+  await expect(page.getByText('Stays', { exact: true })).toBeVisible();
+
+  // delete from their own page, which is the only place that offers it
+  await page.goto(`/${brand.slug}/presenters/${id}`);
+  await page.getByRole('button', { name: 'Delete presenter' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: /Delete/ }).click();
+
+  // the wall it lands on is drawn from the brand, so the card is already gone.
+  // No reload anywhere in this test: that is the whole assertion.
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
+  await expect(page.getByText('Vanish', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Stays', { exact: true })).toBeVisible();
+
+  // and the record really is gone, not merely hidden
+  const brands = (await (await page.request.get('/api/brands')).json()) as any[];
+  const cast = brands.find((b) => b.id === brand.id).json.characters ?? [];
+  expect(cast.map((c: any) => c.name)).not.toContain('Vanish');
+  expect(cast.map((c: any) => c.name)).toContain('Stays');
+});
+
+test('a deleted presenter is gone from the Create picker too, in the same commit', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await currentBrand(page);
+  const id = await seedPresenter(page.request, brand.id, 'Picker');
+
+  await page.goto(`/${brand.slug}/presenters/${id}`);
+  await page.getByRole('button', { name: 'Delete presenter' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: /Delete/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
+
+  // straight to Create without a reload: the picker reads the same brand
+  await page.goto(`/${brand.slug}/create?compose=1`);
+  await expect(page.getByText('Picker', { exact: true })).toHaveCount(0);
+});
+
+test('deleting a presenter ends the editing session that was open on them', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await currentBrand(page);
+  const id = await seedPresenter(page.request, brand.id, 'Session');
+
+  // open the editor, which mints a session draft carrying their id
+  await page.goto(`/${brand.slug}/presenters/${id}/edit`);
+  await expect(page.getByRole('log')).toContainText('What would you like to change', { timeout: 30_000 });
+  const before = (await (await page.request.get(`/api/brands/${brand.id}/presenter-drafts`)).json()) as {
+    drafts: { id: string; presenterId?: string }[];
+  };
+  expect(before.drafts.filter((d) => d.presenterId === id)).toHaveLength(1);
+
+  await page.goto(`/${brand.slug}/presenters/${id}`);
+  await page.getByRole('button', { name: 'Delete presenter' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: /Delete/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
+
+  // the session goes with them rather than drawing on into an orphan and
+  // sitting there until the fourteen-day sweep
+  const after = (await (await page.request.get(`/api/brands/${brand.id}/presenter-drafts`)).json()) as {
+    drafts: { id: string; presenterId?: string }[];
+  };
+  expect(after.drafts.filter((d) => d.presenterId === id)).toHaveLength(0);
+});
+
+test('a saved presenter appears on the wall the moment it is saved', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}/presenters`);
+  await expect(page.getByRole('button', { name: 'Create presenter' })).toBeVisible();
+  await seedPresenter(page.request, brand.id, 'Fresh');
+
+  // seeded behind the page's back, so this asserts only that the wall reads
+  // again when it is returned to, never that it polls
+  await page.goto(`/${brand.slug}/presenters`);
+  await expect(wallCard(page, 'Fresh').first()).toBeVisible();
+});
