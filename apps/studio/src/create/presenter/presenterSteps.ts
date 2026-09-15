@@ -66,9 +66,7 @@ export interface StepInputs {
   busy: boolean;
   /** An error is standing that a person has to answer before anything goes on. */
   err: boolean;
-  /** The page is still finding out whether a draft is pointed at. */
-  booting: boolean;
-  /** A draft is in the route, whether or not it has loaded yet. */
+  /** A server draft is in the route, whether or not it has loaded yet. */
   draftId: string | null;
   /** The draft whose answers this page has already read, if any. */
   seededFor: string | null;
@@ -132,8 +130,8 @@ function candidates(i: StepInputs): Step[] {
     if (view) out.push({ kind: 'draw', view, decide: autoFor(view) });
     return out;
   }
-  // a draft is on its way, or the page is still finding out
-  if (i.booting || i.draftId) return [];
+  // a draft is already in the route: it makes its own steps, above
+  if (i.draftId) return [];
   if (!i.canDraw || !readyToDraw(state, ctx)) return [];
   // A person described in words starts drawing the moment nothing is left to
   // ask. The rows end at a read-back and a tap, and the photographs at a

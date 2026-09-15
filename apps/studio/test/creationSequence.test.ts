@@ -312,7 +312,6 @@ function check(s: CreationState, step: number, seed: number, action: Action) {
         canDraw: true,
         busy: false,
         err: false,
-        booting: false,
         draftId: sd.id,
         seededFor: seeded,
         done: new Set<string>(),

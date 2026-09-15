@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { presenterSearchText } from '../displayName.js';
-import { Outlet, useNavigate } from 'react-router';
+import { Outlet, useMatch, useNavigate } from 'react-router';
 import { Plus } from '@phosphor-icons/react';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -8,7 +8,7 @@ import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { customPresentersOf } from '../brandAssets.js';
 import { api, type PresenterDraftSummary } from '../api.js';
-import { presenterPath, presenterStudioPath } from '../routes.js';
+import { P, presenterPath, presenterStudioPath } from '../routes.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 import { PresenterDraftCard } from '../layout/PresenterDraftCard.js';
 import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '../layout/DensityControl.js';
@@ -106,7 +106,20 @@ export function PresentersView() {
       alive = false;
     };
   }, [brand.id]);
-  useEffect(() => loadDrafts(), [loadDrafts]);
+  /**
+   * Read again when the studio closes, never while it is open.
+   *
+   * The studio is this page's own child route, so the wall stays mounted
+   * underneath it and its list is whatever it was fetched before. Minting a
+   * draft and pressing Escape used to land on a wall that predated the draft,
+   * which reads as the work having been thrown away. The studio is full-bleed
+   * over the wall, so there is nothing to read while it is open.
+   */
+  const inStudio = !!useMatch({ path: P.presenterStudio });
+  useEffect(() => {
+    if (inStudio) return;
+    return loadDrafts();
+  }, [inStudio, loadDrafts]);
   const discardDraft = useCallback(
     (id: string) => {
       setDrafts((cur) => cur.filter((d) => d.id !== id));

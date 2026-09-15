@@ -100,17 +100,27 @@ import { usePresenterDraft } from './usePresenterDraft.js';
  * change anything.
  */
 /**
- * The answers this page is holding, kept per draft rather than per brand.
+ * The answers this page is holding, kept per conversation.
  *
  * Held per brand, a tab that had gathered answers for one person applied them
  * to whichever draft was opened next: the flow saw a disagreement with a draft
  * it had never asked a question about, and the sync it sent to put that right
  * wrote those answers over the top. A finished person came back with their
- * details gone. Answers gathered before a draft exists live under `new` and
- * move to the draft the moment it has an id.
+ * details gone.
+ *
+ * Held per draft with a single `new` bucket underneath it, the same fault came
+ * back one level up: every conversation that had not yet made a draft shared
+ * that bucket, so leaving one half-answered and pressing Create presenter again
+ * handed the next person the last one's answers. Measured 2026-09-15.
+ *
+ * So the key is the conversation, and a conversation is named by the history
+ * entry it is being had in (`location.key`), until it makes a draft and takes
+ * the draft's id instead. A push or a replace mints a fresh key, so Create
+ * presenter is always a new conversation; a reload and Back and Forward each
+ * restore their own entry's key, so a conversation comes back where it was.
+ * The same reasoning as `ScrollPane`, which keys scroll offsets the same way.
  */
-const setupKey = (brandId: string, draftId?: string | null) => `scenri:presenter-setup:${brandId}:${draftId ?? 'new'}`;
-const pointerKey = (brandId: string) => `scenri:presenter-draft:${brandId}`;
+const setupKey = (brandId: string, convoKey: string) => `scenri:presenter-setup:${brandId}:${convoKey}`;
 const session = {
   read(key: string): string | null {
     try {
@@ -137,6 +147,12 @@ const session = {
 
 export interface CreationFlowArgs extends Pick<FlowProps, 'onStarted' | 'caps' | 'capsNote'> {
   draftId: string | null;
+  /**
+   * What this conversation is called while it is being had: the draft's id once
+   * it has one, and before that the history entry's own key. See the note on
+   * `setupKey`. The route supplies it; the flow never invents one.
+   */
+  convoKey: string;
   onOpenDraft: (id: string, replace?: boolean) => void;
   onLeaveDraft: () => void;
 }
@@ -166,26 +182,55 @@ function pictureFor(state: CreationState, ctx: FlowContext, open: string | null)
   return trait && trait.part === 'what' ? (`trait-${trait.id}` as TraitQid) : null;
 }
 
-export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted, caps, capsNote }: CreationFlowArgs) {
+export function useCreationFlow({
+  draftId,
+  convoKey,
+  onOpenDraft,
+  onLeaveDraft,
+  onStarted,
+  caps,
+  capsNote,
+}: CreationFlowArgs) {
   const { brand } = useBrand();
   const { presenterCategories } = useAppData();
   const openSetup = useOpenSetup();
   const canDraw = !!caps?.canGenerate;
 
-  const [state, dispatch] = useReducer(reduce, { brandId: brand.id, draftId }, (at) => {
-    const back = deserialize(session.read(setupKey(at.brandId, at.draftId)));
+  const [state, dispatch] = useReducer(reduce, { brandId: brand.id, convoKey }, (at) => {
+    const back = deserialize(session.read(setupKey(at.brandId, at.convoKey)));
     return back ? { ...EMPTY_STATE, answers: back.answers, revision: back.revision, asides: back.asides } : EMPTY_STATE;
   });
   // the latest state, for work that finishes after the render it started in
   const stateRef = useRef(state);
   stateRef.current = state;
   const stored = serialize(state);
+  /**
+   * A conversation nobody has had is not written down.
+   *
+   * The write used to be unconditional, so merely opening the studio and
+   * closing it left `{"answers":{},"revision":0}` behind. It also made
+   * `resumed` true on the next arrival, which took the opening lines as
+   * already said and killed their arrival.
+   */
+  // Exactly what `serialize` carries, so a bucket exists only when reading it
+  // back would restore something. An unsent sentence is not an answer.
+  const begunHere = Object.keys(state.answers).length > 0 || state.asides.length > 0;
+  const wasConvo = useRef(convoKey);
   useEffect(() => {
-    session.write(setupKey(brand.id, draftId), stored);
-    // Once the draft has an id the answers belong to it, and the ones left
-    // under `new` would otherwise be picked up by the next person started here.
-    if (draftId) session.remove(setupKey(brand.id, null));
-  }, [brand.id, draftId, stored]);
+    if (begunHere) session.write(setupKey(brand.id, convoKey), stored);
+    else session.remove(setupKey(brand.id, convoKey));
+    // Write the new key before dropping the old one: a tab that dies between
+    // the two leaves a duplicate, which is recoverable, rather than a hole.
+    const before = wasConvo.current;
+    wasConvo.current = convoKey;
+    // Only the move onto a draft's own id retires the key it came from. A bare
+    // key change is ordinary navigation and the entry it names may be returned
+    // to by Back.
+    if (before !== convoKey && draftId && convoKey === draftId) {
+      session.remove(setupKey(brand.id, before));
+      forgetSaid(`presenter-create:${brand.id}:${before}`);
+    }
+  }, [brand.id, convoKey, draftId, stored, begunHere]);
 
   /**
    * And the same answers onto the draft itself, once it has one.
@@ -231,13 +276,12 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   // the picture the browser holds for each one stored, so a chip shows the
   // thing itself rather than waiting on a thumbnail to be made
   const refShots = useRef(new Map<string, string>());
-  const [booting, setBooting] = useState(!draftId);
   // the page opened on a draft: its conversation was had before this page
   // A conversation is resumed whenever it came back off storage, not only when
   // a draft came with it. Before this the setup half read as new on every
   // reload and played its arrivals again, which after the asides began to be
   // kept meant a screenful of old lines flying in one after another.
-  const [resumed] = useState(() => !!draftId || !!deserialize(session.read(setupKey(brand.id, draftId))));
+  const [resumed] = useState(() => !!draftId || !!deserialize(session.read(setupKey(brand.id, convoKey))));
   useEffect(
     () => () => {
       for (const url of refShots.current.values()) URL.revokeObjectURL(url);
@@ -263,36 +307,12 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     fired.current = new Set();
     catsSeeded.current = false;
     setFacets([]);
+    // What the server was last told, forgotten with the draft it was told
+    // about. Kept across a draft change, a second draft whose answers happen to
+    // serialize to the same string was never sent its setup at all.
+    wroteSetup.current = null;
     if (!draftId) leaving.current = false;
   }, [draftId]);
-
-  // A fresh start resumes the draft this session pointed at, in place.
-  useEffect(() => {
-    if (draftId) {
-      setBooting(false);
-      return;
-    }
-    let alive = true;
-    const pointed = session.read(pointerKey(brand.id));
-    if (!pointed) {
-      setBooting(false);
-      return;
-    }
-    void api
-      .presenterDrafts(brand.id)
-      .then((r) => {
-        if (!alive) return;
-        if (r.drafts.some((x) => x.id === pointed)) onOpenDraft(pointed, true);
-        else session.remove(pointerKey(brand.id));
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        if (alive) setBooting(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [brand.id, draftId, onOpenDraft]);
 
   // The engine's reading of the categories fills the line once, to correct rather than to type.
   useEffect(() => {
@@ -304,29 +324,22 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   }, [d, facets]);
 
   useEffect(() => {
-    if (s.gone) {
-      session.remove(pointerKey(brand.id));
-      onLeaveDraft();
-    }
-  }, [s.gone, brand.id, onLeaveDraft]);
+    if (s.gone) onLeaveDraft();
+  }, [s.gone, onLeaveDraft]);
 
-  const clearSetup = useCallback(
-    (draftId?: string) => {
-      session.remove(setupKey(brand.id, null));
-      if (draftId) session.remove(setupKey(brand.id, draftId));
-      forgetSaid(`presenter-create:${brand.id}:new`);
-      if (draftId) forgetSaid(`presenter-create:${brand.id}:${draftId}`);
-    },
-    [brand.id],
-  );
+  /** Forget this conversation: its answers and what it has already said. */
+  const clearSetup = useCallback(() => {
+    session.remove(setupKey(brand.id, convoKey));
+    forgetSaid(`presenter-create:${brand.id}:${convoKey}`);
+  }, [brand.id, convoKey]);
 
-  const openDraft = useCallback(
-    (id: string) => {
-      session.write(pointerKey(brand.id), id);
-      onOpenDraft(id);
-    },
-    [brand.id, onOpenDraft],
-  );
+  /**
+   * The draft replaces the address the conversation was already at, rather than
+   * pushing a second one: it is the same conversation, now with an id. Pushing
+   * left a bare `/presenters/new` entry behind it, so Back from a drawing draft
+   * landed on a conversation whose answers had just moved to the draft's key.
+   */
+  const openDraft = useCallback((id: string) => onOpenDraft(id, true), [onOpenDraft]);
 
   /**
    * The draft, made from the answers as they stand. If the answers moved
@@ -448,8 +461,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     try {
       await api.updatePresenterDraft(brand.id, d.id, { facets });
       const r = await api.savePresenterDraft(brand.id, d.id);
-      session.remove(pointerKey(brand.id));
-      clearSetup(d.id);
+      clearSetup();
       dispatch({ type: 'start-over' });
       onStarted({ kind: 'presenter', id: r.presenter.id, name: r.presenter.name });
     } catch (e: any) {
@@ -469,8 +481,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
         /* a draft that is already gone is what we wanted */
       }
     }
-    session.remove(pointerKey(brand.id));
-    clearSetup(d?.id);
+    clearSetup();
     dispatch({ type: 'start-over', text });
     setAskErr(null);
     setConfirming(null);
@@ -513,7 +524,6 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
     // picture is being made; it all waits for the step to end.
     busy: s.busy || busySetup || inflight.current || leaving.current || (d ? isDrawing(d) : false),
     err: !!s.err || !!askErr,
-    booting,
     draftId,
     seededFor: seededFor.current,
     done: fired.current,
@@ -1215,7 +1225,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
    * things at once. Say it in your own words and the card comes back, with
    * both the words and the way in for a picture.
    */
-  const composerOff = s.busy || busySetup || booting || !!composerBase.off;
+  const composerOff = s.busy || busySetup || !!composerBase.off;
   // The detail a picture belongs to, whether or not the card can take one yet:
   // the way in stays on screen and says why, rather than coming and going.
   const attachTarget = refTarget;
@@ -1252,7 +1262,6 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
   const shownHash = compare && slot?.prior ? slot.prior : stageHash;
 
   return {
-    booting,
     d,
     view,
     slot,
@@ -1290,7 +1299,7 @@ export function useCreationFlow({ draftId, onOpenDraft, onLeaveDraft, onStarted,
       title: 'Create presenter',
       // one conversation per draft: a second person started in the same tab is
       // a new conversation and arrives line by line, not already said
-      memoryKey: `presenter-create:${brand.id}:${d?.id ?? 'new'}`,
+      memoryKey: `presenter-create:${brand.id}:${convoKey}`,
       resumed,
       turns,
       busy: s.busy || busySetup,

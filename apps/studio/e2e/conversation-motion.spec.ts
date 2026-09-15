@@ -402,7 +402,9 @@ test.describe('the conversation in motion', () => {
     await expect(log(page)).toContainText('what should we call them?', { timeout: 20_000 });
     await settle(page);
     await send(page, 'Noor');
-    // the full body is decided by hand before the rest of the set follows
+    // the face read off the photographs is a candidate too, decided before the
+    // full body, which is decided by hand before the rest of the set follows
+    await answer(page, 'Use this person').click();
     await answer(page, 'Use it').click();
     await expect(log(page)).toContainText('The set is ready', { timeout: 30_000 });
     await settle(page);

@@ -73,7 +73,6 @@ const inputs = (over: Partial<StepInputs> = {}): StepInputs => {
     canDraw: true,
     busy: false,
     err: false,
-    booting: false,
     draftId: d?.id ?? null,
     seededFor: d?.id ?? null,
     done: new Set<string>(),
@@ -149,8 +148,7 @@ describe('what the flow does next', () => {
     expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TYPED } }))).toEqual({ kind: 'start' });
     // the rows end at a read-back and a tap: the press starts it, not this
     expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TAPPED } }))).toBeNull();
-    // and not while the page is still finding out, or a draft is on its way
-    expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TYPED }, booting: true }))).toBeNull();
+    // and not once a draft is in the route: it makes its own steps
     expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TYPED }, draftId: 'pd-2' }))).toBeNull();
     // nor with nothing that can draw
     expect(nextStep(inputs({ state: { ...EMPTY_STATE, answers: TYPED }, canDraw: false }))).toBeNull();

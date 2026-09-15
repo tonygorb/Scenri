@@ -126,12 +126,7 @@ async function seedDraft(
 }
 
 async function openDraft(p: Page, brand: { slug: string; id: string }, draftId: string) {
-  await p.goto(`/${brand.slug}/presenters`);
-  await p.evaluate(({ id, brandId }) => sessionStorage.setItem(`scenri:presenter-draft:${brandId}`, id), {
-    id: draftId,
-    brandId: brand.id,
-  });
-  await p.goto(`/${brand.slug}/presenters/new`);
+  await p.goto(`/${brand.slug}/presenters/new/${draftId}`);
 }
 
 /** Every request the studio makes to the API between two moments. */
@@ -612,7 +607,17 @@ test.describe('a person from scratch', () => {
     await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
     expect((await draftsOf(page, brand.id)).drafts.map((d) => d.id)).toContain(draftId);
 
+    // Create presenter is a new conversation, never a resume: the bare route
+    // asks the first question however many drafts are waiting.
     await page.goto(`/${brand.slug}/presenters/new`);
+    await expect(answer(page, 'Describe someone')).toBeVisible({ timeout: 20_000 });
+    await expect(answer(page, 'Use this person')).toHaveCount(0);
+
+    // the draft is offered back by its own card, and that resumes it in place
+    await page.goto(`/${brand.slug}/presenters`);
+    // by its own address, not by position: this file's drafts accumulate
+    await page.locator(`a[href$="/presenters/new/${draftId}"]`).click();
+    await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new/${draftId}$`));
     await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
   });
 
@@ -777,19 +782,28 @@ test.describe('a person from scratch', () => {
     await send(page, 'make the hair shorter');
     await expect(log(page)).toContainText('Adjusted.', { timeout: 20_000 });
     // two faces and nothing drawn from either, so both ways back are offered
-    // and neither of them costs a generation
     const calls = apiCalls(page);
     const vers = page.locator('.sc-pstudio-vers');
     await expect(vers).toContainText('Version 2 of 2');
     await page.getByRole('button', { name: 'The version before' }).click();
     await expect(vers).toContainText('Version 1 of 2');
+    // Stepping is a look, not a decision: nothing is asked of the server at all.
+    expect(calls.urls()).not.toContain('/generate');
+    expect(calls.urls()).not.toContain('/restore');
+
     const restore = log(page).locator('.sc-convo-restore');
     await expect(restore).toHaveCount(1);
     await restore.click();
     await expect
       .poll(async () => (await draftOf(page, brand.id, draftId)).views.portrait.hash, { timeout: 20_000 })
       .toBe(first);
-    expect(calls.urls()).not.toContain('/generate');
+    // Putting a picture back is a decision: it ends the candidacy, so the face
+    // stands approved and the set carries on from it rather than waiting to be
+    // decided again. Asserting no generation here read the old rule, where a
+    // restore onto a candidate left the view still waiting.
+    await expect
+      .poll(async () => (await draftOf(page, brand.id, draftId)).views.portrait.status, { timeout: 20_000 })
+      .toBe('approved');
   });
 
   test('an unfinished person is offered back from the library, and can be let go', async ({ page }) => {

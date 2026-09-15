@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { useBrand } from '../app/BrandLayout.js';
 import { useCreateFlow } from '../create/AssetCreateHost.js';
 import { PresenterCreate } from '../create/presenter/PresenterCreate.js';
@@ -17,12 +17,20 @@ import { useTitleEntity } from '../useDocumentTitle.js';
  * pushes, leaving the one entry that opened it. A saved presenter lands on
  * its own page: it is an asset now, and the page is where it is edited.
  *
+ * `/presenters/new` means a new conversation, every time. Before a draft
+ * exists there is no id to key its answers by, so the conversation is named by
+ * the history entry it is being had in: a push or a replace mints a fresh
+ * `location.key`, a reload and Back and Forward restore the entry's own. That
+ * is what makes Create presenter and Continue different actions, and it is the
+ * same reasoning `ScrollPane` uses for scroll offsets.
+ *
  * What the studio shares with the two creation dialogs (the engine's
  * capabilities, the one announcement of what was made) still comes from the
  * host, so every door says the same thing.
  */
 export function PresenterStudioRoute() {
   const { draftId = null } = useParams();
+  const { key } = useLocation();
   const { brand } = useBrand();
   const navigate = useNavigate();
   const { announce, caps, capsNote } = useCreateFlow();
@@ -38,6 +46,7 @@ export function PresenterStudioRoute() {
   return (
     <PresenterCreate
       draftId={draftId}
+      convoKey={draftId ?? key}
       onOpenDraft={openDraft}
       onLeaveDraft={leaveDraft}
       onClose={close}

@@ -283,8 +283,11 @@ test.describe('changing an answer', () => {
     // offered as a revision with the old one still on hand
     await expect(answer(page, 'Use this')).toBeVisible({ timeout: 30_000 });
     await expect(answer(page, 'Keep previous')).toBeVisible();
-    // the first face stays in the record; the answer reads as it is now
-    await expect(log(page).locator('.sc-convo-shot')).toHaveCount(2);
+    // The first face stays in the record rather than being thrown away, and the
+    // new one is also shown beside the question deciding it. Two pictures in the
+    // record, one candidate: counting every picture in the log conflated them.
+    await expect(log(page).locator('[data-turn^="scenri:result-"] .sc-convo-shot')).toHaveCount(2);
+    await expect(log(page).locator('[data-turn^="scenri:candidate-"] .sc-convo-shot')).toHaveCount(1);
     await expect(turn(page, 'you:look-hair')).toContainText('Blonde');
   });
 
