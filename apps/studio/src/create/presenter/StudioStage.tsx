@@ -1,5 +1,5 @@
 import { CaretLeft, CaretRight, Check, Warning } from '@phosphor-icons/react';
-import { type CSSProperties, useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { imgUrl, thumbUrl } from '../../api.js';
 import { elapsedLabel } from '../../tasks.js';
 import type { StripItem, StudioView, Take } from './presenterStudioRules.js';
@@ -79,6 +79,31 @@ export function StudioStage({
     const next = list[at + d];
     if (next) setPeek(next.hash);
   };
+  /**
+   * The picture on the well, once it can be seen.
+   *
+   * The well used to run an entrance animation on the `<img>` itself, which got
+   * it exactly backwards: it played on mount, when the picture was usually
+   * already decoded and simply there, and it did not play on a change, because
+   * the same element is reused and a CSS animation does not restart when `src`
+   * does. So opening a studio dimmed a picture that was already on screen and
+   * brought it back up, which reads as a flicker, and swapping views did not
+   * cross-fade at all. Measured 2026-09-16: complete and decoded on the first
+   * frame, opacity still 0, climbing to 1 over 220ms.
+   *
+   * Nothing is waiting until the element says so. Marking it first and
+   * clearing it once the picture is known to be there still transitions, since
+   * the two styles are committed one after the other; a picture that has not
+   * arrived has nothing to show anyway, so dropping it to zero the moment we
+   * learn that costs no frame.
+   */
+  const img = useRef<HTMLImageElement>(null);
+  const [waiting, setWaiting] = useState(false);
+  useLayoutEffect(() => {
+    const el = img.current;
+    setWaiting(!(el?.complete && el.naturalWidth));
+  }, [shown]);
+
   return (
     <div className="sc-pstudio-stage">
       <div className="sc-pstudio-wrap">
@@ -90,13 +115,18 @@ export function StudioStage({
         >
           {hash && shown ? (
             <img
+              ref={img}
               src={imgUrl(shown)}
               srcSet={`${thumbUrl(shown, 'tile')} 640w, ${imgUrl(shown)} 1024w`}
               sizes="(max-width: 767px) 92vw, 44vw"
               alt={alt}
               decoding="async"
+              // A picture the browser already has is simply there; only one that
+              // arrives after the frame it was asked for fades in.
+              data-waiting={waiting || undefined}
               onLoad={(e) => {
                 const el = e.currentTarget;
+                setWaiting(false);
                 if (el.naturalWidth && el.naturalHeight) setAr(el.naturalWidth / el.naturalHeight);
               }}
             />

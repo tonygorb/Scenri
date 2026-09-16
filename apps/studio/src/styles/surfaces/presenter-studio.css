@@ -160,17 +160,19 @@
   height: 100%;
   /* Cover is exact here: the box above is the picture's own ratio. */
   object-fit: cover;
-  /* a new picture, a candidate, or the one it replaces on Compare: fades in over the last */
-  animation: sc-pstudio-well-in var(--sc-dur-slow) var(--sc-ease);
+  /* A picture the browser already has is simply there. This used to be an
+     entrance animation on the element, which got it backwards both ways: it
+     played on mount, when the picture was usually already decoded, so opening
+     a studio dimmed what was already on screen and brought it back up; and it
+     did not play on a change, because the same element is reused and a CSS
+     animation does not restart when `src` does. A transition restarts with the
+     attribute, so a picture still being fetched comes up as it arrives, and a
+     swap between two views cross-fades the way this line always meant to. */
+  transition: opacity var(--sc-dur-slow) var(--sc-ease);
 }
 
-@keyframes sc-pstudio-well-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+.sc-pstudio-well img[data-waiting] {
+  opacity: 0;
 }
 
 .sc-pstudio-well[data-drawing] img {
@@ -849,7 +851,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .sc-pstudio-well img {
-    animation: none;
+    transition: none;
   }
 
   /* The studio is simply there, with no travel: the same thing the house

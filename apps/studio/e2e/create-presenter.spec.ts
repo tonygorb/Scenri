@@ -833,6 +833,43 @@ test.describe('a person from scratch', () => {
       .not.toBe('empty');
   });
 
+  /**
+   * Putting a picture back from the log brings its view to the stage.
+   *
+   * The press is on one view while the stage may be showing another, so acting
+   * on it and leaving the stage where it was answered somewhere the person
+   * could not see: the face stayed up while the full body quietly changed
+   * underneath the conversation. Reported 2026-09-16.
+   */
+  test('a picture put back from the log brings its own view to the stage', async ({ page }) => {
+    test.setTimeout(120_000);
+    const brand = await currentBrand(page);
+    const base = `/api/brands/${brand.id}/presenter-drafts`;
+    // a full body with two pictures and nothing drawn from it, so the log
+    // offers to put one back, while the face is what the stage shows
+    const draftId = await seedDraft(page, brand.id, 'portrait-approved');
+    await page.request.post(`${base}/${draftId}/views/front/generate`, { data: {} });
+    await settledView(page, brand.id, draftId, 'front', 'candidate');
+    await page.request.post(`${base}/${draftId}/views/front/approve`);
+    await page.request.post(`${base}/${draftId}/views/front/generate`, { data: { adjustment: 'arms relaxed' } });
+    await settledView(page, brand.id, draftId, 'front', 'candidate');
+
+    await openDraft(page, brand, draftId);
+    await expect(page.locator('.sc-pstudio-well img')).toBeVisible({ timeout: 20_000 });
+
+    // the face is what is being looked at
+    await page.locator('.sc-pstudio-slot').first().click();
+    await expect(page.locator('.sc-pstudio-well img')).toHaveAttribute('alt', /Face/);
+
+    // and a picture of the full body is put back from the conversation
+    const put = log(page).locator('.sc-convo-restore').first();
+    await expect(put).toBeVisible({ timeout: 20_000 });
+    await put.click();
+
+    // the stage goes to the view that was acted on
+    await expect(page.locator('.sc-pstudio-well img')).toHaveAttribute('alt', /Full body/, { timeout: 20_000 });
+  });
+
   test('an unfinished person is offered back from the library, and can be let go', async ({ page }) => {
     const brand = await currentBrand(page);
     const draftId = await seedDraft(page, brand.id, 'portrait-candidate', 'Halden');

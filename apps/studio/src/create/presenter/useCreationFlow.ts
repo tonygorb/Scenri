@@ -1449,7 +1449,14 @@ export function useCreationFlow({
       onText: (text: string) => dispatch({ type: 'text', text }),
       onSend,
       onAnswer,
-      onRestore: (view: string, hash: string) => void s.restore(view as StudioView, hash),
+      // Putting a picture back from the log brings its view to the stage.
+      // The press is on one view while the stage shows another, so acting on it
+      // and leaving the stage where it was answered somewhere the person could
+      // not see. The stage's own Put back already acts on the view it shows.
+      onRestore: (view: string, hash: string) => {
+        setFocus(view as StudioView);
+        void s.restore(view as StudioView, hash);
+      },
       onEdit,
       onSaveEdit,
       onCancelEdit,

@@ -440,7 +440,12 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
       onText: setText,
       onSend,
       onAnswer,
-      onRestore: (view: string, hash: string) => void s.restore(view as StudioView, hash),
+      // Putting a picture back from the log brings its view to the stage: the
+      // press is on one view while the stage may be showing another.
+      onRestore: (view: string, hash: string) => {
+        setFocus(view as StudioView);
+        void s.restore(view as StudioView, hash);
+      },
       footnote: capsNote(''),
     },
     setupNeeded: !canDraw ? openSetup : null,
