@@ -248,6 +248,8 @@ export interface CodexSetupResult {
 export interface ScrapeReport {
   url: string;
   host: string;
+  /** False when the site answered and refused us, so the kit is the address alone. */
+  read: boolean;
   name: { value: string; source: 'json-ld' | 'og:site_name' | 'title' | 'hostname' };
   tagline: string | null;
   logo: { status: 'primary' | 'alternate' | 'none'; source: string | null; note?: string };

@@ -15,7 +15,7 @@ import * as cheerio from 'cheerio';
 import { liveClassTokens, paletteFrom } from './colors.js';
 import { type LogoCandidate, type LogoSource, logoCandidates, svgAsMark } from './logoCandidates.js';
 import { type GuardOptions, type GuardedFetch, createGuardedFetch } from './safeFetch.js';
-import { ScrapeError, urlRefusal } from './scrapeError.js';
+import { ScrapeError, isRefusal, urlRefusal } from './scrapeError.js';
 import { normalizeSiteUrl } from './siteUrl.js';
 
 export interface BuildOptions {
@@ -80,6 +80,15 @@ export interface ScrapeReport {
   /** The URL actually read, after redirects. */
   url: string;
   host: string;
+  /**
+   * Whether the page was read at all.
+   *
+   * False when the site answered and refused us. The kit rows are honest
+   * either way - a hostname name, no logo, no colours - but they say what is
+   * missing without saying why, and "the site would not let us in" and "the
+   * site has nothing on it" are different sentences for the person reading.
+   */
+  read: boolean;
   name: { value: string; source: NameSource };
   tagline: string | null;
   logo: { status: 'primary' | 'alternate' | 'none'; source: LogoSource | null; score?: number; note?: string };
@@ -117,7 +126,29 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
     ...(opts.fetchImpl ? { fetchImpl: opts.fetchImpl, allowPrivateHosts: true } : {}),
   });
 
-  const page = await get(normalized.url, 'html');
+  /**
+   * A site that refuses the first request used to end the step with nothing.
+   *
+   * Every other request in this function already degrades: a stylesheet that
+   * will not load leaves the palette to inline styles, a logo that will not
+   * download leaves a warning and a kit without one. Only the homepage was
+   * fatal, so a site that answered 429 once produced a red box and no brand,
+   * while a site that refused everything *after* the homepage produced a
+   * perfectly usable one.
+   *
+   * A refusal is not an absence. The address is real, the person typed it on
+   * purpose, and a name and a website are enough to start from - the logo and
+   * colours are two fields in Settings. A 404 or a name that does not resolve
+   * is the opposite case and still throws, because inventing a brand for an
+   * address with nothing behind it would bury a typo.
+   */
+  let page: Awaited<ReturnType<GuardedFetch>>;
+  try {
+    page = await get(normalized.url, 'html');
+  } catch (err) {
+    if (!isRefusal(err)) throw err;
+    return addressOnlyBrand(normalized.url, (err as ScrapeError).message, opts);
+  }
   const origin = new URL(page.finalUrl);
   const $ = cheerio.load(page.text);
   const base = baseOf($, origin);
@@ -166,12 +197,7 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
     specVersion: '0.1',
     meta: {
       name: named.value,
-      slug:
-        named.value
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '')
-          .slice(0, 48) || origin.hostname,
+      slug: slugOf(named.value, origin.hostname),
       ...(tagline ? { tagline } : {}),
       website: origin.origin,
       createdWith: opts.createdWith ?? 'scenri',
@@ -206,6 +232,7 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
     report: {
       url: page.finalUrl,
       host: origin.hostname,
+      read: true,
       name: named,
       tagline: tagline ?? null,
       logo: {
@@ -215,6 +242,55 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
         ...(picked.note ? { note: picked.note } : {}),
       },
       colors: { count: colorCount },
+    },
+  };
+}
+
+/** The one slug rule, so a refused site and a read one are named the same way. */
+function slugOf(name: string, fallback: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48) || fallback
+  );
+}
+
+/**
+ * What we can honestly build from an address a site would not let us read.
+ *
+ * The name is the hostname, exactly as `pickName` falls back to it, so this
+ * kit is indistinguishable from one built for a site with no title - a case
+ * the screen already handles. `kitNeedsHand` is true for a hostname name with
+ * no logo and no colours, so the setup screen already says "Finish the kit
+ * first" and points at Settings without needing a new state.
+ */
+function addressOnlyBrand(url: string, reason: string, opts: BuildOptions): BuildResult {
+  const origin = new URL(url);
+  const name = origin.hostname.replace(/^www\./, '');
+  return {
+    brand: {
+      specVersion: '0.1',
+      meta: {
+        name,
+        slug: slugOf(name, origin.hostname),
+        website: origin.origin,
+        createdWith: opts.createdWith ?? 'scenri',
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    // The first sentence is the site's own refusal, already written for a
+    // person by `statusSentence`; the second is what they can do about it.
+    warnings: [reason, 'The brand was made from the address. Add the logo and colours in Settings.'],
+    report: {
+      url: origin.origin,
+      host: origin.hostname,
+      read: false,
+      name: { value: name, source: 'hostname' },
+      tagline: null,
+      logo: { status: 'none', source: null },
+      colors: { count: 0 },
     },
   };
 }

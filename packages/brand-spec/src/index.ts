@@ -17,3 +17,13 @@ export { ScrapeError, type ScrapeErrorCode } from './scrapeError.js';
  * has two places to get it wrong, and only one of them gets fixed.
  */
 export { assertPublicHost, isPrivateAddress } from './safeFetch.js';
+export {
+  clearHostManners,
+  coolHost,
+  hostCooldownLeft,
+  hostOf,
+  isChallenge,
+  retryAfterMs,
+  throttleBackoff,
+  waitForHost,
+} from './hostManners.js';

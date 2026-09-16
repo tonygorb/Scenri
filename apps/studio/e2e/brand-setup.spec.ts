@@ -389,3 +389,70 @@ test('a scan that fails says so, and offers another go', async ({ page }) => {
   await page.getByRole('button', { name: 'Continue without products' }).click();
   await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
 });
+
+/**
+ * The 2026-09-16 report: a pasted store answered "asked Scenri to slow down"
+ * and nothing was created.
+ *
+ * The scrape reads a homepage, its stylesheets and its logo - and only the
+ * homepage was fatal. A site that refused everything *after* it produced a
+ * perfectly good kit; a site that refused the first byte produced a red box
+ * and no brand at all. A refusal is not an absence: the address is real and
+ * the person typed it on purpose, so the brand is made from the address and
+ * the two missing fields are named.
+ */
+test('a site that answers and refuses still becomes a brand', async ({ page }) => {
+  // The look for a shop runs its own budget against the same refusing host,
+  // and now waits out the cooldown the scrape armed. Bounded, but longer than
+  // the file's default.
+  test.setTimeout(120_000);
+  const busy = createServer((_req, res) => {
+    // No Retry-After and a plain body: a rate limit, not a challenge.
+    res.writeHead(429, { 'content-type': 'text/plain' });
+    res.end('slow down');
+  });
+  await new Promise<void>((r) => busy.listen(0, '127.0.0.1', r));
+  const port = (() => {
+    const a = busy.address();
+    return typeof a === 'object' && a ? a.port : 0;
+  })();
+
+  try {
+    await page.goto('/setup');
+    await page.locator('#sc-wiz-url').fill(`http://127.0.0.1:${port}/`);
+    await page.getByRole('button', { name: 'Build the kit' }).click();
+    const anyway = page.getByRole('button', { name: 'Create anyway' });
+    if (await anyway.isVisible().catch(() => false)) await anyway.click();
+
+    // A kit exists. This is the assertion the old behaviour could not pass.
+    const lines = page.locator('.sc-kit-lines');
+    await expect(lines).toBeVisible({ timeout: 30_000 });
+    await expect(lines).toContainText('Name');
+    await expect(lines).toContainText('127.0.0.1');
+
+    // It is honestly empty rather than wrong.
+    await expect(lines).toContainText('none found');
+
+    // And it says why, quietly, without a status code.
+    const note = page.locator('.sc-kit-note');
+    await expect(note).toBeVisible();
+    await expect(note).toContainText(/slow down|would not let Scenri read it/i);
+    await expect(page.locator('.sc-wiz')).not.toContainText(/429|undefined|null|ScrapeError/);
+
+    // Not an error: nothing red, and the way forward is the normal one.
+    await expect(page.locator('.rt-CalloutRoot')).toHaveCount(0);
+
+    // The look for a shop runs against the same refusing host, and now waits
+    // out the cooldown the scrape armed, so this settles rather than racing.
+    // Any of the three terminal buttons is a pass; "Looking for products" is
+    // not one of them.
+    const onward = page.getByRole('button', {
+      name: /^(Looks right|Look for products again|Add brand and products)/,
+    });
+    await expect(onward).toBeVisible({ timeout: 60_000 });
+    await onward.click();
+    await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
+  } finally {
+    await new Promise<void>((r) => busy.close(() => r()));
+  }
+});

@@ -251,21 +251,66 @@ describe('buildFromUrl', () => {
     expect(validateBrand(brand).valid).toBe(true);
   });
 
+  /**
+   * A refusal is not an absence.
+   *
+   * Every other request in a scrape already degrades - a stylesheet or a logo
+   * that will not load costs a warning, not the kit. The homepage alone was
+   * fatal, so a site that answered 429 once ended the step with a red box and
+   * nothing created, while a site that refused everything *after* its homepage
+   * produced a perfectly good brand. A person pasted `allbirds.com` and got
+   * the first of those.
+   *
+   * The name, the address and the sentence are all still true; the logo and
+   * the colours are two fields in Settings.
+   */
+  it('still makes a brand from a site that answers and refuses', async () => {
+    for (const [status, host] of [
+      [500, 'down.example'],
+      [403, 'walled.example'],
+      [429, 'busy.example'],
+    ] as const) {
+      const refusing = (async () => new Response('no', { status })) as unknown as typeof fetch;
+      const { brand, warnings, report } = await buildFromUrl(`https://${host}/`, { fetchImpl: refusing });
+
+      expect((brand as any).meta.name).toBe(host);
+      expect((brand as any).meta.website).toBe(`https://${host}`);
+      expect(validateBrand(brand).valid).toBe(true);
+      // The kit is honestly empty rather than wrong.
+      expect(report.logo.status).toBe('none');
+      expect(report.colors.count).toBe(0);
+      expect(report.name.source).toBe('hostname');
+      // And it says what happened, and what to do about it.
+      expect(warnings.join(' ')).toMatch(/Settings/);
+      expect(warnings.join(' ')).not.toMatch(/\b[45]\d\d\b|undefined|null/);
+    }
+  });
+
   // A person reads this, so it names the site and says what happened rather
   // than quoting a status line at them.
   it('says what a refusing site answered, in a sentence a person can act on', async () => {
     const err = (async () => new Response('nope', { status: 500 })) as unknown as typeof fetch;
-    await expect(buildFromUrl('https://down.example/', { fetchImpl: err })).rejects.toThrow(
-      'down.example had trouble answering. Try again in a moment.',
-    );
+    const { warnings } = await buildFromUrl('https://down.example/', { fetchImpl: err });
+    expect(warnings[0]).toBe('down.example had trouble answering. Try again in a moment.');
   });
 
   // A number is not an explanation, and 403 is almost always a CDN refusing
   // anything that is not a browser - not something the person did.
   it('explains a refusal instead of quoting its status code', async () => {
     const walled = (async () => new Response('no', { status: 403 })) as unknown as typeof fetch;
-    await expect(buildFromUrl('https://walled.example/', { fetchImpl: walled })).rejects.toThrow(
-      /would not let Scenri read it.*by hand/s,
+    const { warnings } = await buildFromUrl('https://walled.example/', { fetchImpl: walled });
+    expect(warnings[0]).toMatch(/would not let Scenri read it.*by hand/s);
+  });
+
+  /**
+   * The other half of the rule. A refusal means a server is there and
+   * declining; a 404 means this address has no page on it, which is almost
+   * always a typo. Inventing a brand for it would bury the mistake.
+   */
+  it('still refuses an address with nothing behind it', async () => {
+    const gone = (async () => new Response('nope', { status: 404 })) as unknown as typeof fetch;
+    await expect(buildFromUrl('https://typo.example/', { fetchImpl: gone })).rejects.toThrow(
+      /no page at that address/i,
     );
   });
 

@@ -29,9 +29,32 @@ export class ScrapeError extends Error {
     readonly code: ScrapeErrorCode,
     message: string,
     readonly statusCode: 400 | 502 = 502,
+    /**
+     * What the site actually answered, when it answered at all.
+     *
+     * Carried because the caller has to tell two failures apart that read the
+     * same from here: a site that is there and will not talk to us, and an
+     * address with nothing behind it. The first should still produce a brand;
+     * the second is a typo and must not.
+     */
+    readonly httpStatus?: number,
   ) {
     super(message);
   }
+}
+
+/**
+ * Whether a site answered us at all, rudely.
+ *
+ * 401, 403, 429 and every 5xx mean a server is there and declining. 404 does
+ * not: it means this address has no page, which is a different sentence and a
+ * different outcome.
+ */
+export function isRefusal(err: unknown): boolean {
+  if (!(err instanceof ScrapeError)) return false;
+  if (err.code === 'timeout') return true;
+  if (err.code !== 'http_status' || err.httpStatus === undefined) return false;
+  return err.httpStatus === 401 || err.httpStatus === 403 || err.httpStatus === 429 || err.httpStatus >= 500;
 }
 
 /** The reason a URL was refused, as the error the routes already understand. */

@@ -1,6 +1,14 @@
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
-import { assertPublicHost } from '@scenri/brand';
+import {
+  assertPublicHost,
+  coolHost,
+  hostOf,
+  isChallenge,
+  retryAfterMs,
+  throttleBackoff,
+  waitForHost,
+} from '@scenri/brand';
 import type { FetchImpl } from '../types.js';
 
 /**
@@ -95,96 +103,12 @@ function sleep(ms: number) {
 }
 
 /**
- * How long each host has asked us to stay away, shared by every request.
- *
- * A crawl runs several requests at once, and without this each one discovers a
- * rate limit separately: four workers spend four private retry budgets against
- * a host that has already said no, and all four give up at almost the same
- * moment. Measured on a real store behind Cloudflare, that is the difference
- * between importing 17 of 25 products and importing none of 1,186 - the site
- * answered 429 to nearly everything and the crawl read it as "no product
- * here".
- *
- * One entry per host, only ever extended, cleared by time. Nothing to tune and
- * nothing to reset: a host that stops refusing simply stops being in it.
+ * Re-exported so this module stays the one import site a crawler needs, and so
+ * the tests that already name them here keep working. The rules themselves now
+ * live in `@scenri/brand` beside `assertPublicHost`, because the brand scraper
+ * is a second client against the same hosts and had none of them.
  */
-const cooledUntil = new Map<string, number>();
-
-const hostOf = (url: string): string => {
-  try {
-    return new URL(url).host;
-  } catch {
-    return '';
-  }
-};
-
-/** Hold until this host's cooldown has passed. Returns early if the caller stops. */
-async function waitForHost(host: string, signal?: AbortSignal): Promise<void> {
-  if (!host) return;
-  for (;;) {
-    const left = (cooledUntil.get(host) ?? 0) - Date.now();
-    if (left <= 0 || signal?.aborted) return;
-    await sleep(Math.min(left, 250));
-  }
-}
-
-/** Record that a host wants distance. Never shortens a longer wait already set. */
-function coolHost(host: string, ms: number): void {
-  if (!host || ms <= 0) return;
-  const until = Date.now() + ms;
-  if (until > (cooledUntil.get(host) ?? 0)) cooledUntil.set(host, until);
-}
-
-/** Longest we will honour a host's own number, so one bad header cannot park a crawl. */
-const RETRY_AFTER_CAP_MS = 60_000;
-
-/**
- * `Retry-After`, in milliseconds, as either a count of seconds or an HTTP date.
- *
- * Asking the server how long to wait beats guessing. Null when it said nothing
- * usable, which is the common case and leaves the caller's own backoff in charge.
- */
-export function retryAfterMs(header: string | null, now = Date.now()): number | null {
-  if (!header) return null;
-  const secs = Number(header.trim());
-  if (Number.isFinite(secs) && secs >= 0) return Math.min(secs * 1000, RETRY_AFTER_CAP_MS);
-  const at = Date.parse(header);
-  if (Number.isNaN(at)) return null;
-  return Math.min(Math.max(0, at - now), RETRY_AFTER_CAP_MS);
-}
-
-/**
- * Whether a refusal is an anti-bot challenge rather than a rate limit.
- *
- * The two arrive as the same status and mean opposite things. A rate limit is
- * a queue: wait, and the next request works. A challenge is a door: it asks
- * for a browser we are not, so every retry fails the same way, and each one
- * re-arms the cooldown that `waitForHost` makes every other request share.
- *
- * Measured 2026-09-16 on a Shopify store behind Cloudflare: twenty-four
- * requests to `/products/<handle>.json` answered 429 with `cf-mitigated:
- * challenge` and no `Retry-After`, after which `products.json` and
- * `sitemap.xml` - both 200 a minute earlier - answered the same challenge for
- * minutes. Meanwhile `/products/<handle>` served 200 to all twenty-four at
- * eight wide. Treating that as a rate limit parked the whole host and starved
- * the one endpoint that worked, so 1,186 readable products imported as none.
- *
- * Headers only, deliberately: the body is the caller's to read, and a
- * challenge announces itself before it. `Retry-After` is the tell for a real
- * limiter - a server that tells us when to come back means it.
- */
-export function isChallenge(res: Response): boolean {
-  if (res.status !== 429 && res.status !== 503) return false;
-  if (res.headers.get('cf-mitigated')) return true;
-  if (res.headers.get('retry-after')) return false;
-  return /text\/html/i.test(res.headers.get('content-type') ?? '');
-}
-
-/** Backoff for a host that is refusing us: seconds, not milliseconds, and jittered. */
-function throttleBackoff(attempt: number): number {
-  const base = Math.min(1000 * 2 ** attempt, 16_000);
-  return base + Math.floor(Math.random() * 400);
-}
+export { isChallenge, retryAfterMs };
 
 /** Bounded fetch with timeout, polite UA, and exponential backoff on 429/5xx. */
 export async function httpGet(url: string, opts: HttpOptions = {}): Promise<Response> {

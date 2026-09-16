@@ -59,6 +59,8 @@ export function BrandSetup() {
   const [choosing, setChoosing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [report, setReport] = useState<ScrapeReport | null>(null);
+  /** Why the kit is thin, when a site answered and would not be read. */
+  const [note, setNote] = useState<string | null>(null);
   /**
    * The brand this input would duplicate, when one exists. Creating it anyway
    * is allowed — the second click says so — but never by accident: this is
@@ -103,6 +105,10 @@ export function BrandSetup() {
       // a confirmation that could still be refused.
       setMade(b);
       setReport(b.report);
+      // A site that answered and refused still makes a brand, and the rows
+      // already say what is missing. This is the one sentence that says why,
+      // written for a person by the scraper. Not an error: something was made.
+      setNote(b.report?.read === false ? (b.warnings?.[0] ?? null) : null);
       setBusy(false);
     } catch (e: any) {
       setErr(String(e.message ?? e));
@@ -428,6 +434,7 @@ export function BrandSetup() {
                     ))}
                   </ul>
                 )}
+                {note && <p className="sc-kit-note">{note}</p>}
                 {!scanning && !scanFailed && scanRetryable(outcome) && (
                   <button type="button" className="sc-wizpick-open" onClick={retry}>
                     Try the catalogue again
