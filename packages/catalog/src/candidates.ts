@@ -18,7 +18,15 @@ import { fetchProductPages } from './adapters/productPage.js';
 import { dedupeProducts } from './normalize.js';
 import { fetchRobots, isAllowed } from './robots.js';
 import { normalizeStoreUrl, originOf } from './url.js';
-import type { AdapterContext, CommerceVerdict, CountSource, JobProgress, ScanBudget, ScanResult } from './types.js';
+import type {
+  AdapterContext,
+  CatalogCard,
+  CommerceVerdict,
+  CountSource,
+  JobProgress,
+  ScanBudget,
+  ScanResult,
+} from './types.js';
 
 /**
  * Measured, not guessed.
@@ -200,6 +208,28 @@ async function scanOnce(opts: ScanOptions, baseUrl: string): Promise<ScanResult>
     return done(commerce ? 'likely' : 'none', [], [], 0, countSource, warnings);
   }
 
+  /**
+   * The listing already told us, so do not go and ask again.
+   *
+   * A store with a bulk API hands over every product's name and pictures while
+   * discovery is counting them. Reading two dozen product pages on top of that
+   * bought a preview of data we already had in full, and the chooser then paid
+   * one request per card for the rest of it. Measured on a 1,186 product store:
+   * five requests brought the catalogue and drawing it cost another 1,186,
+   * which is how cards came to sit blank and how the store came to refuse us.
+   *
+   * No pages, no preview, no per-card requests - and the whole catalogue on
+   * screen instead of the first twenty-four.
+   */
+  const listed = discovered.cards ?? [];
+  if (listed.length) {
+    const byUrl = new Set(urls);
+    const usable = listed.filter((c) => byUrl.has(c.url));
+    const cards = usable.length ? usable : listed;
+    opts.onProgress?.({ stage: 'discovering', discovered: cards.length, message: `Found ${cards.length} products` });
+    return done('found', [], urls, urls.length || cards.length, countSource, warnings, cards);
+  }
+
   opts.onProgress?.({ stage: 'discovering', discovered: urls.length, message: 'Reading a few products' });
   // Whatever discovery cost, the preview still gets its floor.
   const previewDeadline = Math.max(deadline, Date.now() + budget.previewFloorMs);
@@ -240,6 +270,7 @@ async function scanOnce(opts: ScanOptions, baseUrl: string): Promise<ScanResult>
     count: number,
     source: CountSource,
     notes: string[],
+    cards: CatalogCard[] = [],
   ): ScanResult {
     return {
       baseUrl,
@@ -247,6 +278,7 @@ async function scanOnce(opts: ScanOptions, baseUrl: string): Promise<ScanResult>
       signals: detection?.signals ?? [],
       verdict,
       count,
+      cards,
       countSource: source,
       candidates,
       candidateUrls,

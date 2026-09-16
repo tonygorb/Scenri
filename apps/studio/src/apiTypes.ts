@@ -703,9 +703,26 @@ export interface CommerceScan {
   countSource: 'api' | 'sitemap' | 'listing' | 'preview' | 'none';
   /** A preview, read and parsed. Nothing here is saved until someone says so. */
   candidates: CatalogCandidate[];
+  /**
+   * Every product the store's own listing already described.
+   *
+   * Present whenever the store has a bulk API, covering the whole catalogue
+   * rather than a preview of it, so the chooser draws without asking for
+   * anything. Empty for a store readable only one page at a time.
+   */
+  cards?: CatalogCard[];
   candidateUrls: string[];
   truncated: boolean;
   warnings: string[];
+}
+
+/** A product as the chooser needs it: a name, an address and one picture. */
+export interface CatalogCard {
+  externalKey: string;
+  title: string;
+  url: string;
+  handle?: string | null;
+  image?: string | null;
 }
 
 /** A product that has been read but not saved. */

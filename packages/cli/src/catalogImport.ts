@@ -17,6 +17,7 @@ import {
   type JobProgress,
   type Platform,
 } from '@scenri/catalog';
+import { hostOf } from '@scenri/brand';
 import type { Core } from '@scenri/core';
 
 export interface CatalogImportDeps {
@@ -229,7 +230,7 @@ async function runJob(
     }
 
     const run = beginWrite(deps, jobId, brandId, baseUrl, platform, tally, discovered);
-    const pictures = drainPictures(deps, jobId, brandId, tally, signal);
+    const pictures = drainPictures(deps, jobId, brandId, tally, signal, hostOf(baseUrl));
 
     // A product goes in the moment its page parsed, and its pictures start
     // downloading beside the crawl rather than after it.
@@ -363,6 +364,35 @@ const TERMINAL: ReadonlySet<string> = new Set(['completed', 'partial', 'no_catal
  * latency it costs is hidden by asking early rather than by asking harder.
  */
 const IMAGE_CONCURRENCY = 4;
+
+/**
+ * The same question, for a store whose pictures live somewhere else.
+ *
+ * The four above is a budget against one host: on gymshark.com the pictures
+ * come from the storefront itself, so four page reads and four downloads is
+ * eight at once to a single server, and sixteen got the run shut out twice.
+ *
+ * Most storefronts are not that shape. Shopify serves every picture from
+ * `cdn.shopify.com`, which is a different host from the shop and a CDN rather
+ * than an application - so while the pictures are downloading, the storefront
+ * is being asked for nothing at all, and the four-per-host budget it was owed
+ * is being spent on a server that never sees it.
+ *
+ * Twelve is the number the original fixture sweep already found: 600 pictures
+ * behind a 120 ms delay took 20.9 s at six, 11.0 s at twelve, and were flat by
+ * sixteen. It applies only when every picture in the round is off-host, and
+ * the shared host cooldown still answers for us if the CDN disagrees.
+ */
+const IMAGE_CONCURRENCY_OFF_HOST = 12;
+
+/** Whether nothing in this round would touch the shop itself. */
+function allOffHost(round: { sourceUrl: string }[], storeHost: string): boolean {
+  if (!storeHost || !round.length) return false;
+  return round.every((img) => {
+    const h = hostOf(img.sourceUrl);
+    return h !== '' && h !== storeHost;
+  });
+}
 
 /**
  * What a job has done so far, across however many batches it takes.
@@ -605,6 +635,8 @@ function drainPictures(
   brandId: string,
   tally: Tally,
   signal: AbortSignal,
+  /** The shop's own host, so a round that never touches it can go faster. */
+  storeHost = '',
   imagesPerProduct = IMAGES_PER_PRODUCT,
 ): { stop(): void; done: Promise<{ errors: unknown[]; reasons: FailureTally }> } {
   const { core, fetchImpl } = deps;
@@ -627,7 +659,7 @@ function drainPictures(
       tally.imagesTotal += round.length;
       await mapPool(
         round,
-        IMAGE_CONCURRENCY,
+        allOffHost(round, storeHost) ? IMAGE_CONCURRENCY_OFF_HOST : IMAGE_CONCURRENCY,
         async (img) => {
           if (signal.aborted) return;
           try {

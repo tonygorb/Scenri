@@ -1,8 +1,15 @@
 import { httpJson, httpText, mapPool, outOfTime } from '../http/fetch.js';
-import { absolutize, originOf, preferCanonicalLocale } from '../url.js';
+import { absolutize, originOf, preferCanonicalLocale, upgradeImageUrl } from '../url.js';
 import { normalizeProduct } from '../normalize.js';
 import { fetchProductPages } from './productPage.js';
-import type { AdapterContext, CatalogAdapter, CatalogProduct, DetectResult, DiscoverResult } from '../types.js';
+import type {
+  AdapterContext,
+  CatalogAdapter,
+  CatalogCard,
+  CatalogProduct,
+  DetectResult,
+  DiscoverResult,
+} from '../types.js';
 
 function mapShopifyProduct(base: string, p: any): CatalogProduct {
   const handle = String(p.handle ?? '');
@@ -82,6 +89,25 @@ async function fetchProductsJsonPage(
   });
   if (ok && json?.products) return { products: json.products, blocked: false };
   return { products: [], blocked: status === 401 || status === 403 || status === 404 || status >= 500 };
+}
+
+/**
+ * The listing entry, as a card: a name, an address and one picture.
+ *
+ * `upgradeImageUrl` is the same rule the importer uses, so the picture on the
+ * card is the picture that gets saved rather than a thumbnail of it.
+ */
+function cardOf(origin: string, p: any): CatalogCard {
+  const handle = String(p.handle ?? '');
+  const first = (p.images ?? [])[0] ?? p.image ?? null;
+  const src = first ? String(first.src ?? first) : null;
+  return {
+    externalKey: String(p.id),
+    title: String(p.title ?? handle),
+    url: absolutize(origin, `/products/${handle}`) ?? `${originOf(origin)}/products/${handle}`,
+    handle: handle || null,
+    image: src ? upgradeImageUrl(src) : null,
+  };
 }
 
 /** Discovery's word that the product API refused us, so fetching must not ask it again. */
@@ -175,6 +201,10 @@ export const shopifyAdapter: CatalogAdapter = {
     const hints: string[] = [];
     const keys = new Set<string>();
     const productUrls = new Set<string>();
+    // Kept, not discarded. Every page of `/products.json` already carries the
+    // title and pictures a chooser needs; throwing them away meant asking the
+    // store again, once per card, for what we had just downloaded.
+    const cards: CatalogCard[] = [];
     const origin = originOf(ctx.baseUrl);
 
     // Paginate products.json until empty — no artificial cap
@@ -200,6 +230,7 @@ export const shopifyAdapter: CatalogAdapter = {
       for (const p of products) {
         keys.add(String(p.id));
         if (p.handle) productUrls.add(`${origin}/products/${p.handle}`);
+        cards.push(cardOf(origin, p));
       }
       // Shopify caps at 250/page; if short page, we're done
       if (products.length < 250) break;
@@ -225,6 +256,7 @@ export const shopifyAdapter: CatalogAdapter = {
     return {
       productKeys: [...keys],
       productUrls: [...productUrls],
+      cards,
       estimatedTotal: keys.size || productUrls.size || null,
       // A store whose own product API answered but refused us leaves nothing
       // to read but the pages themselves, one request each. That is what
