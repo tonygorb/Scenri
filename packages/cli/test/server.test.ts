@@ -411,6 +411,28 @@ describe('brands API', () => {
 });
 
 describe('generation flow', () => {
+  it('refuses to retry a finished shot in place', { timeout: 20_000 }, async () => {
+    const brand = await mkBrand();
+    const { project, root } = await mkProject(brand.id);
+    const gen = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: project.id,
+        parentId: root.id,
+        kind: 'generation',
+        prompt: 'hero',
+        engineId: 'demo',
+        width: 256,
+        height: 256,
+      },
+    });
+    const node = await waitDone(gen.json().id);
+    expect(node.status).toBe('done');
+    const retry = await app.inject({ method: 'POST', url: `/api/nodes/${node.id}/retry` });
+    expect(retry.statusCode).toBe(400);
+  });
+
   it('generate -> done with images; edit child; keep; tree', { timeout: 20_000 }, async () => {
     const brand = await mkBrand();
     const { project, root } = await mkProject(brand.id);
@@ -1818,6 +1840,49 @@ describe('node watchdog', () => {
     expect(cancel.statusCode).toBe(200);
     const node = await waitDoneOn(local, gen.json().id);
     expect(node.status).toBe('cancelled');
+    await local.close();
+  });
+
+  it('retrying a cancelled shot reopens the same node, and a second press while running is 409', async () => {
+    const local = track(buildServer({ core, engines: registryWith(hang()), nodeTimeoutMs: 60_000 }));
+    const b = await local.inject({
+      method: 'POST',
+      url: '/api/brands',
+      payload: { brand: { specVersion: '0.1', meta: { name: 'W' }, palette: { primary: { hex: '#123456' } } } },
+    });
+    const proj = await local.inject({
+      method: 'POST',
+      url: '/api/projects',
+      payload: { brandId: b.json().id, name: 'w' },
+    });
+    const gen = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId: proj.json().project.id,
+        parentId: proj.json().root.id,
+        kind: 'generation',
+        prompt: 'x',
+        engineId: 'hang',
+        width: 256,
+        height: 256,
+      },
+    });
+    const id = gen.json().id as string;
+    await local.inject({ method: 'POST', url: `/api/nodes/${id}/cancel` });
+    expect((await waitDoneOn(local, id)).status).toBe('cancelled');
+
+    const retry = await local.inject({ method: 'POST', url: `/api/nodes/${id}/retry` });
+    expect(retry.statusCode).toBe(202);
+    expect(retry.json().id).toBe(id);
+    expect(retry.json().status).toBe('running');
+    expect(retry.json().siblings[0].id).toBe(id);
+
+    const again = await local.inject({ method: 'POST', url: `/api/nodes/${id}/retry` });
+    expect(again.statusCode).toBe(409);
+
+    await local.inject({ method: 'POST', url: `/api/nodes/${id}/cancel` });
+    await waitDoneOn(local, id);
     await local.close();
   });
 

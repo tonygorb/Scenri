@@ -11,6 +11,7 @@ import {
   mergeFeed,
   orderTasks,
   parseTime,
+  runSince,
   runningPhrase,
   saveFeed,
   saveSeen,
@@ -184,6 +185,20 @@ describe('taskFromNode', () => {
     expect(taskFromNode(node({ setNames: [], status: 'running' }), brand, now).subtitle).toBe('generating');
     const now30 = Date.parse('2026-08-04T12:00:30Z');
     expect(taskFromNode(node({ setNames: [], status: 'running' }), brand, now30).subtitle).toBe('still generating');
+  });
+  it('a same-card retry clocks from startedAt, not the original createdAt', () => {
+    const now = Date.parse('2026-08-04T12:00:12Z');
+    const retried = node({
+      setNames: [],
+      status: 'running',
+      createdAt: '2026-08-04 11:43:00',
+      startedAt: '2026-08-04 12:00:00',
+    });
+    expect(runSince(retried)).toBe('2026-08-04 12:00:00');
+    expect(elapsedLabel(runSince(retried), now)).toBe('0:12');
+    const t = taskFromNode(retried, brand, now);
+    expect(t.startedAt).toBe('2026-08-04 12:00:00');
+    expect(t.subtitle).toBe('generating');
   });
 });
 

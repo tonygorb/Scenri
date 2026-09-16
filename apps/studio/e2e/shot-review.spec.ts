@@ -100,7 +100,7 @@ const thumbOf = (s: Shot) => `/api/images/${s.hash}/thumb?w=160`;
 const stripSrcs = (p: Page) =>
   p.locator('.sc-thumbs .sc-thumb').evaluateAll((els) => els.map((e) => e.getAttribute('src')));
 const railSrcs = (p: Page) =>
-  p.locator('.sc-rail-tile img').evaluateAll((els) => els.map((e) => e.getAttribute('src')));
+  p.locator('.sc-shotrail-tile img').evaluateAll((els) => els.map((e) => e.getAttribute('src')));
 const pressedIn = (p: Page, scope: string) => p.locator(`${scope} [aria-pressed="true"] img`).getAttribute('src');
 
 test("the strip is the root's whole history, whichever version is on the stage", async ({ page }) => {
@@ -125,7 +125,7 @@ test("the strip is the root's whole history, whichever version is on the stage",
   await expect(page).toHaveURL(new RegExp(`/shots/${shots.b1.id}$`));
   await expect.poll(() => stripSrcs(page)).toEqual([shots.b, shots.b1, shots.b2].map(thumbOf));
   expect(await pressedIn(page, '.sc-thumbs')).toBe(thumbOf(shots.b1));
-  expect(await pressedIn(page, '.sc-rail')).toBe(thumbOf(shots.b1));
+  expect(await pressedIn(page, '.sc-shotrail')).toBe(thumbOf(shots.b1));
   await expect(page.locator('.sc-ovl-head b')).toHaveText('Refinement 1');
   await expect(say).toHaveText('Refinement 1 of 2');
   // the refine field says which picture the words are about: the one on the
@@ -149,13 +149,13 @@ test("the strip is the root's whole history, whichever version is on the stage",
   await expect(refining.locator('img')).toHaveAttribute('src', thumbOf(shots.b2));
 
   // another root from the rail: its own history, and none of B's
-  await page.locator(`.sc-rail-tile img[src="${thumbOf(shots.d)}"]`).click();
+  await page.locator(`.sc-shotrail-tile img[src="${thumbOf(shots.d)}"]`).click();
   await expect(page).toHaveURL(new RegExp(`/shots/${shots.d.id}$`));
   await expect.poll(() => stripSrcs(page)).toEqual([shots.d, shots.d1].map(thumbOf));
   await expect(say).toHaveText('Original');
 
   // a root with no history shows no versions, and the row is held so the stage does not move
-  await page.locator(`.sc-rail-tile img[src="${thumbOf(shots.a)}"]`).click();
+  await page.locator(`.sc-shotrail-tile img[src="${thumbOf(shots.a)}"]`).click();
   await expect(page).toHaveURL(new RegExp(`/shots/${shots.a.id}$`));
   await expect(page.locator('.sc-thumbs .sc-thumb-btn')).toHaveCount(0);
   await expect(page.locator('.sc-trail-empty')).toHaveCount(1);
@@ -187,10 +187,40 @@ test('the rail is the feed, and the arrows, the keys and the wheel walk it', asy
   await expect(page).toHaveURL(new RegExp(`/shots/${prev}$`));
 });
 
+test('the rail scrolls and keeps the ringed tile in the middle', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 400 });
+  await page.goto(shotUrl(shots.b));
+  await expect(page.locator('.sc-ovl')).toBeVisible();
+  const rail = page.locator('.sc-shotrail');
+  await expect(rail).toBeVisible();
+  await expect.poll(() => rail.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+
+  const tiles = page.locator('.sc-shotrail-tile');
+  const n = await tiles.count();
+  await tiles.nth(Math.floor(n / 2)).click();
+  await expect
+    .poll(async () => {
+      return rail.evaluate((el) => {
+        const tile = el.querySelector<HTMLElement>('[aria-pressed="true"]');
+        if (!tile) return 999;
+        const r = el.getBoundingClientRect();
+        const t = tile.getBoundingClientRect();
+        return Math.abs((t.top + t.bottom) / 2 - (r.top + r.bottom) / 2);
+      });
+    })
+    .toBeLessThan(48);
+
+  const before = await rail.evaluate((el) => el.scrollTop);
+  const box = (await rail.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, 200);
+  await expect.poll(() => rail.evaluate((el) => el.scrollTop)).not.toBe(before);
+});
+
 test('refining after a switch lands under the shot on the stage', async ({ page }) => {
   await page.goto(shotUrl(shots.b));
   await expect(page.locator('.sc-ovl')).toBeVisible();
-  await page.locator(`.sc-rail-tile img[src="${thumbOf(shots.c)}"]`).click();
+  await page.locator(`.sc-shotrail-tile img[src="${thumbOf(shots.c)}"]`).click();
   await expect(page).toHaveURL(new RegExp(`/shots/${shots.c.id}$`));
   let posted: any = null;
   await page.route('**/api/nodes', async (route) => {

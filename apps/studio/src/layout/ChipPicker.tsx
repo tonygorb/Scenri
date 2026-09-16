@@ -12,9 +12,9 @@ import { ChipField } from './ChipField.js';
  * menu you open, which is what made the sheet they share look assembled.
  * Here the field is the same in both and only the words on offer differ.
  *
- * The field reads like a field: the chosen words as chips, and the whole of
- * it opens the menu, which is where one is taken off again. The menu is a box
- * that
+ * The field reads like a field: the chosen words as chips, each with the
+ * composer's hover-X so a word can come off without opening the menu, and
+ * the rest of the field opens the menu. The menu is a box that
  * narrows the list as you type, the words already known with a mark against
  * the ones that are on, and a row that takes a word nobody has used before.
  * Choosing does not close it, because choosing two is the common case.
@@ -85,9 +85,18 @@ export function ChipPicker({
         if (!next) setQuery('');
       }}
     >
-      <DropdownMenu.Trigger>
-        <ChipField items={value} placeholder={placeholder} label={label} />
-      </DropdownMenu.Trigger>
+      <ChipField
+        items={value}
+        placeholder={placeholder}
+        open={open}
+        onOpen={() => setOpen(true)}
+        onRemove={(item) => onChange(value.filter((v) => !same(v, item)))}
+        hit={
+          <DropdownMenu.Trigger asChild>
+            <button type="button" className="sc-chipfield-hit" aria-label={label} />
+          </DropdownMenu.Trigger>
+        }
+      />
       <DropdownMenu.Content align="start" sideOffset={6} className="sc-menu sc-chippick-menu">
         <input
           ref={field}

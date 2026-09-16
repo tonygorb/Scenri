@@ -139,6 +139,7 @@ export const api = {
     // working; `siblings` is the whole batch, slot 0 first
     req<TreeNode & { warnings?: string[]; siblings: TreeNode[] }>('POST', '/api/nodes', p),
   cancelNode: (nodeId: string) => req<{ ok: true }>('POST', `/api/nodes/${nodeId}/cancel`),
+  retryNode: (nodeId: string) => req<TreeNode & { siblings: TreeNode[] }>('POST', `/api/nodes/${nodeId}/retry`),
   scenes: () => req<{ scenes: Scene[]; collections: string[]; verticals: string[] }>('GET', '/api/scenes'),
   presenters: () => req<{ presenters: Presenter[]; categories: string[]; styles: string[] }>('GET', '/api/presenters'),
   /** The reference frames a presenter has on disk, if any. */

@@ -55,6 +55,9 @@ test('the page is the record: tiles by role that open at full size, two actions,
   await expect(page.getByRole('heading', { level: 1 }).or(page.getByLabel('Their name'))).toBeVisible();
   await expect(page.locator('.sc-refset li')).toHaveCount(3);
   await expect(page.locator('.sc-refset-lb')).toHaveText(['Face', 'Full body', 'Three-quarter']);
+  await expect(page.locator('.sc-refset-tile[data-role="portrait"]')).toHaveCount(1);
+  await expect(page.locator('.sc-refset-tile[data-role="front"]')).toHaveCount(1);
+  await expect(page.locator('.sc-refset-tile[data-role="three-quarter"]')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Use in a shot' }).first()).toBeVisible();
   await expect(page.getByRole('link', { name: 'Edit presenter' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'What must stay the same' })).toHaveCount(0);

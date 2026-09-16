@@ -48,6 +48,8 @@ export interface FeedNode {
   kept: boolean;
   error: string | null;
   createdAt: string;
+  /** When this run began. Same as createdAt on a first send; restamped on retry so the wait clock does not inherit the original card. */
+  startedAt: string;
   /** Structured brief this shot came from; null for legacy nodes. */
   brief: unknown | null;
   /** Put away, not gone: an archived node is excluded from the default feed
@@ -251,7 +253,7 @@ const LINEAGE_HISTORY_MAX = 60;
 
 /** What every list reads: no prompt, no overlays, two JSON columns instead of three. */
 const FEED_COLS = `n.id, n.project_id, n.parent_id, n.kind, substr(n.prompt, 1, ${PROMPT_HEAD_CHARS}) AS prompt_head,
-  n.engine_id, n.status, n.images, n.cost_usd, n.duration_ms, n.kept, n.error, n.created_at, n.brief, n.archived,
+  n.engine_id, n.status, n.images, n.cost_usd, n.duration_ms, n.kept, n.error, n.created_at, n.started_at, n.brief, n.archived,
   n.batch_id, n.batch_index, ${CHILD_COUNT_SQL} AS child_count`;
 
 function rowToFeedNode(r: any): FeedNode {
@@ -269,6 +271,7 @@ function rowToFeedNode(r: any): FeedNode {
     kept: !!r.kept,
     error: r.error,
     createdAt: r.created_at,
+    startedAt: r.started_at ?? r.created_at,
     brief: r.brief ? JSON.parse(r.brief) : null,
     archived: !!r.archived,
     batchId: r.batch_id ?? null,
@@ -742,6 +745,19 @@ export function createStore(db: DB) {
     },
     cancelNode(id: string): void {
       db.prepare("UPDATE nodes SET status='cancelled' WHERE id=?").run(id);
+    },
+    /**
+     * Run this shot again on the same row. The card keeps its place: id,
+     * brief, prompt, parent and created_at stay put. Status goes back to
+     * running, the old error and pictures go, so the tile becomes the wait.
+     * started_at moves to now so the clock on the card is this run, not the
+     * minutes the first attempt already spent.
+     */
+    reopenNode(id: string): TreeNode {
+      db.prepare(
+        "UPDATE nodes SET status='running', error=NULL, images='[]', duration_ms=NULL, cost_usd=0, started_at=strftime('%Y-%m-%d %H:%M:%f','now') WHERE id=?",
+      ).run(id);
+      return this.getNode(id)!;
     },
     getNode(id: string): TreeNode | null {
       const r = db.prepare(`SELECT n.*, ${CHILD_COUNT_SQL} AS child_count FROM nodes n WHERE n.id=?`).get(id) as any;

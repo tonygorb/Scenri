@@ -41,3 +41,38 @@ test('a failed slot fails alone, and the shots that landed are usable', async ({
   await tile(page, ids[0]).locator('.sc-cell-open').click();
   await expect(page.locator('.sc-ovl')).toBeVisible();
 });
+
+test('Try again on a failed tile reuses that card', async ({ page }) => {
+  const brands = await (await page.request.get('/api/brands')).json();
+  const slug = brands[0].slug as string;
+  await page.goto(`/${slug}/create`);
+  await page.evaluate(() => localStorage.setItem('scenri:count', '4'));
+  await page.goto(`/${slug}/create`);
+  await expect(line(page)).toBeVisible();
+
+  const answered = page.waitForResponse((r) => r.url().endsWith('/api/nodes') && r.request().method() === 'POST');
+  await line(page).click();
+  await page.keyboard.type('one of these will not make it');
+  await dock(page).locator('.sc-send').click();
+  const ids = ((await (await answered).json()).siblings as { id: string }[]).map((s) => s.id);
+  expect(ids).toHaveLength(4);
+
+  await expect(page.locator('.sc-cell[data-running]')).toHaveCount(0, { timeout: 30_000 });
+  await expect(tile(page, ids[1])).toHaveAttribute('data-failed', /.+/);
+
+  const retried = page.waitForResponse(
+    (r) => r.url().includes(`/api/nodes/${ids[1]}/retry`) && r.request().method() === 'POST',
+  );
+  await tile(page, ids[1]).getByRole('button', { name: 'Try again' }).click();
+  const body = await (await retried).json();
+  expect(body.id).toBe(ids[1]);
+
+  await expect(tile(page, ids[1])).toHaveAttribute('data-running', 'true');
+  await expect(tile(page, ids[1])).not.toHaveAttribute('data-failed');
+  await expect(page.locator(`.sc-cell[data-fb-node="${ids[1]}"]`)).toHaveCount(1);
+
+  await expect(tile(page, ids[1])).not.toHaveAttribute('data-running', { timeout: 30_000 });
+  await expect(tile(page, ids[1]).locator('img')).toBeVisible();
+  await expect(tile(page, ids[1])).not.toHaveAttribute('data-failed');
+  await expect(page.locator(`.sc-cell[data-fb-node="${ids[1]}"]`)).toHaveCount(1);
+});

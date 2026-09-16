@@ -496,17 +496,33 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   }, [nodeId]);
 
   /**
-   * Run this shot's own recipe again, as one new sibling.
+   * Failed or cancelled: run this card again, same id. Finished: a new sibling.
    *
-   * One card, one retry, one new shot — a card is a single image now, so
-   * trying it again asks for exactly one more, whatever size the batch that
-   * made it was.
+   * Those are two verbs. A failure that opened a second card left you unsure
+   * which tile was the retry. A finished shot's Try again is still a different
+   * take, and walks to it.
    *
    * A rejection here is a spend cap or an engine that has gone away — both
    * worth reading. This used to be fired as `void retry(n)` and rejected in
    * silence, so the button simply appeared to do nothing.
    */
+  const retrying = useRef(new Set<string>());
   const retry = async (node: FeedNode): Promise<string | null> => {
+    if (node.status === 'running' || retrying.current.has(node.id)) return node.id;
+    if (node.status === 'error' || node.status === 'cancelled') {
+      retrying.current.add(node.id);
+      try {
+        const next = await api.retryNode(node.id);
+        applyNodes([next]);
+        poke();
+        return next.id;
+      } catch (e: any) {
+        push(failureToast(e, 'Could not run this again'));
+        return null;
+      } finally {
+        retrying.current.delete(node.id);
+      }
+    }
     try {
       // the whole record: a shot made before briefs existed runs again from its prompt
       const full = await api.node(node.id);

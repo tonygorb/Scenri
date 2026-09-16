@@ -28,6 +28,8 @@ export interface FeedNode {
   kept: boolean;
   error: string | null;
   createdAt: string;
+  /** When this run began. Same as createdAt on a first send; a same-card retry restamps it. Older payloads omit it. */
+  startedAt?: string;
   /**
    * The recipe, stored verbatim so the shot can be run again or reopened in
    * the composer. `variants` and `quality` are settings rather than sentence:

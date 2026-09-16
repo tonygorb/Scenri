@@ -61,6 +61,11 @@ export function parseTime(s: string): number {
   return Date.parse(s.includes('T') ? s : `${s.replace(' ', 'T')}Z`);
 }
 
+/** The clock on a running shot. createdAt is the card's place in the feed; a retry restamps startedAt so the wait does not inherit the first attempt. */
+export function runSince(n: { startedAt?: string | null; createdAt: string }): string {
+  return n.startedAt || n.createdAt;
+}
+
 export function elapsedSec(createdAt: string, now = Date.now()): number {
   const t = parseTime(createdAt);
   return Number.isNaN(t) ? 0 : Math.max(0, Math.round((now - t) / 1000));
@@ -142,7 +147,7 @@ export function taskFromNode(n: ActivityNode, brand: { slug: string }, now = Dat
   const made = batchSize > 1 ? `${batchSize} shots` : 'ready';
   const subtitle =
     n.status === 'running'
-      ? `${where}${runningPhrase(n.createdAt, now)}`
+      ? `${where}${runningPhrase(runSince(n), now)}`
       : n.status === 'error'
         ? `${where}${n.error ?? 'failed'}`
         : n.status === 'cancelled'
@@ -157,7 +162,7 @@ export function taskFromNode(n: ActivityNode, brand: { slug: string }, now = Dat
     thumb: n.images[0] ?? null,
     // a generation has no honest percent: the house shows shimmer and seconds
     percent: null,
-    startedAt: n.createdAt,
+    startedAt: n.status === 'running' ? runSince(n) : n.createdAt,
     // the overlay hangs off the hub now, not off a project nobody named
     href: shotPath(brand, null, n.id),
   };

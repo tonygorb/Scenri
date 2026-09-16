@@ -69,7 +69,11 @@ describe('describeFailure', () => {
   it('separates the provider running dry from our own cap', () => {
     const f = describeFailure('HTTP 402: insufficient credit', 'OpenRouter');
     expect(f.kind).toBe('credit');
-    expect(f.remedy?.opens).toBe('engines');
+    expect(f.title).toBe('OpenRouter is out of credit.');
+    // The top-up is at the provider. A card that only offered Engines could
+    // not be re-run after a Codex re-auth or a topped-up key.
+    expect(f.retryable).toBe(true);
+    expect(f.remedy).toBeUndefined();
   });
 
   it('a rate limit is the one money-adjacent failure worth retrying', () => {

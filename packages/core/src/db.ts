@@ -744,6 +744,12 @@ export function openDb(homeDir: string): DB {
     // and there was no history from which to state what to expect.
     db.exec('ALTER TABLE nodes ADD COLUMN duration_ms INTEGER');
   }
+  if (!nodeCols.includes('started_at')) {
+    // When the current run began. created_at stays the card's place in the
+    // feed; a retry restamps this so the wait clock starts at 0:00 instead
+    // of inheriting however long the first attempt already sat there.
+    db.exec('ALTER TABLE nodes ADD COLUMN started_at TEXT');
+  }
   // Batch provenance: which multi-shot request produced this node and which
   // slot it filled. Internal metadata only — the user's content object is the
   // image, never the batch — but it is what keeps siblings reading in request
