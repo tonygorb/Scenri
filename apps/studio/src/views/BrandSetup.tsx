@@ -110,7 +110,11 @@ export function BrandSetup() {
       // A site that answered and refused still makes a brand, and the rows
       // already say what is missing. This is the one sentence that says why,
       // written for a person by the scraper. Not an error: something was made.
-      setNote(b.report?.read === false ? (b.warnings?.[0] ?? null) : null);
+      // Both sentences, because one of them is only half the answer. The first
+      // is the site's own refusal; the second says a brand was made anyway and
+      // where the two missing fields live. "Try again in a minute" on its own
+      // reads as a failure, which is exactly what this stopped being.
+      setNote(b.report?.read === false ? (b.warnings?.slice(0, 2).join(' ') || null) : null);
       setBusy(false);
     } catch (e: any) {
       setErr(String(e.message ?? e));

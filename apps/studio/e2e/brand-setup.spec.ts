@@ -437,6 +437,9 @@ test('a site that answers and refuses still becomes a brand', async ({ page }) =
     const note = page.locator('.sc-kit-note');
     await expect(note).toBeVisible();
     await expect(note).toContainText(/slow down|would not let Scenri read it/i);
+    // And what to do about it: a refusal that only says "try again" reads as a
+    // failure, and this stopped being one the moment a brand was created.
+    await expect(note).toContainText(/Settings/);
     await expect(page.locator('.sc-wiz')).not.toContainText(/429|undefined|null|ScrapeError/);
 
     // Not an error: nothing red, and the way forward is the normal one.
