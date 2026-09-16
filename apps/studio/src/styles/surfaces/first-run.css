@@ -120,6 +120,7 @@
     }
     /* A plateau across the middle, not a single peak: without it only one card
        is ever full size and the pair under the eye disagree by a few percent. */
+    /* biome-ignore-start lint/suspicious/noDuplicateCustomProperties: each keyframe stop is its own block; the rule reads the stops as one */
     @keyframes sc-shelf-swell {
       /* Swell (clip) and opacity only, never width, height, margin or
        * transform. Those are layout on the row, so they would reflow every
@@ -157,6 +158,7 @@
         opacity: 0.34;
       }
     }
+    /* biome-ignore-end lint/suspicious/noDuplicateCustomProperties: end of the keyframe stops */
   }
 }
 /* Arrows, because a mouse has no sideways gesture. Same shape and behaviour as

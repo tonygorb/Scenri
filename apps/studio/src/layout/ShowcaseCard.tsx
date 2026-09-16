@@ -230,10 +230,14 @@ function CreditTip({
       const pw = pop?.offsetWidth || tipW;
       const ph = pop?.offsetHeight || tipH;
       const vv = window.visualViewport;
-      const next = placeTip(r, { width: vv?.width ?? window.innerWidth, height: vv?.height ?? window.innerHeight }, {
-        width: pw,
-        height: ph,
-      });
+      const next = placeTip(
+        r,
+        { width: vv?.width ?? window.innerWidth, height: vv?.height ?? window.innerHeight },
+        {
+          width: pw,
+          height: ph,
+        },
+      );
       if (!next) {
         setPos(null);
         return;

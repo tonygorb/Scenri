@@ -108,52 +108,55 @@ export function useShelf<T extends HTMLElement>(count: number) {
   /** One card per press. A first-run row is a set of choices, not a gallery
    *  you skip through — same manner as Rail / useRefRail. A screenful step
    *  hid the card under the eye and read as the arrows doing nothing. */
-  const page = useCallback((dir: 1 | -1) => {
-    const el = ref.current;
-    const child = el?.firstElementChild as HTMLElement | null;
-    if (!el || !child) return;
-    // The grid track, not the clipped picture.
-    const cell = child.offsetWidth || 232;
-    const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 0;
-    const stride = cell + gap;
-    // Another press while one is gliding adds a card, it does not restart
-    // from wherever the ease has got to.
-    const from = target.current ?? el.scrollLeft;
-    target.current = from + stride * dir;
+  const page = useCallback(
+    (dir: 1 | -1) => {
+      const el = ref.current;
+      const child = el?.firstElementChild as HTMLElement | null;
+      if (!el || !child) return;
+      // The grid track, not the clipped picture.
+      const cell = child.offsetWidth || 232;
+      const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 0;
+      const stride = cell + gap;
+      // Another press while one is gliding adds a card, it does not restart
+      // from wherever the ease has got to.
+      const from = target.current ?? el.scrollLeft;
+      target.current = from + stride * dir;
 
-    const finish = () => {
-      stopGlide();
-    };
+      const finish = () => {
+        stopGlide();
+      };
 
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      el.scrollLeft = target.current;
-      finish();
-      wrap();
-      return;
-    }
-
-    cancelAnimationFrame(raf.current);
-    let frames = 0;
-    const tick = () => {
-      const dest = target.current;
-      if (dest === null) return;
-      const distance = dest - el.scrollLeft;
-      frames += 1;
-      // A hard frame cap so a wrap or a background tab cannot leave the
-      // ease running after the 0.5px line.
-      if (Math.abs(distance) < 0.5 || frames > 45) {
-        el.scrollLeft = dest;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        el.scrollLeft = target.current;
         finish();
         wrap();
         return;
       }
-      // Exponential ease-out: fast away, settling softly, and unbothered by a
-      // wrap moving both ends of the journey mid-flight.
-      el.scrollLeft += distance * 0.16;
+
+      cancelAnimationFrame(raf.current);
+      let frames = 0;
+      const tick = () => {
+        const dest = target.current;
+        if (dest === null) return;
+        const distance = dest - el.scrollLeft;
+        frames += 1;
+        // A hard frame cap so a wrap or a background tab cannot leave the
+        // ease running after the 0.5px line.
+        if (Math.abs(distance) < 0.5 || frames > 45) {
+          el.scrollLeft = dest;
+          finish();
+          wrap();
+          return;
+        }
+        // Exponential ease-out: fast away, settling softly, and unbothered by a
+        // wrap moving both ends of the journey mid-flight.
+        el.scrollLeft += distance * 0.16;
+        raf.current = requestAnimationFrame(tick);
+      };
       raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
-  }, [stopGlide, wrap]);
+    },
+    [stopGlide, wrap],
+  );
 
   return { ref, page };
 }
