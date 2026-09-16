@@ -88,6 +88,22 @@ will spend, from the first frame, the way the scene flow does. It used to say
 "Checking the engine..." and then unmount when the probe answered, which moved
 the composer 35px while the first question was still being spoken.
 
+**A route that names a draft asks nothing until it has one.** With no draft
+loaded the flow looks exactly like a new conversation, so it asked the first
+question, the record landed on top of it, and it was taken away a render later.
+The transcript grew by that question's height and shrank back, and because the
+newest turn is pinned to the bottom of the rail, everything above was thrown up
+and came back down. Nothing said is unsaid: a transcript that shrinks while it
+opens has taken something away, and the pin turns that into a journey.
+
+**A picture the browser already has is simply there.** The well carries a
+transition, not an entrance animation: an animation plays on mount, when the
+picture is usually already decoded, and does not play on a change, because the
+element is reused and a CSS animation does not restart when `src` does. So it
+dimmed what was already on screen and brought it back up, and never
+cross-faded the swap it was written for. A picture that has not arrived has no
+bitmap to show, so it waits at zero and comes up as it arrives.
+
 ## What each control does, and what it costs
 
 Every control that can spend a generation or throw work away, in one place. All
@@ -99,13 +115,18 @@ other rows' jobs, so a new one goes in this table before it goes in the UI.
 | Use this / Use it | the view is decided, and the views drawn from it are asked whether they still stand | yes, for whatever it stales | the picture it replaced, if nothing chose it |
 | Keep previous | the view wears the picture it replaced | no | the picture that was on it |
 | Try again | the view is drawn again from the same words | yes, one | nothing: the picture stays in the log |
-| Put back (a version) | the view wears an earlier picture; the one it takes off becomes the other side of the decision | no | nothing |
+| Put back (a version) | the view wears an earlier picture; the one it takes off becomes the other side of the decision, and the stage goes to that view | no | nothing |
 | The version arrows | nothing at all, it is a look | no | nothing |
 | Start over | the conversation begins again from the first question | no | nothing, while anything is drawn: the draft stays on the wall. A draft with no picture on it goes |
 | Discard (on the card) | the draft is gone | no | the draft and the pictures nothing else holds |
 | Delete (a presenter) | the record is gone, and any session open on it ends | no | the record and the pictures nothing else holds |
 
 Two of them are worth saying in words, because both have been got wrong:
+
+**Put back acts on its own view.** Pressed in the conversation it is about one
+view while the stage may be showing another, so the stage goes to the view that
+was acted on. Leaving it where it was changed the full body underneath a face
+nobody had stopped looking at.
 
 **Put back is a swap, never a verdict.** It leaves the view's status exactly as
 it found it, so a picture still waiting to be decided is still waiting, and the
@@ -297,6 +318,9 @@ brackets; a row with none is a manual pass.
 - [ ] It says what it will spend, and nothing moves after it lands (`create-presenter`, `create-asset`)
 - [ ] On a phone the close is on the screen, thumb-sized, level with the title
 - [ ] Reduced motion: it is simply there, with no travel
+- [ ] Opening a draft asks nothing it then withdraws, and no picture moves
+      (`presenterFlowRules`, `presenter-drafts`)
+- [ ] A picture already decoded is at full strength on its first frame
 
 **Responsive and reach**
 - [ ] Creation and the editor at 430, 390 and 375. Verified by hand 2026-09-16
