@@ -12,15 +12,17 @@ Thanks for considering it. Issues with clear reproduction steps are as welcome a
 
 ```bash
 pnpm install
-git config core.hooksPath .githooks   # enables the secret-scan pre-commit hook
+git config core.hooksPath .githooks   # secret-scan pre-commit, and commit-msg strips AI trailers
 brew install gitleaks                 # or see github.com/gitleaks/gitleaks
 pnpm build && pnpm dev                # studio on http://127.0.0.1:4747
 ```
 
 Please run that `git config` line once. Git will not enable hooks for you, so the
-hook is opt-in per clone. It refuses any commit containing something shaped like
-a credential, and if gitleaks is not installed it says so and steps aside rather
-than giving you false confidence.
+hooks are opt-in per clone. `pre-commit` refuses any commit containing something
+shaped like a credential, and if gitleaks is not installed it says so and steps
+aside rather than giving you false confidence. `commit-msg` drops AI
+`Co-Authored-By` and "Generated with" trailers so the author stays the person
+who committed.
 
 The full test suite compiles prompts against the library imagery, which the repo
 deliberately does not carry. Hydrate it once, about a 95 MB download, cached

@@ -1,0 +1,45 @@
+#!/bin/sh
+# Strip AI authorship trailers a harness appended. Commits stay Tony's.
+# Rewrites the message; never rejects the commit.
+#
+# Install: git config core.hooksPath .githooks
+# Bypass once, deliberately: git commit --no-verify
+
+msgfile=$1
+if [ ! -f "$msgfile" ]; then
+  exit 0
+fi
+
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+
+while IFS= read -r line || [ -n "$line" ]; do
+  lc=$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]')
+  case "$lc" in
+    co-authored-by:*)
+      case "$lc" in
+        *claude*|*cursor*|*cursoragent@*|*anthropic.com*|*copilot*|*codex*|*openai/codex*)
+          continue
+          ;;
+      esac
+      ;;
+    generated\ with*)
+      continue
+      ;;
+  esac
+  case "$line" in
+    🤖*)
+      continue
+      ;;
+  esac
+  printf '%s\n' "$line"
+done < "$msgfile" > "$tmp"
+
+# Drop trailing blank lines so the message ends on the last real sentence.
+awk '
+  { lines[++n] = $0 }
+  END {
+    while (n > 0 && lines[n] ~ /^[ \t]*$/) n--
+    for (i = 1; i <= n; i++) print lines[i]
+  }
+' "$tmp" > "$msgfile"
