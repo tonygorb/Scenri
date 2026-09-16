@@ -180,8 +180,7 @@ async function faceFirst(draftId: string) {
   return getPresenterDraft(core, draftId)!;
 }
 
-const refsOf = (req: GenerateRequest) =>
-  (req.referenceImages ?? []).map((p) => basename(p, '.png'));
+const refsOf = (req: GenerateRequest) => (req.referenceImages ?? []).map((p) => basename(p, '.png'));
 const view = (d: PresenterDraftRecord, v: PresenterView) => d.views[v];
 
 async function synthetic(direction = 'confident woman in her 40s, short silver hair') {
@@ -281,7 +280,7 @@ describe('from scratch: the identity is one person, rolled and then locked', () 
     expect(generated[1].prompt).toContain('full-length head-to-toe framing');
     // the analyzer read the approved portrait, once, and its words name the person from here on
     expect(analyzed).toHaveLength(1);
-    expect(analyzed[0].imagePaths.map((p: string) => p.split('/').pop())).toEqual([`${portrait}.png`]);
+    expect(analyzed[0].imagePaths.map((p: string) => basename(p))).toEqual([`${portrait}.png`]);
     expect(analyzed[0].instruction).toContain('confident woman');
     expect(d.analysis?.promptName).toBe('a woman in her forties with a short silver crop');
     expect(generated[1].prompt).toContain('a woman in her forties with a short silver crop');
