@@ -25,7 +25,7 @@ import { seamPenalty, seamResidual } from '../src/outpaint/score.js';
 import { centralFidelity } from '../src/outpaint/fidelity.js';
 
 const HOME = process.env.SCENRI_HOME || join(homedir(), '.scenri');
-const OUT = process.env.BATTERY_OUT || join(homedir(), 'Desktop/scenri-project/scenri-ops/extend-bakeoff-2026-08-26');
+const OUT = process.env.BATTERY_OUT || join(homedir(), 'scenri-batteries', 'extend-2026-08-26');
 const { SOURCES, TARGET } = JSON.parse(readFileSync(join(OUT, 'sources.json'), 'utf8'));
 const rows = readFileSync(join(OUT, 'ledger.jsonl'), 'utf8')
   .split('\n')

@@ -49,7 +49,7 @@ import { seamPenalty, seamResidual } from '../src/outpaint/score.js';
 const HOME = process.env.SCENRI_HOME || join(homedir(), '.scenri');
 const IMAGES = join(HOME, 'images');
 const PREVIEWS = join(HOME, 'content', 'previews');
-const OUT = process.env.BATTERY_OUT || join(homedir(), 'Desktop/scenri-project/scenri-ops/extend-bakeoff-2026-08-26');
+const OUT = process.env.BATTERY_OUT || join(homedir(), 'scenri-batteries', 'extend-2026-08-26');
 const LEDGER = join(OUT, 'ledger.jsonl');
 const CONCURRENCY = Number(process.env.BATTERY_CONCURRENCY || 3);
 

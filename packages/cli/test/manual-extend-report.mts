@@ -28,7 +28,7 @@ import { seamScore } from '../src/seamScore.js';
 import { seamPenalty, seamResidual } from '../src/outpaint/score.js';
 
 const HOME = process.env.SCENRI_HOME || join(homedir(), '.scenri');
-const OUT = process.env.BATTERY_OUT || join(homedir(), 'Desktop/scenri-project/scenri-ops/extend-bakeoff-2026-08-26');
+const OUT = process.env.BATTERY_OUT || join(homedir(), 'scenri-batteries', 'extend-2026-08-26');
 const rows = readFileSync(join(OUT, 'ledger.jsonl'), 'utf8')
   .split('\n')
   .filter((l) => l.trim())
