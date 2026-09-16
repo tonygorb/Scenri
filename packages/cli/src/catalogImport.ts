@@ -7,6 +7,7 @@ import {
   detectPlatform,
   imageFailure,
   summarise,
+  shortfall,
   tally as countFailure,
   thrownFailure,
   type FailureTally,
@@ -300,6 +301,11 @@ async function runJob(
       refused: stats.refused,
       reasons: { ...stats.reasons, ...pictureReasons },
       asked: bulk ? bulk.length : urls.length,
+      // Addresses that actually yielded a page, which is the unit the person's
+      // question was asked in. Products are the wrong unit: one address can
+      // carry several, and counting them made a run that lost three addresses
+      // report that it had lost one.
+      worked: bulk ? bulk.length : Math.max(0, stats.pages - stats.refused),
       // Every address was read. A bulk API hands the catalogue over whole, so
       // there is nothing to cover.
       covered: bulk ? true : stats.pages >= urls.length,
@@ -461,6 +467,7 @@ function beginWrite(
       covered = true,
       reasons = {},
       asked = 0,
+      worked,
     }: {
       covered?: boolean;
       sweep: boolean;
@@ -471,6 +478,8 @@ function beginWrite(
       reasons?: FailureTally;
       /** How many products this run set out to save. */
       asked?: number;
+      /** How many of those addresses actually answered with a page. */
+      worked?: number;
     }) {
       /**
        * Retire what the store no longer lists - but only from a run entitled
@@ -514,7 +523,13 @@ function beginWrite(
        * A run that saved nothing has failed, and the reason goes with it.
        */
       const savedNothing = tally.upserted === 0;
-      const said = summarise(reasons, tally.upserted, asked || discovered || tally.fetched);
+      const total = asked || discovered || tally.fetched;
+      const said = summarise(
+        reasons,
+        tally.upserted,
+        total,
+        worked === undefined ? undefined : shortfall(total, worked),
+      );
       const stage: ImportStage = savedNothing ? 'failed' : partial ? 'partial' : 'completed';
       const message = savedNothing
         ? (said ?? 'We found the products on this site, but none of them could be imported.')
