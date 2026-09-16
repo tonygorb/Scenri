@@ -432,7 +432,16 @@ export function BrandSetup() {
                   </div>
                 )}
                 {report && (
-                  <ul className="sc-kit-lines">
+                  /*
+                    One concise announcement, not a stream of them.
+                    
+                    The three brand rows land together and the products row
+                    resolves once, so a reader hears "Name Summit, Logo found
+                    on the site, Colours 4 taken from the site, Products 294
+                    found" and nothing more. Per-product chatter during an
+                    import belongs nowhere near a live region.
+                  */
+                  <ul className="sc-kit-lines" role="status">
                     {[...kitLines(report), ...(products ? [products] : [])].map((line) => (
                       <li key={line.key} data-found={line.found ? '' : undefined}>
                         {line.key === 'products' && scanning ? (
@@ -448,7 +457,11 @@ export function BrandSetup() {
                     ))}
                   </ul>
                 )}
-                {note && <p className="sc-kit-note">{note}</p>}
+                {note && (
+                  <p className="sc-kit-note" role="status">
+                    {note}
+                  </p>
+                )}
                 {!scanning && !scanFailed && scanRetryable(outcome) && (
                   <button type="button" className="sc-wizpick-open" onClick={retry}>
                     Try the catalogue again

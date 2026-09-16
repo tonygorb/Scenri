@@ -459,3 +459,39 @@ test('a site that answers and refuses still becomes a brand', async ({ page }) =
     await new Promise<void>((r) => busy.close(() => r()));
   }
 });
+
+/**
+ * What a person using a keyboard and a screen reader gets.
+ *
+ * Nothing in this flow was announced. You pasted an address, pressed a button
+ * and heard silence: the kit rows appeared, the shop was counted or not, and a
+ * refusal explained itself, all of it invisible unless you could see it.
+ *
+ * Concise on purpose. The three brand rows land together and the products row
+ * resolves once, so this is a handful of announcements for a whole onboarding,
+ * not one per product.
+ */
+test('the kit says what it found, out loud, and the whole step is reachable by keyboard', async ({ page }) => {
+  await page.goto('/setup');
+
+  // Reachable without a mouse, and submits on Enter.
+  await page.locator('#sc-wiz-url').focus();
+  await expect(page.locator('#sc-wiz-url')).toBeFocused();
+  await page.keyboard.type(`http://${origin}/`);
+  await page.keyboard.press('Enter');
+
+  const anyway = page.getByRole('button', { name: 'Create anyway' });
+  if (await anyway.isVisible().catch(() => false)) await anyway.click();
+
+  // The result is in a live region, so it is spoken rather than merely drawn.
+  const lines = page.locator('.sc-kit-lines');
+  await expect(lines).toBeVisible({ timeout: 30_000 });
+  await expect(lines).toHaveAttribute('role', 'status');
+  await expect(lines).toContainText('Lucid');
+
+  // And the way onward is a real button a keyboard can reach.
+  const onward = page.getByRole('button', { name: /Looks right|Add brand and products|Look for products again/ });
+  await expect(onward).toBeVisible({ timeout: 45_000 });
+  await onward.focus();
+  await expect(onward).toBeFocused();
+});
