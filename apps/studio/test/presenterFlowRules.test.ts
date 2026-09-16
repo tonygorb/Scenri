@@ -722,6 +722,60 @@ describe('the record once a face is drawn', () => {
     expect(q?.kind === 'confirm' && q.options.map((o) => o.id)).toEqual(['use', 'again']);
   });
 
+  /**
+   * A restore leaves the view a candidate, so the question stands over a
+   * picture nothing just made. It used to say "Redrew the full body" about a
+   * picture from several draws back, and of a face put back to the one before
+   * an identity change it said "Here is her with the change", which is the
+   * opposite of what happened.
+   */
+  it('a picture put back is said as putting one back, not as a redraw', () => {
+    const at = '2026-09-16T00:00:00.000Z';
+    const d = draft({
+      views: {
+        ...draft().views,
+        portrait: approved('p1'),
+        // f1 was drawn first and has been put back; f2 is the one it replaced
+        front: { ...emptySlot(), status: 'candidate', hash: 'f1', prior: 'f2' },
+      },
+      results: [
+        { view: 'front', hash: 'f1', at, how: 'drawn' },
+        { view: 'front', hash: 'f2', at, how: 'drawn' },
+      ],
+    });
+    const T = turns(state(a), d);
+    expect(
+      T.find((t) => t.kind === 'scenri' && t.thumb === 'f1' && 'label' in t && t.label === 'Full body'),
+    ).toMatchObject({ text: 'Here is full body 1 again.' });
+    expect(open(T)?.prompt).toBe('Use it, or keep the previous one.');
+  });
+
+  /**
+   * The warning is about a redraw, so it is only said where using the picture
+   * causes one. A face put back to the one the other views were drawn from
+   * moves nothing, and warning that it will redraw them is a warning about
+   * nothing: it is what made putting a face back feel expensive.
+   */
+  it('warns that the set is redrawn only where using the face would redraw it', () => {
+    const at = '2026-09-16T00:00:00.000Z';
+    const changed = draft({
+      views: {
+        ...draft().views,
+        portrait: { ...emptySlot(), status: 'candidate', hash: 'p2', prior: 'p1' },
+        front: { ...approved('f1'), conditionedOn: ['p1'] },
+      },
+      results: [{ view: 'portrait', hash: 'p2', at, how: 'drawn' }],
+    });
+    expect(open(turns(state(a), changed))?.prompt).toContain('redraws the views built on the face');
+
+    // the same question about the face those views were actually drawn from
+    const back = draft({
+      ...changed,
+      views: { ...changed.views, portrait: { ...emptySlot(), status: 'candidate', hash: 'p1', prior: 'p2' } },
+    });
+    expect(open(turns(state(a), back))?.prompt).toBe('Use this, or keep the previous one.');
+  });
+
   it('a redrawn view is a revision, and that one does offer the previous picture', () => {
     const d = draft({
       views: {

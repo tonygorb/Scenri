@@ -14,6 +14,7 @@ import {
   coverageLine,
   identityLocked,
   viewsOf,
+  wouldStaleDependents,
 } from './presenterStudioRules.js';
 
 /**
@@ -370,6 +371,17 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
     // it, so offering to keep the previous one would be offering nothing.
     const slot = d.views[candidate];
     const revising = !!slot.prior;
+    /**
+     * Whether the picture being asked about was put back rather than drawn.
+     *
+     * A restore leaves the view a candidate, so the question stands over a
+     * picture nothing just made. Without this the conversation said "Redrew
+     * the full body" about a picture from four draws ago, and of a face put
+     * back to the one before an identity change it said "Here is her with the
+     * change", which is the opposite of what happened.
+     */
+    const landed = (h: string | undefined) => (h ? (numbers.get(`${candidate}:${h}`) ?? 0) : 0);
+    const putBack = !!slot.hash && !!slot.prior && landed(slot.hash) < landed(slot.prior);
     // The picture first, then the question about it.
     //
     // Every other picture in this conversation arrives as a line of its own
@@ -384,11 +396,13 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
       T.push({
         kind: 'scenri',
         id: `candidate-${candidate}-${slot.hash}`,
-        text: !revising
-          ? `Here is the ${VIEW_NAME[candidate]}.`
-          : candidate === 'portrait'
-            ? `Here is ${who} with the change.`
-            : `Redrew the ${VIEW_NAME[candidate]}.`,
+        text: putBack
+          ? `Here is ${VIEW_NAME[candidate]} ${landed(slot.hash)} again.`
+          : !revising
+            ? `Here is the ${VIEW_NAME[candidate]}.`
+            : candidate === 'portrait'
+              ? `Here is ${who} with the change.`
+              : `Redrew the ${VIEW_NAME[candidate]}.`,
         thumb: slot.hash,
         label: VIEW_LABEL[candidate],
         view: candidate,
@@ -400,10 +414,16 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
       id: candidate === 'portrait' ? 'revision' : 'view-revision',
       kind: 'confirm',
       // The words the picture already said are not said again underneath it.
+      // The face warns about the redraw it causes, and only when it causes one:
+      // a picture put back to the one the other views were drawn from moves
+      // nothing, so the warning would be about nothing. Same question the
+      // server answers before it stales anything.
       prompt: !revising
         ? 'Use it, or try again.'
         : candidate === 'portrait'
-          ? 'Use this, or keep the previous one. Using it redraws the views built on the face.'
+          ? `Use this, or keep the previous one.${
+              wouldStaleDependents(d, candidate) ? ' Using it redraws the views built on the face.' : ''
+            }`
           : 'Use it, or keep the previous one.',
       options: [
         { id: 'use', label: candidate === 'portrait' ? 'Use this' : 'Use it' },

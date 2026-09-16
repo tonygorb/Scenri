@@ -624,6 +624,11 @@ export interface Take {
  * log, which is where a chat remembers things.
  */
 export function builtOn(d: DraftLike, view: StudioView): boolean {
+  return dependentsOf(view).some((v) => !!d.views[v].hash);
+}
+
+/** Every view drawn from this one, transitively. The server derives it the same way. */
+export function dependentsOf(view: StudioView): StudioView[] {
   const after = new Set<StudioView>();
   for (let grew = true; grew; ) {
     grew = false;
@@ -635,7 +640,23 @@ export function builtOn(d: DraftLike, view: StudioView): boolean {
       }
     }
   }
-  return [...after].some((v) => !!d.views[v].hash);
+  return [...after];
+}
+
+/**
+ * Whether using this view's candidate would put the views drawn from it out of
+ * date. Asked of what each one was actually drawn from, which is the same
+ * question `reconcileDependents` asks on the server: a picture put back to the
+ * one they came from moves nothing, and a warning that they will be redrawn
+ * would be a warning about nothing.
+ */
+export function wouldStaleDependents(d: DraftLike, view: StudioView): boolean {
+  const hash = d.views[view].hash;
+  if (!hash) return false;
+  return dependentsOf(view).some((v) => {
+    const s = d.views[v];
+    return !!s.hash && !(s.conditionedOn ?? []).includes(hash);
+  });
 }
 
 /**
