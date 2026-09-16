@@ -240,18 +240,30 @@ describe('taskFromCatalogJob', () => {
     expect(at({ stage: 'fetching_products', discovered: 2199, fetched: 340, upserted: 0 })).toContain(
       'Reading 340 of 2,199 products',
     );
-    // Pictures get a clause, never a second scoreboard: this used to read
-    // "65 of 200 pictures", so the number under a row appeared to fall from
-    // 2,199 to 65 and the noun changed under it.
+    /**
+     * The picture phase counts pictures, and it is the only phase that counts
+     * anything but products.
+     *
+     * This read "200 products, adding pictures" for as long as the downloads
+     * took, which on a store that size is eight minutes of a sentence that
+     * never changes: every product is already saved by then, so the products
+     * number is finished and the only thing still moving is the one it was not
+     * showing. The unit changes exactly once, at the moment the work does.
+     */
     expect(at({ stage: 'processing_assets', discovered: 200, upserted: 200, imagesDone: 65, imagesTotal: 200 })).toBe(
-      '200 products, adding pictures',
+      '65 of 200 pictures',
+    );
+    // Until the total is known there is no fraction to show, so it stays on
+    // products rather than inventing "0 of 0".
+    expect(at({ stage: 'processing_assets', discovered: 200, upserted: 200, imagesTotal: 0 })).toBe(
+      '200 of 200 products',
     );
     expect(at({ stage: 'completed', discovered: 200, upserted: 200 })).toContain('200 of 200 products');
 
-    // Every one of them counts products, so the row never changes units.
-    for (const stage of ['discovering', 'fetching_products', 'processing_assets', 'completed'] as const) {
+    // Every other stage counts products, so the unit changes once and not back.
+    for (const stage of ['discovering', 'fetching_products', 'completed'] as const) {
       expect(at({ stage, discovered: 200, upserted: 120, fetched: 150, imagesTotal: 300, imagesDone: 90 })).not.toMatch(
-        /pictures\b.*\d|\d+ of \d+ pictures/,
+        /pictures/,
       );
     }
   });

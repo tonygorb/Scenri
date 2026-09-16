@@ -98,8 +98,9 @@ for (const [w, h, label] of [
     const bar = page.locator('.sc-impbar');
     await expect(bar).toBeVisible({ timeout: 40_000 });
     const text = await bar.innerText();
-    // It names the shop and counts products, in the one unit the row uses.
-    expect(text).toMatch(/\d+ of \d+ products|products/);
+    // It names the shop and counts the work, in whichever unit is still moving:
+    // products while they are being read, pictures once they all are.
+    expect(text).toMatch(/\d+ of \d+ (products|pictures)|products/);
     // A clock, not a percent. The job's percent goes backwards - the picture
     // phase divides by a total that grows as products are written - so what is
     // shown is the one number that cannot.
@@ -126,6 +127,16 @@ for (const [w, h, label] of [
       expect(nowPct).toBeGreaterThanOrEqual(last);
       last = nowPct;
     }
+
+    // The pill is the door back into the run. The exact counters, and the list
+    // of what failed, live in the dialog, and the only way into it used to be a
+    // row inside the bell.
+    await bar.getByRole('button', { name: 'Show import details' }).click();
+    const sheet = page.locator('.sc-imp');
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText('Found on the site')).toBeVisible();
+    await sheet.getByRole('button', { name: 'Close' }).click();
+    await expect(sheet).toBeHidden();
 
     // It offers the one thing there is to do, and stopping really stops it.
     await expect(bar.getByRole('button', { name: 'Stop importing' })).toBeVisible();

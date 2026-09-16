@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { marksOf, attachableMarks, markLabel, primaryOf, primaryMark } from '../src/brand/marks.js';
+import { marksOf, attachableMarks, iconMark, markLabel, primaryOf, primaryMark } from '../src/brand/marks.js';
 
 const HASH_A = 'a'.repeat(32);
 const HASH_B = 'b'.repeat(32);
@@ -92,5 +92,23 @@ describe('primaryOf / primaryMark', () => {
   it('returns the same object marksOf produced, so identity filters keep working', () => {
     const marks = marksOf(kit);
     expect(primaryOf(marks)).toBe(marks[0]);
+  });
+});
+
+/**
+ * A logo is whatever shape the brand draws it, and a wordmark five times wider
+ * than it is tall is correct and unusable in a 22px circle. The site's own icon
+ * is stored as `mark` for exactly this, so the small square surfaces ask here.
+ */
+describe('iconMark', () => {
+  it('prefers the mark over the logo, wherever it sits in stored order', () => {
+    expect(iconMark(kit)?.file).toBe('https://cdn.acme.coffee/mark.svg');
+  });
+  it('falls back to the canonical logo rather than to nothing', () => {
+    const noIcon = { logos: [{ role: 'primary', file: `asset:${HASH_A}` }] };
+    expect(iconMark(noIcon)?.hash).toBe(HASH_A);
+  });
+  it('is null on an empty kit', () => {
+    expect(iconMark({})).toBeNull();
   });
 });

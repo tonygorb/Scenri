@@ -214,6 +214,43 @@ describe('buildFromUrl', () => {
     expect(validateBrand(brand).valid).toBe(true);
   });
 
+  /**
+   * The shape lego.certifiedstore.co.il has, and the reason a 22px chip of it
+   * was three pixels of red.
+   *
+   * Its logo is a wordmark 5.5 times wider than it is tall, and it wins the
+   * logo contest on merit - that is the thing the compiler reproduces as
+   * drawn. It is simply not a square, and every surface that wants a small
+   * square badge had nothing else to ask for. The site declares one in markup
+   * (`rel="shortcut icon"`, a CDN PNG); `/favicon.ico` there is a 404, which is
+   * why guessing that address is not the fix.
+   */
+  it('keeps the site icon beside a header logo, as the mark', async () => {
+    const ICON = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x01]);
+    const store = (async (input: any) => {
+      const url = String(input);
+      if (url.endsWith('/wordmark.png')) return new Response(PNG, { status: 200 });
+      if (url.includes('/cdn/shop/files/logo_32x32.png')) return new Response(ICON, { status: 200 });
+      return new Response(
+        `<html><head><title>Brick Store</title>
+          <link rel="shortcut icon" href="//brick.example/cdn/shop/files/logo_32x32.png" type="image/png">
+          </head><body><header class="site-header">
+          <a href="/"><img src="/wordmark.png" alt="Brick Store logo" width="220" height="40"></a>
+          </header></body></html>`,
+        { status: 200 },
+      );
+    }) as typeof fetch;
+    const { brand } = await buildFromUrl('https://brick.example/', {
+      fetchImpl: store,
+      saveAsset: async (buf) => `asset:${buf.length === ICON.length ? 'icon' : 'logo'}`,
+    });
+    expect((brand as any).logos).toEqual([
+      { role: 'primary', file: 'asset:logo' },
+      { role: 'mark', file: 'asset:icon' },
+    ]);
+    expect(validateBrand(brand).valid).toBe(true);
+  });
+
   // "Primary" is what the compiler promises to reproduce exactly as drawn,
   // and 32px of favicon cannot say what to reproduce. Real onboardings used
   // to crown one anyway, which is where broken scraped logos began.

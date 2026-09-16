@@ -89,6 +89,21 @@ export function primaryMark(json: any): Mark | null {
   return primaryOf(marksOf(json));
 }
 
+/**
+ * The kit's small square form: the entry tagged `mark`, else the canonical one.
+ *
+ * `primaryMark` answers "which is THE logo", and a logo is whatever shape the
+ * brand draws it. LEGO's is a wordmark five times wider than it is tall, which
+ * is correct and unusable in a 22px circle: scaled to fit, it is three
+ * illegible pixels of red. The site's own icon is stored as `mark` for exactly
+ * this, so any surface that needs a square asks here, and a brand that has no
+ * icon falls back to its logo rather than to nothing.
+ */
+export function iconMark(json: any): Mark | null {
+  const marks = marksOf(json);
+  return marks.find((m) => m.role === 'mark') ?? primaryOf(marks);
+}
+
 /** Display name for one mark, e.g. "Acme Coffee wordmark". Matches the compiler's label. */
 export function markLabel(json: any, mark: Pick<Mark, 'role'>): string {
   const kind: Record<MarkRole, string> = {

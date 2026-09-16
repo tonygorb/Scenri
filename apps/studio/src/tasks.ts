@@ -251,9 +251,14 @@ export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string })
    * go backwards twice and the noun changed under it, and in a panel this
    * narrow the whole thing was cut off mid-count anyway.
    *
-   * Pictures are real work and worth seeing, but they are not a second
-   * scoreboard: they get a clause, not a fraction. The import dialog still
-   * carries the exact counters for anyone who opens it.
+   * The one exception is the picture phase, and it earns it by being the only
+   * number still moving. Every product is saved by then, so "1,185 products,
+   * adding pictures" is a sentence that never changes again for the eight
+   * minutes it takes - a row that reads as stuck while the work is going fine.
+   * `imagesTotal` is what the run still owes rather than what it has looked at,
+   * so the fraction beside it is honest, and the noun changing once, at the
+   * moment the products stop and the pictures start, is what is actually
+   * happening.
    */
   const count =
     j.stage === 'discovering'
@@ -261,7 +266,7 @@ export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string })
         ? `Found ${j.discovered.toLocaleString()} products`
         : 'Looking for products'
       : j.stage === 'processing_assets' && j.imagesTotal
-        ? `${j.upserted.toLocaleString()} products, adding pictures`
+        ? `${j.imagesDone.toLocaleString()} of ${j.imagesTotal.toLocaleString()} pictures`
         : // Reading a long catalogue writes nothing for a while, and "0 of
           // 2,199 products" for sixteen minutes is a row that looks stuck. The
           // number is what has been read rather than saved, which is still

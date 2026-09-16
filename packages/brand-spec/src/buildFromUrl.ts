@@ -206,6 +206,7 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
   const manifest = await readManifest($, base, get);
   const candidates = logoCandidates($, base, manifest);
   const picked = await downloadMark(candidates, get, opts, warnings);
+  const iconRef = await downloadIcon(candidates, get, opts, picked);
 
   const brand: Record<string, unknown> = {
     specVersion: '0.1',
@@ -227,14 +228,19 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
           },
         }
       : {}),
-    ...(picked.ref
+    ...(picked.ref || iconRef
       ? {
           logos: [
-            {
-              role: picked.role,
-              file: picked.ref,
-              ...(picked.background ? { background: picked.background } : {}),
-            },
+            ...(picked.ref
+              ? [
+                  {
+                    role: picked.role,
+                    file: picked.ref,
+                    ...(picked.background ? { background: picked.background } : {}),
+                  },
+                ]
+              : []),
+            ...(iconRef ? [{ role: 'mark' as const, file: iconRef }] : []),
           ],
         }
       : {}),
@@ -481,16 +487,9 @@ async function downloadMark(
   for (const candidate of candidates) {
     if (tried >= LOGO_TRIES || get.remaining() <= 0) break;
     let buf: Buffer | null = null;
-    if (candidate.svg) {
-      const sized = svgAsMark(candidate.svg);
-      if (!sized) continue;
-      buf = Buffer.from(sized, 'utf8');
-    } else if (candidate.url?.startsWith('data:')) {
-      const comma = candidate.url.indexOf(',');
-      const body = candidate.url.slice(comma + 1);
-      buf = candidate.url.slice(0, comma).includes(';base64')
-        ? Buffer.from(body, 'base64')
-        : Buffer.from(decodeURIComponent(body), 'utf8');
+    if (carriesBytes(candidate)) {
+      buf = inlineBytes(candidate);
+      if (!buf) continue;
     } else if (candidate.url) {
       tried++;
       try {
@@ -567,6 +566,85 @@ async function downloadMark(
   if (failed) warnings.push('Logo download failed.');
   warnings.push('No logo captured. Add one manually.');
   return { role: 'primary', source: null };
+}
+
+/** A candidate that is already its own bytes: an inline SVG, or a data: URI. */
+function carriesBytes(candidate: LogoCandidate): boolean {
+  return Boolean(candidate.svg) || Boolean(candidate.url?.startsWith('data:'));
+}
+
+function inlineBytes(candidate: LogoCandidate): Buffer | null {
+  if (candidate.svg) {
+    const sized = svgAsMark(candidate.svg);
+    return sized ? Buffer.from(sized, 'utf8') : null;
+  }
+  if (!candidate.url) return null;
+  const comma = candidate.url.indexOf(',');
+  const body = candidate.url.slice(comma + 1);
+  return candidate.url.slice(0, comma).includes(';base64')
+    ? Buffer.from(body, 'base64')
+    : Buffer.from(decodeURIComponent(body), 'utf8');
+}
+
+/**
+ * The site's own icon, kept beside the logo as the kit's `mark`.
+ *
+ * A logo is whatever shape a brand draws it. LEGO's certified store ships a
+ * wordmark 5.5 times wider than it is tall, and `downloadMark` is right to
+ * crown it: that is the thing the compiler promises to reproduce as drawn.
+ * It is also unusable anywhere a small square is wanted - a dock chip, a row
+ * avatar - where fitting it inside 22px leaves three illegible pixels of red.
+ *
+ * Every site already ships the answer, because browsers have wanted the same
+ * square for thirty years: the manifest icon, the apple-touch-icon, the
+ * `<link rel="icon">`. `logoCandidates` parses all three already; they simply
+ * lose the logo contest to a header image, and should. So take the best of
+ * them as a second entry under `mark`, the role the kit already has for the
+ * compact symbol form.
+ *
+ * `/favicon.ico` is deliberately not guessed at. The store this was written
+ * for answers 404 there and declares its icon in markup instead, which is the
+ * same rule the rest of this file follows: believe what the page states.
+ *
+ * One extra request at most, skipped entirely when the logo already came from
+ * an icon source - a site whose logo is its icon needs no second copy of it.
+ */
+async function downloadIcon(
+  candidates: readonly LogoCandidate[],
+  get: GuardedFetch,
+  opts: BuildOptions,
+  picked: PickedMark,
+): Promise<string | null> {
+  if (!opts.saveAsset) return null;
+  if (picked.source && ICON_SOURCES.has(picked.source)) return null;
+  const best = candidates.find((c) => ICON_SOURCES.has(c.source) && (c.svg || c.url));
+  if (!best) return null;
+
+  let buf: Buffer | null = null;
+  if (carriesBytes(best)) {
+    buf = inlineBytes(best);
+  } else if (best.url) {
+    if (get.remaining() <= 0) return null;
+    try {
+      buf = (await get(best.url, 'asset')).bytes;
+    } catch {
+      // The logo is the thing that matters; a missing icon is not a failed
+      // scrape and gets no warning of its own.
+      return null;
+    }
+  }
+  if (!buf || buf.length === 0) return null;
+
+  try {
+    const ref = await opts.saveAsset(buf, 'logo');
+    // Content-addressed, so identical bytes come back as the same ref: the
+    // icon and the logo really were the same file.
+    if (ref === picked.ref) return null;
+    const shape = opts.inspectMark ? await opts.inspectMark(buf).catch(() => null) : null;
+    return shape?.blank ? null : ref;
+  } catch {
+    return null;
+  }
 }
 
 export { ScrapeError };
