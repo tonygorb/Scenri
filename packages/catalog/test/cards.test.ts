@@ -79,11 +79,28 @@ describe('a catalogue the store already described', () => {
     expect(asked.length).toBeLessThan(12);
   });
 
-  it('upgrades a listing thumbnail to the picture that will be saved', async () => {
+  /**
+   * A card wants the fewest pixels that still look right; an import wants the
+   * most the store has. Measured on a real storefront, the listing's own
+   * images are 2848x1953 and 4250x3238 - 4.2 MB and 12.9 MB - and two dozen of
+   * those decoded on the main thread is a window that has stopped responding.
+   */
+  it('asks for the picture at card size, not at the size the importer wants', async () => {
     const { fetchImpl } = shopifyStore();
     const scan = await scanForCandidates({ url: 'https://shop.example', fetchImpl });
-    // `_200x200` is Shopify's thumbnail suffix; the card must not carry it.
-    expect(scan.cards[0].image).not.toMatch(/_200x200/);
+    const img = scan.cards[0].image!;
+    // The size suffix the listing carried is gone...
+    expect(img).not.toMatch(/_200x200/);
+    // ...and a card-sized one is asked for in its place.
+    expect(new URL(img).searchParams.get('width')).toBe('400');
+  });
+
+  it('leaves a signed picture URL exactly as it was', async () => {
+    const { cardImageUrl } = await import('../src/url.js');
+    const signed = 'https://cdn.example/p.jpg?X-Amz-Signature=abc&X-Amz-Expires=60';
+    // Adding to the query of a signed URL invalidates it.
+    expect(cardImageUrl(signed)).toBe(signed);
+    expect(cardImageUrl('https://cdn.example/p.jpg')).toContain('width=400');
   });
 
   it('falls back to reading pages when the listing carries no pictures', async () => {

@@ -1,5 +1,5 @@
 import { httpJson, httpText, mapPool, outOfTime } from '../http/fetch.js';
-import { absolutize, originOf, preferCanonicalLocale, upgradeImageUrl } from '../url.js';
+import { absolutize, cardImageUrl, originOf, preferCanonicalLocale, upgradeImageUrl } from '../url.js';
 import { normalizeProduct } from '../normalize.js';
 import { fetchProductPages } from './productPage.js';
 import type {
@@ -94,8 +94,11 @@ async function fetchProductsJsonPage(
 /**
  * The listing entry, as a card: a name, an address and one picture.
  *
- * `upgradeImageUrl` is the same rule the importer uses, so the picture on the
- * card is the picture that gets saved rather than a thumbnail of it.
+ * The picture is asked for at card size, not at the size the importer wants.
+ * `products.json` hands over the originals - 4.2 MB and 12.9 MB on a real
+ * storefront - and a grid of two dozen of those is a hundred megabytes decoded
+ * on the main thread, which is a window that has stopped responding. What gets
+ * saved at import time is still the full-resolution one.
  */
 function cardOf(origin: string, p: any): CatalogCard {
   const handle = String(p.handle ?? '');
@@ -106,7 +109,7 @@ function cardOf(origin: string, p: any): CatalogCard {
     title: String(p.title ?? handle),
     url: absolutize(origin, `/products/${handle}`) ?? `${originOf(origin)}/products/${handle}`,
     handle: handle || null,
-    image: src ? upgradeImageUrl(src) : null,
+    image: src ? cardImageUrl(upgradeImageUrl(src)) : null,
   };
 }
 

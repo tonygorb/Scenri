@@ -111,6 +111,21 @@ test('a store that lists its own products can be chosen from and imported', asyn
     .toBeGreaterThan(0);
   expect(await sheet.locator('.sc-wizpick-loading').count()).toBe(0);
 
+  /*
+    And at card size, not at the size the importer wants.
+
+    The listing hands over originals: measured on a real storefront, 2848x1953
+    and 4250x3238, 4.2 MB and 12.9 MB apiece. Two dozen of those decoded on the
+    main thread is a window that has stopped responding, which is what shipped
+    for an hour. A card asks for 400 wide - 137 KB - and the full-resolution
+    one is still what gets saved at import.
+  */
+  const srcs = await sheet
+    .locator('.sc-lookcard-media img')
+    .evaluateAll((els) => els.map((e) => (e as HTMLImageElement).getAttribute('src') ?? ''));
+  expect(srcs.length).toBeGreaterThan(0);
+  for (const src of srcs) expect(src).toContain('width=400');
+
   await sheet.getByRole('button', { name: /^Import / }).click();
   await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
 

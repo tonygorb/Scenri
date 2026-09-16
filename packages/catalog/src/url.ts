@@ -36,6 +36,41 @@ export function absolutize(base: string, href: string): string | null {
 }
 
 /** Prefer largest Shopify CDN image by rewriting size suffixes. */
+/**
+ * The width a chooser's card is drawn at, doubled for a dense screen.
+ *
+ * A card is about 200 CSS pixels wide in the grid.
+ */
+const CARD_WIDTH = 400;
+
+/**
+ * The same picture, at the size a card actually shows it.
+ *
+ * The opposite job to `upgradeImageUrl`, and it has to be: an import wants the
+ * best pixels a store has, and a card wants the fewest that still look right.
+ * Measured 2026-09-16 on a real storefront, the listing's own images are
+ * 2848x1953 and 4250x3238 - 4.2 MB and 12.9 MB - and a grid of two dozen of
+ * them is a hundred megabytes of PNG decoded on the main thread, which is a
+ * frozen window. The same two at 400 wide are 137 KB.
+ *
+ * `width` is a resizing parameter the storefront CDNs understand, and one they
+ * ignore harmlessly where they do not. It is never applied to a URL that
+ * carries a signature, because changing the query would break it.
+ */
+export function cardImageUrl(url: string, width = CARD_WIDTH): string {
+  try {
+    const u = new URL(url);
+    // A signed URL is signed over its query; adding to it makes it invalid.
+    for (const key of u.searchParams.keys()) {
+      if (/^(x-amz-|signature|sig|token|expires|policy)/i.test(key)) return url;
+    }
+    u.searchParams.set('width', String(width));
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 export function upgradeImageUrl(url: string): string {
   try {
     const u = new URL(url);
