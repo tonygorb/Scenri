@@ -51,6 +51,29 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.10.1',
+    date: '2026-09-16',
+    title: 'A saved presenter can be duplicated or deleted straight from its card.',
+    sections: [
+      {
+        heading: 'Presenters',
+        body: "A saved presenter's card has a menu, on a right click or its corner button. Duplicate presenter makes an independent copy under a name you choose, with the same pictures and nothing drawn again, and Delete presenter removes one. The library and the Create picker update at once. The right side view is drawn from the face and full body instead of the left side, so a detail on one side stays there, and each category in the details can be removed with its own button.",
+      },
+      {
+        heading: 'Shots',
+        body: 'Try again on a failed or stopped shot runs it again in the same card, with its clock starting from zero. A shot that stopped because a provider ran out of credit can be tried again once it is topped up. In an open shot, the column of shots scrolls and keeps the one you are looking at in the middle.',
+      },
+      {
+        heading: 'Create',
+        body: "A brand with no shots yet opens Create with its welcome centred again. The examples move one card per arrow and keep their arrows on touch screens, and a picture's credit stays on screen near the edge of the window. From 1024 pixels wide the assets panel sits beside the canvas.",
+      },
+      {
+        heading: 'Fixes',
+        body: "Chip remove buttons keep the chip's colour, carousel arrows no longer disappear while pointed at, and a presenter's reference pictures keep their arrows on the pictures, with the face filling its frame.",
+      },
+    ],
+  },
+  {
     version: '0.10.0',
     date: '2026-09-16',
     title: 'Presenters are cast by talking to Scenri, one question at a time.',

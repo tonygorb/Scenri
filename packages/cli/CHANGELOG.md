@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.10.1](https://github.com/tonygorb/Scenri/compare/v0.10.0...v0.10.1) (2026-09-16)
+
+
+### Features
+
+* add placeTip function for hover card positioning ([de6d069](https://github.com/tonygorb/Scenri/commit/de6d069024b3d0c4b305f945a15322b1290d6458))
+* add presenter duplication and deletion functionality ([11c83be](https://github.com/tonygorb/Scenri/commit/11c83be7ee167435fc8a6656c938380ec9b08c68))
+* duplicate or delete a saved presenter from its card ([2e4dc00](https://github.com/tonygorb/Scenri/commit/2e4dc008f3bccbf9a9b2e444331bd2627775f1f4))
+* enhance presenter view and retry functionality ([dbeb9e9](https://github.com/tonygorb/Scenri/commit/dbeb9e9e48c52510ebb9ca2949a27e0cebfb69ca))
+
+
+### Bug Fixes
+
+* a fresh library keeps started_at through the status rebuild ([14aced1](https://github.com/tonygorb/Scenri/commit/14aced1fa5d0b841e8202b639e3ae95b615598ac))
+* centre the Create first run and dock the assets panel from 1024 ([b102204](https://github.com/tonygorb/Scenri/commit/b102204d3e42107319a72923aea28de3e04298f2))
+* retry in the same card, side profiles, chip fields and rails ([0fd3099](https://github.com/tonygorb/Scenri/commit/0fd309969320b0fe8f22cba0940cdf16f5bc68a4))
+* type and lint errors in the chip field and the reference set ([53e5314](https://github.com/tonygorb/Scenri/commit/53e5314120de03cf7a5c4c3ef1d9946655e567a3))
+
+
+### Miscellaneous Chores
+
+* **release:** pin the next version to 0.10.1 ([85a5df4](https://github.com/tonygorb/Scenri/commit/85a5df4711c81c30b60b18dfbd4a16098adff98b))
+
 ## [0.10.0](https://github.com/tonygorb/Scenri/compare/v0.9.4...v0.10.0) (2026-09-16)
 
 
