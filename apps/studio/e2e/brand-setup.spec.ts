@@ -495,3 +495,49 @@ test('the kit says what it found, out loud, and the whole step is reachable by k
   await onward.focus();
   await expect(onward).toBeFocused();
 });
+
+/**
+ * A brand nobody kept is a brand nobody made.
+ *
+ * The kit has to exist server-side before it can be shown - the scrape saves
+ * the logo as an asset, and the shop is scanned against the brand it belongs
+ * to - so the row is written the moment a website is read. Walking away used
+ * to leave it there: pasting three addresses to see what they looked like left
+ * three workspaces behind, and one afternoon of testing left fifty-six.
+ */
+test('a kit you walk away from is not a brand you made', async ({ page }) => {
+  const count = async () => page.evaluate(async () => ((await (await fetch('/api/brands')).json()) ?? []).length);
+
+  // Somewhere real first: a relative fetch needs an origin.
+  await page.goto('/setup');
+  const before = await count();
+
+  // Walking away: the kit is on screen, and then it is not.
+  await page.locator('#sc-wiz-url').fill(`http://${origin}/`);
+  await page.getByRole('button', { name: 'Build the kit' }).click();
+  const anyway = page.getByRole('button', { name: 'Create anyway' });
+  if (await anyway.isVisible().catch(() => false)) await anyway.click();
+  await expect(page.locator('.sc-kit-lines')).toBeVisible({ timeout: 30_000 });
+  await page.goto('/');
+  await expect.poll(count, { timeout: 15_000 }).toBe(before);
+
+  // And a reload, which `keepalive` is what carries the delete through.
+  await page.goto('/setup');
+  await page.locator('#sc-wiz-url').fill(`http://${origin}/`);
+  await page.getByRole('button', { name: 'Build the kit' }).click();
+  if (await anyway.isVisible().catch(() => false)) await anyway.click();
+  await expect(page.locator('.sc-kit-lines')).toBeVisible({ timeout: 30_000 });
+  await page.reload();
+  await expect.poll(count, { timeout: 15_000 }).toBe(before);
+
+  // Keeping one still keeps it, which is the whole point of the difference.
+  await page.goto('/setup');
+  await page.locator('#sc-wiz-url').fill(`http://${origin}/`);
+  await page.getByRole('button', { name: 'Build the kit' }).click();
+  if (await anyway.isVisible().catch(() => false)) await anyway.click();
+  const onward = page.getByRole('button', { name: /^(Looks right|Add brand and products)/ });
+  await expect(onward).toBeVisible({ timeout: 45_000 });
+  await onward.click();
+  await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
+  expect(await count()).toBe(before + 1);
+});

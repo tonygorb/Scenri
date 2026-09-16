@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Callout, Spinner } from '@radix-ui/themes';
 import { ArrowRight, CaretLeft, Check, ImageSquare, Minus } from '@phosphor-icons/react';
@@ -70,11 +70,48 @@ export function BrandSetup() {
    */
   const [dupe, setDupe] = useState<Brand | null>(null);
 
+  /**
+   * A brand nobody kept is a brand nobody made.
+   *
+   * The kit has to exist server-side before it can be shown: the scrape saves
+   * the logo as an asset and the shop is scanned against the brand it belongs
+   * to. So the row is written the moment a website is read - and walking away
+   * from the screen used to leave it there. Pasting three addresses to see
+   * what they looked like left three workspaces, and this session alone made
+   * fifty-six of them.
+   *
+   * So the screen owns it until someone keeps it. `land` is the only way to
+   * keep it, and anything else that ends this screen - Back, the browser's
+   * back button, a reload, closing the tab - takes it away again. Nothing else
+   * is ever deleted: only the brand this component created, and only while it
+   * is still unkept.
+   */
+  const kept = useRef(false);
+  const abandon = useRef<string | null>(null);
+
   const land = async (b: Brand, settings?: 'brand') => {
+    kept.current = true;
+    abandon.current = null;
     setMade(b);
     await refresh();
     navigate(`${brandPath(b)}${settings ? `?settings=${settings}` : ''}`, { replace: true });
   };
+
+  useEffect(() => {
+    // `keepalive` is what makes this survive a reload or a closing tab; a
+    // plain fetch is cancelled with the document and the row would stay.
+    const drop = () => {
+      const id = abandon.current;
+      if (!id || kept.current) return;
+      abandon.current = null;
+      void fetch(`/api/brands/${id}`, { method: 'DELETE', keepalive: true }).catch(() => {});
+    };
+    window.addEventListener('pagehide', drop);
+    return () => {
+      window.removeEventListener('pagehide', drop);
+      drop();
+    };
+  }, []);
 
   const buildFromUrl = async (force = false) => {
     if (!force) {
@@ -106,6 +143,7 @@ export function BrandSetup() {
       // Show it, and wait. The brand exists either way - this is a reveal, not
       // a confirmation that could still be refused.
       setMade(b);
+      abandon.current = b.id;
       setReport(b.report);
       // A site that answered and refused still makes a brand, and the rows
       // already say what is missing. These are the sentences that say why,
