@@ -5,6 +5,15 @@ import { useTaskCenter } from './TaskCenter.js';
 export interface ProductLibraryValue {
   products: Product[];
   /**
+   * Whether a catalogue import is filling this library right now.
+   *
+   * The wall reads it so a run appears as products arriving rather than as a
+   * grid of empty frames: a product is written the moment its page is read and
+   * its pictures follow, so 294 of them landed at once and then sat blank for
+   * as long as the downloads took.
+   */
+  importing: boolean;
+  /**
    * Whether the first answer for this brand has landed.
    *
    * Not cosmetic: "this brand owns no products" is what decides whether a page
@@ -116,8 +125,8 @@ export function ProductLibraryProvider({ brand, children }: { brand: Brand; chil
   }, [importing, load]);
 
   const value = useMemo<ProductLibraryValue>(
-    () => ({ products: state.products, productsLoaded: state.loaded, refreshProducts: load }),
-    [state.products, state.loaded, load],
+    () => ({ products: state.products, productsLoaded: state.loaded, importing, refreshProducts: load }),
+    [state.products, state.loaded, importing, load],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

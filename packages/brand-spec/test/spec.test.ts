@@ -214,6 +214,43 @@ describe('buildFromUrl', () => {
     expect(validateBrand(brand).valid).toBe(true);
   });
 
+  /**
+   * The shape lego.certifiedstore.co.il has, and the reason a 22px chip of it
+   * was three pixels of red.
+   *
+   * Its logo is a wordmark 5.5 times wider than it is tall, and it wins the
+   * logo contest on merit - that is the thing the compiler reproduces as
+   * drawn. It is simply not a square, and every surface that wants a small
+   * square badge had nothing else to ask for. The site declares one in markup
+   * (`rel="shortcut icon"`, a CDN PNG); `/favicon.ico` there is a 404, which is
+   * why guessing that address is not the fix.
+   */
+  it('keeps the site icon beside a header logo, as the mark', async () => {
+    const ICON = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x01]);
+    const store = (async (input: any) => {
+      const url = String(input);
+      if (url.endsWith('/wordmark.png')) return new Response(PNG, { status: 200 });
+      if (url.includes('/cdn/shop/files/logo_32x32.png')) return new Response(ICON, { status: 200 });
+      return new Response(
+        `<html><head><title>Brick Store</title>
+          <link rel="shortcut icon" href="//brick.example/cdn/shop/files/logo_32x32.png" type="image/png">
+          </head><body><header class="site-header">
+          <a href="/"><img src="/wordmark.png" alt="Brick Store logo" width="220" height="40"></a>
+          </header></body></html>`,
+        { status: 200 },
+      );
+    }) as typeof fetch;
+    const { brand } = await buildFromUrl('https://brick.example/', {
+      fetchImpl: store,
+      saveAsset: async (buf) => `asset:${buf.length === ICON.length ? 'icon' : 'logo'}`,
+    });
+    expect((brand as any).logos).toEqual([
+      { role: 'primary', file: 'asset:logo' },
+      { role: 'mark', file: 'asset:icon' },
+    ]);
+    expect(validateBrand(brand).valid).toBe(true);
+  });
+
   // "Primary" is what the compiler promises to reproduce exactly as drawn,
   // and 32px of favicon cannot say what to reproduce. Real onboardings used
   // to crown one anyway, which is where broken scraped logos began.
@@ -251,21 +288,66 @@ describe('buildFromUrl', () => {
     expect(validateBrand(brand).valid).toBe(true);
   });
 
+  /**
+   * A refusal is not an absence.
+   *
+   * Every other request in a scrape already degrades - a stylesheet or a logo
+   * that will not load costs a warning, not the kit. The homepage alone was
+   * fatal, so a site that answered 429 once ended the step with a red box and
+   * nothing created, while a site that refused everything *after* its homepage
+   * produced a perfectly good brand. A person pasted `allbirds.com` and got
+   * the first of those.
+   *
+   * The name, the address and the sentence are all still true; the logo and
+   * the colours are two fields in Settings.
+   */
+  it('still makes a brand from a site that answers and refuses', async () => {
+    for (const [status, host] of [
+      [500, 'down.example'],
+      [403, 'walled.example'],
+      [429, 'busy.example'],
+    ] as const) {
+      const refusing = (async () => new Response('no', { status })) as unknown as typeof fetch;
+      const { brand, warnings, report } = await buildFromUrl(`https://${host}/`, { fetchImpl: refusing });
+
+      expect((brand as any).meta.name).toBe(host);
+      expect((brand as any).meta.website).toBe(`https://${host}`);
+      expect(validateBrand(brand).valid).toBe(true);
+      // The kit is honestly empty rather than wrong.
+      expect(report.logo.status).toBe('none');
+      expect(report.colors.count).toBe(0);
+      expect(report.name.source).toBe('hostname');
+      // And it says what happened, and what to do about it.
+      expect(warnings.join(' ')).toMatch(/Settings/);
+      expect(warnings.join(' ')).not.toMatch(/\b[45]\d\d\b|undefined|null/);
+    }
+  });
+
   // A person reads this, so it names the site and says what happened rather
   // than quoting a status line at them.
   it('says what a refusing site answered, in a sentence a person can act on', async () => {
     const err = (async () => new Response('nope', { status: 500 })) as unknown as typeof fetch;
-    await expect(buildFromUrl('https://down.example/', { fetchImpl: err })).rejects.toThrow(
-      'down.example had trouble answering. Try again in a moment.',
-    );
+    const { warnings } = await buildFromUrl('https://down.example/', { fetchImpl: err });
+    expect(warnings[0]).toBe('down.example had trouble answering. Try again in a moment.');
   });
 
   // A number is not an explanation, and 403 is almost always a CDN refusing
   // anything that is not a browser - not something the person did.
   it('explains a refusal instead of quoting its status code', async () => {
     const walled = (async () => new Response('no', { status: 403 })) as unknown as typeof fetch;
-    await expect(buildFromUrl('https://walled.example/', { fetchImpl: walled })).rejects.toThrow(
-      /would not let Scenri read it.*by hand/s,
+    const { warnings } = await buildFromUrl('https://walled.example/', { fetchImpl: walled });
+    expect(warnings[0]).toMatch(/would not let Scenri read it.*by hand/s);
+  });
+
+  /**
+   * The other half of the rule. A refusal means a server is there and
+   * declining; a 404 means this address has no page on it, which is almost
+   * always a typo. Inventing a brand for it would bury the mistake.
+   */
+  it('still refuses an address with nothing behind it', async () => {
+    const gone = (async () => new Response('nope', { status: 404 })) as unknown as typeof fetch;
+    await expect(buildFromUrl('https://typo.example/', { fetchImpl: gone })).rejects.toThrow(
+      /no page at that address/i,
     );
   });
 
@@ -369,5 +451,61 @@ describe('a mark has to survive being looked at', () => {
   it('does not hold a missing measurement against a candidate', async () => {
     const { report } = await build(null);
     expect(report.logo.status).toBe('primary');
+  });
+});
+
+/**
+ * People paste the page they are looking at.
+ *
+ * That is very often a product or a collection, not a homepage. A deep path
+ * that answered 404 used to end the whole thing - `example.com/a/b/c` gave
+ * "There is no page at that address" and no brand, from a site whose homepage
+ * read perfectly.
+ */
+describe('a pasted address that is not the homepage', () => {
+  const site = (ok: (u: string) => boolean) =>
+    (async (u: string) => {
+      const url = String(u);
+      if (!ok(url)) return new Response('nope', { status: 404 });
+      return new Response(
+        '<html><head><title>Acme</title><meta name="theme-color" content="#123456"></head><body>hi</body></html>',
+        { status: 200, headers: { 'content-type': 'text/html' } },
+      );
+    }) as unknown as typeof fetch;
+
+  it('falls back to the origin when the pasted page is not there', async () => {
+    const asked: string[] = [];
+    const fetchImpl = (async (u: string) => {
+      asked.push(String(u));
+      const url = String(u);
+      if (new URL(url).pathname !== '/') return new Response('nope', { status: 404 });
+      return new Response('<html><head><title>Acme</title></head><body>hi</body></html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      });
+    }) as unknown as typeof fetch;
+
+    const { brand, report } = await buildFromUrl('https://acme.example/products/a-thing', { fetchImpl });
+    expect(report.name.value).toBe('Acme');
+    expect((brand as any).meta.website).toBe('https://acme.example');
+    // The pasted address was tried first, because a shop really can live at a path.
+    expect(asked[0]).toContain('/products/a-thing');
+    expect(asked[1]).toBe('https://acme.example');
+  });
+
+  it('keeps a site that really does live at a path', async () => {
+    const fetchImpl = site((u) => u.includes('/shop'));
+    const { report } = await buildFromUrl('https://acme.example/shop', { fetchImpl });
+    expect(report.name.value).toBe('Acme');
+  });
+
+  it('does not ask twice when the homepage is the address', async () => {
+    const asked: string[] = [];
+    const fetchImpl = (async (u: string) => {
+      asked.push(String(u));
+      return new Response('nope', { status: 404 });
+    }) as unknown as typeof fetch;
+    await expect(buildFromUrl('https://acme.example/', { fetchImpl })).rejects.toThrow(/no page at that address/i);
+    expect(asked).toHaveLength(1);
   });
 });

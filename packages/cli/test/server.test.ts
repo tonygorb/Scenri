@@ -354,7 +354,14 @@ describe('brands API', () => {
     await local.close();
   });
 
-  it('says what a refusing site answered, as a sentence', async () => {
+  /**
+   * A refusing site still produces a brand.
+   *
+   * This used to assert a 502 and an empty-handed error, which is what a
+   * person pasting `allbirds.com` actually got the morning a CDN was in a
+   * mood. The sentence was always right; ending the step with nothing was not.
+   */
+  it('makes a brand from a refusing site, and says what it could not read', async () => {
     const local = track(
       buildServer({
         core,
@@ -367,12 +374,38 @@ describe('brands API', () => {
       url: '/api/brands/from-url',
       payload: { url: 'https://walled.example' },
     });
-    expect(res.statusCode).toBe(502);
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.id).toBeTruthy();
+    expect(body.json.meta.name).toBe('walled.example');
+    expect(body.json.meta.website).toBe('https://walled.example');
     // A status code is not an explanation. 403 on a public page is nearly
     // always a CDN refusing anything that is not a browser, which is not
     // something the person did or can fix by trying harder.
-    expect(res.json().error).toMatch(/would not let Scenri read it/);
-    expect(res.json().error).toMatch(/by hand/);
+    expect(body.warnings.join(' ')).toMatch(/would not let Scenri read it/);
+    expect(body.warnings.join(' ')).toMatch(/by hand/);
+    // And the kit says plainly that it is empty, rather than pretending.
+    expect(body.report.logo.status).toBe('none');
+    expect(body.report.colors.count).toBe(0);
+    await local.close();
+  });
+
+  /** An address with nothing behind it is a typo, and must stay an error. */
+  it('still refuses an address that has no page on it', async () => {
+    const local = track(
+      buildServer({
+        core,
+        engines: registryWith(),
+        fetchImpl: (async () => new Response('nope', { status: 404 })) as unknown as typeof fetch,
+      }),
+    );
+    const res = await local.inject({
+      method: 'POST',
+      url: '/api/brands/from-url',
+      payload: { url: 'https://typo.example' },
+    });
+    expect(res.statusCode).toBe(502);
+    expect(res.json().error).toMatch(/no page at that address/i);
     await local.close();
   });
 });

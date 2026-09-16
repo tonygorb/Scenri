@@ -278,9 +278,21 @@ export function TaskCenterProvider({
         });
         continue;
       }
+      /*
+       * An import that only half worked said "finished" like any other, so a
+       * run that saved 228 of 237 products announced itself exactly as one
+       * that saved all of them, and the nine were only findable by opening the
+       * row. Partial is its own outcome and says so, quietly rather than
+       * alarmingly: the products that landed are real and the person can carry
+       * on. The row underneath already carries the detail.
+       */
+      if (n.kind === 'catalog' && n.state === 'partial') {
+        pushRef.current({ kind: 'error', title: 'Some products did not import', detail: n.subtitle, action });
+        continue;
+      }
       pushRef.current({
         kind: 'success',
-        title: n.kind === 'catalog' ? 'Catalog import finished' : 'Generation finished',
+        title: n.kind === 'catalog' ? 'Import finished' : 'Generation finished',
         detail: n.title,
         action,
       });

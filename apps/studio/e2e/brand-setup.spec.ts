@@ -336,3 +336,208 @@ test('a shop on the site is offered, counted, and imported only where asked', as
     )
     .toBe(SHOP_HANDLES.length - 2);
 });
+
+/**
+ * The regression this whole pass exists for.
+ *
+ * A tester pasted a real Shopify store, watched it search for several minutes,
+ * and then watched the Products row disappear and "Looks right" light up. No
+ * products were imported and nothing said why. The scan had failed, and a
+ * failed scan reached the screen as `null` - exactly what a site with no shop
+ * looks like - so the screen drew the row for a portfolio: it removed it.
+ *
+ * A failure has to be visible, and it has to be retryable.
+ */
+test('a scan that fails says so, and offers another go', async ({ page }) => {
+  // The server's own answer, replaced with the one it gives when a look could
+  // not be finished. Everything else on the screen is real.
+  await page.route('**/catalog/scans/**', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ id: 'x', brandId: 'x', url: 'x', status: 'error', error: 'boom', startedAt: Date.now() }),
+    });
+  });
+
+  await page.goto('/setup');
+  await page.locator('#sc-wiz-url').fill(`http://${origin}/`);
+  await page.getByRole('button', { name: 'Build the kit' }).click();
+  const anyway = page.getByRole('button', { name: 'Create anyway' });
+  if (await anyway.isVisible().catch(() => false)) await anyway.click();
+
+  const lines = page.locator('.sc-kit-lines');
+  await expect(lines).toBeVisible({ timeout: 30_000 });
+
+  // Waited for first, and deliberately. While the look is still running the
+  // row already reads "Products / looking for a shop", so asserting on the
+  // word alone passes against the in-flight row and proves nothing. This
+  // button appears only once the scan has settled and settled badly.
+  await expect(page.getByRole('button', { name: /Look for products again/i })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Continue without products' })).toBeVisible();
+  // "Looks right" over a shop we never managed to read is the sentence that
+  // made this a silent failure.
+  await expect(page.getByRole('button', { name: 'Looks right' })).toHaveCount(0);
+
+  // And now the row: still there, having survived the failure. This is what
+  // the old code could not do - it removed the line entirely.
+  await expect(lines).toContainText('Products');
+  await expect(lines).not.toContainText(/\bno products\b|\b0 products\b/i);
+  await expect(page.locator('.sc-wiz')).not.toContainText(/boom|HTTP|undefined|null/);
+
+  // The quieter option still works.
+  await page.getByRole('button', { name: 'Continue without products' }).click();
+  await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
+});
+
+/**
+ * The 2026-09-16 report: a pasted store answered "asked Scenri to slow down"
+ * and nothing was created.
+ *
+ * The scrape reads a homepage, its stylesheets and its logo - and only the
+ * homepage was fatal. A site that refused everything *after* it produced a
+ * perfectly good kit; a site that refused the first byte produced a red box
+ * and no brand at all. A refusal is not an absence: the address is real and
+ * the person typed it on purpose, so the brand is made from the address and
+ * the two missing fields are named.
+ */
+test('a site that answers and refuses still becomes a brand', async ({ page }) => {
+  // The look for a shop runs its own budget against the same refusing host,
+  // and now waits out the cooldown the scrape armed. Bounded, but longer than
+  // the file's default.
+  test.setTimeout(120_000);
+  const busy = createServer((_req, res) => {
+    // No Retry-After and a plain body: a rate limit, not a challenge.
+    res.writeHead(429, { 'content-type': 'text/plain' });
+    res.end('slow down');
+  });
+  await new Promise<void>((r) => busy.listen(0, '127.0.0.1', r));
+  const port = (() => {
+    const a = busy.address();
+    return typeof a === 'object' && a ? a.port : 0;
+  })();
+
+  try {
+    await page.goto('/setup');
+    await page.locator('#sc-wiz-url').fill(`http://127.0.0.1:${port}/`);
+    await page.getByRole('button', { name: 'Build the kit' }).click();
+    const anyway = page.getByRole('button', { name: 'Create anyway' });
+    if (await anyway.isVisible().catch(() => false)) await anyway.click();
+
+    // A kit exists. This is the assertion the old behaviour could not pass.
+    const lines = page.locator('.sc-kit-lines');
+    await expect(lines).toBeVisible({ timeout: 30_000 });
+    await expect(lines).toContainText('Name');
+    await expect(lines).toContainText('127.0.0.1');
+
+    // It is honestly empty rather than wrong.
+    await expect(lines).toContainText('none found');
+
+    // And it says why, quietly, without a status code.
+    const note = page.locator('.sc-kit-note');
+    await expect(note).toBeVisible();
+    await expect(note).toContainText(/slow down|would not let Scenri read it/i);
+    // And what to do about it: a refusal that only says "try again" reads as a
+    // failure, and this stopped being one the moment a brand was created.
+    await expect(note).toContainText(/Settings/);
+    await expect(page.locator('.sc-wiz')).not.toContainText(/429|undefined|null|ScrapeError/);
+
+    // Not an error: nothing red, and the way forward is the normal one.
+    await expect(page.locator('.rt-CalloutRoot')).toHaveCount(0);
+
+    // The look for a shop runs against the same refusing host, and now waits
+    // out the cooldown the scrape armed, so this settles rather than racing.
+    // Any of the three terminal buttons is a pass; "Looking for products" is
+    // not one of them.
+    const onward = page.getByRole('button', {
+      name: /^(Looks right|Look for products again|Add brand and products)/,
+    });
+    await expect(onward).toBeVisible({ timeout: 60_000 });
+    await onward.click();
+    await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
+  } finally {
+    await new Promise<void>((r) => busy.close(() => r()));
+  }
+});
+
+/**
+ * What a person using a keyboard and a screen reader gets.
+ *
+ * Nothing in this flow was announced. You pasted an address, pressed a button
+ * and heard silence: the kit rows appeared, the shop was counted or not, and a
+ * refusal explained itself, all of it invisible unless you could see it.
+ *
+ * Concise on purpose. The three brand rows land together and the products row
+ * resolves once, so this is a handful of announcements for a whole onboarding,
+ * not one per product.
+ */
+test('the kit says what it found, out loud, and the whole step is reachable by keyboard', async ({ page }) => {
+  await page.goto('/setup');
+
+  // Reachable without a mouse, and submits on Enter.
+  await page.locator('#sc-wiz-url').focus();
+  await expect(page.locator('#sc-wiz-url')).toBeFocused();
+  await page.keyboard.type(`http://${origin}/`);
+  await page.keyboard.press('Enter');
+
+  const anyway = page.getByRole('button', { name: 'Create anyway' });
+  if (await anyway.isVisible().catch(() => false)) await anyway.click();
+
+  // The result is in a live region, so it is spoken rather than merely drawn.
+  const lines = page.locator('.sc-kit-lines');
+  await expect(lines).toBeVisible({ timeout: 30_000 });
+  await expect(lines).toHaveAttribute('role', 'status');
+  await expect(lines).toContainText('Lucid');
+
+  // And the way onward is a real button a keyboard can reach.
+  const onward = page.getByRole('button', { name: /Looks right|Add brand and products|Look for products again/ });
+  await expect(onward).toBeVisible({ timeout: 45_000 });
+  await onward.focus();
+  await expect(onward).toBeFocused();
+});
+
+/**
+ * A brand nobody kept is a brand nobody made.
+ *
+ * The kit has to exist server-side before it can be shown - the scrape saves
+ * the logo as an asset, and the shop is scanned against the brand it belongs
+ * to - so the row is written the moment a website is read. Walking away used
+ * to leave it there: pasting three addresses to see what they looked like left
+ * three workspaces behind, and one afternoon of testing left fifty-six.
+ */
+test('a kit you walk away from is not a brand you made', async ({ page }) => {
+  const count = async () => page.evaluate(async () => ((await (await fetch('/api/brands')).json()) ?? []).length);
+
+  // Somewhere real first: a relative fetch needs an origin.
+  await page.goto('/setup');
+  const before = await count();
+
+  // Walking away: the kit is on screen, and then it is not.
+  await page.locator('#sc-wiz-url').fill(`http://${origin}/`);
+  await page.getByRole('button', { name: 'Build the kit' }).click();
+  const anyway = page.getByRole('button', { name: 'Create anyway' });
+  if (await anyway.isVisible().catch(() => false)) await anyway.click();
+  await expect(page.locator('.sc-kit-lines')).toBeVisible({ timeout: 30_000 });
+  await page.goto('/');
+  await expect.poll(count, { timeout: 15_000 }).toBe(before);
+
+  // And a reload, which `keepalive` is what carries the delete through.
+  await page.goto('/setup');
+  await page.locator('#sc-wiz-url').fill(`http://${origin}/`);
+  await page.getByRole('button', { name: 'Build the kit' }).click();
+  if (await anyway.isVisible().catch(() => false)) await anyway.click();
+  await expect(page.locator('.sc-kit-lines')).toBeVisible({ timeout: 30_000 });
+  await page.reload();
+  await expect.poll(count, { timeout: 15_000 }).toBe(before);
+
+  // Keeping one still keeps it, which is the whole point of the difference.
+  await page.goto('/setup');
+  await page.locator('#sc-wiz-url').fill(`http://${origin}/`);
+  await page.getByRole('button', { name: 'Build the kit' }).click();
+  if (await anyway.isVisible().catch(() => false)) await anyway.click();
+  const onward = page.getByRole('button', { name: /^(Looks right|Add brand and products)/ });
+  await expect(onward).toBeVisible({ timeout: 45_000 });
+  await onward.click();
+  await page.waitForURL((u) => !u.pathname.startsWith('/setup'), { timeout: 30_000 });
+  expect(await count()).toBe(before + 1);
+});

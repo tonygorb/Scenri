@@ -219,6 +219,17 @@
   color: var(--sc-fg);
 }
 
+/* Why the kit above is thin, when a site answered and would not be read.
+   Deliberately not a red callout: a brand was created, so this is a note about
+   two missing fields, not a failure. It reads as the quietest thing on the
+   card, under the rows it explains. */
+.sc-kit-note {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--sc-fg3);
+}
+
 /* ---------- products found on the site ---------- */
 /* One button under the kit lines, never two: the line above already says what
    happened, so this only carries the single thing left to do about it. */
@@ -413,4 +424,12 @@
 .sc-imp-done {
   font-size: 12px;
   color: var(--sc-fg3);
+}
+
+/* An import that would not start, said beside the button that asked for it.
+   Takes the place of the loading note rather than stacking with it: there is
+   nothing still arriving once the ask has failed. */
+.sc-wizpick-error {
+  font-size: 12.5px;
+  color: var(--sc-danger, #d64545);
 }

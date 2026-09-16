@@ -15,7 +15,7 @@ import * as cheerio from 'cheerio';
 import { liveClassTokens, paletteFrom } from './colors.js';
 import { type LogoCandidate, type LogoSource, logoCandidates, svgAsMark } from './logoCandidates.js';
 import { type GuardOptions, type GuardedFetch, createGuardedFetch } from './safeFetch.js';
-import { ScrapeError, urlRefusal } from './scrapeError.js';
+import { ScrapeError, isRefusal, urlRefusal } from './scrapeError.js';
 import { normalizeSiteUrl } from './siteUrl.js';
 
 export interface BuildOptions {
@@ -80,6 +80,15 @@ export interface ScrapeReport {
   /** The URL actually read, after redirects. */
   url: string;
   host: string;
+  /**
+   * Whether the page was read at all.
+   *
+   * False when the site answered and refused us. The kit rows are honest
+   * either way - a hostname name, no logo, no colours - but they say what is
+   * missing without saying why, and "the site would not let us in" and "the
+   * site has nothing on it" are different sentences for the person reading.
+   */
+  read: boolean;
   name: { value: string; source: NameSource };
   tagline: string | null;
   logo: { status: 'primary' | 'alternate' | 'none'; source: LogoSource | null; score?: number; note?: string };
@@ -117,7 +126,43 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
     ...(opts.fetchImpl ? { fetchImpl: opts.fetchImpl, allowPrivateHosts: true } : {}),
   });
 
-  const page = await get(normalized.url, 'html');
+  /**
+   * A site that refuses the first request used to end the step with nothing.
+   *
+   * Every other request in this function already degrades: a stylesheet that
+   * will not load leaves the palette to inline styles, a logo that will not
+   * download leaves a warning and a kit without one. Only the homepage was
+   * fatal, so a site that answered 429 once produced a red box and no brand,
+   * while a site that refused everything *after* the homepage produced a
+   * perfectly usable one.
+   *
+   * A refusal is not an absence. The address is real, the person typed it on
+   * purpose, and a name and a website are enough to start from - the logo and
+   * colours are two fields in Settings. A 404 or a name that does not resolve
+   * is the opposite case and still throws, because inventing a brand for an
+   * address with nothing behind it would bury a typo.
+   */
+  let page: Awaited<ReturnType<GuardedFetch>> | null = null;
+  let refused: ScrapeError | null = null;
+  let missed: unknown = null;
+  for (const candidate of readOrder(normalized.url)) {
+    try {
+      page = await get(candidate, 'html');
+      break;
+    } catch (err) {
+      // A site that answers and declines will decline its homepage too, so
+      // there is nothing to gain by asking twice.
+      if (isRefusal(err)) {
+        refused = err as ScrapeError;
+        break;
+      }
+      missed = err;
+    }
+  }
+  if (!page) {
+    if (refused) return addressOnlyBrand(normalized.url, refused.message, opts);
+    throw missed;
+  }
   const origin = new URL(page.finalUrl);
   const $ = cheerio.load(page.text);
   const base = baseOf($, origin);
@@ -161,17 +206,13 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
   const manifest = await readManifest($, base, get);
   const candidates = logoCandidates($, base, manifest);
   const picked = await downloadMark(candidates, get, opts, warnings);
+  const iconRef = await downloadIcon(candidates, get, opts, picked);
 
   const brand: Record<string, unknown> = {
     specVersion: '0.1',
     meta: {
       name: named.value,
-      slug:
-        named.value
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '')
-          .slice(0, 48) || origin.hostname,
+      slug: slugOf(named.value, origin.hostname),
       ...(tagline ? { tagline } : {}),
       website: origin.origin,
       createdWith: opts.createdWith ?? 'scenri',
@@ -187,14 +228,19 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
           },
         }
       : {}),
-    ...(picked.ref
+    ...(picked.ref || iconRef
       ? {
           logos: [
-            {
-              role: picked.role,
-              file: picked.ref,
-              ...(picked.background ? { background: picked.background } : {}),
-            },
+            ...(picked.ref
+              ? [
+                  {
+                    role: picked.role,
+                    file: picked.ref,
+                    ...(picked.background ? { background: picked.background } : {}),
+                  },
+                ]
+              : []),
+            ...(iconRef ? [{ role: 'mark' as const, file: iconRef }] : []),
           ],
         }
       : {}),
@@ -206,6 +252,7 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
     report: {
       url: page.finalUrl,
       host: origin.hostname,
+      read: true,
       name: named,
       tagline: tagline ?? null,
       logo: {
@@ -215,6 +262,76 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
         ...(picked.note ? { note: picked.note } : {}),
       },
       colors: { count: colorCount },
+    },
+  };
+}
+
+/**
+ * The addresses worth trying, in order.
+ *
+ * People paste the page they are looking at. That is very often a product or a
+ * collection rather than a homepage, and a deep path that answers 404 used to
+ * end the whole thing: `example.com/a/b/c` produced "There is no page at that
+ * address" and no brand, from a site whose homepage was perfectly readable.
+ *
+ * The pasted address first, because a site really can live at `/shop`, and its
+ * origin second. Never more than these two - guessing further is how a brand
+ * builder turns into a crawler.
+ */
+function readOrder(url: string): string[] {
+  try {
+    const u = new URL(url);
+    return u.pathname === '/' && !u.search ? [url] : [url, u.origin];
+  } catch {
+    return [url];
+  }
+}
+
+/** The one slug rule, so a refused site and a read one are named the same way. */
+function slugOf(name: string, fallback: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48) || fallback
+  );
+}
+
+/**
+ * What we can honestly build from an address a site would not let us read.
+ *
+ * The name is the hostname, exactly as `pickName` falls back to it, so this
+ * kit is indistinguishable from one built for a site with no title - a case
+ * the screen already handles. `kitNeedsHand` is true for a hostname name with
+ * no logo and no colours, so the setup screen already says "Finish the kit
+ * first" and points at Settings without needing a new state.
+ */
+function addressOnlyBrand(url: string, reason: string, opts: BuildOptions): BuildResult {
+  const origin = new URL(url);
+  const name = origin.hostname.replace(/^www\./, '');
+  return {
+    brand: {
+      specVersion: '0.1',
+      meta: {
+        name,
+        slug: slugOf(name, origin.hostname),
+        website: origin.origin,
+        createdWith: opts.createdWith ?? 'scenri',
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    // The first sentence is the site's own refusal, already written for a
+    // person by `statusSentence`; the second is what they can do about it.
+    warnings: [reason, 'The brand was made from the address. Add the logo and colours in Settings.'],
+    report: {
+      url: origin.origin,
+      host: origin.hostname,
+      read: false,
+      name: { value: name, source: 'hostname' },
+      tagline: null,
+      logo: { status: 'none', source: null },
+      colors: { count: 0 },
     },
   };
 }
@@ -370,16 +487,9 @@ async function downloadMark(
   for (const candidate of candidates) {
     if (tried >= LOGO_TRIES || get.remaining() <= 0) break;
     let buf: Buffer | null = null;
-    if (candidate.svg) {
-      const sized = svgAsMark(candidate.svg);
-      if (!sized) continue;
-      buf = Buffer.from(sized, 'utf8');
-    } else if (candidate.url?.startsWith('data:')) {
-      const comma = candidate.url.indexOf(',');
-      const body = candidate.url.slice(comma + 1);
-      buf = candidate.url.slice(0, comma).includes(';base64')
-        ? Buffer.from(body, 'base64')
-        : Buffer.from(decodeURIComponent(body), 'utf8');
+    if (carriesBytes(candidate)) {
+      buf = inlineBytes(candidate);
+      if (!buf) continue;
     } else if (candidate.url) {
       tried++;
       try {
@@ -456,6 +566,85 @@ async function downloadMark(
   if (failed) warnings.push('Logo download failed.');
   warnings.push('No logo captured. Add one manually.');
   return { role: 'primary', source: null };
+}
+
+/** A candidate that is already its own bytes: an inline SVG, or a data: URI. */
+function carriesBytes(candidate: LogoCandidate): boolean {
+  return Boolean(candidate.svg) || Boolean(candidate.url?.startsWith('data:'));
+}
+
+function inlineBytes(candidate: LogoCandidate): Buffer | null {
+  if (candidate.svg) {
+    const sized = svgAsMark(candidate.svg);
+    return sized ? Buffer.from(sized, 'utf8') : null;
+  }
+  if (!candidate.url) return null;
+  const comma = candidate.url.indexOf(',');
+  const body = candidate.url.slice(comma + 1);
+  return candidate.url.slice(0, comma).includes(';base64')
+    ? Buffer.from(body, 'base64')
+    : Buffer.from(decodeURIComponent(body), 'utf8');
+}
+
+/**
+ * The site's own icon, kept beside the logo as the kit's `mark`.
+ *
+ * A logo is whatever shape a brand draws it. LEGO's certified store ships a
+ * wordmark 5.5 times wider than it is tall, and `downloadMark` is right to
+ * crown it: that is the thing the compiler promises to reproduce as drawn.
+ * It is also unusable anywhere a small square is wanted - a dock chip, a row
+ * avatar - where fitting it inside 22px leaves three illegible pixels of red.
+ *
+ * Every site already ships the answer, because browsers have wanted the same
+ * square for thirty years: the manifest icon, the apple-touch-icon, the
+ * `<link rel="icon">`. `logoCandidates` parses all three already; they simply
+ * lose the logo contest to a header image, and should. So take the best of
+ * them as a second entry under `mark`, the role the kit already has for the
+ * compact symbol form.
+ *
+ * `/favicon.ico` is deliberately not guessed at. The store this was written
+ * for answers 404 there and declares its icon in markup instead, which is the
+ * same rule the rest of this file follows: believe what the page states.
+ *
+ * One extra request at most, skipped entirely when the logo already came from
+ * an icon source - a site whose logo is its icon needs no second copy of it.
+ */
+async function downloadIcon(
+  candidates: readonly LogoCandidate[],
+  get: GuardedFetch,
+  opts: BuildOptions,
+  picked: PickedMark,
+): Promise<string | null> {
+  if (!opts.saveAsset) return null;
+  if (picked.source && ICON_SOURCES.has(picked.source)) return null;
+  const best = candidates.find((c) => ICON_SOURCES.has(c.source) && (c.svg || c.url));
+  if (!best) return null;
+
+  let buf: Buffer | null = null;
+  if (carriesBytes(best)) {
+    buf = inlineBytes(best);
+  } else if (best.url) {
+    if (get.remaining() <= 0) return null;
+    try {
+      buf = (await get(best.url, 'asset')).bytes;
+    } catch {
+      // The logo is the thing that matters; a missing icon is not a failed
+      // scrape and gets no warning of its own.
+      return null;
+    }
+  }
+  if (!buf || buf.length === 0) return null;
+
+  try {
+    const ref = await opts.saveAsset(buf, 'logo');
+    // Content-addressed, so identical bytes come back as the same ref: the
+    // icon and the logo really were the same file.
+    if (ref === picked.ref) return null;
+    const shape = opts.inspectMark ? await opts.inspectMark(buf).catch(() => null) : null;
+    return shape?.blank ? null : ref;
+  } catch {
+    return null;
+  }
 }
 
 export { ScrapeError };

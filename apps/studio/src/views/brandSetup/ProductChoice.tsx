@@ -35,6 +35,7 @@ export function ProductChoice({
   brandId,
   scan,
   busy,
+  error,
   onImport,
   onImportAll,
   onDismiss,
@@ -42,17 +43,48 @@ export function ProductChoice({
   brandId: string;
   scan: CommerceScan;
   busy?: boolean;
+  /** Said here rather than behind the sheet: the choice is still on screen. */
+  error?: string | null;
   onImport: (urls: string[]) => void;
   onImportAll: () => void;
   onDismiss: () => void;
 }) {
-  const all = scan.candidateUrls;
+  // Addresses to choose from. A store with a bulk listing describes every
+  // product in `cards`, and a store read page by page lists them separately;
+  // either is a complete set of addresses, and neither may be assumed.
+  const all = useMemo(() => {
+    if (scan.candidateUrls.length) return scan.candidateUrls;
+    return (scan.cards ?? []).map((c) => c.url).filter(Boolean);
+  }, [scan.candidateUrls, scan.cards]);
   const [query, setQuery] = useState('');
   const [picked, setPicked] = useState<Set<string>>(() => new Set(all));
   const [shown, setShown] = useState(BATCH);
-  const [details, setDetails] = useState<Map<string, CatalogCandidate>>(
-    () => new Map(scan.candidates.filter((c) => c.url).map((c) => [c.url as string, c])),
-  );
+  /**
+   * What the store's own listing already said, which is usually everything.
+   *
+   * A Shopify or WooCommerce catalogue arrives complete during the scan: a
+   * name and a picture per product, for all of them. Seeding the map with it
+   * means the grid draws at once and asks the store for nothing. Without this
+   * the chooser paid one HTTP request per card for data already downloaded,
+   * which on a 1,186 product store was 1,186 requests, minutes of shimmering
+   * placeholders, and eventually a storefront that started refusing us.
+   */
+  const [details, setDetails] = useState<Map<string, CatalogCandidate>>(() => {
+    const seed = new Map<string, CatalogCandidate>();
+    for (const c of scan.cards ?? []) {
+      if (c.url)
+        seed.set(c.url, {
+          externalKey: c.externalKey,
+          title: c.title,
+          url: c.url,
+          images: c.image ? [{ url: c.image }] : [],
+        });
+    }
+    // A preview read from pages wins where it exists: it carries price and
+    // category, which a listing card does not.
+    for (const c of scan.candidates) if (c.url) seed.set(c.url as string, c);
+    return seed;
+  });
   const asking = useRef<Set<string>>(new Set());
   /** Read inside the fetch effect without making it a dependency. */
   const haveRef = useRef(details);
@@ -292,7 +324,13 @@ export function ProductChoice({
         <button type="button" className="sc-wiz-skip" onClick={onDismiss}>
           Not now
         </button>
-        {inFlight > 0 && <span className="sc-wizpick-loading">Loading products</span>}
+        {error ? (
+          <span className="sc-wizpick-error" role="alert">
+            {error}
+          </span>
+        ) : (
+          inFlight > 0 && <span className="sc-wizpick-loading">Loading products</span>
+        )}
         <button
           type="button"
           className="sc-wiz-cta"

@@ -6,6 +6,8 @@ import { productsNewestFirst } from '../brandAssets.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { useAppData } from '../app/AppShell.js';
+import { useProductLibrary } from '../app/ProductLibrary.js';
+import { ImportBar } from '../layout/ImportBar.js';
 import { useApplyProduct } from '../app/useApplyProduct.js';
 import { productPath } from '../routes.js';
 import { ProductCard, ProductCardSkeleton } from '../layout/ProductCard.js';
@@ -39,6 +41,7 @@ const SEARCH_MIN = 8;
  */
 export function ProductsView() {
   const { brand, products, productsLoaded } = useBrand();
+  const importing = useProductLibrary()?.importing ?? false;
   const { demoProducts } = useAppData();
   /**
    * Whether this brand has products of its own at all, before any filter.
@@ -69,11 +72,24 @@ export function ProductsView() {
   const wallStyle = useMemo(() => densityWallStyle(density), [density]);
   const densityAttr = densitySize(density);
 
-  /** Yours, for the section above the seam. Newest first, so a product just added sits top-left. */
-  const mine = useMemo(
-    () => productsNewestFirst(products).map((p) => ({ product: p as any, category: effectiveCategory(p), own: true })),
-    [products],
-  );
+  /**
+   * Yours, for the section above the seam. Newest first, so a product just
+   * added sits top-left.
+   *
+   * While an import is running, only the ones that have a picture.
+   *
+   * A product is written the moment its listing is read and its pictures are
+   * downloaded after, so a 294 product import put 294 empty frames on screen
+   * at once and left them empty for as long as the downloads took. The wall
+   * now fills the way it reads: from nothing, one product at a time, each one
+   * complete when it appears. Nothing is hidden for long - the run ends, and
+   * anything whose picture genuinely failed shows then, with its placeholder,
+   * which is the honest way to say that.
+   */
+  const mine = useMemo(() => {
+    const ready = importing ? products.filter((p) => (p.shots?.length ?? 0) > 0) : products;
+    return productsNewestFirst(ready).map((p) => ({ product: p as any, category: effectiveCategory(p), own: true }));
+  }, [products, importing]);
   /** Ours, for the wall below it. Always present, at every catalog size. */
   const theirs = useMemo(
     () => demoProducts.map((p) => ({ product: p as any, category: p.category, own: false })),
@@ -299,6 +315,12 @@ export function ProductsView() {
             />
           )}
         </main>
+        {/* No composer on this page, so it floats where the dock would be. This
+            is the page an import fills, so it is the page most likely to be open
+            while one runs. */}
+        <div className="sc-impbar-float">
+          <ImportBar />
+        </div>
       </ScrollPane>
     </WallDensityCtx.Provider>
   );

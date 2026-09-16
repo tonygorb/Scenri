@@ -51,6 +51,12 @@ export function NotificationsButton() {
    */
   const [detailJob, setDetailJob] = useState<string | null>(null);
 
+  // A job belongs to the brand it was started for. Switching brands with this
+  // open used to ask the new brand about the old brand's job: a 404 the dialog
+  // reads as "not yet", so it retried every 900 ms for ever behind "Reading
+  // the job" and four zeros, and nothing but a reload closed it.
+  useEffect(() => setDetailJob(null), [brand.id]);
+
   // the bar outlives the screen now, so an open panel would follow you around
   useEffect(() => setPanelOpen(false), [pathname, setPanelOpen]);
 

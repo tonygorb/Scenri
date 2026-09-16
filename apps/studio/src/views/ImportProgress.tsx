@@ -95,13 +95,31 @@ export function ImportProgress({
         </SheetClose>
       </div>
 
+      {/* Stages change a handful of times in a whole run, so this is the one
+          thing worth announcing. The counters below tick every 300 ms and are
+          deliberately left silent. */}
       <SheetDescription className="sc-imp-sub">
-        {job ? (STAGE_LABEL[job.stage] ?? job.stage) : 'Reading the job'}
-        {job?.message ? ` · ${job.message}` : ''}
+        <span role="status">
+          {/*
+            Never the raw stage. `job.stage` is an identifier - a new one added
+            server-side would put `fetching_products` on screen in front of a
+            person, which is the one place a machine word has ever reached this
+            dialog. An unmapped stage is simply work in progress.
+          */}
+          {job ? (STAGE_LABEL[job.stage] ?? 'Working') : 'Getting the details'}
+          {job?.message ? ` · ${job.message}` : ''}
+        </span>
       </SheetDescription>
 
       {running && (
-        <span className="sc-imp-meter" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+        <span
+          className="sc-imp-meter"
+          role="progressbar"
+          aria-label="Import progress"
+          aria-valuenow={percent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
           <div style={{ width: `${percent}%` }} />
         </span>
       )}

@@ -68,6 +68,22 @@ export interface DiscoverResult {
   productUrls: string[];
   estimatedTotal: number | null;
   collections?: CatalogCollection[];
+  /**
+   * The catalogue as the platform already handed it over, when it did.
+   *
+   * Shopify's `/products.json` and WooCommerce's store API answer 250 and 100
+   * products a page, each carrying a title and its pictures. Discovery walked
+   * those pages, took the ids and the addresses, and threw the rest away - and
+   * then the chooser asked the store again, one HTTP request per card, for the
+   * data we had already downloaded. Measured 2026-09-16 on a 1,186 product
+   * store: five requests brought the whole catalogue, and drawing it cost
+   * another 1,186. Cards were blank for minutes and the store started
+   * refusing us, both for want of keeping 247 KB we already had.
+   *
+   * Absent for a store with no bulk API, where a card really does cost a page
+   * read and the chooser must go on asking for them a screenful at a time.
+   */
+  cards?: CatalogCard[];
   warnings: string[];
   /**
    * What discovery learned that changes how fetching should work.
@@ -95,6 +111,15 @@ export interface AdapterContext {
   baseUrl: string;
   signal?: AbortSignal;
   onProgress?: (update: Partial<JobProgress>) => void;
+  /**
+   * `Date.now()` past which discovery stops listing and works with what it has.
+   *
+   * The scan has always had a budget, but it only ever reached the page reads:
+   * detection and discovery ran unbounded underneath it, so a store whose
+   * catalogue was slow to list could spend minutes before the budget was
+   * consulted once. A partial list is a result; an open-ended wait is not.
+   */
+  deadline?: number;
 }
 
 export interface JobProgress {
@@ -123,6 +148,20 @@ export interface CatalogAdapter {
   detect(ctx: AdapterContext): Promise<DetectResult | null>;
   discover(ctx: AdapterContext): Promise<DiscoverResult>;
   fetchAll(ctx: AdapterContext, discovered: DiscoverResult): Promise<CatalogProduct[]>;
+  /**
+   * The chosen products, from the platform's own listing rather than one page
+   * request each.
+   *
+   * Importing twenty-five products meant twenty-five page reads, which is the
+   * slow half of an import on a store whose listing would have answered in
+   * one. The walk stops as soon as everything asked for has been found, so
+   * choosing three products usually costs a single request and choosing the
+   * whole catalogue costs a handful.
+   *
+   * Null when this store has no bulk listing, or will not serve it: the caller
+   * then reads the pages, exactly as before.
+   */
+  fetchSome?(ctx: AdapterContext, urls: string[]): Promise<CatalogProduct[] | null>;
 }
 
 export type FetchImpl = typeof fetch;
@@ -150,6 +189,24 @@ export interface ScanBudget {
   previewFloorMs: number;
 }
 
+/**
+ * A product as a chooser needs it, and nothing more.
+ *
+ * A name, an address and one picture. Deliberately not a `CatalogProduct`:
+ * holding the whole catalogue in a scan means holding it in memory and sending
+ * it to a browser, and a Shopify product carries its entire description in
+ * `body_html`. The full record is read at import time, from the same bulk API,
+ * for the products a person actually chose.
+ */
+export interface CatalogCard {
+  externalKey: string;
+  title: string;
+  url: string;
+  handle?: string | null;
+  /** The best picture the listing offered, already upgraded past any thumbnail. */
+  image?: string | null;
+}
+
 export interface ScanResult {
   baseUrl: string;
   platform: Platform;
@@ -160,6 +217,15 @@ export interface ScanResult {
   countSource: CountSource;
   /** Read and parsed: a preview, never the catalog. */
   candidates: CatalogProduct[];
+  /**
+   * Every product the platform's own listing already described.
+   *
+   * Present whenever the store has a bulk API, and then it covers the whole
+   * catalogue rather than a preview of it, so a chooser needs no further
+   * requests at all. Empty for a store whose products are only readable one
+   * page at a time; `candidates` is the preview in that case.
+   */
+  cards: CatalogCard[];
   /** Every product URL discovery found, so an import need not discover again. */
   candidateUrls: string[];
   /** True when there is more catalog than the preview shows. */

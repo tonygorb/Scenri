@@ -317,3 +317,139 @@
   max-width: none;
   padding: 26px var(--sc-gutter) 230px;
 }
+
+/* ---------- a catalogue import, in the dock ---------- */
+/* Same shelf and same pill as `.sc-picked` directly above the composer, for
+   the same reason: it clears whatever height the composer happens to be.
+   No progress fill: the job's percent goes backwards, because the picture
+   phase divides by a total that grows every time another product is written.
+   A clock cannot go backwards, and the count beside it is the real work. */
+.sc-impbar {
+  position: relative;
+  overflow: hidden;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px 7px 9px;
+  border-radius: var(--sc-radius-full);
+  border: 1px solid var(--sc-line-strong);
+  background: var(--sc-raised);
+  box-shadow: var(--sc-shadow-2);
+}
+/* The progress itself, as the surface rather than a meter drawn on it. Only
+   ever advances: `imagesTotal` is what the run still owes, but products are
+   still being written while pictures download on a store read page by page,
+   so the fraction can still grow a denominator under itself. */
+.sc-impbar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--sc-impbar-p, 0%);
+  background: var(--sc-fg);
+  opacity: 0.08;
+  transition: width 500ms ease-out;
+  pointer-events: none;
+}
+.sc-impbar > *:not(.sc-impbar-fill) {
+  position: relative;
+}
+
+/* On a page with no composer to sit above, it floats where the dock would be. */
+.sc-impbar-float {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 40;
+  pointer-events: auto;
+}
+.sc-impbar-float .sc-impbar {
+  margin: 0;
+}
+
+/* The whole readout is the door into the dialog; Stop stays its own button
+   beside it, so neither swallows the other's click. */
+.sc-impbar-open {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 2px 4px 2px 2px;
+  border-radius: var(--sc-radius-full);
+  font-family: var(--sc-font);
+  text-align: left;
+  cursor: pointer;
+}
+.sc-impbar-open:hover:not(:disabled) .sc-impbar-count {
+  color: var(--sc-fg);
+}
+.sc-impbar-open:disabled {
+  cursor: default;
+}
+
+/* Circular. A site icon is drawn to be a small square badge, so filling the
+   circle with it is what it was designed for; a logo standing in for one is
+   fitted instead, because centre-cropping a wordmark shows its background. */
+.sc-impbar-mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--sc-bg);
+  color: var(--sc-fg3);
+  overflow: hidden;
+}
+.sc-impbar-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.sc-impbar-mark img.sc-impbar-badge {
+  object-fit: cover;
+}
+.sc-impbar-count {
+  font-size: 13px;
+  color: var(--sc-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Tabular figures so a ticking clock does not shuffle the row beside it. */
+.sc-impbar-clock {
+  font-size: 12.5px;
+  color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sc-impbar-stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: none;
+  color: var(--sc-fg3);
+  font-size: 12.5px;
+  font-family: var(--sc-font);
+  padding: 4px 8px;
+  border-radius: var(--sc-radius-full);
+  cursor: pointer;
+}
+.sc-impbar-stop:hover:not(:disabled) {
+  color: var(--sc-fg);
+  background: var(--sc-hover);
+}
+.sc-impbar-stop:disabled {
+  opacity: var(--sc-disabled);
+  cursor: default;
+}
+@media (max-width: 767px) {
+  .sc-impbar-count {
+    max-width: 46vw;
+  }
+}

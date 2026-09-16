@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { retryAfterMs } from '../src/http/fetch.js';
-import { imageFailure, pageFailure, summarise, tally, thrownFailure } from '../src/failures.js';
+import { imageFailure, pageFailure, shortfall, summarise, tally, thrownFailure } from '../src/failures.js';
 
 /**
  * A store that is refusing us gets to say for how long.
@@ -135,5 +135,42 @@ describe('giving up on a store that keeps refusing', () => {
     expect(stats.reasons).toHaveProperty('RATE_LIMITED');
     // and the caller can tell it did not cover the catalogue
     expect(stats.pages).toBeLessThan(urls.length);
+  });
+});
+
+/**
+ * How many things went wrong is counted, not subtracted.
+ *
+ * `asked - saved` counts products against addresses, and one address can carry
+ * several. Measured 2026-09-16 against a live store: six addresses of which
+ * three were dead produced five products, and the sentence read "1 of 6 are no
+ * longer on the site" when three of them were.
+ */
+describe('counting what failed', () => {
+  it('counts addresses that did not work, not products that did', () => {
+    const t = {};
+    tally(t, 'PAGE_NOT_FOUND', 3);
+    // Six addresses asked for, three worked, and those three carried five
+    // products between them. Subtracting products from addresses said "1".
+    expect(summarise(t, 5, 6, shortfall(6, 3))).toBe('3 of 6 products are no longer on the site.');
+  });
+
+  it('counts what was never tried as missing too', () => {
+    const t = {};
+    // A run that gives up early records 26 refusals and leaves 4 untried; the
+    // person is still missing 30 of the 40 they asked for.
+    tally(t, 'PAGE_BLOCKED', 26);
+    expect(summarise(t, 10, 40, shortfall(40, 10))).toBe('30 of 40 product pages would not open.');
+  });
+
+  it('never claims more failures than were asked for', () => {
+    const t = {};
+    tally(t, 'PAGE_NOT_FOUND', 99);
+    expect(summarise(t, 1, 6, shortfall(6, 0))).toBe('6 of 6 products are no longer on the site.');
+  });
+
+  it('says nothing at all when a reason was recorded but never happened', () => {
+    // A zero is not a reason, and it used to win the sort on a clean run.
+    expect(summarise({ PAGE_NOT_FOUND: 0 }, 4, 10)).toBeNull();
   });
 });

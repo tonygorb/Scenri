@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Callout, Spinner } from '@radix-ui/themes';
 import { ArrowRight, CaretLeft, Check, ImageSquare, Minus } from '@phosphor-icons/react';
@@ -9,7 +9,7 @@ import { flattenPalette } from '../brand/palette.js';
 import { primaryMark } from '../brand/marks.js';
 import { brandName } from '../layout/nav.js';
 import { duplicateOf } from './brandDupes.js';
-import { hasCatalog, kitLines, kitNeedsHand, productLine } from './kitReport.js';
+import { hasCatalog, kitLines, kitNeedsHand, productLine, scanRetryable } from './kitReport.js';
 import { useCommerceScan } from './brandSetup/useCommerceScan.js';
 import { ProductChoice } from './brandSetup/ProductChoice.js';
 
@@ -59,6 +59,10 @@ export function BrandSetup() {
   const [choosing, setChoosing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [report, setReport] = useState<ScrapeReport | null>(null);
+  /** Why the kit is thin, when a site answered and would not be read. */
+  const [note, setNote] = useState<string | null>(null);
+  /** An import that would not start, said on the sheet that asked for it. */
+  const [importError, setImportError] = useState<string | null>(null);
   /**
    * The brand this input would duplicate, when one exists. Creating it anyway
    * is allowed — the second click says so — but never by accident: this is
@@ -66,11 +70,48 @@ export function BrandSetup() {
    */
   const [dupe, setDupe] = useState<Brand | null>(null);
 
+  /**
+   * A brand nobody kept is a brand nobody made.
+   *
+   * The kit has to exist server-side before it can be shown: the scrape saves
+   * the logo as an asset and the shop is scanned against the brand it belongs
+   * to. So the row is written the moment a website is read - and walking away
+   * from the screen used to leave it there. Pasting three addresses to see
+   * what they looked like left three workspaces, and this session alone made
+   * fifty-six of them.
+   *
+   * So the screen owns it until someone keeps it. `land` is the only way to
+   * keep it, and anything else that ends this screen - Back, the browser's
+   * back button, a reload, closing the tab - takes it away again. Nothing else
+   * is ever deleted: only the brand this component created, and only while it
+   * is still unkept.
+   */
+  const kept = useRef(false);
+  const abandon = useRef<string | null>(null);
+
   const land = async (b: Brand, settings?: 'brand') => {
+    kept.current = true;
+    abandon.current = null;
     setMade(b);
     await refresh();
     navigate(`${brandPath(b)}${settings ? `?settings=${settings}` : ''}`, { replace: true });
   };
+
+  useEffect(() => {
+    // `keepalive` is what makes this survive a reload or a closing tab; a
+    // plain fetch is cancelled with the document and the row would stay.
+    const drop = () => {
+      const id = abandon.current;
+      if (!id || kept.current) return;
+      abandon.current = null;
+      void fetch(`/api/brands/${id}`, { method: 'DELETE', keepalive: true }).catch(() => {});
+    };
+    window.addEventListener('pagehide', drop);
+    return () => {
+      window.removeEventListener('pagehide', drop);
+      drop();
+    };
+  }, []);
 
   const buildFromUrl = async (force = false) => {
     if (!force) {
@@ -102,7 +143,17 @@ export function BrandSetup() {
       // Show it, and wait. The brand exists either way - this is a reveal, not
       // a confirmation that could still be refused.
       setMade(b);
+      abandon.current = b.id;
       setReport(b.report);
+      // A site that answered and refused still makes a brand, and the rows
+      // already say what is missing. These are the sentences that say why,
+      // written for a person by the scraper. Not an error: something was made.
+      //
+      // Both of them, because either alone is half an answer. The first is the
+      // site's own refusal; the second says a brand was made anyway and where
+      // the two missing fields live. "Try again in a minute" on its own reads
+      // as a failure, which is exactly what this stopped being.
+      setNote(b.report?.read === false ? b.warnings?.slice(0, 2).join(' ') || null : null);
       setBusy(false);
     } catch (e: any) {
       setErr(String(e.message ?? e));
@@ -131,17 +182,28 @@ export function BrandSetup() {
   const cancel = () => navigate('/', { replace: true });
 
   // Asked only once the brand exists, and never blocking it.
-  const { scan, scanning, retry } = useCommerceScan(made?.id ?? null);
-  const products = productLine(scan, scanning);
+  const { scan, scanning, outcome, retry } = useCommerceScan(made?.id ?? null);
+  const products = productLine(outcome);
+  // A look that concluded nothing is not a look that found nothing. Offering
+  // "Looks right" here is what let a readable store land as a brand with no
+  // products and nothing said about it.
+  const scanFailed = outcome.kind === 'timeout' || outcome.kind === 'error';
 
   const startImport = async (urls?: string[]) => {
     if (!made) return;
+    setImportError(null);
     setImporting(true);
     try {
       await api.catalogImport(made.id, String(made.json?.meta?.website ?? url), urls);
     } catch {
-      // The import is a background job with its own row; a failure to start
-      // it is not a reason to hold someone on the setup screen.
+      // An import that never started is not a background job, and this used to
+      // swallow that difference whole: the sheet closed, the brand landed, and
+      // the person waited for products that nobody had asked for. Stay on the
+      // sheet and say so - the choice they made is still on screen, so trying
+      // again is one click and costs them nothing.
+      setImportError('That did not start. Check your connection and try again.');
+      setImporting(false);
+      return;
     }
     setImporting(false);
     setChoosing(false);
@@ -201,6 +263,17 @@ export function BrandSetup() {
                   <div>
                     <button type="button" className="sc-wiz-skip" onClick={() => void land(made)}>
                       Skip and add the brand only
+                    </button>
+                  </div>
+                </>
+              ) : scanFailed ? (
+                <>
+                  <button type="button" className="sc-wiz-cta" onClick={retry}>
+                    Look for products again <ArrowRight size={12} />
+                  </button>
+                  <div>
+                    <button type="button" className="sc-wiz-skip" onClick={() => void land(made)}>
+                      Continue without products
                     </button>
                   </div>
                 </>
@@ -397,7 +470,16 @@ export function BrandSetup() {
                   </div>
                 )}
                 {report && (
-                  <ul className="sc-kit-lines">
+                  /*
+                    One concise announcement, not a stream of them.
+                    
+                    The three brand rows land together and the products row
+                    resolves once, so a reader hears "Name Summit, Logo found
+                    on the site, Colours 4 taken from the site, Products 294
+                    found" and nothing more. Per-product chatter during an
+                    import belongs nowhere near a live region.
+                  */
+                  <ul className="sc-kit-lines" role="status">
                     {[...kitLines(report), ...(products ? [products] : [])].map((line) => (
                       <li key={line.key} data-found={line.found ? '' : undefined}>
                         {line.key === 'products' && scanning ? (
@@ -413,7 +495,12 @@ export function BrandSetup() {
                     ))}
                   </ul>
                 )}
-                {!scanning && scan && (scan.verdict === 'blocked' || scan.verdict === 'likely') && (
+                {note && (
+                  <p className="sc-kit-note" role="status">
+                    {note}
+                  </p>
+                )}
+                {!scanning && !scanFailed && scanRetryable(outcome) && (
                   <button type="button" className="sc-wizpick-open" onClick={retry}>
                     Try the catalogue again
                   </button>
@@ -428,6 +515,7 @@ export function BrandSetup() {
           brandId={made.id}
           scan={scan}
           busy={importing}
+          error={importError}
           onImport={(urls) => void startImport(urls)}
           onImportAll={() => void startImport()}
           onDismiss={() => setChoosing(false)}

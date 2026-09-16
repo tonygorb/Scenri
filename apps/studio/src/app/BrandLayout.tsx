@@ -71,7 +71,12 @@ export type BrandData = BrandCore & ProductLibraryValue;
 const Ctx = createContext<BrandCore | null>(null);
 
 /** What `useBrand()` answers about products before the library provider has mounted (the settings dialogs sit above it). */
-const NO_PRODUCTS: ProductLibraryValue = { products: [], productsLoaded: false, refreshProducts: async () => {} };
+const NO_PRODUCTS: ProductLibraryValue = {
+  products: [],
+  productsLoaded: false,
+  importing: false,
+  refreshProducts: async () => {},
+};
 
 /**
  * The brand on screen, plus its product library.

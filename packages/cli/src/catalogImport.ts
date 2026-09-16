@@ -5,8 +5,10 @@ import {
   httpGet,
   normalizeStoreUrl,
   detectPlatform,
+  adapterFor,
   imageFailure,
   summarise,
+  shortfall,
   tally as countFailure,
   thrownFailure,
   type FailureTally,
@@ -16,6 +18,7 @@ import {
   type JobProgress,
   type Platform,
 } from '@scenri/catalog';
+import { hostOf } from '@scenri/brand';
 import type { Core } from '@scenri/core';
 
 export interface CatalogImportDeps {
@@ -122,6 +125,11 @@ function progressWriter(patch: (p: any) => unknown): (p: JobProgress) => void {
   };
 }
 
+/** What a stop says, which depends only on what it managed to keep. */
+function stoppedMessage(saved: number): string {
+  return saved ? `Stopped after saving ${saved.toLocaleString()} products` : 'Stopped before anything was saved';
+}
+
 async function runJob(
   deps: CatalogImportDeps,
   jobId: string,
@@ -133,6 +141,16 @@ async function runJob(
   const { core, fetchImpl } = deps;
   const patch = (p: Parameters<typeof core.catalog.updateJob>[1]) => core.catalog.updateJob(jobId, p);
 
+  /**
+   * Held outside the try so a stop that throws can still say what it saved.
+   *
+   * A cancel during the picture drain unwinds through the catch below, and
+   * that path used to report "Stopped before anything was saved" whatever had
+   * happened - measured on a real run that had already written 294 products
+   * and 822 pictures.
+   */
+  const tally: Tally = { fetched: 0, upserted: 0, imagesDone: 0, imagesTotal: 0, errors: [], seenKeys: [] };
+
   try {
     // One path, whether someone ticked twelve products or asked for the whole
     // store. Both read product pages, and both have to write what they have
@@ -141,7 +159,6 @@ async function runJob(
     // Products page empty for the whole run and the heap carrying a catalogue
     // it was not using. The two differ in where the addresses come from and in
     // whether products missing from the run have genuinely gone.
-    const tally: Tally = { fetched: 0, upserted: 0, imagesDone: 0, imagesTotal: 0, errors: [], seenKeys: [] };
     const ctx = { fetchImpl: fetchImpl ?? fetch, baseUrl: url, signal };
 
     let urls: string[] = [];
@@ -163,6 +180,29 @@ async function runJob(
       baseUrl = url;
       platform = detection.platform;
       discovered = only.length;
+      /**
+       * Ask the listing before asking for pages.
+       *
+       * Twenty-five chosen products meant twenty-five page reads, and that is
+       * the slow half of an import: measured on a real store, 25 products took
+       * 7.2 s of which the pictures were a fraction. The same store answers its
+       * whole listing in one request. The walk stops as soon as everything
+       * chosen has been found, so a small pick costs one request and the whole
+       * catalogue costs a handful.
+       *
+       * Whatever the listing did not carry still goes through the pages below,
+       * so a handle the bulk API has forgotten is not simply lost.
+       */
+      const adapter = adapterFor(detection.platform);
+      const listed = adapter.fetchSome ? await adapter.fetchSome({ ...ctx, baseUrl }, only) : null;
+      if (listed?.length) {
+        bulk = listed;
+        const got = new Set(listed.map((p) => p.handle ?? '').filter(Boolean));
+        urls = only.filter((u) => {
+          const h = /\/products\/([^/?#]+)/i.exec(u)?.[1];
+          return !h || !got.has(decodeURIComponent(h));
+        });
+      }
     } else {
       patch({ stage: 'discovering', message: 'Detecting store platform' });
       const found = await discoverCatalog({ url, fetchImpl, signal, onProgress: progressWriter(patch) });
@@ -197,7 +237,7 @@ async function runJob(
         // batched crawl below, which is the case this was all written for.
         const products = await found.fetchAll();
         if (signal.aborted) {
-          patch({ stage: 'cancelled', errors: [], message: 'Stopped before anything was saved', finished: true });
+          patch({ stage: 'cancelled', errors: [], message: stoppedMessage(tally.upserted), finished: true });
           return;
         }
         if (!products.length) {
@@ -228,7 +268,7 @@ async function runJob(
     }
 
     const run = beginWrite(deps, jobId, brandId, baseUrl, platform, tally, discovered);
-    const pictures = drainPictures(deps, jobId, brandId, tally, signal);
+    const pictures = drainPictures(deps, jobId, brandId, tally, signal, hostOf(baseUrl));
 
     // A product goes in the moment its page parsed, and its pictures start
     // downloading beside the crawl rather than after it.
@@ -244,13 +284,20 @@ async function runJob(
     // apart from a shop with very few products.
     const stats = { pages: 0, bytes: 0, refused: 0, reasons: {} as FailureTally };
     try {
+      // Not either/or any more: a chosen set can come partly from the listing
+      // and partly from the pages the listing did not carry.
       if (bulk) for (const p of bulk) run.write(p);
-      else
+      if (urls.length)
         await fetchProductPages(ctx, urls, {
           concurrency: IMPORT_CONCURRENCY,
           maxBytes: 1_500_000,
           onEach: run.write,
           stats,
+          // A run that cannot finish still has to end. Generous enough for a
+          // 2,200 page catalogue, which measures around sixteen minutes, and
+          // short of the forever this had before. Stopping here leaves the run
+          // `partial` with what it saved, never `completed`.
+          deadline: Date.now() + IMPORT_DEADLINE_MS,
           // Past this many refusals in a row the store is not going to change
           // its mind inside this import, and waiting out its cooldown for the
           // rest of the catalogue is time nobody gets a product for.
@@ -279,9 +326,7 @@ async function runJob(
       patch({
         stage: 'cancelled',
         errors: [],
-        message: tally.upserted
-          ? `Stopped after saving ${tally.upserted.toLocaleString()} products`
-          : 'Stopped before anything was saved',
+        message: stoppedMessage(tally.upserted),
         finished: true,
       });
       core.catalog.setSourceStatus(run.sourceId, 'partial', true);
@@ -294,16 +339,23 @@ async function runJob(
       errors: pictureErrors,
       refused: stats.refused,
       reasons: { ...stats.reasons, ...pictureReasons },
-      asked: bulk ? bulk.length : urls.length,
-      // Every address was read. A bulk API hands the catalogue over whole, so
-      // there is nothing to cover.
-      covered: bulk ? true : stats.pages >= urls.length,
+      // A chosen set can now come partly from the listing and partly from the
+      // pages it did not carry, so both halves count.
+      asked: (bulk?.length ?? 0) + urls.length,
+      // Addresses that actually yielded a page, which is the unit the person's
+      // question was asked in. Products are the wrong unit: one address can
+      // carry several, and counting them made a run that lost three addresses
+      // report that it had lost one. A listing answers for itself.
+      worked: (bulk?.length ?? 0) + Math.max(0, stats.pages - stats.refused),
+      // Every address was read. A bulk API hands its share over whole, so only
+      // the pages left over have to be covered.
+      covered: stats.pages >= urls.length,
     });
   } catch (err: any) {
     // Stopping during discovery throws out of the pipeline, and the throw is
     // the stop rather than a fault of the site's.
     if (signal.aborted) {
-      patch({ stage: 'cancelled', errors: [], message: 'Stopped before anything was saved', finished: true });
+      patch({ stage: 'cancelled', errors: [], message: stoppedMessage(tally.upserted), finished: true });
       return;
     }
     patch({
@@ -352,6 +404,35 @@ const TERMINAL: ReadonlySet<string> = new Set(['completed', 'partial', 'no_catal
  * latency it costs is hidden by asking early rather than by asking harder.
  */
 const IMAGE_CONCURRENCY = 4;
+
+/**
+ * The same question, for a store whose pictures live somewhere else.
+ *
+ * The four above is a budget against one host: on gymshark.com the pictures
+ * come from the storefront itself, so four page reads and four downloads is
+ * eight at once to a single server, and sixteen got the run shut out twice.
+ *
+ * Most storefronts are not that shape. Shopify serves every picture from
+ * `cdn.shopify.com`, which is a different host from the shop and a CDN rather
+ * than an application - so while the pictures are downloading, the storefront
+ * is being asked for nothing at all, and the four-per-host budget it was owed
+ * is being spent on a server that never sees it.
+ *
+ * Twelve is the number the original fixture sweep already found: 600 pictures
+ * behind a 120 ms delay took 20.9 s at six, 11.0 s at twelve, and were flat by
+ * sixteen. It applies only when every picture in the round is off-host, and
+ * the shared host cooldown still answers for us if the CDN disagrees.
+ */
+const IMAGE_CONCURRENCY_OFF_HOST = 12;
+
+/** Whether nothing in this round would touch the shop itself. */
+function allOffHost(round: { sourceUrl: string }[], storeHost: string): boolean {
+  if (!storeHost || !round.length) return false;
+  return round.every((img) => {
+    const h = hostOf(img.sourceUrl);
+    return h !== '' && h !== storeHost;
+  });
+}
 
 /**
  * What a job has done so far, across however many batches it takes.
@@ -456,6 +537,7 @@ function beginWrite(
       covered = true,
       reasons = {},
       asked = 0,
+      worked,
     }: {
       covered?: boolean;
       sweep: boolean;
@@ -466,6 +548,8 @@ function beginWrite(
       reasons?: FailureTally;
       /** How many products this run set out to save. */
       asked?: number;
+      /** How many of those addresses actually answered with a page. */
+      worked?: number;
     }) {
       /**
        * Retire what the store no longer lists - but only from a run entitled
@@ -483,6 +567,9 @@ function beginWrite(
        */
       const mayRetire = sweep && covered && refused === 0 && tally.upserted > 0;
       if (mayRetire) core.catalog.markMissingUnavailable(source.id, tally.seenKeys);
+      // Only knowable once the run has seen every product: a picture is shop
+      // furniture when it belongs to lots of them. Hidden, not deleted.
+      if (tally.upserted > 0) core.catalog.excludeSharedImages(source.id);
       tally.errors = errors;
       /**
        * Partial means the catalogue was not read, not that a picture failed.
@@ -506,7 +593,13 @@ function beginWrite(
        * A run that saved nothing has failed, and the reason goes with it.
        */
       const savedNothing = tally.upserted === 0;
-      const said = summarise(reasons, tally.upserted, asked || discovered || tally.fetched);
+      const total = asked || discovered || tally.fetched;
+      const said = summarise(
+        reasons,
+        tally.upserted,
+        total,
+        worked === undefined ? undefined : shortfall(total, worked),
+      );
       const stage: ImportStage = savedNothing ? 'failed' : partial ? 'partial' : 'completed';
       const message = savedNothing
         ? (said ?? 'We found the products on this site, but none of them could be imported.')
@@ -550,6 +643,16 @@ function beginWrite(
  */
 const IMPORT_CONCURRENCY = 4;
 
+/**
+ * The longest one crawl may run before it reports what it has.
+ *
+ * Measured: gymshark's 2,201 pages take about sixteen minutes at four wide, so
+ * forty leaves room for a slower store of the same size without leaving a job
+ * that can run all day. Reaching it is a `partial`, with every product already
+ * saved kept.
+ */
+const IMPORT_DEADLINE_MS = 40 * 60_000;
+
 /** A round of pictures to ask for at once. Small, because more are arriving. */
 const PICTURE_ROUND = 60;
 
@@ -572,6 +675,8 @@ function drainPictures(
   brandId: string,
   tally: Tally,
   signal: AbortSignal,
+  /** The shop's own host, so a round that never touches it can go faster. */
+  storeHost = '',
   imagesPerProduct = IMAGES_PER_PRODUCT,
 ): { stop(): void; done: Promise<{ errors: unknown[]; reasons: FailureTally }> } {
   const { core, fetchImpl } = deps;
@@ -591,10 +696,20 @@ function drainPictures(
         await sleep(150);
         continue;
       }
-      tally.imagesTotal += round.length;
+      /**
+       * The real total, not the rounds fetched so far.
+       *
+       * This was `+= round.length`, which made the total mean "pictures we
+       * have got round to looking at" - it grew by sixty every round and the
+       * fraction fell back every time: 60/60, then 64/120, then 122/172, a bar
+       * sliding backwards twice while nothing had gone wrong. What is owed is
+       * one count, and while products are still being written it grows the way
+       * the work actually grows rather than in steps of sixty.
+       */
+      tally.imagesTotal = tally.imagesDone + core.catalog.countImagesNeedingAssets(brandId, imagesPerProduct);
       await mapPool(
         round,
-        IMAGE_CONCURRENCY,
+        allOffHost(round, storeHost) ? IMAGE_CONCURRENCY_OFF_HOST : IMAGE_CONCURRENCY,
         async (img) => {
           if (signal.aborted) return;
           try {
@@ -621,6 +736,16 @@ function drainPictures(
             // `metadata()` is also the validation: bytes that are not a picture
             // throw here, exactly as the decode used to.
             const probe = await sharp(buf).metadata();
+            // A picture the library could never show is worse than no picture:
+            // it is a product that looks imported pointing at a 404. The image
+            // store serves a fixed set of raster types, so a vector saved here
+            // resolved to a `.png` that was never written. Sharp reads SVG
+            // happily, which is exactly why this has to be refused by name.
+            if (probe.format === 'svg') {
+              errors.push({ code: 'image_unsupported', message: 'Not a photograph', url: img.sourceUrl });
+              countFailure(reasons, 'UNSUPPORTED_MEDIA');
+              return;
+            }
             const turned = (probe.orientation ?? 1) > 1;
             // The one case worth paying for: an EXIF-rotated photograph looks
             // wrong everywhere if the bytes are kept as they are.

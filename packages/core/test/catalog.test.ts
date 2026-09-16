@@ -357,3 +357,55 @@ describe('catalog store', () => {
     expect(core.catalog.listJobs(brand.id)).toHaveLength(3);
   });
 });
+
+/**
+ * A photograph of a thing belongs to that thing.
+ *
+ * Measured on a real storefront: of 265 pictures imported, three addresses
+ * turned up on more than two products each, and all three were merchandising
+ * furniture - two collection stickers and a promotion flash. Every genuine
+ * packshot appeared exactly once. The rule names nothing, because the badges
+ * that caused this carry no word a filter could match.
+ */
+describe('pictures that belong to the shop rather than a product', () => {
+  const withImages = (sourceId: string, brandId: string, key: string, urls: string[]) =>
+    core.catalog.upsertProduct({
+      sourceId,
+      brandId,
+      externalKey: key,
+      title: `Product ${key}`,
+      url: `https://acme.example/products/${key}`,
+      images: urls.map((sourceUrl, position) => ({ sourceUrl, position })),
+    });
+
+  it('hides a picture shared across products, and keeps every packshot', () => {
+    const brand = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any);
+    const source = core.catalog.upsertSource(brand.id, 'https://acme.example', 'shopify');
+    const badge = 'https://img/collection-note.png';
+
+    // Four products, each with its own packshot and the same badge.
+    const made = ['1', '2', '3', '4'].map((k) =>
+      withImages(source.id, brand.id, k, [`https://img/shot-${k}.jpg`, badge]),
+    );
+    // One product shares a picture with exactly one other: under the threshold.
+    withImages(source.id, brand.id, '5', ['https://img/pair.jpg']);
+    const six = withImages(source.id, brand.id, '6', ['https://img/pair.jpg']);
+
+    const hidden = core.catalog.excludeSharedImages(source.id);
+    expect(hidden).toBe(4);
+
+    const first = core.catalog.listImages(made[0].id);
+    expect(first.find((i) => i.sourceUrl === badge)?.excluded).toBe(true);
+    expect(first.find((i) => i.sourceUrl === 'https://img/shot-1.jpg')?.excluded).toBe(false);
+
+    // Two is not a pattern, so a picture on a pair of products is left alone.
+    expect(core.catalog.listImages(six.id).every((i) => !i.excluded)).toBe(true);
+  });
+
+  it('runs to nothing on a catalogue where every picture is its own', () => {
+    const brand = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any);
+    const source = core.catalog.upsertSource(brand.id, 'https://acme.example', 'shopify');
+    for (const k of ['1', '2', '3']) withImages(source.id, brand.id, k, [`https://img/only-${k}.jpg`]);
+    expect(core.catalog.excludeSharedImages(source.id)).toBe(0);
+  });
+});

@@ -17,6 +17,7 @@
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { ScrapeError } from './scrapeError.js';
+import { coolHost, isChallenge, retryAfterMs, throttleBackoff, waitForHost } from './hostManners.js';
 
 export type FetchKind = 'html' | 'css' | 'asset';
 
@@ -170,6 +171,9 @@ export function createGuardedFetch(opts: GuardOptions = {}): GuardedFetch {
       }
       assertPublicHost(u.hostname, addresses, Boolean(o.allowPrivateHosts));
 
+      // Whatever this host last told anyone - this scrape, or the catalog
+      // crawl that shares the map - before spending a request on it.
+      await waitForHost(u.host);
       const left = remaining();
       if (left <= 0) throw new ScrapeError('timeout', 'Reading that site took too long.');
       const signal = AbortSignal.any([AbortSignal.timeout(Math.min(o.requestMs, left))]);
@@ -202,18 +206,39 @@ export function createGuardedFetch(opts: GuardOptions = {}): GuardedFetch {
         continue;
       }
       if (!res.ok) {
+        const refused = () =>
+          new ScrapeError('http_status', statusSentence(u.hostname, res.status, isChallenge(res)), 502, res.status);
+        // A door, not a queue. A challenge asks for a browser we are not, so
+        // every retry fails identically and each one teaches the host to
+        // refuse us for longer. Hand it back at once.
+        if (isChallenge(res)) {
+          await res.body?.cancel().catch(() => {});
+          throw refused();
+        }
         // A CDN in front of a big storefront refuses a share of requests and
         // serves the next one fine: gymshark.com answered 403 once and 200 a
         // minute later, to the same user agent. One patient retry turns a dead
-        // end into a kit. The catalog fetcher has backed off like this for as
-        // long as it has existed.
-        if (RETRYABLE.has(res.status) && attempts < 1 && remaining() > 2_000) {
-          await res.body?.cancel().catch(() => {});
-          await sleep(700);
-          attempts++;
-          continue;
+        // end into a kit, and one is the limit - a site that refuses twice
+        // means it.
+        if (RETRYABLE.has(res.status)) {
+          // The host's own number beats our guess, and arming the shared
+          // cooldown is the point of sharing it: the catalog scan runs against
+          // this same host seconds from now, and used to arrive knowing
+          // nothing about what just happened here.
+          const wait = retryAfterMs(res.headers.get('retry-after')) ?? throttleBackoff(attempts);
+          coolHost(u.host, wait);
+          // A scrape has 20 seconds in total, so a site asking for 60 is
+          // asking for more than this request has to give. Respect it by
+          // leaving rather than by waiting: the cooldown above already told
+          // everyone else.
+          if (attempts < 1 && remaining() > wait + 2_000) {
+            await res.body?.cancel().catch(() => {});
+            await sleep(wait);
+            attempts++;
+            continue;
+          }
         }
-        throw new ScrapeError('http_status', statusSentence(u.hostname, res.status));
+        throw refused();
       }
 
       const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
@@ -258,8 +283,11 @@ const RETRYABLE = new Set([403, 408, 425, 429, 500, 502, 503, 504]);
  * common cause by far is a CDN refusing anything that is not a browser, which
  * is not the person's fault and not something they can fix by trying harder.
  */
-export function statusSentence(host: string, status: number): string {
-  if (status === 401 || status === 403)
+export function statusSentence(host: string, status: number, challenged = false): string {
+  // A challenge is not a queue, so "try again in a minute" would be advice
+  // that cannot work: waiting changes nothing when the door is asking for a
+  // browser. It reads like the 403 it really is.
+  if (challenged || status === 401 || status === 403)
     return `${host} would not let Scenri read it. Some sites block anything that is not a person in a browser; you can still add the logo and colours by hand.`;
   if (status === 404) return `There is no page at that address on ${host}.`;
   if (status === 429) return `${host} asked Scenri to slow down. Try again in a minute.`;

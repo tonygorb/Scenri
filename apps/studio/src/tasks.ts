@@ -241,15 +241,38 @@ export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string })
   // 2,199 pages takes about sixteen minutes and writes nothing until a batch
   // lands, so counting `upserted` alone left the row reading "0 of 2,199" for
   // the whole of it.
+  /**
+   * One unit, for the whole run: products.
+   *
+   * This counted four different things as the stages changed - products found,
+   * then pages read, then pictures downloaded, then products saved - so a
+   * person watching one row saw "294 found", then "read 294 of 294", then
+   * "199 of 249 pictures", then "294 of 294 products". The number appeared to
+   * go backwards twice and the noun changed under it, and in a panel this
+   * narrow the whole thing was cut off mid-count anyway.
+   *
+   * The one exception is the picture phase, and it earns it by being the only
+   * number still moving. Every product is saved by then, so "1,185 products,
+   * adding pictures" is a sentence that never changes again for the eight
+   * minutes it takes - a row that reads as stuck while the work is going fine.
+   * `imagesTotal` is what the run still owes rather than what it has looked at,
+   * so the fraction beside it is honest, and the noun changing once, at the
+   * moment the products stop and the pictures start, is what is actually
+   * happening.
+   */
   const count =
     j.stage === 'discovering'
       ? j.discovered
-        ? `${j.discovered.toLocaleString()} found`
-        : 'looking for products'
-      : j.stage === 'fetching_products' && j.fetched > j.upserted
-        ? `read ${j.fetched.toLocaleString()} of ${j.discovered.toLocaleString()}`
-        : j.stage === 'processing_assets' && j.imagesTotal
-          ? `${j.imagesDone.toLocaleString()} of ${j.imagesTotal.toLocaleString()} pictures`
+        ? `Found ${j.discovered.toLocaleString()} products`
+        : 'Looking for products'
+      : j.stage === 'processing_assets' && j.imagesTotal
+        ? `${j.imagesDone.toLocaleString()} of ${j.imagesTotal.toLocaleString()} pictures`
+        : // Reading a long catalogue writes nothing for a while, and "0 of
+          // 2,199 products" for sixteen minutes is a row that looks stuck. The
+          // number is what has been read rather than saved, which is still
+          // products and still only ever goes up.
+          j.stage === 'fetching_products' && j.fetched > j.upserted && j.discovered
+          ? `Reading ${j.fetched.toLocaleString()} of ${j.discovered.toLocaleString()} products`
           : j.discovered
             ? `${j.upserted.toLocaleString()} of ${j.discovered.toLocaleString()} products`
             : `${j.upserted.toLocaleString()} products`;
@@ -259,13 +282,13 @@ export function taskFromCatalogJob(j: CatalogImportJob, brand: { slug: string })
     state,
     title: host,
     subtitle: shopless
-      ? 'Catalog import · no shop on this site'
+      ? 'No shop on this site'
       : // A run that ended short says why, not just how far it got. "44 of 60
         // products" is true and useless; the store having asked us to slow down
         // is the part that tells someone to try again in a minute.
         state === 'error' || state === 'cancelled' || state === 'partial'
-        ? `Catalog import · ${j.message ?? 'failed'}`
-        : `Catalog import · ${count}`,
+        ? (j.message ?? 'Import failed')
+        : count,
     thumb: null,
     percent: shopless ? 100 : catalogPercent(j),
     startedAt: j.createdAt,

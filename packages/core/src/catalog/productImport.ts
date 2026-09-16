@@ -222,6 +222,27 @@ export function productImportMethods(db: DB) {
       ).run(assetRef, meta?.width ?? null, meta?.height ?? null, productId, sourceUrl);
     },
 
+    /**
+     * How many pictures are still owed, for a progress that can be trusted.
+     *
+     * The importer used to add up the rounds it had fetched and call that the
+     * total, so the total was really "pictures discovered so far": it grew by
+     * sixty every round, and the fraction fell back every time it did. A run
+     * went 60/60, then 64/120, then 122/172 - a bar sliding backwards twice
+     * while nothing had gone wrong. Counting what is left is one query and it
+     * is the actual answer.
+     */
+    countImagesNeedingAssets(brandId: string, imagesPerProduct: number): number {
+      const row = db
+        .prepare(
+          `SELECT COUNT(*) AS n FROM catalog_images i
+         JOIN catalog_products p ON p.id = i.product_id
+         WHERE p.brand_id=? AND (i.asset_ref IS NULL OR i.asset_ref='') AND i.position < ?`,
+        )
+        .get(brandId, imagesPerProduct) as { n: number } | undefined;
+      return row?.n ?? 0;
+    },
+
     listImagesNeedingAssets(brandId: string, limit = 500): CatalogImageRow[] {
       return (
         db
@@ -244,6 +265,41 @@ export function productImportMethods(db: DB) {
         angle: r.angle ?? null,
         excluded: !!r.excluded,
       }));
+    },
+
+    /**
+     * Hide pictures that turn up on product after product.
+     *
+     * A photograph of a thing belongs to that thing. A picture the crawl found
+     * on eighteen different product pages is the shop talking, not the
+     * product: a promotion flash, a collection sticker, a delivery badge.
+     * Measured on a real storefront, three addresses out of 265 were shared
+     * past this threshold and all three were merchandising furniture, while
+     * every genuine packshot appeared once.
+     *
+     * Names nothing and knows nothing about any platform, which is the point:
+     * the badges that caused this carry no word a filter could match, and the
+     * next store's will be different words.
+     *
+     * Excluded rather than deleted, the same state the picture chooser uses,
+     * so anything wrongly caught is still there to be put back.
+     */
+    excludeSharedImages(sourceId: string, minProducts = 3): number {
+      const r = db
+        .prepare(
+          `UPDATE catalog_images SET excluded=1
+             WHERE excluded=0
+               AND product_id IN (SELECT id FROM catalog_products WHERE source_id=?)
+               AND source_url IN (
+                 SELECT ci.source_url FROM catalog_images ci
+                   JOIN catalog_products cp ON cp.id = ci.product_id
+                  WHERE cp.source_id=?
+                  GROUP BY ci.source_url
+                 HAVING COUNT(DISTINCT ci.product_id) >= ?
+               )`,
+        )
+        .run(sourceId, sourceId, minProducts);
+      return r.changes;
     },
 
     markMissingUnavailable(sourceId: string, seenExternalKeys: string[]): number {

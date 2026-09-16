@@ -1,4 +1,4 @@
-import { httpText } from '../http/fetch.js';
+import { httpText, outOfTime } from '../http/fetch.js';
 import { absolutize, originOf, preferCanonicalLocale } from '../url.js';
 import { attr, loadHtml } from '../html.js';
 import { extractJsonLdProducts, fetchProductPages, stableKey } from './productPage.js';
@@ -44,7 +44,7 @@ export async function extractSitemapUrls(
       }
       if (filter(loc)) out.add(loc.split('?')[0]);
     }
-    if (seen.size > 200) break;
+    if (seen.size > 200 || outOfTime(ctx.deadline)) break;
   }
   return preferCanonicalLocale([...out]);
 }
@@ -85,7 +85,7 @@ async function crawlListingPages(ctx: AdapterContext): Promise<string[]> {
   const visited = new Set<string>();
   const queue = [origin, `${origin}/collections/all`, `${origin}/shop`, `${origin}/products`, `${origin}/catalog`];
 
-  while (queue.length && visited.size < 40) {
+  while (queue.length && visited.size < 40 && !outOfTime(ctx.deadline)) {
     const page = queue.shift()!;
     if (visited.has(page)) continue;
     visited.add(page);

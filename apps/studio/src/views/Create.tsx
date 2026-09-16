@@ -24,6 +24,7 @@ import { Canvas } from '../layout/Canvas.js';
 import { AssetsPanel } from '../layout/AssetsPanel.js';
 import { Composer, type ComposerHandle } from '../layout/Composer.js';
 import { ComposerDock } from '../layout/ComposerDock.js';
+import { ImportBar } from '../layout/ImportBar.js';
 import { FeedToolbar } from '../layout/FeedToolbar.js';
 import { TILE_DEFAULT, nearestTileStop } from '../layout/masonry.js';
 import { useArchiveNode } from '../useArchiveNode.js';
@@ -1124,6 +1125,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       )}
 
       <ComposerDock full={!railOpen}>
+        <ImportBar />
         {/* Inside the dock, not floating above it at a guessed offset: the
             composer grows with a banner, a target chip or an open attach panel,
             and any fixed distance from the bottom was a bet that it would not.

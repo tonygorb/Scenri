@@ -1,6 +1,14 @@
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
-import { assertPublicHost } from '@scenri/brand';
+import {
+  assertPublicHost,
+  coolHost,
+  hostOf,
+  isChallenge,
+  retryAfterMs,
+  throttleBackoff,
+  waitForHost,
+} from '@scenri/brand';
 import type { FetchImpl } from '../types.js';
 
 /**
@@ -95,69 +103,12 @@ function sleep(ms: number) {
 }
 
 /**
- * How long each host has asked us to stay away, shared by every request.
- *
- * A crawl runs several requests at once, and without this each one discovers a
- * rate limit separately: four workers spend four private retry budgets against
- * a host that has already said no, and all four give up at almost the same
- * moment. Measured on a real store behind Cloudflare, that is the difference
- * between importing 17 of 25 products and importing none of 1,186 - the site
- * answered 429 to nearly everything and the crawl read it as "no product
- * here".
- *
- * One entry per host, only ever extended, cleared by time. Nothing to tune and
- * nothing to reset: a host that stops refusing simply stops being in it.
+ * Re-exported so this module stays the one import site a crawler needs, and so
+ * the tests that already name them here keep working. The rules themselves now
+ * live in `@scenri/brand` beside `assertPublicHost`, because the brand scraper
+ * is a second client against the same hosts and had none of them.
  */
-const cooledUntil = new Map<string, number>();
-
-const hostOf = (url: string): string => {
-  try {
-    return new URL(url).host;
-  } catch {
-    return '';
-  }
-};
-
-/** Hold until this host's cooldown has passed. Returns early if the caller stops. */
-async function waitForHost(host: string, signal?: AbortSignal): Promise<void> {
-  if (!host) return;
-  for (;;) {
-    const left = (cooledUntil.get(host) ?? 0) - Date.now();
-    if (left <= 0 || signal?.aborted) return;
-    await sleep(Math.min(left, 250));
-  }
-}
-
-/** Record that a host wants distance. Never shortens a longer wait already set. */
-function coolHost(host: string, ms: number): void {
-  if (!host || ms <= 0) return;
-  const until = Date.now() + ms;
-  if (until > (cooledUntil.get(host) ?? 0)) cooledUntil.set(host, until);
-}
-
-/** Longest we will honour a host's own number, so one bad header cannot park a crawl. */
-const RETRY_AFTER_CAP_MS = 60_000;
-
-/**
- * `Retry-After`, in milliseconds, as either a count of seconds or an HTTP date.
- *
- * Asking the server how long to wait beats guessing. Null when it said nothing
- * usable, which is the common case and leaves the caller's own backoff in charge.
- */
-export function retryAfterMs(header: string | null, now = Date.now()): number | null {
-  if (!header) return null;
-  const secs = Number(header.trim());
-  if (Number.isFinite(secs) && secs >= 0) return Math.min(secs * 1000, RETRY_AFTER_CAP_MS);
-  const at = Date.parse(header);
-  if (Number.isNaN(at)) return null;
-  return Math.min(Math.max(0, at - now), RETRY_AFTER_CAP_MS);
-}
-
-/** Backoff for a host that is refusing us: seconds, not milliseconds, and jittered. */
-function throttleBackoff(attempt: number): number {
-  const base = Math.min(1000 * 2 ** attempt, 16_000);
-  return base + Math.floor(Math.random() * 400);
-}
+export { isChallenge, retryAfterMs };
 
 /** Bounded fetch with timeout, polite UA, and exponential backoff on 429/5xx. */
 export async function httpGet(url: string, opts: HttpOptions = {}): Promise<Response> {
@@ -227,6 +178,11 @@ export async function httpGet(url: string, opts: HttpOptions = {}): Promise<Resp
       // about 2.8 seconds, which is nothing to a CDN limiter. A crawl of a
       // rate-limited store burned that budget on every page in parallel and
       // then reported each one as a page with no product on it.
+      // A door, not a queue. Retrying costs three more identical refusals and
+      // the cooldown they arm is shared, so the endpoints that do answer wait
+      // behind an endpoint that never will. Hand it back and let the caller
+      // stop asking this one thing.
+      if (isChallenge(res)) return res;
       if (res.status === 429 || res.status === 503) {
         const asked = retryAfterMs(res.headers.get('retry-after'));
         const wait = asked ?? throttleBackoff(attempt);
@@ -261,18 +217,31 @@ export async function httpGet(url: string, opts: HttpOptions = {}): Promise<Resp
 export async function httpText(
   url: string,
   opts: HttpOptions = {},
-): Promise<{ ok: boolean; status: number; text: string; url: string }> {
+): Promise<{ ok: boolean; status: number; text: string; url: string; challenged: boolean }> {
   const res = await httpGet(url, opts);
+  const challenged = isChallenge(res);
   const text = await readBounded(res, opts.maxBytes);
-  return { ok: res.ok, status: res.status, text, url: res.url || url };
+  return { ok: res.ok, status: res.status, text, url: res.url || url, challenged };
 }
 
 export async function httpJson<T = unknown>(
   url: string,
   opts: HttpOptions = {},
-): Promise<{ ok: boolean; status: number; json: T | null; url: string; text: string }> {
+): Promise<{ ok: boolean; status: number; json: T | null; url: string; text: string; challenged: boolean }> {
   const res = await httpGet(url, { ...opts, accept: opts.accept ?? 'application/json' });
-  const text = await res.text();
+  const challenged = isChallenge(res);
+  /**
+   * A refused JSON endpoint answers with a whole HTML page, and this used to
+   * read it with no ceiling at all.
+   *
+   * The ceiling has to clear a real answer by a wide margin, because a
+   * truncated body is not a smaller answer - it is a parse error, and the
+   * store reads as empty. Measured 2026-09-16: one page of 250 products from
+   * www.rothys.com is 2,333,750 bytes, and a 2 MB cap turned that store into
+   * "no products found" while every request answered 200. Sixteen leaves room
+   * for a catalogue with far longer descriptions and still bounds the reply.
+   */
+  const text = await readBounded(res, opts.maxBytes ?? 16_000_000);
   let json: T | null = null;
   if (res.ok) {
     try {
@@ -281,7 +250,17 @@ export async function httpJson<T = unknown>(
       json = null;
     }
   }
-  return { ok: res.ok && json !== null, status: res.status, json, url: res.url || url, text };
+  return { ok: res.ok && json !== null, status: res.status, json, url: res.url || url, text, challenged };
+}
+
+/**
+ * Whether a discovery deadline has passed.
+ *
+ * Lives here rather than beside the type because every adapter already imports
+ * this module for its value exports, and `types.ts` is imported as types only.
+ */
+export function outOfTime(deadline: number | undefined): boolean {
+  return deadline != null && Date.now() > deadline;
 }
 
 /** Run async work over items with a concurrency limit. */

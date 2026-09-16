@@ -235,15 +235,37 @@ describe('taskFromCatalogJob', () => {
    */
   it('says what the import is doing now, not only what it has saved', () => {
     const at = (over: Partial<CatalogImportJob>) => taskFromCatalogJob(job(over), brand).subtitle;
-    expect(at({ stage: 'discovering', discovered: 0 })).toContain('looking for products');
-    expect(at({ stage: 'discovering', discovered: 2199 })).toContain('2,199 found');
+    expect(at({ stage: 'discovering', discovered: 0 })).toContain('Looking for products');
+    expect(at({ stage: 'discovering', discovered: 2199 })).toContain('Found 2,199 products');
     expect(at({ stage: 'fetching_products', discovered: 2199, fetched: 340, upserted: 0 })).toContain(
-      'read 340 of 2,199',
+      'Reading 340 of 2,199 products',
     );
-    expect(at({ stage: 'processing_assets', discovered: 200, imagesDone: 65, imagesTotal: 200 })).toContain(
+    /**
+     * The picture phase counts pictures, and it is the only phase that counts
+     * anything but products.
+     *
+     * This read "200 products, adding pictures" for as long as the downloads
+     * took, which on a store that size is eight minutes of a sentence that
+     * never changes: every product is already saved by then, so the products
+     * number is finished and the only thing still moving is the one it was not
+     * showing. The unit changes exactly once, at the moment the work does.
+     */
+    expect(at({ stage: 'processing_assets', discovered: 200, upserted: 200, imagesDone: 65, imagesTotal: 200 })).toBe(
       '65 of 200 pictures',
     );
+    // Until the total is known there is no fraction to show, so it stays on
+    // products rather than inventing "0 of 0".
+    expect(at({ stage: 'processing_assets', discovered: 200, upserted: 200, imagesTotal: 0 })).toBe(
+      '200 of 200 products',
+    );
     expect(at({ stage: 'completed', discovered: 200, upserted: 200 })).toContain('200 of 200 products');
+
+    // Every other stage counts products, so the unit changes once and not back.
+    for (const stage of ['discovering', 'fetching_products', 'completed'] as const) {
+      expect(at({ stage, discovered: 200, upserted: 120, fetched: 150, imagesTotal: 300, imagesDone: 90 })).not.toMatch(
+        /pictures/,
+      );
+    }
   });
 
   it('never reports zero saved while it is still reading', () => {
@@ -611,7 +633,7 @@ describe('a site with no shop on it', () => {
     const t = taskFromCatalogJob(job(), { slug: 'lucid' });
     expect(t.state).toBe('done');
     expect(t.percent).toBe(100);
-    expect(t.subtitle).toBe('Catalog import · no shop on this site');
+    expect(t.subtitle).toBe('No shop on this site');
     expect(t.subtitle).not.toMatch(/fail/i);
   });
 
