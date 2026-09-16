@@ -51,6 +51,21 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.10.0',
+    date: '2026-09-16',
+    title: 'Presenters are cast by talking to Scenri, one question at a time.',
+    sections: [
+      {
+        heading: 'Presenters',
+        body: 'Casting a presenter is a conversation: describe someone or add a few photos, and their portrait arrives first, then each further view as you go. Editing a saved presenter opens that same conversation, seeded from what is already there, and every change becomes a new version you can step back through. An unfinished presenter is saved as a draft and offered back the next time you open Presenters, and deleting one clears it everywhere it was used.',
+      },
+      {
+        heading: 'Products',
+        body: "Importing a store's products shows its progress in the library as it happens, carrying the brand's own mark and a running clock. A site that is rate-limiting requests is reported as such instead of looking like an empty import, and a run that stops partway keeps what it already found rather than losing it.",
+      },
+    ],
+  },
+  {
     version: '0.9.4',
     date: '2026-09-14',
     title: 'A store that asks Scenri to slow down no longer looks like an empty one.',
