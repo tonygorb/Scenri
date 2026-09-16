@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   customPresenterHeads,
+  duplicatePresenterRecord,
   headOf,
   mintRevision,
   presenterChain,
@@ -9,7 +10,7 @@ import {
 } from '../src/assetRecords.js';
 
 const H = (c: string) => c.repeat(32);
-const ok = (r: ReturnType<typeof presenterRecordFrom>) => {
+const ok = (r: { ok: true; presenter: CustomPresenter } | { ok: false; error: string }) => {
   if (!r.ok) throw new Error(r.error);
   return r.presenter;
 };
@@ -186,5 +187,96 @@ describe('revisions', () => {
 
   it('customPresenterHeads leaves out the superseded records and the legacy roster', () => {
     expect(customPresenterHeads(chain()).map((c) => c.id)).toEqual(['up-3', 'up-9']);
+  });
+});
+
+/**
+ * A library duplicate is a new saved person from the current accepted record.
+ * It is not a revision: the original stays the head of its own chain, and the
+ * copy starts with no history of its own.
+ */
+describe('duplicatePresenterRecord', () => {
+  const source = (): CustomPresenter => ({
+    ...ok(
+      presenterRecordFrom({
+        name: 'Maya',
+        promptName: 'Maya',
+        shotHashes: [H('a'), H('b'), H('c')],
+        shotAngles: ['portrait', 'front', 'left'],
+        sourceHashes: [H('d')],
+        previewHash: H('e'),
+        avatarHash: H('f'),
+        presentation: 'woman',
+        descriptor: 'Warm editorial',
+        ageRange: 'early 30s',
+        hair: 'dark waves',
+        identityNotes: 'the eyes stay hers',
+        negativeConstraints: ['no straightened hair'],
+        suitableCategories: ['Beauty'],
+        source: 'photos',
+        likeness: { attestedAt: '2026-09-08T00:00:00Z', version: 'v1' },
+        facial: 'oval face',
+        skin: 'olive',
+        build: 'slender',
+        identityEdits: ['shorter hair'],
+      }),
+    ),
+    notes: 'kept from the original',
+    revisionOf: 'up-old',
+    supersededBy: 'up-newer',
+  });
+
+  it('mints a new id and copies the accepted state, not the revision chain', () => {
+    const src = source();
+    const before = structuredClone(src);
+    const dup = ok(duplicatePresenterRecord(src, 'Maya copy'));
+    expect(dup.id).toMatch(/^up-[a-f0-9]{8}$/);
+    expect(dup.id).not.toBe(src.id);
+    expect(dup.name).toBe('Maya copy');
+    expect(dup.promptName).toBe('Maya');
+    expect(dup.shots).toEqual(src.shots);
+    expect(dup.sourceRefs).toEqual(src.sourceRefs);
+    expect(dup.preview).toBe(src.preview);
+    expect(dup.avatar).toBe(src.avatar);
+    expect(dup.presentation).toBe('woman');
+    expect(dup.descriptor).toBe('Warm editorial');
+    expect(dup.ageRange).toBe('early 30s');
+    expect(dup.hair).toBe('dark waves');
+    expect(dup.identityNotes).toBe('the eyes stay hers');
+    expect(dup.negativeConstraints).toEqual(['no straightened hair']);
+    expect(dup.suitableCategories).toEqual(['Beauty']);
+    expect(dup.source).toBe('photos');
+    expect(dup.likeness).toEqual(src.likeness);
+    expect(dup.facial).toBe('oval face');
+    expect(dup.skin).toBe('olive');
+    expect(dup.build).toBe('slender');
+    expect(dup.identityEdits).toEqual(['shorter hair']);
+    expect(dup.notes).toBe('kept from the original');
+    expect(dup.revisionOf).toBeUndefined();
+    expect(dup.supersededBy).toBeUndefined();
+    expect(src).toEqual(before);
+  });
+
+  it('keeps the original promptName when the card is renamed, and shares the same files', () => {
+    const src = source();
+    const dup = ok(duplicatePresenterRecord(src, 'Maya copy 2'));
+    expect(dup.promptName).toBe(src.promptName);
+    expect(dup.shots?.map((s) => s.file)).toEqual(src.shots?.map((s) => s.file));
+    expect(dup.preview).toBe(src.preview);
+  });
+
+  it('copies a minimal older record as it is, without inventing missing views', () => {
+    const src = ok(presenterRecordFrom({ name: 'Bree', shotHashes: [H('a')] }));
+    const dup = ok(duplicatePresenterRecord(src, 'Bree copy'));
+    expect(dup.shots).toEqual(src.shots);
+    expect(dup.sourceRefs).toBeUndefined();
+    expect(dup.preview).toBeUndefined();
+    expect(dup.source).toBeUndefined();
+    expect(dup.identityEdits).toBeUndefined();
+  });
+
+  it('needs a name, the same rule as a first save', () => {
+    expect(duplicatePresenterRecord(source(), '   ').ok).toBe(false);
+    expect(duplicatePresenterRecord(source(), '').ok).toBe(false);
   });
 });

@@ -454,6 +454,68 @@ export function mintRevision(
   return { ok: true, presenter: { ...rest, id: mintId(PRESENTER_ID_PREFIX), revisionOf: base.id } };
 }
 
+/**
+ * A new saved person from the current accepted record. Same pictures and
+ * identity, a new id, no revision link: the original stays the head of its
+ * own chain. Files stay shared by hash; deleting one cannot take the other's.
+ */
+export function duplicatePresenterRecord(
+  source: CustomPresenter,
+  name: unknown,
+): { ok: true; presenter: CustomPresenter } | { ok: false; error: string } {
+  const hashes = (rows: { file?: string }[] | undefined) =>
+    (rows ?? []).map((r) => _hashOf(r.file)).filter((h): h is string => !!h);
+  const built = presenterRecordFrom({
+    name,
+    promptName: source.promptName ?? source.name,
+    presentation: source.presentation,
+    descriptor: source.descriptor,
+    ageRange: source.ageRange,
+    hair: source.hair,
+    identityNotes: source.identityNotes,
+    negativeConstraints: source.negativeConstraints,
+    suitableCategories: source.suitableCategories,
+    shotHashes: hashes(source.shots),
+    sourceHashes: hashes(source.sourceRefs),
+    previewHash: _hashOf(source.preview),
+    avatarHash: _hashOf(source.avatar),
+    source: source.source,
+    likeness: source.likeness,
+    facial: source.facial,
+    skin: source.skin,
+    build: source.build,
+    identityEdits: source.identityEdits,
+  });
+  if (!built.ok) return built;
+  const presenter: CustomPresenter = { ...built.presenter };
+  // Rebuild from hashes drops angles unless we pass them in lockstep; copying
+  // the accepted shots keeps the labels the record already earned.
+  if (source.shots?.length) presenter.shots = source.shots.map((s) => ({ ...s }));
+  if (source.notes) presenter.notes = source.notes;
+  return { ok: true, presenter };
+}
+
+/** Look up the current head, mint a duplicate, append it. One write. */
+export function duplicatePresenter(
+  core: Core,
+  brandId: string,
+  presenterId: string,
+  name: unknown,
+): { ok: true; presenter: CustomPresenter; brand: any } | { ok: false; error: string; status: number } {
+  const brand = core.store.getBrand(brandId);
+  if (!brand) return { ok: false, error: 'brand not found', status: 404 };
+  const id = headOf(brand.json, presenterId);
+  const source = brandCharacters(brand.json).find((c) => c?.id === id);
+  if (!source) return { ok: false, error: 'presenter not found', status: 404 };
+  if (!isCustomPresenter(source)) return { ok: false, error: 'this presenter is not editable', status: 400 };
+  const built = duplicatePresenterRecord(source, name);
+  if (!built.ok) return { ok: false, error: built.error, status: 400 };
+  commit(core, brand.id, (json) => {
+    json.characters = [...brandCharacters(json), built.presenter];
+  });
+  return { ok: true, presenter: built.presenter, brand: core.store.getBrand(brand.id) };
+}
+
 /** A likeness confirmation is a date and the wording it was given under; anything less is not one. */
 function likenessOf(raw: unknown): LikenessConfirmation | undefined {
   if (!raw || typeof raw !== 'object') return undefined;

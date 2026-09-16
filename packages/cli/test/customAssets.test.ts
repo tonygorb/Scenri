@@ -375,6 +375,111 @@ describe('custom presenters and scenes', () => {
     expect(res.json().warnings.join(' ')).toContain('no longer in your roster');
   });
 
+  it('duplicates a saved presenter as a new independent record that shares the same files', async () => {
+    const brand = await newBrand();
+    const photo = await savePhoto();
+    const { id } = await castPresenter(brand.id, 'Maya', [photo]);
+    const original = brandJson(brand.id).characters.find((c: any) => c.id === id);
+    const snapshot = structuredClone(original);
+
+    const dup = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/presenters/${id}/duplicate`,
+      payload: { name: 'Maya copy' },
+    });
+    expect(dup.statusCode).toBe(200);
+    const body = dup.json();
+    expect(body.presenter.id).toMatch(/^up-[a-f0-9]{8}$/);
+    expect(body.presenter.id).not.toBe(id);
+    expect(body.presenter.name).toBe('Maya copy');
+    expect(body.presenter.revisionOf).toBeUndefined();
+    expect(body.presenter.supersededBy).toBeUndefined();
+    expect(body.brand.json.characters.map((c: any) => c.id)).toEqual([id, body.presenter.id]);
+    expect(brandJson(brand.id).characters.find((c: any) => c.id === id)).toEqual(snapshot);
+
+    const gone = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/presenters/${id}` });
+    expect(gone.statusCode).toBe(200);
+    const leftover = brandJson(brand.id).characters;
+    expect(leftover).toHaveLength(1);
+    expect(leftover[0].id).toBe(body.presenter.id);
+    expect(leftover[0].shots).toEqual(original.shots);
+    for (const shot of leftover[0].shots ?? []) {
+      const hash = String(shot.file).slice(6);
+      expect(core.images.has(hash)).toBe(true);
+    }
+
+    const missing = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/presenters/nobody/duplicate`,
+      payload: { name: 'Ghost copy' },
+    });
+    expect(missing.statusCode).toBe(404);
+
+    const nameless = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/presenters/${body.presenter.id}/duplicate`,
+      payload: { name: '   ' },
+    });
+    expect(nameless.statusCode).toBe(400);
+  });
+
+  it('refining a duplicate does not rewrite the person it was copied from', async () => {
+    const brand = await newBrand();
+    const { id } = await castPresenter(brand.id, 'Maya', [await savePhoto()]);
+    const original = structuredClone(brandJson(brand.id).characters.find((c: any) => c.id === id));
+    const copyId = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/brands/${brand.id}/presenters/${id}/duplicate`,
+        payload: { name: 'Maya copy' },
+      })
+    ).json().presenter.id as string;
+
+    const opened = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/presenters/${copyId}/edit`,
+    });
+    expect(opened.statusCode).toBe(200);
+    expect(opened.json().presenterId).toBe(copyId);
+    expect(opened.json().presenterId).not.toBe(id);
+    const draftId = opened.json().id as string;
+    const base = `/api/brands/${brand.id}/presenter-drafts/${draftId}`;
+    const settledDraft = async () => {
+      for (let i = 0; i < 400; i++) {
+        const d = (await app.inject({ method: 'GET', url: base })).json();
+        if (d.stage === 'idle' && !d.activeView) return d;
+        await new Promise((r) => setTimeout(r, 5));
+      }
+      throw new Error('the draft never settled');
+    };
+
+    await app.inject({
+      method: 'POST',
+      url: `${base}/views/portrait/generate`,
+      payload: { adjustment: 'shorter hair' },
+    });
+    await settledDraft();
+    await app.inject({ method: 'POST', url: `${base}/views/portrait/approve` });
+    let d = await settledDraft();
+    for (const view of ['front', 'three-quarter'] as const) {
+      if (d.views[view].status === 'approved') continue;
+      await app.inject({ method: 'POST', url: `${base}/views/${view}/generate`, payload: {} });
+      d = await settledDraft();
+      await app.inject({ method: 'POST', url: `${base}/views/${view}/approve` });
+      d = await settledDraft();
+    }
+    const saved = await app.inject({ method: 'POST', url: `${base}/save` });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().presenter.id).not.toBe(copyId);
+    expect(saved.json().presenter.id).not.toBe(id);
+    expect(saved.json().presenter.identityEdits).toEqual(['shorter hair']);
+
+    const rows = brandJson(brand.id).characters;
+    expect(rows.find((c: any) => c.id === id)).toEqual(original);
+    expect(rows.find((c: any) => c.id === id).supersededBy).toBeUndefined();
+    expect(rows.find((c: any) => c.id === copyId).supersededBy).toBe(saved.json().presenter.id);
+  });
+
   /* ---------------------------------------------------------------- scenes */
 
   it('builds a scene: references read into a record, one empty preview drawn', async () => {

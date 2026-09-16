@@ -146,6 +146,72 @@ test('deleting a presenter ends the editing session that was open on them', asyn
  * gone the wall is the only way back to a draft, so a list that predates the
  * draft you just started reads as the work having been thrown away.
  */
+test('duplicating from the card appears on the wall and in the picker without a reload', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await currentBrand(page);
+  await seedPresenter(page.request, brand.id, 'Maya');
+
+  await page.goto(`/${brand.slug}/presenters`);
+  await expect(page.locator('.sc-owned .sc-lookcard', { hasText: 'Maya' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'More for Maya' })).toBeAttached();
+
+  await page.locator('.sc-owned .sc-lookcard', { hasText: 'Maya' }).click({ button: 'right' });
+  const menu = page.getByRole('menu');
+  await expect(menu.getByRole('menuitem', { name: 'Duplicate presenter' })).toBeVisible();
+  await expect(menu.getByRole('menuitem').last()).toHaveText('Delete presenter');
+  await menu.getByRole('menuitem', { name: 'Duplicate presenter' }).click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'Duplicate presenter' })).toBeVisible();
+  await expect(dialog.locator('.sc-pdetails-field')).toHaveValue('Maya copy');
+  await dialog.getByRole('button', { name: 'Duplicate', exact: true }).dblclick();
+  await expect(page.locator('.sc-owned .sc-lookcard b', { hasText: /^Maya copy$/ })).toBeVisible();
+  await expect(page.locator('.sc-owned .sc-lookcard b', { hasText: /^Maya$/ })).toBeVisible();
+  await expect(page.locator('.sc-toast').filter({ hasText: 'Duplicated' })).toContainText('Maya copy');
+  await expect(
+    page.locator('.sc-owned .sc-lookcard', { has: page.locator('b', { hasText: /^Maya copy$/ }) }),
+  ).toHaveAttribute('data-just-added', 'true');
+  await expect(
+    page.locator('.sc-owned .sc-lookcard', { has: page.locator('b', { hasText: /^Maya$/ }) }),
+  ).not.toHaveAttribute('data-just-added');
+
+  const cast = ((await (await page.request.get('/api/brands')).json()) as any[]).find((b) => b.id === brand.id).json
+    .characters as { name: string }[];
+  expect(cast.filter((c) => c.name === 'Maya copy')).toHaveLength(1);
+
+  await page.getByRole('link', { name: 'Create', exact: true }).click();
+  await expect(page).toHaveURL(/\/create/);
+  await page.locator('.sc-brief').click();
+  await page.keyboard.type('with @');
+  await expect(page.getByRole('option', { name: 'Maya copy', exact: true })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'Maya', exact: true })).toBeVisible();
+});
+
+test('deleting from the card takes them off the wall and the picker without a reload', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await currentBrand(page);
+  await seedPresenter(page.request, brand.id, 'CardGo');
+  await seedPresenter(page.request, brand.id, 'CardStay');
+
+  await page.goto(`/${brand.slug}/presenters`);
+  await page.locator('.sc-owned .sc-lookcard', { hasText: 'CardGo' }).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Delete presenter' }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: /Delete/ })
+    .click();
+
+  await expect(page.locator('.sc-owned .sc-lookcard b', { hasText: /^CardGo$/ })).toHaveCount(0);
+  await expect(page.locator('.sc-owned .sc-lookcard b', { hasText: /^CardStay$/ })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Create', exact: true }).click();
+  await expect(page).toHaveURL(/\/create/);
+  await page.locator('.sc-brief').click();
+  await page.keyboard.type('with @');
+  await expect(page.getByRole('option', { name: 'CardGo', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('option', { name: 'CardStay', exact: true })).toBeVisible();
+});
+
 test('the wall reads its drafts again when the studio closes over it', async ({ page }) => {
   test.setTimeout(90_000);
   const brand = await currentBrand(page);
@@ -156,6 +222,10 @@ test('the wall reads its drafts again when the studio closes over it', async ({ 
   // answering through to a face does
   await page.getByRole('button', { name: 'Create presenter' }).click();
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+  // The URL moves before the studio mounts, and Escape is heard by a listener
+  // the studio adds on mount: a press in between went nowhere and the page
+  // stayed on /new. Wait for the surface, not the address.
+  await expect(page.locator('.sc-pstudio[role="dialog"]')).toBeVisible();
   await page.request.post(`/api/brands/${brand.id}/presenter-drafts`, {
     data: { source: 'synthetic', direction: 'a woman in her 30s', name: 'Behind' },
   });

@@ -1,5 +1,11 @@
 import type { Presenter } from '../api.js';
-import { CatalogCard, CatalogCardSkeleton, type CatalogCardSize, type CatalogCardVariant } from './CatalogCard.js';
+import {
+  CatalogCard,
+  CatalogCardSkeleton,
+  type CatalogCardSize,
+  type CatalogCardVariant,
+  type CatalogMenuItem,
+} from './CatalogCard.js';
 
 export type PresenterCardVariant = CatalogCardVariant;
 export type PresenterCardSize = Exclude<CatalogCardSize, 'shelf'>;
@@ -20,6 +26,9 @@ export function PresenterCard({
   href,
   selected,
   onToggle,
+  onDuplicate,
+  onDelete,
+  fresh,
   size = 'grid',
 }: {
   presenter: Presenter;
@@ -32,9 +41,31 @@ export function PresenterCard({
   /** `select` only. */
   selected?: boolean;
   onToggle?: (id: string) => void;
+  /** Owned saved cards only: opens the duplicate-name dialog. */
+  onDuplicate?: (id: string) => void;
+  /** Owned saved cards only: opens the existing delete confirm. */
+  onDelete?: (id: string) => void;
+  /** The card that just landed from a duplicate, so the wall can mark it. */
+  fresh?: boolean;
   variant: PresenterCardVariant;
   size?: PresenterCardSize;
 }) {
+  const menuItems: CatalogMenuItem[] = [];
+  if (onDuplicate)
+    menuItems.push({
+      key: 'duplicate',
+      label: 'Duplicate presenter',
+      onSelect: () => onDuplicate(presenter.id),
+      separated: true,
+    });
+  if (onDelete)
+    menuItems.push({
+      key: 'delete',
+      label: 'Delete presenter',
+      onSelect: () => onDelete(presenter.id),
+      danger: true,
+      separated: !onDuplicate,
+    });
   return (
     <CatalogCard
       id={presenter.id}
@@ -49,6 +80,8 @@ export function PresenterCard({
       href={href}
       selected={selected}
       onToggle={onToggle}
+      menuItems={menuItems.length ? menuItems : undefined}
+      fresh={fresh}
       size={size}
     />
   );
