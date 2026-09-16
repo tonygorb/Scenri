@@ -267,6 +267,46 @@ export const shopifyAdapter: CatalogAdapter = {
     };
   },
 
+  /**
+   * The chosen products, read from the listing instead of a page each.
+   *
+   * Walks `/products.json` only until every handle asked for has been found,
+   * so a small pick is usually one request and the whole catalogue is a
+   * handful. Returns null the moment the listing refuses us, because then the
+   * pages are the only way in and the caller already knows how to read them.
+   */
+  async fetchSome(ctx, urls): Promise<CatalogProduct[] | null> {
+    const origin = originOf(ctx.baseUrl);
+    const handleOf = (u: string) => {
+      const raw = /\/products\/([^/?#]+)/i.exec(u)?.[1];
+      return raw ? decodeURIComponent(raw) : null;
+    };
+    const want = new Set(urls.map(handleOf).filter((h): h is string => Boolean(h)));
+    if (!want.size) return null;
+
+    const out: CatalogProduct[] = [];
+    let page = 1;
+    while (want.size) {
+      if (ctx.signal?.aborted) throw new Error('aborted');
+      if (outOfTime(ctx.deadline)) break;
+      const { products, blocked } = await fetchProductsJsonPage(ctx, page);
+      // A store that will not serve its listing has nothing to offer here.
+      if (blocked && page === 1) return null;
+      if (!products.length) break;
+      for (const p of products) {
+        const h = String(p.handle ?? '');
+        if (want.delete(h)) {
+          out.push(mapShopifyProduct(origin, p));
+          ctx.onProgress?.({ stage: 'fetching_products', fetched: out.length });
+        }
+      }
+      if (products.length < 250) break;
+      page++;
+      if (page > 10_000) break;
+    }
+    return out.length ? out : null;
+  },
+
   async fetchAll(ctx, discovered): Promise<CatalogProduct[]> {
     const origin = originOf(ctx.baseUrl);
     const out: CatalogProduct[] = [];

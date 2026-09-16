@@ -148,6 +148,20 @@ export interface CatalogAdapter {
   detect(ctx: AdapterContext): Promise<DetectResult | null>;
   discover(ctx: AdapterContext): Promise<DiscoverResult>;
   fetchAll(ctx: AdapterContext, discovered: DiscoverResult): Promise<CatalogProduct[]>;
+  /**
+   * The chosen products, from the platform's own listing rather than one page
+   * request each.
+   *
+   * Importing twenty-five products meant twenty-five page reads, which is the
+   * slow half of an import on a store whose listing would have answered in
+   * one. The walk stops as soon as everything asked for has been found, so
+   * choosing three products usually costs a single request and choosing the
+   * whole catalogue costs a handful.
+   *
+   * Null when this store has no bulk listing, or will not serve it: the caller
+   * then reads the pages, exactly as before.
+   */
+  fetchSome?(ctx: AdapterContext, urls: string[]): Promise<CatalogProduct[] | null>;
 }
 
 export type FetchImpl = typeof fetch;

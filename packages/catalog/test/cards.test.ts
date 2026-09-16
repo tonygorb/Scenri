@@ -95,3 +95,53 @@ describe('a catalogue the store already described', () => {
     expect(scan.cards).toHaveLength(N);
   });
 });
+
+/**
+ * Importing a chosen set used to cost one page read per product.
+ *
+ * That is the slow half of an import on a store whose listing would have
+ * answered in one request, and the listing is the same one discovery already
+ * walked. Counted rather than timed: seconds against a live store are weather,
+ * requests are the thing we actually control.
+ */
+describe('importing what someone chose', () => {
+  const chosen = (n: number) => Array.from({ length: n }, (_, i) => `https://shop.example/products/runner-${i + 1}`);
+
+  it('reads the listing once instead of a page per product', async () => {
+    const { asked, fetchImpl } = shopifyStore();
+    const { shopifyAdapter } = await import('../src/adapters/shopify.js');
+    const ctx = { fetchImpl, baseUrl: 'https://shop.example' } as any;
+
+    const got = await shopifyAdapter.fetchSome!(ctx, chosen(25));
+
+    expect(got).not.toBeNull();
+    expect(got!).toHaveLength(25);
+    expect(got!.every((p) => p.title && p.images?.length)).toBe(true);
+    // The first 25 handles are all on page one, so that is one request.
+    expect(asked.filter((u) => u.includes('/products.json'))).toHaveLength(1);
+    // And not a single product page.
+    expect(asked.filter((u) => /\/products\/[^/?]+$/.test(u))).toHaveLength(0);
+  });
+
+  it('stops walking as soon as it has everything asked for', async () => {
+    const { asked, fetchImpl } = shopifyStore();
+    const { shopifyAdapter } = await import('../src/adapters/shopify.js');
+    const ctx = { fetchImpl, baseUrl: 'https://shop.example' } as any;
+
+    // One product from the second page: two requests, never all 300.
+    await shopifyAdapter.fetchSome!(ctx, ['https://shop.example/products/runner-260']);
+    expect(asked.filter((u) => u.includes('/products.json')).length).toBeLessThanOrEqual(2);
+  });
+
+  it('hands back to the pages when the listing will not serve us', async () => {
+    const fetchImpl = (async (input: any) => {
+      const url = String(input);
+      if (url.includes('/products.json')) return new Response('no', { status: 403 });
+      return new Response('<html></html>', { status: 200, headers: { 'content-type': 'text/html' } });
+    }) as typeof fetch;
+    const { shopifyAdapter } = await import('../src/adapters/shopify.js');
+    const got = await shopifyAdapter.fetchSome!({ fetchImpl, baseUrl: 'https://shop.example' } as any, chosen(5));
+    // Null, not an empty list: the caller must know to read the pages itself.
+    expect(got).toBeNull();
+  });
+});

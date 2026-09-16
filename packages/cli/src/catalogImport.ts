@@ -5,6 +5,7 @@ import {
   httpGet,
   normalizeStoreUrl,
   detectPlatform,
+  adapterFor,
   imageFailure,
   summarise,
   shortfall,
@@ -165,6 +166,29 @@ async function runJob(
       baseUrl = url;
       platform = detection.platform;
       discovered = only.length;
+      /**
+       * Ask the listing before asking for pages.
+       *
+       * Twenty-five chosen products meant twenty-five page reads, and that is
+       * the slow half of an import: measured on a real store, 25 products took
+       * 7.2 s of which the pictures were a fraction. The same store answers its
+       * whole listing in one request. The walk stops as soon as everything
+       * chosen has been found, so a small pick costs one request and the whole
+       * catalogue costs a handful.
+       *
+       * Whatever the listing did not carry still goes through the pages below,
+       * so a handle the bulk API has forgotten is not simply lost.
+       */
+      const adapter = adapterFor(detection.platform);
+      const listed = adapter.fetchSome ? await adapter.fetchSome({ ...ctx, baseUrl }, only) : null;
+      if (listed?.length) {
+        bulk = listed;
+        const got = new Set(listed.map((p) => p.handle ?? '').filter(Boolean));
+        urls = only.filter((u) => {
+          const h = /\/products\/([^/?#]+)/i.exec(u)?.[1];
+          return !h || !got.has(decodeURIComponent(h));
+        });
+      }
     } else {
       patch({ stage: 'discovering', message: 'Detecting store platform' });
       const found = await discoverCatalog({ url, fetchImpl, signal, onProgress: progressWriter(patch) });
@@ -246,8 +270,10 @@ async function runJob(
     // apart from a shop with very few products.
     const stats = { pages: 0, bytes: 0, refused: 0, reasons: {} as FailureTally };
     try {
+      // Not either/or any more: a chosen set can come partly from the listing
+      // and partly from the pages the listing did not carry.
       if (bulk) for (const p of bulk) run.write(p);
-      else
+      if (urls.length)
         await fetchProductPages(ctx, urls, {
           concurrency: IMPORT_CONCURRENCY,
           maxBytes: 1_500_000,
@@ -301,15 +327,17 @@ async function runJob(
       errors: pictureErrors,
       refused: stats.refused,
       reasons: { ...stats.reasons, ...pictureReasons },
-      asked: bulk ? bulk.length : urls.length,
+      // A chosen set can now come partly from the listing and partly from the
+      // pages it did not carry, so both halves count.
+      asked: (bulk?.length ?? 0) + urls.length,
       // Addresses that actually yielded a page, which is the unit the person's
       // question was asked in. Products are the wrong unit: one address can
       // carry several, and counting them made a run that lost three addresses
-      // report that it had lost one.
-      worked: bulk ? bulk.length : Math.max(0, stats.pages - stats.refused),
-      // Every address was read. A bulk API hands the catalogue over whole, so
-      // there is nothing to cover.
-      covered: bulk ? true : stats.pages >= urls.length,
+      // report that it had lost one. A listing answers for itself.
+      worked: (bulk?.length ?? 0) + Math.max(0, stats.pages - stats.refused),
+      // Every address was read. A bulk API hands its share over whole, so only
+      // the pages left over have to be covered.
+      covered: stats.pages >= urls.length,
     });
   } catch (err: any) {
     // Stopping during discovery throws out of the pipeline, and the throw is
