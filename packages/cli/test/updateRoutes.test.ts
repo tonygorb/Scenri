@@ -24,7 +24,7 @@ function updateFetch(opts: { latest?: string }) {
     const url = String(input);
     calls.push(url);
     if (url.includes('/-/package/')) {
-      return new Response(JSON.stringify({ latest: opts.latest ?? '0.9.9' }), { status: 200 });
+      return new Response(JSON.stringify({ latest: opts.latest ?? '99.9.9' }), { status: 200 });
     }
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
@@ -125,13 +125,13 @@ describe('GET /api/update/status', () => {
 
 describe('POST /api/update/check', () => {
   it('forces a fresh look and returns the same shape', async () => {
-    const { impl, calls } = updateFetch({ latest: '0.9.9' });
+    const { impl, calls } = updateFetch({ latest: '99.9.9' });
     app = build(impl);
     await app.inject({ method: 'GET', url: '/api/update/status' });
     const registryCalls = () => calls.filter((u) => u.includes('/-/package/')).length;
     const before = registryCalls();
     const res = await app.inject({ method: 'POST', url: '/api/update/check' });
-    expect(res.json()).toMatchObject({ latest: '0.9.9', available: true });
+    expect(res.json()).toMatchObject({ latest: '99.9.9', available: true });
     expect(registryCalls()).toBe(before + 1);
   });
 });
@@ -139,14 +139,14 @@ describe('POST /api/update/check', () => {
 describe('one-click apply + restart', () => {
   const supervised = { installKind: 'managed' as const, supervised: true };
 
-  const okStage = async () => ({ ok: true as const, version: '0.9.9', entry: '/staged/entry' });
+  const okStage = async () => ({ ok: true as const, version: '99.9.9', entry: '/staged/entry' });
 
   it('applies: stages async, then reports ready with the staged version', async () => {
     app = track(
       buildServer({
         core,
         engines: registryWith(),
-        fetchImpl: updateFetch({ latest: '0.9.9' }).impl,
+        fetchImpl: updateFetch({ latest: '99.9.9' }).impl,
         runtime: supervised,
         stageImpl: okStage,
       }),
@@ -157,7 +157,7 @@ describe('one-click apply + restart', () => {
     for (let i = 0; i < 50; i++) {
       const s = (await app.inject({ method: 'GET', url: '/api/update/status' })).json();
       if (s.phase !== 'staging') {
-        expect(s).toMatchObject({ phase: 'ready', stagedVersion: '0.9.9', canApply: true });
+        expect(s).toMatchObject({ phase: 'ready', stagedVersion: '99.9.9', canApply: true });
         break;
       }
       await new Promise((r) => setTimeout(r, 20));
@@ -169,7 +169,7 @@ describe('one-click apply + restart', () => {
       buildServer({
         core,
         engines: registryWith(hangingEngine()),
-        fetchImpl: updateFetch({ latest: '0.9.9' }).impl,
+        fetchImpl: updateFetch({ latest: '99.9.9' }).impl,
         runtime: supervised,
         stageImpl: okStage,
       }),
@@ -205,7 +205,7 @@ describe('one-click apply + restart', () => {
   });
 
   it('refuses to apply unsupervised, naming the reason', async () => {
-    app = track(buildServer({ core, engines: registryWith(), fetchImpl: updateFetch({ latest: '0.9.9' }).impl }));
+    app = track(buildServer({ core, engines: registryWith(), fetchImpl: updateFetch({ latest: '99.9.9' }).impl }));
     const refused = await app.inject({ method: 'POST', url: '/api/update/apply' });
     expect(refused.statusCode).toBe(409);
     expect(refused.json()).toMatchObject({ blockReason: 'unsupervised' });
@@ -216,7 +216,7 @@ describe('one-click apply + restart', () => {
       buildServer({
         core,
         engines: registryWith(),
-        fetchImpl: updateFetch({ latest: '0.9.9' }).impl,
+        fetchImpl: updateFetch({ latest: '99.9.9' }).impl,
         runtime: supervised,
         stageImpl: async () => ({ ok: false as const, reason: 'no-npm' as const, detail: 'npm is not reachable' }),
       }),
@@ -238,7 +238,7 @@ describe('one-click apply + restart', () => {
       buildServer({
         core,
         engines: registryWith(),
-        fetchImpl: updateFetch({ latest: '0.9.9' }).impl,
+        fetchImpl: updateFetch({ latest: '99.9.9' }).impl,
         runtime: supervised,
         stageImpl: okStage,
         exitImpl: (code) => exits.push(code),
@@ -299,30 +299,30 @@ describe('auto-stage', () => {
   it('stages a discovered update in the background, no click needed', async () => {
     const staged: string[] = [];
     app = updApp({
-      fixture: { latest: '0.9.9' },
+      fixture: { latest: '99.9.9' },
       stageImpl: async (o) => {
         staged.push(o.source.version ?? '');
-        return { ok: true, version: '0.9.9', entry: '/e' };
+        return { ok: true, version: '99.9.9', entry: '/e' };
       },
     });
     await status(); // first real registry answer
     const s = await untilPhase('ready');
-    expect(s.stagedVersion).toBe('0.9.9');
-    expect(staged).toEqual(['0.9.9']);
+    expect(s.stagedVersion).toBe('99.9.9');
+    expect(staged).toEqual(['99.9.9']);
   });
 
   it('a forced check answers when checks are off, and stages nothing', async () => {
     let stages = 0;
     core.store.setSetting('update.enabled', 'false');
     app = updApp({
-      fixture: { latest: '0.9.9' },
+      fixture: { latest: '99.9.9' },
       stageImpl: async () => {
         stages++;
-        return { ok: true, version: '0.9.9', entry: '/e' };
+        return { ok: true, version: '99.9.9', entry: '/e' };
       },
     });
     const res = (await app.inject({ method: 'POST', url: '/api/update/check' })).json();
-    expect(res).toMatchObject({ enabled: false, latest: '0.9.9', available: true, phase: 'idle' });
+    expect(res).toMatchObject({ enabled: false, latest: '99.9.9', available: true, phase: 'idle' });
     await new Promise((r) => setTimeout(r, 50));
     expect(stages).toBe(0);
   });
@@ -331,10 +331,10 @@ describe('auto-stage', () => {
     let busy = 1;
     let stages = 0;
     app = updApp({
-      fixture: { latest: '0.9.9' },
+      fixture: { latest: '99.9.9' },
       stageImpl: async () => {
         stages++;
-        return { ok: true, version: '0.9.9', entry: '/e' };
+        return { ok: true, version: '99.9.9', entry: '/e' };
       },
       busyCount: () => busy,
     });
@@ -351,11 +351,11 @@ describe('auto-stage', () => {
   it('leaves a failed stage alone until the next real answer, then retries once', async () => {
     let calls = 0;
     app = updApp({
-      fixture: { latest: '0.9.9' },
+      fixture: { latest: '99.9.9' },
       stageImpl: async () => {
         calls++;
         if (calls === 1) return { ok: false, reason: 'no-npm', detail: 'npm is not reachable' };
-        return { ok: true, version: '0.9.9', entry: '/e' };
+        return { ok: true, version: '99.9.9', entry: '/e' };
       },
     });
     await status();
@@ -368,7 +368,7 @@ describe('auto-stage', () => {
   });
 
   it('replaces a staged version when something strictly newer appears', async () => {
-    const fixture: { latest?: string } = { latest: '0.9.9' };
+    const fixture: { latest?: string } = { latest: '99.9.9' };
     const staged: string[] = [];
     app = updApp({
       fixture,
@@ -380,11 +380,11 @@ describe('auto-stage', () => {
     });
     await status();
     await untilPhase('ready');
-    fixture.latest = '0.9.10';
+    fixture.latest = '99.9.10';
     await app.inject({ method: 'POST', url: '/api/update/check' });
     const s = await untilPhase('ready');
-    expect(s.stagedVersion).toBe('0.9.10');
-    expect(staged).toEqual(['0.9.9', '0.9.10']);
+    expect(s.stagedVersion).toBe('99.9.10');
+    expect(staged).toEqual(['99.9.9', '99.9.10']);
   });
 
   it('an apply click during in-flight auto-staging of the same version succeeds without a second install', async () => {
@@ -394,11 +394,11 @@ describe('auto-stage', () => {
       release = r;
     });
     app = updApp({
-      fixture: { latest: '0.9.9' },
+      fixture: { latest: '99.9.9' },
       stageImpl: async () => {
         stages++;
         await gate;
-        return { ok: true, version: '0.9.9', entry: '/e' };
+        return { ok: true, version: '99.9.9', entry: '/e' };
       },
     });
     await app.inject({ method: 'POST', url: '/api/update/check' }); // kicks auto-stage, held open
@@ -415,10 +415,10 @@ describe('auto-stage', () => {
     // detonates as an unhandled rejection; a slow Windows runner found it.
     let stages = 0;
     const a = updApp({
-      fixture: { latest: '0.9.9' },
+      fixture: { latest: '99.9.9' },
       stageImpl: async () => {
         stages++;
-        return { ok: true, version: '0.9.9', entry: '/e' };
+        return { ok: true, version: '99.9.9', entry: '/e' };
       },
       bootLookMs: 30,
     });
@@ -434,9 +434,9 @@ describe('auto-stage', () => {
       buildServer({
         core,
         engines: registryWith(hangingEngine()),
-        fetchImpl: updateFetch({ latest: '0.9.9' }).impl,
+        fetchImpl: updateFetch({ latest: '99.9.9' }).impl,
         runtime: supervised,
-        stageImpl: async () => ({ ok: true, version: '0.9.9', entry: '/e' }),
+        stageImpl: async () => ({ ok: true, version: '99.9.9', entry: '/e' }),
         exitImpl: (code) => exits.push(code),
       }),
     );
@@ -475,7 +475,7 @@ describe('auto-stage', () => {
 
 describe('settings toggle', () => {
   it('exposes updateCheck as a real boolean and turns the check off', async () => {
-    const { impl, calls } = updateFetch({ latest: '0.9.9' });
+    const { impl, calls } = updateFetch({ latest: '99.9.9' });
     app = build(impl);
     expect((await app.inject({ method: 'GET', url: '/api/settings' })).json()).toMatchObject({ updateCheck: true });
 
