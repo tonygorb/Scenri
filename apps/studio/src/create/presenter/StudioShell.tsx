@@ -224,7 +224,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
       >
         {/* Before there is anything to look at, the phone gives the whole screen
             to the conversation: an empty plate is not worth a third of it. */}
-        <div className="sc-pstudio-grid" data-phase={s.stage?.hash ? 'made' : 'setup'}>
+        <div className="sc-pstudio-grid">
           {/* The seam between stage and conversation is the handle, exactly as
               it is between a shot and its details: drag to size the rail,
               double-click to put it back, arrow keys from the keyboard. During

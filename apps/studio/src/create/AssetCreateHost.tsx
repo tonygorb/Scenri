@@ -208,12 +208,25 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
     };
   }, [wantCaps]);
 
-  /** Never an empty footnote: say what will happen, or say it could not be checked. */
+  /**
+   * Say what will happen, or say it could not be checked, or say nothing.
+   *
+   * A surface with nothing to say once the answer is known has nothing worth
+   * saying while it waits. The presenter studio passes no `whenKnown`, so it
+   * used to open with "Checking the engine…" under the composer and drop the
+   * line about four hundred milliseconds later when the probe answered: the
+   * composer moved 35px while the first question was still being spoken word
+   * by word. Measured 2026-09-16 at 1440x900. A line that appears and vanishes
+   * inside half a second is not information, and it moved the one control the
+   * reader was about to use.
+   *
+   * A failure still speaks, because that one is worth the line.
+   */
   const capsNote = useCallback(
     (whenKnown: string): ReactNode => {
       if (caps) return whenKnown;
       if (capsFailed) return 'Could not reach the engine. You can still try.';
-      return 'Checking the engine…';
+      return whenKnown ? 'Checking the engine…' : '';
     },
     [caps, capsFailed],
   );

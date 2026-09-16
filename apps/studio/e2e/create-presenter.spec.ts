@@ -1,6 +1,6 @@
 import zlib from 'node:zlib';
 import { test, expect, type Page } from '@playwright/test';
-import { isolate } from './harness.js';
+import { isolate, arrived } from './harness.js';
 
 /**
  * Presenter creation as a conversation, end to end, at its own address:
@@ -1080,6 +1080,65 @@ test.describe('the doors', () => {
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`/${brand.slug}/products$`));
     await expect(studio(page)).toHaveCount(0);
+  });
+
+  /**
+   * The studio opens over the library it was opened from, and nothing moves
+   * under the reader while it does.
+   *
+   * Two faults with one shape, both measured on 2026-09-16. The surface had no
+   * arrival at all, so an instant room landed around a conversation that is
+   * paced to the millisecond. And the footnote said "Checking the engine…"
+   * until the capabilities probe answered about four hundred milliseconds
+   * later, then unmounted: the composer moved 35px while the first question
+   * was still being spoken word by word.
+   */
+  test('the studio arrives over the library, and the composer does not move while it does', async ({ page }) => {
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters`);
+    // Watch the footnote rather than sampling it: the line came and went inside
+    // about four hundred milliseconds, so any assertion taken after the fact
+    // finds it already settled and passes over the bug.
+    await page.evaluate(() => {
+      const w = window as unknown as { __footSeen: boolean; __footGone: boolean };
+      w.__footSeen = false;
+      w.__footGone = false;
+      new MutationObserver(() => {
+        const there = !!document.querySelector('.sc-pstudio-foot .sc-dlg-foot');
+        if (there) w.__footSeen = true;
+        else if (w.__footSeen) w.__footGone = true;
+      }).observe(document.body, { childList: true, subtree: true });
+    });
+    await page.getByRole('button', { name: 'Create presenter', exact: true }).first().click();
+    await expect(studio(page)).toBeVisible();
+
+    // it travels rather than appearing: the house motion every other surface
+    // for making a new thing already uses, per form factor
+    const name = await studio(page).evaluate((el) => getComputedStyle(el).animationName);
+    expect(['sc-newdlg-in', 'sc-sheet-up']).toContain(name);
+
+    // and the library it came from is still mounted underneath it
+    await expect(page.locator('main.sc-presenters')).toHaveCount(1);
+
+    // The studio says what it will spend, and keeps saying it. It used to pass
+    // no words at all, so the line read "Checking the engine…" until the probe
+    // answered and then unmounted, moving the composer 35px a third of a
+    // second in, while the first question was still being spoken.
+    await expect(page.locator('.sc-pstudio-foot .sc-dlg-foot')).toHaveText(/\S/);
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __footGone: boolean }).__footGone)).toBe(false);
+
+    // Once it has arrived, nothing moves again. Sampled after the travel is
+    // over, because the travel is the point: what the composer must not do is
+    // move a second time, a third of a second later, for a line of copy that
+    // came and went.
+    await arrived(page);
+    const composer = page.locator('.sc-pstudio-foot');
+    const tops: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      tops.push(await composer.evaluate((el) => Math.round(el.getBoundingClientRect().top)));
+      await page.waitForTimeout(120);
+    }
+    expect([...new Set(tops)]).toHaveLength(1);
   });
 
   test('the old ?new=presenter address forwards to the studio', async ({ page }) => {

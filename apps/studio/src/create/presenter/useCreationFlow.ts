@@ -1459,7 +1459,13 @@ export function useCreationFlow({
         if (question?.id === 'agree') dispatch({ type: 'say', id: 'keep' });
         dispatch({ type: 'text', text });
       },
-      footnote: capsNote(''),
+      // What this will spend, the way the scene flow says it. It used to pass
+      // nothing, so the line said "Checking the engine…" for as long as the
+      // probe took and then unmounted, which moved the composer 35px while the
+      // first question was still being spoken. A footnote that is always there
+      // never moves anything, and the studio was the one flow that never said
+      // what it costs.
+      footnote: capsNote(caps?.canGenerate ? 'Three views. A few minutes.' : 'Saved without drawn views.'),
       onPaste: !d ? (files: File[]) => void addFiles(files) : undefined,
     },
   };
