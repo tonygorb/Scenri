@@ -125,6 +125,11 @@ function progressWriter(patch: (p: any) => unknown): (p: JobProgress) => void {
   };
 }
 
+/** What a stop says, which depends only on what it managed to keep. */
+function stoppedMessage(saved: number): string {
+  return saved ? `Stopped after saving ${saved.toLocaleString()} products` : 'Stopped before anything was saved';
+}
+
 async function runJob(
   deps: CatalogImportDeps,
   jobId: string,
@@ -136,6 +141,16 @@ async function runJob(
   const { core, fetchImpl } = deps;
   const patch = (p: Parameters<typeof core.catalog.updateJob>[1]) => core.catalog.updateJob(jobId, p);
 
+  /**
+   * Held outside the try so a stop that throws can still say what it saved.
+   *
+   * A cancel during the picture drain unwinds through the catch below, and
+   * that path used to report "Stopped before anything was saved" whatever had
+   * happened - measured on a real run that had already written 294 products
+   * and 822 pictures.
+   */
+  const tally: Tally = { fetched: 0, upserted: 0, imagesDone: 0, imagesTotal: 0, errors: [], seenKeys: [] };
+
   try {
     // One path, whether someone ticked twelve products or asked for the whole
     // store. Both read product pages, and both have to write what they have
@@ -144,7 +159,6 @@ async function runJob(
     // Products page empty for the whole run and the heap carrying a catalogue
     // it was not using. The two differ in where the addresses come from and in
     // whether products missing from the run have genuinely gone.
-    const tally: Tally = { fetched: 0, upserted: 0, imagesDone: 0, imagesTotal: 0, errors: [], seenKeys: [] };
     const ctx = { fetchImpl: fetchImpl ?? fetch, baseUrl: url, signal };
 
     let urls: string[] = [];
@@ -223,7 +237,7 @@ async function runJob(
         // batched crawl below, which is the case this was all written for.
         const products = await found.fetchAll();
         if (signal.aborted) {
-          patch({ stage: 'cancelled', errors: [], message: 'Stopped before anything was saved', finished: true });
+          patch({ stage: 'cancelled', errors: [], message: stoppedMessage(tally.upserted), finished: true });
           return;
         }
         if (!products.length) {
@@ -312,9 +326,7 @@ async function runJob(
       patch({
         stage: 'cancelled',
         errors: [],
-        message: tally.upserted
-          ? `Stopped after saving ${tally.upserted.toLocaleString()} products`
-          : 'Stopped before anything was saved',
+        message: stoppedMessage(tally.upserted),
         finished: true,
       });
       core.catalog.setSourceStatus(run.sourceId, 'partial', true);
@@ -343,7 +355,7 @@ async function runJob(
     // Stopping during discovery throws out of the pipeline, and the throw is
     // the stop rather than a fault of the site's.
     if (signal.aborted) {
-      patch({ stage: 'cancelled', errors: [], message: 'Stopped before anything was saved', finished: true });
+      patch({ stage: 'cancelled', errors: [], message: stoppedMessage(tally.upserted), finished: true });
       return;
     }
     patch({

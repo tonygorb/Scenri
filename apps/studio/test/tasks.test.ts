@@ -235,15 +235,25 @@ describe('taskFromCatalogJob', () => {
    */
   it('says what the import is doing now, not only what it has saved', () => {
     const at = (over: Partial<CatalogImportJob>) => taskFromCatalogJob(job(over), brand).subtitle;
-    expect(at({ stage: 'discovering', discovered: 0 })).toContain('looking for products');
-    expect(at({ stage: 'discovering', discovered: 2199 })).toContain('2,199 found');
+    expect(at({ stage: 'discovering', discovered: 0 })).toContain('Looking for products');
+    expect(at({ stage: 'discovering', discovered: 2199 })).toContain('Found 2,199 products');
     expect(at({ stage: 'fetching_products', discovered: 2199, fetched: 340, upserted: 0 })).toContain(
-      'read 340 of 2,199',
+      'Reading 340 of 2,199 products',
     );
-    expect(at({ stage: 'processing_assets', discovered: 200, imagesDone: 65, imagesTotal: 200 })).toContain(
-      '65 of 200 pictures',
+    // Pictures get a clause, never a second scoreboard: this used to read
+    // "65 of 200 pictures", so the number under a row appeared to fall from
+    // 2,199 to 65 and the noun changed under it.
+    expect(at({ stage: 'processing_assets', discovered: 200, upserted: 200, imagesDone: 65, imagesTotal: 200 })).toBe(
+      '200 products, adding pictures',
     );
     expect(at({ stage: 'completed', discovered: 200, upserted: 200 })).toContain('200 of 200 products');
+
+    // Every one of them counts products, so the row never changes units.
+    for (const stage of ['discovering', 'fetching_products', 'processing_assets', 'completed'] as const) {
+      expect(at({ stage, discovered: 200, upserted: 120, fetched: 150, imagesTotal: 300, imagesDone: 90 })).not.toMatch(
+        /pictures\b.*\d|\d+ of \d+ pictures/,
+      );
+    }
   });
 
   it('never reports zero saved while it is still reading', () => {
@@ -611,7 +621,7 @@ describe('a site with no shop on it', () => {
     const t = taskFromCatalogJob(job(), { slug: 'lucid' });
     expect(t.state).toBe('done');
     expect(t.percent).toBe(100);
-    expect(t.subtitle).toBe('Catalogue import · no shop on this site');
+    expect(t.subtitle).toBe('No shop on this site');
     expect(t.subtitle).not.toMatch(/fail/i);
   });
 

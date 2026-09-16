@@ -240,9 +240,18 @@ test('cancelling keeps what landed and stops what had not started', async ({ pag
   // And it really stopped, well short of the catalogue.
   expect(after).toBeLessThan(HANDLES.length);
 
-  // It says so in words, and never pretends it finished.
+  // It says so in words, and the words agree with what is on disk. A stop
+  // that unwound through the catch used to report "Stopped before anything was
+  // saved" whatever had happened - seen on a real run holding 294 products and
+  // 822 pictures.
   const j = await job(page, brand.id, jobId);
-  expect(String(j.message ?? '')).toMatch(/stopped/i);
+  const said = String(j.message ?? '');
+  expect(said).toMatch(/stopped/i);
+  if ((j.upserted ?? 0) > 0) {
+    expect(said).toMatch(/after saving/i);
+    expect(said).toContain(String(j.upserted));
+    expect(said).not.toMatch(/before anything was saved/i);
+  }
 
   // Settled for good: nothing keeps arriving after a stop.
   const settled = await productCount(page, brand.id);
