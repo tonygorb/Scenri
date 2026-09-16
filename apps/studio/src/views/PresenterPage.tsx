@@ -219,7 +219,7 @@ export function PresenterPage() {
           label: ROLE_LABEL[sh?.angle ?? ''] ?? `Reference ${i + 1}`,
           angle: typeof sh?.angle === 'string' ? sh.angle : undefined,
         }))
-        .filter((f): f is { src: string; label: string; angle?: string } => !!f.src)
+        .filter((f): f is { src: string; label: string; angle: string | undefined } => !!f.src)
     : refs.length
       ? refs.map((src, i) => ({ src, label: CURATED_LABELS[i] ?? `Reference ${i + 1}` }))
       : presenter.previewUrl

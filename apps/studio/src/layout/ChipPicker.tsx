@@ -92,7 +92,7 @@ export function ChipPicker({
         onOpen={() => setOpen(true)}
         onRemove={(item) => onChange(value.filter((v) => !same(v, item)))}
         hit={
-          <DropdownMenu.Trigger asChild>
+          <DropdownMenu.Trigger>
             <button type="button" className="sc-chipfield-hit" aria-label={label} />
           </DropdownMenu.Trigger>
         }

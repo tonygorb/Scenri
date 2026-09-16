@@ -38,6 +38,8 @@ export function ChipField({
       <span className="sc-chipfield-row">
         {items.length === 0 && placeholder ? <span className="sc-chipfield-ph">{placeholder}</span> : null}
         {items.map((item) => (
+          // biome-ignore lint/a11y/noStaticElementInteractions: a pointer shortcut onto the hit button underneath, which is the real, focusable menu trigger
+          // biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard reaches the same menu through that hit button, so a key handler here would be a second route
           <span key={item} className="sc-chipfield-chip" onClick={() => onOpen?.()}>
             {item}
             {onRemove && (
