@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { presenterSearchText } from '../displayName.js';
 import { Outlet, useMatch, useNavigate } from 'react-router';
 import { Plus } from '@phosphor-icons/react';
@@ -80,8 +80,12 @@ export function PresentersView() {
 
   const mode = facetMode(presenterCategories.length);
 
+  /** The wall and the one way on, so a card thrown away can hand its place to a neighbour. */
+  const wall = useRef<HTMLDivElement>(null);
+  const cta = useRef<HTMLButtonElement>(null);
+
   const createCta = (
-    <button type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('presenter')}>
+    <button ref={cta} type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('presenter')}>
       <Plus size={12} /> Create presenter
     </button>
   );
@@ -121,13 +125,45 @@ export function PresentersView() {
     if (inStudio) return;
     return loadDrafts();
   }, [inStudio, loadDrafts]);
+  /**
+   * The wall, so a card thrown away can hand its place on to a neighbour.
+   *
+   * The control that discards a card is inside that card, so agreeing to the
+   * discard destroys the element that had focus and the browser drops focus to
+   * `body`: the next Tab starts again at Skip to content, which is the far end
+   * of the page from where the person was working. Focus moves to the next
+   * card's own discard, the way `ShotRail` and `LineageStrip` hand focus to the
+   * neighbouring tile, and to Create presenter when that was the last one,
+   * because that is the only thing left to do here.
+   */
   const drop = useCallback(
     (id: string) => {
+      const at = Math.max(
+        0,
+        drafts.findIndex((d) => d.id === id),
+      );
+      handOn.current = at;
       setDrafts((cur) => cur.filter((d) => d.id !== id));
       void api.deletePresenterDraft(brand.id, id).finally(() => loadDrafts());
     },
-    [brand.id, loadDrafts],
+    [brand.id, drafts, loadDrafts],
   );
+  /**
+   * Where focus goes next, taken in the render that took the card away.
+   *
+   * Not a `requestAnimationFrame` inside the handler: a frame can come before
+   * React commits, and then this reads the wall as it was and focuses the card
+   * that is about to be removed. An effect on `drafts` runs after the commit,
+   * which is the only moment the neighbour is the neighbour.
+   */
+  const handOn = useRef<number | null>(null);
+  useEffect(() => {
+    const at = handOn.current;
+    if (at === null) return;
+    handOn.current = null;
+    const pucks = wall.current?.querySelectorAll<HTMLButtonElement>('[data-build] .sc-cardpuck');
+    (pucks?.length ? pucks[Math.min(at, pucks.length - 1)] : cta.current)?.focus();
+  }, [drafts]);
   /**
    * Throwing away drawn work asks first.
    *
@@ -235,7 +271,14 @@ export function PresentersView() {
               <div className="sc-sec-head">
                 <h2 className="sc-sec-title">Your presenters</h2>
               </div>
-              <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
+              <div
+                ref={wall}
+                className="sc-masonry"
+                data-wall
+                data-density
+                data-density-size={densityAttr}
+                style={wallStyle}
+              >
                 {drafts.map((d) => (
                   <PresenterDraftCard
                     key={d.id}

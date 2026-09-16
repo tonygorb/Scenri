@@ -213,6 +213,12 @@ test('discarding a drawn draft asks first, and cancelling keeps it', async ({ pa
   await expect(page.locator(`a[href$="/presenters/new/${bare.id}"]`)).toHaveCount(0);
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
 
+  // and the card that went hands its place on. The control that discards a card
+  // lives inside it, so agreeing destroys the element that had focus and the
+  // browser drops focus to the body: the next Tab starts again at Skip to
+  // content, the far end of the page from where the person was working.
+  await expect.poll(() => page.evaluate(() => document.activeElement?.className ?? '')).toContain('sc-cardpuck');
+
   // and agreeing really does throw the drawn one away
   await puck(drawn).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Discard' }).click();

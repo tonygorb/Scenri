@@ -236,14 +236,21 @@ brackets; a row with none is a manual pass.
 - [ ] An accepted edit updates the page, the wall and the picker (`presenter-edit`)
 - [ ] Delete removes them everywhere with no reload (`presenter-realtime`)
 - [ ] Delete ends an open editing session (`presenter-realtime`)
-- [ ] A chip naming a deleted presenter says so
+- [ ] A chip naming a deleted presenter says so. Verified by hand 2026-09-16: the
+      remedy rides as the chip's `title`, which is the per-chip mark the whole
+      composer uses, so on a touch screen the chip reads only "missing person".
+      A limit of that pattern, app-wide, not of this surface
 
 **Recovery**
 - [ ] Reload mid-draw returns to the same draw (`presenter-recovery`)
 - [ ] Leaving mid-draw leaves the work alone (`presenter-recovery`)
 - [ ] Reload mid-conversation says nothing twice (`presenter-recovery`)
 - [ ] Back and forward across wall, draft and studio (`presenter-recovery`)
-- [ ] Refresh during photo analysis
+- [ ] Refresh during photo analysis. Verified by hand 2026-09-16 on the reload
+      path: the photograph is kept, nothing is said twice, the conversation
+      resumes at the question it was on. Not verified mid-flight: the demo
+      analyzer answers instantly and has no delay knob, so the refresh cannot be
+      made to land while the analysis is actually running
 - [ ] A failed draw offers Retry and keeps the rest (`create-presenter`)
 
 **Legacy**
@@ -252,9 +259,17 @@ brackets; a row with none is a manual pass.
 - [ ] A record with no prose can still be drawn (`presenter-legacy`)
 
 **Responsive and reach**
-- [ ] Creation and the editor at 430, 390 and 375
-- [ ] Keyboard-only through creation, decision and save
-- [ ] Focus after a dialog and after a destructive action
+- [ ] Creation and the editor at 430, 390 and 375. Verified by hand 2026-09-16
+      with device emulation, not a resized window: Chrome's macOS window floor
+      is about 500px and resizing alone reports a width nobody has
+- [ ] Keyboard-only through creation, decision and save. Verified by hand
+      2026-09-16, Tab and Enter only, from the first question to the saved
+      record; every control carries a visible ring
+- [ ] Focus after a dialog and after a destructive action (`presenter-drafts`).
+      A confirm opens on Cancel and Escape hands focus back to what opened it.
+      A discarded card hands its place to the next card's own discard, because
+      the control that discards a card is inside it and agreeing destroys the
+      element that had focus
 
 **Before the tag**
 - [ ] `pnpm verify` green
