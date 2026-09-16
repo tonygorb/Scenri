@@ -273,7 +273,7 @@ another, which is itself the point rather than a hedge.
 
 Sixty-four real codex runs, six shots, eight strategies, one ratio (1:1 to 16:9).
 Driver: `packages/cli/test/manual-extend-battery.mts`. Report and every
-artifact, failures included: `scenri-ops/extend-bakeoff-2026-08-26/`.
+artifact, failures included; it is kept in the maintainer's private working notes.
 
 ### The capability question, settled first-hand
 
