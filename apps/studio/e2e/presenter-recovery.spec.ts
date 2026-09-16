@@ -6,10 +6,15 @@ import { isolate } from './harness.js';
  *
  * The demo engine is told to take its time, so a draw is a state a person can
  * actually be in rather than something that has already happened by the time
- * the next line runs. Every other presenter spec draws instantly, which is why
- * none of them could see any of this.
+ * the next line runs.
+ *
+ * It is `SCENRI_DEMO_DELAY_MS`, not `SCENRI_DEMO_STAGGER_MS`. This file carried
+ * the stagger from the day it was written and the stagger never did anything
+ * here: it waits between pictures and a presenter draw asks for one, so every
+ * draw landed as fast as sharp could draw it and these tests passed only when
+ * the machine happened to be slower than the assertion. Measured 2026-09-16.
  */
-isolate({ env: { SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5', SCENRI_DEMO_STAGGER_MS: '4000' } });
+isolate({ env: { SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5', SCENRI_DEMO_DELAY_MS: '4000' } });
 
 test.beforeEach(async ({ page }, testInfo) => {
   await page.bringToFront();
