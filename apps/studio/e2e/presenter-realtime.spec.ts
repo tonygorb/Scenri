@@ -222,6 +222,10 @@ test('the wall reads its drafts again when the studio closes over it', async ({ 
   // answering through to a face does
   await page.getByRole('button', { name: 'Create presenter' }).click();
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
+  // The URL moves before the studio mounts, and Escape is heard by a listener
+  // the studio adds on mount: a press in between went nowhere and the page
+  // stayed on /new. Wait for the surface, not the address.
+  await expect(page.locator('.sc-pstudio[role="dialog"]')).toBeVisible();
   await page.request.post(`/api/brands/${brand.id}/presenter-drafts`, {
     data: { source: 'synthetic', direction: 'a woman in her 30s', name: 'Behind' },
   });
