@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { isolate } from './harness.js';
+import { arrived, isolate } from './harness.js';
 
 /**
  * The conversation on a phone: one column, the stage held at the top, the
@@ -46,6 +46,8 @@ test('the phone is the conversation: no stage, the picture in the log, composer 
   const use = page.getByRole('log').getByRole('button', { name: 'Use this person' });
   await expect(use).toBeVisible({ timeout: 20_000 });
   const vw = page.viewportSize()!;
+  // once the surface has landed: every box below is read mid-travel otherwise
+  await arrived(page);
   // asked for, not waited on: a phone has no stage to measure
   const stage = (await page.locator('.sc-pstudio-stage').count())
     ? await page.locator('.sc-pstudio-stage').boundingBox()
@@ -88,6 +90,9 @@ test('the composer stays reachable with the keyboard up', async ({ page }) => {
   await page.goto(`/${brand.slug}/presenters/new/${draftId}`);
   const field = page.locator('.sc-convo-card textarea');
   await expect(field).toBeVisible({ timeout: 20_000 });
+  // once the sheet is up: a box read while it is still rising is a box a few
+  // pixels below where it lands
+  await arrived(page);
   // the app's keyboard inset, as the visual viewport reports it
   await page.evaluate(() => document.documentElement.style.setProperty('--sc-kb', '300px'));
   await field.focus();

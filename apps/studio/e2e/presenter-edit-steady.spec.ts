@@ -1,5 +1,5 @@
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
-import { isolate } from './harness.js';
+import { arrived, isolate } from './harness.js';
 
 /**
  * The editor holds still.
@@ -79,6 +79,11 @@ test('the editor opens on the record already said, and the panel does not grow w
   await page.goto(`/${brand.slug}/presenters/${id}/edit`);
   const log = page.getByRole('log');
   await expect(log).toBeVisible();
+
+  // Once the surface has landed. It arrives with the house motion now, and a
+  // 2% zoom settling is the surface travelling, not the transcript growing,
+  // which is the only thing this test is about.
+  await arrived(page);
 
   // The record's own lines are there to be read, not delivered one at a time.
   const heights: number[] = [];

@@ -1,5 +1,5 @@
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
-import { isolate } from './harness.js';
+import { arrived, isolate } from './harness.js';
 
 /** The editor on a phone: the same column as creation, the record's views in the strip. */
 isolate({ env: { SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5' } });
@@ -52,6 +52,8 @@ test('the phone editor stacks and keeps the composer in reach; the tablet keeps 
   const phone = vw.width < 768;
   // the strip of views belongs to the stage, and a phone has no stage
   await expect(page.locator('.sc-pstudio-slot')).toHaveCount(phone ? 0 : 3);
+  // once the surface has landed: every box below is read mid-travel otherwise
+  await arrived(page);
   // asked for, not waited on: a phone has no stage to measure
   const stage = (await page.locator('.sc-pstudio-stage').count())
     ? await page.locator('.sc-pstudio-stage').boundingBox()

@@ -26,6 +26,22 @@
   background: var(--sc-panel);
   color: var(--sc-fg);
   outline: none;
+  /* The studio arrives the way everything else you make here arrives.
+     `add-to-brand` is the app's surface for making a new thing, and it already
+     answers this per form factor: a sheet up from the bottom edge on a phone,
+     a short rise and a 2% zoom on a desktop, both on the same curve. The
+     presenter studio was the one creation surface with no arrival at all, so
+     an instant room landed around a conversation paced to the millisecond.
+     Same keyframes, not copies: they are declared once with the shot sheet and
+     the new-thing dialog, which is the convention this stylesheet already
+     follows for the shimmer.
+     The library is an Outlet sibling and never unmounts, so the studio travels
+     over the place you came from. That is what makes the movement mean
+     something, and it costs nothing and works from every door without any of
+     them recording which control was pressed.
+     `backwards`, never `both`: the transform is let go of the moment it lands,
+     so a full-bleed fixed surface never keeps one. */
+  animation: sc-sheet-up 220ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 .sc-pstudio-grid {
@@ -583,6 +599,12 @@
 
 /* ---- the desktop surface: stage left, rail right ------------------------- */
 @media (min-width: 768px) {
+  /* A sheet up from the bottom edge is a phone idiom; on a desktop the same
+     house dialog zooms instead, and so does this. */
+  .sc-pstudio {
+    animation: sc-newdlg-in 200ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+
   .sc-pstudio-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--sc-pstudio-rail);
@@ -807,6 +829,12 @@
 
 @media (prefers-reduced-motion: reduce) {
   .sc-pstudio-well img {
+    animation: none;
+  }
+
+  /* The studio is simply there, with no travel: the same thing the house
+     dialog does under this query. */
+  .sc-pstudio {
     animation: none;
   }
 }
