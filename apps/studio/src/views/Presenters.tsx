@@ -7,11 +7,15 @@ import { useBrand } from '../app/BrandLayout.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { customPresentersOf } from '../brandAssets.js';
-import { api, type PresenterDraftSummary } from '../api.js';
+import { api, type Presenter, type PresenterDraftSummary } from '../api.js';
 import { P, presenterPath, presenterStudioPath } from '../routes.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 import { PresenterDraftCard } from '../layout/PresenterDraftCard.js';
 import { Confirm } from '../Confirm.js';
+import { DuplicatePresenterDialog } from './DuplicatePresenterDialog.js';
+import { suggestedPresenterCopyName } from '../presenterCopyName.js';
+import { failureToast } from '../failure.js';
+import { useToasts } from '../toasts.js';
 import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
@@ -42,10 +46,12 @@ const SEARCH_MIN = 8;
  * below is always there, so this page is never an empty room.
  */
 export function PresentersView() {
-  const { presenters, presenterCategories, presentersLoaded, presentersError, refetchPresenters } = useAppData();
+  const { presenters, presenterCategories, presentersLoaded, presentersError, refetchPresenters, applyBrand } =
+    useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
   const applyPresenter = useApplyPresenter();
+  const { push } = useToasts();
   const { q, setQ, facets, setFacet, clearSearch, clear } = useLibraryQuery(['category']);
   const category = facets.category;
   // One poll for the whole app, owned by TaskCenter: a build started from the
@@ -181,6 +187,69 @@ export function PresentersView() {
     },
     [drafts, drop],
   );
+  const [duplicating, setDuplicating] = useState<Presenter | null>(null);
+  const [removing, setRemoving] = useState<Presenter | null>(null);
+  const [acting, setActing] = useState(false);
+  const [actError, setActError] = useState<string | null>(null);
+  /**
+   * The copy just made. Desktop captions hide until hover, so two identical
+   * faces would otherwise land with no name and no mark. Cleared after a
+   * short hold; the write itself stays instant.
+   */
+  const [justAdded, setJustAdded] = useState<string | null>(null);
+  const askDuplicate = useCallback(
+    (id: string) => {
+      const person = mine.find((p) => p.id === id);
+      if (!person) return;
+      setActError(null);
+      setDuplicating(person);
+    },
+    [mine],
+  );
+  const askDelete = useCallback(
+    (id: string) => {
+      const person = mine.find((p) => p.id === id);
+      if (!person) return;
+      setRemoving(person);
+    },
+    [mine],
+  );
+  const confirmDuplicate = async (name: string) => {
+    if (!duplicating || acting) return;
+    setActing(true);
+    setActError(null);
+    try {
+      const r = await api.duplicatePresenter(brand.id, duplicating.id, name);
+      applyBrand(r.brand);
+      setDuplicating(null);
+      setJustAdded(r.presenter.id);
+      push({ kind: 'success', title: 'Duplicated', detail: r.presenter.name });
+    } catch (e: any) {
+      setActError(String(e.message ?? e));
+      push(failureToast(e, 'Could not duplicate this presenter'));
+    } finally {
+      setActing(false);
+    }
+  };
+  const confirmDelete = async () => {
+    if (!removing || acting) return;
+    setActing(true);
+    try {
+      const r = await api.deletePresenter(brand.id, removing.id);
+      applyBrand(r.brand);
+      setRemoving(null);
+    } catch (e: any) {
+      push(failureToast(e, 'Could not delete this presenter'));
+    } finally {
+      setActing(false);
+    }
+  };
+  useEffect(() => {
+    if (!justAdded) return;
+    wall.current?.querySelector<HTMLElement>('.sc-lookcard[data-just-added]')?.scrollIntoView({ block: 'nearest' });
+    const t = window.setTimeout(() => setJustAdded(null), 1800);
+    return () => window.clearTimeout(t);
+  }, [justAdded]);
 
   /** A person the brand owns, narrowed by whatever the wall is narrowed by. */
   const minePlusBuilds = useMemo(
@@ -312,8 +381,38 @@ export function PresentersView() {
                     onOpen={openPresenter}
                     href={presenterPath(brand, p.id)}
                     onUse={applyPresenter}
+                    onDuplicate={askDuplicate}
+                    onDelete={askDelete}
+                    fresh={p.id === justAdded}
                   />
                 ))}
+                {duplicating && (
+                  <DuplicatePresenterDialog
+                    suggested={suggestedPresenterCopyName(
+                      duplicating.name,
+                      mine.map((p) => p.name),
+                    )}
+                    busy={acting}
+                    error={actError}
+                    onConfirm={(name) => void confirmDuplicate(name)}
+                    onDismiss={() => {
+                      if (!acting) setDuplicating(null);
+                    }}
+                  />
+                )}
+                {removing && (
+                  <Confirm
+                    label="Delete presenter"
+                    title={`Delete ${removing.name}?`}
+                    body="Shots already made with them keep their images and their recipe. Only future shots lose them."
+                    open
+                    busy={acting}
+                    onOpenChange={(o) => {
+                      if (!o && !acting) setRemoving(null);
+                    }}
+                    onConfirm={() => void confirmDelete()}
+                  />
+                )}
               </div>
             </section>
           )}

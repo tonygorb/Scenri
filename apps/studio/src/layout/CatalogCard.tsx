@@ -2,11 +2,20 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { thumbOf } from '../api.js';
 import { useHoverNone } from '../useMediaQuery.js';
 import { Link } from 'react-router';
-import { ContextMenu } from '@radix-ui/themes';
-import { BookmarkSimple, Check, ImageSquare } from '@phosphor-icons/react';
+import { ContextMenu, DropdownMenu } from '@radix-ui/themes';
+import { BookmarkSimple, Check, DotsThree, ImageSquare } from '@phosphor-icons/react';
 
 export type CatalogCardVariant = 'navigate' | 'use' | 'select' | 'plain';
 export type CatalogCardSize = 'shelf' | 'grid' | 'slider' | 'wizard';
+
+/** Extra verbs a card may offer, after Open / Use. Delete sits last and red. */
+export type CatalogMenuItem = {
+  key: string;
+  label: string;
+  onSelect: () => void;
+  danger?: boolean;
+  separated?: boolean;
+};
 
 /**
  * Shared card shell for Scene / Presenter / Showcase / etc.
@@ -20,7 +29,8 @@ export type CatalogCardSize = 'shelf' | 'grid' | 'slider' | 'wizard';
  *
  * Desktop: hover reveals veil + caption + centered use. Touch: title
  * footer under the image; first tap arms (shows use like hover); pill →
- * create; second tap on image → detail. Context menu is desktop-only.
+ * create; second tap on image → detail. Context menu is desktop-only;
+ * owned cards also get a corner overflow for keyboard and touch.
  */
 function CatalogCardInner({
   id,
@@ -38,6 +48,8 @@ function CatalogCardInner({
   onToggle,
   bookmarked,
   onBookmark,
+  menuItems,
+  fresh,
   size = 'grid',
 }: {
   id: string;
@@ -79,6 +91,10 @@ function CatalogCardInner({
    */
   bookmarked?: boolean;
   onBookmark?: (id: string) => void;
+  /** Management verbs after Open / Use. Absent on catalog and draft cards. */
+  menuItems?: CatalogMenuItem[];
+  /** Just arrived (a duplicate). Reveals the caption and a short arrival. */
+  fresh?: boolean;
   size?: CatalogCardSize;
 }) {
   const [broken, setBroken] = useState(false);
@@ -87,6 +103,7 @@ function CatalogCardInner({
   const touchUi = useHoverNone();
 
   const showUseButton = variant === 'use' && !!onOpen && !!onUse;
+  const extras = menuItems ?? [];
 
   useEffect(() => {
     if (!armed) return;
@@ -128,6 +145,7 @@ function CatalogCardInner({
         data-variant="select"
         data-size={size}
         data-on={selected || undefined}
+        data-just-added={fresh || undefined}
         aria-pressed={!!selected}
         aria-label={title}
         onClick={() => onToggle?.(id)}
@@ -171,6 +189,7 @@ function CatalogCardInner({
       data-variant={variant}
       data-size={size}
       data-armed={armed || undefined}
+      data-just-added={fresh || undefined}
     >
       <div className="sc-lookcard-media">
         {href ? (
@@ -222,12 +241,47 @@ function CatalogCardInner({
             <BookmarkSimple size={13} weight={bookmarked ? 'fill' : 'regular'} />
           </button>
         )}
+        {extras.length > 0 && (
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              <button
+                type="button"
+                className="sc-cardpuck sc-lookcard-more"
+                aria-label={`More for ${primary}`}
+                onClick={(e) => e.stopPropagation()}
+                onContextMenu={(e) => e.stopPropagation()}
+              >
+                <DotsThree size={16} weight="bold" />
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end" sideOffset={6}>
+              {onOpen && <DropdownMenu.Item onSelect={() => onOpen(id)}>Open</DropdownMenu.Item>}
+              {href && (
+                <DropdownMenu.Item onSelect={() => window.open(href, '_blank')}>Open in new tab</DropdownMenu.Item>
+              )}
+              {showUseButton && <DropdownMenu.Item onSelect={() => onUse?.(id)}>{useLabel}</DropdownMenu.Item>}
+              {onBookmark && (
+                <DropdownMenu.Item onSelect={() => onBookmark(id)}>
+                  {bookmarked ? 'Remove bookmark' : 'Bookmark'}
+                </DropdownMenu.Item>
+              )}
+              {extras.map((it) => (
+                <span key={it.key} style={{ display: 'contents' }}>
+                  {it.separated && <DropdownMenu.Separator />}
+                  <DropdownMenu.Item color={it.danger ? 'red' : undefined} onSelect={it.onSelect}>
+                    {it.label}
+                  </DropdownMenu.Item>
+                </span>
+              ))}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        )}
       </div>
       {caption}
     </div>
   );
 
-  if (!onOpen && !onUse && !href) return card;
+  if (!onOpen && !onUse && !href && extras.length === 0) return card;
   if (touchUi) return card;
   return (
     <ContextMenu.Root>
@@ -244,6 +298,14 @@ function CatalogCardInner({
             {bookmarked ? 'Remove bookmark' : 'Bookmark'}
           </ContextMenu.Item>
         )}
+        {extras.map((it) => (
+          <span key={it.key} style={{ display: 'contents' }}>
+            {it.separated && <ContextMenu.Separator />}
+            <ContextMenu.Item color={it.danger ? 'red' : undefined} onSelect={it.onSelect}>
+              {it.label}
+            </ContextMenu.Item>
+          </span>
+        ))}
       </ContextMenu.Content>
     </ContextMenu.Root>
   );

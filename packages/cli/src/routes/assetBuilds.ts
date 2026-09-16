@@ -16,6 +16,7 @@ import {
   listAssetBuilds,
   presenterCrops,
   presenterRecordFrom,
+  duplicatePresenter,
   sceneBuildRunning,
   sceneRecordFrom,
   scenePreviewPrompt,
@@ -239,6 +240,19 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     }
     const after = core.store.getBrand(brand.id);
     return { presenter: brandCharacters(after?.json).find((c: any) => c.id === older.id), brand: after };
+  });
+  /**
+   * A new saved person from the current accepted record. Same pictures, a
+   * new id, no revision link, no generation. The brand comes back so the
+   * wall and the pickers show them in the same commit.
+   */
+  app.post('/api/brands/:id/presenters/:presenterId/duplicate', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const id = String((req.params as any).presenterId);
+    const result = duplicatePresenter(core, brand.id, id, (req.body as any)?.name);
+    if (!result.ok) return reply.status(result.status).send({ error: result.error });
+    return { presenter: result.presenter, brand: result.brand };
   });
   app.delete('/api/brands/:id/presenters/:presenterId', async (req, reply) => {
     const brand = brandOr404(req, reply);

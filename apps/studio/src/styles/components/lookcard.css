@@ -19,6 +19,29 @@
   outline: 2px solid var(--sc-sel-line);
   outline-offset: -2px;
 }
+/* A card that just landed (a duplicate). Same quiet outline as selected,
+   but not data-on — that token means chosen for a shot. Caption and veil
+   stay up so the new name is readable without a hover. */
+.sc-lookcard[data-just-added] {
+  outline: 2px solid var(--sc-sel-line);
+  outline-offset: -2px;
+  animation: sc-lookcard-arrive var(--sc-dur-fast) var(--sc-ease) backwards;
+}
+.sc-lookcard[data-just-added] .sc-lookcard-veil,
+.sc-lookcard[data-just-added] .sc-lookcard-cap {
+  opacity: 1;
+  transform: none;
+}
+@keyframes sc-lookcard-arrive {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
 .sc-lookcard-media {
   position: relative;
   display: block;
@@ -143,8 +166,21 @@ a.sc-lookcard {
   background: var(--sc-inv-bg);
   opacity: 0.88;
 }
+/* Same reveal as the bookmark: hover and keyboard focus, always on touch.
+   Owned presenters only; catalog cards never grow this puck. */
+.sc-lookcard-more {
+  opacity: 0;
+}
+.sc-lookcard:hover .sc-lookcard-more,
+.sc-lookcard:focus-within .sc-lookcard-more,
+.sc-lookcard-more:focus-visible {
+  opacity: 1;
+}
 @media (hover: none) {
   .sc-lookcard-bookmark {
+    opacity: 1;
+  }
+  .sc-lookcard-more {
     opacity: 1;
   }
 }
@@ -308,6 +344,9 @@ a.sc-lookcard {
   .sc-lookcard[data-variant="skeleton"]::after {
     animation: none;
   }
+  .sc-lookcard[data-just-added] {
+    animation: none;
+  }
 }
 
 /* Touch: title footer under image; Use appears on first tap (hover substitute).
@@ -329,6 +368,13 @@ a.sc-lookcard {
     outline: none;
   }
   .sc-lookcard:has(.sc-lookcard-media)[data-on] .sc-lookcard-media {
+    outline: 2px solid var(--sc-sel-line);
+    outline-offset: -2px;
+  }
+  .sc-lookcard:has(.sc-lookcard-media)[data-just-added] {
+    outline: none;
+  }
+  .sc-lookcard:has(.sc-lookcard-media)[data-just-added] .sc-lookcard-media {
     outline: 2px solid var(--sc-sel-line);
     outline-offset: -2px;
   }

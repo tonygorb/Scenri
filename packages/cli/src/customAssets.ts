@@ -35,6 +35,8 @@ export {
   lintSceneProse,
   PRESENTER_ID_PREFIX,
   presenterRecordFrom,
+  duplicatePresenter,
+  duplicatePresenterRecord,
   SCENE_ID_PREFIX,
   sceneRecordFrom,
   type CustomPresenter,
