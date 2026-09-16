@@ -739,11 +739,31 @@
     flex-direction: column;
   }
 
-  /* the whole screen now, so the head clears the notch */
+  /* The whole screen now, so the head clears the notch.
+     Four different padding values used to meet here (8 top, 8 right, 12
+     bottom, 16 left) and none of them put the close where it belongs: its 44px
+     target ran 2px past the right edge of the screen and was clipped by the
+     surface's own `overflow: hidden`, its glyph sat 20px in against the
+     title's 16, and the row centred 2.5px above the middle of the bar because
+     the bottom padding was four more than the top.
+     The end padding is now the close button's own box. A 44px target with a
+     centred glyph carries its gutter inside it, so the target ends exactly at
+     the edge of the screen with nothing clipped, and the glyph lands 22px in,
+     which is what a 16px text gutter looks like beside an icon. Top and bottom
+     match, so the row sits in the middle of the bar; the notch still pushes
+     the top down on its own. */
   .sc-pstudio-head {
     min-height: 52px;
     flex-wrap: wrap;
-    padding: max(var(--sc-space-4), env(safe-area-inset-top)) var(--sc-space-4) var(--sc-space-5) var(--sc-space-6);
+    padding: max(var(--sc-space-4), env(safe-area-inset-top)) 0 var(--sc-space-4) var(--sc-space-6);
+  }
+
+  /* The house close pulls itself 10px past the end of its row, which is right
+     inside the new-thing dialog's 32px padding and wrong against a head that
+     has none: it put the target off the edge of the screen. Here the button's
+     own box is the gutter, so it ends where the screen does. */
+  .sc-pstudio-head .sc-newdlg-close {
+    margin-inline-end: 0;
   }
 
   .sc-pstudio-scroll {
