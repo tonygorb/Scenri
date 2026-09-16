@@ -2,6 +2,7 @@ import { Fragment, useLayoutEffect, useRef, type CSSProperties, type ReactNode, 
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 import type { ShowcaseEntry } from '../api.js';
+import { placeTip } from '../composer/anchorPanel.js';
 import { CatalogCard, CatalogCardSkeleton, type CatalogCardSize } from './CatalogCard.js';
 import { useWallDensitySize } from './DensityControl.js';
 
@@ -228,12 +229,16 @@ function CreditTip({
       const pop = popRef.current;
       const pw = pop?.offsetWidth || tipW;
       const ph = pop?.offsetHeight || tipH;
-      const gap = 8;
-      const above = r.top >= ph + gap + 12;
-      setPos({
-        left: Math.round(r.left + r.width / 2 - pw / 2),
-        top: Math.round(above ? r.top - gap - ph : r.bottom + gap),
+      const vv = window.visualViewport;
+      const next = placeTip(r, { width: vv?.width ?? window.innerWidth, height: vv?.height ?? window.innerHeight }, {
+        width: pw,
+        height: ph,
       });
+      if (!next) {
+        setPos(null);
+        return;
+      }
+      setPos({ left: Math.round(next.left), top: Math.round(next.top) });
     };
     place();
     const raf = requestAnimationFrame(place);
@@ -242,11 +247,15 @@ function CreditTip({
     if (el && ro) ro.observe(el);
     window.addEventListener('scroll', place, true);
     window.addEventListener('resize', place);
+    window.visualViewport?.addEventListener('resize', place);
+    window.visualViewport?.addEventListener('scroll', place);
     return () => {
       cancelAnimationFrame(raf);
       ro?.disconnect();
       window.removeEventListener('scroll', place, true);
       window.removeEventListener('resize', place);
+      window.visualViewport?.removeEventListener('resize', place);
+      window.visualViewport?.removeEventListener('scroll', place);
     };
   }, [open, credit.previewUrl, credit.key, tipW, tipH]);
 

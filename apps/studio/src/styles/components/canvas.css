@@ -572,7 +572,7 @@
    reaches over it, so the 170px the drawer has to keep clear of the dock is
    dead space here — and dead space at the bottom is precisely the height an
    opened section wants to claim. */
-@media (min-width: 1280px) {
+@media (min-width: 1024px) {
   .sc-assets {
     padding-bottom: 16px;
   }
@@ -1250,9 +1250,8 @@
    Its band is the canvas's own gutters, and it is centred inside that band —
    so it centres over the feed it belongs to rather than over the window, which
    with the assets panel open are two different centres. The band only insets
-   for that panel where the panel is a grid column; under 1280px the panel is a
-   fixed drawer over the canvas, so subtracting its width there squeezed the
-   composer to ~51px.
+   for that panel where the panel is a grid column; under 1024px the panel is
+   gone, so subtracting its width there squeezed the composer to ~51px.
    `margin-inline: auto` is load-bearing: with both offsets set, a max-width
    box parks at the start of the band instead of centring in it. */
 .sc-canvas-dock {
@@ -1270,7 +1269,7 @@
      element does not reflow anything else, so this is safe to animate. */
   transition: bottom var(--sc-dur-slow) var(--sc-ease-emphasis);
 }
-@media (min-width: 1280px) {
+@media (min-width: 1024px) {
   .sc-canvas-dock {
     right: calc(var(--sc-assets-w) + var(--sc-space-7));
   }
@@ -1279,7 +1278,7 @@
   }
 }
 
-@media (max-width: 1279px) {
+@media (max-width: 1023px) {
   .sc-work {
     grid-template-columns: 1fr;
     grid-template-areas: "canvas";
@@ -1307,7 +1306,7 @@
 .sc-assets-head {
   display: none;
 }
-@media (max-width: 1279px) {
+@media (max-width: 1023px) {
   .sc-assets-head {
     display: flex;
     align-items: center;
@@ -1358,7 +1357,7 @@
     var(--sc-bg) 92%
   );
 }
-@media (min-width: 1280px) {
+@media (min-width: 1024px) {
   .sc-dock-fade {
     right: var(--sc-assets-w);
   }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   placePanel,
+  placeTip,
   PANEL_W,
   PANEL_MAX_H,
   type AnchorRect,
@@ -216,6 +217,39 @@ describe('placeInsertMenu', () => {
     expect(p?.shell).toBe('dock');
     expect(p?.maxHeight).toBe(80);
     expect(p!.top + 80).toBe(brief.top - 8);
+  });
+});
+
+describe('placeTip', () => {
+  const TIP = { width: 88, height: 112 };
+  const mid = { top: 400, bottom: 426, left: 700, right: 726 };
+
+  it('centres on the chip when there is room on both sides', () => {
+    const p = placeTip(mid, DESKTOP, TIP);
+    expect(p?.left).toBe(713 - 44);
+    expect(p?.top).toBe(400 - 8 - 112);
+  });
+
+  it('keeps a chip on the left edge from painting the card off the screen', () => {
+    const p = placeTip({ top: 400, bottom: 426, left: 8, right: 34 }, DESKTOP, TIP);
+    expect(p?.left).toBe(12);
+    expect(p!.left + TIP.width).toBeLessThanOrEqual(DESKTOP.width - 12);
+  });
+
+  it('keeps a chip on the right edge from painting the card off the screen', () => {
+    const p = placeTip({ top: 400, bottom: 426, left: 1408, right: 1434 }, DESKTOP, TIP);
+    expect(p?.left).toBe(DESKTOP.width - TIP.width - 12);
+    expect(p!.left).toBeGreaterThanOrEqual(12);
+  });
+
+  it('opens below when the band above cannot hold the card', () => {
+    const p = placeTip({ top: 40, bottom: 66, left: 700, right: 726 }, DESKTOP, TIP);
+    expect(p?.top).toBe(66 + 8);
+  });
+
+  it('returns null when the chip has left the screen', () => {
+    expect(placeTip({ top: -40, bottom: -14, left: 700, right: 726 }, DESKTOP, TIP)).toBeNull();
+    expect(placeTip({ top: 920, bottom: 946, left: 700, right: 726 }, DESKTOP, TIP)).toBeNull();
   });
 });
 
