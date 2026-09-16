@@ -67,6 +67,26 @@ describe('the products line', () => {
     expect(productLine({ kind: 'idle' })).toBeNull();
   });
 
+  /**
+   * Two ways of knowing what is in a shop, and only one of them was counted.
+   *
+   * `candidates` are read from product pages, one request each. A store with a
+   * bulk listing has none of them - it hands its whole catalogue over at once
+   * as `cards` instead. Checking only the first sent a person who had just
+   * been shown 1,187 products to the home page with nothing imported: the row
+   * read "1,187 found" and the button under it read "Looks right".
+   */
+  it('offers an import when the listing described the shop, not only when pages were read', () => {
+    const listed = scan({ count: 1187, candidates: [], cards: [{ externalKey: '1', title: 'A', url: 'u' }] } as any);
+    expect(hasCatalog(listed)).toBe(true);
+    // Still nothing to offer when the shop is empty by both measures.
+    expect(hasCatalog(scan({ count: 0, candidates: [], cards: [] } as any))).toBe(false);
+    // And a shop we could not open is still not an offer, however it is known.
+    expect(hasCatalog(scan({ verdict: 'blocked', cards: [{ externalKey: '1', title: 'A', url: 'u' }] } as any))).toBe(
+      false,
+    );
+  });
+
   it('only offers an import when there is something to preview', () => {
     expect(hasCatalog(scan({ count: 10, candidates: [{ externalKey: 'a', title: 'A' }] }))).toBe(true);
     expect(hasCatalog(scan({ verdict: 'blocked', count: 10 }))).toBe(false);

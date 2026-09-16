@@ -49,7 +49,13 @@ export function ProductChoice({
   onImportAll: () => void;
   onDismiss: () => void;
 }) {
-  const all = scan.candidateUrls;
+  // Addresses to choose from. A store with a bulk listing describes every
+  // product in `cards`, and a store read page by page lists them separately;
+  // either is a complete set of addresses, and neither may be assumed.
+  const all = useMemo(() => {
+    if (scan.candidateUrls.length) return scan.candidateUrls;
+    return (scan.cards ?? []).map((c) => c.url).filter(Boolean);
+  }, [scan.candidateUrls, scan.cards]);
   const [query, setQuery] = useState('');
   const [picked, setPicked] = useState<Set<string>>(() => new Set(all));
   const [shown, setShown] = useState(BATCH);

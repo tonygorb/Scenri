@@ -107,5 +107,12 @@ export function scanRetryable(outcome: ScanOutcome): boolean {
 
 /** Whether there is a catalog worth offering to import. */
 export function hasCatalog(scan: CommerceScan | null): boolean {
-  return !!scan && scan.verdict === 'found' && scan.candidates.length > 0;
+  if (!scan || scan.verdict !== 'found') return false;
+  // Either way of knowing what is in the shop counts. `candidates` are read
+  // from product pages, one request each, and a store with a bulk listing has
+  // none of them - it hands its whole catalogue over at once as `cards`
+  // instead. Checking only the first is what sent a person who had just been
+  // shown 1,187 products to the home page with nothing imported: the row said
+  // "1,187 found" and the button underneath it quietly read "Looks right".
+  return scan.candidates.length > 0 || (scan.cards?.length ?? 0) > 0;
 }
