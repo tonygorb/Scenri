@@ -376,9 +376,9 @@
    cursor is the one resting affordance the drag has */
 .sc-token {
   cursor: grab;
-  transition:
-    background 120ms ease,
-    box-shadow 120ms ease;
+  /* Background must snap with --sc-token-face. Easing it left the fading X
+     plate on a mid-colour chip for 120ms, which read as the pill breaking. */
+  transition: box-shadow 120ms ease;
 }
 .sc-token:hover {
   background: var(--sc-hover);
@@ -407,10 +407,17 @@
 }
 /* ---------- chip remove: floats over the right edge, never resizes the chip ----------
    The X used to be display:none until hover, so every chip grew on hover and
-   the whole sentence reflowed. It now sits on top, behind a soft fade. */
+   the whole sentence reflowed. It now sits on top, behind a soft fade.
+
+   The plate and its fade must use the chip's current face, not the hover
+   colour. Opacity on the button lingers 120ms after :hover lifts; a
+   hardcoded hover fill then sat on a chip that had already snapped back,
+   and the fade's square edge read as the pill's radius breaking. */
 .sc-token {
+  --sc-token-face: var(--sc-token-bg);
   position: relative;
   padding-inline-end: 0.64em;
+  background: var(--sc-token-face);
 }
 .sc-token > button {
   position: absolute;
@@ -424,11 +431,10 @@
   padding: 0;
   padding-inline-end: 6px;
   border: none;
-  border-radius: inherit;
   color: var(--sc-fg2);
   opacity: 0;
   transition: opacity 120ms ease;
-  background: linear-gradient(90deg, transparent, var(--sc-raised) 45%);
+  background: var(--sc-token-face);
 }
 .sc-token:hover > button,
 .sc-token:focus-within > button {
@@ -437,27 +443,22 @@
 .sc-token > button:hover {
   color: var(--sc-fg);
 }
-.sc-token[data-tinted] > button {
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--tint) 16%, var(--sc-panel)) 45%);
-}
-.sc-token[data-tinted]:hover > button {
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--tint) 26%, var(--sc-panel)) 45%);
-}
 /* ---------- chips, final pass (5.3) ----------
    One language for every chip: same surface, thumbnail, no border, no ring.
    The X floats over the right edge, revealed on hover but hit-testable
    regardless on mouse devices — see the pointer-events note further down. */
 .sc-token {
-  background: var(--sc-token-bg);
   border: none;
   box-shadow: none;
   font-weight: 500;
 }
 .sc-token:hover {
-  background: var(--sc-token-hover);
+  --sc-token-face: var(--sc-token-hover);
+  background: var(--sc-token-face);
 }
 .sc-token[data-open] {
-  background: var(--sc-token-active);
+  --sc-token-face: var(--sc-token-active);
+  background: var(--sc-token-face);
   outline: none;
   box-shadow: none;
 }
@@ -466,23 +467,27 @@
    state that has to be visible from the keyboard was the one with nothing to
    see — which only mattered once a chip could be focused at all. */
 .sc-token:focus-visible {
-  background: var(--sc-token-active);
+  --sc-token-face: var(--sc-token-active);
+  background: var(--sc-token-face);
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
   box-shadow: none;
 }
 /* a whisper of the template's own colour, on the same base as everything else */
 .sc-token[data-tinted] {
-  background: color-mix(in srgb, var(--tint) 14%, var(--sc-token-bg));
+  --sc-token-face: color-mix(in srgb, var(--tint) 14%, var(--sc-token-bg));
+  background: var(--sc-token-face);
   box-shadow: none;
   font-weight: 500;
 }
 .sc-token[data-tinted]:hover {
-  background: color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover));
+  --sc-token-face: color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover));
+  background: var(--sc-token-face);
 }
 .sc-token[data-tinted][data-open],
 .sc-token[data-tinted]:focus-visible {
-  background: color-mix(in srgb, var(--tint) 20%, var(--sc-token-active));
+  --sc-token-face: color-mix(in srgb, var(--tint) 20%, var(--sc-token-active));
+  background: var(--sc-token-face);
   box-shadow: none;
 }
 .sc-token[data-tinted]:focus-visible {
@@ -528,7 +533,7 @@
    tap reaches the chip and opens the sheet, which owns removal there. */
 .sc-token > button {
   width: 18px;
-  background: var(--sc-token-hover);
+  background: var(--sc-token-face);
 }
 .sc-token > button::before {
   content: "";
@@ -537,19 +542,13 @@
   bottom: 0;
   inset-inline-end: 100%;
   width: 14px;
-  background: linear-gradient(90deg, transparent, var(--sc-token-hover));
+  background: linear-gradient(90deg, transparent, var(--sc-token-face));
   pointer-events: none;
 }
 @media (hover: none) {
   .sc-token > button {
     pointer-events: none;
   }
-}
-.sc-token[data-tinted] > button {
-  background: color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover));
-}
-.sc-token[data-tinted] > button::before {
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover)));
 }
 /* ---------- the brief is one editable line (5.4) ----------
    Single contenteditable root: native select-all, copy, cut and paste work

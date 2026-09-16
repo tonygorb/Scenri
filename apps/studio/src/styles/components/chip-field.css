@@ -1,16 +1,18 @@
-/* ---------- the chip field: a list of short words, on one line ----------
+/* ---------- the chip field: a list of short words ----------
    Behind `layout/ChipField.tsx`. One control, filled two ways: a caret you
    type into, or a caret that opens a list. Both wear the app's field skin,
    because two fields in one sheet that do not match are what makes a sheet
-   look assembled rather than designed. */
+   look assembled rather than designed. Chosen words wrap so the field
+   shows the list, not an ellipsis. */
 .sc-chipfield {
   box-sizing: border-box;
+  position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--sc-space-2);
   width: 100%;
   min-height: 34px;
-  padding: 3px 8px 3px 6px;
+  padding: 4px 8px 4px 6px;
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius);
   background: var(--sc-panel);
@@ -18,31 +20,45 @@
   text-align: left;
   cursor: pointer;
 }
-.sc-chipfield:hover:not(:focus-visible) {
+.sc-chipfield:hover {
   border-color: var(--sc-line-hover);
 }
-/* The one focus treatment: the border becomes ink, and nothing glows. */
-.sc-chipfield:focus-visible {
-  outline: none;
+/* The one focus treatment: the border becomes ink, and nothing glows.
+   The hit is the real control; the shell only paints its ring. */
+.sc-chipfield:has(.sc-chipfield-hit:focus-visible) {
   border-color: var(--sc-focus);
 }
 .sc-chipfield[data-state="open"] {
   border-color: var(--sc-focus);
 }
+/* Stretched under the chips so the menu is as wide as the field, not the caret. */
+.sc-chipfield-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.sc-chipfield-hit:focus-visible {
+  outline: none;
+}
 
-/* One line, always. When the words outrun it the row scrolls to them. */
+/* Wrap so every chosen word stays on the field. A one-line scroll with a
+   trailing ellipsis hid the rest and read as a broken control. */
 .sc-chipfield-row {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sc-space-2);
   flex: 1 1 auto;
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.sc-chipfield-row::-webkit-scrollbar {
-  display: none;
+  position: relative;
+  z-index: 1;
+  /* Gaps fall through to the hit, so the empty field still opens. */
+  pointer-events: none;
 }
 .sc-chipfield-ph {
   flex: none;
@@ -52,28 +68,76 @@
   white-space: nowrap;
 }
 .sc-chipfield-chip {
+  --sc-chip-face: var(--sc-sel);
+  position: relative;
   flex: none;
   display: inline-flex;
   align-items: center;
   min-height: 24px;
   padding: 0 9px;
+  padding-inline-end: 0.64em;
+  overflow: hidden;
   border-radius: var(--sc-radius-full);
-  background: var(--sc-sel);
+  background: var(--sc-chip-face);
   color: var(--sc-fg);
   font-size: var(--sc-text-body);
   white-space: nowrap;
+  pointer-events: auto;
 }
-/* There is more that way. The row scrolls to it. */
-.sc-chipfield-more {
-  flex: none;
-  padding: 0 2px;
-  color: var(--sc-fg3);
-  font-size: var(--sc-text-body);
-  line-height: 1;
+.sc-chipfield-chip:hover {
+  --sc-chip-face: var(--sc-token-hover);
+}
+/* The composer's remove: floats over the right edge, never resizes the chip.
+   Plate and fade use the chip's current face so the 120ms opacity linger
+   cannot leave a hover-coloured square on a rest-coloured pill. */
+.sc-chipfield-chip > button {
+  position: absolute;
+  top: 0;
+  inset-inline-end: 0;
+  bottom: 0;
+  width: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0;
+  padding-inline-end: 6px;
+  border: none;
+  color: var(--sc-fg2);
+  opacity: 0;
+  background: var(--sc-chip-face);
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+.sc-chipfield-chip > button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  inset-inline-end: 100%;
+  width: 14px;
+  background: linear-gradient(90deg, transparent, var(--sc-chip-face));
+  pointer-events: none;
+}
+.sc-chipfield-chip:hover > button,
+.sc-chipfield-chip:focus-within > button {
+  opacity: 1;
+}
+.sc-chipfield-chip > button:hover {
+  color: var(--sc-fg);
+}
+@media (hover: none) {
+  .sc-chipfield-chip > button {
+    pointer-events: none;
+  }
 }
 .sc-chipfield-caret {
   flex: none;
   display: block;
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+  /* Sit on the first chip row, not the middle of a wrapped field. */
+  margin-top: 6px;
   color: var(--sc-fg2);
 }
 

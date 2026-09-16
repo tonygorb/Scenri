@@ -901,23 +901,41 @@
    edge, and the reference cut by the edge already says there is more. The
    arrows sit on the middle of the picture, not of the row: every reference
    carries its role in a line underneath. */
+/* Tile width is a share of the lookpage, not of this rail. The rail
+   shrink-wraps to the tiles so the arrows sit on the first and last card;
+   if 100% were this box it would be circular. The page is the container,
+   100cqi is its content width, the same measure the old 100%-wide rail had. */
+.sc-presenterpage {
+  container-type: inline-size;
+}
 .sc-refset-rail {
   --sc-refset-n: min(3, var(--sc-rail-count, 3));
   --sc-refset-gap: 18px;
   --sc-refset-max: 400px;
   --sc-refset-w: min(
     var(--sc-refset-max),
-    calc((100% - 4px - (var(--sc-refset-n) - 1) * var(--sc-refset-gap)) / var(--sc-refset-n))
+    calc((100cqi - 4px - (var(--sc-refset-n) - 1) * var(--sc-refset-gap)) / var(--sc-refset-n))
   );
-  /* The caption band under every reference: a fixed 20px line 8px below the
-     picture. Fixed, because the arrows are placed from it. A percentage
-     inside a custom property resolves where it is used, not where it is
-     written, so a width expression put into `top` became a share of the
-     row's height and threw the arrows 128px up the page. This is the
-     row's height less the band, halved, which is the middle of the picture
-     and nothing else. */
   --sc-refset-cap: 28px;
-  --sc-rail-arrow-y: calc(50% - var(--sc-refset-cap) / 2);
+  width: max-content;
+  max-width: 100%;
+  margin-inline: auto;
+}
+/* Halfway down the picture, the questionnaire strip's rule: the control
+   is given the column minus the caption band and centred in what is left. */
+.sc-refset-rail .sc-rail-arrow {
+  top: 0;
+  bottom: var(--sc-refset-cap);
+  margin-block: auto;
+  transform: none;
+}
+.sc-refset-rail .sc-rail-arrow.prev {
+  left: 0;
+  translate: -50% 0;
+}
+.sc-refset-rail .sc-rail-arrow.next {
+  right: 0;
+  translate: 50% 0;
 }
 .sc-refset-rail::before,
 .sc-refset-rail::after {
@@ -946,16 +964,18 @@
   background: var(--sc-raised);
   cursor: zoom-in;
 }
-/* contain, not cover. Every frame Scenri draws is 4:5 already, so for the
-   ordinary set this is the same pixels either way. It is the legacy and
-   curated records that differ, and a full-body reference squared off to fit
-   loses the feet it exists to show. A letterbox is honest; an amputation is
-   not. */
+/* contain by default: a full-length frame taller than 4:5 after the side
+   bars are trimmed must keep its head and feet. Face is already a head
+   crop, so it fills the card instead of letterboxing onto the raised ground. */
 .sc-refset-tile img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+.sc-refset-tile[data-role="portrait"] img,
+.sc-refset-tile[data-role="identity"] img {
+  object-fit: cover;
 }
 /* The band the arrows are measured against: one line, never two. */
 .sc-refset-lb {

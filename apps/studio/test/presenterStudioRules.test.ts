@@ -520,8 +520,7 @@ describe('which picture a view wears', () => {
   });
 
   it('counts what stands on it through the whole chain, not only its own children', () => {
-    // the right view is drawn from the left one, which is drawn from the front,
-    // which is drawn from the face
+    // left and right are both drawn from the face and the front, never from each other
     const whole = draft({
       portrait: slot({ status: 'approved', hash: 'p' }),
       front: slot({ status: 'approved', hash: 'f' }),
@@ -530,7 +529,7 @@ describe('which picture a view wears', () => {
     });
     expect(builtOn(whole, 'portrait')).toBe(true);
     expect(builtOn(whole, 'front')).toBe(true);
-    expect(builtOn(whole, 'left')).toBe(true);
+    expect(builtOn(whole, 'left')).toBe(false);
     // nothing is ever drawn from the right view, so it is never locked
     expect(builtOn(whole, 'right')).toBe(false);
   });

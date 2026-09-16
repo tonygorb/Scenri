@@ -1,7 +1,7 @@
 import { memo, type CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { nodeLabel, type FeedNode } from '../../api.js';
-import { elapsedSec } from '../../tasks.js';
+import { elapsedSec, runSince } from '../../tasks.js';
 import { aspectOfFormat } from '../../composer/formats.js';
 import { RunningTag } from './RunningTag.js';
 
@@ -34,7 +34,7 @@ export const RunningTile = memo(function RunningTile({
     >
       <Link className="sc-cell-open" to={shotHref(n.id)} aria-label={`Open ${nodeLabel(n)}, still rendering`}>
         <span className="sc-shimmer" />
-        <RunningTag since={n.createdAt} />
+        <RunningTag since={runSince(n)} />
       </Link>
       {onCancel && (
         // the tile's own control skin, not a bordered panel pill: one
@@ -42,7 +42,7 @@ export const RunningTile = memo(function RunningTile({
         <button
           type="button"
           className="sc-cell-ctl sc-cell-cancel"
-          data-urgent={elapsedSec(n.createdAt) >= 60 || undefined}
+          data-urgent={elapsedSec(runSince(n)) >= 60 || undefined}
           onClick={() => onCancel(n)}
         >
           Cancel

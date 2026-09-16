@@ -229,21 +229,21 @@
    label. Silent chrome: no border, no ground, no scrollbar, a fade at each
    end. Only where there is room, from 1280 up, the width at which the
    assets drawer docks too. Below two shots the rail is not rendered at all. */
-.sc-rail-shell {
+.sc-shotrail-shell {
   display: none;
 }
-.sc-rail-tile {
+.sc-shotrail-tile {
   flex: none;
   content-visibility: auto;
   contain-intrinsic-size: 52px 52px;
 }
-.sc-rail-tile[aria-disabled="true"] {
+.sc-shotrail-tile[aria-disabled="true"] {
   cursor: default;
 }
 @media (min-width: 1280px) {
   .sc-ovl[data-rail] {
     /* the column's whole width: a tile and the gutter either side of it */
-    --sc-rail-w: calc(52px + 2 * 14px);
+    --sc-shotrail-w: calc(52px + 2 * 14px);
     grid-template-columns: auto 1fr var(--sc-ovl-panel-w);
   }
   /* The close and the arrows stand beside the rail, never over it: the rail
@@ -252,9 +252,9 @@
      the tiles sit 14px from the edge and the close sits 14px from the tiles,
      the same measure on both sides. */
   .sc-ovl[data-rail] .sc-ovl-bar {
-    left: var(--sc-rail-w);
+    left: var(--sc-shotrail-w);
   }
-  .sc-rail {
+  .sc-shotrail {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -266,7 +266,7 @@
     overscroll-behavior: contain;
     scrollbar-width: none;
   }
-  .sc-rail::-webkit-scrollbar {
+  .sc-shotrail::-webkit-scrollbar {
     display: none;
   }
   /* One size, one gap, and an end dissolves only where there is more past
@@ -281,13 +281,13 @@
      ring is the only thing that says which. A dock's magnification was
      tried and dropped: the largest tile was whatever passed the middle,
      not the selected one, and it argued with the ring. */
-  .sc-rail-shell {
+  .sc-shotrail-shell {
     display: grid;
     position: relative;
     min-height: 0;
   }
-  .sc-rail-shell::before,
-  .sc-rail-shell::after {
+  .sc-shotrail-shell::before,
+  .sc-shotrail-shell::after {
     content: "";
     position: absolute;
     left: 0;
@@ -296,9 +296,9 @@
     z-index: 1;
     pointer-events: none;
   }
-  .sc-rail-shell::before {
+  .sc-shotrail-shell::before {
     top: 0;
-    opacity: var(--sc-rail-start, 0);
+    opacity: var(--sc-shotrail-start, 0);
     background: linear-gradient(
       to bottom,
       var(--sc-bg) 0%,
@@ -307,9 +307,9 @@
       transparent 100%
     );
   }
-  .sc-rail-shell::after {
+  .sc-shotrail-shell::after {
     bottom: 0;
-    opacity: var(--sc-rail-end, 0);
+    opacity: var(--sc-shotrail-end, 0);
     background: linear-gradient(
       to top,
       var(--sc-bg) 0%,

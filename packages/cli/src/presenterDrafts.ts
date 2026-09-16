@@ -1138,16 +1138,12 @@ export const namesASide = (text: string | undefined): boolean => /\b(left|right)
 /**
  * Which approved views a view is actually drawn from.
  *
- * The right profile normally rides the left one, which is the best reference
- * a profile can have and the worst one for a person whose scar, tattoo or
- * prosthetic is on one side: the surest way to copy a trait onto the wrong
- * side is to draw it from a picture of the other. When their own words name a
- * side, the right view is drawn from the face and the front instead.
+ * Right is never drawn from left. The table already says so; this used to
+ * drop left only when keep named a side, which left every other right draw
+ * reading the left profile and copying a near-side trait across the face.
  */
-export function refDeps(rec: PresenterDraftRecord, view: PresenterView): PresenterView[] {
-  const deps = DEPENDS[view];
-  if (view !== 'right' || !namesASide(rec.keep)) return deps;
-  return deps.filter((d) => d !== 'left');
+export function refDeps(_rec: PresenterDraftRecord, view: PresenterView): PresenterView[] {
+  return DEPENDS[view];
 }
 
 /** What a step is drawn from and asked for. Pure, so the choice is testable and the manifest honest. */

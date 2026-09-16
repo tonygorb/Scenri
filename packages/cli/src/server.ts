@@ -1245,7 +1245,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     }
   }
 
-  app.post('/api/nodes', async (req, reply) => {
+  const startNodeRun = async (req: { body: unknown }, reply: any, reuseId?: string) => {
     const {
       projectId,
       parentId = null,
@@ -1299,15 +1299,17 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       const window = { left: origin.left, top: origin.top, width: plan.width, height: plan.height };
 
       const label = FORMATS.find((f) => f.id === args.fmt.id)?.label ?? `${args.fmt.w}x${args.fmt.h}`;
-      const node = core.store.addNode({
-        projectId: project.id,
-        parentId: args.parentId,
-        kind: 'edit',
-        prompt: `Cropped to ${label}`,
-        // No provider was asked; recording the engine the client HAPPENED to
-        // have selected made the overlay display a name that did nothing.
-        engineId: 'local',
-      });
+      const node = reuseId
+        ? core.store.reopenNode(reuseId)
+        : core.store.addNode({
+            projectId: project.id,
+            parentId: args.parentId,
+            kind: 'edit',
+            prompt: `Cropped to ${label}`,
+            // No provider was asked; recording the engine the client HAPPENED to
+            // have selected made the overlay display a name that did nothing.
+            engineId: 'local',
+          });
       // The brief records the window actually cut, so history and the pixel
       // tests speak about the same rectangle the picture came from.
       core.store.setBrief(node.id, {
@@ -2085,8 +2087,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // One image, one node: a multi-shot generation lands as N sibling nodes
     // sharing one engine call, one recipe and one batch identity. An edit is
     // always a single node.
-    const nodes =
-      kind === 'generation'
+    const nodes = reuseId
+      ? [core.store.reopenNode(reuseId)]
+      : kind === 'generation'
         ? core.store.addNodes({
             projectId: project.id,
             parentId: resolvedParentId,
@@ -2374,6 +2377,40 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return reply
       .status(202)
       .send({ ...node, siblings: nodes, ...(allWarnings.length ? { warnings: allWarnings } : {}) });
+  };
+
+  app.post('/api/nodes', async (req, reply) => startNodeRun(req, reply));
+
+  app.post('/api/nodes/:id/retry', async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    const n = core.store.getNode(id);
+    if (!n) return reply.status(404).send({ error: 'node not found' });
+    if (n.status === 'running') return reply.status(409).send({ error: 'already running' });
+    if (n.status === 'done') return reply.status(400).send({ error: 'finished shots start a new take' });
+    if (n.status !== 'error' && n.status !== 'cancelled') {
+      return reply.status(400).send({ error: 'cannot retry this shot' });
+    }
+    if (n.kind !== 'generation' && n.kind !== 'edit') {
+      return reply.status(400).send({ error: 'cannot retry this shot' });
+    }
+    const brief = (n.brief ?? {}) as { sourceImage?: string; reshape?: string };
+    return startNodeRun(
+      {
+        body: {
+          projectId: n.projectId,
+          parentId: n.parentId,
+          kind: n.kind,
+          prompt: n.prompt,
+          engineId: n.engineId,
+          count: 1,
+          brief: n.brief,
+          ...(brief.sourceImage ? { sourceImage: brief.sourceImage } : {}),
+          ...(brief.reshape ? { reshape: brief.reshape } : {}),
+        },
+      },
+      reply,
+      id,
+    );
   });
 
   app.post('/api/nodes/:id/cancel', async (req, reply) => {

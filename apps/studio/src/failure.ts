@@ -144,8 +144,10 @@ const RULES: Rule[] = [
     kind: 'credit',
     title: (e) => `${cap(e)} is out of credit.`,
     fix: 'Top up with the provider, then run this again.',
-    remedy: { label: 'Open engines', opens: 'engines' },
-    retryable: false,
+    // Same departure as the Codex env-override key. The top-up happens at
+    // the provider, not in Scenri; Open engines cannot add ChatGPT credit,
+    // and someone who just re-authed must still be able to run the card.
+    retryable: true,
   },
 
   // ---- pace ----

@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCore, SpendCapError, type Core } from '../src/index.js';
+import { openDb } from '../src/db.js';
 
 let home: string;
 let core: Core;
@@ -450,6 +451,46 @@ describe('ledger + caps', () => {
     expect(() => core.ledger.assertUnderCap('codex-cli', 0)).not.toThrow();
     core.ledger.recordCost('codex-cli', null, 0);
     expect(core.ledger.monthlySpend('codex-cli')).toBe(0);
+  });
+});
+
+describe('reopenNode', () => {
+  it('a fresh library has started_at, through the rebuild that widens the status check', () => {
+    // A fresh database always takes that rebuild, and it runs after the column
+    // migrations. The test below cannot see this: its second openDb re-adds
+    // the column on a table already rebuilt.
+    const fresh = mkdtempSync(join(tmpdir(), 'sc-fresh-'));
+    const db = openDb(fresh);
+    const cols = (db.pragma('table_info(nodes)') as { name: string }[]).map((c) => c.name);
+    db.close();
+    rmSync(fresh, { recursive: true, force: true });
+    expect(cols).toContain('started_at');
+    const b = core.store.createBrand(brandJson as any);
+    expect(core.store.recentActivity(b.id)).toEqual([]);
+  });
+
+  it('keeps created_at and restamps started_at so a retry clock starts at zero', () => {
+    const b = core.store.createBrand(brandJson as any);
+    const { project, root } = core.store.createProject(b.id, 'p');
+    const n = core.store.addNode({
+      projectId: project.id,
+      parentId: root.id,
+      kind: 'generation',
+      prompt: 'x',
+      engineId: 'demo',
+    });
+    const first = core.store.getNode(n.id)!;
+    expect(first.startedAt).toBe(first.createdAt);
+    core.store.failNode(n.id, 'no');
+    const raw = openDb(home);
+    raw.prepare("UPDATE nodes SET created_at = '2026-09-01 10:00:00.000' WHERE id=?").run(n.id);
+    raw.close();
+    const again = core.store.reopenNode(n.id);
+    expect(again.id).toBe(n.id);
+    expect(again.status).toBe('running');
+    expect(again.createdAt).toBe('2026-09-01 10:00:00.000');
+    expect(again.startedAt).not.toBe(again.createdAt);
+    expect(again.startedAt > again.createdAt).toBe(true);
   });
 });
 

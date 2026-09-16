@@ -1,62 +1,66 @@
-import { CaretDown } from '@phosphor-icons/react';
-import { forwardRef, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { CaretDown, X } from '@phosphor-icons/react';
+import type { ReactNode } from 'react';
 
 /**
- * A field showing a list of short words, on one line, that opens something.
+ * A field showing a list of short words that opens something.
  *
- * It is one button and nothing else. The first version laid an invisible
- * button under the words so each chip could carry its own Remove, and that
- * put a button inside a button, needed three layers of pointer-events to stay
- * clickable, and still missed presses. A popper is also sized from its
- * trigger, so the trigger has to be the field: a caret-sized one gave a menu
- * clipped to a caret-sized strip.
+ * The field itself is not a button. A button cannot hold the remove control
+ * the composer already uses (an X that floats over the right edge on hover),
+ * and the first version that tried put a button inside a button. The hit that
+ * opens the menu is a sibling underneath; each chip is a span, and taking one
+ * off is the chip's own button, the same pattern as a brief token.
  *
- * So the words are text, the field is the control, and taking one off is done
- * where the rest are chosen. Every element inside is a span, because a button
- * may not hold a div.
- *
- * One line, always. A field that wraps moves everything under it each time a
- * word is added, and two of them wrapping at different moments is what makes
- * a form feel loose. When the words outrun the line the row scrolls and says
- * so with a quiet ellipsis.
+ * The chips wrap. A one-line row with a trailing ellipsis hid words the
+ * person had already chosen, which is the thing a details field is there to
+ * show. This sheet has one list, so wrapping it does not shove a neighbour
+ * around.
  */
-export const ChipField = forwardRef<HTMLButtonElement, { items: string[]; placeholder?: ReactNode; label: string }>(
-  function ChipField({ items, placeholder, label, ...rest }, ref) {
-    const row = useRef<HTMLSpanElement>(null);
-    const [more, setMore] = useState(false);
-
-    const measure = useCallback(() => {
-      const el = row.current;
-      setMore(!!el && el.scrollWidth - el.clientWidth > 2);
-    }, []);
-
-    useEffect(() => {
-      const el = row.current;
-      if (!el) return;
-      measure();
-      const ro = new ResizeObserver(measure);
-      ro.observe(el);
-      for (const child of el.children) ro.observe(child);
-      return () => ro.disconnect();
-    }, [measure]);
-
-    return (
-      <button type="button" className="sc-chipfield" aria-label={label} ref={ref} {...rest}>
-        <span className="sc-chipfield-row" ref={row}>
-          {items.length === 0 && placeholder ? <span className="sc-chipfield-ph">{placeholder}</span> : null}
-          {items.map((item) => (
-            <span key={item} className="sc-chipfield-chip">
-              {item}
-            </span>
-          ))}
-        </span>
-        {more && (
-          <span className="sc-chipfield-more" aria-hidden>
-            &#8230;
+export function ChipField({
+  items,
+  placeholder,
+  open,
+  hit,
+  onRemove,
+  onOpen,
+}: {
+  items: string[];
+  placeholder?: ReactNode;
+  open?: boolean;
+  /** The menu trigger, stretched under the chips so the popper is field-wide. */
+  hit: ReactNode;
+  onRemove?: (item: string) => void;
+  /** Clicking a chip (not its X) still opens the menu. */
+  onOpen?: () => void;
+}) {
+  return (
+    <div className="sc-chipfield" data-state={open ? 'open' : undefined}>
+      {hit}
+      <span className="sc-chipfield-row">
+        {items.length === 0 && placeholder ? <span className="sc-chipfield-ph">{placeholder}</span> : null}
+        {items.map((item) => (
+          // biome-ignore lint/a11y/noStaticElementInteractions: a pointer shortcut onto the hit button underneath, which is the real, focusable menu trigger
+          // biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard reaches the same menu through that hit button, so a key handler here would be a second route
+          <span key={item} className="sc-chipfield-chip" onClick={() => onOpen?.()}>
+            {item}
+            {onRemove && (
+              <button
+                type="button"
+                data-role="remove"
+                aria-label={`Remove ${item}`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onRemove(item);
+                }}
+              >
+                <X size={10} weight="bold" />
+              </button>
+            )}
           </span>
-        )}
-        <CaretDown size={13} className="sc-chipfield-caret" aria-hidden />
-      </button>
-    );
-  },
-);
+        ))}
+      </span>
+      <CaretDown size={13} className="sc-chipfield-caret" aria-hidden />
+    </div>
+  );
+}

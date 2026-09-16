@@ -62,8 +62,8 @@ export function ShotRail({
     if (!el || !box) return;
     const max = el.scrollHeight - el.clientHeight;
     const y = el.scrollTop;
-    box.style.setProperty('--sc-rail-start', max > 1 ? Math.min(1, y / FADE_RAMP_PX).toFixed(3) : '0');
-    box.style.setProperty('--sc-rail-end', max > 1 ? Math.min(1, (max - y) / FADE_RAMP_PX).toFixed(3) : '0');
+    box.style.setProperty('--sc-shotrail-start', max > 1 ? Math.min(1, y / FADE_RAMP_PX).toFixed(3) : '0');
+    box.style.setProperty('--sc-shotrail-end', max > 1 ? Math.min(1, (max - y) / FADE_RAMP_PX).toFixed(3) : '0');
   };
   // Also before paint, and declared after the centring so it reads the
   // centred scroll: the fades are then right in the first frame too.
@@ -84,7 +84,9 @@ export function ShotRail({
   };
 
   const onKeyDown = (e: ReactKeyboardEvent<HTMLElement>) => {
-    const tiles = [...(ref.current?.querySelectorAll<HTMLButtonElement>('.sc-rail-tile:not([aria-disabled])') ?? [])];
+    const tiles = [
+      ...(ref.current?.querySelectorAll<HTMLButtonElement>('.sc-shotrail-tile:not([aria-disabled])') ?? []),
+    ];
     const i = tiles.indexOf(document.activeElement as HTMLButtonElement);
     let to = -1;
     if (e.key === 'ArrowDown') to = Math.min(tiles.length - 1, i + 1);
@@ -103,8 +105,14 @@ export function ShotRail({
   return (
     <>
       {/* the shell carries the fades, above the column and outside its scroll */}
-      <div ref={shell} className="sc-rail-shell">
-        <nav ref={ref} className="sc-rail" aria-label="Shots in this view" onScroll={onScroll} onKeyDown={onKeyDown}>
+      <div ref={shell} className="sc-shotrail-shell">
+        <nav
+          ref={ref}
+          className="sc-shotrail"
+          aria-label="Shots in this view"
+          onScroll={onScroll}
+          onKeyDown={onKeyDown}
+        >
           {shots.map((n) => {
             const active = n.id === activeId;
             const running = n.status === 'running';
@@ -113,7 +121,7 @@ export function ShotRail({
               <button
                 type="button"
                 key={n.id}
-                className="sc-thumb-btn sc-rail-tile"
+                className="sc-thumb-btn sc-shotrail-tile"
                 aria-label={running ? `${nodeLabel(n)}, still rendering` : nodeLabel(n)}
                 aria-pressed={active}
                 aria-disabled={running || undefined}

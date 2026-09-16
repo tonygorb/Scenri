@@ -380,14 +380,19 @@ describe('redoing an upstream view', () => {
     expect(d.analysis).toBeDefined();
   });
 
-  it('redoing the left stales only the right, which is drawn from it', async () => {
+  it('redoing the left leaves an approved right standing: right is never drawn from left', async () => {
     let d = await castWithExtras();
+    const rightHash = view(d, 'right').hash!;
+    const rightOn = view(d, 'right').conditionedOn ?? [];
     await redoView(deps(), d.id, 'left');
     await step(d.id, 'left');
     await approveView(deps(), d.id, 'left');
     d = getPresenterDraft(core, d.id)!;
     expect(view(d, 'left').status).toBe('approved');
-    expect(view(d, 'right').status).toBe('stale');
+    expect(view(d, 'right').status).toBe('approved');
+    expect(view(d, 'right').hash).toBe(rightHash);
+    expect(view(d, 'right').conditionedOn).toEqual(rightOn);
+    expect(view(d, 'right').conditionedOn ?? []).not.toContain(view(d, 'left').hash);
     for (const v of ['portrait', 'front', 'three-quarter', 'back'] as const) expect(view(d, v).status).toBe('approved');
   });
 
@@ -850,7 +855,7 @@ describe('the view contract: three core, three on request', () => {
     expect(DEPENDS['three-quarter']).toEqual(['portrait', 'front']);
     expect(DEPENDS.back).toEqual(['portrait', 'front']);
     expect(DEPENDS.left).toEqual(['portrait', 'front']);
-    expect(DEPENDS.right).toEqual(['portrait', 'front', 'left']);
+    expect(DEPENDS.right).toEqual(['portrait', 'front']);
   });
 
   it('planStep rides the pictures of a detail after the person, with their own role, in whatever room the budget leaves', () => {
@@ -923,17 +928,10 @@ describe('the view contract: three core, three on request', () => {
     expect(front.roles.every((r) => r === 'character')).toBe(true);
   });
 
-  it('at four photographs the deepest view gives up the last one, and only the last one', () => {
-    // Measured live on four photographs of one man, codex's hard cap of five:
-    //   front  [p1 p2 p3 p4]                     every original
-    //   left   [portrait front p2 p3 p4]         every original
-    //   right  [portrait front left p2 p3]       p4 gives up its seat
-    // The picture that goes is the last uploaded, never an approved view, and
-    // the views already carry the person. Judged by eye against the source the
-    // right profile is the same man, so the trim is survivable — but it is by
-    // upload order, not by what the read thought of each photograph, so
-    // somebody whose sharpest picture is last loses that one. Pinned here so a
-    // change to the budget cannot quietly make it worse.
+  it('at four photographs the right view is conditioned like the left, never on the left picture', () => {
+    // Measured live on four photographs of one man, codex's hard cap of five.
+    // Right used to take a left seat and push p4 off. It is drawn from the
+    // face and the front only, so every original still fits.
     const empty = { status: 'empty' as const, attempts: 0, rejected: [] as string[] };
     const approved = (hash: string) => ({ ...empty, status: 'approved' as const, hash });
     const rec = {
@@ -954,11 +952,9 @@ describe('the view contract: three core, three on request', () => {
     expect(left.refs).toEqual(['p1', 'gen-front', 'p2', 'p3', 'p4']);
 
     const right = planStep(rec, 'right', undefined, 5);
-    expect(right.refs).toEqual(['p1', 'gen-front', 'gen-left', 'p2', 'p3']);
-    expect(right.refs).not.toContain('p4');
-    expect(right.dropped.join(' ')).toContain('p4');
-    // the person is never what pays for the room
-    expect(right.refs.slice(0, 3)).toEqual(['p1', 'gen-front', 'gen-left']);
+    expect(right.refs).toEqual(['p1', 'gen-front', 'p2', 'p3', 'p4']);
+    expect(right.refs).not.toContain('gen-left');
+    expect(right.refs.slice(0, 2)).toEqual(['p1', 'gen-front']);
   });
 
   it('keeps every photograph when the read liked none of them, because something of them beats nothing', () => {
@@ -1007,9 +1003,10 @@ describe('the view contract: three core, three on request', () => {
     expect(tq.refs).toEqual(['p', 'f', 's1', 's2', 's3']);
     expect(tq.prompt).toMatch(/about forty-five degrees/);
     expect(planStep(rec, 'three-quarter', undefined, 3).refs).toEqual(['p', 'f', 's1']);
-    // an extra is conditioned exactly as its DEPENDS say: the right rides on the approved left
+    // an extra is conditioned exactly as its DEPENDS say: right is conditioned like left, never on the left picture
     expect(planStep(rec, 'back', undefined, 5).refs).toEqual(['p', 'f', 's1', 's2', 's3']);
-    expect(planStep(rec, 'right', undefined, 5).refs).toEqual(['p', 'f', 'l', 's1', 's2']);
+    expect(planStep(rec, 'right', undefined, 5).refs).toEqual(['p', 'f', 's1', 's2', 's3']);
+    expect(planStep(rec, 'right', undefined, 5).refs).not.toContain('l');
     expect(planStep(rec, 'right', undefined, 5).prompt).toMatch(/right side faces the camera/);
     const synth = planStep(
       { ...rec, source: 'synthetic', direction: 'a woman in her 30s', views: { ...rec.views, portrait: empty } },
@@ -1049,10 +1046,11 @@ describe('the view contract: three core, three on request', () => {
     expect(planStep(face, 'front', undefined, 5).prompt).toContain('thin black glasses');
     expect(planStep(face, 'back', undefined, 5).prompt).not.toContain('thin black glasses');
 
-    // a side named is a side kept: the right view stops being drawn from the left one
+    // right is never drawn from left, side named or not
     expect(planStep(rec, 'right', undefined, 5).refs).toEqual(['p', 'f', 's1']);
     const noSide = { ...rec, keep: 'a septum piercing' } as PresenterDraftRecord;
-    expect(planStep(noSide, 'right', undefined, 5).refs).toEqual(['p', 'f', 'l', 's1']);
+    expect(planStep(noSide, 'right', undefined, 5).refs).toEqual(['p', 'f', 's1']);
+    expect(planStep(noSide, 'right', undefined, 5).refs).not.toContain('l');
 
     // and with no analyzer and no edits, the words still ride
     const bare = { ...rec, analysis: undefined } as PresenterDraftRecord;
@@ -1178,8 +1176,11 @@ describe('extras are built on request', () => {
     expect(view(d, 'back').status).toBe('candidate');
     expect(refsOf(generated.at(-1)!)).toEqual([view(d, 'portrait').hash, view(d, 'front').hash]);
     expect(generated.at(-1)!.prompt).toMatch(/directly away from the camera/);
-    // the right waits on the left, exactly as its DEPENDS say
-    await expect(generateView(deps(), d.id, 'right', {})).rejects.toThrow(/left view/);
+    // right is conditioned like left, never on the left picture
+    d = await step(d.id, 'right');
+    expect(view(d, 'right').status).toBe('candidate');
+    expect(refsOf(generated.at(-1)!)).toEqual([view(d, 'portrait').hash, view(d, 'front').hash]);
+    expect(generated.at(-1)!.prompt).toMatch(/right side faces the camera/);
     // and a switch back off does not refuse the views already drawn; it only stops new ones
     await updatePresenterDraft(core, d.id, { extras: false });
     await expect(generateView(deps(), d.id, 'left', {})).rejects.toThrow(/on request/);
@@ -1275,9 +1276,9 @@ describe('extras are built on request', () => {
 
 describe('a landed view can decide itself', () => {
   // The face and the full body are decided by hand, so the view that stands
-  // for every self-deciding view here is the left, and the right is what is
-  // drawn from it: the one dependency left among the views nobody decides.
-  it('lands approved with no prior on an empty slot, and the next view is drawn from it', async () => {
+  // for every self-deciding view here is the left. Right is drawn from the
+  // face and the front, never from that left picture.
+  it('lands approved with no prior on an empty slot, and the next view is drawn from the face and the front', async () => {
     let d = await synthetic();
     await updatePresenterDraft(core, d.id, { extras: true });
     d = await build(d.id, ['portrait', 'front', 'three-quarter', 'back']);
@@ -1286,11 +1287,11 @@ describe('a landed view can decide itself', () => {
     expect(view(d, 'left').prior).toBeUndefined();
     expect(view(d, 'left').attempts).toBe(1);
     d = await step(d.id, 'right', undefined, 'auto');
-    expect(refsOf(generated.at(-1)!)).toEqual([view(d, 'portrait').hash, view(d, 'front').hash, view(d, 'left').hash]);
+    expect(refsOf(generated.at(-1)!)).toEqual([view(d, 'portrait').hash, view(d, 'front').hash]);
     expect(view(d, 'right').status).toBe('approved');
   });
 
-  it('replacing an approved view keeps it as the prior, so Keep previous still works, and stales what was drawn from it', async () => {
+  it('replacing an approved view keeps it as the prior, so Keep previous still works, and leaves the other profile standing', async () => {
     let d = await castWithExtras();
     const left = view(d, 'left').hash!;
     const right = view(d, 'right').hash!;
@@ -1299,8 +1300,8 @@ describe('a landed view can decide itself', () => {
     expect(view(d, 'left').hash).not.toBe(left);
     expect(view(d, 'left').rejected).not.toContain(left);
     expect(existsSync(core.images.pathFor(left))).toBe(true);
-    // the right was drawn from the old left
-    expect(view(d, 'right').status).toBe('stale');
+    // right is not drawn from left, so a new left does not stale it
+    expect(view(d, 'right').status).toBe('approved');
     expect(view(d, 'right').hash).toBe(right);
     await revertView(deps(), d.id, 'left');
     d = getPresenterDraft(core, d.id)!;

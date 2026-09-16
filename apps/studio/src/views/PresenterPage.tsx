@@ -212,10 +212,14 @@ export function PresenterPage() {
    * url list, so a single ref that resolved to nothing shifted every later
    * role word by one: a full body captioned Face.
    */
-  const frames: { src: string; label: string }[] = owned
+  const frames: { src: string; label: string; angle?: string }[] = owned
     ? ((Array.isArray(record?.shots) ? record.shots : []) as any[])
-        .map((sh, i) => ({ src: assetUrl(sh?.file), label: ROLE_LABEL[sh?.angle ?? ''] ?? `Reference ${i + 1}` }))
-        .filter((f): f is { src: string; label: string } => !!f.src)
+        .map((sh, i) => ({
+          src: assetUrl(sh?.file),
+          label: ROLE_LABEL[sh?.angle ?? ''] ?? `Reference ${i + 1}`,
+          angle: typeof sh?.angle === 'string' ? sh.angle : undefined,
+        }))
+        .filter((f): f is { src: string; label: string; angle: string | undefined } => !!f.src)
     : refs.length
       ? refs.map((src, i) => ({ src, label: CURATED_LABELS[i] ?? `Reference ${i + 1}` }))
       : presenter.previewUrl
@@ -303,9 +307,9 @@ export function PresenterPage() {
         {/* The set is read across, not through: these are one person from
             several sides, and the question they answer is whether the sides
             agree. So every reference stands at once, at the same height, the
-            way a turnaround is drawn. Nothing is cropped to make them match:
-            the frames are 4:5 already, and a legacy or curated one that is
-            not letterboxes rather than losing its feet. */}
+            way a turnaround is drawn. Face fills its card; a full-length
+            frame that is taller than 4:5 letterboxes rather than losing its
+            feet. The angle on the tile is the hook for that, not the label. */}
         {frames.length > 0 ? (
           <Rail count={frames.length} label="Reference set" className="sc-refset-rail" trackClassName="sc-refset">
             {frames.map((f) => (
@@ -314,6 +318,7 @@ export function PresenterPage() {
                 <button
                   type="button"
                   className="sc-refset-tile"
+                  data-role={f.angle}
                   aria-label={`${f.label}, open`}
                   onClick={() => setOpen(f)}
                 >

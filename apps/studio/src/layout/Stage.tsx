@@ -4,7 +4,7 @@ import { imgUrl, thumbUrl, type FeedNode } from '../api.js';
 import { describeCancelled, describeFailure } from '../failure.js';
 import { FailureNote } from './Failure.js';
 // one clock for the whole app: the canvas and the bell must not disagree
-import { elapsedLabel, elapsedSec, runningPhrase } from '../tasks.js';
+import { elapsedLabel, elapsedSec, runSince, runningPhrase } from '../tasks.js';
 // the feed's running tiles hold the same shape, from the same source
 import { aspectOfFormat } from '../composer/formats.js';
 
@@ -95,15 +95,15 @@ export function StageFrame({
           <span
             className="sc-stage-wait-t"
             role="status"
-            aria-label={`${runningPhrase(node.createdAt)}, ${elapsedSec(node.createdAt)} seconds`}
+            aria-label={`${runningPhrase(runSince(node))}, ${elapsedSec(runSince(node))} seconds`}
           >
-            {elapsedLabel(node.createdAt)}
+            {elapsedLabel(runSince(node))}
           </span>
           {onCancel && (
             <button
               type="button"
               className="sc-btn sc-btn-ghost"
-              data-urgent={elapsedSec(node.createdAt) >= 60 || undefined}
+              data-urgent={elapsedSec(runSince(node)) >= 60 || undefined}
               onClick={onCancel}
             >
               Cancel

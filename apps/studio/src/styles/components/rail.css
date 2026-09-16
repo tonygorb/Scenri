@@ -91,6 +91,14 @@
     color 160ms ease,
     border-color 160ms ease;
 }
+/* The control hangs half outside the row. A little extra catch on that
+   overhang means the pointer does not have to thread the 34px circle to
+   keep the pair up. */
+.sc-rail-arrow::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
 .sc-rail-arrow:hover {
   color: var(--sc-fg);
   border-color: var(--sc-line-strong);
@@ -108,20 +116,23 @@
   transform: translate(50%, -50%);
 }
 .sc-rail:hover .sc-rail-arrow,
+.sc-rail:has(.sc-rail-arrow:hover) .sc-rail-arrow,
 .sc-rail-arrow:focus-visible {
   opacity: 1;
 }
-/* A direction with nothing left in it dims and stops taking presses. It is
-   neither removed nor made invisible: a control that disappears under the
-   cursor moves the one beside it, and one you cannot see at all leaves you
-   wondering whether the row ended or the arrow broke. The system's one
-   disabled strength says which it is. */
+/* A direction with nothing left in it dims rather than vanishing. The
+   control still takes hover: half of it hangs outside the row, and
+   pointer-events:none there dropped :hover the moment the pointer left
+   the track, which took both arrows with it. A press at a spent end
+   only asks the row to scroll where it already is. */
 .sc-rail:not([data-overflow-left]) .sc-rail-arrow.prev,
 .sc-rail:not([data-overflow-right]) .sc-rail-arrow.next {
-  pointer-events: none;
+  cursor: default;
 }
 .sc-rail:hover:not([data-overflow-left]) .sc-rail-arrow.prev,
-.sc-rail:hover:not([data-overflow-right]) .sc-rail-arrow.next {
+.sc-rail:has(.sc-rail-arrow:hover):not([data-overflow-left]) .sc-rail-arrow.prev,
+.sc-rail:hover:not([data-overflow-right]) .sc-rail-arrow.next,
+.sc-rail:has(.sc-rail-arrow:hover):not([data-overflow-right]) .sc-rail-arrow.next {
   opacity: var(--sc-disabled);
 }
 /* A row that fits keeps its arrows and shows them spent. Taking them away was

@@ -75,8 +75,8 @@ export const VIEW_ROLES: readonly ViewRole[] = [
   { id: 'back', tier: 'supplementary', from: ['portrait', 'front'], label: 'back view' },
   { id: 'left', tier: 'supplementary', from: ['portrait', 'front'], label: 'left view' },
   // Never from the left: drawing one profile off the other is the surest way
-  // to put a trait on the wrong side of a face. See refDeps.
-  { id: 'right', tier: 'supplementary', from: ['portrait', 'front', 'left'], label: 'right view' },
+  // to put a trait on the wrong side of a face.
+  { id: 'right', tier: 'supplementary', from: ['portrait', 'front'], label: 'right view' },
 ];
 
 const idsWhere = (want: (r: ViewRole) => boolean): readonly PresenterView[] => VIEW_ROLES.filter(want).map((r) => r.id);

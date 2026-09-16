@@ -187,6 +187,9 @@ function widenNodeStatusCheck(db: DB): void {
 
   db.pragma('foreign_keys = OFF');
   db.transaction(() => {
+    // Every column the guarded ALTERs in openDb add must be copied here too:
+    // they run first, and a fresh database always takes this rebuild, so a
+    // column missing from this list is a column no new library ever has.
     db.exec(`
       CREATE TABLE nodes_new (
         id TEXT PRIMARY KEY,
@@ -205,12 +208,13 @@ function widenNodeStatusCheck(db: DB): void {
         brief TEXT,
         archived INTEGER NOT NULL DEFAULT 0,
         duration_ms INTEGER,
+        started_at TEXT,
         batch_id TEXT,
         batch_index INTEGER NOT NULL DEFAULT 0
       );
       INSERT INTO nodes_new
         SELECT id, project_id, parent_id, kind, prompt, engine_id, status, images, cost_usd, kept, error,
-               created_at, overlays, brief, archived, duration_ms, batch_id, batch_index
+               created_at, overlays, brief, archived, duration_ms, started_at, batch_id, batch_index
         FROM nodes;
       DROP TABLE nodes;
       ALTER TABLE nodes_new RENAME TO nodes;
@@ -743,6 +747,12 @@ export function openDb(homeDir: string): DB {
     // node was still running; a finished shot could never say how long it took,
     // and there was no history from which to state what to expect.
     db.exec('ALTER TABLE nodes ADD COLUMN duration_ms INTEGER');
+  }
+  if (!nodeCols.includes('started_at')) {
+    // When the current run began. created_at stays the card's place in the
+    // feed; a retry restamps this so the wait clock starts at 0:00 instead
+    // of inheriting however long the first attempt already sat there.
+    db.exec('ALTER TABLE nodes ADD COLUMN started_at TEXT');
   }
   // Batch provenance: which multi-shot request produced this node and which
   // slot it filled. Internal metadata only — the user's content object is the

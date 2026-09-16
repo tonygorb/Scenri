@@ -44,7 +44,7 @@ export const VIEW_ROLES: readonly ViewRole[] = [
   },
   { id: 'back', tier: 'supplementary', from: ['portrait', 'front'], strip: 'Back', name: 'back view' },
   { id: 'left', tier: 'supplementary', from: ['portrait', 'front'], strip: 'Left', name: 'left view' },
-  { id: 'right', tier: 'supplementary', from: ['portrait', 'front', 'left'], strip: 'Right', name: 'right view' },
+  { id: 'right', tier: 'supplementary', from: ['portrait', 'front'], strip: 'Right', name: 'right view' },
 ];
 
 const idsWhere = (want: (r: ViewRole) => boolean): readonly StudioView[] => VIEW_ROLES.filter(want).map((r) => r.id);
