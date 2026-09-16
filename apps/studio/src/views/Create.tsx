@@ -15,7 +15,7 @@ import { saveDraft } from '../draft.js';
 import { generationMessages } from '../liveStatus.js';
 import { isFeedSort, isLens, type FeedSort, type Lens, type TokenNames, neighborsOf } from '../feedRules.js';
 import { PREF, useLocalPref } from '../prefs.js';
-import { PHONE, useMediaQuery } from '../useMediaQuery.js';
+import { useMediaQuery } from '../useMediaQuery.js';
 import { useToasts } from '../toasts.js';
 import { Shortcuts } from '../layout/Shortcuts.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
@@ -88,17 +88,21 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const { open: rawAssetsOpen, toggle: toggleAssets, setOpen: setAssetsOpen } = useAssetsPanel();
-  const phone = useMediaQuery(PHONE);
+  /** Below 1024 the rail is gone, same as a phone. */
+  const compact = useMediaQuery('(max-width: 1023px)');
+  /** 1024–1279: a column with no close. Closing it is a drawer, and a drawer
+   *  here covers the empty state. */
+  const columnLocked = useMediaQuery('(min-width: 1024px) and (max-width: 1279px)');
   /**
-   * The assets panel does not exist on a phone.
+   * The assets panel does not exist below 1024.
    *
    * There is no column for it there, so it could only cover the work as a
    * drawer, and every asset in it is already reachable from the composer's own
    * attach control. A stored preference from a desktop session must not be
-   * able to open it on a phone either, which is why this gates the value
-   * rather than the button.
+   * able to open it on a compact screen either, which is why this gates the
+   * value rather than the button. From 1024 it is a column and it stays open.
    */
-  const assetsOpen = rawAssetsOpen && !phone;
+  const assetsOpen = compact ? false : columnLocked ? true : rawAssetsOpen;
   const [err, setErr] = useState<string | null>(null);
   /** What the docked composer's brief holds, so the rail can tick it. */
   const [attached, setAttached] = useState<AttachedIds>(NO_ATTACHMENTS);
@@ -868,12 +872,12 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const firstRun = loaded && counts !== null && counts.total === 0;
   /**
    * First run has no feed toolbar — there is no feed to describe — so it also
-   * has no rail switch. The rail stays open there regardless: it is the
+   * has no rail switch. On a desktop the rail stays open there: it is the
    * surface that teaches what a shot is made of, and a first-time screen
    * should not be able to land with it shut because of a preference set while
-   * looking at another brand.
+   * looking at another brand. Below 1024 there is no rail, same as a phone.
    */
-  const railOpen = assetsOpen || (firstRun && !phone);
+  const railOpen = assetsOpen || (firstRun && !compact);
 
   const emptyState = firstRun ? (
     <FirstRun
@@ -1071,7 +1075,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             onTile={setTile}
             assets={assetsOpen}
             onAssets={toggleAssets}
-            showAssets={!phone}
+            showAssets={!compact && !columnLocked}
           />
         )}
 
@@ -1126,9 +1130,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       {railOpen && <div className="sc-assets-backdrop" onClick={() => setAssetsOpen(false)} aria-hidden />}
       <Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
-      {/* Not mounted at all on a phone: an off-screen drawer that can never be
+      {/* Not mounted below 1024: an off-screen drawer that can never be
           opened is still a tab stop and still fetches its thumbnails. */}
-      {!phone && (
+      {!compact && (
         <AssetsPanel
           brand={brand}
           shots={recent}

@@ -60,6 +60,12 @@ export function useShelf<T extends HTMLElement>(count: number) {
     }
   }, []);
 
+  /** Drop a glide so a finger, a wheel or unmount can take the row back. */
+  const stopGlide = useCallback(() => {
+    target.current = null;
+    cancelAnimationFrame(raf.current);
+  }, []);
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -79,49 +85,78 @@ export function useShelf<T extends HTMLElement>(count: number) {
     const onWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
       e.preventDefault();
-      target.current = null;
-      cancelAnimationFrame(raf.current);
+      stopGlide();
       el.scrollLeft += e.deltaY;
+    };
+    // A press on the row itself means the person is taking over.
+    const onPointerDown = (e: PointerEvent) => {
+      if ((e.target as HTMLElement).closest('.sc-shelf-arrow')) return;
+      stopGlide();
     };
     el.addEventListener('scroll', onScroll, { passive: true });
     el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('pointerdown', onPointerDown);
     return () => {
       if (pending) cancelAnimationFrame(pending);
-      cancelAnimationFrame(raf.current);
+      stopGlide();
       el.removeEventListener('scroll', onScroll);
       el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('pointerdown', onPointerDown);
     };
-  }, [wrap]);
+  }, [stopGlide, wrap]);
 
-  /** Glide a screenful, less one card so something on screen stays on screen. */
-  const page = useCallback((dir: 1 | -1) => {
-    const el = ref.current;
-    if (!el) return;
-    // The rendered card is scaled, so measure the cell it sits in instead:
-    // a paged step built on a shrunken edge card lands short every time.
-    const cell = el.firstElementChild ? Number.parseFloat(getComputedStyle(el).gridAutoColumns) || 232 : 232;
-    const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 0;
-    const stride = cell + gap;
-    const step = Math.max(1, Math.floor(el.clientWidth / stride) - 1) * stride;
-    target.current = el.scrollLeft + step * dir;
+  /** One card per press. A first-run row is a set of choices, not a gallery
+   *  you skip through — same manner as Rail / useRefRail. A screenful step
+   *  hid the card under the eye and read as the arrows doing nothing. */
+  const page = useCallback(
+    (dir: 1 | -1) => {
+      const el = ref.current;
+      const child = el?.firstElementChild as HTMLElement | null;
+      if (!el || !child) return;
+      // The grid track, not the clipped picture.
+      const cell = child.offsetWidth || 232;
+      const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 0;
+      const stride = cell + gap;
+      // Another press while one is gliding adds a card, it does not restart
+      // from wherever the ease has got to.
+      const from = target.current ?? el.scrollLeft;
+      target.current = from + stride * dir;
 
-    cancelAnimationFrame(raf.current);
-    const tick = () => {
-      const dest = target.current;
-      if (dest === null) return;
-      const distance = dest - el.scrollLeft;
-      if (Math.abs(distance) < 0.5) {
-        el.scrollLeft = dest;
-        target.current = null;
+      const finish = () => {
+        stopGlide();
+      };
+
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        el.scrollLeft = target.current;
+        finish();
+        wrap();
         return;
       }
-      // Exponential ease-out: fast away, settling softly, and unbothered by a
-      // wrap moving both ends of the journey mid-flight.
-      el.scrollLeft += distance * 0.16;
+
+      cancelAnimationFrame(raf.current);
+      let frames = 0;
+      const tick = () => {
+        const dest = target.current;
+        if (dest === null) return;
+        const distance = dest - el.scrollLeft;
+        frames += 1;
+        // A hard frame cap so a wrap or a background tab cannot leave the
+        // ease running after the 0.5px line.
+        if (Math.abs(distance) < 0.5 || frames > 45) {
+          el.scrollLeft = dest;
+          finish();
+          wrap();
+          return;
+        }
+        // Exponential ease-out: fast away, settling softly, and unbothered by a
+        // wrap moving both ends of the journey mid-flight.
+        el.scrollLeft += distance * 0.16;
+        raf.current = requestAnimationFrame(tick);
+      };
       raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
-  }, []);
+    },
+    [stopGlide, wrap],
+  );
 
   return { ref, page };
 }

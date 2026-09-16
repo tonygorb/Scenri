@@ -108,6 +108,34 @@ export function tailFor(a: AnchorRect, p: Placed): Tail {
 }
 
 /**
+ * A known-size hover card (the credit tip on a showcase chip): centred on
+ * the chip, flipped above or below, then kept inside the viewport so a chip
+ * on the screen's edge cannot paint the card off it. `null` when the chip
+ * itself has left the screen.
+ */
+export function placeTip(
+  a: AnchorRect,
+  vp: Viewport,
+  size: { width: number; height: number },
+  opts?: { gap?: number },
+): { left: number; top: number } | null {
+  if (a.bottom < 0 || a.top > vp.height) return null;
+  const gap = opts?.gap ?? GAP;
+  const width = Math.min(size.width, vp.width - MARGIN * 2);
+  const height = size.height;
+  const left = Math.min(
+    Math.max(a.left + (a.right - a.left) / 2 - width / 2, MARGIN),
+    Math.max(MARGIN, vp.width - width - MARGIN),
+  );
+  const roomAbove = a.top - gap - MARGIN;
+  const top =
+    roomAbove >= height
+      ? a.top - gap - height
+      : Math.min(a.bottom + gap, Math.max(MARGIN, vp.height - height - MARGIN));
+  return { left, top };
+}
+
+/**
  * `null` when the anchor is no longer on screen: the brief is its own 30vh
  * scroller, so a chip can leave the viewport while its panel is open, and a
  * panel pointing at nothing should close rather than drift.

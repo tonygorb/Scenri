@@ -76,7 +76,8 @@ export function AssetsPanel({
   /** Scenes go through the shared attach policy (the swap and its toast), not straight in. */
   onTemplate: (id: string) => void;
   offTemplate: () => void;
-  /** Drawer mode close (shown under 1280px only). */
+  /** Kept for the drawer head. The head is hidden from 1024 up, and the
+   *  panel is not mounted below that. */
   onClose: () => void;
 }) {
   const catalog = useIngredientCatalog();

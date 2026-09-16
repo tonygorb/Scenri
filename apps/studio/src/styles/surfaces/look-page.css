@@ -19,11 +19,15 @@
 .sc-canvas[data-firstrun] .sc-canvas-empty p {
   font-size: 14px;
   line-height: 1.45;
-  margin-bottom: 0;
   /* `pretty` only protects the last line, which on a two-line lede leaves a
      long first line over a stub. These three are short by design, so balance
      them into even halves instead. */
   text-wrap: balance;
+}
+/* Library heros put the CTA's own top gap under the lede. Create first-run
+   owns its lede-to-shelf beat in first-run.css. */
+.sc-looks[data-hero] .sc-canvas-empty p {
+  margin-bottom: 0;
 }
 .sc-looks[data-hero] .sc-canvas-empty .sc-lookpage-acts {
   margin-top: 24px;
