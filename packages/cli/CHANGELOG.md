@@ -1,5 +1,66 @@
 # Changelog
 
+## [0.10.0](https://github.com/tonygorb/Scenri/compare/v0.9.4...v0.10.0) (2026-09-16)
+
+
+### Features
+
+* presenter creation as a conversation, with a view and an editor ([39e1a36](https://github.com/tonygorb/Scenri/commit/39e1a3633ab27712a628508fd5c1db51c3bcfb51))
+* **presenter:** the studio arrives the way everything else you make here does ([7fee9b7](https://github.com/tonygorb/Scenri/commit/7fee9b77160475490c5e4dc39dd19725f7e2ba53))
+* **studio:** show an import where you are, and fill the wall as it lands ([667d8ac](https://github.com/tonygorb/Scenri/commit/667d8acd913818400b5ea7fee0502439e06fc0e9))
+
+
+### Bug Fixes
+
+* **brand:** teach the brand scraper the manners the crawler already had ([b62f4da](https://github.com/tonygorb/Scenri/commit/b62f4da7d929dc9a3fdbdba5c4840e5bba3c9c84))
+* **catalog:** a card asks for a thumbnail, not the picture it will import ([2a91200](https://github.com/tonygorb/Scenri/commit/2a91200a96cc240e7b0e144ece6670747efccee3))
+* **catalog:** capture the site's own icon, and open the import from its dock ([cb76556](https://github.com/tonygorb/Scenri/commit/cb76556c1b85bd001deffbc9e1f3f35595bca679))
+* **catalog:** count a catalogue the budget can actually reach ([8ba5d85](https://github.com/tonygorb/Scenri/commit/8ba5d85111e46c6c4a0afb7c48c9b972c067a168))
+* **catalog:** count the pictures a run owes, not the ones it has looked at ([7913f21](https://github.com/tonygorb/Scenri/commit/7913f21949ea58823f0eab1a19bd175a84ae376c))
+* **catalog:** count what a person is missing, in the unit they asked in ([e763b93](https://github.com/tonygorb/Scenri/commit/e763b93cdf0cfce12a84fe6a5e703e55bc7db973))
+* **catalog:** read a guarded endpoint as guarded, not as a busy one ([1643170](https://github.com/tonygorb/Scenri/commit/1643170dcb93c80cc06d5be565e85d6aa7dfdc9a))
+* **catalog:** reliable website import — accurate counts, guarded endpoints, live progress ([37658f5](https://github.com/tonygorb/Scenri/commit/37658f53a846d42bc87b7fc522c68c589aef20a6))
+* **cli:** a revision does not carry a picture of the face it replaced ([072a353](https://github.com/tonygorb/Scenri/commit/072a353f8c43328df3e8b066a1f78637398c5394))
+* **cli:** putting a picture back is a swap, not a decision to build the next view ([12d1787](https://github.com/tonygorb/Scenri/commit/12d17879e711a8275e34f27879030f5082226439))
+* **composer:** a chip for a presenter who is gone says so ([58de149](https://github.com/tonygorb/Scenri/commit/58de1497623ab4b512eca3a3ac7e77d73a067f24))
+* **core:** a draft becoming a saved presenter is one write ([970c0dd](https://github.com/tonygorb/Scenri/commit/970c0dd2c1a571ba524a719bf05c4b06d653f454))
+* **presenter:** "Describe someone instead" describes someone ([b115d2e](https://github.com/tonygorb/Scenri/commit/b115d2e70a1e0642b4350d74c1149ba3804539b8))
+* **presenter:** a record from before the studio opens, reads right, and can be drawn ([24f6ae1](https://github.com/tonygorb/Scenri/commit/24f6ae1dfaa3a92148c9caad2c915965eb702755))
+* **presenter:** a reload is not a way of holding state ([3f7231d](https://github.com/tonygorb/Scenri/commit/3f7231dd6d5e51ae71ac46dbf58dcd2dc6df77fa))
+* **presenter:** a view drawn from a face that moved lands stale, not current ([ce7d5fe](https://github.com/tonygorb/Scenri/commit/ce7d5fe6b40c93173a937095902089803352fe4b))
+* **presenter:** an answer is installed only for the draft it was asked about ([c62ae1a](https://github.com/tonygorb/Scenri/commit/c62ae1ac9a261d319295f30e76f113bec1a6f845))
+* **presenter:** arriving at a draft that is drawing reads its conversation ([edec9e3](https://github.com/tonygorb/Scenri/commit/edec9e35d213a0e6db30f78792cd1cffd098daff))
+* **presenter:** Create presenter is a new presenter, every time ([4188c42](https://github.com/tonygorb/Scenri/commit/4188c4230865981366fb3ccccfe4c55ea40788b3))
+* **presenter:** deleting a presenter reaches every surface, and takes its session with it ([73ceea2](https://github.com/tonygorb/Scenri/commit/73ceea292f3c124aeb85903dc0b40677e1cdf4c7))
+* **presenter:** opening a draft does not ask a question it is about to withdraw ([4e4c6a4](https://github.com/tonygorb/Scenri/commit/4e4c6a427797f721cdb936474f3d7778a4de3a6b))
+* **presenter:** the close on a phone head sits on the screen, and in the middle of the bar ([54634bd](https://github.com/tonygorb/Scenri/commit/54634bdcd5a050ad3cabc032bef67a68d22e001f))
+* **presenter:** the editor gets the latch the creation flow already has ([56119c7](https://github.com/tonygorb/Scenri/commit/56119c7731ab71d69806a99944531b33235eedf3))
+* **presenter:** the picture is simply there, and a picture put back brings its view up ([8665646](https://github.com/tonygorb/Scenri/commit/866564696cab338829c77dee9851bb65a69f7cef))
+* **presenter:** the question over a picture put back says what happened to it ([d678a96](https://github.com/tonygorb/Scenri/commit/d678a969aa92260d0d02f6dcb615b78eb477dd80))
+* **presenter:** the stage is the shape of the picture, so a bad draw is not a crop ([52f6bde](https://github.com/tonygorb/Scenri/commit/52f6bde7b6dfbade987b1e24324315c62a950a48))
+* **presenter:** throwing an unfinished person away asks first ([9226470](https://github.com/tonygorb/Scenri/commit/9226470fe7cb0001695699f446d5e4c2f16ad579))
+* **presenter:** without an engine, the photo is the face rather than a dead end ([8ddae49](https://github.com/tonygorb/Scenri/commit/8ddae49a74a191e126024d65340ee89ab78d84c9))
+* **studio:** a discarded draft hands its place on, instead of dropping focus ([5180237](https://github.com/tonygorb/Scenri/commit/5180237bcbf18d2d76eff0cbe64f6644084ad071))
+* **studio:** a kit you walk away from is not a brand you made ([03b3613](https://github.com/tonygorb/Scenri/commit/03b36139699e665669e75d7722c170930c8ec87b))
+* **studio:** close the silent paths through onboarding and import ([441d310](https://github.com/tonygorb/Scenri/commit/441d310ecdd6e30ab63f117c19507036bff06513))
+* **studio:** count one thing in the task row, and say what a stop kept ([0aba7e5](https://github.com/tonygorb/Scenri/commit/0aba7e5ee42b1a05b9a4635a2557c3a0bca2a5c3))
+* **studio:** offer the products a listing found, not only the ones read ([4ea36ef](https://github.com/tonygorb/Scenri/commit/4ea36ef0890a854e19375a865e2c8190e97b78c7))
+* **studio:** one press is one act, for Enter and for a confirm ([d43a8c7](https://github.com/tonygorb/Scenri/commit/d43a8c7f99a083f2d8d559d02475f89e03952464))
+* **studio:** say what was kept, not only what went wrong ([70f1855](https://github.com/tonygorb/Scenri/commit/70f1855ce4945d72f56bf43ece8080b5050cafa5))
+* **studio:** say when the look for a shop did not finish ([be0e2f6](https://github.com/tonygorb/Scenri/commit/be0e2f600673f3f1c8f8aef36d80b7cba0430212))
+* **studio:** Start over keeps drawn work, and lets go of a draft with none ([f5d1328](https://github.com/tonygorb/Scenri/commit/f5d132824d030ab604cf52a97f71c5a73118464f))
+* **studio:** the import pill wears the brand's mark and a clock ([4b78b1a](https://github.com/tonygorb/Scenri/commit/4b78b1a6e93780e5389ce2990af929c3dc515638))
+* **studio:** the presenter studio says what it will spend, like the other two flows ([3bb039c](https://github.com/tonygorb/Scenri/commit/3bb039cf22c5950fd5226f22b93405477a216a4c))
+* **test:** keep the private repo out of the battery drivers' defaults ([cd0f674](https://github.com/tonygorb/Scenri/commit/cd0f674d4f7b98490bf70c840ef8c9292c5f8f53))
+* **test:** read the reference image's basename, not its POSIX split ([442cc07](https://github.com/tonygorb/Scenri/commit/442cc07bdedb02c62a695b9c22ac090caee2d890))
+* **test:** the analyzer's imagePaths assertion had the same split('/') bug ([7877088](https://github.com/tonygorb/Scenri/commit/787708802c94f46be158c4f3e93c147e0973ee97))
+
+
+### Performance Improvements
+
+* **catalog:** ask the listing for a chosen set, not a page each ([cfe9a3c](https://github.com/tonygorb/Scenri/commit/cfe9a3c3aa7411ae1e8fe6d5002a2f1b4397de53))
+* **catalog:** keep the catalogue the store already handed over ([9630378](https://github.com/tonygorb/Scenri/commit/9630378ed2e076f6cb9b7ce50dde28c68e615548))
+
 ## [0.9.4](https://github.com/tonygorb/Scenri/compare/v0.9.3...v0.9.4) (2026-09-14)
 
 
