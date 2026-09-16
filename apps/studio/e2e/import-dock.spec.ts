@@ -35,7 +35,7 @@ test.beforeAll(async () => {
         title: `Wool Sock ${start + i + 1}`,
         handle,
         variants: [{ id: 1, title: 'Default', price: '18.00', available: true }],
-        images: [{ src: `http://${origin}/img/${handle}.png`, position: 1 }],
+        images: [1, 2, 3].map((n) => ({ src: `http://${origin}/img/${handle}-${n}.png`, position: n })),
       }));
       res.writeHead(200, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ products }));
@@ -106,6 +106,26 @@ for (const [w, h, label] of [
     await expect(bar.locator('.sc-impbar-clock')).toHaveText(/^\d+:\d{2}(:\d{2})?$/);
     // And the shop is its mark, not its address.
     expect(text).not.toContain('127.0.0.1');
+
+    // It is on the products page too, which is the page an import fills.
+    await page.goto(`/${brand.slug}/products`);
+    await expect(page.locator('.sc-impbar-float .sc-impbar')).toBeVisible({ timeout: 20_000 });
+    await page.goto(label === 'phone' ? `/${brand.slug}/create` : `/${brand.slug}`);
+    await expect(bar).toBeVisible({ timeout: 20_000 });
+
+    // The bar only ever advances. The picture total used to be "pictures we
+    // have looked at so far", which grew by sixty every round and dropped the
+    // fraction with it: 60/60, then 64/120, then 122/172.
+    const pctOf = () =>
+      bar.evaluate((el) => Number.parseFloat(getComputedStyle(el).getPropertyValue('--sc-impbar-p')) || 0);
+    let last = await pctOf();
+    for (let i = 0; i < 8; i++) {
+      await page.waitForTimeout(400);
+      if (!(await bar.isVisible().catch(() => false))) break;
+      const nowPct = await pctOf();
+      expect(nowPct).toBeGreaterThanOrEqual(last);
+      last = nowPct;
+    }
 
     // It offers the one thing there is to do, and stopping really stops it.
     await expect(bar.getByRole('button', { name: 'Stop importing' })).toBeVisible();

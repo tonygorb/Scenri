@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Storefront, X } from '@phosphor-icons/react';
 import { api, assetUrl } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -33,6 +33,16 @@ export function ImportBar() {
   const { tasks } = useTaskCenter();
   const [stopping, setStopping] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  /**
+   * The furthest this run has got, which is the only thing a bar may show.
+   *
+   * The count it divides by is honest now - it is what the run still owes
+   * rather than what it has looked at - but products are still being written
+   * while pictures download on a store read page by page, so the total can
+   * still grow under the fraction. Progress does not un-happen, so the bar
+   * does not either.
+   */
+  const peak = useRef<{ id: string; pct: number }>({ id: '', pct: 0 });
 
   // Whatever is running now. More than one at a time is possible and
   // uninteresting: the newest is the one someone just started.
@@ -50,8 +60,12 @@ export function ImportBar() {
   const busy = stopping === run.id;
   const mark = assetUrl(primaryMark(brand.json)?.file);
 
+  if (peak.current.id !== run.id) peak.current = { id: run.id, pct: 0 };
+  peak.current.pct = Math.max(peak.current.pct, run.percent ?? 0);
+
   return (
-    <div className="sc-impbar" role="status">
+    <div className="sc-impbar" role="status" style={{ ['--sc-impbar-p' as string]: `${peak.current.pct}%` }}>
+      <span className="sc-impbar-fill" aria-hidden />
       {/* The brand's own mark, not its address. You know which shop you asked
           for; the URL was the longest thing in the pill and the least useful. */}
       <span className="sc-impbar-mark" aria-hidden>

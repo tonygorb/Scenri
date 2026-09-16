@@ -696,7 +696,17 @@ function drainPictures(
         await sleep(150);
         continue;
       }
-      tally.imagesTotal += round.length;
+      /**
+       * The real total, not the rounds fetched so far.
+       *
+       * This was `+= round.length`, which made the total mean "pictures we
+       * have got round to looking at" - it grew by sixty every round and the
+       * fraction fell back every time: 60/60, then 64/120, then 122/172, a bar
+       * sliding backwards twice while nothing had gone wrong. What is owed is
+       * one count, and while products are still being written it grows the way
+       * the work actually grows rather than in steps of sixty.
+       */
+      tally.imagesTotal = tally.imagesDone + core.catalog.countImagesNeedingAssets(brandId, imagesPerProduct);
       await mapPool(
         round,
         allOffHost(round, storeHost) ? IMAGE_CONCURRENCY_OFF_HOST : IMAGE_CONCURRENCY,

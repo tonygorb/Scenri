@@ -222,6 +222,27 @@ export function productImportMethods(db: DB) {
       ).run(assetRef, meta?.width ?? null, meta?.height ?? null, productId, sourceUrl);
     },
 
+    /**
+     * How many pictures are still owed, for a progress that can be trusted.
+     *
+     * The importer used to add up the rounds it had fetched and call that the
+     * total, so the total was really "pictures discovered so far": it grew by
+     * sixty every round, and the fraction fell back every time it did. A run
+     * went 60/60, then 64/120, then 122/172 - a bar sliding backwards twice
+     * while nothing had gone wrong. Counting what is left is one query and it
+     * is the actual answer.
+     */
+    countImagesNeedingAssets(brandId: string, imagesPerProduct: number): number {
+      const row = db
+        .prepare(
+          `SELECT COUNT(*) AS n FROM catalog_images i
+         JOIN catalog_products p ON p.id = i.product_id
+         WHERE p.brand_id=? AND (i.asset_ref IS NULL OR i.asset_ref='') AND i.position < ?`,
+        )
+        .get(brandId, imagesPerProduct) as { n: number } | undefined;
+      return row?.n ?? 0;
+    },
+
     listImagesNeedingAssets(brandId: string, limit = 500): CatalogImageRow[] {
       return (
         db

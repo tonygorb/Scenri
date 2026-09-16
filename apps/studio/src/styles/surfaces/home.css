@@ -325,6 +325,8 @@
    phase divides by a total that grows every time another product is written.
    A clock cannot go backwards, and the count beside it is the real work. */
 .sc-impbar {
+  position: relative;
+  overflow: hidden;
   width: fit-content;
   max-width: 100%;
   margin: 0 auto 10px;
@@ -337,6 +339,36 @@
   background: var(--sc-raised);
   box-shadow: var(--sc-shadow-2);
 }
+/* The progress itself, as the surface rather than a meter drawn on it. Only
+   ever advances: `imagesTotal` is what the run still owes, but products are
+   still being written while pictures download on a store read page by page,
+   so the fraction can still grow a denominator under itself. */
+.sc-impbar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--sc-impbar-p, 0%);
+  background: var(--sc-fg);
+  opacity: 0.08;
+  transition: width 500ms ease-out;
+  pointer-events: none;
+}
+.sc-impbar > *:not(.sc-impbar-fill) {
+  position: relative;
+}
+
+/* On a page with no composer to sit above, it floats where the dock would be. */
+.sc-impbar-float {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 40;
+  pointer-events: auto;
+}
+.sc-impbar-float .sc-impbar {
+  margin: 0;
+}
+
 .sc-impbar-mark {
   display: grid;
   place-items: center;

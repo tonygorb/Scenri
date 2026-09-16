@@ -7,6 +7,7 @@ import { useBrand } from '../app/BrandLayout.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { useAppData } from '../app/AppShell.js';
 import { useProductLibrary } from '../app/ProductLibrary.js';
+import { ImportBar } from '../layout/ImportBar.js';
 import { useApplyProduct } from '../app/useApplyProduct.js';
 import { productPath } from '../routes.js';
 import { ProductCard, ProductCardSkeleton } from '../layout/ProductCard.js';
@@ -314,6 +315,12 @@ export function ProductsView() {
             />
           )}
         </main>
+        {/* No composer on this page, so it floats where the dock would be. This
+            is the page an import fills, so it is the page most likely to be open
+            while one runs. */}
+        <div className="sc-impbar-float">
+          <ImportBar />
+        </div>
       </ScrollPane>
     </WallDensityCtx.Provider>
   );
