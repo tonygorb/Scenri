@@ -455,6 +455,20 @@ describe('ledger + caps', () => {
 });
 
 describe('reopenNode', () => {
+  it('a fresh library has started_at, through the rebuild that widens the status check', () => {
+    // A fresh database always takes that rebuild, and it runs after the column
+    // migrations. The test below cannot see this: its second openDb re-adds
+    // the column on a table already rebuilt.
+    const fresh = mkdtempSync(join(tmpdir(), 'sc-fresh-'));
+    const db = openDb(fresh);
+    const cols = (db.pragma('table_info(nodes)') as { name: string }[]).map((c) => c.name);
+    db.close();
+    rmSync(fresh, { recursive: true, force: true });
+    expect(cols).toContain('started_at');
+    const b = core.store.createBrand(brandJson as any);
+    expect(core.store.recentActivity(b.id)).toEqual([]);
+  });
+
   it('keeps created_at and restamps started_at so a retry clock starts at zero', () => {
     const b = core.store.createBrand(brandJson as any);
     const { project, root } = core.store.createProject(b.id, 'p');
