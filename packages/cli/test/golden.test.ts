@@ -33,6 +33,8 @@ let detailHash: string;
 let faceAHash: string;
 let faceBHash: string;
 let faceCHash: string;
+let faceDHash: string;
+let faceEHash: string;
 let inspoHash: string;
 
 const caps = (maxReferenceImages: number, displayName = 'Codex CLI'): EngineCapabilities => ({
@@ -44,7 +46,11 @@ const caps = (maxReferenceImages: number, displayName = 'Codex CLI'): EngineCapa
   maxReferenceImages,
 });
 
-/** A product with three real angles and a presenter with three real views. */
+/**
+ * A product with three real angles, a presenter with three real views, and
+ * two more presenters whose stored views are named the way the studio and
+ * the curated roster name them, for the rows where the words pick a view.
+ */
 const brand = () => ({
   meta: { name: 'Acme' },
   products: [
@@ -83,6 +89,31 @@ const brand = () => ({
         { file: `asset:${faceCHash}`, angle: 'right-profile', locked: true },
       ],
     },
+    {
+      // A person built in the studio: the three core views, plus the one
+      // extra she asked for.
+      id: 'c2',
+      name: 'Ilse',
+      shots: [
+        { file: `asset:${faceAHash}`, angle: 'portrait', locked: true },
+        { file: `asset:${faceBHash}`, angle: 'front', locked: true },
+        { file: `asset:${faceCHash}`, angle: 'three-quarter', locked: true },
+        { file: `asset:${faceDHash}`, angle: 'back', locked: true },
+      ],
+    },
+    {
+      // A curated presenter: the shipped avatar leads, then the four studio
+      // views the roster was drawn in.
+      id: 'c3',
+      name: 'Maren',
+      shots: [
+        { file: `asset:${faceAHash}`, angle: 'portrait', locked: true },
+        { file: `asset:${faceBHash}`, angle: 'front', locked: true },
+        { file: `asset:${faceCHash}`, angle: 'left-profile', locked: true },
+        { file: `asset:${faceDHash}`, angle: 'right-profile', locked: true },
+        { file: `asset:${faceEHash}`, angle: 'back', locked: true },
+      ],
+    },
   ],
 });
 
@@ -95,6 +126,8 @@ beforeEach(() => {
   faceAHash = core.images.save(Buffer.from('face-a'));
   faceBHash = core.images.save(Buffer.from('face-b'));
   faceCHash = core.images.save(Buffer.from('face-c'));
+  faceDHash = core.images.save(Buffer.from('face-d'));
+  faceEHash = core.images.save(Buffer.from('face-e'));
   inspoHash = core.images.save(Buffer.from('inspo'));
 });
 afterEach(() => {
@@ -255,6 +288,167 @@ describe('golden: identity is never lost or confused', () => {
     expect(roles(r)).toEqual(['character', 'character', 'character']);
     expect(r.productId).toBeNull();
     expect(r.warnings).toEqual([]);
+  });
+
+  it('8a. a presenter carries the face, the full body and the three-quarter when the words ask for nothing', () => {
+    const r = compile([
+      { t: 'text', v: 'holding a coffee at a window' },
+      { t: 'character', id: 'c2' },
+    ]);
+    const chars = r.attachments.filter((a) => a.role === 'character');
+    expect(chars.map((a) => a.angle)).toEqual(['portrait', 'front', 'three-quarter']);
+    expect(chars[0].essential).toBe(true);
+    expect(chars).toHaveLength(CHARACTER_REF_MAX);
+  });
+
+  it('8b. "from behind" boards the stored back view after the face, and the full body still rides', () => {
+    const r = compile([
+      { t: 'character', id: 'c2' },
+      { t: 'text', v: 'walking away from the camera, seen from behind, down a pier' },
+    ]);
+    const chars = r.attachments.filter((a) => a.role === 'character');
+    expect(chars.map((a) => a.angle)).toEqual(['portrait', 'back', 'front']);
+    expect(chars[0].essential).toBe(true);
+  });
+
+  it('8c. "in profile" on a curated presenter boards the left profile after the avatar', () => {
+    const r = compile([
+      { t: 'text', v: 'a quiet portrait in profile' },
+      { t: 'character', id: 'c3' },
+    ]);
+    const chars = r.attachments.filter((a) => a.role === 'character');
+    expect(chars.map((a) => a.angle)).toEqual(['portrait', 'left-profile', 'front']);
+    // and the words after the chip count as much as the words before it
+    const after = compile([
+      { t: 'character', id: 'c3' },
+      { t: 'text', v: 'seen from the side' },
+    ]);
+    expect(after.attachments.filter((a) => a.role === 'character').map((a) => a.angle)).toEqual([
+      'portrait',
+      'left-profile',
+      'front',
+    ]);
+  });
+
+  it('8d. a presenter with no stored view for the ask rides exactly as stored', () => {
+    const r = compile([
+      { t: 'character', id: 'c1' },
+      { t: 'text', v: 'seen from behind' },
+    ]);
+    expect(r.attachments.filter((a) => a.role === 'character').map((a) => a.angle)).toEqual([
+      'front',
+      'left-profile',
+      'right-profile',
+    ]);
+  });
+
+  /**
+   * What a presenter's stored views are actually worth downstream.
+   *
+   * A person can hold six views and still send one. The seat arithmetic lives
+   * in attachmentBudget.test.ts; these three rows are the same truth seen from
+   * the other end, through the compiler that a shot really runs through, so a
+   * change to CHARACTER_REF_MAX, to characterRefs or to the budget shows up
+   * here as a changed list of angles rather than as a quieter picture.
+   */
+  it('8e. the three-quarter view reaches the model only in a shot the presenter leads', () => {
+    // Five seats, which is what codex gives and what these numbers were
+    // measured against; the default six is roomier than any engine we run.
+    const led = compile(
+      [
+        { t: 'character', id: 'c2' },
+        { t: 'text', v: 'at a window' },
+      ],
+      5,
+    );
+    expect(led.attachments.filter((a) => a.role === 'character').map((a) => a.angle)).toEqual([
+      'portrait',
+      'front',
+      'three-quarter',
+    ]);
+    // The moment a product joins the line every chip takes a seat first, and
+    // the third view is the one that never boards.
+    for (const rest of [[], [{ t: 'template' as const, id: PRODUCT_SCENE }]]) {
+      const withProduct = compile(
+        [{ t: 'character', id: 'c2' }, { t: 'product', id: 'p1' }, ...rest, { t: 'text', v: 'at a window' }],
+        5,
+      );
+      const angles = withProduct.attachments.filter((a) => a.role === 'character').map((a) => a.angle);
+      expect(angles).not.toContain('three-quarter');
+      expect(angles[0]).toBe('portrait');
+    }
+  });
+
+  it('8f. a view the words ask for costs the full body, never the face', () => {
+    const r = compile(
+      [
+        { t: 'character', id: 'c2' },
+        { t: 'product', id: 'p1' },
+        { t: 'text', v: 'turned toward the window, holding it' },
+      ],
+      5,
+    );
+    const chars = r.attachments.filter((a) => a.role === 'character');
+    expect(chars.map((a) => a.angle)).toEqual(['portrait', 'three-quarter']);
+    expect(chars[0].essential).toBe(true);
+  });
+
+  it('8g. the words that pick a view read the angle, never the framing', () => {
+    // A characterisation test, not an endorsement: a close-up and a wide shot
+    // send a person exactly the same pictures, because askedView knows about
+    // turning and has never known about how near the camera stands.
+    const near = compile([
+      { t: 'character', id: 'c2' },
+      { t: 'text', v: 'a tight close-up of her face' },
+    ]);
+    const far = compile([
+      { t: 'character', id: 'c2' },
+      { t: 'text', v: 'head to toe, the whole figure' },
+    ]);
+    const angles = (r: ReturnType<typeof compile>) =>
+      r.attachments.filter((a) => a.role === 'character').map((a) => a.angle);
+    expect(angles(near)).toEqual(['portrait', 'front', 'three-quarter']);
+    expect(angles(far)).toEqual(angles(near));
+  });
+
+  it('8h. two people alike but for their stored views compile to the same words', () => {
+    // The pre-flight for any experiment that varies the reference set: if the
+    // prompt moved too, the pictures would differ for a reason that has
+    // nothing to do with what was attached.
+    const twin = (id: string, shots: { file: string; angle: string; locked: boolean }[]) => ({
+      id,
+      name: 'Ilse',
+      promptName: 'Ilse',
+      identityNotes: 'A gap between the front teeth.',
+      negativeConstraints: ['never in glasses'],
+      shots,
+    });
+    const three = twin('tw-3', [
+      { file: `asset:${faceAHash}`, angle: 'portrait', locked: true },
+      { file: `asset:${faceBHash}`, angle: 'front', locked: true },
+      { file: `asset:${faceCHash}`, angle: 'three-quarter', locked: true },
+    ]);
+    const two = twin('tw-2', [
+      { file: `asset:${faceAHash}`, angle: 'portrait', locked: true },
+      { file: `asset:${faceBHash}`, angle: 'front', locked: true },
+    ]);
+    const b = brand();
+    const withTwins = { ...b, characters: [...b.characters, three, two] };
+    const say = (id: string) =>
+      compileBrief(
+        {
+          tokens: [
+            { t: 'character', id },
+            { t: 'text', v: 'at a window, in the late afternoon' },
+          ],
+        },
+        { brand: withTwins, images: core.images, engineCaps: caps(5), templateById: resolveScene },
+      );
+    const a = say('tw-3');
+    const c = say('tw-2');
+    expect(a.prompt).toBe(c.prompt);
+    expect(a.referenceImages).toHaveLength(3);
+    expect(c.referenceImages).toHaveLength(2);
   });
 
   it('9. a requested angle leads, and is never dropped in favour of other angles', () => {

@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import sharp from 'sharp';
 import type { Core } from '@scenri/core';
 import { driftDiff } from '../diff.js';
-import { toMarkPng } from './shared.js';
+import { readImagePart, toMarkPng } from './shared.js';
 import { buildBrandBundle } from '../exportBrand.js';
 import { fileSize, isThumbWidth, THUMB_WIDTH_LIST, type ThumbStore } from '../thumbs.js';
 
@@ -57,30 +57,36 @@ export function registerImageRoutes(app: FastifyInstance, deps: { core: Core; th
     return reply.send(thumbs.stream(path));
   });
 
-  // upload an arbitrary image (moodboard, reference) into the content store
+  // upload an arbitrary image (moodboard, reference, a photograph of a person)
+  // into the content store
   app.post('/api/images', async (req, reply) => {
-    const part = await (req as any).file();
-    if (!part) return reply.status(400).send({ error: 'multipart file field required' });
-    const buf: Buffer = await part.toBuffer();
-    if (buf.length === 0) return reply.status(400).send({ error: 'empty file' });
-    // .rotate() with no argument bakes in EXIF orientation, and it has to come
-    // before .png(), which drops the tag. Without it a photo taken in portrait
-    // on a phone is stored in its sensor orientation and lies on its side for
-    // the rest of its life, because nothing downstream can recover the tag.
-    // catalogImport does it in this order for the same reason.
-    //
-    // An SVG takes the mark path instead: this generic route rasterized
-    // vectors at their intrinsic viewBox (density 72), so an SVG logo dropped
-    // in the composer arrived as a thumbnail-resolution reference while the
-    // brand-kit route rendered the same file at density 384. Photos keep the
-    // byte-identical old path.
-    const fmt = (
-      await sharp(buf)
-        .metadata()
-        .catch(() => null)
-    )?.format;
-    const png = fmt === 'svg' ? await toMarkPng(buf) : await sharp(buf).rotate().png().toBuffer();
-    return { hash: core.images.save(png) };
+    // Through the shared reader, like every sibling upload route. This one used
+    // to decode inline, so anything sharp could not read threw past it into the
+    // error handler and reached the person as a 500 carrying libvips's own
+    // words: "VipsJpeg: premature end of JPEG image". A half-downloaded
+    // holiday photo is an ordinary thing to choose, and it is not a server
+    // fault.
+    const part = await readImagePart(core, req, async (buf) => {
+      // .rotate() with no argument bakes in EXIF orientation, and it has to come
+      // before .png(), which drops the tag. Without it a photo taken in portrait
+      // on a phone is stored in its sensor orientation and lies on its side for
+      // the rest of its life, because nothing downstream can recover the tag.
+      // catalogImport does it in this order for the same reason.
+      //
+      // An SVG takes the mark path instead: this generic route rasterized
+      // vectors at their intrinsic viewBox (density 72), so an SVG logo dropped
+      // in the composer arrived as a thumbnail-resolution reference while the
+      // brand-kit route rendered the same file at density 384. Photos keep the
+      // byte-identical old path.
+      const fmt = (
+        await sharp(buf)
+          .metadata()
+          .catch(() => null)
+      )?.format;
+      return fmt === 'svg' ? await toMarkPng(buf) : await sharp(buf).rotate().png().toBuffer();
+    });
+    if ('error' in part) return reply.status(400).send({ error: part.error });
+    return { hash: part.hash };
   });
 
   app.post('/api/diff', async (req, reply) => {

@@ -158,6 +158,14 @@ CREATE TABLE IF NOT EXISTS import_jobs (
   finished_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_import_jobs_brand ON import_jobs(brand_id);
+CREATE TABLE IF NOT EXISTS presenter_drafts (
+  id TEXT PRIMARY KEY,
+  brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+  json TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_presenter_drafts_brand ON presenter_drafts(brand_id);
 `;
 
 /**

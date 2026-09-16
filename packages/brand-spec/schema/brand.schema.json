@@ -342,6 +342,50 @@
           "avatar": {
             "$ref": "#/$defs/assetRef",
             "description": "Square head-and-shoulders portrait, for surfaces that render a person small or round. Also a crop of the first shot."
+          },
+          "source": {
+            "enum": ["synthetic", "photos"],
+            "description": "Where this person came from: made in Scenri from a description (synthetic) or built from photographs of a real person (photos). Absent on a record written before the distinction existed, which is read as photos. There is no third value: a public figure is not a source Scenri offers."
+          },
+          "likeness": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["attestedAt", "version"],
+            "properties": {
+              "attestedAt": {
+                "type": "string",
+                "description": "When the person casting them confirmed they have permission to use this real person's likeness commercially (ISO 8601)."
+              },
+              "version": { "const": "v1", "description": "Which wording of the confirmation was shown." }
+            },
+            "description": "The likeness confirmation recorded for a person built from photographs of a real person. Never set on a synthetic person."
+          },
+          "facial": {
+            "type": "string",
+            "description": "Bone structure in words, because full-length pictures cannot carry it: face shape, jaw, cheekbones, eyes, brows. Injected verbatim, name-prefixed."
+          },
+          "skin": {
+            "type": "string",
+            "description": "Skin tone and texture exactly as the references show it. Injected verbatim, name-prefixed."
+          },
+          "build": {
+            "type": "string",
+            "description": "Body type and proportions. Injected verbatim, name-prefixed."
+          },
+          "revisionOf": {
+            "type": "string",
+            "description": "The record this one replaced: an edit that changes a picture or the identity prose is a new record, so shots made against the old one keep refining against what they were made from."
+          },
+          "supersededBy": {
+            "type": "string",
+            "description": "The record that replaced this one. Absent on the current record; a tool lists only records without it and maps an old id to the current record through it."
+          },
+          "identityEdits": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The identity-wide instructions accepted when this record's views were drawn, e.g. \"shorter hair\". Read after identityNotes, so later views follow the change rather than the originals."
           }
         }
       },

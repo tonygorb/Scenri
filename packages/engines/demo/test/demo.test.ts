@@ -131,10 +131,46 @@ describe('progressive delivery', () => {
     expect(res.raw).toMatchObject({ variantIndexes: [0] });
   });
 
+  it('can be told to read references, so a browser test can cast a presenter without a real engine', () => {
+    expect(createDemoEngine(saver()).capabilities().maxReferenceImages).toBe(0);
+    const e = createDemoEngine(saver(), { maxReferenceImages: 5 });
+    expect(e.capabilities().maxReferenceImages).toBe(5);
+    // still a placeholder: the pictures are not real, whatever it reads
+    expect(e.capabilities().placeholder).toBe(true);
+    expect(demoOptionsFromEnv({ SCENRI_DEMO_REFS: '5' })).toEqual({ maxReferenceImages: 5 });
+    expect(demoOptionsFromEnv({ SCENRI_DEMO_REFS: 'lots' })).toEqual({});
+  });
+
   it('reads its knobs from the environment, and none by default', () => {
     expect(demoOptionsFromEnv({})).toEqual({});
     expect(
       demoOptionsFromEnv({ SCENRI_DEMO_STAGGER_MS: '1500', SCENRI_DEMO_ORDER: 'reverse', SCENRI_DEMO_FAIL_SLOT: '1' }),
     ).toEqual({ staggerMs: 1500, order: 'reverse', failSlot: 1 });
+    expect(demoOptionsFromEnv({ SCENRI_DEMO_DELAY_MS: '400' })).toEqual({ delayMs: 400 });
+    expect(demoOptionsFromEnv({ SCENRI_DEMO_DELAY_MS: 'slow' })).toEqual({});
+  });
+
+  /**
+   * The knob a one-picture request needs. `staggerMs` waits between slots, so a
+   * request for one picture is never slowed by it, which is every presenter
+   * draw: the specs that cast a person watched each view appear in the frame
+   * the press landed in, and so tested none of the states a person sits in.
+   */
+  // two placeholder renders and a real wait, so the five-second default is a
+  // coin flip on a machine running anything else
+  it('delays every picture, the first one included, where a stagger delays only what follows', {
+    timeout: 30_000,
+  }, async () => {
+    // Bounded against the delay itself, never against a second run: drawing
+    // the placeholder is not free and its cost moves with whatever else the
+    // machine is doing, so a baseline taken a moment earlier is not one. A
+    // measured render is 200 to 550ms, so 1200 leaves room either way.
+    const took = async (opts: Parameters<typeof createDemoEngine>[1]) => {
+      const at = Date.now();
+      await createDemoEngine(saver(), opts).generate({ prompt: 'one', count: 1 } as any);
+      return Date.now() - at;
+    };
+    expect(await took({ delayMs: 1200 })).toBeGreaterThanOrEqual(1200);
+    expect(await took({ staggerMs: 1200 })).toBeLessThan(1200);
   });
 });

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -81,6 +81,11 @@ const OWNED_SCENE = {
 type SeedOptions = {
   /** Seed a scene the brand owns, so the Scenes library renders warm (no first-run offer). */
   scene?: boolean;
+  /**
+   * Seed the demo shot the feed and plus menu need. Off when this file cannot
+   * register the demo engine (the no-engine presenter path).
+   */
+  shot?: boolean;
   /** Extra environment for this file's own Scenri: the demo engine's timing knobs, say. */
   env?: Record<string, string>;
 };
@@ -190,6 +195,8 @@ class ScenriFixture {
 
     const made = await call<{ id: string }>('POST', '/api/brands', 200, { brand });
 
+    if (opts.shot === false) return;
+
     // the brand's one workspace, made by asking for it rather than by inventing
     // a project — nothing in the app creates containers any more
     const ws = await call<{ project: { id: string } }>('GET', `/api/brands/${made.id}/workspace`, 200);
@@ -249,6 +256,42 @@ class ScenriFixture {
  * Boot and seed together are well past the 20s a test gets, so the hook asks
  * for its own budget.
  */
+/**
+ * Wait until a surface has finished arriving.
+ *
+ * Any surface with an entry animation reports geometry that is still moving
+ * for as long as it plays, so a box measured the moment a thing is "visible"
+ * is a box mid-travel. Two tests measured the presenter studio that way and
+ * started failing by a few pixels the day it got the house arrival: the
+ * composer read 3.45px low on a phone while the sheet was still rising, and
+ * the editor's log read one sample short while the 2% zoom settled. Neither
+ * was about what it was testing.
+ *
+ * Measure after this, not after `toBeVisible`.
+ */
+export async function arrived(page: Page, selector = '.sc-pstudio'): Promise<void> {
+  const el = page.locator(selector).first();
+  await el.waitFor({ state: 'visible' });
+  // Polled on the settled state, not awaited on whatever animations happen to
+  // exist at this instant: `getAnimations()` is empty until the animation
+  // starts, so awaiting it can return before the travel has begun and hand
+  // back a box that is about to move. That only looked right because the
+  // timing usually landed the other way, and a loaded machine took the two
+  // phone tests red again on the first full run after the arrival went in.
+  //
+  // The surface arrives with `fill: backwards`, so its first frame already
+  // carries the from-state: from the moment it is visible, a transform of
+  // `none` means the travel is over rather than not yet begun.
+  await expect
+    .poll(() =>
+      el.evaluate(
+        (node) =>
+          !node.getAnimations().some((a) => a.playState === 'running') && getComputedStyle(node).transform === 'none',
+      ),
+    )
+    .toBe(true);
+}
+
 export function isolate(opts: SeedOptions = {}): void {
   const fx = new ScenriFixture();
 

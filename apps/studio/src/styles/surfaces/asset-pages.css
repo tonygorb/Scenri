@@ -129,11 +129,36 @@
 .sc-lookcard[data-build] .sc-lookcard-cap b {
   color: var(--sc-fg);
 }
+/* Touch hides a card's second caption line, because on a finished card it is
+   a description you can do without. On these it is the whole point: "Face
+   ready", "3 of 6 views ready", "Ready to save". Hidden, a draft on a phone
+   was a name and a badge and no word about how far along it was. */
 .sc-lookcard[data-build] .sc-lookcard-cap span {
+  display: block;
   color: var(--sc-fg3);
 }
+/* An unfinished person carries a face, and a face on a card reads as somebody
+   finished. The mark is what separates the two at a glance, quiet enough that
+   a wall of them is not a wall of labels. */
+.sc-draftmark {
+  position: absolute;
+  inset: 8px auto auto 8px;
+  padding: 2px 7px;
+  border-radius: var(--sc-radius-sm);
+  z-index: 3;
+  background: var(--sc-scrim);
+  color: var(--sc-scrim-fg);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
 /* The elapsed clock is the same .sc-cell-tag the feed uses. On a lookcard it
-   sits on the media, not under the name — so the caption height never moves. */
+   sits on the media, not under the name, so the caption height never moves.
+   `.sc-buildnotes` and `.sc-buildbar` stood here until a building card became
+   the wait rather than a caption; nothing renders them now. */
 .sc-lookcard[data-building] .sc-cell-tag {
   z-index: 2;
 }
@@ -153,8 +178,18 @@
 }
 .sc-assetform-refs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Four across where four fit. A hard `repeat(4, 1fr)` held on a phone too,
+     where the conversation column is about 330px: four tiles and a fifth
+     dropzone cell came out near 60px each, which is smaller than the picture
+     needs to be recognised and smaller than a finger. */
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
   gap: var(--sc-space-4);
+}
+
+@media (min-width: 768px) {
+  .sc-assetform-refs {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 .sc-assetform-refs .sc-dropzone {
   min-height: 0;
@@ -193,6 +228,21 @@
   cursor: pointer;
   color: var(--sc-bg);
   background: color-mix(in srgb, var(--sc-fg) 78%, transparent);
+}
+
+/* The only way to take a photograph back, so on a touch screen it has to be
+   catchable: the mark stays 20px, and the target around it grows to the tap
+   floor without moving the picture under it. */
+@media (pointer: coarse) {
+  .sc-assetform-drop::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+    transform: translate(-50%, -50%);
+  }
 }
 .sc-assetform-drop:hover {
   background: var(--sc-fg);
@@ -832,4 +882,370 @@
   font-size: 12px;
   line-height: 1.6;
   color: var(--sc-fg3);
+}
+
+/* ---- 6.9 a presenter's reference set: the pictures Scenri understands them by ----
+   A product's references are the same object inspected one at a time, which is
+   why 6.7 gives them a stage. A presenter's are the same person from several
+   sides, and the only question they answer is whether the sides agree: that is
+   read across, at one height, the way a character turnaround has always been
+   drawn. So the set is one row, always, however many there are.
+
+   The row itself is `components/rail.css` behind `layout/Rail.tsx`; all this
+   surface says is how wide a reference is. Three stand at a time, which is the
+   size at which a full-length figure can be read, and the rest are a press or
+   a swipe away. The count comes in on the element so the rule covers any
+   number, and the cap stays here so a narrower screen can lower it. */
+/* No edge fade on this row. Over photographs shot on a white sweep the page's
+   ground reads as a grey wash on the first and last picture rather than as an
+   edge, and the reference cut by the edge already says there is more. The
+   arrows sit on the middle of the picture, not of the row: every reference
+   carries its role in a line underneath. */
+.sc-refset-rail {
+  --sc-refset-n: min(3, var(--sc-rail-count, 3));
+  --sc-refset-gap: 18px;
+  --sc-refset-max: 400px;
+  --sc-refset-w: min(
+    var(--sc-refset-max),
+    calc((100% - 4px - (var(--sc-refset-n) - 1) * var(--sc-refset-gap)) / var(--sc-refset-n))
+  );
+  /* The caption band under every reference: a fixed 20px line 8px below the
+     picture. Fixed, because the arrows are placed from it. A percentage
+     inside a custom property resolves where it is used, not where it is
+     written, so a width expression put into `top` became a share of the
+     row's height and threw the arrows 128px up the page. This is the
+     row's height less the band, halved, which is the middle of the picture
+     and nothing else. */
+  --sc-refset-cap: 28px;
+  --sc-rail-arrow-y: calc(50% - var(--sc-refset-cap) / 2);
+}
+.sc-refset-rail::before,
+.sc-refset-rail::after {
+  content: none;
+}
+.sc-refset {
+  gap: var(--sc-refset-gap);
+}
+.sc-refset > li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 var(--sc-refset-w);
+}
+.sc-refset-tile {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  padding: 0;
+  /* A hairline, because these photographs are shot on a white sweep and the
+     raised ground is near-white in the light theme: without an edge the tiles
+     dissolve into the page and the row stops reading as a set of frames. */
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-lg);
+  overflow: hidden;
+  background: var(--sc-raised);
+  cursor: zoom-in;
+}
+/* contain, not cover. Every frame Scenri draws is 4:5 already, so for the
+   ordinary set this is the same pixels either way. It is the legacy and
+   curated records that differ, and a full-body reference squared off to fit
+   loses the feet it exists to show. A letterbox is honest; an amputation is
+   not. */
+.sc-refset-tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+/* The band the arrows are measured against: one line, never two. */
+.sc-refset-lb {
+  height: 20px;
+  margin-top: 8px;
+  max-width: 100%;
+  font-size: var(--sc-text-body);
+  line-height: 20px;
+  color: var(--sc-fg2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The photographs they were built from. Provenance, so they sit under the
+   set rather than in it, and small enough to read as a footnote to it. */
+.sc-presenterpage-sources {
+  margin-top: var(--sc-space-8);
+}
+.sc-presenterpage-sources-lb {
+  margin: 0 0 var(--sc-space-5);
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
+}
+.sc-presenterpage-sources-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sc-space-4);
+}
+/* The photographs you handed over, as small cards of the same family as the
+   set above: the same 4:5, the same hairline, the same corner. Squares of
+   letterboxed phone pictures read as broken thumbnails rather than as a
+   provenance row. */
+.sc-presenterpage-source {
+  width: 92px;
+  aspect-ratio: 4 / 5;
+  padding: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  overflow: hidden;
+  background: var(--sc-raised);
+  cursor: zoom-in;
+}
+/* A phone camera hands over whatever shape it was held at, and these are
+   pictures of a person: fill the card and weight the crop towards the face,
+   the way every other small picture of somebody in the app is framed. The
+   whole frame is a press away in the lightbox. */
+.sc-presenterpage-source img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 25%;
+}
+
+/* What is true about them, under the pictures that show it. */
+.sc-presenterpage-meta {
+  margin-top: var(--sc-space-8);
+}
+.sc-presenterpage-meta .sc-lookpage-facts {
+  margin-bottom: 0;
+}
+.sc-presenterpage-cont {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  font-size: var(--sc-text-body);
+  color: var(--sc-fg2);
+}
+.sc-presenterpage-cont .sc-btn {
+  height: 28px;
+  padding: 0 12px;
+  font-size: var(--sc-text-body);
+}
+.sc-presenterpage-bits {
+  align-items: center;
+  text-align: center;
+  gap: 18px;
+}
+@media (max-width: 767px) {
+  /* A phone shows three at the floor and scrolls the rest, and the row bleeds
+     to the gutter so the first tile can start at the screen edge. */
+  .sc-refset-rail {
+    --sc-refset-n: min(2, var(--sc-rail-count, 2));
+    --sc-refset-gap: 10px;
+  }
+  .sc-presenterpage-source {
+    width: 74px;
+  }
+  .sc-lookpage-acts {
+    width: 100%;
+  }
+}
+
+/* where a presenter is filed: the verticals they suit, set on their page */
+.sc-presenterpage-filed {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  max-width: var(--sc-measure-lede);
+  margin: var(--sc-space-5) auto 0;
+}
+
+.sc-presenterpage-filed-lb {
+  flex: none;
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg3);
+}
+
+.sc-presenterpage-filed > :last-child {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- 6.10 a presenter's own page: the face, the record, the details ----
+   Three zones, not one list. The identity is centred and tight (a circle, a
+   name, a caption); the reference row is the widest thing on the page and the
+   only thing at full contrast; the record is a left-aligned footer. The page
+   used to stack six centred rows of the same weight before the first picture,
+   which gave the eye nothing to land on and the page no base. */
+
+/* The circle above the name. It is a crop of the portrait view, which is a
+   head already, so it needs no enlarging; a record with no portrait keeps the
+   old top-weighted hint, and nothing is scaled up to fake one. */
+.sc-presenterpage-avatar {
+  width: 112px;
+  height: 112px;
+  margin: 0 auto var(--sc-space-6);
+  border-radius: var(--sc-radius-full);
+  overflow: hidden;
+  background: var(--sc-raised);
+  border: 1px solid var(--sc-line);
+}
+/* The record's avatar is a square head-and-shoulders portrait, which is the
+   right framing for a 15px chip and too loose for a circle this size: the
+   head lands at about a third of its height and reads as a torso. A round
+   frame wants the face, so this surface closes in. The source is 512px and
+   shown at 112, so there is resolution to spare for it. */
+.sc-presenterpage-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.22);
+  transform-origin: 50% 26%;
+}
+/* The CSS half of the `presenterVisual` contract: no avatar existed, so this
+   picture was framed for something else and has to be pulled much further. */
+.sc-presenterpage-avatar img[data-crop="top"] {
+  transform: scale(3.2);
+  transform-origin: 50% 16%;
+}
+
+/* Where they are filed. The app's chip, at rest: these say what is true, and
+   nothing here is pressed, so they carry no hover, no focus and no
+   aria-pressed. The verb that changes them lives in Details. */
+.sc-presenterpage-cats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sc-space-3);
+  margin: 0 auto var(--sc-space-5);
+  padding: 0;
+  max-width: var(--sc-measure-lede);
+  list-style: none;
+}
+/* Not a pill. A full radius is the app's shape for something you press, and
+   these are labels: rounding them like a field instead of like a button is
+   what stops a row of categories reading as a second bank of controls under
+   the name. Nothing here has a hover, a focus or a pressed state either. */
+.sc-chip[data-static] {
+  border-radius: var(--sc-radius);
+  cursor: default;
+}
+
+/* Tight inside the identity, generous between it and what follows: the beats
+   are what say these are three things rather than nine. */
+.sc-presenterpage h1 {
+  margin-bottom: var(--sc-space-5);
+}
+.sc-presenterpage .sc-lookpage-lede {
+  margin-bottom: 0;
+}
+.sc-presenterpage .sc-lookpage-acts {
+  margin-top: var(--sc-space-8);
+  margin-bottom: 44px;
+}
+
+/* The record's last word: the disclosure it must carry, and the one verb
+   that is not reversible, on one line with the page's width between them.
+   This was a definition list, which wants more than two rows to be one. */
+.sc-prec {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sc-space-8);
+  width: 100%;
+  margin: 56px auto 0;
+  padding-top: var(--sc-space-8);
+  border-top: 1px solid var(--sc-line);
+  text-align: left;
+}
+.sc-prec-note {
+  margin: 0;
+  max-width: var(--sc-measure-prose);
+  font-size: var(--sc-text-caption);
+  line-height: 1.55;
+  color: var(--sc-fg3);
+  text-wrap: pretty;
+}
+.sc-prec .sc-btn {
+  flex: none;
+}
+@media (max-width: 640px) {
+  /* The note above, the verb under it, and the verb stays the size of its own
+     words. Stretched to the column it became a full-width red bar, which is
+     the shape of a primary action and the loudest thing on the page, for the
+     one thing here that cannot be undone. */
+  .sc-prec {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sc-space-7);
+    margin-top: 40px;
+    text-align: center;
+  }
+}
+
+/* ---- the details sheet ----
+   Three rows, one field. The sheet used to borrow a plain input, the brand
+   settings' chips field and the studio's category picker: measured side by
+   side they stood 34, 58 and 44 tall on three grounds at three type sizes,
+   and one of them carried no border at all. The two lists are
+   `components/chip-field.css` now and only the plain input is described here,
+   in the same terms. */
+.sc-pdetails .sc-newdlg-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sc-space-4);
+  margin-top: var(--sc-space-7);
+  padding-top: var(--sc-space-6);
+  border-top: 1px solid var(--sc-line);
+}
+.sc-pdetails .sc-newdlg-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-7);
+}
+.sc-pdetails-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+  text-align: left;
+  min-width: 0;
+}
+.sc-pdetails-lb {
+  font-size: var(--sc-text-body);
+  font-weight: 500;
+  color: var(--sc-fg);
+}
+.sc-pdetails-field {
+  box-sizing: border-box;
+  width: 100%;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: var(--sc-panel);
+  color: var(--sc-fg);
+  font: 400 var(--sc-text-input) / 1.4 var(--sc-font);
+}
+.sc-pdetails-field::placeholder {
+  color: var(--sc-fg3);
+}
+.sc-pdetails-field:hover:not(:focus) {
+  border-color: var(--sc-line-hover);
+}
+.sc-pdetails-field:focus {
+  outline: none;
+  border-color: var(--sc-focus);
+}
+.sc-pdetails-hint {
+  font-size: var(--sc-text-caption);
+  line-height: 1.5;
+  color: var(--sc-fg3);
+}
+.sc-pdetails-hint b {
+  font-weight: 500;
+  color: var(--sc-fg2);
 }

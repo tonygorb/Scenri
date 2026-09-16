@@ -1,0 +1,147 @@
+/* ---------- the rail: one row that scrolls, one set of manners ----------
+   Behind `layout/Rail.tsx`. The look page's shelf slider and the product
+   stage's thumb rail each grew their own copy of this; anything new uses
+   these, and the surface only says how wide its own items are.
+
+   The pointer owns the chrome: nothing here is painted until it is over the
+   row, which keeps a page of pictures a page of pictures. */
+.sc-rail {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+  /* The row inside scrolls; this never does. The arrows sit centred on its
+     ends, so half of each hangs outside it, and that overhang is enough to
+     make this a scroll container of its own and clip them: measured 1061
+     against 1044 of room, exactly the 17px they lean out by. */
+  overflow: visible;
+}
+
+.sc-rail-track {
+  display: flex;
+  flex-wrap: nowrap;
+  /* `safe` centres a run that fits and falls back to the start edge when it
+     does not, so a long run never puts its first item out of reach. */
+  justify-content: safe center;
+  width: 100%;
+  margin: 0;
+  /* room for a focus ring on the first and last item */
+  padding: 2px;
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.sc-rail-track::-webkit-scrollbar {
+  display: none;
+}
+.sc-rail-track > li {
+  scroll-snap-align: center;
+  min-width: 0;
+}
+
+/* ---- the edge fade: 96px of the page's own ground ---- */
+.sc-rail::before,
+.sc-rail::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 96px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.sc-rail::before {
+  left: 0;
+  background: linear-gradient(to right, var(--sc-bg) 0%, transparent 100%);
+}
+.sc-rail::after {
+  right: 0;
+  background: linear-gradient(to left, var(--sc-bg) 0%, transparent 100%);
+}
+/* Only under the pointer, and only towards something. A fade that stands all
+   the time is a grey wash over the first and last picture. */
+.sc-rail:hover[data-overflow-left]::before,
+.sc-rail:hover[data-overflow-right]::after {
+  opacity: 1;
+}
+
+/* ---- the arrows: the app's 34px circle, straddling the edge ---- */
+.sc-rail-arrow {
+  position: absolute;
+  /* The middle of the row, unless the surface says otherwise: items that
+     carry a caption under them put the middle of the picture higher up. */
+  top: var(--sc-rail-arrow-y, 50%);
+  z-index: 4;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-panel);
+  color: var(--sc-fg2);
+  opacity: 0;
+  transform: translateY(-50%);
+  transition:
+    opacity 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
+}
+.sc-rail-arrow:hover {
+  color: var(--sc-fg);
+  border-color: var(--sc-line-strong);
+}
+/* The centre of the control sits on the row's edge line: half of it over the
+   first or last item, half in the margin beside it. It reads as the handle of
+   the row rather than as something parked on a picture, and it never covers
+   a whole reference. */
+.sc-rail-arrow.prev {
+  left: 0;
+  transform: translate(-50%, -50%);
+}
+.sc-rail-arrow.next {
+  right: 0;
+  transform: translate(50%, -50%);
+}
+.sc-rail:hover .sc-rail-arrow,
+.sc-rail-arrow:focus-visible {
+  opacity: 1;
+}
+/* A direction with nothing left in it dims and stops taking presses. It is
+   neither removed nor made invisible: a control that disappears under the
+   cursor moves the one beside it, and one you cannot see at all leaves you
+   wondering whether the row ended or the arrow broke. The system's one
+   disabled strength says which it is. */
+.sc-rail:not([data-overflow-left]) .sc-rail-arrow.prev,
+.sc-rail:not([data-overflow-right]) .sc-rail-arrow.next {
+  pointer-events: none;
+}
+.sc-rail:hover:not([data-overflow-left]) .sc-rail-arrow.prev,
+.sc-rail:hover:not([data-overflow-right]) .sc-rail-arrow.next {
+  opacity: var(--sc-disabled);
+}
+/* A row that fits keeps its arrows and shows them spent. Taking them away was
+   tried and is the same fault in another place: a control that is there under
+   one presenter and gone under the next reads as broken, and the rule was
+   always that an end dims rather than disappears. They are still absent on a
+   touch width, where the swipe is the control. */
+
+/* Touch widths: the swipe is the control, and an arrow only fights it. The
+   same line every other rail in the app draws. */
+@media (max-width: 1024px) {
+  .sc-rail-arrow {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-rail::before,
+  .sc-rail::after,
+  .sc-rail-arrow {
+    transition: none;
+  }
+}

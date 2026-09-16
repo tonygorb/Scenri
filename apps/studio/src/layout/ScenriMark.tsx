@@ -36,14 +36,26 @@ const WORDMARK = [
  * Symbol plus wordmark, 4.122:1. Twenty pixels tall renders eighty-two wide,
  * which the bar has room for at every width down to 320.
  *
- * The symbol alone has no component: nothing in the app draws it on its own,
- * and brand/scenri-symbol.svg is what the icon generator renders every square
+ * The symbol alone is `ScenriMark`, for the eyebrow of a line in a
+ * conversation, where the wordmark would say the name twice beside the word.
+ * brand/scenri-symbol.svg is what the icon generator renders every square
  * icon from.
  */
 export function ScenriLockup(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 263.79 64" fill="currentColor" aria-hidden="true" focusable="false" {...props}>
       {[...SYMBOL, ...WORDMARK].map((d) => (
+        <path key={d} d={d} />
+      ))}
+    </svg>
+  );
+}
+
+/** The symbol on its own, square: 64 by 64. */
+export function ScenriMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 64 64" fill="currentColor" aria-hidden="true" focusable="false" {...props}>
+      {SYMBOL.map((d) => (
         <path key={d} d={d} />
       ))}
     </svg>

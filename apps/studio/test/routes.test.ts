@@ -6,6 +6,7 @@ import {
   kitPath,
   scenePath,
   scenesPath,
+  presenterEditPath,
   presenterPath,
   presentersPath,
   productPath,
@@ -41,6 +42,7 @@ describe('path builders', () => {
     expect(scenePath(brand, 'soft-daylight')).toBe('/nalla/scenes/soft-daylight');
     expect(presentersPath(brand)).toBe('/nalla/presenters');
     expect(presenterPath(brand, 'sana')).toBe('/nalla/presenters/sana');
+    expect(presenterEditPath(brand, 'sana')).toBe('/nalla/presenters/sana/edit');
     expect(productsPath(brand)).toBe('/nalla/products');
     expect(productPath(brand, 'p-1a2b3c4d')).toBe('/nalla/products/p-1a2b3c4d');
     expect(hubPath(brand)).toBe('/nalla/create');

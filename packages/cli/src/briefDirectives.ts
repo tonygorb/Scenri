@@ -409,6 +409,70 @@ export function shotAsksForAPerson(text: string): boolean {
   );
 }
 
+/* ------------------------------------------------ the view a shot asks for */
+
+export type AskedView = 'back' | 'profile' | 'three-quarter';
+
+/**
+ * The view the brief's own words ask for, read over the text the user typed
+ * only, the way shotAsksForAPerson is. A presenter stores more views than a
+ * brief can carry (CHARACTER_REF_MAX), and the ones that rode used to be the
+ * first three stored whatever the shot said: "walking away" shipped the face,
+ * the full body and the three-quarter, and the model invented a back it had
+ * never been shown. Whole words only, so a backpack is not a back view.
+ */
+export function askedView(text: string): AskedView | null {
+  if (/\b(from behind|from the back|back view|walking away|rear view|seen from behind)\b/i.test(text)) return 'back';
+  if (/\b(in profile|profile view|side view|from the side)\b/i.test(text)) return 'profile';
+  if (/\b(three[- ]quarter|turned|over the shoulder|over-the-shoulder)\b/i.test(text)) return 'three-quarter';
+  return null;
+}
+
+/** The stored angles that answer each ask, first found first: the studio's names, then the curated roster's. */
+const ANSWERING_ANGLES: Record<AskedView, string[]> = {
+  back: ['back'],
+  profile: ['left', 'right', 'left-profile', 'right-profile'],
+  'three-quarter': ['three-quarter'],
+};
+
+/**
+ * Which of a presenter's stored views ride, in boarding order: the leading
+ * view (the portrait, else the first stored) as the identity, then the view
+ * the words ask for, then the full body, then the rest as stored, each file
+ * once, cut at `max`. With nothing asked that is the stored order, so a brief
+ * that names no view compiles exactly as it always has.
+ */
+export function characterRefs<S extends { file?: unknown; angle?: unknown }>(
+  shots: S[],
+  userWords: string,
+  max: number,
+): S[] {
+  const cap = Math.max(0, max);
+  const out: S[] = [];
+  const seen = new Set<string>();
+  const board = (s: S | undefined) => {
+    if (!s || out.length >= cap) return;
+    // A shot with no file boards and is dropped downstream, exactly as the
+    // plain slice used to let it through; only real files are deduplicated.
+    const file = s.file == null ? null : String(s.file);
+    if (file !== null) {
+      if (seen.has(file)) return;
+      seen.add(file);
+    }
+    out.push(s);
+  };
+  const byAngle = (angle: string) => shots.find((s) => s.angle === angle);
+  board(byAngle('portrait') ?? shots[0]);
+  const asked = askedView(userWords);
+  if (asked) {
+    const answer = ANSWERING_ANGLES[asked].map(byAngle).find(Boolean);
+    board(answer);
+  }
+  board(byAngle('front'));
+  for (const s of shots) board(s);
+  return out;
+}
+
 export function sceneFigureDirectives(opts: {
   figure: string;
   treatment?: string;

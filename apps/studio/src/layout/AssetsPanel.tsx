@@ -326,13 +326,7 @@ export function AssetsPanel({
         full={full}
         moreLabel="presenters"
         createLabel="Create presenter"
-        onCreate={() =>
-          createAsset('presenter', {
-            onCreated: (made) => {
-              if (made.kind === 'presenter') reveal('presenter');
-            },
-          })
-        }
+        onCreate={() => createAsset('presenter', { onCreated: () => reveal('presenter') })}
       />
 
       <Section

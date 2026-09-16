@@ -92,32 +92,6 @@
   color: var(--sc-fg);
 }
 /* Presenter lookpage: face crop above the name (full-length thumbs, top-pinned). */
-.sc-presenterpage-avatar {
-  width: 88px;
-  height: 88px;
-  margin: 0 auto 20px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 1px solid var(--sc-line);
-  background: var(--sc-raised);
-  flex: none;
-}
-.sc-presenterpage-avatar img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-  /* Fallback only: a waist-up 4:5 library thumb has to be zoomed hard into the
-     head or the circle reads as a tiny torso. */
-  object-position: 50% 0%;
-  transform: scale(3.2);
-  transform-origin: 50% 16%;
-}
-.sc-presenterpage-avatar[data-avatar] img {
-  /* A square head-and-shoulders portrait already fills the circle. */
-  object-position: 50% 50%;
-  transform: none;
-}
 .sc-lookpage h1 {
   font: 600 var(--sc-text-h1) / 1.14 var(--sc-font);
   color: var(--sc-fg);
@@ -381,11 +355,6 @@
   .sc-lookpage-crumb {
     margin-bottom: 16px;
   }
-  .sc-presenterpage-avatar {
-    width: 80px;
-    height: 80px;
-    margin-bottom: 18px;
-  }
   .sc-lookpage {
     --sc-text-h1: 34px;
   }
@@ -437,11 +406,6 @@
   .sc-lookpage-crumb {
     font-size: 11px;
     margin-bottom: var(--sc-space-5);
-  }
-  .sc-presenterpage-avatar {
-    width: 72px;
-    height: 72px;
-    margin-bottom: 16px;
   }
   .sc-lookpage {
     --sc-text-h1: 28px;

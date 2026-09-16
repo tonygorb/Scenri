@@ -1,17 +1,17 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { presenterSearchText } from '../displayName.js';
-import { useNavigate } from 'react-router';
+import { Outlet, useMatch, useNavigate } from 'react-router';
 import { Plus } from '@phosphor-icons/react';
-import { api } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { useTaskCenter } from '../app/TaskCenter.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { customPresentersOf } from '../brandAssets.js';
-import { presenterPath } from '../routes.js';
-import { AssetBuildCard } from '../layout/AssetBuildCard.js';
+import { api, type PresenterDraftSummary } from '../api.js';
+import { P, presenterPath, presenterStudioPath } from '../routes.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
+import { PresenterDraftCard } from '../layout/PresenterDraftCard.js';
+import { Confirm } from '../Confirm.js';
 import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { LibraryToolbar } from '../layout/library/LibraryToolbar.js';
@@ -51,10 +51,8 @@ export function PresentersView() {
   // One poll for the whole app, owned by TaskCenter: a build started from the
   // top bar on any screen has to stay visible after you leave the screen that
   // started it.
-  const { builds, poke: refreshBuilds } = useTaskCenter();
   const createAsset = useCreateAsset();
   const mine = useMemo(() => customPresentersOf(brand), [brand]);
-  const running = builds.filter((b) => b.kind === 'presenter' && (!b.finished || b.stage === 'failed'));
   const [tile, setTile] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
   const density = normalizeDensity(tile);
   const setDensity = (cols: DensityCols) => setTile(cols);
@@ -82,10 +80,106 @@ export function PresentersView() {
 
   const mode = facetMode(presenterCategories.length);
 
+  /** The wall and the one way on, so a card thrown away can hand its place to a neighbour. */
+  const wall = useRef<HTMLDivElement>(null);
+  const cta = useRef<HTMLButtonElement>(null);
+
   const createCta = (
-    <button type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('presenter')}>
+    <button ref={cta} type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('presenter')}>
       <Plus size={12} /> Create presenter
     </button>
+  );
+
+  /**
+   * The people this brand started and did not finish.
+   *
+   * Their work is minutes of drawing and it lived behind a pointer held in one
+   * tab: close the tab and a finished face and a full body were unreachable.
+   * They are read here so the library is the door back to them, which is what
+   * the creation page has always claimed happens.
+   */
+  const [drafts, setDrafts] = useState<PresenterDraftSummary[]>([]);
+  const loadDrafts = useCallback(() => {
+    let alive = true;
+    void api
+      .presenterDrafts(brand.id)
+      // An edit of somebody already saved is not unfinished work: they are on
+      // the wall already, and their own page offers the session back.
+      .then((r) => alive && setDrafts(r.drafts.filter((d) => !d.presenterId)))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [brand.id]);
+  /**
+   * Read again when the studio closes, never while it is open.
+   *
+   * The studio is this page's own child route, so the wall stays mounted
+   * underneath it and its list is whatever it was fetched before. Minting a
+   * draft and pressing Escape used to land on a wall that predated the draft,
+   * which reads as the work having been thrown away. The studio is full-bleed
+   * over the wall, so there is nothing to read while it is open.
+   */
+  const inStudio = !!useMatch({ path: P.presenterStudio });
+  useEffect(() => {
+    if (inStudio) return;
+    return loadDrafts();
+  }, [inStudio, loadDrafts]);
+  /**
+   * The wall, so a card thrown away can hand its place on to a neighbour.
+   *
+   * The control that discards a card is inside that card, so agreeing to the
+   * discard destroys the element that had focus and the browser drops focus to
+   * `body`: the next Tab starts again at Skip to content, which is the far end
+   * of the page from where the person was working. Focus moves to the next
+   * card's own discard, the way `ShotRail` and `LineageStrip` hand focus to the
+   * neighbouring tile, and to Create presenter when that was the last one,
+   * because that is the only thing left to do here.
+   */
+  const drop = useCallback(
+    (id: string) => {
+      const at = Math.max(
+        0,
+        drafts.findIndex((d) => d.id === id),
+      );
+      handOn.current = at;
+      setDrafts((cur) => cur.filter((d) => d.id !== id));
+      void api.deletePresenterDraft(brand.id, id).finally(() => loadDrafts());
+    },
+    [brand.id, drafts, loadDrafts],
+  );
+  /**
+   * Where focus goes next, taken in the render that took the card away.
+   *
+   * Not a `requestAnimationFrame` inside the handler: a frame can come before
+   * React commits, and then this reads the wall as it was and focuses the card
+   * that is about to be removed. An effect on `drafts` runs after the commit,
+   * which is the only moment the neighbour is the neighbour.
+   */
+  const handOn = useRef<number | null>(null);
+  useEffect(() => {
+    const at = handOn.current;
+    if (at === null) return;
+    handOn.current = null;
+    const pucks = wall.current?.querySelectorAll<HTMLButtonElement>('[data-build] .sc-cardpuck');
+    (pucks?.length ? pucks[Math.min(at, pucks.length - 1)] : cta.current)?.focus();
+  }, [drafts]);
+  /**
+   * Throwing away drawn work asks first.
+   *
+   * The puck on a card went straight to the delete, so a face somebody had
+   * decided on went with one press and no word, and nothing offers it back.
+   * A draft with nothing drawn on it costs only the answering, so that one
+   * still goes at once.
+   */
+  const [discarding, setDiscarding] = useState<PresenterDraftSummary | null>(null);
+  const discardDraft = useCallback(
+    (id: string) => {
+      const d = drafts.find((x) => x.id === id);
+      if (d?.drawn) setDiscarding(d);
+      else drop(id);
+    },
+    [drafts, drop],
   );
 
   /** A person the brand owns, narrowed by whatever the wall is narrowed by. */
@@ -105,8 +199,10 @@ export function PresentersView() {
    * narrowing to a category your one presenter is not in read as losing the
    * page, chrome and all, and snapping back to the first-run offer.
    */
-  const owned = mine.length > 0 || running.length > 0;
-  const showMine = running.length > 0 || minePlusBuilds.length > 0;
+  const owned = mine.length > 0 || drafts.length > 0;
+  // A draft is not categorised and carries no search text, so it rides above
+  // the filter rather than being hidden by one.
+  const showMine = minePlusBuilds.length > 0 || drafts.length > 0;
   /**
    * Nothing of your own yet: the page leads with its offer.
    *
@@ -175,16 +271,38 @@ export function PresentersView() {
               <div className="sc-sec-head">
                 <h2 className="sc-sec-title">Your presenters</h2>
               </div>
-              <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
-                {running.map((b) => (
-                  <AssetBuildCard
-                    key={b.id}
-                    build={b}
-                    onCancel={(id) => void api.cancelAssetBuild(brand.id, id).then(refreshBuilds)}
-                    onDismiss={(id) => void api.deleteAssetBuild(brand.id, id).then(refreshBuilds)}
-                    onRetry={() => createAsset('presenter')}
+              <div
+                ref={wall}
+                className="sc-masonry"
+                data-wall
+                data-density
+                data-density-size={densityAttr}
+                style={wallStyle}
+              >
+                {drafts.map((d) => (
+                  <PresenterDraftCard
+                    key={d.id}
+                    draft={d}
+                    href={presenterStudioPath(brand, d.id)}
+                    onDiscard={discardDraft}
                   />
                 ))}
+                {discarding && (
+                  <Confirm
+                    label="Discard"
+                    title={`Discard ${discarding.name.trim() || 'this unfinished presenter'}?`}
+                    body="The views drawn so far are thrown away. Nothing was saved to the library."
+                    open
+                    busy={false}
+                    onOpenChange={(o) => {
+                      if (!o) setDiscarding(null);
+                    }}
+                    onConfirm={() => {
+                      drop(discarding.id);
+                      setDiscarding(null);
+                    }}
+                  />
+                )}
                 {minePlusBuilds.map((p) => (
                   <PresenterCard
                     key={p.id}
@@ -280,6 +398,9 @@ export function PresentersView() {
           )}
         </main>
       </ScrollPane>
+      {/* the presenter studio, when its route is open: full-bleed over this
+          library, which stays mounted and scrolled where it was */}
+      <Outlet />
     </WallDensityCtx.Provider>
   );
 }

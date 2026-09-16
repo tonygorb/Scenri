@@ -27,6 +27,10 @@ const SEAT_TIER: Record<Attachment['role'], number> = {
   product: 0,
   character: 0,
   scene: 0,
+  // One detail of a person, behind every chip they placed: a picture of the
+  // exact glasses is worth having, and never worth the product or the face it
+  // would push out of a four-slot engine.
+  detail: 1,
   composition: 1,
   style: 2,
 };
@@ -37,8 +41,9 @@ export const ROLE_PRIORITY: Record<Attachment['role'], number> = {
   brand: 2,
   reference: 3,
   scene: 4,
-  composition: 5,
-  style: 6,
+  detail: 5,
+  composition: 6,
+  style: 7,
 };
 
 /**

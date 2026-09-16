@@ -125,6 +125,75 @@ describe('analyze — presenter', () => {
     expect(existsSync(dir)).toBe(false); // workspace cleaned up
   });
 
+  it('keeps facial, skin and build, and files each photo by view, when asked to', async () => {
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      const body = {
+        ...GOOD_PRESENTER,
+        facial: 'oval face, high cheekbones, wide-set eyes',
+        skin: 'olive with fine natural texture',
+        build: 'slender, upright posture',
+        photos: [
+          { index: 0, view: 'portrait', usable: true, note: 'sharp, well lit' },
+          { index: 1, view: 'sideways', usable: 'yes', note: 'a profile' },
+          { index: 2, view: 'Three-Quarter', usable: true, note: 'turned, both eyes visible' },
+          { index: 7, view: 'front', usable: true, note: 'no such photo' },
+          'junk',
+        ],
+        conflict: 'ref-2 looks like a different person: rounder face, darker brows',
+      };
+      writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(body));
+      child.emit('exit', 0, null);
+    });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
+    const draft = (await analyzer.analyze({
+      kind: 'presenter',
+      name: 'Mara',
+      imagePaths: [photo(), photo(), photo()],
+      classifyPhotos: true,
+    })) as PresenterDraft;
+
+    expect(draft.facial).toBe('oval face, high cheekbones, wide-set eyes');
+    expect(draft.skin).toBe('olive with fine natural texture');
+    expect(draft.build).toBe('slender, upright posture');
+    // an unknown view is "other", a loose boolean is coerced, an index past
+    // the photos is dropped, junk is dropped
+    expect(draft.photos).toEqual([
+      { index: 0, view: 'portrait', usable: true, note: 'sharp, well lit' },
+      { index: 1, view: 'other', usable: true, note: 'a profile' },
+      { index: 2, view: 'three-quarter', usable: true, note: 'turned, both eyes visible' },
+    ]);
+    // a second person in the pile is said once, never refused
+    expect(draft.conflict).toBe('ref-2 looks like a different person: rounder face, darker brows');
+    const prompt = promptFromArgs(calls[0]);
+    expect(prompt).toContain('"facial"');
+    expect(prompt).toContain('"photos"');
+    expect(prompt).toContain('"conflict"');
+    expect(prompt).toContain('ref-1.png');
+    // the filing names every view the studio can fill, the three-quarter included
+    expect(prompt).toContain('"three-quarter" (turned about forty-five degrees, both eyes visible)');
+  });
+
+  it('never spends the one retry on the optional keys', async () => {
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      const body = { ...GOOD_PRESENTER, facial: 42, skin: null, build: [], photos: 'none' };
+      writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(body));
+      child.emit('exit', 0, null);
+    });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
+    const draft = (await analyzer.analyze({
+      kind: 'presenter',
+      name: 'Mara',
+      imagePaths: [photo()],
+    })) as PresenterDraft;
+    expect(calls).toHaveLength(1);
+    expect(draft.facial).toBeUndefined();
+    expect(draft.photos).toBeUndefined();
+    expect(draft.conflict).toBeUndefined();
+    // and a call that did not ask for a filing is not told about one
+    expect(promptFromArgs(calls[0])).not.toContain('"photos"');
+    expect(promptFromArgs(calls[0])).not.toContain('"conflict"');
+  });
+
   it('retries once with the exact problem, then succeeds', async () => {
     let n = 0;
     const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
