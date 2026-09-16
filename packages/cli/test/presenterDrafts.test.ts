@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import sharp from 'sharp';
 import { createCore, type Core, type EngineAdapter, type GenerateRequest } from '@scenri/core';
 import { commit, customPresenterHeads, headOf, presenterChain, type CustomPresenter } from '../src/assetRecords.js';
@@ -181,12 +181,7 @@ async function faceFirst(draftId: string) {
 }
 
 const refsOf = (req: GenerateRequest) =>
-  (req.referenceImages ?? []).map((p) =>
-    p
-      .split('/')
-      .pop()!
-      .replace(/\.png$/, ''),
-  );
+  (req.referenceImages ?? []).map((p) => basename(p, '.png'));
 const view = (d: PresenterDraftRecord, v: PresenterView) => d.views[v];
 
 async function synthetic(direction = 'confident woman in her 40s, short silver hair') {
