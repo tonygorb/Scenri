@@ -20,6 +20,7 @@ import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '.
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
 import { Composer } from '../layout/Composer.js';
 import { ComposerDock } from '../layout/ComposerDock.js';
+import { ImportBar } from '../layout/ImportBar.js';
 import { ShowcaseCard, ShowcaseCardSkeleton } from '../layout/ShowcaseCard.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 import { SceneCard, SceneCardSkeleton } from '../layout/SceneCard.js';
@@ -441,6 +442,7 @@ export function HomeView() {
           flushes the draft, so half-typed briefs still reach Create). */}
         {!phone && (
           <ComposerDock>
+            <ImportBar />
             <Composer
               projectId={workspace?.id || null}
               brand={brand}

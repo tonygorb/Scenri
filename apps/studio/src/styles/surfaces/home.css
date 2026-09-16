@@ -317,3 +317,82 @@
   max-width: none;
   padding: 26px var(--sc-gutter) 230px;
 }
+
+/* ---------- a catalogue import, in the dock ---------- */
+/* Same shelf and same pill as `.sc-picked` directly above the composer, for
+   the same reason: it clears whatever height the composer happens to be.
+   The progress is the surface rather than a meter drawn on top of it - a
+   quiet fill creeping left to right under the count, which is enough to read
+   at a glance and nothing to look at when you are not. */
+.sc-impbar {
+  position: relative;
+  overflow: hidden;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 14px;
+  border-radius: var(--sc-radius-full);
+  border: 1px solid var(--sc-line-strong);
+  background: var(--sc-raised);
+  box-shadow: var(--sc-shadow-2);
+}
+.sc-impbar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--sc-impbar-p, 0%);
+  background: var(--sc-fg);
+  opacity: 0.07;
+  /* The count updates a few times a second; without this the fill steps. */
+  transition: width 400ms ease-out;
+  pointer-events: none;
+}
+.sc-impbar-text {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+}
+.sc-impbar-host {
+  color: var(--sc-fg);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 22ch;
+}
+.sc-impbar-count {
+  color: var(--sc-fg2);
+  white-space: nowrap;
+}
+.sc-impbar-stop {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: none;
+  color: var(--sc-fg3);
+  font-size: 12.5px;
+  font-family: var(--sc-font);
+  padding: 4px 8px;
+  border-radius: var(--sc-radius-full);
+  cursor: pointer;
+}
+.sc-impbar-stop:hover:not(:disabled) {
+  color: var(--sc-fg);
+  background: var(--sc-hover);
+}
+.sc-impbar-stop:disabled {
+  opacity: var(--sc-disabled);
+  cursor: default;
+}
+@media (max-width: 767px) {
+  .sc-impbar-host {
+    max-width: 12ch;
+  }
+}
