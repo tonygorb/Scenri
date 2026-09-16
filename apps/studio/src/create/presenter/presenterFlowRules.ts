@@ -870,6 +870,21 @@ export interface FlowArgs {
   canGenerate: boolean;
   /** A request that never reached the engine, said once with a Retry. */
   failed?: string | null;
+  /**
+   * The address names a draft and it has not arrived yet.
+   *
+   * A conversation with no draft is normally a new one, and its first question
+   * is asked at once. Opening an existing draft takes a moment, and for that
+   * moment the flow looks exactly like a new conversation: it asked "Who are we
+   * making?", the record then landed on top of it, and the question was taken
+   * away again a render later. The transcript grew 124px and shrank back, and
+   * because the newest turn is pinned to the bottom, the pictures were thrown
+   * up off the top of the rail and came back down. Reported 2026-09-16 as the
+   * pictures flinging when a draft is opened.
+   *
+   * So a route that names a draft does not ask anything until it has one.
+   */
+  awaiting?: boolean;
 }
 
 /**
@@ -933,7 +948,7 @@ function shape(args: FlowArgs, asides: Aside[], openId: string | null): Turn[] {
 }
 
 function build(
-  { state, draft, canGenerate, failed }: FlowArgs,
+  { state, draft, canGenerate, failed, awaiting }: FlowArgs,
   asides: Aside[],
   openId: string | null,
   placed: Set<Aside>,
@@ -1073,7 +1088,9 @@ function build(
     }
   }
   if (!draft) {
-    if (open) lead.push({ kind: 'question', question: open });
+    // Nothing is asked while a named draft is still on its way: the question
+    // would be withdrawn a render later, and taking it away moves everything.
+    if (open && !awaiting) lead.push({ kind: 'question', question: open });
     return lead;
   }
   const record = recordTurns({

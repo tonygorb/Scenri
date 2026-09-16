@@ -229,6 +229,57 @@ test('discarding a drawn draft asks first, and cancelling keeps it', async ({ pa
   expect(left.drafts.map((d) => d.id)).not.toContain(drawn);
 });
 
+/**
+ * Opening a draft only ever adds to the conversation.
+ *
+ * A general guard, not the pin for the fling reported on 2026-09-16: against a
+ * local API the draft arrives too fast for the render that caused it, so this
+ * passes with and without that fix. The rule itself is a pure function and is
+ * pinned in `presenterFlowRules.test.ts` ("asks nothing while a draft named in
+ * the address is still on its way").
+ *
+ * What this does catch is the shape of the fault, whatever causes it next: a
+ * turn that appears and is taken away again, or a transcript that shrinks.
+ * Both become a journey, because the newest turn is pinned to the bottom.
+ */
+test('opening a draft only ever adds to the conversation', async ({ page }) => {
+  test.setTimeout(120_000);
+  const brand = await currentBrand(page);
+  const draftId = await seedDraft(page.request, brand.id, 'a woman in her 40s, silver crop');
+
+  await page.goto(`/${brand.slug}/presenters`);
+  await page.evaluate(() => {
+    const w = window as unknown as { __withdrawn: string[]; __shrank: boolean; __lastH: number };
+    w.__withdrawn = [];
+    w.__shrank = false;
+    w.__lastH = 0;
+    const seen = new Set<string>();
+    new MutationObserver(() => {
+      const now = new Set(
+        [...document.querySelectorAll('.sc-convo-turn')].map((e) => e.getAttribute('data-turn') ?? ''),
+      );
+      for (const k of now) seen.add(k);
+      for (const k of seen) if (!now.has(k) && !w.__withdrawn.includes(k)) w.__withdrawn.push(k);
+      const log = document.querySelector('.sc-convo-log');
+      if (log) {
+        if (w.__lastH && log.scrollHeight < w.__lastH) w.__shrank = true;
+        w.__lastH = log.scrollHeight;
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+
+  await page.locator(`a[href$="/presenters/new/${draftId}"]`).click();
+  await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 20_000 });
+
+  // Nothing said is unsaid. A turn that appears and is taken away again is the
+  // fault itself: the question of a conversation nobody is having, asked while
+  // the draft was still on its way.
+  expect(await page.evaluate(() => (window as unknown as { __withdrawn: string[] }).__withdrawn)).toEqual([]);
+  // and the conversation only ever grew: a transcript that shrinks has taken
+  // something away, and the bottom pin turns that into a journey
+  expect(await page.evaluate(() => (window as unknown as { __shrank: boolean }).__shrank)).toBe(false);
+});
+
 test('Start over begins a new conversation and leaves every draft where it was', async ({ page }) => {
   test.setTimeout(120_000);
   const brand = await currentBrand(page);

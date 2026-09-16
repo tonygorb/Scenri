@@ -537,7 +537,10 @@ export function useCreationFlow({
 
   // What is being waited for that never reached the engine, said once with a Retry.
   const failed = d ? (s.err && !isDrawing(d) ? s.err : null) : askErr;
-  const turns = useMemo(() => turnsFor({ state, draft: d, canGenerate: canDraw, failed }), [state, d, canDraw, failed]);
+  const turns = useMemo(
+    () => turnsFor({ state, draft: d, canGenerate: canDraw, failed, awaiting: !!draftId && !d }),
+    [state, d, canDraw, failed, draftId],
+  );
   const question = activeQuestion(turns);
   // the question on the floor, for work that runs after the render it started in
   const questionRef = useRef<string | null>(null);

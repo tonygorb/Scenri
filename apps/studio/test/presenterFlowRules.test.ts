@@ -84,6 +84,25 @@ describe('the transcript is a function of state', () => {
     expect(composerFor(open(T), state({}), null, 'portrait').placeholder).toBe('Describe them, or choose above');
   });
 
+  /**
+   * A route that names a draft asks nothing until it has one.
+   *
+   * With no draft loaded yet the flow looks exactly like a new conversation,
+   * so it asked "Who are we making?", the record landed on top of it, and the
+   * question was taken away a render later. The transcript grew by that
+   * question's height and shrank back, and because the newest turn is pinned
+   * to the bottom, the pictures were thrown up off the top of the rail and
+   * came back down. Measured on 2026-09-16 opening a draft from the wall: a
+   * picture went 351 to -295 and back to 246, the log 664 to 1315 to 1191.
+   */
+  it('asks nothing while a draft named in the address is still on its way', () => {
+    // the same state, with and without a draft on the way
+    expect(keys(turnsFor({ state: state({}), draft: null, canGenerate: true }))).toEqual(['you:intent', 'q:source']);
+    expect(keys(turnsFor({ state: state({}), draft: null, canGenerate: true, awaiting: true }))).toEqual([
+      'you:intent',
+    ]);
+  });
+
   it('from scratch: the look is asked one row at a time, each answer under its own line', () => {
     let a: Answers = { source: { door: 'scratch', via: 'taps' } };
     const T0 = turns(state(a));

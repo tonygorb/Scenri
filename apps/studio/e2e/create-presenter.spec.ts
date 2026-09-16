@@ -1214,11 +1214,28 @@ test.describe('what answers nothing', () => {
     const draftId = await seedDraft(page, brand.id, 'core-approved');
     await openDraft(page, brand, draftId);
     await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 20_000 });
-    const said = await log(page).locator('.sc-convo-turn').count();
-    expect(said).toBeGreaterThan(3);
+    // Settled on both sides, and compared by what the turns are rather than how
+    // many: counted the moment Save as is appears, the transcript is still
+    // being put together, and the two sides were only ever equal by luck.
+    const keys = () =>
+      log(page)
+        .locator('.sc-convo-turn')
+        .evaluateAll((n) => n.map((e) => e.getAttribute('data-turn')));
+    const settled = async () => {
+      let was: string[] = [];
+      for (let i = 0; i < 40; i++) {
+        const now = await keys();
+        if (now.length && now.join() === was.join()) return now;
+        was = now;
+        await page.waitForTimeout(150);
+      }
+      return was;
+    };
+    const said = await settled();
+    expect(said.length).toBeGreaterThan(3);
     // the page is opened again on the same conversation: it is simply there
     await page.reload();
-    await expect(log(page).locator('.sc-convo-turn')).toHaveCount(said, { timeout: 20_000 });
+    await expect.poll(settled, { timeout: 20_000 }).toEqual(said);
     for (let i = 0; i < 12; i++) {
       expect(await log(page).locator('.sc-convo-turn[data-arrive]').count()).toBe(0);
       expect(await log(page).locator('.sc-convo-dots').count()).toBe(0);
