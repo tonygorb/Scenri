@@ -110,7 +110,41 @@ the assertion follow.
 focus carried no automated coverage and nobody had done them. Running them
 found the focus defect in the first ten minutes.
 
-## 6. Where it stands
+## 6. The opening, done after the rest
+
+Added 2026-09-16, after the hardening pass, from the one question it had left
+open: whether the moment after Create presenter could be better.
+
+It could, and the finding was not "there is no animation". The conversation
+inside was already paced to the millisecond while the room around it was
+slammed at full opacity on frame one, with no animation, no transition and no
+start state. The studio was the only surface for making a new thing with no
+arrival, despite already borrowing that family's header class.
+
+It now uses the house motion, per form factor, on the house curve: the same
+keyframes `add-to-brand` uses. A first pass faded instead, which is what you
+reach for when you have not decided what the motion means.
+
+Measuring it turned up two defects that had nothing to do with motion:
+
+- **The composer moved 35px at about 400ms**, because the footnote said
+  "Checking the engine..." and then unmounted when the capabilities probe
+  answered, while the first question was still being spoken.
+- **The close on a phone head ran 2px off the screen** and was clipped there,
+  sat 20px in against the title's 16, and centred 2.5px above the middle of
+  the bar. One rule with four different padding values.
+
+And one false green. `create-asset.spec.ts` claims each flow says what pressing
+its button will do; the presenter studio passed `capsNote('')` and never said
+anything, so that assertion had only ever been catching the transient loading
+line. The first fix silenced the line, which would have made the false green
+permanent. The right fix was the opposite: say what it spends, like the other
+two flows do. The 35px jump then goes as a consequence rather than as the goal.
+
+That is the rule from section 5 working on its author within a day of it being
+written down.
+
+## 7. Where it stands
 
 - `pnpm verify` green. Full browser suite green on a quiet machine.
 - 34 of 40 checklist rows green by automation; the 6 hand rows run on

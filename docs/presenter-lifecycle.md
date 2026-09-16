@@ -70,6 +70,24 @@ because it only moves views that are approved or candidate and a view being
 drawn is `generating`. The picture is kept, because it cost a generation and the
 log can offer it back, but the set says it has to be drawn again.
 
+## The moment it opens
+
+The studio is a child route of the wall, so `PresentersView` never unmounts: a
+full-bleed surface is laid over a library that is still there, still scrolled
+where it was. That is what the arrival is made of. It travels the way every
+other surface for making a new thing travels, per form factor and on the same
+curve as `add-to-brand`: a sheet up from the bottom edge on a phone, a short
+rise and a 2% zoom on a desktop. The same keyframes, not copies.
+
+It lands with the conversation's own first beat rather than before it, and it
+plays once: the route pattern is one object with no key, so gaining a draft id
+changes a prop and never remounts the surface.
+
+Nothing moves after it lands. The line under the composer says what the studio
+will spend, from the first frame, the way the scene flow does. It used to say
+"Checking the engine..." and then unmount when the probe answered, which moved
+the composer 35px while the first question was still being spoken.
+
 ## What each control does, and what it costs
 
 Every control that can spend a generation or throw work away, in one place. All
@@ -198,6 +216,22 @@ That costs a generation on a change of mind inside an editing session. It is
 conservative in the safe direction: the alternative is a view marked current
 while wearing a face nobody used.
 
+## Open, and Tony's to decide
+
+Neither is a defect. Both were found measuring the opening and deliberately
+left alone, because they are layout decisions rather than defects and the
+transcript's top anchoring is settled doctrine.
+
+**The rail is about half empty at rest** — 441px at 1440x900, 422px at 390x844.
+A conversation with two turns in it is genuinely short, and the composer
+belongs at the bottom, so this may be the honest shape rather than a gap.
+
+**A phone never sees the promise.** The stage renders as `phone ? null`
+(`StudioShell.tsx`), so "First portrait appears here" exists only on a desktop.
+On a phone that space says nothing about what the conversation will produce.
+The sign itself already exists (`StageEmpty.tsx`), so giving it to the phone is
+small; whether it belongs there is the question.
+
 ## The 0.10.0 release checklist
 
 Run on the demo engine unless a row says otherwise. Automated coverage in
@@ -257,6 +291,12 @@ brackets; a row with none is a manual pass.
 - [ ] A pre-v2 record opens, renders and casts (`presenter-legacy`)
 - [ ] Its editor claims no changes nobody made (`presenter-legacy`)
 - [ ] A record with no prose can still be drawn (`presenter-legacy`)
+
+**The moment it opens**
+- [ ] The studio travels over the library, and plays once (`create-presenter`)
+- [ ] It says what it will spend, and nothing moves after it lands (`create-presenter`, `create-asset`)
+- [ ] On a phone the close is on the screen, thumb-sized, level with the title
+- [ ] Reduced motion: it is simply there, with no travel
 
 **Responsive and reach**
 - [ ] Creation and the editor at 430, 390 and 375. Verified by hand 2026-09-16
