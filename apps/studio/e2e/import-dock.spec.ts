@@ -100,9 +100,12 @@ for (const [w, h, label] of [
     const text = await bar.innerText();
     // It names the shop and counts products, in the one unit the row uses.
     expect(text).toMatch(/\d+ of \d+ products|products/);
-    // And the fill is real progress, not decoration.
-    const pct = await bar.evaluate((el) => getComputedStyle(el).getPropertyValue('--sc-impbar-p'));
-    expect(pct.trim()).toMatch(/^\d+(\.\d+)?%$/);
+    // A clock, not a percent. The job's percent goes backwards - the picture
+    // phase divides by a total that grows as products are written - so what is
+    // shown is the one number that cannot.
+    await expect(bar.locator('.sc-impbar-clock')).toHaveText(/^\d+:\d{2}(:\d{2})?$/);
+    // And the shop is its mark, not its address.
+    expect(text).not.toContain('127.0.0.1');
 
     // It offers the one thing there is to do, and stopping really stops it.
     await expect(bar.getByRole('button', { name: 'Stop importing' })).toBeVisible();

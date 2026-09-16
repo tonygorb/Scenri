@@ -1,46 +1,64 @@
-import { useState } from 'react';
-import { X } from '@phosphor-icons/react';
-import { api } from '../api.js';
+import { useEffect, useState } from 'react';
+import { Storefront, X } from '@phosphor-icons/react';
+import { api, assetUrl } from '../api.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
+import { primaryMark } from '../brand/marks.js';
+import { elapsedLabel } from '../tasks.js';
 
 /**
  * A catalogue import, while it is happening, where you are already looking.
  *
  * An import is the one long job a person starts and then keeps working
  * through, and until now the only place it existed was a row inside the bell:
- * a panel you have to remember to open, over a count that changed units as it
- * went. So it ran invisibly, and the wall of products filling in was the only
- * evidence.
+ * a panel you have to remember to open. So it ran invisibly, and the wall of
+ * products filling in was the only evidence.
  *
  * It rides in the dock, above the composer, the same shelf `PickedBar` uses
  * for the same reason - it clears whatever height the composer happens to be
- * rather than a distance guessed in advance. One line, the count it already
- * had, and the one thing there is to do about it.
+ * rather than a distance guessed in advance.
  *
- * Deliberately not a second progress bar: the fill is the surface itself, so
- * the bar says how far along it is without drawing a meter to say it.
+ * The clock rather than a bar, deliberately. This drew a fill from the job's
+ * percent, and that percent goes backwards: the picture phase is
+ * `imagesDone / imagesTotal`, and the total grows every time another product
+ * is written, so the fraction falls whenever products arrive faster than
+ * pictures download. A person watching saw it slide back. `elapsedLabel`
+ * already exists for exactly this and says why in its own comment - never a
+ * fabricated percent, and the number beside it never lies. What is true here
+ * is how many products have landed and how long it has taken, so that is what
+ * it says.
  */
 export function ImportBar() {
   const { brand } = useBrand();
   const { tasks } = useTaskCenter();
   const [stopping, setStopping] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
-  // Whatever is running now. More than one import at a time is possible and
+  // Whatever is running now. More than one at a time is possible and
   // uninteresting: the newest is the one someone just started.
   const run = tasks.find((t) => t.kind === 'catalog' && t.state === 'running');
+
+  useEffect(() => {
+    if (!run) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [run]);
+
   if (!run) return null;
 
   const jobId = run.id.startsWith('catalog:') ? run.id.slice('catalog:'.length) : null;
   const busy = stopping === run.id;
+  const mark = assetUrl(primaryMark(brand.json)?.file);
 
   return (
-    <div className="sc-impbar" role="status" style={{ ['--sc-impbar-p' as string]: `${run.percent ?? 0}%` }}>
-      <span className="sc-impbar-fill" aria-hidden />
-      <span className="sc-impbar-text">
-        <span className="sc-impbar-host">{run.title}</span>
-        <span className="sc-impbar-count">{run.subtitle}</span>
+    <div className="sc-impbar" role="status">
+      {/* The brand's own mark, not its address. You know which shop you asked
+          for; the URL was the longest thing in the pill and the least useful. */}
+      <span className="sc-impbar-mark" aria-hidden>
+        {mark ? <img src={mark} alt="" /> : <Storefront size={13} weight="regular" />}
       </span>
+      <span className="sc-impbar-count">{run.subtitle}</span>
+      <span className="sc-impbar-clock">{elapsedLabel(run.startedAt, now)}</span>
       {jobId && (
         <button
           type="button"
