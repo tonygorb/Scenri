@@ -57,12 +57,21 @@ const no = (reason: SiteUrlReason, suggestion?: string): SiteUrl => ({
   ...(suggestion ? { suggestion } : {}),
 });
 
-/** Strip one layer of the wrapping a mail client or chat app adds. */
+/**
+ * Strip one layer of the wrapping a mail client or chat app adds.
+ *
+ * The curly pairs are here because that is what a paste from a document or a
+ * chat app actually carries: an editor turns `"acme.com"` into `“acme.com”`
+ * before anyone copies it, and the straight-quote rule below never sees them.
+ */
 function unwrap(value: string): string {
   const pairs: [string, string][] = [
     ['<', '>'],
     ['"', '"'],
     ["'", "'"],
+    ['“', '”'],
+    ['‘', '’'],
+    ['«', '»'],
   ];
   for (const [open, close] of pairs) {
     if (value.length >= 2 && value.startsWith(open) && value.endsWith(close)) return value.slice(1, -1).trim();

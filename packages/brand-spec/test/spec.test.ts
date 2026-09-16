@@ -416,3 +416,59 @@ describe('a mark has to survive being looked at', () => {
     expect(report.logo.status).toBe('primary');
   });
 });
+
+/**
+ * People paste the page they are looking at.
+ *
+ * That is very often a product or a collection, not a homepage. A deep path
+ * that answered 404 used to end the whole thing - `example.com/a/b/c` gave
+ * "There is no page at that address" and no brand, from a site whose homepage
+ * read perfectly.
+ */
+describe('a pasted address that is not the homepage', () => {
+  const site = (ok: (u: string) => boolean) =>
+    (async (u: string) => {
+      const url = String(u);
+      if (!ok(url)) return new Response('nope', { status: 404 });
+      return new Response(
+        '<html><head><title>Acme</title><meta name="theme-color" content="#123456"></head><body>hi</body></html>',
+        { status: 200, headers: { 'content-type': 'text/html' } },
+      );
+    }) as unknown as typeof fetch;
+
+  it('falls back to the origin when the pasted page is not there', async () => {
+    const asked: string[] = [];
+    const fetchImpl = (async (u: string) => {
+      asked.push(String(u));
+      const url = String(u);
+      if (new URL(url).pathname !== '/') return new Response('nope', { status: 404 });
+      return new Response('<html><head><title>Acme</title></head><body>hi</body></html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      });
+    }) as unknown as typeof fetch;
+
+    const { brand, report } = await buildFromUrl('https://acme.example/products/a-thing', { fetchImpl });
+    expect(report.name.value).toBe('Acme');
+    expect((brand as any).meta.website).toBe('https://acme.example');
+    // The pasted address was tried first, because a shop really can live at a path.
+    expect(asked[0]).toContain('/products/a-thing');
+    expect(asked[1]).toBe('https://acme.example');
+  });
+
+  it('keeps a site that really does live at a path', async () => {
+    const fetchImpl = site((u) => u.includes('/shop'));
+    const { report } = await buildFromUrl('https://acme.example/shop', { fetchImpl });
+    expect(report.name.value).toBe('Acme');
+  });
+
+  it('does not ask twice when the homepage is the address', async () => {
+    const asked: string[] = [];
+    const fetchImpl = (async (u: string) => {
+      asked.push(String(u));
+      return new Response('nope', { status: 404 });
+    }) as unknown as typeof fetch;
+    await expect(buildFromUrl('https://acme.example/', { fetchImpl })).rejects.toThrow(/no page at that address/i);
+    expect(asked).toHaveLength(1);
+  });
+});

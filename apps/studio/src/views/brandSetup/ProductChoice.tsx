@@ -35,6 +35,7 @@ export function ProductChoice({
   brandId,
   scan,
   busy,
+  error,
   onImport,
   onImportAll,
   onDismiss,
@@ -42,6 +43,8 @@ export function ProductChoice({
   brandId: string;
   scan: CommerceScan;
   busy?: boolean;
+  /** Said here rather than behind the sheet: the choice is still on screen. */
+  error?: string | null;
   onImport: (urls: string[]) => void;
   onImportAll: () => void;
   onDismiss: () => void;
@@ -292,7 +295,13 @@ export function ProductChoice({
         <button type="button" className="sc-wiz-skip" onClick={onDismiss}>
           Not now
         </button>
-        {inFlight > 0 && <span className="sc-wizpick-loading">Loading products</span>}
+        {error ? (
+          <span className="sc-wizpick-error" role="alert">
+            {error}
+          </span>
+        ) : (
+          inFlight > 0 && <span className="sc-wizpick-loading">Loading products</span>
+        )}
         <button
           type="button"
           className="sc-wiz-cta"

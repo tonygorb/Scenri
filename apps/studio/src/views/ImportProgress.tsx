@@ -96,7 +96,13 @@ export function ImportProgress({
       </div>
 
       <SheetDescription className="sc-imp-sub">
-        {job ? (STAGE_LABEL[job.stage] ?? job.stage) : 'Reading the job'}
+        {/*
+          Never the raw stage. `job.stage` is an identifier - a new one added
+          server-side would put `fetching_products` on screen in front of a
+          person, which is the one place a machine word has ever reached this
+          dialog. An unmapped stage is simply work in progress.
+        */}
+        {job ? (STAGE_LABEL[job.stage] ?? 'Working') : 'Getting the details'}
         {job?.message ? ` · ${job.message}` : ''}
       </SheetDescription>
 

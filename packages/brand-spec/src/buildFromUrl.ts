@@ -142,12 +142,26 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
    * is the opposite case and still throws, because inventing a brand for an
    * address with nothing behind it would bury a typo.
    */
-  let page: Awaited<ReturnType<GuardedFetch>>;
-  try {
-    page = await get(normalized.url, 'html');
-  } catch (err) {
-    if (!isRefusal(err)) throw err;
-    return addressOnlyBrand(normalized.url, (err as ScrapeError).message, opts);
+  let page: Awaited<ReturnType<GuardedFetch>> | null = null;
+  let refused: ScrapeError | null = null;
+  let missed: unknown = null;
+  for (const candidate of readOrder(normalized.url)) {
+    try {
+      page = await get(candidate, 'html');
+      break;
+    } catch (err) {
+      // A site that answers and declines will decline its homepage too, so
+      // there is nothing to gain by asking twice.
+      if (isRefusal(err)) {
+        refused = err as ScrapeError;
+        break;
+      }
+      missed = err;
+    }
+  }
+  if (!page) {
+    if (refused) return addressOnlyBrand(normalized.url, refused.message, opts);
+    throw missed;
   }
   const origin = new URL(page.finalUrl);
   const $ = cheerio.load(page.text);
@@ -244,6 +258,27 @@ export async function buildFromUrl(url: string, opts: BuildOptions = {}): Promis
       colors: { count: colorCount },
     },
   };
+}
+
+/**
+ * The addresses worth trying, in order.
+ *
+ * People paste the page they are looking at. That is very often a product or a
+ * collection rather than a homepage, and a deep path that answers 404 used to
+ * end the whole thing: `example.com/a/b/c` produced "There is no page at that
+ * address" and no brand, from a site whose homepage was perfectly readable.
+ *
+ * The pasted address first, because a site really can live at `/shop`, and its
+ * origin second. Never more than these two - guessing further is how a brand
+ * builder turns into a crawler.
+ */
+function readOrder(url: string): string[] {
+  try {
+    const u = new URL(url);
+    return u.pathname === '/' && !u.search ? [url] : [url, u.origin];
+  } catch {
+    return [url];
+  }
 }
 
 /** The one slug rule, so a refused site and a read one are named the same way. */

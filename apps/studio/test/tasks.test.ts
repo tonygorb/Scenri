@@ -611,7 +611,7 @@ describe('a site with no shop on it', () => {
     const t = taskFromCatalogJob(job(), { slug: 'lucid' });
     expect(t.state).toBe('done');
     expect(t.percent).toBe(100);
-    expect(t.subtitle).toBe('Catalog import · no shop on this site');
+    expect(t.subtitle).toBe('Catalogue import · no shop on this site');
     expect(t.subtitle).not.toMatch(/fail/i);
   });
 

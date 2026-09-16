@@ -61,6 +61,8 @@ export function BrandSetup() {
   const [report, setReport] = useState<ScrapeReport | null>(null);
   /** Why the kit is thin, when a site answered and would not be read. */
   const [note, setNote] = useState<string | null>(null);
+  /** An import that would not start, said on the sheet that asked for it. */
+  const [importError, setImportError] = useState<string | null>(null);
   /**
    * The brand this input would duplicate, when one exists. Creating it anyway
    * is allowed — the second click says so — but never by accident: this is
@@ -146,12 +148,19 @@ export function BrandSetup() {
 
   const startImport = async (urls?: string[]) => {
     if (!made) return;
+    setImportError(null);
     setImporting(true);
     try {
       await api.catalogImport(made.id, String(made.json?.meta?.website ?? url), urls);
     } catch {
-      // The import is a background job with its own row; a failure to start
-      // it is not a reason to hold someone on the setup screen.
+      // An import that never started is not a background job, and this used to
+      // swallow that difference whole: the sheet closed, the brand landed, and
+      // the person waited for products that nobody had asked for. Stay on the
+      // sheet and say so - the choice they made is still on screen, so trying
+      // again is one click and costs them nothing.
+      setImportError('That did not start. Check your connection and try again.');
+      setImporting(false);
+      return;
     }
     setImporting(false);
     setChoosing(false);
@@ -450,6 +459,7 @@ export function BrandSetup() {
           brandId={made.id}
           scan={scan}
           busy={importing}
+          error={importError}
           onImport={(urls) => void startImport(urls)}
           onImportAll={() => void startImport()}
           onDismiss={() => setChoosing(false)}

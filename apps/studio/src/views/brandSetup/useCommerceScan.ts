@@ -101,6 +101,14 @@ export function useCommerceScan(brandId: string | null, url?: string): CommerceS
       try {
         const { scanId } = await api.catalogScan(brandId, url);
         startedScanId = scanId;
+        // The cleanup below can have run already: leaving the screen while
+        // this request was still in flight left `startedScanId` null, so the
+        // cancel it promises never fired and the crawl carried on against a
+        // stranger's store with nobody left to read the answer.
+        if (stopped || !live.current) {
+          void api.cancelCatalogScan(brandId, scanId).catch(() => {});
+          return;
+        }
         const deadline = Date.now() + GIVE_UP_MS;
         const poll = async () => {
           if (stopped || !live.current) return;
