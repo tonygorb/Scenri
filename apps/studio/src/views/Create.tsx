@@ -14,6 +14,8 @@ import { productLabel, sceneLabel } from '../displayName.js';
 import { saveDraft } from '../draft.js';
 import { generationMessages } from '../liveStatus.js';
 import { isFeedSort, isLens, type FeedSort, type Lens, type TokenNames, neighborsOf } from '../feedRules.js';
+import { learn } from '../guide.js';
+import { advanceTour } from '../tourStore.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useMediaQuery } from '../useMediaQuery.js';
 import { useToasts } from '../toasts.js';
@@ -74,6 +76,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     applyNodes,
     subscribeActivity,
     products,
+    importing,
   } = useBrand();
   // The rail offers what a brief can resolve, so the brand's own assets lead
   // it exactly as they do in the composer's own attach panel.
@@ -87,6 +90,12 @@ export function CreateView({ set }: { set: ShotSet | null }) {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  // The help menu's Keyboard shortcuts: the same list the ? key opens here.
+  useEffect(() => {
+    const open = () => setShortcutsOpen(true);
+    window.addEventListener('scenri:shortcuts', open);
+    return () => window.removeEventListener('scenri:shortcuts', open);
+  }, []);
   const { open: rawAssetsOpen, toggle: toggleAssets, setOpen: setAssetsOpen } = useAssetsPanel();
   /** Below 1024 the rail is gone, same as a phone. */
   const compact = useMediaQuery('(max-width: 1023px)');
@@ -440,6 +449,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
 
   const branchFrom = useCallback(
     (id: string) => {
+      // every door a person takes to refine (the tile, `b`, the shot's menu); a
+      // target restored from the address or re-aimed after a refine is not one
+      learn('refine');
       setBranchId(id);
       composerRef.current?.focus();
     },
@@ -878,6 +890,18 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    * looking at another brand. Below 1024 there is no rail, same as a phone.
    */
   const railOpen = assetsOpen || (firstRun && !compact);
+  /**
+   * The composer may offer refine once there is a finished shot here to open,
+   * and only on the plain hub: a set or the ungrouped view is not where a
+   * first shot lands, and a batch being picked or an import running already
+   * holds the dock above the composer.
+   */
+  const refineHint =
+    !set &&
+    !ungrouped &&
+    picked.size === 0 &&
+    !importing &&
+    items.some((n) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0);
 
   const emptyState = firstRun ? (
     <FirstRun
@@ -1139,9 +1163,15 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           shotsTotal={lensCounts.all}
           attached={attached}
           full={ceiling}
-          onToken={(t) => composerRef.current?.insertToken(t)}
+          onToken={(t) => {
+            if (t.t === 'product' || t.t === 'character') advanceTour('create', 'create.add');
+            composerRef.current?.insertToken(t);
+          }}
           offToken={(t) => composerRef.current?.removeToken(t)}
-          onTemplate={(id) => composerRef.current?.applyScene(id)}
+          onTemplate={(id) => {
+            advanceTour('create', 'create.add');
+            composerRef.current?.applyScene(id);
+          }}
           offTemplate={() => composerRef.current?.removeTemplate()}
           onClose={() => setAssetsOpen(false)}
         />
@@ -1192,6 +1222,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           target={target}
           onClearTarget={clearTarget}
           onRestoreBranchId={setBranchId}
+          refineHint={refineHint}
           setSlug={set?.slug ?? null}
           onSending={setSending}
           onAttached={setAttached}

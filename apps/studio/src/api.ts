@@ -60,6 +60,10 @@ export const api = {
     req<Brand & { warnings: string[]; report: ScrapeReport }>('POST', '/api/brands/from-url', { url }),
   updateBrand: (id: string, brand: any) => req<Brand>('PUT', `/api/brands/${id}`, { brand }),
   deleteBrand: (id: string) => req<{ ok: true }>('DELETE', `/api/brands/${id}`),
+  /** The install's first-use record: whether it is new, and what it has already been told. */
+  guide: () => req<{ eligible: boolean; learned: string[] }>('GET', '/api/guide'),
+  guideLearned: (concept: string) =>
+    req<{ eligible: boolean; learned: string[] }>('POST', '/api/guide/learned', { concept }),
   /**
    * Re-read the brand's own website. Merges: hand-edited fields survive, and
    * scraped colours come back as `suggestions` rather than being applied.

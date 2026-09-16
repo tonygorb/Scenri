@@ -166,6 +166,16 @@ export const BriefInput = forwardRef<
      * only hands the raw FileList off, upload + insert stays wherever it
      * already lived. */
     onDropFiles?: (files: FileList) => void;
+    /**
+     * The composer's first-use hint, when it would show on focus. Read with the
+     * line (never with the chips, which carry their own description), so a
+     * screen reader hears it on the same focus that makes it appear.
+     */
+    guide?: string | null;
+    /** The line took focus: the moment a hint becomes relevant. */
+    onEngage?: () => void;
+    /** A caret menu opened from its sigil. */
+    onSigilMenu?: (sigil: InsertSigil) => void;
   }
 >(function BriefInput(
   {
@@ -187,6 +197,9 @@ export const BriefInput = forwardRef<
     onAttachRequest,
     onSubmit,
     onDropFiles,
+    guide,
+    onEngage,
+    onSigilMenu,
   },
   ref,
 ) {
@@ -195,6 +208,7 @@ export const BriefInput = forwardRef<
   const scrollerRef = useRef<HTMLDivElement>(null);
   /** The one live region every reorder path speaks through. */
   const hintId = useId();
+  const guideId = useId();
   const [live, setLive] = useState('');
   const announce = useCallback((msg: string) => {
     // clear-then-set on a frame boundary so repeating the same move
@@ -1112,6 +1126,7 @@ export const BriefInput = forwardRef<
         },
         sigil: e.key,
       });
+      onSigilMenu?.(e.key);
     }
   };
 
@@ -1340,11 +1355,12 @@ export const BriefInput = forwardRef<
   // the composer. syncEmpty() already strips it; it simply had no focus caller.
   // rAF because the <br> is inserted after this event fires.
   const onFocus = useCallback(() => {
+    onEngage?.();
     requestAnimationFrame(() => {
       const root = rootRef.current;
       if (root && document.activeElement === root && syncEmpty(root)) caretToEnd(root);
     });
-  }, []);
+  }, [onEngage]);
 
   /**
    * What the open surface is anchored to, read back off the chip itself.
@@ -1382,6 +1398,11 @@ export const BriefInput = forwardRef<
       <span id={hintId} className="sc-vh">
         Press Enter to open, Delete to remove, Alt plus arrow keys to move.
       </span>
+      {guide && (
+        <span id={guideId} className="sc-vh">
+          {guide}
+        </span>
+      )}
       {/* every reorder path announces here — drag, Alt+Arrow, the sheet */}
       <span className="sc-vh" role="status" aria-live="polite">
         {live}
@@ -1399,6 +1420,7 @@ export const BriefInput = forwardRef<
         aria-expanded={menu ? true : undefined}
         aria-controls={menu ? INSERT_MENU_ID : undefined}
         aria-activedescendant={menu ? (activeOptionId ?? undefined) : undefined}
+        aria-describedby={guide ? guideId : undefined}
         tabIndex={0}
         dir="auto"
         data-ph={placeholder}

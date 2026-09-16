@@ -48,6 +48,10 @@ import { sizingOf } from '../engines/capabilities.js';
 import { OpenAIMark } from './OpenAIMark.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { learn, useGuide } from '../guide.js';
+import { REFINE_HINT, hintFor } from '../guideRules.js';
+import { advanceTour, sentAShot, useTour } from '../tourStore.js';
+import { ComposerHint } from './ComposerHint.js';
 import { PREF, useLocalPref, useRecipeSetting } from '../prefs.js';
 import { useToasts } from '../toasts.js';
 import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
@@ -181,6 +185,11 @@ export const Composer = forwardRef<
      * on the stage on the server, and the field is only for what changes.
      */
     variant?: 'dock' | 'overlay';
+    /**
+     * The screen holds a finished shot someone could open: Create's hub
+     * decides, because only it knows its lens, set and selection.
+     */
+    refineHint?: boolean;
   }
 >(function Composer(
   {
@@ -209,6 +218,7 @@ export const Composer = forwardRef<
     // no X (there is nothing else in there to refine), and scenes sit out
     // only on the hub (see scenesSitOut and the target band below).
     variant = 'dock',
+    refineHint = false,
   },
   handleRef,
 ) {
@@ -727,6 +737,37 @@ export const Composer = forwardRef<
   // new shot in place (the note says so), while the hub's attach panel sits
   // scenes out. The X exists in both shells now, so it cannot be the proxy.
   const scenesSitOut = mode === 'edit' && !!target && variant !== 'overlay';
+
+  // First use (DESIGN.md, "First use"). The hub composer publishes the two
+  // steps the Create tour points at, as attributes the tour reads, and says
+  // when one was taken. After a first finished shot it offers refine, once,
+  // in its notes tray, never while a tour is on screen.
+  const guide = useGuide();
+  const tour = useTour();
+  const [engaged, setEngaged] = useState(false);
+  const hint = hintFor({
+    eligible: guide.eligible,
+    learned: guide.learned,
+    overlay: variant === 'overlay',
+    refining: mode === 'edit' && !!target,
+    engineReady: !engineNote,
+    engaged,
+    attachOpen,
+    refineHint,
+    touring: !!tour,
+  });
+  /** Refine was offered in this composer: a new shot sent after it has passed it by. */
+  const refineOffered = useRef(false);
+  if (hint === 'refine') refineOffered.current = true;
+  const engage = useCallback(() => setEngaged(true), []);
+  const tourHooks = variant !== 'overlay';
+  const hasIngredients =
+    sentence.some((t) => t.t === 'product' || t.t === 'character' || t.t === 'template') || !!template;
+  const saidWords = /\p{L}[\s\u00a0]/u.test(sentence.flatMap((t) => (t.t === 'text' ? [t.v] : [])).join(''));
+  /** Reaching for an ingredient is the Create tour's first step. A colour is not one. */
+  const learnFromSigil = useCallback((sigil: string) => {
+    if (sigil !== '#') advanceTour('create', 'create.add');
+  }, []);
   // No reshape tutorial here anymore: the op is inferred, and the whole
   // explanation is the two-word state line rendered beside the shape picker.
   const targetNote = !branchable
@@ -1134,6 +1175,7 @@ export const Composer = forwardRef<
     // one stand-in tile per expected sibling: a generation asks for `count`
     // shots, an edit always comes back as one
     onSending?.({ said: said || 'Your shot', count: mode === 'generation' ? count : 1 });
+    const passedRefine = refineOffered.current;
     try {
       // the brand's workspace always exists by the time a brief can be run; a
       // missing one is a load that has not landed, not a container to invent
@@ -1186,6 +1228,11 @@ export const Composer = forwardRef<
       borrowCount(null);
       borrowQuality(null);
       if (persistDraft) clearDraft(brand.id);
+      // Before onQueued: Home navigates there, and this composer goes with it.
+      if (mode === 'generation') {
+        sentAShot();
+        if (passedRefine) learn('refine');
+      }
       onQueued(
         created.id,
         mode,
@@ -1202,7 +1249,7 @@ export const Composer = forwardRef<
       // Errors are never trimmed and outlive successes (see ToastProvider), so
       // nothing is lost by not building a second surface for them.
       setErr(message);
-      push({ kind: 'error', title: 'That did not send', detail: message });
+      push(failureToast(e, 'That did not send', engine?.displayName));
       // the brief is deliberately not cleared above until the shot exists, so
       // everything typed is still on screen to send again
       onSending?.(null);
@@ -1281,8 +1328,9 @@ export const Composer = forwardRef<
           the input rather than as a second surface of equal weight.
           One tray, not one card per notice: two notices used to stack into three
           boxes, which is what read as unfinished. */}
-      {engineNote && (
+      {(engineNote || hint) && (
         <div className="sc-notes">
+          {hint && <ComposerHint text={REFINE_HINT} onDismiss={() => learn(hint)} />}
           {engineNote && (
             <div className="sc-banner" data-tone="action">
               <span className="sc-banner-ic">{engineNote.icon}</span>
@@ -1326,7 +1374,12 @@ export const Composer = forwardRef<
           )}
         </div>
       )}
-      <div className="sc-promptcard">
+      <div
+        className="sc-promptcard"
+        data-tour={tourHooks ? 'create.prompt' : undefined}
+        data-ingredients={(tourHooks && hasIngredients) || undefined}
+        data-words={(tourHooks && saidWords) || undefined}
+      >
         {/* What this brief is about to do, stated before it does it: the
             picture being refined, as the one chip pattern the app has. The
             hub's chip has an X, which lets go of the thread and makes a new
@@ -1388,6 +1441,9 @@ export const Composer = forwardRef<
           placeholderSm={template || mode === 'edit' ? undefined : 'What should we shoot? ($ / @ #)'}
           onSubmit={() => void go()}
           onDropFiles={(files) => void pickFiles(files)}
+          guide={hint ? REFINE_HINT : null}
+          onEngage={engage}
+          onSigilMenu={learnFromSigil}
         />
 
         <div className="sc-prompt-row">
@@ -1404,11 +1460,16 @@ export const Composer = forwardRef<
               type="button"
               ref={attachRef}
               className="sc-icon-btn sc-attach-toggle"
+              data-tour={tourHooks ? 'create.add' : undefined}
               aria-expanded={attachOpen}
               aria-controls={attachOpen ? attachPanelId : undefined}
               aria-label="Add to shot"
               title="Add a product, a presenter, a scene, a colour or an image"
-              onClick={() => (attachOpen ? closeAttach({ restore: false }) : openAttach('All'))}
+              onClick={() => {
+                if (attachOpen) return closeAttach({ restore: false });
+                advanceTour('create', 'create.add');
+                openAttach('All');
+              }}
             >
               {uploading ? <Spinner size="1" /> : <Plus size={16} />}
             </button>
@@ -1508,6 +1569,7 @@ export const Composer = forwardRef<
             <button
               type="button"
               className="sc-send"
+              data-tour={tourHooks ? 'create.generate' : undefined}
               // aria-disabled: a native disabled button drops out of the tab
               // order, taking its title — often the one thing explaining why
               // — with it. go() already no-ops on !canGo, so this is purely

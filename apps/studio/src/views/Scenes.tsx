@@ -194,7 +194,12 @@ export function ScenesView() {
    */
 
   const createCta = (
-    <button type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('scene')}>
+    <button
+      type="button"
+      className="sc-btn sc-btn-primary"
+      data-tour="library.add"
+      onClick={() => createAsset('scene')}
+    >
       <Plus size={12} /> Create scene
     </button>
   );
@@ -205,6 +210,7 @@ export function ScenesView() {
       data-wall={wall || undefined}
       data-density
       data-density-size={densityAttr}
+      data-tour="library.ours"
       style={wallStyle}
     >
       {items.map((s) => (
@@ -300,7 +306,7 @@ export function ScenesView() {
                   Build your own <em>scene</em>
                 </>
               }
-              body="Upload a few references of a place, and its light and materials carry into every image you make."
+              body="Upload a few references of a place, or describe it, and its light and materials carry into every image you make."
               action={createCta}
             />
           )}

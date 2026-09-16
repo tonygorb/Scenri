@@ -101,6 +101,7 @@ import { registerImageRoutes } from './routes/images.js';
 import { createThumbStore } from './thumbs.js';
 import { registerUpdateRoutes } from './routes/updates.js';
 import { registerSystemRoutes } from './routes/system.js';
+import { registerGuideRoutes } from './routes/guide.js';
 import { registerDesktopRoutes } from './routes/desktop.js';
 
 declare module 'fastify' {
@@ -2523,6 +2524,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   });
 
   registerSystemRoutes(app, { core, thumbs });
+  registerGuideRoutes(app, { core });
   registerDesktopRoutes(app, {
     core,
     runtime,

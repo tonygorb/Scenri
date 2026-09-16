@@ -16,7 +16,12 @@ export function TabBar() {
       <ul>
         {items.map((item) => (
           <li key={item.key}>
-            <Link to={item.to} data-on={item.active || undefined} aria-current={item.active ? 'page' : undefined}>
+            <Link
+              to={item.to}
+              data-on={item.active || undefined}
+              data-tour={`nav.${item.key}`}
+              aria-current={item.active ? 'page' : undefined}
+            >
               <span className="sc-tab-ic">{item.icon}</span>
               <span className="sc-tab-lb">{item.label}</span>
             </Link>

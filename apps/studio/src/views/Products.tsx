@@ -180,7 +180,12 @@ export function ProductsView() {
      same dialog with a different field focused — a menu describing flows that
      did not exist. Importing is still there, inside, where it belongs. */
   const addMenu = (
-    <button type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('product')}>
+    <button
+      type="button"
+      className="sc-btn sc-btn-primary"
+      data-tour="library.add"
+      onClick={() => createAsset('product')}
+    >
       <Plus size={12} /> Add product
     </button>
   );
@@ -290,7 +295,14 @@ export function ProductsView() {
           )}
 
           {theirsFiltered.length > 0 && (
-            <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
+            <div
+              className="sc-masonry"
+              data-wall
+              data-density
+              data-density-size={densityAttr}
+              data-tour="library.ours"
+              style={wallStyle}
+            >
               {theirsFiltered.map((p) => (
                 <DemoProductCard
                   key={p.id}

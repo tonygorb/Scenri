@@ -119,6 +119,8 @@ class Fixture {
         // being written into.
         SCENRI_NO_CONTENT_FETCH: '1',
         SCENRI_NO_DESKTOP: '1',
+        // A fresh home is a new install; the welcome would open over the menus this spec drives.
+        SCENRI_NO_GUIDE: '1',
         SCENRI_REGISTRY: `http://127.0.0.1:${this.regPort}`,
         ...this.extraEnv,
       },

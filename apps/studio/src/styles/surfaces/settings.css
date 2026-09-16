@@ -913,6 +913,125 @@ select.sc-in {
   background: color-mix(in srgb, var(--sc-red) 14%, var(--sc-raised));
   color: var(--sc-red);
 }
+/* A first-use hint: one quiet sentence, no mark and no verb of its own, because
+   the brief under it is where the person acts. It fades in on the focus that
+   raises it and leaves at once, so nothing lingers under a moving caret. */
+.sc-banner[data-tone="hint"] {
+  gap: 8px;
+  padding: 7px 7px 7px 11px;
+  font: 400 12.5px / 1.35 var(--sc-font);
+  color: var(--sc-fg2);
+  animation: sc-hint-in var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-banner[data-tone="hint"] .sc-banner-txt {
+  text-wrap: pretty;
+}
+.sc-banner-x {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  color: var(--sc-fg3);
+}
+@keyframes sc-hint-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-banner[data-tone="hint"] {
+    animation: none;
+  }
+}
+
+/* A page tour (layout/Tour.tsx). A spotlight, not a curtain:
+   the page dims a step and stays usable, the light takes no clicks, and the
+   control under it works as it always does. The card is the app's floating
+   coat (panel, strong hairline, the popover shadow), tail-less like every menu,
+   because the light already says what it is about. */
+.sc-tour-light {
+  position: fixed;
+  z-index: var(--sc-z-popover);
+  pointer-events: none;
+  border: 1.5px solid var(--sc-fg);
+  box-shadow: 0 0 0 200vmax color-mix(in srgb, var(--sc-scrim) 55%, transparent);
+  transition:
+    left var(--sc-dur-slow) var(--sc-ease-emphasis),
+    top var(--sc-dur-slow) var(--sc-ease-emphasis),
+    width var(--sc-dur-slow) var(--sc-ease-emphasis),
+    height var(--sc-dur-slow) var(--sc-ease-emphasis);
+}
+.sc-tour {
+  position: fixed;
+  z-index: calc(var(--sc-z-popover) + 1);
+  box-sizing: border-box;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-panel);
+  box-shadow: var(--sc-shadow-2);
+  color: var(--sc-fg);
+  font-family: var(--sc-font);
+  animation: sc-hint-in var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-tour-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.sc-tour-title {
+  flex: 1;
+  margin: 0;
+  font: 600 13.5px / 1.35 var(--sc-font);
+  text-wrap: balance;
+}
+.sc-tour-x {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: -3px -6px 0 0;
+  color: var(--sc-fg3);
+}
+.sc-tour-body {
+  margin: 4px 0 12px;
+  font: 400 12.5px / 1.45 var(--sc-font);
+  color: var(--sc-fg2);
+  text-wrap: pretty;
+}
+.sc-tour-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sc-tour-skip {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 500 12px var(--sc-font);
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+.sc-tour-skip:hover:not(:active) {
+  color: var(--sc-fg);
+}
+.sc-tour-count {
+  margin-left: auto;
+  font: 500 11.5px var(--sc-font);
+  color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
+}
+.sc-tour-next {
+  height: 28px;
+  padding: 0 14px;
+  font-size: 12.5px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-tour-light {
+    transition: none;
+  }
+  .sc-tour {
+    animation: none;
+  }
+}
 
 .sc-banner-act {
   flex: none;

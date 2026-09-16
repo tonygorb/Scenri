@@ -91,7 +91,13 @@ export function PresentersView() {
   const cta = useRef<HTMLButtonElement>(null);
 
   const createCta = (
-    <button ref={cta} type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('presenter')}>
+    <button
+      ref={cta}
+      type="button"
+      className="sc-btn sc-btn-primary"
+      data-tour="library.add"
+      onClick={() => createAsset('presenter')}
+    >
       <Plus size={12} /> Create presenter
     </button>
   );
@@ -427,7 +433,7 @@ export function PresentersView() {
                   Cast your own <em>presenter</em>
                 </>
               }
-              body="Upload a few photos of one person, and they stay the same person in every image you make."
+              body="Describe someone new, or add photos of a real person. They stay the same person in every image you make."
               action={createCta}
             />
           )}
@@ -465,7 +471,14 @@ export function PresentersView() {
           )}
 
           {presentersLoaded && !presentersError && visible.length > 0 && (
-            <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
+            <div
+              className="sc-masonry"
+              data-wall
+              data-density
+              data-density-size={densityAttr}
+              data-tour="library.ours"
+              style={wallStyle}
+            >
               {visible.map((p) => (
                 <PresenterCard
                   key={p.id}

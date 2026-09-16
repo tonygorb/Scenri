@@ -37,6 +37,13 @@
 .sc-topbar-end {
   gap: 6px;
 }
+/* Below 400px the bar carries four circles (help, add, bell, brand) in the
+   134px a 320px screen leaves it; 6px gaps need 148. */
+@media (max-width: 399px) {
+  .sc-topbar-end {
+    gap: 2px;
+  }
+}
 .sc-wordmark {
   display: inline-flex;
   align-items: center;

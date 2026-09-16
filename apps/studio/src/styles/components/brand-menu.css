@@ -98,3 +98,39 @@
 body > div:has(.sc-menu) {
   pointer-events: auto;
 }
+
+/* The help button (layout/HelpMenu.tsx). From 1024px it floats in the corner,
+   at the docks' level so an open shot and every dialog cover it. From 1280px
+   the assets rail is a column and the page narrows beside it, so the button
+   steps left of the rail. Below 1280px the rail is a drawer laid over the page
+   while the composer stays where it was: stepping left put the button on
+   Generate (measured at 1100), so it waits out the drawer instead. Below 1024px
+   it is a plain top bar button and needs nothing here. */
+.sc-help-float {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--sc-bottom-inset) + 16px);
+  z-index: 60;
+}
+@media (min-width: 1024px) and (max-width: 1279px) {
+  body:has(.sc-work[data-assets="true"]) .sc-help-float {
+    display: none;
+  }
+}
+@media (min-width: 1280px) {
+  body:has(.sc-work[data-assets="true"]) .sc-help-float {
+    right: calc(var(--sc-assets-w) + 16px);
+  }
+}
+/* A finger's reach, the way the top bar gives its own small controls. */
+@media (pointer: coarse) {
+  .sc-help-float .sc-icon-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+}

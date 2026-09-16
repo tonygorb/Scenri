@@ -16,6 +16,8 @@ import { pickBrand } from './RootRedirect.js';
 import { TaskCenterProvider } from './TaskCenter.js';
 import { mergeRecent } from './recentRules.js';
 import { WhatsNewGate } from './WhatsNew.js';
+import { HelpFloat } from '../layout/HelpMenu.js';
+import { TourHost } from '../layout/TourHost.js';
 
 export type ActivityListener = (nodes: FeedNode[]) => void;
 
@@ -319,6 +321,10 @@ export function BrandLayout() {
                 <Outlet />
                 <TabBar />
               </div>
+              {/* First use: the welcome and the page tours, and the help
+                  button that brings any tour back (DESIGN.md, "First use"). */}
+              <TourHost />
+              <HelpFloat />
             </AssetsCtx.Provider>
           </AssetCreateHost>
         </ProductLibraryProvider>

@@ -78,3 +78,57 @@
     transition: none;
   }
 }
+
+/* ---- the welcome (views/WelcomeDialog.tsx) ----
+   What's New's neighbour and its coat. Three finished examples lead, because
+   the work is the introduction; they arrive a beat after the card, one after
+   another, and only fade: nothing on a picture moves. */
+.sc-welcome-pics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: -4px 0 16px;
+}
+.sc-welcome-pics img {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: var(--sc-radius);
+  background: var(--sc-well);
+  animation: sc-welcome-pic-in 320ms var(--sc-ease) both;
+}
+@keyframes sc-welcome-pic-in {
+  from {
+    opacity: 0;
+  }
+}
+.sc-welcome-lede {
+  margin: 4px 0 0;
+  font: 400 14px / 1.45 var(--sc-font);
+  color: var(--sc-fg);
+  text-wrap: pretty;
+}
+.sc-welcome-txt {
+  margin: 8px 0 0;
+  font: 400 13px / 1.45 var(--sc-font);
+  color: var(--sc-fg2);
+  text-wrap: pretty;
+}
+.sc-welcome-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.sc-welcome-note {
+  flex: 1 1 100%;
+  margin: 0 0 4px;
+  font: 400 11.5px / 1.4 var(--sc-font);
+  color: var(--sc-fg3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-welcome-pics img {
+    animation: none;
+  }
+}

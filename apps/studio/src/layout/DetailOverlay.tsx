@@ -49,6 +49,7 @@ import { useHoverPreview } from '../composer/useHoverPreview.js';
 import { BriefLine } from './detail/Ingredients.js';
 import { useLineageOf } from './detail/useLineageOf.js';
 import { useFullNode } from './detail/useFullNode.js';
+import { learn } from '../guide.js';
 import { PREF, useLocalPref } from '../prefs.js';
 
 /**
@@ -510,6 +511,11 @@ export function DetailOverlay({
   ];
 
   const hasImage = node.status === 'done' && node.images.length > 0;
+  // An open shot that can be refined shows its own field, which is the lesson.
+  const refinable = hasImage || node.status === 'running';
+  useEffect(() => {
+    if (refinable) learn('refine');
+  }, [refinable]);
 
   const canEditPrompt = !hasImage && node.kind !== 'edit' && !!node.brief;
   const actions: Action[] = hasImage ? [...fileActions, ...keepActions] : keepActions;
