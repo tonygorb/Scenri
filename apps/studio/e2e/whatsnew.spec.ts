@@ -61,7 +61,7 @@ async function stubUnread(page: Page, over: Record<string, unknown> = {}): Promi
 }
 
 const dialog = (p: Page) => p.locator('.sc-wn');
-const menuTrigger = (p: Page) => p.locator('.sc-org-btn');
+const menuTrigger = (p: Page) => p.locator('.sc-help-btn');
 const openByHand = async (p: Page) => {
   await menuTrigger(p).click();
   await p.locator('.sc-menu-item', { hasText: "What's new" }).click();

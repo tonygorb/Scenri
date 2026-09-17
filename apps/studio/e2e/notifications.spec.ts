@@ -44,7 +44,7 @@ async function currentBrand(p: Page): Promise<{ id: string; slug: string }> {
 
 const bell = (p: Page) => p.locator('.sc-topbar .sc-notif-btn');
 const pop = (p: Page) => p.locator('.sc-notif-pop');
-const tabs = (p: Page) => p.locator('.sc-notif-tab');
+const sections = (p: Page) => p.locator('.sc-notif-label');
 const rows = (p: Page) => p.locator('.sc-notif-scroll .sc-notif-row');
 
 /** Start a generation while standing somewhere the feed is not on screen. */
@@ -96,25 +96,22 @@ test('the bell is in the bar on every screen', async ({ page }) => {
   }
 });
 
-test('opens on Tasks; Notifications starts empty and is keyboard reachable', async ({ page }) => {
+test('both lists are on screen at once, and Notifications starts empty', async ({ page }) => {
   const brand = await currentBrand(page);
   await clearHistory(page);
   await page.goto(`/${brand.slug}/scenes`);
 
   await bell(page).click();
   await expect(pop(page)).toBeVisible();
-  await expect(tabs(page)).toHaveCount(2);
-  await expect(tabs(page).nth(0)).toHaveAttribute('aria-selected', 'true');
-  await expect(tabs(page).nth(0)).toContainText('Tasks');
-  await expect(tabs(page).nth(1)).toContainText('Notifications');
 
-  // arrow keys move between the two, and wrap
-  await tabs(page).nth(0).focus();
-  await page.keyboard.press('ArrowRight');
-  await expect(tabs(page).nth(1)).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('.sc-notif-empty')).toHaveText('You have no notifications yet.');
-  await page.keyboard.press('ArrowRight');
-  await expect(tabs(page).nth(0)).toHaveAttribute('aria-selected', 'true');
+  // Both lists at once. They used to be tabs, so the panel opened on a guess
+  // about which question you had and the other answer was a press away.
+  await expect(sections(page)).toHaveCount(2);
+  await expect(sections(page).nth(0)).toContainText('In progress');
+  await expect(sections(page).nth(1)).toContainText('Notifications');
+  await expect(page.locator('section[aria-label="Notifications"] .sc-notif-empty')).toHaveText(
+    'You have no notifications yet.',
+  );
 });
 
 test('work started from another screen still arrives, survives a reload, and clears', async ({ page }) => {
@@ -127,24 +124,24 @@ test('work started from another screen still arrives, survives a reload, and cle
   await fireAndWalkAway(page, brand.id);
 
   // the badge is the first thing that should change
-  await expect(page.locator('.sc-bell-dot')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.sc-act-n')).toBeVisible({ timeout: 20_000 });
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}$`));
 
   await bell(page).click();
-  await tabs(page).nth(1).click();
   await expect(rows(page)).not.toHaveCount(0);
   const first = rows(page).first();
   await expect(first).toContainText('bell spec shot');
 
-  // reading the list is what clears the badge, not opening the bell
+  // opening the panel is not reading it: the badge goes when you say so
+  await expect(page.locator('.sc-act-n')).toBeVisible();
+  await page.locator('.sc-notif-seen').click();
+  await expect(page.locator('.sc-act-n')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(pop(page)).toHaveCount(0);
-  await expect(page.locator('.sc-bell-dot')).toHaveCount(0);
 
   // the record outlives the page
   await page.reload();
   await bell(page).click();
-  await tabs(page).nth(1).click();
   await expect(rows(page)).not.toHaveCount(0);
 
   // and a row is a way back to the thing it is about
@@ -185,13 +182,14 @@ test('clearing empties the record', async ({ page }) => {
   const brand = await currentBrand(page);
   await page.goto(`/${brand.slug}`);
   await bell(page).click();
-  await tabs(page).nth(1).click();
 
   const clear = page.locator('.sc-notif-clear');
   if (await clear.isVisible().catch(() => false)) {
     await clear.click();
   }
-  await expect(page.locator('.sc-notif-empty')).toHaveText('You have no notifications yet.');
+  await expect(page.locator('section[aria-label="Notifications"] .sc-notif-empty')).toHaveText(
+    'You have no notifications yet.',
+  );
 });
 
 test('a finish toasts wherever you cannot see it land', async ({ page }) => {
@@ -218,11 +216,10 @@ test('a finish you are watching land does not also announce itself', async ({ pa
 
   // no toast, and no unread badge either: you watched it happen
   await expect(page.locator('.sc-toast')).toHaveCount(0);
-  await expect(page.locator('.sc-bell-dot')).toHaveCount(0);
+  await expect(page.locator('.sc-act-n')).toHaveCount(0);
 
   // but the record still keeps it — quiet is not the same as lost
   await bell(page).click();
-  await tabs(page).nth(1).click();
   await expect(rows(page)).not.toHaveCount(0, { timeout: 20_000 });
 });
 
@@ -232,10 +229,9 @@ test('a notification row opens the shot it is about', async ({ page }) => {
 
   await page.goto(`/${brand.slug}/scenes`);
   const { nodeId } = await fireAndWalkAway(page, brand.id);
-  await expect(page.locator('.sc-bell-dot')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.sc-act-n')).toBeVisible({ timeout: 20_000 });
 
   await bell(page).click();
-  await tabs(page).nth(1).click();
   await rows(page).first().click();
 
   // the href used to name a project route that no longer exists
@@ -251,7 +247,7 @@ test('a notification stored under the old scheme still opens its shot', async ({
   // release before it spelled. This is the case the redirect shim exists for,
   // and the only one nothing else here would catch.
   const { nodeId } = await fireAndWalkAway(page, brand.id);
-  await expect(page.locator('.sc-bell-dot')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.sc-act-n')).toBeVisible({ timeout: 20_000 });
 
   await page.evaluate(
     ([key, slug, id]) => {
@@ -264,7 +260,6 @@ test('a notification stored under the old scheme still opens its shot', async ({
 
   await page.goto(`/${brand.slug}`);
   await bell(page).click();
-  await tabs(page).nth(1).click();
   await rows(page).first().click();
 
   await page.waitForURL(`**/${brand.slug}/create/shots/${nodeId}`);

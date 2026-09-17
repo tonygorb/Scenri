@@ -24,7 +24,9 @@ async function currentBrand(p: Page): Promise<string> {
   return decodeURIComponent(new URL(p.url()).pathname.split('/')[1]);
 }
 
-const trigger = (p: Page) => p.getByRole('button', { name: 'Add to this brand', exact: true });
+/** New's caret, and then the row for the kind: the plus that used to stand alone
+    in the bar is the filled half of that button now, and it makes a shot. */
+const trigger = (p: Page) => p.getByRole('button', { name: 'Other ways to start', exact: true });
 const dialog = (p: Page) => p.locator('.sc-newdlg');
 
 test.describe('adding to a brand', () => {
@@ -34,36 +36,50 @@ test.describe('adding to a brand', () => {
     slug = await currentBrand(page);
   });
 
-  test('the top bar trigger opens a chooser of exactly the three ingredients', async ({ page }) => {
+  test("New's menu offers the shot and exactly the three ingredients", async ({ page }) => {
     await trigger(page).click();
-    await expect(page).toHaveURL(/\?new=1$/);
 
-    const cards = page.locator('.sc-pick');
-    await expect(cards).toHaveCount(3);
-    // nav order, fixed — the launcher never reshuffles itself per page
-    await expect(cards.nth(0)).toHaveAttribute('data-kind', 'product');
-    await expect(cards.nth(1)).toHaveAttribute('data-kind', 'presenter');
-    await expect(cards.nth(2)).toHaveAttribute('data-kind', 'scene');
-    // every card is a picture, not an icon: this is a visual choice
-    await expect(page.locator('.sc-pick-media img')).toHaveCount(3);
-    // and one press does it — there is no confirm step to get past
-    await expect(page.locator('.sc-newpick .sc-dlg-go')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Add to this brand' })).toBeVisible();
+    // The lead row is the act itself; the three under it are what a shot is made
+    // from, in nav order, fixed: the menu never reshuffles itself per page.
+    const rows = page.locator('.sc-start-row');
+    await expect(rows).toHaveCount(4);
+    await expect(rows.nth(0)).toContainText('New shot');
+    await expect(rows.nth(0)).toHaveAttribute('data-lead', '');
+    await expect(rows.nth(1)).toContainText('Product');
+    await expect(rows.nth(2)).toContainText('Presenter');
+    await expect(rows.nth(3)).toContainText('Scene');
+    // each one is a picture rather than an icon, and says how many you have
+    await expect(page.locator('.sc-start-n')).toHaveCount(3);
   });
 
-  test('picking a row replaces, so one Back press leaves rather than two', async ({ page }) => {
+  test('a row goes straight to that kind, with no chooser in between', async ({ page }) => {
     await page.goto(`/${slug}/presenters`);
     const before = page.url();
 
     await trigger(page).click();
-    await page.locator('[data-kind="scene"]').click();
+    await page.locator('.sc-start-row', { hasText: 'Scene' }).click();
     await expect(page).toHaveURL(/\?new=scene$/);
     await expect(page.getByRole('heading', { name: 'New scene' })).toBeVisible();
 
     await page.goBack();
-    // not back to the chooser: the row switch was a move inside one overlay
     await expect(page).toHaveURL(before);
     await expect(dialog(page)).toHaveCount(0);
+  });
+
+  test('the chooser still answers its own URL', async ({ page }) => {
+    // Nothing in the chrome opens it now: New's menu shows the same three kinds
+    // with the same pictures and one press, which is what the chooser was for.
+    // The route stays honest for anything already pointing at it.
+    await page.goto(`/${slug}?new=1`);
+
+    const cards = page.locator('.sc-pick');
+    await expect(cards).toHaveCount(3);
+    await expect(cards.nth(0)).toHaveAttribute('data-kind', 'product');
+    await expect(cards.nth(1)).toHaveAttribute('data-kind', 'presenter');
+    await expect(cards.nth(2)).toHaveAttribute('data-kind', 'scene');
+    await expect(page.locator('.sc-pick-media img')).toHaveCount(3);
+    await expect(page.locator('.sc-newpick .sc-dlg-go')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Add to this brand' })).toBeVisible();
   });
 
   test('Escape, the backdrop and the close button all leave the same way', async ({ page }) => {
@@ -95,7 +111,7 @@ test.describe('adding to a brand', () => {
   });
 
   test('opened from the chooser, the arrow goes back to it', async ({ page }) => {
-    await trigger(page).click();
+    await page.goto(`/${slug}?new=1`);
     await page.locator('[data-kind="product"]').click();
     await expect(page.getByRole('heading', { name: 'New product' })).toBeVisible();
 
@@ -110,8 +126,7 @@ test.describe('adding to a brand', () => {
       ['presenters', 'presenter'],
       ['scenes', 'scene'],
     ] as const) {
-      await page.goto(`/${slug}/${path}`);
-      await trigger(page).click();
+      await page.goto(`/${slug}/${path}?new=1`);
       await expect(page.locator('.sc-pick').first()).toBeVisible();
       await expect(page.locator(':focus')).toHaveAttribute('data-kind', kind);
       await page.keyboard.press('Escape');
@@ -141,7 +156,7 @@ test.describe('adding to a brand', () => {
 
   test('focus is trapped in the dialog and handed back to the trigger on close', async ({ page }) => {
     await trigger(page).click();
-    await page.locator('[data-kind="scene"]').click();
+    await page.locator('.sc-start-row', { hasText: 'Scene' }).click();
     await expect(dialog(page)).toBeVisible();
 
     // Painted is not focused: the dialog takes focus on mount, and a Tab sent

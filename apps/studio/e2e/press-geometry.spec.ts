@@ -173,7 +173,16 @@ async function reachable(el: Locator): Promise<boolean> {
  */
 async function controlsOn(page: Page, limitPerFamily = 4): Promise<{ label: string; el: Locator }[]> {
   const found: { label: string; el: Locator }[] = [];
-  for (const family of ['.sc-btn', '.sc-chip', '.sc-icon-btn']) {
+  for (const family of [
+    '.sc-btn',
+    '.sc-chip',
+    '.sc-icon-btn',
+    '.sc-act-btn',
+    '.sc-org-btn',
+    '.sc-new-go',
+    '.sc-new-more',
+    '.sc-help-btn',
+  ]) {
     const all = page.locator(`${family}:visible:not([disabled]):not([aria-disabled="true"])`);
     const total = await all.count();
     for (let i = 0; i < total && found.filter((f) => f.label.startsWith(family)).length < limitPerFamily; i++) {

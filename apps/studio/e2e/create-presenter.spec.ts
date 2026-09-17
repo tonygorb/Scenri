@@ -1110,7 +1110,7 @@ test.describe('the doors', () => {
   test('the chooser hands over to the studio, and one Back returns to where you were', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/products`);
-    await page.getByRole('button', { name: 'Add to this brand', exact: true }).click();
+    await page.getByRole('button', { name: 'Other ways to start', exact: true }).click();
     await page.locator('.sc-pick[data-kind="presenter"]').click();
     await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
     await expect(studio(page)).toBeVisible();
