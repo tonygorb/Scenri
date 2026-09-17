@@ -104,7 +104,6 @@ export function ProductForm({ onBack, onStarted, restore, onDiscarded }: FlowPro
   return (
     <AssetCreateShell
       title="New product"
-      guideSlot="dialog:product"
       error={f.err}
       footnote="Added to this brand. No preview."
       primaryLabel="Add product"

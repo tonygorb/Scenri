@@ -15,7 +15,6 @@ const COARSE = '(pointer: coarse)';
 import { AttachBody } from './attach/AttachBody.js';
 import type { AttachCard, AttachTab } from './attach/attachRules.js';
 import { keepCaret } from './line.js';
-import { GuideSlot } from '../layout/GuideSlot.js';
 
 export type { AttachTab } from './attach/attachRules.js';
 
@@ -204,7 +203,7 @@ function AttachDock({
       if (creating) return;
       const t = e.target as HTMLElement;
       // the first shot's curtain and card are not the page: pressing them keeps the panel open
-      if (t.closest('[data-guide="catch"], [data-guide="card"]')) return;
+      if (t.closest('[data-guide="catch"], [data-guide="card"], [data-guide="inline"]')) return;
       if (!t.closest('.sc-attachpanel') && !t.closest('.sc-attach-toggle')) closeRef.current();
     };
     document.addEventListener('mousedown', onDown);
@@ -215,15 +214,13 @@ function AttachDock({
     <div
       ref={rootRef}
       className="sc-attachpanel"
+      data-guide-shape=""
       role="dialog"
       id={id}
       aria-label="Add to shot"
       onMouseDownCapture={onMouseDownCapture}
     >
       {children}
-      {/* The first shot's one sentence while the picker is open (DESIGN.md, "First use"): at
-          the foot, beside the composer it is about, and clear of the corner a close belongs in. */}
-      <GuideSlot name="picker" className="sc-ap-guide" />
     </div>
   );
 }

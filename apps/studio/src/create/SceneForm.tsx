@@ -66,7 +66,6 @@ export function SceneForm({ onBack, onStarted, caps, capsNote, pendingState, res
   return (
     <AssetCreateShell
       title="New scene"
-      guideSlot="dialog:scene"
       error={f.err}
       footnote={capsNote(caps?.canGenerate ? 'One preview. A few minutes.' : 'Saved without a preview.')}
       primaryLabel="Create scene"

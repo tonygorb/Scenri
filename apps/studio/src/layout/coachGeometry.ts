@@ -112,6 +112,69 @@ export function windowMask(hole: Box, radius: number): { image: string; size: st
   };
 }
 
+/** A window in the curtain: a live surface or a control, with the corner radius it really has. */
+export interface Window extends Box {
+  radius: number;
+}
+
+/**
+ * The curtain's windows, as one mask the size of the screen: the whole screen
+ * shows the veil, every window is cut from it with its own radius, and windows
+ * that touch or overlap simply join (a mask of shapes unions them, where layered
+ * masks excluding each other would veil an overlap twice). Only the shapes live
+ * in the picture, so a scrolled window rewrites the string and nothing else.
+ */
+export function windowsMask(windows: readonly Window[], vw: number, vh: number): string {
+  const w = r1(vw);
+  const h = r1(vh);
+  const holes = windows
+    .map((b) => {
+      const ww = Math.max(0, r1(width(b)));
+      const hh = Math.max(0, r1(height(b)));
+      const k = r1(Math.max(0, Math.min(b.radius, ww / 2, hh / 2)));
+      return `<rect x='${r1(b.left)}' y='${r1(b.top)}' width='${ww}' height='${hh}' rx='${k}' fill='black'/>`;
+    })
+    .join('');
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'><defs><mask id='m' maskUnits='userSpaceOnUse' x='0' y='0' width='${w}' height='${h}'><rect width='${w}' height='${h}' fill='white'/>${holes}</mask></defs><rect width='${w}' height='${h}' fill='black' mask='url(#m)'/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+/**
+ * The quiet edge around the windows: each window's outline, drawn only where
+ * it falls on the curtain. Where two windows join, the part of one outline
+ * inside the other is masked away, so a joined window keeps one clean edge.
+ */
+export function windowsRim(windows: readonly Window[], vw: number, vh: number, stroke: string): string {
+  const w = r1(vw);
+  const h = r1(vh);
+  const rects = windows.map((b) => {
+    const ww = Math.max(0, r1(width(b)));
+    const hh = Math.max(0, r1(height(b)));
+    const k = r1(Math.max(0, Math.min(b.radius, ww / 2, hh / 2)));
+    return { x: r1(b.left), y: r1(b.top), ww, hh, k };
+  });
+  const holes = rects.map(
+    (r) => `<rect x='${r.x}' y='${r.y}' width='${r.ww}' height='${r.hh}' rx='${r.k}' fill='black'/>`,
+  );
+  const lines = rects.map(
+    (r) =>
+      `<rect x='${r.x}' y='${r.y}' width='${r.ww}' height='${r.hh}' rx='${r.k}' fill='none' stroke='${stroke}' stroke-width='2'/>`,
+  );
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'><defs><mask id='o' maskUnits='userSpaceOnUse' x='0' y='0' width='${w}' height='${h}'><rect width='${w}' height='${h}' fill='white'/>${holes.join('')}</mask></defs><g mask='url(#o)'>${lines.join('')}</g></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+/**
+ * Which side of an open picker a card of `need` pixels fits beside, right
+ * first: the side the eye reads on to. Null when neither has room, and the
+ * words go inside the picker instead of hiding.
+ */
+export function sideWithRoom(picker: Box, vw: number, need: number): 'right' | 'left' | null {
+  if (vw - picker.right >= need) return 'right';
+  if (picker.left >= need) return 'left';
+  return null;
+}
+
 /** Four panels around a window: the clear ones that take presses, and the plain veil where a mask cannot cut one. */
 export function panels(hole: Box, vw: number, vh: number): Box[] {
   const h = {

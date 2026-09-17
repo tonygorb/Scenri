@@ -942,11 +942,6 @@ select.sc-in {
     animation: none;
   }
 }
-/* A place the first-use guide may speak (layout/GuideSlot.tsx): it takes no
-   room, and no gap in a flex column, until the guide fills it. */
-.sc-guide-slot:empty {
-  display: none;
-}
 
 /* The first-use coach (layout/Coachmark.tsx): a window in a curtain.
    The veil darkens and softens the page behind while the page is inert; the
@@ -965,21 +960,36 @@ select.sc-in {
   pointer-events: none;
   animation: sc-coach-veil-in var(--sc-dur-slow) var(--sc-ease);
 }
-/* The window is masked out after the blur, so it stays sharp and undimmed. */
+/* The windows are masked out after the blur, so they stay sharp and undimmed.
+   Dark enough that the window is the first thing read, light enough that the
+   page behind is still recognisably the page; the blur is static and never
+   animates, only the veil's opacity fades in. One mask the size of the screen
+   holds every window with its own radius (layout/coachGeometry.ts). */
 .sc-coach-veil[data-veil="mask"] {
-  background: color-mix(in srgb, var(--sc-scrim) 80%, transparent);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.66);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
 }
-/* Where a mask cannot cut the window, four plain panels frame it instead. */
+/* Where a mask cannot cut the windows, four plain panels frame them instead. */
 .sc-coach-panel {
   display: none;
   position: fixed;
-  background: var(--sc-scrim);
+  background: rgba(0, 0, 0, 0.8);
+}
+/* The windows' edge on the curtain: a quiet line traced around each window's
+   real shape, only where it meets the veil. */
+.sc-coach-rim {
+  position: fixed;
+  inset: 0;
+  z-index: 66;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  animation: sc-coach-veil-in var(--sc-dur-slow) var(--sc-ease);
 }
 /* Clear panels around the window take the page's presses; the window itself
    is left open to the real control. */
@@ -997,6 +1007,7 @@ select.sc-in {
   touch-action: none;
 }
 .sc-coach-veil[data-state="away"],
+.sc-coach-rim[data-state="away"],
 .sc-coach-catch[data-state="away"],
 .sc-coach-ring[data-state="away"] {
   visibility: hidden;
@@ -1007,12 +1018,12 @@ select.sc-in {
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .sc-coach-veil[data-veil="mask"] {
-    background: var(--sc-scrim);
+    background: rgba(0, 0, 0, 0.8);
   }
 }
 @media (prefers-reduced-transparency: reduce) {
   .sc-coach-veil[data-veil="mask"] {
-    background: var(--sc-scrim);
+    background: rgba(0, 0, 0, 0.8);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
@@ -1045,6 +1056,9 @@ select.sc-in {
   color: var(--sc-fg);
   font-family: var(--sc-font);
   transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-coach[data-beside] {
+  width: min(280px, calc(100vw - 24px));
 }
 .sc-coach[data-state="moving"],
 .sc-coach[data-state="stowed"],
@@ -1108,10 +1122,7 @@ select.sc-in {
 .sc-coach-x:hover:not(:active) {
   color: var(--sc-fg);
 }
-/* The same bare X closes a guide note in a surface's slot. */
-.sc-banner .sc-coach-x {
-  margin: 0;
-}
+
 @media (pointer: coarse) {
   .sc-coach-x::after {
     width: var(--sc-tap);
@@ -1155,7 +1166,8 @@ select.sc-in {
   font-size: 12.5px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .sc-coach-veil {
+  .sc-coach-veil,
+  .sc-coach-rim {
     animation: none;
   }
   .sc-coach {

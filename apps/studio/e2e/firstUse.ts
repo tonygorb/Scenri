@@ -4,14 +4,14 @@ import type { GuideView } from '../src/apiTypes.js';
 /**
  * Shared steps for the first-use specs: a home that was new at its first boot,
  * a brand made the way a person makes it, the install's record read back, and
- * what the guide holds: a coach over the page with a working window on the
- * step's surfaces, a card that only points, and a sentence in a surface's slot.
+ * what the guide holds: a coach over the screen with working windows on the
+ * step's surfaces, and a card that only points.
  */
 export const coachCard = (p: Page) => p.locator('.sc-coach');
 export const coachTitle = (p: Page) => p.locator('.sc-coach .sc-coach-title');
-export const note = (p: Page) => p.locator('[data-guide="note"] .sc-banner-txt');
+export const coachBody = (p: Page) => p.locator('.sc-coach .sc-coach-body');
 export const welcome = (p: Page) => p.locator('.sc-welcome');
-export const steps = (p: Page) => p.getByRole('navigation', { name: 'First steps' });
+export const steps = (p: Page) => p.locator('.sc-steps');
 export const brief = (p: Page) => p.locator('[data-guide="compose"] .sc-brief-line');
 export const chips = (p: Page) => p.locator('[data-guide="compose"] .sc-brief-line .sc-token');
 
@@ -38,7 +38,7 @@ export async function setUpBrand(p: Page, name: string): Promise<string> {
 /** Nothing of the guide shows: wait out a settle of the page, then look. */
 export async function expectNoGuide(p: Page): Promise<void> {
   await p.waitForTimeout(600);
-  await expect(p.locator('.sc-coach, .sc-coach-veil, [data-guide="note"]')).toHaveCount(0);
+  await expect(p.locator('.sc-coach, .sc-coach-veil')).toHaveCount(0);
 }
 
 /** Picks the first product in the open picker, the way a person does. */

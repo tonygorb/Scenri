@@ -48,8 +48,7 @@ import { sizingOf } from '../engines/capabilities.js';
 import { OpenAIMark } from './OpenAIMark.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { publishComposer, type ComposerFacts } from '../guideFacts.js';
-import { GuideSlot } from './GuideSlot.js';
+import { publishComposer, publishOverlay, type ComposerFacts } from '../guideFacts.js';
 import { PREF, useLocalPref, useRecipeSetting } from '../prefs.js';
 import { useToasts } from '../toasts.js';
 import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
@@ -1247,6 +1246,7 @@ export const Composer = forwardRef<
         products: sentence.filter((t) => t.t === 'product').length,
         presenters: sentence.filter((t) => t.t === 'character').length,
         scene: !!template,
+        others: sentence.filter((t) => t.t === 'color' || t.t === 'ref' || t.t === 'mark').length,
         words: sentence.some((t) => t.t === 'text' && !!t.v.trim()),
         canGo,
         busy,
@@ -1261,9 +1261,32 @@ export const Composer = forwardRef<
   useEffect(() => {
     if (guided) return () => publishComposer(null);
   }, [guided]);
+  // The guide's Continue, beside the open picker: close it the way its own
+  // close does, with the caret back in the brief for the direction that comes next.
+  useEffect(() => {
+    if (!guided || !attachOpen) return;
+    const close = () => closeAttach({ restore: true });
+    window.addEventListener('scenri:guide-close-picker', close);
+    return () => window.removeEventListener('scenri:guide-close-picker', close);
+  }, [guided, attachOpen, closeAttach]);
+  // The open shot's composer, reached for: the moment refining is worth a word.
+  const [reached, setReached] = useState(false);
+  const engaged = variant === 'overlay' && (reached || sentence.some((t) => t.t === 'text' && !!t.v.trim()));
+  useEffect(() => {
+    if (variant === 'overlay') publishOverlay({ engaged });
+  }, [variant, engaged]);
+  useEffect(() => {
+    if (variant === 'overlay') return () => publishOverlay(null);
+  }, [variant]);
 
   return (
-    <div className="sc-composer" data-guide={guided ? 'compose' : undefined}>
+    <div
+      className="sc-composer"
+      data-guide={guided ? 'compose' : undefined}
+      // a press or a key, never the focus the open shot hands its field on its own
+      onPointerDownCapture={variant === 'overlay' && !reached ? () => setReached(true) : undefined}
+      onKeyDownCapture={variant === 'overlay' && !reached ? () => setReached(true) : undefined}
+    >
       <input
         ref={fileRef}
         type="file"
@@ -1313,11 +1336,8 @@ export const Composer = forwardRef<
           the input rather than as a second surface of equal weight.
           One tray, not one card per notice: two notices used to stack into three
           boxes, which is what read as unfinished. */}
-      {/* The open shot's tray also holds the guide's one sentence about
-          refining, when it has one (DESIGN.md, "First use"). */}
-      {variant === 'overlay' && <GuideSlot name="tray:overlay" className="sc-notes" />}
       {engineNote && (
-        <div className="sc-notes">
+        <div className="sc-notes" data-guide-shape={guided ? '' : undefined}>
           {engineNote && (
             <div className="sc-banner" data-tone="action">
               <span className="sc-banner-ic">{engineNote.icon}</span>
@@ -1367,7 +1387,7 @@ export const Composer = forwardRef<
           )}
         </div>
       )}
-      <div className="sc-promptcard">
+      <div className="sc-promptcard" data-guide-shape={guided ? '' : undefined}>
         {/* What this brief is about to do, stated before it does it: the
             picture being refined, as the one chip pattern the app has. The
             hub's chip has an X, which lets go of the thread and makes a new

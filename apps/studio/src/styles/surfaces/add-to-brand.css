@@ -114,12 +114,24 @@
 .sc-newdlg-head + .sc-newdlg-body {
   padding: var(--sc-space-6) 0 var(--sc-space-2);
 }
-/* The guide's one sentence about this flow, at the top of the form. */
-.sc-newdlg-guide {
-  margin-bottom: var(--sc-space-6);
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-md);
-  background: var(--sc-well);
+/* The welcome is a first-use surface: the same held focus as the guide's
+   curtain, dark and softened, where every other dialog keeps its light scrim. */
+.sc-newdlg-scrim[data-tone="guide"] {
+  background: rgba(0, 0, 0, 0.66);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sc-newdlg-scrim[data-tone="guide"] {
+    background: rgba(0, 0, 0, 0.8);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .sc-newdlg-scrim[data-tone="guide"] {
+    background: rgba(0, 0, 0, 0.8);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 .sc-newdlg-body {
   flex: none;

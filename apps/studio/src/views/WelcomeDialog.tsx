@@ -24,7 +24,7 @@ export function WelcomeDialog({
   onDecline: () => void;
 }) {
   return (
-    <DialogSheet open={open} className="sc-welcome" maxWidth="440px" described onDismiss={onDecline}>
+    <DialogSheet open={open} className="sc-welcome" maxWidth="440px" described tone="guide" onDismiss={onDecline}>
       {pictures.length > 0 && (
         <div className="sc-welcome-pics" aria-hidden="true">
           {pictures.map((src, i) => (

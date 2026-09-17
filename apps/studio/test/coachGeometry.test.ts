@@ -9,6 +9,9 @@ import {
   union,
   visibleRect,
   windowMask,
+  windowsMask,
+  windowsRim,
+  sideWithRoom,
   type Box,
 } from '../src/layout/coachGeometry.js';
 
@@ -65,5 +68,47 @@ describe('coach geometry', () => {
     expect(intersects(box(0, 0, 10, 10), box(10, 0, 20, 10))).toBe(false);
     expect(opposite('top')).toBe('bottom');
     expect(opposite('left')).toBe('right');
+  });
+
+  it('the curtain cuts every window with its own radius, in one mask the size of the screen', () => {
+    const decode = (url: string) => decodeURIComponent(url.slice(url.indexOf(',') + 1, -2));
+    const svg = decode(
+      windowsMask(
+        [
+          { ...box(200, 240, 920, 750), radius: 25 },
+          { ...box(200, 760, 920, 882), radius: 25 },
+        ],
+        1440,
+        900,
+      ),
+    );
+    expect(svg).toContain("width='1440' height='900'");
+    expect(svg.match(/<rect x=/g)).toHaveLength(2);
+    expect(svg).toContain("rx='25'");
+    // a radius never exceeds half the window's short side
+    expect(decode(windowsMask([{ ...box(0, 0, 20, 10), radius: 99 }], 100, 100))).toContain("rx='5'");
+  });
+
+  it("the rim traces each window and hides the part of one window's edge that lies inside another", () => {
+    const svg = decodeURIComponent(
+      windowsRim(
+        [
+          { ...box(0, 0, 100, 50), radius: 8 },
+          { ...box(0, 48, 100, 120), radius: 8 },
+        ],
+        200,
+        200,
+        'rgba(255,255,255,0.16)',
+      ),
+    );
+    expect(svg.match(/stroke='rgba\(255,255,255,0.16\)'/g)).toHaveLength(2);
+    expect(svg).toContain("mask='url(#o)'");
+  });
+
+  it('a card goes beside its target on the right, then the left, and says when neither has room', () => {
+    const need = 280 + 17 + 12;
+    expect(sideWithRoom(box(200, 240, 920, 750), 1440, need)).toBe('right');
+    expect(sideWithRoom(box(700, 240, 1420, 750), 1440, need)).toBe('left');
+    expect(sideWithRoom(box(15, 140, 375, 640), 390, need)).toBeNull();
   });
 });

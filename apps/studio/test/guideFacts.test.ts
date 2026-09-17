@@ -2,9 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   guideFactsSnapshot,
   publishComposer,
+  publishOverlay,
   publishStudio,
-  registerSlot,
-  releaseSlot,
   resetGuideFactsForTests,
   setGuideShowing,
   subscribeGuideFacts,
@@ -16,6 +15,7 @@ const facts = (over: Partial<ComposerFacts> = {}): ComposerFacts => ({
   products: 0,
   presenters: 0,
   scene: false,
+  others: 0,
   words: false,
   canGo: false,
   busy: false,
@@ -58,14 +58,12 @@ describe('guide facts', () => {
     expect(guideFactsSnapshot().composer).toBeNull();
   });
 
-  it('a slot is let go only by the element that holds it', () => {
-    const a = document.createElement('div');
-    const b = document.createElement('div');
-    registerSlot('picker', a);
-    registerSlot('picker', b);
-    releaseSlot('picker', a);
-    expect(guideFactsSnapshot().slots.picker).toBe(b);
-    releaseSlot('picker', b);
-    expect(guideFactsSnapshot().slots.picker).toBeUndefined();
+  it("the open shot's composer says when it has been reached for, and takes it back when it goes", () => {
+    publishOverlay({ engaged: false });
+    publishOverlay({ engaged: false });
+    publishOverlay({ engaged: true });
+    expect(emits).toBe(2);
+    publishOverlay(null);
+    expect(guideFactsSnapshot().overlay).toBeNull();
   });
 });

@@ -7,7 +7,6 @@ import {
   expectHeld,
   expectNoGuide,
   guideRecord,
-  note,
   noWelcomeWait,
   pickAProduct,
   setUpBrand,
@@ -31,7 +30,7 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('scenri:count', '1'));
 });
 
-test('declining the welcome guides nothing, and First steps offers the first shot', async ({ page }) => {
+test('declining the welcome holds nothing, and First steps offers the first shot', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   slug = await setUpBrand(page, 'Second Take');
   await welcome(page).locator('.sc-welcome-foot').getByRole('button', { name: 'Not now' }).click();
@@ -48,41 +47,44 @@ test('a take that fails is said on its tile, survives a reload, and building aga
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/${slug}`);
-  await steps(page)
-    .getByRole('button', { name: /^Make a shot/ })
-    .click();
-  await expect(coachTitle(page)).toHaveText("Add what you're shooting");
+  await steps(page).locator('.sc-steps-item', { hasText: 'Make your first shot' }).click();
+  await expect(coachTitle(page)).toHaveText('Every shot starts from ingredients');
   await page.locator('[data-guide="compose.add"]').click();
   await pickAProduct(page);
-  await page.locator('.sc-attachpanel').getByRole('button', { name: 'Close', exact: true }).click();
+  await coachCard(page).getByRole('button', { name: 'Continue' }).click();
   await brief(page).click();
   await page.keyboard.press('End');
   await page.keyboard.type(' at dusk');
   await page.locator('[data-guide="compose.send"]').click();
 
-  const failed = "That one didn't finish. The tile says why, and trying again keeps your product and words.";
-  await expect(page.locator('.sc-coach .sc-coach-body')).toHaveText(failed, { timeout: 15_000 });
+  await expect(coachTitle(page)).toHaveText("That one didn't finish", { timeout: 15_000 });
   await expect(coachCard(page)).toHaveAttribute('data-voice', 'card');
   const record = await guideRecord(page);
   expect(record.done.shot).toBeUndefined();
   expect(record.active?.task).toBe('first-shot');
 
   await page.reload();
-  await expect(page.locator('.sc-coach .sc-coach-body')).toHaveText(failed);
+  await expect(coachTitle(page)).toHaveText("That one didn't finish");
 
   await page.locator('[data-guide="compose.add"]').click();
-  await expect(note(page)).toHaveText(/^Choose a product/);
+  await expect(coachTitle(page)).toHaveText("A product is what you're shooting");
   await expectHeld(page);
 });
 
-test('on a phone the picker strip and the card fit the screen', async ({ page }) => {
+test('on a phone the coach follows into the picker above it, and every card fits the screen', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/${slug}/create`);
   await page.locator('[data-guide="compose.add"]').click();
-  const strip = page.locator('.sc-attachpanel .sc-ap-guide');
-  await expect(strip).toBeVisible();
-  const s = await strip.boundingBox();
-  expect(s && s.x >= 0 && s.x + s.width <= 390).toBe(true);
+  await expect(coachTitle(page)).toHaveText("A product is what you're shooting");
+  await expect(coachCard(page)).toHaveAttribute('data-side', 'top');
+  await expect(coachCard(page)).toHaveAttribute('data-state', 'shown');
+  const fit = await page.evaluate(() => {
+    const c = document.querySelector('.sc-coach')?.getBoundingClientRect();
+    const p = document.querySelector('.sc-attachpanel')?.getBoundingClientRect();
+    if (!c || !p) return null;
+    return { inside: c.left >= 0 && c.right <= innerWidth && c.top >= 0, above: c.bottom <= p.top };
+  });
+  expect(fit).toEqual({ inside: true, above: true });
 
   // a phone's picker closes from the composer's own toggle
   await page.locator('[data-guide="compose.add"]').click();

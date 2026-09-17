@@ -24,15 +24,10 @@
   z-index: 70;
   overflow: hidden;
 }
-/* The first shot's one sentence while the picker is open: a strip across the
-   foot of the panel, a step under its surface, in the hint's quiet voice. */
-.sc-ap-guide {
-  flex: none;
-  border-top: 1px solid var(--sc-line);
-  background: var(--sc-well);
-}
-.sc-ap-guide .sc-banner[data-tone="hint"] {
-  padding: 7px 8px 7px var(--sc-space-6);
+/* While the first shot's guide points at the open picker from above (no room
+   beside it), the picker gives up the height its card needs. */
+:root[data-guide-picker] [data-guide="compose"] .sc-attachpanel {
+  height: min(510px, calc(60vh - 150px));
 }
 .sc-ap-inner {
   display: flex;
@@ -450,6 +445,9 @@
   .sc-attachpanel {
     height: min(510px, var(--ap-avail, calc(100dvh - 270px)));
     border-radius: var(--sc-radius-float);
+  }
+  :root[data-guide-picker] [data-guide="compose"] .sc-attachpanel {
+    height: min(510px, calc(var(--ap-avail, calc(100dvh - 270px)) - 150px));
   }
   /* One row does not fit seven tabs and three controls, and a toolbar
      squeezed onto two read as the desktop panel folded in half. A phone gets

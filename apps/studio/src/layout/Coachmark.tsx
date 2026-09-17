@@ -17,12 +17,23 @@ import {
   union,
   visibleRect,
   width,
-  windowMask,
+  windowsMask,
+  windowsRim,
   type Box,
+  type Window,
 } from './coachGeometry.js';
 
-/** Air between a surface and the veil's window around it. */
+/** Air between a live surface and its window. */
+const SURFACE_PAD = 3;
+/** A surface with no corners of its own (a block of text) gets room and a rounded window. */
+const BLOCK_PAD = 10;
+const BLOCK_RADIUS = 14;
+/** Air between a control the card points at and the card. */
 const RING_PAD = 6;
+/** The window's edge on the curtain: quiet, near-monochrome, no glow. */
+const RIM = 'rgba(255,255,255,0.16)';
+/** What inside a live surface is drawn as its own window, with its own radius. */
+const SHAPE = '[data-guide-shape]';
 /** From the target to the card's edge: the window's air, then room for the pointer. */
 const GAP = 17;
 const EDGE = 12;
@@ -77,8 +88,16 @@ export interface CoachmarkProps {
   title?: string;
   body?: string;
   canBack: boolean;
-  /** The card's one button, when it has one. */
-  action: 'next' | 'done' | null;
+  /** The card's one button, when it has one: Next in a review, Done, Continue. */
+  action: { label: string } | null;
+  /** Beside its target the card is narrower, so it fits beside a picker, a dialog or a question on more screens. */
+  beside?: boolean;
+  /**
+   * The surface that owns the screen: the page's body, or a shell that traps
+   * focus over it (the presenter studio, a creation dialog, the open shot). The
+   * coach is drawn inside it, so its card can be reached, and holds only it.
+   */
+  container: HTMLElement;
   closeLabel: string;
   onBack: (id: string) => void;
   onAction: (id: string) => void;
@@ -105,7 +124,7 @@ export interface CoachmarkProps {
  * draws it where the control actually is and holds the page while it does.
  */
 export function Coachmark(p: CoachmarkProps) {
-  const { id, voice, target, surfaces, side, onShown } = p;
+  const { id, voice, target, surfaces, side, container, onShown } = p;
   const coach = voice === 'coach';
   const hasCard = !!target && !!(p.title || p.body);
   const titleId = useId();
@@ -115,6 +134,7 @@ export function Coachmark(p: CoachmarkProps) {
   const veilRef = useRef<HTMLDivElement>(null);
   const catchRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
+  const rimRef = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLButtonElement>(null);
   const actionRef = useRef<HTMLButtonElement>(null);
   const pressed = useRef<'back' | 'action' | null>(null);
@@ -132,12 +152,12 @@ export function Coachmark(p: CoachmarkProps) {
   // One lock for the life of the coach on screen, released however it ends.
   useEffect(() => {
     if (!coach) return;
-    lock.current = createLock();
+    lock.current = createLock(container);
     return () => {
       lock.current?.release();
       lock.current = null;
     };
-  }, [coach]);
+  }, [coach, container]);
 
   useLayoutEffect(() => {
     const card = cardRef.current;
@@ -145,7 +165,8 @@ export function Coachmark(p: CoachmarkProps) {
     const veil = veilRef.current;
     const catcher = catchRef.current;
     const ring = ringRef.current;
-    if (coach && (!veil || !catcher || !ring)) return;
+    const rim = rimRef.current;
+    if (coach && (!veil || !catcher || !ring || !rim)) return;
     if (hasCard && (!card || !pointer)) return;
     let alive = true;
     let token = 0;
@@ -156,7 +177,7 @@ export function Coachmark(p: CoachmarkProps) {
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const lead = surfaces[0] ?? target;
     if (!lead) return;
-    const radius = Number.parseFloat(getComputedStyle(lead).borderRadius) || 0;
+    let painted = '';
     const pane = target ? scrollPane(target) : null;
     setPhase('moving');
 
@@ -166,6 +187,7 @@ export function Coachmark(p: CoachmarkProps) {
         ...(veil ? [veil] : []),
         ...(catcher ? [catcher] : []),
         ...(ring ? [ring] : []),
+        ...(rim ? [rim] : []),
         ...surfaces,
         ...document.querySelectorAll(KEEP),
       ]);
@@ -198,27 +220,50 @@ export function Coachmark(p: CoachmarkProps) {
           : []),
         ...(pane ? [boxOf(pane.getBoundingClientRect())] : []),
       ];
-      const chrome = occluders(lead);
+      const chrome = occluders(lead, container);
       // Only a bar across the screen cuts a window short; a small float over a corner does not.
       const bars = chrome.filter((c) => width(c) > vw / 3);
       const seen = target ? visibleRect(boxOf(target.getBoundingClientRect()), clips) : null;
       const t = seen && trimBy(seen, bars);
       if (target && !t) return away();
-      let r: Box | null = null;
+      // The windows are the shapes inside each live surface, each with the
+      // radius it really has; a surface with no marked shapes is its own window.
+      const windows: Window[] = [];
+      const shapes: HTMLElement[] = [];
       for (const s of surfaces) {
-        const b = visibleRect(boxOf(s.getBoundingClientRect()), clips);
+        const inner = [...(s.matches(SHAPE) ? [s] : []), ...s.querySelectorAll<HTMLElement>(SHAPE)];
+        shapes.push(...(inner.length ? inner : [s]));
+      }
+      let r: Box | null = null;
+      for (const el of shapes) {
+        const b = visibleRect(boxOf(el.getBoundingClientRect()), clips);
         const trimmed = b && trimBy(b, bars);
-        if (trimmed) r = r ? union(r, trimmed) : trimmed;
+        if (!trimmed) continue;
+        const corner = cornerRadius(el);
+        windows.push(
+          corner >= 4
+            ? { ...pad(trimmed, SURFACE_PAD), radius: corner + SURFACE_PAD }
+            : { ...pad(trimmed, BLOCK_PAD), radius: BLOCK_RADIUS },
+        );
+        r = r ? union(r, trimmed) : trimmed;
       }
       if (!t && !r) return away();
       // Held once per showing, and again whenever the page has redrawn a
       // surface somewhere the hold does not reach (a bar swapped at a breakpoint).
       if (held && (surfaces.some((s) => s.closest('[inert]')) || card?.closest('[inert]'))) held = false;
 
-      if (coach && veil && catcher && ring) {
-        const open = pad(t && r ? union(t, r) : ((r ?? t) as Box), RING_PAD);
-        paintVeil(veil, catcher, open, radius + RING_PAD, masked);
-        if (target && t && !surfaces.includes(target)) {
+      if (coach && veil && catcher && ring && rim) {
+        if (!windows.length && t)
+          windows.push({ ...pad(t, RING_PAD), radius: cornerRadius(target as HTMLElement) + RING_PAD });
+        const boxes = windows.map((w) => [w.left, w.top, w.right, w.bottom, w.radius].map(Math.round).join(','));
+        const key = `${boxes.join('|')}@${vw}x${vh}`;
+        if (key !== painted) {
+          painted = key;
+          paintVeil(veil, catcher, rim, windows, masked);
+        }
+        // A button inside a window wears a thin ring of its own; a window that is
+        // itself the target, or a field to type in, does not.
+        if (target && t && !shapes.includes(target) && target.matches('button, a[href], [role="button"]')) {
           const ringBox = pad(t, 3);
           Object.assign(ring.style, {
             left: `${ringBox.left}px`,
@@ -251,7 +296,10 @@ export function Coachmark(p: CoachmarkProps) {
             ],
           });
         const covers = (x: number, y: number) =>
-          intersects({ left: x, top: y, right: x + card.offsetWidth, bottom: y + card.offsetHeight }, pad(t, RING_PAD));
+          intersects(
+            { left: x, top: y, right: x + card.offsetWidth, bottom: y + card.offsetHeight },
+            pad(t, SURFACE_PAD),
+          );
         // A card beside its target, on a screen too narrow for either side, goes below or above it instead.
         const sideways = side === 'left' || side === 'right';
         const fallbacks: Side[] | undefined = r
@@ -302,7 +350,10 @@ export function Coachmark(p: CoachmarkProps) {
       everShown.current = true;
       let moved = false;
       if (coach && card) {
-        if (pressed.current) {
+        const inSurface = (n: Element | null) => !!n && surfaces.some((s) => s.contains(n));
+        // A card button that handed the caret to a live surface (Continue into the brief) leaves it there.
+        if (pressed.current && inSurface(document.activeElement)) pressed.current = null;
+        else if (pressed.current) {
           const again = pressed.current === 'back' ? backRef.current : null;
           (again ?? actionRef.current ?? card).focus({ preventScroll: true });
           pressed.current = null;
@@ -347,7 +398,7 @@ export function Coachmark(p: CoachmarkProps) {
       window.visualViewport?.removeEventListener('resize', schedule);
       window.visualViewport?.removeEventListener('scroll', schedule);
     };
-  }, [id, coach, hasCard, target, surfaceKey, side, onShown, masked]);
+  }, [id, coach, hasCard, target, surfaceKey, side, container, onShown, masked]);
 
   // The card's words describe the control while it is the one being pointed at.
   useEffect(() => {
@@ -455,6 +506,7 @@ export function Coachmark(p: CoachmarkProps) {
               <div key={i} className="sc-coach-catch-part" />
             ))}
           </div>
+          <div ref={rimRef} className="sc-coach-rim" data-state={phase} aria-hidden="true" />
           <div ref={ringRef} className="sc-coach-ring" data-state={phase} aria-hidden="true" hidden />
         </>
       )}
@@ -464,6 +516,7 @@ export function Coachmark(p: CoachmarkProps) {
           className="sc-coach"
           data-guide="card"
           data-voice={voice}
+          data-beside={p.beside || undefined}
           // A coach holds the page and takes focus, so it is a dialog; a card only annotates.
           {...(coach ? { role: 'dialog', 'aria-labelledby': v.title ? titleId : undefined } : { role: 'note' })}
           aria-describedby={bodyId}
@@ -517,7 +570,7 @@ export function Coachmark(p: CoachmarkProps) {
                     p.onAction(id);
                   }}
                 >
-                  {v.action === 'done' ? 'Done' : 'Next'}
+                  {v.action.label}
                 </button>
               )}
             </div>
@@ -525,7 +578,7 @@ export function Coachmark(p: CoachmarkProps) {
         </div>
       )}
     </>,
-    document.body,
+    container,
   );
 }
 
@@ -536,9 +589,11 @@ function useSurfaceKey(surfaces: readonly HTMLElement[]): readonly HTMLElement[]
   return ref.current;
 }
 
-function occluders(surface: Element): Box[] {
+function occluders(surface: Element, container: Element): Box[] {
   const out: Box[] = [];
   for (const el of document.querySelectorAll(CHROME)) {
+    // chrome under a shell that owns the screen is not over anything the guide shows
+    if (!container.contains(el)) continue;
     if (el.contains(surface) || surface.contains(el) || el.getClientRects().length === 0) continue;
     out.push(boxOf(el.getBoundingClientRect()));
   }
@@ -571,25 +626,29 @@ function virtual(b: Box, context: Element): VirtualElement {
 }
 
 /**
- * The veil paints; it never takes a press. With a mask the window is cut from
- * the dim and the blur alike; without one, plain panels frame it. Either way
- * the clear catch panels around the window are what the page's presses land on.
+ * The veil paints; it never takes a press. With a mask every window is cut
+ * from the dim and the blur alike, and the rim traces the windows' outer edge;
+ * without one, plain panels frame the windows' union. Either way the clear
+ * catch panels around the union are what the page's presses land on.
  */
-function paintVeil(veil: HTMLElement, catcher: HTMLElement, open: Box, radius: number, masked: boolean) {
-  const parts = panels(open, window.innerWidth, window.innerHeight);
+function paintVeil(veil: HTMLElement, catcher: HTMLElement, rim: HTMLElement, windows: Window[], masked: boolean) {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const all = windows.reduce<Box | null>((u, w) => (u ? union(u, w) : w), null);
+  const parts = all ? panels(all, vw, vh) : [];
   if (masked) {
-    const m = windowMask(open, radius);
+    const image = windowsMask(windows, vw, vh);
     const s = veil.style;
-    if (s.maskImage !== m.image) {
-      s.maskImage = m.image;
-      s.webkitMaskImage = m.image;
-    }
-    s.maskSize = m.size;
-    s.webkitMaskSize = m.size;
-    s.maskPosition = m.position;
-    s.webkitMaskPosition = m.position;
+    s.maskImage = image;
+    s.webkitMaskImage = image;
+    rim.style.backgroundImage = windowsRim(windows, vw, vh, RIM);
   } else placeParts(veil, parts);
   placeParts(catcher, parts);
+}
+
+/** A shape's corner, as drawn: the top-left radius, which every shape the guide windows uses shares. */
+function cornerRadius(el: HTMLElement): number {
+  return Number.parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
 }
 
 function placeParts(host: HTMLElement, parts: Box[]) {
@@ -614,7 +673,7 @@ const PARTS = [0, 1, 2, 3];
 
 function maskSupported(): boolean {
   if (typeof CSS === 'undefined') return false;
-  return CSS.supports('mask-composite', 'exclude') || CSS.supports('-webkit-mask-composite', 'xor');
+  return CSS.supports('mask-image', 'url("x.svg")') || CSS.supports('-webkit-mask-image', 'url("x.svg")');
 }
 
 /** The pane a target scrolls in. Inside a brand the document never scrolls; a page does. */

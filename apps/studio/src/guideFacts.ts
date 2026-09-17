@@ -3,9 +3,9 @@ import { useSyncExternalStore } from 'react';
 /**
  * What the product says about itself, for the first-use guide to read
  * (DESIGN.md, "First use"). The guide never owns product state and never asks
- * the DOM what happened: Create's composer and the presenter studio publish a
- * small summary of where they are, only when it changes, and surfaces register
- * the slots a one-line note can sit in.
+ * the DOM what happened: Create's composer, the open shot's composer and the
+ * presenter studio publish a small summary of where they are, only when it
+ * changes.
  */
 export interface ComposerFacts {
   brandId: string;
@@ -13,6 +13,8 @@ export interface ComposerFacts {
   products: number;
   presenters: number;
   scene: boolean;
+  /** Any other chip: a colour, an image, the brand mark, a shot. */
+  others: number;
   /** The brief has words of its own. */
   words: boolean;
   /** Generate would run. */
@@ -31,15 +33,20 @@ export interface StudioFacts {
   open: string | null;
 }
 
+export interface OverlayFacts {
+  /** The open shot's composer has been reached for: focus, or words in it. */
+  engaged: boolean;
+}
+
 export interface GuideFacts {
   composer: ComposerFacts | null;
+  overlay: OverlayFacts | null;
   studio: StudioFacts | null;
-  slots: Readonly<Record<string, HTMLElement>>;
   /** Some first-use surface is on screen: What's New waits for it. */
   showing: boolean;
 }
 
-const EMPTY: GuideFacts = { composer: null, studio: null, slots: {}, showing: false };
+const EMPTY: GuideFacts = { composer: null, overlay: null, studio: null, showing: false };
 let state: GuideFacts = EMPTY;
 const listeners = new Set<() => void>();
 
@@ -54,21 +61,12 @@ export function publishComposer(facts: ComposerFacts | null): void {
   if (!same(state.composer, facts)) set({ ...state, composer: facts });
 }
 
+export function publishOverlay(facts: OverlayFacts | null): void {
+  if (!same(state.overlay, facts)) set({ ...state, overlay: facts });
+}
+
 export function publishStudio(facts: StudioFacts | null): void {
   if (!same(state.studio, facts)) set({ ...state, studio: facts });
-}
-
-/** A place a note can sit: the picker, the open shot's tray, a creation dialog, the studio. */
-export function registerSlot(name: string, el: HTMLElement): void {
-  if (state.slots[name] !== el) set({ ...state, slots: { ...state.slots, [name]: el } });
-}
-
-/** Lets go of a slot, only if it is still this element's: a newer one of the same name stays. */
-export function releaseSlot(name: string, el: HTMLElement): void {
-  if (state.slots[name] !== el) return;
-  const slots = { ...state.slots };
-  delete slots[name];
-  set({ ...state, slots });
 }
 
 export function setGuideShowing(showing: boolean): void {

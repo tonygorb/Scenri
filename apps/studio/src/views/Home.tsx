@@ -299,12 +299,10 @@ export function HomeView() {
     <WallDensityCtx.Provider value={densityAttr}>
       <ScrollPane>
         <main className="sc-main" id="main" data-no-dock={phone || undefined}>
-          <div className="sc-greet-row">
-            <h1 className="sc-greet">
-              Compose a shot <em>on brand</em>
-            </h1>
-            <FirstSteps />
-          </div>
+          <h1 className="sc-greet">
+            Compose a shot <em>on brand</em>
+          </h1>
+          <FirstSteps />
 
           <div className="sc-create-grid">
             <button type="button" className="sc-create-card" data-tone="compose" data-main="" onClick={startCompose}>

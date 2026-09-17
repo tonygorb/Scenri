@@ -22,58 +22,59 @@
   letter-spacing: 0;
 }
 
-/* The greeting and, while there is something left to learn, First steps
-   (views/home/FirstSteps.tsx): one quiet line, beside the greeting where the
-   row has room and under it where it does not. No counts, no percentage,
-   no accent: a to-do is a hollow ring, the step in hand a dot, a done step a
-   faded tick. */
-.sc-greet-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  column-gap: var(--sc-space-7);
-}
-.sc-greet-row .sc-greet {
-  margin-right: auto;
-}
+/* First steps (views/home/FirstSteps.tsx): a compact panel under the greeting
+   while there is something left to learn. The pattern of a getting-started
+   list, in Scenri's voice: a hairline frame and no fill, a quiet count and
+   never a percentage, five actionable steps that each open their task. A to-do
+   is a hollow ring, the step in hand a dot, a done step a faded tick. */
 .sc-steps {
+  margin: -8px 0 22px;
+  padding: 12px 12px 12px 16px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-lg);
+}
+.sc-steps-head {
   display: flex;
   align-items: center;
-  gap: var(--sc-space-4);
-  min-width: 0;
-  margin: 12px 0 22px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
-.sc-steps-lb {
-  flex: none;
-  font: 600 12px / 1 var(--sc-font);
+.sc-steps-title {
+  margin: 0;
+  font: 600 13px / 1.3 var(--sc-font);
+  color: var(--sc-fg);
+}
+.sc-steps-count {
+  font: 500 12px / 1 var(--sc-font);
   color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
+}
+.sc-steps .sc-steps-x {
+  margin: 0 0 0 auto;
 }
 .sc-steps-list {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0 0 0 -8px;
   padding: 0;
   list-style: none;
 }
 .sc-steps-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 28px;
-  padding: 0 9px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
   border: 0;
-  border-radius: var(--sc-radius-full);
+  border-radius: var(--sc-radius-md);
   background: none;
-  font: 500 12.5px / 1 var(--sc-font);
-  color: var(--sc-fg2);
-  white-space: nowrap;
+  color: var(--sc-fg);
+  text-align: left;
   cursor: pointer;
 }
 .sc-steps-item:hover:not(:active) {
   background: var(--sc-hover);
-  color: var(--sc-fg);
 }
 .sc-steps-item:active {
   background: var(--sc-press);
@@ -87,43 +88,72 @@
   display: grid;
   place-items: center;
   box-sizing: border-box;
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
   border: 1.5px solid var(--sc-line-strong);
   border-radius: 50%;
+  color: var(--sc-fg2);
 }
 .sc-steps-item[data-state="active"] .sc-steps-mark {
   border-color: var(--sc-fg2);
-  background: radial-gradient(circle, var(--sc-fg2) 0 2.5px, transparent 3px);
-}
-.sc-steps-item[data-state="done"] {
-  color: var(--sc-fg3);
+  background: radial-gradient(circle, var(--sc-fg) 0 3px, transparent 3.5px);
 }
 .sc-steps-item[data-state="done"] .sc-steps-mark {
   border-color: transparent;
 }
-.sc-steps-x {
-  margin: 0;
+.sc-steps-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.sc-steps-name {
+  font: 500 13px / 1.35 var(--sc-font);
+}
+.sc-steps-why {
+  overflow: hidden;
+  font: 400 12px / 1.35 var(--sc-font);
+  color: var(--sc-fg3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-steps-item[data-state="done"] .sc-steps-name {
+  color: var(--sc-fg3);
 }
 @media (max-width: 1279px) {
-  .sc-steps {
-    flex-basis: 100%;
-    margin: -8px 0 22px;
+  .sc-steps-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
-/* A phone keeps the line to one row that scrolls sideways, like the filter tabs. */
+@media (max-width: 899px) {
+  .sc-steps-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* A phone keeps the panel to one row that scrolls sideways, like the filter tabs. */
 @media (max-width: 767px) {
   .sc-steps {
-    margin: -4px -14px 16px;
-    padding: 0 14px;
+    margin: -6px -14px 16px;
+    padding: 10px 0 8px;
+    border-width: 1px 0;
+    border-radius: 0;
+  }
+  .sc-steps-head {
+    padding: 0 8px 0 14px;
   }
   .sc-steps-list {
-    flex: 1;
+    display: flex;
+    margin: 0;
+    padding: 0 6px;
     overflow-x: auto;
     scrollbar-width: none;
   }
   .sc-steps-list::-webkit-scrollbar {
     display: none;
+  }
+  .sc-steps-list > li {
+    flex: none;
+    width: 208px;
   }
 }
 

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useMatch, useSearchParams } from 'react-router';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId, GuideTaskNode } from '../api.js';
-import { guideIntent, guideSnapshot, refreshGuide, useGuide } from '../guide.js';
+import { guideIntent, refreshGuide, useGuide } from '../guide.js';
 import { setGuideShowing, useGuideFacts } from '../guideFacts.js';
 import {
+  REVIEWABLE,
+  WELCOME,
   assetStep,
   canWelcome,
   firstShotStep,
@@ -16,7 +17,6 @@ import {
   presenterStep,
   refineStep,
   startsHere,
-  WELCOME,
   welcomeSet,
   type Guidance,
 } from '../guidedTasks.js';
@@ -24,15 +24,21 @@ import { P } from '../routes.js';
 import { useToasts } from '../toasts.js';
 import { WelcomeDialog } from '../views/WelcomeDialog.js';
 import { Coachmark } from './Coachmark.js';
-import { GuideNote } from './GuideNote.js';
+import { sideWithRoom, boxOf } from './coachGeometry.js';
 import { useLaunchTask } from './useLaunchTask.js';
 
 /** How long a ready page rests before the welcome arrives. e2e sets it to 0. */
 const WELCOME_SETTLE_MS = Number(window.localStorage.getItem('scenri:welcome-settle-ms') ?? 900);
-/** What owns the screen above the page, so the guide waits under it. Never the picker: the first shot goes through it. */
-const MODAL = '[role="dialog"]:not(.sc-coach):not(.sc-attachpanel), [role="alertdialog"], .sc-lightbox';
+/**
+ * What owns the screen above the page, so the guide waits under it. Never the
+ * picker, which the first shot goes through, and never a chip's own menu,
+ * which is part of building the brief.
+ */
+const MODAL = '[role="dialog"]:not(.sc-coach):not(.sc-attachpanel):not(.sc-swap), [role="alertdialog"], .sc-lightbox';
 /** Dialogs that live in the address. */
 const DIALOG_PARAMS = ['settings', 'setup', 'new', 'whatsnew'];
+/** A card beside its target: its width, the air to the target and to the screen's edge. */
+const BESIDE = 280 + 17 + 12;
 
 /**
  * Where first use happens (DESIGN.md, "First use"): the welcome, once, and
@@ -84,26 +90,27 @@ export function GuideHost() {
     wasBusy.current = busy;
   }, [busy, nodeKind]);
 
-  // One observer, only while something may show: a dialog opening over the
-  // page, a tile drawing, the surface a step points at arriving.
+  // Watching, only while something may show. A task needs to know when a
+  // dialog, a sheet or the lightbox opens over the page: they all mount as
+  // children of the body, so the body's own children are enough. The welcome
+  // waits for a page to finish drawing, which only a deeper look can tell.
   const [, setTick] = useState(0);
-  const watching = !!task || welcomePending;
+  const bump = useRef(0);
+  const rerender = useCallback(() => {
+    cancelAnimationFrame(bump.current);
+    bump.current = requestAnimationFrame(() => setTick((t) => t + 1));
+  }, []);
   useEffect(() => {
-    if (!watching) return;
-    let frame = 0;
-    const bump = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => setTick((t) => t + 1));
-    };
-    const mo = new MutationObserver(bump);
-    mo.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener('resize', bump);
+    if (!task && !welcomePending) return;
+    const mo = new MutationObserver(rerender);
+    mo.observe(document.body, { childList: true, subtree: welcomePending });
+    window.addEventListener('resize', rerender);
     return () => {
-      cancelAnimationFrame(frame);
+      cancelAnimationFrame(bump.current);
       mo.disconnect();
-      window.removeEventListener('resize', bump);
+      window.removeEventListener('resize', rerender);
     };
-  }, [watching]);
+  }, [task, welcomePending, rerender]);
 
   const [visible, setVisible] = useState(() => !document.hidden);
   useEffect(() => {
@@ -112,6 +119,7 @@ export function GuideHost() {
     return () => document.removeEventListener('visibilitychange', on);
   }, []);
 
+  const watching = !!task || welcomePending;
   const dialogParam = DIALOG_PARAMS.some((k) => params.has(k));
   const modal = watching && (dialogParam || !!document.querySelector(MODAL));
   const newKind = params.get('new');
@@ -129,7 +137,25 @@ export function GuideHost() {
   else if (task === 'presenter') step = studio ? presenterStep(facts.studio) : null;
   else if (task === 'product' || task === 'scene') step = assetStep(task, newKind === task);
 
-  // Escape puts a coach away until the step changes; Back reviews the card before.
+  // A card beside its target (the picker, a dialog, a question) where there is
+  // room for it, and above it where there is not: never inside, never hidden.
+  if (step?.beside && step.target) {
+    const el = firstVisible(step.target);
+    const side = el ? sideWithRoom(boxOf(el.getBoundingClientRect()), window.innerWidth, BESIDE) : null;
+    step = { ...step, side: side ?? 'top' };
+  }
+  // On a narrow screen the open picker makes room above itself for that card.
+  const pickerRoom = step?.id.startsWith('pick') && step.side === 'top';
+  useEffect(() => {
+    if (!pickerRoom) return;
+    document.documentElement.dataset.guidePicker = '';
+    return () => {
+      delete document.documentElement.dataset.guidePicker;
+    };
+  }, [pickerRoom]);
+
+  // Escape or an X that only snoozes puts a card away until the step changes;
+  // Back shows the card before again, for review, and touches nothing.
   const [snoozed, setSnoozed] = useState<string | null>(null);
   const [review, setReview] = useState<Guidance | null>(null);
   const visited = useRef<Guidance[]>([]);
@@ -139,7 +165,7 @@ export function GuideHost() {
     lastStep.current = stepId;
     if (snoozed) setSnoozed(null);
     if (review) setReview(null);
-    if (step?.voice === 'coach' && step.target && step.title) {
+    if (step && REVIEWABLE.includes(step.id)) {
       const at = visited.current.findIndex((g) => g.id === step?.id);
       visited.current = at >= 0 ? visited.current.slice(0, at + 1) : [...visited.current, step];
     }
@@ -150,6 +176,7 @@ export function GuideHost() {
 
   const shown = review ?? (step && snoozed !== step.id ? step : null);
   const reviewBefore = (g: Guidance) => {
+    if (!REVIEWABLE.includes(g.id)) return null;
     const at = visited.current.findIndex((v) => v.id === g.id);
     const prev = at > 0 ? visited.current[at - 1] : null;
     return prev?.target && firstVisible(prev.target) ? prev : null;
@@ -171,6 +198,12 @@ export function GuideHost() {
       finish('first-shot');
   }, [task, shot, nodes, finish]);
 
+  // A refinement moves the open shot onto the version it made: read the task
+  // again then, rather than waiting for the activity poll to mention it.
+  useEffect(() => {
+    if (task === 'refine' && shot) void refreshGuide();
+  }, [task, shot]);
+
   // Refining ends when the shot closes: done if a new version exists, and
   // otherwise quietly, so First steps offers it again rather than holding it.
   const onShot = useRef(false);
@@ -188,6 +221,8 @@ export function GuideHost() {
 
   // A product, presenter or scene task: re-read what the brand holds whenever
   // it may have changed, and end once there is one more than when it began.
+  // Closing its surface does not end it: a build may still be landing, and the
+  // task waits in First steps for whoever comes back to it.
   const assetTask = task === 'product' || task === 'presenter' || task === 'scene';
   const buildsRunning = builds.filter((b) => !b.finished).length;
   useEffect(() => {
@@ -197,36 +232,17 @@ export function GuideHost() {
     if (assetTask && guide.counts && madeOne(guide, guide.counts)) finish(active?.task as GuideTaskId);
   }, [assetTask, guide, active, finish]);
 
-  // Left the surface with nothing made and nothing still building: the task
-  // ends quietly, and First steps offers it again. A presenter with a draft
-  // stays in hand, so its item continues that draft.
-  const onSurface = task === 'presenter' ? studio : task === 'product' || task === 'scene' ? newKind === task : true;
-  const wasOn = useRef(false);
+  // Someone new reaching for a surface on their own begins its task, once. The
+  // shot overlay only counts once its composer is reached for: opening a shot
+  // to look at it is not asking to learn refining.
+  const engaged = !!facts.overlay?.engaged;
+  // Each surface begins its task at most once per visit: a task just finished
+  // or put away is never begun again by the same moment that began it.
+  const autoStarted = useRef(new Set<GuideTaskId>());
   useEffect(() => {
-    if (!assetTask) {
-      wasOn.current = false;
-      return;
-    }
-    if (onSurface) {
-      wasOn.current = true;
-      return;
-    }
-    if (!wasOn.current) return;
-    wasOn.current = false;
-    const t = task as GuideTaskId;
-    void refreshGuide().then(() => {
-      const g = guideSnapshot();
-      if (g.active?.task !== t || (g.counts && madeOne(g, g.counts))) return;
-      if (buildsRunning > 0 || importing || (t === 'presenter' && g.activeDraftId)) return;
-      finish(t);
-    });
-  }, [assetTask, onSurface, task, buildsRunning, importing, finish]);
-
-  // A surface someone new opens on their own begins its task, once.
-  useEffect(() => {
-    if (!guide.loaded || task || active) return;
+    if (!guide.loaded || !guide.eligible) return;
     const s = { eligible: guide.eligible, hidden: guide.hidden, done: guide.done, dismissed: guide.dismissed, active };
-    const doneShot = !!shot && recent.some((n) => n.id === shot && n.status === 'done');
+    const doneShot = !!shot && engaged && recent.some((n) => n.id === shot && n.status === 'done');
     const want: GuideTaskId | null =
       doneShot && startsHere('refine', s)
         ? 'refine'
@@ -237,8 +253,10 @@ export function GuideHost() {
             : studio && startsHere('presenter', s)
               ? 'presenter'
               : null;
-    if (want) void guideIntent({ start: { task: want, brandId: brand.id } });
-  }, [guide, task, active, shot, recent, newKind, studio, brand.id]);
+    if (!want || autoStarted.current.has(want)) return;
+    autoStarted.current.add(want);
+    void guideIntent({ start: { task: want, brandId: brand.id } });
+  }, [guide, active, shot, engaged, recent, newKind, studio, brand.id]);
 
   // Announced once per step into a region that was already there, unless a
   // coach card took focus, which reads itself out.
@@ -252,15 +270,16 @@ export function GuideHost() {
     const words = wordsOf(latestShown.current);
     if (words) requestAnimationFrame(() => setSaid(words));
   }, []);
-  // A card or coach says itself through onShown; a note in a slot and a quiet step are said here.
-  const drawsItself = !!shown && (shown.voice === 'coach' || shown.voice === 'card') && !shown.slot;
-  const shownWords = drawsItself ? '' : wordsOf(shown);
+
+  // Words inside a surface, and a quiet step's one sentence, are said here; a
+  // coach or a card says itself when it is shown.
+  const spoken = shown?.voice === 'quiet' ? (shown.announce ?? '') : '';
   useEffect(() => {
     setSaid('');
-    if (!shownWords) return;
-    const frame = requestAnimationFrame(() => setSaid(shownWords));
+    if (!spoken) return;
+    const frame = requestAnimationFrame(() => setSaid(spoken));
     return () => cancelAnimationFrame(frame);
-  }, [shownWords]);
+  }, [spoken]);
 
   // The welcome: once, on the first ready main page, when nothing else is happening.
   const [welcome, setWelcome] = useState(false);
@@ -285,58 +304,73 @@ export function GuideHost() {
   const engineReady = data.engines.some((e) => e.available);
   const ownsProducts = products.length > 0;
 
-  // What gets drawn.
-  const drawn = shown && shown.voice !== 'quiet' && shown.voice !== 'note' ? shown : null;
+  // What gets drawn: a coach or a card, inside whichever surface owns the screen.
+  const drawn = shown && (shown.voice === 'coach' || shown.voice === 'card') ? shown : null;
+  const container = drawn?.container ? firstVisible(drawn.container) : document.body;
   const target = drawn?.target ? firstVisible(drawn.target) : null;
   const surfaces = (drawn?.surfaces ?? []).map((s) => firstVisible(s)).filter((el): el is HTMLElement => !!el);
-  const coachReady = !!drawn && (drawn.target ? !!target : surfaces.length > 0);
-  const slotEl = shown?.slot ? (facts.slots[shown.slot] ?? null) : null;
-  const note =
-    shown?.slot && shown.body && slotEl && (shown.voice === 'note' || shown.voice === 'coach') ? shown : null;
-  const showing = welcome || coachReady || !!note;
+  const drawReady =
+    !!drawn && !!container && !!target && (drawn.voice === 'card' || surfaces.length === (drawn.surfaces ?? []).length);
+  const missing = drawn && !drawReady ? drawn : null;
+  const showing = welcome || drawReady;
   useEffect(() => setGuideShowing(showing), [showing]);
   useEffect(() => () => setGuideShowing(false), []);
+
+  // What a step points at can arrive a moment after the step does: a tile the
+  // feed has still to fetch, a question still being written into the studio.
+  // Watch for it where it will appear, and only until it does.
+  useEffect(() => {
+    if (!missing) return;
+    const root =
+      (missing.container ? document.querySelector(missing.container) : null) ??
+      document.querySelector('.sc-feed') ??
+      document.body;
+    const mo = new MutationObserver(rerender);
+    mo.observe(root, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, [missing?.id, missing?.container, rerender]);
 
   const close = (g: Guidance) => {
     if (!task) return;
     if (g.done) finish(task);
+    else if (g.snooze) setSnoozed(g.id);
     else dismiss(task);
   };
+  const act = (g: Guidance) => {
+    if (review) return setReview(null);
+    if (g.action?.kind === 'close-picker') window.dispatchEvent(new Event('scenri:guide-close-picker'));
+    else if (g.done && task) finish(task);
+  };
+  const actionOf = (g: Guidance) =>
+    review ? { label: 'Next' } : g.action ? { label: g.action.label } : g.done ? { label: 'Done' } : null;
+  const closeLabel = (g: Guidance) => (g.done || g.snooze ? 'Close' : 'Close guide');
 
   return (
     <>
       <span className="sc-vh" role="status" aria-live="polite">
         {said}
       </span>
-      {drawn && coachReady && (
+      {drawn && drawReady && (
         <Coachmark
           id={`${review ? 'review:' : ''}${drawn.id}`}
           voice={drawn.voice === 'coach' ? 'coach' : 'card'}
           target={target}
           surfaces={surfaces}
           side={drawn.side ?? 'top'}
-          title={drawn.slot ? undefined : drawn.title}
-          body={drawn.slot ? undefined : drawn.body}
+          beside={drawn.beside}
+          container={container as HTMLElement}
+          title={drawn.title}
+          body={drawn.body}
           canBack={!review && !!reviewBefore(drawn)}
-          action={review ? 'next' : drawn.done ? 'done' : null}
-          closeLabel={drawn.done ? 'Close' : 'Close guide'}
+          action={actionOf(drawn)}
+          closeLabel={closeLabel(drawn)}
           onBack={() => setReview(reviewBefore(drawn))}
-          onAction={() => (review ? setReview(null) : close(drawn))}
+          onAction={() => act(drawn)}
           onClose={() => close(drawn)}
           onEscape={() => (review ? setReview(null) : setSnoozed(drawn.id))}
           onShown={onShown}
         />
       )}
-      {note &&
-        slotEl &&
-        createPortal(
-          <GuideNote
-            text={note.body as string}
-            closeLabel={note.done ? 'Close' : 'Close guide'}
-            onClose={() => close(note)}
-          />,
-          slotEl,
-        )}
       <WelcomeDialog
         open={welcome}
         pictures={pictures}

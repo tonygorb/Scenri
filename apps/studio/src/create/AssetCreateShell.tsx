@@ -3,7 +3,6 @@ import { Spinner } from '@radix-ui/themes';
 import { CaretLeft, X } from '@phosphor-icons/react';
 import { useDialogParam } from '../app/AppShell.js';
 import { DialogSheet, SheetClose, SheetTitle } from '../layout/DialogSheet.js';
-import { GuideSlot } from '../layout/GuideSlot.js';
 
 /**
  * The one shape every "add something to this brand" flow wears.
@@ -31,7 +30,6 @@ export function AssetCreateShell({
   onBack,
   onPrimary,
   onPasteFiles,
-  guideSlot,
   children,
 }: {
   title: string;
@@ -52,8 +50,6 @@ export function AssetCreateShell({
   onPrimary: () => void;
   /** Images on the clipboard become references, same as a drop. */
   onPasteFiles?: (files: File[]) => void;
-  /** Where the first-use guide may say one sentence about this flow (DESIGN.md, "First use"). */
-  guideSlot?: string;
   children: ReactNode;
 }) {
   const { close } = useDialogParam('new');
@@ -84,10 +80,7 @@ export function AssetCreateShell({
       </div>
       {sub && <p className="sc-newdlg-sub">{sub}</p>}
 
-      <div className="sc-newdlg-body">
-        {guideSlot && <GuideSlot name={guideSlot} className="sc-newdlg-guide" />}
-        {children}
-      </div>
+      <div className="sc-newdlg-body">{children}</div>
 
       <div className="sc-newdlg-foot">
         {error && (

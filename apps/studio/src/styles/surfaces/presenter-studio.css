@@ -592,12 +592,6 @@
 .sc-pstudio-foot .sc-dlg-foot {
   margin-top: 0;
 }
-/* The presenter task's word at a decision, over the composer it concerns. */
-.sc-pstudio-guide {
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-md);
-  background: var(--sc-well);
-}
 
 .sc-pstudio-foot .sc-dlg-foot {
   margin-top: 0;

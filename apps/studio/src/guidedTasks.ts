@@ -9,36 +9,47 @@ import type { ComposerFacts, StudioFacts } from './guideFacts.js';
  * first of these rules that is true, checked from the outcome back, so a send
  * that empties the brief never sends the guide back to the start.
  *
- * Three voices. A coach step holds the page (only its surfaces stay live) and
- * points at the one thing to do; it is used only for the first shot. A card
- * points at something without holding anything. A note is one sentence in a
- * slot the surface already has. Everything else is quiet: the task stays in
- * hand and nothing is drawn.
+ * One guide, everywhere. A coach holds the screen it is on (the page, the
+ * presenter studio, a creation dialog, the open shot): a curtain with windows
+ * on the live surfaces and a card pointing at what matters. A card points at
+ * something that just happened without holding anything. Quiet is a task
+ * still in hand with nothing drawn, while the surface speaks for itself, such
+ * as the presenter studio's own questions.
  */
 export type Side = 'top' | 'bottom' | 'left' | 'right';
+
+export interface GuideAction {
+  kind: 'close-picker' | 'done';
+  label: string;
+}
 
 export interface Guidance {
   /** Stable, for the Back history and the tests. */
   id: string;
-  voice: 'coach' | 'card' | 'note' | 'quiet';
-  /** coach and card: the control the card points at. */
+  voice: 'coach' | 'card' | 'quiet';
+  /** What the card points at. */
   target?: string;
-  /** coach and note: the slot the sentence sits in, when it sits inside a surface. */
-  slot?: string;
-  /** coach: what stays live and open while the page is held. */
+  /** coach: what stays live while the screen is held. The windows are drawn from the shapes inside it. */
   surfaces?: string[];
+  /** The surface that owns the screen, when it is not the page: the guide is drawn inside it. */
+  container?: string;
   side?: Side;
+  /** The card sits beside its target where there is room (right, then left), and above it where there is not. */
+  beside?: boolean;
   title?: string;
   body?: string;
-  /** The card ends the task with Done. */
+  /** The card's one button. */
+  action?: GuideAction;
+  /** Finished: the X and Done both end the task as done. */
   done?: boolean;
+  /** The X only puts this card away until the step changes. */
+  snooze?: boolean;
   /** quiet: said once to a screen reader. */
   announce?: string;
 }
 
-/** Create's composer, with its tray. */
-const DOCK = '[data-guide="compose"]';
-/** Its picker: inside the composer, but drawn above it, so the window has to reach it too. */
+/** Create's composer: its tray, its card and its picker. */
+const COMPOSE = '[data-guide="compose"]';
 const PICKER = '[data-guide="compose"] .sc-attachpanel';
 
 export const COPY = {
@@ -47,33 +58,83 @@ export const COPY = {
     body: 'Your first shot needs it. The rest of Scenri works meanwhile.',
   },
   add: {
-    title: "Add what you're shooting",
-    body: "Every shot starts from real references. Scenri's own products are ready now.",
+    title: 'Every shot starts from ingredients',
+    body: "Scenri keeps products, presenters and scenes so you never describe them twice. Start with what you're shooting.",
   },
-  pick: 'Choose a product. Its real photos keep it exact in every shot.',
-  picked: 'Add a presenter or a scene if you like, then close the panel to direct the shot.',
-  brief: {
-    title: 'Direct it, then Generate',
-    body: 'A few words for the place, the light and the moment. The product already carries its look.',
+  pick: {
+    title: "A product is what you're shooting",
+    body: 'Its real photos keep it exact in every shot. Pick one of yours or one of ours.',
   },
-  waiting: 'Your first shot is on its way.',
-  failed: "That one didn't finish. The tile says why, and trying again keeps your product and words.",
+  pickedProduct: {
+    title: 'Add who appears, or where',
+    body: 'A presenter is the same person in every shot; a scene is the world and its light. Both are optional.',
+  },
+  pickedOther: {
+    title: "Add what they're showing",
+    body: 'A product keeps its real photos exact. You can carry on without one.',
+  },
+  pickedAll: {
+    title: "That's a shot's ingredients",
+    body: 'Next, a few words of direction.',
+  },
+  direct: {
+    title: 'Now direct it',
+    body: 'A few words for the place, the light and the moment. The ingredients already carry how things look.',
+  },
+  generate: {
+    title: 'Make the shot',
+    body: 'Scenri composes your ingredients and direction into one shot.',
+  },
+  waiting: {
+    title: 'Your shot is being made',
+    body: 'Every shot keeps its ingredients, so you can change one thing later without starting over.',
+  },
+  failed: {
+    title: "That one didn't finish",
+    body: 'The tile says why. Your ingredients and words are still in the brief.',
+  },
   result: {
     title: 'Your first shot',
-    body: 'Open it and say what to change. The rest of the shot stays as it is.',
+    body: 'Open it and say what to change. Everything else stays as it is.',
   },
-  refineAsk: 'One change at a time works best, like warmer light or a closer crop.',
-  refineResult: 'This is a new version. The original is one step back.',
-  product: 'Photos of the real product keep it exact in every shot, or import your store below.',
-  presenterStart: 'Cast them once, and the same person fronts every shot.',
-  presenterFace: 'Every shot will use this face, so settle it here.',
-  scene: 'Build a place once and shoot in it again. Photos of a real place work best; a line of direction works too.',
+  refineAsk: {
+    title: 'Change one thing at a time',
+    body: 'Like warmer light or a closer crop. The rest of the shot stays.',
+  },
+  refineResult: {
+    title: 'This is a new version',
+    body: 'The original is one step back.',
+  },
+  product: {
+    title: "A product is what you're shooting",
+    body: 'A few real photos keep it exact in every shot, or import your store below.',
+  },
+  presenterIntro: {
+    title: 'A presenter is who appears',
+    body: 'Cast someone once and the same face fronts every shot. Describe someone new, or start from photos of a real person.',
+  },
+  presenterFace: {
+    title: 'Settle the face first',
+    body: 'Every shot with this presenter uses it. Use it, try again, or say what to change.',
+  },
+  presenterSave: {
+    title: 'Save to cast them',
+    body: "Once saved, they're in the ingredients for every shot.",
+  },
+  scene: {
+    title: 'A scene is the world a shot lives in',
+    body: 'Its place and light carry into every shot that uses it. Photos of a real place work best; a line of direction works too.',
+  },
+  continue: 'Continue',
 } as const;
 
 const tile = (id: string) => `.sc-feed .sc-cell[data-fb-node="${id}"]`;
 const finished = (n: GuideTaskNode) => n.status === 'done' && n.images > 0;
 const failed = (n: GuideTaskNode) =>
   n.status === 'error' || n.status === 'cancelled' || (n.status === 'done' && n.images === 0);
+
+/** Everything in the brief that is an ingredient rather than words. */
+export const ingredientsOf = (c: ComposerFacts) => c.products + c.presenters + (c.scene ? 1 : 0) + c.others;
 
 export interface ShotFacts {
   /** On the brand's Create page, the task's brand, with nothing modal over it. */
@@ -88,87 +149,134 @@ export function firstShotStep(f: ShotFacts): Guidance | null {
   if (!f.here) return null;
   const c = f.composer;
   const done = f.nodes.find(finished);
-  if (done)
-    return {
-      id: 'result',
-      voice: 'card',
-      target: tile(done.id),
-      side: 'bottom',
-      title: COPY.result.title,
-      body: COPY.result.body,
-      done: true,
-    };
+  if (done) return { id: 'result', voice: 'card', target: tile(done.id), side: 'bottom', ...COPY.result, done: true };
   if (c?.busy) return { id: 'sending', voice: 'quiet' };
-  if (f.nodes.some((n) => n.status === 'running')) return { id: 'waiting', voice: 'quiet', announce: COPY.waiting };
-  const building = !!c && (c.pickerOpen || c.products > 0 || c.presenters > 0 || c.scene || c.words);
+  const running = f.nodes.find((n) => n.status === 'running');
+  if (running)
+    return {
+      id: 'waiting',
+      voice: 'card',
+      target: tile(running.id),
+      side: 'bottom',
+      ...COPY.waiting,
+      snooze: true,
+      announce: COPY.waiting.title,
+    };
+  const ingredients = c ? ingredientsOf(c) : 0;
+  const building = !!c && (c.pickerOpen || ingredients > 0 || c.words);
   const lastFailed = f.nodes.find(failed);
   if (lastFailed && !building)
-    return { id: 'failed', voice: 'card', target: tile(lastFailed.id), side: 'bottom', body: COPY.failed };
+    return { id: 'failed', voice: 'card', target: tile(lastFailed.id), side: 'bottom', ...COPY.failed };
   if (!c || c.refining) return null;
-  if (c.engine !== 'ready')
-    return {
-      id: 'engine',
-      voice: 'coach',
-      target: '[data-guide="compose.engine"]',
-      surfaces: [DOCK],
-      side: 'top',
-      ...COPY.engine,
-    };
-  if (c.pickerOpen)
-    return {
-      id: c.products > 0 ? 'picked' : 'pick',
-      voice: 'coach',
-      slot: 'picker',
-      surfaces: [DOCK, PICKER],
-      body: c.products > 0 ? COPY.picked : COPY.pick,
-    };
-  if (c.products === 0)
-    return {
-      id: 'add',
-      voice: 'coach',
-      target: '[data-guide="compose.add"]',
-      surfaces: [DOCK],
-      side: 'top',
-      ...COPY.add,
-    };
-  return {
-    id: 'brief',
+  const coach = (id: string, target: string, copy: { title: string; body: string }): Guidance => ({
+    id,
     voice: 'coach',
-    target: '[data-guide="compose.send"]',
-    surfaces: [DOCK],
+    target,
+    surfaces: [COMPOSE],
     side: 'top',
-    ...COPY.brief,
-  };
+    ...copy,
+  });
+  if (c.engine !== 'ready') return coach('engine', '[data-guide="compose.engine"]', COPY.engine);
+  if (c.pickerOpen) {
+    const inPicker = (id: string, copy: { title: string; body: string }, more = false): Guidance => ({
+      ...coach(id, PICKER, copy),
+      beside: true,
+      ...(more ? { action: { kind: 'close-picker', label: COPY.continue } } : {}),
+    });
+    if (ingredients === 0) return inPicker('pick', COPY.pick);
+    if (c.products > 0 && c.presenters > 0 && c.scene) return inPicker('picked-all', COPY.pickedAll, true);
+    if (c.products > 0) return inPicker('picked-product', COPY.pickedProduct, true);
+    return inPicker('picked-other', COPY.pickedOther, true);
+  }
+  if (ingredients === 0) return coach('add', '[data-guide="compose.add"]', COPY.add);
+  if (!c.words) return coach('direct', '[data-guide="compose"] .sc-brief-line', COPY.direct);
+  return coach('generate', '[data-guide="compose.send"]', COPY.generate);
 }
 
+/** The steps Back can show again: the ones that point at a control, never a surface that opened or a result. */
+export const REVIEWABLE: readonly string[] = ['engine', 'add', 'direct', 'generate'];
+
 export interface RefineFacts {
-  /** A finished shot's overlay is open, in the task's brand. */
+  /** A shot's overlay is open, in the task's brand. */
   here: boolean;
   nodes: readonly GuideTaskNode[];
 }
+
+/** The open shot's composer: where a change is asked for. */
+const SHOT = '.sc-ovl';
+const SHOT_COMPOSER = '.sc-ovl .sc-promptcard';
 
 /** Refining a shot: one change, then the new version. */
 export function refineStep(f: RefineFacts): Guidance | null {
   if (!f.here) return null;
   if (f.nodes.find(finished))
-    return { id: 'refined', voice: 'note', slot: 'tray:overlay', body: COPY.refineResult, done: true };
+    return {
+      id: 'refined',
+      voice: 'card',
+      container: SHOT,
+      target: SHOT_COMPOSER,
+      beside: true,
+      ...COPY.refineResult,
+      done: true,
+    };
   if (f.nodes.some((n) => n.status === 'running')) return { id: 'refining', voice: 'quiet' };
   if (f.nodes.length && f.nodes.every(failed)) return { id: 'refine-failed', voice: 'quiet' };
-  return { id: 'ask', voice: 'note', slot: 'tray:overlay', body: COPY.refineAsk };
+  return {
+    id: 'ask',
+    voice: 'coach',
+    container: SHOT,
+    target: SHOT_COMPOSER,
+    surfaces: [SHOT_COMPOSER],
+    beside: true,
+    ...COPY.refineAsk,
+  };
 }
 
-/** A presenter: quiet through the studio's own questions, a word at the start and at the face. */
+/**
+ * A presenter: a word as the studio opens, at the face everything else is
+ * drawn from, and at the save that puts them in the ingredients. Every other
+ * question is the studio's own, and the guide stays quiet through it, on both
+ * the photos and the from-scratch roads.
+ */
 export function presenterStep(studio: StudioFacts | null): Guidance | null {
   if (!studio) return null;
-  if (studio.open === 'source') return { id: 'cast', voice: 'note', slot: 'studio', body: COPY.presenterStart };
-  if (studio.open === 'identity') return { id: 'face', voice: 'note', slot: 'studio', body: COPY.presenterFace };
-  return { id: 'studio', voice: 'quiet' };
+  const turn = `.sc-pstudio [data-turn="q:${studio.open}"]`;
+  const coach = (id: string, copy: { title: string; body: string }, more: string[] = []): Guidance => ({
+    id,
+    voice: 'coach',
+    container: '.sc-pstudio',
+    target: turn,
+    // the question and the composer that can answer it stay live; the rest of the conversation waits
+    surfaces: [turn, '.sc-pstudio-foot .sc-convo-card', ...more],
+    beside: true,
+    ...copy,
+  });
+  switch (studio.open) {
+    case 'source':
+      return coach('intro', COPY.presenterIntro);
+    case 'identity':
+    case 'revision':
+      return coach('face', COPY.presenterFace, ['.sc-pstudio-well']);
+    case 'save':
+    case 'blind':
+      return coach('save', COPY.presenterSave);
+    default:
+      return { id: 'studio', voice: 'quiet' };
+  }
 }
 
-/** A product or a scene: a word in its dialog, then quiet until it exists. */
+/** A product or a scene: the dialog it is made in, held, then quiet until it exists. */
 export function assetStep(task: 'product' | 'scene', dialogOpen: boolean): Guidance | null {
   if (!dialogOpen) return null;
-  return { id: task, voice: 'note', slot: `dialog:${task}`, body: task === 'product' ? COPY.product : COPY.scene };
+  return {
+    id: task,
+    voice: 'coach',
+    container: '.sc-newdlg-layer',
+    target: '.sc-newdlg',
+    surfaces: ['.sc-newdlg'],
+    beside: true,
+    ...(task === 'product' ? COPY.product : COPY.scene),
+  };
 }
 
 /** The tasks that end on their own, when the brand holds one more than it did. */
@@ -201,12 +309,15 @@ const MILESTONE: Record<GuideTaskId, keyof GuideView['done']> = {
 };
 
 /**
- * Whether someone's own first visit to a surface begins its task. Only for
- * someone new, only once (not done, not dismissed), only with First steps
- * still wanted and nothing else in hand. Tasks never chain on their own.
+ * Whether someone new opening a surface on their own begins its task. Only
+ * once (not done, not closed), only with First steps still wanted. A task
+ * left in hand on another surface gives way, so an abandoned dialog never
+ * blocks the next thing; the first shot never does. Tasks never chain: the
+ * caller only asks when the person has engaged with the surface.
  */
 export function startsHere(task: GuideTaskId, s: ContextStart): boolean {
-  if (!s.eligible || s.hidden || s.active) return false;
+  if (!s.eligible || s.hidden) return false;
+  if (s.active && (s.active.task === task || s.active.task === 'first-shot')) return false;
   if (s.done[MILESTONE[task]] || s.dismissed.includes(task)) return false;
   if (task === 'refine' && !s.done.shot) return false;
   return true;
@@ -214,32 +325,45 @@ export function startsHere(task: GuideTaskId, s: ContextStart): boolean {
 
 export interface StepRow {
   task: GuideTaskId;
-  label: string;
+  title: string;
+  /** One short line on why the step matters, or what it waits for. */
+  why: string;
   state: 'todo' | 'active' | 'done';
 }
 
-const ROWS: [GuideTaskId, string][] = [
-  ['first-shot', 'Make a shot'],
-  ['refine', 'Refine a shot'],
-  ['product', 'Add your product'],
-  ['presenter', 'Cast a presenter'],
-  ['scene', 'Build a scene'],
+const ROWS: { task: GuideTaskId; title: string; why: string; resume: string }[] = [
+  {
+    task: 'first-shot',
+    title: 'Make your first shot',
+    why: 'Ingredients become a shot',
+    resume: 'Continue your first shot',
+  },
+  { task: 'refine', title: 'Refine a shot', why: 'Change one thing, keep the rest', resume: 'Continue refining' },
+  { task: 'product', title: 'Add your own product', why: 'Real photos keep it exact', resume: 'Continue your product' },
+  {
+    task: 'presenter',
+    title: 'Cast a presenter',
+    why: 'The same person in every shot',
+    resume: 'Continue your presenter',
+  },
+  { task: 'scene', title: 'Build a scene', why: 'A world you shoot in again', resume: 'Continue your scene' },
 ];
 
 /** First steps, or null when it has nothing to say or was put away. */
 export function firstSteps(
-  view: Pick<GuideView, 'hidden' | 'eligible' | 'welcome' | 'done' | 'active'> & { loaded: boolean; asked?: boolean },
+  view: Pick<GuideView, 'hidden' | 'done' | 'active'> & { loaded: boolean; asked?: boolean },
 ): StepRow[] | null {
   if (!view.loaded || view.hidden) return null;
-  // Someone new meets the welcome first; First steps is what follows it, unless they ask for it.
-  if (view.eligible && view.welcome === null && !view.asked) return null;
-  const rows = ROWS.map(
-    ([task, label]): StepRow => ({
-      task,
-      label,
-      state: view.done[MILESTONE[task]] ? 'done' : view.active?.task === task ? 'active' : 'todo',
-    }),
-  );
+  const rows = ROWS.map((r): StepRow => {
+    const state = view.done[MILESTONE[r.task]] ? 'done' : view.active?.task === r.task ? 'active' : 'todo';
+    return {
+      task: r.task,
+      title: state === 'active' ? r.resume : r.title,
+      // Refining needs a shot to refine: said, rather than quietly starting something else.
+      why: r.task === 'refine' && state === 'todo' && !view.done.shot ? 'Starts from your first shot' : r.why,
+      state,
+    };
+  });
   // Done with everything, it leaves; asked for from Help, it stays so any step can be done again.
   return rows.every((r) => r.state === 'done') && !view.asked ? null : rows;
 }

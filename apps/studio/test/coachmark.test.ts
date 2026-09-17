@@ -33,9 +33,10 @@ afterEach(() => {
 
 const noop = () => {};
 
-function mount(props: Partial<CoachmarkProps>) {
+function mount(props: Partial<CoachmarkProps>, o: { inShell?: boolean } = {}) {
   const page = document.createElement('main');
-  page.innerHTML = '<input id="field" /><button id="target">Target</button><div id="surface"></div>';
+  page.innerHTML =
+    '<input id="field" /><button id="target">Target</button><div id="surface"></div><div id="shell"><p id="inside">x</p></div>';
   document.body.append(page);
   host = document.createElement('div');
   document.body.append(host);
@@ -45,6 +46,7 @@ function mount(props: Partial<CoachmarkProps>) {
     target: document.getElementById('target'),
     surfaces: [],
     side: 'bottom',
+    container: o.inShell ? (document.getElementById('shell') as HTMLElement) : document.body,
     title: 'A title',
     body: 'One sentence.',
     canBack: false,
@@ -71,30 +73,33 @@ describe('Coachmark', () => {
     const card = document.querySelector('.sc-coach');
     expect(card?.getAttribute('role')).toBe('note');
     expect(card?.getAttribute('data-voice')).toBe('card');
-    expect(document.querySelector('.sc-coach-veil, .sc-coach-catch')).toBeNull();
+    expect(document.querySelector('.sc-coach-veil, .sc-coach-catch, .sc-coach-rim')).toBeNull();
     expect(document.querySelectorAll('[data-sc-coach-inert]')).toHaveLength(0);
     expect(document.activeElement).toBe(field);
   });
 
-  it('a coach is a dialog over a curtain, named by its title', () => {
+  it('a coach is a dialog over a curtain with its windows, rims and catch panels, named by its title', () => {
     mount({ voice: 'coach', surfaces: [] });
     const card = document.querySelector('.sc-coach');
     expect(card?.getAttribute('role')).toBe('dialog');
     expect(document.getElementById(card?.getAttribute('aria-labelledby') ?? '')?.textContent).toBe('A title');
     expect(document.querySelector('.sc-coach-veil')).not.toBeNull();
+    expect(document.querySelector('.sc-coach-rim')).not.toBeNull();
     expect(document.querySelector('[data-guide="catch"]')).not.toBeNull();
   });
 
-  it('a coach whose words sit in a slot draws the curtain and no card', () => {
-    mount({ voice: 'coach', target: null, title: undefined, body: undefined, surfaces: [document.body] });
-    expect(document.querySelector('.sc-coach')).toBeNull();
-    expect(document.querySelector('.sc-coach-veil')).not.toBeNull();
+  it('inside a shell that owns the screen, the whole coach is drawn inside that shell', () => {
+    mount({ voice: 'coach', surfaces: [], target: null, title: undefined, body: undefined }, { inShell: true });
+    const shell = document.getElementById('shell') as HTMLElement;
+    expect(shell.querySelector('.sc-coach-veil')).not.toBeNull();
+    expect(shell.querySelector('.sc-coach-rim')).not.toBeNull();
+    expect(document.querySelector('body > .sc-coach-veil')).toBeNull();
   });
 
-  it('a card with no title leads with its sentence; Done and Back only when asked for', () => {
-    mount({ voice: 'card', title: undefined, body: 'Only this.', action: 'done', canBack: false });
-    expect(document.querySelector('.sc-coach-body[data-lead]')?.textContent).toBe('Only this.');
-    expect(document.querySelector('.sc-coach-next')?.textContent).toBe('Done');
+  it('the one button says what it does; Back only when asked for; a card beside its target is marked narrow', () => {
+    mount({ voice: 'card', action: { label: 'Continue' }, canBack: false, beside: true });
+    expect(document.querySelector('.sc-coach-next')?.textContent).toBe('Continue');
     expect(document.querySelector('.sc-coach-back')).toBeNull();
+    expect(document.querySelector('.sc-coach')?.hasAttribute('data-beside')).toBe(true);
   });
 });

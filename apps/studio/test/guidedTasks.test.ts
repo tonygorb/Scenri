@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { GuideTaskNode, GuideView, ShowcaseEntry } from '../src/apiTypes.js';
 import type { ComposerFacts } from '../src/guideFacts.js';
+import { SPEC_ORDER } from '../src/create/presenter/presenterQuestions.js';
 import {
   COPY,
   WELCOME,
@@ -11,6 +12,7 @@ import {
   madeOne,
   mergeTaskNodes,
   presenterStep,
+  REVIEWABLE,
   refineStep,
   startsHere,
   welcomeSet,
@@ -26,6 +28,7 @@ const composer = (over: Partial<ComposerFacts> = {}): ComposerFacts => ({
   products: 0,
   presenters: 0,
   scene: false,
+  others: 0,
   words: false,
   canGo: false,
   busy: false,
@@ -56,19 +59,42 @@ describe('the first shot, from the outcome back', () => {
     expect(step(null)).toBeNull();
   });
 
-  it('walks the brief: add, pick, picked, brief', () => {
+  it('walks the whole brief: add, pick, what else, direct, generate', () => {
     expect(step(composer())).toBe('add');
     expect(step(composer({ pickerOpen: true }))).toBe('pick');
-    expect(step(composer({ pickerOpen: true, products: 1 }))).toBe('picked');
-    expect(step(composer({ products: 1, canGo: true }))).toBe('brief');
+    expect(step(composer({ pickerOpen: true, products: 1 }))).toBe('picked-product');
+    expect(step(composer({ pickerOpen: true, products: 1, presenters: 1, scene: true }))).toBe('picked-all');
+    expect(step(composer({ products: 1 }))).toBe('direct');
+    expect(step(composer({ products: 1, words: true, canGo: true }))).toBe('generate');
   });
 
-  it('closing the picker with nothing picked goes back to add, never on to the brief', () => {
-    expect(step(composer({ pickerOpen: false, products: 0, presenters: 1, words: true }))).toBe('add');
+  it('any ingredient is a valid start: a presenter, a scene or a colour first moves on, and says what a product adds', () => {
+    expect(step(composer({ pickerOpen: true, presenters: 1 }))).toBe('picked-other');
+    expect(step(composer({ presenters: 1 }))).toBe('direct');
+    expect(step(composer({ scene: true }))).toBe('direct');
+    expect(step(composer({ others: 1 }))).toBe('direct');
   });
 
-  it('a presenter, a scene or words alone are not a shot: the product comes first', () => {
-    expect(step(composer({ presenters: 1, scene: true, words: true, canGo: true }))).toBe('add');
+  it('closing the picker with nothing picked goes back to add; words alone still start from ingredients', () => {
+    expect(step(composer({ pickerOpen: false }))).toBe('add');
+    expect(step(composer({ words: true, canGo: true }))).toBe('add');
+  });
+
+  it('removing every ingredient goes back to add', () => {
+    expect(step(composer({ products: 0, presenters: 0, words: true }))).toBe('add');
+  });
+
+  it('in the picker the card points at the whole picker, beside it, and Continue closes it once something is in', () => {
+    const pick = firstShotStep({ here: true, composer: composer({ pickerOpen: true }), nodes: [] });
+    expect(pick).toMatchObject({ voice: 'coach', target: '[data-guide="compose"] .sc-attachpanel', beside: true });
+    expect(pick?.surfaces).toEqual(['[data-guide="compose"]']);
+    expect(pick?.action).toBeUndefined();
+    const more = firstShotStep({ here: true, composer: composer({ pickerOpen: true, products: 1 }), nodes: [] });
+    expect(more?.action).toEqual({ kind: 'close-picker', label: 'Continue' });
+  });
+
+  it('Back only ever reviews steps that point at a control', () => {
+    expect([...REVIEWABLE].sort()).toEqual(['add', 'direct', 'engine', 'generate']);
   });
 
   it('with no engine, the setup comes before anything else to build', () => {
@@ -82,6 +108,9 @@ describe('the first shot, from the outcome back', () => {
     expect(step(composer({ busy: true, products: 1 }))).toBe('sending');
     expect(step(composer(), [node('n1', 'running')])).toBe('waiting');
     expect(step(composer({ engine: 'setup' }), [node('n1', 'running')])).toBe('waiting');
+    const wait = firstShotStep({ here: true, composer: composer(), nodes: [node('n1', 'running')] });
+    // the wait is a card on its own tile, and its X only puts it away: the first shot is still coming
+    expect(wait).toMatchObject({ voice: 'card', target: '.sc-feed .sc-cell[data-fb-node="n1"]', snooze: true });
   });
 
   it('a finished picture ends it on its own tile, even beside a failed sibling', () => {
@@ -109,43 +138,74 @@ describe('the first shot, from the outcome back', () => {
     expect(g?.id).toBe('failed');
     expect(g?.target).toContain('n2');
     expect(step(composer({ pickerOpen: true }), [node('n1', 'error')])).toBe('pick');
-    expect(step(composer({ products: 1 }), [node('n1', 'error')])).toBe('brief');
+    expect(step(composer({ products: 1 }), [node('n1', 'error')])).toBe('direct');
   });
 
   it('a refine armed in the composer is not the first shot', () => {
     expect(step(composer({ refining: true, products: 1 }))).toBeNull();
   });
-
-  it('while the picker is open the words sit inside it and the curtain keeps the composer open', () => {
-    const g = firstShotStep({ here: true, composer: composer({ pickerOpen: true }), nodes: [] });
-    expect(g?.slot).toBe('picker');
-    expect(g?.target).toBeUndefined();
-    expect(g?.surfaces).toEqual(['[data-guide="compose"]', '[data-guide="compose"] .sc-attachpanel']);
-  });
 });
 
 describe('the later tasks', () => {
-  it('refine: the change, then quiet while it draws, then the new version', () => {
+  it("refine: a coach on the open shot's composer, quiet while it draws, then a card on the new version", () => {
     expect(refineStep({ here: false, nodes: [] })).toBeNull();
-    expect(refineStep({ here: true, nodes: [] })?.body).toBe(COPY.refineAsk);
+    expect(refineStep({ here: true, nodes: [] })).toMatchObject({
+      voice: 'coach',
+      container: '.sc-ovl',
+      target: '.sc-ovl .sc-promptcard',
+      title: COPY.refineAsk.title,
+    });
     expect(refineStep({ here: true, nodes: [{ ...node('e1', 'running'), kind: 'edit' }] })?.voice).toBe('quiet');
     const done = refineStep({ here: true, nodes: [{ ...node('e1', 'done', 1), kind: 'edit' }] });
-    expect(done?.body).toBe(COPY.refineResult);
-    expect(done?.done).toBe(true);
+    expect(done).toMatchObject({ voice: 'card', done: true, title: COPY.refineResult.title });
   });
 
-  it('presenter: a word at the source and at the face, quiet through every other question', () => {
+  it('presenter: the studio is held at the start, the face and the save, and quiet through every other question', () => {
     expect(presenterStep(null)).toBeNull();
-    expect(presenterStep({ open: 'source' })?.body).toBe(COPY.presenterStart);
-    expect(presenterStep({ open: 'identity' })?.body).toBe(COPY.presenterFace);
-    for (const open of ['photos', 'look-who', 'describe', 'traits', 'keep', 'extras', 'name', null])
-      expect(presenterStep({ open })?.voice).toBe('quiet');
+    const loud = new Map<string, string>();
+    const ids = [
+      ...SPEC_ORDER,
+      'agree',
+      'noengine',
+      'unsure',
+      'retry',
+      'name',
+      'revision',
+      'view-revision',
+      'identity',
+      'extras',
+      'save',
+      'blind',
+      null,
+    ];
+    for (const open of ids) {
+      const g = presenterStep({ open });
+      if (g?.voice !== 'quiet') loud.set(String(open), String(g?.id));
+    }
+    expect(Object.fromEntries(loud)).toEqual({
+      source: 'intro',
+      identity: 'face',
+      revision: 'face',
+      save: 'save',
+      blind: 'save',
+    });
+    expect(presenterStep({ open: 'identity' })).toMatchObject({
+      voice: 'coach',
+      container: '.sc-pstudio',
+      target: '.sc-pstudio [data-turn="q:identity"]',
+    });
+    expect(presenterStep({ open: 'identity' })?.surfaces).toContain('.sc-pstudio-well');
   });
 
-  it('product and scene: a word in their own dialog, nothing when it is closed', () => {
+  it('product and scene: their dialog is held, nothing when it is closed', () => {
     expect(assetStep('product', false)).toBeNull();
-    expect(assetStep('product', true)?.slot).toBe('dialog:product');
-    expect(assetStep('scene', true)?.body).toBe(COPY.scene);
+    expect(assetStep('product', true)).toMatchObject({
+      voice: 'coach',
+      container: '.sc-newdlg-layer',
+      target: '.sc-newdlg',
+      title: COPY.product.title,
+    });
+    expect(assetStep('scene', true)?.body).toBe(COPY.scene.body);
   });
 
   it('a task that makes something ends when the brand holds one more than when it began', () => {
@@ -180,15 +240,16 @@ describe('startsHere', () => {
     expect(startsHere('scene', s({ dismissed: ['scene'] }))).toBe(false);
   });
 
-  it('never chains: another task in hand holds it back', () => {
-    expect(
-      startsHere(
-        'scene',
-        s({
-          active: { task: 'product', brandId: 'b', since: 'x', baseline: { products: 0, presenters: 0, scenes: 0 } },
-        }),
-      ),
-    ).toBe(false);
+  it('a task left on another surface gives way; the first shot and the same task never do', () => {
+    const active = (task: 'product' | 'first-shot' | 'scene') => ({
+      task,
+      brandId: 'b',
+      since: 'x',
+      baseline: { products: 0, presenters: 0, scenes: 0 },
+    });
+    expect(startsHere('scene', s({ active: active('product') }))).toBe(true);
+    expect(startsHere('scene', s({ active: active('first-shot') }))).toBe(false);
+    expect(startsHere('scene', s({ active: active('scene') }))).toBe(false);
   });
 
   it('refining waits for a first shot', () => {
@@ -208,11 +269,10 @@ describe('firstSteps', () => {
     ...over,
   });
 
-  it('waits for the record and the welcome, and stays away when hidden', () => {
+  it('waits for the record, shows from the start, and stays away when hidden', () => {
     expect(firstSteps(view({ loaded: false }))).toBeNull();
     expect(firstSteps(view({ hidden: true }))).toBeNull();
-    expect(firstSteps(view({ welcome: null }))).toBeNull();
-    expect(firstSteps(view({ eligible: false, welcome: null }))).not.toBeNull();
+    expect(firstSteps(view({ welcome: null }))).not.toBeNull();
   });
 
   it('lists the five tasks, ticked by what exists and dotted for the one in hand', () => {
@@ -222,13 +282,15 @@ describe('firstSteps', () => {
         active: { task: 'presenter', brandId: 'b', since: 'x', baseline: { products: 0, presenters: 0, scenes: 0 } },
       }),
     );
-    expect(rows?.map((r) => [r.task, r.state])).toEqual([
-      ['first-shot', 'done'],
-      ['refine', 'todo'],
-      ['product', 'done'],
-      ['presenter', 'active'],
-      ['scene', 'todo'],
+    expect(rows?.map((r) => [r.task, r.state, r.title])).toEqual([
+      ['first-shot', 'done', 'Make your first shot'],
+      ['refine', 'todo', 'Refine a shot'],
+      ['product', 'done', 'Add your own product'],
+      ['presenter', 'active', 'Continue your presenter'],
+      ['scene', 'todo', 'Build a scene'],
     ]);
+    // refining is said to start from a shot until there is one
+    expect(firstSteps(view())?.[1].why).toBe('Starts from your first shot');
   });
 
   it('leaves once everything is done, unless it was asked for from Help', () => {
@@ -382,7 +444,7 @@ describe('the copy', () => {
   });
 
   it('never repeats the title of the surface a note sits in', () => {
-    for (const text of [COPY.product, COPY.scene, COPY.presenterStart, COPY.presenterFace])
-      expect(text).not.toMatch(/New product|New scene|Create presenter/);
+    for (const c of [COPY.product, COPY.scene, COPY.presenterIntro, COPY.presenterFace, COPY.presenterSave])
+      expect(`${c.title} ${c.body}`).not.toMatch(/New product|New scene|Create presenter/);
   });
 });
