@@ -25,9 +25,10 @@
   overflow: hidden;
 }
 /* While the first shot's guide points at the open picker from above (no room
-   beside it), the picker gives up the height its card needs. */
+   beside it), the picker gives up exactly the height that card needs, which
+   Coachmark measures and publishes as --sc-coach-h. */
 :root[data-guide-picker] [data-guide="compose"] .sc-attachpanel {
-  height: min(510px, calc(60vh - 150px));
+  height: min(510px, calc(60vh - var(--sc-coach-h, 150px) - 24px));
 }
 .sc-ap-inner {
   display: flex;
@@ -447,7 +448,7 @@
     border-radius: var(--sc-radius-float);
   }
   :root[data-guide-picker] [data-guide="compose"] .sc-attachpanel {
-    height: min(510px, calc(var(--ap-avail, calc(100dvh - 270px)) - 150px));
+    height: min(510px, calc(var(--ap-avail, calc(100dvh - 270px)) - var(--sc-coach-h, 150px) - 24px));
   }
   /* One row does not fit seven tabs and three controls, and a toolbar
      squeezed onto two read as the desktop panel folded in half. A phone gets

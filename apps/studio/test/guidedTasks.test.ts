@@ -14,7 +14,9 @@ import {
   mergeTaskNodes,
   presenterStep,
   REVIEWABLE,
+  wordPrint,
   refineStep,
+  starterRecipe,
   startsHere,
   welcomeSet,
   type ContextStart,
@@ -39,6 +41,7 @@ const composer = (over: Partial<ComposerFacts> = {}): ComposerFacts => ({
   settings: 'pills',
   settled: { shape: false, count: false, quality: false },
   offered: { product: true, presenter: true, scene: true },
+  wordPrint: '',
   ...over,
 });
 const settledAll = { shape: true, count: true, quality: true };
@@ -67,128 +70,134 @@ describe('the first shot, from the outcome back', () => {
     expect(step(null)).toBeNull();
   });
 
-  it('walks every control in order: add, pick one of each, direction, shape, number, size, generate', () => {
-    expect(step(composer())).toBe('add');
-    expect(step(composer({ pickerOpen: true }))).toBe('pick');
-    expect(step(composer({ pickerOpen: true, products: 1 }))).toBe('pick');
-    expect(step(composer({ pickerOpen: true, products: 1, presenters: 1 }))).toBe('pick');
-    expect(step(composer({ pickerOpen: true, ...all }))).toBe('picked-all');
-    expect(step(composer(all))).toBe('direct');
-    const worded = { ...all, words: true, canGo: true };
-    expect(step(composer(worded))).toBe('direct');
-    expect(step(composer(worded), [], true, ['direct'])).toBe('shape');
-    expect(
-      step(composer({ ...worded, settled: { shape: true, count: false, quality: false } }), [], true, ['direct']),
-    ).toBe('count');
-    expect(
-      step(composer({ ...worded, settled: { shape: true, count: true, quality: false } }), [], true, ['direct']),
-    ).toBe('quality');
-    expect(step(composer({ ...worded, settled: settledAll }), [], true, ['direct'])).toBe('generate');
+  const OFFERS = ['product', 'presenter', 'scene', 'words'] as const;
+  const walk = (c: ComposerFacts, said: string[] = []) =>
+    firstShotStep({ here: true, composer: c, nodes: [], confirmed: said, offers: OFFERS });
+
+  it('builds the brief with them, a part at a time, then leaves one thing to press', () => {
+    expect(walk(composer())?.id).toBe('product');
+    expect(walk(composer({ products: 1 }))?.id).toBe('presenter');
+    expect(walk(composer({ products: 1, presenters: 1 }))?.id).toBe('scene');
+    expect(walk(composer(all))?.id).toBe('words');
+    expect(walk(composer({ ...all, words: true }))?.id).toBe('words');
+    expect(walk(composer({ ...all, words: true }), ['words'])?.id).toBe('settings');
+    expect(walk(composer({ ...all, words: true }), ['words', 'settings'])?.id).toBe('generate');
   });
 
-  it('asks for a product, a presenter and a scene, ticking each as it comes in, whatever order they come in', () => {
-    const pick = (over: Partial<ComposerFacts>) =>
-      firstShotStep({ here: true, composer: composer({ pickerOpen: true, ...over }), nodes: [] });
-    const ticks = (over: Partial<ComposerFacts>) => pick(over)?.checklist?.map((k) => `${k.label}:${k.done}`);
-    expect(pick({})).toMatchObject({ title: 'Add a product, a presenter and a scene', body: COPY.needProduct.body });
-    expect(ticks({})).toEqual(['Product:false', 'Presenter:false', 'Scene:false']);
-    expect(pick({ products: 1 })).toMatchObject({
-      title: 'Add a presenter and a scene',
-      body: COPY.needPresenter.body,
+  it('every part is offered, never put in unasked, and their own pick answers the same question', () => {
+    // each step offers ours; the ingredients so far are listed on the card
+    expect(walk(composer())).toMatchObject({
+      action: { kind: 'fill', label: 'Use ours' },
+      title: COPY.wantProduct.title,
     });
-    expect(pick({ presenters: 1 })).toMatchObject({ title: 'Add a product and a scene', body: COPY.needProduct.body });
-    expect(ticks({ presenters: 1 })).toEqual(['Product:false', 'Presenter:true', 'Scene:false']);
-    expect(pick({ products: 1, presenters: 1 })).toMatchObject({ title: 'Add a scene', body: COPY.needScene.body });
-    // a colour or an image is welcome, but it is none of the three
-    expect(step(composer({ others: 1 }))).toBe('add');
-    // an ingredient the library has none of is never asked for
-    expect(step(composer({ pickerOpen: true, products: 1, presenters: 1, offered: noScenes }))).toBe('picked-all');
-    expect(step(composer({ products: 1, presenters: 1, offered: noScenes }))).toBe('direct');
+    expect(walk(composer())?.checklist?.map((k) => k.done)).toEqual([false, false, false]);
+    expect(walk(composer({ products: 1 }))).toMatchObject({ title: COPY.wantPresenter.title });
+    expect(walk(composer({ products: 1, presenters: 1 }))).toMatchObject({ title: COPY.wantScene.title });
+    // the words: ours to hand over, or theirs to finish saying
+    expect(walk(composer(all))).toMatchObject({ action: { kind: 'fill', label: 'Write one for me' } });
+    expect(walk(composer({ ...all, words: true }))).toMatchObject({ action: { kind: 'confirm', label: 'Next' } });
+    // with nothing of ours to offer, the same steps simply ask
+    const bare = firstShotStep({ here: true, composer: composer(), nodes: [], offers: [] });
+    expect(bare?.id).toBe('product');
+    expect(bare?.action).toBeUndefined();
   });
 
-  it('Continue waits for all three, then closes the picker', () => {
-    const waiting = firstShotStep({ here: true, composer: composer({ pickerOpen: true, products: 1 }), nodes: [] });
-    expect(waiting?.action).toEqual({ kind: 'close-picker', label: 'Continue', disabled: true });
-    const ready = firstShotStep({ here: true, composer: composer({ pickerOpen: true, ...all }), nodes: [] });
-    expect(ready?.action).toEqual({ kind: 'close-picker', label: 'Continue' });
-    expect(ready?.checklist?.every((k) => k.done)).toBe(true);
+  it('Scenri makes the first shot itself only while the brief is the one it had in mind', () => {
+    const said = ['words', 'settings'];
+    const brief = composer({ ...all, words: true });
+    expect(firstShotStep({ here: true, composer: brief, nodes: [], confirmed: said, staged: true })?.body).toBe(
+      COPY.generateStaged.body,
+    );
+    expect(firstShotStep({ here: true, composer: brief, nodes: [], confirmed: said })?.body).toBe(COPY.generate.body);
+    // their own brief is generated the real way, which is what needs an engine,
+    // and they only hear about it once there is a brief to generate
+    expect(
+      firstShotStep({
+        here: true,
+        composer: composer({ ...all, words: true, engine: 'setup' }),
+        nodes: [],
+        confirmed: said,
+      })?.id,
+    ).toBe('engine');
+    expect(firstShotStep({ here: true, composer: composer({ engine: 'setup' }), nodes: [], offers: OFFERS })?.id).toBe(
+      'product',
+    );
+    expect(
+      firstShotStep({
+        here: true,
+        composer: composer({ ...all, words: true, engine: 'setup' }),
+        nodes: [],
+        confirmed: said,
+        staged: true,
+      })?.id,
+    ).toBe('generate');
   });
 
-  it('the direction is done when it is said to be, never at the first word', () => {
-    const direct = firstShotStep({ here: true, composer: composer({ ...all, words: true }), nodes: [] });
-    expect(direct?.action).toEqual({ kind: 'confirm', label: 'Continue' });
-    expect(firstShotStep({ here: true, composer: composer(all), nodes: [] })?.action).toBeUndefined();
-    // emptying the brief asks for the direction again, whatever was said before
-    expect(step(composer(all), [], true, ['direct'])).toBe('direct');
-  });
-
-  it('a narrow composer offers the three settings as one step behind one control', () => {
-    const worded = { ...all, words: true };
-    const g = firstShotStep({
-      here: true,
-      composer: composer({ ...worded, settings: 'sheet' }),
-      nodes: [],
-      confirmed: ['direct'],
+  it('while the picker is open it is the step, with the picker and its toggle live', () => {
+    const open = walk(composer({ pickerOpen: true }));
+    expect(open).toMatchObject({
+      id: 'product',
+      target: '[data-guide="compose"] .sc-attachpanel',
+      beside: true,
+      live: ['[data-guide="compose"] .sc-attachpanel', '[data-guide="compose.add"]'],
+      action: { kind: 'fill', label: 'Use ours' },
     });
-    expect(g).toMatchObject({ id: 'settings', target: '[data-guide="compose.settings"]' });
-    expect(g?.optional).toEqual(['.sc-morepop', '.sc-shotsheet']);
-    expect(step(composer({ ...worded, settings: 'more', settled: settledAll }), [], true, ['direct'])).toBe('generate');
+    // nothing left to add: Next is what closes it
+    expect(walk(composer({ ...all, pickerOpen: true }))?.action).toEqual({ kind: 'close-picker', label: 'Next' });
   });
 
-  it('the composer stays in view whole; the card points at the one control asked for, and only it can be used', () => {
-    const add = firstShotStep({ here: true, composer: composer(), nodes: [] });
-    expect(add).toMatchObject({
+  it('the settings are set to suit the shot: the row on a wide composer, the one control on a narrow one', () => {
+    const at = (settings: 'pills' | 'more' | 'sheet') => walk(composer({ ...all, words: true, settings }), ['words']);
+    expect(at('pills')).toMatchObject({
+      id: 'settings',
+      target: '[data-guide="compose.settings-row"]',
+      live: ['[data-guide="compose.shape"]', '[data-guide="compose.count"]', '[data-guide="compose.quality"]'],
+      optional: ['.sc-setpop'],
+    });
+    expect(at('sheet')).toMatchObject({
+      id: 'settings',
+      target: '[data-guide="compose.settings"]',
+      optional: ['.sc-morepop', '.sc-shotsheet'],
+    });
+  });
+
+  it('the composer stays in view whole; the card points at the part being added', () => {
+    expect(walk(composer())).toMatchObject({
       target: '[data-guide="compose.add"]',
       surfaces: ['[data-guide="compose"]'],
       live: ['[data-guide="compose.add"]'],
     });
-    const shape = firstShotStep({
-      here: true,
-      composer: composer({ ...all, words: true }),
-      nodes: [],
-      confirmed: ['direct'],
-    });
-    expect(shape).toMatchObject({
-      target: '[data-guide="compose.shape"]',
+    expect(walk(composer({ ...all, words: true }), ['words', 'settings'])).toMatchObject({
+      target: '[data-guide="compose.send"]',
       surfaces: ['[data-guide="compose"]'],
-      live: ['[data-guide="compose.shape"]'],
-      optional: ['.sc-setpop'],
+      live: ['[data-guide="compose.send"]'],
     });
   });
 
-  it('closing the picker short goes back to add, saying what is still missing; words alone still start from ingredients', () => {
-    expect(step(composer({ pickerOpen: false }))).toBe('add');
-    expect(step(composer({ words: true, canGo: true }))).toBe('add');
-    const more = firstShotStep({ here: true, composer: composer({ products: 1 }), nodes: [] });
-    expect(more).toMatchObject({ id: 'add', title: 'Now add a presenter and a scene' });
-    expect(more?.checklist?.map((k) => k.done)).toEqual([true, false, false]);
-  });
-
-  it('removing every ingredient goes back to add', () => {
-    expect(step(composer({ products: 0, presenters: 0, words: true }))).toBe('add');
-  });
-
-  it('in the picker the card points at the whole picker, beside it, with the picker and its toggle live', () => {
-    const pick = firstShotStep({ here: true, composer: composer({ pickerOpen: true }), nodes: [] });
-    expect(pick).toMatchObject({ voice: 'coach', target: '[data-guide="compose"] .sc-attachpanel', beside: true });
-    expect(pick?.live).toEqual(['[data-guide="compose"] .sc-attachpanel', '[data-guide="compose.add"]']);
+  it('the same words, however they were spaced, are the same words', () => {
+    expect(wordPrint(' In  the last of\nthe light ')).toBe(wordPrint('In the last of the light'));
+    expect(wordPrint('a')).not.toBe(wordPrint('b'));
   });
 
   it('Back only ever reviews steps that point at a control', () => {
     expect([...REVIEWABLE].sort()).toEqual([
-      'add',
-      'count',
-      'direct',
       'engine',
       'generate',
-      'quality',
+      'presenter',
+      'product',
+      'scene',
       'settings',
-      'shape',
+      'words',
     ]);
   });
 
-  it('with no engine, the setup comes before anything else to build', () => {
-    const g = firstShotStep({ here: true, composer: composer({ engine: 'setup', products: 1 }), nodes: [] });
+  it('with no engine, the setup is what the last step points at', () => {
+    const g = firstShotStep({
+      here: true,
+      composer: composer({ engine: 'setup', ...all, words: true }),
+      nodes: [],
+      confirmed: ['words', 'settings'],
+    });
     expect(g?.id).toBe('engine');
     expect(g?.target).toBe('[data-guide="compose.engine"]');
     expect(g?.voice).toBe('coach');
@@ -227,8 +236,8 @@ describe('the first shot, from the outcome back', () => {
     });
     expect(g?.id).toBe('failed');
     expect(g?.target).toContain('n2');
-    expect(step(composer({ pickerOpen: true }), [node('n1', 'error')])).toBe('pick');
-    expect(step(composer(all), [node('n1', 'error')])).toBe('direct');
+    expect(step(composer({ pickerOpen: true }), [node('n1', 'error')])).toBe('product');
+    expect(step(composer(all), [node('n1', 'error')])).toBe('words');
   });
 
   it('a refine armed in the composer is not the first shot', () => {
@@ -536,6 +545,39 @@ describe('welcomeSet', () => {
         entry('d', null, null),
       ]).map((e) => e.id),
     ).toEqual(['b', 'c', 'd']);
+  });
+});
+
+describe('the recipe a first shot starts from', () => {
+  const recipe = (id: string, over: Record<string, unknown> = {}) =>
+    ({
+      id,
+      title: id,
+      category: 'c',
+      width: 1024,
+      height: 1280,
+      previewUrl: `/api/showcase-previews/${id}.jpg`,
+      brief: {
+        tokens: [
+          { t: 'product', id: 'p' },
+          { t: 'character', id: 'c' },
+          { t: 'template', id: 's' },
+          { t: 'text', v: 'in the last of the light' },
+        ],
+      },
+      ...over,
+    }) as unknown as ShowcaseEntry;
+
+  it('takes the curated order: something to show, someone showing it, somewhere to be, and the words', () => {
+    const half = recipe('half', { brief: { tokens: [{ t: 'product', id: 'p' }] } });
+    const noPicture = recipe('nopic', { previewUrl: null, order: 1 });
+    const complete = recipe('whole', { order: 9 });
+    const later = recipe('later', { order: 40 });
+    expect(starterRecipe([half, noPicture, later, complete])?.id).toBe('whole');
+    // everyone new starts from the same one
+    expect(starterRecipe([later, complete])?.id).toBe(starterRecipe([complete, later])?.id);
+    expect(starterRecipe([half, noPicture])).toBeNull();
+    expect(starterRecipe([])).toBeNull();
   });
 });
 

@@ -5,7 +5,7 @@ import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId, GuideTaskNode } from '../api.js';
 import { guideIntent, refreshGuide, useGuide } from '../guide.js';
-import { setGuideHoldSend, setGuideShowing, useGuideFacts } from '../guideFacts.js';
+import { setGuideHoldSend, setGuideShowing, setGuideStaged, useGuideFacts } from '../guideFacts.js';
 import {
   REVIEWABLE,
   WELCOME,
@@ -15,6 +15,8 @@ import {
   madeOne,
   mergeTaskNodes,
   presenterStep,
+  starterRecipe,
+  wordPrint,
   CHECK_TAB,
   refineStep,
   startsHere,
@@ -58,7 +60,7 @@ export function GuideHost() {
   const { tasks, builds } = useTaskCenter();
   const { push } = useToasts();
   const launch = useLaunchTask();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const home = !!useMatch(P.brand);
   const hub = !!useMatch(P.hub);
   const shot = useMatch(P.hubShot)?.params.shotId ?? null;
@@ -77,6 +79,82 @@ export function GuideHost() {
     if (!nodeKind || !active) return;
     return subscribeActivity((records) => setNodes((prev) => mergeTaskNodes(prev, records, active.since, nodeKind)));
   }, [nodeKind, active, subscribeActivity]);
+
+  /**
+   * The first one is on us (DESIGN.md, "First use"): Scenri keeps a recipe it
+   * ships in mind and offers it a part at a time, where that part is added.
+   * Nothing is ever put in the brief unasked: the card's **Use ours** is what
+   * hands a part over, and their own pick is always the other answer.
+   */
+  const starter = useMemo(() => starterRecipe(data.showcase), [data.showcase]);
+  const tokensOf = (t: string) =>
+    ((starter?.brief?.tokens ?? []) as { t?: string; id?: string; v?: string }[]).filter((k) => k?.t === t);
+  const offers = useMemo(() => {
+    const has = (t: string) => tokensOf(t).length > 0;
+    return [
+      ...(has('product') ? (['product'] as const) : []),
+      ...(has('character') ? (['presenter'] as const) : []),
+      ...(has('template') ? (['scene'] as const) : []),
+      ...(has('text') ? (['words'] as const) : []),
+    ];
+    // tokensOf reads only from starter
+  }, [starter]);
+  /** Hands one part of that recipe to the composer, the way a pick or a typed line would arrive. */
+  const fill = (part: string) => {
+    const kind = part === 'presenter' ? 'character' : part === 'scene' ? 'template' : part === 'words' ? 'text' : part;
+    const tokens = tokensOf(kind);
+    if (!tokens.length) return;
+    const format = tokensOf('format')[0] as { w?: number; h?: number } | undefined;
+    window.dispatchEvent(
+      new CustomEvent('scenri:guide-fill', {
+        detail: {
+          tokens,
+          // the shape, the number and the size that recipe was shot with ride along with its words
+          ...(part === 'words'
+            ? {
+                settings: {
+                  ...(format?.w && format?.h ? { format: { w: format.w, h: format.h } } : {}),
+                  variants: starter?.variants,
+                  quality: starter?.quality,
+                },
+              }
+            : {}),
+        },
+      }),
+    );
+    if (part === 'words') setConfirmed((c) => (c.includes('words') ? c : [...c, 'words']));
+  };
+  /**
+   * Scenri makes the shot itself only while the brief is the one it had in
+   * mind: their ingredients and their words are their own shot, made the real way.
+   */
+  const starterIds = useMemo(
+    () =>
+      ((starter?.brief?.tokens ?? []) as { t?: string; id?: string }[])
+        .flatMap((t) => (t.id && (t.t === 'product' || t.t === 'character' || t.t === 'template') ? [t.id] : []))
+        .sort()
+        .join(','),
+    [starter],
+  );
+  const starterWords = useMemo(
+    () =>
+      wordPrint(
+        ((starter?.brief?.tokens ?? []) as { t?: string; v?: string }[])
+          .flatMap((t) => (t.t === 'text' ? [t.v ?? ''] : []))
+          .join(' '),
+      ),
+    [starter],
+  );
+  const sameAsStarter =
+    !!starter &&
+    !!facts.composer &&
+    starterIds !== '' &&
+    [...facts.composer.ids].sort().join(',') === starterIds &&
+    facts.composer.wordPrint === starterWords;
+  useEffect(() => {
+    setGuideStaged(task === 'first-shot' && sameAsStarter && starter ? starter.id : null);
+    return () => setGuideStaged(null);
+  }, [task, sameAsStarter, starter]);
 
   // A send just left the composer: hold still until its shots are in hand, so
   // the emptied brief never reads as starting again.
@@ -149,6 +227,8 @@ export function GuideHost() {
       composer: c && settling ? { ...c, busy: true } : c,
       nodes,
       confirmed,
+      staged: sameAsStarter,
+      offers,
     });
   } else if (task === 'refine') step = refineStep({ here: !!shot, nodes });
   else if (task === 'presenter') step = studio ? presenterStep(facts.studio) : null;
@@ -179,7 +259,7 @@ export function GuideHost() {
     step = { ...step, side: side ?? 'top' };
   }
   // On a narrow screen the open picker makes room above itself for that card.
-  const pickerRoom = step?.id.startsWith('pick') && step.side === 'top';
+  const pickerRoom = !!step?.beside && step.target === PICKER_TARGET && step.side === 'top';
   useEffect(() => {
     if (!pickerRoom) return;
     document.documentElement.dataset.guidePicker = '';
@@ -379,8 +459,12 @@ export function GuideHost() {
   const act = (g: Guidance) => {
     if (review) return setReview(null);
     if (g.action?.disabled) return;
-    if (g.action?.kind === 'close-picker') window.dispatchEvent(new Event('scenri:guide-close-picker'));
-    else if (g.action?.kind === 'confirm') setConfirmed((c) => (c.includes(g.id) ? c : [...c, g.id]));
+    if (g.action?.kind === 'fill') return fill(g.id);
+    if (g.action?.kind === 'close-picker') {
+      // closing the picker is also being done with that part of the brief
+      window.dispatchEvent(new Event('scenri:guide-close-picker'));
+      setConfirmed((c) => (c.includes(g.id) ? c : [...c, g.id]));
+    } else if (g.action?.kind === 'confirm') setConfirmed((c) => (c.includes(g.id) ? c : [...c, g.id]));
     else if (g.done && task) finish(task);
   };
   // Hold the brief's own send until the Generate step, and let Enter say the step in hand is done.
@@ -409,14 +493,17 @@ export function GuideHost() {
         : g.done
           ? { label: 'Done' }
           : null;
-  // The checklist moves the picker on: once an ingredient is in, it opens on the next one still missing.
-  const nextKind = step?.id === 'pick' ? (step.checklist?.find((k) => !k.done)?.id ?? null) : null;
-  const lastKind = useRef<string | null>(null);
+  /**
+   * The picker shows the one kind being asked for, and moves on with the step:
+   * open it at a product and it is products, take or pick one and it is
+   * presenters. Everything else in there is not what this step is about.
+   */
+  const askedKind = step && step.id in CHECK_TAB ? (step.id as keyof typeof CHECK_TAB) : null;
+  const pickerOpen = !!facts.composer?.pickerOpen;
   useEffect(() => {
-    const was = lastKind.current;
-    lastKind.current = nextKind;
-    if (nextKind && was && was !== nextKind) openPickerAt(nextKind);
-  }, [nextKind]);
+    if (task !== 'first-shot' || !pickerOpen || !askedKind) return;
+    openPickerAt(askedKind);
+  }, [task, pickerOpen, askedKind]);
   const closeLabel = (g: Guidance) => (g.done || g.snooze ? 'Close' : 'Close guide');
 
   return (
@@ -446,6 +533,7 @@ export function GuideHost() {
           onClose={() => close(drawn)}
           onEscape={() => (review ? setReview(null) : setSnoozed(drawn.id))}
           onShown={onShown}
+          onLost={rerender}
         />
       )}
       <WelcomeDialog
@@ -474,6 +562,9 @@ function firstVisible(selector: string): HTMLElement | null {
 function sized(url: string): string {
   return `${url}${url.includes('?') ? '&' : '?'}w=320`;
 }
+
+/** The one step that follows into the picker: it gives the card its room on a phone. */
+const PICKER_TARGET = '[data-guide="compose"] .sc-attachpanel';
 
 /** Opens Create's picker on one ingredient's own tab, or moves the open picker there. */
 function openPickerAt(kind: keyof typeof CHECK_TAB) {

@@ -255,6 +255,63 @@ describe('guide routes', () => {
     rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
+  /**
+   * The first shot is on us (DESIGN.md, "First use"): a shipped recipe's own
+   * picture, placed as a real shot with no engine asked for and nothing
+   * charged. The gate sits before the engine lookup, which is why this server
+   * has no engines at all and it still lands.
+   */
+  it('makes the first shot itself from a shipped example, with no engine asked', async () => {
+    const list = (await app.inject({ method: 'GET', url: '/api/showcase' })).json() as {
+      showcase: { id: string; previewUrl?: string | null }[];
+    };
+    const example = list.showcase.find((e) => e.previewUrl);
+    // the pictures live in the content bundle, which a bare checkout may not hold
+    if (!example) return;
+    const made = core.store.createBrand(brand('On Us'));
+    const ws = (await app.inject({ method: 'GET', url: `/api/brands/${made.id}/workspace` })).json() as {
+      project: { id: string };
+    };
+    const sent = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: { projectId: ws.project.id, kind: 'generation', prompt: 'the example', showcaseId: example.id },
+    });
+    expect(sent.statusCode).toBe(202);
+    const id = (sent.json() as { id: string }).id;
+    for (let i = 0; i < 200; i++) {
+      const node = (await app.inject({ method: 'GET', url: `/api/nodes/${id}` })).json() as {
+        status: string;
+        images: string[];
+        engineId: string;
+        costUsd?: number;
+      };
+      if (node.status === 'done') {
+        expect(node.images).toHaveLength(1);
+        expect(node.engineId).toBe('local');
+        expect(node.costUsd ?? 0).toBe(0);
+        return;
+      }
+      expect(node.status).not.toBe('error');
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    throw new Error('the example shot never landed');
+  });
+
+  it('an example nobody ships is refused, and asks no engine', async () => {
+    const made = core.store.createBrand(brand('No Such'));
+    const ws = (await app.inject({ method: 'GET', url: `/api/brands/${made.id}/workspace` })).json() as {
+      project: { id: string };
+    };
+    const sent = await app.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: { projectId: ws.project.id, kind: 'generation', showcaseId: 'not-a-real-example' },
+    });
+    expect(sent.statusCode).toBe(400);
+    expect(sent.json()).toMatchObject({ error: expect.stringContaining('not-a-real-example') });
+  });
+
   it('boot stamps a fresh home; an intent answers with the new state; nonsense is a 400', async () => {
     const first = await app.inject({ method: 'GET', url: '/api/guide' });
     expect(first.json()).toMatchObject({ eligible: true, welcome: null, active: null, activeNodes: [] });

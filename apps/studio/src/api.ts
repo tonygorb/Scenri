@@ -128,6 +128,11 @@ export const api = {
     width?: number;
     height?: number;
     sourceImage?: string;
+    /**
+     * First use only: make this shot from the picture a shipped recipe already
+     * made, instead of asking an engine. The brief must be that recipe's own.
+     */
+    showcaseId?: string;
     /** Edit with a new shape: cut down to it, or build out to it. Explicit,
      * because the two ops preserve pixels in opposite ways. */
     reshape?: 'crop' | 'extend';

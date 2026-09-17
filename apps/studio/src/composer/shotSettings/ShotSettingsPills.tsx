@@ -93,7 +93,7 @@ export function ShotSettingsPills({
   });
 
   return (
-    <div className="sc-prompt-pills">
+    <div className="sc-prompt-pills" data-guide={guided ? 'compose.settings-row' : undefined}>
       {/* Always offered, in both modes: a refinement cannot reshape a picture,
           but asking for a new shape runs the same setup again at that shape,
           and the composer says so before you send. */}

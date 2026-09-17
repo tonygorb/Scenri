@@ -41,17 +41,29 @@ export async function expectNoGuide(p: Page): Promise<void> {
   await expect(p.locator('.sc-coach, .sc-coach-veil')).toHaveCount(0);
 }
 
-/** One product, one presenter and one scene from the open picker, each ticked on the card as it lands. */
-export async function pickOneOfEach(p: Page): Promise<void> {
-  for (const kind of ['Product', 'Presenter', 'Scene']) {
-    await p
-      .locator('.sc-attachpanel')
-      .getByRole('button', { name: new RegExp(`^${kind}: `) })
-      .first()
-      .click();
-    await expect(p.locator('.sc-coach-item[data-done]', { hasText: kind })).toHaveCount(1);
+/**
+ * The brief built the way the guide offers it: each part taken from Scenri,
+ * then the settings, up to the one thing left to press.
+ */
+export async function takeWhatIsOffered(p: Page): Promise<void> {
+  for (const title of ['Start with what you are shooting', 'Now who shows it', 'And where it happens']) {
+    await expect(coachTitle(p)).toHaveText(title);
+    await coachCard(p).getByRole('button', { name: 'Use ours' }).click();
   }
-  await expect(coachTitle(p)).toHaveText("That's everything a shot needs");
+  await expect(coachTitle(p)).toHaveText('Say how to shoot it');
+  await coachCard(p).getByRole('button', { name: 'Write one for me' }).click();
+  await expect(coachTitle(p)).toHaveText('Set to suit this shot');
+  await coachCard(p).getByRole('button', { name: 'Next' }).click();
+  await expect(coachTitle(p)).toHaveText('Make the shot');
+}
+
+/** Picks the first tile of a kind in the open picker, the way a person does. */
+export async function pickFromPicker(p: Page, kind: 'Product' | 'Presenter' | 'Scene'): Promise<void> {
+  await p
+    .locator('.sc-attachpanel')
+    .getByRole('button', { name: new RegExp(`^${kind}: `) })
+    .first()
+    .click();
 }
 
 /**
@@ -62,7 +74,9 @@ export async function pickOneOfEach(p: Page): Promise<void> {
  */
 export async function pointsAt(p: Page, selector: string): Promise<void> {
   await expect(coachCard(p)).toHaveAttribute('data-state', 'shown');
-  const r = await p.evaluate((sel) => {
+  // measured once the card has settled where it is going: a composer that grows
+  // as its brief lands moves the card under the measurement otherwise
+  const measure = (sel: string) => {
     const el = [...document.querySelectorAll<HTMLElement>(sel)].find((e) => e.getClientRects().length > 0);
     const card = document.querySelector('.sc-coach');
     const arrow = document.querySelector<HTMLElement>('.sc-coach-arrow');
@@ -86,8 +100,10 @@ export async function pointsAt(p: Page, selector: string): Promise<void> {
       arrowOnTarget: arrow.hidden || (mid >= span[0] - 1 && mid <= span[1] + 1),
       onScreen: c.left >= 0 && c.top >= 0 && c.right <= vw && c.bottom <= vh,
     };
-  }, selector);
-  expect(r).toEqual({ inside: true, overlaps: false, arrowOnTarget: true, onScreen: true });
+  };
+  await expect
+    .poll(async () => await p.evaluate(measure, selector), { timeout: 5000 })
+    .toEqual({ inside: true, overlaps: false, arrowOnTarget: true, onScreen: true });
 }
 
 /** The page behind a coach is held: some of it is inert. */
@@ -98,24 +114,6 @@ export async function expectHeld(p: Page): Promise<void> {
 /** Nothing a coach held is left behind. */
 export async function expectLetGo(p: Page): Promise<void> {
   await expect(p.locator('[data-sc-coach-inert]')).toHaveCount(0);
-}
-
-/**
- * The three settings steps of the first shot, each done the way a person does
- * it: open the control, pick an answer (keeping the current one counts).
- */
-export async function answerSettings(p: Page): Promise<void> {
-  const steps: [string, string][] = [
-    ['shape', 'Choose the shape'],
-    ['count', 'Choose how many'],
-    ['quality', 'Choose the size'],
-  ];
-  for (const [which, title] of steps) {
-    await expect(coachTitle(p)).toHaveText(title);
-    await p.locator(`[data-guide="compose.${which}"]`).click();
-    await p.locator('.sc-setpop[data-state="open"] [role="radio"][aria-checked="true"]').first().click();
-  }
-  await expect(coachTitle(p)).toHaveText('Make it');
 }
 
 export async function isInert(p: Page, selector: string): Promise<boolean> {

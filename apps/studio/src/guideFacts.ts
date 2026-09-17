@@ -35,6 +35,10 @@ export interface ComposerFacts {
   settled: { shape: boolean; count: boolean; quality: boolean };
   /** Which ingredients the library has any of to pick: one it has none of is never asked for. */
   offered: { product: boolean; presenter: boolean; scene: boolean };
+  /** The ingredients in the brief, by id, in the order they were added. */
+  ids: string[];
+  /** What the brief's own words say, as a print to compare (guidedTasks.wordPrint). */
+  wordPrint: string;
 }
 
 export interface StudioFacts {
@@ -59,9 +63,22 @@ export interface GuideFacts {
    * is done instead.
    */
   holdSend: boolean;
+  /**
+   * The first shot is on us: the recipe Create opened on, while the brief is
+   * still that recipe. The next send makes the shot from the picture that
+   * recipe already made, rather than asking an engine for one.
+   */
+  staged: string | null;
 }
 
-const EMPTY: GuideFacts = { composer: null, overlay: null, studio: null, showing: false, holdSend: false };
+const EMPTY: GuideFacts = {
+  composer: null,
+  overlay: null,
+  studio: null,
+  showing: false,
+  holdSend: false,
+  staged: null,
+};
 let state: GuideFacts = EMPTY;
 const listeners = new Set<() => void>();
 
@@ -82,6 +99,10 @@ export function publishOverlay(facts: OverlayFacts | null): void {
 
 export function publishStudio(facts: StudioFacts | null): void {
   if (!same(state.studio, facts)) set({ ...state, studio: facts });
+}
+
+export function setGuideStaged(showcaseId: string | null): void {
+  if (state.staged !== showcaseId) set({ ...state, staged: showcaseId });
 }
 
 export function setGuideHoldSend(holdSend: boolean): void {

@@ -116,6 +116,12 @@ export interface CoachmarkProps {
   onEscape: (id: string) => void;
   /** The step is on screen. `focusMoved` is true when the card took focus, which announces it already. Keep it stable. */
   onShown: (id: string, focusMoved: boolean) => void;
+  /**
+   * What it was drawn on has left the page (a feed tile redrawn when its
+   * picture lands). The host looks the step up again, so the same card comes
+   * back on the new element rather than staying away. Keep it stable.
+   */
+  onLost: () => void;
 }
 
 /**
@@ -219,7 +225,11 @@ export function Coachmark(p: CoachmarkProps) {
 
     const update = async () => {
       const my = ++token;
-      if ((target && !target.isConnected) || surfaces.some((s) => !s.isConnected)) return away();
+      if ((target && !target.isConnected) || surfaces.some((s) => !s.isConnected)) {
+        away();
+        // the page redrew what this was on: ask for it again
+        return latest.current.onLost();
+      }
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const vv = window.visualViewport;
@@ -297,6 +307,9 @@ export function Coachmark(p: CoachmarkProps) {
         } else ring.hidden = true;
       }
 
+      // The card's own height, for a surface that has to make room for it (the
+      // open picker on a phone, attach-panel.css).
+      if (card) document.documentElement.style.setProperty('--sc-coach-h', `${Math.round(card.offsetHeight)}px`);
       if (card && pointer && target && t) {
         // The bars the page pins to its top and bottom are not room for the card.
         const room = {
@@ -329,15 +342,21 @@ export function Coachmark(p: CoachmarkProps) {
             ? [opposite(side), 'bottom', 'top']
             : undefined;
 
-        let res = await place(referenceRect(t, r, side), fallbacks);
+        // A target as tall as the screen (one finished shot filling the feed)
+        // has no room above or below it: the card comes inside, on its own
+        // bottom edge, where it reads as a caption on the picture.
+        const huge = height(t) > vh * 0.6;
+        let res = huge
+          ? await place({ ...t, top: t.bottom - 1 }, ['top'])
+          : await place(referenceRect(t, r, side), fallbacks);
         if (!alive || my !== token) return;
-        if (covers(res.x, res.y)) {
+        if (!huge && covers(res.x, res.y)) {
           res = await place(t, undefined);
           if (!alive || my !== token) return;
         }
         // On a small phone with the keyboard up there may be no room that leaves
         // the target clear. The card waits, out of the way, for the room to come back.
-        if (covers(res.x, res.y)) return setPhase('stowed');
+        if (!huge && covers(res.x, res.y)) return setPhase('stowed');
 
         const placed = res.placement.split('-')[0] as Side;
         card.style.left = `${Math.round(res.x)}px`;
@@ -413,6 +432,7 @@ export function Coachmark(p: CoachmarkProps) {
 
     return () => {
       alive = false;
+      document.documentElement.style.removeProperty('--sc-coach-h');
       cancelAnimationFrame(frame);
       stopAuto?.();
       ro.disconnect();

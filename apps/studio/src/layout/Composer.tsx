@@ -49,6 +49,7 @@ import { OpenAIMark } from './OpenAIMark.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { guideFactsSnapshot, publishComposer, publishOverlay, type ComposerFacts } from '../guideFacts.js';
+import { wordPrint, type GuideFillSettings } from '../guidedTasks.js';
 import { PREF, useLocalPref, useRecipeSetting } from '../prefs.js';
 import { useMediaQuery } from '../useMediaQuery.js';
 import { useToasts } from '../toasts.js';
@@ -935,6 +936,9 @@ export const Composer = forwardRef<
   }, []);
   const applySceneRef = useRef(applyScene);
   applySceneRef.current = applyScene;
+  /** What the brief holds right now, for a listener that must add to it rather than replace it. */
+  const sentenceRef = useRef(sentence);
+  sentenceRef.current = sentence;
   /**
    * Stable on purpose: the panel's lists are built without it, so a keystroke
    * in the brief behind an open panel rebuilds nothing. A scene is a swap
@@ -1173,6 +1177,9 @@ export const Composer = forwardRef<
       // the brand's workspace always exists by the time a brief can be run; a
       // missing one is a load that has not landed, not a container to invent
       if (!projectId) throw new Error('the workspace is still loading');
+      // First use: the shot Scenri makes itself, from the recipe Create opened
+      // on. The same send, with the recipe named instead of an engine asked.
+      const staged = guided ? guideFactsSnapshot().staged : null;
       const created = await api.addNode({
         projectId,
         // an edit hangs off the shot it edits; anything else hangs off the
@@ -1189,6 +1196,7 @@ export const Composer = forwardRef<
         // the reshape op is explicit on the wire: crop and extend preserve
         // pixels in opposite ways, and the server must never have to guess
         ...(mode === 'edit' && reshapeOp ? { reshape: reshapeOp } : {}),
+        ...(staged && mode === 'generation' ? { showcaseId: staged } : {}),
       });
       /*
        * A scene used to be able to declare text zones, and this turned them
@@ -1283,6 +1291,10 @@ export const Composer = forwardRef<
         settings: settingsPills ? 'pills' : settingsSheet ? 'sheet' : 'more',
         settled,
         offered,
+        ids: sentence.flatMap((t) =>
+          t.t === 'product' || t.t === 'character' || t.t === 'template' ? [String((t as { id: string }).id)] : [],
+        ),
+        wordPrint: wordPrint(sentence.flatMap((t) => (t.t === 'text' ? [t.v] : [])).join(' ')),
       }
     : null;
   useEffect(() => {
@@ -1299,6 +1311,32 @@ export const Composer = forwardRef<
     window.addEventListener('scenri:guide-close-picker', close);
     return () => window.removeEventListener('scenri:guide-close-picker', close);
   }, [guided, attachOpen, closeAttach]);
+  /**
+   * First use: the guide hands over a part of the brief it has in mind, when
+   * someone asks for it. Chips land the way a pick lands, a scene the way a
+   * scene does, and the words at the caret; the settings that recipe was shot
+   * with come with its words.
+   */
+  useEffect(() => {
+    if (!guided) return;
+    const fill = (e: Event) => {
+      const { tokens = [], settings } = (e as CustomEvent<{ tokens?: SentenceToken[]; settings?: GuideFillSettings }>)
+        .detail;
+      for (const t of tokens) {
+        // a chip lands the way a pick lands; words are the line repainting with
+        // what it already holds plus them, since a chip insert only makes chips
+        if (t.t === 'template') applySceneRef.current(t.id);
+        else if (t.t === 'text') briefRef.current?.setTokens([...sentenceRef.current, t]);
+        else briefRef.current?.insert(t);
+      }
+      const f = settings?.format && FORMATS.find((o) => o.w === settings.format?.w && o.h === settings.format?.h);
+      if (f) setFormat(f.id);
+      if (settings?.variants) setVariants(settings.variants);
+      if (settings?.quality) setQuality(settings.quality as QualityId);
+    };
+    window.addEventListener('scenri:guide-fill', fill);
+    return () => window.removeEventListener('scenri:guide-fill', fill);
+  }, [guided]);
   // The guide's checklist: an ingredient still missing opens the picker on its own kind.
   const openAttachRef = useRef(openAttach);
   openAttachRef.current = openAttach;

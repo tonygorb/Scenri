@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { isolate } from './harness.js';
 import {
-  answerSettings,
   brief,
+  chips,
+  coachBody,
   coachCard,
   coachTitle,
   expectHeld,
@@ -10,21 +11,33 @@ import {
   guideRecord,
   isInert,
   noWelcomeWait,
-  pickOneOfEach,
+  pickFromPicker,
   setUpBrand,
+  takeWhatIsOffered,
   steps,
   welcome,
 } from './firstUse.js';
 
 /**
- * The first shot when things go the other way: the welcome declined, every
- * take refused by the engine, and a phone. A failure is never a finished shot,
- * and the guide comes back to building the brief the moment someone does.
+ * The first shot when it is not on us and not going well: the welcome
+ * declined, a brief changed so the shot is really generated, every take
+ * refused by the engine, a phone, and a brief emptied back to nothing.
  */
 isolate({ brand: false, env: { SCENRI_NO_GUIDE: '0', SCENRI_DEMO_FAIL_SLOT: '0' } });
 test.describe.configure({ mode: 'serial' });
 
 let slug = '';
+
+/** A brand of this test's own, with the first shot in hand: no state from the test before. */
+async function ownBrand(page: import('@playwright/test').Page, name: string): Promise<string> {
+  const made = await page.request.post('/api/brands', {
+    data: { brand: { specVersion: '0.1', meta: { name }, products: [{ id: 'lamp', name: 'Ribbed lamp' }] } },
+  });
+  const { id } = (await made.json()) as { id: string };
+  const brands = (await (await page.request.get('/api/brands')).json()) as { id: string; slug: string }[];
+  await page.request.post('/api/guide', { data: { start: { task: 'first-shot', brandId: id } } });
+  return brands.find((b) => b.id === id)?.slug as string;
+}
 
 test.beforeEach(async ({ page }) => {
   await noWelcomeWait(page);
@@ -43,25 +56,39 @@ test('declining the welcome holds nothing, and First steps offers the first shot
   expect((await guideRecord(page)).welcome).toBe('declined');
 });
 
-test('a take that fails is said on its tile, survives a reload, and building again resumes the guide', async ({
-  page,
-}) => {
+test('a brief of their own is really generated, and a take that fails is said on its tile', async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/${slug}`);
   await steps(page).locator('.sc-steps-item', { hasText: 'First shot' }).click();
-  await expect(coachTitle(page)).toHaveText('Add your ingredients');
+  await expect(coachTitle(page)).toHaveText('Start with what you are shooting', { timeout: 20_000 });
+
+  // Their own pick for every part, so Scenri has no picture for this one: it
+  // goes to the engine, which refuses it.
   await page.locator('[data-guide="compose.add"]').click();
-  await pickOneOfEach(page);
-  await coachCard(page).getByRole('button', { name: 'Continue' }).click();
+  await pickFromPicker(page, 'Product');
+  await expect(coachTitle(page)).toHaveText('Now who shows it');
+  await pickFromPicker(page, 'Presenter');
+  await expect(coachTitle(page)).toHaveText('And where it happens');
+  await pickFromPicker(page, 'Scene');
+  await coachCard(page).getByRole('button', { name: 'Next' }).click();
+  await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
+  await expect(chips(page)).toHaveCount(3);
+
+  await expect(coachTitle(page)).toHaveText('Say how to shoot it');
   await brief(page).click();
-  await page.keyboard.press('End');
-  await page.keyboard.type(' at dusk');
-  await page.keyboard.press('Enter');
-  await answerSettings(page);
+  await page.keyboard.type('at dusk, by the window');
+  await coachCard(page).getByRole('button', { name: 'Next' }).click();
+  await expect(coachTitle(page)).toHaveText('Set to suit this shot');
+  // one take, so the one refused slot is the whole take
+  await page.locator('[data-guide="compose.count"]').click();
+  await page.locator('.sc-setpop[data-state="open"] [role="radio"]').first().click();
+  await coachCard(page).getByRole('button', { name: 'Next' }).click();
+  await expect(coachTitle(page)).toHaveText('Make the shot');
+  await expect(coachBody(page)).not.toContainText('on us');
   await page.locator('[data-guide="compose.send"]').click();
 
-  await expect(coachTitle(page)).toHaveText("That one didn't work", { timeout: 15_000 });
+  await expect(coachTitle(page)).toHaveText("That one didn't work", { timeout: 20_000 });
   await expect(coachCard(page)).toHaveAttribute('data-voice', 'card');
   const record = await guideRecord(page);
   expect(record.done.shot).toBeUndefined();
@@ -70,16 +97,19 @@ test('a take that fails is said on its tile, survives a reload, and building aga
   await page.reload();
   await expect(coachTitle(page)).toHaveText("That one didn't work");
 
+  // The send emptied the brief, so building again starts from the first part.
   await page.locator('[data-guide="compose.add"]').click();
-  await expect(coachTitle(page)).toHaveText('Add a product, a presenter and a scene');
+  await expect(coachTitle(page)).toHaveText('Start with what you are shooting');
+  await expect(coachCard(page)).toHaveAttribute('data-side', 'right');
   await expectHeld(page);
 });
 
 test('on a phone the coach follows into the picker above it, and every card fits the screen', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/${slug}/create`);
+  const own = await ownBrand(page, 'Phone Take');
+  await page.goto(`/${own}/create`);
+  await expect(coachTitle(page)).toHaveText('Start with what you are shooting', { timeout: 20_000 });
   await page.locator('[data-guide="compose.add"]').click();
-  await expect(coachTitle(page)).toHaveText('Add a product, a presenter and a scene');
   await expect(coachCard(page)).toHaveAttribute('data-side', 'top');
   await expect(coachCard(page)).toHaveAttribute('data-state', 'shown');
   const fit = await page.evaluate(() => {
@@ -90,7 +120,7 @@ test('on a phone the coach follows into the picker above it, and every card fits
   });
   expect(fit).toEqual({ inside: true, above: true });
 
-  // a phone's picker closes from the composer's own toggle
+  // a phone's picker closes from the card's own Next, and from the composer's toggle
   await page.locator('[data-guide="compose.add"]').click();
   await expect(page.locator('.sc-attachpanel')).toHaveCount(0);
   await expect(coachCard(page)).toHaveAttribute('data-state', 'shown');
@@ -98,9 +128,7 @@ test('on a phone the coach follows into the picker above it, and every card fits
   expect(c && c.x >= 0 && c.x + c.width <= 390 && c.y >= 0 && c.y + c.height <= 844).toBe(true);
 });
 
-test('a narrow composer asks shape, number and size at its one settings control, and it has to be opened and answered', async ({
-  page,
-}) => {
+test('a narrow composer says the settings at its one control, which stays theirs to open', async ({ page }) => {
   test.setTimeout(60_000);
   const shells: [number, number, string][] = [
     [900, 800, '.sc-morepop'],
@@ -108,39 +136,41 @@ test('a narrow composer asks shape, number and size at its one settings control,
   ];
   for (const [width, height, shell] of shells) {
     await page.setViewportSize({ width, height });
-    await page.goto(`/${slug}/create`);
-    await expect(coachCard(page)).toHaveAttribute('data-state', 'shown');
-    // build the brief the way the guide asks, from wherever the last test left it
-    for (let i = 0; i < 20; i++) {
-      const now = await coachTitle(page).textContent();
-      if (now === 'Describe the shot') break;
-      const pickerOpen = (await page.locator('.sc-attachpanel').count()) > 0;
-      if (now === "That one didn't work" || (!pickerOpen && /^(Add your ingredients|Now add)/.test(now ?? '')))
-        await page.locator('[data-guide="compose.add"]').click();
-      else if (pickerOpen && /^Add a /.test(now ?? '')) await pickOneOfEach(page);
-      else if (await coachCard(page).getByRole('button', { name: 'Continue' }).isVisible())
-        await coachCard(page).getByRole('button', { name: 'Continue' }).click();
-      await page.waitForTimeout(200);
-    }
-    await expect(coachTitle(page)).toHaveText('Describe the shot');
-    if (!(await brief(page).textContent())?.includes('dusk')) {
-      await brief(page).click();
-      await page.keyboard.press('End');
-      await page.keyboard.type(' at dusk');
-    }
-    await coachCard(page).getByRole('button', { name: 'Continue' }).click();
-
-    await expect(coachTitle(page)).toHaveText('Choose shape, number and size');
-    // the brief is not what this step asks for, so it cannot be used
+    const own = await ownBrand(page, `Narrow ${width}`);
+    await page.goto(`/${own}/create`);
+    await expect(coachTitle(page)).toHaveText('Start with what you are shooting', { timeout: 20_000 });
+    await takeWhatIsOffered(page);
+    await coachCard(page).getByRole('button', { name: 'Back' }).click();
+    await expect(coachTitle(page)).toHaveText('Set to suit this shot');
+    // the brief is not what this step is about, so it cannot be used
     expect(await isInert(page, '[data-guide="compose"] .sc-brief-line')).toBe(true);
     await page.locator('[data-guide="compose.settings"]').click();
     const open = page.locator(`${shell}[data-state="open"]`);
     await expect(open).toBeVisible();
     // what the control opened is part of the step, never a dialog that pauses it
-    await expect(coachTitle(page)).toHaveText('Choose shape, number and size');
-    await open.locator('[role="radio"][aria-checked="true"]').first().click();
+    await expect(coachTitle(page)).toHaveText('Set to suit this shot');
+    await open.locator('[role="radio"]').first().click();
     await page.keyboard.press('Escape');
     await expect(open).toHaveCount(0);
-    await expect(coachTitle(page)).toHaveText('Make it');
+    await coachCard(page).getByRole('button', { name: 'Next' }).click();
+    await expect(coachTitle(page)).toHaveText('Make the shot');
   }
+});
+
+test('what Scenri put in is theirs to take out, and the guide asks for it again', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const own = await ownBrand(page, 'Empty It');
+  await page.goto(`/${own}/create`);
+  await expect(coachTitle(page)).toHaveText('Start with what you are shooting', { timeout: 20_000 });
+  for (const label of ['Use ours', 'Use ours', 'Use ours']) {
+    await coachCard(page).getByRole('button', { name: label }).click();
+    await page.waitForTimeout(150);
+  }
+  await expect(chips(page)).toHaveCount(3);
+  await expect(coachTitle(page)).toHaveText('Say how to shoot it');
+  await brief(page).click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(0);
+  await expect(coachTitle(page)).toHaveText('Start with what you are shooting');
 });
