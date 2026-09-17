@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.10.2',
+    date: '2026-09-17',
+    sections: [
+      {
+        heading: 'Presenters',
+        body: 'Opening a saved presenter draft goes straight to where the conversation left off, instead of briefly asking who you are making and then taking the question back.',
+      },
+    ],
+  },
+  {
     version: '0.10.1',
     date: '2026-09-16',
     title: 'A saved presenter can be duplicated or deleted straight from its card.',
