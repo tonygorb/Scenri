@@ -51,6 +51,12 @@ const EDGE = 12;
 /** The pointer keeps clear of the card's rounded corners. */
 const ARROW_INSET = 20;
 const SCROLL_WAIT_MS = 450;
+/** Under this there is one column of room, so nothing stands beside anything. */
+const NARROW = 768;
+/** Two measurements this far apart agreeing means the surface has arrived. */
+const STEADY_MS = 90;
+/** A page that never settles still gets its card, after this many looks. */
+const STEADY_TRIES = 8;
 /** Fixed and sticky chrome a window must not reach under. */
 const CHROME = '.sc-topbar, .sc-tabbar, .sc-filterbar, .sc-canvas-dock, .sc-help-float';
 /** The card fades out before it moves; it never slides across the page. Matches --sc-dur-fast. */
@@ -208,6 +214,15 @@ export function Coachmark(p: CoachmarkProps) {
     let frame = 0;
     let shown = false;
     let held = false;
+    /**
+     * A surface that is still arriving (a question typing itself in, a dialog
+     * opening) is measured twice before the card is shown, so it is placed
+     * where the surface ends up rather than where it started. It gives up
+     * after a few tries, because a page that never settles still needs its
+     * card.
+     */
+    let steadyKey = '';
+    let steady = 0;
     let stopAuto: (() => void) | null = null;
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const lead = live[0] ?? target ?? container;
@@ -339,10 +354,15 @@ export function Coachmark(p: CoachmarkProps) {
           left: EDGE,
           right: EDGE,
         };
+        // One column of room is not a side: on a phone a card asked to stand
+        // beside a surface stands above or below it instead, against the thing
+        // it points at, rather than being squeezed over the middle of it.
+        const wideScreen = vw >= NARROW;
+        const want: Side = wideScreen ? side : side === 'left' || side === 'right' ? 'top' : side;
         const place = (ref: Box, fallbacks: Side[] | undefined) =>
           computePosition(virtual(ref, target), card, {
             strategy: 'fixed',
-            placement: side,
+            placement: want,
             middleware: [
               offset(GAP),
               flip({ padding: room, fallbackPlacements: fallbacks }),
@@ -350,15 +370,25 @@ export function Coachmark(p: CoachmarkProps) {
               arrow({ element: pointer, padding: ARROW_INSET }),
             ],
           });
+        // What the card must stay off: the control it points at, and on a
+        // phone the whole lit surface, because the sentence that explains the
+        // control is part of it and a card over that explains nothing. It
+        // keeps the control's own width, so the pointer still lands on the
+        // control rather than on the middle of the surface around it.
+        const keep = !wideScreen && r ? { ...t, top: r.top, bottom: r.bottom } : t;
         const covers = (x: number, y: number) =>
           intersects(
             { left: x, top: y, right: x + card.offsetWidth, bottom: y + card.offsetHeight },
-            pad(t, RING_OFFSET),
+            pad(keep, RING_OFFSET),
           );
         // A card beside its target, on a screen too narrow for either side, goes
         // above it instead, and only below it when there is no room up there.
-        const sideways = side === 'left' || side === 'right';
-        const fallbacks: Side[] | undefined = sideways ? [opposite(side), 'top', 'bottom'] : undefined;
+        const sideways = wideScreen && (side === 'left' || side === 'right');
+        const fallbacks: Side[] | undefined = sideways
+          ? [opposite(side), 'top', 'bottom']
+          : wideScreen
+            ? undefined
+            : ['bottom', 'top'];
 
         // A note on a target as tall as the screen (one finished shot filling
         // the feed) has no room above or below it: it comes inside, on the
@@ -373,12 +403,12 @@ export function Coachmark(p: CoachmarkProps) {
         // lands on the thing being asked for. A moment that leaves a whole
         // surface usable (a picker, a dialog, or the brief beside Generate)
         // clears that surface instead, so it covers none of it.
-        const wide = p.beside || live.length > 1;
-        const ref = huge ? { ...t, top: t.bottom - 1 } : wide ? referenceRect(t, r, side) : t;
+        const wide = wideScreen && (p.beside || live.length > 1);
+        const ref = huge ? { ...t, top: t.bottom - 1 } : wide ? referenceRect(t, r, side) : keep;
         let res = await place(ref, huge ? ['top'] : fallbacks);
         if (!alive || my !== token) return;
         if (!huge && covers(res.x, res.y)) {
-          res = await place(t, undefined);
+          res = await place(keep, undefined);
           if (!alive || my !== token) return;
         }
         // On a small phone with the keyboard up there may be no room that leaves
@@ -399,6 +429,22 @@ export function Coachmark(p: CoachmarkProps) {
       if (coach && !held) {
         hold();
         held = true;
+      }
+      if (!shown) {
+        const here = [...(target ? [target] : []), ...live, ...lit]
+          .map((el) => {
+            const b = el.getBoundingClientRect();
+            return [b.left, b.top, b.right, b.bottom].map(Math.round).join(',');
+          })
+          .join('|');
+        if (here !== steadyKey) {
+          steadyKey = here;
+          steady = 0;
+        }
+        if (++steady < 2 && steady < STEADY_TRIES) {
+          window.setTimeout(schedule, STEADY_MS);
+          return;
+        }
       }
       setPhase('shown');
       if (!shown) {

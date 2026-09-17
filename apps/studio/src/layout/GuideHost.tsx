@@ -223,6 +223,8 @@ export function GuideHost() {
    * there is nothing to take back there is no Back to press.
    */
   const TAKES_BACK: Record<string, AskedKind> = { presenter: 'product', scene: 'presenter', make: 'scene' };
+  // The ids are the first shot's own: another task's moment may share a name
+  // (the scene task's one ask is called scene) and has no chip to take back.
   const shown = moment;
 
   // How a task ends.
@@ -392,7 +394,7 @@ export function GuideHost() {
           body={drawn.body}
           at={drawn.at}
           of={drawn.of}
-          canBack={!!TAKES_BACK[drawn.id]}
+          canBack={task === 'first-shot' && !!TAKES_BACK[drawn.id]}
           action={drawn.start ? { label: 'Start' } : drawn.done ? { label: 'Done' } : null}
           closeLabel={drawn.done ? 'Close' : 'Close guide'}
           onBack={() => {
