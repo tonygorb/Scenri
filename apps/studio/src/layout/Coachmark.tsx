@@ -1,7 +1,16 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import { X } from '@phosphor-icons/react';
-import { arrow, autoUpdate, computePosition, flip, offset, shift, type VirtualElement } from '@floating-ui/dom';
+import {
+  arrow,
+  autoPlacement,
+  autoUpdate,
+  computePosition,
+  flip,
+  offset,
+  shift,
+  type VirtualElement,
+} from '@floating-ui/dom';
 import type { Side } from '../guidedTasks.js';
 import { Tip } from './Tip.js';
 import { createLock, type CoachLock } from './coachLock.js';
@@ -359,13 +368,18 @@ export function Coachmark(p: CoachmarkProps) {
         // it points at, rather than being squeezed over the middle of it.
         const wideScreen = vw >= NARROW;
         const want: Side = wideScreen ? side : side === 'left' || side === 'right' ? 'top' : side;
+        // On a phone it takes the side with the most room rather than the
+        // first side it fits in: a card squeezed into a header while half the
+        // screen below it is empty is technically placed and plainly wrong.
         const place = (ref: Box, fallbacks: Side[] | undefined) =>
           computePosition(virtual(ref, target), card, {
             strategy: 'fixed',
             placement: want,
             middleware: [
               offset(GAP),
-              flip({ padding: room, fallbackPlacements: fallbacks }),
+              wideScreen
+                ? flip({ padding: room, fallbackPlacements: fallbacks })
+                : autoPlacement({ padding: room, allowedPlacements: ['top', 'bottom'] }),
               shift({ padding: room }),
               arrow({ element: pointer, padding: ARROW_INSET }),
             ],
