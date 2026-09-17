@@ -111,19 +111,32 @@ export function syncPatch(state: CreationState, d: DraftLike): SyncPatch {
 export const redoAfterSync = (d: DraftLike): StudioView | null =>
   d.source === 'photos' ? (d.views.front.hash ? 'front' : null) : d.views.portrait.hash ? 'portrait' : null;
 
+/**
+ * The address names a draft whose answers the conversation does not have yet:
+ * it has not loaded, or it has and they are still to be read off it.
+ *
+ * A page arriving at a draft with answers that cannot draw it reads them off
+ * the draft: another tab, a cleared session, answers left over from a run that
+ * is over. Once per draft, so a person halfway through changing their mind on a
+ * draft this page has been driving is left alone. Until then nothing is asked:
+ * the draft lands one render before its answers are read, and a question asked
+ * in that render is withdrawn in the next.
+ */
+export function awaitingAnswers(i: Pick<StepInputs, 'state' | 'draft' | 'ctx' | 'draftId' | 'seededFor'>): boolean {
+  if (!i.draftId) return false;
+  const d = i.draft;
+  if (!d) return true;
+  return i.seededFor !== d.id && (!i.state.answers.source || !readyToDraw(i.state, i.ctx));
+}
+
 /** Everything the flow could do right now, best first. */
 function candidates(i: StepInputs): Step[] {
   const { state, draft: d, ctx } = i;
   if (i.busy || i.err) return [];
   if (d) {
-    const ready = readyToDraw(state, ctx);
-    // A page arriving at a draft with answers that cannot draw it reads them
-    // off the draft: another tab, a cleared session, answers left over from a
-    // run that is over. Once per draft, so a person halfway through changing
-    // their mind on a draft this page has been driving is left alone.
-    if (i.seededFor !== d.id && (!state.answers.source || !ready)) return [{ kind: 'seed', ...seedStateFromDraft(d) }];
+    if (awaitingAnswers(i)) return [{ kind: 'seed', ...seedStateFromDraft(d) }];
     // a question is open, or an answer is being changed: nothing draws
-    if (!ready) return [];
+    if (!readyToDraw(state, ctx)) return [];
     const out: Step[] = [];
     if (!inStep(state, d)) out.push({ kind: 'sync', patch: syncPatch(state, d), redo: redoAfterSync(d) });
     // A picture just put back draws nothing, and needs no rule here: a restore
