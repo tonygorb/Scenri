@@ -63,17 +63,17 @@ test('on Create the ? steps left of the open rail and offers the shortcuts', asy
   await expect(page.getByRole('dialog', { name: 'Shortcuts' })).toBeVisible();
 });
 
-test('between 1024 and 1279 the ? waits out the assets drawer rather than landing on Generate', async ({ page }) => {
+test('between 1024 and 1279 the ? steps left of the locked assets column, clear of Generate', async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 800 });
   const s = await slug(page);
   await page.goto(`/${s}/create`);
-  await expect(page.locator('.sc-work[data-assets="false"]')).toBeVisible();
-  await expect(float(page)).toBeVisible();
-  await page.getByRole('button', { name: 'Assets panel' }).click();
   await expect(page.locator('.sc-work[data-assets="true"]')).toBeVisible();
-  await expect(page.locator('.sc-help-float')).toBeHidden();
-  await page.getByRole('button', { name: 'Close assets' }).click();
-  await expect(float(page)).toBeVisible();
+  const box = await float(page).boundingBox();
+  expect(Math.round((box?.x ?? 0) + (box?.width ?? 0))).toBe(1100 - 320 - 16);
+  const send = await page.locator('.sc-canvas-dock .sc-send').boundingBox();
+  const clear =
+    (box?.x ?? 0) >= (send?.x ?? 0) + (send?.width ?? 0) || (box?.y ?? 0) >= (send?.y ?? 0) + (send?.height ?? 0);
+  expect(clear).toBe(true);
 });
 
 test('below 1024px the ? moves into the top bar', async ({ page }) => {
