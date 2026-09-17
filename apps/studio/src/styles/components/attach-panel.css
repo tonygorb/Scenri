@@ -459,9 +459,12 @@
     border-radius: var(--sc-radius-float);
   }
   /* The sheet's room is made by the dock (canvas.css), so the panel above it
-     only has to fit what is left rather than subtract the card twice. */
+     only has to fit what is left. It is also shorter than a picker on its own:
+     with the sheet and the composer under it, a 510px shelf leaves the page
+     itself invisible and the screen reads as a wall of controls rather than a
+     place someone is standing in. */
   :root[data-guide-picker] [data-guide="compose"] .sc-attachpanel {
-    height: min(510px, calc(var(--ap-avail, calc(100dvh - 270px)) - var(--sc-coach-h, 150px)));
+    height: min(42dvh, calc(var(--ap-avail, calc(100dvh - 270px)) - var(--sc-coach-h, 150px)));
   }
   /* One row does not fit seven tabs and three controls, and a toolbar
      squeezed onto two read as the desktop panel folded in half. A phone gets

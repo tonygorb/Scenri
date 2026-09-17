@@ -1402,7 +1402,7 @@
 @media (max-width: 767px) {
   :root[data-guide-sheet] .sc-canvas-dock,
   :root[data-guide-sheet] .sc-canvas-dock[data-full="true"] {
-    bottom: calc(var(--sc-coach-h, 0px) + 12px);
+    bottom: calc(var(--sc-coach-h, 0px) + 8px);
   }
   :root[data-guide-sheet] .sc-dock-fade {
     bottom: calc(var(--sc-coach-h, 0px));

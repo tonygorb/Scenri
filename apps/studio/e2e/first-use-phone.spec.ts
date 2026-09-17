@@ -58,24 +58,24 @@ test('every moment of the first shot is a sheet that clears what it asks about',
 
   // The greeting, with nothing to point at.
   await expect(coachTitle(page)).toContainText('This is Create', { timeout: 20_000 });
-  expect(await sheet(page)).toEqual(docked);
+  await expect.poll(() => sheet(page)).toEqual(docked);
   await coachCard(page).getByRole('button', { name: 'Start' }).click();
 
   // The ask before the picker: the composer is lit at the bottom, the sheet above it.
   await expect(coachTitle(page)).toHaveText('Choose a product');
-  expect(await sheet(page)).toEqual(docked);
+  await expect.poll(() => sheet(page)).toEqual(docked);
   await page.locator('[data-guide="compose.add"]').click();
 
   // The picker, which takes the bottom of the screen for itself.
   for (const kind of ['Product', 'Presenter', 'Scene'] as const) {
-    expect(await sheet(page)).toEqual(docked);
+    await expect.poll(() => sheet(page)).toEqual(docked);
     await pickFromPicker(page, kind);
   }
 
   // The writing moment: the sheet must not sit over the line being written in.
   await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');
   await expect(chips(page)).toHaveCount(3);
-  expect(await sheet(page)).toEqual(docked);
+  await expect.poll(() => sheet(page)).toEqual(docked);
 });
 
 test('a screen shortened the way a keyboard shortens it keeps the sheet whole', async ({ page }) => {
@@ -88,5 +88,5 @@ test('a screen shortened the way a keyboard shortens it keeps the sheet whole', 
   // Playwright cannot raise a keyboard, and a shortened screen is what one does.
   await page.setViewportSize({ width: 390, height: 500 });
   await expect.poll(async () => (await sheet(page))?.onScreen).toBe(true);
-  expect(await sheet(page)).toEqual(docked);
+  await expect.poll(() => sheet(page)).toEqual(docked);
 });
