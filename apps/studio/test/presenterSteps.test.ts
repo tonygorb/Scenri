@@ -7,7 +7,14 @@ import {
   seedFromDraft,
 } from '../src/create/presenter/presenterFlowRules.ts';
 import type { Answers } from '../src/create/presenter/presenterQuestions.ts';
-import { type StepDraft, type StepInputs, inStep, nextStep, stepKey } from '../src/create/presenter/presenterSteps.ts';
+import {
+  type StepDraft,
+  type StepInputs,
+  awaitingAnswers,
+  inStep,
+  nextStep,
+  stepKey,
+} from '../src/create/presenter/presenterSteps.ts';
 import { emptySlot } from '../src/create/presenter/presenterStudioRules.ts';
 
 /**
@@ -257,5 +264,37 @@ describe('a draft opened again', () => {
     const state = { ...EMPTY_STATE, answers };
     expect(compileItems(answers)).toEqual(finished.keepItems);
     expect(inStep(state, finished)).toBe(true);
+  });
+});
+
+/**
+ * Opening a draft asks nothing until its answers are read.
+ *
+ * The draft arrives in one render and its answers are read in the effect
+ * after it, so for that render the conversation had a draft and no answers,
+ * looked like a new one, and asked "Who are we making?". The question was
+ * withdrawn a render later and the transcript jumped. Waiting only until the
+ * draft loaded covered half of the gap; the rest is until it is read.
+ */
+describe('a draft that has just arrived', () => {
+  it('asks nothing while it loads, or once it is here and not yet read', () => {
+    const d = draft();
+    expect(awaitingAnswers(inputs({ draftId: 'pd-1', seededFor: null, state: EMPTY_STATE }))).toBe(true);
+    const arrived = inputs({ draft: d, seededFor: null, state: EMPTY_STATE });
+    expect(awaitingAnswers(arrived)).toBe(true);
+    // and the thing that ends the wait is exactly the seed the flow runs next
+    expect(nextStep(arrived)?.kind).toBe('seed');
+  });
+
+  it('stops waiting once the answers are read, or when the page already had whole ones', () => {
+    const d = draft();
+    expect(awaitingAnswers(inputs({ draft: d, seededFor: d.id, state: EMPTY_STATE }))).toBe(false);
+    const whole = inputs({ draft: d, seededFor: null });
+    expect(awaitingAnswers(whole)).toBe(false);
+    expect(nextStep(whole)?.kind).not.toBe('seed');
+  });
+
+  it('never waits on a conversation with no draft in its address', () => {
+    expect(awaitingAnswers(inputs({ draftId: null, seededFor: null, state: EMPTY_STATE }))).toBe(false);
   });
 });

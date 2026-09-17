@@ -84,7 +84,7 @@ import {
   VIEW_NAME,
   worthKeeping,
 } from './presenterStudioRules.js';
-import { type StepInputs, nextStep, stepKey } from './presenterSteps.js';
+import { type StepInputs, awaitingAnswers, nextStep, stepKey } from './presenterSteps.js';
 import { usePresenterDraft } from './usePresenterDraft.js';
 
 /**
@@ -538,8 +538,15 @@ export function useCreationFlow({
   // What is being waited for that never reached the engine, said once with a Retry.
   const failed = d ? (s.err && !isDrawing(d) ? s.err : null) : askErr;
   const turns = useMemo(
-    () => turnsFor({ state, draft: d, canGenerate: canDraw, failed, awaiting: !!draftId && !d }),
-    [state, d, canDraw, failed, draftId],
+    () =>
+      turnsFor({
+        state,
+        draft: d,
+        canGenerate: canDraw,
+        failed,
+        awaiting: awaitingAnswers({ state, draft: d, ctx, draftId, seededFor: seededFor.current }),
+      }),
+    [state, d, canDraw, failed, draftId, ctx],
   );
   const question = activeQuestion(turns);
   // the question on the floor, for work that runs after the render it started in
@@ -591,9 +598,10 @@ export function useCreationFlow({
      * ever running: the conversation sat on "Who are we making?" with that
      * draft's face on the stage beside it, and stayed there after the draw
      * landed because the latch had already been set. Only a slow draw makes it
-     * reachable, which is why no spec had seen it.
+     * reachable, which is why no spec had seen it. A standing error stops
+     * `nextStep` the same way, so it holds the latch off too.
      */
-    if (d && seededFor.current !== d.id && !stepInputs.busy && stepRef.current?.kind !== 'seed') {
+    if (d && seededFor.current !== d.id && !stepInputs.busy && !stepInputs.err && stepRef.current?.kind !== 'seed') {
       seededFor.current = d.id;
     }
     const todo = stepRef.current;
