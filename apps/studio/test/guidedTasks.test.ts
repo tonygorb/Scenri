@@ -5,18 +5,14 @@ import { SPEC_ORDER } from '../src/create/presenter/presenterQuestions.js';
 import {
   COPY,
   WELCOME,
-  assetStep,
   canWelcome,
-  firstShotStep,
+  firstShotMoment,
   firstSteps,
   madeOne,
-  nextStep,
   mergeTaskNodes,
-  presenterStep,
-  REVIEWABLE,
-  wordPrint,
-  refineStep,
-  starterRecipe,
+  presenterMoment,
+  refineMoment,
+  sceneMoment,
   startsHere,
   welcomeSet,
   type ContextStart,
@@ -33,21 +29,14 @@ const composer = (over: Partial<ComposerFacts> = {}): ComposerFacts => ({
   scene: false,
   others: 0,
   words: false,
-  canGo: false,
   busy: false,
   pickerOpen: false,
   refining: false,
   engine: 'ready',
-  settings: 'pills',
-  settled: { shape: false, count: false, quality: false },
-  offered: { product: true, presenter: true, scene: true },
-  wordPrint: '',
   ...over,
 });
-const settledAll = { shape: true, count: true, quality: true };
 /** A brief with one of each ingredient a first shot asks for. */
 const all = { products: 1, presenters: 1, scene: true };
-const noScenes = { product: true, presenter: true, scene: false };
 const node = (
   id: string,
   status: string,
@@ -61,206 +50,130 @@ const node = (
   createdAt,
 });
 
-describe('the first shot, from the outcome back', () => {
-  const step = (c: ComposerFacts | null, nodes: GuideTaskNode[] = [], here = true, confirmed: string[] = []) =>
-    firstShotStep({ here, composer: c, nodes, confirmed })?.id ?? null;
+describe('the first shot, one ask at a time', () => {
+  const ask = (c: ComposerFacts | null, nodes: GuideTaskNode[] = [], here = true) =>
+    firstShotMoment({ here, composer: c, nodes, begun: true });
+  const idOf = (c: ComposerFacts | null, nodes: GuideTaskNode[] = [], here = true) => ask(c, nodes, here)?.id ?? null;
 
   it('says nothing away from Create, or before its composer has spoken', () => {
-    expect(step(composer(), [], false)).toBeNull();
-    expect(step(null)).toBeNull();
+    expect(idOf(composer(), [], false)).toBeNull();
+    expect(idOf(null)).toBeNull();
   });
 
-  const OFFERS = ['product', 'presenter', 'scene', 'words'] as const;
-  const walk = (c: ComposerFacts, said: string[] = []) =>
-    firstShotStep({ here: true, composer: c, nodes: [], confirmed: said, offers: OFFERS });
-
-  it('builds the brief with them, a part at a time, then leaves one thing to press', () => {
-    expect(walk(composer())?.id).toBe('product');
-    expect(walk(composer({ products: 1 }))?.id).toBe('presenter');
-    expect(walk(composer({ products: 1, presenters: 1 }))?.id).toBe('scene');
-    expect(walk(composer(all))?.id).toBe('words');
-    expect(walk(composer({ ...all, words: true }))?.id).toBe('words');
-    expect(walk(composer({ ...all, words: true }), ['words'])?.id).toBe('settings');
-    expect(walk(composer({ ...all, words: true }), ['words', 'settings'])?.id).toBe('generate');
+  it('greets an empty start once, then never again', () => {
+    const fresh = firstShotMoment({ here: true, composer: composer(), nodes: [] });
+    expect(fresh).toMatchObject({ id: 'intro', start: true, at: 1, of: 5 });
+    // someone already under way is past being told what this place is
+    expect(firstShotMoment({ here: true, composer: composer({ products: 1 }), nodes: [] })?.id).toBe('presenter');
+    expect(firstShotMoment({ here: true, composer: composer({ words: true }), nodes: [] })?.id).toBe('product');
   });
 
-  it('every part is offered, never put in unasked, and their own pick answers the same question', () => {
-    // each step offers ours; the ingredients so far are listed on the card
-    expect(walk(composer())).toMatchObject({
-      action: { kind: 'fill', label: 'Use ours' },
-      title: COPY.wantProduct.title,
-    });
-    expect(walk(composer())?.checklist?.map((k) => k.done)).toEqual([false, false, false]);
-    expect(walk(composer({ products: 1 }))).toMatchObject({ title: COPY.wantPresenter.title });
-    expect(walk(composer({ products: 1, presenters: 1 }))).toMatchObject({ title: COPY.wantScene.title });
-    // the words: ours to hand over, or theirs to finish saying
-    expect(walk(composer(all))).toMatchObject({ action: { kind: 'fill', label: 'Write one for me' } });
-    expect(walk(composer({ ...all, words: true }))).toMatchObject({ action: { kind: 'confirm', label: 'Next' } });
-    // with nothing of ours to offer, the same steps simply ask
-    const bare = firstShotStep({ here: true, composer: composer(), nodes: [], offers: [] });
-    expect(bare?.id).toBe('product');
-    expect(bare?.action).toBeUndefined();
+  it('asks for what, who, where, then the words and the making as one act', () => {
+    expect(idOf(composer())).toBe('product');
+    expect(idOf(composer({ products: 1 }))).toBe('presenter');
+    expect(idOf(composer({ products: 1, presenters: 1 }))).toBe('scene');
+    expect(idOf(composer(all))).toBe('make');
+    expect(idOf(composer({ ...all, words: true }))).toBe('make');
+    // and it says where it is: five moments, counted
+    expect(ask(composer())?.at).toBe(2);
+    expect(ask(composer(all))?.of).toBe(5);
   });
 
-  it('Scenri makes the first shot itself only while the brief is the one it had in mind', () => {
-    const said = ['words', 'settings'];
-    const brief = composer({ ...all, words: true });
-    expect(firstShotStep({ here: true, composer: brief, nodes: [], confirmed: said, staged: true })?.body).toBe(
-      COPY.generateStaged.body,
-    );
-    expect(firstShotStep({ here: true, composer: brief, nodes: [], confirmed: said })?.body).toBe(COPY.generate.body);
-    // their own brief is generated the real way, which is what needs an engine,
-    // and they only hear about it once there is a brief to generate
-    expect(
-      firstShotStep({
-        here: true,
-        composer: composer({ ...all, words: true, engine: 'setup' }),
-        nodes: [],
-        confirmed: said,
-      })?.id,
-    ).toBe('engine');
-    expect(firstShotStep({ here: true, composer: composer({ engine: 'setup' }), nodes: [], offers: OFFERS })?.id).toBe(
-      'product',
-    );
-    expect(
-      firstShotStep({
-        here: true,
-        composer: composer({ ...all, words: true, engine: 'setup' }),
-        nodes: [],
-        confirmed: said,
-        staged: true,
-      })?.id,
-    ).toBe('generate');
+  it('never advances on a click: taking an ingredient back asks for it again', () => {
+    expect(idOf(composer({ products: 1, presenters: 1, scene: true, words: true }))).toBe('make');
+    expect(idOf(composer({ products: 0, presenters: 1, scene: true, words: true }))).toBe('product');
+    expect(idOf(composer({ ...all, words: false }))).toBe('make');
   });
 
-  it('while the picker is open it is the step, with the picker and its toggle live', () => {
-    const open = walk(composer({ pickerOpen: true }));
+  it('has no button to press: the product answers, not the card', () => {
+    for (const c of [composer(), composer({ products: 1 }), composer(all), composer({ ...all, words: true })]) {
+      const m = ask(c);
+      expect(m).not.toHaveProperty('action');
+      expect(m?.voice).toBe('ask');
+    }
+  });
+
+  it('follows into the picker with the same words, and leaves it usable', () => {
+    const shut = ask(composer());
+    expect(shut).toMatchObject({ id: 'product', point: '[data-guide="compose.add"]', ...COPY.product });
+    const open = ask(composer({ pickerOpen: true }));
     expect(open).toMatchObject({
       id: 'product',
-      target: '[data-guide="compose"] .sc-attachpanel',
+      point: '[data-guide="compose"] .sc-attachpanel',
+      live: ['[data-guide="compose"] .sc-attachpanel .sc-ap-body'],
       beside: true,
-      live: ['[data-guide="compose"] .sc-attachpanel', '[data-guide="compose.add"]'],
-      action: { kind: 'fill', label: 'Use ours' },
+      ...COPY.product,
     });
-    // nothing left to add: Next is what closes it
-    expect(walk(composer({ ...all, pickerOpen: true }))?.action).toEqual({ kind: 'close-picker', label: 'Next' });
+    // and it keeps following as the ask moves on
+    expect(ask(composer({ pickerOpen: true, products: 1 }))?.id).toBe('presenter');
   });
 
-  it('the settings are set to suit the shot: the row on a wide composer, the one control on a narrow one', () => {
-    const at = (settings: 'pills' | 'more' | 'sheet') => walk(composer({ ...all, words: true, settings }), ['words']);
-    expect(at('pills')).toMatchObject({
-      id: 'settings',
-      target: '[data-guide="compose.settings-row"]',
-      live: ['[data-guide="compose.shape"]', '[data-guide="compose.count"]', '[data-guide="compose.quality"]'],
-      optional: ['.sc-setpop'],
-    });
-    expect(at('sheet')).toMatchObject({
-      id: 'settings',
-      target: '[data-guide="compose.settings"]',
-      optional: ['.sc-morepop', '.sc-shotsheet'],
+  it('the last moment is both halves of one act: the words and the making', () => {
+    expect(ask(composer(all))).toMatchObject({
+      id: 'make',
+      point: '[data-guide="compose.send"]',
+      live: ['[data-guide="compose"] .sc-brief-line', '[data-guide="compose.send"]'],
+      title: COPY.make.title,
     });
   });
 
-  it('the composer stays in view whole; the card points at the part being added', () => {
-    expect(walk(composer())).toMatchObject({
-      target: '[data-guide="compose.add"]',
-      surfaces: ['[data-guide="compose"]'],
-      live: ['[data-guide="compose.add"]'],
+  it('with nothing that can draw, the setup is the only ask', () => {
+    expect(idOf(composer({ engine: 'setup' }))).toBe('engine');
+    expect(idOf(composer({ ...all, words: true, engine: 'settings' }))).toBe('engine');
+    expect(ask(composer({ engine: 'setup' }))).toMatchObject({ point: '[data-guide="compose.engine"]', voice: 'ask' });
+  });
+
+  it('a send in flight is quiet, and a running take is a note on its own tile', () => {
+    expect(idOf(composer({ busy: true, products: 1 }))).toBe('sending');
+    expect(ask(composer(), [node('n1', 'running')])).toMatchObject({
+      id: 'waiting',
+      voice: 'note',
+      point: '.sc-feed .sc-cell[data-fb-node="n1"]',
     });
-    expect(walk(composer({ ...all, words: true }), ['words', 'settings'])).toMatchObject({
-      target: '[data-guide="compose.send"]',
-      surfaces: ['[data-guide="compose"]'],
-      live: ['[data-guide="compose.send"]'],
-    });
-  });
-
-  it('the same words, however they were spaced, are the same words', () => {
-    expect(wordPrint(' In  the last of\nthe light ')).toBe(wordPrint('In the last of the light'));
-    expect(wordPrint('a')).not.toBe(wordPrint('b'));
-  });
-
-  it('Back only ever reviews steps that point at a control', () => {
-    expect([...REVIEWABLE].sort()).toEqual([
-      'engine',
-      'generate',
-      'presenter',
-      'product',
-      'scene',
-      'settings',
-      'words',
-    ]);
-  });
-
-  it('with no engine, the setup is what the last step points at', () => {
-    const g = firstShotStep({
-      here: true,
-      composer: composer({ engine: 'setup', ...all, words: true }),
-      nodes: [],
-      confirmed: ['words', 'settings'],
-    });
-    expect(g?.id).toBe('engine');
-    expect(g?.target).toBe('[data-guide="compose.engine"]');
-    expect(g?.voice).toBe('coach');
-  });
-
-  it('a send in flight is quiet, and the emptied brief after it reads as waiting', () => {
-    expect(step(composer({ busy: true, products: 1 }))).toBe('sending');
-    expect(step(composer(), [node('n1', 'running')])).toBe('waiting');
-    expect(step(composer({ engine: 'setup' }), [node('n1', 'running')])).toBe('waiting');
-    const wait = firstShotStep({ here: true, composer: composer(), nodes: [node('n1', 'running')] });
-    // the wait is a card on its own tile, and its X only puts it away: the first shot is still coming
-    expect(wait).toMatchObject({ voice: 'card', target: '.sc-feed .sc-cell[data-fb-node="n1"]', snooze: true });
+    expect(idOf(composer({ engine: 'setup' }), [node('n1', 'running')])).toBe('waiting');
   });
 
   it('a finished picture ends it on its own tile, even beside a failed sibling', () => {
-    const g = firstShotStep({
-      here: true,
-      composer: composer(),
-      nodes: [node('n2', 'error'), node('n1', 'done', 1)],
-    });
-    expect(g?.id).toBe('result');
-    expect(g?.target).toBe('.sc-feed .sc-cell[data-fb-node="n1"]');
-    expect(g?.done).toBe(true);
-    expect(g?.voice).toBe('card');
+    const m = ask(composer(), [node('n2', 'error'), node('n1', 'done', 1)]);
+    expect(m).toMatchObject({ id: 'result', voice: 'note', point: '.sc-feed .sc-cell[data-fb-node="n1"]', done: true });
   });
 
   it('done with no picture is a failure, never a shot', () => {
-    expect(step(composer(), [node('n1', 'done', 0)])).toBe('failed');
+    expect(idOf(composer(), [node('n1', 'done', 0)])).toBe('failed');
   });
 
-  it('every take failed: the card waits on the newest tile until the brief is being built again', () => {
-    const g = firstShotStep({
-      here: true,
-      composer: composer(),
-      nodes: [node('n2', 'cancelled'), node('n1', 'error')],
-    });
-    expect(g?.id).toBe('failed');
-    expect(g?.target).toContain('n2');
-    expect(step(composer({ pickerOpen: true }), [node('n1', 'error')])).toBe('product');
-    expect(step(composer(all), [node('n1', 'error')])).toBe('words');
+  it('every take failed: the note waits on the newest tile until the brief is being built again', () => {
+    const m = ask(composer(), [node('n2', 'cancelled'), node('n1', 'error')]);
+    expect(m?.id).toBe('failed');
+    expect(m?.point).toContain('n2');
+    expect(idOf(composer({ pickerOpen: true }), [node('n1', 'error')])).toBe('product');
+    expect(idOf(composer(all), [node('n1', 'error')])).toBe('make');
   });
 
   it('a refine armed in the composer is not the first shot', () => {
-    expect(step(composer({ refining: true, products: 1 }))).toBeNull();
+    expect(idOf(composer({ refining: true, products: 1 }))).toBeNull();
   });
 });
 
 describe('the later tasks', () => {
-  it("refine: a coach on the open shot's composer, quiet while it draws, then a card on the new version", () => {
-    expect(refineStep({ here: false, nodes: [] })).toBeNull();
-    expect(refineStep({ here: true, nodes: [] })).toMatchObject({
-      voice: 'coach',
-      container: '.sc-ovl',
-      target: '.sc-ovl .sc-promptcard',
+  it("refine: ask on the open shot's composer, quiet while it draws, then a note on the new version", () => {
+    expect(refineMoment({ here: false, nodes: [] })).toBeNull();
+    expect(refineMoment({ here: true, nodes: [] })).toMatchObject({
+      voice: 'ask',
+      shell: '.sc-ovl',
+      point: '.sc-ovl .sc-promptcard',
       title: COPY.refineAsk.title,
     });
-    expect(refineStep({ here: true, nodes: [{ ...node('e1', 'running'), kind: 'edit' }] })?.voice).toBe('quiet');
-    const done = refineStep({ here: true, nodes: [{ ...node('e1', 'done', 1), kind: 'edit' }] });
-    expect(done).toMatchObject({ voice: 'card', done: true, title: COPY.refineResult.title });
+    expect(refineMoment({ here: true, nodes: [{ ...node('e1', 'running'), kind: 'edit' }] })?.voice).toBe('quiet');
+    expect(refineMoment({ here: true, nodes: [{ ...node('e1', 'done', 1), kind: 'edit' }] })).toMatchObject({
+      voice: 'note',
+      done: true,
+      title: COPY.refineResult.title,
+    });
   });
 
-  it('presenter: the conversation is guided at every decision that shapes the person, and quiet through the rest', () => {
-    expect(presenterStep(null)).toBeNull();
+  it('presenter: three decisions get a word, and every question the studio asks itself is quiet', () => {
+    expect(presenterMoment(null)).toBeNull();
     const loud = new Map<string, string>();
     const ids = [
       ...SPEC_ORDER,
@@ -278,62 +191,48 @@ describe('the later tasks', () => {
       null,
     ];
     for (const open of ids) {
-      const g = presenterStep({ open });
-      if (g?.voice !== 'quiet') loud.set(String(open), String(g?.id));
+      const m = presenterMoment({ open });
+      if (m?.voice !== 'quiet') loud.set(String(open), String(m?.id));
     }
     expect(Object.fromEntries(loud)).toEqual({
-      source: 'intro',
-      photos: 'photos',
-      'look-who': 'look',
-      describe: 'describe',
-      traits: 'traits',
-      agree: 'draw',
-      name: 'name',
-      revision: 'face',
-      'view-revision': 'body',
+      source: 'start',
       identity: 'face',
-      extras: 'extras',
+      revision: 'face',
       save: 'save',
       blind: 'save',
     });
-    // a choice points at the question's own answers, and only they are live; words point at the composer that takes them
-    expect(presenterStep({ open: 'traits' })).toMatchObject({
-      voice: 'coach',
-      container: '.sc-pstudio',
-      target: '.sc-pstudio [data-turn="q:traits"] .sc-convo-q',
-      live: ['.sc-pstudio [data-turn="q:traits"]'],
+    expect(presenterMoment({ open: 'source' })).toMatchObject({
+      voice: 'ask',
+      shell: '.sc-pstudio',
+      point: '.sc-pstudio [data-turn="q:source"] .sc-convo-q',
+      live: ['.sc-pstudio [data-turn="q:source"]'],
     });
-    // a decision about a picture keeps the picture in view and usable: its versions are part of deciding
-    expect(presenterStep({ open: 'identity' })).toMatchObject({
-      surfaces: ['.sc-pstudio [data-turn="q:identity"]', '.sc-pstudio-well'],
-      live: ['.sc-pstudio [data-turn="q:identity"]', '.sc-pstudio-well'],
-    });
-    expect(presenterStep({ open: 'name' })).toMatchObject({
-      target: '.sc-pstudio-foot .sc-convo-card',
-      live: ['.sc-pstudio-foot .sc-convo-card'],
-    });
+    // deciding a face keeps the picture usable: its versions are part of deciding
+    expect(presenterMoment({ open: 'identity' })?.live).toEqual([
+      '.sc-pstudio [data-turn="q:identity"]',
+      '.sc-pstudio-well',
+    ]);
   });
 
-  it('product and scene: their dialog is held, nothing when it is closed', () => {
-    expect(assetStep('product', false)).toBeNull();
-    expect(assetStep('product', true)).toMatchObject({
-      voice: 'coach',
-      container: '.sc-newdlg-layer',
-      target: '.sc-newdlg',
-      title: COPY.product.title,
+  it('scene: its dialog is held, nothing when it is closed', () => {
+    expect(sceneMoment(false)).toBeNull();
+    expect(sceneMoment(true)).toMatchObject({
+      voice: 'ask',
+      shell: '.sc-newdlg-layer',
+      point: '.sc-newdlg',
+      title: COPY.sceneMake.title,
     });
-    expect(assetStep('scene', true)?.body).toBe(COPY.scene.body);
   });
 
   it('a task that makes something ends when the brand holds one more than when it began', () => {
-    const view = (task: 'product' | 'presenter' | 'scene' | 'refine') =>
+    const view = (task: 'presenter' | 'scene' | 'refine') =>
       ({
         active: { task, brandId: 'b1', since: 'x', baseline: { products: 2, presenters: 0, scenes: 1 } },
         counts: null,
       }) as Pick<GuideView, 'active' | 'counts'>;
-    expect(madeOne(view('product'), { products: 2, presenters: 5, scenes: 5 })).toBe(false);
-    expect(madeOne(view('product'), { products: 3, presenters: 0, scenes: 1 })).toBe(true);
     expect(madeOne(view('presenter'), { products: 2, presenters: 1, scenes: 1 })).toBe(true);
+    expect(madeOne(view('presenter'), { products: 9, presenters: 0, scenes: 9 })).toBe(false);
+    expect(madeOne(view('scene'), { products: 9, presenters: 9, scenes: 2 })).toBe(true);
     expect(madeOne(view('scene'), { products: 9, presenters: 9, scenes: 1 })).toBe(false);
     expect(madeOne(view('refine'), { products: 9, presenters: 9, scenes: 9 })).toBe(false);
   });
@@ -392,42 +291,23 @@ describe('firstSteps', () => {
     expect(firstSteps(view({ welcome: null }))).not.toBeNull();
   });
 
-  it('lists the five tasks, ticked by what exists and dotted for the one in hand', () => {
+  it('lists four real things, ticked by what exists and dotted for the one in hand', () => {
     const rows = firstSteps(
       view({
-        done: { shot: 'x', product: 'y' },
+        done: { shot: 'x' },
         active: { task: 'presenter', brandId: 'b', since: 'x', baseline: { products: 0, presenters: 0, scenes: 0 } },
       }),
     );
-    expect(rows?.map((r) => [r.task, r.state, r.title, r.label])).toEqual([
-      ['first-shot', 'done', 'Make your first shot', 'First shot'],
-      ['refine', 'todo', 'Refine a shot', 'Refine'],
-      ['product', 'done', 'Add your own product', 'Product'],
-      ['presenter', 'active', 'Continue your presenter', 'Presenter'],
-      ['scene', 'todo', 'Build a scene', 'Scene'],
+    expect(rows?.map((r) => [r.task, r.state, r.title])).toEqual([
+      ['first-shot', 'done', 'Make your first shot'],
+      ['presenter', 'active', 'Continue your presenter'],
+      ['scene', 'todo', 'Build a scene'],
+      ['refine', 'todo', 'Refine a shot'],
     ]);
-    // refining is said to start from a shot until there is one
-    expect(firstSteps(view())?.[1].why).toBe('Starts from your first shot.');
-  });
-
-  it('the next step is the one in hand, else the first not done, else none', () => {
-    const rows = firstSteps(view({ done: { shot: 'x' } })) ?? [];
-    expect(nextStep(rows)?.task).toBe('refine');
-    const inHand = firstSteps(
-      view({
-        done: { shot: 'x' },
-        active: { task: 'scene', brandId: 'b', since: 'x', baseline: { products: 0, presenters: 0, scenes: 0 } },
-      }),
-    );
-    expect(nextStep(inHand ?? [])?.task).toBe('scene');
-    const all = firstSteps(
-      view({ asked: true, done: { shot: 'a', refine: 'b', product: 'c', presenter: 'd', scene: 'e' } }),
-    );
-    expect(nextStep(all ?? [])).toBeNull();
   });
 
   it('leaves once everything is done, unless it was asked for from Help', () => {
-    const all = { shot: 'a', refine: 'b', product: 'c', presenter: 'd', scene: 'e' };
+    const all = { shot: 'a', refine: 'b', presenter: 'd', scene: 'e' };
     expect(firstSteps(view({ done: all }))).toBeNull();
     expect(firstSteps(view({ done: all, asked: true }))?.every((r) => r.state === 'done')).toBe(true);
     expect(firstSteps(view({ welcome: null, asked: true }))).not.toBeNull();
@@ -548,39 +428,6 @@ describe('welcomeSet', () => {
   });
 });
 
-describe('the recipe a first shot starts from', () => {
-  const recipe = (id: string, over: Record<string, unknown> = {}) =>
-    ({
-      id,
-      title: id,
-      category: 'c',
-      width: 1024,
-      height: 1280,
-      previewUrl: `/api/showcase-previews/${id}.jpg`,
-      brief: {
-        tokens: [
-          { t: 'product', id: 'p' },
-          { t: 'character', id: 'c' },
-          { t: 'template', id: 's' },
-          { t: 'text', v: 'in the last of the light' },
-        ],
-      },
-      ...over,
-    }) as unknown as ShowcaseEntry;
-
-  it('takes the curated order: something to show, someone showing it, somewhere to be, and the words', () => {
-    const half = recipe('half', { brief: { tokens: [{ t: 'product', id: 'p' }] } });
-    const noPicture = recipe('nopic', { previewUrl: null, order: 1 });
-    const complete = recipe('whole', { order: 9 });
-    const later = recipe('later', { order: 40 });
-    expect(starterRecipe([half, noPicture, later, complete])?.id).toBe('whole');
-    // everyone new starts from the same one
-    expect(starterRecipe([later, complete])?.id).toBe(starterRecipe([complete, later])?.id);
-    expect(starterRecipe([half, noPicture])).toBeNull();
-    expect(starterRecipe([])).toBeNull();
-  });
-});
-
 describe('the copy', () => {
   const strings = (v: unknown): string[] =>
     typeof v === 'string' ? [v] : v && typeof v === 'object' ? Object.values(v).flatMap(strings) : [];
@@ -610,7 +457,7 @@ describe('the copy', () => {
   });
 
   it('never repeats the title of the surface a note sits in', () => {
-    for (const c of [COPY.product, COPY.scene, COPY.presenterFace, COPY.presenterSave, COPY.presenterPhotos])
+    for (const c of [COPY.product, COPY.sceneMake, COPY.presenterFace, COPY.presenterSave, COPY.intro])
       expect(`${c.title} ${c.body}`).not.toMatch(/New product|New scene/);
   });
 });

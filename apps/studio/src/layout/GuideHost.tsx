@@ -5,50 +5,50 @@ import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId, GuideTaskNode } from '../api.js';
 import { guideIntent, refreshGuide, useGuide } from '../guide.js';
-import { setGuideHoldSend, setGuideShowing, setGuideStaged, useGuideFacts } from '../guideFacts.js';
+import { setGuideShowing, useGuideFacts } from '../guideFacts.js';
 import {
-  REVIEWABLE,
+  ASK_TAB,
   WELCOME,
-  assetStep,
+  askedKind,
   canWelcome,
-  firstShotStep,
+  firstShotMoment,
   madeOne,
   mergeTaskNodes,
-  presenterStep,
-  starterRecipe,
-  wordPrint,
-  CHECK_TAB,
-  refineStep,
+  presenterMoment,
+  refineMoment,
+  sceneMoment,
   startsHere,
   welcomeSet,
-  type Guidance,
+  type AskedKind,
+  type Moment,
 } from '../guidedTasks.js';
 import { P } from '../routes.js';
 import { useToasts } from '../toasts.js';
 import { WelcomeDialog } from '../views/WelcomeDialog.js';
 import { Coachmark } from './Coachmark.js';
-import { sideWithRoom, boxOf } from './coachGeometry.js';
 import { useLaunchTask } from './useLaunchTask.js';
 
 /** How long a ready page rests before the welcome arrives. e2e sets it to 0. */
 const WELCOME_SETTLE_MS = Number(window.localStorage.getItem('scenri:welcome-settle-ms') ?? 900);
 /**
- * What owns the screen above the page, so the guide waits under it. Never the
+ * What owns the screen above the page, so the tutor waits under it. Never the
  * picker, which the first shot goes through, and never a chip's own menu,
  * which is part of building the brief.
  */
 const MODAL = '[role="dialog"]:not(.sc-coach):not(.sc-attachpanel):not(.sc-swap), [role="alertdialog"], .sc-lightbox';
 /** Dialogs that live in the address. */
 const DIALOG_PARAMS = ['settings', 'setup', 'new', 'whatsnew'];
-/** A card beside its target: its width, the air to the target and to the screen's edge. */
-const BESIDE = 280 + 17 + 12;
+/** The picker: the one surface the first shot follows into, and the one that makes room on a phone. */
+const PICKER = '[data-guide="compose"] .sc-attachpanel';
 
 /**
  * Where first use happens (DESIGN.md, "First use"): the welcome, once, and
- * whichever guided task is in hand. What it shows is derived every render from
- * what the product holds (the composer's facts, the shots the task has sent,
- * the studio's open question), so leaving, coming back, a reload or a change
- * of mind lands on the right step rather than on a remembered index.
+ * whichever guided task is in hand.
+ *
+ * It owns no steps. Every render it asks the task's rule what the one moment
+ * is, from what the product holds right now, and draws it. Leaving, coming
+ * back, a reload or a change of mind all land on the right moment because the
+ * question is asked again, never because an index was kept.
  *
  * With no task in hand and the welcome answered it watches nothing.
  */
@@ -60,7 +60,7 @@ export function GuideHost() {
   const { tasks, builds } = useTaskCenter();
   const { push } = useToasts();
   const launch = useLaunchTask();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const home = !!useMatch(P.brand);
   const hub = !!useMatch(P.hub);
   const shot = useMatch(P.hubShot)?.params.shotId ?? null;
@@ -79,82 +79,6 @@ export function GuideHost() {
     if (!nodeKind || !active) return;
     return subscribeActivity((records) => setNodes((prev) => mergeTaskNodes(prev, records, active.since, nodeKind)));
   }, [nodeKind, active, subscribeActivity]);
-
-  /**
-   * The first one is on us (DESIGN.md, "First use"): Scenri keeps a recipe it
-   * ships in mind and offers it a part at a time, where that part is added.
-   * Nothing is ever put in the brief unasked: the card's **Use ours** is what
-   * hands a part over, and their own pick is always the other answer.
-   */
-  const starter = useMemo(() => starterRecipe(data.showcase), [data.showcase]);
-  const tokensOf = (t: string) =>
-    ((starter?.brief?.tokens ?? []) as { t?: string; id?: string; v?: string }[]).filter((k) => k?.t === t);
-  const offers = useMemo(() => {
-    const has = (t: string) => tokensOf(t).length > 0;
-    return [
-      ...(has('product') ? (['product'] as const) : []),
-      ...(has('character') ? (['presenter'] as const) : []),
-      ...(has('template') ? (['scene'] as const) : []),
-      ...(has('text') ? (['words'] as const) : []),
-    ];
-    // tokensOf reads only from starter
-  }, [starter]);
-  /** Hands one part of that recipe to the composer, the way a pick or a typed line would arrive. */
-  const fill = (part: string) => {
-    const kind = part === 'presenter' ? 'character' : part === 'scene' ? 'template' : part === 'words' ? 'text' : part;
-    const tokens = tokensOf(kind);
-    if (!tokens.length) return;
-    const format = tokensOf('format')[0] as { w?: number; h?: number } | undefined;
-    window.dispatchEvent(
-      new CustomEvent('scenri:guide-fill', {
-        detail: {
-          tokens,
-          // the shape, the number and the size that recipe was shot with ride along with its words
-          ...(part === 'words'
-            ? {
-                settings: {
-                  ...(format?.w && format?.h ? { format: { w: format.w, h: format.h } } : {}),
-                  variants: starter?.variants,
-                  quality: starter?.quality,
-                },
-              }
-            : {}),
-        },
-      }),
-    );
-    if (part === 'words') setConfirmed((c) => (c.includes('words') ? c : [...c, 'words']));
-  };
-  /**
-   * Scenri makes the shot itself only while the brief is the one it had in
-   * mind: their ingredients and their words are their own shot, made the real way.
-   */
-  const starterIds = useMemo(
-    () =>
-      ((starter?.brief?.tokens ?? []) as { t?: string; id?: string }[])
-        .flatMap((t) => (t.id && (t.t === 'product' || t.t === 'character' || t.t === 'template') ? [t.id] : []))
-        .sort()
-        .join(','),
-    [starter],
-  );
-  const starterWords = useMemo(
-    () =>
-      wordPrint(
-        ((starter?.brief?.tokens ?? []) as { t?: string; v?: string }[])
-          .flatMap((t) => (t.t === 'text' ? [t.v ?? ''] : []))
-          .join(' '),
-      ),
-    [starter],
-  );
-  const sameAsStarter =
-    !!starter &&
-    !!facts.composer &&
-    starterIds !== '' &&
-    [...facts.composer.ids].sort().join(',') === starterIds &&
-    facts.composer.wordPrint === starterWords;
-  useEffect(() => {
-    setGuideStaged(task === 'first-shot' && sameAsStarter && starter ? starter.id : null);
-    return () => setGuideStaged(null);
-  }, [task, sameAsStarter, starter]);
 
   // A send just left the composer: hold still until its shots are in hand, so
   // the emptied brief never reads as starting again.
@@ -200,7 +124,7 @@ export function GuideHost() {
 
   const watching = !!task || welcomePending;
   const dialogParam = DIALOG_PARAMS.some((k) => params.has(k));
-  // A control's own popover or the phone's settings sheet is part of the step, never something over it.
+  // A control's own popover or the phone's settings sheet is part of the moment, never something over it.
   const modal =
     watching &&
     (dialogParam ||
@@ -209,57 +133,66 @@ export function GuideHost() {
       ));
   const newKind = params.get('new');
 
-  // Steps the person has said are done, for this task in hand. The direction
-  // is only done while there are words: emptying the brief asks for it again.
-  const [confirmed, setConfirmed] = useState<string[]>([]);
-  const words = !!facts.composer?.words;
-  useEffect(() => setConfirmed([]), [task]);
+  /**
+   * The opening is a greeting, not a step: once someone has read it for this
+   * task it stays read, through a navigation, a reload or a restart. It is
+   * kept where the composer keeps its own draft, because it belongs to this
+   * browser rather than to the install's record.
+   */
+  const begunKey = task ? `scenri:guide-begun:${brand.id}:${task}` : null;
+  const [begun, setBegun] = useState(false);
   useEffect(() => {
-    if (!words) setConfirmed((c) => (c.includes('direct') ? c.filter((x) => x !== 'direct') : c));
-  }, [words]);
+    setBegun(!!begunKey && window.localStorage.getItem(begunKey) === '1');
+  }, [begunKey]);
+  const beginNow = useCallback(() => {
+    if (begunKey) {
+      try {
+        window.localStorage.setItem(begunKey, '1');
+      } catch {
+        // a browser that refuses storage simply greets them again
+      }
+    }
+    setBegun(true);
+  }, [begunKey]);
 
-  // The step, from what is true now.
-  let step: Guidance | null = null;
+  // The one moment, from what is true now.
+  let moment: Moment | null = null;
   if (task === 'first-shot') {
     const c = facts.composer?.brandId === brand.id ? facts.composer : null;
-    step = firstShotStep({
+    moment = firstShotMoment({
       here: hub && !modal,
       composer: c && settling ? { ...c, busy: true } : c,
       nodes,
-      confirmed,
-      staged: sameAsStarter,
-      offers,
+      begun: begun || nodes.length > 0,
     });
-  } else if (task === 'refine') step = refineStep({ here: !!shot, nodes });
-  else if (task === 'presenter') step = studio ? presenterStep(facts.studio) : null;
-  else if (task === 'product' || task === 'scene') step = assetStep(task, newKind === task);
+  } else if (task === 'refine') moment = refineMoment({ here: !!shot, nodes });
+  else if (task === 'presenter') moment = studio ? presenterMoment(facts.studio) : null;
+  else if (task === 'scene') moment = sceneMoment(newKind === 'scene');
 
-  // A card beside its target (the picker, a dialog, a question) where there is
-  // room for it, and above it where there is not: never inside, never hidden.
-  if (step?.beside && step.target) {
-    // measured against the target and the surface it sits in, so a card beside a
-    // setting clears the whole composer rather than landing on it
-    const boxes = [step.target, ...(step.surfaces ?? []).slice(0, 1)]
-      .map((sel) => firstVisible(sel))
-      .filter((el): el is HTMLElement => !!el)
-      .map((el) => boxOf(el.getBoundingClientRect()));
-    const around = boxes.reduce<ReturnType<typeof boxOf> | null>(
-      (u, b) =>
-        u
-          ? {
-              left: Math.min(u.left, b.left),
-              top: Math.min(u.top, b.top),
-              right: Math.max(u.right, b.right),
-              bottom: Math.max(u.bottom, b.bottom),
-            }
-          : b,
-      null,
-    );
-    const side = around ? sideWithRoom(around, window.innerWidth, BESIDE) : null;
-    step = { ...step, side: side ?? 'top' };
-  }
-  // On a narrow screen the open picker makes room above itself for that card.
-  const pickerRoom = !!step?.beside && step.target === PICKER_TARGET && step.side === 'top';
+  /**
+   * The picker shows the one kind being asked for, and moves on with the ask:
+   * open it at a product and it is products, pick one and it is presenters.
+   * Everything else in there is not what this moment is about.
+   */
+  const asked: AskedKind | null =
+    task === 'first-shot' && facts.composer?.brandId === brand.id ? askedKind(facts.composer) : null;
+  const pickerOpen = !!facts.composer?.pickerOpen;
+  useEffect(() => {
+    if (!pickerOpen) return;
+    // nothing left to add: the picker has done its job, so it gets out of the
+    // way rather than asking them to close it
+    if (task === 'first-shot' && !asked) window.dispatchEvent(new Event('scenri:guide-close-picker'));
+    else if (asked) window.dispatchEvent(new CustomEvent('scenri:guide-picker', { detail: { tab: ASK_TAB[asked] } }));
+  }, [task, pickerOpen, asked]);
+  // Asking for nothing lets the picker be everything it is again.
+  useEffect(() => {
+    if (task === 'first-shot' && !asked)
+      window.dispatchEvent(new CustomEvent('scenri:guide-picker', { detail: { tab: null } }));
+  }, [task, asked]);
+
+  // On a screen too narrow for a card beside the picker, the picker gives up
+  // the height that card needs above it.
+  const pickerRoom = moment?.point === PICKER && window.innerWidth < 1024;
   useEffect(() => {
     if (!pickerRoom) return;
     document.documentElement.dataset.guidePicker = '';
@@ -268,33 +201,32 @@ export function GuideHost() {
     };
   }, [pickerRoom]);
 
-  // Escape or an X that only snoozes puts a card away until the step changes;
-  // Back shows the card before again, for review, and touches nothing.
-  const [snoozed, setSnoozed] = useState<string | null>(null);
-  const [review, setReview] = useState<Guidance | null>(null);
-  const visited = useRef<Guidance[]>([]);
-  const stepId = step ? `${task}:${step.id}` : null;
-  const lastStep = useRef<string | null>(null);
-  if (lastStep.current !== stepId) {
-    lastStep.current = stepId;
-    if (snoozed) setSnoozed(null);
+  /**
+   * Back re-shows a moment they have already been through, to read again. It
+   * is guidance history and nothing else: the product is never rewound, and a
+   * moment whose control has gone is not offered.
+   */
+  const [review, setReview] = useState<Moment | null>(null);
+  const visited = useRef<Moment[]>([]);
+  const momentId = moment ? `${task}:${moment.id}` : null;
+  const lastMoment = useRef<string | null>(null);
+  if (lastMoment.current !== momentId) {
+    lastMoment.current = momentId;
     if (review) setReview(null);
-    if (step && REVIEWABLE.includes(step.id)) {
-      const at = visited.current.findIndex((g) => g.id === step?.id);
-      visited.current = at >= 0 ? visited.current.slice(0, at + 1) : [...visited.current, step];
+    if (moment?.voice === 'ask') {
+      const at = visited.current.findIndex((m) => m.id === moment?.id);
+      visited.current = at >= 0 ? visited.current.slice(0, at + 1) : [...visited.current, moment];
     }
   }
   useEffect(() => {
     if (!task) visited.current = [];
   }, [task]);
-
-  const shown = review ?? (step && snoozed !== step.id ? step : null);
-  const reviewBefore = (g: Guidance) => {
-    if (!REVIEWABLE.includes(g.id)) return null;
-    const at = visited.current.findIndex((v) => v.id === g.id);
+  const before = (m: Moment) => {
+    const at = visited.current.findIndex((v) => v.id === m.id);
     const prev = at > 0 ? visited.current[at - 1] : null;
-    return prev?.target && firstVisible(prev.target) ? prev : null;
+    return prev?.point && firstVisible(prev.point) ? prev : null;
   };
+  const shown = review ?? moment;
 
   // How a task ends.
   const finish = useCallback((t: GuideTaskId) => void guideIntent({ finish: t }), []);
@@ -333,11 +265,11 @@ export function GuideHost() {
     }
   }, [task, shot, finish]);
 
-  // A product, presenter or scene task: re-read what the brand holds whenever
-  // it may have changed, and end once there is one more than when it began.
-  // Closing its surface does not end it: a build may still be landing, and the
-  // task waits in First steps for whoever comes back to it.
-  const assetTask = task === 'product' || task === 'presenter' || task === 'scene';
+  // A presenter or scene task: re-read what the brand holds whenever it may
+  // have changed, and end once there is one more than when it began. Closing
+  // its surface does not end it: a build may still be landing, and the task
+  // waits in First steps for whoever comes back to it.
+  const assetTask = task === 'presenter' || task === 'scene';
   const buildsRunning = builds.filter((b) => !b.finished).length;
   useEffect(() => {
     if (assetTask) void refreshGuide();
@@ -350,8 +282,6 @@ export function GuideHost() {
   // shot overlay only counts once its composer is reached for: opening a shot
   // to look at it is not asking to learn refining.
   const engaged = !!facts.overlay?.engaged;
-  // Each surface begins its task at most once per visit: a task just finished
-  // or put away is never begun again by the same moment that began it.
   const autoStarted = useRef(new Set<GuideTaskId>());
   useEffect(() => {
     if (!guide.loaded || !guide.eligible) return;
@@ -360,40 +290,28 @@ export function GuideHost() {
     const want: GuideTaskId | null =
       doneShot && startsHere('refine', s)
         ? 'refine'
-        : newKind === 'product' && startsHere('product', s)
-          ? 'product'
-          : newKind === 'scene' && startsHere('scene', s)
-            ? 'scene'
-            : studio && startsHere('presenter', s)
-              ? 'presenter'
-              : null;
+        : newKind === 'scene' && startsHere('scene', s)
+          ? 'scene'
+          : studio && startsHere('presenter', s)
+            ? 'presenter'
+            : null;
     if (!want || autoStarted.current.has(want)) return;
     autoStarted.current.add(want);
     void guideIntent({ start: { task: want, brandId: brand.id } });
   }, [guide, active, shot, engaged, recent, newKind, studio, brand.id]);
 
-  // Announced once per step into a region that was already there, unless a
-  // coach card took focus, which reads itself out.
+  // Announced once per moment into a region that was already there, unless the
+  // card took focus, which reads itself out.
   const [said, setSaid] = useState('');
-  const wordsOf = (g: Guidance | null) => (g ? (g.announce ?? [g.title, g.body].filter(Boolean).join('. ')) : '');
   const latestShown = useRef(shown);
   latestShown.current = shown;
   const onShown = useCallback((_id: string, focusMoved: boolean) => {
     setSaid('');
     if (focusMoved) return;
-    const words = wordsOf(latestShown.current);
+    const m = latestShown.current;
+    const words = m ? [m.title, m.body].filter(Boolean).join('. ') : '';
     if (words) requestAnimationFrame(() => setSaid(words));
   }, []);
-
-  // Words inside a surface, and a quiet step's one sentence, are said here; a
-  // coach or a card says itself when it is shown.
-  const spoken = shown?.voice === 'quiet' ? (shown.announce ?? '') : '';
-  useEffect(() => {
-    setSaid('');
-    if (!spoken) return;
-    const frame = requestAnimationFrame(() => setSaid(spoken));
-    return () => cancelAnimationFrame(frame);
-  }, [spoken]);
 
   // The welcome: once, on the first ready main page, when nothing else is happening.
   const [welcome, setWelcome] = useState(false);
@@ -418,93 +336,41 @@ export function GuideHost() {
   const engineReady = data.engines.some((e) => e.available);
   const ownsProducts = products.length > 0;
 
-  // What gets drawn: a coach or a card, inside whichever surface owns the screen.
-  const drawn = shown && (shown.voice === 'coach' || shown.voice === 'card') ? shown : null;
-  const container = drawn?.container ? firstVisible(drawn.container) : document.body;
-  const target = drawn?.target ? firstVisible(drawn.target) : null;
-  const found = (sels: readonly string[] | undefined) =>
-    (sels ?? []).map((s) => firstVisible(s)).filter((el): el is HTMLElement => !!el);
-  const required = found(drawn?.surfaces);
-  // a popover or sheet the step's control opened joins the windows, live, while it is open
-  const opened = found(drawn?.optional);
-  const surfaces = [...required, ...opened];
-  const live = [...found(drawn?.live ?? drawn?.surfaces), ...opened];
-  const drawReady =
-    !!drawn && !!container && !!target && (drawn.voice === 'card' || required.length === (drawn.surfaces ?? []).length);
+  // What gets drawn: an ask or a note, inside whichever surface owns the screen.
+  const drawn =
+    shown && (shown.voice === 'ask' || shown.voice === 'note') ? (shown as Moment & { voice: 'ask' | 'note' }) : null;
+  const container = drawn?.shell ? firstVisible(drawn.shell) : document.body;
+  const target = drawn?.point ? firstVisible(drawn.point) : null;
+  // What the moment says can be used: the control it points at, unless it named
+  // something else. An ask that names nothing is the opening, where the page is
+  // held and the only thing to do is read it.
+  const wanted = drawn?.live ?? (drawn?.point ? [drawn.point] : []);
+  const live = wanted.map((sel) => firstVisible(sel)).filter((el): el is HTMLElement => !!el);
+  const drawReady = !!drawn && !!container && !!target && live.length === wanted.length;
   const missing = drawn && !drawReady ? drawn : null;
   const showing = welcome || drawReady;
   useEffect(() => setGuideShowing(showing), [showing]);
   useEffect(() => () => setGuideShowing(false), []);
 
-  // What a step points at can arrive a moment after the step does: a tile the
-  // feed has still to fetch, a question still being written into the studio.
-  // Watch for it where it will appear, and only until it does.
+  // What a moment points at can arrive a moment after the moment does: a tile
+  // the feed has still to fetch, a question still being written into the
+  // studio. Watch for it where it will appear, and only until it does.
   useEffect(() => {
     if (!missing) return;
     const root =
-      (missing.container ? document.querySelector(missing.container) : null) ??
+      (missing.shell ? document.querySelector(missing.shell) : null) ??
       document.querySelector('.sc-feed') ??
       document.body;
     const mo = new MutationObserver(rerender);
     mo.observe(root, { childList: true, subtree: true });
     return () => mo.disconnect();
-  }, [missing?.id, missing?.container, rerender]);
+  }, [missing?.id, missing?.shell, rerender]);
 
-  const close = (g: Guidance) => {
+  const close = (m: Moment) => {
     if (!task) return;
-    if (g.done) finish(task);
-    else if (g.snooze) setSnoozed(g.id);
+    if (m.done) finish(task);
     else dismiss(task);
   };
-  const act = (g: Guidance) => {
-    if (review) return setReview(null);
-    if (g.action?.disabled) return;
-    if (g.action?.kind === 'fill') return fill(g.id);
-    if (g.action?.kind === 'close-picker') {
-      // closing the picker is also being done with that part of the brief
-      window.dispatchEvent(new Event('scenri:guide-close-picker'));
-      setConfirmed((c) => (c.includes(g.id) ? c : [...c, g.id]));
-    } else if (g.action?.kind === 'confirm') setConfirmed((c) => (c.includes(g.id) ? c : [...c, g.id]));
-    else if (g.done && task) finish(task);
-  };
-  // Hold the brief's own send until the Generate step, and let Enter say the step in hand is done.
-  const holdSend = task === 'first-shot' && !!step && step.voice === 'coach' && step.id !== 'generate';
-  useEffect(() => {
-    setGuideHoldSend(holdSend);
-    return () => setGuideHoldSend(false);
-  }, [holdSend]);
-  const actRef = useRef(act);
-  actRef.current = act;
-  const shownRef = useRef(shown);
-  shownRef.current = shown;
-  useEffect(() => {
-    const onEnter = () => {
-      const g = shownRef.current;
-      if (g?.action?.kind === 'confirm') actRef.current(g);
-    };
-    window.addEventListener('scenri:guide-enter', onEnter);
-    return () => window.removeEventListener('scenri:guide-enter', onEnter);
-  }, []);
-  const actionOf = (g: Guidance) =>
-    review
-      ? { label: 'Next' }
-      : g.action
-        ? { label: g.action.label, disabled: g.action.disabled }
-        : g.done
-          ? { label: 'Done' }
-          : null;
-  /**
-   * The picker shows the one kind being asked for, and moves on with the step:
-   * open it at a product and it is products, take or pick one and it is
-   * presenters. Everything else in there is not what this step is about.
-   */
-  const askedKind = step && step.id in CHECK_TAB ? (step.id as keyof typeof CHECK_TAB) : null;
-  const pickerOpen = !!facts.composer?.pickerOpen;
-  useEffect(() => {
-    if (task !== 'first-shot' || !pickerOpen || !askedKind) return;
-    openPickerAt(askedKind);
-  }, [task, pickerOpen, askedKind]);
-  const closeLabel = (g: Guidance) => (g.done || g.snooze ? 'Close' : 'Close guide');
 
   return (
     <>
@@ -514,24 +380,29 @@ export function GuideHost() {
       {drawn && drawReady && (
         <Coachmark
           id={`${review ? 'review:' : ''}${drawn.id}`}
-          voice={drawn.voice === 'coach' ? 'coach' : 'card'}
+          voice={drawn.voice}
           target={target}
-          surfaces={surfaces}
           live={live}
           side={drawn.side ?? 'top'}
           beside={drawn.beside}
           container={container as HTMLElement}
           title={drawn.title}
           body={drawn.body}
-          canBack={!review && !!reviewBefore(drawn)}
-          action={actionOf(drawn)}
-          checklist={review ? undefined : drawn.checklist}
-          onCheck={openPickerAt}
-          closeLabel={closeLabel(drawn)}
-          onBack={() => setReview(reviewBefore(drawn))}
-          onAction={() => act(drawn)}
-          onClose={() => close(drawn)}
-          onEscape={() => (review ? setReview(null) : setSnoozed(drawn.id))}
+          at={drawn.at}
+          of={drawn.of}
+          canBack={!review && !!before(drawn)}
+          action={
+            review ? { label: 'Back to now' } : drawn.start ? { label: 'Start' } : drawn.done ? { label: 'Done' } : null
+          }
+          closeLabel={drawn.done ? 'Close' : 'Close guide'}
+          onBack={() => setReview(before(drawn))}
+          onAction={() => {
+            if (review) return setReview(null);
+            if (drawn.start) return beginNow();
+            if (drawn.done && task) finish(task);
+          }}
+          onClose={() => (review ? setReview(null) : close(drawn))}
+          onEscape={() => (review ? setReview(null) : close(drawn))}
           onShown={onShown}
           onLost={rerender}
         />
@@ -561,12 +432,4 @@ function firstVisible(selector: string): HTMLElement | null {
 /** The curated pictures take a width, the way every tile asks for its own size. */
 function sized(url: string): string {
   return `${url}${url.includes('?') ? '&' : '?'}w=320`;
-}
-
-/** The one step that follows into the picker: it gives the card its room on a phone. */
-const PICKER_TARGET = '[data-guide="compose"] .sc-attachpanel';
-
-/** Opens Create's picker on one ingredient's own tab, or moves the open picker there. */
-function openPickerAt(kind: keyof typeof CHECK_TAB) {
-  window.dispatchEvent(new CustomEvent('scenri:guide-picker', { detail: { tab: CHECK_TAB[kind] } }));
 }

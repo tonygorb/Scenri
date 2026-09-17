@@ -21,7 +21,7 @@ import {
   type BriefToken,
   type SentenceToken,
 } from '../composer/BriefInput.js';
-import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
+import { AttachPanel, type AttachGroup, type AttachTab } from '../composer/AttachPanel.js';
 import { attachedKeyString, attachedKeys, type AttachCard } from '../composer/attach/attachRules.js';
 import type { PreviewKind } from '../composer/ChipPreview.js';
 import { RefineChip } from '../composer/RefineChip.js';
@@ -48,8 +48,7 @@ import { sizingOf } from '../engines/capabilities.js';
 import { OpenAIMark } from './OpenAIMark.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { guideFactsSnapshot, publishComposer, publishOverlay, type ComposerFacts } from '../guideFacts.js';
-import { wordPrint, type GuideFillSettings } from '../guidedTasks.js';
+import { publishComposer, publishOverlay, type ComposerFacts } from '../guideFacts.js';
 import { PREF, useLocalPref, useRecipeSetting } from '../prefs.js';
 import { useMediaQuery } from '../useMediaQuery.js';
 import { useToasts } from '../toasts.js';
@@ -314,25 +313,12 @@ export const Composer = forwardRef<
   const [attachOpen, setAttachOpen] = useState(false);
   const [attachTab, setAttachTab] = useState<AttachTab>('All');
   const [attachTabNonce, setAttachTabNonce] = useState(0);
-  /** First use: which ingredients the library has any of, as the picker last said. */
-  const [offered, setOffered] = useState({ product: true, presenter: true, scene: true });
+  /** First use: the one kind the tutor is asking for, so the picker offers nothing else. */
+  const [attachOnly, setAttachOnly] = useState<AttachGroup | null>(null);
   const [quality, setQuality, borrowQuality] = useRecipeSetting<QualityId>(PREF.quality, 'standard');
   const [uploading, setUploading] = useState(false);
   const [moreOpen, setMoreOpenState] = useState(false);
-  /**
-   * First use (DESIGN.md, "First use"): which settings have been opened and
-   * answered here. The guide walks each one; keeping the current value counts.
-   */
-  const [settled, setSettled] = useState({ shape: false, count: false, quality: false });
-  const settle = useCallback(
-    (which: 'shape' | 'count' | 'quality' | 'all') =>
-      setSettled((s) => (which === 'all' ? { shape: true, count: true, quality: true } : { ...s, [which]: true })),
-    [],
-  );
-  const setMoreOpen = (next: boolean) => {
-    if (!next && moreOpen) settle('all');
-    setMoreOpenState(next);
-  };
+  const setMoreOpen = (next: boolean) => setMoreOpenState(next);
   const settingsPills = useMediaQuery('(hover: hover) and (min-width: 1024px)');
   const settingsSheet = useMediaQuery('(max-width: 767px)');
   const briefRef = useRef<BriefInputHandle>(null);
@@ -920,6 +906,8 @@ export const Composer = forwardRef<
   };
   const attachOpenRef = useRef(false);
   attachOpenRef.current = attachOpen;
+  const openAttachRef = useRef(openAttach);
+  openAttachRef.current = openAttach;
   /**
    * One close for every way out of the panel, and idempotent: on a phone the
    * sheet's own Escape and the body's key router both answer the same press.
@@ -1154,12 +1142,6 @@ export const Composer = forwardRef<
   const described = useCallback(describedToken, [budget]);
 
   const go = async () => {
-    // Under the first-use guide, a send before its Generate step would skip what
-    // the guide is asking for: Enter says the step in hand is done instead.
-    if (guided && guideFactsSnapshot().holdSend) {
-      window.dispatchEvent(new Event('scenri:guide-enter'));
-      return;
-    }
     if (!canGo) return;
     setBusy(true);
     setErr(null);
@@ -1177,9 +1159,6 @@ export const Composer = forwardRef<
       // the brand's workspace always exists by the time a brief can be run; a
       // missing one is a load that has not landed, not a container to invent
       if (!projectId) throw new Error('the workspace is still loading');
-      // First use: the shot Scenri makes itself, from the recipe Create opened
-      // on. The same send, with the recipe named instead of an engine asked.
-      const staged = guided ? guideFactsSnapshot().staged : null;
       const created = await api.addNode({
         projectId,
         // an edit hangs off the shot it edits; anything else hangs off the
@@ -1196,7 +1175,6 @@ export const Composer = forwardRef<
         // the reshape op is explicit on the wire: crop and extend preserve
         // pixels in opposite ways, and the server must never have to guess
         ...(mode === 'edit' && reshapeOp ? { reshape: reshapeOp } : {}),
-        ...(staged && mode === 'generation' ? { showcaseId: staged } : {}),
       });
       /*
        * A scene used to be able to declare text zones, and this turned them
@@ -1283,18 +1261,10 @@ export const Composer = forwardRef<
         scene: !!template,
         others: sentence.filter((t) => t.t === 'color' || t.t === 'ref' || t.t === 'mark').length,
         words: sentence.some((t) => t.t === 'text' && !!t.v.trim()),
-        canGo,
         busy,
         pickerOpen: attachOpen,
         refining: mode === 'edit' && !!target,
         engine: !noEngine ? 'ready' : setupNeeded ? 'setup' : 'settings',
-        settings: settingsPills ? 'pills' : settingsSheet ? 'sheet' : 'more',
-        settled,
-        offered,
-        ids: sentence.flatMap((t) =>
-          t.t === 'product' || t.t === 'character' || t.t === 'template' ? [String((t as { id: string }).id)] : [],
-        ),
-        wordPrint: wordPrint(sentence.flatMap((t) => (t.t === 'text' ? [t.v] : [])).join(' ')),
       }
     : null;
   useEffect(() => {
@@ -1311,40 +1281,20 @@ export const Composer = forwardRef<
     window.addEventListener('scenri:guide-close-picker', close);
     return () => window.removeEventListener('scenri:guide-close-picker', close);
   }, [guided, attachOpen, closeAttach]);
-  /**
-   * First use: the guide hands over a part of the brief it has in mind, when
-   * someone asks for it. Chips land the way a pick lands, a scene the way a
-   * scene does, and the words at the caret; the settings that recipe was shot
-   * with come with its words.
-   */
+  // The tutor asks for one kind at a time: the picker opens on that kind and
+  // offers nothing else, so there is nothing to wander into.
   useEffect(() => {
     if (!guided) return;
-    const fill = (e: Event) => {
-      const { tokens = [], settings } = (e as CustomEvent<{ tokens?: SentenceToken[]; settings?: GuideFillSettings }>)
-        .detail;
-      for (const t of tokens) {
-        // a chip lands the way a pick lands; words are the line repainting with
-        // what it already holds plus them, since a chip insert only makes chips
-        if (t.t === 'template') applySceneRef.current(t.id);
-        else if (t.t === 'text') briefRef.current?.setTokens([...sentenceRef.current, t]);
-        else briefRef.current?.insert(t);
-      }
-      const f = settings?.format && FORMATS.find((o) => o.w === settings.format?.w && o.h === settings.format?.h);
-      if (f) setFormat(f.id);
-      if (settings?.variants) setVariants(settings.variants);
-      if (settings?.quality) setQuality(settings.quality as QualityId);
+    const ask = (e: Event) => {
+      const { tab } = (e as CustomEvent<{ tab: AttachTab | null }>).detail;
+      setAttachOnly((tab ?? null) as AttachGroup | null);
+      if (tab) openAttachRef.current(tab);
     };
-    window.addEventListener('scenri:guide-fill', fill);
-    return () => window.removeEventListener('scenri:guide-fill', fill);
-  }, [guided]);
-  // The guide's checklist: an ingredient still missing opens the picker on its own kind.
-  const openAttachRef = useRef(openAttach);
-  openAttachRef.current = openAttach;
-  useEffect(() => {
-    if (!guided) return;
-    const open = (e: Event) => openAttachRef.current((e as CustomEvent<{ tab: AttachTab }>).detail.tab);
-    window.addEventListener('scenri:guide-picker', open);
-    return () => window.removeEventListener('scenri:guide-picker', open);
+    window.addEventListener('scenri:guide-picker', ask);
+    return () => {
+      window.removeEventListener('scenri:guide-picker', ask);
+      setAttachOnly(null);
+    };
   }, [guided]);
   // The open shot's composer, reached for: the moment refining is worth a word.
   const [reached, setReached] = useState(false);
@@ -1395,7 +1345,7 @@ export const Composer = forwardRef<
           full={ceilingFull}
           initialTab={attachTab}
           tabNonce={attachTabNonce}
-          onOffered={guided ? setOffered : undefined}
+          only={attachOnly}
           id={attachPanelId}
           attached={attachedInShot}
           onUpload={() => fileRef.current?.click()}
@@ -1601,7 +1551,6 @@ export const Composer = forwardRef<
               onQuality={setQualityId}
               onCloseAutoFocus={backToBrief}
               guided={guided}
-              onSettle={settle}
             />
 
             <Popover.Root open={moreOpen} onOpenChange={setMoreOpen}>
@@ -1643,7 +1592,6 @@ export const Composer = forwardRef<
             {/* the touch shell for the same fields: a sheet under the thumb */}
             <ShotSettings
               guide={guided && settingsSheet ? 'compose.settings' : undefined}
-              onSettle={() => settle('all')}
               mode={mode}
               engineId={engineId}
               engineName={engineLabel}

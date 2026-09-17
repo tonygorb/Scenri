@@ -53,6 +53,8 @@ export interface AttachBodyProps {
   brand: Brand;
   tab: AttachTab;
   onTab: (tab: AttachTab) => void;
+  /** First use: the tutor is asking for one kind, so the picker offers that kind and nothing else. */
+  only?: AttachGroup | null;
   /** The category of whichever product is already in the brief, if any: feeds the "suited" hint. */
   activeProductCategory?: string | null;
   /** A refine is armed on the hub: scenes sit out, and the hint says how to use one. */
@@ -71,8 +73,6 @@ export interface AttachBodyProps {
   onUpload: () => void;
   /** Image files pasted while the picker has focus: the same door as Upload image. */
   onFiles: (files: FileList) => void;
-  /** First use: which ingredients the library has any of. */
-  onOffered?: (offered: { product: boolean; presenter: boolean; scene: boolean }) => void;
   onClose: () => void;
 }
 
@@ -105,6 +105,7 @@ export function AttachBody({
   brand,
   tab,
   onTab,
+  only,
   activeProductCategory,
   refining,
   full,
@@ -115,7 +116,6 @@ export function AttachBody({
   onRemove,
   onUpload,
   onFiles,
-  onOffered,
   onClose,
 }: AttachBodyProps) {
   // The rank the panel opened with. The "suited to this product" band moves a
@@ -169,16 +169,6 @@ export function AttachBody({
   // workspace carries for the rail stops at forty-eight.
   const shots = useShotPages(brand.id, query);
   const shotItems = useMemo(() => shotCards(shots.items, shots.total), [shots.items, shots.total]);
-
-  // First use asks for one of each ingredient, never one the library has none of.
-  // Said only once the lists have arrived: three empty lists are a library still loading.
-  const hasProduct = candidates.product.length > 0;
-  const hasPresenter = candidates.presenter.length > 0;
-  const hasScene = candidates.scene.length > 0;
-  useEffect(() => {
-    if (hasProduct || hasPresenter || hasScene)
-      onOffered?.({ product: hasProduct, presenter: hasPresenter, scene: hasScene });
-  }, [hasProduct, hasPresenter, hasScene, onOffered]);
 
   /** Every group's size under the current search, for the rail. */
   const counts = useMemo(() => {
@@ -500,12 +490,17 @@ export function AttachBody({
           grid's first tile there, and the composer's own + is the close. */}
       <div className="sc-ap-head" ref={headRef}>
         <div className="sc-ap-tabs">
-          <VerticalsTabs
-            aria-label="What to add"
-            activeKey={tab === 'All' ? null : tab}
-            items={tabItems(counts)}
-            onSelect={(v) => onTab((v ?? 'All') as AttachTab)}
-          />
+          {only ? (
+            // the one kind being asked for, said rather than offered as a choice
+            <p className="sc-ap-only">{only}</p>
+          ) : (
+            <VerticalsTabs
+              aria-label="What to add"
+              activeKey={tab === 'All' ? null : tab}
+              items={tabItems(counts)}
+              onSelect={(v) => onTab((v ?? 'All') as AttachTab)}
+            />
+          )}
         </div>
         <div className="sc-ap-actions">
           <div className="sc-ap-actions-add">

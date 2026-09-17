@@ -42,9 +42,8 @@ function mount(props: Partial<CoachmarkProps>, o: { inShell?: boolean } = {}) {
   document.body.append(host);
   const base: CoachmarkProps = {
     id: 'step',
-    voice: 'card',
+    voice: 'note',
     target: document.getElementById('target'),
-    surfaces: [],
     live: [],
     side: 'bottom',
     container: o.inShell ? (document.getElementById('shell') as HTMLElement) : document.body,
@@ -70,7 +69,7 @@ describe('Coachmark', () => {
     const field = document.createElement('input');
     document.body.append(field);
     field.focus();
-    mount({ voice: 'card' });
+    mount({ voice: 'note' });
     const card = document.querySelector('.sc-coach');
     expect(card?.getAttribute('role')).toBe('note');
     expect(card?.getAttribute('data-voice')).toBe('card');
@@ -80,7 +79,7 @@ describe('Coachmark', () => {
   });
 
   it('a coach is a dialog over a curtain with its windows, rims and catch panels, named by its title', () => {
-    mount({ voice: 'coach', surfaces: [] });
+    mount({ voice: 'ask', live: [document.getElementById('target') as HTMLElement] });
     const card = document.querySelector('.sc-coach');
     expect(card?.getAttribute('role')).toBe('dialog');
     expect(document.getElementById(card?.getAttribute('aria-labelledby') ?? '')?.textContent).toBe('A title');
@@ -90,7 +89,14 @@ describe('Coachmark', () => {
   });
 
   it('inside a shell that owns the screen, the whole coach is drawn inside that shell', () => {
-    mount({ voice: 'coach', surfaces: [], target: null, title: undefined, body: undefined }, { inShell: true });
+    mount(
+      {
+        voice: 'ask',
+        live: [document.getElementById('inside') as HTMLElement],
+        target: document.getElementById('inside'),
+      },
+      { inShell: true },
+    );
     const shell = document.getElementById('shell') as HTMLElement;
     expect(shell.querySelector('.sc-coach-veil')).not.toBeNull();
     expect(shell.querySelector('.sc-coach-rim')).not.toBeNull();
@@ -98,34 +104,9 @@ describe('Coachmark', () => {
   });
 
   it('the one button says what it does; Back only when asked for; a card beside its target is marked narrow', () => {
-    mount({ voice: 'card', action: { label: 'Continue' }, canBack: false, beside: true });
-    expect(document.querySelector('.sc-coach-next')?.textContent).toBe('Continue');
+    mount({ voice: 'note', action: { label: 'Done' }, canBack: false, beside: true });
+    expect(document.querySelector('.sc-coach-next')?.textContent).toBe('Done');
     expect(document.querySelector('.sc-coach-back')).toBeNull();
     expect(document.querySelector('.sc-coach')?.hasAttribute('data-beside')).toBe(true);
-  });
-
-  it('a checklist ticks what is in, an open row takes the person to it, and Continue waits for all of it', () => {
-    const asked: string[] = [];
-    let acted = 0;
-    mount({
-      voice: 'card',
-      checklist: [
-        { id: 'product', label: 'Product', done: true },
-        { id: 'presenter', label: 'Presenter', done: false },
-      ],
-      onCheck: (id) => asked.push(id),
-      action: { label: 'Continue', disabled: true },
-      onAction: () => acted++,
-    });
-    const rows = [...document.querySelectorAll('.sc-coach-item')];
-    expect(rows.map((r) => r.textContent)).toEqual(['Product, added', 'Presenter, not added yet']);
-    // a ticked row is a statement, not a button
-    expect(rows[0].tagName).toBe('SPAN');
-    act(() => (rows[1] as HTMLButtonElement).click());
-    expect(asked).toEqual(['presenter']);
-    const next = document.querySelector<HTMLButtonElement>('.sc-coach-next');
-    expect(next?.getAttribute('aria-disabled')).toBe('true');
-    act(() => next?.click());
-    expect(acted).toBe(0);
   });
 });

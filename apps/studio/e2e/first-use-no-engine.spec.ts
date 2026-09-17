@@ -42,31 +42,12 @@ test("the first shot begins at the setup, and What's New waits and then counts a
   await expect(dialog(page)).toHaveCount(0);
 
   await welcome(page).getByRole('button', { name: 'Make your first shot' }).click();
-  // Nobody is sent to a setup before they have a brief: the parts come first.
-  await expect(coachTitle(page)).toHaveText('Start with what you are shooting', { timeout: 20_000 });
+  // Nothing can draw: that is the one thing to fix, and it is the only ask.
+  await expect(coachTitle(page)).toHaveText('Connect image generation', { timeout: 20_000 });
+  await pointsAt(page, '[data-guide="compose.engine"]');
   await expectHeld(page);
   await page.waitForTimeout(SETTLE_MS * 5);
   await expect(dialog(page)).toHaveCount(0);
-
-  // A product of their own means this shot is theirs to generate, and that is
-  // when the door to image generation is what the guide points at.
-  await page.locator('[data-guide="compose.add"]').click();
-  await page
-    .locator('.sc-attachpanel')
-    .getByRole('button', { name: /^Product: / })
-    .first()
-    .click();
-  await expect(coachTitle(page)).toHaveText('Now who shows it');
-  await coachCard(page).getByRole('button', { name: 'Use ours' }).click();
-  await expect(coachTitle(page)).toHaveText('And where it happens');
-  await coachCard(page).getByRole('button', { name: 'Use ours' }).click();
-  await coachCard(page).getByRole('button', { name: 'Next' }).click();
-  await expect(coachTitle(page)).toHaveText('Say how to shoot it');
-  await coachCard(page).getByRole('button', { name: 'Write one for me' }).click();
-  await expect(coachTitle(page)).toHaveText('Set to suit this shot');
-  await coachCard(page).getByRole('button', { name: 'Next' }).click();
-  await expect(coachTitle(page)).toHaveText('Connect image generation');
-  await pointsAt(page, '[data-guide="compose.engine"]');
 
   // The setup is the composer's own; the guide waits under it.
   await page.locator('[data-guide="compose.engine"]').click();

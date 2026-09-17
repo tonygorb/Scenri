@@ -1146,6 +1146,15 @@ select.sc-in {
     height: var(--sc-tap);
   }
 }
+/* Where this is in the walk: said once, quietly, beside what it is asking. */
+.sc-coach-count {
+  flex: none;
+  margin: 0;
+  padding-top: 3px;
+  font: 500 11.5px var(--sc-font);
+  color: var(--sc-fg3);
+  white-space: nowrap;
+}
 .sc-coach-body {
   margin: 6px 0 0;
   font: 400 12.5px / 1.5 var(--sc-font);
@@ -1181,58 +1190,6 @@ select.sc-in {
   height: 28px;
   padding: 0 14px;
   font-size: 12.5px;
-}
-.sc-coach-next[aria-disabled="true"] {
-  opacity: 0.35;
-  cursor: default;
-}
-/* What a step still asks for, in one line: each ingredient with its mark,
-   ticked as it comes in. An open one takes the picker to it. */
-.sc-coach-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 12px -6px 0;
-  padding: 0;
-  list-style: none;
-}
-.sc-coach-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  box-sizing: border-box;
-  height: 28px;
-  padding: 0 8px 0 6px;
-  border: 0;
-  border-radius: var(--sc-radius-full);
-  background: none;
-  font: 500 12.5px var(--sc-font);
-  color: var(--sc-fg);
-  white-space: nowrap;
-}
-button.sc-coach-item {
-  cursor: pointer;
-}
-button.sc-coach-item:hover:not(:active) {
-  background: var(--sc-hover);
-}
-.sc-coach-item[data-done] {
-  color: var(--sc-fg2);
-}
-.sc-coach-mark {
-  display: grid;
-  place-items: center;
-  flex: none;
-  box-sizing: border-box;
-  width: 16px;
-  height: 16px;
-  border: 1.5px solid var(--sc-line-strong);
-  border-radius: 50%;
-}
-.sc-coach-item[data-done] .sc-coach-mark {
-  border-color: var(--sc-fg);
-  background: var(--sc-fg);
-  color: var(--sc-bg);
 }
 @media (prefers-reduced-motion: reduce) {
   .sc-coach-veil,

@@ -13,18 +13,18 @@ import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 /** A thumb, not a mouse: focusing the brief raises a keyboard over the panel. */
 const COARSE = '(pointer: coarse)';
 import { AttachBody } from './attach/AttachBody.js';
-import type { AttachCard, AttachTab } from './attach/attachRules.js';
+import type { AttachCard, AttachGroup, AttachTab } from './attach/attachRules.js';
 import { keepCaret } from './line.js';
 
-export type { AttachTab } from './attach/attachRules.js';
+export type { AttachGroup, AttachTab } from './attach/attachRules.js';
 
 export interface AttachPanelProps {
   brand: Brand;
   initialTab?: AttachTab;
   /** Bumped to ask for `initialTab` again while the panel is open, even when it has not changed. */
   tabNonce?: number;
-  /** First use: which ingredients the library has any of, as the picker learns it. */
-  onOffered?: (offered: { product: boolean; presenter: boolean; scene: boolean }) => void;
+  /** First use: the tutor is asking for one kind, so the picker offers that kind and nothing else. */
+  only?: AttachGroup | null;
   /** For the opener's aria-controls. */
   id?: string;
   /** The category of whichever product is already in the brief, if any — see compat.ts. */
@@ -90,8 +90,9 @@ export function AttachPanel(props: AttachPanelProps) {
     <AttachDock id={props.id} phone={phone} touch={touch} creating={creating} onClose={props.onClose}>
       <AttachBody
         brand={props.brand}
-        tab={tab}
+        tab={props.only ?? tab}
         onTab={setTab}
+        only={props.only}
         activeProductCategory={props.activeProductCategory}
         refining={props.refining}
         full={props.full}
@@ -102,7 +103,6 @@ export function AttachPanel(props: AttachPanelProps) {
         onRemove={props.onRemove}
         onUpload={props.onUpload}
         onFiles={props.onFiles}
-        onOffered={props.onOffered}
         onClose={() => props.onClose({ restore: !touch })}
       />
     </AttachDock>

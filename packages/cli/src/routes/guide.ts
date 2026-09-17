@@ -91,15 +91,6 @@ function parse(raw: string | null): GuideRecord | null {
   try {
     const j = JSON.parse(raw) as Record<string, unknown>;
     if (typeof j.eligible !== 'boolean') return null;
-    // A dogfood record from the page tours: keep who was new and whether the
-    // welcome was answered, and nothing else, since the tours are gone.
-    if (j.v === 1) {
-      const learned = Array.isArray(j.learned) ? j.learned : [];
-      return {
-        ...blank(j.eligible),
-        welcome: learned.includes('welcome') ? (learned.includes('tours-off') ? 'declined' : 'taken') : null,
-      };
-    }
     if (j.v !== 2) return null;
     const done: GuideRecord['done'] = {};
     if (j.done && typeof j.done === 'object') {

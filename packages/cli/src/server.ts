@@ -10,7 +10,6 @@ import { compileBrief, validateBrief, FORMATS, type Attachment, type Brief, type
 import { mergeEditAttachments } from './attachmentBudget.js';
 import { shotWordsFor } from './shotWords.js';
 import { existsSync, readFileSync } from 'node:fs';
-import { contentFile } from './content/overlay.js';
 import { join } from 'node:path';
 import type {
   Core,
@@ -1329,37 +1328,6 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       );
       return reply.status(202).send(args.note ? { ...node, warnings: [args.note] } : node);
     };
-
-    /*
-     * The first shot is on us (DESIGN.md, "First use"), before the engine gate
-     * for the same reason as the crop: no provider is asked. A shipped recipe
-     * already made a picture, and the guide opened Create on that exact recipe,
-     * so the brief in front of them and the shot that lands are the same thing.
-     * Nothing is generated, nothing is charged, and it needs no engine at all.
-     */
-    if (kind === 'generation' && typeof (req.body as any).showcaseId === 'string') {
-      const exampleId = String((req.body as any).showcaseId);
-      const hero = contentFile(templatesRoot, 'previews', 'showcase', `${exampleId}.jpg`);
-      if (!/^[a-z0-9][a-z0-9-]*$/i.test(exampleId) || !existsSync(hero))
-        return reply.status(400).send({ error: `unknown example ${exampleId}` });
-      const rootForExample = core.store.rootFor(project.id);
-      if (!rootForExample) return reply.status(500).send({ error: 'project has no root node' });
-      const node = core.store.addNode({
-        projectId: project.id,
-        parentId: parentId ? String(parentId) : rootForExample.id,
-        kind: 'generation',
-        prompt: String(prompt ?? ''),
-        // No provider was asked; the picture came with Scenri.
-        engineId: 'local',
-      });
-      if (brief) core.store.setBrief(node.id, briefInputsOnly((brief as object) ?? {}));
-      const work = async () => ({
-        images: [core.images.save(await sharp(readFileSync(hero)).png().toBuffer())],
-        costUsd: 0,
-      });
-      void runNode([node.id], null, 0, work).catch((err) => app.log.error({ err }, 'example shot failed'));
-      return reply.status(202).send({ ...node, siblings: [node] });
-    }
 
     /*
      * A pure crop, before the engine gate on purpose: it is geometry, not
