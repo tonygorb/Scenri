@@ -32,6 +32,13 @@ export function ActivityPanel({
   onOpenDetail: (jobId: string) => void;
 }) {
   const { tasks, feed, unread, clearFeed } = useTaskCenter();
+  /**
+   * In progress means in progress. The task list also carries the last dozen
+   * settled ones, which the old panel showed under the neutral word "Tasks";
+   * under this heading a finished row is a lie, and it says the same thing the
+   * notification under it already said.
+   */
+  const running = tasks.filter((t) => t.state === 'running');
   const { brand } = useBrand();
   const { push } = useToasts();
   // seconds tick on their own; the poll is slower than the clock
@@ -65,10 +72,10 @@ export function ActivityPanel({
     <>
       <div className="sc-menu-head">Activity</div>
       <div className="sc-notif-scroll">
-        {tasks.length > 0 && (
+        {running.length > 0 && (
           <section aria-label="In progress">
             <h3 className="sc-notif-label">In progress</h3>
-            {tasks.map((t) => (
+            {running.map((t) => (
               <TaskRow
                 key={t.id}
                 task={t}

@@ -92,7 +92,9 @@ export function ActivityButton() {
             </button>
           </Popover.Trigger>
         </Tip>
-        <Popover.Content align="end" sideOffset={8} className="sc-notif-pop" aria-label="Activity">
+        {/* 36px control in a 60px row: 12 of air, so 20 lands the card 8 below
+          the bar, on the same line as every other panel. */}
+        <Popover.Content align="end" sideOffset={20} className="sc-notif-pop" aria-label="Activity">
           <ActivityPanel onClose={() => setPanelOpen(false)} onSeen={markSeen} onOpenDetail={setDetailJob} />
         </Popover.Content>
       </Popover.Root>

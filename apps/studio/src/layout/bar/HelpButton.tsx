@@ -36,6 +36,7 @@ export function HelpButton() {
         label="Help"
         className="sc-menu-help"
         side="top"
+        offset={8}
         tip="Help"
         trigger={
           <button type="button" className="sc-help-btn" aria-label="Help">

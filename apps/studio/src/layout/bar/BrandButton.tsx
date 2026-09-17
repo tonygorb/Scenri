@@ -74,7 +74,7 @@ export function BrandButton() {
         // phantom-workspace bug felt possible in the first place.
         onSelect={current ? undefined : () => navigate(brandPath(b))}
       >
-        <BrandAvatar brand={b} size={24} round />
+        <BrandAvatar brand={b} size={28} round />
         <span className="sc-menu-brand-lb">
           <span dir="auto">{brandName(b)}</span>
           {twoLine && <span className="sc-menu-brand-sub">/{b.slug}</span>}

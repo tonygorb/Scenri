@@ -49,6 +49,7 @@ export function BarMenu({
   className,
   side,
   tip,
+  offset = 22,
   trigger,
   children,
 }: {
@@ -59,6 +60,14 @@ export function BarMenu({
   side?: 'top' | 'bottom';
   /** An icon-only trigger says its name on hover and on focus. Pointer only. */
   tip?: string;
+  /**
+   * How far below the trigger the panel hangs. Every panel in the bar lands on
+   * one line, 8px under the bar's own bottom edge, rather than each one hanging
+   * from its own control at its own height: four panels opening from four
+   * controls in one corner should arrive in the same place. A 32px control in a
+   * 60px row has 14px of air beneath it, so 22 puts the card 8 below the bar.
+   */
+  offset?: number;
   trigger: ReactElement;
   children: ReactNode;
 }) {
@@ -107,7 +116,7 @@ export function BarMenu({
       <DropdownMenu.Content
         align="end"
         side={side}
-        sideOffset={8}
+        sideOffset={offset}
         className={`sc-menu ${className ?? ''}`}
         // The row that opened a dialog unmounts with this menu, so Radix's own
         // restore would aim at nothing and the dialog would hand focus to the
