@@ -3,11 +3,11 @@ import { createPortal, flushSync } from 'react-dom';
 import { X } from '@phosphor-icons/react';
 import {
   arrow,
-  autoPlacement,
   autoUpdate,
   computePosition,
   flip,
   offset,
+  type Placement,
   shift,
   type VirtualElement,
 } from '@floating-ui/dom';
@@ -67,7 +67,8 @@ const STEADY_MS = 90;
 /** A page that never settles still gets its card, after this many looks. */
 const STEADY_TRIES = 8;
 /** Fixed and sticky chrome a window must not reach under. */
-const CHROME = '.sc-topbar, .sc-tabbar, .sc-filterbar, .sc-canvas-dock, .sc-help-float';
+const CHROME =
+  '.sc-topbar, .sc-tabbar, .sc-filterbar, .sc-canvas-dock, .sc-help-float, .sc-pstudio-head, .sc-newdlg-head';
 /** The card fades out before it moves; it never slides across the page. Matches --sc-dur-fast. */
 const FADE_MS = 120;
 /**
@@ -367,19 +368,19 @@ export function Coachmark(p: CoachmarkProps) {
         // beside a surface stands above or below it instead, against the thing
         // it points at, rather than being squeezed over the middle of it.
         const wideScreen = vw >= NARROW;
-        const want: Side = wideScreen ? side : side === 'left' || side === 'right' ? 'top' : side;
-        // On a phone it takes the side with the most room rather than the
-        // first side it fits in: a card squeezed into a header while half the
-        // screen below it is empty is technically placed and plainly wrong.
-        const place = (ref: Box, fallbacks: Side[] | undefined) =>
+        const upright: Side = side === 'left' || side === 'right' ? 'top' : side;
+        // A card under a surface as wide as the screen hangs from its leading
+        // edge, the way a menu hangs from its button: centred under something
+        // that wide, it reads as a scrap floating in the middle of nowhere.
+        const broad = !wideScreen && width(t) > vw * 0.6;
+        const want: Placement = wideScreen ? side : broad ? `${upright}-start` : upright;
+        const place = (ref: Box, fallbacks: Placement[] | undefined) =>
           computePosition(virtual(ref, target), card, {
             strategy: 'fixed',
             placement: want,
             middleware: [
               offset(GAP),
-              wideScreen
-                ? flip({ padding: room, fallbackPlacements: fallbacks })
-                : autoPlacement({ padding: room, allowedPlacements: ['top', 'bottom'] }),
+              flip({ padding: room, fallbackPlacements: fallbacks }),
               shift({ padding: room }),
               arrow({ element: pointer, padding: ARROW_INSET }),
             ],
@@ -398,11 +399,14 @@ export function Coachmark(p: CoachmarkProps) {
         // A card beside its target, on a screen too narrow for either side, goes
         // above it instead, and only below it when there is no room up there.
         const sideways = wideScreen && (side === 'left' || side === 'right');
-        const fallbacks: Side[] | undefined = sideways
+        // The other side keeps the alignment the first one had, or a card that
+        // hangs from an edge jumps to the middle the moment it flips.
+        const other: Placement[] = broad ? ['bottom-start', 'top-start'] : ['bottom', 'top'];
+        const fallbacks: Placement[] | undefined = sideways
           ? [opposite(side), 'top', 'bottom']
           : wideScreen
             ? undefined
-            : ['bottom', 'top'];
+            : other;
 
         // A note on a target as tall as the screen (one finished shot filling
         // the feed) has no room above or below it: it comes inside, on the
