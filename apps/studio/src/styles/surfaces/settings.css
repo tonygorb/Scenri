@@ -1086,24 +1086,22 @@ select.sc-in {
 /* On a phone the card is the same callout it is on a desktop, and its controls
    are the size a thumb needs (WCAG 2.5.5 asks 44px). */
 @media (max-width: 767px) {
-  /* One column of room: a card kept narrow for a page that can hold one beside
-     it only wraps its words here, so every variant takes the width it has. */
-  .sc-coach,
-  .sc-coach[data-beside],
-  .sc-coach[data-side="centre"] {
-    width: calc(100vw - 24px);
-  }
   .sc-coach .sc-coach-next {
     min-height: 44px;
     padding-inline: 18px;
   }
-  /* Back is a word, not a box: it grows a thumb's worth of height without
-     inline padding, so it stays on the same left edge as the sentence above
-     it instead of floating in from it. */
+  /* Back alone in a foot read as a stray word, so on a phone it takes the
+     app's quiet pill: a control at a thumb's size, on the same left edge as
+     the sentence above it. */
   .sc-coach .sc-coach-back {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
+    padding: 0 16px;
+    border-radius: 999px;
+    background: var(--sc-hover);
+    font-size: 13.5px;
+    color: var(--sc-fg);
   }
   .sc-coach .sc-coach-x {
     width: 44px;
