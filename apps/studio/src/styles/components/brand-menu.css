@@ -5,7 +5,10 @@
    mark, on a 34px row. */
 .sc-menu {
   width: 420px;
-  padding: 0 8px 8px;
+  /* The concept's last row ends on the card's own bottom edge: the row's 8px
+     frame is the gap, and a second one under it made every panel taller than
+     the design draws. */
+  padding: 0 8px;
   border-radius: var(--sc-radius-float);
   box-shadow:
     inset 0 0 0 1px var(--sc-line),
