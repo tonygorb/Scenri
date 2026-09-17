@@ -135,8 +135,16 @@
   padding-bottom: 5px;
 }
 .sc-menu-sheet .sc-menu-head {
-  padding: 0 16px;
+  padding: 0 8px;
   background: var(--sc-panel);
+}
+/* A phone's scrollbar overlays; the emulator's takes width, and a row that is
+   11px shorter than its neighbours is the tell. */
+.sc-menu-sheet {
+  scrollbar-width: none;
+}
+.sc-menu-sheet::-webkit-scrollbar {
+  display: none;
 }
 .sc-menu-check {
   flex: none;

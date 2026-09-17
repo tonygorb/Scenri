@@ -96,22 +96,29 @@ test('the bell is in the bar on every screen', async ({ page }) => {
   }
 });
 
-test('both lists are on screen at once, and Notifications starts empty', async ({ page }) => {
+test('an idle panel says nothing about nothing, and both lists show at once when there is work', async ({ page }) => {
   const brand = await currentBrand(page);
   await clearHistory(page);
   await page.goto(`/${brand.slug}/scenes`);
 
+  // Nothing running: one list, not a heading over an empty one. In progress
+  // announcing itself while empty said the same nothing the section under it
+  // was already saying.
   await bell(page).click();
   await expect(pop(page)).toBeVisible();
-
-  // Both lists at once. They used to be tabs, so the panel opened on a guess
-  // about which question you had and the other answer was a press away.
-  await expect(sections(page)).toHaveCount(2);
-  await expect(sections(page).nth(0)).toContainText('In progress');
-  await expect(sections(page).nth(1)).toContainText('Notifications');
+  await expect(sections(page)).toHaveCount(1);
+  await expect(sections(page).nth(0)).toContainText('Notifications');
   await expect(page.locator('section[aria-label="Notifications"] .sc-notif-empty')).toHaveText(
     'You have no notifications yet.',
   );
+  await page.keyboard.press('Escape');
+
+  // Work landed: it is in the list. Whether a demo shot is still in flight by
+  // the time the panel opens is a race with the engine, so it is not what this
+  // asserts; the In progress section is the same rows, shown while there are any.
+  await fireAndWalkAway(page, brand.id);
+  await bell(page).click();
+  await expect(rows(page)).not.toHaveCount(0, { timeout: 20_000 });
 });
 
 test('work started from another screen still arrives, survives a reload, and clears', async ({ page }) => {
