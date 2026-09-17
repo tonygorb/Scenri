@@ -1,4 +1,13 @@
-import { cloneElement, createContext, useContext, useState, type ReactElement, type ReactNode } from 'react';
+import {
+  cloneElement,
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { Link } from 'react-router';
 import { DropdownMenu } from '@radix-ui/themes';
 import { BarSheet } from './BarSheet.js';
@@ -19,7 +28,21 @@ import { PHONE, useMediaQuery } from '../../useMediaQuery.js';
  * is decided here and `BarRow` reads it from the context rather than every caller
  * branching on the viewport.
  */
-const SheetCtx = createContext<null | (() => void)>(null);
+interface Surface {
+  /** Null on a pointer, where Radix closes the menu itself. */
+  close: (() => void) | null;
+  /**
+   * Put focus back on the control that opened this, before a row does anything
+   * that takes focus away.
+   *
+   * A row that opens a dialog unmounts with the menu that held it, so the dialog
+   * records a dead element as the thing to restore to and hands focus to the
+   * body on close. The trigger is still there, and it is where the keyboard was
+   * a moment ago, so it is what the dialog should come back to.
+   */
+  focusTrigger: () => void;
+}
+const SurfaceCtx = createContext<Surface | null>(null);
 
 export function BarMenu({
   label,
@@ -41,13 +64,16 @@ export function BarMenu({
 }) {
   const phone = useMediaQuery(PHONE);
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLElement | null>(null);
   const close = () => setOpen(false);
+  const focusTrigger = useCallback(() => triggerRef.current?.focus({ preventScroll: true }), []);
   useBarPanel(open, close);
 
   if (phone) {
     return (
       <>
         {cloneElement(trigger as ReactElement<Record<string, unknown>>, {
+          ref: triggerRef,
           onClick: () => setOpen(!open),
           'aria-haspopup': 'dialog',
           'aria-expanded': open,
@@ -56,7 +82,8 @@ export function BarMenu({
         {open && (
           <BarSheet label={label} onClose={close}>
             <div className={`sc-menu sc-menu-sheet ${className ?? ''}`}>
-              <SheetCtx.Provider value={close}>{children}</SheetCtx.Provider>
+              <div className="sc-menu-head">{label}</div>
+              <SurfaceCtx.Provider value={{ close, focusTrigger }}>{children}</SurfaceCtx.Provider>
             </div>
           </BarSheet>
         )}
@@ -68,13 +95,31 @@ export function BarMenu({
     <DropdownMenu.Root open={open} onOpenChange={setOpen}>
       {tip ? (
         <Tip label={tip}>
-          <DropdownMenu.Trigger>{trigger}</DropdownMenu.Trigger>
+          <DropdownMenu.Trigger>
+            {cloneElement(trigger as ReactElement<Record<string, unknown>>, { ref: triggerRef })}
+          </DropdownMenu.Trigger>
         </Tip>
       ) : (
-        <DropdownMenu.Trigger>{trigger}</DropdownMenu.Trigger>
+        <DropdownMenu.Trigger>
+          {cloneElement(trigger as ReactElement<Record<string, unknown>>, { ref: triggerRef })}
+        </DropdownMenu.Trigger>
       )}
-      <DropdownMenu.Content align="end" side={side} sideOffset={8} className={`sc-menu ${className ?? ''}`}>
-        {children}
+      <DropdownMenu.Content
+        align="end"
+        side={side}
+        sideOffset={8}
+        className={`sc-menu ${className ?? ''}`}
+        // The row that opened a dialog unmounts with this menu, so Radix's own
+        // restore would aim at nothing and the dialog would hand focus to the
+        // body on close. The trigger is still here and is where the keyboard
+        // came from.
+        onCloseAutoFocus={(e) => {
+          e.preventDefault();
+          focusTrigger();
+        }}
+      >
+        <div className="sc-menu-head">{label}</div>
+        <SurfaceCtx.Provider value={{ close: null, focusTrigger }}>{children}</SurfaceCtx.Provider>
       </DropdownMenu.Content>
     </DropdownMenu.Root>
   );
@@ -98,12 +143,32 @@ export function BarRow({
   disabled?: boolean;
   children: ReactNode;
 } & Record<`data-${string}`, string | undefined>) {
-  const closeSheet = useContext(SheetCtx);
+  const surface = useContext(SurfaceCtx);
+  const closeSheet = surface?.close;
+
+  /**
+   * Whatever the row does, the keyboard ends up back on the control that opened
+   * the menu rather than on nothing.
+   *
+   * The work waits for the menu to be gone. A dialog opened inside the select
+   * records whatever holds focus at that moment, which is the menu about to
+   * unmount; one tick later the trigger holds it, and that is what the dialog
+   * comes back to when it closes.
+   */
+  const act = onSelect
+    ? () => {
+        surface?.focusTrigger();
+        setTimeout(() => {
+          surface?.focusTrigger();
+          onSelect();
+        }, 0);
+      }
+    : undefined;
 
   if (closeSheet) {
     const done = () => {
       closeSheet();
-      onSelect?.();
+      act?.();
     };
     if (to) {
       return (
@@ -127,7 +192,7 @@ export function BarRow({
     );
   }
   return (
-    <DropdownMenu.Item className={className} onSelect={onSelect} disabled={disabled} {...rest}>
+    <DropdownMenu.Item className={className} onSelect={act} disabled={disabled} {...rest}>
       {children}
     </DropdownMenu.Item>
   );

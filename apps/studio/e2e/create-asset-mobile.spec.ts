@@ -115,8 +115,7 @@ test('the primary stays reachable with the keyboard up', async ({ page }) => {
 
 test('the chooser is usable by touch', async ({ page }) => {
   const slug = await brandSlug(page);
-  await page.goto(`/${slug}`);
-  await page.getByRole('button', { name: 'Other ways to start', exact: true }).tap();
+  await page.goto(`/${slug}?new=1`);
   await expect(page.locator('.sc-pick')).toHaveCount(3);
 
   // every card clears the 44px touch floor the rest of the app holds to

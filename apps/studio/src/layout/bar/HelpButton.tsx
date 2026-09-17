@@ -34,6 +34,7 @@ export function HelpButton() {
     <>
       <BarMenu
         label="Help"
+        className="sc-menu-help"
         side="top"
         tip="Help"
         trigger={

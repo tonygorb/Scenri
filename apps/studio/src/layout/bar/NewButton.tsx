@@ -60,7 +60,7 @@ export function NewButton() {
       </Link>
       <span className="sc-new-split" aria-hidden="true" />
       <BarMenu
-        label="Ways to start"
+        label="New"
         className="sc-menu-start"
         trigger={
           <button type="button" className="sc-new-more" aria-label="Other ways to start">
@@ -85,7 +85,8 @@ export function NewButton() {
           </span>
         </BarRow>
 
-        <div className="sc-menu-sep" />
+        {/* No rule under the lead row: its wash is what tells it apart, and a line
+          as well would be saying the same thing twice. */}
         <div className="sc-menu-label">Add to this brand</div>
         {INGREDIENTS.map((row) => {
           const { url, count } = preview[row.kind];

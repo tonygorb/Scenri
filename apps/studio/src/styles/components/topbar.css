@@ -201,12 +201,16 @@
   position: absolute;
   inset: 0;
 }
-.sc-act-ring img,
-.sc-act-ring .sc-shimmer {
+.sc-act-ring img {
   width: 24px;
   height: 24px;
   border-radius: var(--sc-radius-full);
   object-fit: cover;
+}
+/* Nothing to show yet: the ring holds the bell rather than an empty disc, and
+   the arc is what carries the news that something is happening. */
+.sc-act-ring[data-bare] {
+  color: var(--sc-fg);
 }
 .sc-ring-track {
   stroke: var(--sc-line-strong);

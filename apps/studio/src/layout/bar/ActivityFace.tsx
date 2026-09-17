@@ -40,12 +40,12 @@ export function ActivityFace({
     const percent = lead.percent === null ? 0 : lead.percent / 100;
     return (
       <span className="sc-act-face" data-swap={swap || undefined} aria-hidden="true">
-        <span className="sc-act-ring">
+        <span className="sc-act-ring" data-bare={lead.thumb ? undefined : ''}>
           <ProgressRing value={percent} size={32} />
           {lead.thumb ? (
             <img src={thumbUrl(lead.thumb, 'micro')} alt="" loading="lazy" decoding="async" />
           ) : (
-            <span className="sc-shimmer" />
+            <Bell size={16} />
           )}
           {running > 1 && <span className="sc-act-n">{running}</span>}
         </span>

@@ -4,11 +4,35 @@
    in it. Every row here is one grid instead: 20px mark, label, optional trailing
    mark, on a 34px row. */
 .sc-menu {
-  width: 268px;
-  padding: 6px;
+  width: 420px;
+  padding: 0 8px 8px;
+  border-radius: var(--sc-radius-float);
+  box-shadow:
+    inset 0 0 0 1px var(--sc-line),
+    var(--sc-shadow-3);
+  background: var(--sc-panel);
   /* a library of test brands must scroll, not run off the screen */
-  max-height: min(70vh, 480px);
+  max-height: min(70vh, 520px);
   overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* The surface says what it is. Four panels open from four controls in the same
+   corner of the screen, and the head is how each one is told from the others
+   before a single row is read. */
+.sc-menu-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  height: 48px;
+  margin: 0 -8px;
+  padding: 0 16px;
+  background: var(--sc-panel);
+  color: var(--sc-fg);
+  font-size: 14px;
+  font-weight: 560;
+  letter-spacing: -0.005em;
 }
 /* Every brand is a row, the current one checked. The old design listed only
    the *other* brands with a display-only header for the current one, which
@@ -40,6 +64,9 @@
   padding-top: 5px;
   padding-bottom: 5px;
 }
+.sc-menu-sheet .sc-menu-head {
+  padding: 0 12px;
+}
 .sc-menu-check {
   flex: none;
   color: var(--sc-fg);
@@ -53,13 +80,18 @@
 .sc-menu-item {
   display: flex;
   align-items: center;
-  gap: 11px;
-  height: 34px;
-  padding: 0 10px;
-  border-radius: var(--sc-radius-sm);
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 8px;
+  border-radius: var(--sc-radius-lg);
   font-size: 13.5px;
   color: var(--sc-fg);
   cursor: pointer;
+}
+/* A row with a mark in it is 28 plus the same 8 frame every painted row uses. */
+.sc-menu-item:has(.sc-brand-av) {
+  min-height: 44px;
+  padding: 8px;
 }
 .sc-menu-item[data-highlighted] {
   background: var(--sc-hover);
@@ -109,32 +141,36 @@ body > div:has(.sc-menu) {
    be painted (and these can, on hover and on the lead) has to sit square inside
    its fill, or the picture reads as nudged. */
 .sc-menu-start {
+  width: 352px;
+}
+.sc-menu-help {
   width: 340px;
 }
 .sc-menu-label {
-  padding: 14px 10px 6px;
+  padding: 16px 10px 6px;
   color: var(--sc-fg3);
   font-size: 12px;
   font-weight: 500;
 }
 .sc-start-row {
   height: auto;
-  gap: 12px;
+  gap: 14px;
+  /* an even frame on every side, so the picture sits square inside the fill */
   padding: 8px;
-  border-radius: var(--sc-radius);
+  border-radius: var(--sc-radius-lg);
   text-decoration: none;
 }
 .sc-start-pic {
   position: relative;
   flex: none;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
 }
 .sc-start-pic img,
 .sc-start-glyph {
   display: block;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: var(--sc-radius);
   object-fit: cover;
 }
@@ -153,18 +189,18 @@ body > div:has(.sc-menu) {
   text-align: left;
 }
 .sc-start-txt b {
-  font-size: 13.5px;
-  font-weight: 500;
-  letter-spacing: -0.005em;
+  font-size: 14px;
+  font-weight: 550;
+  letter-spacing: -0.008em;
 }
 .sc-start-txt small {
   color: var(--sc-fg3);
-  font-size: 12px;
+  font-size: 12.5px;
+  line-height: 1.35;
 }
 .sc-start-n {
   flex: none;
-  align-self: flex-start;
-  padding-top: 3px;
+  align-self: center;
   color: var(--sc-fg3);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -204,11 +240,19 @@ body > div:has(.sc-menu) {
 .sc-menu-sheet .sc-menu-item {
   width: 100%;
   border: none;
-  background: none;
+  background: transparent;
   font: inherit;
   font-size: 14px;
   text-align: left;
   height: 44px;
+}
+/* A row that paints itself keeps its paint here too: the reset above is about
+   the button element a sheet row has to be, not about what the row says. */
+.sc-menu-sheet .sc-start-row[data-lead] {
+  background: color-mix(in srgb, var(--sc-gold) 11%, var(--sc-panel));
+}
+[data-theme="light"] .sc-menu-sheet .sc-start-row[data-lead] {
+  background: color-mix(in srgb, var(--sc-gold) 14%, var(--sc-panel));
 }
 .sc-menu-sheet .sc-menu-item:active {
   background: var(--sc-press);

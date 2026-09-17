@@ -55,8 +55,16 @@
 }
 
 .sc-notif-pop {
-  width: min(360px, calc(100vw - 24px));
-  padding: 6px;
+  width: min(440px, calc(100vw - 24px));
+  padding: 0 8px 8px;
+  border-radius: var(--sc-radius-float);
+  box-shadow:
+    inset 0 0 0 1px var(--sc-line),
+    var(--sc-shadow-3);
+  background: var(--sc-panel);
+}
+.sc-notif-pop .sc-menu-head {
+  margin: 0 -8px;
 }
 /* Two labelled sections rather than two tabs. They answer different questions
    ("is anything happening", "what happened while I was away") and the panel used
@@ -102,13 +110,14 @@
 .sc-notif-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   width: 100%;
   text-align: left;
   padding: 8px;
+  min-height: 64px;
   border: none;
   background: none;
-  border-radius: var(--sc-radius-sm);
+  border-radius: var(--sc-radius-lg);
   color: inherit;
   font: inherit;
   cursor: pointer;
@@ -153,9 +162,9 @@
   position: relative;
   overflow: hidden;
   flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--sc-radius-sm);
+  width: 48px;
+  height: 48px;
+  border-radius: var(--sc-radius);
   background: var(--sc-raised);
   display: grid;
   place-items: center;

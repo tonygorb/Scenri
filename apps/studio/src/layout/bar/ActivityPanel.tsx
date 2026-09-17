@@ -62,48 +62,51 @@ export function ActivityPanel({
   };
 
   return (
-    <div className="sc-notif-scroll">
-      <section aria-label="In progress">
-        <h3 className="sc-notif-label">In progress</h3>
-        {tasks.length === 0 ? (
-          <p className="sc-notif-empty">Nothing running. Generations show up here as they go.</p>
-        ) : (
-          tasks.map((t) => (
-            <TaskRow
-              key={t.id}
-              task={t}
-              now={now}
-              onNavigate={onClose}
-              onCancel={cancelTask}
-              onOpenDetail={onOpenDetail}
-            />
-          ))
-        )}
-      </section>
-
-      <section aria-label="Notifications">
-        <h3 className="sc-notif-label">
-          <span>Notifications</span>
-          {unread > 0 && (
-            <button type="button" className="sc-notif-seen" onClick={onSeen}>
-              Mark all read
-            </button>
+    <>
+      <div className="sc-menu-head">Activity</div>
+      <div className="sc-notif-scroll">
+        <section aria-label="In progress">
+          <h3 className="sc-notif-label">In progress</h3>
+          {tasks.length === 0 ? (
+            <p className="sc-notif-empty">Nothing running. Generations show up here as they go.</p>
+          ) : (
+            tasks.map((t) => (
+              <TaskRow
+                key={t.id}
+                task={t}
+                now={now}
+                onNavigate={onClose}
+                onCancel={cancelTask}
+                onOpenDetail={onOpenDetail}
+              />
+            ))
           )}
-        </h3>
-        {feed.length === 0 ? (
-          <p className="sc-notif-empty">You have no notifications yet.</p>
-        ) : (
-          feed.map((n) => <FeedRow key={n.id} item={n} now={now} onNavigate={onClose} onSeen={onSeen} />)
-        )}
-        {feed.length > 0 ? (
-          <div className="sc-notif-foot">
-            <button type="button" className="sc-notif-clear" onClick={clearFeed}>
-              Clear all
-            </button>
-          </div>
-        ) : null}
-      </section>
-    </div>
+        </section>
+
+        <section aria-label="Notifications">
+          <h3 className="sc-notif-label">
+            <span>Notifications</span>
+            {unread > 0 && (
+              <button type="button" className="sc-notif-seen" onClick={onSeen}>
+                Mark all read
+              </button>
+            )}
+          </h3>
+          {feed.length === 0 ? (
+            <p className="sc-notif-empty">You have no notifications yet.</p>
+          ) : (
+            feed.map((n) => <FeedRow key={n.id} item={n} now={now} onNavigate={onClose} onSeen={onSeen} />)
+          )}
+          {feed.length > 0 ? (
+            <div className="sc-notif-foot">
+              <button type="button" className="sc-notif-clear" onClick={clearFeed}>
+                Clear all
+              </button>
+            </div>
+          ) : null}
+        </section>
+      </div>
+    </>
   );
 }
 

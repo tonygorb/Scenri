@@ -56,7 +56,7 @@ export function BrandButton() {
   return (
     <>
       <BarMenu
-        label="Brands and settings"
+        label="Brands"
         trigger={
           <button type="button" className="sc-org-btn" aria-label={`${brandName(brand)}, brand and settings`}>
             <BrandAvatar brand={brand} size={32} round />
