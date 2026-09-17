@@ -66,6 +66,13 @@
 .sc-notif-pop .sc-menu-head {
   margin: 0 -8px;
 }
+/* The panel uses the room it has, and never scrolls sideways. */
+.sc-notif-pop {
+  max-height: var(--radix-popover-content-available-height, 80vh);
+}
+.sc-notif-pop [class*="ScrollAreaScrollbar"][data-orientation="horizontal"] {
+  display: none;
+}
 /* Two labelled sections rather than two tabs. They answer different questions
    ("is anything happening", "what happened while I was away") and the panel used
    to open on a guess about which one you wanted, with the other one press away.

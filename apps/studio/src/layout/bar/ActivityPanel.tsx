@@ -65,12 +65,10 @@ export function ActivityPanel({
     <>
       <div className="sc-menu-head">Activity</div>
       <div className="sc-notif-scroll">
-        <section aria-label="In progress">
-          <h3 className="sc-notif-label">In progress</h3>
-          {tasks.length === 0 ? (
-            <p className="sc-notif-empty">Nothing running. Generations show up here as they go.</p>
-          ) : (
-            tasks.map((t) => (
+        {tasks.length > 0 && (
+          <section aria-label="In progress">
+            <h3 className="sc-notif-label">In progress</h3>
+            {tasks.map((t) => (
               <TaskRow
                 key={t.id}
                 task={t}
@@ -79,9 +77,9 @@ export function ActivityPanel({
                 onCancel={cancelTask}
                 onOpenDetail={onOpenDetail}
               />
-            ))
-          )}
-        </section>
+            ))}
+          </section>
+        )}
 
         <section aria-label="Notifications">
           <h3 className="sc-notif-label">

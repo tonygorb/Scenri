@@ -259,6 +259,9 @@
   align-items: stretch;
   flex: none;
   height: 32px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.5;
   margin-left: 7px;
   border-radius: var(--sc-radius);
   background: var(--sc-inv-bg);
@@ -277,7 +280,6 @@
   font-family: inherit;
   font-size: 13.5px;
   font-weight: 600;
-  letter-spacing: -0.005em;
   transition: background 120ms ease;
 }
 .sc-new-go {
