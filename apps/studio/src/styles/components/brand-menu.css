@@ -77,6 +77,49 @@
   margin: 5px 4px;
   background: var(--sc-line);
 }
+/* The line between one kind of row and another inside a bar panel. Tighter than
+   the old separator, because these lists are 44px rows rather than 34px ones and
+   the gap either side is doing most of the work. */
+.sc-menu-rule {
+  height: 1px;
+  margin: 6px 8px;
+  background: var(--sc-line);
+}
+/* Past six brands the list is searched rather than read. */
+.sc-menu-find {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  margin: 2px 0 6px;
+  padding: 0 10px;
+  border-radius: var(--sc-radius);
+  background: var(--sc-well);
+  color: var(--sc-fg3);
+}
+.sc-menu-find:focus-within {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+}
+.sc-menu-find input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--sc-fg);
+  font: inherit;
+  font-size: 13.5px;
+}
+.sc-menu-find input::placeholder {
+  color: var(--sc-fg3);
+}
+.sc-menu-none {
+  margin: 0;
+  padding: 10px;
+  color: var(--sc-fg3);
+  font-size: 12.5px;
+}
 .sc-menu-item {
   display: flex;
   align-items: center;
