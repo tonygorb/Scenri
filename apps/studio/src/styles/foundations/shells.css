@@ -74,8 +74,20 @@
 @media (max-width: 767px) {
   :root {
     --sc-gutter: 14px;
-    --sc-tabbar-h: 58px;
+    --sc-tabbar-h: 60px;
   }
+}
+
+/* ---- the bar over content ----
+   Reading down the page the bar gives back the air around its controls, never
+   the controls themselves. It is written as a redefinition of the same token
+   the header, the grid row and every fixed consumer already read, so the number
+   never has two answers: the assets drawer, its backdrop and the attach panel
+   all follow without knowing this state exists. The row snaps in one layout
+   pass and the motion is carried by paint (components/topbar.css), because
+   easing a grid row would re-lay-out the feed on every frame. */
+.sc-shell[data-condensed] {
+  --sc-topbar-h: 52px;
 }
 
 /* ---- a docked composer, and the ground arriving under the scroller -------

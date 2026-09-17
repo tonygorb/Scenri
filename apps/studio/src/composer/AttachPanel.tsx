@@ -145,8 +145,10 @@ function AttachDock({
     const host = el?.parentElement;
     if (!phone || !el || !host) return;
     const measure = () => {
-      const topbar =
-        Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sc-topbar-h')) || 0;
+      // off the shell, not the root: the bar's condensed state redefines this
+      // token on .sc-shell, and the root would still be answering 60.
+      const shell = el.closest('.sc-shell') ?? document.documentElement;
+      const topbar = Number.parseFloat(getComputedStyle(shell).getPropertyValue('--sc-topbar-h')) || 0;
       const room = host.getBoundingClientRect().top - topbar - 16;
       el.style.setProperty('--ap-avail', `${Math.max(160, Math.round(room))}px`);
     };
