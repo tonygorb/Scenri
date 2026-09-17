@@ -231,8 +231,12 @@ describe('firstSteps', () => {
     ]);
   });
 
-  it('leaves once everything is done', () => {
-    expect(firstSteps(view({ done: { shot: 'a', refine: 'b', product: 'c', presenter: 'd', scene: 'e' } }))).toBeNull();
+  it('leaves once everything is done, unless it was asked for from Help', () => {
+    const all = { shot: 'a', refine: 'b', product: 'c', presenter: 'd', scene: 'e' };
+    expect(firstSteps(view({ done: all }))).toBeNull();
+    expect(firstSteps(view({ done: all, asked: true }))?.every((r) => r.state === 'done')).toBe(true);
+    expect(firstSteps(view({ welcome: null, asked: true }))).not.toBeNull();
+    expect(firstSteps(view({ done: all, asked: true, hidden: true }))).toBeNull();
   });
 });
 

@@ -5,7 +5,7 @@ import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useOpenSettings, useOpenSetup } from '../app/dialogs.js';
 import { useWhatsNew } from '../app/WhatsNew.js';
-import { guideIntent } from '../guide.js';
+import { askForFirstSteps } from '../guide.js';
 import { brandPath, P } from '../routes.js';
 import { useMediaQuery } from '../useMediaQuery.js';
 import { Tip } from './Tip.js';
@@ -49,7 +49,7 @@ export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
         <DropdownMenu.Item
           className="sc-menu-item"
           onSelect={() => {
-            void guideIntent({ hidden: false });
+            void askForFirstSteps();
             navigate(brandPath(brand));
           }}
         >

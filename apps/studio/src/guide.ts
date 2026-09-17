@@ -14,10 +14,13 @@ import { api, type GuideIntent, type GuideView } from './api.js';
 export interface GuideSnapshot extends GuideView {
   /** The first read has answered, or failed. Until then nobody can tell a new install from an old one. */
   loaded: boolean;
+  /** First steps was asked for from Help on this page: it shows even with every step done, so each can be done again. */
+  asked: boolean;
 }
 
 const EMPTY: GuideSnapshot = {
   loaded: false,
+  asked: false,
   eligible: false,
   welcome: null,
   hidden: true,
@@ -43,7 +46,7 @@ function emit(next: GuideSnapshot) {
 function read(): Promise<void> {
   reading ??= api
     .guide()
-    .then((r) => emit({ ...r, loaded: true }))
+    .then((r) => emit({ ...r, loaded: true, asked: snapshot.asked }))
     .catch(() => {
       if (!snapshot.loaded) emit({ ...snapshot, loaded: true });
     })
@@ -73,7 +76,7 @@ export function refreshGuide(): Promise<void> {
 /** What an intent changes, applied at once so the screen never waits on the round trip. */
 function optimistic(s: GuideSnapshot, i: GuideIntent): GuideSnapshot {
   if ('welcome' in i) return { ...s, welcome: i.welcome };
-  if ('hidden' in i) return { ...s, hidden: i.hidden };
+  if ('hidden' in i) return { ...s, hidden: i.hidden, asked: i.hidden ? false : s.asked };
   if ('finish' in i)
     return s.active?.task === i.finish ? { ...s, active: null, activeNodes: [], activeDraftId: null } : s;
   if ('dismiss' in i)
@@ -91,11 +94,17 @@ export function guideIntent(i: GuideIntent): Promise<void> {
   emit(optimistic(snapshot, i));
   return api
     .guideIntent(i)
-    .then((r) => emit({ ...r, loaded: true }))
+    .then((r) => emit({ ...r, loaded: true, asked: snapshot.asked }))
     .catch(() => {
       emit(before);
       void read();
     });
+}
+
+/** Help's First steps: shown again, and kept on screen even when there is nothing left to do. */
+export function askForFirstSteps(): Promise<void> {
+  emit({ ...snapshot, asked: true });
+  return guideIntent({ hidden: false });
 }
 
 function subscribe(l: () => void) {

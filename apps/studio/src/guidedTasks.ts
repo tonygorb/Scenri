@@ -228,11 +228,11 @@ const ROWS: [GuideTaskId, string][] = [
 
 /** First steps, or null when it has nothing to say or was put away. */
 export function firstSteps(
-  view: Pick<GuideView, 'hidden' | 'eligible' | 'welcome' | 'done' | 'active'> & { loaded: boolean },
+  view: Pick<GuideView, 'hidden' | 'eligible' | 'welcome' | 'done' | 'active'> & { loaded: boolean; asked?: boolean },
 ): StepRow[] | null {
   if (!view.loaded || view.hidden) return null;
-  // Someone new meets the welcome first; First steps is what follows it.
-  if (view.eligible && view.welcome === null) return null;
+  // Someone new meets the welcome first; First steps is what follows it, unless they ask for it.
+  if (view.eligible && view.welcome === null && !view.asked) return null;
   const rows = ROWS.map(
     ([task, label]): StepRow => ({
       task,
@@ -240,7 +240,8 @@ export function firstSteps(
       state: view.done[MILESTONE[task]] ? 'done' : view.active?.task === task ? 'active' : 'todo',
     }),
   );
-  return rows.every((r) => r.state === 'done') ? null : rows;
+  // Done with everything, it leaves; asked for from Help, it stays so any step can be done again.
+  return rows.every((r) => r.state === 'done') && !view.asked ? null : rows;
 }
 
 export interface WelcomeInput {
