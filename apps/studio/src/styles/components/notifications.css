@@ -58,61 +58,46 @@
   width: min(360px, calc(100vw - 24px));
   padding: 6px;
 }
-/* A switch between two lists of the same kind, not a journey between two
-   places: that is a segmented control, not underlined tabs. */
-.sc-notif-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px;
-  padding: 3px;
-  margin: 2px 2px 6px;
-  background: var(--sc-well);
-  border-radius: var(--sc-radius);
+/* Two labelled sections rather than two tabs. They answer different questions
+   ("is anything happening", "what happened while I was away") and the panel used
+   to open on a guess about which one you wanted, with the other one press away.
+   Both are visible now, so neither has to be chosen to be read. */
+.sc-notif-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 10px 4px;
+  color: var(--sc-fg3);
+  font-size: 12px;
+  font-weight: 500;
 }
-.sc-notif-tab {
-  height: 30px;
+.sc-notif-seen {
   border: none;
   background: none;
-  border-radius: calc(var(--sc-radius) - 3px);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 550;
+  padding: 0;
   color: var(--sc-fg2);
   cursor: pointer;
+  font: inherit;
+  font-size: 12px;
 }
-.sc-notif-tab:hover {
+.sc-notif-seen:hover {
   color: var(--sc-fg);
 }
-/* Fill, ink and shadow-1 carry the selection. A 550-to-650 weight step on top
-   of them only re-spaces the glyphs inside the tab. */
-.sc-notif-tab[aria-selected="true"] {
-  background: var(--sc-panel);
-  color: var(--sc-fg);
-  box-shadow: var(--sc-shadow-1);
-}
-.sc-notif-tab:focus-visible {
+.sc-notif-seen:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: -2px;
-}
-.sc-notif-n {
-  color: var(--sc-fg3);
-  font-weight: 600;
-  margin-left: 5px;
-  font-variant-numeric: tabular-nums;
+  outline-offset: var(--sc-ring-off);
+  border-radius: var(--sc-radius-xs);
 }
 
 .sc-notif-scroll {
-  max-height: min(52vh, var(--radix-popover-content-available-height, 52vh));
+  max-height: min(62vh, var(--radix-popover-content-available-height, 62vh));
   overflow-y: auto;
   overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 1px;
-}
-.sc-notif-scroll:focus-visible {
-  outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: -2px;
-  border-radius: var(--sc-radius-sm);
 }
 .sc-notif-row {
   display: flex;
@@ -230,10 +215,10 @@
   transition: width 0.35s ease;
 }
 .sc-notif-empty {
-  padding: 34px 14px 38px;
-  text-align: center;
+  margin: 0;
+  padding: 4px 10px 10px;
   font-size: 12.5px;
-  color: var(--sc-fg2);
+  color: var(--sc-fg3);
 }
 .sc-notif-foot {
   border-top: 1px solid var(--sc-line);

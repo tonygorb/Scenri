@@ -4,6 +4,11 @@ import { Dialog } from '@radix-ui/themes';
  * Every key the app actually listens for, and nothing else. The list is a
  * contract: if a row is here, it works. Bindings live in Create.tsx and
  * BriefInput.tsx; this only describes them.
+ *
+ * All of them are Create's, and the dialog says so, because the help menu opens
+ * it from anywhere now. A list of keys that do nothing on the page you are
+ * reading it from is the same broken promise as a row for a key that does not
+ * exist.
  */
 const KEYS: { label: string; keys: string[] }[] = [
   { label: 'Generate', keys: ['cmd', 'enter'] },
@@ -27,6 +32,7 @@ export function Shortcuts({ open, onOpenChange }: { open: boolean; onOpenChange:
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content maxWidth="360px" aria-describedby={undefined}>
         <Dialog.Title>Shortcuts</Dialog.Title>
+        <p className="sc-keys-where">In Create</p>
         <div className="sc-keys">
           {KEYS.map((k) => (
             <div className="sc-krow" key={k.label}>

@@ -1011,6 +1011,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       <main
         className="sc-canvas"
         id="main"
+        data-page-scroll=""
         data-firstrun={firstRun || undefined}
         onClick={(e) => {
           if (picked.size === 0 && !selectedId) return;

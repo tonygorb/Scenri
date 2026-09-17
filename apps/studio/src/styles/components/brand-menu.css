@@ -98,3 +98,89 @@
 body > div:has(.sc-menu) {
   pointer-events: auto;
 }
+
+/* ---------- the start menu, under New ---------------------------------------
+   The same menu family, with a row that carries a picture. Three of these rows
+   are the things a shot is made from, and each shows this brand's own one, so
+   the menu is the studio rather than a generic chooser.
+
+   An even frame on every side: the picture is inset by the row's own padding and
+   nothing else, the way the app's other picture rows are built. A row that can
+   be painted (and these can, on hover and on the lead) has to sit square inside
+   its fill, or the picture reads as nudged. */
+.sc-menu-start {
+  width: 340px;
+}
+.sc-menu-label {
+  padding: 14px 10px 6px;
+  color: var(--sc-fg3);
+  font-size: 12px;
+  font-weight: 500;
+}
+.sc-start-row {
+  height: auto;
+  gap: 12px;
+  padding: 8px;
+  border-radius: var(--sc-radius);
+  text-decoration: none;
+}
+.sc-start-pic {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 44px;
+}
+.sc-start-pic img,
+.sc-start-glyph {
+  display: block;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--sc-radius);
+  object-fit: cover;
+}
+.sc-start-glyph {
+  display: grid;
+  place-items: center;
+  background: var(--sc-chip);
+  color: var(--sc-fg2);
+}
+.sc-start-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+.sc-start-txt b {
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.sc-start-txt small {
+  color: var(--sc-fg3);
+  font-size: 12px;
+}
+.sc-start-n {
+  flex: none;
+  align-self: flex-start;
+  padding-top: 3px;
+  color: var(--sc-fg3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+/* The act itself, marked the way Home marks the same act (surfaces/home.css:
+   .sc-create-card[data-main]). It is the only wash in the menu, so the list
+   needs no rule cut across it to tell the lead from the ingredients. */
+.sc-start-row[data-lead] {
+  background: color-mix(in srgb, var(--sc-gold) 11%, var(--sc-panel));
+}
+[data-theme="light"] .sc-start-row[data-lead] {
+  background: color-mix(in srgb, var(--sc-gold) 14%, var(--sc-panel));
+}
+.sc-start-row[data-lead] .sc-start-txt b {
+  font-weight: 600;
+}
+.sc-start-row[data-lead][data-highlighted] {
+  background: color-mix(in srgb, var(--sc-gold) 17%, var(--sc-panel));
+}

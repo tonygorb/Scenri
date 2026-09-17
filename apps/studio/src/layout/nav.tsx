@@ -118,7 +118,7 @@ export function inkOn(hex: string): string {
  * own logo when it has one, and otherwise its initial on its own primary, which
  * is what every workspace switcher worth copying does.
  */
-export function BrandAvatar({ brand, size = 20 }: { brand: Brand; size?: number }) {
+export function BrandAvatar({ brand, size = 20, round = false }: { brand: Brand; size?: number; round?: boolean }) {
   // a 20px circle reads the small derivative; the mark's own file is for the kit
   const logo = assetThumbUrl(primaryMark(brand.json)?.file, 'micro');
   const hex: string = brand.json?.palette?.primary?.hex ?? '#6b6b6b';
@@ -126,6 +126,7 @@ export function BrandAvatar({ brand, size = 20 }: { brand: Brand; size?: number 
     <span
       className="sc-brand-av"
       data-logo={logo ? '' : undefined}
+      data-round={round || undefined}
       style={{
         width: size,
         height: size,
