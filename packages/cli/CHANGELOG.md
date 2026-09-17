@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.10.2](https://github.com/tonygorb/Scenri/compare/v0.10.1...v0.10.2) (2026-09-17)
+
+
+### Bug Fixes
+
+* opening a presenter draft no longer asks a question it takes back ([5605309](https://github.com/tonygorb/Scenri/commit/56053095cf15be7fe021b32060056f33039ee403))
+* opening a presenter draft no longer asks a question it takes back ([6d7f11a](https://github.com/tonygorb/Scenri/commit/6d7f11ada52d8dafa6100f804f85dc2735645868))
+* the transcript keeps the wait once the draft is here too ([d2ad4a0](https://github.com/tonygorb/Scenri/commit/d2ad4a02d0aa57a2ad800283e822ffdf21f5d171))
+
 ## [0.10.1](https://github.com/tonygorb/Scenri/compare/v0.10.0...v0.10.1) (2026-09-16)
 
 
