@@ -871,7 +871,8 @@ export interface FlowArgs {
   /** A request that never reached the engine, said once with a Retry. */
   failed?: string | null;
   /**
-   * The address names a draft and it has not arrived yet.
+   * The address names a draft whose answers are not read yet: it has not
+   * arrived, or it has and the seed has not run (`awaitingAnswers`).
    *
    * A conversation with no draft is normally a new one, and its first question
    * is asked at once. Opening an existing draft takes a moment, and for that
@@ -882,7 +883,10 @@ export interface FlowArgs {
    * up off the top of the rail and came back down. Reported 2026-09-16 as the
    * pictures flinging when a draft is opened.
    *
-   * So a route that names a draft does not ask anything until it has one.
+   * So a route that names a draft does not ask anything until it has one. The
+   * draft also lands a render before its answers are read, and asking in that
+   * render put the same question in place of the draft's own, so the wait lasts
+   * until the answers are in.
    */
   awaiting?: boolean;
 }
@@ -1087,10 +1091,12 @@ function build(
       }
     }
   }
+  // Nothing is asked while a named draft is on its way, or here with its
+  // answers not yet read: the question would be withdrawn a render later, and
+  // taking it away moves everything.
+  if (awaiting) open = null;
   if (!draft) {
-    // Nothing is asked while a named draft is still on its way: the question
-    // would be withdrawn a render later, and taking it away moves everything.
-    if (open && !awaiting) lead.push({ kind: 'question', question: open });
+    if (open) lead.push({ kind: 'question', question: open });
     return lead;
   }
   const record = recordTurns({
