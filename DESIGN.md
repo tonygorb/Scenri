@@ -108,7 +108,7 @@ Near-monochrome dark ground with a single rationed accent; imagery supplies the 
 - **Hairline Strong** (`#383838` dark / `#d4d4d4` light): hover/emphasis border state.
 
 ### Named Rules
-**The One Accent Rule.** Gold appears in exactly three places: the credits pill, the keeper star, and in-flight shimmer. If a new element reaches for gold to look "on brand," that's the tell it should reach for ink/inverse-fill instead.
+**The One Accent Rule.** Gold appears at full strength in exactly three places: the credits pill, the keeper star, and in-flight shimmer. There is one fourth use and it is a wash rather than the colour: **an 11% gold tint over the surface (14% in light) marks the primary create action and nothing else**, which today is Home's main create card and the lead row of the top bar's New menu, the same act in two places. At that strength it reads as "start here" without reading as a state, which is why it never lands on a selected, active or focused thing. If a new element reaches for gold to look "on brand," that's the tell it should reach for ink/inverse-fill instead.
 
 **The Imagery-Does-The-Color Rule.** Product and scene photography is the only place saturated, varied color is allowed to run free. Chrome stays monochrome so it never competes with the work being art-directed.
 
@@ -141,6 +141,10 @@ Flat by default. Surfaces sit at the same visual plane with a 1px hairline borde
 - **shadow-3** (`0 18px 50px rgba(0,0,0,.34)` dark / `rgba(0,0,0,.18)` light): dialogs, full overlays.
 
 ### Named Rules
+**Chrome that is over the page rather than above it** takes shadow-1 for exactly as long as that is true. The top bar is flat with its hairline at the top of a page and lifts once the page has scrolled under it, which is the sentence the scale already speaks: a shadow means this floats. It gives back the air around its controls at the same moment (60px to 52px), never the controls themselves, and its height is a redefinition of `--sc-topbar-h` on the shell, so the dock, the assets drawer and the attach panel all keep following one number.
+
+**A floating help affordance** sits in the page's bottom-right corner (`--sc-z-help`, above the assets drawer and below the docks): 36px, panel fill, inset hairline plus shadow-2, clearing the tab bar on a phone. It is the one control allowed to float free of the chrome, because help is what you reach for when the page has not answered you, and a slot in the bar is worth more to a destination.
+
 **The Flat-By-Default Rule.** Nothing gets a resting shadow. If it isn't floating above the page (dialog, overlay, dock), it gets a hairline border and nothing else. The hairline is 1px, with one exception in width: the picture tiles in the Create assets rail wear a 1.5px frame, because a 1px line vanishes against a photograph.
 
 ## 5. Components
@@ -152,11 +156,13 @@ Flat by default. Surfaces sit at the same visual plane with a 1px hairline borde
 - **Danger:** transparent fill, red text and hover border, otherwise identical to ghost.
 - **Pressed:** paint only. Ghost and danger take `--sc-press` as a fill; primary steps its opacity to 0.75. No movement of any kind.
 - **Focus:** 2px solid outline in `--sc-focus` (one full step below ink), 2px offset. No glow, no color change.
+- **Split:** one primary control with two hit regions, for a verb that has a usual thing and a short list of neighbours (the top bar's New). The filled half performs the usual thing; a 1px divider in the fill's own ink at 22%; the caret half opens the menu. Its press is the one sanctioned exception to the primary's opacity step: each half shades its own fill (10% hover, 18% pressed, of `--sc-inv-fg` over `--sc-inv-bg`), because an opacity step cannot say which half a press will land on and saying that is the control's whole purpose. Never for a verb with no usual thing: that is a menu wearing a loud coat.
 - **Icon-only controls (`.sc-icon-btn`) say their name in a tooltip,** on hover and on keyboard focus, through `layout/Tip.tsx` (the Radix tooltip in the `.sc-tip` coat). The words are the `aria-label`'s words; never a native `title` beside it, which is the same sentence twice on two clocks. A control with a visible label gets no tooltip. A **preview card** (the chip peek, `composer/ChipPreview.tsx`) is the one floating card that wears a tail: it sits a preview gap away from the chip or tile it is about, among a row of chips or a column of tiles, and the tail on the edge that faces its anchor is what says whose it is. Tooltips and menus stay tail-less. A toggle that is on wears `data-on` and says so with `aria-pressed`; a request in flight holds `data-busy` (the cursor says so, the control does not dim); a verb that opens a dialog says `aria-haspopup="dialog"`; a verb with nowhere to go is `disabled` and dims. For a moment after a verb lands the tooltip may say the result ("Copied"), held open, so nothing else has to appear.
 
 ### Chips / Tabs
 - **Style:** transparent fill, hairline border, muted text (`--sc-fg2`), full pill radius, 5px/12px padding, 12.5px/500 label type.
 - **Active state:** inverse fill (same ink-on-bg treatment as primary buttons). Never gold, and never a weight bump: a chip is laid out by its own text, so 500 to 600 moves every chip after it. Active state is a monochrome inversion, not a color change.
+- **A row of destinations is a tab strip, not a chip cluster.** The top bar's five places state the current one with a 2px underline sitting on the bar's own bottom hairline (`bottom: -1px`), grown with `scaleX` rather than faded in, so the active state costs the row no height and there is one line on screen rather than two. No fill, no weight bump.
 - **Category tab row (`.sc-verticals`) is the exception to the pill shape:** flat text-in-a-row with an underline for the active state, not a chip. Both patterns exist in the system; don't cross them: a tab strip stays underline-style, a filter/chip cluster stays pill-style.
 
 ### Cards / Containers
@@ -355,6 +361,7 @@ The page is the record, in three zones and no more. The identity is centred and 
 - **Don't** stack a subtitle, a header title, and a trailing action as three siblings in `.sc-sec-head` with no gap. It produces glued text; wrap title+subtitle together instead.
 - **Don't** put a "Create new" tile as the first item in a catalog/library grid. It disrupts a visual-comparison surface, shifts scan position on every return visit, and duplicates the header's own primary CTA, evaluated and rejected for the Creative Library pattern, not merely unconsidered.
 - **Do** let a dialog surface hold focus silently. Every dialog pairs `onOpenAutoFocus={focusSelfOnOpen}` (`app/dialogs.ts`) with the one shared `.rt-BaseDialogContent:focus` → `outline: none` rule in `styles/foundations/interaction.css`. Without the JS half Radix aims at the close button and the dialog opens wearing a ring around its ×; without the CSS half the ring simply moves onto the surface. Neither half is optional, and neither is written per dialog.
+- **Do** state hover and open on a bare mark with a 2px ring in `--sc-chip` (`--sc-fg3` pressed or open), the way the top bar's brand control does. A mark that fills its own circle has no background to shade and no label to darken, so the ring is the only treatment left. It is the sanctioned exception to the line below and stays one: a control that does have a surface uses the shared treatment.
 - **Don't** invent a per-component focus or active treatment: a `border-color` swap, a box-shadow halo, a background change. It reads as a second vocabulary for a state the user already knows, and the two drift apart the moment either is touched; add to the shared list in `styles/foundations/interaction.css` instead.
 - **Don't** style an unwired CTA as primary (inverse-fill). Ghost is the tell that it's not the real, working action yet.
 

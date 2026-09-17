@@ -190,8 +190,15 @@ body > div:has(.sc-menu) {
    the reach a thumb needs. */
 .sc-menu-sheet {
   width: auto;
+  /* The sheet owns the height (78dvh) and this owns the scrolling inside it.
+     `max-height: none` here let a library of brands grow past the sheet's own
+     cap, which put the last rows under the edge of the screen with nothing to
+     scroll: the sheet was already as tall as it was allowed to be. */
+  flex: 1;
+  min-height: 0;
   max-height: none;
-  overflow: visible;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 2px 4px 8px;
 }
 .sc-menu-sheet .sc-menu-item {

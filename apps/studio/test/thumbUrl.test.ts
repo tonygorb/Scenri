@@ -58,7 +58,7 @@ describe('who reads which size', () => {
     expect(src('layout/canvas/Tile.tsx')).toMatch(/thumbUrl\(n\.images\[0\], 'tile'\)/);
     expect(src('layout/CatalogCard.tsx')).toMatch(/thumbOf\(previewUrl, 'tile'\)/);
     expect(src('layout/detail/LineageStrip.tsx')).toMatch(/thumbUrl\(n\.images\[0\], 'micro'\)/);
-    expect(src('layout/Notifications.tsx')).toMatch(/thumbUrl\(task\.thumb, 'micro'\)/);
+    expect(src('layout/bar/ActivityPanel.tsx')).toMatch(/thumbUrl\(task\.thumb, 'micro'\)/);
     expect(src('layout/AssetsPanel.tsx')).toMatch(/thumbUrl\(hash, 'micro'\)/);
   });
   it('the stage, compare and the clipboard read the original', () => {
