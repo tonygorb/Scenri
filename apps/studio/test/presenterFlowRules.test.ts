@@ -109,9 +109,7 @@ describe('the transcript is a function of state', () => {
   it('asks nothing over a draft that has arrived and is not yet read', () => {
     const d = draft();
     expect(keys(turnsFor({ state: state({}), draft: d, canGenerate: true }))).toContain('q:source');
-    expect(keys(turnsFor({ state: state({}), draft: d, canGenerate: true, awaiting: true }))).not.toContain(
-      'q:source',
-    );
+    expect(keys(turnsFor({ state: state({}), draft: d, canGenerate: true, awaiting: true }))).not.toContain('q:source');
   });
 
   it('from scratch: the look is asked one row at a time, each answer under its own line', () => {
