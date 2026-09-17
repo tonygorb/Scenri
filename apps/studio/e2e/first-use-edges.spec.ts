@@ -53,20 +53,14 @@ test('it asks for what is missing, whatever is already there', async ({ page }) 
   await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');
 });
 
-test('Back re-reads the moment before, and never rewinds the brief', async ({ page }) => {
+test('there is no Back where nothing can be taken back', async ({ page }) => {
   const own = await ownBrand(page, 'Back Again');
   await page.goto(`/${own}/create`);
   await readTheOpening(page);
-  await page.locator('[data-guide="compose.add"]').click();
-  await pickFromPicker(page, 'Product');
-  await expect(coachTitle(page)).toHaveText('Choose a presenter');
-
-  await coachCard(page).getByRole('button', { name: 'Back' }).click();
   await expect(coachTitle(page)).toHaveText('Choose a product');
-  // the product they picked is still in the brief: Back reads, it does not undo
-  await expect(chips(page)).toHaveCount(1);
-  await coachCard(page).getByRole('button', { name: 'Back to now' }).click();
-  await expect(coachTitle(page)).toHaveText('Choose a presenter');
+  // nothing has been put in the brief yet, so there is nothing for Back to do
+  await expect(coachCard(page).getByRole('button', { name: 'Back' })).toHaveCount(0);
+  await expect(chips(page)).toHaveCount(0);
 });
 
 test('Escape ends the guidance and leaves everything usable', async ({ page }) => {
@@ -90,7 +84,7 @@ test('pressing twice, wandering off, and coming back all land on the same moment
   const own = await ownBrand(page, 'Twice');
   await page.goto(`/${own}/create`);
   // Start pressed twice is one advance
-  await expect(coachTitle(page)).toHaveText('This is Create', { timeout: 20_000 });
+  await expect(coachTitle(page)).toContainText('This is Create', { timeout: 20_000 });
   const start = coachCard(page).getByRole('button', { name: 'Start' });
   await start.click();
   await expect(coachTitle(page)).toHaveText('Choose a product');

@@ -62,7 +62,9 @@ describe('the first shot, one ask at a time', () => {
 
   it('greets an empty start once, then never again', () => {
     const fresh = firstShotMoment({ here: true, composer: composer(), nodes: [] });
-    expect(fresh).toMatchObject({ id: 'intro', start: true, at: 1, of: 5 });
+    // the greeting is not one of the four: it carries no count
+    expect(fresh).toMatchObject({ id: 'intro', start: true });
+    expect(fresh?.at).toBeUndefined();
     // someone already under way is past being told what this place is
     expect(firstShotMoment({ here: true, composer: composer({ products: 1 }), nodes: [] })?.id).toBe('presenter');
     expect(firstShotMoment({ here: true, composer: composer({ words: true }), nodes: [] })?.id).toBe('product');
@@ -74,9 +76,9 @@ describe('the first shot, one ask at a time', () => {
     expect(idOf(composer({ products: 1, presenters: 1 }))).toBe('scene');
     expect(idOf(composer(all))).toBe('make');
     expect(idOf(composer({ ...all, words: true }))).toBe('make');
-    // and it says where it is: five moments, counted
-    expect(ask(composer())?.at).toBe(2);
-    expect(ask(composer(all))?.of).toBe(5);
+    // and it says where it is: four asks, counted
+    expect(ask(composer())?.at).toBe(1);
+    expect(ask(composer(all))?.of).toBe(4);
   });
 
   it('never advances on a click: taking an ingredient back asks for it again', () => {
@@ -196,6 +198,8 @@ describe('the later tasks', () => {
     }
     expect(Object.fromEntries(loud)).toEqual({
       source: 'start',
+      // a wall is not a question the studio can explain away
+      noengine: 'engine',
       identity: 'face',
       revision: 'face',
       save: 'save',

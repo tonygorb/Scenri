@@ -53,7 +53,7 @@ export async function expectNoGuide(p: Page): Promise<void> {
 
 /** Reads the opening and moves past it, the way anyone does. */
 export async function readTheOpening(p: Page): Promise<void> {
-  await expect(coachTitle(p)).toHaveText('This is Create', { timeout: 20_000 });
+  await expect(coachTitle(p)).toContainText('This is Create', { timeout: 20_000 });
   await coachCard(p).getByRole('button', { name: 'Start' }).click();
 }
 

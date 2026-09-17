@@ -608,6 +608,22 @@ export const BriefInput = forwardRef<
     [emit],
   );
 
+  // While the tutor is walking someone through a brief, a chip can be changed
+  // but not taken out, by any means: the remove control is hidden (see
+  // composer-brief.css) and every deletion that would reach a chip is refused
+  // here, so Back stays the one way one leaves. Text is still text.
+  const chipsHeld = () => document.documentElement.hasAttribute('data-guide-task');
+  const wouldTakeAChip = (root: HTMLElement, e: InputEvent) => {
+    const chips = [...root.querySelectorAll('.sc-token')];
+    if (!chips.length) return false;
+    const [target] = e.getTargetRanges?.() ?? [];
+    if (!target) return false;
+    const range = document.createRange();
+    range.setStart(target.startContainer, target.startOffset);
+    range.setEnd(target.endContainer, target.endOffset);
+    return chips.some((chip) => range.intersectsNode(chip));
+  };
+
   // Backspace and Delete at a chip's space take the chip, on every keyboard.
   // A phone's keyboard reports Backspace as a composition key (keyCode 229),
   // so keydown cannot be the hook; `beforeinput` names the deletion itself
@@ -620,6 +636,7 @@ export const BriefInput = forwardRef<
     const root = rootRef.current;
     if (!root) return;
     const onBeforeInput = (e: InputEvent) => {
+      if (e.inputType.startsWith('delete') && chipsHeld() && wouldTakeAChip(root, e)) return e.preventDefault();
       const key =
         e.inputType === 'deleteContentBackward'
           ? 'Backspace'
@@ -1045,6 +1062,7 @@ export const BriefInput = forwardRef<
       }
       if (e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
+        if (chipsHeld()) return;
         const at = focused.dataset.uid ? removeChipByUid(focused.dataset.uid) : null;
         root?.focus({ preventScroll: true });
         if (at != null) setCaretUnits(root, at);
@@ -1086,6 +1104,7 @@ export const BriefInput = forwardRef<
         const chip = chipToDelete(root, e.key);
         if (chip?.dataset.uid) {
           e.preventDefault();
+          if (chipsHeld()) return;
           const at = removeChipByUid(chip.dataset.uid);
           if (at != null) setCaretUnits(root, at);
           return;

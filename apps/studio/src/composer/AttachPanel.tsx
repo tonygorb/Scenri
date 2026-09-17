@@ -209,6 +209,10 @@ function AttachDock({
       const t = e.target as HTMLElement;
       // the first shot's curtain and card are not the page: pressing them keeps the panel open
       if (t.closest('[data-guide="catch"], [data-guide="card"], [data-guide="inline"]')) return;
+      // While the tutor holds the page, the panel is not closed by pressing
+      // beside it: the held page is not a press anywhere, and Escape or the
+      // next answer is what closes it.
+      if (document.querySelector('[data-guide="catch"]')) return;
       if (!t.closest('.sc-attachpanel') && !t.closest('.sc-attach-toggle')) closeRef.current();
     };
     document.addEventListener('mousedown', onDown);

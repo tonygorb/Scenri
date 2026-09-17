@@ -25,7 +25,7 @@ test('only the one action', async ({ page }) => {
   const slug = await setUpBrand(page, 'Locked');
   await welcome(page).getByRole('button', { name: 'Make your first shot' }).click();
   await page.waitForURL(`**/${slug}/create`);
-  await expect(coachTitle(page)).toHaveText('This is Create');
+  await expect(coachTitle(page)).toContainText('This is Create');
   await expectHeld(page);
   // the opening holds everything: the only thing to do is read it
   for (const sel of ['.sc-topbar', '[data-guide="compose.add"]', '[data-guide="compose.send"]'])

@@ -35,6 +35,11 @@ export interface Moment {
   point?: string;
   /** What can be used. Defaults to the thing being pointed at. */
   live?: string[];
+  /**
+   * Surfaces that stay lit but are not for using: the composer under its own
+   * open picker, which would otherwise go dark beneath the panel it opened.
+   */
+  lit?: string[];
   /** The surface that owns the screen, when it is not the page: the tutor is drawn inside it. */
   shell?: string;
   /** The card sits beside a big surface rather than above it. */
@@ -57,6 +62,8 @@ const COMPOSE = '[data-guide="compose"]';
 const COMPOSE_PICKER = '[data-guide="compose"] .sc-attachpanel';
 /** Inside the picker, the one thing an ask is about: the shelf of things to choose from. */
 const PICKER_GRID = '[data-guide="compose"] .sc-attachpanel .sc-ap-body';
+/** The composer's own card, which the picker opens out of and sits on top of. */
+const COMPOSE_CARD = '[data-guide="compose"] .sc-promptcard';
 const ADD = '[data-guide="compose.add"]';
 const BRIEF = '[data-guide="compose"] .sc-brief-line';
 const SEND = '[data-guide="compose.send"]';
@@ -68,8 +75,8 @@ const SHOT = '.sc-ovl';
 /** Every word the tutor says, in one place, so the copy rules can hold them all. */
 export const COPY = {
   intro: {
-    title: 'This is Create',
-    body: 'A shot is built from things Scenri keeps for you: what you sell, who shows it, and where it happens. Add those three, say how to shoot it, and Scenri makes the picture.',
+    title: 'This is Create, where shots are made',
+    body: 'A shot is built from three things Scenri keeps for you: what you sell, who shows it, and where it happens. Add them, say how to shoot it, and Scenri makes the picture in about a minute.',
   },
   engine: {
     title: 'Connect image generation',
@@ -110,6 +117,10 @@ export const COPY = {
   refineResult: {
     title: 'A new version',
     body: 'The original is one step back, so nothing is lost.',
+  },
+  presenterEngine: {
+    title: 'Set up image generation',
+    body: 'Drawing a face needs an engine. Setting one up takes about a minute, and the answers so far are kept.',
   },
   presenterStart: {
     title: 'Describe someone, or start from photos',
@@ -175,20 +186,27 @@ export function firstShotMoment(f: ShotFacts): Moment | null {
   if (dud && !building) return { id: 'failed', voice: 'note', point: tile(dud.id), side: 'bottom', ...COPY.failed };
   // Nothing can draw: that is the one thing to fix before any of this matters.
   if (c.engine !== 'ready') return { id: 'engine', voice: 'ask', point: ENGINE, side: 'top', ...COPY.engine };
-  // Five moments, and the card says which one this is.
-  const walk = (at: number, m: Moment): Moment => ({ ...m, at, of: 5 });
+  /**
+   * Four asks, and the card says which one it is. Four is the ceiling on
+   * purpose: completion holds around 72 to 74% at three or four steps and
+   * falls below half at five (Chameleon, 550M in-app interactions). The
+   * greeting is not one of them, so it carries no count.
+   */
+  const walk = (at: number, m: Moment): Moment => ({ ...m, at, of: 4 });
   // The opening greets an empty start only: someone coming back to a brief
   // they have already begun is past being told what this place is.
+  // Nothing is pointed at yet: arriving somewhere new, the first thing to
+  // settle is where they are, said in the middle of the page they landed on.
   if (!f.begun && ingredientsOf(c) === 0 && !c.words)
-    return walk(1, { id: 'intro', voice: 'ask', point: COMPOSE, live: [], side: 'top', start: true, ...COPY.intro });
+    return { id: 'intro', voice: 'ask', live: [], start: true, ...COPY.intro };
   const asked = askedKind(c);
   if (asked) return walk(KIND_AT[asked], pickMoment(asked, c.pickerOpen));
   // The last one is both halves of the same act: write the line, then make it.
-  return walk(5, { id: 'make', voice: 'ask', point: SEND, live: [BRIEF, SEND], side: 'top', ...COPY.make });
+  return walk(4, { id: 'make', voice: 'ask', point: SEND, live: [BRIEF, SEND], side: 'top', ...COPY.make });
 }
 
 /** Where each ingredient sits in the walk. */
-const KIND_AT: Record<AskedKind, number> = { product: 2, presenter: 3, scene: 4 };
+const KIND_AT: Record<AskedKind, number> = { product: 1, presenter: 2, scene: 3 };
 
 /** The ingredient the first shot is still asking for, or null once the brief holds all three. */
 export function askedKind(c: ComposerFacts): AskedKind | null {
@@ -213,6 +231,7 @@ function pickMoment(kind: AskedKind, pickerOpen: boolean): Moment {
         voice: 'ask',
         point: COMPOSE_PICKER,
         live: [PICKER_GRID],
+        lit: [COMPOSE_CARD],
         beside: true,
         side: 'right',
         ...say,
@@ -269,6 +288,10 @@ export function presenterMoment(studio: StudioFacts | null): Moment | null {
   switch (studio.open) {
     case 'source':
       return at('start', COPY.presenterStart);
+    // The studio asks its own questions, but a wall is not a question: nothing
+    // in this flow goes on until something can draw, so the tutor says so.
+    case 'noengine':
+      return at('engine', COPY.presenterEngine);
     case 'identity':
     case 'revision':
       // the portrait stays usable beside the question: its versions are part of deciding

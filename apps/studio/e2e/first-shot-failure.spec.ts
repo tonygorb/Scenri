@@ -71,35 +71,47 @@ test('a take the engine refuses is said on its tile, and building again picks th
   await expectHeld(page);
 });
 
-test('on a phone the card sits above the picker and every card fits the screen', async ({ page }) => {
+test('on a phone the sheet holds the bottom edge and the picker rides above it', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const own = await ownBrand(page, 'Phone Take');
   await page.goto(`/${own}/create`);
   await readTheOpening(page);
   await expect(coachTitle(page)).toHaveText('Choose a product');
   await page.locator('[data-guide="compose.add"]').click();
-  await expect(coachCard(page)).toHaveAttribute('data-side', 'top');
+  await expect(coachCard(page)).toHaveAttribute('data-side', 'sheet');
   const fit = await page.evaluate(() => {
     const c = document.querySelector('.sc-coach')?.getBoundingClientRect();
     const p = document.querySelector('.sc-attachpanel')?.getBoundingClientRect();
     if (!c || !p) return null;
     return {
       inside: c.left >= 0 && c.right <= innerWidth && c.top >= 0 && c.bottom <= innerHeight,
-      above: c.bottom <= p.top,
+      onTheEdge: Math.round(innerHeight - c.bottom) <= 2,
+      clearOfThePicker: p.bottom <= c.top + 1,
     };
   });
-  expect(fit).toEqual({ inside: true, above: true });
+  expect(fit).toEqual({ inside: true, onTheEdge: true, clearOfThePicker: true });
 });
 
-test('what Scenri asked for is theirs to take out, and the tutor asks again', async ({ page }) => {
+test('a chip is held while the tutor walks them through it, and free once it is over', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const own = await ownBrand(page, 'Empty It');
   await page.goto(`/${own}/create`);
   await readTheOpening(page);
   await pickTheIngredients(page);
   await brief(page).click();
+  // A keyboard is not a way around the hold: select everything, press Backspace,
+  // and the words go while every chip the tutor asked for stays.
+  await page.keyboard.type('a few words');
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(3);
+  await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');
+
+  // and once the guidance is over, they are ordinary chips again
+  await coachCard(page).getByRole('button', { name: 'Close guide' }).click();
+  await expect(coachCard(page)).toHaveCount(0);
+  await brief(page).click();
   await page.keyboard.press('ControlOrMeta+a');
   await page.keyboard.press('Backspace');
   await expect(chips(page)).toHaveCount(0);
-  await expect(coachTitle(page)).toHaveText('Choose a product');
 });

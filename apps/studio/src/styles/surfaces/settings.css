@@ -966,9 +966,9 @@ select.sc-in {
    animates, only the veil's opacity fades in. One mask the size of the screen
    holds every window with its own radius (layout/coachGeometry.ts). */
 .sc-coach-veil[data-veil="mask"] {
-  background: rgba(0, 0, 0, 0.66);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.52);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-size: 100% 100%;
@@ -1018,12 +1018,12 @@ select.sc-in {
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .sc-coach-veil[data-veil="mask"] {
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.62);
   }
 }
 @media (prefers-reduced-transparency: reduce) {
   .sc-coach-veil[data-veil="mask"] {
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.62);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
@@ -1074,8 +1074,40 @@ select.sc-in {
   font-family: var(--sc-font);
   transition: opacity var(--sc-dur-fast) var(--sc-ease);
 }
+/* The opening: nothing to point at, so the card sits in the middle of the page
+   it has just arrived on, a little wider to carry the one paragraph it says. */
+.sc-coach[data-side="centre"] {
+  width: min(360px, calc(100vw - 32px));
+}
 .sc-coach[data-beside] {
   width: min(280px, calc(100vw - 24px));
+}
+
+/* On a phone the card is a sheet on the bottom edge rather than a callout
+   floating over a four-inch canvas: the target is highlighted in place and the
+   words sit where a thumb already is. Its buttons keep the 44px touch target
+   Apple and WCAG 2.5.5 ask for, and it clears the home indicator. */
+.sc-coach[data-side="sheet"] {
+  width: auto;
+  padding: 16px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: var(--sc-radius-lg) var(--sc-radius-lg) 0 0;
+}
+.sc-coach[data-side="sheet"] .sc-coach-foot {
+  gap: 8px;
+  margin-top: 16px;
+}
+.sc-coach[data-side="sheet"] .sc-coach-next,
+.sc-coach[data-side="sheet"] .sc-coach-back {
+  min-height: 44px;
+  padding-inline: 18px;
+}
+.sc-coach[data-side="sheet"] .sc-coach-x {
+  width: 44px;
+  height: 44px;
+  margin: -10px -10px 0 0;
 }
 .sc-coach[data-state="moving"],
 .sc-coach[data-state="stowed"],

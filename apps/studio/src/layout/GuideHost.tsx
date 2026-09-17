@@ -190,6 +190,20 @@ export function GuideHost() {
       window.dispatchEvent(new CustomEvent('scenri:guide-picker', { detail: { tab: null } }));
   }, [task, asked]);
 
+  /**
+   * A task in hand, said on the page itself: while the tutor is walking
+   * someone through a brief, a chip can be changed but not taken out, so a
+   * wrong pick is swapped rather than leaving a hole in the walk. Back is what
+   * takes one out (below), one step at a time.
+   */
+  useEffect(() => {
+    if (!task) return;
+    document.documentElement.dataset.guideTask = task;
+    return () => {
+      delete document.documentElement.dataset.guideTask;
+    };
+  }, [task]);
+
   // On a screen too narrow for a card beside the picker, the picker gives up
   // the height that card needs above it.
   const pickerRoom = moment?.point === PICKER && window.innerWidth < 1024;
@@ -202,31 +216,14 @@ export function GuideHost() {
   }, [pickerRoom]);
 
   /**
-   * Back re-shows a moment they have already been through, to read again. It
-   * is guidance history and nothing else: the product is never rewound, and a
-   * moment whose control has gone is not offered.
+   * Back through the brief: the ask before this one put a chip in, so going
+   * back takes that chip out and the moment before is simply true again. It is
+   * the one way anything leaves the brief while the tutor is walking them
+   * through it, it never touches more than the one step behind, and where
+   * there is nothing to take back there is no Back to press.
    */
-  const [review, setReview] = useState<Moment | null>(null);
-  const visited = useRef<Moment[]>([]);
-  const momentId = moment ? `${task}:${moment.id}` : null;
-  const lastMoment = useRef<string | null>(null);
-  if (lastMoment.current !== momentId) {
-    lastMoment.current = momentId;
-    if (review) setReview(null);
-    if (moment?.voice === 'ask') {
-      const at = visited.current.findIndex((m) => m.id === moment?.id);
-      visited.current = at >= 0 ? visited.current.slice(0, at + 1) : [...visited.current, moment];
-    }
-  }
-  useEffect(() => {
-    if (!task) visited.current = [];
-  }, [task]);
-  const before = (m: Moment) => {
-    const at = visited.current.findIndex((v) => v.id === m.id);
-    const prev = at > 0 ? visited.current[at - 1] : null;
-    return prev?.point && firstVisible(prev.point) ? prev : null;
-  };
-  const shown = review ?? moment;
+  const TAKES_BACK: Record<string, AskedKind> = { presenter: 'product', scene: 'presenter', make: 'scene' };
+  const shown = moment;
 
   // How a task ends.
   const finish = useCallback((t: GuideTaskId) => void guideIntent({ finish: t }), []);
@@ -346,7 +343,11 @@ export function GuideHost() {
   // held and the only thing to do is read it.
   const wanted = drawn?.live ?? (drawn?.point ? [drawn.point] : []);
   const live = wanted.map((sel) => firstVisible(sel)).filter((el): el is HTMLElement => !!el);
-  const drawReady = !!drawn && !!container && !!target && live.length === wanted.length;
+  // Lit but not for using, and never a reason to hold the card back.
+  const lit = (drawn?.lit ?? []).map((sel) => firstVisible(sel)).filter((el): el is HTMLElement => !!el);
+  // A moment with nothing to point at (the opening) is ready as soon as the
+  // surface it belongs to is there.
+  const drawReady = !!drawn && !!container && (!drawn.point || !!target) && live.length === wanted.length;
   const missing = drawn && !drawReady ? drawn : null;
   const showing = welcome || drawReady;
   useEffect(() => setGuideShowing(showing), [showing]);
@@ -379,10 +380,11 @@ export function GuideHost() {
       </span>
       {drawn && drawReady && (
         <Coachmark
-          id={`${review ? 'review:' : ''}${drawn.id}`}
+          id={drawn.id}
           voice={drawn.voice}
           target={target}
           live={live}
+          lit={lit}
           side={drawn.side ?? 'top'}
           beside={drawn.beside}
           container={container as HTMLElement}
@@ -390,19 +392,22 @@ export function GuideHost() {
           body={drawn.body}
           at={drawn.at}
           of={drawn.of}
-          canBack={!review && !!before(drawn)}
-          action={
-            review ? { label: 'Back to now' } : drawn.start ? { label: 'Start' } : drawn.done ? { label: 'Done' } : null
-          }
+          canBack={!!TAKES_BACK[drawn.id]}
+          action={drawn.start ? { label: 'Start' } : drawn.done ? { label: 'Done' } : null}
           closeLabel={drawn.done ? 'Close' : 'Close guide'}
-          onBack={() => setReview(before(drawn))}
+          onBack={() => {
+            // Back takes the last chip out and opens the shelf it came from, on
+            // that kind: one press, and they are looking at the choice again.
+            const kind = TAKES_BACK[drawn.id];
+            window.dispatchEvent(new CustomEvent('scenri:guide-take-back', { detail: { kind } }));
+            window.dispatchEvent(new CustomEvent('scenri:guide-picker', { detail: { tab: ASK_TAB[kind] } }));
+          }}
           onAction={() => {
-            if (review) return setReview(null);
             if (drawn.start) return beginNow();
             if (drawn.done && task) finish(task);
           }}
-          onClose={() => (review ? setReview(null) : close(drawn))}
-          onEscape={() => (review ? setReview(null) : close(drawn))}
+          onClose={() => close(drawn)}
+          onEscape={() => close(drawn)}
           onShown={onShown}
           onLost={rerender}
         />

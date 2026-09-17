@@ -30,22 +30,15 @@
 :root[data-guide-picker] [data-guide="compose"] .sc-attachpanel {
   height: min(510px, calc(60vh - var(--sc-coach-h, 150px) - 24px));
 }
-/* First use: the one kind being asked for, said in the rail's place so there
-   is nothing else to wander into. It is a label, not a control, so it keeps
-   its strength while the rest of the head waits. */
-/* the head recedes control by control, so the label saying which kind is being
-   asked for keeps its strength */
+/* First use: the head recedes control by control rather than as a block, so the
+   tab of the kind being asked for still reads as the answer to what am I
+   looking at, while every control around it waits, held and plainly held. */
 [data-guide-stage] .sc-ap-head[data-sc-coach-inert] {
   opacity: 1;
 }
-[data-guide-stage] .sc-ap-head[data-sc-coach-inert] .sc-ap-actions {
+[data-guide-stage] .sc-ap-head[data-sc-coach-inert] .sc-ap-actions,
+[data-guide-stage] .sc-ap-head[data-sc-coach-inert] .sc-verticals button:not([data-on]) {
   opacity: 0.32;
-}
-.sc-ap-only {
-  margin: 0;
-  padding: 0 2px;
-  font: 600 13px var(--sc-font);
-  color: var(--sc-fg);
 }
 
 .sc-ap-inner {
@@ -465,8 +458,10 @@
     height: min(510px, var(--ap-avail, calc(100dvh - 270px)));
     border-radius: var(--sc-radius-float);
   }
+  /* The sheet's room is made by the dock (canvas.css), so the panel above it
+     only has to fit what is left rather than subtract the card twice. */
   :root[data-guide-picker] [data-guide="compose"] .sc-attachpanel {
-    height: min(510px, calc(var(--ap-avail, calc(100dvh - 270px)) - var(--sc-coach-h, 150px) - 24px));
+    height: min(510px, calc(var(--ap-avail, calc(100dvh - 270px)) - var(--sc-coach-h, 150px)));
   }
   /* One row does not fit seven tabs and three controls, and a toolbar
      squeezed onto two read as the desktop panel folded in half. A phone gets

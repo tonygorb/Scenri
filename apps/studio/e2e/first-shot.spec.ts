@@ -47,14 +47,14 @@ test('one thing at a time, from the welcome to a finished picture', async ({ pag
   await page.waitForURL(`**/${slug}/create`);
 
   // It opens by saying what this place is, over the thing that does it.
-  await expect(coachTitle(page)).toHaveText('This is Create');
+  await expect(coachTitle(page)).toContainText('This is Create');
   await expectHeld(page);
-  await expect(page.locator('.sc-coach-veil')).toHaveCSS('backdrop-filter', 'blur(6px)');
+  await expect(page.locator('.sc-coach-veil')).toHaveCSS('backdrop-filter', 'blur(3px)');
   await coachCard(page).getByRole('button', { name: 'Start' }).click();
 
   // Then one ask, on the one control that answers it.
   await expect(coachTitle(page)).toHaveText('Choose a product');
-  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('2 of 5');
+  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('1 of 4');
   await pointsAt(page, '[data-guide="compose.add"]');
   await expect(chips(page)).toHaveCount(0);
 
@@ -62,17 +62,19 @@ test('one thing at a time, from the welcome to a finished picture', async ({ pag
   // nothing else in it, and the tutor follows it.
   await page.locator('[data-guide="compose.add"]').click();
   await expect(coachCard(page)).toHaveAttribute('data-side', 'right');
-  await expect(page.locator('.sc-attachpanel [role="tab"]')).toHaveCount(0);
-  await expect(page.locator('.sc-ap-only')).toHaveText('Products');
+  // the rail is still there, held rather than taken away, with the kind it is
+  // asking for the only one at full strength
+  await expect(page.locator('.sc-attachpanel [role="tab"][data-on]')).toHaveText(/Products/);
+  await expect(page.locator('.sc-attachpanel .sc-ap-sec-title')).toContainText('Products');
   await pickFromPicker(page, 'Product');
 
   // A real pick is what moves it on, and the picker moves with it.
   await expect(chips(page)).toHaveCount(1);
   await expect(coachTitle(page)).toHaveText('Choose a presenter');
-  await expect(page.locator('.sc-ap-only')).toHaveText('Presenters');
+  await expect(page.locator('.sc-attachpanel .sc-ap-sec-title')).toContainText('Presenters');
   await pickFromPicker(page, 'Presenter');
   await expect(coachTitle(page)).toHaveText('Choose a scene');
-  await expect(page.locator('.sc-ap-only')).toHaveText('Scenes');
+  await expect(page.locator('.sc-attachpanel .sc-ap-sec-title')).toContainText('Scenes');
   await pickFromPicker(page, 'Scene');
 
   // Nothing left to add: the picker closes itself rather than asking them to.
@@ -123,19 +125,6 @@ test('opening the shot it made finishes the task, and refining waits to be asked
   await page.locator('.sc-ovl .sc-coach').getByRole('button', { name: 'Done' }).click();
   await expect.poll(async () => (await guideRecord(page)).active).toBeNull();
   expect((await guideRecord(page)).done.refine).toBeTruthy();
-});
-
-test('taking an ingredient back asks for it again, in the same words', async ({ page }) => {
-  const own = await ownBrand(page, 'Take Back');
-  await page.goto(`/${own}/create`);
-  await readTheOpening(page);
-  await pickTheIngredients(page);
-  const presenter = chips(page).nth(1);
-  await presenter.hover();
-  await presenter.locator('[data-role="remove"]').click();
-  await expect(chips(page)).toHaveCount(2);
-  await expect(coachTitle(page)).toHaveText('Choose a presenter');
-  await pointsAt(page, '[data-guide="compose.add"]');
 });
 
 test('a reload lands on the same moment, and the X ends only the guidance', async ({ page }) => {

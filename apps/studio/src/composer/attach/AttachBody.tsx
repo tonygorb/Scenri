@@ -490,17 +490,14 @@ export function AttachBody({
           grid's first tile there, and the composer's own + is the close. */}
       <div className="sc-ap-head" ref={headRef}>
         <div className="sc-ap-tabs">
-          {only ? (
-            // the one kind being asked for, said rather than offered as a choice
-            <p className="sc-ap-only">{only}</p>
-          ) : (
-            <VerticalsTabs
-              aria-label="What to add"
-              activeKey={tab === 'All' ? null : tab}
-              items={tabItems(counts)}
-              onSelect={(v) => onTab((v ?? 'All') as AttachTab)}
-            />
-          )}
+          {/* Asked for one kind, the rail still shows: the tutor holds it
+              rather than taking it away, so nothing has moved when it lets go. */}
+          <VerticalsTabs
+            aria-label="What to add"
+            activeKey={tab === 'All' ? null : tab}
+            items={tabItems(counts)}
+            onSelect={(v) => onTab((v ?? 'All') as AttachTab)}
+          />
         </div>
         <div className="sc-ap-actions">
           <div className="sc-ap-actions-add">

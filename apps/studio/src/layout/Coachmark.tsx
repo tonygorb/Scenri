@@ -32,10 +32,15 @@ const BLOCK_RADIUS = 14;
 const RING_OFFSET = 4;
 /** Marks a window's element while the coach holds it, so what waits inside it can recede (settings.css). */
 const STAGE = 'data-guide-stage';
-/** The window's edge on the curtain: quiet, near-monochrome, no glow. */
-const RIM = 'rgba(255,255,255,0.16)';
+/**
+ * The window's edge on the curtain. Barely there: a lit surface should read as
+ * the page going quiet around it, never as a panel cut out and floating.
+ */
+const RIM = 'rgba(255,255,255,0.05)';
 /** What inside a live surface is drawn as its own window, with its own radius. */
 const SHAPE = '[data-guide-shape]';
+/** No surfaces, shared: a new array each render would restart every effect. */
+const EMPTY: readonly HTMLElement[] = [];
 /** Surfaces a live control opens, which belong to the moment that opened them. */
 const POPPERS = '[data-radix-popper-content-wrapper], .sc-setpop, .sc-morepop, .sc-shotsheet, .sc-note-pop';
 /** Where words go: an ask for them hands over the caret rather than the card. */
@@ -46,6 +51,15 @@ const EDGE = 12;
 /** The pointer keeps clear of the card's rounded corners. */
 const ARROW_INSET = 20;
 const SCROLL_WAIT_MS = 450;
+/**
+ * Below this a card stops floating and docks to the bottom of the screen.
+ * A tooltip is a pointer pattern: on a touch screen the explanation belongs in
+ * a sheet at the bottom (Apple presents a popover as a sheet in the compact
+ * size class; Material calls modal bottom sheets the small-screen pattern),
+ * with the target itself highlighted in place rather than covered by a card.
+ */
+const DOCK_WIDTH = 767;
+
 /** Fixed and sticky chrome a window must not reach under. */
 const CHROME = '.sc-topbar, .sc-tabbar, .sc-filterbar, .sc-canvas-dock, .sc-help-float';
 /** The card fades out before it moves; it never slides across the page. Matches --sc-dur-fast. */
@@ -92,6 +106,8 @@ export interface CoachmarkProps {
   target: HTMLElement | null;
   /** What can be used while the page is held. The lit surfaces are worked out from these. */
   live: readonly HTMLElement[];
+  /** Kept out of the dim, but not made usable. */
+  lit?: readonly HTMLElement[];
   side: Side;
   title?: string;
   body?: string;
@@ -142,8 +158,12 @@ export interface CoachmarkProps {
  */
 export function Coachmark(p: CoachmarkProps) {
   const { id, voice, target, live, side, container, onShown } = p;
+  const lit = p.lit ?? EMPTY;
   const coach = voice === 'ask';
-  const hasCard = !!target && !!(p.title || p.body);
+  // Nothing to point at: the card sits in the middle and the whole page goes
+  // quiet behind it. The one moment that does this is the opening.
+  const centred = !target;
+  const hasCard = !!(p.title || p.body);
   const titleId = useId();
   const bodyId = useId();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -158,6 +178,13 @@ export function Coachmark(p: CoachmarkProps) {
   const lock = useRef<CoachLock | null>(null);
   const [phase, setPhase] = useState<Phase>('moving');
   const [masked] = useState(maskSupported);
+  const [docked, setDocked] = useState(() => window.matchMedia(`(max-width: ${DOCK_WIDTH}px)`).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${DOCK_WIDTH}px)`);
+    const on = () => setDocked(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
   const [view, setView] = useState<View>(() => viewOf(p));
   const latest = useRef(p);
   latest.current = p;
@@ -169,6 +196,7 @@ export function Coachmark(p: CoachmarkProps) {
   const v = phase === 'shown' && view.id === id ? viewOf(p) : view;
   // Live elements arrive as a fresh array each render; the effects follow what is in it.
   const liveKey = useSurfaceKey(live);
+  const litKey = useSurfaceKey(lit);
 
   // One lock for the life of the coach on screen, released however it ends.
   useEffect(() => {
@@ -198,8 +226,7 @@ export function Coachmark(p: CoachmarkProps) {
     let held = false;
     let stopAuto: (() => void) | null = null;
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const lead = live[0] ?? target;
-    if (!lead) return;
+    const lead = live[0] ?? target ?? container;
     let painted = '';
     const pane = target ? scrollPane(target) : null;
     setPhase('moving');
@@ -259,7 +286,7 @@ export function Coachmark(p: CoachmarkProps) {
       // A popover or sheet that control opened joins them while it is open.
       const windows: Window[] = [];
       const shapes: HTMLElement[] = [];
-      for (const el of [...(target ? [target] : []), ...live, ...openPoppers()]) {
+      for (const el of [...(target ? [target] : []), ...live, ...lit, ...openPoppers()]) {
         const stage = el.closest<HTMLElement>(SHAPE) ?? el;
         if (!shapes.includes(stage)) shapes.push(stage);
       }
@@ -276,7 +303,7 @@ export function Coachmark(p: CoachmarkProps) {
         );
         r = r ? union(r, trimmed) : trimmed;
       }
-      if (!t && !r) return away();
+      if (!centred && !t && !r) return away();
       // Held once per showing, and again whenever the page has redrawn a
       // surface somewhere the hold does not reach (a bar swapped at a breakpoint).
       if (held && (live.some((s) => s.closest('[inert]')) || card?.closest('[inert]'))) held = false;
@@ -312,7 +339,38 @@ export function Coachmark(p: CoachmarkProps) {
       // The card's own height, for a surface that has to make room for it (the
       // open picker on a phone, attach-panel.css).
       if (card) document.documentElement.style.setProperty('--sc-coach-h', `${Math.round(card.offsetHeight)}px`);
-      if (card && pointer && target && t) {
+      // The page above it makes the room: the sheet never moves to find some.
+      if (card && docked) document.documentElement.dataset.guideSheet = '';
+      else delete document.documentElement.dataset.guideSheet;
+      /**
+       * Docked: the sheet sits on the bottom edge, above the on-screen
+       * keyboard (the visual viewport, since a fixed element stays under it),
+       * and above whatever is lit down there, so it never covers the control
+       * the step is about (WCAG 2.4.11).
+       */
+      if (card && docked) {
+        const vv = window.visualViewport;
+        const floor = vv ? vh - (vv.height + vv.offsetTop) : 0;
+        // It stays on the bottom edge, one place, all the way through: the
+        // page makes room for it instead (`[data-guide-sheet]`, canvas.css), so
+        // nothing it asks about is behind it and nothing jumps between steps.
+        card.style.left = '0px';
+        card.style.right = '0px';
+        card.style.top = 'auto';
+        card.style.bottom = `${Math.round(floor)}px`;
+        card.dataset.side = 'sheet';
+        // A sheet has no pointer: it spans the screen, so there is no direction
+        // for one to mean. The ring on the target does that job.
+        if (pointer) pointer.hidden = true;
+      } else if (card && centred) {
+        card.style.right = '';
+        card.style.left = `${Math.round((vw - card.offsetWidth) / 2)}px`;
+        card.style.top = `${Math.round((vh - card.offsetHeight) / 2)}px`;
+        card.dataset.side = 'centre';
+        if (pointer) pointer.hidden = true;
+      }
+      if (card && pointer && target && t && !docked) {
+        card.style.right = '';
         // The bars the page pins to its top and bottom are not room for the card.
         const room = {
           top: EDGE + barAbove(chrome, vh),
@@ -443,13 +501,14 @@ export function Coachmark(p: CoachmarkProps) {
     return () => {
       alive = false;
       document.documentElement.style.removeProperty('--sc-coach-h');
+      delete document.documentElement.dataset.guideSheet;
       cancelAnimationFrame(frame);
       stopAuto?.();
       ro.disconnect();
       window.visualViewport?.removeEventListener('resize', schedule);
       window.visualViewport?.removeEventListener('scroll', schedule);
     };
-  }, [id, coach, hasCard, target, liveKey, side, container, onShown, masked]);
+  }, [id, coach, hasCard, target, liveKey, litKey, side, container, onShown, masked, docked]);
 
   // The card's words describe the control while it is the one being pointed at.
   useEffect(() => {

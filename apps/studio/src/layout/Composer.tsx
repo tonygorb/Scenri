@@ -1281,6 +1281,22 @@ export const Composer = forwardRef<
     window.addEventListener('scenri:guide-close-picker', close);
     return () => window.removeEventListener('scenri:guide-close-picker', close);
   }, [guided, attachOpen, closeAttach]);
+  /**
+   * The tutor's Back: the ask before this one put a chip in, so it comes out
+   * again and that ask is simply true once more. Only the last one of its kind,
+   * and only when the tutor asks for it.
+   */
+  useEffect(() => {
+    if (!guided) return;
+    const takeBack = (e: Event) => {
+      const { kind } = (e as CustomEvent<{ kind: 'product' | 'presenter' | 'scene' }>).detail;
+      const want = kind === 'presenter' ? 'character' : kind === 'scene' ? 'template' : 'product';
+      const last = [...sentenceRef.current].reverse().find((t) => t.t === want);
+      if (last) briefRef.current?.remove(last);
+    };
+    window.addEventListener('scenri:guide-take-back', takeBack);
+    return () => window.removeEventListener('scenri:guide-take-back', takeBack);
+  }, [guided]);
   // The tutor asks for one kind at a time: the picker opens on that kind and
   // offers nothing else, so there is nothing to wander into.
   useEffect(() => {

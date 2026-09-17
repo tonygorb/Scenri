@@ -419,6 +419,12 @@
   padding-inline-end: 0.64em;
   background: var(--sc-token-face);
 }
+/* While a guided task is walking someone through a brief, a chip is theirs to
+   change but not to take out: the tutor's Back is what takes one out, a step
+   at a time, so the walk never ends up with a hole in it. */
+:root[data-guide-task] [data-guide="compose"] .sc-token > button {
+  display: none;
+}
 .sc-token > button {
   position: absolute;
   top: 0;
