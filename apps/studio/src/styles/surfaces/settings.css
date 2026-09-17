@@ -1033,13 +1033,30 @@ select.sc-in {
     opacity: 0;
   }
 }
-/* Marks the control inside a larger open surface, such as the + in the composer. */
+/* The stage stays whole and sharp in its window; inside it, whatever the step
+   does not ask for recedes, so the one control that is asked for is the one
+   thing at full strength. It is still there to read, only not yet to use. */
+[data-guide-stage] [data-sc-coach-inert] {
+  opacity: 0.32;
+  transition: opacity var(--sc-dur-slow) var(--sc-ease);
+}
+/* The control the step asks for, inside its stage: a crisp ring clear of its
+   edge that draws the eye once with a soft ripple, then rests. */
 .sc-coach-ring {
   position: fixed;
   z-index: 66;
   box-sizing: border-box;
-  border: 1.5px solid var(--sc-fg);
+  border: 2px solid var(--sc-fg);
   pointer-events: none;
+  animation: sc-coach-ring-in 1.4s var(--sc-ease) 2;
+}
+@keyframes sc-coach-ring-in {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--sc-fg) 28%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--sc-fg) 0%, transparent);
+  }
 }
 .sc-coach {
   position: fixed;
@@ -1165,10 +1182,66 @@ select.sc-in {
   padding: 0 14px;
   font-size: 12.5px;
 }
+.sc-coach-next[aria-disabled="true"] {
+  opacity: 0.35;
+  cursor: default;
+}
+/* What a step still asks for, in one line: each ingredient with its mark,
+   ticked as it comes in. An open one takes the picker to it. */
+.sc-coach-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 12px -6px 0;
+  padding: 0;
+  list-style: none;
+}
+.sc-coach-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 8px 0 6px;
+  border: 0;
+  border-radius: var(--sc-radius-full);
+  background: none;
+  font: 500 12.5px var(--sc-font);
+  color: var(--sc-fg);
+  white-space: nowrap;
+}
+button.sc-coach-item {
+  cursor: pointer;
+}
+button.sc-coach-item:hover:not(:active) {
+  background: var(--sc-hover);
+}
+.sc-coach-item[data-done] {
+  color: var(--sc-fg2);
+}
+.sc-coach-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--sc-line-strong);
+  border-radius: 50%;
+}
+.sc-coach-item[data-done] .sc-coach-mark {
+  border-color: var(--sc-fg);
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+}
 @media (prefers-reduced-motion: reduce) {
   .sc-coach-veil,
-  .sc-coach-rim {
+  .sc-coach-rim,
+  .sc-coach-ring {
     animation: none;
+  }
+  [data-guide-stage] [data-sc-coach-inert] {
+    transition: none;
   }
   .sc-coach {
     transition: none;

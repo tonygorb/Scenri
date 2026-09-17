@@ -52,12 +52,12 @@ test('First steps, asked for, opens on Home ticked by what the library holds, an
   await page.getByRole('menuitem', { name: 'First steps' }).click();
   await page.waitForURL((u) => u.pathname === `/${s}`);
   // the seeded brand already holds a finished shot and a product of its own
-  await expect(steps(page).locator('.sc-steps-name')).toHaveText([
-    'Make your first shot, done',
-    'Refine a shot',
-    'Add your own product, done',
-    'Cast a presenter',
-    'Build a scene',
+  await expect(steps(page).locator('.sc-steps-item')).toHaveText([
+    'First shot, done',
+    'Refine',
+    'Product, done',
+    'Presenter',
+    'Scene',
   ]);
 
   // Opening a surface is not asking to be guided on an install that was not new.

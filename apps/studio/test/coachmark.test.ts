@@ -45,6 +45,7 @@ function mount(props: Partial<CoachmarkProps>, o: { inShell?: boolean } = {}) {
     voice: 'card',
     target: document.getElementById('target'),
     surfaces: [],
+    live: [],
     side: 'bottom',
     container: o.inShell ? (document.getElementById('shell') as HTMLElement) : document.body,
     title: 'A title',
@@ -101,5 +102,30 @@ describe('Coachmark', () => {
     expect(document.querySelector('.sc-coach-next')?.textContent).toBe('Continue');
     expect(document.querySelector('.sc-coach-back')).toBeNull();
     expect(document.querySelector('.sc-coach')?.hasAttribute('data-beside')).toBe(true);
+  });
+
+  it('a checklist ticks what is in, an open row takes the person to it, and Continue waits for all of it', () => {
+    const asked: string[] = [];
+    let acted = 0;
+    mount({
+      voice: 'card',
+      checklist: [
+        { id: 'product', label: 'Product', done: true },
+        { id: 'presenter', label: 'Presenter', done: false },
+      ],
+      onCheck: (id) => asked.push(id),
+      action: { label: 'Continue', disabled: true },
+      onAction: () => acted++,
+    });
+    const rows = [...document.querySelectorAll('.sc-coach-item')];
+    expect(rows.map((r) => r.textContent)).toEqual(['Product, added', 'Presenter, not added yet']);
+    // a ticked row is a statement, not a button
+    expect(rows[0].tagName).toBe('SPAN');
+    act(() => (rows[1] as HTMLButtonElement).click());
+    expect(asked).toEqual(['presenter']);
+    const next = document.querySelector<HTMLButtonElement>('.sc-coach-next');
+    expect(next?.getAttribute('aria-disabled')).toBe('true');
+    act(() => next?.click());
+    expect(acted).toBe(0);
   });
 });

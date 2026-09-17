@@ -1,12 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
-import { guideRecord, noWelcomeWait, setUpBrand, steps, welcome } from './firstUse.js';
+import { guideRecord, isInert, noWelcomeWait, pointsAt, setUpBrand, steps, welcome } from './firstUse.js';
 
 /**
- * The presenter task (DESIGN.md, "First use"): the studio held by the same
- * coach as the first shot, at the three moments that need a word (the start,
- * the face, the save) and quiet through every other question. A studio left
- * with a draft keeps the task, and First steps continues that exact draft.
+ * The presenter task (DESIGN.md, "First use"): the conversation held by the
+ * same coach as the first shot at every answer that shapes the person, each
+ * card beside the conversation pointing at the open question, only its answers
+ * live; quiet through the look questions after the first and the waits. A
+ * studio left with a draft keeps the task, and First steps continues that
+ * exact draft.
  */
 isolate({
   brand: false,
@@ -50,12 +52,11 @@ test('the studio is held at the face and the save, quiet between, and the task e
 
   // First steps continues that exact draft.
   await page.goto(`/${slug}`);
-  const item = steps(page).locator('.sc-steps-item[data-state="active"]');
-  await expect(item.locator('.sc-steps-name')).toHaveText('Continue your presenter');
-  await item.click();
+  await expect(steps(page).locator('.sc-steps-title')).toHaveText('Continue your presenter');
+  await steps(page).locator('.sc-steps-go').click();
   await page.waitForURL(`**/presenters/new/${draft.id}`);
 
-  await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Settle the face first', { timeout: 20_000 });
+  await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Decide the face', { timeout: 20_000 });
   await expect(studio(page).locator('.sc-coach-veil')).toHaveCount(1);
   expect(
     await studio(page)
@@ -63,25 +64,91 @@ test('the studio is held at the face and the save, quiet between, and the task e
       .evaluate((el) => !!el.closest('[inert]')),
   ).toBe(false);
 
-  // Deciding the face lets the studio speak for itself while it draws the rest.
+  // Deciding the face moves the guide on with the conversation.
   await answer(page, 'Use this person').click();
-  await expect(studioCoach(page)).toHaveCount(0);
+  await expect(studioCoach(page).locator('.sc-coach-title')).not.toHaveText('Decide the face');
 
-  // The body view and the extras are the studio's own questions: answered, with the guide quiet throughout.
+  // The full body and the extra views each get their own word, pointing at their own answers.
   const save = answer(page, 'Save presenter');
+  const expectations: [string, string][] = [
+    ['Use it', 'Check the full body'],
+    ['Not now', 'More angles are optional'],
+  ];
   for (let i = 0; i < 120 && !(await save.isVisible()); i++) {
-    for (const label of ['Use it', 'Not now']) {
+    for (const [label, title] of expectations) {
       const b = answer(page, label);
       if (await b.isVisible()) {
-        await expect(studioCoach(page)).toHaveCount(0);
+        await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText(title);
         await b.click();
       }
     }
     await page.waitForTimeout(500);
   }
-  await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Save to cast them', { timeout: 60_000 });
+  await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Save your presenter', { timeout: 60_000 });
   await save.click();
 
   await expect.poll(async () => (await guideRecord(page)).active, { timeout: 20_000 }).toBeNull();
   expect((await guideRecord(page)).done.presenter).toBeTruthy();
+});
+
+test('a presenter from scratch: every answer that shapes them is guided, one question at a time, to the save', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const brand = ((await (await page.request.get('/api/brands')).json()) as { id: string; slug: string }[])[0];
+  await page.request.post('/api/guide', { data: { start: { task: 'presenter', brandId: brand.id } } });
+  await page.goto(`/${brand.slug}/presenters/new`);
+  const title = studioCoach(page).locator('.sc-coach-title');
+  const q = (id: string) => `.sc-pstudio [data-turn="q:${id}"]`;
+
+  // The start: the card beside the question, pointing at it; its answers usable, the composer not.
+  await expect(title).toHaveText('Create a presenter', { timeout: 20_000 });
+  await expect(studioCoach(page)).toHaveAttribute('data-beside', 'true');
+  await pointsAt(page, `${q('source')} .sc-convo-q`);
+  expect(await isInert(page, '.sc-pstudio-foot .sc-convo-card')).toBe(true);
+  await answer(page, 'Describe someone').click();
+
+  // The first look question gets a word; the rows after it explain themselves.
+  await expect(title).toHaveText('Build their look');
+  await pointsAt(page, `${q('look-who')} .sc-convo-q`);
+  await answer(page, 'Woman').click();
+  await expect(page.getByRole('log')).toContainText('Roughly how old?');
+  await expect(studioCoach(page)).toHaveCount(0);
+  for (const pick of ['30s', 'Mediterranean', 'Olive', 'Black', 'Shoulder', 'Green', 'Solid', 'Average']) {
+    await answer(page, pick).click();
+  }
+
+  // Distinctive details, then the read-back before anything is drawn.
+  await expect(title).toHaveText('Anything distinctive?');
+  await pointsAt(page, `${q('traits')} .sc-convo-q`);
+  await answer(page, 'Nothing else').click();
+  await expect(title).toHaveText('Draw the presenter');
+  await answer(page, 'Draw the presenter').click();
+  await page.waitForURL(/\/presenters\/new\/pd-/, { timeout: 40_000 });
+
+  // From the face to the save, each decision is its own step; the name is typed where the card points.
+  const seen: string[] = [];
+  for (let i = 0; i < 240; i++) {
+    const now = (await title.count()) ? ((await title.textContent()) ?? '') : '';
+    if (now === 'Save your presenter') break;
+    if (now && seen.at(-1) !== now) seen.push(now);
+    if (now === 'Decide the face') {
+      expect(await isInert(page, '.sc-pstudio-well')).toBe(false);
+      await answer(page, 'Use this person').click();
+    } else if (now === 'Check the full body') await answer(page, 'Use it').click();
+    else if (now === 'More angles are optional') await answer(page, 'Not now').click();
+    else if (now === 'Name them') {
+      expect(await isInert(page, '.sc-pstudio-foot .sc-convo-card')).toBe(false);
+      const words = page.locator('.sc-pstudio-foot .sc-convo-card textarea');
+      await words.fill('Maya');
+      await words.press('Enter');
+    }
+    await page.waitForTimeout(250);
+  }
+  expect(seen).toContain('Decide the face');
+  expect(seen).toContain('Name them');
+  await expect(title).toHaveText('Save your presenter', { timeout: 30_000 });
+  await answer(page, 'Save presenter').click();
+  await expect.poll(async () => (await guideRecord(page)).active, { timeout: 20_000 }).toBeNull();
 });

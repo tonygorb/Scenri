@@ -48,8 +48,9 @@ import { sizingOf } from '../engines/capabilities.js';
 import { OpenAIMark } from './OpenAIMark.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { publishComposer, publishOverlay, type ComposerFacts } from '../guideFacts.js';
+import { guideFactsSnapshot, publishComposer, publishOverlay, type ComposerFacts } from '../guideFacts.js';
 import { PREF, useLocalPref, useRecipeSetting } from '../prefs.js';
+import { useMediaQuery } from '../useMediaQuery.js';
 import { useToasts } from '../toasts.js';
 import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
 import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
@@ -311,9 +312,28 @@ export const Composer = forwardRef<
   const [preview, setPreview] = useState<(BriefPreview & { forBrief: unknown }) | null>(null);
   const [attachOpen, setAttachOpen] = useState(false);
   const [attachTab, setAttachTab] = useState<AttachTab>('All');
+  const [attachTabNonce, setAttachTabNonce] = useState(0);
+  /** First use: which ingredients the library has any of, as the picker last said. */
+  const [offered, setOffered] = useState({ product: true, presenter: true, scene: true });
   const [quality, setQuality, borrowQuality] = useRecipeSetting<QualityId>(PREF.quality, 'standard');
   const [uploading, setUploading] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreOpen, setMoreOpenState] = useState(false);
+  /**
+   * First use (DESIGN.md, "First use"): which settings have been opened and
+   * answered here. The guide walks each one; keeping the current value counts.
+   */
+  const [settled, setSettled] = useState({ shape: false, count: false, quality: false });
+  const settle = useCallback(
+    (which: 'shape' | 'count' | 'quality' | 'all') =>
+      setSettled((s) => (which === 'all' ? { shape: true, count: true, quality: true } : { ...s, [which]: true })),
+    [],
+  );
+  const setMoreOpen = (next: boolean) => {
+    if (!next && moreOpen) settle('all');
+    setMoreOpenState(next);
+  };
+  const settingsPills = useMediaQuery('(hover: hover) and (min-width: 1024px)');
+  const settingsSheet = useMediaQuery('(max-width: 767px)');
   const briefRef = useRef<BriefInputHandle>(null);
   const attachRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -894,6 +914,7 @@ export const Composer = forwardRef<
 
   const openAttach = (tab: AttachTab) => {
     setAttachTab(tab);
+    setAttachTabNonce((n) => n + 1);
     setAttachOpen(true);
   };
   const attachOpenRef = useRef(false);
@@ -1129,6 +1150,12 @@ export const Composer = forwardRef<
   const described = useCallback(describedToken, [budget]);
 
   const go = async () => {
+    // Under the first-use guide, a send before its Generate step would skip what
+    // the guide is asking for: Enter says the step in hand is done instead.
+    if (guided && guideFactsSnapshot().holdSend) {
+      window.dispatchEvent(new Event('scenri:guide-enter'));
+      return;
+    }
     if (!canGo) return;
     setBusy(true);
     setErr(null);
@@ -1253,6 +1280,9 @@ export const Composer = forwardRef<
         pickerOpen: attachOpen,
         refining: mode === 'edit' && !!target,
         engine: !noEngine ? 'ready' : setupNeeded ? 'setup' : 'settings',
+        settings: settingsPills ? 'pills' : settingsSheet ? 'sheet' : 'more',
+        settled,
+        offered,
       }
     : null;
   useEffect(() => {
@@ -1269,6 +1299,15 @@ export const Composer = forwardRef<
     window.addEventListener('scenri:guide-close-picker', close);
     return () => window.removeEventListener('scenri:guide-close-picker', close);
   }, [guided, attachOpen, closeAttach]);
+  // The guide's checklist: an ingredient still missing opens the picker on its own kind.
+  const openAttachRef = useRef(openAttach);
+  openAttachRef.current = openAttach;
+  useEffect(() => {
+    if (!guided) return;
+    const open = (e: Event) => openAttachRef.current((e as CustomEvent<{ tab: AttachTab }>).detail.tab);
+    window.addEventListener('scenri:guide-picker', open);
+    return () => window.removeEventListener('scenri:guide-picker', open);
+  }, [guided]);
   // The open shot's composer, reached for: the moment refining is worth a word.
   const [reached, setReached] = useState(false);
   const engaged = variant === 'overlay' && (reached || sentence.some((t) => t.t === 'text' && !!t.v.trim()));
@@ -1317,6 +1356,8 @@ export const Composer = forwardRef<
           refining={scenesSitOut}
           full={ceilingFull}
           initialTab={attachTab}
+          tabNonce={attachTabNonce}
+          onOffered={guided ? setOffered : undefined}
           id={attachPanelId}
           attached={attachedInShot}
           onUpload={() => fileRef.current?.click()}
@@ -1521,11 +1562,18 @@ export const Composer = forwardRef<
               quality={quality}
               onQuality={setQualityId}
               onCloseAutoFocus={backToBrief}
+              guided={guided}
+              onSettle={settle}
             />
 
             <Popover.Root open={moreOpen} onOpenChange={setMoreOpen}>
               <Popover.Trigger>
-                <button type="button" className="sc-var sc-more" aria-label={`Shot settings. ${settingsSummary}`}>
+                <button
+                  type="button"
+                  className="sc-var sc-more"
+                  aria-label={`Shot settings. ${settingsSummary}`}
+                  data-guide={guided && !settingsSheet ? 'compose.settings' : undefined}
+                >
                   <SlidersHorizontal size={14} />
                   More
                 </button>
@@ -1556,6 +1604,8 @@ export const Composer = forwardRef<
 
             {/* the touch shell for the same fields: a sheet under the thumb */}
             <ShotSettings
+              guide={guided && settingsSheet ? 'compose.settings' : undefined}
+              onSettle={() => settle('all')}
               mode={mode}
               engineId={engineId}
               engineName={engineLabel}

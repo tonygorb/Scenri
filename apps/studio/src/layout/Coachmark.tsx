@@ -1,8 +1,8 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal, flushSync } from 'react-dom';
-import { X } from '@phosphor-icons/react';
+import { Check, X } from '@phosphor-icons/react';
 import { arrow, autoUpdate, computePosition, flip, offset, shift, type VirtualElement } from '@floating-ui/dom';
-import type { Side } from '../guidedTasks.js';
+import type { GuideCheck, Side } from '../guidedTasks.js';
 import { Tip } from './Tip.js';
 import { createLock, type CoachLock } from './coachLock.js';
 import {
@@ -23,13 +23,15 @@ import {
   type Window,
 } from './coachGeometry.js';
 
-/** Air between a live surface and its window. */
-const SURFACE_PAD = 3;
+/** A window is the stage's own edge: its real corners, no halo of air around it. */
+const SURFACE_PAD = 0;
 /** A surface with no corners of its own (a block of text) gets room and a rounded window. */
 const BLOCK_PAD = 10;
 const BLOCK_RADIUS = 14;
-/** Air between a control the card points at and the card. */
-const RING_PAD = 6;
+/** The ring around the control the step asks for, clear of its edge. */
+const RING_OFFSET = 4;
+/** Marks a window's element while the coach holds it, so what waits inside it can recede (settings.css). */
+const STAGE = 'data-guide-stage';
 /** The window's edge on the curtain: quiet, near-monochrome, no glow. */
 const RIM = 'rgba(255,255,255,0.16)';
 /** What inside a live surface is drawn as its own window, with its own radius. */
@@ -51,7 +53,7 @@ const FADE_MS = 120;
  * surface opens (a chip's peek, the swap sheet, a menu).
  */
 const KEEP =
-  '[aria-live], .sc-toasts, .sc-upd-float, .sc-upd-overlay, [data-radix-popper-content-wrapper], .sc-chip-preview, .sc-swap';
+  '[aria-live], .sc-toasts, .sc-upd-float, .sc-upd-overlay, [data-radix-popper-content-wrapper], .sc-chip-preview, .sc-swap, .sc-shotsheet, .sc-shotsheet-scrim';
 
 type Phase = 'moving' | 'shown' | 'stowed' | 'away';
 
@@ -62,6 +64,7 @@ interface View {
   body?: string;
   canBack: boolean;
   action: CoachmarkProps['action'];
+  checklist?: GuideCheck[];
 }
 const viewOf = (p: CoachmarkProps): View => ({
   id: p.id,
@@ -69,6 +72,7 @@ const viewOf = (p: CoachmarkProps): View => ({
   body: p.body,
   canBack: p.canBack,
   action: p.action,
+  checklist: p.checklist,
 });
 
 export interface CoachmarkProps {
@@ -82,14 +86,20 @@ export interface CoachmarkProps {
   voice: 'coach' | 'card';
   /** What the card points at. A coach step whose words sit in a surface's own slot has no card and no target. */
   target: HTMLElement | null;
-  /** coach: the surfaces left open and live, such as the whole composer. */
+  /** coach: the surfaces the curtain leaves open to see, such as the whole composer. */
   surfaces: readonly HTMLElement[];
+  /** coach: what inside those windows can be used; the rest of them waits. */
+  live: readonly HTMLElement[];
   side: Side;
   title?: string;
   body?: string;
   canBack: boolean;
-  /** The card's one button, when it has one: Next in a review, Done, Continue. */
-  action: { label: string } | null;
+  /** The card's one button, when it has one: Next in a review, Done, Continue. Disabled until the step is answered. */
+  action: { label: string; disabled?: boolean } | null;
+  /** What the step still asks for, each ticked as it comes in. */
+  checklist?: GuideCheck[];
+  /** An open row of the checklist, pressed: take the person to it. */
+  onCheck?: (id: GuideCheck['id']) => void;
   /** Beside its target the card is narrower, so it fits beside a picker, a dialog or a question on more screens. */
   beside?: boolean;
   /**
@@ -124,7 +134,7 @@ export interface CoachmarkProps {
  * draws it where the control actually is and holds the page while it does.
  */
 export function Coachmark(p: CoachmarkProps) {
-  const { id, voice, target, surfaces, side, container, onShown } = p;
+  const { id, voice, target, surfaces, live, side, container, onShown } = p;
   const coach = voice === 'coach';
   const hasCard = !!target && !!(p.title || p.body);
   const titleId = useId();
@@ -145,9 +155,14 @@ export function Coachmark(p: CoachmarkProps) {
   const latest = useRef(p);
   latest.current = p;
   const everShown = useRef(false);
+  /** The step the card last showed: a live surface opening under the same step never fades the words. */
+  const shownId = useRef<string | null>(null);
+  /** The elements drawn as windows right now, marked as the stage. */
+  const staged = useRef<HTMLElement[]>([]);
   const v = phase === 'shown' && view.id === id ? viewOf(p) : view;
   // Surfaces arrive as a fresh array each render; the effects follow what is in it.
   const surfaceKey = useSurfaceKey(surfaces);
+  const liveKey = useSurfaceKey(live);
 
   // One lock for the life of the coach on screen, released however it ends.
   useEffect(() => {
@@ -156,6 +171,8 @@ export function Coachmark(p: CoachmarkProps) {
     return () => {
       lock.current?.release();
       lock.current = null;
+      for (const el of staged.current) el.removeAttribute(STAGE);
+      staged.current = [];
     };
   }, [coach, container]);
 
@@ -188,7 +205,7 @@ export function Coachmark(p: CoachmarkProps) {
         ...(catcher ? [catcher] : []),
         ...(ring ? [ring] : []),
         ...(rim ? [rim] : []),
-        ...surfaces,
+        ...live,
         ...document.querySelectorAll(KEEP),
       ]);
 
@@ -250,27 +267,31 @@ export function Coachmark(p: CoachmarkProps) {
       if (!t && !r) return away();
       // Held once per showing, and again whenever the page has redrawn a
       // surface somewhere the hold does not reach (a bar swapped at a breakpoint).
-      if (held && (surfaces.some((s) => s.closest('[inert]')) || card?.closest('[inert]'))) held = false;
+      if (held && (live.some((s) => s.closest('[inert]')) || card?.closest('[inert]'))) held = false;
 
       if (coach && veil && catcher && ring && rim) {
         if (!windows.length && t)
-          windows.push({ ...pad(t, RING_PAD), radius: cornerRadius(target as HTMLElement) + RING_PAD });
+          windows.push({ ...pad(t, RING_OFFSET), radius: cornerRadius(target as HTMLElement) + RING_OFFSET });
+        // The stage stays in view whole; inside it, what the step does not ask for recedes.
+        for (const el of staged.current) if (!shapes.includes(el)) el.removeAttribute(STAGE);
+        for (const el of shapes) el.setAttribute(STAGE, '');
+        staged.current = shapes;
         const boxes = windows.map((w) => [w.left, w.top, w.right, w.bottom, w.radius].map(Math.round).join(','));
         const key = `${boxes.join('|')}@${vw}x${vh}`;
         if (key !== painted) {
           painted = key;
           paintVeil(veil, catcher, rim, windows, masked);
         }
-        // A button inside a window wears a thin ring of its own; a window that is
-        // itself the target, or a field to type in, does not.
+        // The control the step asks for wears a ring, clear of its edge; a window
+        // that is itself the target, or a field to type in, does not.
         if (target && t && !shapes.includes(target) && target.matches('button, a[href], [role="button"]')) {
-          const ringBox = pad(t, 3);
+          const ringBox = pad(t, RING_OFFSET);
           Object.assign(ring.style, {
             left: `${ringBox.left}px`,
             top: `${ringBox.top}px`,
             width: `${width(ringBox)}px`,
             height: `${height(ringBox)}px`,
-            borderRadius: `calc(${getComputedStyle(target).borderRadius} + 3px)`,
+            borderRadius: `${cornerRadius(target) + RING_OFFSET}px`,
           });
           ring.hidden = false;
         } else ring.hidden = true;
@@ -298,7 +319,7 @@ export function Coachmark(p: CoachmarkProps) {
         const covers = (x: number, y: number) =>
           intersects(
             { left: x, top: y, right: x + card.offsetWidth, bottom: y + card.offsetHeight },
-            pad(t, SURFACE_PAD),
+            pad(t, RING_OFFSET),
           );
         // A card beside its target, on a screen too narrow for either side, goes below or above it instead.
         const sideways = side === 'left' || side === 'right';
@@ -350,7 +371,7 @@ export function Coachmark(p: CoachmarkProps) {
       everShown.current = true;
       let moved = false;
       if (coach && card) {
-        const inSurface = (n: Element | null) => !!n && surfaces.some((s) => s.contains(n));
+        const inSurface = (n: Element | null) => !!n && live.some((s) => s.contains(n));
         // A card button that handed the caret to a live surface (Continue into the brief) leaves it there.
         if (pressed.current && inSurface(document.activeElement)) pressed.current = null;
         else if (pressed.current) {
@@ -358,12 +379,11 @@ export function Coachmark(p: CoachmarkProps) {
           (again ?? actionRef.current ?? card).focus({ preventScroll: true });
           pressed.current = null;
         } else {
+          // Only focus that is lost (on the page's body, or on something the coach
+          // now holds) comes to the card: focus in a live control, or in a popover
+          // it just opened, stays where the person put it.
           const active = document.activeElement;
-          if (
-            !active ||
-            active === document.body ||
-            !(card.contains(active) || surfaces.some((s) => s.contains(active)))
-          ) {
+          if (!active || active === document.body || active.closest('[inert]')) {
             card.focus({ preventScroll: true });
             moved = true;
           }
@@ -374,7 +394,8 @@ export function Coachmark(p: CoachmarkProps) {
 
     // Fade out what was showing, change the words, bring a target below the
     // fold up once in its own pane, and only then place the card and fade it in.
-    const fade = everShown.current && !still && hasCard ? FADE_MS : 0;
+    const fade = everShown.current && !still && hasCard && shownId.current !== id ? FADE_MS : 0;
+    shownId.current = id;
     void wait(fade)
       .then(() => {
         if (!alive) return;
@@ -398,7 +419,7 @@ export function Coachmark(p: CoachmarkProps) {
       window.visualViewport?.removeEventListener('resize', schedule);
       window.visualViewport?.removeEventListener('scroll', schedule);
     };
-  }, [id, coach, hasCard, target, surfaceKey, side, container, onShown, masked]);
+  }, [id, coach, hasCard, target, surfaceKey, liveKey, side, container, onShown, masked]);
 
   // The card's words describe the control while it is the one being pointed at.
   useEffect(() => {
@@ -419,7 +440,7 @@ export function Coachmark(p: CoachmarkProps) {
   const { onEscape } = p;
   useEffect(() => {
     if (!coach) return;
-    const inSurfaces = (n: Node | null) => !!n && surfaces.some((s) => s.contains(n));
+    const inSurfaces = (n: Node | null) => !!n && live.some((s) => s.contains(n));
     const onKey = (e: KeyboardEvent) => {
       const card = cardRef.current;
       const from = e.target instanceof Node ? e.target : null;
@@ -477,7 +498,7 @@ export function Coachmark(p: CoachmarkProps) {
       window.removeEventListener('pointerdown', onDown, true);
       document.removeEventListener('focusout', onFocusOut, true);
     };
-  }, [id, coach, surfaceKey, onEscape]);
+  }, [id, coach, liveKey, onEscape]);
 
   return createPortal(
     <>
@@ -545,6 +566,29 @@ export function Coachmark(p: CoachmarkProps) {
               {v.body}
             </p>
           )}
+          {v.checklist && v.checklist.length > 0 && (
+            <ul className="sc-coach-list">
+              {v.checklist.map((k) => (
+                <li key={k.id}>
+                  {k.done ? (
+                    <span className="sc-coach-item" data-done="">
+                      <span className="sc-coach-mark" aria-hidden="true">
+                        <Check size={10} weight="bold" />
+                      </span>
+                      {k.label}
+                      <span className="sc-vh">, added</span>
+                    </span>
+                  ) : (
+                    <button type="button" className="sc-coach-item" onClick={() => p.onCheck?.(k.id)}>
+                      <span className="sc-coach-mark" aria-hidden="true" />
+                      {k.label}
+                      <span className="sc-vh">, not added yet</span>
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
           {(v.canBack || v.action) && (
             <div className="sc-coach-foot">
               {v.canBack && (
@@ -565,7 +609,9 @@ export function Coachmark(p: CoachmarkProps) {
                   ref={actionRef}
                   type="button"
                   className="sc-btn sc-btn-primary sc-coach-next"
+                  aria-disabled={v.action.disabled || undefined}
                   onClick={() => {
+                    if (v.action?.disabled) return;
                     pressed.current = 'action';
                     p.onAction(id);
                   }}

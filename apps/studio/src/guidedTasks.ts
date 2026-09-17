@@ -19,8 +19,18 @@ import type { ComposerFacts, StudioFacts } from './guideFacts.js';
 export type Side = 'top' | 'bottom' | 'left' | 'right';
 
 export interface GuideAction {
-  kind: 'close-picker' | 'done';
+  /** close-picker closes the open picker; confirm says the step is done; done ends the task. */
+  kind: 'close-picker' | 'confirm' | 'done';
   label: string;
+  /** Shown, but waiting for what the step asks for first. */
+  disabled?: boolean;
+}
+
+/** One ingredient a first shot asks for, ticked when the brief holds it. */
+export interface GuideCheck {
+  id: 'product' | 'presenter' | 'scene';
+  label: string;
+  done: boolean;
 }
 
 export interface Guidance {
@@ -29,17 +39,23 @@ export interface Guidance {
   voice: 'coach' | 'card' | 'quiet';
   /** What the card points at. */
   target?: string;
-  /** coach: what stays live while the screen is held. The windows are drawn from the shapes inside it. */
+  /** coach: what the curtain leaves open to see. The windows are drawn from the shapes inside it. */
   surfaces?: string[];
+  /** coach: what can be used inside those windows. Everything else in them waits. Defaults to the surfaces. */
+  live?: string[];
   /** The surface that owns the screen, when it is not the page: the guide is drawn inside it. */
   container?: string;
   side?: Side;
   /** The card sits beside its target where there is room (right, then left), and above it where there is not. */
   beside?: boolean;
+  /** Surfaces that join the live windows while they are open, such as the popover a control opens. */
+  optional?: string[];
   title?: string;
   body?: string;
   /** The card's one button. */
   action?: GuideAction;
+  /** What the step still asks for, ticked as it comes in; an open row takes the picker to it. */
+  checklist?: GuideCheck[];
   /** Finished: the X and Done both end the task as done. */
   done?: boolean;
   /** The X only puts this card away until the step changes. */
@@ -55,75 +71,123 @@ const PICKER = '[data-guide="compose"] .sc-attachpanel';
 export const COPY = {
   engine: {
     title: 'Connect image generation',
-    body: 'Your first shot needs it. The rest of Scenri works meanwhile.',
+    body: 'Scenri needs an image engine to make shots. Setting one up takes about a minute.',
   },
   add: {
-    title: 'Every shot starts from ingredients',
-    body: "Scenri keeps products, presenters and scenes so you never describe them twice. Start with what you're shooting.",
+    title: 'Add your ingredients',
+    body: 'A shot needs a product, a presenter and a scene. Open the ingredients to add one of each.',
   },
-  pick: {
-    title: "A product is what you're shooting",
-    body: 'Its real photos keep it exact in every shot. Pick one of yours or one of ours.',
+  needProduct: {
+    title: 'Add a product',
+    body: "A product is what you're selling. Its real photos keep it exact in every shot.",
   },
-  pickedProduct: {
-    title: 'Add who appears, or where',
-    body: 'A presenter is the same person in every shot; a scene is the world and its light. Both are optional.',
+  needPresenter: {
+    title: 'Add a presenter',
+    body: 'A presenter is who shows it. The same face appears in every shot.',
   },
-  pickedOther: {
-    title: "Add what they're showing",
-    body: 'A product keeps its real photos exact. You can carry on without one.',
+  needScene: {
+    title: 'Add a scene',
+    body: 'A scene is where it happens: a place and its light, ready to shoot in again.',
   },
   pickedAll: {
-    title: "That's a shot's ingredients",
-    body: 'Next, a few words of direction.',
+    title: "That's everything a shot needs",
+    body: 'Continue to describe the shot.',
   },
   direct: {
-    title: 'Now direct it',
-    body: 'A few words for the place, the light and the moment. The ingredients already carry how things look.',
+    title: 'Describe the shot',
+    body: 'A few words about the place, the light or the moment. Your ingredients already carry how things look.',
+  },
+  shape: {
+    title: 'Choose the shape',
+    body: 'Square for feeds, tall for stories, wide for banners. Open it and pick one.',
+  },
+  count: {
+    title: 'Choose how many',
+    body: 'Each shot is its own take on the same brief. Open it and pick how many to make.',
+  },
+  quality: {
+    title: 'Choose the size',
+    body: 'Larger shots take longer to make. Open it and pick one; Standard is right for trying ideas.',
+  },
+  settings: {
+    title: 'Choose shape, number and size',
+    body: 'The shape of the frame, how many takes, and how large. Open the settings and set them.',
   },
   generate: {
-    title: 'Make the shot',
-    body: 'Scenri composes your ingredients and direction into one shot.',
+    title: 'Make it',
+    body: 'Scenri puts your ingredients and words together into shots.',
   },
   waiting: {
-    title: 'Your shot is being made',
+    title: 'Your shots are on the way',
     body: 'Every shot keeps its ingredients, so you can change one thing later without starting over.',
   },
   failed: {
-    title: "That one didn't finish",
-    body: 'The tile says why. Your ingredients and words are still in the brief.',
+    title: "That one didn't work",
+    body: 'The tile says why. Your ingredients and words are still in the brief, so you can try again.',
   },
   result: {
-    title: 'Your first shot',
-    body: 'Open it and say what to change. Everything else stays as it is.',
+    title: 'Your first shot is ready',
+    body: 'Open it to refine: say what to change, and everything else stays.',
   },
   refineAsk: {
-    title: 'Change one thing at a time',
-    body: 'Like warmer light or a closer crop. The rest of the shot stays.',
+    title: 'Change one thing',
+    body: 'Like warmer light or a closer crop. Everything else in the shot stays.',
   },
   refineResult: {
-    title: 'This is a new version',
-    body: 'The original is one step back.',
+    title: 'A new version',
+    body: 'The original is one step back, so nothing is lost.',
   },
   product: {
-    title: "A product is what you're shooting",
-    body: 'A few real photos keep it exact in every shot, or import your store below.',
+    title: 'Add your product',
+    body: 'A few real photos keep it exact in every shot. You can also import your store below.',
   },
   presenterIntro: {
-    title: 'A presenter is who appears',
-    body: 'Cast someone once and the same face fronts every shot. Describe someone new, or start from photos of a real person.',
+    title: 'Create a presenter',
+    body: 'A presenter is a person you create once and reuse, so the same face appears in every shot. Describe someone, or start from photos.',
+  },
+  presenterLook: {
+    title: 'Build their look',
+    body: 'A few quick questions about how they look. Pick an answer, or type your own.',
+  },
+  presenterDescribe: {
+    title: 'Describe them',
+    body: 'One or two sentences: who they are, roughly how old, and what stands out. You can change anything later.',
+  },
+  presenterPhotos: {
+    title: 'Start from real photos',
+    body: 'The face in these photos becomes their face in every shot. Sharp, front-facing and well lit works best.',
+  },
+  presenterTraits: {
+    title: 'Anything distinctive?',
+    body: 'Glasses, freckles, a tattoo: pick what makes them recognisable, or choose Nothing else.',
+  },
+  presenterDraw: {
+    title: 'Draw the presenter',
+    body: "Scenri draws the face first, and you'll decide on it before anything else is made.",
   },
   presenterFace: {
-    title: 'Settle the face first',
-    body: 'Every shot with this presenter uses it. Use it, try again, or say what to change.',
+    title: 'Decide the face',
+    body: 'Every shot with this presenter uses this face. Use it, try again, or say what to change.',
+  },
+  presenterBody: {
+    title: 'Check the full body',
+    body: 'This view keeps their build and clothes right in full-length shots. Use it, or try again.',
+  },
+  presenterExtras: {
+    title: 'More angles are optional',
+    body: 'Extra views help in action shots. Not now is fine for a first presenter.',
+  },
+  presenterName: {
+    title: 'Name them',
+    body: "The name is how you'll find them among your ingredients.",
   },
   presenterSave: {
-    title: 'Save to cast them',
-    body: "Once saved, they're in the ingredients for every shot.",
+    title: 'Save your presenter',
+    body: 'Once saved, they appear in the ingredients for every shot.',
   },
   scene: {
-    title: 'A scene is the world a shot lives in',
-    body: 'Its place and light carry into every shot that uses it. Photos of a real place work best; a line of direction works too.',
+    title: 'Build a scene',
+    body: 'A scene is a place and its light, saved to shoot in again. Photos of a real place work best, or describe it.',
   },
   continue: 'Continue',
 } as const;
@@ -132,6 +196,29 @@ const tile = (id: string) => `.sc-feed .sc-cell[data-fb-node="${id}"]`;
 const finished = (n: GuideTaskNode) => n.status === 'done' && n.images > 0;
 const failed = (n: GuideTaskNode) =>
   n.status === 'error' || n.status === 'cancelled' || (n.status === 'done' && n.images === 0);
+
+/** The three ingredients a first shot asks for, in the order they are asked for. */
+const KINDS = [
+  { id: 'product', label: 'Product', need: 'needProduct' },
+  { id: 'presenter', label: 'Presenter', need: 'needPresenter' },
+  { id: 'scene', label: 'Scene', need: 'needScene' },
+] as const;
+
+/** The picker's tab for each ingredient the checklist asks for. */
+export const CHECK_TAB = { product: 'Products', presenter: 'Presenters', scene: 'Scenes' } as const;
+
+/**
+ * A product, a presenter and a scene, each ticked when the brief holds one.
+ * One the library has none of is never asked for.
+ */
+export function shotChecklist(c: ComposerFacts): GuideCheck[] {
+  const held = { product: c.products > 0, presenter: c.presenters > 0, scene: c.scene };
+  return KINDS.filter((k) => c.offered[k.id]).map((k) => ({ id: k.id, label: k.label, done: held[k.id] }));
+}
+
+/** "a product", "a product and a scene", "a product, a presenter and a scene". */
+const listed = (items: string[]) =>
+  items.length < 2 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 
 /** Everything in the brief that is an ingredient rather than words. */
 export const ingredientsOf = (c: ComposerFacts) => c.products + c.presenters + (c.scene ? 1 : 0) + c.others;
@@ -142,9 +229,13 @@ export interface ShotFacts {
   composer: ComposerFacts | null;
   /** What the task has sent, newest first. */
   nodes: readonly GuideTaskNode[];
+  /** Steps the person has said they are done with (the direction, by Continue or Enter). */
+  confirmed?: readonly string[];
 }
 
-/** The first shot, from the outcome back to the first thing to do. */
+const BRIEF = '[data-guide="compose"] .sc-brief-line';
+
+/** The first shot, from the outcome back to the first thing to do, one control at a time. */
 export function firstShotStep(f: ShotFacts): Guidance | null {
   if (!f.here) return null;
   const c = f.composer;
@@ -168,33 +259,77 @@ export function firstShotStep(f: ShotFacts): Guidance | null {
   if (lastFailed && !building)
     return { id: 'failed', voice: 'card', target: tile(lastFailed.id), side: 'bottom', ...COPY.failed };
   if (!c || c.refining) return null;
-  const coach = (id: string, target: string, copy: { title: string; body: string }): Guidance => ({
+  // The composer stays in view as one window; the card points at the one
+  // control the step asks for, and only that control can be used.
+  const coach = (id: string, target: string, copy: { title: string; body: string }, live = [target]): Guidance => ({
     id,
     voice: 'coach',
     target,
     surfaces: [COMPOSE],
+    live,
     side: 'top',
     ...copy,
   });
-  if (c.engine !== 'ready') return coach('engine', '[data-guide="compose.engine"]', COPY.engine);
+  if (c.engine !== 'ready')
+    return { ...coach('engine', '[data-guide="compose.engine"]', COPY.engine), optional: ['.sc-note-pop'] };
+  // A product, a presenter and a scene, one of each, before the shot is described.
+  const checklist = shotChecklist(c);
+  const missing = checklist.filter((k) => !k.done);
+  // the words are about the next one still missing
+  const need = missing.length ? COPY[KINDS.find((k) => k.id === missing[0].id)?.need ?? 'needProduct'] : null;
+  const still = listed(missing.map((k) => `a ${k.label.toLowerCase()}`));
   if (c.pickerOpen) {
-    const inPicker = (id: string, copy: { title: string; body: string }, more = false): Guidance => ({
-      ...coach(id, PICKER, copy),
-      beside: true,
-      ...(more ? { action: { kind: 'close-picker', label: COPY.continue } } : {}),
-    });
-    if (ingredients === 0) return inPicker('pick', COPY.pick);
-    if (c.products > 0 && c.presenters > 0 && c.scene) return inPicker('picked-all', COPY.pickedAll, true);
-    if (c.products > 0) return inPicker('picked-product', COPY.pickedProduct, true);
-    return inPicker('picked-other', COPY.pickedOther, true);
+    // the picker to browse and pick from, and its own toggle to close it
+    const inPicker = { target: PICKER, live: [PICKER, '[data-guide="compose.add"]'], beside: true, checklist };
+    if (need)
+      return {
+        ...coach('pick', PICKER, { title: `Add ${still}`, body: need.body }),
+        ...inPicker,
+        action: { kind: 'close-picker', label: COPY.continue, disabled: true },
+      };
+    return {
+      ...coach('picked-all', PICKER, COPY.pickedAll),
+      ...inPicker,
+      action: { kind: 'close-picker', label: COPY.continue },
+    };
   }
-  if (ingredients === 0) return coach('add', '[data-guide="compose.add"]', COPY.add);
-  if (!c.words) return coach('direct', '[data-guide="compose"] .sc-brief-line', COPY.direct);
+  if (need) {
+    const copy = missing.length === checklist.length ? COPY.add : { title: `Now add ${still}`, body: need.body };
+    return { ...coach('add', '[data-guide="compose.add"]', copy), checklist };
+  }
+  // The direction is done when the person says so: typing a first word is not finishing a sentence.
+  if (!c.words || !f.confirmed?.includes('direct'))
+    return {
+      ...coach('direct', BRIEF, COPY.direct),
+      ...(c.words ? { action: { kind: 'confirm', label: COPY.continue } } : {}),
+    };
+  // Each setting is its own step: open it, answer it (keeping it counts), move on.
+  const setting = (id: 'shape' | 'count' | 'quality' | 'settings', target: string, pop: string[]): Guidance => ({
+    ...coach(id, target, COPY[id]),
+    optional: pop,
+  });
+  const st = c.settled;
+  if (c.settings === 'pills') {
+    if (!st.shape) return setting('shape', '[data-guide="compose.shape"]', ['.sc-setpop']);
+    if (!st.count) return setting('count', '[data-guide="compose.count"]', ['.sc-setpop']);
+    if (!st.quality) return setting('quality', '[data-guide="compose.quality"]', ['.sc-setpop']);
+  } else if (!(st.shape && st.count && st.quality)) {
+    return setting('settings', '[data-guide="compose.settings"]', ['.sc-morepop', '.sc-shotsheet']);
+  }
   return coach('generate', '[data-guide="compose.send"]', COPY.generate);
 }
 
 /** The steps Back can show again: the ones that point at a control, never a surface that opened or a result. */
-export const REVIEWABLE: readonly string[] = ['engine', 'add', 'direct', 'generate'];
+export const REVIEWABLE: readonly string[] = [
+  'engine',
+  'add',
+  'direct',
+  'shape',
+  'count',
+  'quality',
+  'settings',
+  'generate',
+];
 
 export interface RefineFacts {
   /** A shot's overlay is open, in the task's brand. */
@@ -233,33 +368,61 @@ export function refineStep(f: RefineFacts): Guidance | null {
 }
 
 /**
- * A presenter: a word as the studio opens, at the face everything else is
- * drawn from, and at the save that puts them in the ingredients. Every other
- * question is the studio's own, and the guide stays quiet through it, on both
- * the photos and the from-scratch roads.
+ * A presenter: the studio's conversation, guided at every decision that shapes
+ * how the person comes out. The card points at the question's own answers (or
+ * at the composer, where the answer is typed); the question and what answers it
+ * are the only things that can be used. Steps the studio explains on its own
+ * (each look question after the first, the waits while it draws) stay quiet.
  */
 export function presenterStep(studio: StudioFacts | null): Guidance | null {
   if (!studio) return null;
   const turn = `.sc-pstudio [data-turn="q:${studio.open}"]`;
-  const coach = (id: string, copy: { title: string; body: string }, more: string[] = []): Guidance => ({
+  const composer = '.sc-pstudio-foot .sc-convo-card';
+  const base = { voice: 'coach' as const, container: '.sc-pstudio', beside: true };
+  // a question answered by its own choices
+  const choose = (id: string, copy: { title: string; body: string }, more: string[] = []): Guidance => ({
+    ...base,
     id,
-    voice: 'coach',
-    container: '.sc-pstudio',
-    target: turn,
-    // the question and the composer that can answer it stay live; the rest of the conversation waits
-    surfaces: [turn, '.sc-pstudio-foot .sc-convo-card', ...more],
-    beside: true,
+    target: `${turn} .sc-convo-q`,
+    surfaces: [turn, ...more],
+    // the portrait beside a decision stays usable: its versions and compare are part of deciding
+    live: [turn, ...more],
+    ...copy,
+  });
+  // a question answered in words, in the composer under the conversation
+  const write = (id: string, copy: { title: string; body: string }): Guidance => ({
+    ...base,
+    id,
+    target: composer,
+    surfaces: [turn, composer],
+    live: [composer],
     ...copy,
   });
   switch (studio.open) {
     case 'source':
-      return coach('intro', COPY.presenterIntro);
+      return choose('intro', COPY.presenterIntro);
+    case 'look-who':
+      return choose('look', COPY.presenterLook);
+    case 'describe':
+      return write('describe', COPY.presenterDescribe);
+    case 'photos':
+      return choose('photos', COPY.presenterPhotos);
+    case 'traits':
+      return choose('traits', COPY.presenterTraits);
+    case 'agree':
+      return choose('draw', COPY.presenterDraw);
     case 'identity':
     case 'revision':
-      return coach('face', COPY.presenterFace, ['.sc-pstudio-well']);
+      return choose('face', COPY.presenterFace, ['.sc-pstudio-well']);
+    case 'view-revision':
+      return choose('body', COPY.presenterBody, ['.sc-pstudio-well']);
+    case 'extras':
+      return choose('extras', COPY.presenterExtras);
+    case 'name':
+      return write('name', COPY.presenterName);
     case 'save':
     case 'blind':
-      return coach('save', COPY.presenterSave);
+      return choose('save', COPY.presenterSave);
     default:
       return { id: 'studio', voice: 'quiet' };
   }
@@ -325,28 +488,51 @@ export function startsHere(task: GuideTaskId, s: ContextStart): boolean {
 
 export interface StepRow {
   task: GuideTaskId;
+  /** The step as the next thing to do. */
   title: string;
-  /** One short line on why the step matters, or what it waits for. */
+  /** One sentence on what it gives, or what it waits for. */
   why: string;
+  /** Its name in the row of every step. */
+  label: string;
   state: 'todo' | 'active' | 'done';
 }
 
-const ROWS: { task: GuideTaskId; title: string; why: string; resume: string }[] = [
+const ROWS: { task: GuideTaskId; title: string; why: string; label: string; resume: string }[] = [
   {
     task: 'first-shot',
     title: 'Make your first shot',
-    why: 'Ingredients become a shot',
+    why: 'Pick an ingredient, describe the shot, and Scenri makes it.',
+    label: 'First shot',
     resume: 'Continue your first shot',
   },
-  { task: 'refine', title: 'Refine a shot', why: 'Change one thing, keep the rest', resume: 'Continue refining' },
-  { task: 'product', title: 'Add your own product', why: 'Real photos keep it exact', resume: 'Continue your product' },
+  {
+    task: 'refine',
+    title: 'Refine a shot',
+    why: 'Change one thing about a shot and keep everything else.',
+    label: 'Refine',
+    resume: 'Continue refining',
+  },
+  {
+    task: 'product',
+    title: 'Add your own product',
+    why: 'A few photos keep it exact in every shot you make.',
+    label: 'Product',
+    resume: 'Continue adding your product',
+  },
   {
     task: 'presenter',
-    title: 'Cast a presenter',
-    why: 'The same person in every shot',
+    title: 'Create a presenter',
+    why: 'Create a person once and use the same face in every shot.',
+    label: 'Presenter',
     resume: 'Continue your presenter',
   },
-  { task: 'scene', title: 'Build a scene', why: 'A world you shoot in again', resume: 'Continue your scene' },
+  {
+    task: 'scene',
+    title: 'Build a scene',
+    why: 'Save a place and its light to shoot in again.',
+    label: 'Scene',
+    resume: 'Continue your scene',
+  },
 ];
 
 /** First steps, or null when it has nothing to say or was put away. */
@@ -360,12 +546,18 @@ export function firstSteps(
       task: r.task,
       title: state === 'active' ? r.resume : r.title,
       // Refining needs a shot to refine: said, rather than quietly starting something else.
-      why: r.task === 'refine' && state === 'todo' && !view.done.shot ? 'Starts from your first shot' : r.why,
+      why: r.task === 'refine' && state === 'todo' && !view.done.shot ? 'Starts from your first shot.' : r.why,
+      label: r.label,
       state,
     };
   });
   // Done with everything, it leaves; asked for from Help, it stays so any step can be done again.
   return rows.every((r) => r.state === 'done') && !view.asked ? null : rows;
+}
+
+/** The one step to offer first: the one in hand, else the first not done. Null when every step is done. */
+export function nextStep(rows: readonly StepRow[]): StepRow | null {
+  return rows.find((r) => r.state === 'active') ?? rows.find((r) => r.state === 'todo') ?? null;
 }
 
 export interface WelcomeInput {

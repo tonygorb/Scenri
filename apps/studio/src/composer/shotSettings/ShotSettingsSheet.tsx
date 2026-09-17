@@ -20,14 +20,33 @@ import { openOnGroup, type ShotSettingsProps } from './settings.js';
  * is no breakpoint in JS and no second copy of the state: both drive the same
  * prefs held by the Composer.
  */
-export function ShotSettings(props: ShotSettingsProps) {
-  const [open, setOpen] = useState(false);
+export function ShotSettings({
+  guide,
+  onSettle,
+  ...props
+}: ShotSettingsProps & {
+  /** The first-use guide's name for this control, when the guide may point at it. */
+  guide?: string;
+  /** The sheet was opened and closed again: its settings are answered. */
+  onSettle?: () => void;
+}) {
+  const [open, setOpenState] = useState(false);
+  const setOpen = (next: boolean) => {
+    if (!next && open) onSettle?.();
+    setOpenState(next);
+  };
   const { sheet, grip } = useSheetDrag(() => setOpen(false));
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
-        <button type="button" className="sc-var sc-shotset" aria-label="Shot settings" title="Shot settings">
+        <button
+          type="button"
+          className="sc-var sc-shotset"
+          aria-label="Shot settings"
+          title="Shot settings"
+          data-guide={guide}
+        >
           <SlidersHorizontal size={16} />
         </button>
       </Dialog.Trigger>

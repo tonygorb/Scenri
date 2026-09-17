@@ -10,6 +10,7 @@ import {
   firstShotStep,
   firstSteps,
   madeOne,
+  nextStep,
   mergeTaskNodes,
   presenterStep,
   REVIEWABLE,
@@ -35,8 +36,15 @@ const composer = (over: Partial<ComposerFacts> = {}): ComposerFacts => ({
   pickerOpen: false,
   refining: false,
   engine: 'ready',
+  settings: 'pills',
+  settled: { shape: false, count: false, quality: false },
+  offered: { product: true, presenter: true, scene: true },
   ...over,
 });
+const settledAll = { shape: true, count: true, quality: true };
+/** A brief with one of each ingredient a first shot asks for. */
+const all = { products: 1, presenters: 1, scene: true };
+const noScenes = { product: true, presenter: true, scene: false };
 const node = (
   id: string,
   status: string,
@@ -51,50 +59,132 @@ const node = (
 });
 
 describe('the first shot, from the outcome back', () => {
-  const step = (c: ComposerFacts | null, nodes: GuideTaskNode[] = [], here = true) =>
-    firstShotStep({ here, composer: c, nodes })?.id ?? null;
+  const step = (c: ComposerFacts | null, nodes: GuideTaskNode[] = [], here = true, confirmed: string[] = []) =>
+    firstShotStep({ here, composer: c, nodes, confirmed })?.id ?? null;
 
   it('says nothing away from Create, or before its composer has spoken', () => {
     expect(step(composer(), [], false)).toBeNull();
     expect(step(null)).toBeNull();
   });
 
-  it('walks the whole brief: add, pick, what else, direct, generate', () => {
+  it('walks every control in order: add, pick one of each, direction, shape, number, size, generate', () => {
     expect(step(composer())).toBe('add');
     expect(step(composer({ pickerOpen: true }))).toBe('pick');
-    expect(step(composer({ pickerOpen: true, products: 1 }))).toBe('picked-product');
-    expect(step(composer({ pickerOpen: true, products: 1, presenters: 1, scene: true }))).toBe('picked-all');
-    expect(step(composer({ products: 1 }))).toBe('direct');
-    expect(step(composer({ products: 1, words: true, canGo: true }))).toBe('generate');
+    expect(step(composer({ pickerOpen: true, products: 1 }))).toBe('pick');
+    expect(step(composer({ pickerOpen: true, products: 1, presenters: 1 }))).toBe('pick');
+    expect(step(composer({ pickerOpen: true, ...all }))).toBe('picked-all');
+    expect(step(composer(all))).toBe('direct');
+    const worded = { ...all, words: true, canGo: true };
+    expect(step(composer(worded))).toBe('direct');
+    expect(step(composer(worded), [], true, ['direct'])).toBe('shape');
+    expect(
+      step(composer({ ...worded, settled: { shape: true, count: false, quality: false } }), [], true, ['direct']),
+    ).toBe('count');
+    expect(
+      step(composer({ ...worded, settled: { shape: true, count: true, quality: false } }), [], true, ['direct']),
+    ).toBe('quality');
+    expect(step(composer({ ...worded, settled: settledAll }), [], true, ['direct'])).toBe('generate');
   });
 
-  it('any ingredient is a valid start: a presenter, a scene or a colour first moves on, and says what a product adds', () => {
-    expect(step(composer({ pickerOpen: true, presenters: 1 }))).toBe('picked-other');
-    expect(step(composer({ presenters: 1 }))).toBe('direct');
-    expect(step(composer({ scene: true }))).toBe('direct');
-    expect(step(composer({ others: 1 }))).toBe('direct');
+  it('asks for a product, a presenter and a scene, ticking each as it comes in, whatever order they come in', () => {
+    const pick = (over: Partial<ComposerFacts>) =>
+      firstShotStep({ here: true, composer: composer({ pickerOpen: true, ...over }), nodes: [] });
+    const ticks = (over: Partial<ComposerFacts>) => pick(over)?.checklist?.map((k) => `${k.label}:${k.done}`);
+    expect(pick({})).toMatchObject({ title: 'Add a product, a presenter and a scene', body: COPY.needProduct.body });
+    expect(ticks({})).toEqual(['Product:false', 'Presenter:false', 'Scene:false']);
+    expect(pick({ products: 1 })).toMatchObject({
+      title: 'Add a presenter and a scene',
+      body: COPY.needPresenter.body,
+    });
+    expect(pick({ presenters: 1 })).toMatchObject({ title: 'Add a product and a scene', body: COPY.needProduct.body });
+    expect(ticks({ presenters: 1 })).toEqual(['Product:false', 'Presenter:true', 'Scene:false']);
+    expect(pick({ products: 1, presenters: 1 })).toMatchObject({ title: 'Add a scene', body: COPY.needScene.body });
+    // a colour or an image is welcome, but it is none of the three
+    expect(step(composer({ others: 1 }))).toBe('add');
+    // an ingredient the library has none of is never asked for
+    expect(step(composer({ pickerOpen: true, products: 1, presenters: 1, offered: noScenes }))).toBe('picked-all');
+    expect(step(composer({ products: 1, presenters: 1, offered: noScenes }))).toBe('direct');
   });
 
-  it('closing the picker with nothing picked goes back to add; words alone still start from ingredients', () => {
+  it('Continue waits for all three, then closes the picker', () => {
+    const waiting = firstShotStep({ here: true, composer: composer({ pickerOpen: true, products: 1 }), nodes: [] });
+    expect(waiting?.action).toEqual({ kind: 'close-picker', label: 'Continue', disabled: true });
+    const ready = firstShotStep({ here: true, composer: composer({ pickerOpen: true, ...all }), nodes: [] });
+    expect(ready?.action).toEqual({ kind: 'close-picker', label: 'Continue' });
+    expect(ready?.checklist?.every((k) => k.done)).toBe(true);
+  });
+
+  it('the direction is done when it is said to be, never at the first word', () => {
+    const direct = firstShotStep({ here: true, composer: composer({ ...all, words: true }), nodes: [] });
+    expect(direct?.action).toEqual({ kind: 'confirm', label: 'Continue' });
+    expect(firstShotStep({ here: true, composer: composer(all), nodes: [] })?.action).toBeUndefined();
+    // emptying the brief asks for the direction again, whatever was said before
+    expect(step(composer(all), [], true, ['direct'])).toBe('direct');
+  });
+
+  it('a narrow composer offers the three settings as one step behind one control', () => {
+    const worded = { ...all, words: true };
+    const g = firstShotStep({
+      here: true,
+      composer: composer({ ...worded, settings: 'sheet' }),
+      nodes: [],
+      confirmed: ['direct'],
+    });
+    expect(g).toMatchObject({ id: 'settings', target: '[data-guide="compose.settings"]' });
+    expect(g?.optional).toEqual(['.sc-morepop', '.sc-shotsheet']);
+    expect(step(composer({ ...worded, settings: 'more', settled: settledAll }), [], true, ['direct'])).toBe('generate');
+  });
+
+  it('the composer stays in view whole; the card points at the one control asked for, and only it can be used', () => {
+    const add = firstShotStep({ here: true, composer: composer(), nodes: [] });
+    expect(add).toMatchObject({
+      target: '[data-guide="compose.add"]',
+      surfaces: ['[data-guide="compose"]'],
+      live: ['[data-guide="compose.add"]'],
+    });
+    const shape = firstShotStep({
+      here: true,
+      composer: composer({ ...all, words: true }),
+      nodes: [],
+      confirmed: ['direct'],
+    });
+    expect(shape).toMatchObject({
+      target: '[data-guide="compose.shape"]',
+      surfaces: ['[data-guide="compose"]'],
+      live: ['[data-guide="compose.shape"]'],
+      optional: ['.sc-setpop'],
+    });
+  });
+
+  it('closing the picker short goes back to add, saying what is still missing; words alone still start from ingredients', () => {
     expect(step(composer({ pickerOpen: false }))).toBe('add');
     expect(step(composer({ words: true, canGo: true }))).toBe('add');
+    const more = firstShotStep({ here: true, composer: composer({ products: 1 }), nodes: [] });
+    expect(more).toMatchObject({ id: 'add', title: 'Now add a presenter and a scene' });
+    expect(more?.checklist?.map((k) => k.done)).toEqual([true, false, false]);
   });
 
   it('removing every ingredient goes back to add', () => {
     expect(step(composer({ products: 0, presenters: 0, words: true }))).toBe('add');
   });
 
-  it('in the picker the card points at the whole picker, beside it, and Continue closes it once something is in', () => {
+  it('in the picker the card points at the whole picker, beside it, with the picker and its toggle live', () => {
     const pick = firstShotStep({ here: true, composer: composer({ pickerOpen: true }), nodes: [] });
     expect(pick).toMatchObject({ voice: 'coach', target: '[data-guide="compose"] .sc-attachpanel', beside: true });
-    expect(pick?.surfaces).toEqual(['[data-guide="compose"]']);
-    expect(pick?.action).toBeUndefined();
-    const more = firstShotStep({ here: true, composer: composer({ pickerOpen: true, products: 1 }), nodes: [] });
-    expect(more?.action).toEqual({ kind: 'close-picker', label: 'Continue' });
+    expect(pick?.live).toEqual(['[data-guide="compose"] .sc-attachpanel', '[data-guide="compose.add"]']);
   });
 
   it('Back only ever reviews steps that point at a control', () => {
-    expect([...REVIEWABLE].sort()).toEqual(['add', 'direct', 'engine', 'generate']);
+    expect([...REVIEWABLE].sort()).toEqual([
+      'add',
+      'count',
+      'direct',
+      'engine',
+      'generate',
+      'quality',
+      'settings',
+      'shape',
+    ]);
   });
 
   it('with no engine, the setup comes before anything else to build', () => {
@@ -138,7 +228,7 @@ describe('the first shot, from the outcome back', () => {
     expect(g?.id).toBe('failed');
     expect(g?.target).toContain('n2');
     expect(step(composer({ pickerOpen: true }), [node('n1', 'error')])).toBe('pick');
-    expect(step(composer({ products: 1 }), [node('n1', 'error')])).toBe('direct');
+    expect(step(composer(all), [node('n1', 'error')])).toBe('direct');
   });
 
   it('a refine armed in the composer is not the first shot', () => {
@@ -160,7 +250,7 @@ describe('the later tasks', () => {
     expect(done).toMatchObject({ voice: 'card', done: true, title: COPY.refineResult.title });
   });
 
-  it('presenter: the studio is held at the start, the face and the save, and quiet through every other question', () => {
+  it('presenter: the conversation is guided at every decision that shapes the person, and quiet through the rest', () => {
     expect(presenterStep(null)).toBeNull();
     const loud = new Map<string, string>();
     const ids = [
@@ -184,17 +274,35 @@ describe('the later tasks', () => {
     }
     expect(Object.fromEntries(loud)).toEqual({
       source: 'intro',
-      identity: 'face',
+      photos: 'photos',
+      'look-who': 'look',
+      describe: 'describe',
+      traits: 'traits',
+      agree: 'draw',
+      name: 'name',
       revision: 'face',
+      'view-revision': 'body',
+      identity: 'face',
+      extras: 'extras',
       save: 'save',
       blind: 'save',
     });
-    expect(presenterStep({ open: 'identity' })).toMatchObject({
+    // a choice points at the question's own answers, and only they are live; words point at the composer that takes them
+    expect(presenterStep({ open: 'traits' })).toMatchObject({
       voice: 'coach',
       container: '.sc-pstudio',
-      target: '.sc-pstudio [data-turn="q:identity"]',
+      target: '.sc-pstudio [data-turn="q:traits"] .sc-convo-q',
+      live: ['.sc-pstudio [data-turn="q:traits"]'],
     });
-    expect(presenterStep({ open: 'identity' })?.surfaces).toContain('.sc-pstudio-well');
+    // a decision about a picture keeps the picture in view and usable: its versions are part of deciding
+    expect(presenterStep({ open: 'identity' })).toMatchObject({
+      surfaces: ['.sc-pstudio [data-turn="q:identity"]', '.sc-pstudio-well'],
+      live: ['.sc-pstudio [data-turn="q:identity"]', '.sc-pstudio-well'],
+    });
+    expect(presenterStep({ open: 'name' })).toMatchObject({
+      target: '.sc-pstudio-foot .sc-convo-card',
+      live: ['.sc-pstudio-foot .sc-convo-card'],
+    });
   });
 
   it('product and scene: their dialog is held, nothing when it is closed', () => {
@@ -282,15 +390,31 @@ describe('firstSteps', () => {
         active: { task: 'presenter', brandId: 'b', since: 'x', baseline: { products: 0, presenters: 0, scenes: 0 } },
       }),
     );
-    expect(rows?.map((r) => [r.task, r.state, r.title])).toEqual([
-      ['first-shot', 'done', 'Make your first shot'],
-      ['refine', 'todo', 'Refine a shot'],
-      ['product', 'done', 'Add your own product'],
-      ['presenter', 'active', 'Continue your presenter'],
-      ['scene', 'todo', 'Build a scene'],
+    expect(rows?.map((r) => [r.task, r.state, r.title, r.label])).toEqual([
+      ['first-shot', 'done', 'Make your first shot', 'First shot'],
+      ['refine', 'todo', 'Refine a shot', 'Refine'],
+      ['product', 'done', 'Add your own product', 'Product'],
+      ['presenter', 'active', 'Continue your presenter', 'Presenter'],
+      ['scene', 'todo', 'Build a scene', 'Scene'],
     ]);
     // refining is said to start from a shot until there is one
-    expect(firstSteps(view())?.[1].why).toBe('Starts from your first shot');
+    expect(firstSteps(view())?.[1].why).toBe('Starts from your first shot.');
+  });
+
+  it('the next step is the one in hand, else the first not done, else none', () => {
+    const rows = firstSteps(view({ done: { shot: 'x' } })) ?? [];
+    expect(nextStep(rows)?.task).toBe('refine');
+    const inHand = firstSteps(
+      view({
+        done: { shot: 'x' },
+        active: { task: 'scene', brandId: 'b', since: 'x', baseline: { products: 0, presenters: 0, scenes: 0 } },
+      }),
+    );
+    expect(nextStep(inHand ?? [])?.task).toBe('scene');
+    const all = firstSteps(
+      view({ asked: true, done: { shot: 'a', refine: 'b', product: 'c', presenter: 'd', scene: 'e' } }),
+    );
+    expect(nextStep(all ?? [])).toBeNull();
   });
 
   it('leaves once everything is done, unless it was asked for from Help', () => {
@@ -444,7 +568,7 @@ describe('the copy', () => {
   });
 
   it('never repeats the title of the surface a note sits in', () => {
-    for (const c of [COPY.product, COPY.scene, COPY.presenterIntro, COPY.presenterFace, COPY.presenterSave])
-      expect(`${c.title} ${c.body}`).not.toMatch(/New product|New scene|Create presenter/);
+    for (const c of [COPY.product, COPY.scene, COPY.presenterFace, COPY.presenterSave, COPY.presenterPhotos])
+      expect(`${c.title} ${c.body}`).not.toMatch(/New product|New scene/);
   });
 });

@@ -21,6 +21,10 @@ export type { AttachTab } from './attach/attachRules.js';
 export interface AttachPanelProps {
   brand: Brand;
   initialTab?: AttachTab;
+  /** Bumped to ask for `initialTab` again while the panel is open, even when it has not changed. */
+  tabNonce?: number;
+  /** First use: which ingredients the library has any of, as the picker learns it. */
+  onOffered?: (offered: { product: boolean; presenter: boolean; scene: boolean }) => void;
   /** For the opener's aria-controls. */
   id?: string;
   /** The category of whichever product is already in the brief, if any — see compat.ts. */
@@ -75,7 +79,7 @@ export function AttachPanel(props: AttachPanelProps) {
   const [tab, setTab] = useState<AttachTab>(props.initialTab ?? 'All');
   useEffect(() => {
     setTab(props.initialTab ?? 'All');
-  }, [props.initialTab]);
+  }, [props.initialTab, props.tabNonce]);
   // The creation dialog lives in the URL now, so "is something stacked on top
   // of me" is a question the URL answers rather than a boolean this panel has
   // to remember to keep in sync.
@@ -98,6 +102,7 @@ export function AttachPanel(props: AttachPanelProps) {
         onRemove={props.onRemove}
         onUpload={props.onUpload}
         onFiles={props.onFiles}
+        onOffered={props.onOffered}
         onClose={() => props.onClose({ restore: !touch })}
       />
     </AttachDock>

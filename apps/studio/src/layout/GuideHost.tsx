@@ -5,7 +5,7 @@ import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId, GuideTaskNode } from '../api.js';
 import { guideIntent, refreshGuide, useGuide } from '../guide.js';
-import { setGuideShowing, useGuideFacts } from '../guideFacts.js';
+import { setGuideHoldSend, setGuideShowing, useGuideFacts } from '../guideFacts.js';
 import {
   REVIEWABLE,
   WELCOME,
@@ -15,6 +15,7 @@ import {
   madeOne,
   mergeTaskNodes,
   presenterStep,
+  CHECK_TAB,
   refineStep,
   startsHere,
   welcomeSet,
@@ -121,8 +122,23 @@ export function GuideHost() {
 
   const watching = !!task || welcomePending;
   const dialogParam = DIALOG_PARAMS.some((k) => params.has(k));
-  const modal = watching && (dialogParam || !!document.querySelector(MODAL));
+  // A control's own popover or the phone's settings sheet is part of the step, never something over it.
+  const modal =
+    watching &&
+    (dialogParam ||
+      [...document.querySelectorAll(MODAL)].some(
+        (el) => !el.closest('[data-radix-popper-content-wrapper], .sc-shotsheet'),
+      ));
   const newKind = params.get('new');
+
+  // Steps the person has said are done, for this task in hand. The direction
+  // is only done while there are words: emptying the brief asks for it again.
+  const [confirmed, setConfirmed] = useState<string[]>([]);
+  const words = !!facts.composer?.words;
+  useEffect(() => setConfirmed([]), [task]);
+  useEffect(() => {
+    if (!words) setConfirmed((c) => (c.includes('direct') ? c.filter((x) => x !== 'direct') : c));
+  }, [words]);
 
   // The step, from what is true now.
   let step: Guidance | null = null;
@@ -132,6 +148,7 @@ export function GuideHost() {
       here: hub && !modal,
       composer: c && settling ? { ...c, busy: true } : c,
       nodes,
+      confirmed,
     });
   } else if (task === 'refine') step = refineStep({ here: !!shot, nodes });
   else if (task === 'presenter') step = studio ? presenterStep(facts.studio) : null;
@@ -140,8 +157,25 @@ export function GuideHost() {
   // A card beside its target (the picker, a dialog, a question) where there is
   // room for it, and above it where there is not: never inside, never hidden.
   if (step?.beside && step.target) {
-    const el = firstVisible(step.target);
-    const side = el ? sideWithRoom(boxOf(el.getBoundingClientRect()), window.innerWidth, BESIDE) : null;
+    // measured against the target and the surface it sits in, so a card beside a
+    // setting clears the whole composer rather than landing on it
+    const boxes = [step.target, ...(step.surfaces ?? []).slice(0, 1)]
+      .map((sel) => firstVisible(sel))
+      .filter((el): el is HTMLElement => !!el)
+      .map((el) => boxOf(el.getBoundingClientRect()));
+    const around = boxes.reduce<ReturnType<typeof boxOf> | null>(
+      (u, b) =>
+        u
+          ? {
+              left: Math.min(u.left, b.left),
+              top: Math.min(u.top, b.top),
+              right: Math.max(u.right, b.right),
+              bottom: Math.max(u.bottom, b.bottom),
+            }
+          : b,
+      null,
+    );
+    const side = around ? sideWithRoom(around, window.innerWidth, BESIDE) : null;
     step = { ...step, side: side ?? 'top' };
   }
   // On a narrow screen the open picker makes room above itself for that card.
@@ -308,9 +342,15 @@ export function GuideHost() {
   const drawn = shown && (shown.voice === 'coach' || shown.voice === 'card') ? shown : null;
   const container = drawn?.container ? firstVisible(drawn.container) : document.body;
   const target = drawn?.target ? firstVisible(drawn.target) : null;
-  const surfaces = (drawn?.surfaces ?? []).map((s) => firstVisible(s)).filter((el): el is HTMLElement => !!el);
+  const found = (sels: readonly string[] | undefined) =>
+    (sels ?? []).map((s) => firstVisible(s)).filter((el): el is HTMLElement => !!el);
+  const required = found(drawn?.surfaces);
+  // a popover or sheet the step's control opened joins the windows, live, while it is open
+  const opened = found(drawn?.optional);
+  const surfaces = [...required, ...opened];
+  const live = [...found(drawn?.live ?? drawn?.surfaces), ...opened];
   const drawReady =
-    !!drawn && !!container && !!target && (drawn.voice === 'card' || surfaces.length === (drawn.surfaces ?? []).length);
+    !!drawn && !!container && !!target && (drawn.voice === 'card' || required.length === (drawn.surfaces ?? []).length);
   const missing = drawn && !drawReady ? drawn : null;
   const showing = welcome || drawReady;
   useEffect(() => setGuideShowing(showing), [showing]);
@@ -338,11 +378,45 @@ export function GuideHost() {
   };
   const act = (g: Guidance) => {
     if (review) return setReview(null);
+    if (g.action?.disabled) return;
     if (g.action?.kind === 'close-picker') window.dispatchEvent(new Event('scenri:guide-close-picker'));
+    else if (g.action?.kind === 'confirm') setConfirmed((c) => (c.includes(g.id) ? c : [...c, g.id]));
     else if (g.done && task) finish(task);
   };
+  // Hold the brief's own send until the Generate step, and let Enter say the step in hand is done.
+  const holdSend = task === 'first-shot' && !!step && step.voice === 'coach' && step.id !== 'generate';
+  useEffect(() => {
+    setGuideHoldSend(holdSend);
+    return () => setGuideHoldSend(false);
+  }, [holdSend]);
+  const actRef = useRef(act);
+  actRef.current = act;
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  useEffect(() => {
+    const onEnter = () => {
+      const g = shownRef.current;
+      if (g?.action?.kind === 'confirm') actRef.current(g);
+    };
+    window.addEventListener('scenri:guide-enter', onEnter);
+    return () => window.removeEventListener('scenri:guide-enter', onEnter);
+  }, []);
   const actionOf = (g: Guidance) =>
-    review ? { label: 'Next' } : g.action ? { label: g.action.label } : g.done ? { label: 'Done' } : null;
+    review
+      ? { label: 'Next' }
+      : g.action
+        ? { label: g.action.label, disabled: g.action.disabled }
+        : g.done
+          ? { label: 'Done' }
+          : null;
+  // The checklist moves the picker on: once an ingredient is in, it opens on the next one still missing.
+  const nextKind = step?.id === 'pick' ? (step.checklist?.find((k) => !k.done)?.id ?? null) : null;
+  const lastKind = useRef<string | null>(null);
+  useEffect(() => {
+    const was = lastKind.current;
+    lastKind.current = nextKind;
+    if (nextKind && was && was !== nextKind) openPickerAt(nextKind);
+  }, [nextKind]);
   const closeLabel = (g: Guidance) => (g.done || g.snooze ? 'Close' : 'Close guide');
 
   return (
@@ -356,6 +430,7 @@ export function GuideHost() {
           voice={drawn.voice === 'coach' ? 'coach' : 'card'}
           target={target}
           surfaces={surfaces}
+          live={live}
           side={drawn.side ?? 'top'}
           beside={drawn.beside}
           container={container as HTMLElement}
@@ -363,6 +438,8 @@ export function GuideHost() {
           body={drawn.body}
           canBack={!review && !!reviewBefore(drawn)}
           action={actionOf(drawn)}
+          checklist={review ? undefined : drawn.checklist}
+          onCheck={openPickerAt}
           closeLabel={closeLabel(drawn)}
           onBack={() => setReview(reviewBefore(drawn))}
           onAction={() => act(drawn)}
@@ -396,4 +473,9 @@ function firstVisible(selector: string): HTMLElement | null {
 /** The curated pictures take a width, the way every tile asks for its own size. */
 function sized(url: string): string {
   return `${url}${url.includes('?') ? '&' : '?'}w=320`;
+}
+
+/** Opens Create's picker on one ingredient's own tab, or moves the open picker there. */
+function openPickerAt(kind: keyof typeof CHECK_TAB) {
+  window.dispatchEvent(new CustomEvent('scenri:guide-picker', { detail: { tab: CHECK_TAB[kind] } }));
 }

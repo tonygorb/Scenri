@@ -71,6 +71,8 @@ export interface AttachBodyProps {
   onUpload: () => void;
   /** Image files pasted while the picker has focus: the same door as Upload image. */
   onFiles: (files: FileList) => void;
+  /** First use: which ingredients the library has any of. */
+  onOffered?: (offered: { product: boolean; presenter: boolean; scene: boolean }) => void;
   onClose: () => void;
 }
 
@@ -113,6 +115,7 @@ export function AttachBody({
   onRemove,
   onUpload,
   onFiles,
+  onOffered,
   onClose,
 }: AttachBodyProps) {
   // The rank the panel opened with. The "suited to this product" band moves a
@@ -166,6 +169,16 @@ export function AttachBody({
   // workspace carries for the rail stops at forty-eight.
   const shots = useShotPages(brand.id, query);
   const shotItems = useMemo(() => shotCards(shots.items, shots.total), [shots.items, shots.total]);
+
+  // First use asks for one of each ingredient, never one the library has none of.
+  // Said only once the lists have arrived: three empty lists are a library still loading.
+  const hasProduct = candidates.product.length > 0;
+  const hasPresenter = candidates.presenter.length > 0;
+  const hasScene = candidates.scene.length > 0;
+  useEffect(() => {
+    if (hasProduct || hasPresenter || hasScene)
+      onOffered?.({ product: hasProduct, presenter: hasPresenter, scene: hasScene });
+  }, [hasProduct, hasPresenter, hasScene, onOffered]);
 
   /** Every group's size under the current search, for the rail. */
   const counts = useMemo(() => {

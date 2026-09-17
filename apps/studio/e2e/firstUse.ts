@@ -41,13 +41,17 @@ export async function expectNoGuide(p: Page): Promise<void> {
   await expect(p.locator('.sc-coach, .sc-coach-veil')).toHaveCount(0);
 }
 
-/** Picks the first product in the open picker, the way a person does. */
-export async function pickAProduct(p: Page): Promise<void> {
-  await p
-    .locator('.sc-attachpanel')
-    .getByRole('button', { name: /^Product: / })
-    .first()
-    .click();
+/** One product, one presenter and one scene from the open picker, each ticked on the card as it lands. */
+export async function pickOneOfEach(p: Page): Promise<void> {
+  for (const kind of ['Product', 'Presenter', 'Scene']) {
+    await p
+      .locator('.sc-attachpanel')
+      .getByRole('button', { name: new RegExp(`^${kind}: `) })
+      .first()
+      .click();
+    await expect(p.locator('.sc-coach-item[data-done]', { hasText: kind })).toHaveCount(1);
+  }
+  await expect(coachTitle(p)).toHaveText("That's everything a shot needs");
 }
 
 /**
@@ -94,6 +98,24 @@ export async function expectHeld(p: Page): Promise<void> {
 /** Nothing a coach held is left behind. */
 export async function expectLetGo(p: Page): Promise<void> {
   await expect(p.locator('[data-sc-coach-inert]')).toHaveCount(0);
+}
+
+/**
+ * The three settings steps of the first shot, each done the way a person does
+ * it: open the control, pick an answer (keeping the current one counts).
+ */
+export async function answerSettings(p: Page): Promise<void> {
+  const steps: [string, string][] = [
+    ['shape', 'Choose the shape'],
+    ['count', 'Choose how many'],
+    ['quality', 'Choose the size'],
+  ];
+  for (const [which, title] of steps) {
+    await expect(coachTitle(p)).toHaveText(title);
+    await p.locator(`[data-guide="compose.${which}"]`).click();
+    await p.locator('.sc-setpop[data-state="open"] [role="radio"][aria-checked="true"]').first().click();
+  }
+  await expect(coachTitle(p)).toHaveText('Make it');
 }
 
 export async function isInert(p: Page, selector: string): Promise<boolean> {

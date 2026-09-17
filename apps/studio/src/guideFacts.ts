@@ -26,6 +26,15 @@ export interface ComposerFacts {
   refining: boolean;
   /** Whether an engine can draw, and if not, which door the composer offers. */
   engine: 'ready' | 'setup' | 'settings';
+  /**
+   * How the shot's settings are offered at this size: three controls in the
+   * row, one More popover, or one sheet on a phone.
+   */
+  settings: 'pills' | 'more' | 'sheet';
+  /** Which settings have been opened and answered (keeping the current value counts). */
+  settled: { shape: boolean; count: boolean; quality: boolean };
+  /** Which ingredients the library has any of to pick: one it has none of is never asked for. */
+  offered: { product: boolean; presenter: boolean; scene: boolean };
 }
 
 export interface StudioFacts {
@@ -44,9 +53,15 @@ export interface GuideFacts {
   studio: StudioFacts | null;
   /** Some first-use surface is on screen: What's New waits for it. */
   showing: boolean;
+  /**
+   * The first shot is on a step before Generate: a send from the brief (Enter)
+   * would skip what the guide is asking for, so it is taken as saying the step
+   * is done instead.
+   */
+  holdSend: boolean;
 }
 
-const EMPTY: GuideFacts = { composer: null, overlay: null, studio: null, showing: false };
+const EMPTY: GuideFacts = { composer: null, overlay: null, studio: null, showing: false, holdSend: false };
 let state: GuideFacts = EMPTY;
 const listeners = new Set<() => void>();
 
@@ -67,6 +82,10 @@ export function publishOverlay(facts: OverlayFacts | null): void {
 
 export function publishStudio(facts: StudioFacts | null): void {
   if (!same(state.studio, facts)) set({ ...state, studio: facts });
+}
+
+export function setGuideHoldSend(holdSend: boolean): void {
+  if (state.holdSend !== holdSend) set({ ...state, holdSend });
 }
 
 export function setGuideShowing(showing: boolean): void {

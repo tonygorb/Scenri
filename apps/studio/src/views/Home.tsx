@@ -302,7 +302,7 @@ export function HomeView() {
           <h1 className="sc-greet">
             Compose a shot <em>on brand</em>
           </h1>
-          <FirstSteps />
+          <FirstSteps pictures={createThumbs} />
 
           <div className="sc-create-grid">
             <button type="button" className="sc-create-card" data-tone="compose" data-main="" onClick={startCompose}>

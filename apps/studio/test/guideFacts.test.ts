@@ -22,6 +22,9 @@ const facts = (over: Partial<ComposerFacts> = {}): ComposerFacts => ({
   pickerOpen: false,
   refining: false,
   engine: 'ready',
+  settings: 'pills',
+  settled: { shape: false, count: false, quality: false },
+  offered: { product: true, presenter: true, scene: true },
   ...over,
 });
 
