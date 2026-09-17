@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { ChipPreview, type PreviewKind } from './ChipPreview.js';
 import { ImageLightbox } from './ImageLightbox.js';
 import { useHoverPreview } from './useHoverPreview.js';
+import { keyboardFocus } from '../inputModality.js';
 
 /** What a chip peeks: the picture, the noun, and where the card is a door to. */
 export type PeekAt = {
@@ -56,7 +57,7 @@ export function useIngredientPeek(chips: string) {
       e.pointerType === 'mouse' && !pinned && hover.open({ ...at, el: e.currentTarget }),
     onPointerLeave: (e: PointerEvent<HTMLElement>) => e.pointerType === 'mouse' && hover.close(),
     onFocus: (e: FocusEvent<HTMLElement>) =>
-      e.currentTarget.matches(':focus-visible') && !pinned && hover.open({ ...at, el: e.currentTarget }),
+      keyboardFocus(e.currentTarget) && !pinned && hover.open({ ...at, el: e.currentTarget }),
     onClick: (e: MouseEvent<HTMLElement>) => {
       // a second press on the pinned chip puts the card away
       if (pinned?.key === at.key) {

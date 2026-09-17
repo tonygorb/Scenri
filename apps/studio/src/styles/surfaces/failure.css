@@ -93,8 +93,8 @@
 .sc-fail-alt:hover {
   color: var(--sc-fg);
 }
-.sc-fail-alt:focus-visible,
-.sc-fail-raw summary:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-fail-alt:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-fail-raw summary:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
   border-radius: var(--sc-radius-sm);

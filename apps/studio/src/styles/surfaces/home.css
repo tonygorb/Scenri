@@ -64,7 +64,7 @@
   transition: filter 140ms ease;
   width: 100%;
 }
-.sc-create-card:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-create-card:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
@@ -127,7 +127,7 @@
 .sc-create-card:hover .sc-glyph {
   filter: brightness(1.22);
 }
-.sc-create-card:focus-visible .sc-glyph {
+:where(:root:not([data-input="pointer"])) .sc-create-card:focus-visible .sc-glyph {
   filter: brightness(1.22);
 }
 /* Filled wells: life in the glyph, cards stay quiet. Compose well a touch warmer. */

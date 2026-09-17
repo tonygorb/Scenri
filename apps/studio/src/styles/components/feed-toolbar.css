@@ -154,12 +154,9 @@
   flex: none;
   transition: color var(--sc-dur-fast) var(--sc-ease);
 }
-/* Keyboard only. A click that opens the menu must not leave a box on the
-   title — Radix keeps the trigger focused, and a ring here is a chip. */
-.sc-toolbar-place:focus {
-  outline: none;
-}
-.sc-toolbar-place:focus-visible {
+/* Keyboard only, like every control (foundations/interaction.css): a click
+   that opens the menu leaves no box on the title when focus comes back. */
+:where(:root:not([data-input="pointer"])) .sc-toolbar-place:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
@@ -276,7 +273,7 @@
 .sc-density-opt[data-on] {
   color: var(--sc-fg);
 }
-.sc-density-opt:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-density-opt:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
 }
@@ -457,7 +454,7 @@
   padding-inline-end: var(--sc-space-4);
 }
 .sc-target-chip:hover,
-.sc-target-chip:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-target-chip:focus-visible {
   background: color-mix(in srgb, var(--sc-refine-fg) 8%, var(--sc-refine-bg));
 }
 .sc-target-chip img {
@@ -545,12 +542,12 @@
  * tiles, its "more" tile, the clear button in its search pill — where 2px
  * would collide with a neighbour or spill through the parent's edge. Nothing
  * else varies. */
-.sc-toolbar-btn:focus-visible,
-.sc-aadd:focus-visible,
-.sc-amore:focus-visible,
-.sc-s:focus-visible,
-.sc-ap-card:focus-visible,
-.sc-nav :is(button, a):focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-toolbar-btn:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-aadd:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-amore:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-s:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-ap-card:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-nav :is(button, a):focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }

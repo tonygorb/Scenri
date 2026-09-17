@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { Tooltip } from '@radix-ui/themes';
+import { keyboardOnlyFocus } from '../layout/Tip.js';
 
 /**
  * The one way a card or tile sits out: inert through aria-disabled on the
@@ -10,7 +11,7 @@ import { Tooltip } from '@radix-ui/themes';
 export function SitOutTooltip({ why, children }: { why: string | null | undefined; children: ReactElement }) {
   return why ? (
     <Tooltip content={why} className="sc-tip" maxWidth="220px">
-      {children}
+      {keyboardOnlyFocus(children)}
     </Tooltip>
   ) : (
     children

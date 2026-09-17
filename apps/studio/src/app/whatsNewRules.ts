@@ -27,10 +27,17 @@ export interface AutoOpenSignals {
   running: number;
   /** Presenters and scenes being built. */
   builds: number;
+  /**
+   * Someone is still being introduced to Scenri: the first-use record has not
+   * loaded, the install is new and has not finished its first tours, or the
+   * welcome or a tour is on screen. One voice at a time, and notes about a
+   * version mean nothing to someone learning it for the first time.
+   */
+  firstUse: boolean;
 }
 
 export function canAutoOpen(s: AutoOpenSignals): boolean {
-  if (!s.unread || s.spent) return false;
+  if (!s.unread || s.spent || s.firstUse) return false;
   if (!s.loaded || !s.visible || s.dialogOpen) return false;
   return s.running === 0 && s.builds === 0;
 }

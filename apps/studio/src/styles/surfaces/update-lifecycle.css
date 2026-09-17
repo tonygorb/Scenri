@@ -64,7 +64,7 @@
 .sc-upd-float-later:hover {
   color: var(--sc-fg);
 }
-.sc-upd-float-later:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-upd-float-later:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
 }

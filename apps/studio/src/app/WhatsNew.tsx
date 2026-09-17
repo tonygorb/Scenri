@@ -5,6 +5,8 @@ import { useDialogParam } from './AppShell.js';
 import { useTaskCenter } from './TaskCenter.js';
 import { useBrand } from './BrandLayout.js';
 import { canAutoOpen } from './whatsNewRules.js';
+import { useGuide } from '../guide.js';
+import { useTour, useWelcomeOpen } from '../tourStore.js';
 
 /**
  * What's new — deliberately not the update system.
@@ -147,6 +149,32 @@ export function WhatsNewGate() {
   const [params] = useSearchParams();
   const [visible, setVisible] = useState(() => !document.hidden);
   const spent = useRef(false);
+  const guide = useGuide();
+  const tour = useTour();
+  const welcomeOpen = useWelcomeOpen();
+
+  // Someone new is still being introduced: every note describes the version
+  // they are learning for the first time. An install that asked for the tours
+  // from the help menu is not new, so only what is on screen holds it back.
+  const learning =
+    guide.eligible && !guide.optedIn && !guide.learned.includes('tours-off') && !guide.learned.includes('tour-create');
+  const teaching = learning || tour !== null || welcomeOpen;
+  const firstUse = !guide.loaded || teaching;
+
+  // A session that introduced Scenri never ends in a modal: the notes would
+  // land on the first shot as the tour ends. The unread dot still carries them.
+  if (teaching) spent.current = true;
+
+  // First use ended here, on this version: its notes are already known.
+  const wasLearning = useRef(false);
+  const { markSeen } = wn;
+  useEffect(() => {
+    if (learning) wasLearning.current = true;
+    else if (wasLearning.current) {
+      wasLearning.current = false;
+      markSeen();
+    }
+  }, [learning, markSeen]);
 
   useEffect(() => {
     const onVis = () => setVisible(!document.hidden);
@@ -167,6 +195,7 @@ export function WhatsNewGate() {
       dialogOpen,
       running,
       builds: builds.length,
+      firstUse,
     });
     if (!ok) return;
     const t = window.setTimeout(() => {
@@ -174,7 +203,7 @@ export function WhatsNewGate() {
       wn.autoOpen();
     }, SETTLE_MS);
     return () => window.clearTimeout(t);
-  }, [wn, loaded, visible, dialogOpen, running, builds.length]);
+  }, [wn, loaded, visible, dialogOpen, running, builds.length, firstUse]);
 
   return null;
 }

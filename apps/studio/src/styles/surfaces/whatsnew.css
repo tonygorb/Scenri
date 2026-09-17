@@ -80,9 +80,9 @@
 }
 
 /* ---- the welcome (views/WelcomeDialog.tsx) ----
-   What's New's neighbour and its coat. Three finished examples lead, because
-   the work is the introduction; they arrive a beat after the card, one after
-   another, and only fade: nothing on a picture moves. */
+   What's New's neighbour and its coat. One product shot in three worlds leads,
+   because the set is the introduction; the pictures arrive a beat after the
+   card, one after another, and only fade: nothing on a picture moves. */
 .sc-welcome-pics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -106,12 +106,6 @@
   margin: 4px 0 0;
   font: 400 14px / 1.45 var(--sc-font);
   color: var(--sc-fg);
-  text-wrap: pretty;
-}
-.sc-welcome-txt {
-  margin: 8px 0 0;
-  font: 400 13px / 1.45 var(--sc-font);
-  color: var(--sc-fg2);
   text-wrap: pretty;
 }
 .sc-welcome-foot {

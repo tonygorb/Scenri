@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { learn, restartTours, useGuide } from '../guide.js';
 import {
+  backStop,
   endTour,
   forgetTourProgress,
   leaveTour,
   nextStop,
+  setWelcomeOpen,
   settleStop,
   startTour,
   tourSnapshot,
@@ -17,14 +19,15 @@ import {
 import {
   PAUSE_SELECTOR,
   canAutoStart,
+  canGoBack,
   canWelcome,
-  firstOpenStop,
+  settleIndex,
   tourConcept,
   tourFor,
+  welcomeSet,
   type TourId,
   type TourStop,
 } from '../tours.js';
-import { useHoverNone } from '../useMediaQuery.js';
 import { WelcomeDialog } from '../views/WelcomeDialog.js';
 import { Tour } from './Tour.js';
 import { useTourPage } from './useTourPage.js';
@@ -43,17 +46,12 @@ export function TourHost() {
   const guide = useGuide();
   const tour = useTour();
   const data = useAppData();
-  const { brand, products, productsLoaded } = useBrand();
+  const { productsLoaded } = useBrand();
   const { running, builds } = useTaskCenter();
   const [params] = useSearchParams();
-  const touch = useHoverNone();
-  const ownsProducts = products.length > 0 || ((brand.json as { products?: unknown[] })?.products?.length ?? 0) > 0;
 
   const shownPage = tour?.page ?? page;
-  const stops = useMemo(
-    () => (shownPage ? tourFor(shownPage, { touch, ownsProducts }) : []),
-    [shownPage, touch, ownsProducts],
-  );
+  const stops = useMemo(() => (shownPage ? tourFor(shownPage) : []), [shownPage]);
 
   const learned = guide.learned;
   const watching =
@@ -63,7 +61,7 @@ export function TourHost() {
       (!learned.includes('welcome') || (!learned.includes('tours-off') && !learned.includes(tourConcept(page)))));
 
   // One observer, only while something may still show: a stop's target
-  // drawing, a dialog opening over it, the composer publishing a step.
+  // drawing, a dialog opening over it, a skeleton giving way.
   const [, setTick] = useState(0);
   useEffect(() => {
     if (!watching) return;
@@ -77,7 +75,7 @@ export function TourHost() {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['data-ingredients', 'data-words', 'data-variant'],
+      attributeFilter: ['data-variant'],
     });
     window.addEventListener('resize', bump);
     bump();
@@ -101,10 +99,12 @@ export function TourHost() {
 
   // The page changed under a tour: close it and keep its place. Leaving from
   // a stop whose step opens somewhere else (Create an image, Create presenter)
-  // is usually doing that step, so it resumes past it.
+  // is usually doing that step, so it resumes past it; leaving from the last
+  // stop (Home's points at Create itself) finishes the tour.
   useEffect(() => {
     const t = tourSnapshot();
     if (!t || t.page === page) return;
+    if (t.stopId && t.at >= stops.length - 1 && t.ahead.length === 0) return endTour(t.page, { skipped: false });
     const left = stops.find((s) => s.id === t.stopId);
     leaveTour(left?.advanceOnParam ? { resumeAt: t.at + 1 } : {});
   }, [page]);
@@ -126,8 +126,12 @@ export function TourHost() {
       startTour(page);
   });
 
-  // Settle on the first stop not yet taken, once the page has drawn.
-  const stopAt = tour && tour.page === page && ready && !paused ? openStop(stops, tour.at) : null;
+  // Settle on the first stop not yet taken, once the page has drawn. A stop
+  // reached by Back stays put even if its step has since been taken.
+  const stopAt =
+    tour && tour.page === page && ready && !paused
+      ? settleIndex(stops, tour.at, tour.revisit, isDone, (s) => !!firstVisible(s.targets))
+      : null;
   useEffect(() => {
     if (!tour || stopAt === null) return;
     if (stopAt >= stops.length) endTour(tour.page, { skipped: false });
@@ -135,38 +139,49 @@ export function TourHost() {
   }, [tour, stopAt, stops]);
 
   // Opening the step's own dialog is doing the step.
-  const current = tour && tour.stopId ? stops[tour.at] : null;
+  const current = tour?.stopId ? stops[tour.at] : null;
   useEffect(() => {
-    if (current?.advanceOnParam && params.has(current.advanceOnParam)) nextStop();
+    if (current?.advanceOnParam && params.has(current.advanceOnParam)) nextStop(current.id);
   }, [current, params]);
 
-  const skip = () => tour && endTour(tour.page, { skipped: true });
-
-  // Escape skips, unless something else is taking the key: a field, a menu, a dialog.
-  useEffect(() => {
-    if (!current || paused) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return;
-      const el = document.activeElement as HTMLElement | null;
-      if (el?.closest('input, textarea, select, [contenteditable="true"], [role="menu"], [role="listbox"]')) return;
-      if (el?.closest('[role="dialog"]:not(.sc-tour)')) return;
-      skip();
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  });
-
-  // Announced once per stop, into a region that was already there.
-  const [said, setSaid] = useState('');
   const showing = !!current && !paused;
+  const last = !!tour && tour.at >= stops.length - 1 && tour.ahead.length === 0;
+
+  // X is a skip, except on the last stop, where there is nothing left to skip.
+  const close = useCallback(
+    (stopId: string) => {
+      const t = tourSnapshot();
+      if (!t || t.stopId !== stopId) return;
+      endTour(t.page, { skipped: t.at < stops.length - 1 || t.ahead.length > 0 });
+    },
+    [stops],
+  );
+  const next = useCallback(
+    (stopId: string) => {
+      const t = tourSnapshot();
+      if (!t || t.stopId !== stopId) return;
+      if (t.at >= stops.length - 1 && t.ahead.length === 0) endTour(t.page, { skipped: false });
+      else nextStop(stopId);
+    },
+    [stops],
+  );
+
+  // Announced once per stop, into a region that was already there, unless the
+  // card took focus: a dialog taking focus is read out on its own.
+  const [said, setSaid] = useState('');
+  const shown = useCallback(
+    (stopId: string, focusMoved: boolean) => {
+      const t = tourSnapshot();
+      const stop = stops.find((s) => s.id === stopId);
+      setSaid('');
+      if (focusMoved || !t || !stop) return;
+      requestAnimationFrame(() => setSaid(`Tour, ${t.at + 1} of ${stops.length}. ${stop.title}. ${stop.body}`));
+    },
+    [stops],
+  );
   useEffect(() => {
-    setSaid('');
-    if (!showing || !current) return;
-    const f = requestAnimationFrame(() =>
-      setSaid(`Tour, ${(tour?.at ?? 0) + 1} of ${stops.length}. ${current.title}. ${current.body}`),
-    );
-    return () => cancelAnimationFrame(f);
-  }, [showing, current?.id]);
+    if (!showing) setSaid('');
+  }, [showing]);
 
   // The welcome: once, on the first ready page, when nothing else is happening.
   // 'first' is the one a new install is shown; 'again' is asked for from the help menu.
@@ -190,18 +205,15 @@ export function TourHost() {
     const t = window.setTimeout(() => setWelcome((w) => w || 'first'), WELCOME_SETTLE_MS);
     return () => window.clearTimeout(t);
   }, [mayWelcome]);
+  useEffect(() => {
+    setWelcomeOpen(!!welcome);
+  }, [welcome]);
+  useEffect(() => () => setWelcomeOpen(false), []);
 
-  const pictures = useMemo(
-    () =>
-      data.showcase
-        .filter((e) => e.previewUrl)
-        .slice(0, 3)
-        .map((e) => sized(e.previewUrl as string)),
-    [data.showcase],
-  );
+  const pictures = useMemo(() => welcomeSet(data.showcase).map((e) => sized(e.previewUrl as string)), [data.showcase]);
 
   const target = showing && current ? firstVisible(current.targets) : null;
-  const clearOf = showing && current?.clearOf ? document.querySelector<HTMLElement>(current.clearOf) : null;
+  const region = showing && current?.region ? document.querySelector<HTMLElement>(current.region) : null;
 
   return (
     <>
@@ -210,14 +222,20 @@ export function TourHost() {
       </span>
       {showing && current && target && tour && (
         <Tour
+          stopId={current.id}
           target={target}
-          clearOf={clearOf}
+          region={region}
+          side={current.side}
           index={tour.at}
           total={stops.length}
           title={current.title}
           body={current.body}
-          onNext={() => (tour.at >= stops.length - 1 ? endTour(tour.page, { skipped: false }) : nextStop())}
-          onSkip={skip}
+          canBack={canGoBack(tour.behind, stops, (s) => !!firstVisible(s.targets))}
+          last={last}
+          onBack={backStop}
+          onNext={next}
+          onClose={close}
+          onShown={shown}
         />
       )}
       <WelcomeDialog
@@ -230,7 +248,8 @@ export function TourHost() {
             forgetTourProgress();
           } else learn('welcome');
           setWelcome(false);
-          if (page) startTour(page);
+          // Create's tour still waits for an engine: it would end on a Generate that cannot run.
+          if (page && (page !== 'create' || engineReady)) startTour(page);
         }}
         onSkip={() => {
           // Declining the first welcome turns tours off; declining a restart changes nothing.
@@ -252,13 +271,8 @@ function firstVisible(selectors: readonly string[]): HTMLElement | null {
   return null;
 }
 
-function openStop(stops: readonly TourStop[], from: number): number {
-  return firstOpenStop(
-    stops,
-    from,
-    (s) => !!s.doneWhen && !!document.querySelector(s.doneWhen),
-    (s) => !!firstVisible(s.targets),
-  );
+function isDone(s: TourStop): boolean {
+  return !!s.doneWhen && !!document.querySelector(s.doneWhen);
 }
 
 /** A page is ready when what its tour points at has drawn, never on a skeleton. */

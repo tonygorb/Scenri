@@ -4,7 +4,17 @@
    `:where()` carries no specificity, so any component rule still wins — this
    is the floor, not an override. Its job is that a control nobody thought
    about still gets a ring rather than falling back to the browser's blue,
-   and that the ring's geometry lives in two tokens instead of 53 copies. */
+   and that the ring's geometry lives in two tokens instead of 53 copies.
+
+   The ring answers the keyboard. `html[data-input]` (inputModality.ts) says
+   which hand moved last: after a click or a tap, focus a control receives,
+   including focus a menu or dialog hands back to its trigger as it closes,
+   draws nothing, while a key press brings the ring straight back. Focus itself
+   is never moved or dropped for this. Every component rule that answers
+   `:focus-visible` carries the same zero-specificity prefix, so a component
+   can never ring on a click. Places to type are the exception: a field shows
+   where the caret is whichever hand put it there. */
+:where(:root:not([data-input="pointer"]))
 :where(
   button,
   [role="button"],
@@ -13,17 +23,61 @@
   [role="radio"],
   [role="checkbox"],
   [role="menuitem"],
-  [role="textbox"],
-  [role="combobox"],
+  [role="combobox"]:not(input, [contenteditable]),
   a[href],
   summary,
-  input,
   select,
-  textarea,
-  [tabindex]
+  input:is(
+    [type="button"],
+    [type="checkbox"],
+    [type="radio"],
+    [type="range"],
+    [type="color"],
+    [type="file"],
+    [type="submit"],
+    [type="reset"],
+    [type="image"]
+  ),
+  [tabindex]:not([role="textbox"], [contenteditable], input, textarea)
+):focus-visible,
+:where(
+  [role="textbox"],
+  [contenteditable]:not([contenteditable="false"]),
+  input:not(
+    [type="button"],
+    [type="checkbox"],
+    [type="radio"],
+    [type="range"],
+    [type="color"],
+    [type="file"],
+    [type="submit"],
+    [type="reset"],
+    [type="image"]
+  ),
+  textarea
 ):focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
+}
+/* After a click, nothing wears the browser's own ring either, Radix Themes'
+   buttons and selects included. */
+:where([data-input="pointer"])
+:where(
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="option"],
+  [role="radio"],
+  [role="checkbox"],
+  [role="menuitem"],
+  [role="combobox"]:not(input, [contenteditable]),
+  a[href],
+  summary,
+  select,
+  [tabindex]:not([role="textbox"], [contenteditable], input, textarea)
+):focus-visible,
+:where([data-input="pointer"]) :is(.rt-BaseButton, .rt-SelectTrigger):focus-visible {
+  outline: none;
 }
 
 /* A dialog surface takes focus when it opens so the dialog is announced as a
@@ -38,7 +92,9 @@
 .sc-newdlg-layer:focus,
 .sc-newdlg-layer:focus-visible,
 .sc-ovl:focus,
-.sc-ovl:focus-visible {
+.sc-ovl:focus-visible,
+.sc-tour:focus,
+.sc-tour:focus-visible {
   outline: none;
 }
 

@@ -689,7 +689,7 @@
   }
 
   .sc-pstudio-resize:hover::before,
-  .sc-pstudio-resize:focus-visible::before,
+  :where(:root:not([data-input="pointer"])) .sc-pstudio-resize:focus-visible::before,
   .sc-pstudio-resize:active::before {
     opacity: 1;
   }

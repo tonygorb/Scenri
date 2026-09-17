@@ -319,7 +319,7 @@
   transition: opacity 0.16s ease;
 }
 .sc-slider:hover .sc-slider-arrow,
-.sc-slider-arrow:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-slider-arrow:focus-visible {
   opacity: 1;
 }
 .sc-slider-arrow:hover {
@@ -580,7 +580,7 @@ a.sc-ingredient:hover {
 a.sc-ingredient[data-tinted]:hover {
   background: color-mix(in srgb, var(--tint) 18%, var(--sc-token-hover));
 }
-a.sc-ingredient:focus-visible {
+:where(:root:not([data-input="pointer"])) a.sc-ingredient:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
@@ -596,7 +596,7 @@ button.sc-ingredient:hover,
   background: var(--sc-token-hover);
   color: var(--sc-fg);
 }
-button.sc-ingredient:focus-visible {
+:where(:root:not([data-input="pointer"])) button.sc-ingredient:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }

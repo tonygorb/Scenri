@@ -185,8 +185,9 @@
     text-underline-offset: 3px;
   }
 }
-/* the Add logo verb is a label whose input holds the focus */
-.sc-ap-sec-act:focus-within {
+/* the Add logo verb is a label whose input holds the focus: ringed only when
+   the keyboard put it there, like every other control */
+:where(:root:not([data-input="pointer"])) .sc-ap-sec-act:has(:focus-visible) {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
   border-radius: var(--sc-radius-xs);
@@ -231,10 +232,10 @@
   text-align: start;
   color: var(--sc-fg);
 }
-.sc-ap-card:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-ap-card:focus-visible {
   outline: none;
 }
-.sc-ap-card:focus-visible .sc-ap-thumb {
+:where(:root:not([data-input="pointer"])) .sc-ap-card:focus-visible .sc-ap-thumb {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
 }
@@ -372,16 +373,16 @@
     display: block;
   }
 }
-.sc-ap-card:not([aria-disabled="true"]):focus-visible .sc-ap-puck {
+:where(:root:not([data-input="pointer"])) .sc-ap-card:not([aria-disabled="true"]):focus-visible .sc-ap-puck {
   display: grid;
 }
-.sc-ap-card:not([data-on]):focus-visible .sc-ap-puck-add {
+:where(:root:not([data-input="pointer"])) .sc-ap-card:not([data-on]):focus-visible .sc-ap-puck-add {
   display: block;
 }
-.sc-ap-card[data-on]:focus-visible .sc-ap-puck-on {
+:where(:root:not([data-input="pointer"])) .sc-ap-card[data-on]:focus-visible .sc-ap-puck-on {
   display: none;
 }
-.sc-ap-card[data-on]:focus-visible .sc-ap-puck-off {
+:where(:root:not([data-input="pointer"])) .sc-ap-card[data-on]:focus-visible .sc-ap-puck-off {
   display: block;
 }
 

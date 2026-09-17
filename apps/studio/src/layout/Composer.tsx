@@ -761,9 +761,6 @@ export const Composer = forwardRef<
   if (hint === 'refine') refineOffered.current = true;
   const engage = useCallback(() => setEngaged(true), []);
   const tourHooks = variant !== 'overlay';
-  const hasIngredients =
-    sentence.some((t) => t.t === 'product' || t.t === 'character' || t.t === 'template') || !!template;
-  const saidWords = /\p{L}[\s\u00a0]/u.test(sentence.flatMap((t) => (t.t === 'text' ? [t.v] : [])).join(''));
   /** Reaching for an ingredient is the Create tour's first step. A colour is not one. */
   const learnFromSigil = useCallback((sigil: string) => {
     if (sigil !== '#') advanceTour('create', 'create.add');
@@ -1374,12 +1371,7 @@ export const Composer = forwardRef<
           )}
         </div>
       )}
-      <div
-        className="sc-promptcard"
-        data-tour={tourHooks ? 'create.prompt' : undefined}
-        data-ingredients={(tourHooks && hasIngredients) || undefined}
-        data-words={(tourHooks && saidWords) || undefined}
-      >
+      <div className="sc-promptcard" data-tour={tourHooks ? 'create.prompt' : undefined}>
         {/* What this brief is about to do, stated before it does it: the
             picture being refined, as the one chip pattern the app has. The
             hub's chip has an X, which lets go of the thread and makes a new

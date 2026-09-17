@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { Core } from '@scenri/core';
+import { compareSemver } from '../update/versionsDir.js';
 
 /**
  * First-use guidance: the welcome, the page tours and the refine row, each said
@@ -13,6 +14,11 @@ import type { Core } from '@scenri/core';
  * Nothing after that boot changes it, so deleting every brand does not make
  * an old hand new again, and learning something is never derived from what
  * the library holds.
+ *
+ * The same decision settles What's New. Someone new has nothing to compare the
+ * running version with, so its notes count as read from that boot: they are
+ * told about the next update, never about the version they installed. An
+ * install that already has brands is left alone and reads its notes as before.
  */
 export const GUIDE_CONCEPTS = [
   'welcome',
@@ -29,10 +35,14 @@ export type GuideConcept = (typeof GUIDE_CONCEPTS)[number];
 export interface GuideState {
   eligible: boolean;
   learned: GuideConcept[];
+  /** The tours were asked for from the help menu, by an install that may not be new. */
+  optedIn: boolean;
 }
-/** What is stored: the state, plus whether a person asked for the tours themselves. */
-interface GuideRecord extends GuideState {
+/** What is stored: the state, with `optedIn` written only when true. */
+interface GuideRecord {
   v: 1;
+  eligible: boolean;
+  learned: GuideConcept[];
   optedIn?: boolean;
 }
 
@@ -63,10 +73,21 @@ function write(store: Store, record: Omit<GuideRecord, 'v'>): void {
   );
 }
 
-/** The boot decision. Idempotent: only a home with no record at all is judged. */
-export function stampGuide(store: Store): void {
+/**
+ * The boot decision. Idempotent: only a home with no record at all is judged.
+ * A new home's notes are marked read before the record is written, because the
+ * record is what stops this running again: a boot that dies between the two
+ * writes is judged once more rather than left announcing its own install.
+ */
+export function stampGuide(store: Store, version: string): void {
   if (store.getSetting(KEY) !== null) return;
-  write(store, { eligible: store.listBrands().length === 0, learned: [] });
+  const eligible = store.listBrands().length === 0;
+  if (eligible) {
+    if (!store.getSetting('install.firstVersion')) store.setSetting('install.firstVersion', version);
+    const seen = store.getSetting('whatsnew.seen');
+    if (!seen || compareSemver(seen, version) < 0) store.setSetting('whatsnew.seen', version);
+  }
+  write(store, { eligible, learned: [] });
 }
 
 /**
@@ -79,6 +100,7 @@ export function readGuide(store: Store, env: NodeJS.ProcessEnv): GuideState {
   return {
     eligible: (g?.eligible ?? false) && (env.SCENRI_NO_GUIDE !== '1' || g?.optedIn === true),
     learned: g?.learned ?? [],
+    optedIn: g?.optedIn === true,
   };
 }
 
@@ -101,10 +123,13 @@ export function restartGuide(store: Store): void {
   write(store, { eligible: true, learned, optedIn: true });
 }
 
-export function registerGuideRoutes(app: FastifyInstance, deps: { core: Core; env?: NodeJS.ProcessEnv }): void {
+export function registerGuideRoutes(
+  app: FastifyInstance,
+  deps: { core: Core; version: string; env?: NodeJS.ProcessEnv },
+): void {
   const { core } = deps;
   const env = deps.env ?? process.env;
-  stampGuide(core.store);
+  stampGuide(core.store, deps.version);
 
   app.get('/api/guide', async () => readGuide(core.store, env));
 

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { ArrowSquareOut, X } from '@phosphor-icons/react';
 import { useDialogParam } from '../app/AppShell.js';
 import { useWhatsNew } from '../app/WhatsNew.js';
@@ -27,6 +28,14 @@ export function WhatsNewDialog() {
     markSeen();
     param.close();
   };
+
+  // Browser Back closes it without any of the dialog's own ways out, and it is
+  // still a close: seen once, never shown again for this version.
+  const wasOpen = useRef(open);
+  useEffect(() => {
+    if (wasOpen.current && !open) markSeen();
+    wasOpen.current = open;
+  }, [open, markSeen]);
 
   const unreleased = status === 'ready' && !entry && !changelogUrl;
   const named = entry !== null && entry.sections.length > 1;

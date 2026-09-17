@@ -41,16 +41,17 @@ afterEach(() => {
 
 describe('guide store', () => {
   it('is silent until the install is known to be new', async () => {
-    expect(guideSnapshot()).toEqual({ eligible: false, learned: [] });
+    expect(guideSnapshot()).toEqual({ eligible: false, learned: [], loaded: false, optedIn: false });
     guide.mockResolvedValue({ eligible: true, learned: [] });
     await loadGuide();
-    expect(guideSnapshot()).toEqual({ eligible: true, learned: [] });
+    expect(guideSnapshot()).toEqual({ eligible: true, learned: [], loaded: true, optedIn: false });
   });
 
   it('a failed or missing route teaches nobody and throws nothing', async () => {
     guide.mockRejectedValue(Object.assign(new Error('HTTP 404'), { status: 404 }));
     await expect(loadGuide()).resolves.toBeUndefined();
     expect(guideSnapshot().eligible).toBe(false);
+    expect(guideSnapshot().loaded).toBe(true);
   });
 
   it('loads once per page', async () => {
@@ -95,7 +96,12 @@ describe('guide store', () => {
     learn('tour-create');
     load.resolve({ eligible: true, learned: ['refine', 'tour'] });
     await loaded;
-    expect(guideSnapshot()).toEqual({ eligible: true, learned: ['refine', 'tour-create'] });
+    expect(guideSnapshot()).toEqual({
+      eligible: true,
+      learned: ['refine', 'tour-create'],
+      loaded: true,
+      optedIn: false,
+    });
     expect(guideLearned).toHaveBeenCalledWith('tour-create');
   });
 
@@ -118,7 +124,13 @@ describe('guide store', () => {
     guide.mockResolvedValue({ eligible: false, learned: ['welcome', 'tour-home', 'tours-off', 'refine'] });
     await loadGuide();
     restartTours();
-    expect(guideSnapshot()).toEqual({ eligible: true, learned: ['welcome', 'refine'] });
+    expect(guideSnapshot()).toEqual({ eligible: true, learned: ['welcome', 'refine'], loaded: true, optedIn: true });
     expect(guideRestart).toHaveBeenCalledTimes(1);
+  });
+
+  it('carries whether the tours were asked for', async () => {
+    guide.mockResolvedValue({ eligible: true, learned: ['welcome'], optedIn: true });
+    await loadGuide();
+    expect(guideSnapshot().optedIn).toBe(true);
   });
 });

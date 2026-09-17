@@ -112,7 +112,7 @@
     transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
     width 220ms cubic-bezier(0.32, 0.72, 0, 1);
 }
-.sc-verticals button:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-verticals button:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
   border-radius: var(--sc-radius-xs);
@@ -315,7 +315,7 @@
   border-color: var(--sc-line-strong);
   color: var(--sc-fg);
 }
-.sc-libsearch-toggle:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-libsearch-toggle:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
@@ -404,7 +404,7 @@
   background: var(--sc-chip);
   color: var(--sc-fg);
 }
-.sc-libsearch-clear:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-libsearch-clear:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }

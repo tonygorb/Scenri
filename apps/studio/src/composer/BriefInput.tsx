@@ -39,6 +39,7 @@ import {
 } from './ingredientOptions.js';
 import { useIngredientCatalog } from './useIngredientCatalog.js';
 import { applySceneTint } from './sceneTint.js';
+import { keyboardFocus } from '../inputModality.js';
 import { CEILING_SENTENCE, IDENTITY_CAP, IDENTITY_KINDS } from './attachRoom.js';
 import {
   CHIP,
@@ -968,7 +969,7 @@ export const BriefInput = forwardRef<
   /**
    * Focus is the keyboard's hover.
    *
-   * Only `:focus-visible`, so the focus a mouse click leaves on a chip does not
+   * Only keyboard focus (`keyboardFocus`), so the focus a mouse click leaves on a chip does not
    * re-open the card the click just dismissed on its way to the lightbox.
    */
   const onFocusIn = (e: React.FocusEvent) => {
@@ -976,7 +977,7 @@ export const BriefInput = forwardRef<
     const uid = chip?.dataset.uid;
     if (!chip || !uid || picker || menu) return;
     if (!chipPeeks(chip)) return;
-    if (!chip.matches(':focus-visible')) return;
+    if (!keyboardFocus(chip)) return;
     hover.open({ uid, anchor: chip });
   };
 

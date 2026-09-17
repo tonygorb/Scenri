@@ -4,6 +4,7 @@ import { thumbUrl } from '../../api.js';
 import { briefProse, type ProseNames } from '../../briefDiff.js';
 import { ChipPreview } from '../../composer/ChipPreview.js';
 import { useHoverPreview } from '../../composer/useHoverPreview.js';
+import { keyboardFocus } from '../../inputModality.js';
 import { type TrailStep, whereIs } from './historyRules.js';
 
 /** The fade over an edge with more trail past it; the stylesheet draws it at the same width. */
@@ -178,9 +179,7 @@ export function LineageStrip({
               }}
               onPointerEnter={(e) => e.pointerType === 'mouse' && s.state === 'ready' && peekAt(s, i, e.currentTarget)}
               onPointerLeave={(e) => e.pointerType === 'mouse' && peek.close()}
-              onFocus={(e) =>
-                e.currentTarget.matches(':focus-visible') && s.state === 'ready' && peekAt(s, i, e.currentTarget)
-              }
+              onFocus={(e) => keyboardFocus(e.currentTarget) && s.state === 'ready' && peekAt(s, i, e.currentTarget)}
             >
               {s.state === 'ready' ? (
                 <img

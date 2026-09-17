@@ -2524,7 +2524,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   });
 
   registerSystemRoutes(app, { core, thumbs });
-  registerGuideRoutes(app, { core });
+  registerGuideRoutes(app, { core, version: meta.version });
   registerDesktopRoutes(app, {
     core,
     runtime,

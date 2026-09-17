@@ -184,7 +184,7 @@
     color 0.16s ease;
 }
 .sc-shelf:hover .sc-shelf-arrow,
-.sc-shelf-arrow:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-shelf-arrow:focus-visible {
   opacity: 1;
 }
 .sc-shelf-arrow:hover {

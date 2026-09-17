@@ -40,8 +40,8 @@ test('no welcome and no tour; the ? sits in the corner and gathers the help', as
   await expect(github).toHaveAttribute('target', '_blank');
 
   await page.getByRole('menuitem', { name: 'Tour this page' }).click();
-  await expect(page.locator('.sc-tour .sc-tour-title')).toHaveText('Cast your own');
-  await page.locator('.sc-tour-skip').click();
+  await expect(page.locator('.sc-tour .sc-tour-title')).toHaveText('Cast the faces of this brand');
+  await page.getByRole('button', { name: 'Close tour' }).click();
   await expect(page.locator('.sc-tour')).toHaveCount(0);
   await expect(page.locator('.sc-help-menu')).toHaveCount(0);
 
@@ -104,11 +104,11 @@ test('Start the tours over reopens the welcome; declining changes nothing, takin
   await float(page).click();
   await page.getByRole('menuitem', { name: 'Start the tours over' }).click();
   await welcome.getByRole('button', { name: 'Take the tour' }).click();
-  await expect(page.locator('.sc-tour .sc-tour-title')).toHaveText('Cast your own');
-  await page.locator('.sc-tour-skip').click();
+  await expect(page.locator('.sc-tour .sc-tour-title')).toHaveText('Cast the faces of this brand');
+  await page.getByRole('button', { name: 'Close tour' }).click();
   await expect(page.locator('.sc-tour')).toHaveCount(0);
 
   // An upgraded install that asked is taught like a new one: the next page tours on its own.
   await page.goto(`/${s}/scenes`);
-  await expect(page.locator('.sc-tour .sc-tour-title')).toHaveText('Build your own');
+  await expect(page.locator('.sc-tour .sc-tour-title')).toHaveText('Build the worlds you shoot in');
 });

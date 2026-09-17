@@ -29,9 +29,14 @@ export type Concept = (typeof CONCEPTS)[number];
 export interface GuideSnapshot {
   eligible: boolean;
   learned: readonly Concept[];
+  /** The one read has answered, or failed. Until then nobody can tell a new install from an old one. */
+  loaded: boolean;
+  /** The tours were asked for from the help menu, so the install may not be new at all. */
+  optedIn: boolean;
 }
 
-let snapshot: GuideSnapshot = { eligible: false, learned: [] };
+const EMPTY: GuideSnapshot = { eligible: false, learned: [], loaded: false, optedIn: false };
+let snapshot: GuideSnapshot = EMPTY;
 let loading: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
@@ -49,10 +54,10 @@ export function loadGuide(): Promise<void> {
     .then((r) => {
       const server = r.learned.filter(known);
       const local = snapshot.learned.filter((c) => !server.includes(c));
-      emit({ eligible: r.eligible, learned: [...server, ...local] });
+      emit({ eligible: r.eligible, learned: [...server, ...local], loaded: true, optedIn: r.optedIn === true });
       if (r.eligible) for (const c of local) void api.guideLearned(c).catch(() => {});
     })
-    .catch(() => {});
+    .catch(() => emit({ ...snapshot, loaded: true }));
   return loading;
 }
 
@@ -69,7 +74,12 @@ export function learn(concept: Concept): void {
  * and the refine row, which is not a tour, stays learned.
  */
 export function restartTours(): void {
-  emit({ eligible: true, learned: snapshot.learned.includes('refine') ? ['welcome', 'refine'] : ['welcome'] });
+  emit({
+    eligible: true,
+    learned: snapshot.learned.includes('refine') ? ['welcome', 'refine'] : ['welcome'],
+    loaded: true,
+    optedIn: true,
+  });
   void api.guideRestart().catch(() => {});
 }
 
@@ -88,7 +98,7 @@ export function useGuide(): GuideSnapshot {
 
 /** Tests only: a fresh page. */
 export function resetGuideForTests(): void {
-  snapshot = { eligible: false, learned: [] };
+  snapshot = EMPTY;
   loading = null;
   listeners.clear();
 }

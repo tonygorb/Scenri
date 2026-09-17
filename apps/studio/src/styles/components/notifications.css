@@ -90,7 +90,7 @@
   color: var(--sc-fg);
   box-shadow: var(--sc-shadow-1);
 }
-.sc-notif-tab:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-notif-tab:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
 }
@@ -109,7 +109,7 @@
   flex-direction: column;
   gap: 1px;
 }
-.sc-notif-scroll:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-notif-scroll:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
   border-radius: var(--sc-radius-sm);
@@ -132,7 +132,7 @@
 .sc-notif-row:hover {
   background: var(--sc-hover);
 }
-.sc-notif-row:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-notif-row:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
 }
