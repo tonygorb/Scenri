@@ -11,14 +11,18 @@
     inset 0 0 0 1px var(--sc-line),
     var(--sc-shadow-3);
   background: var(--sc-panel);
-  /* a library of test brands must scroll, not run off the screen */
   max-height: min(70vh, 520px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 /* The surface says what it is. Four panels open from four controls in the same
    corner of the screen, and the head is how each one is told from the others
    before a single row is read. */
+/* Radix wraps a menu's children in a viewport with its own padding, so every row
+   sat 8px narrower than the body it is in. The card's own 8 is the only inset
+   there is. */
+.sc-menu > .rt-BaseMenuViewport,
+.sc-menu .rt-BaseMenuViewport {
+  padding: 0;
+}
 .sc-menu-head {
   position: sticky;
   top: 0;
@@ -89,13 +93,13 @@
 .sc-menu-find {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 36px;
-  margin: 2px 0 6px;
-  padding: 0 10px;
-  border-radius: var(--sc-radius);
-  background: var(--sc-well);
-  color: var(--sc-fg3);
+  gap: 10px;
+  height: 40px;
+  margin: 0 0 6px;
+  padding: 0 12px;
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-hover);
+  color: var(--sc-fg2);
 }
 .sc-menu-find:focus-within {
   outline: var(--sc-ring-w) solid var(--sc-focus);
@@ -104,12 +108,17 @@
 .sc-menu-find input {
   flex: 1;
   min-width: 0;
+  height: 100%;
+  padding: 0;
   border: none;
   background: none;
   outline: none;
   color: var(--sc-fg);
   font: inherit;
   font-size: 13.5px;
+}
+.sc-menu-find input::-webkit-search-cancel-button {
+  display: none;
 }
 .sc-menu-find input::placeholder {
   color: var(--sc-fg3);
@@ -190,7 +199,10 @@ body > div:has(.sc-menu) {
   width: 340px;
 }
 .sc-menu-label {
-  padding: 16px 10px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 8px 6px;
   color: var(--sc-fg3);
   font-size: 12px;
   font-weight: 500;
@@ -232,20 +244,22 @@ body > div:has(.sc-menu) {
   text-align: left;
 }
 .sc-start-txt b {
-  font-size: 14px;
-  font-weight: 550;
-  letter-spacing: -0.008em;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: normal;
 }
 .sc-start-txt small {
   color: var(--sc-fg3);
-  font-size: 12.5px;
-  line-height: 1.35;
+  font-size: 12px;
+  line-height: 1.5;
 }
 .sc-start-n {
   flex: none;
-  align-self: center;
+  align-self: flex-start;
+  padding-top: 5px;
   color: var(--sc-fg3);
   font-size: 12px;
+  line-height: 1.5;
   font-variant-numeric: tabular-nums;
 }
 /* The act itself, marked the way Home marks the same act (surfaces/home.css:
