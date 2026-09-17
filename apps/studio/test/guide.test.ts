@@ -4,9 +4,12 @@ import { createRoot, type Root } from 'react-dom/client';
 
 const guide = vi.fn();
 const guideLearned = vi.fn();
-vi.mock('../src/api.js', () => ({ api: { guide: () => guide(), guideLearned: (c: string) => guideLearned(c) } }));
+const guideRestart = vi.fn();
+vi.mock('../src/api.js', () => ({
+  api: { guide: () => guide(), guideLearned: (c: string) => guideLearned(c), guideRestart: () => guideRestart() },
+}));
 
-const { guideSnapshot, learn, loadGuide, resetGuideForTests, useGuide } = await import('../src/guide.js');
+const { guideSnapshot, learn, loadGuide, resetGuideForTests, restartTours, useGuide } = await import('../src/guide.js');
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -27,6 +30,8 @@ beforeEach(() => {
   guide.mockReset();
   guideLearned.mockReset();
   guideLearned.mockResolvedValue({ eligible: true, learned: [] });
+  guideRestart.mockReset();
+  guideRestart.mockResolvedValue({ eligible: true, learned: ['welcome'] });
 });
 
 afterEach(() => {
@@ -108,5 +113,12 @@ describe('guide store', () => {
     act(() => root!.render(createElement(Probe)));
     act(() => learn('refine'));
     expect(seen.at(-1)).toEqual(['refine']);
+  });
+  it('starting the tours over forgets every tour at once, even for an install that was not new', async () => {
+    guide.mockResolvedValue({ eligible: false, learned: ['welcome', 'tour-home', 'tours-off', 'refine'] });
+    await loadGuide();
+    restartTours();
+    expect(guideSnapshot()).toEqual({ eligible: true, learned: ['welcome', 'refine'] });
+    expect(guideRestart).toHaveBeenCalledTimes(1);
   });
 });

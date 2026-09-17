@@ -63,6 +63,16 @@ export function learn(concept: Concept): void {
   if (snapshot.eligible) void api.guideLearned(concept).catch(() => {});
 }
 
+/**
+ * Start the tours over, asked for from the help menu. Every tour is forgotten
+ * and the install is taught again, whoever it was; the welcome stays answered
+ * and the refine row, which is not a tour, stays learned.
+ */
+export function restartTours(): void {
+  emit({ eligible: true, learned: snapshot.learned.includes('refine') ? ['welcome', 'refine'] : ['welcome'] });
+  void api.guideRestart().catch(() => {});
+}
+
 function subscribe(l: () => void) {
   listeners.add(l);
   return () => listeners.delete(l);

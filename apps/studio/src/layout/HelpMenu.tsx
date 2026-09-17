@@ -1,4 +1,13 @@
-import { Compass, GithubLogo, Info, Keyboard, Lightning, Megaphone, Question } from '@phosphor-icons/react';
+import {
+  ArrowCounterClockwise,
+  Compass,
+  GithubLogo,
+  Info,
+  Keyboard,
+  Lightning,
+  Megaphone,
+  Question,
+} from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
 import { useMatch } from 'react-router';
 import { useAppData } from '../app/AppShell.js';
@@ -51,6 +60,10 @@ export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
             <span className="sc-menu-lb">Tour this page</span>
           </DropdownMenu.Item>
         )}
+        <DropdownMenu.Item className="sc-menu-item" onSelect={() => window.dispatchEvent(new Event('scenri:welcome'))}>
+          <ArrowCounterClockwise size={18} className="sc-menu-ic" />
+          <span className="sc-menu-lb">Start the tours over</span>
+        </DropdownMenu.Item>
         {onCreate && (
           <DropdownMenu.Item
             className="sc-menu-item"

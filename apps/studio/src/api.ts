@@ -64,6 +64,8 @@ export const api = {
   guide: () => req<{ eligible: boolean; learned: string[] }>('GET', '/api/guide'),
   guideLearned: (concept: string) =>
     req<{ eligible: boolean; learned: string[] }>('POST', '/api/guide/learned', { concept }),
+  /** Start the tours over: every page tours again, for anyone who asks. */
+  guideRestart: () => req<{ eligible: boolean; learned: string[] }>('POST', '/api/guide/restart'),
   /**
    * Re-read the brand's own website. Merges: hand-edited fields survive, and
    * scraped colours come back as `suggestions` rather than being applied.

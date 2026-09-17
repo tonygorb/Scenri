@@ -28,7 +28,13 @@ test('no welcome and no tour; the ? sits in the corner and gathers the help', as
 
   await float(page).click();
   const items = page.locator('.sc-help-menu [role="menuitem"]');
-  await expect(items).toHaveText(['Tour this page', "What's new", 'About Scenri', 'Scenri on GitHub']);
+  await expect(items).toHaveText([
+    'Tour this page',
+    'Start the tours over',
+    "What's new",
+    'About Scenri',
+    'Scenri on GitHub',
+  ]);
   const github = page.getByRole('menuitem', { name: 'Scenri on GitHub' });
   await expect(github).toHaveAttribute('href', 'https://github.com/tonygorb/scenri');
   await expect(github).toHaveAttribute('target', '_blank');
@@ -76,4 +82,33 @@ test('below 1024px the ? moves into the top bar', async ({ page }) => {
   await page.goto(`/${s}`);
   await expect(page.locator('.sc-topbar [aria-label="Help"]')).toBeVisible();
   await expect(page.locator('.sc-help-float')).toHaveCount(0);
+});
+
+test('Start the tours over reopens the welcome; declining changes nothing, taking it tours every page again', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const s = await slug(page);
+  await page.goto(`/${s}/presenters`);
+  const welcome = page.locator('.sc-welcome');
+
+  await float(page).click();
+  await page.getByRole('menuitem', { name: 'Start the tours over' }).click();
+  await expect(welcome).toBeVisible();
+  await welcome.locator('.sc-welcome-foot').getByRole('button', { name: 'Not now' }).click();
+  await expect(welcome).toHaveCount(0);
+  await expect(page.locator('.sc-help-menu')).toHaveCount(0);
+  await expectNoTour(page);
+  expect(((await (await page.request.get('/api/guide')).json()) as { eligible: boolean }).eligible).toBe(false);
+
+  await float(page).click();
+  await page.getByRole('menuitem', { name: 'Start the tours over' }).click();
+  await welcome.getByRole('button', { name: 'Take the tour' }).click();
+  await expect(page.locator('.sc-tour .sc-tour-title')).toHaveText('Cast your own');
+  await page.locator('.sc-tour-skip').click();
+  await expect(page.locator('.sc-tour')).toHaveCount(0);
+
+  // An upgraded install that asked is taught like a new one: the next page tours on its own.
+  await page.goto(`/${s}/scenes`);
+  await expect(page.locator('.sc-tour .sc-tour-title')).toHaveText('Build your own');
 });

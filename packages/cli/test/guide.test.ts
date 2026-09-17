@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { createCore, type Core } from '@scenri/core';
 import type { FastifyInstance } from 'fastify';
 import { buildServer } from '../src/server.js';
-import { learnGuide, readGuide, stampGuide } from '../src/routes/guide.js';
+import { learnGuide, readGuide, restartGuide, stampGuide } from '../src/routes/guide.js';
 
 const brand = (name: string) => ({ specVersion: '0.1', meta: { name } });
 
@@ -66,6 +66,23 @@ describe('first-use guide record', () => {
     expect(readGuide(core.store, {}).learned).toEqual(['refine', 'tour-create']);
   });
 
+  it('starting the tours over clears every tour, keeps the welcome answered and refine learned', () => {
+    stampGuide(core.store);
+    for (const c of ['welcome', 'tour-home', 'tour-skip', 'tours-off', 'refine'] as const) learnGuide(core.store, c);
+    restartGuide(core.store);
+    expect(readGuide(core.store, {})).toEqual({ eligible: true, learned: ['welcome', 'refine'] });
+  });
+
+  it('an upgraded install that asks for the tours is taught, even where tests silence the boot decision', () => {
+    core.store.createBrand(brand('Existing'));
+    stampGuide(core.store);
+    expect(readGuide(core.store, { SCENRI_NO_GUIDE: '1' }).eligible).toBe(false);
+    restartGuide(core.store);
+    expect(readGuide(core.store, { SCENRI_NO_GUIDE: '1' })).toEqual({ eligible: true, learned: ['welcome'] });
+    learnGuide(core.store, 'tour-home');
+    expect(readGuide(core.store, { SCENRI_NO_GUIDE: '1' }).eligible).toBe(true);
+  });
+
   it('a corrupt record reads as not eligible rather than throwing', () => {
     core.store.setSetting('guide', '{not json');
     expect(readGuide(core.store, {})).toEqual({ eligible: false, learned: [] });
@@ -98,6 +115,13 @@ describe('guide routes', () => {
     expect(post.json()).toEqual({ eligible: true, learned: ['tour-create'] });
     const again = await app.inject({ method: 'GET', url: '/api/guide' });
     expect(again.json().learned).toEqual(['tour-create']);
+  });
+
+  it('restart answers with the fresh state', async () => {
+    await app.inject({ method: 'POST', url: '/api/guide/learned', payload: { concept: 'tours-off' } });
+    const res = await app.inject({ method: 'POST', url: '/api/guide/restart' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ eligible: true, learned: ['welcome'] });
   });
 
   it('refuses a concept it does not know', async () => {

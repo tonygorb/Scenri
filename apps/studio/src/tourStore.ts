@@ -88,6 +88,11 @@ export function sentAShot(): void {
   else learn(tourConcept('create'));
 }
 
+/** The tours were started over: no half-finished one is picked up where it stopped. */
+export function forgetTourProgress(): void {
+  resumeAt.clear();
+}
+
 /** Tests only: a fresh page. */
 export function resetToursForTests(): void {
   state = null;

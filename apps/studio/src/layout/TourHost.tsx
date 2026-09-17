@@ -3,8 +3,17 @@ import { useSearchParams } from 'react-router';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
-import { learn, useGuide } from '../guide.js';
-import { endTour, leaveTour, nextStop, settleStop, startTour, tourSnapshot, useTour } from '../tourStore.js';
+import { learn, restartTours, useGuide } from '../guide.js';
+import {
+  endTour,
+  forgetTourProgress,
+  leaveTour,
+  nextStop,
+  settleStop,
+  startTour,
+  tourSnapshot,
+  useTour,
+} from '../tourStore.js';
 import {
   PAUSE_SELECTOR,
   canAutoStart,
@@ -160,7 +169,13 @@ export function TourHost() {
   }, [showing, current?.id]);
 
   // The welcome: once, on the first ready page, when nothing else is happening.
-  const [welcome, setWelcome] = useState(false);
+  // 'first' is the one a new install is shown; 'again' is asked for from the help menu.
+  const [welcome, setWelcome] = useState<false | 'first' | 'again'>(false);
+  useEffect(() => {
+    const again = () => setWelcome('again');
+    window.addEventListener('scenri:welcome', again);
+    return () => window.removeEventListener('scenri:welcome', again);
+  }, []);
   const mayWelcome = canWelcome({
     page,
     eligible: guide.eligible,
@@ -172,7 +187,7 @@ export function TourHost() {
   });
   useEffect(() => {
     if (!mayWelcome) return;
-    const t = window.setTimeout(() => setWelcome(true), WELCOME_SETTLE_MS);
+    const t = window.setTimeout(() => setWelcome((w) => w || 'first'), WELCOME_SETTLE_MS);
     return () => window.clearTimeout(t);
   }, [mayWelcome]);
 
@@ -206,16 +221,23 @@ export function TourHost() {
         />
       )}
       <WelcomeDialog
-        open={welcome}
+        open={!!welcome}
+        again={welcome === 'again'}
         pictures={pictures}
         onTake={() => {
-          learn('welcome');
+          if (welcome === 'again') {
+            restartTours();
+            forgetTourProgress();
+          } else learn('welcome');
           setWelcome(false);
           if (page) startTour(page);
         }}
         onSkip={() => {
-          learn('welcome');
-          learn('tours-off');
+          // Declining the first welcome turns tours off; declining a restart changes nothing.
+          if (welcome === 'first') {
+            learn('welcome');
+            learn('tours-off');
+          }
           setWelcome(false);
         }}
       />

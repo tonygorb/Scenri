@@ -11,6 +11,7 @@ vi.mock('../src/guide.js', () => ({
 const {
   advanceTour,
   endTour,
+  forgetTourProgress,
   leaveTour,
   nextStop,
   resetToursForTests,
@@ -94,5 +95,13 @@ describe('tour store', () => {
     sentAShot();
     expect(tourSnapshot()?.page).toBe('home');
     expect(learned).toEqual(['tour-create']);
+  });
+  it('starting over forgets where a half-finished tour stopped', () => {
+    startTour('scenes');
+    settleStop(1, 'scenes.ours');
+    leaveTour();
+    forgetTourProgress();
+    startTour('scenes');
+    expect(tourSnapshot()?.at).toBe(0);
   });
 });
