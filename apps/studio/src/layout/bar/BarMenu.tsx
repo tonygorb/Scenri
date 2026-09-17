@@ -90,7 +90,9 @@ export function BarMenu({
         })}
         {open && (
           <BarSheet label={label} onClose={close}>
-            <div className={`sc-menu sc-menu-sheet ${className ?? ''}`}>
+            {/* No `sc-menu` here: that class IS the pointer card, and the sheet
+              is already one. The rows, head and rules carry their own classes. */}
+            <div className="sc-menu-sheet">
               <div className="sc-menu-head">{label}</div>
               <SurfaceCtx.Provider value={{ close, focusTrigger }}>{children}</SurfaceCtx.Provider>
             </div>

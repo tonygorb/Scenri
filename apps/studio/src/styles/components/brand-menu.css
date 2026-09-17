@@ -5,10 +5,7 @@
    mark, on a 34px row. */
 .sc-menu {
   width: 420px;
-  /* The concept's last row ends on the card's own bottom edge: the row's 8px
-     frame is the gap, and a second one under it made every panel taller than
-     the design draws. */
-  padding: 0 8px;
+  padding: 0 8px 8px;
   border-radius: var(--sc-radius-float);
   box-shadow:
     inset 0 0 0 1px var(--sc-line),
@@ -18,35 +15,75 @@
      library of brands was being cut off with a scrollbar over its last row. */
   max-height: var(--radix-dropdown-menu-content-available-height, 80vh);
 }
-/* A menu never scrolls sideways. Radix's scroll area offers both axes, and the
-   horizontal track was sitting across the bottom of every panel. The viewport's
-   own child is a table by default, which is what let the content measure wider
-   than the box it is in. */
-.sc-menu [class*="ScrollAreaScrollbar"][data-orientation="horizontal"],
-.sc-notif-pop [class*="ScrollAreaScrollbar"][data-orientation="horizontal"] {
-  display: none !important;
-}
-.sc-menu [class*="ScrollAreaViewport"],
-.sc-notif-pop [class*="ScrollAreaViewport"] {
-  scrollbar-width: none;
-}
-.sc-menu [class*="ScrollAreaViewport"]::-webkit-scrollbar,
-.sc-notif-pop [class*="ScrollAreaViewport"]::-webkit-scrollbar {
-  display: none;
-}
-.sc-menu [class*="ScrollAreaViewport"] > div,
-.sc-notif-pop [class*="ScrollAreaViewport"] > div {
-  display: block !important;
-  min-width: 0 !important;
-  width: 100% !important;
-}
 /* The surface says what it is. Four panels open from four controls in the same
    corner of the screen, and the head is how each one is told from the others
    before a single row is read. */
-/* Radix wraps a menu's children in a viewport with its own padding, so every row
-   sat 8px narrower than the body it is in. The card's own 8 is the only inset
-   there is. */
-.sc-menu > .rt-BaseMenuViewport,
+/* ---- how a panel arrives ----
+   Lifted from the approved concept: it scales up out of the button that opened
+   it and settles with a long ease-out, the way a physical card lands. Closing is
+   quicker and falls away. Only transform and opacity move, so nothing reflows
+   while it travels. */
+.sc-menu,
+.sc-notif-pop {
+  transform-origin: var(
+    --radix-dropdown-menu-content-transform-origin,
+    var(--radix-popover-content-transform-origin, center top)
+  );
+  will-change: transform, opacity;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sc-menu[data-state="open"],
+  .sc-notif-pop[data-state="open"] {
+    animation: sc-panel-in 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .sc-menu[data-state="closed"],
+  .sc-notif-pop[data-state="closed"] {
+    animation: sc-panel-out 220ms cubic-bezier(0.4, 0, 0.9, 0.6);
+  }
+  /* Opened from the corner of the page, the help menu rises into place from
+     below and sinks back as it closes. */
+  .sc-menu-help[data-state="open"] {
+    animation-name: sc-panel-in-up;
+  }
+  .sc-menu-help[data-state="closed"] {
+    animation-name: sc-panel-out-down;
+  }
+  /* The card carries its content in; the content settles a hair behind it. */
+  .sc-menu[data-state="open"] > *,
+  .sc-notif-pop[data-state="open"] > * {
+    animation: sc-panel-content 280ms ease-out 60ms both;
+  }
+}
+@keyframes sc-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.92);
+  }
+}
+@keyframes sc-panel-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.92);
+  }
+}
+@keyframes sc-panel-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.95);
+  }
+}
+@keyframes sc-panel-out-down {
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.95);
+  }
+}
+@keyframes sc-panel-content {
+  from {
+    opacity: 0;
+  }
+}
+
 .sc-menu .rt-BaseMenuViewport {
   padding: 0;
 }
@@ -57,8 +94,10 @@
   display: flex;
   align-items: center;
   height: 48px;
-  margin: 0 -8px;
-  padding: 0 16px;
+  /* 8 of card gutter plus 8 here puts the title on the 16px line the rows'
+     pictures start on. It must not bleed past the card's content box: a head
+     wider than the box it scrolls in is a horizontal scrollbar. */
+  padding: 0 8px;
   background: var(--sc-panel);
   color: var(--sc-fg);
   font-size: 14px;
@@ -97,6 +136,7 @@
 }
 .sc-menu-sheet .sc-menu-head {
   padding: 0 16px;
+  background: var(--sc-panel);
 }
 .sc-menu-check {
   flex: none;
@@ -171,6 +211,16 @@
 .sc-menu-item:has(.sc-brand-av) {
   min-height: 44px;
   padding: 8px;
+}
+/* Rings on rows are drawn inside the row. A panel scrolls and therefore clips,
+   so a ring 2px outside the first or last row is chopped by the panel's own
+   edge; DESIGN.md sanctions the inset for exactly this, a control sitting in a
+   tight grid or inside another control's border. */
+.sc-menu-item:focus-visible,
+.sc-menu-find:focus-within,
+.sc-start-row:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: calc(var(--sc-ring-off) * -1);
 }
 .sc-menu-item[data-highlighted] {
   background: var(--sc-hover);
@@ -308,18 +358,15 @@ body > div:has(.sc-menu) {
 /* The same menu as a sheet, on a phone. It is the sheet that is full width, so
    the menu inside it gives up its own width and its scrolling, and the rows keep
    the reach a thumb needs. */
+/* The list inside a sheet. The sheet owns the card and the height (78dvh); this
+   owns the scrolling inside it, because a sheet is fixed to the edge and the
+   list is the only thing that can move. */
 .sc-menu-sheet {
-  width: auto;
-  /* The sheet owns the height (78dvh) and this owns the scrolling inside it.
-     `max-height: none` here let a library of brands grow past the sheet's own
-     cap, which put the last rows under the edge of the screen with nothing to
-     scroll: the sheet was already as tall as it was allowed to be. */
   flex: 1;
   min-height: 0;
-  max-height: none;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 2px 4px 8px;
+  padding: 0 0 8px;
 }
 .sc-menu-sheet .sc-menu-item {
   width: 100%;

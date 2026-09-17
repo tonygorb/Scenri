@@ -63,15 +63,14 @@
     var(--sc-shadow-3);
   background: var(--sc-panel);
 }
-.sc-notif-pop .sc-menu-head {
-  margin: 0 -8px;
-}
-/* The panel uses the room it has, and never scrolls sideways. */
+/* The panel uses the room it has. */
 .sc-notif-pop {
   max-height: var(--radix-popover-content-available-height, 80vh);
 }
-.sc-notif-pop [class*="ScrollAreaScrollbar"][data-orientation="horizontal"] {
-  display: none;
+.sc-notif-pop .sc-notif-scroll {
+  max-height: none;
+  overflow: visible;
+  scrollbar-gutter: auto;
 }
 /* Two labelled sections rather than two tabs. They answer different questions
    ("is anything happening", "what happened while I was away") and the panel used
@@ -108,9 +107,7 @@
 .sc-notif-seen:hover {
   color: var(--sc-fg);
 }
-.sc-notif-seen:focus-visible {
-  outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: var(--sc-ring-off);
+.sc-notif-seen {
   border-radius: var(--sc-radius-xs);
 }
 
@@ -141,7 +138,9 @@
 .sc-notif-row:hover {
   background: var(--sc-hover);
 }
-.sc-notif-row:focus-visible {
+.sc-notif-row:focus-visible,
+.sc-notif-seen:focus-visible,
+.sc-notif-clear:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
 }
@@ -197,11 +196,14 @@
 .sc-notif-txt {
   min-width: 0;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .sc-notif-txt b {
   display: block;
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: 13.5px;
+  font-weight: 500;
   color: var(--sc-fg);
   white-space: nowrap;
   overflow: hidden;
@@ -209,9 +211,8 @@
 }
 .sc-notif-txt small {
   display: block;
-  font-size: 11.5px;
-  color: var(--sc-fg2);
-  margin-top: 1px;
+  font-size: 12px;
+  color: var(--sc-fg3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
