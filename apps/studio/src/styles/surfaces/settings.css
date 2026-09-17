@@ -942,26 +942,31 @@ select.sc-in {
     animation: none;
   }
 }
+/* A place the first-use guide may speak (layout/GuideSlot.tsx): it takes no
+   room, and no gap in a flex column, until the guide fills it. */
+.sc-guide-slot:empty {
+  display: none;
+}
 
-/* A page tour (layout/Tour.tsx): a window in a curtain.
+/* The first-use coach (layout/Coachmark.tsx): a window in a curtain.
    The veil darkens and softens the page behind while the page is inert; the
    stop's own surface shows through a window cut in it, sharp and working. The
    blur is a temporary focus device, never a surface style: it is static, it is
    only ever on this veil, and the card over it stays the app's opaque floating
    coat (panel, strong hairline, the popover shadow) with the chip preview's
    tail pointing at what it describes. Layers sit above the dock, tab bar and
-   help float, and below everything that pauses a tour (attach panel 70, shot
-   overlay 80, sheets, dialogs) or that must stay live over it (poppers,
-   toasts). */
-.sc-tour-veil {
+   help float, and below what the first shot goes through (the attach panel
+   at 70 floats over the curtain, live), what pauses the coach (shot overlay
+   80, sheets, dialogs) and what must stay live over it (poppers, toasts). */
+.sc-coach-veil {
   position: fixed;
   inset: 0;
   z-index: 65;
   pointer-events: none;
-  animation: sc-tour-veil-in var(--sc-dur-slow) var(--sc-ease);
+  animation: sc-coach-veil-in var(--sc-dur-slow) var(--sc-ease);
 }
 /* The window is masked out after the blur, so it stays sharp and undimmed. */
-.sc-tour-veil[data-veil="mask"] {
+.sc-coach-veil[data-veil="mask"] {
   background: color-mix(in srgb, var(--sc-scrim) 80%, transparent);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
@@ -971,61 +976,61 @@ select.sc-in {
   mask-composite: exclude;
 }
 /* Where a mask cannot cut the window, four plain panels frame it instead. */
-.sc-tour-panel {
+.sc-coach-panel {
   display: none;
   position: fixed;
   background: var(--sc-scrim);
 }
 /* Clear panels around the window take the page's presses; the window itself
    is left open to the real control. */
-.sc-tour-catch {
+.sc-coach-catch {
   position: fixed;
   inset: 0;
   z-index: 65;
   pointer-events: none;
 }
-.sc-tour-catch-part {
+.sc-coach-catch-part {
   display: none;
   position: fixed;
   pointer-events: auto;
   overscroll-behavior: none;
   touch-action: none;
 }
-.sc-tour-veil[data-state="away"],
-.sc-tour-catch[data-state="away"],
-.sc-tour-ring[data-state="away"] {
+.sc-coach-veil[data-state="away"],
+.sc-coach-catch[data-state="away"],
+.sc-coach-ring[data-state="away"] {
   visibility: hidden;
   pointer-events: none;
 }
-.sc-tour-catch[data-state="away"] .sc-tour-catch-part {
+.sc-coach-catch[data-state="away"] .sc-coach-catch-part {
   pointer-events: none;
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .sc-tour-veil[data-veil="mask"] {
+  .sc-coach-veil[data-veil="mask"] {
     background: var(--sc-scrim);
   }
 }
 @media (prefers-reduced-transparency: reduce) {
-  .sc-tour-veil[data-veil="mask"] {
+  .sc-coach-veil[data-veil="mask"] {
     background: var(--sc-scrim);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 }
-@keyframes sc-tour-veil-in {
+@keyframes sc-coach-veil-in {
   from {
     opacity: 0;
   }
 }
 /* Marks the control inside a larger open surface, such as the + in the composer. */
-.sc-tour-ring {
+.sc-coach-ring {
   position: fixed;
   z-index: 66;
   box-sizing: border-box;
   border: 1.5px solid var(--sc-fg);
   pointer-events: none;
 }
-.sc-tour {
+.sc-coach {
   position: fixed;
   left: 0;
   top: 0;
@@ -1041,34 +1046,34 @@ select.sc-in {
   font-family: var(--sc-font);
   transition: opacity var(--sc-dur-fast) var(--sc-ease);
 }
-.sc-tour[data-state="moving"],
-.sc-tour[data-state="stowed"],
-.sc-tour[data-state="away"] {
+.sc-coach[data-state="moving"],
+.sc-coach[data-state="stowed"],
+.sc-coach[data-state="away"] {
   opacity: 0;
   pointer-events: none;
 }
-.sc-tour-arrow[data-edge="bottom"] {
+.sc-coach-arrow[data-edge="bottom"] {
   bottom: -6px;
   transform: rotate(-45deg);
 }
-.sc-tour-arrow[data-edge="top"] {
+.sc-coach-arrow[data-edge="top"] {
   top: -6px;
   transform: rotate(135deg);
 }
-.sc-tour-arrow[data-edge="left"] {
+.sc-coach-arrow[data-edge="left"] {
   left: -6px;
   transform: rotate(45deg);
 }
-.sc-tour-arrow[data-edge="right"] {
+.sc-coach-arrow[data-edge="right"] {
   right: -6px;
   transform: rotate(225deg);
 }
-.sc-tour-head {
+.sc-coach-head {
   display: flex;
   align-items: flex-start;
   gap: 8px;
 }
-.sc-tour-title {
+.sc-coach-title {
   flex: 1;
   margin: 0;
   padding-top: 1px;
@@ -1076,7 +1081,7 @@ select.sc-in {
   text-wrap: balance;
 }
 /* Only the X: no disc, no border. The reach is wider than the glyph. */
-.sc-tour-x {
+.sc-coach-x {
   position: relative;
   flex: none;
   display: grid;
@@ -1091,7 +1096,7 @@ select.sc-in {
   color: var(--sc-fg3);
   cursor: pointer;
 }
-.sc-tour-x::after {
+.sc-coach-x::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -1100,28 +1105,39 @@ select.sc-in {
   width: 36px;
   height: 36px;
 }
-.sc-tour-x:hover:not(:active) {
+.sc-coach-x:hover:not(:active) {
   color: var(--sc-fg);
 }
+/* The same bare X closes a guide note in a surface's slot. */
+.sc-banner .sc-coach-x {
+  margin: 0;
+}
 @media (pointer: coarse) {
-  .sc-tour-x::after {
+  .sc-coach-x::after {
     width: var(--sc-tap);
     height: var(--sc-tap);
   }
 }
-.sc-tour-body {
+.sc-coach-body {
   margin: 6px 0 0;
   font: 400 12.5px / 1.5 var(--sc-font);
   color: var(--sc-fg2);
   text-wrap: pretty;
 }
-.sc-tour-foot {
+/* A card with no title leads with its one sentence, beside the X. */
+.sc-coach-body[data-lead] {
+  flex: 1;
+  margin: 0;
+  padding-top: 2px;
+  color: var(--sc-fg);
+}
+.sc-coach-foot {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-top: 14px;
 }
-.sc-tour-back {
+.sc-coach-back {
   padding: 0;
   border: 0;
   background: none;
@@ -1129,30 +1145,25 @@ select.sc-in {
   color: var(--sc-fg2);
   cursor: pointer;
 }
-.sc-tour-back:hover:not(:active) {
+.sc-coach-back:hover:not(:active) {
   color: var(--sc-fg);
 }
-.sc-tour-count {
+.sc-coach-next {
   margin-left: auto;
-  font: 500 11.5px var(--sc-font);
-  color: var(--sc-fg3);
-  font-variant-numeric: tabular-nums;
-}
-.sc-tour-next {
   height: 28px;
   padding: 0 14px;
   font-size: 12.5px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .sc-tour-veil {
+  .sc-coach-veil {
     animation: none;
   }
-  .sc-tour {
+  .sc-coach {
     transition: none;
   }
 }
 @media (forced-colors: active) {
-  .sc-tour-ring {
+  .sc-coach-ring {
     border-color: Highlight;
   }
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { LOCK_MARK, createLock } from '../src/layout/tourLock.js';
+import { LOCK_MARK, createLock } from '../src/layout/coachLock.js';
 
 /**
  * jsdom does not act on `inert`; these prove the bookkeeping: what is held,
@@ -14,16 +14,16 @@ beforeEach(() => {
       <main id="main"><div id="live" aria-live="polite"></div><section id="grid"><button id="card">Card</button></section><section id="wall" inert></section></main>
     </div>
     <div id="menu-portal"></div>
-    <div id="tour"></div>`;
+    <div id="coach"></div>`;
   root = document.body;
 });
 
 const inert = (id: string) => document.getElementById(id)!.hasAttribute('inert');
 
-describe('the tour lock', () => {
+describe('the coach lock', () => {
   it('holds every branch except the kept elements and their ancestors', () => {
     const lock = createLock(root);
-    lock.set([document.getElementById('create')!, document.getElementById('tour')!, document.getElementById('live')!]);
+    lock.set([document.getElementById('create')!, document.getElementById('coach')!, document.getElementById('live')!]);
     expect(inert('home')).toBe(true);
     expect(inert('create')).toBe(false);
     expect(inert('nav')).toBe(false);
@@ -32,7 +32,7 @@ describe('the tour lock', () => {
     expect(inert('grid')).toBe(true);
     expect(inert('live')).toBe(false);
     expect(inert('menu-portal')).toBe(true);
-    expect(inert('tour')).toBe(false);
+    expect(inert('coach')).toBe(false);
   });
 
   it('never claims a node something else made inert, and never frees it', () => {

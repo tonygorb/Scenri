@@ -199,7 +199,7 @@ test.describe('a person from scratch', () => {
     ).toHaveCount(3);
     await expect(answer(page, 'Use it')).toHaveCount(0);
 
-    await answer(page, 'Save as is').click();
+    await answer(page, 'Not now').click();
     await expect(log(page)).toContainText('What should we call them?');
     await send(page, 'Maren');
     await expect(log(page)).toContainText('Maren is ready.');
@@ -652,7 +652,7 @@ test.describe('a person from scratch', () => {
     const brand = await currentBrand(page);
     const draftId = await seedDraft(page, brand.id, 'core-approved', '');
     await openDraft(page, brand, draftId);
-    await answer(page, 'Save as is').click();
+    await answer(page, 'Not now').click();
     await expect(log(page)).toContainText('What should we call them?');
     await send(page, 'Marren');
     await expect(log(page)).toContainText('Marren is ready.');
@@ -712,7 +712,7 @@ test.describe('a person from scratch', () => {
     const brand = await currentBrand(page);
     const draftId = await seedDraft(page, brand.id, 'core-approved');
     await openDraft(page, brand, draftId);
-    await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 20_000 });
+    await expect(answer(page, 'Not now')).toBeVisible({ timeout: 20_000 });
     const before = await draftOf(page, brand.id, draftId);
     await send(page, 'shorter hair');
     // while it draws, the stage says so over the picture it is redrawing
@@ -732,7 +732,7 @@ test.describe('a person from scratch', () => {
     await expect(answer(page, 'Keep previous')).toHaveCount(0);
     await answer(page, 'Use it').click();
     // the rest goes stale and rebuilds on its own, conditioned on the new face
-    await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 30_000 });
+    await expect(answer(page, 'Not now')).toBeVisible({ timeout: 30_000 });
     const after = await draftOf(page, brand.id, draftId);
     expect(after.views.portrait.hash).toBe(revised.views.portrait.hash);
     // the demo engine draws the same bytes for the same words, so the proof is the conditioning and the count
@@ -747,7 +747,7 @@ test.describe('a person from scratch', () => {
     const brand = await currentBrand(page);
     const draftId = await seedDraft(page, brand.id, 'core-approved');
     await openDraft(page, brand, draftId);
-    await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 20_000 });
+    await expect(answer(page, 'Not now')).toBeVisible({ timeout: 20_000 });
     const before = await draftOf(page, brand.id, draftId);
     await page.locator('.sc-pstudio-slot[data-view="front"]').click();
     await expect(page.locator('.sc-convo-scope')).toHaveText('Refining the full body');
@@ -991,11 +991,11 @@ test.describe('from photos', () => {
     await answer(page, 'Use this person').click();
     await expect(log(page)).toContainText('Here is the full body', { timeout: 30_000 });
     await answer(page, 'Use it').click();
-    await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 30_000 });
+    await expect(answer(page, 'Not now')).toBeVisible({ timeout: 30_000 });
     // a person built from photographs is never re-identified, whoever drew the frame
     await send(page, 'make her nose smaller');
     await expect(page.locator('.sc-convo-line[role="alert"]')).toContainText('Their photos define who they are.');
-    await answer(page, 'Save as is').click();
+    await answer(page, 'Not now').click();
     await send(page, 'Noor');
     await answer(page, 'Save presenter').click();
     await expect(page).toHaveURL(/\/presenters\/up-/, { timeout: 40_000 });
@@ -1250,9 +1250,9 @@ test.describe('what answers nothing', () => {
     const brand = await currentBrand(page);
     const draftId = await seedDraft(page, brand.id, 'core-approved');
     await openDraft(page, brand, draftId);
-    await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 20_000 });
+    await expect(answer(page, 'Not now')).toBeVisible({ timeout: 20_000 });
     // Settled on both sides, and compared by what the turns are rather than how
-    // many: counted the moment Save as is appears, the transcript is still
+    // many: counted the moment Not now appears, the transcript is still
     // being put together, and the two sides were only ever equal by luck.
     const keys = () =>
       log(page)

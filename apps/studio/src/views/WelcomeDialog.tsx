@@ -1,32 +1,30 @@
 import { X } from '@phosphor-icons/react';
 import { DialogSheet, SheetClose, SheetDescription, SheetTitle } from '../layout/DialogSheet.js';
-import { WELCOME } from '../tours.js';
+import { WELCOME } from '../guidedTasks.js';
 
 /**
  * The first thing a new install says, once, when its first page has settled
  * (DESIGN.md, "First use"): what Scenri makes, in one line, over one product
- * shot in three worlds. It offers the tours and gets out of the way: every
- * way out that is not Take the tour means no tours begin on their own, and the
- * help button brings any of them back.
- *
- * The help menu's Start the tours over opens it `again`: the same offer, where
- * taking it starts every tour over and declining it changes nothing.
+ * shot in three worlds. It offers to make the first shot together and gets
+ * out of the way: every way out that is not taking it is Not now, and First
+ * steps on Home keeps the offer.
  */
 export function WelcomeDialog({
   open,
-  again = false,
   pictures,
+  note,
   onTake,
-  onSkip,
+  onDecline,
 }: {
   open: boolean;
-  again?: boolean;
   pictures: string[];
+  /** What the first shot will ask of this install: a setup, or a few minutes. */
+  note: string;
   onTake: () => void;
-  onSkip: () => void;
+  onDecline: () => void;
 }) {
   return (
-    <DialogSheet open={open} className="sc-welcome" maxWidth="440px" described onDismiss={onSkip}>
+    <DialogSheet open={open} className="sc-welcome" maxWidth="440px" described onDismiss={onDecline}>
       {pictures.length > 0 && (
         <div className="sc-welcome-pics" aria-hidden="true">
           {pictures.map((src, i) => (
@@ -39,20 +37,16 @@ export function WelcomeDialog({
           Welcome to <span className="sc-accent">Scenri</span>
         </SheetTitle>
         <SheetClose>
-          <button
-            type="button"
-            className="sc-set-close sc-newdlg-close"
-            aria-label={again ? WELCOME.notNow : WELCOME.skip}
-          >
+          <button type="button" className="sc-set-close sc-newdlg-close" aria-label={WELCOME.notNow}>
             <X size={16} />
           </button>
         </SheetClose>
       </div>
       <SheetDescription className="sc-welcome-lede">{WELCOME.lede}</SheetDescription>
       <div className="sc-newdlg-foot sc-welcome-foot">
-        <p className="sc-welcome-note">{WELCOME.note}</p>
-        <button type="button" className="sc-btn sc-btn-ghost" onClick={onSkip}>
-          {again ? WELCOME.notNow : WELCOME.skip}
+        <p className="sc-welcome-note">{note}</p>
+        <button type="button" className="sc-btn sc-btn-ghost" onClick={onDecline}>
+          {WELCOME.notNow}
         </button>
         <button type="button" className="sc-btn sc-btn-primary" onClick={onTake}>
           {WELCOME.take}

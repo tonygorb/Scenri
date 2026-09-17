@@ -848,3 +848,47 @@ export interface CommerceScanState {
   result?: CommerceScan;
   error?: string;
 }
+
+/** First use (packages/cli/src/routes/guide.ts): the install's record and what the active task has made. */
+export type GuideTaskId = 'first-shot' | 'refine' | 'product' | 'presenter' | 'scene';
+export type GuideMilestone = 'shot' | 'refine' | 'product' | 'presenter' | 'scene';
+
+export interface GuideCounts {
+  products: number;
+  presenters: number;
+  scenes: number;
+}
+
+export interface GuideActiveTask {
+  task: GuideTaskId;
+  brandId: string;
+  since: string;
+  baseline: GuideCounts;
+}
+
+export interface GuideTaskNode {
+  id: string;
+  kind: string;
+  status: string;
+  images: number;
+  createdAt: string;
+}
+
+export interface GuideView {
+  eligible: boolean;
+  welcome: 'taken' | 'declined' | null;
+  hidden: boolean;
+  done: Partial<Record<GuideMilestone, string>>;
+  dismissed: GuideTaskId[];
+  active: GuideActiveTask | null;
+  activeNodes: GuideTaskNode[];
+  activeDraftId: string | null;
+  counts: GuideCounts | null;
+}
+
+export type GuideIntent =
+  | { welcome: 'taken' | 'declined' }
+  | { start: { task: GuideTaskId; brandId: string } }
+  | { finish: GuideTaskId }
+  | { dismiss: GuideTaskId }
+  | { hidden: boolean };

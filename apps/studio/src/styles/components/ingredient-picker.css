@@ -566,10 +566,10 @@
    The two stroked sides are the ones that show; the square's other half
    sits inside the card, over its padding, and covers the card's own border
    there so the outline runs on through the tail. Which way it points is
-   which way the stroked corner is turned. The tour card wears the same tail
+   which way the stroked corner is turned. The coach card wears the same tail
    (surfaces/settings.css places it). */
 .sc-chip-preview-tail,
-.sc-tour-arrow {
+.sc-coach-arrow {
   position: absolute;
   width: 10px;
   height: 10px;

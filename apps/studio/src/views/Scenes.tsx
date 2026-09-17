@@ -194,12 +194,7 @@ export function ScenesView() {
    */
 
   const createCta = (
-    <button
-      type="button"
-      className="sc-btn sc-btn-primary"
-      data-tour="library.add"
-      onClick={() => createAsset('scene')}
-    >
+    <button type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('scene')}>
       <Plus size={12} /> Create scene
     </button>
   );
@@ -210,7 +205,6 @@ export function ScenesView() {
       data-wall={wall || undefined}
       data-density
       data-density-size={densityAttr}
-      data-tour="library.ours"
       style={wallStyle}
     >
       {items.map((s) => (

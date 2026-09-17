@@ -3577,13 +3577,13 @@ test('a colour chip wears its colour as the same circle a picture chip wears, an
 
 test('an install that was not new when it first booted is never taught', async ({ page }) => {
   // The harness boots every file with SCENRI_NO_GUIDE=1, which reads exactly as
-  // an upgraded home does; onboarding*.spec.ts is where the teaching is proven.
+  // an upgraded home does; first-shot*.spec.ts is where the guiding is proven.
   const brands = await (await page.request.get('/api/brands')).json();
   await page.goto(`/${brands[0].slug}/create`);
   await line(page).click();
   await page.keyboard.type('a shot in plain words ');
   await expect(dock(page).locator('.sc-cell-open, .sc-send').first()).toBeVisible();
   await expect(page.locator('.sc-banner[data-tone="hint"]')).toHaveCount(0);
-  await expect(page.locator('.sc-tour, .sc-welcome')).toHaveCount(0);
+  await expect(page.locator('.sc-coach, .sc-welcome')).toHaveCount(0);
   expect((await (await page.request.get('/api/guide')).json()).eligible).toBe(false);
 });

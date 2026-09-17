@@ -22,6 +22,111 @@
   letter-spacing: 0;
 }
 
+/* The greeting and, while there is something left to learn, First steps
+   (views/home/FirstSteps.tsx): one quiet line, beside the greeting where the
+   row has room and under it where it does not. No counts, no percentage,
+   no accent: a to-do is a hollow ring, the step in hand a dot, a done step a
+   faded tick. */
+.sc-greet-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--sc-space-7);
+}
+.sc-greet-row .sc-greet {
+  margin-right: auto;
+}
+.sc-steps {
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  min-width: 0;
+  margin: 12px 0 22px;
+}
+.sc-steps-lb {
+  flex: none;
+  font: 600 12px / 1 var(--sc-font);
+  color: var(--sc-fg3);
+}
+.sc-steps-list {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sc-steps-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: var(--sc-radius-full);
+  background: none;
+  font: 500 12.5px / 1 var(--sc-font);
+  color: var(--sc-fg2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.sc-steps-item:hover:not(:active) {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+.sc-steps-item:active {
+  background: var(--sc-press);
+}
+:where(:root:not([data-input="pointer"])) .sc-steps-item:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: calc(var(--sc-ring-off) * -1);
+}
+.sc-steps-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--sc-line-strong);
+  border-radius: 50%;
+}
+.sc-steps-item[data-state="active"] .sc-steps-mark {
+  border-color: var(--sc-fg2);
+  background: radial-gradient(circle, var(--sc-fg2) 0 2.5px, transparent 3px);
+}
+.sc-steps-item[data-state="done"] {
+  color: var(--sc-fg3);
+}
+.sc-steps-item[data-state="done"] .sc-steps-mark {
+  border-color: transparent;
+}
+.sc-steps-x {
+  margin: 0;
+}
+@media (max-width: 1279px) {
+  .sc-steps {
+    flex-basis: 100%;
+    margin: -8px 0 22px;
+  }
+}
+/* A phone keeps the line to one row that scrolls sideways, like the filter tabs. */
+@media (max-width: 767px) {
+  .sc-steps {
+    margin: -4px -14px 16px;
+    padding: 0 14px;
+  }
+  .sc-steps-list {
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .sc-steps-list::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 .sc-create-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

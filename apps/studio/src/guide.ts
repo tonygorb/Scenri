@@ -1,43 +1,38 @@
 import { useSyncExternalStore } from 'react';
-import { api } from './api.js';
-
-/** Everything the install can have been taught, in the server's own words (routes/guide.ts). */
-export const CONCEPTS = [
-  'welcome',
-  'tour-home',
-  'tour-create',
-  'tour-products',
-  'tour-presenters',
-  'tour-scenes',
-  'tour-skip',
-  'tours-off',
-  'refine',
-] as const;
-export type Concept = (typeof CONCEPTS)[number];
+import { api, type GuideIntent, type GuideView } from './api.js';
 
 /**
- * The install's first-use record, held once for the whole studio. The server
- * owns it (every browser and a phone on the network read the same one); this
- * keeps a copy so a hint ends the instant it is learned, even when the
- * composer that learned it unmounts in the same commit, as Home's does when a
- * send moves you to Create.
+ * The install's first-use record, held once for the whole studio (DESIGN.md,
+ * "First use"). The server owns it, so every browser and a phone on the network
+ * agree; this keeps a copy that changes the moment an intent is sent, and takes
+ * the server's answer when it comes back.
  *
  * Loaded on its own, never beside the brands in the shell's refresh: a studio
- * pointed at a server that predates the route must keep working, and a missed
- * load only means nobody is taught.
+ * pointed at a server that predates the route keeps working, and a missed load
+ * only means nobody is guided.
  */
-export interface GuideSnapshot {
-  eligible: boolean;
-  learned: readonly Concept[];
-  /** The one read has answered, or failed. Until then nobody can tell a new install from an old one. */
+export interface GuideSnapshot extends GuideView {
+  /** The first read has answered, or failed. Until then nobody can tell a new install from an old one. */
   loaded: boolean;
-  /** The tours were asked for from the help menu, so the install may not be new at all. */
-  optedIn: boolean;
 }
 
-const EMPTY: GuideSnapshot = { eligible: false, learned: [], loaded: false, optedIn: false };
+const EMPTY: GuideSnapshot = {
+  loaded: false,
+  eligible: false,
+  welcome: null,
+  hidden: true,
+  done: {},
+  dismissed: [],
+  active: null,
+  activeNodes: [],
+  activeDraftId: null,
+  counts: null,
+};
+
 let snapshot: GuideSnapshot = EMPTY;
 let loading: Promise<void> | null = null;
+let reading: Promise<void> | null = null;
+let listening = false;
 const listeners = new Set<() => void>();
 
 function emit(next: GuideSnapshot) {
@@ -45,42 +40,62 @@ function emit(next: GuideSnapshot) {
   for (const l of listeners) l();
 }
 
-const known = (c: string): c is Concept => (CONCEPTS as readonly string[]).includes(c);
-
-/** Once per page. A learn that lands before the load is kept, and sent once the install is known to be new. */
-export function loadGuide(): Promise<void> {
-  loading ??= api
+function read(): Promise<void> {
+  reading ??= api
     .guide()
-    .then((r) => {
-      const server = r.learned.filter(known);
-      const local = snapshot.learned.filter((c) => !server.includes(c));
-      emit({ eligible: r.eligible, learned: [...server, ...local], loaded: true, optedIn: r.optedIn === true });
-      if (r.eligible) for (const c of local) void api.guideLearned(c).catch(() => {});
+    .then((r) => emit({ ...r, loaded: true }))
+    .catch(() => {
+      if (!snapshot.loaded) emit({ ...snapshot, loaded: true });
     })
-    .catch(() => emit({ ...snapshot, loaded: true }));
+    .finally(() => {
+      reading = null;
+    });
+  return reading;
+}
+
+/** Once per page. Coming back to the tab reads it again, so another browser's progress shows. */
+export function loadGuide(): Promise<void> {
+  if (!listening && typeof document !== 'undefined') {
+    listening = true;
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && snapshot.loaded) void read();
+    });
+  }
+  loading ??= read();
   return loading;
 }
 
-/** Idempotent. The copy changes now; the server hears about it only when there is someone to teach. */
-export function learn(concept: Concept): void {
-  if (snapshot.learned.includes(concept)) return;
-  emit({ ...snapshot, learned: [...snapshot.learned, concept] });
-  if (snapshot.eligible) void api.guideLearned(concept).catch(() => {});
+/** Read it again: after something a task watches for may have happened. */
+export function refreshGuide(): Promise<void> {
+  return read();
 }
 
-/**
- * Start the tours over, asked for from the help menu. Every tour is forgotten
- * and the install is taught again, whoever it was; the welcome stays answered
- * and the refine row, which is not a tour, stays learned.
- */
-export function restartTours(): void {
-  emit({
-    eligible: true,
-    learned: snapshot.learned.includes('refine') ? ['welcome', 'refine'] : ['welcome'],
-    loaded: true,
-    optedIn: true,
-  });
-  void api.guideRestart().catch(() => {});
+/** What an intent changes, applied at once so the screen never waits on the round trip. */
+function optimistic(s: GuideSnapshot, i: GuideIntent): GuideSnapshot {
+  if ('welcome' in i) return { ...s, welcome: i.welcome };
+  if ('hidden' in i) return { ...s, hidden: i.hidden };
+  if ('finish' in i)
+    return s.active?.task === i.finish ? { ...s, active: null, activeNodes: [], activeDraftId: null } : s;
+  if ('dismiss' in i)
+    return {
+      ...s,
+      dismissed: s.dismissed.includes(i.dismiss) ? s.dismissed : [...s.dismissed, i.dismiss],
+      ...(s.active?.task === i.dismiss ? { active: null, activeNodes: [], activeDraftId: null } : {}),
+    };
+  return s;
+}
+
+/** Sends one intent. A failed write puts the copy back as the server last said it. */
+export function guideIntent(i: GuideIntent): Promise<void> {
+  const before = snapshot;
+  emit(optimistic(snapshot, i));
+  return api
+    .guideIntent(i)
+    .then((r) => emit({ ...r, loaded: true }))
+    .catch(() => {
+      emit(before);
+      void read();
+    });
 }
 
 function subscribe(l: () => void) {
@@ -100,5 +115,6 @@ export function useGuide(): GuideSnapshot {
 export function resetGuideForTests(): void {
   snapshot = EMPTY;
   loading = null;
+  reading = null;
   listeners.clear();
 }

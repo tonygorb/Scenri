@@ -27,7 +27,7 @@ import {
  * stored on the client for them.
  */
 export interface RecordUi {
-  /** "Save as is" was chosen once; the extras question is not asked again. */
+  /** "Not now" was chosen once; the extras question is not asked again. */
   extrasDeclined: boolean;
   /** A draw request that never reached the engine, said once with a Retry. */
   failed?: string | null;
@@ -260,7 +260,7 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
               at: firstExtra ? firstExtra.at.slice(0, -1) : '~',
               turns: [
                 { kind: 'scenri' as const, id: 'asked-extras', text: PROMPT.extras, quiet: true },
-                { kind: 'you' as const, id: 'extras', text: d.extras ? 'Add them' : 'Save as is', editable: false },
+                { kind: 'you' as const, id: 'extras', text: d.extras ? 'Add them' : 'Not now', editable: false },
               ],
             },
           ]
@@ -454,7 +454,7 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
       prompt: PROMPT.extras,
       options: [
         { id: 'add', label: 'Add them' },
-        { id: 'save', label: 'Save as is' },
+        { id: 'save', label: 'Not now' },
       ],
     });
     return T;

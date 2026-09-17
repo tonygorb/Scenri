@@ -10,11 +10,11 @@ import {
   visibleRect,
   windowMask,
   type Box,
-} from '../src/layout/tourGeometry.js';
+} from '../src/layout/coachGeometry.js';
 
 const box = (left: number, top: number, right: number, bottom: number): Box => ({ left, top, right, bottom });
 
-describe('tour geometry', () => {
+describe('coach geometry', () => {
   it('a target is only as visible as the viewport and the pane it scrolls in let it be', () => {
     const viewport = box(0, 0, 1440, 900);
     const pane = box(0, 52, 1440, 900);

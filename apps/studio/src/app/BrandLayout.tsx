@@ -17,7 +17,7 @@ import { TaskCenterProvider } from './TaskCenter.js';
 import { mergeRecent } from './recentRules.js';
 import { WhatsNewGate } from './WhatsNew.js';
 import { HelpFloat } from '../layout/HelpMenu.js';
-import { TourHost } from '../layout/TourHost.js';
+import { GuideHost } from '../layout/GuideHost.js';
 
 export type ActivityListener = (nodes: FeedNode[]) => void;
 
@@ -321,9 +321,9 @@ export function BrandLayout() {
                 <Outlet />
                 <TabBar />
               </div>
-              {/* First use: the welcome and the page tours, and the help
-                  button that brings any tour back (DESIGN.md, "First use"). */}
-              <TourHost />
+              {/* First use: the welcome, the guided task in hand, and the help
+                button that brings First steps back (DESIGN.md, "First use"). */}
+              <GuideHost />
               <HelpFloat />
             </AssetsCtx.Provider>
           </AssetCreateHost>

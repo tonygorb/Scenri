@@ -49,6 +49,8 @@ import type {
   PresenterDraft,
   PresenterDraftSummary,
   PresenterDraftView,
+  GuideIntent,
+  GuideView,
 } from './apiTypes.js';
 
 export const api = {
@@ -60,12 +62,10 @@ export const api = {
     req<Brand & { warnings: string[]; report: ScrapeReport }>('POST', '/api/brands/from-url', { url }),
   updateBrand: (id: string, brand: any) => req<Brand>('PUT', `/api/brands/${id}`, { brand }),
   deleteBrand: (id: string) => req<{ ok: true }>('DELETE', `/api/brands/${id}`),
-  /** The install's first-use record: whether it is new, and what it has already been told. */
-  guide: () => req<{ eligible: boolean; learned: string[]; optedIn?: boolean }>('GET', '/api/guide'),
-  guideLearned: (concept: string) =>
-    req<{ eligible: boolean; learned: string[]; optedIn?: boolean }>('POST', '/api/guide/learned', { concept }),
-  /** Start the tours over: every page tours again, for anyone who asks. */
-  guideRestart: () => req<{ eligible: boolean; learned: string[]; optedIn?: boolean }>('POST', '/api/guide/restart'),
+  /** The install's first-use record: who is new, what is done, and the task in hand with what it has made. */
+  guide: () => req<GuideView>('GET', '/api/guide'),
+  /** One change to it: answer the welcome, start, finish or dismiss a task, hide or show First steps. */
+  guideIntent: (intent: GuideIntent) => req<GuideView>('POST', '/api/guide', intent),
   /**
    * Re-read the brand's own website. Merges: hand-edited fields survive, and
    * scraped colours come back as `suggestions` rather than being applied.

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { publishStudio } from '../../guideFacts.js';
 import { Confirm } from '../../Confirm.js';
 import { StudioShell } from './StudioShell.js';
 import { type CreationFlowArgs, useCreationFlow } from './useCreationFlow.js';
@@ -17,6 +18,9 @@ import { VIEW_NAME, worthKeeping } from './presenterStudioRules.js';
 export function PresenterCreate({ onClose, ...args }: CreationFlowArgs & { onClose: () => void }) {
   const f = useCreationFlow(args);
   const d = f.d;
+  // The question on the floor, for the first-use guide (DESIGN.md, "First use").
+  useEffect(() => publishStudio({ open: f.open }), [f.open]);
+  useEffect(() => () => publishStudio(null), []);
   /**
    * Closing with answers and nothing drawn from them yet would throw the
    * answers away, so it is asked about first. Once a draft exists it is the

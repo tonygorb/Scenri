@@ -1,35 +1,27 @@
-import {
-  ArrowCounterClockwise,
-  Compass,
-  GithubLogo,
-  Info,
-  Keyboard,
-  Lightning,
-  Megaphone,
-  Question,
-} from '@phosphor-icons/react';
+import { GithubLogo, Info, Keyboard, Lightning, ListChecks, Megaphone, Question } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
-import { useMatch } from 'react-router';
+import { useMatch, useNavigate } from 'react-router';
 import { useAppData } from '../app/AppShell.js';
+import { useBrand } from '../app/BrandLayout.js';
 import { useOpenSettings, useOpenSetup } from '../app/dialogs.js';
 import { useWhatsNew } from '../app/WhatsNew.js';
-import { P } from '../routes.js';
-import { startTour } from '../tourStore.js';
+import { guideIntent } from '../guide.js';
+import { brandPath, P } from '../routes.js';
 import { useMediaQuery } from '../useMediaQuery.js';
 import { Tip } from './Tip.js';
-import { useTourPage } from './useTourPage.js';
 
 const WIDE = '(min-width: 1024px)';
 const GITHUB = 'https://github.com/tonygorb/scenri';
 
 /**
- * Help, in one place (DESIGN.md, "First use"): the tour of the page on screen,
- * and the help the app already has, gathered. From 1024px it floats in the
+ * Help, in one place (DESIGN.md, "First use"): First steps, for anyone who
+ * wants the guided tasks back, and the help the app already has, gathered. From 1024px it floats in the
  * bottom-right corner, clear of the assets rail; below that the corner belongs
  * to the composer and the tab bar, so it sits in the top bar beside the bell.
  */
 export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
-  const page = useTourPage();
+  const { brand } = useBrand();
+  const navigate = useNavigate();
   const hub = useMatch(P.hub);
   const set = useMatch(P.set);
   const onCreate = !!hub || !!set;
@@ -54,15 +46,15 @@ export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
         sideOffset={8}
         className="sc-menu sc-help-menu"
       >
-        {page && (
-          <DropdownMenu.Item className="sc-menu-item" onSelect={() => startTour(page, { replay: true })}>
-            <Compass size={18} className="sc-menu-ic" />
-            <span className="sc-menu-lb">Tour this page</span>
-          </DropdownMenu.Item>
-        )}
-        <DropdownMenu.Item className="sc-menu-item" onSelect={() => window.dispatchEvent(new Event('scenri:welcome'))}>
-          <ArrowCounterClockwise size={18} className="sc-menu-ic" />
-          <span className="sc-menu-lb">Start the tours over</span>
+        <DropdownMenu.Item
+          className="sc-menu-item"
+          onSelect={() => {
+            void guideIntent({ hidden: false });
+            navigate(brandPath(brand));
+          }}
+        >
+          <ListChecks size={18} className="sc-menu-ic" />
+          <span className="sc-menu-lb">First steps</span>
         </DropdownMenu.Item>
         {onCreate && (
           <DropdownMenu.Item

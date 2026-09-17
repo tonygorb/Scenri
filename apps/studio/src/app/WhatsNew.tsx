@@ -6,7 +6,7 @@ import { useTaskCenter } from './TaskCenter.js';
 import { useBrand } from './BrandLayout.js';
 import { canAutoOpen } from './whatsNewRules.js';
 import { useGuide } from '../guide.js';
-import { useTour, useWelcomeOpen } from '../tourStore.js';
+import { useGuideShowing } from '../guideFacts.js';
 
 /**
  * What's new — deliberately not the update system.
@@ -150,19 +150,17 @@ export function WhatsNewGate() {
   const [visible, setVisible] = useState(() => !document.hidden);
   const spent = useRef(false);
   const guide = useGuide();
-  const tour = useTour();
-  const welcomeOpen = useWelcomeOpen();
+  const showing = useGuideShowing();
 
-  // Someone new is still being introduced: every note describes the version
-  // they are learning for the first time. An install that asked for the tours
-  // from the help menu is not new, so only what is on screen holds it back.
-  const learning =
-    guide.eligible && !guide.optedIn && !guide.learned.includes('tours-off') && !guide.learned.includes('tour-create');
-  const teaching = learning || tour !== null || welcomeOpen;
+  // Someone new has not answered the welcome yet: every note describes the
+  // version they are meeting for the first time. Anyone else is only held back
+  // by what the guide has on screen, or by the first shot still in hand.
+  const learning = guide.eligible && guide.welcome === null;
+  const teaching = learning || showing || guide.active?.task === 'first-shot';
   const firstUse = !guide.loaded || teaching;
 
   // A session that introduced Scenri never ends in a modal: the notes would
-  // land on the first shot as the tour ends. The unread dot still carries them.
+  // land on the first shot as it finishes. The unread dot still carries them.
   if (teaching) spent.current = true;
 
   // First use ended here, on this version: its notes are already known.

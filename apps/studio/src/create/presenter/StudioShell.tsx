@@ -16,6 +16,7 @@ import { PHONE, useMediaQuery } from '../../useMediaQuery.js';
 import type { StripItem, Take, StudioView } from './presenterStudioRules.js';
 import { StageEmpty } from './StageEmpty.js';
 import { StudioStage } from './StudioStage.js';
+import { GuideSlot } from '../../layout/GuideSlot.js';
 
 /**
  * How wide the conversation may be made.
@@ -343,6 +344,8 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
             </div>
           </div>
           <div className="sc-pstudio-foot sc-dock">
+            {/* the presenter task's word at the two decisions that matter (DESIGN.md, "First use") */}
+            <GuideSlot name="studio" className="sc-pstudio-guide" />
             {s.dock}
             {s.composer && (
               <ConversationComposer

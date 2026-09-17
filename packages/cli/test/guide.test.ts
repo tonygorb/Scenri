@@ -5,12 +5,14 @@ import { join } from 'node:path';
 import { createCore, type Core } from '@scenri/core';
 import type { FastifyInstance } from 'fastify';
 import { buildServer } from '../src/server.js';
-import { learnGuide, readGuide, restartGuide, stampGuide } from '../src/routes/guide.js';
+import { applyIntent, readGuide, stampGuide } from '../src/routes/guide.js';
 
-const brand = (name: string) => ({ specVersion: '0.1', meta: { name } });
+const brand = (name: string, extra: Record<string, unknown> = {}) => ({ specVersion: '0.1', meta: { name }, ...extra });
 const V = '1.2.0';
+/** Past the database clock's millisecond, so "before" and "after" a task are never the same instant. */
+const tick = () => new Promise((r) => setTimeout(r, 5));
 
-describe('first-use guide record', () => {
+describe('first-use record', () => {
   let home: string;
   let core: Core;
 
@@ -24,111 +26,216 @@ describe('first-use guide record', () => {
     rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
-  it('a home with no brands at its first boot is eligible', () => {
-    stampGuide(core.store, V);
-    expect(readGuide(core.store, {})).toEqual({ eligible: true, learned: [], optedIn: false });
-  });
-
-  it('a home that already has a brand at that boot is not', () => {
-    core.store.createBrand(brand('Existing'));
-    stampGuide(core.store, V);
-    expect(readGuide(core.store, {})).toEqual({ eligible: false, learned: [], optedIn: false });
-  });
-
-  it('stamps once: brands created or deleted later never change it', () => {
-    stampGuide(core.store, V);
-    const b = core.store.createBrand(brand('First'));
-    stampGuide(core.store, V);
-    expect(readGuide(core.store, {}).eligible).toBe(true);
-    core.store.deleteBrand(b.id);
-    stampGuide(core.store, V);
-    expect(readGuide(core.store, {}).eligible).toBe(true);
-  });
-
-  it('an upgraded home never becomes eligible after its brands go', () => {
-    const b = core.store.createBrand(brand('Existing'));
-    stampGuide(core.store, V);
-    core.store.deleteBrand(b.id);
-    stampGuide(core.store, V);
-    expect(readGuide(core.store, {}).eligible).toBe(false);
-  });
-
-  it("a new home has already read its install version's notes", () => {
-    stampGuide(core.store, V);
-    expect(core.store.getSetting('whatsnew.seen')).toBe(V);
-    expect(core.store.getSetting('install.firstVersion')).toBe(V);
-  });
-
-  it('a brandless home first opened on an older build is caught up, and keeps the version it first ran', () => {
-    core.store.setSetting('install.firstVersion', '1.0.0');
-    core.store.setSetting('whatsnew.seen', '1.0.0');
-    stampGuide(core.store, V);
-    expect(readGuide(core.store, {}).eligible).toBe(true);
-    expect(core.store.getSetting('whatsnew.seen')).toBe(V);
-    expect(core.store.getSetting('install.firstVersion')).toBe('1.0.0');
-  });
-
-  it('a home with brands keeps its unread notes', () => {
-    core.store.createBrand(brand('Existing'));
-    core.store.setSetting('whatsnew.seen', '1.0.0');
-    stampGuide(core.store, V);
-    expect(core.store.getSetting('whatsnew.seen')).toBe('1.0.0');
-    expect(core.store.getSetting('install.firstVersion')).toBeNull();
-  });
-
-  it('never lowers a newer acknowledgement', () => {
-    core.store.setSetting('whatsnew.seen', '2.0.0');
-    stampGuide(core.store, V);
-    expect(core.store.getSetting('whatsnew.seen')).toBe('2.0.0');
-  });
-
-  it('a later boot leaves the notes alone, whatever they say', () => {
-    stampGuide(core.store, V);
-    core.store.setSetting('whatsnew.seen', '1.0.0');
-    stampGuide(core.store, '1.3.0');
-    expect(core.store.getSetting('whatsnew.seen')).toBe('1.0.0');
-  });
-
-  it('SCENRI_NO_GUIDE=1 reads as not eligible without touching the record', () => {
-    stampGuide(core.store, V);
-    expect(readGuide(core.store, { SCENRI_NO_GUIDE: '1' }).eligible).toBe(false);
-    expect(readGuide(core.store, {}).eligible).toBe(true);
-  });
-
-  it('learning is idempotent and keeps order of arrival', () => {
-    stampGuide(core.store, V);
-    learnGuide(core.store, 'refine');
-    learnGuide(core.store, 'tour-create');
-    learnGuide(core.store, 'refine');
-    expect(readGuide(core.store, {}).learned).toEqual(['refine', 'tour-create']);
-  });
-
-  it('starting the tours over clears every tour, keeps the welcome answered and refine learned', () => {
-    stampGuide(core.store, V);
-    for (const c of ['welcome', 'tour-home', 'tour-skip', 'tours-off', 'refine'] as const) learnGuide(core.store, c);
-    restartGuide(core.store);
-    expect(readGuide(core.store, {})).toEqual({ eligible: true, learned: ['welcome', 'refine'], optedIn: true });
-  });
-
-  it('an upgraded install that asks for the tours is taught, even where tests silence the boot decision', () => {
-    core.store.createBrand(brand('Existing'));
-    stampGuide(core.store, V);
-    expect(readGuide(core.store, { SCENRI_NO_GUIDE: '1' }).eligible).toBe(false);
-    restartGuide(core.store);
-    expect(readGuide(core.store, { SCENRI_NO_GUIDE: '1' })).toEqual({
-      eligible: true,
-      learned: ['welcome'],
-      optedIn: true,
+  describe('who is new', () => {
+    it('a home with no brands at its first boot is new, and has read its own version', () => {
+      stampGuide(core.store, V);
+      const g = readGuide(core, {});
+      expect(g).toMatchObject({ eligible: true, welcome: null, hidden: false, done: {}, dismissed: [], active: null });
+      expect(core.store.getSetting('whatsnew.seen')).toBe(V);
+      expect(core.store.getSetting('install.firstVersion')).toBe(V);
     });
-    learnGuide(core.store, 'tour-home');
-    expect(readGuide(core.store, { SCENRI_NO_GUIDE: '1' }).eligible).toBe(true);
+
+    it('a home that already has a brand at that boot is not, and keeps its unread notes', () => {
+      core.store.createBrand(brand('Existing'));
+      core.store.setSetting('whatsnew.seen', '1.0.0');
+      stampGuide(core.store, V);
+      expect(readGuide(core, {}).eligible).toBe(false);
+      expect(core.store.getSetting('whatsnew.seen')).toBe('1.0.0');
+    });
+
+    it('stamps once: brands created or deleted later never change it', () => {
+      stampGuide(core.store, V);
+      const b = core.store.createBrand(brand('First'));
+      stampGuide(core.store, V);
+      core.store.deleteBrand(b.id);
+      stampGuide(core.store, V);
+      expect(readGuide(core, {}).eligible).toBe(true);
+    });
+
+    it('never lowers a newer acknowledgement, and a later boot leaves the notes alone', () => {
+      core.store.setSetting('whatsnew.seen', '2.0.0');
+      stampGuide(core.store, V);
+      expect(core.store.getSetting('whatsnew.seen')).toBe('2.0.0');
+      core.store.setSetting('whatsnew.seen', '1.0.0');
+      stampGuide(core.store, '1.3.0');
+      expect(core.store.getSetting('whatsnew.seen')).toBe('1.0.0');
+    });
+
+    it('SCENRI_NO_GUIDE silences the boot decision without touching the record', () => {
+      stampGuide(core.store, V);
+      expect(readGuide(core, { SCENRI_NO_GUIDE: '1' })).toMatchObject({ eligible: false, hidden: true });
+      expect(readGuide(core, {})).toMatchObject({ eligible: true, hidden: false });
+    });
+
+    it('First steps shows to someone new; anyone else sees it only after asking, and a hide is kept', () => {
+      core.store.createBrand(brand('Old hand'));
+      stampGuide(core.store, V);
+      expect(readGuide(core, {}).hidden).toBe(true);
+      applyIntent(core, { hidden: false });
+      expect(readGuide(core, {}).hidden).toBe(false);
+      applyIntent(core, { hidden: true });
+      expect(readGuide(core, {}).hidden).toBe(true);
+    });
+
+    it('a page-tour record from dogfooding keeps who was new and the welcome answer', () => {
+      core.store.setSetting('guide', JSON.stringify({ v: 1, eligible: true, learned: ['welcome', 'tours-off'] }));
+      expect(readGuide(core, {})).toMatchObject({ eligible: true, welcome: 'declined', active: null });
+      core.store.setSetting('guide', JSON.stringify({ v: 1, eligible: true, learned: ['welcome', 'tour-home'] }));
+      expect(readGuide(core, {}).welcome).toBe('taken');
+    });
+
+    it('an unreadable record is nobody new, and never throws', () => {
+      core.store.setSetting('guide', '{not json');
+      expect(readGuide(core, {})).toMatchObject({ eligible: false, done: {}, active: null });
+    });
   });
 
-  it('a corrupt record reads as not eligible rather than throwing', () => {
-    core.store.setSetting('guide', '{not json');
-    expect(readGuide(core.store, {})).toEqual({ eligible: false, learned: [], optedIn: false });
-    learnGuide(core.store, 'refine');
-    expect(readGuide(core.store, {})).toEqual({ eligible: false, learned: ['refine'], optedIn: false });
+  describe('what the library proves', () => {
+    const shot = (brandId: string, kind: 'generation' | 'edit', images: string[] | null) => {
+      const { project, root } = core.store.createProject(brandId, 'Work');
+      const n = core.store.addNode({ projectId: project.id, parentId: root.id, kind, prompt: 'p', engineId: 'demo' });
+      if (images) core.store.completeNode(n.id, { images, costUsd: 0 });
+      return n;
+    };
+
+    it('a finished shot and a finished refinement, with a picture, each count; a running one does not', () => {
+      stampGuide(core.store, V);
+      const b = core.store.createBrand(brand('Shots'));
+      shot(b.id, 'generation', null);
+      expect(readGuide(core, {}).done.shot).toBeUndefined();
+      shot(b.id, 'generation', ['abc']);
+      shot(b.id, 'edit', ['def']);
+      const g = readGuide(core, {});
+      expect(g.done.shot).toBeTypeOf('string');
+      expect(g.done.refine).toBeTypeOf('string');
+    });
+
+    it('a finished shot with no picture is not a shot', () => {
+      stampGuide(core.store, V);
+      const b = core.store.createBrand(brand('Empty'));
+      shot(b.id, 'generation', []);
+      expect(readGuide(core, {}).done.shot).toBeUndefined();
+    });
+
+    it('a presenter, a scene and a product in any brand each count; a replaced presenter record does not', () => {
+      stampGuide(core.store, V);
+      core.store.createBrand(brand('Replaced', { characters: [{ id: 'a', origin: 'custom', supersededBy: 'b' }] }));
+      expect(readGuide(core, {}).done.presenter).toBeUndefined();
+      core.store.createBrand(
+        brand('Full', {
+          characters: [{ id: 'c', origin: 'custom' }],
+          scenes: [{ id: 's' }],
+          products: [{ id: 'p', shots: [] }],
+        }),
+      );
+      expect(Object.keys(readGuide(core, {}).done).sort()).toEqual(['presenter', 'product', 'scene']);
+    });
+
+    it('once seen, a step stays done after the thing is deleted', () => {
+      stampGuide(core.store, V);
+      const b = core.store.createBrand(brand('Brief', { scenes: [{ id: 's' }] }));
+      const at = readGuide(core, {}).done.scene;
+      core.store.deleteBrand(b.id);
+      expect(readGuide(core, {}).done.scene).toBe(at);
+    });
+  });
+
+  describe('tasks', () => {
+    it('starting a task stamps its moment and the brand as it was; what came after is what it made', async () => {
+      stampGuide(core.store, V);
+      const b = core.store.createBrand(brand('Task'));
+      const { project, root } = core.store.createProject(b.id, 'Work');
+      core.store.addNode({
+        projectId: project.id,
+        parentId: root.id,
+        kind: 'generation',
+        prompt: 'before',
+        engineId: 'demo',
+      });
+      await tick();
+      expect(applyIntent(core, { start: { task: 'first-shot', brandId: b.id } })).toBeNull();
+      await tick();
+      const made = core.store.addNode({
+        projectId: project.id,
+        parentId: root.id,
+        kind: 'generation',
+        prompt: 'after',
+        engineId: 'demo',
+      });
+      const g = readGuide(core, {});
+      expect(g.active).toMatchObject({
+        task: 'first-shot',
+        brandId: b.id,
+        baseline: { products: 0, presenters: 0, scenes: 0 },
+      });
+      expect(g.activeNodes.map((n) => n.id)).toEqual([made.id]);
+      expect(g.activeNodes[0]).toMatchObject({ status: 'running', images: 0 });
+      core.store.completeNode(made.id, { images: ['x', 'y'], costUsd: 0 });
+      expect(readGuide(core, {}).activeNodes[0]).toMatchObject({ status: 'done', images: 2 });
+    });
+
+    it('a presenter task finds the draft it started, never an older one or an edit session', async () => {
+      stampGuide(core.store, V);
+      const b = core.store.createBrand(brand('Drafts'));
+      core.store.putPresenterDraft({ id: 'pd-old', brandId: b.id, json: {} });
+      await tick();
+      applyIntent(core, { start: { task: 'presenter', brandId: b.id } });
+      await tick();
+      core.store.putPresenterDraft({ id: 'pd-edit', brandId: b.id, json: { presenterId: 'up-1' } });
+      expect(readGuide(core, {}).activeDraftId).toBeNull();
+      core.store.putPresenterDraft({ id: 'pd-new', brandId: b.id, json: {} });
+      expect(readGuide(core, {}).activeDraftId).toBe('pd-new');
+    });
+
+    it('the counts move against the baseline, so a task that makes one knows when it has', () => {
+      stampGuide(core.store, V);
+      const b = core.store.createBrand(brand('Counts', { scenes: [{ id: 'old' }] }));
+      applyIntent(core, { start: { task: 'scene', brandId: b.id } });
+      expect(readGuide(core, {}).active?.baseline.scenes).toBe(1);
+      core.store.updateBrand(b.id, brand('Counts', { scenes: [{ id: 'old' }, { id: 'new' }] }));
+      expect(readGuide(core, {}).counts?.scenes).toBe(2);
+    });
+
+    it('finish and dismiss end the task; dismiss is remembered and a new start forgets it', () => {
+      stampGuide(core.store, V);
+      const b = core.store.createBrand(brand('Ends'));
+      applyIntent(core, { start: { task: 'refine', brandId: b.id } });
+      applyIntent(core, { finish: 'first-shot' });
+      expect(readGuide(core, {}).active?.task).toBe('refine');
+      applyIntent(core, { dismiss: 'refine' });
+      expect(readGuide(core, {})).toMatchObject({ active: null, dismissed: ['refine'] });
+      applyIntent(core, { start: { task: 'refine', brandId: b.id } });
+      expect(readGuide(core, {})).toMatchObject({ dismissed: [] });
+      applyIntent(core, { finish: 'refine' });
+      expect(readGuide(core, {}).active).toBeNull();
+    });
+
+    it('a task whose brand is deleted is let go', () => {
+      stampGuide(core.store, V);
+      const b = core.store.createBrand(brand('Gone'));
+      applyIntent(core, { start: { task: 'first-shot', brandId: b.id } });
+      core.store.deleteBrand(b.id);
+      expect(readGuide(core, {}).active).toBeNull();
+    });
+
+    it('a task someone starts runs even where tests silence the boot decision', () => {
+      stampGuide(core.store, V);
+      const b = core.store.createBrand(brand('Silenced'));
+      applyIntent(core, { start: { task: 'product', brandId: b.id } });
+      expect(readGuide(core, { SCENRI_NO_GUIDE: '1' })).toMatchObject({ eligible: false, active: { task: 'product' } });
+    });
+
+    it('refuses what makes no sense', () => {
+      stampGuide(core.store, V);
+      expect(applyIntent(core, { start: { task: 'tour', brandId: 'x' } })).toBe('unknown task');
+      expect(applyIntent(core, { start: { task: 'scene', brandId: 'missing' } })).toBe('brand not found');
+      expect(applyIntent(core, { welcome: 'maybe' })).toBe('welcome is taken or declined');
+      expect(applyIntent(core, { hidden: 'yes' })).toBe('hidden is true or false');
+      expect(applyIntent(core, { learned: 'refine' })).toBe('unknown intent');
+      applyIntent(core, { welcome: 'taken' });
+      applyIntent(core, { hidden: true });
+      expect(readGuide(core, {})).toMatchObject({ welcome: 'taken', hidden: true });
+    });
   });
 });
 
@@ -148,26 +255,13 @@ describe('guide routes', () => {
     rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
-  it('boot stamps a fresh home, and a learned concept is remembered', async () => {
+  it('boot stamps a fresh home; an intent answers with the new state; nonsense is a 400', async () => {
     const first = await app.inject({ method: 'GET', url: '/api/guide' });
-    expect(first.json()).toEqual({ eligible: true, learned: [], optedIn: false });
-    const post = await app.inject({ method: 'POST', url: '/api/guide/learned', payload: { concept: 'tour-create' } });
+    expect(first.json()).toMatchObject({ eligible: true, welcome: null, active: null, activeNodes: [] });
+    const post = await app.inject({ method: 'POST', url: '/api/guide', payload: { welcome: 'declined' } });
     expect(post.statusCode).toBe(200);
-    expect(post.json()).toEqual({ eligible: true, learned: ['tour-create'], optedIn: false });
-    const again = await app.inject({ method: 'GET', url: '/api/guide' });
-    expect(again.json().learned).toEqual(['tour-create']);
-  });
-
-  it('restart answers with the fresh state', async () => {
-    await app.inject({ method: 'POST', url: '/api/guide/learned', payload: { concept: 'tours-off' } });
-    const res = await app.inject({ method: 'POST', url: '/api/guide/restart' });
-    expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ eligible: true, learned: ['welcome'], optedIn: true });
-  });
-
-  it('refuses a concept it does not know', async () => {
-    const res = await app.inject({ method: 'POST', url: '/api/guide/learned', payload: { concept: 'tour' } });
-    expect(res.statusCode).toBe(400);
-    expect((await app.inject({ method: 'GET', url: '/api/guide' })).json().learned).toEqual([]);
+    expect(post.json().welcome).toBe('declined');
+    const bad = await app.inject({ method: 'POST', url: '/api/guide', payload: { concept: 'tour' } });
+    expect(bad.statusCode).toBe(400);
   });
 });

@@ -33,6 +33,8 @@ import { LibraryZero } from '../layout/library/LibraryEmpty.js';
 import { matchesQuery, bookmarkedFirst } from '../layout/library/libraryRules.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
+import { useTaskCenter } from '../app/TaskCenter.js';
+import { FirstSteps } from './home/FirstSteps.js';
 
 /** Same floor as every catalog page: below this, scanning beats typing. */
 const SEARCH_MIN = 8;
@@ -67,7 +69,8 @@ export function HomeView() {
     showcaseError,
     refetchShowcase,
   } = useAppData();
-  const { brand, workspace, root, products: library } = useBrand();
+  const { brand, workspace, root, products: library, applyNodes } = useBrand();
+  const { poke } = useTaskCenter();
   const createAsset = useCreateAsset();
   const navigate = useNavigate();
   const { push } = useToasts();
@@ -296,9 +299,12 @@ export function HomeView() {
     <WallDensityCtx.Provider value={densityAttr}>
       <ScrollPane>
         <main className="sc-main" id="main" data-no-dock={phone || undefined}>
-          <h1 className="sc-greet">
-            Compose a shot <em>on brand</em>
-          </h1>
+          <div className="sc-greet-row">
+            <h1 className="sc-greet">
+              Compose a shot <em>on brand</em>
+            </h1>
+            <FirstSteps />
+          </div>
 
           <div className="sc-create-grid">
             <button type="button" className="sc-create-card" data-tone="compose" data-main="" onClick={startCompose}>
@@ -451,7 +457,12 @@ export function HomeView() {
               engines={engines}
               parentId={root}
               initialBrief={dockBrief}
-              onQueued={() => navigate(hubPath(brand))}
+              onQueued={(_id, _kind, _siblings, made) => {
+                // Create shows them the moment it opens, and whatever watches shots hears of them.
+                if (made?.length) applyNodes(made);
+                poke();
+                navigate(hubPath(brand));
+              }}
             />
           </ComposerDock>
         )}

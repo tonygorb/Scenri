@@ -24,6 +24,16 @@
   z-index: 70;
   overflow: hidden;
 }
+/* The first shot's one sentence while the picker is open: a strip across the
+   foot of the panel, a step under its surface, in the hint's quiet voice. */
+.sc-ap-guide {
+  flex: none;
+  border-top: 1px solid var(--sc-line);
+  background: var(--sc-well);
+}
+.sc-ap-guide .sc-banner[data-tone="hint"] {
+  padding: 7px 8px 7px var(--sc-space-6);
+}
 .sc-ap-inner {
   display: flex;
   flex-direction: column;

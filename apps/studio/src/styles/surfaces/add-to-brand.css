@@ -114,6 +114,13 @@
 .sc-newdlg-head + .sc-newdlg-body {
   padding: var(--sc-space-6) 0 var(--sc-space-2);
 }
+/* The guide's one sentence about this flow, at the top of the form. */
+.sc-newdlg-guide {
+  margin-bottom: var(--sc-space-6);
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-md);
+  background: var(--sc-well);
+}
 .sc-newdlg-body {
   flex: none;
   min-height: 0;

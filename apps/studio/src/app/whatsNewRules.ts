@@ -29,9 +29,9 @@ export interface AutoOpenSignals {
   builds: number;
   /**
    * Someone is still being introduced to Scenri: the first-use record has not
-   * loaded, the install is new and has not finished its first tours, or the
-   * welcome or a tour is on screen. One voice at a time, and notes about a
-   * version mean nothing to someone learning it for the first time.
+   * loaded, someone new has not answered the welcome, the guide has something
+   * on screen, or the first shot is still in hand. One voice at a time, and
+   * notes about a version mean nothing to someone learning it for the first time.
    */
   firstUse: boolean;
 }

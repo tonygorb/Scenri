@@ -1,11 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
-import { expectNoTour } from './firstUse.js';
+import { expectNoGuide, steps } from './firstUse.js';
 
 /**
- * The help button on an install that was not new (the harness's default): no
- * welcome and no tour of its own accord, the button in the corner clear of the
- * assets rail, and each item opening what it names.
+ * The help button on an install that was not new (the harness's default):
+ * nothing guides on its own, the button in the corner stays clear of the
+ * assets rail, and each item opens what it names. First steps is there for
+ * anyone who asks, ticked by what the library already holds.
  */
 isolate();
 
@@ -14,12 +15,12 @@ async function slug(p: Page): Promise<string> {
 }
 const float = (p: Page) => p.locator('.sc-help-float button');
 
-test('no welcome and no tour; the ? sits in the corner and gathers the help', async ({ page }) => {
+test('nothing guides on its own; the ? sits in the corner and gathers the help', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const s = await slug(page);
   await page.goto(`/${s}/presenters`);
   await expect(float(page)).toBeVisible();
-  await expectNoTour(page);
+  await expectNoGuide(page);
   await expect(page.locator('.sc-welcome')).toHaveCount(0);
 
   const box = await float(page).boundingBox();
@@ -28,26 +29,42 @@ test('no welcome and no tour; the ? sits in the corner and gathers the help', as
 
   await float(page).click();
   const items = page.locator('.sc-help-menu [role="menuitem"]');
-  await expect(items).toHaveText([
-    'Tour this page',
-    'Start the tours over',
-    "What's new",
-    'About Scenri',
-    'Scenri on GitHub',
-  ]);
+  await expect(items).toHaveText(['First steps', "What's new", 'About Scenri', 'Scenri on GitHub']);
   const github = page.getByRole('menuitem', { name: 'Scenri on GitHub' });
   await expect(github).toHaveAttribute('href', 'https://github.com/tonygorb/scenri');
   await expect(github).toHaveAttribute('target', '_blank');
 
-  await page.getByRole('menuitem', { name: 'Tour this page' }).click();
-  await expect(page.locator('.sc-tour .sc-tour-title')).toHaveText('Cast the faces of this brand');
-  await page.getByRole('button', { name: 'Close tour' }).click();
-  await expect(page.locator('.sc-tour')).toHaveCount(0);
-  await expect(page.locator('.sc-help-menu')).toHaveCount(0);
-
-  await float(page).click();
   await page.getByRole('menuitem', { name: 'About Scenri' }).click();
   await expect(page).toHaveURL(/settings=about/);
+});
+
+test('First steps, asked for, opens on Home ticked by what the library holds, and starts nothing by itself', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const s = await slug(page);
+  await page.goto(`/${s}`);
+  await expect(page.locator('.sc-greet')).toBeVisible();
+  await expect(steps(page)).toHaveCount(0);
+
+  await page.goto(`/${s}/scenes`);
+  await float(page).click();
+  await page.getByRole('menuitem', { name: 'First steps' }).click();
+  await page.waitForURL((u) => u.pathname === `/${s}`);
+  // the seeded brand already holds a finished shot and a product of its own
+  await expect(steps(page).locator('.sc-steps-item')).toHaveText([
+    'Make a shot, done',
+    'Refine a shot',
+    'Add your product, done',
+    'Cast a presenter',
+    'Build a scene',
+  ]);
+
+  // Opening a surface is not asking to be guided on an install that was not new.
+  await page.goto(`/${s}?new=scene`);
+  await expect(page.getByRole('dialog', { name: 'New scene' })).toBeVisible();
+  await expectNoGuide(page);
+  expect(((await (await page.request.get('/api/guide')).json()) as { active: unknown }).active).toBeNull();
 });
 
 test('on Create the ? steps left of the open rail and offers the shortcuts', async ({ page }) => {
@@ -82,33 +99,4 @@ test('below 1024px the ? moves into the top bar', async ({ page }) => {
   await page.goto(`/${s}`);
   await expect(page.locator('.sc-topbar [aria-label="Help"]')).toBeVisible();
   await expect(page.locator('.sc-help-float')).toHaveCount(0);
-});
-
-test('Start the tours over reopens the welcome; declining changes nothing, taking it tours every page again', async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  const s = await slug(page);
-  await page.goto(`/${s}/presenters`);
-  const welcome = page.locator('.sc-welcome');
-
-  await float(page).click();
-  await page.getByRole('menuitem', { name: 'Start the tours over' }).click();
-  await expect(welcome).toBeVisible();
-  await welcome.locator('.sc-welcome-foot').getByRole('button', { name: 'Not now' }).click();
-  await expect(welcome).toHaveCount(0);
-  await expect(page.locator('.sc-help-menu')).toHaveCount(0);
-  await expectNoTour(page);
-  expect(((await (await page.request.get('/api/guide')).json()) as { eligible: boolean }).eligible).toBe(false);
-
-  await float(page).click();
-  await page.getByRole('menuitem', { name: 'Start the tours over' }).click();
-  await welcome.getByRole('button', { name: 'Take the tour' }).click();
-  await expect(page.locator('.sc-tour .sc-tour-title')).toHaveText('Cast the faces of this brand');
-  await page.getByRole('button', { name: 'Close tour' }).click();
-  await expect(page.locator('.sc-tour')).toHaveCount(0);
-
-  // An upgraded install that asked is taught like a new one: the next page tours on its own.
-  await page.goto(`/${s}/scenes`);
-  await expect(page.locator('.sc-tour .sc-tour-title')).toHaveText('Build the worlds you shoot in');
 });

@@ -1,9 +1,9 @@
-import type { TourSide } from '../tours.js';
+import type { Side } from '../guidedTasks.js';
 
 /**
- * The tour's geometry, kept apart from the DOM so every edge case is a plain
+ * The coachmark's geometry, kept apart from the DOM so every edge case is a plain
  * number test: what part of a target can be seen, what the card is placed
- * against, and the veil's window cut around the stop's surface.
+ * against, and the veil's window cut around the step's surfaces.
  */
 export interface Box {
   left: number;
@@ -72,21 +72,21 @@ export function trimBy(b: Box, occluders: readonly Box[]): Box | null {
   return bottom > top ? { ...b, top, bottom } : null;
 }
 
-const vertical = (side: TourSide) => side === 'top' || side === 'bottom';
+const vertical = (side: Side) => side === 'top' || side === 'bottom';
 
 /**
  * What the card is placed against. Across the side it takes the target, so
  * the card and its pointer centre on the control; along it the whole region,
  * so the card clears the composer rather than landing on it.
  */
-export function referenceRect(target: Box, region: Box | null, side: TourSide): Box {
+export function referenceRect(target: Box, region: Box | null, side: Side): Box {
   if (!region) return target;
   return vertical(side)
     ? { left: target.left, right: target.right, top: region.top, bottom: region.bottom }
     : { left: region.left, right: region.right, top: target.top, bottom: target.bottom };
 }
 
-export const opposite = (side: TourSide): TourSide =>
+export const opposite = (side: Side): Side =>
   side === 'top' ? 'bottom' : side === 'bottom' ? 'top' : side === 'left' ? 'right' : 'left';
 
 const r1 = (n: number) => Math.round(n * 2) / 2;

@@ -1,19 +1,22 @@
 import { expect, type Page } from '@playwright/test';
+import type { GuideView } from '../src/apiTypes.js';
 
 /**
  * Shared steps for the first-use specs: a home that was new at its first boot,
  * a brand made the way a person makes it, the install's record read back, and
- * what a tour holds: a curtain over the page with a working window on the stop.
+ * what the guide holds: a coach over the page with a working window on the
+ * step's surfaces, a card that only points, and a sentence in a surface's slot.
  */
-export const tourTitle = (p: Page) => p.locator('.sc-tour .sc-tour-title');
-export const tourCard = (p: Page) => p.locator('.sc-tour');
-export const tourNext = (p: Page) => p.locator('.sc-tour .sc-tour-next');
-export const tourBack = (p: Page) => p.locator('.sc-tour .sc-tour-back');
-export const tourX = (p: Page) => p.getByRole('button', { name: 'Close tour' });
+export const coachCard = (p: Page) => p.locator('.sc-coach');
+export const coachTitle = (p: Page) => p.locator('.sc-coach .sc-coach-title');
+export const note = (p: Page) => p.locator('[data-guide="note"] .sc-banner-txt');
 export const welcome = (p: Page) => p.locator('.sc-welcome');
+export const steps = (p: Page) => p.getByRole('navigation', { name: 'First steps' });
+export const brief = (p: Page) => p.locator('[data-guide="compose"] .sc-brief-line');
+export const chips = (p: Page) => p.locator('[data-guide="compose"] .sc-brief-line .sc-token');
 
-export async function learned(p: Page): Promise<string[]> {
-  return ((await (await p.request.get('/api/guide')).json()) as { learned: string[] }).learned;
+export async function guideRecord(p: Page): Promise<GuideView> {
+  return (await (await p.request.get('/api/guide')).json()) as GuideView;
 }
 
 /** The welcome waits for a quiet page; in a test the rest is zero. */
@@ -32,24 +35,33 @@ export async function setUpBrand(p: Page, name: string): Promise<string> {
   return slug;
 }
 
-/** A page's tour never starts: wait out a settle of the page, then look. */
-export async function expectNoTour(p: Page): Promise<void> {
+/** Nothing of the guide shows: wait out a settle of the page, then look. */
+export async function expectNoGuide(p: Page): Promise<void> {
   await p.waitForTimeout(600);
-  await expect(tourCard(p)).toHaveCount(0);
+  await expect(p.locator('.sc-coach, .sc-coach-veil, [data-guide="note"]')).toHaveCount(0);
+}
+
+/** Picks the first product in the open picker, the way a person does. */
+export async function pickAProduct(p: Page): Promise<void> {
+  await p
+    .locator('.sc-attachpanel')
+    .getByRole('button', { name: /^Product: / })
+    .first()
+    .click();
 }
 
 /**
- * The stop's window is open on the real control: a press at the centre of the
- * first visible match lands inside it, and the card neither covers it, nor
- * points anywhere else, nor leaves the screen. Measured against the page's own
- * boxes, never pixels.
+ * The card points at the real control: a press at the centre of the first
+ * visible match lands inside it, and the card neither covers it, nor points
+ * anywhere else, nor leaves the screen. Measured against the page's own boxes,
+ * never pixels.
  */
 export async function pointsAt(p: Page, selector: string): Promise<void> {
-  await expect(tourCard(p)).toHaveAttribute('data-state', 'shown');
+  await expect(coachCard(p)).toHaveAttribute('data-state', 'shown');
   const r = await p.evaluate((sel) => {
     const el = [...document.querySelectorAll<HTMLElement>(sel)].find((e) => e.getClientRects().length > 0);
-    const card = document.querySelector('.sc-tour');
-    const arrow = document.querySelector<HTMLElement>('.sc-tour-arrow');
+    const card = document.querySelector('.sc-coach');
+    const arrow = document.querySelector<HTMLElement>('.sc-coach-arrow');
     if (!el || !card || !arrow) return null;
     const t = el.getBoundingClientRect();
     const vw = window.innerWidth;
@@ -74,12 +86,19 @@ export async function pointsAt(p: Page, selector: string): Promise<void> {
   expect(r).toEqual({ inside: true, overlaps: false, arrowOnTarget: true, onScreen: true });
 }
 
-/** The page behind a tour is held: some of it is inert, and a press outside the window reaches the curtain. */
+/** The page behind a coach is held: some of it is inert. */
 export async function expectHeld(p: Page): Promise<void> {
-  await expect.poll(() => p.locator('[data-sc-tour-inert]').count()).toBeGreaterThan(0);
+  await expect.poll(() => p.locator('[data-sc-coach-inert]').count()).toBeGreaterThan(0);
 }
 
-/** Nothing the tour held is left behind. */
+/** Nothing a coach held is left behind. */
 export async function expectLetGo(p: Page): Promise<void> {
-  await expect(p.locator('[data-sc-tour-inert]')).toHaveCount(0);
+  await expect(p.locator('[data-sc-coach-inert]')).toHaveCount(0);
+}
+
+export async function isInert(p: Page, selector: string): Promise<boolean> {
+  return p
+    .locator(selector)
+    .first()
+    .evaluate((el) => !!el.closest('[inert]'));
 }

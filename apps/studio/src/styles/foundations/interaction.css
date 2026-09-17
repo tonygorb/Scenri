@@ -93,8 +93,8 @@
 .sc-newdlg-layer:focus-visible,
 .sc-ovl:focus,
 .sc-ovl:focus-visible,
-.sc-tour:focus,
-.sc-tour:focus-visible {
+.sc-coach:focus,
+.sc-coach:focus-visible {
   outline: none;
 }
 

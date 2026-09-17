@@ -3,74 +3,135 @@ import type { Core } from '@scenri/core';
 import { compareSemver } from '../update/versionsDir.js';
 
 /**
- * First-use guidance: the welcome, the page tours and the refine row, each said
- * once to someone new (DESIGN.md, "First use"). The record is the install's, not a
- * browser's, so a phone reaching the studio over the network and a second
- * origin on the same machine agree about what has already been said.
+ * First use (DESIGN.md, "First use"): the first shot, made with someone new
+ * from the picker to a finished picture, and First steps, where each item is a
+ * real task done in the real product. The record is the install's, not a
+ * browser's, so a phone on the network and a second browser agree.
  *
  * Who counts as new is decided once, at the first boot of a build that has
  * this record: a home with no brand then is someone who has never used
- * Scenri, and a home with brands is someone upgrading, who is never taught.
- * Nothing after that boot changes it, so deleting every brand does not make
- * an old hand new again, and learning something is never derived from what
- * the library holds.
+ * Scenri, and is offered the first shot; a home with brands is someone
+ * upgrading, who is never interrupted. The same decision settles What's New:
+ * someone new has nothing to compare the running version with, so its notes
+ * count as read from that boot.
  *
- * The same decision settles What's New. Someone new has nothing to compare the
- * running version with, so its notes count as read from that boot: they are
- * told about the next update, never about the version they installed. An
- * install that already has brands is left alone and reads its notes as before.
+ * What someone has done is read from what the library holds (a finished shot,
+ * a refinement, a product, a presenter, a scene) and latched the first time
+ * it is seen, so deleting the thing later never takes the step back.
  */
-export const GUIDE_CONCEPTS = [
-  'welcome',
-  'tour-home',
-  'tour-create',
-  'tour-products',
-  'tour-presenters',
-  'tour-scenes',
-  'tour-skip',
-  'tours-off',
-  'refine',
-] as const;
-export type GuideConcept = (typeof GUIDE_CONCEPTS)[number];
-export interface GuideState {
-  eligible: boolean;
-  learned: GuideConcept[];
-  /** The tours were asked for from the help menu, by an install that may not be new. */
-  optedIn: boolean;
+export const TASKS = ['first-shot', 'refine', 'product', 'presenter', 'scene'] as const;
+export type TaskId = (typeof TASKS)[number];
+export const MILESTONES = ['shot', 'refine', 'product', 'presenter', 'scene'] as const;
+export type Milestone = (typeof MILESTONES)[number];
+
+export interface Counts {
+  products: number;
+  presenters: number;
+  scenes: number;
 }
-/** What is stored: the state, with `optedIn` written only when true. */
+
+export interface ActiveTask {
+  task: TaskId;
+  brandId: string;
+  /** The database clock when the task began: what it made is what came after. */
+  since: string;
+  /** How many of each the brand held when the task began: a task that makes one is done when there are more. */
+  baseline: Counts;
+}
+
 interface GuideRecord {
-  v: 1;
+  v: 2;
   eligible: boolean;
-  learned: GuideConcept[];
-  optedIn?: boolean;
+  welcome: 'taken' | 'declined' | null;
+  /** First steps put away (true) or asked for (false). Unset, it shows only to someone new. */
+  hidden: boolean | null;
+  done: Partial<Record<Milestone, string>>;
+  dismissed: TaskId[];
+  active: ActiveTask | null;
+}
+
+export interface TaskNode {
+  id: string;
+  kind: string;
+  status: string;
+  images: number;
+  createdAt: string;
+}
+
+/** What the studio reads: the record, plus what the active task has made so far. */
+export interface GuideView {
+  eligible: boolean;
+  welcome: GuideRecord['welcome'];
+  /** Whether First steps stays out of sight: someone not new sees it only after asking for it. */
+  hidden: boolean;
+  done: GuideRecord['done'];
+  dismissed: TaskId[];
+  active: ActiveTask | null;
+  /** Shots (or refinements) the active task's brand made since it began, newest first. */
+  activeNodes: TaskNode[];
+  /** The presenter draft the active presenter task started, when there is one. */
+  activeDraftId: string | null;
+  /** The active task's brand as it is now, to compare with its baseline. */
+  counts: Counts | null;
 }
 
 type Store = Core['store'];
 const KEY = 'guide';
 
+const isTask = (t: unknown): t is TaskId => (TASKS as readonly unknown[]).includes(t);
+const isMilestone = (m: unknown): m is Milestone => (MILESTONES as readonly unknown[]).includes(m);
+const num = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) && n >= 0 ? n : 0);
+
+function blank(eligible: boolean): GuideRecord {
+  return { v: 2, eligible, welcome: null, hidden: null, done: {}, dismissed: [], active: null };
+}
+
 function parse(raw: string | null): GuideRecord | null {
   if (!raw) return null;
   try {
-    const j = JSON.parse(raw) as Partial<GuideRecord> & { v?: unknown };
-    if (j.v !== 1 || typeof j.eligible !== 'boolean' || !Array.isArray(j.learned)) return null;
-    const learned = j.learned.filter((c): c is GuideConcept => (GUIDE_CONCEPTS as readonly string[]).includes(c));
-    return { v: 1, eligible: j.eligible, learned, ...(j.optedIn === true ? { optedIn: true } : {}) };
+    const j = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof j.eligible !== 'boolean') return null;
+    // A dogfood record from the page tours: keep who was new and whether the
+    // welcome was answered, and nothing else, since the tours are gone.
+    if (j.v === 1) {
+      const learned = Array.isArray(j.learned) ? j.learned : [];
+      return {
+        ...blank(j.eligible),
+        welcome: learned.includes('welcome') ? (learned.includes('tours-off') ? 'declined' : 'taken') : null,
+      };
+    }
+    if (j.v !== 2) return null;
+    const done: GuideRecord['done'] = {};
+    if (j.done && typeof j.done === 'object') {
+      for (const [k, at] of Object.entries(j.done)) if (isMilestone(k) && typeof at === 'string') done[k] = at;
+    }
+    const a = j.active as Partial<ActiveTask> | null | undefined;
+    const b = a?.baseline as Partial<Counts> | undefined;
+    const active: ActiveTask | null =
+      a && isTask(a.task) && typeof a.brandId === 'string' && typeof a.since === 'string'
+        ? {
+            task: a.task,
+            brandId: a.brandId,
+            since: a.since,
+            baseline: { products: num(b?.products), presenters: num(b?.presenters), scenes: num(b?.scenes) },
+          }
+        : null;
+    return {
+      v: 2,
+      eligible: j.eligible,
+      welcome: j.welcome === 'taken' || j.welcome === 'declined' ? j.welcome : null,
+      hidden: typeof j.hidden === 'boolean' ? j.hidden : null,
+      done,
+      dismissed: Array.isArray(j.dismissed) ? j.dismissed.filter(isTask) : [],
+      active,
+    };
   } catch {
     return null;
   }
 }
 
-function write(store: Store, record: Omit<GuideRecord, 'v'>): void {
-  store.setSetting(
-    KEY,
-    JSON.stringify({
-      v: 1,
-      eligible: record.eligible,
-      learned: record.learned,
-      ...(record.optedIn ? { optedIn: true } : {}),
-    }),
-  );
+function write(store: Store, r: GuideRecord): void {
+  store.setSetting(KEY, JSON.stringify(r));
 }
 
 /**
@@ -87,40 +148,111 @@ export function stampGuide(store: Store, version: string): void {
     const seen = store.getSetting('whatsnew.seen');
     if (!seen || compareSemver(seen, version) < 0) store.setSetting('whatsnew.seen', version);
   }
-  write(store, { eligible, learned: [] });
+  write(store, blank(eligible));
 }
 
-/**
- * A record that cannot be read teaches nobody: silence is the safe failure.
- * `SCENRI_NO_GUIDE` silences the boot decision for test rigs, but not a person
- * who asked for the tours from the help menu.
- */
-export function readGuide(store: Store, env: NodeJS.ProcessEnv): GuideState {
-  const g = parse(store.getSetting(KEY));
+/** A brand's own presenters, scenes and products, counted the way the studio lists them. */
+export function countsOf(core: Core, brandId: string): Counts | null {
+  const brand = core.store.getBrand(brandId);
+  if (!brand) return null;
+  const json = brand.json as any;
+  const characters: any[] = Array.isArray(json?.characters) ? json.characters : [];
   return {
-    eligible: (g?.eligible ?? false) && (env.SCENRI_NO_GUIDE !== '1' || g?.optedIn === true),
-    learned: g?.learned ?? [],
-    optedIn: g?.optedIn === true,
+    presenters: characters.filter((c) => c?.origin === 'custom' && !c?.supersededBy).length,
+    scenes: Array.isArray(json?.scenes) ? json.scenes.length : 0,
+    products: core.catalog.listLibraryProducts(brandId, json).length,
   };
 }
 
-export function learnGuide(store: Store, concept: GuideConcept): void {
-  const g = parse(store.getSetting(KEY)) ?? { v: 1 as const, eligible: false, learned: [] };
-  if (g.learned.includes(concept)) return;
-  write(store, { ...g, learned: [...g.learned, concept] });
+const ownPresenter = (b: { json: unknown }) =>
+  ((b.json as any)?.characters ?? []).some((c: any) => c?.origin === 'custom' && !c?.supersededBy);
+
+/** What the library proves has been done at least once, across every brand. */
+function evidence(core: Core, m: Milestone): boolean {
+  const { store } = core;
+  switch (m) {
+    case 'shot':
+      return store.hasFinishedNode('generation');
+    case 'refine':
+      return store.hasFinishedNode('edit');
+    case 'presenter':
+      return store.listBrands().some(ownPresenter);
+    case 'scene':
+      return store.listBrands().some((b) => ((b.json as any)?.scenes ?? []).length > 0);
+    case 'product':
+      return store.hasCatalogProduct() || store.listBrands().some((b) => ((b.json as any)?.products ?? []).length > 0);
+  }
+}
+
+function load(store: Store): GuideRecord {
+  return parse(store.getSetting(KEY)) ?? blank(false);
 }
 
 /**
- * Start the tours over, from the help menu: every page tours again on its next
- * visit, a skipped welcome or two skipped tours no longer hold them off, and an
- * upgraded install that asks is taught like a new one. The welcome stays
- * answered (it was just answered again) and the refine row, which is not a
- * tour, stays learned.
+ * The record as the studio reads it. Latches anything the library now proves,
+ * and lets go of a task whose brand is gone. `SCENRI_NO_GUIDE` silences the
+ * boot decision for test rigs; a task someone starts still runs.
  */
-export function restartGuide(store: Store): void {
-  const g = parse(store.getSetting(KEY));
-  const learned: GuideConcept[] = ['welcome', ...(g?.learned.includes('refine') ? (['refine'] as const) : [])];
-  write(store, { eligible: true, learned, optedIn: true });
+export function readGuide(core: Core, env: NodeJS.ProcessEnv): GuideView {
+  const r = load(core.store);
+  let changed = false;
+  const at = new Date().toISOString();
+  for (const m of MILESTONES) {
+    if (!r.done[m] && evidence(core, m)) {
+      r.done[m] = at;
+      changed = true;
+    }
+  }
+  if (r.active && !core.store.getBrand(r.active.brandId)) {
+    r.active = null;
+    changed = true;
+  }
+  if (changed) write(core.store, r);
+
+  const a = r.active;
+  const nodeKind = a?.task === 'first-shot' ? 'generation' : a?.task === 'refine' ? 'edit' : null;
+  const eligible = r.eligible && env.SCENRI_NO_GUIDE !== '1';
+  return {
+    eligible,
+    welcome: r.welcome,
+    hidden: r.hidden ?? !eligible,
+    done: r.done,
+    dismissed: r.dismissed,
+    active: a,
+    activeNodes: a && nodeKind ? core.store.nodesSince(a.brandId, nodeKind, a.since) : [],
+    activeDraftId: a?.task === 'presenter' ? core.store.presenterDraftSince(a.brandId, a.since) : null,
+    counts: a ? countsOf(core, a.brandId) : null,
+  };
+}
+
+/** Applies one intent. Returns what is wrong with a request that makes no sense, else null. */
+export function applyIntent(core: Core, body: unknown): string | null {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const r = load(core.store);
+  if ('welcome' in b) {
+    if (b.welcome !== 'taken' && b.welcome !== 'declined') return 'welcome is taken or declined';
+    r.welcome = b.welcome;
+  } else if ('start' in b) {
+    const s = (b.start ?? {}) as Record<string, unknown>;
+    if (!isTask(s.task)) return 'unknown task';
+    if (typeof s.brandId !== 'string') return 'brandId required';
+    const baseline = countsOf(core, s.brandId);
+    if (!baseline) return 'brand not found';
+    r.active = { task: s.task, brandId: s.brandId, since: core.store.now(), baseline };
+    r.dismissed = r.dismissed.filter((t) => t !== s.task);
+  } else if ('finish' in b) {
+    if (!isTask(b.finish)) return 'unknown task';
+    if (r.active?.task === b.finish) r.active = null;
+  } else if ('dismiss' in b) {
+    if (!isTask(b.dismiss)) return 'unknown task';
+    if (!r.dismissed.includes(b.dismiss)) r.dismissed.push(b.dismiss);
+    if (r.active?.task === b.dismiss) r.active = null;
+  } else if ('hidden' in b) {
+    if (typeof b.hidden !== 'boolean') return 'hidden is true or false';
+    r.hidden = b.hidden;
+  } else return 'unknown intent';
+  write(core.store, r);
+  return null;
 }
 
 export function registerGuideRoutes(
@@ -131,19 +263,11 @@ export function registerGuideRoutes(
   const env = deps.env ?? process.env;
   stampGuide(core.store, deps.version);
 
-  app.get('/api/guide', async () => readGuide(core.store, env));
+  app.get('/api/guide', async () => readGuide(core, env));
 
-  app.post('/api/guide/learned', async (req, reply) => {
-    const concept = (req.body as { concept?: unknown } | undefined)?.concept;
-    if (typeof concept !== 'string' || !(GUIDE_CONCEPTS as readonly string[]).includes(concept)) {
-      return reply.status(400).send({ error: 'unknown concept' });
-    }
-    learnGuide(core.store, concept as GuideConcept);
-    return readGuide(core.store, env);
-  });
-
-  app.post('/api/guide/restart', async () => {
-    restartGuide(core.store);
-    return readGuide(core.store, env);
+  app.post('/api/guide', async (req, reply) => {
+    const error = applyIntent(core, req.body);
+    if (error) return reply.status(400).send({ error });
+    return readGuide(core, env);
   });
 }
