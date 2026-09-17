@@ -51,15 +51,6 @@ const EDGE = 12;
 /** The pointer keeps clear of the card's rounded corners. */
 const ARROW_INSET = 20;
 const SCROLL_WAIT_MS = 450;
-/**
- * Below this a card stops floating and docks to the bottom of the screen.
- * A tooltip is a pointer pattern: on a touch screen the explanation belongs in
- * a sheet at the bottom (Apple presents a popover as a sheet in the compact
- * size class; Material calls modal bottom sheets the small-screen pattern),
- * with the target itself highlighted in place rather than covered by a card.
- */
-const DOCK_WIDTH = 767;
-
 /** Fixed and sticky chrome a window must not reach under. */
 const CHROME = '.sc-topbar, .sc-tabbar, .sc-filterbar, .sc-canvas-dock, .sc-help-float';
 /** The card fades out before it moves; it never slides across the page. Matches --sc-dur-fast. */
@@ -178,13 +169,6 @@ export function Coachmark(p: CoachmarkProps) {
   const lock = useRef<CoachLock | null>(null);
   const [phase, setPhase] = useState<Phase>('moving');
   const [masked] = useState(maskSupported);
-  const [docked, setDocked] = useState(() => window.matchMedia(`(max-width: ${DOCK_WIDTH}px)`).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${DOCK_WIDTH}px)`);
-    const on = () => setDocked(mq.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
   const [view, setView] = useState<View>(() => viewOf(p));
   const latest = useRef(p);
   latest.current = p;
@@ -339,37 +323,14 @@ export function Coachmark(p: CoachmarkProps) {
       // The card's own height, for a surface that has to make room for it (the
       // open picker on a phone, attach-panel.css).
       if (card) document.documentElement.style.setProperty('--sc-coach-h', `${Math.round(card.offsetHeight)}px`);
-      // The page above it makes the room: the sheet never moves to find some.
-      if (card && docked) document.documentElement.dataset.guideSheet = '';
-      else delete document.documentElement.dataset.guideSheet;
-      /**
-       * Docked: the sheet sits on the bottom edge, above the on-screen
-       * keyboard (the visual viewport, since a fixed element stays under it),
-       * and above whatever is lit down there, so it never covers the control
-       * the step is about (WCAG 2.4.11).
-       */
-      if (card && docked) {
-        const vv = window.visualViewport;
-        const floor = vv ? vh - (vv.height + vv.offsetTop) : 0;
-        // It stays on the bottom edge, one place, all the way through: the
-        // page makes room for it instead (`[data-guide-sheet]`, canvas.css), so
-        // nothing it asks about is behind it and nothing jumps between steps.
-        card.style.left = '0px';
-        card.style.right = '0px';
-        card.style.top = 'auto';
-        card.style.bottom = `${Math.round(floor)}px`;
-        card.dataset.side = 'sheet';
-        // A sheet has no pointer: it spans the screen, so there is no direction
-        // for one to mean. The ring on the target does that job.
-        if (pointer) pointer.hidden = true;
-      } else if (card && centred) {
+      if (card && centred) {
         card.style.right = '';
         card.style.left = `${Math.round((vw - card.offsetWidth) / 2)}px`;
         card.style.top = `${Math.round((vh - card.offsetHeight) / 2)}px`;
         card.dataset.side = 'centre';
         if (pointer) pointer.hidden = true;
       }
-      if (card && pointer && target && t && !docked) {
+      if (card && pointer && target && t) {
         card.style.right = '';
         // The bars the page pins to its top and bottom are not room for the card.
         const room = {
@@ -501,14 +462,13 @@ export function Coachmark(p: CoachmarkProps) {
     return () => {
       alive = false;
       document.documentElement.style.removeProperty('--sc-coach-h');
-      delete document.documentElement.dataset.guideSheet;
       cancelAnimationFrame(frame);
       stopAuto?.();
       ro.disconnect();
       window.visualViewport?.removeEventListener('resize', schedule);
       window.visualViewport?.removeEventListener('scroll', schedule);
     };
-  }, [id, coach, hasCard, target, liveKey, litKey, side, container, onShown, masked, docked]);
+  }, [id, coach, hasCard, target, liveKey, litKey, side, container, onShown, masked]);
 
   // The card's words describe the control while it is the one being pointed at.
   useEffect(() => {

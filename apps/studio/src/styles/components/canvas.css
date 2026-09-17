@@ -1395,16 +1395,3 @@
 .sc-dock-fade {
   bottom: calc(var(--sc-bottom-inset) + var(--sc-tabbar-h));
 }
-
-/* First use on a phone: the tutor's sheet owns the bottom edge and never moves,
-   so the dock rides above it rather than the card hunting for a free patch of
-   screen. The sheet's own height is the only thing that changes. */
-@media (max-width: 767px) {
-  :root[data-guide-sheet] .sc-canvas-dock,
-  :root[data-guide-sheet] .sc-canvas-dock[data-full="true"] {
-    bottom: calc(var(--sc-coach-h, 0px) + 8px);
-  }
-  :root[data-guide-sheet] .sc-dock-fade {
-    bottom: calc(var(--sc-coach-h, 0px));
-  }
-}

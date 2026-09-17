@@ -1052,12 +1052,3 @@
   background: var(--sc-red);
   color: var(--sc-inv-fg);
 }
-
-/* First use on a phone: the tutor's sheet owns the bottom edge, so the answer
-   line rides above it rather than behind it (canvas.css says the same for the
-   composer dock). */
-@media (max-width: 767px) {
-  :root[data-guide-sheet] .sc-pstudio .sc-convo-composer {
-    padding-bottom: var(--sc-coach-h, 0px);
-  }
-}

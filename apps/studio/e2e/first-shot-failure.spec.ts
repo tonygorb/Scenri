@@ -71,25 +71,24 @@ test('a take the engine refuses is said on its tile, and building again picks th
   await expectHeld(page);
 });
 
-test('on a phone the sheet holds the bottom edge and the picker rides above it', async ({ page }) => {
+test('on a phone the card stands above the picker, whole', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const own = await ownBrand(page, 'Phone Take');
   await page.goto(`/${own}/create`);
   await readTheOpening(page);
   await expect(coachTitle(page)).toHaveText('Choose a product');
   await page.locator('[data-guide="compose.add"]').click();
-  await expect(coachCard(page)).toHaveAttribute('data-side', 'sheet');
+  await expect(coachCard(page)).toHaveAttribute('data-side', 'top');
   const fit = await page.evaluate(() => {
     const c = document.querySelector('.sc-coach')?.getBoundingClientRect();
     const p = document.querySelector('.sc-attachpanel')?.getBoundingClientRect();
     if (!c || !p) return null;
     return {
       inside: c.left >= 0 && c.right <= innerWidth && c.top >= 0 && c.bottom <= innerHeight,
-      onTheEdge: Math.round(innerHeight - c.bottom) <= 2,
-      clearOfThePicker: p.bottom <= c.top + 1,
+      above: c.bottom <= p.top + 1,
     };
   });
-  expect(fit).toEqual({ inside: true, onTheEdge: true, clearOfThePicker: true });
+  expect(fit).toEqual({ inside: true, above: true });
 });
 
 test('a chip is held while the tutor walks them through it, and free once it is over', async ({ page }) => {

@@ -1083,32 +1083,21 @@ select.sc-in {
   width: min(280px, calc(100vw - 24px));
 }
 
-/* On a phone the card is a sheet on the bottom edge rather than a callout
-   floating over a four-inch canvas: the target is highlighted in place and the
-   words sit where a thumb already is. Its buttons keep the 44px touch target
-   Apple and WCAG 2.5.5 ask for, and it clears the home indicator. */
-.sc-coach[data-side="sheet"] {
-  width: auto;
-  padding: 16px 16px calc(14px + env(safe-area-inset-bottom, 0px));
-  border-right: 0;
-  border-bottom: 0;
-  border-left: 0;
-  border-radius: var(--sc-radius-lg) var(--sc-radius-lg) 0 0;
+/* On a phone the card is the same callout it is on a desktop, and its controls
+   are the size a thumb needs (WCAG 2.5.5 asks 44px). */
+@media (max-width: 767px) {
+  .sc-coach .sc-coach-next,
+  .sc-coach .sc-coach-back {
+    min-height: 44px;
+    padding-inline: 18px;
+  }
+  .sc-coach .sc-coach-x {
+    width: 44px;
+    height: 44px;
+    margin: -10px -10px 0 0;
+  }
 }
-.sc-coach[data-side="sheet"] .sc-coach-foot {
-  gap: 8px;
-  margin-top: 16px;
-}
-.sc-coach[data-side="sheet"] .sc-coach-next,
-.sc-coach[data-side="sheet"] .sc-coach-back {
-  min-height: 44px;
-  padding-inline: 18px;
-}
-.sc-coach[data-side="sheet"] .sc-coach-x {
-  width: 44px;
-  height: 44px;
-  margin: -10px -10px 0 0;
-}
+
 .sc-coach[data-state="moving"],
 .sc-coach[data-state="stowed"],
 .sc-coach[data-state="away"] {
