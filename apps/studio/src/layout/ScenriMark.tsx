@@ -12,7 +12,7 @@ import type { SVGProps } from 'react';
  * its `-light` / `-dark` suffixes name the colour of the artwork, not the theme
  * it belongs to: `-light` is the white cut, for a dark background. Wiring those
  * names straight onto `[data-theme]` gives white on white. There is no variant
- * to get backwards here, because `.sc-wordmark` already sets
+ * to get backwards here, because the control it sits in already sets
  * `color: var(--sc-fg)` and the mark simply inherits it.
  */
 

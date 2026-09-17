@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { DropdownMenu } from '@radix-ui/themes';
 import { Check, GearSix, Plus, Power } from '@phosphor-icons/react';
+import { BarMenu, BarRow } from './BarMenu.js';
 import { Confirm } from '../../Confirm.js';
 import { useToasts } from '../../toasts.js';
 import { BrandAvatar, brandName } from '../nav.js';
@@ -55,69 +55,67 @@ export function BrandButton() {
 
   return (
     <>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger>
+      <BarMenu
+        label="Brands and settings"
+        trigger={
           <button type="button" className="sc-org-btn" aria-label={`${brandName(brand)}, brand and settings`}>
             <BrandAvatar brand={brand} size={32} round />
           </button>
-        </DropdownMenu.Trigger>
+        }
+      >
+        {brands.map((b) => {
+          const current = b.id === brand.id;
+          const twoLine = (counts.get(nameKey(b)) ?? 0) > 1;
+          return (
+            <BarRow
+              key={b.id}
+              data-current={current || undefined}
+              data-two-line={twoLine || undefined}
+              // Selecting the brand you are in changes nothing except closing
+              // the menu. Anything else here — a navigate, a refetch — is how
+              // the phantom-workspace bug felt possible in the first place.
+              onSelect={current ? undefined : () => navigate(brandPath(b))}
+            >
+              <BrandAvatar brand={b} size={26} round />
+              <span className="sc-menu-brand-lb">
+                <span dir="auto">{brandName(b)}</span>
+                {twoLine && <span className="sc-menu-brand-sub">/{b.slug}</span>}
+              </span>
+              {current && (
+                <>
+                  <Check size={14} className="sc-menu-check" aria-hidden="true" />
+                  <span className="sc-vh">, current brand</span>
+                </>
+              )}
+            </BarRow>
+          );
+        })}
 
-        <DropdownMenu.Content align="end" sideOffset={8} className="sc-menu">
-          {brands.map((b) => {
-            const current = b.id === brand.id;
-            const twoLine = (counts.get(nameKey(b)) ?? 0) > 1;
-            return (
-              <DropdownMenu.Item
-                key={b.id}
-                className="sc-menu-item"
-                data-current={current || undefined}
-                data-two-line={twoLine || undefined}
-                // Selecting the brand you are in changes nothing except closing
-                // the menu. Anything else here — a navigate, a refetch — is how
-                // the phantom-workspace bug felt possible in the first place.
-                onSelect={current ? undefined : () => navigate(brandPath(b))}
-              >
-                <BrandAvatar brand={b} size={26} round />
-                <span className="sc-menu-brand-lb">
-                  <span dir="auto">{brandName(b)}</span>
-                  {twoLine && <span className="sc-menu-brand-sub">/{b.slug}</span>}
-                </span>
-                {current && (
-                  <>
-                    <Check size={14} className="sc-menu-check" aria-hidden="true" />
-                    <span className="sc-vh">, current brand</span>
-                  </>
-                )}
-              </DropdownMenu.Item>
-            );
-          })}
-
-          {/* Setting up is a different kind of act from switching, and the
+        {/* Setting up is a different kind of act from switching, and the
             hairline says so: the phantom-workspace tester reached /setup by
             clicking what read as part of the brand list. */}
-          <div className="sc-menu-sep" />
-          <DropdownMenu.Item className="sc-menu-item" onSelect={() => navigate('/setup')}>
-            <Plus size={18} className="sc-menu-ic" />
-            <span className="sc-menu-lb">Set up a brand</span>
-          </DropdownMenu.Item>
+        <div className="sc-menu-sep" />
+        <BarRow onSelect={() => navigate('/setup')}>
+          <Plus size={18} className="sc-menu-ic" />
+          <span className="sc-menu-lb">Set up a brand</span>
+        </BarRow>
 
-          <div className="sc-menu-sep" />
-          <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSettings()}>
-            <GearSix size={18} className="sc-menu-ic" />
-            <span className="sc-menu-lb">Settings</span>
-          </DropdownMenu.Item>
+        <div className="sc-menu-sep" />
+        <BarRow onSelect={() => openSettings()}>
+          <GearSix size={18} className="sc-menu-ic" />
+          <span className="sc-menu-lb">Settings</span>
+        </BarRow>
 
-          {/* The way out, last and under its own hairline. A Scenri started from
+        {/* The way out, last and under its own hairline. A Scenri started from
             the desktop icon has no terminal window to close; this is how the server
             stops, and it is machine-level, so it lives here rather than in a
             Settings pane. */}
-          <div className="sc-menu-sep" />
-          <DropdownMenu.Item className="sc-menu-item" data-quit="" onSelect={() => setQuitAsk(true)}>
-            <Power size={18} className="sc-menu-ic" />
-            <span className="sc-menu-lb">Shut down Scenri</span>
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
+        <div className="sc-menu-sep" />
+        <BarRow data-quit="" onSelect={() => setQuitAsk(true)}>
+          <Power size={18} className="sc-menu-ic" />
+          <span className="sc-menu-lb">Shut down Scenri</span>
+        </BarRow>
+      </BarMenu>
       <Confirm
         open={quitAsk}
         onOpenChange={setQuitAsk}

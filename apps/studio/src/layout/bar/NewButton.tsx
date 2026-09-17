@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
-import { DropdownMenu } from '@radix-ui/themes';
 import { Aperture, CaretDown, FilmSlate, IdentificationBadge, Package, Plus } from '@phosphor-icons/react';
+import { BarMenu, BarRow } from './BarMenu.js';
 import { thumbOf } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { useCreateAsset } from '../../create/AssetCreateHost.js';
@@ -59,64 +59,59 @@ export function NewButton() {
         <span className="sc-new-lb">New</span>
       </Link>
       <span className="sc-new-split" aria-hidden="true" />
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger>
+      <BarMenu
+        label="Ways to start"
+        className="sc-menu-start"
+        trigger={
           <button type="button" className="sc-new-more" aria-label="Other ways to start">
             <CaretDown size={11} weight="bold" className="sc-new-caret" aria-hidden="true" />
           </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end" sideOffset={8} className="sc-menu sc-menu-start">
-          {/* A real Link, so the row survives a middle click the way the nav does. */}
-          <DropdownMenu.Item asChild className="sc-menu-item sc-start-row" data-lead="">
-            <Link to={create?.to ?? ''}>
+        }
+      >
+        {/* A real Link, so the row survives a middle click the way the nav does. */}
+        <BarRow className="sc-menu-item sc-start-row" data-lead="" to={create?.to ?? ''}>
+          <span className="sc-start-pic">
+            {shotPic ? (
+              <img src={thumbOf(shotPic, 'tile')} alt="" loading="lazy" decoding="async" />
+            ) : (
+              <span className="sc-start-glyph">
+                <Aperture size={22} />
+              </span>
+            )}
+          </span>
+          <span className="sc-start-txt">
+            <b>New shot</b>
+            <small>Write a brief, get a shot</small>
+          </span>
+        </BarRow>
+
+        <div className="sc-menu-sep" />
+        <div className="sc-menu-label">Add to this brand</div>
+        {INGREDIENTS.map((row) => {
+          const { url, count } = preview[row.kind];
+          return (
+            <BarRow key={row.kind} className="sc-menu-item sc-start-row" onSelect={() => createAsset(row.kind)}>
               <span className="sc-start-pic">
-                {shotPic ? (
-                  <img src={thumbOf(shotPic, 'tile')} alt="" loading="lazy" decoding="async" />
+                {url ? (
+                  <img src={url} alt="" loading="lazy" decoding="async" />
                 ) : (
                   <span className="sc-start-glyph">
-                    <Aperture size={22} />
+                    <row.icon size={22} />
                   </span>
                 )}
               </span>
               <span className="sc-start-txt">
-                <b>New shot</b>
-                <small>Write a brief, get a shot</small>
+                <b>{row.label}</b>
+                <small>{row.line}</small>
               </span>
-            </Link>
-          </DropdownMenu.Item>
-
-          <div className="sc-menu-sep" />
-          <div className="sc-menu-label">Add to this brand</div>
-          {INGREDIENTS.map((row) => {
-            const { url, count } = preview[row.kind];
-            return (
-              <DropdownMenu.Item
-                key={row.kind}
-                className="sc-menu-item sc-start-row"
-                onSelect={() => createAsset(row.kind)}
-              >
-                <span className="sc-start-pic">
-                  {url ? (
-                    <img src={url} alt="" loading="lazy" decoding="async" />
-                  ) : (
-                    <span className="sc-start-glyph">
-                      <row.icon size={22} />
-                    </span>
-                  )}
-                </span>
-                <span className="sc-start-txt">
-                  <b>{row.label}</b>
-                  <small>{row.line}</small>
-                </span>
-                <span className="sc-start-n">
-                  {count === 0 ? 'None yet' : count}
-                  <span className="sc-vh">{` ${row.noun}${count === 1 ? '' : 's'} so far`}</span>
-                </span>
-              </DropdownMenu.Item>
-            );
-          })}
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
+              <span className="sc-start-n">
+                {count === 0 ? 'None yet' : count}
+                <span className="sc-vh">{` ${row.noun}${count === 1 ? '' : 's'} so far`}</span>
+              </span>
+            </BarRow>
+          );
+        })}
+      </BarMenu>
     </div>
   );
 }

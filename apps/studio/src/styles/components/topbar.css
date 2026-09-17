@@ -348,6 +348,33 @@
 .sc-org-btn[data-state="open"] {
   box-shadow: 0 0 0 2px var(--sc-fg3);
 }
+.sc-brand-av {
+  display: grid;
+  place-items: center;
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--sc-radius-sm);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.16) inset;
+}
+/* A white plate, in both themes, on purpose. Brand logos are overwhelmingly
+   dark ink on transparency: this one is 84% transparent with ink at luminance
+   91, which sat at 2.6:1 on a dark tile and a pure black mark would have
+   disappeared outright. A light plate is what every org avatar does, and it is
+   the only tile that cannot swallow the artwork. */
+.sc-brand-av[data-logo] {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.16) inset;
+}
+.sc-brand-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 2px;
+  display: block;
+}
 .sc-brand-av[data-round] {
   border-radius: var(--sc-radius-full);
 }

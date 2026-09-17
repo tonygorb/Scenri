@@ -184,3 +184,28 @@ body > div:has(.sc-menu) {
 .sc-start-row[data-lead][data-highlighted] {
   background: color-mix(in srgb, var(--sc-gold) 17%, var(--sc-panel));
 }
+
+/* The same menu as a sheet, on a phone. It is the sheet that is full width, so
+   the menu inside it gives up its own width and its scrolling, and the rows keep
+   the reach a thumb needs. */
+.sc-menu-sheet {
+  width: auto;
+  max-height: none;
+  overflow: visible;
+  padding: 2px 4px 8px;
+}
+.sc-menu-sheet .sc-menu-item {
+  width: 100%;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  height: 44px;
+}
+.sc-menu-sheet .sc-menu-item:active {
+  background: var(--sc-press);
+}
+.sc-menu-sheet .sc-start-row {
+  height: auto;
+}
