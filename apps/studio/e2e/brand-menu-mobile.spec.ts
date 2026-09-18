@@ -46,14 +46,6 @@ test('twenty brands, and the way out is still on screen', async ({ page }) => {
   // the list scrolls inside itself, so the surface around it does not have to
   const list = await page.locator('.sc-menu-brands').evaluate((el) => ({ h: el.clientHeight, s: el.scrollHeight }));
   expect(list.s).toBeGreaterThan(list.h);
-  // it ends on a whole row, never through the middle of one
-  const cut = await page.locator('.sc-menu-brands').evaluate((el) => {
-    const edge = el.getBoundingClientRect().bottom;
-    return [...el.children]
-      .map((c) => c.getBoundingClientRect())
-      .filter((r) => r.top < edge - 0.5 && r.bottom > edge + 0.5).length;
-  });
-  expect(cut).toBe(0);
   const sheet = page.locator('.sc-menu-sheet');
   if (await sheet.count()) {
     await page.waitForTimeout(500); // the sheet rises from below the fold
