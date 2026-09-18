@@ -8,6 +8,7 @@ import {
   pickTheIngredients,
   learnButton,
   setUpBrand,
+  walkToCreate,
   welcome,
 } from './firstUse.js';
 
@@ -126,8 +127,8 @@ test('refining with no shot says so, and its one action makes a shot first', asy
   await page.goto(`/${slug}?learn=refine`);
   await expect(learn(page)).toContainText('Refining starts from a shot you have made.');
   await learn(page).getByRole('button', { name: 'Make a shot first' }).click();
-  await page.waitForURL(`**/${slug}/create`);
-  await expect(coachTitle(page)).toContainText('This is Create', { timeout: 20_000 });
+  await walkToCreate(page);
+  await expect(coachTitle(page)).toHaveText('Choose a product');
   expect((await guideRecord(page)).active?.task).toBe('first-shot');
 });
 

@@ -1,6 +1,15 @@
 import { expect, test } from '@playwright/test';
 import { isolate } from './harness.js';
-import { chips, coachCard, coachTitle, noWelcomeWait, ownBrand, pickFromPicker, pointsAt } from './firstUse.js';
+import {
+  chips,
+  coachCard,
+  coachTitle,
+  noWelcomeWait,
+  ownBrand,
+  pickFromPicker,
+  pointsAt,
+  walkToCreate,
+} from './firstUse.js';
 
 /**
  * The tutor on a phone (DESIGN.md, "First use"): the same card it is on a
@@ -75,4 +84,19 @@ test('a screen shortened the way a keyboard shortens it keeps the card whole', a
   // Playwright cannot raise a keyboard, and a shortened screen is what one does.
   await page.setViewportSize({ width: 390, height: 500 });
   await expect.poll(() => card(page)).toEqual(good);
+});
+
+test("begun away from Create, the way there is the tab bar's Create, ringed", async ({ page }) => {
+  await noWelcomeWait(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const slug = await ownBrand(page, 'Tab Way');
+  await page.request.post('/api/guide', { data: { welcome: 'declined' } });
+  await page.goto(`/${slug}?learn=first-shot`);
+  await page.getByRole('button', { name: /^(Start|Continue)$/ }).click();
+  await expect(coachTitle(page)).toHaveText('Shots are made in Create', { timeout: 20_000 });
+  await pointsAt(page, '.sc-tabbar [data-guide="nav.create"]');
+  await expect(page.locator('.sc-coach-ring')).toBeVisible();
+  await expect.poll(() => card(page)).toEqual(good);
+  await walkToCreate(page);
+  await expect(coachTitle(page)).toHaveText('Choose a product');
 });

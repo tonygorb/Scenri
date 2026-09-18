@@ -14,6 +14,7 @@ import {
   readTheOpening,
   setUpBrand,
   fromLearn,
+  walkToCreate,
   learnButton,
   welcome,
 } from './firstUse.js';
@@ -53,7 +54,7 @@ test('a take the engine refuses is said on its tile, and building again picks th
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/${slug}`);
   await fromLearn(page, 'Make your first shot');
-  await readTheOpening(page);
+  await walkToCreate(page);
   await pickTheIngredients(page);
   await page.keyboard.type('at dusk, by the window');
   await page.locator('[data-guide="compose.send"]').click();

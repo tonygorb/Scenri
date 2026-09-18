@@ -15,10 +15,35 @@ import { FIRST_USE } from './firstUse.js';
 export interface GuideSnapshot extends GuideView {
   /** The first read has answered, or failed. Until then nobody can tell a new install from an old one. */
   loaded: boolean;
+  /**
+   * The brand whose first shot was just begun away from Create, on its way
+   * there: this tab's alone, never the record's. It lasts through a reload,
+   * so the way is still lit after one, and ends on arrival or when the guide
+   * is closed.
+   */
+  heading: string | null;
+}
+
+const HEADING = 'scenri:guide-heading';
+function storedHeading(): string | null {
+  try {
+    return typeof window === 'undefined' ? null : window.sessionStorage.getItem(HEADING);
+  } catch {
+    return null;
+  }
+}
+function storeHeading(brandId: string | null): void {
+  try {
+    if (brandId) window.sessionStorage.setItem(HEADING, brandId);
+    else window.sessionStorage.removeItem(HEADING);
+  } catch {
+    // a tab that refuses storage loses the way on a reload, nothing else
+  }
 }
 
 const EMPTY: GuideSnapshot = {
   loaded: false,
+  heading: null,
   eligible: false,
   welcome: null,
   hidden: true,
@@ -30,7 +55,7 @@ const EMPTY: GuideSnapshot = {
   counts: null,
 };
 
-let snapshot: GuideSnapshot = EMPTY;
+let snapshot: GuideSnapshot = { ...EMPTY, heading: storedHeading() };
 let loading: Promise<void> | null = null;
 let reading: Promise<void> | null = null;
 let listening = false;
@@ -50,7 +75,7 @@ function taken(r: GuideView): GuideSnapshot {
   const view = FIRST_USE
     ? r
     : { ...r, eligible: false, hidden: true, active: null, activeNodes: [], activeDraftId: null };
-  return { ...view, loaded: true };
+  return { ...view, loaded: true, heading: snapshot.heading };
 }
 
 function read(): Promise<void> {
@@ -114,6 +139,21 @@ export function guideIntent(i: GuideIntent): Promise<void> {
 function subscribe(l: () => void) {
   listeners.add(l);
   return () => listeners.delete(l);
+}
+
+/** Where this browser remembers that a brand's first shot began with the way to Create. */
+export const viaBarKey = (brandId: string) => `scenri:guide-via-bar:${brandId}`;
+
+/** The first shot begun away from Create: its first step is the way there. */
+export function headFor(brandId: string): void {
+  storeHeading(brandId);
+  emit({ ...snapshot, heading: brandId });
+}
+
+/** There, or no longer on the way. */
+export function arrived(): void {
+  storeHeading(null);
+  if (snapshot.heading) emit({ ...snapshot, heading: null });
 }
 
 export function guideSnapshot(): GuideSnapshot {

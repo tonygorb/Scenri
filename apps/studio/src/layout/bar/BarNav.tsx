@@ -17,7 +17,12 @@ export function BarNav() {
       <ul>
         {items.map((item) => (
           <li key={item.key}>
-            <Link to={item.to} data-active={item.active || undefined} aria-current={item.active ? 'page' : undefined}>
+            <Link
+              to={item.to}
+              data-active={item.active || undefined}
+              data-guide={item.key === 'create' ? 'nav.create' : undefined}
+              aria-current={item.active ? 'page' : undefined}
+            >
               {item.label}
             </Link>
           </li>

@@ -64,6 +64,16 @@ export async function expectNoGuide(p: Page): Promise<void> {
   await expect(p.locator('.sc-coach, .sc-coach-veil')).toHaveCount(0);
 }
 
+/**
+ * Begun away from Create (the welcome, Learn), the first step is the way there:
+ * Create in the places, lit, taken by hand. Arriving by it is the opening read.
+ */
+export async function walkToCreate(p: Page): Promise<void> {
+  await expect(coachTitle(p)).toHaveText('Shots are made in Create', { timeout: 20_000 });
+  await p.locator('[data-guide="nav.create"]:visible').first().click();
+  await p.waitForURL('**/create**');
+}
+
 /** Reads the opening and moves past it, the way anyone does. */
 export async function readTheOpening(p: Page): Promise<void> {
   await expect(coachTitle(p)).toContainText('This is Create', { timeout: 20_000 });

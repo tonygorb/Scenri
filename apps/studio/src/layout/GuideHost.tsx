@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useMatch, useSearchParams } from 'react-router';
+import { useMatch, useNavigate, useSearchParams } from 'react-router';
 import { useAppData, useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId, GuideTaskNode } from '../api.js';
-import { guideIntent, refreshGuide, useGuide } from '../guide.js';
+import { arrived, guideIntent, headFor, refreshGuide, useGuide, viaBarKey } from '../guide.js';
 import { setGuideShowing, useGuideFacts } from '../guideFacts.js';
 import {
   ASK_TAB,
@@ -24,7 +24,7 @@ import {
   type AskedKind,
   type Moment,
 } from '../guidedTasks.js';
-import { P } from '../routes.js';
+import { brandPath, P } from '../routes.js';
 import { useToasts } from '../toasts.js';
 import { WelcomeDialog } from '../views/WelcomeDialog.js';
 import { Coachmark } from './Coachmark.js';
@@ -62,6 +62,7 @@ export function GuideHost() {
   const { tasks, builds } = useTaskCenter();
   const { push } = useToasts();
   const launch = useLaunchTask();
+  const navigate = useNavigate();
   const [params] = useSearchParams();
   const home = !!useMatch(P.brand);
   const hub = !!useMatch(P.hub);
@@ -161,15 +162,56 @@ export function GuideHost() {
     setBegun(true);
   }, [begunKey]);
 
+  // The first shot that began with the way to Create: its step said what the
+  // opening would have, so arriving by it is the opening read, and the walk
+  // counts that step. Remembered where the opening is, for a reload part way.
+  const [viaBar, setViaBar] = useState(false);
+  useEffect(() => {
+    let v = false;
+    try {
+      v = task === 'first-shot' && window.localStorage.getItem(viaBarKey(brand.id)) === '1';
+    } catch {
+      // a browser that refuses storage counts four
+    }
+    setViaBar(v);
+  }, [task, brand.id, guide.heading]);
+  // On the way to Create until they get there, and only while that is the task.
+  // Getting there is arriving, not being there: Back on the first choice asks
+  // for the way here again while Create is still on screen.
+  const wasHub = useRef(hub);
+  useEffect(() => {
+    const came = hub && !wasHub.current;
+    wasHub.current = hub;
+    if (!guide.heading) return;
+    if (came && task === 'first-shot' && guide.heading === brand.id) {
+      try {
+        window.localStorage.setItem(viaBarKey(brand.id), '1');
+      } catch {
+        // the count falls back to four, nothing else changes
+      }
+      setViaBar(true);
+      beginNow();
+    }
+    // Not before the record has answered: on a reload there is no task in
+    // hand for a moment, and that is not the task having ended.
+    if (came || (guide.loaded && task !== 'first-shot')) arrived();
+  }, [guide.heading, guide.loaded, hub, task, brand.id, beginNow]);
+
   // The one moment, from what is true now.
   let moment: Moment | null = null;
   if (task === 'first-shot') {
     const c = facts.composer?.brandId === brand.id ? facts.composer : null;
+    // The render that arrives by the way to Create already knows it did: the
+    // flag is only written down after it, and a card placed for the in-between
+    // (no Back, "1 of 4", the greeting still due) grew into what it points at.
+    const arriving = hub && guide.heading === brand.id;
     moment = firstShotMoment({
       here: hub && !modal,
+      heading: guide.heading === brand.id && !hub && !modal,
+      viaBar: viaBar || arriving,
       composer: c && settling ? { ...c, busy: true } : c,
       nodes,
-      begun: begun || nodes.length > 0,
+      begun: begun || arriving || nodes.length > 0,
     });
   } else if (task === 'refine') moment = refineMoment({ here: !!shot, nodes, asking: !!firstVisible(SHOT_COMPOSER) });
   else if (task === 'presenter') moment = studio ? presenterMoment(facts.studio) : null;
@@ -410,17 +452,29 @@ export function GuideHost() {
           lit={lit}
           side={drawn.side ?? 'top'}
           beside={drawn.beside}
+          soft={drawn.soft}
           container={container as HTMLElement}
           title={drawn.title}
           body={drawn.body}
           at={drawn.at}
           of={drawn.of}
-          canBack={task === 'first-shot' && !!TAKES_BACK[drawn.id]}
+          canBack={
+            task === 'first-shot' &&
+            (!!TAKES_BACK[drawn.id] || (drawn.id === 'product' && (viaBar || (hub && guide.heading === brand.id))))
+          }
           action={drawn.start ? { label: 'Start' } : drawn.done ? { label: 'Done' } : null}
           closeLabel={drawn.done ? 'Close' : 'Close guide'}
           onBack={() => {
-            // Back takes the last chip out and opens the shelf it came from, on
-            // that kind: one press, and they are looking at the choice again.
+            // Back undoes the last thing done. On the first choice of a walk that
+            // began with the way to Create, that was coming here: it goes back,
+            // and the way here is asked for again.
+            if (drawn.id === 'product' && viaBar) {
+              window.dispatchEvent(new Event('scenri:guide-close-picker'));
+              headFor(brand.id);
+              return navigate(brandPath(brand));
+            }
+            // Otherwise it takes the last chip out and opens the shelf it came
+            // from, on that kind: one press, and they are looking at the choice again.
             const kind = TAKES_BACK[drawn.id];
             window.dispatchEvent(new CustomEvent('scenri:guide-take-back', { detail: { kind } }));
             window.dispatchEvent(new CustomEvent('scenri:guide-picker', { detail: { tab: ASK_TAB[kind] } }));

@@ -48,17 +48,25 @@ test('one thing at a time, from the welcome to a finished picture', async ({ pag
   // the welcome is held behind the tutor's own curtain, not the light dialog scrim
   await expect(page.locator('.sc-newdlg-scrim[data-tone="guide"]')).toHaveCSS('backdrop-filter', 'blur(6px)');
   await welcome(page).getByRole('button', { name: 'Make your first shot' }).click();
+
+  // Nothing jumps: the first step is the way to Create, on the page they are
+  // on, dimmed rather than blurred so they can still see where they are, with
+  // Create itself ringed.
+  await expect(coachTitle(page)).toHaveText('Shots are made in Create');
+  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('1 of 5');
+  await expect(page).toHaveURL(new RegExp(`/${slug}$`));
+  await expect(page.locator('.sc-coach-veil')).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.locator('.sc-coach-ring')).toBeVisible();
+  await page.locator('.sc-nav [data-guide="nav.create"]').click();
   await page.waitForURL(`**/${slug}/create`);
 
-  // It opens by saying what this place is, over the thing that does it.
-  await expect(coachTitle(page)).toContainText('This is Create');
+  // Arriving by their own hand is the opening read: one ask, on the one
+  // control that answers it, and Back goes back the way they came.
+  await expect(coachTitle(page)).toHaveText('Choose a product');
+  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('2 of 5');
+  await expect(coachCard(page).getByRole('button', { name: 'Back' })).toBeVisible();
   await expectHeld(page);
   await expect(page.locator('.sc-coach-veil')).toHaveCSS('backdrop-filter', 'blur(3px)');
-  await coachCard(page).getByRole('button', { name: 'Start' }).click();
-
-  // Then one ask, on the one control that answers it.
-  await expect(coachTitle(page)).toHaveText('Choose a product');
-  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('1 of 4');
   await pointsAt(page, '[data-guide="compose.add"]');
   await expect(chips(page)).toHaveCount(0);
 

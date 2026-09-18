@@ -561,6 +561,12 @@ export const BriefInput = forwardRef<
         // can be dragged earlier to take one.
       }
       insertToken(root, chipFor(token), { eatQuery: !!menu, fallbackUnits: lastCaret.current });
+      // The caret now sits after the chip; recorded at once rather than on the
+      // selectionchange that follows, because a panel that closes in the same
+      // turn (the tutor's last pick) hands the caret back from this record,
+      // and a stale one put it in the gap before the chip just added.
+      const at = caretUnits(root);
+      if (at !== null) lastCaret.current = at;
       emit();
       setMenu(null);
       setQuery('');

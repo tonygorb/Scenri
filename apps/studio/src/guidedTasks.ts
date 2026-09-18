@@ -62,8 +62,16 @@ export interface Moment {
    * the one button that moves past it. The only moment that ever does.
    */
   start?: boolean;
+  /**
+   * The page stays in view: dimmed, never blurred. For a moment that is a way
+   * somewhere rather than a thing to do here, where seeing the page you are on
+   * is the point.
+   */
+  soft?: boolean;
 }
 
+/** Create in the top bar's places, or the tab bar's on a phone: whichever is on screen. */
+const NAV_CREATE = '[data-guide="nav.create"]';
 const COMPOSE = '[data-guide="compose"]';
 const COMPOSE_PICKER = '[data-guide="compose"] .sc-attachpanel';
 /** Inside the picker, the one thing an ask is about: the shelf of things to choose from. */
@@ -82,6 +90,10 @@ const SHOT = '.sc-ovl';
 
 /** Every word the tutor says, in one place, so the copy rules can hold them all. */
 export const COPY = {
+  go: {
+    title: 'Shots are made in Create',
+    body: "A shot is built from what you sell, who shows it and where. Open Create, and we'll make your first one together.",
+  },
   intro: {
     title: 'This is Create, where shots are made',
     body: 'A shot is built from three things Scenri keeps for you: what you sell, who shows it, and where it happens. Add them, say how to shoot it, and Scenri makes the picture in about a minute.',
@@ -176,6 +188,16 @@ export interface ShotFacts {
   nodes: readonly GuideTaskNode[];
   /** The opening has been read. */
   begun?: boolean;
+  /**
+   * Just begun somewhere else (the welcome, Learn) and not yet on Create. The
+   * first step is getting there, done by them rather than done to them.
+   */
+  heading?: boolean;
+  /**
+   * This walk began with that way there, so its step is the first of the walk
+   * and it said what the opening would have: the count runs to five, not four.
+   */
+  viaBar?: boolean;
 }
 
 /**
@@ -188,7 +210,13 @@ export interface ShotFacts {
  * explain themselves, and they stay usable while the last ask is on screen.
  */
 export function firstShotMoment(f: ShotFacts): Moment | null {
-  if (!f.here) return null;
+  // Begun from another page, the first step is the way there: Create in the
+  // places, lit, with the page left in plain view. Arriving by their own hand
+  // is what tells them where Create is and how they got there.
+  if (!f.here)
+    return f.heading
+      ? { id: 'go', voice: 'ask', point: NAV_CREATE, side: 'bottom', soft: true, at: 1, of: 5, ...COPY.go }
+      : null;
   const c = f.composer;
   const made = f.nodes.find(finished);
   if (made) return { id: 'result', voice: 'note', point: tile(made.id), side: 'bottom', ...COPY.result, done: true };
@@ -208,7 +236,7 @@ export function firstShotMoment(f: ShotFacts): Moment | null {
    * falls below half at five (Chameleon, 550M in-app interactions). The
    * greeting is not one of them, so it carries no count.
    */
-  const walk = (at: number, m: Moment): Moment => ({ ...m, at, of: 4 });
+  const walk = (at: number, m: Moment): Moment => (f.viaBar ? { ...m, at: at + 1, of: 5 } : { ...m, at, of: 4 });
   // The opening greets an empty start only: someone coming back to a brief
   // they have already begun is past being told what this place is.
   // Nothing is pointed at yet: arriving somewhere new, the first thing to

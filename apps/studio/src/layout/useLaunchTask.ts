@@ -1,14 +1,15 @@
 import { useCallback } from 'react';
-import { useNavigate } from 'react-router';
+import { useMatch, useNavigate } from 'react-router';
 import { useBrand } from '../app/BrandLayout.js';
 import type { GuideTaskId } from '../api.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
-import { guideIntent, guideSnapshot } from '../guide.js';
-import { hubPath, presenterStudioPath, shotPath } from '../routes.js';
+import { guideIntent, guideSnapshot, headFor, viaBarKey } from '../guide.js';
+import { hubPath, P, presenterStudioPath, shotPath } from '../routes.js';
 
 /**
  * Begins a guided task where it happens (DESIGN.md, "First use"): the first
- * shot on Create, a refinement on the newest shot, a product or a scene in its
+ * shot on Create (begun anywhere else, the first step is the way there, taken
+ * by their own hand: nothing jumps), a refinement on the newest shot, a product or a scene in its
  * dialog, a presenter in the studio. A task already in hand for this brand is
  * continued rather than begun again, so a presenter left half made reopens its
  * own draft and never an unrelated one.
@@ -17,6 +18,7 @@ export function useLaunchTask(): (task: GuideTaskId) => Promise<void> {
   const { brand, recent } = useBrand();
   const navigate = useNavigate();
   const createAsset = useCreateAsset();
+  const onHub = !!useMatch(P.hub);
   return useCallback(
     async (task: GuideTaskId) => {
       const shot = recent.find((n) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0);
@@ -30,7 +32,16 @@ export function useLaunchTask(): (task: GuideTaskId) => Promise<void> {
       }
       switch (want) {
         case 'first-shot':
-          return navigate(hubPath(brand));
+          if (onHub) {
+            // begun where it happens: the opening greets them, and the walk is four
+            try {
+              window.localStorage.removeItem(viaBarKey(brand.id));
+            } catch {
+              // nothing remembered, nothing to forget
+            }
+            return navigate(hubPath(brand));
+          }
+          return headFor(brand.id);
         case 'refine':
           return navigate(shotPath(brand, null, (shot as { id: string }).id));
         case 'presenter':
@@ -40,6 +51,6 @@ export function useLaunchTask(): (task: GuideTaskId) => Promise<void> {
           return createAsset(want);
       }
     },
-    [brand, recent, navigate, createAsset],
+    [brand, recent, navigate, createAsset, onHub],
   );
 }
