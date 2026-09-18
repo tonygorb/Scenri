@@ -9,6 +9,7 @@ const quiet = (over: Partial<AutoOpenSignals> = {}): AutoOpenSignals => ({
   dialogOpen: false,
   running: 0,
   builds: 0,
+  firstUse: false,
   ...over,
 });
 
@@ -28,6 +29,10 @@ describe('canAutoOpen', () => {
   it('never lands on top of creative work', () => {
     expect(canAutoOpen(quiet({ running: 1 }))).toBe(false);
     expect(canAutoOpen(quiet({ builds: 1 }))).toBe(false);
+  });
+
+  it('never speaks while someone is being introduced to Scenri', () => {
+    expect(canAutoOpen(quiet({ firstUse: true }))).toBe(false);
   });
 
   it('never stacks on a dialog that is already open', () => {

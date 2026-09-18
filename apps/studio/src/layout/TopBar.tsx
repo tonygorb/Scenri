@@ -7,6 +7,7 @@ import { useCondensedBar } from './bar/useCondensedBar.js';
 import { ScenriLockup } from './ScenriMark.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../routes.js';
+import { HelpBar } from './HelpMenu.js';
 
 /**
  * The one chrome bar, mounted once by BrandLayout. Three tracks with equal side
@@ -41,6 +42,9 @@ export function TopBar() {
       </div>
       <BarNav />
       <div className="sc-topbar-end">
+        {/* Help lives here below 1024px, beside the bell; from 1024px it floats
+            in the page's corner (HelpFloat, in BrandLayout). */}
+        <HelpBar />
         <ActivityButton />
         <NewButton />
         <BrandButton />

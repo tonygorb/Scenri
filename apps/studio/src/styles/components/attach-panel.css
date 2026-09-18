@@ -24,6 +24,23 @@
   z-index: 70;
   overflow: hidden;
 }
+/* While the first shot's guide points at the open picker from above (no room
+   beside it), the picker gives up exactly the height that card needs, which
+   Coachmark measures and publishes as --sc-coach-h. */
+:root[data-guide-picker] [data-guide="compose"] .sc-attachpanel {
+  height: min(510px, calc(60vh - var(--sc-coach-h, 150px) - 24px));
+}
+/* First use: the head recedes control by control rather than as a block, so the
+   tab of the kind being asked for still reads as the answer to what am I
+   looking at, while every control around it waits, held and plainly held. */
+[data-guide-stage] .sc-ap-head[data-sc-coach-inert] {
+  opacity: 1;
+}
+[data-guide-stage] .sc-ap-head[data-sc-coach-inert] .sc-ap-actions,
+[data-guide-stage] .sc-ap-head[data-sc-coach-inert] .sc-verticals button:not([data-on]) {
+  opacity: 0.32;
+}
+
 .sc-ap-inner {
   display: flex;
   flex-direction: column;
@@ -185,8 +202,9 @@
     text-underline-offset: 3px;
   }
 }
-/* the Add logo verb is a label whose input holds the focus */
-.sc-ap-sec-act:focus-within {
+/* the Add logo verb is a label whose input holds the focus: ringed only when
+   the keyboard put it there, like every other control */
+:where(:root:not([data-input="pointer"])) .sc-ap-sec-act:has(:focus-visible) {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
   border-radius: var(--sc-radius-xs);
@@ -231,10 +249,10 @@
   text-align: start;
   color: var(--sc-fg);
 }
-.sc-ap-card:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-ap-card:focus-visible {
   outline: none;
 }
-.sc-ap-card:focus-visible .sc-ap-thumb {
+:where(:root:not([data-input="pointer"])) .sc-ap-card:focus-visible .sc-ap-thumb {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
 }
@@ -372,16 +390,16 @@
     display: block;
   }
 }
-.sc-ap-card:not([aria-disabled="true"]):focus-visible .sc-ap-puck {
+:where(:root:not([data-input="pointer"])) .sc-ap-card:not([aria-disabled="true"]):focus-visible .sc-ap-puck {
   display: grid;
 }
-.sc-ap-card:not([data-on]):focus-visible .sc-ap-puck-add {
+:where(:root:not([data-input="pointer"])) .sc-ap-card:not([data-on]):focus-visible .sc-ap-puck-add {
   display: block;
 }
-.sc-ap-card[data-on]:focus-visible .sc-ap-puck-on {
+:where(:root:not([data-input="pointer"])) .sc-ap-card[data-on]:focus-visible .sc-ap-puck-on {
   display: none;
 }
-.sc-ap-card[data-on]:focus-visible .sc-ap-puck-off {
+:where(:root:not([data-input="pointer"])) .sc-ap-card[data-on]:focus-visible .sc-ap-puck-off {
   display: block;
 }
 
@@ -439,6 +457,12 @@
   .sc-attachpanel {
     height: min(510px, var(--ap-avail, calc(100dvh - 270px)));
     border-radius: var(--sc-radius-float);
+  }
+  /* The card stands above the picker on a phone as it stands beside it on a
+     desktop, so the picker gives up exactly the card's height and the air
+     around it. */
+  :root[data-guide-picker] [data-guide="compose"] .sc-attachpanel {
+    height: min(510px, calc(var(--ap-avail, calc(100dvh - 270px)) - var(--sc-coach-h, 150px) - 24px));
   }
   /* One row does not fit seven tabs and three controls, and a toolbar
      squeezed onto two read as the desktop panel folded in half. A phone gets

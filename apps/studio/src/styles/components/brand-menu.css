@@ -250,9 +250,12 @@
    so a ring 2px outside the first or last row is chopped by the panel's own
    edge; DESIGN.md sanctions the inset for exactly this, a control sitting in a
    tight grid or inside another control's border. */
-.sc-menu-item:focus-visible,
-.sc-menu-find:focus-within,
-.sc-start-row:focus-visible {
+:where(:root:not([data-input="pointer"])) :is(.sc-menu-item, .sc-start-row):focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: calc(var(--sc-ring-off) * -1);
+}
+/* the finder is a place to type, so it shows its caret's ring whichever hand put it there */
+.sc-menu-find:focus-within {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: calc(var(--sc-ring-off) * -1);
 }
@@ -421,4 +424,37 @@ body > div:has(.sc-menu) {
 }
 .sc-menu-sheet .sc-start-row {
   height: auto;
+}
+/* The help menu has no head of its own, so its card's top edge takes the 8px its
+   other three edges have; and it is as wide as its rows ask, never wider than a
+   phone, where it opens from the bar. */
+.sc-help-menu {
+  width: min(300px, calc(100vw - 24px));
+  padding-top: 8px;
+}
+/* The help button (layout/HelpMenu.tsx). From 1024px it floats in the corner,
+   at the docks' level so an open shot and every dialog cover it, and steps left
+   of the assets rail, which from 1024px is always a column the page narrows
+   beside (it is a drawer only below 1024, where this button lives in the top
+   bar). Below 1024px it needs nothing here. */
+.sc-help-float {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--sc-bottom-inset) + 16px);
+  z-index: 60;
+}
+body:has(.sc-work[data-assets="true"]) .sc-help-float {
+  right: calc(var(--sc-assets-w) + 16px);
+}
+/* A finger's reach, the way the top bar gives its own small controls. */
+@media (pointer: coarse) {
+  .sc-help-float .sc-icon-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
 }

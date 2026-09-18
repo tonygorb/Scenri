@@ -427,7 +427,7 @@ export function PresentersView() {
                   Cast your own <em>presenter</em>
                 </>
               }
-              body="Upload a few photos of one person, and they stay the same person in every image you make."
+              body="Describe someone new, or add photos of a real person. They stay the same person in every image you make."
               action={createCta}
             />
           )}

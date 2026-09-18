@@ -17,7 +17,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CLI, npm, packFixture } from './pack-fixture.mjs';
 
@@ -32,6 +32,14 @@ if (!existsSync(join(ROOT, 'apps', 'studio', 'dist', 'index.html'))) {
 }
 
 const PORT = 4793;
+/**
+ * Installing runs PowerShell to ask Windows where the Desktop is, and the
+ * product allows that process 30s (`src/desktop/cli.ts`, runExecFile). A probe
+ * has to outlast what it probes, or a slow runner fails a correct product: on
+ * 2026-09-18 a scheduled run passed every assertion and then aborted this one
+ * POST at three seconds.
+ */
+const INSTALL_BUDGET_MS = 45_000;
 const root = join(process.env.RUNNER_TEMP ?? tmpdir(), 'sc-desktop');
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
@@ -412,6 +420,28 @@ note(`browsers running: ${psLines(browsersPs).join(', ') || 'none'}`);
 if (!anyBrowser)
   note('no opener reached a browser on this machine: the page and browser links below are informational');
 
+// How long the server's npm lookup holds its event loop on this machine. The
+// update route answers `canApply` by running `where npm` and then npm's own
+// entry through node, both synchronously, on the first status request after a
+// boot, and the studio makes that request the moment it loads. While they
+// run the server answers nothing, and the launcher's "already running?" probe
+// gives up at two seconds. These are the same two calls (`update/stage.ts`).
+{
+  const t0 = Date.now();
+  const where = spawnSync('where', ['npm'], { encoding: 'utf8', windowsHide: true, timeout: 10_000 });
+  const t1 = Date.now();
+  const shim = (where.stdout ?? '').split(/\r?\n/).find((l) => /npm(\.cmd)?$/i.test(l.trim()));
+  const cli = shim ? join(dirname(shim.trim()), 'node_modules', 'npm', 'bin', 'npm-cli.js') : null;
+  const ran =
+    cli && existsSync(cli)
+      ? spawnSync(process.execPath, [cli, '--version'], { stdio: 'ignore', windowsHide: true, timeout: 10_000 })
+      : null;
+  const t2 = Date.now();
+  note(
+    `npm lookup, as the update route runs it: where ${t1 - t0}ms, npm --version through node ${t2 - t1}ms (${ran ? `exit ${ran.status}` : 'no npm-cli.js found'})`,
+  );
+}
+
 // ---- 5. click
 
 const logText = () => (existsSync(launcherLog) ? readFileSync(launcherLog, 'utf8') : '');
@@ -516,9 +546,17 @@ await quit();
 ok('Shut down stopped the server and the supervisor');
 
 // L11: cold again
+const readyBefore = count(/open: ready in \d+ms/g);
 await click(3);
 const again = await waitFor('the server again', upNow, 120_000);
 if (again.version !== '99.0.0') fail(`third click booted ${again.version}`);
+// Shut down only once `open` has seen the server as well. It polls every
+// 250ms, and a stop that lands between two polls reads to it as a server that
+// died on the way up: it shows "Scenri could not start" and waits on a dialog
+// nobody here will click. That is how this job went red on 2026-09-18, the
+// server stopped 1.4s after it was spawned. Click 1 already waits for this
+// line; a person cannot reach Shut down this fast, the studio is where it is.
+await waitFor('the ready line again', () => count(/open: ready in \d+ms/g) > readyBefore, 15_000);
 ok('click 3 booted it again');
 await quit();
 
@@ -547,8 +585,15 @@ await quit();
   child.stderr.on('data', (d) => {
     output += String(d);
   });
-  const at = async (path, init) => {
-    const res = await fetch(`http://127.0.0.1:${port}${path}`, { signal: AbortSignal.timeout(3000), ...init });
+  /**
+   * Liveness polls are quick and retried, so they keep a short budget. A call
+   * that makes the server work gets one longer than the work is allowed to take:
+   * installing asks Windows where the Desktop is, which runs PowerShell, and the
+   * product gives that process 30s (`desktop/cli.ts` runExecFile). A probe that
+   * gives up first is measuring the runner, not the product.
+   */
+  const at = async (path, init, budgetMs = 3000) => {
+    const res = await fetch(`http://127.0.0.1:${port}${path}`, { signal: AbortSignal.timeout(budgetMs), ...init });
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const alive = () =>
@@ -560,7 +605,7 @@ await quit();
 
   // The route answers 409 with { error, reason }: a refusal a person can read,
   // never a 500 and never a crash.
-  const res = await at('/api/desktop/install', { method: 'POST' });
+  const res = await at('/api/desktop/install', { method: 'POST' }, INSTALL_BUDGET_MS);
   if (res.status >= 500) fail(`installing onto a broken Desktop answered ${res.status}: ${JSON.stringify(res.body)}`);
   if (res.status === 200) fail(`installing onto a broken Desktop claimed success: ${JSON.stringify(res.body)}`);
   if (!res.body?.reason) fail(`the refusal named no reason: ${JSON.stringify(res.body)}`);

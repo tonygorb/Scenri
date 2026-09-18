@@ -1,5 +1,6 @@
-import type { ReactElement } from 'react';
+import { cloneElement, type FocusEvent, type ReactElement } from 'react';
 import { Tooltip } from '@radix-ui/themes';
+import { inputModality } from '../inputModality.js';
 
 /**
  * One short sentence for an icon-only control, on hover and on keyboard
@@ -16,7 +17,23 @@ import { Tooltip } from '@radix-ui/themes';
 export function Tip({ label, open, children }: { label: string; open?: boolean; children: ReactElement }) {
   return (
     <Tooltip content={label} className="sc-tip" maxWidth="220px" {...(open ? { open: true } : {})}>
-      {children}
+      {keyboardOnlyFocus(children)}
     </Tooltip>
   );
+}
+
+/**
+ * Radix opens a tooltip on any focus, including the focus a menu or dialog
+ * hands back to its trigger as it closes. After a click that is a tooltip
+ * nobody asked for, so focus opens it only when the keyboard moved last. The
+ * child's handler runs first and Radix skips its own once the event is marked.
+ */
+export function keyboardOnlyFocus(child: ReactElement): ReactElement {
+  const own = (child.props as { onFocus?: (e: FocusEvent<HTMLElement>) => void }).onFocus;
+  return cloneElement(child as ReactElement<{ onFocus?: (e: FocusEvent<HTMLElement>) => void }>, {
+    onFocus: (e: FocusEvent<HTMLElement>) => {
+      own?.(e);
+      if (inputModality() === 'pointer') e.preventDefault();
+    },
+  });
 }

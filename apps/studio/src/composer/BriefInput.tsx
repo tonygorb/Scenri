@@ -39,6 +39,7 @@ import {
 } from './ingredientOptions.js';
 import { useIngredientCatalog } from './useIngredientCatalog.js';
 import { applySceneTint } from './sceneTint.js';
+import { keyboardFocus } from '../inputModality.js';
 import { CEILING_SENTENCE, IDENTITY_CAP, IDENTITY_KINDS } from './attachRoom.js';
 import {
   CHIP,
@@ -327,6 +328,9 @@ export const BriefInput = forwardRef<
         label = m ? markLabel(brand.json, m) : 'missing mark';
         thumb = thumbUrl(token.imageHash, 'micro');
       }
+      // Drawn before its library knew it (a product made from the picker a
+      // moment ago): marked, so it is drawn again once the library does.
+      if (label.startsWith('missing ')) el.dataset.missing = '';
 
       if (thumb) {
         const img = document.createElement('img');
@@ -607,6 +611,24 @@ export const BriefInput = forwardRef<
     [emit],
   );
 
+  // While the tutor is walking someone through the first shot's brief, a chip
+  // can be changed but not taken out, by any means: the remove control is
+  // hidden (see composer-brief.css) and every deletion that would reach a chip
+  // is refused here, so Back stays the one way one leaves. Text is still text.
+  // Only that brief: an open shot's composer or the Home dock is never held.
+  const chipsHeld = () =>
+    document.documentElement.dataset.guideTask === 'first-shot' && !!rootRef.current?.closest('[data-guide="compose"]');
+  const wouldTakeAChip = (root: HTMLElement, e: InputEvent) => {
+    const chips = [...root.querySelectorAll('.sc-token')];
+    if (!chips.length) return false;
+    const [target] = e.getTargetRanges?.() ?? [];
+    if (!target) return false;
+    const range = document.createRange();
+    range.setStart(target.startContainer, target.startOffset);
+    range.setEnd(target.endContainer, target.endOffset);
+    return chips.some((chip) => range.intersectsNode(chip));
+  };
+
   // Backspace and Delete at a chip's space take the chip, on every keyboard.
   // A phone's keyboard reports Backspace as a composition key (keyCode 229),
   // so keydown cannot be the hook; `beforeinput` names the deletion itself
@@ -619,6 +641,7 @@ export const BriefInput = forwardRef<
     const root = rootRef.current;
     if (!root) return;
     const onBeforeInput = (e: InputEvent) => {
+      if (e.inputType.startsWith('delete') && chipsHeld() && wouldTakeAChip(root, e)) return e.preventDefault();
       const key =
         e.inputType === 'deleteContentBackward'
           ? 'Backspace'
@@ -853,6 +876,7 @@ export const BriefInput = forwardRef<
     const target = e.target as HTMLElement;
     if (target.closest('[data-role="remove"]')) {
       e.preventDefault();
+      if (chipsHeld()) return;
       const chip = chipAt(target);
       if (picker && chip?.dataset.uid === picker.uid) closePicker('remove');
       // one transition for every button-driven removal: the same uid lookup,
@@ -954,7 +978,7 @@ export const BriefInput = forwardRef<
   /**
    * Focus is the keyboard's hover.
    *
-   * Only `:focus-visible`, so the focus a mouse click leaves on a chip does not
+   * Only keyboard focus (`keyboardFocus`), so the focus a mouse click leaves on a chip does not
    * re-open the card the click just dismissed on its way to the lightbox.
    */
   const onFocusIn = (e: React.FocusEvent) => {
@@ -962,7 +986,7 @@ export const BriefInput = forwardRef<
     const uid = chip?.dataset.uid;
     if (!chip || !uid || picker || menu) return;
     if (!chipPeeks(chip)) return;
-    if (!chip.matches(':focus-visible')) return;
+    if (!keyboardFocus(chip)) return;
     hover.open({ uid, anchor: chip });
   };
 
@@ -1044,6 +1068,7 @@ export const BriefInput = forwardRef<
       }
       if (e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
+        if (chipsHeld()) return;
         const at = focused.dataset.uid ? removeChipByUid(focused.dataset.uid) : null;
         root?.focus({ preventScroll: true });
         if (at != null) setCaretUnits(root, at);
@@ -1085,6 +1110,7 @@ export const BriefInput = forwardRef<
         const chip = chipToDelete(root, e.key);
         if (chip?.dataset.uid) {
           e.preventDefault();
+          if (chipsHeld()) return;
           const at = removeChipByUid(chip.dataset.uid);
           if (at != null) setCaretUnits(root, at);
           return;
@@ -1095,8 +1121,10 @@ export const BriefInput = forwardRef<
         }
       }
     }
-    // '$' a product, '/' a scene, '@' a presenter, '#' a colour.
-    if (e.key === '$' || e.key === '/' || e.key === '@' || e.key === '#') {
+    // '$' a product, '/' a scene, '@' a presenter, '#' a colour. Not while the
+    // tutor walks someone through the brief: there every chip comes in through
+    // the ask for it and leaves through Back, and a sigil is only a character.
+    if ((e.key === '$' || e.key === '/' || e.key === '@' || e.key === '#') && !chipsHeld()) {
       const root = rootRef.current;
       const before = textBeforeCaret(root);
       const prev = before.slice(-1);
@@ -1218,6 +1246,22 @@ export const BriefInput = forwardRef<
     },
     [templates, products, cast, presenters, demoProducts, marks],
   );
+
+  /**
+   * Chips are drawn once and never revisited, so one drawn before its library
+   * knew the thing it names read "missing product" for good: a product made
+   * from the picker went into the brief a moment before the library reloaded.
+   * Such a chip is drawn again, the same chip under the same uid, as soon as
+   * the thing is known. One atom for one atom, so no walk over the line moves.
+   */
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    for (const chip of root.querySelectorAll<HTMLElement>(`.${CHIP}[data-missing]`)) {
+      const token = decode(chip.dataset.tok ?? '');
+      if (token && known(token)) chip.replaceWith(chipFor(token, chip.dataset.uid));
+    }
+  }, [known, chipFor]);
 
   const onDragEnter = (e: React.DragEvent) => {
     if (!Array.from(e.dataTransfer.types).includes('Files')) return;
@@ -1376,6 +1420,16 @@ export const BriefInput = forwardRef<
   const hoveredWarning = hoveredToken ? (flag?.(hoveredToken) ?? null) : null;
   const hoveredNote = hoveredToken && described?.(hoveredToken) ? (describedNote ?? null) : null;
 
+  // A chip's own panel offers its Remove, except while the tutor walks someone
+  // through the brief: then Back is the one way a chip leaves.
+  const removeFromPicker = chipsHeld()
+    ? undefined
+    : () => {
+        if (!picker) return;
+        const at = removeChipByUid(picker.uid);
+        closePicker('remove', at);
+      };
+
   return (
     <div className="sc-brief" ref={scrollerRef} onScroll={syncScrollHint} data-drag-over={dragOver || undefined}>
       {/* the affordances a chip cannot carry visually: read by aria-describedby */}
@@ -1493,10 +1547,7 @@ export const BriefInput = forwardRef<
           thumb={previewHash ? thumbUrl(previewHash, 'micro') : null}
           onInspect={() => inspectChip(picker.anchor)}
           onMove={(dir) => moveFromSheet(picker.uid, dir)}
-          onRemove={() => {
-            const at = removeChipByUid(picker.uid);
-            closePicker('remove', at);
-          }}
+          onRemove={removeFromPicker}
           onClose={closePicker}
         />
       ) : picker?.kind === 'color' ? (
@@ -1521,10 +1572,7 @@ export const BriefInput = forwardRef<
             replaceChip(uid, token);
             closePicker('pick');
           }}
-          onRemove={() => {
-            const at = removeChipByUid(picker.uid);
-            closePicker('remove', at);
-          }}
+          onRemove={removeFromPicker}
           onMove={(dir) => moveFromSheet(picker.uid, dir)}
           onClose={closePicker}
         />
@@ -1566,10 +1614,7 @@ export const BriefInput = forwardRef<
             }
             closePicker('pick');
           }}
-          onRemove={() => {
-            const at = removeChipByUid(picker.uid);
-            closePicker('remove', at);
-          }}
+          onRemove={removeFromPicker}
           onMove={(dir) => moveFromSheet(picker.uid, dir)}
           onClose={closePicker}
         />

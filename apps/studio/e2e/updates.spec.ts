@@ -119,6 +119,8 @@ class Fixture {
         // being written into.
         SCENRI_NO_CONTENT_FETCH: '1',
         SCENRI_NO_DESKTOP: '1',
+        // A fresh home is a new install; the welcome would open over the menus this spec drives.
+        SCENRI_NO_GUIDE: '1',
         SCENRI_REGISTRY: `http://127.0.0.1:${this.regPort}`,
         ...this.extraEnv,
       },
@@ -199,10 +201,6 @@ test.describe
     test('a source checkout gets the news without a float: dot and menu row carry it, About explains', async ({
       page,
     }) => {
-      // A source checkout has no float, so the help menu's dot and row were its
-      // only unprompted news. The help menu returns with
-      // feat/onboarding-ingredient-hint, and must bring that row and dot with it.
-      test.fixme(true, 'no help menu until feat/onboarding-ingredient-hint lands');
       // This server runs from source, so one-click can never apply here. A
       // float would only offer a button that opens About onto a pane with
       // nothing to press — the dead loop this spec now guards against. The
@@ -251,10 +249,6 @@ test.describe
     });
 
     test('the quiet surfaces persist across reloads on a checkout', async ({ page, browser }) => {
-      // A source checkout has no float, so the help menu's dot and row were its
-      // only unprompted news. The help menu returns with
-      // feat/onboarding-ingredient-hint, and must bring that row and dot with it.
-      test.fixme(true, 'no help menu until feat/onboarding-ingredient-hint lands');
       // The float's Not now arc is unreachable from a source spawn now that
       // the float never appears here; the one-click float is exercised by the
       // update-demo harness on a real staged install. What this fixture CAN

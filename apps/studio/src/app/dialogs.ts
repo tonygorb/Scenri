@@ -21,6 +21,18 @@ export function useOpenSettings() {
 }
 
 /** Codex, because the setup dialog opened without an engine is the Codex one. */
+/** The welcome again, from Help: it lives in the address so it opens over any page. */
+export function useOpenWelcome() {
+  const { open } = useDialogParam('welcome');
+  return useCallback(() => open('1'), [open]);
+}
+
+/** Learn: every lesson, or one of them by its task (views/LearnDialog.tsx). */
+export function useOpenLearn() {
+  const { open } = useDialogParam('learn');
+  return useCallback((lesson: string = 'lessons') => open(lesson), [open]);
+}
+
 const DEFAULT_SETUP_ENGINE = 'codex-cli';
 
 /**

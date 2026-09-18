@@ -308,7 +308,7 @@ textarea.sc-edit[data-variant="lede"] {
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
   cursor: pointer;
 }
-.sc-pal-chip:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-pal-chip:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }

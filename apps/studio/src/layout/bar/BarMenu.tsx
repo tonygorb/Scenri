@@ -70,14 +70,6 @@ export function BarMenu({
   const close = () => setOpen(false);
   const focusTrigger = useCallback(() => triggerRef.current?.focus({ preventScroll: true }), []);
   useBarPanel(open, close);
-  /**
-   * Whether the hand that closed the menu was a pointer. Focus goes back to the
-   * trigger so a keyboard carries on from where it left; after a pointer, that
-   * same scripted hand-back lit the trigger's keyboard ring for someone who never
-   * touched a key, because the browser carries the ring over from the menu it
-   * focused on opening. A pointer close leaves focus where the pointer put it.
-   */
-  const byPointer = useRef(false);
 
   if (phone) {
     return (
@@ -122,11 +114,7 @@ export function BarMenu({
         // restore would aim at nothing and the dialog would hand focus to the
         // body on close. The trigger is still here and is where the keyboard
         // came from.
-        onPointerDown={() => {
-          byPointer.current = true;
-        }}
         onPointerDownOutside={(e) => {
-          byPointer.current = true;
           // A press on this menu's own button is the button's business: it
           // toggles the menu itself. Left to the layer, a menu still closing
           // took that press for an outside one and shut the menu the press had
@@ -134,14 +122,13 @@ export function BarMenu({
           // trigger, which is why the activity panel never had this.
           if (triggerRef.current?.contains(e.target as Node)) e.preventDefault();
         }}
-        onKeyDown={() => {
-          byPointer.current = false;
-        }}
+        // The row that opened a dialog unmounts with this menu, so Radix's own
+        // restore would aim at nothing and the dialog would hand focus to the
+        // body on close. The trigger is still here and is where focus belongs;
+        // after a click it wears no ring (foundations/interaction.css).
         onCloseAutoFocus={(e) => {
           e.preventDefault();
-          const pointer = byPointer.current;
-          byPointer.current = false;
-          if (!pointer) focusTrigger();
+          focusTrigger();
         }}
       >
         <div className="sc-menu-head">{label}</div>

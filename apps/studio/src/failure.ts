@@ -75,6 +75,20 @@ interface Rule {
 }
 
 const RULES: Rule[] = [
+  // ---- the plan ----
+  /**
+   * A ChatGPT plan's Codex allowance ran out. The engine already wrote it for a
+   * person (codex/src/run.ts), with the time it comes back, which no title of
+   * ours could know; Try again before then only fails the same way. First, so
+   * nothing about limits or credit further down can claim it.
+   */
+  {
+    re: /Codex plan's usage limit is used up/i,
+    kind: 'credit',
+    title: () => '',
+    remedy: { label: 'Use a provider key instead', opens: 'engines' },
+    retryable: false,
+  },
   // ---- the key ----
   /**
    * Above the signed-out rule, which would otherwise claim this and say the

@@ -21,8 +21,13 @@ on:
 
 # Never two publishes at once, and never cancel one midway: a version can only
 # be published once.
+#
+# Keyed on the tag, not on github.ref. A release event's ref is the tag, but a
+# dispatch retry's ref is the branch it was started from, so under github.ref
+# a retry and the release-triggered run of the same version sat in different
+# groups and could overlap.
 concurrency:
-  group: publish-${{ github.ref }}
+  group: publish-${{ inputs.tag || github.event.release.tag_name }}
   cancel-in-progress: false
 
 permissions:
@@ -31,7 +36,9 @@ permissions:
 jobs:
   npm:
     name: publish to npm
-    runs-on: ubuntu-latest
+    # Pinned for the same reason as ci.yml: the one irreversible job should not
+    # meet a new image before CI has.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     # Only version tags publish. The content archive lives on a non-version
     # release tag (content-latest) and must never trigger a package publish.

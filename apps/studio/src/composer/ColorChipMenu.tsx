@@ -20,7 +20,8 @@ export interface ColorChipMenuProps {
   currentName?: string;
   palette: Swatch[];
   onPick: (token: Extract<SentenceToken, { t: 'color' }>, opts?: { live?: boolean }) => void;
-  onRemove: () => void;
+  /** Left out while the tutor walks someone through the brief: Back is what takes a chip out. */
+  onRemove?: () => void;
   onClose: (reason: CloseReason) => void;
   /** Step the chip through the sentence; the sheet's touch reorder path. */
   onMove?: (dir: -1 | 1) => void;
@@ -212,10 +213,12 @@ function ColorBody({ currentHex, currentName, palette, onPick, onRemove, onClose
             </button>
           </div>
         )}
-        <button type="button" className="sc-swap-remove" onClick={onRemove}>
-          <Trash size={13} />
-          Remove colour
-        </button>
+        {onRemove && (
+          <button type="button" className="sc-swap-remove" onClick={onRemove}>
+            <Trash size={13} />
+            Remove colour
+          </button>
+        )}
       </div>
     </div>
   );

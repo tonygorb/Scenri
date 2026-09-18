@@ -5,6 +5,8 @@ import { useDialogParam } from './AppShell.js';
 import { useTaskCenter } from './TaskCenter.js';
 import { useBrand } from './BrandLayout.js';
 import { canAutoOpen } from './whatsNewRules.js';
+import { useGuide } from '../guide.js';
+import { useGuideShowing } from '../guideFacts.js';
 
 /**
  * What's new — deliberately not the update system.
@@ -147,6 +149,30 @@ export function WhatsNewGate() {
   const [params] = useSearchParams();
   const [visible, setVisible] = useState(() => !document.hidden);
   const spent = useRef(false);
+  const guide = useGuide();
+  const showing = useGuideShowing();
+
+  // Someone new has not answered the welcome yet: every note describes the
+  // version they are meeting for the first time. Anyone else is only held back
+  // by what the guide has on screen, or by the first shot still in hand.
+  const learning = guide.eligible && guide.welcome === null;
+  const teaching = learning || showing || (guide.active?.task === 'first-shot' && !guide.active.paused);
+  const firstUse = !guide.loaded || teaching;
+
+  // A session that introduced Scenri never ends in a modal: the notes would
+  // land on the first shot as it finishes. The unread dot still carries them.
+  if (teaching) spent.current = true;
+
+  // First use ended here, on this version: its notes are already known.
+  const wasLearning = useRef(false);
+  const { markSeen } = wn;
+  useEffect(() => {
+    if (learning) wasLearning.current = true;
+    else if (wasLearning.current) {
+      wasLearning.current = false;
+      markSeen();
+    }
+  }, [learning, markSeen]);
 
   useEffect(() => {
     const onVis = () => setVisible(!document.hidden);
@@ -167,6 +193,7 @@ export function WhatsNewGate() {
       dialogOpen,
       running,
       builds: builds.length,
+      firstUse,
     });
     if (!ok) return;
     const t = window.setTimeout(() => {
@@ -174,7 +201,7 @@ export function WhatsNewGate() {
       wn.autoOpen();
     }, SETTLE_MS);
     return () => window.clearTimeout(t);
-  }, [wn, loaded, visible, dialogOpen, running, builds.length]);
+  }, [wn, loaded, visible, dialogOpen, running, builds.length, firstUse]);
 
   return null;
 }

@@ -20,8 +20,11 @@ export function Pop({
   onOpenChange,
   children,
   onCloseAutoFocus,
+  guide,
 }: {
   aria: string;
+  /** The first-use guide's name for this control, when the guide may point at it. */
+  guide?: string;
   width: string;
   trigger: ReactNode;
   open: boolean;
@@ -49,7 +52,7 @@ export function Pop({
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange}>
       <Popover.Trigger>
-        <button type="button" className="sc-var" aria-label={aria}>
+        <button type="button" className="sc-var" aria-label={aria} data-guide={guide}>
           {trigger}
         </button>
       </Popover.Trigger>

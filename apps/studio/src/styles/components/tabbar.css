@@ -60,7 +60,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sc-tabbar :is(button, a):focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-tabbar :is(button, a):focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
   border-radius: var(--sc-radius-sm);

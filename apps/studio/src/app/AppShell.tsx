@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, useMemo } 
 import { Outlet, ScrollRestoration, useSearchParams } from 'react-router';
 import { Flex, Spinner } from '@radix-ui/themes';
 import { api, type Brand, type EngineInfo, type Presenter, type DemoProduct, type ShowcaseEntry } from '../api.js';
+import { loadGuide } from '../guide.js';
 import { DocumentTitleCtx, useDocumentTitle } from '../useDocumentTitle.js';
 import { useScenes, type UseScenesResult } from '../useScenes.js';
 import { usePresenters } from '../usePresenters.js';
@@ -86,6 +87,8 @@ export function AppShell() {
 
   useEffect(() => {
     void refresh();
+    // on its own, never in refresh's Promise.all: see guide.ts
+    void loadGuide();
   }, [refresh]);
 
   /**

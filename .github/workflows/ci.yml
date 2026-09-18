@@ -23,12 +23,21 @@ on:
   schedule:
     - cron: '17 4 * * *'
 
-# A second push cancels the first run rather than queueing behind it. One group
-# covers the whole pipeline: everything in a superseded run was testing a stale
-# commit, the browser suite included.
+# On a pull request a second push cancels the first run rather than queueing
+# behind it. One group covers the whole pipeline: everything in a superseded
+# run was testing a stale commit, the browser suite included.
+#
+# On main nothing is superseded. Each merge is a different tree, and its run is
+# the only test of that tree, because a pull request is tested against the main
+# it saw, not the main it lands on. Cancelling there left a quarter of main's
+# runs unfinished, so main queues instead: a running run always finishes, and
+# a waiting one is only ever replaced by a newer merge, whose tree contains it.
+#
+# The nightly has a group of its own. Sharing main's let a 04:17 run and a
+# merge cancel each other.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'schedule' && 'nightly' || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Nothing here writes anything: it type-checks, lints and runs tests. Stated
 # rather than inherited, so a change to the repository default cannot silently
@@ -36,13 +45,17 @@ concurrency:
 permissions:
   contents: read
 
+# Linux jobs name ubuntu-24.04, not ubuntu-latest, which is the same image today.
+# The label moves to Ubuntu 26 from 2026-10-19, and the likeliest casualty is the
+# browsers' OS dependencies. Moving is a deliberate edit here, tried on a pull
+# request, not an image rollout that lands on a release day.
 jobs:
   # Decides whether the browser suite is owed. One binary question: does any
   # changed file fall outside the docs-safe list below? Unknown events, API
   # errors, empty answers and oversized diffs all answer yes. Deny by default.
   changes:
     name: change classifier
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -161,7 +174,7 @@ jobs:
 
   check:
     name: typecheck, lint, test (node ${{ matrix.node }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       # Both finish, so a break tells you whether it is one version or the
@@ -212,7 +225,7 @@ jobs:
 
   secrets:
     name: secret scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     # Repo default GITHUB_TOKEN is contents/packages read only; gitleaks needs
     # pull-requests:read to list commits on pull_request events.
@@ -353,30 +366,51 @@ jobs:
     if: >-
       needs.changes.outputs.e2e == 'true' &&
       (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # A healthy leg is minutes. Without this a hung browser holds a runner for
     # GitHub's six-hour default, which is how a broken suite turns into a bill.
     timeout-minutes: 20
     strategy:
-      # Both legs finish, so one flaky leg does not hide the other's verdict.
+      # Every leg finishes, so one flaky leg does not hide another's verdict.
       fail-fast: false
       matrix:
         include:
           # Legs run on separate runners so the wall clock is the slowest leg,
-          # not the sum of the projects. The chromium project is the big half,
-          # so it is sharded in two; with workers:1 a shard is a set of whole
-          # spec files, and every file boots its own server, so the split
-          # changes nothing about isolation. The tablet project is a real
-          # iPad, and an iPad is WebKit, so that leg installs both engines.
-          # Installing only Chromium once made every tablet test die on launch
-          # in a few milliseconds, which reads as 28 test failures rather than
-          # one missing browser.
+          # not the sum of the projects. A shard is a set of whole spec files
+          # (fullyParallel is off, so a file never splits) and every file boots
+          # its own server, so the split changes nothing about isolation.
+          #
+          # Five chromium shards, not two. Playwright divides shards by test
+          # COUNT, never by duration, and the slow files sit together in the
+          # alphabet: composer, conversation-motion and the create-presenter
+          # family all landed in shard one, which ran 9.5 minutes against
+          # 7.5 for shard two. Replaying Playwright 1.62's own split against
+          # measured per-test times (checked within 6s of the real two-shard
+          # legs on five runs) put three shards at 8.1 minutes, four at 7.1,
+          # five at 5.6 with composer.spec alone as the floor, and six at 7.1
+          # again because the count split leaves one shard empty. Revisit when
+          # the slowest leg passes seven minutes; more shards is not always
+          # faster.
+          #
+          # The tablet project is a real iPad, and an iPad is WebKit, so that
+          # leg installs both engines. Installing only Chromium once made every
+          # tablet test die on launch in a few milliseconds, which reads as 28
+          # test failures rather than one missing browser.
           - name: chromium-1
             browsers: chromium
-            args: --project=chromium --shard=1/2
+            args: --project=chromium --shard=1/5
           - name: chromium-2
             browsers: chromium
-            args: --project=chromium --shard=2/2
+            args: --project=chromium --shard=2/5
+          - name: chromium-3
+            browsers: chromium
+            args: --project=chromium --shard=3/5
+          - name: chromium-4
+            browsers: chromium
+            args: --project=chromium --shard=4/5
+          - name: chromium-5
+            browsers: chromium
+            args: --project=chromium --shard=5/5
           - name: mobile-tablet
             browsers: chromium webkit
             args: --project=mobile --project=tablet
@@ -402,12 +436,19 @@ jobs:
 
       # The browser binaries change only when Playwright does; downloading
       # them fresh cost about 40 seconds on every run.
+      #
+      # The key names the browser set, because the legs install different
+      # ones and a cache key is written once, by whichever job saves first.
+      # Under one shared key the 1.62.1 cache happened to be saved by the
+      # tablet leg, chromium and webkit both; had a chromium leg won the race,
+      # the tablet leg would have restored a hit with no WebKit in it and
+      # skipped the install.
       - name: Cache the Playwright browsers
         id: pw-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-${{ matrix.browsers == 'chromium' && 'chromium' || 'chromium-webkit' }}
 
       # Both install steps carry their own timeout: apt behind them once hung
       # on a mirror for the full 20-minute job budget before any test ran.
@@ -454,7 +495,7 @@ jobs:
     if: >-
       needs.changes.outputs.updater == 'true' &&
       (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -485,7 +526,7 @@ jobs:
     name: CI gate
     needs: [changes, check, secrets, windows, windows-desktop, e2e, update-loop]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Evaluate

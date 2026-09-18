@@ -7,63 +7,79 @@
  *
  * Shared by `scenri update` and the in-app apply route. Node builtins only.
  */
-import { spawn, spawnSync } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { entryOf, isValidVersionDir, pruneStaged, stagingDir, versionsDir } from './versionsDir.js';
 
 export type NpmArgv = string[];
 
-/** npm on PATH first; the npm that launched us second; pnpm/bun shells never. */
-export function findNpm(
+/**
+ * npm on PATH first; the npm that launched us second; pnpm/bun shells never.
+ *
+ * Never synchronous. The server asks this on a request, and on Windows the
+ * answer is a `where` plus a node start: 1.1s on windows-latest (2026-09-18).
+ * Asked with spawnSync, that second froze every request the server had,
+ * the desktop launcher's "already running?" probe among them.
+ */
+export async function findNpm(
   opts: {
     env?: Record<string, string | undefined>;
-    canRun?: (argv: string[]) => boolean;
+    canRun?: (argv: string[]) => boolean | Promise<boolean>;
     /** Tests pin this so the contract does not fork with the CI host OS. */
     platform?: NodeJS.Platform;
   } = {},
-): NpmArgv | null {
+): Promise<NpmArgv | null> {
   const env = opts.env ?? process.env;
   const platform = opts.platform ?? process.platform;
-  const canRun =
-    opts.canRun ??
-    ((argv: string[]) => {
-      try {
-        return spawnSync(argv[0], [...argv.slice(1), '--version'], { stdio: 'ignore', timeout: 10_000 }).status === 0;
-      } catch {
-        return false;
-      }
-    });
+  const canRun = opts.canRun ?? answersVersion;
   // Bare `npm` is POSIX-only on purpose: on Windows it is npm.cmd, which only
   // runs through a shell (CVE-2024-27980), and a shell line is a command
   // injection surface. npm's real JS entry runs through our own node instead.
-  if (platform !== 'win32' && canRun(['npm'])) return ['npm'];
+  if (platform !== 'win32' && (await canRun(['npm']))) return ['npm'];
   // npx scenri sets npm_execpath to npx-cli.js; npm-cli.js sits beside it.
   const ep = env.npm_execpath?.replace(/npx-cli\.js$/, 'npm-cli.js');
-  if (ep && /npm-cli\.js$/.test(ep) && canRun([process.execPath, ep])) return [process.execPath, ep];
+  if (ep && /npm-cli\.js$/.test(ep) && (await canRun([process.execPath, ep]))) return [process.execPath, ep];
   if (platform === 'win32') {
-    const cli = windowsNpmCli();
-    if (cli && canRun([process.execPath, cli])) return [process.execPath, cli];
+    const cli = await windowsNpmCli();
+    if (cli && (await canRun([process.execPath, cli]))) return [process.execPath, cli];
   }
   return null;
+}
+
+/** Whether `<argv> --version` exits 0 within ten seconds. */
+function answersVersion(argv: string[]): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      const child = spawn(argv[0], [...argv.slice(1), '--version'], { stdio: 'ignore', timeout: 10_000 });
+      child.on('error', () => resolve(false));
+      child.on('exit', (code) => resolve(code === 0));
+    } catch {
+      resolve(false);
+    }
+  });
 }
 
 /** The npm-cli.js belonging to the npm.cmd on PATH, found without a shell:
  *  where.exe is a real executable, and the JS entry sits at a fixed spot
  *  beside the shim. */
-function windowsNpmCli(): string | null {
-  try {
-    const out = spawnSync('where', ['npm'], { encoding: 'utf8', timeout: 10_000 });
-    if (out.status !== 0 || !out.stdout) return null;
-    for (const line of out.stdout.split(/\r?\n/)) {
-      if (!/npm(\.cmd)?$/i.test(line.trim())) continue;
-      const cli = join(dirname(line.trim()), 'node_modules', 'npm', 'bin', 'npm-cli.js');
-      if (existsSync(cli)) return cli;
+function windowsNpmCli(): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      execFile('where', ['npm'], { encoding: 'utf8', timeout: 10_000 }, (err, stdout) => {
+        if (err || !stdout) return resolve(null);
+        for (const line of stdout.split(/\r?\n/)) {
+          if (!/npm(\.cmd)?$/i.test(line.trim())) continue;
+          const cli = join(dirname(line.trim()), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+          if (existsSync(cli)) return resolve(cli);
+        }
+        resolve(null);
+      });
+    } catch {
+      /* no where.exe, or an exotic PATH: the caller treats null as not found */
+      resolve(null);
     }
-  } catch {
-    /* no where.exe, or an exotic PATH: the caller treats null as not found */
-  }
-  return null;
+  });
 }
 
 function run(argv: string[]): Promise<{ code: number; output: string }> {
@@ -126,7 +142,7 @@ export async function stageVersion(deps: {
   env?: Record<string, string | undefined>;
 }): Promise<StageOk | StageFail> {
   const env = deps.env ?? process.env;
-  const npmArgv = deps.npmArgv !== undefined ? deps.npmArgv : findNpm({ env });
+  const npmArgv = deps.npmArgv !== undefined ? deps.npmArgv : await findNpm({ env });
   if (!npmArgv) {
     return { ok: false, reason: 'no-npm', detail: 'npm is not reachable from this process' };
   }

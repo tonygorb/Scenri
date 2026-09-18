@@ -618,7 +618,7 @@
     border-color 0.16s ease;
 }
 .sc-refrail-shell:hover .sc-refrail-arrow,
-.sc-refrail-arrow:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-refrail-arrow:focus-visible {
   opacity: 1;
 }
 .sc-refrail-arrow:hover {
@@ -750,7 +750,7 @@
     border-color var(--sc-dur-fast) var(--sc-ease),
     color var(--sc-dur-fast) var(--sc-ease);
 }
-.sc-refact:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-refact:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }

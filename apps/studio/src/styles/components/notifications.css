@@ -126,7 +126,8 @@
 .sc-notif-seen:hover {
   color: var(--sc-fg);
 }
-.sc-notif-clear:is(:hover, :focus-visible) {
+.sc-notif-clear:hover,
+:where(:root:not([data-input="pointer"])) .sc-notif-clear:focus-visible {
   color: var(--sc-red);
 }
 
@@ -157,7 +158,7 @@
 .sc-notif-row:hover {
   background: var(--sc-hover);
 }
-.sc-notif-row:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-notif-row:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
 }

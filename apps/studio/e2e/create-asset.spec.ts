@@ -79,25 +79,27 @@ test.describe('adding to a brand', () => {
     await expectNewIsPill(page);
   });
 
-  test('a pointer leaves no keyboard ring on the caret, and a key brings it back', async ({ page }) => {
+  test('a pointer leaves no ring on the caret, and a key brings it back', async ({ page }) => {
     const caret = trigger(page);
     const rows = page.locator('.sc-start-row');
-    const ring = () => caret.evaluate((e) => e.matches(':focus-visible'));
+    const outline = () => caret.evaluate((e) => getComputedStyle(e).outlineStyle);
     const b = (await caret.boundingBox())!;
     const [x, y] = [Math.round(b.x + b.width / 2), Math.round(b.y + b.height / 2)];
 
-    // shut by the caret itself, then by the page: a mouse all the way
+    // shut by the caret itself, then by an empty stretch of the bar: focus comes
+    // home to the caret either way, and after a pointer it wears no ring
     await page.mouse.click(x, y);
     await expect(rows.first()).toBeVisible();
     await page.mouse.click(x, y);
     await expect(rows).toHaveCount(0);
-    expect(await ring()).toBe(false);
+    await expect(caret).toBeFocused();
+    expect(await outline()).toBe('none');
     await page.mouse.click(x, y);
     await expect(rows.first()).toBeVisible();
-    // an empty stretch of the bar, so the press closes the menu and acts on nothing
     await page.mouse.click(300, 30);
     await expect(rows).toHaveCount(0);
-    expect(await ring()).toBe(false);
+    await expect(caret).toBeFocused();
+    expect(await outline()).toBe('none');
 
     // Escape is a key: focus comes home to the caret, ring and all
     await page.mouse.click(x, y);
@@ -105,7 +107,7 @@ test.describe('adding to a brand', () => {
     await page.keyboard.press('Escape');
     await expect(rows).toHaveCount(0);
     await expect(caret).toBeFocused();
-    expect(await ring()).toBe(true);
+    expect(await outline()).toBe('solid');
   });
 
   test('pointing at the plus lights all of New; pointing at the caret lights only the caret', async ({ page }) => {

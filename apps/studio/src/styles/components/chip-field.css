@@ -25,7 +25,7 @@
 }
 /* The one focus treatment: the border becomes ink, and nothing glows.
    The hit is the real control; the shell only paints its ring. */
-.sc-chipfield:has(.sc-chipfield-hit:focus-visible) {
+:where(:root:not([data-input="pointer"])) .sc-chipfield:has(.sc-chipfield-hit:focus-visible) {
   border-color: var(--sc-focus);
 }
 .sc-chipfield[data-state="open"] {
@@ -42,7 +42,7 @@
   background: transparent;
   cursor: pointer;
 }
-.sc-chipfield-hit:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-chipfield-hit:focus-visible {
   outline: none;
 }
 

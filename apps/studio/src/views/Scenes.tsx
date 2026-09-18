@@ -300,7 +300,7 @@ export function ScenesView() {
                   Build your own <em>scene</em>
                 </>
               }
-              body="Upload a few references of a place, and its light and materials carry into every image you make."
+              body="Upload a few references of a place, or describe it, and its light and materials carry into every image you make."
               action={createCta}
             />
           )}

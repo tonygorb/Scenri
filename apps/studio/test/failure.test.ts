@@ -7,6 +7,8 @@ import { describeCancelled, describeFailure, failureToast } from '../src/failure
  * humaniser that works on invented inputs.
  */
 const REAL = {
+  codexUsageLimit:
+    "Your Codex plan's usage limit is used up until Aug 30th, 2026 12:41 AM. Generation resumes on its own then, or add credits from your Codex account.",
   openrouter401:
     'OpenRouter request failed: HTTP 401: {"error":{"message":"Missing Authentication header","code":401}}',
   fal500: 'fal.ai request failed: HTTP 500: {"detail":"Internal Server Error"}',
@@ -306,5 +308,21 @@ describe('failureToast', () => {
   it('takes a thrown string or a bare object as readily as an Error', () => {
     expect(failureToast('HTTP 429 rate limit', 'Nope', 'OpenRouter').detail).toContain('rate limiting');
     expect(failureToast({ message: 'HTTP 429 rate limit' }, 'Nope', 'OpenRouter').detail).toContain('rate limiting');
+  });
+});
+
+describe('a used-up Codex plan', () => {
+  it("keeps the engine's own words, with the time it comes back, and offers no retry", () => {
+    const f = describeFailure(REAL.codexUsageLimit, 'Codex CLI');
+    expect(f.title).toBe(REAL.codexUsageLimit);
+    expect(f.title).toContain('until Aug 30th, 2026 12:41 AM');
+    expect(f.fix).toBeUndefined();
+    expect(f.retryable).toBe(false);
+    expect(f.remedy).toEqual({ label: 'Use a provider key instead', opens: 'engines' });
+  });
+
+  it('a send refused for it reads in those words, not as raw text', () => {
+    const t = failureToast(new Error(REAL.codexUsageLimit), 'That did not send', 'Codex CLI');
+    expect(t).toEqual({ kind: 'error', title: 'That did not send', detail: REAL.codexUsageLimit });
   });
 });

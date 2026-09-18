@@ -50,6 +50,13 @@
 .sc-topbar-lead > .sc-wordmark:first-child {
   margin-left: -1px;
 }
+/* Below 400px the bar carries help, the bell, New and the brand in what a small
+   phone leaves it; the gaps give way before anything else does. */
+@media (max-width: 399px) {
+  .sc-topbar-end {
+    gap: 2px;
+  }
+}
 .sc-wordmark {
   position: relative;
   display: inline-flex;
@@ -68,7 +75,9 @@
   height: 20px;
   width: auto;
 }
-.sc-wordmark:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-wordmark:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
   border-radius: 4px;
 }
 
@@ -358,7 +367,7 @@
     transition: none;
   }
 }
-.sc-new :is(a, button):focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-new :is(a, button):focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: calc(var(--sc-ring-off) * -1);
 }

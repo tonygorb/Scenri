@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.3](https://github.com/tonygorb/Scenri/compare/v0.10.2...v0.10.3) (2026-09-18)
+
+
+### Bug Fixes
+
+* look for npm without freezing the server ([db1bde3](https://github.com/tonygorb/Scenri/commit/db1bde3e1450353bd0f62c7ecf2a2796ea2af75d))
+* look for npm without freezing the server ([cec4b03](https://github.com/tonygorb/Scenri/commit/cec4b0327f2dd4f1846e9c9192926876db851ada))
+
 ## [0.10.2](https://github.com/tonygorb/Scenri/compare/v0.10.1...v0.10.2) (2026-09-17)
 
 

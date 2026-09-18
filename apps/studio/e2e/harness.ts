@@ -79,6 +79,11 @@ const OWNED_SCENE = {
 };
 
 type SeedOptions = {
+  /**
+   * Seed nothing at all: the home stays as a first install leaves it, so the
+   * studio opens on setup. The first-use guidance specs start here.
+   */
+  brand?: boolean;
   /** Seed a scene the brand owns, so the Scenes library renders warm (no first-run offer). */
   scene?: boolean;
   /**
@@ -160,6 +165,9 @@ class ScenriFixture {
         // These servers must never reach the real npm registry.
         // updates.spec.ts spawns its own against a fixture registry.
         SCENRI_NO_UPDATE_CHECK: '1',
+        // Every file boots an empty home and seeds after, which is exactly the
+        // install that first-use guidance teaches. Only its own specs turn it on.
+        SCENRI_NO_GUIDE: '1',
         SCENRI_NO_CONTENT_FETCH: '1',
         // No real engine either: the machine's codex login or exported API
         // keys must not turn a deterministic run into a real generation.
@@ -302,7 +310,7 @@ export function isolate(opts: SeedOptions = {}): void {
   test.beforeAll(async () => {
     test.setTimeout(120_000);
     await fx.start(opts.env);
-    await fx.seed(opts);
+    if (opts.brand !== false) await fx.seed(opts);
   });
 
   test.afterAll(async () => {

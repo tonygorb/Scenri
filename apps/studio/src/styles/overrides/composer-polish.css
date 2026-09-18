@@ -178,10 +178,10 @@
    is the same thing hovering does — so from the keyboard there was no way to
    tell where you were, and the composer was the only place in the app that
    behaved that way. The surface shift stays as a second cue, not the only one. */
-.sc-var:focus-visible,
-.sc-mini-sel:focus-visible,
-.sc-attach-toggle:focus-visible,
-.sc-send:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-var:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-mini-sel:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-attach-toggle:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-send:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
   /* the app's stylesheets load after Radix, so plain source order beats its
@@ -192,6 +192,6 @@
 /* Send keeps its own fill; the ring is the focus signal, so the brightness
    lift it also used to take has gone. Three simultaneous cues on one button
    is what made tabbing into the composer feel like an alarm. */
-.sc-send:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-send:focus-visible {
   background: var(--sc-send-bg);
 }

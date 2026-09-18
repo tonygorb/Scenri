@@ -117,7 +117,7 @@
 }
 .sc-rail:hover .sc-rail-arrow,
 .sc-rail:has(.sc-rail-arrow:hover) .sc-rail-arrow,
-.sc-rail-arrow:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-rail-arrow:focus-visible {
   opacity: 1;
 }
 /* A direction with nothing left in it dims rather than vanishing. The

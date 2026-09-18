@@ -161,6 +161,12 @@
     /* biome-ignore-end lint/suspicious/noDuplicateCustomProperties: end of the keyframe stops */
   }
 }
+/* Under the tutor's curtain the cards give up their own layers: a promoted
+   layer is not in the backdrop the curtain blurs, so the two cards at full
+   swell stood sharp through the veil while their neighbours went soft. */
+[data-sc-coach-inert] .sc-shelf-row > * {
+  will-change: auto;
+}
 /* Arrows, because a mouse has no sideways gesture. Same shape and behaviour as
    the detail-page sliders: hidden until the row is hovered or focused. */
 .sc-shelf-arrow {
@@ -184,7 +190,7 @@
     color 0.16s ease;
 }
 .sc-shelf:hover .sc-shelf-arrow,
-.sc-shelf-arrow:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-shelf-arrow:focus-visible {
   opacity: 1;
 }
 .sc-shelf-arrow:hover {
