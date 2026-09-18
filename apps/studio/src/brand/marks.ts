@@ -104,6 +104,27 @@ export function iconMark(json: any): Mark | null {
   return marks.find((m) => m.role === 'mark') ?? primaryOf(marks);
 }
 
+/**
+ * What a small circle draws for a brand. A circle needs a square, so the kit's
+ * own icon leads (a site's favicon, stored as `mark`) and counts as square because
+ * the kit says it is. Without one the canonical logo is put on trial: `square:
+ * false` means measure it before drawing it. A declared wordmark is never tried,
+ * being wider than any circle by definition. Only stored assets qualify, since a
+ * bare URL has no small derivative to draw.
+ */
+export function avatarMark(json: any): { mark: Mark; square: boolean } | null {
+  const stored = marksOf(json).filter((m) => m.hash);
+  const icon = stored.find((m) => m.role === 'mark');
+  if (icon) return { mark: icon, square: true };
+  const logo = primaryOf(stored);
+  if (!logo || logo.role === 'wordmark') return null;
+  return { mark: logo, square: false };
+}
+
+/** Wider than this, a logo is a few illegible pixels in a circle, and the initial says more. */
+export const CIRCLE_MAX_RATIO = 1.6;
+export const fitsCircle = (width: number, height: number): boolean => height > 0 && width / height <= CIRCLE_MAX_RATIO;
+
 /** Display name for one mark, e.g. "Acme Coffee wordmark". Matches the compiler's label. */
 export function markLabel(json: any, mark: Pick<Mark, 'role'>): string {
   const kind: Record<MarkRole, string> = {

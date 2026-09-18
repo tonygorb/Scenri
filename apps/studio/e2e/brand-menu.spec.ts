@@ -166,3 +166,59 @@ test('a bar menu answers the next click at once, and one click moves to another 
   await expect(page.locator('.sc-start-row').first()).toBeVisible();
   await expect(brands).toHaveCount(0);
 });
+
+/** A logo drawn in the page at a given size and uploaded to the kit under a role. */
+async function addLogo(p: Page, brandId: string, role: string, w: number, h: number, fill: string) {
+  await p.evaluate(
+    async ([id, r, width, height, colour]) => {
+      const c = document.createElement('canvas');
+      c.width = width as number;
+      c.height = height as number;
+      const g = c.getContext('2d')!;
+      g.fillStyle = colour as string;
+      g.fillRect(0, 0, c.width, c.height);
+      const blob: Blob = await new Promise((done) => c.toBlob((b) => done(b!), 'image/png'));
+      const fd = new FormData();
+      fd.append('role', r as string);
+      fd.append('file', new File([blob], 'logo.png', { type: 'image/png' }));
+      const res = await fetch(`/api/brands/${id}/logos`, { method: 'POST', body: fd });
+      if (!res.ok) throw new Error(`logo upload ${res.status}`);
+    },
+    [brandId, role, w, h, fill] as const,
+  );
+}
+
+test('a circle draws a logo it can hold, and the initial for one it cannot', async ({ page }) => {
+  await home(page);
+  const slugs = await addBrands(page, ['Wide Wordmark', 'Square Logo', 'Has An Icon', 'Declared Wordmark']);
+  const all = (await api(page, '/api/brands')) as { id: string; slug: string }[];
+  const id = (name: string) => all.find((b) => b.slug === slugs.get(name))!.id;
+  await addLogo(page, id('Wide Wordmark'), 'primary', 400, 80, '#1f6feb');
+  await addLogo(page, id('Square Logo'), 'primary', 200, 200, '#1f6feb');
+  await addLogo(page, id('Has An Icon'), 'primary', 400, 80, '#1f6feb');
+  await addLogo(page, id('Has An Icon'), 'mark', 128, 128, '#e5534b');
+  await addLogo(page, id('Declared Wordmark'), 'wordmark', 400, 80, '#1f6feb');
+
+  await page.reload();
+  await openMenu(page);
+  const avatar = (name: string) =>
+    scroller(page)
+      .locator('.sc-menu-item')
+      .filter({ has: page.locator('.sc-menu-brand-lb > span:first-child', { hasText: new RegExp(`^${name}$`) }) })
+      .last()
+      .locator('.sc-brand-av');
+  // a picture, shown, on the white plate
+  const drawn = (name: string) => avatar(name).locator('img:not([hidden])');
+
+  await expect(drawn('Square Logo')).toHaveCount(1);
+  await expect(drawn('Has An Icon')).toHaveCount(1);
+  // the stored icon, not the wide logo beside it: what is drawn is square
+  const icon = drawn('Has An Icon');
+  await expect.poll(() => icon.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
+  expect(await icon.evaluate((i: HTMLImageElement) => i.naturalWidth === i.naturalHeight)).toBe(true);
+  // the wordmark is measured, found too wide, and the initial takes its place
+  await expect(drawn('Wide Wordmark')).toHaveCount(0);
+  await expect(avatar('Wide Wordmark')).toHaveText('W');
+  await expect(drawn('Declared Wordmark')).toHaveCount(0);
+  await expect(avatar('Declared Wordmark')).toHaveText('D');
+});

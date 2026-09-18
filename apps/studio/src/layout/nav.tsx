@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useReducer } from 'react';
 import { useLocation, useMatch } from 'react-router';
 import { FilmSlate, House, IdentificationBadge, Package, PlusCircle } from '@phosphor-icons/react';
 import { type Brand, assetThumbUrl } from '../api.js';
-import { primaryMark } from '../brand/marks.js';
+import { avatarMark, fitsCircle } from '../brand/marks.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { P, brandPath, hubPath, scenesPath, presentersPath, productsPath } from '../routes.js';
 
@@ -113,14 +113,26 @@ export function inkOn(hex: string): string {
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b) > 0.42 ? '#0a0a0a' : '#ffffff';
 }
 
+/** Logos already measured, by URL: a menu opening again draws each answer at once. */
+const fitsByUrl = new Map<string, boolean>();
+
 /**
  * A 7px square of colour said "a brand exists". This says which one: the kit's
- * own logo when it has one, and otherwise its initial on its own primary, which
- * is what every workspace switcher worth copying does.
+ * own icon or logo when a circle can hold it, and otherwise its initial on its
+ * own primary, which is what every workspace switcher worth copying does.
+ *
+ * A wordmark shrunk into a circle is not a logo, it is a smudge: a row of them
+ * read as noise. So a logo the kit does not vouch for as square is measured when
+ * it loads, and drawn only if it is no wider than a circle can show. Until that
+ * answer is in, the initial stands in, so a wordmark never flashes up first.
  */
 export function BrandAvatar({ brand, size = 20, round = false }: { brand: Brand; size?: number; round?: boolean }) {
+  const [, measured] = useReducer((n: number) => n + 1, 0);
+  const pick = avatarMark(brand.json);
   // a 20px circle reads the small derivative; the mark's own file is for the kit
-  const logo = assetThumbUrl(primaryMark(brand.json)?.file, 'micro');
+  const src = pick ? assetThumbUrl(pick.mark.file, 'micro') : null;
+  const fits = !src ? false : pick?.square ? true : fitsByUrl.get(src);
+  const logo = fits ? src : null;
   const hex: string = brand.json?.palette?.primary?.hex ?? '#6b6b6b';
   return (
     <span
@@ -136,6 +148,17 @@ export function BrandAvatar({ brand, size = 20, round = false }: { brand: Brand;
       aria-hidden
     >
       {logo ? <img src={logo} alt="" /> : monogram(brandName(brand))}
+      {src && fits === undefined && (
+        <img
+          src={src}
+          alt=""
+          hidden
+          onLoad={(e) => {
+            fitsByUrl.set(src, fitsCircle(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight));
+            measured();
+          }}
+        />
+      )}
     </span>
   );
 }
