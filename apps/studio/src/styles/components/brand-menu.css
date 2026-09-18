@@ -167,13 +167,13 @@
 .sc-menu-brand .sc-menu-find {
   height: 36px;
 }
-/* Past six brands the list is a scroller of its own, eight rows tall, so the
+/* Past six brands the list is a scroller of its own, ten rows tall, so the
    panel is one height at seven brands or seven hundred. No scrollbar, as the
    sheet has none: a bar inside a menu narrowed its rows and read as a box within
    the box. In a phone's sheet the cap is four 44px rows, so the whole menu fits
    the sheet; left uncapped, Settings sat twenty rows down it. */
 .sc-menu-brands {
-  max-height: calc(36px * 8);
+  max-height: calc(36px * 10);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: none;

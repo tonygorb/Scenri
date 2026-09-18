@@ -15,7 +15,7 @@ import { isolate } from './harness.js';
 // A Scenri of this file's own, on an empty home, seeded from scratch.
 isolate();
 
-const NAMES = ['Vela', 'Castro', 'Aer', 'Olivar', 'Bucherer', 'Nocturne', 'Halde', 'Glenmoor'];
+const NAMES = ['Vela', 'Castro', 'Aer', 'Olivar', 'Bucherer', 'Nocturne', 'Halde', 'Glenmoor', 'Ilvaire', 'Maison Lou'];
 
 const api = async (p: Page, path: string, init?: RequestInit) =>
   p.evaluate(
@@ -78,6 +78,8 @@ test('a long list is one list: the brand you are in, then every other A to Z, at
     'Castro',
     'Glenmoor',
     'Halde',
+    'Ilvaire',
+    'Maison Lou',
     'Nocturne',
     'Olivar',
     'Vela',
@@ -97,7 +99,7 @@ test('a long list is one list: the brand you are in, then every other A to Z, at
   // The list scrolls inside itself; the panel does not, and the way out is on
   // screen without reaching for it.
   const fit = await scroller(page).evaluate((el) => ({ h: el.clientHeight, s: el.scrollHeight }));
-  expect(fit.h).toBeLessThanOrEqual(36 * 8.5 + 1);
+  expect(fit.h).toBeLessThanOrEqual(36 * 10 + 1);
   expect(fit.s).toBeGreaterThan(fit.h);
   // and runs straight into the hairline under it, with no empty band between
   const band = await scroller(page).evaluate(
@@ -113,7 +115,7 @@ test('a long list is one list: the brand you are in, then every other A to Z, at
   await expect(page.locator('.sc-menu-item[data-quit]')).toBeInViewport();
   await page.keyboard.press('Escape');
 
-  // Eight more brands, and the panel is exactly as tall as it was.
+  // As many brands again, and the panel is exactly as tall as it was.
   await addBrands(
     page,
     NAMES.map((n) => `${n} Studio`),
