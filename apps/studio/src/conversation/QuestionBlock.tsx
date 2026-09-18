@@ -456,6 +456,7 @@ export function QuestionBlock({
                   {question.back}
                 </button>
               )}
+              {cancel}
             </div>
           </div>
         )}

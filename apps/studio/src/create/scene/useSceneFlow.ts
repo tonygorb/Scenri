@@ -16,7 +16,9 @@ import {
   unpackSession,
 } from './sceneFlowRules.js';
 import {
+  type Answers,
   answerPatch,
+  commit,
   compileDirection,
   EMPTY_SETUP,
   isQid,
@@ -30,7 +32,9 @@ import {
   type Caps,
   current,
   doingLine,
+  drawn,
   EMPTY,
+  namedIn,
   readAsk,
   reduce,
   repeatsLastAsk,
@@ -113,6 +117,10 @@ export function useSceneFlow(args: {
   const gone = useRef(false);
   const setupRef = useRef(setup);
   setupRef.current = setup;
+  const studioRef = useRef(studio);
+  studioRef.current = studio;
+  /** An answer reopened under a drawn picture, waiting on the person's yes. */
+  const [confirming, setConfirming] = useState<Qid | null>(null);
 
   const onSavedRef = useRef(args.onSaved);
   onSavedRef.current = args.onSaved;
@@ -134,11 +142,12 @@ export function useSceneFlow(args: {
     if (!gone.current) store(storageKey, packSession(setup, studio));
   }, [setup, studio, storageKey]);
 
-  // The place as the setup gives it, handed to the work once the setup is whole.
+  // The place as the setup gives it, handed to the work once the setup is whole,
+  // and not while an answer is open again: it is given when that answer is.
   useEffect(() => {
-    if (edit || !setupDone(setup.answers)) return;
+    if (edit || setup.editing || !setupDone(setup.answers)) return;
     dispatch({ type: 'inputs', place: compileDirection(setup.answers), pictures: picturesOf(setup.answers) });
-  }, [setup.answers, edit]);
+  }, [setup.answers, setup.editing, edit]);
 
   // The one autonomous step: a place given and not read yet is read. Once per
   // revision of what was given, so a failure asks rather than retrying on its own.
@@ -199,6 +208,19 @@ export function useSceneFlow(args: {
   const aside = (said: string, reply: string, q: string | null) =>
     setupDispatch({ type: 'aside', aside: { said, reply, q, at: nowIso() } });
 
+  /**
+   * An answer given. When it changes an answer the pictures were drawn from,
+   * everything asked after that answer goes, and the pictures were asked after
+   * it: the conversation reads forward (the person agreed to it first).
+   */
+  const answerSetup = useCallback((patch: Partial<Answers>) => {
+    const s = setupRef.current;
+    const was = s.held ?? s.answers;
+    if (s.editing && drawn(studioRef.current) && JSON.stringify(commit(was, patch)) !== JSON.stringify(was))
+      dispatch({ type: 'forget-record' });
+    setupDispatch({ type: 'answer', patch });
+  }, []);
+
   const onAnswer = useCallback(
     (qid: string, ans: Answer) => {
       setNote(null);
@@ -208,14 +230,13 @@ export function useSceneFlow(args: {
         if (act.type === 'add') void addPictures(act.files);
         else if (act.type === 'remove') setupDispatch({ type: 'photos', hashes: hashes.filter((h) => h !== act.hash) });
         else if (act.type === 'reject') setNote(COPY.onlyPictures);
-        else if (act.type === 'submit' && hashes.length)
-          setupDispatch({ type: 'answer', patch: { photos: { hashes, done: true } } });
-        else if (act.type === 'back') setupDispatch({ type: 'answer', patch: { source: { door: 'guided' } } });
+        else if (act.type === 'submit' && hashes.length) answerSetup({ photos: { hashes, done: true } });
+        else if (act.type === 'back') answerSetup({ source: { door: 'guided' } });
         return;
       }
       if (isQid(qid)) {
         const patch = answerPatch(qid, ans, setupRef.current.answers);
-        if (patch) setupDispatch({ type: 'answer', patch });
+        if (patch) answerSetup(patch);
         return;
       }
       if (qid === 'retry') {
@@ -226,7 +247,7 @@ export function useSceneFlow(args: {
       if (ans.id === 'draw' || ans.id === 'again') void work.start('again');
       else if (ans.id === 'use') void work.use();
     },
-    [addPictures, work.start, work.use],
+    [addPictures, answerSetup, work.start, work.use],
   );
 
   /** A sentence taken is gone from the line, the way every message box works. */
@@ -255,7 +276,7 @@ export function useSceneFlow(args: {
       if (target.kind === 'source') {
         const k = judge(t, 'source');
         if (k) aside(t, asideReply(k, 'source'), 'source');
-        else setupDispatch({ type: 'answer', patch: { source: { door: 'words', text: t.slice(0, 400) } } });
+        else answerSetup({ source: { door: 'words', text: t.slice(0, 400) } });
         return true;
       }
       if (target.kind === 'row' && isRow(target.id)) {
@@ -265,14 +286,11 @@ export function useSceneFlow(args: {
           return true;
         }
         const pick = setupRef.current.answers[target.id]?.pick;
-        setupDispatch({
-          type: 'answer',
-          patch: { [target.id]: { ...(pick ? { pick } : {}), words: t.slice(0, 200) } },
-        });
+        answerSetup({ [target.id]: { ...(pick ? { pick } : {}), words: t.slice(0, 200) } });
         return true;
       }
       if (target.kind === 'name') {
-        dispatch({ type: 'name', text: t });
+        dispatch({ type: 'name', text: namedIn(t) ?? t });
         return true;
       }
       if (target.kind === 'add' || target.kind === 'change') {
@@ -280,6 +298,11 @@ export function useSceneFlow(args: {
         if (studio.job) return false;
         const read = readAsk(t);
         const q = recordQid(studio);
+        if (read.kind === 'rename') {
+          dispatch({ type: 'name', text: read.name });
+          aside(t, COPY.renamed(read.name), q);
+          return true;
+        }
         if (read.kind !== 'change') {
           aside(t, read.say, q);
           return read.kind !== 'refuse';
@@ -297,9 +320,13 @@ export function useSceneFlow(args: {
     (turnId: string) => {
       if (studio.job) return;
       if (turnId === 'name') setEditingName(true);
-      else if (isQid(turnId)) setupDispatch({ type: 'edit', id: turnId as Qid });
+      else if (isQid(turnId)) {
+        // an answer the picture was drawn from is asked about once before it opens
+        if (drawn(studio)) setConfirming(turnId);
+        else setupDispatch({ type: 'edit', id: turnId });
+      }
     },
-    [studio.job],
+    [studio],
   );
 
   const onSaveEdit = useCallback((turnId: string, said: string) => {
@@ -353,6 +380,13 @@ export function useSceneFlow(args: {
     onEdit,
     onSaveEdit,
     onCancelEdit,
+    /** The yes to changing an answer under a drawn picture; the answer opens. */
+    confirmingEdit: confirming !== null,
+    confirmEdit: () => {
+      if (confirming) setupDispatch({ type: 'edit', id: confirming });
+      setConfirming(null);
+    },
+    cancelConfirm: () => setConfirming(null),
     onRestore: (_view: string, hash: string) => work.putBack(hash),
     onDescribe: () => setFocusKey(String(Date.now())),
     onStarter: (t: string) => {

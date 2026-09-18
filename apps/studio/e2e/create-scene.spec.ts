@@ -133,6 +133,25 @@ test('a name typed while the picture draws is the name, even when the picture la
   await expect(studio(page).locator('[data-turn^="scenri:pic-"]')).toHaveCount(1);
 });
 
+test('a sentence that names the scene names it, at the name question or after the picture, and draws nothing', async ({
+  page,
+}) => {
+  await start(page);
+  await say(page, 'A bare plaster room with one high window');
+  await draw(page);
+  await expect(turn(page, 'q:name')).toBeVisible();
+  // said the way people say it: the name is the name, not the sentence around it
+  await say(page, 'call it High Window');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await expect(openQ(page)).toContainText('Here is High Window.');
+  // and once the picture stands, in the line that changes things
+  await say(page, 'rename it to Plaster Light');
+  await expect(openQ(page)).toContainText('Here is Plaster Light.');
+  await expect(studio(page)).toContainText('Called it Plaster Light.');
+  await expect(studio(page).locator('[data-turn^="you:ask-"]')).toHaveCount(0);
+  await expect(studio(page).locator('[data-turn^="scenri:pic-"]')).toHaveCount(1);
+});
+
 test('a sentence at the first question is the place itself, and a scene saved unnamed takes the reader’s name', async ({
   page,
 }) => {
@@ -166,6 +185,33 @@ test('the picture door: pictures read into words, the reader’s note said, the 
   await page.waitForURL(/\/scenes\/us-/);
   const saved = (await scenes(page)).find((s) => s.name === 'Two Shores');
   expect(saved.refs).toHaveLength(2);
+});
+
+test('pictures opened again and changed, then left, are as they were, and the picture drawn from them stays', async ({
+  page,
+}) => {
+  await start(page);
+  await tap(turn(page, 'q:source'), 'Add pictures');
+  const q = turn(page, 'q:photos');
+  await q.locator('input[type="file"]').setInputFiles([file('a.png', A), file('b.png', B)]);
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(2);
+  await tap(q, 'Read them');
+  await draw(page);
+  await say(page, 'Two Shores');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await turn(page, 'you:photos').hover();
+  await turn(page, 'you:photos').getByRole('button', { name: 'Change this answer' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Change it' }).click();
+  const reopened = turn(page, 'q:photos');
+  await expect(reopened).toHaveAttribute('data-reopened', 'true');
+  await reopened.getByRole('button', { name: 'Remove reference 1' }).click();
+  // it stays where it was asked while it changes
+  await expect(reopened.locator('.sc-assetform-ref img')).toHaveCount(1);
+  await expect(reopened).toHaveAttribute('data-reopened', 'true');
+  await reopened.getByRole('button', { name: 'Cancel' }).click();
+  await expect(turn(page, 'you:photos').locator('img')).toHaveCount(2);
+  await expect(studio(page).locator('[data-turn^="scenri:pic-"]')).toHaveCount(1);
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
 });
 
 test('a change keeps the rest, and Put back restores a whole version, words and picture', async ({ page }) => {
@@ -208,6 +254,43 @@ test('the pencil takes an answer back and asks again from there', async ({ page 
   await expect(turn(page, 'you:where')).toContainText('Nature');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:light');
   await expect(turn(page, 'you:feeling')).toHaveCount(0);
+});
+
+test('an answer the picture was drawn from asks before it opens, and changing it asks again from there without the old picture', async ({
+  page,
+}) => {
+  await start(page);
+  await guide(page);
+  await draw(page);
+  await say(page, 'Stone Hall');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  const pics = studio(page).locator('[data-turn^="scenri:pic-"]');
+  const pencil = async () => {
+    await turn(page, 'you:feeling').hover();
+    await turn(page, 'you:feeling').getByRole('button', { name: 'Change this answer' }).click();
+  };
+  // asked first, and keeping it changes nothing
+  await pencil();
+  const confirm = page.getByRole('alertdialog');
+  await expect(confirm).toContainText('Change this answer?');
+  await confirm.getByRole('button', { name: 'Cancel' }).click();
+  await expect(turn(page, 'q:feeling')).toHaveCount(0);
+  await expect(pics).toHaveCount(1);
+  // agreed: the row opens, and a new answer asks again from there
+  await pencil();
+  await confirm.getByRole('button', { name: 'Change it' }).click();
+  await tap(turn(page, 'q:feeling'), 'Cool');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:materials');
+  // the picture drawn from the old answers is not left standing under the new one
+  await expect(pics).toHaveCount(0);
+  await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(0);
+  await tap(openQ(page), 'Wood');
+  await tap(openQ(page), 'Just the place');
+  await expect(openQ(page)).toContainText('cool, made of wood');
+  // the name given stays with the place
+  await draw(page);
+  await expect(openQ(page)).toContainText('Here is Stone Hall.');
+  await expect(pics).toHaveCount(1);
 });
 
 test('a sentence that answers nothing gets a line, and a request to cast someone is sent to Create', async ({

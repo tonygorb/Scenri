@@ -107,21 +107,34 @@ export function SceneCreate({
         headAction,
         footnote: capsNote(f.canDraw ? COPY.footnote : COPY.footnoteBlind),
         overlay: (
-          <Confirm
-            label={editing ? COPY.discard : COPY.leave}
-            title={editing ? COPY.discardTitle : COPY.leaveTitle}
-            body={editing ? COPY.discardBody : COPY.leaveBody}
-            busy={false}
-            open={leaving}
-            onOpenChange={(o) => {
-              if (!o) setLeaving(false);
-            }}
-            onConfirm={() => {
-              setLeaving(false);
-              f.leave();
-              onClose();
-            }}
-          />
+          <>
+            <Confirm
+              label={COPY.changeIt}
+              title={COPY.changeTitle}
+              body={COPY.changeBody}
+              busy={false}
+              open={f.confirmingEdit}
+              onOpenChange={(o) => {
+                if (!o) f.cancelConfirm();
+              }}
+              onConfirm={f.confirmEdit}
+            />
+            <Confirm
+              label={editing ? COPY.discard : COPY.leave}
+              title={editing ? COPY.discardTitle : COPY.leaveTitle}
+              body={editing ? COPY.discardBody : COPY.leaveBody}
+              busy={false}
+              open={leaving}
+              onOpenChange={(o) => {
+                if (!o) setLeaving(false);
+              }}
+              onConfirm={() => {
+                setLeaving(false);
+                f.leave();
+                onClose();
+              }}
+            />
+          </>
         ),
       }}
     />

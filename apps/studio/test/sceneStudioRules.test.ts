@@ -4,9 +4,11 @@ import {
   type Action,
   current,
   deserialize,
+  drawn,
   EMPTY,
   offerOf,
   phaseOf,
+  namedIn,
   readAsk,
   readingLines,
   reduce,
@@ -183,6 +185,16 @@ describe('review', () => {
     ]);
   });
 
+  it('a changed answer under the pictures takes them back, keeps the name, and never while work runs', () => {
+    const s = run(landed, { type: 'name', text: 'Tide Shelf' }, { type: 'forget-record' });
+    expect(s.versions).toEqual([]);
+    expect(current(s)).toBeNull();
+    expect(drawn(s)).toBe(false);
+    expect(s.name).toBe('Tide Shelf');
+    const busy = run(landed, { type: 'started', id: 'j9', kind: 'again', since: 't' }, { type: 'forget-record' });
+    expect(busy.versions).toEqual(landed.versions);
+  });
+
   it('a name the person typed survives every new reading', () => {
     const s = run(
       landed,
@@ -236,8 +248,21 @@ describe('the one line', () => {
     ['hi', 'chatter'],
     ['what lens is this?', 'chatter'],
     ['can you make it warmer?', 'change'],
+    ['call it Stone Hall', 'rename'],
+    ['rename it to "Dusk Lobby"', 'rename'],
+    ['make the name smaller on the wall sign', 'change'],
   ])('%s is a %s', (text, kind) => {
     expect(readAsk(text).kind).toBe(kind);
+  });
+
+  it('takes the name out of a sentence that names the scene, and nothing else', () => {
+    expect(namedIn('call it Stone Hall')).toBe('Stone Hall');
+    expect(namedIn('Name it Salt Room.')).toBe('Salt Room');
+    expect(namedIn('rename it to \u201cDusk Lobby\u201d')).toBe('Dusk Lobby');
+    expect(namedIn('rename to Plaster Light')).toBe('Plaster Light');
+    expect(namedIn('please call this Low Sun Terrace')).toBe('Low Sun Terrace');
+    expect(namedIn('Stone Hall')).toBeNull();
+    expect(namedIn('make it warmer')).toBeNull();
   });
 });
 
@@ -333,7 +358,11 @@ describe('a random walk over everything that can happen', () => {
     const phase = phaseOf(s);
     if (phase === 'working') expect(s.job).not.toBeNull();
     // only a landing adds a version, and only for the job being waited on
-    if (s.versions.length !== before.versions.length) {
+    if (s.versions.length !== before.versions.length && a.type === 'forget-record') {
+      // taken back whole, and only with nothing in flight
+      expect(before.job).toBeNull();
+      expect(s.versions).toEqual([]);
+    } else if (s.versions.length !== before.versions.length) {
       expect(['finished', 'edit-words']).toContain(a.type);
       if (a.type === 'finished') expect(before.job?.id).toBe(a.job.id);
       if (a.type === 'edit-words') expect(before.job).toBeNull();
@@ -341,7 +370,7 @@ describe('a random walk over everything that can happen', () => {
     }
     // words change only by a landing, a put back, or the person's own hand
     if (current(s)?.reading !== current(before)?.reading)
-      expect(['finished', 'put-back', 'edit-words']).toContain(a.type);
+      expect(['finished', 'put-back', 'edit-words', 'forget-record']).toContain(a.type);
     // the session round-trips
     expect(deserialize(serialize(s))).toEqual(s);
   };
@@ -391,6 +420,7 @@ describe('a random walk over everything that can happen', () => {
         { type: 'lost', id: jobId, error: 'gone' },
         { type: 'put-back', index: Math.floor(r() * (s.versions.length + 2)) - 1 },
         { type: 'edit-words', reading: R({ prompt: pick(['', 'hand written', `hand ${step}`]) }) },
+        { type: 'forget-record' },
       ]);
       const next = reduce(s, a);
       check(next, s, a);

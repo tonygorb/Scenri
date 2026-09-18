@@ -166,11 +166,13 @@ export interface SetupState {
   revision: number;
   /** A question open again from its answer, until it is answered or left. */
   editing: Qid | null;
+  /** The answers as they stood when it opened, put back if it is left. */
+  held: Answers | null;
   /** Sentences that answered nothing, each kept where it was said. */
   asides: Aside[];
 }
 
-export const EMPTY_SETUP: SetupState = { answers: {}, revision: 0, editing: null, asides: [] };
+export const EMPTY_SETUP: SetupState = { answers: {}, revision: 0, editing: null, held: null, asides: [] };
 
 export type SetupAction =
   | { type: 'answer'; patch: Partial<Answers> }
@@ -184,18 +186,21 @@ export function reduceSetup(s: SetupState, act: SetupAction): SetupState {
   switch (act.type) {
     case 'answer': {
       const answers = commit(s.answers, act.patch);
-      if (!differs(answers, s.answers)) return { ...s, editing: null };
-      return { ...s, answers, revision: s.revision + 1, editing: null };
+      if (!differs(answers, s.answers)) return { ...s, editing: null, held: null };
+      return { ...s, answers, revision: s.revision + 1, editing: null, held: null };
     }
     case 'photos': {
       if (s.answers.source?.door !== 'photos') return s;
       const hashes = [...new Set(act.hashes)].slice(0, 4);
-      return { ...s, answers: { ...s.answers, photos: { hashes, done: false } }, revision: s.revision + 1 };
+      // reopened, the pictures are still the answer where they stand until they are handed over again
+      const done = s.editing === 'photos';
+      return { ...s, answers: { ...s.answers, photos: { hashes, done } }, revision: s.revision + 1 };
     }
     case 'edit':
-      return answered(act.id, s.answers) ? { ...s, editing: act.id } : s;
+      return answered(act.id, s.answers) ? { ...s, editing: act.id, held: s.answers } : s;
     case 'cancel-edit':
-      return { ...s, editing: null };
+      if (!s.held || !differs(s.held, s.answers)) return { ...s, editing: null, held: null };
+      return { ...s, answers: s.held, revision: s.revision + 1, editing: null, held: null };
     case 'aside':
       return { ...s, asides: [...s.asides, act.aside].slice(-40) };
   }
@@ -233,5 +238,5 @@ export function deserializeSetup(raw: unknown): SetupState | null {
         .filter((x: any) => x && typeof x.said === 'string' && typeof x.reply === 'string' && typeof x.at === 'string')
         .map((x: any) => ({ said: x.said, reply: x.reply, at: x.at, q: typeof x.q === 'string' ? x.q : null }))
     : [];
-  return { answers: commit({}, a), revision: Number(o.revision) || 0, editing: null, asides };
+  return { answers: commit({}, a), revision: Number(o.revision) || 0, editing: null, held: null, asides };
 }

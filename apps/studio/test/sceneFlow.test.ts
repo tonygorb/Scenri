@@ -131,6 +131,22 @@ describe('the setup', () => {
     expect(answeredIn(next)).toEqual(['source']);
   });
 
+  it('keeps reopened pictures standing where they were asked while they change, and Cancel puts them back', () => {
+    const a: Answers = { source: { door: 'photos' }, photos: { hashes: [H('a'), H('b')], done: true } };
+    let s = reduceSetup(setupOf(a), { type: 'edit', id: 'photos' });
+    s = reduceSetup(s, { type: 'photos', hashes: [H('a')] });
+    expect(answeredIn(s.answers)).toContain('photos');
+    expect(nextQuestion(s.answers)).toBeNull();
+    s = reduceSetup(s, { type: 'cancel-edit' });
+    expect(s.answers).toEqual(a);
+    expect(s.editing).toBeNull();
+    // handed over again, the new set is the answer
+    s = reduceSetup(reduceSetup(s, { type: 'edit', id: 'photos' }), { type: 'photos', hashes: [H('c')] });
+    s = reduceSetup(s, { type: 'answer', patch: { photos: { hashes: [H('c')], done: true } } });
+    expect(picturesOf(s.answers)).toEqual([H('c')]);
+    expect(s.held).toBeNull();
+  });
+
   it('survives a reload, checked rather than trusted', () => {
     const s = reduceSetup(setupOf(guided), {
       type: 'aside',

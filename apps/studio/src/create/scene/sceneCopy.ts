@@ -84,6 +84,11 @@ export const COPY = {
   notInAScene: 'A scene holds the place and its light. Add presenters and products in Create.',
   usePutBack: 'Step back through the versions on the picture, and Put back the one you want.',
   sayAChange: 'Say what to change about the place, and the rest stays as it is.',
+  renamed: (name: string) => `Called it ${name}.`,
+  changeIt: 'Change it',
+  changeTitle: 'Change this answer?',
+  changeBody:
+    'The picture was drawn from the answers as they are. Changing one asks again from there, and the pictures so far go. To keep the picture and change one thing, say it in the line instead.',
   onlyPictures: 'Only pictures can show a place.',
   fourPictures: 'Four pictures is the most a scene is read from.',
 

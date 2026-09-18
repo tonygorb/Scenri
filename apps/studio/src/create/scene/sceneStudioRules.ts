@@ -118,9 +118,14 @@ export type Action =
   | { type: 'put-back'; index: number }
   /** The words written over by hand: a new version with the same picture, nothing spent. */
   | { type: 'edit-words'; reading: SceneReading }
+  /** The answers the pictures were drawn from changed; the conversation reads forward, so they go. */
+  | { type: 'forget-record' }
   | { type: 'error'; text: string | null };
 
 export const current = (s: StudioState): Version | null => s.versions[s.current] ?? null;
+
+/** Whether anything has been drawn in this conversation. */
+export const drawn = (s: StudioState): boolean => s.versions.some((v) => !!v.hash);
 
 /** The words were read from inputs that have since changed. */
 export const stale = (s: StudioState): boolean => s.readRev !== null && s.readRev !== s.inputsRev;
@@ -216,6 +221,9 @@ export function reduce(s: StudioState, a: Action): StudioState {
     case 'put-back':
       if (s.job || !s.versions[a.index]) return s;
       return { ...s, current: a.index };
+    case 'forget-record':
+      if (s.job || !s.versions.length) return s;
+      return { ...s, versions: [], current: -1, error: null };
     case 'edit-words': {
       const v = current(s);
       if (s.job || !v || !a.reading.prompt.trim()) return s;
@@ -328,6 +336,11 @@ const ADD = /\b(add|put|place|include|show|feature|with|holding|wearing|sitting|
 const NEGATED = /\b(no|without|remove|removing|empty|nobody|none|take out|get rid of|less)\b/i;
 const NAVIGATE = /^\s*(undo|go back|revert|back to|previous|the (first|last|previous|old|earlier) (one|version))\b/i;
 const CHATTER = /^\s*(hi|hello|hey|thanks|thank you|ok|okay|cool|nice|great|good|wow|yes|no)\b[\s!.]*$/i;
+const RENAME =
+  /^(?:please\s+)?(?:(?:call|name)\s+(?:it|this|the\s+scene)|rename(?:\s+(?:it|this|the\s+scene))?)\s+(?:to\s+|as\s+)?["'\u201c\u2018]?(.+?)["'\u201d\u2019]?[.!]?$/i;
+
+/** The name in a sentence that names the scene ("call it Stone Hall"), or null. */
+export const namedIn = (text: string): string | null => RENAME.exec(text.trim())?.[1]?.trim() || null;
 
 /**
  * What a sentence in the change line is, before anything is spent on it.
@@ -336,11 +349,15 @@ const CHATTER = /^\s*(hi|hello|hey|thanks|thank you|ok|okay|cool|nice|great|good
  * something in it belongs to Create, where people and products are attached
  * with their own identities; drawing it here would teach the scene a person
  * or a product it must never carry. A request to go back is Put back, which
- * spends nothing. A question or a greeting gets one line, never a draw. What
- * is left is a change.
+ * spends nothing. A question or a greeting gets one line, never a draw. A
+ * sentence that names it names it. What is left is a change.
  */
-export function readAsk(text: string): { kind: 'change' } | { kind: 'refuse' | 'navigate' | 'chatter'; say: string } {
+export function readAsk(
+  text: string,
+): { kind: 'change' } | { kind: 'rename'; name: string } | { kind: 'refuse' | 'navigate' | 'chatter'; say: string } {
   const t = text.trim();
+  const name = namedIn(t);
+  if (name) return { kind: 'rename', name };
   if (NAVIGATE.test(t)) return { kind: 'navigate', say: COPY.usePutBack };
   if (CHATTER.test(t) || (/\?\s*$/.test(t) && !/\b(make|can you|could you|try)\b/i.test(t)))
     return { kind: 'chatter', say: COPY.sayAChange };
