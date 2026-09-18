@@ -358,25 +358,46 @@ jobs:
     # GitHub's six-hour default, which is how a broken suite turns into a bill.
     timeout-minutes: 20
     strategy:
-      # Both legs finish, so one flaky leg does not hide the other's verdict.
+      # Every leg finishes, so one flaky leg does not hide another's verdict.
       fail-fast: false
       matrix:
         include:
           # Legs run on separate runners so the wall clock is the slowest leg,
-          # not the sum of the projects. The chromium project is the big half,
-          # so it is sharded in two; with workers:1 a shard is a set of whole
-          # spec files, and every file boots its own server, so the split
-          # changes nothing about isolation. The tablet project is a real
-          # iPad, and an iPad is WebKit, so that leg installs both engines.
-          # Installing only Chromium once made every tablet test die on launch
-          # in a few milliseconds, which reads as 28 test failures rather than
-          # one missing browser.
+          # not the sum of the projects. A shard is a set of whole spec files
+          # (fullyParallel is off, so a file never splits) and every file boots
+          # its own server, so the split changes nothing about isolation.
+          #
+          # Five chromium shards, not two. Playwright divides shards by test
+          # COUNT, never by duration, and the slow files sit together in the
+          # alphabet: composer, conversation-motion and the create-presenter
+          # family all landed in shard one, which ran 9.5 minutes against
+          # 7.5 for shard two. Replaying Playwright 1.62's own split against
+          # measured per-test times (checked within 6s of the real two-shard
+          # legs on five runs) put three shards at 8.1 minutes, four at 7.1,
+          # five at 5.6 with composer.spec alone as the floor, and six at 7.1
+          # again because the count split leaves one shard empty. Revisit when
+          # the slowest leg passes seven minutes; more shards is not always
+          # faster.
+          #
+          # The tablet project is a real iPad, and an iPad is WebKit, so that
+          # leg installs both engines. Installing only Chromium once made every
+          # tablet test die on launch in a few milliseconds, which reads as 28
+          # test failures rather than one missing browser.
           - name: chromium-1
             browsers: chromium
-            args: --project=chromium --shard=1/2
+            args: --project=chromium --shard=1/5
           - name: chromium-2
             browsers: chromium
-            args: --project=chromium --shard=2/2
+            args: --project=chromium --shard=2/5
+          - name: chromium-3
+            browsers: chromium
+            args: --project=chromium --shard=3/5
+          - name: chromium-4
+            browsers: chromium
+            args: --project=chromium --shard=4/5
+          - name: chromium-5
+            browsers: chromium
+            args: --project=chromium --shard=5/5
           - name: mobile-tablet
             browsers: chromium webkit
             args: --project=mobile --project=tablet
