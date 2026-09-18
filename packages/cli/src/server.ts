@@ -101,6 +101,7 @@ import { registerImageRoutes } from './routes/images.js';
 import { createThumbStore } from './thumbs.js';
 import { registerUpdateRoutes } from './routes/updates.js';
 import { registerSystemRoutes } from './routes/system.js';
+import { registerGuideRoutes } from './routes/guide.js';
 import { registerDesktopRoutes } from './routes/desktop.js';
 
 declare module 'fastify' {
@@ -542,7 +543,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // never a creative-campaign image. See primaryAngleFor/demoProductRefPath.
   registerDemoProductRoutes(app, { templatesRoot, demoProducts, demoProductById, thumbs });
 
-  registerShowcaseRoutes(app, { templatesRoot });
+  registerShowcaseRoutes(app, { templatesRoot, thumbs });
 
   // ---- brief compiler: the composer previews exactly what will run
   app.get('/api/formats', async () => FORMATS);
@@ -2523,6 +2524,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   });
 
   registerSystemRoutes(app, { core, thumbs });
+  registerGuideRoutes(app, { core, version: meta.version });
   registerDesktopRoutes(app, {
     core,
     runtime,

@@ -82,7 +82,7 @@ export interface CreationState {
   asides: Aside[];
   /** A sentence with nothing of a person in it, waiting to be drawn from anyway or replaced. */
   unsure: Unsure | null;
-  /** "Save as is" was chosen once; the extras question is not asked again. */
+  /** "Not now" was chosen once; the extras question is not asked again. */
   extrasDeclined: boolean;
   /** Uploads in flight. */
   uploading: number;

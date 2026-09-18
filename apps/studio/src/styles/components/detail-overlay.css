@@ -137,7 +137,7 @@
   opacity: 0.55;
 }
 .sc-thumb-btn:not([aria-pressed="true"]):hover .sc-thumb,
-.sc-thumb-btn:not([aria-pressed="true"]):focus-visible .sc-thumb {
+:where(:root:not([data-input="pointer"])) .sc-thumb-btn:not([aria-pressed="true"]):focus-visible .sc-thumb {
   opacity: 1;
 }
 /* A tile with no picture yet, or none at all: the feed's own shimmer while
@@ -476,7 +476,7 @@
   transition: opacity var(--sc-dur-fast) var(--sc-ease);
 }
 .sc-ovl-resize:hover::before,
-.sc-ovl-resize:focus-visible::before,
+:where(:root:not([data-input="pointer"])) .sc-ovl-resize:focus-visible::before,
 .sc-ovl-resize:active::before {
   opacity: 1;
 }

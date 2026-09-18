@@ -1,0 +1,198 @@
+/* Learn (views/LearnDialog.tsx): every lesson, then one lesson, in the create
+   dialogs' own shell. Image-led and quiet: a picture of what the lesson makes,
+   its name, and where it stands in a few words. No card chrome, no eyebrow,
+   no progress colour; the picture is the only colour on the surface. */
+.sc-learn-level {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+/* Every lesson and one lesson share one box on a desktop, so moving between
+   them changes the words and never moves the card: centred, a shorter level
+   would pull its top edge down. The foot keeps to the bottom of it. */
+@media (min-width: 768px) {
+  .sc-learn {
+    min-height: min(600px, calc(100dvh - 48px));
+  }
+}
+/* A phone's sheet is the whole learning surface: full height for both levels,
+   so its top edge holds still, and the one action sits where a thumb is. */
+@media (max-width: 767px) {
+  .sc-learn {
+    height: 92dvh;
+  }
+}
+.sc-learn .sc-newdlg-foot {
+  margin-top: auto;
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* every lesson to one lesson and back: the words change in place */
+  .sc-learn-level {
+    animation: sc-fade-in var(--sc-dur-fast) var(--sc-ease) both;
+  }
+}
+.sc-learn-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px 16px;
+  margin: 6px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+.sc-learn-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius-lg);
+  background: none;
+  font: inherit;
+  color: var(--sc-fg);
+  text-align: left;
+  cursor: pointer;
+}
+.sc-learn-pic {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-well);
+}
+/* A packshot on white would have no edge against the dialog's own white. */
+.sc-learn-pic::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+  pointer-events: none;
+}
+.sc-learn-pic img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-learn-card:hover:not(:active) .sc-learn-pic img {
+  opacity: 0.88;
+}
+.sc-learn-card .sc-learn-pic {
+  margin-bottom: 8px;
+}
+.sc-learn-name {
+  font: 600 14px / 20px var(--sc-font);
+}
+.sc-learn-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 12px / 18px var(--sc-font);
+  color: var(--sc-fg3);
+}
+.sc-learn-meta[data-state="active"] {
+  color: var(--sc-fg2);
+}
+.sc-learn-tick {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+}
+
+/* One lesson: its picture, what it gives you, the steps it walks. */
+.sc-learn-detail {
+  display: grid;
+  grid-template-columns: 208px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  padding-top: var(--sc-space-5);
+}
+.sc-learn-summary {
+  margin: 0;
+  font: 400 14px / 21px var(--sc-font);
+  color: var(--sc-fg2);
+  text-wrap: pretty;
+}
+.sc-learn-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.sc-learn-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: var(--sc-radius-md);
+  font: 500 13.5px / 19px var(--sc-font);
+  color: var(--sc-fg2);
+}
+.sc-learn-step[data-state="active"] {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+.sc-learn-note {
+  margin: 12px 0 0 10px;
+  font: 400 12px / 18px var(--sc-font);
+  color: var(--sc-fg3);
+}
+.sc-learn .sc-newdlg-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* A phone: the sheet, and every lesson a row, picture leading. A grid of
+   three squeezed to a phone is a grid nobody can read. */
+@media (max-width: 767px) {
+  .sc-learn-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    margin-top: 2px;
+  }
+  .sc-learn-card {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 14px;
+    row-gap: 2px;
+    align-items: center;
+    padding: 6px 0;
+  }
+  .sc-learn-card .sc-learn-pic {
+    grid-row: 1 / 3;
+    margin: 0;
+  }
+  .sc-learn-name {
+    align-self: end;
+  }
+  .sc-learn-meta {
+    align-self: start;
+  }
+  .sc-learn-detail {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: var(--sc-space-3);
+  }
+  .sc-learn-detail .sc-learn-pic {
+    display: none;
+  }
+  .sc-learn-step {
+    min-height: 44px;
+  }
+  .sc-learn .sc-newdlg-foot .sc-btn {
+    flex: 1;
+    justify-content: center;
+    height: 44px;
+  }
+}

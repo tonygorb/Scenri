@@ -30,9 +30,12 @@ export function DialogSheet({
   onOpenAutoFocus,
   onCloseAutoFocus,
   onPaste,
+  tone,
 }: {
   open?: boolean;
   className?: string;
+  /** `guide`: a first-use surface, held behind the guide's darker, softened curtain. */
+  tone?: 'guide';
   maxWidth?: string;
   /** Set when a SheetDescription is inside, so Radix can point at it. */
   described?: boolean;
@@ -65,7 +68,7 @@ export function DialogSheet({
   return (
     <Primitive.Root open={open} onOpenChange={(o) => !o && onDismiss()}>
       <Primitive.Portal>
-        <Primitive.Overlay className="sc-newdlg-scrim" />
+        <Primitive.Overlay className="sc-newdlg-scrim" data-tone={tone} />
         <Primitive.Content
           className="sc-newdlg-layer"
           {...(described ? {} : { 'aria-describedby': undefined })}

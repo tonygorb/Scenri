@@ -21,7 +21,7 @@ import {
   type BriefToken,
   type SentenceToken,
 } from '../composer/BriefInput.js';
-import { AttachPanel, type AttachTab } from '../composer/AttachPanel.js';
+import { AttachPanel, type AttachGroup, type AttachTab } from '../composer/AttachPanel.js';
 import { attachedKeyString, attachedKeys, type AttachCard } from '../composer/attach/attachRules.js';
 import type { PreviewKind } from '../composer/ChipPreview.js';
 import { RefineChip } from '../composer/RefineChip.js';
@@ -48,7 +48,9 @@ import { sizingOf } from '../engines/capabilities.js';
 import { OpenAIMark } from './OpenAIMark.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { publishComposer, publishOverlay, type ComposerFacts } from '../guideFacts.js';
 import { PREF, useLocalPref, useRecipeSetting } from '../prefs.js';
+import { useMediaQuery } from '../useMediaQuery.js';
 import { useToasts } from '../toasts.js';
 import { clearDraft, isNonTrivial, loadDraft, saveDraft } from '../draft.js';
 import { useIngredientCatalog } from '../composer/useIngredientCatalog.js';
@@ -181,6 +183,11 @@ export const Composer = forwardRef<
      * on the stage on the server, and the field is only for what changes.
      */
     variant?: 'dock' | 'overlay';
+    /**
+     * Create's composer: it tells the first-use guide where the brief stands,
+     * and marks the controls the first shot points at (DESIGN.md, "First use").
+     */
+    guided?: boolean;
   }
 >(function Composer(
   {
@@ -209,6 +216,7 @@ export const Composer = forwardRef<
     // no X (there is nothing else in there to refine), and scenes sit out
     // only on the hub (see scenesSitOut and the target band below).
     variant = 'dock',
+    guided = false,
   },
   handleRef,
 ) {
@@ -304,9 +312,15 @@ export const Composer = forwardRef<
   const [preview, setPreview] = useState<(BriefPreview & { forBrief: unknown }) | null>(null);
   const [attachOpen, setAttachOpen] = useState(false);
   const [attachTab, setAttachTab] = useState<AttachTab>('All');
+  const [attachTabNonce, setAttachTabNonce] = useState(0);
+  /** First use: the one kind the tutor is asking for, so the picker offers nothing else. */
+  const [attachOnly, setAttachOnly] = useState<AttachGroup | null>(null);
   const [quality, setQuality, borrowQuality] = useRecipeSetting<QualityId>(PREF.quality, 'standard');
   const [uploading, setUploading] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreOpen, setMoreOpenState] = useState(false);
+  const setMoreOpen = (next: boolean) => setMoreOpenState(next);
+  const settingsPills = useMediaQuery('(hover: hover) and (min-width: 1024px)');
+  const settingsSheet = useMediaQuery('(max-width: 767px)');
   const briefRef = useRef<BriefInputHandle>(null);
   const attachRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -727,6 +741,7 @@ export const Composer = forwardRef<
   // new shot in place (the note says so), while the hub's attach panel sits
   // scenes out. The X exists in both shells now, so it cannot be the proxy.
   const scenesSitOut = mode === 'edit' && !!target && variant !== 'overlay';
+
   // No reshape tutorial here anymore: the op is inferred, and the whole
   // explanation is the two-word state line rendered beside the shape picker.
   const targetNote = !branchable
@@ -886,10 +901,13 @@ export const Composer = forwardRef<
 
   const openAttach = (tab: AttachTab) => {
     setAttachTab(tab);
+    setAttachTabNonce((n) => n + 1);
     setAttachOpen(true);
   };
   const attachOpenRef = useRef(false);
   attachOpenRef.current = attachOpen;
+  const openAttachRef = useRef(openAttach);
+  openAttachRef.current = openAttach;
   /**
    * One close for every way out of the panel, and idempotent: on a phone the
    * sheet's own Escape and the body's key router both answer the same press.
@@ -906,6 +924,9 @@ export const Composer = forwardRef<
   }, []);
   const applySceneRef = useRef(applyScene);
   applySceneRef.current = applyScene;
+  /** What the brief holds right now, for a listener that must add to it rather than replace it. */
+  const sentenceRef = useRef(sentence);
+  sentenceRef.current = sentence;
   /**
    * Stable on purpose: the panel's lists are built without it, so a keystroke
    * in the brief behind an open panel rebuilds nothing. A scene is a swap
@@ -1202,7 +1223,7 @@ export const Composer = forwardRef<
       // Errors are never trimmed and outlive successes (see ToastProvider), so
       // nothing is lost by not building a second surface for them.
       setErr(message);
-      push({ kind: 'error', title: 'That did not send', detail: message });
+      push(failureToast(e, 'That did not send', engine?.displayName));
       // the brief is deliberately not cleared above until the shot exists, so
       // everything typed is still on screen to send again
       onSending?.(null);
@@ -1230,8 +1251,85 @@ export const Composer = forwardRef<
     : null;
   const activeProductCategory = activeProduct ? effectiveCategory(activeProduct as any) : null;
 
+  // First use (DESIGN.md, "First use"): where the brief stands, for the guide
+  // to read. Published only when it changes, and taken back when this goes.
+  const guideFacts: ComposerFacts | null = guided
+    ? {
+        brandId: brand.id,
+        products: sentence.filter((t) => t.t === 'product').length,
+        presenters: sentence.filter((t) => t.t === 'character').length,
+        scene: !!template,
+        others: sentence.filter((t) => t.t === 'color' || t.t === 'ref' || t.t === 'mark').length,
+        words: sentence.some((t) => t.t === 'text' && !!t.v.trim()),
+        busy,
+        pickerOpen: attachOpen,
+        refining: mode === 'edit' && !!target,
+        engine: !noEngine ? 'ready' : setupNeeded ? 'setup' : 'settings',
+      }
+    : null;
+  useEffect(() => {
+    if (guideFacts) publishComposer(guideFacts);
+  });
+  useEffect(() => {
+    if (guided) return () => publishComposer(null);
+  }, [guided]);
+  // The guide's Continue, beside the open picker: close it the way its own
+  // close does, with the caret back in the brief for the direction that comes next.
+  useEffect(() => {
+    if (!guided || !attachOpen) return;
+    const close = () => closeAttach({ restore: true });
+    window.addEventListener('scenri:guide-close-picker', close);
+    return () => window.removeEventListener('scenri:guide-close-picker', close);
+  }, [guided, attachOpen, closeAttach]);
+  /**
+   * The tutor's Back: the ask before this one put a chip in, so it comes out
+   * again and that ask is simply true once more. Only the last one of its kind,
+   * and only when the tutor asks for it.
+   */
+  useEffect(() => {
+    if (!guided) return;
+    const takeBack = (e: Event) => {
+      const { kind } = (e as CustomEvent<{ kind: 'product' | 'presenter' | 'scene' }>).detail;
+      const want = kind === 'presenter' ? 'character' : kind === 'scene' ? 'template' : 'product';
+      const last = [...sentenceRef.current].reverse().find((t) => t.t === want);
+      if (last) briefRef.current?.remove(last);
+    };
+    window.addEventListener('scenri:guide-take-back', takeBack);
+    return () => window.removeEventListener('scenri:guide-take-back', takeBack);
+  }, [guided]);
+  // The tutor asks for one kind at a time: the picker opens on that kind and
+  // offers nothing else, so there is nothing to wander into.
+  useEffect(() => {
+    if (!guided) return;
+    const ask = (e: Event) => {
+      const { tab } = (e as CustomEvent<{ tab: AttachTab | null }>).detail;
+      setAttachOnly((tab ?? null) as AttachGroup | null);
+      if (tab) openAttachRef.current(tab);
+    };
+    window.addEventListener('scenri:guide-picker', ask);
+    return () => {
+      window.removeEventListener('scenri:guide-picker', ask);
+      setAttachOnly(null);
+    };
+  }, [guided]);
+  // The open shot's composer, reached for: the moment refining is worth a word.
+  const [reached, setReached] = useState(false);
+  const engaged = variant === 'overlay' && (reached || sentence.some((t) => t.t === 'text' && !!t.v.trim()));
+  useEffect(() => {
+    if (variant === 'overlay') publishOverlay({ engaged });
+  }, [variant, engaged]);
+  useEffect(() => {
+    if (variant === 'overlay') return () => publishOverlay(null);
+  }, [variant]);
+
   return (
-    <div className="sc-composer">
+    <div
+      className="sc-composer"
+      data-guide={guided ? 'compose' : undefined}
+      // a press or a key, never the focus the open shot hands its field on its own
+      onPointerDownCapture={variant === 'overlay' && !reached ? () => setReached(true) : undefined}
+      onKeyDownCapture={variant === 'overlay' && !reached ? () => setReached(true) : undefined}
+    >
       <input
         ref={fileRef}
         type="file"
@@ -1262,6 +1360,8 @@ export const Composer = forwardRef<
           refining={scenesSitOut}
           full={ceilingFull}
           initialTab={attachTab}
+          tabNonce={attachTabNonce}
+          only={attachOnly}
           id={attachPanelId}
           attached={attachedInShot}
           onUpload={() => fileRef.current?.click()}
@@ -1282,7 +1382,7 @@ export const Composer = forwardRef<
           One tray, not one card per notice: two notices used to stack into three
           boxes, which is what read as unfinished. */}
       {engineNote && (
-        <div className="sc-notes">
+        <div className="sc-notes" data-guide-shape={guided ? '' : undefined}>
           {engineNote && (
             <div className="sc-banner" data-tone="action">
               <span className="sc-banner-ic">{engineNote.icon}</span>
@@ -1319,14 +1419,20 @@ export const Composer = forwardRef<
                   )}
                 </small>
               </span>
-              <button type="button" className="sc-banner-act" data-primary="" onClick={engineNote.onAct}>
+              <button
+                type="button"
+                className="sc-banner-act"
+                data-primary=""
+                data-guide={guided ? 'compose.engine' : undefined}
+                onClick={engineNote.onAct}
+              >
                 {engineNote.action}
               </button>
             </div>
           )}
         </div>
       )}
-      <div className="sc-promptcard">
+      <div className="sc-promptcard" data-guide-shape={guided ? '' : undefined}>
         {/* What this brief is about to do, stated before it does it: the
             picture being refined, as the one chip pattern the app has. The
             hub's chip has an X, which lets go of the thread and makes a new
@@ -1404,6 +1510,7 @@ export const Composer = forwardRef<
               type="button"
               ref={attachRef}
               className="sc-icon-btn sc-attach-toggle"
+              data-guide={guided ? 'compose.add' : undefined}
               aria-expanded={attachOpen}
               aria-controls={attachOpen ? attachPanelId : undefined}
               aria-label="Add to shot"
@@ -1459,11 +1566,17 @@ export const Composer = forwardRef<
               quality={quality}
               onQuality={setQualityId}
               onCloseAutoFocus={backToBrief}
+              guided={guided}
             />
 
             <Popover.Root open={moreOpen} onOpenChange={setMoreOpen}>
               <Popover.Trigger>
-                <button type="button" className="sc-var sc-more" aria-label={`Shot settings. ${settingsSummary}`}>
+                <button
+                  type="button"
+                  className="sc-var sc-more"
+                  aria-label={`Shot settings. ${settingsSummary}`}
+                  data-guide={guided && !settingsSheet ? 'compose.settings' : undefined}
+                >
                   <SlidersHorizontal size={14} />
                   More
                 </button>
@@ -1494,6 +1607,7 @@ export const Composer = forwardRef<
 
             {/* the touch shell for the same fields: a sheet under the thumb */}
             <ShotSettings
+              guide={guided && settingsSheet ? 'compose.settings' : undefined}
               mode={mode}
               engineId={engineId}
               engineName={engineLabel}
@@ -1508,6 +1622,7 @@ export const Composer = forwardRef<
             <button
               type="button"
               className="sc-send"
+              data-guide={guided ? 'compose.send' : undefined}
               // aria-disabled: a native disabled button drops out of the tab
               // order, taking its title — often the one thing explaining why
               // — with it. go() already no-ops on !canGo, so this is purely

@@ -162,7 +162,7 @@ export function FeedToolbar({
               <CaretDown size={10} className="sc-caret" />
             </button>
           </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="start" onCloseAutoFocus={(e) => e.preventDefault()}>
+          <DropdownMenu.Content align="start">
             <DropdownMenu.RadioGroup value={placeValue}>
               <DropdownMenu.RadioItem value="__all__" onSelect={onPlaceAll}>
                 All shots

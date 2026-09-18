@@ -126,6 +126,15 @@ test('closing it is the acknowledgement, and it does not come back', async ({ pa
   await expect(dialog(page)).toHaveCount(0);
 });
 
+test('browser Back closes it, and that counts as read too', async ({ page }) => {
+  const acked = await stubUnread(page);
+  await page.goto('/');
+  await expect(dialog(page)).toBeVisible({ timeout: 8000 });
+  await page.goBack();
+  await expect(dialog(page)).toHaveCount(0);
+  await expect.poll(() => acked).toEqual(['9.9.9']);
+});
+
 test('it never stacks on a dialog that already owns the screen', async ({ page }) => {
   await stubUnread(page);
   await page.goto('/e2e-fixture?settings=about');

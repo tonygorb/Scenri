@@ -10,6 +10,7 @@ import { RouterProvider } from 'react-router';
 import { ThemeProvider } from './theme.js';
 import { ToastProvider } from './toasts.js';
 import { router } from './router.js';
+import { installInputModality } from './inputModality.js';
 
 // Set theme before first paint to avoid a flash of the wrong scheme. Reads
 // only: bt-theme is the pre-rename key, and ThemeProvider owns moving it.
@@ -20,6 +21,9 @@ document.documentElement.dataset.theme =
     : window.matchMedia('(prefers-color-scheme: light)').matches
       ? 'light'
       : 'dark';
+
+// Before anything renders, so the first click already reads as a click.
+installInputModality();
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

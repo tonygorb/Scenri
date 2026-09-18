@@ -416,7 +416,7 @@ test.describe('the conversation in motion', () => {
     await send(page, '?');
     await expect(log(page)).toContainText('Select a view and say what is wrong');
     await settle(page);
-    await answer(page, 'Save as is').click();
+    await answer(page, 'Not now').click();
     // the name is asked across the build, and the save waits on it
     await expect(log(page)).toContainText('What should we call them?', { timeout: 20_000 });
     await send(page, 'Noor');
@@ -504,8 +504,8 @@ test.describe('the conversation in motion', () => {
     await answer(page, 'Use this person').click();
     // the full body is decided by hand before the rest of the set follows
     await answer(page, 'Use it').click();
-    await expect(answer(page, 'Save as is')).toBeVisible({ timeout: 30_000 });
-    await answer(page, 'Save as is').click();
+    await expect(answer(page, 'Not now')).toBeVisible({ timeout: 30_000 });
+    await answer(page, 'Not now').click();
     await answer(page, 'Save presenter').click();
     await expect(page).toHaveURL(/\/presenters\/up-/, { timeout: 20_000 });
 

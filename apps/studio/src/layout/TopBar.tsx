@@ -6,6 +6,7 @@ import { ScenriLockup } from './ScenriMark.js';
 import { useMainNav } from './nav.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { P, brandPath } from '../routes.js';
+import { HelpBar } from './HelpMenu.js';
 
 /**
  * The one chrome bar, mounted once by BrandLayout. Three tracks: where you are,
@@ -46,6 +47,7 @@ export function TopBar() {
             It is gone: the + beside it does the same job on every screen, and
             the two together overflowed a 360px bar. Above 1280px the library
             pages keep their own button, where it has always been. */}
+        <HelpBar />
         <NewAssetButton />
         {/* The assets rail's switch used to sit here, gated on `onHub` — a
             control for one screen's panel, appearing and disappearing from

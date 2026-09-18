@@ -22,6 +22,114 @@
   letter-spacing: 0;
 }
 
+/* First steps (views/home/FirstSteps.tsx): four real things to do, as a plain
+   checklist in one hairline frame. A count, never a percentage; a to-do is a
+   hollow ring, the step in hand a dot, a done step a thin tick. No accent
+   colour, no imagery, nothing to celebrate. */
+.sc-steps {
+  margin: -6px 0 22px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-lg);
+  padding: 14px 16px 12px;
+}
+.sc-steps-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sc-steps-title {
+  margin: 0;
+  font: 600 13px var(--sc-font);
+  color: var(--sc-fg);
+}
+.sc-steps-count {
+  font: 500 12px var(--sc-font);
+  color: var(--sc-fg3);
+}
+.sc-steps .sc-steps-x {
+  margin-left: auto;
+}
+/* Every lesson, from the short list: a quiet word before the X, never a button. */
+.sc-steps-more {
+  margin-left: auto;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  font: 500 12px var(--sc-font);
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+.sc-steps-more:hover:not(:active) {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+.sc-steps .sc-steps-more + .sc-steps-x {
+  margin-left: 0;
+}
+.sc-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.sc-steps-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  font: 500 12.5px var(--sc-font);
+  color: var(--sc-fg);
+  text-align: left;
+  cursor: pointer;
+}
+.sc-steps-item:hover:not(:active) {
+  background: var(--sc-hover);
+}
+:where(:root:not([data-input="pointer"])) .sc-steps-item:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-fg);
+  outline-offset: calc(var(--sc-ring-off) * -1);
+}
+.sc-steps-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--sc-line-strong);
+  border-radius: 50%;
+}
+/* the step in hand: a dot, not a tick. The same three marks walk a lesson's
+   steps in Learn (surfaces/learn.css), so the rows share them. */
+:is(.sc-steps-item, .sc-learn-step)[data-state="active"] .sc-steps-mark {
+  border-color: var(--sc-fg);
+  box-shadow: inset 0 0 0 3px var(--sc-bg);
+  background: var(--sc-fg);
+}
+.sc-steps-item[data-state="done"] {
+  color: var(--sc-fg2);
+}
+:is(.sc-steps-item, .sc-learn-step)[data-state="done"] .sc-steps-mark {
+  border-color: var(--sc-fg);
+  background: var(--sc-fg);
+  color: var(--sc-bg);
+}
+@media (max-width: 767px) {
+  .sc-steps {
+    margin: 0 0 18px;
+  }
+}
+
 .sc-create-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -64,7 +172,7 @@
   transition: filter 140ms ease;
   width: 100%;
 }
-.sc-create-card:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-create-card:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
@@ -127,7 +235,7 @@
 .sc-create-card:hover .sc-glyph {
   filter: brightness(1.22);
 }
-.sc-create-card:focus-visible .sc-glyph {
+:where(:root:not([data-input="pointer"])) .sc-create-card:focus-visible .sc-glyph {
   filter: brightness(1.22);
 }
 /* Filled wells: life in the glyph, cards stay quiet. Compose well a touch warmer. */

@@ -239,7 +239,8 @@ export function TaskCenterProvider({
       if (n.state === 'cancelled') continue;
       // A finish you are watching land needs no second word. A failure still
       // speaks: the tile it leaves behind is deliberately quiet.
-      if (n.state !== 'error' && watchingFeedRef.current) continue;
+      // A presenter or a scene never lands in the feed, so it is never already seen there.
+      if (n.state !== 'error' && watchingFeedRef.current && n.kind !== 'presenter' && n.kind !== 'scene') continue;
       const href = n.href;
       const action = href ? { label: 'View', onClick: () => navRef.current(href) } : undefined;
       if (n.state === 'error') {

@@ -16,6 +16,9 @@ import { pickBrand } from './RootRedirect.js';
 import { TaskCenterProvider } from './TaskCenter.js';
 import { mergeRecent } from './recentRules.js';
 import { WhatsNewGate } from './WhatsNew.js';
+import { HelpFloat } from '../layout/HelpMenu.js';
+import { GuideHost } from '../layout/GuideHost.js';
+import { LearnDialog } from '../views/LearnDialog.js';
 
 export type ActivityListener = (nodes: FeedNode[]) => void;
 
@@ -319,6 +322,11 @@ export function BrandLayout() {
                 <Outlet />
                 <TabBar />
               </div>
+              {/* First use: the welcome, the guided task in hand, and the help
+                button that brings First steps back (DESIGN.md, "First use"). */}
+              <GuideHost />
+              <LearnDialog />
+              <HelpFloat />
             </AssetsCtx.Provider>
           </AssetCreateHost>
         </ProductLibraryProvider>

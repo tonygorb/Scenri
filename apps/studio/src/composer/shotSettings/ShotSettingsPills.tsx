@@ -35,7 +35,15 @@ export function ShotSettingsPills({
   quality,
   onQuality,
   onCloseAutoFocus,
-}: ShotSettingsProps & { onCloseAutoFocus?: (e: Event) => void }) {
+  guided = false,
+  onSettle,
+}: ShotSettingsProps & {
+  onCloseAutoFocus?: (e: Event) => void;
+  /** Create's composer under the first-use guide: the controls carry the names the guide points at. */
+  guided?: boolean;
+  /** A setting was opened and closed again: answered, even when the answer was to keep it. */
+  onSettle?: (which: 'shape' | 'count' | 'quality') => void;
+}) {
   const format = FORMATS.find((f) => f.id === formatId) ?? FORMATS[0];
   const res = RESOLUTIONS.find((r) => r.id === quality) ?? RESOLUTIONS[1];
   const blocked = blockedFormats(engineId);
@@ -71,16 +79,21 @@ export function ShotSettingsPills({
     if (openNow.current === null) onCloseAutoFocus?.(e);
   };
 
-  const pop = (id: string) => ({
+  const settles = { aspect: 'shape', variants: 'count', resolution: 'quality' } as const;
+  const pop = (id: keyof typeof settles) => ({
     open: openId === id,
     onCloseAutoFocus: closeAutoFocus,
+    guide: guided ? `compose.${settles[id]}` : undefined,
     /* Opening names itself; closing only ever clears itself, so a surface on
        its way out cannot shut the one that has already taken its place. */
-    onOpenChange: (next: boolean) => setOpenId((prev) => (next ? id : prev === id ? null : prev)),
+    onOpenChange: (next: boolean) => {
+      if (!next && openNow.current === id) onSettle?.(settles[id]);
+      setOpenId((prev) => (next ? id : prev === id ? null : prev));
+    },
   });
 
   return (
-    <div className="sc-prompt-pills">
+    <div className="sc-prompt-pills" data-guide={guided ? 'compose.settings-row' : undefined}>
       {/* Always offered, in both modes: a refinement cannot reshape a picture,
           but asking for a new shape runs the same setup again at that shape,
           and the composer says so before you send. */}

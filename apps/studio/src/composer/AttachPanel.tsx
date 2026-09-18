@@ -13,14 +13,18 @@ import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 /** A thumb, not a mouse: focusing the brief raises a keyboard over the panel. */
 const COARSE = '(pointer: coarse)';
 import { AttachBody } from './attach/AttachBody.js';
-import type { AttachCard, AttachTab } from './attach/attachRules.js';
+import type { AttachCard, AttachGroup, AttachTab } from './attach/attachRules.js';
 import { keepCaret } from './line.js';
 
-export type { AttachTab } from './attach/attachRules.js';
+export type { AttachGroup, AttachTab } from './attach/attachRules.js';
 
 export interface AttachPanelProps {
   brand: Brand;
   initialTab?: AttachTab;
+  /** Bumped to ask for `initialTab` again while the panel is open, even when it has not changed. */
+  tabNonce?: number;
+  /** First use: the tutor is asking for one kind, so the picker offers that kind and nothing else. */
+  only?: AttachGroup | null;
   /** For the opener's aria-controls. */
   id?: string;
   /** The category of whichever product is already in the brief, if any — see compat.ts. */
@@ -75,7 +79,7 @@ export function AttachPanel(props: AttachPanelProps) {
   const [tab, setTab] = useState<AttachTab>(props.initialTab ?? 'All');
   useEffect(() => {
     setTab(props.initialTab ?? 'All');
-  }, [props.initialTab]);
+  }, [props.initialTab, props.tabNonce]);
   // The creation dialog lives in the URL now, so "is something stacked on top
   // of me" is a question the URL answers rather than a boolean this panel has
   // to remember to keep in sync.
@@ -86,8 +90,9 @@ export function AttachPanel(props: AttachPanelProps) {
     <AttachDock id={props.id} phone={phone} touch={touch} creating={creating} onClose={props.onClose}>
       <AttachBody
         brand={props.brand}
-        tab={tab}
+        tab={props.only ?? tab}
         onTab={setTab}
+        only={props.only}
         activeProductCategory={props.activeProductCategory}
         refining={props.refining}
         full={props.full}
@@ -173,6 +178,8 @@ function AttachDock({
       // then closes itself; the next one closes the panel.
       const a = document.activeElement;
       if (a instanceof HTMLInputElement && rootRef.current?.contains(a)) return;
+      // answered here: the first-use guide over the page leaves this press alone
+      e.preventDefault();
       e.stopPropagation();
       closeRef.current();
     };
@@ -200,6 +207,12 @@ function AttachDock({
       // .sc-attachpanel" and closed both the dialog and the panel underneath it
       if (creating) return;
       const t = e.target as HTMLElement;
+      // the first shot's curtain and card are not the page: pressing them keeps the panel open
+      if (t.closest('[data-guide="catch"], [data-guide="card"], [data-guide="inline"]')) return;
+      // While the tutor holds the page, the panel is not closed by pressing
+      // beside it: the held page is not a press anywhere, and Escape or the
+      // next answer is what closes it.
+      if (document.querySelector('[data-guide="catch"]')) return;
       if (!t.closest('.sc-attachpanel') && !t.closest('.sc-attach-toggle')) closeRef.current();
     };
     document.addEventListener('mousedown', onDown);
@@ -210,6 +223,7 @@ function AttachDock({
     <div
       ref={rootRef}
       className="sc-attachpanel"
+      data-guide-shape=""
       role="dialog"
       id={id}
       aria-label="Add to shot"

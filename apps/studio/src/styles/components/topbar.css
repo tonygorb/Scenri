@@ -37,6 +37,13 @@
 .sc-topbar-end {
   gap: 6px;
 }
+/* Below 400px the bar carries four circles (help, add, bell, brand) in the
+   134px a 320px screen leaves it; 6px gaps need 148. */
+@media (max-width: 399px) {
+  .sc-topbar-end {
+    gap: 2px;
+  }
+}
 .sc-wordmark {
   display: inline-flex;
   align-items: center;
@@ -55,7 +62,7 @@
   height: 20px;
   width: auto;
 }
-.sc-wordmark:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-wordmark:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
   border-radius: 4px;
@@ -136,7 +143,7 @@
 .sc-org-btn[data-state="open"] {
   background: var(--sc-chip);
 }
-.sc-org-btn:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-org-btn:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }

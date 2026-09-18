@@ -1040,6 +1040,72 @@ export function createStore(db: DB) {
       db.prepare('UPDATE nodes SET overlays=? WHERE id=?').run(JSON.stringify(overlays), id);
     },
 
+    // first use: what the library already proves, read by the guide record
+    /** The database's own clock, in the format every node's created_at uses. */
+    now(): string {
+      return (db.prepare("SELECT strftime('%Y-%m-%d %H:%M:%f','now') AS t").get() as { t: string }).t;
+    },
+    /** Whether any brand holds a finished shot, or a finished refinement, with a picture. */
+    hasFinishedNode(kind: 'generation' | 'edit'): boolean {
+      return !!db.prepare("SELECT 1 FROM nodes WHERE kind=? AND status='done' AND images != '[]' LIMIT 1").get(kind);
+    },
+    /** Whether any brand has imported a product from a store. */
+    hasCatalogProduct(): boolean {
+      return !!db.prepare('SELECT 1 FROM catalog_products LIMIT 1').get();
+    },
+    /** A brand's shots of one kind made at or after a moment, newest first: what a guided task has made. */
+    nodesSince(
+      brandId: string,
+      kind: 'generation' | 'edit',
+      since: string,
+      limit = 8,
+    ): { id: string; kind: string; status: string; images: number; createdAt: string }[] {
+      const rows = db
+        .prepare(
+          `SELECT id, kind, status, images, created_at FROM nodes
+            WHERE project_id IN (SELECT id FROM projects WHERE brand_id = ?)
+              AND kind = ? AND created_at >= ?
+            ORDER BY created_at DESC, id DESC LIMIT ?`,
+        )
+        .all(brandId, kind, since, limit) as {
+        id: string;
+        kind: string;
+        status: string;
+        images: string;
+        created_at: string;
+      }[];
+      return rows.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        status: r.status,
+        images: (() => {
+          try {
+            const a = JSON.parse(r.images);
+            return Array.isArray(a) ? a.length : 0;
+          } catch {
+            return 0;
+          }
+        })(),
+        createdAt: r.created_at,
+      }));
+    },
+    /** The newest presenter draft a brand started at or after a moment, never an edit session's. */
+    presenterDraftSince(brandId: string, since: string): string | null {
+      const rows = db
+        .prepare(
+          'SELECT id, json FROM presenter_drafts WHERE brand_id = ? AND created_at >= ? ORDER BY created_at DESC, id DESC',
+        )
+        .all(brandId, since) as { id: string; json: string }[];
+      for (const r of rows) {
+        try {
+          if (!JSON.parse(r.json)?.presenterId) return r.id;
+        } catch {
+          /* an unreadable draft is not one to continue */
+        }
+      }
+      return null;
+    },
+
     // settings
     getSetting(key: string): string | null {
       const r = db.prepare('SELECT value FROM settings WHERE key=?').get(key) as { value: string } | undefined;

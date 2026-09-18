@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { DropdownMenu } from '@radix-ui/themes';
-import { ArrowCircleUp, CaretDown, Check, GearSix, Plus, Power, Sparkle } from '@phosphor-icons/react';
+import { ArrowCircleUp, CaretDown, Check, GearSix, Plus, Power, Megaphone } from '@phosphor-icons/react';
 import { Confirm } from '../Confirm.js';
 import { useToasts } from '../toasts.js';
 import { BrandAvatar, brandName } from './nav.js';
@@ -131,7 +131,7 @@ export function BrandMenu() {
           {/* Permanent, and gated on nothing: the release you are running is
             always a thing you are allowed to read about. */}
           <DropdownMenu.Item className="sc-menu-item" onSelect={() => whatsNew.open()}>
-            <Sparkle size={18} className="sc-menu-ic" />
+            <Megaphone size={18} className="sc-menu-ic" />
             <span className="sc-menu-lb">What's new</span>
             {whatsNew.unread && (
               <>

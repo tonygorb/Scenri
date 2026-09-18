@@ -3,6 +3,7 @@ import { WarningCircle } from '@phosphor-icons/react';
 import { nodeLabel, type FeedNode, thumbUrl } from '../../api.js';
 import { ChipPreview } from '../../composer/ChipPreview.js';
 import { useHoverPreview } from '../../composer/useHoverPreview.js';
+import { keyboardFocus } from '../../inputModality.js';
 
 /** How close to the end of the rail asks for the next page of the feed. */
 const END_PX = 200;
@@ -134,7 +135,7 @@ export function ShotRail({
                 }}
                 onPointerEnter={(e) => e.pointerType === 'mouse' && ready && peekAt(n, e.currentTarget)}
                 onPointerLeave={(e) => e.pointerType === 'mouse' && peek.close()}
-                onFocus={(e) => e.currentTarget.matches(':focus-visible') && ready && peekAt(n, e.currentTarget)}
+                onFocus={(e) => keyboardFocus(e.currentTarget) && ready && peekAt(n, e.currentTarget)}
               >
                 {ready ? (
                   <img

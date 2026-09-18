@@ -386,7 +386,7 @@
 .sc-token[data-open] {
   box-shadow: 0 0 0 2px var(--sc-fg) inset;
 }
-.sc-token:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-token:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: 1px;
 }
@@ -418,6 +418,12 @@
   position: relative;
   padding-inline-end: 0.64em;
   background: var(--sc-token-face);
+}
+/* While a guided task is walking someone through a brief, a chip is theirs to
+   change but not to take out: the tutor's Back is what takes one out, a step
+   at a time, so the walk never ends up with a hole in it. */
+:root[data-guide-task="first-shot"] [data-guide="compose"] .sc-token > button {
+  display: none;
 }
 .sc-token > button {
   position: absolute;
@@ -466,7 +472,7 @@
    grouped with [data-open] above and inherited its `outline: none`, so the one
    state that has to be visible from the keyboard was the one with nothing to
    see — which only mattered once a chip could be focused at all. */
-.sc-token:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-token:focus-visible {
   --sc-token-face: var(--sc-token-active);
   background: var(--sc-token-face);
   outline: var(--sc-ring-w) solid var(--sc-focus);
@@ -485,12 +491,12 @@
   background: var(--sc-token-face);
 }
 .sc-token[data-tinted][data-open],
-.sc-token[data-tinted]:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-token[data-tinted]:focus-visible {
   --sc-token-face: color-mix(in srgb, var(--tint) 20%, var(--sc-token-active));
   background: var(--sc-token-face);
   box-shadow: none;
 }
-.sc-token[data-tinted]:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-token[data-tinted]:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }

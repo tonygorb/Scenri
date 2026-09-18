@@ -55,7 +55,7 @@
 }
 
 .sc-convo-brief:hover .sc-convo-brief-copy,
-.sc-convo-brief-copy:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-convo-brief-copy:focus-visible,
 .sc-convo-brief-copy[data-took] {
   opacity: 1;
 }
@@ -259,7 +259,7 @@
 }
 
 .sc-convo-turn[data-who="you"]:hover .sc-convo-edit,
-.sc-convo-edit:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-convo-edit:focus-visible {
   opacity: 1;
 }
 
@@ -593,7 +593,7 @@
 }
 
 /* the ring has to read on any picture, so it is the picture's own light */
-.sc-convo-shot-do:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-convo-shot-do:focus-visible {
   outline: 2px solid #fff;
   outline-offset: -2px;
 }
@@ -1373,12 +1373,14 @@ button.sc-convo-shot-do {
    `:focus-within` counts the press that just moved the row, which left the
    controls standing after the pointer had gone. */
 .sc-convo-strip:hover .sc-convo-strip-go,
-.sc-convo-strip:has(.sc-convo-plate:focus-visible) .sc-convo-strip-go {
+:where(:root:not([data-input="pointer"])) .sc-convo-strip:has(.sc-convo-plate:focus-visible) .sc-convo-strip-go {
   opacity: 1;
 }
 
 .sc-convo-strip:hover .sc-convo-strip-go[data-spent],
-.sc-convo-strip:has(.sc-convo-plate:focus-visible) .sc-convo-strip-go[data-spent] {
+:where(:root:not([data-input="pointer"]))
+  .sc-convo-strip:has(.sc-convo-plate:focus-visible)
+  .sc-convo-strip-go[data-spent] {
   opacity: 0.3;
 }
 

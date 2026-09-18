@@ -122,7 +122,7 @@
   color: var(--sc-fg);
   opacity: 1;
 }
-.sc-swap-open:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-swap-open:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
   opacity: 1;
@@ -290,10 +290,10 @@
 .sc-swap-cur:hover .sc-swap-thumb {
   box-shadow: inset 0 0 0 1px var(--sc-line-strong);
 }
-.sc-swap-card:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-swap-card:focus-visible {
   outline: none;
 }
-.sc-swap-card:focus-visible .sc-swap-thumb {
+:where(:root:not([data-input="pointer"])) .sc-swap-card:focus-visible .sc-swap-thumb {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
@@ -322,7 +322,7 @@
 .sc-swap-more:hover {
   color: var(--sc-fg);
 }
-.sc-swap-more:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-swap-more:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
@@ -334,6 +334,12 @@
   gap: var(--swap-step);
   padding: var(--swap-inset);
   border-top: 1px solid var(--sc-line);
+}
+/* Nothing to say and nothing to do (no warning, no Remove while the tutor walks
+   the brief): no strip. An empty foot still drew its hairline and its inset,
+   a band under the shelf that read as something missing. */
+.sc-swap-foot:empty {
+  display: none;
 }
 .sc-swap-warn {
   flex: 1 0 100%;
@@ -366,7 +372,7 @@
   border-color: var(--sc-red);
   color: var(--sc-red);
 }
-.sc-swap-remove:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-swap-remove:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
@@ -397,7 +403,7 @@
 .sc-swap-swatch[data-on] {
   background: var(--sc-raised);
 }
-.sc-swap-swatch:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-swap-swatch:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
 }
@@ -566,8 +572,10 @@
    The two stroked sides are the ones that show; the square's other half
    sits inside the card, over its padding, and covers the card's own border
    there so the outline runs on through the tail. Which way it points is
-   which way the stroked corner is turned. */
-.sc-chip-preview-tail {
+   which way the stroked corner is turned. The coach card wears the same tail
+   (surfaces/settings.css places it). */
+.sc-chip-preview-tail,
+.sc-coach-arrow {
   position: absolute;
   width: 10px;
   height: 10px;

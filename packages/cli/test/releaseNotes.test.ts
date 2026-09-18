@@ -68,6 +68,15 @@ describe('GET /api/release/notes', () => {
     expect(core.store.getSetting('install.firstVersion')).toBe(pkg.version);
   });
 
+  it('an upgrade that already has brands and no marker is still stamped on first read', async () => {
+    core.store.createBrand({ specVersion: '0.1', meta: { name: 'Existing' } });
+    app = build();
+    expect(core.store.getSetting('install.firstVersion')).toBeNull();
+    const res = await app.inject({ method: 'GET', url: '/api/release/notes' });
+    expect(res.json().seen).toBe(pkg.version);
+    expect(core.store.getSetting('install.firstVersion')).toBe(pkg.version);
+  });
+
   it('never links a tag that cannot exist', async () => {
     // Zero tags exist until the first release, so pointing "Full changelog" at
     // v0.0.0 is a guaranteed 404. The releases index is the honest target, and

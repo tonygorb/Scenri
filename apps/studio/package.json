@@ -12,6 +12,7 @@
     "brand:icons": "node scripts/brand-icons.mjs"
   },
   "dependencies": {
+    "@floating-ui/dom": "^1.8.0",
     "@fontsource-variable/inter-tight": "^5.3.0",
     "@fontsource/playfair-display": "^5.3.0",
     "@phosphor-icons/react": "^2.1.10",

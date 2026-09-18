@@ -99,9 +99,9 @@ a.sc-lookcard {
   color: inherit;
   text-decoration: none;
 }
-.sc-lookcard-open:focus-visible,
-.sc-lookcard-use:focus-visible,
-.sc-lookcard[data-variant="select"]:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-lookcard-open:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-lookcard-use:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-lookcard[data-variant="select"]:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
@@ -140,7 +140,7 @@ a.sc-lookcard {
 .sc-cardpuck:hover {
   background: rgba(0, 0, 0, 0.62);
 }
-.sc-cardpuck:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-cardpuck:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
@@ -151,7 +151,7 @@ a.sc-lookcard {
   opacity: 0;
 }
 .sc-lookcard:hover .sc-lookcard-bookmark,
-.sc-lookcard-bookmark:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-lookcard-bookmark:focus-visible,
 .sc-lookcard-bookmark[data-on] {
   opacity: 1;
 }
@@ -173,7 +173,7 @@ a.sc-lookcard {
 }
 .sc-lookcard:hover .sc-lookcard-more,
 .sc-lookcard:focus-within .sc-lookcard-more,
-.sc-lookcard-more:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-lookcard-more:focus-visible {
   opacity: 1;
 }
 @media (hover: none) {
@@ -294,19 +294,19 @@ a.sc-lookcard {
     pointer-events: auto;
   }
 }
-.sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-veil,
-.sc-lookcard:has(.sc-lookcard-use:focus-visible) .sc-lookcard-veil,
-.sc-lookcard[data-variant="select"]:focus-visible .sc-lookcard-veil {
+:where(:root:not([data-input="pointer"])) .sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-veil,
+:where(:root:not([data-input="pointer"])) .sc-lookcard:has(.sc-lookcard-use:focus-visible) .sc-lookcard-veil,
+:where(:root:not([data-input="pointer"])) .sc-lookcard[data-variant="select"]:focus-visible .sc-lookcard-veil {
   opacity: 1;
 }
-.sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-cap,
-.sc-lookcard:has(.sc-lookcard-use:focus-visible) .sc-lookcard-cap,
-.sc-lookcard[data-variant="select"]:focus-visible .sc-lookcard-cap {
+:where(:root:not([data-input="pointer"])) .sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-cap,
+:where(:root:not([data-input="pointer"])) .sc-lookcard:has(.sc-lookcard-use:focus-visible) .sc-lookcard-cap,
+:where(:root:not([data-input="pointer"])) .sc-lookcard[data-variant="select"]:focus-visible .sc-lookcard-cap {
   opacity: 1;
   transform: none;
 }
-.sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-use,
-.sc-lookcard-use:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-use,
+:where(:root:not([data-input="pointer"])) .sc-lookcard-use:focus-visible {
   opacity: 1;
   transform: translate(-50%, -50%);
   pointer-events: auto;
@@ -409,8 +409,8 @@ a.sc-lookcard {
   .sc-lookcard-veil,
   .sc-lookcard[data-size="shelf"] .sc-lookcard-veil,
   .sc-lookcard[data-size="wizard"] .sc-lookcard-veil,
-  .sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-veil,
-  .sc-lookcard:has(.sc-lookcard-use:focus-visible) .sc-lookcard-veil,
+  :where(:root:not([data-input="pointer"])) .sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-veil,
+  :where(:root:not([data-input="pointer"])) .sc-lookcard:has(.sc-lookcard-use:focus-visible) .sc-lookcard-veil,
   .sc-lookcard[data-variant="select"] .sc-lookcard-veil {
     opacity: 0;
   }
@@ -462,20 +462,29 @@ a.sc-lookcard {
 }
 @media (hover: hover) {
   .sc-showcase-tile:hover .sc-lookcard img,
-  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard img {
+  :where(:root:not([data-input="pointer"])) .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard img {
     transform: scale(1.03);
   }
   .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-veil,
-  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-veil {
+  :where(:root:not([data-input="pointer"]))
+    .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
+    .sc-lookcard
+    .sc-lookcard-veil {
     opacity: 1;
   }
   .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-cap,
-  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-cap {
+  :where(:root:not([data-input="pointer"]))
+    .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
+    .sc-lookcard
+    .sc-lookcard-cap {
     opacity: 1;
     transform: none;
   }
   .sc-showcase-tile:hover .sc-lookcard .sc-lookcard-use,
-  .sc-showcase-tile:has(.sc-showcase-chips :focus-visible) .sc-lookcard .sc-lookcard-use {
+  :where(:root:not([data-input="pointer"]))
+    .sc-showcase-tile:has(.sc-showcase-chips :focus-visible)
+    .sc-lookcard
+    .sc-lookcard-use {
     opacity: 1;
     transform: translate(-50%, -50%);
     pointer-events: auto;
@@ -797,8 +806,8 @@ a.sc-lookcard {
 .sc-showcase-chip[data-link]:hover {
   background: var(--sc-credit-fill-hover);
 }
-.sc-showcase-badge[data-link]:focus-visible,
-.sc-showcase-chip[data-link]:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-showcase-badge[data-link]:focus-visible,
+:where(:root:not([data-input="pointer"])) .sc-showcase-chip[data-link]:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.85);
   outline-offset: 2px;
 }

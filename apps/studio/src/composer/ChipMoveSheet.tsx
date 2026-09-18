@@ -29,7 +29,8 @@ export function ChipMoveSheet({
   /** Tapping the picture opens it full size: a finger's way to the lightbox. */
   onInspect: () => void;
   onMove: (dir: -1 | 1) => void;
-  onRemove: () => void;
+  /** Left out while the tutor walks someone through the brief: Back is what takes a chip out. */
+  onRemove?: () => void;
   onClose: (reason: CloseReason) => void;
 }) {
   const { sheet, grip } = useSheetDrag(() => onClose('dismiss'));
@@ -85,10 +86,12 @@ export function ChipMoveSheet({
                 Move later <ArrowRight size={13} />
               </button>
             </div>
-            <button type="button" className="sc-swap-remove" onClick={onRemove}>
-              <Trash size={13} />
-              Remove {kind === 'mark' ? 'mark' : 'reference'}
-            </button>
+            {onRemove && (
+              <button type="button" className="sc-swap-remove" onClick={onRemove}>
+                <Trash size={13} />
+                Remove {kind === 'mark' ? 'mark' : 'reference'}
+              </button>
+            )}
           </div>
         </Dialog.Content>
       </Dialog.Portal>

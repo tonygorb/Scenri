@@ -50,7 +50,7 @@
   background: var(--sc-hover);
   color: var(--sc-fg);
 }
-.sc-set-item:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-set-item:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
@@ -109,7 +109,7 @@
   background: var(--sc-hover);
   color: var(--sc-fg);
 }
-.sc-set-close:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-set-close:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
@@ -563,7 +563,7 @@ select.sc-in {
 .sc-tp:hover {
   border-color: var(--sc-line-strong);
 }
-.sc-tp:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-tp:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
@@ -913,6 +913,330 @@ select.sc-in {
   background: color-mix(in srgb, var(--sc-red) 14%, var(--sc-raised));
   color: var(--sc-red);
 }
+/* A first-use hint: one quiet sentence, no mark and no verb of its own, because
+   the brief under it is where the person acts. It fades in on the focus that
+   raises it and leaves at once, so nothing lingers under a moving caret. */
+.sc-banner[data-tone="hint"] {
+  gap: 8px;
+  padding: 7px 7px 7px 11px;
+  font: 400 12.5px / 1.35 var(--sc-font);
+  color: var(--sc-fg2);
+  animation: sc-hint-in var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-banner[data-tone="hint"] .sc-banner-txt {
+  text-wrap: pretty;
+}
+.sc-banner-x {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  color: var(--sc-fg3);
+}
+@keyframes sc-hint-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-banner[data-tone="hint"] {
+    animation: none;
+  }
+}
+
+/* The first-use coach (layout/Coachmark.tsx): a window in a curtain.
+   The veil darkens and softens the page behind while the page is inert; the
+   stop's own surface shows through a window cut in it, sharp and working. The
+   blur is a temporary focus device, never a surface style: it is static, it is
+   only ever on this veil, and the card over it stays the app's opaque floating
+   coat (panel, strong hairline, the popover shadow) with the chip preview's
+   tail pointing at what it describes. Layers sit above the dock, tab bar and
+   help float, and below what the first shot goes through (the attach panel
+   at 70 floats over the curtain, live), what pauses the coach (shot overlay
+   80, sheets, dialogs) and what must stay live over it (poppers, toasts). */
+.sc-coach-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  pointer-events: none;
+  animation: sc-coach-veil-in var(--sc-dur-slow) var(--sc-ease);
+}
+/* The windows are masked out after the blur, so they stay sharp and undimmed.
+   Dark enough that the window is the first thing read, light enough that the
+   page behind is still recognisably the page; the blur is static and never
+   animates, only the veil's opacity fades in. One mask the size of the screen
+   holds every window with its own radius (layout/coachGeometry.ts). */
+.sc-coach-veil[data-veil="mask"] {
+  background: rgba(0, 0, 0, 0.52);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+/* Where a mask cannot cut the windows, four plain panels frame them instead. */
+.sc-coach-panel {
+  display: none;
+  position: fixed;
+  background: rgba(0, 0, 0, 0.8);
+}
+/* The windows' edge on the curtain: a quiet line traced around each window's
+   real shape, only where it meets the veil. */
+.sc-coach-rim {
+  position: fixed;
+  inset: 0;
+  z-index: 66;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  animation: sc-coach-veil-in var(--sc-dur-slow) var(--sc-ease);
+}
+/* Clear panels around the window take the page's presses; the window itself
+   is left open to the real control. */
+.sc-coach-catch {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  pointer-events: none;
+}
+.sc-coach-catch-part {
+  display: none;
+  position: fixed;
+  pointer-events: auto;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+.sc-coach-veil[data-state="away"],
+.sc-coach-rim[data-state="away"],
+.sc-coach-catch[data-state="away"],
+.sc-coach-ring[data-state="away"] {
+  visibility: hidden;
+  pointer-events: none;
+}
+.sc-coach-catch[data-state="away"] .sc-coach-catch-part {
+  pointer-events: none;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sc-coach-veil[data-veil="mask"] {
+    background: rgba(0, 0, 0, 0.62);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .sc-coach-veil[data-veil="mask"] {
+    background: rgba(0, 0, 0, 0.62);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@keyframes sc-coach-veil-in {
+  from {
+    opacity: 0;
+  }
+}
+/* The stage stays whole and sharp in its window; inside it, whatever the step
+   does not ask for recedes, so the one control that is asked for is the one
+   thing at full strength. It is still there to read, only not yet to use. */
+[data-guide-stage] [data-sc-coach-inert] {
+  opacity: 0.32;
+  transition: opacity var(--sc-dur-slow) var(--sc-ease);
+}
+/* The control the step asks for, inside its stage: a crisp ring clear of its
+   edge that draws the eye once with a soft ripple, then rests. */
+.sc-coach-ring {
+  position: fixed;
+  z-index: 66;
+  box-sizing: border-box;
+  border: 2px solid var(--sc-fg);
+  pointer-events: none;
+  animation: sc-coach-ring-in 1.4s var(--sc-ease) 2;
+}
+@keyframes sc-coach-ring-in {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--sc-fg) 28%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--sc-fg) 0%, transparent);
+  }
+}
+.sc-coach {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 67;
+  box-sizing: border-box;
+  width: min(300px, calc(100vw - 24px));
+  padding: 16px;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-panel);
+  box-shadow: var(--sc-shadow-2);
+  color: var(--sc-fg);
+  font-family: var(--sc-font);
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+/* The opening: nothing to point at, so the card sits in the middle of the page
+   it has just arrived on, a little wider to carry the one paragraph it says. */
+.sc-coach[data-side="centre"] {
+  width: min(360px, calc(100vw - 32px));
+}
+.sc-coach[data-beside] {
+  width: min(280px, calc(100vw - 24px));
+}
+
+/* On a phone the card is the same callout it is on a desktop, and its controls
+   are the size a thumb needs (WCAG 2.5.5 asks 44px). */
+@media (max-width: 767px) {
+  .sc-coach .sc-coach-next {
+    min-height: 44px;
+    padding-inline: 18px;
+  }
+  /* Back alone in a foot read as a stray word, so on a phone it takes the
+     app's quiet pill: a control at a thumb's size, on the same left edge as
+     the sentence above it. */
+  .sc-coach .sc-coach-back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 999px;
+    background: var(--sc-hover);
+    font-size: 13.5px;
+    color: var(--sc-fg);
+  }
+}
+
+.sc-coach[data-state="moving"],
+.sc-coach[data-state="stowed"],
+.sc-coach[data-state="away"] {
+  opacity: 0;
+  pointer-events: none;
+}
+.sc-coach-arrow[data-edge="bottom"] {
+  bottom: -6px;
+  transform: rotate(-45deg);
+}
+.sc-coach-arrow[data-edge="top"] {
+  top: -6px;
+  transform: rotate(135deg);
+}
+.sc-coach-arrow[data-edge="left"] {
+  left: -6px;
+  transform: rotate(45deg);
+}
+.sc-coach-arrow[data-edge="right"] {
+  right: -6px;
+  transform: rotate(225deg);
+}
+.sc-coach-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.sc-coach-title {
+  flex: 1;
+  margin: 0;
+  padding-top: 1px;
+  font: 600 13.5px / 1.35 var(--sc-font);
+  text-wrap: balance;
+}
+/* Only the X: no disc, no border. The reach is wider than the glyph. */
+.sc-coach-x {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: -2px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius-sm);
+  background: none;
+  color: var(--sc-fg3);
+  cursor: pointer;
+}
+.sc-coach-x::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  width: 36px;
+  height: 36px;
+}
+.sc-coach-x:hover:not(:active) {
+  color: var(--sc-fg);
+}
+
+@media (pointer: coarse) {
+  .sc-coach-x::after {
+    width: var(--sc-tap);
+    height: var(--sc-tap);
+  }
+}
+/* Where this is in the walk: said once, quietly, beside what it is asking. */
+.sc-coach-count {
+  flex: none;
+  margin: 0;
+  padding-top: 3px;
+  font: 500 11.5px var(--sc-font);
+  color: var(--sc-fg3);
+  white-space: nowrap;
+}
+.sc-coach-body {
+  margin: 6px 0 0;
+  font: 400 12.5px / 1.5 var(--sc-font);
+  color: var(--sc-fg2);
+  text-wrap: pretty;
+}
+/* A card with no title leads with its one sentence, beside the X. */
+.sc-coach-body[data-lead] {
+  flex: 1;
+  margin: 0;
+  padding-top: 2px;
+  color: var(--sc-fg);
+}
+.sc-coach-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.sc-coach-back {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 500 12.5px var(--sc-font);
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+.sc-coach-back:hover:not(:active) {
+  color: var(--sc-fg);
+}
+.sc-coach-next {
+  margin-left: auto;
+  height: 28px;
+  padding: 0 14px;
+  font-size: 12.5px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-coach-veil,
+  .sc-coach-rim,
+  .sc-coach-ring {
+    animation: none;
+  }
+  [data-guide-stage] [data-sc-coach-inert] {
+    transition: none;
+  }
+  .sc-coach {
+    transition: none;
+  }
+}
+@media (forced-colors: active) {
+  .sc-coach-ring {
+    border-color: Highlight;
+  }
+}
 
 .sc-banner-act {
   flex: none;
@@ -932,7 +1256,7 @@ select.sc-in {
   border-color: var(--sc-fg3);
   background: var(--sc-raised);
 }
-.sc-banner-act:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-banner-act:focus-visible {
   outline: 2px solid var(--sc-fg);
   outline-offset: 2px;
 }
@@ -965,7 +1289,7 @@ select.sc-in {
 .sc-note-info[data-state="open"] {
   color: var(--sc-fg);
 }
-.sc-note-info:focus-visible {
+:where(:root:not([data-input="pointer"])) .sc-note-info:focus-visible {
   outline: 2px solid var(--sc-fg);
   outline-offset: 2px;
   border-radius: var(--sc-radius-full);
