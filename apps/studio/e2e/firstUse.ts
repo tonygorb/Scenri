@@ -10,9 +10,22 @@ export const coachCard = (p: Page) => p.locator('.sc-coach');
 export const coachTitle = (p: Page) => p.locator('.sc-coach .sc-coach-title');
 export const coachBody = (p: Page) => p.locator('.sc-coach .sc-coach-body');
 export const welcome = (p: Page) => p.locator('.sc-welcome');
-export const steps = (p: Page) => p.locator('.sc-steps');
+/** Learn's ghost button in the bar (from 1024px), the dialog it opens, and one lesson in it. */
+export const learnButton = (p: Page) => p.locator('.sc-learn-btn');
+export const learnDialog = (p: Page) =>
+  p.getByRole('dialog').filter({ has: p.locator('.sc-learn-grid, .sc-learn-detail') });
+export const lessonCard = (p: Page, title: string) => learnDialog(p).locator('.sc-learn-card', { hasText: title });
 export const brief = (p: Page) => p.locator('[data-guide="compose"] .sc-brief-line');
 export const chips = (p: Page) => p.locator('[data-guide="compose"] .sc-brief-line .sc-token');
+
+/** Opens one lesson from the bar's Learn and takes its one action, the way a person does. */
+export async function fromLearn(p: Page, title: string): Promise<void> {
+  await learnButton(p).click();
+  await lessonCard(p, title).click();
+  await learnDialog(p)
+    .getByRole('button', { name: /^(Start|Continue|Do it again|Make a shot first)$/ })
+    .click();
+}
 
 export async function guideRecord(p: Page): Promise<GuideView> {
   return (await (await p.request.get('/api/guide')).json()) as GuideView;

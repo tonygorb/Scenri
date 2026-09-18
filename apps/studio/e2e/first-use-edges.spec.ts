@@ -13,7 +13,9 @@ import {
   pickTheIngredients,
   readTheOpening,
   setUpBrand,
-  steps,
+  learnButton,
+  learnDialog,
+  lessonCard,
   welcome,
 } from './firstUse.js';
 
@@ -34,6 +36,8 @@ test.beforeEach(async ({ page }) => {
 test('it asks for what is missing, whatever is already there', async ({ page }) => {
   await setUpBrand(page, 'Part Way');
   await welcome(page).locator('.sc-welcome-foot').getByRole('button', { name: 'Not now' }).click();
+  // the answer is kept before the next write, or the two race at the server
+  await expect.poll(async () => (await guideRecord(page)).welcome).toBe('declined');
 
   // a brief with a product in it is asked about the presenter, never the product
   const own = await ownBrand(page, 'Halfway');
@@ -107,12 +111,14 @@ test('a task belongs to its own brand, and another brand is not guided by it', a
   const a = await ownBrand(page, 'Brand A');
   const b = await ownBrand(page, 'Brand B', 'scene');
   await page.goto(`/${a}/create`);
-  // the task in hand is brand B's, so brand A shows nothing and offers it as a step
+  // the task in hand is brand B's, so brand A shows nothing and has nothing in hand
   await expect(coachCard(page)).toHaveCount(0);
   await page.goto(`/${a}`);
-  await expect(steps(page).locator('.sc-steps-item[data-state="active"]')).toHaveCount(0);
+  await learnButton(page).click();
+  await expect(learnDialog(page).locator('.sc-learn-meta', { hasText: /^Step/ })).toHaveCount(0);
   await page.goto(`/${b}`);
-  await expect(steps(page).locator('.sc-steps-item[data-state="active"]')).toHaveText(/Continue your scene/);
+  await learnButton(page).click();
+  await expect(lessonCard(page, 'Build a scene').locator('.sc-learn-meta')).toHaveText(/^Step \d of 3$/);
 });
 
 test('someone who built the brief their own way is not asked for it again', async ({ page }) => {

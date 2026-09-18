@@ -96,18 +96,6 @@ describe('the guide record in the studio', () => {
     expect(guideSnapshot().active).toBeNull();
   });
 
-  it('asking for First steps holds through server answers, and hiding lets go of it', async () => {
-    const { askForFirstSteps } = await import('../src/guide.js');
-    guide.mockResolvedValue(view({ hidden: true }));
-    await loadGuide();
-    guideIntentApi.mockResolvedValueOnce(view({ hidden: false }));
-    await askForFirstSteps();
-    expect(guideSnapshot()).toMatchObject({ asked: true, hidden: false });
-    guideIntentApi.mockReturnValue(new Promise(() => {}));
-    void guideIntent({ hidden: true });
-    expect(guideSnapshot()).toMatchObject({ asked: false, hidden: true });
-  });
-
   it('a refresh reads again even after the first load', async () => {
     guide.mockResolvedValueOnce(view()).mockResolvedValueOnce(view({ hidden: true }));
     await loadGuide();

@@ -31,9 +31,9 @@ export const ALL_LESSONS = 'lessons';
  * article: a picture of what the lesson makes, its steps as outcomes, and
  * whether it is new, in hand or done, all read from the install's record.
  *
- * It lives in the address like Settings (`?learn`, `?learn=<lesson>`), so Help,
- * First steps and a pasted link are the same door, and it is Help, not a place:
- * the five destinations stay the five.
+ * It lives in the address like Settings (`?learn`, `?learn=<lesson>`), so the
+ * bar's Learn button, Help and a pasted link are the same door. It opens over
+ * the page you are on: the five destinations stay the five.
  */
 export function LearnDialog() {
   const param = useDialogParam('learn');
@@ -61,13 +61,16 @@ export function LearnDialog() {
     param.close();
   };
   // Closed without beginning anything, the keyboard goes back where it came
-  // from; opened from Help's menu, that item is gone, so it goes to Help.
+  // from: the bar's Learn button, or Help where the bar has none (below 1024px).
   const onCloseAutoFocus = () => {
     const leaving = began.current;
     began.current = false;
     if (leaving) return;
     requestAnimationFrame(() => {
-      if (document.activeElement === document.body) document.querySelector<HTMLElement>('.sc-help-btn')?.focus();
+      if (document.activeElement !== document.body) return;
+      (
+        document.querySelector<HTMLElement>('.sc-learn-btn') ?? document.querySelector<HTMLElement>('.sc-help-btn')
+      )?.focus();
     });
   };
 
@@ -230,7 +233,7 @@ function LessonDetail({
                     data-state={s}
                     aria-current={s === 'active' ? 'step' : undefined}
                   >
-                    <span className="sc-steps-mark" aria-hidden="true">
+                    <span className="sc-learn-mark" aria-hidden="true">
                       {s === 'done' && <Check size={10} weight="bold" />}
                     </span>
                     {step}

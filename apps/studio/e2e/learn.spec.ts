@@ -6,15 +6,16 @@ import {
   guideRecord,
   noWelcomeWait,
   pickTheIngredients,
+  learnButton,
   setUpBrand,
-  steps,
   welcome,
 } from './firstUse.js';
 
 /**
- * Learn (DESIGN.md, "First use"): every lesson, then one lesson, and a lesson
- * is the same guided task First steps runs. Begun from either, it is in hand
- * in both; done from either (or without the tutor), it is done in both.
+ * Learn (DESIGN.md, "First use"): the bar's ghost button beside the bell, every
+ * lesson, then one lesson. A lesson is a guided task: begun here it is in hand
+ * here, paused it is continued as it was, and done here (or without the tutor)
+ * it is done here.
  */
 isolate({ brand: false, env: { SCENRI_NO_GUIDE: '0', SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5' } });
 test.describe.configure({ mode: 'serial' });
@@ -28,11 +29,12 @@ test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
 });
 
-test('First steps and Learn are one list, and Learn is every lesson in it', async ({ page }) => {
+test('Learn is a quiet button beside the bell, and every lesson is in it', async ({ page }) => {
   slug = await setUpBrand(page, 'Learning Co');
   await welcome(page).locator('.sc-welcome-foot').getByRole('button', { name: 'Not now' }).click();
-  // the short list's way to the long one
-  await steps(page).getByRole('button', { name: 'All lessons' }).click();
+  await expect(learnButton(page)).toHaveText('Learn');
+  await expect(page.locator('.sc-learn-btn + .sc-notif-btn')).toHaveCount(1);
+  await learnButton(page).click();
   await expect(page).toHaveURL(/learn=lessons/);
   await expect(learn(page).locator('.sc-learn-name')).toHaveText([
     'Make your first shot',
@@ -44,13 +46,8 @@ test('First steps and Learn are one list, and Learn is every lesson in it', asyn
   // where each stands, in a few words: a count of steps, never a time
   await expect(card(page, 'Create a presenter').locator('.sc-learn-meta')).toHaveText('4 steps');
   await expect(learn(page)).not.toContainText(/min/);
-  // First steps is the same list, four of them
-  await expect(steps(page).locator('.sc-steps-item')).toHaveText([
-    'Make your first shot',
-    'Create a presenter',
-    'Build a scene',
-    'Refine a shot',
-  ]);
+  // pressed while open it shows it is the one open
+  await expect(learnButton(page)).toHaveAttribute('data-on', 'true');
 
   // one lesson: its steps as outcomes, and one way to begin it
   await card(page, 'Create a presenter').click();
@@ -71,12 +68,11 @@ test('First steps and Learn are one list, and Learn is every lesson in it', asyn
   await expect(learn(page).locator('.sc-newdlg-title')).toHaveText('Build a scene');
   await page.keyboard.press('Escape');
   await expect(learn(page)).toHaveCount(0);
+  await expect(learnButton(page)).toBeFocused();
   expect((await guideRecord(page)).active).toBeNull();
 });
 
-test('a lesson begun in Learn is the same task First steps continues, paused and continued as it was', async ({
-  page,
-}) => {
+test('a lesson begun in Learn is paused and continued as it was', async ({ page }) => {
   await page.goto(`/${slug}?learn=presenter`);
   await learn(page).getByRole('button', { name: 'Start' }).click();
   await page.waitForURL('**/presenters/new**');
@@ -89,10 +85,9 @@ test('a lesson begun in Learn is the same task First steps continues, paused and
   await expect(page.locator('.sc-pstudio .sc-coach')).toHaveCount(0);
   await expect.poll(async () => (await guideRecord(page)).active?.paused).toBe(true);
 
-  // First steps and Learn both say it is in hand
+  // Learn says it is in hand
   await page.goto(`/${slug}`);
-  await expect(steps(page).locator('.sc-steps-item[data-state="active"]')).toHaveText('Continue your presenter');
-  await steps(page).getByRole('button', { name: 'All lessons' }).click();
+  await learnButton(page).click();
   await expect(card(page, 'Create a presenter').locator('.sc-learn-meta')).toHaveText('Step 1 of 4');
   await card(page, 'Create a presenter').click();
   await expect(learn(page).locator('.sc-learn-step[aria-current="step"]')).toHaveText('Start a presenter');
@@ -107,7 +102,7 @@ test('a lesson begun in Learn is the same task First steps continues, paused and
   expect(going?.paused).toBeUndefined();
 });
 
-test('a lesson done from Learn is done in First steps, and can be done again', async ({ page }) => {
+test('a lesson done from Learn is done there, and can be done again', async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto(`/${slug}?learn=scene`);
   await learn(page).getByRole('button', { name: 'Start' }).click();
@@ -120,11 +115,7 @@ test('a lesson done from Learn is done in First steps, and can be done again', a
   await expect.poll(async () => (await guideRecord(page)).active, { timeout: 20_000 }).toBeNull();
 
   await page.goto(`/${slug}`);
-  await expect(steps(page).locator('.sc-steps-item', { hasText: 'Build a scene' })).toHaveAttribute(
-    'data-state',
-    'done',
-  );
-  await steps(page).getByRole('button', { name: 'All lessons' }).click();
+  await learnButton(page).click();
   await expect(card(page, 'Build a scene').locator('.sc-learn-meta')).toHaveText('Done');
   await card(page, 'Build a scene').click();
   await expect(learn(page).locator('.sc-learn-step[data-state="done"]')).toHaveCount(3);
@@ -171,7 +162,12 @@ test('a first refine begun from Learn ends when it is done, and does not begin a
 
 test('on a phone Learn is the sheet, and every lesson a row', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/${slug}?learn=lessons`);
+  // no room in a phone's bar for a word: Help, which sits there, carries Learn
+  await page.goto(`/${slug}`);
+  await expect(learnButton(page)).toHaveCount(0);
+  await page.locator('.sc-topbar .sc-help-btn').click();
+  await page.getByRole('menuitem', { name: 'Learn' }).click();
+  await expect(page).toHaveURL(/learn=lessons/);
   await expect(learn(page).locator('.sc-learn-card')).toHaveCount(5);
   const columns = await learn(page)
     .locator('.sc-learn-grid')

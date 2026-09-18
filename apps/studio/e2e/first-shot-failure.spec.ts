@@ -13,7 +13,8 @@ import {
   pickTheIngredients,
   readTheOpening,
   setUpBrand,
-  steps,
+  fromLearn,
+  learnButton,
   welcome,
 } from './firstUse.js';
 
@@ -34,12 +35,14 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('scenri:count', '1'));
 });
 
-test('declining the welcome holds nothing, and First steps offers the first shot', async ({ page }) => {
+test('declining the welcome holds nothing, and Learn offers the first shot', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   slug = await setUpBrand(page, 'Second Take');
   await welcome(page).locator('.sc-welcome-foot').getByRole('button', { name: 'Not now' }).click();
   await expect(welcome(page)).toHaveCount(0);
-  await expect(steps(page)).toBeVisible();
+  await expect(learnButton(page)).toBeVisible();
+  // the answer is kept before anything else happens
+  await expect.poll(async () => (await guideRecord(page)).welcome).toBe('declined');
   await page.goto(`/${slug}/create`);
   await expectNoGuide(page);
   expect((await guideRecord(page)).welcome).toBe('declined');
@@ -49,7 +52,7 @@ test('a take the engine refuses is said on its tile, and building again picks th
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/${slug}`);
-  await steps(page).locator('.sc-steps-item', { hasText: 'Make your first shot' }).click();
+  await fromLearn(page, 'Make your first shot');
   await readTheOpening(page);
   await pickTheIngredients(page);
   await page.keyboard.type('at dusk, by the window');

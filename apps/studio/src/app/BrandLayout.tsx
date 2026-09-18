@@ -323,9 +323,9 @@ export function BrandLayout() {
                 <Outlet />
                 <TabBar />
               </div>
-              {/* First use: the welcome, the guided task in hand, and the help
-                button that brings First steps back (DESIGN.md, "First use").
-                Help stays when first use is paused (firstUse.ts). */}
+              {/* First use: the welcome, the guided task in hand, and Learn
+                (DESIGN.md, "First use"). Help stays when first use is paused
+                (firstUse.ts). */}
               {FIRST_USE && <GuideHost />}
               {FIRST_USE && <LearnDialog />}
               <HelpFloat />

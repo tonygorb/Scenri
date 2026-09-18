@@ -17,7 +17,10 @@ import {
   pointsAt,
   readTheOpening,
   setUpBrand,
-  steps,
+  fromLearn,
+  learnButton,
+  learnDialog,
+  lessonCard,
   welcome,
 } from './firstUse.js';
 
@@ -144,7 +147,7 @@ test('a reload lands on the same moment, and the X ends only the guidance', asyn
   await coachCard(page).getByRole('button', { name: 'Close guide' }).click();
   await expect(coachCard(page)).toHaveCount(0);
   await expectLetGo(page);
-  await expect(page.getByText('Continue it any time from Learn, under Help.')).toBeVisible();
+  await expect(page.getByText('Continue it any time from Learn.')).toBeVisible();
   // their work is untouched and the page is theirs again
   await expect(chips(page)).toHaveCount(3);
   expect(await isInert(page, '[data-guide="compose.send"]')).toBe(false);
@@ -157,25 +160,23 @@ test('a reload lands on the same moment, and the X ends only the guidance', asyn
   await expectNoGuide(page);
 });
 
-test('First steps lists four real things, ticks what exists, hides with an Undo', async ({ page }) => {
+test('Learn sits in the bar beside the bell, and says what is already done', async ({ page }) => {
   await page.goto(`/${slug}`);
-  await expect(steps(page).locator('.sc-steps-item')).toHaveText([
-    /Make your first shot/,
-    /Create a presenter/,
-    /Build a scene/,
-    /Refine a shot/,
-  ]);
-  await expect(steps(page).locator('.sc-steps-item[data-state="done"]')).toHaveCount(2);
-  await expect(steps(page).locator('.sc-steps-count')).toHaveText('2 of 4');
-  await steps(page).getByRole('button', { name: 'Hide first steps' }).click();
-  await expect(steps(page)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Undo' }).click();
-  await expect(steps(page)).toBeVisible();
+  // no list of steps on Home: the create cards are the way in, Learn is the guide
+  await expect(page.locator('.sc-steps')).toHaveCount(0);
+  await expect(page.locator('.sc-learn-btn + .sc-notif-btn')).toHaveCount(1);
+  await learnButton(page).click();
+  await expect(page).toHaveURL(/learn=lessons/);
+  await expect(lessonCard(page, 'Make your first shot').locator('.sc-learn-meta')).toHaveText('Done');
+  // closed without beginning anything, the keyboard is back on the button
+  await page.keyboard.press('Escape');
+  await expect(learnDialog(page)).toHaveCount(0);
+  await expect(learnButton(page)).toBeFocused();
 });
 
 test('a scene has its own task, held in the dialog it is made in', async ({ page }) => {
   await page.goto(`/${slug}`);
-  await steps(page).locator('.sc-steps-item', { hasText: 'Build a scene' }).click();
+  await fromLearn(page, 'Build a scene');
   await expect(page).toHaveURL(/new=scene/);
   const layer = page.locator('.sc-newdlg-layer');
   await expect(layer.locator('.sc-coach .sc-coach-title')).toHaveText('Build a scene');
@@ -184,7 +185,8 @@ test('a scene has its own task, held in the dialog it is made in', async ({ page
   await layer.getByPlaceholder('Name this place').fill('Terrace');
   await expect(layer.getByPlaceholder('Name this place')).toHaveValue('Terrace');
   await layer.getByRole('button', { name: 'Close', exact: true }).first().click();
-  // closing the dialog does not end the task: First steps continues it
+  // closing the dialog does not end the task: Learn continues it
   expect((await guideRecord(page)).active?.task).toBe('scene');
-  await expect(steps(page).locator('.sc-steps-item[data-state="active"]')).toHaveText(/Continue your scene/);
+  await learnButton(page).click();
+  await expect(lessonCard(page, 'Build a scene').locator('.sc-learn-meta')).toHaveText(/^Step \d of 3$/);
 });

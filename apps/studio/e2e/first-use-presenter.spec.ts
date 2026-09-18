@@ -1,13 +1,24 @@
 import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
-import { guideRecord, isInert, noWelcomeWait, pointsAt, setUpBrand, steps, welcome } from './firstUse.js';
+import {
+  fromLearn,
+  guideRecord,
+  isInert,
+  learnButton,
+  learnDialog,
+  lessonCard,
+  noWelcomeWait,
+  pointsAt,
+  setUpBrand,
+  welcome,
+} from './firstUse.js';
 
 /**
  * The presenter task (DESIGN.md, "First use"): the studio asks its own
  * questions, so the tutor says nothing through them. Three decisions earn a
  * word, because the questions do not explain them: which road to take, whether
  * this face is the face, and that saving is what keeps them. A studio left
- * with a draft keeps the task, and First steps continues that exact draft.
+ * with a draft keeps the task, and Learn continues that exact draft.
  */
 isolate({
   brand: false,
@@ -41,8 +52,8 @@ test('a word at the start, then quiet: the studio asks its own questions', async
     (b) => b.slug === slug,
   )?.id as string;
 
-  // First steps opens the studio, and the tutor says which road is which.
-  await steps(page).locator('.sc-steps-item', { hasText: 'Create a presenter' }).click();
+  // Learn opens the studio, and the tutor says which road is which.
+  await fromLearn(page, 'Create a presenter');
   await page.waitForURL('**/presenters/new**');
   await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Describe someone, or start from photos', {
     timeout: 20_000,
@@ -79,10 +90,12 @@ test('the face and the save are the two words it says, and saving ends the task'
   await page.request.post(`${base}/${draft.id}/views/portrait/generate`, { data: {} });
   await settled(page, brandId, draft.id, 'portrait', 'candidate');
 
-  // First steps continues that exact draft.
+  // Learn continues that exact draft.
   await page.goto(`/${slug}`);
-  await expect(steps(page).locator('.sc-steps-item[data-state="active"]')).toHaveText(/Continue your presenter/);
-  await steps(page).locator('.sc-steps-item', { hasText: 'Continue your presenter' }).click();
+  await learnButton(page).click();
+  await expect(lessonCard(page, 'Create a presenter').locator('.sc-learn-meta')).toHaveText(/^Step \d of 4$/);
+  await lessonCard(page, 'Create a presenter').click();
+  await learnDialog(page).getByRole('button', { name: 'Continue' }).click();
   await page.waitForURL(`**/presenters/new/${draft.id}`);
 
   await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Decide the face', { timeout: 20_000 });

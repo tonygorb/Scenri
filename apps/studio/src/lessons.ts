@@ -4,10 +4,9 @@ import { MILESTONE } from './guidedTasks.js';
 /**
  * The lessons (DESIGN.md, "First use"): each one is a real thing to do in
  * Scenri, run by the same guided task the tutor already follows. This is the
- * one list of them. First steps shows the ones marked `firstStep`, Learn shows
- * them all, and both read whether one is done, in hand or new from the same
- * install record. Nothing here stores anything: a lesson is a task, a few
- * words about it, and a picture of what it makes.
+ * one list of them, and Learn shows it, reading whether each one is done, in
+ * hand or new from the install record. Nothing here stores anything: a lesson
+ * is a task, a few words about it, and a picture of what it makes.
  *
  * A new lesson is a new guided task first (its rule in guidedTasks.ts, where
  * it begins in useLaunchTask.ts), and then an entry here.
@@ -16,14 +15,10 @@ export interface Lesson {
   /** The guided task it runs. */
   id: GuideTaskId;
   title: string;
-  /** Its First steps row while it is in hand. */
-  resume: string;
   /** One sentence: what someone has at the end of it. */
   summary: string;
   /** What it walks through, as outcomes rather than clicks. */
   steps: readonly string[];
-  /** Listed in First steps, the new install's short list. */
-  firstStep: boolean;
   /** What it needs before it can begin. Refining needs a shot to refine. */
   needs?: 'shot';
 }
@@ -32,42 +27,32 @@ export const LESSONS: readonly Lesson[] = [
   {
     id: 'first-shot',
     title: 'Make your first shot',
-    resume: 'Continue your first shot',
     summary: 'Put a product, a presenter and a scene together, say how to shoot it, and Scenri makes the picture.',
     steps: ['Choose a product, a presenter and a scene', 'Say how to shoot it', 'Make the shot', 'Open it'],
-    firstStep: true,
   },
   {
     id: 'product',
     title: 'Add your product',
-    resume: 'Continue your product',
     summary: 'Bring in what you sell, from its photos or from your store, so every shot shows the real thing.',
     steps: ['Start a product', 'Add its photos, or bring in your store', 'Save it'],
-    firstStep: false,
   },
   {
     id: 'presenter',
     title: 'Create a presenter',
-    resume: 'Continue your presenter',
     summary: 'A person Scenri keeps, from a description or from photos, who shows your products in every shot.',
     steps: ['Start a presenter', 'Describe someone, or add photos', 'Decide the face', 'Save them'],
-    firstStep: true,
   },
   {
     id: 'scene',
     title: 'Build a scene',
-    resume: 'Continue your scene',
     summary: 'A place and its light, saved to shoot in again, from a photo or a line of direction.',
     steps: ['Start a scene', 'Name it, then add a photo or a line', 'Create it'],
-    firstStep: true,
   },
   {
     id: 'refine',
     title: 'Refine a shot',
-    resume: 'Continue refining',
     summary: 'Change one thing about a shot you like. The rest stays as it is, and the original is kept.',
     steps: ['Open a shot', 'Say one change', 'See the change'],
-    firstStep: true,
     needs: 'shot',
   },
 ];
@@ -93,26 +78,6 @@ export type LessonState = 'new' | 'active' | 'done';
 export function lessonState(id: GuideTaskId, view: Pick<GuideView, 'done' | 'active'>, brandId: string): LessonState {
   if (view.active?.task === id && view.active.brandId === brandId) return 'active';
   return view.done[MILESTONE[id]] ? 'done' : 'new';
-}
-
-export interface StepRow {
-  task: GuideTaskId;
-  /** The step as the next thing to do. */
-  title: string;
-  state: 'todo' | 'active' | 'done';
-}
-
-/** First steps, or null when it has nothing to say or was put away. */
-export function firstSteps(
-  view: Pick<GuideView, 'hidden' | 'done' | 'active'> & { loaded: boolean; asked?: boolean },
-): StepRow[] | null {
-  if (!view.loaded || view.hidden) return null;
-  const rows = LESSONS.filter((l) => l.firstStep).map((l): StepRow => {
-    const state = view.done[MILESTONE[l.id]] ? 'done' : view.active?.task === l.id ? 'active' : 'todo';
-    return { task: l.id, title: state === 'active' ? l.resume : l.title, state };
-  });
-  // Done with everything, it leaves; asked for from Help, it stays so any step can be done again.
-  return rows.every((r) => r.state === 'done') && !view.asked ? null : rows;
 }
 
 export interface ProgressFacts {

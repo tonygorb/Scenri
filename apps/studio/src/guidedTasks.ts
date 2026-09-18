@@ -404,7 +404,7 @@ export const MILESTONE: Record<GuideTaskId, keyof GuideView['done']> = {
 
 /**
  * Whether someone new opening a surface on their own begins its task. Only
- * once (not done, not closed), only with First steps still wanted. A task left
+ * once (not done, not closed), only while the install still wants guiding. A task left
  * in hand on another surface gives way, so an abandoned dialog never blocks the
  * next thing; the first shot never does. Tasks never chain: the caller only
  * asks when the person has engaged with the surface.

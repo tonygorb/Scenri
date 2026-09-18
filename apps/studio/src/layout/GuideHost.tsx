@@ -246,7 +246,7 @@ export function GuideHost() {
   const dismiss = useCallback(
     (t: GuideTaskId) => {
       void guideIntent({ dismiss: t });
-      push({ kind: 'success', title: 'Guide closed', detail: 'Continue it any time from Learn, under Help.' });
+      push({ kind: 'success', title: 'Guide closed', detail: 'Continue it any time from Learn.' });
     },
     [push],
   );
@@ -264,7 +264,7 @@ export function GuideHost() {
   }, [task, shot]);
 
   // Refining ends when the shot closes: done if a new version exists, and
-  // otherwise quietly, so First steps offers it again rather than holding it.
+  // otherwise quietly, so Learn offers it again rather than holding it.
   const onShot = useRef(false);
   useEffect(() => {
     if (task !== 'refine') {

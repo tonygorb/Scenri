@@ -4,7 +4,6 @@ import { MILESTONE } from '../src/guidedTasks.js';
 import {
   LESSONS,
   NEEDS_SHOT,
-  firstSteps,
   lessonOf,
   lessonState,
   pictureOf,
@@ -48,17 +47,12 @@ describe('the lessons', () => {
   });
 
   it("say it in the product's words: no dash, no chrome, one or two sentences", () => {
-    const copy = LESSONS.flatMap((l) => [l.title, l.resume, l.summary, ...l.steps]).concat(Object.values(NEEDS_SHOT));
+    const copy = LESSONS.flatMap((l) => [l.title, l.summary, ...l.steps]).concat(Object.values(NEEDS_SHOT));
     for (const text of copy) {
       expect(text).not.toMatch(new RegExp(`[${DASHES}!]|\\bscenri\\b`));
       expect(text).not.toMatch(/\b(press|tap|click|lesson|tutorial|course|minutes?)\b|\+/i);
       expect(text.split(/[.?]\s/).filter(Boolean).length).toBeLessThanOrEqual(2);
     }
-  });
-
-  it('First steps is a subset of them, in the same order', () => {
-    const first = LESSONS.filter((l) => l.firstStep).map((l) => l.id);
-    expect(first).toEqual(['first-shot', 'presenter', 'scene', 'refine']);
   });
 });
 
@@ -142,46 +136,5 @@ describe('pictureOf', () => {
   it('never fails for an empty catalog', () => {
     const none: LessonArt = { showcase: [], presenters: [], scenes: [], products: [] };
     for (const l of LESSONS) expect(pictureOf(l.id, none)).toBeNull();
-  });
-});
-
-describe('firstSteps', () => {
-  const view = (over: Partial<Parameters<typeof firstSteps>[0]> = {}) => ({
-    loaded: true,
-    hidden: false,
-    eligible: true,
-    welcome: 'taken' as const,
-    done: {},
-    active: null,
-    ...over,
-  });
-
-  it('waits for the record, shows from the start, and stays away when hidden', () => {
-    expect(firstSteps(view({ loaded: false }))).toBeNull();
-    expect(firstSteps(view({ hidden: true }))).toBeNull();
-    expect(firstSteps(view({ welcome: null }))).not.toBeNull();
-  });
-
-  it('lists four real things, ticked by what exists and dotted for the one in hand', () => {
-    const rows = firstSteps(
-      view({
-        done: { shot: 'x' },
-        active: { task: 'presenter', brandId: 'b', since: 'x', baseline: { products: 0, presenters: 0, scenes: 0 } },
-      }),
-    );
-    expect(rows?.map((r) => [r.task, r.state, r.title])).toEqual([
-      ['first-shot', 'done', 'Make your first shot'],
-      ['presenter', 'active', 'Continue your presenter'],
-      ['scene', 'todo', 'Build a scene'],
-      ['refine', 'todo', 'Refine a shot'],
-    ]);
-  });
-
-  it('leaves once everything is done, unless it was asked for from Help', () => {
-    const all = { shot: 'a', refine: 'b', presenter: 'd', scene: 'e' };
-    expect(firstSteps(view({ done: all }))).toBeNull();
-    expect(firstSteps(view({ done: all, asked: true }))?.every((r) => r.state === 'done')).toBe(true);
-    expect(firstSteps(view({ welcome: null, asked: true }))).not.toBeNull();
-    expect(firstSteps(view({ done: all, asked: true, hidden: true }))).toBeNull();
   });
 });

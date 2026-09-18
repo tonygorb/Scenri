@@ -15,13 +15,10 @@ import { FIRST_USE } from './firstUse.js';
 export interface GuideSnapshot extends GuideView {
   /** The first read has answered, or failed. Until then nobody can tell a new install from an old one. */
   loaded: boolean;
-  /** First steps was asked for from Help on this page: it shows even with every step done, so each can be done again. */
-  asked: boolean;
 }
 
 const EMPTY: GuideSnapshot = {
   loaded: false,
-  asked: false,
   eligible: false,
   welcome: null,
   hidden: true,
@@ -53,7 +50,7 @@ function taken(r: GuideView): GuideSnapshot {
   const view = FIRST_USE
     ? r
     : { ...r, eligible: false, hidden: true, active: null, activeNodes: [], activeDraftId: null };
-  return { ...view, loaded: true, asked: snapshot.asked };
+  return { ...view, loaded: true };
 }
 
 function read(): Promise<void> {
@@ -89,7 +86,7 @@ export function refreshGuide(): Promise<void> {
 /** What an intent changes, applied at once so the screen never waits on the round trip. */
 function optimistic(s: GuideSnapshot, i: GuideIntent): GuideSnapshot {
   if ('welcome' in i) return { ...s, welcome: i.welcome };
-  if ('hidden' in i) return { ...s, hidden: i.hidden, asked: i.hidden ? false : s.asked };
+  if ('hidden' in i) return { ...s, hidden: i.hidden };
   if ('finish' in i)
     return s.active?.task === i.finish ? { ...s, active: null, activeNodes: [], activeDraftId: null } : s;
   if ('dismiss' in i)
@@ -112,12 +109,6 @@ export function guideIntent(i: GuideIntent): Promise<void> {
       emit(before);
       void read();
     });
-}
-
-/** Help's First steps: shown again, and kept on screen even when there is nothing left to do. */
-export function askForFirstSteps(): Promise<void> {
-  emit({ ...snapshot, asked: true });
-  return guideIntent({ hidden: false });
 }
 
 function subscribe(l: () => void) {

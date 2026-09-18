@@ -1,13 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
-import { expectNoGuide, steps } from './firstUse.js';
+import { expectNoGuide, learnButton, lessonCard } from './firstUse.js';
 import { FIRST_USE } from '../src/firstUse.js';
 
 /**
  * The help button on an install that was not new (the harness's default):
  * nothing guides on its own, the button in the corner stays clear of the
- * assets rail, and each item opens what it names. First steps is there for
- * anyone who asks, ticked by what the library already holds.
+ * assets rail, and each item opens what it names. Learn is there for anyone
+ * who asks, ticked by what the library already holds.
  */
 isolate();
 
@@ -32,7 +32,7 @@ test('nothing guides on its own; the ? sits in the corner and gathers the help',
   const items = page.locator('.sc-help-menu [role="menuitem"]');
   // the ways into first use leave with it while it is paused (src/firstUse.ts)
   await expect(items).toHaveText([
-    ...(FIRST_USE ? ['First steps', 'Learn', 'Welcome to Scenri'] : []),
+    ...(FIRST_USE ? ['Learn', 'Welcome to Scenri'] : []),
     "What's new",
     'About Scenri',
     'Scenri on GitHub',
@@ -45,27 +45,16 @@ test('nothing guides on its own; the ? sits in the corner and gathers the help',
   await expect(page).toHaveURL(/settings=about/);
 });
 
-test('First steps, asked for, opens on Home ticked by what the library holds, and starts nothing by itself', async ({
-  page,
-}) => {
+test('Learn, asked for, is ticked by what the library holds, and starts nothing by itself', async ({ page }) => {
   test.skip(!FIRST_USE, 'first use is paused (src/firstUse.ts)');
   await page.setViewportSize({ width: 1440, height: 900 });
   const s = await slug(page);
-  await page.goto(`/${s}`);
-  await expect(page.locator('.sc-greet')).toBeVisible();
-  await expect(steps(page)).toHaveCount(0);
-
   await page.goto(`/${s}/scenes`);
-  await float(page).click();
-  await page.getByRole('menuitem', { name: 'First steps' }).click();
-  await page.waitForURL((u) => u.pathname === `/${s}`);
-  // the seeded brand already holds a finished shot, so that step is ticked
-  await expect(steps(page).locator('.sc-steps-item')).toHaveText([
-    'Make your first shot, done',
-    'Create a presenter',
-    'Build a scene',
-    'Refine a shot',
-  ]);
+  await learnButton(page).click();
+  await expect(page).toHaveURL(/learn=lessons/);
+  // the seeded brand already holds a finished shot, so that lesson is done
+  await expect(lessonCard(page, 'Make your first shot').locator('.sc-learn-meta')).toHaveText('Done');
+  await page.keyboard.press('Escape');
 
   // Opening a surface is not asking to be guided on an install that was not new.
   await page.goto(`/${s}?new=scene`);
