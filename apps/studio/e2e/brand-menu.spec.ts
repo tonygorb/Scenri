@@ -71,35 +71,31 @@ test('a long list leads with where you have been, keeps every brand, and stays o
   await page.goto(`/${own}`);
   await openMenu(page);
 
-  // Two sections in one scroller, each named.
-  const labels = scroller(page).locator('> .sc-menu-label');
-  await expect(labels).toHaveCount(2);
-  await expect(labels.nth(0)).toHaveText('Recent');
-  await expect(labels.nth(1)).toContainText('All brands');
-  await expect(labels.nth(1)).toContainText('9');
-
+  // One list, no labels: the brand you are in first and checked, the brands
+  // you were just in under it, a hairline, then everything else A to Z.
+  await expect(scroller(page).locator('.sc-menu-label')).toHaveCount(0);
+  await expect(scroller(page).locator('> .sc-menu-rule')).toHaveCount(1);
   const names = await namesIn(page);
-  // The last brand you left comes first, and the brand you are in is not "recent".
-  expect(names.slice(0, 2)).toEqual(['Castro', 'Vela']);
-  expect(names.slice(0, 4)).not.toContain('E2E Fixture');
-  // Every brand is there, A to Z, the one you are in included and checked.
-  expect(names.slice(4)).toEqual([
-    'Aer',
-    'Bucherer',
-    'Castro',
-    'E2E Fixture',
-    'Glenmoor',
-    'Halde',
-    'Nocturne',
-    'Olivar',
-    'Vela',
-  ]);
+  expect(names[0]).toBe('E2E Fixture');
+  await expect(scroller(page).locator('.sc-menu-item').first()).toHaveAttribute('data-current', 'true');
+  expect(names.slice(1, 3)).toEqual(['Castro', 'Vela']);
+  // every brand exactly once
+  expect([...names].sort()).toEqual([...NAMES, 'E2E Fixture'].sort());
+  const rest = names.slice(5);
+  expect(rest).toEqual([...rest].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })));
   await expect(scroller(page).locator('.sc-menu-item[data-current] .sc-menu-check')).toHaveCount(1);
+
+  // A compact list: rows you scan, not pictures you read.
+  const rowH = await scroller(page)
+    .locator('.sc-menu-item')
+    .nth(1)
+    .evaluate((el) => el.getBoundingClientRect().height);
+  expect(rowH).toBe(36);
 
   // The list scrolls inside itself; the panel does not, and the way out is on
   // screen without reaching for it.
   const fit = await scroller(page).evaluate((el) => ({ h: el.clientHeight, s: el.scrollHeight }));
-  expect(fit.h).toBeLessThanOrEqual(44 * 6.5 + 1);
+  expect(fit.h).toBeLessThanOrEqual(36 * 8.5 + 13 + 1);
   expect(fit.s).toBeGreaterThan(fit.h);
   const tall = await panel(page).evaluate((el) => ({
     h: el.getBoundingClientRect().height,

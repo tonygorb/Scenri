@@ -49,6 +49,7 @@ export function BrandButton() {
     <>
       <BarMenu
         label="Brands"
+        className="sc-menu-brand"
         trigger={
           <button type="button" className="sc-org-btn" aria-label={`${brandName(brand)}, brand and settings`}>
             <BrandAvatar brand={brand} size={32} round />
@@ -59,23 +60,22 @@ export function BrandButton() {
 
         {/* Setting up is a different kind of act from switching, and the hairline
           says so: the phantom-workspace tester reached /setup by clicking what
-          read as part of the brand list. */}
+          read as part of the brand list. One line, not one per row: the three
+          under it are the things this menu does besides switching. */}
         <div className="sc-menu-rule" />
         <BarRow onSelect={() => navigate('/setup')}>
-          <Plus size={18} className="sc-menu-ic" />
+          <Plus size={16} className="sc-menu-ic" />
           <span className="sc-menu-lb">Set up a brand</span>
         </BarRow>
-
-        <div className="sc-menu-rule" />
         <BarRow onSelect={() => openSettings()}>
-          <GearSix size={18} className="sc-menu-ic" />
+          <GearSix size={16} className="sc-menu-ic" />
           <span className="sc-menu-lb">Settings</span>
         </BarRow>
         {/* The way out, last. A Scenri started from the desktop icon has no
           terminal window to close; this is how the server stops, and it is
           machine-level, so it lives here rather than in a Settings pane. */}
         <BarRow data-quit="" onSelect={() => setQuitAsk(true)}>
-          <Power size={18} className="sc-menu-ic" />
+          <Power size={16} className="sc-menu-ic" />
           <span className="sc-menu-lb">Shut down Scenri</span>
         </BarRow>
       </BarMenu>
@@ -96,21 +96,18 @@ export function BrandButton() {
 const LONG_LIST = 7;
 
 /**
- * The brand you are in, then where else you could be.
+ * One list: the brand you are in, checked and first, then where else you could be.
  *
- * The brand you are in sits above a hairline on its own. It answers "where am
- * I", which is a different question from "where else could I be", and what is
- * under the line answers that one.
+ * Up to six brands the others simply follow it, A to Z. Past that a finder
+ * appears and the list becomes a scroller of its own, the same height at seven
+ * brands or seven hundred: the brand you are in and the four this browser opened
+ * last, one hairline, then every other brand A to Z. Nothing is listed twice and
+ * nothing is labelled, because the order already says which is which. Settings
+ * and the way out never move. A query searches every brand, not only the ones on
+ * screen.
  *
- * Up to six brands the others are simply listed, A to Z. Past that a finder
- * appears and the others share one scroller, six and a half rows tall: the four
- * this browser opened last, then every brand A to Z under an index label. The
- * panel is the same height at seven brands or seven hundred, the brands you move
- * between are where the menu opens, and Settings and the way out never move.
- * A query searches every brand, not only the ones on screen.
- *
- * Mounted with the menu, so it opens each time on the recent brands with an
- * empty finder rather than on wherever it was last left.
+ * Mounted with the menu, so it opens each time at the top with an empty finder
+ * rather than wherever it was last left.
  */
 function BrandList() {
   const { brands } = useAppData();
@@ -143,14 +140,12 @@ function BrandList() {
   // Re-read whenever what is listed changes, since that changes the scroller's height.
   useLayoutEffect(syncMore, [syncMore, query, brands.length]);
 
-  // `list` names which list a row is in, because the same brand can be in two:
-  // among the recent ones and in the index under them.
-  const row = (b: Brand, list: string) => {
+  const row = (b: Brand) => {
     const current = b.id === brand.id;
     const twoLine = (counts.get(nameKey(b)) ?? 0) > 1;
     return (
       <BarRow
-        key={`${list}:${b.id}`}
+        key={b.id}
         data-current={current || undefined}
         data-two-line={twoLine || undefined}
         // Selecting the brand you are in changes nothing except closing the
@@ -158,7 +153,7 @@ function BrandList() {
         // phantom-workspace bug felt possible in the first place.
         onSelect={current ? undefined : () => navigate(brandPath(b))}
       >
-        <BrandAvatar brand={b} size={28} round />
+        <BrandAvatar brand={b} size={20} round />
         <span className="sc-menu-brand-lb">
           <span dir="auto">{brandName(b)}</span>
           {twoLine && <span className="sc-menu-brand-sub">/{b.slug}</span>}
@@ -176,15 +171,21 @@ function BrandList() {
   if (!long) {
     return (
       <>
-        {row(brand, 'current')}
-        <div className="sc-menu-rule" />
+        {row(brand)}
         {byName(
           brands.filter((b) => b.id !== brand.id),
           brandName,
-        ).map((b) => row(b, 'others'))}
+        ).map(row)}
       </>
     );
   }
+
+  const lead = [brand, ...recentOthers(brands, recent, brand.id)];
+  const led = new Set(lead.map((b) => b.id));
+  const rest = byName(
+    brands.filter((b) => !led.has(b.id)),
+    brandName,
+  );
 
   return (
     <>
@@ -207,25 +208,18 @@ function BrandList() {
         />
       </label>
 
-      {row(brand, 'current')}
-      <div className="sc-menu-rule" />
-
       <div ref={scroller} className="sc-menu-brands" onScroll={syncMore}>
         {query ? (
           hits.length > 0 ? (
-            hits.map((b) => row(b, 'found'))
+            hits.map(row)
           ) : (
             <p className="sc-menu-none">No brand by that name.</p>
           )
         ) : (
           <>
-            <div className="sc-menu-label">Recent</div>
-            {recentOthers(brands, recent, brand.id).map((b) => row(b, 'recent'))}
-            <div className="sc-menu-label">
-              <span>All brands</span>
-              <span>{brands.length}</span>
-            </div>
-            {byName(brands, brandName).map((b) => row(b, 'all'))}
+            {lead.map(row)}
+            {rest.length > 0 && <div className="sc-menu-rule" />}
+            {rest.map(row)}
           </>
         )}
       </div>

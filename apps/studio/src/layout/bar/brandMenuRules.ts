@@ -2,11 +2,11 @@
  * What the brand menu lists, as plain data: the menu reads it and the tests pin it.
  *
  * Past six brands the menu stops being a list you read and becomes one you reach
- * into, so it leads with the few you actually move between and keeps every
+ * into, so it leads with the few you actually move between and keeps every other
  * brand, A to Z, under them in the same scroller.
  */
 
-/** How many recent brands lead the list: four, with the index label peeking under them. */
+/** How many recent brands follow the one you are in at the head of the list. */
 export const RECENT_SHOWN = 4;
 
 interface BrandLike {

@@ -164,25 +164,45 @@
   margin: 6px 8px;
   background: var(--sc-line);
 }
-/* Past six brands the others share one scroller: the recent few, then every
-   brand A to Z under an index label. Six and a half brand rows tall, so the cut
-   row says there is more, which keeps the panel one height at seven brands or
-   seven hundred. Each label holds the top while its list scrolls under it, so
-   what you are looking at is always named. The phone's sheet keeps the same cap:
-   uncapped, Settings sat twenty rows down a sheet, which is the wall this
-   replaced. Four and a half rows there, so the whole menu fits a phone's sheet
-   without the sheet itself scrolling. */
+/* The brands panel is the one compact panel in the bar. Its rows are names you
+   scan rather than pictures you read, so they are 36px with a 20px mark on the
+   same 8px frame every painted row keeps, and the card is as narrow as the help
+   menu. The glyph rows under the list take a 20px slot so their words start on
+   the names' line. A phone's sheet does not carry this class and keeps 44px rows
+   for a thumb. */
+.sc-menu-brand {
+  width: 340px;
+}
+.sc-menu-brand .sc-menu-item {
+  min-height: 36px;
+  gap: 10px;
+}
+.sc-menu-brand .sc-menu-item:has(.sc-brand-av) {
+  min-height: 36px;
+  padding: 8px;
+}
+.sc-menu-brand .sc-menu-ic,
+.sc-menu-sheet:has(.sc-brand-av) .sc-menu-ic {
+  margin: 0 2px;
+}
+.sc-menu-brand .sc-menu-find {
+  height: 36px;
+}
+/* Past six brands the list is a scroller of its own: the brand you are in and
+   the recent four, a hairline, then every other brand A to Z. Eight and a half
+   rows, so a cut row says there is more, and the panel is one height at seven
+   brands or seven hundred. No scrollbar, as the sheet has none: a bar inside a
+   menu narrowed its rows and read as a box within the box. In a phone's sheet
+   the cap is four and a half 44px rows, so the whole menu fits the sheet; left
+   uncapped, Settings sat twenty rows down it. */
 .sc-menu-brands {
-  max-height: calc(44px * 6.5);
+  max-height: calc(36px * 8.5 + 13px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
+  scrollbar-width: none;
 }
-.sc-menu-brands > .sc-menu-label {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--sc-panel);
+.sc-menu-brands::-webkit-scrollbar {
+  display: none;
 }
 /* More below the fold: the rows fade at the scroller's bottom edge, the brief's
    own treatment (composer-brief.css), set from the scroll numbers and dropped at
@@ -192,10 +212,6 @@
 }
 .sc-menu-sheet .sc-menu-brands {
   max-height: calc(44px * 4.5);
-}
-/* the first label sits under the hairline, which already gives it air */
-.sc-menu-brands > .sc-menu-label:first-child {
-  padding-top: 6px;
 }
 /* Past six brands the list is searched rather than read. */
 .sc-menu-find {
