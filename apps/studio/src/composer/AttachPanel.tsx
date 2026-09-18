@@ -202,7 +202,9 @@ function AttachDock({
       // .sc-attachpanel" and closed both the dialog and the panel underneath it
       if (creating) return;
       const t = e.target as HTMLElement;
-      if (!t.closest('.sc-attachpanel') && !t.closest('.sc-attach-toggle')) closeRef.current();
+      // A control that opens this panel (the toggle, New in the bar) is not an
+      // outside press: closing here only for it to open again was a flash.
+      if (!t.closest('.sc-attachpanel, .sc-attach-toggle, [data-attach-opener]')) closeRef.current();
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);

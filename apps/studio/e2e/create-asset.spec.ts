@@ -138,6 +138,25 @@ test.describe('adding to a brand', () => {
     await expect(panel).toBeVisible();
   });
 
+  test('New pressed again with the add panel open keeps the panel as it is and hands focus to the brief', async ({
+    page,
+  }) => {
+    const panel = page.locator('.sc-attachpanel');
+    await page.locator('.sc-new-go').click();
+    await expect(panel).toBeVisible();
+    await panel.getByRole('tab', { name: /^Presenters/ }).click();
+    // mark this panel, so a close and reopen (the flash) would show as a new one
+    await panel.evaluate((el) => {
+      (el as HTMLElement & { __kept?: boolean }).__kept = true;
+    });
+
+    await page.locator('.sc-new-go').click();
+    await page.waitForTimeout(300);
+    expect(await panel.evaluate((el) => (el as HTMLElement & { __kept?: boolean }).__kept === true)).toBe(true);
+    await expect(panel.getByRole('tab', { name: /^Presenters/ })).toHaveAttribute('aria-selected', 'true');
+    expect(await page.evaluate(() => !!document.activeElement?.closest('.sc-brief'))).toBe(true);
+  });
+
   test("New's menu offers the shot and exactly the three ingredients", async ({ page }) => {
     await trigger(page).click();
 

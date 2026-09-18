@@ -69,6 +69,8 @@ export interface ComposerHandle {
   removeTemplate: () => void;
   /** Open the attach panel on a tab, the way "New photoshoot" does. */
   openAttach: (tab: AttachTab) => void;
+  /** Open the attach panel on All if it is closed; an open one is left as it is. */
+  showAttach: () => void;
   focus: () => void;
   /** Run the brief as it stands. cmd+enter from anywhere reaches this. */
   submit: () => void;
@@ -576,6 +578,9 @@ export const Composer = forwardRef<
     applyScene: (id) => applyScene(id),
     removeTemplate: () => briefRef.current?.removeTemplate(),
     openAttach: (tab) => openAttach(tab),
+    showAttach: () => {
+      if (!attachOpenRef.current) openAttach('All');
+    },
     focus: () => briefRef.current?.focus(),
     submit: () => {
       void go();
