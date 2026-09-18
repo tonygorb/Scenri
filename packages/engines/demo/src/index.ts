@@ -236,24 +236,26 @@ export function createDemoAnalyzer(opts: { photos?: 'usable' | 'unusable'; readM
  * "figure" in the words makes the world figure-led, and two pictures or more
  * earn the note a real read gives when they may show different places.
  */
-function demoSceneRead(req: {
-  imagePaths: string[];
-  instruction?: string;
-  correction?: string;
-  priorDraft?: unknown;
-}) {
+function demoSceneRead(req: { imagePaths: string[]; instruction?: string; correction?: string; priorDraft?: unknown }) {
   const prior = (req.priorDraft ?? null) as Record<string, any> | null;
   const words = (req.instruction ?? '').trim();
   const said = words || 'A demo shore of wet dark stone, read from the pictures alone';
-  const title = said.split(/[.,;:!?]/)[0].split(/\s+/).filter(Boolean).slice(0, 3).join(' ');
-  const name = prior?.name ?? (title.charAt(0).toUpperCase() + title.slice(1));
+  const title = said
+    .split(/[.,;:!?]/)[0]
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(' ');
+  const name = prior?.name ?? title.charAt(0).toUpperCase() + title.slice(1);
   const change = req.correction?.trim();
-  const prompt = prior && change ? `${String(prior.prompt).replace(/[.\s]+$/, '')}. ${change}.` : `${said}.`;
+  const stop = (t: string) => `${t.replace(/[.\s]+$/, '')}.`;
+  const prompt = prior && change ? `${stop(String(prior.prompt))} ${stop(change)}` : stop(said);
   const lighting =
     prior && change && /light|warm|cool|dusk|dawn|morning|night|dark|bright/i.test(change)
       ? `Demo light, changed: ${change}`
       : (prior?.lighting ?? 'Demo light, low and warm from the left');
-  const figured = /portrait|figure/i.test(`${words} ${change ?? ''}`) && !/no (people|person|figure)/i.test(change ?? '');
+  const figured =
+    /portrait|figure/i.test(`${words} ${change ?? ''}`) && !/no (people|person|figure)/i.test(change ?? '');
   return {
     name: String(name).slice(0, 60),
     promptName: String(name).slice(0, 60),

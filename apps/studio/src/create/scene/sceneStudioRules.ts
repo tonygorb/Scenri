@@ -9,9 +9,9 @@ import { COPY } from './sceneCopy.js';
  * phase names (`test/sceneStudioWalk.test.ts`).
  *
  * The model is three live states and nothing else:
- *   writing  the place and the pictures are being given
+ *   writing  the place is being given (the setup conversation owns that)
  *   working  one job is running: reading, changing, drawing
- *   review   a version stands: Use it, Try again, or Change something
+ *   review   a version stands: its words, and its picture once drawn
  * A failure is a line, not a state. There is no candidate-versus-approved
  * split: the version standing is the candidate until Use.
  */
@@ -23,6 +23,13 @@ export const PLACE_MAX = 400;
 export const ASK_MAX = 400;
 export const NAME_MAX = 60;
 
+/**
+ * How a version came to be, which is how the conversation tells it: the place
+ * read, the words drawn for the first time, drawn again, changed by a sentence,
+ * or written over by hand.
+ */
+export type VersionHow = 'read' | 'draw' | 'again' | 'change' | 'edit';
+
 /** One version: the words and the picture drawn from them, always as a pair. */
 export interface Version {
   reading: SceneReading;
@@ -31,6 +38,7 @@ export interface Version {
   /** The sentence that made it, for a change. */
   ask?: string;
   coverage: string[];
+  how: VersionHow;
 }
 
 /** The work in flight, and what it was started from, so its answer is checked against now. */
@@ -64,8 +72,6 @@ export interface StudioState {
   named: boolean;
   job: JobRef | null;
   error: string | null;
-  /** One line Scenri says back to a sentence it will not draw: a person, a product, a question. */
-  said: string | null;
 }
 
 export const EMPTY: StudioState = {
@@ -79,7 +85,6 @@ export const EMPTY: StudioState = {
   named: false,
   job: null,
   error: null,
-  said: null,
 };
 
 /** A saved scene, opened in the studio: its words and its picture as version one, nothing spent. */
@@ -95,7 +100,7 @@ export function seeded(input: {
     place: input.place,
     pictures: input.pictures,
     readRev: 0,
-    versions: [{ reading: input.reading, hash: input.hash, coverage: [] }],
+    versions: [{ reading: input.reading, hash: input.hash, coverage: [], how: 'read' }],
     current: 0,
     name: input.name,
     named: true,
@@ -103,9 +108,8 @@ export function seeded(input: {
 }
 
 export type Action =
-  | { type: 'place'; text: string }
-  | { type: 'add-pictures'; hashes: string[] }
-  | { type: 'remove-picture'; hash: string }
+  /** What the place was given as, from the setup: its sentence and its pictures. */
+  | { type: 'inputs'; place: string; pictures: string[] }
   | { type: 'name'; text: string }
   | { type: 'started'; id: string; kind: SceneStudioJobKind; ask?: string; since: string }
   | { type: 'progress'; job: SceneStudioJob }
@@ -114,7 +118,6 @@ export type Action =
   | { type: 'put-back'; index: number }
   /** The words written over by hand: a new version with the same picture, nothing spent. */
   | { type: 'edit-words'; reading: SceneReading }
-  | { type: 'say'; text: string | null }
   | { type: 'error'; text: string | null };
 
 export const current = (s: StudioState): Version | null => s.versions[s.current] ?? null;
@@ -132,21 +135,11 @@ export function phaseOf(s: StudioState): Phase {
 
 export function reduce(s: StudioState, a: Action): StudioState {
   switch (a.type) {
-    case 'place': {
-      const text = a.text.slice(0, PLACE_MAX);
-      // the inputs are the person's to change only while nothing is reading them
-      if (s.job || text === s.place) return s;
-      return { ...s, place: text, inputsRev: s.inputsRev + 1, error: null };
-    }
-    case 'add-pictures': {
-      if (s.job) return s;
-      const next = [...new Set([...s.pictures, ...a.hashes])].slice(0, PICTURES_MAX);
-      if (next.length === s.pictures.length) return s;
-      return { ...s, pictures: next, inputsRev: s.inputsRev + 1, error: null };
-    }
-    case 'remove-picture': {
-      if (s.job || !s.pictures.includes(a.hash)) return s;
-      return { ...s, pictures: s.pictures.filter((h) => h !== a.hash), inputsRev: s.inputsRev + 1 };
+    case 'inputs': {
+      const place = a.place.slice(0, PLACE_MAX);
+      const pictures = [...new Set(a.pictures)].slice(0, PICTURES_MAX);
+      if (place === s.place && pictures.join() === s.pictures.join()) return s;
+      return { ...s, place, pictures, inputsRev: s.inputsRev + 1 };
     }
     case 'name':
       return { ...s, name: a.text.slice(0, NAME_MAX), named: true };
@@ -167,7 +160,6 @@ export function reduce(s: StudioState, a: Action): StudioState {
           since: a.since,
         },
         error: null,
-        said: null,
       };
     case 'progress': {
       if (!s.job || s.job.id !== a.job.id) return s;
@@ -192,11 +184,20 @@ export function reduce(s: StudioState, a: Action): StudioState {
       // Nothing landed that can stand: the words stay as they were, and so does
       // the version on the stage.
       if (!reading || (ref.kind === 'again' && !j.hash)) return { ...base, error: failed };
+      const how: VersionHow =
+        ref.kind === 'make'
+          ? 'read'
+          : ref.kind === 'change'
+            ? 'change'
+            : s.versions.some((x) => x.hash)
+              ? 'again'
+              : 'draw';
       const version: Version = {
         reading,
         hash: j.hash,
         ask: ref.kind === 'change' ? ref.ask : undefined,
         coverage: j.coverage?.length ? j.coverage : ref.kind === 'again' ? (current(s)?.coverage ?? []) : [],
+        how,
       };
       const versions = [...s.versions, version];
       const next: StudioState = {
@@ -219,11 +220,12 @@ export function reduce(s: StudioState, a: Action): StudioState {
       const v = current(s);
       if (s.job || !v || !a.reading.prompt.trim()) return s;
       if (JSON.stringify(a.reading) === JSON.stringify(v.reading)) return s;
-      const versions = [...s.versions, { reading: a.reading, hash: v.hash, coverage: v.coverage }];
+      const versions = [
+        ...s.versions,
+        { reading: a.reading, hash: v.hash, coverage: v.coverage, how: 'edit' as const },
+      ];
       return { ...s, versions, current: versions.length - 1 };
     }
-    case 'say':
-      return { ...s, said: a.text };
     case 'error':
       return { ...s, error: a.text };
   }
@@ -243,25 +245,6 @@ export interface Caps {
   canDraw: boolean;
 }
 
-/** The one way forward while writing, and why it is closed when it is. */
-export function primaryFor(
-  s: StudioState,
-  caps: Caps | null,
-  uploading: boolean,
-): { label: string; blocked: string | null } {
-  const label = stale(s)
-    ? COPY.readAgain
-    : caps && !caps.canDraw
-      ? caps.canRead
-        ? COPY.readOnly
-        : COPY.continue
-      : COPY.draw;
-  if (uploading) return { label, blocked: COPY.waitingForPictures };
-  if (!s.place.trim() && !s.pictures.length) return { label, blocked: COPY.needSomething };
-  if (!s.place.trim() && caps && !caps.canRead) return { label, blocked: COPY.picturesNeedCodex };
-  return { label, blocked: null };
-}
-
 /**
  * Whether Use is open, and why not.
  *
@@ -272,23 +255,9 @@ export function primaryFor(
 export function offerOf(s: StudioState): { can: boolean; why: string | null; words: SceneReading | null } {
   const words = s.job ? (s.job.phase === 'drawing' ? s.job.pending : null) : (current(s)?.reading ?? null);
   if (!words) return { can: false, why: s.job ? COPY.stillReading : null, words: null };
-  if (!s.job && stale(s)) return { can: false, why: COPY.readFirst, words };
+  if (!s.job && stale(s)) return { can: false, why: COPY.stillReading, words };
   if (!s.name.trim()) return { can: false, why: COPY.nameIt, words };
   return { can: true, why: null, words };
-}
-
-/** The line that says what is happening, once, for the status region. */
-export function statusLine(s: StudioState): string {
-  if (s.job) {
-    if (s.job.phase === 'changing') return COPY.changing;
-    if (s.job.phase === 'drawing') return COPY.drawing;
-    return COPY.reading;
-  }
-  if (s.error) return s.error;
-  const v = current(s);
-  if (!v) return '';
-  if (stale(s)) return COPY.staleLine;
-  return v.hash ? COPY.ready : COPY.wordsReady;
 }
 
 /** What the stage pill says while it works. */
@@ -314,8 +283,12 @@ export function takesOf(s: StudioState): { n: number; hash: string; current: boo
     if (v.hash) last.set(v.hash, i);
   });
   const at = current(s)?.hash ?? null;
-  return [...last.entries()].sort((a, b) => a[1] - b[1]).map(([hash, i]) => ({ n: i + 1, hash, current: hash === at }));
+  return [...last.entries()].sort((a, b) => a[1] - b[1]).map(([hash], k) => ({ n: k + 1, hash, current: hash === at }));
 }
+
+/** A picture's number among the pictures, which is how a person counts them. */
+export const pictureNumber = (s: StudioState, index: number): number =>
+  s.versions.slice(0, index + 1).filter((v) => !!v.hash).length;
 
 /** The version a picture belongs to, for Put back: the latest one that wears it. */
 export const versionOfHash = (s: StudioState, hash: string): number => s.versions.map((v) => v.hash).lastIndexOf(hash);
@@ -339,10 +312,6 @@ export function readingLines(r: SceneReading): { label: string; text: string }[]
 }
 
 const trimStop = (t: string) => t.replace(/[.\s]+$/, '');
-
-/** What the pictures are for, said where they are. A figure-led reading adds where its preview goes. */
-export const picturesCaption = (r: SceneReading | null): string =>
-  r?.figure ? `${COPY.picturesRead} ${COPY.picturesPlate}` : COPY.picturesRead;
 
 /* ---------------------------------------------------------- the one line */
 
@@ -372,7 +341,7 @@ const CHATTER = /^\s*(hi|hello|hey|thanks|thank you|ok|okay|cool|nice|great|good
  */
 export function readAsk(text: string): { kind: 'change' } | { kind: 'refuse' | 'navigate' | 'chatter'; say: string } {
   const t = text.trim();
-  if (NAVIGATE.test(t)) return { kind: 'navigate', say: COPY.useputBack };
+  if (NAVIGATE.test(t)) return { kind: 'navigate', say: COPY.usePutBack };
   if (CHATTER.test(t) || (/\?\s*$/.test(t) && !/\b(make|can you|could you|try)\b/i.test(t)))
     return { kind: 'chatter', say: COPY.sayAChange };
   if ((CAST.test(t) || PRODUCT.test(t)) && ADD.test(t) && !NEGATED.test(t))
@@ -403,14 +372,11 @@ export const unsaved = (s: StudioState, seededFrom: StudioState | null): boolean
 const STORED = 1;
 
 /**
- * The conversation, as a reload finds it.
- *
- * Everything but the one-line replies: those are the moment. The job goes in
- * so a reload re-attaches to the work rather than starting it again.
+ * The versions and the work, as a reload finds them. The job goes in so a
+ * reload re-attaches to the work rather than starting it again.
  */
 export function serialize(s: StudioState): string {
-  const { said: _said, ...rest } = s;
-  return JSON.stringify({ v: STORED, ...rest });
+  return JSON.stringify({ v: STORED, ...s });
 }
 
 /** Read back, every field checked, anything malformed dropped rather than trusted. */
@@ -433,6 +399,7 @@ export function deserialize(raw: string | null): StudioState | null {
           hash: typeof v.hash === 'string' ? v.hash : null,
           ask: typeof v.ask === 'string' ? v.ask : undefined,
           coverage: strs(v.coverage),
+          how: ['read', 'draw', 'again', 'change', 'edit'].includes(v.how) ? v.how : v.hash ? 'draw' : 'read',
         }))
     : [];
   const job: JobRef | null =
@@ -461,6 +428,5 @@ export function deserialize(raw: string | null): StudioState | null {
     named: !!o.named,
     job,
     error: typeof o.error === 'string' ? o.error : null,
-    said: null,
   };
 }

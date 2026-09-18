@@ -607,3 +607,32 @@ button.sc-ingredient:hover,
 .sc-looks {
   padding: 16px var(--sc-gutter) 96px;
 }
+
+/* What a brand's own scene tells every shot: the place, the light, the camera,
+   the role a figure plays. Read here, changed in the scene studio. */
+.sc-lookpage-told {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-5);
+  margin: 0;
+}
+
+.sc-lookpage-told div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-1);
+}
+
+.sc-lookpage-told dt {
+  font-size: var(--sc-text-caption);
+  font-weight: 500;
+  color: var(--sc-fg3);
+}
+
+.sc-lookpage-told dd {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--sc-fg);
+  overflow-wrap: anywhere;
+}

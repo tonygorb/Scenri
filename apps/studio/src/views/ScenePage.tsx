@@ -321,7 +321,7 @@ export function ScenePage() {
                 drawn so it can be judged before it is kept. */}
             <section>
               <p className="sc-bandhead">What your shots are told</p>
-              <dl className="sc-sstudio-lines">
+              <dl className="sc-lookpage-told">
                 {readingLines({
                   name: owned.name,
                   prompt: owned.prompt,

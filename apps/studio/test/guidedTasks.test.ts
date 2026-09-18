@@ -242,16 +242,19 @@ describe('the later tasks', () => {
     expect(presenterMoment({ open: 'noengine' })?.also).toEqual([]);
   });
 
-  it('scene: its dialog is held, nothing when it is closed', () => {
-    expect(sceneMoment(false)).toBeNull();
-    expect(sceneMoment(true)).toMatchObject({
+  it('scene: the studio says what a scene is at the start and that its words are the scene, and is quiet otherwise', () => {
+    expect(sceneMoment(null)).toBeNull();
+    expect(sceneMoment({ open: 'source' })).toMatchObject({
+      id: 'start',
       voice: 'ask',
-      shell: '.sc-newdlg-layer',
-      point: '.sc-newdlg',
-      title: COPY.sceneMake.title,
+      shell: '.sc-pstudio',
+      point: '.sc-pstudio [data-turn="q:source"] .sc-convo-q',
+      title: COPY.sceneStart.title,
     });
-    // the dialog will not create one without a name, so the word says so
-    expect(COPY.sceneMake.body).toMatch(/Name it/);
+    expect(sceneMoment({ open: 'agree-0' })).toMatchObject({ id: 'words', voice: 'ask', title: COPY.sceneWords.title });
+    // the rows explain themselves, and so do Use and Try again
+    expect(sceneMoment({ open: 'light' })).toMatchObject({ voice: 'quiet' });
+    expect(sceneMoment({ open: 'decide-1' })).toMatchObject({ id: 'use', voice: 'quiet' });
   });
 
   it('product: the same one word on its dialog, nothing when it is closed', () => {
@@ -461,12 +464,13 @@ describe('the copy', () => {
   it('never repeats the title of the surface a note sits in', () => {
     for (const c of [
       COPY.product,
-      COPY.sceneMake,
+      COPY.sceneStart,
+      COPY.sceneWords,
       COPY.productMake,
       COPY.presenterFace,
       COPY.presenterSave,
       COPY.intro,
     ])
-      expect(`${c.title} ${c.body}`).not.toMatch(/New product|New scene/);
+      expect(`${c.title} ${c.body}`).not.toMatch(/New product|New scene|Create scene/);
   });
 });

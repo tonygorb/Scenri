@@ -111,11 +111,13 @@ test('a lesson done from Learn is done in First steps, and can be done again', a
   test.setTimeout(90_000);
   await page.goto(`/${slug}?learn=scene`);
   await learn(page).getByRole('button', { name: 'Start' }).click();
-  await expect(page).toHaveURL(/new=scene/);
-  await expect(coachTitle(page)).toHaveText('Build a scene');
-  await page.getByPlaceholder('Name this place').fill('Quiet terrace');
-  await page.getByPlaceholder('What matters in these references, and what to ignore').fill('Low sun on stone');
-  await page.getByRole('button', { name: 'Create scene' }).click();
+  await expect(page).toHaveURL(/\/scenes\/new$/);
+  await expect(coachTitle(page)).toHaveText('Describe the place, or start from pictures');
+  const line = page.locator('.sc-pstudio[data-kind="scene"] .sc-pstudio-foot textarea');
+  await line.fill('A quiet stone terrace in low sun');
+  await line.press('Enter');
+  await page.getByRole('button', { name: 'Draw the scene' }).click();
+  await page.getByRole('button', { name: 'Use this scene' }).click();
   await expect.poll(async () => (await guideRecord(page)).done.scene, { timeout: 60_000 }).toBeTruthy();
   await expect.poll(async () => (await guideRecord(page)).active, { timeout: 20_000 }).toBeNull();
 
@@ -127,7 +129,7 @@ test('a lesson done from Learn is done in First steps, and can be done again', a
   await steps(page).getByRole('button', { name: 'All lessons' }).click();
   await expect(card(page, 'Build a scene').locator('.sc-learn-meta')).toHaveText('Done');
   await card(page, 'Build a scene').click();
-  await expect(learn(page).locator('.sc-learn-step[data-state="done"]')).toHaveCount(3);
+  await expect(learn(page).locator('.sc-learn-step[data-state="done"]')).toHaveCount(4);
   await expect(learn(page).getByRole('button', { name: 'Do it again' })).toBeVisible();
 });
 

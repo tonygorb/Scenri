@@ -95,7 +95,7 @@ export interface StudioJobInput {
   from?: string;
   /** `change`: the sentence. */
   ask?: string;
-  /** `make`: draw once the words are read. False reads only. */
+  /** `make` and `change`: draw once the words are read. False answers with the words alone. */
   draw?: boolean;
   /** `change`: read the pictures again along with the sentence, because they changed. */
   reread?: boolean;
@@ -487,7 +487,8 @@ async function run(deps: AssetBuildDeps, job: SceneStudioJob, input: StudioJobIn
       if (signal.aborted) throw fail('cancelled');
       patch(job, { reading });
     }
-    const wantsPicture = input.kind !== 'make' || input.draw !== false;
+    // Try again is a picture by definition; a read or a change draws unless asked only for words
+    const wantsPicture = input.kind === 'again' || input.draw !== false;
     if (wantsPicture && deps.engine && reading) {
       patch(job, { phase: 'drawing', phaseAt: now() });
       const hashes = input.imageHashes ?? [];

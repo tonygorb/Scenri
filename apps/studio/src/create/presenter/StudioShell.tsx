@@ -111,6 +111,10 @@ export interface StudioSurface {
   onPaste?: (files: File[]) => void;
   /** Dialogs the flow opens over the surface. */
   overlay?: ReactNode;
+  /** Which studio this is. A presenter's unless it says otherwise. */
+  kind?: 'presenter' | 'scene';
+  /** The empty stage's sign: a person for a presenter, a horizon for a scene. */
+  glyph?: ReactNode;
 }
 
 /**
@@ -164,7 +168,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
     return () => window.removeEventListener('keydown', onKey);
   }, [decide, s.busy, s.onAnswer]);
 
-  const glyph = <UserPlus size={32} />;
+  const glyph = s.glyph ?? <UserPlus size={32} />;
   /* No stage on a phone, in any phase. A screen this size cannot hold a
      gallery and a conversation at once: it took the top forty per cent and
      showed the same picture the log was already showing. Not rendered rather
@@ -203,7 +207,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
 
   return (
     <StudioFrame
-      kind="presenter"
+      kind={s.kind ?? 'presenter'}
       title={s.title}
       headAction={s.headAction}
       resizeLabel="Resize the conversation"

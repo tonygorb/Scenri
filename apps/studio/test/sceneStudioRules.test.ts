@@ -7,8 +7,6 @@ import {
   EMPTY,
   offerOf,
   phaseOf,
-  PICTURES_MAX,
-  primaryFor,
   readAsk,
   readingLines,
   reduce,
@@ -16,7 +14,6 @@ import {
   seeded,
   serialize,
   stale,
-  statusLine,
   type StudioState,
   takesOf,
   unsaved,
@@ -52,57 +49,32 @@ const job = (over: Partial<SceneStudioJob>): SceneStudioJob => ({
 
 const run = (s: StudioState, ...as: Action[]) => as.reduce(reduce, s);
 const H = (c: string) => c.repeat(32);
-const caps = { canRead: true, canDraw: true };
 
-describe('writing', () => {
-  it('opens on nothing, with the one way on closed and saying why', () => {
-    expect(phaseOf(EMPTY)).toBe('writing');
-    expect(primaryFor(EMPTY, caps, false)).toEqual({ label: 'Draw the scene', blocked: expect.any(String) });
+describe('inputs', () => {
+  it('takes the place as the setup gives it, and counts each new one', () => {
+    const s = reduce(EMPTY, { type: 'inputs', place: 'a shore', pictures: [H('a'), H('a'), H('b')] });
+    expect(s.place).toBe('a shore');
+    expect(s.pictures).toEqual([H('a'), H('b')]);
+    expect(s.inputsRev).toBe(1);
+    expect(reduce(s, { type: 'inputs', place: 'a shore', pictures: [H('a'), H('b')] })).toBe(s);
   });
 
-  it('opens the way on with words, or with a picture', () => {
-    expect(primaryFor(run(EMPTY, { type: 'place', text: 'a shore' }), caps, false).blocked).toBeNull();
-    expect(primaryFor(run(EMPTY, { type: 'add-pictures', hashes: [H('a')] }), caps, false).blocked).toBeNull();
-  });
-
-  it('says a picture alone cannot be read when nothing can read', () => {
-    const s = run(EMPTY, { type: 'add-pictures', hashes: [H('a')] });
-    expect(primaryFor(s, { canRead: false, canDraw: true }, false).blocked).toMatch(/needs Codex/);
-  });
-
-  it('names the press for what the machine can do', () => {
-    const s = run(EMPTY, { type: 'place', text: 'a shore' });
-    expect(primaryFor(s, { canRead: true, canDraw: false }, false).label).toBe('Read the scene');
-    expect(primaryFor(s, { canRead: false, canDraw: false }, false).label).toBe('Continue');
-  });
-
-  it('waits for pictures still uploading', () => {
-    expect(primaryFor(run(EMPTY, { type: 'place', text: 'x' }), caps, true).blocked).toBe('Waiting for the pictures');
-  });
-
-  it('holds four pictures, once each', () => {
-    const s = run(EMPTY, { type: 'add-pictures', hashes: [H('a'), H('a'), H('b'), H('c'), H('d'), H('e')] });
-    expect(s.pictures).toEqual([H('a'), H('b'), H('c'), H('d')]);
-    expect(s.pictures).toHaveLength(PICTURES_MAX);
+  it('holds four pictures at most', () => {
+    const s = reduce(EMPTY, { type: 'inputs', place: '', pictures: ['1', '2', '3', '4', '5'].map(H) });
+    expect(s.pictures).toHaveLength(4);
   });
 });
 
 describe('working and landing', () => {
   const started = run(
     EMPTY,
-    { type: 'place', text: 'a shore' },
+    { type: 'inputs', place: 'a shore', pictures: [] },
     { type: 'started', id: 'j1', kind: 'make', since: 't0' },
   );
 
   it('is one job at a time: a second start is refused', () => {
     const twice = reduce(started, { type: 'started', id: 'j2', kind: 'make', since: 't1' });
     expect(twice.job?.id).toBe('j1');
-  });
-
-  it('holds the inputs while they are being read', () => {
-    const s = run(started, { type: 'place', text: 'a beach' }, { type: 'add-pictures', hashes: [H('a')] });
-    expect(s.place).toBe('a shore');
-    expect(s.pictures).toEqual([]);
   });
 
   it('shows the words while the picture draws, and offers Use on them', () => {
@@ -123,8 +95,7 @@ describe('working and landing', () => {
   it('lands a version as a pair of words and picture', () => {
     const s = reduce(started, { type: 'finished', job: job({}) });
     expect(phaseOf(s)).toBe('review');
-    expect(current(s)).toMatchObject({ reading: R(), hash: H('a') });
-    expect(statusLine(s)).toBe('The scene is ready');
+    expect(current(s)).toMatchObject({ reading: R(), hash: H('a'), how: 'read' });
   });
 
   it('refuses an answer for work it is no longer waiting on', () => {
@@ -161,7 +132,7 @@ describe('working and landing', () => {
 describe('review', () => {
   const landed = run(
     EMPTY,
-    { type: 'place', text: 'a shore' },
+    { type: 'inputs', place: 'a shore', pictures: [] },
     { type: 'started', id: 'j1', kind: 'make', since: 't0' },
     { type: 'finished', job: job({}) },
   );
@@ -173,7 +144,7 @@ describe('review', () => {
       { type: 'finished', job: job({ id: 'j2', kind: 'again', reading: R(), hash: H('b') }) },
     );
     expect(s.versions).toHaveLength(2);
-    expect(current(s)).toMatchObject({ reading: R(), hash: H('b') });
+    expect(current(s)).toMatchObject({ reading: R(), hash: H('b'), how: 'again' });
     expect(s.readRev).toBe(landed.readRev);
   });
 
@@ -227,12 +198,25 @@ describe('review', () => {
     expect(offerOf(s)).toMatchObject({ can: false, why: 'Name this scene' });
   });
 
-  it('goes back to writing when the place changes, and asks to read again', () => {
-    const s = reduce(landed, { type: 'place', text: 'a beach' });
+  it('is stale when the place is given again, and offers no Use until it is read', () => {
+    const s = reduce(landed, { type: 'inputs', place: 'a beach', pictures: [] });
     expect(stale(s)).toBe(true);
     expect(phaseOf(s)).toBe('writing');
-    expect(primaryFor(s, caps, false).label).toBe('Read again');
     expect(offerOf(s).can).toBe(false);
+  });
+
+  it('calls the first picture a draw and the next an again', () => {
+    const words = run(
+      EMPTY,
+      { type: 'inputs', place: 'x', pictures: [] },
+      { type: 'started', id: 'j1', kind: 'make', since: 't' },
+      { type: 'finished', job: job({ hash: null }) },
+      { type: 'started', id: 'j2', kind: 'again', since: 't' },
+      { type: 'finished', job: job({ id: 'j2', kind: 'again', hash: H('b') }) },
+      { type: 'started', id: 'j3', kind: 'again', since: 't' },
+      { type: 'finished', job: job({ id: 'j3', kind: 'again', hash: H('c') }) },
+    );
+    expect(words.versions.map((v) => v.how)).toEqual(['read', 'draw', 'again']);
   });
 });
 
@@ -271,7 +255,7 @@ describe('the words, by hand', () => {
   it('keeps them as a new version over the same picture', () => {
     const landed = run(
       EMPTY,
-      { type: 'place', text: 'a shore' },
+      { type: 'inputs', place: 'a shore', pictures: [] },
       { type: 'started', id: 'j1', kind: 'make', since: 't0' },
       { type: 'finished', job: job({}) },
     );
@@ -279,8 +263,8 @@ describe('the words, by hand', () => {
     expect(s.versions).toHaveLength(2);
     expect(current(s)).toMatchObject({ reading: { prompt: 'A dry basalt shelf.' }, hash: H('a') });
     expect(reduce(landed, { type: 'edit-words', reading: R({ prompt: '  ' }) })).toBe(landed);
-    // one take for the one picture, pointing at the newest words it wears
-    expect(takesOf(s)).toEqual([{ n: 2, hash: H('a'), current: true }]);
+    // one take for the one picture, numbered among pictures, pointing at the newest words it wears
+    expect(takesOf(s)).toEqual([{ n: 1, hash: H('a'), current: true }]);
     expect(versionOfHash(s, H('a'))).toBe(1);
   });
 });
@@ -295,23 +279,20 @@ describe('editing a saved scene', () => {
 
   it('counts a new version, a put back, a new name or new inputs as unsaved', () => {
     expect(unsaved(reduce(opened, { type: 'name', text: 'Tide' }), opened)).toBe(true);
-    expect(unsaved(reduce(opened, { type: 'remove-picture', hash: H('a') }), opened)).toBe(true);
+    expect(unsaved(reduce(opened, { type: 'inputs', place: 'a shore', pictures: [] }), opened)).toBe(true);
   });
 });
 
 describe('the session', () => {
-  it('survives a reload whole, apart from the one-line replies', () => {
+  it('survives a reload whole', () => {
     const s = run(
       EMPTY,
-      { type: 'place', text: 'a shore' },
-      { type: 'add-pictures', hashes: [H('a')] },
+      { type: 'inputs', place: 'a shore', pictures: [H('a')] },
       { type: 'started', id: 'j1', kind: 'make', since: 't0' },
       { type: 'finished', job: job({}) },
       { type: 'started', id: 'j2', kind: 'change', ask: 'warmer', since: 't1' },
-      { type: 'say', text: 'hello' },
     );
-    const back = deserialize(serialize(s));
-    expect(back).toEqual({ ...s, said: null });
+    expect(deserialize(serialize(s))).toEqual(s);
   });
 
   it('drops what it cannot trust', () => {
@@ -350,10 +331,6 @@ describe('a random walk over everything that can happen', () => {
     }
     // never silently stuck: every state has a way on, or says why not
     const phase = phaseOf(s);
-    if (phase === 'writing') {
-      const p = primaryFor(s, caps, false);
-      if (p.blocked) expect(p.blocked.length).toBeGreaterThan(0);
-    }
     if (phase === 'working') expect(s.job).not.toBeNull();
     // only a landing adds a version, and only for the job being waited on
     if (s.versions.length !== before.versions.length) {
@@ -365,13 +342,8 @@ describe('a random walk over everything that can happen', () => {
     // words change only by a landing, a put back, or the person's own hand
     if (current(s)?.reading !== current(before)?.reading)
       expect(['finished', 'put-back', 'edit-words']).toContain(a.type);
-    // inputs never move while something is reading them
-    if (before.job && a.type !== 'finished' && a.type !== 'lost') {
-      expect(s.place).toBe(before.place);
-      expect(s.pictures).toEqual(before.pictures);
-    }
     // the session round-trips
-    expect(deserialize(serialize(s))).toEqual({ ...s, said: null });
+    expect(deserialize(serialize(s))).toEqual(s);
   };
 
   it.each([1, 7, 42, 1234, 99991])('holds for seed %i', (seed) => {
@@ -383,9 +355,11 @@ describe('a random walk over everything that can happen', () => {
       const jobId = s.job && r() < 0.8 ? s.job.id : `j${ids}`;
       const kind = s.job?.kind ?? 'make';
       const a: Action = pick<Action>([
-        { type: 'place', text: pick(['', 'a shore', 'a beach at dusk', 'x'.repeat(500)]) },
-        { type: 'add-pictures', hashes: [H(pick(['a', 'b', 'c', 'd', 'e']))] },
-        { type: 'remove-picture', hash: H(pick(['a', 'b', 'c'])) },
+        {
+          type: 'inputs',
+          place: pick(['', 'a shore', 'a beach at dusk', 'x'.repeat(500)]),
+          pictures: [H(pick(['a', 'b', 'c']))],
+        },
         { type: 'name', text: pick(['', 'Tide', 'y'.repeat(90)]) },
         {
           type: 'started',
@@ -417,7 +391,6 @@ describe('a random walk over everything that can happen', () => {
         { type: 'lost', id: jobId, error: 'gone' },
         { type: 'put-back', index: Math.floor(r() * (s.versions.length + 2)) - 1 },
         { type: 'edit-words', reading: R({ prompt: pick(['', 'hand written', `hand ${step}`]) }) },
-        { type: 'say', text: pick([null, 'hello']) },
       ]);
       const next = reduce(s, a);
       check(next, s, a);

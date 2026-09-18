@@ -4,9 +4,9 @@ import type { Brand, SceneReading } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useCreateFlow } from '../create/AssetCreateHost.js';
-import { SceneStudio } from '../create/scene/SceneStudio.js';
+import { SceneCreate } from '../create/scene/SceneCreate.js';
 import { seeded, type StudioState } from '../create/scene/sceneStudioRules.js';
-import { P, scenePath, scenesPath } from '../routes.js';
+import { P, scenePath, scenesPath, sceneStudioPath } from '../routes.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
 
 const hashOf = (ref: unknown): string | null => {
@@ -78,7 +78,7 @@ export function SceneStudioRoute() {
   if (sceneId && !seed) return <Navigate to={scenePath(brand, sceneId)} replace />;
 
   return (
-    <SceneStudio
+    <SceneCreate
       key={key}
       brand={brand}
       applyBrand={applyBrand}
@@ -88,6 +88,8 @@ export function SceneStudioRoute() {
       caps={caps ? { canRead: caps.canAnalyze, canDraw: caps.canGenerate } : null}
       capsNote={capsNote}
       onClose={close}
+      // a new history entry is a new conversation, the way Create presenter is
+      onStartOver={() => navigate(sceneStudioPath(brand), { replace: true, state })}
       onSaved={(made, how) => {
         announce({ kind: 'scene', id: made.id, name: made.name, verticals: made.verticals, how });
         if (toCreate && from)

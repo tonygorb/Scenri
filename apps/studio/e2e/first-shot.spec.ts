@@ -173,18 +173,19 @@ test('First steps lists four real things, ticks what exists, hides with an Undo'
   await expect(steps(page)).toBeVisible();
 });
 
-test('a scene has its own task, held in the dialog it is made in', async ({ page }) => {
+test('a scene has its own task, held in the studio it is made in', async ({ page }) => {
   await page.goto(`/${slug}`);
   await steps(page).locator('.sc-steps-item', { hasText: 'Build a scene' }).click();
-  await expect(page).toHaveURL(/new=scene/);
-  const layer = page.locator('.sc-newdlg-layer');
-  await expect(layer.locator('.sc-coach .sc-coach-title')).toHaveText('Build a scene');
-  await expect(layer.locator('.sc-coach-veil')).toHaveCount(1);
-  // the dialog itself stays usable under the curtain
-  await layer.getByPlaceholder('Name this place').fill('Terrace');
-  await expect(layer.getByPlaceholder('Name this place')).toHaveValue('Terrace');
-  await layer.getByRole('button', { name: 'Close', exact: true }).first().click();
-  // closing the dialog does not end the task: First steps continues it
+  await expect(page).toHaveURL(/\/scenes\/new$/);
+  const studio = page.locator('.sc-pstudio[data-kind="scene"]');
+  await expect(studio.locator('.sc-coach .sc-coach-title')).toHaveText('Describe the place, or start from pictures');
+  // the studio's own line stays usable beside the question
+  const line = studio.locator('.sc-pstudio-foot textarea');
+  await line.fill('A terrace');
+  await expect(line).toHaveValue('A terrace');
+  await line.fill('');
+  await studio.getByRole('button', { name: 'Close', exact: true }).first().click();
+  // closing the studio does not end the task: First steps continues it
   expect((await guideRecord(page)).active?.task).toBe('scene');
   await expect(steps(page).locator('.sc-steps-item[data-state="active"]')).toHaveText(/Continue your scene/);
 });
