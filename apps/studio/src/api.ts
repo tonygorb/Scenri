@@ -361,8 +361,9 @@ export const api = {
       `/api/brands/${brandId}/scenes/${sceneId}`,
       patch,
     ),
+  /** The brand comes back so every surface stops showing the scene in one commit. */
   deleteScene: (brandId: string, sceneId: string) =>
-    req<{ ok: true }>('DELETE', `/api/brands/${brandId}/scenes/${sceneId}`),
+    req<{ ok: true; brand: Brand }>('DELETE', `/api/brands/${brandId}/scenes/${sceneId}`),
   /** Redraw a scene's example. One generation, always asked for out loud. */
   generateScenePreview: (brandId: string, sceneId: string) =>
     req<{ preview: string; brand: Brand }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/preview`),

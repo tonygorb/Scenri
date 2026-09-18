@@ -616,13 +616,15 @@ export const Composer = forwardRef<
     onAttached?.(attachedRef.current);
   }, [attachedKey, onAttached]);
 
-  // a `?scene=` id (or a restored draft) that no longer resolves must not sit as
-  // a silent, still-submittable chip — mirrors Create.tsx's stale-branch-target
-  // toast for the same class of problem
+  // a `?scene=` id, a restored draft, or a scene deleted while this brief was
+  // open that no longer resolves must not sit as a silent, still-submittable
+  // chip — mirrors Create.tsx's stale-branch-target toast for the same class
+  // of problem. Only the scene goes: the rest of the brief is still the
+  // person's work.
   useEffect(() => {
     if (!loaded || !templateTokenId || template) return;
     briefRef.current?.removeTemplate();
-    push({ kind: 'error', title: 'That scene is no longer available.', detail: 'Starting from scratch.' });
+    push({ kind: 'error', title: 'That scene is no longer available.', detail: 'Removed from the brief.' });
   }, [loaded, templateTokenId, template, push]);
 
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
