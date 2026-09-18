@@ -423,12 +423,19 @@ jobs:
 
       # The browser binaries change only when Playwright does; downloading
       # them fresh cost about 40 seconds on every run.
+      #
+      # The key names the browser set, because the legs install different
+      # ones and a cache key is written once, by whichever job saves first.
+      # Under one shared key the 1.62.1 cache happened to be saved by the
+      # tablet leg, chromium and webkit both; had a chromium leg won the race,
+      # the tablet leg would have restored a hit with no WebKit in it and
+      # skipped the install.
       - name: Cache the Playwright browsers
         id: pw-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-${{ matrix.browsers == 'chromium' && 'chromium' || 'chromium-webkit' }}
 
       # Both install steps carry their own timeout: apt behind them once hung
       # on a mirror for the full 20-minute job budget before any test ran.
