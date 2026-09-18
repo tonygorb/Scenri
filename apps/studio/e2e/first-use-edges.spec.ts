@@ -166,8 +166,9 @@ test('in the walk a chip comes in through its ask and leaves only through Back; 
   await chips(page).first().click();
   await expect(page.locator('.sc-swap, .sc-swapsheet').first()).toBeVisible();
   await expect(page.locator('.sc-swap-remove')).toHaveCount(0);
-  // and with nothing in it, the panel's foot is not drawn as an empty band
-  await expect(page.locator('.sc-swap .sc-swap-foot')).toBeHidden();
+  // and a foot with nothing in it is not drawn as an empty band (one that
+  // carries the chip's warning, as the demo engine's does, is still shown)
+  await expect(page.locator('.sc-swap .sc-swap-foot:empty')).toBeHidden();
   await page.keyboard.press('Escape');
   await expect(chips(page)).toHaveCount(3);
 });
