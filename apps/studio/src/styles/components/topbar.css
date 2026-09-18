@@ -277,7 +277,7 @@
   flex: none;
   height: 32px;
   font-size: 13.5px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.5;
   margin-left: 7px;
   border-radius: var(--sc-radius-full);
@@ -296,13 +296,30 @@
   text-decoration: none;
   font-family: inherit;
   font-size: 13.5px;
-  font-weight: 600;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   transition: background 120ms ease;
 }
+/* The plus rides a gold disc inset 4px from the pill's round end, so the disc and
+   the end share one centre. Gold at full strength, and the one place in the bar
+   it appears: this is the act the whole studio exists for (DESIGN.md, the One
+   Accent Rule). Ink on it in both themes, since gold carries dark ink only. */
 .sc-new-go {
-  gap: 7px;
-  padding: 0 12px;
+  padding: 0 4px;
   border-radius: var(--sc-radius-full) 0 0 var(--sc-radius-full);
+}
+.sc-new-disc {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-gold);
+  color: var(--sc-gold-ink);
+}
+.sc-new-lb {
+  padding: 0 8px;
 }
 .sc-new-more {
   padding: 0 9px;
@@ -427,9 +444,6 @@
   .sc-new-lb {
     display: none;
   }
-  .sc-new-go {
-    padding: 0 9px;
-  }
 }
 
 /* A finger needs 44px; the bar does not. The graphic keeps its size and the
@@ -470,10 +484,6 @@
   }
   /* The word stays on a phone. "New" is the one thing in this row that says what
      it does, and the bar has the width for it once the places have gone. */
-  .sc-new-go {
-    padding: 0 10px;
-    gap: 6px;
-  }
   .sc-new-more {
     padding: 0 7px;
   }

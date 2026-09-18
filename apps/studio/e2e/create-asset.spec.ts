@@ -65,6 +65,14 @@ test.describe('adding to a brand', () => {
 
   test('New is one pill, round at both ends, with and without its word', async ({ page }) => {
     await expectNewIsPill(page);
+    // the plus rides a 24px disc of its own, round, sharing the pill end's centre
+    const disc = await page.locator('.sc-new-disc').evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const pill = el.closest('.sc-new')!.getBoundingClientRect();
+      return { w: r.width, h: r.height, round: getComputedStyle(el).borderRadius, inset: r.left - pill.left };
+    });
+    expect(disc).toMatchObject({ w: 24, h: 24, inset: 4 });
+    expect(Number.parseFloat(disc.round)).toBeGreaterThanOrEqual(12);
     // 768 to 960 drops the label and keeps both halves
     await page.setViewportSize({ width: 800, height: 900 });
     await expect(page.locator('.sc-new-lb')).toBeHidden();

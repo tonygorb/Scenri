@@ -55,7 +55,9 @@ export function NewButton() {
   return (
     <div className="sc-new">
       <Link className="sc-new-go" to={create?.to ?? ''} aria-label="New shot">
-        <Plus size={15} weight="bold" aria-hidden="true" />
+        <span className="sc-new-disc" aria-hidden="true">
+          <Plus size={12} weight="bold" />
+        </span>
         <span className="sc-new-lb">New</span>
       </Link>
       <span className="sc-new-split" aria-hidden="true" />
@@ -64,7 +66,7 @@ export function NewButton() {
         className="sc-menu-start"
         trigger={
           <button type="button" className="sc-new-more" aria-label="Other ways to start">
-            <CaretDown size={11} weight="bold" className="sc-new-caret" aria-hidden="true" />
+            <CaretDown size={12} weight="bold" className="sc-new-caret" aria-hidden="true" />
           </button>
         }
       >
