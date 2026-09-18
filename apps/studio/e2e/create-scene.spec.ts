@@ -322,13 +322,20 @@ test('a reload comes back to the same conversation, the same question on the flo
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:light');
 });
 
-test('leaving with anything said asks first, and leaving saves nothing', async ({ page }) => {
+test('leaving with anything said asks first, staying hands the keyboard back, and leaving saves nothing', async ({
+  page,
+}) => {
   const slug = await start(page);
   const before = (await scenes(page)).length;
   await say(page, 'A misty pine forest at dawn');
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/);
+  await line(page).focus();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('alertdialog')).toContainText('Leave this scene?');
+  // staying puts the keyboard back where it was, not on the page behind
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
+  await expect(line(page)).toBeFocused();
+  await page.keyboard.press('Escape');
   await page.getByRole('alertdialog').getByRole('button', { name: 'Leave' }).click();
   await page.waitForURL(new RegExp(`/${slug}/scenes$`));
   expect((await scenes(page)).length).toBe(before);
