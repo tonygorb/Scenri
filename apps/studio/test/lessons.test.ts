@@ -1,14 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import type { GuideTaskNode, ShowcaseEntry } from '../src/apiTypes.js';
+import type { GuideTaskNode } from '../src/apiTypes.js';
 import { MILESTONE } from '../src/guidedTasks.js';
 import {
+  LESSON_PICTURES,
   LESSONS,
   NEEDS_SHOT,
   lessonOf,
   lessonState,
-  pictureOf,
   stepOf,
-  type LessonArt,
   type ProgressFacts,
 } from '../src/lessons.js';
 
@@ -99,42 +98,13 @@ describe('stepOf', () => {
   });
 });
 
-describe('pictureOf', () => {
-  const entry = (id: string, kinds: string[]): ShowcaseEntry =>
-    ({
-      id,
-      title: id,
-      category: 'x',
-      width: 1024,
-      height: 1280,
-      previewUrl: `/api/showcase-previews/${id}.jpg`,
-      brief: { tokens: kinds.map((t) => ({ t, id: `${t}-1` })) },
-    }) as ShowcaseEntry;
-  const art: LessonArt = {
-    showcase: [
-      entry('product-only', ['product', 'template']),
-      entry('all-three', ['product', 'character', 'template']),
-      entry('all-three-again', ['template', 'character', 'product']),
-    ],
-    presenters: [{ previewUrl: '/p/card.jpg', avatarUrl: '/p/face.jpg' }],
-    scenes: [
-      { id: 'studio', previewUrl: '/s/studio.jpg' },
-      { id: 'furniture-low-sun-terrace', previewUrl: '/s/terrace.jpg' },
-    ],
-    products: [{ previewUrl: null }, { previewUrl: '/d/watch.jpg' }],
-  };
-  it('shows what the lesson makes, from the catalog that ships', () => {
-    // the shots teach the first shot: made from all three ingredients
-    expect(pictureOf('first-shot', art)).toBe('/api/showcase-previews/all-three.jpg');
-    expect(pictureOf('refine', art)).toBe('/api/showcase-previews/all-three-again.jpg');
-    // a face, not a torso cropped to a card
-    expect(pictureOf('presenter', art)).toBe('/p/face.jpg');
-    // a place and its light, with nothing sold in it
-    expect(pictureOf('scene', art)).toBe('/s/terrace.jpg');
-    expect(pictureOf('product', art)).toBe('/d/watch.jpg');
-  });
-  it('never fails for an empty catalog', () => {
-    const none: LessonArt = { showcase: [], presenters: [], scenes: [], products: [] };
-    for (const l of LESSONS) expect(pictureOf(l.id, none)).toBeNull();
+describe('LESSON_PICTURES', () => {
+  it('gives every lesson its own square and its own wide picture', () => {
+    const all = LESSONS.flatMap((l) => [LESSON_PICTURES[l.id].square, LESSON_PICTURES[l.id].wide]);
+    for (const l of LESSONS) {
+      expect(LESSON_PICTURES[l.id].square, l.id).toMatch(new RegExp(`/lessons/${l.id}-square\\.webp$`));
+      expect(LESSON_PICTURES[l.id].wide, l.id).toMatch(new RegExp(`/lessons/${l.id}-wide\\.webp$`));
+    }
+    expect(new Set(all).size).toBe(all.length);
   });
 });

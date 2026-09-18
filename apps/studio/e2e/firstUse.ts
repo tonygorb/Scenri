@@ -13,18 +13,17 @@ export const welcome = (p: Page) => p.locator('.sc-welcome');
 /** Learn's ghost button in the bar (from 1024px), the dialog it opens, and one lesson in it. */
 export const learnButton = (p: Page) => p.locator('.sc-learn-btn');
 export const learnDialog = (p: Page) =>
-  p.getByRole('dialog').filter({ has: p.locator('.sc-learn-grid, .sc-learn-detail') });
-export const lessonCard = (p: Page, title: string) => learnDialog(p).locator('.sc-learn-card', { hasText: title });
+  p.getByRole('dialog').filter({ has: p.locator('.sc-learn-list, .sc-learn-lesson') });
+export const lessonRow = (p: Page, title: string) => learnDialog(p).locator('.sc-learn-row', { hasText: title });
 export const brief = (p: Page) => p.locator('[data-guide="compose"] .sc-brief-line');
 export const chips = (p: Page) => p.locator('[data-guide="compose"] .sc-brief-line .sc-token');
 
 /** Opens one lesson from the bar's Learn and takes its one action, the way a person does. */
 export async function fromLearn(p: Page, title: string): Promise<void> {
   await learnButton(p).click();
-  await lessonCard(p, title).click();
-  await learnDialog(p)
-    .getByRole('button', { name: /^(Start|Continue|Do it again|Make a shot first)$/ })
-    .click();
+  await lessonRow(p, title).click();
+  // the one step that can be pressed carries the lesson's action
+  await learnDialog(p).locator('button.sc-learn-step').click();
 }
 
 export async function guideRecord(p: Page): Promise<GuideView> {

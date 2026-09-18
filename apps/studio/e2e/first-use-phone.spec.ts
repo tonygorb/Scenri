@@ -92,7 +92,7 @@ test("begun away from Create, the way there is the tab bar's Create, ringed", as
   const slug = await ownBrand(page, 'Tab Way');
   await page.request.post('/api/guide', { data: { welcome: 'declined' } });
   await page.goto(`/${slug}?learn=first-shot`);
-  await page.getByRole('button', { name: /^(Start|Continue)$/ }).click();
+  await page.getByRole('button', { name: /^(Start|Continue):/ }).click();
   await expect(coachTitle(page)).toHaveText('Shots are made in Create', { timeout: 20_000 });
   await pointsAt(page, '.sc-tabbar [data-guide="nav.create"]');
   await expect(page.locator('.sc-coach-ring')).toBeVisible();

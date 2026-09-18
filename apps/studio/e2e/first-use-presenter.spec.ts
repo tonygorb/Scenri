@@ -6,7 +6,7 @@ import {
   isInert,
   learnButton,
   learnDialog,
-  lessonCard,
+  lessonRow,
   noWelcomeWait,
   pointsAt,
   setUpBrand,
@@ -93,9 +93,11 @@ test('the face and the save are the two words it says, and saving ends the task'
   // Learn continues that exact draft.
   await page.goto(`/${slug}`);
   await learnButton(page).click();
-  await expect(lessonCard(page, 'Create a presenter').locator('.sc-learn-meta')).toHaveText(/^Step \d of 4$/);
-  await lessonCard(page, 'Create a presenter').click();
-  await learnDialog(page).getByRole('button', { name: 'Continue' }).click();
+  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText(/^Step \d of 4$/);
+  await lessonRow(page, 'Create a presenter').click();
+  await learnDialog(page)
+    .getByRole('button', { name: /^Continue:/ })
+    .click();
   await page.waitForURL(`**/presenters/new/${draft.id}`);
 
   await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Decide the face', { timeout: 20_000 });

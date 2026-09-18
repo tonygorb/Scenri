@@ -22,8 +22,10 @@ isolate({ brand: false, env: { SCENRI_NO_GUIDE: '0', SCENRI_DEMO_BUILDS: '1', SC
 test.describe.configure({ mode: 'serial' });
 
 let slug = '';
-const learn = (p: Page) => p.getByRole('dialog').filter({ has: p.locator('.sc-learn-grid, .sc-learn-detail') });
-const card = (p: Page, title: string) => learn(p).locator('.sc-learn-card', { hasText: title });
+const learn = (p: Page) => p.getByRole('dialog').filter({ has: p.locator('.sc-learn-list, .sc-learn-lesson') });
+const card = (p: Page, title: string) => learn(p).locator('.sc-learn-row', { hasText: title });
+/** The one step that can be pressed, which carries the lesson's action. */
+const action = (p: Page, verb: string) => learn(p).getByRole('button', { name: new RegExp(`^${verb}:`) });
 
 test.beforeEach(async ({ page }) => {
   await noWelcomeWait(page);
@@ -45,28 +47,37 @@ test('Learn is a quiet button beside the bell, and every lesson is in it', async
     'Refine a shot',
   ]);
   // where each stands, in a few words: a count of steps, never a time
-  await expect(card(page, 'Create a presenter').locator('.sc-learn-meta')).toHaveText('4 steps');
+  await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('4 steps');
   await expect(learn(page)).not.toContainText(/min/);
   // pressed while open it shows it is the one open
   await expect(learnButton(page)).toHaveAttribute('data-on', 'true');
 
-  // one lesson: its steps as outcomes, and one way to begin it
+  // one lesson beside the list: its steps as outcomes, and the one step
+  // that can be pressed, which is how it begins
   await card(page, 'Create a presenter').click();
   await expect(page).toHaveURL(/learn=presenter/);
-  await expect(learn(page).locator('.sc-learn-step')).toHaveText([
+  await expect(card(page, 'Create a presenter')).toHaveAttribute('aria-current', 'true');
+  await expect(learn(page).locator('.sc-learn-step-name')).toHaveText([
     'Start a presenter',
     'Describe someone, or add photos',
     'Decide the face',
     'Save them',
   ]);
-  await expect(learn(page).getByRole('button', { name: 'Start' })).toBeFocused();
-  // back to every lesson lands on the one just read
-  await learn(page).getByRole('button', { name: 'All lessons' }).click();
-  await expect(page).toHaveURL(/learn=lessons/);
-  await expect(card(page, 'Create a presenter')).toBeFocused();
+  await expect(learn(page).locator('button.sc-learn-step')).toHaveCount(1);
+  await expect(action(page, 'Start')).toHaveAccessibleName('Start: Start a presenter');
+  // choosing another lesson moves nothing: the picture and the steps hold their place
+  const at = async () => [
+    await learn(page).locator('.sc-learn-hero').boundingBox(),
+    await learn(page).locator('.sc-learn-step').first().boundingBox(),
+    await page.locator('.sc-learn').boundingBox(),
+  ];
+  const before = await at();
+  await card(page, 'Refine a shot').click();
+  await expect(learn(page).locator('.sc-learn-title')).toHaveText('Refine a shot');
+  expect(await at()).toEqual(before);
   // a link to one lesson opens that lesson, and Escape closes it all
   await page.goto(`/${slug}?learn=scene`);
-  await expect(learn(page).locator('.sc-newdlg-title')).toHaveText('Build a scene');
+  await expect(learn(page).locator('.sc-learn-title')).toHaveText('Build a scene');
   await page.keyboard.press('Escape');
   await expect(learn(page)).toHaveCount(0);
   await expect(learnButton(page)).toBeFocused();
@@ -75,7 +86,7 @@ test('Learn is a quiet button beside the bell, and every lesson is in it', async
 
 test('a lesson begun in Learn is paused and continued as it was', async ({ page }) => {
   await page.goto(`/${slug}?learn=presenter`);
-  await learn(page).getByRole('button', { name: 'Start' }).click();
+  await action(page, 'Start').click();
   await page.waitForURL('**/presenters/new**');
   await expect(page.locator('.sc-pstudio .sc-coach-title')).toHaveText('Describe someone, or start from photos', {
     timeout: 20_000,
@@ -89,11 +100,13 @@ test('a lesson begun in Learn is paused and continued as it was', async ({ page 
   // Learn says it is in hand
   await page.goto(`/${slug}`);
   await learnButton(page).click();
-  await expect(card(page, 'Create a presenter').locator('.sc-learn-meta')).toHaveText('Step 1 of 4');
+  await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('Step 1 of 4');
   await card(page, 'Create a presenter').click();
-  await expect(learn(page).locator('.sc-learn-step[aria-current="step"]')).toHaveText('Start a presenter');
+  await expect(learn(page).locator('.sc-learn-step[aria-current="step"] .sc-learn-step-name')).toHaveText(
+    'Start a presenter',
+  );
   // continuing it keeps the window it began with
-  await learn(page).getByRole('button', { name: 'Continue' }).click();
+  await action(page, 'Continue').click();
   await page.waitForURL('**/presenters/new**');
   await expect(page.locator('.sc-pstudio .sc-coach-title')).toHaveText('Describe someone, or start from photos', {
     timeout: 20_000,
@@ -106,7 +119,7 @@ test('a lesson begun in Learn is paused and continued as it was', async ({ page 
 test('a lesson done from Learn is done there, and can be done again', async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto(`/${slug}?learn=scene`);
-  await learn(page).getByRole('button', { name: 'Start' }).click();
+  await action(page, 'Start').click();
   await expect(page).toHaveURL(/new=scene/);
   await expect(coachTitle(page)).toHaveText('Build a scene');
   await page.getByPlaceholder('Name this place').fill('Quiet terrace');
@@ -117,16 +130,16 @@ test('a lesson done from Learn is done there, and can be done again', async ({ p
 
   await page.goto(`/${slug}`);
   await learnButton(page).click();
-  await expect(card(page, 'Build a scene').locator('.sc-learn-meta')).toHaveText('Done');
+  await expect(card(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('Done');
   await card(page, 'Build a scene').click();
   await expect(learn(page).locator('.sc-learn-step[data-state="done"]')).toHaveCount(3);
-  await expect(learn(page).getByRole('button', { name: 'Do it again' })).toBeVisible();
+  await expect(action(page, 'Do it again')).toBeVisible();
 });
 
 test('refining with no shot says so, and its one action makes a shot first', async ({ page }) => {
   await page.goto(`/${slug}?learn=refine`);
   await expect(learn(page)).toContainText('Refining starts from a shot you have made.');
-  await learn(page).getByRole('button', { name: 'Make a shot first' }).click();
+  await action(page, 'Make a shot first').click();
   await walkToCreate(page);
   await expect(coachTitle(page)).toHaveText('Choose a product');
   expect((await guideRecord(page)).active?.task).toBe('first-shot');
@@ -145,7 +158,7 @@ test('a first refine begun from Learn ends when it is done, and does not begin a
   await expect.poll(async () => (await guideRecord(page)).active).toBeNull();
 
   await page.goto(`/${slug}?learn=refine`);
-  await learn(page).getByRole('button', { name: 'Start' }).click();
+  await action(page, 'Start').click();
   await page.waitForURL('**/shots/**');
   await expect(page.locator('.sc-ovl .sc-coach .sc-coach-title')).toHaveText('Change one thing');
   await page.locator('.sc-ovl .sc-brief-line').click();
@@ -169,9 +182,11 @@ test('on a phone Learn is the sheet, and every lesson a row', async ({ page }) =
   await page.locator('.sc-topbar .sc-help-btn').click();
   await page.getByRole('menuitem', { name: 'Learn' }).click();
   await expect(page).toHaveURL(/learn=lessons/);
-  await expect(learn(page).locator('.sc-learn-card')).toHaveCount(5);
+  await expect(learn(page).locator('.sc-learn-row')).toHaveCount(5);
+  // the list alone: a phone opens one lesson at a time, over it
+  await expect(learn(page).locator('.sc-learn-lesson')).toHaveCount(0);
   const columns = await learn(page)
-    .locator('.sc-learn-grid')
+    .locator('.sc-learn-body')
     .evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
   expect(columns).toBe(1);
   // the sheet holds one height for both levels, so its top edge does not jump
@@ -180,8 +195,11 @@ test('on a phone Learn is the sheet, and every lesson a row', async ({ page }) =
   await page.waitForTimeout(400);
   const before = await top();
   await card(page, 'Refine a shot').click();
-  await expect(learn(page).locator('.sc-learn-detail')).toBeVisible();
+  await expect(learn(page).locator('.sc-learn-lesson')).toBeVisible();
   await page.waitForTimeout(200);
   expect(Math.abs((await top()) - before)).toBeLessThanOrEqual(1);
+  // back lands on the row just read
+  await learn(page).getByRole('button', { name: 'All lessons' }).click();
+  await expect(card(page, 'Refine a shot')).toBeFocused();
   await expect(coachCard(page)).toHaveCount(0);
 });

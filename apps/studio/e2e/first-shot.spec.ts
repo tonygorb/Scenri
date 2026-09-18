@@ -20,7 +20,7 @@ import {
   fromLearn,
   learnButton,
   learnDialog,
-  lessonCard,
+  lessonRow,
   welcome,
 } from './firstUse.js';
 
@@ -175,7 +175,7 @@ test('Learn sits in the bar beside the bell, and says what is already done', asy
   await expect(page.locator('.sc-learn-btn + .sc-notif-btn')).toHaveCount(1);
   await learnButton(page).click();
   await expect(page).toHaveURL(/learn=lessons/);
-  await expect(lessonCard(page, 'Make your first shot').locator('.sc-learn-meta')).toHaveText('Done');
+  await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('Done');
   // closed without beginning anything, the keyboard is back on the button
   await page.keyboard.press('Escape');
   await expect(learnDialog(page)).toHaveCount(0);
@@ -196,5 +196,5 @@ test('a scene has its own task, held in the dialog it is made in', async ({ page
   // closing the dialog does not end the task: Learn continues it
   expect((await guideRecord(page)).active?.task).toBe('scene');
   await learnButton(page).click();
-  await expect(lessonCard(page, 'Build a scene').locator('.sc-learn-meta')).toHaveText(/^Step \d of 3$/);
+  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText(/^Step \d of 3$/);
 });

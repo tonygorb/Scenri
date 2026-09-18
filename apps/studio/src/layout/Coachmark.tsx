@@ -248,6 +248,9 @@ export function Coachmark(p: CoachmarkProps) {
     // Where the card went the first time: it stays on that side while it fits,
     // so a surface still settling never swings it from one side to the other.
     let last: Placement | null = null;
+    // ...and forgets it when the screen crosses into or out of one column:
+    // the side a desktop chose (beside a question) is not a side on a phone.
+    let lastWide: boolean | null = null;
     let stopAuto: (() => void) | null = null;
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const lead = live[0] ?? target ?? container;
@@ -417,6 +420,14 @@ export function Coachmark(p: CoachmarkProps) {
         // beside a surface stands above or below it instead, against the thing
         // it points at, rather than being squeezed over the middle of it.
         const wideScreen = vw >= NARROW;
+        if (lastWide !== wideScreen) {
+          // A screen that changed shape re-flows the page under the step, and
+          // the thing asked about can end up scrolled out of its own pane:
+          // brought back into view, the way a new step is.
+          if (lastWide !== null && target) void bringIntoView(target, scrollPane(target), still);
+          last = null;
+          lastWide = wideScreen;
+        }
         const upright: Side = side === 'left' || side === 'right' ? 'top' : side;
         // A card under a surface as wide as the screen hangs from its leading
         // edge, the way a menu hangs from its button: centred under something
@@ -603,6 +614,13 @@ export function Coachmark(p: CoachmarkProps) {
     const ro = new ResizeObserver(schedule);
     for (const el of live) ro.observe(el);
     if (target) ro.observe(target);
+    // A surface that grows moves what sits in it without the thing itself
+    // changing size (the composer settling once its row loads lifts its add
+    // button 19px), whenever that happens: watch the surfaces too.
+    for (const el of [...(target ? [target] : []), ...live]) {
+      const shape = el?.closest?.<HTMLElement>(SHAPE);
+      if (shape) ro.observe(shape);
+    }
     window.visualViewport?.addEventListener('resize', schedule);
     window.visualViewport?.addEventListener('scroll', schedule);
     // The page goes on drawing under a held page: a question writes itself in,

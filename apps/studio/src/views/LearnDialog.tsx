@@ -1,35 +1,39 @@
 import { type RefObject, useEffect, useRef, useState } from 'react';
-import { CaretLeft, Check, X } from '@phosphor-icons/react';
-import { useAppData, useDialogParam } from '../app/AppShell.js';
+import { ArrowRight, CaretLeft, Check, X } from '@phosphor-icons/react';
+import { useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId } from '../apiTypes.js';
-import { thumbOf } from '../apiUploads.js';
 import { useGuide } from '../guide.js';
 import { useGuideFacts } from '../guideFacts.js';
 import { firstShotMoment, presenterMoment } from '../guidedTasks.js';
 import {
+  LESSON_PICTURES,
   LESSONS,
   NEEDS_SHOT,
   lessonOf,
   lessonState,
-  pictureOf,
   stepOf,
   type Lesson,
   type LessonState,
 } from '../lessons.js';
 import { DialogSheet, SheetClose, SheetDescription, SheetTitle } from '../layout/DialogSheet.js';
 import { useLaunchTask } from '../layout/useLaunchTask.js';
+import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 
 /** The library's own address: `?learn=lessons`. A lesson's is its id. */
 export const ALL_LESSONS = 'lessons';
 
 /**
- * Learn (DESIGN.md, "First use"): every lesson, then one lesson. A lesson is a
- * real thing to do in Scenri, and starting it closes this and hands over to
- * the tutor, which walks it where it happens. Nothing here is a tour or an
- * article: a picture of what the lesson makes, its steps as outcomes, and
+ * Learn (DESIGN.md, "First use"): every lesson beside the one being read. A
+ * lesson is a real thing to do in Scenri, and starting it closes this and
+ * hands over to the tutor, which walks it where it happens. Nothing here is a
+ * tour or an article: a picture of the lesson, its steps as outcomes, and
  * whether it is new, in hand or done, all read from the install's record.
+ *
+ * On a desktop it is one level: the five on the left, the chosen one open on
+ * the right, and nothing moves when another is chosen. A phone has room for
+ * one at a time, so the list comes first and a lesson opens over it.
  *
  * It lives in the address like Settings (`?learn`, `?learn=<lesson>`), so the
  * bar's Learn button, Help and a pasted link are the same door. It opens over
@@ -38,10 +42,10 @@ export const ALL_LESSONS = 'lessons';
 export function LearnDialog() {
   const param = useDialogParam('learn');
   const open = param.value !== null;
-  const lesson = lessonOf(param.value);
+  const chosen = lessonOf(param.value);
+  const phone = useMediaQuery(PHONE);
   const guide = useGuide();
   const facts = useGuideFacts();
-  const data = useAppData();
   const { brand, recent } = useBrand();
   const { builds } = useTaskCenter();
   const launch = useLaunchTask();
@@ -91,87 +95,106 @@ export function LearnDialog() {
       building: l.id === 'scene' && builds.some((b) => b.kind === 'scene' && !b.finished),
     });
   };
-  const art = {
-    showcase: data.showcase,
-    presenters: data.presenters,
-    scenes: data.scenes,
-    products: data.demoProducts,
-  };
-  const picture = (l: Lesson) => {
-    const src = pictureOf(l.id, art);
-    return src ? thumbOf(src, 'small') : null;
-  };
+  // The lesson that comes next: the one in hand, else the first not yet done.
+  const next = LESSONS.find((l) => stateOf(l) === 'active') ?? LESSONS.find((l) => stateOf(l) !== 'done') ?? null;
+  // What a desktop shows open: the lesson asked for, else the one that comes next.
+  const shown = chosen ?? next ?? LESSONS[0];
+  const done = LESSONS.filter((l) => stateOf(l) === 'done').length;
 
-  // The keyboard lands where the next press is: a lesson's own action on the
-  // way in, the lesson just read on the way back.
+  // The keyboard lands where the next press is: the lesson's one action as it
+  // opens, and on a phone the row just read on the way back to the list.
   const actionRef = useRef<HTMLButtonElement>(null);
-  const cards = useRef(new Map<GuideTaskId, HTMLButtonElement>());
+  const rows = useRef(new Map<GuideTaskId, HTMLButtonElement>());
   const lastRead = useRef<GuideTaskId | null>(null);
+  const wasOpen = useRef(false);
   useEffect(() => {
+    const opening = open && !wasOpen.current;
+    wasOpen.current = open;
     if (!open) return;
-    if (lesson) {
-      lastRead.current = lesson.id;
+    if (phone && chosen) {
+      lastRead.current = chosen.id;
       actionRef.current?.focus({ preventScroll: true });
-    } else if (lastRead.current) cards.current.get(lastRead.current)?.focus({ preventScroll: true });
-  }, [open, lesson]);
+    } else if (phone && lastRead.current) rows.current.get(lastRead.current)?.focus({ preventScroll: true });
+    else if (opening) actionRef.current?.focus({ preventScroll: true });
+  }, [open, phone, chosen]);
+
+  const lessonView = (l: Lesson, describe: boolean) => (
+    <LessonView
+      key={l.id}
+      lesson={l}
+      state={stateOf(l)}
+      at={stepNow(l)}
+      blocked={l.needs === 'shot' && !hasShot}
+      describe={describe}
+      actionRef={actionRef}
+      onBegin={() => begin(l.id)}
+    />
+  );
 
   return (
     <DialogSheet
       open={open}
       className="sc-learn"
-      maxWidth="760px"
+      maxWidth="880px"
       described
       onDismiss={param.close}
       onCloseAutoFocus={onCloseAutoFocus}
     >
-      {lesson ? (
-        <LessonDetail
-          key={lesson.id}
-          lesson={lesson}
-          state={stateOf(lesson)}
-          at={stepNow(lesson)}
-          picture={picture(lesson)}
-          blocked={lesson.needs === 'shot' && !hasShot}
-          actionRef={actionRef}
-          onBack={() => param.set(ALL_LESSONS)}
-          onBegin={() => begin(lesson.id)}
-        />
+      {phone && chosen ? (
+        <div className="sc-learn-level" key={`one-${chosen.id}`}>
+          <div className="sc-newdlg-head">
+            <button
+              type="button"
+              className="sc-newdlg-back"
+              onClick={() => param.set(ALL_LESSONS)}
+              aria-label="All lessons"
+            >
+              <CaretLeft size={15} />
+            </button>
+            <SheetTitle className="sc-newdlg-title">{chosen.title}</SheetTitle>
+            <CloseButton />
+          </div>
+          <div className="sc-newdlg-body sc-learn-body">{lessonView(chosen, true)}</div>
+        </div>
       ) : (
         <div className="sc-learn-level" key="all">
           <div className="sc-newdlg-head">
             <SheetTitle className="sc-newdlg-title">Learn</SheetTitle>
+            <span className="sc-learn-count">
+              {done} of {LESSONS.length} done
+            </span>
             <CloseButton />
           </div>
           <SheetDescription className="sc-newdlg-sub">
-            Each one walks you through one real thing in Scenri, a step at a time.
+            Each one walks you through one real thing, a step at a time.
           </SheetDescription>
-          <div className="sc-newdlg-body">
-            <ul className="sc-learn-grid">
-              {LESSONS.map((l) => {
-                const state = stateOf(l);
-                const src = picture(l);
-                return (
-                  <li key={l.id}>
-                    <button
-                      type="button"
-                      className="sc-learn-card"
-                      data-state={state}
-                      ref={(el) => {
-                        if (el) cards.current.set(l.id, el);
-                        else cards.current.delete(l.id);
-                      }}
-                      onClick={() => param.set(l.id)}
-                    >
-                      <span className="sc-learn-pic">
-                        {src && <img src={src} alt="" loading="lazy" decoding="async" />}
-                      </span>
+          <div className="sc-newdlg-body sc-learn-body">
+            <ul className="sc-learn-list">
+              {LESSONS.map((l) => (
+                <li key={l.id}>
+                  <button
+                    type="button"
+                    className="sc-learn-row"
+                    aria-current={!phone && shown.id === l.id ? 'true' : undefined}
+                    ref={(el) => {
+                      if (el) rows.current.set(l.id, el);
+                      else rows.current.delete(l.id);
+                    }}
+                    onClick={() => param.set(l.id)}
+                  >
+                    <span className="sc-learn-thumb">
+                      <img src={LESSON_PICTURES[l.id].square} alt="" decoding="async" />
+                    </span>
+                    <span className="sc-learn-say">
                       <span className="sc-learn-name">{l.title}</span>
-                      <Meta lesson={l} state={state} at={stepNow(l)} />
-                    </button>
-                  </li>
-                );
-              })}
+                      <Status lesson={l} state={stateOf(l)} at={stepNow(l)} />
+                    </span>
+                    {next?.id === l.id && <span className="sc-learn-next">Next</span>}
+                  </button>
+                </li>
+              ))}
             </ul>
+            {!phone && lessonView(shown, false)}
           </div>
         </div>
       )}
@@ -179,93 +202,120 @@ export function LearnDialog() {
   );
 }
 
-function LessonDetail({
+/**
+ * One lesson: its picture, its words, and its steps as the action. Only the
+ * step in hand can be pressed, carrying the word for it; a step behind it is
+ * done and one ahead cannot be reached yet, so neither pretends to be a button.
+ */
+function LessonView({
   lesson,
   state,
   at,
-  picture,
   blocked,
+  describe,
   actionRef,
-  onBack,
   onBegin,
 }: {
   lesson: Lesson;
   state: LessonState;
   at: number;
-  picture: string | null;
   blocked: boolean;
+  describe: boolean;
   actionRef: RefObject<HTMLButtonElement>;
-  onBack: () => void;
   onBegin: () => void;
 }) {
-  const label = blocked
+  const verb = blocked
     ? NEEDS_SHOT.action
     : state === 'active'
       ? 'Continue'
       : state === 'done'
         ? 'Do it again'
         : 'Start';
+  // The step with the action: the one in hand, or the first of a lesson that
+  // is new or already done.
+  const inHand = state === 'active' ? at : 0;
   // A step is done because the product said so: every step of a finished
-  // lesson, the steps behind the one in hand, and none of a new one.
+  // lesson and the steps behind the one in hand. A new lesson's first step is
+  // the one it starts on.
   const stepState = (i: number): 'done' | 'active' | 'todo' =>
-    state === 'done' ? 'done' : state === 'active' ? (i < at ? 'done' : i === at ? 'active' : 'todo') : 'todo';
+    state === 'done'
+      ? 'done'
+      : state === 'active'
+        ? i < at
+          ? 'done'
+          : i === at
+            ? 'active'
+            : 'todo'
+        : i === 0
+          ? 'active'
+          : 'todo';
+  const summary = describe ? (
+    <SheetDescription className="sc-learn-summary">{lesson.summary}</SheetDescription>
+  ) : (
+    <p className="sc-learn-summary">{lesson.summary}</p>
+  );
   return (
-    <div className="sc-learn-level">
-      <div className="sc-newdlg-head">
-        <button type="button" className="sc-newdlg-back" onClick={onBack} aria-label="All lessons">
-          <CaretLeft size={15} />
-        </button>
-        <SheetTitle className="sc-newdlg-title">{lesson.title}</SheetTitle>
-        <CloseButton />
-      </div>
-      <div className="sc-newdlg-body">
-        <div className="sc-learn-detail">
-          <span className="sc-learn-pic">{picture && <img src={picture} alt="" decoding="async" />}</span>
-          <div>
-            <SheetDescription className="sc-learn-summary">{lesson.summary}</SheetDescription>
-            <ol className="sc-learn-steps">
-              {lesson.steps.map((step, i) => {
-                const s = stepState(i);
-                return (
-                  <li
-                    key={step}
+    <section className="sc-learn-lesson" aria-label={lesson.title}>
+      <span className="sc-learn-hero">
+        <img src={LESSON_PICTURES[lesson.id].wide} alt="" decoding="async" />
+      </span>
+      <div className="sc-learn-copy">
+        <div className="sc-learn-kicker">
+          <Status lesson={lesson} state={state} at={at} />
+        </div>
+        <h3 className="sc-learn-title">{lesson.title}</h3>
+        {summary}
+        <ol className="sc-learn-steps">
+          {lesson.steps.map((step, i) => {
+            const s = stepState(i);
+            const mark = (
+              <span className="sc-learn-n" aria-hidden="true">
+                {s === 'done' ? <Check size={12} weight="bold" /> : i + 1}
+              </span>
+            );
+            const current = state === 'active' && i === at ? 'step' : undefined;
+            return (
+              <li key={step}>
+                {i === inHand ? (
+                  <button
+                    ref={actionRef}
+                    type="button"
                     className="sc-learn-step"
                     data-state={s}
-                    aria-current={s === 'active' ? 'step' : undefined}
+                    data-here=""
+                    aria-current={current}
+                    aria-label={`${verb}: ${step}`}
+                    onClick={onBegin}
                   >
-                    <span className="sc-learn-mark" aria-hidden="true">
-                      {s === 'done' && <Check size={10} weight="bold" />}
+                    {mark}
+                    <span className="sc-learn-step-name">{step}</span>
+                    <span className="sc-learn-go" aria-hidden="true">
+                      {verb} <ArrowRight size={12} weight="bold" />
                     </span>
-                    {step}
+                  </button>
+                ) : (
+                  <div className="sc-learn-step" data-state={s} aria-current={current}>
+                    {mark}
+                    <span className="sc-learn-step-name">{step}</span>
                     {s === 'done' && <span className="sc-vh">, done</span>}
-                  </li>
-                );
-              })}
-            </ol>
-            {blocked && <p className="sc-learn-note">{NEEDS_SHOT.note}</p>}
-          </div>
-        </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+        {blocked && <p className="sc-learn-note">{NEEDS_SHOT.note}</p>}
       </div>
-      <div className="sc-newdlg-foot">
-        <button
-          ref={actionRef}
-          type="button"
-          className={state === 'done' && !blocked ? 'sc-btn' : 'sc-btn sc-btn-primary'}
-          onClick={onBegin}
-        >
-          {label}
-        </button>
-      </div>
-    </div>
+    </section>
   );
 }
 
-/** Where a lesson stands, in a few quiet words: never a percentage, never a colour. */
-function Meta({ lesson, state, at }: { lesson: Lesson; state: LessonState; at: number }) {
+/** Where a lesson stands, in a few quiet words: done in green, never a percentage. */
+function Status({ lesson, state, at }: { lesson: Lesson; state: LessonState; at: number }) {
   const n = lesson.steps.length;
   if (state === 'done')
     return (
-      <span className="sc-learn-meta" data-state="done">
+      <span className="sc-learn-status" data-state="done">
         <span className="sc-learn-tick" aria-hidden="true">
           <Check size={9} weight="bold" />
         </span>
@@ -274,11 +324,11 @@ function Meta({ lesson, state, at }: { lesson: Lesson; state: LessonState; at: n
     );
   if (state === 'active')
     return (
-      <span className="sc-learn-meta" data-state="active">
+      <span className="sc-learn-status" data-state="active">
         Step {Math.min(at + 1, n)} of {n}
       </span>
     );
-  return <span className="sc-learn-meta">{n} steps</span>;
+  return <span className="sc-learn-status">{n} steps</span>;
 }
 
 function CloseButton() {

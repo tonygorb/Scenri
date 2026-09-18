@@ -1,4 +1,4 @@
-import type { GuideTaskId, GuideTaskNode, GuideView, ShowcaseEntry } from './apiTypes.js';
+import type { GuideTaskId, GuideTaskNode, GuideView } from './apiTypes.js';
 import { MILESTONE } from './guidedTasks.js';
 
 /**
@@ -136,40 +136,31 @@ export function stepOf(id: GuideTaskId, f: ProgressFacts): number {
   }
 }
 
-export interface LessonArt {
-  showcase: readonly ShowcaseEntry[];
-  presenters: readonly { avatarUrl?: string | null; previewUrl?: string | null }[];
-  scenes: readonly { id: string; previewUrl?: string | null }[];
-  products: readonly { previewUrl?: string | null }[];
-}
-
-/** A scene that reads as a place and its light, with nothing being sold in it. */
-const PLACE = 'furniture-low-sun-terrace';
-
 /**
- * A picture of what the lesson makes, from the curated catalog that ships
- * with Scenri: never an illustration drawn for the lesson. The shots are the
- * showcase's own, chosen by rule as the ones made from all three
- * ingredients, so the picture is what the first shot teaches.
+ * Each lesson's own two pictures, made for Learn as one story: the product,
+ * the presenter and the place, then the first shot made from all three, then
+ * that shot refined. A square for its row in the list and a wide one for the
+ * lesson itself, each framed for its shape rather than cropped from the other.
  */
-export function pictureOf(id: GuideTaskId, art: LessonArt): string | null {
-  const whole = art.showcase.filter((e) => {
-    const kinds = new Set((e.brief?.tokens ?? []).map((t: { t?: string }) => t?.t));
-    return e.previewUrl && kinds.has('product') && kinds.has('character') && kinds.has('template');
-  });
-  const shot = (i: number) => (whole[i] ?? whole[0] ?? art.showcase.find((e) => e.previewUrl))?.previewUrl ?? null;
-  switch (id) {
-    case 'first-shot':
-      return shot(0);
-    case 'refine':
-      return shot(1);
-    case 'product':
-      return art.products.find((p) => p.previewUrl)?.previewUrl ?? null;
-    case 'presenter': {
-      const p = art.presenters.find((x) => x.avatarUrl || x.previewUrl);
-      return p?.avatarUrl ?? p?.previewUrl ?? null;
-    }
-    case 'scene':
-      return (art.scenes.find((s) => s.id === PLACE) ?? art.scenes.find((s) => s.previewUrl))?.previewUrl ?? null;
-  }
-}
+export const LESSON_PICTURES: Record<GuideTaskId, { square: string; wide: string }> = {
+  'first-shot': {
+    square: new URL('./assets/lessons/first-shot-square.webp', import.meta.url).href,
+    wide: new URL('./assets/lessons/first-shot-wide.webp', import.meta.url).href,
+  },
+  product: {
+    square: new URL('./assets/lessons/product-square.webp', import.meta.url).href,
+    wide: new URL('./assets/lessons/product-wide.webp', import.meta.url).href,
+  },
+  presenter: {
+    square: new URL('./assets/lessons/presenter-square.webp', import.meta.url).href,
+    wide: new URL('./assets/lessons/presenter-wide.webp', import.meta.url).href,
+  },
+  scene: {
+    square: new URL('./assets/lessons/scene-square.webp', import.meta.url).href,
+    wide: new URL('./assets/lessons/scene-wide.webp', import.meta.url).href,
+  },
+  refine: {
+    square: new URL('./assets/lessons/refine-square.webp', import.meta.url).href,
+    wide: new URL('./assets/lessons/refine-wide.webp', import.meta.url).href,
+  },
+};
