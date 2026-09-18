@@ -274,7 +274,8 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         return;
       }
       if (made.kind === 'presenter') {
-        void refreshBrands();
+        // The save applied the brand it answered with before announcing, so
+        // the wall, the picker and their page already have them.
         if (cb?.kind === 'presenter') cb.fn(made);
         push({
           kind: 'success',
