@@ -1,5 +1,5 @@
 import { ImageSquare, PencilSimple } from '@phosphor-icons/react';
-import { type CSSProperties, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Navigate, useMatch, useNavigate, useParams } from 'react-router';
 import { api, type PresenterPatch, thumbOf } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
@@ -17,7 +17,7 @@ import { Rail } from '../layout/Rail.js';
 import { Tip } from '../layout/Tip.js';
 import { EmptyRefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
-import { PresenterDetailsDialog } from './PresenterDetailsDialog.js';
+import { AssetDetailsDialog } from './AssetDetailsDialog.js';
 
 /** The word under a reference tile, by the angle the record gives it. */
 const ROLE_LABEL: Record<string, string> = {
@@ -388,13 +388,14 @@ export function PresenterPage() {
         )}
 
         {details && owned && (
-          <PresenterDetailsDialog
+          <AssetDetailsDialog
             name={owned.name}
             categories={presenter.suitableCategories}
             known={known}
+            hint="The verticals they suit, so they surface where you work."
             busy={busy}
             error={err}
-            onSave={(next) => void save(next)}
+            onSave={(next) => void save({ name: next.name, suitableCategories: next.categories })}
             onDismiss={() => setDetails(false)}
           />
         )}

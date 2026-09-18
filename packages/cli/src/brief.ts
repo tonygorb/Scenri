@@ -1,5 +1,5 @@
 import type { EngineCapabilities, Core, ReferenceRole } from '@scenri/core';
-import type { CustomScene } from './assetRecords.js';
+import { brandScenes, DEFAULT_SCENE_LIGHTING, type CustomScene } from './assetRecords.js';
 import { composePrompt, type Scene } from './scenes.js';
 import { allocateAttachments } from './attachmentBudget.js';
 import { MARK_WARN_EDGE } from './routes/shared.js';
@@ -611,7 +611,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         }
         inlineTemplates.push(t);
         // the surrounding sentence is the art direction, so notes stay empty here
-        append(composePrompt(t, { fields: brief.templateFields ?? {}, notes: '' }));
+        append(withOwnLight(t, ctx.brand, composePrompt(t, { fields: brief.templateFields ?? {}, notes: '' })));
 
         /*
          * A figure-led scene with a presenter attached sends its drawn plate,
@@ -996,3 +996,27 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
 }
 
 const dedupe = (xs: string[]) => [...new Set(xs)];
+
+/**
+ * A brand's own scene, told with its light.
+ *
+ * The reader writes a scene's light apart from its place (`lighting`), and the
+ * scene studio shows both under "What your shots are told", so a shot is told
+ * both: the light follows the place it falls on. Until this the light reached
+ * only the scene's preview, while the page said it went with every shot.
+ *
+ * The catalog is left exactly as it was: its prose already carries its light,
+ * `lighting` there is a label scenes are related by, and 97 byte-exact
+ * showcase prompts answer to those words. The record's placeholder light is
+ * left out too, and so is a light the prose already says.
+ */
+export function withOwnLight(scene: Scene, brand: unknown, prose: string): string {
+  const own = brandScenes(brand ?? {}).some((s: any) => s?.id === scene.id);
+  const light = own
+    ? String(scene.lighting ?? '')
+        .trim()
+        .replace(/[.\s]+$/, '')
+    : '';
+  if (!light || light === DEFAULT_SCENE_LIGHTING || prose.toLowerCase().includes(light.toLowerCase())) return prose;
+  return `${prose.replace(/[.\s]+$/, '')}. ${light}.`;
+}

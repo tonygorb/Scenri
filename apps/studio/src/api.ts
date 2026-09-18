@@ -18,10 +18,8 @@ import type {
   CatalogImportJob,
   CatalogSource,
   CodexSetupResult,
-  CodexSetupState,
   CodexStatus,
   CatalogCandidate,
-  CommerceScan,
   CommerceScanState,
   ScrapeReport,
   DemoProduct,
@@ -37,7 +35,9 @@ import type {
   ReleaseNotesResponse,
   Scene,
   ScenePatch,
-  SetupPlatform,
+  SceneReading,
+  SceneStudioJob,
+  SceneStudioJobKind,
   ShotSet,
   ShowcaseEntry,
   TreeNode,
@@ -369,6 +369,32 @@ export const api = {
   /** Read a scene's own references again, in place. One analysis, asked for out loud. */
   rereadScene: (brandId: string, sceneId: string, correction?: string) =>
     req<{ jobId: string }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/reread`, { correction }),
+
+  // ---- the scene studio: work that answers words and a picture, and writes nothing
+  startSceneStudioJob: (
+    brandId: string,
+    p: {
+      kind: SceneStudioJobKind;
+      instruction?: string;
+      imageHashes?: string[];
+      reading?: SceneReading;
+      from?: string;
+      ask?: string;
+      draw?: boolean;
+      reread?: boolean;
+    },
+  ) => req<{ jobId: string; job: SceneStudioJob }>('POST', `/api/brands/${brandId}/scene-studio/jobs`, p),
+  sceneStudioJob: (brandId: string, jobId: string) =>
+    req<SceneStudioJob>('GET', `/api/brands/${brandId}/scene-studio/jobs/${jobId}`),
+  cancelSceneStudioJob: (brandId: string, jobId: string) =>
+    req<{ ok: boolean }>('POST', `/api/brands/${brandId}/scene-studio/jobs/${jobId}/cancel`),
+  /** A scene was saved while this job drew its picture: put the picture on it when it lands. */
+  attachSceneStudioJob: (brandId: string, jobId: string, sceneId: string) =>
+    req<{ state: 'landed' | 'pending' | 'none'; brand: Brand }>(
+      'POST',
+      `/api/brands/${brandId}/scene-studio/jobs/${jobId}/attach`,
+      { sceneId },
+    ),
 };
 
 /**

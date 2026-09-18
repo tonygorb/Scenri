@@ -1,7 +1,5 @@
-import { FocusScope } from '@radix-ui/react-focus-scope';
-import { X } from '@phosphor-icons/react';
-import { type CSSProperties, type ReactNode, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { UserPlus } from '@phosphor-icons/react';
+import { type ReactNode, useEffect } from 'react';
 import {
   type ComposerColour,
   type ComposerRef,
@@ -10,24 +8,11 @@ import {
 } from '../../conversation/ConversationComposer.js';
 import type { Answer, Turn } from '../../conversation/question.js';
 import { Transcript } from '../../conversation/Transcript.js';
-import { Tip } from '../../layout/Tip.js';
-import { PREF, useLocalPref } from '../../prefs.js';
 import { PHONE, useMediaQuery } from '../../useMediaQuery.js';
+import { StageEmpty } from '../studio/StageEmpty.js';
+import { StudioFrame } from '../studio/StudioFrame.js';
+import { StudioStage } from '../studio/StudioStage.js';
 import type { StripItem, Take, StudioView } from './presenterStudioRules.js';
-import { StageEmpty } from './StageEmpty.js';
-import { StudioStage } from './StudioStage.js';
-
-/**
- * How wide the conversation may be made.
- *
- * The default is the width it has always had. The floor is where the question
- * cards stop reading as cards, the ceiling is where the stage stops being the
- * larger half, which is the whole point of the surface.
- */
-const RAIL_DEFAULT = 500;
-const RAIL_MIN = 400;
-const RAIL_MAX = 760;
-const clampRail = (w: number) => Math.min(RAIL_MAX, Math.max(RAIL_MIN, Math.round(w)));
 
 /** The stage, as a flow describes it. */
 export interface StageSurface {
@@ -129,30 +114,17 @@ export interface StudioSurface {
 }
 
 /**
- * The presenter studio's surface: a stage on the left and a rail on the
- * right, over the page it was opened from, the way the shot overlay stands
- * over the hub. Not a dialog: a person takes minutes and a draft outlives
- * the session, so the surface has an address and this only draws it.
+ * The presenter studio's surface: the shared studio frame with a conversation
+ * in its rail. The frame owns the chrome (close, head, seam, phone); this owns
+ * what the conversation needs from it: the transcript, the composer, and the
+ * Enter that decides an open question.
  *
- * On a phone the same pieces stack: head, the stage held at the top, the
- * transcript scrolling under it, the composer at the bottom above the
- * keyboard.
+ * On a phone there is no stage: the head, the transcript scrolling, the
+ * composer at the bottom above the keyboard, and the pictures in the
+ * conversation itself.
  */
 export function StudioShell({ surface, onClose }: { surface: StudioSurface; onClose: () => void }) {
   const phone = useMediaQuery(PHONE);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  // Escape leaves, as it does the shot overlay, unless a popover or a Confirm
-  // inside already took the key (Radix marks its Escape handled).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return;
-      e.preventDefault();
-      onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   // Enter decides the open question's first answer when no field has the
   // keyboard: Use this person, Save presenter, Retry, without reaching for
@@ -192,189 +164,103 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
     return () => window.removeEventListener('keydown', onKey);
   }, [decide, s.busy, s.onAnswer]);
 
-  const [railW, setRailW] = useLocalPref<number>(PREF.pstudioRailW, RAIL_DEFAULT);
-  const dragX = useRef(0);
-  const dragRaf = useRef(0);
-
-  return createPortal(
-    <FocusScope
-      trapped
-      loop
-      asChild
-      onMountAutoFocus={(e) => {
-        e.preventDefault();
-        rootRef.current?.focus({ preventScroll: true });
-      }}
-    >
-      <div
-        ref={rootRef}
-        tabIndex={-1}
-        className="sc-pstudio"
-        style={{ '--sc-pstudio-rail-set': `${clampRail(railW)}px` } as CSSProperties}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sc-pstudio-title"
-        onPaste={(e) => {
-          if (!s.onPaste) return;
-          const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'));
-          if (!files.length) return;
-          e.preventDefault();
-          s.onPaste(files);
-        }}
-      >
-        {/* Before there is anything to look at, the phone gives the whole screen
-            to the conversation: an empty plate is not worth a third of it. */}
-        <div className="sc-pstudio-grid">
-          {/* The seam between stage and conversation is the handle, exactly as
-              it is between a shot and its details: drag to size the rail,
-              double-click to put it back, arrow keys from the keyboard. During
-              a drag only the custom property moves; the preference is written
-              once, on release. */}
-          {/* biome-ignore lint/a11y/useSemanticElements: an <hr> cannot be a focusable window splitter; ARIA's separator-as-widget pattern is exactly a focusable div with valuenow */}
-          <div
-            className="sc-pstudio-resize"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize the conversation"
-            aria-valuemin={RAIL_MIN}
-            aria-valuemax={RAIL_MAX}
-            aria-valuenow={clampRail(railW)}
-            tabIndex={0}
-            onPointerDown={(e) => {
-              if (e.button !== 0) return;
-              e.preventDefault();
-              e.stopPropagation();
-              e.currentTarget.setPointerCapture(e.pointerId);
-            }}
-            onPointerMove={(e) => {
-              if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-              const root = e.currentTarget.closest<HTMLElement>('.sc-pstudio');
-              // one write per frame: a write per pointer event forced a layout
-              // per event for the whole conversation while it was being dragged
-              dragX.current = e.clientX;
-              if (dragRaf.current) return;
-              dragRaf.current = requestAnimationFrame(() => {
-                dragRaf.current = 0;
-                root?.style.setProperty('--sc-pstudio-rail-set', `${clampRail(window.innerWidth - dragX.current)}px`);
-              });
-            }}
-            onPointerUp={(e) => {
-              e.currentTarget.releasePointerCapture(e.pointerId);
-              if (dragRaf.current) {
-                cancelAnimationFrame(dragRaf.current);
-                dragRaf.current = 0;
-              }
-              setRailW(clampRail(window.innerWidth - e.clientX));
-            }}
-            onDoubleClick={() => setRailW(RAIL_DEFAULT)}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowLeft') setRailW((w) => clampRail(w + 16));
-              else if (e.key === 'ArrowRight') setRailW((w) => clampRail(w - 16));
-              else return;
-              e.preventDefault();
-            }}
-          />
-          <Tip label="Close (esc)">
-            <button type="button" className="sc-pstudio-close" onClick={onClose} aria-label="Close">
-              <X size={13} />
-            </button>
-          </Tip>
-          <div className="sc-pstudio-head sc-newdlg-head">
-            <h2 id="sc-pstudio-title" className="sc-newdlg-title">
-              {s.title}
-            </h2>
-            {s.headAction}
-            <button type="button" className="sc-set-close sc-newdlg-close" onClick={onClose} aria-label="Close">
-              <X size={16} />
-            </button>
-          </div>
-          <div className="sc-pstudio-scroll">
-            {/* No stage on a phone, in any phase. A screen this size cannot
-                hold a gallery and a conversation at once: it took the top
-                forty per cent and showed the same picture the log was already
-                showing. Not rendered rather than hidden, so a phone does not
-                fetch a full-size picture it will never put on screen. */}
-            {phone ? null : s.stage ? (
-              <StudioStage
-                hash={s.stage.hash}
-                alt={s.stage.alt}
-                drawing={s.stage.drawing}
-                since={s.stage.since}
-                doing={s.stage.doing}
-                takes={s.stage.takes}
-                onTake={s.stage.onTake}
-                items={s.stage.items}
-                onPick={s.stage.onPick}
-                compare={s.stage.compare}
-                empty={s.stageEmpty}
-              />
-            ) : (
-              /* The same stage, minus the strip, which has no views to show
-                 until the draft exists. `data-reserve` holds the height that
-                 strip will take, so the sign is in the same place before and
-                 after the draft lands rather than stepping up the screen. */
-              <div className="sc-pstudio-stage" data-reserve>
-                <div className="sc-pstudio-wrap">
-                  <div className="sc-pstudio-well" data-empty>
-                    <span className="sc-pstudio-well-blank">
-                      <StageEmpty lead={s.stageEmpty?.lead} hint={s.stageEmpty?.hint} />
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div className="sc-pstudio-body" data-convo>
-              <Transcript
-                turns={s.turns}
-                busy={s.busy}
-                working={s.working}
-                memoryKey={s.memoryKey}
-                resumed={s.resumed}
-                onAnswer={s.onAnswer}
-                onEdit={s.onEdit}
-                onSaveEdit={s.onSaveEdit}
-                onCancelEdit={s.onCancelEdit}
-                onRestore={s.onRestore}
-                onShow={show}
-                onStarter={(text) => (s.onStarter ?? s.onText)(text)}
-                onDescribe={s.onDescribe}
-                onAttachFiles={s.onAttachRef}
-              />
-            </div>
-          </div>
-          <div className="sc-pstudio-foot sc-dock">
-            {s.dock}
-            {s.composer && (
-              <ConversationComposer
-                quiet={!!s.composer.disabled && !s.composer.working}
-                placeholder={s.composer.placeholder}
-                label={s.composer.label}
-                action={s.composer.action}
-                scope={s.composer.scope}
-                hint={s.composer.hint}
-                value={s.text}
-                onValue={s.onText}
-                allowEmpty={s.composer.allowEmpty}
-                disabled={s.composer.disabled}
-                why={s.composer.why}
-                working={s.composer.working}
-                error={s.composer.error}
-                focusKey={s.composer.focusKey}
-                onAttach={s.composer.onAttach}
-                onAttachFiles={s.composer.onAttachFiles}
-                attachLabel={s.composer.attachLabel}
-                colour={s.composer.colour}
-                refs={s.composer.refs}
-                onStop={s.composer.onStop}
-                onSend={s.onSend}
-              />
-            )}
-            {s.footnote ? <p className="sc-dlg-foot">{s.footnote}</p> : null}
-          </div>
+  const glyph = <UserPlus size={32} />;
+  /* No stage on a phone, in any phase. A screen this size cannot hold a
+     gallery and a conversation at once: it took the top forty per cent and
+     showed the same picture the log was already showing. Not rendered rather
+     than hidden, so a phone does not fetch a full-size picture it will never
+     put on screen. */
+  const stage = phone ? null : s.stage ? (
+    <StudioStage
+      hash={s.stage.hash}
+      alt={s.stage.alt}
+      drawing={s.stage.drawing}
+      since={s.stage.since}
+      doing={s.stage.doing}
+      takes={s.stage.takes}
+      onTake={s.stage.onTake}
+      items={s.stage.items}
+      onPick={s.stage.onPick}
+      compare={s.stage.compare}
+      empty={s.stageEmpty}
+      glyph={glyph}
+    />
+  ) : (
+    /* The same stage, minus the strip, which has no views to show until the
+       draft exists. `data-reserve` holds the height that strip will take, so
+       the sign is in the same place before and after the draft lands rather
+       than stepping up the screen. */
+    <div className="sc-pstudio-stage" data-reserve>
+      <div className="sc-pstudio-wrap">
+        <div className="sc-pstudio-well" data-empty>
+          <span className="sc-pstudio-well-blank">
+            <StageEmpty glyph={glyph} lead={s.stageEmpty?.lead} hint={s.stageEmpty?.hint} />
+          </span>
         </div>
-        {s.overlay}
       </div>
-    </FocusScope>,
-    document.body,
+    </div>
+  );
+
+  return (
+    <StudioFrame
+      kind="presenter"
+      title={s.title}
+      headAction={s.headAction}
+      resizeLabel="Resize the conversation"
+      onPaste={s.onPaste}
+      onClose={onClose}
+      overlay={s.overlay}
+      stage={stage}
+      bodyProps={{ 'data-convo': true }}
+      body={
+        <Transcript
+          turns={s.turns}
+          busy={s.busy}
+          working={s.working}
+          memoryKey={s.memoryKey}
+          resumed={s.resumed}
+          onAnswer={s.onAnswer}
+          onEdit={s.onEdit}
+          onSaveEdit={s.onSaveEdit}
+          onCancelEdit={s.onCancelEdit}
+          onRestore={s.onRestore}
+          onShow={show}
+          onStarter={(text) => (s.onStarter ?? s.onText)(text)}
+          onDescribe={s.onDescribe}
+          onAttachFiles={s.onAttachRef}
+        />
+      }
+      foot={
+        <>
+          {s.dock}
+          {s.composer && (
+            <ConversationComposer
+              quiet={!!s.composer.disabled && !s.composer.working}
+              placeholder={s.composer.placeholder}
+              label={s.composer.label}
+              action={s.composer.action}
+              scope={s.composer.scope}
+              hint={s.composer.hint}
+              value={s.text}
+              onValue={s.onText}
+              allowEmpty={s.composer.allowEmpty}
+              disabled={s.composer.disabled}
+              why={s.composer.why}
+              working={s.composer.working}
+              error={s.composer.error}
+              focusKey={s.composer.focusKey}
+              onAttach={s.composer.onAttach}
+              onAttachFiles={s.composer.onAttachFiles}
+              attachLabel={s.composer.attachLabel}
+              colour={s.composer.colour}
+              refs={s.composer.refs}
+              onStop={s.composer.onStop}
+              onSend={s.onSend}
+            />
+          )}
+          {s.footnote ? <p className="sc-dlg-foot">{s.footnote}</p> : null}
+        </>
+      }
+    />
   );
 }

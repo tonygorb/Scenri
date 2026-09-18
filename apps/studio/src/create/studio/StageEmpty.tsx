@@ -1,4 +1,4 @@
-import { UserPlus } from '@phosphor-icons/react';
+import type { ReactNode } from 'react';
 
 /**
  * The stage while there is no picture on it.
@@ -10,15 +10,16 @@ import { UserPlus } from '@phosphor-icons/react';
  * window buys more quiet rather than a bigger sign.
  *
  * The plate and its two rings are decoration and say nothing a reader needs;
- * the two lines say all of it, so the glyph carries no label of its own.
+ * the two lines say all of it, so the glyph carries no label of its own. The
+ * glyph is the studio's: a person for a presenter, a horizon for a scene.
  */
-export function StageEmpty({ lead, hint }: { lead?: string; hint?: string }) {
+export function StageEmpty({ glyph, lead, hint }: { glyph: ReactNode; lead?: string; hint?: string }) {
   return (
     <div className="sc-pstudio-empty">
       <span className="sc-pstudio-empty-mark" aria-hidden>
         <span className="sc-pstudio-empty-ring" data-at="far" />
         <span className="sc-pstudio-empty-ring" data-at="near" />
-        <UserPlus size={32} />
+        {glyph}
       </span>
       {lead && (
         <span className="sc-pstudio-empty-say">

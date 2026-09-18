@@ -67,7 +67,10 @@ async function run(): Promise<void> {
   // the same way and in the same place as the demo engine, and nowhere else.
   const analyzer =
     process.env.SCENRI_DEMO_ANALYSIS === 'usable' || process.env.SCENRI_DEMO_ANALYSIS === 'unusable'
-      ? createDemoAnalyzer({ photos: process.env.SCENRI_DEMO_ANALYSIS })
+      ? createDemoAnalyzer({
+          photos: process.env.SCENRI_DEMO_ANALYSIS,
+          readMs: Number(process.env.SCENRI_DEMO_READ_MS) || undefined,
+        })
       : undefined;
   const here = dirname(fileURLToPath(import.meta.url));
   // dev: monorepo path; published: bundled dist

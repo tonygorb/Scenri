@@ -35,6 +35,8 @@ export interface CustomScene extends Scene {
   refs: string[];
   /** What they asked for in their own words when it was built. */
   instruction?: string;
+  /** The camera tendency of this world, when it has one. Told to a shot that names no camera. */
+  camera?: string;
   /** The figure this concept depends on, if it depends on one. A role, never a person. */
   figure?: string;
   /** What has been applied to that figure: stickers, paint, a veil, a silhouette. */
@@ -184,6 +186,7 @@ function toScene(s: any): CustomScene {
     custom: true,
     refs,
     instruction: s.instruction ? String(s.instruction) : undefined,
+    camera: s.camera ? String(s.camera) : undefined,
     figure: s.figure ? String(s.figure) : undefined,
     figureTreatment: s.figureTreatment ? String(s.figureTreatment) : undefined,
   };
