@@ -69,7 +69,14 @@ function run(env: NodeJS.ProcessEnv = {}) {
 
 async function probed(): Promise<{ argv: string[]; home: string; port: string; cwd: string }> {
   for (let i = 0; i < 60; i++) {
-    if (existsSync(probe)) return JSON.parse(readFileSync(probe, 'utf8'));
+    // The entry runs in its own process, so the file can exist before its
+    // write lands: on Windows an empty read failed as "Unexpected end of JSON
+    // input". A read that does not parse yet is read again.
+    if (existsSync(probe)) {
+      try {
+        return JSON.parse(readFileSync(probe, 'utf8'));
+      } catch {}
+    }
     await new Promise((r) => setTimeout(r, 50));
   }
   throw new Error('the bootstrap never ran an entry');
