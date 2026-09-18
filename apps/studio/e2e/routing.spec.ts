@@ -698,19 +698,21 @@ test('navigation surfaces are real anchors with canonical hrefs', async ({ page 
   );
 });
 
-test('the mark goes home, bare at rest and a rounded block under the pointer', async ({ page }) => {
+test('the logo is the full lockup, goes home, and wears no box at rest or under the pointer', async ({ page }) => {
   const brand = await currentBrand(page);
   await page.goto(`/${brand.slug}/products`);
 
-  const mark = page.getByRole('link', { name: 'Scenri home', exact: true });
-  await expect(mark).toHaveAttribute('href', `/${brand.slug}`);
-  const fill = () => mark.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const logo = page.getByRole('link', { name: 'Scenri home', exact: true });
+  await expect(logo).toHaveAttribute('href', `/${brand.slug}`);
+  // symbol and name together, not the symbol alone
+  await expect(logo.locator('svg')).toHaveAttribute('viewBox', '0 0 263.79 64');
+  const fill = () => logo.evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(await fill()).toBe('rgba(0, 0, 0, 0)');
-  // the box it sits in shows itself only when it is about to be pressed
-  await mark.hover();
-  await expect.poll(fill).not.toBe('rgba(0, 0, 0, 0)');
+  await logo.hover();
+  await page.waitForTimeout(200);
+  expect(await fill()).toBe('rgba(0, 0, 0, 0)');
 
-  await mark.click();
+  await logo.click();
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}$`));
 });
 

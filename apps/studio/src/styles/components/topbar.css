@@ -44,41 +44,33 @@
 }
 
 /* ---- the mark ----
-   The symbol, not the lockup: the row whose job is to say where you are inside
-   the product does not also need to spell the product. Its ink starts on the
-   gutter line rather than its box, because the ink is what the eye measures the
-   row's left edge by.
-
-   The box is bare at rest and shows itself under the pointer, a rounded square
-   in the hover grey and the chip grey while held: the mark is squarish (four
-   rounded quadrants), so the block behind it is too, where the round controls
-   at the other end of the row wear a ring. */
-.sc-mark-btn {
+   The full lockup, bare: no box behind it at rest or under the pointer. Twenty
+   pixels tall renders eighty-two wide, which the bar has room for at every width.
+   Its ink starts a pixel inside its box, so the box steps back that pixel and the
+   symbol's edge lands on the gutter line the page below starts on. */
+.sc-topbar-lead > .sc-wordmark:first-child {
+  margin-left: -1px;
+}
+.sc-wordmark {
   position: relative;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
   flex: none;
-  width: 36px;
-  height: 36px;
-  margin-left: -6px;
   border: none;
   background: none;
-  border-radius: var(--sc-radius);
   color: var(--sc-fg);
   cursor: pointer;
   text-decoration: none;
-  transition: background 120ms ease;
 }
-.sc-mark-btn:hover:not(:active) {
-  background: var(--sc-hover);
-}
-.sc-mark-btn:active {
-  background: var(--sc-chip);
-}
-.sc-mark-btn svg {
+/* The mark inherits the ink from the line above, which is the whole reason
+   there is no light and dark pair of files to keep in step. */
+.sc-wordmark svg {
   display: block;
-  width: 24px;
-  height: 24px;
+  height: 20px;
+  width: auto;
+}
+.sc-wordmark:focus-visible {
+  border-radius: 4px;
 }
 
 /* ---- the places ----
@@ -458,7 +450,7 @@
 @media (pointer: coarse) {
   .sc-topbar .sc-act-btn::after,
   .sc-topbar .sc-org-btn::after,
-  .sc-topbar .sc-mark-btn::after {
+  .sc-topbar .sc-wordmark::after {
     content: "";
     position: absolute;
     top: 50%;

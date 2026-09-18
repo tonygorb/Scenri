@@ -4,7 +4,7 @@ import { BarNav } from './bar/BarNav.js';
 import { BrandButton } from './bar/BrandButton.js';
 import { NewButton } from './bar/NewButton.js';
 import { useCondensedBar } from './bar/useCondensedBar.js';
-import { ScenriMark } from './ScenriMark.js';
+import { ScenriLockup } from './ScenriMark.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { brandPath } from '../routes.js';
 
@@ -14,10 +14,10 @@ import { brandPath } from '../routes.js';
  * alone on the left, the five destinations dead centre, and what you can do on
  * the right, ending in the brand's own mark.
  *
- * The mark is the symbol rather than the lockup. The wordmark spelled the
- * product's name in a row whose whole job is to say where you are inside it,
- * and the row it was spelling it in is the product. What the bar gives back is
- * the width, and the centre column is what takes it.
+ * The mark is the full lockup, symbol and name, bare: no box behind it at rest
+ * or under the pointer. It is the product's signature at the start of the row
+ * and the way home, not a button, so the pointer and the ring on keyboard focus
+ * are all it needs to say it can be pressed.
  *
  * Nothing about Scenri itself is in the row. What is new, the shortcuts and the
  * release you are running are help's business, not the bar's; the brand's mark
@@ -35,8 +35,8 @@ export function TopBar() {
       <div className="sc-topbar-lead">
         {/* The mark's ink starts on the gutter line rather than its box, which
             is what the eye measures the row's left edge by. */}
-        <Link className="sc-mark-btn" aria-label="Scenri home" to={brandPath(brand)}>
-          <ScenriMark aria-hidden="true" />
+        <Link className="sc-wordmark" aria-label="Scenri home" to={brandPath(brand)}>
+          <ScenriLockup aria-hidden="true" />
         </Link>
       </div>
       <BarNav />
