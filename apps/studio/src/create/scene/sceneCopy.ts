@@ -61,6 +61,7 @@ export const COPY = {
   again: 'Here it is again.',
   changed: 'Here it is, changed.',
   decide: (name: string) => `Here is ${name}. Use it, or change something.`,
+  decideEdit: (name: string) => `Here is ${name}. Save it, or change something.`,
   use: 'Use this scene',
   saveChanges: 'Save changes',
   tryAgain: 'Try again',

@@ -290,6 +290,10 @@ describe('the conversation', () => {
     expect(lastQ(T)?.kind === 'confirm' && lastQ(T)?.kind === 'confirm' ? (lastQ(T) as any).options[0].label : '').toBe(
       'Save changes',
     );
+    // it was named when it was made: nothing asks for a name "while it draws", and the words match the button
+    expect(keys(T)).not.toContain('scenri:asked-name');
+    expect(keys(T)).not.toContain('you:name');
+    expect(lastQ(T)?.prompt).toBe('Here is Shore. Save it, or change something.');
   });
 
   it('keeps what was said at a question under it, and says the rest before the one on the floor', () => {

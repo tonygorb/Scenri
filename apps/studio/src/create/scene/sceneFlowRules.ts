@@ -164,7 +164,8 @@ export function turnsFor(args: FlowArgs): Turn[] {
     if (v.hash) {
       if (v.how === 'draw') T.push({ kind: 'you', id: `draw-${i}`, text: COPY.draw });
       if (v.how === 'again') T.push({ kind: 'you', id: `again-${i}`, text: COPY.tryAgain });
-      if (i === firstPicture) nameExchange(T, args);
+      // a saved scene opened to edit was named when it was made, not while this drew
+      if (i === firstPicture && !edit) nameExchange(T, args);
       T.push({
         kind: 'scenri',
         id: `pic-${i}`,
@@ -187,7 +188,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
   if (job?.kind === 'again')
     T.push({ kind: 'you', id: `pending-${job.id}`, text: firstPicture < 0 ? COPY.draw : COPY.tryAgain });
   if (job?.kind === 'change') T.push({ kind: 'you', id: `pending-${job.id}`, text: job.ask ?? '' });
-  if (job?.kind === 'again' && firstPicture < 0) nameExchange(T, args);
+  if (job?.kind === 'again' && firstPicture < 0 && !edit) nameExchange(T, args);
 
   // the one question the conversation ends on
   let open: Question | null = null;
@@ -248,7 +249,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
         open = {
           id: `decide-${studio.current}`,
           kind: 'confirm',
-          prompt: COPY.decide(studio.name.trim() || v.reading.name),
+          prompt: (edit ? COPY.decideEdit : COPY.decide)(studio.name.trim() || v.reading.name),
           quote,
           quoteLabel: COPY.readingHead,
           options: [
