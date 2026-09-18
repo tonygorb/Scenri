@@ -108,6 +108,22 @@ test.describe('adding to a brand', () => {
     expect(await ring()).toBe(true);
   });
 
+  test('pointing at the plus lights all of New; pointing at the caret lights only the caret', async ({ page }) => {
+    const pill = page.locator('.sc-new');
+    const caret = page.locator('.sc-new-more');
+    const bg = (l: typeof pill) => l.evaluate((el) => getComputedStyle(el).backgroundColor);
+    const restPill = await bg(pill);
+    const restCaret = await bg(caret);
+
+    await page.locator('.sc-new-go').hover();
+    await expect.poll(() => bg(pill)).not.toBe(restPill);
+    expect(await bg(caret)).toBe(restCaret);
+
+    await caret.hover();
+    await expect.poll(() => bg(pill)).toBe(restPill);
+    await expect.poll(() => bg(caret)).not.toBe(restCaret);
+  });
+
   test("New's menu offers the shot and exactly the three ingredients", async ({ page }) => {
     await trigger(page).click();
 

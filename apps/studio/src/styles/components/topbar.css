@@ -262,10 +262,12 @@
    offers the same act and the three things a shot is made from. A solid primary
    that only opens a menu promises an action it does not perform.
 
-   Hover and press shade the half being pointed at rather than the whole control,
-   which is the one place this bar departs from the shared inverse-fill press in
-   foundations/interaction.css: an opacity step cannot say which half a press
-   will land on, and saying that is the whole point of a split button.
+   Hover and press say where a press will land. On the plus and the word the
+   whole control shades, because the whole control is that act; on the caret only
+   its own half does, because that press opens the menu instead. It is the one
+   place this bar departs from the shared inverse-fill press in
+   foundations/interaction.css: an opacity step cannot say which of the two a
+   press will be.
 
    Its shape is the primary button's (`.sc-btn`): full round, so each end is a
    half-circle at whatever height the row gives it. Each half carries the same
@@ -284,6 +286,13 @@
   background: var(--sc-inv-bg);
   color: var(--sc-inv-fg);
   overflow: hidden;
+  transition: background 120ms ease;
+}
+.sc-new:has(.sc-new-go:hover:not(:active)) {
+  background: color-mix(in srgb, var(--sc-inv-fg) 10%, var(--sc-inv-bg));
+}
+.sc-new:has(.sc-new-go:active) {
+  background: color-mix(in srgb, var(--sc-inv-fg) 18%, var(--sc-inv-bg));
 }
 .sc-new-go,
 .sc-new-more {
@@ -325,13 +334,11 @@
   padding: 0 9px;
   border-radius: 0 var(--sc-radius-full) var(--sc-radius-full) 0;
 }
-.sc-new-go:hover:not(:active),
 .sc-new-more:hover:not(:active) {
   background: color-mix(in srgb, var(--sc-inv-fg) 10%, transparent);
 }
 /* Open is `data-state` on a pointer (the Radix menu) and `data-on` on a phone
    (the sheet), the same moment named by the two surfaces that host it. */
-.sc-new-go:active,
 .sc-new-more:active,
 .sc-new-more:is([data-state="open"], [data-on]) {
   background: color-mix(in srgb, var(--sc-inv-fg) 18%, transparent);

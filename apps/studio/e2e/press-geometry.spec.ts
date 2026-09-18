@@ -179,7 +179,7 @@ async function controlsOn(page: Page, limitPerFamily = 4): Promise<{ label: stri
     '.sc-icon-btn',
     '.sc-act-btn',
     '.sc-org-btn',
-    '.sc-new-go',
+    '.sc-new',
     '.sc-new-more',
     '.sc-mark-btn',
   ]) {
