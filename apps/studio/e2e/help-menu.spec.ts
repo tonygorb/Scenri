@@ -115,4 +115,6 @@ test('an install that was not new is never taught uninvited, and Learn is one pr
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
   await expect(page).not.toHaveURL(/learn=/);
+  // the menu item that opened it is gone: the keyboard goes back to Help, not to nowhere
+  await expect(float(page)).toBeFocused();
 });

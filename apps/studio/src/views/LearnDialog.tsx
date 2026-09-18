@@ -54,9 +54,21 @@ export function LearnDialog() {
     setPending(null);
     void launch(pending);
   }, [open, pending, launch]);
+  const began = useRef(false);
   const begin = (id: GuideTaskId) => {
+    began.current = true;
     setPending(id);
     param.close();
+  };
+  // Closed without beginning anything, the keyboard goes back where it came
+  // from; opened from Help's menu, that item is gone, so it goes to Help.
+  const onCloseAutoFocus = () => {
+    const leaving = began.current;
+    began.current = false;
+    if (leaving) return;
+    requestAnimationFrame(() => {
+      if (document.activeElement === document.body) document.querySelector<HTMLElement>('.sc-help-btn')?.focus();
+    });
   };
 
   const hasShot = recent.some((n) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0);
@@ -101,7 +113,14 @@ export function LearnDialog() {
   }, [open, lesson]);
 
   return (
-    <DialogSheet open={open} className="sc-learn" maxWidth="760px" described onDismiss={param.close}>
+    <DialogSheet
+      open={open}
+      className="sc-learn"
+      maxWidth="760px"
+      described
+      onDismiss={param.close}
+      onCloseAutoFocus={onCloseAutoFocus}
+    >
       {lesson ? (
         <LessonDetail
           key={lesson.id}
