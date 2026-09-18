@@ -73,7 +73,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   const { brand, refreshProducts } = useBrand();
   const navigate = useNavigate();
   const { push } = useToasts();
-  const { refresh: refreshBrands } = useAppData();
+  const { refreshBrands } = useAppData();
   const { builds, poke } = useTaskCenter();
   const param = useDialogParam('new');
   const value = param.value;

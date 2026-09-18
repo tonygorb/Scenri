@@ -50,7 +50,7 @@ export interface EditingFlowArgs extends Pick<FlowProps, 'caps' | 'capsNote'> {
 
 export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: EditingFlowArgs) {
   const { brand } = useBrand();
-  const { applyBrand, refresh } = useAppData();
+  const { applyBrand, refreshBrands } = useAppData();
   const openSetup = useOpenSetup();
   const canDraw = !!caps?.canGenerate;
 
@@ -261,14 +261,14 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
            */
           setUi((u) => ({ ...u, conflict: null }));
           setLeaving(true);
-          void refresh().finally(() => leave(presenterId));
+          void refreshBrands().finally(() => leave(presenterId));
           return;
         case 'save':
           void save();
           return;
       }
     },
-    [d, ui.scopeAsk, s, view, save, refresh, leave, presenterId],
+    [d, ui.scopeAsk, s, view, save, refreshBrands, leave, presenterId],
   );
 
   const onSend = useCallback(

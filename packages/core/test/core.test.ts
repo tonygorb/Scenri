@@ -29,6 +29,25 @@ describe('brands + projects', () => {
     expect(core.store.listBrands()).toHaveLength(1);
   });
 
+  // The studio orders answers about a brand by this stamp: a rename and the
+  // delete right after it happen inside one second, and a second-precision
+  // stamp called them the same write.
+  it('stamps every brand write so that two inside one second still order', () => {
+    const b = core.store.createBrand(brandJson as any);
+    const stamps: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      stamps.push(core.store.updateBrand(b.id, { ...brandJson, meta: { name: `Acme ${i}` } } as any)!.updatedAt);
+      const until = Date.now() + 2;
+      while (Date.now() < until) {
+        /* one write per clock tick */
+      }
+    }
+    for (const s of stamps) expect(s).toMatch(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}$/);
+    for (let i = 1; i < stamps.length; i++) expect(stamps[i] > stamps[i - 1]).toBe(true);
+    // a row written before stamps carried milliseconds still sorts before them
+    expect(b.updatedAt < stamps[0]).toBe(true);
+  });
+
   it('keeps slugs unique: the slug is the brand URL, so it cannot be shared or stolen', () => {
     const first = core.store.createBrand(brandJson as any);
     const second = core.store.createBrand(brandJson as any);

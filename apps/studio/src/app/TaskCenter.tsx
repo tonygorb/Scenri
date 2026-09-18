@@ -94,16 +94,19 @@ export function TaskCenterProvider({
 }) {
   const navigate = useNavigate();
   const { push } = useToasts();
-  const { refresh: refreshBrands } = useAppData();
+  const { refreshBrands } = useAppData();
   // the feed is keyed by id and the links are built from the slug: a rename
   // changes where a task points, never which brand's history it belongs to
   const brandId = brand.id;
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [builds, setBuilds] = useState<AssetBuild[]>([]);
-  // `pull` is memoised on [brandId, brand], so the builds it closes over are the
-  // ones from whichever render created it. Same reason every other cross-tick
-  // value in this file is a ref.
+  // `pull` is memoised on the brand's id alone, so anything it reads across
+  // ticks is a ref. The brand row itself is one too: keyed on the row, every
+  // `applyBrand` (a rename, a palette edit, a delete) re-armed the poll loop and
+  // fired an extra tick, and overlapping ticks could each ask for the brand.
+  const brandRef = useRef(brand);
+  brandRef.current = brand;
   const buildsRef = useRef<AssetBuild[]>([]);
   buildsRef.current = builds;
   const [feed, setFeed] = useState<NotificationItem[]>(() => loadFeed(brandId));
@@ -175,10 +178,10 @@ export function TaskCenterProvider({
       }
       const now = Date.now();
       next = [
-        ...singles.map((n) => taskFromNode(n, brand, now)),
-        ...[...byBatch.values()].map((group) => batchTask(group, brand, now)),
-        ...jobs.map((j) => taskFromCatalogJob(j, brand)),
-        ...bs.map((b) => taskFromAssetBuild(b, brand)),
+        ...singles.map((n) => taskFromNode(n, brandRef.current, now)),
+        ...[...byBatch.values()].map((group) => batchTask(group, brandRef.current, now)),
+        ...jobs.map((j) => taskFromCatalogJob(j, brandRef.current)),
+        ...bs.map((b) => taskFromAssetBuild(b, brandRef.current)),
       ];
     } catch {
       // the bell is not worth an error state; the next tick will tell the truth
@@ -271,7 +274,7 @@ export function TaskCenterProvider({
                   label: 'Use in a shot',
                   onClick: () =>
                     navRef.current(
-                      `${hubPath(brand)}?${n.kind === 'presenter' ? 'presenter' : 'scene'}=${assetId}&compose=1`,
+                      `${hubPath(brandRef.current)}?${n.kind === 'presenter' ? 'presenter' : 'scene'}=${assetId}&compose=1`,
                     ),
                 },
               ]
@@ -298,7 +301,7 @@ export function TaskCenterProvider({
         action,
       });
     }
-  }, [brandId, brand]);
+  }, [brandId]);
 
   // One timer, re-armed at whichever cadence the current answer deserves. A
   // hidden tab skips the request — polling a screen nobody is looking at is the
