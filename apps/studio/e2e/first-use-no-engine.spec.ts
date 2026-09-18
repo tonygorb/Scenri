@@ -37,7 +37,7 @@ test("the first shot begins at the setup, and What's New waits and then counts a
   await page.setViewportSize({ width: 1440, height: 900 });
 
   await setUpBrand(page, 'No Engine');
-  await expect(welcome(page)).toContainText('It starts with a short setup for image generation.');
+  await expect(welcome(page)).toContainText('First a short setup for image generation');
   await page.waitForTimeout(SETTLE_MS * 5);
   await expect(dialog(page)).toHaveCount(0);
 

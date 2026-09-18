@@ -29,7 +29,14 @@ test('nothing guides on its own; the ? sits in the corner and gathers the help',
 
   await float(page).click();
   const items = page.locator('.sc-help-menu [role="menuitem"]');
-  await expect(items).toHaveText(['First steps', 'Learn', "What's new", 'About Scenri', 'Scenri on GitHub']);
+  await expect(items).toHaveText([
+    'First steps',
+    'Learn',
+    'Welcome to Scenri',
+    "What's new",
+    'About Scenri',
+    'Scenri on GitHub',
+  ]);
   const github = page.getByRole('menuitem', { name: 'Scenri on GitHub' });
   await expect(github).toHaveAttribute('href', 'https://github.com/tonygorb/scenri');
   await expect(github).toHaveAttribute('target', '_blank');
@@ -117,4 +124,26 @@ test('an install that was not new is never taught uninvited, and Learn is one pr
   await expect(page).not.toHaveURL(/learn=/);
   // the menu item that opened it is gone: the keyboard goes back to Help, not to nowhere
   await expect(float(page)).toBeFocused();
+});
+
+test('the welcome opens again from Help, and closing it changes nothing in the record', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const s = await slug(page);
+  await page.goto(`/${s}`);
+  const before = await (await page.request.get('/api/guide')).json();
+  await float(page).click();
+  await page.getByRole('menuitem', { name: 'Welcome to Scenri' }).click();
+  await expect(page).toHaveURL(/welcome=1/);
+  const dialog = page.locator('.sc-welcome');
+  await expect(dialog).toBeVisible();
+  // the way out sits in the dialog's own corner, level with the title
+  const x = await dialog.getByRole('button', { name: 'Not now' }).first().boundingBox();
+  const title = await dialog.locator('.sc-newdlg-title').boundingBox();
+  expect(Math.abs((x?.y ?? 0) + (x?.height ?? 0) / 2 - ((title?.y ?? 0) + (title?.height ?? 0) / 2))).toBeLessThan(6);
+  await dialog.locator('.sc-welcome-foot').getByRole('button', { name: 'Not now' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page).not.toHaveURL(/welcome=/);
+  const after = await (await page.request.get('/api/guide')).json();
+  expect(after.welcome).toBe(before.welcome);
+  expect(after.active).toBeNull();
 });

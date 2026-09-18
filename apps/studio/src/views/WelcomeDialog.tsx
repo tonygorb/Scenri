@@ -23,15 +23,12 @@ export function WelcomeDialog({
   onTake: () => void;
   onDecline: () => void;
 }) {
+  // Read top to bottom: who is speaking and the way out, what Scenri does in one
+  // sentence, the pictures that prove it, then what happens next. The header
+  // leads like every other dialog's, so the X sits in the corner rather than
+  // floating between the pictures and the words.
   return (
     <DialogSheet open={open} className="sc-welcome" maxWidth="440px" described tone="guide" onDismiss={onDecline}>
-      {pictures.length > 0 && (
-        <div className="sc-welcome-pics" aria-hidden="true">
-          {pictures.map((src, i) => (
-            <img key={src} src={src} alt="" style={{ animationDelay: `${120 + i * 60}ms` }} />
-          ))}
-        </div>
-      )}
       <div className="sc-newdlg-head">
         <SheetTitle className="sc-newdlg-title">
           Welcome to <span className="sc-accent">Scenri</span>
@@ -43,6 +40,13 @@ export function WelcomeDialog({
         </SheetClose>
       </div>
       <SheetDescription className="sc-welcome-lede">{WELCOME.lede}</SheetDescription>
+      {pictures.length > 0 && (
+        <div className="sc-welcome-pics" aria-hidden="true">
+          {pictures.map((src, i) => (
+            <img key={src} src={src} alt="" style={{ animationDelay: `${120 + i * 60}ms` }} />
+          ))}
+        </div>
+      )}
       <div className="sc-newdlg-foot sc-welcome-foot">
         <p className="sc-welcome-note">{note}</p>
         <button type="button" className="sc-btn sc-btn-ghost" onClick={onDecline}>

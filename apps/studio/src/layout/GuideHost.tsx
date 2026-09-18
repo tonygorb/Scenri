@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMatch, useSearchParams } from 'react-router';
-import { useAppData } from '../app/AppShell.js';
+import { useAppData, useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId, GuideTaskNode } from '../api.js';
@@ -39,7 +39,7 @@ const WELCOME_SETTLE_MS = Number(window.localStorage.getItem('scenri:welcome-set
  */
 const MODAL = '[role="dialog"]:not(.sc-coach):not(.sc-attachpanel):not(.sc-swap), [role="alertdialog"], .sc-lightbox';
 /** Dialogs that live in the address. */
-const DIALOG_PARAMS = ['settings', 'setup', 'new', 'whatsnew', 'learn'];
+const DIALOG_PARAMS = ['settings', 'setup', 'new', 'whatsnew', 'learn', 'welcome'];
 /** The picker: the one surface the first shot follows into, and the one that makes room on a phone. */
 const PICKER = '[data-guide="compose"] .sc-attachpanel';
 
@@ -329,6 +329,9 @@ export function GuideHost() {
 
   // The welcome: once, on the first ready main page, when nothing else is happening.
   const [welcome, setWelcome] = useState(false);
+  // And again whenever Help asks for it: that changes nothing in the record.
+  const welcomeParam = useDialogParam('welcome');
+  const welcomeAsked = welcomeParam.value !== null;
   const ready = (home && data.showcaseLoaded) || hub;
   const busyWork = builds.some((b) => !b.finished) || tasks.some((t) => t.state === 'running' && t.kind !== 'catalog');
   const mayWelcome = canWelcome({
@@ -433,16 +436,23 @@ export function GuideHost() {
         />
       )}
       <WelcomeDialog
-        open={welcome}
+        open={welcome || welcomeAsked}
         pictures={pictures}
         note={WELCOME.note({ engineReady, ownsProducts })}
         onTake={() => {
+          const first = welcome;
           setWelcome(false);
-          void guideIntent({ welcome: 'taken' }).then(() => launch('first-shot'));
+          if (welcomeAsked) welcomeParam.close();
+          if (first) void guideIntent({ welcome: 'taken' }).then(() => launch('first-shot'));
+          // asked for from Help: its address has to be gone before the first
+          // shot opens Create, or the move would carry it along
+          else window.setTimeout(() => void launch('first-shot'), 0);
         }}
         onDecline={() => {
+          const first = welcome;
           setWelcome(false);
-          void guideIntent({ welcome: 'declined' });
+          if (welcomeAsked) welcomeParam.close();
+          if (first) void guideIntent({ welcome: 'declined' });
         }}
       />
     </>

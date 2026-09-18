@@ -1,6 +1,7 @@
 import {
   GithubLogo,
   GraduationCap,
+  HandWaving,
   Info,
   Keyboard,
   Lightning,
@@ -12,7 +13,8 @@ import { DropdownMenu } from '@radix-ui/themes';
 import { useMatch, useNavigate } from 'react-router';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { useOpenLearn, useOpenSettings, useOpenSetup } from '../app/dialogs.js';
+import { useOpenLearn, useOpenSettings, useOpenSetup, useOpenWelcome } from '../app/dialogs.js';
+import { WELCOME } from '../guidedTasks.js';
 import { useWhatsNew } from '../app/WhatsNew.js';
 import { askForFirstSteps } from '../guide.js';
 import { brandPath, P } from '../routes.js';
@@ -39,6 +41,7 @@ export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
   const openSettings = useOpenSettings();
   const openSetup = useOpenSetup();
   const openLearn = useOpenLearn();
+  const openWelcome = useOpenWelcome();
   const { engines } = useAppData();
   const noEngine = !engines.some((e) => e.available);
 
@@ -70,6 +73,10 @@ export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
         <DropdownMenu.Item className="sc-menu-item" onSelect={() => openLearn()}>
           <GraduationCap size={18} className="sc-menu-ic" />
           <span className="sc-menu-lb">Learn</span>
+        </DropdownMenu.Item>
+        <DropdownMenu.Item className="sc-menu-item" onSelect={() => openWelcome()}>
+          <HandWaving size={18} className="sc-menu-ic" />
+          <span className="sc-menu-lb">{WELCOME.again}</span>
         </DropdownMenu.Item>
         {onCreate && (
           <DropdownMenu.Item

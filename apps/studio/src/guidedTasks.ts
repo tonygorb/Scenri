@@ -435,15 +435,17 @@ export function canWelcome(i: WelcomeInput): boolean {
 
 /** The welcome's words, here so the copy rules cover them with every moment. */
 export const WELCOME = {
-  lede: 'Product shots on brand, from your products, presenters, scenes and brand kit.',
+  lede: 'Scenri makes product shots for your brand. You choose the product, who shows it and where, and it makes the picture.',
   take: 'Make your first shot',
   notNow: 'Not now',
+  /** Help's way back to it, and its row's name. */
+  again: 'Welcome to Scenri',
   note: (i: { engineReady: boolean; ownsProducts: boolean }) =>
     !i.engineReady
-      ? 'It starts with a short setup for image generation.'
+      ? 'First a short setup for image generation, then your first shot together, a step at a time.'
       : i.ownsProducts
-        ? 'Start with one of your products. It takes a few minutes.'
-        : 'Start with a product of ours. It takes a few minutes.',
+        ? "We'll make your first one together, a step at a time, with one of your products."
+        : "We'll make your first one together, a step at a time. You can start with one of our products.",
 } as const;
 
 /**

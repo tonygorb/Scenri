@@ -87,7 +87,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  margin: -4px 0 16px;
+  margin: 18px 0 0;
 }
 .sc-welcome-pics img {
   width: 100%;
@@ -103,9 +103,9 @@
   }
 }
 .sc-welcome-lede {
-  margin: 4px 0 0;
-  font: 400 14px / 1.45 var(--sc-font);
-  color: var(--sc-fg);
+  margin: 8px 0 0;
+  font: 400 14px / 1.5 var(--sc-font);
+  color: var(--sc-fg2);
   text-wrap: pretty;
 }
 .sc-welcome-foot {
@@ -117,9 +117,10 @@
 }
 .sc-welcome-note {
   flex: 1 1 100%;
-  margin: 0 0 4px;
-  font: 400 11.5px / 1.4 var(--sc-font);
-  color: var(--sc-fg3);
+  margin: 0 0 6px;
+  font: 400 12.5px / 1.45 var(--sc-font);
+  color: var(--sc-fg2);
+  text-wrap: pretty;
 }
 @media (prefers-reduced-motion: reduce) {
   .sc-welcome-pics img {
