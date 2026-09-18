@@ -29,7 +29,7 @@ test('nothing guides on its own; the ? sits in the corner and gathers the help',
 
   await float(page).click();
   const items = page.locator('.sc-help-menu [role="menuitem"]');
-  await expect(items).toHaveText(['First steps', "What's new", 'About Scenri', 'Scenri on GitHub']);
+  await expect(items).toHaveText(['First steps', 'Learn', "What's new", 'About Scenri', 'Scenri on GitHub']);
   const github = page.getByRole('menuitem', { name: 'Scenri on GitHub' });
   await expect(github).toHaveAttribute('href', 'https://github.com/tonygorb/scenri');
   await expect(github).toHaveAttribute('target', '_blank');
@@ -98,4 +98,21 @@ test('below 1024px the ? moves into the top bar', async ({ page }) => {
   await page.goto(`/${s}`);
   await expect(page.locator('.sc-topbar [aria-label="Help"]')).toBeVisible();
   await expect(page.locator('.sc-help-float')).toHaveCount(0);
+});
+
+test('an install that was not new is never taught uninvited, and Learn is one press away', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const s = await slug(page);
+  await page.goto(`/${s}`);
+  await expectNoGuide(page);
+  await float(page).click();
+  await page.getByRole('menuitem', { name: 'Learn' }).click();
+  await expect(page).toHaveURL(/learn=lessons/);
+  const dialog = page.getByRole('dialog', { name: 'Learn' });
+  await expect(dialog.locator('.sc-learn-card')).toHaveCount(5);
+  // looking is not starting: nothing is in hand until a lesson is begun
+  expect(((await (await page.request.get('/api/guide')).json()) as { active: unknown }).active).toBeNull();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(page).not.toHaveURL(/learn=/);
 });

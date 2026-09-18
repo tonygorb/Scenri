@@ -156,7 +156,7 @@ export function WhatsNewGate() {
   // version they are meeting for the first time. Anyone else is only held back
   // by what the guide has on screen, or by the first shot still in hand.
   const learning = guide.eligible && guide.welcome === null;
-  const teaching = learning || showing || guide.active?.task === 'first-shot';
+  const teaching = learning || showing || (guide.active?.task === 'first-shot' && !guide.active.paused);
   const firstUse = !guide.loaded || teaching;
 
   // A session that introduced Scenri never ends in a modal: the notes would

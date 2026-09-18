@@ -1,7 +1,8 @@
 import { Check, X } from '@phosphor-icons/react';
 import { useBrand } from '../../app/BrandLayout.js';
+import { useOpenLearn } from '../../app/dialogs.js';
 import { guideIntent, useGuide } from '../../guide.js';
-import { firstSteps } from '../../guidedTasks.js';
+import { firstSteps } from '../../lessons.js';
 import { Tip } from '../../layout/Tip.js';
 import { useLaunchTask } from '../../layout/useLaunchTask.js';
 import { useToasts } from '../../toasts.js';
@@ -17,6 +18,7 @@ export function FirstSteps() {
   const guide = useGuide();
   const { brand } = useBrand();
   const launch = useLaunchTask();
+  const openLearn = useOpenLearn();
   const { push } = useToasts();
   // A task in hand for another brand is that brand's: here it is only a step to take.
   const rows = firstSteps({ ...guide, active: guide.active?.brandId === brand.id ? guide.active : null });
@@ -40,6 +42,10 @@ export function FirstSteps() {
         <span className="sc-steps-count">
           {done} of {rows.length}
         </span>
+        {/* The short list's way to the long one: every lesson, not only these. */}
+        <button type="button" className="sc-steps-more" onClick={() => openLearn()}>
+          All lessons
+        </button>
         <Tip label="Hide first steps">
           <button type="button" className="sc-coach-x sc-steps-x" aria-label="Hide first steps" onClick={hide}>
             <X size={15} />

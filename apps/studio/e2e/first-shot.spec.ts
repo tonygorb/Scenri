@@ -7,6 +7,7 @@ import {
   coachTitle,
   expectHeld,
   expectLetGo,
+  expectNoGuide,
   guideRecord,
   isInert,
   noWelcomeWait,
@@ -139,13 +140,17 @@ test('a reload lands on the same moment, and the X ends only the guidance', asyn
   await coachCard(page).getByRole('button', { name: 'Close guide' }).click();
   await expect(coachCard(page)).toHaveCount(0);
   await expectLetGo(page);
-  await expect(page.getByText('Pick it up again from First steps on Home.')).toBeVisible();
+  await expect(page.getByText('Continue it any time from Learn, under Help.')).toBeVisible();
   // their work is untouched and the page is theirs again
   await expect(chips(page)).toHaveCount(3);
   expect(await isInert(page, '[data-guide="compose.send"]')).toBe(false);
+  // the task is paused, not dropped: still in hand, so it can be continued as it was
   const record = await guideRecord(page);
-  expect(record.active).toBeNull();
+  expect(record.active).toMatchObject({ task: 'first-shot', paused: true });
   expect(record.dismissed).toContain('first-shot');
+  // and a reload does not bring the tutor back on its own
+  await page.reload();
+  await expectNoGuide(page);
 });
 
 test('First steps lists four real things, ticks what exists, hides with an Undo', async ({ page }) => {

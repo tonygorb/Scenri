@@ -1,9 +1,18 @@
-import { GithubLogo, Info, Keyboard, Lightning, ListChecks, Megaphone, Question } from '@phosphor-icons/react';
+import {
+  GithubLogo,
+  GraduationCap,
+  Info,
+  Keyboard,
+  Lightning,
+  ListChecks,
+  Megaphone,
+  Question,
+} from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
 import { useMatch, useNavigate } from 'react-router';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { useOpenSettings, useOpenSetup } from '../app/dialogs.js';
+import { useOpenLearn, useOpenSettings, useOpenSetup } from '../app/dialogs.js';
 import { useWhatsNew } from '../app/WhatsNew.js';
 import { askForFirstSteps } from '../guide.js';
 import { brandPath, P } from '../routes.js';
@@ -15,7 +24,8 @@ const GITHUB = 'https://github.com/tonygorb/scenri';
 
 /**
  * Help, in one place (DESIGN.md, "First use"): First steps, for anyone who
- * wants the guided tasks back, and the help the app already has, gathered. From 1024px it floats in the
+ * wants the new install's short list back, Learn, every lesson there is, and
+ * the help the app already has, gathered. From 1024px it floats in the
  * bottom-right corner, clear of the assets rail; below that the corner belongs
  * to the composer and the tab bar, so it sits in the top bar beside the bell.
  */
@@ -28,6 +38,7 @@ export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
   const whatsNew = useWhatsNew();
   const openSettings = useOpenSettings();
   const openSetup = useOpenSetup();
+  const openLearn = useOpenLearn();
   const { engines } = useAppData();
   const noEngine = !engines.some((e) => e.available);
 
@@ -55,6 +66,10 @@ export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
         >
           <ListChecks size={18} className="sc-menu-ic" />
           <span className="sc-menu-lb">First steps</span>
+        </DropdownMenu.Item>
+        <DropdownMenu.Item className="sc-menu-item" onSelect={() => openLearn()}>
+          <GraduationCap size={18} className="sc-menu-ic" />
+          <span className="sc-menu-lb">Learn</span>
         </DropdownMenu.Item>
         {onCreate && (
           <DropdownMenu.Item

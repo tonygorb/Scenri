@@ -7,7 +7,6 @@ import {
   WELCOME,
   canWelcome,
   firstShotMoment,
-  firstSteps,
   madeOne,
   mergeTaskNodes,
   presenterMoment,
@@ -99,8 +98,8 @@ describe('the first shot, one ask at a time', () => {
   it('follows into the picker with the same words, and leaves it usable', () => {
     const shut = ask(composer());
     expect(shut).toMatchObject({ id: 'product', point: '[data-guide="compose.add"]', ...COPY.product });
-    // someone who already knows `$` reaches the same shelf from the brief: it stays usable, never asked
-    expect(shut?.also).toEqual(['[data-guide="compose"] .sc-brief-line']);
+    // the add control is the one thing: the brief waits for the last ask
+    expect(shut?.also).toBeUndefined();
     expect(shut?.live).toBeUndefined();
     const open = ask(composer({ pickerOpen: true }));
     expect(open).toMatchObject({
@@ -315,47 +314,6 @@ describe('startsHere', () => {
   it('refining waits for a first shot', () => {
     expect(startsHere('refine', s({ done: {} }))).toBe(false);
     expect(startsHere('refine', s())).toBe(true);
-  });
-});
-
-describe('firstSteps', () => {
-  const view = (over: Partial<Parameters<typeof firstSteps>[0]> = {}) => ({
-    loaded: true,
-    hidden: false,
-    eligible: true,
-    welcome: 'taken' as const,
-    done: {},
-    active: null,
-    ...over,
-  });
-
-  it('waits for the record, shows from the start, and stays away when hidden', () => {
-    expect(firstSteps(view({ loaded: false }))).toBeNull();
-    expect(firstSteps(view({ hidden: true }))).toBeNull();
-    expect(firstSteps(view({ welcome: null }))).not.toBeNull();
-  });
-
-  it('lists four real things, ticked by what exists and dotted for the one in hand', () => {
-    const rows = firstSteps(
-      view({
-        done: { shot: 'x' },
-        active: { task: 'presenter', brandId: 'b', since: 'x', baseline: { products: 0, presenters: 0, scenes: 0 } },
-      }),
-    );
-    expect(rows?.map((r) => [r.task, r.state, r.title])).toEqual([
-      ['first-shot', 'done', 'Make your first shot'],
-      ['presenter', 'active', 'Continue your presenter'],
-      ['scene', 'todo', 'Build a scene'],
-      ['refine', 'todo', 'Refine a shot'],
-    ]);
-  });
-
-  it('leaves once everything is done, unless it was asked for from Help', () => {
-    const all = { shot: 'a', refine: 'b', presenter: 'd', scene: 'e' };
-    expect(firstSteps(view({ done: all }))).toBeNull();
-    expect(firstSteps(view({ done: all, asked: true }))?.every((r) => r.state === 'done')).toBe(true);
-    expect(firstSteps(view({ welcome: null, asked: true }))).not.toBeNull();
-    expect(firstSteps(view({ done: all, asked: true, hidden: true }))).toBeNull();
   });
 });
 

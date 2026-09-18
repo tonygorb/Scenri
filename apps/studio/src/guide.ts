@@ -83,7 +83,7 @@ function optimistic(s: GuideSnapshot, i: GuideIntent): GuideSnapshot {
     return {
       ...s,
       dismissed: s.dismissed.includes(i.dismiss) ? s.dismissed : [...s.dismissed, i.dismiss],
-      ...(s.active?.task === i.dismiss ? { active: null, activeNodes: [], activeDraftId: null } : {}),
+      ...(s.active?.task === i.dismiss ? { active: { ...s.active, paused: true } } : {}),
     };
   return s;
 }

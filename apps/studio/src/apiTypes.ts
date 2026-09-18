@@ -864,6 +864,8 @@ export interface GuideActiveTask {
   brandId: string;
   since: string;
   baseline: GuideCounts;
+  /** Its guide was closed part way: still in hand, shown nothing, continued as it was. */
+  paused?: boolean;
 }
 
 export interface GuideTaskNode {

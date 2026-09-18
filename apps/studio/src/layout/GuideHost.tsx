@@ -39,7 +39,7 @@ const WELCOME_SETTLE_MS = Number(window.localStorage.getItem('scenri:welcome-set
  */
 const MODAL = '[role="dialog"]:not(.sc-coach):not(.sc-attachpanel):not(.sc-swap), [role="alertdialog"], .sc-lightbox';
 /** Dialogs that live in the address. */
-const DIALOG_PARAMS = ['settings', 'setup', 'new', 'whatsnew'];
+const DIALOG_PARAMS = ['settings', 'setup', 'new', 'whatsnew', 'learn'];
 /** The picker: the one surface the first shot follows into, and the one that makes room on a phone. */
 const PICKER = '[data-guide="compose"] .sc-attachpanel';
 
@@ -69,7 +69,11 @@ export function GuideHost() {
   const studio = !!useMatch(P.presenterStudio);
 
   const active = guide.active;
-  const task: GuideTaskId | null = active && active.brandId === brand.id ? active.task : null;
+  // The task in hand for this brand, and the one being guided: a paused task
+  // (its guide closed part way) is still in hand, and still finishes when the
+  // product says so, but nothing of the tutor shows for it.
+  const held: GuideTaskId | null = active && active.brandId === brand.id ? active.task : null;
+  const task: GuideTaskId | null = held && !active?.paused ? held : null;
   const nodeKind = task === 'first-shot' ? 'generation' : task === 'refine' ? 'edit' : null;
   const welcomePending = guide.loaded && guide.eligible && guide.welcome === null;
 
@@ -235,7 +239,7 @@ export function GuideHost() {
   const dismiss = useCallback(
     (t: GuideTaskId) => {
       void guideIntent({ dismiss: t });
-      push({ kind: 'success', title: 'Guide closed', detail: 'Pick it up again from First steps on Home.' });
+      push({ kind: 'success', title: 'Guide closed', detail: 'Continue it any time from Learn, under Help.' });
     },
     [push],
   );
@@ -271,7 +275,7 @@ export function GuideHost() {
   // the brand holds whenever it may have changed, and end once there is one
   // more than when it began. Closing its surface does not end it: a build may
   // still be landing, and the task waits for whoever comes back to it.
-  const assetTask = task === 'presenter' || task === 'scene' || task === 'product';
+  const assetTask = held === 'presenter' || held === 'scene' || held === 'product';
   const buildsRunning = builds.filter((b) => !b.finished).length;
   useEffect(() => {
     if (assetTask) void refreshGuide();

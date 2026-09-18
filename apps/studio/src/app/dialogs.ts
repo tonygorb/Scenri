@@ -21,6 +21,12 @@ export function useOpenSettings() {
 }
 
 /** Codex, because the setup dialog opened without an engine is the Codex one. */
+/** Learn: every lesson, or one of them by its task (views/LearnDialog.tsx). */
+export function useOpenLearn() {
+  const { open } = useDialogParam('learn');
+  return useCallback((lesson: string = 'lessons') => open(lesson), [open]);
+}
+
 const DEFAULT_SETUP_ENGINE = 'codex-cli';
 
 /**

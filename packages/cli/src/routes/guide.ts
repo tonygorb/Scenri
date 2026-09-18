@@ -37,6 +37,12 @@ export interface ActiveTask {
   since: string;
   /** How many of each the brand held when the task began: a task that makes one is done when there are more. */
   baseline: Counts;
+  /**
+   * Its guide was closed part way: nothing is shown until it is continued,
+   * and continuing keeps what it began with (the same window of shots, the
+   * same presenter draft), which a fresh start would lose.
+   */
+  paused?: boolean;
 }
 
 interface GuideRecord {
@@ -105,6 +111,7 @@ function parse(raw: string | null): GuideRecord | null {
             brandId: a.brandId,
             since: a.since,
             baseline: { products: num(b?.products), presenters: num(b?.presenters), scenes: num(b?.scenes) },
+            ...(a.paused === true ? { paused: true } : {}),
           }
         : null;
     return {
@@ -229,7 +236,12 @@ export function applyIntent(core: Core, body: unknown): string | null {
     if (typeof s.brandId !== 'string') return 'brandId required';
     const baseline = countsOf(core, s.brandId);
     if (!baseline) return 'brand not found';
-    r.active = { task: s.task, brandId: s.brandId, since: core.store.now(), baseline };
+    const held = r.active;
+    // The same task, paused in the same brand, is continued rather than begun again.
+    if (held && held.paused && held.task === s.task && held.brandId === s.brandId) {
+      const { paused: _, ...going } = held;
+      r.active = going;
+    } else r.active = { task: s.task, brandId: s.brandId, since: core.store.now(), baseline };
     r.dismissed = r.dismissed.filter((t) => t !== s.task);
   } else if ('finish' in b) {
     if (!isTask(b.finish)) return 'unknown task';
@@ -237,7 +249,8 @@ export function applyIntent(core: Core, body: unknown): string | null {
   } else if ('dismiss' in b) {
     if (!isTask(b.dismiss)) return 'unknown task';
     if (!r.dismissed.includes(b.dismiss)) r.dismissed.push(b.dismiss);
-    if (r.active?.task === b.dismiss) r.active = null;
+    // Closing the guide pauses its task: still in hand, said nothing about, continued as it was.
+    if (r.active?.task === b.dismiss) r.active = { ...r.active, paused: true };
   } else if ('hidden' in b) {
     if (typeof b.hidden !== 'boolean') return 'hidden is true or false';
     r.hidden = b.hidden;

@@ -37,9 +37,8 @@ export interface Moment {
   live?: string[];
   /**
    * Usable too, when they are on screen, but not what is asked for and never
-   * waited for: the brief beside the add control, whose own `$ @ /` reach the
-   * same ingredients; the portrait beside the question about it, which a
-   * phone does not draw.
+   * waited for: the portrait beside the question about it, which a phone
+   * does not draw; the studio's own line, where a typed sentence answers.
    */
   also?: string[];
   /**
@@ -239,11 +238,9 @@ export function askedKind(c: ComposerFacts): AskedKind | null {
  * only thing that can be used is the shelf of things to choose from. Not the
  * search, not Upload, not the tabs (there are none while it asks), and not the
  * shelf's own way to make a new one, which the picker leaves out while it asks:
- * there is one action here, and it is choosing one of them.
- *
- * Before it opens, the brief stays usable beside the add control: someone who
- * already knows `$`, `@` or `/` reaches the same shelf from the words, and a
- * chip is a chip however it arrived.
+ * there is one action here, and it is choosing one of them. The brief's own
+ * `$ @ / #` are words while the walk is on (BriefInput): every chip comes in
+ * through the ask for it and leaves through Back.
  */
 function pickMoment(kind: AskedKind, pickerOpen: boolean): Moment {
   const say = COPY[kind];
@@ -258,7 +255,7 @@ function pickMoment(kind: AskedKind, pickerOpen: boolean): Moment {
         side: 'right',
         ...say,
       }
-    : { id: kind, voice: 'ask', point: ADD, also: [BRIEF], side: 'top', ...say };
+    : { id: kind, voice: 'ask', point: ADD, side: 'top', ...say };
 }
 
 export interface RefineFacts {
@@ -396,7 +393,8 @@ export interface ContextStart {
   active: GuideView['active'];
 }
 
-const MILESTONE: Record<GuideTaskId, keyof GuideView['done']> = {
+/** The install's record of each task having been done at least once. */
+export const MILESTONE: Record<GuideTaskId, keyof GuideView['done']> = {
   'first-shot': 'shot',
   refine: 'refine',
   product: 'product',
@@ -417,34 +415,6 @@ export function startsHere(task: GuideTaskId, s: ContextStart): boolean {
   if (s.done[MILESTONE[task]] || s.dismissed.includes(task)) return false;
   if (task === 'refine' && !s.done.shot) return false;
   return true;
-}
-
-export interface StepRow {
-  task: GuideTaskId;
-  /** The step as the next thing to do. */
-  title: string;
-  state: 'todo' | 'active' | 'done';
-}
-
-/** First steps: four real things, in the order they teach best. */
-const ROWS: { task: GuideTaskId; title: string; resume: string }[] = [
-  { task: 'first-shot', title: 'Make your first shot', resume: 'Continue your first shot' },
-  { task: 'presenter', title: 'Create a presenter', resume: 'Continue your presenter' },
-  { task: 'scene', title: 'Build a scene', resume: 'Continue your scene' },
-  { task: 'refine', title: 'Refine a shot', resume: 'Continue refining' },
-];
-
-/** First steps, or null when it has nothing to say or was put away. */
-export function firstSteps(
-  view: Pick<GuideView, 'hidden' | 'done' | 'active'> & { loaded: boolean; asked?: boolean },
-): StepRow[] | null {
-  if (!view.loaded || view.hidden) return null;
-  const rows = ROWS.map((r): StepRow => {
-    const state = view.done[MILESTONE[r.task]] ? 'done' : view.active?.task === r.task ? 'active' : 'todo';
-    return { task: r.task, title: state === 'active' ? r.resume : r.title, state };
-  });
-  // Done with everything, it leaves; asked for from Help, it stays so any step can be done again.
-  return rows.every((r) => r.state === 'done') && !view.asked ? null : rows;
 }
 
 export interface WelcomeInput {

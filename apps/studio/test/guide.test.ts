@@ -76,7 +76,8 @@ describe('the guide record in the studio', () => {
     await loadGuide();
     guideIntentApi.mockRejectedValue(new Error('offline'));
     const sent = guideIntent({ dismiss: 'product' });
-    expect(guideSnapshot()).toMatchObject({ active: null, dismissed: ['product'] });
+    // closing the guide pauses the task in hand rather than dropping it
+    expect(guideSnapshot()).toMatchObject({ active: { ...active, paused: true }, dismissed: ['product'] });
     await sent;
     expect(guideSnapshot()).toMatchObject({ active, dismissed: [] });
     expect(guide).toHaveBeenCalledTimes(2);

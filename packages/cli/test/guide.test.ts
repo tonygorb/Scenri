@@ -194,18 +194,38 @@ describe('first-use record', () => {
       expect(readGuide(core, {}).counts?.scenes).toBe(2);
     });
 
-    it('finish and dismiss end the task; dismiss is remembered and a new start forgets it', () => {
+    it('finish ends the task; dismiss pauses it, is remembered, and a start continues it as it was', () => {
       stampGuide(core.store, V);
       const b = core.store.createBrand(brand('Ends'));
       applyIntent(core, { start: { task: 'refine', brandId: b.id } });
       applyIntent(core, { finish: 'first-shot' });
       expect(readGuide(core, {}).active?.task).toBe('refine');
+      const since = readGuide(core, {}).active?.since;
       applyIntent(core, { dismiss: 'refine' });
-      expect(readGuide(core, {})).toMatchObject({ active: null, dismissed: ['refine'] });
+      expect(readGuide(core, {})).toMatchObject({
+        active: { task: 'refine', paused: true, since },
+        dismissed: ['refine'],
+      });
+      // continued: the same window it began with, so what it made still counts
       applyIntent(core, { start: { task: 'refine', brandId: b.id } });
-      expect(readGuide(core, {})).toMatchObject({ dismissed: [] });
+      const going = readGuide(core, {});
+      expect(going).toMatchObject({ active: { task: 'refine', since }, dismissed: [] });
+      expect(going.active?.paused).toBeUndefined();
       applyIntent(core, { finish: 'refine' });
       expect(readGuide(core, {}).active).toBeNull();
+    });
+
+    it('a paused task gives way to another task begun, and a paused record survives a restart', () => {
+      stampGuide(core.store, V);
+      const b = core.store.createBrand(brand('Paused'));
+      applyIntent(core, { start: { task: 'presenter', brandId: b.id } });
+      applyIntent(core, { dismiss: 'presenter' });
+      expect(readGuide(core, {}).active?.paused).toBe(true);
+      // the record is read fresh each time: a paused task is still paused after a restart
+      expect(readGuide(core, {}).active).toMatchObject({ task: 'presenter', paused: true });
+      applyIntent(core, { start: { task: 'scene', brandId: b.id } });
+      expect(readGuide(core, {}).active).toMatchObject({ task: 'scene' });
+      expect(readGuide(core, {}).active?.paused).toBeUndefined();
     });
 
     it('a task whose brand is deleted is let go', () => {

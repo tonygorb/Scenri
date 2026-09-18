@@ -23,7 +23,9 @@ export function useLaunchTask(): (task: GuideTaskId) => Promise<void> {
       // Nothing to refine yet: refining starts with a shot.
       const want: GuideTaskId = task === 'refine' && !shot ? 'first-shot' : task;
       const held = guideSnapshot().active;
-      if (!(held?.task === want && held.brandId === brand.id)) {
+      // In hand here already: carried on. Paused here: the record continues it
+      // (same window, same draft). Anything else begins it.
+      if (!(held?.task === want && held.brandId === brand.id && !held.paused)) {
         await guideIntent({ start: { task: want, brandId: brand.id } });
       }
       switch (want) {
