@@ -140,3 +140,29 @@ test('a query searches every brand, and Enter opens the first one you are not in
   await finder.press('Enter');
   await page.waitForURL(`**/${slugs.get('Nocturne')}`);
 });
+
+test('a bar menu answers the next click at once, and one click moves to another menu', async ({ page }) => {
+  await home(page);
+  await page.waitForLoadState('networkidle');
+  const at = async (sel: string) => {
+    const b = (await page.locator(sel).boundingBox())!;
+    return [Math.round(b.x + b.width / 2), Math.round(b.y + b.height / 2)] as const;
+  };
+  const brands = page.locator('.sc-menu[data-state="open"]', { hasText: 'Brands' });
+  const [x, y] = await at('.sc-org-btn');
+
+  // Closed and opened again inside the closing animation: the second click
+  // used to land on a page the closing menu still held, and did nothing.
+  await page.mouse.click(x, y);
+  await expect(brands).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(60);
+  await page.mouse.click(x, y);
+  await expect(brands).toBeVisible();
+
+  // With the brand menu open, one click on New's caret is New's menu.
+  const [nx, ny] = await at('.sc-new-more');
+  await page.mouse.click(nx, ny);
+  await expect(page.locator('.sc-start-row').first()).toBeVisible();
+  await expect(brands).toHaveCount(0);
+});

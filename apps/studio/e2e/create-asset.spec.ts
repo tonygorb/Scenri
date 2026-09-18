@@ -86,7 +86,8 @@ test.describe('adding to a brand', () => {
     expect(await ring()).toBe(false);
     await page.mouse.click(x, y);
     await expect(rows.first()).toBeVisible();
-    await page.mouse.click(640, 640);
+    // an empty stretch of the bar, so the press closes the menu and acts on nothing
+    await page.mouse.click(300, 30);
     await expect(rows).toHaveCount(0);
     expect(await ring()).toBe(false);
 

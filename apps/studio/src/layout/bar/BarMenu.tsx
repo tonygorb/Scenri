@@ -111,7 +111,13 @@ export function BarMenu({
   }
 
   return (
-    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
+    // Not modal, the way the activity popover never was. A modal menu holds the
+    // whole page inert until it is gone, and that includes its closing animation:
+    // a click on its own button in those 220ms, or on the next control in the
+    // bar, landed on nothing. Non-modal, reopening is immediate and one click on
+    // another control in the bar is that control's menu; an outside press still
+    // closes this one on its way through.
+    <DropdownMenu.Root open={open} onOpenChange={setOpen} modal={false}>
       {tip ? (
         <Tip label={tip}>
           <DropdownMenu.Trigger>
@@ -135,8 +141,14 @@ export function BarMenu({
         onPointerDown={() => {
           byPointer.current = true;
         }}
-        onPointerDownOutside={() => {
+        onPointerDownOutside={(e) => {
           byPointer.current = true;
+          // A press on this menu's own button is the button's business: it
+          // toggles the menu itself. Left to the layer, a menu still closing
+          // took that press for an outside one and shut the menu the press had
+          // just reopened. Radix's popover makes the same exception for its own
+          // trigger, which is why the activity panel never had this.
+          if (triggerRef.current?.contains(e.target as Node)) e.preventDefault();
         }}
         onKeyDown={() => {
           byPointer.current = false;
