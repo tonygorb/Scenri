@@ -104,6 +104,56 @@ export function iconMark(json: any): Mark | null {
   return marks.find((m) => m.role === 'mark') ?? primaryOf(marks);
 }
 
+/**
+ * What a small circle draws for a brand. A circle needs a square, so the kit's
+ * own icon leads (a site's favicon, stored as `mark`) and counts as square because
+ * the kit says it is. Without one the canonical logo is put on trial: `square:
+ * false` means measure it before drawing it. A declared wordmark is never tried,
+ * being wider than any circle by definition. Only stored assets qualify, since a
+ * bare URL has no small derivative to draw.
+ */
+export function avatarMark(json: any): { mark: Mark; square: boolean } | null {
+  const stored = marksOf(json).filter((m) => m.hash);
+  const icon = stored.find((m) => m.role === 'mark');
+  if (icon) return { mark: icon, square: true };
+  const logo = primaryOf(stored);
+  if (!logo || logo.role === 'wordmark') return null;
+  return { mark: logo, square: false };
+}
+
+/** Wider than this, a logo is a few illegible pixels in a circle, and the initial says more. */
+export const CIRCLE_MAX_RATIO = 1.6;
+export const fitsCircle = (width: number, height: number): boolean => height > 0 && width / height <= CIRCLE_MAX_RATIO;
+
+/**
+ * Where to look to tell a full-bleed icon from a logo on transparency: the middle
+ * of each edge, and a point just inside each corner. Inside, not on, because an
+ * app icon's rounded corners are transparent while everything a circle would
+ * show of it is solid.
+ */
+export function bleedPoints(width: number, height: number): [number, number][] {
+  const at = (f: number, size: number) => Math.min(size - 1, Math.max(0, Math.round(f * (size - 1))));
+  const edge = 0.03;
+  const corner = 0.12;
+  return [
+    [at(0.5, width), at(edge, height)],
+    [at(0.5, width), at(1 - edge, height)],
+    [at(edge, width), at(0.5, height)],
+    [at(1 - edge, width), at(0.5, height)],
+    [at(corner, width), at(corner, height)],
+    [at(1 - corner, width), at(corner, height)],
+    [at(corner, width), at(1 - corner, height)],
+    [at(1 - corner, width), at(1 - corner, height)],
+  ];
+}
+
+/**
+ * Solid at every point that looks: the icon is its own ground (a white swoosh on
+ * black, say) and should fill the circle, where a logo on transparency needs the
+ * white plate behind it. Alpha 0 to 255.
+ */
+export const isFullBleed = (alphas: number[]): boolean => alphas.length > 0 && alphas.every((a) => a >= 200);
+
 /** Display name for one mark, e.g. "Acme Coffee wordmark". Matches the compiler's label. */
 export function markLabel(json: any, mark: Pick<Mark, 'role'>): string {
   const kind: Record<MarkRole, string> = {

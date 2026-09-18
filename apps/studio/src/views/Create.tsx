@@ -575,11 +575,16 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   }, []);
 
   // Create from the nav arrives as a param rather than a call, because the nav
-  // is mounted above this screen and may be on another one when you press it
+  // is mounted above this screen and may be on another one when you press it.
+  // New in the bar asks for the add panel as well, open on All, or left as it
+  // is if it is already open. Both are spent once answered, so pressing New
+  // again from here opens the panel again.
   useEffect(() => {
     if (params.get('compose') === null) return;
+    const withAttach = params.get('attach') === 'all';
     compose();
-    dropParams('compose');
+    if (withAttach) composerRef.current?.showAttach();
+    dropParams('compose', ...(withAttach ? ['attach'] : []));
   }, [params, compose, dropParams]);
 
   // A homepage gallery tile carries `?showcase=<id>` instead of the lighter
@@ -1020,6 +1025,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       <main
         className="sc-canvas"
         id="main"
+        data-page-scroll=""
         data-firstrun={firstRun || undefined}
         onClick={(e) => {
           if (picked.size === 0 && !selectedId) return;

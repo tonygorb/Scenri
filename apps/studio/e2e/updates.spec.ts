@@ -183,7 +183,7 @@ class Fixture {
 }
 
 const float = (p: Page) => p.locator('.sc-upd-float');
-const dot = (p: Page) => p.locator('.sc-org-btn .sc-upd-dot');
+const dot = (p: Page) => p.locator('.sc-help-btn .sc-upd-dot');
 const aboutRows = (p: Page) => p.locator('.sc-set .sc-set-row');
 
 test.describe
@@ -210,7 +210,7 @@ test.describe
       await expect(float(page)).toHaveCount(0);
       await expect(dot(page)).toBeVisible();
 
-      await page.locator('.sc-org-btn').click();
+      await page.locator('.sc-help-btn').click();
       await expect(page.locator('.sc-menu-item[data-update]')).toContainText('Update available · 0.99.0');
       await page.keyboard.press('Escape');
     });
@@ -262,7 +262,7 @@ test.describe
       await expect(float(page)).toHaveCount(0);
 
       // the menu row stays: quiet, not gone
-      await page.locator('.sc-org-btn').click();
+      await page.locator('.sc-help-btn').click();
       await expect(page.locator('.sc-menu-item[data-update]')).toBeVisible();
       await page.keyboard.press('Escape');
 

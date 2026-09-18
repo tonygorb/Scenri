@@ -61,12 +61,15 @@ async function stubUnread(page: Page, over: Record<string, unknown> = {}): Promi
 }
 
 const dialog = (p: Page) => p.locator('.sc-wn');
-const menuTrigger = (p: Page) => p.locator('.sc-org-btn');
+/** By hand, from Settings, About: its What's new row is permanent, whatever the chrome holds. */
 const openByHand = async (p: Page) => {
-  await menuTrigger(p).click();
-  await p.locator('.sc-menu-item', { hasText: "What's new" }).click();
+  const about = new URL(p.url());
+  about.search = '?settings=about';
+  await p.goto(about.href);
+  await p.locator('.sc-set .sc-set-row', { hasText: "What's new" }).locator('button', { hasText: 'Show' }).click();
   await expect(dialog(p)).toBeVisible();
 };
+const menuTrigger = (p: Page) => p.locator('.sc-help-btn');
 
 test('a release already acknowledged says nothing: no dialog, no dot', async ({ page }) => {
   await stub(page);
@@ -74,7 +77,7 @@ test('a release already acknowledged says nothing: no dialog, no dot', async ({ 
   await expect(page.locator('.sc-greet')).toBeVisible();
   await page.waitForTimeout(OUTWAIT_MS);
   await expect(dialog(page)).toHaveCount(0);
-  await expect(menuTrigger(page).locator('.sc-upd-dot')).toHaveCount(0);
+  await expect(page.locator('.sc-upd-dot')).toHaveCount(0);
 });
 
 test('an unread release introduces itself once the screen is quiet', async ({ page }) => {
@@ -121,7 +124,7 @@ test('closing it is the acknowledgement, and it does not come back', async ({ pa
   await page.keyboard.press('Escape');
   await expect(dialog(page)).toHaveCount(0);
   expect(acked).toEqual(['9.9.9']);
-  await expect(menuTrigger(page).locator('.sc-upd-dot')).toHaveCount(0);
+  await expect(page.locator('.sc-upd-dot')).toHaveCount(0);
   await page.waitForTimeout(OUTWAIT_MS);
   await expect(dialog(page)).toHaveCount(0);
 });
@@ -235,13 +238,9 @@ test('a maintenance release says nothing of its own', async ({ page }) => {
   await page.waitForTimeout(OUTWAIT_MS);
 
   await expect(dialog(page)).toHaveCount(0);
-  await expect(menuTrigger(page).locator('.sc-upd-dot')).toHaveCount(0);
+  await expect(page.locator('.sc-upd-dot')).toHaveCount(0);
 
-  await menuTrigger(page).click();
-  const row = page.locator('.sc-menu-item', { hasText: "What's new" });
-  await expect(row.locator('.sc-menu-new')).toHaveCount(0);
-  await row.click();
-  await expect(dialog(page)).toBeVisible();
+  await openByHand(page);
   await expect(page.locator('.sc-wn-txt')).toContainText('Maintenance only');
 });
 
@@ -252,7 +251,7 @@ test('a failed read says so, instead of accusing the release of having no notes'
   await page.waitForTimeout(OUTWAIT_MS);
 
   await expect(dialog(page)).toHaveCount(0);
-  await expect(menuTrigger(page).locator('.sc-upd-dot')).toHaveCount(0);
+  await expect(page.locator('.sc-upd-dot')).toHaveCount(0);
 
   await openByHand(page);
   await expect(page.locator('.sc-wn-sub')).toHaveText('Release notes unavailable');

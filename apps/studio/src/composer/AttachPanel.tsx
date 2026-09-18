@@ -150,8 +150,10 @@ function AttachDock({
     const host = el?.parentElement;
     if (!phone || !el || !host) return;
     const measure = () => {
-      const topbar =
-        Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sc-topbar-h')) || 0;
+      // off the shell, not the root: the bar's condensed state redefines this
+      // token on .sc-shell, and the root would still be answering 60.
+      const shell = el.closest('.sc-shell') ?? document.documentElement;
+      const topbar = Number.parseFloat(getComputedStyle(shell).getPropertyValue('--sc-topbar-h')) || 0;
       const room = host.getBoundingClientRect().top - topbar - 16;
       el.style.setProperty('--ap-avail', `${Math.max(160, Math.round(room))}px`);
     };
@@ -213,7 +215,9 @@ function AttachDock({
       // beside it: the held page is not a press anywhere, and Escape or the
       // next answer is what closes it.
       if (document.querySelector('[data-guide="catch"]')) return;
-      if (!t.closest('.sc-attachpanel') && !t.closest('.sc-attach-toggle')) closeRef.current();
+      // A control that opens this panel (the toggle, New in the bar) is not an
+      // outside press: closing here only for it to open again was a flash.
+      if (!t.closest('.sc-attachpanel, .sc-attach-toggle, [data-attach-opener]')) closeRef.current();
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);

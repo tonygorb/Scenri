@@ -1,4 +1,5 @@
 import {
+  ArrowCircleUp,
   GithubLogo,
   GraduationCap,
   HandWaving,
@@ -16,6 +17,7 @@ import { useBrand } from '../app/BrandLayout.js';
 import { useOpenLearn, useOpenSettings, useOpenSetup, useOpenWelcome } from '../app/dialogs.js';
 import { WELCOME } from '../guidedTasks.js';
 import { useWhatsNew } from '../app/WhatsNew.js';
+import { useUpdateCenter } from '../app/UpdateCenter.js';
 import { askForFirstSteps } from '../guide.js';
 import { brandPath, P } from '../routes.js';
 import { useMediaQuery } from '../useMediaQuery.js';
@@ -38,6 +40,13 @@ export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
   const set = useMatch(P.set);
   const onCreate = !!hub || !!set;
   const whatsNew = useWhatsNew();
+  const updates = useUpdateCenter();
+  // The help button is where this machine's news lives now that the brand menu
+  // is about brands: a waiting update or unread notes put the dot on it, and on
+  // a source checkout, which gets no float, the dot and the row are all the
+  // unprompted news there is.
+  const updateAvailable = Boolean(updates.status?.available);
+  const showDot = (updateAvailable && !updates.dismissed) || whatsNew.unread;
   const openSettings = useOpenSettings();
   const openSetup = useOpenSetup();
   const openLearn = useOpenLearn();
@@ -51,6 +60,7 @@ export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
         <DropdownMenu.Trigger>
           <button type="button" className="sc-icon-btn sc-help-btn" aria-label="Help">
             <Question size={16} />
+            {showDot && <span className="sc-upd-dot" aria-hidden="true" />}
           </button>
         </DropdownMenu.Trigger>
       </Tip>
@@ -60,6 +70,12 @@ export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
         sideOffset={8}
         className="sc-menu sc-help-menu"
       >
+        {updateAvailable && (
+          <DropdownMenu.Item className="sc-menu-item" data-update="" onSelect={() => openSettings('about')}>
+            <ArrowCircleUp size={18} className="sc-menu-ic" />
+            <span className="sc-menu-lb">Update available · {updates.status?.latest}</span>
+          </DropdownMenu.Item>
+        )}
         <DropdownMenu.Item
           className="sc-menu-item"
           onSelect={() => {

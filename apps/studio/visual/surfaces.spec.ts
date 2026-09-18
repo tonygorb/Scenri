@@ -142,7 +142,7 @@ test('composer shot settings', async ({ page }) => {
 test('notifications popover', async ({ page }) => {
   await prep(page);
   await page.goto(`/${d.slug}/create`);
-  await page.locator('.sc-topbar .sc-notif-btn').click();
+  await page.locator('.sc-topbar .sc-act-btn').click();
   await page.locator('.sc-notif-pop').waitFor();
   await shot(page, 'notifications');
 });

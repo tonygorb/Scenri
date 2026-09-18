@@ -44,6 +44,13 @@ test('the top bar fits, on every library page', async ({ page }) => {
     }));
     // one pixel of slack for sub-pixel layout, and not one more
     expect(fit.scrollWidth, `${path} overflows the top bar`).toBeLessThanOrEqual(fit.clientWidth + 1);
+    // and New keeps its round ends at a hand's width rather than being squeezed
+    const pill = await page.locator('.sc-new').evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { h: r.height, w: r.width, ends: Number.parseFloat(getComputedStyle(el).borderTopLeftRadius) };
+    });
+    expect(pill.ends).toBeGreaterThanOrEqual(pill.h / 2);
+    expect(pill.w).toBeGreaterThan(pill.h);
   }
 });
 
@@ -52,7 +59,7 @@ test('the hoisted page action is gone, and the + took its job', async ({ page })
   await page.goto(`/${slug}/presenters`);
 
   await expect(page.locator('#sc-page-action')).toHaveCount(0);
-  const trigger = page.getByRole('button', { name: 'Add to this brand', exact: true });
+  const trigger = page.getByRole('button', { name: 'Other ways to start', exact: true });
   await expect(trigger).toBeVisible();
 
   if (isPhone(page)) {
@@ -115,8 +122,7 @@ test('the primary stays reachable with the keyboard up', async ({ page }) => {
 
 test('the chooser is usable by touch', async ({ page }) => {
   const slug = await brandSlug(page);
-  await page.goto(`/${slug}`);
-  await page.getByRole('button', { name: 'Add to this brand', exact: true }).tap();
+  await page.goto(`/${slug}?new=1`);
   await expect(page.locator('.sc-pick')).toHaveCount(3);
 
   // every card clears the 44px touch floor the rest of the app holds to

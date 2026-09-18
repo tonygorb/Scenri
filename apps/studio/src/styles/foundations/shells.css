@@ -74,7 +74,8 @@
 @media (max-width: 767px) {
   :root {
     --sc-gutter: 14px;
-    --sc-tabbar-h: 58px;
+    --sc-topbar-h: 56px;
+    --sc-tabbar-h: 60px;
   }
 }
 

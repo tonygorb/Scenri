@@ -44,7 +44,7 @@ async function currentBrand(p: Page): Promise<{ id: string; slug: string }> {
 
 const bell = (p: Page) => p.locator('.sc-topbar .sc-notif-btn');
 const pop = (p: Page) => p.locator('.sc-notif-pop');
-const tabs = (p: Page) => p.locator('.sc-notif-tab');
+const sections = (p: Page) => p.locator('.sc-notif-label');
 const rows = (p: Page) => p.locator('.sc-notif-scroll .sc-notif-row');
 
 /** Start a generation while standing somewhere the feed is not on screen. */
@@ -96,25 +96,29 @@ test('the bell is in the bar on every screen', async ({ page }) => {
   }
 });
 
-test('opens on Tasks; Notifications starts empty and is keyboard reachable', async ({ page }) => {
+test('an idle panel says nothing about nothing, and both lists show at once when there is work', async ({ page }) => {
   const brand = await currentBrand(page);
   await clearHistory(page);
   await page.goto(`/${brand.slug}/scenes`);
 
+  // Nothing running: one list, not a heading over an empty one. In progress
+  // announcing itself while empty said the same nothing the section under it
+  // was already saying.
   await bell(page).click();
   await expect(pop(page)).toBeVisible();
-  await expect(tabs(page)).toHaveCount(2);
-  await expect(tabs(page).nth(0)).toHaveAttribute('aria-selected', 'true');
-  await expect(tabs(page).nth(0)).toContainText('Tasks');
-  await expect(tabs(page).nth(1)).toContainText('Notifications');
+  await expect(sections(page)).toHaveCount(1);
+  await expect(sections(page).nth(0)).toContainText('Notifications');
+  await expect(page.locator('section[aria-label="Notifications"] .sc-notif-empty')).toHaveText(
+    'You have no notifications yet.',
+  );
+  await page.keyboard.press('Escape');
 
-  // arrow keys move between the two, and wrap
-  await tabs(page).nth(0).focus();
-  await page.keyboard.press('ArrowRight');
-  await expect(tabs(page).nth(1)).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('.sc-notif-empty')).toHaveText('You have no notifications yet.');
-  await page.keyboard.press('ArrowRight');
-  await expect(tabs(page).nth(0)).toHaveAttribute('aria-selected', 'true');
+  // Work landed: it is in the list. Whether a demo shot is still in flight by
+  // the time the panel opens is a race with the engine, so it is not what this
+  // asserts; the In progress section is the same rows, shown while there are any.
+  await fireAndWalkAway(page, brand.id);
+  await bell(page).click();
+  await expect(rows(page)).not.toHaveCount(0, { timeout: 20_000 });
 });
 
 test('work started from another screen still arrives, survives a reload, and clears', async ({ page }) => {
@@ -127,24 +131,24 @@ test('work started from another screen still arrives, survives a reload, and cle
   await fireAndWalkAway(page, brand.id);
 
   // the badge is the first thing that should change
-  await expect(page.locator('.sc-bell-dot')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.sc-act-n')).toBeVisible({ timeout: 20_000 });
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}$`));
 
   await bell(page).click();
-  await tabs(page).nth(1).click();
   await expect(rows(page)).not.toHaveCount(0);
   const first = rows(page).first();
   await expect(first).toContainText('bell spec shot');
 
-  // reading the list is what clears the badge, not opening the bell
+  // opening the panel is not reading it: the badge goes when you say so
+  await expect(page.locator('.sc-act-n')).toBeVisible();
+  await page.locator('.sc-notif-seen').click();
+  await expect(page.locator('.sc-act-n')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(pop(page)).toHaveCount(0);
-  await expect(page.locator('.sc-bell-dot')).toHaveCount(0);
 
   // the record outlives the page
   await page.reload();
   await bell(page).click();
-  await tabs(page).nth(1).click();
   await expect(rows(page)).not.toHaveCount(0);
 
   // and a row is a way back to the thing it is about
@@ -181,17 +185,65 @@ test('a dialog taking the screen closes the panel', async ({ page }) => {
   await expect(pop(page)).toHaveCount(0);
 });
 
-test('clearing empties the record', async ({ page }) => {
+test("clearing is the list's own action, and it empties the record in place", async ({ page }) => {
   const brand = await currentBrand(page);
+  await clearHistory(page);
+  // Two finished shots in the record, written where the bell keeps it, so the
+  // case under test never depends on the demo engine beating the clock.
+  await page.evaluate(
+    ([key]) => {
+      const item = (id: string, ago: number) => ({
+        id,
+        kind: 'generation',
+        state: 'done',
+        title: `Seeded shot ${id}`,
+        subtitle: 'Clear all spec',
+        thumb: null,
+        at: new Date(Date.now() - ago).toISOString(),
+        href: null,
+      });
+      localStorage.setItem(key as string, JSON.stringify([item('a', 60_000), item('b', 120_000)]));
+    },
+    [`scenri:notifications-${brand.id}`],
+  );
   await page.goto(`/${brand.slug}`);
   await bell(page).click();
-  await tabs(page).nth(1).click();
 
-  const clear = page.locator('.sc-notif-clear');
-  if (await clear.isVisible().catch(() => false)) {
-    await clear.click();
-  }
-  await expect(page.locator('.sc-notif-empty')).toHaveText('You have no notifications yet.');
+  // Both of the list's verbs sit on its own label row, the destructive one
+  // last, and the heading is the section's name and nothing else.
+  const list = page.locator('section[aria-label="Notifications"]');
+  const verbs = list.locator('.sc-notif-label button');
+  await expect(verbs).toHaveText(['Mark all read', 'Clear all']);
+  await expect(list.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible();
+  await expect(page.locator('.sc-notif-foot')).toHaveCount(0);
+
+  // Reading the list takes its own verb away. Clear all keeps its place in the
+  // panel for it, and a keyboard lands on it rather than on the page behind.
+  const clear = list.getByRole('button', { name: 'Clear all', exact: true });
+  const inset = async () =>
+    (await pop(page).boundingBox())!.x + (await pop(page).boundingBox())!.width - (await clear.boundingBox())!.x;
+  // the panel arrives with a scale, so measure it once it has landed
+  await pop(page).evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
+  const before = await inset();
+  await list.getByRole('button', { name: 'Mark all read', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(verbs).toHaveText(['Clear all']);
+  await expect(clear).toBeFocused();
+  expect(Math.abs((await inset()) - before)).toBeLessThan(0.5);
+
+  // From the keyboard again: the panel stays, the empty state says so, and focus
+  // is still inside the panel rather than dropped on the page behind it.
+  await page.keyboard.press('Enter');
+  await expect(list.locator('.sc-notif-empty')).toHaveText('You have no notifications yet.');
+  await expect(verbs).toHaveCount(0);
+  await expect(pop(page)).toBeVisible();
+  expect(await page.evaluate(() => !!document.activeElement?.closest('.sc-notif-pop'))).toBe(true);
+
+  // Gone from the record, not hidden for the session.
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await bell(page).click();
+  await expect(list.locator('.sc-notif-empty')).toHaveText('You have no notifications yet.');
 });
 
 test('a finish toasts wherever you cannot see it land', async ({ page }) => {
@@ -218,11 +270,10 @@ test('a finish you are watching land does not also announce itself', async ({ pa
 
   // no toast, and no unread badge either: you watched it happen
   await expect(page.locator('.sc-toast')).toHaveCount(0);
-  await expect(page.locator('.sc-bell-dot')).toHaveCount(0);
+  await expect(page.locator('.sc-act-n')).toHaveCount(0);
 
   // but the record still keeps it — quiet is not the same as lost
   await bell(page).click();
-  await tabs(page).nth(1).click();
   await expect(rows(page)).not.toHaveCount(0, { timeout: 20_000 });
 });
 
@@ -232,10 +283,9 @@ test('a notification row opens the shot it is about', async ({ page }) => {
 
   await page.goto(`/${brand.slug}/scenes`);
   const { nodeId } = await fireAndWalkAway(page, brand.id);
-  await expect(page.locator('.sc-bell-dot')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.sc-act-n')).toBeVisible({ timeout: 20_000 });
 
   await bell(page).click();
-  await tabs(page).nth(1).click();
   await rows(page).first().click();
 
   // the href used to name a project route that no longer exists
@@ -251,7 +301,7 @@ test('a notification stored under the old scheme still opens its shot', async ({
   // release before it spelled. This is the case the redirect shim exists for,
   // and the only one nothing else here would catch.
   const { nodeId } = await fireAndWalkAway(page, brand.id);
-  await expect(page.locator('.sc-bell-dot')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.sc-act-n')).toBeVisible({ timeout: 20_000 });
 
   await page.evaluate(
     ([key, slug, id]) => {
@@ -264,7 +314,6 @@ test('a notification stored under the old scheme still opens its shot', async ({
 
   await page.goto(`/${brand.slug}`);
   await bell(page).click();
-  await tabs(page).nth(1).click();
   await rows(page).first().click();
 
   await page.waitForURL(`**/${brand.slug}/create/shots/${nodeId}`);

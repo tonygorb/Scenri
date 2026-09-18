@@ -19,7 +19,7 @@ const FIELDS = new Set([
   '.sc-edit:focus-visible',
 ]);
 /** Search boxes ring their wrapper while the caret is inside: a place to type. */
-const FIELD_WRAPPERS = new Set(['.sc-assets-search', '.sc-swap-search']);
+const FIELD_WRAPPERS = new Set(['.sc-assets-search', '.sc-swap-search', '.sc-menu-find']);
 
 function cssFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {

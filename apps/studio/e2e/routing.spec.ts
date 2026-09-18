@@ -698,6 +698,24 @@ test('navigation surfaces are real anchors with canonical hrefs', async ({ page 
   );
 });
 
+test('the logo is the full lockup, goes home, and wears no box at rest or under the pointer', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}/products`);
+
+  const logo = page.getByRole('link', { name: 'Scenri home', exact: true });
+  await expect(logo).toHaveAttribute('href', `/${brand.slug}`);
+  // symbol and name together, not the symbol alone
+  await expect(logo.locator('svg')).toHaveAttribute('viewBox', '0 0 263.79 64');
+  const fill = () => logo.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(await fill()).toBe('rgba(0, 0, 0, 0)');
+  await logo.hover();
+  await page.waitForTimeout(200);
+  expect(await fill()).toBe('rgba(0, 0, 0, 0)');
+
+  await logo.click();
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}$`));
+});
+
 // The popup cold-boots the whole app on its own, and the waits below allow 30s
 // for it. The default 20s test budget could never cover them, so this only ever
 // passed when the boot happened to be fast: it timed out at 20s in a loaded

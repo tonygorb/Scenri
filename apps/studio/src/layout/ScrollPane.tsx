@@ -85,7 +85,7 @@ export function ScrollPane({ className = 'sc-home', children }: { className?: st
   }, [key]);
 
   return (
-    <div ref={ref} className={className}>
+    <div ref={ref} className={className} data-page-scroll="">
       {children}
     </div>
   );

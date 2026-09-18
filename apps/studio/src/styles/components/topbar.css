@@ -1,59 +1,72 @@
 /* ---------- top bar ----------------------------------------------------------
-   Three tracks: where you are, the nav dead centre, what you can do.
+   Three tracks with equal side columns: the mark alone on the left, the five
+   places dead centre, and what you can do on the right. Both side columns are
+   minmax(0, 1fr), so a readout that grows on the right cannot push the places
+   off the middle of the screen.
 
    This block is mostly subtraction. There is no track under the nav, no outline
-   on any control, no fill on the credits, no divider and nothing uppercase: one
-   hairline at the bottom, 52px of height, and active stated by ink and weight
-   alone. A top bar earns its keep by disappearing, and every box drawn around
-   something in a 52px row is furniture the work has to look past. */
+   on any control, no divider and nothing uppercase: one hairline at the bottom
+   and active stated by a 2px line sitting on that hairline. A top bar earns its
+   keep by disappearing, and every box drawn around something in a 60px row is
+   furniture the work has to look past. */
 .sc-topbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   height: var(--sc-topbar-h);
   padding-left: max(var(--sc-gutter), env(safe-area-inset-left));
   padding-right: max(var(--sc-gutter), env(safe-area-inset-right));
   background: var(--sc-bg);
   border-bottom: 1px solid var(--sc-line-chrome);
   z-index: var(--sc-z-topbar);
+  /* Only the shadow moves. The bar keeps its height when the page scrolls under
+     it: a shrink, snapped or eased, read as the page lurching under a reader. */
+  transition: box-shadow 240ms ease;
+}
+/* Over content rather than above it, which is the one thing a shadow is allowed
+   to say (DESIGN.md §4). */
+.sc-shell[data-condensed] .sc-topbar {
+  box-shadow: var(--sc-shadow-1);
 }
 .sc-topbar-lead {
   display: flex;
   align-items: center;
-  gap: 6px;
   min-width: 0;
 }
 .sc-topbar-end {
   display: flex;
   align-items: center;
   justify-self: end;
-  gap: 2px;
+  gap: 6px;
   min-width: 0;
 }
+
+/* ---- the mark ----
+   The full lockup, bare: no box behind it at rest or under the pointer. Twenty
+   pixels tall renders eighty-two wide, which the bar has room for at every width.
+   Its ink starts a pixel inside its box, so the box steps back that pixel and the
+   symbol's edge lands on the gutter line the page below starts on. */
 .sc-topbar-lead > .sc-wordmark:first-child {
   margin-left: -1px;
 }
-.sc-topbar-end {
-  gap: 6px;
-}
-/* Below 400px the bar carries four circles (help, add, bell, brand) in the
-   134px a 320px screen leaves it; 6px gaps need 148. */
+/* Below 400px the bar carries help, the bell, New and the brand in what a small
+   phone leaves it; the gaps give way before anything else does. */
 @media (max-width: 399px) {
   .sc-topbar-end {
     gap: 2px;
   }
 }
 .sc-wordmark {
+  position: relative;
   display: inline-flex;
   align-items: center;
+  flex: none;
   border: none;
   background: none;
-  padding: 0 6px 0 0;
-  cursor: pointer;
   color: var(--sc-fg);
+  cursor: pointer;
   text-decoration: none;
-  flex: none;
 }
 /* The mark inherits the ink from the line above, which is the whole reason
    there is no light and dark pair of files to keep in step. */
@@ -68,7 +81,12 @@
   border-radius: 4px;
 }
 
-/* text, and nothing else. The gap does the grouping the pill used to do. */
+/* ---- the places ----
+   Text, and a line under the one you are on. The underline sits on the bar's own
+   hairline (bottom: -1px) so the active state costs the row no height, and it
+   grows from the middle rather than appearing, which is the only motion in the
+   bar. DESIGN.md §5 already says a tab strip is underline-style and a chip
+   cluster is pill-style; this is a tab strip. */
 .sc-nav ul {
   display: flex;
   gap: 2px;
@@ -77,104 +95,310 @@
   list-style: none;
 }
 .sc-nav :is(button, a) {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  height: var(--sc-topbar-h);
   border: none;
   background: none;
   cursor: pointer;
   text-decoration: none;
-  padding: 8px 16px;
-  border-radius: var(--sc-radius-full);
+  padding: 0 12px;
   font-size: 14px;
   font-weight: 500;
   letter-spacing: -0.01em;
   color: var(--sc-fg2);
   white-space: nowrap;
-  transition:
-    color 120ms cubic-bezier(0.3, 0, 0.2, 1),
-    background 120ms cubic-bezier(0.3, 0, 0.2, 1);
+  transition: color 120ms cubic-bezier(0.3, 0, 0.2, 1);
+}
+.sc-nav :is(button, a)::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--sc-fg);
+  transform: scaleX(0);
+  transition: transform 320ms cubic-bezier(0.22, 0.9, 0.28, 1);
 }
 .sc-nav :is(button, a):hover {
   color: var(--sc-fg);
-  background: var(--sc-hover);
 }
-.sc-nav :is(button, a)[data-active="true"] {
+.sc-nav :is(button, a)[aria-current="page"] {
   color: var(--sc-fg);
-  background: var(--sc-chip);
 }
-@media (max-width: 960px) {
-  .sc-nav :is(button, a) {
-    padding: 8px 12px;
+.sc-nav :is(button, a)[aria-current="page"]::after {
+  transform: scaleX(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-nav :is(button, a)::after {
+    transition: none;
   }
 }
 
+/* Worn by the feed toolbar's place picker too, which is why it outlived the
+   bar's own caret. */
 .sc-caret {
   color: var(--sc-fg3);
   flex: none;
 }
 
-/* The identity control: mark, name, caret. A circle alone in this corner is the
-   universal sign for "your account", which is the one thing this is not, and it
-   left the brand you are working in unnamed until the menu opened. Nothing is
-   drawn at rest — the hover and open fills are the crumb's, so both dropdown
-   triggers in the bar behave the same. Below 1024px it collapses back to the
-   mark alone; see the narrow block below it. */
-.sc-org-btn {
+/* ---- activity ----
+   One control that changes shape three times: the picture being rendered inside
+   a ring that fills, a bell carrying a count, or a bell. It is sized by its own
+   face and eases between widths, so a render starting does not make the row jump.
+   Circular while it carries a picture, because a picture in a ring is a circle
+   and a rounded square around it would be a second shape saying nothing. */
+.sc-act-btn {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  display: inline-grid;
+  place-items: center;
   flex: none;
-  min-width: 0;
-  max-width: 210px;
-  margin-left: 2px;
-  padding: 4px 8px 4px 5px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0 2px;
   border: none;
-  border-radius: var(--sc-radius-sm);
   background: none;
+  border-radius: var(--sc-radius);
+  color: var(--sc-fg2);
   cursor: pointer;
-  font: inherit;
-  transition: background 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-radius 240ms cubic-bezier(0.22, 0.9, 0.28, 1);
 }
-.sc-org-btn:hover {
+.sc-act-btn[data-mode="busy"] {
+  border-radius: var(--sc-radius-full);
+}
+.sc-act-btn:hover:not(:active) {
   background: var(--sc-hover);
-}
-.sc-org-btn[data-state="open"] {
-  background: var(--sc-chip);
-}
-:where(:root:not([data-input="pointer"])) .sc-org-btn:focus-visible {
-  outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: var(--sc-ring-off);
-}
-.sc-org-name {
-  font-size: 13px;
-  font-weight: 560;
-  letter-spacing: -0.01em;
   color: var(--sc-fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-/* Below 1024px it goes back to being a mark. The 768-1023 band needs it because
-   the nav is still centred in the bar and the end track can be carrying the
-   assets toggle and a portalled page action too; the phone keeps the same shape
-   because a 375px row holds one name and the set crumb is the one you navigated
-   to. The menu header takes the naming back at both widths. */
-@media (max-width: 1023px) {
-  .sc-org-name,
-  .sc-org-btn .sc-caret {
-    display: none;
+.sc-act-btn[data-state="open"],
+.sc-act-btn[data-on] {
+  background: var(--sc-chip);
+  color: var(--sc-fg);
+}
+.sc-act-face {
+  display: grid;
+  place-items: center;
+}
+/* A face that replaces another fades through; the first one this session does
+   not, and ActivityFace freezes that decision at mount so this rule cannot
+   start on a value that arrives one tick late. */
+.sc-act-face[data-swap] {
+  animation: sc-act-swap 280ms ease both;
+}
+@keyframes sc-act-swap {
+  from {
+    opacity: 0;
+    filter: blur(2px);
   }
-  .sc-org-btn {
-    padding: 4px;
-    max-width: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-act-face[data-swap] {
+    animation: none;
   }
+}
+.sc-act-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+}
+.sc-act-ring .sc-ring {
+  position: absolute;
+  inset: 0;
+}
+.sc-act-ring img {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--sc-radius-full);
+  object-fit: cover;
+}
+/* Nothing to show yet: the ring holds the bell rather than an empty disc, and
+   the arc is what carries the news that something is happening. */
+.sc-act-ring[data-bare] {
+  color: var(--sc-fg);
+}
+.sc-ring-track {
+  stroke: var(--sc-line-strong);
+}
+.sc-ring-arc {
+  stroke: var(--sc-fg);
+}
+.sc-act-bell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+}
+/* The count rides the corner of whichever face is up, so the two faces cannot
+   disagree about where a number goes. */
+.sc-act-n {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-chip);
+  box-shadow: 0 0 0 2px var(--sc-bg);
+  color: var(--sc-fg);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 12px;
+  text-align: center;
 }
 
-/* The kit's own face. Logos arrive at any aspect and often transparent, so they
-   sit contained on a neutral tile rather than cropped; a brand with no logo gets
-   its initial on its own primary, which is still the brand and not a swatch. */
+/* ---- New ----
+   One control, two halves. The filled half goes and makes a shot; the caret
+   offers the same act and the three things a shot is made from. A solid primary
+   that only opens a menu promises an action it does not perform.
+
+   Hover and press say where a press will land. On the plus and the word the
+   whole control shades, because the whole control is that act; on the caret only
+   its own half does, because that press opens the menu instead. It is the one
+   place this bar departs from the shared inverse-fill press in
+   foundations/interaction.css: an opacity step cannot say which of the two a
+   press will be.
+
+   Its shape is the primary button's (`.sc-btn`): full round, so each end is a
+   half-circle at whatever height the row gives it. Each half carries the same
+   outer curve on its own end, so the inset focus ring on either follows the
+   shape instead of being cut off square by it. */
+.sc-new {
+  display: inline-flex;
+  align-items: stretch;
+  flex: none;
+  height: 32px;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  margin-left: 7px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+  overflow: hidden;
+  transition: background 120ms ease;
+}
+.sc-new:has(.sc-new-go:hover:not(:active)) {
+  background: color-mix(in srgb, var(--sc-inv-fg) 10%, var(--sc-inv-bg));
+}
+.sc-new:has(.sc-new-go:active) {
+  background: color-mix(in srgb, var(--sc-inv-fg) 18%, var(--sc-inv-bg));
+}
+.sc-new-go,
+.sc-new-more {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  transition: background 120ms ease;
+}
+/* The plus rides a 28px disc in the pill's own ink, inset 2px all round so the
+   disc and the round end share one centre: the fill and its ink swapped, so it
+   reads in both themes (a black disc on the white pill, a white one on the
+   black) with no colour of its own. */
+.sc-new-go {
+  padding: 0 2px;
+  border-radius: var(--sc-radius-full) 0 0 var(--sc-radius-full);
+}
+.sc-new-disc {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-inv-fg);
+  color: var(--sc-inv-bg);
+}
+.sc-new-lb {
+  padding: 0 8px;
+}
+.sc-new-more {
+  padding: 0 9px;
+  border-radius: 0 var(--sc-radius-full) var(--sc-radius-full) 0;
+}
+.sc-new-more:hover:not(:active) {
+  background: color-mix(in srgb, var(--sc-inv-fg) 10%, transparent);
+}
+/* Open is `data-state` on a pointer (the Radix menu) and `data-on` on a phone
+   (the sheet), the same moment named by the two surfaces that host it. */
+.sc-new-more:active,
+.sc-new-more:is([data-state="open"], [data-on]) {
+  background: color-mix(in srgb, var(--sc-inv-fg) 18%, transparent);
+}
+.sc-new-split {
+  width: 1px;
+  margin: 6px 0;
+  background: color-mix(in srgb, var(--sc-inv-fg) 22%, transparent);
+}
+.sc-new-caret {
+  flex: none;
+  opacity: 0.75;
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 120ms ease;
+}
+.sc-new-more:hover .sc-new-caret,
+.sc-new-more:is([data-state="open"], [data-on]) .sc-new-caret {
+  opacity: 1;
+}
+.sc-new-more:is([data-state="open"], [data-on]) .sc-new-caret {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-new-caret {
+    transition: none;
+  }
+}
+:where(:root:not([data-input="pointer"])) .sc-new :is(a, button):focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: calc(var(--sc-ring-off) * -1);
+}
+
+/* ---- the brand ----
+   The mark alone, filling its own circle. No chip behind it: the mark is already
+   a shape with a colour, and a grey rounded square around a logo is a frame
+   around a frame. Hover and open state it with a ring in the chip colour, which
+   is the one bare-mark treatment in the system (DESIGN.md §6). */
+.sc-org-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin-left: 10px;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--sc-radius-full);
+  cursor: pointer;
+  transition: box-shadow 120ms ease;
+}
+.sc-org-btn:hover:not(:active) {
+  box-shadow: 0 0 0 2px var(--sc-chip);
+}
+.sc-org-btn:active,
+.sc-org-btn[data-state="open"] {
+  box-shadow: 0 0 0 2px var(--sc-fg3);
+}
 .sc-brand-av {
   display: grid;
   place-items: center;
@@ -202,16 +426,45 @@
   padding: 2px;
   display: block;
 }
+/* An icon that is its own ground fills the circle edge to edge; the plate and
+   the inset only suit a logo on transparency. */
+.sc-brand-av[data-bleed] img {
+  object-fit: cover;
+  padding: 0;
+}
+.sc-brand-av[data-round] {
+  border-radius: var(--sc-radius-full);
+}
 
-/* ---- coarse pointers: invisible 44px reach on the bar's small controls ----
-   Moved verbatim from the overlay responsive pass (C2, css-restructure): the
-   selectors are wholly topbar-scoped and their (0,2,x) specificity beats every
-   plain single-class rule regardless of position, so the move is order-safe. */
+/* ---- the row gives way from the outside in ----
+   The places in the centre never move first: the readout's word goes, then the
+   nav's padding, then New's label, and the centre column is the last thing to
+   feel a narrower window. */
+@media (max-width: 1060px) {
+  .sc-nav :is(button, a) {
+    padding: 0 8px;
+    font-size: 13.5px;
+  }
+  .sc-nav :is(button, a)::after {
+    left: 8px;
+    right: 8px;
+  }
+}
+@media (min-width: 768px) and (max-width: 960px) {
+  .sc-topbar {
+    gap: 8px;
+  }
+  .sc-new-lb {
+    display: none;
+  }
+}
+
+/* A finger needs 44px; the bar does not. The graphic keeps its size and the
+   reach comes from an invisible box centred on it, so nothing grows chunky. */
 @media (pointer: coarse) {
-  /* A finger needs 44px; the bar does not. The graphic keeps its size and the
-     reach comes from an invisible box centred on it, so nothing grows chunky. */
-  .sc-topbar .sc-icon-btn::after,
-  .sc-topbar .sc-org-btn::after {
+  .sc-topbar .sc-act-btn::after,
+  .sc-topbar .sc-org-btn::after,
+  .sc-topbar .sc-wordmark::after {
     content: "";
     position: absolute;
     top: 50%;
@@ -221,19 +474,30 @@
     height: var(--sc-tap);
     min-width: var(--sc-tap);
   }
+  /* The split button is one control with two targets, so each half earns the
+     reach rather than the pair sharing one box. */
+  .sc-new {
+    height: 36px;
+  }
 }
 
-/* ---- from overlay-responsive.css (dissolved 2026-08-18, css-restructure) ----
-   Appended in original pass order; relative order among dissolved passes is
-   preserved by dissolving passes in manifest order. */
+/* ---- the phone row ----
+   Two columns: the mark, and what you can do. The five places are in the tab bar
+   under the page, so the centre track has nothing to hold. */
 @media (max-width: 767px) {
-  .sc-topbar-lead {
-    display: contents;
+  .sc-topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
   }
-  .sc-wordmark {
+  .sc-topbar-lead {
     grid-column: 1;
   }
   .sc-topbar-end {
-    grid-column: 3;
+    grid-column: 2;
+  }
+  /* The word stays on a phone. "New" is the one thing in this row that says what
+     it does, and the bar has the width for it once the places have gone. */
+  .sc-new-more {
+    padding: 0 7px;
   }
 }

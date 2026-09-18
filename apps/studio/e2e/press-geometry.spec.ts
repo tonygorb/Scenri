@@ -173,7 +173,15 @@ async function reachable(el: Locator): Promise<boolean> {
  */
 async function controlsOn(page: Page, limitPerFamily = 4): Promise<{ label: string; el: Locator }[]> {
   const found: { label: string; el: Locator }[] = [];
-  for (const family of ['.sc-btn', '.sc-chip', '.sc-icon-btn']) {
+  for (const family of [
+    '.sc-btn',
+    '.sc-chip',
+    '.sc-icon-btn',
+    '.sc-act-btn',
+    '.sc-org-btn',
+    '.sc-new',
+    '.sc-new-more',
+  ]) {
     const all = page.locator(`${family}:visible:not([disabled]):not([aria-disabled="true"])`);
     const total = await all.count();
     for (let i = 0; i < total && found.filter((f) => f.label.startsWith(family)).length < limitPerFamily; i++) {
@@ -279,7 +287,11 @@ test('a pressed control does not look like a hovered one', async ({ page }) => {
       await el.scrollIntoViewIfNeeded();
       const box = await el.boundingBox();
       if (!box) continue;
-      const paint = () => el.evaluate((n) => `${getComputedStyle(n).backgroundColor} ${getComputedStyle(n).opacity}`);
+      const paint = () =>
+        el.evaluate(
+          (n) =>
+            `${getComputedStyle(n).backgroundColor} ${getComputedStyle(n).opacity} ${getComputedStyle(n).boxShadow}`,
+        );
 
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
       await page.waitForTimeout(200);

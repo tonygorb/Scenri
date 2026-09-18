@@ -55,75 +55,101 @@
 }
 
 .sc-notif-pop {
-  width: min(360px, calc(100vw - 24px));
-  padding: 6px;
+  width: min(440px, calc(100vw - 24px));
+  padding: 0 8px;
+  border-radius: var(--sc-radius-float);
+  box-shadow:
+    inset 0 0 0 1px var(--sc-line),
+    var(--sc-shadow-3);
+  background: var(--sc-panel);
 }
-/* A switch between two lists of the same kind, not a journey between two
-   places: that is a segmented control, not underlined tabs. */
-.sc-notif-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px;
-  padding: 3px;
-  margin: 2px 2px 6px;
-  background: var(--sc-well);
-  border-radius: var(--sc-radius);
+/* The panel uses the room it has. */
+.sc-notif-pop {
+  max-height: var(--radix-popover-content-available-height, 80vh);
 }
-.sc-notif-tab {
-  height: 30px;
+.sc-notif-pop .sc-notif-scroll {
+  max-height: none;
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+/* Two labelled sections rather than two tabs. They answer different questions
+   ("is anything happening", "what happened while I was away") and the panel used
+   to open on a guess about which one you wanted, with the other one press away.
+   Both are visible now, so neither has to be chosen to be read. */
+.sc-notif-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 32px;
+  margin: 0;
+  /* 8 on both sides, the rows' own frame, so the verbs on the right end on the
+     same ink line as the times under them */
+  padding: 0 8px;
+  color: var(--sc-fg3);
+  font-size: 12px;
+  font-weight: 500;
+}
+/* The two sections are told apart by a hairline rather than a gap alone: they
+   answer different questions and one runs straight into the other otherwise. */
+.sc-notif-scroll section + section {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--sc-line);
+}
+.sc-notif-label h3 {
+  margin: 0;
+  font: inherit;
+  color: inherit;
+}
+/* A list's own verbs, on its own label row: quiet words, no fill, because they
+   are upkeep and the rows under them are the content. The destructive one says
+   so in red only when it is about to be pressed, the way a palette's remove
+   does (brand-kit.css), and never paints a button around itself. */
+.sc-notif-acts {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sc-notif-seen,
+.sc-notif-clear {
   border: none;
   background: none;
-  border-radius: calc(var(--sc-radius) - 3px);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 550;
+  padding: 0;
   color: var(--sc-fg2);
   cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  border-radius: var(--sc-radius-xs);
+  transition: color 120ms ease;
 }
-.sc-notif-tab:hover {
+.sc-notif-seen:hover {
   color: var(--sc-fg);
 }
-/* Fill, ink and shadow-1 carry the selection. A 550-to-650 weight step on top
-   of them only re-spaces the glyphs inside the tab. */
-.sc-notif-tab[aria-selected="true"] {
-  background: var(--sc-panel);
-  color: var(--sc-fg);
-  box-shadow: var(--sc-shadow-1);
-}
-:where(:root:not([data-input="pointer"])) .sc-notif-tab:focus-visible {
-  outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: -2px;
-}
-.sc-notif-n {
-  color: var(--sc-fg3);
-  font-weight: 600;
-  margin-left: 5px;
-  font-variant-numeric: tabular-nums;
+.sc-notif-clear:hover,
+:where(:root:not([data-input="pointer"])) .sc-notif-clear:focus-visible {
+  color: var(--sc-red);
 }
 
 .sc-notif-scroll {
-  max-height: min(52vh, var(--radix-popover-content-available-height, 52vh));
+  max-height: min(62vh, var(--radix-popover-content-available-height, 62vh));
   overflow-y: auto;
   overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 1px;
 }
-:where(:root:not([data-input="pointer"])) .sc-notif-scroll:focus-visible {
-  outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: -2px;
-  border-radius: var(--sc-radius-sm);
-}
 .sc-notif-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   width: 100%;
   text-align: left;
   padding: 8px;
+  min-height: 64px;
   border: none;
   background: none;
-  border-radius: var(--sc-radius-sm);
+  border-radius: var(--sc-radius-lg);
   color: inherit;
   font: inherit;
   cursor: pointer;
@@ -168,9 +194,9 @@
   position: relative;
   overflow: hidden;
   flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--sc-radius-sm);
+  width: 48px;
+  height: 48px;
+  border-radius: var(--sc-radius);
   background: var(--sc-raised);
   display: grid;
   place-items: center;
@@ -188,11 +214,14 @@
 .sc-notif-txt {
   min-width: 0;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .sc-notif-txt b {
   display: block;
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: 13.5px;
+  font-weight: 500;
   color: var(--sc-fg);
   white-space: nowrap;
   overflow: hidden;
@@ -200,9 +229,8 @@
 }
 .sc-notif-txt small {
   display: block;
-  font-size: 11.5px;
-  color: var(--sc-fg2);
-  margin-top: 1px;
+  font-size: 12px;
+  color: var(--sc-fg3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -230,31 +258,15 @@
   transition: width 0.35s ease;
 }
 .sc-notif-empty {
-  padding: 34px 14px 38px;
-  text-align: center;
+  margin: 0;
+  padding: 2px 8px 10px;
   font-size: 12.5px;
-  color: var(--sc-fg2);
+  color: var(--sc-fg3);
 }
-.sc-notif-foot {
-  border-top: 1px solid var(--sc-line);
-  margin-top: 4px;
-  padding: 6px 4px 2px;
-  display: flex;
-  justify-content: flex-end;
-}
-.sc-notif-clear {
-  border: none;
-  background: none;
-  cursor: pointer;
-  font: inherit;
-  font-size: 11.5px;
-  color: var(--sc-fg2);
-  padding: 4px 8px;
-  border-radius: var(--sc-radius-sm);
-}
-.sc-notif-clear:hover {
-  background: var(--sc-hover);
-  color: var(--sc-fg);
+/* It takes focus after a clear so the keyboard stays in the panel; it is a
+   sentence, not a control, so it holds that focus without a ring. */
+.sc-notif-empty:focus {
+  outline: none;
 }
 
 /* the phone shell: same body, reachable edge */
@@ -275,7 +287,7 @@
   padding: 0 8px calc(8px + env(safe-area-inset-bottom));
   background: var(--sc-panel);
   border-top: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius-xl) var(--sc-radius-xl) 0 0;
+  border-radius: var(--sc-radius-float) var(--sc-radius-float) 0 0;
   box-shadow: var(--sc-shadow-3);
   animation: sc-sheet-up 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   /* the spring back when a drag does not go far enough to dismiss */
