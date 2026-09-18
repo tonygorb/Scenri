@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.11.1](https://github.com/tonygorb/Scenri/compare/v0.11.0...v0.11.1) (2026-09-18)
+
+
+### Bug Fixes
+
+* pause first-use guidance, and a bar panel opened from another stays open ([ad6fb8d](https://github.com/tonygorb/Scenri/commit/ad6fb8d3146f7e51ab257fdaab9c74cbef88dad8))
+* **studio:** a bar panel opened while another is open stays open ([fb43b43](https://github.com/tonygorb/Scenri/commit/fb43b43c5e7cf44ce0bcd7a5dd3daf815b4c6875))
+* **studio:** pause first-use guidance until it is finished ([6fd33f0](https://github.com/tonygorb/Scenri/commit/6fd33f074e2af8373a1ae8cdd7690468cc6e90dd))
+
 ## [0.11.0](https://github.com/tonygorb/Scenri/compare/v0.10.3...v0.11.0) (2026-09-18)
 
 

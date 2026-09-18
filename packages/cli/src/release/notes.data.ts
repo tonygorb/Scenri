@@ -51,6 +51,20 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.11.1',
+    date: '2026-09-18',
+    sections: [
+      {
+        heading: 'Learn',
+        body: 'The welcome, the guided first shot, First steps and Learn are paused for now while they are finished. Nothing of them opens by itself, and Help no longer lists them.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'With a panel in the top bar open, pressing another control in the bar opens its panel and keeps it open, instead of opening it and closing it again at once.',
+      },
+    ],
+  },
+  {
     version: '0.11.0',
     date: '2026-09-18',
     title: 'A new top bar, and a tutor that makes your first shot with you.',
