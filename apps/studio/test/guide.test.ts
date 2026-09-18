@@ -7,6 +7,9 @@ vi.mock('../src/api.js', () => ({
   api: { guide: () => guide(), guideIntent: (i: unknown) => guideIntentApi(i) },
 }));
 
+// The store itself, with first use offered; firstUsePaused.test.ts holds it paused.
+vi.mock('../src/firstUse.js', () => ({ FIRST_USE: true }));
+
 const { guideIntent, guideSnapshot, loadGuide, refreshGuide, resetGuideForTests } = await import('../src/guide.js');
 
 const view = (over: Partial<GuideView> = {}): GuideView => ({

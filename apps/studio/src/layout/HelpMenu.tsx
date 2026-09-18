@@ -19,6 +19,7 @@ import { WELCOME } from '../guidedTasks.js';
 import { useWhatsNew } from '../app/WhatsNew.js';
 import { useUpdateCenter } from '../app/UpdateCenter.js';
 import { askForFirstSteps } from '../guide.js';
+import { FIRST_USE } from '../firstUse.js';
 import { brandPath, P } from '../routes.js';
 import { useMediaQuery } from '../useMediaQuery.js';
 import { Tip } from './Tip.js';
@@ -76,24 +77,29 @@ export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
             <span className="sc-menu-lb">Update available · {updates.status?.latest}</span>
           </DropdownMenu.Item>
         )}
-        <DropdownMenu.Item
-          className="sc-menu-item"
-          onSelect={() => {
-            void askForFirstSteps();
-            navigate(brandPath(brand));
-          }}
-        >
-          <ListChecks size={18} className="sc-menu-ic" />
-          <span className="sc-menu-lb">First steps</span>
-        </DropdownMenu.Item>
-        <DropdownMenu.Item className="sc-menu-item" onSelect={() => openLearn()}>
-          <GraduationCap size={18} className="sc-menu-ic" />
-          <span className="sc-menu-lb">Learn</span>
-        </DropdownMenu.Item>
-        <DropdownMenu.Item className="sc-menu-item" onSelect={() => openWelcome()}>
-          <HandWaving size={18} className="sc-menu-ic" />
-          <span className="sc-menu-lb">{WELCOME.again}</span>
-        </DropdownMenu.Item>
+        {/* The ways into first use, gone with it while it is paused (firstUse.ts). */}
+        {FIRST_USE && (
+          <>
+            <DropdownMenu.Item
+              className="sc-menu-item"
+              onSelect={() => {
+                void askForFirstSteps();
+                navigate(brandPath(brand));
+              }}
+            >
+              <ListChecks size={18} className="sc-menu-ic" />
+              <span className="sc-menu-lb">First steps</span>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className="sc-menu-item" onSelect={() => openLearn()}>
+              <GraduationCap size={18} className="sc-menu-ic" />
+              <span className="sc-menu-lb">Learn</span>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className="sc-menu-item" onSelect={() => openWelcome()}>
+              <HandWaving size={18} className="sc-menu-ic" />
+              <span className="sc-menu-lb">{WELCOME.again}</span>
+            </DropdownMenu.Item>
+          </>
+        )}
         {onCreate && (
           <DropdownMenu.Item
             className="sc-menu-item"

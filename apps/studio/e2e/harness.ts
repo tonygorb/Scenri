@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { FIRST_USE } from '../src/firstUse.js';
 
 /**
  * One Scenri, one library, one spec file.
@@ -302,6 +303,10 @@ export async function arrived(page: Page, selector = '.sc-pstudio'): Promise<voi
 
 export function isolate(opts: SeedOptions = {}): void {
   const fx = new ScenriFixture();
+
+  // A file that turns the guide on walks first use, which this build does not
+  // offer while it is paused (src/firstUse.ts).
+  test.skip(opts.env?.SCENRI_NO_GUIDE === '0' && !FIRST_USE, 'first use is paused (src/firstUse.ts)');
 
   // The config cannot know which worker will take this file, so the baseURL is
   // set here instead, where the port is already known.

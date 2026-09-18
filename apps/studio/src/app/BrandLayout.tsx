@@ -19,6 +19,7 @@ import { WhatsNewGate } from './WhatsNew.js';
 import { HelpFloat } from '../layout/HelpMenu.js';
 import { GuideHost } from '../layout/GuideHost.js';
 import { LearnDialog } from '../views/LearnDialog.js';
+import { FIRST_USE } from '../firstUse.js';
 
 export type ActivityListener = (nodes: FeedNode[]) => void;
 
@@ -323,9 +324,10 @@ export function BrandLayout() {
                 <TabBar />
               </div>
               {/* First use: the welcome, the guided task in hand, and the help
-                button that brings First steps back (DESIGN.md, "First use"). */}
-              <GuideHost />
-              <LearnDialog />
+                button that brings First steps back (DESIGN.md, "First use").
+                Help stays when first use is paused (firstUse.ts). */}
+              {FIRST_USE && <GuideHost />}
+              {FIRST_USE && <LearnDialog />}
               <HelpFloat />
             </AssetsCtx.Provider>
           </AssetCreateHost>

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
 import { expectNoGuide, steps } from './firstUse.js';
+import { FIRST_USE } from '../src/firstUse.js';
 
 /**
  * The help button on an install that was not new (the harness's default):
@@ -29,10 +30,9 @@ test('nothing guides on its own; the ? sits in the corner and gathers the help',
 
   await float(page).click();
   const items = page.locator('.sc-help-menu [role="menuitem"]');
+  // the ways into first use leave with it while it is paused (src/firstUse.ts)
   await expect(items).toHaveText([
-    'First steps',
-    'Learn',
-    'Welcome to Scenri',
+    ...(FIRST_USE ? ['First steps', 'Learn', 'Welcome to Scenri'] : []),
     "What's new",
     'About Scenri',
     'Scenri on GitHub',
@@ -48,6 +48,7 @@ test('nothing guides on its own; the ? sits in the corner and gathers the help',
 test('First steps, asked for, opens on Home ticked by what the library holds, and starts nothing by itself', async ({
   page,
 }) => {
+  test.skip(!FIRST_USE, 'first use is paused (src/firstUse.ts)');
   await page.setViewportSize({ width: 1440, height: 900 });
   const s = await slug(page);
   await page.goto(`/${s}`);
@@ -108,6 +109,7 @@ test('below 1024px the ? moves into the top bar', async ({ page }) => {
 });
 
 test('an install that was not new is never taught uninvited, and Learn is one press away', async ({ page }) => {
+  test.skip(!FIRST_USE, 'first use is paused (src/firstUse.ts)');
   await page.setViewportSize({ width: 1440, height: 900 });
   const s = await slug(page);
   await page.goto(`/${s}`);
@@ -127,6 +129,7 @@ test('an install that was not new is never taught uninvited, and Learn is one pr
 });
 
 test('the welcome opens again from Help, and closing it changes nothing in the record', async ({ page }) => {
+  test.skip(!FIRST_USE, 'first use is paused (src/firstUse.ts)');
   await page.setViewportSize({ width: 1440, height: 900 });
   const s = await slug(page);
   await page.goto(`/${s}`);

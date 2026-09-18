@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { api, type GuideIntent, type GuideView } from './api.js';
+import { FIRST_USE } from './firstUse.js';
 
 /**
  * The install's first-use record, held once for the whole studio (DESIGN.md,
@@ -43,10 +44,22 @@ function emit(next: GuideSnapshot) {
   for (const l of listeners) l();
 }
 
+/**
+ * The server's answer as this build takes it. With first use paused
+ * (firstUse.ts) nobody is new and nothing is in hand, whatever the record says:
+ * a task begun on a build that offered it waits there for one that does.
+ */
+function taken(r: GuideView): GuideSnapshot {
+  const view = FIRST_USE
+    ? r
+    : { ...r, eligible: false, hidden: true, active: null, activeNodes: [], activeDraftId: null };
+  return { ...view, loaded: true, asked: snapshot.asked };
+}
+
 function read(): Promise<void> {
   reading ??= api
     .guide()
-    .then((r) => emit({ ...r, loaded: true, asked: snapshot.asked }))
+    .then((r) => emit(taken(r)))
     .catch(() => {
       if (!snapshot.loaded) emit({ ...snapshot, loaded: true });
     })
@@ -94,7 +107,7 @@ export function guideIntent(i: GuideIntent): Promise<void> {
   emit(optimistic(snapshot, i));
   return api
     .guideIntent(i)
-    .then((r) => emit({ ...r, loaded: true, asked: snapshot.asked }))
+    .then((r) => emit(taken(r)))
     .catch(() => {
       emit(before);
       void read();
