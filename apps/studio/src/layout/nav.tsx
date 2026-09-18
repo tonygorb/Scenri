@@ -2,7 +2,7 @@ import { type ReactNode, useReducer } from 'react';
 import { useLocation, useMatch } from 'react-router';
 import { FilmSlate, House, IdentificationBadge, Package, PlusCircle } from '@phosphor-icons/react';
 import { type Brand, assetThumbUrl } from '../api.js';
-import { avatarMark, fitsCircle } from '../brand/marks.js';
+import { avatarMark, bleedPoints, fitsCircle, isFullBleed } from '../brand/marks.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { P, brandPath, hubPath, scenesPath, presentersPath, productsPath } from '../routes.js';
 
@@ -113,8 +113,39 @@ export function inkOn(hex: string): string {
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b) > 0.42 ? '#0a0a0a' : '#ffffff';
 }
 
+/** How a logo sits in a circle, once measured: whether it fits, and whether it is its own ground. */
+interface Fit {
+  fits: boolean;
+  bleed: boolean;
+}
 /** Logos already measured, by URL: a menu opening again draws each answer at once. */
-const fitsByUrl = new Map<string, boolean>();
+const fitByUrl = new Map<string, Fit>();
+
+/**
+ * Measured once it has loaded. A declared icon fits by the kit's word; any other
+ * logo fits if it is no wider than a circle shows. Whether it bleeds is read off
+ * its own pixels (same-origin, so the canvas can be read), and an image that
+ * cannot be read keeps the plate, which is never wrong, only plainer.
+ */
+function measure(img: HTMLImageElement, square: boolean): Fit {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const fits = square || fitsCircle(w, h);
+  let bleed = false;
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const g = canvas.getContext('2d', { willReadFrequently: true });
+    if (g) {
+      g.drawImage(img, 0, 0);
+      bleed = isFullBleed(bleedPoints(w, h).map(([x, y]) => g.getImageData(x, y, 1, 1).data[3]));
+    }
+  } catch {
+    /* unreadable pixels keep the plate */
+  }
+  return { fits, bleed };
+}
 
 /**
  * A 7px square of colour said "a brand exists". This says which one: the kit's
@@ -122,22 +153,25 @@ const fitsByUrl = new Map<string, boolean>();
  * own primary, which is what every workspace switcher worth copying does.
  *
  * A wordmark shrunk into a circle is not a logo, it is a smudge: a row of them
- * read as noise. So a logo the kit does not vouch for as square is measured when
- * it loads, and drawn only if it is no wider than a circle can show. Until that
- * answer is in, the initial stands in, so a wordmark never flashes up first.
+ * read as noise. So a logo is measured when it loads and drawn only if it is no
+ * wider than a circle can show. An icon that is its own ground (a white swoosh
+ * on black) fills the circle; a logo on transparency sits on the white plate.
+ * Drawn the other way, a solid square sat inside a white ring. Until the answer
+ * is in, the initial stands in, so nothing flashes up in the wrong shape.
  */
 export function BrandAvatar({ brand, size = 20, round = false }: { brand: Brand; size?: number; round?: boolean }) {
   const [, measured] = useReducer((n: number) => n + 1, 0);
   const pick = avatarMark(brand.json);
   // a 20px circle reads the small derivative; the mark's own file is for the kit
   const src = pick ? assetThumbUrl(pick.mark.file, 'micro') : null;
-  const fits = !src ? false : pick?.square ? true : fitsByUrl.get(src);
-  const logo = fits ? src : null;
+  const fit = src ? fitByUrl.get(src) : undefined;
+  const logo = src && fit?.fits ? src : null;
   const hex: string = brand.json?.palette?.primary?.hex ?? '#6b6b6b';
   return (
     <span
       className="sc-brand-av"
       data-logo={logo ? '' : undefined}
+      data-bleed={logo && fit?.bleed ? '' : undefined}
       data-round={round || undefined}
       style={{
         width: size,
@@ -148,13 +182,13 @@ export function BrandAvatar({ brand, size = 20, round = false }: { brand: Brand;
       aria-hidden
     >
       {logo ? <img src={logo} alt="" /> : monogram(brandName(brand))}
-      {src && fits === undefined && (
+      {src && !fit && (
         <img
           src={src}
           alt=""
           hidden
           onLoad={(e) => {
-            fitsByUrl.set(src, fitsCircle(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight));
+            fitByUrl.set(src, measure(e.currentTarget, Boolean(pick?.square)));
             measured();
           }}
         />

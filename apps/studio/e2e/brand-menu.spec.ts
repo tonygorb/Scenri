@@ -172,16 +172,33 @@ test('a bar menu answers the next click at once, and one click moves to another 
   await expect(brands).toHaveCount(0);
 });
 
-/** A logo drawn in the page at a given size and uploaded to the kit under a role. */
-async function addLogo(p: Page, brandId: string, role: string, w: number, h: number, fill: string) {
+/**
+ * A logo drawn in the page at a given size and uploaded to the kit under a role.
+ * `full` is solid edge to edge, `rounded` is an app icon whose corners are clear,
+ * `inset` is a mark on transparency.
+ */
+async function addLogo(
+  p: Page,
+  brandId: string,
+  role: string,
+  w: number,
+  h: number,
+  fill: string,
+  shape: 'full' | 'rounded' | 'inset' = 'full',
+) {
   await p.evaluate(
-    async ([id, r, width, height, colour]) => {
+    async ([id, r, width, height, colour, form]) => {
       const c = document.createElement('canvas');
       c.width = width as number;
       c.height = height as number;
       const g = c.getContext('2d')!;
       g.fillStyle = colour as string;
-      g.fillRect(0, 0, c.width, c.height);
+      if (form === 'inset') g.fillRect(c.width / 4, c.height / 4, c.width / 2, c.height / 2);
+      else if (form === 'rounded') {
+        g.beginPath();
+        g.roundRect(0, 0, c.width, c.height, c.width * 0.22);
+        g.fill();
+      } else g.fillRect(0, 0, c.width, c.height);
       const blob: Blob = await new Promise((done) => c.toBlob((b) => done(b!), 'image/png'));
       const fd = new FormData();
       fd.append('role', r as string);
@@ -189,13 +206,20 @@ async function addLogo(p: Page, brandId: string, role: string, w: number, h: num
       const res = await fetch(`/api/brands/${id}/logos`, { method: 'POST', body: fd });
       if (!res.ok) throw new Error(`logo upload ${res.status}`);
     },
-    [brandId, role, w, h, fill] as const,
+    [brandId, role, w, h, fill, shape] as const,
   );
 }
 
 test('a circle draws a logo it can hold, and the initial for one it cannot', async ({ page }) => {
   await home(page);
-  const slugs = await addBrands(page, ['Wide Wordmark', 'Square Logo', 'Has An Icon', 'Declared Wordmark']);
+  const slugs = await addBrands(page, [
+    'Wide Wordmark',
+    'Square Logo',
+    'Has An Icon',
+    'Declared Wordmark',
+    'Rounded Icon',
+    'Clear Logo',
+  ]);
   const all = (await api(page, '/api/brands')) as { id: string; slug: string }[];
   const id = (name: string) => all.find((b) => b.slug === slugs.get(name))!.id;
   await addLogo(page, id('Wide Wordmark'), 'primary', 400, 80, '#1f6feb');
@@ -203,6 +227,8 @@ test('a circle draws a logo it can hold, and the initial for one it cannot', asy
   await addLogo(page, id('Has An Icon'), 'primary', 400, 80, '#1f6feb');
   await addLogo(page, id('Has An Icon'), 'mark', 128, 128, '#e5534b');
   await addLogo(page, id('Declared Wordmark'), 'wordmark', 400, 80, '#1f6feb');
+  await addLogo(page, id('Rounded Icon'), 'mark', 128, 128, '#111111', 'rounded');
+  await addLogo(page, id('Clear Logo'), 'primary', 200, 200, '#1f6feb', 'inset');
 
   await page.reload();
   await openMenu(page);
@@ -226,4 +252,14 @@ test('a circle draws a logo it can hold, and the initial for one it cannot', asy
   await expect(avatar('Wide Wordmark')).toHaveText('W');
   await expect(drawn('Declared Wordmark')).toHaveCount(0);
   await expect(avatar('Declared Wordmark')).toHaveText('D');
+
+  // An icon that is its own ground fills the circle, rounded corners and all;
+  // a mark on transparency keeps the white plate behind it. Drawn the other
+  // way, a solid square sat inside a white ring.
+  await expect(avatar('Has An Icon')).toHaveAttribute('data-bleed', '');
+  await expect(avatar('Rounded Icon')).toHaveAttribute('data-bleed', '');
+  await expect(avatar('Square Logo')).toHaveAttribute('data-bleed', '');
+  await expect(drawn('Clear Logo')).toHaveCount(1);
+  await expect(avatar('Clear Logo')).not.toHaveAttribute('data-bleed');
+  expect(await drawn('Rounded Icon').evaluate((i) => getComputedStyle(i).objectFit)).toBe('cover');
 });

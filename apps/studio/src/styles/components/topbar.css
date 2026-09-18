@@ -417,6 +417,12 @@
   padding: 2px;
   display: block;
 }
+/* An icon that is its own ground fills the circle edge to edge; the plate and
+   the inset only suit a logo on transparency. */
+.sc-brand-av[data-bleed] img {
+  object-fit: cover;
+  padding: 0;
+}
 .sc-brand-av[data-round] {
   border-radius: var(--sc-radius-full);
 }

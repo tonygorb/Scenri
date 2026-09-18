@@ -3,7 +3,9 @@ import {
   marksOf,
   attachableMarks,
   avatarMark,
+  bleedPoints,
   fitsCircle,
+  isFullBleed,
   iconMark,
   markLabel,
   primaryOf,
@@ -149,5 +151,25 @@ describe('fitsCircle', () => {
   });
   it('refuses an image that has no height to measure', () => {
     expect(fitsCircle(160, 0)).toBe(false);
+  });
+});
+
+describe('bleedPoints and isFullBleed', () => {
+  it('looks at every edge and just inside every corner, never off the image', () => {
+    const pts = bleedPoints(160, 160);
+    expect(pts).toHaveLength(8);
+    for (const [x, y] of pts) {
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThan(160);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(y).toBeLessThan(160);
+    }
+    // inside the corner, where an app icon's rounding has already given way to solid
+    expect(pts).toContainEqual([19, 19]);
+  });
+  it('calls an image solid at every point full bleed, and one clear point enough to keep the plate', () => {
+    expect(isFullBleed(Array(8).fill(255))).toBe(true);
+    expect(isFullBleed([...Array(7).fill(255), 0])).toBe(false);
+    expect(isFullBleed([])).toBe(false);
   });
 });
