@@ -126,6 +126,10 @@ test('opening the shot it made finishes the task, and refining waits to be asked
   await page.locator('.sc-ovl .sc-coach').getByRole('button', { name: 'Done' }).click();
   await expect.poll(async () => (await guideRecord(page)).active).toBeNull();
   expect((await guideRecord(page)).done.refine).toBeTruthy();
+  // a task ended here is not begun here again: the composer is still reached
+  // for after Done, and refining once began again the moment it finished
+  await page.waitForTimeout(1500);
+  expect((await guideRecord(page)).active).toBeNull();
 });
 
 test('a reload lands on the same moment, and the X ends only the guidance', async ({ page }) => {

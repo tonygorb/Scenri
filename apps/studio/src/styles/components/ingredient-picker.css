@@ -335,6 +335,12 @@
   padding: var(--swap-inset);
   border-top: 1px solid var(--sc-line);
 }
+/* Nothing to say and nothing to do (no warning, no Remove while the tutor walks
+   the brief): no strip. An empty foot still drew its hairline and its inset,
+   a band under the shelf that read as something missing. */
+.sc-swap-foot:empty {
+  display: none;
+}
 .sc-swap-warn {
   flex: 1 0 100%;
   margin: 0;

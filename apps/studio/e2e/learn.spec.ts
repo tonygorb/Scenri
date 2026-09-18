@@ -1,6 +1,15 @@
 import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
-import { coachCard, coachTitle, guideRecord, noWelcomeWait, setUpBrand, steps, welcome } from './firstUse.js';
+import {
+  coachCard,
+  coachTitle,
+  guideRecord,
+  noWelcomeWait,
+  pickTheIngredients,
+  setUpBrand,
+  steps,
+  welcome,
+} from './firstUse.js';
 
 /**
  * Learn (DESIGN.md, "First use"): every lesson, then one lesson, and a lesson
@@ -129,6 +138,35 @@ test('refining with no shot says so, and its one action makes a shot first', asy
   await page.waitForURL(`**/${slug}/create`);
   await expect(coachTitle(page)).toContainText('This is Create', { timeout: 20_000 });
   expect((await guideRecord(page)).active?.task).toBe('first-shot');
+});
+
+test('a first refine begun from Learn ends when it is done, and does not begin again', async ({ page }) => {
+  test.setTimeout(90_000);
+  // the first shot the last test began, made
+  await page.goto(`/${slug}/create`);
+  await coachCard(page).getByRole('button', { name: 'Start' }).click();
+  await pickTheIngredients(page);
+  await page.keyboard.type('on a quiet stone step');
+  await page.keyboard.press('Enter');
+  await expect(coachTitle(page)).toHaveText('Your first shot', { timeout: 40_000 });
+  await coachCard(page).getByRole('button', { name: 'Done' }).click();
+  await expect.poll(async () => (await guideRecord(page)).active).toBeNull();
+
+  await page.goto(`/${slug}?learn=refine`);
+  await learn(page).getByRole('button', { name: 'Start' }).click();
+  await page.waitForURL('**/shots/**');
+  await expect(page.locator('.sc-ovl .sc-coach .sc-coach-title')).toHaveText('Change one thing');
+  await page.locator('.sc-ovl .sc-brief-line').click();
+  await page.keyboard.type('softer shadows');
+  await page.getByRole('button', { name: 'Refine', exact: true }).click();
+  await expect(page.locator('.sc-ovl .sc-coach .sc-coach-title')).toHaveText('Here is the change', { timeout: 40_000 });
+  await page.locator('.sc-ovl .sc-coach').getByRole('button', { name: 'Done' }).click();
+  await expect.poll(async () => (await guideRecord(page)).done.refine).toBeTruthy();
+  // ended here, not begun here again: the composer is still reached for, and
+  // the record's tick arrives after the task lets go
+  await page.waitForTimeout(1500);
+  expect((await guideRecord(page)).active).toBeNull();
+  await expect(page.locator('.sc-ovl .sc-coach')).toHaveCount(0);
 });
 
 test('on a phone Learn is the sheet, and every lesson a row', async ({ page }) => {

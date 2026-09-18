@@ -234,8 +234,15 @@ export function GuideHost() {
   // (the scene task's one ask is called scene) and has no chip to take back.
   const shown = moment;
 
-  // How a task ends.
-  const finish = useCallback((t: GuideTaskId) => void guideIntent({ finish: t }), []);
+  // Tasks this visit has begun on its own, or seen end: neither is begun on its own again.
+  const autoStarted = useRef(new Set<GuideTaskId>());
+  // How a task ends. Ended here, it is not begun here again: the open shot's
+  // composer is still reached for after Done, and the record's tick for it
+  // can arrive a moment after the task has let go.
+  const finish = useCallback((t: GuideTaskId) => {
+    autoStarted.current.add(t);
+    void guideIntent({ finish: t });
+  }, []);
   const dismiss = useCallback(
     (t: GuideTaskId) => {
       void guideIntent({ dismiss: t });
@@ -288,7 +295,6 @@ export function GuideHost() {
   // shot overlay only counts once its composer is reached for: opening a shot
   // to look at it is not asking to learn refining.
   const engaged = !!facts.overlay?.engaged;
-  const autoStarted = useRef(new Set<GuideTaskId>());
   useEffect(() => {
     if (!guide.loaded || !guide.eligible) return;
     const s = { eligible: guide.eligible, hidden: guide.hidden, done: guide.done, dismissed: guide.dismissed, active };
