@@ -34,9 +34,7 @@ test('only the one action', async ({ page }) => {
 
   await expect(coachTitle(page)).toHaveText('Choose a product');
   await expect.poll(() => isInert(page, '[data-guide="compose.add"]')).toBe(false);
-  // the brief stays usable beside it: its own `$` reaches the same shelf
-  await expect.poll(() => isInert(page, '[data-guide="compose"] .sc-brief-line')).toBe(false);
-  for (const sel of ['[data-guide="compose.send"]', '.sc-topbar'])
+  for (const sel of ['[data-guide="compose"] .sc-brief-line', '[data-guide="compose.send"]', '.sc-topbar'])
     await expect.poll(() => isInert(page, sel), { message: sel }).toBe(true);
 
   await page.locator('[data-guide="compose.add"]').click();

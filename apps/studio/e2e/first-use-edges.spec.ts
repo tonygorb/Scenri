@@ -77,7 +77,7 @@ test('Escape ends the guidance and leaves everything usable', async ({ page }) =
   await page.keyboard.press('Escape');
   await expect(coachCard(page)).toHaveCount(0);
   await expectLetGo(page);
-  expect((await guideRecord(page)).active).toBeNull();
+  expect((await guideRecord(page)).active).toMatchObject({ task: 'first-shot', paused: true });
 });
 
 test('pressing twice, wandering off, and coming back all land on the same moment', async ({ page }) => {
@@ -142,23 +142,30 @@ test('Enter makes the shot, and a reload while it draws keeps the wait', async (
   await expect(coachTitle(page)).toHaveText(/Scenri is making it|Your first shot/, { timeout: 30_000 });
 });
 
-test('someone who knows `$` answers the ask from the brief, and Enter on + opens only the picker', async ({ page }) => {
+test('in the walk a chip comes in through its ask and leaves only through Back; Enter on + opens only the picker', async ({
+  page,
+}) => {
   const slug = await ownBrand(page, 'Quick Hands');
   await page.goto(`/${slug}/create`);
   await readTheOpening(page);
   await expect(coachTitle(page)).toHaveText('Choose a product');
-  // the brief's own way to the same shelf: a chip is a chip however it arrived
-  await brief(page).click();
-  await page.keyboard.type('$');
-  await expect(page.locator('.sc-cmd')).toBeVisible();
-  await page.keyboard.press('Enter');
-  await expect(chips(page)).toHaveCount(1);
-  await expect(coachTitle(page)).toHaveText('Choose a presenter');
+  await expect(coachCard(page)).toHaveAttribute('data-state', 'shown');
   // Enter on the focused + is the +'s own press: Create once also opened
   // whichever shot was selected behind it, and the tutor went with it
   await page.locator('[data-guide="compose.add"]').focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('.sc-attachpanel')).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/${slug}/create$`));
-  await expect(coachTitle(page)).toHaveText('Choose a presenter');
+  for (const kind of ['Product', 'Presenter', 'Scene'] as const) await pickFromPicker(page, kind);
+  await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');
+  // a sigil is a character while the walk is on: no menu, no chip
+  await page.keyboard.type(' $ @');
+  await expect(page.locator('.sc-cmd')).toHaveCount(0);
+  await expect(chips(page)).toHaveCount(3);
+  // a chip's own panel changes it but offers no Remove: Back is the one way out
+  await chips(page).first().click();
+  await expect(page.locator('.sc-swap, .sc-swapsheet').first()).toBeVisible();
+  await expect(page.locator('.sc-swap-remove')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(chips(page)).toHaveCount(3);
 });

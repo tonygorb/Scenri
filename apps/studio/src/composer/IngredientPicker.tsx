@@ -74,7 +74,8 @@ export interface PickerProps {
   /** How this identity reaches the engine when its photo found no seat. A fact, not a warning. */
   note?: string | null;
   onPick: (c: Candidate) => void;
-  onRemove: () => void;
+  /** Left out while the tutor walks someone through the brief: Back is what takes a chip out. */
+  onRemove?: () => void;
   onClose: (reason: CloseReason) => void;
   /** For a scene warned that it builds around a product or a person. */
   onAttachRequest?: (tab: 'Products' | 'Presenters') => void;
@@ -375,10 +376,12 @@ function PickerBody({
             </button>
           </div>
         )}
-        <button type="button" className="sc-swap-remove" onClick={onRemove}>
-          <Trash size={13} />
-          {removeLabel(kind)}
-        </button>
+        {onRemove && (
+          <button type="button" className="sc-swap-remove" onClick={onRemove}>
+            <Trash size={13} />
+            {removeLabel(kind)}
+          </button>
+        )}
       </div>
     </div>
   );

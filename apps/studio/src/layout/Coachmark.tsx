@@ -267,6 +267,18 @@ export function Coachmark(p: CoachmarkProps) {
       setPhase('away');
     };
 
+    // A new moment's controls are its own from the instant it begins; only the
+    // card waits to fade and place. The hold left from the moment before kept
+    // the brief inert for those ~200ms, so the first keys typed as the words
+    // were asked for went to the page instead ("at dusk" arrived as " dusk").
+    if (coach && lock.current && everShown.current) {
+      hold();
+      held = true;
+      const field = live.find((el) => el.matches(WRITABLE));
+      const now = document.activeElement;
+      if (field && !live.some((s) => s.contains(now))) caretToEnd(field);
+    }
+
     const update = async () => {
       const my = ++token;
       if ((target && !target.isConnected) || live.some((el) => !el.isConnected)) {

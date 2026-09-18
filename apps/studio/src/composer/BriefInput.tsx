@@ -876,6 +876,7 @@ export const BriefInput = forwardRef<
     const target = e.target as HTMLElement;
     if (target.closest('[data-role="remove"]')) {
       e.preventDefault();
+      if (chipsHeld()) return;
       const chip = chipAt(target);
       if (picker && chip?.dataset.uid === picker.uid) closePicker('remove');
       // one transition for every button-driven removal: the same uid lookup,
@@ -1120,8 +1121,10 @@ export const BriefInput = forwardRef<
         }
       }
     }
-    // '$' a product, '/' a scene, '@' a presenter, '#' a colour.
-    if (e.key === '$' || e.key === '/' || e.key === '@' || e.key === '#') {
+    // '$' a product, '/' a scene, '@' a presenter, '#' a colour. Not while the
+    // tutor walks someone through the brief: there every chip comes in through
+    // the ask for it and leaves through Back, and a sigil is only a character.
+    if ((e.key === '$' || e.key === '/' || e.key === '@' || e.key === '#') && !chipsHeld()) {
       const root = rootRef.current;
       const before = textBeforeCaret(root);
       const prev = before.slice(-1);
@@ -1417,6 +1420,16 @@ export const BriefInput = forwardRef<
   const hoveredWarning = hoveredToken ? (flag?.(hoveredToken) ?? null) : null;
   const hoveredNote = hoveredToken && described?.(hoveredToken) ? (describedNote ?? null) : null;
 
+  // A chip's own panel offers its Remove, except while the tutor walks someone
+  // through the brief: then Back is the one way a chip leaves.
+  const removeFromPicker = chipsHeld()
+    ? undefined
+    : () => {
+        if (!picker) return;
+        const at = removeChipByUid(picker.uid);
+        closePicker('remove', at);
+      };
+
   return (
     <div className="sc-brief" ref={scrollerRef} onScroll={syncScrollHint} data-drag-over={dragOver || undefined}>
       {/* the affordances a chip cannot carry visually: read by aria-describedby */}
@@ -1534,10 +1547,7 @@ export const BriefInput = forwardRef<
           thumb={previewHash ? thumbUrl(previewHash, 'micro') : null}
           onInspect={() => inspectChip(picker.anchor)}
           onMove={(dir) => moveFromSheet(picker.uid, dir)}
-          onRemove={() => {
-            const at = removeChipByUid(picker.uid);
-            closePicker('remove', at);
-          }}
+          onRemove={removeFromPicker}
           onClose={closePicker}
         />
       ) : picker?.kind === 'color' ? (
@@ -1562,10 +1572,7 @@ export const BriefInput = forwardRef<
             replaceChip(uid, token);
             closePicker('pick');
           }}
-          onRemove={() => {
-            const at = removeChipByUid(picker.uid);
-            closePicker('remove', at);
-          }}
+          onRemove={removeFromPicker}
           onMove={(dir) => moveFromSheet(picker.uid, dir)}
           onClose={closePicker}
         />
@@ -1607,10 +1614,7 @@ export const BriefInput = forwardRef<
             }
             closePicker('pick');
           }}
-          onRemove={() => {
-            const at = removeChipByUid(picker.uid);
-            closePicker('remove', at);
-          }}
+          onRemove={removeFromPicker}
           onMove={(dir) => moveFromSheet(picker.uid, dir)}
           onClose={closePicker}
         />
