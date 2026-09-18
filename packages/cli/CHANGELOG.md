@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.11.0](https://github.com/tonygorb/Scenri/compare/v0.10.3...v0.11.0) (2026-09-18)
+
+
+### Features
+
+* first use, a tutor that walks the real task, with First steps and Learn ([47e9775](https://github.com/tonygorb/Scenri/commit/47e977569049803f0544ce19ad0289cdc8e187f5))
+* Learn, every lesson in one place, begun and continued with the same tutor ([1d378e1](https://github.com/tonygorb/Scenri/commit/1d378e17f22a8ebf64878d67caa0996027e5f1f6))
+* **studio:** New lands on Create with the add panel open ([674bf9c](https://github.com/tonygorb/Scenri/commit/674bf9cbb369443e75b78586210a0b0b12c94826))
+* **studio:** New's plus rides a gold disc ([673a17b](https://github.com/tonygorb/Scenri/commit/673a17b1e48eb491ecc2c9a1d122955d11e24d0d))
+* **studio:** the brand menu leads with where you have been and stays one height ([e28a857](https://github.com/tonygorb/Scenri/commit/e28a8573f797f75815687239cd58c1b4d01518e7))
+* **studio:** the new top bar ([e1d262b](https://github.com/tonygorb/Scenri/commit/e1d262b9eb21a4fd788dae8acd487096223b87c6))
+
+
+### Bug Fixes
+
+* a product made from the picker is named, and Enter on a control is that control's ([7383c7b](https://github.com/tonygorb/Scenri/commit/7383c7baa6fde61dcbf060c68cb429960caee73a))
+* a task ended on a surface is not begun there again, and an empty chip panel foot is not drawn ([2b450fd](https://github.com/tonygorb/Scenri/commit/2b450fd3b7aeb875fee5649b670f3839af0f7894))
+* closing Learn gives the keyboard back to Help when what opened it is gone ([c12d690](https://github.com/tonygorb/Scenri/commit/c12d690fad3e7ce4d1cfaed05aa6982a97d5de4c))
+* in the walk a chip comes in through its ask and leaves only through Back ([a0e9fea](https://github.com/tonygorb/Scenri/commit/a0e9fea7426755ba020f766f0a0678df96542e2c))
+* **studio:** a bar menu answers the next click, even while it is closing ([7b0af47](https://github.com/tonygorb/Scenri/commit/7b0af476d0af0691be60616687955c3521171787))
+* **studio:** a brand icon that is its own ground fills its circle ([0f356fb](https://github.com/tonygorb/Scenri/commit/0f356fbbd19e899ae41751851f873fedbce4d9b5))
+* **studio:** a brand's circle shows its icon, or its initial, never a shrunken wordmark ([6c8415d](https://github.com/tonygorb/Scenri/commit/6c8415da61b261629cee734366a1cece630a58c4))
+* **studio:** New pressed with the add panel open leaves it open and focuses the brief ([37050a4](https://github.com/tonygorb/Scenri/commit/37050a4e4b99f431649f97423ab6596f8ba52dad))
+* **studio:** New wears round ends, the mark shows its box, and Clear all joins its list ([2ed412e](https://github.com/tonygorb/Scenri/commit/2ed412e1faf4d60378b0996f02373ea804b27fe9))
+* **studio:** New's plus sits on an ink disc, and the bar no longer shrinks ([86ceaa3](https://github.com/tonygorb/Scenri/commit/86ceaa33dc16856a1c3fa2e4950360d1a77c5eec))
+* **studio:** pointing at New's plus lights the whole button ([d3a4973](https://github.com/tonygorb/Scenri/commit/d3a4973dc8ee9a0ce090e24fd3f3f8a591c1b0f5))
+* **studio:** the bar wears the full Scenri lockup, bare ([25efd02](https://github.com/tonygorb/Scenri/commit/25efd0292c1d0982ec1f027364489306cf294bea))
+* **studio:** the brand list ends on a whole row ([a20da23](https://github.com/tonygorb/Scenri/commit/a20da23fd89240fd533944ad222c62144795a12e))
+* **studio:** the brand list fades into the line under it while there is more ([18073f8](https://github.com/tonygorb/Scenri/commit/18073f8ea67157c64bbb7b676eb9aade51276614))
+* **studio:** the brand list is ten rows tall ([df5b4e1](https://github.com/tonygorb/Scenri/commit/df5b4e1b834aabf9b4dc22338e83ce99a19550e3))
+* **studio:** the brand list runs straight into the line under it ([402e017](https://github.com/tonygorb/Scenri/commit/402e0176e3bb7ae5cc799af77de4852e92608ba1))
+* **studio:** the brand menu is one compact list ([1e3dc70](https://github.com/tonygorb/Scenri/commit/1e3dc7002cae58fbc8bacc567cf3a924a38a6a1c))
+* **studio:** the brand menu is one list, and the help button leaves this branch ([2e717d1](https://github.com/tonygorb/Scenri/commit/2e717d1474f45e625e85bef36b69d3397cb20925))
+* the tutor keeps what a moment is about in sight, and lets people go their own way ([41e667e](https://github.com/tonygorb/Scenri/commit/41e667e94a930d85bf1ad88fbba4bf00ae6f5ece))
+* the welcome reads top to bottom, speaks plainly, and opens again from Help ([7edb94f](https://github.com/tonygorb/Scenri/commit/7edb94f289e17c1c4255cc6ef683758bc21aea17))
+
 ## [0.10.3](https://github.com/tonygorb/Scenri/compare/v0.10.2...v0.10.3) (2026-09-18)
 
 
