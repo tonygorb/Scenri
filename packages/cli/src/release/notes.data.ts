@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.10.3',
+    date: '2026-09-18',
+    sections: [
+      {
+        heading: 'Fixes',
+        body: 'Scenri no longer stops answering for a moment right after the studio opens, while it checks whether one-click updates can run here. On Windows that pause could last several seconds, long enough for a second click on the desktop icon to start Scenri again instead of opening the one already running.',
+      },
+    ],
+  },
+  {
     version: '0.10.2',
     date: '2026-09-17',
     sections: [
