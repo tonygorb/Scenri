@@ -167,14 +167,17 @@
 .sc-menu-brand .sc-menu-find {
   height: 36px;
 }
-/* Past six brands the list is a scroller of its own, eight and a half rows tall,
-   so a cut row says there is more and the panel is one height at seven brands or
-   seven hundred. No scrollbar, as the sheet has none: a bar inside a
-   menu narrowed its rows and read as a box within the box. In a phone's sheet
-   the cap is four and a half 44px rows, so the whole menu fits the sheet; left
-   uncapped, Settings sat twenty rows down it. */
+/* Past six brands the list is a scroller of its own, eight rows tall, so the
+   panel is one height at seven brands or seven hundred. It ends on a whole row
+   (BrandList trims the cap to the last row that fits): an edge through the
+   middle of a row showed half an avatar over the hairline, which read as a stray
+   grey block. No scrollbar, as the sheet has none: a bar inside a menu narrowed
+   its rows and read as a box within the box. In a phone's sheet the cap is four
+   44px rows, so the whole menu fits the sheet; left uncapped, Settings sat twenty
+   rows down it. */
 .sc-menu-brands {
-  max-height: calc(36px * 8.5);
+  position: relative;
+  max-height: calc(36px * 8);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: none;
@@ -183,7 +186,7 @@
   display: none;
 }
 .sc-menu-sheet .sc-menu-brands {
-  max-height: calc(44px * 4.5);
+  max-height: calc(44px * 4);
 }
 /* Past six brands the list is searched rather than read. */
 .sc-menu-find {

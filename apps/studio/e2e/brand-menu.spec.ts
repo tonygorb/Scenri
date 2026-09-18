@@ -52,6 +52,15 @@ const panel = (p: Page) => p.locator('.sc-menu');
 const scroller = (p: Page) => p.locator('.sc-menu-brands');
 const namesIn = (p: Page) => scroller(p).locator('.sc-menu-brand-lb > span:first-child').allTextContents();
 
+/** A row cut by the scroller's bottom edge: its top above the edge, its bottom below it. */
+const straddlers = (p: Page) =>
+  p.locator('.sc-menu-brands').evaluate((el) => {
+    const edge = el.getBoundingClientRect().bottom;
+    return [...el.children]
+      .map((c) => c.getBoundingClientRect())
+      .filter((r) => r.top < edge - 0.5 && r.bottom > edge + 0.5).length;
+  });
+
 async function openMenu(p: Page) {
   await p.locator('.sc-org-btn').click();
   await expect(panel(p)).toBeVisible();
@@ -99,6 +108,8 @@ test('a long list is one list: the brand you are in, then every other A to Z, at
   const fit = await scroller(page).evaluate((el) => ({ h: el.clientHeight, s: el.scrollHeight }));
   expect(fit.h).toBeLessThanOrEqual(36 * 8.5 + 1);
   expect(fit.s).toBeGreaterThan(fit.h);
+  // and it ends on a whole row: half a row over the hairline read as a grey block
+  expect(await straddlers(page)).toBe(0);
   const tall = await panel(page).evaluate((el) => ({
     h: el.getBoundingClientRect().height,
     s: el.scrollHeight,
@@ -127,7 +138,7 @@ test('a query searches every brand, and Enter opens the first one you are not in
 
   const finder = page.getByRole('searchbox', { name: 'Find a brand' });
   await finder.fill('noc');
-  // A query replaces both sections with its hits, A to Z, across the library.
+  // A query's hits, A to Z, across the library.
   await expect(scroller(page).locator('> .sc-menu-label')).toHaveCount(0);
   expect(await namesIn(page)).toEqual(['Nocturne', 'Nocturne Studio']);
 

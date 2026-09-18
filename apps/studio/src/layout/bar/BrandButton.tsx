@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Check, GearSix, MagnifyingGlass, Plus, Power } from '@phosphor-icons/react';
 import { BarMenu, BarRow } from './BarMenu.js';
@@ -111,6 +111,7 @@ function BrandList() {
   const { brand } = useBrand();
   const navigate = useNavigate();
   const [find, setFind] = useState('');
+  const scroller = useRef<HTMLDivElement>(null);
 
   // Display names that appear on more than one brand need their slug shown, or
   // two rows read as one brand listed twice and the click is a coin toss.
@@ -150,6 +151,27 @@ function BrandList() {
     );
   };
 
+  // Whole rows only. The cap is a number of rows, but a two-line row (two brands
+  // sharing a name) is taller than the rest, and an edge that cut a row in half
+  // showed the top of an avatar and half a name: a stray grey block over the
+  // hairline. So the list ends on the last row that fits whole.
+  // Re-measured whenever what is listed changes, since that is where the rows fall.
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    el.style.maxHeight = '';
+    const cap = el.clientHeight;
+    if (el.scrollHeight <= cap) return;
+    let end = 0;
+    for (const child of el.children) {
+      const row = child as HTMLElement;
+      const bottom = row.offsetTop + row.offsetHeight;
+      if (bottom > cap) break;
+      end = bottom;
+    }
+    if (end) el.style.maxHeight = `${end}px`;
+  }, [query, brands]);
+
   const others = byName(
     brands.filter((b) => b.id !== brand.id),
     brandName,
@@ -184,7 +206,7 @@ function BrandList() {
         />
       </label>
 
-      <div className="sc-menu-brands">
+      <div ref={scroller} className="sc-menu-brands">
         {query ? (
           hits.length > 0 ? (
             hits.map(row)
