@@ -49,14 +49,16 @@ export function NewButton() {
   const { showcase } = useAppData();
   const shotPic = showcase.find((s) => s.previewUrl)?.previewUrl ?? null;
   // The same destination the nav's Create item computes, rather than a second
-  // opinion about what "go and make a shot" means from here.
+  // opinion about what "go and make a shot" means from here, plus the add panel
+  // open on All: a shot starts from what goes in it, so New lands there.
   const create = useMainNav(16).find((i) => i.key === 'create');
+  const newShot = create ? `${create.to}&attach=all` : '';
 
   return (
     <div className="sc-new">
-      <Link className="sc-new-go" to={create?.to ?? ''} aria-label="New shot">
+      <Link className="sc-new-go" to={newShot} aria-label="New shot">
         <span className="sc-new-disc" aria-hidden="true">
-          <Plus size={12} weight="bold" />
+          <Plus size={14} weight="bold" />
         </span>
         <span className="sc-new-lb">New</span>
       </Link>
@@ -71,7 +73,7 @@ export function NewButton() {
         }
       >
         {/* A real Link, so the row survives a middle click the way the nav does. */}
-        <BarRow className="sc-menu-item sc-start-row" data-lead="" to={create?.to ?? ''}>
+        <BarRow className="sc-menu-item sc-start-row" data-lead="" to={newShot}>
           <span className="sc-start-pic">
             {shotPic ? (
               <img src={thumbOf(shotPic, 'tile')} alt="" loading="lazy" decoding="async" />

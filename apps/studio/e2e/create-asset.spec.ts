@@ -65,14 +65,14 @@ test.describe('adding to a brand', () => {
 
   test('New is one pill, round at both ends, with and without its word', async ({ page }) => {
     await expectNewIsPill(page);
-    // the plus rides a 24px disc of its own, round, sharing the pill end's centre
+    // the plus rides a 28px disc of its own, round, sharing the pill end's centre
     const disc = await page.locator('.sc-new-disc').evaluate((el) => {
       const r = el.getBoundingClientRect();
       const pill = el.closest('.sc-new')!.getBoundingClientRect();
       return { w: r.width, h: r.height, round: getComputedStyle(el).borderRadius, inset: r.left - pill.left };
     });
-    expect(disc).toMatchObject({ w: 24, h: 24, inset: 4 });
-    expect(Number.parseFloat(disc.round)).toBeGreaterThanOrEqual(12);
+    expect(disc).toMatchObject({ w: 28, h: 28, inset: 2 });
+    expect(Number.parseFloat(disc.round)).toBeGreaterThanOrEqual(14);
     // 768 to 960 drops the label and keeps both halves
     await page.setViewportSize({ width: 800, height: 900 });
     await expect(page.locator('.sc-new-lb')).toBeHidden();
@@ -122,6 +122,20 @@ test.describe('adding to a brand', () => {
     await caret.hover();
     await expect.poll(() => bg(pill)).toBe(restPill);
     await expect.poll(() => bg(caret)).not.toBe(restCaret);
+  });
+
+  test('New opens Create with its add panel already open, every time it is pressed', async ({ page }) => {
+    const panel = page.locator('.sc-attachpanel');
+    await page.locator('.sc-new-go').click();
+    await expect(panel).toBeVisible();
+    // the request is spent once it has been answered, so the address is clean
+    await expect(page).toHaveURL(new RegExp(`/${slug}/create$`));
+
+    await page.keyboard.press('Escape');
+    await expect(panel).toHaveCount(0);
+    // pressed again from Create itself, it opens again
+    await page.locator('.sc-new-go').click();
+    await expect(panel).toBeVisible();
   });
 
   test("New's menu offers the shot and exactly the three ingredients", async ({ page }) => {
