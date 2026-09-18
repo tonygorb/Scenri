@@ -23,12 +23,21 @@ on:
   schedule:
     - cron: '17 4 * * *'
 
-# A second push cancels the first run rather than queueing behind it. One group
-# covers the whole pipeline: everything in a superseded run was testing a stale
-# commit, the browser suite included.
+# On a pull request a second push cancels the first run rather than queueing
+# behind it. One group covers the whole pipeline: everything in a superseded
+# run was testing a stale commit, the browser suite included.
+#
+# On main nothing is superseded. Each merge is a different tree, and its run is
+# the only test of that tree, because a pull request is tested against the main
+# it saw, not the main it lands on. Cancelling there left a quarter of main's
+# runs unfinished, so main queues instead: a running run always finishes, and
+# a waiting one is only ever replaced by a newer merge, whose tree contains it.
+#
+# The nightly has a group of its own. Sharing main's let a 04:17 run and a
+# merge cancel each other.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'schedule' && 'nightly' || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Nothing here writes anything: it type-checks, lints and runs tests. Stated
 # rather than inherited, so a change to the repository default cannot silently
