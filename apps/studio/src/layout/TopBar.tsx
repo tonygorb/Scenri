@@ -20,8 +20,8 @@ import { brandPath } from '../routes.js';
  * the width, and the centre column is what takes it.
  *
  * Nothing about Scenri itself is in the row. What is new, the shortcuts and the
- * release you are running sit behind the help button in the corner of the page;
- * the brand's mark at the end keeps the brands, Settings and the way out.
+ * release you are running are help's business, not the bar's; the brand's mark
+ * at the end keeps the brands, Settings and the way out.
  */
 export function TopBar() {
   const { brand } = useBrand();

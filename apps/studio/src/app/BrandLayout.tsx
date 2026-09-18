@@ -4,7 +4,6 @@ import { api, type ActivityNode, type Brand, type FeedNode, type Project, type S
 import { P, brandPath } from '../routes.js';
 import { PREF, rememberBrand, useLocalPref } from '../prefs.js';
 import { TabBar } from '../layout/TabBar.js';
-import { HelpButton } from '../layout/bar/HelpButton.js';
 import { TopBar } from '../layout/TopBar.js';
 import { AssetCreateHost } from '../create/AssetCreateHost.js';
 import { useKeyboardInset } from '../useKeyboardInset.js';
@@ -319,9 +318,6 @@ export function BrandLayout() {
                 <TopBar />
                 <Outlet />
                 <TabBar />
-                {/* Last, so it is last in the tab order too: help is where you
-                  go when the page has not answered you. */}
-                <HelpButton />
               </div>
             </AssetsCtx.Provider>
           </AssetCreateHost>

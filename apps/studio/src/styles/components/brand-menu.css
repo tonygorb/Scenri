@@ -40,14 +40,6 @@
   .sc-notif-pop[data-state="closed"] {
     animation: sc-panel-out 220ms cubic-bezier(0.4, 0, 0.9, 0.6);
   }
-  /* Opened from the corner of the page, the help menu rises into place from
-     below and sinks back as it closes. */
-  .sc-menu-help[data-state="open"] {
-    animation-name: sc-panel-in-up;
-  }
-  .sc-menu-help[data-state="closed"] {
-    animation-name: sc-panel-out-down;
-  }
   /* The card carries its content in; the content settles a hair behind it. */
   .sc-menu[data-state="open"] > *,
   .sc-notif-pop[data-state="open"] > * {
@@ -60,22 +52,10 @@
     transform: translateY(-8px) scale(0.92);
   }
 }
-@keyframes sc-panel-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.92);
-  }
-}
 @keyframes sc-panel-out {
   to {
     opacity: 0;
     transform: translateY(-6px) scale(0.95);
-  }
-}
-@keyframes sc-panel-out-down {
-  to {
-    opacity: 0;
-    transform: translateY(6px) scale(0.95);
   }
 }
 @keyframes sc-panel-content {
@@ -166,8 +146,7 @@
 }
 /* The brands panel is the one compact panel in the bar. Its rows are names you
    scan rather than pictures you read, so they are 36px with a 20px mark on the
-   same 8px frame every painted row keeps, and the card is as narrow as the help
-   menu. The glyph rows under the list take a 20px slot so their words start on
+   same 8px frame every painted row keeps, and the card is 340px. The glyph rows under the list take a 20px slot so their words start on
    the names' line. A phone's sheet does not carry this class and keeps 44px rows
    for a thumb. */
 .sc-menu-brand {
@@ -188,27 +167,20 @@
 .sc-menu-brand .sc-menu-find {
   height: 36px;
 }
-/* Past six brands the list is a scroller of its own: the brand you are in and
-   the recent four, a hairline, then every other brand A to Z. Eight and a half
-   rows, so a cut row says there is more, and the panel is one height at seven
-   brands or seven hundred. No scrollbar, as the sheet has none: a bar inside a
+/* Past six brands the list is a scroller of its own, eight and a half rows tall,
+   so a cut row says there is more and the panel is one height at seven brands or
+   seven hundred. No scrollbar, as the sheet has none: a bar inside a
    menu narrowed its rows and read as a box within the box. In a phone's sheet
    the cap is four and a half 44px rows, so the whole menu fits the sheet; left
    uncapped, Settings sat twenty rows down it. */
 .sc-menu-brands {
-  max-height: calc(36px * 8.5 + 13px);
+  max-height: calc(36px * 8.5);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: none;
 }
 .sc-menu-brands::-webkit-scrollbar {
   display: none;
-}
-/* More below the fold: the rows fade at the scroller's bottom edge, the brief's
-   own treatment (composer-brief.css), set from the scroll numbers and dropped at
-   the end so the last row reads sharp. */
-.sc-menu-brands[data-more] {
-  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--sc-space-8)), transparent);
 }
 .sc-menu-sheet .sc-menu-brands {
   max-height: calc(44px * 4.5);
@@ -328,9 +300,6 @@ body > div:has(.sc-menu) {
    its fill, or the picture reads as nudged. */
 .sc-menu-start {
   width: 352px;
-}
-.sc-menu-help {
-  width: 340px;
 }
 .sc-menu-label {
   display: flex;

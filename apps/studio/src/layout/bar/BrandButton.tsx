@@ -1,15 +1,14 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Check, GearSix, MagnifyingGlass, Plus, Power } from '@phosphor-icons/react';
 import { BarMenu, BarRow } from './BarMenu.js';
-import { byName, findBrands, recentOthers } from './brandMenuRules.js';
+import { byName, findBrands } from './brandMenuRules.js';
 import { Confirm } from '../../Confirm.js';
 import { useToasts } from '../../toasts.js';
 import { BrandAvatar, brandName } from '../nav.js';
 import { useAppData } from '../../app/AppShell.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useUpdateCenter } from '../../app/UpdateCenter.js';
-import { PREF, useLocalPref } from '../../prefs.js';
 import { brandPath } from '../../routes.js';
 import { useOpenSettings } from '../../app/dialogs.js';
 import type { Brand } from '../../apiTypes.js';
@@ -28,8 +27,8 @@ import type { Brand } from '../../apiTypes.js';
  * account the way a grey avatar would.
  *
  * What is new, the release you are running and the keyboard shortcuts used to be
- * in this menu. They answer "what is this" rather than "which brand", so they are
- * behind the help button in the page's corner.
+ * in this menu. They answer "what is this" rather than "which brand", so they
+ * belong to help rather than here; What's new is also a row in Settings, About.
  */
 export function BrandButton() {
   const { brand } = useBrand();
@@ -96,15 +95,13 @@ export function BrandButton() {
 const LONG_LIST = 7;
 
 /**
- * One list: the brand you are in, checked and first, then where else you could be.
+ * One list: the brand you are in, checked and first, then every other brand A to
+ * Z. Nothing is split into sections or labelled, because the order already says
+ * which is which, and nothing is listed twice.
  *
- * Up to six brands the others simply follow it, A to Z. Past that a finder
- * appears and the list becomes a scroller of its own, the same height at seven
- * brands or seven hundred: the brand you are in and the four this browser opened
- * last, one hairline, then every other brand A to Z. Nothing is listed twice and
- * nothing is labelled, because the order already says which is which. Settings
- * and the way out never move. A query searches every brand, not only the ones on
- * screen.
+ * Past six brands a finder appears and the list scrolls in place, the same height
+ * at seven brands or seven hundred, so Settings and the way out never move. A
+ * query searches every brand, not only the ones on screen.
  *
  * Mounted with the menu, so it opens each time at the top with an empty finder
  * rather than wherever it was last left.
@@ -113,9 +110,7 @@ function BrandList() {
   const { brands } = useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
-  const [recent] = useLocalPref<string[]>(PREF.recentBrands, []);
   const [find, setFind] = useState('');
-  const scroller = useRef<HTMLDivElement>(null);
 
   // Display names that appear on more than one brand need their slug shown, or
   // two rows read as one brand listed twice and the click is a coin toss.
@@ -126,19 +121,6 @@ function BrandList() {
   const long = brands.length >= LONG_LIST;
   const query = find.trim();
   const hits = long && query ? findBrands(brands, query, brandName) : [];
-
-  // More brands below the fold: the list fades at its bottom edge, the brief's
-  // own treatment, and reads sharp once there is nothing more to see. Where the
-  // scroller's edge lands between two rows, the fade is the only sign the list
-  // goes on.
-  const syncMore = useCallback(() => {
-    const el = scroller.current;
-    if (!el) return;
-    if (el.scrollHeight - el.scrollTop - el.clientHeight > 1) el.dataset.more = '';
-    else delete el.dataset.more;
-  }, []);
-  // Re-read whenever what is listed changes, since that changes the scroller's height.
-  useLayoutEffect(syncMore, [syncMore, query, brands.length]);
 
   const row = (b: Brand) => {
     const current = b.id === brand.id;
@@ -168,24 +150,18 @@ function BrandList() {
     );
   };
 
+  const others = byName(
+    brands.filter((b) => b.id !== brand.id),
+    brandName,
+  );
   if (!long) {
     return (
       <>
         {row(brand)}
-        {byName(
-          brands.filter((b) => b.id !== brand.id),
-          brandName,
-        ).map(row)}
+        {others.map(row)}
       </>
     );
   }
-
-  const lead = [brand, ...recentOthers(brands, recent, brand.id)];
-  const led = new Set(lead.map((b) => b.id));
-  const rest = byName(
-    brands.filter((b) => !led.has(b.id)),
-    brandName,
-  );
 
   return (
     <>
@@ -208,7 +184,7 @@ function BrandList() {
         />
       </label>
 
-      <div ref={scroller} className="sc-menu-brands" onScroll={syncMore}>
+      <div className="sc-menu-brands">
         {query ? (
           hits.length > 0 ? (
             hits.map(row)
@@ -217,9 +193,8 @@ function BrandList() {
           )
         ) : (
           <>
-            {lead.map(row)}
-            {rest.length > 0 && <div className="sc-menu-rule" />}
-            {rest.map(row)}
+            {row(brand)}
+            {others.map(row)}
           </>
         )}
       </div>

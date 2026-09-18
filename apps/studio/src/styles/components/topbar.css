@@ -406,41 +406,6 @@
   border-radius: var(--sc-radius-full);
 }
 
-/* ---- help ----
-   In the page's corner, where help has waited for twenty years, and out of a bar
-   that has better things to spend a slot on. It floats over the page, so it is
-   allowed the shadow that says so. */
-.sc-help-btn {
-  position: fixed;
-  right: max(var(--sc-gutter), env(safe-area-inset-right));
-  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-  z-index: var(--sc-z-help);
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: var(--sc-radius);
-  background: var(--sc-panel);
-  box-shadow:
-    inset 0 0 0 1px var(--sc-line),
-    var(--sc-shadow-2);
-  color: var(--sc-fg2);
-  cursor: pointer;
-  transition:
-    background 120ms ease,
-    color 120ms ease;
-}
-.sc-help-btn:hover:not(:active) {
-  background: var(--sc-hover);
-  color: var(--sc-fg);
-}
-.sc-help-btn:active,
-.sc-help-btn[data-state="open"] {
-  background: var(--sc-press);
-  color: var(--sc-fg);
-}
-
 /* ---- the row gives way from the outside in ----
    The places in the centre never move first: the readout's word goes, then the
    nav's padding, then New's label, and the centre column is the last thing to
@@ -472,8 +437,7 @@
 @media (pointer: coarse) {
   .sc-topbar .sc-act-btn::after,
   .sc-topbar .sc-org-btn::after,
-  .sc-topbar .sc-mark-btn::after,
-  .sc-help-btn::after {
+  .sc-topbar .sc-mark-btn::after {
     content: "";
     position: absolute;
     top: 50%;
@@ -512,9 +476,5 @@
   }
   .sc-new-more {
     padding: 0 7px;
-  }
-  .sc-help-btn {
-    right: 12px;
-    bottom: calc(var(--sc-tabbar-h) + 14px + env(safe-area-inset-bottom, 0px));
   }
 }

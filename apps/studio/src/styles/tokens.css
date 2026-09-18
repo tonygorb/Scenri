@@ -48,12 +48,10 @@
 
   /* One stacking order for the whole app, so nothing is guessed:
      rail 20 · topbar 50 · assets backdrop 54 · assets drawer 55 · dock fade 55
-     help 56
      docks 60 · attach panel 70 · plus scrim 79 · plus menu 80 · detail overlay 80
      overlay winbar 90 · sheet scrim 91 · sheet 92 · dialog overlay 95
      toasts 100 · update float 320 · update overlay 400 */
   --sc-z-topbar: 50;
-  --sc-z-help: 56;
   /* Menus and popovers float above every surface that can host their trigger,
      including the shot overlay at 80. Radix portals them to <body> with no
      z-index of their own, so without this the quality menu opened behind the

@@ -11,7 +11,6 @@ import {
 import { Link } from 'react-router';
 import { DropdownMenu } from '@radix-ui/themes';
 import { BarSheet } from './BarSheet.js';
-import { Tip } from '../Tip.js';
 import { useBarPanel } from './useBarPanel.js';
 import { PHONE, useMediaQuery } from '../../useMediaQuery.js';
 
@@ -47,8 +46,6 @@ const SurfaceCtx = createContext<Surface | null>(null);
 export function BarMenu({
   label,
   className,
-  side,
-  tip,
   offset = 22,
   trigger,
   children,
@@ -56,14 +53,10 @@ export function BarMenu({
   /** Names the sheet for a screen reader; the menu takes its name from its trigger. */
   label: string;
   className?: string;
-  /** Where the menu opens on a pointer. The help button opens upward out of itself. */
-  side?: 'top' | 'bottom';
-  /** An icon-only trigger says its name on hover and on focus. Pointer only. */
-  tip?: string;
   /**
    * How far below the trigger the panel hangs. Every panel in the bar lands on
    * one line, 8px under the bar's own bottom edge, rather than each one hanging
-   * from its own control at its own height: four panels opening from four
+   * from its own control at its own height: panels opening from neighbouring
    * controls in one corner should arrive in the same place. A 32px control in a
    * 60px row has 14px of air beneath it, so 22 puts the card 8 below the bar.
    */
@@ -118,20 +111,11 @@ export function BarMenu({
     // another control in the bar is that control's menu; an outside press still
     // closes this one on its way through.
     <DropdownMenu.Root open={open} onOpenChange={setOpen} modal={false}>
-      {tip ? (
-        <Tip label={tip}>
-          <DropdownMenu.Trigger>
-            {cloneElement(trigger as ReactElement<Record<string, unknown>>, { ref: triggerRef })}
-          </DropdownMenu.Trigger>
-        </Tip>
-      ) : (
-        <DropdownMenu.Trigger>
-          {cloneElement(trigger as ReactElement<Record<string, unknown>>, { ref: triggerRef })}
-        </DropdownMenu.Trigger>
-      )}
+      <DropdownMenu.Trigger>
+        {cloneElement(trigger as ReactElement<Record<string, unknown>>, { ref: triggerRef })}
+      </DropdownMenu.Trigger>
       <DropdownMenu.Content
         align="end"
-        side={side}
         sideOffset={offset}
         className={`sc-menu ${className ?? ''}`}
         // The row that opened a dialog unmounts with this menu, so Radix's own

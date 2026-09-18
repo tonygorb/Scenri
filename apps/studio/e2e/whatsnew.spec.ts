@@ -61,12 +61,21 @@ async function stubUnread(page: Page, over: Record<string, unknown> = {}): Promi
 }
 
 const dialog = (p: Page) => p.locator('.sc-wn');
-const menuTrigger = (p: Page) => p.locator('.sc-help-btn');
+/**
+ * By hand, from Settings, About: its What's new row is permanent. This branch has
+ * no help menu (the one in feat/onboarding-ingredient-hint replaces it when that
+ * lands), so the cases about a menu row and its unread marker are parked below
+ * rather than deleted, and "no dot" is checked across the whole page.
+ */
 const openByHand = async (p: Page) => {
-  await menuTrigger(p).click();
-  await p.locator('.sc-menu-item', { hasText: "What's new" }).click();
+  const about = new URL(p.url());
+  about.search = '?settings=about';
+  await p.goto(about.href);
+  await p.locator('.sc-set .sc-set-row', { hasText: "What's new" }).locator('button', { hasText: 'Show' }).click();
   await expect(dialog(p)).toBeVisible();
 };
+const menuTrigger = (p: Page) => p.locator('.sc-help-btn');
+const HELP_PARKED = "the help menu returns with feat/onboarding-ingredient-hint; its What's new row is tested then";
 
 test('a release already acknowledged says nothing: no dialog, no dot', async ({ page }) => {
   await stub(page);
@@ -74,7 +83,7 @@ test('a release already acknowledged says nothing: no dialog, no dot', async ({ 
   await expect(page.locator('.sc-greet')).toBeVisible();
   await page.waitForTimeout(OUTWAIT_MS);
   await expect(dialog(page)).toHaveCount(0);
-  await expect(menuTrigger(page).locator('.sc-upd-dot')).toHaveCount(0);
+  await expect(page.locator('.sc-upd-dot')).toHaveCount(0);
 });
 
 test('an unread release introduces itself once the screen is quiet', async ({ page }) => {
@@ -121,7 +130,7 @@ test('closing it is the acknowledgement, and it does not come back', async ({ pa
   await page.keyboard.press('Escape');
   await expect(dialog(page)).toHaveCount(0);
   expect(acked).toEqual(['9.9.9']);
-  await expect(menuTrigger(page).locator('.sc-upd-dot')).toHaveCount(0);
+  await expect(page.locator('.sc-upd-dot')).toHaveCount(0);
   await page.waitForTimeout(OUTWAIT_MS);
   await expect(dialog(page)).toHaveCount(0);
 });
@@ -142,6 +151,7 @@ test('it never stacks on a dialog that already owns the screen', async ({ page }
 });
 
 test('the brand menu carries it permanently, and marks it unread without relying on colour', async ({ page }) => {
+  test.fixme(true, HELP_PARKED);
   await stubUnread(page);
   await page.goto('/');
   await expect(dialog(page)).toBeVisible({ timeout: 8000 });
@@ -156,6 +166,7 @@ test('the brand menu carries it permanently, and marks it unread without relying
 });
 
 test('the unread marker is spoken as well as shown', async ({ page }) => {
+  test.fixme(true, HELP_PARKED);
   // The dot is only assertable BEFORE the auto-open acks the version, and the
   // file-wide 300ms settle makes reaching the menu first a race this test has
   // lost on a loaded machine. This test is about the menu's marker, not the
@@ -226,13 +237,9 @@ test('a maintenance release says nothing of its own', async ({ page }) => {
   await page.waitForTimeout(OUTWAIT_MS);
 
   await expect(dialog(page)).toHaveCount(0);
-  await expect(menuTrigger(page).locator('.sc-upd-dot')).toHaveCount(0);
+  await expect(page.locator('.sc-upd-dot')).toHaveCount(0);
 
-  await menuTrigger(page).click();
-  const row = page.locator('.sc-menu-item', { hasText: "What's new" });
-  await expect(row.locator('.sc-menu-new')).toHaveCount(0);
-  await row.click();
-  await expect(dialog(page)).toBeVisible();
+  await openByHand(page);
   await expect(page.locator('.sc-wn-txt')).toContainText('Maintenance only');
 });
 
@@ -243,7 +250,7 @@ test('a failed read says so, instead of accusing the release of having no notes'
   await page.waitForTimeout(OUTWAIT_MS);
 
   await expect(dialog(page)).toHaveCount(0);
-  await expect(menuTrigger(page).locator('.sc-upd-dot')).toHaveCount(0);
+  await expect(page.locator('.sc-upd-dot')).toHaveCount(0);
 
   await openByHand(page);
   await expect(page.locator('.sc-wn-sub')).toHaveText('Release notes unavailable');

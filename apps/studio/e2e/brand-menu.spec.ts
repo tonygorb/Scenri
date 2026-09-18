@@ -5,9 +5,9 @@ import { isolate } from './harness.js';
  * The brand menu with a real library behind it.
  *
  * At twenty-one brands the panel used to be as tall as the screen, a wall of
- * logos with Settings and the way out pushed to its bottom edge. Past six
- * brands it now leads with the ones you were just in and keeps every brand, A to
- * Z, in one scroller of a fixed height, so the claims worth pinning are about
+ * logos with Settings and the way out pushed to its bottom edge. It is now one
+ * list, the brand you are in and then every other A to Z, and past six brands it
+ * scrolls in place at a fixed height, so the claims worth pinning are about
  * order and about height: what comes first, what is all there, and that adding
  * brands never makes the panel taller.
  */
@@ -59,31 +59,33 @@ async function openMenu(p: Page) {
   await panel(p).evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
 }
 
-test('a long list leads with where you have been, keeps every brand, and stays one height', async ({ page }) => {
+test('a long list is one list: the brand you are in, then every other A to Z, at one height', async ({ page }) => {
   const own = await home(page);
-  const slugs = await addBrands(page, NAMES);
-
-  // Where this browser has been: Vela, then Castro, then back home.
-  for (const name of ['Vela', 'Castro']) {
-    await page.goto(`/${slugs.get(name)}`);
-    await expect(page.locator('.sc-org-btn')).toBeVisible();
-  }
+  await addBrands(page, NAMES);
+  // Brands opened in between change nothing about the order: there is no
+  // section of recent ones, only the brand you are in and then the alphabet.
   await page.goto(`/${own}`);
   await openMenu(page);
 
-  // One list, no labels: the brand you are in first and checked, the brands
-  // you were just in under it, a hairline, then everything else A to Z.
+  // No labels, no sections, no line inside the list.
   await expect(scroller(page).locator('.sc-menu-label')).toHaveCount(0);
-  await expect(scroller(page).locator('> .sc-menu-rule')).toHaveCount(1);
+  await expect(scroller(page).locator('.sc-menu-rule')).toHaveCount(0);
   const names = await namesIn(page);
-  expect(names[0]).toBe('E2E Fixture');
+  expect(names).toEqual([
+    'E2E Fixture',
+    'Aer',
+    'Bucherer',
+    'Castro',
+    'Glenmoor',
+    'Halde',
+    'Nocturne',
+    'Olivar',
+    'Vela',
+  ]);
   await expect(scroller(page).locator('.sc-menu-item').first()).toHaveAttribute('data-current', 'true');
-  expect(names.slice(1, 3)).toEqual(['Castro', 'Vela']);
-  // every brand exactly once
-  expect([...names].sort()).toEqual([...NAMES, 'E2E Fixture'].sort());
-  const rest = names.slice(5);
-  expect(rest).toEqual([...rest].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })));
   await expect(scroller(page).locator('.sc-menu-item[data-current] .sc-menu-check')).toHaveCount(1);
+  // no fade laid over the rows
+  expect(await scroller(page).evaluate((el) => getComputedStyle(el).maskImage)).toBe('none');
 
   // A compact list: rows you scan, not pictures you read.
   const rowH = await scroller(page)
@@ -95,7 +97,7 @@ test('a long list leads with where you have been, keeps every brand, and stays o
   // The list scrolls inside itself; the panel does not, and the way out is on
   // screen without reaching for it.
   const fit = await scroller(page).evaluate((el) => ({ h: el.clientHeight, s: el.scrollHeight }));
-  expect(fit.h).toBeLessThanOrEqual(36 * 8.5 + 13 + 1);
+  expect(fit.h).toBeLessThanOrEqual(36 * 8.5 + 1);
   expect(fit.s).toBeGreaterThan(fit.h);
   const tall = await panel(page).evaluate((el) => ({
     h: el.getBoundingClientRect().height,
