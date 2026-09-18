@@ -79,14 +79,17 @@ export async function openOwnedScene(page: Page, name: string): Promise<void> {
   await page.waitForURL(/\/scenes\/us-/);
 }
 
+/** The bar's own navigation: page breadcrumbs carry links with the same names. */
+export const mainNav = (page: Page) => page.getByRole('navigation', { name: 'Main' });
+
 /** Through the app's own nav, never `goto`: a document load would refetch everything. */
 export async function goCreate(page: Page): Promise<void> {
-  await page.getByRole('link', { name: 'Create', exact: true }).click();
+  await mainNav(page).getByRole('link', { name: 'Create', exact: true }).click();
   await expect(page).toHaveURL(/\/create/);
 }
 
 export async function goScenes(page: Page): Promise<void> {
-  await page.getByRole('link', { name: 'Scenes', exact: true }).click();
+  await mainNav(page).getByRole('link', { name: 'Scenes', exact: true }).click();
   await expect(page).toHaveURL(/\/scenes$/);
 }
 
@@ -159,4 +162,54 @@ export async function holdNext(
     await route.fulfill({ response });
   });
   return { caught: seen, release: () => release() };
+}
+
+/** A manual product made through the same route the studio's form uses, with `count` distinct pictures. */
+export async function seedProduct(req: APIRequestContext, brandId: string, name: string, count = 1): Promise<string> {
+  const hashes: string[] = [];
+  for (let i = 0; i < count; i++) hashes.push(await uploadPng(req, i));
+  const res = await req.post(`/api/brands/${brandId}/products`, { data: { name, imageHashes: hashes } });
+  expect(res.ok()).toBe(true);
+  return ((await res.json()) as { productId: string }).productId;
+}
+
+/** The product library as the server answers it now. */
+export async function productNames(req: APIRequestContext, brandId: string): Promise<string[]> {
+  const r = (await (await req.get(`/api/brands/${brandId}/products-library`)).json()) as {
+    products: { name: string }[];
+  };
+  return r.products.map((p) => p.name);
+}
+
+/**
+ * A product card in the wall's own section, found by the name it shows. Scoped
+ * to the section because a product page has a strip of other products' cards,
+ * and it can still be painted for a moment after the address has moved on.
+ */
+export const productCard = (page: Page, name: string) =>
+  page.locator('.sc-owned .sc-lookcard', {
+    has: page.locator('.sc-lookcard-cap', { hasText: new RegExp(`^${name}$`) }),
+  });
+
+/** Open a product's page from its card, inside the app. */
+export async function openProduct(page: Page, name: string): Promise<void> {
+  await productCard(page, name)
+    .locator('a.sc-lookcard-open')
+    .click({ position: { x: 12, y: 12 } });
+  await page.waitForURL(/\/products\/[^/]+$/);
+}
+
+/** Ask the brief's product menu for `query`, typed the way a brief is written. */
+export async function askProductMenu(page: Page, query: string): Promise<void> {
+  await page.locator('.sc-brief-line').click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' put the ');
+  await page.keyboard.type('$');
+  await expect(page.locator('.sc-cmd-group')).toHaveText(/^Products\s+\d+$/);
+  await page.keyboard.type(query);
+}
+
+export async function goNav(page: Page, name: 'Home' | 'Products' | 'Presenters'): Promise<void> {
+  await mainNav(page).getByRole('link', { name, exact: true }).click();
+  await expect(page).toHaveURL(name === 'Home' ? /^[^?]*\/[^/]+$/ : new RegExp(`/${name.toLowerCase()}$`));
 }

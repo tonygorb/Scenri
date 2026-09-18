@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { api, assetUrl, addProductShot, deleteProduct, type DemoProduct, type Product } from '../api.js';
+import { api, assetUrl, addProductShot, deleteProduct, type Brand, type DemoProduct, type Product } from '../api.js';
 import { Confirm } from '../Confirm.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -8,6 +8,7 @@ import { useMadeWith } from './useMadeWith.js';
 import { useApplyProduct } from '../app/useApplyProduct.js';
 import { useToasts } from '../toasts.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
+import { useStillHere } from '../useStillHere.js';
 import { productPath, productsPath, shotPath } from '../routes.js';
 import { CategoryPicker } from '../layout/CategoryPicker.js';
 import { DemoProductCard } from '../layout/DemoProductCard.js';
@@ -66,8 +67,8 @@ function firstSentence(text: string, max: number): string {
  */
 export function ProductPage() {
   const { productId = '' } = useParams();
-  const { brand, products, refresh, refreshProducts } = useBrand();
-  const { demoProducts, demoProductsLoaded } = useAppData();
+  const { brand, products, refreshProducts } = useBrand();
+  const { demoProducts, demoProductsLoaded, applyBrand, refreshBrands } = useAppData();
   const navigate = useNavigate();
   const applyProduct = useApplyProduct();
   const { push } = useToasts();
@@ -76,6 +77,10 @@ export function ProductPage() {
   const [removing, setRemoving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Every field edited since the last write, sent together when the pause ends. */
+  const pending = useRef<Partial<Pick<Product, 'name' | 'category' | 'variant' | 'material' | 'dimensions'>>>({});
+  const deleting = useRef(false);
+  const stillHere = useStillHere();
 
   const listed = products.find((p) => p.id === productId);
   /**
@@ -104,7 +109,10 @@ export function ProductPage() {
       alive = false;
     };
   }, [brand.id, listed]);
-  const product = full && listed && full.id === listed.id ? { ...listed, ...full } : listed;
+  // The list entry carries every field but the pictures, and it is the one
+  // that moves when the product is edited: letting this page's own fetch win
+  // showed the category from before an edit until that fetch came round again.
+  const product = full && listed && full.id === listed.id ? { ...full, ...listed, shots: full.shots } : listed;
   const demoProduct = useMemo(
     () => (product ? undefined : demoProducts.find((d) => d.id === productId)),
     [product, demoProducts, productId],
@@ -141,23 +149,48 @@ export function ProductPage() {
 
   const isManual = (product?.origin ?? 'manual') === 'manual';
 
+  /**
+   * Where a write's answer goes, by what the product is.
+   *
+   * A hand-made product lives in the brand document: its answer is the brand,
+   * applied like every other brand write, and the library follows the brand.
+   * A store product lives in the catalog, which only a re-read of the library
+   * can show. The answer used to be thrown away and the library re-read for
+   * both, which left the brand the studio holds a version behind, and the next
+   * whole-brand save (a colour, a tagline) wrote the old product back to disk.
+   */
+  const landed = async (answer: unknown, manual: boolean) => {
+    if (manual && answer && typeof answer === 'object' && 'json' in answer) applyBrand(answer as Brand);
+    else await refreshProducts();
+  };
+
+  /**
+   * One pause for every field, so the write carries every field edited since
+   * the last one: a name typed and a category picked inside half a second used
+   * to send the category alone and lose the name.
+   */
   const patch = (p: Partial<Pick<Product, 'name' | 'category' | 'variant' | 'material' | 'dimensions'>>) => {
-    if (!product) return;
+    if (!product || deleting.current) return;
+    pending.current = { ...pending.current, ...p };
     if (saveTimer.current) clearTimeout(saveTimer.current);
+    const forBrand = brand.id;
+    const id = product.id;
+    const manual = isManual;
     saveTimer.current = setTimeout(() => {
-      const write = isManual
-        ? api.updateProduct(brand.id, product.id, p)
-        : api.updateCatalogProduct(brand.id, product.id, p);
-      void write.then(() => refreshProducts()).catch((e: any) => setErr(String(e.message ?? e)));
+      saveTimer.current = null;
+      const body = pending.current;
+      pending.current = {};
+      const write = manual ? api.updateProduct(forBrand, id, body) : api.updateCatalogProduct(forBrand, id, body);
+      void write.then((answer) => landed(answer, manual)).catch((e: any) => setErr(String(e.message ?? e)));
     }, 500);
   };
 
   const run = async (job: Promise<unknown>) => {
+    const manual = isManual;
     setBusy(true);
     setErr(null);
     try {
-      await job;
-      await refreshProducts();
+      await landed(await job, manual);
     } catch (e: any) {
       setErr(String(e.message ?? e));
     } finally {
@@ -165,22 +198,45 @@ export function ProductPage() {
     }
   };
 
+  /**
+   * Delete, and every surface stops showing the product in the same commit:
+   * the wall this lands on, the Home count and the pickers all read the
+   * library, which follows the brand. It used to re-read the brand's sets and
+   * shots instead, so the card stayed until a reload.
+   */
   const remove = async () => {
-    if (!product) return;
+    if (!product || deleting.current) return;
+    deleting.current = true;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+    pending.current = {};
+    const here = stillHere();
+    const wall = productsPath(brand);
+    const catalog = product.origin === 'catalog' || product.id.startsWith('cat-');
     setRemoving(true);
     setErr(null);
     try {
-      if (product.origin === 'catalog' || product.id.startsWith('cat-')) {
+      if (catalog) {
         await api.deleteCatalogProduct(brand.id, product.id);
+        await refreshProducts();
       } else {
-        await deleteProduct(brand.id, product.id);
+        applyBrand(await deleteProduct(brand.id, product.id));
       }
-      await refresh();
-      navigate(productsPath(brand), { replace: true });
     } catch (e: any) {
-      setErr(String(e.message ?? e));
-      setRemoving(false);
+      if (e?.status !== 404) {
+        deleting.current = false;
+        if (here()) {
+          setErr(String(e.message ?? e));
+          setRemoving(false);
+        }
+        return;
+      }
+      // Already gone: the outcome asked for is true, so read the truth and carry on.
+      await Promise.all([refreshBrands(), refreshProducts()]);
     }
+    // Replace: Back must not land on the page of a product that is gone. And
+    // only if this page is still the one on screen.
+    if (here()) navigate(wall, { replace: true });
   };
 
   if (!product && !demoProduct && !demoProductsLoaded) {

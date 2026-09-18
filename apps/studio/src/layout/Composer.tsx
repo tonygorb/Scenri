@@ -48,6 +48,7 @@ import { sizingOf } from '../engines/capabilities.js';
 import { OpenAIMark } from './OpenAIMark.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { attachableMarks } from '../brand/marks.js';
 import { publishComposer, publishOverlay, type ComposerFacts } from '../guideFacts.js';
 import { PREF, useLocalPref, useRecipeSetting } from '../prefs.js';
 import { useMediaQuery } from '../useMediaQuery.js';
@@ -222,8 +223,8 @@ export const Composer = forwardRef<
   },
   handleRef,
 ) {
-  const { products: libraryProducts } = useBrand();
-  const { demoProducts, loaded } = useAppData();
+  const { products: libraryProducts, productsLoaded } = useBrand();
+  const { demoProducts, demoProductsLoaded, loaded } = useAppData();
   /**
    * The brand's own scenes and presenters, ahead of the curated catalogs.
    *
@@ -1072,6 +1073,19 @@ export const Composer = forwardRef<
    */
   const flagToken = (t: BriefToken): string | null => {
     if (t.t === 'template') return templateFlag;
+    // Deleted while this brief sat open, or while it waited as a draft. The
+    // chip kept its name and said nothing, and the shot rendered without the
+    // thing on a compiler warning nobody sees. The same words the presenter
+    // chip uses. Guarded on the lists having answered, so a cold start does
+    // not flash "deleted" over every chip it has.
+    if (t.t === 'product' && productsLoaded && demoProductsLoaded) {
+      const products = libraryProducts.length ? libraryProducts : (brand.json?.products ?? []);
+      const known = products.some((x: any) => x.id === t.id) || demoProducts.some((x) => x.id === t.id);
+      if (!known) return 'This product is no longer in your library. Remove it from the brief.';
+    }
+    if (t.t === 'mark' && !attachableMarks(brand.json).some((m) => m.hash === t.imageHash)) {
+      return 'This mark is no longer in your brand kit. Remove it from the brief.';
+    }
     if (!stickyPreview) return null;
     const engineName = engine?.displayName ?? 'this engine';
     const reported = stickyPreview.cap;
@@ -1142,8 +1156,10 @@ export const Composer = forwardRef<
     engine?.displayName,
     templateFlag,
     libraryProducts,
-    brand.json?.products,
+    productsLoaded,
+    brand.json,
     demoProducts,
+    demoProductsLoaded,
     presenters,
   ]);
   const described = useCallback(describedToken, [budget]);
