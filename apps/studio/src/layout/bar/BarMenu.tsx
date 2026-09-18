@@ -122,13 +122,18 @@ export function BarMenu({
           // trigger, which is why the activity panel never had this.
           if (triggerRef.current?.contains(e.target as Node)) e.preventDefault();
         }}
-        // The row that opened a dialog unmounts with this menu, so Radix's own
-        // restore would aim at nothing and the dialog would hand focus to the
-        // body on close. The trigger is still here and is where focus belongs;
-        // after a click it wears no ring (foundations/interaction.css).
+        // Focus the menu let go of comes home to the trigger: the row that
+        // opened a dialog unmounts with this menu, so Radix's own restore would
+        // aim at nothing and the dialog would hand focus to the body on close.
+        // After a click the trigger wears no ring (foundations/interaction.css).
+        //
+        // Only focus that fell to the body, though. Focus something else has
+        // taken stays there: the menu another bar control just opened read it
+        // being pulled back here as focus leaving it, and shut at once.
         onCloseAutoFocus={(e) => {
           e.preventDefault();
-          focusTrigger();
+          const held = document.activeElement;
+          if (!held || held === document.body) focusTrigger();
         }}
       >
         <div className="sc-menu-head">{label}</div>
