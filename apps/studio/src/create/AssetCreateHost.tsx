@@ -70,7 +70,7 @@ export function useCreateFlow(): Pick<CreateApi, 'announce' | 'caps' | 'capsNote
 }
 
 export function AssetCreateHost({ children }: { children: ReactNode }) {
-  const { brand } = useBrand();
+  const { brand, refreshProducts } = useBrand();
   const navigate = useNavigate();
   const { push } = useToasts();
   const { refresh: refreshBrands } = useAppData();
@@ -260,6 +260,9 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
           return;
         }
         void refreshBrands();
+        // the chip a picker puts in the brief is named from the library, so the
+        // library learns of it too (BriefInput draws the chip again once it has)
+        void refreshProducts();
         if (cb?.kind === 'product') cb.fn(made);
         push({
           kind: 'success',
@@ -286,7 +289,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
       if (cb?.kind === made.kind) cb.fn(made);
       push({ kind: 'success', title: `Building ${made.name}`, detail: 'The bell will say when.' });
     },
-    [brand, navigate, poke, push, refreshBrands],
+    [brand, navigate, poke, push, refreshBrands, refreshProducts],
   );
 
   /** A dialog's flow: what was made is announced, and the dialog goes. */

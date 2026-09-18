@@ -543,7 +543,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // never a creative-campaign image. See primaryAngleFor/demoProductRefPath.
   registerDemoProductRoutes(app, { templatesRoot, demoProducts, demoProductById, thumbs });
 
-  registerShowcaseRoutes(app, { templatesRoot });
+  registerShowcaseRoutes(app, { templatesRoot, thumbs });
 
   // ---- brief compiler: the composer previews exactly what will run
   app.get('/api/formats', async () => FORMATS);

@@ -780,6 +780,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         tag === 'SELECT' ||
         !!el?.closest('[contenteditable="true"]') ||
         !!el?.closest('[role="separator"]');
+      // Enter on a focused control is that control's own press: the + opening
+      // its picker must not also open whichever shot is selected behind it.
+      const pressable = !!el?.closest('button, a[href], [role="button"], [role="tab"], [role="menuitem"]');
 
       // cmd+enter runs the brief from anywhere, including mid-sentence
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -852,7 +855,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       } else if (e.key === 'ArrowDown') {
         void walk('down');
         e.preventDefault();
-      } else if (e.key === 'Enter' && !nodeId && selected.kind !== 'root') openShot(selected.id);
+      } else if (e.key === 'Enter' && !nodeId && selected.kind !== 'root' && !pressable) openShot(selected.id);
       else if (e.key === '.' && !nodeId) toggleAssets();
     };
     window.addEventListener('keydown', onKey);

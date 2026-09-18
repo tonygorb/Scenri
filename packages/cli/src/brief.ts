@@ -975,7 +975,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     );
     if (names.length) {
       warnings.push(
-        `${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} left out — ${ctx.engineCaps.displayName} reads no reference images.`,
+        `${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} left out: ${ctx.engineCaps.displayName} reads no reference images.`,
       );
     }
   }

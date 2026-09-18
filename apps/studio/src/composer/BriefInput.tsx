@@ -328,6 +328,9 @@ export const BriefInput = forwardRef<
         label = m ? markLabel(brand.json, m) : 'missing mark';
         thumb = thumbUrl(token.imageHash, 'micro');
       }
+      // Drawn before its library knew it (a product made from the picker a
+      // moment ago): marked, so it is drawn again once the library does.
+      if (label.startsWith('missing ')) el.dataset.missing = '';
 
       if (thumb) {
         const img = document.createElement('img');
@@ -1240,6 +1243,22 @@ export const BriefInput = forwardRef<
     },
     [templates, products, cast, presenters, demoProducts, marks],
   );
+
+  /**
+   * Chips are drawn once and never revisited, so one drawn before its library
+   * knew the thing it names read "missing product" for good: a product made
+   * from the picker went into the brief a moment before the library reloaded.
+   * Such a chip is drawn again, the same chip under the same uid, as soon as
+   * the thing is known. One atom for one atom, so no walk over the line moves.
+   */
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    for (const chip of root.querySelectorAll<HTMLElement>(`.${CHIP}[data-missing]`)) {
+      const token = decode(chip.dataset.tok ?? '');
+      if (token && known(token)) chip.replaceWith(chipFor(token, chip.dataset.uid));
+    }
+  }, [known, chipFor]);
 
   const onDragEnter = (e: React.DragEvent) => {
     if (!Array.from(e.dataTransfer.types).includes('Files')) return;
