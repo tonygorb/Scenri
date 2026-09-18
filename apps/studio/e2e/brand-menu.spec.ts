@@ -84,17 +84,8 @@ test('a long list is one list: the brand you are in, then every other A to Z, at
   ]);
   await expect(scroller(page).locator('.sc-menu-item').first()).toHaveAttribute('data-current', 'true');
   await expect(scroller(page).locator('.sc-menu-item[data-current] .sc-menu-check')).toHaveCount(1);
-  // more below, so the rows fade into the line; at the end they read sharp
-  expect(await scroller(page).evaluate((el) => getComputedStyle(el).maskImage)).not.toBe('none');
-  await scroller(page).evaluate((el) => {
-    el.scrollTop = el.scrollHeight;
-    el.dispatchEvent(new Event('scroll'));
-  });
-  await expect.poll(() => scroller(page).evaluate((el) => getComputedStyle(el).maskImage)).toBe('none');
-  await scroller(page).evaluate((el) => {
-    el.scrollTop = 0;
-    el.dispatchEvent(new Event('scroll'));
-  });
+  // no fade laid over the rows
+  expect(await scroller(page).evaluate((el) => getComputedStyle(el).maskImage)).toBe('none');
 
   // A compact list: rows you scan, not pictures you read.
   const rowH = await scroller(page)
