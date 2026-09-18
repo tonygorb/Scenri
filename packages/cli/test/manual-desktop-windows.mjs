@@ -32,6 +32,14 @@ if (!existsSync(join(ROOT, 'apps', 'studio', 'dist', 'index.html'))) {
 }
 
 const PORT = 4793;
+/**
+ * Installing runs PowerShell to ask Windows where the Desktop is, and the
+ * product allows that process 30s (`src/desktop/cli.ts`, runExecFile). A probe
+ * has to outlast what it probes, or a slow runner fails a correct product: on
+ * 2026-09-18 a scheduled run passed every assertion and then aborted this one
+ * POST at three seconds.
+ */
+const INSTALL_BUDGET_MS = 45_000;
 const root = join(process.env.RUNNER_TEMP ?? tmpdir(), 'sc-desktop');
 rmSync(root, { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
@@ -547,8 +555,15 @@ await quit();
   child.stderr.on('data', (d) => {
     output += String(d);
   });
-  const at = async (path, init) => {
-    const res = await fetch(`http://127.0.0.1:${port}${path}`, { signal: AbortSignal.timeout(3000), ...init });
+  /**
+   * Liveness polls are quick and retried, so they keep a short budget. A call
+   * that makes the server work gets one longer than the work is allowed to take:
+   * installing asks Windows where the Desktop is, which runs PowerShell, and the
+   * product gives that process 30s (`desktop/cli.ts` runExecFile). A probe that
+   * gives up first is measuring the runner, not the product.
+   */
+  const at = async (path, init, budgetMs = 3000) => {
+    const res = await fetch(`http://127.0.0.1:${port}${path}`, { signal: AbortSignal.timeout(budgetMs), ...init });
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   const alive = () =>
@@ -560,7 +575,7 @@ await quit();
 
   // The route answers 409 with { error, reason }: a refusal a person can read,
   // never a 500 and never a crash.
-  const res = await at('/api/desktop/install', { method: 'POST' });
+  const res = await at('/api/desktop/install', { method: 'POST' }, INSTALL_BUDGET_MS);
   if (res.status >= 500) fail(`installing onto a broken Desktop answered ${res.status}: ${JSON.stringify(res.body)}`);
   if (res.status === 200) fail(`installing onto a broken Desktop claimed success: ${JSON.stringify(res.body)}`);
   if (!res.body?.reason) fail(`the refusal named no reason: ${JSON.stringify(res.body)}`);
