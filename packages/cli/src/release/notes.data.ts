@@ -51,6 +51,29 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.11.0',
+    date: '2026-09-18',
+    title: 'A new top bar, and a tutor that makes your first shot with you.',
+    sections: [
+      {
+        heading: 'Top bar',
+        body: 'The five places sit in the middle of the bar, with the one you are on underlined. New opens Create with the add panel open, and its arrow adds a product, presenter or scene instead. Activity replaces the bell: while a shot renders it shows that picture inside a filling ring, and its panel lists what is in progress and your notifications together, with Mark all read and Clear all. On a phone every panel in the bar opens as a sheet.',
+      },
+      {
+        heading: 'Brand',
+        body: "The brand menu is one short list, the brand you are in first and the rest A to Z, with a search once it grows long, so Settings and Shut down stay in reach. A brand's circle shows its icon, or its initial, never a shrunken wordmark.",
+      },
+      {
+        heading: 'Learn',
+        body: "A new install is welcomed and makes its first shot with a tutor, one step at a time: a product, a presenter, a scene, then the words. First steps on Home lists four lessons to start with and leaves once they are done, and Learn holds all five, from adding your product to refining a shot. Help sits in the corner of the page from 1024 pixels wide and in the bar below that, with Learn, the welcome, keyboard shortcuts and What's new.",
+      },
+      {
+        heading: 'Fixes',
+        body: 'A product made from the picker goes into the brief by its name instead of as a missing product, and Enter on a focused control in Create presses that control rather than opening the selected shot.',
+      },
+    ],
+  },
+  {
     version: '0.10.3',
     date: '2026-09-18',
     sections: [
