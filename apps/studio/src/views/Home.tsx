@@ -35,6 +35,7 @@ import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { FirstSteps } from './home/FirstSteps.js';
+import { FIRST_USE } from '../firstUse.js';
 
 /** Same floor as every catalog page: below this, scanning beats typing. */
 const SEARCH_MIN = 8;
@@ -302,7 +303,7 @@ export function HomeView() {
           <h1 className="sc-greet">
             Compose a shot <em>on brand</em>
           </h1>
-          <FirstSteps />
+          {FIRST_USE && <FirstSteps />}
 
           <div className="sc-create-grid">
             <button type="button" className="sc-create-card" data-tone="compose" data-main="" onClick={startCompose}>

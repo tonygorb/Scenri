@@ -165,11 +165,39 @@ test('a bar menu answers the next click at once, and one click moves to another 
   await page.mouse.click(x, y);
   await expect(brands).toBeVisible();
 
-  // With the brand menu open, one click on New's caret is New's menu.
+  // With one panel open, one click on another control in the bar is that
+  // control's panel, and it is still open once the first has finished closing.
+  // The closing menu used to hand focus back to its own button on the way out,
+  // which the new panel read as focus leaving it: it opened and shut at once.
+  const start = page.locator('.sc-menu[data-state="open"]', { hasText: 'Add to this brand' });
+  const activity = page.locator('.sc-notif-pop[data-state="open"]');
+  const settled = async () => {
+    await page.waitForFunction(() => document.querySelectorAll('.sc-menu, .sc-notif-pop').length === 1);
+    // nothing to wait for when nothing happens: give a stray focus a moment to land
+    await page.waitForTimeout(300);
+  };
   const [nx, ny] = await at('.sc-new-more');
+  const [ax, ay] = await at('.sc-act-btn');
+
   await page.mouse.click(nx, ny);
-  await expect(page.locator('.sc-start-row').first()).toBeVisible();
+  await settled();
+  await expect(start).toBeVisible();
   await expect(brands).toHaveCount(0);
+
+  await page.mouse.click(x, y);
+  await settled();
+  await expect(brands).toBeVisible();
+  await expect(start).toHaveCount(0);
+
+  await page.mouse.click(ax, ay);
+  await settled();
+  await expect(activity).toBeVisible();
+  await expect(brands).toHaveCount(0);
+
+  await page.mouse.click(nx, ny);
+  await settled();
+  await expect(start).toBeVisible();
+  await expect(activity).toHaveCount(0);
 });
 
 /**
