@@ -42,7 +42,9 @@ export default defineConfig({
   // `e2e/harness.ts` gives each one its own port and each file its own home.
   // Each worker is a whole Scenri process, not a browser tab, so this is
   // deliberately below the core count: 4 on a developer machine, 2 on a CI
-  // runner that is already running three shards of this file at once.
+  // runner. Each CI shard is its own four-core runner, so CI gets faster by
+  // adding shards, which adds runners, not by adding workers, which loads
+  // every runner harder: that load is what the timeouts above came from.
   fullyParallel: false,
   workers: Number(process.env.SCENRI_E2E_WORKERS ?? (process.env.CI ? 2 : 4)),
   reporter: [['list']],
