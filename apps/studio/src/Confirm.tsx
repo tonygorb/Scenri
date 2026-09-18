@@ -46,6 +46,15 @@ export function Confirm({
     acted.current = true;
     onConfirm();
   };
+  /**
+   * Where the keyboard was when a confirm with no trigger opened.
+   *
+   * Radix hands focus back to the trigger on close, and a confirm opened by
+   * state (Escape on a studio, a pencil) has none, so staying left the keyboard
+   * on the page behind the dialog. It goes back where it came from instead.
+   */
+  const back = useRef<HTMLElement | null>(null);
+  const controlled = open !== undefined;
   return (
     <AlertDialog.Root
       open={open}
@@ -66,7 +75,17 @@ export function Confirm({
           </button>
         </AlertDialog.Trigger>
       )}
-      <AlertDialog.Content maxWidth="420px">
+      <AlertDialog.Content
+        maxWidth="420px"
+        onOpenAutoFocus={() => {
+          if (controlled) back.current = document.activeElement as HTMLElement | null;
+        }}
+        onCloseAutoFocus={(e) => {
+          if (!controlled || !back.current?.isConnected) return;
+          e.preventDefault();
+          back.current.focus();
+        }}
+      >
         <AlertDialog.Title>{title}</AlertDialog.Title>
         <AlertDialog.Description size="2">{body}</AlertDialog.Description>
         <Flex gap="3" mt="4" justify="end">

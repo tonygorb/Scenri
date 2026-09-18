@@ -100,6 +100,12 @@ export interface CustomScene extends Scene {
 }
 
 export const PRESENTER_ID_PREFIX = 'up';
+/**
+ * What a scene's light is when nobody said. A placeholder the record needs,
+ * never a direction: the compiler leaves it out of a shot, because a person who
+ * wrote "hard flash" must not be told "even, neutral light" beside it.
+ */
+export const DEFAULT_SCENE_LIGHTING = 'Even, neutral light';
 export const SCENE_ID_PREFIX = 'us';
 /** Every curated scene and presenter ships 4:5. A brand's own match them. */
 export const ASSET_WIDTH = 1024;
@@ -290,7 +296,7 @@ export function sceneRecordFrom(
   const scene: CustomScene = {
     id: base?.id ?? mintId(SCENE_ID_PREFIX),
     name,
-    lighting: lighting || 'Even, neutral light',
+    lighting: lighting || DEFAULT_SCENE_LIGHTING,
     description: description || name,
     subject: subjectRaw as SceneSubject,
     collections: has('collections') ? strList(input.collections, 3, 40) : (base?.collections ?? []),

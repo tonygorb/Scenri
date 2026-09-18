@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Spinner, TextArea, TextField } from '@radix-ui/themes';
-import { api, type Scene, type ScenePatch } from '../api.js';
+import { api, type Scene } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useMadeWith } from './useMadeWith.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
 import { customSceneById } from '../brandAssets.js';
-import { hubPath, scenePath, scenesPath, shotPath } from '../routes.js';
+import { hubPath, sceneEditPath, scenePath, scenesPath, shotPath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { bookmarkedScenes, toggleBookmarkScene } from '../bookmarks.js';
 import { Confirm } from '../Confirm.js';
 import { SceneCard } from '../layout/SceneCard.js';
-import { ArrowClockwise, BookmarkSimple, Eye } from '@phosphor-icons/react';
+import { BookmarkSimple, PencilSimple } from '@phosphor-icons/react';
+import { readingLines } from '../create/scene/sceneStudioRules.js';
+import { Tip } from '../layout/Tip.js';
+import { AssetDetailsDialog } from './AssetDetailsDialog.js';
 import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { bookmarkedFirst } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
@@ -105,70 +107,29 @@ export function ScenePage() {
     return bookmarkedFirst(scenes, (s) => marks.includes(s.id)).slice(0, 6);
   }, [scene, loaded, error, scenes, brandId]);
 
-  const [draftName, setDraftName] = useState(owned?.name ?? '');
-  const [draftDescription, setDraftDescription] = useState(owned?.description ?? '');
-  const [draftLighting, setDraftLighting] = useState(owned?.lighting ?? '');
-  const [draftPrompt, setDraftPrompt] = useState(owned?.prompt ?? '');
   const [err, setErr] = useState<string | null>(null);
-  const [drawing, setDrawing] = useState(false);
-  const [rereading, setRereading] = useState(false);
   const [busy, setBusy] = useState(false);
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [details, setDetails] = useState(false);
+  // every vertical any scene is filed under, so a new filing lands in a tab that exists
+  const known = useMemo(() => [...new Set(scenes.flatMap((s) => s.verticals))].sort(), [scenes]);
 
-  useEffect(() => {
-    // Resync only on a different scene, so a refresh landing mid-keystroke
-    // cannot overwrite what is being typed.
-    setDraftName(owned?.name ?? '');
-    setDraftDescription(owned?.description ?? '');
-    setDraftLighting(owned?.lighting ?? '');
-    setDraftPrompt(owned?.prompt ?? '');
-  }, [owned?.id]);
-
-  /** Editing a scene is a plain write. Only the preview costs a generation. */
-  const patch = (next: ScenePatch) => {
+  /**
+   * The name and the filing, written once when the sheet is saved. The words a
+   * shot is told, the pictures and the preview are changed in the studio,
+   * because changing them means drawing, and this page never draws.
+   */
+  const saveDetails = async (next: { name: string; categories: string[] }) => {
     if (!owned) return;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      void api
-        .updateScene(brand.id, owned.id, next)
-        .then((r) => {
-          applyBrand(r.brand);
-          setErr(r.warnings[0] ?? null);
-        })
-        .catch((e: any) => setErr(String(e.message ?? e)));
-    }, 500);
-  };
-
-  const redrawPreview = async () => {
-    if (!owned) return;
-    setDrawing(true);
+    setBusy(true);
     setErr(null);
     try {
-      applyBrand((await api.generateScenePreview(brand.id, owned.id)).brand);
+      const r = await api.updateScene(brand.id, owned.id, { name: next.name, verticals: next.categories });
+      applyBrand(r.brand);
+      setDetails(false);
     } catch (e: any) {
       setErr(String(e.message ?? e));
     } finally {
-      setDrawing(false);
-    }
-  };
-
-  // The analyzer already knows how to revise rather than restart; this is the
-  // only thing that was missing, and without it a scene built before it learned
-  // to read human presence could never be brought forward.
-  const rereadRefs = async () => {
-    if (!owned || rereading) return;
-    setRereading(true);
-    setErr(null);
-    try {
-      await api.rereadScene(brand.id, owned.id);
-      // Deliberately stays disabled. This call returns a job id the moment the
-      // work starts, not when it finishes, so releasing the button here would
-      // offer a second analyzer run over the same record while the first is
-      // still going - two real Codex calls racing to write one scene. Progress
-      // shows in the bell, the same as any other build.
-    } catch (e: any) {
-      setErr(String(e.message ?? e));
-      setRereading(false);
+      setBusy(false);
     }
   };
 
@@ -269,33 +230,19 @@ export function ScenePage() {
           <span>{owned ? 'Yours' : scene.collections[0]}</span>
         </div>
 
-        {owned ? (
-          <TextField.Root
-            className="sc-ownededit-title"
-            value={draftName}
-            aria-label="Scene name"
-            onChange={(e) => {
-              setDraftName(e.target.value);
-              patch({ name: e.target.value });
-            }}
-          />
-        ) : (
-          <h1>{scene.name}</h1>
+        <h1>{scene.name}</h1>
+        {/* Where it is filed, as the app's own chips, the way a presenter's
+            page shows it. Changing it is in Details. */}
+        {owned && owned.verticals.length > 0 && (
+          <ul className="sc-presenterpage-cats" aria-label="Filed under">
+            {owned.verticals.map((c) => (
+              <li key={c} className="sc-chip" data-static>
+                {c}
+              </li>
+            ))}
+          </ul>
         )}
-        {owned ? (
-          <TextField.Root
-            className="sc-ownededit-lede"
-            value={draftDescription}
-            placeholder="One sentence for the card"
-            aria-label="Description"
-            onChange={(e) => {
-              setDraftDescription(e.target.value);
-              patch({ description: e.target.value });
-            }}
-          />
-        ) : (
-          <p className="sc-lookpage-lede">{scene.description}</p>
-        )}
+        <p className="sc-lookpage-lede">{scene.description}</p>
         <p className="sc-lookpage-facts">
           {scene.lighting} · {scene.subject === 'either' ? 'product or person' : `for a ${scene.subject}`} ·{' '}
           {scene.width === scene.height ? 'square by default' : `${scene.width}×${scene.height} by default`}
@@ -317,26 +264,22 @@ export function ScenePage() {
             </button>
           )}
           {owned && (
-            <button
-              type="button"
-              className="sc-btn sc-btn-ghost"
-              disabled={drawing}
-              onClick={() => void redrawPreview()}
-            >
-              {drawing ? <Spinner size="1" /> : <ArrowClockwise size={13} />}
-              <span>{owned.previewUrl ? 'Redraw the example' : 'Draw an example'}</span>
-            </button>
+            <Link className="sc-btn sc-btn-ghost" to={sceneEditPath(brand, owned.id)}>
+              Edit scene
+            </Link>
           )}
-          {owned && owned.refs.length > 0 && (
-            <button
-              type="button"
-              className="sc-btn sc-btn-ghost"
-              disabled={rereading}
-              onClick={() => void rereadRefs()}
-            >
-              {rereading ? <Spinner size="1" /> : <Eye size={13} />}
-              <span>{rereading ? 'Reading the references' : 'Read the references again'}</span>
-            </button>
+          {owned && (
+            <Tip label="Edit name and details">
+              <button
+                type="button"
+                className="sc-icon-btn"
+                aria-label="Edit name and details"
+                aria-haspopup="dialog"
+                onClick={() => setDetails(true)}
+              >
+                <PencilSimple size={17} />
+              </button>
+            </Tip>
           )}
         </div>
         {err && <p className="sc-assetform-err">{err}</p>}
@@ -373,14 +316,53 @@ export function ScenePage() {
 
         {owned && (
           <div className="sc-ownedbits">
+            {/* What a shot is actually given: the words, nothing else. Read
+                here, changed in the studio (Edit scene), where a change is
+                drawn so it can be judged before it is kept. */}
+            <section>
+              <p className="sc-bandhead">What your shots are told</p>
+              <dl className="sc-lookpage-told">
+                {readingLines({
+                  name: owned.name,
+                  prompt: owned.prompt,
+                  lighting: owned.lighting,
+                  camera: owned.camera,
+                  figure: owned.figure,
+                  figureTreatment: owned.figureTreatment,
+                  subject: owned.subject,
+                  description: owned.description,
+                }).map((l) => (
+                  <div key={l.label}>
+                    <dt>{l.label}</dt>
+                    <dd dir="auto">{l.text}</dd>
+                  </div>
+                ))}
+              </dl>
+              {owned.figure && (
+                <p className="sc-ownedbits-note">
+                  A role, not a person: attach a presenter and they play it. Their own face stays theirs underneath.
+                  With nobody attached, the set renders on its own.
+                </p>
+              )}
+            </section>
+
+            {owned.instruction && (
+              <section>
+                <p className="sc-bandhead">Your words</p>
+                <p className="sc-ownedbits-note" dir="auto">
+                  {owned.instruction}
+                </p>
+              </section>
+            )}
+
             {owned.refs.length > 0 && (
               <section>
-                <p className="sc-bandhead">Your references</p>
+                <p className="sc-bandhead">What it was read from</p>
                 <p className="sc-ownedbits-note">
-                  What this scene was read from, and what its example above was drawn from.
+                  Read into the words above, never sent with a shot.
                   {owned.figure
-                    ? ' Because this scene is built around a figure, the example drawn from these goes to the shot beside an attached presenter, as reference for the world and the treatment. The people, products and marks in these are never copied.'
-                    : ' A scene reaches a shot as words, never as pixels, so nothing staged in these images can turn up in a render on its own.'}
+                    ? ' Because this scene is built around a figure, its preview goes with a shot beside an attached presenter, as reference for the world and the treatment. The people, products and marks in these are never copied.'
+                    : ' Nothing staged in these pictures can turn up in a render on its own.'}
                 </p>
                 <div className="sc-lookpage-refs">
                   {owned.refs.map((src) => (
@@ -389,58 +371,6 @@ export function ScenePage() {
                 </div>
               </section>
             )}
-
-            {owned.figure && (
-              <section>
-                <p className="sc-bandhead">Who it is built around</p>
-                <p className="sc-ownedbits-note">
-                  {owned.figure}
-                  {owned.figureTreatment ? `, and ${owned.figureTreatment}` : ''}. A role, not a person: attach a
-                  presenter and they play it. Their own face stays theirs underneath. With nobody attached, the set
-                  renders on its own.
-                </p>
-              </section>
-            )}
-
-            <section>
-              <p className="sc-bandhead">The place itself</p>
-              <p className="sc-ownedbits-note">
-                Sent with every shot built here. Describe the world, not what stands in it.
-              </p>
-              <TextArea
-                value={draftPrompt}
-                rows={5}
-                onChange={(e) => {
-                  setDraftPrompt(e.target.value);
-                  patch({ prompt: e.target.value });
-                }}
-              />
-              <TextField.Root
-                mt="2"
-                value={draftLighting}
-                placeholder="The light, in a short phrase"
-                aria-label="Lighting"
-                onChange={(e) => {
-                  setDraftLighting(e.target.value);
-                  patch({ lighting: e.target.value });
-                }}
-              />
-            </section>
-
-            <section>
-              <p className="sc-bandhead">Direction</p>
-              <p className="sc-ownedbits-note">
-                What matters in these references, and what to ignore. Read again to apply it.
-              </p>
-              <textarea
-                className="sc-in"
-                rows={3}
-                maxLength={400}
-                placeholder="What matters in these references, and what to ignore"
-                defaultValue={owned.instruction ?? ''}
-                onChange={(e) => patch({ instruction: e.target.value })}
-              />
-            </section>
 
             <div className="sc-lookpage-acts">
               <Confirm
@@ -452,6 +382,19 @@ export function ScenePage() {
               />
             </div>
           </div>
+        )}
+
+        {details && owned && (
+          <AssetDetailsDialog
+            name={owned.name}
+            categories={owned.verticals}
+            known={known}
+            hint="The verticals this place suits, so it surfaces where you work."
+            busy={busy}
+            error={err}
+            onSave={(next) => void saveDetails(next)}
+            onDismiss={() => setDetails(false)}
+          />
         )}
 
         {made.length > 0 && (

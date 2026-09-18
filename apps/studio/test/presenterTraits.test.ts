@@ -11,6 +11,10 @@ import { CAST_ROWS, LOOK_ROWS } from '../src/create/presenter/presenterLook.ts';
 /** The three figures a cast-aware row is drawn on. */
 const CASTS = ['woman', 'man', 'androgynous'];
 import { LOOK_ORDER } from '../src/create/presenter/presenterQuestions.ts';
+import { DRAWN, ROW_ORDER, ROWS } from '../src/create/scene/sceneRows.ts';
+
+/** The scene's rows that carry pictures; they share the conversation's stylesheet. */
+const SCENE_CARDS = ROW_ORDER.filter((r) => DRAWN.has(r)).flatMap((r) => ROWS[r].options.map((o) => o.card as string));
 import {
   TRAITS,
   type TraitAnswers,
@@ -76,6 +80,15 @@ describe('the distinctive details a presenter can carry', () => {
       }
     }
     expect([...art].filter((f) => !wanted.has(f))).toEqual([]);
+    // The scene's drawn rows name their cards in the same stylesheet, so they
+    // are held to the same three directions, against their own folder.
+    const sceneArt = new Set(readdirSync(join(STUDIO, 'src/assets/scenes')).map((f) => f.replace(/\.webp$/, '')));
+    for (const id of SCENE_CARDS) {
+      wanted.add(id);
+      expect(css).toContain(`[data-card="${id}"]`);
+      expect(sceneArt.has(id), id).toBe(true);
+    }
+    expect([...sceneArt].filter((f) => !wanted.has(f))).toEqual([]);
     // and the third direction: a rule pointing at a file nothing chooses, or
     // at a file that is not there at all, which the build would only find later
     const named = [...css.matchAll(/\[data-card="([^"]+)"\]/g)].map((m) => m[1]);
@@ -94,7 +107,8 @@ describe('the distinctive details a presenter can carry', () => {
       LOOK_ORDER.reduce(
         (n, s) => n + LOOK_ROWS[s].row.options.filter((o) => o.card).length * (CAST_ROWS.has(s) ? CASTS.length : 1),
         0,
-      );
+      ) +
+      SCENE_CARDS.length;
     expect(rules.length).toBe(cards);
     for (const [, card, file] of rules) expect(file).toBe(card);
   });

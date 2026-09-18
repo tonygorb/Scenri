@@ -1,31 +1,31 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useMatch, useNavigate } from 'react-router';
+import { useLocation, useMatch, useNavigate } from 'react-router';
 import { api, type AssetBuildCapabilities } from '../api.js';
 import { useAppData, useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { CreateKind, PendingState } from '../createDraft.js';
-import { P, hubPath, presenterStudioPath, productPath } from '../routes.js';
+import { P, hubPath, presenterStudioPath, productPath, scenePath, sceneStudioPath } from '../routes.js';
 import { useToasts } from '../toasts.js';
 import { AssetKindPicker } from './AssetKindPicker.js';
 import { ProductForm } from './ProductForm.js';
-import { SceneForm } from './SceneForm.js';
 import type { Created } from './flow.js';
 
 /**
  * The one place any of the three creation flows is ever opened.
  *
- * Product and Scene are short forms, so they are dialogs, and which one is
+ * Product is a short form, so it is a dialog, and whether it is
  * showing lives in the URL (`?new=`), on exactly the terms SettingsDialog's
  * `?settings=` already set: opening pushes an entry so Back closes it, moving
  * between the chooser and a flow replaces, and closing consumes. So the top
  * bar's +, a library page's button, a Home card and a pasted link are all the
  * same code path, and none of them owns a dialog.
  *
- * A presenter is not a short form: five drawn views, a refine loop and a
- * draft that outlives the session. That flow is a place of its own
- * (`/presenters/new`, `/presenters/new/:draftId`, see PresenterStudioRoute), so
- * asking for it here navigates, and the old `?new=presenter` forwards there.
+ * A presenter and a scene are not short forms: each is judged on a picture
+ * drawn for it and changed a sentence at a time. Each is a place of its own
+ * (`/presenters/new`, `/scenes/new`; see PresenterStudioRoute and
+ * SceneStudioRoute), so asking for one here navigates, and the old
+ * `?new=presenter` and `?new=scene` forward there.
  * What the flows share, the engine's capabilities and the one announcement
  * of what was made, stays here so every door says the same thing.
  *
@@ -72,6 +72,7 @@ export function useCreateFlow(): Pick<CreateApi, 'announce' | 'caps' | 'capsNote
 export function AssetCreateHost({ children }: { children: ReactNode }) {
   const { brand, refreshProducts } = useBrand();
   const navigate = useNavigate();
+  const location = useLocation();
   const { push } = useToasts();
   const { refresh: refreshBrands } = useAppData();
   const { builds, poke } = useTaskCenter();
@@ -87,6 +88,8 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   // the two route-mounted flows share the probe with the dialogs: creation and the editor
   const onStudio = !!useMatch({ path: P.presenterStudio });
   const onEditor = !!useMatch({ path: P.presenterEdit });
+  const onSceneStudio = !!useMatch({ path: P.sceneStudio });
+  const onSceneEditor = !!useMatch({ path: P.sceneEdit });
 
   const [caps, setCaps] = useState<AssetBuildCapabilities | null>(null);
   const [capsFailed, setCapsFailed] = useState(false);
@@ -119,18 +122,25 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         navigate(presenterStudioPath(brand));
         return;
       }
+      if (kind === 'scene') {
+        // Where it was opened from rides along, so Use can hand the scene back
+        // to a brief in progress and the close returns to the same place.
+        navigate(sceneStudioPath(brand), { state: { from: location.pathname + location.search } });
+        return;
+      }
       openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setCameFromChooser(kind === 'choose');
       setRestore(false);
       openParam(kind === 'choose' ? CHOOSER : kind);
     },
-    [openParam, navigate, brand],
+    [openParam, navigate, brand, location.pathname, location.search],
   );
 
   // the address the studio had before it was a place: forwarded, so a
   // bookmark, a notification or an older link still lands in it
   useEffect(() => {
     if (value === 'presenter') navigate(presenterStudioPath(brand), { replace: true });
+    if (value === 'scene') navigate(sceneStudioPath(brand), { replace: true });
   }, [value, navigate, brand]);
 
   const close = useCallback(() => {
@@ -186,7 +196,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   // Asked once per opening, and retried once if the answer never came: a silent
   // null used to erase the whole cost line, so the dialog said nothing at all
   // about what pressing the button would spend.
-  const wantCaps = value !== null || onStudio || onEditor;
+  const wantCaps = value !== null || onStudio || onEditor || onSceneStudio || onSceneEditor;
   useEffect(() => {
     if (!wantCaps) return;
     let alive = true;
@@ -286,8 +296,19 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         });
         return;
       }
-      if (cb?.kind === made.kind) cb.fn(made);
-      push({ kind: 'success', title: `Building ${made.name}`, detail: 'The bell will say when.' });
+      // a scene is written the moment Use is pressed; its picture may still be landing on the card
+      void refreshBrands();
+      if (cb?.kind === 'scene') cb.fn(made);
+      const filed = made.verticals?.length ? `Filed under ${made.verticals.join(' and ')}.` : undefined;
+      push({
+        kind: 'success',
+        title: made.how === 'updated' ? `${made.name} changed` : `${made.name} saved`,
+        detail: filed,
+        actions: [
+          { label: 'Open', onClick: () => navigate(scenePath(brand, made.id)) },
+          { label: 'Use in a shot', onClick: () => navigate(`${hubPath(brand)}?scene=${made.id}&compose=1`) },
+        ],
+      });
     },
     [brand, navigate, poke, push, refreshBrands, refreshProducts],
   );
@@ -327,6 +348,10 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
               navigate(presenterStudioPath(brand), { replace: true });
               return;
             }
+            if (k === 'scene') {
+              navigate(sceneStudioPath(brand), { replace: true });
+              return;
+            }
             setCameFromChooser(true);
             setParam(k);
           }}
@@ -335,7 +360,6 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
       {/* Keyed by kind so switching flows remounts rather than carrying one
           form's fields into another's. */}
       {kind === 'product' && <ProductForm key="product" {...flowProps} />}
-      {kind === 'scene' && <SceneForm key="scene" {...flowProps} />}
     </Ctx.Provider>
   );
 }

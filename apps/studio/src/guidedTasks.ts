@@ -146,9 +146,13 @@ export const COPY = {
     title: 'Save your presenter',
     body: 'Once saved they are in your ingredients, ready for every shot.',
   },
-  sceneMake: {
-    title: 'Build a scene',
-    body: 'A place and its light, saved to shoot in again. Name it, then add a photo or a line of direction.',
+  sceneStart: {
+    title: 'Describe the place, or start from pictures',
+    body: 'A scene is the place and its light around your shot. Pictures are read for you; guided, it asks one thing at a time.',
+  },
+  sceneWords: {
+    title: 'These words are the scene',
+    body: 'Every shot made in this scene is told exactly this. Draw it to see it, or say what to add.',
   },
   productMake: {
     title: 'Add your product',
@@ -362,9 +366,29 @@ function dialogMoment(id: string, say: { title: string; body: string }): Moment 
   return { id, voice: 'ask', shell: DIALOG, point: '.sc-newdlg', beside: true, side: 'left', ...say };
 }
 
-/** A scene: named, then a photo or a line of direction; the build runs after the dialog closes. */
-export function sceneMoment(dialogOpen: boolean): Moment | null {
-  return dialogOpen ? dialogMoment('scene', COPY.sceneMake) : null;
+/**
+ * The scene studio asks its own questions too, so the tutor says only what
+ * they do not: what a scene is, at the start, and at the read-back that the
+ * words standing there are the scene, the one thing every shot is given.
+ */
+export function sceneMoment(studio: StudioFacts | null): Moment | null {
+  if (!studio) return null;
+  const turn = `${STUDIO} [data-turn="q:${studio.open}"]`;
+  const at = (id: string, say: { title: string; body: string }): Moment => ({
+    id,
+    voice: 'ask',
+    shell: STUDIO,
+    point: `${turn} .sc-convo-q`,
+    live: [turn],
+    also: [STUDIO_COMPOSER],
+    beside: true,
+    side: 'left',
+    ...say,
+  });
+  if (studio.open === 'source') return at('start', COPY.sceneStart);
+  if (studio.open?.startsWith('agree-')) return at('words', COPY.sceneWords);
+  if (studio.open?.startsWith('decide-')) return { id: 'use', voice: 'quiet' };
+  return { id: 'studio', voice: 'quiet' };
 }
 
 /** A product: the one decision the dialog does not explain is where its photos come from. */

@@ -142,6 +142,8 @@ export type Question =
       submit: string;
       /** A quiet way back to describing someone instead, before any photo is filed. */
       back?: string;
+      /** What the empty well says: what to drop, and how. The flow's words, since only it knows what the pictures are of. */
+      drop?: { label: string; hint: string };
     })
   | (QuestionBase & {
       kind: 'confirm';
@@ -154,6 +156,8 @@ export type Question =
        * than a line of talk.
        */
       quote?: string;
+      /** What the quoted words are, over them. */
+      quoteLabel?: string;
       /** A way to say something instead of deciding, which hands the composer this question. */
       describe?: string;
       /** A way to answer with a picture of the thing, in the same row as the words. */

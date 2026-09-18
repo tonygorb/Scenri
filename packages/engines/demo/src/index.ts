@@ -187,7 +187,7 @@ export function createDemoEngine(saveImage: (buf: Buffer) => string, opts: DemoO
  * `usable` files the first as the portrait and the rest as ordinary snaps, and
  * `unusable` rejects every one of them, which is the case worth testing.
  */
-export function createDemoAnalyzer(opts: { photos?: 'usable' | 'unusable' } = {}) {
+export function createDemoAnalyzer(opts: { photos?: 'usable' | 'unusable'; readMs?: number } = {}) {
   const rejects = opts.photos === 'unusable';
   const filing = (i: number) => ({
     index: i,
@@ -197,17 +197,79 @@ export function createDemoAnalyzer(opts: { photos?: 'usable' | 'unusable' } = {}
   });
   return {
     isAvailable: async () => ({ ok: true }),
-    analyze: async (req: { imagePaths: string[] }) => ({
-      promptName: 'a person in their thirties',
-      presentation: 'woman' as const,
-      descriptor: 'Demo read',
-      ageRange: '30s',
-      hair: 'dark hair',
-      identityNotes: 'read by the demo analyzer, which never looked at anything',
-      negativeConstraints: [] as string[],
-      suitableCategories: [] as string[],
-      coverage: [] as string[],
-      photos: req.imagePaths.map((_, i) => filing(i)),
-    }),
+    analyze: async (
+      req: {
+        kind?: 'presenter' | 'scene';
+        imagePaths: string[];
+        instruction?: string;
+        correction?: string;
+        priorDraft?: unknown;
+      },
+      signal?: AbortSignal,
+    ) => {
+      // A read takes time, so the states a person sits in while it runs can be driven.
+      if (opts.readMs) await sleep(opts.readMs, signal);
+      if (signal?.aborted) throw new Error('cancelled');
+      if (req.kind === 'scene') return demoSceneRead(req);
+      return {
+        promptName: 'a person in their thirties',
+        presentation: 'woman' as const,
+        descriptor: 'Demo read',
+        ageRange: '30s',
+        hair: 'dark hair',
+        identityNotes: 'read by the demo analyzer, which never looked at anything',
+        negativeConstraints: [] as string[],
+        suitableCategories: [] as string[],
+        coverage: [] as string[],
+        photos: req.imagePaths.map((_, i) => filing(i)),
+      };
+    },
+  };
+}
+
+/**
+ * A scene read that looked at nothing, shaped like the real one.
+ *
+ * Deterministic from the words, so a spec can say what it expects: the place is
+ * the person's words (or a fixed shore when there are only pictures), a change
+ * is added to the words before it and leaves the rest alone, "portrait" or
+ * "figure" in the words makes the world figure-led, and two pictures or more
+ * earn the note a real read gives when they may show different places.
+ */
+function demoSceneRead(req: { imagePaths: string[]; instruction?: string; correction?: string; priorDraft?: unknown }) {
+  const prior = (req.priorDraft ?? null) as Record<string, any> | null;
+  const words = (req.instruction ?? '').trim();
+  const said = words || 'A demo shore of wet dark stone, read from the pictures alone';
+  const title = said
+    .split(/[.,;:!?]/)[0]
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(' ');
+  const name = prior?.name ?? title.charAt(0).toUpperCase() + title.slice(1);
+  const change = req.correction?.trim();
+  const stop = (t: string) => `${t.replace(/[.\s]+$/, '')}.`;
+  const prompt = prior && change ? `${stop(String(prior.prompt))} ${stop(change)}` : stop(said);
+  const lighting =
+    prior && change && /light|warm|cool|dusk|dawn|morning|night|dark|bright/i.test(change)
+      ? `Demo light, changed: ${change}`
+      : (prior?.lighting ?? 'Demo light, low and warm from the left');
+  const figured =
+    /portrait|figure/i.test(`${words} ${change ?? ''}`) && !/no (people|person|figure)/i.test(change ?? '');
+  return {
+    name: String(name).slice(0, 60),
+    promptName: String(name).slice(0, 60),
+    lighting,
+    description: 'A place read by the demo analyzer.',
+    subject: 'either' as const,
+    prompt,
+    camera: prior?.camera ?? 'eye level, a fifty millimetre feel',
+    ...(figured || (prior?.figure && !/no (people|person|figure)/i.test(change ?? ''))
+      ? { figure: prior?.figure ?? 'one person at mid-ground, at human scale' }
+      : {}),
+    keywords: ['demo'],
+    collections: [] as string[],
+    verticals: [] as string[],
+    coverage: req.imagePaths.length > 1 ? ['These may be two different places. Say which one this is.'] : [],
   };
 }

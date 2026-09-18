@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { sceneSearchText } from '../displayName.js';
-import { useNavigate } from 'react-router';
+import { Outlet, useNavigate } from 'react-router';
 import { Plus } from '@phosphor-icons/react';
 import { api } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
@@ -422,6 +422,9 @@ export function ScenesView() {
           )}
         </main>
       </ScrollPane>
+      {/* the scene studio, when its route is open: full-bleed over this
+          library, which stays mounted and scrolled where it was */}
+      <Outlet />
     </WallDensityCtx.Provider>
   );
 }

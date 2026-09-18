@@ -517,6 +517,50 @@ export interface ScenePatch {
   figure?: string;
   figureTreatment?: string;
   refHashes?: string[];
+  /** The picture on its card; for a figure-led scene, the plate a shot conditions on. */
+  previewHash?: string;
+  promptName?: string;
+}
+
+/**
+ * What the scene studio read a place into: the words a saved scene is, and
+ * the only thing about a scene a shot is ever told (the plate aside).
+ */
+export interface SceneReading {
+  name: string;
+  promptName?: string;
+  /** The place itself. */
+  prompt: string;
+  lighting: string;
+  camera?: string;
+  /** The position a person takes in this world. A role, never a person. */
+  figure?: string;
+  figureTreatment?: string;
+  subject: 'product' | 'person' | 'either';
+  description: string;
+  keywords?: string[];
+  collections?: string[];
+  verticals?: string[];
+}
+
+export type SceneStudioJobKind = 'make' | 'again' | 'change';
+
+/** One piece of studio work: read, draw, or change. Never writes the brand. */
+export interface SceneStudioJob {
+  id: string;
+  brandId: string;
+  kind: SceneStudioJobKind;
+  status: 'running' | 'done' | 'failed' | 'cancelled';
+  phase: 'reading' | 'changing' | 'drawing' | null;
+  startedAt: string;
+  phaseAt: string;
+  finishedAt: string | null;
+  reading: SceneReading | null;
+  coverage: string[];
+  hash: string | null;
+  error: string | null;
+  warnings: string[];
+  attachTo: string | null;
 }
 
 export interface SceneField {

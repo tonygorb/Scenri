@@ -416,8 +416,8 @@ export function QuestionBlock({
             <RefStrip
               hashes={question.hashes}
               max={question.max}
-              label="Add a photo of their face"
-              hint="Drop it here, or choose a file"
+              label={question.drop?.label ?? 'Add a photo of their face'}
+              hint={question.drop?.hint ?? 'Drop it here, or choose a file'}
               busy={question.busy}
               onAdd={(files) => onAnswer({ kind: 'photos', action: { type: 'add', files } })}
               onRemove={(hash) => onAnswer({ kind: 'photos', action: { type: 'remove', hash } })}
@@ -456,11 +456,12 @@ export function QuestionBlock({
                   {question.back}
                 </button>
               )}
+              {cancel}
             </div>
           </div>
         )}
 
-        {question.kind === 'confirm' && question.quote && <Quote text={question.quote} />}
+        {question.kind === 'confirm' && question.quote && <Quote text={question.quote} label={question.quoteLabel} />}
 
         {question.kind === 'confirm' && (
           <div className="sc-convo-decide">

@@ -766,6 +766,52 @@ button.sc-convo-shot-do {
   background-size: cover;
   background-repeat: no-repeat;
 }
+/* The scene rows' cards: the kind of place, its light, its feeling, what it is
+   made of, and whether someone stands in it. Where is six places at one camera
+   height; the other rows are one plinth in one plaster corner, drawn once, with
+   only the chosen thing changed on each card. */
+.sc-convo-plate-in[data-card="scene-where-1"] {
+  background-image: url("../../assets/scenes/scene-where-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-where-2"] {
+  background-image: url("../../assets/scenes/scene-where-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-where-3"] {
+  background-image: url("../../assets/scenes/scene-where-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-where-4"] {
+  background-image: url("../../assets/scenes/scene-where-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-where-5"] {
+  background-image: url("../../assets/scenes/scene-where-5.webp");
+}
+.sc-convo-plate-in[data-card="scene-where-6"] {
+  background-image: url("../../assets/scenes/scene-where-6.webp");
+}
+.sc-convo-plate-in[data-card="scene-light-1"] {
+  background-image: url("../../assets/scenes/scene-light-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-light-2"] {
+  background-image: url("../../assets/scenes/scene-light-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-light-3"] {
+  background-image: url("../../assets/scenes/scene-light-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-light-4"] {
+  background-image: url("../../assets/scenes/scene-light-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-light-5"] {
+  background-image: url("../../assets/scenes/scene-light-5.webp");
+}
+.sc-convo-plate-in[data-card="scene-light-6"] {
+  background-image: url("../../assets/scenes/scene-light-6.webp");
+}
+.sc-convo-plate-in[data-card="scene-figure-1"] {
+  background-image: url("../../assets/scenes/scene-figure-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-figure-2"] {
+  background-image: url("../../assets/scenes/scene-figure-2.webp");
+}
 .sc-convo-plate-in[data-card="length-1-woman"] {
   background-image: url("../../assets/traits/length-1-woman.webp");
 }

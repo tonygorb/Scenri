@@ -1,13 +1,11 @@
 import { useState } from 'react';
-import type { PresenterPatch } from '../api.js';
 import { ChipPicker } from '../layout/ChipPicker.js';
 import { DialogSheet, SheetClose, SheetTitle } from '../layout/DialogSheet.js';
 
 /**
- * The words on a presenter's record, changed in one place.
- *
- * Two things, and only the two that are actually yours: what they are called,
- * and what you file them under.
+ * The words on an asset's record, changed in one place: a presenter's, a
+ * scene's. Two things, and only the two that are actually yours: what it is
+ * called, and what you file it under.
  *
  * The caption under their name is not here, and was briefly. Creation never
  * asks for it: the analyser writes it from the face it drew or the
@@ -16,13 +14,14 @@ import { DialogSheet, SheetClose, SheetTitle } from '../layout/DialogSheet.js';
  * for and implied it was the reader's sentence to write. If it is wrong, the
  * person is what to change, and it is rewritten with them.
  *
- * Not to be confused with Edit presenter, which opens the studio and changes
- * what they look like. Nothing here touches a picture.
+ * Not to be confused with Edit presenter or Edit scene, which open the studio
+ * and change what it looks like. Nothing here touches a picture.
  */
-export function PresenterDetailsDialog({
+export function AssetDetailsDialog({
   name,
   categories,
   known,
+  hint,
   busy,
   error,
   onSave,
@@ -30,11 +29,13 @@ export function PresenterDetailsDialog({
 }: {
   name: string;
   categories: string[];
-  /** Every category this brand already files presenters under. */
+  /** Every category this brand already files this kind under. */
   known: string[];
+  /** What filing it does, in the kind's own words. */
+  hint: string;
   busy?: boolean;
   error?: string | null;
-  onSave: (patch: PresenterPatch) => void;
+  onSave: (next: { name: string; categories: string[] }) => void;
   onDismiss: () => void;
 }) {
   const [draftName, setName] = useState(name);
@@ -48,7 +49,7 @@ export function PresenterDetailsDialog({
   const submit = () => {
     if (!ready || busy) return;
     if (!changed) return onDismiss();
-    onSave({ name: trimmed, suitableCategories: draftCategories });
+    onSave({ name: trimmed, categories: draftCategories });
   };
 
   return (
@@ -86,7 +87,7 @@ export function PresenterDetailsDialog({
             emptyNote="Nothing by that name."
             maxLength={30}
           />
-          <span className="sc-pdetails-hint">The verticals they suit, so they surface where you work.</span>
+          <span className="sc-pdetails-hint">{hint}</span>
         </div>
 
         {error && <p className="sc-assetform-err">{error}</p>}

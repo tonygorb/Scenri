@@ -6,7 +6,15 @@ import type { PendingState } from '../createDraft.js';
 export type Created =
   | { kind: 'product'; id: string; name: string }
   | { kind: 'presenter'; id: string; name: string }
-  | { kind: 'scene'; jobId: string; name: string };
+  | {
+      kind: 'scene';
+      id: string;
+      name: string;
+      /** Where the reader filed it, for the one line that says so. */
+      verticals?: string[];
+      /** A new scene, or a saved one changed. */
+      how?: 'created' | 'updated';
+    };
 
 /**
  * Everything the host hands a flow. Deliberately small: a flow owns its own

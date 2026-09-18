@@ -92,6 +92,8 @@ import { registerSceneRoutes } from './routes/scenes.js';
 import { registerPresenterRoutes } from './routes/presenters.js';
 import { registerAssetBuildRoutes } from './routes/assetBuilds.js';
 import { registerPresenterDraftRoutes } from './routes/presenterDrafts.js';
+import { registerSceneStudioRoutes } from './routes/sceneStudio.js';
+import { runningSceneStudioCount, settleSceneStudio } from './sceneStudio.js';
 import { runningDraftJobCount, sweepAbandonedPresenterDrafts, sweepPresenterDrafts } from './presenterDrafts.js';
 import { registerDemoProductRoutes } from './routes/demoProducts.js';
 import { registerShowcaseRoutes } from './routes/showcase.js';
@@ -531,6 +533,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   sweepPresenterDrafts(core);
   sweepAbandonedPresenterDrafts(core, { evict: (hash) => thumbs.evict(hash) });
   registerPresenterDraftRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters, thumbs });
+  registerSceneStudioRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters, thumbs });
 
   // ---- demo products (curated, fictional-but-premium product catalog). A
   // demo product attaches straight into a brief like a Presenter does — see
@@ -2500,6 +2503,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       new Set(runningGenerations.values()).size +
       runningImportCount() +
       runningAssetBuildCount() +
+      runningSceneStudioCount() +
       runningDraftJobCount(),
   });
 
@@ -2516,6 +2520,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         await new Promise((r) => setTimeout(r, 25));
       }
       await settleCatalogImports();
+      // a studio draw writes an image when it lands: never into a home being torn down
+      await settleSceneStudio();
       await thumbs.settle();
       await app.close();
       core.close();
@@ -2533,6 +2539,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       new Set(runningGenerations.values()).size +
       runningImportCount() +
       runningAssetBuildCount() +
+      runningSceneStudioCount() +
       runningDraftJobCount(),
   });
 

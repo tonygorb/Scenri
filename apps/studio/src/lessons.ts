@@ -57,8 +57,8 @@ export const LESSONS: readonly Lesson[] = [
     id: 'scene',
     title: 'Build a scene',
     resume: 'Continue your scene',
-    summary: 'A place and its light, saved to shoot in again, from a photo or a line of direction.',
-    steps: ['Start a scene', 'Name it, then add a photo or a line', 'Create it'],
+    summary: 'A place and its light, saved to shoot in again, from pictures of it or a few questions.',
+    steps: ['Start a scene', 'Describe the place, or add pictures', 'Read what your shots are told', 'Use it'],
     firstStep: true,
   },
   {
@@ -142,7 +142,7 @@ const AT: Record<GuideTaskId, Record<string, number>> = {
   },
   product: { product: 1 },
   presenter: { engine: 1, start: 1, face: 2, save: 3 },
-  scene: { scene: 1 },
+  scene: { start: 1, words: 2, use: 3 },
   refine: { ask: 1, 'refine-failed': 1, refining: 2, refined: 3 },
 };
 
