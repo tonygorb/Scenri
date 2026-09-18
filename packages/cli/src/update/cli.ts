@@ -50,7 +50,7 @@ export async function runUpdateCommand(opts: { check: boolean; from?: string }):
     console.log(`  ${latest} is available. Stage it with: scenri update`);
     return 0;
   }
-  if (!findNpm()) {
+  if (!(await findNpm())) {
     console.error('  npm is not reachable from here, so nothing can be downloaded.');
     console.error('  Run the newest version directly with: npx scenri@latest');
     console.error('  (or install Node.js with npm and try again)');

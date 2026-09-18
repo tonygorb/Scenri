@@ -36,31 +36,41 @@ function plantingNpm(version: string, opts: { name?: string; code?: number } = {
 const okVerify = (version: string) => async () => ({ ok: true as const, version });
 
 describe('findNpm', () => {
-  it('prefers npm on PATH', () => {
-    expect(findNpm({ platform: 'linux', canRun: (argv) => argv[0] === 'npm' })).toEqual(['npm']);
+  it('prefers npm on PATH', async () => {
+    expect(await findNpm({ platform: 'linux', canRun: (argv) => argv[0] === 'npm' })).toEqual(['npm']);
   });
-  it('falls back to npm_execpath when it is npm', () => {
-    const found = findNpm({
+  it('falls back to npm_execpath when it is npm', async () => {
+    const found = await findNpm({
       platform: 'linux',
       canRun: (argv) => argv[0] !== 'npm',
       env: { npm_execpath: '/x/npm-cli.js' },
     });
     expect(found).toEqual([process.execPath, '/x/npm-cli.js']);
   });
-  it('rewrites an npx execpath to the npm beside it (npx scenri is the documented path)', () => {
-    const found = findNpm({
+  it('rewrites an npx execpath to the npm beside it (npx scenri is the documented path)', async () => {
+    const found = await findNpm({
       platform: 'linux',
       canRun: (argv) => argv[0] !== 'npm',
       env: { npm_execpath: '/x/npx-cli.js' },
     });
     expect(found).toEqual([process.execPath, '/x/npm-cli.js']);
   });
-  it('never hands out bare npm on win32, where a .cmd would need a shell', () => {
-    const found = findNpm({ platform: 'win32', canRun: (argv) => argv[0] === 'npm' });
+  it('never hands out bare npm on win32, where a .cmd would need a shell', async () => {
+    const found = await findNpm({ platform: 'win32', canRun: (argv) => argv[0] === 'npm' });
     expect(found).not.toEqual(['npm']);
   });
-  it('yields null when neither answers (pnpm-run shells included)', () => {
-    expect(findNpm({ platform: 'linux', canRun: () => false, env: { npm_execpath: '/x/pnpm.cjs' } })).toBeNull();
+  it('looks without holding the event loop, since the server asks on a request', async () => {
+    // The real lookup, npm and all. A synchronous spawn would finish inside
+    // the call, and the timer below would run second.
+    const order: string[] = [];
+    const looking = findNpm({ env: {} }).then(() => order.push('found'));
+    await new Promise((r) => setTimeout(r, 0));
+    order.push('tick');
+    await looking;
+    expect(order[0]).toBe('tick');
+  }, 20_000);
+  it('yields null when neither answers (pnpm-run shells included)', async () => {
+    expect(await findNpm({ platform: 'linux', canRun: () => false, env: { npm_execpath: '/x/pnpm.cjs' } })).toBeNull();
   });
 });
 
