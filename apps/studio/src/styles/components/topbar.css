@@ -20,9 +20,8 @@
   background: var(--sc-bg);
   border-bottom: 1px solid var(--sc-line-chrome);
   z-index: var(--sc-z-topbar);
-  /* The height is a token redefinition (foundations/shells.css), so the row
-     snaps in one layout pass; only the shadow moves, because easing a grid row
-     would re-lay-out the feed inside it on every frame. */
+  /* Only the shadow moves. The bar keeps its height when the page scrolls under
+     it: a shrink, snapped or eased, read as the page lurching under a reader. */
   transition: box-shadow 240ms ease;
 }
 /* Over content rather than above it, which is the one thing a shadow is allowed
@@ -301,10 +300,10 @@
   letter-spacing: -0.01em;
   transition: background 120ms ease;
 }
-/* The plus rides a gold disc inset 4px from the pill's round end, so the disc and
-   the end share one centre. Gold at full strength, and the one place in the bar
-   it appears: this is the act the whole studio exists for (DESIGN.md, the One
-   Accent Rule). Ink on it in both themes, since gold carries dark ink only. */
+/* The plus rides a disc in the pill's own ink, inset 4px from the round end so
+   the disc and the end share one centre: the fill and its ink swapped, so it
+   reads in both themes (a black disc on the white pill, a white one on the
+   black) with no colour of its own. */
 .sc-new-go {
   padding: 0 4px;
   border-radius: var(--sc-radius-full) 0 0 var(--sc-radius-full);
@@ -316,8 +315,8 @@
   width: 24px;
   height: 24px;
   border-radius: var(--sc-radius-full);
-  background: var(--sc-gold);
-  color: var(--sc-gold-ink);
+  background: var(--sc-inv-fg);
+  color: var(--sc-inv-bg);
 }
 .sc-new-lb {
   padding: 0 8px;

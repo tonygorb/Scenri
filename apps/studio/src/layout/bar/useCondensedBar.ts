@@ -7,13 +7,13 @@ const DOWN = 24;
 const UP = 8;
 
 /**
- * Reading down the page, the bar gives back the air around its controls. Nothing
- * inside it moves or resizes; what changes is the row's height and a shadow
- * arriving, because it is over content now rather than above it.
+ * Reading down the page, the bar lifts: a shadow arrives because it is over
+ * content now rather than above it. Nothing about it moves or resizes. It used
+ * to give back 8px of height as well, and that shrink, snapped or eased, read as
+ * the page lurching under the reader, so only the shadow is left.
  *
- * Two thresholds rather than one. A single threshold flutters: the bar shrinks,
- * the content moves up, the scroll position crosses back, and it grows again. A
- * 16px dead band means a scroll resting near the line cannot oscillate.
+ * Two thresholds rather than one, so a scroll resting near the line cannot make
+ * the shadow flicker on and off.
  *
  * The signal is one capture-phase listener on the shell. `scroll` does not
  * bubble but it does capture, so one listener hears every scroller under it,
