@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { beforeAll, describe, it, expect } from 'vitest';
 import { createDemoEngine, demoOptionsFromEnv } from '../src/index.js';
 import { BUDGET_EXHAUSTED, type BrandContext } from '@scenri/core';
 
@@ -12,6 +12,16 @@ const brand: BrandContext = {
 };
 
 describe('mock engine', () => {
+  // The first picture carries a one-time cost that is not this engine's. On Windows
+  // the first SVG <text> sharp renders makes fontconfig scan every font in
+  // C:\Windows\Fonts (lovell/sharp#3535): 7.5s on a quiet windows-latest runner, past
+  // 30s on a loaded one, where every later render queued behind the scan and four
+  // tests timed out together (run 35163600033). Linux pays about nothing. Paid once
+  // here, with a budget of its own, each test's timeout measures that test.
+  beforeAll(async () => {
+    await createDemoEngine(() => 'warm-up').generate({ prompt: 'warm-up', brand, width: 64, height: 64, count: 1 });
+  }, 120_000);
+
   it('is always available, zero cost, correct capabilities', async () => {
     const e = createDemoEngine(() => 'h');
     expect((await e.isAvailable()).ok).toBe(true);
@@ -19,9 +29,7 @@ describe('mock engine', () => {
     expect(e.capabilities()).toMatchObject({ id: 'demo', localOnly: false, supportsEdit: true });
   });
 
-  // 30s, not the 5s default: sharp's first render on a cold Windows CI
-  // runner loads libvips DLLs and can alone eat the default budget.
-  it('generates `count` PNG images through saveImage', { timeout: 30_000 }, async () => {
+  it('generates `count` PNG images through saveImage', async () => {
     const saved: Buffer[] = [];
     const e = createDemoEngine((b) => {
       saved.push(b);
