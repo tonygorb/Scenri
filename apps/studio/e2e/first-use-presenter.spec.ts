@@ -48,9 +48,11 @@ test('a word at the start, then quiet: the studio asks its own questions', async
     timeout: 20_000,
   });
   await pointsAt(page, '.sc-pstudio [data-turn="q:source"] .sc-convo-q');
-  // only that question's own answers can be used
-  expect(await isInert(page, '.sc-pstudio-foot .sc-convo-card')).toBe(true);
+  // that question's own answers can be used, and so can the studio's line,
+  // where a typed sentence is the description; the rest of the studio is held
+  expect(await isInert(page, '.sc-pstudio-foot .sc-convo-card')).toBe(false);
   expect(await isInert(page, '.sc-pstudio [data-turn="q:source"]')).toBe(false);
+  expect(await isInert(page, '.sc-pstudio-head')).toBe(true);
 
   // Answering it hands the conversation back: the questionnaire speaks for itself.
   await answer(page, 'Describe someone').click();
@@ -86,6 +88,17 @@ test('the face and the save are the two words it says, and saving ends the task'
   await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Decide the face', { timeout: 20_000 });
   // the portrait stays usable beside the question: its versions are part of deciding
   expect(await isInert(page, '.sc-pstudio-well')).toBe(false);
+  // and it is in sight: a window of its own in the curtain, not blurred behind
+  // it (the windows were once cut to the transcript's pane, which it is not in)
+  await expect(page.locator('.sc-pstudio-well')).toHaveAttribute('data-guide-stage', '');
+  // earlier answers are not this moment's: the transcript is a live log, and
+  // keeping that log whole once left every earlier pencil within reach
+  await expect(page.locator('.sc-pstudio button[aria-label="Change this answer"]:not([inert] *)')).toHaveCount(0);
+  // a phone draws no stage: the same word, on the question and the face above it
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Decide the face', { timeout: 20_000 });
+  await expect(studioCoach(page)).toHaveAttribute('data-state', 'shown');
+  await page.setViewportSize({ width: 1440, height: 900 });
   await answer(page, 'Use this person').click();
 
   // Everything between is the studio's own; the tutor speaks again at the save.

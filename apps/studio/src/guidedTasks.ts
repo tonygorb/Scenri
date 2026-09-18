@@ -36,6 +36,13 @@ export interface Moment {
   /** What can be used. Defaults to the thing being pointed at. */
   live?: string[];
   /**
+   * Usable too, when they are on screen, but not what is asked for and never
+   * waited for: the brief beside the add control, whose own `$ @ /` reach the
+   * same ingredients; the portrait beside the question about it, which a
+   * phone does not draw.
+   */
+  also?: string[];
+  /**
    * Surfaces that stay lit but are not for using: the composer under its own
    * open picker, which would otherwise go dark beneath the panel it opened.
    */
@@ -69,6 +76,8 @@ const BRIEF = '[data-guide="compose"] .sc-brief-line';
 const SEND = '[data-guide="compose.send"]';
 const ENGINE = '[data-guide="compose.engine"]';
 const STUDIO = '.sc-pstudio';
+/** The studio's own answer line: a typed sentence answers the question above it. */
+const STUDIO_COMPOSER = `${STUDIO} .sc-convo-card`;
 const DIALOG = '.sc-newdlg-layer';
 const SHOT = '.sc-ovl';
 
@@ -115,8 +124,12 @@ export const COPY = {
     body: 'Say what to change, like warmer light or a closer crop. The rest of the shot stays.',
   },
   refineResult: {
-    title: 'A new version',
-    body: 'The original is one step back, so nothing is lost.',
+    title: 'Here is the change',
+    body: 'The original stays one step back in the history, so nothing is lost.',
+  },
+  refineFailed: {
+    title: "That change didn't work",
+    body: 'The history says why. Open the original there and say the change again.',
   },
   presenterEngine: {
     title: 'Set up image generation',
@@ -136,7 +149,11 @@ export const COPY = {
   },
   sceneMake: {
     title: 'Build a scene',
-    body: 'A place and its light, saved to shoot in again. A photo or a line of direction is enough.',
+    body: 'A place and its light, saved to shoot in again. Name it, then add a photo or a line of direction.',
+  },
+  productMake: {
+    title: 'Add your product',
+    body: 'Its real photos keep it the same in every shot. Add a few, or bring in your catalog from your store.',
   },
 } as const;
 
@@ -220,8 +237,13 @@ export function askedKind(c: ComposerFacts): AskedKind | null {
  * One ingredient, asked for where it is added. The picker is the same moment
  * with the same words: while it is open it is what the card points at, and the
  * only thing that can be used is the shelf of things to choose from. Not the
- * search, not Upload, not Add, not the tabs (there are none while it asks):
+ * search, not Upload, not the tabs (there are none while it asks), and not the
+ * shelf's own way to make a new one, which the picker leaves out while it asks:
  * there is one action here, and it is choosing one of them.
+ *
+ * Before it opens, the brief stays usable beside the add control: someone who
+ * already knows `$`, `@` or `/` reaches the same shelf from the words, and a
+ * chip is a chip however it arrived.
  */
 function pickMoment(kind: AskedKind, pickerOpen: boolean): Moment {
   const say = COPY[kind];
@@ -236,18 +258,29 @@ function pickMoment(kind: AskedKind, pickerOpen: boolean): Moment {
         side: 'right',
         ...say,
       }
-    : { id: kind, voice: 'ask', point: ADD, side: 'top', ...say };
+    : { id: kind, voice: 'ask', point: ADD, also: [BRIEF], side: 'top', ...say };
 }
 
 export interface RefineFacts {
   /** A shot's overlay is open, in the task's brand. */
   here: boolean;
   nodes: readonly GuideTaskNode[];
+  /** The open shot offers its composer: a failed step does not, until they step back to one that does. */
+  asking?: boolean;
 }
 
-const SHOT_COMPOSER = `${SHOT} .sc-promptcard`;
+/** The open shot's composer, where a change is asked for. */
+export const SHOT_COMPOSER = `${SHOT} .sc-promptcard`;
+/** The open shot's picture, which the change is about. */
+const SHOT_PICTURE = `${SHOT} .sc-stage-img`;
+/** The open shot's history: the original, then each refinement. */
+const SHOT_HISTORY = `${SHOT} .sc-trail`;
 
-/** Refining: ask for one change, wait, then the new version. */
+/**
+ * Refining: ask for one change, wait, then point at where it landed. The
+ * picture stays in sight while the change is asked for, because saying what
+ * to change means looking at it.
+ */
 export function refineMoment(f: RefineFacts): Moment | null {
   if (!f.here) return null;
   const made = f.nodes.find(finished);
@@ -256,14 +289,25 @@ export function refineMoment(f: RefineFacts): Moment | null {
       id: 'refined',
       voice: 'note',
       shell: SHOT,
-      point: SHOT_COMPOSER,
-      beside: true,
-      side: 'left',
+      point: SHOT_HISTORY,
+      side: 'top',
       ...COPY.refineResult,
       done: true,
     };
   if (f.nodes.some((n) => n.status === 'running')) return { id: 'refining', voice: 'quiet' };
-  return { id: 'ask', voice: 'ask', shell: SHOT, point: SHOT_COMPOSER, beside: true, side: 'left', ...COPY.refineAsk };
+  // A step that failed has no composer of its own: the history is where they go next.
+  if (f.nodes.some(failed) && !f.asking)
+    return { id: 'refine-failed', voice: 'note', shell: SHOT, point: SHOT_HISTORY, side: 'top', ...COPY.refineFailed };
+  return {
+    id: 'ask',
+    voice: 'ask',
+    shell: SHOT,
+    point: SHOT_COMPOSER,
+    also: [SHOT_PICTURE],
+    beside: true,
+    side: 'left',
+    ...COPY.refineAsk,
+  };
 }
 
 /**
@@ -275,27 +319,39 @@ export function refineMoment(f: RefineFacts): Moment | null {
 export function presenterMoment(studio: StudioFacts | null): Moment | null {
   if (!studio) return null;
   const turn = `${STUDIO} [data-turn="q:${studio.open}"]`;
-  const at = (id: string, say: { title: string; body: string }, more: string[] = []): Moment => ({
+  // `also` is what else answers the question: a typed sentence in the studio's
+  // own line, the portrait beside it. Neither is waited for: a phone draws no stage.
+  const at = (id: string, say: { title: string; body: string }, also: string[] = [], lit?: string[]): Moment => ({
     id,
     voice: 'ask',
     shell: STUDIO,
     point: `${turn} .sc-convo-q`,
-    live: [turn, ...more],
+    live: [turn],
+    also,
+    ...(lit ? { lit } : {}),
     beside: true,
     side: 'left',
     ...say,
   });
   switch (studio.open) {
     case 'source':
-      return at('start', COPY.presenterStart);
+      // a sentence typed here is the description, and asks no door
+      return at('start', COPY.presenterStart, [STUDIO_COMPOSER]);
     // The studio asks its own questions, but a wall is not a question: nothing
     // in this flow goes on until something can draw, so the tutor says so.
     case 'noengine':
       return at('engine', COPY.presenterEngine);
     case 'identity':
     case 'revision':
-      // the portrait stays usable beside the question: its versions are part of deciding
-      return at('face', COPY.presenterFace, ['.sc-pstudio-well']);
+      // the portrait stays usable beside the question, and a sentence adjusts
+      // it; the face as the conversation shows it (the turn just above the
+      // question, all a phone has) stays in sight, and the card stands clear of it
+      return at(
+        'face',
+        COPY.presenterFace,
+        ['.sc-pstudio-well', STUDIO_COMPOSER],
+        [`${STUDIO} [data-turn]:has(+ [data-turn="q:${studio.open}"])`],
+      );
     case 'save':
     case 'blind':
       return at('save', COPY.presenterSave);
@@ -304,18 +360,19 @@ export function presenterMoment(studio: StudioFacts | null): Moment | null {
   }
 }
 
-/** A scene: one word on the dialog it is made in, then quiet until it exists. */
+/** One word on the dialog something is made in, then quiet until it exists. */
+function dialogMoment(id: string, say: { title: string; body: string }): Moment {
+  return { id, voice: 'ask', shell: DIALOG, point: '.sc-newdlg', beside: true, side: 'left', ...say };
+}
+
+/** A scene: named, then a photo or a line of direction; the build runs after the dialog closes. */
 export function sceneMoment(dialogOpen: boolean): Moment | null {
-  if (!dialogOpen) return null;
-  return {
-    id: 'scene',
-    voice: 'ask',
-    shell: DIALOG,
-    point: '.sc-newdlg',
-    beside: true,
-    side: 'left',
-    ...COPY.sceneMake,
-  };
+  return dialogOpen ? dialogMoment('scene', COPY.sceneMake) : null;
+}
+
+/** A product: the one decision the dialog does not explain is where its photos come from. */
+export function productMoment(dialogOpen: boolean): Moment | null {
+  return dialogOpen ? dialogMoment('product', COPY.productMake) : null;
 }
 
 /** The tasks that end on their own, when the brand holds one more than it did. */
@@ -327,6 +384,7 @@ export function madeOne(
   if (!a) return false;
   if (a.task === 'presenter') return now.presenters > a.baseline.presenters;
   if (a.task === 'scene') return now.scenes > a.baseline.scenes;
+  if (a.task === 'product') return now.products > a.baseline.products;
   return false;
 }
 

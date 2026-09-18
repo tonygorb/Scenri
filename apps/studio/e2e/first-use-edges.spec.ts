@@ -141,3 +141,24 @@ test('Enter makes the shot, and a reload while it draws keeps the wait', async (
   await page.reload();
   await expect(coachTitle(page)).toHaveText(/Scenri is making it|Your first shot/, { timeout: 30_000 });
 });
+
+test('someone who knows `$` answers the ask from the brief, and Enter on + opens only the picker', async ({ page }) => {
+  const slug = await ownBrand(page, 'Quick Hands');
+  await page.goto(`/${slug}/create`);
+  await readTheOpening(page);
+  await expect(coachTitle(page)).toHaveText('Choose a product');
+  // the brief's own way to the same shelf: a chip is a chip however it arrived
+  await brief(page).click();
+  await page.keyboard.type('$');
+  await expect(page.locator('.sc-cmd')).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(chips(page)).toHaveCount(1);
+  await expect(coachTitle(page)).toHaveText('Choose a presenter');
+  // Enter on the focused + is the +'s own press: Create once also opened
+  // whichever shot was selected behind it, and the tutor went with it
+  await page.locator('[data-guide="compose.add"]').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.sc-attachpanel')).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/${slug}/create$`));
+  await expect(coachTitle(page)).toHaveText('Choose a presenter');
+});

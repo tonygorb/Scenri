@@ -11,6 +11,7 @@ import {
   madeOne,
   mergeTaskNodes,
   presenterMoment,
+  productMoment,
   refineMoment,
   sceneMoment,
   startsHere,
@@ -98,6 +99,9 @@ describe('the first shot, one ask at a time', () => {
   it('follows into the picker with the same words, and leaves it usable', () => {
     const shut = ask(composer());
     expect(shut).toMatchObject({ id: 'product', point: '[data-guide="compose.add"]', ...COPY.product });
+    // someone who already knows `$` reaches the same shelf from the brief: it stays usable, never asked
+    expect(shut?.also).toEqual(['[data-guide="compose"] .sc-brief-line']);
+    expect(shut?.live).toBeUndefined();
     const open = ask(composer({ pickerOpen: true }));
     expect(open).toMatchObject({
       id: 'product',
@@ -158,20 +162,35 @@ describe('the first shot, one ask at a time', () => {
 });
 
 describe('the later tasks', () => {
-  it("refine: ask on the open shot's composer, quiet while it draws, then a note on the new version", () => {
+  it("refine: ask on the open shot's composer, quiet while it draws, then a note on the history", () => {
     expect(refineMoment({ here: false, nodes: [] })).toBeNull();
     expect(refineMoment({ here: true, nodes: [] })).toMatchObject({
       voice: 'ask',
       shell: '.sc-ovl',
       point: '.sc-ovl .sc-promptcard',
+      // saying what to change means looking at the picture: it stays in sight
+      also: ['.sc-ovl .sc-stage-img'],
       title: COPY.refineAsk.title,
     });
     expect(refineMoment({ here: true, nodes: [{ ...node('e1', 'running'), kind: 'edit' }] })?.voice).toBe('quiet');
+    // the change landed in the history, so that is what the note points at
     expect(refineMoment({ here: true, nodes: [{ ...node('e1', 'done', 1), kind: 'edit' }] })).toMatchObject({
       voice: 'note',
+      point: '.sc-ovl .sc-trail',
       done: true,
       title: COPY.refineResult.title,
     });
+  });
+
+  it('refine: a failed change is said on the history, until a composer is there to ask again', () => {
+    const dud = [{ ...node('e1', 'error'), kind: 'edit' }];
+    expect(refineMoment({ here: true, nodes: dud, asking: false })).toMatchObject({
+      id: 'refine-failed',
+      voice: 'note',
+      point: '.sc-ovl .sc-trail',
+      title: COPY.refineFailed.title,
+    });
+    expect(refineMoment({ here: true, nodes: dud, asking: true })?.id).toBe('ask');
   });
 
   it('presenter: three decisions get a word, and every question the studio asks itself is quiet', () => {
@@ -210,12 +229,18 @@ describe('the later tasks', () => {
       shell: '.sc-pstudio',
       point: '.sc-pstudio [data-turn="q:source"] .sc-convo-q',
       live: ['.sc-pstudio [data-turn="q:source"]'],
+      // a sentence typed in the studio's own line is the description
+      also: ['.sc-pstudio .sc-convo-card'],
     });
-    // deciding a face keeps the picture usable: its versions are part of deciding
-    expect(presenterMoment({ open: 'identity' })?.live).toEqual([
-      '.sc-pstudio [data-turn="q:identity"]',
-      '.sc-pstudio-well',
-    ]);
+    // deciding a face keeps the picture and the sentence usable, but waits for
+    // neither: a phone draws no stage, and the question alone is the ask
+    const face = presenterMoment({ open: 'identity' });
+    expect(face?.live).toEqual(['.sc-pstudio [data-turn="q:identity"]']);
+    expect(face?.also).toEqual(['.sc-pstudio-well', '.sc-pstudio .sc-convo-card']);
+    // the face as the conversation shows it, the turn just above the question, stays in sight
+    expect(face?.lit).toEqual(['.sc-pstudio [data-turn]:has(+ [data-turn="q:identity"])']);
+    // a wall is only the wall: nothing to type past it
+    expect(presenterMoment({ open: 'noengine' })?.also).toEqual([]);
   });
 
   it('scene: its dialog is held, nothing when it is closed', () => {
@@ -226,10 +251,23 @@ describe('the later tasks', () => {
       point: '.sc-newdlg',
       title: COPY.sceneMake.title,
     });
+    // the dialog will not create one without a name, so the word says so
+    expect(COPY.sceneMake.body).toMatch(/Name it/);
+  });
+
+  it('product: the same one word on its dialog, nothing when it is closed', () => {
+    expect(productMoment(false)).toBeNull();
+    expect(productMoment(true)).toMatchObject({
+      id: 'product',
+      voice: 'ask',
+      shell: '.sc-newdlg-layer',
+      point: '.sc-newdlg',
+      title: COPY.productMake.title,
+    });
   });
 
   it('a task that makes something ends when the brand holds one more than when it began', () => {
-    const view = (task: 'presenter' | 'scene' | 'refine') =>
+    const view = (task: 'presenter' | 'scene' | 'product' | 'refine') =>
       ({
         active: { task, brandId: 'b1', since: 'x', baseline: { products: 2, presenters: 0, scenes: 1 } },
         counts: null,
@@ -238,6 +276,8 @@ describe('the later tasks', () => {
     expect(madeOne(view('presenter'), { products: 9, presenters: 0, scenes: 9 })).toBe(false);
     expect(madeOne(view('scene'), { products: 9, presenters: 9, scenes: 2 })).toBe(true);
     expect(madeOne(view('scene'), { products: 9, presenters: 9, scenes: 1 })).toBe(false);
+    expect(madeOne(view('product'), { products: 3, presenters: 0, scenes: 1 })).toBe(true);
+    expect(madeOne(view('product'), { products: 2, presenters: 9, scenes: 9 })).toBe(false);
     expect(madeOne(view('refine'), { products: 9, presenters: 9, scenes: 9 })).toBe(false);
   });
 });
@@ -461,7 +501,14 @@ describe('the copy', () => {
   });
 
   it('never repeats the title of the surface a note sits in', () => {
-    for (const c of [COPY.product, COPY.sceneMake, COPY.presenterFace, COPY.presenterSave, COPY.intro])
+    for (const c of [
+      COPY.product,
+      COPY.sceneMake,
+      COPY.productMake,
+      COPY.presenterFace,
+      COPY.presenterSave,
+      COPY.intro,
+    ])
       expect(`${c.title} ${c.body}`).not.toMatch(/New product|New scene/);
   });
 });

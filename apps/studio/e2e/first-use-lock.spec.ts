@@ -29,23 +29,27 @@ test('only the one action', async ({ page }) => {
   await expectHeld(page);
   // the opening holds everything: the only thing to do is read it
   for (const sel of ['.sc-topbar', '[data-guide="compose.add"]', '[data-guide="compose.send"]'])
-    expect(await isInert(page, sel), sel).toBe(true);
+    await expect.poll(() => isInert(page, sel), { message: sel }).toBe(true);
   await coachCard(page).getByRole('button', { name: 'Start' }).click();
 
   await expect(coachTitle(page)).toHaveText('Choose a product');
-  expect(await isInert(page, '[data-guide="compose.add"]')).toBe(false);
-  for (const sel of ['[data-guide="compose"] .sc-brief-line', '[data-guide="compose.send"]', '.sc-topbar'])
-    expect(await isInert(page, sel), sel).toBe(true);
+  await expect.poll(() => isInert(page, '[data-guide="compose.add"]')).toBe(false);
+  // the brief stays usable beside it: its own `$` reaches the same shelf
+  await expect.poll(() => isInert(page, '[data-guide="compose"] .sc-brief-line')).toBe(false);
+  for (const sel of ['[data-guide="compose.send"]', '.sc-topbar'])
+    await expect.poll(() => isInert(page, sel), { message: sel }).toBe(true);
 
   await page.locator('[data-guide="compose.add"]').click();
   await expect(coachCard(page)).toHaveAttribute('data-state', 'shown');
   await expect.poll(() => isInert(page, '.sc-attachpanel .sc-ap-head')).toBe(true);
   // inside the picker: the shelf, and nothing else
-  expect(await isInert(page, '.sc-attachpanel .sc-ap-body')).toBe(false);
+  await expect.poll(() => isInert(page, '.sc-attachpanel .sc-ap-body')).toBe(false);
   for (const sel of ['.sc-attachpanel .sc-ap-head', '[data-guide="compose.add"]'])
-    expect(await isInert(page, sel), sel).toBe(true);
+    await expect.poll(() => isInert(page, sel), { message: sel }).toBe(true);
   // search, Upload image and the picker's own close are not this moment's business
   expect(await page.locator('.sc-ap-head button:not([inert] *)').count()).toBe(0);
+  // nor is making a new one: a presenter made from here is a whole studio away
+  await expect(page.locator('.sc-attachpanel .sc-ap-add')).toHaveCount(0);
 
   await pickFromPicker(page, 'Product');
   await pickFromPicker(page, 'Presenter');
@@ -55,9 +59,9 @@ test('only the one action', async ({ page }) => {
   await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');
   await expect.poll(() => page.evaluate(() => document.activeElement?.className ?? '')).toContain('sc-brief-line');
   for (const sel of ['[data-guide="compose"] .sc-brief-line', '[data-guide="compose.send"]'])
-    expect(await isInert(page, sel), sel).toBe(false);
+    await expect.poll(() => isInert(page, sel), { message: sel }).toBe(false);
   for (const sel of ['[data-guide="compose.add"]', '.sc-topbar', '[data-guide="compose.settings-row"]'])
-    expect(await isInert(page, sel), sel).toBe(true);
+    await expect.poll(() => isInert(page, sel), { message: sel }).toBe(true);
   await page.keyboard.type('at dusk');
   await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');
 });

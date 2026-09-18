@@ -608,11 +608,13 @@ export const BriefInput = forwardRef<
     [emit],
   );
 
-  // While the tutor is walking someone through a brief, a chip can be changed
-  // but not taken out, by any means: the remove control is hidden (see
-  // composer-brief.css) and every deletion that would reach a chip is refused
-  // here, so Back stays the one way one leaves. Text is still text.
-  const chipsHeld = () => document.documentElement.hasAttribute('data-guide-task');
+  // While the tutor is walking someone through the first shot's brief, a chip
+  // can be changed but not taken out, by any means: the remove control is
+  // hidden (see composer-brief.css) and every deletion that would reach a chip
+  // is refused here, so Back stays the one way one leaves. Text is still text.
+  // Only that brief: an open shot's composer or the Home dock is never held.
+  const chipsHeld = () =>
+    document.documentElement.dataset.guideTask === 'first-shot' && !!rootRef.current?.closest('[data-guide="compose"]');
   const wouldTakeAChip = (root: HTMLElement, e: InputEvent) => {
     const chips = [...root.querySelectorAll('.sc-token')];
     if (!chips.length) return false;

@@ -121,7 +121,7 @@ test('opening the shot it made finishes the task, and refining waits to be asked
   await expect(page.locator('.sc-ovl .sc-coach .sc-coach-title')).toHaveText('Change one thing');
   await page.keyboard.type('warmer light');
   await page.getByRole('button', { name: 'Refine', exact: true }).click();
-  await expect(page.locator('.sc-ovl .sc-coach .sc-coach-title')).toHaveText('A new version', { timeout: 40_000 });
+  await expect(page.locator('.sc-ovl .sc-coach .sc-coach-title')).toHaveText('Here is the change', { timeout: 40_000 });
   await page.locator('.sc-ovl .sc-coach').getByRole('button', { name: 'Done' }).click();
   await expect.poll(async () => (await guideRecord(page)).active).toBeNull();
   expect((await guideRecord(page)).done.refine).toBeTruthy();

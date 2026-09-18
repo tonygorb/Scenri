@@ -78,7 +78,7 @@ const FADE_MS = 120;
  * surface opens (a chip's peek, the swap sheet, a menu).
  */
 const KEEP =
-  '[aria-live], .sc-toasts, .sc-upd-float, .sc-upd-overlay, [data-radix-popper-content-wrapper], .sc-chip-preview, .sc-swap, .sc-shotsheet, .sc-shotsheet-scrim';
+  '[aria-live], .sc-toasts, .sc-upd-float, .sc-upd-overlay, [data-radix-popper-content-wrapper], .sc-chip-preview, .sc-swap, .sc-shotsheet, .sc-shotsheet-scrim, .sc-cmd';
 
 type Phase = 'moving' | 'shown' | 'stowed' | 'away';
 
@@ -113,6 +113,8 @@ export interface CoachmarkProps {
   target: HTMLElement | null;
   /** What can be used while the page is held. The lit surfaces are worked out from these. */
   live: readonly HTMLElement[];
+  /** Usable and lit too, but not what the step asks for: the card neither waits for them nor hands them the caret. */
+  also?: readonly HTMLElement[];
   /** Kept out of the dim, but not made usable. */
   lit?: readonly HTMLElement[];
   side: Side;
@@ -166,6 +168,7 @@ export interface CoachmarkProps {
 export function Coachmark(p: CoachmarkProps) {
   const { id, voice, target, live, side, container, onShown } = p;
   const lit = p.lit ?? EMPTY;
+  const also = p.also ?? EMPTY;
   const coach = voice === 'ask';
   // Nothing to point at: the card sits in the middle and the whole page goes
   // quiet behind it. The one moment that does this is the opening.
@@ -196,6 +199,7 @@ export function Coachmark(p: CoachmarkProps) {
   const v = phase === 'shown' && view.id === id ? viewOf(p) : view;
   // Live elements arrive as a fresh array each render; the effects follow what is in it.
   const liveKey = useSurfaceKey(live);
+  const alsoKey = useSurfaceKey(also);
   const litKey = useSurfaceKey(lit);
 
   // One lock for the life of the coach on screen, released however it ends.
@@ -248,7 +252,11 @@ export function Coachmark(p: CoachmarkProps) {
         ...(ring ? [ring] : []),
         ...(rim ? [rim] : []),
         ...live,
-        ...document.querySelectorAll(KEEP),
+        ...also,
+        // A region kept for what it announces is kept whole only when the step
+        // is not inside it: the studio's transcript is itself a live log, and
+        // keeping it whole left every earlier answer's pencil within reach.
+        ...[...document.querySelectorAll(KEEP)].filter((k) => ![...live, ...also].some((s) => k.contains(s))),
       ]);
 
     // What it points at moved out of every pane (momentum, a resize): nothing
@@ -269,7 +277,7 @@ export function Coachmark(p: CoachmarkProps) {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const vv = window.visualViewport;
-      const clips: Box[] = [
+      const screen: Box[] = [
         { left: 0, top: 0, right: vw, bottom: vh },
         ...(vv
           ? [
@@ -281,12 +289,17 @@ export function Coachmark(p: CoachmarkProps) {
               },
             ]
           : []),
-        ...(pane ? [boxOf(pane.getBoundingClientRect())] : []),
       ];
+      // Each surface is cut to the pane it scrolls in, not the target's: the
+      // portrait beside a question is not inside the transcript that scrolls it.
+      const clipsOf = (el: HTMLElement): Box[] => {
+        const own = el === target ? pane : scrollPane(el);
+        return own ? [...screen, boxOf(own.getBoundingClientRect())] : screen;
+      };
       const chrome = occluders(lead, container);
       // Only a bar across the screen cuts a window short; a small float over a corner does not.
       const bars = chrome.filter((c) => width(c) > vw / 3);
-      const seen = target ? visibleRect(boxOf(target.getBoundingClientRect()), clips) : null;
+      const seen = target ? visibleRect(boxOf(target.getBoundingClientRect()), clipsOf(target)) : null;
       const t = seen && trimBy(seen, bars);
       if (target && !t) return away();
       // The lit surface is the shape the asked control sits in (the composer
@@ -295,22 +308,32 @@ export function Coachmark(p: CoachmarkProps) {
       // A popover or sheet that control opened joins them while it is open.
       const windows: Window[] = [];
       const shapes: HTMLElement[] = [];
-      for (const el of [...(target ? [target] : []), ...live, ...lit, ...openPoppers()]) {
+      for (const el of [...(target ? [target] : []), ...live, ...also, ...lit, ...openPoppers()]) {
         const stage = el.closest<HTMLElement>(SHAPE) ?? el;
         if (!shapes.includes(stage)) shapes.push(stage);
       }
+      // What the card is about, and so what it stands clear of: not what is
+      // merely usable beside it (the portrait beside a question is lit, but the
+      // card still stands against the question).
+      const about = new Set(
+        [...(target ? [target] : []), ...live, ...lit, ...openPoppers()].map(
+          (el) => el.closest<HTMLElement>(SHAPE) ?? el,
+        ),
+      );
       let r: Box | null = null;
       for (const el of shapes) {
-        const b = visibleRect(boxOf(el.getBoundingClientRect()), clips);
+        const b = visibleRect(boxOf(el.getBoundingClientRect()), clipsOf(el));
         const trimmed = b && trimBy(b, bars);
         if (!trimmed) continue;
         const corner = cornerRadius(el);
+        // A picture is cut at its own edge like a surface: padding it as a block
+        // of text framed it in white, a panel floating over the page.
         windows.push(
-          corner >= 4
+          corner >= 4 || el.matches('img, video, canvas')
             ? { ...pad(trimmed, SURFACE_PAD), radius: corner + SURFACE_PAD }
             : { ...pad(trimmed, BLOCK_PAD), radius: BLOCK_RADIUS },
         );
-        r = r ? union(r, trimmed) : trimmed;
+        if (about.has(el)) r = r ? union(r, trimmed) : trimmed;
       }
       if (!centred && !t && !r) return away();
       // Held once per showing, and again whenever the page has redrawn a
@@ -449,7 +472,7 @@ export function Coachmark(p: CoachmarkProps) {
         held = true;
       }
       if (!shown) {
-        const here = [...(target ? [target] : []), ...live, ...lit]
+        const here = [...(target ? [target] : []), ...live, ...also, ...lit]
           .map((el) => {
             const b = el.getBoundingClientRect();
             return [b.left, b.top, b.right, b.bottom].map(Math.round).join(',');
@@ -522,17 +545,31 @@ export function Coachmark(p: CoachmarkProps) {
     if (target) ro.observe(target);
     window.visualViewport?.addEventListener('resize', schedule);
     window.visualViewport?.addEventListener('scroll', schedule);
+    // The page goes on drawing under a held page: a question writes itself in,
+    // the brief opens its `$` menu. What arrives after the hold is held too, or
+    // kept when it belongs to the step, so nothing new is reachable by Tab.
+    let rehold = 0;
+    const arrivals = coach
+      ? new MutationObserver(() => {
+          if (!held) return;
+          cancelAnimationFrame(rehold);
+          rehold = requestAnimationFrame(hold);
+        })
+      : null;
+    arrivals?.observe(container, { childList: true, subtree: true });
 
     return () => {
       alive = false;
       document.documentElement.style.removeProperty('--sc-coach-h');
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(rehold);
+      arrivals?.disconnect();
       stopAuto?.();
       ro.disconnect();
       window.visualViewport?.removeEventListener('resize', schedule);
       window.visualViewport?.removeEventListener('scroll', schedule);
     };
-  }, [id, coach, hasCard, target, liveKey, litKey, side, container, onShown, masked]);
+  }, [id, coach, hasCard, target, liveKey, alsoKey, litKey, side, container, onShown, masked]);
 
   // The card's words describe the control while it is the one being pointed at.
   useEffect(() => {

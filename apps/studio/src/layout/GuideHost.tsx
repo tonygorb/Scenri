@@ -15,7 +15,9 @@ import {
   madeOne,
   mergeTaskNodes,
   presenterMoment,
+  productMoment,
   refineMoment,
+  SHOT_COMPOSER,
   sceneMoment,
   startsHere,
   welcomeSet,
@@ -165,9 +167,10 @@ export function GuideHost() {
       nodes,
       begun: begun || nodes.length > 0,
     });
-  } else if (task === 'refine') moment = refineMoment({ here: !!shot, nodes });
+  } else if (task === 'refine') moment = refineMoment({ here: !!shot, nodes, asking: !!firstVisible(SHOT_COMPOSER) });
   else if (task === 'presenter') moment = studio ? presenterMoment(facts.studio) : null;
   else if (task === 'scene') moment = sceneMoment(newKind === 'scene');
+  else if (task === 'product') moment = productMoment(newKind === 'product');
 
   /**
    * The picker shows the one kind being asked for, and moves on with the ask:
@@ -264,11 +267,11 @@ export function GuideHost() {
     }
   }, [task, shot, finish]);
 
-  // A presenter or scene task: re-read what the brand holds whenever it may
-  // have changed, and end once there is one more than when it began. Closing
-  // its surface does not end it: a build may still be landing, and the task
-  // waits in First steps for whoever comes back to it.
-  const assetTask = task === 'presenter' || task === 'scene';
+  // A task that makes something (a product, a presenter, a scene): re-read what
+  // the brand holds whenever it may have changed, and end once there is one
+  // more than when it began. Closing its surface does not end it: a build may
+  // still be landing, and the task waits for whoever comes back to it.
+  const assetTask = task === 'presenter' || task === 'scene' || task === 'product';
   const buildsRunning = builds.filter((b) => !b.finished).length;
   useEffect(() => {
     if (assetTask) void refreshGuide();
@@ -291,9 +294,11 @@ export function GuideHost() {
         ? 'refine'
         : newKind === 'scene' && startsHere('scene', s)
           ? 'scene'
-          : studio && startsHere('presenter', s)
-            ? 'presenter'
-            : null;
+          : newKind === 'product' && startsHere('product', s)
+            ? 'product'
+            : studio && startsHere('presenter', s)
+              ? 'presenter'
+              : null;
     if (!want || autoStarted.current.has(want)) return;
     autoStarted.current.add(want);
     void guideIntent({ start: { task: want, brandId: brand.id } });
@@ -345,6 +350,8 @@ export function GuideHost() {
   // held and the only thing to do is read it.
   const wanted = drawn?.live ?? (drawn?.point ? [drawn.point] : []);
   const live = wanted.map((sel) => firstVisible(sel)).filter((el): el is HTMLElement => !!el);
+  // Usable beside what is asked, when it is there; never waited for.
+  const also = (drawn?.also ?? []).map((sel) => firstVisible(sel)).filter((el): el is HTMLElement => !!el);
   // Lit but not for using, and never a reason to hold the card back.
   const lit = (drawn?.lit ?? []).map((sel) => firstVisible(sel)).filter((el): el is HTMLElement => !!el);
   // A moment with nothing to point at (the opening) is ready as soon as the
@@ -386,6 +393,7 @@ export function GuideHost() {
           voice={drawn.voice}
           target={target}
           live={live}
+          also={also}
           lit={lit}
           side={drawn.side ?? 'top'}
           beside={drawn.beside}

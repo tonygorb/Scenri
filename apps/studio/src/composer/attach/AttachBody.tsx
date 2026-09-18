@@ -557,17 +557,20 @@ export function AttachBody({
                     Show all {l.total}
                   </button>
                 )}
-                {tab === 'Products' && (
+                {/* Asked for one kind, the shelf is for choosing: making a new one
+                    leaves the brief (a presenter is a whole studio), and is a
+                    lesson of its own. */}
+                {tab === 'Products' && !only && (
                   <button type="button" className="sc-ap-sec-act sc-ap-add" onClick={() => create('product')}>
                     Add product
                   </button>
                 )}
-                {tab === 'Presenters' && (
+                {tab === 'Presenters' && !only && (
                   <button type="button" className="sc-ap-sec-act sc-ap-add" onClick={() => create('presenter')}>
                     Create presenter
                   </button>
                 )}
-                {tab === 'Scenes' && (
+                {tab === 'Scenes' && !only && (
                   <button type="button" className="sc-ap-sec-act sc-ap-add" onClick={() => create('scene')}>
                     Create scene
                   </button>
@@ -614,7 +617,7 @@ export function AttachBody({
               <div className="sc-ap-grid" data-shape={l.items[0]?.shape ?? 'square'} style={style}>
                 {/* Out of the arrow walk on purpose: a hardware keyboard on a
                     phone is rare, and the tile is one Tab away regardless. */}
-                {phone && gi === 0 && <UploadTile onClick={onUpload} />}
+                {phone && gi === 0 && !only && <UploadTile onClick={onUpload} />}
                 {l.items.map((card, i) => (
                   <AttachTile
                     key={card.key}
