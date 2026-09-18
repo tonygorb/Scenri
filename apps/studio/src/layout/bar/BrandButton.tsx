@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Check, GearSix, MagnifyingGlass, Plus, Power } from '@phosphor-icons/react';
 import { BarMenu, BarRow } from './BarMenu.js';
@@ -111,6 +111,7 @@ function BrandList() {
   const { brand } = useBrand();
   const navigate = useNavigate();
   const [find, setFind] = useState('');
+  const scroller = useRef<HTMLDivElement>(null);
 
   // Display names that appear on more than one brand need their slug shown, or
   // two rows read as one brand listed twice and the click is a coin toss.
@@ -150,6 +151,17 @@ function BrandList() {
     );
   };
 
+  // More brands below: the rows fade into the line under the list, the brief's
+  // own treatment, and read sharp again once there is nothing more to see.
+  const syncMore = useCallback(() => {
+    const el = scroller.current;
+    if (!el) return;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight > 1) el.dataset.more = '';
+    else delete el.dataset.more;
+  }, []);
+  // Re-read whenever what is listed changes, since that changes the list's height.
+  useLayoutEffect(syncMore, [syncMore, query, brands.length]);
+
   const others = byName(
     brands.filter((b) => b.id !== brand.id),
     brandName,
@@ -184,7 +196,7 @@ function BrandList() {
         />
       </label>
 
-      <div className="sc-menu-brands">
+      <div ref={scroller} className="sc-menu-brands" onScroll={syncMore}>
         {query ? (
           hits.length > 0 ? (
             hits.map(row)

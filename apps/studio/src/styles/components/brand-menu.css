@@ -184,6 +184,12 @@
 .sc-menu-brands + .sc-menu-rule {
   margin-top: 0;
 }
+/* More below: the rows fade into that line, the brief's own treatment
+   (composer-brief.css), set from the scroll numbers and dropped at the end so
+   the last row reads sharp. */
+.sc-menu-brands[data-more] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--sc-space-8)), transparent);
+}
 .sc-menu-brands::-webkit-scrollbar {
   display: none;
 }
