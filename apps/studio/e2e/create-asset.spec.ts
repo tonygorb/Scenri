@@ -29,11 +29,74 @@ async function currentBrand(p: Page): Promise<string> {
 const trigger = (p: Page) => p.getByRole('button', { name: 'Other ways to start', exact: true });
 const dialog = (p: Page) => p.locator('.sc-newdlg');
 
+/**
+ * New is one pill: two halves inside one full-round shape, the primary button's
+ * own, so each end is a half-circle at whatever height the row gives it. The
+ * halves carry the same outer curve, or a focus ring on either would be cut off
+ * square by the shape it sits in.
+ */
+async function expectNewIsPill(p: Page) {
+  const g = await p.locator('.sc-new').evaluate((el) => {
+    const px = (v: string) => Number.parseFloat(v);
+    const r = el.getBoundingClientRect();
+    const go = el.querySelector('.sc-new-go');
+    const more = el.querySelector('.sc-new-more');
+    return {
+      h: r.height,
+      w: r.width,
+      ends: px(getComputedStyle(el).borderTopLeftRadius),
+      goEnd: go ? px(getComputedStyle(go).borderBottomLeftRadius) : 0,
+      moreEnd: more ? px(getComputedStyle(more).borderTopRightRadius) : 0,
+    };
+  });
+  expect(g.ends).toBeGreaterThanOrEqual(g.h / 2);
+  expect(g.goEnd).toBeGreaterThanOrEqual(g.h / 2);
+  expect(g.moreEnd).toBeGreaterThanOrEqual(g.h / 2);
+  // wider than tall, always: a pill, never squashed into a disc or an oval
+  expect(g.w).toBeGreaterThan(g.h);
+}
+
 test.describe('adding to a brand', () => {
   let slug: string;
 
   test.beforeEach(async ({ page }) => {
     slug = await currentBrand(page);
+  });
+
+  test('New is one pill, round at both ends, with and without its word', async ({ page }) => {
+    await expectNewIsPill(page);
+    // 768 to 960 drops the label and keeps both halves
+    await page.setViewportSize({ width: 800, height: 900 });
+    await expect(page.locator('.sc-new-lb')).toBeHidden();
+    await expectNewIsPill(page);
+  });
+
+  test('a pointer leaves no keyboard ring on the caret, and a key brings it back', async ({ page }) => {
+    const caret = trigger(page);
+    const rows = page.locator('.sc-start-row');
+    const ring = () => caret.evaluate((e) => e.matches(':focus-visible'));
+    const b = (await caret.boundingBox())!;
+    const [x, y] = [Math.round(b.x + b.width / 2), Math.round(b.y + b.height / 2)];
+
+    // shut by the caret itself, then by the page: a mouse all the way
+    await page.mouse.click(x, y);
+    await expect(rows.first()).toBeVisible();
+    await page.mouse.click(x, y);
+    await expect(rows).toHaveCount(0);
+    expect(await ring()).toBe(false);
+    await page.mouse.click(x, y);
+    await expect(rows.first()).toBeVisible();
+    await page.mouse.click(640, 640);
+    await expect(rows).toHaveCount(0);
+    expect(await ring()).toBe(false);
+
+    // Escape is a key: focus comes home to the caret, ring and all
+    await page.mouse.click(x, y);
+    await expect(rows.first()).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(rows).toHaveCount(0);
+    await expect(caret).toBeFocused();
+    expect(await ring()).toBe(true);
   });
 
   test("New's menu offers the shot and exactly the three ingredients", async ({ page }) => {

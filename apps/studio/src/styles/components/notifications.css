@@ -83,7 +83,9 @@
   gap: 8px;
   height: 32px;
   margin: 0;
-  padding: 0 12px 0 8px;
+  /* 8 on both sides, the rows' own frame, so the verbs on the right end on the
+     same ink line as the times under them */
+  padding: 0 8px;
   color: var(--sc-fg3);
   font-size: 12px;
   font-weight: 500;
@@ -95,7 +97,22 @@
   padding-top: 6px;
   border-top: 1px solid var(--sc-line);
 }
-.sc-notif-seen {
+.sc-notif-label h3 {
+  margin: 0;
+  font: inherit;
+  color: inherit;
+}
+/* A list's own verbs, on its own label row: quiet words, no fill, because they
+   are upkeep and the rows under them are the content. The destructive one says
+   so in red only when it is about to be pressed, the way a palette's remove
+   does (brand-kit.css), and never paints a button around itself. */
+.sc-notif-acts {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sc-notif-seen,
+.sc-notif-clear {
   border: none;
   background: none;
   padding: 0;
@@ -103,12 +120,14 @@
   cursor: pointer;
   font: inherit;
   font-size: 12px;
+  border-radius: var(--sc-radius-xs);
+  transition: color 120ms ease;
 }
 .sc-notif-seen:hover {
   color: var(--sc-fg);
 }
-.sc-notif-seen {
-  border-radius: var(--sc-radius-xs);
+.sc-notif-clear:is(:hover, :focus-visible) {
+  color: var(--sc-red);
 }
 
 .sc-notif-scroll {
@@ -138,9 +157,7 @@
 .sc-notif-row:hover {
   background: var(--sc-hover);
 }
-.sc-notif-row:focus-visible,
-.sc-notif-seen:focus-visible,
-.sc-notif-clear:focus-visible {
+.sc-notif-row:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: -2px;
 }
@@ -245,26 +262,10 @@
   font-size: 12.5px;
   color: var(--sc-fg3);
 }
-.sc-notif-foot {
-  border-top: 1px solid var(--sc-line);
-  margin-top: 4px;
-  padding: 6px 4px 2px;
-  display: flex;
-  justify-content: flex-end;
-}
-.sc-notif-clear {
-  border: none;
-  background: none;
-  cursor: pointer;
-  font: inherit;
-  font-size: 11.5px;
-  color: var(--sc-fg2);
-  padding: 4px 8px;
-  border-radius: var(--sc-radius-sm);
-}
-.sc-notif-clear:hover {
-  background: var(--sc-hover);
-  color: var(--sc-fg);
+/* It takes focus after a clear so the keyboard stays in the panel; it is a
+   sentence, not a control, so it holds that focus without a ring. */
+.sc-notif-empty:focus {
+  outline: none;
 }
 
 /* the phone shell: same body, reachable edge */

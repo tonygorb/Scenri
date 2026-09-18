@@ -44,6 +44,13 @@ test('the top bar fits, on every library page', async ({ page }) => {
     }));
     // one pixel of slack for sub-pixel layout, and not one more
     expect(fit.scrollWidth, `${path} overflows the top bar`).toBeLessThanOrEqual(fit.clientWidth + 1);
+    // and New keeps its round ends at a hand's width rather than being squeezed
+    const pill = await page.locator('.sc-new').evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { h: r.height, w: r.width, ends: Number.parseFloat(getComputedStyle(el).borderTopLeftRadius) };
+    });
+    expect(pill.ends).toBeGreaterThanOrEqual(pill.h / 2);
+    expect(pill.w).toBeGreaterThan(pill.h);
   }
 });
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type MouseEvent, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { FilmSlate, IdentificationBadge, ImageSquare, Storefront, WarningCircle, XCircle } from '@phosphor-icons/react';
 import { api, thumbUrl } from '../../api.js';
@@ -43,6 +43,30 @@ export function ActivityPanel({
   const { push } = useToasts();
   // seconds tick on their own; the poll is slower than the clock
   const now = useNow(1000);
+
+  // Clearing takes the pressed button away with the list it cleared. Focus
+  // lands on the sentence that replaces them, silently, so a keyboard stays in
+  // the panel rather than falling to the page behind it, and a screen reader
+  // hears what happened.
+  const empty = useRef<HTMLParagraphElement>(null);
+  const clearButton = useRef<HTMLButtonElement>(null);
+  const cleared = useRef(false);
+  useEffect(() => {
+    if (!cleared.current || feed.length > 0) return;
+    cleared.current = false;
+    empty.current?.focus({ preventScroll: true });
+  }, [feed.length]);
+  const clearAll = () => {
+    cleared.current = true;
+    clearFeed();
+  };
+  // Mark all read goes once it has done its job. From the keyboard, focus steps
+  // to the verb left beside it rather than falling to the page; a click (detail
+  // above zero) needs no such help and gets no ring.
+  const markRead = (e: MouseEvent) => {
+    if (e.detail === 0) clearButton.current?.focus({ preventScroll: true });
+    onSeen();
+  };
 
   // a node task's id is `node:<uuid>`; the next poll tick (TaskCenter's own
   // 1.5s interval while anything is running) picks up the resulting status
@@ -89,26 +113,35 @@ export function ActivityPanel({
         )}
 
         <section aria-label="Notifications">
-          <h3 className="sc-notif-label">
-            <span>Notifications</span>
-            {unread > 0 && (
-              <button type="button" className="sc-notif-seen" onClick={onSeen}>
-                Mark all read
-              </button>
+          {/* The list's own verbs sit on its own label row. Clear all empties
+              this list and nothing else, which is why it is here rather than in
+              the panel's head over In progress as well. It comes last, so it
+              keeps its place whether or not there is anything unread beside it,
+              and it is gone with the list, never a verb with nothing to act on.
+              No confirmation: the record is this browser's list of pointers to
+              shots that are all still there. */}
+          <div className="sc-notif-label">
+            <h3>Notifications</h3>
+            {feed.length > 0 && (
+              <span className="sc-notif-acts">
+                {unread > 0 && (
+                  <button type="button" className="sc-notif-seen" onClick={markRead}>
+                    Mark all read
+                  </button>
+                )}
+                <button ref={clearButton} type="button" className="sc-notif-clear" onClick={clearAll}>
+                  Clear all
+                </button>
+              </span>
             )}
-          </h3>
+          </div>
           {feed.length === 0 ? (
-            <p className="sc-notif-empty">You have no notifications yet.</p>
+            <p ref={empty} tabIndex={-1} className="sc-notif-empty">
+              You have no notifications yet.
+            </p>
           ) : (
             feed.map((n) => <FeedRow key={n.id} item={n} now={now} onNavigate={onClose} onSeen={onSeen} />)
           )}
-          {feed.length > 0 ? (
-            <div className="sc-notif-foot">
-              <button type="button" className="sc-notif-clear" onClick={clearFeed}>
-                Clear all
-              </button>
-            </div>
-          ) : null}
         </section>
       </div>
     </>

@@ -185,18 +185,65 @@ test('a dialog taking the screen closes the panel', async ({ page }) => {
   await expect(pop(page)).toHaveCount(0);
 });
 
-test('clearing empties the record', async ({ page }) => {
+test("clearing is the list's own action, and it empties the record in place", async ({ page }) => {
   const brand = await currentBrand(page);
+  await clearHistory(page);
+  // Two finished shots in the record, written where the bell keeps it, so the
+  // case under test never depends on the demo engine beating the clock.
+  await page.evaluate(
+    ([key]) => {
+      const item = (id: string, ago: number) => ({
+        id,
+        kind: 'generation',
+        state: 'done',
+        title: `Seeded shot ${id}`,
+        subtitle: 'Clear all spec',
+        thumb: null,
+        at: new Date(Date.now() - ago).toISOString(),
+        href: null,
+      });
+      localStorage.setItem(key as string, JSON.stringify([item('a', 60_000), item('b', 120_000)]));
+    },
+    [`scenri:notifications-${brand.id}`],
+  );
   await page.goto(`/${brand.slug}`);
   await bell(page).click();
 
-  const clear = page.locator('.sc-notif-clear');
-  if (await clear.isVisible().catch(() => false)) {
-    await clear.click();
-  }
-  await expect(page.locator('section[aria-label="Notifications"] .sc-notif-empty')).toHaveText(
-    'You have no notifications yet.',
-  );
+  // Both of the list's verbs sit on its own label row, the destructive one
+  // last, and the heading is the section's name and nothing else.
+  const list = page.locator('section[aria-label="Notifications"]');
+  const verbs = list.locator('.sc-notif-label button');
+  await expect(verbs).toHaveText(['Mark all read', 'Clear all']);
+  await expect(list.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible();
+  await expect(page.locator('.sc-notif-foot')).toHaveCount(0);
+
+  // Reading the list takes its own verb away. Clear all keeps its place in the
+  // panel for it, and a keyboard lands on it rather than on the page behind.
+  const clear = list.getByRole('button', { name: 'Clear all', exact: true });
+  const inset = async () =>
+    (await pop(page).boundingBox())!.x + (await pop(page).boundingBox())!.width - (await clear.boundingBox())!.x;
+  // the panel arrives with a scale, so measure it once it has landed
+  await pop(page).evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
+  const before = await inset();
+  await list.getByRole('button', { name: 'Mark all read', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(verbs).toHaveText(['Clear all']);
+  await expect(clear).toBeFocused();
+  expect(Math.abs((await inset()) - before)).toBeLessThan(0.5);
+
+  // From the keyboard again: the panel stays, the empty state says so, and focus
+  // is still inside the panel rather than dropped on the page behind it.
+  await page.keyboard.press('Enter');
+  await expect(list.locator('.sc-notif-empty')).toHaveText('You have no notifications yet.');
+  await expect(verbs).toHaveCount(0);
+  await expect(pop(page)).toBeVisible();
+  expect(await page.evaluate(() => !!document.activeElement?.closest('.sc-notif-pop'))).toBe(true);
+
+  // Gone from the record, not hidden for the session.
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await bell(page).click();
+  await expect(list.locator('.sc-notif-empty')).toHaveText('You have no notifications yet.');
 });
 
 test('a finish toasts wherever you cannot see it land', async ({ page }) => {

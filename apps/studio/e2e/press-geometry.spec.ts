@@ -182,6 +182,7 @@ async function controlsOn(page: Page, limitPerFamily = 4): Promise<{ label: stri
     '.sc-new-go',
     '.sc-new-more',
     '.sc-help-btn',
+    '.sc-mark-btn',
   ]) {
     const all = page.locator(`${family}:visible:not([disabled]):not([aria-disabled="true"])`);
     const total = await all.count();
