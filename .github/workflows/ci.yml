@@ -45,13 +45,17 @@ concurrency:
 permissions:
   contents: read
 
+# Linux jobs name ubuntu-24.04, not ubuntu-latest, which is the same image today.
+# The label moves to Ubuntu 26 from 2026-10-19, and the likeliest casualty is the
+# browsers' OS dependencies. Moving is a deliberate edit here, tried on a pull
+# request, not an image rollout that lands on a release day.
 jobs:
   # Decides whether the browser suite is owed. One binary question: does any
   # changed file fall outside the docs-safe list below? Unknown events, API
   # errors, empty answers and oversized diffs all answer yes. Deny by default.
   changes:
     name: change classifier
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -170,7 +174,7 @@ jobs:
 
   check:
     name: typecheck, lint, test (node ${{ matrix.node }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       # Both finish, so a break tells you whether it is one version or the
@@ -221,7 +225,7 @@ jobs:
 
   secrets:
     name: secret scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     # Repo default GITHUB_TOKEN is contents/packages read only; gitleaks needs
     # pull-requests:read to list commits on pull_request events.
@@ -362,7 +366,7 @@ jobs:
     if: >-
       needs.changes.outputs.e2e == 'true' &&
       (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # A healthy leg is minutes. Without this a hung browser holds a runner for
     # GitHub's six-hour default, which is how a broken suite turns into a bill.
     timeout-minutes: 20
@@ -491,7 +495,7 @@ jobs:
     if: >-
       needs.changes.outputs.updater == 'true' &&
       (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -522,7 +526,7 @@ jobs:
     name: CI gate
     needs: [changes, check, secrets, windows, windows-desktop, e2e, update-loop]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Evaluate

@@ -31,7 +31,9 @@ permissions:
 jobs:
   npm:
     name: publish to npm
-    runs-on: ubuntu-latest
+    # Pinned for the same reason as ci.yml: the one irreversible job should not
+    # meet a new image before CI has.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     # Only version tags publish. The content archive lives on a non-version
     # release tag (content-latest) and must never trigger a package publish.
