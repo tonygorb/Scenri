@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createElement, act, type FunctionComponent } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { PREF, useLocalPref, useRecipeSetting } from '../src/prefs.js';
+import { PREF, lastBrand, rememberBrand, useLocalPref, useRecipeSetting } from '../src/prefs.js';
 
 /**
  * Two of these hooks are alive at once in the real app — the composer is
@@ -132,5 +132,32 @@ describe('useRecipeSetting', () => {
     act(() => overlay.current[2](4));
     expect(overlay.current[0]).toBe(4);
     expect(dock.current[0]).toBe(2);
+  });
+});
+
+describe('rememberBrand', () => {
+  const recent = () => JSON.parse(localStorage.getItem(PREF.recentBrands) ?? 'null');
+
+  it('keeps where "/" lands and puts the brand at the front of the recent ones', () => {
+    rememberBrand('a');
+    rememberBrand('b');
+    expect(lastBrand()).toBe('b');
+    expect(recent()).toEqual(['b', 'a']);
+  });
+
+  it('moves a brand opened again to the front rather than listing it twice', () => {
+    for (const id of ['a', 'b', 'c', 'a']) rememberBrand(id);
+    expect(recent()).toEqual(['a', 'c', 'b']);
+  });
+
+  it('keeps eight, the newest', () => {
+    for (const id of 'abcdefghij') rememberBrand(id);
+    expect(recent()).toEqual(['j', 'i', 'h', 'g', 'f', 'e', 'd', 'c']);
+  });
+
+  it('starts over from whatever it finds that is not a list of ids', () => {
+    localStorage.setItem(PREF.recentBrands, JSON.stringify({ not: 'a list' }));
+    rememberBrand('a');
+    expect(recent()).toEqual(['a']);
   });
 });

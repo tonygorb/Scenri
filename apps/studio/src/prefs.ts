@@ -13,6 +13,8 @@ import { useEffect, useRef, useState } from 'react';
  */
 export const PREF = {
   lastBrand: 'scenri:last-brand',
+  /** Brand ids this browser opened, most recent first: the brand menu's Recent. */
+  recentBrands: 'scenri:recent-brands',
   engine: 'scenri:engine',
   quality: 'scenri:quality',
   count: 'scenri:count',
@@ -166,4 +168,15 @@ export function useRecipeSetting<T>(key: string, fallback: T) {
 
 /** Read outside React: the redirect at / needs this before anything renders. */
 export const lastBrand = (): string | null => read<string | null>(PREF.lastBrand, null);
-export const rememberBrand = (id: string): void => write(PREF.lastBrand, id);
+const RECENT_KEPT = 8;
+/**
+ * The brand you are in, remembered twice: once as where "/" should land, and at
+ * the front of the brands this browser has opened, which the brand menu leads
+ * with. More are kept than the menu shows, so a brand deleted since leaves no gap.
+ */
+export function rememberBrand(id: string): void {
+  write(PREF.lastBrand, id);
+  const was = read<unknown>(PREF.recentBrands, []);
+  const rest = Array.isArray(was) ? was.filter((r): r is string => typeof r === 'string' && r !== id) : [];
+  write(PREF.recentBrands, [id, ...rest].slice(0, RECENT_KEPT));
+}
