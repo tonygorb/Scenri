@@ -60,14 +60,33 @@ export function registerUpdateRoutes(
 
   /** Why one-click cannot run here, or null when it can. The manual `scenri update` always remains. */
   const REQUIRED_PROTOCOL = 1;
-  let npmProbe: boolean | null = null;
+  /**
+   * Whether npm is reachable, asked once and never synchronously (`findNpm`
+   * says why). Every path that reads the answer awaits `npmKnown()` first, so
+   * `blockReason` itself stays synchronous and auto-staging keeps no await
+   * between its guard and its kickoff. A cadence result that lands before the
+   * first ask reads npm as absent and stages nothing; the boot look asks, then
+   * looks again.
+   */
+  let npmFound = false;
+  let npmAsked: Promise<void> | null = null;
+  const npmKnown = (): Promise<void> => {
+    if (runtime.installKind === 'dev' || !runtime.supervised || deps.stageImpl) return Promise.resolve();
+    npmAsked ??= findNpm()
+      .then((argv) => {
+        npmFound = argv !== null;
+      })
+      .catch(() => {
+        /* unreachable in practice: findNpm answers null rather than throwing */
+      });
+    return npmAsked;
+  };
   const blockReason = (): 'dev' | 'unsupervised' | 'launcher-too-old' | 'no-npm' | null => {
     if (runtime.installKind === 'dev') return 'dev';
     if (!runtime.supervised) return 'unsupervised';
     if ((runtime.launcherProtocol ?? 1) < REQUIRED_PROTOCOL) return 'launcher-too-old';
     if (deps.stageImpl) return null; // injected staging carries its own npm story
-    npmProbe ??= findNpm() !== null;
-    return npmProbe ? null : 'no-npm';
+    return npmFound ? null : 'no-npm';
   };
 
   /** The one place staging starts. Sets the phase synchronously; the install itself runs in the background. */
@@ -120,8 +139,8 @@ export function registerUpdateRoutes(
   // an unhandled rejection (a slow Windows CI runner found exactly that),
   // and the catch covers a close landing mid-look.
   const bootLook = setTimeout(() => {
-    updates
-      .check()
+    npmKnown()
+      .then(() => updates.check())
       .then(maybeAutoStage)
       .catch(() => {
         /* closing mid-look: the periodic cadence owns the next attempt */
@@ -131,6 +150,7 @@ export function registerUpdateRoutes(
   app.addHook('onClose', async () => clearTimeout(bootLook));
 
   const updateStatus = async (force = false) => {
+    await npmKnown();
     const r = await updates.check(force);
     const kind = r.latest ? classify(meta.version, r.latest) : null;
     const apply = effectiveApply();
@@ -168,6 +188,7 @@ export function registerUpdateRoutes(
     if (busy > 0) {
       return reply.status(409).send({ error: `work is still running (${busy} task${busy === 1 ? '' : 's'})` });
     }
+    await npmKnown();
     const block = blockReason();
     if (block)
       return reply.status(409).send({ error: `one-click update cannot run here (${block})`, blockReason: block });
