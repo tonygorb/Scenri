@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, Outlet, useLocation, useMatch, useParams } from 'react-router';
+import { Navigate, Outlet, useLocation, useMatch, useNavigate, useParams } from 'react-router';
 import { api, type ActivityNode, type Brand, type FeedNode, type Project, type ShotSet } from '../api.js';
 import { P, brandPath } from '../routes.js';
 import { PREF, rememberBrand, useLocalPref } from '../prefs.js';
@@ -68,6 +68,14 @@ interface BrandCore {
   applyNodes: (nodes: FeedNode[]) => void;
   /** The bell's poll and every applied change, as a stream, for whoever holds shots on screen. */
   subscribeActivity: (fn: ActivityListener) => () => void;
+  /**
+   * Moves when every shot in the brand was deleted at once (Settings, Danger).
+   * The feed and the shot pages hold their own pages and hear single changes
+   * on the activity stream; a wipe has no list of what went, so they read
+   * again when this moves.
+   */
+  shotsEpoch: number;
+  resetShots: () => void;
 }
 
 export type BrandData = BrandCore & ProductLibraryValue;
@@ -137,6 +145,9 @@ export function BrandLayout() {
   const [sets, setSets] = useState<ShotSet[]>([]);
   const [membership, setMembership] = useState<Record<string, string[]>>({});
   const [loaded, setLoaded] = useState(false);
+  const [shotsEpoch, setShotsEpoch] = useState(0);
+  const resetShots = useCallback(() => setShotsEpoch((n) => n + 1), []);
+  const navigate = useNavigate();
   // narrow screens get the panel as a drawer over the canvas: opening one by
   // default is a first run that starts behind a scrim
   const [assetsOpen, setAssetsOpen] = useLocalPref(PREF.assetsOpen, window.innerWidth >= 1280);
@@ -151,7 +162,21 @@ export function BrandLayout() {
   // the docks are fixed, so the keyboard has to be measured for them
   useKeyboardInset();
 
-  const brand = brands.find((b) => b.slug === brandSlug) ?? brands.find((b) => b.id === brandSlug) ?? null;
+  /**
+   * The slug follows the name, so a rename saved from Settings moves the
+   * address out from under this layout. Found by the slug, then the id, then
+   * the brand that was on screen a render ago: without that last step a
+   * rename read as "this brand is gone", the whole tree under it unmounted
+   * (Settings, the bell, the library, the feed) and mounted again on the new
+   * slug, and the unmount sent the kit's pending edits a second time.
+   */
+  const lastBrandId = useRef<string | null>(null);
+  const brand =
+    brands.find((b) => b.slug === brandSlug) ??
+    brands.find((b) => b.id === brandSlug) ??
+    brands.find((b) => b.id === lastBrandId.current) ??
+    null;
+  lastBrandId.current = brand?.id ?? null;
 
   /**
    * One ask for the whole brand: its shots, its sets, and who is in what.
@@ -239,6 +264,8 @@ export function BrandLayout() {
             applyMembership,
             applyNodes,
             subscribeActivity,
+            shotsEpoch,
+            resetShots,
           }
         : null,
     [
@@ -256,6 +283,8 @@ export function BrandLayout() {
       applyMembership,
       applyNodes,
       subscribeActivity,
+      shotsEpoch,
+      resetShots,
     ],
   );
 
@@ -290,6 +319,15 @@ export function BrandLayout() {
   // deep the path goes.
   const tail = here ? pathname.slice(here.pathnameBase.length) : '';
 
+  // Reached by id, or renamed a moment ago: move the address to the slug while
+  // the tree stays mounted. Returning a <Navigate> instead rendered nothing for
+  // a frame, which is a full unmount of everything below.
+  const wrongSlug = !!brand && brandSlug !== brand.slug;
+  const canonical = brand ? brandPath(brand) + tail + search : '';
+  useEffect(() => {
+    if (wrongSlug) navigate(canonical, { replace: true });
+  }, [wrongSlug, canonical, navigate]);
+
   // a deleted brand, or a link to one this machine has never seen. The page
   // asked for is still a real page, so it comes along: landing on /scenes of a
   // brand you do have beats being dropped at a home you did not ask for.
@@ -297,10 +335,6 @@ export function BrandLayout() {
     const fallback = pickBrand(brands);
     return <Navigate to={fallback ? brandPath(fallback) + tail + search : P.root} replace />;
   }
-
-  // reached by id: rewrite to the slug so the address bar stays readable and
-  // everything downstream can assume one spelling of the path
-  if (brandSlug !== brand.slug) return <Navigate to={brandPath(brand) + tail + search} replace />;
 
   return (
     <Ctx.Provider value={value!}>
