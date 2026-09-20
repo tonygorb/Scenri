@@ -15,6 +15,11 @@ import { Tip } from '../../layout/Tip.js';
  * stays a word; below 360px it is the thing that goes, because selecting every
  * loaded shot is a pointer's job.
  *
+ * That word is a toggle, not a one-way door. It used to disappear the moment
+ * everything was picked, which is the exact moment somebody wants to undo it:
+ * the way out was still there, but a control vanishing where you last pressed
+ * it reads as a dead end rather than as a completed act.
+ *
  * A phone gets the same bar with a slightly larger box under the same glyph,
  * never a different composition: the sizes are one scale, written in
  * `surfaces/home.css` above the rules that use them.
@@ -63,9 +68,9 @@ export function PickedBar({
           {count}
           <span className="sc-vh"> selected</span>
         </span>
-        {count < loaded && (
-          <button type="button" className="sc-picked-all" onClick={onSelectAll}>
-            Select all
+        {loaded > 1 && (
+          <button type="button" className="sc-picked-all" onClick={count < loaded ? onSelectAll : onClear}>
+            {count < loaded ? 'Select all' : 'Deselect all'}
           </button>
         )}
       </span>
