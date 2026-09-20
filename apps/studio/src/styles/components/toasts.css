@@ -72,6 +72,19 @@
   color: var(--sc-fg);
 }
 
+/* Below the tab bar's breakpoint a toast at 16px lands on the tabs, and on a
+   phone with a home indicator it lands under them: the bar is 60 tall and
+   carries the inset itself, so a toast has to clear both. Caught by the
+   selection dock's own toast ("Archived 4 shots"), which is the one a person
+   reaches for straight after acting. */
+@media (max-width: 767px) {
+  .sc-toasts {
+    left: 16px;
+    bottom: calc(var(--sc-tabbar-h, 60px) + env(safe-area-inset-bottom, 0px) + 12px);
+    max-width: none;
+  }
+}
+
 /* From 1024px the help button owns the corner; toasts stack above it. */
 @media (min-width: 1024px) {
   .sc-toasts {
