@@ -327,7 +327,10 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     commit(core, brand.id, (json) => {
       json.scenes = brandScenes(json).filter((s) => s.id !== id);
     });
-    return { ok: true };
+    // The brand comes back, the way a deleted presenter's does: the wall, the
+    // page, the pickers and the chips all read it, so answering `{ok:true}`
+    // alone left the card standing on every one of them until a reload.
+    return { ok: true, brand: core.store.getBrand(brand.id) };
   });
 
   /** Redraw a scene's example. One generation, asked for explicitly. */

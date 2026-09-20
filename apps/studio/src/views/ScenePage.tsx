@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { api, type Scene } from '../api.js';
-import { useAppData, useFilterParam } from '../app/AppShell.js';
+import { api, type Scene, thumbOf } from '../api.js';
+import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useMadeWith } from './useMadeWith.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
@@ -15,20 +15,26 @@ import { BookmarkSimple, PencilSimple } from '@phosphor-icons/react';
 import { readingLines } from '../create/scene/sceneStudioRules.js';
 import { Tip } from '../layout/Tip.js';
 import { AssetDetailsDialog } from './AssetDetailsDialog.js';
-import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
+import { EmptyRefFrame, ShotThumb, Shown, Slider } from '../layout/ReferenceGallery.js';
+import { Rail } from '../layout/Rail.js';
+import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { bookmarkedFirst } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
-import { useMediaQuery } from '../useMediaQuery.js';
-
-/** Matches `.sc-lookpage-refs` switching to 2 columns in app.css. */
-/** Its own breakpoint, not the app's 767px phone: this one tracks the
- *  masonry's 760px column rule, so the cap and the columns can't disagree. */
-const LOOKPAGE_PHONE = '(max-width: 760px)';
 
 /**
- * One scene. The reference frames say what the light is; they are ours and are
- * deliberately not clickable. Everything below is yours: what you made with it,
- * and which scenes sit nearest by light.
+ * One scene, as the world it is.
+ *
+ * The same three zones a presenter's record page has, for the same reason: a
+ * record is read top to bottom, and the pictures are the middle of it. The
+ * name and the one verb that uses it are first; the pictures of the place are
+ * a rail that may leave the column, each labelled for what it is and each
+ * opening at full size; then what a shot is told, in words, which is the scene
+ * itself. Below that, what you made here, which is the proof the world is
+ * reusable.
+ *
+ * It was a centred lede over one lonely 380px tile with two paragraphs of
+ * caption under it, which read as an asset detail rather than a place to shoot
+ * in.
  */
 export function ScenePage() {
   const { sceneId = '' } = useParams();
@@ -41,12 +47,8 @@ export function ScenePage() {
   const brandId = brand.id;
   const [refs, setRefs] = useState<string[]>([]);
   const [marks, setMarks] = useState<string[]>(() => bookmarkedScenes(brandId));
-  const [allParam, setOpenAll] = useFilterParam('all');
-  const openAll = allParam === '1';
-  // Cap tracks column count per breakpoint so collapsed rows stay full:
-  // desktop 3-col → 3 cards; phone 2-col → 4 cards (2×2).
-  const phone = useMediaQuery(LOOKPAGE_PHONE);
-  const collapsedCap = phone ? 4 : 3;
+  /** The picture opened at full size, and what to call it there. */
+  const [open, setOpen] = useState<{ src: string; label: string } | null>(null);
 
   const openScene = (id: string) => navigate(scenePath(brand, id));
 
@@ -137,7 +139,11 @@ export function ScenePage() {
     if (!owned) return;
     setBusy(true);
     try {
-      await api.deleteScene(brand.id, owned.id);
+      const r = await api.deleteScene(brand.id, owned.id);
+      // Before navigating, not after: the wall this lands on is rendered from
+      // the brand, and without this it still carried the card, the picker
+      // still offered it and an existing chip still resolved, until a reload.
+      applyBrand(r.brand);
       navigate(scenesPath(brand));
     } catch (e: any) {
       setErr(String(e.message ?? e));
@@ -148,7 +154,7 @@ export function ScenePage() {
   if (!loaded && !owned) {
     return (
       <ScrollPane>
-        <main className="sc-lookpage" id="main">
+        <main className="sc-lookpage sc-scenepage" id="main">
           <div className="sc-tplrow" aria-hidden />
         </main>
       </ScrollPane>
@@ -158,7 +164,7 @@ export function ScenePage() {
   if (error && !owned) {
     return (
       <ScrollPane>
-        <main className="sc-lookpage" id="main">
+        <main className="sc-lookpage sc-scenepage" id="main">
           <h1>Couldn't load this scene</h1>
           <p className="sc-lookpage-lede">Something went wrong reaching the catalog.</p>
           <div className="sc-lookpage-acts">
@@ -174,7 +180,7 @@ export function ScenePage() {
   if (!scene) {
     return (
       <ScrollPane>
-        <main className="sc-lookpage" id="main">
+        <main className="sc-lookpage sc-scenepage" id="main">
           <h1>This scene isn't here anymore</h1>
           <p className="sc-lookpage-lede">It may have been removed from the catalog, or the link is out of date.</p>
           <div className="sc-lookpage-acts">
@@ -204,15 +210,21 @@ export function ScenePage() {
     );
   }
 
-  const visibleRefs = openAll ? refs : refs.slice(0, collapsedCap);
-  const frames = owned
+  /**
+   * The pictures of this place, each with what it is.
+   *
+   * One walk, so a label can never drift off its picture. Yours is the one
+   * drawn from the words; a curated scene carries a set shot in it, and a
+   * scene older than either has only its card.
+   */
+  const frames: { src: string; label: string }[] = owned
     ? owned.previewUrl
-      ? [owned.previewUrl]
+      ? [{ src: owned.previewUrl, label: 'The place' }]
       : []
     : refs.length
-      ? visibleRefs
+      ? refs.map((src, i) => ({ src, label: `Example ${i + 1}` }))
       : scene.previewUrl
-        ? [scene.previewUrl]
+        ? [{ src: scene.previewUrl, label: 'The place' }]
         : [];
   // Product/either scenes ship their reference gallery shot with a demo
   // product standing in for the art direction — the caption says so, so
@@ -223,7 +235,7 @@ export function ScenePage() {
   const marked = marks.includes(scene.id);
   return (
     <ScrollPane>
-      <main className="sc-lookpage" id="main">
+      <main className="sc-lookpage sc-scenepage" id="main">
         <div className="sc-lookpage-crumb">
           <Link to={scenesPath(brand)}>Scenes</Link>
           <span>/</span>
@@ -243,10 +255,15 @@ export function ScenePage() {
           </ul>
         )}
         <p className="sc-lookpage-lede">{scene.description}</p>
-        <p className="sc-lookpage-facts">
-          {scene.lighting} · {scene.subject === 'either' ? 'product or person' : `for a ${scene.subject}`} ·{' '}
-          {scene.width === scene.height ? 'square by default' : `${scene.width}×${scene.height} by default`}
-        </p>
+        {/* A curated scene is being judged from outside, so it says what it is
+            for. Your own says it in its own words below, and the default size
+            belongs to a shot rather than to the place. */}
+        {!owned && (
+          <p className="sc-lookpage-facts">
+            {scene.lighting} · {scene.subject === 'either' ? 'product or person' : `for a ${scene.subject}`} ·{' '}
+            {scene.width === scene.height ? 'square by default' : `${scene.width}×${scene.height} by default`}
+          </p>
+        )}
         <div className="sc-lookpage-acts">
           <button type="button" className="sc-btn sc-btn-primary" onClick={() => void applyScene(scene.id)}>
             Use in a shot
@@ -284,27 +301,51 @@ export function ScenePage() {
         </div>
         {err && <p className="sc-assetform-err">{err}</p>}
 
+        {/* The pictures are the middle zone and the only thing here allowed to
+            leave the column, the way a presenter's reference set is: they are
+            what the place looks like, and they open at full size. A curated
+            set is read across, so it scrolls rather than collapsing behind a
+            "see the whole set" the rail makes unnecessary. */}
         {frames.length > 0 ? (
           <>
-            <div className="sc-lookpage-refs">
-              {frames.map((src) => (
-                <RefFrame key={src} src={src} />
+            <Rail
+              count={frames.length}
+              label="Pictures of this place"
+              className="sc-refset-rail"
+              trackClassName="sc-refset"
+            >
+              {frames.map((f) => (
+                <li key={f.src}>
+                  <button
+                    type="button"
+                    className="sc-refset-tile"
+                    aria-label={`${f.label}, open`}
+                    onClick={() => setOpen(f)}
+                  >
+                    <Shown src={thumbOf(f.src, 'small')} />
+                  </button>
+                  {/* A label tells one picture from another. With one picture
+                      there is nothing to tell it from, and "The place" under
+                      the place is noise. */}
+                  {frames.length > 1 && (
+                    <span className="sc-refset-lb" aria-hidden>
+                      {f.label}
+                    </span>
+                  )}
+                </li>
               ))}
-            </div>
+            </Rail>
+            {/* One line, not two paragraphs: what the picture is, and the one
+                thing about it a person could get wrong. */}
             {showDemoProductNote && (
               <p className="sc-lookpage-note">Shown with a demo product for reference. Yours replaces it.</p>
             )}
             {owned && (
               <p className="sc-lookpage-note">
                 {owned?.figure
-                  ? 'An example of this scene. The person in it is nobody: attach a presenter and they take the role.'
-                  : 'The place with nothing staged in it. Whatever you attach to a shot goes here.'}
+                  ? 'Drawn from the words below. The person in it is nobody: attach a presenter and they take the role.'
+                  : 'Drawn from the words below. Whatever you attach to a shot goes here.'}
               </p>
-            )}
-            {!owned && refs.length > collapsedCap && (
-              <button type="button" className="sc-lookpage-expand" onClick={() => setOpenAll(openAll ? null : '1')}>
-                {openAll ? 'Enough, close it' : 'See the whole set'}
-              </button>
             )}
           </>
         ) : (
@@ -355,20 +396,31 @@ export function ScenePage() {
               </section>
             )}
 
+            {/* The pictures it was read from are evidence, not the place: a
+                small row of their own, the way a presenter's source photos
+                sit under its reference set, each one openable. */}
             {owned.refs.length > 0 && (
-              <section>
-                <p className="sc-bandhead">What it was read from</p>
+              <section className="sc-presenterpage-sources">
+                <p className="sc-presenterpage-sources-lb">What it was read from</p>
+                <div className="sc-presenterpage-sources-row">
+                  {owned.refs.map((src, i) => (
+                    <button
+                      key={src}
+                      type="button"
+                      className="sc-presenterpage-source"
+                      aria-label={`Read from ${i + 1}, open`}
+                      onClick={() => setOpen({ src, label: `Read from ${i + 1}` })}
+                    >
+                      <Shown src={thumbOf(src, 'micro')} />
+                    </button>
+                  ))}
+                </div>
                 <p className="sc-ownedbits-note">
                   Read into the words above, never sent with a shot.
                   {owned.figure
-                    ? ' Because this scene is built around a figure, its preview goes with a shot beside an attached presenter, as reference for the world and the treatment. The people, products and marks in these are never copied.'
-                    : ' Nothing staged in these pictures can turn up in a render on its own.'}
+                    ? ' This scene is built around a figure, so its own picture goes with a shot beside a presenter, as reference for the world. Nobody in these is ever copied.'
+                    : ' Nothing staged in these can turn up in a render on its own.'}
                 </p>
-                <div className="sc-lookpage-refs">
-                  {owned.refs.map((src) => (
-                    <RefFrame key={src} src={src} />
-                  ))}
-                </div>
               </section>
             )}
 
@@ -405,7 +457,20 @@ export function ScenePage() {
           </Slider>
         )}
 
-        {near.length > 0 && (
+        {open && (
+          <ImageLightbox
+            src={open.src}
+            kind="scene"
+            label={open.label}
+            noun={scene.name}
+            onClose={() => setOpen(null)}
+          />
+        )}
+
+        {/* Only for a curated scene: the nearest by light are all catalog
+            ones, so on your own scene this offered somebody else's places
+            under the heading "other scenes". */}
+        {!owned && near.length > 0 && (
           <Slider label="Other scenes, similar light">
             {near.map((s) => (
               <SceneCard

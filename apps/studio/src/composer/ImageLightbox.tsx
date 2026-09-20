@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ImageSquare } from '@phosphor-icons/react';
 import { DialogSheet } from '../layout/DialogSheet.js';
 import type { PreviewKind } from './ChipPreview.js';
@@ -43,14 +43,27 @@ export function ImageLightbox({
 }) {
   const [broken, setBroken] = useState(false);
   const noun = nounHere ?? PREVIEW_NOUN[kind];
+  /**
+   * Where the keyboard was when this opened.
+   *
+   * Radix hands focus back to a dialog's trigger, and a lightbox opened from
+   * state has none, so closing one left the keyboard on the page behind it:
+   * a record page's own pictures could be opened but never left. A caller with
+   * somewhere better to put it (the composer's caret) still wins.
+   */
+  const back = useRef<HTMLElement | null>(null);
 
   return (
     <DialogSheet
       className="sc-lightbox"
       maxWidth="min(880px, 92vw)"
+      onOpenAutoFocus={() => {
+        back.current = document.activeElement as HTMLElement | null;
+      }}
       onCloseAutoFocus={(e) => {
         e.preventDefault();
-        onRestoreFocus?.();
+        if (onRestoreFocus) return onRestoreFocus();
+        if (back.current?.isConnected) back.current.focus();
       }}
       onDismiss={onClose}
     >

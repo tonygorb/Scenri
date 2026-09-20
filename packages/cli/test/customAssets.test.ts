@@ -807,7 +807,11 @@ describe('custom presenters and scenes', () => {
     expect(brandJson(brand.id).scenes[0].preview).toMatch(/^asset:[a-f0-9]{32}$/);
     expect(generated[0].prompt).toContain('flat daylight'); // the edit, not the original
 
-    await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/scenes/${scene.id}` });
+    const gone = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/scenes/${scene.id}` });
+    // The brand comes back, the way a deleted presenter's does: the wall, the
+    // page and the pickers all read the brand, so `{ok:true}` alone left the
+    // card standing on every one of them until a reload.
+    expect(gone.json().brand.json.scenes.some((s: any) => s.id === scene.id)).toBe(false);
     const res = await app.inject({
       method: 'POST',
       url: '/api/brief/preview',

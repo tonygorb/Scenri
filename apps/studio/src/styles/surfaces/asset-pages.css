@@ -908,6 +908,12 @@
 .sc-presenterpage {
   container-type: inline-size;
 }
+/* A scene has no avatar: its picture is its identity, so a place with one
+   picture shows it large. With two or three the width formula divides the
+   column first, so this ceiling only binds when there is room for it. */
+.sc-scenepage .sc-refset-rail {
+  --sc-refset-max: 560px;
+}
 .sc-refset-rail {
   --sc-refset-n: min(3, var(--sc-rail-count, 3));
   --sc-refset-gap: 18px;
