@@ -108,11 +108,26 @@
     background var(--sc-dur-fast) var(--sc-ease),
     opacity var(--sc-dur-fast) var(--sc-ease);
 }
-.sc-learn-row:hover:not(:active) {
-  background: var(--sc-hover);
-}
 .sc-learn-row[aria-current] {
   background: var(--sc-chip);
+}
+/* Hover and press are the chip family's own ladder, and a press is a paint
+   step (DESIGN.md: never geometry). A row already on the chip fill has to go
+   up under the pointer, not down: it used to take the plain hover and get
+   darker than it was at rest. */
+@media (hover: hover) {
+  .sc-learn-row:hover {
+    background: var(--sc-hover);
+  }
+  .sc-learn-row[aria-current]:hover {
+    background: var(--sc-chip-hover);
+  }
+}
+.sc-learn-row:active {
+  background: var(--sc-press);
+}
+.sc-learn-row[aria-current]:active {
+  background: var(--sc-chip-active);
 }
 /* A finished lesson is spent: struck through and stood back, so what is left
    to do is what the eye lands on. It can still be done again, so it comes back
@@ -124,9 +139,14 @@
 .sc-learn-row[data-state="done"] .sc-learn-name {
   text-decoration: line-through;
 }
-.sc-learn-row[data-state="done"]:hover,
-.sc-learn-row[data-state="done"][aria-current] {
+.sc-learn-row[data-state="done"][aria-current],
+.sc-learn-row[data-state="done"]:active {
   opacity: 1;
+}
+@media (hover: hover) {
+  .sc-learn-row[data-state="done"]:hover {
+    opacity: 1;
+  }
 }
 :where(:root:not([data-input="pointer"])) .sc-learn-row[data-state="done"]:focus-visible {
   opacity: 1;
@@ -302,8 +322,13 @@ button.sc-learn-step {
   cursor: pointer;
   transition: background var(--sc-dur-fast) var(--sc-ease);
 }
-button.sc-learn-step:hover:not(:active) {
-  background: var(--sc-hover);
+@media (hover: hover) {
+  button.sc-learn-step:hover {
+    background: var(--sc-chip-hover);
+  }
+}
+button.sc-learn-step:active {
+  background: var(--sc-chip-active);
 }
 /* A step already taken reads back, but never the one that can be pressed:
    inside that card its own words are the brightest thing. */
@@ -363,17 +388,25 @@ button.sc-learn-step .sc-learn-n {
 .sc-learn-go svg {
   transition: transform var(--sc-dur-fast) var(--sc-ease);
 }
-button.sc-learn-step:hover .sc-learn-go svg {
-  transform: translateX(2px);
-}
 /* doing a finished lesson again is offered, not urged */
 button.sc-learn-step[data-state="done"] .sc-learn-go {
   background: transparent;
   color: var(--sc-fg);
   box-shadow: inset 0 0 0 1px var(--sc-line-strong);
 }
-button.sc-learn-step[data-state="done"]:hover .sc-learn-go {
-  background: var(--sc-chip-hover);
+@media (hover: hover) {
+  button.sc-learn-step:hover .sc-learn-go svg {
+    transform: translateX(2px);
+  }
+  /* one step above the card it sits on, whatever the card is doing */
+  button.sc-learn-step[data-state="done"]:hover .sc-learn-go {
+    background: var(--sc-chip-active);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-learn-go svg {
+    transition: none;
+  }
 }
 .sc-learn-note {
   margin: 10px 0 0 2px;
