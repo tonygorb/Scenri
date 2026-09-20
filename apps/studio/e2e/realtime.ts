@@ -225,3 +225,41 @@ export async function goNav(page: Page, name: 'Home' | 'Products' | 'Presenters'
   await mainNav(page).getByRole('link', { name, exact: true }).click();
   await expect(page).toHaveURL(name === 'Home' ? /^[^?]*\/[^/]+$/ : new RegExp(`/${name.toLowerCase()}$`));
 }
+
+/**
+ * Rename an owned scene from its page.
+ *
+ * The scene page carries no live fields: a scene's words are the studio's, and
+ * its name and filing are written in the Details sheet behind the pencil. The
+ * propagation this file is about is unchanged, so only the way in moved.
+ */
+export async function renameScene(page: Page, to: string): Promise<void> {
+  await page.getByRole('button', { name: 'Edit name, filing and ways' }).click();
+  const sheet = page.getByRole('dialog');
+  await sheet.getByLabel('Name').fill(to);
+  await sheet.getByRole('button', { name: 'Save' }).click();
+}
+
+/**
+ * Build a scene the way the app builds one: the studio, a sentence, one draw.
+ *
+ * The wall's button opens the scene studio, not a two-field dialog: a scene is
+ * words that get read and then drawn, so a test that wants a real scene on the
+ * wall has to go the way a person does. The demo engine behind the harness
+ * reads and draws at once.
+ */
+export async function buildScene(page: Page, sentence: string, name: string): Promise<void> {
+  await page.getByRole('button', { name: 'Create scene' }).click();
+  const studio = page.locator('.sc-pstudio[data-kind="scene"]');
+  await expect(studio).toBeVisible();
+  // the first question has to be on the floor before the line will take words
+  await expect(studio.locator('[data-turn="q:source"]')).toBeVisible();
+  const line = studio.locator('.sc-pstudio-foot textarea');
+  await line.fill(sentence);
+  await line.press('Enter');
+  await studio.getByRole('button', { name: 'Draw the scene' }).click({ timeout: 45_000 });
+  // the name is asked while the first picture draws
+  await line.fill(name);
+  await line.press('Enter');
+  await studio.getByRole('button', { name: 'Use this scene' }).click({ timeout: 60_000 });
+}

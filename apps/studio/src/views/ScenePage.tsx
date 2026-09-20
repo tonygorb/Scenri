@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api, type Scene, type SceneSetup, thumbOf } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
@@ -22,6 +22,7 @@ import { EmptyRefFrame, ShotThumb, Shown, Slider } from '../layout/ReferenceGall
 import { Rail } from '../layout/Rail.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { bookmarkedFirst } from '../layout/library/libraryRules.js';
+import { useStillHere } from '../useStillHere.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 
 /**
@@ -41,7 +42,7 @@ import { ScrollPane } from '../layout/ScrollPane.js';
  */
 export function ScenePage() {
   const { sceneId } = useParams();
-  const { scenes, loaded, error, refetch, applyBrand } = useAppData();
+  const { scenes, loaded, error, refetch, applyBrand, refreshBrands } = useAppData();
   // one ask upstairs holds the whole brand now, so this page no longer walks
   // twenty project trees to answer "what did this scene actually produce"
   const { brand } = useBrand();
@@ -119,8 +120,18 @@ export function ScenePage() {
   }, [scene, loaded, error, scenes, brandId]);
 
   const [err, setErr] = useState<string | null>(null);
+  /**
+   * Two writes, two flags. A save in the Details sheet used to disable Delete,
+   * which reads as prudence and is not: they touch different things, and a
+   * rename still out cannot make a delete wrong. Sharing one flag also made a
+   * real race untestable by making it impossible.
+   */
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [details, setDetails] = useState(false);
+  /** One delete at a time, however many times the button is pressed. */
+  const removing = useRef(false);
+  const stillHere = useStillHere();
 
   /**
    * What to offer when filing it.
@@ -145,7 +156,7 @@ export function ScenePage() {
    */
   const saveDetails = async (next: { name: string; categories: string[]; ways?: SceneSetup[] }) => {
     if (!owned) return;
-    setBusy(true);
+    setSaving(true);
     setErr(null);
     try {
       const r = await api.updateScene(brand.id, owned.id, {
@@ -158,24 +169,42 @@ export function ScenePage() {
     } catch (e: any) {
       setErr(String(e.message ?? e));
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
   };
 
+  /**
+   * Delete, and every surface stops showing the scene in the same commit.
+   *
+   * The answer carries the brand as it now stands and is applied before
+   * anything moves: the wall this lands on, the caret menu and the chips all
+   * read that one row.
+   */
   const remove = async () => {
-    if (!owned) return;
+    if (!owned || removing.current) return;
+    removing.current = true;
+    const here = stillHere();
+    const wall = scenesPath(brand);
     setBusy(true);
     try {
       const r = await api.deleteScene(brand.id, owned.id);
-      // Before navigating, not after: the wall this lands on is rendered from
-      // the brand, and without this it still carried the card, the picker
-      // still offered it and an existing chip still resolved, until a reload.
       applyBrand(r.brand);
-      navigate(scenesPath(brand));
     } catch (e: any) {
-      setErr(String(e.message ?? e));
-      setBusy(false);
+      if (e?.status !== 404) {
+        removing.current = false;
+        if (here()) {
+          setErr(String(e.message ?? e));
+          setBusy(false);
+        }
+        return;
+      }
+      // Already gone (another tab, or a double press that got past the guard):
+      // the outcome asked for is true, so read the brand and carry on.
+      await refreshBrands();
     }
+    // Replace, not push: Back must not land on the page of a scene that no
+    // longer exists. And only if this page is still the one on screen.
+    if (here()) navigate(wall, { replace: true });
   };
 
   if (!loaded && !owned) {
@@ -491,7 +520,7 @@ export function ScenePage() {
             ways={ways}
             wayChoices={FRAMINGS}
             wayMax={SETUPS_MAX}
-            busy={busy}
+            busy={saving}
             error={err}
             onSave={(next) => void saveDetails(next)}
             onDismiss={() => setDetails(false)}
