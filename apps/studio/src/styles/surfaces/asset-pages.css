@@ -923,6 +923,10 @@
 .sc-scenepage {
   max-width: 1240px;
   text-align: left;
+  /* Radix's own wrapper sets a font on everything under it, so the app font
+     from `body` never reaches the prose on a record page. Named here, because
+     the type on this page is half of what it is. */
+  font-family: var(--sc-font);
 }
 .sc-scenepage .sc-lookpage-crumb,
 .sc-scenepage .sc-lookpage-acts {
@@ -930,12 +934,26 @@
 }
 /* The shared shell centres its identity block; this page is a record read
    from the left, so the name, its filing and the lede keep their own edge. */
+/* The name is the page's one big thing: set tighter and heavier than the
+   centred shell's, which is balanced for a name over a picture. */
 .sc-scenepage h1 {
   max-width: none;
-  margin-inline: 0;
+  margin: 0 0 var(--sc-space-5);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.sc-scenepage .sc-lookpage-lede {
+  margin-bottom: var(--sc-space-7);
 }
 .sc-scenepage .sc-presenterpage-cats {
   justify-content: flex-start;
+  margin-inline: 0;
+}
+/* The filing is a fact about the record, not part of the name: it sits with
+   the rest of the record, on the row pattern the presenter page already has. */
+.sc-scenepage .sc-presenterpage-filed {
+  max-width: none;
   margin-inline: 0;
 }
 .sc-scenepage .sc-lookpage-lede,
@@ -1006,7 +1024,7 @@
   margin: 0;
   display: grid;
   justify-items: start;
-  gap: var(--sc-space-4);
+  gap: var(--sc-space-5);
 }
 /* The frame is the picture: it wraps whatever was drawn rather than cropping
    it into a card. It keeps a floor, because a picture that is tiny or that
@@ -1035,7 +1053,7 @@
 .sc-scene-place figcaption,
 .sc-scene-stage .sc-lookpage-note {
   margin: 0;
-  max-width: var(--sc-measure-prose);
+  max-width: var(--sc-measure-lede);
   text-align: left;
 }
 
@@ -1075,21 +1093,38 @@
   display: flex;
 }
 .sc-scene-note {
-  margin: var(--sc-space-4) 0 0;
+  margin: var(--sc-space-5) 0 0;
   font-size: var(--sc-text-body);
   line-height: 1.5;
   color: var(--sc-fg3);
-  max-width: var(--sc-measure-prose);
+  max-width: var(--sc-measure-lede);
 }
-/* The long words a shot is told wait behind one press: the shipped disclosure
-   pill, left-aligned here because this record is not a centred one. */
+/* The long words a shot is told wait behind one press. A quiet line with a
+   caret, not a pill: a pill is a thing to press, and this is a thing to read
+   more of. */
 .sc-scene-expand {
-  margin-inline: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  margin-top: var(--sc-space-5);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sc-fg2);
+  font: inherit;
+  font-size: var(--sc-text-body);
+  cursor: pointer;
+}
+.sc-scene-expand svg {
+  transition: rotate 140ms ease;
+}
+.sc-scene-expand svg[data-on] {
+  rotate: 180deg;
 }
 .sc-scene-prose {
-  margin: var(--sc-space-4) 0 0;
-  font-size: var(--sc-text-body);
-  line-height: 1.65;
+  margin: var(--sc-space-5) 0 0;
+  font-size: 15px;
+  line-height: 1.6;
   color: var(--sc-fg2);
   max-width: var(--sc-measure-prose);
 }

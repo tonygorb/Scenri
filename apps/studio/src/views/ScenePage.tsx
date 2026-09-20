@@ -11,7 +11,7 @@ import { useApplyScene } from '../app/useApplyScene.js';
 import { bookmarkedScenes, toggleBookmarkScene } from '../bookmarks.js';
 import { Confirm } from '../Confirm.js';
 import { SceneCard } from '../layout/SceneCard.js';
-import { BookmarkSimple, PencilSimple, Plus } from '@phosphor-icons/react';
+import { BookmarkSimple, CaretDown, PencilSimple, Plus } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
 import { readingLines } from '../create/scene/sceneStudioRules.js';
 import { COPY } from '../create/scene/sceneCopy.js';
@@ -293,15 +293,6 @@ export function ScenePage() {
               heads the record with it. */}
           <div className="sc-scene-id">
             <h1>{scene.name}</h1>
-            {owned && owned.verticals.length > 0 && (
-              <ul className="sc-presenterpage-cats" aria-label="Filed under">
-                {owned.verticals.map((c) => (
-                  <li key={c} className="sc-chip" data-static>
-                    {c}
-                  </li>
-                ))}
-              </ul>
-            )}
             <p className="sc-lookpage-lede">{scene.description}</p>
             {/* A curated scene is judged from outside, so it says what it is
                 for; your own says it in its own words below. */}
@@ -458,11 +449,12 @@ export function ScenePage() {
                     <>
                       <button
                         type="button"
-                        className="sc-lookpage-expand sc-scene-expand"
+                        className="sc-scene-expand"
                         aria-expanded={openWords}
                         onClick={() => setOpenWords(!openWords)}
                       >
-                        {openWords ? 'Hide the full words' : 'Read the full words a shot is told'}
+                        <CaretDown size={12} weight="bold" data-on={openWords || undefined} />
+                        <span>{openWords ? 'Hide the full words' : 'Read the full words a shot is told'}</span>
                       </button>
                       {openWords && (
                         <p className="sc-scene-prose" dir="auto">
@@ -501,6 +493,19 @@ export function ScenePage() {
                         : ''}
                     </p>
                   </section>
+                )}
+
+                {owned.verticals.length > 0 && (
+                  <div className="sc-scene-sec sc-presenterpage-filed">
+                    <span className="sc-presenterpage-filed-lb">Filed under</span>
+                    <ul className="sc-presenterpage-cats" aria-label="Filed under">
+                      {owned.verticals.map((c) => (
+                        <li key={c} className="sc-chip" data-static>
+                          {c}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
 
                 <div className="sc-scene-sec sc-scene-del">
