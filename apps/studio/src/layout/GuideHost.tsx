@@ -4,16 +4,7 @@ import { useAppData, useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId, GuideTaskNode } from '../api.js';
-import {
-  arrived,
-  forgetReached,
-  guideIntent,
-  headFor,
-  markReached,
-  refreshGuide,
-  useGuide,
-  viaBarKey,
-} from '../guide.js';
+import { arrived, guideIntent, headFor, refreshGuide, useGuide, viaBarKey } from '../guide.js';
 import { setGuideShowing, useGuideFacts } from '../guideFacts.js';
 import {
   ASK_TAB,
@@ -309,11 +300,24 @@ export function GuideHost() {
     const where = stepOfMoment(task, moment.id);
     if (where) {
       moment = { ...moment, ...where };
-      // how far this lesson has got, which Learn reads: emptying the brief
-      // asks for the chips again but does not undo having chosen them
-      markReached(brand.id, task, where.at);
     }
   }
+  /**
+   * A milestone seen is the lesson's own to remember (routes/guide.ts). It is
+   * written once, by the moment's name, so leaving this lesson for another
+   * and coming back finds it where it was rather than at the beginning.
+   */
+  const seen = task && moment && moment.voice !== 'quiet' ? moment.id : null;
+  const noted = useRef('');
+  useEffect(() => {
+    if (!task || !seen) return;
+    const mark = `${task}:${seen}`;
+    if (noted.current === mark) return;
+    noted.current = mark;
+    if (guide.progress[task]?.reached.includes(seen)) return;
+    void guideIntent({ reached: { task, moment: seen } });
+  }, [task, seen, guide.progress]);
+
   const shown = moment;
 
   // Tasks this visit has begun on its own, or seen end: neither is begun on its own again.
@@ -321,15 +325,10 @@ export function GuideHost() {
   // How a task ends. Ended here, it is not begun here again: the open shot's
   // composer is still reached for after Done, and the record's tick for it
   // can arrive a moment after the task has let go.
-  const finish = useCallback(
-    (t: GuideTaskId) => {
-      autoStarted.current.add(t);
-      // done is done: taken again, it starts at its first step
-      forgetReached(brand.id, t);
-      void guideIntent({ finish: t });
-    },
-    [brand.id],
-  );
+  const finish = useCallback((t: GuideTaskId) => {
+    autoStarted.current.add(t);
+    void guideIntent({ finish: t });
+  }, []);
   const dismiss = useCallback(
     (t: GuideTaskId) => {
       void guideIntent({ dismiss: t });

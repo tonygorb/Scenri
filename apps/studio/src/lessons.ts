@@ -107,22 +107,26 @@ export function lessonOf(id: string | null | undefined): Lesson | null {
 export type LessonState = 'new' | 'active' | 'done';
 
 /**
- * In hand for this brand, done, or not begun. In hand wins over done: a
- * lesson taken again is being done again.
+ * Part done in this brand, done, or not begun.
+ *
+ * Part done wins over done: a lesson taken again is being done again. It is
+ * read from the lesson's own progress rather than from whichever lesson is
+ * guiding, which is the whole point: several can be part done at once, and
+ * taking up another one costs the rest nothing. A lesson set down still says
+ * how far it got, and its action still says Continue.
  *
  * Done means this lesson was walked to its end, and nothing else. The
  * install's `done` milestones say what the library proves about the product
  * (which is what stops the tutor teaching what someone clearly knows), and
  * that is a different question: owning a product is not having taken the
- * lesson about products. Lessons are independent of one another, so finishing
- * one says nothing about the rest.
+ * lesson about products.
  */
 export function lessonState(
   id: GuideTaskId,
-  view: Pick<GuideView, 'lessons' | 'active'>,
+  view: Pick<GuideView, 'lessons' | 'progress'>,
   brandId: string,
 ): LessonState {
-  if (view.active?.task === id && view.active.brandId === brandId) return 'active';
+  if (view.progress[id]?.brandId === brandId) return 'active';
   return view.lessons[id] ? 'done' : 'new';
 }
 
@@ -173,6 +177,16 @@ const AT: Record<GuideTaskId, Record<string, number>> = {
  * the tutor's card says the same thing Learn does (`GuideHost`). The greeting
  * has no step of its own and so no count.
  */
+/** The furthest step a lesson has reached, from the milestones it has seen. */
+export function furthest(id: GuideTaskId, reached: readonly string[]): number {
+  let at = 0;
+  for (const moment of reached) {
+    const step = AT[id][moment];
+    if (step !== undefined && step > at) at = step;
+  }
+  return at;
+}
+
 export function stepOfMoment(id: GuideTaskId, moment: string): { at: number; of: number } | null {
   const at = AT[id][moment];
   const of = LESSONS.find((l) => l.id === id)?.steps.length ?? 0;

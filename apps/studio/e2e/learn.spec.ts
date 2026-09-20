@@ -1,15 +1,17 @@
 import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
 import {
+  chips,
   coachCard,
   coachTitle,
-  guideRecord,
-  noWelcomeWait,
   fromLearn,
+  guideRecord,
+  learnButton,
+  noWelcomeWait,
   ownBrand,
   pickFromPicker,
   pickTheIngredients,
-  learnButton,
+  readTheOpening,
   setUpBrand,
   walkToCreate,
   welcome,
@@ -99,10 +101,12 @@ test('a lesson begun in Learn is paused and continued as it was', async ({ page 
     timeout: 20_000,
   });
   const since = (await guideRecord(page)).active?.since;
-  // closing the guide pauses the task rather than dropping it
+  // closing the guide sets the lesson down rather than dropping it: nothing
+  // is guiding, and the lesson keeps its own progress
   await page.locator('.sc-pstudio .sc-coach').getByRole('button', { name: 'Close guide' }).click();
   await expect(page.locator('.sc-pstudio .sc-coach')).toHaveCount(0);
-  await expect.poll(async () => (await guideRecord(page)).active?.paused).toBe(true);
+  await expect.poll(async () => (await guideRecord(page)).progress.presenter?.paused).toBe(true);
+  expect((await guideRecord(page)).active).toBeNull();
 
   // Learn says it is in hand
   await page.goto(`/${slug}`);
@@ -208,6 +212,47 @@ test('using a saved product again is its own walk: the product, a place, the wor
   await expect(coachTitle(page)).toHaveText('The same product, twice', { timeout: 40_000 });
   await coachCard(page).getByRole('button', { name: 'Done' }).click();
   await expect.poll(async () => (await guideRecord(page)).lessons.reuse).toBeTruthy();
+});
+
+test('a lesson part done stays part done when another is taken up', async ({ page }) => {
+  test.setTimeout(90_000);
+  const own = await ownBrand(page, 'Both At Once');
+  await page.goto(`/${own}/create`);
+  await readTheOpening(page);
+  await pickTheIngredients(page);
+  // five of the six: what you sell, who shows it, where, and the words
+  await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');
+  await page.goto(`/${own}`);
+  await learnButton(page).click();
+  await expect(card(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('Step 5 of 6');
+
+  // take up another lesson: the first keeps everything but the screen
+  await card(page, 'Add your product').click();
+  await action(page, 'Start').click();
+  await expect(page).toHaveURL(/new=product/);
+  await expect(coachTitle(page)).toHaveText('Add your product');
+  await page.goto(`/${own}`);
+  await learnButton(page).click();
+  await expect(card(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('Step 5 of 6');
+  await expect(card(page, 'Add your product').locator('.sc-learn-status')).toHaveText(/^Step \d of 2$/);
+
+  // and it is continued, not begun again: taken up from Home it asks for the
+  // way there first, as any walk does, and then picks up where it was with
+  // the three ingredients still in the brief
+  await card(page, 'Make your first shot').click();
+  await expect(action(page, 'Continue')).toBeVisible();
+  await action(page, 'Continue').click();
+  await walkToCreate(page);
+  await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');
+  await expect(chips(page)).toHaveCount(3);
+
+  // each lesson holds its own progress, and one of them is guiding: this file
+  // has left a presenter part done too, which is the point rather than a problem
+  const record = await guideRecord(page);
+  expect(Object.keys(record.progress)).toEqual(expect.arrayContaining(['first-shot', 'product']));
+  expect(record.progress['first-shot']?.paused).toBeUndefined();
+  expect(record.progress.product?.paused).toBe(true);
+  expect(record.active?.task).toBe('first-shot');
 });
 
 test('on a phone Learn is the sheet, and every lesson a row', async ({ page }) => {

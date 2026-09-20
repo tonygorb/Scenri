@@ -7,6 +7,7 @@ import {
   NEEDS,
   lessonOf,
   lessonState,
+  furthest,
   stepOf,
   stepOfMoment,
   type ProgressFacts,
@@ -125,20 +126,34 @@ describe('the lessons', () => {
 });
 
 describe('lessonState', () => {
-  const active = (task: 'presenter' | 'first-shot', brandId = 'b1') => ({
-    task,
+  const part = (brandId = 'b1', paused = false) => ({
     brandId,
     since: 'x',
-    baseline: { products: 0, presenters: 0, scenes: 0 },
+    reached: ['start'],
+    ...(paused ? { paused } : {}),
   });
-  it('is in hand for its own brand, done once the record says so, new otherwise', () => {
-    expect(lessonState('presenter', { lessons: {}, active: null }, 'b1')).toBe('new');
-    expect(lessonState('presenter', { lessons: { presenter: 'x' }, active: null }, 'b1')).toBe('done');
-    expect(lessonState('presenter', { lessons: {}, active: active('presenter') }, 'b1')).toBe('active');
-    // another brand's task in hand is that brand's
-    expect(lessonState('presenter', { lessons: {}, active: active('presenter', 'b2') }, 'b1')).toBe('new');
+  it('is part done for its own brand, done once the record says so, new otherwise', () => {
+    expect(lessonState('presenter', { lessons: {}, progress: {} }, 'b1')).toBe('new');
+    expect(lessonState('presenter', { lessons: { presenter: 'x' }, progress: {} }, 'b1')).toBe('done');
+    expect(lessonState('presenter', { lessons: {}, progress: { presenter: part() } }, 'b1')).toBe('active');
+    // set down for another lesson, it is still part done and still says Continue
+    expect(lessonState('presenter', { lessons: {}, progress: { presenter: part('b1', true) } }, 'b1')).toBe('active');
+    // another brand's work is that brand's
+    expect(lessonState('presenter', { lessons: {}, progress: { presenter: part('b2') } }, 'b1')).toBe('new');
     // taken again, it is being done again
-    expect(lessonState('presenter', { lessons: { presenter: 'x' }, active: active('presenter') }, 'b1')).toBe('active');
+    expect(lessonState('presenter', { lessons: { presenter: 'x' }, progress: { presenter: part() } }, 'b1')).toBe(
+      'active',
+    );
+    // and one lesson's progress says nothing about another's
+    expect(lessonState('scene', { lessons: {}, progress: { presenter: part() } }, 'b1')).toBe('new');
+  });
+
+  it('reads the furthest milestone a lesson has reached, in any order', () => {
+    expect(furthest('first-shot', [])).toBe(0);
+    expect(furthest('first-shot', ['go', 'product'])).toBe(1);
+    expect(furthest('first-shot', ['make', 'go', 'scene'])).toBe(4);
+    // a milestone from another lesson, or one that no longer maps, counts for nothing
+    expect(furthest('first-shot', ['face', 'nonsense'])).toBe(0);
   });
 });
 

@@ -161,7 +161,9 @@ test('a reload lands on the same moment, and the X ends only the guidance', asyn
   expect(await isInert(page, '[data-guide="compose.send"]')).toBe(false);
   // the task is paused, not dropped: still in hand, so it can be continued as it was
   const record = await guideRecord(page);
-  expect(record.active).toMatchObject({ task: 'first-shot', paused: true });
+  // nothing is guiding, and the lesson keeps its own progress: set down, not dropped
+  expect(record.active).toBeNull();
+  expect(record.progress['first-shot']).toMatchObject({ paused: true });
   expect(record.dismissed).toContain('first-shot');
   // and a reload does not bring the tutor back on its own
   await page.reload();

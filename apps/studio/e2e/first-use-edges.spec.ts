@@ -81,7 +81,9 @@ test('Escape ends the guidance and leaves everything usable', async ({ page }) =
   await page.keyboard.press('Escape');
   await expect(coachCard(page)).toHaveCount(0);
   await expectLetGo(page);
-  expect((await guideRecord(page)).active).toMatchObject({ task: 'first-shot', paused: true });
+  const shut = await guideRecord(page);
+  expect(shut.active).toBeNull();
+  expect(shut.progress['first-shot']).toMatchObject({ paused: true });
 });
 
 test('pressing twice, wandering off, and coming back all land on the same moment', async ({ page }) => {
@@ -136,12 +138,17 @@ test('a task belongs to its own brand, and another brand is not guided by it', a
   await page.goto(`/${a}/create`);
   // the task in hand is brand B's, so brand A shows nothing and has nothing in hand
   await expect(coachCard(page)).toHaveCount(0);
+  // work belongs to the brand it was done in: brand B's scene is part done
+  // there and nowhere else, and brand A's own first shot likewise
   await page.goto(`/${a}`);
   await learnButton(page).click();
-  await expect(learnDialog(page).locator('.sc-learn-status', { hasText: /^Step/ })).toHaveCount(0);
+  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('2 steps');
+  await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText(/^Step \d of 6$/);
+  await page.keyboard.press('Escape');
   await page.goto(`/${b}`);
   await learnButton(page).click();
   await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText(/^Step \d of 2$/);
+  await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('6 steps');
 });
 
 test('someone who built the brief their own way is not asked for it again', async ({ page }) => {

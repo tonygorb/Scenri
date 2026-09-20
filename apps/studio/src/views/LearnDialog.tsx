@@ -4,7 +4,7 @@ import { useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId } from '../apiTypes.js';
-import { reachedOf, useGuide } from '../guide.js';
+import { useGuide } from '../guide.js';
 import { useGuideFacts } from '../guideFacts.js';
 import { firstShotMoment, presenterMoment, reuseMoment } from '../guidedTasks.js';
 import {
@@ -13,6 +13,7 @@ import {
   NEEDS,
   lessonOf,
   lessonState,
+  furthest,
   stepOf,
   type Lesson,
   type LessonState,
@@ -100,9 +101,10 @@ export function LearnDialog() {
       draft: !!guide.activeDraftId,
       building: l.id === 'scene' && builds.some((b) => b.kind === 'scene' && !b.finished),
     });
-    // a lesson does not walk backwards: the furthest it reached stands, even
-    // if the brief it got there with was emptied afterwards
-    return Math.max(now, reachedOf(brand.id, l.id) - 1);
+    // A lesson does not walk backwards. What it has reached is its own
+    // (the record keeps the milestones by name), so emptying the brief asks
+    // for the chips again without undoing having chosen them.
+    return Math.max(now, furthest(l.id, guide.progress[l.id]?.reached ?? []));
   };
   // The lesson that comes next: the one in hand, else the first not yet done.
   const next = LESSONS.find((l) => stateOf(l) === 'active') ?? LESSONS.find((l) => stateOf(l) !== 'done') ?? null;
