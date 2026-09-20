@@ -70,10 +70,10 @@ export function useCreateFlow(): Pick<CreateApi, 'announce' | 'caps' | 'capsNote
 }
 
 export function AssetCreateHost({ children }: { children: ReactNode }) {
-  const { brand, refreshProducts } = useBrand();
+  const { brand } = useBrand();
   const navigate = useNavigate();
   const { push } = useToasts();
-  const { refresh: refreshBrands } = useAppData();
+  const { refreshBrands } = useAppData();
   const { builds, poke } = useTaskCenter();
   const param = useDialogParam('new');
   const value = param.value;
@@ -259,10 +259,9 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
           push({ kind: 'success', title: 'Importing your catalog', detail: made.name });
           return;
         }
-        void refreshBrands();
-        // the chip a picker puts in the brief is named from the library, so the
-        // library learns of it too (BriefInput draws the chip again once it has)
-        void refreshProducts();
+        // The form applied the brand it answered with, and the library follows
+        // the brand, so the chip a picker puts in the brief finds the product
+        // (BriefInput draws the chip again once it has). Nothing to re-read.
         if (cb?.kind === 'product') cb.fn(made);
         push({
           kind: 'success',
@@ -275,7 +274,8 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         return;
       }
       if (made.kind === 'presenter') {
-        void refreshBrands();
+        // The save applied the brand it answered with before announcing, so
+        // the wall, the picker and their page already have them.
         if (cb?.kind === 'presenter') cb.fn(made);
         push({
           kind: 'success',
@@ -289,7 +289,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
       if (cb?.kind === made.kind) cb.fn(made);
       push({ kind: 'success', title: `Building ${made.name}`, detail: 'The bell will say when.' });
     },
-    [brand, navigate, poke, push, refreshBrands, refreshProducts],
+    [brand, navigate, poke, push, refreshBrands],
   );
 
   /** A dialog's flow: what was made is announced, and the dialog goes. */

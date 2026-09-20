@@ -833,6 +833,10 @@ async function runSceneBuild(
   commit(core, job.brandId, (json) => {
     const rows = brandScenes(json);
     const at = rows.findIndex((s) => s?.id === scene.id);
+    // A re-read revises a record that exists. If that record was deleted while
+    // the analyzer ran, appending it here would bring the scene back after the
+    // person had watched it go, so the read ends as a failure instead.
+    if (at < 0 && job.sceneId) throw new Error('This scene was deleted while it was being read again.');
     // Same id in the same slot on a re-read; appended when it is genuinely new.
     json.scenes = at >= 0 ? rows.map((s, i) => (i === at ? scene : s)) : [...rows, scene];
   });
@@ -957,4 +961,11 @@ export function sceneBuildRunning(brandId: string, sceneId: string): boolean {
     if (b.brandId === brandId && b.sceneId === sceneId && !b.finished) return true;
   }
   return false;
+}
+
+/** Stop every read still running over this scene: it is being deleted, and the analyzer call would be spent for nothing. */
+export function cancelSceneBuilds(brandId: string, sceneId: string): void {
+  for (const b of builds.values()) {
+    if (b.brandId === brandId && b.sceneId === sceneId && !b.finished) cancelAssetBuild(b.id);
+  }
 }

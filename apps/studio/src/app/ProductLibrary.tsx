@@ -68,9 +68,26 @@ export function ProductLibraryProvider({ brand, children }: { brand: Brand; chil
     .join('|');
   const importing = tasks.some((t) => t.kind === 'catalog' && t.state === 'running');
 
+  /**
+   * Which read is the newest, and which brand is on screen.
+   *
+   * Reads overlap: a rename, the delete right after it and the import poll can
+   * each start one, and they answer in whatever order the server and the
+   * network hand them back. The comparison below only asks "is this different
+   * from what landed last", so an older list arriving after a newer one won,
+   * and a product deleted a moment ago came back. The newest read started is
+   * the only one allowed to land. And a read for the brand you just left must
+   * never land on the one you switched to.
+   */
+  const seq = useRef(0);
+  const brandRef = useRef(brandId);
+  brandRef.current = brandId;
+
   const load = useCallback(async () => {
+    const mine = ++seq.current;
     try {
       const r = await api.productsLibrary(brandId);
+      if (mine !== seq.current || brandRef.current !== brandId) return;
       const text = JSON.stringify(r.products);
       // Compared and recorded HERE, never inside the updater below.
       //
@@ -88,6 +105,7 @@ export function ProductLibraryProvider({ brand, children }: { brand: Brand; chil
       lastRef.current = text;
       setState({ products: r.products, loaded: true });
     } catch {
+      if (mine !== seq.current || brandRef.current !== brandId) return;
       // A failed read is not "this brand has nothing": keep what is on screen
       // and let the next event correct it.
       setState((cur) => ({ products: cur.products, loaded: true }));
@@ -101,13 +119,7 @@ export function ProductLibraryProvider({ brand, children }: { brand: Brand; chil
   }, [brandId]);
 
   useEffect(() => {
-    let alive = true;
-    void load().then(() => {
-      if (!alive) return;
-    });
-    return () => {
-      alive = false;
-    };
+    void load();
   }, [load, brand.updatedAt, catalogSignature]);
 
   /**

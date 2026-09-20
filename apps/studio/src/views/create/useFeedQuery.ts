@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, type FeedCounts, type FeedNode, type FeedQuery } from '../../api.js';
+import { useBrand } from '../../app/BrandLayout.js';
 import {
   admits,
   appendPage,
@@ -63,7 +64,9 @@ interface Held {
  * never land on top of a newer one.
  */
 export function useFeedQuery(brandId: string, query: FeedQuery, ctx: AdmitContext): FeedQueryResult {
-  const key = queryKey(brandId, query);
+  // A wipe of every shot moves the epoch, and the pages are read again.
+  const { shotsEpoch } = useBrand();
+  const key = `${queryKey(brandId, query)}#${shotsEpoch}`;
   const [held, setHeld] = useState<Held>({ brandId, key: '', items: [], next: null, counts: null, error: null });
   const [loading, setLoading] = useState(false);
   const heldRef = useRef(held);

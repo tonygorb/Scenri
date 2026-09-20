@@ -58,19 +58,27 @@ export async function uploadImage(file: File): Promise<string> {
  * `beforeunload` cannot await anything: the normal request is abandoned the
  * moment the document is torn down, which is how a headline typed in the last
  * fraction of a second before a reload was lost. `keepalive` hands the request
- * to the browser to finish on its own. Nothing can be reported back, so
- * nothing tries.
+ * to the browser to finish on its own.
+ *
+ * When only the settings pane is going away, the studio is still here to hear
+ * the answer, and it has to: this is a brand write like any other, and a
+ * studio that never applied it held the old kit, so the next palette change
+ * from the rail wrote the old name back. The answer comes back as the row, or
+ * null when there is nobody to tell or nothing to say.
  */
-export function saveBrandOnUnload(brandId: string, brand: unknown): void {
+export function saveBrandOnUnload(brandId: string, brand: unknown): Promise<Brand | null> {
   try {
-    void fetch(`/api/brands/${brandId}`, {
+    return fetch(`/api/brands/${brandId}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ brand }),
+      body: JSON.stringify({ brand, keepAssets: true }),
       keepalive: true,
-    });
+    })
+      .then((res) => (res.ok ? (res.json() as Promise<Brand>) : null))
+      .catch(() => null);
   } catch {
     /* the page is leaving and there is no one left to tell */
+    return Promise.resolve(null);
   }
 }
 

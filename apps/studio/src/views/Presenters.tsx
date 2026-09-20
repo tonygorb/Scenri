@@ -46,8 +46,15 @@ const SEARCH_MIN = 8;
  * below is always there, so this page is never an empty room.
  */
 export function PresentersView() {
-  const { presenters, presenterCategories, presentersLoaded, presentersError, refetchPresenters, applyBrand } =
-    useAppData();
+  const {
+    presenters,
+    presenterCategories,
+    presentersLoaded,
+    presentersError,
+    refetchPresenters,
+    applyBrand,
+    refreshBrands,
+  } = useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
   const applyPresenter = useApplyPresenter();
@@ -105,16 +112,25 @@ export function PresentersView() {
    * the creation page has always claimed happens.
    */
   const [drafts, setDrafts] = useState<PresenterDraftSummary[]>([]);
+  /**
+   * Only the newest read may land. Discarding two drafts in quick succession
+   * starts two reads, and the first can answer while the second discard is
+   * still on its way, carrying the draft that was just thrown away.
+   */
+  const draftsRead = useRef(0);
   const loadDrafts = useCallback(() => {
-    let alive = true;
+    const mine = ++draftsRead.current;
     void api
       .presenterDrafts(brand.id)
       // An edit of somebody already saved is not unfinished work: they are on
       // the wall already, and their own page offers the session back.
-      .then((r) => alive && setDrafts(r.drafts.filter((d) => !d.presenterId)))
+      .then((r) => {
+        if (mine === draftsRead.current) setDrafts(r.drafts.filter((d) => !d.presenterId));
+      })
       .catch(() => undefined);
     return () => {
-      alive = false;
+      // a read for a brand or a moment this page has left is not an answer
+      if (mine === draftsRead.current) draftsRead.current++;
     };
   }, [brand.id]);
   /**
@@ -214,6 +230,21 @@ export function PresentersView() {
     },
     [mine],
   );
+  /**
+   * Where focus goes after a card is deleted, the way a discarded draft hands
+   * focus on. The control that deletes is inside the card, so agreeing to it
+   * destroys the element that had focus and the browser drops focus to `body`:
+   * the next Tab starts again at Skip to content, the far end of the page from
+   * where the person was working.
+   */
+  const handOnCard = useRef<number | null>(null);
+  useEffect(() => {
+    const at = handOnCard.current;
+    if (at === null) return;
+    handOnCard.current = null;
+    const pucks = wall.current?.querySelectorAll<HTMLButtonElement>('.sc-lookcard:not([data-build]) .sc-lookcard-more');
+    (pucks?.length ? pucks[Math.min(at, pucks.length - 1)] : cta.current)?.focus();
+  }, [presenters, brand]);
   const confirmDuplicate = async (name: string) => {
     if (!duplicating || acting) return;
     setActing(true);
@@ -233,13 +264,21 @@ export function PresentersView() {
   };
   const confirmDelete = async () => {
     if (!removing || acting) return;
+    handOnCard.current = Math.max(
+      0,
+      minePlusBuilds.findIndex((p) => p.id === removing.id),
+    );
     setActing(true);
     try {
       const r = await api.deletePresenter(brand.id, removing.id);
       applyBrand(r.brand);
       setRemoving(null);
     } catch (e: any) {
-      push(failureToast(e, 'Could not delete this presenter'));
+      // already gone (another tab): the outcome asked for is true
+      if (e?.status === 404) {
+        await refreshBrands();
+        setRemoving(null);
+      } else push(failureToast(e, 'Could not delete this presenter'));
     } finally {
       setActing(false);
     }

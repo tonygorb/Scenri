@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, type FeedNode } from '../../api.js';
+import { useBrand } from '../../app/BrandLayout.js';
 
 /** Shots per page: the same page the picker turns for every other kind. */
 export const SHOT_PAGE = 48;
@@ -31,7 +32,9 @@ const EMPTY: ShotPages = { items: [], total: 0, hasMore: false, loading: false, 
  */
 export function useShotPages(brandId: string, query: string, enabled = true): ShotPages {
   const q = query.trim();
-  const key = `${brandId}|${q}`;
+  const { shotsEpoch, subscribeActivity } = useBrand();
+  // a wipe of every shot moves the epoch, and the pages are read again
+  const key = `${brandId}|${q}|${shotsEpoch}`;
   const [held, setHeld] = useState<{ key: string; items: FeedNode[]; next: string | null; total: number }>({
     key: '',
     items: [],
@@ -88,6 +91,31 @@ export function useShotPages(brandId: string, query: string, enabled = true): Sh
   }, [fetchPage, enabled]);
 
   useEffect(() => () => inflight.current?.abort(), []);
+
+  /**
+   * A shot kept or archived anywhere, while these pages are held.
+   *
+   * The pages are read once, when the section opens, and heard nothing after:
+   * a shot archived from the feed stayed in the rail's Recent shots, and in
+   * the picker's Shots tab, until the section was closed and opened again.
+   */
+  useEffect(
+    () =>
+      subscribeActivity((nodes) => {
+        const byId = new Map(nodes.map((n) => [n.id, n]));
+        setHeld((cur) => {
+          if (!cur.items.some((it) => byId.has(it.id))) return cur;
+          const items = cur.items.flatMap((it) => {
+            const n = byId.get(it.id);
+            if (!n) return [it];
+            return n.archived ? [] : [{ ...it, ...n }];
+          });
+          // the header counts what the search reaches; an archived shot left it
+          return { ...cur, items, total: Math.max(0, cur.total - (cur.items.length - items.length)) };
+        });
+      }),
+    [subscribeActivity],
+  );
 
   const current = held.key === key ? held : null;
   const loadMore = useCallback(() => {

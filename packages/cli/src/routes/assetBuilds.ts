@@ -8,6 +8,7 @@ import {
   brandCharacters,
   brandScenes,
   cancelAssetBuild,
+  cancelSceneBuilds,
   commit,
   forgetAssetBuild,
   getAssetBuild,
@@ -324,10 +325,22 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     if (!brand) return;
     const id = String((req.params as any).sceneId);
     if (!brandScenes(brand.json).some((s) => s.id === id)) return reply.status(404).send({ error: 'scene not found' });
-    commit(core, brand.id, (json) => {
-      json.scenes = brandScenes(json).filter((s) => s.id !== id);
-    });
-    return { ok: true };
+    // A read still running over this scene would otherwise finish into a record
+    // that is gone. Stopped first, so no analyzer call is spent on it.
+    cancelSceneBuilds(brand.id, id);
+    let row: unknown;
+    try {
+      row = commit(core, brand.id, (json) => {
+        json.scenes = brandScenes(json).filter((s) => s.id !== id);
+      });
+    } catch (err: any) {
+      return reply.status(err.statusCode ?? 500).send({ error: err.message });
+    }
+    // The brand comes back, the way every scene and presenter mutation answers,
+    // so the wall, the page, the caret menu and the chips all stop showing it in
+    // the same commit. Answering `{ok:true}` alone left the card on the wall
+    // until a reload while the record was already gone.
+    return { ok: true, brand: row };
   });
 
   /** Redraw a scene's example. One generation, asked for explicitly. */

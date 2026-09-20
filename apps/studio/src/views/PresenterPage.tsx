@@ -1,5 +1,5 @@
 import { ImageSquare, PencilSimple } from '@phosphor-icons/react';
-import { type CSSProperties, useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useMatch, useNavigate, useParams } from 'react-router';
 import { api, type PresenterPatch, thumbOf } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
@@ -18,6 +18,7 @@ import { Tip } from '../layout/Tip.js';
 import { EmptyRefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { PresenterDetailsDialog } from './PresenterDetailsDialog.js';
+import { useStillHere } from '../useStillHere.js';
 
 /** The word under a reference tile, by the angle the record gives it. */
 const ROLE_LABEL: Record<string, string> = {
@@ -46,10 +47,19 @@ const CURATED_LABELS = ['Front', 'Left', 'Right', 'Back'];
  */
 export function PresenterPage() {
   const { presenterId = '' } = useParams();
-  const { presenters, presentersLoaded, presentersError, refetchPresenters, applyBrand, presenterCategories } =
-    useAppData();
+  const {
+    presenters,
+    presentersLoaded,
+    presentersError,
+    refetchPresenters,
+    applyBrand,
+    refreshBrands,
+    presenterCategories,
+  } = useAppData();
   const { brand } = useBrand();
   const navigate = useNavigate();
+  const stillHere = useStillHere();
+  const removing = useRef(false);
   const applyPresenter = useApplyPresenter();
   const [refs, setRefs] = useState<string[]>([]);
   const [open, setOpen] = useState<{ src: string; label: string } | null>(null);
@@ -142,7 +152,10 @@ export function PresenterPage() {
   };
 
   const remove = async () => {
-    if (!owned) return;
+    if (!owned || removing.current) return;
+    removing.current = true;
+    const here = stillHere();
+    const wall = presentersPath(brand);
     setBusy(true);
     try {
       const r = await api.deletePresenter(brand.id, owned.id);
@@ -150,11 +163,21 @@ export function PresenterPage() {
       // the brand, and without this it still carried the card, the picker still
       // offered them and an existing chip still resolved, all until a reload.
       applyBrand(r.brand);
-      navigate(presentersPath(brand));
     } catch (e: any) {
-      setErr(String(e.message ?? e));
-      setBusy(false);
+      if (e?.status !== 404) {
+        removing.current = false;
+        if (here()) {
+          setErr(String(e.message ?? e));
+          setBusy(false);
+        }
+        return;
+      }
+      // Already gone: the outcome asked for is true, so read the brand and carry on.
+      await refreshBrands();
     }
+    // Replace: Back must not land on the page of somebody who is gone. And only
+    // if this page is still the one on screen.
+    if (here()) navigate(wall, { replace: true });
   };
 
   // A superseded revision's address lands on the current one, the way a
