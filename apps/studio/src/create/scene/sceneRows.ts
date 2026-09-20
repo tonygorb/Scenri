@@ -98,7 +98,7 @@ export const ROWS: Record<SceneRow, RowSpec> = {
  * by one. A row not in here is words on chips: the same answers, unillustrated,
  * never a row with pictures on some cards and not others.
  */
-export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['where', 'light', 'figure']);
+export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['where', 'light', 'feeling', 'materials', 'figure']);
 
 /** A row as the conversation's swatch block takes it. */
 export function swatchRow(row: SceneRow): SwatchRow {

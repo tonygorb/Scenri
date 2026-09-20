@@ -812,6 +812,42 @@ button.sc-convo-shot-do {
 .sc-convo-plate-in[data-card="scene-figure-2"] {
   background-image: url("../../assets/scenes/scene-figure-2.webp");
 }
+.sc-convo-plate-in[data-card="scene-feeling-1"] {
+  background-image: url("../../assets/scenes/scene-feeling-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-feeling-2"] {
+  background-image: url("../../assets/scenes/scene-feeling-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-feeling-3"] {
+  background-image: url("../../assets/scenes/scene-feeling-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-feeling-4"] {
+  background-image: url("../../assets/scenes/scene-feeling-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-feeling-5"] {
+  background-image: url("../../assets/scenes/scene-feeling-5.webp");
+}
+.sc-convo-plate-in[data-card="scene-feeling-6"] {
+  background-image: url("../../assets/scenes/scene-feeling-6.webp");
+}
+.sc-convo-plate-in[data-card="scene-materials-1"] {
+  background-image: url("../../assets/scenes/scene-materials-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-materials-2"] {
+  background-image: url("../../assets/scenes/scene-materials-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-materials-3"] {
+  background-image: url("../../assets/scenes/scene-materials-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-materials-4"] {
+  background-image: url("../../assets/scenes/scene-materials-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-materials-5"] {
+  background-image: url("../../assets/scenes/scene-materials-5.webp");
+}
+.sc-convo-plate-in[data-card="scene-materials-6"] {
+  background-image: url("../../assets/scenes/scene-materials-6.webp");
+}
 .sc-convo-plate-in[data-card="length-1-woman"] {
   background-image: url("../../assets/traits/length-1-woman.webp");
 }
