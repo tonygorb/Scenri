@@ -450,7 +450,11 @@ export function createStore(db: DB) {
       }));
     },
     updateBrand(id: string, json: { meta: { name: string } } & Record<string, unknown>): BrandRow | null {
-      db.prepare("UPDATE brands SET json=?, slug=?, updated_at=datetime('now') WHERE id=?").run(
+      // Millisecond stamps, the presenter drafts' own format: the studio orders
+      // answers about a brand by this clock, and a rename and the delete right
+      // after it land inside one second. Older second-precision stamps still
+      // sort correctly against these as plain strings.
+      db.prepare("UPDATE brands SET json=?, slug=?, updated_at=strftime('%Y-%m-%d %H:%M:%f','now') WHERE id=?").run(
         JSON.stringify(json),
         uniqueSlug(db, json.meta.name, id),
         id,

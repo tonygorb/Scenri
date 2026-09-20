@@ -1,5 +1,6 @@
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
 import { isolate } from './harness.js';
+import { expectSameSession, mainNav, markSession } from './realtime.js';
 
 /**
  * A mutation reaches every surface in the same commit, or it is not done.
@@ -234,4 +235,136 @@ test('the wall reads its drafts again when the studio closes over it', async ({ 
   await page.keyboard.press('Escape');
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
   await expect(page.getByRole('link', { name: /^Continue / })).toHaveCount(1);
+});
+
+/**
+ * Saving from the studio lands on their own page, and their page never says
+ * they are missing on the way. The save's answer carried the brand and was
+ * thrown away; the page opened on "isn't here anymore" until a list read that
+ * waited on the engine probe came back.
+ */
+test('a person saved from the studio is on their page, the wall, Home and the picker without a missing frame', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}/presenters`);
+  await markSession(page);
+  // Armed before anything happens: one painted frame of the missing state fails this.
+  await page.evaluate(() => {
+    const w = window as unknown as { __sawMissing?: boolean };
+    w.__sawMissing = false;
+    new MutationObserver(() => {
+      if (document.body.innerText.includes("This presenter isn't here anymore")) w.__sawMissing = true;
+    }).observe(document.body, { subtree: true, childList: true, characterData: true });
+  });
+
+  await page.getByRole('button', { name: 'Create presenter' }).click();
+  const log = page.getByRole('log');
+  const answer = (label: string) => log.getByRole('button', { name: label, exact: true });
+  const composer = page.locator('.sc-convo-card textarea');
+  await expect(log).toContainText('Who are we making?');
+  await composer.fill('Early 40s man, short grey hair, calm.');
+  await composer.press('Enter');
+  await answer('Nothing else').click();
+  await expect(answer('Use this person')).toBeVisible({ timeout: 40_000 });
+  await answer('Use this person').click();
+  await expect(log).toContainText('Here is the full body', { timeout: 30_000 });
+  await answer('Use it').click();
+  await expect(log).toContainText('The set is ready', { timeout: 30_000 });
+  await answer('Not now').click();
+  await expect(log).toContainText('What should we call them?');
+  await composer.fill('Tobias');
+  await composer.press('Enter');
+  await answer('Save presenter').click();
+
+  await expect(page).toHaveURL(/\/presenters\/up-/, { timeout: 40_000 });
+  await expect(page.getByRole('heading', { name: 'Tobias' })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { __sawMissing?: boolean }).__sawMissing)).toBe(false);
+
+  await mainNav(page).getByRole('link', { name: 'Presenters', exact: true }).click();
+  await expect(page.locator('.sc-owned .sc-lookcard b', { hasText: /^Tobias$/ })).toBeVisible();
+  await mainNav(page).getByRole('link', { name: 'Home', exact: true }).click();
+  await expect(page.locator('.sc-lookcard', { hasText: 'Tobias' }).first()).toBeVisible();
+  await mainNav(page).getByRole('link', { name: 'Create', exact: true }).click();
+  await page.locator('.sc-brief-line').click();
+  await page.keyboard.type('with @Tob');
+  await expect(page.getByRole('option', { name: 'Tobias', exact: true })).toBeVisible();
+  await expectSameSession(page);
+});
+
+test('a double press on delete sends one delete, and Back does not land on their dead page', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await currentBrand(page);
+  const id = await seedPresenter(page.request, brand.id, 'Twice');
+  const deletes: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'DELETE' && r.url().includes('/presenters/')) deletes.push(r.url());
+  });
+  await page.goto(`/${brand.slug}/presenters`);
+  await markSession(page);
+  await page
+    .locator('.sc-owned .sc-lookcard', { hasText: 'Twice' })
+    .locator('a')
+    .first()
+    .click({ position: { x: 12, y: 12 } });
+  await expect(page).toHaveURL(new RegExp(`/presenters/${id}$`));
+  await page.getByRole('button', { name: 'Delete presenter' }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: /Delete/ })
+    .dblclick();
+
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters$`));
+  await expect(page.locator('.sc-owned .sc-lookcard b', { hasText: /^Twice$/ })).toHaveCount(0);
+  await page.waitForTimeout(500);
+  expect(deletes).toHaveLength(1);
+  await page.goBack();
+  await expect(page).not.toHaveURL(new RegExp(`/presenters/${id}$`));
+  await expect(page.getByText("This presenter isn't here anymore")).toHaveCount(0);
+  await expectSameSession(page);
+});
+
+test('a delete the server refuses keeps the person on the wall and says so', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await currentBrand(page);
+  await seedPresenter(page.request, brand.id, 'Refused');
+  await page.route(/\/presenters\/up-[a-z0-9]+$/, (route) =>
+    route.request().method() === 'DELETE'
+      ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'disk is full' }) })
+      : route.fallback(),
+  );
+  await page.goto(`/${brand.slug}/presenters`);
+  await markSession(page);
+  await page.locator('.sc-owned .sc-lookcard', { hasText: 'Refused' }).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Delete presenter' }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: /Delete/ })
+    .click();
+
+  await expect(page.locator('.sc-toast', { hasText: 'Could not delete this presenter' })).toBeVisible();
+  await expect(page.locator('.sc-owned .sc-lookcard b', { hasText: /^Refused$/ })).toBeVisible();
+  await expectSameSession(page);
+});
+
+test('deleting a card hands focus to the next one, not to the top of the page', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await currentBrand(page);
+  await seedPresenter(page.request, brand.id, 'FocusGo');
+  await seedPresenter(page.request, brand.id, 'FocusNext');
+  await page.goto(`/${brand.slug}/presenters`);
+  await markSession(page);
+
+  await page.getByRole('button', { name: 'More for FocusGo' }).first().click();
+  await page.getByRole('menuitem', { name: 'Delete presenter' }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: /Delete/ })
+    .click();
+  await expect(page.locator('.sc-owned .sc-lookcard b', { hasText: /^FocusGo$/ })).toHaveCount(0);
+
+  // the control that deleted the card went with it; focus lands on a neighbour
+  await expect(page.locator('.sc-lookcard-more:focus')).toBeVisible();
+  await expectSameSession(page);
 });

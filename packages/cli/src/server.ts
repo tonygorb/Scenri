@@ -254,7 +254,20 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return { ...row, warnings, report };
   });
   app.put('/api/brands/:id', async (req, reply) => {
-    const json = (req.body as any)?.brand;
+    const body = (req.body as any) ?? {};
+    let json = body.brand;
+    // A save from the studio's brand kit (Settings, the rail's palette) is
+    // built from the copy of the brand the studio holds, and it owns the kit:
+    // name, palette, logos, imagery, rules. Products, scenes and presenters
+    // have routes of their own and can change on the server under that copy
+    // (a build landing between two polls). Such a save says so, and the
+    // collections stay as stored, so a copy a moment old cannot wipe a new
+    // scene or bring a deleted product back. Any other caller still replaces
+    // the whole document, which is what the route has always done.
+    if (body.keepAssets === true && json && typeof json === 'object') {
+      const stored = core.store.getBrand((req.params as any).id);
+      if (stored) json = withStoredAssets(json, stored.json);
+    }
     const v = validateBrand(json);
     if (!v.valid) return reply.status(400).send({ error: 'invalid .brand', details: v.errors });
     const row = core.store.updateBrand((req.params as any).id, json);
@@ -2566,4 +2579,16 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   }
 
   return app;
+}
+
+/** The brand collections their own routes own, carried over from the stored document. */
+const ASSET_COLLECTIONS = ['products', 'scenes', 'characters'] as const;
+function withStoredAssets(sent: Record<string, unknown>, stored: unknown): Record<string, unknown> {
+  const out = { ...sent };
+  const held = (stored ?? {}) as Record<string, unknown>;
+  for (const key of ASSET_COLLECTIONS) {
+    if (key in held) out[key] = held[key];
+    else delete out[key];
+  }
+  return out;
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, type FeedCounts, type FeedNode, type FeedQuery } from '../../api.js';
+import { useBrand } from '../../app/BrandLayout.js';
 import {
   admits,
   appendPage,
@@ -36,7 +37,8 @@ interface FeedQueryResult {
   /** A record the pages hold has changed; it moves, stays or goes by the query's rules. */
   patch: (node: FeedNode) => void;
   /** Records that did not exist a moment ago (a send, a refine, a retry). */
-  insert: (nodes: FeedNode[]) => void;
+  /** Shots arriving; `was` carries what this screen last held for one, so a shot returning from another lens is counted as a move. */
+  insert: (nodes: FeedNode[], was?: ReadonlyMap<string, FeedNode>) => void;
   drop: (ids: readonly string[]) => void;
   /** Re-read the first page and the counts, keeping every older page that was loaded. */
   refresh: () => Promise<void>;
@@ -62,7 +64,9 @@ interface Held {
  * never land on top of a newer one.
  */
 export function useFeedQuery(brandId: string, query: FeedQuery, ctx: AdmitContext): FeedQueryResult {
-  const key = queryKey(brandId, query);
+  // A wipe of every shot moves the epoch, and the pages are read again.
+  const { shotsEpoch } = useBrand();
+  const key = `${queryKey(brandId, query)}#${shotsEpoch}`;
   const [held, setHeld] = useState<Held>({ brandId, key: '', items: [], next: null, counts: null, error: null });
   const [loading, setLoading] = useState(false);
   const heldRef = useRef(held);
@@ -144,8 +148,15 @@ export function useFeedQuery(brandId: string, query: FeedQuery, ctx: AdmitContex
     });
   }, []);
 
+  /**
+   * Shots arriving into the feed. `was` carries the record this screen last
+   * held for one, where it has one: a shot coming back from the archived lens
+   * is not an arrival, it is a shot that left one lens for another, and
+   * counted as an arrival it added itself to `all` without taking itself out
+   * of `archived`, so the tab kept counting it in both.
+   */
   const insert = useCallback(
-    (nodes: FeedNode[]) => {
+    (nodes: FeedNode[], was?: ReadonlyMap<string, FeedNode>) => {
       let needsRefresh = false;
       setHeld((cur) => {
         let items = cur.items;
@@ -163,7 +174,8 @@ export function useFeedQuery(brandId: string, query: FeedQuery, ctx: AdmitContex
           }
           const inPlace = placeAdmits(node, q, ctxRef.current);
           if (verdict) items = insertSorted(items, node, q.sort, cur.next === null);
-          if (counts) counts = countsAfter(counts, null, node, inPlace);
+          const before = was?.get(node.id) ?? null;
+          if (counts) counts = countsAfter(counts, before, node, inPlace);
         }
         return items === cur.items && counts === cur.counts ? cur : { ...cur, items, counts };
       });

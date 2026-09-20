@@ -109,7 +109,13 @@ export function BrandPane() {
               onChange={(e) => setSite(e.target.value)}
               onBlur={commitSite}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur();
+                // Enter commits here and is spent here, the way LineField does it: left
+                // unhandled, it reached Create's own Enter, which opened the selected shot
+                // behind this dialog once focus had left the field.
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                }
               }}
             />
             <button

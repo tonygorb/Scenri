@@ -61,7 +61,12 @@ export const api = {
   createBrand: (brand: any) => req<Brand>('POST', '/api/brands', { brand }),
   brandFromUrl: (url: string) =>
     req<Brand & { warnings: string[]; report: ScrapeReport }>('POST', '/api/brands/from-url', { url }),
-  updateBrand: (id: string, brand: any) => req<Brand>('PUT', `/api/brands/${id}`, { brand }),
+  /**
+   * A save from the brand kit: name, palette, logos, imagery, rules. It is
+   * built from the brand the studio holds, so it asks the server to keep the
+   * products, scenes and presenters as stored rather than as that copy saw them.
+   */
+  updateBrand: (id: string, brand: any) => req<Brand>('PUT', `/api/brands/${id}`, { brand, keepAssets: true }),
   deleteBrand: (id: string) => req<{ ok: true }>('DELETE', `/api/brands/${id}`),
   /** The install's first-use record: who is new, what is done, and the task in hand with what it has made. */
   guide: () => req<GuideView>('GET', '/api/guide'),
@@ -362,6 +367,7 @@ export const api = {
       `/api/brands/${brandId}/scenes/${sceneId}`,
       patch,
     ),
+  /** The brand comes back so every surface stops showing the scene in one commit. */
   deleteScene: (brandId: string, sceneId: string) =>
     req<{ ok: true; brand: Brand }>('DELETE', `/api/brands/${brandId}/scenes/${sceneId}`),
   /** Redraw a scene's example. One generation, always asked for out loud. */

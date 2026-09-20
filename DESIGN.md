@@ -227,6 +227,15 @@ hover the marks become controls.**
   "the pointer is on this one", so it says it with a ring and leaves the picture alone. Nothing
   becomes unreachable: right-click opens the same menu on any tile, at any time.
 - **Selection changes two things and no more:** what a tap means, and what the tile carries.
+- **The selection bar is a toolbar, at one scale.** A chip saying how many, `Select all`
+  as the one word (it toggles to `Deselect all`), the verbs as icon tools that name
+  themselves in a `Tip`, and the way out behind a hairline. A pointer gets a 40px bar with
+  32px tools; a phone gets 42 and 34, with the same 17px glyph and the same 12.5px word, so
+  nothing looks bigger, only easier to hit. It fits its contents at every width rather than
+  stretching to the gutters, because a bar that fills the screen is a panel. Loudest first:
+  the verbs, then the way out, then the count, then `Select all`. The count is a chip and
+  never a filled disc, since the one thing you cannot act on must not be the brightest mark
+  in the bar. The verb that removes shots from the feed answers in red under the hand.
 - **A verb that does not apply is absent, not disabled and not hidden by a stylesheet.** Rendering
   it and then fighting its opacity is what produced three competing mode mechanisms; leaving it out
   of the tree gives the hover rules nothing to argue with.

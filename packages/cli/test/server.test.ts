@@ -255,6 +255,48 @@ describe('brand marks', () => {
 });
 
 describe('brands API', () => {
+  // The studio's kit saves are built from the brand it holds, which can be a
+  // moment behind the server: a scene built between two polls, a product just
+  // deleted. A kit save must not wipe the one or bring back the other.
+  it('a kit save keeps the products, scenes and presenters as stored; a plain save still replaces them', async () => {
+    const created = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', meta: { name: 'Kit Keep' } } },
+      })
+    ).json();
+    const copy = { ...created.json };
+    await app.inject({
+      method: 'POST',
+      url: `/api/brands/${created.id}/scenes`,
+      payload: { name: 'Built Meanwhile', prompt: 'a quiet room with pale walls' },
+    });
+
+    const kit = await app.inject({
+      method: 'PUT',
+      url: `/api/brands/${created.id}`,
+      payload: { brand: { ...copy, meta: { ...copy.meta, tagline: 'New line' } }, keepAssets: true },
+    });
+    expect(kit.statusCode).toBe(200);
+    expect(kit.json().json.meta.tagline).toBe('New line');
+    expect(kit.json().json.scenes.map((s: any) => s.name)).toEqual(['Built Meanwhile']);
+
+    const held = kit.json().json;
+    const ghost = { ...held.scenes[0], id: 'us-0000dead', name: 'Ghost' };
+    const again = await app.inject({
+      method: 'PUT',
+      url: `/api/brands/${created.id}`,
+      payload: { brand: { ...held, scenes: [...held.scenes, ghost] }, keepAssets: true },
+    });
+    expect(again.json().json.scenes.map((s: any) => s.name)).toEqual(['Built Meanwhile']);
+
+    // without the flag the route replaces the whole document, as it always has
+    const plain = await app.inject({ method: 'PUT', url: `/api/brands/${created.id}`, payload: { brand: copy } });
+    expect(plain.statusCode).toBe(200);
+    expect(plain.json().json.scenes ?? []).toEqual([]);
+  });
+
   it('rejects invalid brand json', async () => {
     const res = await app.inject({
       method: 'POST',
