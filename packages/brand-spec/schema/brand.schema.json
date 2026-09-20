@@ -492,6 +492,21 @@
           "preview": {
             "$ref": "#/$defs/assetRef",
             "description": "A generated example of this scene, used as its card thumbnail."
+          },
+          "setups": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": ["id", "label", "camera"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "maxLength": 40 },
+                "label": { "type": "string", "maxLength": 40 },
+                "camera": { "type": "string", "maxLength": 200, "not": { "pattern": "\\{[^}]*\\}" } }
+              }
+            },
+            "description": "Ways to shoot this same world: a photographer's setup, which changes when the camera moves and the location does not. Each one is a label and a camera line, never a picture and never a second scene. A shot that names one is told that camera instead of the scene's own; a shot whose own words name a camera is told neither."
           }
         }
       },

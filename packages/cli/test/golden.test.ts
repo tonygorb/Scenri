@@ -668,6 +668,55 @@ describe('golden: responsibility contract', () => {
     expect(shotDecides.prompt).toContain('24mm from floor level');
   });
 
+  it("a chip that names one of the scene's setups is told that camera instead of the scene's own", () => {
+    // One world, several ways to shoot it: the setup moves the camera and
+    // nothing else, so the same scene prose still goes with it.
+    const scene = {
+      ...resolveScene(PRODUCT_SCENE)!,
+      camera: '90mm at eye level, medium depth',
+      setups: [{ id: 'top-down', label: 'Top down', camera: 'Directly overhead, looking straight down, deep focus' }],
+    };
+    const ctx = { brand: brand(), images: core.images, engineCaps: caps(6), templateById: () => scene };
+    const shot = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE, setup: 'top-down' },
+        ],
+      },
+      ctx,
+    );
+    expect(shot.prompt).toContain('Camera for this shot: Directly overhead, looking straight down, deep focus');
+    expect(shot.prompt).not.toContain('90mm at eye level');
+    // the world itself is untouched by which way it is being shot
+    expect(shot.prompt).toContain(resolveScene(PRODUCT_SCENE)!.prompt.slice(0, 40));
+
+    // a setup that is no longer on the record leaves the scene's own framing
+    const gone = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE, setup: 'nowhere' },
+        ],
+      },
+      ctx,
+    );
+    expect(gone.prompt).toContain('Camera for this shot: 90mm at eye level, medium depth');
+
+    // and the shot's own words still beat the setup, the way they beat the scene
+    const said = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE, setup: 'top-down' },
+          { t: 'text', v: ' 24mm from floor level' },
+        ],
+      },
+      ctx,
+    );
+    expect(said.prompt).not.toContain('Camera for this shot:');
+  });
+
   it('a scene without a camera tendency behaves exactly as before', () => {
     const r = compile([
       { t: 'product', id: 'p1' },

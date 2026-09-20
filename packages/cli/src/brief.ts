@@ -54,7 +54,8 @@ export type BriefToken =
   | { t: 'color'; hex: string; name?: string }
   | { t: 'ref'; imageHash: string; label?: string }
   | { t: 'mark'; imageHash: string }
-  | { t: 'template'; id: string }
+  /** A scene, and optionally which of its setups is being shot. */
+  | { t: 'template'; id: string; setup?: string }
   | { t: 'format'; id: FormatId; w: number; h: number };
 
 export type FormatId = 'square' | 'story' | 'landscape' | 'portrait';
@@ -323,6 +324,8 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const products: any[] = ctx.brand?.products ?? [];
   const characters: any[] = ctx.brand?.characters ?? [];
   const inlineTemplates: CompilableScene[] = [];
+  /** The camera of the setup this chip names, when it names one. */
+  let setupCamera = '';
   let hasPerson = false;
   let people = 0;
   let sentence = '';
@@ -610,6 +613,14 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           break;
         }
         inlineTemplates.push(t);
+        // Which way this world is being shot, when the chip names one. A setup
+        // that is no longer on the record is simply not found: the scene still
+        // compiles, with its own framing, rather than the brief failing over a
+        // framing somebody deleted.
+        if (tok.setup) {
+          const chosen = ((t as any).setups ?? []).find((v: any) => v?.id === tok.setup);
+          if (chosen?.camera) setupCamera = String(chosen.camera);
+        }
         // the surrounding sentence is the art direction, so notes stay empty here
         append(withOwnLight(t, ctx.brand, composePrompt(t, { fields: brief.templateFields ?? {}, notes: '' })));
 
@@ -721,7 +732,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // A scene's camera tendency is a default, not a lock: it is emitted only when
   // the shot direction has not already chosen a camera, so the two can never
   // compete. See shotSpecifiesCamera.
-  const sceneCamera = inlineTemplates[0]?.camera?.trim() || ctx.template?.camera?.trim() || '';
+  const sceneCamera = setupCamera.trim() || inlineTemplates[0]?.camera?.trim() || ctx.template?.camera?.trim() || '';
   const cameraDirectives =
     sceneCamera && !shotSpecifiesCamera(sentence) ? [`Camera for this shot: ${sceneCamera}`] : [];
 

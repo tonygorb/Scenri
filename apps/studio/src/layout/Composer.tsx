@@ -111,6 +111,8 @@ export const Composer = forwardRef<
     suppressDraftRestore?: boolean;
     /** Scene chosen before this project existed: seed it into the brief. */
     startScene?: string;
+    /** Which of that scene's setups is being shot, when one was chosen. */
+    startSetup?: string;
     /** A presenter picked from its own page, seeded the same way as a scene. */
     startPresenter?: string;
     /** A product picked from its own page, seeded the same way as a scene. */
@@ -200,6 +202,7 @@ export const Composer = forwardRef<
     initialBrief,
     suppressDraftRestore,
     startScene,
+    startSetup,
     startPresenter,
     startProduct,
     onSeedsSpent,
@@ -455,7 +458,10 @@ export const Composer = forwardRef<
       // seed path resolves against no branch at all.
       const result = resolveSceneSwitch(existingSceneId, startScene, sceneName, null, null);
       if (result.changed) {
-        tokens = [{ t: 'template', id: startScene }, ...base.filter((t) => t.t !== 'template')];
+        tokens = [
+          { t: 'template', id: startScene, ...(startSetup ? { setup: startSetup } : {}) },
+          ...base.filter((t) => t.t !== 'template'),
+        ];
         if (result.toast) {
           const toast = result.toast;
           push({

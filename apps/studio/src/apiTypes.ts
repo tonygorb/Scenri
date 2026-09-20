@@ -503,6 +503,13 @@ export interface PresenterPatch {
   sourceHashes?: string[];
 }
 
+/** One way to shoot a scene: the camera moves, the world does not. */
+export interface SceneSetup {
+  id: string;
+  label: string;
+  camera: string;
+}
+
 export interface ScenePatch {
   name?: string;
   lighting?: string;
@@ -520,6 +527,8 @@ export interface ScenePatch {
   /** The picture on its card; for a figure-led scene, the plate a shot conditions on. */
   previewHash?: string;
   promptName?: string;
+  /** Ways to shoot this same world, four at most. */
+  setups?: SceneSetup[];
 }
 
 /**

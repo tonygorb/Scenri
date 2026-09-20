@@ -908,6 +908,16 @@
 .sc-presenterpage {
   container-type: inline-size;
 }
+/* Ways to shoot one world: a row of quiet buttons, each one a shot started
+   with that framing. They sit with the record rather than with the picture,
+   because what they change is what a shot is told, not what the place is. */
+.sc-setups-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-3);
+  margin-top: var(--sc-space-4);
+}
+
 /* A scene has no avatar: its picture is its identity, so a place with one
    picture shows it large. With two or three the width formula divides the
    column first, so this ceiling only binds when there is room for it. */

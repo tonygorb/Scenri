@@ -100,6 +100,27 @@ test('what it was read from is shown as evidence, never as the place itself', as
   await expect(page.getByRole('dialog')).toBeVisible();
 });
 
+test('one world, several ways to shoot it: a setup is added, used, and rides in the chip', async ({ page }) => {
+  const b = await brand(page);
+  const s = await scene(page, b.id, 'Basalt Setups');
+  await page.goto(`/${b.slug}/scenes/${s.id}`);
+
+  await expect(page.getByText('Ways to shoot it')).toBeVisible();
+  await page.getByRole('button', { name: 'Add a way to shoot it' }).click();
+  await page.getByRole('menuitem', { name: 'Top down' }).click();
+  const way = page.locator('.sc-setups-row button', { hasText: 'Top down' });
+  await expect(way).toBeVisible();
+
+  // using it starts a shot in this world, framed that way: one scene, one chip
+  await way.click();
+  await page.waitForURL(/\/create/);
+  const chip = page.locator('.sc-token[data-kind="template"]');
+  await expect(chip).toHaveAttribute('data-tok', `t:${s.id}|top-down`);
+  await expect(chip).toContainText('Basalt Setups');
+  // the seed does not stay in the address to apply itself again
+  await expect(page).not.toHaveURL(/setup=/);
+});
+
 test('deleting it is gone from the library in the same commit, with no reload', async ({ page }) => {
   const b = await brand(page);
   const s = await scene(page, b.id, 'Basalt To Delete');

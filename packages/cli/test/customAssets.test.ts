@@ -787,6 +787,39 @@ describe('custom presenters and scenes', () => {
     expect(clean).toEqual([]);
   });
 
+  it('keeps the ways a scene can be shot, four at most, and refuses a half-written one', async () => {
+    const brand = await newBrand();
+    const scene = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/brands/${brand.id}/scenes`,
+        payload: {
+          ...SCENE_BODY,
+          setups: [
+            { id: 'top-down', label: 'Top down', camera: 'Directly overhead, looking straight down, deep focus' },
+            { id: 'ground', label: 'Ground level', camera: 'Low against the shelf, the subject large in frame' },
+            // no camera is no setup: a way to shoot it that says nothing is not one
+            { id: 'empty', label: 'Nothing' },
+            { id: 'a', label: 'A', camera: 'one' },
+            { id: 'b', label: 'B', camera: 'two' },
+            { id: 'c', label: 'C', camera: 'three' },
+          ],
+        },
+      })
+    ).json().scene;
+    // four at most, because a fifth is a second scene
+    expect(scene.setups).toHaveLength(4);
+    expect(scene.setups.map((v: any) => v.id)).toEqual(['top-down', 'ground', 'a', 'b']);
+
+    // a patch that never mentions them keeps them
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/brands/${brand.id}/scenes/${scene.id}`,
+      payload: { lighting: 'Overcast' },
+    });
+    expect(brandJson(brand.id).scenes[0].setups).toHaveLength(4);
+  });
+
   it('edits a scene, redraws its preview on request, and forgets it on delete', async () => {
     const brand = await newBrand();
     const scene = (

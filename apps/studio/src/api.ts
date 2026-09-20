@@ -36,6 +36,7 @@ import type {
   Scene,
   ScenePatch,
   SceneReading,
+  SceneSetup,
   SceneStudioJob,
   SceneStudioJobKind,
   ShotSet,

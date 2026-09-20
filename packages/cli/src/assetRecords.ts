@@ -78,7 +78,15 @@ export interface LikenessConfirmation {
 }
 
 /** A `scenes[]` entry. Structurally a Scene, plus where it came from. */
+/** One way to shoot a scene: the camera moves, the world does not. */
+export interface SceneSetup {
+  id: string;
+  label: string;
+  camera: string;
+}
+
 export interface CustomScene extends Scene {
+  setups?: SceneSetup[];
   refs?: { file: string }[];
   preview?: string;
   instruction?: string;
@@ -259,6 +267,7 @@ export interface SceneInput {
   figureTreatment?: unknown;
   refHashes?: unknown;
   previewHash?: unknown;
+  setups?: unknown;
 }
 
 /**
@@ -292,6 +301,26 @@ export function sceneRecordFrom(
         .map((file) => ({ file }))
     : base?.refs;
   const previewRef = has('previewHash') ? assetRef(input.previewHash) : (base?.preview ?? null);
+  /**
+   * Ways to shoot this same world. Four at most, because a fifth is a second
+   * scene: the world is what a scene is, and a list of framings long enough to
+   * browse is a shot list, which belongs to Create.
+   */
+  const setups = has('setups')
+    ? (Array.isArray(input.setups) ? input.setups : [])
+        .map((raw: any) => ({
+          id: str(raw?.id, 40),
+          label: str(raw?.label, 40),
+          camera: str(raw?.camera, 200),
+        }))
+        // sound ones first, then the cap: a half-written setup that ate one of
+        // the four slots would silently cost a real one
+        .filter(
+          (v: { id: string; label: string; camera: string }) =>
+            v.id && v.label && v.camera && !/\{[^}]*\}/.test(v.camera),
+        )
+        .slice(0, 4)
+    : base?.setups;
 
   const scene: CustomScene = {
     id: base?.id ?? mintId(SCENE_ID_PREFIX),
@@ -308,6 +337,7 @@ export function sceneRecordFrom(
   const promptName = has('promptName') ? str(input.promptName, 60) : base?.promptName;
   if (promptName) scene.promptName = promptName;
   if (camera) scene.camera = camera;
+  if (setups?.length) scene.setups = setups;
   const keywords = has('keywords') ? strList(input.keywords, 12, 40) : base?.keywords;
   if (keywords?.length) scene.keywords = keywords;
   // An empty string is not an instruction to forget one. `runSceneBuild` always

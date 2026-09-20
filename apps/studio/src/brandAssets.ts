@@ -1,4 +1,4 @@
-import { assetUrl, type Brand, type Presenter, type Scene } from './api.js';
+import { assetUrl, type Brand, type Presenter, type Scene, type SceneSetup } from './api.js';
 
 /**
  * The presenters and scenes a brand built for itself, read out of its own
@@ -41,6 +41,8 @@ export interface CustomScene extends Scene {
   figure?: string;
   /** What has been applied to that figure: stickers, paint, a veil, a silhouette. */
   figureTreatment?: string;
+  /** Ways to shoot this same world: a label and a camera line each, never a picture. */
+  setups?: SceneSetup[];
 }
 
 const urls = (rows: unknown): string[] =>
@@ -189,6 +191,11 @@ function toScene(s: any): CustomScene {
     camera: s.camera ? String(s.camera) : undefined,
     figure: s.figure ? String(s.figure) : undefined,
     figureTreatment: s.figureTreatment ? String(s.figureTreatment) : undefined,
+    setups: Array.isArray(s.setups)
+      ? s.setups
+          .filter((v: any) => v?.id && v?.label && v?.camera)
+          .map((v: any) => ({ id: String(v.id), label: String(v.label), camera: String(v.camera) }))
+      : undefined,
   };
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { api, type Scene, thumbOf } from '../api.js';
+import { api, type Scene, type SceneSetup, thumbOf } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useMadeWith } from './useMadeWith.js';
@@ -11,8 +11,10 @@ import { useApplyScene } from '../app/useApplyScene.js';
 import { bookmarkedScenes, toggleBookmarkScene } from '../bookmarks.js';
 import { Confirm } from '../Confirm.js';
 import { SceneCard } from '../layout/SceneCard.js';
-import { BookmarkSimple, PencilSimple } from '@phosphor-icons/react';
+import { BookmarkSimple, PencilSimple, Plus } from '@phosphor-icons/react';
+import { DropdownMenu } from '@radix-ui/themes';
 import { readingLines } from '../create/scene/sceneStudioRules.js';
+import { framingsLeft, SETUPS_MAX } from '../create/scene/sceneSetups.js';
 import { Tip } from '../layout/Tip.js';
 import { AssetDetailsDialog } from './AssetDetailsDialog.js';
 import { EmptyRefFrame, ShotThumb, Shown, Slider } from '../layout/ReferenceGallery.js';
@@ -132,6 +134,24 @@ export function ScenePage() {
       setErr(String(e.message ?? e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  /**
+   * One more way to shoot this world, written straight onto the record.
+   *
+   * Metadata, like the name and the filing beside it: nothing is drawn for a
+   * setup, because what changes is where the camera stands and the picture of
+   * the place already says what the place is.
+   */
+  const addSetup = async (f: SceneSetup) => {
+    if (!owned) return;
+    setErr(null);
+    try {
+      const r = await api.updateScene(brand.id, owned.id, { setups: [...(owned.setups ?? []), f] });
+      applyBrand(r.brand);
+    } catch (e: any) {
+      setErr(String(e.message ?? e));
     }
   };
 
@@ -385,6 +405,46 @@ export function ScenePage() {
                   With nobody attached, the set renders on its own.
                 </p>
               )}
+            </section>
+
+            {/* Ways to shoot this same world. A setup moves the camera and
+                nothing else, so it is a label and a line rather than a second
+                scene: pressing one starts a shot here, framed that way. */}
+            <section className="sc-setups">
+              <p className="sc-bandhead">Ways to shoot it</p>
+              <p className="sc-ownedbits-note">
+                The world stays as it is; only where the camera stands changes. Your own words in a shot still win.
+              </p>
+              <div className="sc-setups-row">
+                {(owned.setups ?? []).map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    className="sc-btn sc-btn-ghost"
+                    title={v.camera}
+                    onClick={() => void applyScene(owned.id, v.id)}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+                {framingsLeft(owned.setups).length > 0 && (owned.setups?.length ?? 0) < SETUPS_MAX && (
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger>
+                      <button type="button" className="sc-btn sc-btn-ghost" aria-label="Add a way to shoot it">
+                        <Plus size={12} />
+                        <span>Add a way</span>
+                      </button>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content>
+                      {framingsLeft(owned.setups).map((f) => (
+                        <DropdownMenu.Item key={f.id} onSelect={() => void addSetup(f)}>
+                          {f.label}
+                        </DropdownMenu.Item>
+                      ))}
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Root>
+                )}
+              </div>
             </section>
 
             {owned.instruction && (
