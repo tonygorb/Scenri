@@ -224,11 +224,16 @@ test('reading the references again updates the open page and gives the button ba
   await expect(page.getByLabel('Description')).toHaveValue('Before the read');
 
   await page.getByRole('button', { name: 'Read the references again' }).click();
-  await expect(page.getByRole('button', { name: 'Reading the references' })).toBeDisabled();
 
-  // the read lands through the bell; the page takes the record it wrote
-  await expect(page.getByRole('button', { name: 'Read the references again' })).toBeEnabled({ timeout: 30_000 });
-  await expect(page.getByLabel('Description')).toHaveValue('A cold slate studio with one north window.');
+  // The read lands through the bell and the page takes the record it wrote.
+  // Asserted by what it leaves, not by catching the button mid-spin: a read
+  // with no analyzer behind it can be over before an assertion arrives.
+  await expect(page.getByLabel('Description')).toHaveValue('A cold slate studio with one north window.', {
+    timeout: 30_000,
+  });
+  // and the button is given back, instead of spinning until the page is left
+  await expect(page.getByRole('button', { name: 'Reading the references' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Read the references again' })).toBeEnabled();
   await expectSameSession(page);
 });
 

@@ -176,7 +176,9 @@ export function BrandLayout() {
     brands.find((b) => b.id === brandSlug) ??
     brands.find((b) => b.id === lastBrandId.current) ??
     null;
-  lastBrandId.current = brand?.id ?? null;
+  // Kept when the lookup fails: it is how a rename is told from a deletion,
+  // and how the layout knows which brand it was showing a render ago.
+  if (brand) lastBrandId.current = brand.id;
 
   /**
    * One ask for the whole brand: its shots, its sets, and who is in what.
@@ -332,14 +334,20 @@ export function BrandLayout() {
   // asked for is still a real page, so it comes along: landing on /scenes of a
   // brand you do have beats being dropped at a home you did not ask for.
   //
-  // Its dialogs do not come along. They were opened on the brand that is gone,
-  // and `?settings=danger` carried onto the brand you land on reopens the pane
-  // that deletes brands, aimed at a different one, without being asked.
+  // A dialog comes along with it, because a link to an unknown brand still
+  // means the page it names (`/acme?settings=about` opens About on the brand
+  // you do have). What does not come along is a dialog belonging to a brand
+  // that has just been deleted under you: `?settings=danger` carried onto the
+  // next brand reopens the pane that deletes brands, aimed at a brand nobody
+  // asked about.
   if (!brand) {
     const fallback = pickBrand(brands);
+    const lost = !!lastBrandId.current && !brands.some((b) => b.id === lastBrandId.current);
     const rest = new URLSearchParams(search);
-    rest.delete('settings');
-    rest.delete('new');
+    if (lost) {
+      rest.delete('settings');
+      rest.delete('new');
+    }
     const query = rest.toString();
     return <Navigate to={fallback ? brandPath(fallback) + tail + (query ? `?${query}` : '') : P.root} replace />;
   }
