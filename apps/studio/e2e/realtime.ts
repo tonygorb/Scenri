@@ -126,10 +126,22 @@ export async function uploadPng(req: APIRequestContext, seed = 0): Promise<strin
   return ((await res.json()) as { hash: string }).hash;
 }
 
-/** Switch brand the way a person does: the brand menu in the bar. */
+/**
+ * Switch brand the way a person does: the brand menu in the bar.
+ *
+ * The panel arrives with a scale, and a click aimed at a row that has not
+ * landed yet goes nowhere: on a loaded runner that left the test on the brand
+ * it started from. Waited out the way `brand-menu.spec.ts` waits for it.
+ */
 export async function switchBrand(page: Page, name: string): Promise<void> {
   await page.locator('.sc-org-btn').click();
-  await page.locator('.sc-menu-item', { hasText: name }).first().click();
+  const panel = page.locator('.sc-menu');
+  await expect(panel).toBeVisible();
+  await panel.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
+  const row = panel.locator('.sc-menu-item', { hasText: name }).first();
+  await expect(row).toBeVisible();
+  await row.click();
+  await expect(panel).toHaveCount(0);
 }
 
 /**
