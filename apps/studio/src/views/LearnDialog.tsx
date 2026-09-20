@@ -165,7 +165,10 @@ export function LearnDialog() {
             </span>
             <CloseButton />
           </div>
-          <SheetDescription className="sc-newdlg-sub">
+          {/* The header is the title, where they are, and the way out. What
+              this place is for is said by the lessons themselves, so the line
+              stays for a screen reader and takes no room on the screen. */}
+          <SheetDescription className="sc-vh">
             Each one walks you through one real thing, a step at a time.
           </SheetDescription>
           <div className="sc-newdlg-body sc-learn-body">
@@ -175,6 +178,7 @@ export function LearnDialog() {
                   <button
                     type="button"
                     className="sc-learn-row"
+                    data-state={stateOf(l)}
                     aria-current={!phone && shown.id === l.id ? 'true' : undefined}
                     ref={(el) => {
                       if (el) rows.current.set(l.id, el);

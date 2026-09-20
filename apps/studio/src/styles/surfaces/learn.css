@@ -26,27 +26,39 @@
     animation: sc-fade-in var(--sc-dur-fast) var(--sc-ease) both;
   }
 }
+/* Two lines divide this surface, and a line that stops short of an edge reads
+   as a mistake. The shell pads itself, so Learn takes that padding off the
+   panel and gives it back to the head and the body: the header's hairline then
+   runs the full width, and the list's runs from it to the floor. */
+.sc-learn.sc-newdlg {
+  padding: 0;
+}
+/* 12 above and below, as every other header in the app: the close button is a
+   44px touch target, so the frame's 16 around a 24px glyph would read as a
+   band rather than a header. */
+.sc-learn .sc-newdlg-head {
+  flex: none;
+  padding: 12px var(--sc-gutter);
+  border-bottom: 1px solid var(--sc-line);
+}
 .sc-learn .sc-newdlg-head:has(.sc-learn-count) .sc-newdlg-title {
   flex: 0 1 auto;
 }
 .sc-learn-count {
   flex: 1 1 auto;
-  margin-left: 10px;
+  margin-left: 12px;
   font: 500 var(--sc-text-body) var(--sc-font);
   color: var(--sc-fg3);
   font-variant-numeric: tabular-nums;
 }
-.sc-learn-body {
+.sc-newdlg-body.sc-learn-body {
   display: grid;
   grid-template-columns: 272px minmax(0, 1fr);
-  gap: 24px;
+  gap: 16px;
   flex: 1 1 auto;
   min-height: 0;
+  padding: 0 var(--sc-gutter);
   overflow: hidden;
-}
-.sc-newdlg-head + .sc-newdlg-body.sc-learn-body,
-.sc-newdlg-sub + .sc-newdlg-body.sc-learn-body {
-  padding-top: 6px;
 }
 
 /* ---- the list: every lesson, a picture, its name, where it stands ---- */
@@ -55,9 +67,9 @@
   flex-direction: column;
   gap: 4px;
   margin: 0;
-  padding: 0 16px 0 0;
+  padding: 16px 16px 0 0;
   list-style: none;
-  box-shadow: inset -1px 0 0 var(--sc-line);
+  border-right: 1px solid var(--sc-line);
 }
 .sc-learn-row {
   display: flex;
@@ -73,13 +85,32 @@
   text-align: left;
   font: inherit;
   cursor: pointer;
-  transition: background var(--sc-dur-fast) var(--sc-ease);
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    opacity var(--sc-dur-fast) var(--sc-ease);
 }
 .sc-learn-row:hover:not(:active) {
   background: var(--sc-hover);
 }
 .sc-learn-row[aria-current] {
   background: var(--sc-chip);
+}
+/* A finished lesson is spent: struck through and stood back, so what is left
+   to do is what the eye lands on. It can still be done again, so it comes back
+   to full strength under the pointer, under the keyboard, and while it is the
+   one being read. */
+.sc-learn-row[data-state="done"] {
+  opacity: 0.5;
+}
+.sc-learn-row[data-state="done"] .sc-learn-name {
+  text-decoration: line-through;
+}
+.sc-learn-row[data-state="done"]:hover,
+.sc-learn-row[data-state="done"][aria-current] {
+  opacity: 1;
+}
+:where(:root:not([data-input="pointer"])) .sc-learn-row[data-state="done"]:focus-visible {
+  opacity: 1;
 }
 :where(:root:not([data-input="pointer"])) :is(.sc-learn-row, .sc-learn-step):focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
@@ -90,7 +121,7 @@
   width: 44px;
   height: 44px;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: var(--sc-radius-md);
   background: var(--sc-well);
 }
 .sc-learn-thumb img,
@@ -152,6 +183,7 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  padding: 16px 0;
   overflow-y: auto;
   scrollbar-width: none;
 }
@@ -179,10 +211,10 @@
   }
 }
 .sc-learn-kicker {
-  margin: 18px 0 4px;
+  margin: 16px 0 4px;
 }
 .sc-learn-title {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   font: 600 var(--sc-text-title) / 1.2 var(--sc-font);
   letter-spacing: -0.02em;
 }
@@ -193,8 +225,8 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   min-height: calc(2 * 1.5em);
-  max-width: 58ch;
-  margin: 0 0 14px;
+  max-width: 44ch;
+  margin: 0 0 16px;
   font: 400 var(--sc-text-control) / 1.5 var(--sc-font);
   color: var(--sc-fg2);
 }
@@ -208,6 +240,9 @@
   padding: 0;
   list-style: none;
 }
+/* One card on the surface: the step in hand. Every other step is bare, so
+   there is no row of look-alike boxes to read past before finding the one
+   thing to press. */
 .sc-learn-step {
   display: flex;
   align-items: center;
@@ -217,7 +252,7 @@
   padding: 0 8px 0 11px;
   border: 0;
   border-radius: var(--sc-radius-lg);
-  background: var(--sc-raised);
+  background: transparent;
   color: var(--sc-fg);
   text-align: left;
   font: inherit;
@@ -234,7 +269,6 @@
 /* the one step that can be pressed */
 button.sc-learn-step {
   background: var(--sc-chip);
-  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
   cursor: pointer;
   transition: background var(--sc-dur-fast) var(--sc-ease);
 }
@@ -247,8 +281,6 @@ button.sc-learn-step:hover:not(:active) {
 }
 /* not reachable yet: quiet enough to read as later, still legible */
 .sc-learn-step[data-state="todo"] {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--sc-line);
   opacity: 0.42;
 }
 .sc-learn-step[data-state="todo"] .sc-learn-step-name {
@@ -261,18 +293,16 @@ button.sc-learn-step:hover:not(:active) {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px var(--sc-line-strong);
   font: 600 var(--sc-text-caption) var(--sc-font);
   color: var(--sc-fg3);
   font-variant-numeric: tabular-nums;
 }
 button.sc-learn-step .sc-learn-n {
-  box-shadow: inset 0 0 0 1.5px var(--sc-fg);
+  background: var(--sc-line-strong);
   color: var(--sc-fg);
 }
 .sc-learn-step[data-state="done"] .sc-learn-n {
   background: var(--sc-green);
-  box-shadow: none;
   color: var(--sc-bg);
 }
 .sc-learn-go {
@@ -314,17 +344,19 @@ button.sc-learn-step[data-state="done"] .sc-learn-go {
 
 /* ---- a phone: its own sizes, not the desktop shrunk ---- */
 @media (max-width: 767px) {
-  .sc-learn-body {
-    grid-template-columns: minmax(0, 1fr);
+  /* the grip already leaves a step of air above the title, and the sheet's own
+     bottom padding moves onto the body now that the panel pads nothing */
+  .sc-learn .sc-newdlg-head {
+    padding: 0 var(--sc-gutter) 14px;
   }
-  .sc-newdlg-head + .sc-newdlg-body.sc-learn-body,
-  .sc-newdlg-sub + .sc-newdlg-body.sc-learn-body {
-    padding-top: 2px;
+  .sc-newdlg-body.sc-learn-body {
+    grid-template-columns: minmax(0, 1fr);
+    padding-bottom: max(var(--sc-space-7), env(safe-area-inset-bottom));
   }
   .sc-learn-list {
     gap: 2px;
-    padding: 0;
-    box-shadow: none;
+    padding: 12px 0 0;
+    border-right: 0;
   }
   .sc-learn-row {
     height: 64px;
@@ -333,12 +365,12 @@ button.sc-learn-step[data-state="done"] .sc-learn-go {
   .sc-learn-thumb {
     width: 48px;
     height: 48px;
-    border-radius: 11px;
   }
   .sc-learn-name {
     font-size: var(--sc-text-input);
   }
   .sc-learn-lesson {
+    padding-top: 12px;
     overflow: visible;
   }
   .sc-learn-hero {
