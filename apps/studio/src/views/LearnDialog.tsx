@@ -294,8 +294,17 @@ function LessonView({
                 </span>
               );
               const current = state === 'active' && i === at ? 'step' : undefined;
+              // The outcome, and on the step in hand the one sentence saying
+              // why it matters. Every step explaining itself at once was a
+              // wall of text: the sentence belongs where the work is.
+              const said = (
+                <span className="sc-learn-step-say">
+                  <span className="sc-learn-step-name">{step.title}</span>
+                  {i === inHand && <span className="sc-learn-step-note">{step.note}</span>}
+                </span>
+              );
               return (
-                <li key={step}>
+                <li key={step.title}>
                   {i === inHand ? (
                     <button
                       ref={actionRef}
@@ -304,11 +313,11 @@ function LessonView({
                       data-state={s}
                       data-here=""
                       aria-current={current}
-                      aria-label={`${verb}: ${step}`}
+                      aria-label={`${verb}: ${step.title}`}
                       onClick={onBegin}
                     >
                       {mark}
-                      <span className="sc-learn-step-name">{step}</span>
+                      {said}
                       <span className="sc-learn-go" aria-hidden="true">
                         {verb} <ArrowRight size={12} weight="bold" />
                       </span>
@@ -316,7 +325,7 @@ function LessonView({
                   ) : (
                     <div className="sc-learn-step" data-state={s} aria-current={current}>
                       {mark}
-                      <span className="sc-learn-step-name">{step}</span>
+                      {said}
                       {s === 'done' && <span className="sc-vh">, done</span>}
                     </div>
                   )}

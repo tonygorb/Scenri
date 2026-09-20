@@ -466,6 +466,9 @@ describe('the copy', () => {
     for (const text of copy) {
       expect(text).not.toMatch(/\b(unique|magic|credits?|compare|heatmap)\b|generate anything/i);
       expect(text).not.toMatch(/\b(press|tap|click|try one now|say what you want)\b|\+/i);
+      // "brief" is the code's name for the record and never reaches a person
+      // (DESIGN.md, Writing). One note said "Build the brief again" for months.
+      expect(text).not.toMatch(/\bbriefs?\b/i);
     }
   });
 

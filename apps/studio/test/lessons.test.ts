@@ -19,6 +19,26 @@ const node = (id: string, status: string, images = 0): GuideTaskNode => ({
   images,
   createdAt: '2026-09-18 12:00:00.000',
 });
+/** Every moment id each task can show, so no lesson can tick a step it lacks. */
+const MOMENTS: Record<string, readonly string[]> = {
+  'first-shot': [
+    'go',
+    'intro',
+    'engine',
+    'product',
+    'presenter',
+    'scene',
+    'make',
+    'sending',
+    'waiting',
+    'failed',
+    'result',
+  ],
+  product: ['product'],
+  presenter: ['engine', 'start', 'face', 'save'],
+  scene: ['scene'],
+  refine: ['ask', 'refine-failed', 'refining', 'refined'],
+};
 const facts = (over: Partial<ProgressFacts> = {}): ProgressFacts => ({
   moment: null,
   nodes: [],
@@ -45,8 +65,26 @@ describe('the lessons', () => {
     }
   });
 
+  it('keeps the one prerequisite there is: refining needs a shot to refine', () => {
+    // dropped once in a rewrite, which silently offered Start with nothing to open
+    expect(lessonOf('refine')?.needs).toBe('shot');
+    for (const l of LESSONS) if (l.id !== 'refine') expect(l.needs, l.id).toBeUndefined();
+  });
+
+  it('every step says what it is for, in one sentence Learn alone reads', () => {
+    for (const l of LESSONS)
+      for (const step of l.steps) {
+        expect(step.note, `${l.id}: ${step.title}`).toBeTruthy();
+        // long enough to explain, short enough to scan: the tutor's own words stay shorter
+        expect(step.note.length, `${l.id}: ${step.title}`).toBeGreaterThan(40);
+        expect(step.note.length, `${l.id}: ${step.title}`).toBeLessThanOrEqual(150);
+      }
+  });
+
   it("say it in the product's words: no dash, no chrome, one or two sentences", () => {
-    const copy = LESSONS.flatMap((l) => [l.title, l.summary, ...l.steps]).concat(Object.values(NEEDS_SHOT));
+    const copy = LESSONS.flatMap((l) => [l.title, l.summary, ...l.steps.flatMap((s) => [s.title, s.note])]).concat(
+      Object.values(NEEDS_SHOT),
+    );
     for (const text of copy) {
       expect(text).not.toMatch(new RegExp(`[${DASHES}!]|\\bscenri\\b`));
       expect(text).not.toMatch(/\b(press|tap|click|lesson|tutorial|course|minutes?)\b|\+/i);
@@ -81,7 +119,19 @@ describe('stepOf', () => {
     expect(stepOf('first-shot', facts({ moment: 'result' }))).toBe(3);
     expect(stepOf('presenter', facts({ moment: 'face' }))).toBe(2);
     expect(stepOf('presenter', facts({ moment: 'save' }))).toBe(3);
-    expect(stepOf('refine', facts({ moment: 'refined' }))).toBe(3);
+    // the last step of three, never a fourth: the tick has to be one that exists
+    expect(stepOf('refine', facts({ moment: 'refined' }))).toBe(2);
+  });
+
+  it('never points at a step a lesson does not have', () => {
+    for (const l of LESSONS) {
+      const last = l.steps.length - 1;
+      for (const moment of MOMENTS[l.id]) {
+        const at = stepOf(l.id, facts({ moment }));
+        expect(at, `${l.id}: ${moment}`).toBeGreaterThanOrEqual(0);
+        expect(at, `${l.id}: ${moment}`).toBeLessThanOrEqual(last);
+      }
+    }
   });
 
   it('otherwise goes no further than the record proves', () => {

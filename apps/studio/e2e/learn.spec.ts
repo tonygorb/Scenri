@@ -48,7 +48,8 @@ test('Learn is a quiet button beside the bell, and every lesson is in it', async
   ]);
   // where each stands, in a few words: a count of steps, never a time
   await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('4 steps');
-  await expect(learn(page)).not.toContainText(/min/);
+  // never a time: a word-boundary match, so a lesson may say "framing"
+  await expect(learn(page)).not.toContainText(/\b(mins?|minutes?|hours?)\b/i);
   // pressed while open it shows it is the one open
   await expect(learnButton(page)).toHaveAttribute('data-on', 'true');
 

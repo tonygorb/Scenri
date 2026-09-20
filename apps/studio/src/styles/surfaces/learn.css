@@ -269,12 +269,12 @@
   font: 400 var(--sc-text-control) / 1.5 var(--sc-font);
   color: var(--sc-fg2);
 }
-/* Room for four steps, the most any lesson has, kept by the block rather
+/* Room for four steps at two lines of note each, the most any lesson has, kept by the block rather
    than by the list: a lesson with three steps and a line to say under them
    (refining, with no shot yet) then costs exactly the same room, so every
    lesson ends on the same line and the box below it is never slack. */
 .sc-learn-do {
-  min-height: calc(4 * 48px + 3 * 6px);
+  min-height: calc(3 * 48px + 70px + 3 * 6px);
 }
 .sc-learn-steps {
   display: flex;
@@ -305,9 +305,26 @@
   text-align: left;
   font: inherit;
 }
-.sc-learn-step-name {
+/* The outcome, then its one sentence. The sentence keeps two lines of room
+   whether it needs them or not, so every step is the same height and the box
+   is the same height for every lesson. */
+.sc-learn-step-say {
+  display: flex;
   flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
+}
+.sc-learn-step-note {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: calc(2 * 1.35em);
+  font: 400 var(--sc-text-caption) / 1.35 var(--sc-font);
+  color: var(--sc-fg3);
+}
+.sc-learn-step-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -315,8 +332,10 @@
   letter-spacing: -0.005em;
 }
 /* the one step that can be pressed: the chip fill and a hairline, so it is
-   an object rather than a slightly lighter row */
+   an object rather than a slightly lighter row, and the one row tall enough
+   to say why it matters */
 button.sc-learn-step {
+  height: 70px;
   background: var(--sc-chip);
   box-shadow: inset 0 0 0 1px var(--sc-line-strong);
   cursor: pointer;
@@ -335,6 +354,9 @@ button.sc-learn-step:active {
 div.sc-learn-step[data-state="done"] .sc-learn-step-name {
   color: var(--sc-fg2);
   font-weight: 500;
+}
+button.sc-learn-step .sc-learn-step-note {
+  color: var(--sc-fg2);
 }
 /* not reachable yet: the same row, read as later */
 .sc-learn-step[data-state="todo"] .sc-learn-step-name {
@@ -413,11 +435,21 @@ button.sc-learn-step[data-state="done"] .sc-learn-go {
   font: 400 var(--sc-text-body) / 1.45 var(--sc-font);
   color: var(--sc-fg3);
 }
-/* a short screen gives up picture before it gives up a step, and the box
-   gives up exactly what the picture did, so the gutters stay 24 */
+/* A short screen gives up picture first, then the second line of every note,
+   before it gives up a step: the steps are the lesson. */
 @media (min-width: 768px) and (max-height: 740px) {
   .sc-learn-hero {
     max-height: 132px;
+  }
+  button.sc-learn-step {
+    height: 56px;
+  }
+  .sc-learn-step-note {
+    -webkit-line-clamp: 1;
+    min-height: 0;
+  }
+  .sc-learn-do {
+    min-height: calc(3 * 48px + 56px + 3 * 6px);
   }
 }
 
@@ -468,14 +500,24 @@ button.sc-learn-step[data-state="done"] .sc-learn-go {
   .sc-learn-summary {
     font-size: 14px;
   }
-  .sc-learn-steps {
+  .sc-learn-steps,
+  .sc-learn-do {
     min-height: 0;
   }
-  /* one height for every step, and a wrapping title grows its own row */
+  /* no reserved block here, so a step is as tall as its words */
   .sc-learn-step {
     height: auto;
     min-height: 52px;
     padding-block: 8px;
+  }
+  button.sc-learn-step {
+    height: auto;
+    min-height: 64px;
+  }
+  .sc-learn-step-note {
+    display: block;
+    min-height: 0;
+    font-size: var(--sc-text-body);
   }
   .sc-learn-step-name {
     font-size: var(--sc-text-input);

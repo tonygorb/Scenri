@@ -124,11 +124,11 @@ export const COPY = {
   },
   result: {
     title: 'Your first shot',
-    body: 'Open it to change one thing about it: everything else stays as it is.',
+    body: 'The product, the presenter and the scene you chose are kept, so your next shot starts from them. Open it to change one thing.',
   },
   failed: {
     title: "That one didn't work",
-    body: 'The tile says why. Build the brief again and Scenri will try it again.',
+    body: 'The tile says why. Put the shot together again and Scenri will try it again.',
   },
   refineAsk: {
     title: 'Change one thing',
