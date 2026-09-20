@@ -396,7 +396,17 @@ export function asideReply(kind: NothingKind, at: 'source' | 'row'): string {
  * recognisably not one is turned back: a greeting, a question, a push to go on.
  */
 export function judge(text: string, at: 'source' | 'row'): NothingKind | null {
-  if (at === 'source') return answersNothing(text, describesPlace);
+  if (at === 'source') {
+    const k = answersNothing(text, describesPlace);
+    // "Vague" is the presenter's rule, where one or two words cannot describe a
+    // whole person. A place is not like that: "moon", "cathedral", "sauna" and
+    // "dunes" are complete seeds, and the reader expands them the way it
+    // expands a paragraph. Refusing them told somebody typing a real prompt
+    // that their prompt was not a place, which is the one thing this door
+    // exists to accept. Greetings, questions, noise and requests to go
+    // somewhere are still refused, by the tests above this one.
+    return k === 'vague' ? null : k;
+  }
   const k = answersNothing(text, () => false);
   return k === 'vague' || k === 'intent' || k === 'likeness' ? null : k;
 }

@@ -407,3 +407,20 @@ describe('what is worth reading', () => {
     expect(setupDone({ source: { door: 'photos' }, photos: { hashes: [], done: true } })).toBe(false);
   });
 });
+
+describe('the words door', () => {
+  it('takes a place in one or two words, because a place is not a person', () => {
+    // these used to come back as "that did not read as a place", which is the
+    // one thing this door exists not to say
+    expect(judge('moon', 'source')).toBeNull();
+    expect(judge('cathedral', 'source')).toBeNull();
+    expect(judge('brutalist car park', 'source')).toBeNull();
+  });
+
+  it('still refuses what is not an answer at all', () => {
+    expect(judge('123', 'source')).toBe('nonsense');
+    expect(judge('hi', 'source')).toBe('greeting');
+    expect(judge('what can you do?', 'source')).toBe('question');
+    expect(judge('start over', 'source')).toBe('nav');
+  });
+});

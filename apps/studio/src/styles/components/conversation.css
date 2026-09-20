@@ -126,7 +126,18 @@
 .sc-convo-turns {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  /* An answer belongs to the line it answers, so it sits tight under it, and a
+     new exchange starts a clear distance away. One flat gap between every turn
+     left a question and its answer looking like two unrelated things, which is
+     what "the bubbles are ordered strangely" turns out to mean: the ordering
+     was right and the grouping was missing. */
+  gap: var(--sc-space-4);
+}
+.sc-convo-turns > .sc-convo-turn[data-who="scenri"] {
+  margin-top: var(--sc-space-8);
+}
+.sc-convo-turns > .sc-convo-turn:first-child {
+  margin-top: 0;
 }
 
 .sc-convo-turn {
