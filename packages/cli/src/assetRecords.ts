@@ -277,12 +277,17 @@ export interface SceneInput {
  * rest. The `{placeholder}` refusal mirrors the catalog loader's: the set never
  * names what is staged in it.
  */
+/**
+ * A scene's words are both printed on its page and sent to the generator, so
+ * every one of them is cut at a whole sentence or a whole word. A hard slice
+ * put "gripping both sid" on the record page and in the prompt behind it.
+ */
 export function sceneRecordFrom(
   input: SceneInput,
   base?: CustomScene,
 ): { ok: true; scene: CustomScene } | { ok: false; error: string } {
   const has = (k: keyof SceneInput) => input[k] !== undefined;
-  const prompt = has('prompt') ? str(input.prompt, 2000) : (base?.prompt ?? '');
+  const prompt = has('prompt') ? phrase(input.prompt, 2000) : (base?.prompt ?? '');
   if (!prompt) return { ok: false, error: 'a scene needs a prompt describing the place' };
   if (/\{[^}]*\}/.test(prompt)) return { ok: false, error: 'a scene prompt cannot contain a {placeholder}' };
   const name = has('name') ? str(input.name, 60) : (base?.name ?? '');
@@ -291,9 +296,9 @@ export function sceneRecordFrom(
   if (!SUBJECTS.has(subjectRaw as SceneSubject)) {
     return { ok: false, error: 'subject must be product, person or either' };
   }
-  const lighting = has('lighting') ? str(input.lighting, 200) : (base?.lighting ?? '');
-  const description = has('description') ? str(input.description, 400) : (base?.description ?? '');
-  const camera = has('camera') ? str(input.camera, 200) : (base?.camera ?? '');
+  const lighting = has('lighting') ? phrase(input.lighting, 200) : (base?.lighting ?? '');
+  const description = has('description') ? phrase(input.description, 400) : (base?.description ?? '');
+  const camera = has('camera') ? phrase(input.camera, 200) : (base?.camera ?? '');
   const refs = has('refHashes')
     ? strList(input.refHashes, 8, 64)
         .map((h) => assetRef(h))
@@ -311,7 +316,7 @@ export function sceneRecordFrom(
         .map((raw: any) => ({
           id: str(raw?.id, 40),
           label: str(raw?.label, 40),
-          camera: str(raw?.camera, 200),
+          camera: phrase(raw?.camera, 200),
         }))
         // sound ones first, then the cap: a half-written setup that ate one of
         // the four slots would silently cost a real one
@@ -345,16 +350,16 @@ export function sceneRecordFrom(
   // and, because the record is rebuilt from scratch, silently dropped whatever
   // the user had written. Blank falls back to what is already stored; clearing
   // it on purpose is what DELETE and a fresh build are for.
-  const written = has('instruction') ? str(input.instruction, 400) : '';
+  const written = has('instruction') ? phrase(input.instruction, 400) : '';
   const instruction = written || base?.instruction;
   if (instruction) scene.instruction = instruction;
   // Through `has()` like every other field: the scene page PATCHes prompt and
   // lighting alone on each keystroke, so anything read unconditionally from
   // `input` would be erased by an edit that never mentioned it.
-  const figure = has('figure') ? str(input.figure, 120).replace(/\s+/g, ' ') : base?.figure;
+  const figure = has('figure') ? phrase(input.figure, 120).replace(/\s+/g, ' ') : base?.figure;
   if (figure && !/\{[^}]*\}/.test(figure)) scene.figure = figure;
   const treatment = has('figureTreatment')
-    ? str(input.figureTreatment, 160).replace(/\s+/g, ' ')
+    ? phrase(input.figureTreatment, 160).replace(/\s+/g, ' ')
     : base?.figureTreatment;
   // A treatment with no figure to sit on describes nobody.
   if (scene.figure && treatment && !/\{[^}]*\}/.test(treatment)) scene.figureTreatment = treatment;

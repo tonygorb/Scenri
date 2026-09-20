@@ -1061,7 +1061,9 @@
    scene is reusable, at the size of a contact sheet rather than a slider. */
 .sc-scene-made {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Fills the column it is given at any width: four tiles beside a picture,
+     two on a phone. A fixed four made 80px thumbnails at 390. */
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: var(--sc-space-4);
   margin-top: var(--sc-space-5);
 }
@@ -1127,6 +1129,24 @@
   line-height: 1.6;
   color: var(--sc-fg2);
   max-width: var(--sc-measure-prose);
+}
+
+/* The three states this page can be in instead of a scene: a short block,
+   centred, because there is no record to read from the left. */
+.sc-scene-state {
+  max-width: var(--sc-measure-prose);
+  margin: 0 auto;
+  text-align: center;
+}
+.sc-scene-state h1 {
+  margin-inline: auto;
+  max-width: var(--sc-measure-title);
+}
+.sc-scene-state .sc-lookpage-lede {
+  margin-inline: auto;
+}
+.sc-scene-state .sc-lookpage-acts {
+  justify-content: center;
 }
 
 /* Ways to shoot one world: a row of quiet buttons, each one a shot started

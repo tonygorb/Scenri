@@ -6,6 +6,7 @@ import {
   mintRevision,
   presenterChain,
   presenterRecordFrom,
+  sceneRecordFrom,
   type CustomPresenter,
 } from '../src/assetRecords.js';
 
@@ -278,5 +279,30 @@ describe('duplicatePresenterRecord', () => {
   it('needs a name, the same rule as a first save', () => {
     expect(duplicatePresenterRecord(source(), '   ').ok).toBe(false);
     expect(duplicatePresenterRecord(source(), '').ok).toBe(false);
+  });
+});
+
+describe('sceneRecordFrom', () => {
+  /**
+   * A scene's words are printed on its page and sent to the generator, so a
+   * cut that lands mid-word is read by a person and by a model. This stored
+   * "gripping both sid" on a real record and showed it on the page.
+   */
+  it('cuts a long figure at a whole word, never mid-word', () => {
+    const long =
+      'one person at very close portrait range, centered at human scale, leaning upward through the frame and gripping both sides of it';
+    const r = sceneRecordFrom({ name: 'Close Frame', prompt: 'A room.', figure: long });
+    if (!r.ok) throw new Error(r.error);
+    expect(r.scene.figure!.length).toBeLessThanOrEqual(120);
+    expect(long.startsWith(r.scene.figure!)).toBe(true);
+    // the last word it kept is a word the sentence actually contains
+    const last = r.scene.figure!.split(' ').pop()!;
+    expect(long.split(' ')).toContain(last);
+  });
+
+  it('leaves a figure that fits exactly as it was written', () => {
+    const r = sceneRecordFrom({ name: 'Close Frame', prompt: 'A room.', figure: 'one person, seated' });
+    if (!r.ok) throw new Error(r.error);
+    expect(r.scene.figure).toBe('one person, seated');
   });
 });

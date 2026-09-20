@@ -188,12 +188,14 @@ export function ScenePage() {
     return (
       <ScrollPane>
         <main className="sc-lookpage sc-scenepage" id="main">
-          <h1>Couldn't load this scene</h1>
-          <p className="sc-lookpage-lede">Something went wrong reaching the catalog.</p>
-          <div className="sc-lookpage-acts">
-            <button type="button" className="sc-btn sc-btn-primary" onClick={() => refetch()}>
-              Retry
-            </button>
+          <div className="sc-scene-state">
+            <h1>Couldn't load this scene</h1>
+            <p className="sc-lookpage-lede">Something went wrong reaching the catalog.</p>
+            <div className="sc-lookpage-acts">
+              <button type="button" className="sc-btn sc-btn-primary" onClick={() => refetch()}>
+                Retry
+              </button>
+            </div>
           </div>
         </main>
       </ScrollPane>
@@ -204,30 +206,32 @@ export function ScenePage() {
     return (
       <ScrollPane>
         <main className="sc-lookpage sc-scenepage" id="main">
-          <h1>This scene isn't here anymore</h1>
-          <p className="sc-lookpage-lede">It may have been removed from the catalog, or the link is out of date.</p>
-          <div className="sc-lookpage-acts">
-            <Link className="sc-btn sc-btn-primary" to={`${hubPath(brand)}?compose=1`}>
-              Start from scratch
-            </Link>
-            <Link className="sc-btn sc-btn-ghost" to={scenesPath(brand)}>
-              Browse all scenes
-            </Link>
+          <div className="sc-scene-state">
+            <h1>This scene isn't here anymore</h1>
+            <p className="sc-lookpage-lede">It may have been removed from the catalog, or the link is out of date.</p>
+            <div className="sc-lookpage-acts">
+              <Link className="sc-btn sc-btn-primary" to={`${hubPath(brand)}?compose=1`}>
+                Start from scratch
+              </Link>
+              <Link className="sc-btn sc-btn-ghost" to={scenesPath(brand)}>
+                Browse all scenes
+              </Link>
+            </div>
+            {recovery.length > 0 && (
+              <Slider label="You might like">
+                {recovery.map((s) => (
+                  <SceneCard
+                    key={s.id}
+                    scene={s}
+                    variant="navigate"
+                    size="slider"
+                    onOpen={openScene}
+                    href={scenePath(brand, s.id)}
+                  />
+                ))}
+              </Slider>
+            )}
           </div>
-          {recovery.length > 0 && (
-            <Slider label="You might like">
-              {recovery.map((s) => (
-                <SceneCard
-                  key={s.id}
-                  scene={s}
-                  variant="navigate"
-                  size="slider"
-                  onOpen={openScene}
-                  href={scenePath(brand, s.id)}
-                />
-              ))}
-            </Slider>
-          )}
         </main>
       </ScrollPane>
     );
@@ -373,11 +377,16 @@ export function ScenePage() {
                     ? owned.figure
                       ? 'Drawn from these words. The person in it is a stand-in: attach a presenter and they take the role.'
                       : 'Drawn from these words. Whatever you attach to a shot goes here.'
-                    : 'Shown with a demo product for reference. Yours replaces it.'}
+                    : showDemoProductNote
+                      ? 'Shown with a demo product for reference. Yours replaces it.'
+                      : 'An example shot in this place, made from the words below.'}
                 </figcaption>
               </figure>
             ) : (
               <EmptyRefFrame />
+            )}
+            {frames.length > 1 && showDemoProductNote && (
+              <p className="sc-lookpage-note">Shown with a demo product for reference. Yours replaces it.</p>
             )}
 
             {/* What has been made here: the proof that the world is reusable. */}
@@ -385,7 +394,7 @@ export function ScenePage() {
               <section className="sc-scene-band">
                 <p className="sc-bandhead">Made here</p>
                 <div className="sc-scene-made">
-                  {made.slice(0, 8).map((s) => (
+                  {made.map((s) => (
                     <ShotThumb key={s.id} node={s} to={shotPath(brand, null, s.id)} />
                   ))}
                 </div>
@@ -402,15 +411,15 @@ export function ScenePage() {
                   <p className="sc-bandhead">Ways to shoot it</p>
                   <div className="sc-setups-row">
                     {(owned.setups ?? []).map((v) => (
-                      <button
-                        key={v.id}
-                        type="button"
-                        className="sc-btn sc-btn-ghost"
-                        title={v.camera}
-                        onClick={() => void applyScene(owned.id, v.id)}
-                      >
-                        {v.label}
-                      </button>
+                      <Tip key={v.id} label={v.camera}>
+                        <button
+                          type="button"
+                          className="sc-btn sc-btn-ghost"
+                          onClick={() => void applyScene(owned.id, v.id)}
+                        >
+                          {v.label}
+                        </button>
+                      </Tip>
                     ))}
                     {framingsLeft(owned.setups).length > 0 && (owned.setups?.length ?? 0) < SETUPS_MAX && (
                       <DropdownMenu.Root>
@@ -451,13 +460,14 @@ export function ScenePage() {
                         type="button"
                         className="sc-scene-expand"
                         aria-expanded={openWords}
+                        aria-controls="scene-full-words"
                         onClick={() => setOpenWords(!openWords)}
                       >
                         <CaretDown size={12} weight="bold" data-on={openWords || undefined} />
                         <span>{openWords ? 'Hide the full words' : 'Read the full words a shot is told'}</span>
                       </button>
                       {openWords && (
-                        <p className="sc-scene-prose" dir="auto">
+                        <p className="sc-scene-prose" id="scene-full-words" dir="auto">
                           {prose.text}
                         </p>
                       )}
@@ -487,10 +497,7 @@ export function ScenePage() {
                       ))}
                     </div>
                     <p className="sc-scene-note">
-                      Read into the words, never sent with a shot.
-                      {owned.figure
-                        ? ' This scene is built around a figure, so its own picture goes with a shot beside a presenter. Nobody in these is ever copied.'
-                        : ''}
+                      Read into the words, never sent with a shot. Nobody in them is ever copied.
                     </p>
                   </section>
                 )}
