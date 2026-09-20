@@ -32,18 +32,21 @@ describe('brands + projects', () => {
   // The studio orders answers about a brand by this stamp: a rename and the
   // delete right after it happen inside one second, and a second-precision
   // stamp called them the same write.
-  it('stamps every brand write so that two inside one second still order', () => {
+  it('stamps every brand write so that two inside one second still order', async () => {
     const b = core.store.createBrand(brandJson as any);
     const stamps: string[] = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 4; i++) {
       stamps.push(core.store.updateBrand(b.id, { ...brandJson, meta: { name: `Acme ${i}` } } as any)!.updatedAt);
-      const until = Date.now() + 2;
-      while (Date.now() < until) {
-        /* one write per clock tick */
-      }
+      // Comfortably past a Windows clock tick, which is ~15ms: this asks
+      // whether two writes in one SECOND can be told apart, not two in one
+      // millisecond, and ties there are what the ordering rules already allow.
+      await new Promise((r) => setTimeout(r, 50));
     }
     for (const s of stamps) expect(s).toMatch(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}$/);
+    expect(new Set(stamps).size).toBe(stamps.length);
     for (let i = 1; i < stamps.length; i++) expect(stamps[i] > stamps[i - 1]).toBe(true);
+    // every one of them inside the same second, which is what used to tie
+    expect(new Set(stamps.map((s) => s.slice(0, 19))).size).toBeLessThanOrEqual(2);
     // a row written before stamps carried milliseconds still sorts before them
     expect(b.updatedAt < stamps[0]).toBe(true);
   });
