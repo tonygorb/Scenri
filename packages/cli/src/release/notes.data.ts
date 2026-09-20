@@ -51,6 +51,25 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.12.0',
+    date: '2026-09-20',
+    title: 'Saved work shows up everywhere at once, and a selection has its own toolbar.',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'Pick several shots and the dock can archive the lot in one go, with a single Undo that brings them all back. That dock is a toolbar now: how many are picked, Select all, and the verbs as tools that name themselves. It is the same bar on a phone, at a size a thumb can hit.',
+      },
+      {
+        heading: 'Brand',
+        body: 'A brand you save, rename or delete, and a workspace you wipe, show up on every screen straight away. A brand you have just deleted no longer reopens its dialogs on the brand you land in next.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'A product edit, a new presenter and a deleted scene each reach every surface that shows them, without a reload, and a slow answer can no longer undo a newer change. Walking to another page while a delete is still out leaves you where you went, instead of pulling you back when it answers. A shot restored from the archive comes back to the feed where it belongs. After deleting a record, focus lands somewhere sensible instead of at the top of the page. On a phone a toast no longer sits on the tab bar.',
+      },
+    ],
+  },
+  {
     version: '0.11.1',
     date: '2026-09-18',
     sections: [
