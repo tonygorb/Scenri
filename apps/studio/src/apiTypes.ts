@@ -881,6 +881,8 @@ export interface GuideView {
   welcome: 'taken' | 'declined' | null;
   hidden: boolean;
   done: Partial<Record<GuideMilestone, string>>;
+  /** Which lessons have been walked to the end, and when. */
+  lessons: Partial<Record<GuideTaskId, string>>;
   dismissed: GuideTaskId[];
   active: GuideActiveTask | null;
   activeNodes: GuideTaskNode[];

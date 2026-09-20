@@ -45,15 +45,19 @@ test('nothing guides on its own; the ? sits in the corner and gathers the help',
   await expect(page).toHaveURL(/settings=about/);
 });
 
-test('Learn, asked for, is ticked by what the library holds, and starts nothing by itself', async ({ page }) => {
+test('Learn counts only the lessons taken, whatever the library holds, and starts nothing by itself', async ({
+  page,
+}) => {
   test.skip(!FIRST_USE, 'first use is paused (src/firstUse.ts)');
   await page.setViewportSize({ width: 1440, height: 900 });
   const s = await slug(page);
   await page.goto(`/${s}/scenes`);
   await learnButton(page).click();
   await expect(page).toHaveURL(/learn=lessons/);
-  // the seeded brand already holds a finished shot, so that lesson is done
-  await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('Done');
+  // the seeded brand already holds a finished shot, and that is not the same
+  // as having taken the lesson about making one: nothing here is ticked
+  await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('4 steps');
+  await expect(page.locator('.sc-learn-count')).toHaveText('0 of 5 done');
   await page.keyboard.press('Escape');
 
   // Opening a surface is not asking to be guided on an install that was not new.

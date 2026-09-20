@@ -129,6 +129,28 @@ describe('first-use record', () => {
       expect(Object.keys(readGuide(core, {}).done).sort()).toEqual(['presenter', 'product', 'scene']);
     });
 
+    it('a lesson is taught by finishing it, never by what the library happens to hold', () => {
+      stampGuide(core.store, V);
+      // a library full of work proves the milestones, and teaches nothing
+      const b = core.store.createBrand(
+        brand('Busy', { characters: [{ id: 'c', origin: 'custom' }], scenes: [{ id: 's' }], products: [{ id: 'p' }] }),
+      );
+      const full = readGuide(core, {});
+      expect(Object.keys(full.done).sort()).toEqual(['presenter', 'product', 'scene']);
+      expect(full.lessons).toEqual({});
+
+      // walking one to its end teaches that one, and says nothing about the rest
+      applyIntent(core, { start: { task: 'scene', brandId: b.id } });
+      applyIntent(core, { finish: 'scene' });
+      const after = readGuide(core, {});
+      expect(after.lessons.scene).toBeTypeOf('string');
+      expect(Object.keys(after.lessons)).toEqual(['scene']);
+      // and it stays taught after what it made is gone
+      const at = after.lessons.scene;
+      core.store.deleteBrand(b.id);
+      expect(readGuide(core, {}).lessons.scene).toBe(at);
+    });
+
     it('once seen, a step stays done after the thing is deleted', () => {
       stampGuide(core.store, V);
       const b = core.store.createBrand(brand('Brief', { scenes: [{ id: 's' }] }));

@@ -133,7 +133,7 @@ test('a lesson done from Learn is done there, and can be done again', async ({ p
   await expect(card(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('Done');
   await card(page, 'Build a scene').click();
   await expect(learn(page).locator('.sc-learn-step[data-state="done"]')).toHaveCount(3);
-  await expect(action(page, 'Do it again')).toBeVisible();
+  await expect(action(page, 'Start again')).toBeVisible();
 });
 
 test('refining with no shot says so, and its one action makes a shot first', async ({ page }) => {

@@ -1,5 +1,4 @@
 import type { GuideTaskId, GuideTaskNode, GuideView } from './apiTypes.js';
-import { MILESTONE } from './guidedTasks.js';
 
 /**
  * The lessons (DESIGN.md, "First use"): each one is a real thing to do in
@@ -71,13 +70,22 @@ export type LessonState = 'new' | 'active' | 'done';
 
 /**
  * In hand for this brand, done, or not begun. In hand wins over done: a
- * lesson taken again is being done again. Done is the install's record,
- * latched from what the library once held, so deleting what a lesson made
- * never takes it back, and doing the thing without the tutor counts.
+ * lesson taken again is being done again.
+ *
+ * Done means this lesson was walked to its end, and nothing else. The
+ * install's `done` milestones say what the library proves about the product
+ * (which is what stops the tutor teaching what someone clearly knows), and
+ * that is a different question: owning a product is not having taken the
+ * lesson about products. Lessons are independent of one another, so finishing
+ * one says nothing about the rest.
  */
-export function lessonState(id: GuideTaskId, view: Pick<GuideView, 'done' | 'active'>, brandId: string): LessonState {
+export function lessonState(
+  id: GuideTaskId,
+  view: Pick<GuideView, 'lessons' | 'active'>,
+  brandId: string,
+): LessonState {
   if (view.active?.task === id && view.active.brandId === brandId) return 'active';
-  return view.done[MILESTONE[id]] ? 'done' : 'new';
+  return view.lessons[id] ? 'done' : 'new';
 }
 
 export interface ProgressFacts {

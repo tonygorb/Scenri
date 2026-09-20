@@ -63,13 +63,13 @@ describe('lessonState', () => {
     baseline: { products: 0, presenters: 0, scenes: 0 },
   });
   it('is in hand for its own brand, done once the record says so, new otherwise', () => {
-    expect(lessonState('presenter', { done: {}, active: null }, 'b1')).toBe('new');
-    expect(lessonState('presenter', { done: { presenter: 'x' }, active: null }, 'b1')).toBe('done');
-    expect(lessonState('presenter', { done: {}, active: active('presenter') }, 'b1')).toBe('active');
+    expect(lessonState('presenter', { lessons: {}, active: null }, 'b1')).toBe('new');
+    expect(lessonState('presenter', { lessons: { presenter: 'x' }, active: null }, 'b1')).toBe('done');
+    expect(lessonState('presenter', { lessons: {}, active: active('presenter') }, 'b1')).toBe('active');
     // another brand's task in hand is that brand's
-    expect(lessonState('presenter', { done: {}, active: active('presenter', 'b2') }, 'b1')).toBe('new');
+    expect(lessonState('presenter', { lessons: {}, active: active('presenter', 'b2') }, 'b1')).toBe('new');
     // taken again, it is being done again
-    expect(lessonState('presenter', { done: { presenter: 'x' }, active: active('presenter') }, 'b1')).toBe('active');
+    expect(lessonState('presenter', { lessons: { presenter: 'x' }, active: active('presenter') }, 'b1')).toBe('active');
   });
 });
 

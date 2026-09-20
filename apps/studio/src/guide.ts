@@ -48,6 +48,7 @@ const EMPTY: GuideSnapshot = {
   welcome: null,
   hidden: true,
   done: {},
+  lessons: {},
   dismissed: [],
   active: null,
   activeNodes: [],
@@ -75,7 +76,10 @@ function taken(r: GuideView): GuideSnapshot {
   const view = FIRST_USE
     ? r
     : { ...r, eligible: false, hidden: true, active: null, activeNodes: [], activeDraftId: null };
-  return { ...view, loaded: true, heading: snapshot.heading };
+  // A server older than the lessons field answers without it, and a studio
+  // served by one still has to work: nothing has been taught, and finishing
+  // something writes to a record this build understands.
+  return { ...view, lessons: view.lessons ?? {}, loaded: true, heading: snapshot.heading };
 }
 
 function read(): Promise<void> {
@@ -113,7 +117,11 @@ function optimistic(s: GuideSnapshot, i: GuideIntent): GuideSnapshot {
   if ('welcome' in i) return { ...s, welcome: i.welcome };
   if ('hidden' in i) return { ...s, hidden: i.hidden };
   if ('finish' in i)
-    return s.active?.task === i.finish ? { ...s, active: null, activeNodes: [], activeDraftId: null } : s;
+    return {
+      ...s,
+      lessons: s.lessons[i.finish] ? s.lessons : { ...s.lessons, [i.finish]: new Date().toISOString() },
+      ...(s.active?.task === i.finish ? { active: null, activeNodes: [], activeDraftId: null } : {}),
+    };
   if ('dismiss' in i)
     return {
       ...s,

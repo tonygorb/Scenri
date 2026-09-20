@@ -52,6 +52,14 @@ interface GuideRecord {
   /** First steps put away (true) or asked for (false). Unset, it shows only to someone new. */
   hidden: boolean | null;
   done: Partial<Record<Milestone, string>>;
+  /**
+   * Lessons walked to the end, when each finished. Separate from `done` on
+   * purpose: `done` is what the library proves about the product (it is why a
+   * tutor never teaches what someone clearly knows), while this is what
+   * someone was actually taught. Owning a product is not having taken the
+   * lesson about products.
+   */
+  lessons: Partial<Record<TaskId, string>>;
   dismissed: TaskId[];
   active: ActiveTask | null;
 }
@@ -71,6 +79,8 @@ export interface GuideView {
   /** Whether First steps stays out of sight: someone not new sees it only after asking for it. */
   hidden: boolean;
   done: GuideRecord['done'];
+  /** Which lessons have been walked to the end, and when. */
+  lessons: GuideRecord['lessons'];
   dismissed: TaskId[];
   active: ActiveTask | null;
   /** Shots (or refinements) the active task's brand made since it began, newest first. */
@@ -89,7 +99,7 @@ const isMilestone = (m: unknown): m is Milestone => (MILESTONES as readonly unkn
 const num = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) && n >= 0 ? n : 0);
 
 function blank(eligible: boolean): GuideRecord {
-  return { v: 2, eligible, welcome: null, hidden: null, done: {}, dismissed: [], active: null };
+  return { v: 2, eligible, welcome: null, hidden: null, done: {}, lessons: {}, dismissed: [], active: null };
 }
 
 function parse(raw: string | null): GuideRecord | null {
@@ -101,6 +111,11 @@ function parse(raw: string | null): GuideRecord | null {
     const done: GuideRecord['done'] = {};
     if (j.done && typeof j.done === 'object') {
       for (const [k, at] of Object.entries(j.done)) if (isMilestone(k) && typeof at === 'string') done[k] = at;
+    }
+    // Added after v2 shipped, so a record written before it simply has none.
+    const lessons: GuideRecord['lessons'] = {};
+    if (j.lessons && typeof j.lessons === 'object') {
+      for (const [k, at] of Object.entries(j.lessons)) if (isTask(k) && typeof at === 'string') lessons[k] = at;
     }
     const a = j.active as Partial<ActiveTask> | null | undefined;
     const b = a?.baseline as Partial<Counts> | undefined;
@@ -120,6 +135,7 @@ function parse(raw: string | null): GuideRecord | null {
       welcome: j.welcome === 'taken' || j.welcome === 'declined' ? j.welcome : null,
       hidden: typeof j.hidden === 'boolean' ? j.hidden : null,
       done,
+      lessons,
       dismissed: Array.isArray(j.dismissed) ? j.dismissed.filter(isTask) : [],
       active,
     };
@@ -215,6 +231,7 @@ export function readGuide(core: Core, env: NodeJS.ProcessEnv): GuideView {
     welcome: r.welcome,
     hidden: r.hidden ?? !eligible,
     done: r.done,
+    lessons: r.lessons,
     dismissed: r.dismissed,
     active: a,
     activeNodes: a && nodeKind ? core.store.nodesSince(a.brandId, nodeKind, a.since) : [],
@@ -245,6 +262,9 @@ export function applyIntent(core: Core, body: unknown): string | null {
     r.dismissed = r.dismissed.filter((t) => t !== s.task);
   } else if ('finish' in b) {
     if (!isTask(b.finish)) return 'unknown task';
+    // Walked to the end, so the lesson is taught: kept even if what it made
+    // is deleted later, and never set by anything but finishing it.
+    if (!r.lessons[b.finish]) r.lessons[b.finish] = new Date().toISOString();
     if (r.active?.task === b.finish) r.active = null;
   } else if ('dismiss' in b) {
     if (!isTask(b.dismiss)) return 'unknown task';

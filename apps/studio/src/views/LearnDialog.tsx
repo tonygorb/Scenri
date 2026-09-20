@@ -79,6 +79,8 @@ export function LearnDialog() {
   };
 
   const hasShot = recent.some((n) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0);
+  /** Refining needs a shot to refine: until there is one, the lesson cannot begin. */
+  const blockedOf = (l: Lesson) => l.needs === 'shot' && !hasShot;
   const stateOf = (l: Lesson): LessonState => lessonState(l.id, guide, brand.id);
   const stepNow = (l: Lesson): number => {
     const composer = facts.composer?.brandId === brand.id ? facts.composer : null;
@@ -124,7 +126,7 @@ export function LearnDialog() {
       lesson={l}
       state={stateOf(l)}
       at={stepNow(l)}
-      blocked={l.needs === 'shot' && !hasShot}
+      blocked={blockedOf(l)}
       describe={describe}
       actionRef={actionRef}
       onBegin={() => begin(l.id)}
@@ -191,7 +193,7 @@ export function LearnDialog() {
                     </span>
                     <span className="sc-learn-say">
                       <span className="sc-learn-name">{l.title}</span>
-                      <Status lesson={l} state={stateOf(l)} at={stepNow(l)} />
+                      <Status lesson={l} state={stateOf(l)} at={stepNow(l)} blocked={blockedOf(l)} />
                     </span>
                     {next?.id === l.id && <span className="sc-learn-next">Next</span>}
                   </button>
@@ -233,7 +235,7 @@ function LessonView({
     : state === 'active'
       ? 'Continue'
       : state === 'done'
-        ? 'Do it again'
+        ? 'Start again'
         : 'Start';
   // The step with the action: the one in hand, or the first of a lesson that
   // is new or already done.
@@ -264,11 +266,10 @@ function LessonView({
         <img src={LESSON_PICTURES[lesson.id].wide} alt="" decoding="async" />
       </span>
       <div className="sc-learn-copy">
-        {/* where it stands belongs beside its name, not stacked over it */}
-        <div className="sc-learn-head">
-          <h3 className="sc-learn-title">{lesson.title}</h3>
-          <Status lesson={lesson} state={state} at={at} />
+        <div className="sc-learn-kicker">
+          <Status lesson={lesson} state={state} at={at} blocked={blocked} />
         </div>
+        <h3 className="sc-learn-title">{lesson.title}</h3>
         {summary}
         {/* Steps and whatever has to be said under them share one reserved
             block, so a lesson that needs a note is no taller than one that
@@ -321,7 +322,7 @@ function LessonView({
 }
 
 /** Where a lesson stands, in a few quiet words: done in green, never a percentage. */
-function Status({ lesson, state, at }: { lesson: Lesson; state: LessonState; at: number }) {
+function Status({ lesson, state, at, blocked }: { lesson: Lesson; state: LessonState; at: number; blocked?: boolean }) {
   const n = lesson.steps.length;
   if (state === 'done')
     return (
@@ -338,6 +339,8 @@ function Status({ lesson, state, at }: { lesson: Lesson; state: LessonState; at:
         Step {Math.min(at + 1, n)} of {n}
       </span>
     );
+  // why its action reads differently: it cannot begin until there is a shot
+  if (blocked) return <span className="sc-learn-status">Needs a shot</span>;
   return <span className="sc-learn-status">{n} steps</span>;
 }
 
