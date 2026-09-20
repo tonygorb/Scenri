@@ -103,6 +103,14 @@ export function LearnDialog() {
   const shown = chosen ?? next ?? LESSONS[0];
   const done = LESSONS.filter((l) => stateOf(l) === 'done').length;
 
+  // The pictures are the app's own files, so warming them once Learn is open
+  // means choosing another lesson shows a picture that is already decoded
+  // rather than an empty box for a frame.
+  useEffect(() => {
+    if (!open) return;
+    for (const p of Object.values(LESSON_PICTURES)) new Image().src = p.wide;
+  }, [open]);
+
   // The keyboard lands where the next press is: the lesson's one action as it
   // opens, and on a phone the row just read on the way back to the list.
   const actionRef = useRef<HTMLButtonElement>(null);
@@ -120,9 +128,11 @@ export function LearnDialog() {
     else if (opening) actionRef.current?.focus({ preventScroll: true });
   }, [open, phone, chosen]);
 
+  // No key: choosing another lesson swaps the words and the picture in the
+  // same elements. Remounting restarted their entrance animation, which read
+  // as a flash on every click.
   const lessonView = (l: Lesson, describe: boolean) => (
     <LessonView
-      key={l.id}
       lesson={l}
       state={stateOf(l)}
       at={stepNow(l)}

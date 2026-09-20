@@ -229,12 +229,6 @@
   display: flex;
   flex-direction: column;
 }
-@media (prefers-reduced-motion: no-preference) {
-  .sc-learn-hero,
-  .sc-learn-copy {
-    animation: sc-fade-in var(--sc-dur-slow) var(--sc-ease) both;
-  }
-}
 .sc-learn-kicker {
   margin: 16px 0 6px;
 }
