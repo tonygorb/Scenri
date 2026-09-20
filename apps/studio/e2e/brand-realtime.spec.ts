@@ -149,6 +149,10 @@ test('deleting a brand lands on another one without mounting the dead one again'
   await expect(page.locator('.sc-org-btn')).not.toHaveAttribute('aria-label', /^Doomed Brand,/);
   await page.waitForTimeout(800);
   expect(after).toEqual([]);
+  // The dialog belonged to the brand that is gone: it does not reopen on the
+  // brand you land on, with that brand's danger zone showing.
+  await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCount(0);
+  expect(new URL(page.url()).searchParams.get('settings')).toBeNull();
   await page.locator('.sc-org-btn').click();
   await expect(page.locator('.sc-menu-item', { hasText: 'Doomed Brand' })).toHaveCount(0);
   await page.keyboard.press('Escape');

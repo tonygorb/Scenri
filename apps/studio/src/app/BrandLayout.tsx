@@ -331,9 +331,17 @@ export function BrandLayout() {
   // a deleted brand, or a link to one this machine has never seen. The page
   // asked for is still a real page, so it comes along: landing on /scenes of a
   // brand you do have beats being dropped at a home you did not ask for.
+  //
+  // Its dialogs do not come along. They were opened on the brand that is gone,
+  // and `?settings=danger` carried onto the brand you land on reopens the pane
+  // that deletes brands, aimed at a different one, without being asked.
   if (!brand) {
     const fallback = pickBrand(brands);
-    return <Navigate to={fallback ? brandPath(fallback) + tail + search : P.root} replace />;
+    const rest = new URLSearchParams(search);
+    rest.delete('settings');
+    rest.delete('new');
+    const query = rest.toString();
+    return <Navigate to={fallback ? brandPath(fallback) + tail + (query ? `?${query}` : '') : P.root} replace />;
   }
 
   return (
