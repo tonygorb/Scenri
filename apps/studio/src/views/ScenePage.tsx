@@ -5,17 +5,17 @@ import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useMadeWith } from './useMadeWith.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
-import { customSceneById } from '../brandAssets.js';
+import { customSceneById, customScenesOf } from '../brandAssets.js';
 import { hubPath, sceneEditPath, scenePath, scenesPath, shotPath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { bookmarkedScenes, toggleBookmarkScene } from '../bookmarks.js';
 import { Confirm } from '../Confirm.js';
 import { SceneCard } from '../layout/SceneCard.js';
-import { BookmarkSimple, CaretDown, PencilSimple, Plus } from '@phosphor-icons/react';
+import { BookmarkSimple, CaretDown, PencilSimple } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
-import { readingLines } from '../create/scene/sceneStudioRules.js';
 import { COPY } from '../create/scene/sceneCopy.js';
-import { framingsLeft, SETUPS_MAX } from '../create/scene/sceneSetups.js';
+import { FRAMINGS, SETUPS_MAX } from '../create/scene/sceneSetups.js';
+import { sceneFactsLine, sceneTailLine } from './sceneFacts.js';
 import { Tip } from '../layout/Tip.js';
 import { AssetDetailsDialog } from './AssetDetailsDialog.js';
 import { EmptyRefFrame, ShotThumb, Shown, Slider } from '../layout/ReferenceGallery.js';
@@ -25,21 +25,22 @@ import { bookmarkedFirst } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 
 /**
- * One scene, as the world it is.
+ * One scene, as a record: the same page a presenter and a product have.
  *
- * Two columns: the place at the size it was drawn, with what it was read from
- * and what has been made here under it, and the record beside it. The record
- * is the name, the one verb that uses it, the ways to shoot it, and what a
- * shot is told, which shows the first line of each and opens whole on one
- * press.
+ * Identity first and tight (the name, what it is in one sentence, what it is
+ * made of in a few words, and the one verb that uses it), then the pictures of
+ * the place, which is the only zone allowed to leave the column, then what a
+ * shot made here is told, then the shots already made here, then the quiet
+ * facts and Delete.
  *
- * It explains itself once. An earlier pass had four band heads and three
- * paragraphs of mechanics in a 420 column, which is a page read once and
- * skipped ever after: the rules now live in an empty state, a caption, or
- * nowhere.
+ * Two earlier passes put this page in a two-column grid of its own with four
+ * band heads, three paragraphs explaining the mechanics and the analyzer's
+ * eight hundred characters of set prose. That prose belongs to the studio that
+ * writes it, the same rule the presenter's casting prose already follows, and
+ * the rest was a page that read once and was skipped ever after.
  */
 export function ScenePage() {
-  const { sceneId = '' } = useParams();
+  const { sceneId } = useParams();
   const { scenes, loaded, error, refetch, applyBrand } = useAppData();
   // one ask upstairs holds the whole brand now, so this page no longer walks
   // twenty project trees to answer "what did this scene actually produce"
@@ -51,14 +52,12 @@ export function ScenePage() {
   const [marks, setMarks] = useState<string[]>(() => bookmarkedScenes(brandId));
   /** The picture opened at full size, and what to call it there. */
   const [open, setOpen] = useState<{ src: string; label: string } | null>(null);
-  /** The long set prose, which waits behind a press. */
-  const [openWords, setOpenWords] = useState(false);
 
   const openScene = (id: string) => navigate(scenePath(brand, id));
 
   // The brand's own places come before the catalog, the same order the
   // compiler resolves them in.
-  const owned = customSceneById(brand, sceneId);
+  const owned = customSceneById(brand, sceneId ?? '');
   const scene = owned ?? scenes.find((s) => s.id === sceneId);
   useTitleEntity(scene?.name);
 
@@ -77,7 +76,7 @@ export function ScenePage() {
     // reference set sitting on disk to go and ask about.
     if (isOwned) return;
     void api
-      .sceneFrames(sceneId)
+      .sceneFrames(sceneId ?? '')
       .then((r) => {
         if (alive) setRefs(r.frames);
       })
@@ -92,8 +91,14 @@ export function ScenePage() {
   /** Shots whose brief carried this scene, newest first. */
   const made = useMadeWith(brand.id, [sceneId ?? '']);
 
+  /**
+   * Other curated places with the same light, for a curated scene only.
+   *
+   * Never for your own: the pool is the catalog, so a brand's own scene was
+   * offered eight of somebody else's places under the heading "similar".
+   */
   const near = useMemo(() => {
-    if (!scene) return [];
+    if (!scene || isOwned) return [];
     const others = scenes.filter((s) => s.id !== scene.id);
     // nearest by light: same lighting phrase first, then the same collection
     return others.sort((a, b) => score(b) - score(a)).slice(0, 8);
@@ -104,7 +109,7 @@ export function ScenePage() {
       const sameCollection = s.collections.some((c) => scene!.collections.includes(c));
       return (sameLight ? 2 : 0) + (sameCollection ? 1 : 0);
     }
-  }, [scenes, scene]);
+  }, [scenes, scene, isOwned]);
 
   /** Bookmarked first, the same ordering rule as Home's scene shelf. */
   const recovery = useMemo(() => {
@@ -116,44 +121,44 @@ export function ScenePage() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [details, setDetails] = useState(false);
-  // every vertical any scene is filed under, so a new filing lands in a tab that exists
-  const known = useMemo(() => [...new Set(scenes.flatMap((s) => s.verticals))].sort(), [scenes]);
 
   /**
-   * The name and the filing, written once when the sheet is saved. The words a
-   * shot is told, the pictures and the preview are changed in the studio,
-   * because changing them means drawing, and this page never draws.
+   * What to offer when filing it.
+   *
+   * The catalog's facets plus this brand's own, because a vertical invented in
+   * the studio was not in the catalog list and so could never be picked again
+   * here. The presenter page has said this for longer and says why.
    */
-  const saveDetails = async (next: { name: string; categories: string[] }) => {
+  const known = useMemo(
+    () =>
+      [...new Set([...scenes.flatMap((s) => s.verticals), ...customScenesOf(brand).flatMap((s) => s.verticals)])].sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    [scenes, brand],
+  );
+
+  /**
+   * The name, the filing and the ways to shoot it, written once when the sheet
+   * is saved. The words a shot is told, the pictures and the preview are
+   * changed in the studio, because changing them means drawing, and this page
+   * never draws.
+   */
+  const saveDetails = async (next: { name: string; categories: string[]; ways?: SceneSetup[] }) => {
     if (!owned) return;
     setBusy(true);
     setErr(null);
     try {
-      const r = await api.updateScene(brand.id, owned.id, { name: next.name, verticals: next.categories });
+      const r = await api.updateScene(brand.id, owned.id, {
+        name: next.name,
+        verticals: next.categories,
+        ...(next.ways ? { setups: next.ways } : {}),
+      });
       applyBrand(r.brand);
       setDetails(false);
     } catch (e: any) {
       setErr(String(e.message ?? e));
     } finally {
       setBusy(false);
-    }
-  };
-
-  /**
-   * One more way to shoot this world, written straight onto the record.
-   *
-   * Metadata, like the name and the filing beside it: nothing is drawn for a
-   * setup, because what changes is where the camera stands and the picture of
-   * the place already says what the place is.
-   */
-  const addSetup = async (f: SceneSetup) => {
-    if (!owned) return;
-    setErr(null);
-    try {
-      const r = await api.updateScene(brand.id, owned.id, { setups: [...(owned.setups ?? []), f] });
-      applyBrand(r.brand);
-    } catch (e: any) {
-      setErr(String(e.message ?? e));
     }
   };
 
@@ -187,14 +192,12 @@ export function ScenePage() {
     return (
       <ScrollPane>
         <main className="sc-lookpage sc-scenepage" id="main">
-          <div className="sc-scene-state">
-            <h1>Couldn't load this scene</h1>
-            <p className="sc-lookpage-lede">Something went wrong reaching the catalog.</p>
-            <div className="sc-lookpage-acts">
-              <button type="button" className="sc-btn sc-btn-primary" onClick={() => refetch()}>
-                Retry
-              </button>
-            </div>
+          <h1>Couldn't load this scene</h1>
+          <p className="sc-lookpage-lede">Something went wrong reaching the catalog.</p>
+          <div className="sc-lookpage-acts">
+            <button type="button" className="sc-btn sc-btn-primary" onClick={() => refetch()}>
+              Retry
+            </button>
           </div>
         </main>
       </ScrollPane>
@@ -205,32 +208,30 @@ export function ScenePage() {
     return (
       <ScrollPane>
         <main className="sc-lookpage sc-scenepage" id="main">
-          <div className="sc-scene-state">
-            <h1>This scene isn't here anymore</h1>
-            <p className="sc-lookpage-lede">It may have been removed from the catalog, or the link is out of date.</p>
-            <div className="sc-lookpage-acts">
-              <Link className="sc-btn sc-btn-primary" to={`${hubPath(brand)}?compose=1`}>
-                Start from scratch
-              </Link>
-              <Link className="sc-btn sc-btn-ghost" to={scenesPath(brand)}>
-                Browse all scenes
-              </Link>
-            </div>
-            {recovery.length > 0 && (
-              <Slider label="You might like">
-                {recovery.map((s) => (
-                  <SceneCard
-                    key={s.id}
-                    scene={s}
-                    variant="navigate"
-                    size="slider"
-                    onOpen={openScene}
-                    href={scenePath(brand, s.id)}
-                  />
-                ))}
-              </Slider>
-            )}
+          <h1>This scene isn't here anymore</h1>
+          <p className="sc-lookpage-lede">It may have been removed from the catalog, or the link is out of date.</p>
+          <div className="sc-lookpage-acts">
+            <Link className="sc-btn sc-btn-primary" to={`${hubPath(brand)}?compose=1`}>
+              Start from scratch
+            </Link>
+            <Link className="sc-btn sc-btn-ghost" to={scenesPath(brand)}>
+              Browse all scenes
+            </Link>
           </div>
+          {recovery.length > 0 && (
+            <Slider label="You might like">
+              {recovery.map((s) => (
+                <SceneCard
+                  key={s.id}
+                  scene={s}
+                  variant="navigate"
+                  size="slider"
+                  onOpen={openScene}
+                  href={scenePath(brand, s.id)}
+                />
+              ))}
+            </Slider>
+          )}
         </main>
       </ScrollPane>
     );
@@ -252,46 +253,32 @@ export function ScenePage() {
       : scene.previewUrl
         ? [{ src: scene.previewUrl, label: 'The place' }]
         : [];
-  // Product/either scenes ship their reference gallery shot with a demo
-  // product standing in for the art direction — the caption says so, so
-  // nobody mistakes it for part of the scene's recipe. Person-only scenes
-  // never carry a demo product, so they skip it.
-  const showDemoProductNote = !owned && scene.subject !== 'person' && frames.length > 0;
+
   /**
-   * The line under the picture, when there is one worth saying.
+   * The line under the pictures, when there is one worth saying.
    *
-   * A page that explains itself under every picture is a page nobody reads
-   * twice. Two cases carry something a person cannot see for themselves: a
-   * figure-led scene, whose person is a position and not anybody, and a
-   * curated scene photographed with a demo product in it.
+   * Two cases carry something a person cannot see for themselves: a curated
+   * set is photographed with a demo product standing in for the art direction,
+   * and a figure-led scene's person is a position rather than anybody.
    */
   const caption = owned
     ? owned.figure
       ? 'The person in it is a stand-in: attach a presenter and they take the role.'
       : ''
-    : showDemoProductNote
+    : scene.subject !== 'person' && frames.length > 0
       ? 'Shown with a demo product for reference. Yours replaces it.'
       : '';
 
-  const marked = marks.includes(scene.id);
-  // The words, split: what this world controls is scannable, and the long set
-  // prose it is compiled from waits behind one press. Nobody opens a scene to
-  // read four hundred words of description; they open it to see the place and
-  // use it.
-  const told = owned
-    ? readingLines({
-        name: owned.name,
-        prompt: owned.prompt,
-        lighting: owned.lighting,
-        camera: owned.camera,
-        figure: owned.figure,
-        figureTreatment: owned.figureTreatment,
-        subject: owned.subject,
-        description: owned.description,
-      })
-    : [];
-  const prose = told.find((l) => l.label === COPY.placeLabel);
-  const controls = told.filter((l) => l !== prose);
+  const marked = !owned && marks.includes(scene.id);
+  const ways = owned?.setups ?? [];
+  /**
+   * The uploads it was read from, without the one already standing above as
+   * the place: a scene saved before its picture was drawn falls back to its
+   * first upload for the preview, which showed the same photograph twice.
+   */
+  const sources = (owned?.refs ?? []).filter((src) => src !== owned?.previewUrl);
+  const tail = owned ? sceneTailLine({ ...owned, refs: sources }) : '';
+  const facts = sceneFactsLine(scene);
 
   return (
     <ScrollPane>
@@ -299,244 +286,201 @@ export function ScenePage() {
         <div className="sc-lookpage-crumb">
           <Link to={scenesPath(brand)}>Scenes</Link>
           <span>/</span>
-          <span>{owned ? 'Yours' : scene.collections[0]}</span>
+          <span>{owned ? 'Yours' : (scene.collections[0] ?? 'Scenri library')}</span>
         </div>
 
-        {/* The place on one side, its record on the other. A record is read
-            beside what it describes, not under it, and the picture is the
-            thing this page is about. */}
-        <div className="sc-scene-grid">
-          {/* Who this is, and the one verb that uses it. Its own block, so a
-              phone reads the name before the picture and the desktop still
-              heads the record with it. */}
-          <div className="sc-scene-id">
-            <h1>{scene.name}</h1>
-            <p className="sc-lookpage-lede">{scene.description}</p>
-            {/* A curated scene is judged from outside, so it says what it is
-                for; your own says it in its own words below. */}
-            {!owned && (
-              <p className="sc-lookpage-facts">
-                {scene.lighting} · {scene.subject === 'either' ? 'product or person' : `for a ${scene.subject}`} ·{' '}
-                {scene.width === scene.height ? 'square by default' : `${scene.width}×${scene.height} by default`}
-              </p>
-            )}
-            <div className="sc-lookpage-acts">
-              <button type="button" className="sc-btn sc-btn-primary" onClick={() => void applyScene(scene.id)}>
+        <h1>{scene.name}</h1>
+        <p className="sc-lookpage-lede">{scene.description}</p>
+        {/* What this place is made of, in the words it was read with. Every
+            scene carries them and no surface has ever shown them. */}
+        {facts && <p className="sc-lookpage-facts">{facts}</p>}
+
+        <div className="sc-lookpage-acts">
+          {/* One verb. A scene with ways to shoot it keeps them on the verb
+              rather than in a band of their own: a way is how you press this
+              button, not a section to read. */}
+          {ways.length > 0 ? (
+            <span className="sc-splitbtn">
+              <button
+                type="button"
+                className="sc-btn sc-btn-primary sc-splitbtn-go"
+                onClick={() => void applyScene(scene.id)}
+              >
                 Use in a shot
               </button>
-              {!owned && (
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger>
+                  <button type="button" className="sc-btn sc-btn-primary sc-splitbtn-more" aria-label="Use it a way">
+                    <CaretDown size={12} weight="bold" aria-hidden />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content>
+                  {ways.map((v) => (
+                    <DropdownMenu.Item key={v.id} onSelect={() => void applyScene(scene.id, v.id)}>
+                      {v.label}
+                    </DropdownMenu.Item>
+                  ))}
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+            </span>
+          ) : (
+            <button type="button" className="sc-btn sc-btn-primary" onClick={() => void applyScene(scene.id)}>
+              Use in a shot
+            </button>
+          )}
+          {owned ? (
+            <Link className="sc-btn sc-btn-ghost" to={sceneEditPath(brand, owned.id)}>
+              Edit scene
+            </Link>
+          ) : (
+            <button
+              type="button"
+              className="sc-btn sc-btn-ghost"
+              aria-pressed={marked}
+              onClick={() => setMarks(toggleBookmarkScene(brandId, scene.id))}
+            >
+              <BookmarkSimple size={13} weight={marked ? 'fill' : 'regular'} />
+              <span>{marked ? 'Bookmarked' : 'Bookmark'}</span>
+            </button>
+          )}
+          {owned && (
+            <Tip label="Edit name, filing and ways">
+              <button
+                type="button"
+                className="sc-icon-btn"
+                aria-label="Edit name, filing and ways"
+                aria-haspopup="dialog"
+                onClick={() => setDetails(true)}
+              >
+                <PencilSimple size={17} />
+              </button>
+            </Tip>
+          )}
+        </div>
+        {err && <p className="sc-assetform-err">{err}</p>}
+
+        {/* The place itself, and the only zone allowed to leave the column: a
+            curated scene's examples stand side by side the way a presenter's
+            views do, and your own scene's one drawn picture stands alone. */}
+        {frames.length > 1 ? (
+          <Rail
+            count={frames.length}
+            label="Pictures of this place"
+            className="sc-refset-rail"
+            trackClassName="sc-refset"
+          >
+            {frames.map((f) => (
+              <li key={f.src}>
                 <button
                   type="button"
-                  className="sc-btn sc-btn-ghost"
-                  aria-pressed={marked}
-                  onClick={() => setMarks(toggleBookmarkScene(brandId, scene.id))}
+                  className="sc-refset-tile"
+                  aria-label={`${f.label}, open`}
+                  onClick={() => setOpen(f)}
                 >
-                  <BookmarkSimple size={13} weight={marked ? 'fill' : 'regular'} />
-                  <span>{marked ? 'Bookmarked' : 'Bookmark'}</span>
+                  <Shown src={thumbOf(f.src, 'small')} />
                 </button>
-              )}
-              {owned && (
-                <Link className="sc-btn sc-btn-ghost" to={sceneEditPath(brand, owned.id)}>
-                  Edit scene
-                </Link>
-              )}
-              {owned && (
-                <Tip label="Edit name and details">
-                  <button
-                    type="button"
-                    className="sc-icon-btn"
-                    aria-label="Edit name and details"
-                    aria-haspopup="dialog"
-                    onClick={() => setDetails(true)}
-                  >
-                    <PencilSimple size={17} />
-                  </button>
-                </Tip>
-              )}
-            </div>
-            {err && <p className="sc-assetform-err">{err}</p>}
+                <span className="sc-refset-lb" aria-hidden>
+                  {f.label}
+                </span>
+              </li>
+            ))}
+          </Rail>
+        ) : frames.length === 1 ? (
+          <div className="sc-scenepage-place">
+            <button type="button" aria-label={`${frames[0].label}, open`} onClick={() => setOpen(frames[0])}>
+              <Shown src={thumbOf(frames[0].src, 'tile')} />
+            </button>
           </div>
+        ) : (
+          <EmptyRefFrame />
+        )}
+        {caption && <p className="sc-lookpage-note">{caption}</p>}
 
-          <div className="sc-scene-stage">
-            {frames.length > 1 ? (
-              <Rail
-                count={frames.length}
-                label="Pictures of this place"
-                className="sc-refset-rail"
-                trackClassName="sc-refset"
-              >
-                {frames.map((f) => (
-                  <li key={f.src}>
-                    <button
-                      type="button"
-                      className="sc-refset-tile"
-                      aria-label={`${f.label}, open`}
-                      onClick={() => setOpen(f)}
-                    >
-                      <Shown src={thumbOf(f.src, 'small')} />
-                    </button>
-                    <span className="sc-refset-lb" aria-hidden>
-                      {f.label}
-                    </span>
-                  </li>
-                ))}
-              </Rail>
-            ) : frames.length === 1 ? (
-              <figure className="sc-scene-place">
-                <button type="button" aria-label={`${frames[0].label}, open`} onClick={() => setOpen(frames[0])}>
-                  <Shown src={thumbOf(frames[0].src, 'tile')} />
-                </button>
-                {caption && <figcaption className="sc-lookpage-note">{caption}</figcaption>}
-              </figure>
-            ) : (
-              <EmptyRefFrame />
-            )}
-            {frames.length > 1 && showDemoProductNote && (
-              <p className="sc-lookpage-note">Shown with a demo product for reference. Yours replaces it.</p>
-            )}
-
-            {/* What it was read from: pictures belong beside pictures, and the
-                one thing that has to be said about them is said on hover
-                rather than in a paragraph nobody rereads. */}
-            {owned && owned.refs.length > 0 && (
-              <div className="sc-scene-read">
-                <p className="sc-scene-read-lb">
-                  Read from
-                  <span>Read into the words, never sent with a shot.</span>
-                </p>
-                <div className="sc-presenterpage-sources-row">
-                  {owned.refs.map((src, i) => (
-                    <button
-                      key={src}
-                      type="button"
-                      className="sc-presenterpage-source"
-                      aria-label={`Read from ${i + 1}, open`}
-                      onClick={() => setOpen({ src, label: `Read from ${i + 1}` })}
-                    >
-                      <Shown src={thumbOf(src, 'micro')} />
-                    </button>
-                  ))}
-                </div>
+        {/* What a shot made here is told, in the three keys that are real. The
+            set prose behind them is the studio's, and Edit scene is the way to
+            it: it is eight hundred characters long and it is changed by
+            re-reading the place, never by reading it here. */}
+        {owned && (
+          <section className="sc-scenepage-told">
+            <dl className="sc-lookpage-told">
+              <div>
+                <dt>{COPY.lightLabel}</dt>
+                <dd dir="auto">{owned.lighting}</dd>
               </div>
-            )}
-
-            {/* What has been made here: the proof that the world is reusable. */}
-            {made.length > 0 && (
-              <section className="sc-scene-band">
-                <p className="sc-bandhead">Made here</p>
-                <div className="sc-scene-made">
-                  {made.map((s) => (
-                    <ShotThumb key={s.id} node={s} to={shotPath(brand, null, s.id)} />
-                  ))}
+              {owned.camera && (
+                <div>
+                  <dt>{COPY.cameraLabel}</dt>
+                  <dd dir="auto">{owned.camera}</dd>
                 </div>
-              </section>
-            )}
+              )}
+              {owned.figure && (
+                <div>
+                  <dt>{COPY.figureLabel}</dt>
+                  <dd dir="auto">{owned.figure}</dd>
+                </div>
+              )}
+            </dl>
+            <p className="sc-lookpage-note">Every shot made here is told this. Anything you write in the shot wins.</p>
+          </section>
+        )}
+
+        {sources.length > 0 && (
+          <section className="sc-presenterpage-sources">
+            <p className="sc-presenterpage-sources-lb">Read from your photographs</p>
+            <div className="sc-presenterpage-sources-row">
+              {sources.map((src, i) => (
+                <button
+                  key={src}
+                  type="button"
+                  className="sc-presenterpage-source"
+                  aria-label={`Read from ${i + 1}, open`}
+                  onClick={() => setOpen({ src, label: `Read from ${i + 1}` })}
+                >
+                  <Shown src={thumbOf(src, 'micro')} />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* The facts nobody acts on, and the one verb that ends a record. */}
+        {owned && (
+          <div className="sc-prec">
+            {tail && <p className="sc-prec-note">{tail}</p>}
+            <Confirm
+              label="Delete scene"
+              title={`Delete ${owned.name}?`}
+              body="Shots already made here keep their images. Their recipe will say this scene is gone, and building from one again will miss it."
+              busy={busy}
+              onConfirm={() => void remove()}
+            />
           </div>
+        )}
 
-          <aside className="sc-scene-rec">
-            {owned && (
-              <>
-                {/* Ways to shoot this same world: the camera moves, the world
-                    does not, so each one is a label and a line. */}
-                <section className="sc-scene-sec">
-                  <p className="sc-bandhead">Ways to shoot it</p>
-                  <div className="sc-setups-row">
-                    {(owned.setups ?? []).map((v) => (
-                      <Tip key={v.id} label={v.camera}>
-                        <button
-                          type="button"
-                          className="sc-btn sc-btn-ghost"
-                          onClick={() => void applyScene(owned.id, v.id)}
-                        >
-                          {v.label}
-                        </button>
-                      </Tip>
-                    ))}
-                    {framingsLeft(owned.setups).length > 0 && (owned.setups?.length ?? 0) < SETUPS_MAX && (
-                      <DropdownMenu.Root>
-                        <DropdownMenu.Trigger>
-                          <button type="button" className="sc-btn sc-btn-ghost" aria-label="Add a way to shoot it">
-                            <Plus size={12} />
-                            <span>Add a way</span>
-                          </button>
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Content>
-                          {framingsLeft(owned.setups).map((f) => (
-                            <DropdownMenu.Item key={f.id} onSelect={() => void addSetup(f)}>
-                              {f.label}
-                            </DropdownMenu.Item>
-                          ))}
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Root>
-                    )}
-                  </div>
-                  {(owned.setups?.length ?? 0) === 0 && (
-                    <p className="sc-scene-note">A way moves the camera and leaves the world alone.</p>
-                  )}
-                </section>
+        {/* What has been made here: the proof that a world is reusable, and
+            the one thing on this page that only this page can show. */}
+        {made.length > 0 && (
+          <Slider label={`Shots made in ${scene.name}`}>
+            {made.map((s) => (
+              <ShotThumb key={s.id} node={s} to={shotPath(brand, null, s.id)} />
+            ))}
+          </Slider>
+        )}
 
-                <section className="sc-scene-sec">
-                  <p className="sc-bandhead">What your shots are told</p>
-                  <dl className="sc-lookpage-told" data-open={openWords || undefined}>
-                    {controls.map((l) => (
-                      <div key={l.label}>
-                        <dt>{l.label}</dt>
-                        <dd dir="auto">{l.text}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                  {prose && (
-                    <>
-                      <button
-                        type="button"
-                        className="sc-scene-expand"
-                        aria-expanded={openWords}
-                        aria-controls="scene-full-words"
-                        onClick={() => setOpenWords(!openWords)}
-                      >
-                        <CaretDown size={12} weight="bold" data-on={openWords || undefined} />
-                        <span>{openWords ? 'Hide the full words' : 'Read the full words a shot is told'}</span>
-                      </button>
-                      {openWords && (
-                        <p className="sc-scene-prose" id="scene-full-words" dir="auto">
-                          {prose.text}
-                        </p>
-                      )}
-                    </>
-                  )}
-                  {owned.instruction && (
-                    <p className="sc-scene-note" dir="auto">
-                      Your words: {owned.instruction}
-                    </p>
-                  )}
-                </section>
-
-                {owned.verticals.length > 0 && (
-                  <div className="sc-scene-sec sc-presenterpage-filed">
-                    <span className="sc-presenterpage-filed-lb">Filed under</span>
-                    <ul className="sc-presenterpage-cats" aria-label="Filed under">
-                      {owned.verticals.map((c) => (
-                        <li key={c} className="sc-chip" data-static>
-                          {c}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div className="sc-scene-sec sc-scene-del">
-                  <Confirm
-                    label="Delete scene"
-                    title={`Delete ${owned.name}?`}
-                    body="Shots already made here keep their images and their recipe. Only future shots lose it."
-                    busy={busy}
-                    onConfirm={() => void remove()}
-                  />
-                </div>
-              </>
-            )}
-          </aside>
-        </div>
+        {near.length > 0 && (
+          <Slider label="Other scenes, similar light">
+            {near.map((s) => (
+              <SceneCard
+                key={s.id}
+                scene={s}
+                variant="navigate"
+                size="slider"
+                onOpen={openScene}
+                href={scenePath(brand, s.id)}
+              />
+            ))}
+          </Slider>
+        )}
 
         {details && owned && (
           <AssetDetailsDialog
@@ -544,6 +488,9 @@ export function ScenePage() {
             categories={owned.verticals}
             known={known}
             hint="The verticals this place suits, so it surfaces where you work."
+            ways={ways}
+            wayChoices={FRAMINGS}
+            wayMax={SETUPS_MAX}
             busy={busy}
             error={err}
             onSave={(next) => void saveDetails(next)}
@@ -559,23 +506,6 @@ export function ScenePage() {
             noun={scene.name}
             onClose={() => setOpen(null)}
           />
-        )}
-
-        {/* Only for a curated scene: the nearest by light are all catalog ones,
-            so on your own scene this offered somebody else's places. */}
-        {!owned && near.length > 0 && (
-          <Slider label="Other scenes, similar light">
-            {near.map((s) => (
-              <SceneCard
-                key={s.id}
-                scene={s}
-                variant="navigate"
-                size="slider"
-                onOpen={openScene}
-                href={scenePath(brand, s.id)}
-              />
-            ))}
-          </Slider>
         )}
       </main>
     </ScrollPane>

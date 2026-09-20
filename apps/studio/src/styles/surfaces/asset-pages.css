@@ -910,297 +910,110 @@
 }
 /* ---------------------------------------------------------------- a scene
 
-   A scene's page is a record, not a poster: the place on one side, what a shot
-   made in it is told on the other. The shared look-page centres everything in
-   a 1080 column, which suits a catalog card being judged from outside and
-   leaves a brand's own scene as a centred headline over one enormous picture
-   with every word below the fold.
+   A scene is a record like a presenter and a product, and wears their page:
+   the centred identity, the pictures under it, what a shot is told, then the
+   quiet facts and Delete. It had its own two-column grid for a while, with
+   four band heads and three paragraphs of mechanics, and it read as a form
+   about a place rather than the place itself.
 
-   So this one page leaves the centred shell: two columns, the picture at its
-   own natural size on the left with what has been made here under it, and the
-   record beside it, which stays in view while the picture is looked at. One
-   column on a phone, in the reading order the markup already has. */
+   Almost nothing is needed here: the shell already owns the column, the
+   headings, the lede and the fact line. */
+
+/* The rail of examples sizes its tiles off 100cqi, so the page has to be the
+   container the way the presenter's is. Without this the measure was the whole
+   window and a curated scene's six frames ran off the side of the column. */
 .sc-scenepage {
-  max-width: 1240px;
-  text-align: left;
-  /* Radix's own wrapper sets a font on everything under it, so the app font
-     from `body` never reaches the prose on a record page. Named here, because
-     the type on this page is half of what it is. */
-  font-family: var(--sc-font);
-}
-.sc-scenepage .sc-lookpage-crumb,
-.sc-scenepage .sc-lookpage-acts {
-  justify-content: flex-start;
-}
-/* The shared shell centres its identity block; this page is a record read
-   from the left, so the name, its filing and the lede keep their own edge. */
-/* The name is the page's one big thing: set tighter and heavier than the
-   centred shell's, which is balanced for a name over a picture. */
-.sc-scenepage h1 {
-  max-width: none;
-  margin: 0 0 var(--sc-space-5);
-  font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-}
-.sc-scenepage .sc-lookpage-lede {
-  margin-bottom: var(--sc-space-7);
-}
-.sc-scenepage .sc-presenterpage-cats {
-  justify-content: flex-start;
-  margin-inline: 0;
-}
-/* The filing is a fact about the record, not part of the name: it sits with
-   the rest of the record, on the row pattern the presenter page already has. */
-.sc-scenepage .sc-presenterpage-filed {
-  max-width: none;
-  margin-inline: 0;
-}
-.sc-scenepage .sc-lookpage-lede,
-.sc-scenepage .sc-lookpage-facts,
-.sc-scenepage .sc-lookpage-note {
-  margin-inline: 0;
-}
-.sc-scene-grid {
-  display: grid;
-  grid-template-areas: "id" "stage" "rec";
-  gap: var(--sc-scene-sec);
-  margin-top: var(--sc-space-5);
-  --sc-scene-sec: 40px;
-}
-.sc-scene-id {
-  grid-area: id;
-}
-.sc-scene-stage {
-  grid-area: stage;
-}
-.sc-scene-rec {
-  grid-area: rec;
-}
-/* Both columns are ordinary blocks: the rhythm inside a record is the
-   record's own (a name, then its filing, then the lede, close together), and
-   a grid gap would have set every one of them the same distance apart. */
-.sc-scene-stage,
-.sc-scene-rec {
-  min-width: 0;
-}
-/* A curated scene's rail sizes its tiles off 100cqi, so the column it sits in
-   has to be the container. Without this the measure was the whole window and
-   two example frames ran off the side of the page. */
-.sc-scene-stage {
   container-type: inline-size;
 }
-.sc-scene-band {
-  margin-top: var(--sc-scene-sec);
-}
-/* The record's own rule sits above the words, never under the picture. */
-.sc-scenepage .sc-ownedbits {
-  margin-top: 0;
-}
-@media (min-width: 1024px) {
-  .sc-scene-grid {
-    /* the picture takes what it needs, the record is a fixed reading column
-       beside it: the name heads that column, the place spans both its rows */
-    grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
-    grid-template-areas: "stage id" "stage rec";
-    /* The place spans both rows, so its height would otherwise be shared out
-       between them and push the record half a screen below the name. */
-    grid-template-rows: min-content 1fr;
-    align-items: start;
-  }
-  /* a curated scene's several pictures show two at a time in the left column,
-     which is enough to compare without shrinking either to a thumbnail */
-  .sc-scenepage .sc-refset-rail {
-    --sc-refset-max: 100%;
-    --sc-refset-n: min(2, var(--sc-rail-count, 1));
-  }
-  .sc-scenepage .sc-refset-tile,
-  .sc-scenepage .sc-refset-tile img {
-    max-height: 68vh;
-  }
-}
 
-/* The place, at its own size. A scene is drawn in whatever shape it was asked
-   for, so the frame is the picture rather than a box the picture is fitted
-   into: no letterbox, no crop, and never taller than the screen. */
-.sc-scene-place {
-  margin: 0;
-  display: grid;
-  justify-items: start;
-  gap: var(--sc-space-5);
+/* The one drawn picture of a place, at the size it was drawn. A scene has no
+   avatar, so this is its face: it is never cropped into a card, and never
+   taller than the screen reading it. */
+.sc-scenepage-place {
+  margin-top: var(--sc-space-7);
 }
-/* The frame is the picture: it wraps whatever was drawn rather than cropping
-   it into a card. It keeps a floor, because a picture that is tiny or that
-   fails to load would otherwise collapse this whole side of the page. */
-.sc-scene-place > button {
-  display: grid;
+.sc-scenepage-place > button {
+  display: inline-grid;
   place-items: center;
   padding: 0;
   cursor: zoom-in;
   max-width: 100%;
-  min-width: min(100%, 320px);
-  min-height: min(60vh, 420px);
+  min-width: min(100%, 280px);
+  min-height: min(50vh, 360px);
   overflow: hidden;
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-lg);
   background: var(--sc-raised);
 }
-.sc-scene-place img {
+.sc-scenepage-place img {
   display: block;
   width: auto;
   max-width: 100%;
   max-height: 68vh;
 }
-/* The line under the picture belongs to the picture: its own width, its own
-   edge, never a centred caption in a left-aligned record. */
-.sc-scene-place figcaption,
-.sc-scene-stage .sc-lookpage-note {
-  margin: 0;
-  max-width: var(--sc-measure-lede);
+
+/* What a shot made here is told: three keys, left-aligned inside the centred
+   column the way the presenter's record line is. The sentence under it is the
+   page's only explanation, and it is there because the compiler really does
+   let a shot's own words win. */
+.sc-scenepage-told {
+  max-width: var(--sc-measure-prose);
+  margin: var(--sc-space-8) auto 0;
+  text-align: left;
+}
+.sc-scenepage-told .sc-lookpage-note {
+  margin: var(--sc-space-5) 0 0;
+  max-width: none;
   text-align: left;
 }
 
-/* What has been made in this world, under the picture of it: the proof that a
-   scene is reusable, at the size of a contact sheet rather than a slider. */
-.sc-scene-made {
-  display: grid;
-  /* Fills the column it is given at any width: four tiles beside a picture,
-     two on a phone. A fixed four made 80px thumbnails at 390. */
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: var(--sc-space-4);
-  margin-top: var(--sc-space-5);
-}
-.sc-scene-made .sc-lookcard {
-  aspect-ratio: 1;
-}
-.sc-scene-made .sc-lookcard img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* What a shot is told: the first rows of each, and the one press opens them
-   whole. Three analyzer sentences at full length turned a record into a page
-   of prose, which is read once and skipped forever after. */
-.sc-scenepage .sc-lookpage-told dd {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
-  line-clamp: 1;
-  overflow: hidden;
-}
-.sc-scenepage .sc-lookpage-told[data-open] dd {
-  display: block;
-  overflow: visible;
-}
-
-/* What it was read from, under the picture it explains: a quiet label and a
-   row of small frames. What the pictures are for is on the label. */
-.sc-scene-read {
-  display: flex;
-  align-items: center;
-  gap: var(--sc-space-5);
-  margin-top: var(--sc-space-6);
-}
-/* The label, and under it in one line the only thing that has to be said
-   about these pictures. It was a band head and a two-line paragraph. */
-.sc-scene-read-lb {
-  flex: none;
-  max-width: 22ch;
-  margin: 0;
-  font-size: var(--sc-text-caption);
-  line-height: 1.45;
-  color: var(--sc-fg2);
-}
-.sc-scene-read-lb span {
-  display: block;
-  color: var(--sc-fg3);
-}
-.sc-scene-read .sc-presenterpage-sources-row {
-  margin: 0;
-}
-
-/* The record's own sections. One rhythm between them, one head each. */
-.sc-scene-sec {
-  margin-top: var(--sc-scene-sec);
-}
-.sc-scene-rec > .sc-scene-sec:first-child {
-  margin-top: 0;
-}
-.sc-scene-id .sc-lookpage-acts {
-  margin-top: var(--sc-space-5);
-}
-/* The row gap between the name block and the record below it is the grid's,
-   so the last line inside it does not add a second one. */
-.sc-scene-id > :last-child {
-  margin-bottom: 0;
-}
-.sc-scene-del {
-  display: flex;
-}
-.sc-scene-note {
-  margin: var(--sc-space-5) 0 0;
-  font-size: var(--sc-text-body);
-  line-height: 1.5;
-  color: var(--sc-fg3);
-  max-width: var(--sc-measure-lede);
-}
-/* The long words a shot is told wait behind one press. A quiet line with a
-   caret, not a pill: a pill is a thing to press, and this is a thing to read
-   more of. */
-.sc-scene-expand {
+/* One verb with its ways on it: two halves of one pill, the same split the
+   top bar's New button is built from. */
+.sc-splitbtn {
   display: inline-flex;
-  align-items: center;
-  gap: var(--sc-space-4);
-  margin-top: var(--sc-space-5);
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--sc-fg2);
-  font: inherit;
-  font-size: var(--sc-text-body);
-  cursor: pointer;
+  align-items: stretch;
 }
-.sc-scene-expand svg {
-  transition: rotate 140ms ease;
+.sc-splitbtn-go {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
 }
-.sc-scene-expand svg[data-on] {
-  rotate: 180deg;
-}
-.sc-scene-prose {
-  margin: var(--sc-space-5) 0 0;
-  font-size: 15px;
-  line-height: 1.6;
-  color: var(--sc-fg2);
-  max-width: var(--sc-measure-prose);
+.sc-splitbtn-more {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  padding-inline: 10px;
+  /* a hairline in the ink's own colour, so the two halves read as one control */
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--sc-inv-fg) 22%, transparent);
 }
 
-/* The three states this page can be in instead of a scene: a short block,
-   centred, because there is no record to read from the left. */
-.sc-scene-state {
-  max-width: var(--sc-measure-prose);
-  margin: 0 auto;
-  text-align: center;
-}
-.sc-scene-state h1 {
-  margin-inline: auto;
-  max-width: var(--sc-measure-title);
-}
-.sc-scene-state .sc-lookpage-lede {
-  margin-inline: auto;
-}
-.sc-scene-state .sc-lookpage-acts {
-  justify-content: center;
-}
-
-/* Ways to shoot one world: a row of quiet buttons, each one a shot started
-   with that framing. They sit with the record rather than with the picture,
-   because what they change is what a shot is told, not what the place is. */
-.sc-setups-row {
+/* The ways themselves are written in Details, where a list can be read and a
+   wrong one taken away. */
+.sc-pdetails-ways {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--sc-space-3);
-  margin-top: var(--sc-space-4);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sc-space-4);
+}
+.sc-pdetails-way {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0 var(--sc-space-4);
+  width: 100%;
+}
+.sc-pdetails-way-lb {
+  font-size: var(--sc-text-control);
+  color: var(--sc-fg);
+}
+.sc-pdetails-way-sub {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: var(--sc-text-caption);
+  line-height: 1.4;
+  color: var(--sc-fg3);
+}
+.sc-pdetails-way .sc-icon-btn {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 /* A scene has no avatar: its picture is its identity, so a place with one

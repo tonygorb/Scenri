@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { DropdownMenu } from '@radix-ui/themes';
+import { Plus, X } from '@phosphor-icons/react';
+import type { SceneSetup } from '../api.js';
 import { ChipPicker } from '../layout/ChipPicker.js';
 import { DialogSheet, SheetClose, SheetTitle } from '../layout/DialogSheet.js';
 
@@ -22,6 +25,9 @@ export function AssetDetailsDialog({
   categories,
   known,
   hint,
+  ways,
+  wayChoices,
+  wayMax,
   busy,
   error,
   onSave,
@@ -33,23 +39,42 @@ export function AssetDetailsDialog({
   known: string[];
   /** What filing it does, in the kind's own words. */
   hint: string;
+  /**
+   * A scene's ways to shoot it, if this record has them. They are words about
+   * where a camera stands, so they are written here beside the name rather
+   * than in the studio, which is where pictures are drawn.
+   */
+  ways?: readonly SceneSetup[];
+  /** Every way this kind knows how to add; the ones already taken are hidden. */
+  wayChoices?: readonly SceneSetup[];
+  /** How many a record may hold, after which nothing more is offered. */
+  wayMax?: number;
   busy?: boolean;
   error?: string | null;
-  onSave: (next: { name: string; categories: string[] }) => void;
+  onSave: (next: { name: string; categories: string[]; ways?: SceneSetup[] }) => void;
   onDismiss: () => void;
 }) {
   const [draftName, setName] = useState(name);
   const [draftCategories, setCategories] = useState(categories);
+  const [draftWays, setWays] = useState<SceneSetup[]>(() => [...(ways ?? [])]);
 
   const trimmed = draftName.trim();
   // A name is theirs to choose, so anything with a character in it stands.
   const ready = trimmed.length > 0;
-  const changed = trimmed !== name.trim() || draftCategories.join(' ') !== categories.join(' ');
+  const key = (list: readonly SceneSetup[]) => list.map((w) => w.id).join(' ');
+  const changed =
+    trimmed !== name.trim() ||
+    draftCategories.join(' ') !== categories.join(' ') ||
+    (!!ways && key(draftWays) !== key(ways));
+  const left =
+    draftWays.length >= (wayMax ?? Number.POSITIVE_INFINITY)
+      ? []
+      : (wayChoices ?? []).filter((c) => !draftWays.some((w) => w.id === c.id));
 
   const submit = () => {
     if (!ready || busy) return;
     if (!changed) return onDismiss();
-    onSave({ name: trimmed, categories: draftCategories });
+    onSave({ name: trimmed, categories: draftCategories, ...(ways ? { ways: draftWays } : {}) });
   };
 
   return (
@@ -89,6 +114,52 @@ export function AssetDetailsDialog({
           />
           <span className="sc-pdetails-hint">{hint}</span>
         </div>
+
+        {/* Ways to shoot it. Only a scene has them, and only here: on the page
+            they are how the Use button is pressed, which is no place to write
+            a list or take one away. */}
+        {ways && (
+          <div className="sc-pdetails-row">
+            <span className="sc-pdetails-lb">Ways to shoot it</span>
+            <div className="sc-pdetails-ways">
+              {draftWays.map((w) => (
+                <div key={w.id} className="sc-pdetails-way">
+                  <span className="sc-pdetails-way-lb">{w.label}</span>
+                  <span className="sc-pdetails-way-sub">{w.camera}</span>
+                  <button
+                    type="button"
+                    className="sc-icon-btn"
+                    aria-label={`Remove ${w.label}`}
+                    onClick={() => setWays(draftWays.filter((d) => d.id !== w.id))}
+                  >
+                    <X size={13} weight="bold" aria-hidden />
+                  </button>
+                </div>
+              ))}
+              {left.length > 0 && (
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger>
+                    <button type="button" className="sc-btn sc-btn-ghost" aria-label="Add a way to shoot it">
+                      <Plus size={12} weight="bold" aria-hidden />
+                      <span>Add a way</span>
+                    </button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content>
+                    {left.map((c) => (
+                      <DropdownMenu.Item key={c.id} onSelect={() => setWays([...draftWays, c])}>
+                        {c.label}
+                      </DropdownMenu.Item>
+                    ))}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
+              )}
+            </div>
+            <span className="sc-pdetails-hint">
+              A way moves the camera and leaves the world alone.
+              {wayMax ? ` ${wayMax} at most.` : ''}
+            </span>
+          </div>
+        )}
 
         {error && <p className="sc-assetform-err">{error}</p>}
       </div>
