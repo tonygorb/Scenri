@@ -33,12 +33,15 @@
 .sc-learn.sc-newdlg {
   padding: 0;
 }
-/* 12 above and below, as every other header in the app: the close button is a
-   44px touch target, so the frame's 16 around a 24px glyph would read as a
-   band rather than a header. */
+/* One gutter of air above and below the title. Held as a height rather than
+   as padding because the close button is a 44px touch target where the frame
+   draws a 24px glyph: 72 puts the words where the frame puts them, and the
+   larger target centres inside it. */
 .sc-learn .sc-newdlg-head {
   flex: none;
-  padding: 12px var(--sc-gutter);
+  /* 72 of air, then the hairline under it */
+  height: 73px;
+  padding: 0 var(--sc-gutter);
   border-bottom: 1px solid var(--sc-line);
 }
 .sc-learn .sc-newdlg-head:has(.sc-learn-count) .sc-newdlg-title {
@@ -54,7 +57,7 @@
 .sc-newdlg-body.sc-learn-body {
   display: grid;
   grid-template-columns: 272px minmax(0, 1fr);
-  gap: 16px;
+  gap: var(--sc-gutter);
   flex: 1 1 auto;
   min-height: 0;
   padding: 0 var(--sc-gutter);
@@ -67,7 +70,9 @@
   flex-direction: column;
   gap: 4px;
   margin: 0;
-  padding: 16px 16px 0 0;
+  /* the same step below the head as the picture takes, so the first row's
+     card edge and the picture's top edge sit on one line */
+  padding: var(--sc-gutter) var(--sc-gutter) 0 0;
   list-style: none;
   border-right: 1px solid var(--sc-line);
 }
@@ -183,7 +188,7 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  padding: 16px 0;
+  padding: var(--sc-gutter) 0;
   overflow-y: auto;
   scrollbar-width: none;
 }
@@ -347,6 +352,7 @@ button.sc-learn-step[data-state="done"] .sc-learn-go {
   /* the grip already leaves a step of air above the title, and the sheet's own
      bottom padding moves onto the body now that the panel pads nothing */
   .sc-learn .sc-newdlg-head {
+    height: auto;
     padding: 0 var(--sc-gutter) 14px;
   }
   .sc-newdlg-body.sc-learn-body {
