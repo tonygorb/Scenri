@@ -98,7 +98,9 @@ test('what it was read from is shown as evidence, never as the place itself', as
   const s = await scene(page, b.id, 'Basalt Evidence');
   await page.goto(`/${b.slug}/scenes/${s.id}`);
 
-  await expect(page.getByText('What it was read from')).toBeVisible();
+  // with the pictures, not in the record: the label says what they are and
+  // what they are for is on the label, not in a paragraph under the band
+  await expect(page.locator('.sc-scene-read-lb')).toContainText('Read from');
   await expect(page.getByText('never sent with a shot')).toBeVisible();
   await page.getByRole('button', { name: 'Read from 1, open' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();

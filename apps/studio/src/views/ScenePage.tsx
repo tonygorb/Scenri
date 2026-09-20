@@ -27,17 +27,16 @@ import { ScrollPane } from '../layout/ScrollPane.js';
 /**
  * One scene, as the world it is.
  *
- * The same three zones a presenter's record page has, for the same reason: a
- * record is read top to bottom, and the pictures are the middle of it. The
- * name and the one verb that uses it are first; the pictures of the place are
- * a rail that may leave the column, each labelled for what it is and each
- * opening at full size; then what a shot is told, in words, which is the scene
- * itself. Below that, what you made here, which is the proof the world is
- * reusable.
+ * Two columns: the place at the size it was drawn, with what it was read from
+ * and what has been made here under it, and the record beside it. The record
+ * is the name, the one verb that uses it, the ways to shoot it, and what a
+ * shot is told, which shows the first line of each and opens whole on one
+ * press.
  *
- * It was a centred lede over one lonely 380px tile with two paragraphs of
- * caption under it, which read as an asset detail rather than a place to shoot
- * in.
+ * It explains itself once. An earlier pass had four band heads and three
+ * paragraphs of mechanics in a 420 column, which is a page read once and
+ * skipped ever after: the rules now live in an empty state, a caption, or
+ * nowhere.
  */
 export function ScenePage() {
   const { sceneId = '' } = useParams();
@@ -258,6 +257,21 @@ export function ScenePage() {
   // nobody mistakes it for part of the scene's recipe. Person-only scenes
   // never carry a demo product, so they skip it.
   const showDemoProductNote = !owned && scene.subject !== 'person' && frames.length > 0;
+  /**
+   * The line under the picture, when there is one worth saying.
+   *
+   * A page that explains itself under every picture is a page nobody reads
+   * twice. Two cases carry something a person cannot see for themselves: a
+   * figure-led scene, whose person is a position and not anybody, and a
+   * curated scene photographed with a demo product in it.
+   */
+  const caption = owned
+    ? owned.figure
+      ? 'The person in it is a stand-in: attach a presenter and they take the role.'
+      : ''
+    : showDemoProductNote
+      ? 'Shown with a demo product for reference. Yours replaces it.'
+      : '';
 
   const marked = marks.includes(scene.id);
   // The words, split: what this world controls is scannable, and the long set
@@ -372,21 +386,38 @@ export function ScenePage() {
                 <button type="button" aria-label={`${frames[0].label}, open`} onClick={() => setOpen(frames[0])}>
                   <Shown src={thumbOf(frames[0].src, 'tile')} />
                 </button>
-                <figcaption className="sc-lookpage-note">
-                  {owned
-                    ? owned.figure
-                      ? 'Drawn from these words. The person in it is a stand-in: attach a presenter and they take the role.'
-                      : 'Drawn from these words. Whatever you attach to a shot goes here.'
-                    : showDemoProductNote
-                      ? 'Shown with a demo product for reference. Yours replaces it.'
-                      : 'An example shot in this place, made from the words below.'}
-                </figcaption>
+                {caption && <figcaption className="sc-lookpage-note">{caption}</figcaption>}
               </figure>
             ) : (
               <EmptyRefFrame />
             )}
             {frames.length > 1 && showDemoProductNote && (
               <p className="sc-lookpage-note">Shown with a demo product for reference. Yours replaces it.</p>
+            )}
+
+            {/* What it was read from: pictures belong beside pictures, and the
+                one thing that has to be said about them is said on hover
+                rather than in a paragraph nobody rereads. */}
+            {owned && owned.refs.length > 0 && (
+              <div className="sc-scene-read">
+                <p className="sc-scene-read-lb">
+                  Read from
+                  <span>Read into the words, never sent with a shot.</span>
+                </p>
+                <div className="sc-presenterpage-sources-row">
+                  {owned.refs.map((src, i) => (
+                    <button
+                      key={src}
+                      type="button"
+                      className="sc-presenterpage-source"
+                      aria-label={`Read from ${i + 1}, open`}
+                      onClick={() => setOpen({ src, label: `Read from ${i + 1}` })}
+                    >
+                      <Shown src={thumbOf(src, 'micro')} />
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* What has been made here: the proof that the world is reusable. */}
@@ -439,14 +470,14 @@ export function ScenePage() {
                       </DropdownMenu.Root>
                     )}
                   </div>
-                  <p className="sc-scene-note">
-                    Only where the camera stands changes. Your own words in a shot still win.
-                  </p>
+                  {(owned.setups?.length ?? 0) === 0 && (
+                    <p className="sc-scene-note">A way moves the camera and leaves the world alone.</p>
+                  )}
                 </section>
 
                 <section className="sc-scene-sec">
                   <p className="sc-bandhead">What your shots are told</p>
-                  <dl className="sc-lookpage-told">
+                  <dl className="sc-lookpage-told" data-open={openWords || undefined}>
                     {controls.map((l) => (
                       <div key={l.label}>
                         <dt>{l.label}</dt>
@@ -479,28 +510,6 @@ export function ScenePage() {
                     </p>
                   )}
                 </section>
-
-                {owned.refs.length > 0 && (
-                  <section className="sc-scene-sec">
-                    <p className="sc-bandhead">What it was read from</p>
-                    <div className="sc-presenterpage-sources-row">
-                      {owned.refs.map((src, i) => (
-                        <button
-                          key={src}
-                          type="button"
-                          className="sc-presenterpage-source"
-                          aria-label={`Read from ${i + 1}, open`}
-                          onClick={() => setOpen({ src, label: `Read from ${i + 1}` })}
-                        >
-                          <Shown src={thumbOf(src, 'micro')} />
-                        </button>
-                      ))}
-                    </div>
-                    <p className="sc-scene-note">
-                      Read into the words, never sent with a shot. Nobody in them is ever copied.
-                    </p>
-                  </section>
-                )}
 
                 {owned.verticals.length > 0 && (
                   <div className="sc-scene-sec sc-presenterpage-filed">
