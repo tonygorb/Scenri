@@ -245,9 +245,9 @@
   padding: 0;
   list-style: none;
 }
-/* One card on the surface: the step in hand. Every other step is bare, so
-   there is no row of look-alike boxes to read past before finding the one
-   thing to press. */
+/* Three strengths, one shape: a step already taken keeps a quiet fill so the
+   list reads as one family, the step in hand is the card, and a step that
+   cannot be reached yet is ghosted. */
 .sc-learn-step {
   display: flex;
   align-items: center;
@@ -257,7 +257,7 @@
   padding: 0 8px 0 11px;
   border: 0;
   border-radius: var(--sc-radius-lg);
-  background: transparent;
+  background: var(--sc-raised);
   color: var(--sc-fg);
   text-align: left;
   font: inherit;
@@ -286,8 +286,9 @@ div.sc-learn-step[data-state="done"] .sc-learn-step-name {
   color: var(--sc-fg2);
   font-weight: 500;
 }
-/* not reachable yet: quiet enough to read as later, still legible */
+/* not reachable yet: no fill and quiet enough to read as later, still legible */
 .sc-learn-step[data-state="todo"] {
+  background: transparent;
   opacity: 0.42;
 }
 .sc-learn-step[data-state="todo"] .sc-learn-step-name {
