@@ -309,6 +309,15 @@ type DeferredDirective =
   | { need: 'attachment'; role: Attachment['role']; hash: string; text: string };
 
 /** Deterministic: same brief + same context always yields the same request. */
+/**
+ * How many of a scene's own pictures may ride with a shot, for the battery.
+ *
+ * Zero, and the rule is the shipped one: a figure-led scene's single plate,
+ * beside a presenter. Any other number is an experiment arm and is never set
+ * in the product.
+ */
+const sceneRefSeam = (): number => Math.max(0, Math.min(4, Number(process.env.SCENRI_SCENE_REFS ?? 0) || 0));
+
 export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const warnings: string[] = [];
   const attachments: Attachment[] = [];
@@ -660,10 +669,20 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
          * (a character token may follow the scene), so the plate is pushed here
          * and judged there.
          */
-        if (ctx.mode !== 'edit' && t.figure) {
-          const plate = assetHash(t.preview);
-          if (plate && ctx.images.has(plate)) {
-            attachments.push({ role: 'scene', id: t.id, label: t.name, hash: plate, essential: false });
+        const seam = sceneRefSeam();
+        if (ctx.mode !== 'edit' && (t.figure || seam > 0)) {
+          // The battery's arm: `SCENRI_SCENE_REFS=n` sends up to n of a
+          // scene's own pictures (its drawn plate first, then its uploads)
+          // whatever the scene is and whoever is attached, so one scene can be
+          // measured at 0, 1, 2, 3 and 4 references against the same words.
+          // Unset, nothing changes: the plate rides only for a figure-led
+          // scene beside a presenter, exactly as it does today.
+          const plates = seam ? [t.preview, ...(t.refs ?? []).map((r) => r.file)].slice(0, seam) : [t.preview];
+          for (const source of plates) {
+            const plate = assetHash(source);
+            if (plate && ctx.images.has(plate)) {
+              attachments.push({ role: 'scene', id: t.id, label: t.name, hash: plate, essential: false });
+            }
           }
         }
         break;
@@ -752,7 +771,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // anonymous person the model would keep: the scene degrades to prose,
   // quietly, the same way a budget-dropped scene ref does (its name never
   // appears in a left-out warning, brief.test pins it).
-  if (!hasPerson) {
+  if (!hasPerson && !sceneRefSeam()) {
     for (let i = attachments.length - 1; i >= 0; i--) if (attachments[i].role === 'scene') attachments.splice(i, 1);
   }
   // A reference that is byte-identical to an attached identity's own photo

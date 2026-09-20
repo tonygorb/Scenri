@@ -1424,6 +1424,37 @@ describe('compileBrief: a world built around a figure', () => {
     expect(r.attachments.map((a) => a.role)).not.toContain('scene');
   });
 
+  /**
+   * The battery's arm, and the proof it is only that.
+   *
+   * `SCENRI_SCENE_REFS=n` is how one scene is measured at several reference
+   * counts against the same words. Unset it changes nothing, which every test
+   * above this one is already asserting; set, it sends the scene's own
+   * pictures whatever the scene is and whoever is attached.
+   */
+  it('sends as many of the scene\'s own pictures as the battery seam asks for', () => {
+    const plain = { figure: undefined, figureTreatment: undefined };
+    expect(
+      compileBrief({ tokens: [{ t: 'template', id: base.id }] }, refd(plain)).attachments.map((a) => a.role),
+    ).not.toContain('scene');
+
+    process.env.SCENRI_SCENE_REFS = '2';
+    try {
+      const r = compileBrief({ tokens: [{ t: 'template', id: base.id }] }, refd(plain));
+      const scene = r.attachments.filter((a) => a.role === 'scene');
+      // the drawn plate first, then the uploads, and never more than asked
+      expect(scene).toHaveLength(2);
+      expect(scene.every((a) => !a.essential)).toBe(true);
+    } finally {
+      process.env.SCENRI_SCENE_REFS = undefined;
+      delete process.env.SCENRI_SCENE_REFS;
+    }
+
+    expect(
+      compileBrief({ tokens: [{ t: 'template', id: base.id }] }, refd(plain)).attachments.map((a) => a.role),
+    ).not.toContain('scene');
+  });
+
   it('sends nothing on a refinement, where the source frame already holds the world', () => {
     const r = compileBrief({ tokens: [{ t: 'template', id: base.id }] }, refd({}, { mode: 'edit' as const }));
     expect(r.attachments.map((a) => a.role)).not.toContain('scene');
