@@ -17,7 +17,7 @@ export const COPY = {
   photos: 'Add one to four pictures of the place. The more they share, the better it reads.',
   photosDrop: { label: 'Add pictures of the place', hint: 'Drop them here, or choose files' },
   /** Pictures already in the library, offered rather than asked for. */
-  haveLabel: 'Or take one you already made',
+  haveLabel: 'Take one you already made',
   haveHint: 'The world in it is read; the product and the person in it are not.',
   haveAlt: (n: number) => `Shot ${n}, take the place in it`,
   readThem: 'Read them',

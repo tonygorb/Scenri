@@ -120,6 +120,36 @@ export function QuestionBlock({
   const on = picked ?? asOne(given);
   const plan = revealPlan(question.prompt);
   const promptId = `sc-convo-q-${question.id}`;
+  /**
+   * Pictures the person already has, one tap each, in the conversation's own
+   * plate and strip. The fastest reference is the one already in the library,
+   * so while nothing has been chosen this leads and the file well follows;
+   * once something is attached the well leads again, because the well is where
+   * what they have is shown.
+   */
+  const offerFirst = 'hashes' in question && question.hashes.length === 0;
+  const offer = 'suggest' in question && question.suggest && question.suggest.items.length > 0 && (
+    <div className="sc-convo-have">
+      <p className="sc-convo-have-lb">
+        {question.suggest.label}
+        {question.suggest.hint && <span>{question.suggest.hint}</span>}
+      </p>
+      <Strip step={106}>
+        {question.suggest.items.map((it) => (
+          <button
+            key={it.hash}
+            type="button"
+            className="sc-convo-plate"
+            aria-label={it.alt}
+            data-on={'hashes' in question && question.hashes.includes(it.hash) ? true : undefined}
+            onClick={() => onAnswer({ kind: 'photos', action: { type: 'pick', hash: it.hash } })}
+          >
+            <span className="sc-convo-plate-in" style={{ backgroundImage: `url("${thumbUrl(it.hash, 'micro')}")` }} />
+          </button>
+        ))}
+      </Strip>
+    </div>
+  );
   const files = useRef<HTMLInputElement>(null);
   const cancel = question.reopened && onCancel && (
     <button type="button" className="sc-btn sc-btn-ghost sc-convo-cancel" onClick={onCancel}>
@@ -415,7 +445,13 @@ export function QuestionBlock({
         )}
 
         {question.kind === 'photos' && (
-          <div className="sc-convo-photos-q">
+          <div className="sc-convo-photos-q" data-offer-first={offerFirst || undefined}>
+            {/* Pictures the person already has, one tap each. They lead while
+                nothing has been chosen, because the fastest reference is the
+                one already in the library and a file dialog is the slower way
+                in, not the first one. Once something is attached the well
+                leads, because the well is where what they have is shown. */}
+            {offerFirst && offer}
             <RefStrip
               hashes={question.hashes}
               max={question.max}
@@ -426,36 +462,7 @@ export function QuestionBlock({
               onRemove={(hash) => onAnswer({ kind: 'photos', action: { type: 'remove', hash } })}
               onReject={() => onAnswer({ kind: 'photos', action: { type: 'reject' } })}
             />
-            {/* Pictures the person already has, one tap each: the fastest
-                reference is the one already in the library. The same plate the
-                drawn rows use, in the same strip, so every row that scrolls in
-                this conversation reads as one kind of thing rather than as a
-                widget bolted under the well. */}
-            {question.suggest && question.suggest.items.length > 0 && (
-              <div className="sc-convo-have">
-                <p className="sc-convo-have-lb">
-                  {question.suggest.label}
-                  {question.suggest.hint && <span>{question.suggest.hint}</span>}
-                </p>
-                <Strip step={106}>
-                  {question.suggest.items.map((it) => (
-                    <button
-                      key={it.hash}
-                      type="button"
-                      className="sc-convo-plate"
-                      aria-label={it.alt}
-                      data-on={question.hashes.includes(it.hash) || undefined}
-                      onClick={() => onAnswer({ kind: 'photos', action: { type: 'pick', hash: it.hash } })}
-                    >
-                      <span
-                        className="sc-convo-plate-in"
-                        style={{ backgroundImage: `url("${thumbUrl(it.hash, 'micro')}")` }}
-                      />
-                    </button>
-                  ))}
-                </Strip>
-              </div>
-            )}
+            {!offerFirst && offer}
             {question.attest && (
               <label className="sc-convo-attest">
                 <input
