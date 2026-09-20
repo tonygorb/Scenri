@@ -245,9 +245,13 @@
   padding: 0;
   list-style: none;
 }
-/* Three strengths, one shape: a step already taken keeps a quiet fill so the
-   list reads as one family, the step in hand is the card, and a step that
-   cannot be reached yet is ghosted. */
+/* One shape at three strengths. Every step is the same filled row, so the
+   list never gains or loses boxes as a lesson moves; what changes is the ink.
+   A step already taken carries its green tick and stands back, the step in
+   hand takes the chip fill and carries the verb, and a step that cannot be
+   reached yet keeps the row and recedes to --sc-fg3. The strength is on the
+   words, never an opacity on the row: dimming the whole thing also dims the
+   fill, which is what made the list look like it was missing pieces. */
 .sc-learn-step {
   display: flex;
   align-items: center;
@@ -286,12 +290,9 @@ div.sc-learn-step[data-state="done"] .sc-learn-step-name {
   color: var(--sc-fg2);
   font-weight: 500;
 }
-/* not reachable yet: no fill and quiet enough to read as later, still legible */
-.sc-learn-step[data-state="todo"] {
-  background: transparent;
-  opacity: 0.42;
-}
+/* not reachable yet: the same row, read as later */
 .sc-learn-step[data-state="todo"] .sc-learn-step-name {
+  color: var(--sc-fg3);
   font-weight: 500;
 }
 .sc-learn-n {
@@ -410,15 +411,10 @@ button.sc-learn-step[data-state="done"]:hover .sc-learn-go {
   .sc-learn-steps {
     min-height: 0;
   }
-  /* a bare step is a line to read, the card is a thing to press: on a phone
-     the reading lines close up and the card keeps its room */
+  /* one height for every step, and a wrapping title grows its own row */
   .sc-learn-step {
     height: auto;
-    min-height: 40px;
-    padding-block: 6px;
-  }
-  button.sc-learn-step {
-    min-height: 56px;
+    min-height: 52px;
     padding-block: 8px;
   }
   .sc-learn-step-name {
