@@ -322,6 +322,9 @@ div.sc-learn-step[data-state="done"] .sc-learn-step-name {
   color: var(--sc-fg3);
   font-weight: 500;
 }
+/* The mark is a disc of ink, never an outline: a step waiting sits one step
+   above its row, the step in hand one step above its card, and a step taken
+   is the tick with no disc behind it at all. */
 .sc-learn-n {
   display: grid;
   place-items: center;
@@ -329,14 +332,13 @@ div.sc-learn-step[data-state="done"] .sc-learn-step-name {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
+  background: var(--sc-chip);
   font: 600 var(--sc-text-caption) / 1 var(--sc-font);
   color: var(--sc-fg3);
   font-variant-numeric: tabular-nums;
 }
 button.sc-learn-step .sc-learn-n {
   background: var(--sc-line-strong);
-  box-shadow: none;
   color: var(--sc-fg);
 }
 .sc-learn-n svg {
@@ -348,6 +350,7 @@ button.sc-learn-step .sc-learn-n {
    the numbered disc. */
 .sc-learn-step[data-state="done"] .sc-learn-n {
   background: none;
+  box-shadow: none;
   color: var(--sc-green);
 }
 .sc-learn-go {
