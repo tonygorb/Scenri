@@ -139,6 +139,8 @@ test('a lesson done from Learn is done there, and can be done again', async ({ p
 test('refining with no shot says so, and its one action makes a shot first', async ({ page }) => {
   await page.goto(`/${slug}?learn=refine`);
   await expect(learn(page)).toContainText('Refining starts from a shot you have made.');
+  // a lesson that cannot begin says so where the others say how long they are
+  await expect(card(page, 'Refine a shot').locator('.sc-learn-status')).toHaveText('Needs a shot');
   await action(page, 'Make a shot first').click();
   await walkToCreate(page);
   await expect(coachTitle(page)).toHaveText('Choose a product');
