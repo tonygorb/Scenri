@@ -1703,6 +1703,53 @@ button.sc-convo-shot-do {
   gap: var(--sc-space-5);
 }
 
+/* Pictures already in the library, offered at the picture question: a row of
+   small squares under the well, each one a tap. Small on purpose, because the
+   well above is where a new picture goes and this is the shortcut, not the
+   subject. */
+.sc-convo-have {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-space-3);
+}
+.sc-convo-have-lb {
+  margin: 0;
+  font-size: var(--sc-text-small);
+  line-height: 16px;
+  color: var(--sc-fg2);
+}
+/* the label and what it costs to know, one under the other: inline, the hint
+   wrapped into the middle of the label's own sentence */
+.sc-convo-have-lb span {
+  display: block;
+  color: var(--sc-fg3);
+}
+.sc-convo-have-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-3);
+}
+.sc-convo-have-tile {
+  width: 56px;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius-2);
+  background: var(--sc-raised);
+  overflow: hidden;
+  cursor: pointer;
+}
+.sc-convo-have-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.sc-convo-have-tile[data-on] {
+  outline: 2px solid var(--sc-fg);
+  outline-offset: -2px;
+}
+
 .sc-convo-attest {
   display: flex;
   align-items: flex-start;

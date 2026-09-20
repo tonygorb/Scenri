@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { uploadImage } from '../../api.js';
+import { api, uploadImage } from '../../api.js';
 import type { Brand } from '../../apiTypes.js';
 import { type Answer, nowIso } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
@@ -160,10 +160,44 @@ export function useSceneFlow(args: {
     void work.start('make', { draw: false });
   }, [readKey, work.start]);
 
+  /**
+   * The shots this person already made, offered at the picture question.
+   *
+   * Fetched once, and only when that question is on the floor: a scene made
+   * from words never asks for it. The world in one is what the reader takes;
+   * the product and the person in it are its visitors, never copied.
+   */
+  const [have, setHave] = useState<string[]>([]);
+  const wantsHave = !edit && setup.answers.source?.door === 'photos';
+  useEffect(() => {
+    if (!wantsHave || have.length) return;
+    const ctrl = new AbortController();
+    api
+      .feed(brand.id, { limit: 8 }, ctrl.signal)
+      .then((page) => {
+        if (ctrl.signal.aborted) return;
+        setHave(page.items.filter((n) => n.status === 'done' && n.images.length > 0).map((n) => n.images[0]));
+      })
+      .catch(() => {
+        // the row simply does not appear; nothing else waits on it
+      });
+    return () => ctrl.abort();
+  }, [wantsHave, have.length, brand.id]);
+
   const canDraw = caps?.canDraw ?? true;
   const shown = work.offline ? COPY.offline : note;
-  const flow: FlowArgs = { setup, studio, canDraw, uploading, edit, editingName, note: shown, stale: stale(studio) };
-  const turns = useMemo(() => turnsFor(flow), [setup, studio, canDraw, uploading, editingName, shown, edit]);
+  const flow: FlowArgs = {
+    setup,
+    studio,
+    canDraw,
+    uploading,
+    edit,
+    editingName,
+    note: shown,
+    stale: stale(studio),
+    have,
+  };
+  const turns = useMemo(() => turnsFor(flow), [setup, studio, canDraw, uploading, editingName, shown, edit, have]);
   const open = (() => {
     const last = turns[turns.length - 1];
     return last?.kind === 'question' ? last.question : null;
@@ -228,6 +262,13 @@ export function useSceneFlow(args: {
         const act = ans.action;
         const hashes = setupRef.current.answers.photos?.hashes ?? [];
         if (act.type === 'add') void addPictures(act.files);
+        // already in the store, so it is taken rather than uploaded; the cap
+        // and the dedupe are the reducer's, the same as a dropped file's
+        else if (act.type === 'pick')
+          setupDispatch({
+            type: 'photos',
+            hashes: hashes.includes(act.hash) ? hashes.filter((h) => h !== act.hash) : [...hashes, act.hash],
+          });
         else if (act.type === 'remove') setupDispatch({ type: 'photos', hashes: hashes.filter((h) => h !== act.hash) });
         else if (act.type === 'reject') setNote(COPY.onlyPictures);
         else if (act.type === 'submit' && hashes.length) answerSetup({ photos: { hashes, done: true } });

@@ -45,6 +45,14 @@ export interface FlowArgs {
   note?: string | null;
   /** The place was given again since it was last read, and is waiting to be read. */
   stale?: boolean;
+  /**
+   * Pictures this person already has, newest first: the shots they made here.
+   *
+   * Offered at the picture question so the fastest reference is the one
+   * already in the library. What is read out of one is the world in it; the
+   * product and the person in it are the analyzer's visitors, never copied.
+   */
+  have?: string[];
 }
 
 /** What the words of a reading say, as one quotable block. */
@@ -56,7 +64,13 @@ export function readingQuote(r: SceneReading): string {
 
 /* ------------------------------------------------------------- questions */
 
-export function questionFor(id: Qid, setup: SetupState, reopened: boolean, uploading: number): Question {
+export function questionFor(
+  id: Qid,
+  setup: SetupState,
+  reopened: boolean,
+  uploading: number,
+  have: string[] = [],
+): Question {
   const a = setup.answers;
   const base = reopened ? { reopened: true } : {};
   if (id === 'source')
@@ -84,6 +98,15 @@ export function questionFor(id: Qid, setup: SetupState, reopened: boolean, uploa
       back: COPY.guideInstead,
       drop: COPY.photosDrop,
       ...base,
+      ...(have.length
+        ? {
+            suggest: {
+              label: COPY.haveLabel,
+              hint: COPY.haveHint,
+              items: have.map((hash, i) => ({ hash, alt: COPY.haveAlt(i + 1) })),
+            },
+          }
+        : {}),
     };
   const g = a[id];
   return {
@@ -149,7 +172,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
       T.push({ kind: 'scenri', id: `asked-${id}`, text: askedLine(id), quiet: true });
       attach(id);
       if (setup.editing === id) {
-        T.push({ kind: 'question', question: questionFor(id, setup, true, args.uploading) });
+        T.push({ kind: 'question', question: questionFor(id, setup, true, args.uploading, args.have ?? []) });
         continue;
       }
       const line = answerLine(id, a);
@@ -192,7 +215,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
 
   // the one question the conversation ends on
   let open: Question | null = null;
-  if (openSetup) open = questionFor(openSetup, setup, false, args.uploading);
+  if (openSetup) open = questionFor(openSetup, setup, false, args.uploading, args.have ?? []);
   else if (job) {
     if (job.kind === 'again' && firstPicture < 0 && !studio.named && !args.editingName) {
       const suggested = (job.pending ?? current(studio)?.reading)?.name ?? studio.name;

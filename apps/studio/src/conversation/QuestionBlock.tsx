@@ -3,6 +3,7 @@ import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
 import { CardStrip } from './CardStrip.js';
 import { RefStrip } from '../create/RefStrip.js';
+import { thumbUrl } from '../api.js';
 import { Tip } from '../layout/Tip.js';
 import { type Answer, type Question, groupsAnswered, revealPlan } from './question.js';
 import { Eyebrow, RevealWords, Thinking, arrivalVars, useLeave, useRevealOnce } from './ScenriTurn.js';
@@ -424,6 +425,32 @@ export function QuestionBlock({
               onRemove={(hash) => onAnswer({ kind: 'photos', action: { type: 'remove', hash } })}
               onReject={() => onAnswer({ kind: 'photos', action: { type: 'reject' } })}
             />
+            {/* Pictures the person already has, one tap each: the fastest
+                reference is the one already in the library, and asking for a
+                file when a shot of theirs would do is the friction this row
+                removes. */}
+            {question.suggest && question.suggest.items.length > 0 && (
+              <div className="sc-convo-have">
+                <p className="sc-convo-have-lb">
+                  {question.suggest.label}
+                  {question.suggest.hint && <span>{question.suggest.hint}</span>}
+                </p>
+                <div className="sc-convo-have-row">
+                  {question.suggest.items.map((it) => (
+                    <button
+                      key={it.hash}
+                      type="button"
+                      className="sc-convo-have-tile"
+                      aria-label={it.alt}
+                      data-on={question.hashes.includes(it.hash) || undefined}
+                      onClick={() => onAnswer({ kind: 'photos', action: { type: 'pick', hash: it.hash } })}
+                    >
+                      <img src={thumbUrl(it.hash, 'micro')} alt="" loading="lazy" decoding="async" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {question.attest && (
               <label className="sc-convo-attest">
                 <input

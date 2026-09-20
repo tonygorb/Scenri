@@ -144,6 +144,15 @@ export type Question =
       back?: string;
       /** What the empty well says: what to drop, and how. The flow's words, since only it knows what the pictures are of. */
       drop?: { label: string; hint: string };
+      /**
+       * Pictures the person already has, offered to be taken as they are.
+       *
+       * A flow that can name pictures its own person made (their shots, their
+       * uploads) offers them here rather than asking for a file: the fastest
+       * reference is the one already in the library. The label says what the
+       * row is; each one is a store hash, the same thing a file becomes.
+       */
+      suggest?: { label: string; hint?: string; items: { hash: string; alt: string }[] };
     })
   | (QuestionBase & {
       kind: 'confirm';
@@ -171,6 +180,8 @@ export type QuestionKind = Question['kind'];
 /** What a photos block can do; the flow owns the hashes and answers each. */
 export type PhotosAction =
   | { type: 'add'; files: File[] }
+  /** One of the offered pictures, taken as it is: it is already in the store. */
+  | { type: 'pick'; hash: string }
   | { type: 'remove'; hash: string }
   | { type: 'attest'; checked: boolean }
   | { type: 'reject' }

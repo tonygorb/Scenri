@@ -191,6 +191,20 @@ describe('the setup', () => {
 });
 
 describe('the conversation', () => {
+  it('offers the pictures this person already made at the picture question, and asks for a file when there are none', () => {
+    const setup = setupOf({ source: { door: 'photos' }, photos: { hashes: [], done: false } });
+    const none = lastQ(turnsFor(args({ setup })));
+    expect(none?.kind === 'photos' && none.suggest).toBeUndefined();
+
+    const offered = lastQ(turnsFor(args({ setup, have: [H('a'), H('b')] })));
+    expect(offered?.kind).toBe('photos');
+    const row = offered?.kind === 'photos' ? offered.suggest : undefined;
+    expect(row?.items.map((i) => i.hash)).toEqual([H('a'), H('b')]);
+    // it says what is taken out of one, because a shot of theirs holds a
+    // product and a person that a scene must never carry
+    expect(row?.hint).toContain('the product and the person in it are not');
+  });
+
   it('opens with the ask and the two doors, and a line that takes a sentence and pictures', () => {
     const T = turnsFor(args({}));
     expect(keys(T)).toEqual(['you:intent', 'q:source']);
