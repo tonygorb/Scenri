@@ -155,3 +155,28 @@ test('deleting a brand lands on another one without mounting the dead one again'
   await goCreate(page);
   await expectSameSession(page);
 });
+
+// Every brand write used to re-arm the bell's poll loop, which fired a tick at
+// once: an autosaving kit field asked for the brand's activity once per pause.
+test('a kit save does not make the bell poll again', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}/create`);
+  await markSession(page);
+  await openSettings(page);
+  const polls: number[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes('/activity')) polls.push(Date.now());
+  });
+
+  const tagline = page.getByRole('dialog', { name: 'Settings' }).getByLabel('Tagline');
+  const put = page.waitForResponse((r) => r.request().method() === 'PUT' && /\/api\/brands\/[^/]+$/.test(r.url()));
+  await tagline.fill('Quietly saved');
+  await tagline.press('Enter');
+  await put;
+  const savedAt = Date.now();
+  await page.waitForTimeout(1_000);
+
+  // no tick chasing the write: the poll keeps its own cadence
+  expect(polls.filter((t) => t >= savedAt - 50 && t <= savedAt + 600)).toEqual([]);
+  await expectSameSession(page);
+});

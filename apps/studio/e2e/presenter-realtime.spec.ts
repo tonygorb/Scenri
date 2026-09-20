@@ -324,3 +324,47 @@ test('a double press on delete sends one delete, and Back does not land on their
   await expect(page.getByText("This presenter isn't here anymore")).toHaveCount(0);
   await expectSameSession(page);
 });
+
+test('a delete the server refuses keeps the person on the wall and says so', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await currentBrand(page);
+  await seedPresenter(page.request, brand.id, 'Refused');
+  await page.route(/\/presenters\/up-[a-z0-9]+$/, (route) =>
+    route.request().method() === 'DELETE'
+      ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'disk is full' }) })
+      : route.fallback(),
+  );
+  await page.goto(`/${brand.slug}/presenters`);
+  await markSession(page);
+  await page.locator('.sc-owned .sc-lookcard', { hasText: 'Refused' }).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Delete presenter' }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: /Delete/ })
+    .click();
+
+  await expect(page.locator('.sc-toast', { hasText: 'Could not delete this presenter' })).toBeVisible();
+  await expect(page.locator('.sc-owned .sc-lookcard b', { hasText: /^Refused$/ })).toBeVisible();
+  await expectSameSession(page);
+});
+
+test('deleting a card hands focus to the next one, not to the top of the page', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await currentBrand(page);
+  await seedPresenter(page.request, brand.id, 'FocusGo');
+  await seedPresenter(page.request, brand.id, 'FocusNext');
+  await page.goto(`/${brand.slug}/presenters`);
+  await markSession(page);
+
+  await page.getByRole('button', { name: 'More for FocusGo' }).first().click();
+  await page.getByRole('menuitem', { name: 'Delete presenter' }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: /Delete/ })
+    .click();
+  await expect(page.locator('.sc-owned .sc-lookcard b', { hasText: /^FocusGo$/ })).toHaveCount(0);
+
+  // the control that deleted the card went with it; focus lands on a neighbour
+  await expect(page.locator('.sc-lookcard-more:focus')).toBeVisible();
+  await expectSameSession(page);
+});

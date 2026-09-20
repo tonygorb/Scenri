@@ -7,6 +7,7 @@ import {
   goCreate,
   goScenes,
   holdNext,
+  mainNav,
   markSession,
   menuRow,
   openOwnedScene,
@@ -425,5 +426,96 @@ test('a rename answer that lands after the delete cannot bring the scene back', 
   await expect(ownedSceneCard(page, 'Crossed Again Loft')).toHaveCount(0);
   await expect(ownedSceneCard(page, 'Crossed Loft')).toHaveCount(0);
   expect(await sceneNames(page.request, brand.id)).not.toContain('Crossed Again Loft');
+  await expectSameSession(page);
+});
+
+test('a rename and a delete reach the Home shelf too', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await seedScene(page.request, brand.id, 'Shelf Loft');
+  await page.goto(`/${brand.slug}`);
+  await markSession(page);
+  const shelf = (name: string) => page.locator('.sc-lookcard', { has: page.getByText(name, { exact: true }) });
+  await expect(shelf('Shelf Loft')).toBeVisible();
+
+  await goScenes(page);
+  await openOwnedScene(page, 'Shelf Loft');
+  const saved = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/scenes/'));
+  await page.getByLabel('Scene name').fill('Shelf Loft Renamed');
+  await saved;
+  await mainNav(page).getByRole('link', { name: 'Home', exact: true }).click();
+  await expect(shelf('Shelf Loft Renamed')).toBeVisible();
+  await expect(shelf('Shelf Loft')).toHaveCount(0);
+
+  await goScenes(page);
+  await openOwnedScene(page, 'Shelf Loft Renamed');
+  await deleteOpenScene(page);
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
+  await mainNav(page).getByRole('link', { name: 'Home', exact: true }).click();
+  await expect(shelf('Shelf Loft Renamed')).toHaveCount(0);
+  await expectSameSession(page);
+});
+
+test('Forward after Back stays off the dead page, and a reload afterwards still agrees', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await seedScene(page.request, brand.id, 'Forward Loft');
+  await page.goto(`/${brand.slug}/scenes`);
+  await markSession(page);
+  await openOwnedScene(page, 'Forward Loft');
+  const dead = new URL(page.url()).pathname;
+  await deleteOpenScene(page);
+  await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
+  await page.goBack();
+  await page.goForward();
+  await expect(page).not.toHaveURL(new RegExp(`${dead}$`));
+  await expect(ownedSceneCard(page, 'Forward Loft')).toHaveCount(0);
+  await expectSameSession(page);
+
+  // A reload is a test of what was stored, never the way the screen caught up:
+  // everything above passed in one document first.
+  await page.reload();
+  await expect(page.locator('.sc-lookcard').first()).toBeVisible();
+  await expect(ownedSceneCard(page, 'Forward Loft')).toHaveCount(0);
+});
+
+test('an edit the server refuses keeps what was typed and says why', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await seedScene(page.request, brand.id, 'Refused Edit Loft');
+  await page.route(/\/scenes\/us-[a-z0-9]+$/, (route) =>
+    route.request().method() === 'PATCH'
+      ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'disk is full' }) })
+      : route.fallback(),
+  );
+  await page.goto(`/${brand.slug}/scenes`);
+  await markSession(page);
+  await openOwnedScene(page, 'Refused Edit Loft');
+  await page.getByLabel('Scene name').fill('Never Saved Loft');
+  await expect(page.locator('.sc-assetform-err')).toHaveText('disk is full');
+  await expect(page.getByLabel('Scene name')).toHaveValue('Never Saved Loft');
+  expect(await sceneNames(page.request, brand.id)).toContain('Refused Edit Loft');
+  await expectSameSession(page);
+});
+
+// A background read of the brands that fails used to replace the whole studio
+// with an error screen.
+test('a background read of the brands that fails leaves the studio on screen', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}/scenes`);
+  await markSession(page);
+  await page.route(/\/api\/brands$/, (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'busy' }) })
+      : route.fallback(),
+  );
+  const failed = page.waitForResponse((r) => /\/api\/brands$/.test(r.url()) && r.status() === 500, { timeout: 60_000 });
+  // a build landing is what makes the bell read the brands again
+  await page.getByRole('button', { name: 'Create scene' }).click();
+  await page.getByLabel('Name', { exact: true }).fill('Background Loft');
+  await page.getByLabel('Direction', { exact: true }).fill('A small studio with a single lamp.');
+  await page.locator('.sc-dlg-go').click();
+  await failed;
+  await page.waitForTimeout(500);
+  await expect(mainNav(page)).toBeVisible();
+  await expect(page.locator('.sc-lookcard').first()).toBeVisible();
   await expectSameSession(page);
 });

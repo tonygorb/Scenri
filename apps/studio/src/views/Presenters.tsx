@@ -230,6 +230,21 @@ export function PresentersView() {
     },
     [mine],
   );
+  /**
+   * Where focus goes after a card is deleted, the way a discarded draft hands
+   * focus on. The control that deletes is inside the card, so agreeing to it
+   * destroys the element that had focus and the browser drops focus to `body`:
+   * the next Tab starts again at Skip to content, the far end of the page from
+   * where the person was working.
+   */
+  const handOnCard = useRef<number | null>(null);
+  useEffect(() => {
+    const at = handOnCard.current;
+    if (at === null) return;
+    handOnCard.current = null;
+    const pucks = wall.current?.querySelectorAll<HTMLButtonElement>('.sc-lookcard:not([data-build]) .sc-lookcard-more');
+    (pucks?.length ? pucks[Math.min(at, pucks.length - 1)] : cta.current)?.focus();
+  }, [presenters, brand]);
   const confirmDuplicate = async (name: string) => {
     if (!duplicating || acting) return;
     setActing(true);
@@ -249,6 +264,10 @@ export function PresentersView() {
   };
   const confirmDelete = async () => {
     if (!removing || acting) return;
+    handOnCard.current = Math.max(
+      0,
+      minePlusBuilds.findIndex((p) => p.id === removing.id),
+    );
     setActing(true);
     try {
       const r = await api.deletePresenter(brand.id, removing.id);

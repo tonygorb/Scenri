@@ -213,3 +213,68 @@ test('a library read for the brand you left never lands on the brand you are in'
   expect(await productNames(page.request, other)).toEqual([]);
   await expectSameSession(page);
 });
+
+test('a product made from the dialog is on the wall, the Home count and the picker at once', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}`);
+  await markSession(page);
+  const count = page.locator('.sc-create-card[data-tone="product"] b');
+  const before = Number((await count.textContent())?.replace(/\D/g, '') || '0');
+
+  await goNav(page, 'Products');
+  await page
+    .getByRole('button', { name: /Add product/ })
+    .first()
+    .click();
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    'base64',
+  );
+  await page
+    .locator('.sc-newdlg .sc-dropzone input[type="file"]')
+    .first()
+    .setInputFiles([{ name: 'front.png', mimeType: 'image/png', buffer: png }]);
+  await expect(page.locator('.sc-assetform-ref')).toHaveCount(1);
+  await page.locator('.sc-newdlg input[type="text"], .sc-newdlg .rt-TextFieldInput').first().fill('Dialog Mug');
+  await page.locator('.sc-dlg-go').click();
+  await expect(page.locator('.sc-newdlg')).toHaveCount(0);
+
+  await expect(productCard(page, 'Dialog Mug')).toBeVisible();
+  await goNav(page, 'Home');
+  await expect(count).toHaveText(new RegExp(`${before + 1}$`));
+  await goCreate(page);
+  await askProductMenu(page, 'Dialog');
+  await expect(menuRow(page, 'Dialog Mug')).toBeVisible();
+  await expectSameSession(page);
+});
+
+test('a product the server refuses to make leaves no card and keeps the work', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await page.route(/\/api\/brands\/[^/]+\/products$/, (route) =>
+    route.request().method() === 'POST'
+      ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'disk is full' }) })
+      : route.fallback(),
+  );
+  await page.goto(`/${brand.slug}/products`);
+  await markSession(page);
+  await page
+    .getByRole('button', { name: /Add product/ })
+    .first()
+    .click();
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    'base64',
+  );
+  await page
+    .locator('.sc-newdlg .sc-dropzone input[type="file"]')
+    .first()
+    .setInputFiles([{ name: 'front.png', mimeType: 'image/png', buffer: png }]);
+  await page.locator('.sc-newdlg input[type="text"], .sc-newdlg .rt-TextFieldInput').first().fill('Refused Mug');
+  await page.locator('.sc-dlg-go').click();
+
+  await expect(page.locator('.sc-newdlg')).toContainText('disk is full');
+  await expect(page.locator('.sc-assetform-ref')).toHaveCount(1);
+  await expect(productCard(page, 'Refused Mug')).toHaveCount(0);
+  expect(await productNames(page.request, brand.id)).not.toContain('Refused Mug');
+  await expectSameSession(page);
+});
