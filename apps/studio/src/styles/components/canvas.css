@@ -453,6 +453,14 @@
    a control 8px from the edge of a 176px tile, that box reaches across the 8px
    gutter and takes taps meant for the tile beside it. */
 @media (hover: none), (pointer: coarse) {
+  /* Starting a selection is a long press on the picture, and a long press on
+     anything selectable is also the platform's "select this text" gesture: it
+     left a blue band across the tile and the bar below it, and on iOS the
+     callout with it. The catalog card settled this the same way. */
+  .sc-cell {
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
   .sc-cell-veil,
   .sc-cell-ctl {
     opacity: 1;

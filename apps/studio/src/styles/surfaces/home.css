@@ -374,6 +374,57 @@
   color: var(--sc-fg2);
   white-space: nowrap;
 }
+/* A phone is not this pill squeezed. Four verbs and a count wrapped it into
+   three lines with `Clear` stranded on the last one, inside a full-pill radius
+   that only ever suited one row, and every control stayed at the pointer's
+   34px. So below the dock's own breakpoint it is a shelf the width of the
+   composer under it: two explicit rows, what is selected and the way out on
+   the first, the verbs sharing the second at a thumb's height (WCAG 2.5.5).
+   A grid rather than a wrap, because flexible items shrink before they wrap:
+   the verbs squeezed to 35px of ellipsis rather than taking a line of their
+   own. */
+@media (max-width: 767px) {
+  .sc-picked {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    max-width: none;
+    gap: 8px;
+    padding: 10px;
+    border-radius: var(--sc-radius-xl);
+  }
+  .sc-picked-n {
+    grid-column: 1 / 3;
+    align-self: center;
+    padding-left: 4px;
+  }
+  .sc-picked-clear {
+    grid-column: 3 / 4;
+    grid-row: 1;
+  }
+  /* the verbs: Keep, Archive and Add to set, or Restore and Delete when the
+     archived lens swaps the bar */
+  .sc-picked .sc-btn:not(.sc-picked-clear) {
+    grid-row: 2;
+    min-width: 0;
+  }
+  .sc-picked .sc-btn {
+    min-height: 44px;
+    /* the pointer's side padding costs a line break at 320px: `Add to set`
+       is the longest verb here and it fits on one line at eight */
+    padding-inline: 8px;
+  }
+  .sc-picked[data-lens="archived"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sc-picked[data-lens="archived"] .sc-picked-n {
+    grid-column: 1 / 2;
+  }
+  .sc-picked[data-lens="archived"] .sc-picked-clear {
+    grid-column: 2 / 3;
+    grid-row: 1;
+  }
+}
 
 /* ---- from overlay-responsive.css (dissolved 2026-08-18, css-restructure) ----
    Appended in original pass order; relative order among dissolved passes is
