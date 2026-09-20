@@ -293,6 +293,26 @@ test('an answer the picture was drawn from asks before it opens, and changing it
   await expect(pics).toHaveCount(1);
 });
 
+test('the keyboard goes on with the conversation: each next answer is a Tab away, not back at the close button', async ({
+  page,
+}) => {
+  await start(page);
+  await turn(page, 'q:source').getByRole('button', { name: 'Guide me', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  const where = turn(page, 'q:where').locator('.sc-convo-q');
+  await expect(where).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(turn(page, 'q:where').getByRole('button', { name: 'Studio', exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(turn(page, 'q:light').locator('.sc-convo-q')).toBeFocused();
+  // a person typing keeps their place: the line is never taken from
+  await line(page).focus();
+  await line(page).fill('soft north light');
+  await line(page).press('Enter');
+  await expect(turn(page, 'q:feeling')).toBeVisible();
+  await expect(line(page)).toBeFocused();
+});
+
 test('a sentence that answers nothing gets a line, and a request to cast someone is sent to Create', async ({
   page,
 }) => {

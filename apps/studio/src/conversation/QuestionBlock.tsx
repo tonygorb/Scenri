@@ -188,11 +188,12 @@ export function QuestionBlock({
         hidden={
           question.kind === 'text' && !question.starters?.length && !question.cost && !question.note ? true : undefined
         }
-        // A question open again takes the keyboard as a group, never as one of
-        // its own controls: landing on a control would open that control's
-        // tooltip, which is a label nobody asked for over the answer they are
-        // changing. From the group, Tab reaches the first choice.
-        tabIndex={question.reopened ? -1 : undefined}
+        // A question takes the keyboard as a group, never as one of its own
+        // controls: landing on a control would open that control's tooltip,
+        // which is a label nobody asked for. From the group, Tab reaches the
+        // first choice. It is taken when an answer is opened again, and when a
+        // new question arrives after the pressed control went with the last.
+        tabIndex={-1}
         data-kind={question.kind}
         data-reveal={playing || undefined}
         data-picked={!!picked || undefined}
