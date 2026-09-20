@@ -155,6 +155,9 @@ export function swatchRow(row: SceneRow): SwatchRow {
   };
 }
 
+/** What a row is about, for the line that invites words instead of a tap. */
+export const rowNoun = (row: SceneRow): string => (row === 'world' ? 'place' : 'camera');
+
 export const optionOf = (row: SceneRow, id: string | undefined): RowOption | undefined =>
   id ? ROWS[row].options.find((o) => o.id === id) : undefined;
 

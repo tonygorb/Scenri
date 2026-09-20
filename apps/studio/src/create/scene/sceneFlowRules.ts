@@ -8,7 +8,7 @@ import {
 } from '../../conversation/question.js';
 import type { SceneReading } from '../../apiTypes.js';
 import { COPY } from './sceneCopy.js';
-import { optionOf, ROWS, swatchRow } from './sceneRows.js';
+import { optionOf, rowNoun, ROWS, swatchRow } from './sceneRows.js';
 import {
   answeredIn,
   type Answers,
@@ -333,12 +333,12 @@ export function composerFor(args: FlowArgs, open: Question | null): ComposerFor 
   // an answer open again from its pencil takes the sentence
   const reopened = setup.editing;
   if (reopened === 'source') return say({ kind: 'source' }, COPY.sourcePlaceholder, true);
-  if (reopened && isRow(reopened)) return say({ kind: 'row', id: reopened }, COPY.rowPlaceholder);
+  if (reopened && isRow(reopened)) return say({ kind: 'row', id: reopened }, COPY.rowPlaceholder(rowNoun(reopened)));
   if (reopened === 'photos') return off(COPY.photosOff);
   if (!open) return studio.job ? off('', true) : off('');
   if (open.id === 'source') return say({ kind: 'source' }, COPY.sourcePlaceholder, true);
   if (open.id === 'photos') return { ...off(COPY.photosOff), attach: true };
-  if (isRow(open.id)) return say({ kind: 'row', id: open.id }, COPY.rowPlaceholder);
+  if (isRow(open.id)) return say({ kind: 'row', id: open.id }, COPY.rowPlaceholder(rowNoun(open.id)));
   if (open.id === 'name') return say({ kind: 'name' }, COPY.namePlaceholder);
   if (open.id.startsWith('agree-'))
     return args.canDraw

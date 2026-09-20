@@ -30,7 +30,15 @@ export const COPY = {
 
   // the composer
   sourcePlaceholder: 'Describe the place, or choose above',
-  rowPlaceholder: 'Tap one above, or describe it',
+  /**
+   * The line at a row, naming what it is for.
+   *
+   * "Tap one above, or describe it" left "it" to be worked out, and the row it
+   * belongs to is the thing a person is deciding. The words are the way past
+   * any row: six worlds is a starting point, not the whole of what a place can
+   * be.
+   */
+  rowPlaceholder: (row: string) => `Tap one above, or describe the ${row} in your own words`,
   photosOff: 'Add the pictures above, then read them.',
   addPlaceholder: 'Anything to add or leave out?',
   keepPlaceholder: 'Anything to keep or ignore in them?',
