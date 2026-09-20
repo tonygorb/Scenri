@@ -59,6 +59,7 @@ const job = (over: Partial<SceneStudioJob>): SceneStudioJob => ({
 const guided: Answers = {
   source: { door: 'guided' },
   world: { pick: 'stone' },
+  light: { pick: 'golden' },
   shot: { pick: 'top' },
 };
 
@@ -88,6 +89,7 @@ describe('the setup', () => {
   it('asks the door first, then the rows in order', () => {
     expect(nextQuestion({})).toBe('source');
     expect(nextQuestion({ source: { door: 'guided' } })).toBe('world');
+    expect(nextQuestion({ ...guided, light: undefined, shot: undefined })).toBe('light');
     expect(nextQuestion({ ...guided, shot: undefined })).toBe('shot');
     expect(nextQuestion(guided)).toBeNull();
     expect(setupDone(guided)).toBe(true);
@@ -108,11 +110,15 @@ describe('the setup', () => {
 
   it('says the rows as one sentence, skipped ones left out and typed ones kept', () => {
     expect(compileDirection(guided)).toBe(
-      'A sunlit niche of warm limestone and rough plaster, in hard afternoon sun, seen from directly overhead, looking straight down.',
+      'A niche of warm limestone and rough plaster, in low golden-hour sun, long warm shadows, seen from directly overhead, looking straight down.',
     );
     const mixed = { ...guided, shot: { pick: PASSED }, world: { pick: 'water', words: 'at low tide' } };
     expect(compileDirection(mixed)).toBe(
-      'A shoreline of wet dark rock and shallow turquoise water, in hard midday sun, at low tide.',
+      'A shoreline of wet dark rock and shallow turquoise water, at low tide, in low golden-hour sun, long warm shadows.',
+    );
+    // a light passed over leaves the world lit the way its own card is
+    expect(compileDirection({ ...guided, light: { pick: PASSED } })).toBe(
+      'A niche of warm limestone and rough plaster, in hard afternoon sun, seen from directly overhead, looking straight down.',
     );
     expect(compileDirection({ ...guided, world: { words: 'a hotel lobby' } })).toMatch(/^A hotel lobby, /);
   });
@@ -120,8 +126,9 @@ describe('the setup', () => {
   it('takes back everything asked after an answer that changed, and nothing before it', () => {
     const next = commit(guided, { world: { pick: 'dark' } });
     expect(next.world).toEqual({ pick: 'dark' });
+    expect(next.light).toBeUndefined();
     expect(next.shot).toBeUndefined();
-    expect(nextQuestion(next)).toBe('shot');
+    expect(nextQuestion(next)).toBe('light');
   });
 
   it('forgets the rows when the door changes to pictures', () => {
@@ -170,11 +177,11 @@ describe('the setup', () => {
     for (let i = 0; i < 1500; i++) {
       const act: SetupAction = pick<SetupAction>([
         { type: 'answer', patch: { source: { door: pick(['photos', 'guided', 'words'] as const), text: 'a shore' } } },
-        { type: 'answer', patch: { [pick(['world', 'shot'])]: { pick: PASSED } } },
+        { type: 'answer', patch: { [pick(['world', 'light', 'shot'])]: { pick: PASSED } } },
         { type: 'answer', patch: { world: { pick: 'colour', words: pick([undefined, 'a loft']) } } },
         { type: 'answer', patch: { photos: { hashes: [H('a')], done: r() < 0.5 } } },
         { type: 'photos', hashes: [H(pick(['a', 'b', 'c', 'd', 'e']))] },
-        { type: 'edit', id: pick(['source', 'photos', 'world', 'shot'] as const) },
+        { type: 'edit', id: pick(['source', 'photos', 'world', 'light', 'shot'] as const) },
         { type: 'cancel-edit' },
       ]);
       s = reduceSetup(s, act);
@@ -219,10 +226,10 @@ describe('the conversation', () => {
       'you:source',
       'scenri:asked-world',
       'you:world',
-      'q:shot',
+      'q:light',
     ]);
     expect(T.find((t) => t.kind === 'you' && t.id === 'world')).toMatchObject({ text: 'Colour field', editable: true });
-    expect(composerFor(args({}), lastQ(T)).target).toEqual({ kind: 'row', id: 'shot' });
+    expect(composerFor(args({}), lastQ(T)).target).toEqual({ kind: 'row', id: 'light' });
   });
 
   it('reopens an answer in place, and leaves the question on the floor standing', () => {
@@ -231,7 +238,7 @@ describe('the conversation', () => {
     const i = keys(T).indexOf('q:world');
     expect(i).toBe(4);
     expect(T[i].kind === 'question' && T[i].question.reopened).toBe(true);
-    expect(keys(T).at(-1)).toBe('q:shot');
+    expect(keys(T).at(-1)).toBe('q:light');
   });
 
   it('reads the place back before anything is drawn, with one Draw', () => {
@@ -313,7 +320,7 @@ describe('the conversation', () => {
       ...setupOf({ source: { door: 'guided' }, world: { pick: 'colour' } }),
       asides: [
         { said: 'hi', reply: 'Hello.', q: 'world', at: '1' },
-        { said: 'what now?', reply: 'Tap one.', q: 'shot', at: '2' },
+        { said: 'what now?', reply: 'Tap one.', q: 'light', at: '2' },
       ],
     };
     const k = keys(turnsFor(args({ setup })));
@@ -358,7 +365,7 @@ describe('the session', () => {
 describe('a phrase typed at the first question', () => {
   it('answers the questions it names, so they are not asked again', () => {
     expect(fillFrom('overhead, in a studio')).toEqual({ world: 'colour', shot: 'top' });
-    expect(fillFrom('golden stone wall')).toEqual({ world: 'stone' });
+    expect(fillFrom('golden stone wall')).toEqual({ world: 'stone', light: 'golden' });
     expect(fillFrom('close up')).toEqual({ shot: 'close' });
   });
 
@@ -378,7 +385,7 @@ describe('what is worth reading', () => {
   const guided = { source: { door: 'guided' as const } };
 
   it('does not spend a reading on nothing when every row was passed', () => {
-    const passed = { ...guided, world: { pick: PASSED }, shot: { pick: PASSED } };
+    const passed = { ...guided, world: { pick: PASSED }, light: { pick: PASSED }, shot: { pick: PASSED } };
     // the questions are over, so nothing is on the floor
     expect(nextQuestion(passed)).toBeNull();
     // but there is nothing to read, and a reading costs a real call
@@ -386,8 +393,12 @@ describe('what is worth reading', () => {
   });
 
   it('is ready the moment one of them says something, tapped or typed', () => {
-    expect(setupDone({ ...guided, world: { pick: 'water' }, shot: { pick: PASSED } })).toBe(true);
-    expect(setupDone({ ...guided, world: { pick: PASSED }, shot: { words: 'from a doorway' } })).toBe(true);
+    expect(setupDone({ ...guided, world: { pick: 'water' }, light: { pick: PASSED }, shot: { pick: PASSED } })).toBe(
+      true,
+    );
+    expect(
+      setupDone({ ...guided, world: { pick: PASSED }, light: { pick: PASSED }, shot: { words: 'from a doorway' } }),
+    ).toBe(true);
   });
 
   it('holds for the other two doors too', () => {

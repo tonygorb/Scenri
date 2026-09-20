@@ -21,9 +21,9 @@ import type { SwatchRow } from '../../conversation/question.js';
  * tapping it (`cues`), so a sentence at the first question answers the rows it
  * covers and only the rest are asked.
  */
-export type SceneRow = 'world' | 'shot';
+export type SceneRow = 'world' | 'light' | 'shot';
 
-export const ROW_ORDER: readonly SceneRow[] = ['world', 'shot'];
+export const ROW_ORDER: readonly SceneRow[] = ['world', 'light', 'shot'];
 
 export interface RowOption {
   id: string;
@@ -33,6 +33,14 @@ export interface RowOption {
   card?: string;
   /** What a person types when they mean this, lowercase, matched as whole words. */
   cues?: readonly string[];
+  /**
+   * A world's own light, used when the light question is passed over.
+   *
+   * Each world card is photographed in one particular light, so a world that
+   * is asked for and then given no light should read the way its card looks
+   * rather than as a place with nothing said about how it is lit.
+   */
+  light?: string;
 }
 
 interface RowSpec {
@@ -49,44 +57,97 @@ export const ROWS: Record<SceneRow, RowSpec> = {
       {
         id: 'water',
         label: 'Rock and water',
-        words: 'a shoreline of wet dark rock and shallow turquoise water, in hard midday sun',
+        words: 'a shoreline of wet dark rock and shallow turquoise water',
+        light: 'in hard midday sun',
         card: card('world', 1),
         cues: ['water', 'sea', 'ocean', 'shore', 'shoreline', 'beach', 'wet', 'pool', 'underwater'],
       },
       {
         id: 'stone',
         label: 'Sunlit stone',
-        words: 'a sunlit niche of warm limestone and rough plaster, in hard afternoon sun',
+        words: 'a niche of warm limestone and rough plaster',
+        light: 'in hard afternoon sun',
         card: card('world', 2),
         cues: ['stone', 'limestone', 'plaster', 'wall', 'niche', 'arch', 'terracotta', 'mediterranean', 'sunlit'],
       },
       {
         id: 'colour',
         label: 'Colour field',
-        words: 'a seamless studio sweep in one saturated colour, in flat hard poster light',
+        words: 'a seamless studio sweep in one saturated colour',
+        light: 'in flat hard poster light',
         card: card('world', 3),
         cues: ['studio', 'sweep', 'seamless', 'backdrop', 'colour', 'color', 'paper', 'poster', 'graphic', 'flat'],
       },
       {
         id: 'citrus',
         label: 'Fruit and sky',
-        words: 'a mound of cut citrus under an open blue sky, in bright direct sun',
+        words: 'a mound of cut citrus under an open blue sky',
+        light: 'in bright direct sun',
         card: card('world', 4),
         cues: ['fruit', 'citrus', 'orange', 'lemon', 'sky', 'outdoors', 'outdoor', 'summer', 'juice'],
       },
       {
         id: 'volcanic',
         label: 'Volcanic haze',
-        words: 'dark volcanic rock in a deep orange haze, one hard low light raking across it',
+        words: 'dark volcanic rock in a deep orange haze',
+        light: 'with one hard low light raking across it',
         card: card('world', 5),
         cues: ['volcanic', 'lava', 'rock', 'ash', 'dust', 'haze', 'smoke', 'desert', 'mars'],
       },
       {
         id: 'dark',
         label: 'Dark mirror',
-        words: 'a near-black polished surface like a still pool, in low-key light with one bright edge',
+        words: 'a near-black polished surface like a still pool',
+        light: 'in low-key light, with one bright edge',
         card: card('world', 6),
-        cues: ['dark', 'black', 'night', 'moody', 'lowkey', 'low-key', 'mirror', 'reflection', 'dramatic'],
+        cues: ['mirror', 'reflection', 'polished', 'still pool'],
+      },
+    ],
+  },
+  light: {
+    prompt: 'What light?',
+    options: [
+      {
+        id: 'soft',
+        label: 'Soft daylight',
+        words: 'in soft daylight, even and almost shadowless',
+        card: card('light', 1),
+        cues: ['soft', 'daylight', 'window', 'overcast', 'diffused', 'cloudy', 'north light'],
+      },
+      {
+        id: 'golden',
+        label: 'Golden hour',
+        words: 'in low golden-hour sun, long warm shadows',
+        card: card('light', 2),
+        cues: ['golden', 'golden hour', 'sunset', 'sunrise', 'dusk', 'warm'],
+      },
+      {
+        id: 'hard',
+        label: 'Hard sun',
+        words: 'in hard direct sun, crisp black-edged shadows',
+        card: card('light', 3),
+        cues: ['hard sun', 'harsh', 'midday', 'noon', 'crisp shadow', 'direct sun'],
+      },
+      {
+        id: 'neon',
+        label: 'Night and neon',
+        words: 'at night, lit by coloured neon',
+        card: card('light', 4),
+        cues: ['neon', 'night', 'dark', 'moody', 'nocturnal', 'after dark'],
+      },
+      {
+        id: 'flash',
+        label: 'Studio flash',
+        words: 'in direct studio flash, flat and bright with one hard shadow',
+        card: card('light', 5),
+        cues: ['flash', 'strobe', 'on camera flash', 'paparazzi', 'punchy'],
+      },
+      {
+        id: 'lowkey',
+        label: 'Low-key',
+        words: 'in low-key light, one bright edge and the rest falling into darkness',
+        card: card('light', 6),
+        cues: ['low key', 'lowkey', 'dramatic', 'shadowy', 'chiaroscuro', 'rim light'],
       },
     ],
   },
@@ -140,7 +201,7 @@ export const ROWS: Record<SceneRow, RowSpec> = {
  * other rather than six pretty pictures, and five cameras around one unchanged
  * world so the only thing that differs is where the camera stands.
  */
-export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['world', 'shot']);
+export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['world', 'light', 'shot']);
 
 /** A row as the conversation's swatch block takes it. */
 export function swatchRow(row: SceneRow): SwatchRow {
@@ -156,7 +217,7 @@ export function swatchRow(row: SceneRow): SwatchRow {
 }
 
 /** What a row is about, for the line that invites words instead of a tap. */
-export const rowNoun = (row: SceneRow): string => (row === 'world' ? 'place' : 'camera');
+export const rowNoun = (row: SceneRow): string => (row === 'world' ? 'place' : row === 'light' ? 'light' : 'camera');
 
 export const optionOf = (row: SceneRow, id: string | undefined): RowOption | undefined =>
   id ? ROWS[row].options.find((o) => o.id === id) : undefined;

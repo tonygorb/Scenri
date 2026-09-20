@@ -29,6 +29,7 @@ export interface Answers {
   /** The pictures, and whether they were handed over (`done`) or are still being chosen. */
   photos?: { hashes: string[]; done: boolean };
   world?: Given;
+  light?: Given;
   shot?: Given;
 }
 
@@ -150,8 +151,12 @@ export function compileDirection(a: Answers): string {
   if (a.source?.door === 'words') return (a.source.text ?? '').trim();
   if (a.source?.door !== 'guided') return '';
   const world = rowWords('world', a.world);
+  // A world passed over its light question keeps the light its own card was
+  // photographed in, so a place is never handed over with nothing said about
+  // how it is lit.
+  const light = rowWords('light', a.light) ?? optionOf('world', a.world?.pick)?.light ?? null;
   const shot = rowWords('shot', a.shot);
-  const parts = [world ?? 'a place', shot].filter(Boolean) as string[];
+  const parts = [world ?? 'a place', light, shot].filter(Boolean) as string[];
   const text = parts.join(', ');
   return `${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
 }

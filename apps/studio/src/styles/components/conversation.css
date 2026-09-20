@@ -766,10 +766,13 @@ button.sc-convo-shot-do {
   background-size: cover;
   background-repeat: no-repeat;
 }
-/* The scene rows' cards: six worlds, then five places to stand the camera.
+/* The scene rows' cards: six worlds, six lights, then five places to stand
+   the camera.
    Every world card holds the same plain unbranded bottle, so the row is six
-   worlds compared rather than six pretty pictures; every camera card holds one
-   unchanged grey sweep, so the only thing that differs is where the camera is.
+   worlds compared rather than six pretty pictures; every light card holds one
+   unchanged plaster room, so the only thing that differs is the light; every
+   camera card holds one unchanged grey sweep, so the only thing that differs
+   is where the camera is.
    Drawn from the art direction in the plan's reference table, never copied
    from it. */
 .sc-convo-plate-in[data-card="scene-world-1"] {
@@ -789,6 +792,24 @@ button.sc-convo-shot-do {
 }
 .sc-convo-plate-in[data-card="scene-world-6"] {
   background-image: url("../../assets/scenes/scene-world-6.webp");
+}
+.sc-convo-plate-in[data-card="scene-light-1"] {
+  background-image: url("../../assets/scenes/scene-light-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-light-2"] {
+  background-image: url("../../assets/scenes/scene-light-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-light-3"] {
+  background-image: url("../../assets/scenes/scene-light-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-light-4"] {
+  background-image: url("../../assets/scenes/scene-light-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-light-5"] {
+  background-image: url("../../assets/scenes/scene-light-5.webp");
+}
+.sc-convo-plate-in[data-card="scene-light-6"] {
+  background-image: url("../../assets/scenes/scene-light-6.webp");
 }
 .sc-convo-plate-in[data-card="scene-shot-1"] {
   background-image: url("../../assets/scenes/scene-shot-1.webp");
