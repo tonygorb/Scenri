@@ -4,11 +4,12 @@ import { isolate } from './harness.js';
 /**
  * The selection dock on a phone.
  *
- * It was the desktop pill squeezed: a fit-content lozenge that wrapped its
- * verbs into three lines with `Clear` stranded on the last, at the pointer's
- * own 34px. Below the dock's breakpoint it is a shelf the width of the
- * composer: what is selected and the way out on one line, the verbs sharing
- * the next at a thumb's height.
+ * It used to be the desktop pill squeezed: four labelled buttons wrapped into
+ * three lines with `Clear` stranded on the last. It is now the same toolbar a
+ * pointer gets, at one scale: the same 17px glyphs and the same word, in a
+ * box two pixels larger, hugging its own contents rather than stretching to
+ * the gutters. What this test guards is exactly that: one row, nothing
+ * shrunk, nothing off the screen, and a target a thumb can find.
  */
 isolate();
 
@@ -57,7 +58,7 @@ async function startSelection(page: Page) {
   await expect(bar(page)).toBeVisible();
 }
 
-test('the dock is a shelf on a phone: two rows, thumb-sized, inside the screen', async ({ page }) => {
+test('the dock is one row on a phone, fits its contents and stays on screen', async ({ page }) => {
   test.setTimeout(90_000);
   const slug = await seedShots(page, 2);
   await page.goto(`/${slug}/create`);
@@ -66,33 +67,30 @@ test('the dock is a shelf on a phone: two rows, thumb-sized, inside the screen',
 
   const shape = await bar(page).evaluate((el) => {
     const r = el.getBoundingClientRect();
-    const rows = new Set([...el.querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().top)));
+    const tools = [...el.querySelectorAll<HTMLElement>('.sc-picked-tool')];
+    const rows = new Set(tools.map((b) => Math.round(b.getBoundingClientRect().top)));
     return {
       width: Math.round(r.width),
       inner: window.innerWidth,
       rows: rows.size,
-      shortest: Math.min(
-        ...[...el.querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().height)),
-      ),
+      tool: Math.min(...tools.map((b) => Math.round(b.getBoundingClientRect().height))),
       overflow: document.documentElement.scrollWidth > window.innerWidth,
-      verbs: [...el.querySelectorAll('button')].map((b) => (b.textContent || '').trim()),
+      names: [...el.querySelectorAll('button')].map(
+        (b) => b.getAttribute('aria-label') ?? (b.textContent || '').trim(),
+      ),
     };
   });
 
   expect(shape.overflow).toBe(false);
-  expect(shape.verbs).toEqual(['Keep', 'Archive', 'Add to set', 'Clear']);
-  if (shape.inner < 768) {
-    // the shelf takes the width it is given, in two rows: the way out beside
-    // the count, the verbs under it, each a thumb's target (WCAG 2.5.5)
-    expect(shape.width).toBeGreaterThan(shape.inner * 0.75);
-    expect(shape.rows).toBe(2);
-    expect(shape.shortest).toBeGreaterThanOrEqual(44);
-  } else {
-    // a tablet has the room the pill was drawn for: one row, hugging its own
-    // contents rather than stretching across the screen
-    expect(shape.rows).toBe(1);
-    expect(shape.width).toBeLessThan(shape.inner * 0.75);
-  }
+  expect(shape.names).toEqual(['Select all', 'Keep', 'Add to set', 'Archive', 'Done']);
+  // one row at every width, and the bar is as wide as its contents rather
+  // than the screen: a bar that fills the gutters is a panel, not a toolbar
+  expect(shape.rows).toBe(1);
+  expect(shape.width).toBeLessThan(shape.inner * 0.9);
+  // below the dock's breakpoint the box is the pointer's 32 plus two; a
+  // tablet is past it and keeps the pointer's own, which is the point of
+  // there being one scale rather than two compositions
+  expect(shape.tool).toBeGreaterThanOrEqual(shape.inner < 768 ? 34 : 32);
 });
 
 test('archiving a selection by thumb takes the shots and the shelf away', async ({ page }) => {

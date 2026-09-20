@@ -1209,6 +1209,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             pickedIds={[...picked]}
             onRestoreBatch={(ids) => void unarchiveBatch(ids).then(() => setPicked(new Set()))}
             onDeleteBatch={(ids) => void removeBatch(ids).then(() => setPicked(new Set()))}
+            // what Select all can reach is what the feed is holding: the pages
+            // scrolled so far, in the lens on screen, not the whole brand
+            loaded={items.length}
+            onSelectAll={() => setPicked(new Set(items.map((n) => n.id)))}
           />
         )}
         <Composer

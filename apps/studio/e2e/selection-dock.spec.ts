@@ -9,6 +9,10 @@ import { isolate } from './harness.js';
  * own menu, so putting twelve shots away meant twelve menus; the bar offered
  * Keep and Add to set and left the one bulk verb somebody actually wants for
  * a feed of misses on the tile alone.
+ *
+ * Since the toolbar redesign the verbs are icons that name themselves in a
+ * tooltip, so these tests read accessible names rather than button text: the
+ * name is the contract, the glyph is the drawing.
  */
 isolate();
 
@@ -83,17 +87,19 @@ test('the bar archives the whole selection at once, and one Undo brings it all b
   await expect.poll(() => lensCount(page, /^Archived/)).toBe(archivedBefore);
 });
 
-test('the bar carries the same verbs as one tile, and Clear leaves the selection empty', async ({ page }) => {
+test('the bar carries the same verbs as one tile, and Done leaves the selection empty', async ({ page }) => {
   test.setTimeout(90_000);
   const brand = await seedShots(page, 2);
   await page.goto(`/${brand.slug}/create`);
   await expect(cells(page).first()).toBeVisible();
 
   await pick(page, 0);
-  const verbs = await bar(page).getByRole('button').allInnerTexts();
-  expect(verbs).toEqual(['Keep', 'Archive', 'Add to set', 'Clear']);
+  const verbs = await bar(page)
+    .getByRole('button')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('aria-label') ?? (el.textContent ?? '').trim()));
+  expect(verbs).toEqual(['Select all', 'Keep', 'Add to set', 'Archive', 'Done']);
 
-  await bar(page).getByRole('button', { name: 'Clear' }).click();
+  await bar(page).getByRole('button', { name: 'Done' }).click();
   await expect(bar(page)).toHaveCount(0);
   await expect(page.locator('.sc-cell[data-picked]')).toHaveCount(0);
 });
@@ -110,9 +116,12 @@ test('an archived selection offers Restore and Delete, and archiving is not offe
   await page.getByRole('tab', { name: /^Archived/ }).click();
   await expect(cells(page).first()).toBeVisible();
   await pick(page, 0);
-  const verbs = await bar(page).getByRole('button').allInnerTexts();
-  expect(verbs.join(' ')).toContain('Restore');
-  expect(verbs.join(' ')).not.toContain('Archive');
+  const verbs = await bar(page)
+    .getByRole('button')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('aria-label') ?? (el.textContent ?? '').trim()).join(' '));
+  expect(verbs).toContain('Restore');
+  expect(verbs).toContain('Delete 1 permanently');
+  expect(verbs).not.toContain('Archive');
   await bar(page).getByRole('button', { name: 'Restore' }).click();
   await expect(bar(page)).toHaveCount(0);
 });
