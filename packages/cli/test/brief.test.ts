@@ -1432,7 +1432,7 @@ describe('compileBrief: a world built around a figure', () => {
    * above this one is already asserting; set, it sends the scene's own
    * pictures whatever the scene is and whoever is attached.
    */
-  it('sends as many of the scene\'s own pictures as the battery seam asks for', () => {
+  it("sends as many of the scene's own pictures as the battery seam asks for", () => {
     const plain = { figure: undefined, figureTreatment: undefined };
     expect(
       compileBrief({ tokens: [{ t: 'template', id: base.id }] }, refd(plain)).attachments.map((a) => a.role),

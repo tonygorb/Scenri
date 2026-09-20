@@ -122,7 +122,6 @@ describe('the scene studio', () => {
   });
 
   afterEach(async () => {
-    delete process.env.SCENRI_SCENE_PREVIEW_REFS;
     gate = null;
     await app.drain();
     resetSceneStudio();
@@ -176,7 +175,7 @@ describe('the scene studio', () => {
     expect((core.store.getBrand(brand.id)?.json as any)?.scenes ?? []).toEqual([]);
   });
 
-  it('draws a place from its words alone, so the preview shows what a shot is given', async () => {
+  it('draws a place from the pictures it was read from, not from the words alone', async () => {
     const brand = await newBrand();
     const a = await photo('#112233');
     const b = await photo('#445566');
@@ -184,8 +183,9 @@ describe('the scene studio', () => {
     expect(job.status).toBe('done');
     // the pictures were read
     expect(analyzed[0].imagePaths).toHaveLength(2);
-    // and never drawn from
-    expect(generated[0].referenceImages ?? []).toEqual([]);
+    // and drawn from, as scene references, so the place is the one that was uploaded
+    expect(generated[0].referenceImages).toHaveLength(2);
+    expect(generated[0].referenceRoles).toEqual(['scene', 'scene']);
   });
 
   it('draws a figure-led scene with its pictures, because its preview is the plate a shot conditions on', async () => {
@@ -196,14 +196,6 @@ describe('the scene studio', () => {
     expect(job.reading.figure).toBe(figure);
     expect(generated[0].referenceImages).toHaveLength(1);
     expect(generated[0].referenceRoles).toEqual(['scene']);
-  });
-
-  it('attaches the pictures to every preview when the battery asks for the old draw', async () => {
-    process.env.SCENRI_SCENE_PREVIEW_REFS = '1';
-    const brand = await newBrand();
-    const a = await photo();
-    await run(brand.id, { kind: 'make', instruction: 'the shore', imageHashes: [a] });
-    expect(generated[0].referenceImages).toHaveLength(1);
   });
 
   it('reads only, when asked not to draw', async () => {

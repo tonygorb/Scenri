@@ -199,21 +199,29 @@ function asScene(r: SceneReading): CustomScene {
 /* --------------------------------------------------------------- picture */
 
 /**
- * The pictures a fresh preview is drawn with.
+ * The pictures a fresh preview is drawn with: all of them.
  *
- * A shot is told this scene in words, so the preview is drawn from the words
- * alone: then it shows what a shot will actually get, and a preview that does
- * not look like the photographs is telling the truth about the words, which a
- * sentence can fix. A figure-led scene is the exception, because its preview
- * IS the plate a shot conditions on beside a presenter, and a treatment prose
- * cannot carry (the sticker lesson) has to come from the pictures.
+ * A scene built from photographs used to be drawn from the words alone unless
+ * it was figure-led, so making a scene from a picture was an image, into a
+ * paraphrase, into a different image. It was related to what the person
+ * uploaded only through prose, which is why it felt unreliable: everything the
+ * sentences did not carry was gone by construction.
  *
- * `SCENRI_SCENE_PREVIEW_REFS=1` restores the old draw, pictures attached for
- * every scene, as the other arm of the preview battery.
+ * That rule was written for a real leak - a full-bleed photograph of a person
+ * the model reproduced - but the refusal that now sits in `scenePreviewPrompt`
+ * was written after it, and it is the thing that actually holds: for a scene
+ * with no figure the draw is told "the set is empty: no product, no person, no
+ * hands, no text, no logos, no watermarks anywhere in the frame", and for a
+ * figure-led one it is told not to reproduce any person from the references.
+ *
+ * Measured 2026-09-21, four references with staged products, brand lettering, a
+ * logo and a hand among them, each drawn both ways: with the pictures attached
+ * the world, its materials, its light and its composition all came through,
+ * and not one of the products, hands or words did. Drawn from the words alone
+ * the same references came back as a different room each time.
  */
-export function previewRefsFor(reading: SceneReading, hashes: string[]): string[] {
-  if (process.env.SCENRI_SCENE_PREVIEW_REFS === '1') return hashes;
-  return reading.figure ? hashes : [];
+export function previewRefsFor(_reading: SceneReading, hashes: string[]): string[] {
+  return hashes;
 }
 
 /**

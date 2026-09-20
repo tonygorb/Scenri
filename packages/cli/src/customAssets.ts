@@ -865,8 +865,9 @@ export function scenePreviewPrompt(scene: CustomScene): string {
   // scene, it is a different one. So when the concept needs a figure, the card
   // shows one. Anonymity is the thing to protect, not absence.
   //
-  // The source references are attached to this draw, which is new: without the
-  // refusal below the card would happily come back as the person in them.
+  // The source references are attached to this draw, for every scene: without
+  // the refusals below the card would happily come back as the person, the
+  // product or the wordmark that happened to be standing in them.
   //
   // The word ban is scoped to what the treatment needs. The plate is the
   // conditioning image for a figure-led generation now, and a blanket "no
