@@ -61,10 +61,13 @@ test('says what the place is and what a shot made here is told', async ({ page }
   // the one verb that uses it, loudest
   await expect(page.locator('.sc-lookpage-acts .sc-btn-primary')).toHaveText('Use in a shot');
   await expect(page.getByRole('link', { name: 'Edit scene' })).toBeVisible();
-  // the words every shot is told, as words and not as a form
+  // the words every shot is told, as words and not as a form: what this world
+  // controls is on the page, and the long set prose waits behind one press
   await expect(page.getByText('What your shots are told')).toBeVisible();
-  await expect(page.getByText('A wet basalt shelf under flat daylight')).toBeVisible();
   await expect(page.getByText('Overcast daylight, no shadow edge')).toBeVisible();
+  await expect(page.getByText('A wet basalt shelf under flat daylight')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Read the full words a shot is told' }).click();
+  await expect(page.getByText('A wet basalt shelf under flat daylight')).toBeVisible();
   // your own words are kept beside them
   await expect(page.getByText('a cold black shore under flat light')).toBeVisible();
 });
@@ -74,11 +77,12 @@ test('the pictures of the place are large enough to judge, and open at full size
   const s = await scene(page, b.id, 'Basalt Frames');
   await page.goto(`/${b.slug}/scenes/${s.id}`);
 
-  const tile = page.locator('.sc-refset-tile').first();
+  const tile = page.locator('.sc-scene-place > button');
   await expect(tile).toBeVisible();
-  // a scene has no avatar, so its one picture is its identity: not a thumbnail
+  // a scene has no avatar, so its one picture is its identity: it is drawn at
+  // its own size, bounded only by the screen, never fitted into a card
   const box = await tile.boundingBox();
-  expect(box!.width).toBeGreaterThan(420);
+  expect(box!.height).toBeGreaterThanOrEqual(400);
 
   await tile.click();
   const shown = page.getByRole('dialog');

@@ -14,6 +14,7 @@ import { SceneCard } from '../layout/SceneCard.js';
 import { BookmarkSimple, PencilSimple, Plus } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
 import { readingLines } from '../create/scene/sceneStudioRules.js';
+import { COPY } from '../create/scene/sceneCopy.js';
 import { framingsLeft, SETUPS_MAX } from '../create/scene/sceneSetups.js';
 import { Tip } from '../layout/Tip.js';
 import { AssetDetailsDialog } from './AssetDetailsDialog.js';
@@ -51,6 +52,8 @@ export function ScenePage() {
   const [marks, setMarks] = useState<string[]>(() => bookmarkedScenes(brandId));
   /** The picture opened at full size, and what to call it there. */
   const [open, setOpen] = useState<{ src: string; label: string } | null>(null);
+  /** The long set prose, which waits behind a press. */
+  const [openWords, setOpenWords] = useState(false);
 
   const openScene = (id: string) => navigate(scenePath(brand, id));
 
@@ -253,6 +256,25 @@ export function ScenePage() {
   const showDemoProductNote = !owned && scene.subject !== 'person' && frames.length > 0;
 
   const marked = marks.includes(scene.id);
+  // The words, split: what this world controls is scannable, and the long set
+  // prose it is compiled from waits behind one press. Nobody opens a scene to
+  // read four hundred words of description; they open it to see the place and
+  // use it.
+  const told = owned
+    ? readingLines({
+        name: owned.name,
+        prompt: owned.prompt,
+        lighting: owned.lighting,
+        camera: owned.camera,
+        figure: owned.figure,
+        figureTreatment: owned.figureTreatment,
+        subject: owned.subject,
+        description: owned.description,
+      })
+    : [];
+  const prose = told.find((l) => l.label === COPY.placeLabel);
+  const controls = told.filter((l) => l !== prose);
+
   return (
     <ScrollPane>
       <main className="sc-lookpage sc-scenepage" id="main">
@@ -262,239 +284,238 @@ export function ScenePage() {
           <span>{owned ? 'Yours' : scene.collections[0]}</span>
         </div>
 
-        <h1>{scene.name}</h1>
-        {/* Where it is filed, as the app's own chips, the way a presenter's
-            page shows it. Changing it is in Details. */}
-        {owned && owned.verticals.length > 0 && (
-          <ul className="sc-presenterpage-cats" aria-label="Filed under">
-            {owned.verticals.map((c) => (
-              <li key={c} className="sc-chip" data-static>
-                {c}
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="sc-lookpage-lede">{scene.description}</p>
-        {/* A curated scene is being judged from outside, so it says what it is
-            for. Your own says it in its own words below, and the default size
-            belongs to a shot rather than to the place. */}
-        {!owned && (
-          <p className="sc-lookpage-facts">
-            {scene.lighting} · {scene.subject === 'either' ? 'product or person' : `for a ${scene.subject}`} ·{' '}
-            {scene.width === scene.height ? 'square by default' : `${scene.width}×${scene.height} by default`}
-          </p>
-        )}
-        <div className="sc-lookpage-acts">
-          <button type="button" className="sc-btn sc-btn-primary" onClick={() => void applyScene(scene.id)}>
-            Use in a shot
-          </button>
-          {/* Bookmarked scenes get their own tab on /scenes, and lead the shelf on Home. */}
-          {!owned && (
-            <button
-              type="button"
-              className="sc-btn sc-btn-ghost"
-              aria-pressed={marked}
-              onClick={() => setMarks(toggleBookmarkScene(brandId, scene.id))}
-            >
-              <BookmarkSimple size={13} weight={marked ? 'fill' : 'regular'} />
-              <span>{marked ? 'Bookmarked' : 'Bookmark'}</span>
-            </button>
-          )}
-          {owned && (
-            <Link className="sc-btn sc-btn-ghost" to={sceneEditPath(brand, owned.id)}>
-              Edit scene
-            </Link>
-          )}
-          {owned && (
-            <Tip label="Edit name and details">
-              <button
-                type="button"
-                className="sc-icon-btn"
-                aria-label="Edit name and details"
-                aria-haspopup="dialog"
-                onClick={() => setDetails(true)}
-              >
-                <PencilSimple size={17} />
+        {/* The place on one side, its record on the other. A record is read
+            beside what it describes, not under it, and the picture is the
+            thing this page is about. */}
+        <div className="sc-scene-grid">
+          {/* Who this is, and the one verb that uses it. Its own block, so a
+              phone reads the name before the picture and the desktop still
+              heads the record with it. */}
+          <div className="sc-scene-id">
+            <h1>{scene.name}</h1>
+            {owned && owned.verticals.length > 0 && (
+              <ul className="sc-presenterpage-cats" aria-label="Filed under">
+                {owned.verticals.map((c) => (
+                  <li key={c} className="sc-chip" data-static>
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="sc-lookpage-lede">{scene.description}</p>
+            {/* A curated scene is judged from outside, so it says what it is
+                for; your own says it in its own words below. */}
+            {!owned && (
+              <p className="sc-lookpage-facts">
+                {scene.lighting} · {scene.subject === 'either' ? 'product or person' : `for a ${scene.subject}`} ·{' '}
+                {scene.width === scene.height ? 'square by default' : `${scene.width}×${scene.height} by default`}
+              </p>
+            )}
+            <div className="sc-lookpage-acts">
+              <button type="button" className="sc-btn sc-btn-primary" onClick={() => void applyScene(scene.id)}>
+                Use in a shot
               </button>
-            </Tip>
-          )}
-        </div>
-        {err && <p className="sc-assetform-err">{err}</p>}
-
-        {/* The pictures are the middle zone and the only thing here allowed to
-            leave the column, the way a presenter's reference set is: they are
-            what the place looks like, and they open at full size. A curated
-            set is read across, so it scrolls rather than collapsing behind a
-            "see the whole set" the rail makes unnecessary. */}
-        {frames.length > 0 ? (
-          <>
-            <Rail
-              count={frames.length}
-              label="Pictures of this place"
-              className="sc-refset-rail"
-              trackClassName="sc-refset"
-            >
-              {frames.map((f) => (
-                <li key={f.src}>
+              {!owned && (
+                <button
+                  type="button"
+                  className="sc-btn sc-btn-ghost"
+                  aria-pressed={marked}
+                  onClick={() => setMarks(toggleBookmarkScene(brandId, scene.id))}
+                >
+                  <BookmarkSimple size={13} weight={marked ? 'fill' : 'regular'} />
+                  <span>{marked ? 'Bookmarked' : 'Bookmark'}</span>
+                </button>
+              )}
+              {owned && (
+                <Link className="sc-btn sc-btn-ghost" to={sceneEditPath(brand, owned.id)}>
+                  Edit scene
+                </Link>
+              )}
+              {owned && (
+                <Tip label="Edit name and details">
                   <button
                     type="button"
-                    className="sc-refset-tile"
-                    aria-label={`${f.label}, open`}
-                    onClick={() => setOpen(f)}
+                    className="sc-icon-btn"
+                    aria-label="Edit name and details"
+                    aria-haspopup="dialog"
+                    onClick={() => setDetails(true)}
                   >
-                    <Shown src={thumbOf(f.src, 'small')} />
+                    <PencilSimple size={17} />
                   </button>
-                  {/* A label tells one picture from another. With one picture
-                      there is nothing to tell it from, and "The place" under
-                      the place is noise. */}
-                  {frames.length > 1 && (
+                </Tip>
+              )}
+            </div>
+            {err && <p className="sc-assetform-err">{err}</p>}
+          </div>
+
+          <div className="sc-scene-stage">
+            {frames.length > 1 ? (
+              <Rail
+                count={frames.length}
+                label="Pictures of this place"
+                className="sc-refset-rail"
+                trackClassName="sc-refset"
+              >
+                {frames.map((f) => (
+                  <li key={f.src}>
+                    <button
+                      type="button"
+                      className="sc-refset-tile"
+                      aria-label={`${f.label}, open`}
+                      onClick={() => setOpen(f)}
+                    >
+                      <Shown src={thumbOf(f.src, 'small')} />
+                    </button>
                     <span className="sc-refset-lb" aria-hidden>
                       {f.label}
                     </span>
-                  )}
-                </li>
-              ))}
-            </Rail>
-            {/* One line, not two paragraphs: what the picture is, and the one
-                thing about it a person could get wrong. */}
-            {showDemoProductNote && (
-              <p className="sc-lookpage-note">Shown with a demo product for reference. Yours replaces it.</p>
-            )}
-            {owned && (
-              <p className="sc-lookpage-note">
-                {owned?.figure
-                  ? 'Drawn from the words below. The person in it is nobody: attach a presenter and they take the role.'
-                  : 'Drawn from the words below. Whatever you attach to a shot goes here.'}
-              </p>
-            )}
-          </>
-        ) : (
-          // a scene with no reference frame used to omit this whole section —
-          // the same blank box a broken/missing image falls back to below,
-          // rather than nothing where the scene's visual identity should be
-          <EmptyRefFrame />
-        )}
-
-        {owned && (
-          <div className="sc-ownedbits">
-            {/* What a shot is actually given: the words, nothing else. Read
-                here, changed in the studio (Edit scene), where a change is
-                drawn so it can be judged before it is kept. */}
-            <section>
-              <p className="sc-bandhead">What your shots are told</p>
-              <dl className="sc-lookpage-told">
-                {readingLines({
-                  name: owned.name,
-                  prompt: owned.prompt,
-                  lighting: owned.lighting,
-                  camera: owned.camera,
-                  figure: owned.figure,
-                  figureTreatment: owned.figureTreatment,
-                  subject: owned.subject,
-                  description: owned.description,
-                }).map((l) => (
-                  <div key={l.label}>
-                    <dt>{l.label}</dt>
-                    <dd dir="auto">{l.text}</dd>
-                  </div>
+                  </li>
                 ))}
-              </dl>
-              {owned.figure && (
-                <p className="sc-ownedbits-note">
-                  A role, not a person: attach a presenter and they play it. Their own face stays theirs underneath.
-                  With nobody attached, the set renders on its own.
-                </p>
-              )}
-            </section>
-
-            {/* Ways to shoot this same world. A setup moves the camera and
-                nothing else, so it is a label and a line rather than a second
-                scene: pressing one starts a shot here, framed that way. */}
-            <section className="sc-setups">
-              <p className="sc-bandhead">Ways to shoot it</p>
-              <p className="sc-ownedbits-note">
-                The world stays as it is; only where the camera stands changes. Your own words in a shot still win.
-              </p>
-              <div className="sc-setups-row">
-                {(owned.setups ?? []).map((v) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    className="sc-btn sc-btn-ghost"
-                    title={v.camera}
-                    onClick={() => void applyScene(owned.id, v.id)}
-                  >
-                    {v.label}
-                  </button>
-                ))}
-                {framingsLeft(owned.setups).length > 0 && (owned.setups?.length ?? 0) < SETUPS_MAX && (
-                  <DropdownMenu.Root>
-                    <DropdownMenu.Trigger>
-                      <button type="button" className="sc-btn sc-btn-ghost" aria-label="Add a way to shoot it">
-                        <Plus size={12} />
-                        <span>Add a way</span>
-                      </button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Content>
-                      {framingsLeft(owned.setups).map((f) => (
-                        <DropdownMenu.Item key={f.id} onSelect={() => void addSetup(f)}>
-                          {f.label}
-                        </DropdownMenu.Item>
-                      ))}
-                    </DropdownMenu.Content>
-                  </DropdownMenu.Root>
-                )}
-              </div>
-            </section>
-
-            {owned.instruction && (
-              <section>
-                <p className="sc-bandhead">Your words</p>
-                <p className="sc-ownedbits-note" dir="auto">
-                  {owned.instruction}
-                </p>
-              </section>
+              </Rail>
+            ) : frames.length === 1 ? (
+              <figure className="sc-scene-place">
+                <button type="button" aria-label={`${frames[0].label}, open`} onClick={() => setOpen(frames[0])}>
+                  <Shown src={thumbOf(frames[0].src, 'tile')} />
+                </button>
+                <figcaption className="sc-lookpage-note">
+                  {owned
+                    ? owned.figure
+                      ? 'Drawn from these words. The person in it is a stand-in: attach a presenter and they take the role.'
+                      : 'Drawn from these words. Whatever you attach to a shot goes here.'
+                    : 'Shown with a demo product for reference. Yours replaces it.'}
+                </figcaption>
+              </figure>
+            ) : (
+              <EmptyRefFrame />
             )}
 
-            {/* The pictures it was read from are evidence, not the place: a
-                small row of their own, the way a presenter's source photos
-                sit under its reference set, each one openable. */}
-            {owned.refs.length > 0 && (
-              <section className="sc-presenterpage-sources">
-                <p className="sc-presenterpage-sources-lb">What it was read from</p>
-                <div className="sc-presenterpage-sources-row">
-                  {owned.refs.map((src, i) => (
-                    <button
-                      key={src}
-                      type="button"
-                      className="sc-presenterpage-source"
-                      aria-label={`Read from ${i + 1}, open`}
-                      onClick={() => setOpen({ src, label: `Read from ${i + 1}` })}
-                    >
-                      <Shown src={thumbOf(src, 'micro')} />
-                    </button>
+            {/* What has been made here: the proof that the world is reusable. */}
+            {made.length > 0 && (
+              <section className="sc-scene-band">
+                <p className="sc-bandhead">Made here</p>
+                <div className="sc-scene-made">
+                  {made.slice(0, 8).map((s) => (
+                    <ShotThumb key={s.id} node={s} to={shotPath(brand, null, s.id)} />
                   ))}
                 </div>
-                <p className="sc-ownedbits-note">
-                  Read into the words above, never sent with a shot.
-                  {owned.figure
-                    ? ' This scene is built around a figure, so its own picture goes with a shot beside a presenter, as reference for the world. Nobody in these is ever copied.'
-                    : ' Nothing staged in these can turn up in a render on its own.'}
-                </p>
               </section>
             )}
-
-            <div className="sc-lookpage-acts">
-              <Confirm
-                label="Delete scene"
-                title={`Delete ${owned.name}?`}
-                body="Shots already made here keep their images and their recipe. Only future shots lose it."
-                busy={busy}
-                onConfirm={() => void remove()}
-              />
-            </div>
           </div>
-        )}
+
+          <aside className="sc-scene-rec">
+            {owned && (
+              <>
+                {/* Ways to shoot this same world: the camera moves, the world
+                    does not, so each one is a label and a line. */}
+                <section className="sc-scene-sec">
+                  <p className="sc-bandhead">Ways to shoot it</p>
+                  <div className="sc-setups-row">
+                    {(owned.setups ?? []).map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        className="sc-btn sc-btn-ghost"
+                        title={v.camera}
+                        onClick={() => void applyScene(owned.id, v.id)}
+                      >
+                        {v.label}
+                      </button>
+                    ))}
+                    {framingsLeft(owned.setups).length > 0 && (owned.setups?.length ?? 0) < SETUPS_MAX && (
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger>
+                          <button type="button" className="sc-btn sc-btn-ghost" aria-label="Add a way to shoot it">
+                            <Plus size={12} />
+                            <span>Add a way</span>
+                          </button>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Content>
+                          {framingsLeft(owned.setups).map((f) => (
+                            <DropdownMenu.Item key={f.id} onSelect={() => void addSetup(f)}>
+                              {f.label}
+                            </DropdownMenu.Item>
+                          ))}
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Root>
+                    )}
+                  </div>
+                  <p className="sc-scene-note">
+                    Only where the camera stands changes. Your own words in a shot still win.
+                  </p>
+                </section>
+
+                <section className="sc-scene-sec">
+                  <p className="sc-bandhead">What your shots are told</p>
+                  <dl className="sc-lookpage-told">
+                    {controls.map((l) => (
+                      <div key={l.label}>
+                        <dt>{l.label}</dt>
+                        <dd dir="auto">{l.text}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  {prose && (
+                    <>
+                      <button
+                        type="button"
+                        className="sc-lookpage-expand sc-scene-expand"
+                        aria-expanded={openWords}
+                        onClick={() => setOpenWords(!openWords)}
+                      >
+                        {openWords ? 'Hide the full words' : 'Read the full words a shot is told'}
+                      </button>
+                      {openWords && (
+                        <p className="sc-scene-prose" dir="auto">
+                          {prose.text}
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {owned.instruction && (
+                    <p className="sc-scene-note" dir="auto">
+                      Your words: {owned.instruction}
+                    </p>
+                  )}
+                </section>
+
+                {owned.refs.length > 0 && (
+                  <section className="sc-scene-sec">
+                    <p className="sc-bandhead">What it was read from</p>
+                    <div className="sc-presenterpage-sources-row">
+                      {owned.refs.map((src, i) => (
+                        <button
+                          key={src}
+                          type="button"
+                          className="sc-presenterpage-source"
+                          aria-label={`Read from ${i + 1}, open`}
+                          onClick={() => setOpen({ src, label: `Read from ${i + 1}` })}
+                        >
+                          <Shown src={thumbOf(src, 'micro')} />
+                        </button>
+                      ))}
+                    </div>
+                    <p className="sc-scene-note">
+                      Read into the words, never sent with a shot.
+                      {owned.figure
+                        ? ' This scene is built around a figure, so its own picture goes with a shot beside a presenter. Nobody in these is ever copied.'
+                        : ''}
+                    </p>
+                  </section>
+                )}
+
+                <div className="sc-scene-sec sc-scene-del">
+                  <Confirm
+                    label="Delete scene"
+                    title={`Delete ${owned.name}?`}
+                    body="Shots already made here keep their images and their recipe. Only future shots lose it."
+                    busy={busy}
+                    onConfirm={() => void remove()}
+                  />
+                </div>
+              </>
+            )}
+          </aside>
+        </div>
 
         {details && owned && (
           <AssetDetailsDialog
@@ -509,14 +530,6 @@ export function ScenePage() {
           />
         )}
 
-        {made.length > 0 && (
-          <Slider label="Your shots in this scene">
-            {made.map((s) => (
-              <ShotThumb key={s.id} node={s} to={shotPath(brand, null, s.id)} />
-            ))}
-          </Slider>
-        )}
-
         {open && (
           <ImageLightbox
             src={open.src}
@@ -527,9 +540,8 @@ export function ScenePage() {
           />
         )}
 
-        {/* Only for a curated scene: the nearest by light are all catalog
-            ones, so on your own scene this offered somebody else's places
-            under the heading "other scenes". */}
+        {/* Only for a curated scene: the nearest by light are all catalog ones,
+            so on your own scene this offered somebody else's places. */}
         {!owned && near.length > 0 && (
           <Slider label="Other scenes, similar light">
             {near.map((s) => (

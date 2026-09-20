@@ -2,6 +2,7 @@ import { Check, Copy, Paperclip } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
 import { CardStrip } from './CardStrip.js';
+import { Strip } from './Strip.js';
 import { RefStrip } from '../create/RefStrip.js';
 import { thumbUrl } from '../api.js';
 import { Tip } from '../layout/Tip.js';
@@ -426,29 +427,33 @@ export function QuestionBlock({
               onReject={() => onAnswer({ kind: 'photos', action: { type: 'reject' } })}
             />
             {/* Pictures the person already has, one tap each: the fastest
-                reference is the one already in the library, and asking for a
-                file when a shot of theirs would do is the friction this row
-                removes. */}
+                reference is the one already in the library. The same plate the
+                drawn rows use, in the same strip, so every row that scrolls in
+                this conversation reads as one kind of thing rather than as a
+                widget bolted under the well. */}
             {question.suggest && question.suggest.items.length > 0 && (
               <div className="sc-convo-have">
                 <p className="sc-convo-have-lb">
                   {question.suggest.label}
                   {question.suggest.hint && <span>{question.suggest.hint}</span>}
                 </p>
-                <div className="sc-convo-have-row">
+                <Strip step={106}>
                   {question.suggest.items.map((it) => (
                     <button
                       key={it.hash}
                       type="button"
-                      className="sc-convo-have-tile"
+                      className="sc-convo-plate"
                       aria-label={it.alt}
                       data-on={question.hashes.includes(it.hash) || undefined}
                       onClick={() => onAnswer({ kind: 'photos', action: { type: 'pick', hash: it.hash } })}
                     >
-                      <img src={thumbUrl(it.hash, 'micro')} alt="" loading="lazy" decoding="async" />
+                      <span
+                        className="sc-convo-plate-in"
+                        style={{ backgroundImage: `url("${thumbUrl(it.hash, 'micro')}")` }}
+                      />
                     </button>
                   ))}
-                </div>
+                </Strip>
               </div>
             )}
             {question.attest && (
