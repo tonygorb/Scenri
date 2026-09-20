@@ -105,14 +105,16 @@ test('the face and the save are the two words it says, and saving ends the task'
   expect(await isInert(page, '.sc-pstudio-well')).toBe(false);
   // and it is in sight: a window of its own in the curtain, not blurred behind
   // it (the windows were once cut to the transcript's pane, which it is not in)
-  await expect(page.locator('.sc-pstudio-well')).toHaveAttribute('data-guide-stage', '');
+  // the window is cut once the card has placed itself, which a loaded machine
+  // can take a moment to do: this waits for it rather than for the default
+  await expect(page.locator('.sc-pstudio-well')).toHaveAttribute('data-guide-stage', '', { timeout: 20_000 });
   // earlier answers are not this moment's: the transcript is a live log, and
   // keeping that log whole once left every earlier pencil within reach
   await expect(page.locator('.sc-pstudio button[aria-label="Change this answer"]:not([inert] *)')).toHaveCount(0);
   // a phone draws no stage: the same word, on the question and the face above it
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Decide the face', { timeout: 20_000 });
-  await expect(studioCoach(page)).toHaveAttribute('data-state', 'shown');
+  await expect(studioCoach(page)).toHaveAttribute('data-state', 'shown', { timeout: 20_000 });
   await page.setViewportSize({ width: 1440, height: 900 });
   await answer(page, 'Use this person').click();
 

@@ -279,6 +279,12 @@ export function Coachmark(p: CoachmarkProps) {
       lock.current?.release();
       held = false;
       setPhase('away');
+      // Out of sight is not gone: a viewport change can scroll the step off
+      // its pane, and nothing else reports it coming back. Keep looking while
+      // it is still on the page, or the card stays away for good (measured on
+      // a studio resized to a phone: the question landed 680px down and the
+      // card never returned).
+      if ((target ?? live[0])?.isConnected) watch();
     };
 
     // A new moment's controls are its own from the instant it begins; only the
@@ -551,6 +557,7 @@ export function Coachmark(p: CoachmarkProps) {
     const watch = () => {
       const el = target ?? live[0];
       if (!el) return;
+      cancelAnimationFrame(watching);
       let at = el.getBoundingClientRect();
       const until = performance.now() + WATCH_MS;
       const look = () => {
