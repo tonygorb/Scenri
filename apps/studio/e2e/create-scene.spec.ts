@@ -73,10 +73,10 @@ async function start(p: Page) {
   return slug;
 }
 
-/** The five rows, one tap each, in the order they are asked. */
-async function guide(p: Page, picks = ['Interior', 'Golden hour', 'Warm', 'Stone and concrete', 'Just the place']) {
+/** The two rows, one tap each, in the order they are asked. */
+async function guide(p: Page, picks = ['Sunlit stone', 'Top down']) {
   await tap(turn(p, 'q:source'), 'Guide me');
-  for (const [i, id] of ['where', 'light', 'feeling', 'materials', 'figure'].entries()) {
+  for (const [i, id] of ['world', 'shot'].entries()) {
     await expect(turn(p, `q:${id}`)).toBeVisible();
     await tap(turn(p, `q:${id}`), picks[i]);
   }
@@ -89,7 +89,7 @@ async function draw(p: Page) {
   await tap(agree, 'Draw the scene');
 }
 
-test('guided: five rows, read back as the words shots are told, drawn on a press, named while it draws, used', async ({
+test('guided: two rows, read back as the words shots are told, drawn on a press, named while it draws, used', async ({
   page,
 }) => {
   const slug = await start(page);
@@ -97,7 +97,7 @@ test('guided: five rows, read back as the words shots are told, drawn on a press
   const agree = openQ(page);
   await expect(agree).toContainText('Here is the place, in full. Ready to draw?');
   await expect(agree).toContainText(
-    'An interior, in low golden-hour light, warm, made of stone and concrete, with nobody in it.',
+    'A sunlit niche of warm limestone and rough plaster, in hard afternoon sun, seen from directly overhead, looking straight down.',
   );
   // nothing was drawn before the press
   await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(0);
@@ -113,7 +113,7 @@ test('guided: five rows, read back as the words shots are told, drawn on a press
   await expect(page.getByRole('heading', { level: 1, name: 'Dusk Lobby' })).toBeVisible();
   const saved = (await scenes(page)).find((s) => s.name === 'Dusk Lobby');
   expect(saved.instruction).toBe(
-    'An interior, in low golden-hour light, warm, made of stone and concrete, with nobody in it.',
+    'A sunlit niche of warm limestone and rough plaster, in hard afternoon sun, seen from directly overhead, looking straight down.',
   );
   expect(saved.preview).toMatch(/^asset:[a-f0-9]{32}$/);
 });
@@ -243,17 +243,16 @@ test('a change keeps the rest, and Put back restores a whole version, words and 
 test('the pencil takes an answer back and asks again from there', async ({ page }) => {
   await start(page);
   await tap(turn(page, 'q:source'), 'Guide me');
-  await tap(turn(page, 'q:where'), 'Interior');
-  await tap(turn(page, 'q:light'), 'Golden hour');
-  await tap(turn(page, 'q:feeling'), 'Warm');
-  // change the place: everything asked after it is asked again
-  await turn(page, 'you:where').hover();
-  await turn(page, 'you:where').getByRole('button', { name: 'Change this answer' }).click();
-  await expect(turn(page, 'q:where')).toHaveAttribute('data-reopened', 'true');
-  await tap(turn(page, 'q:where'), 'Nature');
-  await expect(turn(page, 'you:where')).toContainText('Nature');
-  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:light');
-  await expect(turn(page, 'you:feeling')).toHaveCount(0);
+  await tap(turn(page, 'q:world'), 'Sunlit stone');
+  await tap(turn(page, 'q:shot'), 'Top down');
+  // change the world: everything asked after it is asked again
+  await turn(page, 'you:world').hover();
+  await turn(page, 'you:world').getByRole('button', { name: 'Change this answer' }).click();
+  await expect(turn(page, 'q:world')).toHaveAttribute('data-reopened', 'true');
+  await tap(turn(page, 'q:world'), 'Volcanic haze');
+  await expect(turn(page, 'you:world')).toContainText('Volcanic haze');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:shot');
+  await expect(turn(page, 'you:shot')).toHaveCount(0);
 });
 
 test('an answer the picture was drawn from asks before it opens, and changing it asks again from there without the old picture', async ({
@@ -266,27 +265,28 @@ test('an answer the picture was drawn from asks before it opens, and changing it
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
   const pics = studio(page).locator('[data-turn^="scenri:pic-"]');
   const pencil = async () => {
-    await turn(page, 'you:feeling').hover();
-    await turn(page, 'you:feeling').getByRole('button', { name: 'Change this answer' }).click();
+    await turn(page, 'you:world').hover();
+    await turn(page, 'you:world').getByRole('button', { name: 'Change this answer' }).click();
   };
   // asked first, and keeping it changes nothing
   await pencil();
   const confirm = page.getByRole('alertdialog');
   await expect(confirm).toContainText('Change this answer?');
   await confirm.getByRole('button', { name: 'Cancel' }).click();
-  await expect(turn(page, 'q:feeling')).toHaveCount(0);
+  // nothing moved: the answer stands and so does the picture drawn from it
+  await expect(turn(page, 'you:world')).toContainText('Sunlit stone');
+  await expect(turn(page, 'you:shot')).toContainText('Top down');
   await expect(pics).toHaveCount(1);
   // agreed: the row opens, and a new answer asks again from there
   await pencil();
   await confirm.getByRole('button', { name: 'Change it' }).click();
-  await tap(turn(page, 'q:feeling'), 'Cool');
-  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:materials');
+  await tap(turn(page, 'q:world'), 'Dark mirror');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:shot');
   // the picture drawn from the old answers is not left standing under the new one
   await expect(pics).toHaveCount(0);
   await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(0);
-  await tap(openQ(page), 'Wood');
-  await tap(openQ(page), 'Just the place');
-  await expect(openQ(page)).toContainText('cool, made of wood');
+  await tap(openQ(page), 'Wide');
+  await expect(openQ(page)).toContainText('near-black polished surface');
   // the name given stays with the place
   await draw(page);
   await expect(openQ(page)).toContainText('Here is Stone Hall.');
@@ -299,18 +299,21 @@ test('the keyboard goes on with the conversation: each next answer is a Tab away
   await start(page);
   await turn(page, 'q:source').getByRole('button', { name: 'Guide me', exact: true }).focus();
   await page.keyboard.press('Enter');
-  const where = turn(page, 'q:where').locator('.sc-convo-q');
-  await expect(where).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(turn(page, 'q:where').getByRole('button', { name: 'Studio', exact: true })).toBeFocused();
-  await page.keyboard.press('Enter');
-  await expect(turn(page, 'q:light').locator('.sc-convo-q')).toBeFocused();
-  // a person typing keeps their place: the line is never taken from
+  const world = turn(page, 'q:world').locator('.sc-convo-q');
+  await expect(world).toBeFocused();
+  // a person typing keeps their place: the line is never taken from, and the
+  // words answer the question on the floor
   await line(page).focus();
-  await line(page).fill('soft north light');
+  await line(page).fill('a sunlit loft with brick walls');
   await line(page).press('Enter');
-  await expect(turn(page, 'q:feeling')).toBeVisible();
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:shot');
   await expect(line(page)).toBeFocused();
+  // and the answer after it is still a Tab away, not back at the close button
+  await turn(page, 'q:shot').locator('.sc-convo-q').focus();
+  await page.keyboard.press('Tab');
+  await expect(turn(page, 'q:shot').getByRole('button', { name: 'Eye level', exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(openQ(page)).toContainText('What your shots are told');
 });
 
 test('a sentence that answers nothing gets a line, and a request to cast someone is sent to Create', async ({
@@ -334,12 +337,12 @@ test('a sentence that answers nothing gets a line, and a request to cast someone
 test('a reload comes back to the same conversation, the same question on the floor', async ({ page }) => {
   await start(page);
   await tap(turn(page, 'q:source'), 'Guide me');
-  await tap(turn(page, 'q:where'), 'Studio');
-  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:light');
+  await tap(turn(page, 'q:world'), 'Colour field');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:shot');
   await page.reload();
   await arrived(page, '.sc-pstudio[data-kind="scene"]');
-  await expect(turn(page, 'you:where')).toContainText('Studio');
-  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:light');
+  await expect(turn(page, 'you:world')).toContainText('Colour field');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:shot');
 });
 
 test('leaving with anything said asks first, staying hands the keyboard back, and leaving saves nothing', async ({

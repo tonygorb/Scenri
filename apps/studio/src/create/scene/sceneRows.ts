@@ -1,20 +1,29 @@
 import type { SwatchRow } from '../../conversation/question.js';
 
 /**
- * The five things a place is asked about, in the order they are asked.
+ * The two things a place is asked, in the order they are asked.
  *
- * A scene is where a shot is and how it looks: the kind of place, its light,
- * the feeling, what it is made of, and whether it is built around someone
- * standing in it. Nothing here is about who; a person in a scene is a
- * position, never an identity, and the reader keeps it that way.
+ * It was five: the kind of place, its light, the feeling, what it is made of,
+ * and whether anyone stands in it. Five rows of attributes is a taxonomy, and
+ * a card that says "Warm" or "Wood" makes the decision harder rather than
+ * easier: nobody pictures a shot from an adjective. So the rows are a whole
+ * world, which is a result, and then where the camera stands, which is the one
+ * thing nothing else in the app asks at creation time and the thing that
+ * decides whether every shot from a scene looks the same.
  *
- * Each option carries the words it hands the reader (`words`), which is what
- * a tap means, and a card id for its drawn picture (`card`), which the
- * stylesheet names one by one, the way the presenter's rows are drawn.
+ * Light, material and mood have not gone: they are inside each world's words,
+ * where they were always going to end up in the sentence the reader is handed.
+ * Anything a world does not cover is said in the line, which is open the whole
+ * time.
+ *
+ * Each option carries the words it hands the reader (`words`), the card id for
+ * its drawn picture (`card`), and the words a person might type instead of
+ * tapping it (`cues`), so a sentence at the first question answers the rows it
+ * covers and only the rest are asked.
  */
-export type SceneRow = 'where' | 'light' | 'feeling' | 'materials' | 'figure';
+export type SceneRow = 'world' | 'shot';
 
-export const ROW_ORDER: readonly SceneRow[] = ['where', 'light', 'feeling', 'materials', 'figure'];
+export const ROW_ORDER: readonly SceneRow[] = ['world', 'shot'];
 
 export interface RowOption {
   id: string;
@@ -22,6 +31,8 @@ export interface RowOption {
   /** What choosing it tells the reader, as it would be written in the place's own sentence. */
   words: string;
   card?: string;
+  /** What a person types when they mean this, lowercase, matched as whole words. */
+  cues?: readonly string[];
 }
 
 interface RowSpec {
@@ -32,59 +43,90 @@ interface RowSpec {
 const card = (row: SceneRow, n: number) => `scene-${row}-${n}`;
 
 export const ROWS: Record<SceneRow, RowSpec> = {
-  where: {
-    prompt: 'What kind of place?',
+  world: {
+    prompt: 'What world?',
     options: [
-      { id: 'studio', label: 'Studio', words: 'a photography studio', card: card('where', 1) },
-      { id: 'interior', label: 'Interior', words: 'an interior', card: card('where', 2) },
-      { id: 'outdoors', label: 'Outdoors', words: 'outdoors, in the open air', card: card('where', 3) },
-      { id: 'architecture', label: 'Architecture', words: 'a piece of architecture', card: card('where', 4) },
-      { id: 'nature', label: 'Nature', words: 'a natural landscape', card: card('where', 5) },
-      { id: 'surreal', label: 'Surreal set', words: 'a surreal, built set', card: card('where', 6) },
-    ],
-  },
-  light: {
-    prompt: 'What light?',
-    options: [
-      { id: 'soft', label: 'Soft daylight', words: 'soft daylight', card: card('light', 1) },
-      { id: 'golden', label: 'Golden hour', words: 'low golden-hour light', card: card('light', 2) },
-      { id: 'hard', label: 'Hard sun', words: 'hard direct sun and crisp shadows', card: card('light', 3) },
-      { id: 'night', label: 'Night and neon', words: 'night, lit by neon', card: card('light', 4) },
-      { id: 'flash', label: 'Studio flash', words: 'direct studio flash', card: card('light', 5) },
-      { id: 'lowkey', label: 'Low-key', words: 'low-key light falling into deep shadow', card: card('light', 6) },
-    ],
-  },
-  feeling: {
-    prompt: 'And the feeling?',
-    options: [
-      { id: 'warm', label: 'Warm', words: 'warm', card: card('feeling', 1) },
-      { id: 'cool', label: 'Cool', words: 'cool', card: card('feeling', 2) },
-      { id: 'minimal', label: 'Minimal', words: 'quiet and minimal', card: card('feeling', 3) },
-      { id: 'bold', label: 'Bold colour', words: 'in bold, saturated colour', card: card('feeling', 4) },
-      { id: 'dramatic', label: 'Dark and dramatic', words: 'dark and dramatic', card: card('feeling', 5) },
-      { id: 'pastel', label: 'Pastel', words: 'in soft pastel tones', card: card('feeling', 6) },
-    ],
-  },
-  materials: {
-    prompt: 'What is it made of?',
-    options: [
-      { id: 'stone', label: 'Stone and concrete', words: 'stone and concrete', card: card('materials', 1) },
-      { id: 'wood', label: 'Wood', words: 'wood', card: card('materials', 2) },
-      { id: 'metal', label: 'Metal and glass', words: 'metal and glass', card: card('materials', 3) },
-      { id: 'fabric', label: 'Fabric', words: 'fabric', card: card('materials', 4) },
-      { id: 'water', label: 'Sand and water', words: 'sand and water', card: card('materials', 5) },
-      { id: 'plaster', label: 'Plaster', words: 'plaster', card: card('materials', 6) },
-    ],
-  },
-  figure: {
-    prompt: 'Is it built around someone?',
-    options: [
-      { id: 'place', label: 'Just the place', words: 'with nobody in it', card: card('figure', 1) },
       {
-        id: 'someone',
-        label: 'Someone in it',
-        words: 'built around one person in the frame, a position rather than anyone in particular',
-        card: card('figure', 2),
+        id: 'water',
+        label: 'Rock and water',
+        words: 'a shoreline of wet dark rock and shallow turquoise water, in hard midday sun',
+        card: card('world', 1),
+        cues: ['water', 'sea', 'ocean', 'shore', 'shoreline', 'beach', 'wet', 'pool', 'underwater'],
+      },
+      {
+        id: 'stone',
+        label: 'Sunlit stone',
+        words: 'a sunlit niche of warm limestone and rough plaster, in hard afternoon sun',
+        card: card('world', 2),
+        cues: ['stone', 'limestone', 'plaster', 'wall', 'niche', 'arch', 'terracotta', 'mediterranean', 'sunlit'],
+      },
+      {
+        id: 'colour',
+        label: 'Colour field',
+        words: 'a seamless studio sweep in one saturated colour, in flat hard poster light',
+        card: card('world', 3),
+        cues: ['studio', 'sweep', 'seamless', 'backdrop', 'colour', 'color', 'paper', 'poster', 'graphic', 'flat'],
+      },
+      {
+        id: 'citrus',
+        label: 'Fruit and sky',
+        words: 'a mound of cut citrus under an open blue sky, in bright direct sun',
+        card: card('world', 4),
+        cues: ['fruit', 'citrus', 'orange', 'lemon', 'sky', 'outdoors', 'outdoor', 'summer', 'juice'],
+      },
+      {
+        id: 'volcanic',
+        label: 'Volcanic haze',
+        words: 'dark volcanic rock in a deep orange haze, one hard low light raking across it',
+        card: card('world', 5),
+        cues: ['volcanic', 'lava', 'rock', 'ash', 'dust', 'haze', 'smoke', 'desert', 'mars'],
+      },
+      {
+        id: 'dark',
+        label: 'Dark mirror',
+        words: 'a near-black polished surface like a still pool, in low-key light with one bright edge',
+        card: card('world', 6),
+        cues: ['dark', 'black', 'night', 'moody', 'lowkey', 'low-key', 'mirror', 'reflection', 'dramatic'],
+      },
+    ],
+  },
+  shot: {
+    prompt: 'And where is the camera?',
+    options: [
+      {
+        id: 'eye',
+        label: 'Eye level',
+        words: 'seen at eye level, straight on, at a normal distance',
+        card: card('shot', 1),
+        cues: ['eye level', 'straight on', 'front on', 'head on', 'normal'],
+      },
+      {
+        id: 'top',
+        label: 'Top down',
+        words: 'seen from directly overhead, looking straight down',
+        card: card('shot', 2),
+        cues: ['top down', 'overhead', 'above', 'birds eye', 'flat lay', 'flatlay', 'down on'],
+      },
+      {
+        id: 'ground',
+        label: 'Ground level',
+        words: 'seen from ground level, the camera low and the subject towering over it',
+        card: card('shot', 3),
+        cues: ['ground level', 'low angle', 'from below', 'looking up', 'worms eye'],
+      },
+      {
+        id: 'wide',
+        label: 'Wide',
+        words: 'seen wide, the subject small in the frame and the place around it doing the talking',
+        card: card('shot', 4),
+        cues: ['wide', 'far', 'distant', 'establishing', 'room to breathe', 'negative space'],
+      },
+      {
+        id: 'close',
+        label: 'Close',
+        words: 'seen very close, the subject filling the frame',
+        card: card('shot', 5),
+        cues: ['close', 'closeup', 'close-up', 'close up', 'macro', 'detail', 'tight'],
       },
     ],
   },
@@ -93,12 +135,12 @@ export const ROWS: Record<SceneRow, RowSpec> = {
 /**
  * The rows whose pictures are drawn.
  *
- * Each row's cards are drawn in one pass (the selection-art skill: one ground,
- * one framing, only the chosen thing differs) and named in the stylesheet one
- * by one. A row not in here is words on chips: the same answers, unillustrated,
- * never a row with pictures on some cards and not others.
+ * Both of them, and they are drawn the way the selection-art skill says: one
+ * neutral unbranded bottle in every card, so six worlds are comparable to each
+ * other rather than six pretty pictures, and five cameras around one unchanged
+ * world so the only thing that differs is where the camera stands.
  */
-export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['where', 'light', 'feeling', 'materials', 'figure']);
+export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['world', 'shot']);
 
 /** A row as the conversation's swatch block takes it. */
 export function swatchRow(row: SceneRow): SwatchRow {
@@ -115,3 +157,28 @@ export function swatchRow(row: SceneRow): SwatchRow {
 
 export const optionOf = (row: SceneRow, id: string | undefined): RowOption | undefined =>
   id ? ROWS[row].options.find((o) => o.id === id) : undefined;
+
+/**
+ * What a typed phrase already answers.
+ *
+ * Somebody who types "overhead, in a studio" has answered both questions, and
+ * asking them again is the friction this flow is being rebuilt to remove. A
+ * cue matches on a word boundary, longest cue first, so "close up" beats
+ * "close" and "orange" never matches inside "storage".
+ */
+export function fillFrom(text: string): Partial<Record<SceneRow, string>> {
+  const said = ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, ' ')} `;
+  const out: Partial<Record<SceneRow, string>> = {};
+  for (const row of ROW_ORDER) {
+    let best: { id: string; len: number } | null = null;
+    for (const o of ROWS[row].options) {
+      for (const cue of o.cues ?? []) {
+        const c = ` ${cue.replace(/[^a-z0-9]+/g, ' ')} `;
+        if (!said.includes(c)) continue;
+        if (!best || cue.length > best.len) best = { id: o.id, len: cue.length };
+      }
+    }
+    if (best) out[row] = best.id;
+  }
+  return out;
+}

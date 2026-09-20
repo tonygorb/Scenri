@@ -28,11 +28,8 @@ export interface Answers {
   source?: { door: Door; text?: string };
   /** The pictures, and whether they were handed over (`done`) or are still being chosen. */
   photos?: { hashes: string[]; done: boolean };
-  where?: Given;
-  light?: Given;
-  feeling?: Given;
-  materials?: Given;
-  figure?: Given;
+  world?: Given;
+  shot?: Given;
 }
 
 interface Spec {
@@ -137,20 +134,10 @@ function rowWords(row: SceneRow, g: Given | undefined): string | null {
 export function compileDirection(a: Answers): string {
   if (a.source?.door === 'words') return (a.source.text ?? '').trim();
   if (a.source?.door !== 'guided') return '';
-  const where = rowWords('where', a.where);
-  const light = rowWords('light', a.light);
-  const feeling = rowWords('feeling', a.feeling);
-  const materials = rowWords('materials', a.materials);
-  const figure = rowWords('figure', a.figure);
-  const parts = [
-    where ?? 'a place',
-    light ? `in ${light}` : null,
-    feeling,
-    materials ? `made of ${materials}` : null,
-    figure,
-  ].filter(Boolean) as string[];
-  const [lead, ...rest] = parts;
-  const text = [lead, ...rest].join(', ').replace(/^, /, '');
+  const world = rowWords('world', a.world);
+  const shot = rowWords('shot', a.shot);
+  const parts = [world ?? 'a place', shot].filter(Boolean) as string[];
+  const text = parts.join(', ');
   return `${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
 }
 

@@ -9,6 +9,7 @@ import {
   turnsFor,
   unpackSession,
 } from '../src/create/scene/sceneFlowRules.js';
+import { fillFrom } from '../src/create/scene/sceneRows.js';
 import {
   type Answers,
   answeredIn,
@@ -57,11 +58,8 @@ const job = (over: Partial<SceneStudioJob>): SceneStudioJob => ({
 
 const guided: Answers = {
   source: { door: 'guided' },
-  where: { pick: 'interior' },
-  light: { pick: 'golden' },
-  feeling: { pick: 'warm' },
-  materials: { pick: 'stone' },
-  figure: { pick: 'place' },
+  world: { pick: 'stone' },
+  shot: { pick: 'top' },
 };
 
 const setupOf = (answers: Answers): SetupState => ({ ...EMPTY_SETUP, answers });
@@ -89,8 +87,8 @@ const read = (studio: StudioState, over: Partial<SceneStudioJob> = {}) =>
 describe('the setup', () => {
   it('asks the door first, then the rows in order', () => {
     expect(nextQuestion({})).toBe('source');
-    expect(nextQuestion({ source: { door: 'guided' } })).toBe('where');
-    expect(nextQuestion({ ...guided, feeling: undefined, materials: undefined, figure: undefined })).toBe('feeling');
+    expect(nextQuestion({ source: { door: 'guided' } })).toBe('world');
+    expect(nextQuestion({ ...guided, shot: undefined })).toBe('shot');
     expect(nextQuestion(guided)).toBeNull();
     expect(setupDone(guided)).toBe(true);
   });
@@ -110,20 +108,20 @@ describe('the setup', () => {
 
   it('says the rows as one sentence, skipped ones left out and typed ones kept', () => {
     expect(compileDirection(guided)).toBe(
-      'An interior, in low golden-hour light, warm, made of stone and concrete, with nobody in it.',
+      'A sunlit niche of warm limestone and rough plaster, in hard afternoon sun, seen from directly overhead, looking straight down.',
     );
-    const mixed = { ...guided, light: { pick: PASSED }, materials: { pick: 'wood', words: 'oiled oak' } };
-    expect(compileDirection(mixed)).toBe('An interior, warm, made of wood, oiled oak, with nobody in it.');
-    expect(compileDirection({ ...guided, where: { words: 'a hotel lobby' } })).toMatch(/^A hotel lobby, /);
+    const mixed = { ...guided, shot: { pick: PASSED }, world: { pick: 'water', words: 'at low tide' } };
+    expect(compileDirection(mixed)).toBe(
+      'A shoreline of wet dark rock and shallow turquoise water, in hard midday sun, at low tide.',
+    );
+    expect(compileDirection({ ...guided, world: { words: 'a hotel lobby' } })).toMatch(/^A hotel lobby, /);
   });
 
   it('takes back everything asked after an answer that changed, and nothing before it', () => {
-    const next = commit(guided, { light: { pick: 'night' } });
-    expect(next.where).toEqual(guided.where);
-    expect(next.light).toEqual({ pick: 'night' });
-    expect(next.feeling).toBeUndefined();
-    expect(next.figure).toBeUndefined();
-    expect(nextQuestion(next)).toBe('feeling');
+    const next = commit(guided, { world: { pick: 'dark' } });
+    expect(next.world).toEqual({ pick: 'dark' });
+    expect(next.shot).toBeUndefined();
+    expect(nextQuestion(next)).toBe('shot');
   });
 
   it('forgets the rows when the door changes to pictures', () => {
@@ -150,12 +148,12 @@ describe('the setup', () => {
   it('survives a reload, checked rather than trusted', () => {
     const s = reduceSetup(setupOf(guided), {
       type: 'aside',
-      aside: { said: 'hi', reply: 'Hello.', q: 'where', at: '2026-09-19T00:00:00.000Z' },
+      aside: { said: 'hi', reply: 'Hello.', q: 'world', at: '2026-09-19T00:00:00.000Z' },
     });
     const back = deserializeSetup(JSON.parse(JSON.stringify(serializeSetup(s))));
     expect(back?.answers).toEqual(guided);
     expect(back?.asides).toHaveLength(1);
-    expect(deserializeSetup({ answers: { where: { pick: 'volcano' }, source: { door: 'guided' } } })?.answers).toEqual({
+    expect(deserializeSetup({ answers: { world: { pick: 'volcano' }, source: { door: 'guided' } } })?.answers).toEqual({
       source: { door: 'guided' },
     });
   });
@@ -172,11 +170,11 @@ describe('the setup', () => {
     for (let i = 0; i < 1500; i++) {
       const act: SetupAction = pick<SetupAction>([
         { type: 'answer', patch: { source: { door: pick(['photos', 'guided', 'words'] as const), text: 'a shore' } } },
-        { type: 'answer', patch: { [pick(['where', 'light', 'feeling', 'materials', 'figure'])]: { pick: PASSED } } },
-        { type: 'answer', patch: { where: { pick: 'studio', words: pick([undefined, 'a loft']) } } },
+        { type: 'answer', patch: { [pick(['world', 'shot'])]: { pick: PASSED } } },
+        { type: 'answer', patch: { world: { pick: 'colour', words: pick([undefined, 'a loft']) } } },
         { type: 'answer', patch: { photos: { hashes: [H('a')], done: r() < 0.5 } } },
         { type: 'photos', hashes: [H(pick(['a', 'b', 'c', 'd', 'e']))] },
-        { type: 'edit', id: pick(['source', 'photos', 'where', 'figure'] as const) },
+        { type: 'edit', id: pick(['source', 'photos', 'world', 'shot'] as const) },
         { type: 'cancel-edit' },
       ]);
       s = reduceSetup(s, act);
@@ -214,26 +212,26 @@ describe('the conversation', () => {
   });
 
   it('keeps each answer under its line, with a pencil, and asks the next row', () => {
-    const T = turnsFor(args({ setup: setupOf({ source: { door: 'guided' }, where: { pick: 'studio' } }) }));
+    const T = turnsFor(args({ setup: setupOf({ source: { door: 'guided' }, world: { pick: 'colour' } }) }));
     expect(keys(T)).toEqual([
       'you:intent',
       'scenri:asked-source',
       'you:source',
-      'scenri:asked-where',
-      'you:where',
-      'q:light',
+      'scenri:asked-world',
+      'you:world',
+      'q:shot',
     ]);
-    expect(T.find((t) => t.kind === 'you' && t.id === 'where')).toMatchObject({ text: 'Studio', editable: true });
-    expect(composerFor(args({}), lastQ(T)).target).toEqual({ kind: 'row', id: 'light' });
+    expect(T.find((t) => t.kind === 'you' && t.id === 'world')).toMatchObject({ text: 'Colour field', editable: true });
+    expect(composerFor(args({}), lastQ(T)).target).toEqual({ kind: 'row', id: 'shot' });
   });
 
   it('reopens an answer in place, and leaves the question on the floor standing', () => {
-    const setup = { ...setupOf({ source: { door: 'guided' }, where: { pick: 'studio' } }), editing: 'where' as const };
+    const setup = { ...setupOf({ source: { door: 'guided' }, world: { pick: 'colour' } }), editing: 'world' as const };
     const T = turnsFor(args({ setup }));
-    const i = keys(T).indexOf('q:where');
+    const i = keys(T).indexOf('q:world');
     expect(i).toBe(4);
     expect(T[i].kind === 'question' && T[i].question.reopened).toBe(true);
-    expect(keys(T).at(-1)).toBe('q:light');
+    expect(keys(T).at(-1)).toBe('q:shot');
   });
 
   it('reads the place back before anything is drawn, with one Draw', () => {
@@ -312,15 +310,15 @@ describe('the conversation', () => {
 
   it('keeps what was said at a question under it, and says the rest before the one on the floor', () => {
     const setup: SetupState = {
-      ...setupOf({ source: { door: 'guided' }, where: { pick: 'studio' } }),
+      ...setupOf({ source: { door: 'guided' }, world: { pick: 'colour' } }),
       asides: [
-        { said: 'hi', reply: 'Hello.', q: 'where', at: '1' },
-        { said: 'what now?', reply: 'Tap one.', q: 'light', at: '2' },
+        { said: 'hi', reply: 'Hello.', q: 'world', at: '1' },
+        { said: 'what now?', reply: 'Tap one.', q: 'shot', at: '2' },
       ],
     };
     const k = keys(turnsFor(args({ setup })));
-    expect(k.indexOf('you:aside-said-1')).toBeGreaterThan(k.indexOf('scenri:asked-where'));
-    expect(k.indexOf('you:aside-said-1')).toBeLessThan(k.indexOf('you:where'));
+    expect(k.indexOf('you:aside-said-1')).toBeGreaterThan(k.indexOf('scenri:asked-world'));
+    expect(k.indexOf('you:aside-said-1')).toBeLessThan(k.indexOf('you:world'));
     expect(k.indexOf('you:aside-said-2')).toBe(k.length - 3);
   });
 });
@@ -354,5 +352,24 @@ describe('the session', () => {
     expect(unpackSession('{nope')).toBeNull();
     expect(unpackSession(JSON.stringify({ v: 1 }))).toBeNull();
     expect(unpackSession(JSON.stringify({ v: 2, setup: {}, studio: { versions: [] } }))?.studio).toBeNull();
+  });
+});
+
+describe('a phrase typed at the first question', () => {
+  it('answers the questions it names, so they are not asked again', () => {
+    expect(fillFrom('overhead, in a studio')).toEqual({ world: 'colour', shot: 'top' });
+    expect(fillFrom('golden stone wall')).toEqual({ world: 'stone' });
+    expect(fillFrom('close up')).toEqual({ shot: 'close' });
+  });
+
+  it('takes the longest cue, so a phrase inside a phrase does not win', () => {
+    expect(fillFrom('a close up of it').shot).toBe('close');
+    expect(fillFrom('low angle').shot).toBe('ground');
+  });
+
+  it('matches whole words only', () => {
+    // "orange" must not be found inside "storage", nor "close" inside "closet"
+    expect(fillFrom('a storage closet')).toEqual({});
+    expect(fillFrom('nothing it knows about')).toEqual({});
   });
 });

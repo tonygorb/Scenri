@@ -7,6 +7,7 @@ import { COPY } from './sceneCopy.js';
 import {
   asideReply,
   composerFor,
+  describesPlace,
   type FlowArgs,
   type Target,
   judge,
@@ -15,6 +16,7 @@ import {
   turnsFor,
   unpackSession,
 } from './sceneFlowRules.js';
+import { fillFrom, type SceneRow } from './sceneRows.js';
 import {
   type Answers,
   answerPatch,
@@ -315,9 +317,23 @@ export function useSceneFlow(args: {
       setNote(null);
       const target = lockedTarget.current ?? composer.target;
       if (target.kind === 'source') {
-        const k = judge(t, 'source');
-        if (k) aside(t, asideReply(k, 'source'), 'source');
-        else answerSetup({ source: { door: 'words', text: t.slice(0, 400) } });
+        // A whole description is the description, and nothing is asked after
+        // it. A phrase is not nothing: what it names is taken as the answer to
+        // those questions, and only what is left over is asked.
+        if (describesPlace(t)) {
+          answerSetup({ source: { door: 'words', text: t.slice(0, 400) } });
+          return true;
+        }
+        const filled = fillFrom(t);
+        const rows = Object.keys(filled) as SceneRow[];
+        if (rows.length > 0) {
+          answerSetup({
+            source: { door: 'guided' },
+            ...Object.fromEntries(rows.map((r) => [r, { pick: filled[r] }])),
+          });
+          return true;
+        }
+        aside(t, asideReply(judge(t, 'source') ?? 'vague', 'source'), 'source');
         return true;
       }
       if (target.kind === 'row' && isRow(target.id)) {

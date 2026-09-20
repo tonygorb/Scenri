@@ -766,87 +766,44 @@ button.sc-convo-shot-do {
   background-size: cover;
   background-repeat: no-repeat;
 }
-/* The scene rows' cards: the kind of place, its light, its feeling, what it is
-   made of, and whether someone stands in it. Where is six places at one camera
-   height; the other rows are one plinth in one plaster corner, drawn once, with
-   only the chosen thing changed on each card. */
-.sc-convo-plate-in[data-card="scene-where-1"] {
-  background-image: url("../../assets/scenes/scene-where-1.webp");
+/* The scene rows' cards: six worlds, then five places to stand the camera.
+   Every world card holds the same plain unbranded bottle, so the row is six
+   worlds compared rather than six pretty pictures; every camera card holds one
+   unchanged grey sweep, so the only thing that differs is where the camera is.
+   Drawn from the art direction in the plan's reference table, never copied
+   from it. */
+.sc-convo-plate-in[data-card="scene-world-1"] {
+  background-image: url("../../assets/scenes/scene-world-1.webp");
 }
-.sc-convo-plate-in[data-card="scene-where-2"] {
-  background-image: url("../../assets/scenes/scene-where-2.webp");
+.sc-convo-plate-in[data-card="scene-world-2"] {
+  background-image: url("../../assets/scenes/scene-world-2.webp");
 }
-.sc-convo-plate-in[data-card="scene-where-3"] {
-  background-image: url("../../assets/scenes/scene-where-3.webp");
+.sc-convo-plate-in[data-card="scene-world-3"] {
+  background-image: url("../../assets/scenes/scene-world-3.webp");
 }
-.sc-convo-plate-in[data-card="scene-where-4"] {
-  background-image: url("../../assets/scenes/scene-where-4.webp");
+.sc-convo-plate-in[data-card="scene-world-4"] {
+  background-image: url("../../assets/scenes/scene-world-4.webp");
 }
-.sc-convo-plate-in[data-card="scene-where-5"] {
-  background-image: url("../../assets/scenes/scene-where-5.webp");
+.sc-convo-plate-in[data-card="scene-world-5"] {
+  background-image: url("../../assets/scenes/scene-world-5.webp");
 }
-.sc-convo-plate-in[data-card="scene-where-6"] {
-  background-image: url("../../assets/scenes/scene-where-6.webp");
+.sc-convo-plate-in[data-card="scene-world-6"] {
+  background-image: url("../../assets/scenes/scene-world-6.webp");
 }
-.sc-convo-plate-in[data-card="scene-light-1"] {
-  background-image: url("../../assets/scenes/scene-light-1.webp");
+.sc-convo-plate-in[data-card="scene-shot-1"] {
+  background-image: url("../../assets/scenes/scene-shot-1.webp");
 }
-.sc-convo-plate-in[data-card="scene-light-2"] {
-  background-image: url("../../assets/scenes/scene-light-2.webp");
+.sc-convo-plate-in[data-card="scene-shot-2"] {
+  background-image: url("../../assets/scenes/scene-shot-2.webp");
 }
-.sc-convo-plate-in[data-card="scene-light-3"] {
-  background-image: url("../../assets/scenes/scene-light-3.webp");
+.sc-convo-plate-in[data-card="scene-shot-3"] {
+  background-image: url("../../assets/scenes/scene-shot-3.webp");
 }
-.sc-convo-plate-in[data-card="scene-light-4"] {
-  background-image: url("../../assets/scenes/scene-light-4.webp");
+.sc-convo-plate-in[data-card="scene-shot-4"] {
+  background-image: url("../../assets/scenes/scene-shot-4.webp");
 }
-.sc-convo-plate-in[data-card="scene-light-5"] {
-  background-image: url("../../assets/scenes/scene-light-5.webp");
-}
-.sc-convo-plate-in[data-card="scene-light-6"] {
-  background-image: url("../../assets/scenes/scene-light-6.webp");
-}
-.sc-convo-plate-in[data-card="scene-figure-1"] {
-  background-image: url("../../assets/scenes/scene-figure-1.webp");
-}
-.sc-convo-plate-in[data-card="scene-figure-2"] {
-  background-image: url("../../assets/scenes/scene-figure-2.webp");
-}
-.sc-convo-plate-in[data-card="scene-feeling-1"] {
-  background-image: url("../../assets/scenes/scene-feeling-1.webp");
-}
-.sc-convo-plate-in[data-card="scene-feeling-2"] {
-  background-image: url("../../assets/scenes/scene-feeling-2.webp");
-}
-.sc-convo-plate-in[data-card="scene-feeling-3"] {
-  background-image: url("../../assets/scenes/scene-feeling-3.webp");
-}
-.sc-convo-plate-in[data-card="scene-feeling-4"] {
-  background-image: url("../../assets/scenes/scene-feeling-4.webp");
-}
-.sc-convo-plate-in[data-card="scene-feeling-5"] {
-  background-image: url("../../assets/scenes/scene-feeling-5.webp");
-}
-.sc-convo-plate-in[data-card="scene-feeling-6"] {
-  background-image: url("../../assets/scenes/scene-feeling-6.webp");
-}
-.sc-convo-plate-in[data-card="scene-materials-1"] {
-  background-image: url("../../assets/scenes/scene-materials-1.webp");
-}
-.sc-convo-plate-in[data-card="scene-materials-2"] {
-  background-image: url("../../assets/scenes/scene-materials-2.webp");
-}
-.sc-convo-plate-in[data-card="scene-materials-3"] {
-  background-image: url("../../assets/scenes/scene-materials-3.webp");
-}
-.sc-convo-plate-in[data-card="scene-materials-4"] {
-  background-image: url("../../assets/scenes/scene-materials-4.webp");
-}
-.sc-convo-plate-in[data-card="scene-materials-5"] {
-  background-image: url("../../assets/scenes/scene-materials-5.webp");
-}
-.sc-convo-plate-in[data-card="scene-materials-6"] {
-  background-image: url("../../assets/scenes/scene-materials-6.webp");
+.sc-convo-plate-in[data-card="scene-shot-5"] {
+  background-image: url("../../assets/scenes/scene-shot-5.webp");
 }
 .sc-convo-plate-in[data-card="length-1-woman"] {
   background-image: url("../../assets/traits/length-1-woman.webp");
