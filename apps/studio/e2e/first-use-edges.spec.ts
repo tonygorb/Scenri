@@ -134,20 +134,26 @@ test('a lesson remembers how far it got, even when the brief is emptied after', 
 
 test('a task belongs to its own brand, and another brand is not guided by it', async ({ page }) => {
   const a = await ownBrand(page, 'Brand A');
-  const b = await ownBrand(page, 'Brand B', 'scene');
+  const b = await ownBrand(page, 'Brand B', 'presenter');
+  // each one past its first step, which is what makes it part done at all
+  for (const [task, moment] of [
+    ['first-shot', 'product'],
+    ['presenter', 'face'],
+  ])
+    await page.request.post('/api/guide', { data: { reached: { task, moment } } });
   await page.goto(`/${a}/create`);
   // the task in hand is brand B's, so brand A shows nothing and has nothing in hand
   await expect(coachCard(page)).toHaveCount(0);
-  // work belongs to the brand it was done in: brand B's scene is part done
-  // there and nowhere else, and brand A's own first shot likewise
+  // work belongs to the brand it was done in: brand B's presenter is part
+  // done there and nowhere else, and brand A's own first shot likewise
   await page.goto(`/${a}`);
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('2 steps');
-  await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText(/^Step \d of 6$/);
+  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('3 steps');
+  await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('Step 2 of 6');
   await page.keyboard.press('Escape');
   await page.goto(`/${b}`);
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText(/^Step \d of 2$/);
+  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('Step 2 of 3');
   await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('6 steps');
 });
 

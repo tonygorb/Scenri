@@ -83,7 +83,6 @@ export function LearnDialog() {
   /** What a lesson starts from, when the brand does not hold it yet. */
   const blockedOf = (l: Lesson): 'shot' | 'product' | null =>
     (l.needs === 'shot' && !hasShot) || (l.needs === 'product' && products.length === 0) ? (l.needs ?? null) : null;
-  const stateOf = (l: Lesson): LessonState => lessonState(l.id, guide, brand.id);
   const stepNow = (l: Lesson): number => {
     const composer = facts.composer?.brandId === brand.id ? facts.composer : null;
     const shot = { here: true, composer, nodes: guide.activeNodes, begun: true };
@@ -104,8 +103,11 @@ export function LearnDialog() {
     // A lesson does not walk backwards. What it has reached is its own
     // (the record keeps the milestones by name), so emptying the brief asks
     // for the chips again without undoing having chosen them.
-    return Math.max(now, furthest(l.id, guide.progress[l.id]?.reached ?? []));
+    return Math.max(now, furthest(l.id, guide.progress?.[l.id]?.reached ?? []));
   };
+  // Part done is read from the step it has actually got to, so a lesson left
+  // standing on its first one still says Start (lessons.ts).
+  const stateOf = (l: Lesson): LessonState => lessonState(l.id, guide, brand.id, stepNow(l));
   // The lesson that comes next: the one in hand, else the first not yet done.
   const next = LESSONS.find((l) => stateOf(l) === 'active') ?? LESSONS.find((l) => stateOf(l) !== 'done') ?? null;
   // What a desktop shows open: the lesson asked for, else the one that comes next.

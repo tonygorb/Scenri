@@ -77,10 +77,18 @@ function taken(r: GuideView): GuideSnapshot {
   const view = FIRST_USE
     ? r
     : { ...r, eligible: false, hidden: true, active: null, activeNodes: [], activeDraftId: null };
-  // A server older than the lessons field answers without it, and a studio
-  // served by one still has to work: nothing has been taught, and finishing
-  // something writes to a record this build understands.
-  return { ...view, lessons: view.lessons ?? {}, loaded: true, heading: snapshot.heading };
+  // A server older than a field answers without it, and a studio served by one
+  // still has to work: nothing has been taught, nothing is part done, and
+  // finishing something writes to a record this build understands. Reading one
+  // of these as though the field were there is how Learn once took the whole
+  // app down with it, behind a boundary that said a shot had not finished.
+  return {
+    ...view,
+    lessons: view.lessons ?? {},
+    progress: view.progress ?? {},
+    loaded: true,
+    heading: snapshot.heading,
+  };
 }
 
 function read(): Promise<void> {

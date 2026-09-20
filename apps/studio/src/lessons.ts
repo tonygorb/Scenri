@@ -115,6 +115,13 @@ export type LessonState = 'new' | 'active' | 'done';
  * taking up another one costs the rest nothing. A lesson set down still says
  * how far it got, and its action still says Continue.
  *
+ * Standing on the first step is not part done, which is why `at` is asked
+ * for: how far the lesson has got right now, counted the way its own card
+ * counts it (`stepOf`, and the milestones behind it). Taking a lesson up and
+ * leaving it on its first step has produced nothing, so it says Start and how
+ * many steps it has, the way it did before it was opened. Its window is kept
+ * all the same: this is what the row says, not what the record holds.
+ *
  * Done means this lesson was walked to its end, and nothing else. The
  * install's `done` milestones say what the library proves about the product
  * (which is what stops the tutor teaching what someone clearly knows), and
@@ -125,9 +132,10 @@ export function lessonState(
   id: GuideTaskId,
   view: Pick<GuideView, 'lessons' | 'progress'>,
   brandId: string,
+  at: number,
 ): LessonState {
-  if (view.progress[id]?.brandId === brandId) return 'active';
-  return view.lessons[id] ? 'done' : 'new';
+  if (view.progress?.[id]?.brandId === brandId && at > 0) return 'active';
+  return view.lessons?.[id] ? 'done' : 'new';
 }
 
 export interface ProgressFacts {
@@ -150,12 +158,13 @@ export interface ProgressFacts {
  * A step exists because the tutor can say it. What pressing Start does (open
  * the dialog, open the shot, open the studio) is not a step: listing it made
  * every one of those walks open on "2 of 3", which reads as having missed
- * something.
+ * something. Nor is the engine ask: nothing can draw yet, which is a thing to
+ * fix before the lesson means anything, and counting it said someone with no
+ * engine was two steps into making a shot.
  */
 const AT: Record<GuideTaskId, Record<string, number>> = {
   'first-shot': {
     go: 0,
-    engine: 1,
     product: 1,
     presenter: 2,
     scene: 3,
@@ -166,8 +175,8 @@ const AT: Record<GuideTaskId, Record<string, number>> = {
     result: 5,
   },
   product: { product: 0 },
-  reuse: { go: 0, engine: 1, product: 1, scene: 2, make: 3, sending: 3, waiting: 3, failed: 3, again: 4 },
-  presenter: { engine: 0, start: 0, face: 1, save: 2 },
+  reuse: { go: 0, product: 1, scene: 2, make: 3, sending: 3, waiting: 3, failed: 3, again: 4 },
+  presenter: { start: 0, face: 1, save: 2 },
   scene: { scene: 0 },
   refine: { ask: 0, 'refine-failed': 0, refining: 1, refined: 1 },
 };

@@ -195,8 +195,11 @@ test('a scene has its own task, held in the dialog it is made in', async ({ page
   await layer.getByPlaceholder('Name this place').fill('Terrace');
   await expect(layer.getByPlaceholder('Name this place')).toHaveValue('Terrace');
   await layer.getByRole('button', { name: 'Close', exact: true }).first().click();
-  // closing the dialog does not end the task: Learn continues it
+  // closing the dialog does not end the task: it is still the one in hand,
+  // and its window is kept. Learn reads it as not begun all the same, because
+  // naming a place and closing the dialog produced nothing
   expect((await guideRecord(page)).active?.task).toBe('scene');
+  expect((await guideRecord(page)).progress.scene?.brandId).toBeTruthy();
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText(/^Step \d of 2$/);
+  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('2 steps');
 });

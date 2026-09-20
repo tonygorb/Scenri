@@ -314,7 +314,7 @@ export function GuideHost() {
     const mark = `${task}:${seen}`;
     if (noted.current === mark) return;
     noted.current = mark;
-    if (guide.progress[task]?.reached.includes(seen)) return;
+    if (guide.progress?.[task]?.reached.includes(seen)) return;
     void guideIntent({ reached: { task, moment: seen } });
   }, [task, seen, guide.progress]);
 

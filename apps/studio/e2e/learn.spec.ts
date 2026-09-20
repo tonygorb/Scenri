@@ -108,16 +108,17 @@ test('a lesson begun in Learn is paused and continued as it was', async ({ page 
   await expect.poll(async () => (await guideRecord(page)).progress.presenter?.paused).toBe(true);
   expect((await guideRecord(page)).active).toBeNull();
 
-  // Learn says it is in hand
+  // Learn says what is true: standing on the first step, it has produced
+  // nothing, so it reads as it did before it was opened
   await page.goto(`/${slug}`);
   await learnButton(page).click();
-  await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('Step 1 of 3');
+  await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('3 steps');
   await card(page, 'Create a presenter').click();
-  await expect(learn(page).locator('.sc-learn-step[aria-current="step"] .sc-learn-step-name')).toHaveText(
-    'Describe someone, or add photos',
-  );
-  // continuing it keeps the window it began with
-  await action(page, 'Continue').click();
+  // the action sits on the step it would take, which is its first one
+  await expect(action(page, 'Start')).toHaveAccessibleName('Start: Describe someone, or add photos');
+  // and taking it up again keeps the window it began with rather than
+  // starting a new one: what the row says is not what the record holds
+  await action(page, 'Start').click();
   await page.waitForURL('**/presenters/new**');
   await expect(page.locator('.sc-pstudio .sc-coach-title')).toHaveText('Describe someone, or start from photos', {
     timeout: 20_000,
@@ -234,7 +235,9 @@ test('a lesson part done stays part done when another is taken up', async ({ pag
   await page.goto(`/${own}`);
   await learnButton(page).click();
   await expect(card(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('Step 5 of 6');
-  await expect(card(page, 'Add your product').locator('.sc-learn-status')).toHaveText(/^Step \d of 2$/);
+  // the one just taken up is standing on its first step, so it reads as not
+  // begun while its window is kept all the same (the record, at the end)
+  await expect(card(page, 'Add your product').locator('.sc-learn-status')).toHaveText('2 steps');
 
   // and it is continued, not begun again: taken up from Home it asks for the
   // way there first, as any walk does, and then picks up where it was with

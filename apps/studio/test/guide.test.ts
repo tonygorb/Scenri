@@ -102,4 +102,15 @@ describe('the guide record in the studio', () => {
     await refreshGuide();
     expect(guideSnapshot().hidden).toBe(true);
   });
+
+  it('a record from a server that does not know part-done lessons loads as none', async () => {
+    // The fields this build reads may simply not be there: a studio on a lane
+    // whose API has been up since before they existed answers without them.
+    // Learn reads progress on every open, so taking that literally white
+    // screened the whole app behind the route boundary.
+    guide.mockResolvedValue(view());
+    await loadGuide();
+    expect(guideSnapshot().progress).toEqual({});
+    expect(guideSnapshot().lessons).toEqual({});
+  });
 });

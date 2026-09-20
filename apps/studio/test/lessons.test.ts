@@ -89,8 +89,9 @@ describe('the lessons', () => {
     for (const l of LESSONS)
       for (const moment of MOMENTS[l.id]) {
         const where = stepOfMoment(l.id, moment);
-        // the greeting is the one moment with no step of its own
-        if (moment === 'intro') continue;
+        // the greeting and the engine ask are the moments with no step of
+        // their own: one is where you are, the other is what stops any of it
+        if (moment === 'intro' || moment === 'engine') continue;
         expect(where, `${l.id}: ${moment}`).not.toBeNull();
         expect(where?.of, `${l.id}: ${moment}`).toBe(l.steps.length);
         expect(where?.at, `${l.id}: ${moment}`).toBeLessThanOrEqual(l.steps.length);
@@ -129,23 +130,56 @@ describe('lessonState', () => {
   const part = (brandId = 'b1', paused = false) => ({
     brandId,
     since: 'x',
-    reached: ['start'],
+    reached: ['start', 'face'],
     ...(paused ? { paused } : {}),
   });
+  /** Past the first step, which is what part done means. */
+  const AT = 1;
   it('is part done for its own brand, done once the record says so, new otherwise', () => {
-    expect(lessonState('presenter', { lessons: {}, progress: {} }, 'b1')).toBe('new');
-    expect(lessonState('presenter', { lessons: { presenter: 'x' }, progress: {} }, 'b1')).toBe('done');
-    expect(lessonState('presenter', { lessons: {}, progress: { presenter: part() } }, 'b1')).toBe('active');
+    expect(lessonState('presenter', { lessons: {}, progress: {} }, 'b1', AT)).toBe('new');
+    expect(lessonState('presenter', { lessons: { presenter: 'x' }, progress: {} }, 'b1', AT)).toBe('done');
+    expect(lessonState('presenter', { lessons: {}, progress: { presenter: part() } }, 'b1', AT)).toBe('active');
     // set down for another lesson, it is still part done and still says Continue
-    expect(lessonState('presenter', { lessons: {}, progress: { presenter: part('b1', true) } }, 'b1')).toBe('active');
+    expect(lessonState('presenter', { lessons: {}, progress: { presenter: part('b1', true) } }, 'b1', AT)).toBe(
+      'active',
+    );
     // another brand's work is that brand's
-    expect(lessonState('presenter', { lessons: {}, progress: { presenter: part('b2') } }, 'b1')).toBe('new');
+    expect(lessonState('presenter', { lessons: {}, progress: { presenter: part('b2') } }, 'b1', AT)).toBe('new');
     // taken again, it is being done again
-    expect(lessonState('presenter', { lessons: { presenter: 'x' }, progress: { presenter: part() } }, 'b1')).toBe(
+    expect(lessonState('presenter', { lessons: { presenter: 'x' }, progress: { presenter: part() } }, 'b1', AT)).toBe(
       'active',
     );
     // and one lesson's progress says nothing about another's
-    expect(lessonState('scene', { lessons: {}, progress: { presenter: part() } }, 'b1')).toBe('new');
+    expect(lessonState('scene', { lessons: {}, progress: { presenter: part() } }, 'b1', AT)).toBe('new');
+  });
+
+  it('does not call a lesson standing on its first step part done', () => {
+    // taken up and left there, nothing has been produced, so it reads exactly
+    // as it did before it was opened: Start, and how many steps it has
+    const first = { brandId: 'b1', since: 'x', reached: ['start'] };
+    expect(lessonState('presenter', { lessons: {}, progress: { presenter: first } }, 'b1', 0)).toBe('new');
+    // and it is the step it has got to that says so, not only what is stored:
+    // a lesson whose tutor is three asks in is part done before any milestone
+    // written by an older build has caught up
+    expect(lessonState('presenter', { lessons: {}, progress: { presenter: { ...first, reached: [] } } }, 'b1', 1)).toBe(
+      'active',
+    );
+    // and the milestones a lesson is handed by a record made before they were
+    // written are none at all, which is the same answer
+    expect(lessonState('presenter', { lessons: {}, progress: { presenter: { ...first, reached: [] } } }, 'b1', 0)).toBe(
+      'new',
+    );
+    // the engine ask is nobody's step, so seeing it moves no lesson along
+    expect(furthest('first-shot', ['go', 'engine'])).toBe(0);
+  });
+
+  it('reads a record that has no progress at all rather than throwing on it', () => {
+    // A server older than the field answers without it. Learn is drawn inside
+    // the app's shell, so reading that record as though the field were there
+    // took the whole page down behind the route boundary.
+    const old = { lessons: { presenter: 'x' } } as Parameters<typeof lessonState>[1];
+    expect(lessonState('presenter', old, 'b1', AT)).toBe('done');
+    expect(lessonState('scene', old, 'b1', AT)).toBe('new');
   });
 
   it('reads the furthest milestone a lesson has reached, in any order', () => {
