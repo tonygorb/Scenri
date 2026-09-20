@@ -130,6 +130,18 @@ export const COPY = {
     title: "That one didn't work",
     body: 'The tile says why. Put the shot together again and Scenri will try it again.',
   },
+  reuseProduct: {
+    title: 'Add the product you saved',
+    body: 'Yours sits in the shelf with ours. Putting it in again costs nothing: it is the same product, in a new shot.',
+  },
+  reuseScene: {
+    title: 'Put it somewhere else',
+    body: 'A different place and light, so the two shots share the product and little else.',
+  },
+  reuseResult: {
+    title: 'The same product, twice',
+    body: 'Two shots, one thing you added once. Anything Scenri keeps works this way: products, presenters and scenes.',
+  },
   refineAsk: {
     title: 'Change one thing',
     body: 'Say what to change, like warmer light or a closer crop. The rest of the shot stays.',
@@ -249,6 +261,36 @@ export function firstShotMoment(f: ShotFacts): Moment | null {
   return walk(4, { id: 'make', voice: 'ask', point: SEND, live: [BRIEF, SEND], side: 'top', ...COPY.make });
 }
 
+/**
+ * Using a saved thing again: the second shot, and the first time reuse is
+ * visible rather than described. It asks for the product they added, then a
+ * different place for it, then the words, and ends on the two pictures
+ * standing beside each other. Three asks, because what it teaches is the
+ * comparison, not how to compose.
+ */
+export function reuseMoment(f: ShotFacts): Moment | null {
+  if (!f.here)
+    return f.heading
+      ? { id: 'go', voice: 'ask', point: NAV_CREATE, side: 'bottom', soft: true, at: 1, of: 4, ...COPY.go }
+      : null;
+  const c = f.composer;
+  const made = f.nodes.find(finished);
+  if (made)
+    return { id: 'again', voice: 'note', point: tile(made.id), side: 'bottom', ...COPY.reuseResult, done: true };
+  const running = f.nodes.find((n) => n.status === 'running');
+  if (running) return { id: 'waiting', voice: 'note', point: tile(running.id), side: 'bottom', ...COPY.waiting };
+  if (c?.busy) return { id: 'sending', voice: 'quiet' };
+  if (!c || c.refining) return null;
+  const building = c.pickerOpen || ingredientsOf(c) > 0 || c.words;
+  const dud = f.nodes.find(failed);
+  if (dud && !building) return { id: 'failed', voice: 'note', point: tile(dud.id), side: 'bottom', ...COPY.failed };
+  if (c.engine !== 'ready') return { id: 'engine', voice: 'ask', point: ENGINE, side: 'top', ...COPY.engine };
+  const walk = (at: number, m: Moment): Moment => (f.viaBar ? { ...m, at: at + 1, of: 4 } : { ...m, at, of: 3 });
+  if (c.products === 0) return walk(1, pickMoment('product', c.pickerOpen, COPY.reuseProduct));
+  if (!c.scene) return walk(2, pickMoment('scene', c.pickerOpen, COPY.reuseScene));
+  return walk(3, { id: 'make', voice: 'ask', point: SEND, live: [BRIEF, SEND], side: 'top', ...COPY.make });
+}
+
 /** Where each ingredient sits in the walk. */
 const KIND_AT: Record<AskedKind, number> = { product: 1, presenter: 2, scene: 3 };
 
@@ -270,8 +312,8 @@ export function askedKind(c: ComposerFacts): AskedKind | null {
  * `$ @ / #` are words while the walk is on (BriefInput): every chip comes in
  * through the ask for it and leaves through Back.
  */
-function pickMoment(kind: AskedKind, pickerOpen: boolean): Moment {
-  const say = COPY[kind];
+function pickMoment(kind: AskedKind, pickerOpen: boolean, words?: { title: string; body: string }): Moment {
+  const say = words ?? COPY[kind];
   return pickerOpen
     ? {
         id: kind,
@@ -424,6 +466,9 @@ export interface ContextStart {
 /** The install's record of each task having been done at least once. */
 export const MILESTONE: Record<GuideTaskId, keyof GuideView['done']> = {
   'first-shot': 'shot',
+  // Using a saved thing again makes a shot like any other. It is never begun
+  // by reaching a surface, only from Learn, so this only keeps the map whole.
+  reuse: 'shot',
   refine: 'refine',
   product: 'product',
   presenter: 'presenter',

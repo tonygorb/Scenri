@@ -196,5 +196,5 @@ test('a scene has its own task, held in the dialog it is made in', async ({ page
   // closing the dialog does not end the task: Learn continues it
   expect((await guideRecord(page)).active?.task).toBe('scene');
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText(/^Step \d of 3$/);
+  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText(/^Step \d of 5$/);
 });

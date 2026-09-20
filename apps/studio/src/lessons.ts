@@ -17,19 +17,13 @@ export interface Lesson {
   /** One sentence: what someone has at the end of it. */
   summary: string;
   /** What it walks through, as outcomes rather than clicks. */
-  steps: readonly LessonStep[];
-  /** What it needs before it can begin. Refining needs a shot to refine. */
-  needs?: 'shot';
-}
-
-/**
- * A step is its outcome and one sentence of why it matters. The sentence is
- * Learn's alone: the tutor never reads it, which is what keeps a lesson able
- * to explain while a coachmark stays down to a few words.
- */
-export interface LessonStep {
-  title: string;
-  note: string;
+  steps: readonly string[];
+  /**
+   * What it needs before it can begin: a shot to refine, or a product of
+   * their own to use again. Neither is a lock, and both offer the lesson
+   * that makes the missing thing.
+   */
+  needs?: 'shot' | 'product';
 }
 
 export const LESSONS: readonly Lesson[] = [
@@ -37,116 +31,99 @@ export const LESSONS: readonly Lesson[] = [
     id: 'first-shot',
     title: 'Make your first shot',
     summary:
-      'A shot is three things Scenri keeps for you, put together and directed. Make one and the shape of the whole product is in front of you.',
+      'A shot is three things Scenri keeps for you, put together and directed: what you sell, who shows it, and where it happens. Start with ours to see the shape of it, then swap in your own.',
     steps: [
-      {
-        title: 'Choose a product, a presenter and a scene',
-        note: 'What you sell, who shows it, and where it happens. Start with ours to see how it works, then add your own.',
-      },
-      {
-        title: 'Say how to shoot it',
-        note: 'A line about the light, the framing or the moment. The three things you chose stay exactly as they are.',
-      },
-      {
-        title: 'Make the shot',
-        note: 'Generate puts your ingredients and your words together into one picture.',
-      },
-      {
-        title: 'Open it',
-        note: 'The shot keeps what it was made from, so the next one starts from the same three things.',
-      },
+      'Choose a product',
+      'Choose a presenter',
+      'Choose a scene',
+      'Say how to shoot it',
+      'Make the shot',
+      'Open what came back',
     ],
   },
   {
     id: 'product',
     title: 'Add your product',
     summary:
-      'Your own product, added once from its photos or your store, and exact in every shot you make from then on.',
+      'Your own product, added once from its packshots or straight from your store, and exact in every shot you make from then on. Nothing is drawn here and nothing is spent.',
     steps: [
-      {
-        title: 'Start a product',
-        note: 'A product is the thing you are selling. Added once, it goes into any shot, as often as you like.',
-      },
-      {
-        title: 'Add its photos, or bring in your store',
-        note: 'Straight, well lit packshots: the first three are the ones a shot uses. A store address brings in the whole catalog instead.',
-      },
-      {
-        title: 'Save it',
-        note: 'Nothing is drawn and nothing is spent here. It is yours from then on, in the shelf beside every shot.',
-      },
+      'Start a product',
+      'Add its packshots, or bring in your store',
+      'Put the clearest angle first',
+      'Name it and file it',
+      'Save it to the brand',
     ],
+  },
+  {
+    id: 'reuse',
+    title: 'Use it again',
+    summary:
+      'The same saved product in a different world. This is the whole point of keeping ingredients: one thing you added once, shot again and again without describing it twice.',
+    steps: [
+      'Open Create',
+      'Add the product you saved',
+      'Put it somewhere else',
+      'Say how to shoot it, then make it',
+      'See the same product in both',
+    ],
+    needs: 'product',
   },
   {
     id: 'presenter',
     title: 'Create a presenter',
-    summary: 'One person Scenri keeps, invented or from photos, who stays the same face across every shot.',
+    summary:
+      'One person Scenri keeps, invented question by question or built from photos of someone real, who stays the same face across every shot you put them in.',
     steps: [
-      {
-        title: 'Start a presenter',
-        note: 'A presenter is a person, not a style. The same one can carry a whole campaign.',
-      },
-      {
-        title: 'Describe someone, or add photos',
-        note: 'Photos keep a real face. Describing invents one, a question at a time, and anything you would rather leave to us can be skipped.',
-      },
-      {
-        title: 'Decide the face',
-        note: 'Every shot with them uses this face, so take the one you want. Try again costs nothing but time.',
-      },
-      {
-        title: 'Save them',
-        note: 'The other views are drawn from the face you took. Left unfinished, the work waits on your wall as a draft.',
-      },
+      'Start a presenter',
+      'Describe someone, or add photos',
+      'Fill in what is always true of them',
+      'Decide the face',
+      'Take the other views',
+      'Save them to the brand',
     ],
   },
   {
     id: 'scene',
     title: 'Build a scene',
     summary:
-      'A place and its light, saved once and shot in again, so a world does not have to be described from scratch every time.',
+      'A place and its light, saved once and shot in again. References are evidence rather than backdrops: a scene reaches a shot as words, so nothing in them is copied into a picture.',
     steps: [
-      {
-        title: 'Start a scene',
-        note: 'A scene is where a shot happens and how it feels. Any product or presenter can be put into it.',
-      },
-      {
-        title: 'Name it, then add a photo or a line',
-        note: 'References are evidence, not backdrops: a scene reaches a shot as words, so nothing in them is copied into a picture.',
-      },
-      {
-        title: 'Create it',
-        note: 'Scenri reads the references and draws one example of the empty place. The bell says when it is there.',
-      },
+      'Start a scene',
+      'Name the place',
+      'Add references, or a line of direction',
+      'Create it',
+      'Wait for its example to draw',
     ],
   },
   {
     id: 'refine',
     title: 'Refine a shot',
-    summary: 'Change one thing about a shot you already have, and keep everything else, including the original.',
+    summary:
+      'Change one thing about a shot you already have and keep everything else, including the original. This is how a shot gets good: one change at a time, never a fresh start.',
     steps: [
-      {
-        title: 'Open a shot',
-        note: 'Refining starts from a picture you have made, never from an empty page.',
-      },
-      {
-        title: 'Say one change',
-        note: 'Warmer light, a closer crop, a different angle. Whatever you do not mention stays as it was.',
-      },
-      {
-        title: 'See the change',
-        note: 'It arrives as Refinement 1 on the trail under the shot, with the original one step back.',
-      },
+      'Open a shot you have made',
+      'Say the one thing to change',
+      'Let it draw',
+      'Find it on the trail',
+      'Change one more thing',
     ],
     needs: 'shot',
   },
 ];
 
-/** What a lesson that needs a shot says, and does, when there is none yet. */
-export const NEEDS_SHOT = {
-  note: 'Refining starts from a shot you have made.',
-  action: 'Make a shot first',
-} as const;
+/** What a lesson still missing what it starts from says, and does about it. */
+export const NEEDS: Record<'shot' | 'product', { note: string; action: string; status: string }> = {
+  shot: {
+    note: 'Refining starts from a shot you have made.',
+    action: 'Make a shot first',
+    status: 'Needs a shot',
+  },
+  product: {
+    note: 'Using one again starts with a product of your own.',
+    action: 'Add a product first',
+    status: 'Needs a product',
+  },
+};
 
 export function lessonOf(id: string | null | undefined): Lesson | null {
   return LESSONS.find((l) => l.id === id) ?? null;
@@ -192,18 +169,19 @@ const AT: Record<GuideTaskId, Record<string, number>> = {
     intro: 0,
     engine: 0,
     product: 0,
-    presenter: 0,
-    scene: 0,
-    make: 1,
-    sending: 2,
-    waiting: 2,
-    failed: 2,
-    result: 3,
+    presenter: 1,
+    scene: 2,
+    make: 3,
+    sending: 4,
+    waiting: 4,
+    failed: 4,
+    result: 5,
   },
   product: { product: 1 },
-  presenter: { engine: 1, start: 1, face: 2, save: 3 },
-  scene: { scene: 1 },
-  refine: { ask: 1, 'refine-failed': 1, refining: 2, refined: 2 },
+  reuse: { go: 0, engine: 1, product: 1, scene: 2, make: 3, sending: 3, waiting: 3, failed: 3, again: 4 },
+  presenter: { engine: 1, start: 1, face: 3, save: 5 },
+  scene: { scene: 2 },
+  refine: { ask: 1, 'refine-failed': 1, refining: 2, refined: 3 },
 };
 
 const finished = (n: GuideTaskNode) => n.status === 'done' && n.images > 0;
@@ -219,13 +197,15 @@ export function stepOf(id: GuideTaskId, f: ProgressFacts): number {
   if (at !== undefined) return at;
   switch (id) {
     case 'first-shot':
-      return f.nodes.some(finished) ? 3 : f.nodes.length > 0 ? 2 : 0;
+      return f.nodes.some(finished) ? 5 : f.nodes.length > 0 ? 4 : 0;
+    case 'reuse':
+      return f.nodes.some(finished) ? 4 : f.nodes.length > 0 ? 3 : 0;
     case 'presenter':
-      return f.draft ? 2 : 0;
+      return f.draft ? 3 : 0;
     case 'scene':
-      return f.building ? 2 : 0;
+      return f.building ? 3 : 0;
     case 'refine':
-      return f.nodes.some(finished) ? 2 : f.nodes.some((n) => n.status === 'running') ? 2 : 0;
+      return f.nodes.some(finished) ? 3 : f.nodes.some((n) => n.status === 'running') ? 2 : 0;
     default:
       return 0;
   }
@@ -245,6 +225,10 @@ export const LESSON_PICTURES: Record<GuideTaskId, { square: string; wide: string
   product: {
     square: new URL('./assets/lessons/product-square.webp', import.meta.url).href,
     wide: new URL('./assets/lessons/product-wide.webp', import.meta.url).href,
+  },
+  reuse: {
+    square: new URL('./assets/lessons/reuse-square.webp', import.meta.url).href,
+    wide: new URL('./assets/lessons/reuse-wide.webp', import.meta.url).href,
   },
   presenter: {
     square: new URL('./assets/lessons/presenter-square.webp', import.meta.url).href,

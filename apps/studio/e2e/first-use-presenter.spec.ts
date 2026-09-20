@@ -93,7 +93,7 @@ test('the face and the save are the two words it says, and saving ends the task'
   // Learn continues that exact draft.
   await page.goto(`/${slug}`);
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText(/^Step \d of 4$/);
+  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText(/^Step \d of 6$/);
   await lessonRow(page, 'Create a presenter').click();
   await learnDialog(page)
     .getByRole('button', { name: /^Continue:/ })

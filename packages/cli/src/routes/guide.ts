@@ -19,7 +19,7 @@ import { compareSemver } from '../update/versionsDir.js';
  * a refinement, a product, a presenter, a scene) and latched the first time
  * it is seen, so deleting the thing later never takes the step back.
  */
-export const TASKS = ['first-shot', 'refine', 'product', 'presenter', 'scene'] as const;
+export const TASKS = ['first-shot', 'refine', 'product', 'presenter', 'scene', 'reuse'] as const;
 export type TaskId = (typeof TASKS)[number];
 export const MILESTONES = ['shot', 'refine', 'product', 'presenter', 'scene'] as const;
 export type Milestone = (typeof MILESTONES)[number];
@@ -224,7 +224,8 @@ export function readGuide(core: Core, env: NodeJS.ProcessEnv): GuideView {
   if (changed) write(core.store, r);
 
   const a = r.active;
-  const nodeKind = a?.task === 'first-shot' ? 'generation' : a?.task === 'refine' ? 'edit' : null;
+  const nodeKind =
+    a?.task === 'first-shot' || a?.task === 'reuse' ? 'generation' : a?.task === 'refine' ? 'edit' : null;
   const eligible = r.eligible && env.SCENRI_NO_GUIDE !== '1';
   return {
     eligible,

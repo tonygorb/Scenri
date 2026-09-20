@@ -118,7 +118,7 @@ test('a task belongs to its own brand, and another brand is not guided by it', a
   await expect(learnDialog(page).locator('.sc-learn-status', { hasText: /^Step/ })).toHaveCount(0);
   await page.goto(`/${b}`);
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText(/^Step \d of 3$/);
+  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText(/^Step \d of 5$/);
 });
 
 test('someone who built the brief their own way is not asked for it again', async ({ page }) => {

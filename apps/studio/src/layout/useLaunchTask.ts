@@ -15,15 +15,17 @@ import { hubPath, P, presenterStudioPath, shotPath } from '../routes.js';
  * own draft and never an unrelated one.
  */
 export function useLaunchTask(): (task: GuideTaskId) => Promise<void> {
-  const { brand, recent } = useBrand();
+  const { brand, recent, products } = useBrand();
   const navigate = useNavigate();
   const createAsset = useCreateAsset();
   const onHub = !!useMatch(P.hub);
   return useCallback(
     async (task: GuideTaskId) => {
       const shot = recent.find((n) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0);
-      // Nothing to refine yet: refining starts with a shot.
-      const want: GuideTaskId = task === 'refine' && !shot ? 'first-shot' : task;
+      // Nothing to refine yet: refining starts with a shot. Nothing of their
+      // own to use again: that lesson starts with adding one.
+      const want: GuideTaskId =
+        task === 'refine' && !shot ? 'first-shot' : task === 'reuse' && products.length === 0 ? 'product' : task;
       const held = guideSnapshot().active;
       // In hand here already: carried on. Paused here: the record continues it
       // (same window, same draft). Anything else begins it.
@@ -31,6 +33,7 @@ export function useLaunchTask(): (task: GuideTaskId) => Promise<void> {
         await guideIntent({ start: { task: want, brandId: brand.id } });
       }
       switch (want) {
+        case 'reuse':
         case 'first-shot':
           if (onHub) {
             // begun where it happens: the opening greets them, and the walk is four
@@ -51,6 +54,6 @@ export function useLaunchTask(): (task: GuideTaskId) => Promise<void> {
           return createAsset(want);
       }
     },
-    [brand, recent, navigate, createAsset, onHub],
+    [brand, recent, products, navigate, createAsset, onHub],
   );
 }

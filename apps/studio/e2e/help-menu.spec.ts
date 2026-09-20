@@ -56,8 +56,8 @@ test('Learn counts only the lessons taken, whatever the library holds, and start
   await expect(page).toHaveURL(/learn=lessons/);
   // the seeded brand already holds a finished shot, and that is not the same
   // as having taken the lesson about making one: nothing here is ticked
-  await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('4 steps');
-  await expect(page.locator('.sc-learn-count')).toHaveText('0 of 5 done');
+  await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('6 steps');
+  await expect(page.locator('.sc-learn-count')).toHaveText('0 of 6 done');
   await page.keyboard.press('Escape');
 
   // Opening a surface is not asking to be guided on an install that was not new.
@@ -111,7 +111,7 @@ test('an install that was not new is never taught uninvited, and Learn is one pr
   await page.getByRole('menuitem', { name: 'Learn' }).click();
   await expect(page).toHaveURL(/learn=lessons/);
   const dialog = page.getByRole('dialog', { name: 'Learn' });
-  await expect(dialog.locator('.sc-learn-row')).toHaveCount(5);
+  await expect(dialog.locator('.sc-learn-row')).toHaveCount(6);
   // looking is not starting: nothing is in hand until a lesson is begun
   expect(((await (await page.request.get('/api/guide')).json()) as { active: unknown }).active).toBeNull();
   await page.keyboard.press('Escape');

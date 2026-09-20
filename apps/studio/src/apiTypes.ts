@@ -850,7 +850,7 @@ export interface CommerceScanState {
 }
 
 /** First use (packages/cli/src/routes/guide.ts): the install's record and what the active task has made. */
-export type GuideTaskId = 'first-shot' | 'refine' | 'product' | 'presenter' | 'scene';
+export type GuideTaskId = 'first-shot' | 'refine' | 'product' | 'presenter' | 'scene' | 'reuse';
 export type GuideMilestone = 'shot' | 'refine' | 'product' | 'presenter' | 'scene';
 
 export interface GuideCounts {

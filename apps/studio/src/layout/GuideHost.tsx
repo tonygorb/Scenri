@@ -15,6 +15,7 @@ import {
   madeOne,
   mergeTaskNodes,
   presenterMoment,
+  reuseMoment,
   productMoment,
   refineMoment,
   SHOT_COMPOSER,
@@ -199,20 +200,21 @@ export function GuideHost() {
 
   // The one moment, from what is true now.
   let moment: Moment | null = null;
-  if (task === 'first-shot') {
+  if (task === 'first-shot' || task === 'reuse') {
     const c = facts.composer?.brandId === brand.id ? facts.composer : null;
     // The render that arrives by the way to Create already knows it did: the
     // flag is only written down after it, and a card placed for the in-between
     // (no Back, "1 of 4", the greeting still due) grew into what it points at.
     const arriving = hub && guide.heading === brand.id;
-    moment = firstShotMoment({
+    const shotFacts = {
       here: hub && !modal,
       heading: guide.heading === brand.id && !hub && !modal,
       viaBar: viaBar || arriving,
       composer: c && settling ? { ...c, busy: true } : c,
       nodes,
       begun: begun || arriving || nodes.length > 0,
-    });
+    };
+    moment = task === 'reuse' ? reuseMoment(shotFacts) : firstShotMoment(shotFacts);
   } else if (task === 'refine') moment = refineMoment({ here: !!shot, nodes, asking: !!firstVisible(SHOT_COMPOSER) });
   else if (task === 'presenter') moment = studio ? presenterMoment(facts.studio) : null;
   else if (task === 'scene') moment = sceneMoment(newKind === 'scene');
@@ -223,8 +225,18 @@ export function GuideHost() {
    * open it at a product and it is products, pick one and it is presenters.
    * Everything else in there is not what this moment is about.
    */
+  const mine = facts.composer?.brandId === brand.id ? facts.composer : null;
   const asked: AskedKind | null =
-    task === 'first-shot' && facts.composer?.brandId === brand.id ? askedKind(facts.composer) : null;
+    task === 'first-shot' && mine
+      ? askedKind(mine)
+      : // using a saved thing again asks for two of the three, in its own order
+        task === 'reuse' && mine
+        ? mine.products === 0
+          ? 'product'
+          : !mine.scene
+            ? 'scene'
+            : null
+        : null;
   const pickerOpen = !!facts.composer?.pickerOpen;
   useEffect(() => {
     if (!pickerOpen) return;

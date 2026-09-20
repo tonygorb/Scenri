@@ -6,11 +6,11 @@ import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId } from '../apiTypes.js';
 import { useGuide } from '../guide.js';
 import { useGuideFacts } from '../guideFacts.js';
-import { firstShotMoment, presenterMoment } from '../guidedTasks.js';
+import { firstShotMoment, presenterMoment, reuseMoment } from '../guidedTasks.js';
 import {
   LESSON_PICTURES,
   LESSONS,
-  NEEDS_SHOT,
+  NEEDS,
   lessonOf,
   lessonState,
   stepOf,
@@ -46,7 +46,7 @@ export function LearnDialog() {
   const phone = useMediaQuery(PHONE);
   const guide = useGuide();
   const facts = useGuideFacts();
-  const { brand, recent } = useBrand();
+  const { brand, recent, products } = useBrand();
   const { builds } = useTaskCenter();
   const launch = useLaunchTask();
 
@@ -79,17 +79,21 @@ export function LearnDialog() {
   };
 
   const hasShot = recent.some((n) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0);
-  /** Refining needs a shot to refine: until there is one, the lesson cannot begin. */
-  const blockedOf = (l: Lesson) => l.needs === 'shot' && !hasShot;
+  /** What a lesson starts from, when the brand does not hold it yet. */
+  const blockedOf = (l: Lesson): 'shot' | 'product' | null =>
+    (l.needs === 'shot' && !hasShot) || (l.needs === 'product' && products.length === 0) ? (l.needs ?? null) : null;
   const stateOf = (l: Lesson): LessonState => lessonState(l.id, guide, brand.id);
   const stepNow = (l: Lesson): number => {
     const composer = facts.composer?.brandId === brand.id ? facts.composer : null;
+    const shot = { here: true, composer, nodes: guide.activeNodes, begun: true };
     const moment =
       l.id === 'first-shot'
-        ? (firstShotMoment({ here: true, composer, nodes: guide.activeNodes, begun: true })?.id ?? null)
-        : l.id === 'presenter'
-          ? (presenterMoment(facts.studio)?.id ?? null)
-          : null;
+        ? (firstShotMoment(shot)?.id ?? null)
+        : l.id === 'reuse'
+          ? (reuseMoment(shot)?.id ?? null)
+          : l.id === 'presenter'
+            ? (presenterMoment(facts.studio)?.id ?? null)
+            : null;
     return stepOf(l.id, {
       moment,
       nodes: guide.activeNodes,
@@ -235,13 +239,13 @@ function LessonView({
   lesson: Lesson;
   state: LessonState;
   at: number;
-  blocked: boolean;
+  blocked: 'shot' | 'product' | null;
   describe: boolean;
   actionRef: RefObject<HTMLButtonElement>;
   onBegin: () => void;
 }) {
   const verb = blocked
-    ? NEEDS_SHOT.action
+    ? NEEDS[blocked].action
     : state === 'active'
       ? 'Continue'
       : state === 'done'
@@ -294,17 +298,9 @@ function LessonView({
                 </span>
               );
               const current = state === 'active' && i === at ? 'step' : undefined;
-              // The outcome, and on the step in hand the one sentence saying
-              // why it matters. Every step explaining itself at once was a
-              // wall of text: the sentence belongs where the work is.
-              const said = (
-                <span className="sc-learn-step-say">
-                  <span className="sc-learn-step-name">{step.title}</span>
-                  {i === inHand && <span className="sc-learn-step-note">{step.note}</span>}
-                </span>
-              );
+              const said = <span className="sc-learn-step-name">{step}</span>;
               return (
-                <li key={step.title}>
+                <li key={step}>
                   {i === inHand ? (
                     <button
                       ref={actionRef}
@@ -313,7 +309,7 @@ function LessonView({
                       data-state={s}
                       data-here=""
                       aria-current={current}
-                      aria-label={`${verb}: ${step.title}`}
+                      aria-label={`${verb}: ${step}`}
                       onClick={onBegin}
                     >
                       {mark}
@@ -333,7 +329,7 @@ function LessonView({
               );
             })}
           </ol>
-          {blocked && <p className="sc-learn-note">{NEEDS_SHOT.note}</p>}
+          {blocked && <p className="sc-learn-note">{NEEDS[blocked].note}</p>}
         </div>
       </div>
     </section>
@@ -341,7 +337,17 @@ function LessonView({
 }
 
 /** Where a lesson stands, in a few quiet words: done in green, never a percentage. */
-function Status({ lesson, state, at, blocked }: { lesson: Lesson; state: LessonState; at: number; blocked?: boolean }) {
+function Status({
+  lesson,
+  state,
+  at,
+  blocked,
+}: {
+  lesson: Lesson;
+  state: LessonState;
+  at: number;
+  blocked?: 'shot' | 'product' | null;
+}) {
   const n = lesson.steps.length;
   if (state === 'done')
     return (
@@ -359,7 +365,7 @@ function Status({ lesson, state, at, blocked }: { lesson: Lesson; state: LessonS
       </span>
     );
   // why its action reads differently: it cannot begin until there is a shot
-  if (blocked) return <span className="sc-learn-status">Needs a shot</span>;
+  if (blocked) return <span className="sc-learn-status">{NEEDS[blocked].status}</span>;
   return <span className="sc-learn-status">{n} steps</span>;
 }
 

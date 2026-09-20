@@ -42,12 +42,15 @@ test('Learn is a quiet button beside the bell, and every lesson is in it', async
   await expect(learn(page).locator('.sc-learn-name')).toHaveText([
     'Make your first shot',
     'Add your product',
+    'Use it again',
     'Create a presenter',
     'Build a scene',
     'Refine a shot',
   ]);
   // where each stands, in a few words: a count of steps, never a time
-  await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('4 steps');
+  await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('6 steps');
+  // nothing of their own to use again yet, so that one says what it starts from
+  await expect(card(page, 'Use it again').locator('.sc-learn-status')).toHaveText('Needs a product');
   // never a time: a word-boundary match, so a lesson may say "framing"
   await expect(learn(page)).not.toContainText(/\b(mins?|minutes?|hours?)\b/i);
   // pressed while open it shows it is the one open
@@ -61,8 +64,10 @@ test('Learn is a quiet button beside the bell, and every lesson is in it', async
   await expect(learn(page).locator('.sc-learn-step-name')).toHaveText([
     'Start a presenter',
     'Describe someone, or add photos',
+    'Fill in what is always true of them',
     'Decide the face',
-    'Save them',
+    'Take the other views',
+    'Save them to the brand',
   ]);
   await expect(learn(page).locator('button.sc-learn-step')).toHaveCount(1);
   await expect(action(page, 'Start')).toHaveAccessibleName('Start: Start a presenter');
@@ -101,7 +106,7 @@ test('a lesson begun in Learn is paused and continued as it was', async ({ page 
   // Learn says it is in hand
   await page.goto(`/${slug}`);
   await learnButton(page).click();
-  await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('Step 1 of 4');
+  await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('Step 1 of 6');
   await card(page, 'Create a presenter').click();
   await expect(learn(page).locator('.sc-learn-step[aria-current="step"] .sc-learn-step-name')).toHaveText(
     'Start a presenter',
@@ -133,7 +138,7 @@ test('a lesson done from Learn is done there, and can be done again', async ({ p
   await learnButton(page).click();
   await expect(card(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('Done');
   await card(page, 'Build a scene').click();
-  await expect(learn(page).locator('.sc-learn-step[data-state="done"]')).toHaveCount(3);
+  await expect(learn(page).locator('.sc-learn-step[data-state="done"]')).toHaveCount(5);
   await expect(action(page, 'Start again')).toBeVisible();
 });
 
@@ -185,7 +190,7 @@ test('on a phone Learn is the sheet, and every lesson a row', async ({ page }) =
   await page.locator('.sc-topbar .sc-help-btn').click();
   await page.getByRole('menuitem', { name: 'Learn' }).click();
   await expect(page).toHaveURL(/learn=lessons/);
-  await expect(learn(page).locator('.sc-learn-row')).toHaveCount(5);
+  await expect(learn(page).locator('.sc-learn-row')).toHaveCount(6);
   // the list alone: a phone opens one lesson at a time, over it
   await expect(learn(page).locator('.sc-learn-lesson')).toHaveCount(0);
   const columns = await learn(page)
