@@ -274,7 +274,7 @@ function LessonView({
             const s = stepState(i);
             const mark = (
               <span className="sc-learn-n" aria-hidden="true">
-                {s === 'done' ? <Check size={12} weight="bold" /> : i + 1}
+                {s === 'done' ? <Check size={14} weight="bold" /> : i + 1}
               </span>
             );
             const current = state === 'active' && i === at ? 'step' : undefined;
