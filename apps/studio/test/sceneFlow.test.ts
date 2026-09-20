@@ -373,3 +373,26 @@ describe('a phrase typed at the first question', () => {
     expect(fillFrom('nothing it knows about')).toEqual({});
   });
 });
+
+describe('what is worth reading', () => {
+  const guided = { source: { door: 'guided' as const } };
+
+  it('does not spend a reading on nothing when every row was passed', () => {
+    const passed = { ...guided, world: { pick: PASSED }, shot: { pick: PASSED } };
+    // the questions are over, so nothing is on the floor
+    expect(nextQuestion(passed)).toBeNull();
+    // but there is nothing to read, and a reading costs a real call
+    expect(setupDone(passed)).toBe(false);
+  });
+
+  it('is ready the moment one of them says something, tapped or typed', () => {
+    expect(setupDone({ ...guided, world: { pick: 'water' }, shot: { pick: PASSED } })).toBe(true);
+    expect(setupDone({ ...guided, world: { pick: PASSED }, shot: { words: 'from a doorway' } })).toBe(true);
+  });
+
+  it('holds for the other two doors too', () => {
+    expect(setupDone({ source: { door: 'words', text: '   ' } })).toBe(false);
+    expect(setupDone({ source: { door: 'words', text: 'a cold shore' } })).toBe(true);
+    expect(setupDone({ source: { door: 'photos' }, photos: { hashes: [], done: true } })).toBe(false);
+  });
+});

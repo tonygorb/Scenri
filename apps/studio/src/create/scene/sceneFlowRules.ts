@@ -19,6 +19,7 @@ import {
   type Qid,
   type SetupState,
   serializeSetup,
+  saidSomething,
 } from './sceneSetup.js';
 import { current, deserialize, pictureNumber, readingLines, serialize, type StudioState } from './sceneStudioRules.js';
 
@@ -335,6 +336,11 @@ export function composerFor(args: FlowArgs, open: Question | null): ComposerFor 
   if (reopened === 'source') return say({ kind: 'source' }, COPY.sourcePlaceholder, true);
   if (reopened && isRow(reopened)) return say({ kind: 'row', id: reopened }, COPY.rowPlaceholder(rowNoun(reopened)));
   if (reopened === 'photos') return off(COPY.photosOff);
+  // Every row passed and nothing said. The questions are over, so the line is
+  // the only way on and it says so: without this the composer went off with
+  // nothing on the floor, and Start over was the only move left.
+  if (!open && !studio.job && setup.answers.source && !saidSomething(setup.answers))
+    return say({ kind: 'source' }, COPY.nothingSaidPlaceholder, true);
   if (!open) return studio.job ? off('', true) : off('');
   if (open.id === 'source') return say({ kind: 'source' }, COPY.sourcePlaceholder, true);
   if (open.id === 'photos') return { ...off(COPY.photosOff), attach: true };

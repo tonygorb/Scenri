@@ -30,6 +30,8 @@ export const COPY = {
 
   // the composer
   sourcePlaceholder: 'Describe the place, or choose above',
+  /** Every question passed and nothing said: the line is the only way on. */
+  nothingSaidPlaceholder: 'Tell me where we are, in your own words',
   /**
    * The line at a row, naming what it is for.
    *

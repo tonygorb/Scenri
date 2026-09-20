@@ -66,7 +66,22 @@ export function nextQuestion(a: Answers): Qid | null {
   return SPECS.find((s) => s.applies(a) && !answered(s.id, a))?.id ?? null;
 }
 
-export const setupDone = (a: Answers): boolean => !!a.source && nextQuestion(a) === null;
+/**
+ * Whether the setup has said anything worth reading.
+ *
+ * Skipping every row is allowed, and it used to send the reader the two words
+ * "A place." — a whole reading spent on nothing, and a scene drawn from it
+ * that could be anywhere. A row passed is still an answer, so the questions
+ * are over; there is simply nothing to read yet, and the line below is where
+ * it comes from.
+ */
+export const saidSomething = (a: Answers): boolean => {
+  if (a.source?.door === 'words') return !!a.source.text?.trim();
+  if (a.source?.door === 'photos') return (a.photos?.hashes.length ?? 0) > 0;
+  return ROW_ORDER.some((r) => rowWords(r, a[r]) !== null);
+};
+
+export const setupDone = (a: Answers): boolean => !!a.source && nextQuestion(a) === null && saidSomething(a);
 
 const differs = (x: unknown, y: unknown) => JSON.stringify(x) !== JSON.stringify(y);
 
