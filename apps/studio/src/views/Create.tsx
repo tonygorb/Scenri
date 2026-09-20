@@ -270,10 +270,15 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   const feedRef = useRef(feed);
   feedRef.current = feed;
   lineageIdsRef.current = useMemo(() => new Set(items.map((n) => n.id)), [items]);
-  /** Every shot this screen has ever held or heard of, so a poll's stranger is told from an old friend. */
-  const seen = useRef(new Set<string>());
+  /**
+   * Every shot this screen has ever held or heard of, so a poll's stranger is
+   * told from an old friend, and the record it was last seen in, so one that
+   * comes back (an archive undone) is counted as the move it is rather than
+   * as an arrival.
+   */
+  const seen = useRef(new Map<string, FeedNode>());
   useEffect(() => {
-    for (const n of items) seen.current.add(n.id);
+    for (const n of items) seen.current.set(n.id, n);
   }, [items]);
 
   /** What assistive technology hears about generation (see liveStatus.ts). */
@@ -298,11 +303,27 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         if (!firstDiff && messages.length) setGenLive(messages.join(' '));
         const f = feedRef.current;
         let stranger = false;
+        /**
+         * Shots this screen held once and dropped, changed again: an archive
+         * undone, a keeper unkept while the Keepers lens is up. `patch` only
+         * ever touches what the feed still holds, and an old friend was not a
+         * stranger either, so a restored shot went back into the record and
+         * came back to the screen only on the next read of the feed.
+         */
+        const back: FeedNode[] = [];
+        const was = new Map<string, FeedNode>();
         for (const n of fresh) {
           if (f.byId.has(n.id)) f.patch(n);
-          else if (!seen.current.has(n.id) && n.kind !== 'root') stranger = true;
-          seen.current.add(n.id);
+          else if (seen.current.has(n.id)) {
+            const last = seen.current.get(n.id);
+            if (last) was.set(n.id, last);
+            back.push(n);
+          } else if (n.kind !== 'root') stranger = true;
+          seen.current.set(n.id, n);
         }
+        // admits it, places it in the feed's own order, or reads again when a
+        // search query means it cannot know
+        if (back.length) f.insert(back, was);
         if (stranger && f.ready) void f.refresh().catch(() => {});
       }),
     [subscribeActivity],
@@ -472,7 +493,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    */
   const landed = useCallback(
     (nodes: FeedNode[]) => {
-      for (const n of nodes) seen.current.add(n.id);
+      for (const n of nodes) seen.current.set(n.id, n);
       feedRef.current.insert(nodes);
       applyNodes(nodes);
       poke();
@@ -494,7 +515,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   // one implementation for every surface that can put a shot away or bring it
   // back — the feed tile, its context menu, the overlay toolbar, the Info tab
   const applyOne = useCallback((n: FeedNode) => applyNodes([n]), [applyNodes]);
-  const { archive, unarchive, unarchiveBatch } = useArchiveNode(applyOne);
+  const { archive, archiveBatch, unarchive, unarchiveBatch } = useArchiveNode(applyOne);
   // permanent — only ever reachable once a shot is already archived
   const dropIds = useCallback((ids: string[]) => feedRef.current.drop(ids), []);
   const { remove, removeBatch } = useDeleteNode(dropIds);
@@ -1179,6 +1200,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             }}
             onClear={() => setPicked(new Set())}
             onKeep={() => void keepPicked()}
+            onArchiveBatch={(ids) => void archiveBatch(ids).then(() => setPicked(new Set()))}
             allKept={pickedNodes.length > 0 && pickedNodes.every((n) => n.kept)}
             // Keep/Add-to-set are curation actions for active work —
             // an archived selection only makes sense as "bring it back" or

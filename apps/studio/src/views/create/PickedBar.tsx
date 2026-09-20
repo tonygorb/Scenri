@@ -10,6 +10,7 @@ export function PickedBar({
   onNew,
   onClear,
   onKeep,
+  onArchiveBatch,
   allKept,
   archivedLens,
   pickedIds,
@@ -22,6 +23,8 @@ export function PickedBar({
   onNew: () => void;
   onClear: () => void;
   onKeep: () => void;
+  /** Put the lot away, the same verb the tile's own menu carries. */
+  onArchiveBatch: (ids: string[]) => void;
   allKept: boolean;
   /** Keep/Add-to-set are curation for active work — an archived
    * selection only has two sensible actions, so the bar swaps entirely. */
@@ -31,7 +34,7 @@ export function PickedBar({
   onDeleteBatch: (ids: string[]) => void;
 }) {
   return (
-    <div className="sc-picked" role="status">
+    <div className="sc-picked" data-lens={archivedLens ? 'archived' : undefined} role="status">
       <span className="sc-picked-n">{count} selected</span>
       {archivedLens ? (
         <button type="button" className="sc-btn" onClick={() => onRestoreBatch(pickedIds)}>
@@ -41,6 +44,9 @@ export function PickedBar({
         <>
           <button type="button" className="sc-btn" onClick={onKeep}>
             {allKept ? 'Remove from keepers' : 'Keep'}
+          </button>
+          <button type="button" className="sc-btn" onClick={() => onArchiveBatch(pickedIds)}>
+            Archive
           </button>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
@@ -60,7 +66,7 @@ export function PickedBar({
           </DropdownMenu.Root>
         </>
       )}
-      <button type="button" className="sc-btn" onClick={onClear}>
+      <button type="button" className="sc-btn sc-picked-clear" onClick={onClear}>
         Clear
       </button>
       {archivedLens && (
