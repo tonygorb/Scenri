@@ -193,7 +193,7 @@ export function useCreationFlow({
   capsNote,
 }: CreationFlowArgs) {
   const { brand } = useBrand();
-  const { presenterCategories } = useAppData();
+  const { presenterCategories, applyBrand } = useAppData();
   const openSetup = useOpenSetup();
   const canDraw = !!caps?.canGenerate;
 
@@ -464,6 +464,10 @@ export function useCreationFlow({
       try {
         await api.updatePresenterDraft(brand.id, draft.id, { facets });
         const r = await api.savePresenterDraft(brand.id, draft.id);
+        // Applied before anything moves: the page this lands on, the wall and
+        // the picker all read the brand, and it used to arrive a round trip
+        // later, so their own page opened on "isn't here anymore".
+        applyBrand(r.brand);
         clearSetup();
         dispatch({ type: 'start-over' });
         onStarted({ kind: 'presenter', id: r.presenter.id, name: r.presenter.name });
@@ -472,7 +476,7 @@ export function useCreationFlow({
         setSaveErr(String(e?.message ?? e));
       }
     },
-    [d, saving, canDraw, brand.id, facets, clearSetup, onStarted],
+    [d, saving, canDraw, brand.id, facets, clearSetup, onStarted, applyBrand],
   );
 
   /**

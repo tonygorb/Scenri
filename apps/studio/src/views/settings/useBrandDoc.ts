@@ -148,7 +148,10 @@ export function useBrandDoc(): BrandDoc {
 
   useEffect(() => {
     const onLeave = () => {
-      if (Object.keys(overlayRef.current).length) saveBrandOnUnload(brandRef.current.id, compose());
+      if (!Object.keys(overlayRef.current).length) return;
+      void saveBrandOnUnload(brandRef.current.id, compose()).then((row) => {
+        if (row) applyBrand(row);
+      });
     };
     window.addEventListener('beforeunload', onLeave);
     return () => {
@@ -158,7 +161,7 @@ export function useBrandDoc(): BrandDoc {
       // component left to await the answer.
       onLeave();
     };
-  }, [compose]);
+  }, [compose, applyBrand]);
 
   return { json: compose(), state, patch, flush, applyRow };
 }

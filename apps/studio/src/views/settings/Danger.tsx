@@ -1,13 +1,15 @@
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { api } from '../../api.js';
+import { useAppData } from '../../app/AppShell.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { brandName } from '../../layout/nav.js';
 import { Confirm } from '../../Confirm.js';
 import { Group } from './Group.js';
 
 export function Danger({ onDone }: { onDone: () => void }) {
-  const { brand } = useBrand();
+  const { brand, resetShots } = useBrand();
+  const { refresh } = useAppData();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const run = useCallback(
@@ -16,6 +18,8 @@ export function Danger({ onDone }: { onDone: () => void }) {
       try {
         await api.deleteData(scope);
         onDone();
+        // the feed and the shot pages behind this dialog hold their own pages
+        if (scope === 'shots') resetShots();
         // wiping everything means starting at the wizard, not reloading back
         // into this dialog on a brand that no longer exists
         if (scope === 'all') window.location.replace('/');
@@ -23,7 +27,7 @@ export function Danger({ onDone }: { onDone: () => void }) {
         setBusy(false);
       }
     },
-    [onDone],
+    [onDone, resetShots],
   );
 
   return (
@@ -44,7 +48,10 @@ export function Danger({ onDone }: { onDone: () => void }) {
             setBusy(true);
             void api
               .deleteBrand(brand.id)
-              .then(onDone)
+              // The list first, then the move: navigating while the deleted
+              // brand was still listed mounted it again for a round trip, and
+              // every read it started for itself failed.
+              .then(() => refresh())
               // The row this dialog is rendered inside is gone; land somewhere
               // that still exists rather than re-resolving a dead slug.
               .then(() => navigate('/', { replace: true }))

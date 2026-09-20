@@ -816,6 +816,111 @@ describe('custom presenters and scenes', () => {
     expect(res.json().warnings.join(' ')).toContain('no longer installed');
   });
 
+  // Every surface that shows a scene reads it off the brand the shell holds. A
+  // delete that answered `{ok:true}` gave the client nothing to apply, so the
+  // card stayed on the wall until a reload while the record was already gone.
+  it('a scene delete answers with the brand it left behind', async () => {
+    const brand = await newBrand();
+    const post = (name: string) =>
+      app.inject({ method: 'POST', url: `/api/brands/${brand.id}/scenes`, payload: { ...SCENE_BODY, name } });
+    const gone = (await post('Gone Shore')).json().scene;
+    await post('Kept Shore');
+
+    const res = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/scenes/${gone.id}` });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.brand.id).toBe(brand.id);
+    expect(body.brand.json.scenes.map((s: any) => s.name)).toEqual(['Kept Shore']);
+    // the answer is the stored row, not a guess at it
+    expect(body.brand.updatedAt).toBe(core.store.getBrand(brand.id)?.updatedAt);
+
+    // a second delete of the same scene is told plainly that it is gone
+    const again = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/scenes/${gone.id}` });
+    expect(again.statusCode).toBe(404);
+  });
+
+  it('a scene delete that cannot be written says so and leaves the brand as it was', async () => {
+    const brand = await newBrand();
+    const scene = (
+      await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/scenes`, payload: SCENE_BODY })
+    ).json().scene;
+    const write = core.store.updateBrand;
+    core.store.updateBrand = () => {
+      throw new Error('disk is full');
+    };
+    try {
+      const res = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/scenes/${scene.id}` });
+      expect(res.statusCode).toBe(500);
+      expect(res.json().error).toBe('disk is full');
+    } finally {
+      core.store.updateBrand = write;
+    }
+    expect(brandJson(brand.id).scenes.map((s: any) => s.id)).toEqual([scene.id]);
+  });
+
+  /** An analyzer that holds every read until the test lets it go. */
+  const heldAnalyzer = () => {
+    let release = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const base = analyzer();
+    return {
+      release: () => release(),
+      analyzer: {
+        ...base,
+        analyze: async (req: any) => {
+          await gate;
+          return base.analyze(req);
+        },
+      },
+    };
+  };
+
+  it('deleting a scene stops a read still running over it, and the read cannot bring it back', async () => {
+    const brand = await newBrand();
+    await runBuild(brand.id, { kind: 'scene', name: 'Wet Basalt Shore', imageHashes: [await savePhoto('#123456')] });
+    const id = brandJson(brand.id).scenes[0].id;
+
+    await app.close();
+    const held = heldAnalyzer();
+    app = start({ analyzer: held.analyzer });
+    const read = await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/scenes/${id}/reread`, payload: {} });
+    expect(read.statusCode).toBe(200);
+
+    const del = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/scenes/${id}` });
+    expect(del.statusCode).toBe(200);
+    held.release();
+    const job = await settle(brand.id, read.json().jobId);
+
+    expect(job.stage).toBe('cancelled');
+    expect(brandJson(brand.id).scenes ?? []).toHaveLength(0);
+  });
+
+  it('a read that finishes over a scene some other write removed ends as a failure, not a new scene', async () => {
+    const brand = await newBrand();
+    await runBuild(brand.id, { kind: 'scene', name: 'Wet Basalt Shore', imageHashes: [await savePhoto('#654321')] });
+    const id = brandJson(brand.id).scenes[0].id;
+
+    await app.close();
+    const held = heldAnalyzer();
+    app = start({ analyzer: held.analyzer });
+    const read = await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/scenes/${id}/reread`, payload: {} });
+    expect(read.statusCode).toBe(200);
+
+    // Not through the delete route, which would cancel the read: any other
+    // writer that drops the record while the analyzer is still out.
+    const row = core.store.getBrand(brand.id)!;
+    core.store.updateBrand(brand.id, { ...(row.json as any), scenes: [] });
+    held.release();
+    const job = await settle(brand.id, read.json().jobId);
+
+    expect(job.stage).toBe('failed');
+    expect(job.error).toMatch(/deleted while it was being read again/);
+    expect(brandJson(brand.id).scenes ?? []).toHaveLength(0);
+  });
+
   // The plate is a conditioning image now: a redrawn card with baked-in bars
   // would be faithfully reproduced into customer shots, so the redraw route
   // trims exactly the way the build path always has.

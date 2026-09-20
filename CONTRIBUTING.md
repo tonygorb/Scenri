@@ -48,6 +48,25 @@ the same data, with CSS and components hot swapping in about a tenth of a second
 Build and reload on 4747 only when you need what the browser suites need: the E2E
 run, `pnpm test:visual`, or a video capture.
 
+### Saved changes reach every surface without a reload
+
+A saved product, presenter, scene, logo or colour is read from one place: the
+brand row the shell holds (`useBrand().brand`), or the product library for
+products that came from a store. Never copy one into page state. A write answers
+with what it changed, and the caller applies that answer before it navigates or
+announces anything:
+
+- a write to the brand document answers with the brand: `applyBrand(r.brand)`;
+- a write to a store product: `refreshProducts()`;
+- a write the client did not answer itself (a build that landed): `refreshBrands()`.
+
+`app/brandRows.ts` orders the answers, so one that arrives late never puts back
+what a newer one removed. A write that resolves after its page has gone still
+applies its answer, but navigates only if the page is still on screen
+(`useStillHere`). Never reload, and never poll to catch up. The realtime specs
+(`e2e/*-realtime.spec.ts`) prove each surface in one document, with no reload
+between the change and the check.
+
 ## Working in parallel checkouts
 
 To work on more than one thing at once, or to let several coding agents work at once, give each

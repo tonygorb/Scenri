@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useBrand } from '../app/BrandLayout.js';
 import { useCreateFlow } from '../create/AssetCreateHost.js';
@@ -35,6 +35,15 @@ export function PresenterStudioRoute() {
   const navigate = useNavigate();
   const { announce, caps, capsNote } = useCreateFlow();
   useTitleEntity('Create presenter');
+  // A save resolves after an await. If the studio was closed meanwhile, the
+  // person is somewhere else now, and the answer must not pull them back.
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const openDraft = useCallback(
     (id: string, replace = false) => navigate(presenterStudioPath(brand, id), { replace }),
@@ -52,6 +61,7 @@ export function PresenterStudioRoute() {
       onClose={close}
       onStarted={(made) => {
         announce(made);
+        if (!mounted.current) return;
         navigate(made.kind === 'presenter' ? presenterPath(brand, made.id) : presentersPath(brand), { replace: true });
       }}
       caps={caps}

@@ -4,6 +4,8 @@ import { Spinner, TextArea, TextField } from '@radix-ui/themes';
 import { api, type Scene, type ScenePatch } from '../api.js';
 import { useAppData, useFilterParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { useTaskCenter } from '../app/TaskCenter.js';
+import { useStillHere } from '../useStillHere.js';
 import { useMadeWith } from './useMadeWith.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
 import { customSceneById } from '../brandAssets.js';
@@ -30,7 +32,7 @@ const LOOKPAGE_PHONE = '(max-width: 760px)';
  */
 export function ScenePage() {
   const { sceneId = '' } = useParams();
-  const { scenes, loaded, error, refetch, applyBrand } = useAppData();
+  const { scenes, loaded, error, refetch, applyBrand, refreshBrands } = useAppData();
   // one ask upstairs holds the whole brand now, so this page no longer walks
   // twenty project trees to answer "what did this scene actually produce"
   const { brand } = useBrand();
@@ -111,26 +113,70 @@ export function ScenePage() {
   const [draftPrompt, setDraftPrompt] = useState(owned?.prompt ?? '');
   const [err, setErr] = useState<string | null>(null);
   const [drawing, setDrawing] = useState(false);
-  const [rereading, setRereading] = useState(false);
   const [busy, setBusy] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  /** Every field edited since the last write, sent together when the pause ends. */
+  const pending = useRef<ScenePatch>({});
+  const removing = useRef(false);
+  const stillHere = useStillHere();
+
+  /**
+   * A read of the references, while it runs.
+   *
+   * Held as the job's id and read off the bell's own list, never as a flag of
+   * this page's: the flag was set on the click and cleared only on an error,
+   * so a read that finished left the button saying "Reading" until you left.
+   * Until the bell's next tick has seen the job, it counts as running.
+   */
+  const { builds, poke } = useTaskCenter();
+  const [readJob, setReadJob] = useState<string | null>(null);
+  const readBuild = readJob ? builds.find((b) => b.id === readJob) : undefined;
+  const rereading = !!readJob && !readBuild?.finished;
+  /** Bumped when the record changes under the page, so every field is drawn from it again. */
+  const [seed, setSeed] = useState(0);
 
   useEffect(() => {
-    // Resync only on a different scene, so a refresh landing mid-keystroke
-    // cannot overwrite what is being typed.
+    // Seeded from the record on a different scene, and when a read of the
+    // references lands (below). Never on the echo of this page's own save: the
+    // server trims what it stores, so re-seeding from that answer would eat
+    // the space somebody just typed between two words.
     setDraftName(owned?.name ?? '');
     setDraftDescription(owned?.description ?? '');
     setDraftLighting(owned?.lighting ?? '');
     setDraftPrompt(owned?.prompt ?? '');
-  }, [owned?.id]);
+  }, [owned?.id, seed]);
 
-  /** Editing a scene is a plain write. Only the preview costs a generation. */
+  // The read wrote a new record, and the bell re-read the brand before it
+  // cleared the build, so `owned` is already the new one here.
+  const readDone = !!readBuild?.finished;
+  useEffect(() => {
+    if (!readDone) return;
+    if (readBuild?.stage === 'failed') setErr(readBuild.error ?? 'The references could not be read again.');
+    setReadJob(null);
+    // a keystroke still waiting to be sent is newer than the read, and wins
+    if (!saveTimer.current) setSeed((n) => n + 1);
+  }, [readDone]);
+
+  /**
+   * Editing a scene is a plain write. Only the preview costs a generation.
+   *
+   * The pause is shared by every field, so what it sends is every field edited
+   * since the last write: a name typed and then the light changed inside half
+   * a second used to send the light alone and lose the name. Leaving the page
+   * inside the pause still sends it, and the answer still reaches the brand.
+   */
   const patch = (next: ScenePatch) => {
-    if (!owned) return;
+    if (!owned || removing.current) return;
+    pending.current = { ...pending.current, ...next };
     if (saveTimer.current) clearTimeout(saveTimer.current);
+    const forBrand = brand.id;
+    const sceneId = owned.id;
     saveTimer.current = setTimeout(() => {
+      saveTimer.current = undefined;
+      const body = pending.current;
+      pending.current = {};
       void api
-        .updateScene(brand.id, owned.id, next)
+        .updateScene(forBrand, sceneId, body)
         .then((r) => {
           applyBrand(r.brand);
           setErr(r.warnings[0] ?? null);
@@ -157,31 +203,60 @@ export function ScenePage() {
   // to read human presence could never be brought forward.
   const rereadRefs = async () => {
     if (!owned || rereading) return;
-    setRereading(true);
+    setReadJob('asking');
     setErr(null);
     try {
-      await api.rereadScene(brand.id, owned.id);
-      // Deliberately stays disabled. This call returns a job id the moment the
-      // work starts, not when it finishes, so releasing the button here would
-      // offer a second analyzer run over the same record while the first is
-      // still going - two real Codex calls racing to write one scene. Progress
-      // shows in the bell, the same as any other build.
+      const { jobId } = await api.rereadScene(brand.id, owned.id);
+      // Stays disabled until the bell says the job is over. This call returns
+      // the moment the work starts, not when it finishes, so releasing the
+      // button here would offer a second analyzer run over the same record
+      // while the first is still going. Progress shows in the bell, the same
+      // as any other build.
+      setReadJob(jobId);
+      poke();
     } catch (e: any) {
       setErr(String(e.message ?? e));
-      setRereading(false);
+      setReadJob(null);
     }
   };
 
+  /**
+   * Delete, and every surface stops showing the scene in the same commit.
+   *
+   * The answer carries the brand as it now stands and is applied before
+   * anything moves: the wall this lands on, the caret menu and the chips all
+   * read that one row. It used to answer `{ok:true}` and apply nothing, so the
+   * card stayed on the wall until a reload.
+   */
   const remove = async () => {
-    if (!owned) return;
+    if (!owned || removing.current) return;
+    removing.current = true;
+    // what was typed into a scene about to go has nowhere to be written
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = undefined;
+    pending.current = {};
+    const here = stillHere();
+    const wall = scenesPath(brand);
     setBusy(true);
     try {
-      await api.deleteScene(brand.id, owned.id);
-      navigate(scenesPath(brand));
+      const r = await api.deleteScene(brand.id, owned.id);
+      applyBrand(r.brand);
     } catch (e: any) {
-      setErr(String(e.message ?? e));
-      setBusy(false);
+      if (e?.status !== 404) {
+        removing.current = false;
+        if (here()) {
+          setErr(String(e.message ?? e));
+          setBusy(false);
+        }
+        return;
+      }
+      // Already gone (another tab, or a double press that got past the guard):
+      // the outcome asked for is true, so read the brand and carry on.
+      await refreshBrands();
     }
+    // Replace, not push: Back must not land on the page of a scene that no
+    // longer exists. And only if this page is still the one on screen.
+    if (here()) navigate(wall, { replace: true });
   };
 
   if (!loaded && !owned) {
@@ -437,6 +512,7 @@ export function ScenePage() {
                 rows={3}
                 maxLength={400}
                 placeholder="What matters in these references, and what to ignore"
+                key={`${owned.id}:${seed}`}
                 defaultValue={owned.instruction ?? ''}
                 onChange={(e) => patch({ instruction: e.target.value })}
               />

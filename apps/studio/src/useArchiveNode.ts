@@ -56,6 +56,37 @@ export function useArchiveNode(onNode: (node: FeedNode) => void) {
     [onNode, push],
   );
 
+  /**
+   * A handful at once, from the selection dock. One toast for the batch, not
+   * one per shot: archiving twelve produced twelve identical toasts, each with
+   * an Undo that put back a shot nobody could name.
+   */
+  const archiveBatch = useCallback(
+    (ids: string[]) =>
+      Promise.all(ids.map((id) => api.archiveNode(id, true)))
+        .then((results) => {
+          for (const n of results) onNode(n);
+          push({
+            kind: 'success',
+            title: `Archived ${results.length} shot${results.length === 1 ? '' : 's'}`,
+            action: {
+              label: 'Undo',
+              onClick: () => {
+                void Promise.all(results.map((n) => api.archiveNode(n.id, false))).then((back) => {
+                  for (const n of back) onNode(n);
+                });
+              },
+            },
+          });
+          return true;
+        })
+        .catch((e: any) => {
+          push(failureToast(e, 'Could not archive these shots'));
+          return false;
+        }),
+    [onNode, push],
+  );
+
   const unarchiveBatch = useCallback(
     (ids: string[]) =>
       Promise.all(ids.map((id) => api.archiveNode(id, false)))
@@ -66,5 +97,5 @@ export function useArchiveNode(onNode: (node: FeedNode) => void) {
     [onNode, push],
   );
 
-  return { archive, unarchive, unarchiveBatch };
+  return { archive, archiveBatch, unarchive, unarchiveBatch };
 }

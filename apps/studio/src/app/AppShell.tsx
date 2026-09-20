@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, useMemo } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useMemo } from 'react';
 import { Outlet, ScrollRestoration, useSearchParams } from 'react-router';
 import { Flex, Spinner } from '@radix-ui/themes';
 import { api, type Brand, type EngineInfo, type Presenter, type DemoProduct, type ShowcaseEntry } from '../api.js';
@@ -11,6 +11,7 @@ import { useShowcase } from '../useShowcase.js';
 import { FailureRow } from '../layout/Failure.js';
 import { describeFailure } from '../failure.js';
 import { UpdateCenterProvider } from './UpdateCenter.js';
+import { applyBrandRow, mergeBrandList } from './brandRows.js';
 import { WhatsNewProvider } from './WhatsNew.js';
 
 // usePresenters and useScenes both expose `loaded`/`error`/`refetch` — spreading
@@ -35,15 +36,22 @@ interface AppData extends UseScenesResult {
   showcaseLoaded: boolean;
   showcaseError: boolean;
   refetchShowcase: () => void;
-  /** Re-read brands and engines: brand edits and key changes both land here. */
+  /** Re-read brands and engines: a key or engine change, or a brand created or deleted. */
   refresh: () => Promise<void>;
   /**
-   * Swap one already-known brand row in place.
+   * Re-read the brands alone, for a write the client did not answer itself: a
+   * build that landed on the server, a delete that found the record already
+   * gone. Leaves the engines alone, whose probe can take seconds.
+   */
+  refreshBrands: () => Promise<void>;
+  /**
+   * Put one brand row, as a mutation just answered it, in front of every
+   * surface. This is the whole propagation for anything that lives in the
+   * brand document (owned presenters and scenes, manual products, logos,
+   * palette): the wall, the page, the pickers and the chips all read this row.
    *
-   * `refresh()` would do it too, but it bumps `updatedAt` on the brand every
-   * consumer watches, and BrandLayout reacts to that by refetching the whole
-   * workspace — once per pause in an autosaving form. This is the narrow write
-   * for a page that already holds the row the server just returned.
+   * An answer older than the row held is refused, and a list re-read that was
+   * already out when this landed cannot undo it (see brandRows.ts).
    */
   applyBrand: (next: Brand) => void;
 }
@@ -71,19 +79,52 @@ export function AppShell() {
   const demoProducts = useDemoProducts();
   const showcase = useShowcase();
 
+  /**
+   * One counter orders every write to the list: a mutation answer applied, a
+   * list read started. Whatever was applied after a read started is newer than
+   * anything that read can carry.
+   */
+  const clock = useRef(0);
+  const appliedAt = useRef(new Map<string, number>());
+  const latestRead = useRef(0);
+  const loadedOnce = useRef(false);
+
   const applyBrand = useCallback((next: Brand) => {
-    setBrands((cur) => (cur ? cur.map((b) => (b.id === next.id ? next : b)) : cur));
+    appliedAt.current.set(next.id, ++clock.current);
+    setBrands((cur) => (cur ? applyBrandRow(cur, next) : cur));
   }, []);
+
+  const readBrands = useCallback(async () => {
+    const started = ++clock.current;
+    latestRead.current = started;
+    const answer = await api.brands();
+    // a newer read is already out, and it answers instead of this one
+    if (latestRead.current !== started) return;
+    const touched = new Set<string>();
+    for (const [id, at] of appliedAt.current) if (at > started) touched.add(id);
+    setBrands((cur) => mergeBrandList(cur, answer, touched));
+  }, []);
+
+  // Callers in the background (the bell's poll above all) await this, and a
+  // rejection there would end the poll loop for good. A failed read changes
+  // nothing on screen; the next one corrects it.
+  const refreshBrands = useCallback(() => readBrands().catch(() => undefined), [readBrands]);
 
   const refresh = useCallback(async () => {
     try {
-      const [b, e] = await Promise.all([api.brands(), api.engines()]);
-      setBrands(b);
-      setEngines(e);
+      // Brands land when brands answer. They used to wait for the engines too,
+      // whose Codex probe can take seconds, and every mutation answer applied
+      // in that window was then overwritten by the older list.
+      await Promise.all([readBrands(), api.engines().then(setEngines)]);
+      loadedOnce.current = true;
     } catch (err: any) {
-      setError(String(err.message ?? err));
+      // A background re-read that fails is not a reason to replace the whole
+      // studio with an error: what is on screen is still the last truth, and
+      // the next write or read corrects it. Only a first load that never
+      // arrived has nothing to show.
+      if (!loadedOnce.current) setError(String(err.message ?? err));
     }
-  }, []);
+  }, [readBrands]);
 
   useEffect(() => {
     void refresh();
@@ -126,6 +167,7 @@ export function AppShell() {
             showcaseError: showcase.error,
             refetchShowcase: showcase.refetch,
             refresh,
+            refreshBrands,
             applyBrand,
           },
     [
@@ -153,6 +195,7 @@ export function AppShell() {
       showcase.error,
       showcase.refetch,
       refresh,
+      refreshBrands,
       applyBrand,
     ],
   );

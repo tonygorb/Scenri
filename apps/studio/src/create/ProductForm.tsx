@@ -2,6 +2,7 @@ import { type KeyboardEvent, useEffect, useState } from 'react';
 import { ProductChoice } from '../views/brandSetup/ProductChoice.js';
 import { useCommerceScan } from '../views/brandSetup/useCommerceScan.js';
 import { api } from '../api.js';
+import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { PRODUCT_CATEGORIES } from '../productCategories.js';
 import { AssetCreateShell } from './AssetCreateShell.js';
@@ -27,6 +28,7 @@ const USED_IN_SHOTS = 3;
  */
 export function ProductForm({ onBack, onStarted, restore, onDiscarded }: FlowProps) {
   const { brand } = useBrand();
+  const { applyBrand } = useAppData();
   const [busy, setBusy] = useState(false);
   const [importing, setImporting] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -39,14 +41,18 @@ export function ProductForm({ onBack, onStarted, restore, onDiscarded }: FlowPro
     setBusy(true);
     f.setErr(null);
     try {
-      const res = await api.createProduct(brand.id, {
+      const { productId, ...row } = await api.createProduct(brand.id, {
         name: f.fields.name.trim(),
         imageHashes: f.fields.imageHashes,
         category: f.fields.facets[0],
       });
+      // The answer is the brand with the product in it: applied here, before
+      // anything announces it, so the wall, the picker and the chip the picker
+      // is about to insert all find it in the same commit.
+      applyBrand(row);
       const name = f.fields.name.trim() || 'Product';
       f.submitted(null);
-      onStarted({ kind: 'product', id: res.productId, name });
+      onStarted({ kind: 'product', id: productId, name });
     } catch (e: any) {
       f.setErr(String(e.message ?? e));
     } finally {

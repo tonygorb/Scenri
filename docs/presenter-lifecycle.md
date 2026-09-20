@@ -183,7 +183,9 @@ record, and opening it draws nothing.
 
 ## Realtime
 
-Owned presenters are read off the brand document the shell holds, so **one
+This is the studio-wide rule in CONTRIBUTING.md ("Saved changes reach every
+surface without a reload"), which scenes and products now follow too. Owned
+presenters are read off the brand document the shell holds, so **one
 `applyBrand` updates the wall, the page, the ingredient picker and the chips in
 the same commit.** Every presenter mutation answers with the brand and applies
 it. No surface requires a manual refresh, and **`window.location.reload()` is

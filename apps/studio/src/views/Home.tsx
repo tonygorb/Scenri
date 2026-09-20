@@ -12,7 +12,7 @@ import { showcaseBrief, useApplyShowcase } from '../app/useApplyShowcase.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { hubPath, presenterPath, presentersPath, productPath, scenePath, scenesPath } from '../routes.js';
-import { customScenesOf, withCustomFirst } from '../brandAssets.js';
+import { customPresentersOf, customScenesOf, withCustomFirst } from '../brandAssets.js';
 import { bookmarkedScenes } from '../bookmarks.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useToasts } from '../toasts.js';
@@ -208,6 +208,14 @@ export function HomeView() {
    * Read per render rather than held in state — the shelf is rebuilt on every
    * visit to Home, which is exactly when a bookmark set on /scenes should show
    * up. */
+  /** The Presenters shelf: the brand's own people lead, the way they do on the
+   * wall and in the picker. It read the catalog alone, so somebody cast a
+   * moment ago was structurally absent from the one page that opens the app. */
+  const shelfPresenters = useMemo(
+    () => withCustomFirst(customPresentersOf(brand), presenters).slice(0, 8),
+    [brand, presenters],
+  );
+
   const shelfScenes = useMemo(() => {
     const marks = bookmarkedScenes(brand.id);
     // A brand's own scenes lead here, exactly as they do in the picker and in
@@ -399,7 +407,7 @@ export function HomeView() {
             </div>
           )}
 
-          {presentersLoaded && presenters.length > 0 && (
+          {presentersLoaded && shelfPresenters.length > 0 && (
             <>
               <div className="sc-sec-head">
                 <span className="sc-sec-title">Presenters</span>
@@ -408,7 +416,7 @@ export function HomeView() {
                 </Link>
               </div>
               <div className="sc-masonry">
-                {presenters.slice(0, 8).map((p) => (
+                {shelfPresenters.map((p) => (
                   <PresenterCard key={p.id} presenter={p} variant="navigate" size="grid" onOpen={applyPresenter} />
                 ))}
               </div>

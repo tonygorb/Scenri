@@ -241,30 +241,165 @@
   flex: 1 1 0;
   min-width: 0;
 }
-/* What you can do with a handful of shots. Only ever about membership. */
-/* Rides in the dock directly above the composer, so it clears whatever height
+/* What you can do with a handful of shots. Only ever about membership.
+
+   A toolbar, not a banner, and one scale at every size:
+
+     bar     40 tall on a pointer, 42 on a phone, 4 padding, 13 corner
+     tool    32 square on a pointer, 34 on a phone, 9 corner
+     icon    17 everywhere
+     chip    20 everywhere, 11.5 numeral on --sc-chip
+     word    12.5 everywhere, --sc-fg3: Select all is the quietest control
+     rule    1 x 18, 6 either side
+
+   Nothing visible changes between a pointer and a phone; only the box under
+   the glyph grows, so a thumb has more to hit without anything looking
+   bigger. The previous bar was a full-pill of four labelled buttons that
+   wrapped to three lines on a phone and needed a two-row grid to survive;
+   marks and one word fit on one line at 320.
+
+   Hierarchy, loudest first: the verbs, then the way out, then the count, then
+   Select all. The count is a chip rather than a filled disc because the one
+   thing here you cannot act on must not be the brightest mark in the bar.
+
+   Rides in the dock directly above the composer, so it clears whatever height
    the composer happens to be rather than a distance guessed in advance. */
 .sc-picked {
-  width: fit-content;
-  max-width: 100%;
-  margin: 0 auto 10px;
-  flex-wrap: wrap;
-  justify-content: center;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px 8px 14px;
-  border-radius: var(--sc-radius-full);
-  border: 1px solid var(--sc-line-strong);
-  background: var(--sc-raised);
+  width: fit-content;
+  max-width: 100%;
+  height: 40px;
+  margin: 0 auto 10px;
+  padding: 4px;
+  border: 1px solid var(--sc-line);
+  border-radius: 13px;
+  background: var(--sc-panel);
   /* the shared token, not a copy of its dark-theme value: written out, this
      bar carried a dark-weight shadow into the light theme */
-  box-shadow: var(--sc-shadow-2);
+  box-shadow: var(--sc-shadow-float);
+}
+
+/* ---- what the tools act on ---- */
+.sc-picked-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 8px;
 }
 .sc-picked-n {
-  font-size: 13px;
-  color: var(--sc-fg2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-chip);
+  color: var(--sc-fg);
+  font-size: 11.5px;
+  font-weight: 600;
+  /* so 3 and 12 sit in the same box, and the numeral's own leading cannot
+     push it off centre */
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.sc-picked-all {
+  height: 28px;
+  margin-left: 4px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--sc-radius-md);
+  background: none;
+  color: var(--sc-fg3);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
   white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-picked-all:hover {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+
+/* one hairline per change of job: from saying to doing, and from doing to
+   leaving, never between two verbs */
+.sc-picked-rule {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 6px;
+  background: var(--sc-line);
+}
+
+/* ---- the tools ---- */
+.sc-picked-tools,
+.sc-picked-exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.sc-picked-tool {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 9px;
+  background: none;
+  color: var(--sc-fg);
+  cursor: pointer;
+  transition:
+    background-color var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-picked-tool:hover {
+  background: var(--sc-hover);
+}
+.sc-picked-tool[data-state="open"] {
+  background: var(--sc-chip);
+}
+/* the verb that takes shots out of the feed says so under the hand */
+.sc-picked-tool[data-tone="danger"]:hover {
+  background: color-mix(in srgb, var(--sc-red) 14%, transparent);
+  color: var(--sc-red);
+}
+/* the way out is a tool's box at a quieter weight: it is not a verb */
+.sc-picked-exit .sc-picked-tool {
+  color: var(--sc-fg3);
+}
+.sc-picked-exit .sc-picked-tool:hover {
+  color: var(--sc-fg);
+}
+
+@media (max-width: 767px) {
+  /* The same bar with a bigger box under the same glyph. It fits its contents
+     rather than stretching to the gutters: a bar the width of the screen is a
+     panel, and this is a toolbar. */
+  .sc-picked {
+    height: 42px;
+  }
+  .sc-picked-tool {
+    width: 34px;
+    height: 34px;
+  }
+  .sc-picked-all {
+    height: 30px;
+  }
+}
+/* Measured: the word fits beside the chip down to about 360. Below that the
+   tools would start shrinking, so the word goes first. */
+@media (max-width: 359px) {
+  .sc-picked-all {
+    display: none;
+  }
 }
 
 /* ---- from overlay-responsive.css (dissolved 2026-08-18, css-restructure) ----
