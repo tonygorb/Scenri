@@ -125,11 +125,17 @@ export function LearnDialog() {
     const opening = open && !wasOpen.current;
     wasOpen.current = open;
     if (!open) return;
+    // The pane scrolls now that a lesson can run to six steps, so the step in
+    // hand is brought to where it can be seen rather than left below the floor.
+    const show = () => {
+      actionRef.current?.focus({ preventScroll: true });
+      actionRef.current?.scrollIntoView({ block: 'nearest' });
+    };
     if (phone && chosen) {
       lastRead.current = chosen.id;
-      actionRef.current?.focus({ preventScroll: true });
+      show();
     } else if (phone && lastRead.current) rows.current.get(lastRead.current)?.focus({ preventScroll: true });
-    else if (opening) actionRef.current?.focus({ preventScroll: true });
+    else if (opening) show();
   }, [open, phone, chosen]);
 
   // No key: choosing another lesson swaps the words and the picture in the

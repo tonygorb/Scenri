@@ -5,6 +5,9 @@ import {
   coachTitle,
   guideRecord,
   noWelcomeWait,
+  fromLearn,
+  ownBrand,
+  pickFromPicker,
   pickTheIngredients,
   learnButton,
   setUpBrand,
@@ -180,6 +183,33 @@ test('a first refine begun from Learn ends when it is done, and does not begin a
   await page.waitForTimeout(1500);
   expect((await guideRecord(page)).active).toBeNull();
   await expect(page.locator('.sc-ovl .sc-coach')).toHaveCount(0);
+});
+
+test('using a saved product again is its own walk: the product, a place, the words', async ({ page }) => {
+  test.setTimeout(90_000);
+  // a brand of its own holding one product, which is what this lesson starts
+  // from, opened the way anyone opens it: from the bar, on the page they are on
+  const own = await ownBrand(page, 'Second Time');
+  await page.goto(`/${own}`);
+  await fromLearn(page, 'Use it again');
+  await walkToCreate(page);
+
+  // its own three asks, in its own order: what they saved, then somewhere else
+  await expect(coachTitle(page)).toHaveText('Add the product you saved');
+  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('2 of 4');
+  await page.locator('[data-guide="compose.add"]').click();
+  await pickFromPicker(page, 'Product');
+  await expect(coachTitle(page)).toHaveText('Put it somewhere else');
+  await pickFromPicker(page, 'Scene');
+  await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');
+  await page.keyboard.type('on a cold morning');
+  await page.keyboard.press('Enter');
+
+  // and it ends on the two pictures, not on one
+  await expect(coachTitle(page)).toHaveText(/Making your shot|The same product, twice/, { timeout: 30_000 });
+  await expect(coachTitle(page)).toHaveText('The same product, twice', { timeout: 40_000 });
+  await coachCard(page).getByRole('button', { name: 'Done' }).click();
+  await expect.poll(async () => (await guideRecord(page)).lessons.reuse).toBeTruthy();
 });
 
 test('on a phone Learn is the sheet, and every lesson a row', async ({ page }) => {

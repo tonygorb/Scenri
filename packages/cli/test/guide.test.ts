@@ -237,6 +237,29 @@ describe('first-use record', () => {
       expect(readGuide(core, {}).active).toBeNull();
     });
 
+    it('taking up another lesson sets the first down, and coming back continues it', () => {
+      stampGuide(core.store, V);
+      const b = core.store.createBrand(brand('Two Lessons'));
+      applyIntent(core, { start: { task: 'presenter', brandId: b.id } });
+      const first = readGuide(core, {}).active?.since;
+
+      // another lesson takes the screen; the first is set down, not dropped
+      applyIntent(core, { start: { task: 'scene', brandId: b.id } });
+      expect(readGuide(core, {}).active).toMatchObject({ task: 'scene' });
+
+      // back to it: the same window, so its draft and its shots still count
+      applyIntent(core, { start: { task: 'presenter', brandId: b.id } });
+      const back = readGuide(core, {});
+      expect(back.active).toMatchObject({ task: 'presenter', since: first });
+      expect(back.active?.paused).toBeUndefined();
+
+      // finished, it is waiting nowhere: beginning it again is a fresh window
+      applyIntent(core, { finish: 'presenter' });
+      applyIntent(core, { start: { task: 'scene', brandId: b.id } });
+      applyIntent(core, { start: { task: 'presenter', brandId: b.id } });
+      expect(readGuide(core, {}).active?.since).not.toBe(first);
+    });
+
     it('a paused task gives way to another task begun, and a paused record survives a restart', () => {
       stampGuide(core.store, V);
       const b = core.store.createBrand(brand('Paused'));

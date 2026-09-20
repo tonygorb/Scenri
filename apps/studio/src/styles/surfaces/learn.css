@@ -9,15 +9,14 @@
   flex-direction: column;
   min-height: 0;
 }
-/* The box is exactly what a lesson holds, measured by the browser rather than
-   summed by hand: every lesson reserves the same picture, the same two lines
-   and the same room for four steps, so hugging the content keeps all five the
-   same height, leaves the gutter under the last step equal to the one above
-   the picture, and leaves nothing over to scroll. */
+/* One box, one height, and a lesson longer than it scrolls inside it. Six
+   milestones and three lines of sentence outgrew the dialog: a box that grew
+   with them stood taller than the window it sits in and read as a page rather
+   than a card. */
 @media (min-width: 768px) {
   .sc-learn.sc-newdlg {
-    height: auto;
-    max-height: calc(100dvh - 48px);
+    height: min(690px, calc(100dvh - 48px));
+    max-height: none;
   }
 }
 /* A phone's sheet is the whole learning surface: full height for both levels,
@@ -231,6 +230,9 @@
   padding: var(--sc-gutter) 0;
   overflow-y: auto;
   scrollbar-width: none;
+  /* the last line fades at the floor, so there is plainly more below rather
+     than a step cut in half by the edge */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
 }
 .sc-learn-lesson::-webkit-scrollbar {
   display: none;

@@ -62,6 +62,14 @@ interface GuideRecord {
   lessons: Partial<Record<TaskId, string>>;
   dismissed: TaskId[];
   active: ActiveTask | null;
+  /**
+   * Lessons set down to take another one up, with the window each was working
+   * in. One task is in hand at a time, because two tutors on one screen is
+   * nonsense, but leaving one is not abandoning it: coming back finds the same
+   * `since` and the same baseline, so the draft it started and the shots it
+   * made still count as its own.
+   */
+  parked: Partial<Record<TaskId, ActiveTask>>;
 }
 
 export interface TaskNode {
@@ -99,7 +107,17 @@ const isMilestone = (m: unknown): m is Milestone => (MILESTONES as readonly unkn
 const num = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) && n >= 0 ? n : 0);
 
 function blank(eligible: boolean): GuideRecord {
-  return { v: 2, eligible, welcome: null, hidden: null, done: {}, lessons: {}, dismissed: [], active: null };
+  return {
+    v: 2,
+    eligible,
+    welcome: null,
+    hidden: null,
+    done: {},
+    lessons: {},
+    dismissed: [],
+    active: null,
+    parked: {},
+  };
 }
 
 function parse(raw: string | null): GuideRecord | null {
@@ -116,6 +134,25 @@ function parse(raw: string | null): GuideRecord | null {
     const lessons: GuideRecord['lessons'] = {};
     if (j.lessons && typeof j.lessons === 'object') {
       for (const [k, at] of Object.entries(j.lessons)) if (isTask(k) && typeof at === 'string') lessons[k] = at;
+    }
+    const asTask = (a: Partial<ActiveTask> | null | undefined): ActiveTask | null => {
+      const b = a?.baseline as Partial<Counts> | undefined;
+      return a && isTask(a.task) && typeof a.brandId === 'string' && typeof a.since === 'string'
+        ? {
+            task: a.task,
+            brandId: a.brandId,
+            since: a.since,
+            baseline: { products: num(b?.products), presenters: num(b?.presenters), scenes: num(b?.scenes) },
+            ...(a.paused === true ? { paused: true } : {}),
+          }
+        : null;
+    };
+    const parked: GuideRecord['parked'] = {};
+    if (j.parked && typeof j.parked === 'object') {
+      for (const [k, v] of Object.entries(j.parked)) {
+        const t = asTask(v as Partial<ActiveTask>);
+        if (isTask(k) && t) parked[k] = t;
+      }
     }
     const a = j.active as Partial<ActiveTask> | null | undefined;
     const b = a?.baseline as Partial<Counts> | undefined;
@@ -138,6 +175,7 @@ function parse(raw: string | null): GuideRecord | null {
       lessons,
       dismissed: Array.isArray(j.dismissed) ? j.dismissed.filter(isTask) : [],
       active,
+      parked,
     };
   } catch {
     return null;
@@ -221,6 +259,11 @@ export function readGuide(core: Core, env: NodeJS.ProcessEnv): GuideView {
     r.active = null;
     changed = true;
   }
+  for (const [t, p] of Object.entries(r.parked)) {
+    if (core.store.getBrand(p.brandId)) continue;
+    delete r.parked[t as TaskId];
+    changed = true;
+  }
   if (changed) write(core.store, r);
 
   const a = r.active;
@@ -255,11 +298,19 @@ export function applyIntent(core: Core, body: unknown): string | null {
     const baseline = countsOf(core, s.brandId);
     if (!baseline) return 'brand not found';
     const held = r.active;
-    // The same task, paused in the same brand, is continued rather than begun again.
+    // Taking up another lesson sets this one down rather than throwing it
+    // away: its window is kept, so coming back is continuing, not restarting.
+    if (held && !(held.task === s.task && held.brandId === s.brandId)) r.parked[held.task] = held;
+    const setDown = r.parked[s.task];
+    // The same task, paused or set down in the same brand, is continued.
     if (held && held.paused && held.task === s.task && held.brandId === s.brandId) {
       const { paused: _, ...going } = held;
       r.active = going;
+    } else if (setDown && setDown.brandId === s.brandId) {
+      const { paused: _, ...going } = setDown;
+      r.active = going;
     } else r.active = { task: s.task, brandId: s.brandId, since: core.store.now(), baseline };
+    delete r.parked[s.task];
     r.dismissed = r.dismissed.filter((t) => t !== s.task);
   } else if ('finish' in b) {
     if (!isTask(b.finish)) return 'unknown task';
@@ -267,6 +318,7 @@ export function applyIntent(core: Core, body: unknown): string | null {
     // is deleted later, and never set by anything but finishing it.
     if (!r.lessons[b.finish]) r.lessons[b.finish] = new Date().toISOString();
     if (r.active?.task === b.finish) r.active = null;
+    delete r.parked[b.finish];
   } else if ('dismiss' in b) {
     if (!isTask(b.dismiss)) return 'unknown task';
     if (!r.dismissed.includes(b.dismiss)) r.dismissed.push(b.dismiss);

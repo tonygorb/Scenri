@@ -76,7 +76,8 @@ export function GuideHost() {
   // product says so, but nothing of the tutor shows for it.
   const held: GuideTaskId | null = active && active.brandId === brand.id ? active.task : null;
   const task: GuideTaskId | null = held && !active?.paused ? held : null;
-  const nodeKind = task === 'first-shot' ? 'generation' : task === 'refine' ? 'edit' : null;
+  // Both walks that make a shot watch the shots they make.
+  const nodeKind = task === 'first-shot' || task === 'reuse' ? 'generation' : task === 'refine' ? 'edit' : null;
   const welcomePending = guide.loaded && guide.eligible && guide.welcome === null;
 
   // What the task has sent: the server's answer, kept current by the activity
@@ -166,16 +167,19 @@ export function GuideHost() {
   // The first shot that began with the way to Create: its step said what the
   // opening would have, so arriving by it is the opening read, and the walk
   // counts that step. Remembered where the opening is, for a reload part way.
+  // Two walks are made of shots and so begin with the way to Create: the
+  // first one, and using a saved thing again.
+  const walksToCreate = task === 'first-shot' || task === 'reuse';
   const [viaBar, setViaBar] = useState(false);
   useEffect(() => {
     let v = false;
     try {
-      v = task === 'first-shot' && window.localStorage.getItem(viaBarKey(brand.id)) === '1';
+      v = walksToCreate && window.localStorage.getItem(viaBarKey(brand.id)) === '1';
     } catch {
       // a browser that refuses storage counts four
     }
     setViaBar(v);
-  }, [task, brand.id, guide.heading]);
+  }, [walksToCreate, brand.id, guide.heading]);
   // On the way to Create until they get there, and only while that is the task.
   // Getting there is arriving, not being there: Back on the first choice asks
   // for the way here again while Create is still on screen.
@@ -184,7 +188,7 @@ export function GuideHost() {
     const came = hub && !wasHub.current;
     wasHub.current = hub;
     if (!guide.heading) return;
-    if (came && task === 'first-shot' && guide.heading === brand.id) {
+    if (came && walksToCreate && guide.heading === brand.id) {
       try {
         window.localStorage.setItem(viaBarKey(brand.id), '1');
       } catch {
@@ -195,8 +199,8 @@ export function GuideHost() {
     }
     // Not before the record has answered: on a reload there is no task in
     // hand for a moment, and that is not the task having ended.
-    if (came || (guide.loaded && task !== 'first-shot')) arrived();
-  }, [guide.heading, guide.loaded, hub, task, brand.id, beginNow]);
+    if (came || (guide.loaded && !walksToCreate)) arrived();
+  }, [guide.heading, guide.loaded, hub, walksToCreate, brand.id, beginNow]);
 
   // The one moment, from what is true now.
   let moment: Moment | null = null;
