@@ -264,51 +264,57 @@ function LessonView({
         <img src={LESSON_PICTURES[lesson.id].wide} alt="" decoding="async" />
       </span>
       <div className="sc-learn-copy">
-        <div className="sc-learn-kicker">
+        {/* where it stands belongs beside its name, not stacked over it */}
+        <div className="sc-learn-head">
+          <h3 className="sc-learn-title">{lesson.title}</h3>
           <Status lesson={lesson} state={state} at={at} />
         </div>
-        <h3 className="sc-learn-title">{lesson.title}</h3>
         {summary}
-        <ol className="sc-learn-steps">
-          {lesson.steps.map((step, i) => {
-            const s = stepState(i);
-            const mark = (
-              <span className="sc-learn-n" aria-hidden="true">
-                {s === 'done' ? <Check size={14} weight="bold" /> : i + 1}
-              </span>
-            );
-            const current = state === 'active' && i === at ? 'step' : undefined;
-            return (
-              <li key={step}>
-                {i === inHand ? (
-                  <button
-                    ref={actionRef}
-                    type="button"
-                    className="sc-learn-step"
-                    data-state={s}
-                    data-here=""
-                    aria-current={current}
-                    aria-label={`${verb}: ${step}`}
-                    onClick={onBegin}
-                  >
-                    {mark}
-                    <span className="sc-learn-step-name">{step}</span>
-                    <span className="sc-learn-go" aria-hidden="true">
-                      {verb} <ArrowRight size={12} weight="bold" />
-                    </span>
-                  </button>
-                ) : (
-                  <div className="sc-learn-step" data-state={s} aria-current={current}>
-                    {mark}
-                    <span className="sc-learn-step-name">{step}</span>
-                    {s === 'done' && <span className="sc-vh">, done</span>}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ol>
-        {blocked && <p className="sc-learn-note">{NEEDS_SHOT.note}</p>}
+        {/* Steps and whatever has to be said under them share one reserved
+            block, so a lesson that needs a note is no taller than one that
+            does not and the box holds still. */}
+        <div className="sc-learn-do">
+          <ol className="sc-learn-steps">
+            {lesson.steps.map((step, i) => {
+              const s = stepState(i);
+              const mark = (
+                <span className="sc-learn-n" aria-hidden="true">
+                  {s === 'done' ? <Check size={14} weight="bold" /> : i + 1}
+                </span>
+              );
+              const current = state === 'active' && i === at ? 'step' : undefined;
+              return (
+                <li key={step}>
+                  {i === inHand ? (
+                    <button
+                      ref={actionRef}
+                      type="button"
+                      className="sc-learn-step"
+                      data-state={s}
+                      data-here=""
+                      aria-current={current}
+                      aria-label={`${verb}: ${step}`}
+                      onClick={onBegin}
+                    >
+                      {mark}
+                      <span className="sc-learn-step-name">{step}</span>
+                      <span className="sc-learn-go" aria-hidden="true">
+                        {verb} <ArrowRight size={12} weight="bold" />
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="sc-learn-step" data-state={s} aria-current={current}>
+                      {mark}
+                      <span className="sc-learn-step-name">{step}</span>
+                      {s === 'done' && <span className="sc-vh">, done</span>}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+          {blocked && <p className="sc-learn-note">{NEEDS_SHOT.note}</p>}
+        </div>
       </div>
     </section>
   );

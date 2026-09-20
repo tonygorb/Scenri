@@ -9,9 +9,15 @@
   flex-direction: column;
   min-height: 0;
 }
+/* The box is exactly what a lesson holds, measured by the browser rather than
+   summed by hand: every lesson reserves the same picture, the same two lines
+   and the same room for four steps, so hugging the content keeps all five the
+   same height, leaves the gutter under the last step equal to the one above
+   the picture, and leaves nothing over to scroll. */
 @media (min-width: 768px) {
-  .sc-learn {
-    height: min(690px, calc(100dvh - 48px));
+  .sc-learn.sc-newdlg {
+    height: auto;
+    max-height: calc(100dvh - 48px);
   }
 }
 /* A phone's sheet is the whole learning surface: full height for both levels,
@@ -47,6 +53,9 @@
 .sc-learn .sc-newdlg-head:has(.sc-learn-count) .sc-newdlg-title {
   flex: 0 1 auto;
 }
+.sc-learn .sc-newdlg-close {
+  margin-right: -14px;
+}
 .sc-learn-count {
   flex: 1 1 auto;
   margin-left: 12px;
@@ -75,13 +84,21 @@
   padding: var(--sc-gutter) var(--sc-gutter) 0 0;
   list-style: none;
   border-right: 1px solid var(--sc-line);
+  overflow-y: auto;
+  scrollbar-width: none;
 }
+.sc-learn-list::-webkit-scrollbar {
+  display: none;
+}
+/* The row's fill bleeds 8 to the left so the pictures stand on the same line
+   as the title in the header above them: ink aligns with ink, not box with box. */
 .sc-learn-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 100%;
+  width: calc(100% + 8px);
   height: 60px;
+  margin-left: -8px;
   padding: 0 10px 0 8px;
   border: 0;
   border-radius: var(--sc-radius-lg);
@@ -215,11 +232,15 @@
     animation: sc-fade-in var(--sc-dur-slow) var(--sc-ease) both;
   }
 }
-.sc-learn-kicker {
+.sc-learn-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
   margin: 16px 0 4px;
 }
 .sc-learn-title {
-  margin: 0 0 4px;
+  margin: 0;
   font: 600 var(--sc-text-title) / 1.2 var(--sc-font);
   letter-spacing: -0.02em;
 }
@@ -235,12 +256,17 @@
   font: 400 var(--sc-text-control) / 1.5 var(--sc-font);
   color: var(--sc-fg2);
 }
-/* room for four steps, the most any lesson has */
+/* Room for four steps, the most any lesson has, kept by the block rather
+   than by the list: a lesson with three steps and a line to say under them
+   (refining, with no shot yet) then costs exactly the same room, so every
+   lesson ends on the same line and the box below it is never slack. */
+.sc-learn-do {
+  min-height: calc(4 * 48px + 3 * 6px);
+}
 .sc-learn-steps {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-height: calc(4 * 48px + 3 * 6px);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -351,7 +377,8 @@ button.sc-learn-step[data-state="done"]:hover .sc-learn-go {
   font: 400 var(--sc-text-body) / 1.45 var(--sc-font);
   color: var(--sc-fg3);
 }
-/* a short screen gives up picture before it gives up a step */
+/* a short screen gives up picture before it gives up a step, and the box
+   gives up exactly what the picture did, so the gutters stay 24 */
 @media (min-width: 768px) and (max-height: 740px) {
   .sc-learn-hero {
     max-height: 132px;
@@ -383,6 +410,8 @@ button.sc-learn-step[data-state="done"]:hover .sc-learn-go {
   }
   .sc-learn-row {
     height: 64px;
+    width: calc(100% + 4px);
+    margin-left: -4px;
     padding: 0 8px 0 4px;
   }
   .sc-learn-thumb {
@@ -398,9 +427,6 @@ button.sc-learn-step[data-state="done"]:hover .sc-learn-go {
   }
   .sc-learn-hero {
     max-height: 168px;
-  }
-  .sc-learn-kicker {
-    margin-top: 16px;
   }
   .sc-learn-title {
     font-size: 19px;
