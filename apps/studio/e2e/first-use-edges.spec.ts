@@ -107,6 +107,29 @@ test('pressing twice, wandering off, and coming back all land on the same moment
   await expect(coachTitle(page)).toHaveText('Choose a product', { timeout: 20_000 });
 });
 
+test('a lesson remembers how far it got, even when the brief is emptied after', async ({ page }) => {
+  const own = await ownBrand(page, 'Far Enough');
+  await page.goto(`/${own}/create`);
+  await readTheOpening(page);
+  await pickTheIngredients(page);
+  // the three are in, so the walk is at its last ask: step 5 of the 6
+  await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');
+  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('5 of 6');
+
+  // close the guide, then take the whole brief back out by hand
+  await coachCard(page).getByRole('button', { name: 'Close guide' }).click();
+  await expect(coachCard(page)).toHaveCount(0);
+  await brief(page).click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(0);
+
+  // the tutor would ask for them again, but how far the lesson got stands
+  await page.goto(`/${own}`);
+  await learnButton(page).click();
+  await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('Step 5 of 6');
+});
+
 test('a task belongs to its own brand, and another brand is not guided by it', async ({ page }) => {
   const a = await ownBrand(page, 'Brand A');
   const b = await ownBrand(page, 'Brand B', 'scene');
@@ -118,7 +141,7 @@ test('a task belongs to its own brand, and another brand is not guided by it', a
   await expect(learnDialog(page).locator('.sc-learn-status', { hasText: /^Step/ })).toHaveCount(0);
   await page.goto(`/${b}`);
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText(/^Step \d of 5$/);
+  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText(/^Step \d of 2$/);
 });
 
 test('someone who built the brief their own way is not asked for it again', async ({ page }) => {

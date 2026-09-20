@@ -4,7 +4,7 @@ import { useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId } from '../apiTypes.js';
-import { useGuide } from '../guide.js';
+import { reachedOf, useGuide } from '../guide.js';
 import { useGuideFacts } from '../guideFacts.js';
 import { firstShotMoment, presenterMoment, reuseMoment } from '../guidedTasks.js';
 import {
@@ -94,12 +94,15 @@ export function LearnDialog() {
           : l.id === 'presenter'
             ? (presenterMoment(facts.studio)?.id ?? null)
             : null;
-    return stepOf(l.id, {
+    const now = stepOf(l.id, {
       moment,
       nodes: guide.activeNodes,
       draft: !!guide.activeDraftId,
       building: l.id === 'scene' && builds.some((b) => b.kind === 'scene' && !b.finished),
     });
+    // a lesson does not walk backwards: the furthest it reached stands, even
+    // if the brief it got there with was emptied afterwards
+    return Math.max(now, reachedOf(brand.id, l.id) - 1);
   };
   // The lesson that comes next: the one in hand, else the first not yet done.
   const next = LESSONS.find((l) => stateOf(l) === 'active') ?? LESSONS.find((l) => stateOf(l) !== 'done') ?? null;

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { stepOfMoment } from '../src/lessons.js';
 import type { GuideTaskNode, GuideView, ShowcaseEntry } from '../src/apiTypes.js';
 import type { ComposerFacts } from '../src/guideFacts.js';
 import { SPEC_ORDER } from '../src/create/presenter/presenterQuestions.js';
@@ -60,19 +61,18 @@ describe('the first shot, one ask at a time', () => {
     expect(idOf(null)).toBeNull();
   });
 
-  it('begun away from Create, the first step is the way there, and the walk counts it', () => {
+  it('begun away from Create, the first step is the way there', () => {
     const go = firstShotMoment({ here: false, heading: true, composer: null, nodes: [] });
     // Create in the places, lit on a page left in plain view
-    expect(go).toMatchObject({ id: 'go', voice: 'ask', point: '[data-guide="nav.create"]', soft: true, at: 1, of: 5 });
+    expect(go).toMatchObject({ id: 'go', voice: 'ask', point: '[data-guide="nav.create"]', soft: true });
     // away from Create without having just begun it, nothing follows them
     expect(firstShotMoment({ here: false, composer: composer(), nodes: [] })).toBeNull();
-    // arrived by that step: the four asks are two to five of five
-    const via = (c: ComposerFacts) =>
-      firstShotMoment({ here: true, viaBar: true, begun: true, composer: c, nodes: [] });
-    expect(via(composer())).toMatchObject({ id: 'product', at: 2, of: 5 });
-    expect(via(composer({ products: 1, presenters: 1, scene: true }))).toMatchObject({ id: 'make', at: 5, of: 5 });
-    // begun on Create itself, still four
-    expect(ask(composer())).toMatchObject({ id: 'product', at: 1, of: 4 });
+    // where a moment sits is the lesson's to say, not the rule's: one list
+    // feeds the card and Learn (lessons.ts), so a rule counts nothing itself
+    expect(go).not.toHaveProperty('at');
+    expect(stepOfMoment('first-shot', 'go')).toEqual({ at: 1, of: 6 });
+    expect(stepOfMoment('first-shot', 'make')).toEqual({ at: 5, of: 6 });
+    expect(stepOfMoment('first-shot', 'intro')).toBeNull();
   });
 
   it('greets an empty start once, then never again', () => {
@@ -91,9 +91,9 @@ describe('the first shot, one ask at a time', () => {
     expect(idOf(composer({ products: 1, presenters: 1 }))).toBe('scene');
     expect(idOf(composer(all))).toBe('make');
     expect(idOf(composer({ ...all, words: true }))).toBe('make');
-    // and it says where it is: four asks, counted
-    expect(ask(composer())?.at).toBe(1);
-    expect(ask(composer(all))?.of).toBe(4);
+    // and where each sits is the lesson's own numbering
+    expect(stepOfMoment('first-shot', 'product')).toEqual({ at: 2, of: 6 });
+    expect(stepOfMoment('first-shot', 'result')).toEqual({ at: 6, of: 6 });
   });
 
   it('never advances on a click: taking an ingredient back asks for it again', () => {

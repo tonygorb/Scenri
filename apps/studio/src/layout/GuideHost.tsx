@@ -4,7 +4,16 @@ import { useAppData, useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId, GuideTaskNode } from '../api.js';
-import { arrived, guideIntent, headFor, refreshGuide, useGuide, viaBarKey } from '../guide.js';
+import {
+  arrived,
+  forgetReached,
+  guideIntent,
+  headFor,
+  markReached,
+  refreshGuide,
+  useGuide,
+  viaBarKey,
+} from '../guide.js';
 import { setGuideShowing, useGuideFacts } from '../guideFacts.js';
 import {
   ASK_TAB,
@@ -25,6 +34,7 @@ import {
   type AskedKind,
   type Moment,
 } from '../guidedTasks.js';
+import { stepOfMoment } from '../lessons.js';
 import { brandPath, P } from '../routes.js';
 import { useToasts } from '../toasts.js';
 import { WelcomeDialog } from '../views/WelcomeDialog.js';
@@ -290,6 +300,20 @@ export function GuideHost() {
   const TAKES_BACK: Record<string, AskedKind> = { presenter: 'product', scene: 'presenter', make: 'scene' };
   // The ids are the first shot's own: another task's moment may share a name
   // (the scene task's one ask is called scene) and has no chip to take back.
+  /**
+   * Where this moment sits in its lesson, said the way Learn says it. One
+   * list per lesson (lessons.ts) feeds both, so a card reading "3 of 6" is
+   * the third of the six steps Learn shows, with the same words.
+   */
+  if (task && moment && moment.voice !== 'quiet') {
+    const where = stepOfMoment(task, moment.id);
+    if (where) {
+      moment = { ...moment, ...where };
+      // how far this lesson has got, which Learn reads: emptying the brief
+      // asks for the chips again but does not undo having chosen them
+      markReached(brand.id, task, where.at);
+    }
+  }
   const shown = moment;
 
   // Tasks this visit has begun on its own, or seen end: neither is begun on its own again.
@@ -297,10 +321,15 @@ export function GuideHost() {
   // How a task ends. Ended here, it is not begun here again: the open shot's
   // composer is still reached for after Done, and the record's tick for it
   // can arrive a moment after the task has let go.
-  const finish = useCallback((t: GuideTaskId) => {
-    autoStarted.current.add(t);
-    void guideIntent({ finish: t });
-  }, []);
+  const finish = useCallback(
+    (t: GuideTaskId) => {
+      autoStarted.current.add(t);
+      // done is done: taken again, it starts at its first step
+      forgetReached(brand.id, t);
+      void guideIntent({ finish: t });
+    },
+    [brand.id],
+  );
   const dismiss = useCallback(
     (t: GuideTaskId) => {
       void guideIntent({ dismiss: t });

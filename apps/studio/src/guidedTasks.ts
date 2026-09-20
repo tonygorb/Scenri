@@ -226,9 +226,7 @@ export function firstShotMoment(f: ShotFacts): Moment | null {
   // places, lit, with the page left in plain view. Arriving by their own hand
   // is what tells them where Create is and how they got there.
   if (!f.here)
-    return f.heading
-      ? { id: 'go', voice: 'ask', point: NAV_CREATE, side: 'bottom', soft: true, at: 1, of: 5, ...COPY.go }
-      : null;
+    return f.heading ? { id: 'go', voice: 'ask', point: NAV_CREATE, side: 'bottom', soft: true, ...COPY.go } : null;
   const c = f.composer;
   const made = f.nodes.find(finished);
   if (made) return { id: 'result', voice: 'note', point: tile(made.id), side: 'bottom', ...COPY.result, done: true };
@@ -243,12 +241,12 @@ export function firstShotMoment(f: ShotFacts): Moment | null {
   // Nothing can draw: that is the one thing to fix before any of this matters.
   if (c.engine !== 'ready') return { id: 'engine', voice: 'ask', point: ENGINE, side: 'top', ...COPY.engine };
   /**
-   * Four asks, and the card says which one it is. Four is the ceiling on
-   * purpose: completion holds around 72 to 74% at three or four steps and
-   * falls below half at five (Chameleon, 550M in-app interactions). The
-   * greeting is not one of them, so it carries no count.
+   * Four asks. Four is the ceiling on purpose: completion holds around 72 to
+   * 74% at three or four steps and falls below half at five (Chameleon, 550M
+   * in-app interactions). What the card says about where it is comes from the
+   * lesson's own list (lessons.ts), so the tutor and Learn cannot disagree;
+   * the greeting has no step of its own and so no count.
    */
-  const walk = (at: number, m: Moment): Moment => (f.viaBar ? { ...m, at: at + 1, of: 5 } : { ...m, at, of: 4 });
   // The opening greets an empty start only: someone coming back to a brief
   // they have already begun is past being told what this place is.
   // Nothing is pointed at yet: arriving somewhere new, the first thing to
@@ -256,9 +254,9 @@ export function firstShotMoment(f: ShotFacts): Moment | null {
   if (!f.begun && ingredientsOf(c) === 0 && !c.words)
     return { id: 'intro', voice: 'ask', live: [], start: true, ...COPY.intro };
   const asked = askedKind(c);
-  if (asked) return walk(KIND_AT[asked], pickMoment(asked, c.pickerOpen));
+  if (asked) return pickMoment(asked, c.pickerOpen);
   // The last one is both halves of the same act: write the line, then make it.
-  return walk(4, { id: 'make', voice: 'ask', point: SEND, live: [BRIEF, SEND], side: 'top', ...COPY.make });
+  return { id: 'make', voice: 'ask', point: SEND, live: [BRIEF, SEND], side: 'top', ...COPY.make };
 }
 
 /**
@@ -270,9 +268,7 @@ export function firstShotMoment(f: ShotFacts): Moment | null {
  */
 export function reuseMoment(f: ShotFacts): Moment | null {
   if (!f.here)
-    return f.heading
-      ? { id: 'go', voice: 'ask', point: NAV_CREATE, side: 'bottom', soft: true, at: 1, of: 4, ...COPY.go }
-      : null;
+    return f.heading ? { id: 'go', voice: 'ask', point: NAV_CREATE, side: 'bottom', soft: true, ...COPY.go } : null;
   const c = f.composer;
   const made = f.nodes.find(finished);
   if (made)
@@ -285,14 +281,10 @@ export function reuseMoment(f: ShotFacts): Moment | null {
   const dud = f.nodes.find(failed);
   if (dud && !building) return { id: 'failed', voice: 'note', point: tile(dud.id), side: 'bottom', ...COPY.failed };
   if (c.engine !== 'ready') return { id: 'engine', voice: 'ask', point: ENGINE, side: 'top', ...COPY.engine };
-  const walk = (at: number, m: Moment): Moment => (f.viaBar ? { ...m, at: at + 1, of: 4 } : { ...m, at, of: 3 });
-  if (c.products === 0) return walk(1, pickMoment('product', c.pickerOpen, COPY.reuseProduct));
-  if (!c.scene) return walk(2, pickMoment('scene', c.pickerOpen, COPY.reuseScene));
-  return walk(3, { id: 'make', voice: 'ask', point: SEND, live: [BRIEF, SEND], side: 'top', ...COPY.make });
+  if (c.products === 0) return pickMoment('product', c.pickerOpen, COPY.reuseProduct);
+  if (!c.scene) return pickMoment('scene', c.pickerOpen, COPY.reuseScene);
+  return { id: 'make', voice: 'ask', point: SEND, live: [BRIEF, SEND], side: 'top', ...COPY.make };
 }
-
-/** Where each ingredient sits in the walk. */
-const KIND_AT: Record<AskedKind, number> = { product: 1, presenter: 2, scene: 3 };
 
 /** The ingredient the first shot is still asking for, or null once the brief holds all three. */
 export function askedKind(c: ComposerFacts): AskedKind | null {

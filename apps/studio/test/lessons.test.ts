@@ -1,7 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import type { GuideTaskNode } from '../src/apiTypes.js';
 import { MILESTONE } from '../src/guidedTasks.js';
-import { LESSON_PICTURES, LESSONS, NEEDS, lessonOf, lessonState, stepOf, type ProgressFacts } from '../src/lessons.js';
+import {
+  LESSON_PICTURES,
+  LESSONS,
+  NEEDS,
+  lessonOf,
+  lessonState,
+  stepOf,
+  stepOfMoment,
+  type ProgressFacts,
+} from '../src/lessons.js';
 
 const DASHES = String.fromCharCode(0x2013, 0x2014);
 const node = (id: string, status: string, images = 0): GuideTaskNode => ({
@@ -51,11 +60,40 @@ describe('the lessons', () => {
     expect(lessonOf(null)).toBeNull();
   });
 
-  it('are outcomes, five or six milestones each, never a tour of clicks', () => {
+  it('are outcomes, two to six of them, never a tour of clicks', () => {
     for (const l of LESSONS) {
-      expect(l.steps.length, l.id).toBeGreaterThanOrEqual(5);
+      // two is the floor because some walks really are two moments long: the
+      // product dialog says one thing and then the product exists
+      expect(l.steps.length, l.id).toBeGreaterThanOrEqual(2);
       expect(l.steps.length, l.id).toBeLessThanOrEqual(6);
     }
+  });
+
+  it('opens on its first step: what pressing Start does is never a step of its own', () => {
+    // every walk used to open on "2 of 3", because the list began with the
+    // thing the launch had already done
+    const first: Record<string, string> = {
+      'first-shot': 'go',
+      product: 'product',
+      reuse: 'go',
+      presenter: 'start',
+      scene: 'scene',
+      refine: 'ask',
+    };
+    for (const [id, moment] of Object.entries(first))
+      expect(stepOfMoment(id as never, moment), id).toMatchObject({ at: 1 });
+  });
+
+  it('is the same list the tutor walks: every moment lands on a step, and says so', () => {
+    for (const l of LESSONS)
+      for (const moment of MOMENTS[l.id]) {
+        const where = stepOfMoment(l.id, moment);
+        // the greeting is the one moment with no step of its own
+        if (moment === 'intro') continue;
+        expect(where, `${l.id}: ${moment}`).not.toBeNull();
+        expect(where?.of, `${l.id}: ${moment}`).toBe(l.steps.length);
+        expect(where?.at, `${l.id}: ${moment}`).toBeLessThanOrEqual(l.steps.length);
+      }
   });
 
   it('keeps its prerequisites: a shot to refine, a product of your own to use again', () => {
@@ -107,19 +145,17 @@ describe('lessonState', () => {
 describe('stepOf', () => {
   it("reads the tutor's own moment when there is one", () => {
     // one milestone per ingredient now, so each ask ticks its own
-    expect(stepOf('first-shot', facts({ moment: 'product' }))).toBe(0);
-    expect(stepOf('first-shot', facts({ moment: 'presenter' }))).toBe(1);
-    expect(stepOf('first-shot', facts({ moment: 'scene' }))).toBe(2);
-    expect(stepOf('first-shot', facts({ moment: 'make' }))).toBe(3);
-    expect(stepOf('first-shot', facts({ moment: 'waiting' }))).toBe(4);
+    expect(stepOf('first-shot', facts({ moment: 'product' }))).toBe(1);
+    expect(stepOf('first-shot', facts({ moment: 'presenter' }))).toBe(2);
+    expect(stepOf('first-shot', facts({ moment: 'scene' }))).toBe(3);
+    expect(stepOf('first-shot', facts({ moment: 'make' }))).toBe(4);
     expect(stepOf('first-shot', facts({ moment: 'result' }))).toBe(5);
     expect(stepOf('reuse', facts({ moment: 'product' }))).toBe(1);
-    expect(stepOf('reuse', facts({ moment: 'scene' }))).toBe(2);
     expect(stepOf('reuse', facts({ moment: 'again' }))).toBe(4);
-    expect(stepOf('presenter', facts({ moment: 'face' }))).toBe(3);
-    expect(stepOf('presenter', facts({ moment: 'save' }))).toBe(5);
+    expect(stepOf('presenter', facts({ moment: 'face' }))).toBe(1);
+    expect(stepOf('presenter', facts({ moment: 'save' }))).toBe(2);
     // the last step there is, never one past it: the tick has to exist
-    expect(stepOf('refine', facts({ moment: 'refined' }))).toBe(3);
+    expect(stepOf('refine', facts({ moment: 'refined' }))).toBe(1);
   });
 
   it('never points at a step a lesson does not have', () => {
@@ -141,10 +177,10 @@ describe('stepOf', () => {
     expect(stepOf('first-shot', facts({ nodes: [node('a', 'done', 0)] }))).toBe(4);
     expect(stepOf('reuse', facts({ nodes: [node('a', 'done', 1)] }))).toBe(4);
     expect(stepOf('presenter', facts())).toBe(0);
-    expect(stepOf('presenter', facts({ draft: true }))).toBe(3);
-    expect(stepOf('scene', facts({ building: true }))).toBe(3);
+    expect(stepOf('presenter', facts({ draft: true }))).toBe(1);
+    expect(stepOf('scene', facts({ building: true }))).toBe(1);
     expect(stepOf('product', facts())).toBe(0);
-    expect(stepOf('refine', facts({ nodes: [node('e', 'running')] }))).toBe(2);
+    expect(stepOf('refine', facts({ nodes: [node('e', 'running')] }))).toBe(1);
   });
 });
 

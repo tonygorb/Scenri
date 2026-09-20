@@ -33,12 +33,12 @@ export const LESSONS: readonly Lesson[] = [
     summary:
       'A shot is three things Scenri keeps for you, put together and directed: what you sell, who shows it, and where it happens. Start with ours to see the shape of it, then swap in your own.',
     steps: [
+      'Open Create',
       'Choose a product',
       'Choose a presenter',
       'Choose a scene',
-      'Say how to shoot it',
-      'Make the shot',
-      'Open what came back',
+      'Say how to shoot it, then make it',
+      'Open your shot',
     ],
   },
   {
@@ -46,13 +46,7 @@ export const LESSONS: readonly Lesson[] = [
     title: 'Add your product',
     summary:
       'Your own product, added once from its packshots or straight from your store, and exact in every shot you make from then on. Nothing is drawn here and nothing is spent.',
-    steps: [
-      'Start a product',
-      'Add its packshots, or bring in your store',
-      'Put the clearest angle first',
-      'Name it and file it',
-      'Save it to the brand',
-    ],
+    steps: ['Add its photos, or bring in your store', 'Save it to the brand'],
   },
   {
     id: 'reuse',
@@ -73,40 +67,21 @@ export const LESSONS: readonly Lesson[] = [
     title: 'Create a presenter',
     summary:
       'One person Scenri keeps, invented question by question or built from photos of someone real, who stays the same face across every shot you put them in.',
-    steps: [
-      'Start a presenter',
-      'Describe someone, or add photos',
-      'Fill in what is always true of them',
-      'Decide the face',
-      'Take the other views',
-      'Save them to the brand',
-    ],
+    steps: ['Describe someone, or add photos', 'Decide the face', 'Save them to the brand'],
   },
   {
     id: 'scene',
     title: 'Build a scene',
     summary:
       'A place and its light, saved once and shot in again. References are evidence rather than backdrops: a scene reaches a shot as words, so nothing in them is copied into a picture.',
-    steps: [
-      'Start a scene',
-      'Name the place',
-      'Add references, or a line of direction',
-      'Create it',
-      'Wait for its example to draw',
-    ],
+    steps: ['Name it, then add a photo or a line of direction', 'Create it'],
   },
   {
     id: 'refine',
     title: 'Refine a shot',
     summary:
       'Change one thing about a shot you already have and keep everything else, including the original. This is how a shot gets good: one change at a time, never a fresh start.',
-    steps: [
-      'Open a shot you have made',
-      'Say the one thing to change',
-      'Let it draw',
-      'Find it on the trail',
-      'Change one more thing',
-    ],
+    steps: ['Say the one thing to change', 'See the change on the trail'],
     needs: 'shot',
   },
 ];
@@ -162,27 +137,47 @@ export interface ProgressFacts {
   building: boolean;
 }
 
-/** Which of a lesson's steps each of its task's moments is part of. */
+/**
+ * Which step of its lesson each moment of a task is. This is the one place
+ * the tutor and Learn meet: the card counts these steps, Learn ticks these
+ * steps, and a lesson's list is exactly what its walk does. A moment missing
+ * from here is one that carries no count, which is only ever the greeting.
+ *
+ * A step exists because the tutor can say it. What pressing Start does (open
+ * the dialog, open the shot, open the studio) is not a step: listing it made
+ * every one of those walks open on "2 of 3", which reads as having missed
+ * something.
+ */
 const AT: Record<GuideTaskId, Record<string, number>> = {
   'first-shot': {
     go: 0,
-    intro: 0,
-    engine: 0,
-    product: 0,
-    presenter: 1,
-    scene: 2,
-    make: 3,
+    engine: 1,
+    product: 1,
+    presenter: 2,
+    scene: 3,
+    make: 4,
     sending: 4,
     waiting: 4,
     failed: 4,
     result: 5,
   },
-  product: { product: 1 },
+  product: { product: 0 },
   reuse: { go: 0, engine: 1, product: 1, scene: 2, make: 3, sending: 3, waiting: 3, failed: 3, again: 4 },
-  presenter: { engine: 1, start: 1, face: 3, save: 5 },
-  scene: { scene: 2 },
-  refine: { ask: 1, 'refine-failed': 1, refining: 2, refined: 3 },
+  presenter: { engine: 0, start: 0, face: 1, save: 2 },
+  scene: { scene: 0 },
+  refine: { ask: 0, 'refine-failed': 0, refining: 1, refined: 1 },
 };
+
+/**
+ * Where a moment sits in its lesson, and how many steps that lesson has, so
+ * the tutor's card says the same thing Learn does (`GuideHost`). The greeting
+ * has no step of its own and so no count.
+ */
+export function stepOfMoment(id: GuideTaskId, moment: string): { at: number; of: number } | null {
+  const at = AT[id][moment];
+  const of = LESSONS.find((l) => l.id === id)?.steps.length ?? 0;
+  return at === undefined || !of ? null : { at: at + 1, of };
+}
 
 const finished = (n: GuideTaskNode) => n.status === 'done' && n.images > 0;
 
@@ -201,11 +196,11 @@ export function stepOf(id: GuideTaskId, f: ProgressFacts): number {
     case 'reuse':
       return f.nodes.some(finished) ? 4 : f.nodes.length > 0 ? 3 : 0;
     case 'presenter':
-      return f.draft ? 3 : 0;
+      return f.draft ? 1 : 0;
     case 'scene':
-      return f.building ? 3 : 0;
+      return f.building ? 1 : 0;
     case 'refine':
-      return f.nodes.some(finished) ? 3 : f.nodes.some((n) => n.status === 'running') ? 2 : 0;
+      return f.nodes.some(finished) || f.nodes.some((n) => n.status === 'running') ? 1 : 0;
     default:
       return 0;
   }

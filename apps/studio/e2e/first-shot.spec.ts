@@ -53,7 +53,7 @@ test('one thing at a time, from the welcome to a finished picture', async ({ pag
   // on, dimmed rather than blurred so they can still see where they are, with
   // Create itself ringed.
   await expect(coachTitle(page)).toHaveText('Shots are made in Create');
-  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('1 of 5');
+  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('1 of 6');
   await expect(page).toHaveURL(new RegExp(`/${slug}$`));
   await expect(page.locator('.sc-coach-veil')).toHaveCSS('backdrop-filter', 'none');
   await expect(page.locator('.sc-coach-ring')).toBeVisible();
@@ -63,7 +63,7 @@ test('one thing at a time, from the welcome to a finished picture', async ({ pag
   // Arriving by their own hand is the opening read: one ask, on the one
   // control that answers it, and Back goes back the way they came.
   await expect(coachTitle(page)).toHaveText('Choose a product');
-  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('2 of 5');
+  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('2 of 6');
   await expect(coachCard(page).getByRole('button', { name: 'Back' })).toBeVisible();
   await expectHeld(page);
   await expect(page.locator('.sc-coach-veil')).toHaveCSS('backdrop-filter', 'blur(3px)');
@@ -196,5 +196,5 @@ test('a scene has its own task, held in the dialog it is made in', async ({ page
   // closing the dialog does not end the task: Learn continues it
   expect((await guideRecord(page)).active?.task).toBe('scene');
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText(/^Step \d of 5$/);
+  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText(/^Step \d of 2$/);
 });

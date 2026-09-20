@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { api, type GuideIntent, type GuideView } from './api.js';
+import { api, type GuideIntent, type GuideTaskId, type GuideView } from './api.js';
 import { FIRST_USE } from './firstUse.js';
 
 /**
@@ -151,6 +151,41 @@ function subscribe(l: () => void) {
 
 /** Where this browser remembers that a brand's first shot began with the way to Create. */
 export const viaBarKey = (brandId: string) => `scenri:guide-via-bar:${brandId}`;
+
+/**
+ * The furthest step a lesson has reached, so Learn does not walk backwards.
+ *
+ * The tutor asks again for whatever is missing, which is right: take a chip
+ * out and it wants it back. Learn is the other question, how far you have
+ * got, and that does not un-happen because the brief was emptied afterwards.
+ * Kept where the greeting is kept, this browser's own memory, and forgotten
+ * when the lesson is finished so doing it again starts at the beginning.
+ */
+const reachedKey = (brandId: string, task: GuideTaskId) => `scenri:guide-reached:${brandId}:${task}`;
+
+export function markReached(brandId: string, task: GuideTaskId, at: number): void {
+  try {
+    if (at > reachedOf(brandId, task)) window.localStorage.setItem(reachedKey(brandId, task), String(at));
+  } catch {
+    // a browser that refuses storage simply follows the product's own state
+  }
+}
+
+export function reachedOf(brandId: string, task: GuideTaskId): number {
+  try {
+    return Number(window.localStorage.getItem(reachedKey(brandId, task)) ?? 0) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function forgetReached(brandId: string, task: GuideTaskId): void {
+  try {
+    window.localStorage.removeItem(reachedKey(brandId, task));
+  } catch {
+    // nothing remembered, nothing to forget
+  }
+}
 
 /** The first shot begun away from Create: its first step is the way there. */
 export function headFor(brandId: string): void {

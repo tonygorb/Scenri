@@ -51,7 +51,7 @@ test('Learn is a quiet button beside the bell, and every lesson is in it', async
     'Refine a shot',
   ]);
   // where each stands, in a few words: a count of steps, never a time
-  await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('6 steps');
+  await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('3 steps');
   // nothing of their own to use again yet, so that one says what it starts from
   await expect(card(page, 'Use it again').locator('.sc-learn-status')).toHaveText('Needs a product');
   // never a time: a word-boundary match, so a lesson may say "framing"
@@ -64,16 +64,14 @@ test('Learn is a quiet button beside the bell, and every lesson is in it', async
   await card(page, 'Create a presenter').click();
   await expect(page).toHaveURL(/learn=presenter/);
   await expect(card(page, 'Create a presenter')).toHaveAttribute('aria-current', 'true');
+  // the lesson's steps are the walk's own moments, one for one
   await expect(learn(page).locator('.sc-learn-step-name')).toHaveText([
-    'Start a presenter',
     'Describe someone, or add photos',
-    'Fill in what is always true of them',
     'Decide the face',
-    'Take the other views',
     'Save them to the brand',
   ]);
   await expect(learn(page).locator('button.sc-learn-step')).toHaveCount(1);
-  await expect(action(page, 'Start')).toHaveAccessibleName('Start: Start a presenter');
+  await expect(action(page, 'Start')).toHaveAccessibleName('Start: Describe someone, or add photos');
   // choosing another lesson moves nothing: the picture and the steps hold their place
   const at = async () => [
     await learn(page).locator('.sc-learn-hero').boundingBox(),
@@ -109,10 +107,10 @@ test('a lesson begun in Learn is paused and continued as it was', async ({ page 
   // Learn says it is in hand
   await page.goto(`/${slug}`);
   await learnButton(page).click();
-  await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('Step 1 of 6');
+  await expect(card(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('Step 1 of 3');
   await card(page, 'Create a presenter').click();
   await expect(learn(page).locator('.sc-learn-step[aria-current="step"] .sc-learn-step-name')).toHaveText(
-    'Start a presenter',
+    'Describe someone, or add photos',
   );
   // continuing it keeps the window it began with
   await action(page, 'Continue').click();
@@ -141,7 +139,7 @@ test('a lesson done from Learn is done there, and can be done again', async ({ p
   await learnButton(page).click();
   await expect(card(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('Done');
   await card(page, 'Build a scene').click();
-  await expect(learn(page).locator('.sc-learn-step[data-state="done"]')).toHaveCount(5);
+  await expect(learn(page).locator('.sc-learn-step[data-state="done"]')).toHaveCount(2);
   await expect(action(page, 'Start again')).toBeVisible();
 });
 
@@ -196,7 +194,7 @@ test('using a saved product again is its own walk: the product, a place, the wor
 
   // its own three asks, in its own order: what they saved, then somewhere else
   await expect(coachTitle(page)).toHaveText('Add the product you saved');
-  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('2 of 4');
+  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('2 of 5');
   await page.locator('[data-guide="compose.add"]').click();
   await pickFromPicker(page, 'Product');
   await expect(coachTitle(page)).toHaveText('Put it somewhere else');
