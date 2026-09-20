@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.12.0](https://github.com/tonygorb/Scenri/compare/v0.11.1...v0.12.0) (2026-09-20)
+
+
+### Features
+
+* archive a selection, and make the selection dock a toolbar ([a2697a2](https://github.com/tonygorb/Scenri/commit/a2697a26201314185e609125d04a2bf6391c4e6e))
+* **create:** archive a whole selection from the dock ([d5c2181](https://github.com/tonygorb/Scenri/commit/d5c2181210f0f92b1df528b0113a773a049e916d))
+* **studio:** make the selection dock a toolbar ([362112e](https://github.com/tonygorb/Scenri/commit/362112e9d1bc2be6bf171f0b0702e61ca8845720))
+
+
+### Bug Fixes
+
+* ask the browser whether the page is still here ([2800f8d](https://github.com/tonygorb/Scenri/commit/2800f8d72feb294b7a54da090242ecb2a66e6929))
+* **brand:** a deleted brand does not reopen its dialogs on the next one ([dbe69eb](https://github.com/tonygorb/Scenri/commit/dbe69eb2e6679dc068c426721a0a0ebbfd39c3ca))
+* **brand:** brand saves, renames, deletes and shot wipes reach the screen ([020c905](https://github.com/tonygorb/Scenri/commit/020c905c6700d8e909cef025d437bc7d4566b663))
+* **create:** a shot restored from the archive comes back to the feed ([131d132](https://github.com/tonygorb/Scenri/commit/131d1329dac03a4d43299636ecf94cb90a26c0e1))
+* **create:** keep a phone's toast clear of the tab bar ([c42f947](https://github.com/tonygorb/Scenri/commit/c42f94791f226879d15f460f2e054ddd79529a9b))
+* **create:** the selection dock is a shelf on a phone, not the pill squeezed ([ffac597](https://github.com/tonygorb/Scenri/commit/ffac5970779d28dfabd52d7655d7469a993417e6))
+* make every saved change reach every surface without a reload ([fb1e517](https://github.com/tonygorb/Scenri/commit/fb1e517170d1327eb4b1ce8af5a6e93d42c9ed7e))
+* **presenters:** a saved person is on every surface the moment they land ([dd6ed16](https://github.com/tonygorb/Scenri/commit/dd6ed16ba1e687c1bf8848bb1f070349663ddb81))
+* **products:** a product edit or delete reaches every surface at once ([2e34a76](https://github.com/tonygorb/Scenri/commit/2e34a765fe038e26d440a2ee586ea7844b6c35b9))
+* **scenes:** a deleted scene leaves every surface at once ([1d132cf](https://github.com/tonygorb/Scenri/commit/1d132cff749437f1ed6ec5ea7635eaa92125763e))
+* **studio:** ask the browser, not the last render, whether the page is still here ([0c4d874](https://github.com/tonygorb/Scenri/commit/0c4d8742a7358dad11fc5d6a2d137f8bb9d11448))
+* **studio:** hand focus on after a delete, and write the rule down ([07efb5c](https://github.com/tonygorb/Scenri/commit/07efb5c653af482e4725587a731dceb1701de130))
+* **studio:** let the selection bar undo Select all ([da21207](https://github.com/tonygorb/Scenri/commit/da21207c9d1215e85b10670b7af8c3b5631462b3))
+* **studio:** order brand answers so a late read never undoes a newer write ([abac146](https://github.com/tonygorb/Scenri/commit/abac146d5fa8ff559bb1105589d2c4418c5df94b))
+
 ## [0.11.1](https://github.com/tonygorb/Scenri/compare/v0.11.0...v0.11.1) (2026-09-18)
 
 
