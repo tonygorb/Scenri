@@ -254,7 +254,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       if (dupe) {
         const bumped = { ...dupe, count: dupe.count + 1 };
         commit(itemsRef.current.map((x) => (x.id === dupe.id ? bumped : x)));
-        arm(dupe.id, durationFor(bumped));
+        // A card held under the pointer or focus takes the fresh time for when
+        // it is let go; arming it now would take it away mid-read.
+        const held = timers.current.get(dupe.id);
+        if (held && held.handle == null) held.remaining = durationFor(bumped);
+        else arm(dupe.id, durationFor(bumped));
         if (!bumped.quiet) announce(bumped);
         return;
       }
@@ -266,10 +270,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
        * silently destroy an unread error — and, worse, take an Undo with it,
        * so the way back from an accident vanished because other things
        * happened afterwards. Successes are the ones that expire on their own.
+       * Only a stack of nothing but errors and Undos gives one up, oldest
+       * first and an Undo before an error: an Undo has the Archived view
+       * behind it, an unread failure has nothing.
        */
-      while (next.filter((x) => !x.leaving).length > TOAST_MAX) {
-        const victim = next.findIndex((x) => !x.leaving && x.kind !== 'error' && !hasActions(x));
-        const gone = next.splice(victim === -1 ? 0 : victim, 1)[0];
+      const on = (x: ToastItem) => !x.leaving;
+      while (next.filter(on).length > TOAST_MAX) {
+        let victim = next.findIndex((x) => on(x) && x.kind !== 'error' && !hasActions(x));
+        if (victim === -1) victim = next.findIndex((x) => on(x) && x.kind !== 'error');
+        if (victim === -1) victim = next.findIndex(on);
+        const gone = next.splice(victim, 1)[0];
         const rec = timers.current.get(gone.id);
         if (rec?.handle != null) window.clearTimeout(rec.handle);
         timers.current.delete(gone.id);
@@ -306,12 +316,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
        * a card that enters with an animation and leaves 140ms later would be
        * announced twice or not at all. Polite carries info, success and
        * warning; assertive is reserved for errors, the only kind worth
-       * interrupting for. The visible stack is an ordinary labelled region,
+       * interrupting for. It carries no role="alert": an empty alert on every
+       * page reads as a failure that is not there, and aria-live alone speaks.
+       * The visible stack is an ordinary labelled region,
        * so a keyboard or screen-reader user can still find an action after
        * hearing the words.
        */}
       <div ref={politeRef} className="sc-vh" role="status" aria-live="polite" />
-      <div ref={assertiveRef} className="sc-vh" role="alert" aria-live="assertive" />
+      <div ref={assertiveRef} className="sc-vh" aria-live="assertive" aria-atomic="true" />
       <section className="sc-toasts" aria-label="Alerts" ref={stackRef}>
         {items.map((t) => {
           const acts = actionsOf(t);

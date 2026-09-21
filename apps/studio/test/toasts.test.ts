@@ -107,9 +107,11 @@ describe('ToastProvider', () => {
     push({ kind: 'success', title: 'Archived' });
     push({ kind: 'error', title: 'Could not delete this shot' });
     const polite = container.querySelector('[role="status"][aria-live="polite"]');
-    const assertive = container.querySelector('[role="alert"][aria-live="assertive"]');
+    const assertive = container.querySelector('[aria-live="assertive"]');
     expect(polite?.textContent).toBe('Archived');
     expect(assertive?.textContent).toBe('Could not delete this shot');
+    // An empty alert on every page would read as a failure that is not there.
+    expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(container.querySelector('.sc-toasts')?.tagName).toBe('SECTION');
     expect(document.activeElement).toBe(before);
   });
@@ -117,7 +119,7 @@ describe('ToastProvider', () => {
   it('skips the live region when asked (a shot failure already spoken on the feed)', () => {
     const push = renderStack();
     push({ kind: 'error', title: 'Shot failed', quiet: true });
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe('');
+    expect(container.querySelector('[aria-live="assertive"]')?.textContent).toBe('');
     expect(container.querySelector('.sc-toast')?.textContent).toContain('Shot failed');
   });
 
@@ -198,6 +200,38 @@ describe('ToastProvider', () => {
     expect(titles).toContain('Archived');
     expect(titles).toContain('C');
     expect(titles).not.toContain('A');
+  });
+
+  it('gives up an Undo before an error, oldest first, only when nothing else can go', () => {
+    const push = renderStack();
+    push({ kind: 'error', title: 'Could not save' });
+    push({ kind: 'success', title: 'Archived', action: { label: 'Undo', onClick: () => {} } });
+    push({ kind: 'error', title: 'Could not delete this shot' });
+    push({ kind: 'error', title: 'Could not rename' });
+    let titles = visible().map((el) => el.querySelector('b')?.childNodes[0]?.textContent?.trim());
+    expect(titles).toEqual(['Could not save', 'Could not delete this shot', 'Could not rename']);
+    push({ kind: 'error', title: 'Could not import' });
+    titles = visible().map((el) => el.querySelector('b')?.childNodes[0]?.textContent?.trim());
+    expect(titles).toEqual(['Could not delete this shot', 'Could not rename', 'Could not import']);
+  });
+
+  it('keeps a held card when the same event arrives again, and lets it go after', () => {
+    vi.useFakeTimers();
+    const push = renderStack();
+    push({ kind: 'info', title: 'Guide closed' });
+    const x = container.querySelector<HTMLButtonElement>('.sc-toast-x')!;
+    act(() => x.focus());
+    push({ kind: 'info', title: 'Guide closed' });
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(visible()).toHaveLength(1);
+    expect(container.querySelector('.sc-toast-n')?.textContent).toBe('×2');
+    act(() => x.blur());
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+    expect(visible()).toHaveLength(0);
   });
 
   it('does not write any product state of its own', () => {
