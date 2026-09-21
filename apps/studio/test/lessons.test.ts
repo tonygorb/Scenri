@@ -40,13 +40,12 @@ const MOMENTS: Record<string, readonly string[]> = {
   reuse: ['go', 'engine', 'product', 'scene', 'make', 'sending', 'waiting', 'failed', 'again'],
   presenter: ['engine', 'start', 'face', 'save'],
   scene: ['scene'],
-  refine: ['ask', 'refine-failed', 'refining', 'refined'],
+  refine: ['choose', 'ask', 'refine-failed', 'refining', 'refined'],
 };
 const facts = (over: Partial<ProgressFacts> = {}): ProgressFacts => ({
   moment: null,
   nodes: [],
   draft: false,
-  building: false,
   ...over,
 });
 
@@ -61,11 +60,12 @@ describe('the lessons', () => {
     expect(lessonOf(null)).toBeNull();
   });
 
-  it('are outcomes, two to six of them, never a tour of clicks', () => {
+  it('are outcomes, one to six of them, never a tour of clicks', () => {
     for (const l of LESSONS) {
-      // two is the floor because some walks really are two moments long: the
-      // product dialog says one thing and then the product exists
-      expect(l.steps.length, l.id).toBeGreaterThanOrEqual(2);
+      // one is the floor because some walks really are one moment long: the
+      // product dialog says one thing and the product exists, nothing further
+      // is its own step to tick
+      expect(l.steps.length, l.id).toBeGreaterThanOrEqual(1);
       expect(l.steps.length, l.id).toBeLessThanOrEqual(6);
     }
   });
@@ -79,7 +79,7 @@ describe('the lessons', () => {
       reuse: 'go',
       presenter: 'start',
       scene: 'scene',
-      refine: 'ask',
+      refine: 'choose',
     };
     for (const [id, moment] of Object.entries(first))
       expect(stepOfMoment(id as never, moment), id).toMatchObject({ at: 1 });
@@ -189,6 +189,27 @@ describe('lessonState', () => {
     // a milestone from another lesson, or one that no longer maps, counts for nothing
     expect(furthest('first-shot', ['face', 'nonsense'])).toBe(0);
   });
+
+  it('never promises a step neither the moments nor the record-only switch can reach', () => {
+    // this is how product and scene broke once: each promised a second step
+    // that no moment id and no fallback ever reached, so Learn could never
+    // count past the first (2026-09-21)
+    for (const l of LESSONS) {
+      const last = l.steps.length - 1;
+      const reachedByMoment = MOMENTS[l.id]
+        .map((m) => stepOfMoment(l.id, m)?.at)
+        .filter((at): at is number => at !== undefined);
+      expect(Math.max(...reachedByMoment), l.id).toBe(l.steps.length);
+      // the switch is allowed to under-reach (furthest() self-corrects from
+      // what was actually recorded), never to claim a step the lesson lacks
+      for (const status of ['done', 'running', 'error', 'cancelled'])
+        for (const images of [0, 1])
+          for (const draft of [false, true]) {
+            const at = stepOf(l.id, facts({ nodes: [node('n', status, images)], draft }));
+            expect(at, `${l.id}: ${status}/${images}/${draft}`).toBeLessThanOrEqual(last);
+          }
+    }
+  });
 });
 
 describe('stepOf', () => {
@@ -204,7 +225,7 @@ describe('stepOf', () => {
     expect(stepOf('presenter', facts({ moment: 'face' }))).toBe(1);
     expect(stepOf('presenter', facts({ moment: 'save' }))).toBe(2);
     // the last step there is, never one past it: the tick has to exist
-    expect(stepOf('refine', facts({ moment: 'refined' }))).toBe(1);
+    expect(stepOf('refine', facts({ moment: 'refined' }))).toBe(2);
   });
 
   it('never points at a step a lesson does not have', () => {
@@ -227,9 +248,10 @@ describe('stepOf', () => {
     expect(stepOf('reuse', facts({ nodes: [node('a', 'done', 1)] }))).toBe(4);
     expect(stepOf('presenter', facts())).toBe(0);
     expect(stepOf('presenter', facts({ draft: true }))).toBe(1);
-    expect(stepOf('scene', facts({ building: true }))).toBe(1);
+    // scene is one step, reached the moment the moment fires: nothing else to prove
+    expect(stepOf('scene', facts())).toBe(0);
     expect(stepOf('product', facts())).toBe(0);
-    expect(stepOf('refine', facts({ nodes: [node('e', 'running')] }))).toBe(1);
+    expect(stepOf('refine', facts({ nodes: [node('e', 'running')] }))).toBe(2);
   });
 });
 

@@ -144,7 +144,7 @@ test('a lesson done from Learn is done there, and can be done again', async ({ p
   await learnButton(page).click();
   await expect(card(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('Done');
   await card(page, 'Build a scene').click();
-  await expect(learn(page).locator('.sc-learn-step[data-state="done"]')).toHaveCount(2);
+  await expect(learn(page).locator('.sc-learn-step[data-state="done"]')).toHaveCount(1);
   await expect(action(page, 'Start again')).toBeVisible();
 });
 
@@ -173,6 +173,11 @@ test('a first refine begun from Learn ends when it is done, and does not begin a
 
   await page.goto(`/${slug}?learn=refine`);
   await action(page, 'Start').click();
+  // no shot open yet: the grid is the ask, and it is the user's own click on
+  // a shot's picture that chooses one, not the task picking for them
+  await page.waitForURL('**/create**');
+  await expect(coachTitle(page)).toHaveText('Choose a shot to change');
+  await page.locator('.sc-feed .sc-cell-open').first().click();
   await page.waitForURL('**/shots/**');
   await expect(page.locator('.sc-ovl .sc-coach .sc-coach-title')).toHaveText('Change one thing');
   await page.locator('.sc-ovl .sc-brief-line').click();
@@ -237,7 +242,7 @@ test('a lesson part done stays part done when another is taken up', async ({ pag
   await expect(card(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('Step 5 of 6');
   // the one just taken up is standing on its first step, so it reads as not
   // begun while its window is kept all the same (the record, at the end)
-  await expect(card(page, 'Add your product').locator('.sc-learn-status')).toHaveText('2 steps');
+  await expect(card(page, 'Add your product').locator('.sc-learn-status')).toHaveText('1 step');
 
   // and it is continued, not begun again: taken up from Home it asks for the
   // way there first, as any walk does, and then picks up where it was with

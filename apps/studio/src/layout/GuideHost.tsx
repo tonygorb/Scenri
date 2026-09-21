@@ -8,6 +8,7 @@ import { arrived, guideIntent, headFor, refreshGuide, useGuide, viaBarKey } from
 import { setGuideShowing, useGuideFacts } from '../guideFacts.js';
 import {
   ASK_TAB,
+  COMPOSE_CARD,
   WELCOME,
   askedKind,
   canWelcome,
@@ -220,8 +221,20 @@ export function GuideHost() {
       begun: begun || arriving || nodes.length > 0,
     };
     moment = task === 'reuse' ? reuseMoment(shotFacts) : firstShotMoment(shotFacts);
-  } else if (task === 'refine') moment = refineMoment({ here: !!shot, nodes, asking: !!firstVisible(SHOT_COMPOSER) });
-  else if (task === 'presenter') moment = studio ? presenterMoment(facts.studio) : null;
+  } else if (task === 'refine') {
+    const c = facts.composer?.brandId === brand.id ? facts.composer : null;
+    const open = !!shot;
+    // The shot's own overlay carries `role="dialog"`, so it is `modal` by that
+    // reading too: its own surface, never something sat over it, the way the
+    // grid's discovery card must still give way to a real dialog on top.
+    moment = refineMoment({
+      here: open || (hub && !modal),
+      open,
+      armed: hub && !!c?.refining,
+      nodes,
+      asking: open ? !!firstVisible(SHOT_COMPOSER) : !!firstVisible(COMPOSE_CARD),
+    });
+  } else if (task === 'presenter') moment = studio ? presenterMoment(facts.studio) : null;
   else if (task === 'scene') moment = sceneMoment(newKind === 'scene');
   else if (task === 'product') moment = productMoment(newKind === 'product');
 

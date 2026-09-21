@@ -176,9 +176,30 @@ describe('the first shot, one ask at a time', () => {
 });
 
 describe('the later tasks', () => {
-  it("refine: ask on the open shot's composer, quiet while it draws, then a note on the history", () => {
-    expect(refineMoment({ here: false, nodes: [] })).toBeNull();
-    expect(refineMoment({ here: true, nodes: [] })).toMatchObject({
+  const refFacts = (over: Partial<Parameters<typeof refineMoment>[0]> = {}): Parameters<typeof refineMoment>[0] => ({
+    here: true,
+    open: false,
+    armed: false,
+    nodes: [],
+    ...over,
+  });
+
+  it('refine: off the surface entirely, nothing shows', () => {
+    expect(refineMoment(refFacts({ here: false }))).toBeNull();
+  });
+
+  it('refine: neither a shot open nor the card armed asks which one to change', () => {
+    expect(refineMoment(refFacts())).toMatchObject({
+      id: 'choose',
+      voice: 'ask',
+      point: '.sc-feed',
+      live: ['.sc-feed'],
+      title: COPY.refineChoose.title,
+    });
+  });
+
+  it('refine: opening the shot asks on its own composer, quiet while it draws, then a note on the history', () => {
+    expect(refineMoment(refFacts({ open: true }))).toMatchObject({
       voice: 'ask',
       shell: '.sc-ovl',
       point: '.sc-ovl .sc-promptcard',
@@ -186,9 +207,11 @@ describe('the later tasks', () => {
       also: ['.sc-ovl .sc-stage-img'],
       title: COPY.refineAsk.title,
     });
-    expect(refineMoment({ here: true, nodes: [{ ...node('e1', 'running'), kind: 'edit' }] })?.voice).toBe('quiet');
+    expect(refineMoment(refFacts({ open: true, nodes: [{ ...node('e1', 'running'), kind: 'edit' }] }))?.voice).toBe(
+      'quiet',
+    );
     // the change landed in the history, so that is what the note points at
-    expect(refineMoment({ here: true, nodes: [{ ...node('e1', 'done', 1), kind: 'edit' }] })).toMatchObject({
+    expect(refineMoment(refFacts({ open: true, nodes: [{ ...node('e1', 'done', 1), kind: 'edit' }] }))).toMatchObject({
       voice: 'note',
       point: '.sc-ovl .sc-trail',
       done: true,
@@ -196,15 +219,36 @@ describe('the later tasks', () => {
     });
   });
 
-  it('refine: a failed change is said on the history, until a composer is there to ask again', () => {
+  it("refine: the card's own Refine arms the docked composer, asking there instead", () => {
+    expect(refineMoment(refFacts({ armed: true }))).toMatchObject({
+      id: 'ask',
+      voice: 'ask',
+      point: '[data-guide="compose"] .sc-promptcard',
+      live: ['[data-guide="compose"] .sc-promptcard'],
+      title: COPY.refineAsk.title,
+    });
+    // and the same landings, pointed at the tile rather than the overlay
+    expect(refineMoment(refFacts({ armed: true, nodes: [{ ...node('e1', 'done', 1), kind: 'edit' }] }))).toMatchObject({
+      id: 'refined',
+      voice: 'note',
+      point: '.sc-feed .sc-cell[data-fb-node="e1"]',
+      done: true,
+    });
+  });
+
+  it('refine: a failed change is said on the history, or the tile, until a composer is there to ask again', () => {
     const dud = [{ ...node('e1', 'error'), kind: 'edit' }];
-    expect(refineMoment({ here: true, nodes: dud, asking: false })).toMatchObject({
+    expect(refineMoment(refFacts({ open: true, nodes: dud, asking: false }))).toMatchObject({
       id: 'refine-failed',
       voice: 'note',
       point: '.sc-ovl .sc-trail',
       title: COPY.refineFailed.title,
     });
-    expect(refineMoment({ here: true, nodes: dud, asking: true })?.id).toBe('ask');
+    expect(refineMoment(refFacts({ open: true, nodes: dud, asking: true }))?.id).toBe('ask');
+    expect(refineMoment(refFacts({ armed: true, nodes: dud, asking: false }))).toMatchObject({
+      id: 'refine-failed',
+      point: '.sc-feed .sc-cell[data-fb-node="e1"]',
+    });
   });
 
   it('presenter: three decisions get a word, and every question the studio asks itself is quiet', () => {

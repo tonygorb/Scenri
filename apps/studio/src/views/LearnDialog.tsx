@@ -2,7 +2,6 @@ import { type RefObject, useEffect, useRef, useState } from 'react';
 import { ArrowRight, CaretLeft, Check, X } from '@phosphor-icons/react';
 import { useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId } from '../apiTypes.js';
 import { useGuide } from '../guide.js';
 import { useGuideFacts } from '../guideFacts.js';
@@ -48,7 +47,6 @@ export function LearnDialog() {
   const guide = useGuide();
   const facts = useGuideFacts();
   const { brand, recent, products } = useBrand();
-  const { builds } = useTaskCenter();
   const launch = useLaunchTask();
 
   // A lesson begins once this has closed: opening its surface in the same
@@ -98,7 +96,6 @@ export function LearnDialog() {
       moment,
       nodes: guide.activeNodes,
       draft: !!guide.activeDraftId,
-      building: l.id === 'scene' && builds.some((b) => b.kind === 'scene' && !b.finished),
     });
     // A lesson does not walk backwards. What it has reached is its own
     // (the record keeps the milestones by name), so emptying the brief asks
@@ -379,7 +376,11 @@ function Status({
     );
   // why its action reads differently: it cannot begin until there is a shot
   if (blocked) return <span className="sc-learn-status">{NEEDS[blocked].status}</span>;
-  return <span className="sc-learn-status">{n} steps</span>;
+  return (
+    <span className="sc-learn-status">
+      {n} step{n === 1 ? '' : 's'}
+    </span>
+  );
 }
 
 function CloseButton() {

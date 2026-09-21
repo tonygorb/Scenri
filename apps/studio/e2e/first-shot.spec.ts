@@ -201,5 +201,5 @@ test('a scene has its own task, held in the dialog it is made in', async ({ page
   expect((await guideRecord(page)).active?.task).toBe('scene');
   expect((await guideRecord(page)).progress.scene?.brandId).toBeTruthy();
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('2 steps');
+  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('1 step');
 });

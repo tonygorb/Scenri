@@ -76,8 +76,12 @@ const COMPOSE = '[data-guide="compose"]';
 const COMPOSE_PICKER = '[data-guide="compose"] .sc-attachpanel';
 /** Inside the picker, the one thing an ask is about: the shelf of things to choose from. */
 const PICKER_GRID = '[data-guide="compose"] .sc-attachpanel .sc-ap-body';
-/** The composer's own card, which the picker opens out of and sits on top of. */
-const COMPOSE_CARD = '[data-guide="compose"] .sc-promptcard';
+/**
+ * The composer's own card, which the picker opens out of and sits on top of.
+ * Refining reuses this: it is the same card, armed at a shot from its own
+ * tile rather than opened fresh.
+ */
+export const COMPOSE_CARD = '[data-guide="compose"] .sc-promptcard';
 const ADD = '[data-guide="compose.add"]';
 const BRIEF = '[data-guide="compose"] .sc-brief-line';
 const SEND = '[data-guide="compose.send"]';
@@ -152,7 +156,11 @@ export const COPY = {
   },
   refineFailed: {
     title: "That change didn't work",
-    body: 'The history says why. Open the original there and say the change again.',
+    body: 'Say the change again and Scenri will try it once more.',
+  },
+  refineChoose: {
+    title: 'Choose a shot to change',
+    body: 'Pick one from what you have made, or use Refine on its card.',
   },
   presenterEngine: {
     title: 'Set up image generation',
@@ -321,10 +329,14 @@ function pickMoment(kind: AskedKind, pickerOpen: boolean, words?: { title: strin
 }
 
 export interface RefineFacts {
-  /** A shot's overlay is open, in the task's brand. */
+  /** The refine surface at all: the grid, or a shot's own overlay, in the task's brand. */
   here: boolean;
+  /** Specifically, a shot's own overlay is open. */
+  open: boolean;
+  /** Not open, but the dock composer on the grid is armed with a shot to refine. */
+  armed: boolean;
   nodes: readonly GuideTaskNode[];
-  /** The open shot offers its composer: a failed step does not, until they step back to one that does. */
+  /** The composer that would ask offers itself right now: a failed step does not, until they step back to one that does. */
   asking?: boolean;
 }
 
@@ -334,39 +346,61 @@ export const SHOT_COMPOSER = `${SHOT} .sc-promptcard`;
 const SHOT_PICTURE = `${SHOT} .sc-stage-img`;
 /** The open shot's history: the original, then each refinement. */
 const SHOT_HISTORY = `${SHOT} .sc-trail`;
+/** Where shots live: the one place to find one, whichever way it is then chosen. */
+const FEED = '.sc-feed';
 
 /**
- * Refining: ask for one change, wait, then point at where it landed. The
- * picture stays in sight while the change is asked for, because saying what
- * to change means looking at it.
+ * Refining: choose a shot, ask for one change, wait, then point at where it
+ * landed. There are two real ways to choose one — opening it, or the card's
+ * own Refine — and both land on the same ask, because both are the user's
+ * own click rather than one this task makes for them. The picture stays in
+ * sight while the change is asked for, because saying what to change means
+ * looking at it.
  */
 export function refineMoment(f: RefineFacts): Moment | null {
   if (!f.here) return null;
+  if (!f.open && !f.armed)
+    return { id: 'choose', voice: 'ask', point: FEED, live: [FEED], beside: true, side: 'left', ...COPY.refineChoose };
   const made = f.nodes.find(finished);
   if (made)
-    return {
-      id: 'refined',
-      voice: 'note',
-      shell: SHOT,
-      point: SHOT_HISTORY,
-      side: 'top',
-      ...COPY.refineResult,
-      done: true,
-    };
+    return f.open
+      ? {
+          id: 'refined',
+          voice: 'note',
+          shell: SHOT,
+          point: SHOT_HISTORY,
+          side: 'top',
+          ...COPY.refineResult,
+          done: true,
+        }
+      : { id: 'refined', voice: 'note', point: tile(made.id), side: 'bottom', ...COPY.refineResult, done: true };
   if (f.nodes.some((n) => n.status === 'running')) return { id: 'refining', voice: 'quiet' };
-  // A step that failed has no composer of its own: the history is where they go next.
-  if (f.nodes.some(failed) && !f.asking)
-    return { id: 'refine-failed', voice: 'note', shell: SHOT, point: SHOT_HISTORY, side: 'top', ...COPY.refineFailed };
-  return {
-    id: 'ask',
-    voice: 'ask',
-    shell: SHOT,
-    point: SHOT_COMPOSER,
-    also: [SHOT_PICTURE],
-    beside: true,
-    side: 'left',
-    ...COPY.refineAsk,
-  };
+  // A step that failed has no composer of its own: the history, or the tile itself, is where they go next.
+  const dud = f.nodes.find(failed);
+  if (dud && !f.asking)
+    return f.open
+      ? { id: 'refine-failed', voice: 'note', shell: SHOT, point: SHOT_HISTORY, side: 'top', ...COPY.refineFailed }
+      : { id: 'refine-failed', voice: 'note', point: tile(dud.id), side: 'bottom', ...COPY.refineFailed };
+  return f.open
+    ? {
+        id: 'ask',
+        voice: 'ask',
+        shell: SHOT,
+        point: SHOT_COMPOSER,
+        also: [SHOT_PICTURE],
+        beside: true,
+        side: 'left',
+        ...COPY.refineAsk,
+      }
+    : {
+        id: 'ask',
+        voice: 'ask',
+        point: COMPOSE_CARD,
+        live: [COMPOSE_CARD],
+        beside: true,
+        side: 'top',
+        ...COPY.refineAsk,
+      };
 }
 
 /**

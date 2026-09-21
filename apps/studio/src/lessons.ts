@@ -46,7 +46,7 @@ export const LESSONS: readonly Lesson[] = [
     title: 'Add your product',
     summary:
       'Your own product, added once from its packshots or straight from your store, and exact in every shot you make from then on. Nothing is drawn here and nothing is spent.',
-    steps: ['Add its photos, or bring in your store', 'Save it to the brand'],
+    steps: ['Add its photos, or bring in your store'],
   },
   {
     id: 'reuse',
@@ -74,14 +74,14 @@ export const LESSONS: readonly Lesson[] = [
     title: 'Build a scene',
     summary:
       'A place and its light, saved once and shot in again. References are evidence rather than backdrops: a scene reaches a shot as words, so nothing in them is copied into a picture.',
-    steps: ['Name it, then add a photo or a line of direction', 'Create it'],
+    steps: ['Name it, then add a photo or a line of direction'],
   },
   {
     id: 'refine',
     title: 'Refine a shot',
     summary:
       'Change one thing about a shot you already have and keep everything else, including the original. This is how a shot gets good: one change at a time, never a fresh start.',
-    steps: ['Say the one thing to change', 'See the change on the trail'],
+    steps: ['Choose a shot to change', 'Say the one thing to change', 'See the change on the trail'],
     needs: 'shot',
   },
 ];
@@ -145,8 +145,6 @@ export interface ProgressFacts {
   nodes: readonly GuideTaskNode[];
   /** The presenter task has a draft of its own. */
   draft: boolean;
-  /** A scene the task started is building. */
-  building: boolean;
 }
 
 /**
@@ -178,7 +176,7 @@ const AT: Record<GuideTaskId, Record<string, number>> = {
   reuse: { go: 0, product: 1, scene: 2, make: 3, sending: 3, waiting: 3, failed: 3, again: 4 },
   presenter: { start: 0, face: 1, save: 2 },
   scene: { scene: 0 },
-  refine: { ask: 0, 'refine-failed': 0, refining: 1, refined: 1 },
+  refine: { choose: 0, ask: 1, 'refine-failed': 1, refining: 2, refined: 2 },
 };
 
 /**
@@ -220,10 +218,8 @@ export function stepOf(id: GuideTaskId, f: ProgressFacts): number {
       return f.nodes.some(finished) ? 4 : f.nodes.length > 0 ? 3 : 0;
     case 'presenter':
       return f.draft ? 1 : 0;
-    case 'scene':
-      return f.building ? 1 : 0;
     case 'refine':
-      return f.nodes.some(finished) || f.nodes.some((n) => n.status === 'running') ? 1 : 0;
+      return f.nodes.some(finished) || f.nodes.some((n) => n.status === 'running') ? 2 : 0;
     default:
       return 0;
   }
