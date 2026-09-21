@@ -27,6 +27,7 @@ import {
   welcomeSet,
   type AskedKind,
   type Moment,
+  LIBRARY_NEW,
 } from '../guidedTasks.js';
 import { stepOfMoment } from '../lessons.js';
 import { brandPath, hubPath, presentersPath, P } from '../routes.js';
@@ -328,6 +329,21 @@ export function GuideHost() {
       delete document.documentElement.dataset.guidePicker;
     };
   }, [pickerRoom]);
+
+  // Under 1280px a library page keeps its own Add button only in the bar's +
+  // menu (styles/surfaces/add-to-brand.css). A step that asks for that button
+  // brings the page's own back while it asks, or the card has nothing to point
+  // at and says nothing: seen on a phone and on any laptop under 1280, for
+  // anyone who already owns one of the kind (with none, the page's own offer
+  // carries the button at every width).
+  const libraryNew = moment?.point === LIBRARY_NEW;
+  useEffect(() => {
+    if (!libraryNew) return;
+    document.documentElement.dataset.guideNew = '';
+    return () => {
+      delete document.documentElement.dataset.guideNew;
+    };
+  }, [libraryNew]);
 
   /**
    * Back undoes the last thing done: a chip in the brief, the walk that put

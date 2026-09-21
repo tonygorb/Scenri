@@ -11,6 +11,7 @@ import {
   pickTheIngredients,
   readTheOpening,
   setUpBrand,
+  pointsAt,
   walkTheWay,
   welcome,
 } from './firstUse.js';
@@ -209,3 +210,38 @@ test('Learn on 375 is the sheet, one lesson at a time', async ({ page }) => {
     .evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
   expect(columns).toBe(1);
 });
+
+for (const size of [
+  { width: 390, height: 844 },
+  { width: 1024, height: 768 },
+]) {
+  test(`at ${size.width} a library lesson still points at its own Add, for someone who already has one`, async ({
+    page,
+  }) => {
+    // Under 1280 the library keeps its Add button in the bar's + menu; the
+    // step that asks for it must bring it back, or the card has nothing to
+    // point at and says nothing.
+    await page.setViewportSize(size);
+    const own = await ownBrand(page, `Has One ${size.width}`, 'product');
+    await page.request.post('/api/guide', { data: { welcome: 'declined' } });
+    await page.request.post('/api/guide', { data: { dismiss: 'product' } });
+    await page.goto(`/${own}?learn=lessons`);
+    await lessonRow(page, 'Add your product').click();
+    await learn(page).locator('button.sc-learn-step').click();
+    await walkTheWay(page, 'products', 'Your products live here');
+    await page.waitForURL('**/products');
+    await expect(coachTitle(page)).toHaveText('Start a new product', { timeout: 20_000 });
+    await pointsAt(page, '[data-guide="library.new"]');
+    await page.locator('[data-guide="library.new"]:visible').first().click();
+    await expect(page).toHaveURL(/new=product/);
+    await expect(page.locator('.sc-newdlg-layer .sc-coach .sc-coach-title')).toHaveText('Add your product');
+    // the button goes back to the bar's menu once the step has moved on
+    await page.locator('.sc-newdlg-layer').getByRole('button', { name: 'Close', exact: true }).first().click();
+    await page.goto(`/${own}/products`);
+    await coachCard(page)
+      .getByRole('button', { name: 'Close guide' })
+      .click()
+      .catch(() => {});
+    await expect(page.locator('[data-guide="library.new"]:visible')).toHaveCount(0);
+  });
+}
