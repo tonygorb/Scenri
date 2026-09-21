@@ -456,12 +456,19 @@ async function read(
   const hashes = input.imageHashes ?? [];
   const prior = input.kind === 'change' ? input.reading : undefined;
   const fallback = prior?.name || nameFromWords(instruction ?? '');
-  if (deps.analyzer) {
+  // The reader writes the place a shot is told. A compiled questionnaire
+  // sentence is a start, not that writing: skipping it here was the
+  // regression that flattened every guided place into the raw taps.
+  // buildDeps already dropped the analyzer when Codex is away. Probing
+  // again here was a second Codex exec before the real read, and that is
+  // the wait the brief used to sit empty through.
+  const reader = deps.analyzer ?? null;
+  if (reader) {
     // A change to the words is made to the words: the pictures were read into
     // them already, and reading them again invites the whole record to be
     // re-derived around one sentence. They go back in only when they changed.
     const imagePaths = prior && !input.reread ? [] : hashes.map((h) => deps.core.images.pathFor(h));
-    const draft = (await deps.analyzer.analyze(
+    const draft = (await reader.analyze(
       {
         kind: 'scene',
         imagePaths,

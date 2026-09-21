@@ -777,17 +777,17 @@ button.sc-convo-shot-do {
   background-size: cover;
   background-repeat: no-repeat;
 }
-/* The scene rows' cards: six worlds, six lights, then five places to stand
-   the camera.
-   Every world card holds the same plain unbranded bottle, so the row is six
-   worlds compared rather than six pretty pictures; every light card holds one
-   unchanged plaster room, so the only thing that differs is the light; every
-   camera card holds one unchanged grey sweep, so the only thing that differs
-   is where the camera is.
+/* The scene rows' cards: eight worlds, eight lights, five ways to sit the
+   subject, then five places to stand the camera.
+   Every world card holds the same plain unbranded bottle, so the row is eight
+   worlds compared rather than eight pretty pictures; every light card holds
+   that same bottle under one changing light; every staging card holds that
+   same bottle in one changing place in the world; every camera card holds one
+   unchanged grey sweep, so the only thing that differs is where the camera is.
    Drawn from the art direction in the plan's reference table, never copied
    from it. */
 .sc-convo-plate-in[data-card="scene-world-1"] {
-  background-image: url("../../assets/scenes/scene-world-1.webp");
+  background-image: url("../../assets/scenes/scene-world-1.webp"); /* 4:5 plate, sit cards 6-9 */
 }
 .sc-convo-plate-in[data-card="scene-world-2"] {
   background-image: url("../../assets/scenes/scene-world-2.webp");
@@ -803,6 +803,12 @@ button.sc-convo-shot-do {
 }
 .sc-convo-plate-in[data-card="scene-world-6"] {
   background-image: url("../../assets/scenes/scene-world-6.webp");
+}
+.sc-convo-plate-in[data-card="scene-world-7"] {
+  background-image: url("../../assets/scenes/scene-world-7.webp");
+}
+.sc-convo-plate-in[data-card="scene-world-8"] {
+  background-image: url("../../assets/scenes/scene-world-8.webp");
 }
 .sc-convo-plate-in[data-card="scene-light-1"] {
   background-image: url("../../assets/scenes/scene-light-1.webp");
@@ -821,6 +827,39 @@ button.sc-convo-shot-do {
 }
 .sc-convo-plate-in[data-card="scene-light-6"] {
   background-image: url("../../assets/scenes/scene-light-6.webp");
+}
+.sc-convo-plate-in[data-card="scene-light-7"] {
+  background-image: url("../../assets/scenes/scene-light-7.webp");
+}
+.sc-convo-plate-in[data-card="scene-light-8"] {
+  background-image: url("../../assets/scenes/scene-light-8.webp");
+}
+.sc-convo-plate-in[data-card="scene-stage-1"] {
+  background-image: url("../../assets/scenes/scene-stage-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-stage-2"] {
+  background-image: url("../../assets/scenes/scene-stage-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-stage-3"] {
+  background-image: url("../../assets/scenes/scene-stage-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-stage-4"] {
+  background-image: url("../../assets/scenes/scene-stage-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-stage-5"] {
+  background-image: url("../../assets/scenes/scene-stage-5.webp");
+}
+.sc-convo-plate-in[data-card="scene-stage-6"] {
+  background-image: url("../../assets/scenes/scene-stage-6.webp");
+}
+.sc-convo-plate-in[data-card="scene-stage-7"] {
+  background-image: url("../../assets/scenes/scene-stage-7.webp");
+}
+.sc-convo-plate-in[data-card="scene-stage-8"] {
+  background-image: url("../../assets/scenes/scene-stage-8.webp");
+}
+.sc-convo-plate-in[data-card="scene-stage-9"] {
+  background-image: url("../../assets/scenes/scene-stage-9.webp");
 }
 .sc-convo-plate-in[data-card="scene-shot-1"] {
   background-image: url("../../assets/scenes/scene-shot-1.webp");
@@ -1742,6 +1781,26 @@ button.sc-convo-shot-do {
 .sc-convo-have .sc-convo-plate-in {
   background-size: cover;
   background-position: 50% 50%;
+}
+/* Find a scene, only once the rest of the library is open. The conversation's
+   own field, not the library chrome. */
+.sc-convo-have-q {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--sc-line);
+  border-radius: var(--sc-radius);
+  background: var(--sc-bg);
+  color: var(--sc-fg);
+  font: 400 var(--sc-text-control) / 1.3 var(--sc-font);
+}
+.sc-convo-have-q::placeholder {
+  color: var(--sc-fg3);
+}
+.sc-convo-have-q::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .sc-convo-attest {

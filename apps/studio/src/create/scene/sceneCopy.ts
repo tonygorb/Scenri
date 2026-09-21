@@ -16,14 +16,27 @@ export const COPY = {
   guideMe: 'Guide me',
   photos: 'Add one to four pictures of the place. The more they share, the better it reads.',
   photosDrop: { label: 'Add pictures of the place', hint: 'Drop them here, or choose files' },
-  /** Pictures already in the library, offered rather than asked for. */
-  haveLabel: 'Take one you already made',
-  haveHint: 'The world in it is read; the product and the person in it are not.',
-  haveAlt: (n: number) => `Shot ${n}, take the place in it`,
+  /** Scenes this person already made, offered rather than a dump of every shot. */
+  haveLabel: 'Or take a scene you already made',
+  haveHint: 'The place in it is read. Product shots stay out.',
+  haveAlt: (name: string) => name,
+  haveMore: (n: number) => `See all ${n} scenes`,
+  haveFewer: 'Show fewer',
+  haveSearch: 'Find a scene',
+  /** Stop was pressed before anything landed. Not a fault. */
+  stopped: 'That was stopped. Nothing here was changed.',
   readThem: 'Read them',
   guideInstead: 'Guide me instead',
   skip: 'Skip',
   describeInstead: 'Describe instead',
+  /** Said once, at the first row: a world is a starting point, not the final scene. */
+  worldHint: "Choose a starting world. You'll personalise it next.",
+  /** The light row, once a world has already named its own light. */
+  worldLightPrompt: (light: string) => `This world is already lit ${light}. Keep it, or choose another.`,
+  keepWorldLight: 'Keep it',
+  /** Joined on when a world was chosen and nothing after it was personalised. */
+  worldIsAStart:
+    'Treat this as a starting direction, not a picture to reproduce: keep the material language and the character of the light, and invent a specific original arrangement.',
 
   // the empty stage
   emptyLead: 'The place appears here',
@@ -38,7 +51,7 @@ export const COPY = {
    *
    * "Tap one above, or describe it" left "it" to be worked out, and the row it
    * belongs to is the thing a person is deciding. The words are the way past
-   * any row: six worlds is a starting point, not the whole of what a place can
+   * any row: eight worlds is a starting point, not the whole of what a place can
    * be.
    */
   rowPlaceholder: (row: string) => `Tap one above, or describe the ${row} in your own words`,
@@ -54,10 +67,11 @@ export const COPY = {
   change: 'Change',
 
   // the work
-  reading: 'Reading the place',
+  reading: 'Writing what your shots are told',
+  readingPhotos: 'Reading your pictures',
   changing: 'Changing the words',
   drawing: 'Drawing the scene',
-  stillReading: 'Still reading the place',
+  stillReading: 'Still writing what your shots are told',
 
   // the read-back and the decision
   readingHead: 'What your shots are told',

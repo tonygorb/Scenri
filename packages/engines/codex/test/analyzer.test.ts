@@ -329,6 +329,9 @@ describe('analyze — scene', () => {
     const { args } = calls[0];
     expect(args.filter((a) => a.startsWith('--image='))).toEqual([]);
     expect(promptFromArgs(calls[0])).toContain('You have no reference images');
+    expect(promptFromArgs(calls[0])).toContain('The person describes the place as: a volcanic beach at dusk');
+    expect(promptFromArgs(calls[0])).toContain('That description is the brief');
+    expect(promptFromArgs(calls[0])).not.toContain('The person who chose these references');
   });
 
   it('rejects a prompt that leaves a placeholder behind', async () => {

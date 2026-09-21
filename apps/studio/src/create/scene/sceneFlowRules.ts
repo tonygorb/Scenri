@@ -47,13 +47,33 @@ export interface FlowArgs {
   /** The place was given again since it was last read, and is waiting to be read. */
   stale?: boolean;
   /**
-   * Pictures this person already has, newest first: the shots they made here.
+   * Scenes this person already made, newest first, each a store hash and its name.
    *
-   * Offered at the picture question so the fastest reference is the one
-   * already in the library. What is read out of one is the world in it; the
-   * product and the person in it are the analyzer's visitors, never copied.
+   * Offered at the picture question so the fastest place-reference is one of
+   * theirs. Product shots never belong here: a scene is a place, and a feed
+   * of hundreds of cans is not a library of places.
    */
-  have?: string[];
+  have?: { hash: string; alt: string }[];
+}
+
+const PREVIEW_HASH = /^asset:([a-f0-9]{32})$/;
+
+/**
+ * The brand's own scenes that have a picture, newest first.
+ *
+ * The document appends, so the last row is the newest. A scene without a
+ * preview is a place in words only and cannot be tapped as a photograph.
+ */
+export function placesTheyMade(
+  rows: readonly { name?: unknown; preview?: unknown }[],
+): { hash: string; alt: string }[] {
+  const out: { hash: string; alt: string }[] = [];
+  for (const s of [...rows].reverse()) {
+    const m = PREVIEW_HASH.exec(String(s.preview ?? ''));
+    if (!m) continue;
+    out.push({ hash: m[1], alt: String(s.name ?? '').trim() || 'A scene you made' });
+  }
+  return out;
 }
 
 /** What the words of a reading say, as one quotable block. */
@@ -63,6 +83,9 @@ export function readingQuote(r: SceneReading): string {
     .join(' ');
 }
 
+const retryPrompt = (error: string) =>
+  error === COPY.stopped ? COPY.stopped : COPY.failedFirst(error.replace(/[.\s]+$/, ''));
+
 /* ------------------------------------------------------------- questions */
 
 export function questionFor(
@@ -70,7 +93,7 @@ export function questionFor(
   setup: SetupState,
   reopened: boolean,
   uploading: number,
-  have: string[] = [],
+  have: { hash: string; alt: string }[] = [],
 ): Question {
   const a = setup.answers;
   const base = reopened ? { reopened: true } : {};
@@ -104,23 +127,37 @@ export function questionFor(
             suggest: {
               label: COPY.haveLabel,
               hint: COPY.haveHint,
-              items: have.map((hash, i) => ({ hash, alt: COPY.haveAlt(i + 1) })),
+              items: have,
+              more: COPY.haveMore(have.length),
+              fewer: COPY.haveFewer,
+              search: COPY.haveSearch,
             },
           }
         : {}),
     };
   const g = a[id];
+  // Skipping the light row already means "keep the world's own light":
+  // compileDirection falls back to the chosen world's `light` the moment this
+  // row is passed. The prompt itself says so, so a world picked for its light
+  // is not followed by a blank "what light?" as if nothing were known.
+  const worldLight = id === 'light' ? optionOf('world', a.world?.pick)?.light : undefined;
+  const given = g?.pick === PASSED ? undefined : g?.pick;
+  const skipped = g?.pick === PASSED;
+  const note = g?.words;
   return {
     id,
     kind: 'swatches',
-    prompt: ROWS[id].prompt,
+    prompt: worldLight ? COPY.worldLightPrompt(worldLight) : ROWS[id].prompt,
     row: swatchRow(id),
-    layout: 'grid',
-    skip: COPY.skip,
+    // Only the worlds are a set to compare at once. Light, staging and
+    // camera stay a strip: a row of variants, one swipe at a time.
+    layout: id === 'world' ? 'grid' : undefined,
+    hint: id === 'world' ? COPY.worldHint : undefined,
+    skip: worldLight ? COPY.keepWorldLight : COPY.skip,
     describe: COPY.describeInstead,
-    given: g?.pick === PASSED ? undefined : g?.pick,
-    skipped: g?.pick === PASSED,
-    note: g?.words,
+    given,
+    skipped,
+    note,
     ...base,
   };
 }
@@ -138,7 +175,10 @@ function answerLine(id: Qid, a: Answers): { text: string; photos?: string[] } {
     return { text: `${n} ${n === 1 ? 'picture' : 'pictures'}`, photos: a.photos?.hashes };
   }
   const g = a[id];
-  const picked = g?.pick === PASSED ? COPY.skip : optionOf(id, g?.pick)?.label;
+  // A light passed after a world was "Keep it", not a blank skip: the
+  // transcript has to say the same word the button did.
+  const keptWorldLight = id === 'light' && g?.pick === PASSED && optionOf('world', a.world?.pick)?.light;
+  const picked = g?.pick === PASSED ? (keptWorldLight ? COPY.keepWorldLight : COPY.skip) : optionOf(id, g?.pick)?.label;
   const words = g?.words?.trim();
   return { text: picked && words ? `${picked}, ${words}` : (words ?? picked ?? '') };
 }
@@ -211,6 +251,9 @@ export function turnsFor(args: FlowArgs): Turn[] {
 
   // the work in flight: what was pressed, said at once, before anything lands
   const job = studio.job;
+  // The wait itself is the Working line (`doingLine`), not a second sentence
+  // that says the same thing. The compiled taps stay off screen until the
+  // finished read-back arrives once.
   if (job?.kind === 'again')
     T.push({ kind: 'you', id: `pending-${job.id}`, text: firstPicture < 0 ? COPY.draw : COPY.tryAgain });
   if (job?.kind === 'change') T.push({ kind: 'you', id: `pending-${job.id}`, text: job.ask ?? '' });
@@ -238,7 +281,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
           id: 'retry',
           kind: 'confirm',
           tone: 'alert',
-          prompt: COPY.failedFirst(studio.error.replace(/[.\s]+$/, '')),
+          prompt: retryPrompt(studio.error),
           options: [{ id: 'retry', label: COPY.retry }],
         };
     } else if (!v && studio.error)
@@ -246,7 +289,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
         id: 'retry',
         kind: 'confirm',
         tone: 'alert',
-        prompt: COPY.failedFirst(studio.error.replace(/[.\s]+$/, '')),
+        prompt: retryPrompt(studio.error),
         options: [{ id: 'retry', label: COPY.retry }],
       };
     else if (v) {
@@ -348,6 +391,9 @@ export function composerFor(args: FlowArgs, open: Question | null): ComposerFor 
   if (open.id === 'photos') return { ...off(COPY.photosOff), attach: true };
   if (isRow(open.id)) return say({ kind: 'row', id: open.id }, COPY.rowPlaceholder(rowNoun(open.id)));
   if (open.id === 'name') return say({ kind: 'name' }, COPY.namePlaceholder);
+  // Stop left the conversation open: they can tap Try again, or say the place
+  // again in the line. Off here was the dead end.
+  if (open.id === 'retry') return say({ kind: 'source' }, COPY.nothingSaidPlaceholder, true);
   if (open.id.startsWith('agree-'))
     return args.canDraw
       ? say(

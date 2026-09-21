@@ -129,27 +129,20 @@ export function QuestionBlock({
    * what they have is shown.
    */
   const offerFirst = 'hashes' in question && question.hashes.length === 0;
+  const HAVE_SHOW = 4;
+  const [haveOpen, setHaveOpen] = useState(false);
+  const [haveQ, setHaveQ] = useState('');
   const offer = 'suggest' in question && question.suggest && question.suggest.items.length > 0 && (
-    <div className="sc-convo-have">
-      <p className="sc-convo-have-lb">
-        {question.suggest.label}
-        {question.suggest.hint && <span>{question.suggest.hint}</span>}
-      </p>
-      <Strip step={106}>
-        {question.suggest.items.map((it) => (
-          <button
-            key={it.hash}
-            type="button"
-            className="sc-convo-plate"
-            aria-label={it.alt}
-            data-on={'hashes' in question && question.hashes.includes(it.hash) ? true : undefined}
-            onClick={() => onAnswer({ kind: 'photos', action: { type: 'pick', hash: it.hash } })}
-          >
-            <span className="sc-convo-plate-in" style={{ backgroundImage: `url("${thumbUrl(it.hash, 'micro')}")` }} />
-          </button>
-        ))}
-      </Strip>
-    </div>
+    <HaveOffer
+      suggest={question.suggest}
+      hashes={'hashes' in question ? question.hashes : []}
+      open={haveOpen}
+      query={haveQ}
+      cap={HAVE_SHOW}
+      onOpen={setHaveOpen}
+      onQuery={setHaveQ}
+      onPick={(hash) => onAnswer({ kind: 'photos', action: { type: 'pick', hash } })}
+    />
   );
   const files = useRef<HTMLInputElement>(null);
   const cancel = question.reopened && onCancel && (
@@ -280,8 +273,18 @@ export function QuestionBlock({
             </div>
           )}
 
-        {question.kind === 'choice' && (question.describe || question.attach) && (
+        {question.kind === 'choice' && (question.describe || question.attach || question.skip) && (
           <div className="sc-convo-ways">
+            {question.skip && !question.multi && !question.groups && (
+              <button
+                type="button"
+                className="sc-chip sc-convo-choice sc-convo-pass"
+                data-on={picked === 'skip' || (!picked && question.skipped) || undefined}
+                onClick={() => commit('skip', { kind: 'skip' })}
+              >
+                {question.skip}
+              </button>
+            )}
             {question.describe && onDescribe && (
               <button
                 type="button"
@@ -596,6 +599,91 @@ function Quote({ text, label = 'The brief' }: { text: string; label?: string }) 
       </figcaption>
       <p className="sc-convo-brief-text">{text}</p>
     </figure>
+  );
+}
+
+/**
+ * Scenes already made, offered at the picture question.
+ *
+ * Four at first, because a library of hundreds is not a strip. Opening the
+ * rest is a search, not a dump.
+ */
+function HaveOffer({
+  suggest,
+  hashes,
+  open,
+  query,
+  cap,
+  onOpen,
+  onQuery,
+  onPick,
+}: {
+  suggest: {
+    label: string;
+    hint?: string;
+    items: { hash: string; alt: string }[];
+    more?: string;
+    fewer?: string;
+    search?: string;
+  };
+  hashes: string[];
+  open: boolean;
+  query: string;
+  cap: number;
+  onOpen: (next: boolean) => void;
+  onQuery: (next: string) => void;
+  onPick: (hash: string) => void;
+}) {
+  const q = query.trim().toLowerCase();
+  const matched = q ? suggest.items.filter((it) => it.alt.toLowerCase().includes(q)) : suggest.items;
+  const shown = open ? matched : matched.slice(0, cap);
+  const over = suggest.items.length > cap;
+  return (
+    <div className="sc-convo-have">
+      <p className="sc-convo-have-lb">
+        {suggest.label}
+        {suggest.hint && <span>{suggest.hint}</span>}
+      </p>
+      {open && over && suggest.search && (
+        <input
+          type="search"
+          className="sc-convo-have-q"
+          value={query}
+          placeholder={suggest.search}
+          aria-label={suggest.search}
+          onChange={(e) => onQuery(e.target.value)}
+        />
+      )}
+      <Strip step={106}>
+        {shown.map((it) => (
+          <button
+            key={it.hash}
+            type="button"
+            className="sc-convo-plate"
+            aria-label={it.alt}
+            data-on={hashes.includes(it.hash) ? true : undefined}
+            onClick={() => onPick(it.hash)}
+          >
+            <span className="sc-convo-plate-in" style={{ backgroundImage: `url("${thumbUrl(it.hash, 'micro')}")` }} />
+          </button>
+        ))}
+      </Strip>
+      {over && (
+        <div className="sc-convo-ways">
+          <button
+            type="button"
+            className="sc-chip sc-convo-choice sc-convo-pass"
+            data-on={open || undefined}
+            onClick={() => {
+              onOpen(!open);
+              if (open) onQuery('');
+            }}
+          >
+            {open ? (suggest.fewer ?? 'Show fewer') : (suggest.more ?? `See all ${suggest.items.length}`)}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

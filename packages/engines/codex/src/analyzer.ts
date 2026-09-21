@@ -202,7 +202,7 @@ function buildPrompt(req: AnalyzeRequest, refCount: number, problems: string[]):
       : refCount === 1
         ? 'One reference image is attached.'
         : `${refCount} reference images are attached.`;
-  const body = req.kind === 'presenter' ? presenterBody(req, refCount) : sceneBody(req);
+  const body = req.kind === 'presenter' ? presenterBody(req, refCount) : sceneBody(req, refCount);
   const revision = req.priorDraft
     ? ` You are revising an existing record, not starting over: keep everything that is not being corrected. Current record: ${JSON.stringify(req.priorDraft)}.`
     : '';
@@ -262,17 +262,24 @@ function photosClause(refCount: number): string {
   );
 }
 
-function sceneBody(req: AnalyzeRequest): string {
+function sceneBody(req: AnalyzeRequest, refCount: number): string {
   // The user's own direction, and it outranks the pictures.
   //
   // This used to read "What the person wants from it: X" - a wish, with no
   // authority to settle anything. With one reference the pictures are often
   // ambiguous about what is the concept and what merely happened to be in the
   // frame, and the person who chose them is the only one who knows.
+  //
+  // With no pictures the same clause was a lie: it talked about references
+  // that were not there, and framed the only sentence the person wrote as a
+  // footnote to them. Words alone are the brief.
   const ask = req.instruction
-    ? ` The person who chose these references says what matters in them: ${req.instruction}.` +
-      ' Treat that as the deciding word: whatever it calls essential IS essential even if only one reference shows it,' +
-      ' and whatever it tells you to ignore stays out even if every reference contains it.'
+    ? refCount === 0
+      ? ` The person describes the place as: ${req.instruction}.` +
+        ' That description is the brief: expand it into a complete reusable world, keeping every decision it already made and inventing nothing that contradicts it.'
+      : ` The person who chose these references says what matters in them: ${req.instruction}.` +
+        ' Treat that as the deciding word: whatever it calls essential IS essential even if only one reference shows it,' +
+        ' and whatever it tells you to ignore stays out even if every reference contains it.'
     : '';
   const collections = req.vocabulary?.collections?.length
     ? ` Choose "collections" only from this list: ${req.vocabulary.collections.join(', ')}.`

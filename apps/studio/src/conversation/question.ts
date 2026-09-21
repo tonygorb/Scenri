@@ -124,11 +124,8 @@ export type Question =
       /**
        * Shown as a wrapping grid rather than a scrolling strip.
        *
-       * A strip is right for a row read in sequence, where the next card is a
-       * variant of the last. A world, a light or where the camera stands are
-       * not variants of each other, they are the whole set at once: comparing
-       * them means seeing them together, not swiping one out of view to see
-       * the next.
+       * A strip is right for a row read in sequence. Worlds are the one set
+       * that has to be seen together; everything after them stays a strip.
        */
       layout?: 'grid';
       /** A quiet way past this one. */
@@ -162,7 +159,15 @@ export type Question =
        * reference is the one already in the library. The label says what the
        * row is; each one is a store hash, the same thing a file becomes.
        */
-      suggest?: { label: string; hint?: string; items: { hash: string; alt: string }[] };
+      suggest?: {
+        label: string;
+        hint?: string;
+        items: { hash: string; alt: string }[];
+        /** When there are more than a handful, the way to open the rest. */
+        more?: string;
+        fewer?: string;
+        search?: string;
+      };
     })
   | (QuestionBase & {
       kind: 'confirm';

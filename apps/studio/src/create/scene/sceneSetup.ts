@@ -1,4 +1,5 @@
 import type { Answer, Aside } from '../../conversation/question.js';
+import { COPY } from './sceneCopy.js';
 import { optionOf, ROW_ORDER, ROWS, type SceneRow } from './sceneRows.js';
 
 /**
@@ -8,10 +9,10 @@ import { optionOf, ROW_ORDER, ROWS, type SceneRow } from './sceneRows.js';
  * question id, the next question read off them every time and never counted,
  * and a conversation that reads forward, so changing an answer takes back
  * everything asked after it. Scaled to a place: one door, the pictures or the
- * five rows, and nothing else.
+ * four rows, and nothing else.
  */
 
-/** How the place is given: pictures of it, the five rows, or a sentence typed at the first question. */
+/** How the place is given: pictures of it, the four rows, or a sentence typed at the first question. */
 export type Door = 'photos' | 'guided' | 'words';
 export type Qid = 'source' | 'photos' | SceneRow;
 
@@ -30,6 +31,7 @@ export interface Answers {
   photos?: { hashes: string[]; done: boolean };
   world?: Given;
   light?: Given;
+  stage?: Given;
   shot?: Given;
 }
 
@@ -64,7 +66,15 @@ export const answeredIn = (a: Answers): Qid[] =>
 
 /** The first question that exists and has no answer. Null when the place has been given. */
 export function nextQuestion(a: Answers): Qid | null {
-  return SPECS.find((s) => s.applies(a) && !answered(s.id, a))?.id ?? null;
+  return (
+    SPECS.find((s) => {
+      if (!s.applies(a) || answered(s.id, a)) return false;
+      // Staging is how the subject sits and how it is seen. The camera is
+      // not a second question, and it is not a silent answer in the thread.
+      if (s.id === 'shot' && given(a.stage)) return false;
+      return true;
+    })?.id ?? null
+  );
 }
 
 /**
@@ -123,8 +133,13 @@ export function answerPatch(id: Qid, ans: Answer, a: Answers): Partial<Answers> 
   if (isRow(id)) {
     // a tap is the base and words beside it qualify it, so a tap keeps the words
     const words = a[id]?.words;
-    if (ans.kind === 'swatches')
-      return { [id]: { pick: ans.picks[id] ?? Object.values(ans.picks)[0], ...(words ? { words } : {}) } };
+    const pickOf =
+      ans.kind === 'swatches'
+        ? (ans.picks[id] ?? Object.values(ans.picks)[0])
+        : ans.kind === 'choice'
+          ? ans.id
+          : undefined;
+    if (pickOf) return { [id]: { pick: pickOf, ...(words ? { words } : {}) } };
     if (ans.kind === 'skip') return { [id]: { pick: PASSED, ...(words ? { words } : {}) } };
   }
   return null;
@@ -141,11 +156,18 @@ function rowWords(row: SceneRow, g: Given | undefined): string | null {
   return tapped ?? typed ?? null;
 }
 
+/** A row answered by a tap or by words, not passed over. */
+const chosen = (g: Given | undefined): boolean => !!g && g.pick !== PASSED && (!!g.pick || !!g.words?.trim());
+
 /**
  * The place, as one sentence for the reader: what the person said, and the
  * deciding word over anything the reader might otherwise make of it. A sentence
  * typed at the first question is that sentence; the rows are joined the way a
  * person would say them; pictures need none, the reader reads them.
+ *
+ * A world chosen and then left alone is still only a starting direction. The
+ * compiler says so, so two people who pick the same card and skip the rest
+ * are not handing the reader the same ten frozen words.
  */
 export function compileDirection(a: Answers): string {
   if (a.source?.door === 'words') return (a.source.text ?? '').trim();
@@ -155,10 +177,15 @@ export function compileDirection(a: Answers): string {
   // photographed in, so a place is never handed over with nothing said about
   // how it is lit.
   const light = rowWords('light', a.light) ?? optionOf('world', a.world?.pick)?.light ?? null;
-  const shot = rowWords('shot', a.shot);
-  const parts = [world ?? 'a place', light, shot].filter(Boolean) as string[];
-  const text = parts.join(', ');
-  return `${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
+  const stage = rowWords('stage', a.stage);
+  const impliedShot = optionOf('stage', a.stage?.pick)?.shot;
+  // A staging pick that already is a camera must not say the same view twice.
+  const shot = impliedShot && a.shot?.pick === impliedShot && !a.shot.words ? null : rowWords('shot', a.shot);
+  const parts = [world ?? 'a place', light, stage, shot].filter(Boolean) as string[];
+  const text = `${parts.join(', ').replace(/^./, (c) => c.toUpperCase())}.`;
+  const personalised = chosen(a.light) || chosen(a.stage) || chosen(a.shot) || !!a.world?.words?.trim();
+  if (personalised || !a.world?.pick) return text;
+  return `${text.slice(0, -1)}. ${COPY.worldIsAStart}`;
 }
 
 /** The pictures handed over, for the reader. */

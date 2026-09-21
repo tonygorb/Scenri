@@ -5,7 +5,8 @@ import { arrived, isolate } from './harness.js';
  * The scene studio, driven the way a person drives it.
  *
  * A scene is made in the presenter's conversation, asking about a place: two
- * doors (pictures, or a few questions), five rows of cards, the place read back
+ * doors (pictures, or a few questions), the world then light then staging,
+ * the place read back
  * as the words every shot will be told, one Draw, then Use, Try again or a
  * sentence that changes one thing. Every test here presses the controls; the
  * API is only read, to check what was saved.
@@ -73,10 +74,10 @@ async function start(p: Page) {
   return slug;
 }
 
-/** The three rows, one tap each, in the order they are asked. */
-async function guide(p: Page, picks = ['Sunlit stone', 'Golden hour', 'Top down']) {
+/** The rows a person is asked, one tap each, in the order they are asked. */
+async function guide(p: Page, picks = ['Sunlit stone', 'Golden hour', 'On a plinth']) {
   await tap(turn(p, 'q:source'), 'Guide me');
-  for (const [i, id] of ['world', 'light', 'shot'].entries()) {
+  for (const [i, id] of ['world', 'light', 'stage'].entries()) {
     await expect(turn(p, `q:${id}`)).toBeVisible();
     await tap(turn(p, `q:${id}`), picks[i]);
   }
@@ -89,7 +90,7 @@ async function draw(p: Page) {
   await tap(agree, 'Draw the scene');
 }
 
-test('guided: three rows, read back as the words shots are told, drawn on a press, named while it draws, used', async ({
+test('guided: the rows, read back as the words shots are told, drawn on a press, named while it draws, used', async ({
   page,
 }) => {
   const slug = await start(page);
@@ -97,7 +98,7 @@ test('guided: three rows, read back as the words shots are told, drawn on a pres
   const agree = openQ(page);
   await expect(agree).toContainText('Here is the place, in full. Ready to draw?');
   await expect(agree).toContainText(
-    'A niche of warm limestone and rough plaster, in low golden-hour sun, long warm shadows, seen from directly overhead, looking straight down.',
+    'A niche of warm limestone and rough plaster, in low golden-hour sun, long warm shadows, the subject standing on a simple plinth or ledge in the space.',
   );
   // nothing was drawn before the press
   await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(0);
@@ -113,7 +114,7 @@ test('guided: three rows, read back as the words shots are told, drawn on a pres
   await expect(page.getByRole('heading', { level: 1, name: 'Dusk Lobby' })).toBeVisible();
   const saved = (await scenes(page)).find((s) => s.name === 'Dusk Lobby');
   expect(saved.instruction).toBe(
-    'A niche of warm limestone and rough plaster, in low golden-hour sun, long warm shadows, seen from directly overhead, looking straight down.',
+    'A niche of warm limestone and rough plaster, in low golden-hour sun, long warm shadows, the subject standing on a simple plinth or ledge in the space.',
   );
   expect(saved.preview).toMatch(/^asset:[a-f0-9]{32}$/);
 });
@@ -245,7 +246,7 @@ test('the pencil takes an answer back and asks again from there', async ({ page 
   await tap(turn(page, 'q:source'), 'Guide me');
   await tap(turn(page, 'q:world'), 'Sunlit stone');
   await tap(turn(page, 'q:light'), 'Golden hour');
-  await tap(turn(page, 'q:shot'), 'Top down');
+  await tap(turn(page, 'q:stage'), 'On a plinth');
   // change the world: everything asked after it is asked again
   await turn(page, 'you:world').hover();
   await turn(page, 'you:world').getByRole('button', { name: 'Change this answer' }).click();
@@ -278,7 +279,7 @@ test('an answer the picture was drawn from asks before it opens, and changing it
   // nothing moved: the answer stands and so does the picture drawn from it
   await expect(turn(page, 'you:world')).toContainText('Sunlit stone');
   await expect(turn(page, 'you:light')).toContainText('Golden hour');
-  await expect(turn(page, 'you:shot')).toContainText('Top down');
+  await expect(turn(page, 'you:stage')).toContainText('On a plinth');
   await expect(pics).toHaveCount(1);
   // agreed: the row opens, and a new answer asks again from there
   await pencil();
@@ -289,7 +290,7 @@ test('an answer the picture was drawn from asks before it opens, and changing it
   await expect(pics).toHaveCount(0);
   await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(0);
   await tap(openQ(page), 'Low-key');
-  await tap(openQ(page), 'Wide');
+  await tap(openQ(page), 'On a plinth');
   await expect(openQ(page)).toContainText('near-black polished surface');
   // the name given stays with the place
   await draw(page);
@@ -317,7 +318,7 @@ test('the keyboard goes on with the conversation: each next answer is a Tab away
   await page.keyboard.press('Tab');
   await expect(turn(page, 'q:light').getByRole('button', { name: 'Soft daylight', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:shot');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:stage');
 });
 
 test('a sentence that answers nothing gets a line, and a request to cast someone is sent to Create', async ({

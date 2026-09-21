@@ -1,29 +1,23 @@
 import type { SwatchRow } from '../../conversation/question.js';
 
 /**
- * The two things a place is asked, in the order they are asked.
+ * The things a place is asked, in the order they are asked.
  *
- * It was five: the kind of place, its light, the feeling, what it is made of,
- * and whether anyone stands in it. Five rows of attributes is a taxonomy, and
- * a card that says "Warm" or "Wood" makes the decision harder rather than
- * easier: nobody pictures a shot from an adjective. So the rows are a whole
- * world, which is a result, and then where the camera stands, which is the one
- * thing nothing else in the app asks at creation time and the thing that
- * decides whether every shot from a scene looks the same.
- *
- * Light, material and mood have not gone: they are inside each world's words,
- * where they were always going to end up in the sentence the reader is handed.
- * Anything a world does not cover is said in the line, which is open the whole
- * time.
+ * A world is a starting direction, not the final scene. Light, material and
+ * mood live inside each world's words; the light row then asks whether to keep
+ * that light or replace it. Staging is how the subject lives in the world, the
+ * decision that actually personalises one starting point into many scenes.
+ * How the subject sits is also how it is seen: the camera is not a second
+ * question after staging.
  *
  * Each option carries the words it hands the reader (`words`), the card id for
  * its drawn picture (`card`), and the words a person might type instead of
  * tapping it (`cues`), so a sentence at the first question answers the rows it
  * covers and only the rest are asked.
  */
-export type SceneRow = 'world' | 'light' | 'shot';
+export type SceneRow = 'world' | 'light' | 'stage' | 'shot';
 
-export const ROW_ORDER: readonly SceneRow[] = ['world', 'light', 'shot'];
+export const ROW_ORDER: readonly SceneRow[] = ['world', 'light', 'stage', 'shot'];
 
 export interface RowOption {
   id: string;
@@ -41,6 +35,11 @@ export interface RowOption {
    * rather than as a place with nothing said about how it is lit.
    */
   light?: string;
+  /**
+   * A camera this sit already is. Written into the answers so the compiler
+   * can skip saying the same view twice. The camera is not asked after staging.
+   */
+  shot?: string;
 }
 
 interface RowSpec {
@@ -68,7 +67,7 @@ export const ROWS: Record<SceneRow, RowSpec> = {
         words: 'a niche of warm limestone and rough plaster',
         light: 'in hard afternoon sun',
         card: card('world', 2),
-        cues: ['stone', 'limestone', 'plaster', 'wall', 'niche', 'arch', 'terracotta', 'mediterranean', 'sunlit'],
+        cues: ['stone', 'limestone', 'wall', 'niche', 'arch', 'terracotta', 'mediterranean', 'sunlit'],
       },
       {
         id: 'colour',
@@ -101,6 +100,33 @@ export const ROWS: Record<SceneRow, RowSpec> = {
         light: 'in low-key light, with one bright edge',
         card: card('world', 6),
         cues: ['mirror', 'reflection', 'polished', 'still pool'],
+      },
+      {
+        id: 'plaster',
+        label: 'Soft plaster',
+        words: 'a bare plaster room with one tall soft window',
+        light: 'in soft overcast daylight',
+        card: card('world', 7),
+        cues: [
+          'plaster',
+          'concrete',
+          'microcement',
+          'minimal',
+          'interior',
+          'room',
+          'window',
+          'raw',
+          'architectural',
+          'overcast',
+        ],
+      },
+      {
+        id: 'linen',
+        label: 'Linen fold',
+        words: 'a length of raw undyed linen folded in soft loose drapes',
+        light: 'in soft window light',
+        card: card('world', 8),
+        cues: ['linen', 'fabric', 'textile', 'cloth', 'drape', 'fold', 'woven', 'cotton', 'soft fabric'],
       },
     ],
   },
@@ -149,6 +175,92 @@ export const ROWS: Record<SceneRow, RowSpec> = {
         card: card('light', 6),
         cues: ['low key', 'lowkey', 'dramatic', 'shadowy', 'chiaroscuro', 'rim light'],
       },
+      {
+        id: 'window',
+        label: 'Window light',
+        words: 'in soft window light from one side, one open shadow',
+        card: card('light', 7),
+        cues: ['window light', 'side light', 'from a window', 'sidelit', 'window'],
+      },
+      {
+        id: 'blue',
+        label: 'Blue hour',
+        words: 'in blue hour, cool twilight just after the sun is gone',
+        card: card('light', 8),
+        cues: ['blue hour', 'twilight', 'blue hour light', 'after sunset', 'cool dusk'],
+      },
+    ],
+  },
+  stage: {
+    prompt: 'How should the subject sit in this world?',
+    options: [
+      {
+        id: 'nest',
+        label: 'Held by the set',
+        words: "the subject nested into the set itself, supported by the world's own structure",
+        card: card('stage', 1),
+        cues: ['nested', 'cradled', 'held by the set', 'in the set', 'among the'],
+      },
+      {
+        id: 'plinth',
+        label: 'On a plinth',
+        words: 'the subject standing on a simple plinth or ledge in the space',
+        card: card('stage', 2),
+        cues: ['plinth', 'pedestal', 'on a ledge', 'on a stand', 'on a block'],
+      },
+      {
+        id: 'bed',
+        label: 'In the material',
+        words: 'the subject lying in the material of the world, the set filling the frame around it',
+        card: card('stage', 3),
+        cues: ['lying in', 'in the fabric', 'in the material', 'resting in', 'sunk in'],
+      },
+      {
+        id: 'hands',
+        label: "In someone's hands",
+        words: 'held in a pair of anonymous hands, no face and no identity',
+        card: card('stage', 4),
+        shot: 'close',
+        cues: ['hands', 'handheld', 'in hand', "in someone's hands"],
+      },
+      {
+        id: 'wide',
+        label: 'Small in the space',
+        words: 'the subject small in the frame, the place around it doing the talking',
+        card: card('stage', 5),
+        shot: 'wide',
+        cues: ['small in', 'tiny in', 'lost in the'],
+      },
+      {
+        id: 'floor',
+        label: 'On the floor',
+        words: 'the subject sitting on the floor of the world, grounded in the space',
+        card: card('stage', 6),
+        cues: ['on the floor', 'on the ground', 'grounded', 'on the earth'],
+      },
+      {
+        id: 'lean',
+        label: 'Leaning on it',
+        words: 'the subject leaning against the world, resting on its surface',
+        card: card('stage', 7),
+        cues: ['leaning', 'leaning on', 'against the wall', 'propped'],
+      },
+      {
+        id: 'above',
+        label: 'From above',
+        words: 'seen from directly overhead, looking straight down',
+        card: card('stage', 8),
+        shot: 'top',
+        cues: ['from above', 'overhead', 'top down', 'flat lay', 'flatlay', 'birds eye'],
+      },
+      {
+        id: 'below',
+        label: 'From below',
+        words: 'seen from ground level, the camera low and the subject towering over it',
+        card: card('stage', 9),
+        shot: 'ground',
+        cues: ['from below', 'low angle', 'looking up', 'worms eye'],
+      },
     ],
   },
   shot: {
@@ -196,12 +308,11 @@ export const ROWS: Record<SceneRow, RowSpec> = {
 /**
  * The rows whose pictures are drawn.
  *
- * Both of them, and they are drawn the way the selection-art skill says: one
- * neutral unbranded bottle in every card, so six worlds are comparable to each
- * other rather than six pretty pictures, and five cameras around one unchanged
- * world so the only thing that differs is where the camera stands.
+ * Worlds, lights, staging and cameras: one thing changing across each row.
+ * Worlds are compared as a set; the rest are a strip of the same subject
+ * under one changing decision.
  */
-export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['world', 'light', 'shot']);
+export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['world', 'light', 'stage', 'shot']);
 
 /** A row as the conversation's swatch block takes it. */
 export function swatchRow(row: SceneRow): SwatchRow {
@@ -217,7 +328,8 @@ export function swatchRow(row: SceneRow): SwatchRow {
 }
 
 /** What a row is about, for the line that invites words instead of a tap. */
-export const rowNoun = (row: SceneRow): string => (row === 'world' ? 'place' : row === 'light' ? 'light' : 'camera');
+export const rowNoun = (row: SceneRow): string =>
+  row === 'world' ? 'place' : row === 'light' ? 'light' : row === 'stage' ? 'setup' : 'camera';
 
 export const optionOf = (row: SceneRow, id: string | undefined): RowOption | undefined =>
   id ? ROWS[row].options.find((o) => o.id === id) : undefined;

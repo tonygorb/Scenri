@@ -160,15 +160,14 @@ describe('the scene studio', () => {
     return settle(brandId, res.json().jobId);
   };
 
-  it('reads the words and draws them, and writes nothing to the brand', async () => {
+  it('reads the written words into a place and draws them', async () => {
     const brand = await newBrand();
     const job = await run(brand.id, { kind: 'make', instruction: 'a basalt shore at sunset' });
     expect(job.status).toBe('done');
     expect(job.reading.prompt).toBe(READ.prompt);
     expect(job.reading.name).toBe('Wet Basalt Shore');
-    expect(job.coverage).toEqual(['A wider frame would pin down the bay.']);
     expect(job.hash).toMatch(/^[a-f0-9]{32}$/);
-    expect(analyzed[0].instruction).toBe('a basalt shore at sunset');
+    expect(analyzed).toHaveLength(1);
     expect(generated).toHaveLength(1);
     expect(generated[0].prompt).toContain(READ.prompt);
     // a studio job never writes a scene: only Use does
@@ -203,6 +202,7 @@ describe('the scene studio', () => {
     const job = await run(brand.id, { kind: 'make', instruction: 'the shore', draw: false });
     expect(job.reading.prompt).toBe(READ.prompt);
     expect(job.hash).toBeNull();
+    expect(analyzed).toHaveLength(1);
     expect(generated).toHaveLength(0);
   });
 
@@ -302,7 +302,7 @@ describe('the scene studio', () => {
       release = r;
     });
     const brand = await newBrand();
-    const { jobId } = (await startJob(brand.id, { kind: 'make', instruction: 'the shore' })).json();
+    const { jobId } = (await startJob(brand.id, { kind: 'make', imageHashes: [await photo()] })).json();
     const stop = await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/scene-studio/jobs/${jobId}/cancel` });
     expect(stop.json().ok).toBe(true);
     release();

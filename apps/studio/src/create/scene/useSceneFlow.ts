@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { api, uploadImage } from '../../api.js';
+import { uploadImage } from '../../api.js';
 import type { Brand } from '../../apiTypes.js';
 import { type Answer, nowIso } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
@@ -12,6 +12,7 @@ import {
   type Target,
   judge,
   packSession,
+  placesTheyMade,
   recordQid,
   turnsFor,
   unpackSession,
@@ -163,28 +164,15 @@ export function useSceneFlow(args: {
   }, [readKey, work.start]);
 
   /**
-   * The shots this person already made, offered at the picture question.
-   *
-   * Fetched once, and only when that question is on the floor: a scene made
-   * from words never asks for it. The world in one is what the reader takes;
-   * the product and the person in it are its visitors, never copied.
+   * Scenes this person already made. Read off the brand document, so a library
+   * of hundreds of shots never arrives here as a strip of cans. Only places
+   * with a picture, newest first; the question itself shows four and a way
+   * to find the rest.
    */
-  const [have, setHave] = useState<string[]>([]);
-  const wantsHave = !edit && setup.answers.source?.door === 'photos';
-  useEffect(() => {
-    if (!wantsHave || have.length) return;
-    const ctrl = new AbortController();
-    api
-      .feed(brand.id, { limit: 8 }, ctrl.signal)
-      .then((page) => {
-        if (ctrl.signal.aborted) return;
-        setHave(page.items.filter((n) => n.status === 'done' && n.images.length > 0).map((n) => n.images[0]));
-      })
-      .catch(() => {
-        // the row simply does not appear; nothing else waits on it
-      });
-    return () => ctrl.abort();
-  }, [wantsHave, have.length, brand.id]);
+  const have = useMemo(
+    () => placesTheyMade((brand.json as { scenes?: { name?: unknown; preview?: unknown }[] })?.scenes ?? []),
+    [brand],
+  );
 
   const canDraw = caps?.canDraw ?? true;
   const shown = work.offline ? COPY.offline : note;

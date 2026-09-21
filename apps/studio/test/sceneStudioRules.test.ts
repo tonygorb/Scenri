@@ -61,6 +61,16 @@ describe('inputs', () => {
     expect(reduce(s, { type: 'inputs', place: 'a shore', pictures: [H('a'), H('b')] })).toBe(s);
   });
 
+  it('drops a read that finished after the taps moved', () => {
+    const s = reduce(EMPTY, { type: 'inputs', place: 'first', pictures: [] });
+    const started = reduce(s, { type: 'started', id: 'j1', kind: 'make', since: 't0' });
+    const moved = reduce(started, { type: 'inputs', place: 'second', pictures: [] });
+    const landed = reduce(moved, { type: 'finished', job: job({ status: 'done', hash: null, reading: R() }) });
+    expect(landed.job).toBeNull();
+    expect(landed.versions).toHaveLength(0);
+    expect(landed.place).toBe('second');
+  });
+
   it('holds four pictures at most', () => {
     const s = reduce(EMPTY, { type: 'inputs', place: '', pictures: ['1', '2', '3', '4', '5'].map(H) });
     expect(s.pictures).toHaveLength(4);
@@ -122,6 +132,26 @@ describe('working and landing', () => {
     expect(s.versions).toHaveLength(0);
     expect(phaseOf(s)).toBe('writing');
     expect(s.error).toBe('no');
+  });
+
+  it('a stopped read is not a fault, and leaves a way back on', () => {
+    const s = reduce(started, {
+      type: 'finished',
+      job: job({ status: 'cancelled', reading: null, hash: null }),
+    });
+    expect(s.versions).toHaveLength(0);
+    expect(s.job).toBeNull();
+    expect(s.error).toBe('That was stopped. Nothing here was changed.');
+  });
+
+  it('keeps words that already landed when a later draw is stopped', () => {
+    const s = reduce(started, {
+      type: 'finished',
+      job: job({ status: 'cancelled', hash: null }),
+    });
+    expect(current(s)?.reading).toEqual(R());
+    expect(current(s)?.hash).toBeNull();
+    expect(s.error).toBeNull();
   });
 
   it('forgets work the server lost, and says what happened', () => {

@@ -184,8 +184,17 @@ export function reduce(s: StudioState, a: Action): StudioState {
       const ref = s.job;
       const j = a.job;
       const base = { ...s, job: null };
+      // The taps moved while this read ran: keep the brief they are on now.
+      if (ref.kind === 'make' && ref.inputsRev !== s.inputsRev) return base;
       const reading = j.reading ?? (ref.kind === 'again' ? (current(s)?.reading ?? null) : null);
       const failed = j.status === 'failed' ? (j.error ?? COPY.failed) : null;
+      // Stop is not a fault: if nothing landed, the conversation has to stay
+      // open with a way back on. A cancelled draw that already has words keeps
+      // those words; a cancelled read or a cancelled Try again keeps the stage
+      // as it was and asks again.
+      if (j.status === 'cancelled') {
+        if (!reading || (ref.kind === 'again' && !j.hash)) return { ...base, error: COPY.stopped };
+      }
       // Nothing landed that can stand: the words stay as they were, and so does
       // the version on the stage.
       if (!reading || (ref.kind === 'again' && !j.hash)) return { ...base, error: failed };
@@ -204,11 +213,15 @@ export function reduce(s: StudioState, a: Action): StudioState {
         coverage: j.coverage?.length ? j.coverage : ref.kind === 'again' ? (current(s)?.coverage ?? []) : [],
         how,
       };
-      const versions = [...s.versions, version];
+      const standing = current(s);
+      const replaceDraft = ref.kind === 'make' && !j.hash && standing && !standing.hash && standing.how === 'read';
+      const versions = replaceDraft
+        ? s.versions.map((v, i) => (i === s.current ? version : v))
+        : [...s.versions, version];
       const next: StudioState = {
         ...base,
         versions,
-        current: versions.length - 1,
+        current: replaceDraft ? s.current : versions.length - 1,
         // a make reads the inputs as they stood when it started; the other two keep the reading's own age
         readRev: ref.kind === 'make' ? ref.inputsRev : s.readRev,
         error: failed,
@@ -275,7 +288,9 @@ export const doingLine = (s: StudioState): string | undefined =>
       ? COPY.changing
       : s.job.phase === 'drawing'
         ? COPY.drawing
-        : COPY.reading
+        : s.pictures.length
+          ? COPY.readingPhotos
+          : COPY.reading
     : undefined;
 
 /**
