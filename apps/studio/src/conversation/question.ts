@@ -121,6 +121,16 @@ export type Question =
       kind: 'swatches';
       /** What is being asked about, one row of it. */
       row: SwatchRow;
+      /**
+       * Shown as a wrapping grid rather than a scrolling strip.
+       *
+       * A strip is right for a row read in sequence, where the next card is a
+       * variant of the last. A world, a light or where the camera stands are
+       * not variants of each other, they are the whole set at once: comparing
+       * them means seeing them together, not swiping one out of view to see
+       * the next.
+       */
+      layout?: 'grid';
       /** A quiet way past this one. */
       skip?: string;
       /** A way to say it in words instead, which hands the answer to the composer. */

@@ -1,6 +1,7 @@
 import { Check, Copy, Paperclip } from '@phosphor-icons/react';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
+import { CardGrid } from './CardGrid.js';
 import { CardStrip } from './CardStrip.js';
 import { Strip } from './Strip.js';
 import { RefStrip } from '../create/RefStrip.js';
@@ -390,11 +391,19 @@ export function QuestionBlock({
         {question.kind === 'swatches' && (
           <div className="sc-convo-look">
             {question.row.options.some((o) => o.card) ? (
-              <CardStrip
-                options={question.row.options}
-                picked={on}
-                onPick={(id) => commit(id, { kind: 'swatches', picks: { [question.row.id]: id } })}
-              />
+              question.layout === 'grid' ? (
+                <CardGrid
+                  options={question.row.options}
+                  picked={on}
+                  onPick={(id) => commit(id, { kind: 'swatches', picks: { [question.row.id]: id } })}
+                />
+              ) : (
+                <CardStrip
+                  options={question.row.options}
+                  picked={on}
+                  onPick={(id) => commit(id, { kind: 'swatches', picks: { [question.row.id]: id } })}
+                />
+              )
             ) : (
               <div className="sc-convo-swatches">
                 {question.row.options.map((o) => (

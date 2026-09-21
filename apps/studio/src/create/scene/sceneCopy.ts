@@ -23,6 +23,7 @@ export const COPY = {
   readThem: 'Read them',
   guideInstead: 'Guide me instead',
   skip: 'Skip',
+  describeInstead: 'Describe instead',
 
   // the empty stage
   emptyLead: 'The place appears here',

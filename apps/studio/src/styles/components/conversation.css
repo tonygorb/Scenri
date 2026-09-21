@@ -1396,6 +1396,29 @@ button.sc-convo-shot-do {
   outline-offset: -2px;
 }
 
+/* ---- drawn options, seen at once -------------------------------------------
+   A world, a light and where the camera stands are not a sequence: choosing
+   one means comparing the whole set, so the row wraps rather than scrolls,
+   the same plate wearing a different container. Four across is a width a
+   question can own without becoming a wall; the phone earns its own column
+   count rather than four plates asked to fit a screen they were never sized
+   for. */
+.sc-convo-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sc-space-4) var(--sc-space-3);
+}
+
+@media (max-width: 767px) {
+  .sc-convo-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.sc-convo-grid .sc-convo-plate {
+  width: auto;
+}
+
 /* The two ends, for a hand with no swipe in it: they straddle the row's edge,
    appear while it is hovered or has focus in it, and dim rather than vanish
    where there is nowhere left to go. Never drawn where a finger would swipe. */
