@@ -15,7 +15,10 @@
  * picture to land on its card, the way the old background build did.
  *
  * Jobs live in memory, like the asset builds: they survive navigation and a
- * reload of the page, never a restart of the server.
+ * reload of the page, never a restart of the server. Each carries the
+ * conversation that asked for it, so there is only ever one running per
+ * conversation (a remount or a second tab re-attaches instead of spending
+ * twice), and so Activity can say what is running and lead back to it.
  */
 import { randomUUID } from 'node:crypto';
 import type { SceneDraft } from '@scenri/engine-codex';
@@ -80,6 +83,18 @@ export interface SceneStudioJob {
   warnings: string[];
   /** A saved scene this picture belongs on once it lands. */
   attachTo: string | null;
+  /**
+   * The picture that scene wore when the attach was asked for. The landed one
+   * goes on only if it still does: a scene edited again in the meantime keeps
+   * what it was given since.
+   */
+  attachFrom: string | null;
+  /** The studio conversation this work belongs to; null for a caller that named none. */
+  conversation: string | null;
+  /** The saved scene the conversation is editing, when it is editing one. */
+  sceneId: string | null;
+  /** What Activity calls it: the scene's name, or the first words of the place. */
+  label: string;
 }
 
 export interface StudioJobInput {
@@ -99,14 +114,24 @@ export interface StudioJobInput {
   draw?: boolean;
   /** `change`: read the pictures again along with the sentence, because they changed. */
   reread?: boolean;
+  /** The studio conversation asking. One job runs per conversation. */
+  conversation?: string;
+  /** The saved scene being edited, so Activity can lead back to its studio. */
+  sceneId?: string;
+  /** What to call the work in Activity. */
+  label?: string;
 }
 
 /** The pictures a studio takes. Style references are one to four everywhere that measured it. */
 export const STUDIO_PICTURES_MAX = 4;
 const ASK_MAX = 400;
 const KEEP_PER_BRAND = 24;
-/** A finished job is kept long enough for a page reload to find it, not as a log. */
-const KEEP_MS = 2 * 60 * 60 * 1000;
+/**
+ * A finished job is kept long enough for someone who left while it ran to come
+ * back to it: a page reload, or a return from Activity the next morning. It is
+ * a few hundred bytes, and a brand keeps at most `KEEP_PER_BRAND`.
+ */
+const KEEP_MS = 24 * 60 * 60 * 1000;
 
 const jobs = new Map<string, SceneStudioJob>();
 const running = new Map<string, AbortController>();
@@ -373,23 +398,52 @@ function prune(brandId: string) {
   while (left.length > KEEP_PER_BRAND) jobs.delete(left.shift()!.id);
 }
 
-/** Put a landed picture on a scene that was saved while it was drawing. */
-function landOn(deps: AssetBuildDeps, brandId: string, sceneId: string, hash: string): boolean {
+/** The picture a saved scene wears right now, as its record stores it; null when none. */
+function previewOf(deps: AssetBuildDeps, brandId: string, sceneId: string): string | null | undefined {
   const brand = deps.core.store.getBrand(brandId);
-  if (!brandScenes(brand?.json ?? {}).some((s: any) => s?.id === sceneId)) return false;
+  const scene = brandScenes(brand?.json ?? {}).find((s: any) => s?.id === sceneId) as any;
+  if (!scene) return undefined;
+  return typeof scene.preview === 'string' ? scene.preview : null;
+}
+
+/**
+ * Put a landed picture on a scene that was saved while it was drawing, if the
+ * scene still wears what it wore when that was asked (`expect`). A scene saved
+ * again with another picture in the meantime keeps the newer one.
+ */
+function landOn(
+  deps: AssetBuildDeps,
+  brandId: string,
+  sceneId: string,
+  hash: string,
+  expect: string | null,
+): 'landed' | 'gone' | 'moved' {
+  const now = previewOf(deps, brandId, sceneId);
+  if (now === undefined) return 'gone';
+  if (now !== expect && now !== `asset:${hash}`) return 'moved';
   commit(deps.core, brandId, (json) => {
     json.scenes = brandScenes(json).map((s: any) => (s.id === sceneId ? { ...s, preview: `asset:${hash}` } : s));
   });
-  return true;
+  return 'landed';
 }
 
 /**
  * Start one piece of studio work. Refuses what could never succeed before
  * anything is spent, and answers with the job the studio then polls.
  */
-export function startSceneStudioJob(deps: AssetBuildDeps, input: StudioJobInput): { jobId: string } {
+export function startSceneStudioJob(deps: AssetBuildDeps, input: StudioJobInput): { jobId: string; existing?: true } {
   const kind = input.kind;
   if (kind !== 'make' && kind !== 'again' && kind !== 'change') throw fail('kind must be make, again or change');
+  // One job per conversation. A second start while one runs is the same act
+  // arriving twice (a remount that lost the first answer, a second tab, a
+  // press that raced a reload), so it gets the work already under way.
+  const conversation = oneLine(input.conversation, 80) || null;
+  if (conversation) {
+    const live = [...jobs.values()].find(
+      (j) => j.brandId === input.brandId && j.conversation === conversation && j.status === 'running',
+    );
+    if (live) return { jobId: live.id, existing: true };
+  }
   const instruction = String(input.instruction ?? '')
     .trim()
     .slice(0, 400);
@@ -433,6 +487,10 @@ export function startSceneStudioJob(deps: AssetBuildDeps, input: StudioJobInput)
     error: null,
     warnings: [],
     attachTo: null,
+    attachFrom: null,
+    conversation,
+    sceneId: oneLine(input.sceneId, 80) || null,
+    label: oneLine(input.label, 60) || reading?.name || nameFromWords(instruction) || 'New scene',
   };
   jobs.set(job.id, job);
   prune(input.brandId);
@@ -515,9 +573,18 @@ async function run(deps: AssetBuildDeps, job: SceneStudioJob, input: StudioJobIn
       // The same trim every scene preview gets: a figure-led preview is a
       // conditioning image, and baked-in bars would be reproduced into shots.
       const hash = await trimEdgeBars(deps.core, drawn);
+      // The last moment a Stop can arrive before anything is written. After
+      // this line the job lands in one synchronous run, so a picture that came
+      // back after Stop is never put on a scene or handed to the studio.
+      if (signal.aborted) throw fail('cancelled');
       patch(job, { hash });
-      if (job.attachTo && !landOn(deps, job.brandId, job.attachTo, hash))
-        patch(job, { warnings: [...job.warnings, 'The scene was gone before its picture landed.'] });
+      if (job.attachTo) {
+        const landed = landOn(deps, job.brandId, job.attachTo, hash, job.attachFrom);
+        if (landed === 'gone')
+          patch(job, { warnings: [...job.warnings, 'The scene was gone before its picture landed.'] });
+        if (landed === 'moved')
+          patch(job, { warnings: [...job.warnings, 'The scene had a new picture by then, so it kept that one.'] });
+      }
     }
     patch(job, { status: 'done', phase: null, finishedAt: now() });
   } catch (err: any) {
@@ -552,12 +619,23 @@ export function cancelSceneStudioJob(id: string): boolean {
 export function attachSceneStudioJob(deps: AssetBuildDeps, id: string, sceneId: string): 'landed' | 'pending' | 'none' {
   const job = jobs.get(id);
   if (!job) return 'none';
+  const wore = previewOf(deps, job.brandId, sceneId);
+  if (wore === undefined) return 'none';
   if (job.status === 'running') {
-    patch(job, { attachTo: sceneId });
+    patch(job, { attachTo: sceneId, attachFrom: wore });
     return 'pending';
   }
-  if (job.status === 'done' && job.hash) return landOn(deps, job.brandId, sceneId, job.hash) ? 'landed' : 'none';
+  if (job.status === 'done' && job.hash)
+    return landOn(deps, job.brandId, sceneId, job.hash, wore) === 'landed' ? 'landed' : 'none';
   return 'none';
+}
+
+/**
+ * The studio work Activity shows for a brand: what runs, and what finished
+ * recently enough to still be news. Newest first.
+ */
+export function listSceneStudioJobs(brandId: string): SceneStudioJob[] {
+  return [...jobs.values()].filter((j) => j.brandId === brandId).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 }
 
 /** Counted by the updater, which refuses to restart over work in flight. */

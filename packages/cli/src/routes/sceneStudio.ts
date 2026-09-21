@@ -52,10 +52,13 @@ export function registerSceneStudioRoutes(app: FastifyInstance, deps: BuildRoute
       ask: body.ask == null ? undefined : String(body.ask),
       draw: body.draw === false ? false : undefined,
       reread: body.reread === true,
+      conversation: body.conversation == null ? undefined : String(body.conversation),
+      sceneId: body.sceneId == null ? undefined : String(body.sceneId),
+      label: body.label == null ? undefined : String(body.label),
     };
     try {
-      const { jobId } = startSceneStudioJob(await buildDeps(), input);
-      return { jobId, job: getSceneStudioJob(jobId) };
+      const { jobId, existing } = startSceneStudioJob(await buildDeps(), input);
+      return { jobId, job: getSceneStudioJob(jobId), ...(existing ? { existing } : {}) };
     } catch (err: any) {
       return reply.status(err.statusCode ?? 500).send({ error: err.message ?? 'could not start' });
     }

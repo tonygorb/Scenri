@@ -335,6 +335,80 @@ describe('the scene studio', () => {
     expect(scene.preview).toBe(`asset:${job.hash}`);
   });
 
+  it('runs one job per conversation: a second start is answered with the work already under way', async () => {
+    let release!: () => void;
+    gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const brand = await newBrand();
+    const first = (await startJob(brand.id, { kind: 'again', reading: READ, conversation: 'c-one' })).json();
+    const again = (await startJob(brand.id, { kind: 'again', reading: READ, conversation: 'c-one' })).json();
+    expect(again.jobId).toBe(first.jobId);
+    expect(again.existing).toBe(true);
+    // another conversation is other work
+    const other = (await startJob(brand.id, { kind: 'again', reading: READ, conversation: 'c-two' })).json();
+    expect(other.jobId).not.toBe(first.jobId);
+    release();
+    await settle(brand.id, first.jobId);
+    await settle(brand.id, other.jobId);
+    expect(generated).toHaveLength(2);
+    // and once it is over, the conversation can start the next piece of work
+    const next = (await startJob(brand.id, { kind: 'again', reading: READ, conversation: 'c-one' })).json();
+    expect(next.jobId).not.toBe(first.jobId);
+    expect(next.existing).toBeUndefined();
+    await settle(brand.id, next.jobId);
+  });
+
+  it('never lands a picture the engine hands back after Stop', async () => {
+    let release!: () => void;
+    gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const brand = await newBrand();
+    const { jobId } = (await startJob(brand.id, { kind: 'again', reading: READ, conversation: 'c-late' })).json();
+    const stop = await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/scene-studio/jobs/${jobId}/cancel` });
+    expect(stop.json().ok).toBe(true);
+    // the spy engine ignores the abort and answers anyway, the way a remote provider does
+    release();
+    const job = await settle(brand.id, jobId);
+    expect(generated).toHaveLength(1);
+    expect(job.status).toBe('cancelled');
+    expect(job.hash).toBeNull();
+  });
+
+  it('keeps a newer picture on a scene when an older draw lands after it', async () => {
+    const brand = await newBrand();
+    let release!: () => void;
+    gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const { jobId } = (await startJob(brand.id, { kind: 'again', reading: READ })).json();
+    const saved = (
+      await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/scenes`, payload: { ...READ } })
+    ).json();
+    const attach = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brand.id}/scene-studio/jobs/${jobId}/attach`,
+      payload: { sceneId: saved.scene.id },
+    });
+    expect(attach.json().state).toBe('pending');
+    // the scene is saved again, with a picture of its own, while the old draw runs
+    const newer = await photo('#224488');
+    const patched = await app.inject({
+      method: 'PATCH',
+      url: `/api/brands/${brand.id}/scenes/${saved.scene.id}`,
+      payload: { previewHash: newer },
+    });
+    expect(patched.statusCode, patched.body).toBe(200);
+    release();
+    const job = await settle(brand.id, jobId);
+    expect(job.status).toBe('done');
+    const rows: any[] = (core.store.getBrand(brand.id)?.json as any)?.scenes ?? [];
+    const scene = rows.find((s) => s.id === saved.scene.id);
+    expect(scene.preview).toBe(`asset:${newer}`);
+    expect(job.warnings.join(' ')).toMatch(/kept that one/);
+  });
+
   it('puts a landed picture on at once', async () => {
     const brand = await newBrand();
     const job = await run(brand.id, { kind: 'again', reading: READ });
