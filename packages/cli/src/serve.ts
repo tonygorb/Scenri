@@ -70,6 +70,7 @@ async function run(): Promise<void> {
       ? createDemoAnalyzer({
           photos: process.env.SCENRI_DEMO_ANALYSIS,
           readMs: Number(process.env.SCENRI_DEMO_READ_MS) || undefined,
+          fail: process.env.SCENRI_DEMO_FAIL_READ === '1',
         })
       : undefined;
   const here = dirname(fileURLToPath(import.meta.url));
