@@ -387,7 +387,7 @@ export function AttachBody({
       const edge = (row as { logoEdge?: number | null }).logoEdge;
       if (edge && edge < 512)
         push({
-          kind: 'success',
+          kind: 'warning',
           title: 'Logo added, but it is small',
           detail: `Only ${edge}px across. Fine lettering may not survive generation. Export it larger, or as SVG.`,
         });

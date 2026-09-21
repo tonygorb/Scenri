@@ -1,93 +1,198 @@
-/* ---------- toasts ---------- */
+/* ---------- toasts ----------
+
+   A Sonner/Linear toast, in this system's tokens. One compact note:
+   mark, two-line type, the action under the copy, a quiet close.
+   Bottom-left so Help and the assets rail keep the other corner.
+   Behaviour (cap, dedup, pause, live regions) lives in toasts.tsx. */
 .sc-toasts {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
+  left: 16px;
+  bottom: calc(16px + var(--sc-bottom-inset));
   z-index: 100;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
-  max-width: 360px;
+  max-width: min(356px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.sc-toast-wrap {
+  display: block;
+  max-width: 100%;
+  pointer-events: auto;
+}
+@keyframes sc-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes sc-toast-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.sc-toast-wrap {
+  animation: sc-toast-in var(--sc-dur-slow) var(--sc-ease-emphasis);
+}
+.sc-toast-wrap[data-leaving] {
+  animation: sc-toast-out 140ms ease-in forwards;
+  pointer-events: none;
 }
 .sc-toast {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 11px 13px;
+  gap: var(--sc-space-5);
+  width: max-content;
+  min-width: 280px;
+  max-width: 356px;
+  padding: var(--sc-space-5) var(--sc-space-4) var(--sc-space-4) var(--sc-space-6);
   background: var(--sc-panel);
-  border: 1px solid var(--sc-line-strong);
+  border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-lg);
   box-shadow: var(--sc-shadow-2);
-  font-size: 12.5px;
+  color: var(--sc-fg);
+  font-family: var(--sc-font);
 }
-.sc-toast-ok {
-  color: var(--sc-green);
-  flex-shrink: 0;
+.sc-toast-ic {
+  flex: none;
   margin-top: 1px;
+  color: var(--sc-fg2);
 }
-.sc-toast-err {
+.sc-toast[data-kind="warning"] .sc-toast-ic {
+  color: var(--sc-warn);
+}
+.sc-toast[data-kind="error"] .sc-toast-ic {
   color: var(--sc-red);
-  flex-shrink: 0;
-  margin-top: 1px;
+}
+.sc-toast-body {
+  min-width: 0;
+  flex: 1;
+}
+.sc-toast-top {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sc-space-4);
+}
+.sc-toast-txt {
+  min-width: 0;
+  flex: 1;
 }
 .sc-toast b {
-  font-size: 12.5px;
-  font-weight: 600;
   display: block;
+  font-size: var(--sc-text-body);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+.sc-toast-n {
+  color: var(--sc-fg3);
+  font-weight: 500;
+  margin-left: var(--sc-space-3);
 }
 .sc-toast small {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-top: var(--sc-space-1);
   color: var(--sc-fg2);
-  font-size: 11.5px;
-  overflow-wrap: anywhere;
-  display: block;
-  margin-top: 1px;
+  font-size: var(--sc-text-caption);
+  font-weight: 400;
+  line-height: 1.35;
+}
+.sc-toast-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sc-space-4);
+  margin-top: var(--sc-space-3);
 }
 .sc-toast-act {
-  border: 1px solid var(--sc-line);
+  padding: 4px 6px;
+  border: none;
+  border-radius: var(--sc-radius-sm);
   background: none;
+  font: 500 var(--sc-text-body) / 1 var(--sc-font);
+  color: var(--sc-fg2);
   cursor: pointer;
-  border-radius: var(--sc-radius-full);
-  padding: 3px 11px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--sc-fg);
-  margin-top: 6px;
+}
+.sc-toast-act:first-child {
+  margin-left: -6px;
 }
 .sc-toast-act:hover {
-  background: var(--sc-hover);
-}
-/* JSX puts no whitespace between siblings, so a second action would touch the
-   first. Two is the cap; this is the only spacing they need. */
-.sc-toast-act + .sc-toast-act {
-  margin-left: 6px;
+  color: var(--sc-fg);
 }
 .sc-toast-x {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin: -6px -2px 0 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
   border: none;
+  border-radius: var(--sc-radius-sm);
   background: none;
-  cursor: pointer;
   color: var(--sc-fg3);
-  padding: 2px;
+  cursor: pointer;
 }
 .sc-toast-x:hover {
+  background: var(--sc-hover);
   color: var(--sc-fg);
 }
 
-/* Below the tab bar's breakpoint a toast at 16px lands on the tabs, and on a
-   phone with a home indicator it lands under them: the bar is 60 tall and
-   carries the inset itself, so a toast has to clear both. Caught by the
-   selection dock's own toast ("Archived 4 shots"), which is the one a person
-   reaches for straight after acting. */
+/* The update float already owns this corner when a release is waiting.
+   Sit one gap above it rather than covering the gift. Hidden on phones. */
+@media (min-width: 768px) {
+  body:has(.sc-upd-float) .sc-toasts {
+    bottom: calc(18px + 56px + 10px + var(--sc-bottom-inset));
+  }
+}
+
 @media (max-width: 767px) {
   .sc-toasts {
-    left: 16px;
-    bottom: calc(var(--sc-tabbar-h, 60px) + env(safe-area-inset-bottom, 0px) + 12px);
+    left: 14px;
+    right: 14px;
+    bottom: calc(var(--sc-tabbar-h, 60px) + var(--sc-bottom-inset) + 12px);
+    max-width: none;
+    align-items: stretch;
+  }
+  .sc-toast {
+    width: 100%;
+    min-width: 0;
     max-width: none;
   }
 }
 
-/* From 1024px the help button owns the corner; toasts stack above it. */
-@media (min-width: 1024px) {
-  .sc-toasts {
-    bottom: 60px;
+@media (prefers-reduced-motion: reduce) {
+  .sc-toast-wrap {
+    animation: sc-toast-in-reduced 120ms ease-out;
+  }
+  .sc-toast-wrap[data-leaving] {
+    animation: sc-toast-out-reduced 100ms ease-in forwards;
+  }
+  @keyframes sc-toast-in-reduced {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes sc-toast-out-reduced {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
   }
 }

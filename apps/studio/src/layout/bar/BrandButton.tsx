@@ -41,7 +41,7 @@ export function BrandButton() {
   const [quitAsk, setQuitAsk] = useState(false);
   const quit = async () => {
     const refused = await updates.quit();
-    if (refused) push({ kind: 'error', title: 'Scenri is still working', detail: refused });
+    if (refused) push({ kind: 'warning', title: 'Scenri is still working', detail: refused });
   };
 
   return (

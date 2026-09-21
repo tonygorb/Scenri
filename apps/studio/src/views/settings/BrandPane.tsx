@@ -61,7 +61,7 @@ export function BrandPane() {
       doc.applyRow(row);
       setSuggestions(row.suggestions?.palette ?? []);
       push({
-        kind: 'success',
+        kind: row.warnings?.length ? 'warning' : 'success',
         title: 'Read the website again',
         detail: row.warnings?.length ? row.warnings.join(' ') : 'Your edits were kept.',
       });

@@ -340,7 +340,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   useEffect(() => {
     if (!lineageId || !lineageRoot.missing) return;
     setLineageId(null);
-    push({ kind: 'error', title: 'That shot is no longer available', detail: 'Showing everything instead.' });
+    push({ kind: 'info', title: 'That shot is no longer available', detail: 'Showing everything instead.' });
   }, [lineageId, lineageRoot.missing, setLineageId, push]);
 
   /**
@@ -458,10 +458,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     if (!branchId || !loaded) return;
     if (branch.node && !target) {
       clearTarget();
-      push({ kind: 'error', title: 'That shot is no longer available to refine', detail: 'Making a new shot.' });
+      push({ kind: 'info', title: 'That shot is no longer available to refine', detail: 'Making a new shot.' });
     } else if (branch.missing) {
       clearTarget();
-      push({ kind: 'error', title: 'That shot is no longer available to refine', detail: 'Making a new shot.' });
+      push({ kind: 'info', title: 'That shot is no longer available to refine', detail: 'Making a new shot.' });
     }
   }, [branchId, branch.node, branch.missing, target, loaded, clearTarget, push]);
 
@@ -622,9 +622,9 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     const entry = showcase.find((s) => s.id === showcaseIdParam);
     if (entry) {
       setRemixBrief(showcaseBrief(entry));
-      push({ kind: 'success', title: `Starting from "${entry.title}"` });
+      push({ kind: 'info', title: `Starting from "${entry.title}"` });
     } else {
-      push({ kind: 'error', title: 'That example is no longer available', detail: 'Starting from scratch instead.' });
+      push({ kind: 'info', title: 'That example is no longer available', detail: 'Starting from scratch instead.' });
     }
     setParams(
       (cur) => {
@@ -1000,7 +1000,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       // focus waits for the shot to be gone (an effect below), because the
       // overlay still holds focus now and takes it to body when it unmounts.
       push({
-        kind: 'success',
+        kind: 'info',
         title: 'Starting from this shot',
         detail: 'Its prompt, chips and settings are in the composer. Change anything, then Generate.',
       });

@@ -247,7 +247,11 @@ export function TaskCenterProvider({
       const href = n.href;
       const action = href ? { label: 'View', onClick: () => navRef.current(href) } : undefined;
       if (n.state === 'error') {
-        pushRef.current({ kind: 'error', title: `${n.title} failed`, detail: n.subtitle, action });
+        // A shot failing on the feed you are watching was already announced
+        // by the feed's own live region; the card still shows, the second
+        // announcement does not.
+        const quiet = watchingFeedRef.current && (n.kind === 'generation' || n.kind === 'edit');
+        pushRef.current({ kind: 'error', title: `${n.title} failed`, detail: n.subtitle, action, quiet });
         continue;
       }
       /*
@@ -291,13 +295,14 @@ export function TaskCenterProvider({
        * on. The row underneath already carries the detail.
        */
       if (n.kind === 'catalog' && n.state === 'partial') {
-        pushRef.current({ kind: 'error', title: 'Some products did not import', detail: n.subtitle, action });
+        pushRef.current({ kind: 'warning', title: 'Some products did not import', detail: n.subtitle, action });
         continue;
       }
       pushRef.current({
         kind: 'success',
         title: n.kind === 'catalog' ? 'Import finished' : 'Generation finished',
-        detail: n.title,
+        // a catalog name is a name; a generation title is often six prompt words
+        detail: n.kind === 'catalog' ? n.title : undefined,
         action,
       });
     }

@@ -256,7 +256,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
       if (made.kind === 'product') {
         // an import has no product of its own yet — the bell carries that one
         if (!made.id) {
-          push({ kind: 'success', title: 'Importing your catalog', detail: made.name });
+          push({ kind: 'info', title: 'Importing your catalog', detail: made.name });
           return;
         }
         // The form applied the brand it answered with, and the library follows
@@ -287,7 +287,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         return;
       }
       if (cb?.kind === made.kind) cb.fn(made);
-      push({ kind: 'success', title: `Building ${made.name}`, detail: 'The bell will say when.' });
+      push({ kind: 'info', title: `Building ${made.name}`, detail: 'The bell will say when.' });
     },
     [brand, navigate, poke, push, refreshBrands],
   );

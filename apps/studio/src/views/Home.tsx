@@ -185,7 +185,7 @@ export function HomeView() {
     const entry = showcase.find((s) => s.id === id);
     if (!entry) return;
     setDockBrief(showcaseBrief(entry));
-    push({ kind: 'success', title: `Starting from "${entry.title}"` });
+    push({ kind: 'info', title: `Starting from "${entry.title}"` });
   };
   /** On a phone there is no dock to stage into — the tap carries the recipe to
    * Create via `?showcase=`, and Create's apply fires the one toast. */
