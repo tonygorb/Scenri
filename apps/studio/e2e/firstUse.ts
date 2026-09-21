@@ -153,12 +153,14 @@ export async function pointsAt(p: Page, selector: string): Promise<void> {
       onScreen: c.left >= 0 && c.top >= 0 && c.right <= vw && c.bottom <= vh,
     };
   };
-  await expect.poll(async () => await p.evaluate(measure, selector)).toEqual({
-    inside: true,
-    overlaps: false,
-    arrowOnTarget: true,
-    onScreen: true,
-  });
+  await expect
+    .poll(async () => await p.evaluate(measure, selector))
+    .toEqual({
+      inside: true,
+      overlaps: false,
+      arrowOnTarget: true,
+      onScreen: true,
+    });
 }
 
 /** The page behind an ask is held: some of it is inert. */

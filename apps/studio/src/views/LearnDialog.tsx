@@ -3,6 +3,7 @@ import { ArrowRight, CaretLeft, Check, X } from '@phosphor-icons/react';
 import { useMatch } from 'react-router';
 import { useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { learnOpener } from '../app/dialogs.js';
 import type { GuideTaskId } from '../apiTypes.js';
 import { useGuide } from '../guide.js';
 import { useGuideFacts } from '../guideFacts.js';
@@ -66,17 +67,32 @@ export function LearnDialog() {
     setPending(id);
     param.close();
   };
+  // Which control asked for this, read once as it opens: by the time it
+  // closes there is nothing left in the DOM to ask (measured: Radix's own
+  // restore lands on `body` either way, because a menu's own item is gone
+  // the moment its menu closes, and a link straight to `?learn=` never had
+  // an opener to begin with). Cleared as it is read, so a plain click never
+  // inherits an answer meant for the press before it.
+  const openedFrom = useRef<'help' | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    openedFrom.current = learnOpener.current;
+    learnOpener.current = null;
+  }, [open]);
   // Closed without beginning anything, the keyboard goes back where it came
-  // from: the bar's Learn button, or Help where the bar has none (below 1024px).
+  // from: Help's own button when its menu opened this, the bar's Learn
+  // button otherwise (opened from there, or from a link with no opener at
+  // all, where the bar's own control is the nearest thing to one).
   const onCloseAutoFocus = () => {
     const leaving = began.current;
     began.current = false;
     if (leaving) return;
+    const fromHelp = openedFrom.current === 'help';
     requestAnimationFrame(() => {
       if (document.activeElement !== document.body) return;
-      (
-        document.querySelector<HTMLElement>('.sc-learn-btn') ?? document.querySelector<HTMLElement>('.sc-help-btn')
-      )?.focus();
+      const first = fromHelp ? '.sc-help-btn' : '.sc-learn-btn';
+      const second = fromHelp ? '.sc-learn-btn' : '.sc-help-btn';
+      (document.querySelector<HTMLElement>(first) ?? document.querySelector<HTMLElement>(second))?.focus();
     });
   };
 

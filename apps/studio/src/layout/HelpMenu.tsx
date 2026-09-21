@@ -12,7 +12,7 @@ import {
 import { DropdownMenu } from '@radix-ui/themes';
 import { useMatch } from 'react-router';
 import { useAppData } from '../app/AppShell.js';
-import { useOpenLearn, useOpenSettings, useOpenSetup, useOpenWelcome } from '../app/dialogs.js';
+import { learnOpener, useOpenLearn, useOpenSettings, useOpenSetup, useOpenWelcome } from '../app/dialogs.js';
 import { WELCOME } from '../guidedTasks.js';
 import { useWhatsNew } from '../app/WhatsNew.js';
 import { useUpdateCenter } from '../app/UpdateCenter.js';
@@ -75,7 +75,13 @@ export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
         {/* The ways into first use, gone with it while it is paused (firstUse.ts). */}
         {FIRST_USE && (
           <>
-            <DropdownMenu.Item className="sc-menu-item" onSelect={() => openLearn()}>
+            <DropdownMenu.Item
+              className="sc-menu-item"
+              onSelect={() => {
+                learnOpener.current = 'help';
+                openLearn();
+              }}
+            >
               <GraduationCap size={18} className="sc-menu-ic" />
               <span className="sc-menu-lb">Learn</span>
             </DropdownMenu.Item>
