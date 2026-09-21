@@ -1125,25 +1125,23 @@ test.describe('the doors', () => {
    *
    * Two faults with one shape, both measured on 2026-09-16. The surface had no
    * arrival at all, so an instant room landed around a conversation that is
-   * paced to the millisecond. And the footnote said "Checking the engine…"
-   * until the capabilities probe answered about four hundred milliseconds
-   * later, then unmounted: the composer moved 35px while the first question
-   * was still being spoken word by word.
+   * paced to the millisecond. And a footnote under the composer said
+   * "Checking the engine…" until the capabilities probe answered, then
+   * unmounted: the composer moved 35px while the first question was still being
+   * spoken word by word. The footnote is gone now; the conversation says what
+   * cannot be done at the moment it matters, so nothing stands under the card.
    */
   test('the studio arrives over the library, and the composer does not move while it does', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters`);
-    // Watch the footnote rather than sampling it: the line came and went inside
-    // about four hundred milliseconds, so any assertion taken after the fact
-    // finds it already settled and passes over the bug.
+    // Watch for any line under the composer rather than sampling for one: the
+    // old one came and went inside about four hundred milliseconds, so an
+    // assertion taken after the fact would pass over it.
     await page.evaluate(() => {
-      const w = window as unknown as { __footSeen: boolean; __footGone: boolean };
+      const w = window as unknown as { __footSeen: boolean };
       w.__footSeen = false;
-      w.__footGone = false;
       new MutationObserver(() => {
-        const there = !!document.querySelector('.sc-pstudio-foot .sc-dlg-foot');
-        if (there) w.__footSeen = true;
-        else if (w.__footSeen) w.__footGone = true;
+        if (document.querySelector('.sc-pstudio-foot .sc-dlg-foot')) w.__footSeen = true;
       }).observe(document.body, { childList: true, subtree: true });
     });
     await page.getByRole('button', { name: 'Create presenter', exact: true }).first().click();
@@ -1157,12 +1155,9 @@ test.describe('the doors', () => {
     // and the library it came from is still mounted underneath it
     await expect(page.locator('main.sc-presenters')).toHaveCount(1);
 
-    // The studio says what it will spend, and keeps saying it. It used to pass
-    // no words at all, so the line read "Checking the engine…" until the probe
-    // answered and then unmounted, moving the composer 35px a third of a
-    // second in, while the first question was still being spoken.
-    await expect(page.locator('.sc-pstudio-foot .sc-dlg-foot')).toHaveText(/\S/);
-    await expect.poll(() => page.evaluate(() => (window as unknown as { __footGone: boolean }).__footGone)).toBe(false);
+    // Nothing is said under the composer, at any moment of the arrival.
+    await expect(page.locator('.sc-pstudio-foot .sc-dlg-foot')).toHaveCount(0);
+    expect(await page.evaluate(() => (window as unknown as { __footSeen: boolean }).__footSeen)).toBe(false);
 
     // Once it has arrived, nothing moves again. Sampled after the travel is
     // over, because the travel is the point: what the composer must not do is

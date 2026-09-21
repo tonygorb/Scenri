@@ -146,7 +146,7 @@ const session = {
   },
 };
 
-export interface CreationFlowArgs extends Pick<FlowProps, 'onStarted' | 'caps' | 'capsNote'> {
+export interface CreationFlowArgs extends Pick<FlowProps, 'onStarted' | 'caps'> {
   draftId: string | null;
   /**
    * What this conversation is called while it is being had: the draft's id once
@@ -183,15 +183,7 @@ function pictureFor(state: CreationState, ctx: FlowContext, open: string | null)
   return trait && trait.part === 'what' ? (`trait-${trait.id}` as TraitQid) : null;
 }
 
-export function useCreationFlow({
-  draftId,
-  convoKey,
-  onOpenDraft,
-  onLeaveDraft,
-  onStarted,
-  caps,
-  capsNote,
-}: CreationFlowArgs) {
+export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, onStarted, caps }: CreationFlowArgs) {
   const { brand } = useBrand();
   const { presenterCategories, applyBrand } = useAppData();
   const openSetup = useOpenSetup();
@@ -1422,7 +1414,10 @@ export function useCreationFlow({
         error: askErr ?? saveErr,
         disabled: composerOff,
         working: !!d && !!d.activeView && question?.id !== 'name',
-        onStop: d?.activeView ? () => void s.stop() : undefined,
+        // Anything running can be stopped, the photo read included, and the name
+        // question never hides it: the pill is Stop until a name is typed.
+        onStop: d && isDrawing(d) ? () => void s.stop() : undefined,
+        stopping: s.stopping,
         // The keyboard follows a question that is answered in words. The last
         // word is a decision with a line open beside it, so the caret waits to
         // be asked for: on a phone, taking it would put the keyboard over the
@@ -1481,13 +1476,6 @@ export function useCreationFlow({
         if (question?.id === 'agree') dispatch({ type: 'say', id: 'keep' });
         dispatch({ type: 'text', text });
       },
-      // What this will spend, the way the scene flow says it. It used to pass
-      // nothing, so the line said "Checking the engine…" for as long as the
-      // probe took and then unmounted, which moved the composer 35px while the
-      // first question was still being spoken. A footnote that is always there
-      // never moves anything, and the studio was the one flow that never said
-      // what it costs.
-      footnote: capsNote(caps?.canGenerate ? 'Three views. A few minutes.' : 'Saved without drawn views.'),
       onPaste: !d ? (files: File[]) => void addFiles(files) : undefined,
     },
   };

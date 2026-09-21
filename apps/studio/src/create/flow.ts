@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import type { AssetBuildCapabilities } from '../api.js';
 import type { PendingState } from '../createDraft.js';
 
@@ -28,8 +27,6 @@ export interface FlowProps {
   onStarted: (made: Created) => void;
   /** What this machine can actually do, or null while it is still being asked. */
   caps: AssetBuildCapabilities | null;
-  /** Wraps a flow's cost sentence, or replaces it when the probe never answered. */
-  capsNote: (whenKnown: string) => ReactNode;
   /** How a build the draft was submitted as is doing, for the Try-again refill. */
   pendingState: (jobId: string) => PendingState;
   /** This opening is an Undo, so the flow takes back what was abandoned. */

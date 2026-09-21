@@ -48,7 +48,6 @@ interface CreateApi {
   /** Say what was made, once, and tell whoever asked for it. Does not close anything. */
   announce: (made: Created) => void;
   caps: AssetBuildCapabilities | null;
-  capsNote: (whenKnown: string) => ReactNode;
 }
 const Ctx = createContext<CreateApi | null>(null);
 
@@ -64,9 +63,9 @@ export function useCreateAsset(): CreateApi['open'] {
 }
 
 /** What a flow mounted elsewhere (the presenter studio's route) shares with the dialogs here. */
-export function useCreateFlow(): Pick<CreateApi, 'announce' | 'caps' | 'capsNote'> {
-  const { announce, caps, capsNote } = useCreateCtx();
-  return { announce, caps, capsNote };
+export function useCreateFlow(): Pick<CreateApi, 'announce' | 'caps'> {
+  const { announce, caps } = useCreateCtx();
+  return { announce, caps };
 }
 
 export function AssetCreateHost({ children }: { children: ReactNode }) {
@@ -92,7 +91,6 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   const onSceneEditor = !!useMatch({ path: P.sceneEdit });
 
   const [caps, setCaps] = useState<AssetBuildCapabilities | null>(null);
-  const [capsFailed, setCapsFailed] = useState(false);
   // Whether a chooser is behind the open flow. Only then does a back arrow make
   // sense — one pointing at a screen you never saw implies history that is not there.
   const [cameFromChooser, setCameFromChooser] = useState(false);
@@ -201,7 +199,6 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
     if (!wantCaps) return;
     let alive = true;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    setCapsFailed(false);
     const ask = (retry: boolean) =>
       api
         .assetBuildCapabilities()
@@ -209,7 +206,6 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
         .catch(() => {
           if (!alive) return;
           if (retry) retryTimer = setTimeout(() => ask(false), 600);
-          else setCapsFailed(true);
         });
     void ask(true);
     return () => {
@@ -217,29 +213,6 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
       if (retryTimer) clearTimeout(retryTimer);
     };
   }, [wantCaps]);
-
-  /**
-   * Say what will happen, or say it could not be checked, or say nothing.
-   *
-   * A surface with nothing to say once the answer is known has nothing worth
-   * saying while it waits. The presenter studio passes no `whenKnown`, so it
-   * used to open with "Checking the engine…" under the composer and drop the
-   * line about four hundred milliseconds later when the probe answered: the
-   * composer moved 35px while the first question was still being spoken word
-   * by word. Measured 2026-09-16 at 1440x900. A line that appears and vanishes
-   * inside half a second is not information, and it moved the one control the
-   * reader was about to use.
-   *
-   * A failure still speaks, because that one is worth the line.
-   */
-  const capsNote = useCallback(
-    (whenKnown: string): ReactNode => {
-      if (caps) return whenKnown;
-      if (capsFailed) return 'Could not reach the engine. You can still try.';
-      return whenKnown ? 'Checking the engine…' : '';
-    },
-    [caps, capsFailed],
-  );
 
   /** How the build a stored draft was sent as is doing, so Try again can refill. */
   const pendingState = useCallback(
@@ -323,14 +296,13 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
     [close, announce],
   );
 
-  const api2 = useMemo<CreateApi>(() => ({ open, announce, caps, capsNote }), [open, announce, caps, capsNote]);
+  const api2 = useMemo<CreateApi>(() => ({ open, announce, caps }), [open, announce, caps]);
 
   const kind = isKind(value) ? value : null;
   const flowProps = {
     onBack: cameFromChooser ? () => setParam(CHOOSER) : undefined,
     onStarted,
     caps,
-    capsNote,
     pendingState,
     restore,
     onDiscarded: () => kind && onDiscarded(kind),

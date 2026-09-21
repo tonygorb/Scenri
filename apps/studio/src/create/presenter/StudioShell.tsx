@@ -56,12 +56,14 @@ export interface ComposerSurface {
   refs?: ComposerRef[];
   /** Stop what is drawing; only while something is. */
   onStop?: () => void;
+  /** That Stop is on its way. */
+  stopping?: boolean;
 }
 
 /**
  * Everything the studio shell needs from a flow. Creation and editing are
  * different flows over the same surface: the stage, the rail with its head,
- * the transcript, the composer and the footnote.
+ * the transcript and the composer.
  */
 export interface StudioSurface {
   title: string;
@@ -106,7 +108,6 @@ export interface StudioSurface {
   headAction?: ReactNode;
   /** Rows above the composer: the filed-under line, a Keep previous offer. */
   dock?: ReactNode;
-  footnote: ReactNode;
   /** Photographs pasted anywhere on the surface. */
   onPaste?: (files: File[]) => void;
   /** Dialogs the flow opens over the surface. */
@@ -259,10 +260,10 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
               colour={s.composer.colour}
               refs={s.composer.refs}
               onStop={s.composer.onStop}
+              stopping={s.composer.stopping}
               onSend={s.onSend}
             />
           )}
-          {s.footnote ? <p className="sc-dlg-foot">{s.footnote}</p> : null}
         </>
       }
     />

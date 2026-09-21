@@ -136,7 +136,16 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     (view: PresenterDraftView) => act(() => api.revertDraftView(brandId, draftId ?? '', view)),
     [act, brandId, draftId],
   );
-  const stop = useCallback(() => act(() => api.stopDraft(brandId, draftId ?? '')), [act, brandId, draftId]);
+  /** Stop answers once the work has let go, which can take a moment: the pill says so meanwhile. */
+  const [stopping, setStopping] = useState(false);
+  const stop = useCallback(async () => {
+    setStopping(true);
+    try {
+      return await act(() => api.stopDraft(brandId, draftId ?? ''));
+    } finally {
+      if (alive.current) setStopping(false);
+    }
+  }, [act, brandId, draftId]);
   const restore = useCallback(
     (view: PresenterDraftView, hash: string) => act(() => api.restoreDraftView(brandId, draftId ?? '', view, hash)),
     [act, brandId, draftId],
@@ -170,6 +179,7 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     redo,
     revert,
     stop,
+    stopping,
     restore,
     placePhoto,
     update,

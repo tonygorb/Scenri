@@ -23,6 +23,7 @@ import {
   autoFor,
   builtOn,
   doingLine,
+  drawing as isDrawing,
   drawingSince,
   nextToDraw,
   readsAsPerson,
@@ -42,13 +43,13 @@ import { usePresenterDraft } from './usePresenterDraft.js';
  * in place when only words did. Nothing in the library, a picker or a chip
  * sees the session until then.
  */
-export interface EditingFlowArgs extends Pick<FlowProps, 'caps' | 'capsNote'> {
+export interface EditingFlowArgs extends Pick<FlowProps, 'caps'> {
   presenterId: string;
   /** Leave the editor for a presenter's page: the one edited, or the head a save produced. */
   onLeave: (presenterId: string) => void;
 }
 
-export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: EditingFlowArgs) {
+export function useEditingFlow({ presenterId, onLeave, caps }: EditingFlowArgs) {
   const { brand } = useBrand();
   const { applyBrand, refreshBrands } = useAppData();
   const openSetup = useOpenSetup();
@@ -432,7 +433,8 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
             error: askErr,
             disabled: s.busy || saving || leaving || !!off,
             working: !!d?.activeView,
-            onStop: d?.activeView ? () => void s.stop() : undefined,
+            onStop: d && isDrawing(d) ? () => void s.stop() : undefined,
+            stopping: s.stopping,
             focusKey: `${question?.id ?? 'open'}:${d?.id ?? ''}`,
           }
         : null,
@@ -446,7 +448,6 @@ export function useEditingFlow({ presenterId, onLeave, caps, capsNote }: Editing
         setFocus(view as StudioView);
         void s.restore(view as StudioView, hash);
       },
-      footnote: capsNote(''),
     },
     setupNeeded: !canDraw ? openSetup : null,
   };

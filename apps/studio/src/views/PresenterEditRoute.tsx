@@ -18,7 +18,7 @@ export function PresenterEditRoute() {
   const { presenterId = '' } = useParams();
   const { brand } = useBrand();
   const navigate = useNavigate();
-  const { caps, capsNote } = useCreateFlow();
+  const { caps } = useCreateFlow();
   useTitleEntity('Edit presenter');
 
   // Decided once, on arrival: a save mints a new head while this route is
@@ -32,5 +32,5 @@ export function PresenterEditRoute() {
   );
 
   if (head !== presenterId) return <Navigate to={presenterEditPath(brand, head)} replace />;
-  return <PresenterEdit presenterId={presenterId} onLeave={leave} onClose={close} caps={caps} capsNote={capsNote} />;
+  return <PresenterEdit presenterId={presenterId} onLeave={leave} onClose={close} caps={caps} />;
 }

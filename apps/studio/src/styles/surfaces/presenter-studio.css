@@ -576,7 +576,7 @@
 
 /* the list itself: the app's menu, with a box at the top that narrows it */
 
-/* ---- rail foot: the composer, the decision, the footnote ----------------- */
+/* ---- rail foot: the composer and the decision ----------------------------- */
 /* The composer sits on no shelf: .sc-dock in shells.css does the fading, and
    this says only what it is standing on. */
 .sc-pstudio-foot {
@@ -587,16 +587,6 @@
   /* No padding at the top: the fade above it is the space between the talk and
      the composer, and a padding under the fade only pushes the two apart. */
   padding: 0 var(--sc-space-7) var(--sc-space-7);
-}
-
-.sc-pstudio-foot .sc-dlg-foot {
-  margin-top: 0;
-}
-
-.sc-pstudio-foot .sc-dlg-foot {
-  margin-top: 0;
-  font-size: var(--sc-text-micro);
-  line-height: 16px;
 }
 
 /* ---- the desktop surface: stage left, rail right ------------------------- */
@@ -1041,10 +1031,6 @@
   .sc-pstudio-body[data-convo] .sc-convo-log {
     flex: none;
     overflow: visible;
-  }
-
-  .sc-pstudio-foot .sc-dlg-foot {
-    display: none;
   }
 }
 
