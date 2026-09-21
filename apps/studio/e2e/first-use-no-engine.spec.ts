@@ -1,6 +1,15 @@
 import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
-import { coachCard, coachTitle, expectHeld, noWelcomeWait, pointsAt, setUpBrand, welcome } from './firstUse.js';
+import {
+  coachCard,
+  coachTitle,
+  expectHeld,
+  noWelcomeWait,
+  pointsAt,
+  setUpBrand,
+  walkToCreate,
+  welcome,
+} from './firstUse.js';
 
 /**
  * Someone new with nothing to generate with: the welcome says so up front, and
@@ -42,6 +51,7 @@ test("the first shot begins at the setup, and What's New waits and then counts a
   await expect(dialog(page)).toHaveCount(0);
 
   await welcome(page).getByRole('button', { name: 'Make your first shot' }).click();
+  await walkToCreate(page);
   // Nothing can draw: that is the one thing to fix, and it is the only ask.
   await expect(coachTitle(page)).toHaveText('Connect image generation', { timeout: 20_000 });
   await pointsAt(page, '[data-guide="compose.engine"]');

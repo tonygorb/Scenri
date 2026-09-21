@@ -1,13 +1,26 @@
 import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
-import { guideRecord, isInert, noWelcomeWait, pointsAt, setUpBrand, steps, welcome } from './firstUse.js';
+import {
+  fromLearn,
+  startNew,
+  walkTheWay,
+  guideRecord,
+  isInert,
+  learnButton,
+  learnDialog,
+  lessonRow,
+  noWelcomeWait,
+  pointsAt,
+  setUpBrand,
+  welcome,
+} from './firstUse.js';
 
 /**
  * The presenter task (DESIGN.md, "First use"): the studio asks its own
  * questions, so the tutor says nothing through them. Three decisions earn a
  * word, because the questions do not explain them: which road to take, whether
  * this face is the face, and that saving is what keeps them. A studio left
- * with a draft keeps the task, and First steps continues that exact draft.
+ * with a draft keeps the task, and Learn continues that exact draft.
  */
 isolate({
   brand: false,
@@ -41,13 +54,27 @@ test('a word at the start, then quiet: the studio asks its own questions', async
     (b) => b.slug === slug,
   )?.id as string;
 
-  // First steps opens the studio, and the tutor says which road is which.
-  await steps(page).locator('.sc-steps-item', { hasText: 'Create a presenter' }).click();
+  // Learn finds Presenters first, then the studio, and the tutor says which road is which.
+  await fromLearn(page, 'Create a presenter');
+  await walkTheWay(page, 'presenters', 'Your presenters live here');
+  await page.waitForURL('**/presenters');
+  await startNew(page, 'Start a new presenter');
   await page.waitForURL('**/presenters/new**');
   await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Describe someone, or start from photos', {
     timeout: 20_000,
   });
-  await pointsAt(page, '.sc-pstudio [data-turn="q:source"] .sc-convo-q');
+  await pointsAt(page, '.sc-pstudio [data-turn="q:source"] .sc-convo-ask');
+  // later counted steps have Back: this one leaves the studio, and Start a
+  // new one is asked for again
+  await expect(studioCoach(page).getByRole('button', { name: 'Back' })).toBeVisible();
+  await studioCoach(page).getByRole('button', { name: 'Back' }).click();
+  await page.waitForURL('**/presenters');
+  await expect(page.locator('.sc-pstudio')).toHaveCount(0);
+  await startNew(page, 'Start a new presenter');
+  await page.waitForURL('**/presenters/new**');
+  await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Describe someone, or start from photos', {
+    timeout: 20_000,
+  });
   // that question's own answers can be used, and so can the studio's line,
   // where a typed sentence is the description; the rest of the studio is held
   expect(await isInert(page, '.sc-pstudio-foot .sc-convo-card')).toBe(false);
@@ -79,10 +106,14 @@ test('the face and the save are the two words it says, and saving ends the task'
   await page.request.post(`${base}/${draft.id}/views/portrait/generate`, { data: {} });
   await settled(page, brandId, draft.id, 'portrait', 'candidate');
 
-  // First steps continues that exact draft.
+  // Learn continues that exact draft.
   await page.goto(`/${slug}`);
-  await expect(steps(page).locator('.sc-steps-item[data-state="active"]')).toHaveText(/Continue your presenter/);
-  await steps(page).locator('.sc-steps-item', { hasText: 'Continue your presenter' }).click();
+  await learnButton(page).click();
+  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText(/^Step \d of 5$/);
+  await lessonRow(page, 'Create a presenter').click();
+  await learnDialog(page)
+    .getByRole('button', { name: /^Continue:/ })
+    .click();
   await page.waitForURL(`**/presenters/new/${draft.id}`);
 
   await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Decide the face', { timeout: 20_000 });
@@ -90,14 +121,16 @@ test('the face and the save are the two words it says, and saving ends the task'
   expect(await isInert(page, '.sc-pstudio-well')).toBe(false);
   // and it is in sight: a window of its own in the curtain, not blurred behind
   // it (the windows were once cut to the transcript's pane, which it is not in)
-  await expect(page.locator('.sc-pstudio-well')).toHaveAttribute('data-guide-stage', '');
+  // the window is cut once the card has placed itself, which a loaded machine
+  // can take a moment to do: this waits for it rather than for the default
+  await expect(page.locator('.sc-pstudio-well')).toHaveAttribute('data-guide-stage', '', { timeout: 20_000 });
   // earlier answers are not this moment's: the transcript is a live log, and
   // keeping that log whole once left every earlier pencil within reach
   await expect(page.locator('.sc-pstudio button[aria-label="Change this answer"]:not([inert] *)')).toHaveCount(0);
   // a phone draws no stage: the same word, on the question and the face above it
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Decide the face', { timeout: 20_000 });
-  await expect(studioCoach(page)).toHaveAttribute('data-state', 'shown');
+  await expect(studioCoach(page)).toHaveAttribute('data-state', 'shown', { timeout: 20_000 });
   await page.setViewportSize({ width: 1440, height: 900 });
   await answer(page, 'Use this person').click();
 

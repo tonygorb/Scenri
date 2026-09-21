@@ -1320,6 +1320,12 @@ export const Composer = forwardRef<
     window.addEventListener('scenri:guide-take-back', takeBack);
     return () => window.removeEventListener('scenri:guide-take-back', takeBack);
   }, [guided]);
+  useEffect(() => {
+    if (!onClearTarget) return;
+    const clear = () => onClearTarget();
+    window.addEventListener('scenri:guide-clear-refine', clear);
+    return () => window.removeEventListener('scenri:guide-clear-refine', clear);
+  }, [onClearTarget]);
   // The tutor asks for one kind at a time: the picker opens on that kind and
   // offers nothing else, so there is nothing to wander into.
   useEffect(() => {

@@ -27,6 +27,19 @@ export function useOpenWelcome() {
   return useCallback(() => open('1'), [open]);
 }
 
+/**
+ * Who last asked to open Learn, for the one thing a URL param cannot carry:
+ * the control to give the keyboard back to when it closes with nothing begun.
+ * Radix's own restore has nothing to work from here — the bar's Learn button
+ * survives, but Help's own menu item is gone the moment its menu closes, so
+ * by the time Learn's dialog mounts there is no live trigger left for Radix
+ * to have noticed either way (measured: both paths land on `body`, not on
+ * whichever button was really clicked). Set at the one call each opener
+ * makes, read once by LearnDialog when it opens, and cleared right after so
+ * a later plain click never inherits a stale answer.
+ */
+export const learnOpener = { current: null as 'help' | null };
+
 /** Learn: every lesson, or one of them by its task (views/LearnDialog.tsx). */
 export function useOpenLearn() {
   const { open } = useDialogParam('learn');

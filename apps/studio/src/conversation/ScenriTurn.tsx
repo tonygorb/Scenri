@@ -72,6 +72,7 @@ export function ScenriTurn({
   return (
     <div
       className="sc-convo-turn"
+      data-guide-shape=""
       data-who="scenri"
       data-arrive={playing || undefined}
       data-leave={going}

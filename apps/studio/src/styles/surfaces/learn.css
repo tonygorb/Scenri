@@ -1,198 +1,496 @@
-/* Learn (views/LearnDialog.tsx): every lesson, then one lesson, in the create
-   dialogs' own shell. Image-led and quiet: a picture of what the lesson makes,
-   its name, and where it stands in a few words. No card chrome, no eyebrow,
-   no progress colour; the picture is the only colour on the surface. */
+/* Learn (views/LearnDialog.tsx): every lesson beside the one being read, in
+   the create dialogs' own shell. One box, one height: choosing another lesson
+   changes words and pictures in place and never moves an edge, a line or the
+   action. Done is green (--sc-green), the one colour on the surface besides
+   the pictures; nothing else is coloured and nothing is a percentage. */
 .sc-learn-level {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
 }
-/* Every lesson and one lesson share one box on a desktop, so moving between
-   them changes the words and never moves the card: centred, a shorter level
-   would pull its top edge down. The foot keeps to the bottom of it. */
+/* One box, one height, and a lesson longer than it scrolls inside it. Six
+   milestones and three lines of sentence outgrew the dialog: a box that grew
+   with them stood taller than the window it sits in and read as a page rather
+   than a card. */
 @media (min-width: 768px) {
-  .sc-learn {
-    min-height: min(600px, calc(100dvh - 48px));
+  .sc-learn.sc-newdlg {
+    height: min(690px, calc(100dvh - 48px));
+    max-height: none;
   }
 }
 /* A phone's sheet is the whole learning surface: full height for both levels,
-   so its top edge holds still, and the one action sits where a thumb is. */
+   so its top edge holds still. */
 @media (max-width: 767px) {
   .sc-learn {
     height: 92dvh;
   }
 }
-.sc-learn .sc-newdlg-foot {
-  margin-top: auto;
-}
 @media (prefers-reduced-motion: no-preference) {
-  /* every lesson to one lesson and back: the words change in place */
   .sc-learn-level {
     animation: sc-fade-in var(--sc-dur-fast) var(--sc-ease) both;
   }
 }
-.sc-learn-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px 16px;
-  margin: 6px 0 4px;
+/* Two lines divide this surface, and a line that stops short of an edge reads
+   as a mistake. The shell pads itself, so Learn takes that padding off the
+   panel and gives it back to the head and the body: the header's hairline then
+   runs the full width, and the list's runs from it to the floor. */
+.sc-learn.sc-newdlg {
   padding: 0;
-  list-style: none;
 }
-.sc-learn-card {
+/* One gutter of air above and below the title. Held as a height rather than
+   as padding because the close button is a 44px touch target where the frame
+   draws a 24px glyph: 72 puts the words where the frame puts them, and the
+   larger target centres inside it. */
+.sc-learn .sc-newdlg-head {
+  flex: none;
+  /* 72 of air, then the hairline under it */
+  height: 73px;
+  padding: 0 var(--sc-gutter);
+  border-bottom: 1px solid var(--sc-line);
+}
+.sc-learn .sc-newdlg-head:has(.sc-learn-count) .sc-newdlg-title {
+  flex: 0 1 auto;
+}
+.sc-learn .sc-newdlg-close {
+  margin-right: -14px;
+}
+.sc-learn-count {
+  flex: 1 1 auto;
+  margin-left: 12px;
+  font: 500 var(--sc-text-body) var(--sc-font);
+  color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
+}
+.sc-newdlg-body.sc-learn-body {
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr);
+  gap: var(--sc-gutter);
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 var(--sc-gutter);
+  overflow: hidden;
+}
+
+/* ---- the list: every lesson, a picture, its name, where it stands ---- */
+.sc-learn-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  margin: 0;
+  /* the same step below the head as the picture takes, so the first row's
+     card edge and the picture's top edge sit on one line */
+  padding: var(--sc-gutter) var(--sc-gutter) 0 0;
+  list-style: none;
+  border-right: 1px solid var(--sc-line);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.sc-learn-list::-webkit-scrollbar {
+  display: none;
+}
+.sc-learn-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  padding: 0;
+  height: 60px;
+  padding: 0 10px 0 8px;
   border: 0;
   border-radius: var(--sc-radius-lg);
   background: none;
-  font: inherit;
   color: var(--sc-fg);
   text-align: left;
+  font: inherit;
   cursor: pointer;
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    opacity var(--sc-dur-fast) var(--sc-ease);
 }
-.sc-learn-pic {
-  position: relative;
-  display: block;
-  aspect-ratio: 4 / 3;
+.sc-learn-row[aria-current] {
+  background: var(--sc-chip);
+}
+/* Hover and press are the chip family's own ladder, and a press is a paint
+   step (DESIGN.md: never geometry). A row already on the chip fill has to go
+   up under the pointer, not down: it used to take the plain hover and get
+   darker than it was at rest. */
+@media (hover: hover) {
+  .sc-learn-row:hover {
+    background: var(--sc-hover);
+  }
+  .sc-learn-row[aria-current]:hover {
+    background: var(--sc-chip-hover);
+  }
+}
+.sc-learn-row:active {
+  background: var(--sc-press);
+}
+.sc-learn-row[aria-current]:active {
+  background: var(--sc-chip-active);
+}
+/* A finished lesson is spent: struck through and stood back, so what is left
+   to do is what the eye lands on. It can still be done again, so it comes back
+   to full strength under the pointer, under the keyboard, and while it is the
+   one being read. */
+.sc-learn-row[data-state="done"] {
+  opacity: 0.5;
+}
+.sc-learn-row[data-state="done"] .sc-learn-name {
+  text-decoration: line-through;
+}
+.sc-learn-row[data-state="done"][aria-current],
+.sc-learn-row[data-state="done"]:active {
+  opacity: 1;
+}
+@media (hover: hover) {
+  .sc-learn-row[data-state="done"]:hover {
+    opacity: 1;
+  }
+}
+:where(:root:not([data-input="pointer"])) .sc-learn-row[data-state="done"]:focus-visible {
+  opacity: 1;
+}
+:where(:root:not([data-input="pointer"])) :is(.sc-learn-row, .sc-learn-step):focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: calc(var(--sc-ring-off) * -1);
+}
+.sc-learn-thumb {
+  flex: none;
+  width: 44px;
+  height: 44px;
   overflow: hidden;
-  border-radius: var(--sc-radius-lg);
+  border-radius: var(--sc-radius-md);
   background: var(--sc-well);
 }
-/* A packshot on white would have no edge against the dialog's own white. */
-.sc-learn-pic::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 1px var(--sc-line);
-  pointer-events: none;
-}
-.sc-learn-pic img {
+.sc-learn-thumb img,
+.sc-learn-hero img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: opacity var(--sc-dur-fast) var(--sc-ease);
 }
-.sc-learn-card:hover:not(:active) .sc-learn-pic img {
-  opacity: 0.88;
-}
-.sc-learn-card .sc-learn-pic {
-  margin-bottom: 8px;
+.sc-learn-say {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .sc-learn-name {
-  font: 600 14px / 20px var(--sc-font);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 var(--sc-text-control) / 1.2 var(--sc-font);
+  letter-spacing: -0.005em;
 }
-.sc-learn-meta {
-  display: flex;
+.sc-learn-next {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+  font: 600 var(--sc-text-micro) / 1 var(--sc-font);
+}
+.sc-learn-status {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font: 500 12px / 18px var(--sc-font);
+  gap: 5px;
+  /* the line box is the tick's own height, so the two centre on each other
+     rather than the word sitting half a line below its mark */
+  font: 500 var(--sc-text-caption) / 14px var(--sc-font);
   color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
 }
-.sc-learn-meta[data-state="active"] {
-  color: var(--sc-fg2);
+.sc-learn-status[data-state="active"] {
+  color: var(--sc-fg);
+}
+.sc-learn-status[data-state="done"] {
+  color: var(--sc-green);
+}
+.sc-learn-tick svg {
+  display: block;
 }
 .sc-learn-tick {
   display: grid;
   place-items: center;
+  flex: none;
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--sc-fg);
+  background: var(--sc-green);
   color: var(--sc-bg);
 }
 
-/* One lesson: its picture, what it gives you, the steps it walks. */
-.sc-learn-detail {
-  display: grid;
-  grid-template-columns: 208px minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-  padding-top: var(--sc-space-5);
+/* ---- one lesson: picture, words, then the steps as the action ---- */
+.sc-learn-lesson {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--sc-gutter) 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* the last line fades at the floor, so there is plainly more below rather
+     than a step cut in half by the edge */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
 }
-.sc-learn-summary {
+.sc-learn-lesson::-webkit-scrollbar {
+  display: none;
+}
+.sc-learn-hero {
+  flex: none;
+  display: block;
+  width: 100%;
+  aspect-ratio: 21 / 9;
+  max-height: 196px;
+  overflow: hidden;
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-well);
+}
+.sc-learn-copy {
+  display: flex;
+  flex-direction: column;
+}
+.sc-learn-kicker {
+  margin: 16px 0 6px;
+}
+.sc-learn-title {
   margin: 0;
-  font: 400 14px / 21px var(--sc-font);
+  font: 600 var(--sc-text-title) / 1.2 var(--sc-font);
+  letter-spacing: -0.02em;
+}
+/* Three lines of room, whichever lesson: this sentence is where a lesson
+   says why it matters now that the steps say only what they are, so it is
+   never cut, and the steps below it never move. */
+.sc-learn-summary {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: calc(3 * 1.5em);
+  max-width: 60ch;
+  margin: 0 0 20px;
+  font: 400 var(--sc-text-control) / 1.5 var(--sc-font);
   color: var(--sc-fg2);
-  text-wrap: pretty;
+}
+/* The box is one height whatever the lesson (above), so the steps need no
+   room kept for the longest one: a lesson of three ends after three, and one
+   of six scrolls the last of them into view. Nothing above them moves. */
+.sc-learn-do {
+  padding-bottom: 2px;
 }
 .sc-learn-steps {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin: 16px 0 0;
+  gap: 6px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
+/* One shape at three strengths. Every step is the same filled row, so the
+   list never gains or loses boxes as a lesson moves; what changes is the ink.
+   A step already taken carries its green tick and stands back, the step in
+   hand takes the chip fill and carries the verb, and a step that cannot be
+   reached yet keeps the row and recedes to --sc-fg3. The strength is on the
+   words, never an opacity on the row: dimming the whole thing also dims the
+   fill, which is what made the list look like it was missing pieces. */
 .sc-learn-step {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 40px;
-  padding: 0 10px;
-  border-radius: var(--sc-radius-md);
-  font: 500 13.5px / 19px var(--sc-font);
-  color: var(--sc-fg2);
+  width: 100%;
+  height: 48px;
+  padding: 0 8px 0 11px;
+  border: 0;
+  border-radius: var(--sc-radius-lg);
+  background: var(--sc-raised);
+  color: var(--sc-fg);
+  text-align: left;
+  font: inherit;
 }
-.sc-learn-step[data-state="active"] {
-  background: var(--sc-hover);
+.sc-learn-step-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 var(--sc-text-control) / 1.25 var(--sc-font);
+  letter-spacing: -0.005em;
+}
+/* the one step that can be pressed: the chip fill and a hairline, so it is
+   an object rather than a slightly lighter row, and the one row tall enough
+   to say why it matters */
+button.sc-learn-step {
+  background: var(--sc-chip);
+  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
+  cursor: pointer;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+@media (hover: hover) {
+  button.sc-learn-step:hover {
+    background: var(--sc-chip-hover);
+  }
+}
+button.sc-learn-step:active {
+  background: var(--sc-chip-active);
+}
+/* A step already taken reads back, but never the one that can be pressed:
+   inside that card its own words are the brightest thing. */
+div.sc-learn-step[data-state="done"] .sc-learn-step-name {
+  color: var(--sc-fg2);
+  font-weight: 500;
+}
+/* not reachable yet: the same row, read as later */
+.sc-learn-step[data-state="todo"] .sc-learn-step-name {
+  color: var(--sc-fg3);
+  font-weight: 500;
+}
+/* The mark is a disc of ink, never an outline: a step waiting sits one step
+   above its row, the step in hand one step above its card, and a step taken
+   is the tick with no disc behind it at all. */
+.sc-learn-n {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--sc-chip);
+  font: 600 var(--sc-text-caption) / 1 var(--sc-font);
+  color: var(--sc-fg3);
+  font-variant-numeric: tabular-nums;
+}
+button.sc-learn-step .sc-learn-n {
+  background: var(--sc-line-strong);
   color: var(--sc-fg);
 }
+.sc-learn-n svg {
+  display: block;
+}
+/* the glyph alone, not a filled disc: a finished lesson has four of these,
+   and four green coins read louder than the one thing left to press. The
+   background is cleared for the pressed step too, whose mark is otherwise
+   the numbered disc. */
+.sc-learn-step[data-state="done"] .sc-learn-n {
+  background: none;
+  box-shadow: none;
+  color: var(--sc-green);
+}
+.sc-learn-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+  font: 600 var(--sc-text-body) var(--sc-font);
+  white-space: nowrap;
+}
+.sc-learn-go svg {
+  transition: transform var(--sc-dur-fast) var(--sc-ease);
+}
+/* doing a finished lesson again is offered, not urged */
+button.sc-learn-step[data-state="done"] .sc-learn-go {
+  background: transparent;
+  color: var(--sc-fg);
+  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
+}
+@media (hover: hover) {
+  button.sc-learn-step:hover .sc-learn-go svg {
+    transform: translateX(2px);
+  }
+  /* one step above the card it sits on, whatever the card is doing */
+  button.sc-learn-step[data-state="done"]:hover .sc-learn-go {
+    background: var(--sc-chip-active);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-learn-go svg {
+    transition: none;
+  }
+}
 .sc-learn-note {
-  margin: 12px 0 0 10px;
-  font: 400 12px / 18px var(--sc-font);
+  margin: 10px 0 0 2px;
+  font: 400 var(--sc-text-body) / 1.45 var(--sc-font);
   color: var(--sc-fg3);
 }
-.sc-learn .sc-newdlg-foot {
-  display: flex;
-  justify-content: flex-end;
-}
-
-/* A phone: the sheet, and every lesson a row, picture leading. A grid of
-   three squeezed to a phone is a grid nobody can read. */
-@media (max-width: 767px) {
-  .sc-learn-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
-    margin-top: 2px;
-  }
-  .sc-learn-card {
-    display: grid;
-    grid-template-columns: 96px minmax(0, 1fr);
-    grid-template-rows: auto auto;
-    column-gap: 14px;
-    row-gap: 2px;
-    align-items: center;
-    padding: 6px 0;
-  }
-  .sc-learn-card .sc-learn-pic {
-    grid-row: 1 / 3;
-    margin: 0;
-  }
-  .sc-learn-name {
-    align-self: end;
-  }
-  .sc-learn-meta {
-    align-self: start;
-  }
-  .sc-learn-detail {
-    grid-template-columns: minmax(0, 1fr);
-    padding-top: var(--sc-space-3);
-  }
-  .sc-learn-detail .sc-learn-pic {
-    display: none;
+/* A short screen gives up picture first, then the second line of every note,
+   before it gives up a step: the steps are the lesson. */
+@media (min-width: 768px) and (max-height: 740px) {
+  .sc-learn-hero {
+    max-height: 132px;
   }
   .sc-learn-step {
-    min-height: 44px;
-  }
-  .sc-learn .sc-newdlg-foot .sc-btn {
-    flex: 1;
-    justify-content: center;
     height: 44px;
+  }
+}
+
+/* ---- a phone: its own sizes, not the desktop shrunk ---- */
+@media (max-width: 767px) {
+  /* the grip already leaves a step of air above the title, and the sheet's own
+     bottom padding moves onto the body now that the panel pads nothing */
+  .sc-learn .sc-newdlg-head {
+    height: auto;
+    padding: 0 var(--sc-gutter) 14px;
+  }
+  /* a thumb, not a pointer: the way back to the list is a real target */
+  .sc-learn .sc-newdlg-back {
+    width: 40px;
+    height: 40px;
+    margin-left: -10px;
+  }
+  .sc-newdlg-body.sc-learn-body {
+    grid-template-columns: minmax(0, 1fr);
+    padding-bottom: max(var(--sc-space-7), env(safe-area-inset-bottom));
+  }
+  .sc-learn-list {
+    gap: 2px;
+    padding: 12px 0 0;
+    border-right: 0;
+  }
+  .sc-learn-row {
+    height: 64px;
+    padding: 0 8px;
+  }
+  .sc-learn-thumb {
+    width: 48px;
+    height: 48px;
+  }
+  .sc-learn-name {
+    font-size: var(--sc-text-input);
+  }
+  .sc-learn-lesson {
+    padding-top: 12px;
+    overflow: visible;
+  }
+  .sc-learn-hero {
+    max-height: 168px;
+  }
+  .sc-learn-title {
+    font-size: 19px;
+  }
+  .sc-learn-summary {
+    font-size: 14px;
+  }
+  .sc-learn-steps,
+  .sc-learn-do {
+    min-height: 0;
+  }
+  /* no reserved block here, so a step is as tall as its words */
+  .sc-learn-step {
+    height: auto;
+    min-height: 52px;
+    padding-block: 8px;
+  }
+  .sc-learn-step-name {
+    font-size: var(--sc-text-input);
+    white-space: normal;
+    text-wrap: balance;
+  }
+  .sc-learn-go {
+    height: 36px;
+    padding: 0 15px;
   }
 }

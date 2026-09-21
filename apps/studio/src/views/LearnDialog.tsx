@@ -1,49 +1,56 @@
 import { type RefObject, useEffect, useRef, useState } from 'react';
-import { CaretLeft, Check, X } from '@phosphor-icons/react';
-import { useAppData, useDialogParam } from '../app/AppShell.js';
+import { ArrowRight, CaretLeft, Check, X } from '@phosphor-icons/react';
+import { useMatch } from 'react-router';
+import { useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { useTaskCenter } from '../app/TaskCenter.js';
+import { learnOpener } from '../app/dialogs.js';
 import type { GuideTaskId } from '../apiTypes.js';
-import { thumbOf } from '../apiUploads.js';
 import { useGuide } from '../guide.js';
 import { useGuideFacts } from '../guideFacts.js';
-import { firstShotMoment, presenterMoment } from '../guidedTasks.js';
+import { firstShotMoment, presenterMoment, reuseMoment } from '../guidedTasks.js';
 import {
+  LESSON_PICTURES,
   LESSONS,
-  NEEDS_SHOT,
+  NEEDS,
+  lessonAt,
   lessonOf,
   lessonState,
-  pictureOf,
-  stepOf,
+  nextLesson,
+  stepsOf,
   type Lesson,
   type LessonState,
 } from '../lessons.js';
 import { DialogSheet, SheetClose, SheetDescription, SheetTitle } from '../layout/DialogSheet.js';
 import { useLaunchTask } from '../layout/useLaunchTask.js';
+import { P } from '../routes.js';
+import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 
 /** The library's own address: `?learn=lessons`. A lesson's is its id. */
 export const ALL_LESSONS = 'lessons';
 
 /**
- * Learn (DESIGN.md, "First use"): every lesson, then one lesson. A lesson is a
- * real thing to do in Scenri, and starting it closes this and hands over to
- * the tutor, which walks it where it happens. Nothing here is a tour or an
- * article: a picture of what the lesson makes, its steps as outcomes, and
+ * Learn (DESIGN.md, "First use"): every lesson beside the one being read. A
+ * lesson is a real thing to do in Scenri, and starting it closes this and
+ * hands over to the tutor, which walks it where it happens. Nothing here is a
+ * tour or an article: a picture of the lesson, its steps as outcomes, and
  * whether it is new, in hand or done, all read from the install's record.
  *
- * It lives in the address like Settings (`?learn`, `?learn=<lesson>`), so Help,
- * First steps and a pasted link are the same door, and it is Help, not a place:
- * the five destinations stay the five.
+ * On a desktop it is one level: the five on the left, the chosen one open on
+ * the right, and nothing moves when another is chosen. A phone has room for
+ * one at a time, so the list comes first and a lesson opens over it.
+ *
+ * It lives in the address like Settings (`?learn`, `?learn=<lesson>`), so the
+ * bar's Learn button, Help and a pasted link are the same door. It opens over
+ * the page you are on: the five destinations stay the five.
  */
 export function LearnDialog() {
   const param = useDialogParam('learn');
   const open = param.value !== null;
-  const lesson = lessonOf(param.value);
+  const chosen = lessonOf(param.value);
+  const phone = useMediaQuery(PHONE);
   const guide = useGuide();
   const facts = useGuideFacts();
-  const data = useAppData();
-  const { brand, recent } = useBrand();
-  const { builds } = useTaskCenter();
+  const { brand, recent, products } = useBrand();
   const launch = useLaunchTask();
 
   // A lesson begins once this has closed: opening its surface in the same
@@ -60,115 +67,192 @@ export function LearnDialog() {
     setPending(id);
     param.close();
   };
+  // Which control asked for this, read once as it opens: by the time it
+  // closes there is nothing left in the DOM to ask (measured: Radix's own
+  // restore lands on `body` either way, because a menu's own item is gone
+  // the moment its menu closes, and a link straight to `?learn=` never had
+  // an opener to begin with). Cleared as it is read, so a plain click never
+  // inherits an answer meant for the press before it.
+  const openedFrom = useRef<'help' | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    openedFrom.current = learnOpener.current;
+    learnOpener.current = null;
+  }, [open]);
   // Closed without beginning anything, the keyboard goes back where it came
-  // from; opened from Help's menu, that item is gone, so it goes to Help.
+  // from: Help's own button when its menu opened this, the bar's Learn
+  // button otherwise (opened from there, or from a link with no opener at
+  // all, where the bar's own control is the nearest thing to one).
   const onCloseAutoFocus = () => {
     const leaving = began.current;
     began.current = false;
     if (leaving) return;
+    const fromHelp = openedFrom.current === 'help';
     requestAnimationFrame(() => {
-      if (document.activeElement === document.body) document.querySelector<HTMLElement>('.sc-help-btn')?.focus();
+      if (document.activeElement !== document.body) return;
+      const first = fromHelp ? '.sc-help-btn' : '.sc-learn-btn';
+      const second = fromHelp ? '.sc-learn-btn' : '.sc-help-btn';
+      (document.querySelector<HTMLElement>(first) ?? document.querySelector<HTMLElement>(second))?.focus();
     });
   };
+
+  const hub = !!useMatch(P.hub);
+  const studio = !!useMatch(P.presenterStudio);
+  const onPresenters = !!useMatch(P.presenters);
+  const headingFor = (t: GuideTaskId) => guide.heading?.brandId === brand.id && guide.heading.task === t;
+  const guiding = guide.active?.brandId === brand.id && !guide.active.paused ? guide.active.task : null;
 
   const hasShot = recent.some((n) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0);
-  const stateOf = (l: Lesson): LessonState => lessonState(l.id, guide, brand.id);
+  /** What a lesson starts from, when the brand does not hold it yet. */
+  const blockedOf = (l: Lesson): 'shot' | 'product' | null =>
+    (l.needs === 'shot' && !hasShot) || (l.needs === 'product' && products.length === 0) ? (l.needs ?? null) : null;
   const stepNow = (l: Lesson): number => {
+    const reached = guide.progress?.[l.id]?.reached ?? [];
+    if (guiding !== l.id) return lessonAt(l.id, reached, null);
     const composer = facts.composer?.brandId === brand.id ? facts.composer : null;
+    const shot = {
+      here: hub,
+      heading: headingFor(l.id),
+      composer: hub ? composer : null,
+      nodes: guide.activeNodes,
+      begun: true,
+    };
     const moment =
       l.id === 'first-shot'
-        ? (firstShotMoment({ here: true, composer, nodes: guide.activeNodes, begun: true })?.id ?? null)
-        : l.id === 'presenter'
-          ? (presenterMoment(facts.studio)?.id ?? null)
-          : null;
-    return stepOf(l.id, {
-      moment,
-      nodes: guide.activeNodes,
-      draft: !!guide.activeDraftId,
-      building: l.id === 'scene' && builds.some((b) => b.kind === 'scene' && !b.finished),
-    });
+        ? (firstShotMoment(shot)?.id ?? null)
+        : l.id === 'reuse'
+          ? (reuseMoment(shot)?.id ?? null)
+          : l.id === 'presenter'
+            ? (presenterMoment({
+                heading: headingFor('presenter'),
+                onPage: onPresenters && !studio,
+                studio: studio ? facts.studio : null,
+              })?.id ?? null)
+            : null;
+    return lessonAt(l.id, reached, { moment, nodes: guide.activeNodes, draft: !!guide.activeDraftId });
   };
-  const art = {
-    showcase: data.showcase,
-    presenters: data.presenters,
-    scenes: data.scenes,
-    products: data.demoProducts,
-  };
-  const picture = (l: Lesson) => {
-    const src = pictureOf(l.id, art);
-    return src ? thumbOf(src, 'small') : null;
-  };
+  // Part done is read from the step it has actually got to, so a lesson left
+  // standing on its first one still says Start (lessons.ts).
+  const stateOf = (l: Lesson): LessonState => lessonState(l.id, guide, brand.id, stepNow(l));
+  const next = nextLesson(LESSONS, stateOf);
+  // What a desktop shows open: the lesson asked for, else the one that comes next.
+  const shown = chosen ?? next ?? LESSONS[0];
+  const done = LESSONS.filter((l) => stateOf(l) === 'done').length;
 
-  // The keyboard lands where the next press is: a lesson's own action on the
-  // way in, the lesson just read on the way back.
-  const actionRef = useRef<HTMLButtonElement>(null);
-  const cards = useRef(new Map<GuideTaskId, HTMLButtonElement>());
-  const lastRead = useRef<GuideTaskId | null>(null);
+  // The pictures are the app's own files, so warming them once Learn is open
+  // means choosing another lesson shows a picture that is already decoded
+  // rather than an empty box for a frame.
   useEffect(() => {
     if (!open) return;
-    if (lesson) {
-      lastRead.current = lesson.id;
+    for (const p of Object.values(LESSON_PICTURES)) new Image().src = p.wide;
+  }, [open]);
+
+  // The keyboard lands where the next press is: the lesson's one action as it
+  // opens, and on a phone the row just read on the way back to the list.
+  const actionRef = useRef<HTMLButtonElement>(null);
+  const rows = useRef(new Map<GuideTaskId, HTMLButtonElement>());
+  const lastRead = useRef<GuideTaskId | null>(null);
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    const opening = open && !wasOpen.current;
+    wasOpen.current = open;
+    if (!open) return;
+    // The pane scrolls now that a lesson can run to six steps, so the step in
+    // hand is brought to where it can be seen rather than left below the floor.
+    const show = () => {
       actionRef.current?.focus({ preventScroll: true });
-    } else if (lastRead.current) cards.current.get(lastRead.current)?.focus({ preventScroll: true });
-  }, [open, lesson]);
+      actionRef.current?.scrollIntoView({ block: 'nearest' });
+    };
+    if (phone && chosen) {
+      lastRead.current = chosen.id;
+      show();
+    } else if (phone && lastRead.current) rows.current.get(lastRead.current)?.focus({ preventScroll: true });
+    else if (opening) show();
+  }, [open, phone, chosen]);
+
+  // No key: choosing another lesson swaps the words and the picture in the
+  // same elements. Remounting restarted their entrance animation, which read
+  // as a flash on every click.
+  const lessonView = (l: Lesson, describe: boolean) => (
+    <LessonView
+      lesson={l}
+      state={stateOf(l)}
+      at={stepNow(l)}
+      blocked={blockedOf(l)}
+      describe={describe}
+      actionRef={actionRef}
+      onBegin={() => begin(l.id)}
+    />
+  );
 
   return (
     <DialogSheet
       open={open}
       className="sc-learn"
-      maxWidth="760px"
+      maxWidth="880px"
       described
       onDismiss={param.close}
       onCloseAutoFocus={onCloseAutoFocus}
     >
-      {lesson ? (
-        <LessonDetail
-          key={lesson.id}
-          lesson={lesson}
-          state={stateOf(lesson)}
-          at={stepNow(lesson)}
-          picture={picture(lesson)}
-          blocked={lesson.needs === 'shot' && !hasShot}
-          actionRef={actionRef}
-          onBack={() => param.set(ALL_LESSONS)}
-          onBegin={() => begin(lesson.id)}
-        />
+      {phone && chosen ? (
+        <div className="sc-learn-level" key={`one-${chosen.id}`}>
+          <div className="sc-newdlg-head">
+            <button
+              type="button"
+              className="sc-newdlg-back"
+              onClick={() => param.set(ALL_LESSONS)}
+              aria-label="All lessons"
+            >
+              <CaretLeft size={15} />
+            </button>
+            <SheetTitle className="sc-newdlg-title">{chosen.title}</SheetTitle>
+            <CloseButton />
+          </div>
+          <div className="sc-newdlg-body sc-learn-body">{lessonView(chosen, true)}</div>
+        </div>
       ) : (
         <div className="sc-learn-level" key="all">
           <div className="sc-newdlg-head">
             <SheetTitle className="sc-newdlg-title">Learn</SheetTitle>
+            <span className="sc-learn-count">
+              {done} of {LESSONS.length} done
+            </span>
             <CloseButton />
           </div>
-          <SheetDescription className="sc-newdlg-sub">
-            Each one walks you through one real thing in Scenri, a step at a time.
+          {/* The header is the title, where they are, and the way out. What
+              this place is for is said by the lessons themselves, so the line
+              stays for a screen reader and takes no room on the screen. */}
+          <SheetDescription className="sc-vh">
+            Each one walks you through one real thing, a step at a time.
           </SheetDescription>
-          <div className="sc-newdlg-body">
-            <ul className="sc-learn-grid">
-              {LESSONS.map((l) => {
-                const state = stateOf(l);
-                const src = picture(l);
-                return (
-                  <li key={l.id}>
-                    <button
-                      type="button"
-                      className="sc-learn-card"
-                      data-state={state}
-                      ref={(el) => {
-                        if (el) cards.current.set(l.id, el);
-                        else cards.current.delete(l.id);
-                      }}
-                      onClick={() => param.set(l.id)}
-                    >
-                      <span className="sc-learn-pic">
-                        {src && <img src={src} alt="" loading="lazy" decoding="async" />}
-                      </span>
+          <div className="sc-newdlg-body sc-learn-body">
+            <ul className="sc-learn-list">
+              {LESSONS.map((l) => (
+                <li key={l.id}>
+                  <button
+                    type="button"
+                    className="sc-learn-row"
+                    data-state={stateOf(l)}
+                    aria-current={!phone && shown.id === l.id ? 'true' : undefined}
+                    ref={(el) => {
+                      if (el) rows.current.set(l.id, el);
+                      else rows.current.delete(l.id);
+                    }}
+                    onClick={() => param.set(l.id)}
+                  >
+                    <span className="sc-learn-thumb">
+                      <img src={LESSON_PICTURES[l.id].square} alt="" decoding="async" />
+                    </span>
+                    <span className="sc-learn-say">
                       <span className="sc-learn-name">{l.title}</span>
-                      <Meta lesson={l} state={state} at={stepNow(l)} />
-                    </button>
-                  </li>
-                );
-              })}
+                      <Status lesson={l} state={stateOf(l)} at={stepNow(l)} blocked={blockedOf(l)} />
+                    </span>
+                    {next?.id === l.id && <span className="sc-learn-next">Next</span>}
+                  </button>
+                </li>
+              ))}
             </ul>
+            {!phone && lessonView(shown, false)}
           </div>
         </div>
       )}
@@ -176,93 +260,136 @@ export function LearnDialog() {
   );
 }
 
-function LessonDetail({
+/**
+ * One lesson: its picture, its words, and its steps as the action. Only the
+ * step in hand can be pressed, carrying the word for it; a step behind it is
+ * done and one ahead cannot be reached yet, so neither pretends to be a button.
+ */
+function LessonView({
   lesson,
   state,
   at,
-  picture,
   blocked,
+  describe,
   actionRef,
-  onBack,
   onBegin,
 }: {
   lesson: Lesson;
   state: LessonState;
   at: number;
-  picture: string | null;
-  blocked: boolean;
+  blocked: 'shot' | 'product' | null;
+  describe: boolean;
   actionRef: RefObject<HTMLButtonElement>;
-  onBack: () => void;
   onBegin: () => void;
 }) {
-  const label = blocked
-    ? NEEDS_SHOT.action
+  const verb = blocked
+    ? NEEDS[blocked].action
     : state === 'active'
       ? 'Continue'
       : state === 'done'
-        ? 'Do it again'
+        ? 'Start again'
         : 'Start';
+  // The step with the action: the one in hand, or the first of a lesson that
+  // is new or already done.
+  const inHand = state === 'active' ? at : 0;
   // A step is done because the product said so: every step of a finished
-  // lesson, the steps behind the one in hand, and none of a new one.
+  // lesson and the steps behind the one in hand. A new lesson's first step is
+  // the one it starts on.
   const stepState = (i: number): 'done' | 'active' | 'todo' =>
-    state === 'done' ? 'done' : state === 'active' ? (i < at ? 'done' : i === at ? 'active' : 'todo') : 'todo';
+    state === 'done'
+      ? 'done'
+      : state === 'active'
+        ? i < at
+          ? 'done'
+          : i === at
+            ? 'active'
+            : 'todo'
+        : i === 0
+          ? 'active'
+          : 'todo';
+  const summary = describe ? (
+    <SheetDescription className="sc-learn-summary">{lesson.summary}</SheetDescription>
+  ) : (
+    <p className="sc-learn-summary">{lesson.summary}</p>
+  );
   return (
-    <div className="sc-learn-level">
-      <div className="sc-newdlg-head">
-        <button type="button" className="sc-newdlg-back" onClick={onBack} aria-label="All lessons">
-          <CaretLeft size={15} />
-        </button>
-        <SheetTitle className="sc-newdlg-title">{lesson.title}</SheetTitle>
-        <CloseButton />
-      </div>
-      <div className="sc-newdlg-body">
-        <div className="sc-learn-detail">
-          <span className="sc-learn-pic">{picture && <img src={picture} alt="" decoding="async" />}</span>
-          <div>
-            <SheetDescription className="sc-learn-summary">{lesson.summary}</SheetDescription>
-            <ol className="sc-learn-steps">
-              {lesson.steps.map((step, i) => {
-                const s = stepState(i);
-                return (
-                  <li
-                    key={step}
-                    className="sc-learn-step"
-                    data-state={s}
-                    aria-current={s === 'active' ? 'step' : undefined}
-                  >
-                    <span className="sc-steps-mark" aria-hidden="true">
-                      {s === 'done' && <Check size={10} weight="bold" />}
-                    </span>
-                    {step}
-                    {s === 'done' && <span className="sc-vh">, done</span>}
-                  </li>
-                );
-              })}
-            </ol>
-            {blocked && <p className="sc-learn-note">{NEEDS_SHOT.note}</p>}
-          </div>
+    <section className="sc-learn-lesson" aria-label={lesson.title}>
+      <span className="sc-learn-hero">
+        <img src={LESSON_PICTURES[lesson.id].wide} alt="" decoding="async" />
+      </span>
+      <div className="sc-learn-copy">
+        <div className="sc-learn-kicker">
+          <Status lesson={lesson} state={state} at={at} blocked={blocked} />
+        </div>
+        <h3 className="sc-learn-title">{lesson.title}</h3>
+        {summary}
+        {/* Steps and whatever has to be said under them share one reserved
+            block, so a lesson that needs a note is no taller than one that
+            does not and the box holds still. */}
+        <div className="sc-learn-do">
+          <ol className="sc-learn-steps">
+            {stepsOf(lesson).map((step, i) => {
+              const s = stepState(i);
+              const mark = (
+                <span className="sc-learn-n" aria-hidden="true">
+                  {s === 'done' ? <Check size={14} weight="bold" /> : i + 1}
+                </span>
+              );
+              const current = state === 'active' && i === at ? 'step' : undefined;
+              const said = <span className="sc-learn-step-name">{step}</span>;
+              return (
+                <li key={step}>
+                  {i === inHand ? (
+                    <button
+                      ref={actionRef}
+                      type="button"
+                      className="sc-learn-step"
+                      data-state={s}
+                      data-here=""
+                      aria-current={current}
+                      aria-label={`${verb}: ${step}`}
+                      onClick={onBegin}
+                    >
+                      {mark}
+                      {said}
+                      <span className="sc-learn-go" aria-hidden="true">
+                        {verb} <ArrowRight size={12} weight="bold" />
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="sc-learn-step" data-state={s} aria-current={current}>
+                      {mark}
+                      {said}
+                      {s === 'done' && <span className="sc-vh">, done</span>}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+          {blocked && <p className="sc-learn-note">{NEEDS[blocked].note}</p>}
         </div>
       </div>
-      <div className="sc-newdlg-foot">
-        <button
-          ref={actionRef}
-          type="button"
-          className={state === 'done' && !blocked ? 'sc-btn' : 'sc-btn sc-btn-primary'}
-          onClick={onBegin}
-        >
-          {label}
-        </button>
-      </div>
-    </div>
+    </section>
   );
 }
 
-/** Where a lesson stands, in a few quiet words: never a percentage, never a colour. */
-function Meta({ lesson, state, at }: { lesson: Lesson; state: LessonState; at: number }) {
-  const n = lesson.steps.length;
+/** Where a lesson stands, in a few quiet words: done in green, never a percentage. */
+function Status({
+  lesson,
+  state,
+  at,
+  blocked,
+}: {
+  lesson: Lesson;
+  state: LessonState;
+  at: number;
+  blocked?: 'shot' | 'product' | null;
+}) {
+  const n = stepsOf(lesson).length;
   if (state === 'done')
     return (
-      <span className="sc-learn-meta" data-state="done">
+      <span className="sc-learn-status" data-state="done">
         <span className="sc-learn-tick" aria-hidden="true">
           <Check size={9} weight="bold" />
         </span>
@@ -271,11 +398,17 @@ function Meta({ lesson, state, at }: { lesson: Lesson; state: LessonState; at: n
     );
   if (state === 'active')
     return (
-      <span className="sc-learn-meta" data-state="active">
+      <span className="sc-learn-status" data-state="active">
         Step {Math.min(at + 1, n)} of {n}
       </span>
     );
-  return <span className="sc-learn-meta">{n} steps</span>;
+  // why its action reads differently: it cannot begin until there is a shot
+  if (blocked) return <span className="sc-learn-status">{NEEDS[blocked].status}</span>;
+  return (
+    <span className="sc-learn-status">
+      {n} step{n === 1 ? '' : 's'}
+    </span>
+  );
 }
 
 function CloseButton() {

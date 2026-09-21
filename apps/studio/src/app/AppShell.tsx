@@ -9,7 +9,6 @@ import { usePresenters } from '../usePresenters.js';
 import { useDemoProducts } from '../useDemoProducts.js';
 import { useShowcase } from '../useShowcase.js';
 import { FailureRow } from '../layout/Failure.js';
-import { describeFailure } from '../failure.js';
 import { UpdateCenterProvider } from './UpdateCenter.js';
 import { applyBrandRow, mergeBrandList } from './brandRows.js';
 import { WhatsNewProvider } from './WhatsNew.js';
@@ -203,7 +202,15 @@ export function AppShell() {
   if (error) {
     return (
       <Flex align="center" justify="center" height="100vh" p="5">
-        <FailureRow failure={describeFailure(error)} />
+        <FailureRow
+          failure={{
+            kind: 'unknown',
+            title: 'Scenri could not read your library.',
+            fix: 'Check that it is still running, then reload.',
+            raw: error,
+            retryable: true,
+          }}
+        />
       </Flex>
     );
   }

@@ -57,9 +57,7 @@ export function NewButton() {
   return (
     <div className="sc-new">
       <Link className="sc-new-go" to={newShot} aria-label="New shot" data-attach-opener="">
-        <span className="sc-new-disc" aria-hidden="true">
-          <Plus size={14} weight="bold" />
-        </span>
+        <Plus size={14} weight="bold" className="sc-new-plus" aria-hidden="true" />
         <span className="sc-new-lb">New</span>
       </Link>
       <span className="sc-new-split" aria-hidden="true" />

@@ -65,14 +65,16 @@ test.describe('adding to a brand', () => {
 
   test('New is one pill, round at both ends, with and without its word', async ({ page }) => {
     await expectNewIsPill(page);
-    // the plus rides a 28px disc of its own, round, sharing the pill end's centre
-    const disc = await page.locator('.sc-new-disc').evaluate((el) => {
+    // the plus is the pill's own ink, no disc of its own, 12px in from the round end
+    const plus = await page.locator('.sc-new-plus').evaluate((el) => {
       const r = el.getBoundingClientRect();
-      const pill = el.closest('.sc-new')!.getBoundingClientRect();
-      return { w: r.width, h: r.height, round: getComputedStyle(el).borderRadius, inset: r.left - pill.left };
+      const pill = el.closest('.sc-new') as HTMLElement;
+      return {
+        inset: Math.round(r.left - pill.getBoundingClientRect().left),
+        ink: getComputedStyle(el).color === getComputedStyle(pill).color,
+      };
     });
-    expect(disc).toMatchObject({ w: 28, h: 28, inset: 2 });
-    expect(Number.parseFloat(disc.round)).toBeGreaterThanOrEqual(14);
+    expect(plus).toEqual({ inset: 12, ink: true });
     // 768 to 960 drops the label and keeps both halves
     await page.setViewportSize({ width: 800, height: 900 });
     await expect(page.locator('.sc-new-lb')).toBeHidden();

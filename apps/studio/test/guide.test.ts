@@ -96,22 +96,21 @@ describe('the guide record in the studio', () => {
     expect(guideSnapshot().active).toBeNull();
   });
 
-  it('asking for First steps holds through server answers, and hiding lets go of it', async () => {
-    const { askForFirstSteps } = await import('../src/guide.js');
-    guide.mockResolvedValue(view({ hidden: true }));
-    await loadGuide();
-    guideIntentApi.mockResolvedValueOnce(view({ hidden: false }));
-    await askForFirstSteps();
-    expect(guideSnapshot()).toMatchObject({ asked: true, hidden: false });
-    guideIntentApi.mockReturnValue(new Promise(() => {}));
-    void guideIntent({ hidden: true });
-    expect(guideSnapshot()).toMatchObject({ asked: false, hidden: true });
-  });
-
   it('a refresh reads again even after the first load', async () => {
     guide.mockResolvedValueOnce(view()).mockResolvedValueOnce(view({ hidden: true }));
     await loadGuide();
     await refreshGuide();
     expect(guideSnapshot().hidden).toBe(true);
+  });
+
+  it('a record from a server that does not know part-done lessons loads as none', async () => {
+    // The fields this build reads may simply not be there: a studio on a lane
+    // whose API has been up since before they existed answers without them.
+    // Learn reads progress on every open, so taking that literally white
+    // screened the whole app behind the route boundary.
+    guide.mockResolvedValue(view());
+    await loadGuide();
+    expect(guideSnapshot().progress).toEqual({});
+    expect(guideSnapshot().lessons).toEqual({});
   });
 });

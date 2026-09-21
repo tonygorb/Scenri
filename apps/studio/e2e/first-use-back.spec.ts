@@ -4,6 +4,7 @@ import {
   chips,
   coachCard,
   coachTitle,
+  guideRecord,
   noWelcomeWait,
   ownBrand,
   pickFromPicker,
@@ -25,6 +26,8 @@ test('chips change, Back takes one out', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await setUpBrand(page, 'Stepping Home');
   await welcome(page).locator('.sc-welcome-foot').getByRole('button', { name: 'Not now' }).click();
+  // the answer is kept before the next write, or the two race at the server
+  await expect.poll(async () => (await guideRecord(page)).welcome).toBe('declined');
   const slug = await ownBrand(page, 'Stepping');
   await page.goto(`/${slug}/create`);
   await readTheOpening(page);

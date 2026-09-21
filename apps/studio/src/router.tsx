@@ -9,7 +9,7 @@ import {
   useRouteError,
   Outlet,
 } from 'react-router';
-import { Flex } from '@radix-ui/themes';
+import { Button, Flex } from '@radix-ui/themes';
 import { AppShell } from './app/AppShell.js';
 import { BrandLayout, useBrand } from './app/BrandLayout.js';
 import { P, hubPath, rewriteLegacyPath, setPath } from './routes.js';
@@ -27,14 +27,33 @@ import { ProductPage } from './views/ProductPage.js';
 import { CreateView } from './views/Create.js';
 import { ShotDetailRoute } from './views/ShotDetailRoute.js';
 import { FailureRow } from './layout/Failure.js';
-import { describeFailure } from './failure.js';
 import { useTitleEntity } from './useDocumentTitle.js';
 
+/**
+ * The last net under a render that threw. Its words are its own: this is the
+ * app failing, and `describeFailure` speaks for engines, so borrowing its
+ * fallback told someone whose Learn dialog had crashed that a shot did not
+ * finish. Reloading is the honest next move, and it is offered rather than
+ * described, because there is nothing else on the screen to do.
+ */
 function RouteError() {
-  const error = useRouteError() as any;
+  const error = useRouteError() as { message?: string } | null;
   return (
     <Flex align="center" justify="center" height="100vh" p="5">
-      <FailureRow failure={describeFailure(String(error?.message ?? error))} />
+      <FailureRow
+        failure={{
+          kind: 'unknown',
+          title: 'This page could not be shown.',
+          fix: 'Reloading usually brings it back.',
+          raw: String(error?.message ?? error ?? ''),
+          retryable: true,
+        }}
+        action={
+          <Button size="1" variant="soft" color="gray" onClick={() => window.location.reload()}>
+            Reload
+          </Button>
+        }
+      />
     </Flex>
   );
 }

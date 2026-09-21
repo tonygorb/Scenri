@@ -56,6 +56,7 @@ export function YouTurn({
   return (
     <div
       className="sc-convo-turn"
+      data-guide-shape=""
       data-who="you"
       data-arrive={arriving || undefined}
       data-leave={going}

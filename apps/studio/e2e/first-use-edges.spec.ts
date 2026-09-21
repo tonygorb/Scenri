@@ -13,7 +13,9 @@ import {
   pickTheIngredients,
   readTheOpening,
   setUpBrand,
-  steps,
+  learnButton,
+  learnDialog,
+  lessonRow,
   welcome,
 } from './firstUse.js';
 
@@ -34,6 +36,8 @@ test.beforeEach(async ({ page }) => {
 test('it asks for what is missing, whatever is already there', async ({ page }) => {
   await setUpBrand(page, 'Part Way');
   await welcome(page).locator('.sc-welcome-foot').getByRole('button', { name: 'Not now' }).click();
+  // the answer is kept before the next write, or the two race at the server
+  await expect.poll(async () => (await guideRecord(page)).welcome).toBe('declined');
 
   // a brief with a product in it is asked about the presenter, never the product
   const own = await ownBrand(page, 'Halfway');
@@ -77,7 +81,9 @@ test('Escape ends the guidance and leaves everything usable', async ({ page }) =
   await page.keyboard.press('Escape');
   await expect(coachCard(page)).toHaveCount(0);
   await expectLetGo(page);
-  expect((await guideRecord(page)).active).toMatchObject({ task: 'first-shot', paused: true });
+  const shut = await guideRecord(page);
+  expect(shut.active).toBeNull();
+  expect(shut.progress['first-shot']).toMatchObject({ paused: true });
 });
 
 test('pressing twice, wandering off, and coming back all land on the same moment', async ({ page }) => {
@@ -103,16 +109,52 @@ test('pressing twice, wandering off, and coming back all land on the same moment
   await expect(coachTitle(page)).toHaveText('Choose a product', { timeout: 20_000 });
 });
 
+test('a lesson remembers how far it got, even when the brief is emptied after', async ({ page }) => {
+  const own = await ownBrand(page, 'Far Enough');
+  await page.goto(`/${own}/create`);
+  await readTheOpening(page);
+  await pickTheIngredients(page);
+  // the three are in, so the walk is at its last ask: step 5 of the 6
+  await expect(coachTitle(page)).toHaveText('Say how to shoot it, then make it');
+  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('5 of 6');
+
+  // close the guide, then take the whole brief back out by hand
+  await coachCard(page).getByRole('button', { name: 'Close guide' }).click();
+  await expect(coachCard(page)).toHaveCount(0);
+  await brief(page).click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Backspace');
+  await expect(chips(page)).toHaveCount(0);
+
+  // the tutor would ask for them again, but how far the lesson got stands
+  await page.goto(`/${own}`);
+  await learnButton(page).click();
+  await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('Step 5 of 6');
+});
+
 test('a task belongs to its own brand, and another brand is not guided by it', async ({ page }) => {
   const a = await ownBrand(page, 'Brand A');
-  const b = await ownBrand(page, 'Brand B', 'scene');
+  const b = await ownBrand(page, 'Brand B', 'presenter');
+  // each one past its first step, which is what makes it part done at all
+  for (const [task, moment] of [
+    ['first-shot', 'product'],
+    ['presenter', 'face'],
+  ])
+    await page.request.post('/api/guide', { data: { reached: { task, moment } } });
   await page.goto(`/${a}/create`);
-  // the task in hand is brand B's, so brand A shows nothing and offers it as a step
+  // the task in hand is brand B's, so brand A shows nothing and has nothing in hand
   await expect(coachCard(page)).toHaveCount(0);
+  // work belongs to the brand it was done in: brand B's presenter is part
+  // done there and nowhere else, and brand A's own first shot likewise
   await page.goto(`/${a}`);
-  await expect(steps(page).locator('.sc-steps-item[data-state="active"]')).toHaveCount(0);
+  await learnButton(page).click();
+  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('5 steps');
+  await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('Step 2 of 6');
+  await page.keyboard.press('Escape');
   await page.goto(`/${b}`);
-  await expect(steps(page).locator('.sc-steps-item[data-state="active"]')).toHaveText(/Continue your scene/);
+  await learnButton(page).click();
+  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('Step 4 of 5');
+  await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('6 steps');
 });
 
 test('someone who built the brief their own way is not asked for it again', async ({ page }) => {
