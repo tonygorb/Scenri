@@ -55,8 +55,10 @@ const work = (over: Partial<StudioWork>): StudioWork => ({
 });
 
 describe('scenes still being made', () => {
-  it('are the conversations with a picture drawn, or a draw under way', () => {
-    expect(sceneDraftOf('c1', kept(read))).toBeNull();
+  it('are the conversations with anything in them: a reading, a picture, a draw under way', () => {
+    expect(sceneDraftOf('c1', kept(EMPTY))).toBeNull();
+    expect(sceneDraftOf('c1', kept(read))).toMatchObject({ read: true, drawing: false, hash: null });
+    expect(sceneDraftState(sceneDraftOf('c1', kept(read))!)).toBe('Not drawn yet');
     expect(sceneDraftOf('c1', kept(drawing))).toMatchObject({ convo: 'c1', drawing: true, jobId: 'j2', hash: null });
     expect(sceneDraftOf('c1', kept(drawn))).toMatchObject({
       drawing: false,
@@ -81,8 +83,21 @@ describe('scenes still being made', () => {
     expect(sceneDraftState(done)).toBe('Drawn, not used yet');
     // failed
     expect(sceneDraftState(sceneDrafts([d], [work({ status: 'failed' })])[0])).toBe('Did not finish');
-    // a server that no longer knows the job (a restart): not drawing, and with nothing drawn, no card
-    expect(sceneDrafts([d], [])).toEqual([]);
+    // a server that no longer knows the job (a restart): not drawing, and its words still stand
+    expect(sceneDrafts([d], [])).toMatchObject([{ drawing: false, read: true }]);
+  });
+
+  it('keep a scene that failed before anything was read, named by what was said', () => {
+    // Codex out of its limit on the very first read: no words, no picture, a failure
+    const failed = [
+      { type: 'inputs', place: 'a salt flat at blue hour with long shadows', pictures: [] },
+      { type: 'started', id: 'j1', kind: 'make', since: 't' },
+      { type: 'finished', job: job({ status: 'failed', reading: null, error: 'usage limit reached' }) },
+    ].reduce((st, a) => reduce(st, a as any), EMPTY);
+    const d = sceneDraftOf('c3', kept(failed))!;
+    expect(d).toMatchObject({ failed: true, read: false, drawing: false, name: 'a salt flat at blue' });
+    expect(sceneDraftState(d)).toBe('Did not finish');
+    expect(sceneDrafts([d], [])).toHaveLength(1);
   });
 
   it('include work running for a conversation this browser does not hold, and never an edit', () => {

@@ -10,6 +10,7 @@ import {
   phaseOf,
   namedIn,
   readAsk,
+  keptAsDraft,
   readDue,
   readingLines,
   reduce,
@@ -547,5 +548,22 @@ describe('a random walk over everything that can happen', () => {
       check(next, s, a);
       s = next;
     }
+  });
+});
+
+describe('a draft the wall keeps', () => {
+  it('is anything read, drawn, drawing or failed; bare answers are not', () => {
+    expect(keptAsDraft(EMPTY)).toBe(false);
+    const given = reduce(EMPTY, { type: 'inputs', place: 'a shore', pictures: [] });
+    expect(keptAsDraft(given)).toBe(false);
+    const reading = reduce(given, { type: 'started', id: 'j1', kind: 'make', since: 't' });
+    expect(keptAsDraft(reading)).toBe(true);
+    const failed = reduce(reading, {
+      type: 'finished',
+      job: job({ status: 'failed', reading: null, hash: null, error: 'limit' }),
+    });
+    expect(keptAsDraft(failed)).toBe(true);
+    const read = reduce(reading, { type: 'finished', job: job({ hash: null }) });
+    expect(keptAsDraft(read)).toBe(true);
   });
 });

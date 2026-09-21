@@ -421,6 +421,15 @@ export function readAsk(
 export const repeatsLastAsk = (s: StudioState, ask: string): boolean =>
   !!current(s)?.ask && current(s)!.ask!.trim().toLowerCase() === ask.trim().toLowerCase();
 
+/**
+ * Whether this conversation is a draft the Scenes wall keeps: anything read,
+ * drawn, drawing, or stopped short by a failure. Closing the studio over one
+ * costs nothing; it is on the wall to come back to, and is thrown away only by
+ * its own Discard. Before anything is read there is nothing to show, so only
+ * then does leaving ask.
+ */
+export const keptAsDraft = (s: StudioState): boolean => s.versions.length > 0 || !!s.job || !!s.error;
+
 /** Whether leaving now would throw away something the person made. */
 export const unsaved = (s: StudioState, seededFrom: StudioState | null): boolean => {
   if (seededFrom)

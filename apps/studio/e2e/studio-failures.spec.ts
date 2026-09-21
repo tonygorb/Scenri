@@ -85,3 +85,23 @@ test('a change that fails out of sight leaves one card that stays and leads back
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:(agree|decide)-/);
   await expect(line(page)).toBeEnabled();
 });
+
+test('a change that failed closes without asking, waits on the wall as not finished, and opens with every way on', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  const slug = await brandSlug(page);
+  const at = await drawn(page, slug, 'Stuck Cyc');
+  await say(page, 'make the floor darker');
+  await expect(studio(page)).toContainText('refused', { timeout: 20_000 });
+  // nothing is lost by closing: no discard-or-stay question
+  await studio(page).getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await page.waitForURL(new RegExp(`/${slug}/scenes$`));
+  const card = page.locator('.sc-lookcard[data-build]', { hasText: 'Stuck Cyc' });
+  await expect(card).toContainText('Did not finish');
+  await card.getByRole('link').click();
+  await page.waitForURL((u) => u.pathname === at);
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:(agree|decide)-/);
+  await expect(line(page)).toBeEnabled();
+});

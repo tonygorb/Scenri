@@ -2,7 +2,7 @@ import type { StudioWork } from '../../apiTypes.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import { local } from '../../storage.js';
 import { unpackSession } from './sceneFlowRules.js';
-import { current } from './sceneStudioRules.js';
+import { current, keptAsDraft } from './sceneStudioRules.js';
 
 /**
  * Scenes still being made, for the wall to offer back.
@@ -13,10 +13,11 @@ import { current } from './sceneStudioRules.js';
  * but the bell. The Scenes wall shows each one as a draft card, the way the
  * Presenters wall shows a half-cast person.
  *
- * Only conversations with something to show are cards: a picture drawn, or a
- * draw under way. Answers alone are cheap to give again, and a card with no
- * picture on it is worse than no card. Edits of a saved scene are not drafts:
- * the scene is already on the wall.
+ * Only conversations with something in them are cards: a reading, a picture,
+ * a draw under way, or a draw that failed (a scene Codex could not draw today
+ * is still worth coming back to). Answers alone, before anything is read, are
+ * cheap to give again. Edits of a saved scene are not drafts: the scene is
+ * already on the wall.
  */
 export interface SceneDraft {
   convo: string;
@@ -24,6 +25,8 @@ export interface SceneDraft {
   hash: string | null;
   drawing: boolean;
   failed: boolean;
+  /** Its words were read: a draft with no picture yet is still a scene. */
+  read: boolean;
   /** The job this conversation last started, to read its state off the bell. */
   jobId: string | null;
   at: number;
@@ -44,16 +47,18 @@ export function sceneDraftOf(convo: string, raw: string | null): SceneDraft | nu
   const session = unpackSession(typeof o?.session === 'string' ? o.session : null);
   const studio = session?.studio;
   if (!studio) return null;
+  if (!keptAsDraft(studio)) return null;
   // the picture on the stage, else the newest one drawn
   const drawn = [studio.versions[studio.current], ...[...studio.versions].reverse()].find((v) => v?.hash);
-  if (!drawn && !studio.job) return null;
   const v = current(studio);
+  const said = studio.place.trim().split(/\s+/).slice(0, 5).join(' ');
   return {
     convo,
-    name: studio.name.trim() || v?.reading.name || studio.job?.pending?.name || '',
+    name: studio.name.trim() || v?.reading.name || studio.job?.pending?.name || said,
     hash: drawn?.hash ?? null,
     drawing: !!studio.job,
-    failed: false,
+    failed: !studio.job && !!studio.error,
+    read: studio.versions.length > 0,
     jobId: studio.job?.id ?? null,
     at: Number(o.at) || 0,
   };
@@ -71,6 +76,8 @@ export function sceneDrafts(kept: SceneDraft[], work: StudioWork[]): SceneDraft[
   const out = kept.map((d) => {
     const w = d.jobId ? byJob.get(d.jobId) : undefined;
     if (!w) return { ...d, drawing: false };
+    // the conversation already heard how its last job ended
+    if (!d.drawing) return d;
     return {
       ...d,
       name: d.name || w.name,
@@ -90,11 +97,12 @@ export function sceneDrafts(kept: SceneDraft[], work: StudioWork[]): SceneDraft[
       hash: null,
       drawing: true,
       failed: false,
+      read: false,
       jobId: w.id.slice('scene:'.length),
       at: Date.parse(w.startedAt) || 0,
     });
   }
-  return out.filter((d) => d.drawing || d.hash || d.failed).sort((a, b) => b.at - a.at);
+  return out.filter((d) => d.drawing || d.hash || d.failed || d.read).sort((a, b) => b.at - a.at);
 }
 
 /** Where a scene draft stands, in words. */

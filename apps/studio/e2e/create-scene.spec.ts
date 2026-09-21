@@ -371,13 +371,15 @@ test('a reload comes back to the same conversation, the same question on the flo
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:light');
 });
 
-test('leaving with anything said asks first, staying hands the keyboard back, and leaving saves nothing', async ({
+test('leaving before anything is read asks first, staying hands the keyboard back, and leaving saves nothing', async ({
   page,
 }) => {
   const slug = await start(page);
   const before = (await scenes(page)).length;
-  await place(page, 'A misty pine forest at dawn');
-  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/);
+  // answers only: a world tapped, the light still being asked, nothing read yet
+  await tap(turn(page, 'q:source'), 'Guide me');
+  await tap(turn(page, 'q:world'), 'Sunlit stone');
+  await expect(turn(page, 'q:light')).toBeVisible();
   await line(page).focus();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('alertdialog')).toContainText('Leave this scene?');
@@ -388,6 +390,23 @@ test('leaving with anything said asks first, staying hands the keyboard back, an
   await page.getByRole('alertdialog').getByRole('button', { name: 'Leave' }).click();
   await page.waitForURL(new RegExp(`/${slug}/scenes$`));
   expect((await scenes(page)).length).toBe(before);
+  await expect(page.locator('.sc-lookcard[data-build]')).toHaveCount(0);
+});
+
+test('a scene with anything read in it closes without asking, and waits on the wall as a draft', async ({ page }) => {
+  const slug = await start(page);
+  await place(page, 'A misty pine forest at dawn');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/);
+  const at = new URL(page.url()).pathname;
+  await line(page).focus();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await page.waitForURL(new RegExp(`/${slug}/scenes$`));
+  const card = page.locator('.sc-lookcard[data-build]').first();
+  await expect(card).toContainText('Not drawn yet');
+  await card.getByRole('link').click();
+  await page.waitForURL((u) => u.pathname === at);
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/);
 });
 
 test('a saved scene opens in the studio at its record, spending nothing, and saves in place', async ({ page }) => {

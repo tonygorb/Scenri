@@ -40,6 +40,7 @@ import {
   EMPTY,
   namedIn,
   readAsk,
+  keptAsDraft,
   readDue,
   reduce,
   repeatsLastAsk,
@@ -471,6 +472,8 @@ export function useSceneFlow(args: {
     unsaved: edit ? unsavedOf(studio, seed) : begun,
     /** Work is under way on the server for this conversation. */
     running: !!studio.job,
+    /** A new scene with something in it: it stays on the Scenes wall when the studio closes. */
+    keptAsDraft: !edit && keptAsDraft(studio),
     leave: () => {
       work.stop();
       gone.current = true;

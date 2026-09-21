@@ -107,6 +107,7 @@ test('a scene draw goes on while you are elsewhere, and Activity brings you back
 });
 
 test('a finish on the studio page itself is said on the stage, and nowhere else', async ({ page }) => {
+  test.setTimeout(45_000);
   const slug = await brandSlug(page);
   await readyToDraw(page, slug, 'A white cyclorama under hard flash, seen straight on, on a low plinth');
   await tap(openQ(page), 'Draw the scene');

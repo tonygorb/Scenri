@@ -133,7 +133,7 @@ export const COPY = {
 
   // leaving
   leaveTitle: 'Leave this scene?',
-  leaveBody: 'It is not saved, so what was said and drawn here goes.',
+  leaveBody: 'Nothing has been read yet, so the answers here go.',
   leave: 'Leave',
   discardTitle: 'Discard the changes?',
   discardBody: 'The scene stays as it was saved. What was drawn here is let go.',

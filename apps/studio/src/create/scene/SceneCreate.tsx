@@ -58,8 +58,12 @@ export function SceneCreate({
   const close = () => {
     // Work under way keeps going: the page is not what it belongs to. Leaving
     // now is the same as following any link out, and the conversation, kept
-    // under its address, is where Activity brings the person back to.
-    if (f.running) {
+    // under its address, is where Activity brings the person back to. So is a
+    // new scene with anything in it, a failed draw included: it waits on the
+    // Scenes wall, and is thrown away only by its own Discard. Asking "discard
+    // or stay" here used to leave a scene that could not be drawn yet (Codex
+    // out of its limit) with no way to keep it for later.
+    if (f.running || f.keptAsDraft) {
       onClose();
       return;
     }
