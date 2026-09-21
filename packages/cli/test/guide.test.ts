@@ -82,6 +82,44 @@ describe('first-use record', () => {
       expect(readGuide(core, {})).toMatchObject({ eligible: false, welcome: null, active: null });
     });
 
+    it('an install stamped new while first use was off, who has since made a shot, is not new', () => {
+      // The record 0.11.1 and 0.12.0 wrote at a fresh install, then a library used for real.
+      stampGuide(core.store, '0.12.0');
+      const b = core.store.createBrand(brand('Used'));
+      const { project, root } = core.store.createProject(b.id, 'Work');
+      const n = core.store.addNode({
+        projectId: project.id,
+        parentId: root.id,
+        kind: 'generation',
+        prompt: 'p',
+        engineId: 'demo',
+      });
+      core.store.completeNode(n.id, { images: ['abc'], costUsd: 0 });
+      expect(readGuide(core, {})).toMatchObject({ eligible: false, welcome: null, hidden: true });
+    });
+
+    it('that install with a brand but no shot yet is still offered the welcome', () => {
+      stampGuide(core.store, '0.12.0');
+      core.store.createBrand(brand('Started'));
+      expect(readGuide(core, {})).toMatchObject({ eligible: true, welcome: null, hidden: false });
+    });
+
+    it('someone new who took the welcome stays new after their first shot', () => {
+      stampGuide(core.store, V);
+      const b = core.store.createBrand(brand('Taught'));
+      applyIntent(core, { welcome: 'taken' });
+      const { project, root } = core.store.createProject(b.id, 'Work');
+      const n = core.store.addNode({
+        projectId: project.id,
+        parentId: root.id,
+        kind: 'generation',
+        prompt: 'p',
+        engineId: 'demo',
+      });
+      core.store.completeNode(n.id, { images: ['abc'], costUsd: 0 });
+      expect(readGuide(core, {})).toMatchObject({ eligible: true, welcome: 'taken' });
+    });
+
     it('an unreadable record is nobody new, and never throws', () => {
       core.store.setSetting('guide', '{not json');
       expect(readGuide(core, {})).toMatchObject({ eligible: false, done: {}, active: null });
@@ -306,7 +344,7 @@ describe('first-use record', () => {
       expect(shut.progress.presenter).toMatchObject({ paused: true, reached: ['start'] });
     });
 
-    it('taking up another lesson sets the first down, and coming back continues it', () => {
+    it('taking up another lesson sets the first down, and coming back continues it', async () => {
       stampGuide(core.store, V);
       const b = core.store.createBrand(brand('Two Lessons'));
       applyIntent(core, { start: { task: 'presenter', brandId: b.id } });
@@ -323,6 +361,8 @@ describe('first-use record', () => {
       expect(back.active?.paused).toBeUndefined();
 
       // finished, it is waiting nowhere: beginning it again is a fresh window
+      // (a millisecond later, or the database clock gives the same stamp)
+      await tick();
       applyIntent(core, { finish: 'presenter' });
       applyIntent(core, { start: { task: 'scene', brandId: b.id } });
       applyIntent(core, { start: { task: 'presenter', brandId: b.id } });

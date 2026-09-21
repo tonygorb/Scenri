@@ -328,7 +328,12 @@ export function readGuide(core: Core, env: NodeJS.ProcessEnv): GuideView {
       : null;
   const nodeKind =
     a?.task === 'first-shot' || a?.task === 'reuse' ? 'generation' : a?.task === 'refine' ? 'edit' : null;
-  const eligible = r.eligible && env.SCENRI_NO_GUIDE !== '1';
+  // 0.11.1 and 0.12.0 stamped fresh installs new while first use was switched
+  // off, and those installs were then used for real. Someone who has made a
+  // shot and never answered the welcome is not new: nothing opens or starts by
+  // itself for them, and Learn is still theirs to open.
+  const settled = r.welcome === null && !!r.done.shot;
+  const eligible = r.eligible && !settled && env.SCENRI_NO_GUIDE !== '1';
   return {
     eligible,
     welcome: r.welcome,
