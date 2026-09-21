@@ -183,3 +183,44 @@ test('a presenter face can be stopped while its name is asked, and drawn again',
   await log.getByRole('button', { name: 'Draw it again', exact: true }).click();
   await expect(log.getByRole('button', { name: 'Use this person', exact: true })).toBeVisible({ timeout: 20_000 });
 });
+
+test('a presenter set goes on after the studio closes, and the bell says so once', async ({ page }) => {
+  test.setTimeout(90_000);
+  const slug = await brandSlug(page);
+  const brands = await (await page.request.get('/api/brands')).json();
+  const brandId = brands.find((b: { slug: string }) => b.slug === slug).id as string;
+  const base = `/api/brands/${brandId}/presenter-drafts`;
+  const settle = async (id: string, view: string, want: string) => {
+    for (let i = 0; i < 300; i++) {
+      const d = await (await page.request.get(`${base}/${id}`)).json();
+      if (d.views[view].status === want && !d.activeView) return d;
+      await page.waitForTimeout(100);
+    }
+    throw new Error(`${view} never became ${want}`);
+  };
+  // the two views a person decides, decided, and the extras asked for
+  const draft = await (
+    await page.request.post(base, { data: { source: 'synthetic', direction: 'a man in his 30s', name: 'Away Set' } })
+  ).json();
+  await page.request.patch(`${base}/${draft.id}`, { data: { extras: true } });
+  for (const view of ['portrait', 'front']) {
+    await page.request.post(`${base}/${draft.id}/views/${view}/generate`, { data: {} });
+    await settle(draft.id, view, 'candidate');
+    await page.request.post(`${base}/${draft.id}/views/${view}/approve`);
+  }
+  // the studio starts the part of the set that decides itself; then the person leaves
+  await page.goto(`/${slug}/presenters/new/${draft.id}`);
+  await arrived(page);
+  await expect
+    .poll(async () => (await (await page.request.get(`${base}/${draft.id}`)).json()).activeView, { timeout: 15_000 })
+    .toBe('three-quarter');
+  await studio(page).getByRole('button', { name: 'Close', exact: true }).first().click();
+  await expect(studio(page)).toHaveCount(0);
+
+  // the server carries it view after view, and one card says so when it is all done
+  const card = toast(page, 'Away Set is drawn');
+  await expect(card).toBeVisible({ timeout: 60_000 });
+  const d = await (await page.request.get(`${base}/${draft.id}`)).json();
+  for (const view of ['three-quarter', 'back', 'left', 'right']) expect(d.views[view].status).toBe('approved');
+  await expect(toast(page, 'Away Set')).toHaveCount(1);
+});
