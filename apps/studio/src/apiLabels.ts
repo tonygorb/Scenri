@@ -28,14 +28,24 @@ export function registerSceneNameAliases(scenes: Pick<Scene, 'name' | 'legacyNam
   sceneNameAliases = m;
 }
 
-/** Human title for a node: scene name, lift shorthand, or first words of the prompt. */
-export function nodeLabel(n: Pick<FeedNode, 'promptHead' | 'kind'>): string {
-  // the head of the prompt is all a title ever needed; the whole prompt stays
-  // on the server until one shot is opened
+/**
+ * A name someone chose: the scene bracket, or the text-lift shorthand.
+ * First words of a prompt are not this.
+ */
+export function nodeName(n: Pick<FeedNode, 'promptHead'>): string | undefined {
   const head = n.promptHead ?? '';
   const tag = /^\[([^\]]+)\]/.exec(head)?.[1];
   if (tag) return sceneNameAliases.get(tag) ?? tag;
   if (head.startsWith('Remove all overlaid marketing text') || head.startsWith('Remove ALL text')) return 'Text lift';
-  const words = head.trim().split(/\s+/).slice(0, 6).join(' ');
+  return undefined;
+}
+
+/** Human title for a node: a name if it has one, otherwise first words of the prompt. */
+export function nodeLabel(n: Pick<FeedNode, 'promptHead' | 'kind'>): string {
+  // the head of the prompt is all a title ever needed; the whole prompt stays
+  // on the server until one shot is opened
+  const named = nodeName(n);
+  if (named) return named;
+  const words = (n.promptHead ?? '').trim().split(/\s+/).slice(0, 6).join(' ');
   return words || (n.kind === 'edit' ? 'Edit' : 'Generation');
 }

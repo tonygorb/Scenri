@@ -246,7 +246,7 @@ export function GuideHost() {
   const dismiss = useCallback(
     (t: GuideTaskId) => {
       void guideIntent({ dismiss: t });
-      push({ kind: 'success', title: 'Guide closed', detail: 'Continue it any time from Learn, under Help.' });
+      push({ kind: 'info', title: 'Guide closed', detail: 'Continue it any time from Learn, under Help.' });
     },
     [push],
   );
