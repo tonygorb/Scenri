@@ -8,6 +8,7 @@ import {
   noWelcomeWait,
   pickFromPicker,
   setUpBrand,
+  walkToCreate,
   welcome,
 } from './firstUse.js';
 
@@ -24,13 +25,14 @@ test('only the one action', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const slug = await setUpBrand(page, 'Locked');
   await welcome(page).getByRole('button', { name: 'Make your first shot' }).click();
-  await page.waitForURL(`**/${slug}/create`);
-  await expect(coachTitle(page)).toContainText('This is Create');
+  // the way to Create holds everything but Create itself
+  await expect(coachTitle(page)).toHaveText('Shots are made in Create');
   await expectHeld(page);
-  // the opening holds everything: the only thing to do is read it
-  for (const sel of ['.sc-topbar', '[data-guide="compose.add"]', '[data-guide="compose.send"]'])
+  for (const sel of ['.sc-create-card', '.sc-learn-btn', '.sc-verticals'])
     await expect.poll(() => isInert(page, sel), { message: sel }).toBe(true);
-  await coachCard(page).getByRole('button', { name: 'Start' }).click();
+  expect(await isInert(page, '.sc-nav [data-guide="nav.create"]')).toBe(false);
+  await walkToCreate(page);
+  await expect(page).toHaveURL(new RegExp(`/${slug}/create`));
 
   await expect(coachTitle(page)).toHaveText('Choose a product');
   await expect.poll(() => isInert(page, '[data-guide="compose.add"]')).toBe(false);

@@ -246,7 +246,7 @@ export function QuestionBlock({
           question.options &&
           !question.groups &&
           !question.options.some((o) => o.card) && (
-            <div className="sc-convo-choices">
+            <div className="sc-convo-choices sc-convo-ask" data-guide-shape="">
               {question.options.map((o) => (
                 <button
                   key={o.id}
@@ -274,7 +274,7 @@ export function QuestionBlock({
           )}
 
         {question.kind === 'choice' && (question.describe || question.attach || question.skip) && (
-          <div className="sc-convo-ways">
+          <div className="sc-convo-ways sc-convo-ask" data-guide-shape="">
             {question.skip && !question.multi && !question.groups && (
               <button
                 type="button"
@@ -306,10 +306,14 @@ export function QuestionBlock({
           !question.multi &&
           !question.describe &&
           !question.attach &&
-          cancel && <div className="sc-convo-ways">{cancel}</div>}
+          cancel && (
+            <div className="sc-convo-ways sc-convo-ask" data-guide-shape="">
+              {cancel}
+            </div>
+          )}
 
         {question.kind === 'choice' && question.multi && (
-          <div className="sc-convo-decide">
+          <div className="sc-convo-decide sc-convo-ask" data-guide-shape="">
             <button
               type="button"
               className="sc-btn sc-btn-primary"
@@ -363,7 +367,7 @@ export function QuestionBlock({
                 </Choices>
               </div>
             ))}
-            <div className="sc-convo-decide">
+            <div className="sc-convo-decide sc-convo-ask" data-guide-shape="">
               <button
                 type="button"
                 className="sc-btn sc-btn-primary"
@@ -426,7 +430,7 @@ export function QuestionBlock({
               </div>
             )}
             {(question.skip || question.describe || cancel) && (
-              <div className="sc-convo-ways">
+              <div className="sc-convo-ways sc-convo-ask" data-guide-shape="">
                 {question.skip && (
                   <button
                     type="button"
@@ -485,7 +489,7 @@ export function QuestionBlock({
                 <span>{question.attest.text}</span>
               </label>
             )}
-            <div className="sc-convo-decide">
+            <div className="sc-convo-decide sc-convo-ask" data-guide-shape="">
               <button
                 type="button"
                 className="sc-btn sc-btn-primary"
@@ -516,7 +520,7 @@ export function QuestionBlock({
         {question.kind === 'confirm' && question.quote && <Quote text={question.quote} label={question.quoteLabel} />}
 
         {question.kind === 'confirm' && (
-          <div className="sc-convo-decide">
+          <div className="sc-convo-decide sc-convo-ask" data-guide-shape="">
             {question.options.map((o, i) => (
               <button
                 key={o.id}

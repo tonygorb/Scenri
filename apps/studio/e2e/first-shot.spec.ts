@@ -17,7 +17,12 @@ import {
   pointsAt,
   readTheOpening,
   setUpBrand,
-  steps,
+  fromLearn,
+  learnButton,
+  startNew,
+  walkTheWay,
+  learnDialog,
+  lessonRow,
   welcome,
 } from './firstUse.js';
 
@@ -45,17 +50,25 @@ test('one thing at a time, from the welcome to a finished picture', async ({ pag
   // the welcome is held behind the tutor's own curtain, not the light dialog scrim
   await expect(page.locator('.sc-newdlg-scrim[data-tone="guide"]')).toHaveCSS('backdrop-filter', 'blur(6px)');
   await welcome(page).getByRole('button', { name: 'Make your first shot' }).click();
+
+  // Nothing jumps: the first step is the way to Create, on the page they are
+  // on, dimmed rather than blurred so they can still see where they are, with
+  // Create itself ringed.
+  await expect(coachTitle(page)).toHaveText('Shots are made in Create');
+  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('1 of 6');
+  await expect(page).toHaveURL(new RegExp(`/${slug}$`));
+  await expect(page.locator('.sc-coach-veil')).toHaveCSS('backdrop-filter', 'none');
+  await expect(page.locator('.sc-coach-ring')).toBeVisible();
+  await page.locator('.sc-nav [data-guide="nav.create"]').click();
   await page.waitForURL(`**/${slug}/create`);
 
-  // It opens by saying what this place is, over the thing that does it.
-  await expect(coachTitle(page)).toContainText('This is Create');
+  // Arriving by their own hand is the opening read: one ask, on the one
+  // control that answers it, and Back goes back the way they came.
+  await expect(coachTitle(page)).toHaveText('Choose a product');
+  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('2 of 6');
+  await expect(coachCard(page).getByRole('button', { name: 'Back' })).toBeVisible();
   await expectHeld(page);
   await expect(page.locator('.sc-coach-veil')).toHaveCSS('backdrop-filter', 'blur(3px)');
-  await coachCard(page).getByRole('button', { name: 'Start' }).click();
-
-  // Then one ask, on the one control that answers it.
-  await expect(coachTitle(page)).toHaveText('Choose a product');
-  await expect(coachCard(page).locator('.sc-coach-count')).toContainText('1 of 4');
   await pointsAt(page, '[data-guide="compose.add"]');
   await expect(chips(page)).toHaveCount(0);
 
@@ -144,38 +157,42 @@ test('a reload lands on the same moment, and the X ends only the guidance', asyn
   await coachCard(page).getByRole('button', { name: 'Close guide' }).click();
   await expect(coachCard(page)).toHaveCount(0);
   await expectLetGo(page);
-  await expect(page.getByText('Continue it any time from Learn, under Help.')).toBeVisible();
+  // the card, not the live region that speaks the same words for a second
+  await expect(page.locator('.sc-toast').getByText('Continue it any time from Learn.')).toBeVisible();
   // their work is untouched and the page is theirs again
   await expect(chips(page)).toHaveCount(3);
   expect(await isInert(page, '[data-guide="compose.send"]')).toBe(false);
   // the task is paused, not dropped: still in hand, so it can be continued as it was
   const record = await guideRecord(page);
-  expect(record.active).toMatchObject({ task: 'first-shot', paused: true });
+  // nothing is guiding, and the lesson keeps its own progress: set down, not dropped
+  expect(record.active).toBeNull();
+  expect(record.progress['first-shot']).toMatchObject({ paused: true });
   expect(record.dismissed).toContain('first-shot');
   // and a reload does not bring the tutor back on its own
   await page.reload();
   await expectNoGuide(page);
 });
 
-test('First steps lists four real things, ticks what exists, hides with an Undo', async ({ page }) => {
+test('Learn sits in the bar beside the bell, and says what is already done', async ({ page }) => {
   await page.goto(`/${slug}`);
-  await expect(steps(page).locator('.sc-steps-item')).toHaveText([
-    /Make your first shot/,
-    /Create a presenter/,
-    /Build a scene/,
-    /Refine a shot/,
-  ]);
-  await expect(steps(page).locator('.sc-steps-item[data-state="done"]')).toHaveCount(2);
-  await expect(steps(page).locator('.sc-steps-count')).toHaveText('2 of 4');
-  await steps(page).getByRole('button', { name: 'Hide first steps' }).click();
-  await expect(steps(page)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Undo' }).click();
-  await expect(steps(page)).toBeVisible();
+  // no list of steps on Home: the create cards are the way in, Learn is the guide
+  await expect(page.locator('.sc-steps')).toHaveCount(0);
+  await expect(page.locator('.sc-learn-btn + .sc-notif-btn')).toHaveCount(1);
+  await learnButton(page).click();
+  await expect(page).toHaveURL(/learn=lessons/);
+  await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('Done');
+  // closed without beginning anything, the keyboard is back on the button
+  await page.keyboard.press('Escape');
+  await expect(learnDialog(page)).toHaveCount(0);
+  await expect(learnButton(page)).toBeFocused();
 });
 
 test('a scene has its own task, held in the studio it is made in', async ({ page }) => {
   await page.goto(`/${slug}`);
-  await steps(page).locator('.sc-steps-item', { hasText: 'Build a scene' }).click();
+  await fromLearn(page, 'Build a scene');
+  await walkTheWay(page, 'scenes', 'Your scenes live here');
+  await page.waitForURL('**/scenes');
+  await startNew(page, 'Start a new scene');
   await expect(page).toHaveURL(/\/scenes\/new\/[a-f0-9]+$/);
   const studio = page.locator('.sc-pstudio[data-kind="scene"]');
   await expect(studio.locator('.sc-coach .sc-coach-title')).toHaveText('Describe the place, or start from pictures');
@@ -184,8 +201,14 @@ test('a scene has its own task, held in the studio it is made in', async ({ page
   await line.fill('A terrace');
   await expect(line).toHaveValue('A terrace');
   await line.fill('');
+  // the ask holds the page, so the guide is closed first (its own X), then the studio
+  await coachCard(page).getByRole('button', { name: 'Close guide' }).click();
   await studio.getByRole('button', { name: 'Close', exact: true }).first().click();
-  // closing the studio does not end the task: First steps continues it
-  expect((await guideRecord(page)).active?.task).toBe('scene');
-  await expect(steps(page).locator('.sc-steps-item[data-state="active"]')).toHaveText(/Continue your scene/);
+  // closing the guide and the studio ends nothing that was reached: they got
+  // to the studio's first question, and Learn says how far.
+  expect((await guideRecord(page)).progress.scene?.brandId).toBeTruthy();
+  expect((await guideRecord(page)).progress.scene?.reached).toContain('start');
+  // the tutor is still asking on the library; Learn is opened from the address
+  await page.goto(`/${slug}?learn=lessons`);
+  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('Step 3 of 5');
 });

@@ -54,7 +54,7 @@ export function ShotDetailRoute() {
   // say so, rather than letting the close read as an unexplained bounce
   useEffect(() => {
     if (!missing) return;
-    push({ kind: 'error', title: 'That shot is no longer available', detail: 'Back to the feed.' });
+    push({ kind: 'info', title: 'That shot is no longer available', detail: 'Back to the feed.' });
     ctx.close();
   }, [missing, ctx.close, push]);
 

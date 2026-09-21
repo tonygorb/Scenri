@@ -10,9 +10,21 @@ export const coachCard = (p: Page) => p.locator('.sc-coach');
 export const coachTitle = (p: Page) => p.locator('.sc-coach .sc-coach-title');
 export const coachBody = (p: Page) => p.locator('.sc-coach .sc-coach-body');
 export const welcome = (p: Page) => p.locator('.sc-welcome');
-export const steps = (p: Page) => p.locator('.sc-steps');
+/** Learn's ghost button in the bar (from 1024px), the dialog it opens, and one lesson in it. */
+export const learnButton = (p: Page) => p.locator('.sc-learn-btn');
+export const learnDialog = (p: Page) =>
+  p.getByRole('dialog').filter({ has: p.locator('.sc-learn-list, .sc-learn-lesson') });
+export const lessonRow = (p: Page, title: string) => learnDialog(p).locator('.sc-learn-row', { hasText: title });
 export const brief = (p: Page) => p.locator('[data-guide="compose"] .sc-brief-line');
 export const chips = (p: Page) => p.locator('[data-guide="compose"] .sc-brief-line .sc-token');
+
+/** Opens one lesson from the bar's Learn and takes its one action, the way a person does. */
+export async function fromLearn(p: Page, title: string): Promise<void> {
+  await learnButton(p).click();
+  await lessonRow(p, title).click();
+  // the one step that can be pressed carries the lesson's action
+  await learnDialog(p).locator('button.sc-learn-step').click();
+}
 
 export async function guideRecord(p: Page): Promise<GuideView> {
   return (await (await p.request.get('/api/guide')).json()) as GuideView;
@@ -49,6 +61,32 @@ export async function ownBrand(p: Page, name: string, task = 'first-shot'): Prom
 export async function expectNoGuide(p: Page): Promise<void> {
   await p.waitForTimeout(600);
   await expect(p.locator('.sc-coach, .sc-coach-veil')).toHaveCount(0);
+}
+
+/**
+ * Begun away from Create (the welcome, Learn), the first step is the way there:
+ * Create in the places, lit, taken by hand. Arriving by it is the opening read.
+ */
+export async function walkToCreate(p: Page): Promise<void> {
+  await expect(coachTitle(p)).toHaveText('Shots are made in Create', { timeout: 20_000 });
+  await p.locator('[data-guide="nav.create"]:visible').first().click();
+  await p.waitForURL('**/create**');
+}
+
+/** Any lesson's way there: the lit place in the bar, taken by hand. */
+export async function walkTheWay(
+  p: Page,
+  nav: 'create' | 'products' | 'presenters' | 'scenes',
+  title: string,
+): Promise<void> {
+  await expect(coachTitle(p)).toHaveText(title, { timeout: 20_000 });
+  await p.locator(`[data-guide="nav.${nav}"]:visible`).first().click();
+}
+
+/** The library's own create button, once they have found the page. */
+export async function startNew(p: Page, title: string): Promise<void> {
+  await expect(coachTitle(p)).toHaveText(title, { timeout: 20_000 });
+  await p.locator('[data-guide="library.new"]:visible').first().click();
 }
 
 /** Reads the opening and moves past it, the way anyone does. */
@@ -116,8 +154,13 @@ export async function pointsAt(p: Page, selector: string): Promise<void> {
     };
   };
   await expect
-    .poll(async () => await p.evaluate(measure, selector), { timeout: 5000 })
-    .toEqual({ inside: true, overlaps: false, arrowOnTarget: true, onScreen: true });
+    .poll(async () => await p.evaluate(measure, selector))
+    .toEqual({
+      inside: true,
+      overlaps: false,
+      arrowOnTarget: true,
+      onScreen: true,
+    });
 }
 
 /** The page behind an ask is held: some of it is inert. */

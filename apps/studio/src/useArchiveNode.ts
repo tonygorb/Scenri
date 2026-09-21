@@ -23,8 +23,6 @@ export function useArchiveNode(onNode: (node: FeedNode) => void) {
           onNode(next);
           push({
             kind: 'success',
-            // which shot: archiving four in a row produced four identical
-            // toasts, and no way to tell which Undo restored which
             title: 'Archived',
             detail: nodeLabel(node),
             action: {

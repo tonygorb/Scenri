@@ -1,9 +1,10 @@
 import { FocusScope } from '@radix-ui/react-focus-scope';
 import { X } from '@phosphor-icons/react';
-import { type CSSProperties, type ReactNode, useEffect, useRef } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Tip } from '../../layout/Tip.js';
 import { PREF, useLocalPref } from '../../prefs.js';
+import { useDockHeight } from '../../useDockHeight.js';
 
 /**
  * How wide the rail may be made.
@@ -67,6 +68,9 @@ export function StudioFrame({
   onClose: () => void;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
+  // The composer at the foot; on a phone the toast stack stands above it.
+  const [footEl, setFootEl] = useState<HTMLDivElement | null>(null);
+  useDockHeight(footEl, '--sc-pstudio-dock-h');
 
   // Escape leaves, as it does the shot overlay, unless a popover or a Confirm
   // inside already took the key (Radix marks its Escape handled).
@@ -192,7 +196,9 @@ export function StudioFrame({
               {body}
             </div>
           </div>
-          <div className="sc-pstudio-foot sc-dock">{foot}</div>
+          <div className="sc-pstudio-foot sc-dock" ref={setFootEl}>
+            {foot}
+          </div>
         </div>
         {overlay}
       </div>

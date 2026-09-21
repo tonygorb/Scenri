@@ -1,4 +1,22 @@
-import { useCallback, useState, type CSSProperties } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+
+/**
+ * Srcs this session has already decoded. Masonry remounts a tile when it hops
+ * column (an archive redistributes; the assets rail changing width recounts
+ * columns), and a remount used to replay the fade-in: `loaded` started false,
+ * `loading="lazy"` delayed the cached decode, and the picture went to opacity
+ * 0 for a painted frame. Remembering the src is what lets the next mount load
+ * eagerly and call itself ready in `useLayoutEffect`, before paint.
+ */
+const ready = new Set<string>();
+
+export function feedImageIsReady(src: string): boolean {
+  return ready.has(src);
+}
+
+export function markFeedImageReady(src: string): void {
+  if (src) ready.add(src);
+}
 
 /**
  * A feed picture that holds its own space until it can actually be seen.
@@ -12,7 +30,9 @@ import { useCallback, useState, type CSSProperties } from 'react';
  *
  * The callback ref is not decoration: a cached image can finish loading before
  * React attaches its onLoad, and without the `complete` check that picture
- * would never be marked loaded and never become visible.
+ * would never be marked loaded and never become visible. `useLayoutEffect`
+ * repeats that check so a remount of an already-decoded src does not paint
+ * the fade.
  */
 export function FeedImage({
   src,
@@ -37,30 +57,50 @@ export function FeedImage({
    */
   guess?: boolean;
 }) {
-  const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
-  const measure = useCallback((el: HTMLImageElement | null) => {
-    if (el?.complete && el.naturalWidth) setLoaded(true);
-  }, []);
   const shown = failed && fallback ? fallback : src;
+  const [loaded, setLoaded] = useState(false);
+  const [current, setCurrent] = useState(shown);
+  if (shown !== current) {
+    setCurrent(shown);
+    setLoaded(false);
+  }
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const becomeReady = useCallback(() => {
+    markFeedImageReady(shown);
+    setLoaded(true);
+  }, [shown]);
+  const measure = useCallback(
+    (el: HTMLImageElement | null) => {
+      imgRef.current = el;
+      if (el?.complete && el.naturalWidth) becomeReady();
+    },
+    [becomeReady],
+  );
+  useLayoutEffect(() => {
+    const el = imgRef.current;
+    if (el?.complete && el.naturalWidth) becomeReady();
+  }, [becomeReady]);
+  const cached = feedImageIsReady(shown);
   return (
     <span
       className="sc-cellimg"
       data-loaded={loaded || undefined}
+      data-cached={cached || undefined}
       data-guess={guess || undefined}
       style={aspect ? ({ '--sc-cell-ar': aspect } as CSSProperties) : undefined}
     >
-      {!loaded && <span className="sc-shimmer" />}
+      {!loaded && !cached && <span className="sc-shimmer" />}
       <img
         ref={measure}
         src={shown}
         alt={alt}
-        loading="lazy"
-        decoding="async"
-        onLoad={() => setLoaded(true)}
+        loading={cached ? 'eager' : 'lazy'}
+        decoding={cached ? 'sync' : 'async'}
+        onLoad={() => becomeReady()}
         onError={() => {
           if (fallback && !failed) setFailed(true);
-          else setLoaded(true);
+          else becomeReady();
         }}
       />
     </span>

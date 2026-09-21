@@ -974,6 +974,13 @@ select.sc-in {
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
 }
+/* A way somewhere rather than a thing to do here: the page stays sharp, only
+   dimmed, so where you are is still plain to see (Moment.soft). */
+.sc-coach-veil[data-soft] {
+  background: rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
 /* Where a mask cannot cut the windows, four plain panels frame them instead. */
 .sc-coach-panel {
   display: none;
@@ -1048,7 +1055,9 @@ select.sc-in {
   box-sizing: border-box;
   border: 2px solid var(--sc-fg);
   pointer-events: none;
-  animation: sc-coach-ring-in 1.4s var(--sc-ease) 2;
+  /* It breathes for as long as it is asked for: something that pulsed twice
+     and went still was easy to lose among everything else on the page. */
+  animation: sc-coach-ring-in 1.6s var(--sc-ease) infinite;
 }
 @keyframes sc-coach-ring-in {
   from {
@@ -1105,6 +1114,19 @@ select.sc-in {
   }
 }
 
+/* Shown, a card that has to follow what it points at glides there rather
+   than jumping: the first placement happens while it is still hidden. */
+.sc-coach[data-state="shown"] {
+  transition:
+    opacity var(--sc-dur-fast) var(--sc-ease),
+    left var(--sc-dur-slow) var(--sc-ease),
+    top var(--sc-dur-slow) var(--sc-ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-coach[data-state="shown"] {
+    transition: opacity var(--sc-dur-fast) var(--sc-ease);
+  }
+}
 .sc-coach[data-state="moving"],
 .sc-coach[data-state="stowed"],
 .sc-coach[data-state="away"] {

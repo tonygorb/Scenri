@@ -119,6 +119,14 @@ describe('pages', () => {
     expect(withoutIds(items, ['b'])).toEqual([a, c]);
   });
 
+  it('an archive drop keeps the remaining records as the same objects', () => {
+    const items = [a, b, c];
+    const next = withoutIds(items, ['a']);
+    expect(next).toEqual([b, c]);
+    expect(next[0]).toBe(b);
+    expect(next[1]).toBe(c);
+  });
+
   it('inserts where the sort would put it, and waits for paging past the loaded end', () => {
     const fresh = node({ id: 'd', createdAt: '2026-09-01 10:00:04.000' });
     expect(insertSorted([a, b, c], fresh, 'newest', false).map((n) => n.id)).toEqual(['d', 'a', 'b', 'c']);

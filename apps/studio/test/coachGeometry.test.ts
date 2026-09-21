@@ -5,6 +5,7 @@ import {
   pad,
   panels,
   referenceRect,
+  ringRadius,
   trimBy,
   union,
   visibleRect,
@@ -68,6 +69,18 @@ describe('coach geometry', () => {
     expect(intersects(box(0, 0, 10, 10), box(10, 0, 20, 10))).toBe(false);
     expect(opposite('top')).toBe('bottom');
     expect(opposite('left')).toBe('right');
+  });
+
+  it('a ring follows the control, not a 4px box around a wrapper with no corners', () => {
+    expect(ringRadius(22)).toBe(26);
+    expect(ringRadius(0, 999)).toBe(1003);
+    expect(ringRadius(0, 0)).toBe(14);
+    expect(ringRadius(2, 0)).toBe(14);
+    // a conversation turn is a block of text that holds chips, not a wrapper
+    expect(ringRadius(0, 999, 4, 14, 120, 36)).toBe(14);
+    expect(ringRadius(0, 999, 4, 14, 40, 36)).toBe(1003);
+    // two chips in a group are a cluster, not one pill
+    expect(ringRadius(0, 999, 4, 14, 40, 36, 2)).toBe(14);
   });
 
   it('the curtain cuts every window with its own radius, in one mask the size of the screen', () => {

@@ -466,7 +466,7 @@ export const Composer = forwardRef<
         if (result.toast) {
           const toast = result.toast;
           push({
-            kind: 'success',
+            kind: 'info',
             title: toast.title,
             action: {
               label: 'Undo',
@@ -577,7 +577,7 @@ export const Composer = forwardRef<
       if (result.toast) {
         const toast = result.toast;
         push({
-          kind: 'success',
+          kind: 'info',
           title: toast.title,
           action: {
             label: 'Undo',
@@ -631,7 +631,7 @@ export const Composer = forwardRef<
   useEffect(() => {
     if (!loaded || !templateTokenId || template) return;
     briefRef.current?.removeTemplate();
-    push({ kind: 'error', title: 'That scene is no longer available.', detail: 'Removed from the brief.' });
+    push({ kind: 'warning', title: 'That scene is no longer available', detail: 'Removed from the brief.' });
   }, [loaded, templateTokenId, template, push]);
 
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -966,7 +966,7 @@ export const Composer = forwardRef<
     // OS-level filter, so this is the one place both paths get one
     const images = Array.from(files).filter((f) => f.type.startsWith('image/'));
     if (!images.length) {
-      push({ kind: 'error', title: 'Only images can be attached here' });
+      push({ kind: 'warning', title: 'Only images can be attached here' });
       return;
     }
     setUploading(true);
@@ -984,7 +984,7 @@ export const Composer = forwardRef<
       // with nothing anywhere saying so
       if (images.length > 4)
         push({
-          kind: 'error',
+          kind: 'warning',
           title: 'Only the first 4 images were attached',
           detail: `${images.length - 4} more ${images.length - 4 === 1 ? 'was' : 'were'} skipped. Attach ${images.length - 4 === 1 ? 'it' : 'them'} in another pick.`,
         });
@@ -1218,10 +1218,10 @@ export const Composer = forwardRef<
       // accepted shot; only the first used to be surfaced, so a dropped
       // reference could hide behind whatever warning happened to come first.
       const warned = created.warnings ?? [];
-      if (warned.length === 1) push({ kind: 'success', title: 'Sent, with one thing to know', detail: warned[0] });
+      if (warned.length === 1) push({ kind: 'warning', title: 'Sent, with one thing to know', detail: warned[0] });
       else if (warned.length > 1)
         push({
-          kind: 'success',
+          kind: 'warning',
           title: `Sent, with ${warned.length} things to know`,
           detail: warned.join(' '),
         });
@@ -1326,6 +1326,12 @@ export const Composer = forwardRef<
     window.addEventListener('scenri:guide-take-back', takeBack);
     return () => window.removeEventListener('scenri:guide-take-back', takeBack);
   }, [guided]);
+  useEffect(() => {
+    if (!onClearTarget) return;
+    const clear = () => onClearTarget();
+    window.addEventListener('scenri:guide-clear-refine', clear);
+    return () => window.removeEventListener('scenri:guide-clear-refine', clear);
+  }, [onClearTarget]);
   // The tutor asks for one kind at a time: the picker opens on that kind and
   // offers nothing else, so there is nothing to wander into.
   useEffect(() => {

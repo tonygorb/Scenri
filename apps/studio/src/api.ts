@@ -71,7 +71,7 @@ export const api = {
   deleteBrand: (id: string) => req<{ ok: true }>('DELETE', `/api/brands/${id}`),
   /** The install's first-use record: who is new, what is done, and the task in hand with what it has made. */
   guide: () => req<GuideView>('GET', '/api/guide'),
-  /** One change to it: answer the welcome, start, finish or dismiss a task, hide or show First steps. */
+  /** One change to it: answer the welcome, start, finish or dismiss a task, or hide the guidance. */
   guideIntent: (intent: GuideIntent) => req<GuideView>('POST', '/api/guide', intent),
   /**
    * Re-read the brand's own website. Merges: hand-edited fields survive, and

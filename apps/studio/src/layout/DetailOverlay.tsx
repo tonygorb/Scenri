@@ -50,6 +50,7 @@ import { BriefLine } from './detail/Ingredients.js';
 import { useLineageOf } from './detail/useLineageOf.js';
 import { useFullNode } from './detail/useFullNode.js';
 import { PREF, useLocalPref } from '../prefs.js';
+import { useDockHeight } from '../useDockHeight.js';
 
 /**
  * The details panel's adjustable width. One bounded range, one reset value,
@@ -183,6 +184,9 @@ export function DetailOverlay({
   }, [briefCopied]);
   /** Long briefs clamp at five lines; the toggle appears only when the clamp
    *  actually bites, so short briefs never grow a dangling "more". */
+  // The composer docked under the shot; the toast stack stands above it on a phone.
+  const [editDock, setEditDock] = useState<HTMLDivElement | null>(null);
+  useDockHeight(editDock, '--sc-ovl-dock-h');
   const briefRef = useRef<HTMLDivElement>(null);
   const [briefOpen, setBriefOpen] = useState(false);
   const [briefOverflows, setBriefOverflows] = useState(false);
@@ -930,7 +934,7 @@ export function DetailOverlay({
               field is already waiting when the picture lands. */}
           </div>
           {(hasImage || node.status === 'running') && (
-            <div className="sc-ovl-edit sc-dock">
+            <div className="sc-ovl-edit sc-dock" ref={setEditDock}>
               {/* In here the target is the whole screen, so it is stated rather
               than chosen: `target` is this shot and there is no chip, because
               there is nothing else this composer could be talking about. The

@@ -1234,6 +1234,14 @@ button.sc-convo-shot-do {
   gap: var(--sc-space-4);
 }
 
+/* The chips as a group, only as wide as they are: a full-width row made the
+   tutor ring a track across the column with two pills floating in it. */
+.sc-convo-ask {
+  width: fit-content;
+  max-width: 100%;
+  align-self: flex-start;
+}
+
 /* ---- the look, tapped ------------------------------------------------------
    Rows of colours and words: hair by colour and by length, skin by tone, each
    swatch the colour it stands for so the eye picks rather than the reader. A
