@@ -8,7 +8,7 @@ import {
 } from '../../conversation/question.js';
 import type { SceneReading } from '../../apiTypes.js';
 import { COPY } from './sceneCopy.js';
-import { optionOf, rowNoun, ROWS, swatchRow } from './sceneRows.js';
+import { optionOf, rowNoun, ROWS, type SceneRow, swatchRow } from './sceneRows.js';
 import {
   answeredIn,
   type Answers,
@@ -83,8 +83,10 @@ export function readingQuote(r: SceneReading): string {
     .join(' ');
 }
 
+/** A stop or a lost job says its own sentence; a failure is quoted inside one. */
+const SAYS_ITSELF = new Set([COPY.stopped, COPY.stoppedRead, COPY.stoppedDraw, COPY.stoppedChange, COPY.lost]);
 const retryPrompt = (error: string) =>
-  error === COPY.stopped ? COPY.stopped : COPY.failedFirst(error.replace(/[.\s]+$/, ''));
+  SAYS_ITSELF.has(error) ? error : COPY.failedFirst(error.replace(/[.\s]+$/, ''));
 
 /* ------------------------------------------------------------- questions */
 
@@ -144,16 +146,17 @@ export function questionFor(
   const given = g?.pick === PASSED ? undefined : g?.pick;
   const skipped = g?.pick === PASSED;
   const note = g?.words;
+  const afterWords = a.source?.door === 'words';
   return {
     id,
     kind: 'swatches',
-    prompt: worldLight ? COPY.worldLightPrompt(worldLight) : ROWS[id].prompt,
+    prompt: promptFor(id, a),
     row: swatchRow(id),
     // Only the worlds are a set to compare at once. Light, staging and
     // camera stay a strip: a row of variants, one swipe at a time.
     layout: id === 'world' ? 'grid' : undefined,
-    hint: id === 'world' ? COPY.worldHint : undefined,
-    skip: worldLight ? COPY.keepWorldLight : COPY.skip,
+    hint: id === 'world' && !afterWords ? COPY.worldHint : undefined,
+    skip: worldLight ? COPY.keepWorldLight : afterWords ? COPY.leaveToReading : COPY.skip,
     describe: COPY.describeInstead,
     given,
     skipped,
@@ -162,8 +165,23 @@ export function questionFor(
   };
 }
 
-const askedLine = (id: Qid): string =>
-  id === 'source' ? COPY.source : id === 'photos' ? COPY.photos : ROWS[id].prompt;
+/**
+ * A row's question as it was put: after a world with its own light, the light
+ * row says so; after a typed sentence, a follow-up says what the sentence
+ * already gave. The same words when it is asked and when it is looked back on.
+ */
+function promptFor(id: SceneRow, a: Answers): string {
+  const worldLight = id === 'light' ? optionOf('world', a.world?.pick)?.light : undefined;
+  if (worldLight) return COPY.worldLightPrompt(worldLight);
+  if (a.source?.door === 'words') {
+    if (id === 'world') return COPY.followWorld;
+    if (id === 'light') return COPY.followLight;
+  }
+  return ROWS[id].prompt;
+}
+
+const askedLine = (id: Qid, a: Answers): string =>
+  id === 'source' ? COPY.source : id === 'photos' ? COPY.photos : promptFor(id, a);
 
 function answerLine(id: Qid, a: Answers): { text: string; photos?: string[] } {
   if (id === 'source') {
@@ -178,7 +196,8 @@ function answerLine(id: Qid, a: Answers): { text: string; photos?: string[] } {
   // A light passed after a world was "Keep it", not a blank skip: the
   // transcript has to say the same word the button did.
   const keptWorldLight = id === 'light' && g?.pick === PASSED && optionOf('world', a.world?.pick)?.light;
-  const picked = g?.pick === PASSED ? (keptWorldLight ? COPY.keepWorldLight : COPY.skip) : optionOf(id, g?.pick)?.label;
+  const passedAs = keptWorldLight ? COPY.keepWorldLight : a.source?.door === 'words' ? COPY.leaveToReading : COPY.skip;
+  const picked = g?.pick === PASSED ? passedAs : optionOf(id, g?.pick)?.label;
   const words = g?.words?.trim();
   return { text: picked && words ? `${picked}, ${words}` : (words ?? picked ?? '') };
 }
@@ -212,7 +231,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
   const openSetup = edit ? null : nextQuestion(a);
   if (!edit)
     for (const id of answeredIn(a)) {
-      T.push({ kind: 'scenri', id: `asked-${id}`, text: askedLine(id), quiet: true });
+      T.push({ kind: 'scenri', id: `asked-${id}`, text: askedLine(id, a), quiet: true });
       attach(id);
       if (setup.editing === id) {
         T.push({ kind: 'question', question: questionFor(id, setup, true, args.uploading, args.have ?? []) });

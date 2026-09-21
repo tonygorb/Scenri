@@ -1,5 +1,5 @@
 import { SunHorizon } from '@phosphor-icons/react';
-import { type ReactNode, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Brand } from '../../apiTypes.js';
 import { Confirm } from '../../Confirm.js';
 import { publishStudio } from '../../guideFacts.js';
@@ -26,9 +26,9 @@ export function SceneCreate({
   applyBrand,
   sceneId,
   seed,
+  conversation,
   storageKey,
   caps,
-  capsNote,
   onClose,
   onStartOver,
   onSaved,
@@ -37,15 +37,16 @@ export function SceneCreate({
   applyBrand: (b: Brand) => void;
   sceneId: string | null;
   seed: StudioState | null;
+  /** The conversation's id, as the address carries it. */
+  conversation: string;
   storageKey: string;
   caps: Caps | null;
-  capsNote: (whenKnown: string) => ReactNode;
   onClose: () => void;
   /** A new conversation in place of this one. */
   onStartOver: () => void;
   onSaved: (made: SavedScene, how: 'created' | 'updated') => void;
 }) {
-  const f = useSceneFlow({ brand, applyBrand, sceneId, seed, storageKey, caps, onSaved });
+  const f = useSceneFlow({ brand, applyBrand, sceneId, seed, conversation, storageKey, caps, onSaved });
   const [leaving, setLeaving] = useState(false);
   // The question on the floor, for the first-use guide (DESIGN.md, "First use").
   const last = f.turns[f.turns.length - 1];
@@ -55,6 +56,13 @@ export function SceneCreate({
   const editing = !!sceneId;
 
   const close = () => {
+    // Work under way keeps going: the page is not what it belongs to. Leaving
+    // now is the same as following any link out, and the conversation, kept
+    // under its address, is where Activity brings the person back to.
+    if (f.running) {
+      onClose();
+      return;
+    }
     if (f.unsaved) {
       setLeaving(true);
       return;
@@ -105,7 +113,6 @@ export function SceneCreate({
         onStarter: f.onStarter,
         onPaste: f.onPaste,
         headAction,
-        footnote: capsNote(f.canDraw ? COPY.footnote : COPY.footnoteBlind),
         overlay: (
           <>
             <Confirm

@@ -25,6 +25,9 @@ export const COPY = {
   haveSearch: 'Find a scene',
   /** Stop was pressed before anything landed. Not a fault. */
   stopped: 'That was stopped. Nothing here was changed.',
+  stoppedRead: 'Stopped before the place was read. Read it again, or say it differently.',
+  stoppedDraw: 'Stopped. Nothing was drawn.',
+  stoppedChange: 'Stopped before the picture changed. The new words are kept: draw them, or put back the last picture.',
   readThem: 'Read them',
   guideInstead: 'Guide me instead',
   skip: 'Skip',
@@ -34,6 +37,12 @@ export const COPY = {
   /** The light row, once a world has already named its own light. */
   worldLightPrompt: (light: string) => `This world is already lit ${light}. Keep it, or choose another.`,
   keepWorldLight: 'Keep it',
+  /** After a sentence that gave a feeling but no place. */
+  followWorld: 'You have the feel of it. What kind of place is it?',
+  /** After a sentence that gave the place but not how it is lit. */
+  followLight: 'You have the place. What light is it in?',
+  /** A follow-up passed over: the reader decides it from the sentence. */
+  leaveToReading: 'Leave it to the reading',
   /** Joined on when a world was chosen and nothing after it was personalised. */
   worldIsAStart:
     'Treat this as a starting direction, not a picture to reproduce: keep the material language and the character of the light, and invent a specific original arrangement.',
@@ -132,6 +141,4 @@ export const COPY = {
   startOver: 'Start over',
   startOverTitle: 'Start over?',
   startOverBody: 'This conversation begins again from the first question. Nothing here is saved yet.',
-  footnote: 'One reading and one picture at a time.',
-  footnoteBlind: 'Nothing here can draw, so a scene is saved as words.',
 };

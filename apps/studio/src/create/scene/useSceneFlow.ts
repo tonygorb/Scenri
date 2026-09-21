@@ -3,6 +3,7 @@ import { uploadImage } from '../../api.js';
 import type { Brand } from '../../apiTypes.js';
 import { type Answer, nowIso } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
+import { local } from '../../storage.js';
 import { COPY } from './sceneCopy.js';
 import {
   asideReply,
@@ -39,6 +40,7 @@ import {
   EMPTY,
   namedIn,
   readAsk,
+  readDue,
   reduce,
   repeatsLastAsk,
   stale,
@@ -48,27 +50,43 @@ import {
 } from './sceneStudioRules.js';
 import { type SavedScene, useSceneStudio } from './useSceneStudio.js';
 
+/**
+ * Where a conversation is kept: the `local` lane, because the work it started
+ * outlives the tab (a person can close the page mid-draw and open it again from
+ * Activity), stamped so a conversation nobody came back to in a week is let go.
+ */
+const KEPT = 'scenri:scene-studio:';
+const KEEP_MS = 7 * 24 * 60 * 60 * 1000;
+
 function load(key: string) {
+  const raw = local.get(key);
+  if (!raw) return null;
   try {
-    return unpackSession(sessionStorage.getItem(key));
+    const o = JSON.parse(raw);
+    return unpackSession(typeof o?.session === 'string' ? o.session : null);
   } catch {
     return null;
   }
 }
 
 function store(key: string, packed: string) {
-  try {
-    sessionStorage.setItem(key, packed);
-  } catch {
-    // full or refused: the studio still works, it just does not resume
-  }
+  local.set(key, JSON.stringify({ at: Date.now(), session: packed }));
 }
 
 function forget(key: string) {
-  try {
-    sessionStorage.removeItem(key);
-  } catch {
-    // nothing to forget
+  local.del(key);
+}
+
+/** Conversations nobody returned to in a week. */
+function pruneKept(now = Date.now()) {
+  for (const k of local.keys(KEPT)) {
+    let at = 0;
+    try {
+      at = Number(JSON.parse(local.get(k) ?? 'null')?.at) || 0;
+    } catch {
+      // unreadable is as good as old
+    }
+    if (now - at > KEEP_MS) local.del(k);
   }
 }
 
@@ -87,15 +105,18 @@ export function useSceneFlow(args: {
   sceneId: string | null;
   /** The saved scene as version one, when editing. */
   seed: StudioState | null;
+  /** The conversation's id: the server runs one job per conversation. */
+  conversation: string;
   storageKey: string;
   caps: Caps | null;
   onSaved: (made: SavedScene, how: 'created' | 'updated') => void;
 }) {
-  const { brand, applyBrand, sceneId, seed, storageKey, caps } = args;
+  const { brand, applyBrand, sceneId, seed, conversation, storageKey, caps } = args;
   const edit = sceneId && seed ? { name: seed.name } : null;
   // Nothing to resume is a new conversation: what an older one under the same
   // history entry said, and when, must not be remembered as said in this one.
   const [restored] = useState(() => {
+    pruneKept();
     const r = load(storageKey);
     if (!r) forgetSaid(storageKey);
     return r;
@@ -132,6 +153,7 @@ export function useSceneFlow(args: {
     dispatch,
     brandId: brand.id,
     sceneId,
+    conversation,
     applyBrand,
     onSaved: (made, asNew) => {
       gone.current = true;
@@ -153,10 +175,12 @@ export function useSceneFlow(args: {
   }, [setup.answers, setup.editing, edit]);
 
   // The one autonomous step: a place given and not read yet is read. Once per
-  // revision of what was given, so a failure asks rather than retrying on its own.
+  // revision of what was given, so a failure or a Stop asks rather than
+  // retrying on its own. The revision tried is kept with the session
+  // (`readTried`), so a reload or a Back does not start it again either; the
+  // ref is only the guard against a double effect inside one mount.
   const fired = useRef(new Set<number>());
-  const unread = studio.inputsRev > 0 && (studio.readRev === null || studio.readRev !== studio.inputsRev);
-  const readKey = !edit && setupDone(setup.answers) && !studio.job && unread ? studio.inputsRev : null;
+  const readKey = readDue(studio, !edit && setupDone(setup.answers));
   useEffect(() => {
     if (readKey === null || fired.current.has(readKey)) return;
     fired.current.add(readKey);
@@ -413,7 +437,9 @@ export function useSceneFlow(args: {
       disabled: composer.target.kind === 'off',
       why: composer.target.kind === 'off' ? composer.target.why || null : null,
       working: composer.working,
-      onStop: composer.working ? work.stop : undefined,
+      // Whatever runs can be stopped, whichever question holds the line.
+      onStop: studio.job ? work.stop : undefined,
+      stopping: !!studio.job?.stopping,
       focusKey,
       onAttachFiles: composer.attach ? (files: File[]) => void addPictures(files) : undefined,
       attachLabel: COPY.attachLabel,
@@ -442,6 +468,8 @@ export function useSceneFlow(args: {
     canDraw,
     begun,
     unsaved: edit ? unsavedOf(studio, seed) : begun,
+    /** Work is under way on the server for this conversation. */
+    running: !!studio.job,
     leave: () => {
       work.stop();
       gone.current = true;

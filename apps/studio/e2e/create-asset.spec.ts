@@ -181,7 +181,7 @@ test.describe('adding to a brand', () => {
 
     await trigger(page).click();
     await page.locator('.sc-start-row', { hasText: 'Scene' }).click();
-    await expect(page).toHaveURL(new RegExp(`/${slug}/scenes/new$`));
+    await expect(page).toHaveURL(new RegExp(`/${slug}/scenes/new/[a-f0-9]+$`));
     await expect(page.getByRole('dialog', { name: 'Create scene' })).toBeVisible();
 
     await page.goBack();
@@ -256,16 +256,20 @@ test.describe('adding to a brand', () => {
     }
   });
 
-  test('each flow says what pressing its button will actually do', async ({ page }) => {
+  test('the product form says what its button will do, and the studios put nothing under the composer', async ({
+    page,
+  }) => {
     await page.goto(`/${slug}?new=product`);
-    // the free one says so, where the other two say what they will spend
     await expect(page.locator('.sc-dlg-foot')).toContainText('No preview');
 
+    // the studios say what cannot be done in the conversation, where it matters
     await page.goto(`/${slug}/scenes/new`);
-    await expect(page.locator('.sc-dlg-foot')).not.toHaveText('');
+    await expect(page.locator('.sc-pstudio')).toBeVisible();
+    await expect(page.locator('.sc-pstudio-foot .sc-dlg-foot')).toHaveCount(0);
 
     await page.goto(`/${slug}/presenters/new`);
-    await expect(page.locator('.sc-dlg-foot')).not.toHaveText('');
+    await expect(page.locator('.sc-pstudio')).toBeVisible();
+    await expect(page.locator('.sc-pstudio-foot .sc-dlg-foot')).toHaveCount(0);
   });
 
   test('the primary explains itself rather than going quietly inert', async ({ page }) => {

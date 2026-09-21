@@ -389,8 +389,14 @@ export const api = {
       ask?: string;
       draw?: boolean;
       reread?: boolean;
+      /** The studio conversation asking; one job runs per conversation. */
+      conversation?: string;
+      sceneId?: string;
+      /** What Activity calls the work. */
+      label?: string;
     },
-  ) => req<{ jobId: string; job: SceneStudioJob }>('POST', `/api/brands/${brandId}/scene-studio/jobs`, p),
+  ) =>
+    req<{ jobId: string; job: SceneStudioJob; existing?: true }>('POST', `/api/brands/${brandId}/scene-studio/jobs`, p),
   sceneStudioJob: (brandId: string, jobId: string) =>
     req<SceneStudioJob>('GET', `/api/brands/${brandId}/scene-studio/jobs/${jobId}`),
   cancelSceneStudioJob: (brandId: string, jobId: string) =>

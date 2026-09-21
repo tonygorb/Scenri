@@ -50,11 +50,13 @@ export function useSceneStudio(args: {
   dispatch: Dispatch<Action>;
   brandId: string;
   sceneId: string | null;
+  /** The conversation asking: the server answers a second start with the job already running. */
+  conversation: string;
   applyBrand: (b: Brand) => void;
   /** `asNew` when an edit was saved as a scene of its own. */
   onSaved: (made: SavedScene, asNew: boolean) => void;
 }) {
-  const { s, dispatch, brandId, sceneId, applyBrand } = args;
+  const { s, dispatch, brandId, sceneId, conversation, applyBrand } = args;
   const [offline, setOffline] = useState(false);
   const [saving, setSaving] = useState(false);
   const live = useRef(s);
@@ -85,8 +87,22 @@ export function useSceneStudio(args: {
                   imageHashes: st.pictures,
                   draw: opts.draw,
                 };
-        const { jobId, job } = await api.startSceneStudioJob(brandId, body);
-        dispatch({ type: 'started', id: jobId, kind, ask: opts.ask, since: job.phaseAt });
+        const label = st.name.trim() || v?.reading.name || undefined;
+        const { jobId, job } = await api.startSceneStudioJob(brandId, {
+          ...body,
+          conversation,
+          ...(sceneId ? { sceneId } : {}),
+          ...(label ? { label } : {}),
+        });
+        // The job may be one already running for this conversation (a start
+        // that raced a remount): it is adopted as it is, kind and all.
+        dispatch({
+          type: 'started',
+          id: jobId,
+          kind: job.kind,
+          ask: job.kind === kind ? opts.ask : undefined,
+          since: job.phaseAt,
+        });
       } catch (e: any) {
         dispatch({ type: 'error', text: String(e?.message ?? e) });
       } finally {
@@ -132,10 +148,19 @@ export function useSceneStudio(args: {
     };
   }, [jobId, brandId, dispatch]);
 
+  /**
+   * Stop the work in flight. Said at once (the pill reads Stopping and cannot be
+   * pressed again); the job ends on the server, and the poll brings its answer
+   * back like any other. If it had already finished, that answer is the result:
+   * a picture that landed before the Stop reached the server is kept, never
+   * thrown away.
+   */
   const stop = useCallback(() => {
-    const id = live.current.job?.id;
-    if (id) void api.cancelSceneStudioJob(brandId, id).catch(() => undefined);
-  }, [brandId]);
+    const job = live.current.job;
+    if (!job || job.stopping) return;
+    dispatch({ type: 'stopping', id: job.id });
+    void api.cancelSceneStudioJob(brandId, job.id).catch(() => undefined);
+  }, [brandId, dispatch]);
 
   const putBack = useCallback(
     (hash: string) => {

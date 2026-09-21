@@ -142,7 +142,7 @@ test('the chooser is usable by touch', async ({ page }) => {
 
   // a scene is a place of its own, not a dialog: the card opens its studio
   await page.locator('[data-kind="scene"]').tap();
-  await expect(page).toHaveURL(new RegExp(`/${slug}/scenes/new$`));
+  await expect(page).toHaveURL(new RegExp(`/${slug}/scenes/new/[a-f0-9]+$`));
   await expect(page.getByRole('dialog', { name: 'Create scene' })).toBeVisible();
 });
 

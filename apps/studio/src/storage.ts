@@ -24,6 +24,8 @@ export interface SafeStorage {
   get(key: string): string | null;
   set(key: string, value: string): void;
   del(key: string): void;
+  /** Every key under a prefix, for a lane's owner to tidy its own leftovers. */
+  keys(prefix: string): string[];
 }
 
 /**
@@ -52,6 +54,19 @@ function lane(pick: () => Storage): SafeStorage {
         pick().removeItem(key);
       } catch {
         /* nothing to clean up if we cannot reach it anyway */
+      }
+    },
+    keys(prefix) {
+      try {
+        const s = pick();
+        const out: string[] = [];
+        for (let i = 0; i < s.length; i++) {
+          const k = s.key(i);
+          if (k?.startsWith(prefix)) out.push(k);
+        }
+        return out;
+      } catch {
+        return [];
       }
     },
   };

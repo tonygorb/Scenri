@@ -11,6 +11,7 @@ import {
   turnsFor,
   unpackSession,
 } from '../src/create/scene/sceneFlowRules.js';
+import { followUps, intentOf, known } from '../src/create/scene/sceneIntent.js';
 import { fillFrom, ROWS } from '../src/create/scene/sceneRows.js';
 import {
   type Answers,
@@ -108,10 +109,60 @@ describe('the setup', () => {
     expect(picturesOf({ ...a, photos: { hashes: [H('a')], done: true } })).toEqual([H('a')]);
   });
 
-  it('takes a sentence at the first question as the whole place', () => {
-    const a: Answers = { source: { door: 'words', text: 'White cyclorama, hard flash' } };
+  it('takes a sentence that decides the place as the whole place, and asks nothing more', () => {
+    const a: Answers = { source: { door: 'words', text: 'White cyclorama, hard flash, top-down product photography' } };
+    expect(nextQuestion(a)).toBeNull();
     expect(setupDone(a)).toBe(true);
-    expect(compileDirection(a)).toBe('White cyclorama, hard flash');
+    expect(compileDirection(a)).toBe('White cyclorama, hard flash, top-down product photography');
+  });
+
+  it('asks only what a sentence left open, and never the camera', () => {
+    // the place and the light are said: how the subject sits is the one open decision
+    const two: Answers = { source: { door: 'words', text: 'White cyclorama, hard flash' } };
+    expect(nextQuestion(two)).toBe('stage');
+    const done = commit(two, { stage: { pick: PASSED } });
+    expect(setupDone(done)).toBe(true);
+    expect(compileDirection(done)).toBe('White cyclorama, hard flash');
+
+    // a material and a register, nothing about light or placement: those two, in that order
+    const warm: Answers = { source: { door: 'words', text: 'luxury product photography in warm stone' } };
+    expect(nextQuestion(warm)).toBe('light');
+    const lit = commit(warm, { light: { pick: 'golden' } });
+    expect(nextQuestion(lit)).toBe('stage');
+    const sat = commit(lit, { stage: { pick: 'plinth' } });
+    expect(nextQuestion(sat)).toBeNull();
+    const golden = ROWS.light.options.find((o) => o.id === 'golden')!.words;
+    const plinth = ROWS.stage.options.find((o) => o.id === 'plinth')!.words;
+    expect(compileDirection(sat)).toBe(`luxury product photography in warm stone, ${golden}, ${plinth}.`);
+    // the shot row is never one of them
+    expect(SPECS.find((x) => x.id === 'shot')!.applies(sat)).toBe(false);
+  });
+
+  it('asks where it is when a sentence gives only a feeling', () => {
+    const a: Answers = { source: { door: 'words', text: 'something calm and expensive for a skincare launch' } };
+    expect(nextQuestion(a)).toBe('world');
+    const placed = commit(a, { world: { pick: 'stone' } });
+    // a world with its own light asks whether to keep it, like the guided door
+    expect(nextQuestion(placed)).toBe('light');
+  });
+
+  it('lets the sentence decide over anything a tapped world implies', () => {
+    // the sentence says the light; the world tapped after it does not add its own
+    const a: Answers = {
+      source: { door: 'words', text: 'under hard on-camera flash, shot from above, on a plinth' },
+      world: { pick: 'stone' },
+    };
+    expect(nextQuestion(a)).toBeNull();
+    const d = compileDirection(a);
+    expect(d.startsWith('under hard on-camera flash, shot from above, on a plinth,')).toBe(true);
+    expect(d).not.toContain(ROWS.world.options.find((o) => o.id === 'stone')!.light!);
+  });
+
+  it('asks again from the sentence when the sentence changes', () => {
+    const a = commit({ source: { door: 'words', text: 'a cold shore' } }, { light: { pick: 'golden' } });
+    const changed = commit(a, { source: { door: 'words', text: 'a cold shore at blue hour' } });
+    expect(changed.light).toBeUndefined();
+    expect(nextQuestion(changed)).toBe('stage');
   });
 
   it('says the rows as one sentence, skipped ones left out and typed ones kept', () => {
@@ -575,7 +626,10 @@ describe('what is worth reading', () => {
 
   it('holds for the other two doors too', () => {
     expect(setupDone({ source: { door: 'words', text: '   ' } })).toBe(false);
-    expect(setupDone({ source: { door: 'words', text: 'a cold shore' } })).toBe(true);
+    expect(setupDone({ source: { door: 'words', text: 'a cold shore' } })).toBe(false);
+    expect(
+      setupDone({ source: { door: 'words', text: 'a cold shore' }, light: { pick: PASSED }, stage: { pick: PASSED } }),
+    ).toBe(true);
     expect(setupDone({ source: { door: 'photos' }, photos: { hashes: [], done: true } })).toBe(false);
   });
 });
@@ -630,10 +684,41 @@ describe('stop is never a dead end', () => {
     let studio = reduce(EMPTY, { type: 'inputs', place: 'a shore', pictures: [] });
     studio = reduce(studio, { type: 'started', id: 'j1', kind: 'make', since: 't' });
     studio = reduce(studio, { type: 'finished', job: job({ status: 'cancelled', reading: null, hash: null }) });
-    expect(studio.error).toBe('That was stopped. Nothing here was changed.');
+    expect(studio.error).toBe('Stopped before the place was read. Read it again, or say it differently.');
     const q = lastQ(turnsFor(args({ setup: setupOf(guided), studio, stale: true })));
     expect(q?.id).toBe('retry');
-    expect(q?.prompt).toBe('That was stopped. Nothing here was changed.');
+    expect(q?.prompt).toBe('Stopped before the place was read. Read it again, or say it differently.');
     expect(composerFor(args({ setup: setupOf(guided), studio, stale: true }), q).target).toEqual({ kind: 'source' });
+  });
+});
+
+describe('what a sentence already decides', () => {
+  it('reads the four decisions off whole words', () => {
+    expect(known(intentOf('white cyclorama, hard flash, top-down product photography'))).toEqual([
+      'world',
+      'light',
+      'camera',
+    ]);
+    expect(known(intentOf('luxury product photography in warm stone'))).toEqual(['world']);
+    expect(known(intentOf('a pearl resting on wet sand at golden hour, macro'))).toEqual([
+      'world',
+      'light',
+      'stage',
+      'camera',
+    ]);
+    expect(known(intentOf('calm and expensive'))).toEqual([]);
+  });
+
+  it('does not mistake a material for a light', () => {
+    expect(intentOf('warm stone').light).toBe(false);
+    expect(intentOf('soft linen folds').light).toBe(false);
+    expect(intentOf('dark marble').light).toBe(false);
+  });
+
+  it('asks two things at most, world first, and nothing once three are said', () => {
+    expect(followUps(intentOf('calm and expensive'))).toEqual(['world', 'light']);
+    expect(followUps(intentOf('a sunlit beach'))).toEqual(['stage']);
+    expect(followUps(intentOf('hard flash, from above, on a plinth'))).toEqual(['world']);
+    expect(followUps(intentOf('white cyclorama, hard flash, top-down'))).toEqual([]);
   });
 });

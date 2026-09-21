@@ -10,6 +10,7 @@ import {
   phaseOf,
   namedIn,
   readAsk,
+  readDue,
   readingLines,
   reduce,
   repeatsLastAsk,
@@ -141,7 +142,7 @@ describe('working and landing', () => {
     });
     expect(s.versions).toHaveLength(0);
     expect(s.job).toBeNull();
-    expect(s.error).toBe('That was stopped. Nothing here was changed.');
+    expect(s.error).toBe('Stopped before the place was read. Read it again, or say it differently.');
   });
 
   it('keeps words that already landed when a later draw is stopped', () => {
@@ -158,6 +159,96 @@ describe('working and landing', () => {
     const s = reduce(started, { type: 'lost', id: 'j1', error: 'gone' });
     expect(s.job).toBeNull();
     expect(s.error).toBe('gone');
+  });
+
+  it('says Stopping at once, once, for the job it was pressed for', () => {
+    const s = reduce(started, { type: 'stopping', id: 'j1' });
+    expect(s.job?.stopping).toBe(true);
+    expect(reduce(s, { type: 'stopping', id: 'j1' })).toBe(s);
+    // a press for work this conversation is not waiting on changes nothing
+    expect(reduce(started, { type: 'stopping', id: 'j9' })).toBe(started);
+    // and the answer, when it comes, ends it like any other
+    const done = reduce(s, { type: 'finished', job: job({ status: 'cancelled', reading: null, hash: null }) });
+    expect(done.job).toBeNull();
+    // the flag rides a reload, so the pill still says Stopping after one
+    expect(deserialize(serialize(s))?.job?.stopping).toBe(true);
+  });
+
+  it('keeps the new words of a change stopped while it drew, and says the picture did not come', () => {
+    const standing = run(
+      EMPTY,
+      { type: 'inputs', place: 'a shore', pictures: [] },
+      { type: 'started', id: 'j1', kind: 'make', since: 't0' },
+      { type: 'finished', job: job({ kind: 'make', hash: null }) },
+      { type: 'started', id: 'j2', kind: 'again', since: 't1' },
+      { type: 'finished', job: job({ id: 'j2', kind: 'again', hash: H('b') }) },
+      { type: 'started', id: 'j3', kind: 'change', ask: 'make it dusk', since: 't2' },
+    );
+    const s = reduce(standing, {
+      type: 'finished',
+      job: job({ id: 'j3', kind: 'change', status: 'cancelled', reading: R({ lighting: 'Dusk' }), hash: null }),
+    });
+    expect(current(s)?.reading.lighting).toBe('Dusk');
+    expect(current(s)?.hash).toBeNull();
+    expect(s.error).toMatch(/^Stopped before the picture changed/);
+    // the picture it was changing is still there to put back
+    expect(s.versions.some((v) => v.hash === H('b'))).toBe(true);
+  });
+
+  it('a stopped first draw keeps the words and says nothing was drawn', () => {
+    const read = run(
+      EMPTY,
+      { type: 'inputs', place: 'a shore', pictures: [] },
+      { type: 'started', id: 'j1', kind: 'make', since: 't0' },
+      { type: 'finished', job: job({ kind: 'make', hash: null }) },
+      { type: 'started', id: 'j2', kind: 'again', since: 't1' },
+    );
+    const s = reduce(read, {
+      type: 'finished',
+      job: job({ id: 'j2', kind: 'again', status: 'cancelled', hash: null }),
+    });
+    expect(current(s)?.reading).toEqual(R());
+    expect(s.error).toBe('Stopped. Nothing was drawn.');
+  });
+});
+
+describe('the read that starts on its own', () => {
+  const given = reduce(EMPTY, { type: 'inputs', place: 'a shore', pictures: [] });
+
+  it('is due once the place is given and nothing is running', () => {
+    expect(readDue(given, true)).toBe(1);
+    expect(readDue(given, false)).toBeNull();
+    expect(readDue(EMPTY, true)).toBeNull();
+  });
+
+  it('is not due again for a revision it was started for, even after a reload', () => {
+    const tried = reduce(given, { type: 'started', id: 'j1', kind: 'make', since: 't0' });
+    expect(readDue(tried, true)).toBeNull();
+    const stopped = reduce(tried, { type: 'finished', job: job({ status: 'cancelled', reading: null, hash: null }) });
+    expect(readDue(stopped, true)).toBeNull();
+    // the page reloads: the session comes back, and the stopped read stays stopped
+    const reloaded = deserialize(serialize(stopped));
+    expect(reloaded?.readTried).toBe(1);
+    expect(readDue(reloaded!, true)).toBeNull();
+  });
+
+  it('is due again when what was given changes', () => {
+    const tried = run(
+      given,
+      { type: 'started', id: 'j1', kind: 'make', since: 't0' },
+      { type: 'finished', job: job({ status: 'failed', reading: null, hash: null, error: 'no' }) },
+    );
+    const changed = reduce(tried, { type: 'inputs', place: 'a colder shore', pictures: [] });
+    expect(readDue(changed, true)).toBe(2);
+  });
+
+  it('is never due while it is read', () => {
+    const read = run(
+      given,
+      { type: 'started', id: 'j1', kind: 'make', since: 't0' },
+      { type: 'finished', job: job({ kind: 'make', hash: null }) },
+    );
+    expect(readDue(read, true)).toBeNull();
   });
 });
 

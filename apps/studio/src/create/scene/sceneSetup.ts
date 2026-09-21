@@ -1,5 +1,6 @@
 import type { Answer, Aside } from '../../conversation/question.js';
 import { COPY } from './sceneCopy.js';
+import { followUps, intentOf } from './sceneIntent.js';
 import { optionOf, ROW_ORDER, ROWS, type SceneRow } from './sceneRows.js';
 
 /**
@@ -9,7 +10,13 @@ import { optionOf, ROW_ORDER, ROWS, type SceneRow } from './sceneRows.js';
  * question id, the next question read off them every time and never counted,
  * and a conversation that reads forward, so changing an answer takes back
  * everything asked after it. Scaled to a place: one door, the pictures or the
- * four rows, and nothing else.
+ * rows, and nothing else.
+ *
+ * A sentence typed at the first question is a door of its own, and the rows
+ * still stand behind it: only the ones it left open are asked (`sceneIntent`),
+ * at most two, so a sentence that says the place, the light and the camera goes
+ * straight to the reading, and one that says only "warm stone" is asked how it
+ * is lit and how the subject lives in it.
  */
 
 /** How the place is given: pictures of it, the four rows, or a sentence typed at the first question. */
@@ -42,10 +49,19 @@ interface Spec {
 
 const door = (a: Answers) => a.source?.door;
 
+/** The rows a typed sentence left open, and so still asks. Never the camera. */
+export const openAfterWords = (a: Answers): SceneRow[] =>
+  door(a) === 'words' ? followUps(intentOf(a.source?.text ?? '')) : [];
+
 export const SPECS: readonly Spec[] = [
   { id: 'source', applies: () => true },
   { id: 'photos', applies: (a) => door(a) === 'photos' },
-  ...ROW_ORDER.map((r): Spec => ({ id: r, applies: (a) => door(a) === 'guided' })),
+  ...ROW_ORDER.map(
+    (r): Spec => ({
+      id: r,
+      applies: (a) => door(a) === 'guided' || openAfterWords(a).includes(r),
+    }),
+  ),
 ];
 
 const ORDER = SPECS.map((s) => s.id);
@@ -170,7 +186,17 @@ const chosen = (g: Given | undefined): boolean => !!g && g.pick !== PASSED && (!
  * are not handing the reader the same ten frozen words.
  */
 export function compileDirection(a: Answers): string {
-  if (a.source?.door === 'words') return (a.source.text ?? '').trim();
+  if (a.source?.door === 'words') {
+    // The sentence first, as written: it is the deciding word. What the
+    // follow-ups added comes after it, and a world's own light only when the
+    // sentence did not already say how it is lit.
+    const text = (a.source.text ?? '').trim();
+    const world = rowWords('world', a.world);
+    const light =
+      rowWords('light', a.light) ?? (intentOf(text).light ? null : (optionOf('world', a.world?.pick)?.light ?? null));
+    const more = [world, light, rowWords('stage', a.stage)].filter(Boolean) as string[];
+    return more.length ? `${text.replace(/[.\s]+$/, '')}, ${more.join(', ')}.` : text;
+  }
   if (a.source?.door !== 'guided') return '';
   const world = rowWords('world', a.world);
   // A world passed over its light question keeps the light its own card was

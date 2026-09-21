@@ -54,6 +54,8 @@ export interface JobRef {
   phase: SceneStudioJob['phase'];
   /** When the phase on the clock started. */
   since: string | null;
+  /** Stop was pressed and its answer has not come back yet. */
+  stopping?: boolean;
 }
 
 export interface StudioState {
@@ -64,6 +66,13 @@ export interface StudioState {
   inputsRev: number;
   /** The inputs' revision the standing words were read from; null before any reading. */
   readRev: number | null;
+  /**
+   * The inputs' revision a read was last started for. Kept with the session, so
+   * the one read that starts on its own starts once per revision of what was
+   * given, not once per mount: a read that was stopped, or that failed, used to
+   * start again by itself after a reload or a Back.
+   */
+  readTried: number | null;
   versions: Version[];
   /** Index into `versions`; -1 before the first. */
   current: number;
@@ -79,6 +88,7 @@ export const EMPTY: StudioState = {
   pictures: [],
   inputsRev: 0,
   readRev: null,
+  readTried: null,
   versions: [],
   current: -1,
   name: '',
@@ -112,6 +122,8 @@ export type Action =
   | { type: 'inputs'; place: string; pictures: string[] }
   | { type: 'name'; text: string }
   | { type: 'started'; id: string; kind: SceneStudioJobKind; ask?: string; since: string }
+  /** Stop was pressed for this job; its answer is on the way. */
+  | { type: 'stopping'; id: string }
   | { type: 'progress'; job: SceneStudioJob }
   | { type: 'finished'; job: SceneStudioJob }
   | { type: 'lost'; id: string; error: string }
@@ -126,6 +138,22 @@ export const current = (s: StudioState): Version | null => s.versions[s.current]
 
 /** Whether anything has been drawn in this conversation. */
 export const drawn = (s: StudioState): boolean => s.versions.some((v) => !!v.hash);
+
+/**
+ * The inputs revision that should be read now, on its own, or null.
+ *
+ * The one autonomous step the studio takes: a place given and not read yet is
+ * read, once per revision of what was given. Never while work runs, never
+ * again for a revision a read was already started for (`readTried`, kept with
+ * the session), so a read that was stopped or failed asks rather than starting
+ * over after a reload or a Back.
+ */
+export function readDue(s: StudioState, ready: boolean): number | null {
+  if (!ready || s.job || s.inputsRev === 0) return null;
+  if (s.readRev !== null && s.readRev === s.inputsRev) return null;
+  if (s.readTried === s.inputsRev) return null;
+  return s.inputsRev;
+}
 
 /** The words were read from inputs that have since changed. */
 export const stale = (s: StudioState): boolean => s.readRev !== null && s.readRev !== s.inputsRev;
@@ -164,8 +192,12 @@ export function reduce(s: StudioState, a: Action): StudioState {
           phase: a.kind === 'again' ? 'drawing' : a.kind === 'change' ? 'changing' : 'reading',
           since: a.since,
         },
+        readTried: a.kind === 'make' ? s.inputsRev : s.readTried,
         error: null,
       };
+    case 'stopping':
+      if (!s.job || s.job.id !== a.id || s.job.stopping) return s;
+      return { ...s, job: { ...s.job, stopping: true } };
     case 'progress': {
       if (!s.job || s.job.id !== a.job.id) return s;
       const job = {
@@ -193,8 +225,12 @@ export function reduce(s: StudioState, a: Action): StudioState {
       // those words; a cancelled read or a cancelled Try again keeps the stage
       // as it was and asks again.
       if (j.status === 'cancelled') {
-        if (!reading || (ref.kind === 'again' && !j.hash)) return { ...base, error: COPY.stopped };
+        if (!reading) return { ...base, error: ref.kind === 'make' ? COPY.stoppedRead : COPY.stopped };
+        if (ref.kind === 'again' && !j.hash) return { ...base, error: COPY.stoppedDraw };
       }
+      // A change stopped while it drew: the words it read stand as their own
+      // version, and the line says the picture did not come.
+      const stoppedMid = j.status === 'cancelled' && ref.kind === 'change' && !j.hash;
       // Nothing landed that can stand: the words stay as they were, and so does
       // the version on the stage.
       if (!reading || (ref.kind === 'again' && !j.hash)) return { ...base, error: failed };
@@ -224,7 +260,7 @@ export function reduce(s: StudioState, a: Action): StudioState {
         current: replaceDraft ? s.current : versions.length - 1,
         // a make reads the inputs as they stood when it started; the other two keep the reading's own age
         readRev: ref.kind === 'make' ? ref.inputsRev : s.readRev,
-        error: failed,
+        error: stoppedMid ? COPY.stoppedChange : failed,
       };
       return suggestName(next, reading);
     }
@@ -445,6 +481,7 @@ export function deserialize(raw: string | null): StudioState | null {
           coverage: strs(o.job.coverage),
           phase: ['reading', 'changing', 'drawing'].includes(o.job.phase) ? o.job.phase : null,
           since: typeof o.job.since === 'string' ? o.job.since : null,
+          ...(o.job.stopping === true ? { stopping: true } : {}),
         }
       : null;
   const cur =
@@ -454,6 +491,7 @@ export function deserialize(raw: string | null): StudioState | null {
     pictures: strs(o.pictures).slice(0, PICTURES_MAX),
     inputsRev: Number(o.inputsRev) || 0,
     readRev: o.readRev === null || o.readRev === undefined ? null : Number(o.readRev),
+    readTried: o.readTried === null || o.readTried === undefined ? null : Number(o.readTried),
     versions,
     current: cur,
     name: typeof o.name === 'string' ? o.name.slice(0, NAME_MAX) : '',

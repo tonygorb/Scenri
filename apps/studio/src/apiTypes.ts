@@ -570,6 +570,14 @@ export interface SceneStudioJob {
   error: string | null;
   warnings: string[];
   attachTo: string | null;
+  /** The picture the scene wore when the attach was asked for; the landed one goes on only over that. */
+  attachFrom?: string | null;
+  /** The studio conversation this work belongs to. */
+  conversation?: string | null;
+  /** The saved scene the conversation edits, if any. */
+  sceneId?: string | null;
+  /** What Activity calls it. */
+  label?: string;
 }
 
 export interface SceneField {

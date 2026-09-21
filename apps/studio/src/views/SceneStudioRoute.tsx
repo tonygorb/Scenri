@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { matchPath, Navigate, useLocation, useNavigate, useParams } from 'react-router';
 import type { Brand, SceneReading } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
@@ -6,7 +6,7 @@ import { useBrand } from '../app/BrandLayout.js';
 import { useCreateFlow } from '../create/AssetCreateHost.js';
 import { SceneCreate } from '../create/scene/SceneCreate.js';
 import { seeded, type StudioState } from '../create/scene/sceneStudioRules.js';
-import { P, scenePath, scenesPath, sceneStudioPath } from '../routes.js';
+import { P, sceneEditPath, scenePath, scenesPath, sceneStudioPath } from '../routes.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
 
 const hashOf = (ref: unknown): string | null => {
@@ -44,23 +44,31 @@ function seedFrom(brand: Brand, sceneId: string): StudioState | null {
   });
 }
 
+/** A conversation's name in the URL. Not `randomUUID`: a lane opened over the LAN is not a secure context. */
+function mintConversation(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 /**
- * The scene studio as a URL: `/scenes/new` for a new scene, and
- * `/scenes/:sceneId/edit` for one that exists.
+ * The scene studio as a URL: `/scenes/new/:convoId` for a new scene, and
+ * `/scenes/:sceneId/edit/:convoId` for one that exists.
  *
  * A child route of the library (or of the scene's page), so leaving is instant
- * and comes back to the same scroll. `/scenes/new` is a new conversation every
- * time, named by the history entry it is had in: a reload keeps it, a new
- * press starts another. Opened from Create, a saved scene goes back there in
- * the brief, the way Use in a shot does from its page.
+ * and comes back to the same scroll. Pressing Create scene arrives without a
+ * conversation and is given a new one, written into the address at once: the
+ * work started in it runs on the server whatever the page does, and Back, a
+ * reload or a row in Activity lands on the same conversation, its answers and
+ * its pictures. Opened from Create, a saved scene goes back there in the brief,
+ * the way Use in a shot does from its page.
  */
 export function SceneStudioRoute() {
-  const { sceneId = null } = useParams();
+  const { sceneId = null, convoId = null } = useParams();
   const { key, state } = useLocation();
   const { brand } = useBrand();
   const { applyBrand } = useAppData();
   const navigate = useNavigate();
-  const { announce, caps, capsNote } = useCreateFlow();
+  const { announce, caps } = useCreateFlow();
   useTitleEntity(sceneId ? 'Edit scene' : 'Create scene');
 
   // Read once, on the way in: the record is the version the session starts
@@ -74,21 +82,29 @@ export function SceneStudioRoute() {
     [navigate, from, sceneId, brand],
   );
 
+  // Minted per arrival, then kept by the address: the replace below changes the
+  // history entry's key, and the memo then reads the same id back from the URL.
+  const convo = useMemo(() => convoId ?? mintConversation(), [convoId, key]);
+  useEffect(() => {
+    if (convoId || (sceneId && !seed)) return;
+    navigate(sceneId ? sceneEditPath(brand, sceneId, convo) : sceneStudioPath(brand, convo), { replace: true, state });
+  }, [convoId, convo, sceneId, seed, brand, navigate, state]);
+
   // a catalog scene has no record here to edit, and a gone one has nothing at all
   if (sceneId && !seed) return <Navigate to={scenePath(brand, sceneId)} replace />;
 
   return (
     <SceneCreate
-      key={key}
+      key={convo}
       brand={brand}
       applyBrand={applyBrand}
       sceneId={sceneId}
       seed={seed}
-      storageKey={`scenri:scene-studio:${brand.id}:${sceneId ?? 'new'}:${key}`}
+      conversation={convo}
+      storageKey={`scenri:scene-studio:${brand.id}:${convo}`}
       caps={caps ? { canRead: caps.canAnalyze, canDraw: caps.canGenerate } : null}
-      capsNote={capsNote}
       onClose={close}
-      // a new history entry is a new conversation, the way Create presenter is
+      // an address with no conversation in it is a new one, the way Create presenter is
       onStartOver={() => navigate(sceneStudioPath(brand), { replace: true, state })}
       onSaved={(made, how) => {
         announce({ kind: 'scene', id: made.id, name: made.name, verticals: made.verticals, how });

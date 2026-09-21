@@ -61,6 +61,27 @@ async function tap(q: Locator, name: string) {
   await q.getByRole('button', { name, exact: true }).click();
 }
 
+/**
+ * A place said in a sentence, with whatever it left open passed over: the
+ * follow-ups ask only what the sentence did not decide, and these specs are
+ * about what comes after the place.
+ */
+async function place(p: Page, sentence: string) {
+  await say(p, sentence);
+  // the live question, never the ghost of the one just answered (it stays, inert, for a beat)
+  const live = () => studio(p).locator('[data-turn^="q:"]:not([data-picked])').last();
+  let passed = '';
+  for (let i = 0; i < 3; i++) {
+    const q = live();
+    if (passed) await expect(q).not.toHaveAttribute('data-turn', passed);
+    await expect(q).toHaveAttribute('data-turn', /^q:(world|light|stage|agree-)/);
+    const id = (await q.getAttribute('data-turn')) ?? '';
+    if (id.startsWith('q:agree-')) return;
+    await tap(q, 'Leave it to the reading');
+    passed = id;
+  }
+}
+
 async function scenes(p: Page): Promise<any[]> {
   const brands = await (await p.request.get('/api/brands')).json();
   return brands.flatMap((b: any) => b.json?.scenes ?? []);
@@ -121,7 +142,7 @@ test('guided: the rows, read back as the words shots are told, drawn on a press,
 
 test('a name typed while the picture draws is the name, even when the picture lands before Enter', async ({ page }) => {
   await start(page);
-  await say(page, 'A bare plaster room with one high window');
+  await place(page, 'A bare plaster room with one high window');
   await draw(page);
   await expect(turn(page, 'q:name')).toBeVisible();
   await line(page).fill('High Window');
@@ -138,7 +159,7 @@ test('a sentence that names the scene names it, at the name question or after th
   page,
 }) => {
   await start(page);
-  await say(page, 'A bare plaster room with one high window');
+  await place(page, 'A bare plaster room with one high window');
   await draw(page);
   await expect(turn(page, 'q:name')).toBeVisible();
   // said the way people say it: the name is the name, not the sentence around it
@@ -157,7 +178,7 @@ test('a sentence at the first question is the place itself, and a scene saved un
   page,
 }) => {
   await start(page);
-  await say(page, 'White cyclorama with hard flash from the left');
+  await place(page, 'White cyclorama with hard flash from the left');
   await expect(openQ(page)).toContainText('White cyclorama with hard flash from the left.');
   await draw(page);
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
@@ -217,7 +238,7 @@ test('pictures opened again and changed, then left, are as they were, and the pi
 
 test('a change keeps the rest, and Put back restores a whole version, words and picture', async ({ page }) => {
   await start(page);
-  await say(page, 'A quiet concrete gallery at dusk');
+  await place(page, 'A quiet concrete gallery at dusk');
   await draw(page);
   await say(page, 'Gallery');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:decide-1');
@@ -328,7 +349,7 @@ test('a sentence that answers nothing gets a line, and a request to cast someone
   await say(page, 'hi');
   await expect(studio(page)).toContainText('Hello. Describe the place, or choose above.');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:source');
-  await say(page, 'A sunlit loft with brick walls');
+  await place(page, 'A sunlit loft with brick walls');
   await draw(page);
   await say(page, 'Loft');
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
@@ -355,7 +376,7 @@ test('leaving with anything said asks first, staying hands the keyboard back, an
 }) => {
   const slug = await start(page);
   const before = (await scenes(page)).length;
-  await say(page, 'A misty pine forest at dawn');
+  await place(page, 'A misty pine forest at dawn');
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/);
   await line(page).focus();
   await page.keyboard.press('Escape');
@@ -371,7 +392,7 @@ test('leaving with anything said asks first, staying hands the keyboard back, an
 
 test('a saved scene opens in the studio at its record, spending nothing, and saves in place', async ({ page }) => {
   await start(page);
-  await say(page, 'A tiled bathroom counter in soft morning light');
+  await place(page, 'A tiled bathroom counter in soft morning light');
   await draw(page);
   await say(page, 'Morning Counter');
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
@@ -394,6 +415,32 @@ test('a saved scene opens in the studio at its record, spending nothing, and sav
 test('the old address forwards to the studio', async ({ page }) => {
   const slug = await brandSlug(page);
   await page.goto(`/${slug}/scenes?new=scene`);
-  await page.waitForURL(new RegExp(`/${slug}/scenes/new$`));
+  await page.waitForURL(new RegExp(`/${slug}/scenes/new/[a-f0-9]+$`));
   await expect(turn(page, 'q:source')).toBeVisible();
+});
+
+test('a sentence is asked only what it left open: a full one goes straight to the reading, a partial one one tap each', async ({
+  page,
+}) => {
+  const slug = await start(page);
+  // the place, the light and the camera said: nothing more is asked
+  await say(page, 'White cyclorama, hard flash, top-down product photography');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/);
+  await expect(studio(page).locator('[data-turn="q:world"], [data-turn="q:light"], [data-turn="q:stage"]')).toHaveCount(
+    0,
+  );
+
+  // a material and a register: how it is lit, then how the subject sits, and nothing else
+  await page.goto(`/${slug}/scenes/new`);
+  await expect(turn(page, 'q:source')).toBeVisible();
+  await say(page, 'luxury product photography in warm stone');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:light');
+  await expect(openQ(page)).toContainText('You have the place. What light is it in?');
+  await tap(openQ(page), 'Golden hour');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:stage');
+  await tap(openQ(page), 'On a plinth');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/);
+  await expect(openQ(page)).toContainText('luxury product photography in warm stone, in low golden-hour sun');
+  // the camera is never one of them
+  await expect(studio(page).locator('[data-turn="q:shot"]')).toHaveCount(0);
 });
