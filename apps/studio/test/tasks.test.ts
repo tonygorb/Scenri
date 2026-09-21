@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import type { ActivityNode, AssetBuild, CatalogImportJob } from '../src/api.js';
+import type { ActivityNode, AssetBuild, CatalogImportJob, StudioWork } from '../src/api.js';
 import {
   agoLabel,
   batchTask,
@@ -19,6 +19,10 @@ import {
   taskFromAssetBuild,
   taskFromCatalogJob,
   taskFromNode,
+  taskFromStudioWork,
+  studioSubtitle,
+  showingTask,
+  isStudioTask,
   unreadCount,
   type NotificationItem,
   type Task,
@@ -677,5 +681,69 @@ describe('a site with no shop on it', () => {
     const t = taskFromCatalogJob(broken, { slug: 'lucid' });
     expect(t.state).toBe('error');
     expect(t.subtitle).toContain('no product payloads');
+  });
+});
+
+describe('studio work in the bell', () => {
+  const brand = { slug: 'acme' };
+  const w = (over: Partial<StudioWork>): StudioWork => ({
+    id: 'scene:j1',
+    kind: 'scene',
+    status: 'running',
+    step: 'drawing',
+    name: 'Night Shore',
+    thumb: null,
+    startedAt: '2026-09-22 01:00:00',
+    finishedAt: null,
+    error: null,
+    conversation: 'c1a2b3',
+    ...over,
+  });
+
+  it('leads a scene back to the conversation it was started in, new or editing', () => {
+    expect(taskFromStudioWork(w({}), brand).href).toBe('/acme/scenes/new/c1a2b3');
+    expect(taskFromStudioWork(w({ sceneId: 'us-9' }), brand).href).toBe('/acme/scenes/us-9/edit/c1a2b3');
+    // no conversation (an API caller): the scene it landed on, else nowhere
+    expect(taskFromStudioWork(w({ conversation: null, attachTo: 'us-4' }), brand).href).toBe('/acme/scenes/us-4');
+    expect(taskFromStudioWork(w({ conversation: null }), brand).href).toBeNull();
+  });
+
+  it('leads a presenter back to its draft, or to the editor when it edits one that exists', () => {
+    const p = w({ id: 'presenter:pd-1:r1', kind: 'presenter', step: 'front', draftId: 'pd-1', done: 1, total: 3 });
+    expect(taskFromStudioWork(p, brand).href).toBe('/acme/presenters/new/pd-1');
+    expect(taskFromStudioWork({ ...p, presenterId: 'up-7' }, brand).href).toBe('/acme/presenters/up-7/edit');
+    // a set has real counters, so a real bar
+    expect(taskFromStudioWork(p, brand).percent).toBe(33);
+    expect(taskFromStudioWork(w({}), brand).percent).toBeNull();
+  });
+
+  it('says what it is doing, and what came of it', () => {
+    expect(studioSubtitle(w({ step: 'reading' }))).toBe('Reading the place');
+    expect(studioSubtitle(w({ status: 'done' }))).toBe('The picture is drawn');
+    expect(studioSubtitle(w({ status: 'done', attachTo: 'us-1' }))).toBe('On its scene now');
+    expect(studioSubtitle(w({ status: 'cancelled' }))).toBe('Stopped');
+    expect(studioSubtitle(w({ status: 'failed', error: 'codex exited' }))).toBe('codex exited');
+    const p = w({ kind: 'presenter', step: null, draftId: 'pd-1', done: 0, total: 3 });
+    expect(studioSubtitle(p)).toBe('Reading the photos');
+    expect(studioSubtitle({ ...p, status: 'done', step: 'portrait', awaiting: true })).toMatch(/is ready to look at$/);
+    expect(studioSubtitle({ ...p, status: 'done', step: 'three-quarter', done: 3 })).toBe('Every view is drawn');
+    expect(taskFromStudioWork(w({ name: '' }), brand).title).toBe('New scene');
+  });
+
+  it('knows when the page on screen is the one a task leads to', () => {
+    expect(showingTask('/acme/scenes/new/c1a2b3', '/acme/scenes/new/c1a2b3')).toBe(true);
+    expect(showingTask('/acme/scenes/new/c1a2b3', '/acme/scenes/new/c1a2b3/')).toBe(true);
+    expect(showingTask('/acme/scenes/new/c1a2b3', '/acme/scenes')).toBe(false);
+    expect(showingTask(null, '/acme/scenes')).toBe(false);
+    expect(isStudioTask('scene:j1')).toBe(true);
+    expect(isStudioTask('presenter:pd-1:r1')).toBe(true);
+    expect(isStudioTask('build:ab-1')).toBe(false);
+  });
+
+  it('becomes one notification per run, however many ticks it was watched for', () => {
+    const running = new Map([['scene:j1', taskFromStudioWork(w({}), brand)]]);
+    const done = [taskFromStudioWork(w({ status: 'done' }), brand)];
+    expect(settled(running, done)).toHaveLength(1);
+    expect(settled(new Map(done.map((t) => [t.id, t])), done)).toHaveLength(0);
   });
 });

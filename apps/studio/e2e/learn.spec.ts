@@ -111,10 +111,10 @@ test('a lesson done from Learn is done in First steps, and can be done again', a
   test.setTimeout(90_000);
   await page.goto(`/${slug}?learn=scene`);
   await learn(page).getByRole('button', { name: 'Start' }).click();
-  await expect(page).toHaveURL(/\/scenes\/new$/);
+  await expect(page).toHaveURL(/\/scenes\/new\/[a-f0-9]+$/);
   await expect(coachTitle(page)).toHaveText('Describe the place, or start from pictures');
   const line = page.locator('.sc-pstudio[data-kind="scene"] .sc-pstudio-foot textarea');
-  await line.fill('A quiet stone terrace in low sun');
+  await line.fill('A quiet stone terrace in low sun, the subject resting on the balustrade');
   await line.press('Enter');
   await page.getByRole('button', { name: 'Draw the scene' }).click();
   await page.getByRole('button', { name: 'Use this scene' }).click();

@@ -176,7 +176,7 @@ test('First steps lists four real things, ticks what exists, hides with an Undo'
 test('a scene has its own task, held in the studio it is made in', async ({ page }) => {
   await page.goto(`/${slug}`);
   await steps(page).locator('.sc-steps-item', { hasText: 'Build a scene' }).click();
-  await expect(page).toHaveURL(/\/scenes\/new$/);
+  await expect(page).toHaveURL(/\/scenes\/new\/[a-f0-9]+$/);
   const studio = page.locator('.sc-pstudio[data-kind="scene"]');
   await expect(studio.locator('.sc-coach .sc-coach-title')).toHaveText('Describe the place, or start from pictures');
   // the studio's own line stays usable beside the question

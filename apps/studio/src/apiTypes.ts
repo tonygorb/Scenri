@@ -580,6 +580,33 @@ export interface SceneStudioJob {
   label?: string;
 }
 
+/**
+ * A studio's work as Activity shows it: a scene studio job, or a presenter
+ * draft's run (a set that goes on view after view is one run).
+ */
+export interface StudioWork {
+  /** `scene:<job>` or `presenter:<draft>:<run>`. */
+  id: string;
+  kind: 'scene' | 'presenter';
+  status: 'running' | 'done' | 'failed' | 'cancelled';
+  /** `reading`, `changing`, `drawing`, or a presenter view. */
+  step: string | null;
+  job?: SceneStudioJobKind;
+  name: string;
+  thumb: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  error: string | null;
+  conversation?: string | null;
+  sceneId?: string | null;
+  attachTo?: string | null;
+  draftId?: string;
+  presenterId?: string | null;
+  done?: number;
+  total?: number;
+  awaiting?: boolean;
+}
+
 export interface SceneField {
   key: string;
   label: string;

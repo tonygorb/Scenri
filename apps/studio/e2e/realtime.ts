@@ -257,7 +257,18 @@ export async function buildScene(page: Page, sentence: string, name: string): Pr
   const line = studio.locator('.sc-pstudio-foot textarea');
   await line.fill(sentence);
   await line.press('Enter');
-  await studio.getByRole('button', { name: 'Draw the scene' }).click({ timeout: 45_000 });
+  // what the sentence left open is asked, one tap each; these tests pass it over
+  const draw = studio.getByRole('button', { name: 'Draw the scene' });
+  const live = studio.locator('[data-turn^="q:"]:not([data-picked])').last();
+  const pass = live.getByRole('button', { name: 'Leave it to the reading', exact: true });
+  for (let i = 0; i < 3; i++) {
+    await expect(draw.or(pass)).toBeVisible({ timeout: 45_000 });
+    if (await draw.isVisible()) break;
+    const was = (await live.getAttribute('data-turn')) ?? '';
+    await pass.click();
+    await expect(live).not.toHaveAttribute('data-turn', was);
+  }
+  await draw.click({ timeout: 45_000 });
   // the name is asked while the first picture draws
   await line.fill(name);
   await line.press('Enter');

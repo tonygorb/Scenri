@@ -112,6 +112,16 @@ export function useSceneStudio(args: {
     [brandId, dispatch],
   );
 
+  // The name is asked while the first picture draws, after the work started:
+  // once it is given, the work is called by it, so Activity and the card that
+  // says it finished name the scene the person named.
+  const named = s.named ? s.name.trim() : '';
+  const labelledJob = s.job?.id ?? null;
+  useEffect(() => {
+    if (!labelledJob || !named) return;
+    void api.labelSceneStudioJob(brandId, labelledJob, named).catch(() => undefined);
+  }, [labelledJob, named, brandId]);
+
   // One loop per job, keyed on its id: a reload re-attaches to the same work.
   const jobId = s.job?.id ?? null;
   useEffect(() => {

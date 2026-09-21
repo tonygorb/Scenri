@@ -1,12 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { api, type ActivityNode, type AssetBuild, type Brand } from '../api.js';
+import { api, type ActivityNode, type AssetBuild, type Brand, type StudioWork } from '../api.js';
 import { spendAssetDraft } from '../createDraft.js';
 import { useToasts } from '../toasts.js';
 import { hubPath } from '../routes.js';
 import { useAppData } from './AppShell.js';
 import {
   batchTask,
+  isStudioTask,
   loadFeed,
   loadSeen,
   mergeFeed,
@@ -14,9 +15,11 @@ import {
   saveFeed,
   saveSeen,
   settled,
+  showingTask,
   taskFromAssetBuild,
   taskFromCatalogJob,
   taskFromNode,
+  taskFromStudioWork,
   unreadCount,
   type NotificationItem,
   type Task,
@@ -161,11 +164,16 @@ export function TaskCenterProvider({
   const pull = useCallback(async () => {
     let next: Task[];
     let liveBuilds: AssetBuild[];
+    let liveStudio: StudioWork[];
     try {
       // One tick, both sources. Asked together so a build and a generation can
       // never disagree about what moment it is.
-      const [{ nodes, jobs }, { builds: bs }] = await Promise.all([api.activity(brandId), api.assetBuilds(brandId)]);
+      const [{ nodes, jobs, studio = [] }, { builds: bs }] = await Promise.all([
+        api.activity(brandId),
+        api.assetBuilds(brandId),
+      ]);
       liveBuilds = bs;
+      liveStudio = studio;
       onActivityRef.current?.(brandId, nodes);
       // One row per REQUEST, not per sibling: a four-shot batch is one piece
       // of work in the bell, read across all of its siblings (batchTask) now
@@ -182,6 +190,7 @@ export function TaskCenterProvider({
         ...[...byBatch.values()].map((group) => batchTask(group, brandRef.current, now)),
         ...jobs.map((j) => taskFromCatalogJob(j, brandRef.current)),
         ...bs.map((b) => taskFromAssetBuild(b, brandRef.current)),
+        ...studio.map((w) => taskFromStudioWork(w, brandRef.current)),
       ];
     } catch {
       // the bell is not worth an error state; the next tick will tell the truth
@@ -197,7 +206,14 @@ export function TaskCenterProvider({
     // scene invisible until a full page reload.
     const live = new Set(liveBuilds.map((b) => b.id));
     const vanished = buildsRef.current.some((b) => !b.finished && !live.has(b.id));
-    if (landed.length || vanished) {
+    // A scene saved while its picture drew gets the picture from the server
+    // when it lands, into the brand document, with nobody on the page to ask
+    // for it: the brand this app holds is a version behind until it is read.
+    const attached = liveStudio.filter(
+      (w) => w.kind === 'scene' && w.status === 'done' && !!w.attachTo && !brandPulledRef.current.has(w.id),
+    );
+    for (const w of attached) brandPulledRef.current.add(w.id);
+    if (landed.length || vanished || attached.length) {
       for (const b of landed) {
         brandPulledRef.current.add(b.id);
         // The asset exists now, so the attempt that made it is over. Its draft
@@ -225,9 +241,16 @@ export function TaskCenterProvider({
       // a finish that landed on the feed you were looking at is already
       // accounted for: it keeps its place in the record without also becoming
       // an unread alert about itself
-      const marked = watchingFeedRef.current
-        ? arrivals.map((a) => (a.state === 'error' ? a : { ...a, watched: true }))
-        : arrivals;
+      // and so is studio work that finished on the studio page it belongs to:
+      // the stage showed it, failure and all
+      const here = window.location.pathname;
+      const marked = arrivals.map((a) =>
+        isStudioTask(a.id) && showingTask(a.href, here)
+          ? { ...a, watched: true }
+          : watchingFeedRef.current && a.state !== 'error'
+            ? { ...a, watched: true }
+            : a,
+      );
       const merged = mergeFeed(f, marked);
       saveFeed(brandId, merged);
       return merged;
@@ -240,6 +263,29 @@ export function TaskCenterProvider({
       announcedRef.current.add(n.id);
       // you already know: you are the one who cancelled it
       if (n.state === 'cancelled') continue;
+      /*
+       * Work from a studio, finished while you were elsewhere. On its own page
+       * the stage already said it, failure included, so nothing is said twice.
+       * Anywhere else it is one card that names what it was and leads back to
+       * it: a scene drawn, a presenter's views drawn (or one waiting to be
+       * looked at), or one that did not finish, which stays until dismissed.
+       */
+      if (isStudioTask(n.id)) {
+        if (showingTask(n.href, window.location.pathname)) continue;
+        const to = n.href;
+        const actions = to ? [{ label: 'Open', onClick: () => navRef.current(to) }] : undefined;
+        if (n.state === 'error') {
+          pushRef.current({ kind: 'error', title: `${n.title} did not finish`, detail: n.subtitle, actions });
+          continue;
+        }
+        pushRef.current({
+          kind: 'success',
+          title: `${n.title} is drawn`,
+          detail: n.kind === 'presenter' ? n.subtitle : undefined,
+          actions,
+        });
+        continue;
+      }
       // A finish you are watching land needs no second word. A failure still
       // speaks: the tile it leaves behind is deliberately quiet.
       // A presenter or a scene never lands in the feed, so it is never already seen there.

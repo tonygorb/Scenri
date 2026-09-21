@@ -39,6 +39,7 @@ import type {
   SceneSetup,
   SceneStudioJob,
   SceneStudioJobKind,
+  StudioWork,
   ShotSet,
   ShowcaseEntry,
   TreeNode,
@@ -91,7 +92,10 @@ export const api = {
   tree: (projectId: string) => req<{ project: Project; nodes: TreeNode[] }>('GET', `/api/projects/${projectId}/tree`),
   /** Everything running or lately finished in a brand, generations and imports together. */
   activity: (brandId: string) =>
-    req<{ nodes: ActivityNode[]; jobs: CatalogImportJob[] }>('GET', `/api/brands/${brandId}/activity`),
+    req<{ nodes: ActivityNode[]; jobs: CatalogImportJob[]; studio?: StudioWork[] }>(
+      'GET',
+      `/api/brands/${brandId}/activity`,
+    ),
   /** The brand's frame: project, root, sets, memberships and the newest shots. Never every shot. */
   workspace: (brandId: string) => req<Workspace>('GET', `/api/brands/${brandId}/workspace`),
   /** One page of the brand's shots for a place, lens, search and sort. */
@@ -401,6 +405,9 @@ export const api = {
     req<SceneStudioJob>('GET', `/api/brands/${brandId}/scene-studio/jobs/${jobId}`),
   cancelSceneStudioJob: (brandId: string, jobId: string) =>
     req<{ ok: boolean }>('POST', `/api/brands/${brandId}/scene-studio/jobs/${jobId}/cancel`),
+  /** The scene was named while this job ran: Activity says the name. */
+  labelSceneStudioJob: (brandId: string, jobId: string, label: string) =>
+    req<{ ok: boolean }>('POST', `/api/brands/${brandId}/scene-studio/jobs/${jobId}/label`, { label }),
   /** A scene was saved while this job drew its picture: put the picture on it when it lands. */
   attachSceneStudioJob: (brandId: string, jobId: string, sceneId: string) =>
     req<{ state: 'landed' | 'pending' | 'none'; brand: Brand }>(
