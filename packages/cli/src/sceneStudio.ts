@@ -631,6 +631,19 @@ export function attachSceneStudioJob(deps: AssetBuildDeps, id: string, sceneId: 
 }
 
 /**
+ * What Activity calls a job, once the person has named the scene. The name is
+ * asked while the first picture draws, after the job already started, and a
+ * scene finishing out of sight should be announced by the name they gave it.
+ */
+export function labelSceneStudioJob(id: string, label: string): boolean {
+  const job = jobs.get(id);
+  const name = oneLine(label, 60);
+  if (!job || !name) return false;
+  patch(job, { label: name });
+  return true;
+}
+
+/**
  * The studio work Activity shows for a brand: what runs, and what finished
  * recently enough to still be news. Newest first.
  */

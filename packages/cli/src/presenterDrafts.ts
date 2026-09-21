@@ -430,6 +430,65 @@ const running = new Map<string, { view: PresenterView | null; ctrl: AbortControl
 /** Set while the server is going away: nothing new starts, not even the next view of a set. */
 let closing = false;
 
+/**
+ * One run of a draft's work, as Activity shows it. A set that goes on view
+ * after view on its own is one run, from the first of them to the last, so it
+ * is one row and, when it ends, one piece of news rather than three.
+ */
+export interface DraftRun {
+  id: string;
+  draftId: string;
+  brandId: string;
+  /** The view being drawn, or last drawn; null for the photo read. */
+  view: PresenterView | null;
+  startedAt: string;
+  finishedAt: string | null;
+  status: 'running' | 'done' | 'failed' | 'cancelled';
+  error: string | null;
+}
+/** The latest run per draft. In memory, like the jobs it describes. */
+const runs = new Map<string, DraftRun>();
+const RUN_KEEP_MS = 24 * 60 * 60 * 1000;
+
+function beginRun(deps: AssetBuildDeps, id: string, view: PresenterView | null, chained: boolean): void {
+  const prev = runs.get(id);
+  if (chained && prev?.status === 'running') {
+    runs.set(id, { ...prev, view });
+    return;
+  }
+  runs.set(id, {
+    id: randomUUID().slice(0, 8),
+    draftId: id,
+    brandId: getPresenterDraft(deps.core, id)?.brandId ?? '',
+    view,
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    status: 'running',
+    error: null,
+  });
+}
+
+function endRun(deps: AssetBuildDeps, id: string, view: PresenterView | null, aborted: boolean): void {
+  const run = runs.get(id);
+  if (!run || run.status !== 'running') return;
+  const rec = getPresenterDraft(deps.core, id);
+  const error = view ? rec?.views[view].error : rec?.readError;
+  const failed = !aborted && !!error && error !== 'cancelled';
+  runs.set(id, {
+    ...run,
+    view,
+    finishedAt: new Date().toISOString(),
+    status: aborted ? 'cancelled' : failed ? 'failed' : 'done',
+    error: failed ? (error ?? null) : null,
+  });
+}
+
+/** The runs Activity shows for a brand: what draws now, and what finished in the last day. */
+export function presenterDraftRuns(brandId: string, now = Date.now()): DraftRun[] {
+  for (const [id, r] of runs) if (r.finishedAt && now - Date.parse(r.finishedAt) > RUN_KEEP_MS) runs.delete(id);
+  return [...runs.values()].filter((r) => r.brandId === brandId);
+}
+
 /** How many drafts are mid-step: the update path refuses to restart over one. */
 export function runningDraftJobCount(): number {
   return running.size;
@@ -439,6 +498,7 @@ export function runningDraftJobCount(): number {
 export function resetPresenterDrafts(): void {
   for (const job of running.values()) job.ctrl.abort();
   running.clear();
+  runs.clear();
   closing = false;
 }
 
@@ -914,9 +974,11 @@ function startJob(
   view: PresenterView | null,
   work: (signal: AbortSignal) => Promise<void>,
   after?: () => void,
+  chained = false,
 ): void {
   const ctrl = new AbortController();
   running.set(id, { view, ctrl });
+  beginRun(deps, id, view, chained);
   void work(ctrl.signal)
     .catch(() => {
       // every job writes its own outcome onto the row; nothing escapes here
@@ -930,11 +992,14 @@ function startJob(
         });
       } catch {
         // the draft was discarded while the job ran
+        runs.delete(id);
         return;
       }
       // In the same run as the idle write above, so no poll ever sees the set
       // standing still between one view and the next.
       if (!ctrl.signal.aborted && !closing) after?.();
+      // the run is over unless the set just went on to its next view
+      if (!running.has(id)) endRun(deps, id, view, ctrl.signal.aborted);
     });
 }
 
@@ -962,7 +1027,7 @@ function continueSet(deps: AssetBuildDeps, id: string): void {
   });
   if (!next) return;
   try {
-    generateView(deps, id, next, { decide: 'auto' });
+    generateView(deps, id, next, { decide: 'auto', chained: true });
   } catch {
     // refused (nothing to draw from, the draft changed): the studio says why when it is next opened
   }
@@ -983,7 +1048,8 @@ export async function generateView(
   deps: AssetBuildDeps,
   id: string,
   view: PresenterView,
-  opts: { adjustment?: string; decide?: 'auto' } = {},
+  /** `chained`: the set going on by itself, part of the run already under way. Never from a route. */
+  opts: { adjustment?: string; decide?: 'auto'; chained?: boolean } = {},
 ): Promise<{ draft: PresenterDraftRecord }> {
   const { core, engine } = deps;
   if (!isView(view)) throw fail('no such view', 400);
@@ -1041,6 +1107,7 @@ export async function generateView(
     view,
     (signal) => drawView(deps, id, view, before, adjustment, decide, signal),
     decide === 'auto' ? () => continueSet(deps, id) : undefined,
+    opts.chained === true,
   );
   return { draft: saved };
 }
@@ -1882,6 +1949,7 @@ export async function stopPresenterDraft(deps: AssetBuildDeps, id: string): Prom
 export async function discardPresenterDraft(deps: AssetBuildDeps, id: string, hooks: CleanupHooks = {}): Promise<void> {
   running.get(id)?.ctrl.abort();
   running.delete(id);
+  runs.delete(id);
   const rec = getPresenterDraft(deps.core, id);
   if (!rec) return;
   dropDraft(deps.core, rec, hooks);

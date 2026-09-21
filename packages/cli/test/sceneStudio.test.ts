@@ -409,6 +409,28 @@ describe('the scene studio', () => {
     expect(job.warnings.join(' ')).toMatch(/kept that one/);
   });
 
+  it('tells Activity what it drew and where it belongs, and keeps a finished read out of the news', async () => {
+    const brand = await newBrand();
+    const read = await run(brand.id, { kind: 'make', instruction: 'the shore', draw: false, conversation: 'c-act' });
+    const drawn = await run(brand.id, {
+      kind: 'again',
+      reading: read.reading,
+      conversation: 'c-act',
+      label: 'Night Shore',
+    });
+    const activity = (await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/activity` })).json();
+    const rows = activity.studio as any[];
+    expect(rows.map((r) => r.id)).toEqual([`scene:${drawn.id}`]);
+    expect(rows[0]).toMatchObject({
+      kind: 'scene',
+      status: 'done',
+      name: 'Night Shore',
+      thumb: drawn.hash,
+      conversation: 'c-act',
+      job: 'again',
+    });
+  });
+
   it('puts a landed picture on at once', async () => {
     const brand = await newBrand();
     const job = await run(brand.id, { kind: 'again', reading: READ });

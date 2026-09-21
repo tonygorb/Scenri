@@ -25,6 +25,7 @@ import {
   mergeIdentityEdits,
   openPresenterEdit,
   planStep,
+  presenterDraftRuns,
   redoView,
   resetPresenterDrafts,
   restoreView,
@@ -1924,6 +1925,16 @@ describe('the set without the page', () => {
     for (const v of ['three-quarter', 'back', 'left', 'right'] as const) expect(view(after, v).status).toBe('approved');
     expect(after.stage).toBe('idle');
     expect(after.activeView).toBeNull();
+  });
+
+  it('is one run in Activity from the first view it drew itself to the last', async () => {
+    const d = await handDecided();
+    const before = presenterDraftRuns(brandId).find((r) => r.draftId === d.id)?.id;
+    await step(d.id, 'three-quarter', undefined, 'auto');
+    const runs = presenterDraftRuns(brandId).filter((r) => r.draftId === d.id);
+    expect(runs).toHaveLength(1);
+    expect(runs[0].id).not.toBe(before);
+    expect(runs[0]).toMatchObject({ status: 'done', view: 'right', error: null });
   });
 
   it('stops the chain at a stopped view: nothing after it is drawn until asked', async () => {

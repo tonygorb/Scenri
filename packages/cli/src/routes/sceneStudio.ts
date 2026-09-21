@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import {
   attachSceneStudioJob,
+  labelSceneStudioJob,
   cancelSceneStudioJob,
   getSceneStudioJob,
   startSceneStudioJob,
@@ -76,6 +77,14 @@ export function registerSceneStudioRoutes(app: FastifyInstance, deps: BuildRoute
     const job = jobOr404(req, reply, brand.id);
     if (!job) return;
     return { ok: cancelSceneStudioJob(job.id) };
+  });
+
+  app.post('/api/brands/:id/scene-studio/jobs/:jobId/label', async (req, reply) => {
+    const brand = brandOr404(req, reply);
+    if (!brand) return;
+    const job = jobOr404(req, reply, brand.id);
+    if (!job) return;
+    return { ok: labelSceneStudioJob(job.id, String(((req.body ?? {}) as any).label ?? '')) };
   });
 
   app.post('/api/brands/:id/scene-studio/jobs/:jobId/attach', async (req, reply) => {
