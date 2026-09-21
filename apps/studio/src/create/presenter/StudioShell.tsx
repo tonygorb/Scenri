@@ -1,6 +1,6 @@
 import { FocusScope } from '@radix-ui/react-focus-scope';
 import { X } from '@phosphor-icons/react';
-import { type CSSProperties, type ReactNode, useEffect, useRef } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   type ComposerColour,
@@ -13,6 +13,7 @@ import { Transcript } from '../../conversation/Transcript.js';
 import { Tip } from '../../layout/Tip.js';
 import { PREF, useLocalPref } from '../../prefs.js';
 import { PHONE, useMediaQuery } from '../../useMediaQuery.js';
+import { useDockHeight } from '../../useDockHeight.js';
 import type { StripItem, Take, StudioView } from './presenterStudioRules.js';
 import { StageEmpty } from './StageEmpty.js';
 import { StudioStage } from './StudioStage.js';
@@ -141,6 +142,9 @@ export interface StudioSurface {
 export function StudioShell({ surface, onClose }: { surface: StudioSurface; onClose: () => void }) {
   const phone = useMediaQuery(PHONE);
   const rootRef = useRef<HTMLDivElement>(null);
+  // The composer at the foot; on a phone the toast stack stands above it.
+  const [foot, setFoot] = useState<HTMLDivElement | null>(null);
+  useDockHeight(foot, '--sc-pstudio-dock-h');
 
   // Escape leaves, as it does the shot overlay, unless a popover or a Confirm
   // inside already took the key (Radix marks its Escape handled).
@@ -342,7 +346,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
               />
             </div>
           </div>
-          <div className="sc-pstudio-foot sc-dock">
+          <div className="sc-pstudio-foot sc-dock" ref={setFoot}>
             {s.dock}
             {s.composer && (
               <ConversationComposer

@@ -59,3 +59,24 @@ test('identical events share one card; the stack never grows past three', async 
   await expect(page.locator('.sc-toast')).toHaveCount(3);
   await expect(page.locator('.sc-toast', { hasText: 'Only images can be attached here' })).toHaveCount(0);
 });
+
+test('a lasting error stands above the composer, never over its buttons', async ({ page }) => {
+  await probe(page);
+  const brand = await currentBrand(page);
+  for (const size of [
+    { width: 390, height: 844 },
+    { width: 1024, height: 768 },
+  ]) {
+    await page.setViewportSize(size);
+    await page.goto(`/${brand.slug}/create`);
+    await expect(page.locator('.sc-canvas-dock .sc-composer')).toBeVisible();
+    await push(page, { kind: 'error', title: 'Could not delete this shot', detail: 'Try again in a moment.' });
+    await expect(page.locator('.sc-toast[data-kind="error"]')).toBeVisible();
+    const stack = await page.locator('.sc-toasts').boundingBox();
+    const dock = await page.locator('.sc-canvas-dock').boundingBox();
+    expect(stack && dock, 'both measured').toBeTruthy();
+    // above the dock with a gap, so Send and the attach button stay reachable
+    expect(stack!.y + stack!.height).toBeLessThanOrEqual(dock!.y);
+    await page.locator('.sc-toast-x').click();
+  }
+});
