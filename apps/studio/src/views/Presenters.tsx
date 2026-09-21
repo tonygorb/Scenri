@@ -4,6 +4,7 @@ import { Outlet, useMatch, useNavigate } from 'react-router';
 import { Plus } from '@phosphor-icons/react';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
+import { useTaskCenter } from '../app/TaskCenter.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { customPresentersOf } from '../brandAssets.js';
@@ -143,10 +144,18 @@ export function PresentersView() {
    * over the wall, so there is nothing to read while it is open.
    */
   const inStudio = !!useMatch({ path: P.presenterStudio });
+  // A set goes on drawing after the studio closes (the server carries it), so
+  // the wall reads its drafts again whenever a presenter run in the bell moves:
+  // a draft card is never a picture behind the work it stands for.
+  const { tasks } = useTaskCenter();
+  const runs = tasks
+    .filter((t) => t.id.startsWith('presenter:'))
+    .map((t) => `${t.id}:${t.state}:${t.percent ?? ''}`)
+    .join('|');
   useEffect(() => {
     if (inStudio) return;
     return loadDrafts();
-  }, [inStudio, loadDrafts]);
+  }, [inStudio, loadDrafts, runs]);
   /**
    * The wall, so a card thrown away can hand its place on to a neighbour.
    *
