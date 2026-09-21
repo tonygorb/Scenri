@@ -1414,9 +1414,11 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
         error: askErr ?? saveErr,
         disabled: composerOff,
         working: !!d && !!d.activeView && question?.id !== 'name',
-        // Anything running can be stopped, the photo read included, and the name
-        // question never hides it: the pill is Stop until a name is typed.
-        onStop: d && isDrawing(d) ? () => void s.stop() : undefined,
+        // A draw can be stopped whatever question holds the line: the pill is
+        // Stop until a name is typed. Not the photo read: stopped, the face would
+        // simply be drawn from the photos unread, which is what letting it
+        // finish does too, only worse.
+        onStop: d?.activeView ? () => void s.stop() : undefined,
         stopping: s.stopping,
         // The keyboard follows a question that is answered in words. The last
         // word is a decision with a line open beside it, so the caret waits to

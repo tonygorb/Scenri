@@ -23,7 +23,6 @@ import {
   autoFor,
   builtOn,
   doingLine,
-  drawing as isDrawing,
   drawingSince,
   nextToDraw,
   readsAsPerson,
@@ -433,7 +432,7 @@ export function useEditingFlow({ presenterId, onLeave, caps }: EditingFlowArgs) 
             error: askErr,
             disabled: s.busy || saving || leaving || !!off,
             working: !!d?.activeView,
-            onStop: d && isDrawing(d) ? () => void s.stop() : undefined,
+            onStop: d?.activeView ? () => void s.stop() : undefined,
             stopping: s.stopping,
             focusKey: `${question?.id ?? 'open'}:${d?.id ?? ''}`,
           }
