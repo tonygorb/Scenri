@@ -850,7 +850,7 @@ export interface CommerceScanState {
 }
 
 /** First use (packages/cli/src/routes/guide.ts): the install's record and what the active task has made. */
-export type GuideTaskId = 'first-shot' | 'refine' | 'product' | 'presenter' | 'scene';
+export type GuideTaskId = 'first-shot' | 'refine' | 'product' | 'presenter' | 'scene' | 'reuse';
 export type GuideMilestone = 'shot' | 'refine' | 'product' | 'presenter' | 'scene';
 
 export interface GuideCounts {
@@ -881,6 +881,10 @@ export interface GuideView {
   welcome: 'taken' | 'declined' | null;
   hidden: boolean;
   done: Partial<Record<GuideMilestone, string>>;
+  /** Which lessons have been walked to the end, and when. */
+  lessons: Partial<Record<GuideTaskId, string>>;
+  /** Every lesson begun and not finished, each with its own milestones. */
+  progress: Partial<Record<GuideTaskId, GuideLessonProgress>>;
   dismissed: GuideTaskId[];
   active: GuideActiveTask | null;
   activeNodes: GuideTaskNode[];
@@ -888,9 +892,19 @@ export interface GuideView {
   counts: GuideCounts | null;
 }
 
+/** One lesson's own progress: the brand its work is in, and what it has reached. */
+export interface GuideLessonProgress {
+  brandId: string;
+  since: string;
+  /** The moments it has shown, by their own ids. Never an index: steps resolve against what the product holds. */
+  reached: string[];
+  paused?: boolean;
+}
+
 export type GuideIntent =
   | { welcome: 'taken' | 'declined' }
   | { start: { task: GuideTaskId; brandId: string } }
   | { finish: GuideTaskId }
+  | { reached: { task: GuideTaskId; moment: string } }
   | { dismiss: GuideTaskId }
   | { hidden: boolean };

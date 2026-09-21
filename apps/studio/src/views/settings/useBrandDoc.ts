@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, saveBrandOnUnload, type Brand } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { useBrand } from '../../app/BrandLayout.js';
+import { failureToast } from '../../failure.js';
 import { useToasts } from '../../toasts.js';
 
 /** Top-level keys the Brand page owns. Anything else on the row belongs to someone else. */
@@ -86,9 +87,7 @@ export function useBrandDoc(): BrandDoc {
     } catch (e: any) {
       setState('error');
       push({
-        kind: 'error',
-        title: 'Could not save the brand',
-        detail: String(e?.message ?? e),
+        ...failureToast(e, 'Could not save the brand'),
         action: { label: 'Retry', onClick: () => void send() },
       });
     } finally {

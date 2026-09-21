@@ -62,14 +62,35 @@ export interface Moment {
    * the one button that moves past it. The only moment that ever does.
    */
   start?: boolean;
+  /**
+   * The page stays in view: dimmed, never blurred. For a moment that is a way
+   * somewhere rather than a thing to do here, where seeing the page you are on
+   * is the point.
+   */
+  soft?: boolean;
 }
 
-const COMPOSE = '[data-guide="compose"]';
+/** A library page's own button for a new one: Products, Presenters, Scenes. */
+export const LIBRARY_NEW = '[data-guide="library.new"]';
+
+/** The way to a place, on the page they are on: they walk it, nothing jumps. */
+export const wayTo = (nav: string, say: { title: string; body: string }): Moment => ({
+  id: 'go',
+  voice: 'ask',
+  point: `[data-guide="nav.${nav}"]`,
+  side: 'bottom',
+  soft: true,
+  ...say,
+});
 const COMPOSE_PICKER = '[data-guide="compose"] .sc-attachpanel';
 /** Inside the picker, the one thing an ask is about: the shelf of things to choose from. */
 const PICKER_GRID = '[data-guide="compose"] .sc-attachpanel .sc-ap-body';
-/** The composer's own card, which the picker opens out of and sits on top of. */
-const COMPOSE_CARD = '[data-guide="compose"] .sc-promptcard';
+/**
+ * The composer's own card, which the picker opens out of and sits on top of.
+ * Refining reuses this: it is the same card, armed at a shot from its own
+ * tile rather than opened fresh.
+ */
+export const COMPOSE_CARD = '[data-guide="compose"] .sc-promptcard';
 const ADD = '[data-guide="compose.add"]';
 const BRIEF = '[data-guide="compose"] .sc-brief-line';
 const SEND = '[data-guide="compose.send"]';
@@ -82,6 +103,10 @@ const SHOT = '.sc-ovl';
 
 /** Every word the tutor says, in one place, so the copy rules can hold them all. */
 export const COPY = {
+  go: {
+    title: 'Shots are made in Create',
+    body: "A shot is built from what you sell, who shows it and where. Open Create, and we'll make your first one together.",
+  },
   intro: {
     title: 'This is Create, where shots are made',
     body: 'A shot is built from three things Scenri keeps for you: what you sell, who shows it, and where it happens. Add them, say how to shoot it, and Scenri makes the picture in about a minute.',
@@ -112,11 +137,23 @@ export const COPY = {
   },
   result: {
     title: 'Your first shot',
-    body: 'Open it to change one thing about it: everything else stays as it is.',
+    body: 'The product, the presenter and the scene you chose are kept, so your next shot starts from them. Open it to change one thing.',
   },
   failed: {
     title: "That one didn't work",
-    body: 'The tile says why. Build the brief again and Scenri will try it again.',
+    body: 'The tile says why. Put the shot together again and Scenri will try it again.',
+  },
+  reuseProduct: {
+    title: 'Add the product you saved',
+    body: 'Yours sits in the shelf with ours. Putting it in again costs nothing: it is the same product, in a new shot.',
+  },
+  reuseScene: {
+    title: 'Put it somewhere else',
+    body: 'A different place and light, so the two shots share the product and little else.',
+  },
+  reuseResult: {
+    title: 'The same product, twice',
+    body: 'Two shots, one thing you added once. Anything Scenri keeps works this way: products, presenters and scenes.',
   },
   refineAsk: {
     title: 'Change one thing',
@@ -128,7 +165,39 @@ export const COPY = {
   },
   refineFailed: {
     title: "That change didn't work",
-    body: 'The history says why. Open the original there and say the change again.',
+    body: 'Say the change again and Scenri will try it once more.',
+  },
+  refineChoose: {
+    title: 'Choose a shot to change',
+    body: 'Open one from what you have made. You can also use Refine on its card.',
+  },
+  refineGo: {
+    title: 'Your shots live in Create',
+    body: 'Refining starts from a picture you already have. Open Create to find one.',
+  },
+  productGo: {
+    title: 'Your products live here',
+    body: 'Each one you add is kept, so it looks the same in every shot. Open Products to add yours.',
+  },
+  productNew: {
+    title: 'Start a new product',
+    body: 'Add its real photos, or bring in your catalog from your store. Either way it is yours to reuse.',
+  },
+  sceneGo: {
+    title: 'Your scenes live here',
+    body: 'A scene is a place and its light, saved to shoot in again. Open Scenes to make one.',
+  },
+  sceneNew: {
+    title: 'Start a new scene',
+    body: 'Name it, then add a photo of the place or a line of direction.',
+  },
+  presenterGo: {
+    title: 'Your presenters live here',
+    body: 'A presenter is a person Scenri keeps, the same face in every shot. Open Presenters to make one.',
+  },
+  presenterNew: {
+    title: 'Start a new presenter',
+    body: 'Describe someone, or add photos of a real person. The studio takes it from there.',
   },
   presenterEngine: {
     title: 'Set up image generation',
@@ -176,6 +245,16 @@ export interface ShotFacts {
   nodes: readonly GuideTaskNode[];
   /** The opening has been read. */
   begun?: boolean;
+  /**
+   * Just begun somewhere else (the welcome, Learn) and not yet on Create. The
+   * first step is getting there, done by them rather than done to them.
+   */
+  heading?: boolean;
+  /**
+   * This walk began with that way there, so its step is the first of the walk
+   * and it said what the opening would have: the count runs to five, not four.
+   */
+  viaBar?: boolean;
 }
 
 /**
@@ -188,7 +267,10 @@ export interface ShotFacts {
  * explain themselves, and they stay usable while the last ask is on screen.
  */
 export function firstShotMoment(f: ShotFacts): Moment | null {
-  if (!f.here) return null;
+  // Begun from another page, the first step is the way there: Create in the
+  // places, lit, with the page left in plain view. Arriving by their own hand
+  // is what tells them where Create is and how they got there.
+  if (!f.here) return f.heading ? wayTo('create', COPY.go) : null;
   const c = f.composer;
   const made = f.nodes.find(finished);
   if (made) return { id: 'result', voice: 'note', point: tile(made.id), side: 'bottom', ...COPY.result, done: true };
@@ -203,12 +285,12 @@ export function firstShotMoment(f: ShotFacts): Moment | null {
   // Nothing can draw: that is the one thing to fix before any of this matters.
   if (c.engine !== 'ready') return { id: 'engine', voice: 'ask', point: ENGINE, side: 'top', ...COPY.engine };
   /**
-   * Four asks, and the card says which one it is. Four is the ceiling on
-   * purpose: completion holds around 72 to 74% at three or four steps and
-   * falls below half at five (Chameleon, 550M in-app interactions). The
-   * greeting is not one of them, so it carries no count.
+   * Four asks. Four is the ceiling on purpose: completion holds around 72 to
+   * 74% at three or four steps and falls below half at five (Chameleon, 550M
+   * in-app interactions). What the card says about where it is comes from the
+   * lesson's own list (lessons.ts), so the tutor and Learn cannot disagree;
+   * the greeting has no step of its own and so no count.
    */
-  const walk = (at: number, m: Moment): Moment => ({ ...m, at, of: 4 });
   // The opening greets an empty start only: someone coming back to a brief
   // they have already begun is past being told what this place is.
   // Nothing is pointed at yet: arriving somewhere new, the first thing to
@@ -216,13 +298,36 @@ export function firstShotMoment(f: ShotFacts): Moment | null {
   if (!f.begun && ingredientsOf(c) === 0 && !c.words)
     return { id: 'intro', voice: 'ask', live: [], start: true, ...COPY.intro };
   const asked = askedKind(c);
-  if (asked) return walk(KIND_AT[asked], pickMoment(asked, c.pickerOpen));
+  if (asked) return pickMoment(asked, c.pickerOpen);
   // The last one is both halves of the same act: write the line, then make it.
-  return walk(4, { id: 'make', voice: 'ask', point: SEND, live: [BRIEF, SEND], side: 'top', ...COPY.make });
+  return { id: 'make', voice: 'ask', point: SEND, live: [BRIEF, SEND], side: 'top', ...COPY.make };
 }
 
-/** Where each ingredient sits in the walk. */
-const KIND_AT: Record<AskedKind, number> = { product: 1, presenter: 2, scene: 3 };
+/**
+ * Using a saved thing again: the second shot, and the first time reuse is
+ * visible rather than described. It asks for the product they added, then a
+ * different place for it, then the words, and ends on the two pictures
+ * standing beside each other. Three asks, because what it teaches is the
+ * comparison, not how to compose.
+ */
+export function reuseMoment(f: ShotFacts): Moment | null {
+  if (!f.here) return f.heading ? wayTo('create', COPY.go) : null;
+  const c = f.composer;
+  const made = f.nodes.find(finished);
+  if (made)
+    return { id: 'again', voice: 'note', point: tile(made.id), side: 'bottom', ...COPY.reuseResult, done: true };
+  const running = f.nodes.find((n) => n.status === 'running');
+  if (running) return { id: 'waiting', voice: 'note', point: tile(running.id), side: 'bottom', ...COPY.waiting };
+  if (c?.busy) return { id: 'sending', voice: 'quiet' };
+  if (!c || c.refining) return null;
+  const building = c.pickerOpen || ingredientsOf(c) > 0 || c.words;
+  const dud = f.nodes.find(failed);
+  if (dud && !building) return { id: 'failed', voice: 'note', point: tile(dud.id), side: 'bottom', ...COPY.failed };
+  if (c.engine !== 'ready') return { id: 'engine', voice: 'ask', point: ENGINE, side: 'top', ...COPY.engine };
+  if (c.products === 0) return pickMoment('product', c.pickerOpen, COPY.reuseProduct);
+  if (!c.scene) return pickMoment('scene', c.pickerOpen, COPY.reuseScene);
+  return { id: 'make', voice: 'ask', point: SEND, live: [BRIEF, SEND], side: 'top', ...COPY.make };
+}
 
 /** The ingredient the first shot is still asking for, or null once the brief holds all three. */
 export function askedKind(c: ComposerFacts): AskedKind | null {
@@ -242,8 +347,8 @@ export function askedKind(c: ComposerFacts): AskedKind | null {
  * `$ @ / #` are words while the walk is on (BriefInput): every chip comes in
  * through the ask for it and leaves through Back.
  */
-function pickMoment(kind: AskedKind, pickerOpen: boolean): Moment {
-  const say = COPY[kind];
+function pickMoment(kind: AskedKind, pickerOpen: boolean, words?: { title: string; body: string }): Moment {
+  const say = words ?? COPY[kind];
   return pickerOpen
     ? {
         id: kind,
@@ -259,11 +364,20 @@ function pickMoment(kind: AskedKind, pickerOpen: boolean): Moment {
 }
 
 export interface RefineFacts {
-  /** A shot's overlay is open, in the task's brand. */
+  /** The refine surface at all: the grid, or a shot's own overlay, in the task's brand. */
   here: boolean;
+  /** Specifically, a shot's own overlay is open. */
+  open: boolean;
+  /** Not open, but the dock composer on the grid is armed with a shot to refine. */
+  armed: boolean;
   nodes: readonly GuideTaskNode[];
-  /** The open shot offers its composer: a failed step does not, until they step back to one that does. */
+  /** The composer that would ask offers itself right now: a failed step does not, until they step back to one that does. */
   asking?: boolean;
+  /**
+   * Just begun somewhere else (Learn) and not yet on Create. The first step
+   * is getting there, done by them rather than done to them.
+   */
+  heading?: boolean;
 }
 
 /** The open shot's composer, where a change is asked for. */
@@ -272,39 +386,62 @@ export const SHOT_COMPOSER = `${SHOT} .sc-promptcard`;
 const SHOT_PICTURE = `${SHOT} .sc-stage-img`;
 /** The open shot's history: the original, then each refinement. */
 const SHOT_HISTORY = `${SHOT} .sc-trail`;
+/** Where shots live: the one place to find one, whichever way it is then chosen. */
+const FEED = '.sc-feed';
 
 /**
- * Refining: ask for one change, wait, then point at where it landed. The
- * picture stays in sight while the change is asked for, because saying what
- * to change means looking at it.
+ * Refining: choose a shot, ask for one change, wait, then point at where it
+ * landed. There are two real ways to choose one — opening it, or the card's
+ * own Refine — and both land on the same ask, because both are the user's
+ * own click rather than one this task makes for them. The picture stays in
+ * sight while the change is asked for, because saying what to change means
+ * looking at it.
  */
 export function refineMoment(f: RefineFacts): Moment | null {
+  if (f.heading) return wayTo('create', COPY.refineGo);
   if (!f.here) return null;
+  if (!f.open && !f.armed)
+    return { id: 'choose', voice: 'ask', point: FEED, live: [FEED], beside: true, side: 'left', ...COPY.refineChoose };
   const made = f.nodes.find(finished);
   if (made)
-    return {
-      id: 'refined',
-      voice: 'note',
-      shell: SHOT,
-      point: SHOT_HISTORY,
-      side: 'top',
-      ...COPY.refineResult,
-      done: true,
-    };
+    return f.open
+      ? {
+          id: 'refined',
+          voice: 'note',
+          shell: SHOT,
+          point: SHOT_HISTORY,
+          side: 'top',
+          ...COPY.refineResult,
+          done: true,
+        }
+      : { id: 'refined', voice: 'note', point: tile(made.id), side: 'bottom', ...COPY.refineResult, done: true };
   if (f.nodes.some((n) => n.status === 'running')) return { id: 'refining', voice: 'quiet' };
-  // A step that failed has no composer of its own: the history is where they go next.
-  if (f.nodes.some(failed) && !f.asking)
-    return { id: 'refine-failed', voice: 'note', shell: SHOT, point: SHOT_HISTORY, side: 'top', ...COPY.refineFailed };
-  return {
-    id: 'ask',
-    voice: 'ask',
-    shell: SHOT,
-    point: SHOT_COMPOSER,
-    also: [SHOT_PICTURE],
-    beside: true,
-    side: 'left',
-    ...COPY.refineAsk,
-  };
+  // A step that failed has no composer of its own: the history, or the tile itself, is where they go next.
+  const dud = f.nodes.find(failed);
+  if (dud && !f.asking)
+    return f.open
+      ? { id: 'refine-failed', voice: 'note', shell: SHOT, point: SHOT_HISTORY, side: 'top', ...COPY.refineFailed }
+      : { id: 'refine-failed', voice: 'note', point: tile(dud.id), side: 'bottom', ...COPY.refineFailed };
+  return f.open
+    ? {
+        id: 'ask',
+        voice: 'ask',
+        shell: SHOT,
+        point: SHOT_COMPOSER,
+        also: [SHOT_PICTURE],
+        beside: true,
+        side: 'left',
+        ...COPY.refineAsk,
+      }
+    : {
+        id: 'ask',
+        voice: 'ask',
+        point: COMPOSE_CARD,
+        live: [COMPOSE_CARD],
+        beside: true,
+        side: 'top',
+        ...COPY.refineAsk,
+      };
 }
 
 /**
@@ -313,48 +450,62 @@ export function refineMoment(f: RefineFacts): Moment | null {
  * because each is a decision the questions do not explain: which road to take,
  * whether this face is the face, and that saving is what keeps them.
  */
-export function presenterMoment(studio: StudioFacts | null): Moment | null {
-  if (!studio) return null;
-  const turn = `${STUDIO} [data-turn="q:${studio.open}"]`;
-  // `also` is what else answers the question: a typed sentence in the studio's
-  // own line, the portrait beside it. Neither is waited for: a phone draws no stage.
-  const at = (id: string, say: { title: string; body: string }, also: string[] = [], lit?: string[]): Moment => ({
-    id,
-    voice: 'ask',
-    shell: STUDIO,
-    point: `${turn} .sc-convo-q`,
-    live: [turn],
-    also,
-    ...(lit ? { lit } : {}),
-    beside: true,
-    side: 'left',
-    ...say,
-  });
-  switch (studio.open) {
-    case 'source':
-      // a sentence typed here is the description, and asks no door
-      return at('start', COPY.presenterStart, [STUDIO_COMPOSER]);
-    // The studio asks its own questions, but a wall is not a question: nothing
-    // in this flow goes on until something can draw, so the tutor says so.
-    case 'noengine':
-      return at('engine', COPY.presenterEngine);
-    case 'identity':
-    case 'revision':
-      // the portrait stays usable beside the question, and a sentence adjusts
-      // it; the face as the conversation shows it (the turn just above the
-      // question, all a phone has) stays in sight, and the card stands clear of it
-      return at(
-        'face',
-        COPY.presenterFace,
-        ['.sc-pstudio-well', STUDIO_COMPOSER],
-        [`${STUDIO} [data-turn]:has(+ [data-turn="q:${studio.open}"])`],
-      );
-    case 'save':
-    case 'blind':
-      return at('save', COPY.presenterSave);
-    default:
-      return { id: 'studio', voice: 'quiet' };
+export interface PresenterWalkFacts {
+  heading?: boolean;
+  /** The presenters library, not the studio over it. */
+  onPage?: boolean;
+  studio: StudioFacts | null;
+}
+
+export function presenterMoment(f: PresenterWalkFacts): Moment | null {
+  if (f.heading) return wayTo('presenters', COPY.presenterGo);
+  const studio = f.studio;
+  if (studio) {
+    const turn = `${STUDIO} [data-turn="q:${studio.open}"]`;
+    // `also` is what else answers the question: a typed sentence in the studio's
+    // own line, the portrait beside it. Neither is waited for: a phone draws no stage.
+    const at = (id: string, say: { title: string; body: string }, also: string[] = [], lit?: string[]): Moment => ({
+      id,
+      voice: 'ask',
+      shell: STUDIO,
+      // the chips as they sit, not the full-width row they live on and not the
+      // line above them. `.sc-convo-ask` shrinks to the buttons.
+      point: `${turn} .sc-convo-ask`,
+      live: [turn],
+      also,
+      ...(lit ? { lit } : {}),
+      beside: true,
+      side: 'left',
+      ...say,
+    });
+    switch (studio.open) {
+      case 'source':
+        // a sentence typed here is the description, and asks no door
+        return at('start', COPY.presenterStart, [STUDIO_COMPOSER]);
+      // The studio asks its own questions, but a wall is not a question: nothing
+      // in this flow goes on until something can draw, so the tutor says so.
+      case 'noengine':
+        return at('engine', COPY.presenterEngine);
+      case 'identity':
+      case 'revision':
+        // the portrait stays usable beside the question, and a sentence adjusts
+        // it; the face as the conversation shows it (the turn just above the
+        // question, all a phone has) stays in sight, and the card stands clear of it
+        return at(
+          'face',
+          COPY.presenterFace,
+          ['.sc-pstudio-well', STUDIO_COMPOSER],
+          [`${STUDIO} [data-turn]:has(+ [data-turn="q:${studio.open}"])`],
+        );
+      case 'save':
+      case 'blind':
+        return at('save', COPY.presenterSave);
+      default:
+        return { id: 'studio', voice: 'quiet' };
+    }
   }
+  if (f.onPage) return { id: 'new', voice: 'ask', point: LIBRARY_NEW, side: 'bottom', ...COPY.presenterNew };
+  return null;
 }
 
 /** One word on the dialog something is made in, then quiet until it exists. */
@@ -362,14 +513,60 @@ function dialogMoment(id: string, say: { title: string; body: string }): Moment 
   return { id, voice: 'ask', shell: DIALOG, point: '.sc-newdlg', beside: true, side: 'left', ...say };
 }
 
-/** A scene: named, then a photo or a line of direction; the build runs after the dialog closes. */
-export function sceneMoment(dialogOpen: boolean): Moment | null {
-  return dialogOpen ? dialogMoment('scene', COPY.sceneMake) : null;
+export interface AssetWalkFacts {
+  heading?: boolean;
+  onPage?: boolean;
+  dialogOpen: boolean;
 }
 
-/** A product: the one decision the dialog does not explain is where its photos come from. */
-export function productMoment(dialogOpen: boolean): Moment | null {
-  return dialogOpen ? dialogMoment('product', COPY.productMake) : null;
+function startOnPage(say: { title: string; body: string }): Moment {
+  return { id: 'new', voice: 'ask', point: LIBRARY_NEW, side: 'bottom', ...say };
+}
+
+/** A scene: the way there, then start one, then the dialog it is made in. */
+export function sceneMoment(f: AssetWalkFacts): Moment | null {
+  if (f.heading) return wayTo('scenes', COPY.sceneGo);
+  if (f.dialogOpen) return dialogMoment('scene', COPY.sceneMake);
+  return f.onPage ? startOnPage(COPY.sceneNew) : null;
+}
+
+/** A product: the way there, then start one, then where its photos come from. */
+export function productMoment(f: AssetWalkFacts): Moment | null {
+  if (f.heading) return wayTo('products', COPY.productGo);
+  if (f.dialogOpen) return dialogMoment('product', COPY.productMake);
+  return f.onPage ? startOnPage(COPY.productNew) : null;
+}
+
+/**
+ * The chip the ask before this one put in. First shot asks product, presenter,
+ * scene; reuse asks product then scene. Another task's moment may share a name
+ * (the scene task's dialog is also `scene`) and has no chip to take back.
+ */
+export function chipToTakeBack(task: GuideTaskId, id: string): AskedKind | null {
+  if (task === 'first-shot') {
+    if (id === 'presenter') return 'product';
+    if (id === 'scene') return 'presenter';
+    if (id === 'make') return 'scene';
+  }
+  if (task === 'reuse') {
+    if (id === 'scene') return 'product';
+    if (id === 'make') return 'scene';
+  }
+  return null;
+}
+
+/**
+ * DESIGN.md: every counted step after the first has Back, when something can
+ * be undone. The first step of a walk and the notes after a send do not.
+ */
+export function coachCanBack(task: GuideTaskId | null, id: string, viaWay: boolean): boolean {
+  if (!task) return false;
+  if (chipToTakeBack(task, id)) return true;
+  if (viaWay && (id === 'new' || id === 'choose' || ((task === 'first-shot' || task === 'reuse') && id === 'product')))
+    return true;
+  if (task === 'presenter' && (id === 'start' || id === 'face' || id === 'save')) return true;
+  if ((task === 'product' || task === 'scene') && id === task) return true;
+  return task === 'refine' && id === 'ask';
 }
 
 /** The tasks that end on their own, when the brand holds one more than it did. */
@@ -396,6 +593,9 @@ export interface ContextStart {
 /** The install's record of each task having been done at least once. */
 export const MILESTONE: Record<GuideTaskId, keyof GuideView['done']> = {
   'first-shot': 'shot',
+  // Using a saved thing again makes a shot like any other. It is never begun
+  // by reaching a surface, only from Learn, so this only keeps the map whole.
+  reuse: 'shot',
   refine: 'refine',
   product: 'product',
   presenter: 'presenter',
@@ -404,7 +604,7 @@ export const MILESTONE: Record<GuideTaskId, keyof GuideView['done']> = {
 
 /**
  * Whether someone new opening a surface on their own begins its task. Only
- * once (not done, not closed), only with First steps still wanted. A task left
+ * once (not done, not closed), only while the install still wants guiding. A task left
  * in hand on another surface gives way, so an abandoned dialog never blocks the
  * next thing; the first shot never does. Tasks never chain: the caller only
  * asks when the person has engaged with the surface.

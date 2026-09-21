@@ -64,7 +64,7 @@ export function BrandIdentity({ brand, doc }: { brand: Brand; doc: BrandDoc }) {
       const edge = (row as { logoEdge?: number | null }).logoEdge;
       if (edge && edge < 512)
         push({
-          kind: 'success',
+          kind: 'warning',
           title: 'Logo added, but it is small',
           detail: `Only ${edge}px across. Fine lettering may not survive generation. Export it larger, or as SVG.`,
         });
@@ -72,7 +72,7 @@ export function BrandIdentity({ brand, doc }: { brand: Brand; doc: BrandDoc }) {
     });
   const { dropProps } = useFileDrop({
     onFiles: upload,
-    onReject: () => push({ kind: 'error', title: 'That is not an image', detail: 'Drop a PNG, SVG or JPG.' }),
+    onReject: () => push({ kind: 'warning', title: 'That is not an image', detail: 'Drop a PNG, SVG or JPG.' }),
     disabled: busy,
   });
 

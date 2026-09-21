@@ -272,6 +272,10 @@ for (const surface of [
  * geometry assertions could have caught that.
  */
 test('a pressed control does not look like a hovered one', async ({ page }) => {
+  // Three surfaces, every control on them, 400ms of settle per control: about
+  // 19s on a CI runner, so the 20s default failed it once a run and the retry
+  // passed it. The work is fixed; the budget has to hold it.
+  test.setTimeout(45_000);
   const slug = await currentSlug(page);
   const dead: string[] = [];
 

@@ -98,7 +98,13 @@ export function PresentersView() {
   const cta = useRef<HTMLButtonElement>(null);
 
   const createCta = (
-    <button ref={cta} type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('presenter')}>
+    <button
+      ref={cta}
+      type="button"
+      className="sc-btn sc-btn-primary"
+      data-guide="library.new"
+      onClick={() => createAsset('presenter')}
+    >
       <Plus size={12} /> Create presenter
     </button>
   );
@@ -253,11 +259,15 @@ export function PresentersView() {
       const r = await api.duplicatePresenter(brand.id, duplicating.id, name);
       applyBrand(r.brand);
       setDuplicating(null);
+      // The wall is the announcement: the new card scrolls into view wearing
+      // the just-added mark. A toast on top said the same thing twice.
       setJustAdded(r.presenter.id);
-      push({ kind: 'success', title: 'Duplicated', detail: r.presenter.name });
     } catch (e: any) {
-      setActError(String(e.message ?? e));
-      push(failureToast(e, 'Could not duplicate this presenter'));
+      // The dialog is still open and owns the failure; the toast would be the
+      // same sentence in a second place. It gets the humanised reading, not
+      // the raw engine text.
+      const f = failureToast(e, 'Could not duplicate this presenter');
+      setActError([f.title, f.detail].filter(Boolean).join(' '));
     } finally {
       setActing(false);
     }

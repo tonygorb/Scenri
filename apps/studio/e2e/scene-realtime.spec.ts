@@ -263,7 +263,7 @@ test('a scene in the brief that is then deleted leaves the brief with a note, no
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
 
   await goCreate(page);
-  const note = page.locator('.sc-toast', { hasText: 'That scene is no longer available.' });
+  const note = page.locator('.sc-toast', { hasText: 'That scene is no longer available' });
   await expect(note).toBeVisible();
   await expect(note).toContainText('Removed from the brief.');
   await expect(chip).toHaveCount(0);

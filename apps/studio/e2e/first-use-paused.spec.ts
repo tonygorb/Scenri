@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { isolate } from './harness.js';
-import { expectNoGuide, guideRecord, ownBrand, setUpBrand, steps, welcome } from './firstUse.js';
+import { expectNoGuide, guideRecord, learnButton, ownBrand, setUpBrand, welcome } from './firstUse.js';
 import { FIRST_USE } from '../src/firstUse.js';
 
 /**
@@ -16,7 +16,7 @@ isolate({ brand: false, env: { SCENRI_NO_GUIDE: '' } });
 test.skip(FIRST_USE, 'only means something while first use is paused');
 test.describe.configure({ mode: 'serial' });
 
-test('a new install is not welcomed, taught or offered First steps, and Help has no way in', async ({ page }) => {
+test('a new install is not welcomed, taught or offered Learn, and Help has no way in', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const slug = await setUpBrand(page, 'Paused Co');
   // the server does call this install new
@@ -26,13 +26,13 @@ test('a new install is not welcomed, taught or offered First steps, and Help has
   // well past the welcome's settle
   await page.waitForTimeout(1500);
   await expect(welcome(page)).toHaveCount(0);
-  await expect(steps(page)).toHaveCount(0);
+  await expect(learnButton(page)).toHaveCount(0);
   await expectNoGuide(page);
 
   await page.locator('.sc-help-float button').click();
   await expect(page.getByRole('menuitem', { name: "What's new" })).toBeVisible();
   const items = await page.locator('.sc-help-menu [role="menuitem"]').allTextContents();
-  for (const gone of ['First steps', 'Learn', 'Welcome to Scenri']) expect(items).not.toContain(gone);
+  for (const gone of ['Learn', 'Welcome to Scenri']) expect(items).not.toContain(gone);
   await page.keyboard.press('Escape');
 
   // an address from a build that offered them opens nothing

@@ -194,7 +194,12 @@ export function ScenesView() {
    */
 
   const createCta = (
-    <button type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('scene')}>
+    <button
+      type="button"
+      className="sc-btn sc-btn-primary"
+      data-guide="library.new"
+      onClick={() => createAsset('scene')}
+    >
       <Plus size={12} /> Create scene
     </button>
   );

@@ -35,6 +35,27 @@ export function pad(b: Box, n: number): Box {
   return { left: b.left - n, top: b.top - n, right: b.right + n, bottom: b.bottom + n };
 }
 
+/**
+ * The ring follows the asked control's own corners. A tight wrap of one
+ * control uses that control's radius. Several chips in a group keep the
+ * block radius: following one chip's pill merged them into a third control.
+ * A taller block that merely holds chips does the same.
+ */
+export function ringRadius(
+  own: number,
+  inner = 0,
+  offset = 4,
+  block = 14,
+  ownHeight = 0,
+  innerHeight = 0,
+  inners = 0,
+): number {
+  if (own >= 4) return own + offset;
+  const wrap = innerHeight === 0 || ownHeight === 0 || ownHeight <= innerHeight + 16;
+  if (inner >= 4 && wrap && inners <= 1) return inner + offset;
+  return block;
+}
+
 /** Whether two boxes share any area. Touching edges do not count. */
 export function intersects(a: Box, b: Box): boolean {
   return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;

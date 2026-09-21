@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { ActivityButton } from './bar/ActivityButton.js';
 import { BarNav } from './bar/BarNav.js';
 import { BrandButton } from './bar/BrandButton.js';
+import { LearnButton } from './bar/LearnButton.js';
 import { NewButton } from './bar/NewButton.js';
 import { useCondensedBar } from './bar/useCondensedBar.js';
 import { ScenriLockup } from './ScenriMark.js';
@@ -45,6 +46,7 @@ export function TopBar() {
         {/* Help lives here below 1024px, beside the bell; from 1024px it floats
             in the page's corner (HelpFloat, in BrandLayout). */}
         <HelpBar />
+        <LearnButton />
         <ActivityButton />
         <NewButton />
         <BrandButton />

@@ -11,6 +11,7 @@ import {
   shift,
   type VirtualElement,
 } from '@floating-ui/dom';
+import { caretToEnd as lineCaretToEnd } from '../composer/line.js';
 import type { Side } from '../guidedTasks.js';
 import { Tip } from './Tip.js';
 import { createLock, type CoachLock } from './coachLock.js';
@@ -22,6 +23,7 @@ import {
   pad,
   panels,
   referenceRect,
+  ringRadius,
   trimBy,
   union,
   visibleRect,
@@ -66,6 +68,10 @@ const NARROW = 768;
 const STEADY_MS = 90;
 /** A page that never settles still gets its card, after this many looks. */
 const STEADY_TRIES = 8;
+/** How long, at most, a card waits for the surface it belongs to to finish arriving. */
+const ARRIVE_TRIES = 12;
+/** How long after showing a card keeps checking that what it points at has not moved. */
+const WATCH_MS = 2000;
 /** Fixed and sticky chrome a window must not reach under. */
 const CHROME =
   '.sc-topbar, .sc-tabbar, .sc-filterbar, .sc-canvas-dock, .sc-help-float, .sc-pstudio-head, .sc-newdlg-head';
@@ -128,6 +134,8 @@ export interface CoachmarkProps {
   of?: number;
   /** Beside its target the card is narrower, so it fits beside a picker, a dialog or a question on more screens. */
   beside?: boolean;
+  /** The curtain dims and never blurs: the page behind is part of what the moment says. */
+  soft?: boolean;
   /**
    * The surface that owns the screen: the page's body, or a shell that traps
    * focus over it (the presenter studio, a creation dialog, the open shot). The
@@ -237,6 +245,13 @@ export function Coachmark(p: CoachmarkProps) {
      */
     let steadyKey = '';
     let steady = 0;
+    let waited = 0;
+    // Where the card went the first time: it stays on that side while it fits,
+    // so a surface still settling never swings it from one side to the other.
+    let last: Placement | null = null;
+    // ...and forgets it when the screen crosses into or out of one column:
+    // the side a desktop chose (beside a question) is not a side on a phone.
+    let lastWide: boolean | null = null;
     let stopAuto: (() => void) | null = null;
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const lead = live[0] ?? target ?? container;
@@ -265,6 +280,12 @@ export function Coachmark(p: CoachmarkProps) {
       lock.current?.release();
       held = false;
       setPhase('away');
+      // Out of sight is not gone: a viewport change can scroll the step off
+      // its pane, and nothing else reports it coming back. Keep looking while
+      // it is still on the page, or the card stays away for good (measured on
+      // a studio resized to a phone: the question landed 680px down and the
+      // card never returned).
+      if ((target ?? live[0])?.isConnected) watch();
     };
 
     // A new moment's controls are its own from the instant it begins; only the
@@ -321,17 +342,13 @@ export function Coachmark(p: CoachmarkProps) {
       const windows: Window[] = [];
       const shapes: HTMLElement[] = [];
       for (const el of [...(target ? [target] : []), ...live, ...also, ...lit, ...openPoppers()]) {
-        const stage = el.closest<HTMLElement>(SHAPE) ?? el;
+        const stage = stageOf(el);
         if (!shapes.includes(stage)) shapes.push(stage);
       }
       // What the card is about, and so what it stands clear of: not what is
       // merely usable beside it (the portrait beside a question is lit, but the
       // card still stands against the question).
-      const about = new Set(
-        [...(target ? [target] : []), ...live, ...lit, ...openPoppers()].map(
-          (el) => el.closest<HTMLElement>(SHAPE) ?? el,
-        ),
-      );
+      const about = new Set([...(target ? [target] : []), ...live, ...lit, ...openPoppers()].map(stageOf));
       let r: Box | null = null;
       for (const el of shapes) {
         const b = visibleRect(boxOf(el.getBoundingClientRect()), clipsOf(el));
@@ -353,8 +370,22 @@ export function Coachmark(p: CoachmarkProps) {
       if (held && (live.some((s) => s.closest('[inert]')) || card?.closest('[inert]'))) held = false;
 
       if (coach && veil && catcher && ring && rim) {
-        if (!windows.length && t)
-          windows.push({ ...pad(t, RING_OFFSET), radius: cornerRadius(target as HTMLElement) + RING_OFFSET });
+        if (!windows.length && t) {
+          const fallback = target as HTMLElement;
+          const inner = innerFit(fallback);
+          windows.push({
+            ...pad(t, RING_OFFSET),
+            radius: ringRadius(
+              cornerRadius(fallback),
+              inner.radius,
+              RING_OFFSET,
+              BLOCK_RADIUS,
+              height(t),
+              inner.height,
+              inner.count,
+            ),
+          });
+        }
         // The stage stays in view whole; inside it, what the step does not ask for recedes.
         for (const el of staged.current) if (!shapes.includes(el)) el.removeAttribute(STAGE);
         for (const el of shapes) el.setAttribute(STAGE, '');
@@ -365,16 +396,32 @@ export function Coachmark(p: CoachmarkProps) {
           painted = key;
           paintVeil(veil, catcher, rim, windows, masked);
         }
-        // The control the step asks for wears a ring, clear of its edge; a window
-        // that is itself the target, or a field to type in, does not.
-        if (target && t && !shapes.includes(target) && target.matches('button, a[href], [role="button"]')) {
-          const ringBox = pad(t, RING_OFFSET);
+        // What the step asks for wears a ring, clear of its edge, on every step:
+        // a control, a shelf to choose from, the way to another page. A window
+        // alone read as a slightly lighter patch nobody could find, and a ring
+        // on some steps and not others read as two different tutors.
+        if (target && t) {
+          const words = hugged(target);
+          const inner = innerFit(target);
+          const ringBox = words ?? pad(t, RING_OFFSET);
           Object.assign(ring.style, {
             left: `${ringBox.left}px`,
             top: `${ringBox.top}px`,
             width: `${width(ringBox)}px`,
             height: `${height(ringBox)}px`,
-            borderRadius: `${cornerRadius(target) + RING_OFFSET}px`,
+            borderRadius: `${
+              words
+                ? HUG_RADIUS
+                : ringRadius(
+                    cornerRadius(target),
+                    inner.radius,
+                    RING_OFFSET,
+                    BLOCK_RADIUS,
+                    height(t),
+                    inner.height,
+                    inner.count,
+                  )
+            }px`,
           });
           ring.hidden = false;
         } else ring.hidden = true;
@@ -403,6 +450,14 @@ export function Coachmark(p: CoachmarkProps) {
         // beside a surface stands above or below it instead, against the thing
         // it points at, rather than being squeezed over the middle of it.
         const wideScreen = vw >= NARROW;
+        if (lastWide !== wideScreen) {
+          // A screen that changed shape re-flows the page under the step, and
+          // the thing asked about can end up scrolled out of its own pane:
+          // brought back into view, the way a new step is.
+          if (lastWide !== null && target) void bringIntoView(target, scrollPane(target), still);
+          last = null;
+          lastWide = wideScreen;
+        }
         const upright: Side = side === 'left' || side === 'right' ? 'top' : side;
         // A card under a surface as wide as the screen hangs from its leading
         // edge, the way a menu hangs from its button: centred under something
@@ -412,7 +467,7 @@ export function Coachmark(p: CoachmarkProps) {
         const place = (ref: Box, fallbacks: Placement[] | undefined) =>
           computePosition(virtual(ref, target), card, {
             strategy: 'fixed',
-            placement: want,
+            placement: last ?? want,
             middleware: [
               offset(GAP),
               flip({ padding: room, fallbackPlacements: fallbacks }),
@@ -468,6 +523,7 @@ export function Coachmark(p: CoachmarkProps) {
         // the target clear. The card waits, out of the way, for the room to come back.
         if (!huge && covers(res.x, res.y)) return setPhase('stowed');
 
+        last = res.placement;
         const placed = res.placement.split('-')[0] as Side;
         card.style.left = `${Math.round(res.x)}px`;
         card.style.top = `${Math.round(res.y)}px`;
@@ -484,6 +540,13 @@ export function Coachmark(p: CoachmarkProps) {
         held = true;
       }
       if (!shown) {
+        // A surface still growing in (the picker, a dialog, the page arriving)
+        // is measured where it lands, not mid-flight: placed mid-flight, the
+        // card was shown on one side and jumped to the other a frame later.
+        if (arriving([...(target ? [target] : []), ...live]) && ++waited < ARRIVE_TRIES) {
+          window.setTimeout(schedule, STEADY_MS);
+          return;
+        }
         const here = [...(target ? [target] : []), ...live, ...also, ...lit]
           .map((el) => {
             const b = el.getBoundingClientRect();
@@ -503,7 +566,34 @@ export function Coachmark(p: CoachmarkProps) {
       if (!shown) {
         shown = true;
         settle();
+        watch();
       }
+    };
+
+    /**
+     * For a moment after it shows, where the step is keeps being checked: a
+     * page that has just arrived can still shift under it with nothing
+     * animating (the composer settling 19px higher once its row loaded), which
+     * nothing else reports, and a card placed a beat early sat on the control
+     * it pointed at.
+     */
+    let watching = 0;
+    const watch = () => {
+      const el = target ?? live[0];
+      if (!el) return;
+      cancelAnimationFrame(watching);
+      let at = el.getBoundingClientRect();
+      const until = performance.now() + WATCH_MS;
+      const look = () => {
+        if (!alive) return;
+        const now = el.getBoundingClientRect();
+        if (now.top !== at.top || now.left !== at.left || now.height !== at.height) {
+          at = now;
+          schedule();
+        }
+        if (performance.now() < until) watching = requestAnimationFrame(look);
+      };
+      watching = requestAnimationFrame(look);
     };
 
     const schedule = () => {
@@ -555,6 +645,14 @@ export function Coachmark(p: CoachmarkProps) {
     const ro = new ResizeObserver(schedule);
     for (const el of live) ro.observe(el);
     if (target) ro.observe(target);
+    if (card) ro.observe(card);
+    // A surface that grows moves what sits in it without the thing itself
+    // changing size (the composer settling once its row loads lifts its add
+    // button 19px), whenever that happens: watch the surfaces too.
+    for (const el of [...(target ? [target] : []), ...live]) {
+      const shape = el?.closest?.<HTMLElement>(SHAPE);
+      if (shape) ro.observe(shape);
+    }
     window.visualViewport?.addEventListener('resize', schedule);
     window.visualViewport?.addEventListener('scroll', schedule);
     // The page goes on drawing under a held page: a question writes itself in,
@@ -574,6 +672,7 @@ export function Coachmark(p: CoachmarkProps) {
       alive = false;
       document.documentElement.style.removeProperty('--sc-coach-h');
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(watching);
       cancelAnimationFrame(rehold);
       arrivals?.disconnect();
       stopAuto?.();
@@ -670,6 +769,7 @@ export function Coachmark(p: CoachmarkProps) {
             ref={veilRef}
             className="sc-coach-veil"
             data-veil={masked ? 'mask' : 'panels'}
+            data-soft={p.soft || undefined}
             data-state={phase}
             aria-hidden="true"
           >
@@ -785,12 +885,10 @@ function caretToEnd(el: HTMLElement) {
     field.setSelectionRange?.(at, at);
     return;
   }
-  const range = document.createRange();
-  range.selectNodeContents(el);
-  range.collapse(false);
-  const sel = window.getSelection();
-  sel?.removeAllRanges();
-  sel?.addRange(range);
+  // The brief's line is the composer's own: its caret lives inside a text
+  // node, past the guard after the last chip. A range collapsed on the line
+  // itself was drawn by Chrome in the gap before the last chip instead.
+  lineCaretToEnd(el);
 }
 
 /**
@@ -870,6 +968,29 @@ function cornerRadius(el: HTMLElement): number {
   return Number.parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
 }
 
+/**
+ * The surface a control sits in, or a shape it holds. A conversation turn is
+ * not itself a window; the chip group inside it is, so the veil cuts around
+ * the buttons rather than the full-width row they sit on.
+ */
+function stageOf(el: HTMLElement): HTMLElement {
+  return el.closest<HTMLElement>(SHAPE) ?? el.querySelector<HTMLElement>(SHAPE) ?? el;
+}
+
+/** The tightest real control inside a wrapper, so a fieldset of chips is not ringed as a box. */
+function innerFit(el: HTMLElement): { radius: number; height: number; count: number } {
+  let radius = 0;
+  let h = 0;
+  let count = 0;
+  for (const k of el.querySelectorAll<HTMLElement>('button, a[href], .sc-chip, .sc-btn')) {
+    if (!k.getClientRects().length) continue;
+    count += 1;
+    radius = Math.max(radius, cornerRadius(k));
+    h = Math.max(h, k.getBoundingClientRect().height);
+  }
+  return { radius, height: h, count };
+}
+
 function placeParts(host: HTMLElement, parts: Box[]) {
   Array.from(host.children).forEach((el, i) => {
     const b = parts[i];
@@ -938,4 +1059,29 @@ function wait(ms: number): Promise<void> {
 
 function focusable(el: HTMLElement): boolean {
   return el.matches('button, a[href], input, select, textarea, [tabindex], [contenteditable="true"]');
+}
+
+/** A control far taller than its words (a place in the top bar) is ringed around the words. */
+const HUG_RADIUS = 10;
+function hugged(el: HTMLElement): Box | null {
+  if (!el.matches('a[href], button') || el.getBoundingClientRect().height <= 48) return null;
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const b = range.getBoundingClientRect();
+  if (!b.width) return null;
+  return { left: b.left - 12, top: b.top - 7, right: b.right + 12, bottom: b.bottom + 7 };
+}
+
+/**
+ * Something that holds what the step is about is still moving: an animation
+ * running on it or around it. Never the coach's own ring, which breathes for
+ * as long as it is there.
+ */
+function arriving(els: readonly HTMLElement[]): boolean {
+  return document.getAnimations().some((a) => {
+    const on = (a.effect as KeyframeEffect | null)?.target;
+    if (!(on instanceof Element) || a.playState !== 'running') return false;
+    if (a.effect?.getTiming().iterations === Number.POSITIVE_INFINITY) return false;
+    return els.some((el) => on.contains(el));
+  });
 }

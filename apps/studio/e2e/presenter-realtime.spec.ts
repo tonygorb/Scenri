@@ -168,7 +168,8 @@ test('duplicating from the card appears on the wall and in the picker without a 
   await dialog.getByRole('button', { name: 'Duplicate', exact: true }).dblclick();
   await expect(page.locator('.sc-owned .sc-lookcard b', { hasText: /^Maya copy$/ })).toBeVisible();
   await expect(page.locator('.sc-owned .sc-lookcard b', { hasText: /^Maya$/ })).toBeVisible();
-  await expect(page.locator('.sc-toast').filter({ hasText: 'Duplicated' })).toContainText('Maya copy');
+  // The wall is the announcement. A toast here said the same thing twice.
+  await expect(page.locator('.sc-toast')).toHaveCount(0);
   await expect(
     page.locator('.sc-owned .sc-lookcard', { has: page.locator('b', { hasText: /^Maya copy$/ }) }),
   ).toHaveAttribute('data-just-added', 'true');
