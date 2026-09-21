@@ -68,7 +68,7 @@ test('a change that fails on the page says why, keeps the picture it had, and ev
 });
 
 test('a change that fails out of sight leaves one card that stays and leads back', async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(75_000);
   const slug = await brandSlug(page);
   const at = await drawn(page, slug, 'Far Cyc');
   await say(page, 'make the floor darker');
@@ -77,8 +77,8 @@ test('a change that fails out of sight leaves one card that stays and leads back
 
   const card = page.locator('.sc-toast', { hasText: 'Far Cyc did not finish' });
   await expect(card).toBeVisible({ timeout: 20_000 });
-  // an error outlasts a timed card
-  await page.waitForTimeout(5_000);
+  // an error stays until dismissed: still there well past the longest timed card
+  await page.waitForTimeout(15_000);
   await expect(card).toBeVisible();
   await card.getByRole('button', { name: 'Open' }).click();
   await page.waitForURL((u) => u.pathname === at);
