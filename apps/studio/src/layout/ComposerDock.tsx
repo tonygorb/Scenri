@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
+import { useDockHeight } from '../useDockHeight.js';
 
 /**
  * The floating shelf the Composer sits in, and the gradient that lifts it off
@@ -15,10 +16,12 @@ import type { ReactNode } from 'react';
  * viewport (see `.sc-canvas-dock` in app.css).
  */
 export function ComposerDock({ full = true, children }: { full?: boolean; children: ReactNode }) {
+  const [dock, setDock] = useState<HTMLDivElement | null>(null);
+  useDockHeight(dock, '--sc-dock-h');
   return (
     <>
       <div className="sc-dock-fade" data-full={full} aria-hidden />
-      <div className="sc-canvas-dock" data-full={full}>
+      <div className="sc-canvas-dock" data-full={full} ref={setDock}>
         {children}
       </div>
     </>

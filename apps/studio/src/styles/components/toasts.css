@@ -172,6 +172,28 @@
   }
 }
 
+/* A docked composer owns the bottom band, so the stack stands above it rather
+   than over its buttons (a lasting error covered Send on a phone and the attach
+   button on a laptop). The dock's own `bottom` is repeated here and its height
+   is the one it publishes (useDockHeight), so a brief that grows, a panel opened
+   over it, the tab bar and the keyboard all lift the stack with it. */
+body:has(.sc-canvas-dock) .sc-toasts {
+  bottom: calc(var(--sc-bottom-inset) + var(--sc-tabbar-h) + 18px + var(--sc-dock-h, 0px) + 10px);
+}
+/* The open shot's composer is a column beside the picture until a phone, where
+   it is fixed along the bottom edge (its height already holds the inset). Later
+   than Create's rule, which is still mounted underneath. */
+@media (max-width: 767px) {
+  body:has(.sc-ovl-edit) .sc-toasts {
+    bottom: calc(var(--sc-ovl-dock-h, 0px) + 10px);
+  }
+  /* The presenter studio's foot runs to the screen's edge on a phone, where it
+     has no tab bar under it; its height holds the inset too. */
+  body:has(.sc-pstudio-foot) .sc-toasts {
+    bottom: calc(var(--sc-pstudio-dock-h, 0px) + 10px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sc-toast-wrap {
     animation: sc-toast-in-reduced 120ms ease-out;
