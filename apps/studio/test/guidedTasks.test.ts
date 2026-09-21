@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stepOfMoment } from '../src/lessons.js';
+import { UNCOUNTED, countedMoments, stepOfMoment } from '../src/lessons.js';
 import type { GuideTaskNode, GuideView, ShowcaseEntry } from '../src/apiTypes.js';
 import type { ComposerFacts } from '../src/guideFacts.js';
 import { SPEC_ORDER } from '../src/create/presenter/presenterQuestions.js';
@@ -7,6 +7,8 @@ import {
   COPY,
   WELCOME,
   canWelcome,
+  chipToTakeBack,
+  coachCanBack,
   firstShotMoment,
   madeOne,
   mergeTaskNodes,
@@ -65,6 +67,7 @@ describe('the first shot, one ask at a time', () => {
     const go = firstShotMoment({ here: false, heading: true, composer: null, nodes: [] });
     // Create in the places, lit on a page left in plain view
     expect(go).toMatchObject({ id: 'go', voice: 'ask', point: '[data-guide="nav.create"]', soft: true });
+    expect(go?.title).toBe(COPY.go.title);
     // away from Create without having just begun it, nothing follows them
     expect(firstShotMoment({ here: false, composer: composer(), nodes: [] })).toBeNull();
     // where a moment sits is the lesson's to say, not the rule's: one list
@@ -184,6 +187,16 @@ describe('the later tasks', () => {
     ...over,
   });
 
+  it('refine: begun away from Create, the first step is the way there', () => {
+    expect(refineMoment(refFacts({ here: false, heading: true }))).toMatchObject({
+      id: 'go',
+      voice: 'ask',
+      point: '[data-guide="nav.create"]',
+      soft: true,
+      title: COPY.refineGo.title,
+    });
+  });
+
   it('refine: off the surface entirely, nothing shows', () => {
     expect(refineMoment(refFacts({ here: false }))).toBeNull();
   });
@@ -252,7 +265,7 @@ describe('the later tasks', () => {
   });
 
   it('presenter: three decisions get a word, and every question the studio asks itself is quiet', () => {
-    expect(presenterMoment(null)).toBeNull();
+    expect(presenterMoment({ studio: null })).toBeNull();
     const loud = new Map<string, string>();
     const ids = [
       ...SPEC_ORDER,
@@ -270,7 +283,7 @@ describe('the later tasks', () => {
       null,
     ];
     for (const open of ids) {
-      const m = presenterMoment({ open });
+      const m = presenterMoment({ studio: { open } });
       if (m?.voice !== 'quiet') loud.set(String(open), String(m?.id));
     }
     expect(Object.fromEntries(loud)).toEqual({
@@ -282,40 +295,75 @@ describe('the later tasks', () => {
       save: 'save',
       blind: 'save',
     });
-    expect(presenterMoment({ open: 'source' })).toMatchObject({
+    expect(presenterMoment({ studio: { open: 'source' } })).toMatchObject({
       voice: 'ask',
       shell: '.sc-pstudio',
-      point: '.sc-pstudio [data-turn="q:source"] .sc-convo-q',
+      point: '.sc-pstudio [data-turn="q:source"] .sc-convo-ask',
       live: ['.sc-pstudio [data-turn="q:source"]'],
       // a sentence typed in the studio's own line is the description
       also: ['.sc-pstudio .sc-convo-card'],
     });
     // deciding a face keeps the picture and the sentence usable, but waits for
     // neither: a phone draws no stage, and the question alone is the ask
-    const face = presenterMoment({ open: 'identity' });
+    const face = presenterMoment({ studio: { open: 'identity' } });
     expect(face?.live).toEqual(['.sc-pstudio [data-turn="q:identity"]']);
     expect(face?.also).toEqual(['.sc-pstudio-well', '.sc-pstudio .sc-convo-card']);
     // the face as the conversation shows it, the turn just above the question, stays in sight
     expect(face?.lit).toEqual(['.sc-pstudio [data-turn]:has(+ [data-turn="q:identity"])']);
     // a wall is only the wall: nothing to type past it
-    expect(presenterMoment({ open: 'noengine' })?.also).toEqual([]);
+    expect(presenterMoment({ studio: { open: 'noengine' } })?.also).toEqual([]);
   });
 
-  it('scene: its dialog is held, nothing when it is closed', () => {
-    expect(sceneMoment(false)).toBeNull();
-    expect(sceneMoment(true)).toMatchObject({
+  it('presenter: the way there, then start one, then the studio', () => {
+    expect(presenterMoment({ heading: true, studio: null })).toMatchObject({
+      id: 'go',
+      point: '[data-guide="nav.presenters"]',
+      soft: true,
+      title: COPY.presenterGo.title,
+    });
+    expect(presenterMoment({ onPage: true, studio: null })).toMatchObject({
+      id: 'new',
+      point: '[data-guide="library.new"]',
+      title: COPY.presenterNew.title,
+    });
+    // the studio wins over the library page underneath it
+    expect(presenterMoment({ onPage: true, studio: { open: 'source' } })?.id).toBe('start');
+  });
+
+  it('scene: the way there, then start one, then the dialog', () => {
+    expect(sceneMoment({ dialogOpen: false })).toBeNull();
+    expect(sceneMoment({ heading: true, dialogOpen: false })).toMatchObject({
+      id: 'go',
+      point: '[data-guide="nav.scenes"]',
+      title: COPY.sceneGo.title,
+    });
+    expect(sceneMoment({ onPage: true, dialogOpen: false })).toMatchObject({
+      id: 'new',
+      point: '[data-guide="library.new"]',
+      title: COPY.sceneNew.title,
+    });
+    expect(sceneMoment({ dialogOpen: true })).toMatchObject({
       voice: 'ask',
       shell: '.sc-newdlg-layer',
       point: '.sc-newdlg',
       title: COPY.sceneMake.title,
     });
-    // the dialog will not create one without a name, so the word says so
     expect(COPY.sceneMake.body).toMatch(/Name it/);
   });
 
-  it('product: the same one word on its dialog, nothing when it is closed', () => {
-    expect(productMoment(false)).toBeNull();
-    expect(productMoment(true)).toMatchObject({
+  it('product: the way there, then start one, then the dialog', () => {
+    expect(productMoment({ dialogOpen: false })).toBeNull();
+    expect(productMoment({ heading: true, dialogOpen: false })).toMatchObject({
+      id: 'go',
+      point: '[data-guide="nav.products"]',
+      title: COPY.productGo.title,
+    });
+    expect(productMoment({ onPage: true, dialogOpen: false })).toMatchObject({
+      id: 'new',
+      point: '[data-guide="library.new"]',
+      title: COPY.productNew.title,
+    });
+    expect(productMoment({ dialogOpen: true })).toMatchObject({
       id: 'product',
       voice: 'ask',
       shell: '.sc-newdlg-layer',
@@ -486,6 +534,123 @@ describe('welcomeSet', () => {
         entry('d', null, null),
       ]).map((e) => e.id),
     ).toEqual(['b', 'c', 'd']);
+  });
+});
+
+describe('hub and tutor stay one list', () => {
+  it('every moment a rule can emit is a milestone, or explicitly uncounted', () => {
+    const emitted = new Map<string, Set<string>>();
+    const note = (task: string, id: string | undefined) => {
+      if (!id) return;
+      const set = emitted.get(task) ?? new Set();
+      set.add(id);
+      emitted.set(task, set);
+    };
+    note('first-shot', firstShotMoment({ here: false, heading: true, composer: null, nodes: [] })?.id);
+    note('first-shot', firstShotMoment({ here: true, composer: composer(), nodes: [], begun: false })?.id);
+    note('first-shot', firstShotMoment({ here: true, composer: composer(), nodes: [], begun: true })?.id);
+    note(
+      'first-shot',
+      firstShotMoment({ here: true, composer: composer({ products: 1 }), nodes: [], begun: true })?.id,
+    );
+    note(
+      'first-shot',
+      firstShotMoment({ here: true, composer: composer({ products: 1, presenters: 1 }), nodes: [], begun: true })?.id,
+    );
+    note(
+      'first-shot',
+      firstShotMoment({
+        here: true,
+        composer: composer({ products: 1, presenters: 1, scene: true }),
+        nodes: [],
+        begun: true,
+      })?.id,
+    );
+    note(
+      'first-shot',
+      firstShotMoment({ here: true, composer: composer({ engine: 'setup' }), nodes: [], begun: true })?.id,
+    );
+    note('first-shot', firstShotMoment({ here: true, composer: composer({ busy: true }), nodes: [], begun: true })?.id);
+    note('first-shot', firstShotMoment({ here: true, composer: composer(), nodes: [node('n', 'running')] })?.id);
+    note('first-shot', firstShotMoment({ here: true, composer: composer(), nodes: [node('n', 'error')] })?.id);
+    note('first-shot', firstShotMoment({ here: true, composer: composer(), nodes: [node('n', 'done', 1)] })?.id);
+    note('refine', refineMoment({ here: false, heading: true, open: false, armed: false, nodes: [] })?.id);
+    note('refine', refineMoment({ here: true, open: false, armed: false, nodes: [] })?.id);
+    note('refine', refineMoment({ here: true, open: true, armed: false, nodes: [] })?.id);
+    note('refine', refineMoment({ here: true, open: false, armed: true, nodes: [] })?.id);
+    note(
+      'refine',
+      refineMoment({ here: true, open: true, armed: false, nodes: [{ ...node('e', 'running'), kind: 'edit' }] })?.id,
+    );
+    note(
+      'refine',
+      refineMoment({ here: true, open: true, armed: false, nodes: [{ ...node('e', 'done', 1), kind: 'edit' }] })?.id,
+    );
+    note(
+      'refine',
+      refineMoment({
+        here: true,
+        open: true,
+        armed: false,
+        nodes: [{ ...node('e', 'error'), kind: 'edit' }],
+        asking: false,
+      })?.id,
+    );
+    note('product', productMoment({ heading: true, dialogOpen: false })?.id);
+    note('product', productMoment({ onPage: true, dialogOpen: false })?.id);
+    note('product', productMoment({ dialogOpen: true })?.id);
+    note('scene', sceneMoment({ heading: true, dialogOpen: false })?.id);
+    note('scene', sceneMoment({ onPage: true, dialogOpen: false })?.id);
+    note('scene', sceneMoment({ dialogOpen: true })?.id);
+    note('presenter', presenterMoment({ heading: true, studio: null })?.id);
+    note('presenter', presenterMoment({ onPage: true, studio: null })?.id);
+    note('presenter', presenterMoment({ studio: { open: 'source' } })?.id);
+    note('presenter', presenterMoment({ studio: { open: 'identity' } })?.id);
+    note('presenter', presenterMoment({ studio: { open: 'save' } })?.id);
+    note('presenter', presenterMoment({ studio: { open: 'noengine' } })?.id);
+    note('presenter', presenterMoment({ studio: { open: 'look-who' } })?.id);
+    for (const [task, ids] of emitted) {
+      const counted = new Set(countedMoments(task as never));
+      const free = new Set<string>(UNCOUNTED);
+      for (const id of ids) expect(counted.has(id) || free.has(id), `${task}: ${id}`).toBe(true);
+    }
+  });
+
+  it('refine names both ways into the same ask', () => {
+    expect(COPY.refineChoose.body).toMatch(/Open one/);
+    expect(COPY.refineChoose.body).toMatch(/Refine/);
+  });
+});
+
+describe('Back, on every counted step after the first', () => {
+  it('takes the chip the last ask put in, and reuse never takes a presenter', () => {
+    expect(chipToTakeBack('first-shot', 'presenter')).toBe('product');
+    expect(chipToTakeBack('first-shot', 'scene')).toBe('presenter');
+    expect(chipToTakeBack('first-shot', 'make')).toBe('scene');
+    expect(chipToTakeBack('reuse', 'scene')).toBe('product');
+    expect(chipToTakeBack('reuse', 'make')).toBe('scene');
+    expect(chipToTakeBack('reuse', 'product')).toBeNull();
+    expect(chipToTakeBack('scene', 'scene')).toBeNull();
+  });
+
+  it('is there once something can be undone, and not on the first step', () => {
+    expect(coachCanBack('first-shot', 'go', false)).toBe(false);
+    expect(coachCanBack('first-shot', 'product', false)).toBe(false);
+    expect(coachCanBack('first-shot', 'product', true)).toBe(true);
+    expect(coachCanBack('first-shot', 'presenter', false)).toBe(true);
+    expect(coachCanBack('reuse', 'scene', false)).toBe(true);
+    expect(coachCanBack('reuse', 'make', false)).toBe(true);
+    expect(coachCanBack('presenter', 'go', false)).toBe(false);
+    expect(coachCanBack('presenter', 'new', false)).toBe(false);
+    expect(coachCanBack('presenter', 'new', true)).toBe(true);
+    expect(coachCanBack('presenter', 'start', false)).toBe(true);
+    expect(coachCanBack('presenter', 'face', false)).toBe(true);
+    expect(coachCanBack('presenter', 'save', false)).toBe(true);
+    expect(coachCanBack('product', 'product', false)).toBe(true);
+    expect(coachCanBack('scene', 'scene', false)).toBe(true);
+    expect(coachCanBack('refine', 'choose', true)).toBe(true);
+    expect(coachCanBack('refine', 'ask', false)).toBe(true);
+    expect(coachCanBack('refine', 'refined', false)).toBe(false);
   });
 });
 

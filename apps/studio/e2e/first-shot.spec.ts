@@ -19,6 +19,8 @@ import {
   setUpBrand,
   fromLearn,
   learnButton,
+  startNew,
+  walkTheWay,
   learnDialog,
   lessonRow,
   welcome,
@@ -187,6 +189,9 @@ test('Learn sits in the bar beside the bell, and says what is already done', asy
 test('a scene has its own task, held in the dialog it is made in', async ({ page }) => {
   await page.goto(`/${slug}`);
   await fromLearn(page, 'Build a scene');
+  await walkTheWay(page, 'scenes', 'Your scenes live here');
+  await page.waitForURL('**/scenes');
+  await startNew(page, 'Start a new scene');
   await expect(page).toHaveURL(/new=scene/);
   const layer = page.locator('.sc-newdlg-layer');
   await expect(layer.locator('.sc-coach .sc-coach-title')).toHaveText('Build a scene');
@@ -196,10 +201,10 @@ test('a scene has its own task, held in the dialog it is made in', async ({ page
   await expect(layer.getByPlaceholder('Name this place')).toHaveValue('Terrace');
   await layer.getByRole('button', { name: 'Close', exact: true }).first().click();
   // closing the dialog does not end the task: it is still the one in hand,
-  // and its window is kept. Learn reads it as not begun all the same, because
-  // naming a place and closing the dialog produced nothing
+  // and its window is kept. They have found the dialog, so Learn says how far.
   expect((await guideRecord(page)).active?.task).toBe('scene');
   expect((await guideRecord(page)).progress.scene?.brandId).toBeTruthy();
-  await learnButton(page).click();
-  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('1 step');
+  // the tutor is still asking on the library; Learn is opened from the address
+  await page.goto(`/${slug}?learn=lessons`);
+  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('Step 3 of 3');
 });

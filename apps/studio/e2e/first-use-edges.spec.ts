@@ -148,12 +148,12 @@ test('a task belongs to its own brand, and another brand is not guided by it', a
   // done there and nowhere else, and brand A's own first shot likewise
   await page.goto(`/${a}`);
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('3 steps');
+  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('5 steps');
   await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('Step 2 of 6');
   await page.keyboard.press('Escape');
   await page.goto(`/${b}`);
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('Step 2 of 3');
+  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText('Step 4 of 5');
   await expect(lessonRow(page, 'Make your first shot').locator('.sc-learn-status')).toHaveText('6 steps');
 });
 

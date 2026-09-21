@@ -23,6 +23,7 @@ import {
   pad,
   panels,
   referenceRect,
+  ringRadius,
   trimBy,
   union,
   visibleRect,
@@ -341,17 +342,13 @@ export function Coachmark(p: CoachmarkProps) {
       const windows: Window[] = [];
       const shapes: HTMLElement[] = [];
       for (const el of [...(target ? [target] : []), ...live, ...also, ...lit, ...openPoppers()]) {
-        const stage = el.closest<HTMLElement>(SHAPE) ?? el;
+        const stage = stageOf(el);
         if (!shapes.includes(stage)) shapes.push(stage);
       }
       // What the card is about, and so what it stands clear of: not what is
       // merely usable beside it (the portrait beside a question is lit, but the
       // card still stands against the question).
-      const about = new Set(
-        [...(target ? [target] : []), ...live, ...lit, ...openPoppers()].map(
-          (el) => el.closest<HTMLElement>(SHAPE) ?? el,
-        ),
-      );
+      const about = new Set([...(target ? [target] : []), ...live, ...lit, ...openPoppers()].map(stageOf));
       let r: Box | null = null;
       for (const el of shapes) {
         const b = visibleRect(boxOf(el.getBoundingClientRect()), clipsOf(el));
@@ -373,8 +370,22 @@ export function Coachmark(p: CoachmarkProps) {
       if (held && (live.some((s) => s.closest('[inert]')) || card?.closest('[inert]'))) held = false;
 
       if (coach && veil && catcher && ring && rim) {
-        if (!windows.length && t)
-          windows.push({ ...pad(t, RING_OFFSET), radius: cornerRadius(target as HTMLElement) + RING_OFFSET });
+        if (!windows.length && t) {
+          const fallback = target as HTMLElement;
+          const inner = innerFit(fallback);
+          windows.push({
+            ...pad(t, RING_OFFSET),
+            radius: ringRadius(
+              cornerRadius(fallback),
+              inner.radius,
+              RING_OFFSET,
+              BLOCK_RADIUS,
+              height(t),
+              inner.height,
+              inner.count,
+            ),
+          });
+        }
         // The stage stays in view whole; inside it, what the step does not ask for recedes.
         for (const el of staged.current) if (!shapes.includes(el)) el.removeAttribute(STAGE);
         for (const el of shapes) el.setAttribute(STAGE, '');
@@ -391,13 +402,26 @@ export function Coachmark(p: CoachmarkProps) {
         // on some steps and not others read as two different tutors.
         if (target && t) {
           const words = hugged(target);
+          const inner = innerFit(target);
           const ringBox = words ?? pad(t, RING_OFFSET);
           Object.assign(ring.style, {
             left: `${ringBox.left}px`,
             top: `${ringBox.top}px`,
             width: `${width(ringBox)}px`,
             height: `${height(ringBox)}px`,
-            borderRadius: `${words ? HUG_RADIUS : cornerRadius(target) + RING_OFFSET}px`,
+            borderRadius: `${
+              words
+                ? HUG_RADIUS
+                : ringRadius(
+                    cornerRadius(target),
+                    inner.radius,
+                    RING_OFFSET,
+                    BLOCK_RADIUS,
+                    height(t),
+                    inner.height,
+                    inner.count,
+                  )
+            }px`,
           });
           ring.hidden = false;
         } else ring.hidden = true;
@@ -621,6 +645,7 @@ export function Coachmark(p: CoachmarkProps) {
     const ro = new ResizeObserver(schedule);
     for (const el of live) ro.observe(el);
     if (target) ro.observe(target);
+    if (card) ro.observe(card);
     // A surface that grows moves what sits in it without the thing itself
     // changing size (the composer settling once its row loads lifts its add
     // button 19px), whenever that happens: watch the surfaces too.
@@ -941,6 +966,29 @@ function paintVeil(veil: HTMLElement, catcher: HTMLElement, rim: HTMLElement, wi
 /** A shape's corner, as drawn: the top-left radius, which every shape the guide windows uses shares. */
 function cornerRadius(el: HTMLElement): number {
   return Number.parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
+}
+
+/**
+ * The surface a control sits in, or a shape it holds. A conversation turn is
+ * not itself a window; the chip group inside it is, so the veil cuts around
+ * the buttons rather than the full-width row they sit on.
+ */
+function stageOf(el: HTMLElement): HTMLElement {
+  return el.closest<HTMLElement>(SHAPE) ?? el.querySelector<HTMLElement>(SHAPE) ?? el;
+}
+
+/** The tightest real control inside a wrapper, so a fieldset of chips is not ringed as a box. */
+function innerFit(el: HTMLElement): { radius: number; height: number; count: number } {
+  let radius = 0;
+  let h = 0;
+  let count = 0;
+  for (const k of el.querySelectorAll<HTMLElement>('button, a[href], .sc-chip, .sc-btn')) {
+    if (!k.getClientRects().length) continue;
+    count += 1;
+    radius = Math.max(radius, cornerRadius(k));
+    h = Math.max(h, k.getBoundingClientRect().height);
+  }
+  return { radius, height: h, count };
 }
 
 function placeParts(host: HTMLElement, parts: Box[]) {

@@ -73,6 +73,22 @@ export async function walkToCreate(p: Page): Promise<void> {
   await p.waitForURL('**/create**');
 }
 
+/** Any lesson's way there: the lit place in the bar, taken by hand. */
+export async function walkTheWay(
+  p: Page,
+  nav: 'create' | 'products' | 'presenters' | 'scenes',
+  title: string,
+): Promise<void> {
+  await expect(coachTitle(p)).toHaveText(title, { timeout: 20_000 });
+  await p.locator(`[data-guide="nav.${nav}"]:visible`).first().click();
+}
+
+/** The library's own create button, once they have found the page. */
+export async function startNew(p: Page, title: string): Promise<void> {
+  await expect(coachTitle(p)).toHaveText(title, { timeout: 20_000 });
+  await p.locator('[data-guide="library.new"]:visible').first().click();
+}
+
 /** Reads the opening and moves past it, the way anyone does. */
 export async function readTheOpening(p: Page): Promise<void> {
   await expect(coachTitle(p)).toContainText('This is Create', { timeout: 20_000 });
@@ -137,9 +153,12 @@ export async function pointsAt(p: Page, selector: string): Promise<void> {
       onScreen: c.left >= 0 && c.top >= 0 && c.right <= vw && c.bottom <= vh,
     };
   };
-  await expect
-    .poll(async () => await p.evaluate(measure, selector), { timeout: 5000 })
-    .toEqual({ inside: true, overlaps: false, arrowOnTarget: true, onScreen: true });
+  await expect.poll(async () => await p.evaluate(measure, selector)).toEqual({
+    inside: true,
+    overlaps: false,
+    arrowOnTarget: true,
+    onScreen: true,
+  });
 }
 
 /** The page behind an ask is held: some of it is inert. */

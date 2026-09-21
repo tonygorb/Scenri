@@ -10,6 +10,13 @@ import type { GuideTaskId, GuideTaskNode, GuideView } from './apiTypes.js';
  * A new lesson is a new guided task first (its rule in guidedTasks.ts, where
  * it begins in useLaunchTask.ts), and then an entry here.
  */
+export interface Milestone {
+  /** What Learn shows: an outcome, never a click. */
+  label: string;
+  /** The tutor moments that are this milestone. One list, so the two cannot drift. */
+  moments: readonly string[];
+}
+
 export interface Lesson {
   /** The guided task it runs. */
   id: GuideTaskId;
@@ -17,7 +24,7 @@ export interface Lesson {
   /** One sentence: what someone has at the end of it. */
   summary: string;
   /** What it walks through, as outcomes rather than clicks. */
-  steps: readonly string[];
+  milestones: readonly Milestone[];
   /**
    * What it needs before it can begin: a shot to refine, or a product of
    * their own to use again. Neither is a lock, and both offer the lesson
@@ -26,19 +33,24 @@ export interface Lesson {
   needs?: 'shot' | 'product';
 }
 
+/** The labels Learn shows, derived from the milestones so the two cannot drift. */
+export function stepsOf(l: Lesson): readonly string[] {
+  return l.milestones.map((m) => m.label);
+}
+
 export const LESSONS: readonly Lesson[] = [
   {
     id: 'first-shot',
     title: 'Make your first shot',
     summary:
       'A shot is three things Scenri keeps for you, put together and directed: what you sell, who shows it, and where it happens. Start with ours to see the shape of it, then swap in your own.',
-    steps: [
-      'Open Create',
-      'Choose a product',
-      'Choose a presenter',
-      'Choose a scene',
-      'Say how to shoot it, then make it',
-      'Open your shot',
+    milestones: [
+      { label: 'Open Create', moments: ['go'] },
+      { label: 'Choose a product', moments: ['product'] },
+      { label: 'Choose a presenter', moments: ['presenter'] },
+      { label: 'Choose a scene', moments: ['scene'] },
+      { label: 'Say how to shoot it, then make it', moments: ['make', 'sending', 'waiting', 'failed'] },
+      { label: 'Open your shot', moments: ['result'] },
     ],
   },
   {
@@ -46,19 +58,23 @@ export const LESSONS: readonly Lesson[] = [
     title: 'Add your product',
     summary:
       'Your own product, added once from its packshots or straight from your store, and exact in every shot you make from then on. Nothing is drawn here and nothing is spent.',
-    steps: ['Add its photos, or bring in your store'],
+    milestones: [
+      { label: 'Find where your products live', moments: ['go'] },
+      { label: 'Start a new one', moments: ['new'] },
+      { label: 'Add its photos, or bring in your store', moments: ['product'] },
+    ],
   },
   {
     id: 'reuse',
     title: 'Use it again',
     summary:
       'The same saved product in a different world. This is the whole point of keeping ingredients: one thing you added once, shot again and again without describing it twice.',
-    steps: [
-      'Open Create',
-      'Add the product you saved',
-      'Put it somewhere else',
-      'Say how to shoot it, then make it',
-      'See the same product in both',
+    milestones: [
+      { label: 'Open Create', moments: ['go'] },
+      { label: 'Add the product you saved', moments: ['product'] },
+      { label: 'Put it somewhere else', moments: ['scene'] },
+      { label: 'Say how to shoot it, then make it', moments: ['make', 'sending', 'waiting', 'failed'] },
+      { label: 'See the same product in both', moments: ['again'] },
     ],
     needs: 'product',
   },
@@ -67,21 +83,36 @@ export const LESSONS: readonly Lesson[] = [
     title: 'Create a presenter',
     summary:
       'One person Scenri keeps, invented question by question or built from photos of someone real, who stays the same face across every shot you put them in.',
-    steps: ['Describe someone, or add photos', 'Decide the face', 'Save them to the brand'],
+    milestones: [
+      { label: 'Find where your presenters live', moments: ['go'] },
+      { label: 'Start a new one', moments: ['new'] },
+      { label: 'Describe someone, or add photos', moments: ['start'] },
+      { label: 'Decide the face', moments: ['face'] },
+      { label: 'Save them to the brand', moments: ['save'] },
+    ],
   },
   {
     id: 'scene',
     title: 'Build a scene',
     summary:
       'A place and its light, saved once and shot in again. References are evidence rather than backdrops: a scene reaches a shot as words, so nothing in them is copied into a picture.',
-    steps: ['Name it, then add a photo or a line of direction'],
+    milestones: [
+      { label: 'Find where your scenes live', moments: ['go'] },
+      { label: 'Start a new one', moments: ['new'] },
+      { label: 'Name it, then add a photo or a line of direction', moments: ['scene'] },
+    ],
   },
   {
     id: 'refine',
     title: 'Refine a shot',
     summary:
       'Change one thing about a shot you already have and keep everything else, including the original. This is how a shot gets good: one change at a time, never a fresh start.',
-    steps: ['Choose a shot to change', 'Say the one thing to change', 'See the change on the trail'],
+    milestones: [
+      { label: 'Find the shots you have made', moments: ['go'] },
+      { label: 'Choose a shot to change', moments: ['choose'] },
+      { label: 'Say the one thing to change', moments: ['ask', 'refine-failed'] },
+      { label: 'See the change on the trail', moments: ['refining', 'refined'] },
+    ],
     needs: 'shot',
   },
 ];
@@ -138,6 +169,15 @@ export function lessonState(
   return view.lessons?.[id] ? 'done' : 'new';
 }
 
+/**
+ * The lesson that comes next: the first in the list that is not done. A later
+ * one already in hand does not jump the queue; several can be part done at
+ * once, and Next is which one the list still wants first.
+ */
+export function nextLesson<T extends { id: string }>(lessons: readonly T[], stateOf: (l: T) => LessonState): T | null {
+  return lessons.find((l) => stateOf(l) !== 'done') ?? null;
+}
+
 export interface ProgressFacts {
   /** The moment the tutor would show for this task were nothing over it, when that can be said. */
   moment: string | null;
@@ -148,43 +188,32 @@ export interface ProgressFacts {
 }
 
 /**
- * Which step of its lesson each moment of a task is. This is the one place
- * the tutor and Learn meet: the card counts these steps, Learn ticks these
- * steps, and a lesson's list is exactly what its walk does. A moment missing
- * from here is one that carries no count, which is only ever the greeting.
- *
- * A step exists because the tutor can say it. What pressing Start does (open
- * the dialog, open the shot, open the studio) is not a step: listing it made
- * every one of those walks open on "2 of 3", which reads as having missed
- * something. Nor is the engine ask: nothing can draw yet, which is a thing to
- * fix before the lesson means anything, and counting it said someone with no
- * engine was two steps into making a shot.
+ * Moments the tutor can say that carry no lesson step: the greeting, the
+ * engine wall, and a studio question that speaks for itself. Everything else
+ * a rule can emit sits in exactly one milestone.
  */
-const AT: Record<GuideTaskId, Record<string, number>> = {
-  'first-shot': {
-    go: 0,
-    product: 1,
-    presenter: 2,
-    scene: 3,
-    make: 4,
-    sending: 4,
-    waiting: 4,
-    failed: 4,
-    result: 5,
-  },
-  product: { product: 0 },
-  reuse: { go: 0, product: 1, scene: 2, make: 3, sending: 3, waiting: 3, failed: 3, again: 4 },
-  presenter: { start: 0, face: 1, save: 2 },
-  scene: { scene: 0 },
-  refine: { choose: 0, ask: 1, 'refine-failed': 1, refining: 2, refined: 2 },
-};
+export const UNCOUNTED = ['intro', 'engine', 'studio'] as const;
 
 /**
- * Where a moment sits in its lesson, and how many steps that lesson has, so
- * the tutor's card says the same thing Learn does (`GuideHost`). The greeting
- * has no step of its own and so no count.
+ * Which step of its lesson each moment of a task is. Derived from the
+ * milestones, so Learn and the tutor cannot disagree. A moment missing from
+ * here is one that carries no count.
  */
-/** The furthest step a lesson has reached, from the milestones it has seen. */
+const AT: Record<GuideTaskId, Record<string, number>> = Object.fromEntries(
+  LESSONS.map((l) => [
+    l.id,
+    Object.fromEntries(l.milestones.flatMap((m, i) => m.moments.map((moment) => [moment, i]))),
+  ]),
+) as Record<GuideTaskId, Record<string, number>>;
+
+/** Every counted moment of a lesson, for the test that the two lists stay one. */
+export function countedMoments(id: GuideTaskId): readonly string[] {
+  return LESSONS.find((l) => l.id === id)?.milestones.flatMap((m) => m.moments) ?? [];
+}
+
+/**
+ * The furthest step a lesson has reached, from the milestones it has seen.
+ */
 export function furthest(id: GuideTaskId, reached: readonly string[]): number {
   let at = 0;
   for (const moment of reached) {
@@ -194,9 +223,18 @@ export function furthest(id: GuideTaskId, reached: readonly string[]): number {
   return at;
 }
 
+/**
+ * Whether this lesson has already walked past finding its place. Seeing the
+ * way there is not enough: Continue restores a place they have been, and
+ * Start on the first step still lets them walk it.
+ */
+export function progressedPastWay(id: GuideTaskId, reached: readonly string[]): boolean {
+  return furthest(id, reached) > 0;
+}
+
 export function stepOfMoment(id: GuideTaskId, moment: string): { at: number; of: number } | null {
   const at = AT[id][moment];
-  const of = LESSONS.find((l) => l.id === id)?.steps.length ?? 0;
+  const of = LESSONS.find((l) => l.id === id)?.milestones.length ?? 0;
   return at === undefined || !of ? null : { at: at + 1, of };
 }
 
@@ -208,6 +246,20 @@ const finished = (n: GuideTaskNode) => n.status === 'done' && n.images > 0;
  * was sent, a draft exists, a build is running). Never further than that: a
  * step shows as done because the product says it happened.
  */
+/**
+ * How far Learn should say this lesson has got.
+ *
+ * Live facts (the tutor's moment, the task's own nodes, a draft) are only
+ * true of the lesson that is actually on this surface. Pass null for every
+ * other lesson: another brief or another task's shots must not walk this one
+ * forward. What it has reached is always its own, so emptying the brief
+ * asks for the chips again without undoing having chosen them.
+ */
+export function lessonAt(id: GuideTaskId, reached: readonly string[], live: ProgressFacts | null): number {
+  const remembered = furthest(id, reached);
+  return live ? Math.max(stepOf(id, live), remembered) : remembered;
+}
+
 export function stepOf(id: GuideTaskId, f: ProgressFacts): number {
   const at = f.moment ? AT[id][f.moment] : undefined;
   if (at !== undefined) return at;
@@ -217,9 +269,9 @@ export function stepOf(id: GuideTaskId, f: ProgressFacts): number {
     case 'reuse':
       return f.nodes.some(finished) ? 4 : f.nodes.length > 0 ? 3 : 0;
     case 'presenter':
-      return f.draft ? 1 : 0;
+      return f.draft ? 3 : 0;
     case 'refine':
-      return f.nodes.some(finished) || f.nodes.some((n) => n.status === 'running') ? 2 : 0;
+      return f.nodes.some(finished) || f.nodes.some((n) => n.status === 'running') ? 3 : 0;
     default:
       return 0;
   }

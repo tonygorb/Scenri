@@ -8,4 +8,4 @@
  * turning this back on loses nothing. The specs that walk the guide skip while
  * it is off (`e2e/harness.ts`).
  */
-export const FIRST_USE = false;
+export const FIRST_USE = true;

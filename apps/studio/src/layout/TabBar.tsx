@@ -19,7 +19,7 @@ export function TabBar() {
             <Link
               to={item.to}
               data-on={item.active || undefined}
-              data-guide={item.key === 'create' ? 'nav.create' : undefined}
+              data-guide={`nav.${item.key}`}
               aria-current={item.active ? 'page' : undefined}
             >
               <span className="sc-tab-ic">{item.icon}</span>

@@ -2,6 +2,8 @@ import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
 import {
   fromLearn,
+  startNew,
+  walkTheWay,
   guideRecord,
   isInert,
   learnButton,
@@ -52,13 +54,27 @@ test('a word at the start, then quiet: the studio asks its own questions', async
     (b) => b.slug === slug,
   )?.id as string;
 
-  // Learn opens the studio, and the tutor says which road is which.
+  // Learn finds Presenters first, then the studio, and the tutor says which road is which.
   await fromLearn(page, 'Create a presenter');
+  await walkTheWay(page, 'presenters', 'Your presenters live here');
+  await page.waitForURL('**/presenters');
+  await startNew(page, 'Start a new presenter');
   await page.waitForURL('**/presenters/new**');
   await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Describe someone, or start from photos', {
     timeout: 20_000,
   });
-  await pointsAt(page, '.sc-pstudio [data-turn="q:source"] .sc-convo-q');
+  await pointsAt(page, '.sc-pstudio [data-turn="q:source"] .sc-convo-ask');
+  // later counted steps have Back: this one leaves the studio, and Start a
+  // new one is asked for again
+  await expect(studioCoach(page).getByRole('button', { name: 'Back' })).toBeVisible();
+  await studioCoach(page).getByRole('button', { name: 'Back' }).click();
+  await page.waitForURL('**/presenters');
+  await expect(page.locator('.sc-pstudio')).toHaveCount(0);
+  await startNew(page, 'Start a new presenter');
+  await page.waitForURL('**/presenters/new**');
+  await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Describe someone, or start from photos', {
+    timeout: 20_000,
+  });
   // that question's own answers can be used, and so can the studio's line,
   // where a typed sentence is the description; the rest of the studio is held
   expect(await isInert(page, '.sc-pstudio-foot .sc-convo-card')).toBe(false);
@@ -93,7 +109,7 @@ test('the face and the save are the two words it says, and saving ends the task'
   // Learn continues that exact draft.
   await page.goto(`/${slug}`);
   await learnButton(page).click();
-  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText(/^Step \d of 3$/);
+  await expect(lessonRow(page, 'Create a presenter').locator('.sc-learn-status')).toHaveText(/^Step \d of 5$/);
   await lessonRow(page, 'Create a presenter').click();
   await learnDialog(page)
     .getByRole('button', { name: /^Continue:/ })

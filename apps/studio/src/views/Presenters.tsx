@@ -98,7 +98,13 @@ export function PresentersView() {
   const cta = useRef<HTMLButtonElement>(null);
 
   const createCta = (
-    <button ref={cta} type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('presenter')}>
+    <button
+      ref={cta}
+      type="button"
+      className="sc-btn sc-btn-primary"
+      data-guide="library.new"
+      onClick={() => createAsset('presenter')}
+    >
       <Plus size={12} /> Create presenter
     </button>
   );

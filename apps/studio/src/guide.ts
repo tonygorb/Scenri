@@ -12,29 +12,43 @@ import { FIRST_USE } from './firstUse.js';
  * pointed at a server that predates the route keeps working, and a missed load
  * only means nobody is guided.
  */
+export interface GuideHeading {
+  brandId: string;
+  task: GuideTaskId;
+}
+
 export interface GuideSnapshot extends GuideView {
   /** The first read has answered, or failed. Until then nobody can tell a new install from an old one. */
   loaded: boolean;
   /**
-   * The brand whose first shot was just begun away from Create, on its way
-   * there: this tab's alone, never the record's. It lasts through a reload,
-   * so the way is still lit after one, and ends on arrival or when the guide
-   * is closed.
+   * A lesson just begun away from where it happens, on its way there: this
+   * tab's alone, never the record's. It lasts through a reload, so the way
+   * is still lit after one, and ends on arrival or when the guide is closed.
    */
-  heading: string | null;
+  heading: GuideHeading | null;
 }
 
 const HEADING = 'scenri:guide-heading';
-function storedHeading(): string | null {
+const TASKS: readonly GuideTaskId[] = ['first-shot', 'refine', 'product', 'presenter', 'scene', 'reuse'];
+const isTask = (t: unknown): t is GuideTaskId => (TASKS as readonly unknown[]).includes(t);
+
+function storedHeading(): GuideHeading | null {
   try {
-    return typeof window === 'undefined' ? null : window.sessionStorage.getItem(HEADING);
+    const raw = typeof window === 'undefined' ? null : window.sessionStorage.getItem(HEADING);
+    if (!raw) return null;
+    if (raw.startsWith('{')) {
+      const j = JSON.parse(raw) as { brandId?: unknown; task?: unknown };
+      return typeof j.brandId === 'string' && isTask(j.task) ? { brandId: j.brandId, task: j.task } : null;
+    }
+    // an older tab stored only the brand: that walk was always the first shot
+    return { brandId: raw, task: 'first-shot' };
   } catch {
     return null;
   }
 }
-function storeHeading(brandId: string | null): void {
+function storeHeading(heading: GuideHeading | null): void {
   try {
-    if (brandId) window.sessionStorage.setItem(HEADING, brandId);
+    if (heading) window.sessionStorage.setItem(HEADING, JSON.stringify(heading));
     else window.sessionStorage.removeItem(HEADING);
   } catch {
     // a tab that refuses storage loses the way on a reload, nothing else
@@ -161,10 +175,15 @@ function subscribe(l: () => void) {
 /** Where this browser remembers that a brand's first shot began with the way to Create. */
 export const viaBarKey = (brandId: string) => `scenri:guide-via-bar:${brandId}`;
 
-/** The first shot begun away from Create: its first step is the way there. */
-export function headFor(brandId: string): void {
-  storeHeading(brandId);
-  emit({ ...snapshot, heading: brandId });
+/** The same memory, for any lesson that began with the way to its place. */
+export const viaWayKey = (brandId: string, task: GuideTaskId) =>
+  task === 'first-shot' || task === 'reuse' ? viaBarKey(brandId) : `scenri:guide-via:${brandId}:${task}`;
+
+/** A lesson begun away from where it happens: its first step is the way there. */
+export function headFor(brandId: string, task: GuideTaskId): void {
+  const heading = { brandId, task };
+  storeHeading(heading);
+  emit({ ...snapshot, heading });
 }
 
 /** There, or no longer on the way. */

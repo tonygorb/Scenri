@@ -1,5 +1,6 @@
 import { type RefObject, useEffect, useRef, useState } from 'react';
 import { ArrowRight, CaretLeft, Check, X } from '@phosphor-icons/react';
+import { useMatch } from 'react-router';
 import { useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import type { GuideTaskId } from '../apiTypes.js';
@@ -10,15 +11,17 @@ import {
   LESSON_PICTURES,
   LESSONS,
   NEEDS,
+  lessonAt,
   lessonOf,
   lessonState,
-  furthest,
-  stepOf,
+  nextLesson,
+  stepsOf,
   type Lesson,
   type LessonState,
 } from '../lessons.js';
 import { DialogSheet, SheetClose, SheetDescription, SheetTitle } from '../layout/DialogSheet.js';
 import { useLaunchTask } from '../layout/useLaunchTask.js';
+import { P } from '../routes.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 
 /** The library's own address: `?learn=lessons`. A lesson's is its id. */
@@ -77,36 +80,45 @@ export function LearnDialog() {
     });
   };
 
+  const hub = !!useMatch(P.hub);
+  const studio = !!useMatch(P.presenterStudio);
+  const onPresenters = !!useMatch(P.presenters);
+  const headingFor = (t: GuideTaskId) => guide.heading?.brandId === brand.id && guide.heading.task === t;
+  const guiding = guide.active?.brandId === brand.id && !guide.active.paused ? guide.active.task : null;
+
   const hasShot = recent.some((n) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0);
   /** What a lesson starts from, when the brand does not hold it yet. */
   const blockedOf = (l: Lesson): 'shot' | 'product' | null =>
     (l.needs === 'shot' && !hasShot) || (l.needs === 'product' && products.length === 0) ? (l.needs ?? null) : null;
   const stepNow = (l: Lesson): number => {
+    const reached = guide.progress?.[l.id]?.reached ?? [];
+    if (guiding !== l.id) return lessonAt(l.id, reached, null);
     const composer = facts.composer?.brandId === brand.id ? facts.composer : null;
-    const shot = { here: true, composer, nodes: guide.activeNodes, begun: true };
+    const shot = {
+      here: hub,
+      heading: headingFor(l.id),
+      composer: hub ? composer : null,
+      nodes: guide.activeNodes,
+      begun: true,
+    };
     const moment =
       l.id === 'first-shot'
         ? (firstShotMoment(shot)?.id ?? null)
         : l.id === 'reuse'
           ? (reuseMoment(shot)?.id ?? null)
           : l.id === 'presenter'
-            ? (presenterMoment(facts.studio)?.id ?? null)
+            ? (presenterMoment({
+                heading: headingFor('presenter'),
+                onPage: onPresenters && !studio,
+                studio: studio ? facts.studio : null,
+              })?.id ?? null)
             : null;
-    const now = stepOf(l.id, {
-      moment,
-      nodes: guide.activeNodes,
-      draft: !!guide.activeDraftId,
-    });
-    // A lesson does not walk backwards. What it has reached is its own
-    // (the record keeps the milestones by name), so emptying the brief asks
-    // for the chips again without undoing having chosen them.
-    return Math.max(now, furthest(l.id, guide.progress?.[l.id]?.reached ?? []));
+    return lessonAt(l.id, reached, { moment, nodes: guide.activeNodes, draft: !!guide.activeDraftId });
   };
   // Part done is read from the step it has actually got to, so a lesson left
   // standing on its first one still says Start (lessons.ts).
   const stateOf = (l: Lesson): LessonState => lessonState(l.id, guide, brand.id, stepNow(l));
-  // The lesson that comes next: the one in hand, else the first not yet done.
-  const next = LESSONS.find((l) => stateOf(l) === 'active') ?? LESSONS.find((l) => stateOf(l) !== 'done') ?? null;
+  const next = nextLesson(LESSONS, stateOf);
   // What a desktop shows open: the lesson asked for, else the one that comes next.
   const shown = chosen ?? next ?? LESSONS[0];
   const done = LESSONS.filter((l) => stateOf(l) === 'done').length;
@@ -300,7 +312,7 @@ function LessonView({
             does not and the box holds still. */}
         <div className="sc-learn-do">
           <ol className="sc-learn-steps">
-            {lesson.steps.map((step, i) => {
+            {stepsOf(lesson).map((step, i) => {
               const s = stepState(i);
               const mark = (
                 <span className="sc-learn-n" aria-hidden="true">
@@ -358,7 +370,7 @@ function Status({
   at: number;
   blocked?: 'shot' | 'product' | null;
 }) {
-  const n = lesson.steps.length;
+  const n = stepsOf(lesson).length;
   if (state === 'done')
     return (
       <span className="sc-learn-status" data-state="done">

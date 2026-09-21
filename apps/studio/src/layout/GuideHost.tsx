@@ -4,7 +4,7 @@ import { useAppData, useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import type { GuideTaskId, GuideTaskNode } from '../api.js';
-import { arrived, guideIntent, headFor, refreshGuide, useGuide, viaBarKey } from '../guide.js';
+import { arrived, guideIntent, headFor, refreshGuide, useGuide, viaWayKey } from '../guide.js';
 import { setGuideShowing, useGuideFacts } from '../guideFacts.js';
 import {
   ASK_TAB,
@@ -12,6 +12,8 @@ import {
   WELCOME,
   askedKind,
   canWelcome,
+  chipToTakeBack,
+  coachCanBack,
   firstShotMoment,
   madeOne,
   mergeTaskNodes,
@@ -27,7 +29,7 @@ import {
   type Moment,
 } from '../guidedTasks.js';
 import { stepOfMoment } from '../lessons.js';
-import { brandPath, P } from '../routes.js';
+import { brandPath, hubPath, presentersPath, P } from '../routes.js';
 import { useToasts } from '../toasts.js';
 import { WelcomeDialog } from '../views/WelcomeDialog.js';
 import { Coachmark } from './Coachmark.js';
@@ -67,10 +69,14 @@ export function GuideHost() {
   const launch = useLaunchTask();
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const newDlg = useDialogParam('new');
   const home = !!useMatch(P.brand);
   const hub = !!useMatch(P.hub);
   const shot = useMatch(P.hubShot)?.params.shotId ?? null;
   const studio = !!useMatch(P.presenterStudio);
+  const onProducts = !!useMatch(P.products);
+  const onScenes = !!useMatch(P.scenes);
+  const onPresenters = !!useMatch(P.presenters);
 
   const active = guide.active;
   // The task in hand for this brand, and the one being guided: a paused task
@@ -166,43 +172,56 @@ export function GuideHost() {
     setBegun(true);
   }, [begunKey]);
 
-  // The first shot that began with the way to Create: its step said what the
-  // opening would have, so arriving by it is the opening read, and the walk
-  // counts that step. Remembered where the opening is, for a reload part way.
-  // Two walks are made of shots and so begin with the way to Create: the
-  // first one, and using a saved thing again.
-  const walksToCreate = task === 'first-shot' || task === 'reuse';
-  const [viaBar, setViaBar] = useState(false);
+  const heading = guide.heading;
+  const headingFor = (t: GuideTaskId | null) => !!t && heading?.brandId === brand.id && heading.task === t && !modal;
+  const destOf = (t: GuideTaskId) =>
+    t === 'first-shot' || t === 'reuse' || t === 'refine'
+      ? hub
+      : t === 'product'
+        ? onProducts
+        : t === 'scene'
+          ? onScenes
+          : t === 'presenter'
+            ? onPresenters || studio
+            : false;
+  // A walk that began with the way to its place: arriving by their own hand
+  // is the opening read, and Back on the first thing there asks for the way
+  // again. Remembered where the opening is, for a reload part way.
+  const [viaWay, setViaWay] = useState(false);
   useEffect(() => {
     let v = false;
     try {
-      v = walksToCreate && window.localStorage.getItem(viaBarKey(brand.id)) === '1';
+      v = !!task && window.localStorage.getItem(viaWayKey(brand.id, task)) === '1';
     } catch {
-      // a browser that refuses storage counts four
+      // a browser that refuses storage just has no Back to the way
     }
-    setViaBar(v);
-  }, [walksToCreate, brand.id, guide.heading]);
-  // On the way to Create until they get there, and only while that is the task.
-  // Getting there is arriving, not being there: Back on the first choice asks
-  // for the way here again while Create is still on screen.
-  const wasHub = useRef(hub);
+    setViaWay(v);
+  }, [task, brand.id, heading]);
   useEffect(() => {
-    const came = hub && !wasHub.current;
-    wasHub.current = hub;
-    if (!guide.heading) return;
-    if (came && walksToCreate && guide.heading === brand.id) {
-      try {
-        window.localStorage.setItem(viaBarKey(brand.id), '1');
-      } catch {
-        // the count falls back to four, nothing else changes
-      }
-      setViaBar(true);
-      beginNow();
+    if (!heading || heading.brandId !== brand.id) return;
+    if (!destOf(heading.task)) return;
+    try {
+      window.localStorage.setItem(viaWayKey(brand.id, heading.task), '1');
+    } catch {
+      // the walk still happens, Back just has nothing to undo
     }
-    // Not before the record has answered: on a reload there is no task in
-    // hand for a moment, and that is not the task having ended.
-    if (came || (guide.loaded && !walksToCreate)) arrived();
-  }, [guide.heading, guide.loaded, hub, walksToCreate, brand.id, beginNow]);
+    setViaWay(true);
+    if (heading.task === 'first-shot' || heading.task === 'reuse') beginNow();
+    arrived();
+  }, [heading, hub, onProducts, onScenes, onPresenters, studio, brand.id, beginNow]);
+  // Back from the first thing on a destination must not set heading while
+  // still there: the arrival effect would clear it before Home paints.
+  const pendingWay = useRef<GuideTaskId | null>(null);
+  useEffect(() => {
+    const t = pendingWay.current;
+    if (!t || destOf(t)) return;
+    pendingWay.current = null;
+    headFor(brand.id, t);
+  }, [hub, onProducts, onScenes, onPresenters, studio, brand.id]);
+  // A leftover way, after the lesson has let go of this brand.
+  useEffect(() => {
+    if (guide.loaded && !held && heading) arrived();
+  }, [guide.loaded, held, heading]);
 
   // The one moment, from what is true now.
   let moment: Moment | null = null;
@@ -211,11 +230,11 @@ export function GuideHost() {
     // The render that arrives by the way to Create already knows it did: the
     // flag is only written down after it, and a card placed for the in-between
     // (no Back, "1 of 4", the greeting still due) grew into what it points at.
-    const arriving = hub && guide.heading === brand.id;
+    const arriving = hub && headingFor(task);
     const shotFacts = {
       here: hub && !modal,
-      heading: guide.heading === brand.id && !hub && !modal,
-      viaBar: viaBar || arriving,
+      heading: headingFor(task) && !hub,
+      viaBar: viaWay || arriving,
       composer: c && settling ? { ...c, busy: true } : c,
       nodes,
       begun: begun || arriving || nodes.length > 0,
@@ -229,14 +248,30 @@ export function GuideHost() {
     // grid's discovery card must still give way to a real dialog on top.
     moment = refineMoment({
       here: open || (hub && !modal),
+      heading: headingFor(task) && !hub && !open,
       open,
       armed: hub && !!c?.refining,
       nodes,
       asking: open ? !!firstVisible(SHOT_COMPOSER) : !!firstVisible(COMPOSE_CARD),
     });
-  } else if (task === 'presenter') moment = studio ? presenterMoment(facts.studio) : null;
-  else if (task === 'scene') moment = sceneMoment(newKind === 'scene');
-  else if (task === 'product') moment = productMoment(newKind === 'product');
+  } else if (task === 'presenter')
+    moment = presenterMoment({
+      heading: headingFor(task) && !onPresenters && !studio,
+      onPage: onPresenters && !studio && !modal,
+      studio: studio ? facts.studio : null,
+    });
+  else if (task === 'scene')
+    moment = sceneMoment({
+      heading: headingFor(task) && !onScenes,
+      onPage: onScenes && !modal && newKind !== 'scene',
+      dialogOpen: newKind === 'scene',
+    });
+  else if (task === 'product')
+    moment = productMoment({
+      heading: headingFor(task) && !onProducts,
+      onPage: onProducts && !modal && newKind !== 'product',
+      dialogOpen: newKind === 'product',
+    });
 
   /**
    * The picker shows the one kind being asked for, and moves on with the ask:
@@ -295,15 +330,10 @@ export function GuideHost() {
   }, [pickerRoom]);
 
   /**
-   * Back through the brief: the ask before this one put a chip in, so going
-   * back takes that chip out and the moment before is simply true again. It is
-   * the one way anything leaves the brief while the tutor is walking them
-   * through it, it never touches more than the one step behind, and where
-   * there is nothing to take back there is no Back to press.
+   * Back undoes the last thing done: a chip in the brief, the walk that put
+   * them on this page, or the surface this step opened (studio, dialog, shot).
+   * Where there is nothing to undo there is no Back to press.
    */
-  const TAKES_BACK: Record<string, AskedKind> = { presenter: 'product', scene: 'presenter', make: 'scene' };
-  // The ids are the first shot's own: another task's moment may share a name
-  // (the scene task's one ask is called scene) and has no chip to take back.
   /**
    * Where this moment sits in its lesson, said the way Learn says it. One
    * list per lesson (lessons.ts) feeds both, so a card reading "3 of 6" is
@@ -515,26 +545,34 @@ export function GuideHost() {
           body={drawn.body}
           at={drawn.at}
           of={drawn.of}
-          canBack={
-            task === 'first-shot' &&
-            (!!TAKES_BACK[drawn.id] || (drawn.id === 'product' && (viaBar || (hub && guide.heading === brand.id))))
-          }
+          canBack={coachCanBack(task, drawn.id, viaWay || !!(hub && headingFor(task)))}
           action={drawn.start ? { label: 'Start' } : drawn.done ? { label: 'Done' } : null}
           closeLabel={drawn.done ? 'Close' : 'Close guide'}
           onBack={() => {
-            // Back undoes the last thing done. On the first choice of a walk that
-            // began with the way to Create, that was coming here: it goes back,
-            // and the way here is asked for again.
-            if (drawn.id === 'product' && viaBar) {
+            const kind = task ? chipToTakeBack(task, drawn.id) : null;
+            if (kind) {
+              window.dispatchEvent(new CustomEvent('scenri:guide-take-back', { detail: { kind } }));
+              window.dispatchEvent(new CustomEvent('scenri:guide-picker', { detail: { tab: ASK_TAB[kind] } }));
+              return;
+            }
+            if (task === 'presenter' && (drawn.id === 'start' || drawn.id === 'face' || drawn.id === 'save')) {
+              return navigate(presentersPath(brand), { replace: true });
+            }
+            if ((task === 'product' || task === 'scene') && drawn.id === task) {
+              return newDlg.close();
+            }
+            if (task === 'refine' && drawn.id === 'ask') {
+              if (shot) return navigate(hubPath(brand), { replace: true });
+              window.dispatchEvent(new Event('scenri:guide-clear-refine'));
+              return;
+            }
+            // The first thing on a destination, after walking there: coming
+            // here is what Back undoes, and the way here is asked for again.
+            if (viaWay && task && (drawn.id === 'new' || drawn.id === 'choose' || drawn.id === 'product')) {
               window.dispatchEvent(new Event('scenri:guide-close-picker'));
-              headFor(brand.id);
+              pendingWay.current = task;
               return navigate(brandPath(brand));
             }
-            // Otherwise it takes the last chip out and opens the shelf it came
-            // from, on that kind: one press, and they are looking at the choice again.
-            const kind = TAKES_BACK[drawn.id];
-            window.dispatchEvent(new CustomEvent('scenri:guide-take-back', { detail: { kind } }));
-            window.dispatchEvent(new CustomEvent('scenri:guide-picker', { detail: { tab: ASK_TAB[kind] } }));
           }}
           onAction={() => {
             if (drawn.start) return beginNow();

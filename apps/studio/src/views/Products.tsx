@@ -180,7 +180,12 @@ export function ProductsView() {
      same dialog with a different field focused — a menu describing flows that
      did not exist. Importing is still there, inside, where it belongs. */
   const addMenu = (
-    <button type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('product')}>
+    <button
+      type="button"
+      className="sc-btn sc-btn-primary"
+      data-guide="library.new"
+      onClick={() => createAsset('product')}
+    >
       <Plus size={12} /> Add product
     </button>
   );

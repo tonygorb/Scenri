@@ -20,7 +20,7 @@ export function BarNav() {
             <Link
               to={item.to}
               data-active={item.active || undefined}
-              data-guide={item.key === 'create' ? 'nav.create' : undefined}
+              data-guide={`nav.${item.key}`}
               aria-current={item.active ? 'page' : undefined}
             >
               {item.label}
