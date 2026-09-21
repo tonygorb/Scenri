@@ -157,7 +157,8 @@ test('a reload lands on the same moment, and the X ends only the guidance', asyn
   await coachCard(page).getByRole('button', { name: 'Close guide' }).click();
   await expect(coachCard(page)).toHaveCount(0);
   await expectLetGo(page);
-  await expect(page.getByText('Continue it any time from Learn.')).toBeVisible();
+  // the card, not the live region that speaks the same words for a second
+  await expect(page.locator('.sc-toast').getByText('Continue it any time from Learn.')).toBeVisible();
   // their work is untouched and the page is theirs again
   await expect(chips(page)).toHaveCount(3);
   expect(await isInert(page, '[data-guide="compose.send"]')).toBe(false);
