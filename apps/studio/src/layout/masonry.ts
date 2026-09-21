@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 
 /** The gutter between tiles, matching `.sc-cell`'s own bottom margin. */
 export const GAP = 14;
@@ -58,23 +58,27 @@ export function normalizeDensity(raw: unknown): DensityCols {
  * of the window. */
 export function useElementWidth(el: HTMLElement | null): number {
   const [w, setW] = useState(0);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!el) return;
-    // One state write per frame at most. The assets rail animates its width
-    // over 220 ms, and a write per observed pixel re-rendered the whole feed
-    // a dozen times per toggle for a layout the browser was already easing.
-    let raf = 0;
-    const measure = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => setW(el.clientWidth));
+    const next = el.clientWidth;
+    setW((cur) => (cur === next ? cur : next));
+  });
+  useLayoutEffect(() => {
+    if (!el) return;
+    // The assets rail is a grid column that snaps, not a 220 ms width
+    // animation. Deferring the write to rAF painted the feed at the old
+    // column count in the new canvas width, then recounted — two layouts for
+    // one toggle. The effect above re-reads after every commit (Create flipping
+    // `data-assets` re-renders this hook's owner once the grid has laid out).
+    // ResizeObserver covers a resize that does not re-render React (the window).
+    const apply = () => {
+      const next = el.clientWidth;
+      setW((cur) => (cur === next ? cur : next));
     };
-    setW(el.clientWidth);
-    const ro = new ResizeObserver(measure);
+    apply();
+    const ro = new ResizeObserver(apply);
     ro.observe(el);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-    };
+    return () => ro.disconnect();
   }, [el]);
   return w;
 }

@@ -146,8 +146,14 @@
   opacity: 0;
   transition: opacity 180ms ease;
 }
-.sc-cellimg[data-loaded] img {
+.sc-cellimg[data-loaded] img,
+.sc-cellimg[data-cached] img {
   opacity: 1;
+}
+.sc-cellimg[data-cached] img {
+  /* A remount of a picture this session already decoded. The fade is for the
+     one moment there are no pixels; replaying it is the feed flashing. */
+  transition: none;
 }
 .sc-cellimg[data-loaded][data-guess] {
   /* A guessed shape hands control back to the picture once it loads, so a shot
