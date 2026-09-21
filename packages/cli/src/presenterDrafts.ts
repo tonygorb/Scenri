@@ -427,6 +427,8 @@ export function listPresenterDrafts(core: Core, brandId: string): PresenterDraft
 /* ------------------------------------------------------------------ jobs */
 
 const running = new Map<string, { view: PresenterView | null; ctrl: AbortController }>();
+/** Set while the server is going away: nothing new starts, not even the next view of a set. */
+let closing = false;
 
 /** How many drafts are mid-step: the update path refuses to restart over one. */
 export function runningDraftJobCount(): number {
@@ -437,6 +439,20 @@ export function runningDraftJobCount(): number {
 export function resetPresenterDrafts(): void {
   for (const job of running.values()) job.ctrl.abort();
   running.clear();
+  closing = false;
+}
+
+/**
+ * Stop every draft's work and wait for it to write its outcome: a server going
+ * away. A draw that lands into a home being torn down writes an image nobody
+ * will read, and a Codex child left drawing keeps spending after the studio is
+ * gone. Bounded, like the node drain.
+ */
+export async function settlePresenterDrafts(): Promise<void> {
+  closing = true;
+  for (const job of running.values()) job.ctrl.abort();
+  const deadline = Date.now() + 5000;
+  while (running.size > 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 25));
 }
 
 /**
@@ -897,6 +913,7 @@ function startJob(
   id: string,
   view: PresenterView | null,
   work: (signal: AbortSignal) => Promise<void>,
+  after?: () => void,
 ): void {
   const ctrl = new AbortController();
   running.set(id, { view, ctrl });
@@ -913,8 +930,42 @@ function startJob(
         });
       } catch {
         // the draft was discarded while the job ran
+        return;
       }
+      // In the same run as the idle write above, so no poll ever sees the set
+      // standing still between one view and the next.
+      if (!ctrl.signal.aborted && !closing) after?.();
     });
+}
+
+/**
+ * The set goes on without the page. Once a view has decided itself, the next
+ * view it unlocks is drawn the same way, here on the server, so a person who
+ * leaves after Use this person comes back to the whole set rather than to a
+ * set that waited for them. The studio's own step effect still asks for the
+ * same draw when it is open; the one-job-per-draft guard answers it with 409,
+ * which it reads as "already happening".
+ *
+ * Only views that decide themselves, only in the order their dependencies
+ * allow, and never a view that carries an error: a stopped or failed view
+ * stops the chain until someone asks for it again.
+ */
+function continueSet(deps: AssetBuildDeps, id: string): void {
+  const rec = getPresenterDraft(deps.core, id);
+  if (!rec || running.has(id) || !deps.engine) return;
+  const wanted = rec.extras ? PRESENTER_VIEWS : CORE_VIEWS;
+  const next = wanted.find((v) => {
+    const slot = rec.views[v];
+    if (HAND_APPROVED.has(v) || slot.error) return false;
+    if (slot.status !== 'empty' && slot.status !== 'stale') return false;
+    return DEPENDS[v].every((dep) => rec.views[dep].status === 'approved');
+  });
+  if (!next) return;
+  try {
+    generateView(deps, id, next, { decide: 'auto' });
+  } catch {
+    // refused (nothing to draw from, the draft changed): the studio says why when it is next opened
+  }
 }
 
 /* -------------------------------------------------------------- generate */
@@ -984,7 +1035,13 @@ export async function generateView(
       r.asks = [...r.asks, { view, text: adjustment, at: new Date().toISOString() }].slice(-ASKS_MAX);
     }
   });
-  startJob(deps, id, view, (signal) => drawView(deps, id, view, before, adjustment, decide, signal));
+  startJob(
+    deps,
+    id,
+    view,
+    (signal) => drawView(deps, id, view, before, adjustment, decide, signal),
+    decide === 'auto' ? () => continueSet(deps, id) : undefined,
+  );
   return { draft: saved };
 }
 
@@ -1051,6 +1108,10 @@ async function drawView(
     // Before anything chains off it: a bar left on the anchor is a bar the
     // next view is conditioned on and faithfully reproduces.
     const hash = await trimEdgeBars(core, drawn);
+    // The last moment a Stop can arrive before the slot is written; from here
+    // the landing is one synchronous write, so a picture that came back after
+    // Stop never lands over the stopped slot.
+    if (signal.aborted) throw new Error('cancelled');
     mutate(core, id, (r) => {
       const slot = r.views[view];
       if (slot.hash && slot.hash !== hash) {

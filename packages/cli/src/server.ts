@@ -94,7 +94,12 @@ import { registerAssetBuildRoutes } from './routes/assetBuilds.js';
 import { registerPresenterDraftRoutes } from './routes/presenterDrafts.js';
 import { registerSceneStudioRoutes } from './routes/sceneStudio.js';
 import { runningSceneStudioCount, settleSceneStudio } from './sceneStudio.js';
-import { runningDraftJobCount, sweepAbandonedPresenterDrafts, sweepPresenterDrafts } from './presenterDrafts.js';
+import {
+  runningDraftJobCount,
+  settlePresenterDrafts,
+  sweepAbandonedPresenterDrafts,
+  sweepPresenterDrafts,
+} from './presenterDrafts.js';
 import { registerDemoProductRoutes } from './routes/demoProducts.js';
 import { registerShowcaseRoutes } from './routes/showcase.js';
 import { registerProjectRoutes } from './routes/projects.js';
@@ -2535,6 +2540,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       await settleCatalogImports();
       // a studio draw writes an image when it lands: never into a home being torn down
       await settleSceneStudio();
+      await settlePresenterDrafts();
       await thumbs.settle();
       await app.close();
       core.close();
