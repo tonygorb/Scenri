@@ -69,8 +69,9 @@ function load(key: string) {
   }
 }
 
-function store(key: string, packed: string) {
-  local.set(key, JSON.stringify({ at: Date.now(), session: packed }));
+/** Kept with the scene it edits, so the Scenes wall can tell a new scene's draft from an edit. */
+function store(key: string, packed: string, sceneId: string | null) {
+  local.set(key, JSON.stringify({ at: Date.now(), sceneId, session: packed }));
 }
 
 function forget(key: string) {
@@ -164,8 +165,8 @@ export function useSceneFlow(args: {
   });
 
   useEffect(() => {
-    if (!gone.current) store(storageKey, packSession(setup, studio));
-  }, [setup, studio, storageKey]);
+    if (!gone.current) store(storageKey, packSession(setup, studio), sceneId);
+  }, [setup, studio, storageKey, sceneId]);
 
   // The place as the setup gives it, handed to the work once the setup is whole,
   // and not while an answer is open again: it is given when that answer is.

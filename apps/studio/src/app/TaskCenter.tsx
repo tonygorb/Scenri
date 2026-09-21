@@ -59,6 +59,12 @@ export interface TaskCenterValue {
    * because the top bar's + can start one from anywhere.
    */
   builds: AssetBuild[];
+  /**
+   * The studios' work for this brand, raw: scene jobs and presenter runs. The
+   * Scenes wall reads it for the drafts it shows, the way the library pages
+   * read `builds` for theirs.
+   */
+  studio: StudioWork[];
   feed: NotificationItem[];
   unread: number;
   markSeen: () => void;
@@ -104,6 +110,7 @@ export function TaskCenterProvider({
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [builds, setBuilds] = useState<AssetBuild[]>([]);
+  const [studioWork, setStudioWork] = useState<StudioWork[]>([]);
   // `pull` is memoised on the brand's id alone, so anything it reads across
   // ticks is a ref. The brand row itself is one too: keyed on the row, every
   // `applyBrand` (a rename, a palette edit, a delete) re-armed the poll loop and
@@ -157,6 +164,7 @@ export function TaskCenterProvider({
     brandPulledRef.current = new Set();
     setTasks([]);
     setBuilds([]);
+    setStudioWork([]);
     setFeed(loadFeed(brandId));
     setSeenAt(loadSeen(brandId));
   }, [brandId]);
@@ -228,6 +236,7 @@ export function TaskCenterProvider({
     // card, and doing it first left a frame where the card was gone and the
     // finished scene had not arrived yet.
     setBuilds((prev) => (sameByValue(prev, liveBuilds) ? prev : liveBuilds));
+    setStudioWork((prev) => (sameByValue(prev, liveStudio) ? prev : liveStudio));
 
     const arrivals = settled(prevRef.current, next);
     prevRef.current = new Map(next.map((t) => [t.id, t]));
@@ -406,6 +415,7 @@ export function TaskCenterProvider({
       tasks,
       running: tasks.filter((t) => t.state === 'running').length,
       builds,
+      studio: studioWork,
       feed,
       unread: unreadCount(feed, seenAt),
       markSeen,
@@ -414,7 +424,7 @@ export function TaskCenterProvider({
       setPanelOpen,
       poke,
     }),
-    [tasks, builds, feed, seenAt, markSeen, clearFeed, panelOpen, poke],
+    [tasks, builds, studioWork, feed, seenAt, markSeen, clearFeed, panelOpen, poke],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

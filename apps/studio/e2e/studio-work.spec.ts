@@ -224,3 +224,36 @@ test('a presenter set goes on after the studio closes, and the bell says so once
   for (const view of ['three-quarter', 'back', 'left', 'right']) expect(d.views[view].status).toBe('approved');
   await expect(toast(page, 'Away Set')).toHaveCount(1);
 });
+
+test('a scene closed while it draws stays on the Scenes wall, drawing, then drawn, and opens where it was left', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  const slug = await brandSlug(page);
+  const at = await readyToDraw(page, slug, 'A white cyclorama under hard flash, seen straight on, on a low plinth');
+  await tap(openQ(page), 'Draw the scene');
+  await say(page, 'Wall Cyc');
+  await studio(page).getByRole('button', { name: 'Close', exact: true }).click();
+  await page.waitForURL(new RegExp(`/${slug}/scenes$`));
+
+  // first on the wall, marked as a draft, and saying it is drawing
+  const card = page.locator('.sc-lookcard[data-build]', { hasText: 'Wall Cyc' });
+  await expect(card).toContainText('Drawing');
+  await expect(card).toHaveAttribute('data-building', 'true');
+  await expect(card.locator('.sc-draftmark')).toHaveText('Draft');
+
+  // the draw lands with nobody in the studio: the card becomes the picture
+  await expect(card).toContainText('Drawn, not used yet', { timeout: 20_000 });
+  await expect(card.locator('img')).toHaveCount(1);
+
+  // and it opens the conversation it came from, the picture on its stage
+  await card.getByRole('link', { name: 'Continue Wall Cyc' }).click();
+  await page.waitForURL((u) => u.pathname === at);
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await tap(openQ(page), 'Use this scene');
+  await page.waitForURL(/\/scenes\/us-/);
+
+  // used, it is a scene of its own and no longer a draft
+  await page.goto(`/${slug}/scenes`);
+  await expect(page.locator('.sc-lookcard[data-build]', { hasText: 'Wall Cyc' })).toHaveCount(0);
+});
