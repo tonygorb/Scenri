@@ -262,7 +262,10 @@ test('a sentence at the first question is the place itself, and a scene saved un
 }) => {
   await start(page);
   await place(page, 'White cyclorama with hard flash from the left');
-  await expect(openQ(page)).toContainText('White cyclorama with hard flash from the left.');
+  await expect(openQ(page)).toContainText(
+    // the idea it was asked for and passed: the reading is asked to invent one
+    'White cyclorama with hard flash from the left, one signature idea that makes this place unforgettable',
+  );
   await draw(page);
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
   await tap(openQ(page), 'Use this scene');
@@ -332,7 +335,7 @@ test('a change keeps the rest, and Put back restores a whole version, words and 
   await expect(studio(page).locator('[data-turn="you:ask-2"]')).toContainText('make the walls darker');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:decide-2');
   // the words carry the change, and the rest of them stand
-  await expect(openQ(page)).toContainText('A quiet concrete gallery at dusk.');
+  await expect(openQ(page)).toContainText('A quiet concrete gallery at dusk, one signature idea');
   await expect(openQ(page)).toContainText('make the walls darker');
   // the line is empty again once the sentence is taken
   await expect(line(page)).toHaveValue('');
