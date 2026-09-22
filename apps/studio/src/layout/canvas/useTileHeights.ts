@@ -6,9 +6,18 @@ import { GAP } from '../masonry.js';
  * ResizeObserver over the mounted cells. A height is a fact once measured and
  * an estimate until then. A change re-renders the owner once per frame, so
  * the spacers above the band are exact for everything the reader has passed.
+ *
+ * A tile is a box of fixed shape, so what is kept is its shape (height over
+ * width inside the border), and the height is read at the column's current
+ * width. Kept in pixels, a height measured at three columns was still used at
+ * four: every spacer above the band came out too tall after the rail closed.
  */
-export function useTileHeights(feedEl: HTMLElement | null, enabled: boolean): (id: string) => number | undefined {
-  const heights = useRef(new Map<string, number>());
+export function useTileHeights(
+  feedEl: HTMLElement | null,
+  enabled: boolean,
+  colWidth: number,
+): (id: string) => number | undefined {
+  const shapes = useRef(new Map<string, number>());
   const [, bump] = useState(0);
   const ro = useRef<ResizeObserver | null>(null);
   // held strongly, on purpose: an observed element is kept alive by its
@@ -23,12 +32,13 @@ export function useTileHeights(feedEl: HTMLElement | null, enabled: boolean): (i
       for (const e of entries) {
         const id = e.target.getAttribute('data-fb-node');
         if (!id) continue;
-        const h = (e.target as HTMLElement).offsetHeight + GAP;
+        const el = e.target as HTMLElement;
         // an element that has left the tree measures zero: keep what it was
-        if (h <= GAP) continue;
-        const was = heights.current.get(id);
-        if (was === undefined || Math.abs(was - h) > 1) {
-          heights.current.set(id, h);
+        if (el.offsetHeight <= 2 || el.offsetWidth <= 2) continue;
+        const shape = (el.offsetHeight - 2) / (el.offsetWidth - 2);
+        const was = shapes.current.get(id);
+        if (was === undefined || Math.abs(was - shape) > 0.004) {
+          shapes.current.set(id, shape);
           changed = true;
         }
       }
@@ -63,5 +73,11 @@ export function useTileHeights(feedEl: HTMLElement | null, enabled: boolean): (i
       observer.observe(el);
     }
   });
-  return useCallback((id: string) => heights.current.get(id), []);
+  return useCallback(
+    (id: string) => {
+      const shape = shapes.current.get(id);
+      return shape === undefined ? undefined : Math.round(shape * Math.max(0, colWidth - 2)) + 2 + GAP;
+    },
+    [colWidth],
+  );
 }
