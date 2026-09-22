@@ -8,7 +8,7 @@ import { Group } from './Group.js';
 import { BrandNever } from './BrandNever.js';
 import { BrandIdentity } from './BrandIdentity.js';
 import { BrandPalette } from './BrandPalette.js';
-import { saveLabel, useBrandDoc } from './useBrandDoc.js';
+import { type SaveState, useBrandDoc } from './useBrandDoc.js';
 import { failureToast } from '../../failure.js';
 
 /**
@@ -28,10 +28,12 @@ import { failureToast } from '../../failure.js';
  * composer, where the mark can be attached, a single shot can be taken
  * off-brand, and the brief says how many instructions this kit just added.
  */
-export function BrandPane() {
+export function BrandPane({ onSaveState }: { onSaveState: (state: SaveState) => void }) {
   const { brand } = useBrand();
   const { push } = useToasts();
   const doc = useBrandDoc();
+  // The page's head says what the writing is doing; there is no Save button.
+  useEffect(() => onSaveState(doc.state), [doc.state, onSaveState]);
   const [refreshing, setRefreshing] = useState(false);
   const [suggestions, setSuggestions] = useState<{ hex: string }[]>([]);
 
@@ -90,7 +92,7 @@ export function BrandPane() {
         </div>
       </Group>
 
-      <Group title="Portable" sub="The kit is a file, not a lock-in.">
+      <Group title="Website and file" sub="The kit is a file, not a lock-in.">
         <div className="sc-set-row" data-stack="">
           <span className="txt">
             <b>Website</b>
@@ -138,15 +140,6 @@ export function BrandPane() {
           <a className="sc-btn sc-btn-ghost" href={brandExportUrl(brand.id)} download onClick={() => void doc.flush()}>
             Export
           </a>
-        </div>
-        <div className="sc-set-row">
-          <span className="txt">
-            <b>Changes</b>
-            <small data-prose="">Written as you make them. There is no save button to forget.</small>
-          </span>
-          <span className="sc-tag" data-state={doc.state}>
-            {saveLabel(doc.state)}
-          </span>
         </div>
       </Group>
     </>
