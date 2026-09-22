@@ -25,7 +25,7 @@ import { BrandPane } from './settings/BrandPane.js';
 import { Budget } from './settings/Budget.js';
 import { Danger } from './settings/Danger.js';
 import { EnginesPane } from './settings/EnginesPane.js';
-import { Library } from './settings/Library.js';
+import { Library, type LibraryInfo } from './settings/Library.js';
 import { Usage } from './settings/Usage.js';
 import { type SaveState, saveLabel } from './settings/useBrandDoc.js';
 
@@ -137,6 +137,22 @@ export function SettingsDialog({
       alive = false;
     };
   }, [open, version]);
+  // The library's folder and size, read as the dialog opens so General paints
+  // whole on its first frame; read again on every opening, since it grows.
+  const [home, setHome] = useState<LibraryInfo | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    api
+      .home()
+      .then((h) => alive && setHome(h))
+      .catch(() => {
+        /* the row says "…" until it can say more */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
   // Reported by the pane that owns the kit's document, shown in the page's head.
   const [kit, setKit] = useState<SaveState>('idle');
 
@@ -154,6 +170,7 @@ export function SettingsDialog({
             onSaved={onSaved}
             onKitState={setKit}
             version={version}
+            home={home}
           />
         )}
       />
@@ -309,6 +326,7 @@ function PageBody({
   onSaved,
   onKitState,
   version,
+  home,
 }: {
   page: Page;
   engines: EngineInfo[];
@@ -316,6 +334,7 @@ function PageBody({
   onSaved: () => void;
   onKitState: (s: SaveState) => void;
   version: VersionInfo | null;
+  home: LibraryInfo | null;
 }) {
   switch (page) {
     case 'brand':
@@ -333,7 +352,7 @@ function PageBody({
       return (
         <>
           <Appearance />
-          <Library />
+          <Library info={home} />
         </>
       );
     case 'about':

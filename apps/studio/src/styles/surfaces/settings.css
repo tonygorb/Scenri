@@ -27,9 +27,12 @@
   flex-direction: column;
   min-height: 0;
 }
+/* A level arrives (the dialog opening, a phone's page over its index); a
+   page chosen beside the index does not. It changes in place, as a lesson
+   does in Learn: a fade on every choice blanked the whole page for a frame
+   and brought it back, which read as a flash. */
 @media (prefers-reduced-motion: no-preference) {
-  .sc-set-level,
-  .sc-set-scroll {
+  .sc-set-level {
     animation: sc-fade-in var(--sc-dur-fast) var(--sc-ease) both;
   }
 }
@@ -119,8 +122,12 @@
   white-space: nowrap;
 }
 /* No weight change: the fill and the ink already say "selected", and a bolder
-   label re-spaces under the cursor on every switch. Same reasoning as the chip
-   in components/primitives.css, and the same ladder as Learn's rows. */
+   label re-spaces under the cursor on every switch (the chip's reasoning in
+   components/primitives.css). Every step only moves toward where the row is
+   going: hover is the faintest fill, a press lands on the chosen fill it is
+   about to become, and the chosen row holds still under the pointer. The
+   shared press tone overshot the chosen one (brighter in dark, darker in
+   light), so each choice flashed past its own colour and came back. */
 .sc-set-item[aria-current] {
   background: var(--sc-chip);
   color: var(--sc-fg);
@@ -131,14 +138,15 @@
     color: var(--sc-fg);
   }
   .sc-set-item[aria-current]:hover {
-    background: var(--sc-chip-hover);
+    background: var(--sc-chip);
   }
 }
 .sc-set-item:active {
-  background: var(--sc-press);
+  background: var(--sc-chip);
 }
+/* the chosen row still answers a press, one quiet step */
 .sc-set-item[aria-current]:active {
-  background: var(--sc-chip-active);
+  background: var(--sc-chip-hover);
 }
 .sc-set-item[data-danger],
 .sc-set-item[data-danger]:hover {
@@ -351,6 +359,34 @@
   overflow-wrap: anywhere;
   text-wrap: pretty;
 }
+/* What you press is solid, what you type into is drawn. In a card, the card
+   and its hairlines are outlines already, and an outlined button there read
+   as more of the card; so a row's action takes the chip fill and a field
+   stays an outlined well. A delete is washed in red instead, the one place
+   red is spent. */
+.sc-set-card .sc-btn-ghost {
+  border-color: transparent;
+  background: var(--sc-chip);
+}
+.sc-set-card .sc-btn-ghost.sc-btn-red {
+  background: color-mix(in srgb, var(--sc-red) 10%, transparent);
+}
+@media (hover: hover) {
+  .sc-set-card .sc-btn-ghost:hover:not(:active) {
+    border-color: transparent;
+    background: var(--sc-chip-hover);
+  }
+  .sc-set-card .sc-btn-ghost.sc-btn-red:hover:not(:active) {
+    background: color-mix(in srgb, var(--sc-red) 16%, transparent);
+  }
+}
+.sc-set-card .sc-btn-ghost:active {
+  background: var(--sc-chip-active);
+}
+.sc-set-card .sc-btn-ghost.sc-btn-red:active {
+  background: color-mix(in srgb, var(--sc-red) 22%, transparent);
+}
+
 /* A link in a row's sentence is the sentence's own ink, underlined, the way
    the assets rail and the library write one; never the browser's blue. */
 .sc-set-row small a {

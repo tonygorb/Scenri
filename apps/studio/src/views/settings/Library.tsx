@@ -1,17 +1,15 @@
-import { useEffect, useState } from 'react';
 import { api } from '../../api.js';
 import { Group } from './Group.js';
 import { bytes } from './usageRules.js';
 
-export function Library() {
-  const [info, setInfo] = useState<{ dir: string; dbPath: string; images: number; bytes: number } | null>(null);
-  useEffect(() => {
-    void api
-      .home()
-      .then(setInfo)
-      .catch(() => {});
-  }, []);
+export type LibraryInfo = Awaited<ReturnType<typeof api.home>>;
 
+/**
+ * Read by the dialog when it opens rather than here when the page mounts: a
+ * fetch on mount painted "…" for a frame and then the folder, two lines tall,
+ * pushed the rows under it down as General was chosen.
+ */
+export function Library({ info }: { info: LibraryInfo | null }) {
   return (
     <Group title="Library" sub="Plain files on this machine. Open them yourself, back them up like anything else.">
       <div className="sc-set-row">

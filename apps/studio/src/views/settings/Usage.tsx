@@ -65,16 +65,18 @@ export function Usage({ brandId }: { brandId: string }) {
     return { year, quarter, total: year.sum, byKind: kinds };
   }, [days]);
 
-  if (days === null) return <p className="sc-set-empty">Reading your library…</p>;
-
   // The totals are one sentence above the squares, where two bars used to
-  // repeat the same two numbers as lengths.
+  // repeat the same two numbers as lengths. While the count is on its way the
+  // card is already its final size and only the sentence waits, so choosing
+  // Usage never shows a line of text that a card then pushes aside.
   return (
     <Group
       sub={
-        total
-          ? `${total.toLocaleString()} runs in the last year: ${byKind.generation.toLocaleString()} generations, ${byKind.edit.toLocaleString()} edits.`
-          : 'Nothing made yet this year. The first shot lands here.'
+        days === null
+          ? 'Counting your runs…'
+          : total
+            ? `${total.toLocaleString()} runs in the last year: ${byKind.generation.toLocaleString()} generations, ${byKind.edit.toLocaleString()} edits.`
+            : 'Nothing made yet this year. The first shot lands here.'
       }
     >
       <div className="sc-heat">
