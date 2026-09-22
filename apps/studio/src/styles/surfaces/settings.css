@@ -62,11 +62,14 @@
   overflow-y: auto;
   scrollbar-width: none;
 }
+/* One gutter down the whole surface, as in Learn: the title, the index's
+   words and glyphs, and the page all stand on 24, so a row's fill bleeds 10
+   to the left of it. */
 .sc-set-rail ul {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin: 0;
+  margin: 0 0 0 -10px;
   padding: 0;
   list-style: none;
 }
@@ -75,7 +78,7 @@
   align-items: center;
   height: 24px;
   margin: 0 0 4px;
-  padding: 0 10px;
+  padding: 0;
   font: 600 var(--sc-text-caption) / 1 var(--sc-font);
   color: var(--sc-fg3);
 }
@@ -226,10 +229,11 @@
   margin-bottom: 10px;
 }
 /* the browser's own heading margins, not ours: they stood a title 30px off its sentence */
+/* page 20, section 15, row 13.5: each step a size, not only a weight */
 .sc-set-sech h3 {
   margin: 0;
-  font: 600 var(--sc-text-control) / 1.3 var(--sc-font);
-  letter-spacing: -0.005em;
+  font: 600 var(--sc-text-title-s) / 1.3 var(--sc-font);
+  letter-spacing: -0.01em;
 }
 .sc-set-sech p {
   margin: 3px 0 0;
@@ -342,12 +346,29 @@
   color: var(--sc-fg2);
   font: 400 12px / 1.4 var(--sc-font);
   overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
-/* every control in a row is one height, whatever it is */
+/* A link in a row's sentence is the sentence's own ink, underlined, the way
+   the assets rail and the library write one; never the browser's blue. */
+.sc-set-row small a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (hover: hover) {
+  .sc-set-row small a:hover {
+    color: var(--sc-fg);
+  }
+}
+/* every control in a row is one height, whatever it is: a field beside a
+   button used to stand 2px taller than it */
 .sc-set-row .sc-btn {
   height: 32px;
   padding: 0 13px;
   font-size: var(--sc-text-body);
+}
+.sc-set-row .sc-in {
+  height: 32px;
 }
 .sc-set-row .sc-seg-o {
   justify-content: center;
@@ -490,13 +511,16 @@ select.sc-in {
 }
 .sc-pal-hex.sc-in {
   flex: none;
+  height: 32px;
   padding: 0 8px;
 }
+/* the same 10px above and below as every row, so a cap is as tall as a row
+   with a sentence (58), and grows only by its meter */
 .sc-cap {
   position: relative;
   display: grid;
   gap: 8px;
-  padding: 12px 16px 14px;
+  padding: 10px 16px;
 }
 /* the meter measures the words above it, not the whole card */
 .sc-cap .sc-meter {
@@ -635,10 +659,12 @@ select.sc-in {
   }
   /* Settings on a phone is the studio's sheet, as Learn is: the index first,
      one card per scope, then a page over it with Back. */
+  /* one edge on a phone too: the title, the scope labels and the cards stand
+     on the gutter, and the close glyph ends where the cards do */
   .sc-set .sc-newdlg-head {
     gap: 2px;
     height: auto;
-    padding: 0 16px 14px var(--sc-gutter);
+    padding: 0 var(--sc-gutter) 14px;
   }
   .sc-set .sc-newdlg-back {
     width: 40px;
@@ -652,11 +678,12 @@ select.sc-in {
   }
   .sc-set-rail {
     flex: 1 1 auto;
-    padding: 20px 16px max(var(--sc-space-7), env(safe-area-inset-bottom));
+    padding: 20px var(--sc-gutter) max(var(--sc-space-7), env(safe-area-inset-bottom));
     border-right: 0;
   }
   .sc-set-rail ul {
     gap: 0;
+    margin-left: 0;
     border: 1px solid var(--sc-line);
     border-radius: var(--sc-radius-lg);
     background: var(--sc-panel);
@@ -674,7 +701,18 @@ select.sc-in {
     background: var(--sc-line);
   }
   .sc-set-group {
-    padding: 0 4px;
+    padding: 0;
+  }
+  /* a stacked control is a thumb's width across: the app's own 34 */
+  .sc-set-row .sc-btn,
+  .sc-set-row .sc-in,
+  .sc-cap-in,
+  .sc-pal-foot .sc-btn {
+    height: 34px;
+  }
+  .sc-pal-act {
+    width: 44px;
+    height: 44px;
   }
   .sc-set-rail ul + .sc-set-group,
   .sc-set-rail .sc-set-apart {
@@ -695,7 +733,7 @@ select.sc-in {
   .sc-set-scroll {
     flex: 1 1 auto;
     gap: 24px;
-    padding: 16px 16px max(48px, env(safe-area-inset-bottom));
+    padding: 16px var(--sc-gutter) max(48px, env(safe-area-inset-bottom));
   }
   /* Stacked rows: grow was eating the 34px field. Label and control size to
      themselves; the field is always the same 34px × full width. */
@@ -703,6 +741,10 @@ select.sc-in {
   .sc-ident > .sc-set-row {
     flex-direction: column;
     align-items: stretch;
+    /* the label sits nearer its own field than the row above it, and the 2px
+       more below evens out the air a label's line box adds above its letters */
+    gap: 8px;
+    padding: 12px 16px 14px;
   }
   .sc-set-card > .sc-set-row > .txt,
   .sc-ident > .sc-set-row > .txt {
@@ -755,6 +797,10 @@ select.sc-in {
   }
   .sc-pal-row {
     grid-template-columns: 28px minmax(0, 1fr) 6.5rem 44px;
+    column-gap: 10px;
+  }
+  .sc-pal-row + .sc-pal-row::before {
+    left: 54px;
   }
   /* The status stays in its own column at every width: one word beside an
      action fits a phone, and moving it onto the second line put the same fact

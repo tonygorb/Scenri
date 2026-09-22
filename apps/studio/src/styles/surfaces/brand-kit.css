@@ -205,10 +205,12 @@ textarea.sc-edit[data-variant="lede"] {
 .sc-set-card:has(.sc-ident[data-drag-over]) {
   box-shadow: inset 0 0 0 2px var(--sc-focus);
 }
+/* one width for every field here, so Sits on, Name and Tagline start and end
+   on the same edges; grown to fit their labels, they did not */
 .sc-ident > .sc-set-row > .sc-in {
-  flex: 1;
+  flex: none;
+  width: 280px;
   min-width: 0;
-  max-width: 22rem;
 }
 .sc-ident .sc-set-controls .sc-well {
   flex: none;
@@ -276,36 +278,63 @@ textarea.sc-edit[data-variant="lede"] {
 }
 
 /* ---- palette ---- */
+/* The palette is a card of rows like every other: 56 tall, the name at the
+   row's label size, a 32px field and remove, and a hairline that starts where
+   the names do. The block it sits in gives up its padding to the rows. */
+.sc-set-block:has(> .sc-pal) {
+  padding: 0;
+}
 .sc-pal {
   display: grid;
-  gap: 2px;
 }
 .sc-pal-empty {
-  margin: 0 0 8px;
+  margin: 0;
+  padding: 16px 16px 4px;
   font-size: 13px;
   color: var(--sc-fg2);
 }
 .sc-pal-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) 7.2rem 44px;
+  grid-template-columns: 28px minmax(0, 1fr) 7.2rem 32px;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0;
+  column-gap: 14px;
+  min-height: 56px;
+  padding: 0 16px;
+}
+.sc-pal-row + .sc-pal-row::before,
+.sc-pal-foot::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 1px;
+  background: var(--sc-line);
+}
+.sc-pal-row + .sc-pal-row::before {
+  left: 58px;
+}
+.sc-pal-foot::before {
+  left: 16px;
 }
 /* Grounds and surfaces, below the colours a shot is told to favour. */
 .sc-pal-group {
-  margin: 12px 0 2px;
+  margin: 0;
+  padding: 14px 16px 2px;
   font-size: 12px;
   font-weight: 500;
   color: var(--sc-fg2);
 }
+/* Colour is a circle wherever it appears, as the website's suggestions beside
+   it already are. Its edge is ink at low strength rather than black, so a
+   near-black colour still has one in dark and a near-white one in light. */
 .sc-pal-chip {
   width: 28px;
   height: 28px;
   padding: 0;
   border: 0;
-  border-radius: var(--sc-radius);
-  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sc-fg) 16%, transparent);
   cursor: pointer;
 }
 :where(:root:not([data-input="pointer"])) .sc-pal-chip:focus-visible {
@@ -314,7 +343,7 @@ textarea.sc-edit[data-variant="lede"] {
 }
 .sc-pal-name {
   min-width: 0;
-  font: 500 13px var(--sc-font);
+  font: 500 var(--sc-text-control) var(--sc-font);
   color: var(--sc-fg);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -336,8 +365,8 @@ textarea.sc-edit[data-variant="lede"] {
 .sc-pal-act {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   color: var(--sc-fg2);
   background: none;
   border: 0;
@@ -355,13 +384,17 @@ textarea.sc-edit[data-variant="lede"] {
   color: var(--sc-red);
 }
 .sc-pal-foot {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--sc-line);
+  padding: 12px 16px;
+}
+.sc-pal-foot .sc-btn {
+  height: 32px;
+  padding: 0 13px;
+  font-size: var(--sc-text-body);
 }
 .sc-pal-sugg {
   display: inline-flex;
