@@ -44,20 +44,23 @@
 .sc-set .sc-newdlg-close {
   margin-right: -14px;
 }
-/* three classes: the shell's own body rules load after this sheet */
+/* Three classes: the shell's own body rules load after this sheet. The
+   gutter is the index's own padding, not the body's: the index clips what
+   overflows it, so a fill bleeding past a gutter outside it lost its left
+   corners and ran flush into the glyph. */
 .sc-set .sc-newdlg-body.sc-set-body {
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
+  grid-template-columns: calc(232px + var(--sc-gutter)) minmax(0, 1fr);
   flex: 1 1 auto;
   min-height: 0;
-  padding: 0 0 0 var(--sc-gutter);
+  padding: 0;
   overflow: hidden;
 }
 
 /* ---- the index: grouped by what a setting applies to ---- */
 .sc-set-rail {
   min-height: 0;
-  padding: var(--sc-gutter) 16px var(--sc-gutter) 0;
+  padding: var(--sc-gutter) 16px var(--sc-gutter) var(--sc-gutter);
   border-right: 1px solid var(--sc-line);
   overflow-y: auto;
   scrollbar-width: none;
