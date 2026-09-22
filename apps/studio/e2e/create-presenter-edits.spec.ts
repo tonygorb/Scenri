@@ -541,7 +541,9 @@ test.describe('on a phone', () => {
     const card = page.locator('.sc-convo-card');
     const foot = page.locator('.sc-pstudio-foot');
     await expect(card).toBeVisible();
-    const room = async () => (await foot.boundingBox())?.height ?? 0;
+    // to the half pixel: a loaded run once measured 127.99994 against 128,
+    // layout arithmetic, not a move anyone could see
+    const room = async () => Math.round(((await foot.boundingBox())?.height ?? 0) * 2) / 2;
     const atDoor = await room();
 
     // a question with things to tap: the card can still be written in, because
