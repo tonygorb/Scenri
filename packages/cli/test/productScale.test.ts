@@ -278,6 +278,41 @@ describe('the two draws', () => {
     expect((r.raw as any).variantIndexes).toHaveLength(2);
   });
 
+  it('Stop mid-run places nothing more and ends the run as cancelled', async () => {
+    const ctrl = new AbortController();
+    const edits: unknown[] = [];
+    const engine = {
+      capabilities: () => ({ id: 'fake', imageConcurrency: 1 }),
+      generate: async (req: any, signal?: AbortSignal, onImage?: (slot: number, hash: string) => void) => {
+        // the first plate lands, then the person presses Stop before the rest
+        onImage?.(0, core.images.save(Buffer.from('plate-0')));
+        ctrl.abort();
+        throw Object.assign(new Error('cancelled'), { signal });
+      },
+      edit: async (req: any) => {
+        edits.push(req);
+        return { images: [core.images.save(Buffer.from('placed'))], costUsd: 0 };
+      },
+    } as unknown as EngineAdapter;
+    const landed: [number, string][] = [];
+    await expect(
+      drawAtScale({
+        engine,
+        images: core.images,
+        brand: { brand: {} } as any,
+        plan: plan(),
+        size: { text: 'about 2 cm across', largestCm: 2 },
+        width: 1024,
+        height: 1280,
+        count: 3,
+        signal: ctrl.signal,
+        onImage: (slot, hash) => landed.push([slot, hash]),
+      }),
+    ).rejects.toThrow('cancelled');
+    expect(edits).toHaveLength(0);
+    expect(landed).toHaveLength(0);
+  });
+
   it('when every placement fails, the run fails with the reason', async () => {
     const { engine } = fake({ editFails: [0] });
     await expect(run(engine, 1)).rejects.toThrow('placement refused');

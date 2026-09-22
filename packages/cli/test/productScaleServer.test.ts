@@ -36,13 +36,13 @@ const png = (shade: number) =>
  * images here: an engine that reads none cannot be handed the place's picture
  * or the product's, and draws the ordinary way.
  */
-function spied() {
+function spied(costUsd = 0) {
   const demo = createDemoEngine((b: Buffer) => core.images.save(b), { maxReferenceImages: 4 });
   const calls = { generate: [] as any[], edit: [] as any[] };
   const engine: EngineAdapter = {
     ...demo,
     capabilities: () => demo.capabilities(),
-    costEstimate: (r) => demo.costEstimate(r),
+    costEstimate: async () => costUsd,
     generate: (req, signal, onImage) => {
       calls.generate.push(req);
       return demo.generate(req, signal, onImage);
@@ -55,8 +55,8 @@ function spied() {
   return { engine, calls };
 }
 
-async function setup(reader: ReturnType<typeof createDemoAnalyzer> | null = createDemoAnalyzer()) {
-  const { engine, calls } = spied();
+async function setup(reader: ReturnType<typeof createDemoAnalyzer> | null = createDemoAnalyzer(), costUsd = 0) {
+  const { engine, calls } = spied(costUsd);
   const app = track(
     buildServer({
       core,
@@ -96,15 +96,17 @@ async function setup(reader: ReturnType<typeof createDemoAnalyzer> | null = crea
     await app.inject({ method: 'POST', url: '/api/projects', payload: { brandId: brand.id, name: 'p' } })
   ).json().project;
   const shoot = async (tokens: unknown[]) => {
-    const created = await app.inject({
+    const created = await post(tokens);
+    expect(created.statusCode).toBe(202);
+    return waitDone(app, created.json().id);
+  };
+  const post = (tokens: unknown[]) =>
+    app.inject({
       method: 'POST',
       url: '/api/nodes',
       payload: { projectId: project.id, kind: 'generation', engineId: 'demo', count: 1, brief: { tokens } },
     });
-    expect(created.statusCode).toBe(202);
-    return waitDone(app, created.json().id);
-  };
-  return { app, calls, brandId: brand.id as string, plate, shoot };
+  return { app, calls, brandId: brand.id as string, plate, shoot, post };
 }
 
 const alone = [
@@ -187,6 +189,18 @@ describe('a small product alone in a place is drawn at its own scale', () => {
     const { calls, shoot } = await setup();
     await shoot([...alone, { t: 'text', v: ' held in her hand' }]);
     expect(calls.edit).toHaveLength(0);
+    expect(calls.generate).toHaveLength(1);
+  });
+
+  it('the spend cap is checked against two draws a picture', async () => {
+    const { calls, post, shoot } = await setup(createDemoAnalyzer(), 0.3);
+    core.ledger.setCap('demo', 0.5);
+    // alone and small: 0.6 against a 0.5 cap is refused before anything runs
+    const refused = await post(alone);
+    expect(refused.statusCode).toBe(402);
+    expect(calls.generate).toHaveLength(0);
+    // held by someone: one draw, 0.3, runs
+    await shoot([...alone, { t: 'text', v: ' held in her hand' }]);
     expect(calls.generate).toHaveLength(1);
   });
 
