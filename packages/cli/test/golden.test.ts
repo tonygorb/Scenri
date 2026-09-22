@@ -751,7 +751,21 @@ describe('golden: responsibility contract', () => {
       { ...ctx, templateById: () => set },
     );
     expect(chosen.prompt).toContain('Camera for this shot: Directly overhead');
-    expect(chosen.prompt).not.toContain("framed at the product's own scale");
+    // and the scale rule rides with it: "from a low angle" alone once dropped
+    // it and drew a sneaker three times the size of the steps behind it
+    expect(chosen.prompt).toContain("framed at the product's own scale");
+    const angled = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'text', v: ' from a low angle ' },
+          { t: 'template', id: PRODUCT_SCENE },
+        ],
+      },
+      ctx,
+    );
+    expect(angled.prompt).toContain("framed at the product's own scale");
+    expect(angled.prompt).not.toContain('Camera for this shot:');
 
     const withSomeone = compileBrief(
       {

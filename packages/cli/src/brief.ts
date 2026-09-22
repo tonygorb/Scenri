@@ -765,18 +765,20 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // A product on its own under a place's camera tendency ("room-scale
   // distance") could only be made legible by being made huge (measured
   // 2026-09-22: a sneaker the size of the loft's armchair, a ring as tall as a
-  // step). Such a shot is framed at the product's scale instead, whatever the
-  // place's camera says. A world read as a product's world wrote its camera
-  // for products and keeps it; a chosen setup and the shot's own words are the
-  // person's camera and still rule.
+  // step). Such a shot is framed at the product's scale instead of at the
+  // place's tendency. A camera the person chose (a setup, or their own words)
+  // still sets the angle, and the scale rule rides with it: "from a low angle"
+  // alone once dropped it and drew a sneaker three times the size of the
+  // steps behind it. A world read as a product's world wrote its camera for
+  // products and keeps it.
   const productOnly = !!productId && !hasPerson && !!scene && scene.subject !== 'product';
-  const ownCamera = !!setupCamera.trim() || shotSpecifiesCamera(sentence);
-  const cameraDirectives =
-    productOnly && !ownCamera
-      ? [productFramingDirective()]
-      : sceneCamera && !shotSpecifiesCamera(sentence)
-        ? [`Camera for this shot: ${sceneCamera}`]
-        : [];
+  const placeTendency = productOnly && !setupCamera.trim();
+  const cameraDirectives = [
+    ...(productOnly ? [productFramingDirective()] : []),
+    ...(sceneCamera && !shotSpecifiesCamera(sentence) && !placeTendency
+      ? [`Camera for this shot: ${sceneCamera}`]
+      : []),
+  ];
 
   // Attachments are useless past what the engine will actually read.
   //

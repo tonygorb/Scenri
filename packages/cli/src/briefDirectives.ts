@@ -33,7 +33,7 @@ export function productFidelityDirective(attached: number): string {
       'and do not redesign it. It is also the only view of this product that exists. Any face, side or detail not ' +
       'visible in it is unknown — keep those plain and consistent with the visible materials and color, and do not ' +
       'invent hardware, text, seams, closures, ornament or branding on them. Prefer a composition that shows the ' +
-      'product from the view the reference gives.'
+      "product from the view the reference gives, unless this shot's own direction asks for another view."
     );
   }
   // No angle claim either: an imported product routinely stores one image per
