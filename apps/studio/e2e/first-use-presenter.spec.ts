@@ -131,6 +131,19 @@ test('the face and the save are the two words it says, and saving ends the task'
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(studioCoach(page).locator('.sc-coach-title')).toHaveText('Decide the face', { timeout: 20_000 });
   await expect(studioCoach(page)).toHaveAttribute('data-state', 'shown', { timeout: 20_000 });
+  // Scrolled out of sight by hand, the question is the person's to leave: the
+  // card steps aside and nothing scrolls it back. Brought back, the card returns.
+  const pane = studio(page).locator('.sc-pstudio-scroll');
+  await pane.evaluate((el) => {
+    el.scrollTop = 0;
+  });
+  await expect(studioCoach(page)).toHaveAttribute('data-state', 'away');
+  await page.waitForTimeout(1200);
+  expect(await pane.evaluate((el) => el.scrollTop)).toBe(0);
+  await pane.evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  await expect(studioCoach(page)).toHaveAttribute('data-state', 'shown', { timeout: 10_000 });
   await page.setViewportSize({ width: 1440, height: 900 });
   await answer(page, 'Use this person').click();
 
