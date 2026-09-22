@@ -250,20 +250,16 @@ export async function renameScene(page: Page, to: string): Promise<void> {
  */
 /**
  * After Use: the conversation goes on to the place in use, and ends on one
- * press. Three more are declined when offered (they are drawn only on asking),
- * and the last press is taken whatever the set came to: drawn, or not, on a
- * home without Scenri's library.
+ * press. Every test that only wants a scene on the wall declines the offer, so
+ * it draws nothing and waits for nothing. The offer is absent on a home
+ * without Scenri's library, so the last press is taken either way.
  */
 export async function finishSceneSet(page: Page, finish = 'Open scene'): Promise<void> {
-  // The set is up to three more draws after Use (the hero alone is two): the
-  // time is added to the test's own, not squeezed into a budget set for a
-  // conversation that ended at Use.
-  test.info().setTimeout(test.info().timeout + 45_000);
   const studio = page.locator('.sc-pstudio[data-kind="scene"]');
-  const more = studio.locator('[data-turn="q:set-more"]:not([data-picked])');
+  const start = studio.locator('[data-turn="q:set-start"]:not([data-picked])');
   const done = studio.locator('[data-turn="q:set-done"]:not([data-picked])');
-  await expect(more.or(done)).toBeVisible({ timeout: 60_000 });
-  if (await more.isVisible()) await more.getByRole('button', { name: 'Not now', exact: true }).click();
+  await expect(start.or(done)).toBeVisible({ timeout: 30_000 });
+  if (await start.isVisible()) await start.getByRole('button', { name: 'Not now', exact: true }).click();
   await done.getByRole('button', { name: finish, exact: true }).click({ timeout: 30_000 });
 }
 

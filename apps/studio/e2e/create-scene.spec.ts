@@ -139,10 +139,17 @@ test('guided: the rows, read back as the words shots are told, drawn on a press,
   await expect(openQ(page)).toContainText('Here is Dusk Lobby.');
   await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(1);
   await tap(openQ(page), 'Use this scene');
-  // saved at once, and the conversation goes on: the place in use, drawn here
+  // saved at once, and nothing is drawn for it: the place in use is offered
   await expect.poll(async () => (await scenes(page)).some((s) => s.name === 'Dusk Lobby')).toBe(true);
   await expect(turn(page, 'you:use')).toContainText('Use this scene');
-  await expect(turn(page, 'scenri:saved')).toContainText('Saved. Now it is shown in use, with a Scenri demo product.');
+  await expect(turn(page, 'scenri:saved')).toContainText('Saved. Nothing is drawn until you ask.');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-start');
+  await expect(openQ(page)).toContainText(
+    'Show it in use? Two pictures with a Scenri demo product in the place: hero and close-up.',
+  );
+  expect((await scenes(page)).find((s) => s.name === 'Dusk Lobby').examples).toBeUndefined();
+  await tap(openQ(page), 'Draw them');
+  await expect(turn(page, 'you:set-start')).toContainText('Draw them');
   const hero = studio(page).locator('[data-turn^="scenri:ex-hero-"]');
   const close = studio(page).locator('[data-turn^="scenri:ex-close-"]');
   await expect(hero).toContainText('Here is the hero.', { timeout: 30_000 });
@@ -165,7 +172,8 @@ test('guided: the rows, read back as the words shots are told, drawn on a press,
   await expect(rail).toContainText('The place');
   await expect(rail).toContainText('Hero');
   await expect(rail).toContainText('Close-up');
-  await expect(page.getByRole('button', { name: /Add|Try again|Show it in use/ })).toHaveCount(0);
+  // every role shows this place, so the page offers nothing more and draws nothing
+  await expect(page.getByRole('button', { name: /Add|Try again|Draw it in use|Draw them/ })).toHaveCount(0);
   const saved = (await scenes(page)).find((s) => s.name === 'Dusk Lobby');
   expect(saved.instruction).toMatch(
     /^A niche of warm limestone and rough plaster, honed cream travertine up close, .* a vine growing down the stone/,
@@ -186,7 +194,9 @@ test('after Use, three more on asking, and any one drawn again from beside it', 
   await say(page, 'Travertine Counter');
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
   await tap(openQ(page), 'Use this scene');
-  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-more', { timeout: 30_000 });
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-start', { timeout: 30_000 });
+  await tap(openQ(page), 'Draw them');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-more', { timeout: 60_000 });
   await tap(openQ(page), 'Add them');
   await expect(turn(page, 'you:more')).toContainText('Add them');
   // drawing: nothing is asked, and Stop is there
@@ -520,15 +530,56 @@ test('a saved scene opens in the studio at its record, spending nothing, and sav
   await tap(openQ(page), 'Try again');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:decide-1');
   await tap(openQ(page), 'Save changes');
-  // a new picture of the place: its examples are drawn again from it, here
+  // a new picture of the place, and still nothing drawn for it: offered again
   await finishSceneSet(page);
   await page.waitForURL(new RegExp(`/scenes/${id}$`));
   const all = (await scenes(page)).filter((s) => s.name === 'Morning Counter');
   expect(all).toHaveLength(1);
-  expect(all[0].examples.map((e: any) => [e.role, e.from])).toEqual([
-    ['hero', all[0].preview],
-    ['close', all[0].preview],
-  ]);
+  expect(all[0].examples).toBeUndefined();
+});
+
+test('a place drawn again leaves its set showing the earlier picture until it is asked for again', async ({ page }) => {
+  // two drawn, the place drawn again, then the two drawn again: four draws
+  test.setTimeout(150_000);
+  await start(page);
+  await place(page, 'A dark walnut shelf under a warm downlight');
+  await draw(page);
+  await say(page, 'Walnut Shelf');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await tap(openQ(page), 'Use this scene');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-start', { timeout: 30_000 });
+  await tap(openQ(page), 'Draw them');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-more', { timeout: 60_000 });
+  await tap(openQ(page), 'Not now');
+  await tap(openQ(page), 'Open scene');
+  await page.waitForURL(/\/scenes\/us-/);
+  const id = new URL(page.url()).pathname.split('/').pop();
+  const saved = async () => (await scenes(page)).find((s) => s.name === 'Walnut Shelf');
+  const first = await saved();
+  expect(first.examples.map((e: any) => e.from)).toEqual([first.preview, first.preview]);
+
+  // the place drawn again: the set it had stays, and is said to be of the
+  // place as it was. Nothing is redrawn for it.
+  await page.getByRole('link', { name: 'Edit scene' }).click();
+  await page.waitForURL(new RegExp(`/scenes/${id}/edit/[a-f0-9]+$`));
+  await arrived(page, '.sc-pstudio[data-kind="scene"]');
+  // a change, not Try again: the demo engine draws the same words as the same
+  // bytes, so the same words would land the same picture and move nothing
+  await say(page, 'make the walnut much darker');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:decide-1', { timeout: 45_000 });
+  await tap(openQ(page), 'Save changes');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-start', { timeout: 30_000 });
+  await expect(openQ(page)).toContainText('show the place as it was before');
+  const moved = await saved();
+  expect(moved.preview).not.toBe(first.preview);
+  expect(moved.examples.map((e: any) => e.from)).toEqual([first.preview, first.preview]);
+
+  // and only then are they drawn again, from the picture it wears now
+  await tap(openQ(page), 'Draw them again');
+  await expect(turn(page, 'you:set-start')).toContainText('Draw them again');
+  await expect
+    .poll(async () => (await saved()).examples.every((e: any) => e.from === moved.preview), { timeout: 60_000 })
+    .toBe(true);
 });
 
 test('the old address forwards to the studio', async ({ page }) => {
