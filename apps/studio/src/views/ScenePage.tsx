@@ -292,8 +292,12 @@ export function ScenePage() {
    */
   const caption = owned
     ? owned.figure
-      ? 'The person in it is a stand-in: attach a presenter and they take the role.'
-      : ''
+      ? 'The person in it is a stand-in. With a presenter attached, this picture goes with the shot and they take the role.'
+      : // Measured 2026-09-22: a shot handed this picture reproduces its framing
+        // (5 of 9 near copies, and two different shots in one scene came out
+        // alike), while a shot told the words is still clearly this place.
+        // So the words travel and the picture is the proof of them.
+        'What the words below look like. A shot is told the words, not handed this picture, so it frames the place its own way.'
     : scene.subject !== 'person' && frames.length > 0
       ? 'Shown with a demo product for reference. Yours replaces it.'
       : '';
