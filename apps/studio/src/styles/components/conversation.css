@@ -1577,11 +1577,12 @@ button.sc-convo-shot-do {
 
 .sc-convo-plates {
   /* The plates take the row's own width between them, at a locked shape, so a
-     conversation made wider shows bigger cards rather than a wider gap. Six is
-     what a row is built to seat; the clamp keeps them legible when the rail is
-     at its narrowest and stops them becoming posters when it is at its widest.
-     The source art is 240x300, which is this shape at 2x. */
-  --sc-plate-w: clamp(72px, calc((100% - 5 * var(--sc-space-4)) / 6), 132px);
+     conversation made wider shows bigger cards rather than a wider gap. Four is
+     what a row is built to seat (six until 2026-09-22: the cards are pictures
+     to be read, and at six they were too small to read); the rest of a row is
+     one swipe away. The clamp keeps them legible when the rail is at its
+     narrowest and stops them becoming posters when it is at its widest. */
+  --sc-plate-w: clamp(72px, calc((100% - 3 * var(--sc-space-4)) / 4), 160px);
   --sc-plate-ratio: 90 / 112;
   display: flex;
   flex-wrap: nowrap;
