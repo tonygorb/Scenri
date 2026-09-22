@@ -67,7 +67,7 @@ export function useSceneStudio(args: {
   onSavedRef.current = args.onSaved;
 
   const start = useCallback(
-    async (kind: 'make' | 'again' | 'change', opts: { ask?: string; draw?: boolean } = {}) => {
+    async (kind: 'make' | 'again' | 'change', opts: { ask?: string; draw?: boolean; shot?: boolean } = {}) => {
       if (pressing.current || live.current.job) return;
       pressing.current = true;
       try {
@@ -75,7 +75,13 @@ export function useSceneStudio(args: {
         const v = current(st);
         const body =
           kind === 'make'
-            ? { kind, instruction: st.place, imageHashes: st.pictures, draw: opts.draw ?? false }
+            ? {
+                kind,
+                instruction: st.place,
+                imageHashes: st.pictures,
+                draw: opts.draw ?? false,
+                ...(opts.shot ? { shot: true } : {}),
+              }
             : kind === 'again'
               ? { kind, reading: v?.reading, imageHashes: st.pictures }
               : {

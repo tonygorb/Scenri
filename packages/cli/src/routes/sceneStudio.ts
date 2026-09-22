@@ -53,6 +53,7 @@ export function registerSceneStudioRoutes(app: FastifyInstance, deps: BuildRoute
       ask: body.ask == null ? undefined : String(body.ask),
       draw: body.draw === false ? false : undefined,
       reread: body.reread === true,
+      shot: body.shot === true,
       conversation: body.conversation == null ? undefined : String(body.conversation),
       sceneId: body.sceneId == null ? undefined : String(body.sceneId),
       label: body.label == null ? undefined : String(body.label),

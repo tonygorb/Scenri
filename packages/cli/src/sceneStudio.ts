@@ -115,6 +115,8 @@ export interface StudioJobInput {
   draw?: boolean;
   /** `change`: read the pictures again along with the sentence, because they changed. */
   reread?: boolean;
+  /** The picture is one of the brand's own shots: only its place is read (`SHOT_READ`). */
+  shot?: boolean;
   /** The studio conversation asking. One job runs per conversation. */
   conversation?: string;
   /** The saved scene being edited, so Activity can lead back to its studio. */
@@ -122,6 +124,18 @@ export interface StudioJobInput {
   /** What to call the work in Activity. */
   label?: string;
 }
+
+/**
+ * What the reader is told about a picture that is one of the brand's own
+ * shots. The shot was made to show a product, often on a person: those are
+ * its cast, and a scene is only the place they stood in. Said to the reader
+ * alone, never saved as the scene's words.
+ */
+export const SHOT_READ =
+  'This is one of their own product shots. Read only the place in it: the surface, the architecture, the materials, ' +
+  "the light, the atmosphere and the layout. The product and any person in it are that shot's cast, not the place: " +
+  'leave both out and leave "figure" empty, and never transcribe its text or logos. If the shot shows too little of ' +
+  'its place to build a world from, say so in "coverage" and describe only what is visible';
 
 /** The pictures a studio takes. Style references are one to four everywhere that measured it. */
 export const STUDIO_PICTURES_MAX = 4;
@@ -528,19 +542,23 @@ async function read(
     // them already, and reading them again invites the whole record to be
     // re-derived around one sentence. They go back in only when they changed.
     const imagePaths = prior && !input.reread ? [] : hashes.map((h) => deps.core.images.pathFor(h));
+    const fromShot = input.shot === true && imagePaths.length > 0;
+    const told = fromShot ? [instruction?.replace(/[.\s]+$/, ''), SHOT_READ].filter(Boolean).join('. ') : instruction;
     const draft = (await reader.analyze(
       {
         kind: 'scene',
         imagePaths,
         name: '',
-        instruction,
+        instruction: told,
         ...(prior ? { priorDraft: prior, correction: input.ask } : {}),
         vocabulary: deps.vocabulary,
       },
       signal,
     )) as SceneDraft;
     patch(job, { coverage: Array.isArray(draft.coverage) ? draft.coverage.slice(0, 2) : [] });
-    return readingOfDraft(draft, fallback);
+    const reading = readingOfDraft(draft, fallback);
+    // a shot's cast is never the scene's figure, whatever the reader made of it
+    return fromShot ? { ...reading, figure: undefined, figureTreatment: undefined } : reading;
   }
   // Nothing on this machine reads. The person's words are the scene as they
   // wrote them, and a change is added to them in their own words too.

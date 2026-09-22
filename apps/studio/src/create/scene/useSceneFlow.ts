@@ -256,7 +256,7 @@ export function useSceneFlow(args: {
   useEffect(() => {
     if (readKey === null || fired.current.has(readKey)) return;
     fired.current.add(readKey);
-    void work.start('make', { draw: false });
+    void work.start('make', { draw: false, shot: setupRef.current.answers.source?.door === 'shot' });
   }, [readKey, work.start]);
 
   /* ---- a place started from a shot */
@@ -446,7 +446,7 @@ export function useSceneFlow(args: {
         return;
       }
       if (qid === 'retry') {
-        void work.start('make', { draw: false });
+        void work.start('make', { draw: false, shot: setupRef.current.answers.source?.door === 'shot' });
         return;
       }
       if (ans.kind !== 'confirm') return;

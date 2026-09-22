@@ -429,6 +429,8 @@ export const api = {
       ask?: string;
       draw?: boolean;
       reread?: boolean;
+      /** The picture is one of the brand's own shots: only the place in it is read. */
+      shot?: boolean;
       /** The studio conversation asking; one job runs per conversation. */
       conversation?: string;
       sceneId?: string;

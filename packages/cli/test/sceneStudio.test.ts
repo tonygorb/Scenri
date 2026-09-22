@@ -14,6 +14,7 @@ import {
   resetSceneStudio,
   sceneChangePrompt,
   type SceneReading,
+  SHOT_READ,
 } from '../src/sceneStudio.js';
 
 const READ: SceneReading = {
@@ -195,6 +196,52 @@ describe('the scene studio', () => {
     expect(job.reading.figure).toBe(figure);
     expect(generated[0].referenceImages).toHaveLength(1);
     expect(generated[0].referenceRoles).toEqual(['scene']);
+  });
+
+  it('reads only the place in a shot the brand made, and never makes its cast the figure', async () => {
+    figure = 'a man in a yellow shirt holding the bottle';
+    const brand = await newBrand();
+    const shot = await photo('#aa6633');
+    const job = await run(brand.id, { kind: 'make', imageHashes: [shot], shot: true });
+    expect(job.status).toBe('done');
+    // the reader alone is told: the instruction it gets is the clause, and nothing is saved from it
+    expect(analyzed[0].instruction).toBe(SHOT_READ);
+    expect(analyzed[0].imagePaths).toHaveLength(1);
+    expect(job.reading.figure).toBeUndefined();
+    expect(job.reading.figureTreatment).toBeUndefined();
+    expect(job.reading.prompt).not.toContain('their own product shots');
+    // Activity names it as it names any picture, never from the clause
+    expect(job.label).toBe('New scene');
+    // so the picture is drawn as an empty set, from the shot as its reference
+    expect(generated[0].prompt).toContain('The set is empty');
+    expect(generated[0].referenceImages).toHaveLength(1);
+  });
+
+  it('keeps the words a person typed first when a shot is read with them', async () => {
+    const brand = await newBrand();
+    const shot = await photo('#aa6633');
+    await run(brand.id, {
+      kind: 'make',
+      instruction: 'keep the wet stone.',
+      imageHashes: [shot],
+      shot: true,
+      draw: false,
+    });
+    expect(analyzed[0].instruction).toBe(`keep the wet stone. ${SHOT_READ}`);
+  });
+
+  it('says nothing about shots unless the picture is one, and only a true flag says it is', async () => {
+    figure = 'one person at close portrait range, squared to camera';
+    const brand = await newBrand();
+    const a = await photo();
+    const plain = await run(brand.id, { kind: 'make', imageHashes: [a], draw: false });
+    expect(analyzed[0].instruction).toBeUndefined();
+    expect(plain.reading.figure).toBe(figure);
+    await run(brand.id, { kind: 'make', imageHashes: [a], shot: 'true', draw: false });
+    expect(analyzed[1].instruction).toBeUndefined();
+    // words alone have no picture to be a shot
+    await run(brand.id, { kind: 'make', instruction: 'a basalt shore', shot: true, draw: false });
+    expect(analyzed[2].instruction).toBe('a basalt shore');
   });
 
   it('reads only, when asked not to draw', async () => {
