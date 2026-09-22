@@ -142,6 +142,8 @@ export const BriefInput = forwardRef<
     placeholder: string;
     /** Shorter line for narrow viewports; falls back to placeholder. */
     placeholderSm?: string;
+    /** The field's name for a screen reader; the placeholder is only drawn. */
+    label?: string;
     flag?: (t: SentenceToken) => string | null;
     /** Whether this identity reaches the engine as words: its chip dims and its card says so. */
     described?: (t: SentenceToken) => boolean;
@@ -180,6 +182,7 @@ export const BriefInput = forwardRef<
     scenesSitOut,
     placeholder,
     placeholderSm,
+    label = 'Brief',
     flag,
     described,
     describedNote,
@@ -1459,6 +1462,8 @@ export const BriefInput = forwardRef<
         aria-expanded={menu ? true : undefined}
         aria-controls={menu ? INSERT_MENU_ID : undefined}
         aria-activedescendant={menu ? (activeOptionId ?? undefined) : undefined}
+        aria-label={label}
+        aria-placeholder={placeholder}
         tabIndex={0}
         dir="auto"
         data-ph={placeholder}

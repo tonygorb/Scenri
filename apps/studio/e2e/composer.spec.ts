@@ -3587,3 +3587,13 @@ test('an install that was not new when it first booted is never taught', async (
   await expect(page.locator('.sc-coach, .sc-welcome')).toHaveCount(0);
   expect((await (await page.request.get('/api/guide')).json()).eligible).toBe(false);
 });
+
+test('the brief has a name a screen reader can say, beside the hint it shows', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForURL((u) => u.pathname.split('/').filter(Boolean).length === 1 && !u.pathname.startsWith('/setup'));
+  const slug = new URL(page.url()).pathname.split('/')[1];
+  await page.goto(`/${slug}/create`);
+  const brief = page.getByRole('textbox', { name: 'Shot brief' });
+  await expect(brief).toBeVisible();
+  await expect(brief).toHaveAttribute('aria-placeholder', 'What should we shoot? (use $ / @ #)');
+});
