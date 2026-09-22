@@ -346,4 +346,4 @@ export const WORLD_IDS: readonly string[] = Object.keys(WORLDS);
  * conversation.css. A world joins this list only when all twelve exist; until
  * then its rows are asked as chips.
  */
-export const DRAWN_WORLDS: readonly string[] = [];
+export const DRAWN_WORLDS: readonly string[] = ['stone'];

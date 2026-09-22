@@ -22,7 +22,7 @@ import {
   SUGGESTED_IDEA,
   swatchRow,
 } from '../src/create/scene/sceneRows.js';
-import { IN_THE_PLACE, WORLD_IDS } from '../src/create/scene/sceneWorldRows.js';
+import { DRAWN_WORLDS, IN_THE_PLACE, WORLD_IDS } from '../src/create/scene/sceneWorldRows.js';
 import {
   type Answers,
   answeredIn,
@@ -396,9 +396,17 @@ describe('the light row says what the world already gave it', () => {
     expect(light.kind === 'swatches' && light.layout).toBeUndefined();
     // after a world, passing its surface keeps what the world is made of
     expect(surface.kind === 'swatches' && surface.skip).toBe("Keep the world's own");
-    // a row shows pictures only once every one of its options has one
+    // a drawn world's rows are pictures, every option of them
     for (const q of [light, surface])
-      expect(q.kind === 'swatches' && q.row.options.some((o) => o.card), q.id).toBe(false);
+      expect(q.kind === 'swatches' && q.row.options.every((o) => !!o.card), q.id).toBe(true);
+    // and a row shows pictures only once every one of its options has one:
+    // a world not drawn yet is asked in chips
+    const water: Answers = { source: { door: 'guided' }, world: { pick: 'water' } };
+    expect(DRAWN_WORLDS).not.toContain('water');
+    for (const id of ['surface', 'light', 'signature'] as const) {
+      const q = questionFor(id, setupOf(water), false, 0);
+      expect(q.kind === 'swatches' && q.row.options.some((o) => o.card), id).toBe(false);
+    }
   });
 
   it('never asks where the camera is or how the subject sits: each shot, and the examples, show that', () => {
