@@ -312,9 +312,11 @@ test('filters live in the URL and survive a reload', async ({ page }) => {
 test('settings is a URL, and Back closes it', async ({ page }) => {
   const brand = await currentBrand(page);
 
+  // Budget is a section of Providers now; its old id still lands there.
   await page.goto(`/${brand.slug}?settings=budget`);
   await expect(page.locator('.sc-set')).toBeVisible();
-  await expect(page.locator('.sc-set-head b')).toHaveText('Budget');
+  await expect(page.locator('.sc-set-head h2')).toHaveText('Providers');
+  await expect(page.getByRole('heading', { name: 'Monthly caps' })).toBeVisible();
 
   await page.goBack();
   await expect(page.locator('.sc-set')).toHaveCount(0);

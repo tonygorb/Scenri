@@ -21,6 +21,19 @@
 .sc-newdlg-scrim[data-state="closed"] {
   animation: sc-fade-out 140ms ease-in forwards;
 }
+/* A sheet is portalled outside the Radix Themes root, so a Radix Spinner in
+   it found none of the tokens it is sized by and collapsed to nothing: the
+   create dialogs', Brand kit's Refresh and provider setup's busy states. Only
+   what the spinner reads, at the app's 100% scaling and large radius; the
+   sheet's own type is untouched. */
+.sc-newdlg-layer {
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --radius-1: 4.5px;
+  --spinner-animation-duration: 800ms;
+  --spinner-opacity: 0.65;
+}
 .sc-newdlg-layer {
   position: fixed;
   inset: 0;

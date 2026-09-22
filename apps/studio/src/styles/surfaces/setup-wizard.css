@@ -1,139 +1,122 @@
-/* ---------- setup wizard ----------
-   Two steps, one action per screen. Sized so the whole thing reads without a
-   scroll: a person who is not sure this app is for them will not scroll to find
-   out. */
-.sc-setup {
-  padding: 0 !important;
+/* ---------- provider setup (views/ProviderSetup.tsx) ----------
+   Settings' shell and grammar, since it opens from Settings and over it: the
+   same head (surfaces/settings.css), the same sheet on a phone, the same
+   buttons. One action per screen, sized to read without a scroll: a person
+   who is not sure this app is for them will not scroll to find out. */
+.sc-setup.sc-newdlg {
+  padding: 0;
+}
+/* On a phone it opens over Settings' own sheet, so it takes the same height
+   and replaces it, as a page replaces the index: a short sheet stacked on the
+   tall one left Settings showing above it, cut off mid-field, with two grips
+   and two ways out. */
+@media (max-width: 767px) {
+  .sc-setup {
+    height: 92dvh;
+  }
+}
+/* The pane, top to bottom: what is being connected and where it stands, the
+   sentence that says what that means, the steps with the one in hand as the
+   thing to press, and whatever is left to do. One gap between them, larger
+   than any gap inside them, so each reads as one block. */
+.sc-setup-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 20px;
+  padding: var(--sc-gutter) var(--sc-gutter) max(28px, env(safe-area-inset-bottom));
+}
+.sc-setup-intro {
+  display: grid;
+  gap: 12px;
+}
+/* The subject: the provider's own tile at Learn's picture size, its name at a
+   lesson's size, and where it stands under it. */
+.sc-setup-subject {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.sc-setup-subject .sc-eng-ic {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--sc-radius-md);
+}
+.sc-setup-say {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.sc-setup-name {
   overflow: hidden;
+  font: 600 var(--sc-text-title) / 1.2 var(--sc-font);
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.sc-setup-head {
-  display: flex;
+.sc-setup-state {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  /* Radix leading-trims the title to its cap height, so the bar's height comes
-     from the close button beside it. Keep both tight or the title floats in a
-     band with more air under it than over it. */
-  padding: 9px 9px 9px 18px;
-  border-bottom: 1px solid var(--sc-line);
-}
-/* This header borrows the Settings close button, which is a 44px coarse-pointer
-   tap target. In a 44px-tall header that is fine; here it was the tallest thing
-   in the row and inflated a 13px title's bar to 73px. Shrunk to the row it is
-   in, and given the tap target back on touch, where it is the one that matters. */
-.sc-setup-head .sc-set-close {
-  width: 28px;
-  height: 28px;
-}
-@media (pointer: coarse) {
-  .sc-setup-head {
-    padding: 8px 8px 8px 18px;
-  }
-  .sc-setup-head .sc-set-close {
-    width: var(--sc-tap);
-    height: var(--sc-tap);
-  }
-}
-/* Radix's Heading ships its own size and a `normal` line-height, which left this
-   title an 8px-tall box: the text was there but its line was not, so nothing in
-   the row had a predictable centre to align to. */
-.sc-setup-title {
-  font: 600 13px / 1.4 var(--sc-font);
-  margin: 0;
-}
-/* Radix's Heading trims its own line box with ::before/::after negative margins.
-   That trimmed box is what a flex row centres, so the visible text sat 11px from
-   the top of this bar and 20px from the bottom: the same 9px of "extra padding
-   underneath" that made the header look unfinished. Turning the trim off makes
-   the line box itself the thing being centred. */
-.sc-setup-title::before,
-.sc-setup-title::after {
-  display: none;
-}
-.sc-setup-steps {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  margin: 0;
-  padding: 11px 18px;
-  border-bottom: 1px solid var(--sc-line);
-  list-style: none;
-  font-size: 12px;
+  gap: 6px;
+  font: 500 var(--sc-text-body) / 1.2 var(--sc-font);
   color: var(--sc-fg2);
 }
-.sc-setup-steps li {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.sc-setup-steps li .d {
+/* ready is the green dot a connected provider wears in Settings */
+.sc-setup-state .d {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--sc-line);
+  background: var(--sc-green);
 }
-/* A finished step recedes; the one you are on is the only one lit.
-   Done used to be gold, which in this app means "act before this works", so a
-   completed step wore the warning colour and read as a problem. */
-.sc-setup-steps li[data-on] {
-  color: var(--sc-fg3);
+.sc-setup-lead {
+  margin: 0;
+  max-width: 60ch;
+  font: 400 var(--sc-text-control) / 1.5 var(--sc-font);
+  color: var(--sc-fg2);
+  text-wrap: pretty;
 }
-/* The tick carries the green, the label stays quiet: green is what this app
-   already uses for "Ready" on the engine rows, so a finished step wearing it is
-   the app's own vocabulary rather than a new one. */
-.sc-setup-steps li[data-on] svg {
-  color: var(--sc-green);
+/* the steps are Learn's rows (surfaces/learn.css); a step that is working
+   says so with its pill and waits */
+.sc-setup-steps button:disabled {
+  cursor: progress;
 }
-.sc-setup-steps li[data-now] {
-  color: var(--sc-fg);
+.sc-setup-steps .sc-learn-go .rt-Spinner {
+  display: inline-block;
 }
-.sc-setup-steps li[data-now] .d {
-  background: var(--sc-gold);
+/* a note belongs to what is above it, so it sits nearer to it */
+:is(.sc-setup-steps, .sc-setup-acts) + .sc-setup-note {
+  margin-top: -10px;
 }
-/* One rhythm instead of one gap. Everything used to sit 12px apart, including
-   the outer padding, so the sentence, its action and the way out read as three
-   unrelated things floating in a box. The action and the alternative below it
-   are one group and sit close; the sentence above them is separate; and the
-   outer padding is larger than any inner gap, so the composition has an edge. */
-.sc-setup-body {
-  display: grid;
-  gap: 14px;
-  padding: 18px 18px 20px;
-  justify-items: start;
+.sc-setup-note {
+  margin: 0;
+  font: 400 12px / 1.45 var(--sc-font);
+  color: var(--sc-fg2);
+  text-wrap: pretty;
 }
-/* The action and its alternative: one line where the dialog has the width for
-   it, stacked where it does not. */
+/* What is left to do: one primary at most, anything beside it filled, a way
+   out as a link, on one line while there is room. */
 .sc-setup-acts {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px 16px;
+  gap: 12px 16px;
 }
-@media (max-width: 560px) {
+/* on a phone the buttons are a thumb's width across and the link stays a
+   link, so two actions never stack at two different widths */
+@media (max-width: 767px) {
   .sc-setup-acts {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
+    align-items: stretch;
   }
-}
-.sc-setup-body .sc-setup-acts + .sc-setup-note {
-  margin-top: -4px;
-}
-.sc-setup-lead {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.55;
-  color: var(--sc-fg);
-}
-.sc-setup-lead svg {
-  vertical-align: -2px;
-  margin-right: 4px;
-  color: var(--sc-gold);
-}
-.sc-setup-note {
-  margin: 0;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--sc-fg2);
+  .sc-setup-acts .sc-btn {
+    justify-content: center;
+    width: 100%;
+  }
+  .sc-setup-acts .sc-setup-alt {
+    align-self: flex-start;
+  }
 }
 /* The finish. Centred because it is an arrival, not another row of the form. */
 .sc-setup-done {
@@ -175,18 +158,6 @@
     animation: sc-fade-in 140ms ease both;
   }
 }
-/* Connecting a provider: the row's tile, one sentence, one field.
-   The tile is the settings row's own, unchanged, so drilling in reads as that
-   row opening rather than as arriving somewhere new. */
-.sc-setup-who {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  width: 100%;
-}
-.sc-setup-who .sc-eng-ic {
-  margin-top: 1px;
-}
 /* One field, full width: it is the whole of this dialog's business, and a key
    is long enough that a field sized to its content would be the dialog. */
 .sc-setup-key {
@@ -201,7 +172,7 @@
    below the action, behind a hairline, and behind a confirm after that. */
 .sc-setup-cut {
   width: 100%;
-  padding-top: 14px;
+  padding-top: 16px;
   border-top: 1px solid var(--sc-line);
 }
 /* the way out of the happy path: present, never competing with the action */
@@ -212,10 +183,10 @@
   border: 0;
   background: none;
   padding: 0;
-  font: 500 12px var(--sc-font);
+  font: 500 var(--sc-text-body) var(--sc-font);
   color: var(--sc-fg2);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 3px;
   cursor: pointer;
 }
 .sc-setup-alt:hover {
@@ -264,7 +235,7 @@
   border-radius: var(--sc-radius);
   background: var(--sc-raised);
   padding: 7px 9px;
-  font: 500 11.5px var(--sc-mono, ui-monospace, monospace);
+  font: 500 11.5px var(--sc-font-mono);
   color: var(--sc-fg);
 }
 .sc-setup-cmd .sc-btn {
