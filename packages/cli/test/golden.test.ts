@@ -717,11 +717,12 @@ describe('golden: responsibility contract', () => {
     expect(said.prompt).not.toContain('Camera for this shot:');
   });
 
-  it("a place's camera does not make a product shot huge: the camera comes to the product", () => {
+  it("a place's camera does not make a product shot huge: the shot is framed at the product's scale", () => {
     // 2026-09-22: "room-scale distance" on a product-only shot drew a sneaker
-    // the size of the loft's armchair. The tendency is still said, as the
-    // world's; a product's world, a chosen setup and the shot's own words
-    // keep theirs.
+    // the size of the loft's armchair, and a ring in a brutalist hall came out
+    // as tall as a step. A product alone in a place is framed at its own scale,
+    // focus following distance; a product's world, a chosen setup and the
+    // shot's own words keep their camera.
     const place = { ...resolveScene(PRODUCT_SCENE)!, subject: 'either' as const, camera: 'room-scale distance' };
     const ctx = { brand: brand(), images: core.images, engineCaps: caps(6), templateById: () => place };
     const alone = compileBrief(
@@ -733,9 +734,24 @@ describe('golden: responsibility contract', () => {
       },
       ctx,
     );
-    expect(alone.prompt).toContain('This world is usually seen like this: room-scale distance.');
-    expect(alone.prompt).toContain('bring the camera to the product rather than growing the product');
+    expect(alone.prompt).toContain("This shot is framed at the product's own scale, not the room's");
+    expect(alone.prompt).toContain('The closer the camera, the shallower the focus');
+    expect(alone.prompt).not.toContain('room-scale distance');
     expect(alone.prompt).not.toContain('Camera for this shot:');
+
+    // a setup is the person's own camera
+    const set = { ...place, setups: [{ id: 'top', label: 'Top down', camera: 'Directly overhead' }] };
+    const chosen = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE, setup: 'top' },
+        ],
+      },
+      { ...ctx, templateById: () => set },
+    );
+    expect(chosen.prompt).toContain('Camera for this shot: Directly overhead');
+    expect(chosen.prompt).not.toContain("framed at the product's own scale");
 
     const withSomeone = compileBrief(
       {
@@ -748,6 +764,7 @@ describe('golden: responsibility contract', () => {
       ctx,
     );
     expect(withSomeone.prompt).toContain('Camera for this shot: room-scale distance');
+    expect(withSomeone.prompt).not.toContain("framed at the product's own scale");
   });
 
   it('a scene without a camera tendency behaves exactly as before', () => {

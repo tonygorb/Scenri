@@ -306,11 +306,44 @@ export function personSkinDirective(): string {
  * boilerplate list, and with the same explicit-direction escape hatch, so a
  * surreal brief that wants the bottle floating still gets it.
  */
-export function productScaleDirective(): string {
+/**
+ * How a product is made to read, said once per brief.
+ *
+ * Prominence comes from the camera, never from size (measured 2026-09-22: a
+ * sneaker drawn the size of an armchair, a signet ring as tall as a step). Worn
+ * and held are said only when someone is there to wear or hold it: the first
+ * wording offered "worn by ... something real" to every product shot, and a
+ * loft shot of a sneaker with nobody attached came back with a man in the
+ * armchair wearing it.
+ */
+export function productScaleDirective(hasPerson: boolean): string {
   return (
     'The product reads clearly through camera distance, framing, focus and light, never by being enlarged beyond its ' +
-    'real size, and it rests on, hangs from, is worn by or is held by something real, with true contact and shadow, ' +
-    'unless the direction above explicitly stages it otherwise.'
+    'real size' +
+    (hasPerson
+      ? ', and it is worn, held or placed the way an object of its size and use is, with true contact and shadow, ' +
+        'unless the direction above explicitly stages it otherwise.'
+      : '. It rests on a real surface of this set, with true contact and shadow, unless the direction above ' +
+        'explicitly stages it otherwise.')
+  );
+}
+
+/**
+ * A product on its own in a place: framed at the product's scale, not the
+ * room's. The scene's words describe a whole room from foreground to back
+ * wall, and a model asked for a small object in it kept the room sharp and
+ * grew the object until it read (a signet ring as tall as a step, 2 of 2,
+ * even when told to bring the camera closer). What a photographer does is let
+ * focus follow distance, so this says that, for any size: the model knows how
+ * big a ring or a chair is.
+ */
+export function productFramingDirective(): string {
+  return (
+    "This shot is framed at the product's own scale, not the room's: the camera comes as close as the product's " +
+    'real size needs, and focus follows that distance. The closer the camera, the shallower the focus: around a small ' +
+    'object the surface it rests on stays sharp at its own fine true scale while the architecture behind falls into ' +
+    'large, soft, out-of-focus shapes of light and shade; a product the size of furniture keeps the room readable ' +
+    'around it.'
   );
 }
 

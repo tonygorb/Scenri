@@ -35,6 +35,7 @@ import {
   productFactDirectives,
   productFidelityDirective,
   productHandlingDirective,
+  productFramingDirective,
   productScaleDirective,
   referenceIdentityGuard,
   sceneFigureDirectives,
@@ -432,7 +433,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           // knows what the photo shows; it only has to be told it is real.
           else if (!p.dimensions)
             productDirectives.push(
-              `It is a real object: keep it at its true real-world size relative to hands, faces, furniture and everything else in frame.`,
+              'It is a real object: keep it at its true real-world size relative to everything else in frame.',
             );
         } else {
           warnings.push(`${p.name} has no usable photo, so it is named but not attached.`);
@@ -763,18 +764,19 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const sceneCamera = setupCamera.trim() || inlineTemplates[0]?.camera?.trim() || ctx.template?.camera?.trim() || '';
   // A product on its own under a place's camera tendency ("room-scale
   // distance") could only be made legible by being made huge (measured
-  // 2026-09-22: a sneaker the size of the loft's armchair). A world read as a
-  // product's world wrote its camera for products and keeps it; a chosen setup
-  // is the person's own camera and still rules.
-  const productOnly = !!productId && !hasPerson && scene?.subject !== 'product';
+  // 2026-09-22: a sneaker the size of the loft's armchair, a ring as tall as a
+  // step). Such a shot is framed at the product's scale instead, whatever the
+  // place's camera says. A world read as a product's world wrote its camera
+  // for products and keeps it; a chosen setup and the shot's own words are the
+  // person's camera and still rule.
+  const productOnly = !!productId && !hasPerson && !!scene && scene.subject !== 'product';
+  const ownCamera = !!setupCamera.trim() || shotSpecifiesCamera(sentence);
   const cameraDirectives =
-    sceneCamera && !shotSpecifiesCamera(sentence)
-      ? [
-          productOnly && !setupCamera.trim()
-            ? `This world is usually seen like this: ${sceneCamera}. For this product shot, bring the camera to the product rather than growing the product to fill the view.`
-            : `Camera for this shot: ${sceneCamera}`,
-        ]
-      : [];
+    productOnly && !ownCamera
+      ? [productFramingDirective()]
+      : sceneCamera && !shotSpecifiesCamera(sentence)
+        ? [`Camera for this shot: ${sceneCamera}`]
+        : [];
 
   // Attachments are useless past what the engine will actually read.
   //
@@ -993,7 +995,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     // and this line in one breath, before any spec repeats them.
     ...nameDirectives,
     ...productDirectives,
-    ...(productId ? [productScaleDirective()] : []),
+    ...(productId ? [productScaleDirective(hasPerson)] : []),
     ...personDirectives,
     ...pairDirectives,
     ...figureDirectives,

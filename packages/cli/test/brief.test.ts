@@ -148,6 +148,26 @@ describe('compileBrief', () => {
     expect(measured.prompt.match(/never by being enlarged/g)).toHaveLength(1);
   });
 
+  // 2026-09-22: "rests on, hangs from, is worn by or is held by something
+  // real" went to every product shot, and a loft shot of a sneaker with nobody
+  // attached came back with a man in the armchair wearing it.
+  it('never offers a product to be worn or held when nobody is attached to do it', () => {
+    const alone = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, mkCtx());
+    expect(alone.prompt).toContain('It rests on a real surface of this set');
+    expect(alone.prompt).not.toMatch(/\b(worn|held|wear|hold)\b/i);
+    const withSomeone = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'text', v: ' with ' },
+          { t: 'product', id: 'p1' },
+        ],
+      },
+      mkCtx(),
+    );
+    expect(withSomeone.prompt).toContain('it is worn, held or placed the way an object of its size and use is');
+  });
+
   // A catalog scene carries no figure of its own. With nobody attached the
   // compiler names the role it is leaving empty rather than letting the prose
   // invent someone; with a presenter it says nothing here, because the guards
