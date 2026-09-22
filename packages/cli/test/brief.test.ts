@@ -125,6 +125,29 @@ describe('compileBrief', () => {
     expect(r.prompt).toContain('Disregard any product, bottle, package, or brand name');
   });
 
+  // A packshot fills its own frame, so the picture says nothing about size.
+  // A hand-made product used to carry no words about it either, and came out
+  // armchair-sized (2026-09-22).
+  it('every product is told it is a real object at its real size, and made to read by the camera', () => {
+    const plain = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, mkCtx());
+    expect(plain.prompt).toContain('It is a real object: keep it at its true real-world size');
+    expect(plain.prompt).toContain('never by being enlarged beyond its real size');
+    // still named once: the size line points at it, it never names it again
+    expect(plain.prompt.match(/House Blend/g)).toHaveLength(1);
+
+    const brand = brandWith(productHash);
+    (brand.products[0] as any).description = 'A 250 g bag of whole-bean coffee';
+    const described = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand }));
+    expect(described.prompt).toContain('What this object physically is: A 250 g bag of whole-bean coffee.');
+    expect(described.prompt).not.toContain('It is a real object');
+
+    (brand.products[0] as any).dimensions = '20 cm tall';
+    const measured = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand }));
+    expect(measured.prompt).toContain('Its real-world size is 20 cm tall');
+    expect(measured.prompt).not.toContain('It is a real object');
+    expect(measured.prompt.match(/never by being enlarged/g)).toHaveLength(1);
+  });
+
   // A catalog scene carries no figure of its own. With nobody attached the
   // compiler names the role it is leaving empty rather than letting the prose
   // invent someone; with a presenter it says nothing here, because the guards
@@ -1577,8 +1600,11 @@ describe('compileBrief: a world built around a figure', () => {
 
   // The 2026-08 leak: the scene photograph showed a staged demo object and the
   // prose guards only disowned "the scene direction" — the words, never the
-  // picture. The picture gets its own disowning, and it names the replacements.
-  it('tells the model the scene photograph stages stand-ins, and who replaces them', () => {
+  // picture. The picture gets its own disowning, and it names who replaces the
+  // figure. Only the figure: 2026-09-22, "any prop is a stand-in ... at the
+  // placement and scale the photograph demonstrates" sized a sneaker to a
+  // loft's armchair and took its place.
+  it('tells the model the scene photograph is the world: its figure a stand-in, its props only set', () => {
     const r = compileBrief(
       {
         tokens: [
@@ -1591,8 +1617,13 @@ describe('compileBrief: a world built around a figure', () => {
     );
     expect(r.attachments.map((a) => a.role)).toContain('scene');
     expect(r.prompt).toContain("One attached reference is the scene's own photograph");
-    expect(r.prompt).toContain('The product in the scene photograph is not in this shot');
-    expect(r.prompt).toContain('Any person in the scene photograph lends their role, never their face');
+    expect(r.prompt).toContain('none of them stands in for anything attached to this shot');
+    expect(r.prompt).toContain('Nothing in the scene photograph is this product or measures its size');
+    expect(r.prompt).toContain('The person in the scene photograph is a stand-in for the attached presenter');
+    expect(r.prompt).toContain('lend their role, never their face');
+    expect(r.prompt).not.toMatch(/stand-in's position|placement and scale the scene photograph/);
+    // a figure-led plate is its figure's framing, so it is not told to reframe
+    expect(r.prompt).not.toContain('It is not the shot to copy');
     // The prose guards keep their rank; the photo guard is the most specific
     // word and comes after them, and after the figure directives it must not
     // argue with.
@@ -1627,8 +1658,8 @@ describe('compileBrief: a world built around a figure', () => {
       },
       refd(),
     );
-    expect(personOnly.prompt).toContain('Any person in the scene photograph');
-    expect(personOnly.prompt).not.toContain('The product in the scene photograph');
+    expect(personOnly.prompt).toContain('The person in the scene photograph is a stand-in');
+    expect(personOnly.prompt).not.toContain('Nothing in the scene photograph is this product');
     const both = compileBrief(
       {
         tokens: [
@@ -1639,8 +1670,31 @@ describe('compileBrief: a world built around a figure', () => {
       },
       refd(),
     );
-    expect(both.prompt).toContain('The product in the scene photograph is not in this shot');
-    expect(both.prompt).toContain('Any person in the scene photograph');
+    expect(both.prompt).toContain('Nothing in the scene photograph is this product or measures its size');
+    expect(both.prompt).toContain('The person in the scene photograph is a stand-in');
+  });
+
+  it('a picture of a place with no figure is the world, never the shot to copy', () => {
+    // only the battery seam sends one today; what it is told is the same rule
+    process.env.SCENRI_SCENE_REFS = '1';
+    try {
+      const r = compileBrief(
+        {
+          tokens: [
+            { t: 'product', id: 'p1' },
+            { t: 'template', id: base.id },
+          ],
+        },
+        refd({ figure: undefined, figureTreatment: undefined, subject: 'either' }),
+      );
+      expect(r.attachments.map((a) => a.role)).toContain('scene');
+      expect(r.prompt).toContain('none of them stands in for anything attached to this shot');
+      expect(r.prompt).toContain('It is not the shot to copy');
+      expect(r.prompt).toContain('at its own real-world size');
+      expect(r.prompt).not.toContain('stand-in for the attached presenter');
+    } finally {
+      delete process.env.SCENRI_SCENE_REFS;
+    }
   });
 
   it('keeps quiet about the photograph on an edit, where none is sent', () => {

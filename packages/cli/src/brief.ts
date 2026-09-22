@@ -35,6 +35,7 @@ import {
   productFactDirectives,
   productFidelityDirective,
   productHandlingDirective,
+  productScaleDirective,
   referenceIdentityGuard,
   sceneFigureDirectives,
   sceneGuardDirectives,
@@ -425,6 +426,14 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
             productDirectives.push(
               `What this object physically is: ${String(p.description).replace(/\.\s*$/, '')}. Keep it at that real size relative to hands, faces, furniture and everything else in frame.`,
             );
+          // A hand-made product carries neither a description nor dimensions,
+          // so it went out with no size anchor at all, and its packshot fills
+          // its own frame: nothing said it was a shoe and not a sofa. The model
+          // knows what the photo shows; it only has to be told it is real.
+          else if (!p.dimensions)
+            productDirectives.push(
+              `It is a real object: keep it at its true real-world size relative to hands, faces, furniture and everything else in frame.`,
+            );
         } else {
           warnings.push(`${p.name} has no usable photo, so it is named but not attached.`);
           // A named-but-never-shown identity is the "confidently wrong" run
@@ -752,8 +761,20 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // the shot direction has not already chosen a camera, so the two can never
   // compete. See shotSpecifiesCamera.
   const sceneCamera = setupCamera.trim() || inlineTemplates[0]?.camera?.trim() || ctx.template?.camera?.trim() || '';
+  // A product on its own under a place's camera tendency ("room-scale
+  // distance") could only be made legible by being made huge (measured
+  // 2026-09-22: a sneaker the size of the loft's armchair). A world read as a
+  // product's world wrote its camera for products and keeps it; a chosen setup
+  // is the person's own camera and still rules.
+  const productOnly = !!productId && !hasPerson && scene?.subject !== 'product';
   const cameraDirectives =
-    sceneCamera && !shotSpecifiesCamera(sentence) ? [`Camera for this shot: ${sceneCamera}`] : [];
+    sceneCamera && !shotSpecifiesCamera(sentence)
+      ? [
+          productOnly && !setupCamera.trim()
+            ? `This world is usually seen like this: ${sceneCamera}. For this product shot, bring the camera to the product rather than growing the product to fill the view.`
+            : `Camera for this shot: ${sceneCamera}`,
+        ]
+      : [];
 
   // Attachments are useless past what the engine will actually read.
   //
@@ -857,6 +878,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         hasProduct: !!productId,
         hasPerson,
         hasScenePhoto: kept.some((a) => a.role === 'scene'),
+        figureLed: !!scene?.figure,
         emptyRole,
       })
     : [];
@@ -971,6 +993,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     // and this line in one breath, before any spec repeats them.
     ...nameDirectives,
     ...productDirectives,
+    ...(productId ? [productScaleDirective()] : []),
     ...personDirectives,
     ...pairDirectives,
     ...figureDirectives,

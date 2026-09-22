@@ -306,6 +306,14 @@ export function personSkinDirective(): string {
  * boilerplate list, and with the same explicit-direction escape hatch, so a
  * surreal brief that wants the bottle floating still gets it.
  */
+export function productScaleDirective(): string {
+  return (
+    'The product reads clearly through camera distance, framing, focus and light, never by being enlarged beyond its ' +
+    'real size, and it rests on, hangs from, is worn by or is held by something real, with true contact and shadow, ' +
+    'unless the direction above explicitly stages it otherwise.'
+  );
+}
+
 export function productHandlingDirective(): string {
   return (
     'Where the presenter touches the product, they handle it the way a real person handles an object of exactly ' +
@@ -616,6 +624,8 @@ export function sceneGuardDirectives(opts: {
   hasProduct: boolean;
   hasPerson: boolean;
   hasScenePhoto?: boolean;
+  /** The scene is built around a figure, whose place in its photograph the attached presenter takes. */
+  figureLed?: boolean;
   /** The figure role a scene is built around, when nobody is attached to take it and the brief asks for nobody. */
   emptyRole?: string;
 }): string[] {
@@ -644,18 +654,31 @@ export function sceneGuardDirectives(opts: {
   // the picture — so the picture needs its own disowning, said about the
   // photograph by name. The treatment carve-out rides in the same breath so
   // this can never argue with the figure directives above it.
+  //
+  // Only a person in it stands in for anything. The photograph is drawn with
+  // no product in it (customAssets.ts), so the old line calling "any product,
+  // garment, prop" a stand-in "at the placement and scale the scene photograph
+  // demonstrates" could only ever land on the set: measured 2026-09-22, a
+  // sneaker took a loft's armchair's place at the armchair's size, and the
+  // armchair went. Props are set, at their real size, and the product goes
+  // where the shot puts it, at its own.
   if (opts.hasScenePhoto && (opts.hasProduct || opts.hasPerson)) {
     out.push(
-      "One attached reference is the scene's own photograph. It shows this world — the set, the light, and any treatment this world applies — never a cast: any product, garment, prop or person visible in it is a stand-in, demonstrating where the subject sits, how large it stands in the frame, and what has been done to it.",
+      "One attached reference is the scene's own photograph. It shows this world — the set, the light, the materials and any treatment this world applies — never a cast. The furniture, props and architecture in it are part of the set: they stay what they are, at their real size, and none of them stands in for anything attached to this shot." +
+        (opts.figureLed
+          ? ''
+          : ' It is not the shot to copy: this shot chooses its own camera, framing and composition inside this world, as its own direction asks.'),
     );
     if (opts.hasProduct) {
       out.push(
-        "The product in the scene photograph is not in this shot. The attached product photo is the only source of product identity: that exact product takes the stand-in's position, at the placement and scale the scene photograph demonstrates, keeping its own shape, label and colours.",
+        'The attached product photo is the only source of product identity. Nothing in the scene photograph is this product or measures its size: it goes where this shot puts it, at its own real-world size, keeping its own shape, label and colours.',
       );
     }
     if (opts.hasPerson) {
       out.push(
-        'Any person in the scene photograph lends their role, never their face: the attached presenter takes their place, wearing whatever treatment this world applies, with their identity drawn from their own photographs alone.',
+        opts.figureLed
+          ? 'The person in the scene photograph is a stand-in for the attached presenter: they show where the presenter stands, how large they are in the frame and what this world does to them, and lend their role, never their face. The attached presenter takes their place, wearing whatever treatment this world applies, with their identity drawn from their own photographs alone.'
+          : 'Any person in the scene photograph lends their role, never their face: the attached presenter takes their place, wearing whatever treatment this world applies, with their identity drawn from their own photographs alone.',
       );
     }
   }

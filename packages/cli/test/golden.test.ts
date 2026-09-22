@@ -717,6 +717,39 @@ describe('golden: responsibility contract', () => {
     expect(said.prompt).not.toContain('Camera for this shot:');
   });
 
+  it("a place's camera does not make a product shot huge: the camera comes to the product", () => {
+    // 2026-09-22: "room-scale distance" on a product-only shot drew a sneaker
+    // the size of the loft's armchair. The tendency is still said, as the
+    // world's; a product's world, a chosen setup and the shot's own words
+    // keep theirs.
+    const place = { ...resolveScene(PRODUCT_SCENE)!, subject: 'either' as const, camera: 'room-scale distance' };
+    const ctx = { brand: brand(), images: core.images, engineCaps: caps(6), templateById: () => place };
+    const alone = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE },
+        ],
+      },
+      ctx,
+    );
+    expect(alone.prompt).toContain('This world is usually seen like this: room-scale distance.');
+    expect(alone.prompt).toContain('bring the camera to the product rather than growing the product');
+    expect(alone.prompt).not.toContain('Camera for this shot:');
+
+    const withSomeone = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: PRODUCT_SCENE },
+        ],
+      },
+      ctx,
+    );
+    expect(withSomeone.prompt).toContain('Camera for this shot: room-scale distance');
+  });
+
   it('a scene without a camera tendency behaves exactly as before', () => {
     const r = compile([
       { t: 'product', id: 'p1' },
@@ -856,7 +889,11 @@ describe('golden: presenter references are identity, not wardrobe', () => {
     // what the photograph showed. A stand-in has a place for it to go.
     expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/match the environment, the light/i);
     expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/take no identity from the person in it/);
-    expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/stand-in whose place the attached subject takes/);
+    expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/stand-in whose place the attached presenter takes/);
+    // and nothing else in it is: a prop is set at its real size, never the
+    // measure of a product (2026-09-22: a sneaker took an armchair's size)
+    expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/props and objects are part of the set at their real size/);
+    expect(REFERENCE_ROLE_DIRECTIVE.scene).not.toMatch(/demonstrating placement and scale/);
     // The carve-out LEADS. It used to sit forty words in as a subordinate
     // clause, and the tester case showed which half the model heard.
     expect(REFERENCE_ROLE_DIRECTIVE.scene.indexOf('take no identity')).toBeLessThan(
