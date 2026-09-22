@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Spinner } from '@radix-ui/themes';
-import {
-  ArrowsClockwise,
-  ArrowSquareOut,
-  Check,
-  Copy,
-  DownloadSimple,
-  Key,
-  SignIn,
-  Warning,
-  X,
-} from '@phosphor-icons/react';
+import { ArrowRight, ArrowsClockwise, ArrowSquareOut, Check, Copy, Key, Warning, X } from '@phosphor-icons/react';
 import { api, type EngineInfo, type SetupPlatform } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
 import { useOpenSetup } from '../app/dialogs.js';
@@ -177,19 +167,13 @@ function KeyPane({
       <div className="sc-setup-body">
         {/* The row's own tile, carried into the dialog, so this reads as that
             row opened rather than as a new place. */}
-        <div className="sc-setup-who">
-          <span
-            className="sc-eng-ic"
-            data-brand=""
-            style={
-              {
-                '--sc-plate': engineTile(provider.engineId)?.plate,
-                '--sc-ink': engineTile(provider.engineId)?.ink,
-              } as CSSProperties
-            }
-          >
-            <EngineMark engineId={provider.engineId} />
-          </span>
+        <div className="sc-setup-intro">
+          <Subject
+            engineId={provider.engineId}
+            name={name}
+            state={connected ? 'Connected' : 'Not connected'}
+            ready={connected}
+          />
           <p className="sc-setup-lead">
             {connected
               ? `A key is saved for ${name}. Paste a new one to replace it, or disconnect to remove it from this computer.`
@@ -430,140 +414,77 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
   /** Any engine that can carry a Product or a Presenter and is already usable. */
   const otherReady = engines.filter((e) => e.available && e.id !== 'codex-cli' && !e.localOnly);
 
+  const busy = phase === 'checking' || phase === 'installing' || phase === 'signing-in' || phase === 'repairing';
+  // The step in hand is the one row that can be pressed, and it carries the
+  // phase's own action, as the step in hand does in Learn.
+  const act: StepAct | null =
+    phase === 'not-installed' || phase === 'installing'
+      ? {
+          step: 0,
+          label: 'Install Codex CLI',
+          verb: phase === 'installing' ? 'Installing' : 'Install',
+          busy: phase === 'installing',
+          run: install,
+        }
+      : phase === 'not-authenticated' || phase === 'signing-in'
+        ? {
+            step: 1,
+            label: 'Sign in with ChatGPT',
+            verb: phase === 'signing-in' ? 'Waiting for your browser' : 'Sign in',
+            busy: phase === 'signing-in',
+            run: signIn,
+          }
+        : phase === 'env-conflict' || phase === 'repairing'
+          ? {
+              step: 2,
+              label: 'Ignore that key',
+              verb: phase === 'repairing' ? 'Ignoring' : 'Ignore that key',
+              busy: phase === 'repairing',
+              run: repairEnv,
+            }
+          : null;
+  const offerNoPlan =
+    phase === 'not-installed' || phase === 'installing' || phase === 'not-authenticated' || phase === 'signing-in';
+
   return (
     <>
       <SetupHead title="Set up image generation" />
-      <Steps phase={phase} />
 
       <div className="sc-setup-body">
-        {phase === 'checking' && (
-          <p className="sc-setup-lead">
-            <Spinner size="1" /> Checking that Codex can actually reach OpenAI from this computer.
+        <div className="sc-setup-intro">
+          <Subject engineId="codex-cli" name="Codex CLI" state={STATE[phase]} ready={phase === 'ready'} busy={busy} />
+          <p className="sc-setup-lead">{LEAD[phase](reason)}</p>
+          {phase === 'no-plan' && (
+            <p className="sc-setup-lead">
+              You can use your own key from an image provider instead. You pay that provider directly, per image, and
+              the key stays in your library folder on this computer.
+            </p>
+          )}
+        </div>
+
+        {phase !== 'no-plan' && <Steps phase={phase} act={act} />}
+
+        {phase === 'signing-in' && (
+          <p className="sc-setup-note">Finish in the browser tab that just opened. This screen updates itself.</p>
+        )}
+        {(phase === 'env-conflict' || phase === 'repairing') && (
+          <p className="sc-setup-note">{repairNote(conflictKeys)}</p>
+        )}
+        {phase === 'ready' && ignoredKeys.length > 0 && (
+          <p className="sc-setup-note">
+            {repairedNote(ignoredKeys)}{' '}
+            <button type="button" className="sc-setup-alt" onClick={restoreEnv}>
+              Use it again
+            </button>
           </p>
         )}
-
-        {(phase === 'not-installed' || phase === 'installing') && (
-          <>
-            <p className="sc-setup-lead">
-              Scenri generates with Codex CLI, a small official helper from OpenAI that runs on this computer and uses
-              your own ChatGPT plan. It needs to be installed once.
-            </p>
-            {/* The action and the way past it are one decision, so they sit on one
-                line while there is room and stack when there is not. */}
-            <div className="sc-setup-acts">
-              <button
-                type="button"
-                className="sc-btn sc-btn-primary"
-                onClick={install}
-                disabled={phase === 'installing'}
-              >
-                {phase === 'installing' ? <Spinner size="1" /> : <DownloadSimple size={15} />}
-                {phase === 'installing' ? 'Installing' : 'Install Codex CLI'}
-              </button>
-              <button type="button" className="sc-setup-alt" onClick={() => setPhase('no-plan')}>
-                I do not have ChatGPT
-              </button>
-            </div>
-          </>
-        )}
-
-        {(phase === 'not-authenticated' || phase === 'signing-in') && (
-          <>
-            <p className="sc-setup-lead">
-              Codex CLI is installed. Sign in with the ChatGPT account whose plan should cover your images. This opens
-              your browser, and Scenri never sees your password or token.
-            </p>
-            <div className="sc-setup-acts">
-              <button
-                type="button"
-                className="sc-btn sc-btn-primary"
-                onClick={signIn}
-                disabled={phase === 'signing-in'}
-              >
-                {phase === 'signing-in' ? <Spinner size="1" /> : <SignIn size={15} />}
-                {phase === 'signing-in' ? 'Waiting for your browser' : 'Sign in with ChatGPT'}
-              </button>
-              <button type="button" className="sc-setup-alt" onClick={() => setPhase('no-plan')}>
-                I do not have ChatGPT
-              </button>
-            </div>
-            {phase === 'signing-in' && (
-              <p className="sc-setup-note">Finish in the browser tab that just opened. This screen updates itself.</p>
-            )}
-          </>
-        )}
-
-        {phase === 'ready' && (
-          <>
-            <p className="sc-setup-lead">
-              <Check size={15} /> Codex CLI is ready. Your images run on your own ChatGPT plan, and Scenri adds nothing
-              to the bill.
-            </p>
-            <div className="sc-setup-acts">
-              <button type="button" className="sc-btn sc-btn-primary" onClick={onDone}>
-                Start creating
-              </button>
-              <button type="button" className="sc-btn sc-btn-ghost" onClick={checkAgain}>
-                <ArrowsClockwise size={14} /> Check again
-              </button>
-            </div>
-            {ignoredKeys.length > 0 && (
-              <>
-                <p className="sc-setup-note">{repairedNote(ignoredKeys)}</p>
-                <button type="button" className="sc-setup-alt" onClick={restoreEnv}>
-                  Use it again
-                </button>
-              </>
-            )}
-          </>
-        )}
-
-        {(phase === 'env-conflict' || phase === 'repairing') && (
-          <>
-            <p className="sc-setup-lead">
-              Codex is signed in, but an old OpenAI API key on this computer is being used instead of your ChatGPT plan,
-              and OpenAI turned it down.
-            </p>
-            <div className="sc-setup-acts">
-              <button
-                type="button"
-                className="sc-btn sc-btn-primary"
-                onClick={repairEnv}
-                disabled={phase === 'repairing'}
-              >
-                {phase === 'repairing' ? <Spinner size="1" /> : <Key size={15} />}
-                {phase === 'repairing' ? 'Ignoring' : 'Ignore that key'}
-              </button>
-            </div>
-            <p className="sc-setup-note">{repairNote(conflictKeys)}</p>
-          </>
-        )}
-
         {phase === 'unverified' && (
-          <>
-            <p className="sc-setup-lead">
-              Scenri could not verify Codex on this computer. Something answered too slowly or not at all, so nothing is
-              assumed to work.
-            </p>
-            <div className="sc-setup-acts">
-              <button type="button" className="sc-btn sc-btn-primary" onClick={checkAgain}>
-                <ArrowsClockwise size={15} /> Check again
-              </button>
-              <button type="button" className="sc-setup-alt" onClick={() => setPhase('no-plan')}>
-                I do not have ChatGPT
-              </button>
-            </div>
-            <p className="sc-setup-note">
-              If you just installed Codex, quit and reopen Scenri so it can see the new command.
-            </p>
-          </>
+          <p className="sc-setup-note">
+            If you just installed Codex, quit and reopen Scenri so it can see the new command.
+          </p>
         )}
-
         {phase === 'update-needed' && (
           <>
-            <p className="sc-setup-lead">
-              {reason ?? 'Codex CLI on this computer is too old for Scenri.'} Update it once, then check again.
-            </p>
             <div className="sc-setup-cmd">
               <code>npm install -g @openai/codex@latest</code>
               <button
@@ -581,38 +502,13 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
                 <code>{'irm https://chatgpt.com/codex/install.ps1 | iex'}</code>
               </p>
             )}
-            <div className="sc-setup-acts">
-              <button type="button" className="sc-btn sc-btn-primary" onClick={checkAgain}>
-                <ArrowsClockwise size={15} /> Check again
-              </button>
-            </div>
           </>
         )}
-
-        {phase === 'no-plan' && (
-          <>
-            <p className="sc-setup-lead">
-              Codex CLI draws on a ChatGPT plan, so without one there is nothing behind it to generate your images.
-            </p>
-            <p className="sc-setup-lead">
-              You can use your own key from an image provider instead. You pay that provider directly, per image, and
-              the key stays in your library folder on this computer.
-            </p>
-            <div className="sc-setup-acts">
-              <button type="button" className="sc-btn sc-btn-primary" onClick={() => openSetup('openrouter')}>
-                <Key size={15} /> Add a provider key
-              </button>
-              <button type="button" className="sc-setup-alt" onClick={() => void probe()}>
-                Back to Codex setup
-              </button>
-            </div>
-            {otherReady.length > 0 && (
-              <p className="sc-setup-note">
-                {otherReady.map((e) => engineTitle(e.displayName)).join(', ')} is already connected, so you can generate
-                now.
-              </p>
-            )}
-          </>
+        {phase === 'no-plan' && otherReady.length > 0 && (
+          <p className="sc-setup-note">
+            {otherReady.map((e) => engineTitle(e.displayName)).join(', ')} is already connected, so you can generate
+            now.
+          </p>
         )}
 
         {problem && (
@@ -641,30 +537,187 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
             )}
           </div>
         )}
+
+        {/* What is left to do once the steps have said where things stand: one
+            primary at most, anything beside it filled, a way out as a link. */}
+        {phase === 'ready' && (
+          <div className="sc-setup-acts">
+            <button type="button" className="sc-btn sc-btn-primary" onClick={onDone}>
+              Start creating
+            </button>
+            <button type="button" className="sc-btn sc-btn-ghost" onClick={checkAgain}>
+              <ArrowsClockwise size={14} /> Check again
+            </button>
+          </div>
+        )}
+        {(phase === 'unverified' || phase === 'update-needed') && (
+          <div className="sc-setup-acts">
+            <button type="button" className="sc-btn sc-btn-primary" onClick={checkAgain}>
+              <ArrowsClockwise size={15} /> Check again
+            </button>
+            {phase === 'unverified' && (
+              <button type="button" className="sc-setup-alt" onClick={() => setPhase('no-plan')}>
+                I do not have ChatGPT
+              </button>
+            )}
+          </div>
+        )}
+        {phase === 'no-plan' && (
+          <div className="sc-setup-acts">
+            <button type="button" className="sc-btn sc-btn-primary" onClick={() => openSetup('openrouter')}>
+              <Key size={15} /> Add a provider key
+            </button>
+            <button type="button" className="sc-setup-alt" onClick={() => void probe()}>
+              Back to Codex setup
+            </button>
+          </div>
+        )}
+        {offerNoPlan && (
+          <div className="sc-setup-acts">
+            <button type="button" className="sc-setup-alt" onClick={() => setPhase('no-plan')}>
+              I do not have ChatGPT
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
 }
 
+/** Where Codex stands, in the words under its name. */
+const STATE: Record<Phase, string> = {
+  checking: 'Checking',
+  'not-installed': 'Not installed',
+  installing: 'Installing',
+  'not-authenticated': 'Not signed in',
+  'signing-in': 'Waiting for your browser',
+  ready: 'Ready',
+  'env-conflict': 'An old key is in the way',
+  repairing: 'Setting that key aside',
+  unverified: 'Could not verify',
+  'update-needed': 'Needs an update',
+  'no-plan': 'Needs a ChatGPT plan',
+};
+
+/** The one sentence that says what this state means. */
+const LEAD: Record<Phase, (reason: string | null) => string> = {
+  checking: () => 'Checking that Codex can actually reach OpenAI from this computer.',
+  'not-installed': () =>
+    'Scenri generates with Codex CLI, a small official helper from OpenAI that runs on this computer and uses your own ChatGPT plan. It needs to be installed once.',
+  installing: () =>
+    'Scenri generates with Codex CLI, a small official helper from OpenAI that runs on this computer and uses your own ChatGPT plan. It needs to be installed once.',
+  'not-authenticated': () =>
+    'Codex CLI is installed. Sign in with the ChatGPT account whose plan should cover your images. This opens your browser, and Scenri never sees your password or token.',
+  'signing-in': () =>
+    'Codex CLI is installed. Sign in with the ChatGPT account whose plan should cover your images. This opens your browser, and Scenri never sees your password or token.',
+  ready: () => 'Codex CLI is ready. Your images run on your own ChatGPT plan, and Scenri adds nothing to the bill.',
+  'env-conflict': () =>
+    'Codex is signed in, but an old OpenAI API key on this computer is being used instead of your ChatGPT plan, and OpenAI turned it down.',
+  repairing: () =>
+    'Codex is signed in, but an old OpenAI API key on this computer is being used instead of your ChatGPT plan, and OpenAI turned it down.',
+  unverified: () =>
+    'Scenri could not verify Codex on this computer. Something answered too slowly or not at all, so nothing is assumed to work.',
+  'update-needed': (reason) =>
+    `${reason ?? 'Codex CLI on this computer is too old for Scenri.'} Update it once, then check again.`,
+  'no-plan': () =>
+    'Codex CLI draws on a ChatGPT plan, so without one there is nothing behind it to generate your images.',
+};
+
 /**
- * Three dots, because installing and signing in can both be done and
+ * What is being connected and where it stands: the provider's own tile, its
+ * name, and one line of state. The anchor of the pane, the way a lesson's
+ * picture and name head a lesson in Learn.
+ */
+function Subject({
+  engineId,
+  name,
+  state,
+  ready,
+  busy,
+}: {
+  engineId: string;
+  name: string;
+  state: string;
+  ready?: boolean;
+  busy?: boolean;
+}) {
+  const tile = engineTile(engineId);
+  return (
+    <div className="sc-setup-subject">
+      <span
+        className="sc-eng-ic"
+        data-brand={tile ? '' : undefined}
+        style={tile ? ({ '--sc-plate': tile.plate, '--sc-ink': tile.ink } as CSSProperties) : undefined}
+      >
+        <EngineMark engineId={engineId} />
+      </span>
+      <span className="sc-setup-say">
+        <b className="sc-setup-name">{name}</b>
+        <span className="sc-setup-state">
+          {busy ? <Spinner size="1" /> : ready ? <span className="d" /> : null}
+          {state}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+type StepAct = { step: number; label: string; verb: string; busy: boolean; run: () => void };
+
+/**
+ * Three steps, because installing and signing in can both be done and
  * generation can still fail. The third is the one the 0.9.2 tester needed:
  * it only lights when a real Scenri-spawned codex authenticated.
+ *
+ * Learn's step rows (surfaces/learn.css), the one pattern the app has for a
+ * task in steps: every step the same filled row, a taken step a green tick
+ * that stands back, the step in hand the one row that can be pressed, with
+ * its verb, and the rest receding until they are reached.
  */
-function Steps({ phase }: { phase: Phase }) {
-  if (phase === 'no-plan') return null;
-  const { installed, signedIn, connected, now } = stepState(phase);
+function Steps({ phase, act }: { phase: Phase; act: StepAct | null }) {
+  const { installed, signedIn, connected } = stepState(phase);
+  const done = [installed, signedIn, connected];
+  const names = ['Install Codex CLI', 'Sign in with ChatGPT', 'Connect to Scenri'];
   return (
-    <ol className="sc-setup-steps">
-      <li data-on={installed ? '' : undefined} data-now={now === 'install' ? '' : undefined}>
-        {installed ? <Check size={12} /> : <span className="d" />} Install
-      </li>
-      <li data-on={signedIn ? '' : undefined} data-now={now === 'signin' ? '' : undefined}>
-        {signedIn ? <Check size={12} /> : <span className="d" />} Sign in
-      </li>
-      <li data-on={connected ? '' : undefined} data-now={now === 'connect' ? '' : undefined}>
-        {connected ? <Check size={12} /> : <span className="d" />} Connect
-      </li>
+    <ol className="sc-learn-steps sc-setup-steps">
+      {names.map((name, i) => {
+        const inHand = act?.step === i;
+        const state = done[i] ? 'done' : inHand ? 'active' : 'todo';
+        const mark = (
+          <span className="sc-learn-n" aria-hidden="true">
+            {done[i] ? <Check size={14} weight="bold" /> : i + 1}
+          </span>
+        );
+        const waiting = inHand && act.busy;
+        return (
+          <li key={name} data-on={done[i] ? '' : undefined} data-now={inHand ? '' : undefined}>
+            {inHand ? (
+              <button
+                type="button"
+                className="sc-learn-step"
+                data-state={state}
+                aria-label={act.label}
+                disabled={waiting}
+                onClick={act.run}
+              >
+                {mark}
+                <span className="sc-learn-step-name">{name}</span>
+                <span className="sc-learn-go" aria-hidden="true">
+                  {waiting ? <Spinner size="1" /> : null}
+                  {act.verb}
+                  {waiting ? null : <ArrowRight size={12} weight="bold" />}
+                </span>
+              </button>
+            ) : (
+              <div className="sc-learn-step" data-state={state}>
+                {mark}
+                <span className="sc-learn-step-name">{name}</span>
+                {done[i] && <span className="sc-vh">, done</span>}
+              </div>
+            )}
+          </li>
+        );
+      })}
     </ol>
   );
 }
