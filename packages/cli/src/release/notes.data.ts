@@ -51,6 +51,24 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.14.0',
+    date: '2026-09-22',
+    sections: [
+      {
+        heading: 'Settings',
+        body: 'Settings is redesigned with six pages instead of eight: Brand kit and Usage sit under the brand, Providers now includes the monthly caps, and General holds the theme and the library. On a phone it opens as a sheet, with the list of pages first and Back from each one.',
+      },
+      {
+        heading: 'Providers',
+        body: 'Setting up a provider now walks through its steps in the Settings window, showing what is done and what comes next. On a phone it replaces Settings rather than opening on top of it.',
+      },
+      {
+        heading: 'Fixes',
+        body: 'The product and scene forms now show a spinner on their main button while they work.',
+      },
+    ],
+  },
+  {
     version: '0.13.2',
     date: '2026-09-22',
     sections: [
