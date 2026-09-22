@@ -3,7 +3,6 @@ import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
 import { CardGrid } from './CardGrid.js';
 import { CardStrip } from './CardStrip.js';
-import { Strip } from './Strip.js';
 import { RefStrip } from '../create/RefStrip.js';
 import { thumbUrl } from '../api.js';
 import { Tip } from '../layout/Tip.js';
@@ -119,31 +118,52 @@ export function QuestionBlock({
   };
   // the control that stands lit: what was just tapped, else the answer as it was
   const on = picked ?? asOne(given);
+  // A pick's pictures scroll inside a box of their own, a page read as its end
+  // comes into view: the attach picker's sentinel, rooted in this box.
+  const pickBox = useRef<HTMLDivElement>(null);
+  const pickEnd = useRef<HTMLDivElement>(null);
+  const nextPick = useRef<() => void>(() => {});
+  nextPick.current = () => {
+    if (question.kind === 'pick' && question.more && !question.loading)
+      onAnswer({ kind: 'pick', action: { type: 'more' } });
+  };
+  const pickCount = question.kind === 'pick' ? question.items.length : 0;
+  const pickMore = question.kind === 'pick' && !!question.more;
+  useEffect(() => {
+    const el = pickEnd.current;
+    const root = pickBox.current;
+    if (!el || !root || !pickMore || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && nextPick.current(), {
+      root,
+      rootMargin: '0px 0px 240px 0px',
+    });
+    io.observe(el);
+    return () => io.disconnect();
+    // re-armed per page, so a page too short to fill the box asks for the next
+  }, [pickCount, pickMore]);
+  // Two rows exactly, off a real plate: a scrollbar that takes room narrows the
+  // columns by a width CSS cannot know, and the box would show a sliver of a
+  // third row. Measured again whenever the box's width moves.
+  const pickShown = pickCount > 0;
+  useEffect(() => {
+    const box = pickBox.current;
+    if (!box || !pickShown || typeof ResizeObserver === 'undefined') return;
+    const fit = () => {
+      const plate = box.querySelector<HTMLElement>('.sc-convo-plate');
+      if (plate) box.style.setProperty('--sc-pick-row', `${plate.getBoundingClientRect().height}px`);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [pickShown]);
+  // a new search starts its results from the top
+  const pickQuery = question.kind === 'pick' ? question.search?.value : undefined;
+  useEffect(() => {
+    if (pickBox.current) pickBox.current.scrollTop = 0;
+  }, [pickQuery]);
   const plan = revealPlan(question.prompt);
   const promptId = `sc-convo-q-${question.id}`;
-  /**
-   * Pictures the person already has, one tap each, in the conversation's own
-   * plate and strip. The fastest reference is the one already in the library,
-   * so while nothing has been chosen this leads and the file well follows;
-   * once something is attached the well leads again, because the well is where
-   * what they have is shown.
-   */
-  const offerFirst = 'hashes' in question && question.hashes.length === 0;
-  const HAVE_SHOW = 4;
-  const [haveOpen, setHaveOpen] = useState(false);
-  const [haveQ, setHaveQ] = useState('');
-  const offer = 'suggest' in question && question.suggest && question.suggest.items.length > 0 && (
-    <HaveOffer
-      suggest={question.suggest}
-      hashes={'hashes' in question ? question.hashes : []}
-      open={haveOpen}
-      query={haveQ}
-      cap={HAVE_SHOW}
-      onOpen={setHaveOpen}
-      onQuery={setHaveQ}
-      onPick={(hash) => onAnswer({ kind: 'photos', action: { type: 'pick', hash } })}
-    />
-  );
   const files = useRef<HTMLInputElement>(null);
   const cancel = question.reopened && onCancel && (
     <button type="button" className="sc-btn sc-btn-ghost sc-convo-cancel" onClick={onCancel}>
@@ -463,13 +483,7 @@ export function QuestionBlock({
         )}
 
         {question.kind === 'photos' && (
-          <div className="sc-convo-photos-q" data-offer-first={offerFirst || undefined}>
-            {/* Pictures the person already has, one tap each. They lead while
-                nothing has been chosen, because the fastest reference is the
-                one already in the library and a file dialog is the slower way
-                in, not the first one. Once something is attached the well
-                leads, because the well is where what they have is shown. */}
-            {offerFirst && offer}
+          <div className="sc-convo-photos-q">
             <RefStrip
               hashes={question.hashes}
               max={question.max}
@@ -480,7 +494,19 @@ export function QuestionBlock({
               onRemove={(hash) => onAnswer({ kind: 'photos', action: { type: 'remove', hash } })}
               onReject={() => onAnswer({ kind: 'photos', action: { type: 'reject' } })}
             />
-            {!offerFirst && offer}
+            {/* The well is what this question is for. A person with no file
+                but something else to start from gets a quiet link, never a
+                second well competing with the first. */}
+            {question.instead && (
+              <button
+                type="button"
+                className="sc-convo-other"
+                data-on={picked === 'instead' || undefined}
+                onClick={() => commit('instead', { kind: 'photos', action: { type: 'instead' } })}
+              >
+                {question.instead}
+              </button>
+            )}
             {question.attest && (
               <label className="sc-convo-attest">
                 <input
@@ -516,6 +542,67 @@ export function QuestionBlock({
               )}
               {cancel}
             </div>
+          </div>
+        )}
+
+        {question.kind === 'pick' && (
+          <div className="sc-convo-pick">
+            {/* The field stands above the pictures and never moves: the
+                pictures scroll in a box of their own that keeps its height
+                whatever a search leaves in it. Cards are keyed by their own
+                id: two can share one picture, and keying by the picture left
+                stale cards behind every search. */}
+            {question.search && (
+              <input
+                type="search"
+                className="sc-convo-pick-q"
+                value={question.search.value}
+                placeholder={question.search.label}
+                aria-label={question.search.label}
+                onChange={(e) => onAnswer({ kind: 'pick', action: { type: 'query', text: e.target.value } })}
+              />
+            )}
+            <div ref={pickBox} className="sc-convo-pick-scroll" aria-busy={question.loading || undefined}>
+              {question.items.length > 0 && (
+                <div className="sc-convo-grid sc-convo-pick-grid">
+                  {question.items.map((it) => (
+                    <button
+                      key={it.id}
+                      type="button"
+                      className="sc-convo-plate"
+                      aria-label={it.alt}
+                      aria-pressed={on === it.id}
+                      data-on={on === it.id || undefined}
+                      onClick={() => commit(it.id, { kind: 'pick', action: { type: 'pick', id: it.id } })}
+                    >
+                      <span
+                        className="sc-convo-plate-in"
+                        style={{ backgroundImage: `url("${thumbUrl(it.hash, 'small')}")` }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {question.items.length === 0 && !question.loading && question.empty && (
+                <p className="sc-convo-pick-empty">{question.empty}</p>
+              )}
+              {question.more && <div ref={pickEnd} className="sc-convo-pick-end" aria-hidden />}
+            </div>
+            {(question.back || cancel) && (
+              <div className="sc-convo-ways sc-convo-ask" data-guide-shape="">
+                {question.back && (
+                  <button
+                    type="button"
+                    className="sc-chip sc-convo-choice sc-convo-pass"
+                    data-on={picked === 'back' || undefined}
+                    onClick={() => commit('back', { kind: 'pick', action: { type: 'back' } })}
+                  >
+                    {question.back}
+                  </button>
+                )}
+                {cancel}
+              </div>
+            )}
           </div>
         )}
 
@@ -605,91 +692,6 @@ function Quote({ text, label = 'The brief' }: { text: string; label?: string }) 
       </figcaption>
       <p className="sc-convo-brief-text">{text}</p>
     </figure>
-  );
-}
-
-/**
- * Scenes already made, offered at the picture question.
- *
- * Four at first, because a library of hundreds is not a strip. Opening the
- * rest is a search, not a dump.
- */
-function HaveOffer({
-  suggest,
-  hashes,
-  open,
-  query,
-  cap,
-  onOpen,
-  onQuery,
-  onPick,
-}: {
-  suggest: {
-    label: string;
-    hint?: string;
-    items: { hash: string; alt: string }[];
-    more?: string;
-    fewer?: string;
-    search?: string;
-  };
-  hashes: string[];
-  open: boolean;
-  query: string;
-  cap: number;
-  onOpen: (next: boolean) => void;
-  onQuery: (next: string) => void;
-  onPick: (hash: string) => void;
-}) {
-  const q = query.trim().toLowerCase();
-  const matched = q ? suggest.items.filter((it) => it.alt.toLowerCase().includes(q)) : suggest.items;
-  const shown = open ? matched : matched.slice(0, cap);
-  const over = suggest.items.length > cap;
-  return (
-    <div className="sc-convo-have">
-      <p className="sc-convo-have-lb">
-        {suggest.label}
-        {suggest.hint && <span>{suggest.hint}</span>}
-      </p>
-      {open && over && suggest.search && (
-        <input
-          type="search"
-          className="sc-convo-have-q"
-          value={query}
-          placeholder={suggest.search}
-          aria-label={suggest.search}
-          onChange={(e) => onQuery(e.target.value)}
-        />
-      )}
-      <Strip step={106}>
-        {shown.map((it) => (
-          <button
-            key={it.hash}
-            type="button"
-            className="sc-convo-plate"
-            aria-label={it.alt}
-            data-on={hashes.includes(it.hash) ? true : undefined}
-            onClick={() => onPick(it.hash)}
-          >
-            <span className="sc-convo-plate-in" style={{ backgroundImage: `url("${thumbUrl(it.hash, 'micro')}")` }} />
-          </button>
-        ))}
-      </Strip>
-      {over && (
-        <div className="sc-convo-ways">
-          <button
-            type="button"
-            className="sc-chip sc-convo-choice sc-convo-pass"
-            data-on={open || undefined}
-            onClick={() => {
-              onOpen(!open);
-              if (open) onQuery('');
-            }}
-          >
-            {open ? (suggest.fewer ?? 'Show fewer') : (suggest.more ?? `See all ${suggest.items.length}`)}
-          </button>
-        </div>
-      )}
-    </div>
   );
 }
 

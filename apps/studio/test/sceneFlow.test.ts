@@ -7,8 +7,9 @@ import {
   judge,
   type SetArgs,
   packSession,
-  placesTheyMade,
   questionFor,
+  type ShotArgs,
+  sceneOfBrief,
   turnsFor,
   unpackSession,
 } from '../src/create/scene/sceneFlowRules.js';
@@ -52,7 +53,15 @@ import {
 } from '../src/create/scene/sceneStudioRules.js';
 
 const H = (c: string) => c.repeat(32);
-const haveOf = (c: string, alt: string) => ({ hash: H(c), alt });
+/** The brand's shots as the flow hands them over; every one shares a picture, as reruns do. */
+const shotsOf = (n: number, over: Partial<ShotArgs> = {}): ShotArgs => ({
+  any: n > 0,
+  items: Array.from({ length: n }, (_, i) => ({ id: `n${i}`, hash: H('f'), alt: `Shot ${i}` })),
+  query: '',
+  more: false,
+  loading: false,
+  ...over,
+});
 const R = (over: Partial<SceneReading> = {}): SceneReading => ({
   name: 'Wet Basalt Shore',
   prompt: 'A wet basalt shelf at the waterline.',
@@ -166,7 +175,7 @@ describe('the setup', () => {
       `luxury product photography in warm stone, ${said('light', 'golden')}, ${said('signature', 'change')}, ${IN_THE_PLACE}.`,
     );
     // no row asks where the camera is, or how the subject sits: each shot says both
-    expect(SPECS.map((x) => x.id)).not.toContain('shot');
+    expect([...ROW_ORDER] as string[]).not.toContain('shot');
     expect(SPECS.map((x) => x.id)).not.toContain('stage');
   });
 
@@ -289,12 +298,23 @@ describe('the setup', () => {
     let s: SetupState = EMPTY_SETUP;
     for (let i = 0; i < 1500; i++) {
       const act: SetupAction = pick<SetupAction>([
-        { type: 'answer', patch: { source: { door: pick(['photos', 'guided', 'words'] as const), text: 'a shore' } } },
+        {
+          type: 'answer',
+          patch: { source: { door: pick(['photos', 'shot', 'guided', 'words'] as const), text: 'a shore' } },
+        },
+        {
+          type: 'answer',
+          patch: { shot: { id: 'n1', hash: H('e'), ...(r() < 0.5 ? { scene: { id: 'x', name: 'X' } } : {}) } },
+        },
+        { type: 'answer', patch: { reuse: 'read' } },
         { type: 'answer', patch: { [pick(['world', 'surface', 'light', 'signature'])]: { pick: PASSED } } },
         { type: 'answer', patch: { world: { pick: 'colour', words: pick([undefined, 'a loft']) } } },
         { type: 'answer', patch: { photos: { hashes: [H('a')], done: r() < 0.5 } } },
         { type: 'photos', hashes: [H(pick(['a', 'b', 'c', 'd', 'e']))] },
-        { type: 'edit', id: pick(['source', 'photos', 'world', 'surface', 'light', 'signature'] as const) },
+        {
+          type: 'edit',
+          id: pick(['source', 'photos', 'shot', 'reuse', 'world', 'surface', 'light', 'signature'] as const),
+        },
         { type: 'cancel-edit' },
       ]);
       s = reduceSetup(s, act);
@@ -304,6 +324,8 @@ describe('the setup', () => {
       }
       if (s.editing) expect(answeredIn(s.answers)).toContain(s.editing);
       expect((s.answers.photos?.hashes.length ?? 0) <= 4).toBe(true);
+      // the uploads and the shot never stand together
+      expect(!!s.answers.photos && !!s.answers.shot).toBe(false);
     }
   });
 });
@@ -516,18 +538,20 @@ describe('the light row says what the world already gave it', () => {
 });
 
 describe('the conversation', () => {
-  it('offers the pictures this person already made at the picture question, and asks for a file when there are none', () => {
+  it('asks for pictures first, with one quiet way to a shot until a picture is in', () => {
     const setup = setupOf({ source: { door: 'photos' }, photos: { hashes: [], done: false } });
     const none = lastQ(turnsFor(args({ setup })));
-    expect(none?.kind === 'photos' && none.suggest).toBeUndefined();
-
-    const offered = lastQ(turnsFor(args({ setup, have: [haveOf('a', 'Shore'), haveOf('b', 'Hall')] })));
-    expect(offered?.kind).toBe('photos');
-    const row = offered?.kind === 'photos' ? offered.suggest : undefined;
-    expect(row?.items.map((i) => i.hash)).toEqual([H('a'), H('b')]);
-    expect(row?.hint).toContain('Product shots stay out');
-    expect(row?.more).toBe('See all 2 scenes');
-    expect(row?.search).toBe('Find a scene');
+    expect(none?.kind === 'photos' && none.instead).toBeFalsy();
+    const offered = lastQ(turnsFor(args({ setup, shots: shotsOf(3) })));
+    expect(offered?.kind === 'photos' && offered.instead).toBe('Or start from one of your shots');
+    // no scenes offered beside the well: a scene already made is used, not re-read
+    expect(offered && 'suggest' in offered).toBe(false);
+    // a picture in, or one on its way, and the pictures are the answer being given
+    const one = setupOf({ source: { door: 'photos' }, photos: { hashes: [H('a')], done: false } });
+    const added = lastQ(turnsFor(args({ setup: one, shots: shotsOf(3) })));
+    expect(added?.kind === 'photos' && added.instead).toBeFalsy();
+    const uploading = lastQ(turnsFor(args({ setup, uploading: 1, shots: shotsOf(3) })));
+    expect(uploading?.kind === 'photos' && uploading.instead).toBeFalsy();
   });
 
   it('opens with the ask and the two doors, and a line that takes a sentence and pictures', () => {
@@ -782,19 +806,116 @@ describe('the words door', () => {
   });
 });
 
-describe('places they already made', () => {
-  it('takes only scenes with a picture, newest first, and leaves shots out', () => {
-    expect(
-      placesTheyMade([
-        { name: 'Old shore', preview: `asset:${H('a')}` },
-        { name: 'Words only' },
-        { name: 'A can', preview: `shot:${H('b')}` },
-        { name: 'New hall', preview: `asset:${H('c')}` },
-      ]),
-    ).toEqual([
-      { hash: H('c'), alt: 'New hall' },
-      { hash: H('a'), alt: 'Old shore' },
+describe('a place started from a shot', () => {
+  const door: Answers = { source: { door: 'shot' } };
+  const picked: Answers = { ...door, shot: { id: 'n1', hash: H('e') } };
+  const inScene: Answers = { ...door, shot: { id: 'n2', hash: H('e'), scene: { id: 'us-abc', name: 'Harbour' } } };
+
+  it('asks which shot, then reads the one picked and nothing else', () => {
+    expect(nextQuestion(door)).toBe('shot');
+    expect(setupDone(door)).toBe(false);
+    expect(nextQuestion(picked)).toBeNull();
+    expect(setupDone(picked)).toBe(true);
+    expect(picturesOf(picked)).toEqual([H('e')]);
+    expect(compileDirection(picked)).toBe('');
+  });
+
+  it('keeps the shot apart from the uploads, and a change of door takes it back', () => {
+    const back = commit(picked, { source: { door: 'photos' }, photos: { hashes: [], done: false } });
+    expect(back.shot).toBeUndefined();
+    expect(picturesOf(back)).toEqual([]);
+    // a picture dropped on the shot's door never joins it
+    const s = reduceSetup(setupOf(picked), { type: 'photos', hashes: [H('a')] });
+    expect(s.answers.photos).toBeUndefined();
+    expect(picturesOf(s.answers)).toEqual([H('e')]);
+    const fromPhotos = commit(
+      { source: { door: 'photos' }, photos: { hashes: [H('a')], done: true } },
+      { source: { door: 'shot' } },
+    );
+    expect(fromPhotos.photos).toBeUndefined();
+    expect(nextQuestion(fromPhotos)).toBe('shot');
+  });
+
+  it('offers the scene a shot was made in before reading a new one', () => {
+    expect(nextQuestion(inScene)).toBe('reuse');
+    expect(setupDone(inScene)).toBe(false);
+    const q = lastQ(turnsFor(args({ setup: setupOf(inScene) })));
+    expect(q?.prompt).toBe('This shot was made in Harbour.');
+    expect(q?.kind === 'choice' && q.options?.map((o) => o.label)).toEqual(['Use Harbour', 'Read a new scene from it']);
+    // Use leaves for that scene: it is not an answer here
+    expect(answerPatch('reuse', { kind: 'choice', id: 'use' }, inScene)).toBeNull();
+    const patch = answerPatch('reuse', { kind: 'choice', id: 'read' }, inScene);
+    const reading = commit(inScene, patch ?? {});
+    expect(setupDone(reading)).toBe(true);
+    // another shot takes the answer about the first one's scene with it
+    expect(commit(reading, { shot: { id: 'n3', hash: H('d') } }).reuse).toBeUndefined();
+  });
+
+  it('shows the shots as a pick lit by id, with a search, a next page and a way back', () => {
+    const setup = setupOf(door);
+    const q = lastQ(turnsFor(args({ setup, shots: shotsOf(8, { more: true, query: 'harb' }) })));
+    expect(q?.kind).toBe('pick');
+    if (q?.kind !== 'pick') return;
+    expect(q.items).toHaveLength(8);
+    expect(new Set(q.items.map((i) => i.id)).size).toBe(8);
+    expect(q.search).toEqual({ label: 'Find a shot', value: 'harb' });
+    expect(q.more).toBe(true);
+    expect(q.back).toBe('Back to pictures');
+    expect(q.empty).toBe('No shot matches "harb".');
+    // reopened from its answer: lit on the shot, and Cancel is the way back
+    const again = questionFor('shot', setupOf(picked), true, 0, shotsOf(2));
+    expect(again.kind === 'pick' && again.given).toBe('n1');
+    expect(again.kind === 'pick' && again.back).toBeUndefined();
+    // the answer is a tap, so the line is off
+    expect(composerFor(args({ setup }), q).target.kind).toBe('off');
+  });
+
+  it('reads back as the door and the shot, and offers another shot before a draw', () => {
+    const T = turnsFor(args({ setup: setupOf(picked), studio: read(EMPTY) }));
+    expect(keys(T).slice(0, 5)).toEqual([
+      'you:intent',
+      'scenri:asked-source',
+      'you:source',
+      'scenri:asked-shot',
+      'you:shot',
     ]);
+    const src = T.find((t) => t.kind === 'you' && t.id === 'source');
+    expect(src?.kind === 'you' && src.text).toBe('Start from one of my shots');
+    const shot = T.find((t) => t.kind === 'you' && t.id === 'shot');
+    expect(shot?.kind === 'you' && shot.photos).toEqual([H('e')]);
+    const agree = lastQ(T);
+    expect(agree?.kind === 'confirm' && agree.options.map((o) => o.id)).toEqual(['draw', 'another-shot']);
+    expect(agree?.prompt).toBe('Here is the place I read in your shot. Ready to draw?');
+    // the pictures door never offers it
+    const photos = setupOf({ source: { door: 'photos' }, photos: { hashes: [H('a')], done: true } });
+    const other = lastQ(turnsFor(args({ setup: photos, studio: read(EMPTY) })));
+    expect(other?.kind === 'confirm' && other.options.map((o) => o.id)).toEqual(['draw']);
+  });
+
+  it('survives a reload, checked rather than trusted', () => {
+    const s = setupOf({ ...inScene, reuse: 'read' });
+    expect(deserializeSetup(JSON.parse(JSON.stringify(serializeSetup(s))))?.answers).toEqual({
+      ...inScene,
+      reuse: 'read',
+    });
+    expect(
+      deserializeSetup({ answers: { source: { door: 'shot' }, shot: { id: 'n1', hash: 'nope' }, reuse: 'yes' } })
+        ?.answers,
+    ).toEqual({ source: { door: 'shot' } });
+  });
+
+  it('finds the scene a shot was made in off its brief', () => {
+    expect(
+      sceneOfBrief({
+        tokens: [
+          { t: 'product', id: 'p' },
+          { t: 'template', id: 'us-abc' },
+        ],
+      }),
+    ).toBe('us-abc');
+    expect(sceneOfBrief({ tokens: [], templateId: 'concrete-hall' })).toBe('concrete-hall');
+    expect(sceneOfBrief({ tokens: [{ t: 'product', id: 'p' }] })).toBeNull();
+    expect(sceneOfBrief(null)).toBeNull();
   });
 });
 

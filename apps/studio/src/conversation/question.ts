@@ -2,9 +2,10 @@
  * The Question: one thing Scenri asks, and the shape of its answer.
  *
  * A conversational surface in Scenri is a transcript of turns, and the turns
- * a person can act on are questions. Five kinds: a sentence, one choice out of
+ * a person can act on are questions. Six kinds: a sentence, one choice out of
  * a few (or several at once, or a few rows answered together), a row of
- * swatches, photographs, and a decision. Every question has a stable id, which
+ * swatches, photographs, a picture picked out of a library the flow searches
+ * and pages, and a decision. Every question has a stable id, which
  * is what a flow keys its state on; nothing is ever keyed on a turn's position
  * or its words.
  *
@@ -152,22 +153,33 @@ export type Question =
       /** What the empty well says: what to drop, and how. The flow's words, since only it knows what the pictures are of. */
       drop?: { label: string; hint: string };
       /**
-       * Pictures the person already has, offered to be taken as they are.
-       *
-       * A flow that can name pictures its own person made (their shots, their
-       * uploads) offers them here rather than asking for a file: the fastest
-       * reference is the one already in the library. The label says what the
-       * row is; each one is a store hash, the same thing a file becomes.
+       * A quiet other way in, under the well: a link, never a second well.
+       * The well is what this question is for; this is for the person who
+       * has no file but has something else to start from. The flow decides
+       * when it stands (before anything is added, say).
        */
-      suggest?: {
-        label: string;
-        hint?: string;
-        items: { hash: string; alt: string }[];
-        /** When there are more than a handful, the way to open the rest. */
-        more?: string;
-        fewer?: string;
-        search?: string;
-      };
+      instead?: string;
+    })
+  | (QuestionBase & {
+      kind: 'pick';
+      /**
+       * Pictures to pick one from, out of a library the flow owns: it
+       * searches, pages and answers, and this only shows what it is handed.
+       * Each has its own id, never its picture, since two can share one.
+       */
+      items: PickItem[];
+      /** The id picked, when the question is open again from its answer. */
+      given?: string;
+      /** A field that narrows the library, with what it holds now. */
+      search?: { label: string; value: string };
+      /** More are there: they are asked for (`more`) as the list is scrolled to its end. */
+      more?: boolean;
+      /** The library is being read (a search or the next page). */
+      loading?: boolean;
+      /** What an empty result says. */
+      empty?: string;
+      /** A quiet way back to where this question was opened from. */
+      back?: string;
     })
   | (QuestionBase & {
       kind: 'confirm';
@@ -195,12 +207,26 @@ export type QuestionKind = Question['kind'];
 /** What a photos block can do; the flow owns the hashes and answers each. */
 export type PhotosAction =
   | { type: 'add'; files: File[] }
-  /** One of the offered pictures, taken as it is: it is already in the store. */
-  | { type: 'pick'; hash: string }
   | { type: 'remove'; hash: string }
   | { type: 'attest'; checked: boolean }
   | { type: 'reject' }
   | { type: 'submit' }
+  | { type: 'back' }
+  /** The quiet other way in, under the well. */
+  | { type: 'instead' };
+
+/** One picture on offer in a pick question: its own id, its picture, and what it is called. */
+export interface PickItem {
+  id: string;
+  hash: string;
+  alt: string;
+}
+
+/** What a pick block can do; the flow owns the library and answers each. */
+export type PickAction =
+  | { type: 'pick'; id: string }
+  | { type: 'query'; text: string }
+  | { type: 'more' }
   | { type: 'back' };
 
 export type Answer =
@@ -210,6 +236,7 @@ export type Answer =
   | { kind: 'swatches'; picks: Record<string, string> }
   | { kind: 'skip' }
   | { kind: 'photos'; action: PhotosAction }
+  | { kind: 'pick'; action: PickAction }
   | { kind: 'confirm'; id: string };
 
 /** A turn in the transcript: yours, Scenri's, or a question. */

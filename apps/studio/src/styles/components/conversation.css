@@ -1996,37 +1996,18 @@ button.sc-convo-shot-do {
   gap: var(--sc-space-5);
 }
 
-/* Pictures already in the library, offered at the picture question: the
-   conversation's own plate, in the conversation's own strip, under a quiet
-   line that says what taking one means. It was a ragged grid of 56px squares,
-   which is not a shape this conversation uses anywhere else. */
-.sc-convo-have {
+/* Picking one picture out of a library the flow owns: a field that narrows
+   it, and under it the pictures four to a row, the same plates as every other
+   row, in a box exactly two rows tall that scrolls on its own. The field never
+   moves: the box keeps its height whatever a search leaves in it, and the
+   next page is read as its end comes into view. */
+.sc-convo-pick {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--sc-space-5);
 }
-/* The line over the row, and under it in a smaller hand what taking one of
-   them means. Set at the same size they were, the two read as one paragraph
-   that had lost its line spacing. */
-.sc-convo-have-lb {
-  margin: 0;
-  font: 600 var(--sc-text-control) / 1.3 var(--sc-font);
-  color: var(--sc-fg2);
-}
-.sc-convo-have-lb span {
-  display: block;
-  margin-top: 3px;
-  font: 400 var(--sc-text-caption) / 1.45 var(--sc-font);
-  color: var(--sc-fg3);
-}
-/* a photograph fills its plate: these are places, not silhouettes on a ground */
-.sc-convo-have .sc-convo-plate-in {
-  background-size: cover;
-  background-position: 50% 50%;
-}
-/* Find a scene, only once the rest of the library is open. The conversation's
-   own field, not the library chrome. */
-.sc-convo-have-q {
+.sc-convo-pick-q {
   width: 100%;
   box-sizing: border-box;
   margin: 0;
@@ -2037,12 +2018,76 @@ button.sc-convo-shot-do {
   color: var(--sc-fg);
   font: 400 var(--sc-text-control) / 1.3 var(--sc-font);
 }
-.sc-convo-have-q::placeholder {
+.sc-convo-pick-q::placeholder {
   color: var(--sc-fg3);
 }
-.sc-convo-have-q::-webkit-search-cancel-button {
+.sc-convo-pick-q::-webkit-search-cancel-button {
   -webkit-appearance: none;
   appearance: none;
+}
+/* Two rows exactly. The block measures a plate into `--sc-pick-row` (a
+   scrollbar that takes room narrows the columns by a width CSS cannot know);
+   until then a row is the question's width less three gaps, over four, over
+   the plate's shape. The box reaches the ring's width past the grid on every
+   side, so a focused plate at its edge is not clipped, and the grid still
+   lines up with the field above it. */
+.sc-convo-pick-scroll {
+  --sc-pick-col: calc((100cqw - 3 * var(--sc-space-3)) / 4);
+  box-sizing: border-box;
+  height: calc(
+    2 *
+    var(--sc-pick-row, var(--sc-pick-col) / (var(--sc-plate-ratio, 90 / 112))) +
+    var(--sc-space-4) +
+    2 *
+    var(--sc-space-2)
+  );
+  margin: calc(-1 * var(--sc-space-2));
+  padding: var(--sc-space-2);
+  overflow-y: auto;
+  /* the end of the box is not the end of the conversation */
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.sc-convo-pick-scroll:has(> .sc-convo-pick-empty) {
+  display: grid;
+  place-items: center;
+}
+/* four to a row on a phone too: this comes after the grid's three-column
+   phone rule, so it wins by order, not by weight */
+.sc-convo-pick-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+/* a picture fills its plate: these are places, not silhouettes on a ground */
+.sc-convo-pick .sc-convo-plate-in {
+  background-size: cover;
+  background-position: 50% 50%;
+}
+.sc-convo-pick-empty {
+  margin: 0;
+  font: 400 var(--sc-text-caption) / 1.45 var(--sc-font);
+  color: var(--sc-fg3);
+}
+.sc-convo-pick-end {
+  height: 1px;
+}
+
+/* The quiet other way in under a well: a link, never a second well. */
+.sc-convo-other {
+  align-self: flex-start;
+  margin: 0;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--sc-fg2);
+  font: 400 var(--sc-text-caption) / 1.45 var(--sc-font);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--sc-line-strong);
+  cursor: pointer;
+}
+.sc-convo-other:hover,
+.sc-convo-other[data-on] {
+  color: var(--sc-fg);
 }
 
 .sc-convo-attest {

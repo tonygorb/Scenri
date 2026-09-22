@@ -3,6 +3,7 @@ import {
   answersNothing,
   asideTurns,
   type NothingKind,
+  type PickItem,
   type Question,
   type Turn,
 } from '../../conversation/question.js';
@@ -47,14 +48,8 @@ export interface FlowArgs {
   note?: string | null;
   /** The place was given again since it was last read, and is waiting to be read. */
   stale?: boolean;
-  /**
-   * Scenes this person already made, newest first, each a store hash and its name.
-   *
-   * Offered at the picture question so the fastest place-reference is one of
-   * theirs. Product shots never belong here: a scene is a place, and a feed
-   * of hundreds of cans is not a library of places.
-   */
-  have?: { hash: string; alt: string }[];
+  /** The brand's shots, for a place started from one. */
+  shots?: ShotArgs;
   /** After Use: the place in use, as the saved scene and its run have it. */
   set?: SetArgs;
 }
@@ -79,24 +74,37 @@ export interface SetArgs {
   finish: string;
 }
 
-const PREVIEW_HASH = /^asset:([a-f0-9]{32})$/;
+/**
+ * The brand's own shots, as the shot question shows them.
+ *
+ * A shot is where a place is most often already standing: the one a person
+ * liked, with their product in it. Only the place is read from it, so the
+ * shot's product and people never become the scene's. The library is the
+ * feed's own query (searched on the server, paged), never the whole feed.
+ */
+export interface ShotArgs {
+  /** The brand has a shot to start from, so the way in is worth showing. */
+  any: boolean;
+  /** The shots shown now, newest first. */
+  items: PickItem[];
+  query: string;
+  /** Another page is there, read as the list is scrolled to its end. */
+  more: boolean;
+  loading: boolean;
+  /** The shots could not be read: said in place of "nothing matches". */
+  error?: string | null;
+}
 
 /**
- * The brand's own scenes that have a picture, newest first.
- *
- * The document appends, so the last row is the newest. A scene without a
- * preview is a place in words only and cannot be tapped as a photograph.
+ * The scene a shot was made in, off its brief: the scene token, else the
+ * legacy bare template id. Null for a shot made in no scene.
  */
-export function placesTheyMade(
-  rows: readonly { name?: unknown; preview?: unknown }[],
-): { hash: string; alt: string }[] {
-  const out: { hash: string; alt: string }[] = [];
-  for (const s of [...rows].reverse()) {
-    const m = PREVIEW_HASH.exec(String(s.preview ?? ''));
-    if (!m) continue;
-    out.push({ hash: m[1], alt: String(s.name ?? '').trim() || 'A scene you made' });
-  }
-  return out;
+export function sceneOfBrief(brief: { tokens?: unknown[]; templateId?: string } | null | undefined): string | null {
+  const tok = brief?.tokens?.find((t) => (t as { t?: unknown } | null)?.t === 'template') as
+    | { id?: unknown }
+    | undefined;
+  if (typeof tok?.id === 'string' && tok.id) return tok.id;
+  return typeof brief?.templateId === 'string' && brief.templateId ? brief.templateId : null;
 }
 
 /** What the words of a reading say, as one quotable block. */
@@ -118,7 +126,7 @@ export function questionFor(
   setup: SetupState,
   reopened: boolean,
   uploading: number,
-  have: { hash: string; alt: string }[] = [],
+  shots?: ShotArgs,
 ): Question {
   const a = setup.answers;
   const base = reopened ? { reopened: true } : {};
@@ -131,7 +139,8 @@ export function questionFor(
         { id: 'photos', label: COPY.addPictures },
         { id: 'guided', label: COPY.guideMe },
       ],
-      given: a.source?.door === 'words' ? undefined : a.source?.door,
+      // a shot is reached from Add pictures, so that is the answer that stands lit
+      given: a.source?.door === 'words' ? undefined : a.source?.door === 'shot' ? 'photos' : a.source?.door,
       note: a.source?.door === 'words' ? a.source.text : undefined,
       ...base,
     };
@@ -147,19 +156,42 @@ export function questionFor(
       back: COPY.guideInstead,
       drop: COPY.photosDrop,
       ...base,
-      ...(have.length
-        ? {
-            suggest: {
-              label: COPY.haveLabel,
-              hint: COPY.haveHint,
-              items: have,
-              more: COPY.haveMore(have.length),
-              fewer: COPY.haveFewer,
-              search: COPY.haveSearch,
-            },
-          }
-        : {}),
+      // Upload is what this question is for. The shot is the quiet other way,
+      // and only before anything has been added: once a picture is in, the
+      // pictures are the answer being given.
+      ...(shots?.any && !a.photos?.hashes.length && uploading === 0 && !reopened ? { instead: COPY.fromShot } : {}),
     };
+  if (id === 'shot') {
+    const q = shots?.query.trim() ?? '';
+    return {
+      id,
+      kind: 'pick',
+      prompt: COPY.shot,
+      items: shots?.items ?? [],
+      given: a.shot?.id,
+      search: { label: COPY.shotSearch, value: shots?.query ?? '' },
+      more: shots?.more ?? false,
+      loading: shots?.loading ?? false,
+      empty: shots?.error ? COPY.shotsFailed : q ? COPY.shotNotFound(q) : COPY.shotNone,
+      // reopened, Cancel is the way back; before, the pictures are
+      back: reopened ? undefined : COPY.backToPictures,
+      ...base,
+    };
+  }
+  if (id === 'reuse') {
+    const name = a.shot?.scene?.name ?? '';
+    return {
+      id,
+      kind: 'choice',
+      prompt: COPY.madeIn(name),
+      options: [
+        { id: 'use', label: COPY.takeScene(name) },
+        { id: 'read', label: COPY.readNew },
+      ],
+      given: a.reuse,
+      ...base,
+    };
+  }
   const g = a[id];
   // Skipping the light row already means "keep the world's own light":
   // compileDirection falls back to the chosen world's `light` the moment this
@@ -213,14 +245,22 @@ function promptFor(id: SceneRow, a: Answers): string {
   return ROWS[id].prompt;
 }
 
-const askedLine = (id: Qid, a: Answers): string =>
-  id === 'source' ? COPY.source : id === 'photos' ? COPY.photos : promptFor(id, a);
+function askedLine(id: Qid, a: Answers): string {
+  if (id === 'source') return COPY.source;
+  if (id === 'photos') return COPY.photos;
+  if (id === 'shot') return COPY.shot;
+  if (id === 'reuse') return COPY.madeIn(a.shot?.scene?.name ?? '');
+  return promptFor(id, a);
+}
 
 function answerLine(id: Qid, a: Answers): { text: string; photos?: string[] } {
   if (id === 'source') {
     if (a.source?.door === 'words') return { text: a.source.text ?? '' };
+    if (a.source?.door === 'shot') return { text: COPY.fromShotAnswer };
     return { text: a.source?.door === 'photos' ? COPY.addPictures : COPY.guideMe };
   }
+  if (id === 'shot') return { text: COPY.shotAnswer, photos: a.shot ? [a.shot.hash] : [] };
+  if (id === 'reuse') return { text: COPY.readNew };
   if (id === 'photos') {
     const n = a.photos?.hashes.length ?? 0;
     return { text: `${n} ${n === 1 ? 'picture' : 'pictures'}`, photos: a.photos?.hashes };
@@ -276,7 +316,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
       T.push({ kind: 'scenri', id: `asked-${id}`, text: askedLine(id, a), quiet: true });
       attach(id);
       if (setup.editing === id) {
-        T.push({ kind: 'question', question: questionFor(id, setup, true, args.uploading, args.have ?? []) });
+        T.push({ kind: 'question', question: questionFor(id, setup, true, args.uploading, args.shots) });
         continue;
       }
       const line = answerLine(id, a);
@@ -326,7 +366,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
 
   // the one question the conversation ends on
   let open: Question | null = null;
-  if (openSetup) open = questionFor(openSetup, setup, false, args.uploading, args.have ?? []);
+  if (openSetup) open = questionFor(openSetup, setup, false, args.uploading, args.shots);
   else if (job) {
     if (job.kind === 'again' && firstPicture < 0 && !studio.named && !args.editingName) {
       const suggested = (job.pending ?? current(studio)?.reading)?.name ?? studio.name;
@@ -364,6 +404,9 @@ export function turnsFor(args: FlowArgs): Turn[] {
       const quote = readingQuote(v.reading);
       if (!v.hash) {
         const photos = !edit && a.source?.door === 'photos';
+        const shot = !edit && a.source?.door === 'shot';
+        // a place read from the wrong shot is put right by choosing another, before anything is drawn
+        const another = shot ? [{ id: 'another-shot', label: COPY.anotherShot }] : [];
         open = {
           id: `agree-${studio.current}`,
           kind: 'confirm',
@@ -373,12 +416,17 @@ export function turnsFor(args: FlowArgs): Turn[] {
               ? COPY.agreeChanged
               : photos
                 ? COPY.agreePhotos
-                : COPY.agree,
+                : shot
+                  ? COPY.agreeShot
+                  : COPY.agree,
           quote,
           quoteLabel: COPY.readingHead,
-          options: args.canDraw
-            ? [{ id: 'draw', label: COPY.draw }]
-            : [{ id: 'use', label: edit ? COPY.saveChanges : COPY.saveWords }],
+          options: [
+            ...(args.canDraw
+              ? [{ id: 'draw', label: COPY.draw }]
+              : [{ id: 'use', label: edit ? COPY.saveChanges : COPY.saveWords }]),
+            ...another,
+          ],
         };
       } else {
         open = {
@@ -561,6 +609,8 @@ export function composerFor(args: FlowArgs, open: Question | null): ComposerFor 
   if (reopened === 'source') return say({ kind: 'source' }, COPY.sourcePlaceholder, true);
   if (reopened && isRow(reopened)) return say({ kind: 'row', id: reopened }, COPY.rowPlaceholder(rowNoun(reopened)));
   if (reopened === 'photos') return off(COPY.photosOff);
+  if (reopened === 'shot') return off(COPY.shotOff);
+  if (reopened === 'reuse') return off(COPY.reuseOff);
   // Every row passed and nothing said. The questions are over, so the line is
   // the only way on and it says so: without this the composer went off with
   // nothing on the floor, and Start over was the only move left.
@@ -569,6 +619,8 @@ export function composerFor(args: FlowArgs, open: Question | null): ComposerFor 
   if (!open) return studio.job ? off('', true) : off('');
   if (open.id === 'source') return say({ kind: 'source' }, COPY.sourcePlaceholder, true);
   if (open.id === 'photos') return { ...off(COPY.photosOff), attach: true };
+  if (open.id === 'shot') return off(COPY.shotOff);
+  if (open.id === 'reuse') return off(COPY.reuseOff);
   if (isRow(open.id)) return say({ kind: 'row', id: open.id }, COPY.rowPlaceholder(rowNoun(open.id)));
   if (open.id === 'name') return say({ kind: 'name' }, COPY.namePlaceholder);
   // Stop left the conversation open: they can tap Try again, or say the place
@@ -578,7 +630,13 @@ export function composerFor(args: FlowArgs, open: Question | null): ComposerFor 
     return args.canDraw
       ? say(
           { kind: 'add' },
-          !args.edit && setup.answers.source?.door === 'photos' ? COPY.keepPlaceholder : COPY.addPlaceholder,
+          args.edit
+            ? COPY.addPlaceholder
+            : setup.answers.source?.door === 'photos'
+              ? COPY.keepPlaceholder
+              : setup.answers.source?.door === 'shot'
+                ? COPY.keepShotPlaceholder
+                : COPY.addPlaceholder,
         )
       : off('');
   if (open.id.startsWith('decide-')) return { ...say({ kind: 'change' }, COPY.changePlaceholder), action: COPY.change };

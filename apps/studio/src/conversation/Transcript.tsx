@@ -394,8 +394,13 @@ export function Transcript({
   })();
   // The newest turn stays in view, except while an answer is being changed:
   // then the reader is with that answer, and the bottom is not the point.
+  // Nor while a search field in the conversation is being typed in: its
+  // results grow and shrink under it, and the field the person is typing in
+  // must not move out from under their hands.
   useLayoutEffect(() => {
     if (!pinned.current || changing) return;
+    const here = document.activeElement;
+    if (here instanceof HTMLInputElement && here.type === 'search' && box.current?.contains(here)) return;
     const parent = scrollingNow();
     if (parent) parent.scrollTop = parent.scrollHeight;
   });

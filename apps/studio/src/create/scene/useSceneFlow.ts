@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { api, uploadImage } from '../../api.js';
-import type { Brand, SceneExampleRole } from '../../apiTypes.js';
+import type { Brand, FeedNode, SceneExampleRole } from '../../apiTypes.js';
+import { useAppData } from '../../app/AppShell.js';
 import { customSceneById } from '../../brandAssets.js';
+import { useShotPages } from '../../composer/attach/useShotPages.js';
 import { EXAMPLE_LABEL, examplesSubtitle, exampleTiles, missingMore } from '../../sceneExampleRules.js';
 import { useSceneExamples } from '../../useSceneExamples.js';
 import type { StageStripItem } from '../studio/StudioStage.js';
@@ -18,8 +20,9 @@ import {
   type Target,
   judge,
   packSession,
-  placesTheyMade,
   recordQid,
+  type ShotArgs,
+  sceneOfBrief,
   turnsFor,
   unpackSession,
 } from './sceneFlowRules.js';
@@ -118,8 +121,12 @@ export function useSceneFlow(args: {
   caps: Caps | null;
   /** Use saved it: said to the rest of the app. The conversation stays open. */
   onSaved: (made: SavedScene, how: 'created' | 'updated') => void;
-  /** The last press after Use: where the saved scene goes next. */
-  onDone: (sceneId: string) => void;
+  /**
+   * The last press after Use: where the saved scene goes next. `existing` is
+   * a scene that was already there (a shot's own scene, taken as it is), so
+   * nothing was saved and nothing is announced.
+   */
+  onDone: (sceneId: string, opts?: { existing?: true }) => void;
   /** What that press says. */
   finish: string;
 }) {
@@ -252,16 +259,79 @@ export function useSceneFlow(args: {
     void work.start('make', { draw: false });
   }, [readKey, work.start]);
 
-  /**
-   * Scenes this person already made. Read off the brand document, so a library
-   * of hundreds of shots never arrives here as a strip of cans. Only places
-   * with a picture, newest first; the question itself shows four and a way
-   * to find the rest.
-   */
-  const have = useMemo(
-    () => placesTheyMade((brand.json as { scenes?: { name?: unknown; preview?: unknown }[] })?.scenes ?? []),
-    [brand],
+  /* ---- a place started from a shot */
+
+  // The feed's own query, searched on the server and paged: every page read is
+  // shown, and the next is asked for as the list is scrolled to its end. What
+  // stood stays on screen while a new search is read, so the grid never
+  // empties under the field being typed in.
+  const [shotQuery, setShotQuery] = useState('');
+  const pages = useShotPages(brand.id, shotQuery, !edit);
+  const pagesRef = useRef(pages);
+  pagesRef.current = pages;
+  // Until the pages answer the search as typed, what stood stays: an empty
+  // list in that gap is "not read yet", and saying "no shots" there made the
+  // line blink under every keystroke.
+  const lastShots = useRef<FeedNode[]>([]);
+  if (pages.settled && !pages.error) lastShots.current = pages.items;
+  const shotItems = pages.settled ? pages.items : lastShots.current;
+  const shotsReading = !pages.error && (!pages.settled || pages.loading);
+  // whether there is a shot at all is read off the unsearched library, once it lands
+  const [anyShot, setAnyShot] = useState(false);
+  useEffect(() => {
+    if (!shotQuery.trim() && pages.settled && !pages.error) setAnyShot(pages.items.length > 0);
+  }, [shotQuery, pages.settled, pages.error, pages.items.length]);
+  const shots: ShotArgs = useMemo(
+    () => ({
+      any: anyShot,
+      items: shotItems.map((n) => ({ id: n.id, hash: n.images[0], alt: n.promptHead || 'A shot' })),
+      query: shotQuery,
+      more: pages.settled && pages.hasMore,
+      loading: shotsReading,
+      error: pages.error,
+    }),
+    [anyShot, shotItems, shotQuery, pages.settled, pages.hasMore, shotsReading, pages.error],
   );
+  const catalogScenes = useAppData().scenes;
+
+  /**
+   * The shot picked, with the scene it was made in when there is one. A
+   * refinement carries no scene of its own, so it is read off the first shot
+   * of its line. Resolved before it is answered, so the read that follows the
+   * answer never starts ahead of the question about the scene.
+   */
+  const pickShot = useCallback(
+    async (id: string) => {
+      const node = lastShots.current.find((n) => n.id === id) ?? pages.items.find((n) => n.id === id);
+      if (!node?.images[0]) return;
+      const rev = setupRef.current.revision;
+      let sceneId = sceneOfBrief(node.brief);
+      if (!sceneId && node.kind === 'edit') {
+        const line = await api.lineage(node.id).catch(() => null);
+        sceneId = sceneOfBrief(line?.ancestors.find((x) => x.kind === 'generation')?.brief);
+        // the answers moved while the line was read: this pick is no longer the one standing
+        if (setupRef.current.revision !== rev) return;
+      }
+      const name = sceneId
+        ? (customSceneById(brand, sceneId)?.name ?? catalogScenes.find((x) => x.id === sceneId)?.name)
+        : undefined;
+      answerSetup({
+        shot: { id: node.id, hash: node.images[0], ...(sceneId && name ? { scene: { id: sceneId, name } } : {}) },
+        reuse: undefined,
+      });
+    },
+    [brand, catalogScenes, pages.items],
+  );
+
+  /** The shot's own scene, taken as it is: nothing is read, drawn or saved. */
+  const takeMadeIn = useCallback(() => {
+    const scene = setupRef.current.answers.shot?.scene;
+    if (!scene) return;
+    gone.current = true;
+    forget(storageKey);
+    forgetSaid(storageKey);
+    onDoneRef.current(scene.id, { existing: true });
+  }, [storageKey]);
 
   const canDraw = caps?.canDraw ?? true;
   const shown = work.offline ? COPY.offline : note;
@@ -274,10 +344,13 @@ export function useSceneFlow(args: {
     editingName,
     note: shown,
     stale: stale(studio),
-    have,
+    shots,
     set,
   };
-  const turns = useMemo(() => turnsFor(flow), [setup, studio, canDraw, uploading, editingName, shown, edit, have, set]);
+  const turns = useMemo(
+    () => turnsFor(flow),
+    [setup, studio, canDraw, uploading, editingName, shown, edit, shots, set],
+  );
   const open = (() => {
     const last = turns[turns.length - 1];
     return last?.kind === 'question' ? last.question : null;
@@ -344,17 +417,27 @@ export function useSceneFlow(args: {
         const act = ans.action;
         const hashes = setupRef.current.answers.photos?.hashes ?? [];
         if (act.type === 'add') void addPictures(act.files);
-        // already in the store, so it is taken rather than uploaded; the cap
-        // and the dedupe are the reducer's, the same as a dropped file's
-        else if (act.type === 'pick')
-          setupDispatch({
-            type: 'photos',
-            hashes: hashes.includes(act.hash) ? hashes.filter((h) => h !== act.hash) : [...hashes, act.hash],
-          });
+        else if (act.type === 'instead') answerSetup({ source: { door: 'shot' } });
         else if (act.type === 'remove') setupDispatch({ type: 'photos', hashes: hashes.filter((h) => h !== act.hash) });
         else if (act.type === 'reject') setNote(COPY.onlyPictures);
         else if (act.type === 'submit' && hashes.length) answerSetup({ photos: { hashes, done: true } });
         else if (act.type === 'back') answerSetup({ source: { door: 'guided' } });
+        return;
+      }
+      if (qid === 'shot' && ans.kind === 'pick') {
+        const act = ans.action;
+        if (act.type === 'pick') void pickShot(act.id);
+        else if (act.type === 'query') setShotQuery(act.text);
+        else if (act.type === 'more') {
+          if (!pagesRef.current.loading) pagesRef.current.loadMore();
+        } else if (act.type === 'back') {
+          setShotQuery('');
+          answerSetup({ source: { door: 'photos' }, photos: { hashes: [], done: false } });
+        }
+        return;
+      }
+      if (qid === 'reuse' && ans.kind === 'choice' && ans.id === 'use') {
+        takeMadeIn();
         return;
       }
       if (isQid(qid)) {
@@ -389,8 +472,9 @@ export function useSceneFlow(args: {
       }
       if (ans.id === 'draw' || ans.id === 'again') void work.start('again');
       else if (ans.id === 'use') void work.use();
+      else if (ans.id === 'another-shot') onEditRef.current('shot');
     },
-    [addPictures, answerSetup, work.start, work.use, drawSet, finish],
+    [addPictures, answerSetup, work.start, work.use, drawSet, finish, pickShot, takeMadeIn],
   );
 
   /** A sentence taken is gone from the line, the way every message box works. */
@@ -478,6 +562,8 @@ export function useSceneFlow(args: {
       if (studio.job) return;
       if (turnId === 'name') setEditingName(true);
       else if (isQid(turnId)) {
+        // the shot grid opens as it was first shown, not on a search left behind
+        if (turnId === 'shot') setShotQuery('');
         // an answer the picture was drawn from is asked about once before it opens
         if (drawn(studio)) setConfirming(turnId);
         else setupDispatch({ type: 'edit', id: turnId });
@@ -485,6 +571,8 @@ export function useSceneFlow(args: {
     },
     [studio],
   );
+  const onEditRef = useRef(onEdit);
+  onEditRef.current = onEdit;
 
   const onSaveEdit = useCallback((turnId: string, said: string) => {
     if (turnId !== 'name') return;

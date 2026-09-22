@@ -141,3 +141,103 @@ describe('a question block', () => {
     expect(button('Cancel')).toBeUndefined();
   });
 });
+
+describe('a pick', () => {
+  // the first three share one picture, as a shot and its reruns do; the rest are their own
+  const hashOf = (i: number) => (i < 3 ? 'a' : 'bcdef'[i - 3]).repeat(32);
+  const items = (n: number, from = 0) =>
+    Array.from({ length: n }, (_, k) => ({ id: `n${from + k}`, hash: hashOf(from + k), alt: `Shot ${from + k}` }));
+  const pick = (over: Partial<Extract<Question, { kind: 'pick' }>> = {}): Question => ({
+    id: 'shot',
+    kind: 'pick',
+    prompt: 'Which shot?',
+    items: items(3),
+    search: { label: 'Find a shot', value: '' },
+    empty: 'Nothing here.',
+    back: 'Back to pictures',
+    ...over,
+  });
+  const cards = () => [...host.querySelectorAll('.sc-convo-pick-grid > button')];
+
+  it('gives every item its own card, even two sharing one picture, and lights only the one tapped', () => {
+    const onAnswer = vi.fn();
+    render(pick(), { onAnswer });
+    expect(cards()).toHaveLength(3);
+    act(() => (cards()[1] as HTMLButtonElement).click());
+    expect(onAnswer).toHaveBeenCalledWith({ kind: 'pick', action: { type: 'pick', id: 'n1' } });
+    expect(cards().map((c) => c.getAttribute('aria-pressed'))).toEqual(['false', 'true', 'false']);
+  });
+
+  it('leaves no card behind as a search narrows and widens, and the box stays the same box', () => {
+    render(pick({ items: items(8) }));
+    const box = host.querySelector('.sc-convo-pick-scroll');
+    render(pick({ items: items(2, 5), search: { label: 'Find a shot', value: 'a' } }));
+    expect(cards().map((c) => c.getAttribute('aria-label'))).toEqual(['Shot 5', 'Shot 6']);
+    render(pick({ items: [], search: { label: 'Find a shot', value: 'ab' } }));
+    expect(cards()).toHaveLength(0);
+    expect(host.querySelector('.sc-convo-pick-empty')?.textContent).toBe('Nothing here.');
+    // still reading: no empty line claims there is nothing
+    render(pick({ items: [], loading: true, search: { label: 'Find a shot', value: 'abc' } }));
+    expect(host.querySelector('.sc-convo-pick-empty')).toBeNull();
+    render(pick({ items: items(2, 1) }));
+    expect(cards().map((c) => c.getAttribute('aria-label'))).toEqual(['Shot 1', 'Shot 2']);
+    render(pick({ items: items(8) }));
+    expect(cards()).toHaveLength(8);
+    expect(host.querySelector('.sc-convo-pick-scroll')).toBe(box);
+  });
+
+  it('hands back what is typed, the way back, and the next page once its end is in view', () => {
+    const onAnswer = vi.fn();
+    const seen: ((e: { isIntersecting: boolean }[]) => void)[] = [];
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(cb: (e: { isIntersecting: boolean }[]) => void) {
+          seen.push(cb);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    try {
+      render(pick({ more: true }), { onAnswer });
+      const field = host.querySelector('.sc-convo-pick-q') as HTMLInputElement;
+      const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      act(() => {
+        set?.call(field, 'harbour');
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      expect(onAnswer).toHaveBeenCalledWith({ kind: 'pick', action: { type: 'query', text: 'harbour' } });
+      act(() => seen[seen.length - 1]([{ isIntersecting: true }]));
+      expect(onAnswer).toHaveBeenCalledWith({ kind: 'pick', action: { type: 'more' } });
+      // a page already being read is not asked for twice
+      onAnswer.mockClear();
+      render(pick({ more: true, loading: true }), { onAnswer });
+      act(() => seen[seen.length - 1]([{ isIntersecting: true }]));
+      expect(onAnswer).not.toHaveBeenCalled();
+      act(() => button('Back to pictures').click());
+      expect(onAnswer).toHaveBeenCalledWith({ kind: 'pick', action: { type: 'back' } });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('offers a picture question its quiet other way in', () => {
+    const onAnswer = vi.fn();
+    render(
+      {
+        id: 'photos',
+        kind: 'photos',
+        prompt: 'Add pictures.',
+        hashes: [],
+        max: 4,
+        busy: false,
+        submit: 'Read them',
+        instead: 'Or start from one of your shots',
+      },
+      { onAnswer },
+    );
+    act(() => button('Or start from one of your shots').click());
+    expect(onAnswer).toHaveBeenCalledWith({ kind: 'photos', action: { type: 'instead' } });
+  });
+});

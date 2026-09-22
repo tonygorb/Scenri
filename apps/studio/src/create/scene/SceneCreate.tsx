@@ -47,8 +47,8 @@ export function SceneCreate({
   /** A new conversation in place of this one. */
   onStartOver: () => void;
   onSaved: (made: SavedScene, how: 'created' | 'updated') => void;
-  /** After Use, the last press: the saved scene, where it goes next. */
-  onDone: (sceneId: string) => void;
+  /** After Use, the last press: the saved scene, where it goes next. `existing`: a scene taken as it was. */
+  onDone: (sceneId: string, opts?: { existing?: true }) => void;
   /** What that press says. */
   finish: string;
 }) {

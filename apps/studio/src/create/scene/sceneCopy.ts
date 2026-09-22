@@ -29,13 +29,27 @@ export const COPY = {
   guideMe: 'Guide me',
   photos: 'Add one to four pictures of the place. The more they share, the better it reads.',
   photosDrop: { label: 'Add pictures of the place', hint: 'Drop them here, or choose files' },
-  /** Scenes this person already made, offered rather than a dump of every shot. */
-  haveLabel: 'Or take a scene you already made',
-  haveHint: 'The place in it is read. Product shots stay out.',
-  haveAlt: (name: string) => name,
-  haveMore: (n: number) => `See all ${n} scenes`,
-  haveFewer: 'Show fewer',
-  haveSearch: 'Find a scene',
+  /**
+   * The quiet way from Add pictures to one of the brand's own shots. Only the
+   * place in it is read: the shot's product and people are its cast, not the
+   * scene's.
+   */
+  fromShot: 'Or start from one of your shots',
+  fromShotAnswer: 'Start from one of my shots',
+  shot: "Which shot? I'll read the place in it and leave the product and people out.",
+  shotSearch: 'Find a shot',
+  shotNone: 'No shots to start from yet.',
+  shotNotFound: (q: string) => `No shot matches "${q}".`,
+  shotsFailed: 'The shots could not be read just now. Try the search again.',
+  shotAnswer: 'This shot',
+  backToPictures: 'Back to pictures',
+  shotOff: 'Choose a shot above.',
+  /** The shot was made in a scene the brand can already use. */
+  madeIn: (name: string) => `This shot was made in ${name}.`,
+  takeScene: (name: string) => `Use ${name}`,
+  readNew: 'Read a new scene from it',
+  reuseOff: 'Choose above.',
+  anotherShot: 'Choose another shot',
   /** Stop was pressed before anything landed. Not a fault. */
   stopped: 'That was stopped. Nothing here was changed.',
   stoppedRead: 'Stopped before the place was read. Read it again, or say it differently.',
@@ -84,6 +98,7 @@ export const COPY = {
   photosOff: 'Add the pictures above, then read them.',
   addPlaceholder: 'Anything to add or leave out?',
   keepPlaceholder: 'Anything to keep or ignore in them?',
+  keepShotPlaceholder: 'Anything to keep or ignore in it?',
   changePlaceholder: 'Say what to change. The rest stays.',
   namePlaceholder: 'Its name',
   nameIt: 'Name this scene',
@@ -107,6 +122,7 @@ export const COPY = {
   figureLabel: 'Built around',
   agree: 'Here is the place, in full. Ready to draw?',
   agreePhotos: 'Here is the place I read in your pictures. Ready to draw?',
+  agreeShot: 'Here is the place I read in your shot. Ready to draw?',
   agreeChanged: 'Here it is with that. Ready to draw?',
   agreeBlind: 'Here is the place, in full. Nothing here can draw yet, so it is saved as words.',
   readAgain: 'I read the place again.',

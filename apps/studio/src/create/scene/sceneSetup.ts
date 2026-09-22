@@ -1,7 +1,7 @@
 import type { Answer, Aside } from '../../conversation/question.js';
 import { COPY } from './sceneCopy.js';
 import { followUps, intentOf } from './sceneIntent.js';
-import { optionOf, ROW_ORDER, ROWS, type SceneRow, SUGGESTED_IDEA } from './sceneRows.js';
+import { optionOf, ROW_ORDER, type SceneRow, SUGGESTED_IDEA } from './sceneRows.js';
 import { IN_THE_PLACE } from './sceneWorldRows.js';
 
 /**
@@ -10,8 +10,8 @@ import { IN_THE_PLACE } from './sceneWorldRows.js';
  * The same model as the presenter's (`presenterQuestions`): answers keyed by
  * question id, the next question read off them every time and never counted,
  * and a conversation that reads forward, so changing an answer takes back
- * everything asked after it. Scaled to a place: one door, the pictures or the
- * rows, and nothing else.
+ * everything asked after it. Scaled to a place: one door, the pictures, a
+ * shot or the rows, and nothing else.
  *
  * A sentence typed at the first question is a door of its own, and the rows
  * still stand behind it: only the ones it left open are asked (`sceneIntent`),
@@ -20,9 +20,16 @@ import { IN_THE_PLACE } from './sceneWorldRows.js';
  * a row), and one that says only "warm stone" is asked how it is lit.
  */
 
-/** How the place is given: pictures of it, the rows, or a sentence typed at the first question. */
-export type Door = 'photos' | 'guided' | 'words';
-export type Qid = 'source' | 'photos' | SceneRow;
+/**
+ * How the place is given: pictures of it, one of the brand's own shots, the
+ * rows, or a sentence typed at the first question.
+ *
+ * A shot is its own door and never a picture among the uploads: what it is
+ * read for is different (the place only, never the product or the people in
+ * it), and the two are kept apart so neither can leak into the other.
+ */
+export type Door = 'photos' | 'shot' | 'guided' | 'words';
+export type Qid = 'source' | 'photos' | 'shot' | 'reuse' | SceneRow;
 
 /** A row passed over on purpose, which is an answer and not a gap. */
 export const PASSED = '__passed';
@@ -33,10 +40,20 @@ export interface Given {
   words?: string;
 }
 
+/** The shot a place is read from, and the scene it was made in, when it was made in one. */
+export interface ShotAnswer {
+  id: string;
+  hash: string;
+  scene?: { id: string; name: string };
+}
+
 export interface Answers {
   source?: { door: Door; text?: string };
   /** The pictures, and whether they were handed over (`done`) or are still being chosen. */
   photos?: { hashes: string[]; done: boolean };
+  shot?: ShotAnswer;
+  /** The shot was made in a scene, and a new one is read from it anyway. */
+  reuse?: 'read';
   world?: Given;
   surface?: Given;
   light?: Given;
@@ -57,6 +74,9 @@ export const openAfterWords = (a: Answers): SceneRow[] =>
 export const SPECS: readonly Spec[] = [
   { id: 'source', applies: () => true },
   { id: 'photos', applies: (a) => door(a) === 'photos' },
+  { id: 'shot', applies: (a) => door(a) === 'shot' },
+  // a shot made in a scene already has one: using it is offered before reading another
+  { id: 'reuse', applies: (a) => door(a) === 'shot' && !!a.shot?.scene },
   ...ROW_ORDER.map(
     (r): Spec => ({
       id: r,
@@ -74,6 +94,8 @@ const given = (g: Given | undefined) => !!g && (!!g.pick || !!g.words?.trim());
 export function answered(id: Qid, a: Answers): boolean {
   if (id === 'source') return !!a.source;
   if (id === 'photos') return !!a.photos?.done && a.photos.hashes.length > 0;
+  if (id === 'shot') return !!a.shot;
+  if (id === 'reuse') return a.reuse === 'read';
   return given(a[id]);
 }
 
@@ -102,6 +124,7 @@ export function nextQuestion(a: Answers): Qid | null {
 export const saidSomething = (a: Answers): boolean => {
   if (a.source?.door === 'words') return !!a.source.text?.trim();
   if (a.source?.door === 'photos') return (a.photos?.hashes.length ?? 0) > 0;
+  if (a.source?.door === 'shot') return !!a.shot;
   return ROW_ORDER.some((r) => rowWords(r, a[r]) !== null);
 };
 
@@ -143,6 +166,8 @@ export function answerPatch(id: Qid, ans: Answer, a: Answers): Partial<Answers> 
     if (ans.id === 'guided') return { source: { door: 'guided' } };
     return null;
   }
+  // Use the scene is not an answer: it leaves the conversation for that scene
+  if (id === 'reuse') return ans.kind === 'choice' && ans.id === 'read' ? { reuse: 'read' } : null;
   if (isRow(id)) {
     // a tap is the base and words beside it qualify it, so a tap keeps the words
     const words = a[id]?.words;
@@ -184,9 +209,6 @@ function rowWords(row: SceneRow, g: Given | undefined): string | null {
  * direction that has one. See IN_THE_PLACE.
  */
 const guard = (idea: string | null): string => (idea ? `, ${IN_THE_PLACE}` : '');
-
-/** A row answered by a tap or by words, not passed over. */
-const chosen = (g: Given | undefined): boolean => !!g && g.pick !== PASSED && (!!g.pick || !!g.words?.trim());
 
 /**
  * The place, as one sentence for the reader: what the person said, and the
@@ -230,9 +252,11 @@ export function compileDirection(a: Answers): string {
   return `${text.slice(0, -1)}. ${COPY.worldIsAStart}`;
 }
 
-/** The pictures handed over, for the reader. */
-export const picturesOf = (a: Answers): string[] =>
-  a.source?.door === 'photos' && a.photos?.done ? a.photos.hashes : [];
+/** The pictures handed over, for the reader: the uploads, or the one shot. */
+export function picturesOf(a: Answers): string[] {
+  if (a.source?.door === 'shot') return a.shot ? [a.shot.hash] : [];
+  return a.source?.door === 'photos' && a.photos?.done ? a.photos.hashes : [];
+}
 
 /* ------------------------------------------------------------ the state */
 
@@ -288,17 +312,30 @@ export const serializeSetup = (s: SetupState): unknown => ({
   asides: s.asides,
 });
 
+const HASH = /^[a-f0-9]{32}$/;
+const ID = /^[\w.:-]{1,80}$/;
+
 /** Read back from storage, checked rather than trusted. */
 export function deserializeSetup(raw: unknown): SetupState | null {
   const o = raw as any;
   if (!o || typeof o !== 'object' || typeof o.answers !== 'object' || !o.answers) return null;
   const a: Answers = {};
   const src = o.answers.source;
-  if (src && ['photos', 'guided', 'words'].includes(src.door))
+  if (src && ['photos', 'shot', 'guided', 'words'].includes(src.door))
     a.source = { door: src.door, ...(typeof src.text === 'string' ? { text: src.text.slice(0, 400) } : {}) };
   const ph = o.answers.photos;
   if (ph && Array.isArray(ph.hashes))
     a.photos = { hashes: ph.hashes.filter((h: unknown) => typeof h === 'string').slice(0, 4), done: !!ph.done };
+  const sh = o.answers.shot;
+  if (sh && typeof sh.id === 'string' && ID.test(sh.id) && typeof sh.hash === 'string' && HASH.test(sh.hash)) {
+    const sc = sh.scene;
+    const scene =
+      sc && typeof sc.id === 'string' && ID.test(sc.id) && typeof sc.name === 'string'
+        ? { id: sc.id, name: sc.name.slice(0, 120) }
+        : undefined;
+    a.shot = { id: sh.id, hash: sh.hash, ...(scene ? { scene } : {}) };
+  }
+  if (o.answers.reuse === 'read') a.reuse = 'read';
   for (const r of ROW_ORDER) {
     const g = o.answers[r];
     if (!g || typeof g !== 'object') continue;

@@ -120,16 +120,19 @@ export function SceneStudioRoute() {
         saved.current = { made, how };
       }}
       finish={toCreate ? COPY.useInAShot : COPY.openScene}
-      onDone={(id) => {
-        const row = customSceneById(brand, id);
-        const made = saved.current?.made.id === id ? saved.current.made : null;
-        announce({
-          kind: 'scene',
-          id,
-          name: made?.name ?? row?.name ?? '',
-          verticals: made?.verticals ?? row?.verticals ?? [],
-          how: saved.current?.how ?? (sceneId === id ? 'updated' : 'created'),
-        });
+      onDone={(id, opts) => {
+        // a scene taken as it already was (a shot's own) was not saved here, so nothing is announced
+        if (!opts?.existing) {
+          const row = customSceneById(brand, id);
+          const made = saved.current?.made.id === id ? saved.current.made : null;
+          announce({
+            kind: 'scene',
+            id,
+            name: made?.name ?? row?.name ?? '',
+            verticals: made?.verticals ?? row?.verticals ?? [],
+            how: saved.current?.how ?? (sceneId === id ? 'updated' : 'created'),
+          });
+        }
         if (toCreate && from)
           navigate(`${from.split('?')[0]}?scene=${encodeURIComponent(id)}&compose=1`, { replace: true });
         else navigate(scenePath(brand, id), { replace: true });
