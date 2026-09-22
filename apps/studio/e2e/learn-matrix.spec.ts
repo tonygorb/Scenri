@@ -21,12 +21,7 @@ import {
  * one, both refine entries already have their own file, Back on the way there,
  * resume vs Start again, and the same work done with the guide closed.
  */
-// The scene lesson reads a place; the demo reader does it here, never Codex on
-// the machine running the suite (seen 2026-09-22: a real read, slow and spent).
-isolate({
-  brand: false,
-  env: { SCENRI_NO_GUIDE: '0', SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5', SCENRI_DEMO_ANALYSIS: 'usable' },
-});
+isolate({ brand: false, env: { SCENRI_NO_GUIDE: '0', SCENRI_DEMO_BUILDS: '1', SCENRI_DEMO_REFS: '5' } });
 test.describe.configure({ mode: 'serial' });
 
 const learn = (p: Page) => p.getByRole('dialog').filter({ has: p.locator('.sc-learn-list, .sc-learn-lesson') });
