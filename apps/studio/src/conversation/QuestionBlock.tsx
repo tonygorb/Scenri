@@ -420,6 +420,7 @@ export function QuestionBlock({
                       className={o.color ? 'sc-convo-swatch' : 'sc-chip sc-convo-choice'}
                       style={o.color ? ({ '--sc-swatch': o.color } as CSSProperties) : undefined}
                       aria-label={o.label}
+                      aria-pressed={on === o.id}
                       data-on={on === o.id || undefined}
                       onClick={() => commit(o.id, { kind: 'swatches', picks: { [question.row.id]: o.id } })}
                     >
@@ -435,6 +436,7 @@ export function QuestionBlock({
                   <button
                     type="button"
                     className="sc-chip sc-convo-choice sc-convo-pass"
+                    aria-pressed={picked === 'skip' || (!picked && question.skipped)}
                     data-on={picked === 'skip' || (!picked && question.skipped) || undefined}
                     onClick={() => commit('skip', { kind: 'skip' })}
                   >

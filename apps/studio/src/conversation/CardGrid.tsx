@@ -27,6 +27,8 @@ export function CardGrid({
           type="button"
           className="sc-convo-plate"
           aria-label={o.label}
+          // the lit plate is state, not decoration: said, not only drawn
+          aria-pressed={picked === o.id}
           data-on={picked === o.id || undefined}
           onClick={() => onPick(o.id)}
         >
