@@ -263,6 +263,21 @@
   background: var(--sc-panel);
   overflow: hidden;
 }
+/* Dark separates by lightness, so there the card rises one step and keeps its
+   hairline. The page, the card and a field were one colour (#141414) told
+   apart only by one line colour (#262626), which read as a wireframe; lifted,
+   a field (still the panel's colour) reads as a well sunk into the card and a
+   filled action (--sc-chip) as raised off it. Light keeps the white card:
+   there --sc-raised is the on-state grey, and a filled card read as selected
+   with a white hole cut for every field. What drew with --sc-raised inside a
+   card would vanish on it, so it sinks to the panel's colour, a well like the
+   fields: a meter's track, an empty day, a provider without a plate. */
+:root[data-theme="dark"] .sc-set-card {
+  background: var(--sc-raised);
+}
+:root[data-theme="dark"] .sc-set-card :is(.sc-meter, .sc-heat-grid i:not([data-l]), .sc-eng-ic:not([data-brand])) {
+  background: var(--sc-panel);
+}
 .sc-set-empty {
   color: var(--sc-fg2);
   font-size: 13px;
