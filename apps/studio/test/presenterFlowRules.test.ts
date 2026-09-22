@@ -751,6 +751,37 @@ describe('the record once a face is drawn', () => {
   });
 
   /**
+   * A one-sided detail came out on the wrong side of the first full body three
+   * draws in ten, and every shot copied it; once that picture was right, 15 of
+   * 16 shots were (2026-09-22). So the two approvals say where to look.
+   */
+  it('a kept detail on one side is checked at the two pictures every shot copies it from', () => {
+    const tattoo = { id: 'tattoo', words: 'a fine-line botanical tattoo on their right forearm' };
+    const stud = { id: 'piercing', words: 'a small silver stud in their left nostril' };
+    const face = draft({
+      keepItems: [tattoo, stud],
+      views: { ...draft().views, portrait: { ...emptySlot(), status: 'candidate', hash: 'p1' } },
+    });
+    // the face shows the stud, not the forearm
+    expect(open(turns(state(a), face))?.hint).toBe(
+      'Check the side: a small silver stud in their left nostril. Facing you, their right is on your left.',
+    );
+    const body = draft({
+      keepItems: [tattoo, stud],
+      views: { ...draft().views, portrait: approved('p1'), front: { ...emptySlot(), status: 'candidate', hash: 'f1' } },
+    });
+    expect(open(turns(state(a), body))?.hint).toBe(
+      'Check the side: a fine-line botanical tattoo on their right forearm; a small silver stud in their left nostril. Facing you, their right is on your left.',
+    );
+    // nothing named on a side, nothing to check
+    const plain = draft({
+      keepItems: [{ id: 'piercing', words: 'a septum ring' }],
+      views: { ...draft().views, portrait: approved('p1'), front: { ...emptySlot(), status: 'candidate', hash: 'f1' } },
+    });
+    expect(open(turns(state(a), plain))?.hint).toBeUndefined();
+  });
+
+  /**
    * A restore leaves the view a candidate, so the question stands over a
    * picture nothing just made. It used to say "Redrew the full body" about a
    * picture from several draws back, and of a face put back to the one before

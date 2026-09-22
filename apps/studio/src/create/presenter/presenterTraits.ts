@@ -266,3 +266,28 @@ export function keepSentence(answers: TraitAnswers, order: TraitId[] = TRAITS.ma
     .filter(Boolean)
     .join(', ');
 }
+
+/**
+ * What to look at before a picture is used, when a kept detail is on one side.
+ *
+ * A model draws a one-sided detail on the wrong side about three times in ten,
+ * and every view and shot drawn from that picture copies it. Measured on
+ * 2026-09-22: shots kept the side 15 of 16 times once the full body had it
+ * right and 0 of 32 when it did not, and saying the side more plainly in the
+ * prompt did not move the first draw. So the lever is the person approving the
+ * picture, told where to look in their own terms. The face is asked about face
+ * details only: a forearm is not in a head-and-shoulders picture.
+ */
+export function sideCheck(
+  view: 'portrait' | 'front',
+  items: readonly { id: string; words: string }[] | undefined,
+): string | undefined {
+  const sided = (items ?? []).filter(
+    (i) => /\b(left|right)\b/i.test(i.words) && (view === 'front' || !ON_THE_BODY.has(i.id)),
+  );
+  if (!sided.length) return undefined;
+  return `Check the side: ${sided.map((i) => i.words).join('; ')}. Facing you, their right is on your left.`;
+}
+
+/** The rows that live on the body, which a head-and-shoulders picture does not show. */
+const ON_THE_BODY = new Set<string>(['tattoo', 'prosthetic']);
