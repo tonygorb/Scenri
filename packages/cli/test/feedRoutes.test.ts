@@ -89,9 +89,10 @@ describe('GET /api/brands/:id/feed', () => {
     const { brand, ids } = await brandWithShots(4);
     const byPrompt = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/feed?q=number%20three` });
     expect(byPrompt.json().items.map((n: any) => n.id)).toEqual([ids[3]]);
-    // a term under three letters filters no text; the feed narrows on the third
+    // the feed narrows from the first letter, the counts with it
     const short = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/feed?q=qx` });
-    expect(short.json().counts.all).toBe(4);
+    expect(short.json().items).toEqual([]);
+    expect(short.json().counts.all).toBe(0);
     // "mug" is nowhere in a prompt; it is the product's name, and the odd shots carry the product
     const byName = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/feed?q=mug` });
     expect(byName.json().items.map((n: any) => n.id)).toEqual([ids[3], ids[1]]);

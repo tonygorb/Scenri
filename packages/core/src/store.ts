@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { DB } from './db.js';
 import { RESERVED_SLUGS, firstFree, slugifyWithId } from './slug.js';
-import { ftsMatch, type SearchTerm } from './searchRules.js';
+import { ftsMatch, likePattern, type SearchTerm } from './searchRules.js';
 
 export interface BrandRow {
   id: string;
@@ -358,11 +358,19 @@ function filterSql(f: FeedFilter, params: Record<string, unknown>, withLens: boo
       params[`m${i}`] = match;
       any.push(`n.rowid IN (SELECT rowid FROM nodes_fts WHERE nodes_fts MATCH @m${i})`);
     }
-    // A term under three characters is below the trigram index and filters
-    // the text of nothing: scanning for it instead cost most of a second on
-    // a brand of twenty thousand for the first two letters of every search.
-    // It still finds the products, people, scenes and engines whose names
-    // hold it, which the caller resolved by name.
+    // A term under three characters is below the trigram index, so each
+    // shot's indexed text is read by its rowid as the page walks the brand,
+    // never the whole index. Measured 2026-09-23 on a copy of the LARGE
+    // fixture's biggest brand (5,975 shots): a page in 0.1 ms for a common
+    // letter and 22 ms for a pair that matches nothing, the counts in 8 to
+    // 15 ms; on that brand grown to 23,900, 0.1 / 84 ms and 40 to 65 ms.
+    // Either way it also finds the products, people, scenes and engines whose
+    // names hold it, which the caller resolved by name.
+    const like = likePattern(term);
+    if (like) {
+      params[`l${i}`] = like;
+      any.push(`EXISTS (SELECT 1 FROM nodes_fts f WHERE f.rowid = n.rowid AND f.text LIKE @l${i} ESCAPE '\\')`);
+    }
     if (term.tokenIds.length) {
       const names = term.tokenIds.map((t, j) => {
         params[`t${i}_${j}`] = t;

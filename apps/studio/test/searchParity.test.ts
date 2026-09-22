@@ -53,14 +53,16 @@ describe('the two copies of the search rule', () => {
   });
 
   /**
-   * Where they part, on purpose. A term under three characters cannot be
-   * answered by a trigram index, so the feed filters no text until the third
-   * letter (`TRIGRAM_MIN` in core); the library pages, matching in memory,
-   * still narrow from the first. This asserts the divergence is declared, so
-   * that removing it is a deliberate act rather than a silent one.
+   * Where they part, on purpose. Both narrow from the first letter (Tony,
+   * 2026-09-23: a search that ignored its first two letters showed
+   * everything). Under `TRIGRAM_MIN` the feed reads each shot's text with
+   * LIKE, which folds ASCII case but not the shot's own accents; the library
+   * pages, matching in memory, fold both. Asserted so that a change here is
+   * a deliberate act rather than a silent one.
    */
   it('declare where the server search deliberately differs', () => {
     expect(CORE).toContain('TRIGRAM_MIN = 3');
+    expect(CORE).toContain('export function likePattern');
     expect(STUDIO).not.toContain('TRIGRAM_MIN');
   });
 });

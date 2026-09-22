@@ -22,11 +22,10 @@ export function fold(s: string): string {
 export const STEM_MIN = 4;
 
 /**
- * The trigram index needs three characters. A shorter term filters no text
- * at all (it still matches a name resolved by the caller): the feed narrows
- * on the third letter, the way every trigram-backed search does, rather than
- * scanning every shot's text for the first two. The library pages, which
- * search a catalog on the client, keep matching from the first letter.
+ * The trigram index needs three characters. A shorter term is read off each
+ * shot's indexed text instead (`likePattern`), so the feed narrows from the
+ * first letter, the way the library pages always have. Below this the
+ * shot's own accents are not folded: "e" finds "cafe" but not "café".
  */
 export const TRIGRAM_MIN = 3;
 
@@ -63,6 +62,17 @@ export function matchesQuery(haystack: string, q: string): boolean {
 }
 
 const quote = (s: string) => `"${s.replace(/"/g, '""')}"`;
+
+/**
+ * The LIKE pattern for a term the trigram index is too short to answer, or
+ * null when the index can. The term is already folded and LIKE ignores ASCII
+ * case, so "ON" finds "one"; `%` and `_` are escaped, so they match only
+ * themselves, with a backslash as the query's ESCAPE character.
+ */
+export function likePattern(term: SearchTerm): string | null {
+  if (term.text.length >= TRIGRAM_MIN) return null;
+  return `%${term.text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+}
 
 /** The FTS5 MATCH expression for one term, or null when the term is too short for the trigram index. */
 export function ftsMatch(term: SearchTerm): string | null {

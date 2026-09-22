@@ -184,25 +184,28 @@ describe('feed search', () => {
     expect(q('linen shelf')).toEqual([]);
   });
 
-  it('matches a plural query against its singular, and lets a term under three letters through', () => {
+  it('matches a plural query against its singular, and narrows from the first letter', () => {
     const a = shot({ prompt: 'one serum on marble' });
     const b = shot({ prompt: 'plain', brief: { tokens: [{ t: 'product', id: 'p-cup' }] } });
+    const c = shot({ prompt: 'ONLINE: a 50% linen_blend' });
     const q = (s: string, tokenIds: string[] = []) =>
       allPages({ terms: searchTerms(s).map((t) => ({ ...t, tokenIds, engineIds: [] })) });
+    const ids = (s: string, tokenIds: string[] = []) =>
+      q(s, tokenIds)
+        .map((n) => n.id)
+        .sort();
     expect(q('serums').map((n) => n.id)).toEqual([a.id]);
-    // below the trigram index a term filters no text: the feed narrows on the third letter
-    expect(
-      q('on')
-        .map((n) => n.id)
-        .sort(),
-    ).toEqual([a.id, b.id].sort());
-    expect(
-      q('zz')
-        .map((n) => n.id)
-        .sort(),
-    ).toEqual([a.id, b.id].sort());
+    // under the trigram index a term is read off each shot's text, whatever its case
+    expect(ids('on')).toEqual([a.id, c.id].sort());
+    expect(ids('ON')).toEqual([a.id, c.id].sort());
+    expect(ids('p')).toEqual([b.id]);
+    expect(q('zz')).toEqual([]);
     expect(q('on marble').map((n) => n.id)).toEqual([a.id]);
-    // but it still finds what the caller matched by name
+    // the wildcards of the pattern are only characters
+    expect(q('%').map((n) => n.id)).toEqual([c.id]);
+    expect(q('_').map((n) => n.id)).toEqual([c.id]);
+    expect(q('a_')).toEqual([]);
+    // and it still finds what the caller matched by name
     expect(q('cu', ['p-cup']).map((n) => n.id)).toEqual([b.id]);
   });
 
