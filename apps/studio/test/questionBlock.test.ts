@@ -23,7 +23,7 @@ afterEach(() => {
 
 const render = (
   question: Question,
-  on: { onAnswer?: (a: Answer) => void; onCancel?: () => void; onDescribe?: () => void } = {},
+  on: { onAnswer?: (a: Answer) => void; onCancel?: () => void; onDescribe?: () => void; busy?: boolean } = {},
 ) =>
   act(() => {
     root.render(
@@ -32,6 +32,7 @@ const render = (
         onAnswer: on.onAnswer ?? (() => undefined),
         onCancel: on.onCancel,
         onDescribe: on.onDescribe,
+        busy: on.busy,
       }),
     );
   });
@@ -139,6 +140,30 @@ describe('a question block', () => {
     expect(host.querySelector('.sc-convo-say')?.textContent).toContain('One thing I cannot tell yet.');
     expect(host.querySelectorAll('[data-on]').length).toBe(0);
     expect(button('Cancel')).toBeUndefined();
+  });
+});
+
+describe('a block held while an earlier answer is changed', () => {
+  it('is live again once the change is left, so the tap that opened it takes nothing', () => {
+    const onAnswer = vi.fn();
+    const q: Question = {
+      id: 'agree-0',
+      kind: 'confirm',
+      prompt: 'Ready to draw?',
+      options: [
+        { id: 'draw', label: 'Draw the scene' },
+        { id: 'another-shot', label: 'Choose another shot' },
+      ],
+    };
+    render(q, { onAnswer });
+    act(() => button('Choose another shot').click());
+    expect(onAnswer).toHaveBeenLastCalledWith({ kind: 'confirm', id: 'another-shot' });
+    // the answer it opened is being changed: this block waits, dim
+    render(q, { onAnswer, busy: true });
+    // left as it was: the block is the question on the floor again
+    render(q, { onAnswer });
+    act(() => button('Draw the scene').click());
+    expect(onAnswer).toHaveBeenLastCalledWith({ kind: 'confirm', id: 'draw' });
   });
 });
 

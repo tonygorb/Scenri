@@ -1,5 +1,5 @@
 import { Check, Copy, Paperclip } from '@phosphor-icons/react';
-import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
 import { CardGrid } from './CardGrid.js';
 import { CardStrip } from './CardStrip.js';
@@ -101,12 +101,16 @@ export function QuestionBlock({
   /** What is chosen so far in a question that takes several at once. */
   const [many, setMany] = useState<Set<string>>(() => new Set(asMany(given)));
   // A block that went and is back as the same question (Try again, a retry)
-  // is live again. One whose answer is still in flight stays as it was.
-  const wasSpent = useRef(false);
+  // is live again, and so is one held dim while an earlier answer was changed
+  // and left as it was: a tap that opened that answer (Choose another shot)
+  // lit its button and took nothing, so Cancel has to hand the block back.
+  // One whose answer is still in flight stays as it was.
+  const held = !!spent || !!busy;
+  const wasHeld = useRef(false);
   useEffect(() => {
-    if (wasSpent.current && !spent) setPicked(null);
-    wasSpent.current = !!spent;
-  }, [spent]);
+    if (wasHeld.current && !held) setPicked(null);
+    wasHeld.current = held;
+  }, [held]);
   // The answer is taken the moment it is tapped. The block lights the chosen
   // control and hands its look to the transcript, which keeps a ghost of it
   // while the row goes.
@@ -143,9 +147,10 @@ export function QuestionBlock({
   }, [pickCount, pickMore]);
   // Two rows exactly, off a real plate: a scrollbar that takes room narrows the
   // columns by a width CSS cannot know, and the box would show a sliver of a
-  // third row. Measured again whenever the box's width moves.
+  // third row. Measured before the first paint, so the box never settles a
+  // few pixels after it appears, and again whenever its width moves.
   const pickShown = pickCount > 0;
-  useEffect(() => {
+  useLayoutEffect(() => {
     const box = pickBox.current;
     if (!box || !pickShown || typeof ResizeObserver === 'undefined') return;
     const fit = () => {
