@@ -65,7 +65,7 @@ test.afterEach(async ({ page }) => {
 test('the pane lists every provider with one action each', async ({ page }) => {
   await openPane(page);
 
-  await expect(page.locator('.sc-set-head b')).toHaveText('Providers');
+  await expect(page.locator('.sc-set-head h2')).toHaveText('Providers');
 
   // Every engine the server registered is a row, and Codex leads.
   const engines = (await api(page, '/api/engines')) as { id: string }[];
@@ -77,8 +77,9 @@ test('the pane lists every provider with one action each', async ({ page }) => {
     expect(await eng.locator('button').count()).toBeLessThanOrEqual(1);
   }
 
-  // A pane about providers is not a form: no key field is on show.
-  await expect(page.locator('.sc-set-scroll input')).toHaveCount(0);
+  // A pane about providers is not a form: no key field is on show. (The
+  // monthly caps below the providers are budgets, not keys.)
+  await expect(page.locator('.sc-eng input')).toHaveCount(0);
 });
 
 test('a connected provider says so once, and an unconnected one says nothing', async ({ page }) => {

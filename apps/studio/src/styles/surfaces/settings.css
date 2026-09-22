@@ -1,99 +1,148 @@
 /* ================================================================
-   Settings — implements the internal v6 settings mockup.
+   Settings (views/SettingsDialog.tsx): Learn's shell and grammar.
    A dialog, not a page: it opens over the work and gives it back.
    ================================================================ */
 
-.sc-set {
-  padding: 0 !important;
+/* One box, one height, whatever the page. The shell pads itself; Settings
+   takes that padding off the panel and gives it to the head and the body, so
+   the head's hairline runs the full width and the index's runs from it to
+   the floor (the same move as surfaces/learn.css). */
+.sc-set.sc-newdlg {
+  padding: 0;
+}
+@media (min-width: 768px) {
+  .sc-set.sc-newdlg {
+    height: min(720px, calc(100dvh - 48px));
+    max-height: none;
+  }
+}
+@media (max-width: 767px) {
+  .sc-set {
+    height: 92dvh;
+  }
+}
+.sc-set-level {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sc-set-level,
+  .sc-set-scroll {
+    animation: sc-fade-in var(--sc-dur-fast) var(--sc-ease) both;
+  }
+}
+.sc-set .sc-newdlg-head {
+  flex: none;
+  gap: 12px;
+  height: 73px;
+  padding: 0 var(--sc-gutter);
+  border-bottom: 1px solid var(--sc-line);
+}
+/* the glyph, not the 44px target, stands on the gutter */
+.sc-set .sc-newdlg-close {
+  margin-right: -14px;
+}
+/* three classes: the shell's own body rules load after this sheet */
+.sc-set .sc-newdlg-body.sc-set-body {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 0 0 var(--sc-gutter);
   overflow: hidden;
 }
-.sc-set-grid {
-  display: grid;
-  grid-template-columns: 214px minmax(0, 1fr);
-  height: min(640px, 82vh);
-}
 
+/* ---- the index: grouped by what a setting applies to ---- */
 .sc-set-rail {
+  min-height: 0;
+  padding: var(--sc-gutter) 16px var(--sc-gutter) 0;
   border-right: 1px solid var(--sc-line);
-  padding: 16px 12px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.sc-set-rail ul {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: var(--sc-bg);
-  overflow-y: auto;
-  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .sc-set-group {
-  font-size: 11px;
+  display: flex;
+  align-items: center;
+  height: 24px;
+  margin: 0 0 4px;
+  padding: 0 10px;
+  font: 600 var(--sc-text-caption) / 1 var(--sc-font);
   color: var(--sc-fg3);
-  padding: 12px 12px 4px;
-  font-weight: 600;
 }
-.sc-set-group:first-child {
-  padding-top: 2px;
+/* the deletes belong to neither scope alone, so they stand apart from both */
+.sc-set-rail ul + .sc-set-group,
+.sc-set-rail .sc-set-apart {
+  margin-top: 20px;
 }
 .sc-set-item {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
+  height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--sc-radius);
+  background: none;
+  color: var(--sc-fg2);
+  font: 500 var(--sc-text-control) / 1 var(--sc-font);
   text-align: left;
   cursor: pointer;
-  border: none;
-  background: none;
-  padding: 8px 12px;
-  border-radius: var(--sc-radius);
-  font-size: 13px;
-  color: var(--sc-fg2);
+  transition:
+    background var(--sc-dur-fast) var(--sc-ease),
+    color var(--sc-dur-fast) var(--sc-ease);
 }
-.sc-set-item:hover {
-  background: var(--sc-hover);
+.sc-set-item-ic {
+  flex: none;
+}
+.sc-set-item-lb {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* No weight change: the fill and the ink already say "selected", and a bolder
+   label re-spaces under the cursor on every switch. Same reasoning as the chip
+   in components/primitives.css, and the same ladder as Learn's rows. */
+.sc-set-item[aria-current] {
+  background: var(--sc-chip);
   color: var(--sc-fg);
+}
+@media (hover: hover) {
+  .sc-set-item:hover {
+    background: var(--sc-hover);
+    color: var(--sc-fg);
+  }
+  .sc-set-item[aria-current]:hover {
+    background: var(--sc-chip-hover);
+  }
+}
+.sc-set-item:active {
+  background: var(--sc-press);
+}
+.sc-set-item[aria-current]:active {
+  background: var(--sc-chip-active);
+}
+.sc-set-item[data-danger],
+.sc-set-item[data-danger]:hover {
+  color: var(--sc-red);
 }
 :where(:root:not([data-input="pointer"])) .sc-set-item:focus-visible {
   outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: var(--sc-ring-off);
-}
-/* No weight change: the fill and the ink already say "selected", and
-   inherit-to-600 re-spaces the label under the cursor on every switch. Same
-   reasoning as the chip in components/primitives.css. */
-.sc-set-item[data-on] {
-  background: var(--sc-raised);
-  color: var(--sc-fg);
-}
-.sc-set-item[data-danger],
-.sc-set-item[data-on][data-danger] {
-  color: var(--sc-red);
-}
-.sc-set-spacer {
-  flex: 1;
-}
-.sc-set-ver {
-  padding: 12px;
-  font-size: 11.5px;
-  color: var(--sc-fg3);
+  outline-offset: calc(var(--sc-ring-off) * -1);
 }
 
-.sc-set-body {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-}
-.sc-set-head {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px 12px 20px;
-  border-bottom: 1px solid var(--sc-line);
-}
-.sc-set-head b {
-  font: 600 16px var(--sc-font);
-}
-.sc-set-sp {
-  flex: 1;
-}
 .sc-set-close {
   width: 44px;
   height: 44px;
@@ -113,59 +162,89 @@
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
-.sc-set-tabs {
-  display: none;
-  flex: none;
-  gap: 6px;
-  padding: 10px 16px 12px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-  scroll-padding-inline: 16px;
-  border-bottom: 1px solid var(--sc-line);
-}
-.sc-set-tabs::-webkit-scrollbar {
-  display: none;
-}
-.sc-set-tabs .sc-chip {
-  flex: none;
-  min-height: 44px;
-  white-space: nowrap;
-}
-.sc-set-tabs .sc-chip[data-danger]:not([data-active="true"]) {
-  color: var(--sc-red);
-}
-.sc-set-scroll {
+/* a spacer in a head row; the provider setup dialog's head still uses it */
+.sc-set-sp {
   flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
 }
 
-.sc-set-sec {
-  display: block;
+/* ---- the page ---- */
+.sc-set-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-height: 0;
+  padding: var(--sc-gutter) var(--sc-gutter) 48px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+.sc-set-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+.sc-set-head-say {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sc-set-head h2 {
+  margin: 0;
+  font: 600 var(--sc-text-title) / 1.2 var(--sc-font);
+  letter-spacing: -0.015em;
+}
+.sc-set-head p {
+  margin: 4px 0 0;
+  overflow: hidden;
+  font: 400 var(--sc-text-body) / 1.45 var(--sc-font);
+  color: var(--sc-fg2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The kit writes as it is edited: what the writing is doing, in place of a
+   Save button. "Saved" shows for a moment and goes; a failure stays. */
+.sc-set-saved {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  font: 500 var(--sc-text-caption) / 1 var(--sc-font);
+  color: var(--sc-fg3);
+  opacity: 0;
+  transition: opacity 320ms var(--sc-ease);
+}
+.sc-set-head .sc-set-saved {
+  margin-bottom: 4px;
+}
+.sc-set-saved[data-on] {
+  opacity: 1;
+  transition-duration: 120ms;
+}
+.sc-set-saved[data-state="error"] {
+  color: var(--sc-red);
+}
+
 .sc-set-sech {
-  margin-bottom: 11px;
+  margin-bottom: 10px;
 }
+/* the browser's own heading margins, not ours: they stood a title 30px off its sentence */
 .sc-set-sech h3 {
-  font: 600 15px var(--sc-font);
+  margin: 0;
+  font: 600 var(--sc-text-control) / 1.3 var(--sc-font);
+  letter-spacing: -0.005em;
 }
 .sc-set-sech p {
-  color: var(--sc-fg2);
-  font-size: 13px;
-  margin-top: 3px;
+  margin: 3px 0 0;
   max-width: var(--sc-measure-lede);
+  color: var(--sc-fg2);
+  font: 400 var(--sc-text-body) / 1.45 var(--sc-font);
   text-wrap: pretty;
 }
+/* A group is a card: the panel inside a hairline. Never --sc-raised, which is
+   the on-state fill (DESIGN.md): a section painted with it read as selected in
+   light, with a white hole cut for every field in it. */
 .sc-set-card {
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-lg);
-  background: var(--sc-bg);
+  background: var(--sc-panel);
   overflow: hidden;
 }
 .sc-set-empty {
@@ -220,20 +299,33 @@
    so every row's action sits on the same baseline whatever its label. */
 .sc-eng-act {
   flex: none;
-  height: 28px;
+  height: 32px;
   padding: 0 13px;
-  font-size: 12px;
+  font-size: var(--sc-text-body);
   border-radius: var(--sc-radius-full);
 }
 
+/* A row: its words on the left, one control on the right, 56 tall at least.
+   The hairline between rows starts where the words do, not at the card's
+   edge, so a card reads as a list rather than a stack of boxes. */
 .sc-set-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 12px 16px;
+  min-height: 56px;
+  padding: 10px 16px;
+  box-sizing: border-box;
 }
-.sc-set-row + .sc-set-row {
-  border-top: 1px solid var(--sc-line);
+.sc-set-row + .sc-set-row::before,
+.sc-cap + .sc-cap::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--sc-line);
 }
 .sc-set-row .txt {
   min-width: 0;
@@ -241,13 +333,27 @@
 }
 .sc-set-row b {
   display: block;
-  font: 600 13px var(--sc-font);
+  font: 500 var(--sc-text-control) / 1.3 var(--sc-font);
 }
 .sc-set-row small {
   display: block;
+  max-width: 52ch;
+  margin-top: 2px;
   color: var(--sc-fg2);
-  font-size: 12px;
-  word-break: break-all;
+  font: 400 12px / 1.4 var(--sc-font);
+  overflow-wrap: anywhere;
+}
+/* every control in a row is one height, whatever it is */
+.sc-set-row .sc-btn {
+  height: 32px;
+  padding: 0 13px;
+  font-size: var(--sc-text-body);
+}
+.sc-set-row .sc-seg-o {
+  justify-content: center;
+  min-width: 52px;
+  height: 28px;
+  font-size: var(--sc-text-body);
 }
 .sc-set-row[data-stack] {
   flex-direction: column;
@@ -270,14 +376,22 @@
    Every row carries both text lines whether or not it is connected, so four
    rows scan as one column of names rather than as blocks of differing height. */
 .sc-eng {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  min-height: 58px;
+  gap: 14px;
+  min-height: 56px;
+  padding: 10px 16px;
 }
-.sc-eng + .sc-eng {
-  border-top: 1px solid var(--sc-line);
+/* from the name, past the 32px mark */
+.sc-eng + .sc-eng::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 62px;
+  right: 0;
+  height: 1px;
+  background: var(--sc-line);
 }
 .sc-eng-ic {
   width: 32px;
@@ -314,16 +428,16 @@
 }
 .sc-eng-name b {
   display: block;
-  font: 600 13px var(--sc-font);
+  font: 500 var(--sc-text-control) / 1.3 var(--sc-font);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .sc-eng-name small {
   display: block;
+  margin-top: 2px;
   color: var(--sc-fg2);
-  font-size: 12px;
-  line-height: 1.45;
+  font: 400 12px / 1.4 var(--sc-font);
 }
 .sc-set .sc-in {
   min-width: 0;
@@ -379,12 +493,14 @@ select.sc-in {
   padding: 0 8px;
 }
 .sc-cap {
+  position: relative;
   display: grid;
-  gap: 10px;
-  padding: 14px 16px;
+  gap: 8px;
+  padding: 12px 16px 14px;
 }
-.sc-cap + .sc-cap {
-  border-top: 1px solid var(--sc-line);
+/* the meter measures the words above it, not the whole card */
+.sc-cap .sc-meter {
+  max-width: 280px;
 }
 .sc-cap-top {
   display: flex;
@@ -397,19 +513,20 @@ select.sc-in {
 }
 .sc-cap-top b {
   display: block;
-  font: 600 13px var(--sc-font);
+  font: 500 var(--sc-text-control) / 1.3 var(--sc-font);
 }
 .sc-cap-top small {
   display: block;
+  margin-top: 2px;
   color: var(--sc-fg2);
-  font-size: 12px;
+  font: 400 12px / 1.4 var(--sc-font);
 }
 .sc-cap-in {
   display: flex;
   align-items: stretch;
   flex: none;
   width: 7.5rem;
-  height: 34px;
+  height: 32px;
   overflow: hidden;
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius);
@@ -459,15 +576,6 @@ select.sc-in {
 .sc-heat {
   padding: 16px;
 }
-.sc-heat-h {
-  margin-bottom: 11px;
-  font-size: 12px;
-  color: var(--sc-fg2);
-}
-.sc-heat-h b {
-  font: 600 13px var(--sc-font);
-  color: var(--sc-fg);
-}
 .sc-heat-range[data-weeks="13"] {
   display: none;
 }
@@ -511,105 +619,7 @@ select.sc-in {
   background: var(--sc-fg);
 }
 
-.sc-bars {
-  padding: 12px 16px;
-}
-.sc-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 12.5px;
-  padding: 4px 0;
-}
-.sc-bar .k {
-  width: 110px;
-  flex: none;
-  color: var(--sc-fg2);
-}
-.sc-bar .t {
-  flex: 1;
-  height: 8px;
-  border-radius: var(--sc-radius-xs);
-  background: var(--sc-raised);
-  overflow: hidden;
-}
-.sc-bar .t i {
-  display: block;
-  height: 100%;
-  background: var(--sc-fg3);
-  border-radius: var(--sc-radius-xs);
-}
-.sc-bar .v {
-  width: 48px;
-  text-align: right;
-  color: var(--sc-fg2);
-}
-
-.sc-themes {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  padding: 16px;
-}
-.sc-tp {
-  border: 1px solid var(--sc-line);
-  border-radius: var(--sc-radius);
-  overflow: hidden;
-  background: none;
-  padding: 0;
-  text-align: left;
-  cursor: pointer;
-}
-.sc-tp:hover {
-  border-color: var(--sc-line-strong);
-}
-:where(:root:not([data-input="pointer"])) .sc-tp:focus-visible {
-  outline: var(--sc-ring-w) solid var(--sc-focus);
-  outline-offset: var(--sc-ring-off);
-}
-.sc-tp[data-on] {
-  border-color: var(--sc-sel-line);
-  background: var(--sc-sel);
-}
-.sc-tp .swl {
-  display: block;
-  height: 62px;
-}
-.sc-tp .lbl {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  font-size: 12.5px;
-  font-weight: 600;
-}
-.sc-tp .dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 1.5px solid var(--sc-line-strong);
-  flex: none;
-}
-.sc-tp[data-on] .dot {
-  border-color: var(--sc-fg);
-  background: var(--sc-fg);
-  box-shadow: inset 0 0 0 2.5px var(--sc-panel);
-}
-
 @media (max-width: 767px) {
-  /* Identical inset on every side — near full, still a dialog over the work.
-     One number for top and bottom so a notch cannot make them unequal. */
-  .rt-BaseDialogOverlay:has(.sc-set) .rt-BaseDialogScroll {
-    overflow: hidden;
-  }
-  .rt-BaseDialogOverlay:has(.sc-set) .rt-BaseDialogScrollPadding {
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    height: 100%;
-    margin: 0;
-    padding: max(12px, env(safe-area-inset-top), env(safe-area-inset-bottom));
-  }
   .rt-BaseDialogOverlay:has(.sc-dlg-close) .rt-BaseDialogScrollPadding {
     padding: max(12px, env(safe-area-inset-top), env(safe-area-inset-bottom));
   }
@@ -623,32 +633,69 @@ select.sc-in {
     top: 10px;
     right: 10px;
   }
-  .sc-set {
-    flex: 1;
-    width: 100%;
-    height: 100%;
-    max-height: 100%;
-    min-height: 0;
-    border-radius: var(--sc-radius-xl) !important;
+  /* Settings on a phone is the studio's sheet, as Learn is: the index first,
+     one card per scope, then a page over it with Back. */
+  .sc-set .sc-newdlg-head {
+    gap: 2px;
+    height: auto;
+    padding: 0 16px 14px var(--sc-gutter);
   }
-  .sc-set-grid {
-    grid-template-columns: 1fr;
-    height: 100%;
-    min-height: 0;
+  .sc-set .sc-newdlg-back {
+    width: 40px;
+    height: 40px;
+    margin-left: -10px;
+  }
+  .sc-set .sc-newdlg-body.sc-set-body {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
   }
   .sc-set-rail {
-    display: none;
+    flex: 1 1 auto;
+    padding: 20px 16px max(var(--sc-space-7), env(safe-area-inset-bottom));
+    border-right: 0;
   }
-  .sc-set-body {
-    min-height: 0;
-    height: 100%;
+  .sc-set-rail ul {
+    gap: 0;
+    border: 1px solid var(--sc-line);
+    border-radius: var(--sc-radius-lg);
+    background: var(--sc-panel);
   }
-  .sc-set-tabs {
-    display: flex;
+  .sc-set-rail li {
+    position: relative;
+  }
+  .sc-set-rail li + li::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 46px;
+    right: 0;
+    height: 1px;
+    background: var(--sc-line);
+  }
+  .sc-set-group {
+    padding: 0 4px;
+  }
+  .sc-set-rail ul + .sc-set-group,
+  .sc-set-rail .sc-set-apart {
+    margin-top: 24px;
+  }
+  .sc-set-item {
+    gap: 14px;
+    height: 52px;
+    padding: 0 14px 0 16px;
+    border-radius: var(--sc-radius-lg);
+    color: var(--sc-fg);
+    font-size: var(--sc-text-input);
+  }
+  .sc-set-item-go {
+    flex: none;
+    color: var(--sc-fg3);
   }
   .sc-set-scroll {
-    padding: 16px 16px 28px;
-    gap: 20px;
+    flex: 1 1 auto;
+    gap: 24px;
+    padding: 16px 16px max(48px, env(safe-area-inset-bottom));
   }
   /* Stacked rows: grow was eating the 34px field. Label and control size to
      themselves; the field is always the same 34px × full width. */
@@ -731,28 +778,6 @@ select.sc-in {
   }
   .sc-heat-range[data-weeks="13"] {
     display: block;
-  }
-  .sc-bar {
-    flex-wrap: wrap;
-  }
-  .sc-bar .k {
-    width: auto;
-    flex: 1;
-  }
-  .sc-bar .t {
-    flex: 1 1 100%;
-    order: 3;
-  }
-  .sc-themes {
-    gap: 8px;
-    padding: 12px;
-  }
-  .sc-tp .swl {
-    height: 44px;
-  }
-  .sc-tp .lbl {
-    padding: 8px;
-    font-size: 12px;
   }
 }
 

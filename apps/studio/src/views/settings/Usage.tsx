@@ -67,36 +67,20 @@ export function Usage({ brandId }: { brandId: string }) {
 
   if (days === null) return <p className="sc-set-empty">Reading your library…</p>;
 
-  const most = Math.max(byKind.generation, byKind.edit, 1);
+  // The totals are one sentence above the squares, where two bars used to
+  // repeat the same two numbers as lengths.
   return (
-    <>
-      <Group title="The last year" sub="One square per day, counted from your own runs.">
-        <div className="sc-heat">
-          <div className="sc-heat-h">
-            <b>{total.toLocaleString()} runs in the last year</b>
-          </div>
-          <HeatRange weeks={53} months={year.months} cells={year.cells} />
-          <HeatRange weeks={13} months={quarter.months} cells={quarter.cells} />
-        </div>
-      </Group>
-      <Group title="By activity">
-        <div className="sc-bars">
-          <div className="sc-bar">
-            <span className="k">Generations</span>
-            <span className="t">
-              <i style={{ width: `${(byKind.generation / most) * 100}%` }} />
-            </span>
-            <span className="v">{byKind.generation}</span>
-          </div>
-          <div className="sc-bar">
-            <span className="k">Edits</span>
-            <span className="t">
-              <i style={{ width: `${(byKind.edit / most) * 100}%` }} />
-            </span>
-            <span className="v">{byKind.edit}</span>
-          </div>
-        </div>
-      </Group>
-    </>
+    <Group
+      sub={
+        total
+          ? `${total.toLocaleString()} runs in the last year: ${byKind.generation.toLocaleString()} generations, ${byKind.edit.toLocaleString()} edits.`
+          : 'Nothing made yet this year. The first shot lands here.'
+      }
+    >
+      <div className="sc-heat">
+        <HeatRange weeks={53} months={year.months} cells={year.cells} />
+        <HeatRange weeks={13} months={quarter.months} cells={quarter.cells} />
+      </div>
+    </Group>
   );
 }

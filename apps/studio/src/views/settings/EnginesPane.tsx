@@ -39,7 +39,7 @@ export function EnginesPane({ engines }: { engines: EngineInfo[] }) {
   const nothingConnected = usable.length === 0;
 
   return (
-    <Group sub="Where your images are generated. Connect as many as you like, then pick one in the composer.">
+    <Group>
       {ordered(engines).map((e) => {
         const provider = keyProviderFor(e.id);
         const name = engineTitle(e.displayName);

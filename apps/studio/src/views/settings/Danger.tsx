@@ -31,7 +31,7 @@ export function Danger({ onDone }: { onDone: () => void }) {
   );
 
   return (
-    <Group sub="These do not come back. Export from Library first if you are not certain.">
+    <Group>
       {/* Deleting one brand belongs beside deleting all of them, not at the
           bottom of the pane where that brand is edited. */}
       <div className="sc-set-row">

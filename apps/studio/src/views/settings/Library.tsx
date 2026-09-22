@@ -13,7 +13,7 @@ export function Library() {
   }, []);
 
   return (
-    <Group sub="Plain files on this machine. Open them yourself, back them up like anything else.">
+    <Group title="Library" sub="Plain files on this machine. Open them yourself, back them up like anything else.">
       <div className="sc-set-row">
         <span className="txt">
           <b>Library folder</b>
