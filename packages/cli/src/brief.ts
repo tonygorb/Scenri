@@ -162,10 +162,12 @@ export interface CompiledBrief {
    * knows and the compiler does not.
    */
   scale?: ScalePlan;
+  /** Present when the brief carries exactly one product whose photo rides. */
+  lead?: ProductLead;
 }
 
-/** What the two-step draw needs from a compile: see productScale.ts. */
-export interface ScalePlan {
+/** The one product a brief carries, as its identity travels outside the prompt. */
+export interface ProductLead {
   productId: string;
   /** The product as the prompt names it. */
   name: string;
@@ -175,14 +177,18 @@ export interface ScalePlan {
   description: string | null;
   /** The first product photo that rides. */
   productHash: string;
+  /** The lines that hold the product's identity and facts in the full prompt. */
+  productLines: string[];
+}
+
+/** What the two-step draw needs from a compile: see productScale.ts. */
+export interface ScalePlan extends ProductLead {
   /** The place's own drawn picture, with nobody in it. */
   sceneHash: string;
   /** The place's light, in the reader's words. */
   light: string;
   /** What the shot itself asks for: its setup's camera, then the person's own words. */
   shot: string;
-  /** The lines that hold the product's identity and facts in the full prompt. */
-  productLines: string[];
 }
 
 export const FORMATS: { id: FormatId; label: string; w: number; h: number }[] = [
@@ -1093,30 +1099,35 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const sceneHash = scene && !scene.figure && scene.subject !== 'product' ? assetHash(scene.preview) : null;
   const firstProduct = kept.find((a) => a.role === 'product');
   const scaleProduct = productId ? products.find((x) => x.id === productId) : undefined;
-  const scale: ScalePlan | undefined =
-    ctx.mode !== 'edit' &&
-    !hasPerson &&
-    !shotAsksForAPerson(userWords) &&
-    onlyWords &&
-    productIds.size === 1 &&
-    productId &&
-    scaleProduct &&
-    sceneHash &&
-    ctx.images.has(sceneHash) &&
-    firstProduct &&
-    kept.every((a) => a.role === 'product')
+  const lead: ProductLead | undefined =
+    productIds.size === 1 && productId && scaleProduct && firstProduct
       ? {
           productId,
           name: String(scaleProduct.promptName ?? scaleProduct.name),
           dimensions: scaleProduct.dimensions ? String(scaleProduct.dimensions) : null,
           description: scaleProduct.description ? String(scaleProduct.description) : null,
           productHash: firstProduct.hash,
-          sceneHash,
-          light: String(scene?.lighting ?? ''),
-          shot: [setupCamera.trim(), userWords.replace(/\s+/g, ' ').trim()].filter(Boolean).join(', '),
           productLines: dedupe(
             [...nameDirectives, ...productDirectives].map(resolveDirective).filter((x): x is string => x !== null),
           ),
+        }
+      : undefined;
+  const scale: ScalePlan | undefined =
+    lead &&
+    ctx.mode !== 'edit' &&
+    !hasPerson &&
+    !shotAsksForAPerson(userWords) &&
+    // a place staged in someone's hands puts hands in every shot of it
+    !shotAsksForAPerson(String(scene?.prompt ?? '')) &&
+    onlyWords &&
+    sceneHash &&
+    ctx.images.has(sceneHash) &&
+    kept.every((a) => a.role === 'product')
+      ? {
+          ...lead,
+          sceneHash,
+          light: String(scene?.lighting ?? ''),
+          shot: [setupCamera.trim(), userWords.replace(/\s+/g, ' ').trim()].filter(Boolean).join(', '),
         }
       : undefined;
 
@@ -1133,6 +1144,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     warnings,
     productId,
     ...(scale ? { scale } : {}),
+    ...(lead ? { lead } : {}),
   };
 }
 

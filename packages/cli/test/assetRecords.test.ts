@@ -305,4 +305,24 @@ describe('sceneRecordFrom', () => {
     if (!r.ok) throw new Error(r.error);
     expect(r.scene.figure).toBe('one person, seated');
   });
+
+  // The page PATCHes a field at a time and the record is rebuilt from scratch,
+  // so anything not carried from the base is erased by an edit that never
+  // named it. Examples are never taken from a request: only the job writes them.
+  it('keeps the examples through any edit, and takes none from the request', () => {
+    const made = sceneRecordFrom({ name: 'Hall', prompt: 'A hall.', previewHash: 'a'.repeat(32) });
+    if (!made.ok) throw new Error(made.error);
+    const examples = [{ role: 'hero' as const, file: `asset:${'b'.repeat(32)}`, from: `asset:${'a'.repeat(32)}` }];
+    const base = { ...made.scene, examples };
+    const renamed = sceneRecordFrom({ name: 'Concrete Hall' }, base);
+    if (!renamed.ok) throw new Error(renamed.error);
+    expect(renamed.scene.examples).toEqual(examples);
+    // a new picture keeps the old examples; the page says they are from the earlier one
+    const redrawn = sceneRecordFrom({ previewHash: 'c'.repeat(32) }, base);
+    if (!redrawn.ok) throw new Error(redrawn.error);
+    expect(redrawn.scene.examples).toEqual(examples);
+    const smuggled = sceneRecordFrom({ name: 'X', prompt: 'A hall.', examples: examples } as any);
+    if (!smuggled.ok) throw new Error(smuggled.error);
+    expect(smuggled.scene.examples).toBeUndefined();
+  });
 });

@@ -122,6 +122,8 @@ export interface AssetBuildDeps {
   brandContext: (brandId: string) => BrandContext;
   /** Facet values already in use, so a new asset lands in an existing filter. */
   vocabulary: { collections: string[]; verticals: string[]; categories: string[] };
+  /** A saved scene has its place picture: its examples may start (sceneExamples.ts). */
+  onPlaceReady?: (brandId: string, sceneId: string) => void;
 }
 
 export interface StartBuildInput {

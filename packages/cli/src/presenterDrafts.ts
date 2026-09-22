@@ -2033,7 +2033,7 @@ function dropDraft(core: Core, rec: PresenterDraftRecord, hooks: CleanupHooks): 
  * content-addressed, so the same bytes in two places are one file, and one
  * owner is enough to keep it.
  */
-function removeUnreferenced(core: Core, hashes: string[], hooks: CleanupHooks): void {
+export function removeUnreferenced(core: Core, hashes: string[], hooks: CleanupHooks): void {
   const brands = core.store.listBrands().map((b) => JSON.stringify(b.json));
   for (const h of new Set(hashes)) {
     if (!HASH.test(h)) continue;

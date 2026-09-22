@@ -85,6 +85,7 @@ import {
   capReferenceEdge,
   joinNames,
   PNG_SIG,
+  pickBuildEngine,
   readImagePart,
   toMarkPng,
   toPng,
@@ -97,7 +98,11 @@ import { registerAssetBuildRoutes } from './routes/assetBuilds.js';
 import { registerPresenterDraftRoutes } from './routes/presenterDrafts.js';
 import { registerSceneStudioRoutes } from './routes/sceneStudio.js';
 import { runningSceneStudioCount, settleSceneStudio } from './sceneStudio.js';
+import { createSceneExamples, type SceneExamples } from './sceneExamples.js';
+import { registerSceneExampleRoutes } from './routes/sceneExamples.js';
+import type { SceneExample } from './assetRecords.js';
 import {
+  removeUnreferenced,
   runningDraftJobCount,
   settlePresenterDrafts,
   sweepAbandonedPresenterDrafts,
@@ -555,13 +560,38 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // this point treats them identically to the curated ones: compileBrief
   // already prefers `characters[]` over the presenter catalog, and the scene
   // resolver below prefers `scenes[]` over the scene catalog.
-  registerAssetBuildRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters, thumbs });
+  // A scene's example set starts when its place picture first lands, from
+  // either road a place arrives by. The service is made further down, once the
+  // demo products and sizes it draws with exist; nothing lands before listen.
+  let sceneExamples: SceneExamples | null = null;
+  const exampleHooks = {
+    onPlaceReady: (brandId: string, sceneId: string) => sceneExamples?.placeReady(brandId, sceneId),
+    onSceneGone: (brandId: string, sceneId: string, examples: SceneExample[]) =>
+      sceneExamples?.sceneGone(brandId, sceneId, examples),
+  };
+  registerAssetBuildRoutes(app, {
+    core,
+    engines,
+    analyzer: opts.analyzer,
+    scenes,
+    presenters,
+    thumbs,
+    ...exampleHooks,
+  });
   // A draft's step lives in this process; after a restart the row still says
   // it is drawing. Put those back before anyone reads them.
   sweepPresenterDrafts(core);
   sweepAbandonedPresenterDrafts(core, { evict: (hash) => thumbs.evict(hash) });
   registerPresenterDraftRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters, thumbs });
-  registerSceneStudioRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters, thumbs });
+  registerSceneStudioRoutes(app, {
+    core,
+    engines,
+    analyzer: opts.analyzer,
+    scenes,
+    presenters,
+    thumbs,
+    onPlaceReady: exampleHooks.onPlaceReady,
+  });
 
   // ---- demo products (curated, fictional-but-premium product catalog). A
   // demo product attaches straight into a brief like a Presenter does — see
@@ -604,6 +634,55 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // the category has one, else front) — a slightly dimensional hero shot,
   // never a creative-campaign image. See primaryAngleFor/demoProductRefPath.
   registerDemoProductRoutes(app, { templatesRoot, demoProducts, demoProductById, thumbs });
+
+  // ---- a scene's examples: the place in use, with a Scenri demo product or
+  // presenter, shown on its page and never handed to a shot. Each one goes
+  // through the compile a real shot does, so a small product is drawn at its
+  // own scale here too.
+  sceneExamples = createSceneExamples({
+    core,
+    engine: () => pickBuildEngine(engines, { allowPlaceholder: process.env.SCENRI_DEMO_BUILDS === '1' }),
+    brandContext: (brandId) => brandContext(core, brandId),
+    demoProducts,
+    presenters,
+    compile: async (brandId, tokens, engine) => {
+      const brand = await brandJsonWithIdentityCrops(
+        core,
+        await brandJsonWithResolvedPresenters(
+          core,
+          templatesRoot,
+          presenters,
+          sizes.apply(
+            brandId,
+            await brandJsonWithResolvedDemoProducts(
+              core,
+              templatesRoot,
+              demoProducts,
+              brandJsonWithCatalogProducts(core, brandId),
+              tokens,
+            ),
+          ),
+          tokens,
+        ),
+        tokens.filter((t): t is Extract<BriefToken, { t: 'character' }> => t.t === 'character').map((t) => t.id),
+      );
+      const compiled = compileBrief(
+        { tokens },
+        {
+          brand,
+          images: core.images,
+          wordsFor: shotWordsFor(core, brandId),
+          engineCaps: engine.capabilities(),
+          templateById: sceneFor(brand),
+        },
+      );
+      return { compiled, brand };
+    },
+    sizes,
+    release: (hashes) => removeUnreferenced(core, hashes, { evict: (hash) => thumbs.evict(hash) }),
+    log: (obj, msg) => app.log.warn(obj, msg),
+  });
+  registerSceneExampleRoutes(app, { core, examples: sceneExamples, subjects: demoProducts, presenters });
 
   registerShowcaseRoutes(app, { templatesRoot, thumbs });
 
@@ -923,6 +1002,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       ...scenes.map((sc) => ({ id: sc.id, name: sc.name })),
     ],
     engineNames: () => engines.all().map((e) => ({ id: e.capabilities().id, name: e.capabilities().displayName })),
+    sceneExampleJobs: (brandId) => sceneExamples?.list(brandId) ?? [],
   });
 
   registerCodexSetupRoutes(app, {
@@ -2625,6 +2705,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       runningImportCount() +
       runningAssetBuildCount() +
       runningSceneStudioCount() +
+      (sceneExamples?.runningCount() ?? 0) +
       runningDraftJobCount(),
   });
 
@@ -2643,6 +2724,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       await settleCatalogImports();
       // a studio draw writes an image when it lands: never into a home being torn down
       await settleSceneStudio();
+      await sceneExamples?.settle();
       await settlePresenterDrafts();
       await thumbs.settle();
       await app.close();
@@ -2662,6 +2744,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       runningImportCount() +
       runningAssetBuildCount() +
       runningSceneStudioCount() +
+      (sceneExamples?.runningCount() ?? 0) +
       runningDraftJobCount(),
   });
 

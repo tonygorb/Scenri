@@ -12,12 +12,13 @@
 import type { Core } from '@scenri/core';
 import { CORE_VIEWS, HAND_APPROVED, PRESENTER_VIEWS, type PresenterView } from './presenterPrompts.js';
 import { getPresenterDraft, presenterDraftRuns } from './presenterDrafts.js';
+import type { ExampleJob } from './sceneExamples.js';
 import { listSceneStudioJobs, type SceneStudioJob } from './sceneStudio.js';
 
 export interface StudioWork {
-  /** `scene:<job>` or `presenter:<draft>:<run>`: one row per run of work, stable while it runs. */
+  /** `scene:<job>`, `examples:<job>` or `presenter:<draft>:<run>`: one row per run of work, stable while it runs. */
   id: string;
-  kind: 'scene' | 'presenter';
+  kind: 'scene' | 'presenter' | 'examples';
   status: 'running' | 'done' | 'failed' | 'cancelled';
   /** What it is doing, or last did: `reading`, `changing`, `drawing`, or a presenter view. */
   step: string | null;
@@ -36,7 +37,7 @@ export interface StudioWork {
   /** Presenter: the draft, and the saved presenter it edits. */
   draftId?: string;
   presenterId?: string | null;
-  /** Presenter: views decided, of the views the set wants. Real counters, so a real bar. */
+  /** Presenter: views decided, of the views the set wants; examples: pictures drawn, of those asked. Real counters, so a real bar. */
   done?: number;
   total?: number;
   /** Presenter: the view that finished is one a person decides (the face, the full body). */
@@ -92,10 +93,31 @@ function presenterWork(core: Core, brandId: string): StudioWork[] {
   return out;
 }
 
+/** A scene's examples drawing: one row for the run, leading to the scene's page. */
+function exampleWork(j: ExampleJob): StudioWork {
+  return {
+    id: `examples:${j.id}`,
+    kind: 'examples',
+    status: j.status,
+    step: j.current,
+    name: j.name,
+    // The place it is drawn in, until the page shows the examples themselves.
+    thumb: j.from.startsWith('asset:') ? j.from.slice(6) : null,
+    startedAt: j.startedAt,
+    finishedAt: j.finishedAt,
+    error: j.error,
+    sceneId: j.sceneId,
+    done: j.done.length,
+    total: j.roles.length,
+  };
+}
+
 /** Everything the studios have running or lately finished for a brand, newest first. */
-export function listStudioWork(core: Core, brandId: string): StudioWork[] {
+export function listStudioWork(core: Core, brandId: string, examples: readonly ExampleJob[] = []): StudioWork[] {
   const scenes = listSceneStudioJobs(brandId)
     .map(sceneWork)
     .filter((w): w is StudioWork => !!w);
-  return [...scenes, ...presenterWork(core, brandId)].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  return [...scenes, ...examples.map(exampleWork), ...presenterWork(core, brandId)].sort((a, b) =>
+    b.startedAt.localeCompare(a.startedAt),
+  );
 }

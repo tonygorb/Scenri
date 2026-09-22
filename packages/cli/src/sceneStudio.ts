@@ -424,6 +424,7 @@ function landOn(
   commit(deps.core, brandId, (json) => {
     json.scenes = brandScenes(json).map((s: any) => (s.id === sceneId ? { ...s, preview: `asset:${hash}` } : s));
   });
+  deps.onPlaceReady?.(brandId, sceneId);
   return 'landed';
 }
 

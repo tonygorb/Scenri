@@ -85,8 +85,28 @@ export interface SceneSetup {
   camera: string;
 }
 
+/** What an example of a scene shows. See sceneExamples.ts. */
+export type SceneExampleRole = 'hero' | 'close' | 'hands' | 'angle' | 'bold';
+
+/**
+ * A picture of the world in use: a Scenri demo product or presenter in it.
+ * Shown on the scene's page, never handed to a shot. `from` is the place
+ * picture it was drawn from, so one drawn from an earlier picture can say so.
+ */
+export interface SceneExample {
+  role: SceneExampleRole;
+  file: string;
+  from: string;
+  /** The way of shooting it this picture shows, when it is one (a FRAMINGS id). */
+  setup?: string;
+  product?: string;
+  presenter?: string;
+}
+
 export interface CustomScene extends Scene {
   setups?: SceneSetup[];
+  /** Written by the examples job only; every edit keeps them as they are. */
+  examples?: SceneExample[];
   refs?: { file: string }[];
   preview?: string;
   instruction?: string;
@@ -365,6 +385,9 @@ export function sceneRecordFrom(
   if (scene.figure && treatment && !/\{[^}]*\}/.test(treatment)) scene.figureTreatment = treatment;
   if (refs?.length) scene.refs = refs;
   if (previewRef) scene.preview = previewRef;
+  // Never from the request: the examples job writes them, and an edit that
+  // rebuilds the record keeps them, the earlier-picture ones included.
+  if (base?.examples?.length) scene.examples = base.examples;
   return { ok: true, scene };
 }
 

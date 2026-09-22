@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { searchTerms, termMatches, type BrandRow, type Core, type FeedFilter, type FeedSort } from '@scenri/core';
+import type { ExampleJob } from '../sceneExamples.js';
 import { listStudioWork } from '../studioWork.js';
 
 /** Something a brief token can name, with the name it answers to right now. */
@@ -17,6 +18,8 @@ interface ProjectRouteDeps {
    * by its new name without rewriting a single stored shot.
    */
   tokenNames: (brand: BrandRow) => TokenName[];
+  /** A brand's scene examples drawing or lately drawn, for Activity. */
+  sceneExampleJobs?: (brandId: string) => ExampleJob[];
   /** Every engine by the name it is called by. */
   engineNames: () => TokenName[];
 }
@@ -70,7 +73,7 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectRouteDe
     return {
       nodes: core.store.recentActivity(brand.id, limit),
       jobs: core.catalog.listRecentJobs(brand.id),
-      studio: listStudioWork(core, brand.id),
+      studio: listStudioWork(core, brand.id, deps.sceneExampleJobs?.(brand.id) ?? []),
     };
   });
 

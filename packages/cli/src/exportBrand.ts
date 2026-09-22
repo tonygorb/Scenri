@@ -150,6 +150,10 @@ export async function buildBrandBundle(core: Core, brandId: string): Promise<{ z
       const preview = rw.place(s?.preview, `scenes/${id}-preview`);
       if (preview) next.preview = preview;
       else delete next.preview;
+      // A scene's examples are pictures of a demo product in the place, shown
+      // on its page and drawn again from its preview on demand. They are not
+      // the brand's, so a bundle leaves them out rather than ship them.
+      delete next.examples;
       return next;
     });
   }
