@@ -100,7 +100,7 @@ async function start(p: Page) {
 }
 
 /** The rows a person is asked, one tap each, in the order they are asked. */
-async function guide(p: Page, picks = ['Sunlit stone', 'Travertine', 'Low golden sun', 'Nature taking over']) {
+async function guide(p: Page, picks = ['Sunlit stone', 'Travertine', 'Low golden sun', 'Vines taking over']) {
   await tap(turn(p, 'q:source'), 'Guide me');
   for (const [i, id] of ['world', 'surface', 'light', 'signature'].entries()) {
     await expect(turn(p, `q:${id}`)).toBeVisible();
@@ -125,9 +125,10 @@ test('guided: the rows, read back as the words shots are told, drawn on a press,
   const agree = openQ(page);
   await expect(agree).toContainText('Here is the place, in full. Ready to draw?');
   await expect(agree).toContainText(
-    'A niche of warm limestone and rough plaster, honed cream travertine up close, its pores and soft veins readable, low golden sun raking almost flat across it',
+    'A niche of warm limestone and rough plaster, honed cream travertine up close, its pores and soft veins readable, low golden sun raking almost flat across the stone',
   );
-  await expect(agree).toContainText('nature growing through the set');
+  // the rows after the world were the world's own: its idea is a vine on its stone
+  await expect(agree).toContainText('a vine growing down the stone');
   // nothing was drawn before the press
   await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(0);
   await draw(page);
@@ -167,7 +168,7 @@ test('guided: the rows, read back as the words shots are told, drawn on a press,
   await expect(page.getByRole('button', { name: /Add|Try again|Show it in use/ })).toHaveCount(0);
   const saved = (await scenes(page)).find((s) => s.name === 'Dusk Lobby');
   expect(saved.instruction).toMatch(
-    /^A niche of warm limestone and rough plaster, honed cream travertine up close, .* nature growing through the set/,
+    /^A niche of warm limestone and rough plaster, honed cream travertine up close, .* a vine growing down the stone/,
   );
   expect(saved.preview).toMatch(/^asset:[a-f0-9]{32}$/);
   expect(saved.examples.map((e: any) => [e.role, e.from])).toEqual([
@@ -399,7 +400,7 @@ test('an answer the picture was drawn from asks before it opens, and changing it
   await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(0);
   await tap(openQ(page), 'Brushed steel');
   await tap(openQ(page), 'Pool of light');
-  await tap(openQ(page), 'Caught mid-change');
+  await tap(openQ(page), 'Wax cascading');
   await expect(openQ(page)).toContainText('near-black polished surface');
   // the name given stays with the place
   await draw(page);

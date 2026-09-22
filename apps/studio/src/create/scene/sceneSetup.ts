@@ -1,7 +1,7 @@
 import type { Answer, Aside } from '../../conversation/question.js';
 import { COPY } from './sceneCopy.js';
 import { followUps, intentOf } from './sceneIntent.js';
-import { optionOf, ROW_ORDER, ROWS, type SceneRow } from './sceneRows.js';
+import { optionOf, ROW_ORDER, ROWS, type SceneRow, SUGGESTED_IDEA } from './sceneRows.js';
 
 /**
  * The questions a scene is set up by, and every way their answers change.
@@ -159,6 +159,16 @@ export function answerPatch(id: Qid, ans: Answer, a: Answers): Partial<Answers> 
 
 /* --------------------------------------------------------- the sentence */
 
+/**
+ * The signature, in words. Passing it is not "none": it asks the reading to
+ * invent one for the place, because the idea is what separates a scene from
+ * a place. A sentence that already carries one is never asked, so never here.
+ */
+function ideaWords(g: Given | undefined): string | null {
+  if (g?.pick === PASSED) return [SUGGESTED_IDEA, g.words?.trim()].filter(Boolean).join(', ');
+  return rowWords('signature', g);
+}
+
 /** What a row says, in the words of the place's own sentence; null when it was passed. */
 function rowWords(row: SceneRow, g: Given | undefined): string | null {
   if (!g) return null;
@@ -190,9 +200,7 @@ export function compileDirection(a: Answers): string {
     const world = rowWords('world', a.world);
     const light =
       rowWords('light', a.light) ?? (intentOf(text).light ? null : (optionOf('world', a.world?.pick)?.light ?? null));
-    const more = [world, rowWords('surface', a.surface), light, rowWords('signature', a.signature)].filter(
-      Boolean,
-    ) as string[];
+    const more = [world, rowWords('surface', a.surface), light, ideaWords(a.signature)].filter(Boolean) as string[];
     return more.length ? `${text.replace(/[.\s]+$/, '')}, ${more.join(', ')}.` : text;
   }
   if (a.source?.door !== 'guided') return '';
@@ -201,7 +209,7 @@ export function compileDirection(a: Answers): string {
   // photographed in, so a place is never handed over with nothing said about
   // how it is lit.
   const light = rowWords('light', a.light) ?? optionOf('world', a.world?.pick)?.light ?? null;
-  const parts = [world ?? 'a place', rowWords('surface', a.surface), light, rowWords('signature', a.signature)].filter(
+  const parts = [world ?? 'a place', rowWords('surface', a.surface), light, ideaWords(a.signature)].filter(
     Boolean,
   ) as string[];
   const text = `${parts.join(', ').replace(/^./, (c) => c.toUpperCase())}.`;
@@ -283,9 +291,8 @@ export function deserializeSetup(raw: unknown): SetupState | null {
     const g = o.answers[r];
     if (!g || typeof g !== 'object') continue;
     const pick =
-      typeof g.pick === 'string' && (g.pick === PASSED || ROWS[r].options.some((x) => x.id === g.pick))
-        ? g.pick
-        : undefined;
+      // one of the row's own options, the general ones or the tapped world's
+      typeof g.pick === 'string' && (g.pick === PASSED || !!optionOf(r, g.pick)) ? g.pick : undefined;
     const words = typeof g.words === 'string' ? g.words.slice(0, 200) : undefined;
     if (pick || words) a[r] = { ...(pick ? { pick } : {}), ...(words ? { words } : {}) };
   }

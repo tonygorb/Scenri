@@ -1,4 +1,5 @@
 import type { SwatchRow } from '../../conversation/question.js';
+import { allWorldOptions, DRAWN_WORLDS, IN_THE_PLACE, worldOptions } from './sceneWorldRows.js';
 
 /**
  * The things a place is asked, in the order they are asked.
@@ -49,15 +50,6 @@ interface RowSpec {
 }
 
 const card = (row: SceneRow, n: number) => `scene-${row}-${n}`;
-
-/**
- * Said with every signature. Measured 2026-09-22: "caught mid-change" came
- * back as a melting candle standing on the set, a second object that would
- * upstage any product and whose reflection was wrong, and roots grew across
- * the very ledge a product would stand on. The idea belongs to the place.
- */
-const IN_THE_PLACE =
-  'part of the place itself, never a separate object that competes with the subject, and leaving the subject a clear place to stand';
 
 export const ROWS: Record<SceneRow, RowSpec> = {
   world: {
@@ -306,36 +298,43 @@ export const ROWS: Record<SceneRow, RowSpec> = {
         words: `one surreal touch of scale, an oversized natural or architectural form that makes the place feel impossible, ${IN_THE_PLACE}`,
         cues: ['surreal', 'giant', 'oversized', 'impossible', 'dreamlike'],
       },
-      {
-        id: 'suggest',
-        label: 'Suggest one',
-        words: `one signature idea that makes this place unforgettable, invented for it and never generic, ${IN_THE_PLACE}`,
-        cues: ['surprise me', 'suggest one'],
-      },
     ],
   },
 };
 
 /**
- * The rows whose pictures are drawn.
- *
- * Worlds: eight places compared as a set, each holding the same plain bottle.
- * The surface, light and signature rows are asked as chips until every one of
- * their options has its card: a row of pictures with blanks in it reads as
- * broken, and a row of words reads as a choice.
+ * The cards that are drawn: a world row's eight, the four light cards kept
+ * from the first set, and each world's own once its pictures exist
+ * (sceneWorldRows.ts). A row shows pictures only when every option it offers
+ * has one: a row of pictures with blanks in it reads as broken, and a row of
+ * words reads as a choice.
  */
-export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['world']);
+export const ART: ReadonlySet<string> = new Set<string>([
+  ...ROWS.world.options.map((o) => o.card as string),
+  ...ROWS.light.options.filter((o) => o.card).map((o) => o.card as string),
+  ...DRAWN_WORLDS.flatMap((w) =>
+    (['surface', 'light', 'signature'] as const).flatMap((r) => (worldOptions(w, r) ?? []).map((o) => o.card)),
+  ),
+]);
 
-/** A row as the conversation's swatch block takes it. */
-export function swatchRow(row: SceneRow): SwatchRow {
+/**
+ * What a row offers now. The world is asked from the eight; every row after
+ * it offers what belongs to the world that was tapped, and the general list
+ * only when no world was (a typed sentence, a world passed or written).
+ */
+export function optionsFor(row: SceneRow, world: string | undefined): RowOption[] {
+  if (row === 'world') return ROWS.world.options;
+  return worldOptions(world, row) ?? ROWS[row].options;
+}
+
+/** A row as the conversation's swatch block takes it, for the world that was tapped. */
+export function swatchRow(row: SceneRow, world?: string): SwatchRow {
+  const options = optionsFor(row, world);
+  const pictured = options.every((o) => !!o.card && ART.has(o.card));
   return {
     id: row,
     label: ROWS[row].prompt,
-    options: ROWS[row].options.map((o) => ({
-      id: o.id,
-      label: o.label,
-      ...(DRAWN.has(row) && o.card ? { card: o.card } : {}),
-    })),
+    options: options.map((o) => ({ id: o.id, label: o.label, ...(pictured ? { card: o.card } : {}) })),
   };
 }
 
@@ -344,8 +343,16 @@ export function swatchRow(row: SceneRow): SwatchRow {
 const NOUN: Record<SceneRow, string> = { world: 'place', surface: 'surface', light: 'light', signature: 'idea' };
 export const rowNoun = (row: SceneRow): string => NOUN[row];
 
-export const optionOf = (row: SceneRow, id: string | undefined): RowOption | undefined =>
-  id ? ROWS[row].options.find((o) => o.id === id) : undefined;
+/** An option by its id, wherever it was offered: the general row or a world's own. */
+export const optionOf = (row: SceneRow, id: string | undefined): RowOption | undefined => {
+  if (!id) return undefined;
+  const general = ROWS[row].options.find((o) => o.id === id);
+  if (general || row === 'world') return general;
+  return allWorldOptions(row).find((o) => o.id === id);
+};
+
+/** The idea the reading invents when the signature is passed: every scene gets one. */
+export const SUGGESTED_IDEA = `one signature idea that makes this place unforgettable, invented for it and never generic, ${IN_THE_PLACE}`;
 
 /**
  * What a typed phrase already answers.

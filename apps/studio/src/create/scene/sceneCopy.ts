@@ -46,6 +46,8 @@ export const COPY = {
   keepWorldLight: 'Keep it',
   /** The surface row, after a world: what that world is made of already answers it. */
   keepWorldSurface: "Keep the world's own",
+  /** The signature row's pass: the reading invents an idea for the place. */
+  suggestOne: 'Suggest one',
   /** After a sentence that gave a feeling but no place. */
   followWorld: 'You have the feel of it. What kind of place is it?',
   /** After a sentence that gave the place but not how it is lit. */

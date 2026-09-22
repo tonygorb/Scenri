@@ -11,17 +11,22 @@ import { CAST_ROWS, LOOK_ROWS } from '../src/create/presenter/presenterLook.ts';
 /** The three figures a cast-aware row is drawn on. */
 const CASTS = ['woman', 'man', 'androgynous'];
 import { LOOK_ORDER } from '../src/create/presenter/presenterQuestions.ts';
-import { DRAWN, ROW_ORDER, ROWS } from '../src/create/scene/sceneRows.ts';
+import { ART, optionsFor, ROW_ORDER, ROWS } from '../src/create/scene/sceneRows.ts';
+import { WORLD_IDS } from '../src/create/scene/sceneWorldRows.ts';
 
 /**
- * Every card a scene option names, whether or not its row shows pictures yet:
- * a row is asked as chips until each of its options has a card, and the cards
- * already drawn wait for the rest (sceneRows.ts, DRAWN). They share the
- * conversation's stylesheet.
+ * The scene's cards that exist (sceneRows.ts, ART): every one of them has its
+ * file and its stylesheet rule, and no file sits in the folder that no option
+ * names. A row whose options are not all in ART is asked as chips.
  */
-const SCENE_CARDS = ROW_ORDER.flatMap((r) => ROWS[r].options.filter((o) => o.card).map((o) => o.card as string));
-/** A row that shows pictures has one for every option. */
-const DRAWN_WHOLE = ROW_ORDER.filter((r) => DRAWN.has(r)).every((r) => ROWS[r].options.every((o) => !!o.card));
+const SCENE_CARDS = [...ART];
+/** Every option a world's rows offer, and the general rows' own. */
+const SCENE_NAMED = new Set<string>([
+  ...ROW_ORDER.flatMap((r) => ROWS[r].options.filter((o) => o.card).map((o) => o.card as string)),
+  ...WORLD_IDS.flatMap((w) =>
+    (['surface', 'light', 'signature'] as const).flatMap((r) => optionsFor(r, w).map((o) => o.card as string)),
+  ),
+]);
 import {
   TRAITS,
   type TraitAnswers,
@@ -90,7 +95,7 @@ describe('the distinctive details a presenter can carry', () => {
     // The scene's drawn rows name their cards in the same stylesheet, so they
     // are held to the same three directions, against their own folder.
     const sceneArt = new Set(readdirSync(join(STUDIO, 'src/assets/scenes')).map((f) => f.replace(/\.webp$/, '')));
-    expect(DRAWN_WHOLE).toBe(true);
+    for (const id of SCENE_CARDS) expect(SCENE_NAMED.has(id), id).toBe(true);
     for (const id of SCENE_CARDS) {
       wanted.add(id);
       expect(css).toContain(`[data-card="${id}"]`);

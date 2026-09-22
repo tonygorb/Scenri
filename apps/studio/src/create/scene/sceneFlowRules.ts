@@ -172,7 +172,7 @@ export function questionFor(
     id,
     kind: 'swatches',
     prompt: promptFor(id, a),
-    row: swatchRow(id),
+    row: swatchRow(id, a.world?.pick),
     // Only the worlds are a set to compare at once. The rest stay a strip: a
     // row of variants, one swipe at a time.
     layout: id === 'world' ? 'grid' : undefined,
@@ -181,9 +181,11 @@ export function questionFor(
       ? COPY.keepWorldLight
       : worldSurface
         ? COPY.keepWorldSurface
-        : afterWords
-          ? COPY.leaveToReading
-          : COPY.skip,
+        : id === 'signature' && !afterWords
+          ? COPY.suggestOne
+          : afterWords
+            ? COPY.leaveToReading
+            : COPY.skip,
     describe: COPY.describeInstead,
     given,
     skipped,
@@ -230,7 +232,9 @@ function answerLine(id: Qid, a: Answers): { text: string; photos?: string[] } {
       ? COPY.keepWorldSurface
       : a.source?.door === 'words'
         ? COPY.leaveToReading
-        : COPY.skip;
+        : id === 'signature'
+          ? COPY.suggestOne
+          : COPY.skip;
   const picked = g?.pick === PASSED ? passedAs : optionOf(id, g?.pick)?.label;
   const words = g?.words?.trim();
   return { text: picked && words ? `${picked}, ${words}` : (words ?? picked ?? '') };
