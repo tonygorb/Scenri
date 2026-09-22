@@ -13,11 +13,25 @@ export interface ShotPages {
   /** A further page exists. */
   hasMore: boolean;
   loading: boolean;
+  /**
+   * These pages answer the search as it stands. False from the keystroke
+   * until its first page lands, including the wait before it is even asked:
+   * an empty list then means "not read yet", never "nothing matches".
+   */
+  settled: boolean;
   error: string | null;
   loadMore: () => void;
 }
 
-const EMPTY: ShotPages = { items: [], total: 0, hasMore: false, loading: false, error: null, loadMore: () => {} };
+const EMPTY: ShotPages = {
+  items: [],
+  total: 0,
+  hasMore: false,
+  loading: false,
+  settled: false,
+  error: null,
+  loadMore: () => {},
+};
 
 /**
  * Every shot of the brand for the picker's Shots tab, a page at a time.
@@ -128,6 +142,7 @@ export function useShotPages(brandId: string, query: string, enabled = true): Sh
     total: current.total,
     hasMore: current.next !== null,
     loading,
+    settled: true,
     error,
     loadMore,
   };
