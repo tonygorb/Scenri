@@ -1,7 +1,7 @@
 import type { Core } from '@scenri/core';
 import type { FastifyInstance } from 'fastify';
 import { brandScenes } from '../assetRecords.js';
-import { type ExampleRole, rolesFor, type SceneExamples, pickSubject } from '../sceneExamples.js';
+import type { ExampleRole, SceneExamples } from '../sceneExamples.js';
 
 const ROLES = new Set<ExampleRole>(['hero', 'close', 'hands', 'angle', 'bold']);
 
@@ -10,15 +10,7 @@ const ROLES = new Set<ExampleRole>(['hero', 'close', 'hands', 'angle', 'bold']);
  * again for one, Stop, and Remove. The first two are drawn without being
  * asked, when the scene first has its picture (sceneExamples.ts).
  */
-export function registerSceneExampleRoutes(
-  app: FastifyInstance,
-  deps: {
-    core: Core;
-    examples: SceneExamples;
-    subjects: Parameters<typeof pickSubject>[1];
-    presenters: Parameters<typeof pickSubject>[2];
-  },
-): void {
+export function registerSceneExampleRoutes(app: FastifyInstance, deps: { core: Core; examples: SceneExamples }): void {
   const { core, examples } = deps;
   const sceneOr404 = (req: any, reply: any) => {
     const brand = core.store.getBrand(String(req.params.id));
@@ -33,11 +25,10 @@ export function registerSceneExampleRoutes(
   app.get('/api/brands/:id/scenes/:sceneId/examples', async (req, reply) => {
     const found = sceneOr404(req, reply);
     if (!found) return;
-    const subject = pickSubject(found.scene, deps.subjects, deps.presenters);
     return {
       job: examples.status(found.brandId, found.scene.id),
       // what "Add more" would draw, so the page can say it before anything is spent
-      more: subject ? rolesFor(subject, 'more') : [],
+      more: examples.offer(found.scene),
     };
   });
 
@@ -46,11 +37,8 @@ export function registerSceneExampleRoutes(
     const found = sceneOr404(req, reply);
     if (!found) return;
     const body = (req.body ?? {}) as { roles?: unknown; more?: unknown };
-    const subject = pickSubject(found.scene, deps.subjects, deps.presenters);
     const asked = body.more
-      ? subject
-        ? rolesFor(subject, 'more')
-        : []
+      ? examples.offer(found.scene)
       : (Array.isArray(body.roles) ? body.roles : [])
           .map(String)
           .filter((r): r is ExampleRole => ROLES.has(r as ExampleRole));

@@ -952,6 +952,16 @@
   max-height: 68vh;
 }
 
+/* Under a made scene's pictures, while they are still drawing (the studio was
+   left early) or when some show an earlier picture of the place. A line, never
+   a control: the pictures are made in the studio. Centred on the rail. */
+.sc-scenepage-examples-state {
+  margin: var(--sc-space-2) 0 0;
+  text-align: center;
+  font-size: var(--sc-text-caption);
+  color: var(--sc-fg2);
+}
+
 /* What a shot made here is told: three keys, left-aligned inside the centred
    column the way the presenter's record line is. The sentence under it is the
    page's only explanation, and it is there because the compiler really does
@@ -1090,6 +1100,26 @@
 .sc-refset-tile[data-role="portrait"] img,
 .sc-refset-tile[data-role="identity"] img {
   object-fit: cover;
+}
+/* A place has no feet to lose: its pictures fill the card. A drawn place comes
+   back a little narrower than 4:5 once its edge bars are trimmed, and
+   letterboxing it left two grey bands beside every picture but the close-up. */
+.sc-scenepage .sc-refset-tile img {
+  object-fit: cover;
+}
+/* A scene's example on its way (the old picture, if any, under the shimmer),
+   or one that did not draw. Neither opens: there is nothing to look at yet. */
+.sc-refset-tile[data-state] {
+  position: relative;
+  cursor: default;
+}
+.sc-refset-tile[data-state="failed"] {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--sc-space-2);
+  color: var(--sc-fg3);
+  font-size: var(--sc-text-caption);
 }
 /* The band the arrows are measured against: one line, never two. */
 .sc-refset-lb {
@@ -1247,10 +1277,10 @@
   transform-origin: 50% 16%;
 }
 
-/* Where they are filed. The app's chip, at rest: these say what is true, and
-   nothing here is pressed, so they carry no hover, no focus and no
-   aria-pressed. The verb that changes them lives in Details. */
-.sc-presenterpage-cats {
+/* Where a presenter or a scene is filed. The app's chip, at rest: these say
+   what is true, and nothing here is pressed, so they carry no hover, no focus
+   and no aria-pressed. The verb that changes them lives in Details. */
+.sc-lookpage-cats {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;

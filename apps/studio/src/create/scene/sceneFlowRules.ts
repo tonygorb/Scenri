@@ -6,7 +6,8 @@ import {
   type Question,
   type Turn,
 } from '../../conversation/question.js';
-import type { SceneReading } from '../../apiTypes.js';
+import type { SceneExampleRole, SceneReading } from '../../apiTypes.js';
+import { EXAMPLE_LABEL, type ExampleTile } from '../../sceneExampleRules.js';
 import { COPY } from './sceneCopy.js';
 import { optionOf, rowNoun, ROWS, type SceneRow, swatchRow } from './sceneRows.js';
 import {
@@ -54,6 +55,24 @@ export interface FlowArgs {
    * of hundreds of cans is not a library of places.
    */
   have?: { hash: string; alt: string }[];
+  /** After Use: the place in use, as the saved scene and its run have it. */
+  set?: SetArgs;
+}
+
+/** The examples drawn after Use, as the conversation tells them. */
+export interface SetArgs {
+  tiles: ExampleTile[];
+  running: boolean;
+  /** The run has been asked about at least once: before that, nothing drawing is not known. */
+  read: boolean;
+  /** Who stands in them. */
+  who: 'product' | 'presenter';
+  /** Nothing in Scenri's library can stand in this place yet. */
+  noSubject: boolean;
+  /** What Add more would still draw. */
+  missing: SceneExampleRole[];
+  /** What the last press says: Open scene, or Use in a shot when the studio was opened from one. */
+  finish: string;
 }
 
 const PREVIEW_HASH = /^asset:([a-f0-9]{32})$/;
@@ -152,8 +171,8 @@ export function questionFor(
     kind: 'swatches',
     prompt: promptFor(id, a),
     row: swatchRow(id),
-    // Only the worlds are a set to compare at once. Light, staging and
-    // camera stay a strip: a row of variants, one swipe at a time.
+    // Only the worlds are a set to compare at once. Lights stay a strip: a
+    // row of variants, one swipe at a time.
     layout: id === 'world' ? 'grid' : undefined,
     hint: id === 'world' && !afterWords ? COPY.worldHint : undefined,
     skip: worldLight ? COPY.keepWorldLight : afterWords ? COPY.leaveToReading : COPY.skip,
@@ -238,7 +257,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
         continue;
       }
       const line = answerLine(id, a);
-      T.push({ kind: 'you', id, text: line.text, photos: line.photos, editable: !studio.job });
+      T.push({ kind: 'you', id, text: line.text, photos: line.photos, editable: !studio.job && !studio.saved });
     }
 
   // the record: every version, as what was asked for and what came of it
@@ -259,7 +278,8 @@ export function turnsFor(args: FlowArgs): Turn[] {
         label: COPY.version(pictureNumber(studio, i)),
         view: 'scene',
         current: i === studio.current,
-        restore: i === studio.current ? undefined : { view: 'scene', hash: v.hash },
+        // once used, the place is decided: an earlier picture is history, not a choice
+        restore: i === studio.current || studio.saved ? undefined : { view: 'scene', hash: v.hash },
       });
     }
     if (i === studio.current)
@@ -278,6 +298,9 @@ export function turnsFor(args: FlowArgs): Turn[] {
   if (job?.kind === 'change') T.push({ kind: 'you', id: `pending-${job.id}`, text: job.ask ?? '' });
   if (job?.kind === 'again' && firstPicture < 0 && !edit) nameExchange(T, args);
 
+  // after Use: the place in use, one picture at a time
+  if (studio.saved) setTurns(T, args);
+
   // the one question the conversation ends on
   let open: Question | null = null;
   if (openSetup) open = questionFor(openSetup, setup, false, args.uploading, args.have ?? []);
@@ -291,7 +314,8 @@ export function turnsFor(args: FlowArgs): Turn[] {
         starters: suggested ? [{ label: suggested, text: suggested }] : undefined,
       };
     }
-  } else {
+  } else if (studio.saved) open = setQuestion(args);
+  else {
     const v = current(studio);
     // given again and not read yet: the read is on its way, or it failed and asks
     if (args.stale && !edit) {
@@ -357,11 +381,89 @@ export function turnsFor(args: FlowArgs): Turn[] {
   return T;
 }
 
+/**
+ * What Use leads to: the answer, then the place in use. Each example is a
+ * picture turn with Try again beside it; one still drawing is the Working
+ * line, not a sentence; one that failed says so.
+ */
+function setTurns(T: Turn[], args: FlowArgs) {
+  const { studio, edit, set, canDraw } = args;
+  T.push({ kind: 'you', id: 'use', text: edit ? COPY.saveChanges : canDraw ? COPY.use : COPY.saveWords });
+  if (!set) return;
+  const any = set.tiles.length > 0 || set.running;
+  T.push({
+    kind: 'scenri',
+    id: 'saved',
+    text: any ? COPY.inUse(set.who) : set.read && set.noSubject && canDraw ? COPY.noLibrary : COPY.saved,
+  });
+  // the answer to the three more stands where it was given: after the two
+  // drawn by themselves, before any of the three
+  const answer = studio.moreAsked ? COPY.addThem : studio.moreDeclined ? COPY.notNow : null;
+  let answered = false;
+  const sayAnswer = () => {
+    if (!answer || answered) return;
+    answered = true;
+    T.push({ kind: 'you', id: 'more', text: answer });
+  };
+  for (const t of set.tiles) {
+    if (t.role !== 'hero' && t.role !== 'close') sayAnswer();
+    if (t.state === 'shown' && t.hash)
+      T.push({
+        kind: 'scenri',
+        id: `ex-${t.role}-${t.hash}`,
+        text: COPY.exampleHere[t.role],
+        thumb: t.hash,
+        label: EXAMPLE_LABEL[t.role],
+        view: t.role,
+        ...(set.running || studio.job ? {} : { retry: t.role }),
+      });
+    else if (t.state === 'failed')
+      T.push({
+        kind: 'scenri',
+        id: `ex-failed-${t.role}`,
+        text: COPY.exampleFailed(EXAMPLE_LABEL[t.role], t.error ?? COPY.failed),
+        tone: 'alert',
+      });
+  }
+  sayAnswer();
+}
+
+/** The question the set ends on: three more, or done. None while anything draws. */
+function setQuestion(args: FlowArgs): Question | null {
+  const { set, studio } = args;
+  const name = studio.name.trim() || current(studio)?.reading.name || 'The scene';
+  if (!set) return null;
+  if (set.running || !set.read) return null;
+  const hero = set.tiles.some((t) => t.role === 'hero' && t.state === 'shown');
+  if (args.canDraw && hero && set.missing.length && !studio.moreDeclined && !studio.moreAsked)
+    return {
+      id: 'set-more',
+      kind: 'confirm',
+      prompt: COPY.more(set.missing.map((r) => EXAMPLE_LABEL[r])),
+      options: [
+        { id: 'more', label: COPY.addThem },
+        { id: 'not-now', label: COPY.notNow },
+      ],
+    };
+  const failed = set.tiles.filter((t) => t.state === 'failed');
+  return {
+    id: 'set-done',
+    kind: 'confirm',
+    prompt: failed.length ? COPY.readyMissing(name) : COPY.ready(name),
+    options: [
+      ...(failed.length && args.canDraw ? [{ id: 'retry-failed', label: COPY.tryAgain }] : []),
+      { id: 'done', label: set.finish },
+    ],
+  };
+}
+
 /** The name, once given: asked while the first picture draws, kept as its own exchange. */
 function nameExchange(T: Turn[], args: FlowArgs) {
   if (!args.studio.named && !args.editingName) return;
   T.push({ kind: 'scenri', id: 'asked-name', text: COPY.name, quiet: true });
-  T.push({ kind: 'you', id: 'name', text: args.studio.name, editable: true, editing: args.editingName || undefined });
+  // once used, the name is the saved scene's: it is changed on the scene's page
+  const editable = !args.studio.saved;
+  T.push({ kind: 'you', id: 'name', text: args.studio.name, editable, editing: args.editingName || undefined });
 }
 
 /* -------------------------------------------------------------- composer */
@@ -395,6 +497,8 @@ export function composerFor(args: FlowArgs, open: Question | null): ComposerFor 
     working,
     attach: false,
   });
+  // once used, the place is decided; the pictures after it are asked for by tapping
+  if (studio.saved) return off('', !!studio.job || !!args.set?.running);
   // an answer open again from its pencil takes the sentence
   const reopened = setup.editing;
   if (reopened === 'source') return say({ kind: 'source' }, COPY.sourcePlaceholder, true);

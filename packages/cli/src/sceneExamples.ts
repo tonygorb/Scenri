@@ -35,11 +35,25 @@ export const AUTO_ROLES: readonly ExampleRole[] = ['hero', 'close'];
 /** Asked for from the page: "Add three more" (two for a world built around a person). */
 export const MORE_ROLES: readonly ExampleRole[] = ['hands', 'angle', 'bold'];
 const PERSON_MORE: readonly ExampleRole[] = ['angle', 'bold'];
+/** The set's order: every role is drawn after the hero it is drawn from. */
+const ORDER: readonly ExampleRole[] = ['hero', 'close', 'hands', 'angle', 'bold'];
+
+/**
+ * A place staged in someone's hands (the questionnaire's "In someone's hands"):
+ * its hero is already held, so a Hands example would be the hero again.
+ * Plural and whole, so "a hand's width" and "hand-painted" are not hands, and
+ * a place that says "no hands" has none.
+ */
+export function handsStaged(prompt: string | undefined): boolean {
+  const p = prompt ?? '';
+  return /\bhands\b(?!-)/i.test(p) && !/\b(?:no|without) (?:\w+ )?hands\b/i.test(p);
+}
 
 /** The roles a scene can ask for, in the order they are drawn. */
-export function rolesFor(subject: ExampleSubject, which: 'auto' | 'more'): ExampleRole[] {
+export function rolesFor(subject: ExampleSubject, which: 'auto' | 'more', prompt?: string): ExampleRole[] {
   if (which === 'auto') return [...AUTO_ROLES];
-  return subject.kind === 'presenter' ? [...PERSON_MORE] : [...MORE_ROLES];
+  if (subject.kind === 'presenter') return [...PERSON_MORE];
+  return handsStaged(prompt) ? MORE_ROLES.filter((r) => r !== 'hands') : [...MORE_ROLES];
 }
 
 /** What stands in the place: a Scenri demo product, or a demo presenter for a world built around a person. */
@@ -220,6 +234,12 @@ export interface SceneExamplesDeps {
   sizes: ProductSizes;
   /** Let pictures nobody refers to any more go. */
   release: (hashes: string[]) => void;
+  /**
+   * The subject's own pictures are on disk. Scenri's library is downloaded
+   * after install, and until it is there is nothing to stand in the place: a
+   * run then would only fail, so none starts.
+   */
+  ready?: (subject: ExampleSubject) => boolean;
   log?: (obj: object, msg: string) => void;
 }
 
@@ -231,7 +251,7 @@ const hashOf = (ref: unknown): string | null => {
 };
 
 export interface SceneExamples {
-  /** The scene has its first place picture: draw the hero and the close-up, once. */
+  /** The scene has a new place picture: draw the hero and close-up, or redraw what it had. */
   placeReady(brandId: string, sceneId: string): void;
   /** Draw these roles now (Add three more, Try again, Redraw). Joins a run under way. */
   start(brandId: string, sceneId: string, roles: ExampleRole[]): ExampleJob;
@@ -239,6 +259,8 @@ export interface SceneExamples {
   /** Take one example off the scene. */
   remove(brandId: string, sceneId: string, role: ExampleRole): boolean;
   status(brandId: string, sceneId: string): ExampleJob | null;
+  /** What Add more would draw for this scene now: nothing while the library is missing. */
+  offer(scene: CustomScene): ExampleRole[];
   list(brandId: string): ExampleJob[];
   /** The scene was deleted: stop its run and let its pictures go. */
   sceneGone(brandId: string, sceneId: string, examples: SceneExample[]): void;
@@ -265,7 +287,7 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
         wrote = true;
         const old = (s.examples ?? []) as SceneExample[];
         replaced = old.find((e) => e.role === example.role)?.file ?? null;
-        const order = ['hero', 'close', 'hands', 'angle', 'bold'];
+        const order = ORDER;
         const examples = [...old.filter((e) => e.role !== example.role), example].sort(
           (a, b) => order.indexOf(a.role) - order.indexOf(b.role),
         );
@@ -487,7 +509,7 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
       return live;
     }
     const subject = pickSubject(scene, deps.demoProducts, deps.presenters);
-    if (!subject || !scene.preview) return null;
+    if (!subject || !scene.preview || !ready(subject)) return null;
     // Every other role is drawn from the hero, so a missing hero comes first.
     const hasHero = (scene.examples ?? []).some((e) => e.role === 'hero' && e.from === scene.preview);
     const queue: ExampleRole[] = !hasHero && !roles.includes('hero') ? ['hero', ...roles] : [...roles];
@@ -522,28 +544,65 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
       .finally(() => {
         job.current = null;
         job.finishedAt = new Date().toISOString();
-        controllers.delete(k);
-        tasks.delete(k);
+        // only this run's own entries: a run begun after it keeps its own
+        if (controllers.get(k) === ctrl) controllers.delete(k);
+        if (tasks.get(k) === task) tasks.delete(k);
       });
     tasks.set(k, task);
     return job;
   }
 
+  /**
+   * The scene has a new place picture. With no examples it gets the automatic
+   * two; with examples that all show an earlier picture, the same roles are
+   * drawn again, so the set follows the place. A run still drawing the earlier
+   * picture is stopped first, and this is asked again once it has settled.
+   */
+  const ready = (subject: ExampleSubject) => deps.ready?.(subject) ?? true;
+
+  function placeReady(brandId: string, sceneId: string, also: readonly ExampleRole[] = []): void {
+    const scene = sceneOf(brandId, sceneId);
+    if (!scene?.preview) return;
+    const k = key(brandId, sceneId);
+    const live = jobs.get(k);
+    if (live?.status === 'running') {
+      if (live.from === scene.preview) return;
+      // what that run was still to draw is drawn for the new picture too
+      const owed = live.roles.filter((r) => !live.done.includes(r));
+      controllers.get(k)?.abort();
+      void tasks.get(k)?.then(() => placeReady(brandId, sceneId, owed));
+      return;
+    }
+    const examples = scene.examples ?? [];
+    if (examples.some((e) => e.from === scene.preview)) return;
+    const wanted = new Set<ExampleRole>([
+      ...(examples.length ? [] : AUTO_ROLES),
+      ...examples.map((e) => e.role),
+      ...also,
+    ]);
+    begin(
+      brandId,
+      sceneId,
+      ORDER.filter((r) => wanted.has(r)),
+      scene,
+    );
+  }
+
   return {
-    placeReady(brandId, sceneId) {
-      const scene = sceneOf(brandId, sceneId);
-      // Once: a scene that has had examples (from any picture) redraws only when asked.
-      if (!scene?.preview || scene.examples?.length) return;
-      if (jobs.get(key(brandId, sceneId))?.status === 'running') return;
-      begin(brandId, sceneId, [...AUTO_ROLES], scene);
-    },
+    placeReady,
     start(brandId, sceneId, roles) {
       const scene = sceneOf(brandId, sceneId);
       if (!scene) throw Object.assign(new Error('scene not found'), { statusCode: 404 });
       if (!scene.preview)
         throw Object.assign(new Error('this scene has no picture to draw from yet'), { statusCode: 409 });
       const job = begin(brandId, sceneId, roles, scene);
-      if (!job) throw Object.assign(new Error("Nothing in Scenri's library fits this scene yet."), { statusCode: 409 });
+      if (!job) {
+        const subject = pickSubject(scene, deps.demoProducts, deps.presenters);
+        const why = subject
+          ? "Scenri's library has not downloaded yet, so it cannot be shown in use for now."
+          : "Nothing in Scenri's library fits this scene yet.";
+        throw Object.assign(new Error(why), { statusCode: 409 });
+      }
       return job;
     },
     stop(brandId, sceneId) {
@@ -570,6 +629,10 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
       return !!gone;
     },
     status: (brandId, sceneId) => jobs.get(key(brandId, sceneId)) ?? null,
+    offer(scene) {
+      const subject = pickSubject(scene, deps.demoProducts, deps.presenters);
+      return subject && ready(subject) ? rolesFor(subject, 'more', scene.prompt) : [];
+    },
     list: (brandId) => [...jobs.values()].filter((j) => j.brandId === brandId),
     sceneGone(brandId, sceneId, examples) {
       controllers.get(key(brandId, sceneId))?.abort();

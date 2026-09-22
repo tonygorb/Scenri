@@ -5,22 +5,25 @@ import type { SwatchRow } from '../../conversation/question.js';
  *
  * A world is a starting direction, not the final scene. Light, material and
  * mood live inside each world's words; the light row then asks whether to keep
- * that light or replace it. Staging is how the subject lives in the world, the
- * decision that actually personalises one starting point into many scenes.
+ * that light or replace it. What the person types on top personalises it.
  *
- * No row asks where the camera is. A camera written into the place's words
- * would hold every shot of it to one view, and the scene's example set shows
- * the place from several (sceneExamples.ts); where the camera stands belongs
- * to each shot and to the scene's ways of shooting it (sceneSetups.ts).
+ * Nothing about the subject is asked, and no row asks where the camera is.
+ * Both would be written into the place's words, and every shot in the scene is
+ * told those words: "on a plinth" would stand every product and every
+ * presenter on a plinth, and a camera would hold every shot to one view. How
+ * the subject sits and where the camera stands belong to each shot; the
+ * scene's example set shows the place in use from several angles
+ * (sceneExamples.ts), and its ways of shooting it keep the ones worth reusing
+ * (sceneSetups.ts).
  *
  * Each option carries the words it hands the reader (`words`), the card id for
  * its drawn picture (`card`), and the words a person might type instead of
  * tapping it (`cues`), so a sentence at the first question answers the rows it
  * covers and only the rest are asked.
  */
-export type SceneRow = 'world' | 'light' | 'stage';
+export type SceneRow = 'world' | 'light';
 
-export const ROW_ORDER: readonly SceneRow[] = ['world', 'light', 'stage'];
+export const ROW_ORDER: readonly SceneRow[] = ['world', 'light'];
 
 export interface RowOption {
   id: string;
@@ -189,63 +192,15 @@ export const ROWS: Record<SceneRow, RowSpec> = {
       },
     ],
   },
-  stage: {
-    prompt: 'How should the subject sit in this world?',
-    options: [
-      {
-        id: 'nest',
-        label: 'Held by the set',
-        words: "the subject nested into the set itself, supported by the world's own structure",
-        card: card('stage', 1),
-        cues: ['nested', 'cradled', 'held by the set', 'in the set', 'among the'],
-      },
-      {
-        id: 'plinth',
-        label: 'On a plinth',
-        words: 'the subject standing on a simple plinth or ledge in the space',
-        card: card('stage', 2),
-        cues: ['plinth', 'pedestal', 'on a ledge', 'on a stand', 'on a block'],
-      },
-      {
-        id: 'bed',
-        label: 'In the material',
-        words: 'the subject lying in the material of the world, the set filling the frame around it',
-        card: card('stage', 3),
-        cues: ['lying in', 'in the fabric', 'in the material', 'resting in', 'sunk in'],
-      },
-      {
-        id: 'hands',
-        label: "In someone's hands",
-        words: 'held in a pair of anonymous hands, no face and no identity',
-        card: card('stage', 4),
-        cues: ['hands', 'handheld', 'in hand', "in someone's hands"],
-      },
-      {
-        id: 'floor',
-        label: 'On the floor',
-        words: 'the subject sitting on the floor of the world, grounded in the space',
-        card: card('stage', 6),
-        cues: ['on the floor', 'on the ground', 'grounded', 'on the earth'],
-      },
-      {
-        id: 'lean',
-        label: 'Leaning on it',
-        words: 'the subject leaning against the world, resting on its surface',
-        card: card('stage', 7),
-        cues: ['leaning', 'leaning on', 'against the wall', 'propped'],
-      },
-    ],
-  },
 };
 
 /**
  * The rows whose pictures are drawn.
  *
- * Worlds, lights and staging: one thing changing across each row. Worlds are
- * compared as a set; the rest are a strip of the same subject under one
- * changing decision.
+ * Worlds and lights: one thing changing across each row. Worlds are compared
+ * as a set; lights are a strip of the same place under one changing decision.
  */
-export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['world', 'light', 'stage']);
+export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['world', 'light']);
 
 /** A row as the conversation's swatch block takes it. */
 export function swatchRow(row: SceneRow): SwatchRow {

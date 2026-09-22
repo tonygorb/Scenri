@@ -221,7 +221,15 @@ export function TaskCenterProvider({
       (w) => w.kind === 'scene' && w.status === 'done' && !!w.attachTo && !brandPulledRef.current.has(w.id),
     );
     for (const w of attached) brandPulledRef.current.add(w.id);
-    if (landed.length || vanished || attached.length) {
+    // A scene's examples are written into the brand document one by one as
+    // they land, the same way: each new one is read once, so the scene's page
+    // fills in without anybody asking it to.
+    const drawn = liveStudio
+      .filter((w) => w.kind === 'examples' && (w.done ?? 0) > 0)
+      .map((w) => `${w.id}:${w.done}`)
+      .filter((k) => !brandPulledRef.current.has(k));
+    for (const k of drawn) brandPulledRef.current.add(k);
+    if (landed.length || vanished || attached.length || drawn.length) {
       for (const b of landed) {
         brandPulledRef.current.add(b.id);
         // The asset exists now, so the attempt that made it is over. Its draft
@@ -289,7 +297,7 @@ export function TaskCenterProvider({
         }
         pushRef.current({
           kind: 'success',
-          title: `${n.title} is drawn`,
+          title: n.id.startsWith('examples:') ? `${n.title} examples are ready` : `${n.title} is drawn`,
           detail: n.kind === 'presenter' ? n.subtitle : undefined,
           actions,
         });

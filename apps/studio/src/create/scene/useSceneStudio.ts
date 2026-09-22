@@ -184,6 +184,10 @@ export function useSceneStudio(args: {
    * Use: the words standing become the scene. A picture still drawing from
    * those words lands on the scene's card when it is done. Unnamed, it takes
    * the name the reader gave it.
+   *
+   * Saved here, and the conversation goes on: the server starts drawing the
+   * place in use the moment it has a picture (sceneExamples.ts), and the
+   * studio shows them as they land. Leaving at any point loses nothing.
    */
   const use = useCallback(
     async (opts: { asNew?: boolean } = {}) => {
@@ -206,6 +210,7 @@ export function useSceneStudio(args: {
           const attached = await api.attachSceneStudioJob(brandId, drawing, saved.id).catch(() => null);
           if (attached?.state === 'landed') applyBrand(attached.brand);
         }
+        dispatch({ type: 'saved', id: saved.id });
         onSavedRef.current({ id: saved.id, name: saved.name, verticals: saved.verticals ?? [] }, !!opts.asNew);
       } catch (e: any) {
         dispatch({ type: 'error', text: String(e?.message ?? e) });

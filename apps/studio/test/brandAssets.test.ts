@@ -157,6 +157,33 @@ describe('customScenesOf', () => {
     expect(s.instruction).toBe('less orange');
   });
 
+  it("carries its examples in the set's order, marking the ones drawn from an earlier picture", () => {
+    const [s] = customScenesOf(
+      brandWith({
+        scenes: [
+          {
+            ...PLACE,
+            examples: [
+              { role: 'hero', file: `asset:${HASH_A}`, from: PLACE.preview, product: 'vial' },
+              {
+                role: 'close',
+                file: `asset:${HASH_C}`,
+                from: 'asset:0123456789abcdef0123456789abcdef',
+                setup: 'close',
+                presenter: 'astrid',
+              },
+              { role: 'wide', file: `asset:${HASH_A}`, from: PLACE.preview },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(s.examples).toEqual([
+      { role: 'hero', url: `/api/images/${HASH_A}`, hash: HASH_A, earlier: false, with: 'product' },
+      { role: 'close', url: `/api/images/${HASH_C}`, hash: HASH_C, earlier: true, setup: 'close', with: 'presenter' },
+    ]);
+  });
+
   it('shows the first reference until an example has been drawn', () => {
     const [s] = customScenesOf(brandWith({ scenes: [{ ...PLACE, preview: undefined }] }));
     expect(s.previewUrl).toBe(`/api/images/${HASH_C}`);

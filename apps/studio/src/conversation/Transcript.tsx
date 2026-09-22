@@ -80,6 +80,7 @@ export function Transcript({
   onDescribe,
   onAttachFiles,
   onRestore,
+  onRetry,
   onShow,
 }: {
   turns: Turn[];
@@ -107,6 +108,8 @@ export function Transcript({
 
   /** A picture from before, put back on its view. */
   onRestore?: (view: string, hash: string) => void;
+  /** A picture drawn again, by the name its turn carries. */
+  onRetry?: (view: string) => void;
 
   /** Put a picture's view on the stage, from the picture itself. */
   onShow?: (view: string) => void;
@@ -646,6 +649,8 @@ export function Transcript({
           current={t.current}
           restore={t.restore}
           onRestore={onRestore}
+          retry={t.retry}
+          onRetry={onRetry}
           onShow={onShow}
         />,
       );

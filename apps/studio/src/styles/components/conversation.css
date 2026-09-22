@@ -777,16 +777,15 @@ button.sc-convo-shot-do {
   background-size: cover;
   background-repeat: no-repeat;
 }
-/* The scene rows' cards: eight worlds, eight lights, six ways to sit the
-   subject. No card asks where the camera stands: that belongs to each shot.
+/* The scene rows' cards: eight worlds and eight lights. No card asks how the
+   subject sits or where the camera stands: both belong to each shot.
    Every world card holds the same plain unbranded bottle, so the row is eight
    worlds compared rather than eight pretty pictures; every light card holds
-   that same bottle under one changing light; every staging card holds that
-   same bottle in one changing place in the world.
+   that same bottle under one changing light.
    Drawn from the art direction in the plan's reference table, never copied
    from it. */
 .sc-convo-plate-in[data-card="scene-world-1"] {
-  background-image: url("../../assets/scenes/scene-world-1.webp"); /* 4:5 plate, sit cards 6-9 */
+  background-image: url("../../assets/scenes/scene-world-1.webp"); /* 4:5 plate */
 }
 .sc-convo-plate-in[data-card="scene-world-2"] {
   background-image: url("../../assets/scenes/scene-world-2.webp");
@@ -832,24 +831,6 @@ button.sc-convo-shot-do {
 }
 .sc-convo-plate-in[data-card="scene-light-8"] {
   background-image: url("../../assets/scenes/scene-light-8.webp");
-}
-.sc-convo-plate-in[data-card="scene-stage-1"] {
-  background-image: url("../../assets/scenes/scene-stage-1.webp");
-}
-.sc-convo-plate-in[data-card="scene-stage-2"] {
-  background-image: url("../../assets/scenes/scene-stage-2.webp");
-}
-.sc-convo-plate-in[data-card="scene-stage-3"] {
-  background-image: url("../../assets/scenes/scene-stage-3.webp");
-}
-.sc-convo-plate-in[data-card="scene-stage-4"] {
-  background-image: url("../../assets/scenes/scene-stage-4.webp");
-}
-.sc-convo-plate-in[data-card="scene-stage-6"] {
-  background-image: url("../../assets/scenes/scene-stage-6.webp");
-}
-.sc-convo-plate-in[data-card="scene-stage-7"] {
-  background-image: url("../../assets/scenes/scene-stage-7.webp");
 }
 .sc-convo-plate-in[data-card="length-1-woman"] {
   background-image: url("../../assets/traits/length-1-woman.webp");

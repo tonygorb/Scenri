@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { matchPath, Navigate, useLocation, useNavigate, useParams } from 'react-router';
 import type { Brand, SceneReading } from '../api.js';
+import { customSceneById } from '../brandAssets.js';
+import type { SavedScene } from '../create/scene/useSceneStudio.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useCreateFlow } from '../create/AssetCreateHost.js';
 import { SceneCreate } from '../create/scene/SceneCreate.js';
 import { seeded, type StudioState } from '../create/scene/sceneStudioRules.js';
+import { COPY } from '../create/scene/sceneCopy.js';
 import { P, sceneEditPath, scenePath, scenesPath, sceneStudioPath } from '../routes.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
 
@@ -90,6 +93,9 @@ export function SceneStudioRoute() {
     navigate(sceneId ? sceneEditPath(brand, sceneId, convo) : sceneStudioPath(brand, convo), { replace: true, state });
   }, [convoId, convo, sceneId, seed, brand, navigate, state]);
 
+  /** What Use saved, said to the app once the conversation is over (a reload finds it in the brand). */
+  const saved = useRef<{ made: SavedScene; how: 'created' | 'updated' } | null>(null);
+
   // a catalog scene has no record here to edit, and a gone one has nothing at all
   if (sceneId && !seed) return <Navigate to={scenePath(brand, sceneId)} replace />;
 
@@ -106,11 +112,27 @@ export function SceneStudioRoute() {
       onClose={close}
       // an address with no conversation in it is a new one, the way Create presenter is
       onStartOver={() => navigate(sceneStudioPath(brand), { replace: true, state })}
+      // Use saves and the conversation goes on to the place in use, which says
+      // "Saved" itself; the card that says so to the rest of the app, and the
+      // way out, wait for the last press: back into the brief it was opened
+      // from, or the scene's page. Where Use alone used to lead.
       onSaved={(made, how) => {
-        announce({ kind: 'scene', id: made.id, name: made.name, verticals: made.verticals, how });
+        saved.current = { made, how };
+      }}
+      finish={toCreate ? COPY.useInAShot : COPY.openScene}
+      onDone={(id) => {
+        const row = customSceneById(brand, id);
+        const made = saved.current?.made.id === id ? saved.current.made : null;
+        announce({
+          kind: 'scene',
+          id,
+          name: made?.name ?? row?.name ?? '',
+          verticals: made?.verticals ?? row?.verticals ?? [],
+          how: saved.current?.how ?? (sceneId === id ? 'updated' : 'created'),
+        });
         if (toCreate && from)
-          navigate(`${from.split('?')[0]}?scene=${encodeURIComponent(made.id)}&compose=1`, { replace: true });
-        else navigate(scenePath(brand, made.id), { replace: true });
+          navigate(`${from.split('?')[0]}?scene=${encodeURIComponent(id)}&compose=1`, { replace: true });
+        else navigate(scenePath(brand, id), { replace: true });
       }}
     />
   );

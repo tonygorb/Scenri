@@ -76,6 +76,7 @@ async function scene(p: Page, brandId: string, name: string, over: Record<string
       lighting: 'Overcast daylight, no shadow edge',
       description: 'A cold shore of black rock.',
       keywords: ['basalt', 'shore', 'overcast', 'wide', 'cold'],
+      verticals: ['Beauty', 'Fragrance'],
       instruction: 'a cold black shore under flat light',
       ...(read ? { refHashes: [read] } : {}),
       ...(drawn ? { previewHash: drawn } : {}),
@@ -91,11 +92,13 @@ test('says what the place is and what a shot made here is told', async ({ page }
   await page.goto(`/${b.slug}/scenes/${s.id}`);
 
   await expect(page.getByRole('heading', { level: 1, name: 'Wet Basalt Shore' })).toBeVisible();
-  // what it is, in one sentence and then in a few words
+  // the presenter page's head: the name, where it is filed as chips, what it is in one sentence
+  await expect(page.getByRole('list', { name: 'Filed under' })).toHaveText(['Beauty', 'Fragrance'].join(''));
   await expect(page.getByText('A cold shore of black rock.')).toBeVisible();
-  await expect(page.locator('.sc-lookpage-facts')).toHaveText(
-    'basalt \u00b7 shore \u00b7 overcast \u00b7 wide \u00b7 cold',
-  );
+  await expect(page.locator('.sc-lookpage-crumb')).toHaveCount(0);
+  await expect(page.locator('.sc-lookpage-facts')).toHaveCount(0);
+  // what its picture is, in the footnote, never as a caption under it
+  await expect(page.locator('.sc-prec-note')).toContainText('Shots are told the words, never handed this picture.');
   // one verb, and the way to change it
   await expect(page.locator('.sc-lookpage-acts .sc-btn-primary')).toHaveText('Use in a shot');
   await expect(page.getByRole('link', { name: 'Edit scene' })).toBeVisible();
@@ -134,8 +137,8 @@ test('what it was read from is shown as evidence, never as the place itself', as
   await page.goto(`/${b.slug}/scenes/${s.id}`);
 
   // with the pictures, in the presenter's own sources block
-  await expect(page.locator('.sc-presenterpage-sources-lb')).toHaveText('Read from your photographs');
-  await page.getByRole('button', { name: 'Read from 1, open' }).click();
+  await expect(page.locator('.sc-presenterpage-sources-lb')).toHaveText('From your photos');
+  await page.getByRole('button', { name: 'Source photo 1, open' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
 });
 

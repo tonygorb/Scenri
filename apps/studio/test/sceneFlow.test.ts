@@ -5,6 +5,7 @@ import {
   composerFor,
   type FlowArgs,
   judge,
+  type SetArgs,
   packSession,
   placesTheyMade,
   questionFor,
@@ -31,7 +32,7 @@ import {
   setupDone,
   SPECS,
 } from '../src/create/scene/sceneSetup.js';
-import { EMPTY, reduce, seeded, type StudioState } from '../src/create/scene/sceneStudioRules.js';
+import { EMPTY, keptAsDraft, reduce, seeded, type StudioState, unsaved } from '../src/create/scene/sceneStudioRules.js';
 
 const H = (c: string) => c.repeat(32);
 const haveOf = (c: string, alt: string) => ({ hash: H(c), alt });
@@ -65,7 +66,6 @@ const guided: Answers = {
   source: { door: 'guided' },
   world: { pick: 'stone' },
   light: { pick: 'golden' },
-  stage: { pick: 'plinth' },
 };
 
 const setupOf = (answers: Answers): SetupState => ({ ...EMPTY_SETUP, answers });
@@ -94,8 +94,7 @@ describe('the setup', () => {
   it('asks the door first, then the rows in order', () => {
     expect(nextQuestion({})).toBe('source');
     expect(nextQuestion({ source: { door: 'guided' } })).toBe('world');
-    expect(nextQuestion({ ...guided, light: undefined, stage: undefined })).toBe('light');
-    expect(nextQuestion({ ...guided, stage: undefined })).toBe('stage');
+    expect(nextQuestion({ ...guided, light: undefined })).toBe('light');
     expect(nextQuestion(guided)).toBeNull();
     expect(setupDone(guided)).toBe(true);
   });
@@ -114,26 +113,23 @@ describe('the setup', () => {
     expect(compileDirection(a)).toBe('White cyclorama, hard flash, top-down product photography');
   });
 
-  it('asks only what a sentence left open, and never the camera', () => {
-    // the place and the light are said: how the subject sits is the one open decision
+  it('asks only what a sentence left open, and never the camera or how the subject sits', () => {
+    // the place and the light are said: nothing is left to ask
     const two: Answers = { source: { door: 'words', text: 'White cyclorama, hard flash' } };
-    expect(nextQuestion(two)).toBe('stage');
-    const done = commit(two, { stage: { pick: PASSED } });
-    expect(setupDone(done)).toBe(true);
-    expect(compileDirection(done)).toBe('White cyclorama, hard flash');
+    expect(nextQuestion(two)).toBeNull();
+    expect(setupDone(two)).toBe(true);
+    expect(compileDirection(two)).toBe('White cyclorama, hard flash');
 
-    // a material and a register, nothing about light or placement: those two, in that order
+    // a material and a register, nothing about light: that one
     const warm: Answers = { source: { door: 'words', text: 'luxury product photography in warm stone' } };
     expect(nextQuestion(warm)).toBe('light');
     const lit = commit(warm, { light: { pick: 'golden' } });
-    expect(nextQuestion(lit)).toBe('stage');
-    const sat = commit(lit, { stage: { pick: 'plinth' } });
-    expect(nextQuestion(sat)).toBeNull();
+    expect(nextQuestion(lit)).toBeNull();
     const golden = ROWS.light.options.find((o) => o.id === 'golden')!.words;
-    const plinth = ROWS.stage.options.find((o) => o.id === 'plinth')!.words;
-    expect(compileDirection(sat)).toBe(`luxury product photography in warm stone, ${golden}, ${plinth}.`);
-    // no row asks where the camera is
+    expect(compileDirection(lit)).toBe(`luxury product photography in warm stone, ${golden}.`);
+    // no row asks where the camera is, or how the subject sits: each shot says both
     expect(SPECS.map((x) => x.id)).not.toContain('shot');
+    expect(SPECS.map((x) => x.id)).not.toContain('stage');
   });
 
   it('asks where it is when a sentence gives only a feeling', () => {
@@ -158,22 +154,23 @@ describe('the setup', () => {
 
   it('asks again from the sentence when the sentence changes', () => {
     const a = commit({ source: { door: 'words', text: 'a cold shore' } }, { light: { pick: 'golden' } });
-    const changed = commit(a, { source: { door: 'words', text: 'a cold shore at blue hour' } });
+    const changed = commit(a, { source: { door: 'words', text: 'a cold shore of wet rocks' } });
     expect(changed.light).toBeUndefined();
-    expect(nextQuestion(changed)).toBe('stage');
+    expect(nextQuestion(changed)).toBe('light');
   });
 
   it('says the rows as one sentence, skipped ones left out and typed ones kept', () => {
     expect(compileDirection(guided)).toBe(
-      'A niche of warm limestone and rough plaster, in low golden-hour sun, long warm shadows, the subject standing on a simple plinth or ledge in the space.',
+      'A niche of warm limestone and rough plaster, in low golden-hour sun, long warm shadows.',
     );
     const mixed = { ...guided, world: { pick: 'water', words: 'at low tide' } };
     expect(compileDirection(mixed)).toBe(
-      'A shoreline of wet dark rock and shallow turquoise water, at low tide, in low golden-hour sun, long warm shadows, the subject standing on a simple plinth or ledge in the space.',
+      'A shoreline of wet dark rock and shallow turquoise water, at low tide, in low golden-hour sun, long warm shadows.',
     );
-    // a light passed over leaves the world lit the way its own card is
-    expect(compileDirection({ ...guided, light: { pick: PASSED } })).toBe(
-      'A niche of warm limestone and rough plaster, in hard afternoon sun, the subject standing on a simple plinth or ledge in the space.',
+    // a light passed over leaves the world lit the way its own card is, and a
+    // world left alone is only a starting direction
+    expect(compileDirection({ ...guided, light: { pick: PASSED } })).toMatch(
+      /^A niche of warm limestone and rough plaster, in hard afternoon sun\. Treat this as a starting direction/,
     );
     expect(compileDirection({ ...guided, world: { words: 'a hotel lobby' } })).toMatch(/^A hotel lobby, /);
   });
@@ -182,7 +179,6 @@ describe('the setup', () => {
     const next = commit(guided, { world: { pick: 'dark' } });
     expect(next.world).toEqual({ pick: 'dark' });
     expect(next.light).toBeUndefined();
-    expect(next.stage).toBeUndefined();
     expect(nextQuestion(next)).toBe('light');
   });
 
@@ -232,11 +228,11 @@ describe('the setup', () => {
     for (let i = 0; i < 1500; i++) {
       const act: SetupAction = pick<SetupAction>([
         { type: 'answer', patch: { source: { door: pick(['photos', 'guided', 'words'] as const), text: 'a shore' } } },
-        { type: 'answer', patch: { [pick(['world', 'light', 'stage'])]: { pick: PASSED } } },
+        { type: 'answer', patch: { [pick(['world', 'light'])]: { pick: PASSED } } },
         { type: 'answer', patch: { world: { pick: 'colour', words: pick([undefined, 'a loft']) } } },
         { type: 'answer', patch: { photos: { hashes: [H('a')], done: r() < 0.5 } } },
         { type: 'photos', hashes: [H(pick(['a', 'b', 'c', 'd', 'e']))] },
-        { type: 'edit', id: pick(['source', 'photos', 'world', 'light', 'stage'] as const) },
+        { type: 'edit', id: pick(['source', 'photos', 'world', 'light'] as const) },
         { type: 'cancel-edit' },
       ]);
       s = reduceSetup(s, act);
@@ -294,43 +290,28 @@ describe('the light row says what the world already gave it', () => {
     const a: Answers = { source: { door: 'guided' }, world: { pick: 'stone' } };
     const world = questionFor('world', setupOf({ source: { door: 'guided' } }), false, 0);
     const light = questionFor('light', setupOf(a), false, 0);
-    const stage = questionFor('stage', setupOf(a), false, 0);
     expect(world.kind === 'swatches' && world.hint).toBe("Choose a starting world. You'll personalise it next.");
     expect(world.kind === 'swatches' && world.skip).toBe('Skip');
     expect(world.kind === 'swatches' && world.layout).toBe('grid');
     expect(light.kind === 'swatches' && light.layout).toBeUndefined();
-    expect(stage.kind).toBe('swatches');
-    expect(stage.kind === 'swatches' && stage.layout).toBeUndefined();
-    expect(stage.kind === 'swatches' && stage.row.options.every((o) => o.card)).toBe(true);
-    expect(stage.kind === 'swatches' && stage.skip).toBe('Skip');
-    expect(stage.kind === 'swatches' && stage.row.options.map((o) => o.id)).toEqual([
-      'nest',
-      'plinth',
-      'bed',
-      'hands',
-      'floor',
-      'lean',
-    ]);
+    expect(light.kind === 'swatches' && light.row.options.every((o) => o.card)).toBe(true);
   });
 
-  it('never asks where the camera is: each shot, and the examples of the scene, decide that', () => {
-    expect(ROW_ORDER).toEqual(['world', 'light', 'stage']);
-    // staging is how the subject sits in the set; none of its answers is a camera
-    for (const id of ['above', 'below', 'wide']) expect(ROWS.stage.options.map((o) => o.id)).not.toContain(id);
-    const afterStage: Answers = {
-      source: { door: 'guided' },
-      world: { pick: 'stone' },
-      light: { pick: 'golden' },
-      stage: { pick: 'plinth' },
-    };
-    expect(nextQuestion(afterStage)).toBeNull();
-    expect(setupDone(afterStage)).toBe(true);
-    const keysAfter = keys(turnsFor(args({ setup: setupOf(afterStage) })));
-    expect(keysAfter).not.toContain('q:shot');
-    expect(keysAfter).not.toContain('scenri:asked-shot');
-    expect(keysAfter).not.toContain('you:shot');
-    // nothing about the camera reaches the place's words
-    expect(compileDirection(afterStage)).not.toMatch(/overhead|ground level|eye level|seen /);
+  it('never asks where the camera is or how the subject sits: each shot, and the examples, show that', () => {
+    expect(ROW_ORDER).toEqual(['world', 'light']);
+    expect(nextQuestion(guided)).toBeNull();
+    expect(setupDone(guided)).toBe(true);
+    const keysAfter = keys(turnsFor(args({ setup: setupOf(guided) })));
+    for (const k of ['q:shot', 'scenri:asked-shot', 'you:shot', 'q:stage', 'scenri:asked-stage', 'you:stage'])
+      expect(keysAfter).not.toContain(k);
+    // nothing about the camera or the subject reaches the place's words
+    expect(compileDirection(guided)).not.toMatch(/overhead|ground level|eye level|seen |the subject/);
+    // a conversation kept from before still opens: its staging answer is simply gone
+    const kept = deserializeSetup({
+      answers: { source: { door: 'guided' }, world: { pick: 'stone' }, stage: { pick: 'plinth' } },
+    });
+    expect(kept?.answers).toEqual({ source: { door: 'guided' }, world: { pick: 'stone' } });
+    expect(nextQuestion(kept!.answers)).toBe('light');
   });
 
   it('still lets an explicit pick or a typed light override the world default', () => {
@@ -347,35 +328,10 @@ describe('the light row says what the world already gave it', () => {
       source: { door: 'guided' },
       world: { pick: 'stone' },
       light: { pick: PASSED },
-      stage: { pick: PASSED },
     };
     expect(compileDirection(a)).toContain('in hard afternoon sun');
     expect(compileDirection(a)).toContain('starting direction, not a picture to reproduce');
     expect(compileDirection(guided)).not.toContain('starting direction');
-  });
-});
-
-describe('staging personalises the world', () => {
-  it('answers only the sit: a camera inside a pick is not a second answer in the thread', () => {
-    const nest = answerPatch('stage', { kind: 'choice', id: 'nest' }, { source: { door: 'guided' } });
-    expect(nest).toEqual({ stage: { pick: 'nest' } });
-    const hands = answerPatch('stage', { kind: 'choice', id: 'hands' }, { source: { door: 'guided' } });
-    expect(hands).toEqual({ stage: { pick: 'hands' } });
-    const floor = answerPatch('stage', { kind: 'choice', id: 'floor' }, { source: { door: 'guided' } });
-    expect(floor).toEqual({ stage: { pick: 'floor' } });
-  });
-
-  it('does not ask the camera after a sit, and does not write a silent camera answer', () => {
-    const next = commit({ source: { door: 'guided' } }, { stage: { pick: 'hands' } });
-    expect(next.stage).toEqual({ pick: 'hands' });
-    expect(nextQuestion(next)).toBe('world');
-    expect(answeredIn({ ...next, world: { pick: 'stone' }, light: { pick: 'golden' } })).not.toContain('shot');
-  });
-
-  it('takes staging back when the world changes', () => {
-    const next = commit(guided, { world: { pick: 'dark' } });
-    expect(next.stage).toBeUndefined();
-    expect(next.light).toBeUndefined();
   });
 });
 
@@ -549,7 +505,8 @@ describe('the session', () => {
 describe('a phrase typed at the first question', () => {
   it('answers the questions it names, so they are not asked again', () => {
     expect(fillFrom('golden stone wall')).toEqual({ world: 'stone', light: 'golden' });
-    expect(fillFrom('on a plinth, in a studio')).toEqual({ world: 'colour', stage: 'plinth' });
+    // how the subject sits is no row's answer either: the reader keeps what the sentence says
+    expect(fillFrom('on a plinth, in a studio')).toEqual({ world: 'colour' });
     // a camera it names is no row's answer: the reader keeps it as the place's camera tendency
     expect(fillFrom('overhead, in a studio')).toEqual({ world: 'colour' });
     expect(fillFrom('close up')).toEqual({});
@@ -572,12 +529,6 @@ describe('a phrase typed at the first question', () => {
     expect(fillFrom('raw concrete interior')).toEqual({ world: 'plaster' });
     expect(fillFrom('plaster')).not.toMatchObject({ world: 'stone' });
   });
-
-  it('names a staging pick from the words, so that row is not asked again', () => {
-    expect(fillFrom('on a plinth')).toEqual({ stage: 'plinth' });
-    expect(fillFrom("in someone's hands")).toEqual({ stage: 'hands' });
-    expect(fillFrom('lying in the material')).toEqual({ stage: 'bed' });
-  });
 });
 
 describe('what is worth reading', () => {
@@ -588,7 +539,6 @@ describe('what is worth reading', () => {
       ...guided,
       world: { pick: PASSED },
       light: { pick: PASSED },
-      stage: { pick: PASSED },
     };
     // the questions are over, so nothing is on the floor
     expect(nextQuestion(passed)).toBeNull();
@@ -602,15 +552,13 @@ describe('what is worth reading', () => {
         ...guided,
         world: { pick: 'water' },
         light: { pick: PASSED },
-        stage: { pick: PASSED },
       }),
     ).toBe(true);
     expect(
       setupDone({
         ...guided,
         world: { pick: PASSED },
-        light: { pick: PASSED },
-        stage: { words: 'on a stack of old books' },
+        light: { words: 'one bare bulb' },
       }),
     ).toBe(true);
   });
@@ -618,9 +566,7 @@ describe('what is worth reading', () => {
   it('holds for the other two doors too', () => {
     expect(setupDone({ source: { door: 'words', text: '   ' } })).toBe(false);
     expect(setupDone({ source: { door: 'words', text: 'a cold shore' } })).toBe(false);
-    expect(
-      setupDone({ source: { door: 'words', text: 'a cold shore' }, light: { pick: PASSED }, stage: { pick: PASSED } }),
-    ).toBe(true);
+    expect(setupDone({ source: { door: 'words', text: 'a cold shore' }, light: { pick: PASSED } })).toBe(true);
     expect(setupDone({ source: { door: 'photos' }, photos: { hashes: [], done: true } })).toBe(false);
   });
 });
@@ -706,10 +652,114 @@ describe('what a sentence already decides', () => {
     expect(intentOf('dark marble').light).toBe(false);
   });
 
-  it('asks two things at most, world first, and nothing once three are said', () => {
+  it('asks the world and the light, world first, and nothing once three are said', () => {
     expect(followUps(intentOf('calm and expensive'))).toEqual(['world', 'light']);
-    expect(followUps(intentOf('a sunlit beach'))).toEqual(['stage']);
+    expect(followUps(intentOf('a sunlit beach'))).toEqual([]);
+    expect(followUps(intentOf('a cold shore'))).toEqual(['light']);
     expect(followUps(intentOf('hard flash, from above, on a plinth'))).toEqual(['world']);
     expect(followUps(intentOf('white cyclorama, hard flash, top-down'))).toEqual([]);
+  });
+});
+
+describe('after Use: the place in use, drawn in the conversation', () => {
+  const used = () => {
+    let s = read(EMPTY, { hash: H('a') });
+    s = reduce(s, { type: 'name', text: 'Tide Shelf' });
+    return reduce(s, { type: 'saved', id: 'us-1' });
+  };
+  const tile = (role: 'hero' | 'close' | 'hands', state: 'shown' | 'drawing' | 'failed', c = 'b') =>
+    state === 'shown'
+      ? { role, state, hash: H(c), url: `/api/images/${H(c)}` }
+      : state === 'failed'
+        ? { role, state, error: 'the engine returned no picture' }
+        : { role, state };
+  const set = (over: Partial<SetArgs> = {}): SetArgs => ({
+    tiles: [],
+    running: false,
+    read: true,
+    who: 'product',
+    noSubject: false,
+    missing: ['hands', 'angle', 'bold'],
+    finish: 'Open scene',
+    ...over,
+  });
+  const flow = (over: Partial<FlowArgs>) => args({ setup: setupOf(guided), studio: used(), ...over });
+
+  it('says it is saved and shows the pictures as they come, asking nothing while they draw', () => {
+    const drawing = set({ running: true, tiles: [tile('hero', 'drawing'), tile('close', 'drawing')] as any });
+    const T = turnsFor(flow({ set: drawing }));
+    expect(keys(T).slice(-2)).toEqual(['you:use', 'scenri:saved']);
+    expect(T.at(-1)).toMatchObject({
+      text: expect.stringContaining('Saved. Now it is shown in use, with a Scenri demo product'),
+    });
+    expect(lastQ(T)).toBeNull();
+    // the place is decided: no Put back on it, no pencil on the answers, nothing to type
+    expect(T.some((t) => t.kind === 'scenri' && !!t.restore)).toBe(false);
+    expect(T.some((t) => t.kind === 'you' && t.editable)).toBe(false);
+    expect(composerFor(flow({ set: drawing }), null).target.kind).toBe('off');
+  });
+
+  it('lands each picture with Try again, then offers three more or Not now', () => {
+    const landed = set({ tiles: [tile('hero', 'shown', 'b'), tile('close', 'shown', 'c')] as any });
+    const T = turnsFor(flow({ set: landed }));
+    expect(keys(T).slice(-3)).toEqual([`scenri:ex-hero-${H('b')}`, `scenri:ex-close-${H('c')}`, 'q:set-more']);
+    expect(T.find((t) => t.kind === 'scenri' && t.id === `ex-hero-${H('b')}`)).toMatchObject({
+      text: 'Here is the hero.',
+      thumb: H('b'),
+      label: 'Hero',
+      retry: 'hero',
+    });
+    const q = lastQ(T);
+    expect(q?.prompt).toBe('Add three more? Hands, another angle and a bold one.');
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Add them', 'Not now']);
+    // two, for a place built around a person
+    const two = lastQ(turnsFor(flow({ set: { ...landed, missing: ['angle', 'bold'] } })));
+    expect(two?.prompt).toBe('Add two more? Another angle and a bold one.');
+  });
+
+  it('ends on the last press once nothing more is wanted', () => {
+    const landed = set({ tiles: [tile('hero', 'shown', 'b'), tile('close', 'shown', 'c')] as any });
+    const declined = reduce(used(), { type: 'decline-more' });
+    const q = lastQ(turnsFor(flow({ studio: declined, set: landed })));
+    expect(q).toMatchObject({ id: 'set-done', prompt: 'Tide Shelf is ready.' });
+    expect(q?.kind === 'confirm' && q.options.map((o) => [o.id, o.label])).toEqual([['done', 'Open scene']]);
+    // all three drawn: nothing more to offer
+    const full = lastQ(turnsFor(flow({ set: { ...landed, missing: [] } })));
+    expect(full?.id).toBe('set-done');
+    // opened from Create, the last press goes back to the shot
+    expect(lastQ(turnsFor(flow({ studio: declined, set: { ...landed, finish: 'Use in a shot' } })))).toMatchObject({
+      options: [{ id: 'done', label: 'Use in a shot' }],
+    });
+  });
+
+  it('says which did not draw, and offers them again before the last press', () => {
+    const broken = set({ tiles: [tile('hero', 'shown', 'b'), tile('close', 'failed')] as any, missing: [] });
+    const T = turnsFor(flow({ set: broken }));
+    expect(T.find((t) => t.kind === 'scenri' && t.id === 'ex-failed-close')).toMatchObject({
+      text: 'The close-up did not draw: the engine returned no picture.',
+      tone: 'alert',
+    });
+    const q = lastQ(T);
+    expect(q?.prompt).toBe('Tide Shelf is ready. Some did not draw.');
+    expect(q?.kind === 'confirm' && q.options.map((o) => o.id)).toEqual(['retry-failed', 'done']);
+    // a failed hero has nothing to add more to
+    const noHero = lastQ(turnsFor(flow({ set: set({ tiles: [tile('hero', 'failed')] as any }) })));
+    expect(noHero?.id).toBe('set-done');
+  });
+
+  it("says so when Scenri's library cannot stand in the place yet, and still ends", () => {
+    const T = turnsFor(flow({ set: set({ noSubject: true, missing: [] }) }));
+    expect(T.find((t) => t.kind === 'scenri' && t.id === 'saved')).toMatchObject({
+      text: "Saved. Scenri's library has not downloaded yet, so it cannot be shown in use for now.",
+    });
+    expect(lastQ(T)?.id).toBe('set-done');
+  });
+
+  it('is no longer a draft, nor unsaved, and comes back after a reload still saved', () => {
+    const s = reduce(used(), { type: 'decline-more' });
+    expect(keptAsDraft(s)).toBe(false);
+    expect(unsaved(s, null)).toBe(false);
+    const back = unpackSession(packSession(setupOf(guided), s));
+    expect(back?.studio).toMatchObject({ saved: 'us-1', moreDeclined: true });
   });
 });

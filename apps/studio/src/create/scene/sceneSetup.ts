@@ -14,10 +14,9 @@ import { optionOf, ROW_ORDER, ROWS, type SceneRow } from './sceneRows.js';
  *
  * A sentence typed at the first question is a door of its own, and the rows
  * still stand behind it: only the ones it left open are asked (`sceneIntent`),
- * at most two, so a sentence that says the place, the light and the camera goes
- * straight to the reading (the camera it names becomes the place's camera
- * tendency, never a row), and one that says only "warm stone" is asked how it
- * is lit and how the subject lives in it.
+ * so a sentence that says the place, the light and the camera goes straight to
+ * the reading (the camera it names becomes the place's camera tendency, never
+ * a row), and one that says only "warm stone" is asked how it is lit.
  */
 
 /** How the place is given: pictures of it, the rows, or a sentence typed at the first question. */
@@ -39,7 +38,6 @@ export interface Answers {
   photos?: { hashes: string[]; done: boolean };
   world?: Given;
   light?: Given;
-  stage?: Given;
 }
 
 interface Spec {
@@ -190,7 +188,7 @@ export function compileDirection(a: Answers): string {
     const world = rowWords('world', a.world);
     const light =
       rowWords('light', a.light) ?? (intentOf(text).light ? null : (optionOf('world', a.world?.pick)?.light ?? null));
-    const more = [world, light, rowWords('stage', a.stage)].filter(Boolean) as string[];
+    const more = [world, light].filter(Boolean) as string[];
     return more.length ? `${text.replace(/[.\s]+$/, '')}, ${more.join(', ')}.` : text;
   }
   if (a.source?.door !== 'guided') return '';
@@ -199,10 +197,9 @@ export function compileDirection(a: Answers): string {
   // photographed in, so a place is never handed over with nothing said about
   // how it is lit.
   const light = rowWords('light', a.light) ?? optionOf('world', a.world?.pick)?.light ?? null;
-  const stage = rowWords('stage', a.stage);
-  const parts = [world ?? 'a place', light, stage].filter(Boolean) as string[];
+  const parts = [world ?? 'a place', light].filter(Boolean) as string[];
   const text = `${parts.join(', ').replace(/^./, (c) => c.toUpperCase())}.`;
-  const personalised = chosen(a.light) || chosen(a.stage) || !!a.world?.words?.trim();
+  const personalised = chosen(a.light) || !!a.world?.words?.trim();
   if (personalised || !a.world?.pick) return text;
   return `${text.slice(0, -1)}. ${COPY.worldIsAStart}`;
 }

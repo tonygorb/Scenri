@@ -11,8 +11,8 @@ import { Transcript } from '../../conversation/Transcript.js';
 import { PHONE, useMediaQuery } from '../../useMediaQuery.js';
 import { StageEmpty } from '../studio/StageEmpty.js';
 import { StudioFrame } from '../studio/StudioFrame.js';
-import { StudioStage } from '../studio/StudioStage.js';
-import type { StripItem, Take, StudioView } from './presenterStudioRules.js';
+import { type StageStripItem, StudioStage } from '../studio/StudioStage.js';
+import type { Take } from './presenterStudioRules.js';
 
 /** The stage, as a flow describes it. */
 export interface StageSurface {
@@ -26,8 +26,10 @@ export interface StageSurface {
   takes?: Take[];
   /** Put one of them back on the view. */
   onTake?: (hash: string) => void;
-  items: StripItem[];
-  onPick?: (view: StudioView) => void;
+  /** The strip: a presenter's views, or a scene's place and its examples. */
+  items: StageStripItem[];
+  /** Method syntax on purpose: a flow picks by its own names (a presenter's views, a scene's roles). */
+  onPick?(view: string): void;
   /** A candidate over a picture that stands: press to see the one it would replace. */
   compare?: { on: boolean; toggle: () => void };
 }
@@ -104,6 +106,8 @@ export interface StudioSurface {
   onCancelEdit?: () => void;
   /** A picture from before, put back on its view. */
   onRestore?: (view: string, hash: string) => void;
+  /** A picture drawn again: a scene's example. */
+  onRetry?: (view: string) => void;
   /** The head's one quiet action: Start over, Discard changes. */
   headAction?: ReactNode;
   /** Rows above the composer: the filed-under line, a Keep previous offer. */
@@ -140,7 +144,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
   // for the strip; the conversation only knows the view by name, so the two
   // are joined here rather than in either of them.
   const pick = s.stage?.onPick;
-  const show = pick ? (view: string) => pick(view as StudioView) : undefined;
+  const show = pick ? (view: string) => pick(view) : undefined;
   const open = s.turns[s.turns.length - 1];
   const decide =
     open?.kind === 'question' && open.question.kind === 'confirm' && !open.question.quiet ? open.question : null;
@@ -229,6 +233,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
           onSaveEdit={s.onSaveEdit}
           onCancelEdit={s.onCancelEdit}
           onRestore={s.onRestore}
+          onRetry={s.onRetry}
           onShow={show}
           onStarter={(text) => (s.onStarter ?? s.onText)(text)}
           onDescribe={s.onDescribe}

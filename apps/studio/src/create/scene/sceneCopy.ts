@@ -5,6 +5,13 @@
  * light, and what a shot is told about it is words. No em dashes, no marvel,
  * nothing about models.
  */
+/** "Hands, another angle and a bold one". */
+function joinAnd(xs: string[]): string {
+  const [first, ...rest] = xs;
+  const lead = [first, ...rest.map((x) => x.toLowerCase())];
+  return lead.length > 1 ? `${lead.slice(0, -1).join(', ')} and ${lead[lead.length - 1]}` : (lead[0] ?? '');
+}
+
 export const COPY = {
   title: 'Create scene',
   editTitle: 'Edit scene',
@@ -112,6 +119,30 @@ export const COPY = {
   offline: 'Lost touch with Scenri. Still trying.',
   retry: 'Try again',
   version: (n: number) => `Version ${n}`,
+
+  // after Use: the place in use, drawn here (sceneExamples.ts on the server)
+  saved: 'Saved.',
+  inUse: (who: 'product' | 'presenter') =>
+    `Saved. Now it is shown in use, with a Scenri demo ${who}. Shots are told the words, never handed these pictures.`,
+  noLibrary: "Saved. Scenri's library has not downloaded yet, so it cannot be shown in use for now.",
+  exampleHere: {
+    hero: 'Here is the hero.',
+    close: 'Here is a close-up.',
+    hands: 'Here it is in hands.',
+    angle: 'Here is another angle.',
+    bold: 'Here is a bold one.',
+  },
+  exampleFailed: (label: string, why: string) =>
+    `The ${label.toLowerCase()} did not draw: ${why.replace(/[.\s]+$/, '')}.`,
+  /** The three more, or two for a place already staged in hands or built around a person. */
+  more: (labels: string[]) =>
+    `Add ${['no', 'one', 'two', 'three'][labels.length] ?? labels.length} more? ${joinAnd(labels)}.`,
+  addThem: 'Add them',
+  notNow: 'Not now',
+  ready: (name: string) => `${name} is ready.`,
+  readyMissing: (name: string) => `${name} is ready. Some did not draw.`,
+  openScene: 'Open scene',
+  useInAShot: 'Use in a shot',
 
   // one line back to a sentence that answers nothing
   notAPlace: "That did not read as a place. Try a few words about it, like 'a quiet concrete gallery at dusk'.",

@@ -15,7 +15,7 @@ import { BookmarkSimple, CaretDown, PencilSimple } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
 import { COPY } from '../create/scene/sceneCopy.js';
 import { FRAMINGS, SETUPS_MAX } from '../create/scene/sceneSetups.js';
-import { sceneFactsLine, sceneTailLine } from './sceneFacts.js';
+import { sceneTailLine } from './sceneFacts.js';
 import { Tip } from '../layout/Tip.js';
 import { AssetDetailsDialog } from './AssetDetailsDialog.js';
 import { EmptyRefFrame, ShotThumb, Shown, Slider } from '../layout/ReferenceGallery.js';
@@ -24,6 +24,7 @@ import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { bookmarkedFirst } from '../layout/library/libraryRules.js';
 import { useStillHere } from '../useStillHere.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
+import { SceneExamples } from './SceneExamples.js';
 
 /**
  * One scene, as a record: the same page a presenter and a product have.
@@ -267,38 +268,21 @@ export function ScenePage() {
   }
 
   /**
-   * The pictures of this place, each with what it is.
+   * A curated scene's pictures, each with what it is.
    *
-   * One walk, so a label can never drift off its picture. Yours is the one
-   * drawn from the words; a curated scene carries a set shot in it, and a
-   * scene older than either has only its card.
+   * One walk, so a label can never drift off its picture. A curated scene
+   * carries a set shot in it, and one older than its set has only its card.
+   * Your own scene's pictures are SceneExamples: the place, then the place in use.
    */
-  const frames: { src: string; label: string }[] = owned
-    ? owned.previewUrl
-      ? [{ src: owned.previewUrl, label: 'The place' }]
-      : []
-    : refs.length
-      ? refs.map((src, i) => ({ src, label: `Example ${i + 1}` }))
-      : scene.previewUrl
-        ? [{ src: scene.previewUrl, label: 'The place' }]
-        : [];
+  const frames: { src: string; label: string }[] = refs.length
+    ? refs.map((src, i) => ({ src, label: `Example ${i + 1}` }))
+    : scene.previewUrl
+      ? [{ src: scene.previewUrl, label: 'The place' }]
+      : [];
 
-  /**
-   * The line under the pictures, when there is one worth saying.
-   *
-   * Two cases carry something a person cannot see for themselves: a curated
-   * set is photographed with a demo product standing in for the art direction,
-   * and a figure-led scene's person is a position rather than anybody.
-   */
-  const caption = owned
-    ? owned.figure
-      ? 'The person in it is a stand-in. With a presenter attached, this picture goes with the shot and they take the role.'
-      : // Measured 2026-09-22: a shot handed this picture reproduces its framing
-        // (5 of 9 near copies, and two different shots in one scene came out
-        // alike), while a shot told the words is still clearly this place.
-        // So the words travel and the picture is the proof of them.
-        'What the words below look like. A shot is told the words, not handed this picture, so it frames the place its own way.'
-    : scene.subject !== 'person' && frames.length > 0
+  /** A curated set is photographed with a demo product standing in for the art direction. */
+  const caption =
+    scene.subject !== 'person' && frames.length > 0
       ? 'Shown with a demo product for reference. Yours replaces it.'
       : '';
 
@@ -310,23 +294,43 @@ export function ScenePage() {
    * first upload for the preview, which showed the same photograph twice.
    */
   const sources = (owned?.refs ?? []).filter((src) => src !== owned?.previewUrl);
-  const tail = owned ? sceneTailLine({ ...owned, refs: sources }) : '';
-  const facts = sceneFactsLine(scene);
+  /**
+   * What its pictures are, said once, in the footnote the presenter page keeps
+   * for what is true about a record. Under the rail it read as a caption to
+   * the middle picture.
+   */
+  const shownWith = owned?.examples?.find((e) => !e.earlier)?.with ?? owned?.examples?.[0]?.with;
+  const about = !owned
+    ? ''
+    : owned.figure
+      ? 'The person in it is a stand-in: with a presenter attached, the picture goes with the shot and they take the role.'
+      : shownWith
+        ? `Shown in use with a Scenri demo ${shownWith}. Shots are told the words, never handed these pictures.`
+        : owned.previewUrl
+          ? // Measured 2026-09-22: a shot handed this picture reproduces its
+            // framing (5 of 9 near copies), while a shot told the words is
+            // still clearly this place. So the words travel and the picture
+            // is the proof of them.
+            'Shots are told the words, never handed this picture.'
+          : '';
+  const tail = owned ? sceneTailLine({ refs: sources, setups: owned.setups }, about) : '';
 
   return (
     <ScrollPane>
       <main className="sc-lookpage sc-scenepage" id="main">
-        <div className="sc-lookpage-crumb">
-          <Link to={scenesPath(brand)}>Scenes</Link>
-          <span>/</span>
-          <span>{owned ? 'Yours' : (scene.collections[0] ?? 'Scenri library')}</span>
-        </div>
-
         <h1>{scene.name}</h1>
+        {/* Where it is filed, as the app's own chips, above the caption: the
+            presenter page's order, and the thing a place is scanned for. */}
+        {scene.verticals.length > 0 && (
+          <ul className="sc-lookpage-cats" aria-label="Filed under">
+            {scene.verticals.map((c) => (
+              <li key={c} className="sc-chip" data-static>
+                {c}
+              </li>
+            ))}
+          </ul>
+        )}
         <p className="sc-lookpage-lede">{scene.description}</p>
-        {/* What this place is made of, in the words it was read with. Every
-            scene carries them and no surface has ever shown them. */}
-        {facts && <p className="sc-lookpage-facts">{facts}</p>}
 
         <div className="sc-lookpage-acts">
           {/* One verb. A scene with ways to shoot it keeps them on the verb
@@ -394,8 +398,10 @@ export function ScenePage() {
 
         {/* The place itself, and the only zone allowed to leave the column: a
             curated scene's examples stand side by side the way a presenter's
-            views do, and your own scene's one drawn picture stands alone. */}
-        {frames.length > 1 ? (
+            views do, and so do your own scene's, after its place. */}
+        {owned ? (
+          <SceneExamples key={owned.id} brandId={brand.id} scene={owned} onError={setErr} />
+        ) : frames.length > 1 ? (
           <Rail
             count={frames.length}
             label="Pictures of this place"
@@ -427,7 +433,7 @@ export function ScenePage() {
         ) : (
           <EmptyRefFrame />
         )}
-        {caption && <p className="sc-lookpage-note">{caption}</p>}
+        {!owned && caption && <p className="sc-lookpage-note">{caption}</p>}
 
         {/* What a shot made here is told, in the three keys that are real. The
             set prose behind them is the studio's, and Edit scene is the way to
@@ -459,15 +465,15 @@ export function ScenePage() {
 
         {sources.length > 0 && (
           <section className="sc-presenterpage-sources">
-            <p className="sc-presenterpage-sources-lb">Read from your photographs</p>
+            <p className="sc-presenterpage-sources-lb">From your photos</p>
             <div className="sc-presenterpage-sources-row">
               {sources.map((src, i) => (
                 <button
                   key={src}
                   type="button"
                   className="sc-presenterpage-source"
-                  aria-label={`Read from ${i + 1}, open`}
-                  onClick={() => setOpen({ src, label: `Read from ${i + 1}` })}
+                  aria-label={`Source photo ${i + 1}, open`}
+                  onClick={() => setOpen({ src, label: `Source photo ${i + 1}` })}
                 >
                   <Shown src={thumbOf(src, 'micro')} />
                 </button>

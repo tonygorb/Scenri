@@ -4,8 +4,14 @@ import fastifyMultipart from '@fastify/multipart';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { loadScenes, sceneResolver, defaultScenesDir } from './scenes.js';
-import { brandJsonWithResolvedPresenters, loadPresenters } from './presenters.js';
-import { brandJsonWithResolvedDemoProducts, loadDemoProducts, demoProductResolver } from './demoProducts.js';
+import { brandJsonWithResolvedPresenters, loadPresenters, presenterAvatarPath } from './presenters.js';
+import {
+  brandJsonWithResolvedDemoProducts,
+  demoProductRefPath,
+  demoProductResolver,
+  loadDemoProducts,
+  PRODUCT_ANGLES_BY_CATEGORY,
+} from './demoProducts.js';
 import { compileBrief, validateBrief, FORMATS, type Attachment, type Brief, type BriefToken } from './brief.js';
 import { mergeEditAttachments } from './attachmentBudget.js';
 import { shotWordsFor } from './shotWords.js';
@@ -680,9 +686,16 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     },
     sizes,
     release: (hashes) => removeUnreferenced(core, hashes, { evict: (hash) => thumbs.evict(hash) }),
+    // the subject's pictures are Scenri's library, downloaded after install
+    ready: (subject) => {
+      if (subject.kind === 'presenter') return existsSync(presenterAvatarPath(templatesRoot, subject.id));
+      const product = demoProducts.find((p) => p.id === subject.id);
+      const angles = PRODUCT_ANGLES_BY_CATEGORY[product?.category ?? ''] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
+      return angles.some((angle) => existsSync(demoProductRefPath(templatesRoot, subject.id, angle)));
+    },
     log: (obj, msg) => app.log.warn(obj, msg),
   });
-  registerSceneExampleRoutes(app, { core, examples: sceneExamples, subjects: demoProducts, presenters });
+  registerSceneExampleRoutes(app, { core, examples: sceneExamples });
 
   registerShowcaseRoutes(app, { templatesRoot, thumbs });
 

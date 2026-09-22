@@ -32,6 +32,8 @@ export function SceneCreate({
   onClose,
   onStartOver,
   onSaved,
+  onDone,
+  finish,
 }: {
   brand: Brand;
   applyBrand: (b: Brand) => void;
@@ -45,8 +47,23 @@ export function SceneCreate({
   /** A new conversation in place of this one. */
   onStartOver: () => void;
   onSaved: (made: SavedScene, how: 'created' | 'updated') => void;
+  /** After Use, the last press: the saved scene, where it goes next. */
+  onDone: (sceneId: string) => void;
+  /** What that press says. */
+  finish: string;
 }) {
-  const f = useSceneFlow({ brand, applyBrand, sceneId, seed, conversation, storageKey, caps, onSaved });
+  const f = useSceneFlow({
+    brand,
+    applyBrand,
+    sceneId,
+    seed,
+    conversation,
+    storageKey,
+    caps,
+    onSaved,
+    onDone,
+    finish,
+  });
   const [leaving, setLeaving] = useState(false);
   // The question on the floor, for the first-use guide (DESIGN.md, "First use").
   const last = f.turns[f.turns.length - 1];
@@ -56,6 +73,12 @@ export function SceneCreate({
   const editing = !!sceneId;
 
   const close = () => {
+    // Used: the scene is saved and its pictures keep drawing on the server, so
+    // closing is the last press said early, and goes where it would.
+    if (f.saved) {
+      f.finish();
+      return;
+    }
     // Work under way keeps going: the page is not what it belongs to. Leaving
     // now is the same as following any link out, and the conversation, kept
     // under its address, is where Activity brings the person back to. So is a
@@ -76,7 +99,7 @@ export function SceneCreate({
   };
 
   const headAction =
-    !editing && f.begun ? (
+    !editing && f.begun && !f.saved ? (
       <Confirm
         label={COPY.startOver}
         tone="quiet"
@@ -113,6 +136,7 @@ export function SceneCreate({
         onSaveEdit: f.onSaveEdit,
         onCancelEdit: f.onCancelEdit,
         onRestore: f.onRestore,
+        onRetry: f.onRetry,
         onDescribe: f.onDescribe,
         onStarter: f.onStarter,
         onPaste: f.onPaste,

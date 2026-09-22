@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { arrived, isolate } from './harness.js';
+import { finishSceneSet } from './realtime.js';
 
 /**
  * The scene studio, driven the way a person drives it.
@@ -24,6 +25,8 @@ isolate({
     SCENRI_DEMO_ANALYSIS: 'usable',
     SCENRI_DEMO_READ_MS: '300',
   },
+  // the place in use needs something to stand in it: Scenri's library, downloaded
+  library: true,
 });
 
 /** Two small PNGs that differ, so the content-addressed store keeps them apart. */
@@ -74,7 +77,7 @@ async function place(p: Page, sentence: string) {
   for (let i = 0; i < 3; i++) {
     const q = live();
     if (passed) await expect(q).not.toHaveAttribute('data-turn', passed);
-    await expect(q).toHaveAttribute('data-turn', /^q:(world|light|stage|agree-)/);
+    await expect(q).toHaveAttribute('data-turn', /^q:(world|light|agree-)/);
     const id = (await q.getAttribute('data-turn')) ?? '';
     if (id.startsWith('q:agree-')) return;
     await tap(q, 'Leave it to the reading');
@@ -96,9 +99,9 @@ async function start(p: Page) {
 }
 
 /** The rows a person is asked, one tap each, in the order they are asked. */
-async function guide(p: Page, picks = ['Sunlit stone', 'Golden hour', 'On a plinth']) {
+async function guide(p: Page, picks = ['Sunlit stone', 'Golden hour']) {
   await tap(turn(p, 'q:source'), 'Guide me');
-  for (const [i, id] of ['world', 'light', 'stage'].entries()) {
+  for (const [i, id] of ['world', 'light'].entries()) {
     await expect(turn(p, `q:${id}`)).toBeVisible();
     await tap(turn(p, `q:${id}`), picks[i]);
   }
@@ -114,12 +117,14 @@ async function draw(p: Page) {
 test('guided: the rows, read back as the words shots are told, drawn on a press, named while it draws, used', async ({
   page,
 }) => {
+  // the place, then its hero (two draws) and close-up, at the demo engine's pace
+  test.setTimeout(75_000);
   const slug = await start(page);
   await guide(page);
   const agree = openQ(page);
   await expect(agree).toContainText('Here is the place, in full. Ready to draw?');
   await expect(agree).toContainText(
-    'A niche of warm limestone and rough plaster, in low golden-hour sun, long warm shadows, the subject standing on a simple plinth or ledge in the space.',
+    'A niche of warm limestone and rough plaster, in low golden-hour sun, long warm shadows.',
   );
   // nothing was drawn before the press
   await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(0);
@@ -131,13 +136,88 @@ test('guided: the rows, read back as the words shots are told, drawn on a press,
   await expect(openQ(page)).toContainText('Here is Dusk Lobby.');
   await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(1);
   await tap(openQ(page), 'Use this scene');
+  // saved at once, and the conversation goes on: the place in use, drawn here
+  await expect.poll(async () => (await scenes(page)).some((s) => s.name === 'Dusk Lobby')).toBe(true);
+  await expect(turn(page, 'you:use')).toContainText('Use this scene');
+  await expect(turn(page, 'scenri:saved')).toContainText('Saved. Now it is shown in use, with a Scenri demo product.');
+  const hero = studio(page).locator('[data-turn^="scenri:ex-hero-"]');
+  const close = studio(page).locator('[data-turn^="scenri:ex-close-"]');
+  await expect(hero).toContainText('Here is the hero.', { timeout: 30_000 });
+  await expect(close).toContainText('Here is a close-up.', { timeout: 30_000 });
+  // the stage strip is the place and its examples
+  await expect(studio(page).locator('.sc-pstudio-strip')).toContainText('The place');
+  await expect(studio(page).locator('.sc-pstudio-strip')).toContainText('Close-up');
+  // three more are offered, not drawn
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-more');
+  await expect(openQ(page)).toContainText('Add three more? Hands, another angle and a bold one.');
+  await tap(openQ(page), 'Not now');
+  await expect(turn(page, 'you:more')).toContainText('Not now');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-done');
+  await expect(openQ(page)).toContainText('Dusk Lobby is ready.');
+  await tap(openQ(page), 'Open scene');
   await page.waitForURL(new RegExp(`/${slug}/scenes/us-`));
   await expect(page.getByRole('heading', { level: 1, name: 'Dusk Lobby' })).toBeVisible();
+  // the page shows them, and draws nothing
+  const rail = page.locator('.sc-refset');
+  await expect(rail).toContainText('The place');
+  await expect(rail).toContainText('Hero');
+  await expect(rail).toContainText('Close-up');
+  await expect(page.getByRole('button', { name: /Add|Try again|Show it in use/ })).toHaveCount(0);
   const saved = (await scenes(page)).find((s) => s.name === 'Dusk Lobby');
   expect(saved.instruction).toBe(
-    'A niche of warm limestone and rough plaster, in low golden-hour sun, long warm shadows, the subject standing on a simple plinth or ledge in the space.',
+    'A niche of warm limestone and rough plaster, in low golden-hour sun, long warm shadows.',
   );
   expect(saved.preview).toMatch(/^asset:[a-f0-9]{32}$/);
+  expect(saved.examples.map((e: any) => [e.role, e.from])).toEqual([
+    ['hero', saved.preview],
+    ['close', saved.preview],
+  ]);
+});
+
+test('after Use, three more on asking, and any one drawn again from beside it', async ({ page }) => {
+  // the place, then six examples one after another, then one again
+  test.setTimeout(120_000);
+  await start(page);
+  await place(page, 'A pale travertine counter by a tall window');
+  await draw(page);
+  await say(page, 'Travertine Counter');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await tap(openQ(page), 'Use this scene');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-more', { timeout: 30_000 });
+  await tap(openQ(page), 'Add them');
+  await expect(turn(page, 'you:more')).toContainText('Add them');
+  // drawing: nothing is asked, and Stop is there
+  await expect(studio(page).locator('[data-turn^="scenri:ex-bold-"]')).toContainText('Here is a bold one.', {
+    timeout: 30_000,
+  });
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-done');
+  const saved = () => scenes(page).then((all) => all.find((s) => s.name === 'Travertine Counter'));
+  expect((await saved()).examples.map((e: any) => e.role)).toEqual(['hero', 'close', 'hands', 'angle', 'bold']);
+
+  // Try again beside the close-up draws that one again, and only that one. The
+  // demo engine answers the same edit with the same bytes, so the run is what
+  // is read, not the picture.
+  const run = async () => {
+    const brands = await (await page.request.get('/api/brands')).json();
+    const b = brands.find((x: any) => (x.json?.scenes ?? []).some((sc: any) => sc.name === 'Travertine Counter'));
+    const sc = b.json.scenes.find((x: any) => x.name === 'Travertine Counter');
+    return (await (await page.request.get(`/api/brands/${b.id}/scenes/${sc.id}/examples`)).json()).job;
+  };
+  const before = (await run()).id;
+  const pic = studio(page).locator('[data-turn^="scenri:ex-close-"]');
+  await pic.hover();
+  await pic.getByRole('button', { name: 'Try again' }).click();
+  await expect
+    .poll(
+      async () => {
+        const j = await run();
+        return j.id !== before && j.status === 'done' ? j.done : null;
+      },
+      { timeout: 30_000 },
+    )
+    .toEqual(['close']);
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-done', { timeout: 30_000 });
+  expect((await saved()).examples).toHaveLength(5);
 });
 
 test('a name typed while the picture draws is the name, even when the picture lands before Enter', async ({ page }) => {
@@ -183,6 +263,7 @@ test('a sentence at the first question is the place itself, and a scene saved un
   await draw(page);
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
   await tap(openQ(page), 'Use this scene');
+  await finishSceneSet(page);
   await page.waitForURL(/\/scenes\/us-/);
   expect((await scenes(page)).some((s) => s.name === 'White cyclorama with')).toBe(true);
 });
@@ -204,6 +285,7 @@ test('the picture door: pictures read into words, the reader’s note said, the 
   await say(page, 'Two Shores');
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
   await tap(openQ(page), 'Use this scene');
+  await finishSceneSet(page);
   await page.waitForURL(/\/scenes\/us-/);
   const saved = (await scenes(page)).find((s) => s.name === 'Two Shores');
   expect(saved.refs).toHaveLength(2);
@@ -257,6 +339,7 @@ test('a change keeps the rest, and Put back restores a whole version, words and 
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:decide-1');
   await expect(openQ(page)).not.toContainText('make the walls darker');
   await tap(openQ(page), 'Use this scene');
+  await finishSceneSet(page);
   await page.waitForURL(/\/scenes\/us-/);
   const saved = (await scenes(page)).find((s) => s.name === 'Gallery');
   expect(first).toContain(saved.preview.slice('asset:'.length));
@@ -267,7 +350,6 @@ test('the pencil takes an answer back and asks again from there', async ({ page 
   await tap(turn(page, 'q:source'), 'Guide me');
   await tap(turn(page, 'q:world'), 'Sunlit stone');
   await tap(turn(page, 'q:light'), 'Golden hour');
-  await tap(turn(page, 'q:stage'), 'On a plinth');
   // change the world: everything asked after it is asked again
   await turn(page, 'you:world').hover();
   await turn(page, 'you:world').getByRole('button', { name: 'Change this answer' }).click();
@@ -276,7 +358,9 @@ test('the pencil takes an answer back and asks again from there', async ({ page 
   await expect(turn(page, 'you:world')).toContainText('Volcanic haze');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:light');
   await expect(turn(page, 'you:light')).toHaveCount(0);
+  // nothing asks how the subject sits or where the camera stands
   await expect(turn(page, 'you:shot')).toHaveCount(0);
+  await expect(turn(page, 'q:stage')).toHaveCount(0);
 });
 
 test('an answer the picture was drawn from asks before it opens, and changing it asks again from there without the old picture', async ({
@@ -300,7 +384,6 @@ test('an answer the picture was drawn from asks before it opens, and changing it
   // nothing moved: the answer stands and so does the picture drawn from it
   await expect(turn(page, 'you:world')).toContainText('Sunlit stone');
   await expect(turn(page, 'you:light')).toContainText('Golden hour');
-  await expect(turn(page, 'you:stage')).toContainText('On a plinth');
   await expect(pics).toHaveCount(1);
   // agreed: the row opens, and a new answer asks again from there
   await pencil();
@@ -311,7 +394,6 @@ test('an answer the picture was drawn from asks before it opens, and changing it
   await expect(pics).toHaveCount(0);
   await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(0);
   await tap(openQ(page), 'Low-key');
-  await tap(openQ(page), 'On a plinth');
   await expect(openQ(page)).toContainText('near-black polished surface');
   // the name given stays with the place
   await draw(page);
@@ -339,7 +421,8 @@ test('the keyboard goes on with the conversation: each next answer is a Tab away
   await page.keyboard.press('Tab');
   await expect(turn(page, 'q:light').getByRole('button', { name: 'Soft daylight', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:stage');
+  // the last row: the place is read back next
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/);
 });
 
 test('a sentence that answers nothing gets a line, and a request to cast someone is sent to Create', async ({
@@ -416,6 +499,7 @@ test('a saved scene opens in the studio at its record, spending nothing, and sav
   await say(page, 'Morning Counter');
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
   await tap(openQ(page), 'Use this scene');
+  await finishSceneSet(page);
   await page.waitForURL(/\/scenes\/us-/);
   const id = new URL(page.url()).pathname.split('/').pop();
   await page.getByRole('link', { name: 'Edit scene' }).click();
@@ -426,9 +510,15 @@ test('a saved scene opens in the studio at its record, spending nothing, and sav
   await tap(openQ(page), 'Try again');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:decide-1');
   await tap(openQ(page), 'Save changes');
+  // a new picture of the place: its examples are drawn again from it, here
+  await finishSceneSet(page);
   await page.waitForURL(new RegExp(`/scenes/${id}$`));
   const all = (await scenes(page)).filter((s) => s.name === 'Morning Counter');
   expect(all).toHaveLength(1);
+  expect(all[0].examples.map((e: any) => [e.role, e.from])).toEqual([
+    ['hero', all[0].preview],
+    ['close', all[0].preview],
+  ]);
 });
 
 test('the old address forwards to the studio', async ({ page }) => {
@@ -445,19 +535,15 @@ test('a sentence is asked only what it left open: a full one goes straight to th
   // the place, the light and the camera said: nothing more is asked
   await say(page, 'White cyclorama, hard flash, top-down product photography');
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/);
-  await expect(studio(page).locator('[data-turn="q:world"], [data-turn="q:light"], [data-turn="q:stage"]')).toHaveCount(
-    0,
-  );
+  await expect(studio(page).locator('[data-turn="q:world"], [data-turn="q:light"]')).toHaveCount(0);
 
-  // a material and a register: how it is lit, then how the subject sits, and nothing else
+  // a material and a register: how it is lit, and nothing else
   await page.goto(`/${slug}/scenes/new`);
   await expect(turn(page, 'q:source')).toBeVisible();
   await say(page, 'luxury product photography in warm stone');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:light');
   await expect(openQ(page)).toContainText('You have the place. What light is it in?');
   await tap(openQ(page), 'Golden hour');
-  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:stage');
-  await tap(openQ(page), 'On a plinth');
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/);
   await expect(openQ(page)).toContainText('luxury product photography in warm stone, in low golden-hour sun');
   // the camera is never one of them

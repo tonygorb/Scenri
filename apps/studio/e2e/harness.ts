@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -94,7 +94,48 @@ type SeedOptions = {
   shot?: boolean;
   /** Extra environment for this file's own Scenri: the demo engine's timing knobs, say. */
   env?: Record<string, string>;
+  /**
+   * Scenri's library of demo products, as a download would leave it, so a
+   * scene's examples have something to stand in the place. Off by default:
+   * every other file runs as an install that has not downloaded it.
+   */
+  library?: boolean;
 };
+
+/** One pixel: the demo engine draws placeholders whatever it is handed. */
+const PIXEL = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+/** Every view a demo product's category can ask for (PRODUCT_ANGLES_BY_CATEGORY). */
+const DEMO_ANGLES = [
+  'three-quarter',
+  'front',
+  'side',
+  'lateral-side',
+  'medial-side',
+  'back',
+  'detail',
+  'detail-fabric',
+  'clasp-detail',
+  'label',
+  'packaging-label',
+  'string',
+];
+
+/** The library cache a download writes (content/overlay.ts), one picture per view per demo product. */
+function seedDemoLibrary(home: string): void {
+  const root = join(home, 'content');
+  const dir = join(ROOT, 'templates', 'demo-products');
+  for (const f of readdirSync(dir).filter((n) => n.endsWith('.json'))) {
+    const id = String(JSON.parse(readFileSync(join(dir, f), 'utf8')).id);
+    const out = join(root, 'previews', 'demo-products', id);
+    mkdirSync(out, { recursive: true });
+    for (const angle of DEMO_ANGLES) writeFileSync(join(out, `${angle}.jpg`), PIXEL);
+  }
+  // written last: it is the marker that says the download is whole
+  writeFileSync(join(root, 'meta.json'), JSON.stringify({ version: 'e2e' }));
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -143,9 +184,10 @@ class ScenriFixture {
   private child: ChildProcess | null = null;
   home: string | null = null;
 
-  async start(env: Record<string, string> = {}): Promise<void> {
+  async start(env: Record<string, string> = {}, library = false): Promise<void> {
     requireStudioBuild();
     this.home = mkdtempSync(join(tmpdir(), 'sc-e2e-'));
+    if (library) seedDemoLibrary(this.home);
     // node directly, not `pnpm exec tsx`. Through pnpm the server is a
     // grandchild, and a SIGTERM to pnpm does not always reach it: the server
     // outlives its own teardown, keeps the port, and the next file's start()
@@ -314,7 +356,7 @@ export function isolate(opts: SeedOptions = {}): void {
 
   test.beforeAll(async () => {
     test.setTimeout(120_000);
-    await fx.start(opts.env);
+    await fx.start(opts.env, opts.library);
     if (opts.brand !== false) await fx.seed(opts);
   });
 

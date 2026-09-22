@@ -581,13 +581,14 @@ export interface SceneStudioJob {
 }
 
 /**
- * A studio's work as Activity shows it: a scene studio job, or a presenter
- * draft's run (a set that goes on view after view is one run).
+ * A studio's work as Activity shows it: a scene studio job, a presenter
+ * draft's run (a set that goes on view after view is one run), or a scene's
+ * examples being drawn.
  */
 export interface StudioWork {
-  /** `scene:<job>` or `presenter:<draft>:<run>`. */
+  /** `scene:<job>`, `examples:<job>` or `presenter:<draft>:<run>`. */
   id: string;
-  kind: 'scene' | 'presenter';
+  kind: 'scene' | 'presenter' | 'examples';
   status: 'running' | 'done' | 'failed' | 'cancelled';
   /** `reading`, `changing`, `drawing`, or a presenter view. */
   step: string | null;
@@ -605,6 +606,24 @@ export interface StudioWork {
   done?: number;
   total?: number;
   awaiting?: boolean;
+}
+
+/** What one of a scene's examples shows: the place in use, with a Scenri demo product or presenter. */
+export type SceneExampleRole = 'hero' | 'close' | 'hands' | 'angle' | 'bold';
+
+/** A scene's examples being drawn, or the last run that drew them. */
+export interface SceneExampleJob {
+  id: string;
+  status: 'running' | 'done' | 'failed' | 'cancelled';
+  /** Asked for, in order; the queue grows when more are asked for while it runs. */
+  roles: SceneExampleRole[];
+  done: SceneExampleRole[];
+  failed: { role: SceneExampleRole; error: string }[];
+  current: SceneExampleRole | null;
+  /** The place picture they are drawn from, as `asset:<hash>`. */
+  from: string;
+  subject: { kind: 'product' | 'presenter'; id: string };
+  error: string | null;
 }
 
 export interface SceneField {

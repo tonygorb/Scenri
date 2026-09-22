@@ -717,6 +717,26 @@ describe('studio work in the bell', () => {
     expect(taskFromStudioWork(w({}), brand).percent).toBeNull();
   });
 
+  it("leads a scene's examples to the scene's page, with how far they have got", () => {
+    const e = w({
+      id: 'examples:x1',
+      kind: 'examples',
+      step: 'close',
+      sceneId: 'us-9',
+      conversation: undefined,
+      done: 1,
+      total: 2,
+    });
+    const t = taskFromStudioWork(e, brand);
+    expect(t.href).toBe('/acme/scenes/us-9');
+    expect(t.kind).toBe('scene');
+    expect(t.percent).toBe(50);
+    expect(t.subtitle).toBe('Drawing the close-up · 1 of 2');
+    expect(studioSubtitle({ ...e, status: 'done', done: 2 })).toBe('2 examples drawn');
+    expect(studioSubtitle({ ...e, status: 'cancelled' })).toBe('Stopped');
+    expect(isStudioTask(t.id)).toBe(true);
+  });
+
   it('says what it is doing, and what came of it', () => {
     expect(studioSubtitle(w({ step: 'reading' }))).toBe('Reading the place');
     expect(studioSubtitle(w({ status: 'done' }))).toBe('The picture is drawn');

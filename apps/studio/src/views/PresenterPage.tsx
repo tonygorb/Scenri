@@ -291,7 +291,7 @@ export function PresenterPage() {
             pill, so a row of each with nothing between them read as one bank
             of controls. The caption is the thing that keeps them apart. */}
         {presenter.suitableCategories.length > 0 && (
-          <ul className="sc-presenterpage-cats" aria-label="Filed under">
+          <ul className="sc-lookpage-cats" aria-label="Filed under">
             {presenter.suitableCategories.map((c) => (
               <li key={c} className="sc-chip" data-static>
                 {c}

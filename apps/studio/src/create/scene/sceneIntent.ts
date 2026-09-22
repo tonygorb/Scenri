@@ -5,8 +5,7 @@
  * photography" has said the place, the light and the camera; asking them any
  * of it again is the survey this studio is not. A person who types "luxury
  * product photography in warm stone" has said the world and nothing about how
- * it is lit or how the subject lives in it, and those are the two questions
- * worth one tap each.
+ * it is lit, and that is the one question worth a tap.
  *
  * Four creative decisions, each known or not, read off whole words. Deliberately
  * stricter than the rows' own cues, which are tuned for a two-word phrase
@@ -291,14 +290,13 @@ export const known = (i: Intent): Dimension[] => (Object.keys(LEXICON) as Dimens
 /**
  * The questions still worth asking after a sentence, in the order they are asked.
  *
- * World first, because a scene has to be somewhere; then how it is lit; then
- * how the subject lives in it. Never the camera: that belongs to the shot (and
- * to the scene's ways of shooting it), and a sentence that says it keeps it.
- * At most two, because two taps is a follow-up and three is a form. None at all
- * once three of the four decisions are made, unless the one missing is the
- * world itself.
+ * World first, because a scene has to be somewhere; then how it is lit.
+ * Never how the subject sits or where the camera is: those belong to the shot
+ * (and to the scene's ways of shooting it), and a sentence that says them
+ * keeps them. None at all once three of the four things a sentence can decide
+ * are decided, unless the one missing is the world itself.
  */
-export function followUps(i: Intent): ('world' | 'light' | 'stage')[] {
+export function followUps(i: Intent): ('world' | 'light')[] {
   if (known(i).length >= 3) return i.world ? [] : ['world'];
-  return (['world', 'light', 'stage'] as const).filter((d) => !i[d]).slice(0, 2);
+  return (['world', 'light'] as const).filter((d) => !i[d]);
 }

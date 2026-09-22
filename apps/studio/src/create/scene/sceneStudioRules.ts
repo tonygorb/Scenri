@@ -81,6 +81,18 @@ export interface StudioState {
   named: boolean;
   job: JobRef | null;
   error: string | null;
+  /**
+   * The scene this conversation saved, once Use was pressed. The conversation
+   * goes on after it, drawing the place in use (the examples), so the record
+   * exists before the last picture does and nothing is lost by leaving.
+   */
+  saved: string | null;
+  /** Not now, to the three more. */
+  moreDeclined: boolean;
+  /** Add them, to the three more: said in the conversation where it was said. */
+  moreAsked: boolean;
+  /** The two automatic examples were asked for from here, once (a scene saved before they existed). */
+  setAsked: boolean;
 }
 
 export const EMPTY: StudioState = {
@@ -95,6 +107,10 @@ export const EMPTY: StudioState = {
   named: false,
   job: null,
   error: null,
+  saved: null,
+  moreDeclined: false,
+  moreAsked: false,
+  setAsked: false,
 };
 
 /** A saved scene, opened in the studio: its words and its picture as version one, nothing spent. */
@@ -132,7 +148,12 @@ export type Action =
   | { type: 'edit-words'; reading: SceneReading }
   /** The answers the pictures were drawn from changed; the conversation reads forward, so they go. */
   | { type: 'forget-record' }
-  | { type: 'error'; text: string | null };
+  | { type: 'error'; text: string | null }
+  /** Use saved the scene: the conversation goes on to its examples. */
+  | { type: 'saved'; id: string }
+  | { type: 'decline-more' }
+  | { type: 'ask-more' }
+  | { type: 'set-asked' };
 
 export const current = (s: StudioState): Version | null => s.versions[s.current] ?? null;
 
@@ -285,6 +306,14 @@ export function reduce(s: StudioState, a: Action): StudioState {
     }
     case 'error':
       return { ...s, error: a.text };
+    case 'saved':
+      return { ...s, saved: a.id, error: null };
+    case 'decline-more':
+      return { ...s, moreDeclined: true };
+    case 'ask-more':
+      return { ...s, moreAsked: true };
+    case 'set-asked':
+      return { ...s, setAsked: true };
   }
 }
 
@@ -428,10 +457,11 @@ export const repeatsLastAsk = (s: StudioState, ask: string): boolean =>
  * its own Discard. Before anything is read there is nothing to show, so only
  * then does leaving ask.
  */
-export const keptAsDraft = (s: StudioState): boolean => s.versions.length > 0 || !!s.job || !!s.error;
+export const keptAsDraft = (s: StudioState): boolean => !s.saved && (s.versions.length > 0 || !!s.job || !!s.error);
 
 /** Whether leaving now would throw away something the person made. */
 export const unsaved = (s: StudioState, seededFrom: StudioState | null): boolean => {
+  if (s.saved) return false;
   if (seededFrom)
     return (
       s.versions.length > seededFrom.versions.length ||
@@ -507,5 +537,9 @@ export function deserialize(raw: string | null): StudioState | null {
     named: !!o.named,
     job,
     error: typeof o.error === 'string' ? o.error : null,
+    saved: typeof o.saved === 'string' && o.saved ? o.saved : null,
+    moreDeclined: o.moreDeclined === true,
+    moreAsked: o.moreAsked === true,
+    setAsked: o.setAsked === true,
   };
 }

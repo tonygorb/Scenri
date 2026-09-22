@@ -1,4 +1,4 @@
-import { assetUrl, type Brand, type Presenter, type Scene, type SceneSetup } from './api.js';
+import { assetUrl, type Brand, type Presenter, type Scene, type SceneExampleRole, type SceneSetup } from './api.js';
 
 /**
  * The presenters and scenes a brand built for itself, read out of its own
@@ -43,7 +43,24 @@ export interface CustomScene extends Scene {
   figureTreatment?: string;
   /** Ways to shoot this same world: a label and a camera line each, never a picture. */
   setups?: SceneSetup[];
+  /** The place in use, with a Scenri demo product or presenter. Shown here only, never handed to a shot. */
+  examples?: SceneExampleView[];
 }
+
+export interface SceneExampleView {
+  role: SceneExampleRole;
+  url: string;
+  /** The picture's store hash, for the studio's conversation and its stage. */
+  hash: string;
+  /** Drawn from a picture of the place that has since been replaced. */
+  earlier: boolean;
+  /** The way of shooting it this example shows, when it shows one (FRAMINGS). */
+  setup?: string;
+  /** Who stands in it: a Scenri demo product, or a demo presenter. */
+  with: 'product' | 'presenter';
+}
+
+const EXAMPLE_ROLES: readonly SceneExampleRole[] = ['hero', 'close', 'hands', 'angle', 'bold'];
 
 const urls = (rows: unknown): string[] =>
   Array.isArray(rows) ? rows.map((r: any) => assetUrl(r?.file)).filter((u): u is string => !!u) : [];
@@ -195,6 +212,18 @@ function toScene(s: any): CustomScene {
       ? s.setups
           .filter((v: any) => v?.id && v?.label && v?.camera)
           .map((v: any) => ({ id: String(v.id), label: String(v.label), camera: String(v.camera) }))
+      : undefined,
+    examples: Array.isArray(s.examples)
+      ? s.examples
+          .filter((e: any) => EXAMPLE_ROLES.includes(e?.role) && assetUrl(e?.file))
+          .map((e: any) => ({
+            role: e.role as SceneExampleRole,
+            url: assetUrl(e.file) as string,
+            hash: String(e.file).slice('asset:'.length),
+            earlier: e.from !== s.preview,
+            with: e.presenter ? ('presenter' as const) : ('product' as const),
+            ...(e.setup ? { setup: String(e.setup) } : {}),
+          }))
       : undefined,
   };
 }

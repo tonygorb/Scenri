@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { uploadImage } from '../../api.js';
-import type { Brand } from '../../apiTypes.js';
+import { api, uploadImage } from '../../api.js';
+import type { Brand, SceneExampleRole } from '../../apiTypes.js';
+import { customSceneById } from '../../brandAssets.js';
+import { EXAMPLE_LABEL, examplesSubtitle, exampleTiles, missingMore } from '../../sceneExampleRules.js';
+import { useSceneExamples } from '../../useSceneExamples.js';
+import type { StageStripItem } from '../studio/StudioStage.js';
 import { type Answer, nowIso } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import { local } from '../../storage.js';
@@ -10,6 +14,7 @@ import {
   composerFor,
   describesPlace,
   type FlowArgs,
+  type SetArgs,
   type Target,
   judge,
   packSession,
@@ -111,7 +116,12 @@ export function useSceneFlow(args: {
   conversation: string;
   storageKey: string;
   caps: Caps | null;
+  /** Use saved it: said to the rest of the app. The conversation stays open. */
   onSaved: (made: SavedScene, how: 'created' | 'updated') => void;
+  /** The last press after Use: where the saved scene goes next. */
+  onDone: (sceneId: string) => void;
+  /** What that press says. */
+  finish: string;
 }) {
   const { brand, applyBrand, sceneId, seed, conversation, storageKey, caps } = args;
   const edit = sceneId && seed ? { name: seed.name } : null;
@@ -157,17 +167,81 @@ export function useSceneFlow(args: {
     sceneId,
     conversation,
     applyBrand,
-    onSaved: (made, asNew) => {
-      gone.current = true;
-      forget(storageKey);
-      forgetSaid(storageKey);
-      onSavedRef.current(made, sceneId && !asNew ? 'updated' : 'created');
-    },
+    onSaved: (made, asNew) => onSavedRef.current(made, sceneId && !asNew ? 'updated' : 'created'),
   });
 
+  // Kept under the scene it saved, once it saved one, so the Scenes wall never
+  // shows a used conversation as a draft.
   useEffect(() => {
-    if (!gone.current) store(storageKey, packSession(setup, studio), sceneId);
+    if (!gone.current) store(storageKey, packSession(setup, studio), sceneId ?? studio.saved);
   }, [setup, studio, storageKey, sceneId]);
+
+  /* ---- after Use: the place in use */
+
+  const savedId = studio.saved;
+  const savedScene = savedId ? customSceneById(brand, savedId) : undefined;
+  const ex = useSceneExamples(brand.id, savedId, savedScene?.previewUrl ?? null);
+  const setRunning = ex.job?.status === 'running';
+  const [stoppingSet, setStoppingSet] = useState(false);
+  useEffect(() => {
+    if (!setRunning) setStoppingSet(false);
+  }, [setRunning]);
+  const tiles = useMemo(() => exampleTiles(savedScene?.examples, ex.job), [savedScene?.examples, ex.job]);
+  const onDoneRef = useRef(args.onDone);
+  onDoneRef.current = args.onDone;
+  const set: SetArgs | undefined = useMemo(() => {
+    if (!savedId) return undefined;
+    const kept = savedScene?.examples ?? [];
+    return {
+      tiles,
+      running: setRunning,
+      read: ex.read,
+      who:
+        kept[0]?.with ??
+        ex.job?.subject.kind ??
+        (savedScene?.subject === 'person' || savedScene?.figure ? 'presenter' : 'product'),
+      noSubject: ex.read && !ex.job && !kept.length && ex.more.length === 0,
+      missing: missingMore(ex.more, kept, ex.job),
+      finish: args.finish,
+    };
+  }, [savedId, savedScene, tiles, setRunning, ex.read, ex.job, ex.more, args.finish]);
+
+  const drawSet = useCallback(
+    (ask: { more: true } | { roles: SceneExampleRole[] }) => {
+      if (!savedId) return;
+      setNote(null);
+      void api
+        .drawSceneExamples(brand.id, savedId, ask)
+        .then(() => ex.again())
+        .catch((e: any) => setNote(String(e?.message ?? e)));
+    },
+    [brand.id, savedId, ex.again],
+  );
+
+  // A scene saved before it could be shown in use (an older one, opened and
+  // saved here) gets its hero and close-up once, the way a new one does on the
+  // server. Not while the place is still drawing: it lands first.
+  const canDrawSet = caps?.canDraw ?? true;
+  const hasExamples = !!savedScene?.examples?.length;
+  const hasPlace = !!savedScene?.previewUrl;
+  useEffect(() => {
+    if (!savedId || !ex.read || ex.job || studio.job || studio.setAsked || !canDrawSet) return;
+    if (hasExamples || !hasPlace || ex.more.length === 0) return;
+    dispatch({ type: 'set-asked' });
+    drawSet({ roles: ['hero', 'close'] });
+  }, [savedId, ex.read, ex.job, studio.job, studio.setAsked, canDrawSet, hasExamples, hasPlace, ex.more, drawSet]);
+
+  /** The last press: the conversation is over, and what it made is where it goes. */
+  const finish = useCallback(() => {
+    if (!savedId) return;
+    gone.current = true;
+    forget(storageKey);
+    forgetSaid(storageKey);
+    onDoneRef.current(savedId);
+  }, [savedId, storageKey]);
+
+  /** Which picture of the set is on the stage: the one pressed, else the newest. */
+  const [picked, setPicked] = useState<string | null>(null);
 
   // The place as the setup gives it, handed to the work once the setup is whole,
   // and not while an answer is open again: it is given when that answer is.
@@ -212,8 +286,9 @@ export function useSceneFlow(args: {
     note: shown,
     stale: stale(studio),
     have,
+    set,
   };
-  const turns = useMemo(() => turnsFor(flow), [setup, studio, canDraw, uploading, editingName, shown, edit, have]);
+  const turns = useMemo(() => turnsFor(flow), [setup, studio, canDraw, uploading, editingName, shown, edit, have, set]);
   const open = (() => {
     const last = turns[turns.length - 1];
     return last?.kind === 'question' ? last.question : null;
@@ -271,6 +346,8 @@ export function useSceneFlow(args: {
     setupDispatch({ type: 'answer', patch });
   }, []);
 
+  const tilesRef = useRef(tiles);
+  tilesRef.current = tiles;
   const onAnswer = useCallback(
     (qid: string, ans: Answer) => {
       setNote(null);
@@ -301,10 +378,23 @@ export function useSceneFlow(args: {
         return;
       }
       if (ans.kind !== 'confirm') return;
+      if (qid === 'set-more') {
+        if (ans.id === 'more') {
+          dispatch({ type: 'ask-more' });
+          drawSet({ more: true });
+        } else dispatch({ type: 'decline-more' });
+        return;
+      }
+      if (qid === 'set-done') {
+        if (ans.id === 'retry-failed')
+          drawSet({ roles: tilesRef.current.filter((t) => t.state === 'failed').map((t) => t.role) });
+        else finish();
+        return;
+      }
       if (ans.id === 'draw' || ans.id === 'again') void work.start('again');
       else if (ans.id === 'use') void work.use();
     },
-    [addPictures, answerSetup, work.start, work.use],
+    [addPictures, answerSetup, work.start, work.use, drawSet, finish],
   );
 
   /** A sentence taken is gone from the line, the way every message box works. */
@@ -412,7 +502,50 @@ export function useSceneFlow(args: {
   }, []);
 
   const v = current(studio);
-  const working = studio.job ? doingLine(studio) : work.saving ? 'Saving' : undefined;
+  const setLine =
+    setRunning && ex.job
+      ? examplesSubtitle({
+          status: ex.job.status,
+          step: ex.job.current,
+          done: ex.job.done.length,
+          total: ex.job.roles.length,
+          error: ex.job.error,
+        })
+      : undefined;
+  const working = studio.job ? doingLine(studio) : work.saving ? 'Saving' : setLine;
+
+  // The stage after Use: the place and its examples in the strip, the one
+  // pressed on the stage, else the one being drawn, else the newest.
+  const strip: StageStripItem[] = [];
+  let onStage: { hash?: string; drawing: boolean } | null = null;
+  if (savedId) {
+    const drawingNow = setRunning ? ex.job?.current : null;
+    const newest = [...tiles].reverse().find((t) => t.state === 'shown')?.role ?? null;
+    const sel = picked ?? drawingNow ?? newest ?? 'place';
+    strip.push({
+      view: 'place',
+      label: 'The place',
+      state: sel === 'place' ? 'current' : 'approved',
+      hash: v?.hash ?? undefined,
+      photo: false,
+      drawing: false,
+      approved: true,
+      error: false,
+    });
+    for (const t of tiles)
+      strip.push({
+        view: t.role,
+        label: EXAMPLE_LABEL[t.role],
+        state: sel === t.role ? 'current' : t.state === 'shown' ? 'approved' : 'todo',
+        hash: t.hash,
+        photo: false,
+        drawing: t.state === 'drawing',
+        approved: t.state === 'shown',
+        error: t.state === 'failed',
+      });
+    const chosen = strip.find((x) => x.view === sel) ?? strip[0];
+    onStage = { hash: chosen.hash, drawing: chosen.drawing };
+  }
   const begun = !edit && (!!setup.answers.source || studio.versions.length > 0);
 
   return {
@@ -422,16 +555,25 @@ export function useSceneFlow(args: {
     busy: work.saving,
     resumed: !!restored,
     memoryKey: storageKey,
-    stage: {
-      hash: v?.hash ?? undefined,
-      alt: `Preview of ${studio.name.trim() || v?.reading.name || 'the scene'}`,
-      drawing: !!studio.job && studio.job.phase === 'drawing',
-      since: studio.job?.since ?? undefined,
-      doing: doingLine(studio),
-      takes: studio.job ? undefined : takesOf(studio),
-      onTake: work.putBack,
-      items: [],
-    },
+    stage: onStage
+      ? {
+          hash: onStage.hash,
+          alt: `${studio.name.trim() || v?.reading.name || 'The scene'}, in use`,
+          drawing: onStage.drawing || (!!studio.job && studio.job.phase === 'drawing'),
+          doing: setLine ?? doingLine(studio),
+          items: strip,
+          onPick: (view: string) => setPicked(view),
+        }
+      : {
+          hash: v?.hash ?? undefined,
+          alt: `Preview of ${studio.name.trim() || v?.reading.name || 'the scene'}`,
+          drawing: !!studio.job && studio.job.phase === 'drawing',
+          since: studio.job?.since ?? undefined,
+          doing: doingLine(studio),
+          takes: studio.job ? undefined : takesOf(studio),
+          onTake: work.putBack,
+          items: [],
+        },
     composer: {
       placeholder: composer.placeholder,
       label: composer.label,
@@ -439,9 +581,20 @@ export function useSceneFlow(args: {
       disabled: composer.target.kind === 'off',
       why: composer.target.kind === 'off' ? composer.target.why || null : null,
       working: composer.working,
-      // Whatever runs can be stopped, whichever question holds the line.
-      onStop: studio.job ? work.stop : undefined,
-      stopping: !!studio.job?.stopping,
+      // Whatever runs can be stopped, whichever question holds the line: the
+      // place, or the pictures of it in use (what landed stays).
+      onStop: studio.job
+        ? work.stop
+        : setRunning && savedId
+          ? () => {
+              setStoppingSet(true);
+              void api
+                .stopSceneExamples(brand.id, savedId)
+                .then(() => ex.again())
+                .catch(() => undefined);
+            }
+          : undefined,
+      stopping: !!studio.job?.stopping || stoppingSet,
       focusKey,
       onAttachFiles: composer.attach ? (files: File[]) => void addPictures(files) : undefined,
       attachLabel: COPY.attachLabel,
@@ -461,6 +614,7 @@ export function useSceneFlow(args: {
     },
     cancelConfirm: () => setConfirming(null),
     onRestore: (_view: string, hash: string) => work.putBack(hash),
+    onRetry: (view: string) => drawSet({ roles: [view as SceneExampleRole] }),
     onDescribe: () => setFocusKey(String(Date.now())),
     onStarter: (t: string) => {
       setText(t);
@@ -469,9 +623,12 @@ export function useSceneFlow(args: {
     onPaste: open?.id === 'source' || open?.id === 'photos' ? (files: File[]) => void addPictures(files) : undefined,
     canDraw,
     begun,
-    unsaved: edit ? unsavedOf(studio, seed) : begun,
+    unsaved: studio.saved ? false : edit ? unsavedOf(studio, seed) : begun,
     /** Work is under way on the server for this conversation. */
-    running: !!studio.job,
+    running: !!studio.job || setRunning,
+    /** Use has saved it: closing goes where the last press would. */
+    saved: !!savedId,
+    finish,
     /** A new scene with something in it: it stays on the Scenes wall when the studio closes. */
     keptAsDraft: !edit && keptAsDraft(studio),
     leave: () => {

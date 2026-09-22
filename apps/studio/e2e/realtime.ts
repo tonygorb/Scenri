@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Page, test } from '@playwright/test';
 
 /**
  * Shared by the realtime specs: a mutation reaches every surface in the same
@@ -248,6 +248,25 @@ export async function renameScene(page: Page, to: string): Promise<void> {
  * wall has to go the way a person does. The demo engine behind the harness
  * reads and draws at once.
  */
+/**
+ * After Use: the conversation goes on to the place in use, and ends on one
+ * press. Three more are declined when offered (they are drawn only on asking),
+ * and the last press is taken whatever the set came to: drawn, or not, on a
+ * home without Scenri's library.
+ */
+export async function finishSceneSet(page: Page, finish = 'Open scene'): Promise<void> {
+  // The set is up to three more draws after Use (the hero alone is two): the
+  // time is added to the test's own, not squeezed into a budget set for a
+  // conversation that ended at Use.
+  test.info().setTimeout(test.info().timeout + 45_000);
+  const studio = page.locator('.sc-pstudio[data-kind="scene"]');
+  const more = studio.locator('[data-turn="q:set-more"]:not([data-picked])');
+  const done = studio.locator('[data-turn="q:set-done"]:not([data-picked])');
+  await expect(more.or(done)).toBeVisible({ timeout: 60_000 });
+  if (await more.isVisible()) await more.getByRole('button', { name: 'Not now', exact: true }).click();
+  await done.getByRole('button', { name: finish, exact: true }).click({ timeout: 30_000 });
+}
+
 export async function buildScene(page: Page, sentence: string, name: string): Promise<void> {
   await page.getByRole('button', { name: 'Create scene' }).click();
   const studio = page.locator('.sc-pstudio[data-kind="scene"]');
@@ -273,4 +292,5 @@ export async function buildScene(page: Page, sentence: string, name: string): Pr
   await line.fill(name);
   await line.press('Enter');
   await studio.getByRole('button', { name: 'Use this scene' }).click({ timeout: 60_000 });
+  await finishSceneSet(page);
 }

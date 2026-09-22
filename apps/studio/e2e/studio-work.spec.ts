@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { arrived, isolate } from './harness.js';
-import { mainNav } from './realtime.js';
+import { finishSceneSet, mainNav } from './realtime.js';
 
 /**
  * Studio work is the server's, not the page's.
@@ -252,6 +252,8 @@ test('a scene closed while it draws stays on the Scenes wall, drawing, then draw
   await page.waitForURL((u) => u.pathname === at);
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
   await tap(openQ(page), 'Use this scene');
+  // the conversation goes on to the place in use, and ends on one press
+  await finishSceneSet(page);
   await page.waitForURL(/\/scenes\/us-/);
 
   // used, it is a scene of its own and no longer a draft

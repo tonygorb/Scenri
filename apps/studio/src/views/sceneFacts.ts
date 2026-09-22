@@ -1,56 +1,16 @@
 /**
- * The two lines of plain fact on a scene's page.
+ * The closing line of a scene's page: the presenter page's footnote, for a place.
  *
- * A scene's page used to answer "what is this place" with the analyzer's own
- * prose: a lighting sentence, a camera sentence, a figure sentence and eight
- * hundred characters of set description. All of it true, almost none of it
- * read. The line a person actually scans is the one every asset page in this
- * app already has, a few words joined by middots, and a scene has had the
- * words for it all along: `keywords` is written when the scene is read and has
- * never been shown anywhere.
+ * What is true about the record and acted on by nobody: what its pictures are
+ * (the one sentence a person cannot see for themselves), what it was read from
+ * and how many ways it keeps. Where it is filed is not here: that is the chips
+ * under the name, the way a presenter's are.
  */
 
-/** A scene, as far as these two lines are concerned. */
+/** A scene, as far as its closing line is concerned. */
 export interface FactualScene {
-  keywords?: readonly string[];
-  lighting?: string;
-  verticals?: readonly string[];
   refs?: readonly string[];
   setups?: readonly { id: string }[];
-}
-
-/** How many of a scene's keywords the eye reads as a line rather than a list. */
-const ATTRS_SHOWN = 5;
-/** Fewer than this and the line says less than the lighting sentence does. */
-const ATTRS_MIN = 3;
-
-/**
- * What this place is, in a few words: `cyclorama · overhead · wide angle`.
- *
- * Empty when the scene has too few to be worth a line, which is the demo
- * engine's fixtures (they carry the single keyword "demo") and any record
- * written before the analyzer wrote keywords at all. The caller falls back to
- * the lighting sentence, which every scene has.
- */
-export function sceneAttributes(scene: FactualScene): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of scene.keywords ?? []) {
-    const word = String(raw ?? '').trim();
-    if (!word) continue;
-    const key = word.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(word);
-    if (out.length === ATTRS_SHOWN) break;
-  }
-  return out.length >= ATTRS_MIN ? out : [];
-}
-
-/** The attribute line if there is one, else what the light does. */
-export function sceneFactsLine(scene: FactualScene): string {
-  const attrs = sceneAttributes(scene);
-  return attrs.length > 0 ? attrs.join(' · ') : (scene.lighting ?? '').trim();
 }
 
 /**
@@ -58,15 +18,13 @@ export function sceneFactsLine(scene: FactualScene): string {
  * than in it. Empty when a scene carries none of them, and then the tail is
  * just the delete.
  */
-export function sceneTailLine(scene: FactualScene): string {
+export function sceneTailLine(scene: FactualScene, about = ''): string {
   const parts: string[] = [];
-  const filed = (scene.verticals ?? []).filter(Boolean);
-  if (filed.length > 0) parts.push(`Filed under ${filed.join(', ')}`);
   const refs = scene.refs?.length ?? 0;
   if (refs > 0) parts.push(`read from ${refs} ${refs === 1 ? 'photograph' : 'photographs'}`);
   const ways = scene.setups?.length ?? 0;
   if (ways > 0) parts.push(`${ways} ${ways === 1 ? 'way' : 'ways'} to shoot it`);
-  if (parts.length === 0) return '';
   const line = parts.join(' · ');
-  return `${line.charAt(0).toUpperCase()}${line.slice(1)}.`;
+  const facts = line ? `${line.charAt(0).toUpperCase()}${line.slice(1)}.` : '';
+  return [about.trim(), facts].filter(Boolean).join(' ');
 }

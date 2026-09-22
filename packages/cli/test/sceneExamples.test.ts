@@ -8,7 +8,7 @@ import { createDemoAnalyzer, createDemoEngine } from '@scenri/engine-demo';
 import { buildServer } from '../src/server.js';
 import { loadDemoProducts } from '../src/demoProducts.js';
 import { loadPresenters } from '../src/presenters.js';
-import { angleFor, pickSubject, rolesFor } from '../src/sceneExamples.js';
+import { angleFor, handsStaged, pickSubject, rolesFor } from '../src/sceneExamples.js';
 import { drainTracked, track } from './servers.js';
 
 describe('who stands in a scene’s examples', () => {
@@ -103,6 +103,17 @@ describe('who stands in a scene’s examples', () => {
     }
   });
 
+  it("a place staged in someone's hands is offered two more: its hero is already held", () => {
+    const product = { kind: 'product' as const, id: 'x' };
+    expect(rolesFor(product, 'more', 'A stone ledge, held in a pair of anonymous hands, no face')).toEqual([
+      'angle',
+      'bold',
+    ]);
+    for (const p of ["A tray a hand's width across", 'Hand-painted tiles', 'A bench, no hands in frame', 'hands-free'])
+      expect(rolesFor(product, 'more', p), p).toEqual(['hands', 'angle', 'bold']);
+    expect(handsStaged(undefined)).toBe(false);
+  });
+
   it('asks for three more with a product, two with a person, and looks down on a tabletop', () => {
     expect(rolesFor({ kind: 'product', id: 'x' }, 'auto')).toEqual(['hero', 'close']);
     expect(rolesFor({ kind: 'product', id: 'x' }, 'more')).toEqual(['hands', 'angle', 'bold']);
@@ -173,7 +184,7 @@ function spied(costUsd: number) {
   return { engine, calls, gate };
 }
 
-async function setup(costUsd = 0) {
+async function setup(costUsd = 0, library = true) {
   mkdirSync(join(templatesDir, 'demo-products'), { recursive: true });
   writeFileSync(
     join(templatesDir, 'demo-products', 'vial.json'),
@@ -187,14 +198,16 @@ async function setup(costUsd = 0) {
       height: 10,
     }),
   );
-  const refDir = join(templatesDir, 'previews', 'demo-products', 'vial');
-  mkdirSync(refDir, { recursive: true });
-  writeFileSync(
-    join(refDir, 'three-quarter.jpg'),
-    await sharp(await png(40))
-      .jpeg()
-      .toBuffer(),
-  );
+  if (library) {
+    const refDir = join(templatesDir, 'previews', 'demo-products', 'vial');
+    mkdirSync(refDir, { recursive: true });
+    writeFileSync(
+      join(refDir, 'three-quarter.jpg'),
+      await sharp(await png(40))
+        .jpeg()
+        .toBuffer(),
+    );
+  }
 
   const { engine, calls, gate } = spied(costUsd);
   const app = track(
@@ -217,7 +230,8 @@ async function setup(costUsd = 0) {
   const sceneOf = (id: string) => (core.store.getBrand(brand.id)?.json as any)?.scenes.find((s: any) => s.id === id);
   const status = async (id: string) => (await app.inject({ method: 'GET', url: url(id) })).json();
   const settled = async (id: string) => {
-    for (let i = 0; i < 400; i++) {
+    // by the clock, not a count: a cold first run (sharp, the demo pictures) is slow
+    for (const until = Date.now() + 20_000; Date.now() < until; ) {
       const { job } = await status(id);
       if (job && job.status !== 'running') return job;
       await new Promise((r) => setTimeout(r, 10));
@@ -244,7 +258,17 @@ async function setup(costUsd = 0) {
 
 const hashOf = (ref: string) => ref.slice('asset:'.length);
 
-describe("a scene's examples", () => {
+/** The run drawing from this place picture, once it has finished. */
+async function drawnFrom(status: (id: string) => Promise<any>, id: string, place: string) {
+  for (const until = Date.now() + 20_000; Date.now() < until; ) {
+    const { job } = await status(id);
+    if (job && job.from === `asset:${place}` && job.status !== 'running') return job;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  throw new Error('no run finished drawing from that picture');
+}
+
+describe("a scene's examples", { timeout: 30_000 }, () => {
   it('draw the hero at the product’s own scale and the close-up from it, once, when the place lands', async () => {
     const { app, brandId, calls, place, sceneOf, settled, makeScene, url } = await setup();
     const id = await makeScene();
@@ -304,7 +328,7 @@ describe("a scene's examples", () => {
     // the second edit is the close-up: hold it open
     gate.hold = (n) => n === 2;
     const id = await makeScene();
-    for (let i = 0; i < 400 && (await status(id)).job?.current !== 'close'; i++)
+    for (const until = Date.now() + 20_000; Date.now() < until && (await status(id)).job?.current !== 'close'; )
       await new Promise((r) => setTimeout(r, 10));
     expect((await app.inject({ method: 'POST', url: url(id, '/stop') })).json()).toEqual({ ok: true });
     const job = await settled(id);
@@ -312,21 +336,40 @@ describe("a scene's examples", () => {
     expect(sceneOf(id).examples.map((e: any) => e.role)).toEqual(['hero']);
   });
 
-  it('a place that changed while drawing is never given the old place’s example', async () => {
-    const { app, brandId, gate, sceneOf, settled, makeScene, status } = await setup();
+  it('a place that changed while drawing stops that run, and the set is drawn again from the new one', async () => {
+    const { app, brandId, gate, sceneOf, makeScene, status } = await setup();
     gate.hold = (n) => n === 2;
     const id = await makeScene();
-    for (let i = 0; i < 400 && (await status(id)).job?.current !== 'close'; i++)
+    for (const until = Date.now() + 20_000; Date.now() < until && (await status(id)).job?.current !== 'close'; )
       await new Promise((r) => setTimeout(r, 10));
+    const oldHero = hashOf(sceneOf(id).examples[0].file);
     const next = core.images.save(await png(90));
     await app.inject({ method: 'PATCH', url: `/api/brands/${brandId}/scenes/${id}`, payload: { previewHash: next } });
-    gate.open();
-    const job = await settled(id);
-    expect(job.done).toEqual(['hero']);
+    gate.hold = null;
+    const job = await drawnFrom(status, id, next);
+    // the hero it had, and the close-up the stopped run still owed
+    expect(job.done).toEqual(['hero', 'close']);
     const scene = sceneOf(id);
-    expect(scene.preview).toBe(`asset:${next}`);
-    // the hero stays, marked as drawn from the earlier picture; no close-up joined it
-    expect(scene.examples.map((e: any) => [e.role, e.from])).toEqual([['hero', expect.not.stringContaining(next)]]);
+    expect(scene.examples.map((e: any) => [e.role, e.from])).toEqual([
+      ['hero', `asset:${next}`],
+      ['close', `asset:${next}`],
+    ]);
+    // nothing of the earlier picture's set is kept
+    expect(core.images.has(oldHero)).toBe(false);
+  });
+
+  it('a new place picture after the set is drawn redraws the roles it had, and only those', async () => {
+    const { app, brandId, calls, sceneOf, settled, makeScene, url } = await setup();
+    const id = await makeScene();
+    await settled(id);
+    await app.inject({ method: 'DELETE', url: url(id, '/close') });
+    const before = calls.edit.length;
+    const next = core.images.save(await png(90));
+    await app.inject({ method: 'PATCH', url: `/api/brands/${brandId}/scenes/${id}`, payload: { previewHash: next } });
+    const job = await settled(id);
+    expect(job.roles).toEqual(['hero']);
+    expect(sceneOf(id).examples.map((e: any) => [e.role, e.from])).toEqual([['hero', `asset:${next}`]]);
+    expect(calls.edit.length).toBeGreaterThan(before);
   });
 
   it('removing one lets its picture go; deleting the scene lets them all go', async () => {
@@ -344,6 +387,18 @@ describe("a scene's examples", () => {
     expect((await app.inject({ method: 'GET', url: url(id) })).statusCode).toBe(404);
   });
 
+  it("without Scenri's library nothing starts, nothing is offered, and asking says why", async () => {
+    const { app, calls, makeScene, status, url } = await setup(0, false);
+    const id = await makeScene();
+    expect((await status(id)).job).toBeNull();
+    expect((await status(id)).more).toEqual([]);
+    const asked = await app.inject({ method: 'POST', url: url(id), payload: { roles: ['hero', 'close'] } });
+    expect(asked.statusCode).toBe(409);
+    expect(asked.json().error).toContain("Scenri's library has not downloaded yet");
+    expect(calls.generate).toHaveLength(0);
+    expect(calls.edit).toHaveLength(0);
+  });
+
   it('the spend cap is asked before anything is drawn', async () => {
     const { calls, settled, makeScene } = await setup(0.3);
     // the hero alone is two draws, 0.6, against a 0.5 cap
@@ -359,7 +414,7 @@ describe("a scene's examples", () => {
     const { app, brandId, gate, makeScene, status, settled } = await setup();
     gate.hold = (n) => n === 2;
     const id = await makeScene();
-    for (let i = 0; i < 400 && (await status(id)).job?.current !== 'close'; i++)
+    for (const until = Date.now() + 20_000; Date.now() < until && (await status(id)).job?.current !== 'close'; )
       await new Promise((r) => setTimeout(r, 10));
     const activity = (await app.inject({ method: 'GET', url: `/api/brands/${brandId}/activity` })).json();
     const row = (activity.studio ?? activity.work ?? []).find((w: any) => w.kind === 'examples');

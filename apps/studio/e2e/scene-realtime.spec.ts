@@ -182,7 +182,7 @@ test('a rename reaches the wall and the scene menu without a reload', async ({ p
   await renameScene(page, 'Renamed Loft');
   await saved;
 
-  await page.locator('.sc-lookpage-crumb').getByRole('link', { name: 'Scenes' }).click();
+  await goScenes(page);
   await expect(ownedSceneCard(page, 'Renamed Loft')).toBeVisible();
   await expect(ownedSceneCard(page, 'Rename Me Loft')).toHaveCount(0);
 
@@ -330,7 +330,7 @@ test('a delete the server refuses keeps the scene and says why', async ({ page }
   await expect(page.locator('.sc-assetform-err')).toHaveText('disk is full');
   await expect(page).toHaveURL(/\/scenes\/us-/);
   await expect(page.getByRole('button', { name: 'Delete scene' })).toBeEnabled();
-  await page.locator('.sc-lookpage-crumb').getByRole('link', { name: 'Scenes' }).click();
+  await goScenes(page);
   await expect(ownedSceneCard(page, 'Refused Loft')).toBeVisible();
   expect(await sceneNames(page.request, brand.id)).toContain('Refused Loft');
   await expectSameSession(page);

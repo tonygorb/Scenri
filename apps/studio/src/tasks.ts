@@ -11,6 +11,7 @@ import {
   shotPath,
 } from './routes.js';
 import { local } from './storage.js';
+import { examplesSubtitle } from './sceneExampleRules.js';
 
 /**
  * The model behind the notifications bell.
@@ -352,6 +353,7 @@ export function taskFromAssetBuild(b: AssetBuild, brand: { slug: string }): Task
 
 /** What a studio's work is doing, or what came of it, in the row's second line. */
 export function studioSubtitle(w: StudioWork): string {
+  if (w.kind === 'examples') return examplesSubtitle(w);
   if (w.status === 'failed') return w.error ?? 'It did not finish';
   if (w.status === 'cancelled') return 'Stopped';
   if (w.kind === 'scene') {
@@ -379,35 +381,41 @@ export function studioSubtitle(w: StudioWork): string {
 export function taskFromStudioWork(w: StudioWork, brand: { slug: string }): Task {
   const state: TaskState = w.status === 'failed' ? 'error' : w.status;
   const href =
-    w.kind === 'scene'
-      ? w.conversation
-        ? w.sceneId
-          ? sceneEditPath(brand, w.sceneId, w.conversation)
-          : sceneStudioPath(brand, w.conversation)
-        : w.attachTo
-          ? scenePath(brand, w.attachTo)
-          : null
-      : w.presenterId
-        ? presenterEditPath(brand, w.presenterId)
-        : w.draftId
-          ? presenterStudioPath(brand, w.draftId)
-          : null;
+    w.kind === 'examples'
+      ? w.sceneId
+        ? scenePath(brand, w.sceneId)
+        : null
+      : w.kind === 'scene'
+        ? w.conversation
+          ? w.sceneId
+            ? sceneEditPath(brand, w.sceneId, w.conversation)
+            : sceneStudioPath(brand, w.conversation)
+          : w.attachTo
+            ? scenePath(brand, w.attachTo)
+            : null
+        : w.presenterId
+          ? presenterEditPath(brand, w.presenterId)
+          : w.draftId
+            ? presenterStudioPath(brand, w.draftId)
+            : null;
   return {
     id: w.id,
-    kind: w.kind,
+    // a scene's examples are the scene's work: its row, its icon
+    kind: w.kind === 'examples' ? 'scene' : w.kind,
     state,
-    title: w.name.trim() || (w.kind === 'scene' ? 'New scene' : 'New presenter'),
+    title: w.name.trim() || (w.kind === 'presenter' ? 'New presenter' : 'New scene'),
     subtitle: studioSubtitle(w),
     thumb: w.thumb,
-    // real counters for a presenter's set; a scene is one picture, so the shimmer
-    percent: w.kind === 'presenter' && w.total ? Math.round(((w.done ?? 0) / w.total) * 100) : null,
+    // real counters for a presenter's set and a scene's examples; a scene is one picture, so the shimmer
+    percent: w.kind !== 'scene' && w.total ? Math.round(((w.done ?? 0) / w.total) * 100) : null,
     startedAt: w.startedAt,
     href,
   };
 }
 
 /** A task made in a studio, rather than a shot, an import or a build. */
-export const isStudioTask = (id: string): boolean => id.startsWith('scene:') || id.startsWith('presenter:');
+export const isStudioTask = (id: string): boolean =>
+  id.startsWith('scene:') || id.startsWith('presenter:') || id.startsWith('examples:');
 
 /**
  * Whether the page on screen is the one a task leads to: a finish there is

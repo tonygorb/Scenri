@@ -249,6 +249,8 @@ export type Turn =
       current?: boolean;
       /** The picture can be put back as it was, one to one. */
       restore?: { view: string; hash: string };
+      /** The picture can be drawn again: a scene's example, which nobody approves one by one. */
+      retry?: string;
     }
   | { kind: 'question'; question: Question };
 

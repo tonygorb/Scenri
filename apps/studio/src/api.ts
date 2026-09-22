@@ -35,6 +35,8 @@ import type {
   Project,
   ReleaseNotesResponse,
   Scene,
+  SceneExampleJob,
+  SceneExampleRole,
   ScenePatch,
   SceneReading,
   SceneSetup,
@@ -387,6 +389,20 @@ export const api = {
   /** The brand comes back so every surface stops showing the scene in one commit. */
   deleteScene: (brandId: string, sceneId: string) =>
     req<{ ok: true; brand: Brand }>('DELETE', `/api/brands/${brandId}/scenes/${sceneId}`),
+  /** What a scene's examples are drawing, and what Add more would draw. */
+  sceneExamples: (brandId: string, sceneId: string) =>
+    req<{ job: SceneExampleJob | null; more: SceneExampleRole[] }>(
+      'GET',
+      `/api/brands/${brandId}/scenes/${sceneId}/examples`,
+    ),
+  /** Draw the rest of the set, or these roles again. Joins a run already drawing. */
+  drawSceneExamples: (brandId: string, sceneId: string, ask: { more: true } | { roles: SceneExampleRole[] }) =>
+    req<{ job: SceneExampleJob }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/examples`, ask),
+  /** Stop drawing; what already landed stays. */
+  stopSceneExamples: (brandId: string, sceneId: string) =>
+    req<{ ok: boolean }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/examples/stop`),
+  removeSceneExample: (brandId: string, sceneId: string, role: SceneExampleRole) =>
+    req<{ ok: boolean; brand: Brand }>('DELETE', `/api/brands/${brandId}/scenes/${sceneId}/examples/${role}`),
   /** Redraw a scene's example. One generation, always asked for out loud. */
   generateScenePreview: (brandId: string, sceneId: string) =>
     req<{ preview: string; brand: Brand }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/preview`),

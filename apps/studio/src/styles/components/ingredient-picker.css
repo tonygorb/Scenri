@@ -697,6 +697,15 @@
   color: var(--sc-fg3);
   line-height: 1.35;
 }
+/* What can be done with the picture, when anything can: centred under the
+   caption, wrapping to a second line on a phone rather than shrinking. */
+.sc-lightbox-acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sc-space-2);
+  margin-top: var(--sc-space-4);
+}
 
 /* And the card hugs the plate, rather than every picture arriving in the same
    880px box whatever shape it is. Below 768 the shell is a bottom sheet and

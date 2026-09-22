@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 import { ImageSquare } from '@phosphor-icons/react';
 import { DialogSheet } from '../layout/DialogSheet.js';
 import type { PreviewKind } from './ChipPreview.js';
@@ -22,6 +22,7 @@ export function ImageLightbox({
   kind,
   label,
   noun: nounHere,
+  actions,
   onRestoreFocus,
   onClose,
 }: {
@@ -30,6 +31,8 @@ export function ImageLightbox({
   label?: string | null;
   /** What the caption calls the thing, when the kind's own noun is not the whole truth here. */
   noun?: string;
+  /** What can be done with this picture, under its caption: a scene's example offers Try again and Remove. */
+  actions?: ReactNode;
   /**
    * Where focus belongs once this closes.
    *
@@ -81,6 +84,7 @@ export function ImageLightbox({
         {label && <b dir="auto">{label}</b>}
         <span>{noun}</span>
       </p>
+      {actions && <div className="sc-lightbox-acts">{actions}</div>}
     </DialogSheet>
   );
 }
