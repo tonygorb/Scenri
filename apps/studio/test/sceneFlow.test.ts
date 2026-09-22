@@ -354,8 +354,13 @@ describe('the rows after the world belong to the world', () => {
     // passing the idea, in the guided door, is the suggestion
     const idea = questionFor('signature', setupOf(lit), false, 0);
     expect(idea.kind === 'swatches' && idea.skip).toBe('Suggest one');
-    // pictures only once every card of the row is drawn
-    expect(swatchRow('surface', 'colour').options.some((o) => o.card)).toBe(false);
+    // the world's own row is its own pictures
+    expect(swatchRow('surface', 'colour').options.map((o) => o.card)).toEqual([
+      'scene-colour-surface-1',
+      'scene-colour-surface-2',
+      'scene-colour-surface-3',
+      'scene-colour-surface-4',
+    ]);
   });
 });
 
@@ -399,14 +404,18 @@ describe('the light row says what the world already gave it', () => {
     // a drawn world's rows are pictures, every option of them
     for (const q of [light, surface])
       expect(q.kind === 'swatches' && q.row.options.every((o) => !!o.card), q.id).toBe(true);
+    // every world is drawn, and every row of every world is pictures
+    expect([...DRAWN_WORLDS].sort()).toEqual([...WORLD_IDS].sort());
+    for (const w of WORLD_IDS)
+      for (const id of ['surface', 'light', 'signature'] as const) {
+        const q = questionFor(id, setupOf({ source: { door: 'guided' }, world: { pick: w } }), false, 0);
+        expect(q.kind === 'swatches' && q.row.options.every((o) => !!o.card), `${w} ${id}`).toBe(true);
+      }
     // and a row shows pictures only once every one of its options has one:
-    // a world not drawn yet is asked in chips
-    const water: Answers = { source: { door: 'guided' }, world: { pick: 'water' } };
-    expect(DRAWN_WORLDS).not.toContain('water');
-    for (const id of ['surface', 'light', 'signature'] as const) {
-      const q = questionFor(id, setupOf(water), false, 0);
-      expect(q.kind === 'swatches' && q.row.options.some((o) => o.card), id).toBe(false);
-    }
+    // the general rows a typed sentence falls back to have none, so are chips
+    const typed: Answers = { source: { door: 'words', text: 'a quiet gallery' } };
+    const surfaceTyped = questionFor('surface', setupOf(typed), false, 0);
+    expect(surfaceTyped.kind === 'swatches' && surfaceTyped.row.options.some((o) => o.card)).toBe(false);
   });
 
   it('never asks where the camera is or how the subject sits: each shot, and the examples, show that', () => {

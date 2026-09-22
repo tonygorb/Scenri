@@ -820,7 +820,7 @@ button.sc-convo-shot-do {
 .sc-convo-plate-in[data-card="scene-light-7"] {
   background-image: url("../../assets/scenes/scene-light-7.webp");
 }
-/* Sunlit stone's own rows: the world's niche with one thing changed (the 2026-09-22 pilot). */
+/* Each world's own rows: that world's card with one thing changed (drawn 2026-09-22). */
 .sc-convo-plate-in[data-card="scene-stone-surface-1"] {
   background-image: url("../../assets/scenes/scene-stone-surface-1.webp");
 }
@@ -856,6 +856,258 @@ button.sc-convo-shot-do {
 }
 .sc-convo-plate-in[data-card="scene-stone-signature-4"] {
   background-image: url("../../assets/scenes/scene-stone-signature-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-water-surface-1"] {
+  background-image: url("../../assets/scenes/scene-water-surface-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-water-surface-2"] {
+  background-image: url("../../assets/scenes/scene-water-surface-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-water-surface-3"] {
+  background-image: url("../../assets/scenes/scene-water-surface-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-water-surface-4"] {
+  background-image: url("../../assets/scenes/scene-water-surface-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-water-light-1"] {
+  background-image: url("../../assets/scenes/scene-water-light-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-water-light-2"] {
+  background-image: url("../../assets/scenes/scene-water-light-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-water-light-3"] {
+  background-image: url("../../assets/scenes/scene-water-light-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-water-light-4"] {
+  background-image: url("../../assets/scenes/scene-water-light-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-water-signature-1"] {
+  background-image: url("../../assets/scenes/scene-water-signature-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-water-signature-2"] {
+  background-image: url("../../assets/scenes/scene-water-signature-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-water-signature-3"] {
+  background-image: url("../../assets/scenes/scene-water-signature-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-water-signature-4"] {
+  background-image: url("../../assets/scenes/scene-water-signature-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-colour-surface-1"] {
+  background-image: url("../../assets/scenes/scene-colour-surface-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-colour-surface-2"] {
+  background-image: url("../../assets/scenes/scene-colour-surface-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-colour-surface-3"] {
+  background-image: url("../../assets/scenes/scene-colour-surface-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-colour-surface-4"] {
+  background-image: url("../../assets/scenes/scene-colour-surface-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-colour-light-1"] {
+  background-image: url("../../assets/scenes/scene-colour-light-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-colour-light-2"] {
+  background-image: url("../../assets/scenes/scene-colour-light-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-colour-light-3"] {
+  background-image: url("../../assets/scenes/scene-colour-light-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-colour-light-4"] {
+  background-image: url("../../assets/scenes/scene-colour-light-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-colour-signature-1"] {
+  background-image: url("../../assets/scenes/scene-colour-signature-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-colour-signature-2"] {
+  background-image: url("../../assets/scenes/scene-colour-signature-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-colour-signature-3"] {
+  background-image: url("../../assets/scenes/scene-colour-signature-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-colour-signature-4"] {
+  background-image: url("../../assets/scenes/scene-colour-signature-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-citrus-surface-1"] {
+  background-image: url("../../assets/scenes/scene-citrus-surface-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-citrus-surface-2"] {
+  background-image: url("../../assets/scenes/scene-citrus-surface-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-citrus-surface-3"] {
+  background-image: url("../../assets/scenes/scene-citrus-surface-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-citrus-surface-4"] {
+  background-image: url("../../assets/scenes/scene-citrus-surface-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-citrus-light-1"] {
+  background-image: url("../../assets/scenes/scene-citrus-light-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-citrus-light-2"] {
+  background-image: url("../../assets/scenes/scene-citrus-light-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-citrus-light-3"] {
+  background-image: url("../../assets/scenes/scene-citrus-light-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-citrus-light-4"] {
+  background-image: url("../../assets/scenes/scene-citrus-light-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-citrus-signature-1"] {
+  background-image: url("../../assets/scenes/scene-citrus-signature-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-citrus-signature-2"] {
+  background-image: url("../../assets/scenes/scene-citrus-signature-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-citrus-signature-3"] {
+  background-image: url("../../assets/scenes/scene-citrus-signature-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-citrus-signature-4"] {
+  background-image: url("../../assets/scenes/scene-citrus-signature-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-volcanic-surface-1"] {
+  background-image: url("../../assets/scenes/scene-volcanic-surface-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-volcanic-surface-2"] {
+  background-image: url("../../assets/scenes/scene-volcanic-surface-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-volcanic-surface-3"] {
+  background-image: url("../../assets/scenes/scene-volcanic-surface-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-volcanic-surface-4"] {
+  background-image: url("../../assets/scenes/scene-volcanic-surface-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-volcanic-light-1"] {
+  background-image: url("../../assets/scenes/scene-volcanic-light-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-volcanic-light-2"] {
+  background-image: url("../../assets/scenes/scene-volcanic-light-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-volcanic-light-3"] {
+  background-image: url("../../assets/scenes/scene-volcanic-light-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-volcanic-light-4"] {
+  background-image: url("../../assets/scenes/scene-volcanic-light-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-volcanic-signature-1"] {
+  background-image: url("../../assets/scenes/scene-volcanic-signature-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-volcanic-signature-2"] {
+  background-image: url("../../assets/scenes/scene-volcanic-signature-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-volcanic-signature-3"] {
+  background-image: url("../../assets/scenes/scene-volcanic-signature-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-volcanic-signature-4"] {
+  background-image: url("../../assets/scenes/scene-volcanic-signature-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-dark-surface-1"] {
+  background-image: url("../../assets/scenes/scene-dark-surface-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-dark-surface-2"] {
+  background-image: url("../../assets/scenes/scene-dark-surface-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-dark-surface-3"] {
+  background-image: url("../../assets/scenes/scene-dark-surface-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-dark-surface-4"] {
+  background-image: url("../../assets/scenes/scene-dark-surface-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-dark-light-1"] {
+  background-image: url("../../assets/scenes/scene-dark-light-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-dark-light-2"] {
+  background-image: url("../../assets/scenes/scene-dark-light-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-dark-light-3"] {
+  background-image: url("../../assets/scenes/scene-dark-light-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-dark-light-4"] {
+  background-image: url("../../assets/scenes/scene-dark-light-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-dark-signature-1"] {
+  background-image: url("../../assets/scenes/scene-dark-signature-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-dark-signature-2"] {
+  background-image: url("../../assets/scenes/scene-dark-signature-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-dark-signature-3"] {
+  background-image: url("../../assets/scenes/scene-dark-signature-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-dark-signature-4"] {
+  background-image: url("../../assets/scenes/scene-dark-signature-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-plaster-surface-1"] {
+  background-image: url("../../assets/scenes/scene-plaster-surface-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-plaster-surface-2"] {
+  background-image: url("../../assets/scenes/scene-plaster-surface-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-plaster-surface-3"] {
+  background-image: url("../../assets/scenes/scene-plaster-surface-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-plaster-surface-4"] {
+  background-image: url("../../assets/scenes/scene-plaster-surface-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-plaster-light-1"] {
+  background-image: url("../../assets/scenes/scene-plaster-light-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-plaster-light-2"] {
+  background-image: url("../../assets/scenes/scene-plaster-light-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-plaster-light-3"] {
+  background-image: url("../../assets/scenes/scene-plaster-light-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-plaster-light-4"] {
+  background-image: url("../../assets/scenes/scene-plaster-light-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-plaster-signature-1"] {
+  background-image: url("../../assets/scenes/scene-plaster-signature-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-plaster-signature-2"] {
+  background-image: url("../../assets/scenes/scene-plaster-signature-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-plaster-signature-3"] {
+  background-image: url("../../assets/scenes/scene-plaster-signature-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-plaster-signature-4"] {
+  background-image: url("../../assets/scenes/scene-plaster-signature-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-linen-surface-1"] {
+  background-image: url("../../assets/scenes/scene-linen-surface-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-linen-surface-2"] {
+  background-image: url("../../assets/scenes/scene-linen-surface-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-linen-surface-3"] {
+  background-image: url("../../assets/scenes/scene-linen-surface-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-linen-surface-4"] {
+  background-image: url("../../assets/scenes/scene-linen-surface-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-linen-light-1"] {
+  background-image: url("../../assets/scenes/scene-linen-light-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-linen-light-2"] {
+  background-image: url("../../assets/scenes/scene-linen-light-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-linen-light-3"] {
+  background-image: url("../../assets/scenes/scene-linen-light-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-linen-light-4"] {
+  background-image: url("../../assets/scenes/scene-linen-light-4.webp");
+}
+.sc-convo-plate-in[data-card="scene-linen-signature-1"] {
+  background-image: url("../../assets/scenes/scene-linen-signature-1.webp");
+}
+.sc-convo-plate-in[data-card="scene-linen-signature-2"] {
+  background-image: url("../../assets/scenes/scene-linen-signature-2.webp");
+}
+.sc-convo-plate-in[data-card="scene-linen-signature-3"] {
+  background-image: url("../../assets/scenes/scene-linen-signature-3.webp");
+}
+.sc-convo-plate-in[data-card="scene-linen-signature-4"] {
+  background-image: url("../../assets/scenes/scene-linen-signature-4.webp");
 }
 .sc-convo-plate-in[data-card="length-1-woman"] {
   background-image: url("../../assets/traits/length-1-woman.webp");
