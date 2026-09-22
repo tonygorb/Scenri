@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.13.2',
+    date: '2026-09-22',
+    sections: [
+      {
+        heading: 'Presenters',
+        body: 'Presenters in shots now show an expression that fits the moment and look where the shot directs, instead of a blank stare into the camera. When a presenter has a detail on one side, such as a tattoo or a prosthetic, approving their face and full body now says which side to check.',
+      },
+    ],
+  },
+  {
     version: '0.13.1',
     date: '2026-09-22',
     sections: [

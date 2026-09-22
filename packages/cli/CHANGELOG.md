@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.13.2](https://github.com/tonygorb/Scenri/compare/v0.13.1...v0.13.2) (2026-09-22)
+
+
+### Bug Fixes
+
+* **presenter:** expressions fit the shot, and one-sided details are checked at approval ([29cb49d](https://github.com/tonygorb/Scenri/commit/29cb49d7716096383da7895c2475714bec4140a2))
+* **presenter:** release the reference's expression and gaze in the shot prompt ([5cc8bdb](https://github.com/tonygorb/Scenri/commit/5cc8bdbb3e933f6706004f094ab38a17eb40baf5))
+* **presenter:** the face and full-body approvals say which side to check ([46ee0fc](https://github.com/tonygorb/Scenri/commit/46ee0fcfeb0f12a86f5516f9ff11050808afd228))
+
 ## [0.13.1](https://github.com/tonygorb/Scenri/compare/v0.13.0...v0.13.1) (2026-09-22)
 
 
