@@ -515,6 +515,7 @@
   margin-top: 2px;
   color: var(--sc-fg2);
   font: 400 12px / 1.4 var(--sc-font);
+  text-wrap: pretty;
 }
 .sc-set .sc-in {
   min-width: 0;
@@ -747,17 +748,23 @@ select.sc-in {
   .sc-set-rail li {
     position: relative;
   }
+  /* from the words, past the 20px glyph */
   .sc-set-rail li + li::before {
     content: "";
     position: absolute;
     top: 0;
-    left: 46px;
+    left: 50px;
     right: 0;
     height: 1px;
     background: var(--sc-line);
   }
+  /* the phone's own version of the desktop's one edge: a scope's label stands
+     over the glyphs of the rows it names, not on the card's outer line, and
+     at a size that belongs beside 15px rows */
   .sc-set-group {
-    padding: 0;
+    height: 28px;
+    padding: 0 0 0 17px;
+    font-size: var(--sc-text-body);
   }
   /* a stacked control is a thumb's width across: the app's own 34 */
   .sc-set-row .sc-btn,
@@ -774,17 +781,29 @@ select.sc-in {
   .sc-set-rail .sc-set-apart {
     margin-top: 24px;
   }
+  /* a thumb's row: the pages' own 56, a 20px glyph beside a 15px name (16
+     beside 15 read as a glyph a size too small) */
   .sc-set-item {
     gap: 14px;
-    height: 52px;
+    height: 56px;
     padding: 0 14px 0 16px;
     border-radius: var(--sc-radius-lg);
     color: var(--sc-fg);
     font-size: var(--sc-text-input);
   }
+  .sc-set-item-ic {
+    width: 20px;
+    height: 20px;
+  }
   .sc-set-item-go {
     flex: none;
+    width: 16px;
+    height: 16px;
     color: var(--sc-fg3);
+  }
+  /* in dark the index's cards rise with every other card */
+  :root[data-theme="dark"] .sc-set-rail ul {
+    background: var(--sc-raised);
   }
   .sc-set-scroll {
     flex: 1 1 auto;
@@ -869,11 +888,11 @@ select.sc-in {
   .sc-eng-act {
     height: 34px;
   }
-  .sc-cap-top {
-    flex-wrap: wrap;
-  }
+  /* a cap is a few digits: its field stays on the right of its row at a
+     thumb's height, rather than a full-width line of its own under every
+     provider */
   .sc-cap-in {
-    width: 100%;
+    width: 104px;
   }
   .sc-heat-range[data-weeks="53"] {
     display: none;
