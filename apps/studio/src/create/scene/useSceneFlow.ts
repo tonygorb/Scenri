@@ -83,6 +83,18 @@ function store(key: string, packed: string, sceneId: string | null) {
   local.set(key, JSON.stringify({ at: Date.now(), sceneId, session: packed }));
 }
 
+/**
+ * What a shot card is called to a screen reader: the start of its prompt, cut
+ * at a word. The whole head is 240 characters, heard forty-eight times over.
+ */
+function shotName(head: string): string {
+  const t = head.trim();
+  if (!t) return 'A shot';
+  if (t.length <= 60) return t;
+  const cut = t.slice(0, 60);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), 40)).trim()}…`;
+}
+
 function forget(key: string) {
   local.del(key);
 }
@@ -284,7 +296,7 @@ export function useSceneFlow(args: {
   const shots: ShotArgs = useMemo(
     () => ({
       any: anyShot,
-      items: shotItems.map((n) => ({ id: n.id, hash: n.images[0], alt: n.promptHead || 'A shot' })),
+      items: shotItems.map((n) => ({ id: n.id, hash: n.images[0], alt: shotName(n.promptHead) })),
       query: shotQuery,
       more: pages.settled && pages.hasMore,
       loading: shotsReading,

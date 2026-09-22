@@ -267,6 +267,27 @@ test('a shot is read for its place, drawn and used, and the scene keeps the shot
   await expect(page.locator('.sc-presenterpage-sources-lb')).toHaveText('What it was read from');
 });
 
+test('a shot read left mid-way is one read, and the conversation comes back to it', async ({ page }) => {
+  test.setTimeout(60_000);
+  const makes: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && /\/scene-studio\/jobs$/.test(r.url()) && r.postDataJSON()?.kind === 'make')
+      makes.push(r.url());
+  });
+  await toShots(page);
+  await field(page).fill('harbour');
+  await expect(cards(page)).toHaveCount(1);
+  const started = page.waitForResponse((r) => /\/scene-studio\/jobs$/.test(r.url()) && r.request().method() === 'POST');
+  await cards(page).first().click();
+  await started;
+  // gone before the read lands, and back on the same address
+  await page.reload();
+  await arrived(page, '.sc-pstudio[data-kind="scene"]');
+  await expect(openQ(page)).toContainText('Here is the place I read in your shot.', { timeout: 20_000 });
+  await expect(turn(page, 'you:shot').locator('img')).toHaveCount(1);
+  expect(makes).toHaveLength(1);
+});
+
 test('a shot made in a saved scene offers that scene, and taking it opens the scene with nothing drawn', async ({
   page,
 }) => {
