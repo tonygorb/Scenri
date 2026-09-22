@@ -51,6 +51,24 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.13.1',
+    date: '2026-09-22',
+    sections: [
+      {
+        heading: 'Alerts',
+        body: 'An alert that arrives during a lesson now shows above it, and an alert over an open dialog can be closed or used without closing the dialog, popover or picker beneath it.',
+      },
+      {
+        heading: 'Create',
+        body: 'Closing the side panel or resizing the window while scrolled keeps the shot you were looking at in place. The brief field now has a name that screen readers announce.',
+      },
+      {
+        heading: 'Learn',
+        body: 'A lesson step pushed out of view by resizing the window comes back into view, and a step reached just as the page reloads is no longer lost.',
+      },
+    ],
+  },
+  {
     version: '0.13.0',
     date: '2026-09-21',
     title: 'Learn teaches Scenri one lesson at a time, alerts are quieter, and the Create feed holds still.',
