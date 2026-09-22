@@ -75,7 +75,7 @@ export function SceneExamples({
   const offer =
     first.length && job?.status !== 'running' ? (
       <p className="sc-scenepage-examples-ask">
-        <button type="button" className="sc-btn" disabled={drawing} onClick={() => void drawInUse()}>
+        <button type="button" className="sc-btn sc-btn-ghost" disabled={drawing} onClick={() => void drawInUse()}>
           {earlier.length ? 'Draw them again' : 'Draw it in use'}
           {`, ${COUNT[first.length] ?? first.length} picture${first.length === 1 ? '' : 's'}`}
         </button>

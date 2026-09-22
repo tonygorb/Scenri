@@ -964,9 +964,10 @@
 
 /* The one thing on a scene's page that spends a generation: it says what it
    costs and waits to be pressed. Centred under the rail with the line that
-   reports a set the place moved under. */
+   reports a set the place moved under, in the page's own ghost pill (Edit
+   scene's), never a fill that reads as disabled. */
 .sc-scenepage-examples-ask {
-  margin: var(--sc-space-3) 0 0;
+  margin: var(--sc-space-5) 0 0;
   text-align: center;
 }
 
