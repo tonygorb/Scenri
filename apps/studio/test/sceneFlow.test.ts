@@ -12,7 +12,7 @@ import {
   unpackSession,
 } from '../src/create/scene/sceneFlowRules.js';
 import { followUps, intentOf, known } from '../src/create/scene/sceneIntent.js';
-import { fillFrom, ROWS } from '../src/create/scene/sceneRows.js';
+import { fillFrom, ROW_ORDER, ROWS } from '../src/create/scene/sceneRows.js';
 import {
   type Answers,
   answeredIn,
@@ -66,7 +66,6 @@ const guided: Answers = {
   world: { pick: 'stone' },
   light: { pick: 'golden' },
   stage: { pick: 'plinth' },
-  shot: { pick: 'top' },
 };
 
 const setupOf = (answers: Answers): SetupState => ({ ...EMPTY_SETUP, answers });
@@ -95,9 +94,8 @@ describe('the setup', () => {
   it('asks the door first, then the rows in order', () => {
     expect(nextQuestion({})).toBe('source');
     expect(nextQuestion({ source: { door: 'guided' } })).toBe('world');
-    expect(nextQuestion({ ...guided, light: undefined, stage: undefined, shot: undefined })).toBe('light');
-    expect(nextQuestion({ ...guided, stage: undefined, shot: undefined })).toBe('stage');
-    expect(nextQuestion({ ...guided, shot: undefined })).toBeNull();
+    expect(nextQuestion({ ...guided, light: undefined, stage: undefined })).toBe('light');
+    expect(nextQuestion({ ...guided, stage: undefined })).toBe('stage');
     expect(nextQuestion(guided)).toBeNull();
     expect(setupDone(guided)).toBe(true);
   });
@@ -134,8 +132,8 @@ describe('the setup', () => {
     const golden = ROWS.light.options.find((o) => o.id === 'golden')!.words;
     const plinth = ROWS.stage.options.find((o) => o.id === 'plinth')!.words;
     expect(compileDirection(sat)).toBe(`luxury product photography in warm stone, ${golden}, ${plinth}.`);
-    // the shot row is never one of them
-    expect(SPECS.find((x) => x.id === 'shot')!.applies(sat)).toBe(false);
+    // no row asks where the camera is
+    expect(SPECS.map((x) => x.id)).not.toContain('shot');
   });
 
   it('asks where it is when a sentence gives only a feeling', () => {
@@ -167,15 +165,15 @@ describe('the setup', () => {
 
   it('says the rows as one sentence, skipped ones left out and typed ones kept', () => {
     expect(compileDirection(guided)).toBe(
-      'A niche of warm limestone and rough plaster, in low golden-hour sun, long warm shadows, the subject standing on a simple plinth or ledge in the space, seen from directly overhead, looking straight down.',
+      'A niche of warm limestone and rough plaster, in low golden-hour sun, long warm shadows, the subject standing on a simple plinth or ledge in the space.',
     );
-    const mixed = { ...guided, shot: { pick: PASSED }, world: { pick: 'water', words: 'at low tide' } };
+    const mixed = { ...guided, world: { pick: 'water', words: 'at low tide' } };
     expect(compileDirection(mixed)).toBe(
       'A shoreline of wet dark rock and shallow turquoise water, at low tide, in low golden-hour sun, long warm shadows, the subject standing on a simple plinth or ledge in the space.',
     );
     // a light passed over leaves the world lit the way its own card is
     expect(compileDirection({ ...guided, light: { pick: PASSED } })).toBe(
-      'A niche of warm limestone and rough plaster, in hard afternoon sun, the subject standing on a simple plinth or ledge in the space, seen from directly overhead, looking straight down.',
+      'A niche of warm limestone and rough plaster, in hard afternoon sun, the subject standing on a simple plinth or ledge in the space.',
     );
     expect(compileDirection({ ...guided, world: { words: 'a hotel lobby' } })).toMatch(/^A hotel lobby, /);
   });
@@ -184,7 +182,7 @@ describe('the setup', () => {
     const next = commit(guided, { world: { pick: 'dark' } });
     expect(next.world).toEqual({ pick: 'dark' });
     expect(next.light).toBeUndefined();
-    expect(next.shot).toBeUndefined();
+    expect(next.stage).toBeUndefined();
     expect(nextQuestion(next)).toBe('light');
   });
 
@@ -234,11 +232,11 @@ describe('the setup', () => {
     for (let i = 0; i < 1500; i++) {
       const act: SetupAction = pick<SetupAction>([
         { type: 'answer', patch: { source: { door: pick(['photos', 'guided', 'words'] as const), text: 'a shore' } } },
-        { type: 'answer', patch: { [pick(['world', 'light', 'stage', 'shot'])]: { pick: PASSED } } },
+        { type: 'answer', patch: { [pick(['world', 'light', 'stage'])]: { pick: PASSED } } },
         { type: 'answer', patch: { world: { pick: 'colour', words: pick([undefined, 'a loft']) } } },
         { type: 'answer', patch: { photos: { hashes: [H('a')], done: r() < 0.5 } } },
         { type: 'photos', hashes: [H(pick(['a', 'b', 'c', 'd', 'e']))] },
-        { type: 'edit', id: pick(['source', 'photos', 'world', 'light', 'stage', 'shot'] as const) },
+        { type: 'edit', id: pick(['source', 'photos', 'world', 'light', 'stage'] as const) },
         { type: 'cancel-edit' },
       ]);
       s = reduceSetup(s, act);
@@ -310,15 +308,15 @@ describe('the light row says what the world already gave it', () => {
       'plinth',
       'bed',
       'hands',
-      'wide',
       'floor',
       'lean',
-      'above',
-      'below',
     ]);
   });
 
-  it('does not ask where the camera is after staging: that question is the same decision', () => {
+  it('never asks where the camera is: each shot, and the examples of the scene, decide that', () => {
+    expect(ROW_ORDER).toEqual(['world', 'light', 'stage']);
+    // staging is how the subject sits in the set; none of its answers is a camera
+    for (const id of ['above', 'below', 'wide']) expect(ROWS.stage.options.map((o) => o.id)).not.toContain(id);
     const afterStage: Answers = {
       source: { door: 'guided' },
       world: { pick: 'stone' },
@@ -331,11 +329,8 @@ describe('the light row says what the world already gave it', () => {
     expect(keysAfter).not.toContain('q:shot');
     expect(keysAfter).not.toContain('scenri:asked-shot');
     expect(keysAfter).not.toContain('you:shot');
-    const fromAbove: Answers = { ...afterStage, stage: { pick: 'above' }, shot: { pick: 'top' } };
-    expect(compileDirection(fromAbove)).toBe(
-      'A niche of warm limestone and rough plaster, in low golden-hour sun, long warm shadows, seen from directly overhead, looking straight down.',
-    );
-    expect(compileDirection(fromAbove).match(/overhead/g)).toHaveLength(1);
+    // nothing about the camera reaches the place's words
+    expect(compileDirection(afterStage)).not.toMatch(/overhead|ground level|eye level|seen /);
   });
 
   it('still lets an explicit pick or a typed light override the world default', () => {
@@ -353,7 +348,6 @@ describe('the light row says what the world already gave it', () => {
       world: { pick: 'stone' },
       light: { pick: PASSED },
       stage: { pick: PASSED },
-      shot: { pick: PASSED },
     };
     expect(compileDirection(a)).toContain('in hard afternoon sun');
     expect(compileDirection(a)).toContain('starting direction, not a picture to reproduce');
@@ -367,14 +361,13 @@ describe('staging personalises the world', () => {
     expect(nest).toEqual({ stage: { pick: 'nest' } });
     const hands = answerPatch('stage', { kind: 'choice', id: 'hands' }, { source: { door: 'guided' } });
     expect(hands).toEqual({ stage: { pick: 'hands' } });
-    const above = answerPatch('stage', { kind: 'choice', id: 'above' }, { source: { door: 'guided' } });
-    expect(above).toEqual({ stage: { pick: 'above' } });
+    const floor = answerPatch('stage', { kind: 'choice', id: 'floor' }, { source: { door: 'guided' } });
+    expect(floor).toEqual({ stage: { pick: 'floor' } });
   });
 
   it('does not ask the camera after a sit, and does not write a silent camera answer', () => {
     const next = commit({ source: { door: 'guided' } }, { stage: { pick: 'hands' } });
     expect(next.stage).toEqual({ pick: 'hands' });
-    expect(next.shot).toBeUndefined();
     expect(nextQuestion(next)).toBe('world');
     expect(answeredIn({ ...next, world: { pick: 'stone' }, light: { pick: 'golden' } })).not.toContain('shot');
   });
@@ -383,7 +376,6 @@ describe('staging personalises the world', () => {
     const next = commit(guided, { world: { pick: 'dark' } });
     expect(next.stage).toBeUndefined();
     expect(next.light).toBeUndefined();
-    expect(next.shot).toBeUndefined();
   });
 });
 
@@ -556,14 +548,16 @@ describe('the session', () => {
 
 describe('a phrase typed at the first question', () => {
   it('answers the questions it names, so they are not asked again', () => {
-    expect(fillFrom('overhead, in a studio')).toEqual({ world: 'colour', stage: 'above', shot: 'top' });
     expect(fillFrom('golden stone wall')).toEqual({ world: 'stone', light: 'golden' });
-    expect(fillFrom('close up')).toEqual({ shot: 'close' });
+    expect(fillFrom('on a plinth, in a studio')).toEqual({ world: 'colour', stage: 'plinth' });
+    // a camera it names is no row's answer: the reader keeps it as the place's camera tendency
+    expect(fillFrom('overhead, in a studio')).toEqual({ world: 'colour' });
+    expect(fillFrom('close up')).toEqual({});
   });
 
   it('takes the longest cue, so a phrase inside a phrase does not win', () => {
-    expect(fillFrom('a close up of it').shot).toBe('close');
-    expect(fillFrom('low angle').shot).toBe('ground');
+    expect(fillFrom('a cool dusk').light).toBe('blue');
+    expect(fillFrom('by a still pool').world).toBe('dark');
   });
 
   it('matches whole words only', () => {
@@ -595,7 +589,6 @@ describe('what is worth reading', () => {
       world: { pick: PASSED },
       light: { pick: PASSED },
       stage: { pick: PASSED },
-      shot: { pick: PASSED },
     };
     // the questions are over, so nothing is on the floor
     expect(nextQuestion(passed)).toBeNull();
@@ -610,7 +603,6 @@ describe('what is worth reading', () => {
         world: { pick: 'water' },
         light: { pick: PASSED },
         stage: { pick: PASSED },
-        shot: { pick: PASSED },
       }),
     ).toBe(true);
     expect(
@@ -618,8 +610,7 @@ describe('what is worth reading', () => {
         ...guided,
         world: { pick: PASSED },
         light: { pick: PASSED },
-        stage: { pick: PASSED },
-        shot: { words: 'from a doorway' },
+        stage: { words: 'on a stack of old books' },
       }),
     ).toBe(true);
   });

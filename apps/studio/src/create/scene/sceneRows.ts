@@ -7,17 +7,20 @@ import type { SwatchRow } from '../../conversation/question.js';
  * mood live inside each world's words; the light row then asks whether to keep
  * that light or replace it. Staging is how the subject lives in the world, the
  * decision that actually personalises one starting point into many scenes.
- * How the subject sits is also how it is seen: the camera is not a second
- * question after staging.
+ *
+ * No row asks where the camera is. A camera written into the place's words
+ * would hold every shot of it to one view, and the scene's example set shows
+ * the place from several (sceneExamples.ts); where the camera stands belongs
+ * to each shot and to the scene's ways of shooting it (sceneSetups.ts).
  *
  * Each option carries the words it hands the reader (`words`), the card id for
  * its drawn picture (`card`), and the words a person might type instead of
  * tapping it (`cues`), so a sentence at the first question answers the rows it
  * covers and only the rest are asked.
  */
-export type SceneRow = 'world' | 'light' | 'stage' | 'shot';
+export type SceneRow = 'world' | 'light' | 'stage';
 
-export const ROW_ORDER: readonly SceneRow[] = ['world', 'light', 'stage', 'shot'];
+export const ROW_ORDER: readonly SceneRow[] = ['world', 'light', 'stage'];
 
 export interface RowOption {
   id: string;
@@ -35,11 +38,6 @@ export interface RowOption {
    * rather than as a place with nothing said about how it is lit.
    */
   light?: string;
-  /**
-   * A camera this sit already is. Written into the answers so the compiler
-   * can skip saying the same view twice. The camera is not asked after staging.
-   */
-  shot?: string;
 }
 
 interface RowSpec {
@@ -220,16 +218,7 @@ export const ROWS: Record<SceneRow, RowSpec> = {
         label: "In someone's hands",
         words: 'held in a pair of anonymous hands, no face and no identity',
         card: card('stage', 4),
-        shot: 'close',
         cues: ['hands', 'handheld', 'in hand', "in someone's hands"],
-      },
-      {
-        id: 'wide',
-        label: 'Small in the space',
-        words: 'the subject small in the frame, the place around it doing the talking',
-        card: card('stage', 5),
-        shot: 'wide',
-        cues: ['small in', 'tiny in', 'lost in the'],
       },
       {
         id: 'floor',
@@ -245,62 +234,6 @@ export const ROWS: Record<SceneRow, RowSpec> = {
         card: card('stage', 7),
         cues: ['leaning', 'leaning on', 'against the wall', 'propped'],
       },
-      {
-        id: 'above',
-        label: 'From above',
-        words: 'seen from directly overhead, looking straight down',
-        card: card('stage', 8),
-        shot: 'top',
-        cues: ['from above', 'overhead', 'top down', 'flat lay', 'flatlay', 'birds eye'],
-      },
-      {
-        id: 'below',
-        label: 'From below',
-        words: 'seen from ground level, the camera low and the subject towering over it',
-        card: card('stage', 9),
-        shot: 'ground',
-        cues: ['from below', 'low angle', 'looking up', 'worms eye'],
-      },
-    ],
-  },
-  shot: {
-    prompt: 'And where is the camera?',
-    options: [
-      {
-        id: 'eye',
-        label: 'Eye level',
-        words: 'seen at eye level, straight on, at a normal distance',
-        card: card('shot', 1),
-        cues: ['eye level', 'straight on', 'front on', 'head on', 'normal'],
-      },
-      {
-        id: 'top',
-        label: 'Top down',
-        words: 'seen from directly overhead, looking straight down',
-        card: card('shot', 2),
-        cues: ['top down', 'overhead', 'above', 'birds eye', 'flat lay', 'flatlay', 'down on'],
-      },
-      {
-        id: 'ground',
-        label: 'Ground level',
-        words: 'seen from ground level, the camera low and the subject towering over it',
-        card: card('shot', 3),
-        cues: ['ground level', 'low angle', 'from below', 'looking up', 'worms eye'],
-      },
-      {
-        id: 'wide',
-        label: 'Wide',
-        words: 'seen wide, the subject small in the frame and the place around it doing the talking',
-        card: card('shot', 4),
-        cues: ['wide', 'far', 'distant', 'establishing', 'room to breathe', 'negative space'],
-      },
-      {
-        id: 'close',
-        label: 'Close',
-        words: 'seen very close, the subject filling the frame',
-        card: card('shot', 5),
-        cues: ['close', 'closeup', 'close-up', 'close up', 'macro', 'detail', 'tight'],
-      },
     ],
   },
 };
@@ -308,11 +241,11 @@ export const ROWS: Record<SceneRow, RowSpec> = {
 /**
  * The rows whose pictures are drawn.
  *
- * Worlds, lights, staging and cameras: one thing changing across each row.
- * Worlds are compared as a set; the rest are a strip of the same subject
- * under one changing decision.
+ * Worlds, lights and staging: one thing changing across each row. Worlds are
+ * compared as a set; the rest are a strip of the same subject under one
+ * changing decision.
  */
-export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['world', 'light', 'stage', 'shot']);
+export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['world', 'light', 'stage']);
 
 /** A row as the conversation's swatch block takes it. */
 export function swatchRow(row: SceneRow): SwatchRow {
@@ -328,8 +261,7 @@ export function swatchRow(row: SceneRow): SwatchRow {
 }
 
 /** What a row is about, for the line that invites words instead of a tap. */
-export const rowNoun = (row: SceneRow): string =>
-  row === 'world' ? 'place' : row === 'light' ? 'light' : row === 'stage' ? 'setup' : 'camera';
+export const rowNoun = (row: SceneRow): string => (row === 'world' ? 'place' : row === 'light' ? 'light' : 'setup');
 
 export const optionOf = (row: SceneRow, id: string | undefined): RowOption | undefined =>
   id ? ROWS[row].options.find((o) => o.id === id) : undefined;

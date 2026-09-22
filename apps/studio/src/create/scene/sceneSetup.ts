@@ -15,11 +15,12 @@ import { optionOf, ROW_ORDER, ROWS, type SceneRow } from './sceneRows.js';
  * A sentence typed at the first question is a door of its own, and the rows
  * still stand behind it: only the ones it left open are asked (`sceneIntent`),
  * at most two, so a sentence that says the place, the light and the camera goes
- * straight to the reading, and one that says only "warm stone" is asked how it
+ * straight to the reading (the camera it names becomes the place's camera
+ * tendency, never a row), and one that says only "warm stone" is asked how it
  * is lit and how the subject lives in it.
  */
 
-/** How the place is given: pictures of it, the four rows, or a sentence typed at the first question. */
+/** How the place is given: pictures of it, the rows, or a sentence typed at the first question. */
 export type Door = 'photos' | 'guided' | 'words';
 export type Qid = 'source' | 'photos' | SceneRow;
 
@@ -39,7 +40,6 @@ export interface Answers {
   world?: Given;
   light?: Given;
   stage?: Given;
-  shot?: Given;
 }
 
 interface Spec {
@@ -84,11 +84,7 @@ export const answeredIn = (a: Answers): Qid[] =>
 export function nextQuestion(a: Answers): Qid | null {
   return (
     SPECS.find((s) => {
-      if (!s.applies(a) || answered(s.id, a)) return false;
-      // Staging is how the subject sits and how it is seen. The camera is
-      // not a second question, and it is not a silent answer in the thread.
-      if (s.id === 'shot' && given(a.stage)) return false;
-      return true;
+      return s.applies(a) && !answered(s.id, a);
     })?.id ?? null
   );
 }
@@ -204,12 +200,9 @@ export function compileDirection(a: Answers): string {
   // how it is lit.
   const light = rowWords('light', a.light) ?? optionOf('world', a.world?.pick)?.light ?? null;
   const stage = rowWords('stage', a.stage);
-  const impliedShot = optionOf('stage', a.stage?.pick)?.shot;
-  // A staging pick that already is a camera must not say the same view twice.
-  const shot = impliedShot && a.shot?.pick === impliedShot && !a.shot.words ? null : rowWords('shot', a.shot);
-  const parts = [world ?? 'a place', light, stage, shot].filter(Boolean) as string[];
+  const parts = [world ?? 'a place', light, stage].filter(Boolean) as string[];
   const text = `${parts.join(', ').replace(/^./, (c) => c.toUpperCase())}.`;
-  const personalised = chosen(a.light) || chosen(a.stage) || chosen(a.shot) || !!a.world?.words?.trim();
+  const personalised = chosen(a.light) || chosen(a.stage) || !!a.world?.words?.trim();
   if (personalised || !a.world?.pick) return text;
   return `${text.slice(0, -1)}. ${COPY.worldIsAStart}`;
 }

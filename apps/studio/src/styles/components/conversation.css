@@ -777,13 +777,12 @@ button.sc-convo-shot-do {
   background-size: cover;
   background-repeat: no-repeat;
 }
-/* The scene rows' cards: eight worlds, eight lights, five ways to sit the
-   subject, then five places to stand the camera.
+/* The scene rows' cards: eight worlds, eight lights, six ways to sit the
+   subject. No card asks where the camera stands: that belongs to each shot.
    Every world card holds the same plain unbranded bottle, so the row is eight
    worlds compared rather than eight pretty pictures; every light card holds
    that same bottle under one changing light; every staging card holds that
-   same bottle in one changing place in the world; every camera card holds one
-   unchanged grey sweep, so the only thing that differs is where the camera is.
+   same bottle in one changing place in the world.
    Drawn from the art direction in the plan's reference table, never copied
    from it. */
 .sc-convo-plate-in[data-card="scene-world-1"] {
@@ -846,35 +845,11 @@ button.sc-convo-shot-do {
 .sc-convo-plate-in[data-card="scene-stage-4"] {
   background-image: url("../../assets/scenes/scene-stage-4.webp");
 }
-.sc-convo-plate-in[data-card="scene-stage-5"] {
-  background-image: url("../../assets/scenes/scene-stage-5.webp");
-}
 .sc-convo-plate-in[data-card="scene-stage-6"] {
   background-image: url("../../assets/scenes/scene-stage-6.webp");
 }
 .sc-convo-plate-in[data-card="scene-stage-7"] {
   background-image: url("../../assets/scenes/scene-stage-7.webp");
-}
-.sc-convo-plate-in[data-card="scene-stage-8"] {
-  background-image: url("../../assets/scenes/scene-stage-8.webp");
-}
-.sc-convo-plate-in[data-card="scene-stage-9"] {
-  background-image: url("../../assets/scenes/scene-stage-9.webp");
-}
-.sc-convo-plate-in[data-card="scene-shot-1"] {
-  background-image: url("../../assets/scenes/scene-shot-1.webp");
-}
-.sc-convo-plate-in[data-card="scene-shot-2"] {
-  background-image: url("../../assets/scenes/scene-shot-2.webp");
-}
-.sc-convo-plate-in[data-card="scene-shot-3"] {
-  background-image: url("../../assets/scenes/scene-shot-3.webp");
-}
-.sc-convo-plate-in[data-card="scene-shot-4"] {
-  background-image: url("../../assets/scenes/scene-shot-4.webp");
-}
-.sc-convo-plate-in[data-card="scene-shot-5"] {
-  background-image: url("../../assets/scenes/scene-shot-5.webp");
 }
 .sc-convo-plate-in[data-card="length-1-woman"] {
   background-image: url("../../assets/traits/length-1-woman.webp");
@@ -1444,7 +1419,7 @@ button.sc-convo-shot-do {
 }
 
 /* ---- drawn options, seen at once -------------------------------------------
-   A world, a light and where the camera stands are not a sequence: choosing
+   A world, a light and how the subject sits are not a sequence: choosing
    one means comparing the whole set, so the row wraps rather than scrolls,
    the same plate wearing a different container. Four across is a width a
    question can own without becoming a wall; the phone earns its own column
