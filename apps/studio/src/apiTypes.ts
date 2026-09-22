@@ -748,6 +748,17 @@ export interface ShowcaseEntry {
   previewUrl?: string | null;
 }
 
+/**
+ * How large a product really is. Read from its photograph when nobody said
+ * (`estimate`), taken from what the store listed (`record`), or the person's
+ * own correction on its page (`person`), which wins over both.
+ */
+export interface ProductSize {
+  text: string;
+  largestCm: number;
+  by: 'estimate' | 'record' | 'person';
+}
+
 /** Products and cast are the same shape: a named thing with locked photos. */
 export interface Product {
   id: string;

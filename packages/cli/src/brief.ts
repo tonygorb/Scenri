@@ -155,6 +155,34 @@ export interface CompiledBrief {
   seated: Attachment[];
   warnings: string[];
   productId: string | null;
+  /**
+   * Present when this shot is one product alone in a place with its own
+   * picture, and so may be drawn in two steps at the product's real size
+   * (productScale.ts). Whether it is depends on the size, which the server
+   * knows and the compiler does not.
+   */
+  scale?: ScalePlan;
+}
+
+/** What the two-step draw needs from a compile: see productScale.ts. */
+export interface ScalePlan {
+  productId: string;
+  /** The product as the prompt names it. */
+  name: string;
+  /** The size the record carries, when it carries one (productSizes.ts fills it in). */
+  dimensions: string | null;
+  /** What the record says the object is, for reading its size when nothing says it. */
+  description: string | null;
+  /** The first product photo that rides. */
+  productHash: string;
+  /** The place's own drawn picture, with nobody in it. */
+  sceneHash: string;
+  /** The place's light, in the reader's words. */
+  light: string;
+  /** What the shot itself asks for: its setup's camera, then the person's own words. */
+  shot: string;
+  /** The lines that hold the product's identity and facts in the full prompt. */
+  productLines: string[];
 }
 
 export const FORMATS: { id: FormatId; label: string; w: number; h: number }[] = [
@@ -1037,6 +1065,46 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     }
   }
 
+  // One product alone in a place that has its own picture, and nothing else
+  // asked of the shot but words: the case a small product came out huge in
+  // (productScale.ts). A figure-led place is a person's world and its picture
+  // holds one; a place read as a product's world already frames products;
+  // anything else attached (a mark, a reference, a colour) has no seat in the
+  // two steps, so those shots are drawn the ordinary way.
+  const onlyWords = brief.tokens.every(
+    (t) => t.t === 'text' || t.t === 'product' || t.t === 'template' || t.t === 'format',
+  );
+  const productIds = new Set(brief.tokens.flatMap((t) => (t.t === 'product' ? [t.id] : [])));
+  const sceneHash = scene && !scene.figure && scene.subject !== 'product' ? assetHash(scene.preview) : null;
+  const firstProduct = kept.find((a) => a.role === 'product');
+  const scaleProduct = productId ? products.find((x) => x.id === productId) : undefined;
+  const scale: ScalePlan | undefined =
+    ctx.mode !== 'edit' &&
+    !hasPerson &&
+    !shotAsksForAPerson(userWords) &&
+    onlyWords &&
+    productIds.size === 1 &&
+    productId &&
+    scaleProduct &&
+    sceneHash &&
+    ctx.images.has(sceneHash) &&
+    firstProduct &&
+    kept.every((a) => a.role === 'product')
+      ? {
+          productId,
+          name: String(scaleProduct.promptName ?? scaleProduct.name),
+          dimensions: scaleProduct.dimensions ? String(scaleProduct.dimensions) : null,
+          description: scaleProduct.description ? String(scaleProduct.description) : null,
+          productHash: firstProduct.hash,
+          sceneHash,
+          light: String(scene?.lighting ?? ''),
+          shot: [setupCamera.trim(), userWords.replace(/\s+/g, ' ').trim()].filter(Boolean).join(', '),
+          productLines: dedupe(
+            [...nameDirectives, ...productDirectives].map(resolveDirective).filter((x): x is string => x !== null),
+          ),
+        }
+      : undefined;
+
   return {
     prompt: prompt.trim(),
     referenceImages: kept.map((a) => ctx.images.pathFor(a.hash)),
@@ -1049,6 +1117,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     seated,
     warnings,
     productId,
+    ...(scale ? { scale } : {}),
   };
 }
 

@@ -56,6 +56,9 @@ import {
   shotSpecifiesCamera,
 } from './briefDirectives.js';
 import { variationPlan } from './variationPlan.js';
+import { drawAtScale, needsOwnScale, spanCm } from './productScale.js';
+import { createProductSizes } from './productSizes.js';
+import { registerProductSizeRoutes } from './routes/productSizes.js';
 import { scopeOfInstruction, type EditScope } from './editScopeRules.js';
 import { gradeComposite, isGradeOnlyInstruction } from './gradeTransfer.js';
 import {
@@ -142,6 +145,13 @@ export interface ServerOptions {
   nodeTimeoutMs?: number;
   /** Reads a brand's own references into structured records. Injected in tests. */
   analyzer?: Analyzer;
+  /**
+   * Reads how large a product really is from its photograph (productSizes.ts).
+   * Only ever what the caller hands in: `serve` passes Codex, or the demo
+   * reader beside the demo engine, and a test passes its own or nothing, so no
+   * suite can spend anyone's Codex quota on a size.
+   */
+  sizeReader?: Analyzer | null;
   /** Installs and signs in the local Codex CLI for the setup wizard. Injected in tests. */
   codexSetup?: CodexSetup;
 }
@@ -559,6 +569,37 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // own products[].
   const { demoProducts } = loadDemoProducts(join(templatesRoot, 'demo-products'));
   const demoProductById = demoProductResolver(demoProducts);
+
+  // ---- product sizes: read once from a product's photograph, kept, shown on
+  // its page and correctable there, and carried into every compile below.
+  const sizes = createProductSizes(core, async () => {
+    const reader = opts.sizeReader;
+    return reader && (await reader.isAvailable()).ok ? reader : null;
+  });
+  registerProductSizeRoutes(app, {
+    core,
+    sizes,
+    productFor: async (brandId, productId) => {
+      const json = await brandJsonWithResolvedDemoProducts(
+        core,
+        templatesRoot,
+        demoProducts,
+        brandJsonWithCatalogProducts(core, brandId),
+        [{ t: 'product', id: productId }],
+      );
+      const p = (json?.products ?? []).find((x: any) => x?.id === productId);
+      if (!p) return null;
+      const file = String(p.shots?.[0]?.file ?? '');
+      const hash = file.startsWith('asset:') ? file.slice(6) : '';
+      return {
+        id: String(p.id),
+        name: String(p.promptName ?? p.name),
+        dimensions: p.dimensions,
+        ...(p.description ? { description: String(p.description) } : {}),
+        photo: hash && core.images.has(hash) ? core.images.pathFor(hash) : null,
+      };
+    },
+  });
   // Thumbnail is always the category's "primary" angle (three-quarter where
   // the category has one, else front) — a slightly dimensional hero shot,
   // never a creative-campaign image. See primaryAngleFor/demoProductRefPath.
@@ -636,12 +677,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         core,
         templatesRoot,
         presenters,
-        await brandJsonWithResolvedDemoProducts(
-          core,
-          templatesRoot,
-          demoProducts,
-          brandJsonWithCatalogProducts(core, brandId),
-          combined,
+        sizes.apply(
+          brandId,
+          await brandJsonWithResolvedDemoProducts(
+            core,
+            templatesRoot,
+            demoProducts,
+            brandJsonWithCatalogProducts(core, brandId),
+            combined,
+          ),
         ),
         combined,
       ),
@@ -837,12 +881,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         core,
         templatesRoot,
         presenters,
-        await brandJsonWithResolvedDemoProducts(
-          core,
-          templatesRoot,
-          demoProducts,
-          brandJsonWithCatalogProducts(core, brand.id),
-          brief.tokens,
+        sizes.apply(
+          brand.id,
+          await brandJsonWithResolvedDemoProducts(
+            core,
+            templatesRoot,
+            demoProducts,
+            brandJsonWithCatalogProducts(core, brand.id),
+            brief.tokens,
+          ),
         ),
         brief.tokens,
       ),
@@ -1472,12 +1519,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             core,
             templatesRoot,
             presenters,
-            await brandJsonWithResolvedDemoProducts(
-              core,
-              templatesRoot,
-              demoProducts,
-              brandJsonWithCatalogProducts(core, project.brandId),
-              brief.tokens,
+            sizes.apply(
+              project.brandId,
+              await brandJsonWithResolvedDemoProducts(
+                core,
+                templatesRoot,
+                demoProducts,
+                brandJsonWithCatalogProducts(core, project.brandId),
+                brief.tokens,
+              ),
             ),
             brief.tokens,
           ),
@@ -1526,12 +1576,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         core,
         templatesRoot,
         presenters,
-        await brandJsonWithResolvedDemoProducts(
-          core,
-          templatesRoot,
-          demoProducts,
-          brandJsonWithCatalogProducts(core, project.brandId),
-          legacyTokens,
+        sizes.apply(
+          project.brandId,
+          await brandJsonWithResolvedDemoProducts(
+            core,
+            templatesRoot,
+            demoProducts,
+            brandJsonWithCatalogProducts(core, project.brandId),
+            legacyTokens,
+          ),
         ),
         legacyTokens,
       );
@@ -1555,6 +1608,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // Only generations declare a target shape. An edit inherits the source
     // image's dimensions, so there is nothing to check it against.
     let expectShape: { width: number; height: number } | undefined;
+    /** Draws per picture: two when a small product is drawn at its own scale. */
+    let scaleSteps = 1;
     /** For an edit, which image of the parent run it was made from. */
     let editedFrom: string | null = null;
     /*
@@ -1683,6 +1738,51 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       estimate = await engine.costEstimate(genReq);
       work = (signal, onImage) => engine.generate(genReq, signal, onImage);
       expectShape = { width, height };
+      /*
+       * One small product alone in a place with its own picture is drawn in
+       * two steps at its real size (productScale.ts): the place first, at the
+       * product's magnification, then the product placed on it. The size is
+       * read from its photograph the first time it is needed, inside the run,
+       * so the request answers at once; a size above a small product's, or
+       * no size at all, draws the ordinary way.
+       */
+      const scale = compiled?.scale;
+      if (scale && engine.capabilities().supportsEdit) {
+        const brandId = project.brandId;
+        const record = {
+          id: scale.productId,
+          name: scale.name,
+          dimensions: scale.dimensions ?? undefined,
+          ...(scale.description ? { description: scale.description } : {}),
+          photo: core.images.pathFor(scale.productHash),
+        };
+        const now = sizes.known(brandId, record);
+        // Two draws a picture when it is small or not yet known: the spend
+        // cap is checked against the most the run can cost.
+        if (!now || needsOwnScale(now)) estimate *= 2;
+        scaleSteps = !now || needsOwnScale(now) ? 2 : 1;
+        const plain = work;
+        work = async (signal, onImage) => {
+          const size = await sizes.ensure(brandId, record, signal);
+          if (!needsOwnScale(size)) return plain(signal, onImage);
+          app.log.info(
+            { product: scale.productId, size: size.text, span: spanCm(size.largestCm) },
+            'product drawn at its own scale',
+          );
+          return drawAtScale({
+            engine,
+            images: core.images,
+            brand: ctx,
+            plan: scale,
+            size,
+            width: Number(width),
+            height: Number(height),
+            count: wantedCount,
+            signal,
+            onImage,
+          });
+        };
+      }
     } else {
       const parent = core.store.getNode(resolvedParentId);
       const srcHash = (req.body as any).sourceImage ?? parent?.images[0];
@@ -2376,7 +2476,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const nodeBudgetMs =
       kind === 'generation' && runCaps.perImageTimeoutMs
         ? Math.ceil(Math.min(Math.max(1, Number(count)), 8) / Math.max(1, runCaps.imageConcurrency ?? 1)) *
-            runCaps.perImageTimeoutMs +
+            runCaps.perImageTimeoutMs *
+            scaleSteps +
+          // and the one read of the product's size, when it is not kept yet
+          (scaleSteps > 1 ? 180_000 : 0) +
           60_000
         : undefined;
     void runNode(

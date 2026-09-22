@@ -133,9 +133,28 @@ export interface SceneDraft {
   coverage: string[];
 }
 
+/** One product photograph, read for how large the real object is. */
+export interface MeasureRequest {
+  /** Absolute path to the product's first photograph. */
+  imagePath: string;
+  /** What the product is called, so a name like "Travel Mug" can help. */
+  name: string;
+  /** The record's own words about it, when it has any. */
+  description?: string;
+}
+
+/** A product's real size, as a person would say it and as a number. */
+export interface SizeRead {
+  /** In plain words with a unit, e.g. "about 2 cm across". */
+  text: string;
+  /** Its largest dimension as it stands, in centimetres. */
+  largestCm: number;
+}
+
 export interface CodexAnalyzer {
   isAvailable(): Promise<EngineAvailability>;
   analyze(req: AnalyzeRequest, signal?: AbortSignal): Promise<PresenterDraft | SceneDraft>;
+  measure(req: MeasureRequest, signal?: AbortSignal): Promise<SizeRead>;
 }
 
 export interface CodexAnalyzerOptions extends RunnerOptions {
@@ -190,7 +209,79 @@ export function createCodexAnalyzer(opts: CodexAnalyzerOptions = {}): CodexAnaly
         throw new Error(`Codex could not describe these references: ${problems.join(' ')}`);
       });
     },
+
+    /*
+     * How large the real object is. A packshot fills its own frame whatever
+     * the product, so the photograph says what the object is and never how
+     * large; the size is worked out from what it is. Read once per product
+     * and kept (productScale.ts is why it matters).
+     */
+    async measure(req: MeasureRequest, signal?: AbortSignal): Promise<SizeRead> {
+      return runner.withWorkDir(async (dir) => {
+        const ref = join(dir, 'ref-1.png');
+        await copyFile(req.imagePath, ref);
+        let problems: string[] = [];
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const args = execArgs(dir, 'high');
+          args.splice(args.length - 1, 0, `--image=${ref}`);
+          await runner.run(args, signal, {
+            stdin: measurePrompt(req, problems),
+            label: `measure attempt=${attempt + 1}`,
+          });
+          let raw: string;
+          try {
+            raw = await readFile(join(dir, OUT_FILE), 'utf8');
+          } catch {
+            problems = [`No ${OUT_FILE} was written.`];
+            continue;
+          }
+          const parsed = parseSize(raw);
+          if (parsed.ok) return parsed.size;
+          problems = parsed.problems;
+        }
+        throw new Error(`Codex could not size this product: ${problems.join(' ')}`);
+      });
+    },
   };
+}
+
+function measurePrompt(req: MeasureRequest, problems: string[]): string {
+  const about = req.description ? ` Its maker describes it: ${req.description}.` : '';
+  const retry = problems.length
+    ? ` Your last answer was rejected: ${problems.join(' ')} Fix exactly that and write the file again.`
+    : '';
+  return (
+    `One photograph of a product is attached; the product is called "${req.name}".${about}` +
+    ' Say how large the real object is, the way a shop lists it. Work it out from what the object is, its parts and' +
+    ' their proportions, never from how large it looks in this picture: a product photograph fills its frame whatever' +
+    ' the product. Measure it as it stands or lies in a photograph, not folded, worn or packed.' +
+    ` ${OUT_FILE} must be a JSON object with exactly these keys:` +
+    ' "size": its size in plain words with a unit, about the one or two dimensions a person would picture, such as' +
+    ' "about 2 cm across", "about 10 cm tall", "about 30 cm long" or "about 45 by 35 cm";' +
+    ' "largestCm": its largest dimension as it stands, in centimetres, as a number.' +
+    ` Write strict JSON, and nothing but JSON, to a file called ${OUT_FILE} in the current directory` +
+    ' (you may run the commands needed to write it). Do not browse the web or explore files.' +
+    ` No prose, no markdown fences, no commentary.${retry}`
+  );
+}
+
+function parseSize(raw: string): { ok: true; size: SizeRead } | { ok: false; problems: string[] } {
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch (err) {
+    return { ok: false, problems: [`${OUT_FILE} was not valid JSON (${(err as Error).message}).`] };
+  }
+  const o = (json && typeof json === 'object' ? json : {}) as Record<string, unknown>;
+  const text = cap(str(o.size), 80);
+  const largest = Number(o.largestCm);
+  const problems: string[] = [];
+  if (!text || !/\d/.test(text)) problems.push('"size" must be plain words with a number and a unit.');
+  // A thumb tack to a wardrobe: anything outside is a misread, not a product.
+  if (!Number.isFinite(largest) || largest < 0.3 || largest > 400)
+    problems.push('"largestCm" must be a number of centimetres between 0.3 and 400.');
+  if (problems.length) return { ok: false, problems };
+  return { ok: true, size: { text, largestCm: Math.round(largest * 10) / 10 } };
 }
 
 /* ---------------------------------------------------------------- prompts */

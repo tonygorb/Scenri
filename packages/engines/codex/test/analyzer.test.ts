@@ -529,3 +529,52 @@ describe('analyze — scene: a figure can be the concept', () => {
     expect(prompt).not.toContain('What the person wants from it');
   });
 });
+
+describe('measure', () => {
+  it('reads a product photograph for its real size, never its size in the picture', async () => {
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      writeFileSync(
+        join(dirFromArgs(args), 'analysis.json'),
+        JSON.stringify({ size: 'about 2 cm across', largestCm: 2.04 }),
+      );
+      child.emit('exit', 0, null);
+    });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
+    const size = await analyzer.measure({ imagePath: photo(), name: 'Signet Ring', description: 'Solid gold' });
+    expect(size).toEqual({ text: 'about 2 cm across', largestCm: 2 });
+    expect(calls).toHaveLength(1);
+    const prompt = promptFromArgs(calls[0]);
+    expect(prompt).toContain('the product is called "Signet Ring"');
+    expect(prompt).toContain('Its maker describes it: Solid gold.');
+    expect(prompt).toContain('never from how large it looks in this picture');
+    expect(calls[0].args.some((a) => a.startsWith('--image='))).toBe(true);
+  });
+
+  it('asks once more for a size it cannot read, then gives up rather than guess', async () => {
+    const bodies = [
+      { size: 'large', largestCm: 'big' },
+      { size: 'about 10 cm tall', largestCm: 10 },
+    ];
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(bodies[calls.length - 1]));
+      child.emit('exit', 0, null);
+    });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
+    expect(await analyzer.measure({ imagePath: photo(), name: 'Lumière' })).toEqual({
+      text: 'about 10 cm tall',
+      largestCm: 10,
+    });
+    expect(promptFromArgs(calls[1])).toContain('"largestCm" must be a number of centimetres');
+
+    const { spawnImpl: bad } = fakeSpawn(({ args, child }) => {
+      writeFileSync(
+        join(dirFromArgs(args), 'analysis.json'),
+        JSON.stringify({ size: 'about 900 m', largestCm: 90000 }),
+      );
+      child.emit('exit', 0, null);
+    });
+    await expect(
+      createCodexAnalyzer({ platform: 'linux', spawnImpl: bad }).measure({ imagePath: photo(), name: 'X' }),
+    ).rejects.toThrow(/could not size this product/);
+  });
+});

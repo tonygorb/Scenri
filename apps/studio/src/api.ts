@@ -31,6 +31,7 @@ import type {
   Presenter,
   PresenterPatch,
   Product,
+  ProductSize,
   Project,
   ReleaseNotesResponse,
   Scene,
@@ -230,6 +231,16 @@ export const api = {
     productId: string,
     patch: Partial<Pick<Product, 'category' | 'variant' | 'material' | 'dimensions'>>,
   ) => req<{ product: unknown }>('PATCH', `/api/brands/${brandId}/catalog/products/${productId}`, patch),
+  /**
+   * How large the product really is. Read from its photograph the first time
+   * anyone asks, so the answer can take a few seconds once; null when nothing
+   * can read it and nobody has said.
+   */
+  productSize: (brandId: string, productId: string) =>
+    req<{ size: ProductSize | null }>('GET', `/api/brands/${brandId}/products/${productId}/size`),
+  /** The person's own size, in words with a unit; an empty string takes it back. */
+  setProductSize: (brandId: string, productId: string, size: string) =>
+    req<{ size: ProductSize | null }>('PUT', `/api/brands/${brandId}/products/${productId}/size`, { size }),
   /**
    * The product's reference set, in the order it should be read: `files` is
    * the whole list, so leaving one out removes it and moving one to the front

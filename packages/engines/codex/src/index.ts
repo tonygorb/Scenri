@@ -41,7 +41,14 @@ export {
   type CodexSetupState,
   type CodexStatusResult,
 } from './setup.js';
-export type { AnalyzeRequest, CodexAnalyzer, PresenterDraft, SceneDraft } from './analyzer.js';
+export type {
+  AnalyzeRequest,
+  CodexAnalyzer,
+  MeasureRequest,
+  PresenterDraft,
+  SceneDraft,
+  SizeRead,
+} from './analyzer.js';
 export { createRunner, type CodexRunner } from './run.js';
 export { CONFLICT_ENV_KEYS, type CodexFailure, type CodexFailureCode } from './classify.js';
 export { CONNECT_PROMPT, type CodexConnection } from './connect.js';

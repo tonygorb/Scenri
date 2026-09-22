@@ -103,6 +103,14 @@ export interface Analyzer {
     },
     signal?: AbortSignal,
   ): Promise<PresenterDraft | SceneDraft>;
+  /**
+   * How large a product really is, read from its photograph and name. Optional
+   * so a reader that cannot answer is simply never asked (productSizes.ts).
+   */
+  measure?(
+    req: { imagePath: string; name: string; description?: string },
+    signal?: AbortSignal,
+  ): Promise<{ text: string; largestCm: number }>;
 }
 
 export interface AssetBuildDeps {

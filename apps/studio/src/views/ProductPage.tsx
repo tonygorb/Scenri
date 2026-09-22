@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { api, assetUrl, addProductShot, deleteProduct, type Brand, type DemoProduct, type Product } from '../api.js';
+import { PencilSimple } from '@phosphor-icons/react';
+import {
+  api,
+  assetUrl,
+  addProductShot,
+  deleteProduct,
+  type Brand,
+  type DemoProduct,
+  type Product,
+  type ProductSize,
+} from '../api.js';
 import { Confirm } from '../Confirm.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
@@ -17,6 +27,8 @@ import { ProductReferences, type ProductRef } from '../layout/ProductReferences.
 import { ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { LineField } from '../layout/LineField.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
+import { Tip } from '../layout/Tip.js';
+import { ProductDetailsDialog } from './ProductDetailsDialog.js';
 import { categoryLabel, effectiveCategory } from '../productCategories.js';
 
 /** Mirrors PRODUCT_REF_MAX in packages/cli/src/brief.ts — the number of product images a brief actually attaches. */
@@ -146,6 +158,49 @@ export function ProductPage() {
 
   /** Shots whose brief carried this product, newest first. */
   const made = useMadeWith(brand.id, [productId ?? '']);
+
+  /**
+   * How large it really is. Nobody fills this in: the first look reads it from
+   * the photograph (a few seconds, once), and the Details sheet corrects it.
+   */
+  const [size, setSize] = useState<ProductSize | null>(null);
+  const [details, setDetails] = useState(false);
+  const [savingSize, setSavingSize] = useState(false);
+  const [sizeErr, setSizeErr] = useState<string | null>(null);
+  const known = !!(product ?? demoProduct);
+  useEffect(() => {
+    setSize(null);
+    if (!known || !productId) return;
+    let alive = true;
+    void api
+      .productSize(brand.id, productId)
+      .then((r) => {
+        if (alive) setSize(r.size);
+      })
+      .catch(() => {
+        // No size is a quiet absence: the page never says it failed to guess.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [brand.id, productId, known]);
+  const saveSize = async (words: string) => {
+    if (!productId) return;
+    const here = stillHere();
+    setSavingSize(true);
+    setSizeErr(null);
+    try {
+      const r = await api.setProductSize(brand.id, productId, words);
+      if (here()) {
+        setSize(r.size);
+        setDetails(false);
+      }
+    } catch (e: any) {
+      setSizeErr(String(e.message ?? e));
+    } finally {
+      setSavingSize(false);
+    }
+  };
 
   const isManual = (product?.origin ?? 'manual') === 'manual';
 
@@ -343,7 +398,12 @@ export function ProductPage() {
   const catalogCopy = product?.descriptionHtml ? firstSentence(stripHtml(product.descriptionHtml), 200) : '';
   const lede = demoProduct?.description || catalogCopy || null;
 
-  const rest = demoProduct ? [demoProduct.subcategory] : [product?.variant, product?.material, product?.dimensions];
+  // The size that holds (the person's, the store's, or the reading) says it;
+  // the record's own field is what it was read from, never shown twice.
+  const sized = size ? size.text.charAt(0).toUpperCase() + size.text.slice(1) : null;
+  const rest = demoProduct
+    ? [demoProduct.subcategory, sized]
+    : [product?.variant, product?.material, sized ?? product?.dimensions];
   const facts = [editable === 'none' ? categoryLabel(categoryKey) : null, ...rest].filter(Boolean);
 
   const others = demoProduct
@@ -384,6 +444,22 @@ export function ProductPage() {
           <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyProduct(id)}>
             Use in a shot
           </button>
+          {editable !== 'none' && (
+            <Tip label="Edit details">
+              <button
+                type="button"
+                className="sc-icon-btn"
+                aria-label="Edit details"
+                aria-haspopup="dialog"
+                onClick={() => {
+                  setSizeErr(null);
+                  setDetails(true);
+                }}
+              >
+                <PencilSimple size={17} />
+              </button>
+            </Tip>
+          )}
         </div>
 
         {err && <p className="sc-assetform-err">{err}</p>}
@@ -438,6 +514,16 @@ export function ProductPage() {
               ),
             )}
           </Slider>
+        )}
+
+        {details && (
+          <ProductDetailsDialog
+            size={size}
+            busy={savingSize}
+            error={sizeErr}
+            onSave={(words) => void saveSize(words)}
+            onDismiss={() => setDetails(false)}
+          />
         )}
 
         {product && (

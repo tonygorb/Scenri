@@ -235,6 +235,18 @@ export function createDemoAnalyzer(opts: { photos?: 'usable' | 'unusable'; readM
         photos: req.imagePaths.map((_, i) => filing(i)),
       };
     },
+    /**
+     * A size that looked at nothing: the one written in the name when there
+     * is one ("Ring 2 cm"), else a small bottle's, so a spec can drive both
+     * the two-step draw and the ordinary one from a product's name alone.
+     */
+    measure: async (req: { imagePath: string; name: string }, signal?: AbortSignal) => {
+      if (opts.readMs) await sleep(opts.readMs, signal);
+      if (signal?.aborted) throw new Error('cancelled');
+      if (opts.fail) throw new Error('demo: the read was refused');
+      const m = /(\d+(?:\.\d+)?)\s*cm\b/i.exec(req.name);
+      return m ? { text: `about ${m[1]} cm`, largestCm: Number(m[1]) } : { text: 'about 10 cm tall', largestCm: 10 };
+    },
   };
 }
 
