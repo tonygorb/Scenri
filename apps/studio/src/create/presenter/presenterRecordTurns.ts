@@ -1,5 +1,6 @@
 import { type Aside, type Question, type Turn, asideTurns } from '../../conversation/question.js';
 import { PROMPT, readingWhat, reason } from './presenterCopy.js';
+import { sideCheck } from './presenterTraits.js';
 import {
   builtOn,
   EXTRA_VIEWS,
@@ -314,6 +315,7 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
         id: 'identity',
         kind: 'confirm',
         prompt: lastOpen ? 'Adjusted. Use this person, or try again.' : PROMPT.identity(who),
+        hint: sideCheck('portrait', d.keepItems),
         options: [
           { id: 'use', label: 'Use this person' },
           { id: 'again', label: 'Try again' },
@@ -425,6 +427,8 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
               wouldStaleDependents(d, candidate) ? ' Using it redraws the views built on the face.' : ''
             }`
           : 'Use it, or keep the previous one.',
+      // the two pictures every later view and shot copies a side from
+      hint: candidate === 'portrait' || candidate === 'front' ? sideCheck(candidate, d.keepItems) : undefined,
       options: [
         { id: 'use', label: candidate === 'portrait' ? 'Use this' : 'Use it' },
         ...(revising ? [{ id: 'keep', label: 'Keep previous' }] : []),
