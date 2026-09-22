@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Dialog, Spinner } from '@radix-ui/themes';
+import { Spinner } from '@radix-ui/themes';
 import {
   ArrowsClockwise,
   ArrowSquareOut,
@@ -13,10 +13,11 @@ import {
 } from '@phosphor-icons/react';
 import { api, type EngineInfo, type SetupPlatform } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
-import { focusSelfOnOpen, useOpenSetup } from '../app/dialogs.js';
+import { useOpenSetup } from '../app/dialogs.js';
 import { engineTitle } from '../engines/active.js';
 import { EngineMark, engineTile, keyProviderFor, type KeyProvider } from '../engines/providers.jsx';
 import { Confirm } from '../Confirm.js';
+import { DialogSheet, SheetClose, SheetTitle } from '../layout/DialogSheet.js';
 import { type Phase, repairNote, repairedNote, stepState } from './providerSetupRules.js';
 
 /**
@@ -49,27 +50,39 @@ export function ProviderSetup({ engines, onSaved }: { engines: EngineInfo[]; onS
   const open = Boolean(provider) || isCodex;
   const engine = engines.find((e) => e.id === engineId);
 
+  // Settings' own shell, since this opens from it and over it: the same head,
+  // and on a phone the same sheet.
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => !next && close()}>
-      <Dialog.Content
-        className="sc-setup"
-        maxWidth="520px"
-        aria-describedby={undefined}
-        onOpenAutoFocus={focusSelfOnOpen}
-      >
-        {provider ? (
-          <KeyPane
-            provider={provider}
-            name={engine ? engineTitle(engine.displayName) : provider.engineId}
-            connected={Boolean(engine?.available)}
-            onSaved={onSaved}
-            onDone={close}
-          />
-        ) : (
-          <CodexPane engines={engines} onSaved={onSaved} onDone={close} />
-        )}
-      </Dialog.Content>
-    </Dialog.Root>
+    <DialogSheet
+      open={open}
+      className="sc-setup"
+      maxWidth="520px"
+      onDismiss={close}
+      // A key pane's field is its whole business, so it takes the first focus.
+      // Focused here, once this sheet's trap is the active one: focused on the
+      // pane's own mount, Settings' trap underneath was still live and pulled
+      // focus back to its Connect button, outside this sheet.
+      onOpenAutoFocus={
+        provider
+          ? (e) => {
+              e.preventDefault();
+              (e.target as HTMLElement).querySelector<HTMLInputElement>('.sc-setup-key input')?.focus();
+            }
+          : undefined
+      }
+    >
+      {provider ? (
+        <KeyPane
+          provider={provider}
+          name={engine ? engineTitle(engine.displayName) : provider.engineId}
+          connected={Boolean(engine?.available)}
+          onSaved={onSaved}
+          onDone={close}
+        />
+      ) : (
+        <CodexPane engines={engines} onSaved={onSaved} onDone={close} />
+      )}
+    </DialogSheet>
   );
 }
 
@@ -80,14 +93,13 @@ export function ProviderSetup({ engines, onSaved }: { engines: EngineInfo[]; onS
  */
 function SetupHead({ title }: { title: string }) {
   return (
-    <div className="sc-setup-head">
-      <Dialog.Title className="sc-setup-title">{title}</Dialog.Title>
-      <span className="sc-set-sp" />
-      <Dialog.Close>
-        <button type="button" className="sc-set-close" aria-label="Close">
+    <div className="sc-newdlg-head sc-setup-head">
+      <SheetTitle className="sc-newdlg-title sc-setup-title">{title}</SheetTitle>
+      <SheetClose>
+        <button type="button" className="sc-set-close sc-newdlg-close" aria-label="Close">
           <X size={16} />
         </button>
-      </Dialog.Close>
+      </SheetClose>
     </div>
   );
 }
@@ -117,13 +129,6 @@ function KeyPane({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fromEnv, setFromEnv] = useState(false);
-  const fieldRef = useRef<HTMLInputElement>(null);
-
-  // The field is the entire dialog, so it takes focus even though the shell
-  // deliberately refuses to auto-focus anything else.
-  useEffect(() => {
-    fieldRef.current?.focus();
-  }, []);
 
   const save = async () => {
     const key = value.trim();
@@ -200,7 +205,6 @@ function KeyPane({
           }}
         >
           <input
-            ref={fieldRef}
             className="sc-in"
             type="password"
             placeholder={provider.hint}

@@ -36,7 +36,8 @@
     animation: sc-fade-in var(--sc-dur-fast) var(--sc-ease) both;
   }
 }
-.sc-set .sc-newdlg-head {
+/* Settings and the provider setup that opens over it share one head */
+:is(.sc-set, .sc-setup) .sc-newdlg-head {
   flex: none;
   gap: 12px;
   height: 73px;
@@ -44,7 +45,7 @@
   border-bottom: 1px solid var(--sc-line);
 }
 /* the glyph, not the 44px target, stands on the gutter */
-.sc-set .sc-newdlg-close {
+:is(.sc-set, .sc-setup) .sc-newdlg-close {
   margin-right: -14px;
 }
 /* Three classes: the shell's own body rules load after this sheet. The
@@ -362,28 +363,29 @@
 /* What you press is solid, what you type into is drawn. In a card, the card
    and its hairlines are outlines already, and an outlined button there read
    as more of the card; so a row's action takes the chip fill and a field
-   stays an outlined well. A delete is washed in red instead, the one place
+   stays an outlined well. The provider setup that opens over Settings speaks
+   the same way. A delete is washed in red instead, the one place
    red is spent. */
-.sc-set-card .sc-btn-ghost {
+:is(.sc-set-card, .sc-setup) .sc-btn-ghost {
   border-color: transparent;
   background: var(--sc-chip);
 }
-.sc-set-card .sc-btn-ghost.sc-btn-red {
+:is(.sc-set-card, .sc-setup) .sc-btn-ghost.sc-btn-red {
   background: color-mix(in srgb, var(--sc-red) 10%, transparent);
 }
 @media (hover: hover) {
-  .sc-set-card .sc-btn-ghost:hover:not(:active) {
+  :is(.sc-set-card, .sc-setup) .sc-btn-ghost:hover:not(:active) {
     border-color: transparent;
     background: var(--sc-chip-hover);
   }
-  .sc-set-card .sc-btn-ghost.sc-btn-red:hover:not(:active) {
+  :is(.sc-set-card, .sc-setup) .sc-btn-ghost.sc-btn-red:hover:not(:active) {
     background: color-mix(in srgb, var(--sc-red) 16%, transparent);
   }
 }
-.sc-set-card .sc-btn-ghost:active {
+:is(.sc-set-card, .sc-setup) .sc-btn-ghost:active {
   background: var(--sc-chip-active);
 }
-.sc-set-card .sc-btn-ghost.sc-btn-red:active {
+:is(.sc-set-card, .sc-setup) .sc-btn-ghost.sc-btn-red:active {
   background: color-mix(in srgb, var(--sc-red) 22%, transparent);
 }
 
@@ -700,12 +702,12 @@ select.sc-in {
      one card per scope, then a page over it with Back. */
   /* one edge on a phone too: the title, the scope labels and the cards stand
      on the gutter, and the close glyph ends where the cards do */
-  .sc-set .sc-newdlg-head {
+  :is(.sc-set, .sc-setup) .sc-newdlg-head {
     gap: 2px;
     height: auto;
     padding: 0 var(--sc-gutter) 14px;
   }
-  .sc-set .sc-newdlg-back {
+  :is(.sc-set, .sc-setup) .sc-newdlg-back {
     width: 40px;
     height: 40px;
     margin-left: -10px;
