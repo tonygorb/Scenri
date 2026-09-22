@@ -892,6 +892,21 @@ describe('golden: presenter references are identity, not wardrobe', () => {
     expect(r.prompt).toMatch(/dress them for the place and the occasion/i);
   });
 
+  it('the capture expression and gaze are released like the outfit, and the face is still held', () => {
+    const r = compile([{ t: 'character', id: 'c1' }]);
+    // Every reference is drawn with a neutral face, eyes to the lens; without
+    // this the close portraits stared into the lens against the brief and a
+    // mid-jump frame kept the passport face (2026-09-22 battery).
+    expect(r.prompt).toMatch(/expression and gaze in the reference are neutral capture conditions too/i);
+    expect(r.prompt).toMatch(/never a copy of the reference's straight-to-lens look/i);
+    expect(r.prompt).toMatch(/their face stays unmistakably theirs/i);
+    // It follows the wardrobe release, which is where it was measured.
+    const wardrobe = r.prompt.indexOf('never return them to the plain base layers');
+    expect(wardrobe).toBeGreaterThan(-1);
+    expect(r.prompt.indexOf('expression and gaze in the reference')).toBeGreaterThan(wardrobe);
+    expect(compile([{ t: 'product', id: 'p1' }]).prompt).not.toMatch(/expression and gaze in the reference/i);
+  });
+
   it('the release clause rides with a person, never with a product alone', () => {
     const r = compile([{ t: 'product', id: 'p1' }]);
     expect(r.prompt).not.toMatch(/capture conditions/i);

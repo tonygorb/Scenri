@@ -1527,6 +1527,7 @@ export const Composer = forwardRef<
                 : 'What should we shoot? (use $ / @ #)'
           }
           placeholderSm={template || mode === 'edit' ? undefined : 'What should we shoot? ($ / @ #)'}
+          label={template ? 'Art direction' : mode === 'edit' ? 'What to change' : 'Shot brief'}
           onSubmit={() => void go()}
           onDropFiles={(files) => void pickFiles(files)}
         />

@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.13.2](https://github.com/tonygorb/Scenri/compare/v0.13.1...v0.13.2) (2026-09-22)
+
+
+### Bug Fixes
+
+* **presenter:** expressions fit the shot, and one-sided details are checked at approval ([29cb49d](https://github.com/tonygorb/Scenri/commit/29cb49d7716096383da7895c2475714bec4140a2))
+* **presenter:** release the reference's expression and gaze in the shot prompt ([5cc8bdb](https://github.com/tonygorb/Scenri/commit/5cc8bdbb3e933f6706004f094ab38a17eb40baf5))
+* **presenter:** the face and full-body approvals say which side to check ([46ee0fc](https://github.com/tonygorb/Scenri/commit/46ee0fcfeb0f12a86f5516f9ff11050808afd228))
+
+## [0.13.1](https://github.com/tonygorb/Scenri/compare/v0.13.0...v0.13.1) (2026-09-22)
+
+
+### Bug Fixes
+
+* **create:** the feed keeps the tile you were looking at when its columns change ([8908270](https://github.com/tonygorb/Scenri/commit/8908270c37d479659ba7793c0c4fc08a8dbfb430))
+* **studio:** a lesson step pushed out of view by a resize comes back into view ([5f5fefb](https://github.com/tonygorb/Scenri/commit/5f5fefbbe9d98f7241f9d34b057d96fe8d65da92))
+* **studio:** a lesson step written as the page reloads is not lost ([22d04ca](https://github.com/tonygorb/Scenri/commit/22d04ca8006295ab9421470394c0a4e1c64d42d4))
+* **studio:** alerts above the tutor and dialogs, a feed that keeps its place, and three small repairs ([ca63798](https://github.com/tonygorb/Scenri/commit/ca63798df7d6d3db85cef641b977de05e4d8c4be))
+* **studio:** alerts are drawn above the tutor and dialogs, and can be pressed there ([3c5e75c](https://github.com/tonygorb/Scenri/commit/3c5e75c8bf041575c06f80ac78b45f68e9679191))
+* **studio:** the brief has a name a screen reader can say ([22c6b6a](https://github.com/tonygorb/Scenri/commit/22c6b6a66a696cb558d4989dd81d93d1838e86ea))
+
+## [0.13.0](https://github.com/tonygorb/Scenri/compare/v0.12.0...v0.13.0) (2026-09-21)
+
+
+### Features
+
+* **studio:** rebuild transient alerts as a quiet toast stack ([7b44141](https://github.com/tonygorb/Scenri/commit/7b44141b57cc6748942d97bc6acc27a022260207))
+* **studio:** turn first-use on, with a tutor that can go back ([df6b799](https://github.com/tonygorb/Scenri/commit/df6b799708d65cf31130233dabe2fd0ee1095a28))
+
+
+### Bug Fixes
+
+* **cli:** an install that has made a shot is not offered the first-use welcome ([4dae292](https://github.com/tonygorb/Scenri/commit/4dae292f3e833180448b2310a81573b641408bcc))
+* **create:** keep the feed still when a shot archives or the rail toggles ([b3276cd](https://github.com/tonygorb/Scenri/commit/b3276cd1f68315455e8b29d7dfdf13c768a0438a))
+* **studio:** a lesson on its first step has not begun, and Learn cannot take the app down ([cf0540b](https://github.com/tonygorb/Scenri/commit/cf0540b1ecd1e8fbdde2e3d203538f9e13f46d8c))
+* **studio:** a lesson owns its progress, and only the screen is shared ([8c58bdb](https://github.com/tonygorb/Scenri/commit/8c58bdbc06124d2f9fda0775a41f84fa156e10ea))
+* **studio:** a library lesson keeps its button in sight on narrow screens ([93869f4](https://github.com/tonygorb/Scenri/commit/93869f4f1f1fa8791c15ff893ef8ac536deda721))
+* **studio:** a step scrolled out of sight is not gone ([49ceccb](https://github.com/tonygorb/Scenri/commit/49ceccb8d7dc41daf8327ecefb8353f98ed94e70))
+* **studio:** alerts stand above a docked composer instead of over its buttons ([b6756c7](https://github.com/tonygorb/Scenri/commit/b6756c79c63419ca2ed146fc2e3c6d868eeb6f79))
+* **studio:** Learn gives the keyboard back to whichever control opened it ([e9c5945](https://github.com/tonygorb/Scenri/commit/e9c5945d60e6ceb55704da1130fe23a988c6044f))
+* **studio:** no empty alert on every page, and a held toast stays held ([3305f75](https://github.com/tonygorb/Scenri/commit/3305f7542fb38f604c9b4087c59aa7cfe0d4cf6b))
+* **studio:** refining teaches how to find a shot, instead of picking one for you ([228938f](https://github.com/tonygorb/Scenri/commit/228938f2440e17b48d9bab836e7c4aeeb0a74cef))
+
 ## [0.12.0](https://github.com/tonygorb/Scenri/compare/v0.11.1...v0.12.0) (2026-09-20)
 
 

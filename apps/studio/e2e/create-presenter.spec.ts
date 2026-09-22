@@ -961,6 +961,27 @@ test.describe('a person from scratch', () => {
     expect(d.views.portrait.status).toBe('approved');
     expect(d.views.front.status).toBe('approved');
   });
+
+  // A one-sided detail drawn on the wrong side of the full body was copied into
+  // every shot after it, so the picture it is copied from says where to look.
+  test('a tattoo on one side is checked at the full body, not at the face, which cannot show it', async ({ page }) => {
+    test.setTimeout(90_000);
+    const brand = await currentBrand(page);
+    await page.goto(`/${brand.slug}/presenters/new`);
+    await send(page, 'Late 30s woman, dark shoulder-length hair, slim build.');
+    await answer(page, 'Tattoo').click();
+    await answer(page, 'Continue').click();
+    await answer(page, 'Fine line').click();
+    await answer(page, 'Right forearm').click();
+    await expect(answer(page, 'Use this person')).toBeVisible({ timeout: 40_000 });
+    await expect(log(page).locator('.sc-convo-hint')).toHaveCount(0);
+
+    await answer(page, 'Use this person').click();
+    await expect(log(page)).toContainText('Here is the full body', { timeout: 30_000 });
+    await expect(log(page).locator('.sc-convo-hint')).toHaveText(
+      'Check the side: a fine-line botanical tattoo on their right forearm. Facing you, their right is on your left.',
+    );
+  });
 });
 
 test.describe('from photos', () => {

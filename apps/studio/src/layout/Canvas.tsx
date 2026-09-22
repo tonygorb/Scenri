@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { AlertDialog, Button, Flex } from '@radix-ui/themes';
 import { hasNoShots, type FeedNode } from '../api.js';
 import { masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
@@ -13,7 +13,7 @@ import {
   visibleRange,
   windowed,
 } from './canvas/windowRules.js';
-import { useScrollWindow } from './canvas/useScrollWindow.js';
+import { feedEdge, type FeedAnchor, useScrollWindow } from './canvas/useScrollWindow.js';
 import { useTileHeights } from './canvas/useTileHeights.js';
 import { aspectOfFormat } from '../composer/formats.js';
 
@@ -284,7 +284,65 @@ export function Canvas({
   // the DOM is exactly what it was.
   const windowing = windowed(items.length);
   const win = useScrollWindow(feedEl, windowing);
-  const heightOf = useTileHeights(feedEl, windowing);
+  const heightOf = useTileHeights(feedEl, windowing, colWidth);
+
+  /*
+   * A new column count or column width (the assets rail opened or closed, the
+   * window resized) reflows every tile. The tile the reader was looking at keeps its place on
+   * screen. It is put back under the edge before paint, measured when mounted
+   * and placed from the layout when the new band has not mounted it yet, then
+   * held there for a moment: the band that mounts next and the heights measured
+   * at the new width move everything above it once more, and so does the
+   * browser's own scroll anchoring. Any scroll of the reader's own lets go.
+   */
+  const colsNow = Math.max(1, Math.min(fitting, items.length));
+  const shape = `${colsNow}:${colWidth}`;
+  const lastShape = useRef(shape);
+  const layout = useRef({ items, heightOf, estimate });
+  layout.current = { items, heightOf, estimate };
+  const pin = useRef<{ anchor: FeedAnchor; until: number } | null>(null);
+  useLayoutEffect(() => {
+    const was = lastShape.current;
+    lastShape.current = shape;
+    const a = win.anchor.current;
+    const scroller = feedEl?.closest<HTMLElement>('.sc-canvas');
+    if (was === shape || !a || !feedEl || !scroller) return;
+    pin.current = { anchor: a, until: performance.now() + PIN_MS };
+    if (!placeAnchor(feedEl, scroller, a)) {
+      const { items: all, heightOf: known, estimate: guess } = layout.current;
+      const i = all.findIndex((it) => it.node?.id === a.id);
+      if (i < 0) return;
+      const column = dealColumns(all.length, colsNow)[i % colsNow];
+      const starts = columnStarts(column.map((j) => (all[j].node && known(all[j].node.id)) ?? guess(all[j])));
+      const y = feedEl.getBoundingClientRect().top + starts[Math.floor(i / colsNow)];
+      scroller.scrollTop += y - feedEdge(scroller) - a.offset;
+    }
+    win.resync();
+  }, [shape, colsNow, feedEl, win.anchor, win.resync]);
+  // while held, every render (the next band, a measured height) puts it back before paint
+  useLayoutEffect(() => {
+    const held = pin.current;
+    const scroller = feedEl?.closest<HTMLElement>('.sc-canvas');
+    if (!held || !feedEl || !scroller) return;
+    if (performance.now() > held.until) {
+      pin.current = null;
+      return;
+    }
+    placeAnchor(feedEl, scroller, held.anchor);
+  });
+  // the reader's own scroll lets go at once
+  useEffect(() => {
+    const scroller = feedEl?.closest<HTMLElement>('.sc-canvas');
+    if (!scroller) return;
+    const release = () => {
+      pin.current = null;
+    };
+    const events = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
+    for (const e of events) scroller.addEventListener(e, release, { passive: true });
+    return () => {
+      for (const e of events) scroller.removeEventListener(e, release);
+    };
+  }, [feedEl]);
 
   // Nothing loaded yet: the grid keeps its shape with stand-ins in the brief's
   // default shape, the same tile a send holds its place with, so the feed
@@ -390,4 +448,16 @@ export function Canvas({
       </AlertDialog.Root>
     </>
   );
+}
+
+/** How long a reflowed feed holds the reader's tile in place while the new layout settles. */
+const PIN_MS = 800;
+
+/** Scroll so a mounted tile sits `offset` under the visible feed's edge again. False when it is not mounted. */
+function placeAnchor(feedEl: HTMLElement, scroller: HTMLElement, a: FeedAnchor): boolean {
+  const el = feedEl.querySelector<HTMLElement>(`.sc-cell[data-fb-node="${CSS.escape(a.id)}"]`);
+  if (!el) return false;
+  const off = el.getBoundingClientRect().top - feedEdge(scroller) - a.offset;
+  if (Math.abs(off) >= 1) scroller.scrollTop += off;
+  return true;
 }

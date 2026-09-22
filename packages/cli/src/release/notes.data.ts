@@ -51,6 +51,53 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.13.2',
+    date: '2026-09-22',
+    sections: [
+      {
+        heading: 'Presenters',
+        body: 'Presenters in shots now show an expression that fits the moment and look where the shot directs, instead of a blank stare into the camera. When a presenter has a detail on one side, such as a tattoo or a prosthetic, approving their face and full body now says which side to check.',
+      },
+    ],
+  },
+  {
+    version: '0.13.1',
+    date: '2026-09-22',
+    sections: [
+      {
+        heading: 'Alerts',
+        body: 'An alert that arrives during a lesson now shows above it, and an alert over an open dialog can be closed or used without closing the dialog, popover or picker beneath it.',
+      },
+      {
+        heading: 'Create',
+        body: 'Closing the side panel or resizing the window while scrolled keeps the shot you were looking at in place. The brief field now has a name that screen readers announce.',
+      },
+      {
+        heading: 'Learn',
+        body: 'A lesson step pushed out of view by resizing the window comes back into view, and a step reached just as the page reloads is no longer lost.',
+      },
+    ],
+  },
+  {
+    version: '0.13.0',
+    date: '2026-09-21',
+    title: 'Learn teaches Scenri one lesson at a time, alerts are quieter, and the Create feed holds still.',
+    sections: [
+      {
+        heading: 'Learn',
+        body: 'Learn sits in the top bar, or under Help on a smaller screen, and teaches Scenri in six short lessons: your first shot, adding a product, a presenter, a scene, using a product again, and refining a shot. Each lesson keeps its own place, so you can set one down, take up another and come back to it. A new install is offered a guided first shot, and the guide can step back when you change your mind.',
+      },
+      {
+        heading: 'Alerts',
+        body: 'Alerts are smaller and stack at the bottom of the screen, above the composer rather than over it. The same event twice shares one card, an error stays until you close it, and an alert holds still while you point at it or tab into it.',
+      },
+      {
+        heading: 'Create',
+        body: 'Archiving a shot no longer makes the pictures around it blink, and opening or closing the side panel rearranges the feed in one step.',
+      },
+    ],
+  },
+  {
     version: '0.12.0',
     date: '2026-09-20',
     title: 'Saved work shows up everywhere at once, and a selection has its own toolbar.',

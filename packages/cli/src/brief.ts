@@ -536,6 +536,21 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
               'dress and style them for this shot, to a commercial standard, following any wardrobe the direction itself specifies. ' +
               'Where the direction specifies none, dress them for the place and the occasion the frame shows, and never return them to the plain base layers they were photographed in.',
           );
+          // The face is released the way the outfit is. Every reference is drawn
+          // with a relaxed neutral expression and eyes to the lens, because that
+          // is what identity is judged from, and nothing here said the look was
+          // capture context: measured on 2026-09-22 (four presenters, blind
+          // judges) every close portrait stared into the lens although the brief
+          // said "just past the camera", and a mid-jump frame kept the passport
+          // face. With this sentence the lens stare and the blank face went from
+          // 15 of 15 shots to 0 of 16 (close portraits and jumps, two judges in
+          // full agreement), with likeness held; it ends on the face staying
+          // theirs because an earlier wording let a broad laugh soften it.
+          personDirectives.push(
+            'Their expression and gaze in the reference are neutral capture conditions too, not a look to reproduce: ' +
+              'give them the genuine expression this exact moment and place call for, the effort, delight, focus, calm or ease a real person would show doing exactly this, ' +
+              "and let their eyes go where the direction and the moment put them, never a copy of the reference's straight-to-lens look, while their face stays unmistakably theirs.",
+          );
           // Presenters carry the same kind of identity metadata products do
           // (identityNotes / negativeConstraints). It used to be dropped on
           // the floor, so a presenter's own "never change this about them"
