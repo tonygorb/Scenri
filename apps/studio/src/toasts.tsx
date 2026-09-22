@@ -7,8 +7,11 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, Warning, WarningCircle, X } from '@phosphor-icons/react';
 
 /**
@@ -311,71 +314,98 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={value}>
       {children}
       {/*
-       * Announcements travel through these two regions, not through the
-       * visible stack: a live region must exist before its content does, and
-       * a card that enters with an animation and leaves 140ms later would be
-       * announced twice or not at all. Polite carries info, success and
-       * warning; assertive is reserved for errors, the only kind worth
-       * interrupting for. It carries no role="alert": an empty alert on every
-       * page reads as a failure that is not there, and aria-live alone speaks.
-       * The visible stack is an ordinary labelled region,
-       * so a keyboard or screen-reader user can still find an action after
-       * hearing the words.
+       * Drawn on the body, not inside the app's root: the root is its own
+       * stacking layer at the bottom of the page, so a card drawn inside it sat
+       * under the tutor's curtain and under every dialog, seen but never pressed.
        */}
-      <div ref={politeRef} className="sc-vh" role="status" aria-live="polite" />
-      <div ref={assertiveRef} className="sc-vh" aria-live="assertive" aria-atomic="true" />
-      <section className="sc-toasts" aria-label="Alerts" ref={stackRef}>
-        {items.map((t) => {
-          const acts = actionsOf(t);
-          return (
-            <div key={t.id} className="sc-toast-wrap" data-toast-id={t.id} data-leaving={t.leaving || undefined}>
-              <article
-                className="sc-toast"
-                data-kind={t.kind}
-                onPointerEnter={() => pause(t.id)}
-                onPointerLeave={() => resume(t.id)}
-                onFocus={() => pause(t.id)}
-                onBlur={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) resume(t.id);
-                }}
-              >
-                <ToastMark kind={t.kind} />
-                <div className="sc-toast-body">
-                  <div className="sc-toast-top">
-                    <div className="sc-toast-txt">
-                      <b>
-                        {t.title}
-                        {t.count > 1 ? <span className="sc-toast-n">×{t.count}</span> : null}
-                      </b>
-                      {t.detail ? <small>{t.detail.slice(0, 160)}</small> : null}
-                    </div>
-                    <button type="button" className="sc-toast-x" onClick={() => dismiss(t.id)} aria-label="Dismiss">
-                      <X size={14} weight="regular" />
-                    </button>
-                  </div>
-                  {acts.length ? (
-                    <div className="sc-toast-acts">
-                      {acts.map((a) => (
-                        <button
-                          key={a.label}
-                          type="button"
-                          className="sc-toast-act"
-                          onClick={() => {
-                            a.onClick();
-                            dismiss(t.id);
-                          }}
-                        >
-                          {a.label}
+      {createPortal(
+        <>
+          {/*
+           * Announcements travel through these two regions, not through the
+           * visible stack: a live region must exist before its content does, and
+           * a card that enters with an animation and leaves 140ms later would be
+           * announced twice or not at all. Polite carries info, success and
+           * warning; assertive is reserved for errors, the only kind worth
+           * interrupting for. It carries no role="alert": an empty alert on every
+           * page reads as a failure that is not there, and aria-live alone speaks.
+           * The visible stack is an ordinary labelled region,
+           * so a keyboard or screen-reader user can still find an action after
+           * hearing the words.
+           */}
+          <div ref={politeRef} className="sc-vh" role="status" aria-live="polite" />
+          <div ref={assertiveRef} className="sc-vh" aria-live="assertive" aria-atomic="true" />
+          <section
+            className="sc-toasts"
+            aria-label="Alerts"
+            ref={stackRef}
+            onPointerDown={keepOthersOpen}
+            onMouseDown={keepOthersOpen}
+          >
+            {items.map((t) => {
+              const acts = actionsOf(t);
+              return (
+                <div key={t.id} className="sc-toast-wrap" data-toast-id={t.id} data-leaving={t.leaving || undefined}>
+                  <article
+                    className="sc-toast"
+                    data-kind={t.kind}
+                    onPointerEnter={() => pause(t.id)}
+                    onPointerLeave={() => resume(t.id)}
+                    onFocus={() => pause(t.id)}
+                    onBlur={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) resume(t.id);
+                    }}
+                  >
+                    <ToastMark kind={t.kind} />
+                    <div className="sc-toast-body">
+                      <div className="sc-toast-top">
+                        <div className="sc-toast-txt">
+                          <b>
+                            {t.title}
+                            {t.count > 1 ? <span className="sc-toast-n">×{t.count}</span> : null}
+                          </b>
+                          {t.detail ? <small>{t.detail.slice(0, 160)}</small> : null}
+                        </div>
+                        <button type="button" className="sc-toast-x" onClick={() => dismiss(t.id)} aria-label="Dismiss">
+                          <X size={14} weight="regular" />
                         </button>
-                      ))}
+                      </div>
+                      {acts.length ? (
+                        <div className="sc-toast-acts">
+                          {acts.map((a) => (
+                            <button
+                              key={a.label}
+                              type="button"
+                              className="sc-toast-act"
+                              onClick={() => {
+                                a.onClick();
+                                dismiss(t.id);
+                              }}
+                            >
+                              {a.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
+                  </article>
                 </div>
-              </article>
-            </div>
-          );
-        })}
-      </section>
+              );
+            })}
+          </section>
+        </>,
+        document.body,
+      )}
     </Ctx.Provider>
   );
+}
+
+/**
+ * A press on the stack is the stack's own. It never reaches the document
+ * listeners that close whatever else is open (a dialog, a popover, a menu, the
+ * picker), and a button pressed with the pointer keeps the focus where it was,
+ * so a dialog underneath neither closes nor loses its place.
+ */
+function keepOthersOpen(e: ReactPointerEvent | ReactMouseEvent) {
+  e.stopPropagation();
+  if (e.type === 'mousedown' && e.target instanceof Element && e.target.closest('button')) e.preventDefault();
 }

@@ -15,6 +15,10 @@
   gap: 8px;
   max-width: min(356px, calc(100vw - 32px));
   pointer-events: none;
+  /* Drawn on the body, outside the Radix root, so the smoothing it gave the
+     type comes along explicitly. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 .sc-toast-wrap {
   display: block;
