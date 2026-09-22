@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.14.0](https://github.com/tonygorb/Scenri/compare/v0.13.2...v0.14.0) (2026-09-22)
+
+
+### Features
+
+* **studio:** give provider setup the Settings shell ([a5a2a5d](https://github.com/tonygorb/Scenri/commit/a5a2a5d076dbcfb962fdfab260a263f978076f76))
+* **studio:** rebuild provider setup on Learn's lesson anatomy ([b227dd6](https://github.com/tonygorb/Scenri/commit/b227dd6c10b172f8eec25697b1a20f8c5ddf28f7))
+* **studio:** redesign the Settings dialog ([23f4638](https://github.com/tonygorb/Scenri/commit/23f4638249929b64c6367bbefa15dcf479747db3))
+* **studio:** redesign the Settings dialog ([785438a](https://github.com/tonygorb/Scenri/commit/785438a4b1a99c427c6c76e06a4bd90086e599cb))
+
+
+### Bug Fixes
+
+* **studio:** keep the Settings index's chosen fill inside the box that clips it ([b1ad0a3](https://github.com/tonygorb/Scenri/commit/b1ad0a3b89db0ae0bf24e40d3e6afc95e3eca3b1))
+* **studio:** lift Settings cards a step in dark so fields read as wells ([81c2cfa](https://github.com/tonygorb/Scenri/commit/81c2cfab8dfb716ef00d6d3d9edbb27251ea799b))
+* **studio:** make Settings actions read as buttons and stop the page flashing ([eba7837](https://github.com/tonygorb/Scenri/commit/eba783735e32c77ecb3245dc3be0c552d00b58b9))
+* **studio:** settle the Settings dialog on one gutter and one control size ([3bf222f](https://github.com/tonygorb/Scenri/commit/3bf222fb813e782d97312bf5d3e83aa583063f8c))
+* **studio:** tune the Settings phone index and cap rows ([656f65f](https://github.com/tonygorb/Scenri/commit/656f65f01e0fe8cedb4508b6e715326961938f4b))
+
 ## [0.13.2](https://github.com/tonygorb/Scenri/compare/v0.13.1...v0.13.2) (2026-09-22)
 
 
