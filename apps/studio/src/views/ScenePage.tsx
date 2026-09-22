@@ -465,7 +465,7 @@ export function ScenePage() {
 
         {sources.length > 0 && (
           <section className="sc-presenterpage-sources">
-            <p className="sc-presenterpage-sources-lb">From your photos</p>
+            <p className="sc-presenterpage-sources-lb">What it was read from</p>
             <div className="sc-presenterpage-sources-row">
               {sources.map((src, i) => (
                 <button

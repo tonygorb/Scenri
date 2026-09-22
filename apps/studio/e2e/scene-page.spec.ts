@@ -137,7 +137,7 @@ test('what it was read from is shown as evidence, never as the place itself', as
   await page.goto(`/${b.slug}/scenes/${s.id}`);
 
   // with the pictures, in the presenter's own sources block
-  await expect(page.locator('.sc-presenterpage-sources-lb')).toHaveText('From your photos');
+  await expect(page.locator('.sc-presenterpage-sources-lb')).toHaveText('What it was read from');
   await page.getByRole('button', { name: 'Source photo 1, open' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
 });
