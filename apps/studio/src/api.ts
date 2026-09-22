@@ -389,15 +389,22 @@ export const api = {
   /** The brand comes back so every surface stops showing the scene in one commit. */
   deleteScene: (brandId: string, sceneId: string) =>
     req<{ ok: true; brand: Brand }>('DELETE', `/api/brands/${brandId}/scenes/${sceneId}`),
-  /** What a scene's examples are drawing, and what Add more would draw. */
+  /**
+   * What a scene's examples are drawing, and what each offer would draw: the
+   * first press (`first`) and Add more (`more`). Both are counted before
+   * anything is spent, so a button can say what it costs.
+   */
   sceneExamples: (brandId: string, sceneId: string) =>
-    req<{ job: SceneExampleJob | null; more: SceneExampleRole[] }>(
+    req<{ job: SceneExampleJob | null; first: SceneExampleRole[]; more: SceneExampleRole[] }>(
       'GET',
       `/api/brands/${brandId}/scenes/${sceneId}/examples`,
     ),
-  /** Draw the rest of the set, or these roles again. Joins a run already drawing. */
-  drawSceneExamples: (brandId: string, sceneId: string, ask: { more: true } | { roles: SceneExampleRole[] }) =>
-    req<{ job: SceneExampleJob }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/examples`, ask),
+  /** Draw the place in use, the rest of the set, or these roles again. Joins a run already drawing. */
+  drawSceneExamples: (
+    brandId: string,
+    sceneId: string,
+    ask: { first: true } | { more: true } | { roles: SceneExampleRole[] },
+  ) => req<{ job: SceneExampleJob }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/examples`, ask),
   /** Stop drawing; what already landed stays. */
   stopSceneExamples: (brandId: string, sceneId: string) =>
     req<{ ok: boolean }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/examples/stop`),

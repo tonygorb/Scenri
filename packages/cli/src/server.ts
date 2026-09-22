@@ -566,12 +566,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // this point treats them identically to the curated ones: compileBrief
   // already prefers `characters[]` over the presenter catalog, and the scene
   // resolver below prefers `scenes[]` over the scene catalog.
-  // A scene's example set starts when its place picture first lands, from
-  // either road a place arrives by. The service is made further down, once the
-  // demo products and sizes it draws with exist; nothing lands before listen.
+  // A scene's example set is never drawn without being asked for, so nothing
+  // here starts one: the hooks only stop a run whose place moved under it, and
+  // let a deleted scene's pictures go. The service is made further down, once
+  // the demo products and sizes it draws with exist.
   let sceneExamples: SceneExamples | null = null;
   const exampleHooks = {
-    onPlaceReady: (brandId: string, sceneId: string) => sceneExamples?.placeReady(brandId, sceneId),
+    onPlaceChanged: (brandId: string, sceneId: string) => sceneExamples?.placeChanged(brandId, sceneId),
     onSceneGone: (brandId: string, sceneId: string, examples: SceneExample[]) =>
       sceneExamples?.sceneGone(brandId, sceneId, examples),
   };
@@ -596,7 +597,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     scenes,
     presenters,
     thumbs,
-    onPlaceReady: exampleHooks.onPlaceReady,
+    onPlaceChanged: exampleHooks.onPlaceChanged,
   });
 
   // ---- demo products (curated, fictional-but-premium product catalog). A

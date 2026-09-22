@@ -24,9 +24,11 @@ import type { ProductSizes } from './productSizes.js';
  * surface at the product's magnification, or an edit of the place or of the
  * hero), all seven read as one place, 7 of 7 at true size.
  *
- * The rhythm (DESIGN.md): the place picture is the one decision; the hero and
- * a close-up follow once, by themselves; three more only when asked. Nothing
- * redraws on its own after that, because every picture here is spent quota.
+ * The rhythm (DESIGN.md): nothing here is ever drawn without being asked for.
+ * Saving a scene spends nothing; the hero and a close-up are one press, three
+ * more another. Every picture here is spent quota, so no path in this file
+ * reaches `begin` except `start`, and a place picture that changes stops the
+ * run that was drawing the old one rather than starting a new one.
  */
 
 export type ExampleRole = SceneExampleRole;
@@ -251,9 +253,14 @@ const hashOf = (ref: unknown): string | null => {
 };
 
 export interface SceneExamples {
-  /** The scene has a new place picture: draw the hero and close-up, or redraw what it had. */
-  placeReady(brandId: string, sceneId: string): void;
-  /** Draw these roles now (Add three more, Try again, Redraw). Joins a run under way. */
+  /**
+   * The scene's place picture changed. A run still drawing the earlier one is
+   * stopped, because what it would land shows a place this scene no longer
+   * has. Nothing is drawn in its place: that is `start`, and only a person
+   * presses it.
+   */
+  placeChanged(brandId: string, sceneId: string): void;
+  /** Draw these roles now (Draw two pictures, Add three more, Try again, Redraw). Joins a run under way. */
   start(brandId: string, sceneId: string, roles: ExampleRole[]): ExampleJob;
   stop(brandId: string, sceneId: string): boolean;
   /** Take one example off the scene. */
@@ -261,6 +268,13 @@ export interface SceneExamples {
   status(brandId: string, sceneId: string): ExampleJob | null;
   /** What Add more would draw for this scene now: nothing while the library is missing. */
   offer(scene: CustomScene): ExampleRole[];
+  /**
+   * What the first press would draw: the automatic two for a scene with no
+   * set, and the roles that still show an earlier picture for one whose set
+   * the place moved under. Empty when every example shows this place, so the
+   * offer is never made twice for the same picture.
+   */
+  offerFirst(scene: CustomScene): ExampleRole[];
   list(brandId: string): ExampleJob[];
   /** The scene was deleted: stop its run and let its pictures go. */
   sceneGone(brandId: string, sceneId: string, examples: SceneExample[]): void;
@@ -552,44 +566,26 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
     return job;
   }
 
-  /**
-   * The scene has a new place picture. With no examples it gets the automatic
-   * two; with examples that all show an earlier picture, the same roles are
-   * drawn again, so the set follows the place. A run still drawing the earlier
-   * picture is stopped first, and this is asked again once it has settled.
-   */
   const ready = (subject: ExampleSubject) => deps.ready?.(subject) ?? true;
 
-  function placeReady(brandId: string, sceneId: string, also: readonly ExampleRole[] = []): void {
-    const scene = sceneOf(brandId, sceneId);
-    if (!scene?.preview) return;
+  /**
+   * The scene's place picture changed. A run still drawing the earlier picture
+   * is stopped: what it would land shows a place this scene no longer has, and
+   * the write guard would throw it away anyway. Nothing is drawn to replace
+   * it. The set it had stays, labelled as showing an earlier picture, and is
+   * redrawn only when someone asks (`start`), because that is two to five
+   * engine calls and saving a scene may not spend one.
+   */
+  function placeChanged(brandId: string, sceneId: string): void {
     const k = key(brandId, sceneId);
     const live = jobs.get(k);
-    if (live?.status === 'running') {
-      if (live.from === scene.preview) return;
-      // what that run was still to draw is drawn for the new picture too
-      const owed = live.roles.filter((r) => !live.done.includes(r));
-      controllers.get(k)?.abort();
-      void tasks.get(k)?.then(() => placeReady(brandId, sceneId, owed));
-      return;
-    }
-    const examples = scene.examples ?? [];
-    if (examples.some((e) => e.from === scene.preview)) return;
-    const wanted = new Set<ExampleRole>([
-      ...(examples.length ? [] : AUTO_ROLES),
-      ...examples.map((e) => e.role),
-      ...also,
-    ]);
-    begin(
-      brandId,
-      sceneId,
-      ORDER.filter((r) => wanted.has(r)),
-      scene,
-    );
+    if (live?.status !== 'running') return;
+    if (live.from === sceneOf(brandId, sceneId)?.preview) return;
+    controllers.get(k)?.abort();
   }
 
   return {
-    placeReady,
+    placeChanged,
     start(brandId, sceneId, roles) {
       const scene = sceneOf(brandId, sceneId);
       if (!scene) throw Object.assign(new Error('scene not found'), { statusCode: 404 });
@@ -632,6 +628,17 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
     offer(scene) {
       const subject = pickSubject(scene, deps.demoProducts, deps.presenters);
       return subject && ready(subject) ? rolesFor(subject, 'more', scene.prompt) : [];
+    },
+    offerFirst(scene) {
+      if (!scene.preview) return [];
+      const subject = pickSubject(scene, deps.demoProducts, deps.presenters);
+      if (!subject || !ready(subject)) return [];
+      const examples = scene.examples ?? [];
+      if (!examples.length) return rolesFor(subject, 'auto');
+      // only what the place moved under: a role already showing this picture
+      // is not drawn again for the price of one that is not
+      const stale = examples.filter((e) => e.from !== scene.preview).map((e) => e.role);
+      return ORDER.filter((r) => stale.includes(r));
     },
     list: (brandId) => [...jobs.values()].filter((j) => j.brandId === brandId),
     sceneGone(brandId, sceneId, examples) {

@@ -71,6 +71,10 @@ export interface SetArgs {
   noSubject: boolean;
   /** What Add more would still draw. */
   missing: SceneExampleRole[];
+  /** What the first press would draw: the place in use, or the roles the place moved under. */
+  first: SceneExampleRole[];
+  /** Those `first` roles are a set this scene already has, drawn from an earlier picture. */
+  stale: boolean;
   /** What the last press says: Open scene, or Use in a shot when the studio was opened from one. */
   finish: string;
 }
@@ -401,9 +405,10 @@ export function turnsFor(args: FlowArgs): Turn[] {
 }
 
 /**
- * What Use leads to: the answer, then the place in use. Each example is a
- * picture turn with Try again beside it; one still drawing is the Working
- * line, not a sentence; one that failed says so.
+ * What Use leads to: the answer, then the place in use. Nothing is drawn by
+ * saving, so what follows a save with nothing drawn is the offer, never a
+ * picture. Each example is a picture turn with Try again beside it; one still
+ * drawing is the Working line, not a sentence; one that failed says so.
  */
 function setTurns(T: Turn[], args: FlowArgs) {
   const { studio, edit, set, canDraw } = args;
@@ -413,8 +418,23 @@ function setTurns(T: Turn[], args: FlowArgs) {
   T.push({
     kind: 'scenri',
     id: 'saved',
-    text: any ? COPY.inUse(set.who) : set.read && set.noSubject && canDraw ? COPY.noLibrary : COPY.saved,
+    text: any
+      ? COPY.inUse(set.who)
+      : set.read && set.noSubject && canDraw
+        ? COPY.noLibrary
+        : // saved and able to draw, with nothing drawn: say so, because the
+          // offer below is the only thing that spends anything here
+          set.read && canDraw && set.first.length
+          ? COPY.savedQuiet
+          : COPY.saved,
   });
+  // the answer to the offer stands where it was given, before any picture
+  if (studio.setDrawn || studio.setDeclined)
+    T.push({
+      kind: 'you',
+      id: 'set-start',
+      text: studio.setDrawn ? (set.stale ? COPY.drawThemAgain : COPY.drawThem) : COPY.notNow,
+    });
   // the answer to the three more stands where it was given: after the two
   // drawn by themselves, before any of the three
   const answer = studio.moreAsked ? COPY.addThem : studio.moreDeclined ? COPY.notNow : null;
@@ -447,12 +467,30 @@ function setTurns(T: Turn[], args: FlowArgs) {
   sayAnswer();
 }
 
-/** The question the set ends on: three more, or done. None while anything draws. */
+/**
+ * The question the set ends on: the place in use, three more, or done. None
+ * while anything draws. Every one of them spends only when it is pressed.
+ */
 function setQuestion(args: FlowArgs): Question | null {
   const { set, studio } = args;
   const name = studio.name.trim() || current(studio)?.reading.name || 'The scene';
   if (!set) return null;
   if (set.running || !set.read) return null;
+  if (args.canDraw && set.first.length && !studio.setDrawn && !studio.setDeclined)
+    return {
+      id: 'set-start',
+      kind: 'confirm',
+      prompt: set.stale
+        ? COPY.staleSet(set.first.length)
+        : COPY.showInUse(
+            set.who,
+            set.first.map((r) => EXAMPLE_LABEL[r]),
+          ),
+      options: [
+        { id: 'draw-set', label: set.stale ? COPY.drawThemAgain : COPY.drawThem },
+        { id: 'not-now', label: COPY.notNow },
+      ],
+    };
   const hero = set.tiles.some((t) => t.role === 'hero' && t.state === 'shown');
   if (args.canDraw && hero && set.missing.length && !studio.moreDeclined && !studio.moreAsked)
     return {
@@ -468,7 +506,7 @@ function setQuestion(args: FlowArgs): Question | null {
   return {
     id: 'set-done',
     kind: 'confirm',
-    prompt: failed.length ? COPY.readyMissing(name) : COPY.ready(name),
+    prompt: failed.length ? COPY.readyMissing(name) : set.tiles.length ? COPY.ready(name) : COPY.readyUndrawn(name),
     options: [
       ...(failed.length && args.canDraw ? [{ id: 'retry-failed', label: COPY.tryAgain }] : []),
       { id: 'done', label: set.finish },

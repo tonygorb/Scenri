@@ -23,6 +23,15 @@
 export const IN_THE_PLACE =
   'part of the place itself, never a separate object that competes with the subject, and leaving the subject a clear place to stand';
 
+/**
+ * Said once, by `compileDirection`, at the end of a direction that carries an
+ * idea. It used to be written into all 39 idea options, which put it between
+ * the idea and anything the person typed after it: "one oversized stone
+ * sphere, part of the place itself, ... a clear place to stand, in a deep
+ * teal" reads as a teal place to stand. Their words belong beside their idea,
+ * and the guard belongs last.
+ */
+
 export type WorldRow = 'surface' | 'light' | 'signature';
 
 export interface WorldOption {
@@ -40,8 +49,6 @@ interface Choice {
 }
 
 type Table = Record<WorldRow, readonly Choice[]>;
-
-const idea = (words: string) => `${words}, ${IN_THE_PLACE}`;
 
 const WORLDS: Record<string, Table> = {
   water: {
@@ -69,11 +76,11 @@ const WORLDS: Record<string, Table> = {
       {
         key: 'wave',
         label: 'Frozen wave',
-        words: idea('a wave frozen mid-break behind the rock, its crest in glassy detail'),
+        words: 'a wave frozen mid-break behind the rock, its crest in glassy detail',
       },
-      { key: 'foam', label: 'Foam lace', words: idea('a lace of sea foam drawn across the wet rock') },
-      { key: 'kelp', label: 'Kelp ribbons', words: idea('glossy olive-gold ribbons of kelp draped over the rocks') },
-      { key: 'pool', label: 'Mirror pool', words: idea('a still rock pool mirroring the sky') },
+      { key: 'foam', label: 'Foam lace', words: 'a lace of sea foam drawn across the wet rock' },
+      { key: 'kelp', label: 'Kelp ribbons', words: 'glossy olive-gold ribbons of kelp draped over the rocks' },
+      { key: 'pool', label: 'Mirror pool', words: 'a still rock pool mirroring the sky' },
     ],
   },
   stone: {
@@ -114,17 +121,17 @@ const WORLDS: Record<string, Table> = {
       },
     ],
     signature: [
-      { key: 'vines', label: 'Vines taking over', words: idea('a vine growing down the stone, claiming its edges') },
+      { key: 'vines', label: 'Vines taking over', words: 'a vine growing down the stone, claiming its edges' },
       {
         key: 'basin',
         label: 'Water in the stone',
-        words: idea('water trickling into a basin carved in the stone, glinting'),
+        words: 'water trickling into a basin carved in the stone, glinting',
       },
-      { key: 'dust', label: 'Dust in the sun', words: idea('fine dust hanging in one bright shaft of sun') },
+      { key: 'dust', label: 'Dust in the sun', words: 'fine dust hanging in one bright shaft of sun' },
       {
         key: 'sphere',
         label: 'A giant stone sphere',
-        words: idea('one oversized stone sphere resting in the space, impossible in scale'),
+        words: 'one oversized stone sphere resting in the space, impossible in scale',
       },
     ],
   },
@@ -161,18 +168,18 @@ const WORLDS: Record<string, Table> = {
       {
         key: 'shapes',
         label: 'Floating shapes',
-        words: idea('a few simple geometric shapes floating in the colour, frozen in place'),
+        words: 'a few simple geometric shapes floating in the colour, frozen in place',
       },
       {
         key: 'planes',
         label: 'Cut-paper planes',
-        words: idea('sharp-angled planes of cut paper converging in the colour'),
+        words: 'sharp-angled planes of cut paper converging in the colour',
       },
-      { key: 'block', label: 'Colour-block shadow', words: idea('a hard shadow cut into a block of a second colour') },
+      { key: 'block', label: 'Colour-block shadow', words: 'a hard shadow cut into a block of a second colour' },
       {
         key: 'giant',
         label: 'Surreal scale',
-        words: idea('one oversized sphere or arch in the colour, impossible in scale'),
+        words: 'one oversized sphere or arch in the colour, impossible in scale',
       },
     ],
   },
@@ -197,14 +204,14 @@ const WORLDS: Record<string, Table> = {
       {
         key: 'blossom',
         label: 'Blossom and leaves',
-        words: idea('citrus blossom and glossy leaves threaded through the fruit'),
+        words: 'citrus blossom and glossy leaves threaded through the fruit',
       },
-      { key: 'melting', label: 'Ice melting', words: idea('ice melting over the fruit, beads of water running down') },
-      { key: 'peel', label: 'Peel spirals', words: idea('long spirals of peel curling across the mound') },
+      { key: 'melting', label: 'Ice melting', words: 'ice melting over the fruit, beads of water running down' },
+      { key: 'peel', label: 'Peel spirals', words: 'long spirals of peel curling across the mound' },
       {
         key: 'giant',
         label: 'Giant fruit',
-        words: idea('one citrus fruit at an impossible, monumental scale on the horizon'),
+        words: 'one citrus fruit at an impossible, monumental scale on the horizon',
       },
     ],
   },
@@ -225,14 +232,14 @@ const WORLDS: Record<string, Table> = {
       {
         key: 'lava',
         label: 'Lava still moving',
-        words: idea('lava still glowing in the cracks of the crust, cooling as it goes'),
+        words: 'lava still glowing in the cracks of the crust, cooling as it goes',
       },
-      { key: 'ash', label: 'Ash in the air', words: idea('fine ash drifting through the haze') },
-      { key: 'steam', label: 'Steam vents', words: idea('white steam rising from vents in the rock') },
+      { key: 'ash', label: 'Ash in the air', words: 'fine ash drifting through the haze' },
+      { key: 'steam', label: 'Steam vents', words: 'white steam rising from vents in the rock' },
       {
         key: 'floating',
         label: 'Floating rocks',
-        words: idea('a few rocks hanging weightless in the haze, impossible and still'),
+        words: 'a few rocks hanging weightless in the haze, impossible and still',
       },
     ],
   },
@@ -253,14 +260,14 @@ const WORLDS: Record<string, Table> = {
       {
         key: 'wax',
         label: 'Wax cascading',
-        words: idea('dark wax cascading down a wall into the mirror, glossy and still setting'),
+        words: 'dark wax cascading down a wall into the mirror, glossy and still setting',
       },
-      { key: 'ripples', label: 'Ripples', words: idea('slow concentric ripples crossing the black surface') },
-      { key: 'smoke', label: 'Smoke curl', words: idea('one curl of smoke drifting through the light') },
+      { key: 'ripples', label: 'Ripples', words: 'slow concentric ripples crossing the black surface' },
+      { key: 'smoke', label: 'Smoke curl', words: 'one curl of smoke drifting through the light' },
       {
         key: 'sphere',
         label: 'Floating sphere',
-        words: idea('a perfect sphere floating above the mirror, impossible and still'),
+        words: 'a perfect sphere floating above the mirror, impossible and still',
       },
     ],
   },
@@ -282,14 +289,14 @@ const WORLDS: Record<string, Table> = {
       { key: 'dusk', label: 'Blue dusk', words: 'cool blue dusk in the window, the room dim and quiet' },
     ],
     signature: [
-      { key: 'curtain', label: 'Curtain in the wind', words: idea('a sheer curtain lifted into the room by the wind') },
+      { key: 'curtain', label: 'Curtain in the wind', words: 'a sheer curtain lifted into the room by the wind' },
       {
         key: 'plants',
         label: 'Plants growing in',
-        words: idea('green plants growing up the plaster walls, claiming the corners'),
+        words: 'green plants growing up the plaster walls, claiming the corners',
       },
-      { key: 'arch', label: 'Arch shadow', words: idea('the hard shadow of an arch cut across the wall') },
-      { key: 'stair', label: 'Surreal stair', words: idea('a plaster stair rising into the wall and going nowhere') },
+      { key: 'arch', label: 'Arch shadow', words: 'the hard shadow of an arch cut across the wall' },
+      { key: 'stair', label: 'Surreal stair', words: 'a plaster stair rising into the wall and going nowhere' },
     ],
   },
   linen: {
@@ -306,10 +313,10 @@ const WORLDS: Record<string, Table> = {
       { key: 'through', label: 'Light through cloth', words: 'light glowing through the cloth from behind' },
     ],
     signature: [
-      { key: 'wind', label: 'Lifted by wind', words: idea('the cloth lifted by a gust and frozen mid-billow') },
-      { key: 'dried', label: 'Dried flowers', words: idea('a few dried flowers and grasses caught in the folds') },
-      { key: 'thread', label: 'One red thread', words: idea('a single red thread running through the folds') },
-      { key: 'landscape', label: 'Folds as dunes', words: idea('the folds made vast, like a landscape of dunes') },
+      { key: 'wind', label: 'Lifted by wind', words: 'the cloth lifted by a gust and frozen mid-billow' },
+      { key: 'dried', label: 'Dried flowers', words: 'a few dried flowers and grasses caught in the folds' },
+      { key: 'thread', label: 'One red thread', words: 'a single red thread running through the folds' },
+      { key: 'landscape', label: 'Folds as dunes', words: 'the folds made vast, like a landscape of dunes' },
     ],
   },
 };

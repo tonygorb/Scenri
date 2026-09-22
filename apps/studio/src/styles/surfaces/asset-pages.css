@@ -962,6 +962,14 @@
   color: var(--sc-fg2);
 }
 
+/* The one thing on a scene's page that spends a generation: it says what it
+   costs and waits to be pressed. Centred under the rail with the line that
+   reports a set the place moved under. */
+.sc-scenepage-examples-ask {
+  margin: var(--sc-space-3) 0 0;
+  text-align: center;
+}
+
 /* What a shot made here is told: three keys, left-aligned inside the centred
    column the way the presenter's record line is. The sentence under it is the
    page's only explanation, and it is there because the compiler really does

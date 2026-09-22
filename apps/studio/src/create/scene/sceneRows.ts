@@ -1,5 +1,5 @@
 import type { SwatchRow } from '../../conversation/question.js';
-import { allWorldOptions, DRAWN_WORLDS, IN_THE_PLACE, worldOptions } from './sceneWorldRows.js';
+import { allWorldOptions, DRAWN_WORLDS, worldOptions } from './sceneWorldRows.js';
 
 /**
  * The things a place is asked, in the order they are asked.
@@ -265,37 +265,37 @@ export const ROWS: Record<SceneRow, RowSpec> = {
          */
         id: 'air',
         label: 'Mist, snow or wind',
-        words: `the air of the place alive, such as mist lying low, snow drifting down or wind moving through fabric or grass: one, chosen for this place, ${IN_THE_PLACE}`,
+        words: `the air of the place alive, such as mist lying low, snow drifting down or wind moving through fabric or grass: one, chosen for this place`,
         cues: ['mist', 'misty', 'fog', 'foggy', 'snow', 'snowing', 'wind', 'windswept', 'haze'],
       },
       {
         id: 'change',
         label: 'Caught mid-change',
-        words: `the place's own material caught mid-change, such as wax cascading down a wall, sugar pulled glassy across the surface or ice melting at its edge: one, chosen for this place, ${IN_THE_PLACE}`,
+        words: `the place's own material caught mid-change, such as wax cascading down a wall, sugar pulled glassy across the surface or ice melting at its edge: one, chosen for this place`,
         cues: ['melting', 'molten', 'dripping', 'wax', 'resin', 'mid-change'],
       },
       {
         id: 'graphic',
         label: 'Graphic light and shadow',
-        words: `one bold graphic device of light and shadow shaping the set, such as a cut shadow or a hard slice of colour, ${IN_THE_PLACE}`,
+        words: `one bold graphic device of light and shadow shaping the set, such as a cut shadow or a hard slice of colour`,
         cues: ['graphic', 'geometric', 'cut shadow', 'colour block', 'color block'],
       },
       {
         id: 'nature',
         label: 'Nature taking over',
-        words: `nature growing through the set, such as moss, blooms or roots claiming its edges: one, chosen for this place, ${IN_THE_PLACE}`,
+        words: `nature growing through the set, such as moss, blooms or roots claiming its edges: one, chosen for this place`,
         cues: ['overgrown', 'blooms', 'flowers', 'vines', 'growing'],
       },
       {
         id: 'water',
         label: 'Glass and water',
-        words: `water and reflection in the place, such as a still reflecting pool or rain-beaded glass: one, chosen for this place, ${IN_THE_PLACE}`,
+        words: `water and reflection in the place, such as a still reflecting pool or rain-beaded glass: one, chosen for this place`,
         cues: ['reflection', 'reflecting', 'rain', 'puddle', 'rain glass'],
       },
       {
         id: 'scale',
         label: 'Surreal scale',
-        words: `one surreal touch of scale, an oversized natural or architectural form that makes the place feel impossible, ${IN_THE_PLACE}`,
+        words: `one surreal touch of scale, an oversized natural or architectural form that makes the place feel impossible`,
         cues: ['surreal', 'giant', 'oversized', 'impossible', 'dreamlike'],
       },
     ],
@@ -352,7 +352,7 @@ export const optionOf = (row: SceneRow, id: string | undefined): RowOption | und
 };
 
 /** The idea the reading invents when the signature is passed: every scene gets one. */
-export const SUGGESTED_IDEA = `one signature idea that makes this place unforgettable, invented for it and never generic, ${IN_THE_PLACE}`;
+export const SUGGESTED_IDEA = `one signature idea that makes this place unforgettable, invented for it and never generic`;
 
 /**
  * What a typed phrase already answers.

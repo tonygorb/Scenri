@@ -5,8 +5,11 @@ import { useAppData } from './app/AppShell.js';
 const RUNNING_MS = 1500;
 
 /**
- * A saved scene's examples as the server is drawing them: the run, what Add
- * more would draw, and a way to read it again at once after asking for work.
+ * A saved scene's examples as the server is drawing them: the run, what each
+ * offer would draw, and a way to read it again at once after asking for work.
+ *
+ * It only ever reads. Nothing here draws, because a picture is spent quota and
+ * every one of them is a press somewhere a person can see it.
  *
  * Read on arrival, again whenever the place picture changes, and every second
  * and a half while a run draws. Each example lands in the brand document, so
@@ -17,6 +20,7 @@ const RUNNING_MS = 1500;
 export function useSceneExamples(brandId: string, sceneId: string | null, place: string | null) {
   const { refreshBrands } = useAppData();
   const [job, setJob] = useState<SceneExampleJob | null>(null);
+  const [first, setFirst] = useState<SceneExampleRole[]>([]);
   const [more, setMore] = useState<SceneExampleRole[]>([]);
   /** The first answer is in: before it, "nothing is drawing" is not known yet. */
   const [read, setRead] = useState(false);
@@ -40,6 +44,7 @@ export function useSceneExamples(brandId: string, sceneId: string | null, place:
         if (!alive) return;
         landed.current = mark;
         setJob(r.job);
+        setFirst(r.first);
         setMore(r.more);
         setRead(true);
         if (r.job?.status === 'running') timer = setTimeout(tick, RUNNING_MS);
@@ -56,5 +61,5 @@ export function useSceneExamples(brandId: string, sceneId: string | null, place:
 
   /** Read the run again now: something here just asked for work. */
   const again = useCallback(() => setAsked((n) => n + 1), []);
-  return { job, more, read, again };
+  return { job, first, more, read, again };
 }

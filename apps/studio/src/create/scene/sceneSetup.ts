@@ -2,6 +2,7 @@ import type { Answer, Aside } from '../../conversation/question.js';
 import { COPY } from './sceneCopy.js';
 import { followUps, intentOf } from './sceneIntent.js';
 import { optionOf, ROW_ORDER, ROWS, type SceneRow, SUGGESTED_IDEA } from './sceneRows.js';
+import { IN_THE_PLACE } from './sceneWorldRows.js';
 
 /**
  * The questions a scene is set up by, and every way their answers change.
@@ -178,6 +179,12 @@ function rowWords(row: SceneRow, g: Given | undefined): string | null {
   return tapped ?? typed ?? null;
 }
 
+/**
+ * The guard that keeps an idea part of the place, said once at the end of a
+ * direction that has one. See IN_THE_PLACE.
+ */
+const guard = (idea: string | null): string => (idea ? `, ${IN_THE_PLACE}` : '');
+
 /** A row answered by a tap or by words, not passed over. */
 const chosen = (g: Given | undefined): boolean => !!g && g.pick !== PASSED && (!!g.pick || !!g.words?.trim());
 
@@ -200,8 +207,10 @@ export function compileDirection(a: Answers): string {
     const world = rowWords('world', a.world);
     const light =
       rowWords('light', a.light) ?? (intentOf(text).light ? null : (optionOf('world', a.world?.pick)?.light ?? null));
-    const more = [world, rowWords('surface', a.surface), light, ideaWords(a.signature)].filter(Boolean) as string[];
-    return more.length ? `${text.replace(/[.\s]+$/, '')}, ${more.join(', ')}.` : text;
+    const idea = ideaWords(a.signature);
+    const more = [world, rowWords('surface', a.surface), light, idea].filter(Boolean) as string[];
+    if (!more.length) return text;
+    return `${text.replace(/[.\s]+$/, '')}, ${more.join(', ')}${guard(idea)}.`;
   }
   if (a.source?.door !== 'guided') return '';
   const world = rowWords('world', a.world);
@@ -209,12 +218,20 @@ export function compileDirection(a: Answers): string {
   // photographed in, so a place is never handed over with nothing said about
   // how it is lit.
   const light = rowWords('light', a.light) ?? optionOf('world', a.world?.pick)?.light ?? null;
-  const parts = [world ?? 'a place', rowWords('surface', a.surface), light, ideaWords(a.signature)].filter(
-    Boolean,
-  ) as string[];
-  const text = `${parts.join(', ').replace(/^./, (c) => c.toUpperCase())}.`;
-  const personalised = chosen(a.surface) || chosen(a.light) || chosen(a.signature) || !!a.world?.words?.trim();
-  if (personalised || !a.world?.pick) return text;
+  const idea = ideaWords(a.signature);
+  const parts = [world ?? 'a place', rowWords('surface', a.surface), light, idea].filter(Boolean) as string[];
+  const text = `${parts.join(', ').replace(/^./, (c) => c.toUpperCase())}${guard(idea)}.`;
+  // A direction made only of taps is a starting point, whichever rows were
+  // tapped: the cards are eight worlds and four options a row, so two people
+  // who tap the same four must not be handed the same frozen sentence. Only
+  // words of their own make it theirs.
+  const typed = !!(
+    a.world?.words?.trim() ||
+    a.surface?.words?.trim() ||
+    a.light?.words?.trim() ||
+    a.signature?.words?.trim()
+  );
+  if (typed || !a.world?.pick) return text;
   return `${text.slice(0, -1)}. ${COPY.worldIsAStart}`;
 }
 

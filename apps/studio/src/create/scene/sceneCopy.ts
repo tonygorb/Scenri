@@ -6,6 +6,12 @@
  * nothing about models.
  */
 /** "Hands, another angle and a bold one". */
+/** "Two pictures", for an offer that says what it costs before it is pressed. */
+function count(n: number): string {
+  const word = ['No', 'One', 'Two', 'Three', 'Four', 'Five'][n] ?? String(n);
+  return `${word} picture${n === 1 ? '' : 's'}`;
+}
+
 function joinAnd(xs: string[]): string {
   const [first, ...rest] = xs;
   const lead = [first, ...rest.map((x) => x.toLowerCase())];
@@ -124,8 +130,20 @@ export const COPY = {
   retry: 'Try again',
   version: (n: number) => `Version ${n}`,
 
-  // after Use: the place in use, drawn here (sceneExamples.ts on the server)
+  // after Use: the place in use. Nothing here is drawn without being asked
+  // for, so every one of these is a press (sceneExamples.ts on the server).
   saved: 'Saved.',
+  savedQuiet: 'Saved. Nothing is drawn until you ask.',
+  /** The offer, with what it draws named, so the cost is read before it is pressed. */
+  showInUse: (who: 'product' | 'presenter', labels: string[]) =>
+    `Show it in use? ${count(labels.length)} with a Scenri demo ${who} in the place: ${joinAnd(
+      labels.map((l) => l.toLowerCase()),
+    )}.`,
+  /** The same offer for a set the place moved under. */
+  staleSet: (n: number) =>
+    `${count(n)} here show${n === 1 ? 's' : ''} the place as it was before. Draw ${n === 1 ? 'it' : 'them'} again?`,
+  drawThem: 'Draw them',
+  drawThemAgain: 'Draw them again',
   inUse: (who: 'product' | 'presenter') =>
     `Saved. Now it is shown in use, with a Scenri demo ${who}. Shots are told the words, never handed these pictures.`,
   noLibrary: "Saved. Scenri's library has not downloaded yet, so it cannot be shown in use for now.",
@@ -144,6 +162,8 @@ export const COPY = {
   addThem: 'Add them',
   notNow: 'Not now',
   ready: (name: string) => `${name} is ready.`,
+  /** Nothing was drawn in use: where it can be, whenever they want it. */
+  readyUndrawn: (name: string) => `${name} is ready. It can be shown in use any time, from its page.`,
   readyMissing: (name: string) => `${name} is ready. Some did not draw.`,
   openScene: 'Open scene',
   useInAShot: 'Use in a shot',

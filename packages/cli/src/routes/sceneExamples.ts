@@ -6,9 +6,10 @@ import type { ExampleRole, SceneExamples } from '../sceneExamples.js';
 const ROLES = new Set<ExampleRole>(['hero', 'close', 'hands', 'angle', 'bold']);
 
 /**
- * A scene's examples, from its page: what is drawing, Add three more, Try
- * again for one, Stop, and Remove. The first two are drawn without being
- * asked, when the scene first has its picture (sceneExamples.ts).
+ * A scene's examples, from its page or its conversation: what is drawing,
+ * Draw two pictures, Add three more, Try again for one, Stop, and Remove.
+ * Every one of them is a press. Nothing on this road is ever drawn without
+ * being asked for, so saving a scene spends nothing (sceneExamples.ts).
  */
 export function registerSceneExampleRoutes(app: FastifyInstance, deps: { core: Core; examples: SceneExamples }): void {
   const { core, examples } = deps;
@@ -27,21 +28,29 @@ export function registerSceneExampleRoutes(app: FastifyInstance, deps: { core: C
     if (!found) return;
     return {
       job: examples.status(found.brandId, found.scene.id),
-      // what "Add more" would draw, so the page can say it before anything is spent
+      // what each offer would draw, so both can be counted in the button
+      // that asks for them, before anything is spent
+      first: examples.offerFirst(found.scene),
       more: examples.offer(found.scene),
     };
   });
 
-  /** `{ more: true }` for the rest of the set, or `{ roles: [...] }` to draw (or redraw) those. */
+  /**
+   * `{ first: true }` for the place in use and a close-up (or for the roles a
+   * changed place left showing the earlier picture), `{ more: true }` for the
+   * rest of the set, or `{ roles: [...] }` to draw (or redraw) exactly those.
+   */
   app.post('/api/brands/:id/scenes/:sceneId/examples', async (req, reply) => {
     const found = sceneOr404(req, reply);
     if (!found) return;
-    const body = (req.body ?? {}) as { roles?: unknown; more?: unknown };
-    const asked = body.more
-      ? examples.offer(found.scene)
-      : (Array.isArray(body.roles) ? body.roles : [])
-          .map(String)
-          .filter((r): r is ExampleRole => ROLES.has(r as ExampleRole));
+    const body = (req.body ?? {}) as { roles?: unknown; more?: unknown; first?: unknown };
+    const asked = body.first
+      ? examples.offerFirst(found.scene)
+      : body.more
+        ? examples.offer(found.scene)
+        : (Array.isArray(body.roles) ? body.roles : [])
+            .map(String)
+            .filter((r): r is ExampleRole => ROLES.has(r as ExampleRole));
     if (!asked.length) return reply.status(400).send({ error: 'which examples?' });
     try {
       return { job: examples.start(found.brandId, found.scene.id, asked) };

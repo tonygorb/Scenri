@@ -18,8 +18,19 @@ import { COPY } from './sceneCopy.js';
 
 /** Pictures a scene is read from. Style references are one to four everywhere that measured it. */
 export const PICTURES_MAX = 4;
-/** The person's words about the place, as the record stores them. */
-export const PLACE_MAX = 400;
+/**
+ * The place, as the record stores it.
+ *
+ * It was 400 when the place was always a sentence somebody typed. A guided
+ * direction is composed from four taps and the guard that ends it, which is
+ * 390 characters at its longest, so anything typed beside the taps was cut
+ * off the end in silence (measured 2026-09-22: four taps plus "in a deep
+ * teal" came to 406 and lost the teal). The cap is here to bound a record,
+ * not to shorten a direction, so it now clears the longest composed one with
+ * room for the person's own words. `sceneSetup.test.ts` pins that every
+ * combination fits.
+ */
+export const PLACE_MAX = 600;
 export const ASK_MAX = 400;
 export const NAME_MAX = 60;
 
@@ -91,8 +102,10 @@ export interface StudioState {
   moreDeclined: boolean;
   /** Add them, to the three more: said in the conversation where it was said. */
   moreAsked: boolean;
-  /** The two automatic examples were asked for from here, once (a scene saved before they existed). */
-  setAsked: boolean;
+  /** The place in use was asked for here: the offer is made once per picture, not per render. */
+  setDrawn: boolean;
+  /** Not now, to the place in use. The offer comes back only when the place does. */
+  setDeclined: boolean;
 }
 
 export const EMPTY: StudioState = {
@@ -110,7 +123,8 @@ export const EMPTY: StudioState = {
   saved: null,
   moreDeclined: false,
   moreAsked: false,
-  setAsked: false,
+  setDrawn: false,
+  setDeclined: false,
 };
 
 /** A saved scene, opened in the studio: its words and its picture as version one, nothing spent. */
@@ -153,7 +167,8 @@ export type Action =
   | { type: 'saved'; id: string }
   | { type: 'decline-more' }
   | { type: 'ask-more' }
-  | { type: 'set-asked' };
+  | { type: 'set-drawn' }
+  | { type: 'set-declined' };
 
 export const current = (s: StudioState): Version | null => s.versions[s.current] ?? null;
 
@@ -312,8 +327,10 @@ export function reduce(s: StudioState, a: Action): StudioState {
       return { ...s, moreDeclined: true };
     case 'ask-more':
       return { ...s, moreAsked: true };
-    case 'set-asked':
-      return { ...s, setAsked: true };
+    case 'set-drawn':
+      return { ...s, setDrawn: true, setDeclined: false };
+    case 'set-declined':
+      return { ...s, setDeclined: true };
   }
 }
 
@@ -540,6 +557,7 @@ export function deserialize(raw: string | null): StudioState | null {
     saved: typeof o.saved === 'string' && o.saved ? o.saved : null,
     moreDeclined: o.moreDeclined === true,
     moreAsked: o.moreAsked === true,
-    setAsked: o.setAsked === true,
+    setDrawn: o.setDrawn === true,
+    setDeclined: o.setDeclined === true,
   };
 }

@@ -202,12 +202,14 @@ export function useSceneFlow(args: {
         (savedScene?.subject === 'person' || savedScene?.figure ? 'presenter' : 'product'),
       noSubject: ex.read && !ex.job && !kept.length && ex.more.length === 0,
       missing: missingMore(ex.more, kept, ex.job),
+      first: ex.first,
+      stale: ex.first.length > 0 && kept.length > 0,
       finish: args.finish,
     };
-  }, [savedId, savedScene, tiles, setRunning, ex.read, ex.job, ex.more, args.finish]);
+  }, [savedId, savedScene, tiles, setRunning, ex.read, ex.job, ex.first, ex.more, args.finish]);
 
   const drawSet = useCallback(
-    (ask: { more: true } | { roles: SceneExampleRole[] }) => {
+    (ask: { first: true } | { more: true } | { roles: SceneExampleRole[] }) => {
       if (!savedId) return;
       setNote(null);
       void api
@@ -217,19 +219,6 @@ export function useSceneFlow(args: {
     },
     [brand.id, savedId, ex.again],
   );
-
-  // A scene saved before it could be shown in use (an older one, opened and
-  // saved here) gets its hero and close-up once, the way a new one does on the
-  // server. Not while the place is still drawing: it lands first.
-  const canDrawSet = caps?.canDraw ?? true;
-  const hasExamples = !!savedScene?.examples?.length;
-  const hasPlace = !!savedScene?.previewUrl;
-  useEffect(() => {
-    if (!savedId || !ex.read || ex.job || studio.job || studio.setAsked || !canDrawSet) return;
-    if (hasExamples || !hasPlace || ex.more.length === 0) return;
-    dispatch({ type: 'set-asked' });
-    drawSet({ roles: ['hero', 'close'] });
-  }, [savedId, ex.read, ex.job, studio.job, studio.setAsked, canDrawSet, hasExamples, hasPlace, ex.more, drawSet]);
 
   /** The last press: the conversation is over, and what it made is where it goes. */
   const finish = useCallback(() => {
@@ -378,6 +367,13 @@ export function useSceneFlow(args: {
         return;
       }
       if (ans.kind !== 'confirm') return;
+      if (qid === 'set-start') {
+        if (ans.id === 'draw-set') {
+          dispatch({ type: 'set-drawn' });
+          drawSet({ first: true });
+        } else dispatch({ type: 'set-declined' });
+        return;
+      }
       if (qid === 'set-more') {
         if (ans.id === 'more') {
           dispatch({ type: 'ask-more' });

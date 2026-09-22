@@ -12,16 +12,21 @@ import { EXAMPLE_LABEL, type ExampleTile, earlierRoles, exampleTiles, examplesSu
 import { useSceneExamples } from '../useSceneExamples.js';
 import { useStillHere } from '../useStillHere.js';
 
+/** The count in the button, so the cost is read before the press. */
+const COUNT = ['no', 'one', 'two', 'three', 'four', 'five'];
+
 /**
  * Your own scene's pictures: the place, then the place in use.
  *
- * Shown here, made in the conversation. The place is the picture approved with
- * Use this scene; the studio then draws a hero and a close-up with a Scenri
- * demo product or presenter, and three more when asked (sceneExamples.ts on
- * the server). None of them reaches a shot: a shot is told the scene's words.
- * So this page only shows them, still drawing if the person left the studio
- * early, and the one thing a picture here can do is Shoot it this way, which
- * uses the scene rather than drawing anything. Edit scene is the way to more.
+ * The place is the picture approved with Use this scene. The rest are drawn
+ * with a Scenri demo product or presenter, and none of them reaches a shot: a
+ * shot is told the scene's words. A picture here can only be shot this way,
+ * which uses the scene rather than drawing anything.
+ *
+ * Nothing on this page draws by itself. One button asks for the place in use,
+ * counted before it is pressed, and it is the only thing here that spends: a
+ * scene saved in the studio with Not now, or saved before the set existed,
+ * gets its set from here. Everything else reads (sceneExamples.ts).
  *
  * The rail is its final length from the moment a run starts: every example on
  * its way has a tile that shimmers until it lands.
@@ -38,13 +43,44 @@ export function SceneExamples({
   const { applyBrand } = useAppData();
   const applyScene = useApplyScene();
   const stillHere = useStillHere();
-  const { job } = useSceneExamples(brandId, scene.id, scene.previewUrl ?? null);
+  const { job, first, again } = useSceneExamples(brandId, scene.id, scene.previewUrl ?? null);
   const [asking, setAsking] = useState(false);
+  const [drawing, setDrawing] = useState(false);
   const [open, setOpen] = useState<{ src: string; label: string; tile?: ExampleTile } | null>(null);
 
   const tiles = exampleTiles(scene.examples, job);
   const running = job?.status === 'running';
   const earlier = earlierRoles(scene.examples);
+
+  /**
+   * The one thing on this page that spends. What it draws is what the server
+   * counted (`first`), so the button says it before it is pressed.
+   */
+  const drawInUse = async () => {
+    if (drawing || !first.length) return;
+    const here = stillHere();
+    setDrawing(true);
+    onError(null);
+    try {
+      await api.drawSceneExamples(brandId, scene.id, { first: true });
+      again();
+    } catch (e: any) {
+      if (here()) onError(String(e?.message ?? e));
+    } finally {
+      if (here()) setDrawing(false);
+    }
+  };
+
+  /** Asks for the place in use, saying what it costs. Hidden while a run draws. */
+  const offer =
+    first.length && job?.status !== 'running' ? (
+      <p className="sc-scenepage-examples-ask">
+        <button type="button" className="sc-btn" disabled={drawing} onClick={() => void drawInUse()}>
+          {earlier.length ? 'Draw them again' : 'Draw it in use'}
+          {`, ${COUNT[first.length] ?? first.length} picture${first.length === 1 ? '' : 's'}`}
+        </button>
+      </p>
+    ) : null;
 
   /** The way this example shows, kept on the scene if it is not yet, then used. */
   const shootThisWay = async (setup: string) => {
@@ -79,6 +115,7 @@ export function SceneExamples({
             <Shown src={thumbOf(place.src, 'tile')} />
           </button>
         </div>
+        {offer}
         {open && (
           <ImageLightbox
             src={open.src}
@@ -174,6 +211,7 @@ export function SceneExamples({
           {state}
         </p>
       )}
+      {offer}
 
       {open && (
         <ImageLightbox
