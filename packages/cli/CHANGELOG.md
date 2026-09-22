@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.13.1](https://github.com/tonygorb/Scenri/compare/v0.13.0...v0.13.1) (2026-09-22)
+
+
+### Bug Fixes
+
+* **create:** the feed keeps the tile you were looking at when its columns change ([8908270](https://github.com/tonygorb/Scenri/commit/8908270c37d479659ba7793c0c4fc08a8dbfb430))
+* **studio:** a lesson step pushed out of view by a resize comes back into view ([5f5fefb](https://github.com/tonygorb/Scenri/commit/5f5fefbbe9d98f7241f9d34b057d96fe8d65da92))
+* **studio:** a lesson step written as the page reloads is not lost ([22d04ca](https://github.com/tonygorb/Scenri/commit/22d04ca8006295ab9421470394c0a4e1c64d42d4))
+* **studio:** alerts above the tutor and dialogs, a feed that keeps its place, and three small repairs ([ca63798](https://github.com/tonygorb/Scenri/commit/ca63798df7d6d3db85cef641b977de05e4d8c4be))
+* **studio:** alerts are drawn above the tutor and dialogs, and can be pressed there ([3c5e75c](https://github.com/tonygorb/Scenri/commit/3c5e75c8bf041575c06f80ac78b45f68e9679191))
+* **studio:** the brief has a name a screen reader can say ([22c6b6a](https://github.com/tonygorb/Scenri/commit/22c6b6a66a696cb558d4989dd81d93d1838e86ea))
+
 ## [0.13.0](https://github.com/tonygorb/Scenri/compare/v0.12.0...v0.13.0) (2026-09-21)
 
 
