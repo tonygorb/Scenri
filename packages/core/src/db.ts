@@ -559,14 +559,26 @@ function ensureIndexes(db: DB): void {
 /**
  * The search text of one node row, in SQL, so the triggers that keep the
  * index current need no application code: an older build writing rows
- * through these triggers keeps the index whole. The prompt, the template
- * field values, and every colour token's name and hex; token display names
- * are matched by id at query time, since a rename must be found by its new
- * name without rewriting a single stored shot.
+ * through these triggers keeps the index whole. What the person wrote (the
+ * brief's own words), the template field values, and every colour token's
+ * name and hex; token display names are matched by id at query time, since
+ * a rename must be found by its new name without rewriting a single stored
+ * shot.
+ *
+ * Never the compiled prompt of a shot that has a brief: that is thousands of
+ * characters the compiler wrote around a few words (the scene's prose, the
+ * product's description, the same rules on every shot), which nobody sees,
+ * and it held nearly every letter, so a search matched nearly every shot until
+ * its third or fourth letter (measured 2026-09-23: "j" in 281 of 473). A shot
+ * from before briefs has only its prompt, and is still read by it.
  */
 function searchTextSql(alias: string): string {
   const brief = `CASE WHEN json_valid(${alias}.brief) THEN ${alias}.brief ELSE '{}' END`;
-  return `trim(coalesce(${alias}.prompt, '') || ' ' ||
+  const said = `CASE WHEN json_array_length(${brief}, '$.tokens') > 0
+      THEN (SELECT group_concat(json_extract(je.value, '$.v'), ' ') FROM json_each(${brief}, '$.tokens') AS je
+             WHERE json_extract(je.value, '$.t') = 'text')
+      ELSE ${alias}.prompt END`;
+  return `trim(coalesce(${said}, '') || ' ' ||
     coalesce((SELECT group_concat(je.value, ' ') FROM json_each(${brief}, '$.templateFields') AS je), '') || ' ' ||
     coalesce((SELECT group_concat(coalesce(json_extract(je.value, '$.name'), '') || ' ' || coalesce(json_extract(je.value, '$.hex'), ''), ' ')
                 FROM json_each(${brief}, '$.tokens') AS je WHERE json_extract(je.value, '$.t') = 'color'), ''))`;
@@ -597,8 +609,11 @@ function tokenRowsFromNodesSql(): string {
            WHERE json_extract(${brief}, '$.templateId') IS NOT NULL`;
 }
 
-/** Bumped when the text or token rule changes, so an existing index is rebuilt once. */
-const SEARCH_INDEX_VERSION = 'v1';
+/**
+ * Bumped when the text or token rule changes, so an existing index is rebuilt
+ * once and its triggers are written again (they carry the rule inside them).
+ */
+const SEARCH_INDEX_VERSION = 'v2';
 
 /**
  * Two derived tables over `nodes`, kept current by SQLite triggers:
@@ -613,6 +628,13 @@ const SEARCH_INDEX_VERSION = 'v1';
  * marker in `settings` forces the same rebuild when the rule changes.
  */
 function ensureSearch(db: DB): void {
+  const marker = (
+    db.prepare("SELECT value FROM settings WHERE key='search_index'").get() as { value: string } | undefined
+  )?.value;
+  // A trigger is kept by name, so one written under an older rule would go on
+  // indexing new shots by it after the rebuild below.
+  if (marker !== SEARCH_INDEX_VERSION)
+    db.exec('DROP TRIGGER IF EXISTS nodes_search_ai; DROP TRIGGER IF EXISTS nodes_search_au;');
   db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts USING fts5(text, tokenize='trigram case_sensitive 0 remove_diacritics 1');
     CREATE TABLE IF NOT EXISTS node_tokens (
@@ -637,9 +659,6 @@ function ensureSearch(db: DB): void {
       DELETE FROM node_tokens WHERE node_id = old.id;
     END;
   `);
-  const marker = (
-    db.prepare("SELECT value FROM settings WHERE key='search_index'").get() as { value: string } | undefined
-  )?.value;
   // Whole when the oldest and the newest row are both indexed: the triggers
   // were in place from the first row to the last. Counting the trigram index
   // instead read the whole of it, which on a hundred thousand shots is nine

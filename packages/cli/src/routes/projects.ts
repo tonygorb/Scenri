@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { searchTerms, termMatches, type BrandRow, type Core, type FeedFilter, type FeedSort } from '@scenri/core';
+import { nameMatches, searchTerms, type BrandRow, type Core, type FeedFilter, type FeedSort } from '@scenri/core';
 import type { ExampleJob } from '../sceneExamples.js';
 import { listStudioWork } from '../studioWork.js';
 
@@ -126,8 +126,8 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectRouteDe
       const engines = deps.engineNames();
       terms = searchTerms(q).map((t) => ({
         ...t,
-        tokenIds: known.filter((n) => termMatches(n.name, t)).map((n) => n.id),
-        engineIds: engines.filter((e) => termMatches(e.name, t)).map((e) => e.id),
+        tokenIds: known.filter((n) => nameMatches(n.name, t)).map((n) => n.id),
+        engineIds: engines.filter((e) => nameMatches(e.name, t)).map((e) => e.id),
       }));
     }
     const filter: FeedFilter = {

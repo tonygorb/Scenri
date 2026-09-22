@@ -55,14 +55,16 @@ describe('the two copies of the search rule', () => {
   /**
    * Where they part, on purpose. Both narrow from the first letter (Tony,
    * 2026-09-23: a search that ignored its first two letters showed
-   * everything). Under `TRIGRAM_MIN` the feed reads each shot's text with
-   * LIKE, which folds ASCII case but not the shot's own accents; the library
-   * pages, matching in memory, fold both. Asserted so that a change here is
-   * a deliberate act rather than a silent one.
+   * everything). Under `TRIGRAM_MIN` the feed matches one or two letters at
+   * the start of a word, in a shot's words and in names, and folds ASCII case
+   * but not the shot's own accents; the library pages, matching a short
+   * catalog in memory, match anywhere and fold both. Asserted so that a
+   * change here is a deliberate act rather than a silent one.
    */
   it('declare where the server search deliberately differs', () => {
     expect(CORE).toContain('TRIGRAM_MIN = 3');
-    expect(CORE).toContain('export function likePattern');
+    expect(CORE).toContain('export function shortTermSql');
+    expect(CORE).toContain('export function nameMatches');
     expect(STUDIO).not.toContain('TRIGRAM_MIN');
   });
 });

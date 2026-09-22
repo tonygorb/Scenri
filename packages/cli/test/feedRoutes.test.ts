@@ -43,15 +43,19 @@ async function brandWithShots(n: number) {
   const root = core.store.rootFor(project.id)!;
   const ids: string[] = [];
   for (let i = 0; i < n; i++) {
+    const words = `shot number ${['zero', 'one', 'two', 'three', 'four'][i] ?? i} on linen`;
     const [node] = core.store.addNodes({
       projectId: project.id,
       parentId: root.id,
       kind: 'generation',
-      prompt: `shot number ${['zero', 'one', 'two', 'three', 'four'][i] ?? i} on linen`,
+      prompt: words,
       engineId: 'demo',
       count: 1,
     });
-    core.store.setBrief(node.id, { tokens: i % 2 ? [{ t: 'product', id: 'p-cup' }] : [] });
+    // what was typed is what a search reads, once a shot has a brief
+    core.store.setBrief(node.id, {
+      tokens: [...(i % 2 ? [{ t: 'product', id: 'p-cup' }] : []), { t: 'text', v: ` ${words} ` }],
+    });
     const png = await sharp({ create: { width: 64 + i, height: 80, channels: 3, background: '#336699' } })
       .png()
       .toBuffer();

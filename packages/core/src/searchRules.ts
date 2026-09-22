@@ -23,11 +23,19 @@ export const STEM_MIN = 4;
 
 /**
  * The trigram index needs three characters. A shorter term is read off each
- * shot's indexed text instead (`likePattern`), so the feed narrows from the
- * first letter, the way the library pages always have. Below this the
- * shot's own accents are not folded: "e" finds "cafe" but not "café".
+ * shot's indexed text instead (`shortTermSql`), so the feed narrows from the
+ * first letter. One or two letters match the start of a word, in the text and
+ * in names (`nameMatches`): inside words nearly every shot holds them ("x" is
+ * in every shot Codex made), so the first letter would narrow nothing. Below
+ * this the shot's own accents are not folded: "e" finds "easel", not "éclair".
  */
 export const TRIGRAM_MIN = 3;
+
+/** A term of letters and digits, which has word starts to match; anything else is matched where it stands. */
+const WORDY = /^[\p{L}\p{N}]+$/u;
+
+/** Whether a term is short enough to match the start of a word rather than anywhere. */
+const byWordStart = (term: SearchTerm) => term.text.length < TRIGRAM_MIN && WORDY.test(term.text);
 
 export interface SearchTerm {
   /** The folded term as typed. */
@@ -54,6 +62,17 @@ export function termMatches(haystack: string, term: SearchTerm): boolean {
   return h.includes(term.text) || (term.stem !== null && h.includes(term.stem));
 }
 
+/**
+ * Whether a product, person, scene or engine name answers a term: at the start
+ * of one of its words for one or two letters, anywhere from three.
+ */
+export function nameMatches(name: string, term: SearchTerm): boolean {
+  if (!byWordStart(term)) return termMatches(name, term);
+  return fold(name)
+    .split(/[^\p{L}\p{N}]+/u)
+    .some((w) => w.startsWith(term.text));
+}
+
 /** Whether every term matches: the client's `matchesQuery`, for tests and for names. */
 export function matchesQuery(haystack: string, q: string): boolean {
   const terms = searchTerms(q);
@@ -64,14 +83,27 @@ export function matchesQuery(haystack: string, q: string): boolean {
 const quote = (s: string) => `"${s.replace(/"/g, '""')}"`;
 
 /**
- * The LIKE pattern for a term the trigram index is too short to answer, or
- * null when the index can. The term is already folded and LIKE ignores ASCII
- * case, so "ON" finds "one"; `%` and `_` are escaped, so they match only
- * themselves, with a backslash as the query's ESCAPE character.
+ * The SQL that answers a term the trigram index is too short for, against a
+ * text column, or null when the index can. Letters and digits match the start
+ * of a word: the text lowered (ASCII, as the term already is) and globbed
+ * after anything that is not a letter or a digit. Anything else is a
+ * substring, with `%` and `_` escaped so they match only themselves.
  */
-export function likePattern(term: SearchTerm): string | null {
+export function shortTermSql(
+  term: SearchTerm,
+  column: string,
+  param: string,
+): { sql: string; params: Record<string, string> } | null {
   if (term.text.length >= TRIGRAM_MIN) return null;
-  return `%${term.text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  if (byWordStart(term))
+    return {
+      sql: `(lower(${column}) GLOB @${param}a OR lower(${column}) GLOB @${param}b)`,
+      params: { [`${param}a`]: `${term.text}*`, [`${param}b`]: `*[^a-z0-9]${term.text}*` },
+    };
+  return {
+    sql: `${column} LIKE @${param} ESCAPE '\\'`,
+    params: { [param]: `%${term.text.replace(/[\\%_]/g, (c) => `\\${c}`)}%` },
+  };
 }
 
 /** The FTS5 MATCH expression for one term, or null when the term is too short for the trigram index. */
