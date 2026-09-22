@@ -457,6 +457,24 @@ describe('the light row says what the world already gave it', () => {
     );
   });
 
+  it('offers three to eight real choices in every row, none repeated, and the same shape in every world', () => {
+    // Variable on purpose: a row offers what changes the scene and no more,
+    // so no row is padded to match another. The bounds keep it a choice
+    // (not a yes or no) and keep it scannable (not a catalogue).
+    const check = (opts: { id: string; label: string; words: string }[], where: string) => {
+      expect(opts.length, where).toBeGreaterThanOrEqual(3);
+      expect(opts.length, where).toBeLessThanOrEqual(8);
+      for (const key of ['id', 'label', 'words'] as const)
+        expect(new Set(opts.map((o) => o[key])).size, `${where} ${key}`).toBe(opts.length);
+    };
+    for (const row of ROW_ORDER) check(ROWS[row].options as any, `general ${row}`);
+    const shape = (w: string) => (['surface', 'light', 'signature'] as const).map((r) => optionsFor(r, w).length);
+    for (const w of WORLD_IDS) {
+      for (const r of ['surface', 'light', 'signature'] as const) check(optionsFor(r, w) as any, `${w} ${r}`);
+      expect(shape(w), w).toEqual(shape(WORLD_IDS[0]));
+    }
+  });
+
   it('never composes a direction the record would cut off', () => {
     // A tapped direction is composed, not typed: when the cap was sized for a
     // sentence somebody wrote, four taps plus a few words of their own ran
