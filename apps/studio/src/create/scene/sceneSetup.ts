@@ -221,17 +221,12 @@ export function compileDirection(a: Answers): string {
   const idea = ideaWords(a.signature);
   const parts = [world ?? 'a place', rowWords('surface', a.surface), light, idea].filter(Boolean) as string[];
   const text = `${parts.join(', ').replace(/^./, (c) => c.toUpperCase())}${guard(idea)}.`;
-  // A direction made only of taps is a starting point, whichever rows were
-  // tapped: the cards are eight worlds and four options a row, so two people
-  // who tap the same four must not be handed the same frozen sentence. Only
-  // words of their own make it theirs.
-  const typed = !!(
-    a.world?.words?.trim() ||
-    a.surface?.words?.trim() ||
-    a.light?.words?.trim() ||
-    a.signature?.words?.trim()
-  );
-  if (typed || !a.world?.pick) return text;
+  // Every guided direction is a starting point, never a picture to copy. The
+  // cards only show what each choice means; the reading is told to keep the
+  // choices and the person's own words and to invent the arrangement, so two
+  // people who tap the same cards, with or without a few words of their own,
+  // get two different places.
+  if (!a.world?.pick) return text;
   return `${text.slice(0, -1)}. ${COPY.worldIsAStart}`;
 }
 

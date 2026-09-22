@@ -6,6 +6,7 @@ import {
   mintRevision,
   presenterChain,
   presenterRecordFrom,
+  SCENE_INSTRUCTION_MAX,
   sceneRecordFrom,
   type CustomPresenter,
 } from '../src/assetRecords.js';
@@ -283,6 +284,16 @@ describe('duplicatePresenterRecord', () => {
 });
 
 describe('sceneRecordFrom', () => {
+  it('keeps a whole guided direction, clauses and all, instead of cutting it at 400', () => {
+    // A guided direction runs to about 560 characters before any words of the
+    // person's own; the last clause is the one that keeps it from repeating.
+    const direction = `${'a niche of warm limestone, '.repeat(24)}invent a specific original arrangement.`;
+    expect(direction.length).toBeGreaterThan(600);
+    const r = sceneRecordFrom({ name: 'Long Direction', prompt: 'A room.', instruction: direction });
+    expect(r.ok && r.scene.instruction).toBe(direction);
+    expect(direction.length).toBeLessThanOrEqual(SCENE_INSTRUCTION_MAX);
+  });
+
   /**
    * A scene's words are printed on its page and sent to the generator, so a
    * cut that lands mid-word is read by a person and by a model. This stored

@@ -26,6 +26,7 @@ import {
   brandScenes,
   commit,
   draw,
+  SCENE_INSTRUCTION_MAX,
   sceneRecordFrom,
   scenePreviewPrompt,
   trimEdgeBars,
@@ -447,7 +448,7 @@ export function startSceneStudioJob(deps: AssetBuildDeps, input: StudioJobInput)
   }
   const instruction = String(input.instruction ?? '')
     .trim()
-    .slice(0, 400);
+    .slice(0, SCENE_INSTRUCTION_MAX);
   const hashes = [...new Set((input.imageHashes ?? []).map(String))]
     .filter((h) => /^[a-f0-9]{32}$/.test(h) && deps.core.images.has(h))
     .slice(0, STUDIO_PICTURES_MAX);

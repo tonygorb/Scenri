@@ -60,7 +60,7 @@ export const COPY = {
   followLight: 'You have the place. What light is it in?',
   /** A follow-up passed over: the reader decides it from the sentence. */
   leaveToReading: 'Leave it to the reading',
-  /** Joined on when a world was chosen and nothing after it was personalised. */
+  /** Joined on every guided direction: keep the choices, invent the arrangement (measured 2026-09-22). */
   worldIsAStart:
     'Treat this as a starting direction, not a picture to reproduce: keep the material language and the character of the light, and invent a specific original arrangement.',
 

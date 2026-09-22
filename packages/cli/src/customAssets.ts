@@ -38,6 +38,7 @@ export {
   duplicatePresenter,
   duplicatePresenterRecord,
   SCENE_ID_PREFIX,
+  SCENE_INSTRUCTION_MAX,
   sceneRecordFrom,
   type CustomPresenter,
   type CustomScene,

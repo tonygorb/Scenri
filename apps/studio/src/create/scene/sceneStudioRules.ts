@@ -19,18 +19,16 @@ import { COPY } from './sceneCopy.js';
 /** Pictures a scene is read from. Style references are one to four everywhere that measured it. */
 export const PICTURES_MAX = 4;
 /**
- * The place, as the record stores it.
- *
- * It was 400 when the place was always a sentence somebody typed. A guided
- * direction is composed from four taps and the guard that ends it, which is
- * 390 characters at its longest, so anything typed beside the taps was cut
- * off the end in silence (measured 2026-09-22: four taps plus "in a deep
- * teal" came to 406 and lost the teal). The cap is here to bound a record,
- * not to shorten a direction, so it now clears the longest composed one with
- * room for the person's own words. `sceneSetup.test.ts` pins that every
- * combination fits.
+ * The place, as the studio sends it. The server's SCENE_INSTRUCTION_MAX is
+ * the same number, and both were 400 when a place was always a sentence
+ * somebody typed. A guided direction is composed from taps and ends on the
+ * guard and "invent a specific original arrangement": about 560 characters
+ * before any words of the person's own. At 400 the server cut those clauses
+ * off in silence (found 2026-09-22), so the line that keeps two people who tap
+ * the same cards from getting the same place never reached the reading.
+ * `sceneFlow.test.ts` walks every combination with words of their own.
  */
-export const PLACE_MAX = 600;
+export const PLACE_MAX = 800;
 export const ASK_MAX = 400;
 export const NAME_MAX = 60;
 

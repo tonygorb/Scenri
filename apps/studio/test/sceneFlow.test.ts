@@ -208,12 +208,12 @@ describe('the setup', () => {
     );
     const mixed = { ...guided, world: { pick: 'water', words: 'at low tide' } };
     expect(compileDirection(mixed)).toBe(
-      `A shoreline of wet dark rock and shallow turquoise water, at low tide, ${rest}, ${IN_THE_PLACE}.`,
+      `A shoreline of wet dark rock and shallow turquoise water, at low tide, ${rest}, ${IN_THE_PLACE}. ${START}`,
     );
     // words of their own sit with their idea, ahead of the guard, so a
     // qualifier reads as part of the idea and not of the guard
     expect(compileDirection({ ...guided, signature: { pick: 'stone-vines', words: 'in deep teal' } })).toBe(
-      `A niche of warm limestone and rough plaster, ${said('surface', 'stone-travertine')}, ${said('light', 'stone-golden')}, ${said('signature', 'stone-vines')}, in deep teal, ${IN_THE_PLACE}.`,
+      `A niche of warm limestone and rough plaster, ${said('surface', 'stone-travertine')}, ${said('light', 'stone-golden')}, ${said('signature', 'stone-vines')}, in deep teal, ${IN_THE_PLACE}. ${START}`,
     );
     // a light passed over leaves the world lit the way its own card is; a
     // surface passed keeps what the world is made of
@@ -453,15 +453,19 @@ describe('the light row says what the world already gave it', () => {
     };
     expect(compileDirection(a)).toContain('in hard afternoon sun');
     expect(compileDirection(a)).toContain('starting direction, not a picture to reproduce');
-    // Every direction made only of taps says it, not just a lone world: eight
-    // worlds times four options a row is 512 sentences, so two people who tap
-    // the same four must not be handed the same frozen picture to reproduce.
+    // Every guided direction says it, taps only or with words of their own:
+    // eight worlds times four options a row is 512 sentences, and a few typed
+    // words do not stop two people from getting the same arrangement. The
+    // cards show what a choice means; the reading invents the place.
     expect(compileDirection(guided)).toContain('starting direction');
-    // words of their own are what make it theirs, at any row
-    expect(compileDirection({ ...guided, signature: { pick: 'stone-vines', words: 'in deep teal' } })).not.toContain(
+    expect(compileDirection({ ...guided, signature: { pick: 'stone-vines', words: 'in deep teal' } })).toContain(
       'starting direction',
     );
-    expect(compileDirection({ ...guided, world: { pick: 'stone', words: 'at dusk' } })).not.toContain(
+    expect(compileDirection({ ...guided, world: { pick: 'stone', words: 'at dusk' } })).toMatch(
+      /at dusk.*starting direction/,
+    );
+    // a typed sentence is the person's own place: it is not told to invent one
+    expect(compileDirection({ source: { door: 'words', text: 'my grandmother kitchen at dawn' } })).not.toContain(
       'starting direction',
     );
   });

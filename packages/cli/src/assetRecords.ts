@@ -302,6 +302,19 @@ export interface SceneInput {
  * every one of them is cut at a whole sentence or a whole word. A hard slice
  * put "gripping both sid" on the record page and in the prompt behind it.
  */
+/**
+ * A scene's direction, as the studio sends it and the record keeps it.
+ *
+ * It was 400, sized for a sentence somebody typed. A guided direction is
+ * composed from taps and ends on two clauses the reading must see (the guard
+ * on the idea and "invent a specific original arrangement"), so it runs to
+ * about 560 characters before any words of the person's own. At 400 the
+ * server cut those clauses off in silence, which is exactly the line that
+ * keeps two people who tap the same cards from getting the same place. The
+ * studio's PLACE_MAX is the same number.
+ */
+export const SCENE_INSTRUCTION_MAX = 800;
+
 export function sceneRecordFrom(
   input: SceneInput,
   base?: CustomScene,
@@ -370,7 +383,7 @@ export function sceneRecordFrom(
   // and, because the record is rebuilt from scratch, silently dropped whatever
   // the user had written. Blank falls back to what is already stored; clearing
   // it on purpose is what DELETE and a fresh build are for.
-  const written = has('instruction') ? phrase(input.instruction, 400) : '';
+  const written = has('instruction') ? phrase(input.instruction, SCENE_INSTRUCTION_MAX) : '';
   const instruction = written || base?.instruction;
   if (instruction) scene.instruction = instruction;
   // Through `has()` like every other field: the scene page PATCHes prompt and
