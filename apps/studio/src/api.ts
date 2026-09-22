@@ -70,7 +70,9 @@ export const api = {
   /** The install's first-use record: who is new, what is done, and the task in hand with what it has made. */
   guide: () => req<GuideView>('GET', '/api/guide'),
   /** One change to it: answer the welcome, start, finish or dismiss a task, or hide the guidance. */
-  guideIntent: (intent: GuideIntent) => req<GuideView>('POST', '/api/guide', intent),
+  // A lesson's step is written the moment it shows; a reload in that instant
+  // must not lose it, so the browser finishes the write on its own.
+  guideIntent: (intent: GuideIntent) => req<GuideView>('POST', '/api/guide', intent, undefined, { keepalive: true }),
   /**
    * Re-read the brand's own website. Merges: hand-edited fields survive, and
    * scraped colours come back as `suggestions` rather than being applied.

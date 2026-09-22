@@ -245,3 +245,34 @@ for (const size of [
     await expect(page.locator('[data-guide="library.new"]:visible')).toHaveCount(0);
   });
 }
+
+test('an alert during a live step stands above the curtain and can be closed, and the step still holds', async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem('scenri:toast-probe', '1'));
+  const own = await ownBrand(page, 'Alert Over Step');
+  await page.goto(`/${own}/create`);
+  await readTheOpening(page);
+  await expect(coachTitle(page)).toHaveText('Choose a product');
+  await page.evaluate(() =>
+    (window as unknown as { __scenriToast: (t: unknown) => void }).__scenriToast({
+      kind: 'error',
+      title: 'Could not import the store',
+      detail: 'The store did not answer.',
+    }),
+  );
+  const toast = page.locator('.sc-toast[data-kind="error"]');
+  await expect(toast).toBeVisible();
+  // drawn above the curtain: the topmost thing at its middle is the card itself
+  expect(
+    await toast.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return !!document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('.sc-toast');
+    }),
+  ).toBe(true);
+  await toast.locator('.sc-toast-x').click();
+  await expect(toast).toHaveCount(0);
+  await expect(coachTitle(page)).toHaveText('Choose a product');
+  await page.locator('[data-guide="compose.add"]').click();
+  await expect(page.locator('.sc-attachpanel')).toBeVisible();
+});

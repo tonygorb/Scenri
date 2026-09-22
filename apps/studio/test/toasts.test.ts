@@ -47,7 +47,7 @@ function renderStack(): (t: ToastInput) => void {
 }
 
 const visible = () =>
-  [...container.querySelectorAll<HTMLElement>('.sc-toast')].filter((el) => !el.closest('[data-leaving]'));
+  [...document.querySelectorAll<HTMLElement>('.sc-toast')].filter((el) => !el.closest('[data-leaving]'));
 
 describe('durationFor', () => {
   it('errors never auto-dismiss', () => {
@@ -93,12 +93,12 @@ describe('ToastProvider', () => {
     push({ kind: 'info', title: 'Guide closed' });
     push({ kind: 'success', title: 'Archived' });
     push({ kind: 'warning', title: 'Logo added, but it is small' });
-    expect(container.querySelector('.sc-toast[data-kind="info"] .sc-toast-ic')).toBeNull();
-    expect(container.querySelector('.sc-toast[data-kind="success"] .sc-toast-ic')).toBeTruthy();
-    expect(container.querySelector('.sc-toast[data-kind="warning"] .sc-toast-ic')).toBeTruthy();
+    expect(document.querySelector('.sc-toast[data-kind="info"] .sc-toast-ic')).toBeNull();
+    expect(document.querySelector('.sc-toast[data-kind="success"] .sc-toast-ic')).toBeTruthy();
+    expect(document.querySelector('.sc-toast[data-kind="warning"] .sc-toast-ic')).toBeTruthy();
     push({ kind: 'error', title: 'Could not save' });
-    expect(container.querySelector('.sc-toast[data-kind="error"] .sc-toast-ic')).toBeTruthy();
-    expect(container.querySelector('.sc-toast[data-kind="info"]')).toBeNull();
+    expect(document.querySelector('.sc-toast[data-kind="error"] .sc-toast-ic')).toBeTruthy();
+    expect(document.querySelector('.sc-toast[data-kind="info"]')).toBeNull();
   });
 
   it('announces through persistent live regions and never moves focus', () => {
@@ -106,21 +106,21 @@ describe('ToastProvider', () => {
     const push = renderStack();
     push({ kind: 'success', title: 'Archived' });
     push({ kind: 'error', title: 'Could not delete this shot' });
-    const polite = container.querySelector('[role="status"][aria-live="polite"]');
-    const assertive = container.querySelector('[aria-live="assertive"]');
+    const polite = document.querySelector('[role="status"][aria-live="polite"]');
+    const assertive = document.querySelector('[aria-live="assertive"]');
     expect(polite?.textContent).toBe('Archived');
     expect(assertive?.textContent).toBe('Could not delete this shot');
     // An empty alert on every page would read as a failure that is not there.
-    expect(container.querySelector('[role="alert"]')).toBeNull();
-    expect(container.querySelector('.sc-toasts')?.tagName).toBe('SECTION');
+    expect(document.querySelector('[role="alert"]')).toBeNull();
+    expect(document.querySelector('.sc-toasts')?.tagName).toBe('SECTION');
     expect(document.activeElement).toBe(before);
   });
 
   it('skips the live region when asked (a shot failure already spoken on the feed)', () => {
     const push = renderStack();
     push({ kind: 'error', title: 'Shot failed', quiet: true });
-    expect(container.querySelector('[aria-live="assertive"]')?.textContent).toBe('');
-    expect(container.querySelector('.sc-toast')?.textContent).toContain('Shot failed');
+    expect(document.querySelector('[aria-live="assertive"]')?.textContent).toBe('');
+    expect(document.querySelector('.sc-toast')?.textContent).toContain('Shot failed');
   });
 
   it('auto-dismisses an ephemeral toast and keeps an error', () => {
@@ -144,7 +144,7 @@ describe('ToastProvider', () => {
     vi.useFakeTimers();
     const push = renderStack();
     push({ kind: 'info', title: 'Guide closed' });
-    const x = container.querySelector<HTMLButtonElement>('.sc-toast-x')!;
+    const x = document.querySelector<HTMLButtonElement>('.sc-toast-x')!;
     act(() => x.focus());
     act(() => {
       vi.advanceTimersByTime(10_000);
@@ -171,7 +171,7 @@ describe('ToastProvider', () => {
     push({ kind: 'warning', title: 'Only images can be attached here' });
     push({ kind: 'warning', title: 'Only images can be attached here' });
     expect(visible()).toHaveLength(1);
-    expect(container.querySelector('.sc-toast-n')?.textContent).toBe('×3');
+    expect(document.querySelector('.sc-toast-n')?.textContent).toBe('×3');
   });
 
   it('never merges two Undos or two distinct errors', () => {
@@ -180,7 +180,7 @@ describe('ToastProvider', () => {
     push({ kind: 'success', title: 'Archived', detail: 'Two', action: { label: 'Undo', onClick: () => {} } });
     expect(visible()).toHaveLength(2);
     act(() => {
-      for (const btn of container.querySelectorAll<HTMLButtonElement>('.sc-toast-x')) btn.click();
+      for (const btn of document.querySelectorAll<HTMLButtonElement>('.sc-toast-x')) btn.click();
     });
     push({ kind: 'error', title: 'Could not save the brand' });
     push({ kind: 'error', title: 'Could not delete this shot' });
@@ -219,14 +219,14 @@ describe('ToastProvider', () => {
     vi.useFakeTimers();
     const push = renderStack();
     push({ kind: 'info', title: 'Guide closed' });
-    const x = container.querySelector<HTMLButtonElement>('.sc-toast-x')!;
+    const x = document.querySelector<HTMLButtonElement>('.sc-toast-x')!;
     act(() => x.focus());
     push({ kind: 'info', title: 'Guide closed' });
     act(() => {
       vi.advanceTimersByTime(10_000);
     });
     expect(visible()).toHaveLength(1);
-    expect(container.querySelector('.sc-toast-n')?.textContent).toBe('×2');
+    expect(document.querySelector('.sc-toast-n')?.textContent).toBe('×2');
     act(() => x.blur());
     act(() => {
       vi.advanceTimersByTime(4000);
@@ -240,7 +240,7 @@ describe('ToastProvider', () => {
     push({ kind: 'success', title: 'Archived', action: { label: 'Undo', onClick: () => clicks++ } });
     expect(clicks).toBe(0);
     act(() => {
-      container.querySelector<HTMLButtonElement>('.sc-toast-act')?.click();
+      document.querySelector<HTMLButtonElement>('.sc-toast-act')?.click();
     });
     expect(clicks).toBe(1);
   });

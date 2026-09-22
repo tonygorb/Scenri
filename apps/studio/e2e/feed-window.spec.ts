@@ -96,6 +96,73 @@ test('a large feed mounts a band of tiles, newest first, and holds the rest as s
   await expect(page.getByRole('tab', { name: /^All/ })).toContainText(String(total));
 });
 
+test('closing the assets rail deep in the feed keeps the tile you were looking at in place', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/${brand.slug}/create`);
+  await expect(cells(page).first()).toBeVisible();
+  await expect(page.locator('.sc-work[data-assets="true"]')).toBeVisible();
+  await page.locator('.sc-canvas').evaluate((el) => {
+    el.scrollTop = 2400;
+  });
+  await page.waitForTimeout(400);
+  // the first tile in view under the sticky toolbar, in reading order
+  const looking = await page.evaluate(() => {
+    const scroller = document.querySelector('.sc-canvas') as HTMLElement;
+    const bar = scroller.querySelector('.sc-toolbar');
+    const edge = Math.max(scroller.getBoundingClientRect().top, bar ? bar.getBoundingClientRect().bottom : 0);
+    let first: { id: string; top: number; left: number } | null = null;
+    for (const el of document.querySelectorAll('.sc-cell[data-fb-node]')) {
+      const r = el.getBoundingClientRect();
+      if (r.height === 0 || r.top < edge - 1) continue;
+      if (!first || r.top < first.top - 1 || (Math.abs(r.top - first.top) <= 1 && r.left < first.left))
+        first = { id: el.getAttribute('data-fb-node') as string, top: r.top, left: r.left };
+    }
+    return first;
+  });
+  expect(looking).toBeTruthy();
+  const colsBefore = await page.locator('.sc-feed-col').count();
+  for (const open of [false, true]) {
+    await page.getByRole('button', { name: 'Assets panel' }).click();
+    await expect(page.locator(`.sc-work[data-assets="${open}"]`)).toBeVisible();
+    if (!open) expect(await page.locator('.sc-feed-col').count()).not.toBe(colsBefore);
+    const box = await tile(page, looking?.id as string).boundingBox();
+    expect(box, 'the tile is still on screen').toBeTruthy();
+    expect(Math.abs((box?.y ?? 0) - (looking?.top ?? 0))).toBeLessThanOrEqual(16);
+  }
+});
+
+test('narrowing the window deep in the feed keeps the tile you were looking at in place', async ({ page }) => {
+  // the same three columns, narrower: every tile above shrinks, which moves the page just as much
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/${brand.slug}/create`);
+  await expect(cells(page).first()).toBeVisible();
+  const cols = await page.locator('.sc-feed-col').count();
+  await page.locator('.sc-canvas').evaluate((el) => {
+    el.scrollTop = 2400;
+  });
+  await page.waitForTimeout(400);
+  const looking = await page.evaluate(() => {
+    const scroller = document.querySelector('.sc-canvas') as HTMLElement;
+    const bar = scroller.querySelector('.sc-toolbar');
+    const edge = Math.max(scroller.getBoundingClientRect().top, bar ? bar.getBoundingClientRect().bottom : 0);
+    let first: { id: string; top: number; left: number } | null = null;
+    for (const el of document.querySelectorAll('.sc-cell[data-fb-node]')) {
+      const r = el.getBoundingClientRect();
+      if (r.height === 0 || r.top < edge - 1) continue;
+      if (!first || r.top < first.top - 1 || (Math.abs(r.top - first.top) <= 1 && r.left < first.left))
+        first = { id: el.getAttribute('data-fb-node') as string, top: r.top, left: r.left };
+    }
+    return first;
+  });
+  expect(looking).toBeTruthy();
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.waitForTimeout(300);
+  expect(await page.locator('.sc-feed-col').count()).toBe(cols);
+  const box = await tile(page, looking?.id as string).boundingBox();
+  expect(box, 'the tile is still on screen').toBeTruthy();
+  expect(Math.abs((box?.y ?? 0) - (looking?.top ?? 0))).toBeLessThanOrEqual(16);
+});
+
 test('scrolling to the end pages the oldest shots in and lets go of the newest', async ({ page }) => {
   await page.goto(`/${brand.slug}/create`);
   await expect(cells(page).first()).toBeVisible();

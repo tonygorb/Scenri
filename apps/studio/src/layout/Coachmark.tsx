@@ -246,6 +246,8 @@ export function Coachmark(p: CoachmarkProps) {
     let steadyKey = '';
     let steady = 0;
     let waited = 0;
+    // How often this run has brought its step back before the card was first placed.
+    let brings = 0;
     // Where the card went the first time: it stays on that side while it fits,
     // so a surface still settling never swings it from one side to the other.
     let last: Placement | null = null;
@@ -256,7 +258,9 @@ export function Coachmark(p: CoachmarkProps) {
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const lead = live[0] ?? target ?? container;
     let painted = '';
-    const pane = target ? scrollPane(target) : null;
+    // Measured when the step starts, and again when the screen changes shape:
+    // the pane a question scrolled in on a desktop is not its pane on a phone.
+    let pane = target ? scrollPane(target) : null;
     setPhase('moving');
 
     const hold = () =>
@@ -334,7 +338,20 @@ export function Coachmark(p: CoachmarkProps) {
       const bars = chrome.filter((c) => width(c) > vw / 3);
       const seen = target ? visibleRect(boxOf(target.getBoundingClientRect()), clipsOf(target)) : null;
       const t = seen && trimBy(seen, bars);
-      if (target && !t) return away();
+      if (target && !t) {
+        // Until the card is placed in this run (the step has just begun, or the
+        // screen changed shape and the page is still reflowing under it), a step
+        // out of its pane is brought back, measured afresh each time, until the
+        // page settles: one bring measured mid-reflow scrolled the wrong way and
+        // left the card away for good. Once placed, a step scrolled out of sight
+        // is the person's doing, and the card steps aside.
+        if (!shown && brings < ARRIVE_TRIES) {
+          brings++;
+          pane = scrollPane(target);
+          void bringIntoView(target, pane, still).then(() => alive && schedule());
+        }
+        return away();
+      }
       // The lit surface is the shape the asked control sits in (the composer
       // card, the picker, a question), so a control is never cut out of the
       // page on its own; a control with no shape around it is its own window.
@@ -454,7 +471,10 @@ export function Coachmark(p: CoachmarkProps) {
           // A screen that changed shape re-flows the page under the step, and
           // the thing asked about can end up scrolled out of its own pane:
           // brought back into view, the way a new step is.
-          if (lastWide !== null && target) void bringIntoView(target, scrollPane(target), still);
+          if (lastWide !== null && target) {
+            pane = scrollPane(target);
+            void bringIntoView(target, pane, still);
+          }
           last = null;
           lastWide = wideScreen;
         }

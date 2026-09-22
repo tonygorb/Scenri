@@ -80,3 +80,44 @@ test('a lasting error stands above the composer, never over its buttons', async 
     await page.locator('.sc-toast-x').click();
   }
 });
+
+test('with a dialog open, an alert is dismissed and acted on, and the dialog stays', async ({ page }) => {
+  await probe(page);
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}?settings=brand`);
+  await expect(page.locator('.sc-set')).toBeVisible();
+  await push(page, { kind: 'error', title: 'Could not save the brand' });
+  await page.locator('.sc-toast[data-kind="error"] .sc-toast-x').click();
+  await expect(page.locator('.sc-toast')).toHaveCount(0);
+  await expect(page.locator('.sc-set')).toBeVisible();
+  await page.evaluate(() =>
+    (window as unknown as { __scenriToast: (t: unknown) => void }).__scenriToast({
+      kind: 'success',
+      title: 'Archived',
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          (window as unknown as { __undone?: boolean }).__undone = true;
+        },
+      },
+    }),
+  );
+  // outside a modal the stack is hidden from the reader (the dialog owns it), so find it by what it is
+  await page.locator('.sc-toast-act', { hasText: 'Undo' }).click();
+  expect(await page.evaluate(() => (window as unknown as { __undone?: boolean }).__undone)).toBe(true);
+  await expect(page.locator('.sc-set')).toBeVisible();
+  // the dialog keeps the keyboard
+  expect(await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]'))).toBe(true);
+});
+
+test('with the picker open, pressing an alert leaves the picker open', async ({ page }) => {
+  await probe(page);
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}/create`);
+  await page.locator('[data-guide="compose.add"]').click();
+  await expect(page.locator('.sc-attachpanel')).toBeVisible();
+  await push(page, { kind: 'info', title: 'Starting from this shot' });
+  await page.locator('.sc-toast-x').click();
+  await expect(page.locator('.sc-toast')).toHaveCount(0);
+  await expect(page.locator('.sc-attachpanel')).toBeVisible();
+});
