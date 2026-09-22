@@ -72,7 +72,11 @@ function starts(p: Page) {
 test('a scene draw goes on while you are elsewhere, and Activity brings you back to it', async ({ page }) => {
   const slug = await brandSlug(page);
   const sent = starts(page);
-  const at = await readyToDraw(page, slug, 'A white cyclorama under hard flash, seen straight on, on a low plinth');
+  const at = await readyToDraw(
+    page,
+    slug,
+    'A white cyclorama under hard flash, seen straight on, on a low plinth, mist lying low',
+  );
   await tap(openQ(page), 'Draw the scene');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:name');
   await say(page, 'Flash Cyc');
@@ -109,7 +113,11 @@ test('a scene draw goes on while you are elsewhere, and Activity brings you back
 test('a finish on the studio page itself is said on the stage, and nowhere else', async ({ page }) => {
   test.setTimeout(45_000);
   const slug = await brandSlug(page);
-  await readyToDraw(page, slug, 'A white cyclorama under hard flash, seen straight on, on a low plinth');
+  await readyToDraw(
+    page,
+    slug,
+    'A white cyclorama under hard flash, seen straight on, on a low plinth, mist lying low',
+  );
   await tap(openQ(page), 'Draw the scene');
   await say(page, 'Stage Only');
   await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/, { timeout: 20_000 });
@@ -120,7 +128,11 @@ test('a finish on the studio page itself is said on the stage, and nowhere else'
 
 test('Stop is in reach while the name is asked, stops the draw, and Draw finishes it after', async ({ page }) => {
   const slug = await brandSlug(page);
-  const at = await readyToDraw(page, slug, 'A white cyclorama under hard flash, seen straight on, on a low plinth');
+  const at = await readyToDraw(
+    page,
+    slug,
+    'A white cyclorama under hard flash, seen straight on, on a low plinth, mist lying low',
+  );
   await tap(openQ(page), 'Draw the scene');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:name');
   // the line is the name's, and while it is empty the pill is Stop
@@ -153,7 +165,7 @@ test('a stopped read asks, and does not read again on its own after a reload', a
   await page.goto(`/${slug}/scenes/new`);
   await arrived(page, '.sc-pstudio[data-kind="scene"]');
   const sent = starts(page);
-  await say(page, 'A white cyclorama under hard flash, seen straight on, on a low plinth');
+  await say(page, 'A white cyclorama under hard flash, seen straight on, on a low plinth, mist lying low');
   await expect(pill(page)).toHaveText('Stop');
   await pill(page).click();
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:retry');
@@ -231,7 +243,11 @@ test('a scene closed while it draws stays on the Scenes wall, drawing, then draw
 }) => {
   test.setTimeout(60_000);
   const slug = await brandSlug(page);
-  const at = await readyToDraw(page, slug, 'A white cyclorama under hard flash, seen straight on, on a low plinth');
+  const at = await readyToDraw(
+    page,
+    slug,
+    'A white cyclorama under hard flash, seen straight on, on a low plinth, mist lying low',
+  );
   await tap(openQ(page), 'Draw the scene');
   await say(page, 'Wall Cyc');
   await studio(page).getByRole('button', { name: 'Close', exact: true }).click();

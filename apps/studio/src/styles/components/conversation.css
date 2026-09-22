@@ -808,29 +808,17 @@ button.sc-convo-shot-do {
 .sc-convo-plate-in[data-card="scene-world-8"] {
   background-image: url("../../assets/scenes/scene-world-8.webp");
 }
-.sc-convo-plate-in[data-card="scene-light-1"] {
-  background-image: url("../../assets/scenes/scene-light-1.webp");
-}
 .sc-convo-plate-in[data-card="scene-light-2"] {
   background-image: url("../../assets/scenes/scene-light-2.webp");
 }
-.sc-convo-plate-in[data-card="scene-light-3"] {
-  background-image: url("../../assets/scenes/scene-light-3.webp");
-}
 .sc-convo-plate-in[data-card="scene-light-4"] {
   background-image: url("../../assets/scenes/scene-light-4.webp");
-}
-.sc-convo-plate-in[data-card="scene-light-5"] {
-  background-image: url("../../assets/scenes/scene-light-5.webp");
 }
 .sc-convo-plate-in[data-card="scene-light-6"] {
   background-image: url("../../assets/scenes/scene-light-6.webp");
 }
 .sc-convo-plate-in[data-card="scene-light-7"] {
   background-image: url("../../assets/scenes/scene-light-7.webp");
-}
-.sc-convo-plate-in[data-card="scene-light-8"] {
-  background-image: url("../../assets/scenes/scene-light-8.webp");
 }
 .sc-convo-plate-in[data-card="length-1-woman"] {
   background-image: url("../../assets/traits/length-1-woman.webp");

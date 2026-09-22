@@ -148,7 +148,7 @@ test('a lesson done from Learn is done there, and can be done again', async ({ p
   await expect(page).toHaveURL(/\/scenes\/new\/[a-f0-9]+$/);
   await expect(coachTitle(page)).toHaveText('Describe the place, or start from pictures');
   const line = page.locator('.sc-pstudio[data-kind="scene"] .sc-pstudio-foot textarea');
-  await line.fill('A quiet stone terrace in low sun, the subject resting on the balustrade');
+  await line.fill('A quiet stone terrace in low sun, the subject resting on the balustrade, mist lying low');
   await line.press('Enter');
   await page.getByRole('button', { name: 'Draw the scene' }).click();
   await page.getByRole('button', { name: 'Use this scene' }).click();

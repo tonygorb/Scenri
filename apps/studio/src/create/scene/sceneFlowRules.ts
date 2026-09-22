@@ -162,6 +162,8 @@ export function questionFor(
   // row is passed. The prompt itself says so, so a world picked for its light
   // is not followed by a blank "what light?" as if nothing were known.
   const worldLight = id === 'light' ? optionOf('world', a.world?.pick)?.light : undefined;
+  // After a world, passing the surface keeps what that world is made of.
+  const worldSurface = id === 'surface' && !!optionOf('world', a.world?.pick);
   const given = g?.pick === PASSED ? undefined : g?.pick;
   const skipped = g?.pick === PASSED;
   const note = g?.words;
@@ -171,11 +173,17 @@ export function questionFor(
     kind: 'swatches',
     prompt: promptFor(id, a),
     row: swatchRow(id),
-    // Only the worlds are a set to compare at once. Lights stay a strip: a
+    // Only the worlds are a set to compare at once. The rest stay a strip: a
     // row of variants, one swipe at a time.
     layout: id === 'world' ? 'grid' : undefined,
     hint: id === 'world' && !afterWords ? COPY.worldHint : undefined,
-    skip: worldLight ? COPY.keepWorldLight : afterWords ? COPY.leaveToReading : COPY.skip,
+    skip: worldLight
+      ? COPY.keepWorldLight
+      : worldSurface
+        ? COPY.keepWorldSurface
+        : afterWords
+          ? COPY.leaveToReading
+          : COPY.skip,
     describe: COPY.describeInstead,
     given,
     skipped,
@@ -215,7 +223,14 @@ function answerLine(id: Qid, a: Answers): { text: string; photos?: string[] } {
   // A light passed after a world was "Keep it", not a blank skip: the
   // transcript has to say the same word the button did.
   const keptWorldLight = id === 'light' && g?.pick === PASSED && optionOf('world', a.world?.pick)?.light;
-  const passedAs = keptWorldLight ? COPY.keepWorldLight : a.source?.door === 'words' ? COPY.leaveToReading : COPY.skip;
+  const keptWorldSurface = id === 'surface' && g?.pick === PASSED && !!optionOf('world', a.world?.pick);
+  const passedAs = keptWorldLight
+    ? COPY.keepWorldLight
+    : keptWorldSurface
+      ? COPY.keepWorldSurface
+      : a.source?.door === 'words'
+        ? COPY.leaveToReading
+        : COPY.skip;
   const picked = g?.pick === PASSED ? passedAs : optionOf(id, g?.pick)?.label;
   const words = g?.words?.trim();
   return { text: picked && words ? `${picked}, ${words}` : (words ?? picked ?? '') };

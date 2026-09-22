@@ -21,9 +21,9 @@ import type { SwatchRow } from '../../conversation/question.js';
  * tapping it (`cues`), so a sentence at the first question answers the rows it
  * covers and only the rest are asked.
  */
-export type SceneRow = 'world' | 'light';
+export type SceneRow = 'world' | 'surface' | 'light' | 'signature';
 
-export const ROW_ORDER: readonly SceneRow[] = ['world', 'light'];
+export const ROW_ORDER: readonly SceneRow[] = ['world', 'surface', 'light', 'signature'];
 
 export interface RowOption {
   id: string;
@@ -49,6 +49,15 @@ interface RowSpec {
 }
 
 const card = (row: SceneRow, n: number) => `scene-${row}-${n}`;
+
+/**
+ * Said with every signature. Measured 2026-09-22: "caught mid-change" came
+ * back as a melting candle standing on the set, a second object that would
+ * upstage any product and whose reflection was wrong, and roots grew across
+ * the very ledge a product would stand on. The idea belongs to the place.
+ */
+const IN_THE_PLACE =
+  'part of the place itself, never a separate object that competes with the subject, and leaving the subject a clear place to stand';
 
 export const ROWS: Record<SceneRow, RowSpec> = {
   world: {
@@ -131,64 +140,177 @@ export const ROWS: Record<SceneRow, RowSpec> = {
       },
     ],
   },
-  light: {
-    prompt: 'What light?',
+  surface: {
+    prompt: 'What is it made of, up close?',
     options: [
       {
-        id: 'soft',
-        label: 'Soft daylight',
-        words: 'in soft daylight, even and almost shadowless',
-        card: card('light', 1),
-        cues: ['soft', 'daylight', 'window', 'overcast', 'diffused', 'cloudy', 'north light'],
+        id: 'travertine',
+        label: 'Travertine',
+        words: 'honed cream travertine up close, its pores and soft veins readable',
+        cues: ['travertine'],
+      },
+      {
+        id: 'steel',
+        label: 'Brushed steel',
+        words: 'brushed stainless steel with a fine directional grain',
+        cues: ['steel', 'stainless', 'brushed metal', 'aluminium', 'aluminum'],
+      },
+      {
+        id: 'clay',
+        label: 'Cracked clay',
+        words: 'sun-dried terracotta clay cracked into deep fissures',
+        cues: ['clay', 'terracotta', 'cracked earth'],
+      },
+      {
+        id: 'silk',
+        label: 'Silk folds',
+        words: 'heavy silk gathered into deep sculptural folds',
+        cues: ['silk', 'satin'],
+      },
+      {
+        id: 'sand',
+        label: 'Wet sand',
+        words: 'rippled wet sand, glossy where the water has just drawn back',
+        cues: ['sand', 'wet sand'],
+      },
+      {
+        id: 'moss',
+        label: 'Moss and roots',
+        words: 'damp moss over exposed roots, dense and living',
+        cues: ['moss', 'mossy', 'roots'],
+      },
+      {
+        id: 'ice',
+        label: 'Ice',
+        words: 'clear ice with trapped bubbles and a cold blue depth',
+        cues: ['ice', 'icy', 'glacial'],
+      },
+      {
+        id: 'concrete',
+        label: 'Raw concrete',
+        words: 'raw board-formed concrete with timber grain printed into it',
+        cues: ['board-formed', 'cement'],
+      },
+    ],
+  },
+  light: {
+    prompt: 'What does the light do?',
+    options: [
+      {
+        id: 'shadow',
+        label: 'One long shadow',
+        words: 'one high hard light throwing a single long, precise shadow across the place',
+        cues: ['long shadow', 'skylight', 'shaft of light', 'single shadow'],
+      },
+      {
+        id: 'dapple',
+        label: 'Dappled leaves',
+        words: 'sun broken into soft moving dapples through leaves',
+        cues: ['dappled', 'dapple', 'through leaves', 'leaf shadows', 'canopy'],
+      },
+      {
+        id: 'caustics',
+        label: 'Water caustics',
+        words: 'a live net of water caustics sliding across every surface',
+        cues: ['caustics', 'caustic', 'rippling light', 'underwater light'],
+      },
+      {
+        id: 'gobo',
+        label: 'Cut spotlight',
+        words: 'a hard spotlight cut into one graphic shape across the set',
+        cues: ['gobo', 'spotlight', 'cut light', 'shaped light'],
+      },
+      {
+        id: 'window',
+        label: 'Soft window',
+        words: 'soft daylight from one large window, falling open and shadowless on the far side',
+        card: card('light', 7),
+        cues: [
+          'window light',
+          'side light',
+          'from a window',
+          'sidelit',
+          'window',
+          'soft',
+          'daylight',
+          'overcast',
+          'diffused',
+        ],
       },
       {
         id: 'golden',
-        label: 'Golden hour',
-        words: 'in low golden-hour sun, long warm shadows',
+        label: 'Low golden sun',
+        words: 'low golden sun raking almost flat across it, long warm shadows',
         card: card('light', 2),
         cues: ['golden', 'golden hour', 'sunset', 'sunrise', 'dusk', 'warm'],
       },
       {
-        id: 'hard',
-        label: 'Hard sun',
-        words: 'in hard direct sun, crisp black-edged shadows',
-        card: card('light', 3),
-        cues: ['hard sun', 'harsh', 'midday', 'noon', 'crisp shadow', 'direct sun'],
-      },
-      {
         id: 'neon',
-        label: 'Night and neon',
-        words: 'at night, lit by coloured neon',
+        label: 'Neon glow',
+        words: 'coloured neon streaking its light across glossy surfaces at night',
         card: card('light', 4),
-        cues: ['neon', 'night', 'dark', 'moody', 'nocturnal', 'after dark'],
-      },
-      {
-        id: 'flash',
-        label: 'Studio flash',
-        words: 'in direct studio flash, flat and bright with one hard shadow',
-        card: card('light', 5),
-        cues: ['flash', 'strobe', 'on camera flash', 'paparazzi', 'punchy'],
+        cues: ['neon', 'night', 'nocturnal', 'after dark'],
       },
       {
         id: 'lowkey',
-        label: 'Low-key',
-        words: 'in low-key light, one bright edge and the rest falling into darkness',
+        label: 'Pool of light',
+        words: 'one pool of light with a bright edge, the rest falling to true black',
         card: card('light', 6),
         cues: ['low key', 'lowkey', 'dramatic', 'shadowy', 'chiaroscuro', 'rim light'],
       },
+    ],
+  },
+  signature: {
+    prompt: 'What makes it unforgettable?',
+    options: [
       {
-        id: 'window',
-        label: 'Window light',
-        words: 'in soft window light from one side, one open shadow',
-        card: card('light', 7),
-        cues: ['window light', 'side light', 'from a window', 'sidelit', 'window'],
+        /*
+         * Measured 2026-09-22: "something in motion" drew a burst of powder in
+         * mid-air right where a product stands, with no cause, and read as
+         * pasted in. An event is a shot's (the curated Action Freeze and Citrus
+         * Burst are the product itself mid-motion); what a place can hold is
+         * its air being alive.
+         */
+        id: 'air',
+        label: 'Mist, snow or wind',
+        words: `the air of the place alive, such as mist lying low, snow drifting down or wind moving through fabric or grass: one, chosen for this place, ${IN_THE_PLACE}`,
+        cues: ['mist', 'misty', 'fog', 'foggy', 'snow', 'snowing', 'wind', 'windswept', 'haze'],
       },
       {
-        id: 'blue',
-        label: 'Blue hour',
-        words: 'in blue hour, cool twilight just after the sun is gone',
-        card: card('light', 8),
-        cues: ['blue hour', 'twilight', 'blue hour light', 'after sunset', 'cool dusk'],
+        id: 'change',
+        label: 'Caught mid-change',
+        words: `the place's own material caught mid-change, such as wax cascading down a wall, sugar pulled glassy across the surface or ice melting at its edge: one, chosen for this place, ${IN_THE_PLACE}`,
+        cues: ['melting', 'molten', 'dripping', 'wax', 'resin', 'mid-change'],
+      },
+      {
+        id: 'graphic',
+        label: 'Graphic light and shadow',
+        words: `one bold graphic device of light and shadow shaping the set, such as a cut shadow or a hard slice of colour, ${IN_THE_PLACE}`,
+        cues: ['graphic', 'geometric', 'cut shadow', 'colour block', 'color block'],
+      },
+      {
+        id: 'nature',
+        label: 'Nature taking over',
+        words: `nature growing through the set, such as moss, blooms or roots claiming its edges: one, chosen for this place, ${IN_THE_PLACE}`,
+        cues: ['overgrown', 'blooms', 'flowers', 'vines', 'growing'],
+      },
+      {
+        id: 'water',
+        label: 'Glass and water',
+        words: `water and reflection in the place, such as a still reflecting pool or rain-beaded glass: one, chosen for this place, ${IN_THE_PLACE}`,
+        cues: ['reflection', 'reflecting', 'rain', 'puddle', 'rain glass'],
+      },
+      {
+        id: 'scale',
+        label: 'Surreal scale',
+        words: `one surreal touch of scale, an oversized natural or architectural form that makes the place feel impossible, ${IN_THE_PLACE}`,
+        cues: ['surreal', 'giant', 'oversized', 'impossible', 'dreamlike'],
+      },
+      {
+        id: 'suggest',
+        label: 'Suggest one',
+        words: `one signature idea that makes this place unforgettable, invented for it and never generic, ${IN_THE_PLACE}`,
+        cues: ['surprise me', 'suggest one'],
       },
     ],
   },
@@ -197,10 +319,12 @@ export const ROWS: Record<SceneRow, RowSpec> = {
 /**
  * The rows whose pictures are drawn.
  *
- * Worlds and lights: one thing changing across each row. Worlds are compared
- * as a set; lights are a strip of the same place under one changing decision.
+ * Worlds: eight places compared as a set, each holding the same plain bottle.
+ * The surface, light and signature rows are asked as chips until every one of
+ * their options has its card: a row of pictures with blanks in it reads as
+ * broken, and a row of words reads as a choice.
  */
-export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['world', 'light']);
+export const DRAWN: ReadonlySet<SceneRow> = new Set<SceneRow>(['world']);
 
 /** A row as the conversation's swatch block takes it. */
 export function swatchRow(row: SceneRow): SwatchRow {
@@ -216,7 +340,9 @@ export function swatchRow(row: SceneRow): SwatchRow {
 }
 
 /** What a row is about, for the line that invites words instead of a tap. */
-export const rowNoun = (row: SceneRow): string => (row === 'world' ? 'place' : row === 'light' ? 'light' : 'setup');
+/** What the line calls a row's answer: "describe the surface in your own words". */
+const NOUN: Record<SceneRow, string> = { world: 'place', surface: 'surface', light: 'light', signature: 'idea' };
+export const rowNoun = (row: SceneRow): string => NOUN[row];
 
 export const optionOf = (row: SceneRow, id: string | undefined): RowOption | undefined =>
   id ? ROWS[row].options.find((o) => o.id === id) : undefined;

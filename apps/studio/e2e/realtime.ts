@@ -280,7 +280,7 @@ export async function buildScene(page: Page, sentence: string, name: string): Pr
   const draw = studio.getByRole('button', { name: 'Draw the scene' });
   const live = studio.locator('[data-turn^="q:"]:not([data-picked])').last();
   const pass = live.getByRole('button', { name: 'Leave it to the reading', exact: true });
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     await expect(draw.or(pass)).toBeVisible({ timeout: 45_000 });
     if (await draw.isVisible()) break;
     const was = (await live.getAttribute('data-turn')) ?? '';

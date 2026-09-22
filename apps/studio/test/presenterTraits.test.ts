@@ -13,8 +13,15 @@ const CASTS = ['woman', 'man', 'androgynous'];
 import { LOOK_ORDER } from '../src/create/presenter/presenterQuestions.ts';
 import { DRAWN, ROW_ORDER, ROWS } from '../src/create/scene/sceneRows.ts';
 
-/** The scene's rows that carry pictures; they share the conversation's stylesheet. */
-const SCENE_CARDS = ROW_ORDER.filter((r) => DRAWN.has(r)).flatMap((r) => ROWS[r].options.map((o) => o.card as string));
+/**
+ * Every card a scene option names, whether or not its row shows pictures yet:
+ * a row is asked as chips until each of its options has a card, and the cards
+ * already drawn wait for the rest (sceneRows.ts, DRAWN). They share the
+ * conversation's stylesheet.
+ */
+const SCENE_CARDS = ROW_ORDER.flatMap((r) => ROWS[r].options.filter((o) => o.card).map((o) => o.card as string));
+/** A row that shows pictures has one for every option. */
+const DRAWN_WHOLE = ROW_ORDER.filter((r) => DRAWN.has(r)).every((r) => ROWS[r].options.every((o) => !!o.card));
 import {
   TRAITS,
   type TraitAnswers,
@@ -83,6 +90,7 @@ describe('the distinctive details a presenter can carry', () => {
     // The scene's drawn rows name their cards in the same stylesheet, so they
     // are held to the same three directions, against their own folder.
     const sceneArt = new Set(readdirSync(join(STUDIO, 'src/assets/scenes')).map((f) => f.replace(/\.webp$/, '')));
+    expect(DRAWN_WHOLE).toBe(true);
     for (const id of SCENE_CARDS) {
       wanted.add(id);
       expect(css).toContain(`[data-card="${id}"]`);

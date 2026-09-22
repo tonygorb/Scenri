@@ -47,7 +47,7 @@ async function tap(q: Locator, name: string) {
 async function drawn(p: Page, slug: string, name: string) {
   await p.goto(`/${slug}/scenes/new`);
   await arrived(p, '.sc-pstudio[data-kind="scene"]');
-  await say(p, 'A white cyclorama under hard flash, seen straight on, on a low plinth');
+  await say(p, 'A white cyclorama under hard flash, seen straight on, on a low plinth, mist lying low');
   await expect(openQ(p)).toHaveAttribute('data-turn', /^q:agree-/, { timeout: 15_000 });
   await tap(openQ(p), 'Draw the scene');
   await say(p, name);

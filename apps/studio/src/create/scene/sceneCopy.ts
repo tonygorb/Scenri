@@ -44,6 +44,8 @@ export const COPY = {
   /** The light row, once a world has already named its own light. */
   worldLightPrompt: (light: string) => `This world is already lit ${light}. Keep it, or choose another.`,
   keepWorldLight: 'Keep it',
+  /** The surface row, after a world: what that world is made of already answers it. */
+  keepWorldSurface: "Keep the world's own",
   /** After a sentence that gave a feeling but no place. */
   followWorld: 'You have the feel of it. What kind of place is it?',
   /** After a sentence that gave the place but not how it is lit. */

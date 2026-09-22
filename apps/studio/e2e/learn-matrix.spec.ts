@@ -186,7 +186,9 @@ test('the same scene is added with the guide closed', async ({ page }) => {
   // a place said in full: the studio asks nothing more, reads it back, and draws on a press
   const studio = page.locator('.sc-pstudio[data-kind="scene"]');
   const line = studio.locator('.sc-pstudio-foot textarea');
-  await line.fill('A cold hallway in hard side light, seen straight on, a bench against the wall');
+  await line.fill(
+    'A cold hallway in hard side light, seen straight on, a bench against the wall, rain streaking the window',
+  );
   await line.press('Enter');
   await studio.getByRole('button', { name: 'Draw the scene' }).click({ timeout: 30_000 });
   await line.fill('Cold hallway');

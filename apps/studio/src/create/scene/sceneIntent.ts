@@ -4,10 +4,11 @@
  * A person who types "white cyclorama, hard flash, top-down product
  * photography" has said the place, the light and the camera; asking them any
  * of it again is the survey this studio is not. A person who types "luxury
- * product photography in warm stone" has said the world and nothing about how
- * it is lit, and that is the one question worth a tap.
+ * product photography in warm stone" has said the world and what it is made
+ * of, and nothing about its light or what would make it unforgettable: those
+ * are the questions worth a tap.
  *
- * Four creative decisions, each known or not, read off whole words. Deliberately
+ * The creative decisions, each known or not, read off whole words. Deliberately
  * stricter than the rows' own cues, which are tuned for a two-word phrase
  * ("golden hour", "overhead"): in a sentence, "warm stone" is a material and
  * not a light, and "soft linen" is a fabric and not a daylight.
@@ -15,7 +16,7 @@
  * No model, no planner. The reader (the analyzer) still turns the whole
  * sentence into the scene; this only decides which questions are still open.
  */
-export type Dimension = 'world' | 'light' | 'stage' | 'camera';
+export type Dimension = 'world' | 'surface' | 'light' | 'signature' | 'stage' | 'camera';
 export type Intent = Record<Dimension, boolean>;
 
 const WORLD = [
@@ -97,7 +98,10 @@ const WORLD = [
   'outdoors',
   'indoors',
   'sky',
-  // what a world is made of
+];
+
+/** What a world is made of. Naming one says the world too: "warm stone" is somewhere. */
+const SURFACE = [
   'stone',
   'rock',
   'rocks',
@@ -141,6 +145,64 @@ const WORLD = [
   'minimal',
   'wall',
   'walls',
+  'clay',
+  'terracotta',
+  'ice',
+  'aluminium',
+  'aluminum',
+  'stainless',
+  'leather',
+  'felt',
+  'slate',
+  'onyx',
+  'salt',
+];
+
+/**
+ * The one thing that makes a place unforgettable: something moving, something
+ * changing, something growing, water and reflection, a graphic device, an
+ * impossible scale. Every curated scene has one; a sentence without one is
+ * asked for it.
+ */
+const SIGNATURE = [
+  'splash',
+  'splashing',
+  'mid air',
+  'frozen',
+  'falling',
+  'petals',
+  'confetti',
+  'smoke',
+  'mist',
+  'fog',
+  'steam',
+  'dust',
+  'drifting',
+  'bubbles',
+  'melting',
+  'molten',
+  'dripping',
+  'wax',
+  'resin',
+  'pouring',
+  'overgrown',
+  'blooms',
+  'flowers',
+  'vines',
+  'reflection',
+  'reflections',
+  'reflecting',
+  'rain',
+  'puddle',
+  'ripples',
+  'surreal',
+  'giant',
+  'oversized',
+  'levitating',
+  'impossible',
+  'dreamlike',
+  'cut shadow',
+  'gobo',
 ];
 
 const LIGHT = [
@@ -264,7 +326,14 @@ const CAMERA = [
   'profile',
 ];
 
-const LEXICON: Record<Dimension, string[]> = { world: WORLD, light: LIGHT, stage: STAGE, camera: CAMERA };
+const LEXICON: Record<Dimension, string[]> = {
+  world: [...WORLD, ...SURFACE],
+  surface: SURFACE,
+  light: LIGHT,
+  signature: SIGNATURE,
+  stage: STAGE,
+  camera: CAMERA,
+};
 
 /** Lowercase, hyphens and punctuation as spaces, padded, so every match is a whole word. */
 const said = (text: string) =>
@@ -276,11 +345,14 @@ const has = (s: string, phrase: string) => s.includes(` ${phrase.replace(/[^a-z0
 
 export function intentOf(text: string): Intent {
   const s = said(text);
+  const any = (words: string[]) => words.some((w) => has(s, w));
   return {
-    world: WORLD.some((w) => has(s, w)),
-    light: LIGHT.some((w) => has(s, w)),
-    stage: STAGE.some((w) => has(s, w)),
-    camera: CAMERA.some((w) => has(s, w)),
+    world: any(LEXICON.world),
+    surface: any(SURFACE),
+    light: any(LIGHT),
+    signature: any(SIGNATURE),
+    stage: any(STAGE),
+    camera: any(CAMERA),
   };
 }
 
@@ -290,13 +362,16 @@ export const known = (i: Intent): Dimension[] => (Object.keys(LEXICON) as Dimens
 /**
  * The questions still worth asking after a sentence, in the order they are asked.
  *
- * World first, because a scene has to be somewhere; then how it is lit.
- * Never how the subject sits or where the camera is: those belong to the shot
- * (and to the scene's ways of shooting it), and a sentence that says them
- * keeps them. None at all once three of the four things a sentence can decide
- * are decided, unless the one missing is the world itself.
+ * World first, because a scene has to be somewhere; then what it is made of up
+ * close and how its light behaves, two at most of those; and always the one
+ * thing that makes it unforgettable when the sentence gave none, because that
+ * is what separates a scene from a place. A sentence that already decides
+ * three things is asked only the world, if it left that out, and the
+ * signature. Never how the subject sits or where the camera is: those belong
+ * to the shot, and a sentence that says them keeps them.
  */
-export function followUps(i: Intent): ('world' | 'light')[] {
-  if (known(i).length >= 3) return i.world ? [] : ['world'];
-  return (['world', 'light'] as const).filter((d) => !i[d]);
+export function followUps(i: Intent): ('world' | 'surface' | 'light' | 'signature')[] {
+  const open = (['world', 'surface', 'light'] as const).filter((d) => !i[d]);
+  const asked = known(i).length >= 3 ? open.filter((d) => d === 'world') : open.slice(0, 2);
+  return i.signature ? asked : [...asked, 'signature'];
 }

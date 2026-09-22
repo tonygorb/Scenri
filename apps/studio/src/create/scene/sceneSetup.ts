@@ -37,7 +37,9 @@ export interface Answers {
   /** The pictures, and whether they were handed over (`done`) or are still being chosen. */
   photos?: { hashes: string[]; done: boolean };
   world?: Given;
+  surface?: Given;
   light?: Given;
+  signature?: Given;
 }
 
 interface Spec {
@@ -188,7 +190,9 @@ export function compileDirection(a: Answers): string {
     const world = rowWords('world', a.world);
     const light =
       rowWords('light', a.light) ?? (intentOf(text).light ? null : (optionOf('world', a.world?.pick)?.light ?? null));
-    const more = [world, light].filter(Boolean) as string[];
+    const more = [world, rowWords('surface', a.surface), light, rowWords('signature', a.signature)].filter(
+      Boolean,
+    ) as string[];
     return more.length ? `${text.replace(/[.\s]+$/, '')}, ${more.join(', ')}.` : text;
   }
   if (a.source?.door !== 'guided') return '';
@@ -197,9 +201,11 @@ export function compileDirection(a: Answers): string {
   // photographed in, so a place is never handed over with nothing said about
   // how it is lit.
   const light = rowWords('light', a.light) ?? optionOf('world', a.world?.pick)?.light ?? null;
-  const parts = [world ?? 'a place', light].filter(Boolean) as string[];
+  const parts = [world ?? 'a place', rowWords('surface', a.surface), light, rowWords('signature', a.signature)].filter(
+    Boolean,
+  ) as string[];
   const text = `${parts.join(', ').replace(/^./, (c) => c.toUpperCase())}.`;
-  const personalised = chosen(a.light) || !!a.world?.words?.trim();
+  const personalised = chosen(a.surface) || chosen(a.light) || chosen(a.signature) || !!a.world?.words?.trim();
   if (personalised || !a.world?.pick) return text;
   return `${text.slice(0, -1)}. ${COPY.worldIsAStart}`;
 }
