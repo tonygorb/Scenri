@@ -834,7 +834,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const cameraDirectives = [
     ...(productOnly ? [productFramingDirective()] : []),
     ...(sceneCamera && !shotSpecifiesCamera(userWords) && !placeTendency
-      ? [`Camera for this shot: ${sceneCamera}`]
+      ? [`Camera for this shot: ${sceneCamera.replace(/[.\s]+$/, '')}.`]
       : []),
   ];
 
@@ -1055,7 +1055,6 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     // and this line in one breath, before any spec repeats them.
     ...nameDirectives,
     ...productDirectives,
-    ...(productId && ctx.mode !== 'edit' ? [productSurfaceDirective()] : []),
     ...(productId ? [productScaleDirective(hasPerson)] : []),
     ...personDirectives,
     ...pairDirectives,
@@ -1064,6 +1063,9 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...otherDirectives,
     ...absentDirectives,
     ...cameraDirectives,
+    // After the camera line: a scene read from a wide picture names a wide
+    // camera, and said first this lost to it (a phone stood frontal, 2 of 2).
+    ...(productId && ctx.mode !== 'edit' ? [productSurfaceDirective(!hasPerson)] : []),
     ...apparelUnworn,
     ...brandLines,
     ...guard,

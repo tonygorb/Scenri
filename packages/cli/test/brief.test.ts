@@ -151,11 +151,25 @@ describe('compileBrief', () => {
   // 2026-09-23: a phone and a laptop came back as their packshots stood in the
   // room, with the photo's flat light, its lit screen pasted flat and its
   // front-and-back pair repeated (4 of 4, on Codex as on the test engine).
-  it("lights a glossy product with the set's own light, its screen off, shown once", () => {
-    const shot = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, mkCtx());
-    expect(shot.prompt).toContain('Where it has glass, a screen, polished metal or a glossy finish');
-    expect(shot.prompt).toContain('switched off whatever its product photo shows');
-    expect(shot.prompt).toContain('it is one object: show it once');
+  it('lights a glossy product as a campaign hero, its screen off, and shows it once', () => {
+    const alone = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, mkCtx());
+    expect(alone.prompt).toContain('Where it has glass, a screen, polished metal or a glossy finish');
+    expect(alone.prompt).toContain('switched off whatever its product photo shows');
+    expect(alone.prompt).toContain('this shot contains exactly one of it');
+    expect(alone.prompt).toContain('the camera comes low and close');
+    // a presenter's shot keeps the light but not the product's camera
+    const withSomeone = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'text', v: ' with ' },
+          { t: 'product', id: 'p1' },
+        ],
+      },
+      mkCtx(),
+    );
+    expect(withSomeone.prompt).toContain('Where it has glass');
+    expect(withSomeone.prompt).not.toContain('the camera comes low and close');
     const edit = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ mode: 'edit' }));
     expect(edit.prompt).not.toContain('Where it has glass');
     const nothing = compileBrief({ tokens: [{ t: 'text', v: 'a quiet stone room' }] }, mkCtx());

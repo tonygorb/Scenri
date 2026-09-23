@@ -651,6 +651,25 @@ describe('golden: responsibility contract', () => {
     expect(withTendency.prompt).toContain('Camera for this shot: 90mm at eye level, medium depth');
   });
 
+  // The glossy hero is said after the camera line: said before it, a scene read
+  // from a wide picture kept a phone frontal and far (2 of 2, 2026-09-23). The
+  // camera line used to run into the next sentence with no full stop.
+  it('says the glossy hero after the scene camera, and the camera line ends its sentence', () => {
+    const scene = { ...resolveScene(PRODUCT_SCENE)!, camera: 'Frontal view, medium-wide distance' };
+    const shot = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE },
+        ],
+      },
+      { brand: brand(), images: core.images, engineCaps: caps(6), templateById: () => scene },
+    );
+    const cam = shot.prompt.indexOf('Camera for this shot: Frontal view, medium-wide distance. ');
+    expect(cam).toBeGreaterThan(-1);
+    expect(shot.prompt.indexOf('Where it has glass')).toBeGreaterThan(cam);
+  });
+
   it('the shot wins: a stated camera drops the scene tendency entirely, so the two never compete', () => {
     const scene = { ...resolveScene(PRODUCT_SCENE)!, camera: '90mm at eye level, medium depth' };
     const shotDecides = compileBrief(

@@ -30,7 +30,9 @@ export function productFidelityDirective(attached: number): string {
   if (attached <= 1) {
     return (
       'The attached product image is the exact product: preserve its label, shape, colors and proportions faithfully, ' +
-      'and do not redesign it. It is also the only view of this product that exists. Any face, side or detail not ' +
+      'and do not redesign it. Where the image shows it more than once, side by side from the front and the back or ' +
+      'at several angles, those are views of one product: this shot contains exactly one of it. It is also the only ' +
+      'view of this product that exists. Any face, side or detail not ' +
       'visible in it is unknown — keep those plain and consistent with the visible materials and color, and do not ' +
       'invent hardware, text, seams, closures, ornament or branding on them. Prefer a composition that shows the ' +
       "product from the view the reference gives, unless this shot's own direction asks for another view."
@@ -331,28 +333,34 @@ export function productScaleDirective(hasPerson: boolean): string {
 /**
  * How a glossy product meets the set's light. Fidelity says "the exact
  * product" and "the view the reference gives", and nothing said the light on
- * it belongs to this place, so a phone or a laptop came back as its packshot
- * stood in the room: the photo's flat studio light, its lit screen pasted
- * flat, even its front-and-back pair repeated (4 of 4, 2026-09-23, on Codex
- * as on the test engine). Said as a condition the model applies, like the
- * wearability line: no category list decides what is glossy.
+ * it belongs to a campaign, so a phone or a laptop came back as its packshot
+ * stood in the room: the photo's flat studio light and its lit screen pasted
+ * flat (4 of 4, 2026-09-23, on Codex as on the test engine). Said as a
+ * condition the model applies, like the wearability line: no category list
+ * decides what is glossy.
  *
- * The screen is said switched off because politer wording lost to the photo:
- * "keeps what its photo shows, exposed like a real display" left the flat lit
- * panel on 6 of 6 draws, and only the plain instruction turned it to dark
- * glass. A glass serum bottle kept its label and dropper with the line.
+ * Measured on Codex, arm by arm: the set's light alone gave a soft product in a
+ * soft scene; the photographer's own strip and rim light, the low close camera
+ * and the screen said plainly off took a phone and a laptop from 2 to 6 of 6
+ * on a campaign checklist. Politer screen wording ("expose it like a display")
+ * left the flat panel 6 of 6. The camera clause is for a product alone, since
+ * a presenter's shot is framed for the person, and the directive is placed
+ * after the scene's camera line, which otherwise kept the phone frontal and far.
  */
-export function productSurfaceDirective(): string {
+export function productSurfaceDirective(alone: boolean): string {
   return (
-    'Where it has glass, a screen, polished metal or a glossy finish, it is lit as the hero of a professional product ' +
-    "shoot, with this set's own light and never the flat light of its product photo: a hard key from the set's light " +
-    'source carves its form, bright on the lit side and falling into deep shadow on the other, a thin bright edge ' +
-    'light traces its outline against the background, and crisp highlights run along its edges and corners, while ' +
-    'its true colours stay true. Its screen, if it has one, is switched off whatever its product photo shows: deep ' +
-    "black glass carrying a soft gradient reflection of the set, unless this shot's own words ask for something on " +
-    'it. If the product photo shows the same object more than once, from the front and the back or at several ' +
-    'angles, it is one object: show it once, staged the way a photographer would stage it here, angled into the ' +
-    'light, never simply stood the way it stands in its product photo.'
+    'Where it has glass, a screen, polished metal or a glossy finish, it is lit as the hero of a high-end product ' +
+    "campaign, never as its product photo: the set's own light is the key, and the photographer adds what such a " +
+    'shoot always adds - a long strip-light reflection running down its glass or metal, a thin rim light tracing its ' +
+    'outline against the background, crisp highlights on its edges and corners, and deep controlled shadow on the ' +
+    'side away from the light - while its true colours stay true.' +
+    (alone
+      ? ' For such a product the camera comes low and close, and it is angled or tilted into the light, never simply ' +
+        'stood the way it stands in its product photo, so its form and edges read in depth, filling a confident ' +
+        'share of the frame while the set falls softly out of focus behind it.'
+      : '') +
+    ' Its screen, if it has one, is switched off whatever its product photo shows: deep black glass carrying the ' +
+    "strip light's reflection and a soft gradient of the set, unless this shot's own words ask for something on it."
   );
 }
 
