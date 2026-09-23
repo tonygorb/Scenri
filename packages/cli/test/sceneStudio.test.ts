@@ -205,6 +205,26 @@ describe('the scene studio', () => {
     expect(generated[0].prompt).not.toMatch(/first (reference|image|picture)/i);
   });
 
+  // Nothing in the studio resizes or refuses a picture by its size: a phone's
+  // 12 MP photo and a thumbnail both reach the reader as they were stored.
+  it('reads a very large picture and a very small one alike, as stored', async () => {
+    const brand = await newBrand();
+    const big = core.images.save(
+      await sharp({ create: { width: 4000, height: 3000, channels: 3, background: '#335577' } })
+        .png()
+        .toBuffer(),
+    );
+    const tiny = core.images.save(
+      await sharp({ create: { width: 8, height: 8, channels: 3, background: '#775533' } })
+        .png()
+        .toBuffer(),
+    );
+    const job = await run(brand.id, { kind: 'make', imageHashes: [big, tiny] });
+    expect(job.status).toBe('done');
+    expect(analyzed[0].imagePaths).toEqual([core.images.pathFor(big), core.images.pathFor(tiny)]);
+    expect((await sharp(core.images.pathFor(big)).metadata()).width).toBe(4000);
+  });
+
   // The preview is the plate a figure-led shot conditions on, so its person
   // and pose are invented, never the photograph's.
   it('draws a figure-led scene from its words, with somebody new in the role', async () => {

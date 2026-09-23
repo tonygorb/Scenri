@@ -428,6 +428,8 @@ test('pictures opened again and changed, then left, are as they were, and the pi
 });
 
 test('a change keeps the rest, and Put back restores a whole version, words and picture', async ({ page }) => {
+  // two draws at the demo engine's pace take 18 to 22 s, around the 20 s default
+  test.setTimeout(60_000);
   await start(page);
   await place(page, 'A quiet concrete gallery at dusk');
   await draw(page);
@@ -477,6 +479,8 @@ test('the pencil takes an answer back and asks again from there', async ({ page 
 test('an answer the picture was drawn from asks before it opens, and changing it asks again from there without the old picture', async ({
   page,
 }) => {
+  // two draws at the demo engine's pace take 18 to 22 s, around the 20 s default
+  test.setTimeout(60_000);
   await start(page);
   await guide(page);
   await draw(page);
@@ -605,6 +609,7 @@ test('a scene with anything read in it closes without asking, and waits on the w
 });
 
 test('a saved scene opens in the studio at its record, spending nothing, and saves in place', async ({ page }) => {
+  test.setTimeout(60_000);
   await start(page);
   await place(page, 'A tiled bathroom counter in soft morning light');
   await draw(page);
