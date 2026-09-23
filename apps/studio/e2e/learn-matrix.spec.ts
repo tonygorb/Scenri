@@ -192,9 +192,16 @@ test('the same scene is added with the guide closed', async ({ page }) => {
   );
   await line.press('Enter');
   await studio.getByRole('button', { name: 'Draw the scene' }).click({ timeout: 30_000 });
-  await line.fill('Cold hallway');
+  // The name question stands only while the first picture draws, which the
+  // test engine finishes in about a second: a bare name typed after it lands
+  // is read as a change. Wait for the picture, then name it in a sentence,
+  // which is taken as the name whichever question is on the floor.
+  const use = studio.getByRole('button', { name: 'Use this scene' });
+  await expect(use).toBeVisible({ timeout: 30_000 });
+  await line.fill('call it Cold hallway');
   await line.press('Enter');
-  await studio.getByRole('button', { name: 'Use this scene' }).click({ timeout: 30_000 });
+  await expect(studio.getByText('Cold hallway', { exact: true }).first()).toBeVisible();
+  await use.click();
   await expect
     .poll(async () => {
       const brands = (await (await page.request.get('/api/brands')).json()) as {
