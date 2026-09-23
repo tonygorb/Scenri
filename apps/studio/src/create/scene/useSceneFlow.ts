@@ -3,6 +3,7 @@ import { api, uploadImage } from '../../api.js';
 import type { Brand, FeedNode, SceneExampleRole } from '../../apiTypes.js';
 import { useAppData } from '../../app/AppShell.js';
 import { customSceneById } from '../../brandAssets.js';
+import { useBrand } from '../../app/BrandLayout.js';
 import { useShotPages } from '../../composer/attach/useShotPages.js';
 import { EXAMPLE_LABEL, examplesSubtitle, exampleTiles, missingMore } from '../../sceneExampleRules.js';
 import { useSceneExamples } from '../../useSceneExamples.js';
@@ -288,11 +289,15 @@ export function useSceneFlow(args: {
   if (pages.settled && !pages.error) lastShots.current = pages.items;
   const shotItems = pages.settled ? pages.items : lastShots.current;
   const shotsReading = !pages.error && (!pages.settled || pages.loading);
-  // whether there is a shot at all is read off the unsearched library, once it lands
-  const [anyShot, setAnyShot] = useState(false);
+  // Whether there is a shot at all: the unsearched library once it lands, and
+  // before that the brand's recent shelf, which is in long before a studio
+  // opens. Null only on a reload that lands on the picture question first.
+  const { recent, loaded } = useBrand();
+  const [libraryHas, setLibraryHas] = useState<boolean | null>(null);
   useEffect(() => {
-    if (!shotQuery.trim() && pages.settled && !pages.error) setAnyShot(pages.items.length > 0);
+    if (!shotQuery.trim() && pages.settled && !pages.error) setLibraryHas(pages.items.length > 0);
   }, [shotQuery, pages.settled, pages.error, pages.items.length]);
+  const anyShot = libraryHas ?? (recent.length > 0 ? true : loaded ? false : null);
   const shots: ShotArgs = useMemo(
     () => ({
       any: anyShot,

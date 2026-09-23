@@ -159,6 +159,11 @@ export type Question =
        * when it stands (before anything is added, say).
        */
       instead?: string;
+      /**
+       * Whether that way exists is not known yet: it holds its place, unseen
+       * and unreachable, so its arrival moves nothing under it.
+       */
+      insteadWaiting?: boolean;
     })
   | (QuestionBase & {
       kind: 'pick';
@@ -178,6 +183,8 @@ export type Question =
       loading?: boolean;
       /** What an empty result says. */
       empty?: string;
+      /** What a screen reader is told once a search has settled: how many there are. */
+      status?: string;
       /** A quiet way back to where this question was opened from. */
       back?: string;
     })

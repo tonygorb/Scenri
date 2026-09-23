@@ -2041,8 +2041,10 @@ button.sc-convo-shot-do {
     2 *
     var(--sc-space-2)
   );
+  min-inline-size: 0;
   margin: calc(-1 * var(--sc-space-2));
   padding: var(--sc-space-2);
+  border: 0;
   overflow-y: auto;
   /* the end of the box is not the end of the conversation */
   overscroll-behavior: contain;
@@ -2070,12 +2072,21 @@ button.sc-convo-shot-do {
 .sc-convo-pick-end {
   height: 1px;
 }
+.sc-convo-pick-wait {
+  cursor: default;
+}
+.sc-convo-pick-wait .sc-convo-plate-in {
+  opacity: 0.5;
+}
 
-/* The quiet other way in under a well: a link, never a second well. */
+/* The quiet other way in under a well: a link, never a second well. Quiet in
+   ink, not in reach: its target is 24px tall (WCAG 2.5.8), and a finger's
+   44px on a touch screen, without moving anything around it. */
 .sc-convo-other {
   align-self: flex-start;
+  min-block-size: 24px;
   margin: 0;
-  padding: 2px 0;
+  padding: 4px 0;
   border: 0;
   background: none;
   color: var(--sc-fg2);
@@ -2088,6 +2099,15 @@ button.sc-convo-shot-do {
 .sc-convo-other:hover,
 .sc-convo-other[data-on] {
   color: var(--sc-fg);
+}
+.sc-convo-other[data-waiting] {
+  visibility: hidden;
+}
+@media (pointer: coarse) {
+  .sc-convo-other {
+    padding-block: 13px;
+    margin-block: -10px;
+  }
 }
 
 .sc-convo-attest {

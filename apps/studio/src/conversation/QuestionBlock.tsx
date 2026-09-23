@@ -124,7 +124,7 @@ export function QuestionBlock({
   const on = picked ?? asOne(given);
   // A pick's pictures scroll inside a box of their own, a page read as its end
   // comes into view: the attach picker's sentinel, rooted in this box.
-  const pickBox = useRef<HTMLDivElement>(null);
+  const pickBox = useRef<HTMLFieldSetElement>(null);
   const pickEnd = useRef<HTMLDivElement>(null);
   const nextPick = useRef<() => void>(() => {});
   nextPick.current = () => {
@@ -507,6 +507,10 @@ export function QuestionBlock({
                 type="button"
                 className="sc-convo-other"
                 data-on={picked === 'instead' || undefined}
+                data-waiting={question.insteadWaiting || undefined}
+                aria-hidden={question.insteadWaiting || undefined}
+                tabIndex={question.insteadWaiting ? -1 : undefined}
+                disabled={question.insteadWaiting || undefined}
                 onClick={() => commit('instead', { kind: 'photos', action: { type: 'instead' } })}
               >
                 {question.instead}
@@ -565,9 +569,31 @@ export function QuestionBlock({
                 placeholder={question.search.label}
                 aria-label={question.search.label}
                 onChange={(e) => onAnswer({ kind: 'pick', action: { type: 'query', text: e.target.value } })}
+                // Escape empties a search before it is allowed to leave the studio
+                onKeyDown={(e) => {
+                  if (e.key !== 'Escape' || !question.search?.value) return;
+                  e.preventDefault();
+                  onAnswer({ kind: 'pick', action: { type: 'query', text: '' } });
+                }}
               />
             )}
-            <div ref={pickBox} className="sc-convo-pick-scroll" aria-busy={question.loading || undefined}>
+            <fieldset
+              ref={pickBox}
+              className="sc-convo-pick-scroll"
+              aria-labelledby={promptId}
+              aria-busy={question.loading || undefined}
+            >
+              {/* the first page on its way: the plates it will fill, so nothing arrives into a blank */}
+              {question.items.length === 0 && question.loading && (
+                <div className="sc-convo-grid sc-convo-pick-grid" aria-hidden>
+                  {Array.from({ length: 8 }, (_, i) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: placeholders have no identity
+                    <span key={i} className="sc-convo-plate sc-convo-pick-wait">
+                      <span className="sc-convo-plate-in" />
+                    </span>
+                  ))}
+                </div>
+              )}
               {question.items.length > 0 && (
                 <div className="sc-convo-grid sc-convo-pick-grid">
                   {question.items.map((it) => (
@@ -592,7 +618,10 @@ export function QuestionBlock({
                 <p className="sc-convo-pick-empty">{question.empty}</p>
               )}
               {question.more && <div ref={pickEnd} className="sc-convo-pick-end" aria-hidden />}
-            </div>
+            </fieldset>
+            <p className="sc-vh" role="status">
+              {question.loading ? '' : (question.status ?? '')}
+            </p>
             {(question.back || cancel) && (
               <div className="sc-convo-ways sc-convo-ask" data-guide-shape="">
                 {question.back && (

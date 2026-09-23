@@ -41,6 +41,8 @@ export const COPY = {
   shotNone: 'No shots to start from yet.',
   shotNotFound: (q: string) => `No shot matches "${q}".`,
   shotsFailed: 'The shots could not be read just now. Try the search again.',
+  shotCount: (n: number, more: boolean) =>
+    more ? `${n} shots so far, more as you scroll` : `${n} ${n === 1 ? 'shot' : 'shots'}`,
   shotAnswer: 'This shot',
   backToPictures: 'Back to pictures',
   shotOff: 'Choose a shot above.',

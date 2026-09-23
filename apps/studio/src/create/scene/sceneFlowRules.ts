@@ -83,8 +83,8 @@ export interface SetArgs {
  * feed's own query (searched on the server, paged), never the whole feed.
  */
 export interface ShotArgs {
-  /** The brand has a shot to start from, so the way in is worth showing. */
-  any: boolean;
+  /** The brand has a shot to start from, so the way in is worth showing. Null: not known yet. */
+  any: boolean | null;
   /** The shots shown now, newest first. */
   items: PickItem[];
   query: string;
@@ -93,6 +93,15 @@ export interface ShotArgs {
   loading: boolean;
   /** The shots could not be read: said in place of "nothing matches". */
   error?: string | null;
+}
+
+/** What a screen reader hears once the shots in view have settled. */
+function shotStatus(shots: ShotArgs | undefined): string {
+  if (!shots || shots.loading) return '';
+  const n = shots.items.length;
+  if (!n)
+    return shots.error ? COPY.shotsFailed : shots.query.trim() ? COPY.shotNotFound(shots.query.trim()) : COPY.shotNone;
+  return COPY.shotCount(n, shots.more);
 }
 
 /**
@@ -159,7 +168,9 @@ export function questionFor(
       // Upload is what this question is for. The shot is the quiet other way,
       // and only before anything has been added: once a picture is in, the
       // pictures are the answer being given.
-      ...(shots?.any && !a.photos?.hashes.length && uploading === 0 && !reopened ? { instead: COPY.fromShot } : {}),
+      ...(shots && shots.any !== false && !a.photos?.hashes.length && uploading === 0 && !reopened
+        ? { instead: COPY.fromShot, ...(shots.any === null ? { insteadWaiting: true } : {}) }
+        : {}),
     };
   if (id === 'shot') {
     const q = shots?.query.trim() ?? '';
@@ -173,6 +184,7 @@ export function questionFor(
       more: shots?.more ?? false,
       loading: shots?.loading ?? false,
       empty: shots?.error ? COPY.shotsFailed : q ? COPY.shotNotFound(q) : COPY.shotNone,
+      status: shotStatus(shots),
       // reopened, Cancel is the way back; before, the pictures are
       back: reopened ? undefined : COPY.backToPictures,
       ...base,

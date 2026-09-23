@@ -22,7 +22,8 @@ isolate({
     SCENRI_DEMO_REFS: '5',
     SCENRI_DEMO_DELAY_MS: '600',
     SCENRI_DEMO_ANALYSIS: 'usable',
-    SCENRI_DEMO_READ_MS: '300',
+    // slow enough that Stop and a reload land while the shot is being read
+    SCENRI_DEMO_READ_MS: '1500',
   },
   scene: true,
 });
@@ -286,6 +287,43 @@ test('a shot read left mid-way is one read, and the conversation comes back to i
   await expect(openQ(page)).toContainText('Here is the place I read in your shot.', { timeout: 20_000 });
   await expect(turn(page, 'you:shot').locator('img')).toHaveCount(1);
   expect(makes).toHaveLength(1);
+});
+
+test('Stop during a shot read says so, and Try again reads the same shot for its place', async ({ page }) => {
+  test.setTimeout(60_000);
+  const makes: any[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && /\/scene-studio\/jobs$/.test(r.url()) && r.postDataJSON()?.kind === 'make')
+      makes.push(r.postDataJSON());
+  });
+  await toShots(page);
+  await field(page).fill('harbour');
+  await expect(cards(page)).toHaveCount(1);
+  await cards(page).first().click();
+  await studio(page).getByRole('button', { name: 'Stop', exact: true }).click();
+  const retry = turn(page, 'q:retry');
+  await expect(retry).toContainText('Stopped before the place was read');
+  await retry.getByRole('button', { name: 'Try again', exact: true }).click();
+  await expect(openQ(page)).toContainText('Here is the place I read in your shot.', { timeout: 20_000 });
+  expect(makes).toHaveLength(2);
+  for (const m of makes) {
+    expect(m.shot).toBe(true);
+    expect(m.imageHashes).toEqual([harbour.hash]);
+  }
+});
+
+test('Escape empties a search first, and only then leaves', async ({ page }) => {
+  await toShots(page);
+  await field(page).fill('h');
+  await expect(cards(page)).toHaveCount(1);
+  await expect(picker(page).getByRole('status')).toHaveText('1 shot');
+  await field(page).press('Escape');
+  await expect(field(page)).toHaveValue('');
+  await expect.poll(() => cards(page).count()).toBeGreaterThan(1);
+  await expect(studio(page)).toBeVisible();
+  // an empty field lets Escape through: something was answered, so leaving asks first
+  await field(page).press('Escape');
+  await expect(page.getByText('Leave this scene?')).toBeVisible();
 });
 
 test('a shot made in a saved scene offers that scene, and taking it opens the scene with nothing drawn', async ({

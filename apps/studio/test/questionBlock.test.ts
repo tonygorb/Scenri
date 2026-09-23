@@ -247,6 +247,38 @@ describe('a pick', () => {
     }
   });
 
+  it('empties a search on Escape before Escape may leave, and says what settled', () => {
+    const onAnswer = vi.fn();
+    render(pick({ search: { label: 'Find a shot', value: 'har' }, status: '3 shots' }), { onAnswer });
+    const field = host.querySelector('.sc-convo-pick-q') as HTMLInputElement;
+    const esc = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    act(() => {
+      field.dispatchEvent(esc);
+    });
+    expect(esc.defaultPrevented).toBe(true);
+    expect(onAnswer).toHaveBeenCalledWith({ kind: 'pick', action: { type: 'query', text: '' } });
+    expect(host.querySelector('[role="status"]')?.textContent).toBe('3 shots');
+    // an empty field lets Escape through, to the studio
+    render(pick({ search: { label: 'Find a shot', value: '' } }), { onAnswer });
+    const again = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    act(() => {
+      (host.querySelector('.sc-convo-pick-q') as HTMLInputElement).dispatchEvent(again);
+    });
+    expect(again.defaultPrevented).toBe(false);
+  });
+
+  it('holds the plates the first page will fill while it is read, and names the box by its question', () => {
+    render(pick({ items: [], loading: true, status: '12 shots' }));
+    expect(host.querySelectorAll('.sc-convo-pick-wait')).toHaveLength(8);
+    expect(host.querySelector('.sc-convo-pick-empty')).toBeNull();
+    // nothing is said while it is still being read
+    expect(host.querySelector('[role="status"]')?.textContent).toBe('');
+    const box = host.querySelector('fieldset.sc-convo-pick-scroll');
+    expect(box?.getAttribute('aria-labelledby')).toBe('sc-convo-q-shot');
+    render(pick({ items: items(2) }));
+    expect(host.querySelectorAll('.sc-convo-pick-wait')).toHaveLength(0);
+  });
+
   it('offers a picture question its quiet other way in', () => {
     const onAnswer = vi.fn();
     render(
@@ -264,5 +296,29 @@ describe('a pick', () => {
     );
     act(() => button('Or start from one of your shots').click());
     expect(onAnswer).toHaveBeenCalledWith({ kind: 'photos', action: { type: 'instead' } });
+  });
+
+  it('holds the place of a way in that is not known yet, unseen and out of reach', () => {
+    const onAnswer = vi.fn();
+    render(
+      {
+        id: 'photos',
+        kind: 'photos',
+        prompt: 'Add pictures.',
+        hashes: [],
+        max: 4,
+        busy: false,
+        submit: 'Read them',
+        instead: 'Or start from one of your shots',
+        insteadWaiting: true,
+      },
+      { onAnswer },
+    );
+    const link = host.querySelector('.sc-convo-other') as HTMLButtonElement;
+    expect(link.hasAttribute('data-waiting')).toBe(true);
+    expect(link.getAttribute('aria-hidden')).toBe('true');
+    expect(link.tabIndex).toBe(-1);
+    act(() => link.click());
+    expect(onAnswer).not.toHaveBeenCalled();
   });
 });

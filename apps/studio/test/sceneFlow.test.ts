@@ -552,6 +552,12 @@ describe('the conversation', () => {
     expect(added?.kind === 'photos' && added.instead).toBeFalsy();
     const uploading = lastQ(turnsFor(args({ setup, uploading: 1, shots: shotsOf(3) })));
     expect(uploading?.kind === 'photos' && uploading.instead).toBeFalsy();
+    // not known yet: the link holds its place unseen, so its arrival moves nothing
+    const unknown = lastQ(turnsFor(args({ setup, shots: shotsOf(0, { any: null }) })));
+    expect(unknown?.kind === 'photos' && unknown.instead).toBe('Or start from one of your shots');
+    expect(unknown?.kind === 'photos' && unknown.insteadWaiting).toBe(true);
+    const known = lastQ(turnsFor(args({ setup, shots: shotsOf(3) })));
+    expect(known?.kind === 'photos' && known.insteadWaiting).toBeFalsy();
   });
 
   it('opens with the ask and the two doors, and a line that takes a sentence and pictures', () => {
@@ -862,6 +868,14 @@ describe('a place started from a shot', () => {
     expect(q.more).toBe(true);
     expect(q.back).toBe('Back to pictures');
     expect(q.empty).toBe('No shot matches "harb".');
+    // a screen reader hears how many, once they have settled
+    expect(q.status).toBe('8 shots so far, more as you scroll');
+    const one = questionFor('shot', setup, false, 0, shotsOf(1));
+    expect(one.kind === 'pick' && one.status).toBe('1 shot');
+    const none = questionFor('shot', setup, false, 0, shotsOf(0, { query: 'zz' }));
+    expect(none.kind === 'pick' && none.status).toBe('No shot matches "zz".');
+    const reading = questionFor('shot', setup, false, 0, shotsOf(3, { loading: true }));
+    expect(reading.kind === 'pick' && reading.status).toBe('');
     // reopened from its answer: lit on the shot, and Cancel is the way back
     const again = questionFor('shot', setupOf(picked), true, 0, shotsOf(2));
     expect(again.kind === 'pick' && again.given).toBe('n1');
