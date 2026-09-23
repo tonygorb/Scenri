@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
@@ -148,12 +148,16 @@ export function presenterAvatarPath(templatesRoot: string, id: string): string {
 const resolvedRefs = new Map<string, string>();
 
 async function refHash(core: Core, path: string): Promise<string> {
-  const hit = resolvedRefs.get(path);
+  // Keyed by the file's version as well as its path: a library update swaps
+  // the pictures under the same names while the server keeps running.
+  const { mtimeMs, size } = statSync(path);
+  const key = `${path}\0${mtimeMs}\0${size}`;
+  const hit = resolvedRefs.get(key);
   // Verified before it is trusted: a hash is only valid for the store that
   // holds it, and tests build a fresh core per case.
   if (hit && core.images.has(hit)) return hit;
   const hash = core.images.save(await sharp(readFileSync(path)).png().toBuffer());
-  resolvedRefs.set(path, hash);
+  resolvedRefs.set(key, hash);
   return hash;
 }
 

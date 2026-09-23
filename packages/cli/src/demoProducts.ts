@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
@@ -52,6 +52,13 @@ export interface DemoProduct {
   keywords?: string[];
   materials?: string;
   primaryColors?: string;
+  /**
+   * Real-world size in words, with units ("about 29 cm long, 11 cm wide and
+   * 12 cm tall"). It outranks a size read from a photo (productScale.ts
+   * resolveSize) and replaces the description as the brief's scale anchor, so
+   * a showcase recipe compiles the same in every brand.
+   */
+  dimensions?: string;
   /** Scene collection/vertical tags this product photographs well against. */
   suitableScenes?: string[];
   /** Things the model should never do to this product (extra guardrail text). */
@@ -98,6 +105,7 @@ function isDemoProduct(x: any): x is DemoProduct {
     (x.promptName === undefined || (typeof x.promptName === 'string' && !!x.promptName)) &&
     (x.brand === undefined || (typeof x.brand === 'string' && !!x.brand)) &&
     (x.format === undefined || (typeof x.format === 'string' && !!x.format)) &&
+    (x.dimensions === undefined || (typeof x.dimensions === 'string' && !!x.dimensions)) &&
     (x.legacyNames === undefined ||
       (Array.isArray(x.legacyNames) && x.legacyNames.every((n: any) => typeof n === 'string' && !!n))) &&
     (x.keywords === undefined ||
@@ -164,12 +172,16 @@ export function demoProductRefPath(templatesRoot: string, id: string, angle: str
 const resolvedRefs = new Map<string, string>();
 
 async function refHash(core: Core, path: string): Promise<string> {
-  const hit = resolvedRefs.get(path);
+  // Keyed by the file's version as well as its path: a library update swaps
+  // the pictures under the same names while the server keeps running.
+  const { mtimeMs, size } = statSync(path);
+  const key = `${path}\0${mtimeMs}\0${size}`;
+  const hit = resolvedRefs.get(key);
   // Verified before it is trusted: a hash is only valid for the store that
   // holds it, and tests build a fresh core per case.
   if (hit && core.images.has(hit)) return hit;
   const hash = core.images.save(await sharp(readFileSync(path)).png().toBuffer());
-  resolvedRefs.set(path, hash);
+  resolvedRefs.set(key, hash);
   return hash;
 }
 
@@ -188,6 +200,7 @@ export async function resolveDemoProductImages(
   primaryColors?: string;
   description?: string;
   category?: string;
+  dimensions?: string;
 } | null> {
   const angles = PRODUCT_ANGLES_BY_CATEGORY[product.category] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
   const shots: { file: string; angle: string; locked: boolean }[] = [];
@@ -220,6 +233,8 @@ export async function resolveDemoProductImages(
     // earned the "present it as a product" line.
     ...(product.description ? { description: product.description } : {}),
     ...(product.category ? { category: product.category } : {}),
+    // The written size: productSizes.apply reads it as the size that holds.
+    ...(product.dimensions ? { dimensions: product.dimensions } : {}),
   };
 }
 
