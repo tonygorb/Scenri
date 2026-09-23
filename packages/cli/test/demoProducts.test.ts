@@ -8,6 +8,7 @@ import {
   loadDemoProducts,
   demoProductResolver,
   demoProductFacetsOf,
+  demoProductAngleFiles,
   resolveDemoProductImages,
   type DemoProduct,
 } from '../src/demoProducts.js';
@@ -31,7 +32,7 @@ describe('shipped demo product catalog', () => {
   it('every shipped product carries a frozen promptName', () => {
     const { demoProducts, warnings } = loadDemoProducts();
     expect(warnings).toEqual([]);
-    expect(demoProducts).toHaveLength(47);
+    expect(demoProducts).toHaveLength(64);
     for (const p of demoProducts) {
       expect(p.promptName, `${p.id} has no promptName`).toBeTruthy();
     }
@@ -68,6 +69,35 @@ describe('shipped demo product catalog', () => {
     for (const p of demoProducts) {
       if (p.dimensions === undefined) continue;
       expect(sizeFromWords(p.dimensions), `${p.id} dimensions "${p.dimensions}" carry no readable unit`).not.toBeNull();
+    }
+  });
+});
+
+describe('demoProductAngleFiles', () => {
+  it('shows every view whole, and lets an older close-up stand in under its own key', () => {
+    const root = mkdtempSync(join(tmpdir(), 'sc-demoproduct-angles-'));
+    try {
+      const put = (id: string, angle: string) => {
+        mkdirSync(join(root, 'previews', 'demo-products', id), { recursive: true });
+        writeFileSync(join(root, 'previews', 'demo-products', id, `${angle}.jpg`), 'x');
+      };
+      for (const a of ['three-quarter', 'front', 'side']) put('new', a);
+      for (const a of ['three-quarter', 'front', 'label']) put('old', a);
+      put('both', 'label');
+      put('both', 'side');
+      expect(demoProductAngleFiles(root, 'new', 'beauty').map((f) => f.angle)).toEqual([
+        'three-quarter',
+        'front',
+        'side',
+      ]);
+      expect(demoProductAngleFiles(root, 'old', 'beauty').map((f) => f.angle)).toEqual([
+        'three-quarter',
+        'front',
+        'label',
+      ]);
+      expect(demoProductAngleFiles(root, 'both', 'beauty').map((f) => f.angle)).toEqual(['side']);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });

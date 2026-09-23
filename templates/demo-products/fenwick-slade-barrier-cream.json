@@ -1,0 +1,19 @@
+{
+  "id": "fenwick-slade-barrier-cream",
+  "name": "Barrier Cream",
+  "promptName": "Sage Glass Jar of Barrier Face Cream with a Ribbed Aluminium Lid",
+  "brand": "Fenwick Slade",
+  "format": "50 ml face cream",
+  "legacyNames": ["Sage Glass Jar of Barrier Face Cream with a Ribbed Aluminium Lid"],
+  "keywords": ["face cream", "moisturiser", "jar", "skincare", "ceramides", "oat", "beauty"],
+  "category": "beauty",
+  "description": "A squat 50 ml jar in heavy opaque sage-green glass with a wide brushed aluminium screw lid with fine vertical ribs; a cream paper band label wrapping the front, printed in dark green: FENWICK SLADE in spaced capitals, Barrier Cream, Ceramides + Oat and 50 ml.",
+  "dimensions": "about 6 cm tall and 7 cm across",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "face cream in a heavy glass jar",
+  "materials": "heavy opaque sage-green glass, brushed aluminium ribbed lid, cream paper label with dark green print",
+  "primaryColors": "sage green, brushed silver, cream, dark green",
+  "negativeConstraints": "Never invent any text, logo, wordmark or mark beyond the ones this record names, never misspell or rearrange those, and never add a second label.",
+  "preservationNotes": "Keep the label exactly: FENWICK SLADE in spaced capitals, Barrier Cream, Ceramides + Oat, 50 ml, in dark green on a cream paper band. Keep the heavy sage-green glass and the wide ribbed brushed aluminium lid in every shot."
+}

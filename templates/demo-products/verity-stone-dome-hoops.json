@@ -1,0 +1,19 @@
+{
+  "id": "verity-stone-dome-hoops",
+  "name": "Dome Hoops",
+  "promptName": "Chunky Polished Gold Dome Hoop Earrings",
+  "brand": "Verity Stone",
+  "format": "25 mm gold hoops",
+  "legacyNames": ["Chunky Polished Gold Dome Hoop Earrings"],
+  "keywords": ["earrings", "hoops", "gold", "jewellery", "jewelry", "vermeil", "dome"],
+  "category": "jewelry",
+  "description": "A pair of chunky polished gold dome hoop earrings, 25 mm across, each a hollow rounded tube with a hinged snap post, in mirror-bright 18k gold vermeil.",
+  "dimensions": "25 mm across and 6 mm thick",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "chunky dome hoop earrings",
+  "materials": "18k gold vermeil over sterling silver, hollow tube, hinged snap post",
+  "primaryColors": "polished gold",
+  "negativeConstraints": "Never add any text, logo, wordmark, engraving or mark anywhere on it.",
+  "preservationNotes": "Keep the pair identical: chunky 25 mm dome hoops, a hollow rounded tube, mirror-bright gold, a hinged snap post, with no stones and no texture."
+}
