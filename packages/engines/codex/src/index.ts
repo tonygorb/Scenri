@@ -499,7 +499,7 @@ export function createCodexEngine(opts: CodexEngineOptions): EngineAdapter {
       // wrapper also generates graphic assets. Independently revertible on
       // render evidence.
       `Generate one professional-grade image immediately using your image generation tool, ` +
-      `composed as a ${native.width}x${native.height} frame (${ratioLabel(req.width, req.height)} ${orientationOf(req.width, req.height)}): ${req.prompt}.` +
+      `composed as a ${native.width}x${native.height} frame (${ratioLabel(req.width, req.height)} ${orientationOf(req.width, req.height)}): ${req.prompt.replace(/[.\s]+$/, '')}.` +
       (refDirectives ? ` ${refDirectives}` : '') +
       // The save instruction bans what the old one licensed. "you may run the
       // commands needed to save and resize it" invited sips -z, which
