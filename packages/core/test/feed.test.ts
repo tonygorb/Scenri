@@ -243,6 +243,20 @@ describe('feed search', () => {
     expect(q('cu', ['p-cup']).map((n) => n.id)).toEqual([b.id]);
   });
 
+  it('matches one or two letters at the start of a word in any script, never inside one', () => {
+    const he = shot({ prompt: 'QA עברית סרום, (בוקר) café-noir' });
+    const q = (s: string) =>
+      allPages({ terms: searchTerms(s).map((t) => ({ ...t, tokenIds: [], engineIds: [] })) }).map((n) => n.id);
+    expect(q('ע')).toEqual([he.id]);
+    expect(q('ס')).toEqual([he.id]);
+    // after a bracket, a hyphen: still the start of a word
+    expect(q('ב')).toEqual([he.id]);
+    expect(q('no')).toEqual([he.id]);
+    // inside a word, in either script: nothing
+    expect(q('ר')).toEqual([]);
+    expect(q('af')).toEqual([]);
+  });
+
   it('finds what the person wrote, never what the compiler wrote around it', () => {
     const cup = { t: 'product', id: 'p-cup' };
     const typed = shot({

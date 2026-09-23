@@ -83,11 +83,20 @@ export function matchesQuery(haystack: string, q: string): boolean {
 const quote = (s: string) => `"${s.replace(/"/g, '""')}"`;
 
 /**
+ * What ends one word and starts the next, as a GLOB character class: white
+ * space and punctuation, Latin and Hebrew, spelled out. The class used to be
+ * "anything but a-z and 0-9", which counted every letter outside ASCII as a
+ * break, so a Hebrew or accented word matched its own middle letters.
+ * (`]` must lead a GLOB class and `-` must close it.)
+ */
+const WORD_BREAK = `]${' \t\n\r.,;:!?(){}"\'`/\\|_+*&#@<>=~^%$['}\u05be\u05f3\u05f4\u201c\u201d\u2018\u2019\u2026\u2013\u2014-`;
+
+/**
  * The SQL that answers a term the trigram index is too short for, against a
  * text column, or null when the index can. Letters and digits match the start
  * of a word: the text lowered (ASCII, as the term already is) and globbed
- * after anything that is not a letter or a digit. Anything else is a
- * substring, with `%` and `_` escaped so they match only themselves.
+ * after a word break (`WORD_BREAK`). Anything else is a substring, with `%`
+ * and `_` escaped so they match only themselves.
  */
 export function shortTermSql(
   term: SearchTerm,
@@ -98,7 +107,7 @@ export function shortTermSql(
   if (byWordStart(term))
     return {
       sql: `(lower(${column}) GLOB @${param}a OR lower(${column}) GLOB @${param}b)`,
-      params: { [`${param}a`]: `${term.text}*`, [`${param}b`]: `*[^a-z0-9]${term.text}*` },
+      params: { [`${param}a`]: `${term.text}*`, [`${param}b`]: `*[${WORD_BREAK}]${term.text}*` },
     };
   return {
     sql: `${column} LIKE @${param} ESCAPE '\\'`,
