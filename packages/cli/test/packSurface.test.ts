@@ -146,8 +146,14 @@ describe('the published package surface', () => {
   // The split contract: the whole catalog with its thumbnails ships, the heavy
   // imagery does not, and the tarball stays npx-sized. The full library
   // arrives at runtime via the content archive (src/content/fetch.ts).
+  //
+  // The size line is a backstop for a leak of that archive (100 MB), not a
+  // budget the studio's own art has to fit under. It was 15 MB until 0.15.0,
+  // whose publish stopped at 15.95 MB: the Guide Me scene cards added 1.55 MB,
+  // and they are already exactly retina size (320x400 on a 160px plate), so
+  // re-encoding them was measured and declined.
   it.skipIf(!stagingIsSplit)(
-    'ships the whole catalog with thumbnails only, and stays under 15 MB',
+    'ships the whole catalog with thumbnails only, and stays under 18 MB',
     () => {
       const repoTemplates = join(pkgDir, '..', '..', 'templates');
       const files = packedFiles();
@@ -165,7 +171,7 @@ describe('the published package surface', () => {
       const heroes = files.filter((f) => f.startsWith('templates/previews/showcase/'));
       expect(heroes.length).toBeGreaterThanOrEqual(10);
       expect(heroes.length).toBeLessThanOrEqual(20);
-      expect(packed().size).toBeLessThan(15 * 1024 * 1024);
+      expect(packed().size).toBeLessThan(18 * 1024 * 1024);
     },
     30_000,
   );
