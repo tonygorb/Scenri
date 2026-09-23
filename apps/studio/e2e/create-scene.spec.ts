@@ -38,6 +38,14 @@ const B = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   'base64',
 );
+const C = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGM4oaEBAALUARkFUI+kAAAAAElFTkSuQmCC',
+  'base64',
+);
+const D = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGPQWGADAAH4AQV029onAAAAAElFTkSuQmCC',
+  'base64',
+);
 const file = (name: string, buffer: Buffer) => ({ name, mimeType: 'image/png', buffer });
 
 async function brandSlug(p: Page): Promise<string> {
@@ -305,6 +313,55 @@ test('the picture door: pictures read into words, the reader’s note said, the 
   await page.waitForURL(/\/scenes\/us-/);
   const saved = (await scenes(page)).find((s) => s.name === 'Two Shores');
   expect(saved.refs).toHaveLength(2);
+});
+
+// The four a person adds are the four that are read, drawn from and kept, in
+// the order they were added: nothing favours the first, nothing drops the
+// fourth (traced on real Codex, 2026-09-23).
+test('four pictures are read in the order they were added, and the scene keeps all four in that order', async ({
+  page,
+}) => {
+  await start(page);
+  await tap(turn(page, 'q:source'), 'Add pictures');
+  const q = turn(page, 'q:photos');
+  // the studio uploads one picture at a time, so the answers arrive in the order chosen
+  const order: string[] = [];
+  page.on('response', async (res) => {
+    if (res.url().endsWith('/api/images') && res.request().method() === 'POST') order.push((await res.json()).hash);
+  });
+  await q
+    .locator('input[type="file"]')
+    .setInputFiles([file('a.png', A), file('b.png', B), file('c.png', C), file('d.png', D)]);
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(4);
+  await expect.poll(() => order.length).toBe(4);
+  expect(new Set(order).size).toBe(4);
+  const read = page.waitForRequest((r) => r.url().includes('/scene-studio/jobs') && r.method() === 'POST');
+  await tap(q, 'Read them');
+  expect((await read).postDataJSON().imageHashes).toEqual(order);
+  await draw(page);
+  await say(page, 'Four Walls');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await tap(openQ(page), 'Use this scene');
+  await finishSceneSet(page);
+  await page.waitForURL(/\/scenes\/us-/);
+  const saved = (await scenes(page)).find((s) => s.name === 'Four Walls');
+  expect(saved.refs.map((r: { file: string }) => r.file)).toEqual(order.map((h) => `asset:${h}`));
+});
+
+test('one picture is enough: read, drawn and kept', async ({ page }) => {
+  await start(page);
+  await tap(turn(page, 'q:source'), 'Add pictures');
+  const q = turn(page, 'q:photos');
+  await q.locator('input[type="file"]').setInputFiles([file('a.png', A)]);
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(1);
+  await tap(q, 'Read them');
+  await draw(page);
+  await say(page, 'One Wall');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await tap(openQ(page), 'Use this scene');
+  await finishSceneSet(page);
+  await page.waitForURL(/\/scenes\/us-/);
+  expect((await scenes(page)).find((s) => s.name === 'One Wall').refs).toHaveLength(1);
 });
 
 test('pictures opened again and changed, then left, are as they were, and the picture drawn from them stays', async ({
