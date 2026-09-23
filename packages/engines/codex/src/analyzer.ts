@@ -386,6 +386,10 @@ function sceneBody(req: AnalyzeRequest, refCount: number): string {
     // "a modern room" back. These four are the axes that actually came back thin.
     ' Name materials rather than colours - travertine, cracked clay, waxed canvas, brushed steel, raw concrete -' +
     ' and say how the space layers from foreground through middle ground to background.' +
+    // A bare "saturated green" came back deep bottle green for a bright leaf
+    // green set (battery 2026-09-23): the vibe is the colour's strength too.
+    ' Give each dominant colour the way a painter would, its hue, how light it is and how saturated -' +
+    ' "bright saturated leaf green", "deep bottle green", "pale chalky mint" - never a bare colour name.' +
     ' Say so when a surface is reflective or transmissive: a mirror, a wet floor, chrome, glass, still water.' +
     ' Those govern how everything in the frame is lit, and they are the first thing lost to a generic description.' +
     // Lettering described without its words, then forbidden by the draw,

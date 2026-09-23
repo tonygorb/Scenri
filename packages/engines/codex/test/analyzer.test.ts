@@ -398,6 +398,7 @@ describe('analyze — scene: presence without identity', () => {
     expect(prompt).toContain('Name materials rather than colours');
     expect(prompt).toContain('foreground through middle ground to background');
     expect(prompt).toContain('reflective or transmissive');
+    expect(prompt).toContain('its hue, how light it is and how saturated');
   });
 
   // Lettering described without its words and then forbidden by the draw
