@@ -514,6 +514,26 @@
 .sc-phone-how .sc-phone-arrival[data-state="connected"] {
   color: var(--sc-green);
 }
+/* The firewall, when it would stop a phone: said in the ink, not the quiet
+   secondary, with its one fix under it. */
+.sc-phone-fw {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+}
+.sc-phone-how .sc-phone-fw p {
+  color: var(--sc-fg);
+}
+.sc-phone-fw .sc-btn {
+  height: 32px;
+  padding: 0 13px;
+  font-size: var(--sc-text-body);
+}
+.sc-phone-how .sc-phone-allow[data-state="done"] {
+  color: var(--sc-green);
+}
 .sc-phone-help summary {
   width: fit-content;
   color: var(--sc-fg);
@@ -540,10 +560,14 @@
     width: min(240px, 100%);
     height: auto;
   }
-  .sc-phone-act .sc-btn {
+  .sc-phone-act .sc-btn,
+  .sc-phone-fw .sc-btn {
     width: 100%;
     height: 34px;
     justify-content: center;
+  }
+  .sc-phone-fw {
+    align-items: stretch;
   }
 }
 

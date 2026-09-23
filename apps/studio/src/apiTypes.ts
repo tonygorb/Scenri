@@ -306,7 +306,10 @@ export type VersionInfo = {
 };
 
 /** Why a phone might not open Scenri, as this computer's firewall answers. */
-export type FirewallVerdict = 'blocked' | 'public-network' | 'ok' | 'unknown';
+export type FirewallVerdict = 'blocked' | 'blocks-all' | 'ok' | 'unknown';
+
+/** How a press of Allow Scenri ended: the OS prompt was approved, declined, or could not run. */
+export type AllowResult = 'done' | 'cancelled' | 'failed' | 'unsupported';
 
 /** Settings' "Open on your phone" row (GET /api/phone). */
 export type PhoneStatus = {

@@ -269,15 +269,17 @@ over.
 **`Scenri is already running`.** Not an error. Scenri was already open in another terminal, and
 this one just brought you to it. Use the browser tab it opened.
 
-**A phone cannot open Scenri.** Open Settings, General, Show QR code on the computer: if no
-phone arrives within half a minute, the help under it opens by itself and names what it can see.
-The usual causes, most likely first:
+**A phone cannot open Scenri.** Open Settings, General, Show QR code on the computer. If the
+computer's firewall would stop a phone, it says so right there with an **Allow Scenri** button:
+press it and answer your computer's own prompt (your Mac password, or Yes in Windows). If no phone
+arrives within half a minute, the help under the code opens by itself. The usual causes, most likely
+first:
 
 - The phone is on another network. Both have to be on the same Wi-Fi, and a guest network keeps
   devices apart on purpose.
 - The computer's firewall. The first time Scenri starts, macOS or Windows may ask whether Node
-  may accept incoming connections; allow it. On Windows, a Wi-Fi marked as a public network
-  blocks it too: Settings, Network and internet, Wi-Fi, choose the network, set it to Private.
+  may accept incoming connections; allow it. If you pressed Cancel or Deny, or Windows treats this
+  Wi-Fi as a public network, Allow Scenri fixes it.
 - The phone's browser asked to find devices on your local network. Allow it.
 
 **The browser did not open.** Copy the address the terminal printed, `http://127.0.0.1:4747`, into

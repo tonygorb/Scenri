@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
+  allowLine,
   arrival,
+  firewallNotice,
   arrivalLine,
   helpLines,
   phoneLink,
@@ -87,29 +89,61 @@ describe('arrival', () => {
   });
 });
 
+describe('firewallNotice', () => {
+  it('a Mac firewall that blocks node: said up front, with the fix', () => {
+    expect(firewallNotice('blocked', 'darwin')).toEqual({
+      text: "Your Mac's firewall is blocking Scenri, so your phone cannot open it yet.",
+      canAllow: true,
+    });
+  });
+
+  it('Windows Firewall on this network, Public or Cancelled alike: the same one fix', () => {
+    const n = firewallNotice('blocked', 'win32');
+    expect(n?.text).toContain('Windows Firewall is blocking Scenri on this network');
+    expect(n?.canAllow).toBe(true);
+  });
+
+  it('a Mac blocking every connection: the way to undo it, no button', () => {
+    const n = firewallNotice('blocks-all', 'darwin');
+    expect(n?.text).toContain('Block all incoming connections');
+    expect(n?.canAllow).toBe(false);
+  });
+
+  it('nothing to say when the firewall is fine, unread, or unknown', () => {
+    expect(firewallNotice('ok', 'darwin')).toBeNull();
+    expect(firewallNotice(null, 'win32')).toBeNull();
+    expect(firewallNotice('unknown', 'linux')).toBeNull();
+  });
+});
+
+describe('allowLine', () => {
+  it('says whose prompt to answer while it waits', () => {
+    expect(allowLine('asking', 'darwin')).toBe('Enter your Mac password to allow Scenri.');
+    expect(allowLine('asking', 'win32')).toBe('Choose Yes when Windows asks to allow Scenri.');
+  });
+
+  it('says how it ended', () => {
+    expect(allowLine('done', 'darwin')).toBe('Allowed. Scan the code again.');
+    expect(allowLine('cancelled', 'win32')).toBe('Nothing changed. Press Allow Scenri to try again.');
+    expect(allowLine('failed', 'darwin')).toContain('System Settings, Network, Firewall, Options');
+    expect(allowLine('failed', 'win32')).toContain('Allow an app through firewall');
+    expect(allowLine('idle', 'darwin')).toBeNull();
+  });
+});
+
 describe('helpLines', () => {
-  it('names a Mac firewall that blocks node, first', () => {
-    const lines = helpLines('blocked', status({ platform: 'darwin' }));
-    expect(lines[0]).toContain("Your Mac's firewall is blocking Scenri");
+  it('leads with the Wi-Fi, since a firewall it could read is named above', () => {
+    const lines = helpLines('blocked', status());
+    expect(lines[0]).toContain('same Wi-Fi');
+    expect(lines.join(' ')).not.toContain('firewall');
     expect(lines.join(' ')).not.toContain('asks whether node');
   });
 
-  it('names Windows Firewall, and a Wi-Fi Windows calls public', () => {
-    expect(helpLines('blocked', status({ platform: 'win32' }))[0]).toContain('Windows Firewall is blocking Scenri');
-    expect(helpLines('public-network', status({ platform: 'win32' }))[0]).toContain(
-      'Windows treats this Wi-Fi as public',
-    );
-  });
-
   it('without a reading, the general firewall line', () => {
-    const lines = helpLines('unknown', status({ platform: 'linux' }));
-    expect(lines.join(' ')).toContain('asks whether node may accept incoming connections');
-  });
-
-  it('a clear firewall leaves the Wi-Fi and the phone', () => {
-    const lines = helpLines('ok', status());
-    expect(lines[0]).toContain('same Wi-Fi');
-    expect(lines.join(' ')).not.toContain('firewall');
+    expect(helpLines('unknown', status({ platform: 'linux' })).join(' ')).toContain(
+      'asks whether node may accept incoming connections',
+    );
+    expect(helpLines(null, status()).join(' ')).toContain('asks whether node');
   });
 
   it('offers the other addresses last', () => {
@@ -119,17 +153,20 @@ describe('helpLines', () => {
 
   it('every line obeys the copy rules', () => {
     const all = [
-      ...helpLines('blocked', status({ platform: 'darwin' })),
-      ...helpLines('blocked', status({ platform: 'win32' })),
-      ...helpLines('public-network', status()),
       ...helpLines('unknown', status({ others: ['http://10.0.0.5:4747'] })),
+      ...(['blocked', 'blocks-all'] as const).flatMap((v) =>
+        ['darwin', 'win32'].map((p) => firewallNotice(v, p)?.text ?? ''),
+      ),
+      ...(['asking', 'done', 'cancelled', 'failed'] as const).flatMap((st) =>
+        ['darwin', 'win32'].map((p) => allowLine(st, p) ?? ''),
+      ),
       phoneRow(null).sentence,
       phoneRow(status()).sentence,
       phoneRow(status({ problem: 'no-network', url: null })).sentence,
       phoneRow(status({ problem: 'blocked', url: null })).sentence,
       phoneRow(status({ reach: 'this-computer' })).sentence,
     ].join('\n');
-    expect(all).not.toMatch(/[–—]/);
+    expect(all).not.toMatch(/[\u2013\u2014]/);
     expect(all).not.toMatch(/!/);
     expect(all).not.toMatch(/\bLAN\b|0\.0\.0\.0|bind/i);
   });

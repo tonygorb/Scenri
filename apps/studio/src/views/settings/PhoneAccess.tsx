@@ -4,7 +4,16 @@ import { copyText } from '../../clipboard.js';
 import { QrCode } from '../../layout/QrCode.js';
 import { useToasts } from '../../toasts.js';
 import { Group } from './Group.js';
-import { arrival, arrivalLine, helpLines, phoneLink, phoneRow } from './phoneAccessRules.js';
+import {
+  type AllowState,
+  allowLine,
+  arrival,
+  arrivalLine,
+  firewallNotice,
+  helpLines,
+  phoneLink,
+  phoneRow,
+} from './phoneAccessRules.js';
 
 /** While the code is up, how often to look for the phone. */
 const POLL_MS = 2000;
@@ -13,8 +22,10 @@ const POLL_MS = 2000;
  * Opening Scenri on a phone, a tablet or another computer on the same Wi-Fi.
  * One row, one button: Show QR code opens the code in place, with the typed
  * address and code beside it for a device without a camera, Copy link, and a
- * line that turns to Connected the moment a device opens it. If none does,
- * the help opens by itself and names this computer's actual problem.
+ * line that turns to Connected the moment a device opens it. The firewall is
+ * read the moment the code shows: when it would stop a phone, Allow Scenri
+ * says so and fixes it through the system's own prompt, before anyone scans.
+ * If no device arrives anyway, the help opens by itself.
  *
  * Read fresh every time General opens and every two seconds while the code
  * shows: the address follows whichever Wi-Fi this computer is on now.
@@ -26,6 +37,7 @@ export function PhoneAccess() {
   const [now, setNow] = useState(() => Date.now());
   const [helpOpen, setHelpOpen] = useState(false);
   const [verdict, setVerdict] = useState<FirewallVerdict | null>(null);
+  const [allowing, setAllowing] = useState<AllowState>('idle');
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -63,15 +75,23 @@ export function PhoneAccess() {
   useEffect(() => {
     if (state === 'stuck') setHelpOpen(true);
   }, [state]);
+  // Read the firewall as the code goes up, so a block is fixed before anyone scans.
+  const readFirewall = open && !!status?.thisComputer;
   useEffect(() => {
-    if (!helpOpen || verdict || !status?.thisComputer) return;
+    if (!readFirewall) return;
+    let live = true;
     api
       .phoneHelp()
-      .then((r) => setVerdict(r.firewall))
-      .catch(() => setVerdict('unknown'));
-  }, [helpOpen, verdict, status?.thisComputer]);
+      .then((r) => live && setVerdict(r.firewall))
+      .catch(() => live && setVerdict('unknown'));
+    return () => {
+      live = false;
+    };
+  }, [readFirewall]);
 
   const row = phoneRow(status, failed);
+  const notice = status ? firewallNotice(verdict, status.platform) : null;
+  const outcome = status ? allowLine(allowing, status.platform) : null;
   const link = status ? phoneLink(status) : null;
 
   const toggle = () => {
@@ -83,6 +103,19 @@ export function PhoneAccess() {
     setShownAt(t);
     setNow(t);
     setHelpOpen(false);
+    setVerdict(null);
+    setAllowing('idle');
+  };
+
+  const allow = async () => {
+    setAllowing('asking');
+    try {
+      const r = await api.phoneAllow();
+      setVerdict(r.firewall);
+      setAllowing(r.result);
+    } catch {
+      setAllowing('failed');
+    }
   };
 
   const copy = async () => {
@@ -130,6 +163,26 @@ export function PhoneAccess() {
               Or type <b className="sc-phone-key">{status.address}</b> in its browser, then enter the code{' '}
               <b className="sc-phone-key">{status.code}</b>.
             </p>
+            {status.thisComputer && notice && (
+              <div className="sc-phone-fw" role="status">
+                <p>{notice.text}</p>
+                {notice.canAllow && (
+                  <button
+                    type="button"
+                    className="sc-btn sc-btn-primary"
+                    disabled={allowing === 'asking'}
+                    onClick={() => void allow()}
+                  >
+                    {allowing === 'asking' ? 'Waiting for your permission…' : 'Allow Scenri'}
+                  </button>
+                )}
+              </div>
+            )}
+            {status.thisComputer && outcome && (
+              <p className="sc-phone-allow" data-state={allowing} aria-live="polite">
+                {outcome}
+              </p>
+            )}
             <div className="sc-phone-act">
               <button type="button" className="sc-btn sc-btn-ghost" onClick={() => void copy()}>
                 <span aria-live="polite">{copied ? 'Copied' : 'Copy link'}</span>

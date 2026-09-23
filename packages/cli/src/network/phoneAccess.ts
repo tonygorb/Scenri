@@ -20,7 +20,7 @@
 import { randomInt } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { ownAddresses, phoneAddresses } from './addresses.js';
-import { type FirewallVerdict, firewallVerdict } from './firewall.js';
+import { type AllowResult, allowScenri, type FirewallVerdict, firewallVerdict } from './firewall.js';
 
 /** No 0/O, 1/I/L: a code read off a laptop screen and typed on a phone. */
 export const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -93,7 +93,10 @@ export interface PhoneAccessDeps {
   addresses?: () => Promise<string[]>;
   own?: () => Set<string>;
   listen?: (address: string, port: number) => Promise<Closer>;
-  firewall?: () => Promise<FirewallVerdict>;
+  /** Reads this computer's firewall for the studio's port. */
+  firewall?: (port: number) => Promise<FirewallVerdict>;
+  /** Asks the operating system to let phones in; its own prompt is the consent. */
+  allow?: (port: number) => Promise<AllowResult>;
   platform?: string;
   now?: () => number;
   syncMs?: number;
@@ -110,6 +113,8 @@ export interface PhoneAccess {
   /** A device other than this computer got in. */
   visit(remote: string | undefined, ua: string | undefined): void;
   firewall(): Promise<FirewallVerdict>;
+  /** Allow was pressed on this computer: the OS prompt, then a fresh look. */
+  allow(): Promise<{ result: AllowResult; firewall: FirewallVerdict }>;
 }
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
@@ -150,7 +155,8 @@ export function createPhoneAccess(deps: PhoneAccessDeps): PhoneAccess {
   const own = deps.own ?? ownAddresses;
   const now = deps.now ?? Date.now;
   const listen = deps.listen ?? listenWith(deps.handler ?? (() => () => undefined));
-  const firewall = deps.firewall ?? (() => firewallVerdict({}));
+  const firewall = deps.firewall ?? ((p: number) => firewallVerdict({ port: p }));
+  const allowThrough = deps.allow ?? ((p: number) => allowScenri({ port: p }));
 
   let code = store.getSetting(CODE_SETTING);
   if (!code || normalizeCode(code).length !== CODE_LENGTH) {
@@ -192,6 +198,15 @@ export function createPhoneAccess(deps: PhoneAccessDeps): PhoneAccess {
   const sync = (): Promise<void> => {
     chain = chain.then(syncOnce, syncOnce);
     return chain;
+  };
+
+  /** The firewall's answer, held twenty seconds: the studio asks on every QR code. */
+  const readFirewall = async (): Promise<FirewallVerdict> => {
+    if (port === null) return 'unknown';
+    if (verdict && now() - verdict.at < 20_000) return verdict.value;
+    const value = await firewall(port).catch((): FirewallVerdict => 'unknown');
+    verdict = { at: now(), value };
+    return value;
   };
 
   /** What a phone can open right now, best first. */
@@ -247,11 +262,22 @@ export function createPhoneAccess(deps: PhoneAccessDeps): PhoneAccess {
       if (remote && own().has(remote.replace(/^::ffff:/, ''))) return;
       lastVisit = { at, device: deviceOf(ua) };
     },
-    async firewall() {
-      if (verdict && now() - verdict.at < 20_000) return verdict.value;
-      const value = await firewall().catch((): FirewallVerdict => 'unknown');
-      verdict = { at: now(), value };
-      return value;
+    firewall: readFirewall,
+    async allow() {
+      if (port === null) return { result: 'unsupported', firewall: 'unknown' };
+      const result = await allowThrough(port).catch((): AllowResult => 'failed');
+      verdict = null;
+      if (result === 'done' && mode === 'listeners') {
+        // A firewall judges a socket when it starts listening, so open the
+        // phone listeners afresh rather than wait for the next restart.
+        chain = chain.then(async () => {
+          const all = [...open.values()];
+          open.clear();
+          await Promise.all(all.map((c) => c.close().catch(() => undefined)));
+        });
+        await sync();
+      }
+      return { result, firewall: await readFirewall() };
     },
   };
 }

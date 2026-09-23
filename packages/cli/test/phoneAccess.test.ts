@@ -26,6 +26,10 @@ function registryWith(...adapters: EngineAdapter[]) {
 }
 
 /** A fake listener table: which addresses are open, and a switch to make one refuse. */
+let verdict: 'blocked' | 'ok' = 'blocked';
+let allowed = 0;
+let allowResult: 'done' | 'cancelled' = 'done';
+
 function fakeNet(initial: string[]) {
   let current = initial;
   const open = new Set<string>();
@@ -33,7 +37,12 @@ function fakeNet(initial: string[]) {
   const deps: Omit<PhoneAccessDeps, 'store'> = {
     addresses: async () => current,
     own: () => new Set(['127.0.0.1', '192.168.1.221']),
-    firewall: async () => 'public-network',
+    firewall: async () => verdict,
+    allow: async () => {
+      allowed++;
+      verdict = 'ok';
+      return allowResult;
+    },
     platform: 'win32',
     listen: async (address) => {
       if (refuse.has(address)) throw Object.assign(new Error('taken'), { code: 'EADDRINUSE' });
@@ -52,6 +61,9 @@ function fakeNet(initial: string[]) {
 }
 
 beforeEach(() => {
+  verdict = 'blocked';
+  allowed = 0;
+  allowResult = 'done';
   home = mkdtempSync(join(tmpdir(), 'sc-phone-'));
   core = createCore(home);
 });
@@ -215,9 +227,8 @@ describe('GET /api/phone', () => {
 
   it('reads the firewall only for this computer', async () => {
     const app = serve();
-    expect((await app.inject({ method: 'GET', url: '/api/phone/help' })).json()).toEqual({
-      firewall: 'public-network',
-    });
+    await app.phone.start(4747);
+    expect((await app.inject({ method: 'GET', url: '/api/phone/help' })).json()).toEqual({ firewall: 'blocked' });
     const remote = await app.inject({
       method: 'GET',
       url: `/api/phone/help?t=${app.phone.code}`,
@@ -225,6 +236,38 @@ describe('GET /api/phone', () => {
       remoteAddress: '192.168.1.50',
     });
     expect(remote.json()).toEqual({ firewall: 'unknown' });
+  });
+
+  it('Allow asks the OS once, reopens the phone listeners, and answers with a fresh look', async () => {
+    const net = fakeNet(['192.168.1.42']);
+    const app = serve(net);
+    await app.phone.start(4747);
+    expect((await app.inject({ method: 'GET', url: '/api/phone/help' })).json().firewall).toBe('blocked');
+    const res = await app.inject({ method: 'POST', url: '/api/phone/allow' });
+    expect(res.json()).toEqual({ result: 'done', firewall: 'ok' });
+    expect(allowed).toBe(1);
+    expect(net.open.has('192.168.1.42')).toBe(true);
+  });
+
+  it('a declined prompt changes nothing and says so', async () => {
+    allowResult = 'cancelled';
+    const app = serve();
+    await app.phone.start(4747);
+    expect((await app.inject({ method: 'POST', url: '/api/phone/allow' })).json().result).toBe('cancelled');
+  });
+
+  // the password or UAC prompt would appear on the computer, started by someone else's phone
+  it('never lets a phone start the firewall prompt', async () => {
+    const app = serve();
+    await app.phone.start(4747);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/phone/allow?t=${app.phone.code}`,
+      headers: { host: '192.168.1.42:4747', 'sec-fetch-site': 'same-origin' },
+      remoteAddress: '192.168.1.50',
+    });
+    expect(res.statusCode).toBe(403);
+    expect(allowed).toBe(0);
   });
 
   it('closes the phone listeners when the server drains', async () => {

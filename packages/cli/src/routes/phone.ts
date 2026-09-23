@@ -10,10 +10,21 @@ export function registerPhoneRoutes(app: FastifyInstance, deps: { phone: PhoneAc
   const { phone } = deps;
   app.get('/api/phone', async (req) => phone.status(fromThisComputer(req)));
 
-  /** Why a phone might not open it: asked only when the studio's help is showing. */
+  /** Whether this computer's firewall would stop a phone: asked when the QR code opens. */
   app.get('/api/phone/help', async (req, reply) => {
     // only the computer running Scenri can act on its own firewall
     if (!fromThisComputer(req)) return reply.send({ firewall: 'unknown' });
     return reply.send({ firewall: await phone.firewall() });
+  });
+
+  /**
+   * Allow was pressed. The operating system asks for a password or a UAC
+   * yes, so only the person at this computer may start it, never a phone.
+   */
+  app.post('/api/phone/allow', async (req, reply) => {
+    if (!fromThisComputer(req)) {
+      return reply.status(403).send({ error: 'Change this on the computer running Scenri.' });
+    }
+    return reply.send(await phone.allow());
   });
 }

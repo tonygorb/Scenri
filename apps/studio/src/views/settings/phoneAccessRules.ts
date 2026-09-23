@@ -1,4 +1,4 @@
-import type { FirewallVerdict, PhoneStatus } from '../../apiTypes.js';
+import type { AllowResult, FirewallVerdict, PhoneStatus } from '../../apiTypes.js';
 
 /** How long the QR code shows before "Not opening?" opens by itself. */
 export const STUCK_AFTER_MS = 30_000;
@@ -47,26 +47,59 @@ export function arrivalLine(state: Arrival, s: PhoneStatus): string {
 }
 
 /**
- * What to try, most likely first. The firewall line names this computer's
- * actual problem when the server could read it; otherwise the general line.
+ * The firewall, said up front the moment the code shows, never left for a
+ * phone to discover. Blocked is fixable with one press; blocking everything
+ * is the person's own setting, so it gets the way to undo it and no button.
  */
-export function helpLines(verdict: FirewallVerdict | null, s: PhoneStatus): string[] {
-  const lines: string[] = [];
-  if (verdict === 'blocked' && s.platform === 'darwin') {
-    lines.push(
-      "Your Mac's firewall is blocking Scenri. Open System Settings, Network, Firewall, Options, and set node to allow incoming connections.",
-    );
-  } else if (verdict === 'blocked' && s.platform === 'win32') {
-    lines.push(
-      'Windows Firewall is blocking Scenri. Open Windows Security, Firewall and network protection, Allow an app through firewall, and tick Node.js for Private and Public.',
-    );
-  } else if (verdict === 'public-network') {
-    lines.push(
-      'Windows treats this Wi-Fi as public, where Scenri is not allowed. Open Settings, Network and internet, Wi-Fi, choose this network, and set it to Private.',
-    );
+export function firewallNotice(
+  verdict: FirewallVerdict | null,
+  platform: string,
+): { text: string; canAllow: boolean } | null {
+  if (verdict === 'blocked' && platform === 'darwin') {
+    return { text: "Your Mac's firewall is blocking Scenri, so your phone cannot open it yet.", canAllow: true };
   }
-  lines.push('Your phone has to be on the same Wi-Fi as this computer. Guest networks keep devices apart.');
-  if (verdict !== 'blocked' && verdict !== 'public-network' && verdict !== 'ok') {
+  if (verdict === 'blocked' && platform === 'win32') {
+    return {
+      text: 'Windows Firewall is blocking Scenri on this network, so your phone cannot open it yet.',
+      canAllow: true,
+    };
+  }
+  if (verdict === 'blocks-all') {
+    return {
+      text: "Your Mac's firewall blocks every incoming connection. To open Scenri on your phone, turn off Block all incoming connections in System Settings, Network, Firewall, Options.",
+      canAllow: false,
+    };
+  }
+  return null;
+}
+
+export type AllowState = 'idle' | 'asking' | AllowResult;
+
+/** What pressing Allow Scenri is doing, or how it ended. */
+export function allowLine(state: AllowState, platform: string): string | null {
+  const mac = platform === 'darwin';
+  switch (state) {
+    case 'asking':
+      return mac ? 'Enter your Mac password to allow Scenri.' : 'Choose Yes when Windows asks to allow Scenri.';
+    case 'done':
+      return 'Allowed. Scan the code again.';
+    case 'cancelled':
+      return 'Nothing changed. Press Allow Scenri to try again.';
+    case 'failed':
+    case 'unsupported':
+      return mac
+        ? 'Could not change the firewall. Open System Settings, Network, Firewall, Options, and set node to allow incoming connections.'
+        : 'Could not change the firewall. Open Windows Security, Firewall and network protection, Allow an app through firewall, and tick Node.js for Private and Public.';
+    default:
+      return null;
+  }
+}
+
+/** What to try when the firewall is not the reason, most likely first. */
+export function helpLines(verdict: FirewallVerdict | null, s: PhoneStatus): string[] {
+  const lines = ['Your phone has to be on the same Wi-Fi as this computer. Guest networks keep devices apart.'];
+  // a firewall this computer could read is named above the help, with its fix
+  if (verdict !== 'blocked' && verdict !== 'blocks-all' && verdict !== 'ok') {
     lines.push('If this computer asks whether node may accept incoming connections, allow it.');
   }
   lines.push("If your phone's browser asks to find devices on your local network, allow it.");
