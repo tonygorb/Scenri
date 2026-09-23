@@ -755,7 +755,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         .filter((t) => t.t === 'product' || t.t === 'character' || t.t === 'mark' || t.t === 'ref')
         .map(identityTokenKey),
     );
-    const inheritedTokens = borrowed.filter((t) => !already.has(identityTokenKey(t)));
+    // A refine that brings its own picture replaces the picture it carried:
+    // "use [the new screen] instead" beside the old screen, carried as a
+    // reference, came back unchanged, and without it the swap landed (1 of 1,
+    // 2026-09-23). The source frame already holds the old composition and light.
+    const bringsPicture = (brief.tokens as BriefToken[]).some((t) => t.t === 'ref');
+    const inheritedTokens = borrowed.filter(
+      (t) => !already.has(identityTokenKey(t)) && !(bringsPicture && t.t === 'ref'),
+    );
     // The catalogs resolve only the ids they are shown, so a carried demo
     // product or curated presenter must be in the token list the brand json
     // is built against, or it compiles to "no longer in the kit".

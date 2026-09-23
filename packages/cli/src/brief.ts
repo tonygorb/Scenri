@@ -37,6 +37,7 @@ import {
   productHandlingDirective,
   productFramingDirective,
   productScaleDirective,
+  editScreenDirective,
   productSurfaceDirective,
   referenceIdentityGuard,
   sceneFigureDirectives,
@@ -1088,6 +1089,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     // After the camera line: a scene read from a wide picture names a wide
     // camera, and said first this lost to it (a phone stood frontal, 2 of 2).
     ...(productId && ctx.mode !== 'edit' ? [productSurfaceDirective(!hasPerson, refSaid)] : []),
+    ...(ctx.mode === 'edit' && refSaid ? [editScreenDirective()] : []),
     ...apparelUnworn,
     ...brandLines,
     ...guard,

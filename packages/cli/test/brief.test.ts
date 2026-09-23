@@ -190,6 +190,8 @@ describe('compileBrief', () => {
     expect(screen.prompt).toContain('never add a screen to a product that has none');
     // a mockup or browser window around the picture is not carried onto the product
     expect(screen.prompt).toContain('only what that screen shows goes onto this one');
+    // a phone design on a wide screen becomes the desktop app, not the phone app stretched
+    expect(screen.prompt).toContain('its navigation in a sidebar or top bar');
     const chipAlone = compileBrief(
       {
         tokens: [
@@ -204,6 +206,10 @@ describe('compileBrief', () => {
     expect(noProduct.prompt).not.toContain('the screen is on and shows it');
     const edit = compileBrief({ tokens }, ctx({ mode: 'edit' }));
     expect(edit.prompt).not.toContain('the screen is on and shows it');
+    // a refine that names a picture for a screen swaps what the screen shows, and nothing else
+    expect(edit.prompt).toContain('that screen now shows that image and nothing of what it showed before');
+    const plainEdit = compileBrief({ tokens: [{ t: 'text', v: 'warmer light' }] }, ctx({ mode: 'edit' }));
+    expect(plainEdit.prompt).not.toContain('that screen now shows');
   });
 
   // 2026-09-22: "rests on, hangs from, is worn by or is held by something

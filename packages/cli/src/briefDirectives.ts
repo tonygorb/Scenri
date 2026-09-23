@@ -378,10 +378,27 @@ export function productSurfaceDirective(alone: boolean, screenContent = false): 
         "finger or hand, at the screen's perspective and brightness, the product's own shape untouched. Keep the " +
         "interface's layout, colours, type and content as closely as the screen allows; where it was made for a " +
         'differently shaped screen, or the words ask for another version of it, show the same interface as it would ' +
-        'be designed for this screen, never squeezed or cropped, unless the words ask for it exactly as it is. Where ' +
+        'be designed for this screen, never squeezed or cropped, unless the words ask for it exactly as it is: a phone ' +
+        "design on a wide screen becomes that app's desktop version, its navigation in a sidebar or top bar and its " +
+        'content spread into columns, with no phone status bar or bottom tab bar; a wide design on a phone becomes one ' +
+        'column with its navigation in a bottom bar. Where ' +
         'the attached image shows the interface inside a device or a browser window, only what that screen shows ' +
         'goes onto this one, with no second device or window frame; and never add a screen to a product that has none.'
       : '')
+  );
+}
+
+/**
+ * A refine that brings a new picture for a screen. Edits skip the glossy
+ * directive, so "use [the new screen] on the screen instead" reached the model
+ * as a preserve-everything edit with the old interface carried beside it, and
+ * the picture came back unchanged (1 of 1, 2026-09-23).
+ */
+export function editScreenDirective(): string {
+  return (
+    'Where the words put an attached image on a screen in this photograph, that screen now shows that image and ' +
+    'nothing of what it showed before, fitted inside the same screen at the same angle, glass and light; nothing ' +
+    'else in the photograph changes.'
   );
 }
 
