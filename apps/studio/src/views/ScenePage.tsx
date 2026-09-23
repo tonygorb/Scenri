@@ -280,10 +280,10 @@ export function ScenePage() {
       ? [{ src: scene.previewUrl, label: 'The place' }]
       : [];
 
-  /** A curated set is photographed with a demo product standing in for the art direction. */
+  /** A curated set is photographed with a demo product or presenter standing in for the art direction. */
   const caption =
     scene.subject !== 'person' && frames.length > 0
-      ? 'Shown with a demo product for reference. Yours replaces it.'
+      ? 'Shown with a demo product or presenter for reference. Yours replaces it.'
       : '';
 
   const marked = !owned && marks.includes(scene.id);
