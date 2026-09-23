@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { bookmarkedScenes, toggleBookmarkScene } from '../src/bookmarks.js';
+import { bookmarkedScenes, keptIds, setKept, toggleBookmarkScene, toggleKept } from '../src/bookmarks.js';
 
 const BRAND = 'acme';
 const CUR = `sc-favscenes-${BRAND}`;
@@ -100,5 +100,24 @@ describe('malformed storage', () => {
     localStorage.setItem(CUR, '{not json');
     expect(toggleBookmarkScene(BRAND, 'a')).toEqual(['a']);
     expect(bookmarkedScenes(BRAND)).toEqual(['a']);
+  });
+});
+
+describe('presenters and products', () => {
+  it('keeps a presenter list beside the scene list', () => {
+    toggleKept('scene', BRAND, 'loft');
+    expect(toggleKept('presenter', BRAND, 'noa')).toEqual(['noa']);
+    expect(keptIds('presenter', BRAND)).toEqual(['noa']);
+    expect(bookmarkedScenes(BRAND)).toEqual(['loft']);
+    expect(keptIds('product', BRAND)).toEqual([]);
+  });
+
+  it('adds only the cards that are not kept, and removes only the ones that are', () => {
+    toggleKept('product', BRAND, 'a');
+    expect(setKept('product', BRAND, ['a', 'b'], true)).toEqual(['a', 'b']);
+    expect(setKept('product', BRAND, ['a', 'b'], false)).toEqual([]);
+    toggleKept('product', BRAND, 'a');
+    toggleKept('product', BRAND, 'b');
+    expect(setKept('product', BRAND, ['b'], false)).toEqual(['a']);
   });
 });

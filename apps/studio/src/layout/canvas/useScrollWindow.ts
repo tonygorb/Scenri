@@ -14,6 +14,8 @@ interface ScrollWindow {
   anchor: RefObject<FeedAnchor | null>;
   /** Read the scroller now, before paint, after something moved it on purpose. */
   resync: () => void;
+  /** Keep this tile as the anchor until `until` (a performance.now() time); null lets go. */
+  hold: (anchor: FeedAnchor | null, until?: number) => void;
 }
 
 export interface FeedAnchor {
@@ -40,6 +42,10 @@ export function useScrollWindow(feedEl: HTMLElement | null, enabled: boolean): S
     height: typeof window === 'undefined' ? 0 : window.innerHeight,
   }));
   const anchor = useRef<FeedAnchor | null>(null);
+  const held = useRef<{ anchor: FeedAnchor; until: number } | null>(null);
+  const hold = useRef((a: FeedAnchor | null, until = 0) => {
+    held.current = a ? { anchor: a, until } : null;
+  }).current;
   const readNow = useRef<() => void>(() => {});
   const resync = useRef(() => readNow.current()).current;
   useLayoutEffect(() => {
@@ -49,6 +55,15 @@ export function useScrollWindow(feedEl: HTMLElement | null, enabled: boolean): S
     let raf = 0;
     let again = 0;
     const record = () => {
+      // A tile being put back after a reflow is the anchor until it lets go:
+      // a read taken mid-reflow found some other tile under the edge, and the
+      // next close-and-reopen came back to that one instead.
+      const h = held.current;
+      if (h && performance.now() < h.until) {
+        anchor.current = h.anchor;
+        return;
+      }
+      held.current = null;
       anchor.current = scroller.scrollTop > 0 ? anchorOf(feedEl, feedEdge(scroller), anchor.current?.id) : null;
     };
     const read = () => {
@@ -81,7 +96,7 @@ export function useScrollWindow(feedEl: HTMLElement | null, enabled: boolean): S
       ro.disconnect();
     };
   }, [feedEl, enabled]);
-  return { ...win, anchor, resync };
+  return { ...win, anchor, resync, hold };
 }
 
 /**

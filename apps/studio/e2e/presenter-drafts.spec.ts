@@ -71,7 +71,7 @@ test('Create presenter starts a new conversation however many drafts are waiting
   await expect(turn(page, 'you:look-who')).toContainText('Woman');
 
   await page.goto(`/${brand.slug}/presenters`);
-  await page.getByRole('button', { name: 'Create presenter' }).click();
+  await page.getByRole('button', { name: 'New presenter' }).click();
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
 
   // the first question, and nothing of either the seeded draft or the
@@ -113,7 +113,7 @@ test('the old brand-scoped session keys are not read', async ({ page }) => {
     { id: seeded, brandId: brand.id },
   );
 
-  await page.getByRole('button', { name: 'Create presenter' }).click();
+  await page.getByRole('button', { name: 'New presenter' }).click();
   // not replaced into the pointed-at draft, and not holding its answers
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
   await expect(answer(page, 'Describe someone')).toBeVisible();
@@ -199,7 +199,12 @@ test('discarding a drawn draft asks first, and cancelling keeps it', async ({ pa
   ).json();
 
   await page.goto(`/${brand.slug}/presenters`);
-  const puck = (id: string) => page.locator(`a[href$="/presenters/new/${id}"]`).locator('..').getByRole('button');
+  // the card also carries its Select tick, so the puck is found by what it does
+  const puck = (id: string) =>
+    page
+      .locator(`a[href$="/presenters/new/${id}"]`)
+      .locator('..')
+      .getByRole('button', { name: /^Discard / });
 
   // the drawn one asks, and Cancel leaves it where it was
   await puck(drawn).click();

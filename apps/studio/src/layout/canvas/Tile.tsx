@@ -1,10 +1,11 @@
 import { memo } from 'react';
 import { Link } from 'react-router';
 import { ContextMenu } from '@radix-ui/themes';
-import { imgUrl, nodeLabel, thumbUrl, type FeedNode } from '../../api.js';
+import { imgUrl, nodeLabel, thumbUrl, type FeedNode, type ShotSet } from '../../api.js';
 import { aspectOfFormat } from '../../composer/formats.js';
 import { FeedImage } from './FeedImage.js';
 import { ShotChrome } from './ShotChrome.js';
+import { ShotMenuGlyph } from './ShotMenuGlyph.js';
 import { shotMenuItems } from './shotMenu.js';
 
 /**
@@ -33,6 +34,13 @@ export interface TileHandlers {
   onArchive?: (node: FeedNode) => void;
   /** Asks; the feed owns the one confirm dialog for the whole grid. */
   onDeleteAsk?: (node: FeedNode) => void;
+  onRemoveFromSet?: (node: FeedNode, set: ShotSet) => void;
+  /** Membership verbs for the current pick. Used when this tile is in it. */
+  onKeepPicked?: () => void;
+  onArchivePicked?: () => void;
+  onRestorePicked?: () => void;
+  onDeletePickedAsk?: () => void;
+  onRemovePickedFromSet?: (set: ShotSet) => void;
 }
 
 /** A finished shot: the picture, its chrome, and the same verbs in a context menu. */
@@ -45,6 +53,9 @@ export const Tile = memo(function Tile({
   batching,
   versions,
   handlers: h,
+  inSet,
+  filedIn,
+  pickedMeta,
 }: {
   node: FeedNode;
   selected: boolean;
@@ -55,6 +66,10 @@ export const Tile = memo(function Tile({
   batching: boolean;
   versions: number;
   handlers: TileHandlers;
+  inSet?: ShotSet | null;
+  filedIn?: ShotSet[];
+  /** The pick's shape, when one is being built. Labels Keep/Archive/Delete. */
+  pickedMeta?: { count: number; allKept: boolean; archived: boolean } | null;
 }) {
   /** The shot's verbs, built once so the two menus offering them agree. */
   const menu = shotMenuItems(n, {
@@ -69,6 +84,24 @@ export const Tile = memo(function Tile({
     onToggleKeep: h.onToggleKeep,
     onArchive: h.onArchive,
     onDeletePermanently: h.onDeleteAsk,
+    inSet,
+    filedIn,
+    onRemoveFromSet: h.onRemoveFromSet ? (s) => h.onRemoveFromSet?.(n, s) : undefined,
+    // Finder: a right-click on a picked tile is the selection's menu. An
+    // unpicked tile under an existing pick keeps its own one-shot verbs —
+    // stealing the batch from under it is the other convention, and the
+    // wrong one for a feed whose bar already names the pick.
+    batch:
+      batching && chosen && pickedMeta && h.onKeepPicked
+        ? {
+            ...pickedMeta,
+            onKeep: h.onKeepPicked,
+            onArchive: h.onArchivePicked ?? (() => {}),
+            onRestore: h.onRestorePicked ?? (() => {}),
+            onDelete: h.onDeletePickedAsk ?? (() => {}),
+            onRemoveFromSet: h.onRemovePickedFromSet,
+          }
+        : null,
   });
   return (
     <ContextMenu.Root>
@@ -105,6 +138,9 @@ export const Tile = memo(function Tile({
             menu={menu}
             onPick={h.onPick}
             onBranch={h.onBranch}
+            onToggleKeep={h.onToggleKeep}
+            onArchive={h.onArchive}
+            onDelete={h.onDeleteAsk}
           />
         </div>
       </ContextMenu.Trigger>
@@ -113,6 +149,7 @@ export const Tile = memo(function Tile({
           <span key={it.key} style={{ display: 'contents' }}>
             {it.separated && <ContextMenu.Separator />}
             <ContextMenu.Item color={it.danger ? 'red' : undefined} onSelect={it.onSelect}>
+              <ShotMenuGlyph name={it.icon} />
               {it.label}
             </ContextMenu.Item>
           </span>

@@ -59,7 +59,7 @@ export function LibraryEmpty({
  * match these filters" is true of every empty result and so tells you nothing;
  * quoting the term and naming the facet tells you which of the two to undo,
  * and the actions are exactly the undos that apply — never both when only one
- * is set. No creation CTA: it is already in the row directly above, and a
+ * is set. No creation CTA: it is already New in the top bar, and a
  * failed search is the wrong moment to sell.
  */
 export function LibraryZero({

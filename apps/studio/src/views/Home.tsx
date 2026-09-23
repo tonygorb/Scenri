@@ -376,6 +376,7 @@ export function HomeView() {
                       key={s.id}
                       entry={s}
                       size="grid"
+                      hideRecipe
                       onOpen={openShowcase}
                       productHref={(id) => productPath(brand, id)}
                       presenterHref={(id) => presenterPath(brand, id)}

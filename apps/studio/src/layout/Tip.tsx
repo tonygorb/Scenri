@@ -23,6 +23,14 @@ export function Tip({ label, open, children }: { label: string; open?: boolean; 
 }
 
 /**
+ * The same tip on a card's icon, on Create and on a catalog wall. Touch has
+ * no hover, and a tap there is the action, so the control is returned bare.
+ */
+export function iconTip(label: string, control: ReactElement, touch: boolean): ReactElement {
+  return touch ? control : <Tip label={label}>{control}</Tip>;
+}
+
+/**
  * Radix opens a tooltip on any focus, including the focus a menu or dialog
  * hands back to its trigger as it closes. After a click that is a tooltip
  * nobody asked for, so focus opens it only when the keyboard moved last. The

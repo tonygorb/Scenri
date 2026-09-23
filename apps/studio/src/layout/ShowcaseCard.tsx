@@ -35,10 +35,11 @@ type Credit = {
  * "Recreate this" pill (always `variant="use"` with the same handler for
  * both — no separate `variant` prop, unlike the other cards) — a showcase
  * tile has no separate detail page the way a Scene or Presenter does, so
- * open and use are the same action. On Home both land the recipe in the
- * docked composer without leaving the wall. The caption's second line names
- * the recipe (product, presenter if any, scene) rather than a category, so
- * hovering tells you what's actually in the shot before you click through.
+ * open and use are the same action. That is the only action, so the card
+ * has no menu. On Home both land the recipe in the
+ * docked composer without leaving the wall. The caption is the title. The
+ * credits on the picture already name the recipe, so a second line under the
+ * title would say it again.
  *
  * Top-left credits: one glass material for the presenter pill, product/scene
  * thumbs, and the + joins. Hovering any credit portals an 80×80 glass-framed
@@ -149,7 +150,7 @@ export function ShowcaseCard({
 
 /** One skeleton shape, every list that hasn't resolved the showcase gallery yet. */
 export function ShowcaseCardSkeleton(props: { size?: ShowcaseCardSize; count?: number }) {
-  return <CatalogCardSkeleton {...props} />;
+  return <CatalogCardSkeleton {...props} caption={false} />;
 }
 
 /** Presenter + recipe thumbs; one open preview tip shared across all credits. */

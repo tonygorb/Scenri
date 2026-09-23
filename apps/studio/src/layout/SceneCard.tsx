@@ -1,5 +1,7 @@
 import type { Scene } from '../api.js';
 import { sceneLabel } from '../displayName.js';
+import { catalogMenuItems } from './catalogMenu.js';
+import { catalogBatchItems } from './catalogPick.js';
 import { CatalogCard, CatalogCardSkeleton, type CatalogCardSize, type CatalogCardVariant } from './CatalogCard.js';
 
 export type SceneCardVariant = CatalogCardVariant;
@@ -27,6 +29,12 @@ export function SceneCard({
   onToggle,
   bookmarked,
   onBookmark,
+  onDelete,
+  onRename,
+  chosen,
+  batching,
+  onPick,
+  batch,
   size = 'grid',
 }: {
   scene: Scene;
@@ -45,15 +53,54 @@ export function SceneCard({
   /** Bookmark this scene from the card, where the browsing happens. */
   bookmarked?: boolean;
   onBookmark?: (id: string) => void;
+  /** A scene you own. Opens the same delete confirm the scene page uses. */
+  onDelete?: (id: string) => void;
+  /** A scene you own. The same name write the scene page already saves. */
+  onRename?: (id: string) => void;
+  /** This card is in the wall's pick. */
+  chosen?: boolean;
+  /** A pick of this kind is being built, so a tap toggles instead of opening. */
+  batching?: boolean;
+  /** Present when this card can join the pick. */
+  onPick?: (id: string) => void;
+  /** Set when this card is in the pick: the right-click becomes the pick's menu. */
+  batch?: { count: number; onAct: () => void; onKeep?: () => void; allKept?: boolean } | null;
   size?: SceneCardSize;
 }) {
+  // Home's shelf attaches the scene. There is no page behind that click, so
+  // the menu is the one verb the click already performs.
+  const shelf = !href && !onUse && !!onOpen;
+  const menu =
+    batch && onDelete
+      ? catalogBatchItems({
+          kind: 'owned-scene',
+          count: batch.count,
+          openLabel: 'Open',
+          onOpen: () => onOpen?.(scene.id),
+          href,
+          onDeselect: () => onPick?.(scene.id),
+          onAct: batch.onAct,
+          onKeep: batch.onKeep,
+          allKept: batch.allKept,
+        })
+      : shelf
+        ? catalogMenuItems({ only: { label: 'Use in a shot', run: () => onOpen(scene.id) } })
+        : catalogMenuItems({
+            onOpen: onOpen ? () => onOpen(scene.id) : undefined,
+            href,
+            use: onUse ? { label: 'Use in a shot', run: () => onUse(scene.id) } : undefined,
+            select: onPick ? { run: () => onPick(scene.id) } : undefined,
+            keep: onBookmark ? { on: !!bookmarked, run: () => onBookmark(scene.id) } : undefined,
+            onRename: onRename ? () => onRename(scene.id) : undefined,
+            remove: onDelete ? { label: 'Delete scene', run: () => onDelete(scene.id) } : undefined,
+          });
   return (
     <CatalogCard
       id={scene.id}
       previewUrl={scene.previewUrl}
       title={scene.description || sceneLabel(scene, 'tooltip')}
       primary={sceneLabel(scene, 'card')}
-      secondary={scene.lighting}
+      secondary=""
       useLabel="Use in a shot"
       variant={variant}
       onOpen={onOpen}
@@ -63,6 +110,10 @@ export function SceneCard({
       onToggle={onToggle}
       bookmarked={bookmarked}
       onBookmark={onBookmark}
+      menu={menu}
+      chosen={chosen}
+      batching={batching}
+      onPick={onPick}
       size={size}
     />
   );

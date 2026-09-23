@@ -3,7 +3,7 @@ import { Aperture, CaretDown, FilmSlate, IdentificationBadge, Package, Plus } fr
 import { BarMenu, BarRow } from './BarMenu.js';
 import { thumbOf } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
-import { useCreateAsset } from '../../create/AssetCreateHost.js';
+import { useCreateAsset, usePageCreateKind } from '../../create/AssetCreateHost.js';
 import { useKindPreview } from '../../create/useKindPreview.js';
 import { useMainNav } from '../nav.js';
 import type { CreateKind } from '../../createDraft.js';
@@ -20,14 +20,22 @@ const INGREDIENTS: { kind: CreateKind; label: string; line: string; noun: string
   { kind: 'scene', label: 'Scene', line: 'The place and its light', noun: 'scene', icon: FilmSlate },
 ];
 
+const PAGE_NEW: Record<CreateKind, string> = {
+  product: 'New product',
+  presenter: 'New presenter',
+  scene: 'New scene',
+};
+
 /**
  * Making something, as one control with two halves.
  *
- * The filled half does the usual thing straight away: it opens Create with the
- * composer up. The caret offers the same act plus the three things a shot is
- * made from. A solid primary that only opens a menu promises an action it does
- * not perform, and an unlabelled plus was the opposite problem: it performed one
- * nobody could name.
+ * The filled half does the usual thing straight away: a shot on Home and
+ * Create, and this page's ingredient on Products, Presenters and Scenes. The
+ * caret offers the shot plus the three things a shot is made from. A solid
+ * primary that only opens a menu promises an action it does not perform, and
+ * an unlabelled plus was the opposite problem: it performed one nobody could
+ * name. The visible word is one label, shortened when the bar is tight:
+ * "New presenter" from 961px, "New" below that, never the noun alone.
  *
  * The menu leads with the shot rather than listing only the ingredients, because
  * a menu that offers everything except the usual thing makes you hunt for the
@@ -42,6 +50,7 @@ const INGREDIENTS: { kind: CreateKind; label: string; line: string; noun: string
  */
 export function NewButton() {
   const createAsset = useCreateAsset();
+  const pageKind = usePageCreateKind();
   const preview = useKindPreview();
   // A finished shot on the row that makes one, from the wall the app has already
   // loaded. No fetch of its own, and a glyph if it has not arrived: the lead row
@@ -53,13 +62,30 @@ export function NewButton() {
   // open on All: a shot starts from what goes in it, so New lands there.
   const create = useMainNav(16).find((i) => i.key === 'create');
   const newShot = create ? `${create.to}&attach=all` : '';
+  const pageLabel = pageKind ? PAGE_NEW[pageKind] : 'New';
 
   return (
     <div className="sc-new">
-      <Link className="sc-new-go" to={newShot} aria-label="New shot" data-attach-opener="">
-        <Plus size={14} weight="bold" className="sc-new-plus" aria-hidden="true" />
-        <span className="sc-new-lb">New</span>
-      </Link>
+      {pageKind ? (
+        <button
+          type="button"
+          className="sc-new-go"
+          aria-label={pageLabel}
+          data-guide="library.new"
+          onClick={() => createAsset(pageKind)}
+        >
+          <Plus size={14} weight="bold" className="sc-new-plus" aria-hidden="true" />
+          <span className="sc-new-lb">
+            <span className="sc-new-verb">New </span>
+            <span className="sc-new-kind">{pageKind}</span>
+          </span>
+        </button>
+      ) : (
+        <Link className="sc-new-go" to={newShot} aria-label="New shot" data-attach-opener="">
+          <Plus size={14} weight="bold" className="sc-new-plus" aria-hidden="true" />
+          <span className="sc-new-lb">New</span>
+        </Link>
+      )}
       <span className="sc-new-split" aria-hidden="true" />
       <BarMenu
         label="New"

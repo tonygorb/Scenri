@@ -204,10 +204,19 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectRouteDe
     core.store.addToSet(set.id, nodeIds);
     return { ok: true, added: nodeIds.length, nodeIds: core.store.membersOf(set.id) };
   });
+  app.post('/api/sets/:id/nodes/remove', async (req, reply) => {
+    const set = core.store.getSet((req.params as any).id);
+    if (!set) return reply.status(404).send({ error: 'set not found' });
+    const raw = (req.body as any)?.nodeIds;
+    const nodeIds = (Array.isArray(raw) ? raw : []).map(String).filter(Boolean);
+    if (nodeIds.length === 0) return reply.status(400).send({ error: 'nodeIds must name at least one shot' });
+    core.store.removeFromSet(set.id, nodeIds);
+    return { ok: true, nodeIds: core.store.membersOf(set.id) };
+  });
   app.delete('/api/sets/:id/nodes/:nodeId', async (req, reply) => {
     const { id, nodeId } = req.params as any;
     if (!core.store.getSet(id)) return reply.status(404).send({ error: 'set not found' });
-    core.store.removeFromSet(id, nodeId);
+    core.store.removeFromSet(id, [nodeId]);
     return { ok: true, nodeIds: core.store.membersOf(id) };
   });
 }

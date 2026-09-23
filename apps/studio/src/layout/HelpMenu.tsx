@@ -18,20 +18,20 @@ import { useWhatsNew } from '../app/WhatsNew.js';
 import { useUpdateCenter } from '../app/UpdateCenter.js';
 import { FIRST_USE } from '../firstUse.js';
 import { P } from '../routes.js';
-import { useMediaQuery } from '../useMediaQuery.js';
 import { Tip } from './Tip.js';
 
-const WIDE = '(min-width: 1024px)';
 const GITHUB = 'https://github.com/tonygorb/scenri';
 
 /**
  * Help, in one place (DESIGN.md, "First use"): Learn, every lesson there is
  * (the bar carries it too from 1024px), the welcome again, and the help the
- * app already has, gathered. From 1024px it floats in the
- * bottom-right corner, clear of the assets rail; below that the corner belongs
- * to the composer and the tab bar, so it sits in the top bar beside the bell.
+ * app already has, gathered. It is always the corner float, never a second
+ * icon in the top bar. From 1024px it sits 16px off the bottom-right, and
+ * steps left of the assets rail. On a phone it parks above the tab bar, and
+ * above a composer that has gone full width. Between those widths the
+ * composer is an island, so the same 16px corner as desktop is free.
  */
-export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
+export function HelpMenu() {
   const hub = useMatch(P.hub);
   const set = useMatch(P.set);
   const onCreate = !!hub || !!set;
@@ -50,96 +50,86 @@ export function HelpMenu({ placement }: { placement: 'float' | 'bar' }) {
   const { engines } = useAppData();
   const noEngine = !engines.some((e) => e.available);
 
-  const menu = (
-    <DropdownMenu.Root>
-      <Tip label="Help">
-        <DropdownMenu.Trigger>
-          <button type="button" className="sc-icon-btn sc-help-btn" aria-label="Help">
-            <Question size={16} />
-            {showDot && <span className="sc-upd-dot" aria-hidden="true" />}
-          </button>
-        </DropdownMenu.Trigger>
-      </Tip>
-      <DropdownMenu.Content
-        align="end"
-        side={placement === 'float' ? 'top' : 'bottom'}
-        sideOffset={8}
-        className="sc-menu sc-help-menu"
-      >
-        {updateAvailable && (
-          <DropdownMenu.Item className="sc-menu-item" data-update="" onSelect={() => openSettings('about')}>
-            <ArrowCircleUp size={18} className="sc-menu-ic" />
-            <span className="sc-menu-lb">Update available · {updates.status?.latest}</span>
-          </DropdownMenu.Item>
-        )}
-        {/* The ways into first use, gone with it while it is paused (firstUse.ts). */}
-        {FIRST_USE && (
-          <>
-            <DropdownMenu.Item
-              className="sc-menu-item"
-              onSelect={() => {
-                learnOpener.current = 'help';
-                openLearn();
-              }}
-            >
-              <GraduationCap size={18} className="sc-menu-ic" />
-              <span className="sc-menu-lb">Learn</span>
+  return (
+    <div className="sc-help-float">
+      <DropdownMenu.Root>
+        <Tip label="Help">
+          <DropdownMenu.Trigger>
+            <button type="button" className="sc-icon-btn sc-help-btn" aria-label="Help">
+              <Question size={16} />
+              {showDot && <span className="sc-upd-dot" aria-hidden="true" />}
+            </button>
+          </DropdownMenu.Trigger>
+        </Tip>
+        <DropdownMenu.Content align="end" side="top" sideOffset={8} className="sc-menu sc-help-menu">
+          {updateAvailable && (
+            <DropdownMenu.Item className="sc-menu-item" data-update="" onSelect={() => openSettings('about')}>
+              <ArrowCircleUp size={18} className="sc-menu-ic" />
+              <span className="sc-menu-lb">Update available · {updates.status?.latest}</span>
             </DropdownMenu.Item>
-            <DropdownMenu.Item className="sc-menu-item" onSelect={() => openWelcome()}>
-              <HandWaving size={18} className="sc-menu-ic" />
-              <span className="sc-menu-lb">{WELCOME.again}</span>
-            </DropdownMenu.Item>
-          </>
-        )}
-        {onCreate && (
-          <DropdownMenu.Item
-            className="sc-menu-item"
-            onSelect={() => window.dispatchEvent(new Event('scenri:shortcuts'))}
-          >
-            <Keyboard size={18} className="sc-menu-ic" />
-            <span className="sc-menu-lb">Keyboard shortcuts</span>
-          </DropdownMenu.Item>
-        )}
-        <DropdownMenu.Item className="sc-menu-item" onSelect={() => whatsNew.open()}>
-          <Megaphone size={18} className="sc-menu-ic" />
-          <span className="sc-menu-lb">What's new</span>
-          {whatsNew.unread && (
+          )}
+          {/* The ways into first use, gone with it while it is paused (firstUse.ts). */}
+          {FIRST_USE && (
             <>
-              <span className="sc-menu-new" aria-hidden="true" />
-              <span className="sc-vh">, not read yet</span>
+              <DropdownMenu.Item
+                className="sc-menu-item"
+                onSelect={() => {
+                  learnOpener.current = 'help';
+                  openLearn();
+                }}
+              >
+                <GraduationCap size={18} className="sc-menu-ic" />
+                <span className="sc-menu-lb">Learn</span>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item className="sc-menu-item" onSelect={() => openWelcome()}>
+                <HandWaving size={18} className="sc-menu-ic" />
+                <span className="sc-menu-lb">{WELCOME.again}</span>
+              </DropdownMenu.Item>
             </>
           )}
-        </DropdownMenu.Item>
-        {noEngine && (
-          <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSetup()}>
-            <Lightning size={18} className="sc-menu-ic" />
-            <span className="sc-menu-lb">Set up image generation</span>
+          {onCreate && (
+            <DropdownMenu.Item
+              className="sc-menu-item"
+              onSelect={() => window.dispatchEvent(new Event('scenri:shortcuts'))}
+            >
+              <Keyboard size={18} className="sc-menu-ic" />
+              <span className="sc-menu-lb">Keyboard shortcuts</span>
+            </DropdownMenu.Item>
+          )}
+          <DropdownMenu.Item className="sc-menu-item" onSelect={() => whatsNew.open()}>
+            <Megaphone size={18} className="sc-menu-ic" />
+            <span className="sc-menu-lb">What's new</span>
+            {whatsNew.unread && (
+              <>
+                <span className="sc-menu-new" aria-hidden="true" />
+                <span className="sc-vh">, not read yet</span>
+              </>
+            )}
           </DropdownMenu.Item>
-        )}
-        <div className="sc-menu-sep" />
-        <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSettings('about')}>
-          <Info size={18} className="sc-menu-ic" />
-          <span className="sc-menu-lb">About Scenri</span>
-        </DropdownMenu.Item>
-        <DropdownMenu.Item className="sc-menu-item" asChild>
-          <a href={GITHUB} target="_blank" rel="noopener noreferrer">
-            <GithubLogo size={18} className="sc-menu-ic" />
-            <span className="sc-menu-lb">Scenri on GitHub</span>
-          </a>
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
+          {noEngine && (
+            <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSetup()}>
+              <Lightning size={18} className="sc-menu-ic" />
+              <span className="sc-menu-lb">Set up image generation</span>
+            </DropdownMenu.Item>
+          )}
+          <div className="sc-menu-sep" />
+          <DropdownMenu.Item className="sc-menu-item" onSelect={() => openSettings('about')}>
+            <Info size={18} className="sc-menu-ic" />
+            <span className="sc-menu-lb">About Scenri</span>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item className="sc-menu-item" asChild>
+            <a href={GITHUB} target="_blank" rel="noopener noreferrer">
+              <GithubLogo size={18} className="sc-menu-ic" />
+              <span className="sc-menu-lb">Scenri on GitHub</span>
+            </a>
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+    </div>
   );
-
-  return placement === 'float' ? <div className="sc-help-float">{menu}</div> : menu;
 }
 
-/** The corner button, from 1024px. */
+/** The corner button, at every width. */
 export function HelpFloat() {
-  return useMediaQuery(WIDE) ? <HelpMenu placement="float" /> : null;
-}
-
-/** The top bar button, below 1024px. */
-export function HelpBar() {
-  return useMediaQuery(WIDE) ? null : <HelpMenu placement="bar" />;
+  return <HelpMenu />;
 }

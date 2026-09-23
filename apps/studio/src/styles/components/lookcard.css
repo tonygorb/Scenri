@@ -14,11 +14,19 @@
   display: block;
   width: 100%;
   cursor: pointer;
+  --sc-cell-ctl-size: 28px;
+}
+@media (hover: none), (pointer: coarse) {
+  .sc-lookcard {
+    --sc-cell-ctl-size: 24px;
+  }
 }
 .sc-lookcard[data-on] {
   outline: 2px solid var(--sc-sel-line);
   outline-offset: -2px;
 }
+/* The picked ring lives with the shot's, in canvas.css. An outline is clipped
+   by this card, so both tiles paint the same line over the picture. */
 /* A card that just landed (a duplicate). Same quiet outline as selected,
    but not data-on — that token means chosen for a shot. Caption and veil
    stay up so the new name is readable without a hover. */
@@ -105,18 +113,17 @@ a.sc-lookcard {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
-/* The read-only bookmark on a picker row. Not a control — it is the reason
-   that row is near the top, said in the caption line where a 10px glyph is
-   legible without a scrim over someone's photograph. */
+/* The keeper star on a picker row. Not a control. It is the reason that row
+   is near the top, said in the caption line. Gold, the same star a kept card wears. */
 .sc-bm-mark {
   margin-inline-end: 4px;
-  color: var(--sc-fg3);
+  color: var(--sc-star);
   vertical-align: -1px;
 }
 
-/* One corner puck, geometry only: the card's top-right, over the veil. Shared
-   by the bookmark toggle and an asset build's stop button, which used to
-   borrow the bookmark's own class and make every selector ambiguous. */
+/* One corner puck, geometry only: the card's top-right, over the veil. An
+   asset build's stop button sits here. The card's More overrides it to the
+   bottom-right, the same corner a shot's More uses. */
 .sc-cardpuck {
   position: absolute;
   top: 7px;
@@ -144,45 +151,16 @@ a.sc-lookcard {
   outline: var(--sc-ring-w) solid var(--sc-focus);
   outline-offset: var(--sc-ring-off);
 }
-/* Hidden until the card is hovered, so a wall of scenes stays a wall of
-   pictures — except when it is on, which is the whole point of a bookmark,
-   and except on touch, where there is no hover to reveal it. */
-.sc-lookcard-bookmark {
-  opacity: 0;
-}
-.sc-lookcard:hover .sc-lookcard-bookmark,
-:where(:root:not([data-input="pointer"])) .sc-lookcard-bookmark:focus-visible,
-.sc-lookcard-bookmark[data-on] {
+/* More lives in the top-right row, the same disc as Select, so the pointer
+   can land on it. The wall caption is the name. */
+.sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-cap,
+.sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-veil {
   opacity: 1;
+  transform: none;
 }
-/* On is the system's one active language — the same ink-on-page inversion an
-   active chip or a primary button uses. Not gold: that is the keeper star's,
-   and one colour cannot carry two meanings. */
-.sc-lookcard-bookmark[data-on] {
-  color: var(--sc-inv-fg);
-  background: var(--sc-inv-bg);
-}
-.sc-lookcard-bookmark[data-on]:hover {
-  background: var(--sc-inv-bg);
-  opacity: 0.88;
-}
-/* Same reveal as the bookmark: hover and keyboard focus, always on touch.
-   Owned presenters only; catalog cards never grow this puck. */
-.sc-lookcard-more {
-  opacity: 0;
-}
-.sc-lookcard:hover .sc-lookcard-more,
-.sc-lookcard:focus-within .sc-lookcard-more,
-:where(:root:not([data-input="pointer"])) .sc-lookcard-more:focus-visible {
-  opacity: 1;
-}
-@media (hover: none) {
-  .sc-lookcard-bookmark {
-    opacity: 1;
-  }
-  .sc-lookcard-more {
-    opacity: 1;
-  }
+/* Horizontal dots are the title-row menu. The photograph keeps the vertical ones. */
+.sc-lookcard-more-horiz {
+  display: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .sc-cardpuck {
@@ -219,44 +197,107 @@ a.sc-lookcard {
   pointer-events: none;
   transition:
     opacity 0.16s ease,
-    transform 0.16s ease;
-  background: #fff;
-  color: #0a0a0a;
+    transform 0.16s ease,
+    background 0.16s ease;
+  /* Same glass as .sc-cell-ctl, so it frosts with the theme. The hairline
+     and the small shadow are what keep that frost from disappearing into
+     the photograph. Blur is on the rules that reveal the pill. */
+  background: var(--sc-cell-ctl-bg);
+  color: var(--sc-fg);
+  box-shadow:
+    0 0 0 1px var(--sc-line),
+    var(--sc-shadow-1);
   border-radius: var(--sc-radius-full);
   padding: 8px 16px;
   font: 600 12px / 1 var(--sc-font);
 }
+.sc-lookcard-use:hover:not(:active) {
+  /* The icon discs catch white. On a label that wash turns the frost into a
+     flat grey chip, so the pill settles toward the page at the same 86%. */
+  background: color-mix(in srgb, var(--sc-cell-ctl-bg) 86%, var(--sc-bg));
+}
+.sc-lookcard-use:active {
+  background: var(--sc-cell-ctl-bg-press);
+}
 .sc-lookcard-cap {
   position: absolute;
-  left: 13px;
-  right: 13px;
-  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
   opacity: 0;
   transform: translateY(4px);
   transition:
     opacity 0.16s ease,
     transform 0.16s ease;
-  line-height: 1.35;
+  line-height: 1.3;
   text-align: left;
   pointer-events: none;
   z-index: 1;
 }
-.sc-lookcard-cap b {
-  display: block;
-  color: #fff;
-  font: 600 13px var(--sc-font);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.sc-lookcard-copy {
+  flex: 1;
+  min-width: 0;
 }
-.sc-lookcard-cap span {
-  display: block;
-  font: 11.5px var(--sc-font);
-  color: rgba(255, 255, 255, 0.68);
-  margin-top: 2px;
-  white-space: nowrap;
+.sc-lookcard-cap b {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
   overflow: hidden;
-  text-overflow: ellipsis;
+  color: #fff;
+  font: 600 15px / 1.25 var(--sc-font);
+}
+.sc-lookcard-cap span:not(.sc-lookcard-copy) {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font: 400 13px / 1.35 var(--sc-font);
+  color: rgba(255, 255, 255, 0.86);
+  margin-top: 3px;
+}
+/* The shot's tick, on a catalog card's top left. Same disc as a shot. Checked,
+   it takes the same inversion and the same lift, --sc-pick-lift on the
+   shared control. */
+.sc-lookcard-pick {
+  top: 8px;
+  left: 8px;
+  z-index: 4;
+  width: var(--sc-cell-ctl-size);
+  border-radius: var(--sc-radius-full);
+}
+.sc-lookcard:hover .sc-lookcard-pick,
+.sc-lookcard:focus-within .sc-lookcard-pick,
+:where(:root:not([data-input="pointer"])) .sc-lookcard-pick:focus-visible {
+  opacity: 1;
+  transition-delay: 0s;
+}
+.sc-lookcard-pick.sc-cell-ctl[data-on],
+.sc-lookcard-pick.sc-cell-ctl[data-on]:hover {
+  background: var(--sc-inv-bg);
+  color: var(--sc-inv-fg);
+  opacity: 1;
+  box-shadow: var(--sc-pick-lift);
+}
+/* Last button of the action row. On, the star is gold: that is the keeper. */
+.sc-lookcard-keep {
+  top: 8px;
+  right: 8px;
+  z-index: 4;
+}
+.sc-lookcard:hover .sc-lookcard-keep,
+.sc-lookcard:focus-within .sc-lookcard-keep,
+:where(:root:not([data-input="pointer"])) .sc-lookcard-keep:focus-visible,
+.sc-lookcard-keep[data-on] {
+  opacity: 1;
+  transition-delay: 0s;
+}
+.sc-lookcard-keep[data-on],
+.sc-lookcard-keep[data-on]:hover {
+  color: var(--sc-star);
+  opacity: 1;
 }
 .sc-lookcard-tick {
   position: absolute;
@@ -292,6 +333,8 @@ a.sc-lookcard {
     opacity: 1;
     transform: translate(-50%, -50%);
     pointer-events: auto;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
   }
 }
 :where(:root:not([data-input="pointer"])) .sc-lookcard:has(.sc-lookcard-open:focus-visible) .sc-lookcard-veil,
@@ -310,6 +353,8 @@ a.sc-lookcard {
   opacity: 1;
   transform: translate(-50%, -50%);
   pointer-events: auto;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 .sc-lookcard[data-size="shelf"] .sc-lookcard-veil,
 .sc-lookcard[data-size="wizard"] .sc-lookcard-veil,
@@ -353,16 +398,153 @@ a.sc-lookcard {
    Pill → create; second tap on image → detail. */
 @media (hover: none) {
   .sc-masonry {
-    row-gap: 22px;
-    column-gap: 12px;
+    row-gap: 14px;
+    column-gap: 14px;
+    /* A two-line name is taller than a one-line name. Stretching the short
+       card to match drops its name, so the single line no longer meets the
+       first line of the card beside it. */
+    align-items: start;
   }
   .sc-lookcard:has(.sc-lookcard-media) {
     overflow: visible;
     background: transparent;
     border-radius: 0;
   }
+  /* The name sits under the picture, so the card is taller than the photo.
+     A ring on the card would box the name in with it. The stroke is an overlay
+     on the photograph: a shadow on the picture's own box sits under the image
+     and the radius chops what is left of it. */
+  .sc-lookcard[data-picked]::after,
+  .sc-lookcard[data-batching]:not([data-picked]):hover::after {
+    content: none;
+  }
+  .sc-lookcard[data-picked] .sc-lookcard-media::after,
+  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .sc-lookcard[data-picked] .sc-lookcard-media::after {
+    box-shadow: inset 0 0 0 1.5px var(--sc-inv-bg);
+  }
+  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media::after {
+    box-shadow: inset 0 0 0 1.5px var(--sc-sel-line);
+  }
+  /* The name and the menu share a row. A long name takes a second line: a
+     one-line cut prints "..." in the same place as the menu's three dots,
+     and the two read as one smudge. The description, when a card still has
+     one, runs the full width under both. Only the caption wrappers are
+     flattened, so the glyph stays a real box the menu can anchor to. */
+  .sc-lookcard:has(.sc-lookcard-media):has(.sc-corner) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    align-content: start;
+    column-gap: 8px;
+  }
+  .sc-lookcard:has(.sc-lookcard-media):has(.sc-corner) .sc-lookcard-media {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .sc-lookcard:has(.sc-lookcard-media):has(.sc-corner) .sc-lookcard-cap,
+  .sc-lookcard:has(.sc-lookcard-media):has(.sc-corner) .sc-lookcard-copy {
+    display: contents;
+  }
+  .sc-lookcard:has(.sc-lookcard-media):has(.sc-corner) .sc-lookcard-cap b {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+    min-width: 0;
+    margin: 10px 0 0;
+    padding-left: 2px;
+    font-size: 13px;
+    line-height: 1.3;
+    -webkit-line-clamp: 2;
+  }
+  .sc-lookcard:has(.sc-lookcard-media):has(.sc-corner) .sc-lookcard-cap span:not(.sc-lookcard-copy) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    margin-top: 3px;
+    padding: 0 2px;
+  }
+  .sc-lookcard .sc-corner {
+    position: static;
+    grid-column: 2;
+    grid-row: 2;
+    top: auto;
+    right: auto;
+    /* Start of the row, not the middle of it. A fixed height lost to the
+       button: the box grew to the name and centered the dots between the
+       lines. The glyph is shifted onto the first line below. */
+    display: flex;
+    align-items: flex-start;
+    min-height: 0;
+    margin: 10px 2px 0 0;
+    align-self: start;
+    z-index: 4;
+    pointer-events: auto;
+  }
+  .sc-lookcard .sc-corner .sc-lookcard-more {
+    width: var(--sc-cell-ctl-size);
+    height: var(--sc-cell-ctl-size);
+    min-width: var(--sc-cell-ctl-size);
+    align-self: flex-start;
+    flex: none;
+    /* The control is 24px and a line of the name is 13px. This parks the
+       glyph on that first line, on a one-line name and on a wrapped one. */
+    margin-top: calc((13px * 1.3 - var(--sc-cell-ctl-size)) / 2);
+    background: none;
+    color: var(--sc-fg2);
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .sc-lookcard .sc-corner .sc-lookcard-more-vert {
+    display: none;
+  }
+  .sc-lookcard .sc-corner .sc-lookcard-more-horiz {
+    display: block;
+  }
+  .sc-lookcard .sc-corner .sc-lookcard-more:hover:not(:active) {
+    background: var(--sc-hover);
+    color: var(--sc-fg);
+  }
+  .sc-lookcard .sc-corner .sc-lookcard-more:active,
+  .sc-lookcard .sc-corner .sc-lookcard-more[data-state="open"] {
+    background: var(--sc-press);
+    color: var(--sc-fg);
+  }
+  .sc-lookcard .sc-corner .sc-cell-ctl:not(.sc-lookcard-more) {
+    display: none;
+  }
+  /* A tap is not a keyboard. The card and the picture are the wrong box for
+     a ring. The icon buttons keep theirs, from the shared control. */
+  .sc-lookcard,
+  .sc-lookcard:focus,
+  .sc-lookcard:focus-within,
+  .sc-lookcard-open:focus {
+    outline: none;
+  }
+  .sc-lookcard,
+  .sc-lookcard-open,
+  .sc-lookcard .sc-corner .sc-cell-ctl {
+    -webkit-tap-highlight-color: transparent;
+  }
   .sc-lookcard:has(.sc-lookcard-media) .sc-lookcard-media {
+    overflow: visible;
     border-radius: var(--sc-radius-lg);
+  }
+  .sc-lookcard:has(.sc-lookcard-media) .sc-lookcard-open,
+  .sc-lookcard:has(.sc-lookcard-media) .sc-lookcard-media > img,
+  .sc-lookcard:has(.sc-lookcard-media) .sc-lookcard-blank,
+  .sc-lookcard:has(.sc-lookcard-media) .sc-lookcard-veil {
+    border-radius: inherit;
+  }
+  .sc-lookcard:has(.sc-lookcard-media) .sc-lookcard-open {
+    overflow: hidden;
   }
   .sc-lookcard:has(.sc-lookcard-media)[data-on] {
     outline: none;
@@ -383,28 +565,23 @@ a.sc-lookcard {
   }
   .sc-lookcard-cap {
     position: static;
-    display: block;
+    display: flex;
     opacity: 1;
     transform: none;
     left: auto;
     right: auto;
     bottom: auto;
-    padding: 8px 4px 0;
-    min-height: 1.35em;
+    padding: 10px 2px 0;
+    min-height: 0;
     transition: none;
   }
   .sc-lookcard-cap b {
     color: var(--sc-fg);
-    font-size: 12.5px;
-    white-space: normal;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 13px;
   }
-  .sc-lookcard-cap span {
-    display: none;
+  .sc-lookcard-cap span:not(.sc-lookcard-copy) {
+    color: var(--sc-fg3);
+    font-size: 13px;
   }
   .sc-lookcard-veil,
   .sc-lookcard[data-size="shelf"] .sc-lookcard-veil,
@@ -425,6 +602,8 @@ a.sc-lookcard {
     opacity: 1;
     transform: translate(-50%, -50%);
     pointer-events: auto;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
   }
   .sc-lookcard[data-variant="skeleton"] {
     aspect-ratio: auto;
@@ -447,6 +626,95 @@ a.sc-lookcard {
     display: block;
     height: 1.35em;
     margin-top: 8px;
+  }
+  .sc-lookcard[data-variant="skeleton"][data-caption="photo"]::after {
+    content: none;
+    display: none;
+  }
+  /* Home's examples are a gallery. At rest the picture is the card. The
+     first tap brings the caption and Recreate this together. The credits
+     stay chips at the top, and their own open and close is what moves. */
+  .sc-showcase-tile .sc-lookcard:has(.sc-lookcard-media) {
+    overflow: hidden;
+    border-radius: var(--sc-radius-lg);
+    background: var(--sc-raised);
+  }
+  .sc-showcase-tile .sc-lookcard:has(.sc-lookcard-media):has(.sc-corner) {
+    display: block;
+  }
+  .sc-showcase-tile .sc-lookcard:has(.sc-lookcard-media):has(.sc-corner) .sc-lookcard-cap,
+  .sc-showcase-tile .sc-lookcard:has(.sc-lookcard-media):has(.sc-corner) .sc-lookcard-copy {
+    display: block;
+  }
+  .sc-showcase-tile .sc-lookcard-cap {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 10px;
+    display: flex;
+    opacity: 0;
+    transform: none;
+    padding: 0;
+    min-height: 0;
+    z-index: 2;
+    pointer-events: none;
+    transition: opacity 0.16s ease;
+  }
+  .sc-showcase-tile:has(.sc-lookcard[data-armed]) .sc-lookcard-cap {
+    opacity: 1;
+  }
+  .sc-showcase-tile .sc-lookcard-cap b,
+  .sc-showcase-tile .sc-lookcard:has(.sc-lookcard-media):has(.sc-corner) .sc-lookcard-cap b {
+    margin: 0;
+    padding: 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.3;
+    -webkit-line-clamp: 1;
+  }
+  .sc-showcase-tile .sc-lookcard-veil {
+    opacity: 0;
+    background: linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.62) 0%,
+      rgba(0, 0, 0, 0.34) 14%,
+      rgba(0, 0, 0, 0.12) 28%,
+      rgba(0, 0, 0, 0) 42%
+    );
+  }
+  .sc-showcase-tile:has(.sc-lookcard[data-armed]) .sc-lookcard-veil {
+    opacity: 1;
+  }
+}
+
+/* A tablet can report a hover-capable pointer and still lay the name under the
+   picture. Same ring as the phone: an overlay on the photograph, not a shadow
+   on the box that clips it. */
+@media (pointer: coarse) {
+  .sc-lookcard[data-picked]::after,
+  .sc-lookcard[data-batching]:not([data-picked]):hover::after {
+    content: none;
+  }
+  .sc-lookcard[data-picked] .sc-lookcard-media,
+  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media {
+    overflow: visible;
+    border-radius: var(--sc-radius-lg);
+  }
+  .sc-lookcard[data-picked] .sc-lookcard-media::after,
+  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .sc-lookcard[data-picked] .sc-lookcard-media::after {
+    box-shadow: inset 0 0 0 1.5px var(--sc-inv-bg);
+  }
+  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media::after {
+    box-shadow: inset 0 0 0 1.5px var(--sc-sel-line);
   }
 }
 
@@ -488,6 +756,8 @@ a.sc-lookcard {
     opacity: 1;
     transform: translate(-50%, -50%);
     pointer-events: auto;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
   }
 }
 .sc-showcase-chips {
@@ -872,6 +1142,64 @@ a.sc-showcase-chip {
 }
 .sc-credit-tip-pop[data-size="large"] .sc-credit-tip-role {
   font-size: 10.5px;
+}
+/* A phone card is half the screen. Credits are glass circles at the top,
+   the same size whether the row is closed or open, so the stagger only
+   travels. The name stays off: the first tap is what says the title. A
+   stored Large density does not grow them back. */
+@media (hover: none) {
+  .sc-showcase-chips,
+  .sc-masonry[data-density-size="large"] .sc-showcase-chips {
+    left: 8px;
+    top: 8px;
+    --sc-credit-lip: 2px;
+  }
+  .sc-showcase-badge,
+  .sc-masonry[data-density-size="large"] .sc-showcase-badge,
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
+    .sc-showcase-chips:has(.sc-showcase-recipe)
+    .sc-showcase-badge {
+    gap: 0;
+    padding: var(--sc-credit-lip);
+    max-width: none;
+  }
+  .sc-showcase-badge-name,
+  .sc-masonry[data-density-size="large"] .sc-showcase-badge-name,
+  .sc-showcase-tile:is(:focus-within, :has(.sc-lookcard[data-armed]))
+    .sc-showcase-chips:has(.sc-showcase-recipe)
+    .sc-showcase-badge-name {
+    max-width: 0;
+    opacity: 0;
+    /* Already a circle. Animating the name shut would move the row the
+       thumbs are about to join. */
+    transition: none;
+  }
+  .sc-showcase-badge img,
+  .sc-masonry[data-density-size="large"] .sc-showcase-badge img {
+    width: 20px;
+    height: 20px;
+  }
+  .sc-showcase-recipe .sc-showcase-chip,
+  .sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-chip {
+    width: 24px;
+    height: 24px;
+  }
+  .sc-showcase-recipe .sc-showcase-join,
+  .sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-join {
+    width: 10px;
+    height: 10px;
+    margin-inline: -4px;
+  }
+  .sc-showcase-recipe .sc-showcase-join::before,
+  .sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-join::before {
+    width: 5px;
+    height: 1.25px;
+  }
+  .sc-showcase-recipe .sc-showcase-join::after,
+  .sc-masonry[data-density-size="large"] .sc-showcase-recipe .sc-showcase-join::after {
+    width: 1.25px;
+    height: 5px;
+  }
 }
 
 .sc-looks-empty {

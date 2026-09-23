@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { AlertDialog, Button, Flex } from '@radix-ui/themes';
-import { hasNoShots, type FeedNode } from '../api.js';
-import { masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
+import { hasNoShots, type FeedNode, type ShotSet } from '../api.js';
+import { feedColumnCount, masonryLayout, PHONE, useElementWidth, useViewportWidth } from './masonry.js';
 import { aspectOfImage, Tile, type TileHandlers } from './canvas/Tile.js';
 import { RunningTile } from './canvas/RunningTile.js';
 import { FailedTile } from './canvas/FailedTile.js';
@@ -44,6 +44,14 @@ export function Canvas({
   tile,
   pending,
   onNearEnd,
+  inSet,
+  setsFor,
+  onRemoveFromSet,
+  onKeepPicked,
+  onArchivePicked,
+  onRestorePicked,
+  onDeletePicked,
+  onRemovePickedFromSet,
 }: {
   nodes: FeedNode[];
   selectedId: string | null;
@@ -103,6 +111,17 @@ export function Canvas({
   pending?: boolean;
   /** The reader is within reach of the last loaded tile: bring the next page. */
   onNearEnd?: () => void;
+  /** The set this feed is, when it is one. */
+  inSet?: ShotSet | null;
+  /** Sets a shot is filed in. Used when the feed is All shots. */
+  setsFor?: (id: string) => ShotSet[];
+  onRemoveFromSet?: (node: FeedNode, set: ShotSet) => void;
+  /** The pick's membership verbs. A right-click on a picked tile uses these. */
+  onKeepPicked?: () => void;
+  onArchivePicked?: () => void;
+  onRestorePicked?: () => void;
+  onDeletePicked?: () => void;
+  onRemovePickedFromSet?: (set: ShotSet) => void;
 }) {
   const shots = nodes.filter((n) => n.kind !== 'root');
   const picking = !!onPick;
@@ -121,9 +140,27 @@ export function Canvas({
    * that never surprised anyone.
    */
   const batching = picking && (picked?.size ?? 0) > 0;
+  const pickedMeta = useMemo(() => {
+    if (!picked || picked.size === 0) return null;
+    let seen = 0;
+    let kept = 0;
+    let archived = 0;
+    for (const n of nodes) {
+      if (!picked.has(n.id) || n.kind === 'root') continue;
+      seen += 1;
+      if (n.kept) kept += 1;
+      if (n.archived) archived += 1;
+    }
+    return {
+      count: picked.size,
+      allKept: seen > 0 && kept === seen,
+      archived: seen > 0 && archived === seen,
+    };
+  }, [nodes, picked]);
   // one confirm dialog for the whole grid, not one per tile — the context
   // menu item just says which node it's for
   const [deleteTarget, setDeleteTarget] = useState<FeedNode | null>(null);
+  const [deleteBatch, setDeleteBatch] = useState(false);
   // a callback ref rather than useRef: the feed is not in the tree at all while
   // the brand is empty, so an effect keyed on a ref object would never see it
   // arrive and would measure nothing for the rest of the session
@@ -165,6 +202,12 @@ export function Canvas({
     onPick,
     onVersions,
     engineName,
+    onRemoveFromSet,
+    onKeepPicked,
+    onArchivePicked,
+    onRestorePicked,
+    onDeletePicked,
+    onRemovePickedFromSet,
   });
   latest.current = {
     onOpen,
@@ -177,8 +220,15 @@ export function Canvas({
     onPick,
     onVersions,
     engineName,
+    onRemoveFromSet,
+    onKeepPicked,
+    onArchivePicked,
+    onRestorePicked,
+    onDeletePicked,
+    onRemovePickedFromSet,
   };
   const askDelete = !!onDeletePermanently;
+  const askDeletePicked = !!onDeletePicked;
   const handlers = useMemo<
     TileHandlers & {
       onRetry: (n: FeedNode) => void;
@@ -198,8 +248,29 @@ export function Canvas({
       onVersions: onVersions ? (id) => latest.current.onVersions?.(id) : undefined,
       onDeleteAsk: askDelete ? (n) => setDeleteTarget(n) : undefined,
       engineName: engineName ? (id) => latest.current.engineName?.(id) : undefined,
+      onRemoveFromSet: onRemoveFromSet ? (n, s) => latest.current.onRemoveFromSet?.(n, s) : undefined,
+      onKeepPicked: onKeepPicked ? () => latest.current.onKeepPicked?.() : undefined,
+      onArchivePicked: onArchivePicked ? () => latest.current.onArchivePicked?.() : undefined,
+      onRestorePicked: onRestorePicked ? () => latest.current.onRestorePicked?.() : undefined,
+      onDeletePickedAsk: askDeletePicked ? () => setDeleteBatch(true) : undefined,
+      onRemovePickedFromSet: onRemovePickedFromSet ? (s) => latest.current.onRemovePickedFromSet?.(s) : undefined,
     }),
-    [!!onCancel, !!onToggleKeep, !!onArchive, !!onBranch, !!onPick, !!onVersions, askDelete, !!engineName],
+    [
+      !!onCancel,
+      !!onToggleKeep,
+      !!onArchive,
+      !!onBranch,
+      !!onPick,
+      !!onVersions,
+      askDelete,
+      askDeletePicked,
+      !!engineName,
+      !!onRemoveFromSet,
+      !!onKeepPicked,
+      !!onArchivePicked,
+      !!onRestorePicked,
+      !!onRemovePickedFromSet,
+    ],
   );
 
   /**
@@ -267,6 +338,9 @@ export function Canvas({
         batching={batching}
         versions={n.childCount}
         handlers={handlers}
+        inSet={inSet}
+        filedIn={setsFor?.(n.id)}
+        pickedMeta={pickedMeta}
       />
     );
   };
@@ -295,7 +369,7 @@ export function Canvas({
    * at the new width move everything above it once more, and so does the
    * browser's own scroll anchoring. Any scroll of the reader's own lets go.
    */
-  const colsNow = Math.max(1, Math.min(fitting, items.length));
+  const colsNow = feedColumnCount(fitting);
   const shape = `${colsNow}:${colWidth}`;
   const lastShape = useRef(shape);
   const layout = useRef({ items, heightOf, estimate });
@@ -308,6 +382,7 @@ export function Canvas({
     const scroller = feedEl?.closest<HTMLElement>('.sc-canvas');
     if (was === shape || !a || !feedEl || !scroller) return;
     pin.current = { anchor: a, until: performance.now() + PIN_MS };
+    win.hold(a, pin.current.until);
     if (!placeAnchor(feedEl, scroller, a)) {
       const { items: all, heightOf: known, estimate: guess } = layout.current;
       const i = all.findIndex((it) => it.node?.id === a.id);
@@ -318,7 +393,7 @@ export function Canvas({
       scroller.scrollTop += y - feedEdge(scroller) - a.offset;
     }
     win.resync();
-  }, [shape, colsNow, feedEl, win.anchor, win.resync]);
+  }, [shape, colsNow, feedEl, win.anchor, win.resync, win.hold]);
   // while held, every render (the next band, a measured height) puts it back before paint
   useLayoutEffect(() => {
     const held = pin.current;
@@ -336,13 +411,14 @@ export function Canvas({
     if (!scroller) return;
     const release = () => {
       pin.current = null;
+      win.hold(null);
     };
     const events = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
     for (const e of events) scroller.addEventListener(e, release, { passive: true });
     return () => {
       for (const e of events) scroller.removeEventListener(e, release);
     };
-  }, [feedEl]);
+  }, [feedEl, win.hold]);
 
   // Nothing loaded yet: the grid keeps its shape with stand-ins in the brief's
   // default shape, the same tile a send holds its place with, so the feed
@@ -350,7 +426,11 @@ export function Canvas({
   if (pending && hasNoShots(shots) && !sending) {
     const cols = Math.max(1, Math.min(fitting, 8));
     return (
-      <div className="sc-feed" ref={setFeedEl} style={{ '--sc-tile': `${colWidth}px` } as CSSProperties}>
+      <div
+        className="sc-feed"
+        ref={setFeedEl}
+        style={{ '--sc-tile': `${colWidth}px`, '--sc-cols': cols } as CSSProperties}
+      >
         {Array.from({ length: cols }, (_, c) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: stand-ins have no identity beyond their slot
           <div className="sc-feed-col" key={`col-${cols}-${c}`}>
@@ -373,16 +453,20 @@ export function Canvas({
   if (hasNoShots(shots) && !sending) return <>{empty ?? <p className="sc-feed-empty">Nothing here yet.</p>}</>;
 
   /**
-   * Never more columns than there are tiles to put in them, or the row ends in
-   * empty columns — the same dead space multicol left, reached the other way.
+   * The column count for this canvas and this size. A short row keeps the
+   * empty columns, so its shots stay the same size as on a full wall.
    */
-  const cols = Math.max(1, Math.min(fitting, items.length));
+  const cols = feedColumnCount(fitting);
   const columns = dealColumns(items.length, cols);
   const band = windowing ? mountedBand(win.top, win.height) : null;
 
   return (
     <>
-      <div className="sc-feed" ref={setFeedEl} style={{ '--sc-tile': `${colWidth}px` } as CSSProperties}>
+      <div
+        className="sc-feed"
+        ref={setFeedEl}
+        style={{ '--sc-tile': `${colWidth}px`, '--sc-cols': cols } as CSSProperties}
+      >
         {columns.map((idx, c) => {
           /*
            * Dealt round-robin on the flat index: the newest tile is ordinal 0
@@ -422,9 +506,21 @@ export function Canvas({
         })}
       </div>
       {onNearEnd && <div className="sc-feed-end" ref={setEndEl} aria-hidden />}
-      <AlertDialog.Root open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+      <AlertDialog.Root
+        open={!!deleteTarget || deleteBatch}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDeleteTarget(null);
+            setDeleteBatch(false);
+          }
+        }}
+      >
         <AlertDialog.Content maxWidth="420px">
-          <AlertDialog.Title>Delete this shot permanently?</AlertDialog.Title>
+          <AlertDialog.Title>
+            {deleteBatch
+              ? `Delete ${pickedMeta?.count ?? 0} shot${(pickedMeta?.count ?? 0) === 1 ? '' : 's'} permanently?`
+              : 'Delete this shot permanently?'}
+          </AlertDialog.Title>
           <AlertDialog.Description size="2">This cannot be undone.</AlertDialog.Description>
           <Flex gap="3" mt="4" justify="end">
             <AlertDialog.Cancel>
@@ -436,8 +532,10 @@ export function Canvas({
               <Button
                 color="red"
                 onClick={() => {
-                  if (deleteTarget) onDeletePermanently?.(deleteTarget);
+                  if (deleteBatch) onDeletePicked?.();
+                  else if (deleteTarget) onDeletePermanently?.(deleteTarget);
                   setDeleteTarget(null);
+                  setDeleteBatch(false);
                 }}
               >
                 Delete permanently

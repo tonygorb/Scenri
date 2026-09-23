@@ -4,7 +4,7 @@ import { isolate } from './harness.js';
 /**
  * The one way to add a product, a presenter or a scene.
  *
- * Every entry point — the top bar's +, a library page's button, a cold-state
+ * Every entry point — the top bar's New, a cold-state
  * offer, a pasted link — routes into the same dialog through the same `?new=`
  * param, so what is really under test here is that contract: opening pushes a
  * history entry, moving between the chooser and a flow replaces, and closing
@@ -75,10 +75,26 @@ test.describe('adding to a brand', () => {
       };
     });
     expect(plus).toEqual({ inset: 12, ink: true });
-    // 768 to 960 drops the label and keeps both halves
+    // 768 to 960 keeps the word; an unlabelled plus was the thing New was built not to be
     await page.setViewportSize({ width: 800, height: 900 });
-    await expect(page.locator('.sc-new-lb')).toBeHidden();
+    await expect(page.locator('.sc-new-lb')).toBeVisible();
+    await expect(page.locator('.sc-new-lb')).toHaveText('New');
     await expectNewIsPill(page);
+    // library pages keep the same short word: the nav already names the place,
+    // and "Presenter" in the pill is what ran into Scenes
+    await page.setViewportSize({ width: 768, height: 800 });
+    await page.goto(`/${slug}/presenters`);
+    await expect(page.locator('.sc-new-kind')).toBeHidden();
+    await expect(page.locator('.sc-new-verb')).toHaveText(/^New\s*$/);
+    await expectNewIsPill(page);
+    const overlap = await page.evaluate(() => {
+      const scenes = [...document.querySelectorAll('.sc-nav a')]
+        .find((a) => a.textContent?.trim() === 'Scenes')
+        ?.getBoundingClientRect();
+      const end = document.querySelector('.sc-topbar-end')?.getBoundingClientRect();
+      return !!(scenes && end && end.left < scenes.right - 0.5);
+    });
+    expect(overlap).toBe(false);
   });
 
   test('a pointer leaves no ring on the caret, and a key brings it back', async ({ page }) => {
@@ -126,6 +142,21 @@ test.describe('adding to a brand', () => {
     await caret.hover();
     await expect.poll(() => bg(pill)).toBe(restPill);
     await expect.poll(() => bg(caret)).not.toBe(restCaret);
+  });
+
+  test('New on a library page makes that kind, and is named for it', async ({ page }) => {
+    await page.goto(`/${slug}/presenters`);
+    await expect(page.locator('.sc-new-go')).toHaveAccessibleName('New presenter');
+    await page.locator('.sc-new-go').click();
+    await expect(page).toHaveURL(new RegExp(`/${slug}/presenters/new$`));
+    await page.goto(`/${slug}/scenes`);
+    await expect(page.locator('.sc-new-go')).toHaveAccessibleName('New scene');
+    await page.locator('.sc-new-go').click();
+    await expect(page).toHaveURL(/\?new=scene$/);
+    await page.goto(`/${slug}/products`);
+    await expect(page.locator('.sc-new-go')).toHaveAccessibleName('New product');
+    await page.locator('.sc-new-go').click();
+    await expect(page).toHaveURL(/\?new=product$/);
   });
 
   test('New opens Create with its add panel already open, every time it is pressed', async ({ page }) => {

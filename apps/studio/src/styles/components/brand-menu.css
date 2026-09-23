@@ -427,24 +427,42 @@ body > div:has(.sc-menu) {
 }
 /* The help menu has no head of its own, so its card's top edge takes the 8px its
    other three edges have; and it is as wide as its rows ask, never wider than a
-   phone, where it opens from the bar. */
+   phone. */
 .sc-help-menu {
   width: min(300px, calc(100vw - 24px));
   padding-top: 8px;
 }
-/* The help button (layout/HelpMenu.tsx). From 1024px it floats in the corner,
-   at the docks' level so an open shot and every dialog cover it, and steps left
-   of the assets rail, which from 1024px is always a column the page narrows
-   beside (it is a drawer only below 1024, where this button lives in the top
-   bar). Below 1024px it needs nothing here. */
+/* The help button (layout/HelpMenu.tsx). It is always the corner float, 16px
+   off the bottom-right, at the docks' level so an open shot and every dialog
+   cover it. From 1024px it steps left of the assets rail (a column the page
+   narrows beside). Below 1024 the rail is a drawer, so that shift does not
+   apply. A phone is the one width where the composer is full-width: the float
+   parks above the tab bar, and above the dock when one is there. Lifting it
+   at tablet widths put it on the feed. */
 .sc-help-float {
   position: fixed;
   right: 16px;
   bottom: calc(var(--sc-bottom-inset) + 16px);
   z-index: 60;
 }
-body:has(.sc-work[data-assets="true"]) .sc-help-float {
-  right: calc(var(--sc-assets-w) + 16px);
+@media (min-width: 1024px) {
+  body:has(.sc-work[data-assets="true"]) .sc-help-float {
+    right: calc(var(--sc-assets-w) + 16px);
+  }
+}
+@media (max-width: 767px) {
+  .sc-help-float {
+    bottom: calc(var(--sc-tabbar-h) + var(--sc-bottom-inset) + 16px);
+  }
+  body:has(.sc-canvas-dock) .sc-help-float {
+    bottom: calc(var(--sc-bottom-inset) + var(--sc-tabbar-h) + 18px + var(--sc-dock-h, 0px) + 10px);
+  }
+  body:has(.sc-ovl-edit) .sc-help-float {
+    bottom: calc(var(--sc-ovl-dock-h, 0px) + 10px);
+  }
+  body:has(.sc-pstudio-foot) .sc-help-float {
+    bottom: calc(var(--sc-pstudio-dock-h, 0px) + 10px);
+  }
 }
 /* A finger's reach, the way the top bar gives its own small controls. */
 @media (pointer: coarse) {

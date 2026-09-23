@@ -54,17 +54,19 @@ test('the top bar fits, on every library page', async ({ page }) => {
   }
 });
 
-test('the hoisted page action is gone, and the + took its job', async ({ page }) => {
+test('the hoisted page action is gone, and New on the bar took its job', async ({ page }) => {
   const slug = await brandSlug(page);
   await page.goto(`/${slug}/presenters`);
 
   await expect(page.locator('#sc-page-action')).toHaveCount(0);
+  await expect(page.locator('.sc-filterbar-cta')).toHaveCount(0);
   const trigger = page.getByRole('button', { name: 'Other ways to start', exact: true });
   await expect(trigger).toBeVisible();
-
+  await expect(page.locator('.sc-new-go')).toHaveAccessibleName('New presenter');
+  // compact widths shorten the same label to "New"; they do not swap in the noun
   if (isPhone(page)) {
-    // under 1280px the filterbar keeps no button of its own — one control, not two
-    await expect(page.locator('.sc-filterbar-cta')).toBeHidden();
+    await expect(page.locator('.sc-new-kind')).toBeHidden();
+    await expect(page.locator('.sc-new-verb')).toHaveText(/^New\s*$/);
   }
 });
 
