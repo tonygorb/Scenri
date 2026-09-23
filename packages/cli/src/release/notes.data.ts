@@ -51,6 +51,28 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.15.0',
+    date: '2026-09-23',
+    sections: [
+      {
+        heading: 'Scenes',
+        body: 'Scenes are now made in a conversation. Describe a place, start from your own pictures or from a shot you already made, or let Guide Me offer worlds, surfaces and light as pictures to choose from. The pictures you give a scene set its mood and are never copied into it. Each scene has its own page, and setups let one world be shot several ways.',
+      },
+      {
+        heading: 'Shots',
+        body: "A small product alone in a scene is drawn at its real size. Glossy products such as phones and laptops are lit and staged like a campaign shoot, with the screen dark unless you ask for something on it. An attached picture now means what the words beside it say, so a screenshot can go on a device's screen, redesigned for that screen when it was made for another shape, and a refine can swap it for a different one.",
+      },
+      {
+        heading: 'Activity',
+        body: 'Scene and presenter work carries on after you leave the page and shows in the bell and in Activity. A scene still being made stays on the Scenes wall.',
+      },
+      {
+        heading: 'Create',
+        body: 'Searching your shots narrows from the first letter, in any alphabet, and matches the words you wrote.',
+      },
+    ],
+  },
+  {
     version: '0.14.0',
     date: '2026-09-22',
     sections: [
