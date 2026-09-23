@@ -70,7 +70,7 @@ What happens next, in order:
 
    ```
    Scenri Studio → http://127.0.0.1:4747
-   on your phone → http://192.168.1.42:4747  code K7P2QX
+   on your phone → http://192.168.1.42:4747  code 482 913
    data dir      → /Users/you/.scenri
    Keep this window open while Scenri is running.
    ```

@@ -12,6 +12,7 @@ import {
   CODE_SETTING,
   createPhoneAccess,
   deviceOf,
+  groupCode,
   newCode,
   normalizeCode,
   type PhoneAccessDeps,
@@ -78,17 +79,19 @@ afterEach(async () => {
 });
 
 describe('the code', () => {
-  it('is six characters a person can read off a screen', () => {
+  it('is six digits, for the number pad a phone offers', () => {
     for (let i = 0; i < 200; i++) {
       const code = newCode();
       expect(code).toHaveLength(CODE_LENGTH);
+      expect(code).toMatch(/^\d{6}$/);
       for (const ch of code) expect(CODE_ALPHABET).toContain(ch);
     }
-    expect(CODE_ALPHABET).not.toMatch(/[0O1IL]/);
   });
 
-  it('forgives how it was typed', () => {
-    expect(normalizeCode(' k7p-2qx ')).toBe('K7P2QX');
+  it('forgives how it was typed, and reads in two groups of three', () => {
+    expect(normalizeCode(' 482-913 ')).toBe('482913');
+    expect(normalizeCode('482 913')).toBe('482913');
+    expect(groupCode('482913')).toBe('482 913');
   });
 
   it('is minted once and kept, so a phone stays signed in across restarts', () => {
@@ -98,10 +101,11 @@ describe('the code', () => {
     expect(createPhoneAccess({ store: core.store, ...net.deps }).code).toBe(first);
   });
 
-  it('replaces a stored value that is not a code', () => {
-    core.store.setSetting(CODE_SETTING, 'x');
-    const code = createPhoneAccess({ store: core.store, ...fakeNet([]).deps }).code;
-    expect(code).toHaveLength(CODE_LENGTH);
+  it('replaces a stored value that is not six digits, an older letter code included', () => {
+    for (const old of ['x', 'K7P2QX', '12345']) {
+      core.store.setSetting(CODE_SETTING, old);
+      expect(createPhoneAccess({ store: core.store, ...fakeNet([]).deps }).code).toMatch(/^\d{6}$/);
+    }
   });
 });
 

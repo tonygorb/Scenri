@@ -14,8 +14,8 @@ describe('copyText', () => {
     secure(true);
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
-    expect(await copyText('http://192.168.1.42:4747/?t=K7P2QX')).toBe(true);
-    expect(writeText).toHaveBeenCalledWith('http://192.168.1.42:4747/?t=K7P2QX');
+    expect(await copyText('http://192.168.1.42:4747/?t=482913')).toBe(true);
+    expect(writeText).toHaveBeenCalledWith('http://192.168.1.42:4747/?t=482913');
   });
 
   // a phone on the Wi-Fi opens plain http, where navigator.clipboard is undefined
@@ -31,8 +31,8 @@ describe('copyText', () => {
     });
     const host = document.createElement('div');
     document.body.appendChild(host);
-    expect(await copyText('http://192.168.1.42:4747/?t=K7P2QX', host)).toBe(true);
-    expect(copied).toBe('http://192.168.1.42:4747/?t=K7P2QX');
+    expect(await copyText('http://192.168.1.42:4747/?t=482913', host)).toBe(true);
+    expect(copied).toBe('http://192.168.1.42:4747/?t=482913');
     expect(parent).toBe(host);
     // the stand-in field leaves no trace
     expect(host.querySelector('textarea')).toBeNull();

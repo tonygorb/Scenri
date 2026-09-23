@@ -3,6 +3,7 @@ import {
   allowLine,
   arrival,
   firewallNotice,
+  groupCode,
   arrivalLine,
   helpLines,
   phoneLink,
@@ -16,8 +17,8 @@ const status = (over: Partial<PhoneStatus> = {}): PhoneStatus => ({
   thisComputer: true,
   platform: 'darwin',
   address: 'http://192.168.1.42:4747',
-  url: 'http://192.168.1.42:4747/?t=K7P2QX',
-  code: 'K7P2QX',
+  url: 'http://192.168.1.42:4747/?t=482913',
+  code: '482913',
   others: [],
   problem: null,
   lastVisit: null,
@@ -60,7 +61,11 @@ describe('phoneRow', () => {
 describe('the link', () => {
   // the QR code, Copy link and the terminal all carry the server's one url
   it('is exactly the server url, code included', () => {
-    expect(phoneLink(status())).toBe('http://192.168.1.42:4747/?t=K7P2QX');
+    expect(phoneLink(status())).toBe('http://192.168.1.42:4747/?t=482913');
+  });
+
+  it('shows the code the way it is read and typed: two groups of three', () => {
+    expect(groupCode('482913')).toBe('482 913');
   });
 });
 

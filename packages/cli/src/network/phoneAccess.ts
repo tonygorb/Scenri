@@ -12,9 +12,9 @@
  * checked again whenever the studio asks and every half minute: a vanished
  * address is closed, a new one opened. No watcher, no service.
  *
- * Every device other than this computer brings a six-character code, minted
- * once and kept in the settings table so a phone stays signed in across
- * restarts. The code rides inside the link and the QR code; typing the bare
+ * Every device other than this computer brings a six-digit code, minted once
+ * and kept in the settings table so a phone stays signed in across restarts.
+ * Digits, like a code by text message, so a phone offers its number pad. The code rides inside the link and the QR code; typing the bare
  * address leads to a page that asks for it (codePage.ts, access.ts).
  */
 import { randomInt } from 'node:crypto';
@@ -22,8 +22,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { ownAddresses, phoneAddresses } from './addresses.js';
 import { type AllowResult, allowScenri, type FirewallVerdict, firewallVerdict } from './firewall.js';
 
-/** No 0/O, 1/I/L: a code read off a laptop screen and typed on a phone. */
-export const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+/** Digits only: a phone offers its number pad for them, as for a code by text message. */
+export const CODE_ALPHABET = '0123456789';
 export const CODE_LENGTH = 6;
 export const CODE_SETTING = 'access.code';
 /** How often the phone listeners follow the machine's addresses. */
@@ -35,8 +35,11 @@ export function newCode(): string {
   return out;
 }
 
-/** What a person typed, as the code is stored: case, spaces and dashes do not matter. */
+/** What a person typed, as the code is stored: spaces and dashes do not matter. */
 export const normalizeCode = (s: string): string => s.replace(/[\s-]/g, '').toUpperCase();
+
+/** As a person reads it: two groups of three, "482 913". */
+export const groupCode = (code: string): string => `${code.slice(0, 3)} ${code.slice(3)}`;
 
 /**
  * A name a person recognises for the device that just opened Scenri. iPadOS
@@ -159,7 +162,8 @@ export function createPhoneAccess(deps: PhoneAccessDeps): PhoneAccess {
   const allowThrough = deps.allow ?? ((p: number) => allowScenri({ port: p }));
 
   let code = store.getSetting(CODE_SETTING);
-  if (!code || normalizeCode(code).length !== CODE_LENGTH) {
+  // anything that is not six digits (an older six-letter code, say) is replaced
+  if (!code || !new RegExp(`^\\d{${CODE_LENGTH}}$`).test(normalizeCode(code))) {
     code = newCode();
     store.setSetting(CODE_SETTING, code);
   }

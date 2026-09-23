@@ -49,7 +49,10 @@ test.describe
       await page.getByRole('button', { name: 'Phone and tablet' }).click();
       await expect(page.getByText('Open on your phone', { exact: true })).toBeVisible();
       await expect(page.getByRole('img', { name: `QR code for ${phone.address}` })).toBeVisible();
-      await expect(page.locator('.sc-phone-key')).toHaveText([phone.address ?? '', phone.code]);
+      await expect(page.locator('.sc-phone-key')).toHaveText([
+        phone.address ?? '',
+        `${phone.code.slice(0, 3)} ${phone.code.slice(3)}`,
+      ]);
       await expect(page.getByText('Waiting for your phone…')).toBeVisible();
 
       await page.getByRole('button', { name: 'Copy link' }).click();
@@ -57,22 +60,46 @@ test.describe
       expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(phone.url);
     });
 
-    test('a device that types the bare address is asked for the code, and gets in with it', async ({ browser }) => {
+    test('a device that types the bare address gets six boxes, and lands where it was going', async ({ browser }) => {
       const p = await device(browser);
       const bare = await p.goto(`${phone.address}/${slug}/create`);
       expect(bare?.status()).toBe(403);
-      await expect(p.getByText('Enter the code shown in Scenri on your computer')).toBeVisible();
+      await expect(p.getByRole('heading', { name: 'Enter your code' })).toBeVisible();
+      await expect(p.getByRole('img', { name: 'Scenri' })).toBeVisible();
+      const field = p.getByLabel('6-digit code');
+      await expect(field).toHaveAttribute('inputmode', 'numeric');
+      await expect(field).toHaveAttribute('autocomplete', 'one-time-code');
+      await expect(p.getByRole('button', { name: 'Open Scenri' })).toBeDisabled();
 
-      await p.getByLabel('Code').fill('WRONG2');
-      await p.getByRole('button', { name: 'Open' }).click();
-      await expect(p.getByText('That code did not work')).toBeVisible();
+      // a wrong code shakes in place, says so, and empties the boxes
+      const wrong = `${(Number(phone.code[0]) + 1) % 10}${phone.code.slice(1)}`;
+      await field.pressSequentially(wrong);
+      await expect(p.getByText('That code did not work. Try again.')).toBeVisible();
+      await expect(field).toHaveValue('');
+      expect(p.url()).toContain(`/${slug}/create`);
 
-      // typed the way people type it: lower case, with a space
-      await p.getByLabel('Code').fill(`${phone.code.slice(0, 3)} ${phone.code.slice(3)}`.toLowerCase());
-      await p.getByRole('button', { name: 'Open' }).click();
-      await expect(p.getByText('Enter the code')).toHaveCount(0);
+      // pasted as people copy it, with its space: in, on the page it asked for
+      await field.evaluate((el, code) => {
+        const dt = new DataTransfer();
+        dt.setData('text', `${code.slice(0, 3)} ${code.slice(3)}`);
+        el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+      }, phone.code);
+      await p.waitForURL(`${phone.address}/${slug}/create`);
+      await expect(p.getByRole('heading', { name: 'Enter your code' })).toHaveCount(0);
       expect(await p.evaluate(() => fetch('/api/brands').then((r) => r.status))).toBe(200);
       await p.context().close();
+    });
+
+    test('without script, the plain field still takes the code', async ({ browser }) => {
+      const ctx = await browser.newContext({ javaScriptEnabled: false });
+      const p = await ctx.newPage();
+      await p.goto(`${phone.address}/${slug}/create`);
+      await p.getByLabel('6-digit code').fill(`${phone.code.slice(0, 3)} ${phone.code.slice(3)}`);
+      await p.getByRole('button', { name: 'Open Scenri' }).click();
+      await expect(p.getByRole('heading', { name: 'Enter your code' })).toHaveCount(0);
+      const status = await ctx.request.get(`${phone.address}/api/brands`);
+      expect(status.status()).toBe(200);
+      await ctx.close();
     });
 
     test('the link opens Scenri outright: the feed, its pictures, a new shot, over plain http', async ({ browser }) => {

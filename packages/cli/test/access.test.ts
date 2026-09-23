@@ -12,7 +12,7 @@ import type { FastifyInstance } from 'fastify';
 
 let home: string;
 let core: Core;
-const CODE = 'K7P2QX';
+const CODE = '482913';
 
 function registryWith(...adapters: EngineAdapter[]) {
   const byId = new Map(adapters.map((a) => [a.capabilities().id, a]));
@@ -221,15 +221,20 @@ describe('the code another device brings', () => {
     const res = await get('/', { 'sec-fetch-mode': 'navigate', accept: 'text/html' });
     expect(res.statusCode).toBe(403);
     expect(res.headers['content-type']).toContain('text/html');
-    expect(res.body).toContain('Enter the code shown in Scenri on your computer');
+    expect(res.body).toContain('Enter your code');
+    expect(res.body).toContain('autocomplete="one-time-code"');
     expect(res.body).toContain('name="t"');
-    expect(res.body).not.toContain('did not work');
+    // nothing went wrong yet: the message line is there, and empty
+    expect(res.body).toContain('<p class="msg" id="msg" role="alert"></p>');
   });
 
   it('says so when the typed code is wrong', async () => {
-    const res = await get('/?t=AAAAAA', { accept: 'text/html' });
+    const res = await get('/?t=000000', { accept: 'text/html' });
     expect(res.statusCode).toBe(403);
     expect(res.body).toContain('That code did not work');
+    // the page's own quiet check hears which it was
+    const api = await get('/api/phone?t=000000');
+    expect(api.json()).toEqual({ error: 'wrong code' });
   });
 
   it('accepts the code in the link and hands back a lasting cookie', async () => {
@@ -243,7 +248,7 @@ describe('the code another device brings', () => {
   });
 
   it('forgives case, spaces and dashes in a typed code', async () => {
-    for (const typed of ['k7p2qx', 'K7P 2QX', 'k7p-2qx']) {
+    for (const typed of ['482 913', '482-913', ' 482913 ']) {
       const res = await get(`/api/brands?t=${encodeURIComponent(typed)}`);
       expect(res.statusCode, typed).toBe(200);
     }

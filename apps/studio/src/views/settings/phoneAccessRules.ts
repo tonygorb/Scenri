@@ -35,6 +35,9 @@ export function phoneRow(s: PhoneStatus | null, failed = false): { sentence: str
  */
 export const phoneLink = (s: PhoneStatus): string | null => s.url;
 
+/** The code as a person reads it off this screen: two groups of three, "482 913". */
+export const groupCode = (code: string): string => `${code.slice(0, 3)} ${code.slice(3)}`;
+
 export type Arrival = 'waiting' | 'connected' | 'stuck';
 
 /** Whether a phone has arrived since the code went up. */

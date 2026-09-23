@@ -10,6 +10,7 @@ import {
   arrival,
   arrivalLine,
   firewallNotice,
+  groupCode,
   helpLines,
   phoneLink,
   phoneRow,
@@ -143,7 +144,7 @@ export function PhoneAccess() {
             {/* read off this screen and typed on another: both set apart, in type that tells 0 from O */}
             <p>
               No camera? Type <b className="sc-phone-key">{status.address}</b> in its browser, then enter the code{' '}
-              <b className="sc-phone-key">{status.code}</b>.
+              <b className="sc-phone-key">{groupCode(status.code)}</b>.
             </p>
             {status.thisComputer && notice && (
               <div className="sc-phone-fw" role="status">

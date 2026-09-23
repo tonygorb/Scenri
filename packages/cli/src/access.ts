@@ -33,9 +33,10 @@ const LEGACY_ACCESS_COOKIE = 'bt_access';
 const COOKIE_MAX_AGE_S = 400 * 24 * 60 * 60;
 
 /**
- * Six characters are safe only because guessing is slow: ten different wrong
- * codes from one address in ten minutes, then that address waits. Distinct
- * values, so a phone replaying one stale cookie on every request counts once.
+ * Six digits are safe only because guessing is slow: ten different wrong codes
+ * from one address in ten minutes, then that address waits, which puts a
+ * million codes about a year of guessing away per address. Distinct values,
+ * so a phone replaying one stale cookie on every request counts once.
  */
 const WRONG_LIMIT = 10;
 const WRONG_WINDOW_MS = 10 * 60_000;
@@ -153,7 +154,8 @@ function refuse(req: FastifyRequest, reply: FastifyReply, problem: CodeProblem) 
       .header('cache-control', 'no-store')
       .send(codePage(problem));
   }
-  return reply.status(403).send({ error: problem === 'locked' ? 'too many tries' : 'access code required' });
+  const error = problem === 'locked' ? 'too many tries' : problem === 'wrong' ? 'wrong code' : 'access code required';
+  return reply.status(403).send({ error });
 }
 
 /**

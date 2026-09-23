@@ -3,6 +3,7 @@
  * the same Wi-Fi finds it, and where the library lives. Pure, so its copy is
  * tested like every other line a person reads (bootError.test.ts's rules).
  */
+import { groupCode } from './network/phoneAccess.js';
 
 export interface StartInfo {
   /** The main listener's host, SCENRI_HOST or the default. */
@@ -28,7 +29,7 @@ export function localUrl(host: string, port: number, code: string): string {
 
 export function startLines(info: StartInfo): string[] {
   const lines = [`Scenri Studio → ${localUrl(info.host, info.port, info.phone?.code ?? '')}`];
-  if (info.phone?.address) lines.push(`on your phone → ${info.phone.address}  code ${info.phone.code}`);
+  if (info.phone?.address) lines.push(`on your phone → ${info.phone.address}  code ${groupCode(info.phone.code)}`);
   lines.push(`data dir      → ${info.home}`, 'Keep this window open while Scenri is running.');
   if (!info.studioBuilt) lines.push('', '(studio UI not built, API only. Run: pnpm build)');
   return lines;
