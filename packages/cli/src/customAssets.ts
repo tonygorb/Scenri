@@ -886,6 +886,18 @@ export function scenePreviewPrompt(scene: CustomScene): string {
   // genuinely designed print - a sticker-treatment plate drawn print-free
   // conditioned the treatment away. Print inside the treatment follows the
   // fictional-brands doctrine word for word; everywhere else stays clean.
+  //
+  // Lettering the reader designed for the set arrives quoted, in words of its
+  // own (the analyzer's lettering rule), and those are the only words drawn.
+  // Nothing else is lifted off the attached pictures: told only "no text"
+  // beside a reference full of words, the model copied the words, brand
+  // names included, or copied the product out of a hand (battery 2026-09-23).
+  const except = /“[^”]{1,80}”|"[^"]{1,80}"/.test(scene.prompt)
+    ? ' except the lettering the description quotes, spelled exactly as quoted'
+    : '';
+  const notFromRefs =
+    ' Nothing is copied from the attached reference images: none of their products or the shadows those products cast,' +
+    ' and none of their packaging, labels, logos or words.';
   const body = scene.figure
     ? `A figure is in this photograph: ${scene.figure.replace(/[.\s]+$/, '')}. ` +
       (scene.figureTreatment
@@ -895,12 +907,15 @@ export function scenePreviewPrompt(scene: CustomScene): string {
       'They are nobody in particular: do not reproduce any person from the attached reference images, and give them no ' +
       'recognisable identity. ' +
       (scene.figureTreatment
-        ? 'No product and no watermarks. Where the treatment itself carries printing, render it as genuinely designed ' +
+        ? 'Their hands are empty, and apart from the treatment they wear nothing copied from the reference images. ' +
+          'No product and no watermarks. Where the treatment itself carries printing, render it as genuinely designed ' +
           'print - real letterforms, readable words, numerals and label-quality artwork - belonging to companies that ' +
           'are plausible but fictional, resembling no existing brand, and borrowing, extending or re-spelling no name ' +
-          'that appears in any attached reference. Everywhere outside the treatment, no logos and no readable words.'
-        : 'No product, no logos, no watermarks, and no readable words anywhere in the frame.')
-    : 'The set is empty: no product, no person, no hands, no text, no logos, no watermarks anywhere in the frame.';
+          `that appears in any attached reference. Everywhere outside the treatment, no logos and no readable words${except}. ` +
+          'None of the products in the attached reference images appears anywhere, not even in a reflection.'
+        : 'Their hands are empty, and they wear nothing copied from the reference images. ' +
+          `No product, no logos, no watermarks, and no readable words anywhere in the frame${except}.${notFromRefs}`)
+    : `The set is empty: no product, no person, no hands, no logos, no watermarks, and no readable words anywhere in the frame${except}.${notFromRefs}`;
   return (
     'Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. ' +
     `${scene.prompt} ${scene.lighting ? `${scene.lighting}. ` : ''}` +

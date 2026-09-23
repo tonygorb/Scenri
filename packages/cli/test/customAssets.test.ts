@@ -1051,6 +1051,36 @@ describe('custom presenters and scenes', () => {
     expect(plain).not.toContain('plausible but fictional');
   });
 
+  // Told "no text" beside a reference full of words, the model copied the
+  // words, brand names included; lettering designed for the set is quoted.
+  it('draws only the lettering the scene quotes, and nothing lifted from the references', () => {
+    const lettered = scenePreviewPrompt({
+      prompt: 'Printed tape bands cross the room, repeating “SLOW LIGHT” in condensed black capitals.',
+    } as CustomScene);
+    expect(lettered).toContain(
+      'no readable words anywhere in the frame except the lettering the description quotes, spelled exactly as quoted.',
+    );
+    expect(lettered).toContain('Nothing is copied from the attached reference images');
+
+    const bare = scenePreviewPrompt({ prompt: 'A basalt shelf.' } as CustomScene);
+    expect(bare).toContain('and no readable words anywhere in the frame');
+    expect(bare).not.toContain('except the lettering');
+    expect(bare).toContain('none of their products or the shadows those products cast');
+    expect(bare).toContain('none of their packaging, labels, logos or words');
+
+    const held = scenePreviewPrompt({ prompt: 'A café aisle.', figure: 'one figure mid-aisle' } as CustomScene);
+    expect(held).toContain('Their hands are empty');
+
+    const treated = scenePreviewPrompt({
+      prompt: 'A sky held in mirrored lenses.',
+      figure: 'one figure at close range',
+      figureTreatment: 'oversized mirrored sunglasses',
+    } as CustomScene);
+    expect(treated).toContain(
+      'None of the products in the attached reference images appears anywhere, not even in a reflection',
+    );
+  });
+
   /* ------------------------------------------------------ around the edges */
 
   it('reports what this install can actually do before anything is promised', async () => {
