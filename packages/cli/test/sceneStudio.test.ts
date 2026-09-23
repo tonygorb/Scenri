@@ -188,6 +188,23 @@ describe('the scene studio', () => {
     expect(generated[0].referenceRoles).toEqual(['scene', 'scene']);
   });
 
+  // Traced on real Codex (2026-09-23): every picture reaches the reader and
+  // the draw, in the order it was added, full size. Nothing favours the first,
+  // and the fourth is never the one an engine cap drops.
+  it('reads and draws every picture, all four, in the order they were added, and no more than four', async () => {
+    const brand = await newBrand();
+    const hashes = [];
+    for (const tint of ['#101010', '#303030', '#505050', '#707070', '#909090']) hashes.push(await photo(tint));
+    const job = await run(brand.id, { kind: 'make', imageHashes: hashes });
+    expect(job.status).toBe('done');
+    const four = hashes.slice(0, 4).map((h) => core.images.pathFor(h));
+    expect(analyzed[0].imagePaths).toEqual(four);
+    expect(generated[0].referenceImages).toEqual(four);
+    expect(generated[0].referenceRoles).toEqual(['scene', 'scene', 'scene', 'scene']);
+    // the same prompt for each picture: none is singled out by position
+    expect(generated[0].prompt).not.toMatch(/first (reference|image|picture)/i);
+  });
+
   it('draws a figure-led scene with its pictures, because its preview is the plate a shot conditions on', async () => {
     figure = 'one person at close portrait range, squared to camera';
     const brand = await newBrand();
