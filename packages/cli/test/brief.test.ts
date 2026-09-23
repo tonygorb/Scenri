@@ -186,8 +186,10 @@ describe('compileBrief', () => {
       { t: 'product' as const, id: 'p1' },
     ];
     const screen = compileBrief({ tokens }, mkCtx());
-    expect(screen.prompt).toContain('that image is what the screen displays');
+    expect(screen.prompt).toContain('the screen is on and shows it');
     expect(screen.prompt).toContain('never add a screen to a product that has none');
+    // a mockup or browser window around the picture is not carried onto the product
+    expect(screen.prompt).toContain('only what that screen shows goes onto this one');
     const chipAlone = compileBrief(
       {
         tokens: [
@@ -197,11 +199,11 @@ describe('compileBrief', () => {
       },
       mkCtx(),
     );
-    expect(chipAlone.prompt).not.toContain('what the screen displays');
+    expect(chipAlone.prompt).not.toContain('the screen is on and shows it');
     const noProduct = compileBrief({ tokens: tokens.filter((t) => t.t !== 'product') }, mkCtx());
-    expect(noProduct.prompt).not.toContain('what the screen displays');
+    expect(noProduct.prompt).not.toContain('the screen is on and shows it');
     const edit = compileBrief({ tokens }, ctx({ mode: 'edit' }));
-    expect(edit.prompt).not.toContain('what the screen displays');
+    expect(edit.prompt).not.toContain('the screen is on and shows it');
   });
 
   // 2026-09-22: "rests on, hangs from, is worn by or is held by something
@@ -209,7 +211,11 @@ describe('compileBrief', () => {
   // attached came back with a man in the armchair wearing it.
   it('never offers a product to be worn or held when nobody is attached to do it', () => {
     const alone = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, mkCtx());
-    expect(alone.prompt).toContain('It rests on a real surface of this set');
+    // 2026-09-23: "rests on a real surface" stood every product upright in the
+    // middle of the set, a catalogue picture in an art-directed world (Tony);
+    // it is held the way the world holds its own things, grounded where they are
+    expect(alone.prompt).toContain('This is a campaign image, not a catalogue picture');
+    expect(alone.prompt).toContain('resting where they rest, floating only where they float');
     expect(alone.prompt).not.toMatch(/\b(worn|held|wear|hold)\b/i);
     const withSomeone = compileBrief(
       {

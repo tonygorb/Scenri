@@ -317,6 +317,14 @@ export function personSkinDirective(): string {
  * wording offered "worn by ... something real" to every product shot, and a
  * loft shot of a sneaker with nobody attached came back with a man in the
  * armchair wearing it.
+ *
+ * A product alone was told it "rests on a real surface of this set", and in
+ * every world, floating or not, it came back stood upright in the middle of the
+ * frame: a catalogue picture in an art-directed place (Tony, 2026-09-23, against
+ * his reference folder). It is held the way the world holds its own things:
+ * a floating candy set floated the serum, a stone set and a cafe table kept the
+ * serum and the laptop grounded (3 of 3), because the same person rejected
+ * floating bottles over water as surreal on 2026-09-22.
  */
 export function productScaleDirective(hasPerson: boolean): string {
   return (
@@ -325,8 +333,11 @@ export function productScaleDirective(hasPerson: boolean): string {
     (hasPerson
       ? ', and it is worn, held or placed the way an object of its size and use is, with true contact and shadow, ' +
         'unless the direction above explicitly stages it otherwise.'
-      : '. It rests on a real surface of this set, with true contact and shadow, unless the direction above ' +
-        'explicitly stages it otherwise.')
+      : '. This is a campaign image, not a catalogue picture: it takes part in this world the way an art director ' +
+        'would stage it, the way this world holds its own things - resting where they rest, floating only where ' +
+        'they float, tilted, balanced, nested or half-buried among them - in a bold, deliberate composition with a ' +
+        'confident crop, with true contact and shadow wherever it touches something, never stood upright in the ' +
+        'middle of the frame in front of the set, unless the direction above explicitly stages it otherwise.')
   );
 }
 
@@ -362,13 +373,14 @@ export function productSurfaceDirective(alone: boolean, screenContent = false): 
     ' Its screen, if it has one, is switched off whatever its product photo shows: deep black glass carrying the ' +
     "strip light's reflection and a soft gradient of the set, unless this shot's own words ask for something on it." +
     (screenContent
-      ? ' Where the words put an attached image on its screen, that image is what the screen displays: lit from ' +
-        "within, inside the display's own edges and corners, under the glass and behind any reflection, finger or " +
-        "hand, at the screen's perspective and brightness, the product's own shape untouched. Keep the interface's " +
-        'layout, colours, type and content as closely as the screen allows; where it was made for a differently ' +
-        'shaped screen, show the same interface as it would be designed for this one, never squeezed or cropped, ' +
-        'unless the words ask for it exactly as it is. Leave out any browser or window frame and any device drawn ' +
-        'around it, and never add a screen to a product that has none.'
+      ? ' Where the words put an attached image, or a version of it, on its screen, the screen is on and shows it: ' +
+        "lit from within, inside the display's own edges and corners, under the glass and behind any reflection, " +
+        "finger or hand, at the screen's perspective and brightness, the product's own shape untouched. Keep the " +
+        "interface's layout, colours, type and content as closely as the screen allows; where it was made for a " +
+        'differently shaped screen, or the words ask for another version of it, show the same interface as it would ' +
+        'be designed for this screen, never squeezed or cropped, unless the words ask for it exactly as it is. Where ' +
+        'the attached image shows the interface inside a device or a browser window, only what that screen shows ' +
+        'goes onto this one, with no second device or window frame; and never add a screen to a product that has none.'
       : '')
   );
 }
