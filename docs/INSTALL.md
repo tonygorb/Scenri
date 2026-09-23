@@ -70,9 +70,13 @@ What happens next, in order:
 
    ```
    Scenri Studio → http://127.0.0.1:4747
-   data dir        → /Users/you/.scenri
+   on your phone → http://192.168.1.42:4747  code K7P2QX
+   data dir      → /Users/you/.scenri
    Keep this window open while Scenri is running.
    ```
+
+   The phone line is how a phone or tablet on the same Wi-Fi opens it; Settings, General shows
+   the same address as a QR code. It is missing when this computer is not on a network.
 
    On Windows the data dir reads `C:\Users\you\.scenri`: same folder, same idea.
 
@@ -264,6 +268,17 @@ over.
 
 **`Scenri is already running`.** Not an error. Scenri was already open in another terminal, and
 this one just brought you to it. Use the browser tab it opened.
+
+**A phone cannot open Scenri.** Open Settings, General, Show QR code on the computer: if no
+phone arrives within half a minute, the help under it opens by itself and names what it can see.
+The usual causes, most likely first:
+
+- The phone is on another network. Both have to be on the same Wi-Fi, and a guest network keeps
+  devices apart on purpose.
+- The computer's firewall. The first time Scenri starts, macOS or Windows may ask whether Node
+  may accept incoming connections; allow it. On Windows, a Wi-Fi marked as a public network
+  blocks it too: Settings, Network and internet, Wi-Fi, choose the network, set it to Private.
+- The phone's browser asked to find devices on your local network. Allow it.
 
 **The browser did not open.** Copy the address the terminal printed, `http://127.0.0.1:4747`, into
 any browser on the same computer.

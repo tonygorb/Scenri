@@ -49,20 +49,19 @@ If you find a path that violates any of the four statements above, that is a vul
 
 ## Network exposure
 
-The server binds `127.0.0.1` by default and is reachable only from the machine it runs on.
+The studio's own listener binds `127.0.0.1`. Beside it, on the same port, Scenri listens on this machine's private Wi-Fi and Ethernet addresses, so a phone on the same network can open it (Settings, General, Open on your phone). It never listens on a VPN, container, virtual or IPv6 address, and it follows the machine to a new network by checking its addresses again every half minute. There is no account system, so every request passes three gates:
 
-Setting `SCENRI_HOST=0.0.0.0` opens it to your local network so you can use it from a phone. There is no account system, so that path is gated two ways:
+- A `Host` header check, which accepts loopback names and IPv4 addresses and rejects every other hostname. This is what blocks DNS rebinding, where a page in any open browser tab resolves an attacker-controlled domain to your loopback address and drives the local API. An IPv4 address cannot be rebound: a page whose origin is an address is already that address.
+- Browsers name cross-site requests via `Sec-Fetch-Site`, and the server rejects them (except top-level navigations, which is a user clicking a link to their own studio). That is the guard against drive-by CSRF from a page open in the same browser.
+- A six-character access code on every request from any device other than this computer (this computer being a loopback connection that names a loopback host). It is minted once, kept in the library's settings table, and carried inside the QR code and the link; a device that brings it gets a functional cookie for 400 days, so a phone stays signed in across restarts. Ten different wrong codes from one address within ten minutes lock that address out until the ten minutes pass: at that rate, guessing one of the 887 million codes takes more than 800 years per address on average.
 
-- A `Host` header allowlist, which rejects requests arriving under any hostname other than loopback or the LAN addresses printed at startup. This is what blocks DNS rebinding, where a page in any open browser tab resolves an attacker-controlled domain to your loopback address and drives the local API.
-- A random per-session access token, printed in the startup URL and required on every request. It is new on every run and never written to disk.
+`SCENRI_HOST=127.0.0.1` turns the phone listeners off. `SCENRI_HOST=0.0.0.0` binds the studio's own listener to every interface instead, behind the same gates.
 
-Treat LAN mode as convenience on a network you trust, not as a security boundary.
-
-Browsers name cross-site requests via `Sec-Fetch-Site`, and the server rejects them (except top-level navigations, which is a user clicking a link to their own studio). That is the guard against drive-by CSRF from a page open in the same browser.
+Over plain http the code and the cookie travel unencrypted, like everything else. On a network where others can read your traffic (an open Wi-Fi), treat phone access as convenience, not as a security boundary.
 
 ## Known limitations, stated on purpose
 
-- The brand-from-URL and catalog importers fetch the URL you give them, follow redirects, and do not block private-IP destinations. They can only be invoked by the person at the keyboard (or with the LAN token), fetching from their own machine, which `curl` could do too. Treated as a non-goal for now; a report showing these reachable **without** local access is very much in scope.
+- The brand-from-URL and catalog importers fetch the URL you give them and follow redirects. They refuse private-network destinations unless `SCENRI_SCRAPE_ALLOW_PRIVATE=1`, and they can only be invoked by the person at the keyboard or a device holding the access code. A report showing these reachable **without** local access is very much in scope.
 - Updates are staged with `npm install`, so integrity rests on npm's own tarball checksums plus two checks of our own: the staged manifest must match the requested name and version, and the staged version must boot and answer `verify` before it is promoted. There is no additional signature layer.
 - The library imagery archive is fetched once over HTTPS from this repository's GitHub Releases. There is no separate checksum yet; it contains imagery only and is never executed.
 - One dependency override exists, in the root `package.json`: `tsup>esbuild` is held at `>=0.28.1`, because the version tsup would otherwise resolve carries an advisory affecting esbuild's development server on Windows. It is scoped to tsup deliberately. Vite resolves its own, older esbuild that predates the affected range, and the fixed release cannot compile to the browser targets the studio builds for, so applying the override globally breaks the build rather than securing anything.
