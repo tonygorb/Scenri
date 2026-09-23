@@ -1,0 +1,18 @@
+{
+  "id": "kwame",
+  "name": "Kwame",
+  "presentation": "man",
+  "descriptor": "Lifestyle · twists and fade · athletic build",
+  "ageRange": "mid 20s",
+  "facial": "a strong square jaw, a short boxed beard, dark eyes, a broad nose",
+  "skin": "deep dark with a cool undertone, natural texture, minimal retouch",
+  "hair": "a sharp low fade with short twists on top",
+  "build": "broad and muscular, athletic",
+  "wardrobeDefault": "a heather-grey hoodie, black track pants",
+  "suitableCategories": ["Footwear", "Sport", "Apparel", "Electronics", "Accessories"],
+  "suitableStyles": ["Lifestyle"],
+  "identityNotes": "the low fade with twists, the boxed beard and the wave tattoo on the inside of the right forearm must survive every generation",
+  "negativeConstraints": ["no tattoo on the left arm", "no long beard", "no slim build"],
+  "width": 1024,
+  "height": 1280
+}

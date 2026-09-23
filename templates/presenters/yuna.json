@@ -1,0 +1,18 @@
+{
+  "id": "yuna",
+  "name": "Yuna",
+  "presentation": "woman",
+  "descriptor": "Beauty · dewy skin · slicked-back bun",
+  "ageRange": "early 20s",
+  "facial": "delicate refined features, soft full lips, groomed natural brows, dark almond eyes",
+  "skin": "light with a neutral undertone, luminous and dewy, fine natural texture",
+  "hair": "glossy black hair slicked back into a low bun",
+  "build": "slim and petite",
+  "wardrobeDefault": "a soft ivory knit camisole",
+  "suitableCategories": ["Beauty", "Jewelry"],
+  "suitableStyles": ["Editorial", "Lifestyle"],
+  "identityNotes": "the slicked-back low bun, the soft full lips and the luminous dewy skin must survive every generation",
+  "negativeConstraints": ["no heavy makeup", "no loose or cut hair", "no skin smoothing"],
+  "width": 1024,
+  "height": 1280
+}

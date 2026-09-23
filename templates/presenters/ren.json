@@ -1,0 +1,18 @@
+{
+  "id": "ren",
+  "name": "Ren",
+  "presentation": "man",
+  "descriptor": "Street · two-block cut · lean",
+  "ageRange": "early 20s",
+  "facial": "sharp clean features, dark monolid eyes, a straight nose",
+  "skin": "light with a warm undertone, clear, natural texture",
+  "hair": "thick black hair in a textured two-block cut with a soft fringe",
+  "build": "lean and tall",
+  "wardrobeDefault": "a charcoal oversized hoodie and wide black trousers",
+  "suitableCategories": ["Electronics", "Apparel", "Food & drink"],
+  "suitableStyles": ["Lifestyle", "Editorial"],
+  "identityNotes": "the textured two-block cut with the soft fringe and the sharp clean features must survive every generation",
+  "negativeConstraints": ["no dyed hair", "no facial hair", "no bulky build"],
+  "width": 1024,
+  "height": 1280
+}

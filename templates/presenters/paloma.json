@@ -1,0 +1,18 @@
+{
+  "id": "paloma",
+  "name": "Paloma",
+  "presentation": "woman",
+  "descriptor": "Sport · runner build · high ponytail",
+  "ageRange": "late 20s",
+  "facial": "bright dark eyes, full brows, high cheekbones, a warm open face",
+  "skin": "sun-warmed golden tan, healthy glow, natural texture",
+  "hair": "long dark brown hair in a high sleek ponytail",
+  "build": "lean and toned, a distance runner's shoulders and arms",
+  "wardrobeDefault": "a black running crop top and olive running shorts",
+  "suitableCategories": ["Footwear", "Sport", "Food & drink", "Beauty"],
+  "suitableStyles": ["Lifestyle"],
+  "identityNotes": "the high sleek ponytail, the lean runner build and the golden-tan skin must survive every generation",
+  "negativeConstraints": ["no hair down", "no bulky build", "no pale skin"],
+  "width": 1024,
+  "height": 1280
+}

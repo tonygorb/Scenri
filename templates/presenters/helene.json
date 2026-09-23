@@ -1,0 +1,18 @@
+{
+  "id": "helene",
+  "name": "Helene",
+  "presentation": "woman",
+  "descriptor": "Beauty · silver bob · ageless",
+  "ageRange": "early 50s",
+  "facial": "fine high cheekbones, pale green eyes, fine natural lines around the eyes",
+  "skin": "fair with a healthy glow and fine natural lines, minimal retouch",
+  "hair": "sleek silver-grey hair in a long blunt bob",
+  "build": "slim and upright",
+  "wardrobeDefault": "a cream cashmere crewneck",
+  "suitableCategories": ["Beauty", "Food & drink", "Home", "Furniture"],
+  "suitableStyles": ["Lifestyle", "Editorial"],
+  "identityNotes": "the sleek silver-grey long bob, the pale green eyes and the fine natural lines must survive every generation",
+  "negativeConstraints": ["no dyed hair", "no wrinkle removal", "no fringe"],
+  "width": 1024,
+  "height": 1280
+}

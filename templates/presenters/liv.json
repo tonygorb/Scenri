@@ -1,0 +1,18 @@
+{
+  "id": "liv",
+  "name": "Liv",
+  "presentation": "woman",
+  "descriptor": "Fashion · ash-blonde · freckles",
+  "ageRange": "late 20s",
+  "facial": "strong straight brows, cool grey-blue eyes, a defined jaw, light freckles across the nose",
+  "skin": "fair with a cool undertone and light freckles, natural texture",
+  "hair": "long straight ash-blonde hair with a centre part, worn loose",
+  "build": "tall and slender",
+  "wardrobeDefault": "an oversized camel wool coat over a white tee",
+  "suitableCategories": ["Apparel", "Accessories", "Electronics"],
+  "suitableStyles": ["Editorial", "Lifestyle"],
+  "identityNotes": "the long straight ash-blonde hair with its centre part, the nose freckles and the grey-blue eyes must survive every generation",
+  "negativeConstraints": ["no warm golden blonde", "no curls", "no freckle removal"],
+  "width": 1024,
+  "height": 1280
+}

@@ -1,0 +1,18 @@
+{
+  "id": "amara",
+  "name": "Amara",
+  "presentation": "woman",
+  "descriptor": "Editorial · buzz cut · long neck",
+  "ageRange": "mid 20s",
+  "facial": "sculpted high cheekbones, a defined jaw, full lips, dark brown eyes",
+  "skin": "deep brown with a warm glow, natural texture, minimal retouch",
+  "hair": "a close-cropped natural buzz cut, ears fully visible",
+  "build": "tall and lean with a long elegant neck",
+  "wardrobeDefault": "a black silk slip dress",
+  "suitableCategories": ["Fragrance", "Jewelry", "Accessories", "Apparel"],
+  "suitableStyles": ["Editorial"],
+  "identityNotes": "the close-cropped buzz cut, the long neck and the sculpted cheekbones must survive every generation",
+  "negativeConstraints": ["no long hair", "no wig or extensions", "no softened cheekbones"],
+  "width": 1024,
+  "height": 1280
+}
