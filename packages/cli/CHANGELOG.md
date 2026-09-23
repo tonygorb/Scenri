@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.1](https://github.com/tonygorb/Scenri/compare/v0.15.0...v0.15.1) (2026-09-23)
+
+
+### Bug Fixes
+
+* **publish:** make room for the scene cards under the package size line ([171ce2a](https://github.com/tonygorb/Scenri/commit/171ce2aa4ae40573f8b754193b2fec74338c5808))
+* **publish:** make room for the scene cards under the package size line ([baea05f](https://github.com/tonygorb/Scenri/commit/baea05f0b09d820f105d9d47e16722deb8a089e5))
+
 ## [0.15.0](https://github.com/tonygorb/Scenri/compare/v0.14.0...v0.15.0) (2026-09-23)
 
 

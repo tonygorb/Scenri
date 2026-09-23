@@ -51,7 +51,7 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
-    version: '0.15.0',
+    version: '0.15.1',
     date: '2026-09-23',
     sections: [
       {
@@ -71,6 +71,14 @@ export const RELEASES: ReleaseEntry[] = [
         body: 'Searching your shots narrows from the first letter, in any alphabet, and matches the words you wrote.',
       },
     ],
+  },
+  // Tagged but never published: its publish stopped at the package size
+  // check, so no one ran it. What it brought reached people in 0.15.1, and
+  // the words are there.
+  {
+    version: '0.15.0',
+    date: '2026-09-23',
+    sections: [],
   },
   {
     version: '0.14.0',
