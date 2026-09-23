@@ -46,6 +46,10 @@ const D = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGPQWGADAAH4AQV029onAAAAAElFTkSuQmCC',
   'base64',
 );
+const E = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGOQszkBAAGeASMRId8XAAAAAElFTkSuQmCC',
+  'base64',
+);
 const file = (name: string, buffer: Buffer) => ({ name, mimeType: 'image/png', buffer });
 
 async function brandSlug(p: Page): Promise<string> {
@@ -362,6 +366,38 @@ test('one picture is enough: read, drawn and kept', async ({ page }) => {
   await finishSceneSet(page);
   await page.waitForURL(/\/scenes\/us-/);
   expect((await scenes(page)).find((s) => s.name === 'One Wall').refs).toHaveLength(1);
+});
+
+// What a person actually drops on the well: too many, the same one twice, a
+// file that is not a picture, a picture that is broken. Each is said once and
+// nothing else moves.
+test('five pictures keep the first four and say so, and the same picture twice is kept once', async ({ page }) => {
+  await start(page);
+  await tap(turn(page, 'q:source'), 'Add pictures');
+  const q = turn(page, 'q:photos');
+  await q.locator('input[type="file"]').setInputFiles([file('a.png', A), file('a-again.png', A)]);
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(1);
+  await q
+    .locator('input[type="file"]')
+    .setInputFiles([file('b.png', B), file('c.png', C), file('d.png', D), file('e.png', E)]);
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(4);
+  await expect(studio(page)).toContainText('Four pictures is the most a scene is read from.');
+});
+
+test('a file that is not a picture, or a broken one, is said and nothing else changes', async ({ page }) => {
+  await start(page);
+  await tap(turn(page, 'q:source'), 'Add pictures');
+  const q = turn(page, 'q:photos');
+  await q
+    .locator('input[type="file"]')
+    .setInputFiles([{ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('a place') }]);
+  await expect(studio(page)).toContainText('Only pictures can show a place.');
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(0);
+  await q
+    .locator('input[type="file"]')
+    .setInputFiles([file('broken.png', Buffer.from('not a picture')), file('a.png', A)]);
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(1);
+  await expect(studio(page)).toContainText('broken.png could not be added');
 });
 
 test('pictures opened again and changed, then left, are as they were, and the picture drawn from them stays', async ({

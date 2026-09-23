@@ -554,6 +554,16 @@ describe('the words of a change', () => {
     expect(p).not.toMatch(/identical to the attached image in [^.]*the light/);
   });
 
+  // The change edits the scene's own picture: its lettering is part of the
+  // place, and nothing about references belongs in it.
+  it('keeps the lettering a scene quotes, and says nothing of references', () => {
+    const lettered = { ...READ, prompt: 'Printed tape bands repeat “OPEN SPACE” across a white gallery.' };
+    const p = sceneChangePrompt(lettered, 'warmer light');
+    expect(p).toContain('“OPEN SPACE”');
+    expect(p).toContain('except the lettering the description quotes, spelled exactly as quoted');
+    expect(p).not.toMatch(/reference images/);
+  });
+
   it('asks only for the same place when the sentence touches everything', () => {
     const p = sceneChangePrompt(READ, 'new room, raw concrete, night light, blue palette, heavy fog, low wide camera');
     expect(p).toContain('Keep it recognisably the same place.');

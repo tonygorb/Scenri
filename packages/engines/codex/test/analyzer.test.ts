@@ -419,6 +419,13 @@ describe('analyze — scene: presence without identity', () => {
     expect(prompt).toContain('describe their pose with empty hands');
   });
 
+  it('keeps the quoted words of set lettering through the answer file', async () => {
+    const prompt =
+      'Printed tape bands repeat “OPEN SPACE” across a bright white gallery, crossing at opposing diagonals.';
+    const { draft } = await scenePrompt({ prompt });
+    expect(draft.prompt).toContain('“OPEN SPACE”');
+  });
+
   it('keeps camera out of the set prose, where the shot could not outrank it', async () => {
     const { prompt } = await scenePrompt();
     expect(prompt).toContain('Camera belongs here and never in "prompt"');

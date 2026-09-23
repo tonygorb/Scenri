@@ -819,9 +819,15 @@ describe('custom presenters and scenes', () => {
 
   it('edits a scene, redraws its preview on request, and forgets it on delete', async () => {
     const brand = await newBrand();
+    const read = await savePhoto('#556677');
     const scene = (
-      await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/scenes`, payload: SCENE_BODY })
+      await app.inject({
+        method: 'POST',
+        url: `/api/brands/${brand.id}/scenes`,
+        payload: { ...SCENE_BODY, refHashes: [read] },
+      })
     ).json().scene;
+    expect(scene.refs).toEqual([{ file: `asset:${read}` }]);
 
     await app.inject({
       method: 'PATCH',
@@ -836,6 +842,8 @@ describe('custom presenters and scenes', () => {
     expect(preview.statusCode).toBe(200);
     expect(brandJson(brand.id).scenes[0].preview).toMatch(/^asset:[a-f0-9]{32}$/);
     expect(generated[0].prompt).toContain('flat daylight'); // the edit, not the original
+    // drawn from its words, never beside the references it was read from
+    expect(generated[0].referenceImages ?? []).toEqual([]);
 
     const gone = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/scenes/${scene.id}` });
     // The brand comes back, the way a deleted presenter's does: the wall, the
