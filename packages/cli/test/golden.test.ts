@@ -668,6 +668,40 @@ describe('golden: responsibility contract', () => {
     expect(shotDecides.prompt).toContain('24mm from floor level');
   });
 
+  // Only the person's words can choose a camera. The scene's own prose sits
+  // in the compiled sentence too, and a scene that describes its "framing"
+  // used to silence its own camera and any setup chosen on top of it.
+  it("a scene's own words about framing never silence its camera or a chosen setup", () => {
+    const scene = {
+      ...resolveScene(PRODUCT_SCENE)!,
+      prompt: 'Arched doorways give a natural framing to a cropped stone courtyard.',
+      camera: '90mm at eye level, medium depth',
+      setups: [{ id: 'top-down', label: 'Top down', camera: 'Directly overhead, looking straight down, deep focus' }],
+    };
+    const ctx = { brand: brand(), images: core.images, engineCaps: caps(6), templateById: () => scene };
+    const plain = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE },
+        ],
+      },
+      ctx,
+    );
+    expect(plain.prompt).toContain('natural framing');
+    expect(plain.prompt).toContain('Camera for this shot: 90mm at eye level, medium depth');
+    const set = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE, setup: 'top-down' },
+        ],
+      },
+      ctx,
+    );
+    expect(set.prompt).toContain('Camera for this shot: Directly overhead, looking straight down, deep focus');
+  });
+
   it("a chip that names one of the scene's setups is told that camera instead of the scene's own", () => {
     // One world, several ways to shoot it: the setup moves the camera and
     // nothing else, so the same scene prose still goes with it.

@@ -809,7 +809,10 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // outrank it precisely because they're appended after it, last.
   // A scene's camera tendency is a default, not a lock: it is emitted only when
   // the shot direction has not already chosen a camera, so the two can never
-  // compete. See shotSpecifiesCamera.
+  // compete. See shotSpecifiesCamera. Read over the person's own words only:
+  // `sentence` holds the scene's prose by now, and a scene that describes its
+  // own "framing" or a "lens" of light silenced its camera, and a setup chosen
+  // on top of it, in five of the thirty-three scenes in a real library.
   const sceneCamera = setupCamera.trim() || inlineTemplates[0]?.camera?.trim() || ctx.template?.camera?.trim() || '';
   // A product on its own under a place's camera tendency ("room-scale
   // distance") could only be made legible by being made huge (measured
@@ -824,7 +827,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const placeTendency = productOnly && !setupCamera.trim();
   const cameraDirectives = [
     ...(productOnly ? [productFramingDirective()] : []),
-    ...(sceneCamera && !shotSpecifiesCamera(sentence) && !placeTendency
+    ...(sceneCamera && !shotSpecifiesCamera(userWords) && !placeTendency
       ? [`Camera for this shot: ${sceneCamera}`]
       : []),
   ];
