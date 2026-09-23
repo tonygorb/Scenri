@@ -301,10 +301,11 @@ describe('sceneRecordFrom', () => {
    */
   it('cuts a long figure at a whole word, never mid-word', () => {
     const long =
-      'one person at very close portrait range, centered at human scale, leaning upward through the frame and gripping both sides of it';
+      'one person at very close portrait range, centered at human scale, leaning upward through the frame and gripping both sides of it while the light rakes across their raised forearms';
     const r = sceneRecordFrom({ name: 'Close Frame', prompt: 'A room.', figure: long });
     if (!r.ok) throw new Error(r.error);
-    expect(r.scene.figure!.length).toBeLessThanOrEqual(120);
+    expect(r.scene.figure!.length).toBeLessThan(long.length);
+    expect(r.scene.figure!.length).toBeLessThanOrEqual(160);
     expect(long.startsWith(r.scene.figure!)).toBe(true);
     // the last word it kept is a word the sentence actually contains
     const last = r.scene.figure!.split(' ').pop()!;

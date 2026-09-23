@@ -389,10 +389,11 @@ export function sceneRecordFrom(
   // Through `has()` like every other field: the scene page PATCHes prompt and
   // lighting alone on each keystroke, so anything read unconditionally from
   // `input` would be erased by an edit that never mentioned it.
-  const figure = has('figure') ? phrase(input.figure, 120).replace(/\s+/g, ' ') : base?.figure;
+  // The reader's own caps (analyzer.ts), so a saved scene keeps the line it was read with.
+  const figure = has('figure') ? phrase(input.figure, 160).replace(/\s+/g, ' ') : base?.figure;
   if (figure && !/\{[^}]*\}/.test(figure)) scene.figure = figure;
   const treatment = has('figureTreatment')
-    ? phrase(input.figureTreatment, 160).replace(/\s+/g, ' ')
+    ? phrase(input.figureTreatment, 240).replace(/\s+/g, ' ')
     : base?.figureTreatment;
   // A treatment with no figure to sit on describes nobody.
   if (scene.figure && treatment && !/\{[^}]*\}/.test(treatment)) scene.figureTreatment = treatment;
