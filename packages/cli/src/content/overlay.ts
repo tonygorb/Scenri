@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -20,6 +20,17 @@ export function contentCacheRoot(env: Record<string, string | undefined> = proce
 
 export function contentCacheReady(env?: Record<string, string | undefined>): boolean {
   return existsSync(join(contentCacheRoot(env), 'meta.json'));
+}
+
+/** The cached archive's version; 0 when there is no cache, or it is versionless or unreadable. */
+export function contentCacheVersion(env?: Record<string, string | undefined>): number {
+  try {
+    const meta = JSON.parse(readFileSync(join(contentCacheRoot(env), 'meta.json'), 'utf8')) as { version?: unknown };
+    const version = Number(meta.version);
+    return Number.isFinite(version) ? version : 0;
+  } catch {
+    return 0;
+  }
 }
 
 /** First existing of the bundled file then the cached file; the bundled path when neither exists (canonical 404 target). */

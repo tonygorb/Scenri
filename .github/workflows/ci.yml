@@ -217,7 +217,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download content-latest --repo "$GITHUB_REPOSITORY" --pattern scenri-content.zip --dir "$RUNNER_TEMP"
+          gh release download content-v2 --repo "$GITHUB_REPOSITORY" --pattern scenri-content.zip --dir "$RUNNER_TEMP"
           pnpm exec tsx packages/cli/scripts/pull-content.mts "$RUNNER_TEMP/scenri-content.zip"
 
       - name: Test
@@ -276,7 +276,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download content-latest --repo "$env:GITHUB_REPOSITORY" --pattern scenri-content.zip --dir "$env:RUNNER_TEMP"
+          gh release download content-v2 --repo "$env:GITHUB_REPOSITORY" --pattern scenri-content.zip --dir "$env:RUNNER_TEMP"
           pnpm exec tsx packages/cli/scripts/pull-content.mts "$env:RUNNER_TEMP/scenri-content.zip"
 
       - name: Test
