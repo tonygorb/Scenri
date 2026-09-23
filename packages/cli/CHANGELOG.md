@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.15.0](https://github.com/tonygorb/Scenri/compare/v0.14.0...v0.15.0) (2026-09-23)
+
+
+### Features
+
+* **scene:** a shot is read for its place alone ([26ba5ef](https://github.com/tonygorb/Scenri/commit/26ba5ef93615d7c3d23b94d189e60cc1e308cc4a))
+* **scene:** Add pictures means add pictures; a scene can start from one of your shots ([b026ab6](https://github.com/tonygorb/Scenri/commit/b026ab66fce5a1a876f082efb4f2a1150a8254c5))
+* **scenes:** a scene studio conversation ([e1fa96b](https://github.com/tonygorb/Scenri/commit/e1fa96bb1b2d2ba7a79018cce3e3c4da7504d82e))
+* **scenes:** every world's surface, light and idea rows are pictures ([373650c](https://github.com/tonygorb/Scenri/commit/373650cb37da6045ade68b0a014e2f7109848eaa))
+* **scenes:** Sunlit stone's surface, light and idea rows are pictures (pilot) ([ea73eee](https://github.com/tonygorb/Scenri/commit/ea73eee1b98f57cad60082aecfc973f5e729156e))
+* **scenes:** the questions after the world are the world's own ([d59e317](https://github.com/tonygorb/Scenri/commit/d59e3177bb853554c22d1aca4040f2cdc3630950))
+* **studio:** creation conversations show four cards in a row instead of six ([2cca0bb](https://github.com/tonygorb/Scenri/commit/2cca0bbb61b0b79808fcc36b29fb026d8a94413c))
+
+
+### Bug Fixes
+
+* **codex:** a prompt that ends in a full stop is not given a second one ([816047d](https://github.com/tonygorb/Scenri/commit/816047dadaa8c9a54f2a9d771d77821b3d7c2be1))
+* **conversation:** a question held while an earlier answer changes is live again after ([df7f4c4](https://github.com/tonygorb/Scenri/commit/df7f4c4c7f79efdcf0831572184563e4b21c47ae))
+* **create:** a scene's own words never silence its camera ([f60a5b3](https://github.com/tonygorb/Scenri/commit/f60a5b30d5fc256b5ec562dec19819730f049725))
+* **create:** only a figure's treatment sends a scene's plate with a shot ([4201d06](https://github.com/tonygorb/Scenri/commit/4201d065e2f728d1a238b473c5db6d298bbd6832))
+* **feed:** a search narrows from its first letter ([03cf16c](https://github.com/tonygorb/Scenri/commit/03cf16c0030b95b16e5018f3dfc5a71ea49fb9e0))
+* **feed:** a search reads what people wrote, and its first letter narrows ([059f8f3](https://github.com/tonygorb/Scenri/commit/059f8f3c7bd21a7fc968fe033b2bd9a45ae60cb6))
+* **feed:** a word starts after a space or punctuation, in any script ([257c6b7](https://github.com/tonygorb/Scenri/commit/257c6b76a207658bc7703d3b12cd5ec49767c780))
+* **scene:** a saved scene keeps the figure line it was read with ([9ecf373](https://github.com/tonygorb/Scenri/commit/9ecf3735d0debf0a801f66ed2635ca4bceebfdd2))
+* **scene:** a scene's first picture draws only its own words and nothing lifted from the references ([54184e4](https://github.com/tonygorb/Scenri/commit/54184e4e981dc4ad515e05568145ce250e389446))
+* **scene:** a scene's picture is drawn from its words, never from its references ([91a6dd2](https://github.com/tonygorb/Scenri/commit/91a6dd2d5addb0f35bcd5846f5e5baebe2365e37))
+* **scene:** a shot card is named by the start of its prompt, not all of it ([201882c](https://github.com/tonygorb/Scenri/commit/201882c15aab8753eb7d6607dbe0af440138300e))
+* **scenes:** every scene card redrawn as one physically real photograph ([a785b48](https://github.com/tonygorb/Scenri/commit/a785b489f449f68627e386965e50834eb28e1806))
+* **scenes:** saving a scene draws nothing, and the set is a counted press ([5251ca2](https://github.com/tonygorb/Scenri/commit/5251ca217d66c8342331ff62c8c63ce05c88838a))
+* **scenes:** the draw-in-use button wears the page's ghost pill, not a fill that reads as disabled ([959b72c](https://github.com/tonygorb/Scenri/commit/959b72c5873e551cab3322c937c2dcb16cd09e59))
+* **scenes:** the server no longer cuts a guided direction, and every one asks for an original arrangement ([e85b63c](https://github.com/tonygorb/Scenri/commit/e85b63ca8a65aa76702f07d5144aceb42957d1ff))
+* **scene:** the reader gives a colour its strength, not just its name ([e1103f6](https://github.com/tonygorb/Scenri/commit/e1103f61acbce5078a208e9b0687409c213edfbf))
+* **scene:** the reader keeps lettering and synthesis, and drops the advertisement ([571f494](https://github.com/tonygorb/Scenri/commit/571f4949f2f71c36f12e55280b208e10f0c08ab4))
+* **scene:** the shot picker holds still, speaks, and lets Escape clear it ([16fb509](https://github.com/tonygorb/Scenri/commit/16fb5094f41bbcb5a9d89f94ad7c917232851ecb))
+* **shots:** a glossy product is lit and framed as a campaign hero ([69ef00b](https://github.com/tonygorb/Scenri/commit/69ef00b912651ee367d9a42cada5ff170ca0dd0a))
+* **shots:** a glossy product takes the set's light, its screen off, shown once ([ac19aec](https://github.com/tonygorb/Scenri/commit/ac19aec96f1d534a0db04290fa5dc3c6aa4f130a))
+* **shots:** a phone design on a wide screen becomes the desktop app, and a refine can swap the screen ([d20b5e9](https://github.com/tonygorb/Scenri/commit/d20b5e96f21ee19980bcd65449fac70af83c93f6))
+* **shots:** a picture means what the words beside it say, and can be a device's screen ([ff03a32](https://github.com/tonygorb/Scenri/commit/ff03a320ad82d4d0891fe0bc82d46c0264bd1aac))
+* **shots:** a product alone is staged as a campaign image, held the way its world holds things ([7e12b56](https://github.com/tonygorb/Scenri/commit/7e12b56b52c5aaf5c3264890a37722d707bf4981))
+* **studio:** a picked card says it is picked, and a row respects reduced motion ([9663c4e](https://github.com/tonygorb/Scenri/commit/9663c4e3843ec5d617a52ad13d4d2bf67ae10921))
+* **studio:** a shot search not read yet never says it found nothing ([bddc624](https://github.com/tonygorb/Scenri/commit/bddc6241facf1b54a02be498ea8bd46d5482624a))
+
 ## [0.14.0](https://github.com/tonygorb/Scenri/compare/v0.13.2...v0.14.0) (2026-09-22)
 
 
