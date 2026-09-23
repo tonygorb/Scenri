@@ -1,0 +1,23 @@
+{
+  "id": "coal-blind-light",
+  "name": "Coal and Blinds",
+  "promptName": "Coal and Blinds",
+  "keywords": [
+    "coal",
+    "obsidian",
+    "black",
+    "venetian blinds",
+    "striped light",
+    "midnight teal",
+    "low key",
+    "nocturnal"
+  ],
+  "description": "Glossy black lump coal striped by cold venetian-blind light on midnight teal.",
+  "lighting": "Hard cool light through venetian blinds, diagonal bars on black",
+  "subject": "either",
+  "collections": ["Studio", "Detail"],
+  "verticals": ["Electronics", "Fragrance", "Accessories", "Jewelry", "Footwear"],
+  "prompt": "A heap of glossy black lump coal is banked into a low cradle in the middle ground, its fractured faces glinting like obsidian. Behind it a smooth wall in deep midnight teal fills the frame with no visible edge. Hard, cool light falls through unseen venetian blinds and lays crisp diagonal bars of pale blue light across the wall and over the coal, with deep shadow between them. The foreground is dark slate that barely catches the stripes. The palette is black, midnight teal and cold steel blue, precise and nocturnal.",
+  "width": 1024,
+  "height": 1280
+}

@@ -1,0 +1,14 @@
+{
+  "id": "ember-driftwood",
+  "name": "Ember Driftwood",
+  "promptName": "Ember Driftwood",
+  "keywords": ["driftwood", "ember", "amber", "rope", "charred wood", "warm", "smoky", "woody"],
+  "description": "Charred driftwood and hemp rope glowing amber against a tobacco-dark gradient.",
+  "lighting": "Warm tungsten rim light, ember glow, dark vignette",
+  "subject": "either",
+  "collections": ["Studio"],
+  "verticals": ["Accessories", "Fragrance", "Home", "Food & drink"],
+  "prompt": "Two logs of charred driftwood cross the foreground on a diagonal, their cracked black surfaces glowing a deep ember orange along the edges as if still warm. Between them a flat slab of weathered grey driftwood makes a level resting place, lashed with a loop of coarse undyed hemp rope. The background is a smooth gradient from burnt orange at the centre to deep tobacco brown at the edges. Warm rim light from behind outlines every edge of wood and rope, and a dark vignette closes the corners. The palette is amber, ember, tobacco and black, warm and smoky.",
+  "width": 1024,
+  "height": 1280
+}

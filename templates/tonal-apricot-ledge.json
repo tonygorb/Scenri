@@ -1,0 +1,14 @@
+{
+  "id": "tonal-apricot-ledge",
+  "name": "Apricot Ledge",
+  "promptName": "Apricot Ledge",
+  "keywords": ["tonal", "apricot", "peach", "pastel", "ledge", "acrylic", "soft light", "ingredient"],
+  "description": "A calm apricot-on-apricot set: one matte ledge, an acrylic fin and a halved fruit.",
+  "lighting": "Large soft side key, smooth tonal gradient, soft contact shadow",
+  "subject": "either",
+  "collections": ["Colored backgrounds", "Studio"],
+  "verticals": ["Beauty", "Food & drink", "Electronics", "Accessories", "Jewelry"],
+  "prompt": "A seamless sweep graded through three values of one warm apricot, from pale chalky peach on the floor to a deeper soft apricot at the top of the wall. In the middle ground a single matte ledge in the same apricot stands in front of a clear acrylic fin that catches a thin bright edge of light. At the foot of the ledge lies one fresh apricot, halved, its cut face glistening and its stone showing. The floor is faintly glossy and holds a soft blurred reflection, and one large soft key from the left falls off smoothly to the right. The whole palette is apricot, peach and white, quiet and tactile.",
+  "width": 1024,
+  "height": 1280
+}
