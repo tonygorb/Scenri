@@ -314,7 +314,7 @@ describe('analyze — scene', () => {
     const prompt = promptFromArgs(calls[0]);
     expect(prompt).toContain('keep the rocks, less orange');
     // Identity is still refused outright, and now says so about people too.
-    expect(prompt).toContain('Never name or describe a brand, a logo, a product model or a wordmark');
+    expect(prompt).toContain('Never name a brand, a product model or a wordmark');
     expect(prompt).toContain('do not use any proper name anywhere in your answer');
     expect(prompt).toContain('Choose "collections" only from this list: Editorial, Interiors');
   });
@@ -398,8 +398,25 @@ describe('analyze — scene: presence without identity', () => {
     expect(prompt).toContain('Name materials rather than colours');
     expect(prompt).toContain('foreground through middle ground to background');
     expect(prompt).toContain('reflective or transmissive');
-    expect(prompt).toContain('typographic texture');
-    expect(prompt).toContain('never transcribe the words');
+  });
+
+  // Lettering described without its words and then forbidden by the draw
+  // left the model to copy the reference's words, brand names included.
+  it('keeps lettering built into the set in words of its own, and drops what was laid over the picture', async () => {
+    const { prompt } = await scenePrompt();
+    expect(prompt).toContain('only one of them belongs to the world');
+    expect(prompt).toMatch(/sculptural letters, signage.*is art direction/s);
+    expect(prompt).toContain('give it new words of your own in curly quotation marks');
+    expect(prompt).toContain('never the words it carries in the reference and never a name');
+    expect(prompt).toMatch(/headline, tagline, caption, credits.*is the advertisement, not the world: leave it out/s);
+    expect(prompt).toContain('A logo is never reproduced');
+    expect(prompt).not.toContain('typographic texture');
+  });
+
+  it("takes a visitor out with its shadow, and out of the figure's hands", async () => {
+    const { prompt } = await scenePrompt();
+    expect(prompt).toContain('leave the object itself out, with its shadow and its reflection');
+    expect(prompt).toContain('describe their pose with empty hands');
   });
 
   it('keeps camera out of the set prose, where the shot could not outrank it', async () => {
@@ -407,10 +424,17 @@ describe('analyze — scene: presence without identity', () => {
     expect(prompt).toContain('Camera belongs here and never in "prompt"');
   });
 
-  it('reconciles several references by what they share', async () => {
+  // Consensus alone collapsed complementary references to their intersection.
+  it('builds several references into one world: what they share, what each adds, what gives way', async () => {
     const { prompt } = await scenePrompt();
-    expect(prompt).toContain('the world is what they share');
-    expect(prompt).toContain('appears in only one of them is a visitor');
+    expect(prompt).toContain('they were chosen together to describe one world');
+    expect(prompt).toContain('add what each one brings that the others do not contradict');
+    expect(prompt).toContain('a detail is not a visitor because only one reference shows it');
+    expect(prompt).toMatch(/truly disagree.*follow the place most of them support.*never blend them/s);
+    expect(prompt).toContain('say in "coverage" what you left out');
+    expect(prompt).not.toContain('the world is what they share');
+    // Order-neutral: nothing in the wording favours a position.
+    expect(prompt).not.toMatch(/first (reference|image|picture)/i);
   });
 
   it('separates "is the frame built around a body" from "who does this world flatter"', async () => {
@@ -435,7 +459,31 @@ describe('analyze — scene: presence without identity', () => {
 
   it('caps a staged position before it can become a pose', async () => {
     const { draft } = await scenePrompt({ figure: 'x'.repeat(400) });
-    expect(draft.figure!.length).toBeLessThanOrEqual(120);
+    expect(draft.figure!.length).toBeLessThanOrEqual(160);
+  });
+
+  it('cuts a long position at its last clause, never mid-word', async () => {
+    const long =
+      'one nearly full-length figure fills the central aisle at close range between the marble tables and the counter, stepping forward with both arms gathered tightly around a precarious stack';
+    expect((await scenePrompt({ figure: long })).draft.figure).toBe(
+      'one nearly full-length figure fills the central aisle at close range between the marble tables and the counter',
+    );
+    const noClause = `one figure ${'stands very still '.repeat(12)}`;
+    const cut = (await scenePrompt({ figure: noClause })).draft.figure!;
+    expect(cut.length).toBeLessThanOrEqual(160);
+    expect(noClause.startsWith(cut)).toBe(true);
+    expect(noClause[cut.length]).toBe(' ');
+  });
+
+  // Coverage is read in the conversation, so it is never cut mid-word.
+  it('cuts a long coverage note at a word, never inside one', async () => {
+    const note =
+      'These references show different places: three compact display sets and one densely dressed outdoor street, so their shared world is chiefly directional light and mineral surfaces rather than one continuous room or a single street, and the street carries far more dressing than any of the three display sets does.';
+    const [cut] = (await scenePrompt({ coverage: [note] })).draft.coverage;
+    expect(cut.length).toBeLessThanOrEqual(240);
+    expect(note.startsWith(cut)).toBe(true);
+    expect(cut).toMatch(/[a-z]$/);
+    expect([' ', ',', ';'].includes(note[cut.length])).toBe(true);
   });
 
   it('carries at most two coverage notes, the way a presenter does', async () => {
