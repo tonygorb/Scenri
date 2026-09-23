@@ -2,8 +2,8 @@ import { createCore, SchemaTooNewError } from '@scenri/core';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
-import { homedir, networkInterfaces } from 'node:os';
-import { randomBytes } from 'node:crypto';
+import { homedir } from 'node:os';
+import type { AddressInfo } from 'node:net';
 import { createEngineRegistry } from './engines.js';
 import { createDemoAnalyzer, createDemoEngine, demoOptionsFromEnv } from '@scenri/engine-demo';
 import { createCodexAnalyzer } from '@scenri/engine-codex';
@@ -12,30 +12,18 @@ import { detectInstallKind } from './installKind.js';
 import { repairPresenterCrops } from './presenterRepair.js';
 import { readMeta } from './meta.js';
 import { anotherScenriLines, portBusyLines, shouldAdoptRunning } from './bootError.js';
+import { isIPv4Literal } from './access.js';
+import { localUrl as localUrlFor, startLines } from './banner.js';
 
 const PORT = Number(process.env.SCENRI_PORT || 4747);
 /**
- * This machine only, by default. The API has no accounts: whoever reaches the
- * port can generate on the user's API keys and delete their library. Reaching
- * phones on the same Wi-Fi is opt-in via SCENRI_HOST, and that path is gated
- * on a per-session token.
+ * The studio's own listener, 127.0.0.1 unless SCENRI_HOST says otherwise.
+ * Phones on the same Wi-Fi reach it through listeners of their own, one per
+ * address this machine has there (network/phoneAccess.ts), and every device
+ * other than this computer brings the code. SCENRI_HOST=127.0.0.1 keeps it to
+ * this computer; 0.0.0.0 is the old whole-machine bind, still behind the code.
  */
 const HOST = process.env.SCENRI_HOST || '127.0.0.1';
-
-const LOOPBACK = ['127.0.0.1', 'localhost', '::1'];
-
-function lanAddresses(): string[] {
-  const out: string[] = [];
-  for (const addrs of Object.values(networkInterfaces())) {
-    for (const a of addrs ?? []) {
-      // older Node reported family as the number 4; both spellings still count
-      if ((a.family as string | number) === 'IPv4' || (a.family as string | number) === 4) {
-        if (!a.internal) out.push(a.address);
-      }
-    }
-  }
-  return out;
-}
 
 export { detectInstallKind } from './installKind.js';
 
@@ -88,11 +76,8 @@ async function run(): Promise<void> {
   const supervised = process.env.SCENRI_SUPERVISED === '1';
   const installKind = detectInstallKind(fileURLToPath(import.meta.url), core.home);
 
-  const onlyThisMachine = LOOPBACK.includes(HOST);
-  // Off loopback, "can reach the port" stops meaning "is sitting at this
-  // machine", so the URLs we print carry a token that is new on every run.
-  const token = onlyThisMachine ? undefined : randomBytes(24).toString('base64url');
-  const reachableAt = onlyThisMachine ? [] : HOST === '0.0.0.0' || HOST === '::' ? lanAddresses() : [HOST];
+  // a SCENRI_HOST given as a name is a Host header we must accept; addresses always pass
+  const named = ['127.0.0.1', 'localhost', '::1', '0.0.0.0', '::'].includes(HOST) || isIPv4Literal(HOST) ? [] : [HOST];
 
   const app = buildServer({
     core,
@@ -100,7 +85,8 @@ async function run(): Promise<void> {
     analyzer,
     sizeReader,
     studioDist,
-    access: { allowedHosts: reachableAt, token },
+    access: { allowedHosts: named },
+    bind: process.env.SCENRI_HOST,
     runtime: {
       installKind,
       supervised,
@@ -195,21 +181,17 @@ async function run(): Promise<void> {
   // SCENRI_NO_CONTENT_FETCH and its Settings toggle, and stays silent offline.
   app.content.schedule();
 
-  const query = token ? `/?t=${token}` : '';
-  const localUrl = `http://127.0.0.1:${PORT}${query}`;
-
-  console.log(`\n  Scenri Studio → ${localUrl}`);
-  for (const ip of reachableAt) console.log(`  on your network → http://${ip}:${PORT}${query}`);
-  console.log(`  data dir        → ${core.home}`);
-  console.log('  Keep this window open while Scenri is running.\n');
-  if (!studioDist) console.log('  (studio UI not built, API only. Run: pnpm build)\n');
-  if (token) {
-    console.log('  Warning: the studio is reachable from your network.');
-    console.log('  Anyone who opens a link above can generate on your API keys and');
-    console.log('  delete your library. The token in the URL is the only thing gating');
-    console.log('  that, and it is new on every run.');
-    console.log('  For this machine only, unset SCENRI_HOST.\n');
+  // The real port, whatever was asked for, then the phone listeners beside it.
+  // Nothing about a phone may stop the studio from starting on this computer.
+  const port = (app.server.address() as AddressInfo | null)?.port ?? PORT;
+  await app.phone.start(port).catch(() => undefined);
+  const phone = await app.phone.status(true).catch(() => null);
+  const localUrl = localUrlFor(HOST, port, app.phone.code);
+  console.log('');
+  for (const line of startLines({ host: HOST, port, home: core.home, studioBuilt: !!studioDist, phone })) {
+    console.log(line ? `  ${line}` : '');
   }
+  console.log('');
   if (process.env.SCENRI_NO_OPEN !== '1') {
     // Headless or browserless environment: the URL above is the fallback,
     // repeated so the last line on screen is the thing to click. The spawn

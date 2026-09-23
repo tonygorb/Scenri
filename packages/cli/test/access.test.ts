@@ -6,23 +6,34 @@ import { createCore, type Core, type EngineAdapter } from '@scenri/core';
 import { createDemoEngine } from '@scenri/engine-demo';
 import { buildServer } from '../src/server.js';
 import { drainTracked, track } from './servers.js';
-import { hostnameOf, ACCESS_COOKIE } from '../src/access.js';
+import { hostnameOf, isIPv4Literal, ACCESS_COOKIE } from '../src/access.js';
+import { CODE_SETTING } from '../src/network/phoneAccess.js';
 import type { FastifyInstance } from 'fastify';
 
 let home: string;
 let core: Core;
+const CODE = 'K7P2QX';
 
 function registryWith(...adapters: EngineAdapter[]) {
   const byId = new Map(adapters.map((a) => [a.capabilities().id, a]));
   return { all: () => adapters, get: (id: string) => byId.get(id) ?? null };
 }
 
-const serve = (access?: Parameters<typeof buildServer>[0]['access']) =>
-  track(buildServer({ core, engines: registryWith(createDemoEngine((b) => core.images.save(b))), access }));
+const serve = (extra: Partial<Parameters<typeof buildServer>[0]> = {}) =>
+  track(
+    buildServer({
+      core,
+      engines: registryWith(createDemoEngine((b) => core.images.save(b))),
+      // no phone listener and no network probe in a unit test
+      phone: { addresses: async () => [], listen: async () => ({ close: async () => undefined }) },
+      ...extra,
+    }),
+  );
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'sc-access-'));
   core = createCore(home);
+  core.store.setSetting(CODE_SETTING, CODE);
 });
 afterEach(async () => {
   // Drain rather than close, and every server rather than the one a variable
@@ -86,12 +97,29 @@ describe('host allowlist', () => {
   // substitutes its own default, and Node answers a HTTP/1.1 request with no
   // Host header itself, before Fastify sees it.
 
-  it('allows a LAN address only when it was explicitly opted into', async () => {
-    app = serve({ allowedHosts: ['192.168.1.20'] });
-    const ok = await app.inject({ method: 'GET', url: '/api/brands', headers: { host: '192.168.1.20:4747' } });
-    expect(ok.statusCode).toBe(200);
-    const no = await app.inject({ method: 'GET', url: '/api/brands', headers: { host: '192.168.1.21:4747' } });
-    expect(no.statusCode).toBe(403);
+  it('passes any IPv4 address on to the code, whichever Wi-Fi this is', async () => {
+    app = serve();
+    for (const host of ['192.168.1.20:4747', '10.0.0.5:4747', '172.20.10.2:4747']) {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/brands',
+        headers: { host },
+        remoteAddress: '192.168.1.50',
+      });
+      expect(res.statusCode, host).toBe(403);
+      expect(res.json().error, host).toBe('access code required');
+    }
+  });
+
+  it('accepts a SCENRI_HOST given as a name', async () => {
+    app = serve({ access: { allowedHosts: ['studio.local'] } });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/brands?t=${CODE}`,
+      headers: { host: 'studio.local:4747' },
+      remoteAddress: '192.168.1.50',
+    });
+    expect(res.statusCode).toBe(200);
   });
 
   it('guards the SPA fallback too, not just /api', async () => {
@@ -160,70 +188,183 @@ describe('cross-site request blocking', () => {
   });
 });
 
-describe('LAN access token', () => {
+describe('isIPv4Literal', () => {
+  it('knows an address from a name', () => {
+    expect(isIPv4Literal('192.168.1.20')).toBe(true);
+    expect(isIPv4Literal('10.0.0.255')).toBe(true);
+    expect(isIPv4Literal('0.0.0.0')).toBe(false);
+    expect(isIPv4Literal('192.168.1.256')).toBe(false);
+    expect(isIPv4Literal('192.168.1')).toBe(false);
+    expect(isIPv4Literal('1.2.3.4.evil.example')).toBe(false);
+    expect(isIPv4Literal('evil.example')).toBe(false);
+  });
+});
+
+describe('the code another device brings', () => {
   let app: FastifyInstance;
-  const token = 'test-token-value';
   beforeEach(() => {
-    app = serve({ allowedHosts: ['192.168.1.20'], token });
+    app = serve();
   });
 
-  const lan = (extra: Record<string, string> = {}) => ({ host: '192.168.1.20:4747', ...extra });
+  const phone = (extra: Record<string, string> = {}) => ({ host: '192.168.1.20:4747', ...extra });
+  const from = '192.168.1.50';
+  const get = (url: string, headers: Record<string, string> = {}, remoteAddress = from) =>
+    app.inject({ method: 'GET', url, headers: phone(headers), remoteAddress });
 
-  it('rejects a request carrying no token', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/brands', headers: lan() });
+  it('refuses the API without the code', async () => {
+    const res = await get('/api/brands');
     expect(res.statusCode).toBe(403);
-    expect(res.json().error).toBe('access token required');
+    expect(res.json().error).toBe('access code required');
   });
 
-  it('rejects a wrong token', async () => {
-    const res = await app.inject({ method: 'GET', url: `/api/brands?t=nope`, headers: lan() });
+  it('shows a page that asks for the code when a browser opens the bare address', async () => {
+    const res = await get('/', { 'sec-fetch-mode': 'navigate', accept: 'text/html' });
     expect(res.statusCode).toBe(403);
+    expect(res.headers['content-type']).toContain('text/html');
+    expect(res.body).toContain('Enter the code shown in Scenri on your computer');
+    expect(res.body).toContain('name="t"');
+    expect(res.body).not.toContain('did not work');
   });
 
-  it('accepts the token in the query and hands back a cookie', async () => {
-    const res = await app.inject({ method: 'GET', url: `/api/brands?t=${token}`, headers: lan() });
-    expect(res.statusCode).toBe(200);
-    expect(res.headers['set-cookie']).toContain(`${ACCESS_COOKIE}=${token}`);
-    expect(res.headers['set-cookie']).toContain('HttpOnly');
-  });
-
-  it('accepts the cookie on later requests, so the token leaves the address bar', async () => {
-    const res = await app.inject({
-      method: 'GET',
-      url: '/api/brands',
-      headers: lan({ cookie: `${ACCESS_COOKIE}=${token}` }),
-    });
-    expect(res.statusCode).toBe(200);
-  });
-
-  // a tab open across the sc- rename still carries the old cookie name
-  it('accepts the pre-rename bt_access cookie', async () => {
-    const res = await app.inject({
-      method: 'GET',
-      url: '/api/brands',
-      headers: lan({ cookie: `bt_access=${token}` }),
-    });
-    expect(res.statusCode).toBe(200);
-  });
-
-  it('does not trust the pre-rename cookie name with a wrong value', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/brands', headers: lan({ cookie: 'bt_access=nope' }) });
+  it('says so when the typed code is wrong', async () => {
+    const res = await get('/?t=AAAAAA', { accept: 'text/html' });
     expect(res.statusCode).toBe(403);
+    expect(res.body).toContain('That code did not work');
+  });
+
+  it('accepts the code in the link and hands back a lasting cookie', async () => {
+    const res = await get(`/api/brands?t=${CODE}`);
+    expect(res.statusCode).toBe(200);
+    const cookie = String(res.headers['set-cookie']);
+    expect(cookie).toContain(`${ACCESS_COOKIE}=${CODE}`);
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('SameSite=Strict');
+    expect(cookie).toContain('Max-Age=34560000');
+  });
+
+  it('forgives case, spaces and dashes in a typed code', async () => {
+    for (const typed of ['k7p2qx', 'K7P 2QX', 'k7p-2qx']) {
+      const res = await get(`/api/brands?t=${encodeURIComponent(typed)}`);
+      expect(res.statusCode, typed).toBe(200);
+    }
+  });
+
+  it('accepts the cookie on later requests, so the code leaves the address bar', async () => {
+    expect((await get('/api/brands', { cookie: `${ACCESS_COOKIE}=${CODE}` })).statusCode).toBe(200);
+  });
+
+  it('accepts the pre-rename bt_access cookie, never with a wrong value', async () => {
+    expect((await get('/api/brands', { cookie: `bt_access=${CODE}` })).statusCode).toBe(200);
+    expect((await get('/api/brands', { cookie: 'bt_access=nope' })).statusCode).toBe(403);
   });
 
   it('accepts an x-access-token header', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/brands', headers: lan({ 'x-access-token': token }) });
-    expect(res.statusCode).toBe(200);
+    expect((await get('/api/brands', { 'x-access-token': CODE })).statusCode).toBe(200);
   });
 
-  it('still gates loopback once a token is in play', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/brands', headers: { host: '127.0.0.1:4747' } });
+  it('names the cookie for the port, so two Scenris on one machine never overwrite each other', async () => {
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const port = (app.server.address() as { port: number }).port;
+    const res = await get(`/api/brands?t=${CODE}`);
+    expect(String(res.headers['set-cookie'])).toContain(`${ACCESS_COOKIE}_${port}=${CODE}`);
+    expect((await get('/api/brands', { cookie: `${ACCESS_COOKIE}_${port}=${CODE}` })).statusCode).toBe(200);
+  });
+
+  // the desktop icon's probe, the adopt probe and the tab this computer opens
+  it('never asks this computer for the code', async () => {
+    for (const host of ['127.0.0.1:4747', 'localhost:4747', '[::1]:4747']) {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/brands',
+        headers: { host },
+        remoteAddress: '127.0.0.1',
+      });
+      expect(res.statusCode, host).toBe(200);
+    }
+  });
+
+  // Vite --host turns a phone into a loopback connection that still names the Wi-Fi address
+  it('asks a phone that arrives through a local proxy', async () => {
+    const res = await get('/api/brands', {}, '127.0.0.1');
     expect(res.statusCode).toBe(403);
   });
 
-  it('checks the host before the token, so a foreign host cannot brute-force', async () => {
-    const res = await app.inject({ method: 'GET', url: `/api/brands?t=${token}`, headers: { host: 'evil.example' } });
+  it('asks a device on the network that claims to be localhost', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/brands',
+      headers: { host: 'localhost:4747' },
+      remoteAddress: from,
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('checks the host before the code, so a foreign host cannot guess', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/brands?t=${CODE}`,
+      headers: { host: 'evil.example' },
+      remoteAddress: from,
+    });
     expect(res.statusCode).toBe(403);
     expect(res.json().error).toBe('forbidden host');
+  });
+
+  it('notes the device that got in, for Settings to say it worked', async () => {
+    await get(`/api/brands?t=${CODE}`, {
+      'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1',
+    });
+    const status = (await app.inject({ method: 'GET', url: '/api/phone' })).json();
+    expect(status.lastVisit.device).toBe('iPhone');
+  });
+});
+
+describe('guessing the code', () => {
+  const from = '192.168.1.66';
+  let clock = 1_000_000;
+  let app: FastifyInstance;
+  beforeEach(() => {
+    clock = 1_000_000;
+    app = serve({ access: { now: () => clock } });
+  });
+  const tryCode = (code: string, remoteAddress = from, headers: Record<string, string> = {}) =>
+    app.inject({
+      method: 'GET',
+      url: `/api/brands?t=${code}`,
+      headers: { host: '192.168.1.20:4747', ...headers },
+      remoteAddress,
+    });
+
+  it('stops an address after ten different wrong codes, the right one included', async () => {
+    for (let i = 0; i < 10; i++) expect((await tryCode(`WRONG${i}`)).statusCode).toBe(403);
+    const locked = await tryCode(CODE);
+    expect(locked.statusCode).toBe(403);
+    expect(locked.json().error).toBe('too many tries');
+    const page = await tryCode(CODE, from, { accept: 'text/html' });
+    expect(page.body).toContain('Too many tries');
+  });
+
+  it('leaves every other address alone', async () => {
+    for (let i = 0; i < 10; i++) await tryCode(`WRONG${i}`);
+    expect((await tryCode(CODE, '192.168.1.67')).statusCode).toBe(200);
+  });
+
+  it('lets the address try again ten minutes later', async () => {
+    for (let i = 0; i < 10; i++) await tryCode(`WRONG${i}`);
+    clock += 10 * 60_000 + 1;
+    expect((await tryCode(CODE)).statusCode).toBe(200);
+  });
+
+  // a phone polling with a cookie from before a reset repeats one value
+  it('counts one stale value once, however often it arrives', async () => {
+    for (let i = 0; i < 40; i++) {
+      await app.inject({
+        method: 'GET',
+        url: '/api/brands',
+        headers: { host: '192.168.1.20:4747', cookie: `${ACCESS_COOKIE}=OLDOLD` },
+        remoteAddress: from,
+      });
+    }
+    expect((await tryCode(CODE)).statusCode).toBe(200);
   });
 });
