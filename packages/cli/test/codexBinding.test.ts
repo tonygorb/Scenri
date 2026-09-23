@@ -77,6 +77,8 @@ const scene = {
   verticals: [],
   prompt: 'A warm seamless studio ground.',
   figure: 'one person at close portrait range',
+  // the plate rides for a treatment, the thing its prose cannot carry
+  figureTreatment: 'the face entirely covered in overlapping printed stickers',
   refs: [{ file: `asset:${''}` }],
   width: 1024,
   height: 1280,

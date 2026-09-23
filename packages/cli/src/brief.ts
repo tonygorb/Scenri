@@ -693,8 +693,8 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         append(withOwnLight(t, ctx.brand, composePrompt(t, { fields: brief.templateFields ?? {}, notes: '' })));
 
         /*
-         * A figure-led scene with a presenter attached sends its drawn plate,
-         * because its prose cannot carry it.
+         * A scene whose figure wears a treatment, with a presenter attached,
+         * sends its drawn plate, because its prose cannot carry it.
          *
          * Measured, not assumed. A scene whose whole art direction is a dense
          * graphic treatment - a face tiled with printed stickers - compiled to
@@ -705,8 +705,13 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
          * graphics. That is the same mechanism a hand-attached reference already
          * uses, and it is why one of those "just works".
          *
-         * Only when the scene names a figure: an environment compiles to prose
-         * perfectly well, and every catalog scene stays byte-identical. Never on
+         * Only when the scene names a treatment: an environment compiles to
+         * prose perfectly well, and every catalog scene stays byte-identical.
+         * A figure with nothing done to it is a role and a pose, and words carry
+         * both: sent as a picture, its one pose became every presenter shot's
+         * pose, a portrait asked for came back full length, and the words could
+         * not move it (battery 2026-09-23). A scene is the vibe of a shot, not
+         * its composition. Never on
          * an edit, where the source frame already holds the world and the budget
          * is one slot smaller. Not essential, so it degrades instead of refusing.
          *
@@ -729,7 +734,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
          * and judged there.
          */
         const seam = sceneRefSeam();
-        if (ctx.mode !== 'edit' && (t.figure || seam > 0)) {
+        if (ctx.mode !== 'edit' && ((t.figure && t.figureTreatment) || seam > 0)) {
           // The battery's arm: `SCENRI_SCENE_REFS=n` sends up to n of a
           // scene's own pictures (its drawn plate first, then its uploads)
           // whatever the scene is and whoever is attached, so one scene can be

@@ -1438,6 +1438,8 @@ describe('compileBrief: a world built around a figure', () => {
               ...base,
               preview: `asset:${core.images.save(Buffer.from('scene-plate'))}`,
               refs: [{ file: `asset:${productHash}` }],
+              // the plate rides for a treatment, the thing its prose cannot carry
+              figureTreatment: 'the face entirely covered in overlapping printed stickers',
               ...over,
             }
           : undefined,
@@ -1457,6 +1459,24 @@ describe('compileBrief: a world built around a figure', () => {
     const scene = r.attachments.filter((a) => a.role === 'scene');
     expect(scene).toHaveLength(1);
     expect(scene[0].essential).toBeFalsy();
+  });
+
+  // A figure with nothing done to it is a role and a pose, and words carry
+  // both. Sent as a picture, its one pose became every presenter shot's pose
+  // and a portrait came back full length (battery 2026-09-23).
+  it('sends no picture for a figure with no treatment: the role is said in words', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      refd({ figureTreatment: undefined }),
+    );
+    expect(r.attachments.map((a) => a.role)).not.toContain('scene');
+    expect(r.prompt).toContain('This world is built around one figure');
+    expect(r.prompt).not.toContain("the scene's own photograph");
   });
 
   it('sends nothing when the scene is only an environment', () => {
@@ -1563,7 +1583,12 @@ describe('compileBrief: a world built around a figure', () => {
         },
         ctx({ templateById: (id: string) => (id === base.id ? { ...base, ...scene } : undefined) }),
       );
-    const withPlate = withPresenter({ preview: `asset:${plate}`, refs: [{ file: `asset:${productHash}` }] });
+    const sticker = 'the face entirely covered in overlapping printed stickers';
+    const withPlate = withPresenter({
+      preview: `asset:${plate}`,
+      refs: [{ file: `asset:${productHash}` }],
+      figureTreatment: sticker,
+    });
     const scene = withPlate.attachments.filter((a) => a.role === 'scene');
     expect(scene).toHaveLength(1);
     expect(scene[0].hash).toBe(plate);
@@ -1571,7 +1596,7 @@ describe('compileBrief: a world built around a figure', () => {
     // The raw upload may be a full-bleed photograph of a real person nobody
     // chose: a competing identity in the payload. Without a plate the scene
     // degrades to prose rather than ship a face.
-    const withoutPlate = withPresenter({ refs: [{ file: `asset:${productHash}` }] });
+    const withoutPlate = withPresenter({ refs: [{ file: `asset:${productHash}` }], figureTreatment: sticker });
     expect(withoutPlate.attachments.map((a) => a.role)).not.toContain('scene');
     expect(withoutPlate.prompt).not.toContain("the scene's own photograph");
     // quiet degrade: never tell someone their scene was left out
