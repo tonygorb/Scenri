@@ -508,11 +508,9 @@ describe('custom presenters and scenes', () => {
     // A preview shows the world, not a stand-in product it would have to invent.
     expect(generated).toHaveLength(1);
     expect(generated[0].prompt).toContain('A figure is in this photograph');
-    // The one draw with the whole reference budget to itself, and an output that
-    // is a card rather than a customer's shot. So the world is read from pixels
-    // here, and a shot still only ever gets the words.
-    expect(generated[0].referenceImages).toHaveLength(refs.length);
-    expect(generated[0].referenceRoles).toEqual(refs.map(() => 'scene'));
+    // The references are read for the place and never drawn from: beside them
+    // the card came back as their photograph (battery 2026-09-23).
+    expect(generated[0].referenceImages ?? []).toEqual([]);
   });
 
   it('records the figure and its treatment, and never who it is', async () => {
@@ -555,9 +553,8 @@ describe('custom presenters and scenes', () => {
     const prompt = generated[0].prompt;
     expect(prompt).toContain('A figure is in this photograph: someone stands at the tide line');
     expect(prompt).toContain('the face wrapped in translucent fabric');
-    // The source references are attached to this draw, so the card would happily
-    // come back as the person in them without this.
-    expect(prompt).toContain('do not reproduce any person from the attached reference images');
+    // Somebody new in the role, never the person the references showed.
+    expect(prompt).toContain('nobody in particular, with no recognisable identity');
   });
 
   it('keeps the staged position when an edit touches only the prompt', async () => {
@@ -1053,32 +1050,23 @@ describe('custom presenters and scenes', () => {
 
   // Told "no text" beside a reference full of words, the model copied the
   // words, brand names included; lettering designed for the set is quoted.
-  it('draws only the lettering the scene quotes, and nothing lifted from the references', () => {
+  it('draws only the lettering the scene quotes, and a figure with empty hands', () => {
     const lettered = scenePreviewPrompt({
       prompt: 'Printed tape bands cross the room, repeating “SLOW LIGHT” in condensed black capitals.',
     } as CustomScene);
     expect(lettered).toContain(
       'no readable words anywhere in the frame except the lettering the description quotes, spelled exactly as quoted.',
     );
-    expect(lettered).toContain('Nothing is copied from the attached reference images');
 
     const bare = scenePreviewPrompt({ prompt: 'A basalt shelf.' } as CustomScene);
-    expect(bare).toContain('and no readable words anywhere in the frame');
+    expect(bare).toContain('and no readable words anywhere in the frame.');
     expect(bare).not.toContain('except the lettering');
-    expect(bare).toContain('none of their products or the shadows those products cast');
-    expect(bare).toContain('none of their packaging, labels, logos or words');
 
     const held = scenePreviewPrompt({ prompt: 'A café aisle.', figure: 'one figure mid-aisle' } as CustomScene);
-    expect(held).toContain('Their hands are empty');
+    expect(held).toContain('their hands are empty');
 
-    const treated = scenePreviewPrompt({
-      prompt: 'A sky held in mirrored lenses.',
-      figure: 'one figure at close range',
-      figureTreatment: 'oversized mirrored sunglasses',
-    } as CustomScene);
-    expect(treated).toContain(
-      'None of the products in the attached reference images appears anywhere, not even in a reflection',
-    );
+    // drawn from words alone, so nothing speaks of pictures that are not there
+    for (const p of [lettered, bare, held]) expect(p).not.toMatch(/attached reference images/);
   });
 
   /* ------------------------------------------------------ around the edges */

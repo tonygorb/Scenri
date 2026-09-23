@@ -239,32 +239,6 @@ function asScene(r: SceneReading): CustomScene {
 /* --------------------------------------------------------------- picture */
 
 /**
- * The pictures a fresh preview is drawn with: all of them.
- *
- * A scene built from photographs used to be drawn from the words alone unless
- * it was figure-led, so making a scene from a picture was an image, into a
- * paraphrase, into a different image. It was related to what the person
- * uploaded only through prose, which is why it felt unreliable: everything the
- * sentences did not carry was gone by construction.
- *
- * That rule was written for a real leak - a full-bleed photograph of a person
- * the model reproduced - but the refusal that now sits in `scenePreviewPrompt`
- * was written after it, and it is the thing that actually holds: for a scene
- * with no figure the draw is told "the set is empty: no product, no person, no
- * hands, no text, no logos, no watermarks anywhere in the frame", and for a
- * figure-led one it is told not to reproduce any person from the references.
- *
- * Measured 2026-09-21, four references with staged products, brand lettering, a
- * logo and a hand among them, each drawn both ways: with the pictures attached
- * the world, its materials, its light and its composition all came through,
- * and not one of the products, hands or words did. Drawn from the words alone
- * the same references came back as a different room each time.
- */
-export function previewRefsFor(_reading: SceneReading, hashes: string[]): string[] {
-  return hashes;
-}
-
-/**
  * The parts of a place a sentence can be about.
  *
  * A change names one or two of them; the rest are held by name in the prompt,
@@ -328,24 +302,25 @@ export function sceneChangePrompt(reading: SceneReading, ask: string): string {
   );
 }
 
+/**
+ * A fresh preview: the reading's words, and no picture.
+ *
+ * A scene is the vibe of its pictures, never a copy of one. Drawn beside its
+ * references, a preview came back as their photograph: the same person, pose,
+ * wardrobe and composition, and a product the words had already left out
+ * (battery 2026-09-23, 11 of 11 rows). Drawn from the words alone, the same
+ * readings kept the world, the light, the lettering and the graphic devices
+ * in 11 of 11, with a new person, a new pose and nothing lifted. On
+ * 2026-09-21 words alone drew "a different room each time"; the readings
+ * were thinner then (no synthesis, lettering without its words).
+ */
 async function drawFresh(
   deps: AssetBuildDeps,
   brandId: string,
   reading: SceneReading,
-  hashes: string[],
   signal: AbortSignal,
 ): Promise<string> {
-  const engine = deps.engine!;
-  const refs = previewRefsFor(reading, hashes)
-    .filter((h) => deps.core.images.has(h))
-    .slice(0, engine.capabilities().maxReferenceImages)
-    .map((h) => deps.core.images.pathFor(h));
-  return draw(deps, {
-    prompt: scenePreviewPrompt(asScene(reading)),
-    brandId,
-    ...(refs.length ? { referenceImages: refs, referenceRoles: refs.map(() => 'scene' as const) } : {}),
-    signal,
-  });
+  return draw(deps, { prompt: scenePreviewPrompt(asScene(reading)), brandId, signal });
 }
 
 /**
@@ -362,12 +337,11 @@ async function drawChange(
   reading: SceneReading,
   from: string,
   ask: string,
-  hashes: string[],
   signal: AbortSignal,
 ): Promise<string> {
   const engine = deps.engine!;
   const caps = engine.capabilities();
-  if (!deps.core.images.has(from)) return drawFresh(deps, brandId, reading, hashes, signal);
+  if (!deps.core.images.has(from)) return drawFresh(deps, brandId, reading, signal);
   const prompt = sceneChangePrompt(reading, ask);
   if (caps.supportsEdit) {
     const brand = deps.brandContext(brandId);
@@ -392,7 +366,7 @@ async function drawChange(
       signal,
     });
   }
-  return drawFresh(deps, brandId, reading, hashes, signal);
+  return drawFresh(deps, brandId, reading, signal);
 }
 
 /* ------------------------------------------------------------------ jobs */
@@ -584,11 +558,10 @@ async function run(deps: AssetBuildDeps, job: SceneStudioJob, input: StudioJobIn
     const wantsPicture = input.kind === 'again' || input.draw !== false;
     if (wantsPicture && deps.engine && reading) {
       patch(job, { phase: 'drawing', phaseAt: now() });
-      const hashes = input.imageHashes ?? [];
       const drawn =
         input.kind === 'change' && input.from
-          ? await drawChange(deps, job.brandId, reading, input.from, input.ask ?? '', hashes, signal)
-          : await drawFresh(deps, job.brandId, reading, hashes, signal);
+          ? await drawChange(deps, job.brandId, reading, input.from, input.ask ?? '', signal)
+          : await drawFresh(deps, job.brandId, reading, signal);
       if (signal.aborted) throw fail('cancelled');
       // The same trim every scene preview gets: a figure-led preview is a
       // conditioning image, and baked-in bars would be reproduced into shots.

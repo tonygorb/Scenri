@@ -401,17 +401,10 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     if (!scene) return reply.status(404).send({ error: 'scene not found' });
     const engine = await buildEngine();
     if (!engine) return reply.status(400).send({ error: 'no engine here can draw a preview' });
-    // Same evidence the build draws from: this frame has the whole reference
-    // budget to itself and produces a card, never a customer's shot.
-    const refs = ((scene as CustomScene).refs ?? [])
-      .map((r) => String(r?.file ?? '').replace(/^asset:/, ''))
-      .filter((h) => /^[a-f0-9]{32}$/.test(h) && core.images.has(h))
-      .slice(0, engine.capabilities().maxReferenceImages)
-      .map((h) => core.images.pathFor(h));
+    // Drawn from its words alone, like every scene preview (scenePreviewPrompt).
     const request = {
       prompt: scenePreviewPrompt(scene as CustomScene),
       brand: brandContext(core, brand.id),
-      ...(refs.length ? { referenceImages: refs, referenceRoles: refs.map(() => 'scene' as const) } : {}),
       width: scene.width,
       height: scene.height,
       count: 1,

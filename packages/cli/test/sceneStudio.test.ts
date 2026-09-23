@@ -175,23 +175,24 @@ describe('the scene studio', () => {
     expect((core.store.getBrand(brand.id)?.json as any)?.scenes ?? []).toEqual([]);
   });
 
-  it('draws a place from the pictures it was read from, not from the words alone', async () => {
+  // A scene is the vibe of its pictures, never a copy of one: drawn beside
+  // them, a preview came back as their photograph, the same person, pose and
+  // wardrobe (battery 2026-09-23).
+  it('reads the pictures for the place and draws it from the words alone', async () => {
     const brand = await newBrand();
     const a = await photo('#112233');
     const b = await photo('#445566');
     const job = await run(brand.id, { kind: 'make', instruction: 'the shore', imageHashes: [a, b] });
     expect(job.status).toBe('done');
-    // the pictures were read
     expect(analyzed[0].imagePaths).toHaveLength(2);
-    // and drawn from, as scene references, so the place is the one that was uploaded
-    expect(generated[0].referenceImages).toHaveLength(2);
-    expect(generated[0].referenceRoles).toEqual(['scene', 'scene']);
+    expect(generated[0].prompt).toContain(READ.prompt);
+    expect(generated[0].referenceImages ?? []).toEqual([]);
   });
 
-  // Traced on real Codex (2026-09-23): every picture reaches the reader and
-  // the draw, in the order it was added, full size. Nothing favours the first,
-  // and the fourth is never the one an engine cap drops.
-  it('reads and draws every picture, all four, in the order they were added, and no more than four', async () => {
+  // Traced on real Codex (2026-09-23): every picture reaches the reader in the
+  // order it was added, full size. Nothing favours the first, and the fourth
+  // is never the one a cap drops.
+  it('reads every picture, all four, in the order they were added, and no more than four', async () => {
     const brand = await newBrand();
     const hashes = [];
     for (const tint of ['#101010', '#303030', '#505050', '#707070', '#909090']) hashes.push(await photo(tint));
@@ -199,20 +200,21 @@ describe('the scene studio', () => {
     expect(job.status).toBe('done');
     const four = hashes.slice(0, 4).map((h) => core.images.pathFor(h));
     expect(analyzed[0].imagePaths).toEqual(four);
-    expect(generated[0].referenceImages).toEqual(four);
-    expect(generated[0].referenceRoles).toEqual(['scene', 'scene', 'scene', 'scene']);
-    // the same prompt for each picture: none is singled out by position
+    expect(generated[0].referenceImages ?? []).toEqual([]);
+    // none is singled out by position
     expect(generated[0].prompt).not.toMatch(/first (reference|image|picture)/i);
   });
 
-  it('draws a figure-led scene with its pictures, because its preview is the plate a shot conditions on', async () => {
+  // The preview is the plate a figure-led shot conditions on, so its person
+  // and pose are invented, never the photograph's.
+  it('draws a figure-led scene from its words, with somebody new in the role', async () => {
     figure = 'one person at close portrait range, squared to camera';
     const brand = await newBrand();
     const a = await photo();
     const job = await run(brand.id, { kind: 'make', imageHashes: [a] });
     expect(job.reading.figure).toBe(figure);
-    expect(generated[0].referenceImages).toHaveLength(1);
-    expect(generated[0].referenceRoles).toEqual(['scene']);
+    expect(generated[0].prompt).toContain('nobody in particular, with no recognisable identity');
+    expect(generated[0].referenceImages ?? []).toEqual([]);
   });
 
   it('reads only the place in a shot the brand made, and never makes its cast the figure', async () => {
@@ -229,9 +231,9 @@ describe('the scene studio', () => {
     expect(job.reading.prompt).not.toContain('their own product shots');
     // Activity names it as it names any picture, never from the clause
     expect(job.label).toBe('New scene');
-    // so the picture is drawn as an empty set, from the shot as its reference
+    // so the picture is drawn as an empty set, from the words alone
     expect(generated[0].prompt).toContain('The set is empty');
-    expect(generated[0].referenceImages).toHaveLength(1);
+    expect(generated[0].referenceImages ?? []).toEqual([]);
   });
 
   it('keeps the words a person typed first when a shot is read with them', async () => {

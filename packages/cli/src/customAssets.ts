@@ -808,26 +808,15 @@ async function runSceneBuild(
   if (deps.engine) {
     patch(job, { stage: 'building', steps: 1, message: 'Drawing the place' });
     try {
-      // The one place a scene's own references can be spent for free: this
-      // draw has the engine's whole reference budget to itself. What it
-      // produces is the card thumbnail AND, for a figure-led scene, the
-      // identity-neutral plate a generation conditions on: drawn with "they
-      // are nobody in particular", it can lend the world and the treatment
-      // but never a face - which the raw upload, a full-bleed photograph of a
-      // real person, demonstrably did.
-      const previewRefs = hashes
-        .slice(0, deps.engine.capabilities().maxReferenceImages)
-        .map((h) => core.images.pathFor(h));
+      // Drawn from its words alone (scenePreviewPrompt): the references were
+      // read for the vibe and are never drawn from. What it produces is the
+      // card thumbnail AND, for a figure-led scene, the plate a generation
+      // conditions on, so it has to be original: drawn beside the references,
+      // it came back as their photograph, the same person, pose and wardrobe
+      // (battery 2026-09-23).
       previewHash = await trimEdgeBars(
         core,
-        await draw(deps, {
-          prompt: scenePreviewPrompt(scene),
-          brandId: job.brandId,
-          ...(previewRefs.length
-            ? { referenceImages: previewRefs, referenceRoles: previewRefs.map(() => 'scene' as const) }
-            : {}),
-          signal,
-        }),
+        await draw(deps, { prompt: scenePreviewPrompt(scene), brandId: job.brandId, signal }),
       );
       scene.preview = `asset:${previewHash}`;
       patch(job, { step: 1, previewHash });
@@ -876,9 +865,9 @@ export function scenePreviewPrompt(scene: CustomScene): string {
   // scene, it is a different one. So when the concept needs a figure, the card
   // shows one. Anonymity is the thing to protect, not absence.
   //
-  // The source references are attached to this draw, for every scene: without
-  // the refusals below the card would happily come back as the person, the
-  // product or the wordmark that happened to be standing in them.
+  // It is drawn from these words alone: a scene is the vibe of its pictures,
+  // never a copy of one (`scenePreviewRefs`). The figure is invented, with empty
+  // hands, so a shot's own presenter and product take its place.
   //
   // The word ban is scoped to what the treatment needs. The plate is the
   // conditioning image for a figure-led generation now, and a blanket "no
@@ -889,33 +878,23 @@ export function scenePreviewPrompt(scene: CustomScene): string {
   //
   // Lettering the reader designed for the set arrives quoted, in words of its
   // own (the analyzer's lettering rule), and those are the only words drawn.
-  // Nothing else is lifted off the attached pictures: told only "no text"
-  // beside a reference full of words, the model copied the words, brand
-  // names included, or copied the product out of a hand (battery 2026-09-23).
   const except = /“[^”]{1,80}”|"[^"]{1,80}"/.test(scene.prompt)
     ? ' except the lettering the description quotes, spelled exactly as quoted'
     : '';
-  const notFromRefs =
-    ' Nothing is copied from the attached reference images: none of their products or the shadows those products cast,' +
-    ' and none of their packaging, labels, logos or words.';
   const body = scene.figure
     ? `A figure is in this photograph: ${scene.figure.replace(/[.\s]+$/, '')}. ` +
       (scene.figureTreatment
         ? `The art direction is what has been done to them: ${scene.figureTreatment.replace(/[.\s]+$/, '')}, ` +
           'rendered as a real physical treatment that follows the shape it sits on. '
         : '') +
-      'They are nobody in particular: do not reproduce any person from the attached reference images, and give them no ' +
-      'recognisable identity. ' +
+      'They are nobody in particular, with no recognisable identity, and their hands are empty. ' +
       (scene.figureTreatment
-        ? 'Their hands are empty, and apart from the treatment they wear nothing copied from the reference images. ' +
-          'No product and no watermarks. Where the treatment itself carries printing, render it as genuinely designed ' +
+        ? 'No product and no watermarks. Where the treatment itself carries printing, render it as genuinely designed ' +
           'print - real letterforms, readable words, numerals and label-quality artwork - belonging to companies that ' +
           'are plausible but fictional, resembling no existing brand, and borrowing, extending or re-spelling no name ' +
-          `that appears in any attached reference. Everywhere outside the treatment, no logos and no readable words${except}. ` +
-          'None of the products in the attached reference images appears anywhere, not even in a reflection.'
-        : 'Their hands are empty, and they wear nothing copied from the reference images. ' +
-          `No product, no logos, no watermarks, and no readable words anywhere in the frame${except}.${notFromRefs}`)
-    : `The set is empty: no product, no person, no hands, no logos, no watermarks, and no readable words anywhere in the frame${except}.${notFromRefs}`;
+          `that appears in any attached reference. Everywhere outside the treatment, no logos and no readable words${except}.`
+        : `No product, no logos, no watermarks, and no readable words anywhere in the frame${except}.`)
+    : `The set is empty: no product, no person, no hands, no logos, no watermarks, and no readable words anywhere in the frame${except}.`;
   return (
     'Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. ' +
     `${scene.prompt} ${scene.lighting ? `${scene.lighting}. ` : ''}` +
