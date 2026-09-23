@@ -17,7 +17,17 @@ import { useDialogParam } from './AppShell.js';
  * `library`, and `budget` lands on the providers it caps: the older ids stay,
  * so every link and remedy that ever named one still lands.
  */
-export type Pane = 'brand' | 'engines' | 'budget' | 'usage' | 'general' | 'library' | 'appearance' | 'about' | 'danger';
+export type Pane =
+  | 'brand'
+  | 'engines'
+  | 'budget'
+  | 'usage'
+  | 'general'
+  | 'library'
+  | 'appearance'
+  | 'phone'
+  | 'about'
+  | 'danger';
 
 /** Settings, at a pane. A URL, so it survives a refresh and answers to Back. */
 export function useOpenSettings() {

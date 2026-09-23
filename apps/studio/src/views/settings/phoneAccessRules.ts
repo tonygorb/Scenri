@@ -1,11 +1,11 @@
 import type { AllowResult, FirewallVerdict, PhoneStatus } from '../../apiTypes.js';
 
-/** How long the QR code shows before "Not opening?" opens by itself. */
+/** How long the page shows the QR code before "Not opening?" opens by itself. */
 export const STUCK_AFTER_MS = 30_000;
 /** A phone that opened Scenri this recently, before the code was shown, still counts. */
 const RECENT_MS = 5 * 60_000;
 
-export type RowAction = 'show' | 'check' | null;
+export type RowAction = 'copy' | 'check' | null;
 
 /** The row's one sentence and one button, the About rows' rule. */
 export function phoneRow(s: PhoneStatus | null, failed = false): { sentence: string; action: RowAction } {
@@ -23,7 +23,10 @@ export function phoneRow(s: PhoneStatus | null, failed = false): { sentence: str
   if (s.problem === 'blocked' || !s.url) {
     return { sentence: 'Another app is holding this address, so phones cannot open Scenri yet.', action: 'check' };
   }
-  return { sentence: 'Use Scenri on a phone, tablet or another computer on the same Wi-Fi.', action: 'show' };
+  return {
+    sentence: "Scan the code below with your phone's camera, or copy the link for another computer.",
+    action: 'copy',
+  };
 }
 
 /**

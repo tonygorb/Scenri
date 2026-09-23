@@ -75,8 +75,8 @@ What happens next, in order:
    Keep this window open while Scenri is running.
    ```
 
-   The phone line is how a phone or tablet on the same Wi-Fi opens it; Settings, General shows
-   the same address as a QR code. It is missing when this computer is not on a network.
+   The phone line is how a phone or tablet on the same Wi-Fi opens it; Settings, Phone and tablet
+   shows the same address as a QR code. It is missing when this computer is not on a network.
 
    On Windows the data dir reads `C:\Users\you\.scenri`: same folder, same idea.
 
@@ -269,7 +269,7 @@ over.
 **`Scenri is already running`.** Not an error. Scenri was already open in another terminal, and
 this one just brought you to it. Use the browser tab it opened.
 
-**A phone cannot open Scenri.** Open Settings, General, Show QR code on the computer. If the
+**A phone cannot open Scenri.** Open Settings, Phone and tablet on the computer. If the
 computer's firewall would stop a phone, it says so right there with an **Allow Scenri** button:
 press it and answer your computer's own prompt (your Mac password, or Yes in Windows). If no phone
 arrives within half a minute, the help under the code opens by itself. The usual causes, most likely

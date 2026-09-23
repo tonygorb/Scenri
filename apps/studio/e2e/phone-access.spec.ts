@@ -39,17 +39,15 @@ test.describe
       test.skip(!phone.address, 'this machine has no private network address a phone could reach');
     });
 
-    test('this computer: Settings shows the QR code, the typed way in, and copies the one link', async ({
+    test('this computer: Phone and tablet shows the QR code, the typed way in, and copies the one link', async ({
       page,
       context,
     }) => {
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+      // its own page in Settings, the code there as it opens
       await page.goto(`/${slug}?settings=general`);
+      await page.getByRole('button', { name: 'Phone and tablet' }).click();
       await expect(page.getByText('Open on your phone', { exact: true })).toBeVisible();
-      const show = page.getByRole('button', { name: 'Show QR code' });
-      await expect(show).toHaveAttribute('aria-expanded', 'false');
-      await show.click();
-      await expect(page.getByRole('button', { name: 'Hide QR code' })).toHaveAttribute('aria-expanded', 'true');
       await expect(page.getByRole('img', { name: `QR code for ${phone.address}` })).toBeVisible();
       await expect(page.locator('.sc-phone-key')).toHaveText([phone.address ?? '', phone.code]);
       await expect(page.getByText('Waiting for your phone…')).toBeVisible();
@@ -131,8 +129,7 @@ test.describe
       expect(seen.thisComputer).toBe(false);
       expect(await p.evaluate(() => fetch('/api/phone/help').then((r) => r.json()))).toEqual({ firewall: 'unknown' });
 
-      await p.goto(`${phone.address}/${slug}?settings=general`);
-      await p.getByRole('button', { name: 'Show QR code' }).click();
+      await p.goto(`${phone.address}/${slug}?settings=phone`);
       await expect(p.getByRole('img', { name: `QR code for ${phone.address}` })).toBeVisible();
       await expect(p.getByText('Waiting for your phone')).toHaveCount(0);
       await expect(p.getByText('Not opening?')).toHaveCount(0);

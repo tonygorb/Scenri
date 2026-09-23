@@ -40,7 +40,7 @@ button { width: 100%; height: 48px; margin-top: 12px; border: 0; border-radius: 
 <body>
 <main>
 <h1>Open Scenri</h1>
-<p>Enter the code shown in Scenri on your computer, under Settings, General.</p>
+<p>Enter the code shown in Scenri on your computer, under Settings, Phone and tablet.</p>
 <form method="get" action="/">
 <label for="t">Code</label>
 <input id="t" name="t" required autofocus maxlength="12" autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false" inputmode="text">

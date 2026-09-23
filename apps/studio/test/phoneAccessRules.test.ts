@@ -29,10 +29,10 @@ describe('phoneRow', () => {
     expect(phoneRow(null)).toEqual({ sentence: "Checking this computer's network.", action: null });
   });
 
-  it('offers the QR code when a phone could open it', () => {
+  it('offers the link when a phone could open it, the code standing under the row', () => {
     expect(phoneRow(status())).toEqual({
-      sentence: 'Use Scenri on a phone, tablet or another computer on the same Wi-Fi.',
-      action: 'show',
+      sentence: "Scan the code below with your phone's camera, or copy the link for another computer.",
+      action: 'copy',
     });
   });
 

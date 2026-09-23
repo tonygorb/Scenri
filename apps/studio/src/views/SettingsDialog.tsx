@@ -4,6 +4,7 @@ import {
   CaretRight,
   ChartBar,
   Check,
+  DeviceMobile,
   Info,
   Lightning,
   Palette,
@@ -30,11 +31,11 @@ import { PhoneAccess } from './settings/PhoneAccess.js';
 import { Usage } from './settings/Usage.js';
 import { type SaveState, saveLabel } from './settings/useBrandDoc.js';
 
-type Page = 'brand' | 'usage' | 'engines' | 'general' | 'about' | 'danger';
+type Page = 'brand' | 'usage' | 'engines' | 'general' | 'phone' | 'about' | 'danger';
 
 /**
  * Every pane id a caller has ever opened, and the page it lands on. Eight
- * panes became six pages: the caps sit under the providers they cap, and the
+ * panes became six pages, and opening Scenri on a phone made a seventh: the caps sit under the providers they cap, and the
  * theme beside the library in General. The old ids still land, so no link,
  * remedy or deep URL has to know.
  */
@@ -46,6 +47,7 @@ const PAGE_OF: Record<Pane, Page> = {
   general: 'general',
   appearance: 'general',
   library: 'general',
+  phone: 'phone',
   about: 'about',
   danger: 'danger',
 };
@@ -83,7 +85,14 @@ const PAGES: {
     label: 'General',
     Icon: SlidersHorizontal,
     scope: 'studio',
-    sub: () => 'How Scenri looks, opening it on your phone, and where your library lives.',
+    sub: () => 'How Scenri looks, and where your library lives.',
+  },
+  {
+    id: 'phone',
+    label: 'Phone and tablet',
+    Icon: DeviceMobile,
+    scope: 'studio',
+    sub: () => 'Open Scenri on a phone, tablet or another computer on the same Wi-Fi.',
   },
   {
     id: 'about',
@@ -353,10 +362,11 @@ function PageBody({
       return (
         <>
           <Appearance />
-          <PhoneAccess />
           <Library info={home} />
         </>
       );
+    case 'phone':
+      return <PhoneAccess />;
     case 'about':
       return <About version={version} />;
     case 'danger':
