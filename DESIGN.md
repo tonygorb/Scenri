@@ -335,6 +335,14 @@ tried and covered the very composer the picker adds to.
 - **Your own picture comes in three ways, through one door.** The Upload image button, a file dropped on the
   brief, and an image pasted into the brief or the picker all go through the composer's `pickFiles` and land
   as a reference chip at the caret. No second upload path, no references library.
+- **A picture means what the words beside it say.** A chip with words beside it keeps its place in the
+  sentence ("show [the attached image] on the phone's screen"); alone it lends composition, lighting and
+  treatment, as it always has. There is no role picker: "put this exact screen on the phone", "a mobile
+  version of this dashboard" and "use its colours for the set" are three readings of one chip. With a
+  device in the shot, words that put the picture on its screen make it the screen's content, under the
+  glass and adapted to the screen's shape; it stays shot content and never touches the product record.
+  Measured 2026-09-23: before, 0 of 4 screens showed the picture; after, the interface landed inside the
+  screen with its text intact, and a dashboard became a believable phone layout rather than a squeeze.
 
 ### First use: a tutor, and Learn
 Scenri is learned by using it. First use never tours the interface: a tutor stands beside someone while they do one real thing, says one thing at a time, waits for the product to say it happened, and follows the screen that happens on. The record is the install's (`GET /api/guide`, `POST /api/guide` intents only), so a phone on the network and a second browser agree. Who is new is decided once, at the first boot of a build that has the record: a home with no brand is new; a home with brands is someone upgrading and is never interrupted. Everyone has Learn.

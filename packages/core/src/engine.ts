@@ -61,7 +61,8 @@ export const REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   composition:
     'a reference for framing, camera angle and pose only — take no subject, color, material or branding from it',
   style: 'a reference for overall treatment and mood only — take no composition, subject or product detail from it',
-  reference: 'a reference to match in composition, lighting and treatment',
+  reference:
+    'an image the direction refers to, used the way the direction says; where the direction says nothing about it, a reference to match in composition, lighting and treatment',
 };
 
 /** The same contract, compressed for edit prompts where the source image already carries the subject. */
@@ -76,7 +77,8 @@ export const EDIT_REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   scene: 'a reference for environment, light and treatment only — take no identity from any person in it',
   composition: 'a reference for framing and pose only',
   style: 'a reference for treatment and mood only',
-  reference: 'a reference for composition, lighting and treatment only',
+  reference:
+    'an image the instruction refers to, used the way the instruction says; where the instruction says nothing about it, a reference for composition, lighting and treatment only',
 };
 
 export interface BrandContext {

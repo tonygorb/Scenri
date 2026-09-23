@@ -176,6 +176,34 @@ describe('compileBrief', () => {
     expect(nothing.prompt).not.toContain('Where it has glass');
   });
 
+  // A screen shows an attached picture only when a product rides and the words
+  // bring the picture into the sentence; the model reads what they ask for.
+  it('says what a screen displays only when the words put a picture beside a product', () => {
+    const tokens = [
+      { t: 'text' as const, v: 'Show ' },
+      { t: 'ref' as const, imageHash: refHash },
+      { t: 'text' as const, v: ' on the screen of ' },
+      { t: 'product' as const, id: 'p1' },
+    ];
+    const screen = compileBrief({ tokens }, mkCtx());
+    expect(screen.prompt).toContain('that image is what the screen displays');
+    expect(screen.prompt).toContain('never add a screen to a product that has none');
+    const chipAlone = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'ref', imageHash: refHash },
+        ],
+      },
+      mkCtx(),
+    );
+    expect(chipAlone.prompt).not.toContain('what the screen displays');
+    const noProduct = compileBrief({ tokens: tokens.filter((t) => t.t !== 'product') }, mkCtx());
+    expect(noProduct.prompt).not.toContain('what the screen displays');
+    const edit = compileBrief({ tokens }, ctx({ mode: 'edit' }));
+    expect(edit.prompt).not.toContain('what the screen displays');
+  });
+
   // 2026-09-22: "rests on, hangs from, is worn by or is held by something
   // real" went to every product shot, and a loft shot of a sneaker with nobody
   // attached came back with a man in the armchair wearing it.
@@ -320,7 +348,48 @@ describe('compileBrief', () => {
       ctx(),
     );
     expect(r.attachments.map((a) => a.role)).toEqual(['reference']);
-    expect(r.prompt).toContain('Match the composition, lighting and treatment');
+    // words beside the chip say what it is for; with none, the old meaning
+    expect(r.prompt).toContain('like this the attached image');
+    expect(r.prompt).toContain('where they do not say what it is for, match its composition, lighting and treatment');
+  });
+
+  // 2026-09-23: "Show [img] on the phone's screen" compiled to "Show on the
+  // phone's screen" and the picture went out as a style reference, so the
+  // screen came back black (0 of 4). The chip keeps its words; alone, nothing
+  // about it changes.
+  it('keeps a picture chip in the sentence when words stand beside it, and alone says what it always did', () => {
+    const said = compileBrief(
+      {
+        tokens: [
+          { t: 'text', v: 'Show ' },
+          { t: 'ref', imageHash: refHash },
+          { t: 'text', v: ' on its screen' },
+        ],
+      },
+      ctx(),
+    );
+    expect(said.prompt).toContain('Show the attached image on its screen');
+    expect(said.prompt).toContain("The attached image is used the way this shot's words use it");
+    const alone = compileBrief({ tokens: [{ t: 'ref', imageHash: refHash }] }, ctx());
+    expect(alone.prompt).toContain('Match the composition, lighting and treatment of the attached reference.');
+    expect(alone.prompt).not.toContain('the attached image');
+  });
+
+  it('numbers the chips when two pictures are in the sentence', () => {
+    const two = core.images.save(Buffer.from('second-reference'));
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'text', v: 'Show ' },
+          { t: 'ref', imageHash: refHash },
+          { t: 'text', v: ' on the laptop and use ' },
+          { t: 'ref', imageHash: two },
+          { t: 'text', v: ' only for colour' },
+        ],
+      },
+      ctx(),
+    );
+    expect(r.prompt).toContain('Show attached image 1 on the laptop and use attached image 2 only for colour');
   });
 
   it('format sets dimensions, last one wins', () => {

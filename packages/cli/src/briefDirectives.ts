@@ -347,7 +347,7 @@ export function productScaleDirective(hasPerson: boolean): string {
  * a presenter's shot is framed for the person, and the directive is placed
  * after the scene's camera line, which otherwise kept the phone frontal and far.
  */
-export function productSurfaceDirective(alone: boolean): string {
+export function productSurfaceDirective(alone: boolean, screenContent = false): string {
   return (
     'Where it has glass, a screen, polished metal or a glossy finish, it is lit as the hero of a high-end product ' +
     "campaign, never as its product photo: the set's own light is the key, and the photographer adds what such a " +
@@ -360,7 +360,16 @@ export function productSurfaceDirective(alone: boolean): string {
         'share of the frame while the set falls softly out of focus behind it.'
       : '') +
     ' Its screen, if it has one, is switched off whatever its product photo shows: deep black glass carrying the ' +
-    "strip light's reflection and a soft gradient of the set, unless this shot's own words ask for something on it."
+    "strip light's reflection and a soft gradient of the set, unless this shot's own words ask for something on it." +
+    (screenContent
+      ? ' Where the words put an attached image on its screen, that image is what the screen displays: lit from ' +
+        "within, inside the display's own edges and corners, under the glass and behind any reflection, finger or " +
+        "hand, at the screen's perspective and brightness, the product's own shape untouched. Keep the interface's " +
+        'layout, colours, type and content as closely as the screen allows; where it was made for a differently ' +
+        'shaped screen, show the same interface as it would be designed for this one, never squeezed or cropped, ' +
+        'unless the words ask for it exactly as it is. Leave out any browser or window frame and any device drawn ' +
+        'around it, and never add a screen to a product that has none.'
+      : '')
   );
 }
 

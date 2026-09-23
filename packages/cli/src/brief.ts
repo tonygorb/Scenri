@@ -389,6 +389,21 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     sentence += (sentence && !sentence.endsWith(' ') ? ' ' : '') + s;
   };
 
+  // A picture's chip keeps its place in the sentence when words stand beside
+  // it. "Show [img] on the phone's screen" compiled to "Show on the phone's
+  // screen", and the picture went out as a style reference beside a sentence
+  // with no object (2026-09-23: the UI never reached the screen, 2 of 2). A
+  // chip with no words beside it says nothing, exactly as before.
+  const refTokens = brief.tokens.filter((t) => t.t === 'ref');
+  const refWords = new Map<BriefToken, string>();
+  brief.tokens.forEach((t, i) => {
+    if (t.t !== 'ref') return;
+    const words = (n: BriefToken | undefined) => n?.t === 'text' && n.v.trim() !== '';
+    if (!words(brief.tokens[i - 1]) && !words(brief.tokens[i + 1])) return;
+    refWords.set(t, refTokens.length > 1 ? `attached image ${refTokens.indexOf(t) + 1}` : 'the attached image');
+  });
+  let refSaid = false;
+
   // A reference that is byte-identical to a mark that will attach would ship
   // the same artwork twice under two contradictory contracts: reproduce it
   // exactly (the mark) and match its composition (the ref). It rides once, as
@@ -625,11 +640,18 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           break;
         }
         attachments.push({ role: 'reference', label: 'Reference shot', hash: tok.imageHash });
+        const said = refWords.get(tok);
+        if (said) {
+          append(said);
+          refSaid = true;
+        }
         otherDirectives.push({
           need: 'attachment',
           role: 'reference',
           hash: tok.imageHash,
-          text: 'Match the composition, lighting and treatment of the attached reference.',
+          text: said
+            ? `${said[0].toUpperCase()}${said.slice(1)} is used the way this shot's words use it; where they do not say what it is for, match its composition, lighting and treatment.`
+            : 'Match the composition, lighting and treatment of the attached reference.',
         });
         break;
       }
@@ -1065,7 +1087,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...cameraDirectives,
     // After the camera line: a scene read from a wide picture names a wide
     // camera, and said first this lost to it (a phone stood frontal, 2 of 2).
-    ...(productId && ctx.mode !== 'edit' ? [productSurfaceDirective(!hasPerson)] : []),
+    ...(productId && ctx.mode !== 'edit' ? [productSurfaceDirective(!hasPerson, refSaid)] : []),
     ...apparelUnworn,
     ...brandLines,
     ...guard,
