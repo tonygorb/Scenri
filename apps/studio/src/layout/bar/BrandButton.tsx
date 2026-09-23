@@ -28,7 +28,7 @@ import type { Brand } from '../../apiTypes.js';
  *
  * What is new, the release you are running and the keyboard shortcuts used to be
  * in this menu. They answer "what is this" rather than "which brand", so they
- * belong to help rather than here; What's new is also a row in Settings, About.
+ * belong to help rather than here; What's new is also a row in Settings, Updates.
  */
 export function BrandButton() {
   const { brand } = useBrand();

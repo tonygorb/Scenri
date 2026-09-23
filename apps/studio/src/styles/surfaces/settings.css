@@ -90,8 +90,7 @@
   color: var(--sc-fg3);
 }
 /* the deletes belong to neither scope alone, so they stand apart from both */
-.sc-set-rail ul + .sc-set-group,
-.sc-set-rail .sc-set-apart {
+.sc-set-rail ul + .sc-set-group {
   margin-top: 20px;
 }
 .sc-set-item {
@@ -213,6 +212,14 @@
   color: var(--sc-fg2);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* A phone has no room for the sentence beside the page's name, so it opens
+   the page instead, in the same ink, wrapping as a sentence does. */
+.sc-set-lede {
+  margin: 0 0 16px;
+  font: 400 var(--sc-text-body) / 1.45 var(--sc-font);
+  color: var(--sc-fg2);
+  text-wrap: pretty;
 }
 /* The kit writes as it is edited: what the writing is doing, in place of a
    Save button. "Saved" shows for a moment and goes; a failure stays. */
@@ -449,7 +456,7 @@
   width: auto;
 }
 
-/* Phone and tablet (PhoneAccess.tsx): the page's one row carries Copy link,
+/* Local access (PhoneAccess.tsx): the phone card's one row carries Copy link,
    and the QR code stands under it as the page opens. The code sits on a light
    plate in both themes, because phone cameras read an inverted code poorly or
    not at all; beside it, the typed way in, the firewall when it is in the way,
@@ -887,8 +894,7 @@ select.sc-in {
     width: 44px;
     height: 44px;
   }
-  .sc-set-rail ul + .sc-set-group,
-  .sc-set-rail .sc-set-apart {
+  .sc-set-rail ul + .sc-set-group {
     margin-top: 24px;
   }
   /* a thumb's row: the pages' own 56, a 20px glyph beside a 15px name (16

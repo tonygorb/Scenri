@@ -61,7 +61,7 @@ describe('the code page', () => {
   it('says what went wrong, where a screen reader hears it', () => {
     expect(codePage('wrong')).toContain(`<p class="msg" id="msg" role="alert">${CODE_PAGE_COPY.wrong}</p>`);
     // the path in the sentence is escaped, never read as markup
-    expect(page).toContain('under Settings &gt; Phone and tablet.');
+    expect(page).toContain('under Settings &gt; Local access.');
     expect(codePage('locked')).toContain(CODE_PAGE_COPY.locked);
     expect(page).toContain('<p class="msg" id="msg" role="alert"></p>');
   });

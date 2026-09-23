@@ -303,6 +303,8 @@ export type VersionInfo = {
   installKind: 'npx' | 'global' | 'managed' | 'dev' | 'unknown';
   supervised: boolean;
   home: string;
+  /** Whether this tab is on the computer running Scenri, not a phone on the Wi-Fi. */
+  thisComputer?: boolean;
 };
 
 /** Why a phone might not open Scenri, as this computer's firewall answers. */

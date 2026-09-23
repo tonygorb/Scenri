@@ -49,7 +49,7 @@ If you find a path that violates any of the four statements above, that is a vul
 
 ## Network exposure
 
-The studio's own listener binds `127.0.0.1`. Beside it, on the same port, Scenri listens on this machine's private Wi-Fi and Ethernet addresses, so a phone on the same network can open it (Settings, Phone and tablet). It never listens on a VPN, container, virtual or IPv6 address, and it follows the machine to a new network by checking its addresses again every half minute. There is no account system, so every request passes three gates:
+The studio's own listener binds `127.0.0.1`. Beside it, on the same port, Scenri listens on this machine's private Wi-Fi and Ethernet addresses, so a phone on the same network can open it (Settings, Local access). It never listens on a VPN, container, virtual or IPv6 address, and it follows the machine to a new network by checking its addresses again every half minute. There is no account system, so every request passes three gates:
 
 - A `Host` header check, which accepts loopback names and IPv4 addresses and rejects every other hostname. This is what blocks DNS rebinding, where a page in any open browser tab resolves an attacker-controlled domain to your loopback address and drives the local API. An IPv4 address cannot be rebound: a page whose origin is an address is already that address.
 - Browsers name cross-site requests via `Sec-Fetch-Site`, and the server rejects them (except top-level navigations, which is a user clicking a link to their own studio). That is the guard against drive-by CSRF from a page open in the same browser.

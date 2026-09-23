@@ -39,14 +39,14 @@ test.describe
       test.skip(!phone.address, 'this machine has no private network address a phone could reach');
     });
 
-    test('this computer: Phone and tablet shows the QR code, the typed way in, and copies the one link', async ({
+    test('this computer: Local access shows the QR code, the typed way in, and copies the one link', async ({
       page,
       context,
     }) => {
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
       // its own page in Settings, the code there as it opens
-      await page.goto(`/${slug}?settings=general`);
-      await page.getByRole('button', { name: 'Phone and tablet' }).click();
+      await page.goto(`/${slug}?settings=appearance`);
+      await page.getByRole('button', { name: 'Local access' }).click();
       await expect(page.getByText('Open on your phone', { exact: true })).toBeVisible();
       await expect(page.getByRole('img', { name: `QR code for ${phone.address}` })).toBeVisible();
       await expect(page.locator('.sc-phone-key')).toHaveText([

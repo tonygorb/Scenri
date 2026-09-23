@@ -37,7 +37,7 @@ export const LOCKUP_PATHS = [
 /** Every sentence the page can say, server-rendered or set by its script. */
 export const CODE_PAGE_COPY = {
   title: 'Enter your code',
-  where: 'Find it in Scenri on your computer, under Settings > Phone and tablet.',
+  where: 'Find it in Scenri on your computer, under Settings > Local access.',
   label: '6-digit code',
   open: 'Open Scenri',
   opening: 'Opening…',
@@ -48,7 +48,7 @@ export const CODE_PAGE_COPY = {
   offline: "Can't reach Scenri. Check your Wi-Fi.",
 } as const;
 
-/** Text into HTML: the copy says "Settings > Phone and tablet", and a quote may come. */
+/** Text into HTML: the copy says "Settings > Local access", and a quote may come. */
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 const symbolIcon = () => {

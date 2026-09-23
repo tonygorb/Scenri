@@ -243,7 +243,7 @@ for (const surface of [
   { name: 'products library', path: (s: string) => `/${s}/products` },
   { name: 'settings: brand', path: (s: string) => `/${s}?settings=brand` },
   { name: 'settings: engines', path: (s: string) => `/${s}?settings=engines` },
-  { name: 'settings: about', path: (s: string) => `/${s}?settings=about` },
+  { name: 'settings: updates', path: (s: string) => `/${s}?settings=updates` },
 ]) {
   test(`pressed controls hold their geometry on ${surface.name}`, async ({ page }) => {
     const slug = await currentSlug(page);

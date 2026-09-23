@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { fromThisComputer } from '../access.js';
 import type { Core } from '@scenri/core';
 import { SCHEMA_VERSION } from '@scenri/core';
 import { classify, isReleaseTriplet, type CheckResult, type UpdateChecker } from '../update/check.js';
@@ -24,13 +25,16 @@ export function registerUpdateRoutes(
   },
 ): void {
   const { core, meta, updates, runtime } = deps;
-  app.get('/api/version', async () => ({
+  app.get('/api/version', async (req) => ({
     name: meta.name,
     version: meta.version,
     schema: SCHEMA_VERSION,
     installKind: runtime.installKind,
     supervised: runtime.supervised,
     home: core.home,
+    // Settings hides what acts on this computer (its file manager, its
+    // desktop) from a phone that opened Scenri over the Wi-Fi
+    thisComputer: fromThisComputer(req),
   }));
 
   // ---- updates: check (npm dist-tags, every six hours, cached) + notes (GitHub release)

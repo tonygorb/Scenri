@@ -20,7 +20,7 @@ import {
 const POLL_MS = 2000;
 
 /**
- * Settings' Phone and tablet page: opening Scenri on a phone, a tablet or
+ * Settings' Local access page, its Other devices card: opening Scenri on a phone, a tablet or
  * another computer on the same Wi-Fi. Opening the page is the intent, so the
  * QR code is simply there, with one row above it whose one button is Copy
  * link. Beside the code: the address and code in mono for a device without a
@@ -120,7 +120,7 @@ export function PhoneAccess() {
   };
 
   return (
-    <Group>
+    <Group title="Other devices">
       <div className="sc-set-row" ref={rowRef}>
         <span className="txt">
           <b>Open on your phone</b>
