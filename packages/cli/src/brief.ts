@@ -37,6 +37,7 @@ import {
   productHandlingDirective,
   productFramingDirective,
   productScaleDirective,
+  productSurfaceDirective,
   referenceIdentityGuard,
   sceneFigureDirectives,
   sceneGuardDirectives,
@@ -1054,6 +1055,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     // and this line in one breath, before any spec repeats them.
     ...nameDirectives,
     ...productDirectives,
+    ...(productId && ctx.mode !== 'edit' ? [productSurfaceDirective()] : []),
     ...(productId ? [productScaleDirective(hasPerson)] : []),
     ...personDirectives,
     ...pairDirectives,

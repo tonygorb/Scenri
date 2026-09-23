@@ -148,6 +148,20 @@ describe('compileBrief', () => {
     expect(measured.prompt.match(/never by being enlarged/g)).toHaveLength(1);
   });
 
+  // 2026-09-23: a phone and a laptop came back as their packshots stood in the
+  // room, with the photo's flat light, its lit screen pasted flat and its
+  // front-and-back pair repeated (4 of 4, on Codex as on the test engine).
+  it("lights a glossy product with the set's own light, its screen off, shown once", () => {
+    const shot = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, mkCtx());
+    expect(shot.prompt).toContain('Where it has glass, a screen, polished metal or a glossy finish');
+    expect(shot.prompt).toContain('switched off whatever its product photo shows');
+    expect(shot.prompt).toContain('it is one object: show it once');
+    const edit = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ mode: 'edit' }));
+    expect(edit.prompt).not.toContain('Where it has glass');
+    const nothing = compileBrief({ tokens: [{ t: 'text', v: 'a quiet stone room' }] }, mkCtx());
+    expect(nothing.prompt).not.toContain('Where it has glass');
+  });
+
   // 2026-09-22: "rests on, hangs from, is worn by or is held by something
   // real" went to every product shot, and a loft shot of a sneaker with nobody
   // attached came back with a man in the armchair wearing it.

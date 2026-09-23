@@ -329,6 +329,34 @@ export function productScaleDirective(hasPerson: boolean): string {
 }
 
 /**
+ * How a glossy product meets the set's light. Fidelity says "the exact
+ * product" and "the view the reference gives", and nothing said the light on
+ * it belongs to this place, so a phone or a laptop came back as its packshot
+ * stood in the room: the photo's flat studio light, its lit screen pasted
+ * flat, even its front-and-back pair repeated (4 of 4, 2026-09-23, on Codex
+ * as on the test engine). Said as a condition the model applies, like the
+ * wearability line: no category list decides what is glossy.
+ *
+ * The screen is said switched off because politer wording lost to the photo:
+ * "keeps what its photo shows, exposed like a real display" left the flat lit
+ * panel on 6 of 6 draws, and only the plain instruction turned it to dark
+ * glass. A glass serum bottle kept its label and dropper with the line.
+ */
+export function productSurfaceDirective(): string {
+  return (
+    'Where it has glass, a screen, polished metal or a glossy finish, it is lit as the hero of a professional product ' +
+    "shoot, with this set's own light and never the flat light of its product photo: a hard key from the set's light " +
+    'source carves its form, bright on the lit side and falling into deep shadow on the other, a thin bright edge ' +
+    'light traces its outline against the background, and crisp highlights run along its edges and corners, while ' +
+    'its true colours stay true. Its screen, if it has one, is switched off whatever its product photo shows: deep ' +
+    "black glass carrying a soft gradient reflection of the set, unless this shot's own words ask for something on " +
+    'it. If the product photo shows the same object more than once, from the front and the back or at several ' +
+    'angles, it is one object: show it once, staged the way a photographer would stage it here, angled into the ' +
+    'light, never simply stood the way it stands in its product photo.'
+  );
+}
+
+/**
  * A product on its own in a place: framed at the product's scale, not the
  * room's. The scene's words describe a whole room from foreground to back
  * wall, and a model asked for a small object in it kept the room sharp and
