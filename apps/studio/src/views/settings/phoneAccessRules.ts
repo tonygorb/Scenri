@@ -24,7 +24,7 @@ export function phoneRow(s: PhoneStatus | null, failed = false): { sentence: str
     return { sentence: 'Another app is holding this address, so phones cannot open Scenri yet.', action: 'check' };
   }
   return {
-    sentence: "Scan the code below with your phone's camera, or copy the link for another computer.",
+    sentence: "Point your phone's camera at the code, or copy the link for another computer.",
     action: 'copy',
   };
 }

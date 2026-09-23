@@ -231,7 +231,7 @@ describe('the code another device brings', () => {
   it('says so when the typed code is wrong', async () => {
     const res = await get('/?t=000000', { accept: 'text/html' });
     expect(res.statusCode).toBe(403);
-    expect(res.body).toContain('That code did not work');
+    expect(res.body).toContain("That code didn't work");
     // the page's own quiet check hears which it was
     const api = await get('/api/phone?t=000000');
     expect(api.json()).toEqual({ error: 'wrong code' });

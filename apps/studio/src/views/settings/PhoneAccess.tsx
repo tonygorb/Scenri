@@ -143,8 +143,8 @@ export function PhoneAccess() {
           <div className="sc-phone-how">
             {/* read off this screen and typed on another: both set apart, in type that tells 0 from O */}
             <p>
-              No camera? Type <b className="sc-phone-key">{status.address}</b> in its browser, then enter the code{' '}
-              <b className="sc-phone-key">{groupCode(status.code)}</b>.
+              No camera? Go to <b className="sc-phone-key">{status.address}</b> in any browser on the same Wi-Fi, then
+              enter <b className="sc-phone-key">{groupCode(status.code)}</b>.
             </p>
             {status.thisComputer && notice && (
               <div className="sc-phone-fw" role="status">

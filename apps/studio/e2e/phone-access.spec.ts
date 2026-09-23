@@ -74,7 +74,7 @@ test.describe
       // a wrong code shakes in place, says so, and empties the boxes
       const wrong = `${(Number(phone.code[0]) + 1) % 10}${phone.code.slice(1)}`;
       await field.pressSequentially(wrong);
-      await expect(p.getByText('That code did not work. Try again.')).toBeVisible();
+      await expect(p.getByText("That code didn't work. Try again.")).toBeVisible();
       await expect(field).toHaveValue('');
       expect(p.url()).toContain(`/${slug}/create`);
 

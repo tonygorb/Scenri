@@ -37,16 +37,19 @@ export const LOCKUP_PATHS = [
 /** Every sentence the page can say, server-rendered or set by its script. */
 export const CODE_PAGE_COPY = {
   title: 'Enter your code',
-  where: 'It is on the computer running Scenri, in Settings, Phone and tablet.',
+  where: 'Find it in Scenri on your computer, under Settings > Phone and tablet.',
   label: '6-digit code',
   open: 'Open Scenri',
-  opening: 'Opening',
-  foot: 'Scenri stays private to your devices.',
-  wrong: 'That code did not work. Try again.',
-  locked: 'Too many tries. Wait a few minutes.',
+  opening: 'Opening…',
+  foot: 'Your code keeps Scenri private.',
+  wrong: "That code didn't work. Try again.",
+  locked: 'Too many tries. Try again in a few minutes.',
   short: 'Enter all 6 digits.',
-  offline: 'Could not reach Scenri. Is this device on the same Wi-Fi?',
+  offline: "Can't reach Scenri. Check your Wi-Fi.",
 } as const;
+
+/** Text into HTML: the copy says "Settings > Phone and tablet", and a quote may come. */
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 const symbolIcon = () => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><style>path{fill:#0a0a0a}@media(prefers-color-scheme:dark){path{fill:#f5f5f5}}</style>${LOCKUP_PATHS.slice(
@@ -297,7 +300,7 @@ export function codePage(problem: CodeProblem): string {
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
 <meta name="format-detection" content="telephone=no">
-<title>Open Scenri</title>
+<title>Scenri</title>
 <link rel="icon" href="${symbolIcon()}">
 <script>document.documentElement.className = 'js';</script>
 <style>${STYLE}</style>
@@ -306,19 +309,19 @@ export function codePage(problem: CodeProblem): string {
 <main class="shell">
 <svg class="lockup" viewBox="0 0 263.79 64" fill="currentColor" role="img" aria-label="Scenri">${LOCKUP_PATHS.map((d) => `<path d="${d}"/>`).join('')}</svg>
 <section class="card" aria-labelledby="title">
-<h1 id="title">${c.title}</h1>
-<p class="where" id="where">${c.where}</p>
+<h1 id="title">${esc(c.title)}</h1>
+<p class="where" id="where">${esc(c.where)}</p>
 <form id="form" method="get" action="" novalidate>
 <div class="otp" id="otp">
-<label class="vh" for="code">${c.label}</label>
+<label class="vh" for="code">${esc(c.label)}</label>
 <input id="code" name="t" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="7" autocomplete="one-time-code" enterkeyhint="go" autocapitalize="off" autocorrect="off" spellcheck="false" autofocus required aria-describedby="where msg" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other">
 <div class="slots" aria-hidden="true">${slot.repeat(3)}<span class="sep"></span>${slot.repeat(3)}</div>
 </div>
-<p class="msg" id="msg" role="alert">${note}</p>
-<button type="submit" class="go" id="go">${c.open}</button>
+<p class="msg" id="msg" role="alert">${esc(note)}</p>
+<button type="submit" class="go" id="go">${esc(c.open)}</button>
 </form>
 </section>
-<p class="foot">${LOCK}<span>${c.foot}</span></p>
+<p class="foot">${LOCK}<span>${esc(c.foot)}</span></p>
 </main>
 <script>${SCRIPT(c)}</script>
 </body>

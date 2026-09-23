@@ -32,7 +32,7 @@ describe('phoneRow', () => {
 
   it('offers the link when a phone could open it, the code standing under the row', () => {
     expect(phoneRow(status())).toEqual({
-      sentence: "Scan the code below with your phone's camera, or copy the link for another computer.",
+      sentence: "Point your phone's camera at the code, or copy the link for another computer.",
       action: 'copy',
     });
   });
