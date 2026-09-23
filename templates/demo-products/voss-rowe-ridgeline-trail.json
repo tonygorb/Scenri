@@ -1,0 +1,19 @@
+{
+  "id": "voss-rowe-ridgeline-trail",
+  "name": "Ridgeline Trail",
+  "promptName": "Bone and Burnt-Orange Trail Running Shoe",
+  "brand": "Voss Rowe",
+  "format": "Trail running shoe",
+  "legacyNames": ["Bone and Burnt-Orange Trail Running Shoe"],
+  "keywords": ["shoe", "sneaker", "trail", "running", "footwear", "lugged sole", "outdoor", "athletic", "orange"],
+  "category": "footwear",
+  "description": "A trail running shoe with a bone-white engineered mesh upper, burnt-orange welded overlays, black speed laces with a toggle, an orange heel loop, a sculpted bone foam midsole and a black deep-lugged outsole, with VOSS ROWE printed on the heel.",
+  "dimensions": "about 29 cm long heel to toe, 11 cm wide and 12 cm tall at the heel",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "trail running shoe with speed laces",
+  "materials": "bone-white engineered mesh, burnt-orange welded TPU overlays, sculpted foam midsole, black lugged rubber outsole, flat speed laces",
+  "primaryColors": "bone white, burnt orange, black",
+  "negativeConstraints": "Never invent any text, logo, wordmark or mark beyond the ones this record names, never misspell or rearrange those, and never add a second label. Never make the outsole lugs shallow or smooth, and never make the mesh glossy.",
+  "preservationNotes": "Keep VOSS ROWE printed small in black sans-serif capitals along the outer heel counter and the small orange VR monogram on the tongue. Keep the bone mesh, the burnt-orange overlays over the midfoot and toe cap, the black speed laces with their toggle, the orange heel loop, the sculpted bone midsole and the black deep-lugged outsole in every shot."
+}
