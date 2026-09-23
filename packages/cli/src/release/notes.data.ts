@@ -51,6 +51,25 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.16.0',
+    date: '2026-09-24',
+    title: 'Open Scenri on your phone or tablet, and Settings with one page for each thing.',
+    sections: [
+      {
+        heading: 'Local access',
+        body: "Scenri now opens on a phone, tablet or another computer on the same Wi-Fi. Scan the QR code in Settings > Local access, or type the address and enter the six-digit code. The first start may ask whether Node can accept incoming connections; allow it, and if the firewall still stands in the way, Local access says so and, where it can, Allow Scenri fixes it through your computer's own prompt.",
+      },
+      {
+        heading: 'Security',
+        body: 'Only devices with the code get in, and wrong guesses are slowed to a crawl. New code, on the computer running Scenri, signs every device out.',
+      },
+      {
+        heading: 'Settings',
+        body: 'Providers, Appearance, Library, Local access, Updates and About each have their own page, and every delete sits under Danger zone. On a phone, a link to a Settings page opens that page.',
+      },
+    ],
+  },
+  {
     version: '0.15.1',
     date: '2026-09-23',
     sections: [
