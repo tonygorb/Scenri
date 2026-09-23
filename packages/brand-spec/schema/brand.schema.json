@@ -492,6 +492,39 @@
           "preview": {
             "$ref": "#/$defs/assetRef",
             "description": "A generated example of this scene, used as its card thumbnail."
+          },
+          "setups": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": ["id", "label", "camera"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string", "maxLength": 40 },
+                "label": { "type": "string", "maxLength": 40 },
+                "camera": { "type": "string", "maxLength": 200, "not": { "pattern": "\\{[^}]*\\}" } }
+              }
+            },
+            "description": "Ways to shoot this same world: a photographer's setup, which changes when the camera moves and the location does not. Each one is a label and a camera line, never a picture and never a second scene. A shot that names one is told that camera instead of the scene's own; a shot whose own words name a camera is told neither."
+          },
+          "examples": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "required": ["role", "file", "from"],
+              "additionalProperties": false,
+              "properties": {
+                "role": { "enum": ["hero", "close", "hands", "angle", "bold"] },
+                "file": { "$ref": "#/$defs/assetRef" },
+                "from": { "$ref": "#/$defs/assetRef" },
+                "setup": { "type": "string", "maxLength": 40 },
+                "product": { "type": "string", "maxLength": 120 },
+                "presenter": { "type": "string", "maxLength": 120 }
+              }
+            },
+            "description": "Pictures of this world in use, shown on its page and never handed to a shot: a Scenri demo product or presenter in the place, drawn from its preview (`from` is the preview each was drawn from, so one drawn from an earlier picture can say so). `setup` names the way of shooting it the picture shows, when it is one."
           }
         }
       },

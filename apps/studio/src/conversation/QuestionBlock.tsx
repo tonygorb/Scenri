@@ -1,8 +1,10 @@
 import { Check, Copy, Paperclip } from '@phosphor-icons/react';
-import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Choice, Choices } from '../composer/shotSettings/Choices.js';
+import { CardGrid } from './CardGrid.js';
 import { CardStrip } from './CardStrip.js';
 import { RefStrip } from '../create/RefStrip.js';
+import { thumbUrl } from '../api.js';
 import { Tip } from '../layout/Tip.js';
 import { type Answer, type Question, groupsAnswered, revealPlan } from './question.js';
 import { Eyebrow, RevealWords, Thinking, arrivalVars, useLeave, useRevealOnce } from './ScenriTurn.js';
@@ -99,12 +101,16 @@ export function QuestionBlock({
   /** What is chosen so far in a question that takes several at once. */
   const [many, setMany] = useState<Set<string>>(() => new Set(asMany(given)));
   // A block that went and is back as the same question (Try again, a retry)
-  // is live again. One whose answer is still in flight stays as it was.
-  const wasSpent = useRef(false);
+  // is live again, and so is one held dim while an earlier answer was changed
+  // and left as it was: a tap that opened that answer (Choose another shot)
+  // lit its button and took nothing, so Cancel has to hand the block back.
+  // One whose answer is still in flight stays as it was.
+  const held = !!spent || !!busy;
+  const wasHeld = useRef(false);
   useEffect(() => {
-    if (wasSpent.current && !spent) setPicked(null);
-    wasSpent.current = !!spent;
-  }, [spent]);
+    if (wasHeld.current && !held) setPicked(null);
+    wasHeld.current = held;
+  }, [held]);
   // The answer is taken the moment it is tapped. The block lights the chosen
   // control and hands its look to the transcript, which keeps a ghost of it
   // while the row goes.
@@ -116,6 +122,51 @@ export function QuestionBlock({
   };
   // the control that stands lit: what was just tapped, else the answer as it was
   const on = picked ?? asOne(given);
+  // A pick's pictures scroll inside a box of their own, a page read as its end
+  // comes into view: the attach picker's sentinel, rooted in this box.
+  const pickBox = useRef<HTMLFieldSetElement>(null);
+  const pickEnd = useRef<HTMLDivElement>(null);
+  const nextPick = useRef<() => void>(() => {});
+  nextPick.current = () => {
+    if (question.kind === 'pick' && question.more && !question.loading)
+      onAnswer({ kind: 'pick', action: { type: 'more' } });
+  };
+  const pickCount = question.kind === 'pick' ? question.items.length : 0;
+  const pickMore = question.kind === 'pick' && !!question.more;
+  useEffect(() => {
+    const el = pickEnd.current;
+    const root = pickBox.current;
+    if (!el || !root || !pickMore || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && nextPick.current(), {
+      root,
+      rootMargin: '0px 0px 240px 0px',
+    });
+    io.observe(el);
+    return () => io.disconnect();
+    // re-armed per page, so a page too short to fill the box asks for the next
+  }, [pickCount, pickMore]);
+  // Two rows exactly, off a real plate: a scrollbar that takes room narrows the
+  // columns by a width CSS cannot know, and the box would show a sliver of a
+  // third row. Measured before the first paint, so the box never settles a
+  // few pixels after it appears, and again whenever its width moves.
+  const pickShown = pickCount > 0;
+  useLayoutEffect(() => {
+    const box = pickBox.current;
+    if (!box || !pickShown || typeof ResizeObserver === 'undefined') return;
+    const fit = () => {
+      const plate = box.querySelector<HTMLElement>('.sc-convo-plate');
+      if (plate) box.style.setProperty('--sc-pick-row', `${plate.getBoundingClientRect().height}px`);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [pickShown]);
+  // a new search starts its results from the top
+  const pickQuery = question.kind === 'pick' ? question.search?.value : undefined;
+  useEffect(() => {
+    if (pickBox.current) pickBox.current.scrollTop = 0;
+  }, [pickQuery]);
   const plan = revealPlan(question.prompt);
   const promptId = `sc-convo-q-${question.id}`;
   const files = useRef<HTMLInputElement>(null);
@@ -188,11 +239,12 @@ export function QuestionBlock({
         hidden={
           question.kind === 'text' && !question.starters?.length && !question.cost && !question.note ? true : undefined
         }
-        // A question open again takes the keyboard as a group, never as one of
-        // its own controls: landing on a control would open that control's
-        // tooltip, which is a label nobody asked for over the answer they are
-        // changing. From the group, Tab reaches the first choice.
-        tabIndex={question.reopened ? -1 : undefined}
+        // A question takes the keyboard as a group, never as one of its own
+        // controls: landing on a control would open that control's tooltip,
+        // which is a label nobody asked for. From the group, Tab reaches the
+        // first choice. It is taken when an answer is opened again, and when a
+        // new question arrives after the pressed control went with the last.
+        tabIndex={-1}
         data-kind={question.kind}
         data-reveal={playing || undefined}
         data-picked={!!picked || undefined}
@@ -246,8 +298,18 @@ export function QuestionBlock({
             </div>
           )}
 
-        {question.kind === 'choice' && (question.describe || question.attach) && (
+        {question.kind === 'choice' && (question.describe || question.attach || question.skip) && (
           <div className="sc-convo-ways sc-convo-ask" data-guide-shape="">
+            {question.skip && !question.multi && !question.groups && (
+              <button
+                type="button"
+                className="sc-chip sc-convo-choice sc-convo-pass"
+                data-on={picked === 'skip' || (!picked && question.skipped) || undefined}
+                onClick={() => commit('skip', { kind: 'skip' })}
+              >
+                {question.skip}
+              </button>
+            )}
             {question.describe && onDescribe && (
               <button
                 type="button"
@@ -361,11 +423,19 @@ export function QuestionBlock({
         {question.kind === 'swatches' && (
           <div className="sc-convo-look">
             {question.row.options.some((o) => o.card) ? (
-              <CardStrip
-                options={question.row.options}
-                picked={on}
-                onPick={(id) => commit(id, { kind: 'swatches', picks: { [question.row.id]: id } })}
-              />
+              question.layout === 'grid' ? (
+                <CardGrid
+                  options={question.row.options}
+                  picked={on}
+                  onPick={(id) => commit(id, { kind: 'swatches', picks: { [question.row.id]: id } })}
+                />
+              ) : (
+                <CardStrip
+                  options={question.row.options}
+                  picked={on}
+                  onPick={(id) => commit(id, { kind: 'swatches', picks: { [question.row.id]: id } })}
+                />
+              )
             ) : (
               <div className="sc-convo-swatches">
                 {question.row.options.map((o) => (
@@ -375,6 +445,7 @@ export function QuestionBlock({
                       className={o.color ? 'sc-convo-swatch' : 'sc-chip sc-convo-choice'}
                       style={o.color ? ({ '--sc-swatch': o.color } as CSSProperties) : undefined}
                       aria-label={o.label}
+                      aria-pressed={on === o.id}
                       data-on={on === o.id || undefined}
                       onClick={() => commit(o.id, { kind: 'swatches', picks: { [question.row.id]: o.id } })}
                     >
@@ -390,6 +461,7 @@ export function QuestionBlock({
                   <button
                     type="button"
                     className="sc-chip sc-convo-choice sc-convo-pass"
+                    aria-pressed={picked === 'skip' || (!picked && question.skipped)}
                     data-on={picked === 'skip' || (!picked && question.skipped) || undefined}
                     onClick={() => commit('skip', { kind: 'skip' })}
                   >
@@ -420,13 +492,30 @@ export function QuestionBlock({
             <RefStrip
               hashes={question.hashes}
               max={question.max}
-              label="Add a photo of their face"
-              hint="Drop it here, or choose a file"
+              label={question.drop?.label ?? 'Add a photo of their face'}
+              hint={question.drop?.hint ?? 'Drop it here, or choose a file'}
               busy={question.busy}
               onAdd={(files) => onAnswer({ kind: 'photos', action: { type: 'add', files } })}
               onRemove={(hash) => onAnswer({ kind: 'photos', action: { type: 'remove', hash } })}
               onReject={() => onAnswer({ kind: 'photos', action: { type: 'reject' } })}
             />
+            {/* The well is what this question is for. A person with no file
+                but something else to start from gets a quiet link, never a
+                second well competing with the first. */}
+            {question.instead && (
+              <button
+                type="button"
+                className="sc-convo-other"
+                data-on={picked === 'instead' || undefined}
+                data-waiting={question.insteadWaiting || undefined}
+                aria-hidden={question.insteadWaiting || undefined}
+                tabIndex={question.insteadWaiting ? -1 : undefined}
+                disabled={question.insteadWaiting || undefined}
+                onClick={() => commit('instead', { kind: 'photos', action: { type: 'instead' } })}
+              >
+                {question.instead}
+              </button>
+            )}
             {question.attest && (
               <label className="sc-convo-attest">
                 <input
@@ -460,11 +549,98 @@ export function QuestionBlock({
                   {question.back}
                 </button>
               )}
+              {cancel}
             </div>
           </div>
         )}
 
-        {question.kind === 'confirm' && question.quote && <Quote text={question.quote} />}
+        {question.kind === 'pick' && (
+          <div className="sc-convo-pick">
+            {/* The field stands above the pictures and never moves: the
+                pictures scroll in a box of their own that keeps its height
+                whatever a search leaves in it. Cards are keyed by their own
+                id: two can share one picture, and keying by the picture left
+                stale cards behind every search. */}
+            {question.search && (
+              <input
+                type="search"
+                className="sc-convo-pick-q"
+                value={question.search.value}
+                placeholder={question.search.label}
+                aria-label={question.search.label}
+                onChange={(e) => onAnswer({ kind: 'pick', action: { type: 'query', text: e.target.value } })}
+                // Escape empties a search before it is allowed to leave the studio
+                onKeyDown={(e) => {
+                  if (e.key !== 'Escape' || !question.search?.value) return;
+                  e.preventDefault();
+                  onAnswer({ kind: 'pick', action: { type: 'query', text: '' } });
+                }}
+              />
+            )}
+            <fieldset
+              ref={pickBox}
+              className="sc-convo-pick-scroll"
+              aria-labelledby={promptId}
+              aria-busy={question.loading || undefined}
+            >
+              {/* the first page on its way: the plates it will fill, so nothing arrives into a blank */}
+              {question.items.length === 0 && question.loading && (
+                <div className="sc-convo-grid sc-convo-pick-grid" aria-hidden>
+                  {Array.from({ length: 8 }, (_, i) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: placeholders have no identity
+                    <span key={i} className="sc-convo-plate sc-convo-pick-wait">
+                      <span className="sc-convo-plate-in" />
+                    </span>
+                  ))}
+                </div>
+              )}
+              {question.items.length > 0 && (
+                <div className="sc-convo-grid sc-convo-pick-grid">
+                  {question.items.map((it) => (
+                    <button
+                      key={it.id}
+                      type="button"
+                      className="sc-convo-plate"
+                      aria-label={it.alt}
+                      aria-pressed={on === it.id}
+                      data-on={on === it.id || undefined}
+                      onClick={() => commit(it.id, { kind: 'pick', action: { type: 'pick', id: it.id } })}
+                    >
+                      <span
+                        className="sc-convo-plate-in"
+                        style={{ backgroundImage: `url("${thumbUrl(it.hash, 'small')}")` }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {question.items.length === 0 && !question.loading && question.empty && (
+                <p className="sc-convo-pick-empty">{question.empty}</p>
+              )}
+              {question.more && <div ref={pickEnd} className="sc-convo-pick-end" aria-hidden />}
+            </fieldset>
+            <p className="sc-vh" role="status">
+              {question.loading ? '' : (question.status ?? '')}
+            </p>
+            {(question.back || cancel) && (
+              <div className="sc-convo-ways sc-convo-ask" data-guide-shape="">
+                {question.back && (
+                  <button
+                    type="button"
+                    className="sc-chip sc-convo-choice sc-convo-pass"
+                    data-on={picked === 'back' || undefined}
+                    onClick={() => commit('back', { kind: 'pick', action: { type: 'back' } })}
+                  >
+                    {question.back}
+                  </button>
+                )}
+                {cancel}
+              </div>
+            )}
+          </div>
+        )}
+
+        {question.kind === 'confirm' && question.quote && <Quote text={question.quote} label={question.quoteLabel} />}
 
         {question.kind === 'confirm' && (
           <div className="sc-convo-decide sc-convo-ask" data-guide-shape="">

@@ -33,7 +33,7 @@ export function PresenterStudioRoute() {
   const { key } = useLocation();
   const { brand } = useBrand();
   const navigate = useNavigate();
-  const { announce, caps, capsNote } = useCreateFlow();
+  const { announce, caps } = useCreateFlow();
   useTitleEntity('Create presenter');
   // A save resolves after an await. If the studio was closed meanwhile, the
   // person is somewhere else now, and the answer must not pull them back.
@@ -65,7 +65,6 @@ export function PresenterStudioRoute() {
         navigate(made.kind === 'presenter' ? presenterPath(brand, made.id) : presentersPath(brand), { replace: true });
       }}
       caps={caps}
-      capsNote={capsNote}
     />
   );
 }

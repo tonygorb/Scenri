@@ -427,6 +427,67 @@ export function listPresenterDrafts(core: Core, brandId: string): PresenterDraft
 /* ------------------------------------------------------------------ jobs */
 
 const running = new Map<string, { view: PresenterView | null; ctrl: AbortController }>();
+/** Set while the server is going away: nothing new starts, not even the next view of a set. */
+let closing = false;
+
+/**
+ * One run of a draft's work, as Activity shows it. A set that goes on view
+ * after view on its own is one run, from the first of them to the last, so it
+ * is one row and, when it ends, one piece of news rather than three.
+ */
+export interface DraftRun {
+  id: string;
+  draftId: string;
+  brandId: string;
+  /** The view being drawn, or last drawn; null for the photo read. */
+  view: PresenterView | null;
+  startedAt: string;
+  finishedAt: string | null;
+  status: 'running' | 'done' | 'failed' | 'cancelled';
+  error: string | null;
+}
+/** The latest run per draft. In memory, like the jobs it describes. */
+const runs = new Map<string, DraftRun>();
+const RUN_KEEP_MS = 24 * 60 * 60 * 1000;
+
+function beginRun(deps: AssetBuildDeps, id: string, view: PresenterView | null, chained: boolean): void {
+  const prev = runs.get(id);
+  if (chained && prev?.status === 'running') {
+    runs.set(id, { ...prev, view });
+    return;
+  }
+  runs.set(id, {
+    id: randomUUID().slice(0, 8),
+    draftId: id,
+    brandId: getPresenterDraft(deps.core, id)?.brandId ?? '',
+    view,
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    status: 'running',
+    error: null,
+  });
+}
+
+function endRun(deps: AssetBuildDeps, id: string, view: PresenterView | null, aborted: boolean): void {
+  const run = runs.get(id);
+  if (!run || run.status !== 'running') return;
+  const rec = getPresenterDraft(deps.core, id);
+  const error = view ? rec?.views[view].error : rec?.readError;
+  const failed = !aborted && !!error && error !== 'cancelled';
+  runs.set(id, {
+    ...run,
+    view,
+    finishedAt: new Date().toISOString(),
+    status: aborted ? 'cancelled' : failed ? 'failed' : 'done',
+    error: failed ? (error ?? null) : null,
+  });
+}
+
+/** The runs Activity shows for a brand: what draws now, and what finished in the last day. */
+export function presenterDraftRuns(brandId: string, now = Date.now()): DraftRun[] {
+  for (const [id, r] of runs) if (r.finishedAt && now - Date.parse(r.finishedAt) > RUN_KEEP_MS) runs.delete(id);
+  return [...runs.values()].filter((r) => r.brandId === brandId);
+}
 
 /** How many drafts are mid-step: the update path refuses to restart over one. */
 export function runningDraftJobCount(): number {
@@ -437,6 +498,21 @@ export function runningDraftJobCount(): number {
 export function resetPresenterDrafts(): void {
   for (const job of running.values()) job.ctrl.abort();
   running.clear();
+  runs.clear();
+  closing = false;
+}
+
+/**
+ * Stop every draft's work and wait for it to write its outcome: a server going
+ * away. A draw that lands into a home being torn down writes an image nobody
+ * will read, and a Codex child left drawing keeps spending after the studio is
+ * gone. Bounded, like the node drain.
+ */
+export async function settlePresenterDrafts(): Promise<void> {
+  closing = true;
+  for (const job of running.values()) job.ctrl.abort();
+  const deadline = Date.now() + 5000;
+  while (running.size > 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 25));
 }
 
 /**
@@ -897,9 +973,12 @@ function startJob(
   id: string,
   view: PresenterView | null,
   work: (signal: AbortSignal) => Promise<void>,
+  after?: () => void,
+  chained = false,
 ): void {
   const ctrl = new AbortController();
   running.set(id, { view, ctrl });
+  beginRun(deps, id, view, chained);
   void work(ctrl.signal)
     .catch(() => {
       // every job writes its own outcome onto the row; nothing escapes here
@@ -913,8 +992,45 @@ function startJob(
         });
       } catch {
         // the draft was discarded while the job ran
+        runs.delete(id);
+        return;
       }
+      // In the same run as the idle write above, so no poll ever sees the set
+      // standing still between one view and the next.
+      if (!ctrl.signal.aborted && !closing) after?.();
+      // the run is over unless the set just went on to its next view
+      if (!running.has(id)) endRun(deps, id, view, ctrl.signal.aborted);
     });
+}
+
+/**
+ * The set goes on without the page. Once a view has decided itself, the next
+ * view it unlocks is drawn the same way, here on the server, so a person who
+ * leaves after Use this person comes back to the whole set rather than to a
+ * set that waited for them. The studio's own step effect still asks for the
+ * same draw when it is open; the one-job-per-draft guard answers it with 409,
+ * which it reads as "already happening".
+ *
+ * Only views that decide themselves, only in the order their dependencies
+ * allow, and never a view that carries an error: a stopped or failed view
+ * stops the chain until someone asks for it again.
+ */
+function continueSet(deps: AssetBuildDeps, id: string): void {
+  const rec = getPresenterDraft(deps.core, id);
+  if (!rec || running.has(id) || !deps.engine) return;
+  const wanted = rec.extras ? PRESENTER_VIEWS : CORE_VIEWS;
+  const next = wanted.find((v) => {
+    const slot = rec.views[v];
+    if (HAND_APPROVED.has(v) || slot.error) return false;
+    if (slot.status !== 'empty' && slot.status !== 'stale') return false;
+    return DEPENDS[v].every((dep) => rec.views[dep].status === 'approved');
+  });
+  if (!next) return;
+  try {
+    generateView(deps, id, next, { decide: 'auto', chained: true });
+  } catch {
+    // refused (nothing to draw from, the draft changed): the studio says why when it is next opened
+  }
 }
 
 /* -------------------------------------------------------------- generate */
@@ -932,7 +1048,8 @@ export async function generateView(
   deps: AssetBuildDeps,
   id: string,
   view: PresenterView,
-  opts: { adjustment?: string; decide?: 'auto' } = {},
+  /** `chained`: the set going on by itself, part of the run already under way. Never from a route. */
+  opts: { adjustment?: string; decide?: 'auto'; chained?: boolean } = {},
 ): Promise<{ draft: PresenterDraftRecord }> {
   const { core, engine } = deps;
   if (!isView(view)) throw fail('no such view', 400);
@@ -984,7 +1101,14 @@ export async function generateView(
       r.asks = [...r.asks, { view, text: adjustment, at: new Date().toISOString() }].slice(-ASKS_MAX);
     }
   });
-  startJob(deps, id, view, (signal) => drawView(deps, id, view, before, adjustment, decide, signal));
+  startJob(
+    deps,
+    id,
+    view,
+    (signal) => drawView(deps, id, view, before, adjustment, decide, signal),
+    decide === 'auto' ? () => continueSet(deps, id) : undefined,
+    opts.chained === true,
+  );
   return { draft: saved };
 }
 
@@ -1051,6 +1175,10 @@ async function drawView(
     // Before anything chains off it: a bar left on the anchor is a bar the
     // next view is conditioned on and faithfully reproduces.
     const hash = await trimEdgeBars(core, drawn);
+    // The last moment a Stop can arrive before the slot is written; from here
+    // the landing is one synchronous write, so a picture that came back after
+    // Stop never lands over the stopped slot.
+    if (signal.aborted) throw new Error('cancelled');
     mutate(core, id, (r) => {
       const slot = r.views[view];
       if (slot.hash && slot.hash !== hash) {
@@ -1821,6 +1949,7 @@ export async function stopPresenterDraft(deps: AssetBuildDeps, id: string): Prom
 export async function discardPresenterDraft(deps: AssetBuildDeps, id: string, hooks: CleanupHooks = {}): Promise<void> {
   running.get(id)?.ctrl.abort();
   running.delete(id);
+  runs.delete(id);
   const rec = getPresenterDraft(deps.core, id);
   if (!rec) return;
   dropDraft(deps.core, rec, hooks);
@@ -1904,7 +2033,7 @@ function dropDraft(core: Core, rec: PresenterDraftRecord, hooks: CleanupHooks): 
  * content-addressed, so the same bytes in two places are one file, and one
  * owner is enough to keep it.
  */
-function removeUnreferenced(core: Core, hashes: string[], hooks: CleanupHooks): void {
+export function removeUnreferenced(core: Core, hashes: string[], hooks: CleanupHooks): void {
   const brands = core.store.listBrands().map((b) => JSON.stringify(b.json));
   for (const h of new Set(hashes)) {
     if (!HASH.test(h)) continue;

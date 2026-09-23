@@ -6,6 +6,7 @@ import { homedir, networkInterfaces } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import { createEngineRegistry } from './engines.js';
 import { createDemoAnalyzer, createDemoEngine, demoOptionsFromEnv } from '@scenri/engine-demo';
+import { createCodexAnalyzer } from '@scenri/engine-codex';
 import { buildServer } from './server.js';
 import { detectInstallKind } from './installKind.js';
 import { repairPresenterCrops } from './presenterRepair.js';
@@ -67,8 +68,18 @@ async function run(): Promise<void> {
   // the same way and in the same place as the demo engine, and nowhere else.
   const analyzer =
     process.env.SCENRI_DEMO_ANALYSIS === 'usable' || process.env.SCENRI_DEMO_ANALYSIS === 'unusable'
-      ? createDemoAnalyzer({ photos: process.env.SCENRI_DEMO_ANALYSIS })
+      ? createDemoAnalyzer({
+          photos: process.env.SCENRI_DEMO_ANALYSIS,
+          readMs: Number(process.env.SCENRI_DEMO_READ_MS) || undefined,
+          fail: process.env.SCENRI_DEMO_FAIL_READ === '1',
+        })
       : undefined;
+  // Who reads a product's size from its photograph: the demo reader beside
+  // the demo engine, so a suite never spends Codex on it, and Codex otherwise.
+  const sizeReader =
+    process.env.SCENRI_DEMO_ENGINE === '1'
+      ? (analyzer ?? createDemoAnalyzer())
+      : createCodexAnalyzer({ runner: engines.codexRunner });
   const here = dirname(fileURLToPath(import.meta.url));
   // dev: monorepo path; published: bundled dist
   const candidates = [join(here, '..', '..', '..', 'apps', 'studio', 'dist'), join(here, '..', 'studio-dist')];
@@ -87,6 +98,7 @@ async function run(): Promise<void> {
     core,
     engines,
     analyzer,
+    sizeReader,
     studioDist,
     access: { allowedHosts: reachableAt, token },
     runtime: {

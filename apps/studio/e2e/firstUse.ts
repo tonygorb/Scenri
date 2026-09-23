@@ -18,12 +18,20 @@ export const lessonRow = (p: Page, title: string) => learnDialog(p).locator('.sc
 export const brief = (p: Page) => p.locator('[data-guide="compose"] .sc-brief-line');
 export const chips = (p: Page) => p.locator('[data-guide="compose"] .sc-brief-line .sc-token');
 
+/**
+ * The one step that can be pressed, inside the lesson named, never whichever
+ * lesson is painted: a row moves the address before the pane repaints, and a
+ * CI trace (2026-09-23) caught the step read 90ms later still the replaced
+ * lesson's, so "Create a presenter" began "Make your first shot".
+ */
+export const lessonStep = (p: Page, title: string) =>
+  learnDialog(p).getByRole('region', { name: title, exact: true }).locator('button.sc-learn-step');
+
 /** Opens one lesson from the bar's Learn and takes its one action, the way a person does. */
 export async function fromLearn(p: Page, title: string): Promise<void> {
   await learnButton(p).click();
   await lessonRow(p, title).click();
-  // the one step that can be pressed carries the lesson's action
-  await learnDialog(p).locator('button.sc-learn-step').click();
+  await lessonStep(p, title).click();
 }
 
 export async function guideRecord(p: Page): Promise<GuideView> {

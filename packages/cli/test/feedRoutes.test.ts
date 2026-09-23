@@ -43,15 +43,19 @@ async function brandWithShots(n: number) {
   const root = core.store.rootFor(project.id)!;
   const ids: string[] = [];
   for (let i = 0; i < n; i++) {
+    const words = `shot number ${['zero', 'one', 'two', 'three', 'four'][i] ?? i} on linen`;
     const [node] = core.store.addNodes({
       projectId: project.id,
       parentId: root.id,
       kind: 'generation',
-      prompt: `shot number ${['zero', 'one', 'two', 'three', 'four'][i] ?? i} on linen`,
+      prompt: words,
       engineId: 'demo',
       count: 1,
     });
-    core.store.setBrief(node.id, { tokens: i % 2 ? [{ t: 'product', id: 'p-cup' }] : [] });
+    // what was typed is what a search reads, once a shot has a brief
+    core.store.setBrief(node.id, {
+      tokens: [...(i % 2 ? [{ t: 'product', id: 'p-cup' }] : []), { t: 'text', v: ` ${words} ` }],
+    });
     const png = await sharp({ create: { width: 64 + i, height: 80, channels: 3, background: '#336699' } })
       .png()
       .toBuffer();
@@ -89,9 +93,10 @@ describe('GET /api/brands/:id/feed', () => {
     const { brand, ids } = await brandWithShots(4);
     const byPrompt = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/feed?q=number%20three` });
     expect(byPrompt.json().items.map((n: any) => n.id)).toEqual([ids[3]]);
-    // a term under three letters filters no text; the feed narrows on the third
+    // the feed narrows from the first letter, the counts with it
     const short = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/feed?q=qx` });
-    expect(short.json().counts.all).toBe(4);
+    expect(short.json().items).toEqual([]);
+    expect(short.json().counts.all).toBe(0);
     // "mug" is nowhere in a prompt; it is the product's name, and the odd shots carry the product
     const byName = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/feed?q=mug` });
     expect(byName.json().items.map((n: any) => n.id)).toEqual([ids[3], ids[1]]);

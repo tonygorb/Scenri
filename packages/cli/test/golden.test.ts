@@ -651,6 +651,25 @@ describe('golden: responsibility contract', () => {
     expect(withTendency.prompt).toContain('Camera for this shot: 90mm at eye level, medium depth');
   });
 
+  // The glossy hero is said after the camera line: said before it, a scene read
+  // from a wide picture kept a phone frontal and far (2 of 2, 2026-09-23). The
+  // camera line used to run into the next sentence with no full stop.
+  it('says the glossy hero after the scene camera, and the camera line ends its sentence', () => {
+    const scene = { ...resolveScene(PRODUCT_SCENE)!, camera: 'Frontal view, medium-wide distance' };
+    const shot = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE },
+        ],
+      },
+      { brand: brand(), images: core.images, engineCaps: caps(6), templateById: () => scene },
+    );
+    const cam = shot.prompt.indexOf('Camera for this shot: Frontal view, medium-wide distance. ');
+    expect(cam).toBeGreaterThan(-1);
+    expect(shot.prompt.indexOf('Where it has glass')).toBeGreaterThan(cam);
+  });
+
   it('the shot wins: a stated camera drops the scene tendency entirely, so the two never compete', () => {
     const scene = { ...resolveScene(PRODUCT_SCENE)!, camera: '90mm at eye level, medium depth' };
     const shotDecides = compileBrief(
@@ -666,6 +685,153 @@ describe('golden: responsibility contract', () => {
     expect(shotDecides.prompt).not.toContain('Camera for this shot:');
     expect(shotDecides.prompt).not.toContain('90mm');
     expect(shotDecides.prompt).toContain('24mm from floor level');
+  });
+
+  // Only the person's words can choose a camera. The scene's own prose sits
+  // in the compiled sentence too, and a scene that describes its "framing"
+  // used to silence its own camera and any setup chosen on top of it.
+  it("a scene's own words about framing never silence its camera or a chosen setup", () => {
+    const scene = {
+      ...resolveScene(PRODUCT_SCENE)!,
+      prompt: 'Arched doorways give a natural framing to a cropped stone courtyard.',
+      camera: '90mm at eye level, medium depth',
+      setups: [{ id: 'top-down', label: 'Top down', camera: 'Directly overhead, looking straight down, deep focus' }],
+    };
+    const ctx = { brand: brand(), images: core.images, engineCaps: caps(6), templateById: () => scene };
+    const plain = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE },
+        ],
+      },
+      ctx,
+    );
+    expect(plain.prompt).toContain('natural framing');
+    expect(plain.prompt).toContain('Camera for this shot: 90mm at eye level, medium depth');
+    const set = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE, setup: 'top-down' },
+        ],
+      },
+      ctx,
+    );
+    expect(set.prompt).toContain('Camera for this shot: Directly overhead, looking straight down, deep focus');
+  });
+
+  it("a chip that names one of the scene's setups is told that camera instead of the scene's own", () => {
+    // One world, several ways to shoot it: the setup moves the camera and
+    // nothing else, so the same scene prose still goes with it.
+    const scene = {
+      ...resolveScene(PRODUCT_SCENE)!,
+      camera: '90mm at eye level, medium depth',
+      setups: [{ id: 'top-down', label: 'Top down', camera: 'Directly overhead, looking straight down, deep focus' }],
+    };
+    const ctx = { brand: brand(), images: core.images, engineCaps: caps(6), templateById: () => scene };
+    const shot = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE, setup: 'top-down' },
+        ],
+      },
+      ctx,
+    );
+    expect(shot.prompt).toContain('Camera for this shot: Directly overhead, looking straight down, deep focus');
+    expect(shot.prompt).not.toContain('90mm at eye level');
+    // the world itself is untouched by which way it is being shot
+    expect(shot.prompt).toContain(resolveScene(PRODUCT_SCENE)!.prompt.slice(0, 40));
+
+    // a setup that is no longer on the record leaves the scene's own framing
+    const gone = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE, setup: 'nowhere' },
+        ],
+      },
+      ctx,
+    );
+    expect(gone.prompt).toContain('Camera for this shot: 90mm at eye level, medium depth');
+
+    // and the shot's own words still beat the setup, the way they beat the scene
+    const said = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE, setup: 'top-down' },
+          { t: 'text', v: ' 24mm from floor level' },
+        ],
+      },
+      ctx,
+    );
+    expect(said.prompt).not.toContain('Camera for this shot:');
+  });
+
+  it("a place's camera does not make a product shot huge: the shot is framed at the product's scale", () => {
+    // 2026-09-22: "room-scale distance" on a product-only shot drew a sneaker
+    // the size of the loft's armchair, and a ring in a brutalist hall came out
+    // as tall as a step. A product alone in a place is framed at its own scale,
+    // focus following distance; a product's world, a chosen setup and the
+    // shot's own words keep their camera.
+    const place = { ...resolveScene(PRODUCT_SCENE)!, subject: 'either' as const, camera: 'room-scale distance' };
+    const ctx = { brand: brand(), images: core.images, engineCaps: caps(6), templateById: () => place };
+    const alone = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE },
+        ],
+      },
+      ctx,
+    );
+    expect(alone.prompt).toContain("This shot is framed at the product's own scale, not the room's");
+    expect(alone.prompt).toContain('The closer the camera, the shallower the focus');
+    expect(alone.prompt).not.toContain('room-scale distance');
+    expect(alone.prompt).not.toContain('Camera for this shot:');
+
+    // a setup is the person's own camera
+    const set = { ...place, setups: [{ id: 'top', label: 'Top down', camera: 'Directly overhead' }] };
+    const chosen = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'template', id: PRODUCT_SCENE, setup: 'top' },
+        ],
+      },
+      { ...ctx, templateById: () => set },
+    );
+    expect(chosen.prompt).toContain('Camera for this shot: Directly overhead');
+    // and the scale rule rides with it: "from a low angle" alone once dropped
+    // it and drew a sneaker three times the size of the steps behind it
+    expect(chosen.prompt).toContain("framed at the product's own scale");
+    const angled = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'text', v: ' from a low angle ' },
+          { t: 'template', id: PRODUCT_SCENE },
+        ],
+      },
+      ctx,
+    );
+    expect(angled.prompt).toContain("framed at the product's own scale");
+    expect(angled.prompt).not.toContain('Camera for this shot:');
+
+    const withSomeone = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: PRODUCT_SCENE },
+        ],
+      },
+      ctx,
+    );
+    expect(withSomeone.prompt).toContain('Camera for this shot: room-scale distance');
+    expect(withSomeone.prompt).not.toContain("framed at the product's own scale");
   });
 
   it('a scene without a camera tendency behaves exactly as before', () => {
@@ -822,7 +988,11 @@ describe('golden: presenter references are identity, not wardrobe', () => {
     // what the photograph showed. A stand-in has a place for it to go.
     expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/match the environment, the light/i);
     expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/take no identity from the person in it/);
-    expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/stand-in whose place the attached subject takes/);
+    expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/stand-in whose place the attached presenter takes/);
+    // and nothing else in it is: a prop is set at its real size, never the
+    // measure of a product (2026-09-22: a sneaker took an armchair's size)
+    expect(REFERENCE_ROLE_DIRECTIVE.scene).toMatch(/props and objects are part of the set at their real size/);
+    expect(REFERENCE_ROLE_DIRECTIVE.scene).not.toMatch(/demonstrating placement and scale/);
     // The carve-out LEADS. It used to sit forty words in as a subordinate
     // clause, and the tester case showed which half the model heard.
     expect(REFERENCE_ROLE_DIRECTIVE.scene.indexOf('take no identity')).toBeLessThan(

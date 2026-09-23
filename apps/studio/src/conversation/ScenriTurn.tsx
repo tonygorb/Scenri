@@ -32,6 +32,8 @@ export function ScenriTurn({
   current,
   restore,
   onRestore,
+  retry,
+  onRetry,
   onShow,
 }: {
   text: string;
@@ -53,6 +55,9 @@ export function ScenriTurn({
   /** Put this picture's view on the stage. */
   onShow?: (view: string) => void;
   onRestore?: (view: string, hash: string) => void;
+  /** The picture can be drawn again, by this name; the button says Try again. */
+  retry?: string;
+  onRetry?: (view: string) => void;
   /** The turn's key, on the element, for what watches the transcript. */
   turnId?: string;
   /** Play the arrival: only on a turn that is new to this render. */
@@ -117,6 +122,10 @@ export function ScenriTurn({
               onClick={() => onRestore(restore.view, restore.hash)}
             >
               Put back
+            </button>
+          ) : retry && onRetry ? (
+            <button type="button" className="sc-convo-shot-do sc-convo-restore" onClick={() => onRetry(retry)}>
+              Try again
             </button>
           ) : (
             current && <span className="sc-convo-shot-do">Active</span>

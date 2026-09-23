@@ -243,7 +243,8 @@ describe('stepOf', () => {
     expect(stepOf('refine', facts({ moment: 'ask' }))).toBe(2);
     expect(stepOf('refine', facts({ moment: 'refined' }))).toBe(3);
     expect(stepOf('product', facts({ moment: 'product' }))).toBe(2);
-    expect(stepOf('scene', facts({ moment: 'scene' }))).toBe(2);
+    expect(stepOf('scene', facts({ moment: 'start' }))).toBe(2);
+    expect(stepOf('scene', facts({ moment: 'words' }))).toBe(3);
   });
 
   it('never points at a step a lesson does not have', () => {

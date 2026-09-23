@@ -145,7 +145,7 @@ describe('generate request shape', () => {
       expect(body.messages[0].content).toEqual([
         {
           type: 'text',
-          text: 'a red bird The attached image is a reference to match in composition, lighting and treatment.',
+          text: 'a red bird The attached image is an image the direction refers to, used the way the direction says; where the direction says nothing about it, a reference to match in composition, lighting and treatment.',
         },
         { type: 'image_url', image_url: { url: `data:image/png;base64,${PNG_B64}` } },
       ]);

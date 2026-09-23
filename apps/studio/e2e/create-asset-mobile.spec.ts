@@ -70,7 +70,7 @@ test('the hoisted page action is gone, and the + took its job', async ({ page })
 
 test('the dialog is a sheet on a phone and a centred dialog on a tablet', async ({ page }) => {
   const slug = await brandSlug(page);
-  await page.goto(`/${slug}/scenes?new=scene`);
+  await page.goto(`/${slug}/products?new=product`);
   await expect(dialog(page)).toBeVisible();
   // the sheet rises from below the fold; a box read on the first paint is
   // still travelling and is not the dock the assertions name
@@ -110,7 +110,7 @@ test('the dialog is a sheet on a phone and a centred dialog on a tablet', async 
 test('the primary stays reachable with the keyboard up', async ({ page }) => {
   test.skip(!isPhone(page), 'no software keyboard to clear above the breakpoint');
   const slug = await brandSlug(page);
-  await page.goto(`/${slug}/scenes?new=scene`);
+  await page.goto(`/${slug}/products?new=product`);
 
   await dialog(page).locator('input[type="text"], .rt-TextFieldInput').first().tap();
   const go = page.locator('.sc-dlg-go');
@@ -140,8 +140,10 @@ test('the chooser is usable by touch', async ({ page }) => {
     expect(new Set(lefts).size, 'the cards should stay in a row').toBe(3);
   }
 
+  // a scene is a place of its own, not a dialog: the card opens its studio
   await page.locator('[data-kind="scene"]').tap();
-  await expect(page.getByRole('heading', { name: 'New scene' })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/${slug}/scenes/new/[a-f0-9]+$`));
+  await expect(page.getByRole('dialog', { name: 'Create scene' })).toBeVisible();
 });
 
 /**
@@ -185,7 +187,7 @@ async function dragSheet(p: Page, grip: string, dy: number) {
 test('the sheet is dragged away, and springs back from a nudge', async ({ page }) => {
   test.skip(!isPhone(page), 'the sheet only exists below 768px');
   const slug = await brandSlug(page);
-  await page.goto(`/${slug}/scenes?new=scene`);
+  await page.goto(`/${slug}/products?new=product`);
 
   const sheet = dialog(page);
   const pull = (dy: number) => dragSheet(page, '.sc-newdlg > .sc-shotsheet-grip', dy);

@@ -57,11 +57,12 @@ export const REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   // half the model heard. Every treatment clause is retained word for word;
   // only the order and the register of the identity refusal changed.
   scene:
-    'a reference for this world, never for a person: take no identity from the person in it — not their face, not their likeness — they are an anonymous stand-in whose place the attached subject takes. Match the environment, the light, and the material, density, scale, finish and spread of the treatment applied to the figure, including which parts of the form it covers and how far it reaches; treat any product, garment or prop staged in it as the same kind of stand-in, demonstrating placement and scale — never an object to reproduce',
+    'a reference for this world, never for a person: take no identity from the person in it — not their face, not their likeness — they are an anonymous stand-in whose place the attached presenter takes. Match the environment, the light, and the material, density, scale, finish and spread of the treatment applied to the figure, including which parts of the form it covers and how far it reaches; its furniture, props and objects are part of the set at their real size, never a stand-in for an attached product and never a measure of its size',
   composition:
     'a reference for framing, camera angle and pose only — take no subject, color, material or branding from it',
   style: 'a reference for overall treatment and mood only — take no composition, subject or product detail from it',
-  reference: 'a reference to match in composition, lighting and treatment',
+  reference:
+    'an image the direction refers to, used the way the direction says; where the direction says nothing about it, a reference to match in composition, lighting and treatment',
 };
 
 /** The same contract, compressed for edit prompts where the source image already carries the subject. */
@@ -76,7 +77,8 @@ export const EDIT_REFERENCE_ROLE_DIRECTIVE: Record<ReferenceRole, string> = {
   scene: 'a reference for environment, light and treatment only — take no identity from any person in it',
   composition: 'a reference for framing and pose only',
   style: 'a reference for treatment and mood only',
-  reference: 'a reference for composition, lighting and treatment only',
+  reference:
+    'an image the instruction refers to, used the way the instruction says; where the instruction says nothing about it, a reference for composition, lighting and treatment only',
 };
 
 export interface BrandContext {

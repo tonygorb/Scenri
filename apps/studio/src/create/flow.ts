@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import type { AssetBuildCapabilities } from '../api.js';
 import type { PendingState } from '../createDraft.js';
 
@@ -6,7 +5,15 @@ import type { PendingState } from '../createDraft.js';
 export type Created =
   | { kind: 'product'; id: string; name: string }
   | { kind: 'presenter'; id: string; name: string }
-  | { kind: 'scene'; jobId: string; name: string };
+  | {
+      kind: 'scene';
+      id: string;
+      name: string;
+      /** Where the reader filed it, for the one line that says so. */
+      verticals?: string[];
+      /** A new scene, or a saved one changed. */
+      how?: 'created' | 'updated';
+    };
 
 /**
  * Everything the host hands a flow. Deliberately small: a flow owns its own
@@ -20,8 +27,6 @@ export interface FlowProps {
   onStarted: (made: Created) => void;
   /** What this machine can actually do, or null while it is still being asked. */
   caps: AssetBuildCapabilities | null;
-  /** Wraps a flow's cost sentence, or replaces it when the probe never answered. */
-  capsNote: (whenKnown: string) => ReactNode;
   /** How a build the draft was submitted as is doing, for the Try-again refill. */
   pendingState: (jobId: string) => PendingState;
   /** This opening is an Undo, so the flow takes back what was abandoned. */

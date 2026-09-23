@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import { searchTerms, termMatches, type BrandRow, type Core, type FeedFilter, type FeedSort } from '@scenri/core';
+import { nameMatches, searchTerms, type BrandRow, type Core, type FeedFilter, type FeedSort } from '@scenri/core';
+import type { ExampleJob } from '../sceneExamples.js';
+import { listStudioWork } from '../studioWork.js';
 
 /** Something a brief token can name, with the name it answers to right now. */
 interface TokenName {
@@ -16,6 +18,8 @@ interface ProjectRouteDeps {
    * by its new name without rewriting a single stored shot.
    */
   tokenNames: (brand: BrandRow) => TokenName[];
+  /** A brand's scene examples drawing or lately drawn, for Activity. */
+  sceneExampleJobs?: (brandId: string) => ExampleJob[];
   /** Every engine by the name it is called by. */
   engineNames: () => TokenName[];
 }
@@ -58,14 +62,19 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectRouteDe
   });
   /**
    * Everything the brand has running or lately finished, generations and
-   * catalog imports together. One request, so the notifications bell costs the
-   * same whether you have two projects or forty.
+   * catalog imports together, and the studios' scene and presenter work
+   * beside them. One request, so the notifications bell costs the same whether
+   * you have two projects or forty.
    */
   app.get('/api/brands/:id/activity', async (req, reply) => {
     const brand = core.store.getBrand((req.params as any).id);
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
     const limit = Math.min(Number((req.query as any).limit) || 60, 200);
-    return { nodes: core.store.recentActivity(brand.id, limit), jobs: core.catalog.listRecentJobs(brand.id) };
+    return {
+      nodes: core.store.recentActivity(brand.id, limit),
+      jobs: core.catalog.listRecentJobs(brand.id),
+      studio: listStudioWork(core, brand.id, deps.sceneExampleJobs?.(brand.id) ?? []),
+    };
   });
 
   // ---- workspace + feed + sets
@@ -117,8 +126,8 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectRouteDe
       const engines = deps.engineNames();
       terms = searchTerms(q).map((t) => ({
         ...t,
-        tokenIds: known.filter((n) => termMatches(n.name, t)).map((n) => n.id),
-        engineIds: engines.filter((e) => termMatches(e.name, t)).map((e) => e.id),
+        tokenIds: known.filter((n) => nameMatches(n.name, t)).map((n) => n.id),
+        engineIds: engines.filter((e) => nameMatches(e.name, t)).map((e) => e.id),
       }));
     }
     const filter: FeedFilter = {

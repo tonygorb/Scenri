@@ -22,6 +22,7 @@ import { PresentersView } from './views/Presenters.js';
 import { PresenterPage } from './views/PresenterPage.js';
 import { PresenterEditRoute } from './views/PresenterEditRoute.js';
 import { PresenterStudioRoute } from './views/PresenterStudioRoute.js';
+import { SceneStudioRoute } from './views/SceneStudioRoute.js';
 import { ProductsView } from './views/Products.js';
 import { ProductPage } from './views/ProductPage.js';
 import { CreateView } from './views/Create.js';
@@ -153,7 +154,12 @@ function KitRedirect() {
 
 function SceneRoute() {
   const { sceneId } = useParams();
-  return <ScenePage key={sceneId} />;
+  return (
+    <>
+      <ScenePage key={sceneId} />
+      <Outlet />
+    </>
+  );
 }
 
 function PresenterRoute() {
@@ -206,8 +212,18 @@ export const router = createBrowserRouter([
           { path: P.kit, element: <KitRedirect /> },
           { path: P.products, element: <ProductsView /> },
           { path: P.product, element: <ProductRoute /> },
-          { path: P.scenes, element: <ScenesView /> },
-          { path: P.scene, element: <SceneRoute /> },
+          // the scene studio is a child of the library, and its editor a child of
+          // the page, for the reasons the presenter's are
+          {
+            path: P.scenes,
+            element: <ScenesView />,
+            children: [{ path: P.sceneStudio, element: <SceneStudioRoute /> }],
+          },
+          {
+            path: P.scene,
+            element: <SceneRoute />,
+            children: [{ path: P.sceneEdit, element: <SceneStudioRoute /> }],
+          },
           // the presenter studio is a child route for the same reason the shot
           // overlay is: the library stays mounted underneath, and a draft in
           // progress has an address of its own

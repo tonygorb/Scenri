@@ -203,6 +203,20 @@ describe('codexNativeSize', () => {
 });
 
 describe('generate', () => {
+  // A compiled prompt already ends in a full stop; the frame line used to add
+  // a second one, and the draw read "anywhere in the frame.. scene-1.png".
+  it('ends the prompt with one full stop, never two', async () => {
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      writeFileSync(join(dirFromArgs(args), 'out-1.png'), PNG_1);
+      child.emit('exit', 0, null);
+    });
+    const engine = createCodexEngine({ platform: 'linux', saveImage: newSaveImage(), spawnImpl });
+    await engine.generate({ ...genReq, count: 1, prompt: 'a fox mascot on a teal background.' });
+    const promptText = calls[0].child.stdin.written;
+    expect(promptText).toContain('a fox mascot on a teal background.');
+    expect(promptText).not.toContain('background..');
+  });
+
   it('runs one codex exec per image with low reasoning, collects hashes in order', async () => {
     let n = 0;
     const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {

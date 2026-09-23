@@ -3,9 +3,18 @@ import { useMatch, useNavigate } from 'react-router';
 import { useBrand } from '../app/BrandLayout.js';
 import type { GuideTaskId } from '../api.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
+import { keptSceneDrafts } from '../create/scene/sceneDrafts.js';
 import { arrived, guideIntent, guideSnapshot, headFor, viaBarKey, viaWayKey } from '../guide.js';
 import { progressedPastWay } from '../lessons.js';
-import { hubPath, P, presenterStudioPath, presentersPath, productsPath, scenesPath } from '../routes.js';
+import {
+  hubPath,
+  P,
+  presenterStudioPath,
+  presentersPath,
+  productsPath,
+  scenesPath,
+  sceneStudioPath,
+} from '../routes.js';
 
 export interface LaunchHere {
   onHub: boolean;
@@ -14,6 +23,8 @@ export interface LaunchHere {
   onScenes: boolean;
   onPresenters: boolean;
   onStudio: boolean;
+  /** The scene studio is open. */
+  onSceneStudio?: boolean;
 }
 
 export type LaunchMove =
@@ -24,7 +35,9 @@ export type LaunchMove =
   | { kind: 'scenes' }
   | { kind: 'presenters' }
   | { kind: 'studio' }
-  | { kind: 'dialog'; asset: 'product' | 'scene' };
+  /** Back into the scene studio: their newest scene still being made, else a fresh one. */
+  | { kind: 'sceneStudio' }
+  | { kind: 'dialog'; asset: 'product' };
 
 /**
  * Where launching a lesson should put someone. The tutor may restore a place
@@ -57,8 +70,10 @@ export function launchMove(
       if (here.onProducts) return { kind: 'stay' };
       return resume ? { kind: 'products' } : { kind: 'head' };
     case 'scene':
-      if (resume && reached.includes('scene')) return { kind: 'dialog', asset: 'scene' };
-      if (here.onScenes) return { kind: 'stay' };
+      // a scene is made in its studio, like a presenter, and kept there as a draft
+      if (resume && reached.some((m) => m === 'start' || m === 'words' || m === 'use'))
+        return here.onSceneStudio ? { kind: 'stay' } : { kind: 'sceneStudio' };
+      if (here.onSceneStudio || here.onScenes) return { kind: 'stay' };
       return resume ? { kind: 'scenes' } : { kind: 'head' };
   }
 }
@@ -84,6 +99,7 @@ export function useLaunchTask(): (task: GuideTaskId) => Promise<void> {
   const onScenes = !!useMatch(P.scenes);
   const onPresenters = !!useMatch(P.presenters);
   const onStudio = !!useMatch(P.presenterStudio);
+  const onSceneStudio = !!useMatch(P.sceneStudio);
   return useCallback(
     async (task: GuideTaskId) => {
       const shot = recent.find((n) => n.kind !== 'root' && n.status === 'done' && n.images.length > 0);
@@ -99,7 +115,12 @@ export function useLaunchTask(): (task: GuideTaskId) => Promise<void> {
       }
       const reached = guideSnapshot().progress?.[want]?.reached ?? [];
       const draftId = guideSnapshot().activeDraftId;
-      const move = launchMove(want, { onHub, onShot, onProducts, onScenes, onPresenters, onStudio }, reached, draftId);
+      const move = launchMove(
+        want,
+        { onHub, onShot, onProducts, onScenes, onPresenters, onStudio, onSceneStudio },
+        reached,
+        draftId,
+      );
       if (move.kind !== 'head') arrived();
       switch (move.kind) {
         case 'stay':
@@ -123,10 +144,27 @@ export function useLaunchTask(): (task: GuideTaskId) => Promise<void> {
           return navigate(presentersPath(brand));
         case 'studio':
           return navigate(presenterStudioPath(brand, draftId));
+        case 'sceneStudio': {
+          const newest = keptSceneDrafts(brand.id).sort((a, b) => b.at - a.at)[0];
+          return navigate(sceneStudioPath(brand, newest?.convo ?? null));
+        }
         case 'dialog':
           return createAsset(move.asset);
       }
     },
-    [brand, recent, products, navigate, createAsset, onHub, onShot, onProducts, onScenes, onPresenters, onStudio],
+    [
+      brand,
+      recent,
+      products,
+      navigate,
+      createAsset,
+      onHub,
+      onShot,
+      onProducts,
+      onScenes,
+      onPresenters,
+      onStudio,
+      onSceneStudio,
+    ],
   );
 }

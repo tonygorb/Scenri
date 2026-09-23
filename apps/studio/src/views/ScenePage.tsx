@@ -1,37 +1,48 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Spinner, TextArea, TextField } from '@radix-ui/themes';
-import { api, type Scene, type ScenePatch } from '../api.js';
-import { useAppData, useFilterParam } from '../app/AppShell.js';
+import { api, type Scene, type SceneSetup, thumbOf } from '../api.js';
+import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { useTaskCenter } from '../app/TaskCenter.js';
-import { useStillHere } from '../useStillHere.js';
 import { useMadeWith } from './useMadeWith.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
-import { customSceneById } from '../brandAssets.js';
-import { hubPath, scenePath, scenesPath, shotPath } from '../routes.js';
+import { customSceneById, customScenesOf } from '../brandAssets.js';
+import { hubPath, sceneEditPath, scenePath, scenesPath, shotPath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { bookmarkedScenes, toggleBookmarkScene } from '../bookmarks.js';
 import { Confirm } from '../Confirm.js';
 import { SceneCard } from '../layout/SceneCard.js';
-import { ArrowClockwise, BookmarkSimple, Eye } from '@phosphor-icons/react';
-import { EmptyRefFrame, RefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
+import { BookmarkSimple, CaretDown, PencilSimple } from '@phosphor-icons/react';
+import { DropdownMenu } from '@radix-ui/themes';
+import { COPY } from '../create/scene/sceneCopy.js';
+import { FRAMINGS, SETUPS_MAX } from '../create/scene/sceneSetups.js';
+import { sceneTailLine } from './sceneFacts.js';
+import { Tip } from '../layout/Tip.js';
+import { AssetDetailsDialog } from './AssetDetailsDialog.js';
+import { EmptyRefFrame, ShotThumb, Shown, Slider } from '../layout/ReferenceGallery.js';
+import { Rail } from '../layout/Rail.js';
+import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { bookmarkedFirst } from '../layout/library/libraryRules.js';
+import { useStillHere } from '../useStillHere.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
-import { useMediaQuery } from '../useMediaQuery.js';
-
-/** Matches `.sc-lookpage-refs` switching to 2 columns in app.css. */
-/** Its own breakpoint, not the app's 767px phone: this one tracks the
- *  masonry's 760px column rule, so the cap and the columns can't disagree. */
-const LOOKPAGE_PHONE = '(max-width: 760px)';
+import { SceneExamples } from './SceneExamples.js';
 
 /**
- * One scene. The reference frames say what the light is; they are ours and are
- * deliberately not clickable. Everything below is yours: what you made with it,
- * and which scenes sit nearest by light.
+ * One scene, as a record: the same page a presenter and a product have.
+ *
+ * Identity first and tight (the name, what it is in one sentence, what it is
+ * made of in a few words, and the one verb that uses it), then the pictures of
+ * the place, which is the only zone allowed to leave the column, then what a
+ * shot made here is told, then the shots already made here, then the quiet
+ * facts and Delete.
+ *
+ * Two earlier passes put this page in a two-column grid of its own with four
+ * band heads, three paragraphs explaining the mechanics and the analyzer's
+ * eight hundred characters of set prose. That prose belongs to the studio that
+ * writes it, the same rule the presenter's casting prose already follows, and
+ * the rest was a page that read once and was skipped ever after.
  */
 export function ScenePage() {
-  const { sceneId = '' } = useParams();
+  const { sceneId } = useParams();
   const { scenes, loaded, error, refetch, applyBrand, refreshBrands } = useAppData();
   // one ask upstairs holds the whole brand now, so this page no longer walks
   // twenty project trees to answer "what did this scene actually produce"
@@ -41,18 +52,14 @@ export function ScenePage() {
   const brandId = brand.id;
   const [refs, setRefs] = useState<string[]>([]);
   const [marks, setMarks] = useState<string[]>(() => bookmarkedScenes(brandId));
-  const [allParam, setOpenAll] = useFilterParam('all');
-  const openAll = allParam === '1';
-  // Cap tracks column count per breakpoint so collapsed rows stay full:
-  // desktop 3-col → 3 cards; phone 2-col → 4 cards (2×2).
-  const phone = useMediaQuery(LOOKPAGE_PHONE);
-  const collapsedCap = phone ? 4 : 3;
+  /** The picture opened at full size, and what to call it there. */
+  const [open, setOpen] = useState<{ src: string; label: string } | null>(null);
 
   const openScene = (id: string) => navigate(scenePath(brand, id));
 
   // The brand's own places come before the catalog, the same order the
   // compiler resolves them in.
-  const owned = customSceneById(brand, sceneId);
+  const owned = customSceneById(brand, sceneId ?? '');
   const scene = owned ?? scenes.find((s) => s.id === sceneId);
   useTitleEntity(scene?.name);
 
@@ -71,7 +78,7 @@ export function ScenePage() {
     // reference set sitting on disk to go and ask about.
     if (isOwned) return;
     void api
-      .sceneFrames(sceneId)
+      .sceneFrames(sceneId ?? '')
       .then((r) => {
         if (alive) setRefs(r.frames);
       })
@@ -86,8 +93,14 @@ export function ScenePage() {
   /** Shots whose brief carried this scene, newest first. */
   const made = useMadeWith(brand.id, [sceneId ?? '']);
 
+  /**
+   * Other curated places with the same light, for a curated scene only.
+   *
+   * Never for your own: the pool is the catalog, so a brand's own scene was
+   * offered eight of somebody else's places under the heading "similar".
+   */
   const near = useMemo(() => {
-    if (!scene) return [];
+    if (!scene || isOwned) return [];
     const others = scenes.filter((s) => s.id !== scene.id);
     // nearest by light: same lighting phrase first, then the same collection
     return others.sort((a, b) => score(b) - score(a)).slice(0, 8);
@@ -98,7 +111,7 @@ export function ScenePage() {
       const sameCollection = s.collections.some((c) => scene!.collections.includes(c));
       return (sameLight ? 2 : 0) + (sameCollection ? 1 : 0);
     }
-  }, [scenes, scene]);
+  }, [scenes, scene, isOwned]);
 
   /** Bookmarked first, the same ordering rule as Home's scene shelf. */
   const recovery = useMemo(() => {
@@ -107,116 +120,57 @@ export function ScenePage() {
     return bookmarkedFirst(scenes, (s) => marks.includes(s.id)).slice(0, 6);
   }, [scene, loaded, error, scenes, brandId]);
 
-  const [draftName, setDraftName] = useState(owned?.name ?? '');
-  const [draftDescription, setDraftDescription] = useState(owned?.description ?? '');
-  const [draftLighting, setDraftLighting] = useState(owned?.lighting ?? '');
-  const [draftPrompt, setDraftPrompt] = useState(owned?.prompt ?? '');
   const [err, setErr] = useState<string | null>(null);
-  const [drawing, setDrawing] = useState(false);
+  /**
+   * Two writes, two flags. A save in the Details sheet used to disable Delete,
+   * which reads as prudence and is not: they touch different things, and a
+   * rename still out cannot make a delete wrong. Sharing one flag also made a
+   * real race untestable by making it impossible.
+   */
   const [busy, setBusy] = useState(false);
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  /** Every field edited since the last write, sent together when the pause ends. */
-  const pending = useRef<ScenePatch>({});
+  const [saving, setSaving] = useState(false);
+  const [details, setDetails] = useState(false);
+  /** One delete at a time, however many times the button is pressed. */
   const removing = useRef(false);
   const stillHere = useStillHere();
 
   /**
-   * A read of the references, while it runs.
+   * What to offer when filing it.
    *
-   * Held as the job's id and read off the bell's own list, never as a flag of
-   * this page's: the flag was set on the click and cleared only on an error,
-   * so a read that finished left the button saying "Reading" until you left.
-   * Until the bell's next tick has seen the job, it counts as running.
+   * The catalog's facets plus this brand's own, because a vertical invented in
+   * the studio was not in the catalog list and so could never be picked again
+   * here. The presenter page has said this for longer and says why.
    */
-  const { builds, poke } = useTaskCenter();
-  const [readJob, setReadJob] = useState<string | null>(null);
-  const readBuild = readJob ? builds.find((b) => b.id === readJob) : undefined;
-  const rereading = !!readJob && !readBuild?.finished;
-  /** Bumped when the record changes under the page, so every field is drawn from it again. */
-  const [seed, setSeed] = useState(0);
-
-  useEffect(() => {
-    // Seeded from the record on a different scene, and when a read of the
-    // references lands (below). Never on the echo of this page's own save: the
-    // server trims what it stores, so re-seeding from that answer would eat
-    // the space somebody just typed between two words.
-    setDraftName(owned?.name ?? '');
-    setDraftDescription(owned?.description ?? '');
-    setDraftLighting(owned?.lighting ?? '');
-    setDraftPrompt(owned?.prompt ?? '');
-  }, [owned?.id, seed]);
-
-  // The read wrote a new record, and the bell re-read the brand before it
-  // cleared the build, so `owned` is already the new one here.
-  const readDone = !!readBuild?.finished;
-  useEffect(() => {
-    if (!readDone) return;
-    if (readBuild?.stage === 'failed') setErr(readBuild.error ?? 'The references could not be read again.');
-    setReadJob(null);
-    // a keystroke still waiting to be sent is newer than the read, and wins
-    if (!saveTimer.current) setSeed((n) => n + 1);
-  }, [readDone]);
+  const known = useMemo(
+    () =>
+      [...new Set([...scenes.flatMap((s) => s.verticals), ...customScenesOf(brand).flatMap((s) => s.verticals)])].sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    [scenes, brand],
+  );
 
   /**
-   * Editing a scene is a plain write. Only the preview costs a generation.
-   *
-   * The pause is shared by every field, so what it sends is every field edited
-   * since the last write: a name typed and then the light changed inside half
-   * a second used to send the light alone and lose the name. Leaving the page
-   * inside the pause still sends it, and the answer still reaches the brand.
+   * The name, the filing and the ways to shoot it, written once when the sheet
+   * is saved. The words a shot is told, the pictures and the preview are
+   * changed in the studio, because changing them means drawing, and this page
+   * never draws.
    */
-  const patch = (next: ScenePatch) => {
-    if (!owned || removing.current) return;
-    pending.current = { ...pending.current, ...next };
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    const forBrand = brand.id;
-    const sceneId = owned.id;
-    saveTimer.current = setTimeout(() => {
-      saveTimer.current = undefined;
-      const body = pending.current;
-      pending.current = {};
-      void api
-        .updateScene(forBrand, sceneId, body)
-        .then((r) => {
-          applyBrand(r.brand);
-          setErr(r.warnings[0] ?? null);
-        })
-        .catch((e: any) => setErr(String(e.message ?? e)));
-    }, 500);
-  };
-
-  const redrawPreview = async () => {
+  const saveDetails = async (next: { name: string; categories: string[]; ways?: SceneSetup[] }) => {
     if (!owned) return;
-    setDrawing(true);
+    setSaving(true);
     setErr(null);
     try {
-      applyBrand((await api.generateScenePreview(brand.id, owned.id)).brand);
+      const r = await api.updateScene(brand.id, owned.id, {
+        name: next.name,
+        verticals: next.categories,
+        ...(next.ways ? { setups: next.ways } : {}),
+      });
+      applyBrand(r.brand);
+      setDetails(false);
     } catch (e: any) {
       setErr(String(e.message ?? e));
     } finally {
-      setDrawing(false);
-    }
-  };
-
-  // The analyzer already knows how to revise rather than restart; this is the
-  // only thing that was missing, and without it a scene built before it learned
-  // to read human presence could never be brought forward.
-  const rereadRefs = async () => {
-    if (!owned || rereading) return;
-    setReadJob('asking');
-    setErr(null);
-    try {
-      const { jobId } = await api.rereadScene(brand.id, owned.id);
-      // Stays disabled until the bell says the job is over. This call returns
-      // the moment the work starts, not when it finishes, so releasing the
-      // button here would offer a second analyzer run over the same record
-      // while the first is still going. Progress shows in the bell, the same
-      // as any other build.
-      setReadJob(jobId);
-      poke();
-    } catch (e: any) {
-      setErr(String(e.message ?? e));
-      setReadJob(null);
+      setSaving(false);
     }
   };
 
@@ -225,16 +179,11 @@ export function ScenePage() {
    *
    * The answer carries the brand as it now stands and is applied before
    * anything moves: the wall this lands on, the caret menu and the chips all
-   * read that one row. It used to answer `{ok:true}` and apply nothing, so the
-   * card stayed on the wall until a reload.
+   * read that one row.
    */
   const remove = async () => {
     if (!owned || removing.current) return;
     removing.current = true;
-    // what was typed into a scene about to go has nowhere to be written
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = undefined;
-    pending.current = {};
     const here = stillHere();
     const wall = scenesPath(brand);
     setBusy(true);
@@ -262,7 +211,7 @@ export function ScenePage() {
   if (!loaded && !owned) {
     return (
       <ScrollPane>
-        <main className="sc-lookpage" id="main">
+        <main className="sc-lookpage sc-scenepage" id="main">
           <div className="sc-tplrow" aria-hidden />
         </main>
       </ScrollPane>
@@ -272,7 +221,7 @@ export function ScenePage() {
   if (error && !owned) {
     return (
       <ScrollPane>
-        <main className="sc-lookpage" id="main">
+        <main className="sc-lookpage sc-scenepage" id="main">
           <h1>Couldn't load this scene</h1>
           <p className="sc-lookpage-lede">Something went wrong reaching the catalog.</p>
           <div className="sc-lookpage-acts">
@@ -288,7 +237,7 @@ export function ScenePage() {
   if (!scene) {
     return (
       <ScrollPane>
-        <main className="sc-lookpage" id="main">
+        <main className="sc-lookpage sc-scenepage" id="main">
           <h1>This scene isn't here anymore</h1>
           <p className="sc-lookpage-lede">It may have been removed from the catalog, or the link is out of date.</p>
           <div className="sc-lookpage-acts">
@@ -318,69 +267,109 @@ export function ScenePage() {
     );
   }
 
-  const visibleRefs = openAll ? refs : refs.slice(0, collapsedCap);
-  const frames = owned
-    ? owned.previewUrl
-      ? [owned.previewUrl]
-      : []
-    : refs.length
-      ? visibleRefs
-      : scene.previewUrl
-        ? [scene.previewUrl]
-        : [];
-  // Product/either scenes ship their reference gallery shot with a demo
-  // product standing in for the art direction — the caption says so, so
-  // nobody mistakes it for part of the scene's recipe. Person-only scenes
-  // never carry a demo product, so they skip it.
-  const showDemoProductNote = !owned && scene.subject !== 'person' && frames.length > 0;
+  /**
+   * A curated scene's pictures, each with what it is.
+   *
+   * One walk, so a label can never drift off its picture. A curated scene
+   * carries a set shot in it, and one older than its set has only its card.
+   * Your own scene's pictures are SceneExamples: the place, then the place in use.
+   */
+  const frames: { src: string; label: string }[] = refs.length
+    ? refs.map((src, i) => ({ src, label: `Example ${i + 1}` }))
+    : scene.previewUrl
+      ? [{ src: scene.previewUrl, label: 'The place' }]
+      : [];
 
-  const marked = marks.includes(scene.id);
+  /** A curated set is photographed with a demo product standing in for the art direction. */
+  const caption =
+    scene.subject !== 'person' && frames.length > 0
+      ? 'Shown with a demo product for reference. Yours replaces it.'
+      : '';
+
+  const marked = !owned && marks.includes(scene.id);
+  const ways = owned?.setups ?? [];
+  /**
+   * The uploads it was read from, without the one already standing above as
+   * the place: a scene saved before its picture was drawn falls back to its
+   * first upload for the preview, which showed the same photograph twice.
+   */
+  const sources = (owned?.refs ?? []).filter((src) => src !== owned?.previewUrl);
+  /**
+   * What its pictures are, said once, in the footnote the presenter page keeps
+   * for what is true about a record. Under the rail it read as a caption to
+   * the middle picture.
+   */
+  const shownWith = owned?.examples?.find((e) => !e.earlier)?.with ?? owned?.examples?.[0]?.with;
+  const about = !owned
+    ? ''
+    : owned.figure
+      ? 'The person in it is a stand-in: with a presenter attached, the picture goes with the shot and they take the role.'
+      : shownWith
+        ? `Shown in use with a Scenri demo ${shownWith}. Shots are told the words, never handed these pictures.`
+        : owned.previewUrl
+          ? // Measured 2026-09-22: a shot handed this picture reproduces its
+            // framing (5 of 9 near copies), while a shot told the words is
+            // still clearly this place. So the words travel and the picture
+            // is the proof of them.
+            'Shots are told the words, never handed this picture.'
+          : '';
+  const tail = owned ? sceneTailLine({ refs: sources, setups: owned.setups }, about) : '';
+
   return (
     <ScrollPane>
-      <main className="sc-lookpage" id="main">
-        <div className="sc-lookpage-crumb">
-          <Link to={scenesPath(brand)}>Scenes</Link>
-          <span>/</span>
-          <span>{owned ? 'Yours' : scene.collections[0]}</span>
-        </div>
+      <main className="sc-lookpage sc-scenepage" id="main">
+        <h1>{scene.name}</h1>
+        {/* Where it is filed, as the app's own chips, above the caption: the
+            presenter page's order, and the thing a place is scanned for. */}
+        {scene.verticals.length > 0 && (
+          <ul className="sc-lookpage-cats" aria-label="Filed under">
+            {scene.verticals.map((c) => (
+              <li key={c} className="sc-chip" data-static>
+                {c}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="sc-lookpage-lede">{scene.description}</p>
 
-        {owned ? (
-          <TextField.Root
-            className="sc-ownededit-title"
-            value={draftName}
-            aria-label="Scene name"
-            onChange={(e) => {
-              setDraftName(e.target.value);
-              patch({ name: e.target.value });
-            }}
-          />
-        ) : (
-          <h1>{scene.name}</h1>
-        )}
-        {owned ? (
-          <TextField.Root
-            className="sc-ownededit-lede"
-            value={draftDescription}
-            placeholder="One sentence for the card"
-            aria-label="Description"
-            onChange={(e) => {
-              setDraftDescription(e.target.value);
-              patch({ description: e.target.value });
-            }}
-          />
-        ) : (
-          <p className="sc-lookpage-lede">{scene.description}</p>
-        )}
-        <p className="sc-lookpage-facts">
-          {scene.lighting} · {scene.subject === 'either' ? 'product or person' : `for a ${scene.subject}`} ·{' '}
-          {scene.width === scene.height ? 'square by default' : `${scene.width}×${scene.height} by default`}
-        </p>
         <div className="sc-lookpage-acts">
-          <button type="button" className="sc-btn sc-btn-primary" onClick={() => void applyScene(scene.id)}>
-            Use in a shot
-          </button>
-          {/* Bookmarked scenes get their own tab on /scenes, and lead the shelf on Home. */}
-          {!owned && (
+          {/* One verb. A scene with ways to shoot it keeps them on the verb
+              rather than in a band of their own: a way is how you press this
+              button, not a section to read. */}
+          {ways.length > 0 ? (
+            <span className="sc-splitbtn">
+              <button
+                type="button"
+                className="sc-btn sc-btn-primary sc-splitbtn-go"
+                onClick={() => void applyScene(scene.id)}
+              >
+                Use in a shot
+              </button>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger>
+                  <button type="button" className="sc-btn sc-btn-primary sc-splitbtn-more" aria-label="Use it a way">
+                    <CaretDown size={12} weight="bold" aria-hidden />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content>
+                  {ways.map((v) => (
+                    <DropdownMenu.Item key={v.id} onSelect={() => void applyScene(scene.id, v.id)}>
+                      {v.label}
+                    </DropdownMenu.Item>
+                  ))}
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+            </span>
+          ) : (
+            <button type="button" className="sc-btn sc-btn-primary" onClick={() => void applyScene(scene.id)}>
+              Use in a shot
+            </button>
+          )}
+          {owned ? (
+            <Link className="sc-btn sc-btn-ghost" to={sceneEditPath(brand, owned.id)}>
+              Edit scene
+            </Link>
+          ) : (
             <button
               type="button"
               className="sc-btn sc-btn-ghost"
@@ -392,146 +381,125 @@ export function ScenePage() {
             </button>
           )}
           {owned && (
-            <button
-              type="button"
-              className="sc-btn sc-btn-ghost"
-              disabled={drawing}
-              onClick={() => void redrawPreview()}
-            >
-              {drawing ? <Spinner size="1" /> : <ArrowClockwise size={13} />}
-              <span>{owned.previewUrl ? 'Redraw the example' : 'Draw an example'}</span>
-            </button>
-          )}
-          {owned && owned.refs.length > 0 && (
-            <button
-              type="button"
-              className="sc-btn sc-btn-ghost"
-              disabled={rereading}
-              onClick={() => void rereadRefs()}
-            >
-              {rereading ? <Spinner size="1" /> : <Eye size={13} />}
-              <span>{rereading ? 'Reading the references' : 'Read the references again'}</span>
-            </button>
+            <Tip label="Edit name, filing and ways">
+              <button
+                type="button"
+                className="sc-icon-btn"
+                aria-label="Edit name, filing and ways"
+                aria-haspopup="dialog"
+                onClick={() => setDetails(true)}
+              >
+                <PencilSimple size={17} />
+              </button>
+            </Tip>
           )}
         </div>
         {err && <p className="sc-assetform-err">{err}</p>}
 
-        {frames.length > 0 ? (
-          <>
-            <div className="sc-lookpage-refs">
-              {frames.map((src) => (
-                <RefFrame key={src} src={src} />
-              ))}
-            </div>
-            {showDemoProductNote && (
-              <p className="sc-lookpage-note">Shown with a demo product for reference. Yours replaces it.</p>
-            )}
-            {owned && (
-              <p className="sc-lookpage-note">
-                {owned?.figure
-                  ? 'An example of this scene. The person in it is nobody: attach a presenter and they take the role.'
-                  : 'The place with nothing staged in it. Whatever you attach to a shot goes here.'}
-              </p>
-            )}
-            {!owned && refs.length > collapsedCap && (
-              <button type="button" className="sc-lookpage-expand" onClick={() => setOpenAll(openAll ? null : '1')}>
-                {openAll ? 'Enough, close it' : 'See the whole set'}
-              </button>
-            )}
-          </>
+        {/* The place itself, and the only zone allowed to leave the column: a
+            curated scene's examples stand side by side the way a presenter's
+            views do, and so do your own scene's, after its place. */}
+        {owned ? (
+          <SceneExamples key={owned.id} brandId={brand.id} scene={owned} onError={setErr} />
+        ) : frames.length > 1 ? (
+          <Rail
+            count={frames.length}
+            label="Pictures of this place"
+            className="sc-refset-rail"
+            trackClassName="sc-refset"
+          >
+            {frames.map((f) => (
+              <li key={f.src}>
+                <button
+                  type="button"
+                  className="sc-refset-tile"
+                  aria-label={`${f.label}, open`}
+                  onClick={() => setOpen(f)}
+                >
+                  <Shown src={thumbOf(f.src, 'small')} />
+                </button>
+                <span className="sc-refset-lb" aria-hidden>
+                  {f.label}
+                </span>
+              </li>
+            ))}
+          </Rail>
+        ) : frames.length === 1 ? (
+          <div className="sc-scenepage-place">
+            <button type="button" aria-label={`${frames[0].label}, open`} onClick={() => setOpen(frames[0])}>
+              <Shown src={thumbOf(frames[0].src, 'tile')} />
+            </button>
+          </div>
         ) : (
-          // a scene with no reference frame used to omit this whole section —
-          // the same blank box a broken/missing image falls back to below,
-          // rather than nothing where the scene's visual identity should be
           <EmptyRefFrame />
         )}
+        {!owned && caption && <p className="sc-lookpage-note">{caption}</p>}
 
+        {/* What a shot made here is told, in the three keys that are real. The
+            set prose behind them is the studio's, and Edit scene is the way to
+            it: it is eight hundred characters long and it is changed by
+            re-reading the place, never by reading it here. */}
         {owned && (
-          <div className="sc-ownedbits">
-            {owned.refs.length > 0 && (
-              <section>
-                <p className="sc-bandhead">Your references</p>
-                <p className="sc-ownedbits-note">
-                  What this scene was read from, and what its example above was drawn from.
-                  {owned.figure
-                    ? ' Because this scene is built around a figure, the example drawn from these goes to the shot beside an attached presenter, as reference for the world and the treatment. The people, products and marks in these are never copied.'
-                    : ' A scene reaches a shot as words, never as pixels, so nothing staged in these images can turn up in a render on its own.'}
-                </p>
-                <div className="sc-lookpage-refs">
-                  {owned.refs.map((src) => (
-                    <RefFrame key={src} src={src} />
-                  ))}
+          <section className="sc-scenepage-told">
+            <dl className="sc-lookpage-told">
+              <div>
+                <dt>{COPY.lightLabel}</dt>
+                <dd dir="auto">{owned.lighting}</dd>
+              </div>
+              {owned.camera && (
+                <div>
+                  <dt>{COPY.cameraLabel}</dt>
+                  <dd dir="auto">{owned.camera}</dd>
                 </div>
-              </section>
-            )}
+              )}
+              {owned.figure && (
+                <div>
+                  <dt>{COPY.figureLabel}</dt>
+                  <dd dir="auto">{owned.figure}</dd>
+                </div>
+              )}
+            </dl>
+            <p className="sc-lookpage-note">Every shot made here is told this. Anything you write in the shot wins.</p>
+          </section>
+        )}
 
-            {owned.figure && (
-              <section>
-                <p className="sc-bandhead">Who it is built around</p>
-                <p className="sc-ownedbits-note">
-                  {owned.figure}
-                  {owned.figureTreatment ? `, and ${owned.figureTreatment}` : ''}. A role, not a person: attach a
-                  presenter and they play it. Their own face stays theirs underneath. With nobody attached, the set
-                  renders on its own.
-                </p>
-              </section>
-            )}
-
-            <section>
-              <p className="sc-bandhead">The place itself</p>
-              <p className="sc-ownedbits-note">
-                Sent with every shot built here. Describe the world, not what stands in it.
-              </p>
-              <TextArea
-                value={draftPrompt}
-                rows={5}
-                onChange={(e) => {
-                  setDraftPrompt(e.target.value);
-                  patch({ prompt: e.target.value });
-                }}
-              />
-              <TextField.Root
-                mt="2"
-                value={draftLighting}
-                placeholder="The light, in a short phrase"
-                aria-label="Lighting"
-                onChange={(e) => {
-                  setDraftLighting(e.target.value);
-                  patch({ lighting: e.target.value });
-                }}
-              />
-            </section>
-
-            <section>
-              <p className="sc-bandhead">Direction</p>
-              <p className="sc-ownedbits-note">
-                What matters in these references, and what to ignore. Read again to apply it.
-              </p>
-              <textarea
-                className="sc-in"
-                rows={3}
-                maxLength={400}
-                placeholder="What matters in these references, and what to ignore"
-                key={`${owned.id}:${seed}`}
-                defaultValue={owned.instruction ?? ''}
-                onChange={(e) => patch({ instruction: e.target.value })}
-              />
-            </section>
-
-            <div className="sc-lookpage-acts">
-              <Confirm
-                label="Delete scene"
-                title={`Delete ${owned.name}?`}
-                body="Shots already made here keep their images and their recipe. Only future shots lose it."
-                busy={busy}
-                onConfirm={() => void remove()}
-              />
+        {sources.length > 0 && (
+          <section className="sc-presenterpage-sources">
+            <p className="sc-presenterpage-sources-lb">What it was read from</p>
+            <div className="sc-presenterpage-sources-row">
+              {sources.map((src, i) => (
+                <button
+                  key={src}
+                  type="button"
+                  className="sc-presenterpage-source"
+                  aria-label={`Source photo ${i + 1}, open`}
+                  onClick={() => setOpen({ src, label: `Source photo ${i + 1}` })}
+                >
+                  <Shown src={thumbOf(src, 'micro')} />
+                </button>
+              ))}
             </div>
+          </section>
+        )}
+
+        {/* The facts nobody acts on, and the one verb that ends a record. */}
+        {owned && (
+          <div className="sc-prec">
+            {tail && <p className="sc-prec-note">{tail}</p>}
+            <Confirm
+              label="Delete scene"
+              title={`Delete ${owned.name}?`}
+              body="Shots already made here keep their images. Their recipe will say this scene is gone, and building from one again will miss it."
+              busy={busy}
+              onConfirm={() => void remove()}
+            />
           </div>
         )}
 
+        {/* What has been made here: the proof that a world is reusable, and
+            the one thing on this page that only this page can show. */}
         {made.length > 0 && (
-          <Slider label="Your shots in this scene">
+          <Slider label={`Shots made in ${scene.name}`}>
             {made.map((s) => (
               <ShotThumb key={s.id} node={s} to={shotPath(brand, null, s.id)} />
             ))}
@@ -551,6 +519,32 @@ export function ScenePage() {
               />
             ))}
           </Slider>
+        )}
+
+        {details && owned && (
+          <AssetDetailsDialog
+            name={owned.name}
+            categories={owned.verticals}
+            known={known}
+            hint="The verticals this place suits, so it surfaces where you work."
+            ways={ways}
+            wayChoices={FRAMINGS}
+            wayMax={SETUPS_MAX}
+            busy={saving}
+            error={err}
+            onSave={(next) => void saveDetails(next)}
+            onDismiss={() => setDetails(false)}
+          />
+        )}
+
+        {open && (
+          <ImageLightbox
+            src={open.src}
+            kind="scene"
+            label={open.label}
+            noun={scene.name}
+            onClose={() => setOpen(null)}
+          />
         )}
       </main>
     </ScrollPane>

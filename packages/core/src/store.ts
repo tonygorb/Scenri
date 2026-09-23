@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { DB } from './db.js';
 import { RESERVED_SLUGS, firstFree, slugifyWithId } from './slug.js';
-import { ftsMatch, type SearchTerm } from './searchRules.js';
+import { ftsMatch, type SearchTerm, shortTermSql } from './searchRules.js';
 
 export interface BrandRow {
   id: string;
@@ -358,11 +358,18 @@ function filterSql(f: FeedFilter, params: Record<string, unknown>, withLens: boo
       params[`m${i}`] = match;
       any.push(`n.rowid IN (SELECT rowid FROM nodes_fts WHERE nodes_fts MATCH @m${i})`);
     }
-    // A term under three characters is below the trigram index and filters
-    // the text of nothing: scanning for it instead cost most of a second on
-    // a brand of twenty thousand for the first two letters of every search.
-    // It still finds the products, people, scenes and engines whose names
-    // hold it, which the caller resolved by name.
+    // A term under three characters is below the trigram index, so each
+    // shot's indexed text is read by its rowid as the page walks the brand,
+    // never the whole index, and one or two letters match the start of a word
+    // (`shortTermSql`). Measured 2026-09-23 on a copy of the LARGE fixture's
+    // biggest brand (5,975 shots), on the index of what people wrote.
+    // Either way it also finds the products, people, scenes and engines whose
+    // names hold it, which the caller resolved by name.
+    const short = shortTermSql(term, 'f.text', `l${i}`);
+    if (short) {
+      Object.assign(params, short.params);
+      any.push(`EXISTS (SELECT 1 FROM nodes_fts f WHERE f.rowid = n.rowid AND ${short.sql})`);
+    }
     if (term.tokenIds.length) {
       const names = term.tokenIds.map((t, j) => {
         params[`t${i}_${j}`] = t;

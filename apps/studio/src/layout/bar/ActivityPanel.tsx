@@ -83,6 +83,19 @@ export function ActivityPanel({
         .catch((e) => push(failureToast(e, 'Could not stop this build')));
       return;
     }
+    // Studio work stops the way the studio's own Stop does: the job ends on the
+    // server, and what had already landed stays.
+    if (taskId.startsWith('scene:')) {
+      void api
+        .cancelSceneStudioJob(brand.id, taskId.slice(6))
+        .catch((e) => push(failureToast(e, 'Could not stop this scene')));
+      return;
+    }
+    if (taskId.startsWith('presenter:')) {
+      const draftId = taskId.split(':')[1] ?? '';
+      void api.stopDraft(brand.id, draftId).catch((e) => push(failureToast(e, 'Could not stop this presenter')));
+      return;
+    }
     // A catalog import can be stopped too. The route has always existed and
     // nothing ever called it, so a 2,000-product import was unstoppable.
     if (taskId.startsWith('catalog:')) {

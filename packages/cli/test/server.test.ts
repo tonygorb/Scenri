@@ -2109,6 +2109,46 @@ describe('a refinement carries marks and references, not just subjects', () => {
     return { brand, projectId, genNode, productHash, logoHash, refHash };
   };
 
+  // 2026-09-23: "use [the new screen] on the screen instead" rode beside the old
+  // screen, carried as a reference, and the picture came back unchanged.
+  it('a refine that brings its own picture replaces the picture it carried, and keeps the product and mark', async () => {
+    const { engine, edits } = capture(6);
+    const local = track(buildServer({ core, engines: registryWith(engine) }));
+    const { projectId, genNode, productHash, logoHash, refHash } = await seed(local);
+    const fresh = core.images.save(Buffer.from('a-new-screen'));
+
+    const edit = await local.inject({
+      method: 'POST',
+      url: '/api/nodes',
+      payload: {
+        projectId,
+        parentId: genNode.id,
+        kind: 'edit',
+        engineId: 'cap-spy',
+        sourceImage: genNode.images[0],
+        brief: {
+          tokens: [
+            { t: 'text', v: 'Use ' },
+            { t: 'ref', imageHash: fresh },
+            { t: 'text', v: ' on the screen instead' },
+          ],
+        },
+      },
+    });
+    expect(edit.statusCode).toBe(202);
+    const editNode = await waitDoneOn(local, edit.json().id);
+    expect(editNode.status).toBe('done');
+
+    const req = edits[0];
+    expect(req.referenceImages).toContain(core.images.pathFor(fresh));
+    expect(req.referenceImages).not.toContain(core.images.pathFor(refHash));
+    expect(req.referenceImages).toContain(core.images.pathFor(productHash));
+    expect(req.referenceImages).toContain(core.images.pathFor(logoHash));
+    expect((editNode.brief as any).inherited.map((t: any) => t.t).sort()).toEqual(['mark', 'product']);
+    expect(editNode.prompt).toContain('Use the attached image on the screen instead');
+    expect(editNode.prompt).not.toContain('The carried reference is attached');
+  });
+
   it('an inherited mark and reference reach the engine, and the record says so', async () => {
     const { engine, edits } = capture(6);
     const local = track(buildServer({ core, engines: registryWith(engine) }));

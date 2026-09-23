@@ -4,8 +4,14 @@ import fastifyMultipart from '@fastify/multipart';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { loadScenes, sceneResolver, defaultScenesDir } from './scenes.js';
-import { brandJsonWithResolvedPresenters, loadPresenters } from './presenters.js';
-import { brandJsonWithResolvedDemoProducts, loadDemoProducts, demoProductResolver } from './demoProducts.js';
+import { brandJsonWithResolvedPresenters, loadPresenters, presenterAvatarPath } from './presenters.js';
+import {
+  brandJsonWithResolvedDemoProducts,
+  demoProductRefPath,
+  demoProductResolver,
+  loadDemoProducts,
+  PRODUCT_ANGLES_BY_CATEGORY,
+} from './demoProducts.js';
 import { compileBrief, validateBrief, FORMATS, type Attachment, type Brief, type BriefToken } from './brief.js';
 import { mergeEditAttachments } from './attachmentBudget.js';
 import { shotWordsFor } from './shotWords.js';
@@ -56,6 +62,9 @@ import {
   shotSpecifiesCamera,
 } from './briefDirectives.js';
 import { variationPlan } from './variationPlan.js';
+import { drawAtScale, needsOwnScale, spanCm } from './productScale.js';
+import { createProductSizes } from './productSizes.js';
+import { registerProductSizeRoutes } from './routes/productSizes.js';
 import { scopeOfInstruction, type EditScope } from './editScopeRules.js';
 import { gradeComposite, isGradeOnlyInstruction } from './gradeTransfer.js';
 import {
@@ -82,6 +91,7 @@ import {
   capReferenceEdge,
   joinNames,
   PNG_SIG,
+  pickBuildEngine,
   readImagePart,
   toMarkPng,
   toPng,
@@ -92,7 +102,18 @@ import { registerSceneRoutes } from './routes/scenes.js';
 import { registerPresenterRoutes } from './routes/presenters.js';
 import { registerAssetBuildRoutes } from './routes/assetBuilds.js';
 import { registerPresenterDraftRoutes } from './routes/presenterDrafts.js';
-import { runningDraftJobCount, sweepAbandonedPresenterDrafts, sweepPresenterDrafts } from './presenterDrafts.js';
+import { registerSceneStudioRoutes } from './routes/sceneStudio.js';
+import { runningSceneStudioCount, settleSceneStudio } from './sceneStudio.js';
+import { createSceneExamples, type SceneExamples } from './sceneExamples.js';
+import { registerSceneExampleRoutes } from './routes/sceneExamples.js';
+import type { SceneExample } from './assetRecords.js';
+import {
+  removeUnreferenced,
+  runningDraftJobCount,
+  settlePresenterDrafts,
+  sweepAbandonedPresenterDrafts,
+  sweepPresenterDrafts,
+} from './presenterDrafts.js';
 import { registerDemoProductRoutes } from './routes/demoProducts.js';
 import { registerShowcaseRoutes } from './routes/showcase.js';
 import { registerProjectRoutes } from './routes/projects.js';
@@ -135,6 +156,13 @@ export interface ServerOptions {
   nodeTimeoutMs?: number;
   /** Reads a brand's own references into structured records. Injected in tests. */
   analyzer?: Analyzer;
+  /**
+   * Reads how large a product really is from its photograph (productSizes.ts).
+   * Only ever what the caller hands in: `serve` passes Codex, or the demo
+   * reader beside the demo engine, and a test passes its own or nothing, so no
+   * suite can spend anyone's Codex quota on a size.
+   */
+  sizeReader?: Analyzer | null;
   /** Installs and signs in the local Codex CLI for the setup wizard. Injected in tests. */
   codexSetup?: CodexSetup;
 }
@@ -538,12 +566,39 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // this point treats them identically to the curated ones: compileBrief
   // already prefers `characters[]` over the presenter catalog, and the scene
   // resolver below prefers `scenes[]` over the scene catalog.
-  registerAssetBuildRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters, thumbs });
+  // A scene's example set is never drawn without being asked for, so nothing
+  // here starts one: the hooks only stop a run whose place moved under it, and
+  // let a deleted scene's pictures go. The service is made further down, once
+  // the demo products and sizes it draws with exist.
+  let sceneExamples: SceneExamples | null = null;
+  const exampleHooks = {
+    onPlaceChanged: (brandId: string, sceneId: string) => sceneExamples?.placeChanged(brandId, sceneId),
+    onSceneGone: (brandId: string, sceneId: string, examples: SceneExample[]) =>
+      sceneExamples?.sceneGone(brandId, sceneId, examples),
+  };
+  registerAssetBuildRoutes(app, {
+    core,
+    engines,
+    analyzer: opts.analyzer,
+    scenes,
+    presenters,
+    thumbs,
+    ...exampleHooks,
+  });
   // A draft's step lives in this process; after a restart the row still says
   // it is drawing. Put those back before anyone reads them.
   sweepPresenterDrafts(core);
   sweepAbandonedPresenterDrafts(core, { evict: (hash) => thumbs.evict(hash) });
   registerPresenterDraftRoutes(app, { core, engines, analyzer: opts.analyzer, scenes, presenters, thumbs });
+  registerSceneStudioRoutes(app, {
+    core,
+    engines,
+    analyzer: opts.analyzer,
+    scenes,
+    presenters,
+    thumbs,
+    onPlaceChanged: exampleHooks.onPlaceChanged,
+  });
 
   // ---- demo products (curated, fictional-but-premium product catalog). A
   // demo product attaches straight into a brief like a Presenter does — see
@@ -551,10 +606,97 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // own products[].
   const { demoProducts } = loadDemoProducts(join(templatesRoot, 'demo-products'));
   const demoProductById = demoProductResolver(demoProducts);
+
+  // ---- product sizes: read once from a product's photograph, kept, shown on
+  // its page and correctable there, and carried into every compile below.
+  const sizes = createProductSizes(core, async () => {
+    const reader = opts.sizeReader;
+    return reader && (await reader.isAvailable()).ok ? reader : null;
+  });
+  registerProductSizeRoutes(app, {
+    core,
+    sizes,
+    productFor: async (brandId, productId) => {
+      const json = await brandJsonWithResolvedDemoProducts(
+        core,
+        templatesRoot,
+        demoProducts,
+        brandJsonWithCatalogProducts(core, brandId),
+        [{ t: 'product', id: productId }],
+      );
+      const p = (json?.products ?? []).find((x: any) => x?.id === productId);
+      if (!p) return null;
+      const file = String(p.shots?.[0]?.file ?? '');
+      const hash = file.startsWith('asset:') ? file.slice(6) : '';
+      return {
+        id: String(p.id),
+        name: String(p.promptName ?? p.name),
+        dimensions: p.dimensions,
+        ...(p.description ? { description: String(p.description) } : {}),
+        photo: hash && core.images.has(hash) ? core.images.pathFor(hash) : null,
+      };
+    },
+  });
   // Thumbnail is always the category's "primary" angle (three-quarter where
   // the category has one, else front) — a slightly dimensional hero shot,
   // never a creative-campaign image. See primaryAngleFor/demoProductRefPath.
   registerDemoProductRoutes(app, { templatesRoot, demoProducts, demoProductById, thumbs });
+
+  // ---- a scene's examples: the place in use, with a Scenri demo product or
+  // presenter, shown on its page and never handed to a shot. Each one goes
+  // through the compile a real shot does, so a small product is drawn at its
+  // own scale here too.
+  sceneExamples = createSceneExamples({
+    core,
+    engine: () => pickBuildEngine(engines, { allowPlaceholder: process.env.SCENRI_DEMO_BUILDS === '1' }),
+    brandContext: (brandId) => brandContext(core, brandId),
+    demoProducts,
+    presenters,
+    compile: async (brandId, tokens, engine) => {
+      const brand = await brandJsonWithIdentityCrops(
+        core,
+        await brandJsonWithResolvedPresenters(
+          core,
+          templatesRoot,
+          presenters,
+          sizes.apply(
+            brandId,
+            await brandJsonWithResolvedDemoProducts(
+              core,
+              templatesRoot,
+              demoProducts,
+              brandJsonWithCatalogProducts(core, brandId),
+              tokens,
+            ),
+          ),
+          tokens,
+        ),
+        tokens.filter((t): t is Extract<BriefToken, { t: 'character' }> => t.t === 'character').map((t) => t.id),
+      );
+      const compiled = compileBrief(
+        { tokens },
+        {
+          brand,
+          images: core.images,
+          wordsFor: shotWordsFor(core, brandId),
+          engineCaps: engine.capabilities(),
+          templateById: sceneFor(brand),
+        },
+      );
+      return { compiled, brand };
+    },
+    sizes,
+    release: (hashes) => removeUnreferenced(core, hashes, { evict: (hash) => thumbs.evict(hash) }),
+    // the subject's pictures are Scenri's library, downloaded after install
+    ready: (subject) => {
+      if (subject.kind === 'presenter') return existsSync(presenterAvatarPath(templatesRoot, subject.id));
+      const product = demoProducts.find((p) => p.id === subject.id);
+      const angles = PRODUCT_ANGLES_BY_CATEGORY[product?.category ?? ''] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
+      return angles.some((angle) => existsSync(demoProductRefPath(templatesRoot, subject.id, angle)));
+    },
+    log: (obj, msg) => app.log.warn(obj, msg),
+  });
+  registerSceneExampleRoutes(app, { core, examples: sceneExamples });
 
   registerShowcaseRoutes(app, { templatesRoot, thumbs });
 
@@ -613,7 +755,14 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         .filter((t) => t.t === 'product' || t.t === 'character' || t.t === 'mark' || t.t === 'ref')
         .map(identityTokenKey),
     );
-    const inheritedTokens = borrowed.filter((t) => !already.has(identityTokenKey(t)));
+    // A refine that brings its own picture replaces the picture it carried:
+    // "use [the new screen] instead" beside the old screen, carried as a
+    // reference, came back unchanged, and without it the swap landed (1 of 1,
+    // 2026-09-23). The source frame already holds the old composition and light.
+    const bringsPicture = (brief.tokens as BriefToken[]).some((t) => t.t === 'ref');
+    const inheritedTokens = borrowed.filter(
+      (t) => !already.has(identityTokenKey(t)) && !(bringsPicture && t.t === 'ref'),
+    );
     // The catalogs resolve only the ids they are shown, so a carried demo
     // product or curated presenter must be in the token list the brand json
     // is built against, or it compiles to "no longer in the kit".
@@ -628,12 +777,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         core,
         templatesRoot,
         presenters,
-        await brandJsonWithResolvedDemoProducts(
-          core,
-          templatesRoot,
-          demoProducts,
-          brandJsonWithCatalogProducts(core, brandId),
-          combined,
+        sizes.apply(
+          brandId,
+          await brandJsonWithResolvedDemoProducts(
+            core,
+            templatesRoot,
+            demoProducts,
+            brandJsonWithCatalogProducts(core, brandId),
+            combined,
+          ),
         ),
         combined,
       ),
@@ -829,12 +981,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         core,
         templatesRoot,
         presenters,
-        await brandJsonWithResolvedDemoProducts(
-          core,
-          templatesRoot,
-          demoProducts,
-          brandJsonWithCatalogProducts(core, brand.id),
-          brief.tokens,
+        sizes.apply(
+          brand.id,
+          await brandJsonWithResolvedDemoProducts(
+            core,
+            templatesRoot,
+            demoProducts,
+            brandJsonWithCatalogProducts(core, brand.id),
+            brief.tokens,
+          ),
         ),
         brief.tokens,
       ),
@@ -868,6 +1023,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       ...scenes.map((sc) => ({ id: sc.id, name: sc.name })),
     ],
     engineNames: () => engines.all().map((e) => ({ id: e.capabilities().id, name: e.capabilities().displayName })),
+    sceneExampleJobs: (brandId) => sceneExamples?.list(brandId) ?? [],
   });
 
   registerCodexSetupRoutes(app, {
@@ -1464,12 +1620,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
             core,
             templatesRoot,
             presenters,
-            await brandJsonWithResolvedDemoProducts(
-              core,
-              templatesRoot,
-              demoProducts,
-              brandJsonWithCatalogProducts(core, project.brandId),
-              brief.tokens,
+            sizes.apply(
+              project.brandId,
+              await brandJsonWithResolvedDemoProducts(
+                core,
+                templatesRoot,
+                demoProducts,
+                brandJsonWithCatalogProducts(core, project.brandId),
+                brief.tokens,
+              ),
             ),
             brief.tokens,
           ),
@@ -1518,12 +1677,15 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         core,
         templatesRoot,
         presenters,
-        await brandJsonWithResolvedDemoProducts(
-          core,
-          templatesRoot,
-          demoProducts,
-          brandJsonWithCatalogProducts(core, project.brandId),
-          legacyTokens,
+        sizes.apply(
+          project.brandId,
+          await brandJsonWithResolvedDemoProducts(
+            core,
+            templatesRoot,
+            demoProducts,
+            brandJsonWithCatalogProducts(core, project.brandId),
+            legacyTokens,
+          ),
         ),
         legacyTokens,
       );
@@ -1547,6 +1709,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     // Only generations declare a target shape. An edit inherits the source
     // image's dimensions, so there is nothing to check it against.
     let expectShape: { width: number; height: number } | undefined;
+    /** Draws per picture: two when a small product is drawn at its own scale. */
+    let scaleSteps = 1;
     /** For an edit, which image of the parent run it was made from. */
     let editedFrom: string | null = null;
     /*
@@ -1675,6 +1839,51 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       estimate = await engine.costEstimate(genReq);
       work = (signal, onImage) => engine.generate(genReq, signal, onImage);
       expectShape = { width, height };
+      /*
+       * One small product alone in a place with its own picture is drawn in
+       * two steps at its real size (productScale.ts): the place first, at the
+       * product's magnification, then the product placed on it. The size is
+       * read from its photograph the first time it is needed, inside the run,
+       * so the request answers at once; a size above a small product's, or
+       * no size at all, draws the ordinary way.
+       */
+      const scale = compiled?.scale;
+      if (scale && engine.capabilities().supportsEdit) {
+        const brandId = project.brandId;
+        const record = {
+          id: scale.productId,
+          name: scale.name,
+          dimensions: scale.dimensions ?? undefined,
+          ...(scale.description ? { description: scale.description } : {}),
+          photo: core.images.pathFor(scale.productHash),
+        };
+        const now = sizes.known(brandId, record);
+        // Two draws a picture when it is small or not yet known: the spend
+        // cap is checked against the most the run can cost.
+        if (!now || needsOwnScale(now)) estimate *= 2;
+        scaleSteps = !now || needsOwnScale(now) ? 2 : 1;
+        const plain = work;
+        work = async (signal, onImage) => {
+          const size = await sizes.ensure(brandId, record, signal);
+          if (!needsOwnScale(size)) return plain(signal, onImage);
+          app.log.info(
+            { product: scale.productId, size: size.text, span: spanCm(size.largestCm) },
+            'product drawn at its own scale',
+          );
+          return drawAtScale({
+            engine,
+            images: core.images,
+            brand: ctx,
+            plan: scale,
+            size,
+            width: Number(width),
+            height: Number(height),
+            count: wantedCount,
+            signal,
+            onImage,
+          });
+        };
+      }
     } else {
       const parent = core.store.getNode(resolvedParentId);
       const srcHash = (req.body as any).sourceImage ?? parent?.images[0];
@@ -2368,7 +2577,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     const nodeBudgetMs =
       kind === 'generation' && runCaps.perImageTimeoutMs
         ? Math.ceil(Math.min(Math.max(1, Number(count)), 8) / Math.max(1, runCaps.imageConcurrency ?? 1)) *
-            runCaps.perImageTimeoutMs +
+            runCaps.perImageTimeoutMs *
+            scaleSteps +
+          // and the one read of the product's size, when it is not kept yet
+          (scaleSteps > 1 ? 180_000 : 0) +
           60_000
         : undefined;
     void runNode(
@@ -2513,6 +2725,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       new Set(runningGenerations.values()).size +
       runningImportCount() +
       runningAssetBuildCount() +
+      runningSceneStudioCount() +
+      (sceneExamples?.runningCount() ?? 0) +
       runningDraftJobCount(),
   });
 
@@ -2529,6 +2743,10 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
         await new Promise((r) => setTimeout(r, 25));
       }
       await settleCatalogImports();
+      // a studio draw writes an image when it lands: never into a home being torn down
+      await settleSceneStudio();
+      await sceneExamples?.settle();
+      await settlePresenterDrafts();
       await thumbs.settle();
       await app.close();
       core.close();
@@ -2546,6 +2764,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       new Set(runningGenerations.values()).size +
       runningImportCount() +
       runningAssetBuildCount() +
+      runningSceneStudioCount() +
+      (sceneExamples?.runningCount() ?? 0) +
       runningDraftJobCount(),
   });
 

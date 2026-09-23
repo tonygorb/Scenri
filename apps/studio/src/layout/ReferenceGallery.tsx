@@ -27,6 +27,34 @@ export function RefFrame({ src }: { src: string }) {
   );
 }
 
+/**
+ * A picture the record points at that may not be there any more, bare: no
+ * frame around it, for a rail tile or a source thumb that draws its own.
+ *
+ * A hash outlives its file (a library restored without its images, a record
+ * older than a sweep), and without this the browser drew its own broken glyph
+ * instead of saying so.
+ */
+export function Shown({ src, crop }: { src: string; crop?: string }) {
+  const [broken, setBroken] = useState(false);
+  if (broken)
+    return (
+      <span className="sc-lookpage-ref-blank" aria-hidden>
+        <ImageSquare size={20} />
+      </span>
+    );
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      {...(crop ? { 'data-crop': crop } : {})}
+      onError={() => setBroken(true)}
+    />
+  );
+}
+
 /** No reference frame at all — the same blank box a broken image falls back
  * to, rather than nothing where the visual identity should be. */
 export function EmptyRefFrame() {

@@ -17,7 +17,7 @@ import { Rail } from '../layout/Rail.js';
 import { Tip } from '../layout/Tip.js';
 import { EmptyRefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
-import { PresenterDetailsDialog } from './PresenterDetailsDialog.js';
+import { AssetDetailsDialog } from './AssetDetailsDialog.js';
 import { useStillHere } from '../useStillHere.js';
 
 /** The word under a reference tile, by the angle the record gives it. */
@@ -291,7 +291,7 @@ export function PresenterPage() {
             pill, so a row of each with nothing between them read as one bank
             of controls. The caption is the thing that keeps them apart. */}
         {presenter.suitableCategories.length > 0 && (
-          <ul className="sc-presenterpage-cats" aria-label="Filed under">
+          <ul className="sc-lookpage-cats" aria-label="Filed under">
             {presenter.suitableCategories.map((c) => (
               <li key={c} className="sc-chip" data-static>
                 {c}
@@ -411,13 +411,14 @@ export function PresenterPage() {
         )}
 
         {details && owned && (
-          <PresenterDetailsDialog
+          <AssetDetailsDialog
             name={owned.name}
             categories={presenter.suitableCategories}
             known={known}
+            hint="The verticals they suit, so they surface where you work."
             busy={busy}
             error={err}
-            onSave={(next) => void save(next)}
+            onSave={(next) => void save({ name: next.name, suitableCategories: next.categories })}
             onDismiss={() => setDetails(false)}
           />
         )}

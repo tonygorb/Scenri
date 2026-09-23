@@ -508,11 +508,9 @@ describe('custom presenters and scenes', () => {
     // A preview shows the world, not a stand-in product it would have to invent.
     expect(generated).toHaveLength(1);
     expect(generated[0].prompt).toContain('A figure is in this photograph');
-    // The one draw with the whole reference budget to itself, and an output that
-    // is a card rather than a customer's shot. So the world is read from pixels
-    // here, and a shot still only ever gets the words.
-    expect(generated[0].referenceImages).toHaveLength(refs.length);
-    expect(generated[0].referenceRoles).toEqual(refs.map(() => 'scene'));
+    // The references are read for the place and never drawn from: beside them
+    // the card came back as their photograph (battery 2026-09-23).
+    expect(generated[0].referenceImages ?? []).toEqual([]);
   });
 
   it('records the figure and its treatment, and never who it is', async () => {
@@ -555,9 +553,8 @@ describe('custom presenters and scenes', () => {
     const prompt = generated[0].prompt;
     expect(prompt).toContain('A figure is in this photograph: someone stands at the tide line');
     expect(prompt).toContain('the face wrapped in translucent fabric');
-    // The source references are attached to this draw, so the card would happily
-    // come back as the person in them without this.
-    expect(prompt).toContain('do not reproduce any person from the attached reference images');
+    // Somebody new in the role, never the person the references showed.
+    expect(prompt).toContain('nobody in particular, with no recognisable identity');
   });
 
   it('keeps the staged position when an edit touches only the prompt', async () => {
@@ -787,11 +784,50 @@ describe('custom presenters and scenes', () => {
     expect(clean).toEqual([]);
   });
 
-  it('edits a scene, redraws its preview on request, and forgets it on delete', async () => {
+  it('keeps the ways a scene can be shot, four at most, and refuses a half-written one', async () => {
     const brand = await newBrand();
     const scene = (
-      await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/scenes`, payload: SCENE_BODY })
+      await app.inject({
+        method: 'POST',
+        url: `/api/brands/${brand.id}/scenes`,
+        payload: {
+          ...SCENE_BODY,
+          setups: [
+            { id: 'top-down', label: 'Top down', camera: 'Directly overhead, looking straight down, deep focus' },
+            { id: 'ground', label: 'Ground level', camera: 'Low against the shelf, the subject large in frame' },
+            // no camera is no setup: a way to shoot it that says nothing is not one
+            { id: 'empty', label: 'Nothing' },
+            { id: 'a', label: 'A', camera: 'one' },
+            { id: 'b', label: 'B', camera: 'two' },
+            { id: 'c', label: 'C', camera: 'three' },
+          ],
+        },
+      })
     ).json().scene;
+    // four at most, because a fifth is a second scene
+    expect(scene.setups).toHaveLength(4);
+    expect(scene.setups.map((v: any) => v.id)).toEqual(['top-down', 'ground', 'a', 'b']);
+
+    // a patch that never mentions them keeps them
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/brands/${brand.id}/scenes/${scene.id}`,
+      payload: { lighting: 'Overcast' },
+    });
+    expect(brandJson(brand.id).scenes[0].setups).toHaveLength(4);
+  });
+
+  it('edits a scene, redraws its preview on request, and forgets it on delete', async () => {
+    const brand = await newBrand();
+    const read = await savePhoto('#556677');
+    const scene = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/brands/${brand.id}/scenes`,
+        payload: { ...SCENE_BODY, refHashes: [read] },
+      })
+    ).json().scene;
+    expect(scene.refs).toEqual([{ file: `asset:${read}` }]);
 
     await app.inject({
       method: 'PATCH',
@@ -806,8 +842,14 @@ describe('custom presenters and scenes', () => {
     expect(preview.statusCode).toBe(200);
     expect(brandJson(brand.id).scenes[0].preview).toMatch(/^asset:[a-f0-9]{32}$/);
     expect(generated[0].prompt).toContain('flat daylight'); // the edit, not the original
+    // drawn from its words, never beside the references it was read from
+    expect(generated[0].referenceImages ?? []).toEqual([]);
 
-    await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/scenes/${scene.id}` });
+    const gone = await app.inject({ method: 'DELETE', url: `/api/brands/${brand.id}/scenes/${scene.id}` });
+    // The brand comes back, the way a deleted presenter's does: the wall, the
+    // page and the pickers all read the brand, so `{ok:true}` alone left the
+    // card standing on every one of them until a reload.
+    expect(gone.json().brand.json.scenes.some((s: any) => s.id === scene.id)).toBe(false);
     const res = await app.inject({
       method: 'POST',
       url: '/api/brief/preview',
@@ -1012,6 +1054,27 @@ describe('custom presenters and scenes', () => {
     expect(plain).toContain('nobody in particular');
     expect(plain).toContain('no readable words anywhere in the frame');
     expect(plain).not.toContain('plausible but fictional');
+  });
+
+  // Told "no text" beside a reference full of words, the model copied the
+  // words, brand names included; lettering designed for the set is quoted.
+  it('draws only the lettering the scene quotes, and a figure with empty hands', () => {
+    const lettered = scenePreviewPrompt({
+      prompt: 'Printed tape bands cross the room, repeating “SLOW LIGHT” in condensed black capitals.',
+    } as CustomScene);
+    expect(lettered).toContain(
+      'no readable words anywhere in the frame except the lettering the description quotes, spelled exactly as quoted.',
+    );
+
+    const bare = scenePreviewPrompt({ prompt: 'A basalt shelf.' } as CustomScene);
+    expect(bare).toContain('and no readable words anywhere in the frame.');
+    expect(bare).not.toContain('except the lettering');
+
+    const held = scenePreviewPrompt({ prompt: 'A café aisle.', figure: 'one figure mid-aisle' } as CustomScene);
+    expect(held).toContain('their hands are empty');
+
+    // drawn from words alone, so nothing speaks of pictures that are not there
+    for (const p of [lettered, bare, held]) expect(p).not.toMatch(/attached reference images/);
   });
 
   /* ------------------------------------------------------ around the edges */

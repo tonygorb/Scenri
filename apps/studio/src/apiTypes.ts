@@ -503,6 +503,13 @@ export interface PresenterPatch {
   sourceHashes?: string[];
 }
 
+/** One way to shoot a scene: the camera moves, the world does not. */
+export interface SceneSetup {
+  id: string;
+  label: string;
+  camera: string;
+}
+
 export interface ScenePatch {
   name?: string;
   lighting?: string;
@@ -517,6 +524,106 @@ export interface ScenePatch {
   figure?: string;
   figureTreatment?: string;
   refHashes?: string[];
+  /** The picture on its card; for a figure-led scene, the plate a shot conditions on. */
+  previewHash?: string;
+  promptName?: string;
+  /** Ways to shoot this same world, four at most. */
+  setups?: SceneSetup[];
+}
+
+/**
+ * What the scene studio read a place into: the words a saved scene is, and
+ * the only thing about a scene a shot is ever told (the plate aside).
+ */
+export interface SceneReading {
+  name: string;
+  promptName?: string;
+  /** The place itself. */
+  prompt: string;
+  lighting: string;
+  camera?: string;
+  /** The position a person takes in this world. A role, never a person. */
+  figure?: string;
+  figureTreatment?: string;
+  subject: 'product' | 'person' | 'either';
+  description: string;
+  keywords?: string[];
+  collections?: string[];
+  verticals?: string[];
+}
+
+export type SceneStudioJobKind = 'make' | 'again' | 'change';
+
+/** One piece of studio work: read, draw, or change. Never writes the brand. */
+export interface SceneStudioJob {
+  id: string;
+  brandId: string;
+  kind: SceneStudioJobKind;
+  status: 'running' | 'done' | 'failed' | 'cancelled';
+  phase: 'reading' | 'changing' | 'drawing' | null;
+  startedAt: string;
+  phaseAt: string;
+  finishedAt: string | null;
+  reading: SceneReading | null;
+  coverage: string[];
+  hash: string | null;
+  error: string | null;
+  warnings: string[];
+  attachTo: string | null;
+  /** The picture the scene wore when the attach was asked for; the landed one goes on only over that. */
+  attachFrom?: string | null;
+  /** The studio conversation this work belongs to. */
+  conversation?: string | null;
+  /** The saved scene the conversation edits, if any. */
+  sceneId?: string | null;
+  /** What Activity calls it. */
+  label?: string;
+}
+
+/**
+ * A studio's work as Activity shows it: a scene studio job, a presenter
+ * draft's run (a set that goes on view after view is one run), or a scene's
+ * examples being drawn.
+ */
+export interface StudioWork {
+  /** `scene:<job>`, `examples:<job>` or `presenter:<draft>:<run>`. */
+  id: string;
+  kind: 'scene' | 'presenter' | 'examples';
+  status: 'running' | 'done' | 'failed' | 'cancelled';
+  /** `reading`, `changing`, `drawing`, or a presenter view. */
+  step: string | null;
+  job?: SceneStudioJobKind;
+  name: string;
+  thumb: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  error: string | null;
+  conversation?: string | null;
+  sceneId?: string | null;
+  attachTo?: string | null;
+  draftId?: string;
+  presenterId?: string | null;
+  done?: number;
+  total?: number;
+  awaiting?: boolean;
+}
+
+/** What one of a scene's examples shows: the place in use, with a Scenri demo product or presenter. */
+export type SceneExampleRole = 'hero' | 'close' | 'hands' | 'angle' | 'bold';
+
+/** A scene's examples being drawn, or the last run that drew them. */
+export interface SceneExampleJob {
+  id: string;
+  status: 'running' | 'done' | 'failed' | 'cancelled';
+  /** Asked for, in order; the queue grows when more are asked for while it runs. */
+  roles: SceneExampleRole[];
+  done: SceneExampleRole[];
+  failed: { role: SceneExampleRole; error: string }[];
+  current: SceneExampleRole | null;
+  /** The place picture they are drawn from, as `asset:<hash>`. */
+  from: string;
+  subject: { kind: 'product' | 'presenter'; id: string };
+  error: string | null;
 }
 
 export interface SceneField {
@@ -658,6 +765,17 @@ export interface ShowcaseEntry {
   width: number;
   height: number;
   previewUrl?: string | null;
+}
+
+/**
+ * How large a product really is. Read from its photograph when nobody said
+ * (`estimate`), taken from what the store listed (`record`), or the person's
+ * own correction on its page (`person`), which wins over both.
+ */
+export interface ProductSize {
+  text: string;
+  largestCm: number;
+  by: 'estimate' | 'record' | 'person';
 }
 
 /** Products and cast are the same shape: a named thing with locked photos. */

@@ -22,13 +22,20 @@ export function fold(s: string): string {
 export const STEM_MIN = 4;
 
 /**
- * The trigram index needs three characters. A shorter term filters no text
- * at all (it still matches a name resolved by the caller): the feed narrows
- * on the third letter, the way every trigram-backed search does, rather than
- * scanning every shot's text for the first two. The library pages, which
- * search a catalog on the client, keep matching from the first letter.
+ * The trigram index needs three characters. A shorter term is read off each
+ * shot's indexed text instead (`shortTermSql`), so the feed narrows from the
+ * first letter. One or two letters match the start of a word, in the text and
+ * in names (`nameMatches`): inside words nearly every shot holds them ("x" is
+ * in every shot Codex made), so the first letter would narrow nothing. Below
+ * this the shot's own accents are not folded: "e" finds "easel", not "éclair".
  */
 export const TRIGRAM_MIN = 3;
+
+/** A term of letters and digits, which has word starts to match; anything else is matched where it stands. */
+const WORDY = /^[\p{L}\p{N}]+$/u;
+
+/** Whether a term is short enough to match the start of a word rather than anywhere. */
+const byWordStart = (term: SearchTerm) => term.text.length < TRIGRAM_MIN && WORDY.test(term.text);
 
 export interface SearchTerm {
   /** The folded term as typed. */
@@ -55,6 +62,17 @@ export function termMatches(haystack: string, term: SearchTerm): boolean {
   return h.includes(term.text) || (term.stem !== null && h.includes(term.stem));
 }
 
+/**
+ * Whether a product, person, scene or engine name answers a term: at the start
+ * of one of its words for one or two letters, anywhere from three.
+ */
+export function nameMatches(name: string, term: SearchTerm): boolean {
+  if (!byWordStart(term)) return termMatches(name, term);
+  return fold(name)
+    .split(/[^\p{L}\p{N}]+/u)
+    .some((w) => w.startsWith(term.text));
+}
+
 /** Whether every term matches: the client's `matchesQuery`, for tests and for names. */
 export function matchesQuery(haystack: string, q: string): boolean {
   const terms = searchTerms(q);
@@ -63,6 +81,39 @@ export function matchesQuery(haystack: string, q: string): boolean {
 }
 
 const quote = (s: string) => `"${s.replace(/"/g, '""')}"`;
+
+/**
+ * What ends one word and starts the next, as a GLOB character class: white
+ * space and punctuation, Latin and Hebrew, spelled out. The class used to be
+ * "anything but a-z and 0-9", which counted every letter outside ASCII as a
+ * break, so a Hebrew or accented word matched its own middle letters.
+ * (`]` must lead a GLOB class and `-` must close it.)
+ */
+const WORD_BREAK = `]${' \t\n\r.,;:!?(){}"\'`/\\|_+*&#@<>=~^%$['}\u05be\u05f3\u05f4\u201c\u201d\u2018\u2019\u2026\u2013\u2014-`;
+
+/**
+ * The SQL that answers a term the trigram index is too short for, against a
+ * text column, or null when the index can. Letters and digits match the start
+ * of a word: the text lowered (ASCII, as the term already is) and globbed
+ * after a word break (`WORD_BREAK`). Anything else is a substring, with `%`
+ * and `_` escaped so they match only themselves.
+ */
+export function shortTermSql(
+  term: SearchTerm,
+  column: string,
+  param: string,
+): { sql: string; params: Record<string, string> } | null {
+  if (term.text.length >= TRIGRAM_MIN) return null;
+  if (byWordStart(term))
+    return {
+      sql: `(lower(${column}) GLOB @${param}a OR lower(${column}) GLOB @${param}b)`,
+      params: { [`${param}a`]: `${term.text}*`, [`${param}b`]: `*[${WORD_BREAK}]${term.text}*` },
+    };
+  return {
+    sql: `${column} LIKE @${param} ESCAPE '\\'`,
+    params: { [param]: `%${term.text.replace(/[\\%_]/g, (c) => `\\${c}`)}%` },
+  };
+}
 
 /** The FTS5 MATCH expression for one term, or null when the term is too short for the trigram index. */
 export function ftsMatch(term: SearchTerm): string | null {

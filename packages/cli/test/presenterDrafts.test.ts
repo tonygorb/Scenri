@@ -25,6 +25,7 @@ import {
   mergeIdentityEdits,
   openPresenterEdit,
   planStep,
+  presenterDraftRuns,
   redoView,
   resetPresenterDrafts,
   restoreView,
@@ -57,6 +58,8 @@ let generated: GenerateRequest[];
 let failNext: Error | null;
 /** When set, the next draw waits here until released or aborted. */
 let holdNext: { release?: () => void } | null = null;
+/** When set, the next draw waits here until released, and answers even if it was aborted: a provider that finishes anyway. */
+let lateNext: { release?: () => void } | null = null;
 let analyzed: any[];
 let analyzerOn: boolean;
 /** Which view the stubbed read files each photograph under; a test can widen it. */
@@ -86,6 +89,13 @@ const engine = (): EngineAdapter => ({
       await new Promise<void>((resolve, reject) => {
         h.release = resolve;
         signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+      });
+    }
+    if (lateNext) {
+      const h = lateNext;
+      lateNext = null;
+      await new Promise<void>((resolve) => {
+        h.release = resolve;
       });
     }
     if (failNext) {
@@ -147,6 +157,8 @@ beforeEach(async () => {
   generated = [];
   analyzed = [];
   failNext = null;
+  holdNext = null;
+  lateNext = null;
   analyzerOn = true;
   filesAs = (i) => (i === 0 ? 'portrait' : 'other');
   brandId = core.store.createBrand({ specVersion: '0.1', meta: { name: 'Acme' } } as any).id;
@@ -1893,6 +1905,67 @@ describe('a draft from before the record was kept', () => {
     ]);
     expect(back.asks).toEqual([expect.objectContaining({ view: 'three-quarter', text: 'arms relaxed' })]);
     expect(back.decisions).toEqual([]);
+  });
+});
+
+describe('the set without the page', () => {
+  /** The face and the front decided by hand, the extras asked for: what is left decides itself. */
+  async function handDecided() {
+    const d = await synthetic();
+    await updatePresenterDraft(core, d.id, { extras: true });
+    return build(d.id, ['portrait', 'front']);
+  }
+
+  it('draws the next view a decided view unlocks, on the server, with nobody asking', async () => {
+    const d = await handDecided();
+    const before = generated.length;
+    // the studio asks for the three-quarter once; the server carries the rest of the set
+    const after = await step(d.id, 'three-quarter', undefined, 'auto');
+    expect(generated.length - before).toBe(4);
+    for (const v of ['three-quarter', 'back', 'left', 'right'] as const) expect(view(after, v).status).toBe('approved');
+    expect(after.stage).toBe('idle');
+    expect(after.activeView).toBeNull();
+  });
+
+  it('is one run in Activity from the first view it drew itself to the last', async () => {
+    const d = await handDecided();
+    const before = presenterDraftRuns(brandId).find((r) => r.draftId === d.id)?.id;
+    await step(d.id, 'three-quarter', undefined, 'auto');
+    const runs = presenterDraftRuns(brandId).filter((r) => r.draftId === d.id);
+    expect(runs).toHaveLength(1);
+    expect(runs[0].id).not.toBe(before);
+    expect(runs[0]).toMatchObject({ status: 'done', view: 'right', error: null });
+  });
+
+  it('stops the chain at a stopped view: nothing after it is drawn until asked', async () => {
+    const d = await handDecided();
+    const before = generated.length;
+    holdNext = {};
+    await generateView(deps(), d.id, 'three-quarter', { decide: 'auto' });
+    await new Promise((r) => setTimeout(r, 20));
+    const stopped = await stopPresenterDraft(deps(), d.id);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(runningDraftJobCount()).toBe(0);
+    expect(view(stopped, 'three-quarter').error).toBe('cancelled');
+    const now = getPresenterDraft(core, d.id)!;
+    for (const v of ['back', 'left', 'right'] as const) expect(view(now, v).status).toBe('empty');
+    expect(generated.length - before).toBe(1);
+  });
+
+  it('never lands a view the engine hands back after Stop', async () => {
+    const d = await cast();
+    const tq = view(d, 'three-quarter').hash!;
+    const results = d.results.length;
+    const late: { release?: () => void } = {};
+    lateNext = late;
+    await generateView(deps(), d.id, 'three-quarter', { adjustment: 'arms relaxed', decide: 'auto' });
+    for (let i = 0; i < 100 && !late.release; i++) await new Promise((r) => setTimeout(r, 5));
+    const stopping = stopPresenterDraft(deps(), d.id);
+    // the provider answers after the stop reached the server
+    late.release?.();
+    const stopped = await stopping;
+    expect(view(stopped, 'three-quarter')).toMatchObject({ status: 'approved', hash: tq, error: 'cancelled' });
+    expect(stopped.results).toHaveLength(results);
   });
 });
 

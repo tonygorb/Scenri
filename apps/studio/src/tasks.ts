@@ -1,6 +1,17 @@
-import { type ActivityNode, type AssetBuild, type CatalogImportJob, nodeLabel } from './api.js';
-import { presenterPath, productsPath, scenePath, shotPath } from './routes.js';
+import { type ActivityNode, type AssetBuild, type CatalogImportJob, nodeLabel, type StudioWork } from './api.js';
+import { VIEW_NAME, type StudioView } from './create/presenter/presenterStudioRules.js';
+import {
+  presenterEditPath,
+  presenterPath,
+  presenterStudioPath,
+  productsPath,
+  sceneEditPath,
+  scenePath,
+  sceneStudioPath,
+  shotPath,
+} from './routes.js';
 import { local } from './storage.js';
+import { examplesSubtitle } from './sceneExampleRules.js';
 
 /**
  * The model behind the notifications bell.
@@ -338,6 +349,81 @@ export function taskFromAssetBuild(b: AssetBuild, brand: { slug: string }): Task
     // nowhere to go until the asset exists
     href: b.assetId ? (b.kind === 'presenter' ? presenterPath(brand, b.assetId) : scenePath(brand, b.assetId)) : null,
   };
+}
+
+/** What a studio's work is doing, or what came of it, in the row's second line. */
+export function studioSubtitle(w: StudioWork): string {
+  if (w.kind === 'examples') return examplesSubtitle(w);
+  if (w.status === 'failed') return w.error ?? 'It did not finish';
+  if (w.status === 'cancelled') return 'Stopped';
+  if (w.kind === 'scene') {
+    if (w.status === 'running')
+      return w.step === 'reading'
+        ? 'Reading the place'
+        : w.step === 'changing'
+          ? 'Changing the words'
+          : 'Drawing the picture';
+    return w.attachTo ? 'On its scene now' : 'The picture is drawn';
+  }
+  const view = w.step && w.step in VIEW_NAME ? VIEW_NAME[w.step as StudioView] : null;
+  if (w.status === 'running') return view ? `Drawing the ${view}` : 'Reading the photos';
+  if (w.awaiting && view) return `The ${view} is ready to look at`;
+  if (w.total && w.done === w.total) return 'Every view is drawn';
+  return w.total ? `${w.done ?? 0} of ${w.total} views` : 'Drawn';
+}
+
+/**
+ * A scene or a presenter being made in its studio, as a row in the same list
+ * as everything else, leading back to where it is being made: the scene
+ * conversation it was started in, or the presenter's draft. That is the door a
+ * person who left while it drew comes back through.
+ */
+export function taskFromStudioWork(w: StudioWork, brand: { slug: string }): Task {
+  const state: TaskState = w.status === 'failed' ? 'error' : w.status;
+  const href =
+    w.kind === 'examples'
+      ? w.sceneId
+        ? scenePath(brand, w.sceneId)
+        : null
+      : w.kind === 'scene'
+        ? w.conversation
+          ? w.sceneId
+            ? sceneEditPath(brand, w.sceneId, w.conversation)
+            : sceneStudioPath(brand, w.conversation)
+          : w.attachTo
+            ? scenePath(brand, w.attachTo)
+            : null
+        : w.presenterId
+          ? presenterEditPath(brand, w.presenterId)
+          : w.draftId
+            ? presenterStudioPath(brand, w.draftId)
+            : null;
+  return {
+    id: w.id,
+    // a scene's examples are the scene's work: its row, its icon
+    kind: w.kind === 'examples' ? 'scene' : w.kind,
+    state,
+    title: w.name.trim() || (w.kind === 'presenter' ? 'New presenter' : 'New scene'),
+    subtitle: studioSubtitle(w),
+    thumb: w.thumb,
+    // real counters for a presenter's set and a scene's examples; a scene is one picture, so the shimmer
+    percent: w.kind !== 'scene' && w.total ? Math.round(((w.done ?? 0) / w.total) * 100) : null,
+    startedAt: w.startedAt,
+    href,
+  };
+}
+
+/** A task made in a studio, rather than a shot, an import or a build. */
+export const isStudioTask = (id: string): boolean =>
+  id.startsWith('scene:') || id.startsWith('presenter:') || id.startsWith('examples:');
+
+/**
+ * Whether the page on screen is the one a task leads to: a finish there is
+ * already on the stage, and needs no second word.
+ */
+export function showingTask(href: string | null, pathname: string): boolean {
+  if (!href) return false;
+  return href.split('?')[0].replace(/\/$/, '') === pathname.replace(/\/$/, '');
 }
 
 /** Running first, then newest finished. What the Tasks tab renders. */

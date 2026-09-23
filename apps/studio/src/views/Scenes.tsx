@@ -1,14 +1,23 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { sceneSearchText } from '../displayName.js';
-import { useNavigate } from 'react-router';
-import { Plus } from '@phosphor-icons/react';
+import { Outlet, useMatch, useNavigate } from 'react-router';
+import { Plus, SunHorizon } from '@phosphor-icons/react';
 import { api } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { customScenesOf } from '../brandAssets.js';
-import { scenePath } from '../routes.js';
+import { P, scenePath, sceneStudioPath } from '../routes.js';
+import { Confirm } from '../Confirm.js';
+import { DraftCard } from '../layout/DraftCard.js';
+import {
+  forgetSceneDraft,
+  keptSceneDrafts,
+  type SceneDraft,
+  sceneDraftState,
+  sceneDrafts,
+} from '../create/scene/sceneDrafts.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { bookmarkedScenes, toggleBookmarkScene } from '../bookmarks.js';
 import { AssetBuildCard } from '../layout/AssetBuildCard.js';
@@ -67,10 +76,40 @@ export function ScenesView() {
   // One poll for the whole app, owned by TaskCenter: a build started from the
   // top bar on any screen has to stay visible after you leave the screen that
   // started it.
-  const { builds, poke: refreshBuilds } = useTaskCenter();
+  const { builds, poke: refreshBuilds, studio } = useTaskCenter();
   const createAsset = useCreateAsset();
   const mine = useMemo(() => customScenesOf(brand), [brand]);
   const buildingScenes = builds.filter((b) => b.kind === 'scene' && (!b.finished || b.stage === 'failed'));
+  /**
+   * Scenes still being made, first on the wall: one closed while it drew, or
+   * drawn and left without Use. The studio is this page's own child, so what
+   * it kept is read again each time it closes, and whenever its work moves on
+   * the server (a draw that lands while you are here turns its card into the
+   * picture). See `sceneDrafts`.
+   */
+  const inStudio = !!useMatch({ path: P.sceneStudio });
+  const [kept, setKept] = useState(() => keptSceneDrafts(brand.id));
+  const moved = studio
+    .filter((w) => w.kind === 'scene')
+    .map((w) => `${w.id}:${w.status}`)
+    .join('|');
+  useEffect(() => {
+    if (!inStudio) setKept(keptSceneDrafts(brand.id));
+  }, [inStudio, brand.id, moved]);
+  const drafts = useMemo(() => sceneDrafts(kept, studio), [kept, studio]);
+  const [discarding, setDiscarding] = useState<SceneDraft | null>(null);
+  const dropDraft = (d: SceneDraft) => {
+    if (d.drawing && d.jobId) void api.cancelSceneStudioJob(brand.id, d.jobId).catch(() => undefined);
+    forgetSceneDraft(brand.id, d.convo);
+    setKept(keptSceneDrafts(brand.id));
+  };
+  // Throwing away a drawn picture asks first, the way a presenter draft does.
+  const discardDraft = (convo: string) => {
+    const d = drafts.find((x) => x.convo === convo);
+    if (!d) return;
+    if (d.hash || d.drawing) setDiscarding(d);
+    else dropDraft(d);
+  };
   const { q, setQ, facets, setFacets, clearSearch, clear } = useLibraryQuery(['vertical', 'bookmarked']);
   const vertical = facets.vertical;
   const onlyMarked = facets.bookmarked === '1';
@@ -88,7 +127,7 @@ export function ScenesView() {
     return vertical ? scenes.filter((s) => s.verticals.includes(vertical)) : scenes;
   }, [scenes, vertical, onlyMarked, marks]);
 
-  const owned = mine.length > 0 || buildingScenes.length > 0;
+  const owned = mine.length > 0 || buildingScenes.length > 0 || drafts.length > 0;
   const heroMode = !owned;
   const markedTotal = scenes.reduce((n, s) => n + (marks.includes(s.id) ? 1 : 0), 0);
   /** The one empty wall that is not a failure: a tab you have not filled yet. */
@@ -183,7 +222,7 @@ export function ScenesView() {
    * one scene is not in used to drop the whole page back to the first-run
    * offer, chrome included.
    */
-  const showMine = !onlyMarked && (buildingScenes.length > 0 || mineShown.length > 0);
+  const showMine = !onlyMarked && (drafts.length > 0 || buildingScenes.length > 0 || mineShown.length > 0);
   /**
    * Nothing of your own yet: the page leads with its offer.
    *
@@ -272,6 +311,39 @@ export function ScenesView() {
                 <h2 className="sc-sec-title">Your scenes</h2>
               </div>
               <div className="sc-masonry" data-wall data-density data-density-size={densityAttr} style={wallStyle}>
+                {drafts.map((d) => (
+                  <DraftCard
+                    key={d.convo}
+                    id={d.convo}
+                    name={d.name || 'Untitled scene'}
+                    hash={d.hash}
+                    drawing={d.drawing}
+                    state={sceneDraftState(d)}
+                    href={sceneStudioPath(brand, d.convo)}
+                    blank={<SunHorizon size={44} weight="thin" />}
+                    onDiscard={discardDraft}
+                  />
+                ))}
+                {discarding && (
+                  <Confirm
+                    label="Discard"
+                    title={`Discard ${discarding.name || 'this unfinished scene'}?`}
+                    body={
+                      discarding.drawing
+                        ? 'The picture being drawn is stopped, and what was drawn here is thrown away. Nothing was saved to the library.'
+                        : 'What was drawn here is thrown away. Nothing was saved to the library.'
+                    }
+                    open
+                    busy={false}
+                    onOpenChange={(o) => {
+                      if (!o) setDiscarding(null);
+                    }}
+                    onConfirm={() => {
+                      dropDraft(discarding);
+                      setDiscarding(null);
+                    }}
+                  />
+                )}
                 {buildingScenes.map((b) => (
                   <AssetBuildCard
                     key={b.id}
@@ -427,6 +499,9 @@ export function ScenesView() {
           )}
         </main>
       </ScrollPane>
+      {/* the scene studio, when its route is open: full-bleed over this
+          library, which stays mounted and scrolled where it was */}
+      <Outlet />
     </WallDensityCtx.Provider>
   );
 }

@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Page, test } from '@playwright/test';
 
 /**
  * Shared by the realtime specs: a mutation reaches every surface in the same
@@ -224,4 +224,69 @@ export async function askProductMenu(page: Page, query: string): Promise<void> {
 export async function goNav(page: Page, name: 'Home' | 'Products' | 'Presenters'): Promise<void> {
   await mainNav(page).getByRole('link', { name, exact: true }).click();
   await expect(page).toHaveURL(name === 'Home' ? /^[^?]*\/[^/]+$/ : new RegExp(`/${name.toLowerCase()}$`));
+}
+
+/**
+ * Rename an owned scene from its page.
+ *
+ * The scene page carries no live fields: a scene's words are the studio's, and
+ * its name and filing are written in the Details sheet behind the pencil. The
+ * propagation this file is about is unchanged, so only the way in moved.
+ */
+export async function renameScene(page: Page, to: string): Promise<void> {
+  await page.getByRole('button', { name: 'Edit name, filing and ways' }).click();
+  const sheet = page.getByRole('dialog');
+  await sheet.getByLabel('Name').fill(to);
+  await sheet.getByRole('button', { name: 'Save' }).click();
+}
+
+/**
+ * Build a scene the way the app builds one: the studio, a sentence, one draw.
+ *
+ * The wall's button opens the scene studio, not a two-field dialog: a scene is
+ * words that get read and then drawn, so a test that wants a real scene on the
+ * wall has to go the way a person does. The demo engine behind the harness
+ * reads and draws at once.
+ */
+/**
+ * After Use: the conversation goes on to the place in use, and ends on one
+ * press. Every test that only wants a scene on the wall declines the offer, so
+ * it draws nothing and waits for nothing. The offer is absent on a home
+ * without Scenri's library, so the last press is taken either way.
+ */
+export async function finishSceneSet(page: Page, finish = 'Open scene'): Promise<void> {
+  const studio = page.locator('.sc-pstudio[data-kind="scene"]');
+  const start = studio.locator('[data-turn="q:set-start"]:not([data-picked])');
+  const done = studio.locator('[data-turn="q:set-done"]:not([data-picked])');
+  await expect(start.or(done)).toBeVisible({ timeout: 30_000 });
+  if (await start.isVisible()) await start.getByRole('button', { name: 'Not now', exact: true }).click();
+  await done.getByRole('button', { name: finish, exact: true }).click({ timeout: 30_000 });
+}
+
+export async function buildScene(page: Page, sentence: string, name: string): Promise<void> {
+  await page.getByRole('button', { name: 'Create scene' }).click();
+  const studio = page.locator('.sc-pstudio[data-kind="scene"]');
+  await expect(studio).toBeVisible();
+  // the first question has to be on the floor before the line will take words
+  await expect(studio.locator('[data-turn="q:source"]')).toBeVisible();
+  const line = studio.locator('.sc-pstudio-foot textarea');
+  await line.fill(sentence);
+  await line.press('Enter');
+  // what the sentence left open is asked, one tap each; these tests pass it over
+  const draw = studio.getByRole('button', { name: 'Draw the scene' });
+  const live = studio.locator('[data-turn^="q:"]:not([data-picked])').last();
+  const pass = live.getByRole('button', { name: 'Leave it to the reading', exact: true });
+  for (let i = 0; i < 4; i++) {
+    await expect(draw.or(pass)).toBeVisible({ timeout: 45_000 });
+    if (await draw.isVisible()) break;
+    const was = (await live.getAttribute('data-turn')) ?? '';
+    await pass.click();
+    await expect(live).not.toHaveAttribute('data-turn', was);
+  }
+  await draw.click({ timeout: 45_000 });
+  // the name is asked while the first picture draws
+  await line.fill(name);
+  await line.press('Enter');
+  await studio.getByRole('button', { name: 'Use this scene' }).click({ timeout: 60_000 });
+  await finishSceneSet(page);
 }

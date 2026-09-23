@@ -38,6 +38,7 @@ export {
   duplicatePresenter,
   duplicatePresenterRecord,
   SCENE_ID_PREFIX,
+  SCENE_INSTRUCTION_MAX,
   sceneRecordFrom,
   type CustomPresenter,
   type CustomScene,
@@ -103,6 +104,14 @@ export interface Analyzer {
     },
     signal?: AbortSignal,
   ): Promise<PresenterDraft | SceneDraft>;
+  /**
+   * How large a product really is, read from its photograph and name. Optional
+   * so a reader that cannot answer is simply never asked (productSizes.ts).
+   */
+  measure?(
+    req: { imagePath: string; name: string; description?: string },
+    signal?: AbortSignal,
+  ): Promise<{ text: string; largestCm: number }>;
 }
 
 export interface AssetBuildDeps {
@@ -114,6 +123,8 @@ export interface AssetBuildDeps {
   brandContext: (brandId: string) => BrandContext;
   /** Facet values already in use, so a new asset lands in an existing filter. */
   vocabulary: { collections: string[]; verticals: string[]; categories: string[] };
+  /** A saved scene has its place picture: its examples may start (sceneExamples.ts). */
+  onPlaceChanged?: (brandId: string, sceneId: string) => void;
 }
 
 export interface StartBuildInput {
@@ -797,26 +808,15 @@ async function runSceneBuild(
   if (deps.engine) {
     patch(job, { stage: 'building', steps: 1, message: 'Drawing the place' });
     try {
-      // The one place a scene's own references can be spent for free: this
-      // draw has the engine's whole reference budget to itself. What it
-      // produces is the card thumbnail AND, for a figure-led scene, the
-      // identity-neutral plate a generation conditions on: drawn with "they
-      // are nobody in particular", it can lend the world and the treatment
-      // but never a face - which the raw upload, a full-bleed photograph of a
-      // real person, demonstrably did.
-      const previewRefs = hashes
-        .slice(0, deps.engine.capabilities().maxReferenceImages)
-        .map((h) => core.images.pathFor(h));
+      // Drawn from its words alone (scenePreviewPrompt): the references were
+      // read for the vibe and are never drawn from. What it produces is the
+      // card thumbnail AND, for a figure-led scene, the plate a generation
+      // conditions on, so it has to be original: drawn beside the references,
+      // it came back as their photograph, the same person, pose and wardrobe
+      // (battery 2026-09-23).
       previewHash = await trimEdgeBars(
         core,
-        await draw(deps, {
-          prompt: scenePreviewPrompt(scene),
-          brandId: job.brandId,
-          ...(previewRefs.length
-            ? { referenceImages: previewRefs, referenceRoles: previewRefs.map(() => 'scene' as const) }
-            : {}),
-          signal,
-        }),
+        await draw(deps, { prompt: scenePreviewPrompt(scene), brandId: job.brandId, signal }),
       );
       scene.preview = `asset:${previewHash}`;
       patch(job, { step: 1, previewHash });
@@ -865,8 +865,9 @@ export function scenePreviewPrompt(scene: CustomScene): string {
   // scene, it is a different one. So when the concept needs a figure, the card
   // shows one. Anonymity is the thing to protect, not absence.
   //
-  // The source references are attached to this draw, which is new: without the
-  // refusal below the card would happily come back as the person in them.
+  // It is drawn from these words alone: a scene is the vibe of its pictures,
+  // never a copy of one (`scenePreviewRefs`). The figure is invented, with empty
+  // hands, so a shot's own presenter and product take its place.
   //
   // The word ban is scoped to what the treatment needs. The plate is the
   // conditioning image for a figure-led generation now, and a blanket "no
@@ -874,21 +875,26 @@ export function scenePreviewPrompt(scene: CustomScene): string {
   // genuinely designed print - a sticker-treatment plate drawn print-free
   // conditioned the treatment away. Print inside the treatment follows the
   // fictional-brands doctrine word for word; everywhere else stays clean.
+  //
+  // Lettering the reader designed for the set arrives quoted, in words of its
+  // own (the analyzer's lettering rule), and those are the only words drawn.
+  const except = /“[^”]{1,80}”|"[^"]{1,80}"/.test(scene.prompt)
+    ? ' except the lettering the description quotes, spelled exactly as quoted'
+    : '';
   const body = scene.figure
     ? `A figure is in this photograph: ${scene.figure.replace(/[.\s]+$/, '')}. ` +
       (scene.figureTreatment
         ? `The art direction is what has been done to them: ${scene.figureTreatment.replace(/[.\s]+$/, '')}, ` +
           'rendered as a real physical treatment that follows the shape it sits on. '
         : '') +
-      'They are nobody in particular: do not reproduce any person from the attached reference images, and give them no ' +
-      'recognisable identity. ' +
+      'They are nobody in particular, with no recognisable identity, and their hands are empty. ' +
       (scene.figureTreatment
         ? 'No product and no watermarks. Where the treatment itself carries printing, render it as genuinely designed ' +
           'print - real letterforms, readable words, numerals and label-quality artwork - belonging to companies that ' +
           'are plausible but fictional, resembling no existing brand, and borrowing, extending or re-spelling no name ' +
-          'that appears in any attached reference. Everywhere outside the treatment, no logos and no readable words.'
-        : 'No product, no logos, no watermarks, and no readable words anywhere in the frame.')
-    : 'The set is empty: no product, no person, no hands, no text, no logos, no watermarks anywhere in the frame.';
+          `that appears in any attached reference. Everywhere outside the treatment, no logos and no readable words${except}.`
+        : `No product, no logos, no watermarks, and no readable words anywhere in the frame${except}.`)
+    : `The set is empty: no product, no person, no hands, no logos, no watermarks, and no readable words anywhere in the frame${except}.`;
   return (
     'Full-bleed photograph filling the entire frame edge to edge with no border, frame, letterbox band or matte of any kind. ' +
     `${scene.prompt} ${scene.lighting ? `${scene.lighting}. ` : ''}` +

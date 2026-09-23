@@ -78,7 +78,35 @@ export interface LikenessConfirmation {
 }
 
 /** A `scenes[]` entry. Structurally a Scene, plus where it came from. */
+/** One way to shoot a scene: the camera moves, the world does not. */
+export interface SceneSetup {
+  id: string;
+  label: string;
+  camera: string;
+}
+
+/** What an example of a scene shows. See sceneExamples.ts. */
+export type SceneExampleRole = 'hero' | 'close' | 'hands' | 'angle' | 'bold';
+
+/**
+ * A picture of the world in use: a Scenri demo product or presenter in it.
+ * Shown on the scene's page, never handed to a shot. `from` is the place
+ * picture it was drawn from, so one drawn from an earlier picture can say so.
+ */
+export interface SceneExample {
+  role: SceneExampleRole;
+  file: string;
+  from: string;
+  /** The way of shooting it this picture shows, when it is one (a FRAMINGS id). */
+  setup?: string;
+  product?: string;
+  presenter?: string;
+}
+
 export interface CustomScene extends Scene {
+  setups?: SceneSetup[];
+  /** Written by the examples job only; every edit keeps them as they are. */
+  examples?: SceneExample[];
   refs?: { file: string }[];
   preview?: string;
   instruction?: string;
@@ -100,6 +128,12 @@ export interface CustomScene extends Scene {
 }
 
 export const PRESENTER_ID_PREFIX = 'up';
+/**
+ * What a scene's light is when nobody said. A placeholder the record needs,
+ * never a direction: the compiler leaves it out of a shot, because a person who
+ * wrote "hard flash" must not be told "even, neutral light" beside it.
+ */
+export const DEFAULT_SCENE_LIGHTING = 'Even, neutral light';
 export const SCENE_ID_PREFIX = 'us';
 /** Every curated scene and presenter ships 4:5. A brand's own match them. */
 export const ASSET_WIDTH = 1024;
@@ -253,6 +287,7 @@ export interface SceneInput {
   figureTreatment?: unknown;
   refHashes?: unknown;
   previewHash?: unknown;
+  setups?: unknown;
 }
 
 /**
@@ -262,12 +297,30 @@ export interface SceneInput {
  * rest. The `{placeholder}` refusal mirrors the catalog loader's: the set never
  * names what is staged in it.
  */
+/**
+ * A scene's words are both printed on its page and sent to the generator, so
+ * every one of them is cut at a whole sentence or a whole word. A hard slice
+ * put "gripping both sid" on the record page and in the prompt behind it.
+ */
+/**
+ * A scene's direction, as the studio sends it and the record keeps it.
+ *
+ * It was 400, sized for a sentence somebody typed. A guided direction is
+ * composed from taps and ends on two clauses the reading must see (the guard
+ * on the idea and "invent a specific original arrangement"), so it runs to
+ * about 560 characters before any words of the person's own. At 400 the
+ * server cut those clauses off in silence, which is exactly the line that
+ * keeps two people who tap the same cards from getting the same place. The
+ * studio's PLACE_MAX is the same number.
+ */
+export const SCENE_INSTRUCTION_MAX = 800;
+
 export function sceneRecordFrom(
   input: SceneInput,
   base?: CustomScene,
 ): { ok: true; scene: CustomScene } | { ok: false; error: string } {
   const has = (k: keyof SceneInput) => input[k] !== undefined;
-  const prompt = has('prompt') ? str(input.prompt, 2000) : (base?.prompt ?? '');
+  const prompt = has('prompt') ? phrase(input.prompt, 2000) : (base?.prompt ?? '');
   if (!prompt) return { ok: false, error: 'a scene needs a prompt describing the place' };
   if (/\{[^}]*\}/.test(prompt)) return { ok: false, error: 'a scene prompt cannot contain a {placeholder}' };
   const name = has('name') ? str(input.name, 60) : (base?.name ?? '');
@@ -276,9 +329,9 @@ export function sceneRecordFrom(
   if (!SUBJECTS.has(subjectRaw as SceneSubject)) {
     return { ok: false, error: 'subject must be product, person or either' };
   }
-  const lighting = has('lighting') ? str(input.lighting, 200) : (base?.lighting ?? '');
-  const description = has('description') ? str(input.description, 400) : (base?.description ?? '');
-  const camera = has('camera') ? str(input.camera, 200) : (base?.camera ?? '');
+  const lighting = has('lighting') ? phrase(input.lighting, 200) : (base?.lighting ?? '');
+  const description = has('description') ? phrase(input.description, 400) : (base?.description ?? '');
+  const camera = has('camera') ? phrase(input.camera, 200) : (base?.camera ?? '');
   const refs = has('refHashes')
     ? strList(input.refHashes, 8, 64)
         .map((h) => assetRef(h))
@@ -286,11 +339,31 @@ export function sceneRecordFrom(
         .map((file) => ({ file }))
     : base?.refs;
   const previewRef = has('previewHash') ? assetRef(input.previewHash) : (base?.preview ?? null);
+  /**
+   * Ways to shoot this same world. Four at most, because a fifth is a second
+   * scene: the world is what a scene is, and a list of framings long enough to
+   * browse is a shot list, which belongs to Create.
+   */
+  const setups = has('setups')
+    ? (Array.isArray(input.setups) ? input.setups : [])
+        .map((raw: any) => ({
+          id: str(raw?.id, 40),
+          label: str(raw?.label, 40),
+          camera: phrase(raw?.camera, 200),
+        }))
+        // sound ones first, then the cap: a half-written setup that ate one of
+        // the four slots would silently cost a real one
+        .filter(
+          (v: { id: string; label: string; camera: string }) =>
+            v.id && v.label && v.camera && !/\{[^}]*\}/.test(v.camera),
+        )
+        .slice(0, 4)
+    : base?.setups;
 
   const scene: CustomScene = {
     id: base?.id ?? mintId(SCENE_ID_PREFIX),
     name,
-    lighting: lighting || 'Even, neutral light',
+    lighting: lighting || DEFAULT_SCENE_LIGHTING,
     description: description || name,
     subject: subjectRaw as SceneSubject,
     collections: has('collections') ? strList(input.collections, 3, 40) : (base?.collections ?? []),
@@ -302,6 +375,7 @@ export function sceneRecordFrom(
   const promptName = has('promptName') ? str(input.promptName, 60) : base?.promptName;
   if (promptName) scene.promptName = promptName;
   if (camera) scene.camera = camera;
+  if (setups?.length) scene.setups = setups;
   const keywords = has('keywords') ? strList(input.keywords, 12, 40) : base?.keywords;
   if (keywords?.length) scene.keywords = keywords;
   // An empty string is not an instruction to forget one. `runSceneBuild` always
@@ -309,21 +383,25 @@ export function sceneRecordFrom(
   // and, because the record is rebuilt from scratch, silently dropped whatever
   // the user had written. Blank falls back to what is already stored; clearing
   // it on purpose is what DELETE and a fresh build are for.
-  const written = has('instruction') ? str(input.instruction, 400) : '';
+  const written = has('instruction') ? phrase(input.instruction, SCENE_INSTRUCTION_MAX) : '';
   const instruction = written || base?.instruction;
   if (instruction) scene.instruction = instruction;
   // Through `has()` like every other field: the scene page PATCHes prompt and
   // lighting alone on each keystroke, so anything read unconditionally from
   // `input` would be erased by an edit that never mentioned it.
-  const figure = has('figure') ? str(input.figure, 120).replace(/\s+/g, ' ') : base?.figure;
+  // The reader's own caps (analyzer.ts), so a saved scene keeps the line it was read with.
+  const figure = has('figure') ? phrase(input.figure, 160).replace(/\s+/g, ' ') : base?.figure;
   if (figure && !/\{[^}]*\}/.test(figure)) scene.figure = figure;
   const treatment = has('figureTreatment')
-    ? str(input.figureTreatment, 160).replace(/\s+/g, ' ')
+    ? phrase(input.figureTreatment, 240).replace(/\s+/g, ' ')
     : base?.figureTreatment;
   // A treatment with no figure to sit on describes nobody.
   if (scene.figure && treatment && !/\{[^}]*\}/.test(treatment)) scene.figureTreatment = treatment;
   if (refs?.length) scene.refs = refs;
   if (previewRef) scene.preview = previewRef;
+  // Never from the request: the examples job writes them, and an edit that
+  // rebuilds the record keeps them, the earlier-picture ones included.
+  if (base?.examples?.length) scene.examples = base.examples;
   return { ok: true, scene };
 }
 

@@ -18,10 +18,8 @@ import type {
   CatalogImportJob,
   CatalogSource,
   CodexSetupResult,
-  CodexSetupState,
   CodexStatus,
   CatalogCandidate,
-  CommerceScan,
   CommerceScanState,
   ScrapeReport,
   DemoProduct,
@@ -33,11 +31,18 @@ import type {
   Presenter,
   PresenterPatch,
   Product,
+  ProductSize,
   Project,
   ReleaseNotesResponse,
   Scene,
+  SceneExampleJob,
+  SceneExampleRole,
   ScenePatch,
-  SetupPlatform,
+  SceneReading,
+  SceneSetup,
+  SceneStudioJob,
+  SceneStudioJobKind,
+  StudioWork,
   ShotSet,
   ShowcaseEntry,
   TreeNode,
@@ -92,7 +97,10 @@ export const api = {
   tree: (projectId: string) => req<{ project: Project; nodes: TreeNode[] }>('GET', `/api/projects/${projectId}/tree`),
   /** Everything running or lately finished in a brand, generations and imports together. */
   activity: (brandId: string) =>
-    req<{ nodes: ActivityNode[]; jobs: CatalogImportJob[] }>('GET', `/api/brands/${brandId}/activity`),
+    req<{ nodes: ActivityNode[]; jobs: CatalogImportJob[]; studio?: StudioWork[] }>(
+      'GET',
+      `/api/brands/${brandId}/activity`,
+    ),
   /** The brand's frame: project, root, sets, memberships and the newest shots. Never every shot. */
   workspace: (brandId: string) => req<Workspace>('GET', `/api/brands/${brandId}/workspace`),
   /** One page of the brand's shots for a place, lens, search and sort. */
@@ -227,6 +235,16 @@ export const api = {
     productId: string,
     patch: Partial<Pick<Product, 'category' | 'variant' | 'material' | 'dimensions'>>,
   ) => req<{ product: unknown }>('PATCH', `/api/brands/${brandId}/catalog/products/${productId}`, patch),
+  /**
+   * How large the product really is. Read from its photograph the first time
+   * anyone asks, so the answer can take a few seconds once; null when nothing
+   * can read it and nobody has said.
+   */
+  productSize: (brandId: string, productId: string) =>
+    req<{ size: ProductSize | null }>('GET', `/api/brands/${brandId}/products/${productId}/size`),
+  /** The person's own size, in words with a unit; an empty string takes it back. */
+  setProductSize: (brandId: string, productId: string, size: string) =>
+    req<{ size: ProductSize | null }>('PUT', `/api/brands/${brandId}/products/${productId}/size`, { size }),
   /**
    * The product's reference set, in the order it should be read: `files` is
    * the whole list, so leaving one out removes it and moving one to the front
@@ -371,12 +389,70 @@ export const api = {
   /** The brand comes back so every surface stops showing the scene in one commit. */
   deleteScene: (brandId: string, sceneId: string) =>
     req<{ ok: true; brand: Brand }>('DELETE', `/api/brands/${brandId}/scenes/${sceneId}`),
+  /**
+   * What a scene's examples are drawing, and what each offer would draw: the
+   * first press (`first`) and Add more (`more`). Both are counted before
+   * anything is spent, so a button can say what it costs.
+   */
+  sceneExamples: (brandId: string, sceneId: string) =>
+    req<{ job: SceneExampleJob | null; first: SceneExampleRole[]; more: SceneExampleRole[] }>(
+      'GET',
+      `/api/brands/${brandId}/scenes/${sceneId}/examples`,
+    ),
+  /** Draw the place in use, the rest of the set, or these roles again. Joins a run already drawing. */
+  drawSceneExamples: (
+    brandId: string,
+    sceneId: string,
+    ask: { first: true } | { more: true } | { roles: SceneExampleRole[] },
+  ) => req<{ job: SceneExampleJob }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/examples`, ask),
+  /** Stop drawing; what already landed stays. */
+  stopSceneExamples: (brandId: string, sceneId: string) =>
+    req<{ ok: boolean }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/examples/stop`),
+  removeSceneExample: (brandId: string, sceneId: string, role: SceneExampleRole) =>
+    req<{ ok: boolean; brand: Brand }>('DELETE', `/api/brands/${brandId}/scenes/${sceneId}/examples/${role}`),
   /** Redraw a scene's example. One generation, always asked for out loud. */
   generateScenePreview: (brandId: string, sceneId: string) =>
     req<{ preview: string; brand: Brand }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/preview`),
   /** Read a scene's own references again, in place. One analysis, asked for out loud. */
   rereadScene: (brandId: string, sceneId: string, correction?: string) =>
     req<{ jobId: string }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/reread`, { correction }),
+
+  // ---- the scene studio: work that answers words and a picture, and writes nothing
+  startSceneStudioJob: (
+    brandId: string,
+    p: {
+      kind: SceneStudioJobKind;
+      instruction?: string;
+      imageHashes?: string[];
+      reading?: SceneReading;
+      from?: string;
+      ask?: string;
+      draw?: boolean;
+      reread?: boolean;
+      /** The picture is one of the brand's own shots: only the place in it is read. */
+      shot?: boolean;
+      /** The studio conversation asking; one job runs per conversation. */
+      conversation?: string;
+      sceneId?: string;
+      /** What Activity calls the work. */
+      label?: string;
+    },
+  ) =>
+    req<{ jobId: string; job: SceneStudioJob; existing?: true }>('POST', `/api/brands/${brandId}/scene-studio/jobs`, p),
+  sceneStudioJob: (brandId: string, jobId: string) =>
+    req<SceneStudioJob>('GET', `/api/brands/${brandId}/scene-studio/jobs/${jobId}`),
+  cancelSceneStudioJob: (brandId: string, jobId: string) =>
+    req<{ ok: boolean }>('POST', `/api/brands/${brandId}/scene-studio/jobs/${jobId}/cancel`),
+  /** The scene was named while this job ran: Activity says the name. */
+  labelSceneStudioJob: (brandId: string, jobId: string, label: string) =>
+    req<{ ok: boolean }>('POST', `/api/brands/${brandId}/scene-studio/jobs/${jobId}/label`, { label }),
+  /** A scene was saved while this job drew its picture: put the picture on it when it lands. */
+  attachSceneStudioJob: (brandId: string, jobId: string, sceneId: string) =>
+    req<{ state: 'landed' | 'pending' | 'none'; brand: Brand }>(
+      'POST',
+      `/api/brands/${brandId}/scene-studio/jobs/${jobId}/attach`,
+      { sceneId },
+    ),
 };
 
 /**

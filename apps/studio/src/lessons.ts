@@ -94,12 +94,13 @@ export const LESSONS: readonly Lesson[] = [
   {
     id: 'scene',
     title: 'Build a scene',
-    summary:
-      'A place and its light, saved once and shot in again. References are evidence rather than backdrops: a scene reaches a shot as words, so nothing in them is copied into a picture.',
+    summary: 'A place and its light, saved to shoot in again, from pictures of it or a few questions.',
     milestones: [
       { label: 'Find where your scenes live', moments: ['go'] },
       { label: 'Start a new one', moments: ['new'] },
-      { label: 'Name it, then add a photo or a line of direction', moments: ['scene'] },
+      { label: 'Describe the place, or add pictures', moments: ['start'] },
+      { label: 'Read what your shots are told', moments: ['words'] },
+      { label: 'Use it', moments: ['use'] },
     ],
   },
   {

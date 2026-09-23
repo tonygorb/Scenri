@@ -651,7 +651,8 @@ export function AttachBody({
             <UploadTile onClick={onUpload} />
           </div>
         )}
-        {empty && !(tab === 'Shots' && (shots.loading || shots.error)) && (
+        {/* a search not read yet is not a search that found nothing */}
+        {empty && !(tab === 'Shots' && (!shots.settled || shots.loading || shots.error)) && (
           <p className="sc-ap-empty">{emptyCopy(tab, q)}</p>
         )}
       </div>

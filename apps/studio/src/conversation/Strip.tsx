@@ -46,7 +46,8 @@ export function Strip({ step, children }: { step: number; children: ReactNode })
     const first = el.firstElementChild as HTMLElement | null;
     const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 0;
     const by = first ? first.offsetWidth + gap : step;
-    el.scrollBy({ left: dir * by, behavior: 'smooth' });
+    const easy = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.scrollBy({ left: dir * by, behavior: easy ? 'smooth' : 'auto' });
   };
   const fade = ends.back && ends.on ? 'both' : ends.back ? 'back' : ends.on ? 'on' : undefined;
 

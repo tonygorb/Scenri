@@ -187,25 +187,28 @@ test('Learn sits in the bar beside the bell, and says what is already done', asy
   await expect(learnButton(page)).toBeFocused();
 });
 
-test('a scene has its own task, held in the dialog it is made in', async ({ page }) => {
+test('a scene has its own task, held in the studio it is made in', async ({ page }) => {
   await page.goto(`/${slug}`);
   await fromLearn(page, 'Build a scene');
   await walkTheWay(page, 'scenes', 'Your scenes live here');
   await page.waitForURL('**/scenes');
   await startNew(page, 'Start a new scene');
-  await expect(page).toHaveURL(/new=scene/);
-  const layer = page.locator('.sc-newdlg-layer');
-  await expect(layer.locator('.sc-coach .sc-coach-title')).toHaveText('Build a scene');
-  await expect(layer.locator('.sc-coach-veil')).toHaveCount(1);
-  // the dialog itself stays usable under the curtain
-  await layer.getByPlaceholder('Name this place').fill('Terrace');
-  await expect(layer.getByPlaceholder('Name this place')).toHaveValue('Terrace');
-  await layer.getByRole('button', { name: 'Close', exact: true }).first().click();
-  // closing the dialog does not end the task: it is still the one in hand,
-  // and its window is kept. They have found the dialog, so Learn says how far.
-  expect((await guideRecord(page)).active?.task).toBe('scene');
+  await expect(page).toHaveURL(/\/scenes\/new\/[a-f0-9]+$/);
+  const studio = page.locator('.sc-pstudio[data-kind="scene"]');
+  await expect(studio.locator('.sc-coach .sc-coach-title')).toHaveText('Describe the place, or start from pictures');
+  // the studio's own line stays usable beside the question
+  const line = studio.locator('.sc-pstudio-foot textarea');
+  await line.fill('A terrace');
+  await expect(line).toHaveValue('A terrace');
+  await line.fill('');
+  // the ask holds the page, so the guide is closed first (its own X), then the studio
+  await coachCard(page).getByRole('button', { name: 'Close guide' }).click();
+  await studio.getByRole('button', { name: 'Close', exact: true }).first().click();
+  // closing the guide and the studio ends nothing that was reached: they got
+  // to the studio's first question, and Learn says how far.
   expect((await guideRecord(page)).progress.scene?.brandId).toBeTruthy();
+  expect((await guideRecord(page)).progress.scene?.reached).toContain('start');
   // the tutor is still asking on the library; Learn is opened from the address
   await page.goto(`/${slug}?learn=lessons`);
-  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('Step 3 of 3');
+  await expect(lessonRow(page, 'Build a scene').locator('.sc-learn-status')).toHaveText('Step 3 of 5');
 });

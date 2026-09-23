@@ -187,6 +187,43 @@ test.describe('a product and its references', () => {
     await expect(page.locator('.sc-catpick')).toContainText('Fragrance');
   });
 
+  test('its size is read without anyone asking, and put right from Details', async ({ page }) => {
+    const brand = await currentBrand(page);
+    // the demo reader takes a size written in the name, as a real read takes it from the photo
+    const id = await seedProduct(page, brand.id, 'Signet 2 cm', 1);
+    await page.goto(`/${brand.slug}/products/${id}`);
+    const facts = page.locator('.sc-lookpage-facts');
+    await expect(facts).toContainText('About 2 cm');
+
+    await page.getByRole('button', { name: 'Edit details' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Details' });
+    const field = sheet.getByRole('textbox', { name: 'Size' });
+    await expect(field).toHaveValue('');
+    await expect(field).toHaveAttribute('placeholder', 'about 2 cm');
+
+    // words with no unit say what is wanted and change nothing
+    await field.fill('large');
+    await sheet.getByRole('button', { name: 'Save' }).click();
+    await expect(sheet).toContainText('Give the size with a unit');
+    await expect(facts).toContainText('About 2 cm');
+
+    await field.fill('2.5 cm across');
+    await sheet.getByRole('button', { name: 'Save' }).click();
+    await expect(sheet).toBeHidden();
+    await expect(facts).toContainText('2.5 cm across');
+    await page.reload();
+    await expect(facts).toContainText('2.5 cm across');
+
+    // empty takes the correction back, and the reading stands again
+    await page.getByRole('button', { name: 'Edit details' }).click();
+    await expect(field).toHaveValue('2.5 cm across');
+    await field.fill('');
+    await sheet.getByRole('button', { name: 'Save' }).click();
+    await expect(sheet).toBeHidden();
+    await expect(facts).toContainText('About 2 cm');
+    await expect(facts).not.toContainText('2.5 cm across');
+  });
+
   test('a failed upload says what went wrong and leaves the product alone', async ({ page }) => {
     const brand = await currentBrand(page);
     const id = await seedProduct(page, brand.id, 'Survivor', 2);
@@ -316,5 +353,6 @@ test.describe('a product and its references', () => {
     await expect(page.locator('.sc-refrail-add')).toHaveCount(0);
     await expect(remove(page)).toHaveCount(0);
     await expect(page.locator('.sc-btn-red')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Edit details' })).toHaveCount(0);
   });
 });

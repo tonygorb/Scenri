@@ -36,7 +36,9 @@ describe('launchMove', () => {
     expect(launchMove('product', nowhere, ['new'], null)).toEqual({ kind: 'products' });
     expect(launchMove('product', nowhere, ['product'], null)).toEqual({ kind: 'dialog', asset: 'product' });
     expect(launchMove('scene', nowhere, ['new'], null)).toEqual({ kind: 'scenes' });
-    expect(launchMove('scene', nowhere, ['scene'], null)).toEqual({ kind: 'dialog', asset: 'scene' });
+    // a scene is made in its studio: Continue goes back into it
+    expect(launchMove('scene', nowhere, ['start'], null)).toEqual({ kind: 'sceneStudio' });
+    expect(launchMove('scene', { ...nowhere, onSceneStudio: true }, ['words'], null)).toEqual({ kind: 'stay' });
     expect(launchMove('presenter', nowhere, ['new'], null)).toEqual({ kind: 'presenters' });
     expect(launchMove('presenter', nowhere, ['start'], null)).toEqual({ kind: 'studio' });
   });

@@ -30,10 +30,12 @@ export function productFidelityDirective(attached: number): string {
   if (attached <= 1) {
     return (
       'The attached product image is the exact product: preserve its label, shape, colors and proportions faithfully, ' +
-      'and do not redesign it. It is also the only view of this product that exists. Any face, side or detail not ' +
+      'and do not redesign it. Where the image shows it more than once, side by side from the front and the back or ' +
+      'at several angles, those are views of one product: this shot contains exactly one of it. It is also the only ' +
+      'view of this product that exists. Any face, side or detail not ' +
       'visible in it is unknown — keep those plain and consistent with the visible materials and color, and do not ' +
       'invent hardware, text, seams, closures, ornament or branding on them. Prefer a composition that shows the ' +
-      'product from the view the reference gives.'
+      "product from the view the reference gives, unless this shot's own direction asks for another view."
     );
   }
   // No angle claim either: an imported product routinely stores one image per
@@ -306,6 +308,119 @@ export function personSkinDirective(): string {
  * boilerplate list, and with the same explicit-direction escape hatch, so a
  * surreal brief that wants the bottle floating still gets it.
  */
+/**
+ * How a product is made to read, said once per brief.
+ *
+ * Prominence comes from the camera, never from size (measured 2026-09-22: a
+ * sneaker drawn the size of an armchair, a signet ring as tall as a step). Worn
+ * and held are said only when someone is there to wear or hold it: the first
+ * wording offered "worn by ... something real" to every product shot, and a
+ * loft shot of a sneaker with nobody attached came back with a man in the
+ * armchair wearing it.
+ *
+ * A product alone was told it "rests on a real surface of this set", and in
+ * every world, floating or not, it came back stood upright in the middle of the
+ * frame: a catalogue picture in an art-directed place (Tony, 2026-09-23, against
+ * his reference folder). It is held the way the world holds its own things:
+ * a floating candy set floated the serum, a stone set and a cafe table kept the
+ * serum and the laptop grounded (3 of 3), because the same person rejected
+ * floating bottles over water as surreal on 2026-09-22.
+ */
+export function productScaleDirective(hasPerson: boolean): string {
+  return (
+    'The product reads clearly through camera distance, framing, focus and light, never by being enlarged beyond its ' +
+    'real size' +
+    (hasPerson
+      ? ', and it is worn, held or placed the way an object of its size and use is, with true contact and shadow, ' +
+        'unless the direction above explicitly stages it otherwise.'
+      : '. This is a campaign image, not a catalogue picture: it takes part in this world the way an art director ' +
+        'would stage it, the way this world holds its own things - resting where they rest, floating only where ' +
+        'they float, tilted, balanced, nested or half-buried among them - in a bold, deliberate composition with a ' +
+        'confident crop, with true contact and shadow wherever it touches something, never stood upright in the ' +
+        'middle of the frame in front of the set, unless the direction above explicitly stages it otherwise.')
+  );
+}
+
+/**
+ * How a glossy product meets the set's light. Fidelity says "the exact
+ * product" and "the view the reference gives", and nothing said the light on
+ * it belongs to a campaign, so a phone or a laptop came back as its packshot
+ * stood in the room: the photo's flat studio light and its lit screen pasted
+ * flat (4 of 4, 2026-09-23, on Codex as on the test engine). Said as a
+ * condition the model applies, like the wearability line: no category list
+ * decides what is glossy.
+ *
+ * Measured on Codex, arm by arm: the set's light alone gave a soft product in a
+ * soft scene; the photographer's own strip and rim light, the low close camera
+ * and the screen said plainly off took a phone and a laptop from 2 to 6 of 6
+ * on a campaign checklist. Politer screen wording ("expose it like a display")
+ * left the flat panel 6 of 6. The camera clause is for a product alone, since
+ * a presenter's shot is framed for the person, and the directive is placed
+ * after the scene's camera line, which otherwise kept the phone frontal and far.
+ */
+export function productSurfaceDirective(alone: boolean, screenContent = false): string {
+  return (
+    'Where it has glass, a screen, polished metal or a glossy finish, it is lit as the hero of a high-end product ' +
+    "campaign, never as its product photo: the set's own light is the key, and the photographer adds what such a " +
+    'shoot always adds - a long strip-light reflection running down its glass or metal, a thin rim light tracing its ' +
+    'outline against the background, crisp highlights on its edges and corners, and deep controlled shadow on the ' +
+    'side away from the light - while its true colours stay true.' +
+    (alone
+      ? ' For such a product the camera comes low and close, and it is angled or tilted into the light, never simply ' +
+        'stood the way it stands in its product photo, so its form and edges read in depth, filling a confident ' +
+        'share of the frame while the set falls softly out of focus behind it.'
+      : '') +
+    ' Its screen, if it has one, is switched off whatever its product photo shows: deep black glass carrying the ' +
+    "strip light's reflection and a soft gradient of the set, unless this shot's own words ask for something on it." +
+    (screenContent
+      ? ' Where the words put an attached image, or a version of it, on its screen, the screen is on and shows it: ' +
+        "lit from within, inside the display's own edges and corners, under the glass and behind any reflection, " +
+        "finger or hand, at the screen's perspective and brightness, the product's own shape untouched. Keep the " +
+        "interface's layout, colours, type and content as closely as the screen allows; where it was made for a " +
+        'differently shaped screen, or the words ask for another version of it, show the same interface as it would ' +
+        'be designed for this screen, never squeezed or cropped, unless the words ask for it exactly as it is: a phone ' +
+        "design on a wide screen becomes that app's desktop version, its navigation in a sidebar or top bar and its " +
+        'content spread into columns, with no phone status bar or bottom tab bar; a wide design on a phone becomes one ' +
+        'column with its navigation in a bottom bar. Where ' +
+        'the attached image shows the interface inside a device or a browser window, only what that screen shows ' +
+        'goes onto this one, with no second device or window frame; and never add a screen to a product that has none.'
+      : '')
+  );
+}
+
+/**
+ * A refine that brings a new picture for a screen. Edits skip the glossy
+ * directive, so "use [the new screen] on the screen instead" reached the model
+ * as a preserve-everything edit with the old interface carried beside it, and
+ * the picture came back unchanged (1 of 1, 2026-09-23).
+ */
+export function editScreenDirective(): string {
+  return (
+    'Where the words put an attached image on a screen in this photograph, that screen now shows that image and ' +
+    'nothing of what it showed before, fitted inside the same screen at the same angle, glass and light; nothing ' +
+    'else in the photograph changes.'
+  );
+}
+
+/**
+ * A product on its own in a place: framed at the product's scale, not the
+ * room's. The scene's words describe a whole room from foreground to back
+ * wall, and a model asked for a small object in it kept the room sharp and
+ * grew the object until it read (a signet ring as tall as a step, 2 of 2,
+ * even when told to bring the camera closer). What a photographer does is let
+ * focus follow distance, so this says that, for any size: the model knows how
+ * big a ring or a chair is.
+ */
+export function productFramingDirective(): string {
+  return (
+    "This shot is framed at the product's own scale, not the room's: the camera comes as close as the product's " +
+    'real size needs, and focus follows that distance. The closer the camera, the shallower the focus: around a small ' +
+    'object the surface it rests on stays sharp at its own fine true scale while the architecture behind falls into ' +
+    'large, soft, out-of-focus shapes of light and shade; a product the size of furniture keeps the room readable ' +
+    'around it.'
+  );
+}
+
 export function productHandlingDirective(): string {
   return (
     'Where the presenter touches the product, they handle it the way a real person handles an object of exactly ' +
@@ -616,6 +731,8 @@ export function sceneGuardDirectives(opts: {
   hasProduct: boolean;
   hasPerson: boolean;
   hasScenePhoto?: boolean;
+  /** The scene is built around a figure, whose place in its photograph the attached presenter takes. */
+  figureLed?: boolean;
   /** The figure role a scene is built around, when nobody is attached to take it and the brief asks for nobody. */
   emptyRole?: string;
 }): string[] {
@@ -644,18 +761,31 @@ export function sceneGuardDirectives(opts: {
   // the picture — so the picture needs its own disowning, said about the
   // photograph by name. The treatment carve-out rides in the same breath so
   // this can never argue with the figure directives above it.
+  //
+  // Only a person in it stands in for anything. The photograph is drawn with
+  // no product in it (customAssets.ts), so the old line calling "any product,
+  // garment, prop" a stand-in "at the placement and scale the scene photograph
+  // demonstrates" could only ever land on the set: measured 2026-09-22, a
+  // sneaker took a loft's armchair's place at the armchair's size, and the
+  // armchair went. Props are set, at their real size, and the product goes
+  // where the shot puts it, at its own.
   if (opts.hasScenePhoto && (opts.hasProduct || opts.hasPerson)) {
     out.push(
-      "One attached reference is the scene's own photograph. It shows this world — the set, the light, and any treatment this world applies — never a cast: any product, garment, prop or person visible in it is a stand-in, demonstrating where the subject sits, how large it stands in the frame, and what has been done to it.",
+      "One attached reference is the scene's own photograph. It shows this world — the set, the light, the materials and any treatment this world applies — never a cast. The furniture, props and architecture in it are part of the set: they stay what they are, at their real size, and none of them stands in for anything attached to this shot." +
+        (opts.figureLed
+          ? ''
+          : ' It is not the shot to copy: this shot chooses its own camera, framing and composition inside this world, as its own direction asks.'),
     );
     if (opts.hasProduct) {
       out.push(
-        "The product in the scene photograph is not in this shot. The attached product photo is the only source of product identity: that exact product takes the stand-in's position, at the placement and scale the scene photograph demonstrates, keeping its own shape, label and colours.",
+        'The attached product photo is the only source of product identity. Nothing in the scene photograph is this product or measures its size: it goes where this shot puts it, at its own real-world size, keeping its own shape, label and colours.',
       );
     }
     if (opts.hasPerson) {
       out.push(
-        'Any person in the scene photograph lends their role, never their face: the attached presenter takes their place, wearing whatever treatment this world applies, with their identity drawn from their own photographs alone.',
+        opts.figureLed
+          ? 'The person in the scene photograph is a stand-in for the attached presenter: they show where the presenter stands, how large they are in the frame and what this world does to them, and lend their role, never their face. The attached presenter takes their place, wearing whatever treatment this world applies, with their identity drawn from their own photographs alone.'
+          : 'Any person in the scene photograph lends their role, never their face: the attached presenter takes their place, wearing whatever treatment this world applies, with their identity drawn from their own photographs alone.',
       );
     }
   }

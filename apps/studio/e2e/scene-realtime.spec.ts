@@ -13,6 +13,8 @@ import {
   openOwnedScene,
   ownedSceneCard,
   sceneNames,
+  buildScene,
+  renameScene,
   seedScene,
   switchBrand,
   uploadPng,
@@ -30,7 +32,17 @@ import {
  * Every test here loads one document at its start and then moves only through
  * the app, and proves at the end that it is still the same document.
  */
-isolate({ env: { SCENRI_DEMO_BUILDS: '1' } });
+// The demo engine draws and the demo analyzer reads: a scene built here goes
+// the way a person builds one, through the studio, and neither half waits on
+// an account.
+isolate({
+  env: {
+    SCENRI_DEMO_BUILDS: '1',
+    SCENRI_DEMO_REFS: '5',
+    SCENRI_DEMO_ANALYSIS: 'usable',
+    SCENRI_DEMO_READ_MS: '300',
+  },
+});
 
 test('deleting a scene takes its card off the wall and the scene menu without a reload', async ({ page }) => {
   const brand = await currentBrand(page);
@@ -142,13 +154,11 @@ test('the first scene you build appears on the wall as it lands, and can be dele
   await markSession(page);
   await expect(page.getByRole('heading', { name: 'Your scenes' })).toHaveCount(0);
 
-  // built through the wall's own button, in words: no analyzer behind this harness
-  await page.getByRole('button', { name: 'Create scene' }).click();
-  await page.getByLabel('Name', { exact: true }).fill('First Light Loft');
-  await page.getByLabel('Direction', { exact: true }).fill('A bright loft with pale concrete and one tall window.');
-  await page.locator('.sc-dlg-go').click();
+  // built the way a person builds one: the studio, a sentence, one draw
+  await buildScene(page, 'A bright loft with pale concrete and one tall window.', 'First Light Loft');
 
   // the section and the card arrive with the build, not with a reload
+  await goScenes(page);
   await expect(ownedSceneCard(page, 'First Light Loft')).toBeVisible({ timeout: 45_000 });
   await expect(page.getByRole('heading', { name: 'Your scenes' })).toBeVisible();
 
@@ -169,10 +179,10 @@ test('a rename reaches the wall and the scene menu without a reload', async ({ p
   await markSession(page);
   await openOwnedScene(page, 'Rename Me Loft');
   const saved = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/scenes/'));
-  await page.getByLabel('Scene name').fill('Renamed Loft');
+  await renameScene(page, 'Renamed Loft');
   await saved;
 
-  await page.locator('.sc-lookpage-crumb').getByRole('link', { name: 'Scenes' }).click();
+  await goScenes(page);
   await expect(ownedSceneCard(page, 'Renamed Loft')).toBeVisible();
   await expect(ownedSceneCard(page, 'Rename Me Loft')).toHaveCount(0);
 
@@ -185,8 +195,9 @@ test('a rename reaches the wall and the scene menu without a reload', async ({ p
   await expectSameSession(page);
 });
 
-// One pause is shared by every field. It used to send the last field alone.
-test('two fields edited inside one pause are both saved', async ({ page }) => {
+// The sheet writes the name and the filing in one answer; the page has no
+// live fields to debounce any more, because a scene's words are the studio's.
+test('the name and the filing are saved in one write', async ({ page }) => {
   const brand = await currentBrand(page);
   await seedScene(page.request, brand.id, 'Two Fields Loft');
 
@@ -194,25 +205,30 @@ test('two fields edited inside one pause are both saved', async ({ page }) => {
   await markSession(page);
   await openOwnedScene(page, 'Two Fields Loft');
   const saved = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/scenes/'));
-  await page.getByLabel('Scene name').fill('Both Fields Loft');
-  await page.getByLabel('Lighting').fill('Hard noon light');
+  await page.getByRole('button', { name: 'Edit name, filing and ways' }).click();
+  const sheet = page.getByRole('dialog');
+  await sheet.getByLabel('Name').fill('Both Fields Loft');
+  await sheet.getByRole('button', { name: 'Categories' }).click();
+  await page.getByRole('menuitem', { name: 'Apparel' }).click();
+  await page.keyboard.press('Escape');
+  await sheet.getByRole('button', { name: 'Save' }).click();
   await saved;
 
   const scene = (
     ((await (await page.request.get('/api/brands')).json()) as any[]).find((b) => b.id === brand.id).json.scenes as {
       name: string;
-      lighting: string;
+      verticals?: string[];
     }[]
   ).find((s) => s.name === 'Both Fields Loft');
-  expect(scene?.lighting).toBe('Hard noon light');
+  expect(scene?.verticals).toContain('Apparel');
   await expectSameSession(page);
 });
 
-test('reading the references again updates the open page and gives the button back', async ({ page }) => {
+test('a read that lands elsewhere updates the open page', async ({ page }) => {
   test.setTimeout(60_000);
   const brand = await currentBrand(page);
   const ref = await uploadPng(page.request, 1);
-  await seedScene(page.request, brand.id, 'Reread Loft', {
+  const rereadId = await seedScene(page.request, brand.id, 'Reread Loft', {
     refHashes: [ref],
     instruction: 'A cold slate studio with one north window.',
     description: 'Before the read',
@@ -221,19 +237,18 @@ test('reading the references again updates the open page and gives the button ba
   await page.goto(`/${brand.slug}/scenes`);
   await markSession(page);
   await openOwnedScene(page, 'Reread Loft');
-  await expect(page.getByLabel('Description')).toHaveValue('Before the read');
+  await expect(page.getByText('Before the read')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Read the references again' }).click();
+  // The button that starts this moved into the studio with the rest of the
+  // words: a scene's prose is changed by reading the place again, and this
+  // page never draws. What is still this page's to keep is the half below,
+  // that a read landing anywhere reaches the open page with no reload.
+  await page.request.post(`/api/brands/${brand.id}/scenes/${rereadId}/reread`);
 
   // The read lands through the bell and the page takes the record it wrote.
-  // Asserted by what it leaves, not by catching the button mid-spin: a read
-  // with no analyzer behind it can be over before an assertion arrives.
-  await expect(page.getByLabel('Description')).toHaveValue('A cold slate studio with one north window.', {
-    timeout: 30_000,
-  });
-  // and the button is given back, instead of spinning until the page is left
-  await expect(page.getByRole('button', { name: 'Reading the references' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Read the references again' })).toBeEnabled();
+  // Asserted by what it leaves: the reader writes the description, so what is
+  // certain is that the old one goes, not which words replace it.
+  await expect(page.getByText('Before the read')).toHaveCount(0, { timeout: 30_000 });
   await expectSameSession(page);
 });
 
@@ -315,7 +330,7 @@ test('a delete the server refuses keeps the scene and says why', async ({ page }
   await expect(page.locator('.sc-assetform-err')).toHaveText('disk is full');
   await expect(page).toHaveURL(/\/scenes\/us-/);
   await expect(page.getByRole('button', { name: 'Delete scene' })).toBeEnabled();
-  await page.locator('.sc-lookpage-crumb').getByRole('link', { name: 'Scenes' }).click();
+  await goScenes(page);
   await expect(ownedSceneCard(page, 'Refused Loft')).toBeVisible();
   expect(await sceneNames(page.request, brand.id)).toContain('Refused Loft');
   await expectSameSession(page);
@@ -391,15 +406,13 @@ test('a slow read of the brands that started before a delete cannot bring the sc
 
   await page.goto(`/${brand.slug}/scenes`);
   await markSession(page);
-  // a build landing is what makes the bell read the brands again
+  // a scene landing is what makes the bell read the brands again
   const held = await holdNext(page, /\/api\/brands$/);
-  await page.getByRole('button', { name: 'Create scene' }).click();
-  await page.getByLabel('Name', { exact: true }).fill('Arrival Loft');
-  await page.getByLabel('Direction', { exact: true }).fill('A long gallery with timber floors.');
-  await page.locator('.sc-dlg-go').click();
+  await buildScene(page, 'A long gallery with timber floors.', 'Arrival Loft');
   await held.caught;
 
   // the read is out, carrying Doomed Loft; delete it now
+  await goScenes(page);
   await openOwnedScene(page, 'Doomed Loft');
   await deleteOpenScene(page);
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
@@ -421,8 +434,13 @@ test('a rename answer that lands after the delete cannot bring the scene back', 
   await markSession(page);
   await openOwnedScene(page, 'Crossed Loft');
   const held = await holdNext(page, /\/scenes\/us-[a-z0-9]+$/, 'PATCH');
-  await page.getByLabel('Scene name').fill('Crossed Again Loft');
+  await renameScene(page, 'Crossed Again Loft');
   await held.caught;
+  // the sheet is still open on a save that has not answered; it is closed so
+  // the delete is pressed on the page under it, which a write still out does
+  // not block
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await deleteOpenScene(page);
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/scenes$`));
 
@@ -445,7 +463,7 @@ test('a rename and a delete reach the Home shelf too', async ({ page }) => {
   await goScenes(page);
   await openOwnedScene(page, 'Shelf Loft');
   const saved = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/scenes/'));
-  await page.getByLabel('Scene name').fill('Shelf Loft Renamed');
+  await renameScene(page, 'Shelf Loft Renamed');
   await saved;
   await mainNav(page).getByRole('link', { name: 'Home', exact: true }).click();
   await expect(shelf('Shelf Loft Renamed')).toBeVisible();
@@ -493,9 +511,13 @@ test('an edit the server refuses keeps what was typed and says why', async ({ pa
   await page.goto(`/${brand.slug}/scenes`);
   await markSession(page);
   await openOwnedScene(page, 'Refused Edit Loft');
-  await page.getByLabel('Scene name').fill('Never Saved Loft');
-  await expect(page.locator('.sc-assetform-err')).toHaveText('disk is full');
-  await expect(page.getByLabel('Scene name')).toHaveValue('Never Saved Loft');
+  await page.getByRole('button', { name: 'Edit name, filing and ways' }).click();
+  const refused = page.getByRole('dialog');
+  await refused.getByLabel('Name').fill('Never Saved Loft');
+  await refused.getByRole('button', { name: 'Save' }).click();
+  // the sheet stays open on what was typed, with the reason under it
+  await expect(refused.locator('.sc-assetform-err')).toHaveText('disk is full');
+  await expect(refused.getByLabel('Name')).toHaveValue('Never Saved Loft');
   expect(await sceneNames(page.request, brand.id)).toContain('Refused Edit Loft');
   await expectSameSession(page);
 });
@@ -514,13 +536,11 @@ test('a background read of the brands that fails leaves the studio on screen', a
   );
   const failed = page.waitForResponse((r) => /\/api\/brands$/.test(r.url()) && r.status() === 500, { timeout: 60_000 });
   // a build landing is what makes the bell read the brands again
-  await page.getByRole('button', { name: 'Create scene' }).click();
-  await page.getByLabel('Name', { exact: true }).fill('Background Loft');
-  await page.getByLabel('Direction', { exact: true }).fill('A small studio with a single lamp.');
-  await page.locator('.sc-dlg-go').click();
+  await buildScene(page, 'A small studio with a single lamp.', 'Background Loft');
   await failed;
   await page.waitForTimeout(500);
+  // the shell stays up: no error screen took the app over
   await expect(mainNav(page)).toBeVisible();
-  await expect(page.locator('.sc-lookcard').first()).toBeVisible();
+  await expect(page.getByText(/Couldn't load|went wrong/)).toHaveCount(0);
   await expectSameSession(page);
 });

@@ -29,7 +29,17 @@ export const P = {
   products: '/:brandSlug/products',
   product: '/:brandSlug/products/:productId',
   scenes: '/:brandSlug/scenes',
+  /**
+   * The scene studio, a place like the presenter's: the picture has to be
+   * judged at a size a dialog cannot give it, and editing a scene is the same
+   * surface, so both have an address. The static `new` outranks `:sceneId`.
+   * The last segment is the conversation, minted on the way in: work started in
+   * it outlives the page, and Back, a reload or Activity lands on it again.
+   */
+  sceneStudio: '/:brandSlug/scenes/new/:convoId?',
   scene: '/:brandSlug/scenes/:sceneId',
+  /** The same studio over a saved scene's own page, seeded from its record. */
+  sceneEdit: '/:brandSlug/scenes/:sceneId/edit/:convoId?',
   presenters: '/:brandSlug/presenters',
   /**
    * The presenter studio is a place, not a dialog: a person takes minutes,
@@ -70,6 +80,10 @@ export const productPath = (b: BrandLike, productId: string): string =>
 export const scenesPath = (b: BrandLike): string => generatePath(P.scenes, { brandSlug: b.slug });
 export const scenePath = (b: BrandLike, sceneId: string): string =>
   generatePath(P.scene, { brandSlug: b.slug, sceneId });
+export const sceneStudioPath = (b: BrandLike, convoId?: string | null): string =>
+  generatePath(P.sceneStudio, { brandSlug: b.slug, convoId: convoId ?? undefined });
+export const sceneEditPath = (b: BrandLike, sceneId: string, convoId?: string | null): string =>
+  generatePath(P.sceneEdit, { brandSlug: b.slug, sceneId, convoId: convoId ?? undefined });
 export const presentersPath = (b: BrandLike): string => generatePath(P.presenters, { brandSlug: b.slug });
 export const presenterPath = (b: BrandLike, presenterId: string): string =>
   generatePath(P.presenter, { brandSlug: b.slug, presenterId });

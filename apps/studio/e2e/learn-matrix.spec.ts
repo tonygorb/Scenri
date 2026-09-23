@@ -6,6 +6,7 @@ import {
   fromLearn,
   guideRecord,
   lessonRow,
+  lessonStep,
   noWelcomeWait,
   ownBrand,
   pickTheIngredients,
@@ -182,10 +183,18 @@ test('the same scene is added with the guide closed', async ({ page }) => {
   await page.locator('[data-guide="nav.scenes"]:visible').first().click();
   await page.waitForURL('**/scenes');
   await page.locator('[data-guide="library.new"]:visible').first().click();
-  await expect(page).toHaveURL(/new=scene/);
-  await page.getByPlaceholder('Name this place').fill('Cold hallway');
-  await page.getByPlaceholder('What matters in these references, and what to ignore').fill('Hard side light');
-  await page.getByRole('button', { name: 'Create scene' }).click();
+  await expect(page).toHaveURL(/\/scenes\/new\/[a-f0-9]+$/);
+  // a place said in full: the studio asks nothing more, reads it back, and draws on a press
+  const studio = page.locator('.sc-pstudio[data-kind="scene"]');
+  const line = studio.locator('.sc-pstudio-foot textarea');
+  await line.fill(
+    'A cold hallway in hard side light, seen straight on, a bench against the wall, rain streaking the window',
+  );
+  await line.press('Enter');
+  await studio.getByRole('button', { name: 'Draw the scene' }).click({ timeout: 30_000 });
+  await line.fill('Cold hallway');
+  await line.press('Enter');
+  await studio.getByRole('button', { name: 'Use this scene' }).click({ timeout: 30_000 });
   await expect
     .poll(async () => {
       const brands = (await (await page.request.get('/api/brands')).json()) as {
@@ -227,7 +236,7 @@ for (const size of [
     await page.request.post('/api/guide', { data: { dismiss: 'product' } });
     await page.goto(`/${own}?learn=lessons`);
     await lessonRow(page, 'Add your product').click();
-    await learn(page).locator('button.sc-learn-step').click();
+    await lessonStep(page, 'Add your product').click();
     await walkTheWay(page, 'products', 'Your products live here');
     await page.waitForURL('**/products');
     await expect(coachTitle(page)).toHaveText('Start a new product', { timeout: 20_000 });

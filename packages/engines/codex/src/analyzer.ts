@@ -133,9 +133,28 @@ export interface SceneDraft {
   coverage: string[];
 }
 
+/** One product photograph, read for how large the real object is. */
+export interface MeasureRequest {
+  /** Absolute path to the product's first photograph. */
+  imagePath: string;
+  /** What the product is called, so a name like "Travel Mug" can help. */
+  name: string;
+  /** The record's own words about it, when it has any. */
+  description?: string;
+}
+
+/** A product's real size, as a person would say it and as a number. */
+export interface SizeRead {
+  /** In plain words with a unit, e.g. "about 2 cm across". */
+  text: string;
+  /** Its largest dimension as it stands, in centimetres. */
+  largestCm: number;
+}
+
 export interface CodexAnalyzer {
   isAvailable(): Promise<EngineAvailability>;
   analyze(req: AnalyzeRequest, signal?: AbortSignal): Promise<PresenterDraft | SceneDraft>;
+  measure(req: MeasureRequest, signal?: AbortSignal): Promise<SizeRead>;
 }
 
 export interface CodexAnalyzerOptions extends RunnerOptions {
@@ -190,7 +209,79 @@ export function createCodexAnalyzer(opts: CodexAnalyzerOptions = {}): CodexAnaly
         throw new Error(`Codex could not describe these references: ${problems.join(' ')}`);
       });
     },
+
+    /*
+     * How large the real object is. A packshot fills its own frame whatever
+     * the product, so the photograph says what the object is and never how
+     * large; the size is worked out from what it is. Read once per product
+     * and kept (productScale.ts is why it matters).
+     */
+    async measure(req: MeasureRequest, signal?: AbortSignal): Promise<SizeRead> {
+      return runner.withWorkDir(async (dir) => {
+        const ref = join(dir, 'ref-1.png');
+        await copyFile(req.imagePath, ref);
+        let problems: string[] = [];
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const args = execArgs(dir, 'high');
+          args.splice(args.length - 1, 0, `--image=${ref}`);
+          await runner.run(args, signal, {
+            stdin: measurePrompt(req, problems),
+            label: `measure attempt=${attempt + 1}`,
+          });
+          let raw: string;
+          try {
+            raw = await readFile(join(dir, OUT_FILE), 'utf8');
+          } catch {
+            problems = [`No ${OUT_FILE} was written.`];
+            continue;
+          }
+          const parsed = parseSize(raw);
+          if (parsed.ok) return parsed.size;
+          problems = parsed.problems;
+        }
+        throw new Error(`Codex could not size this product: ${problems.join(' ')}`);
+      });
+    },
   };
+}
+
+function measurePrompt(req: MeasureRequest, problems: string[]): string {
+  const about = req.description ? ` Its maker describes it: ${req.description}.` : '';
+  const retry = problems.length
+    ? ` Your last answer was rejected: ${problems.join(' ')} Fix exactly that and write the file again.`
+    : '';
+  return (
+    `One photograph of a product is attached; the product is called "${req.name}".${about}` +
+    ' Say how large the real object is, the way a shop lists it. Work it out from what the object is, its parts and' +
+    ' their proportions, never from how large it looks in this picture: a product photograph fills its frame whatever' +
+    ' the product. Measure it as it stands or lies in a photograph, not folded, worn or packed.' +
+    ` ${OUT_FILE} must be a JSON object with exactly these keys:` +
+    ' "size": its size in plain words with a unit, about the one or two dimensions a person would picture, such as' +
+    ' "about 2 cm across", "about 10 cm tall", "about 30 cm long" or "about 45 by 35 cm";' +
+    ' "largestCm": its largest dimension as it stands, in centimetres, as a number.' +
+    ` Write strict JSON, and nothing but JSON, to a file called ${OUT_FILE} in the current directory` +
+    ' (you may run the commands needed to write it). Do not browse the web or explore files.' +
+    ` No prose, no markdown fences, no commentary.${retry}`
+  );
+}
+
+function parseSize(raw: string): { ok: true; size: SizeRead } | { ok: false; problems: string[] } {
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch (err) {
+    return { ok: false, problems: [`${OUT_FILE} was not valid JSON (${(err as Error).message}).`] };
+  }
+  const o = (json && typeof json === 'object' ? json : {}) as Record<string, unknown>;
+  const text = cap(str(o.size), 80);
+  const largest = Number(o.largestCm);
+  const problems: string[] = [];
+  if (!text || !/\d/.test(text)) problems.push('"size" must be plain words with a number and a unit.');
+  // A thumb tack to a wardrobe: anything outside is a misread, not a product.
+  if (!Number.isFinite(largest) || largest < 0.3 || largest > 400)
+    problems.push('"largestCm" must be a number of centimetres between 0.3 and 400.');
+  if (problems.length) return { ok: false, problems };
+  return { ok: true, size: { text, largestCm: Math.round(largest * 10) / 10 } };
 }
 
 /* ---------------------------------------------------------------- prompts */
@@ -202,7 +293,7 @@ function buildPrompt(req: AnalyzeRequest, refCount: number, problems: string[]):
       : refCount === 1
         ? 'One reference image is attached.'
         : `${refCount} reference images are attached.`;
-  const body = req.kind === 'presenter' ? presenterBody(req, refCount) : sceneBody(req);
+  const body = req.kind === 'presenter' ? presenterBody(req, refCount) : sceneBody(req, refCount);
   const revision = req.priorDraft
     ? ` You are revising an existing record, not starting over: keep everything that is not being corrected. Current record: ${JSON.stringify(req.priorDraft)}.`
     : '';
@@ -262,17 +353,24 @@ function photosClause(refCount: number): string {
   );
 }
 
-function sceneBody(req: AnalyzeRequest): string {
+function sceneBody(req: AnalyzeRequest, refCount: number): string {
   // The user's own direction, and it outranks the pictures.
   //
   // This used to read "What the person wants from it: X" - a wish, with no
   // authority to settle anything. With one reference the pictures are often
   // ambiguous about what is the concept and what merely happened to be in the
   // frame, and the person who chose them is the only one who knows.
+  //
+  // With no pictures the same clause was a lie: it talked about references
+  // that were not there, and framed the only sentence the person wrote as a
+  // footnote to them. Words alone are the brief.
   const ask = req.instruction
-    ? ` The person who chose these references says what matters in them: ${req.instruction}.` +
-      ' Treat that as the deciding word: whatever it calls essential IS essential even if only one reference shows it,' +
-      ' and whatever it tells you to ignore stays out even if every reference contains it.'
+    ? refCount === 0
+      ? ` The person describes the place as: ${req.instruction}.` +
+        ' That description is the brief: expand it into a complete reusable world, keeping every decision it already made and inventing nothing that contradicts it.'
+      : ` The person who chose these references says what matters in them: ${req.instruction}.` +
+        ' Treat that as the deciding word: whatever it calls essential IS essential even if only one reference shows it,' +
+        ' and whatever it tells you to ignore stays out even if every reference contains it.'
     : '';
   const collections = req.vocabulary?.collections?.length
     ? ` Choose "collections" only from this list: ${req.vocabulary.collections.join(', ')}.`
@@ -288,14 +386,32 @@ function sceneBody(req: AnalyzeRequest): string {
     // "a modern room" back. These four are the axes that actually came back thin.
     ' Name materials rather than colours - travertine, cracked clay, waxed canvas, brushed steel, raw concrete -' +
     ' and say how the space layers from foreground through middle ground to background.' +
+    // A bare "saturated green" came back deep bottle green for a bright leaf
+    // green set (battery 2026-09-23): the vibe is the colour's strength too.
+    ' Give each dominant colour the way a painter would, its hue, how light it is and how saturated -' +
+    ' "bright saturated leaf green", "deep bottle green", "pale chalky mint" - never a bare colour name.' +
     ' Say so when a surface is reflective or transmissive: a mirror, a wet floor, chrome, glass, still water.' +
     ' Those govern how everything in the frame is lit, and they are the first thing lost to a generic description.' +
-    ' Treat signage and lettering as typographic texture belonging to the environment: say that it is there and what it is made of,' +
-    ' and never transcribe the words or name the brand.' +
+    // Lettering described without its words, then forbidden by the draw,
+    // left the image model to settle the contradiction off the attached
+    // pictures (battery 2026-09-23): it copied the reference's own words,
+    // brand names included, invented ad copy, drew scribble, or dropped the
+    // lettering that was the whole idea. The treatment doctrine found the same
+    // thing first (briefDirectives): the answer is designed words that belong
+    // to nobody, and none at all for what was only ever the advertisement.
+    ' Lettering plays one of two roles, and only one of them belongs to the world.' +
+    ' Lettering built, printed, painted or carved into the set - sculptural letters, signage, a lettered wall or floor, printed tape,' +
+    ' a giant painted word used as scenery - is art direction: say what it is made of, its scale, placement and typographic style,' +
+    ' and give it new words of your own in curly quotation marks, “like this”: two to four short generic words that suit the mood,' +
+    ' never the words it carries in the reference and never a name.' +
+    ' Lettering laid over the picture - a headline, tagline, caption, credits, price, hashtag, handle, date, interface or watermark -' +
+    ' is the advertisement, not the world: leave it out and do not mention it.' +
+    ' A logo is never reproduced: where a mark is a large graphic element of the set, keep only its colour, scale and gesture' +
+    ' as an original motif with no letters in it.' +
     // The correction this prompt exists to make. "Leave it out completely" was
     // read, correctly, as an instruction to describe an empty room.
     ' What you leave out is identity, not presence.' +
-    ' Never name or describe a brand, a logo, a product model or a wordmark, and do not use any proper name anywhere in your answer.' +
+    ' Never name a brand, a product model or a wordmark, and do not use any proper name anywhere in your answer.' +
     ' A person in a reference is recorded only as a figure: their scale in the frame, their distance, their posture,' +
     ' the kind of act the space is arranged around, and how a body catches this light.' +
     ' Never their face, hair, age, wardrobe, or anything that would identify them, and never as a particular person -' +
@@ -310,9 +426,22 @@ function sceneBody(req: AnalyzeRequest): string {
     ' a reflection with nobody outside it, or a cast shadow is a thing in the environment: describe it in the set, not as a figure.' +
     ' Where several people appear, only the one the composition is built around is the figure;' +
     ' the rest are crowd, and belong in the set with everything else.' +
-    ' A product, garment or mark staged in a reference is a visitor: leave the object itself out,' +
+    // Its shadow and reflection go with it: a row of shadows left behind by
+    // bottles that were taken away drew as shadows cast by nothing.
+    ' A product, garment or mark staged in a reference is a visitor: leave the object itself out, with its shadow and its reflection,' +
     ' but keep what it tells you about the place - the surface it sat on, the scale it implies, how densely the space is dressed.' +
-    ' Where several references are attached, the world is what they share; whatever appears in only one of them is a visitor.' +
+    ' Nor does a figure carry one: describe their pose with empty hands, never as holding, offering, wearing or using it.' +
+    // "The world is what they share" collapsed complementary references to
+    // their intersection: a stone set, a striped light and sculptural letters
+    // came back as stone alone, and the order of the pictures made no
+    // difference to it (battery 2026-09-23). They were chosen together.
+    ' Where several references are attached, they were chosen together to describe one world.' +
+    ' Build it from what they share, then add what each one brings that the others do not contradict -' +
+    ' a material, a light, a colour, a graphic device, a piece of lettering - until the world holds all of it:' +
+    ' a detail is not a visitor because only one reference shows it.' +
+    ' Where they truly disagree - two different places, or two palettes or lights that cannot share one frame -' +
+    ' follow the place most of them support, or else the one that shows the most of a place, and never blend them into something none of them is;' +
+    ' say in "coverage" what you left out.' +
     ' Use no placeholders of any kind.' +
     ` ${OUT_FILE} must be a JSON object with exactly these keys:` +
     ' "name": two or three words a person would call this place, such as "Wet Basalt Shore";' +
@@ -402,7 +531,7 @@ function parsePresenter(req: AnalyzeRequest, o: Record<string, unknown>): ParseR
       identityNotes: cap(identityNotes, 900),
       negativeConstraints: list(o.negativeConstraints, 6, 160),
       suitableCategories: pick(o.suitableCategories, req.vocabulary?.categories, 6),
-      coverage: list(o.coverage, 2, 160),
+      coverage: sentences(o.coverage, 2, 240),
       // Non-blocking, like scene's `camera`: a model that omits or fumbles
       // these must not burn the single retry that exists for a broken contract.
       ...optional('facial', cap(str(o.facial), 300)),
@@ -455,9 +584,10 @@ function parseScene(req: AnalyzeRequest, o: Record<string, unknown>): ParseResul
   const camera = cap(str(o.camera), 200);
   // Non-blocking, exactly like `camera`: a model that omits or fumbles these
   // must not burn the single retry that exists for a broken contract.
-  const figure = oneLine(o.figure, 120);
+  const figure = oneLine(o.figure, 160);
   // A treatment without a figure describes nothing, so it never survives alone.
-  const figureTreatment = figure ? oneLine(o.figureTreatment, 160) : '';
+  // Longer than the figure's role, because the treatment's detail is the point.
+  const figureTreatment = figure ? oneLine(o.figureTreatment, 240) : '';
   return {
     ok: true,
     draft: {
@@ -473,7 +603,7 @@ function parseScene(req: AnalyzeRequest, o: Record<string, unknown>): ParseResul
       camera: camera || undefined,
       figure: figure || undefined,
       figureTreatment: figureTreatment || undefined,
-      coverage: list(o.coverage, 2, 160),
+      coverage: sentences(o.coverage, 2, 240),
     },
   };
 }
@@ -492,9 +622,30 @@ const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 function oneLine(v: unknown, max: number): string {
   const one = str(v).replace(/\s+/g, ' ');
   if (!one || /\{[^}]*\}/.test(one)) return '';
-  return cap(one, max);
+  if (one.length <= max) return one;
+  // Cut at the last clause, else the last whole word, never mid-word: nine
+  // readings in a battery of forty reached the draw as "limbs spre" and "a
+  // dispensing gestur", and the clause that ran over was the pose around a
+  // product ("arms gathered around a precarious stack").
+  const cut = one.slice(0, max);
+  const clause = Math.max(cut.lastIndexOf(','), cut.lastIndexOf(';'));
+  if (clause > max / 2) return cut.slice(0, clause).trim();
+  return (/\s/.test(one[max] ?? '') ? cut : cut.replace(/\s+\S*$/, '')).replace(/[\s,;:-]+$/, '');
 }
 const cap = (v: string, max: number): string => (v.length > max ? v.slice(0, max).trim() : v);
+
+/**
+ * Sentences a person reads in the conversation, cut the way `oneLine` cuts: a
+ * coverage note clipped at 160 characters mid-word used to reach the screen as
+ * "their shared world is chiefly directional light an".
+ */
+function sentences(v: unknown, max: number, each: number): string[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((x) => oneLine(x, each))
+    .filter(Boolean)
+    .slice(0, max);
+}
 
 function list(v: unknown, max: number, each: number): string[] {
   if (!Array.isArray(v)) return [];

@@ -2,9 +2,10 @@
  * The Question: one thing Scenri asks, and the shape of its answer.
  *
  * A conversational surface in Scenri is a transcript of turns, and the turns
- * a person can act on are questions. Five kinds: a sentence, one choice out of
+ * a person can act on are questions. Six kinds: a sentence, one choice out of
  * a few (or several at once, or a few rows answered together), a row of
- * swatches, photographs, and a decision. Every question has a stable id, which
+ * swatches, photographs, a picture picked out of a library the flow searches
+ * and pages, and a decision. Every question has a stable id, which
  * is what a flow keys its state on; nothing is ever keyed on a turn's position
  * or its words.
  *
@@ -121,6 +122,13 @@ export type Question =
       kind: 'swatches';
       /** What is being asked about, one row of it. */
       row: SwatchRow;
+      /**
+       * Shown as a wrapping grid rather than a scrolling strip.
+       *
+       * A strip is right for a row read in sequence. Worlds are the one set
+       * that has to be seen together; everything after them stays a strip.
+       */
+      layout?: 'grid';
       /** A quiet way past this one. */
       skip?: string;
       /** A way to say it in words instead, which hands the answer to the composer. */
@@ -142,6 +150,43 @@ export type Question =
       submit: string;
       /** A quiet way back to describing someone instead, before any photo is filed. */
       back?: string;
+      /** What the empty well says: what to drop, and how. The flow's words, since only it knows what the pictures are of. */
+      drop?: { label: string; hint: string };
+      /**
+       * A quiet other way in, under the well: a link, never a second well.
+       * The well is what this question is for; this is for the person who
+       * has no file but has something else to start from. The flow decides
+       * when it stands (before anything is added, say).
+       */
+      instead?: string;
+      /**
+       * Whether that way exists is not known yet: it holds its place, unseen
+       * and unreachable, so its arrival moves nothing under it.
+       */
+      insteadWaiting?: boolean;
+    })
+  | (QuestionBase & {
+      kind: 'pick';
+      /**
+       * Pictures to pick one from, out of a library the flow owns: it
+       * searches, pages and answers, and this only shows what it is handed.
+       * Each has its own id, never its picture, since two can share one.
+       */
+      items: PickItem[];
+      /** The id picked, when the question is open again from its answer. */
+      given?: string;
+      /** A field that narrows the library, with what it holds now. */
+      search?: { label: string; value: string };
+      /** More are there: they are asked for (`more`) as the list is scrolled to its end. */
+      more?: boolean;
+      /** The library is being read (a search or the next page). */
+      loading?: boolean;
+      /** What an empty result says. */
+      empty?: string;
+      /** What a screen reader is told once a search has settled: how many there are. */
+      status?: string;
+      /** A quiet way back to where this question was opened from. */
+      back?: string;
     })
   | (QuestionBase & {
       kind: 'confirm';
@@ -154,6 +199,8 @@ export type Question =
        * than a line of talk.
        */
       quote?: string;
+      /** What the quoted words are, over them. */
+      quoteLabel?: string;
       /** A way to say something instead of deciding, which hands the composer this question. */
       describe?: string;
       /** A way to answer with a picture of the thing, in the same row as the words. */
@@ -171,6 +218,22 @@ export type PhotosAction =
   | { type: 'attest'; checked: boolean }
   | { type: 'reject' }
   | { type: 'submit' }
+  | { type: 'back' }
+  /** The quiet other way in, under the well. */
+  | { type: 'instead' };
+
+/** One picture on offer in a pick question: its own id, its picture, and what it is called. */
+export interface PickItem {
+  id: string;
+  hash: string;
+  alt: string;
+}
+
+/** What a pick block can do; the flow owns the library and answers each. */
+export type PickAction =
+  | { type: 'pick'; id: string }
+  | { type: 'query'; text: string }
+  | { type: 'more' }
   | { type: 'back' };
 
 export type Answer =
@@ -180,6 +243,7 @@ export type Answer =
   | { kind: 'swatches'; picks: Record<string, string> }
   | { kind: 'skip' }
   | { kind: 'photos'; action: PhotosAction }
+  | { kind: 'pick'; action: PickAction }
   | { kind: 'confirm'; id: string };
 
 /** A turn in the transcript: yours, Scenri's, or a question. */
@@ -219,6 +283,8 @@ export type Turn =
       current?: boolean;
       /** The picture can be put back as it was, one to one. */
       restore?: { view: string; hash: string };
+      /** The picture can be drawn again: a scene's example, which nobody approves one by one. */
+      retry?: string;
     }
   | { kind: 'question'; question: Question };
 

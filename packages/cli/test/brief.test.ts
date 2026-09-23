@@ -125,6 +125,117 @@ describe('compileBrief', () => {
     expect(r.prompt).toContain('Disregard any product, bottle, package, or brand name');
   });
 
+  // A packshot fills its own frame, so the picture says nothing about size.
+  // A hand-made product used to carry no words about it either, and came out
+  // armchair-sized (2026-09-22).
+  it('every product is told it is a real object at its real size, and made to read by the camera', () => {
+    const plain = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, mkCtx());
+    expect(plain.prompt).toContain('It is a real object: keep it at its true real-world size');
+    expect(plain.prompt).toContain('never by being enlarged beyond its real size');
+    // still named once: the size line points at it, it never names it again
+    expect(plain.prompt.match(/House Blend/g)).toHaveLength(1);
+
+    const brand = brandWith(productHash);
+    (brand.products[0] as any).description = 'A 250 g bag of whole-bean coffee';
+    const described = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand }));
+    expect(described.prompt).toContain('What this object physically is: A 250 g bag of whole-bean coffee.');
+    expect(described.prompt).not.toContain('It is a real object');
+
+    (brand.products[0] as any).dimensions = '20 cm tall';
+    const measured = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ brand }));
+    expect(measured.prompt).toContain('Its real-world size is 20 cm tall');
+    expect(measured.prompt).not.toContain('It is a real object');
+    expect(measured.prompt.match(/never by being enlarged/g)).toHaveLength(1);
+  });
+
+  // 2026-09-23: a phone and a laptop came back as their packshots stood in the
+  // room, with the photo's flat light, its lit screen pasted flat and its
+  // front-and-back pair repeated (4 of 4, on Codex as on the test engine).
+  it('lights a glossy product as a campaign hero, its screen off, and shows it once', () => {
+    const alone = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, mkCtx());
+    expect(alone.prompt).toContain('Where it has glass, a screen, polished metal or a glossy finish');
+    expect(alone.prompt).toContain('switched off whatever its product photo shows');
+    expect(alone.prompt).toContain('this shot contains exactly one of it');
+    expect(alone.prompt).toContain('the camera comes low and close');
+    // a presenter's shot keeps the light but not the product's camera
+    const withSomeone = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'text', v: ' with ' },
+          { t: 'product', id: 'p1' },
+        ],
+      },
+      mkCtx(),
+    );
+    expect(withSomeone.prompt).toContain('Where it has glass');
+    expect(withSomeone.prompt).not.toContain('the camera comes low and close');
+    const edit = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, ctx({ mode: 'edit' }));
+    expect(edit.prompt).not.toContain('Where it has glass');
+    const nothing = compileBrief({ tokens: [{ t: 'text', v: 'a quiet stone room' }] }, mkCtx());
+    expect(nothing.prompt).not.toContain('Where it has glass');
+  });
+
+  // A screen shows an attached picture only when a product rides and the words
+  // bring the picture into the sentence; the model reads what they ask for.
+  it('says what a screen displays only when the words put a picture beside a product', () => {
+    const tokens = [
+      { t: 'text' as const, v: 'Show ' },
+      { t: 'ref' as const, imageHash: refHash },
+      { t: 'text' as const, v: ' on the screen of ' },
+      { t: 'product' as const, id: 'p1' },
+    ];
+    const screen = compileBrief({ tokens }, mkCtx());
+    expect(screen.prompt).toContain('the screen is on and shows it');
+    expect(screen.prompt).toContain('never add a screen to a product that has none');
+    // a mockup or browser window around the picture is not carried onto the product
+    expect(screen.prompt).toContain('only what that screen shows goes onto this one');
+    // a phone design on a wide screen becomes the desktop app, not the phone app stretched
+    expect(screen.prompt).toContain('its navigation in a sidebar or top bar');
+    const chipAlone = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'ref', imageHash: refHash },
+        ],
+      },
+      mkCtx(),
+    );
+    expect(chipAlone.prompt).not.toContain('the screen is on and shows it');
+    const noProduct = compileBrief({ tokens: tokens.filter((t) => t.t !== 'product') }, mkCtx());
+    expect(noProduct.prompt).not.toContain('the screen is on and shows it');
+    const edit = compileBrief({ tokens }, ctx({ mode: 'edit' }));
+    expect(edit.prompt).not.toContain('the screen is on and shows it');
+    // a refine that names a picture for a screen swaps what the screen shows, and nothing else
+    expect(edit.prompt).toContain('that screen now shows that image and nothing of what it showed before');
+    const plainEdit = compileBrief({ tokens: [{ t: 'text', v: 'warmer light' }] }, ctx({ mode: 'edit' }));
+    expect(plainEdit.prompt).not.toContain('that screen now shows');
+  });
+
+  // 2026-09-22: "rests on, hangs from, is worn by or is held by something
+  // real" went to every product shot, and a loft shot of a sneaker with nobody
+  // attached came back with a man in the armchair wearing it.
+  it('never offers a product to be worn or held when nobody is attached to do it', () => {
+    const alone = compileBrief({ tokens: [{ t: 'product', id: 'p1' }] }, mkCtx());
+    // 2026-09-23: "rests on a real surface" stood every product upright in the
+    // middle of the set, a catalogue picture in an art-directed world (Tony);
+    // it is held the way the world holds its own things, grounded where they are
+    expect(alone.prompt).toContain('This is a campaign image, not a catalogue picture');
+    expect(alone.prompt).toContain('resting where they rest, floating only where they float');
+    expect(alone.prompt).not.toMatch(/\b(worn|held|wear|hold)\b/i);
+    const withSomeone = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'text', v: ' with ' },
+          { t: 'product', id: 'p1' },
+        ],
+      },
+      mkCtx(),
+    );
+    expect(withSomeone.prompt).toContain('it is worn, held or placed the way an object of its size and use is');
+  });
+
   // A catalog scene carries no figure of its own. With nobody attached the
   // compiler names the role it is leaving empty rather than letting the prose
   // invent someone; with a presenter it says nothing here, because the guards
@@ -249,7 +360,48 @@ describe('compileBrief', () => {
       ctx(),
     );
     expect(r.attachments.map((a) => a.role)).toEqual(['reference']);
-    expect(r.prompt).toContain('Match the composition, lighting and treatment');
+    // words beside the chip say what it is for; with none, the old meaning
+    expect(r.prompt).toContain('like this the attached image');
+    expect(r.prompt).toContain('where they do not say what it is for, match its composition, lighting and treatment');
+  });
+
+  // 2026-09-23: "Show [img] on the phone's screen" compiled to "Show on the
+  // phone's screen" and the picture went out as a style reference, so the
+  // screen came back black (0 of 4). The chip keeps its words; alone, nothing
+  // about it changes.
+  it('keeps a picture chip in the sentence when words stand beside it, and alone says what it always did', () => {
+    const said = compileBrief(
+      {
+        tokens: [
+          { t: 'text', v: 'Show ' },
+          { t: 'ref', imageHash: refHash },
+          { t: 'text', v: ' on its screen' },
+        ],
+      },
+      ctx(),
+    );
+    expect(said.prompt).toContain('Show the attached image on its screen');
+    expect(said.prompt).toContain("The attached image is used the way this shot's words use it");
+    const alone = compileBrief({ tokens: [{ t: 'ref', imageHash: refHash }] }, ctx());
+    expect(alone.prompt).toContain('Match the composition, lighting and treatment of the attached reference.');
+    expect(alone.prompt).not.toContain('the attached image');
+  });
+
+  it('numbers the chips when two pictures are in the sentence', () => {
+    const two = core.images.save(Buffer.from('second-reference'));
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'text', v: 'Show ' },
+          { t: 'ref', imageHash: refHash },
+          { t: 'text', v: ' on the laptop and use ' },
+          { t: 'ref', imageHash: two },
+          { t: 'text', v: ' only for colour' },
+        ],
+      },
+      ctx(),
+    );
+    expect(r.prompt).toContain('Show attached image 1 on the laptop and use attached image 2 only for colour');
   });
 
   it('format sets dimensions, last one wins', () => {
@@ -1395,6 +1547,8 @@ describe('compileBrief: a world built around a figure', () => {
               ...base,
               preview: `asset:${core.images.save(Buffer.from('scene-plate'))}`,
               refs: [{ file: `asset:${productHash}` }],
+              // the plate rides for a treatment, the thing its prose cannot carry
+              figureTreatment: 'the face entirely covered in overlapping printed stickers',
               ...over,
             }
           : undefined,
@@ -1416,12 +1570,61 @@ describe('compileBrief: a world built around a figure', () => {
     expect(scene[0].essential).toBeFalsy();
   });
 
+  // A figure with nothing done to it is a role and a pose, and words carry
+  // both. Sent as a picture, its one pose became every presenter shot's pose
+  // and a portrait came back full length (battery 2026-09-23).
+  it('sends no picture for a figure with no treatment: the role is said in words', () => {
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      refd({ figureTreatment: undefined }),
+    );
+    expect(r.attachments.map((a) => a.role)).not.toContain('scene');
+    expect(r.prompt).toContain('This world is built around one figure');
+    expect(r.prompt).not.toContain("the scene's own photograph");
+  });
+
   it('sends nothing when the scene is only an environment', () => {
     const r = compileBrief(
       { tokens: [{ t: 'template', id: base.id }] },
       refd({ figure: undefined, figureTreatment: undefined }),
     );
     expect(r.attachments.map((a) => a.role)).not.toContain('scene');
+  });
+
+  /**
+   * The battery's arm, and the proof it is only that.
+   *
+   * `SCENRI_SCENE_REFS=n` is how one scene is measured at several reference
+   * counts against the same words. Unset it changes nothing, which every test
+   * above this one is already asserting; set, it sends the scene's own
+   * pictures whatever the scene is and whoever is attached.
+   */
+  it("sends as many of the scene's own pictures as the battery seam asks for", () => {
+    const plain = { figure: undefined, figureTreatment: undefined };
+    expect(
+      compileBrief({ tokens: [{ t: 'template', id: base.id }] }, refd(plain)).attachments.map((a) => a.role),
+    ).not.toContain('scene');
+
+    process.env.SCENRI_SCENE_REFS = '2';
+    try {
+      const r = compileBrief({ tokens: [{ t: 'template', id: base.id }] }, refd(plain));
+      const scene = r.attachments.filter((a) => a.role === 'scene');
+      // the drawn plate first, then the uploads, and never more than asked
+      expect(scene).toHaveLength(2);
+      expect(scene.every((a) => !a.essential)).toBe(true);
+    } finally {
+      process.env.SCENRI_SCENE_REFS = undefined;
+      delete process.env.SCENRI_SCENE_REFS;
+    }
+
+    expect(
+      compileBrief({ tokens: [{ t: 'template', id: base.id }] }, refd(plain)).attachments.map((a) => a.role),
+    ).not.toContain('scene');
   });
 
   it('sends nothing on a refinement, where the source frame already holds the world', () => {
@@ -1489,7 +1692,12 @@ describe('compileBrief: a world built around a figure', () => {
         },
         ctx({ templateById: (id: string) => (id === base.id ? { ...base, ...scene } : undefined) }),
       );
-    const withPlate = withPresenter({ preview: `asset:${plate}`, refs: [{ file: `asset:${productHash}` }] });
+    const sticker = 'the face entirely covered in overlapping printed stickers';
+    const withPlate = withPresenter({
+      preview: `asset:${plate}`,
+      refs: [{ file: `asset:${productHash}` }],
+      figureTreatment: sticker,
+    });
     const scene = withPlate.attachments.filter((a) => a.role === 'scene');
     expect(scene).toHaveLength(1);
     expect(scene[0].hash).toBe(plate);
@@ -1497,7 +1705,7 @@ describe('compileBrief: a world built around a figure', () => {
     // The raw upload may be a full-bleed photograph of a real person nobody
     // chose: a competing identity in the payload. Without a plate the scene
     // degrades to prose rather than ship a face.
-    const withoutPlate = withPresenter({ refs: [{ file: `asset:${productHash}` }] });
+    const withoutPlate = withPresenter({ refs: [{ file: `asset:${productHash}` }], figureTreatment: sticker });
     expect(withoutPlate.attachments.map((a) => a.role)).not.toContain('scene');
     expect(withoutPlate.prompt).not.toContain("the scene's own photograph");
     // quiet degrade: never tell someone their scene was left out
@@ -1546,8 +1754,11 @@ describe('compileBrief: a world built around a figure', () => {
 
   // The 2026-08 leak: the scene photograph showed a staged demo object and the
   // prose guards only disowned "the scene direction" — the words, never the
-  // picture. The picture gets its own disowning, and it names the replacements.
-  it('tells the model the scene photograph stages stand-ins, and who replaces them', () => {
+  // picture. The picture gets its own disowning, and it names who replaces the
+  // figure. Only the figure: 2026-09-22, "any prop is a stand-in ... at the
+  // placement and scale the photograph demonstrates" sized a sneaker to a
+  // loft's armchair and took its place.
+  it('tells the model the scene photograph is the world: its figure a stand-in, its props only set', () => {
     const r = compileBrief(
       {
         tokens: [
@@ -1560,8 +1771,13 @@ describe('compileBrief: a world built around a figure', () => {
     );
     expect(r.attachments.map((a) => a.role)).toContain('scene');
     expect(r.prompt).toContain("One attached reference is the scene's own photograph");
-    expect(r.prompt).toContain('The product in the scene photograph is not in this shot');
-    expect(r.prompt).toContain('Any person in the scene photograph lends their role, never their face');
+    expect(r.prompt).toContain('none of them stands in for anything attached to this shot');
+    expect(r.prompt).toContain('Nothing in the scene photograph is this product or measures its size');
+    expect(r.prompt).toContain('The person in the scene photograph is a stand-in for the attached presenter');
+    expect(r.prompt).toContain('lend their role, never their face');
+    expect(r.prompt).not.toMatch(/stand-in's position|placement and scale the scene photograph/);
+    // a figure-led plate is its figure's framing, so it is not told to reframe
+    expect(r.prompt).not.toContain('It is not the shot to copy');
     // The prose guards keep their rank; the photo guard is the most specific
     // word and comes after them, and after the figure directives it must not
     // argue with.
@@ -1596,8 +1812,8 @@ describe('compileBrief: a world built around a figure', () => {
       },
       refd(),
     );
-    expect(personOnly.prompt).toContain('Any person in the scene photograph');
-    expect(personOnly.prompt).not.toContain('The product in the scene photograph');
+    expect(personOnly.prompt).toContain('The person in the scene photograph is a stand-in');
+    expect(personOnly.prompt).not.toContain('Nothing in the scene photograph is this product');
     const both = compileBrief(
       {
         tokens: [
@@ -1608,8 +1824,31 @@ describe('compileBrief: a world built around a figure', () => {
       },
       refd(),
     );
-    expect(both.prompt).toContain('The product in the scene photograph is not in this shot');
-    expect(both.prompt).toContain('Any person in the scene photograph');
+    expect(both.prompt).toContain('Nothing in the scene photograph is this product or measures its size');
+    expect(both.prompt).toContain('The person in the scene photograph is a stand-in');
+  });
+
+  it('a picture of a place with no figure is the world, never the shot to copy', () => {
+    // only the battery seam sends one today; what it is told is the same rule
+    process.env.SCENRI_SCENE_REFS = '1';
+    try {
+      const r = compileBrief(
+        {
+          tokens: [
+            { t: 'product', id: 'p1' },
+            { t: 'template', id: base.id },
+          ],
+        },
+        refd({ figure: undefined, figureTreatment: undefined, subject: 'either' }),
+      );
+      expect(r.attachments.map((a) => a.role)).toContain('scene');
+      expect(r.prompt).toContain('none of them stands in for anything attached to this shot');
+      expect(r.prompt).toContain('It is not the shot to copy');
+      expect(r.prompt).toContain('at its own real-world size');
+      expect(r.prompt).not.toContain('stand-in for the attached presenter');
+    } finally {
+      delete process.env.SCENRI_SCENE_REFS;
+    }
   });
 
   it('keeps quiet about the photograph on an edit, where none is sent', () => {

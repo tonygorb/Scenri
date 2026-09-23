@@ -80,6 +80,7 @@ export function Transcript({
   onDescribe,
   onAttachFiles,
   onRestore,
+  onRetry,
   onShow,
 }: {
   turns: Turn[];
@@ -107,6 +108,8 @@ export function Transcript({
 
   /** A picture from before, put back on its view. */
   onRestore?: (view: string, hash: string) => void;
+  /** A picture drawn again, by the name its turn carries. */
+  onRetry?: (view: string) => void;
 
   /** Put a picture's view on the stage, from the picture itself. */
   onShow?: (view: string) => void;
@@ -391,8 +394,13 @@ export function Transcript({
   })();
   // The newest turn stays in view, except while an answer is being changed:
   // then the reader is with that answer, and the bottom is not the point.
+  // Nor while a search field in the conversation is being typed in: its
+  // results grow and shrink under it, and the field the person is typing in
+  // must not move out from under their hands.
   useLayoutEffect(() => {
     if (!pinned.current || changing) return;
+    const here = document.activeElement;
+    if (here instanceof HTMLInputElement && here.type === 'search' && box.current?.contains(here)) return;
     const parent = scrollingNow();
     if (parent) parent.scrollTop = parent.scrollHeight;
   });
@@ -462,6 +470,42 @@ export function Transcript({
   // brought into view by the shortest move that shows it, once, when it has
   // taken its place. Nothing else moves the reader.
   const openKey = turns.length && turns[turns.length - 1].kind === 'question' ? turnKey(turns[turns.length - 1]) : null;
+
+  /**
+   * A new question on the floor after a press. The control that was pressed
+   * went with its question, and the keyboard fell to the page or the frame, so
+   * every next answer began again from the close button, 6 to 12 Tabs away. It
+   * lands on the new question as a group (never on one of its controls, which
+   * carry tooltips), so the next Tab is its first answer. Only focus that was
+   * lost is moved: a person typing, or tabbing through the conversation,
+   * keeps their place.
+   */
+  const floor = useRef<string | null>(openKey);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (changing || !el || openKey === floor.current) return;
+    const here = document.activeElement;
+    // lost: on nothing, fallen to a container that holds the conversation, or
+    // still on the pressed control of a question that has just been answered
+    // (an answered question becomes its answer, so any question but the open
+    // one is on its way out)
+    const was = here?.closest('.sc-convo-turn')?.getAttribute('data-turn');
+    const lost =
+      !here ||
+      here === document.body ||
+      (here !== el && here.contains(el)) ||
+      (!!was && was.startsWith('q:') && was !== openKey);
+    if (!openKey || !lost) {
+      floor.current = openKey;
+      return;
+    }
+    // it can arrive a beat after its key does: until it stands, try again on the next render
+    const q = turnNode(el, openKey)?.querySelector<HTMLElement>('.sc-convo-q:not([hidden])');
+    if (!q) return;
+    floor.current = openKey;
+    q.focus({ preventScroll: true });
+  });
+
   const followed = useRef<string | null>(openKey);
   // the question that stood open when an answer was opened again: back the
   // same, it is not new, and the reader stays with the answer they changed
@@ -610,6 +654,8 @@ export function Transcript({
           current={t.current}
           restore={t.restore}
           onRestore={onRestore}
+          retry={t.retry}
+          onRetry={onRetry}
           onShow={onShow}
         />,
       );

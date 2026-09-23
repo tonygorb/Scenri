@@ -1,9 +1,27 @@
 import { CaretLeft, CaretRight, Check, Warning } from '@phosphor-icons/react';
-import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { imgUrl, thumbUrl } from '../../api.js';
 import { elapsedLabel } from '../../tasks.js';
-import type { StripItem, StudioView, Take } from './presenterStudioRules.js';
 import { StageEmpty } from './StageEmpty.js';
+
+/** One picture a subject has worn, numbered in the order it landed. */
+export interface StageTake {
+  n: number;
+  hash: string;
+  current: boolean;
+}
+
+/** One tile in the strip under the well. */
+export interface StageStripItem<V extends string = string> {
+  view: V;
+  label: string;
+  state: 'approved' | 'current' | 'todo' | 'stale';
+  hash: string | undefined;
+  photo: boolean;
+  drawing: boolean;
+  approved: boolean;
+  error: boolean;
+}
 
 /**
  * The picture, and the views under it.
@@ -16,7 +34,7 @@ import { StageEmpty } from './StageEmpty.js';
  * A candidate over a picture that stands carries a Compare press that shows
  * the one it would replace, in the same well, at the same size.
  */
-export function StudioStage({
+export function StudioStage<V extends string = string>({
   hash,
   alt,
   drawing,
@@ -28,6 +46,7 @@ export function StudioStage({
   takes,
   onTake,
   empty,
+  glyph,
 }: {
   /** The frame on the stage; none draws the empty well. */
   hash?: string;
@@ -36,17 +55,19 @@ export function StudioStage({
   drawing: boolean;
   /** When the current step started, for the clock. */
   since?: string;
-  items: StripItem[];
-  onPick?: (view: StudioView) => void;
+  items: StageStripItem<V>[];
+  onPick?: (view: V) => void;
   compare?: { on: boolean; toggle: () => void };
   /** What is being drawn, in words, for the pill on the stage. */
   doing?: string;
   /** The pictures this view has worn, when it has worn more than one. */
-  takes?: Take[];
+  takes?: StageTake[];
   /** Put one of them back on the view. */
   onTake?: (hash: string) => void;
   /** What the stage says while it is waiting for its first picture. */
   empty?: { lead: string; hint?: string };
+  /** The empty sign's glyph. */
+  glyph: ReactNode;
 }) {
   const now = useNow(drawing);
   // The well keeps the picture it is showing until the next one is decoded, and
@@ -132,7 +153,7 @@ export function StudioStage({
             />
           ) : (
             <span className="sc-pstudio-well-blank">
-              {!drawing && <StageEmpty lead={empty?.lead} hint={empty?.hint} />}
+              {!drawing && <StageEmpty glyph={glyph} lead={empty?.lead} hint={empty?.hint} />}
             </span>
           )}
           {/* Waiting reads as one thing everywhere in Scenri: the same gold
@@ -161,7 +182,7 @@ export function StudioStage({
               >
                 <CaretLeft size={13} weight="bold" />
               </button>
-              <span className="sc-pstudio-vers-n">
+              <span className="sc-pstudio-vers-n" aria-live="polite">
                 Version {looking?.n ?? 1} of {list.length}
               </span>
               <button

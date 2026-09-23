@@ -330,25 +330,35 @@ describe('the later tasks', () => {
     expect(presenterMoment({ onPage: true, studio: { open: 'source' } })?.id).toBe('start');
   });
 
-  it('scene: the way there, then start one, then the dialog', () => {
-    expect(sceneMoment({ dialogOpen: false })).toBeNull();
-    expect(sceneMoment({ heading: true, dialogOpen: false })).toMatchObject({
+  it('scene: the way there, then start one, then the studio, which is quiet but for two words', () => {
+    expect(sceneMoment({ studio: null })).toBeNull();
+    expect(sceneMoment({ heading: true, studio: null })).toMatchObject({
       id: 'go',
       point: '[data-guide="nav.scenes"]',
       title: COPY.sceneGo.title,
     });
-    expect(sceneMoment({ onPage: true, dialogOpen: false })).toMatchObject({
+    expect(sceneMoment({ onPage: true, studio: null })).toMatchObject({
       id: 'new',
       point: '[data-guide="library.new"]',
       title: COPY.sceneNew.title,
     });
-    expect(sceneMoment({ dialogOpen: true })).toMatchObject({
+    // the studio wins over the library page underneath it
+    expect(sceneMoment({ onPage: true, studio: { open: 'source' } })).toMatchObject({
+      id: 'start',
       voice: 'ask',
-      shell: '.sc-newdlg-layer',
-      point: '.sc-newdlg',
-      title: COPY.sceneMake.title,
+      shell: '.sc-pstudio',
+      point: '.sc-pstudio [data-turn="q:source"] .sc-convo-ask',
+      title: COPY.sceneStart.title,
     });
-    expect(COPY.sceneMake.body).toMatch(/Name it/);
+    expect(sceneMoment({ studio: { open: 'agree-0' } })).toMatchObject({
+      id: 'words',
+      voice: 'ask',
+      title: COPY.sceneWords.title,
+    });
+    // the rows explain themselves, and so do Use and Try again
+    expect(sceneMoment({ studio: { open: 'light' } })).toMatchObject({ voice: 'quiet' });
+    expect(sceneMoment({ studio: { open: 'decide-1' } })).toMatchObject({ id: 'use', voice: 'quiet' });
+    expect(COPY.sceneNew.body).not.toMatch(/Name it/);
   });
 
   it('product: the way there, then start one, then the dialog', () => {
@@ -688,12 +698,13 @@ describe('the copy', () => {
   it('never repeats the title of the surface a note sits in', () => {
     for (const c of [
       COPY.product,
-      COPY.sceneMake,
+      COPY.sceneStart,
+      COPY.sceneWords,
       COPY.productMake,
       COPY.presenterFace,
       COPY.presenterSave,
       COPY.intro,
     ])
-      expect(`${c.title} ${c.body}`).not.toMatch(/New product|New scene/);
+      expect(`${c.title} ${c.body}`).not.toMatch(/New product|New scene|Create scene/);
   });
 });

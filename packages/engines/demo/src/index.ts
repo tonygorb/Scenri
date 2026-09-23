@@ -33,6 +33,8 @@ export interface DemoOptions {
   order?: 'request' | 'reverse';
   /** A slot that fails, reported the way codex reports a partial run. */
   failSlot?: number;
+  /** Every edit fails, the way a refused edit comes back from a real engine. */
+  failEdit?: boolean;
   /**
    * How many reference images it claims to read. Zero by default, which is
    * the truth: it reads none. A browser test that casts a presenter needs an
@@ -52,6 +54,7 @@ export function demoOptionsFromEnv(env: Record<string, string | undefined>): Dem
   if (env.SCENRI_DEMO_ORDER === 'reverse') out.order = 'reverse';
   const fail = Number(env.SCENRI_DEMO_FAIL_SLOT);
   if (env.SCENRI_DEMO_FAIL_SLOT && Number.isInteger(fail) && fail >= 0) out.failSlot = fail;
+  if (env.SCENRI_DEMO_FAIL_EDIT === '1') out.failEdit = true;
   const refs = Number(env.SCENRI_DEMO_REFS);
   if (env.SCENRI_DEMO_REFS && Number.isInteger(refs) && refs > 0) out.maxReferenceImages = refs;
   return out;
@@ -158,7 +161,13 @@ export function createDemoEngine(saveImage: (buf: Buffer) => string, opts: DemoO
       if (done.length === count) return { images, costUsd: 0 };
       return { images, costUsd: 0, raw: { requested: count, variantIndexes: done, partialFailures: failures } };
     },
-    async edit(req: EditRequest): Promise<EngineResult> {
+    // Paced and stoppable like a draw, so a change a person stops half way can
+    // be driven from a spec: an edit that answered at once, whatever the signal
+    // said, left Stop during a scene change untestable.
+    async edit(req: EditRequest, signal?: AbortSignal): Promise<EngineResult> {
+      if (opts.delayMs) await sleep(opts.delayMs, signal);
+      if (signal?.aborted) throw Object.assign(new Error('generation cancelled'), { name: 'AbortError' });
+      if (opts.failEdit) throw new Error('demo: the edit was refused');
       const colors = paletteOf(req);
       // The requested canvas, when the server states one: a hardcoded square
       // made every demo edit of a non-square shot fail the aspect check.
@@ -187,7 +196,7 @@ export function createDemoEngine(saveImage: (buf: Buffer) => string, opts: DemoO
  * `usable` files the first as the portrait and the rest as ordinary snaps, and
  * `unusable` rejects every one of them, which is the case worth testing.
  */
-export function createDemoAnalyzer(opts: { photos?: 'usable' | 'unusable' } = {}) {
+export function createDemoAnalyzer(opts: { photos?: 'usable' | 'unusable'; readMs?: number; fail?: boolean } = {}) {
   const rejects = opts.photos === 'unusable';
   const filing = (i: number) => ({
     index: i,
@@ -197,17 +206,93 @@ export function createDemoAnalyzer(opts: { photos?: 'usable' | 'unusable' } = {}
   });
   return {
     isAvailable: async () => ({ ok: true }),
-    analyze: async (req: { imagePaths: string[] }) => ({
-      promptName: 'a person in their thirties',
-      presentation: 'woman' as const,
-      descriptor: 'Demo read',
-      ageRange: '30s',
-      hair: 'dark hair',
-      identityNotes: 'read by the demo analyzer, which never looked at anything',
-      negativeConstraints: [] as string[],
-      suitableCategories: [] as string[],
-      coverage: [] as string[],
-      photos: req.imagePaths.map((_, i) => filing(i)),
-    }),
+    analyze: async (
+      req: {
+        kind?: 'presenter' | 'scene';
+        imagePaths: string[];
+        instruction?: string;
+        correction?: string;
+        priorDraft?: unknown;
+      },
+      signal?: AbortSignal,
+    ) => {
+      // A read takes time, so the states a person sits in while it runs can be driven.
+      if (opts.readMs) await sleep(opts.readMs, signal);
+      if (signal?.aborted) throw new Error('cancelled');
+      // a read that comes back refused, the way codex does when it is signed out
+      if (opts.fail) throw new Error('demo: the read was refused');
+      if (req.kind === 'scene') return demoSceneRead(req);
+      return {
+        promptName: 'a person in their thirties',
+        presentation: 'woman' as const,
+        descriptor: 'Demo read',
+        ageRange: '30s',
+        hair: 'dark hair',
+        identityNotes: 'read by the demo analyzer, which never looked at anything',
+        negativeConstraints: [] as string[],
+        suitableCategories: [] as string[],
+        coverage: [] as string[],
+        photos: req.imagePaths.map((_, i) => filing(i)),
+      };
+    },
+    /**
+     * A size that looked at nothing: the one written in the name when there
+     * is one ("Ring 2 cm"), else a small bottle's, so a spec can drive both
+     * the two-step draw and the ordinary one from a product's name alone.
+     */
+    measure: async (req: { imagePath: string; name: string }, signal?: AbortSignal) => {
+      if (opts.readMs) await sleep(opts.readMs, signal);
+      if (signal?.aborted) throw new Error('cancelled');
+      if (opts.fail) throw new Error('demo: the read was refused');
+      const m = /(\d+(?:\.\d+)?)\s*cm\b/i.exec(req.name);
+      return m ? { text: `about ${m[1]} cm`, largestCm: Number(m[1]) } : { text: 'about 10 cm tall', largestCm: 10 };
+    },
+  };
+}
+
+/**
+ * A scene read that looked at nothing, shaped like the real one.
+ *
+ * Deterministic from the words, so a spec can say what it expects: the place is
+ * the person's words (or a fixed shore when there are only pictures), a change
+ * is added to the words before it and leaves the rest alone, "portrait" or
+ * "figure" in the words makes the world figure-led, and two pictures or more
+ * earn the note a real read gives when they may show different places.
+ */
+function demoSceneRead(req: { imagePaths: string[]; instruction?: string; correction?: string; priorDraft?: unknown }) {
+  const prior = (req.priorDraft ?? null) as Record<string, any> | null;
+  const words = (req.instruction ?? '').trim();
+  const said = words || 'A demo shore of wet dark stone, read from the pictures alone';
+  const title = said
+    .split(/[.,;:!?]/)[0]
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(' ');
+  const name = prior?.name ?? title.charAt(0).toUpperCase() + title.slice(1);
+  const change = req.correction?.trim();
+  const stop = (t: string) => `${t.replace(/[.\s]+$/, '')}.`;
+  const prompt = prior && change ? `${stop(String(prior.prompt))} ${stop(change)}` : stop(said);
+  const lighting =
+    prior && change && /light|warm|cool|dusk|dawn|morning|night|dark|bright/i.test(change)
+      ? `Demo light, changed: ${change}`
+      : (prior?.lighting ?? 'Demo light, low and warm from the left');
+  const figured =
+    /portrait|figure/i.test(`${words} ${change ?? ''}`) && !/no (people|person|figure)/i.test(change ?? '');
+  return {
+    name: String(name).slice(0, 60),
+    promptName: String(name).slice(0, 60),
+    lighting,
+    description: 'A place read by the demo analyzer.',
+    subject: 'either' as const,
+    prompt,
+    camera: prior?.camera ?? 'eye level, a fifty millimetre feel',
+    ...(figured || (prior?.figure && !/no (people|person|figure)/i.test(change ?? ''))
+      ? { figure: prior?.figure ?? 'one person at mid-ground, at human scale' }
+      : {}),
+    keywords: ['demo'],
+    collections: [] as string[],
+    verticals: [] as string[],
+    coverage: req.imagePaths.length > 1 ? ['These may be two different places. Say which one this is.'] : [],
   };
 }

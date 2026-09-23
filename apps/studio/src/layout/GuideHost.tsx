@@ -75,6 +75,7 @@ export function GuideHost() {
   const hub = !!useMatch(P.hub);
   const shot = useMatch(P.hubShot)?.params.shotId ?? null;
   const studio = !!useMatch(P.presenterStudio);
+  const sceneStudio = !!useMatch(P.sceneStudio);
   const onProducts = !!useMatch(P.products);
   const onScenes = !!useMatch(P.scenes);
   const onPresenters = !!useMatch(P.presenters);
@@ -263,9 +264,9 @@ export function GuideHost() {
     });
   else if (task === 'scene')
     moment = sceneMoment({
-      heading: headingFor(task) && !onScenes,
-      onPage: onScenes && !modal && newKind !== 'scene',
-      dialogOpen: newKind === 'scene',
+      heading: headingFor(task) && !onScenes && !sceneStudio,
+      onPage: onScenes && !sceneStudio && !modal,
+      studio: sceneStudio ? facts.studio : null,
     });
   else if (task === 'product')
     moment = productMoment({
@@ -447,7 +448,7 @@ export function GuideHost() {
     const want: GuideTaskId | null =
       doneShot && startsHere('refine', s)
         ? 'refine'
-        : newKind === 'scene' && startsHere('scene', s)
+        : sceneStudio && startsHere('scene', s)
           ? 'scene'
           : newKind === 'product' && startsHere('product', s)
             ? 'product'
@@ -457,7 +458,7 @@ export function GuideHost() {
     if (!want || autoStarted.current.has(want)) return;
     autoStarted.current.add(want);
     void guideIntent({ start: { task: want, brandId: brand.id } });
-  }, [guide, active, shot, engaged, recent, newKind, studio, brand.id]);
+  }, [guide, active, shot, engaged, recent, newKind, studio, sceneStudio, brand.id]);
 
   // Announced once per moment into a region that was already there, unless the
   // card took focus, which reads itself out.

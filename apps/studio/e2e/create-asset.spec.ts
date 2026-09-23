@@ -177,14 +177,14 @@ test.describe('adding to a brand', () => {
     await expect(page.locator('.sc-start-n')).toHaveCount(3);
   });
 
-  test('a row goes straight to that kind, with no chooser in between', async ({ page }) => {
+  test('a row goes straight to that kind, with no chooser in between: a scene to its studio', async ({ page }) => {
     await page.goto(`/${slug}/presenters`);
     const before = page.url();
 
     await trigger(page).click();
     await page.locator('.sc-start-row', { hasText: 'Scene' }).click();
-    await expect(page).toHaveURL(/\?new=scene$/);
-    await expect(page.getByRole('heading', { name: 'New scene' })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/${slug}/scenes/new/[a-f0-9]+$`));
+    await expect(page.getByRole('dialog', { name: 'Create scene' })).toBeVisible();
 
     await page.goBack();
     await expect(page).toHaveURL(before);
@@ -222,8 +222,8 @@ test.describe('adding to a brand', () => {
   });
 
   test('a deep link lands straight in the flow, with no arrow back to a chooser nobody saw', async ({ page }) => {
-    await page.goto(`/${slug}/products?new=scene`);
-    await expect(page.getByRole('heading', { name: 'New scene' })).toBeVisible();
+    await page.goto(`/${slug}/scenes?new=product`);
+    await expect(page.getByRole('heading', { name: 'New product' })).toBeVisible();
     await expect(page.locator('.sc-newdlg-back')).toHaveCount(0);
   });
 
@@ -258,30 +258,34 @@ test.describe('adding to a brand', () => {
     }
   });
 
-  test('each flow says what pressing its button will actually do', async ({ page }) => {
+  test('the product form says what its button will do, and the studios put nothing under the composer', async ({
+    page,
+  }) => {
     await page.goto(`/${slug}?new=product`);
-    // the free one says so, where the other two say what they will spend
     await expect(page.locator('.sc-dlg-foot')).toContainText('No preview');
 
-    await page.goto(`/${slug}?new=scene`);
-    await expect(page.locator('.sc-dlg-foot')).not.toHaveText('');
+    // the studios say what cannot be done in the conversation, where it matters
+    await page.goto(`/${slug}/scenes/new`);
+    await expect(page.locator('.sc-pstudio')).toBeVisible();
+    await expect(page.locator('.sc-pstudio-foot .sc-dlg-foot')).toHaveCount(0);
 
     await page.goto(`/${slug}/presenters/new`);
-    await expect(page.locator('.sc-dlg-foot')).not.toHaveText('');
+    await expect(page.locator('.sc-pstudio')).toBeVisible();
+    await expect(page.locator('.sc-pstudio-foot .sc-dlg-foot')).toHaveCount(0);
   });
 
   test('the primary explains itself rather than going quietly inert', async ({ page }) => {
-    await page.goto(`/${slug}?new=scene`);
+    await page.goto(`/${slug}?new=product`);
     const go = page.locator('.sc-dlg-go');
     await expect(go).toHaveAttribute('aria-disabled', 'true');
-    await expect(go).toHaveAttribute('title', /a name, and a photo or a line of direction/i);
+    await expect(go).toHaveAttribute('title', /\w/);
     // aria-disabled, not the native attribute: the explanation stays reachable
     await expect(go).not.toHaveAttribute('disabled', /.*/);
   });
 
   test('focus is trapped in the dialog and handed back to the trigger on close', async ({ page }) => {
     await trigger(page).click();
-    await page.locator('.sc-start-row', { hasText: 'Scene' }).click();
+    await page.locator('.sc-start-row', { hasText: 'Product' }).click();
     await expect(dialog(page)).toBeVisible();
 
     // Painted is not focused: the dialog takes focus on mount, and a Tab sent
@@ -302,7 +306,7 @@ test.describe('adding to a brand', () => {
   });
 
   test('a facet chip that is on looks on', async ({ page }) => {
-    await page.goto(`/${slug}?new=scene`);
+    await page.goto(`/${slug}?new=product`);
     const chip = page.locator('.sc-assetform-facets .sc-chip').first();
     const off = await chip.evaluate((el) => getComputedStyle(el).backgroundColor);
     await chip.click();

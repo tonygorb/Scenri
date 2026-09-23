@@ -2,7 +2,15 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createCore, matchesQuery, searchTerms, type Core, type FeedNode, type FeedSearchTerm } from '../src/index.js';
+import {
+  createCore,
+  matchesQuery,
+  nameMatches,
+  searchTerms,
+  type Core,
+  type FeedNode,
+  type FeedSearchTerm,
+} from '../src/index.js';
 import { openDb } from '../src/db.js';
 
 /**
@@ -172,6 +180,21 @@ describe('feedPage', () => {
   });
 });
 
+describe('a name answering a search', () => {
+  const t = (s: string) => searchTerms(s)[0];
+  it('answers one or two letters at the start of a word, and three anywhere', () => {
+    // "x" is inside every shot Codex made; it is the start of none of its words
+    expect(nameMatches('Codex CLI', t('x'))).toBe(false);
+    expect(nameMatches('Codex CLI', t('c'))).toBe(true);
+    expect(nameMatches('Codex CLI', t('cl'))).toBe(true);
+    expect(nameMatches('QA Single Shot Vase', t('V'))).toBe(true);
+    expect(nameMatches('QA Single Shot Vase', t('as'))).toBe(false);
+    expect(nameMatches('Codex CLI', t('dex'))).toBe(true);
+    expect(nameMatches('Rosé-Gold Tin', t('go'))).toBe(true);
+    expect(nameMatches('50% Off', t('%'))).toBe(true);
+  });
+});
+
 describe('feed search', () => {
   it('matches a substring of the prompt, ignoring case and accents, with every term required', () => {
     const rose = shot({ prompt: 'Soft ROSÉ linen under north light' });
@@ -184,26 +207,76 @@ describe('feed search', () => {
     expect(q('linen shelf')).toEqual([]);
   });
 
-  it('matches a plural query against its singular, and lets a term under three letters through', () => {
+  it('matches a plural query against its singular, and narrows from the first letter', () => {
     const a = shot({ prompt: 'one serum on marble' });
-    const b = shot({ prompt: 'plain', brief: { tokens: [{ t: 'product', id: 'p-cup' }] } });
+    const b = shot({
+      prompt: 'Cup plain',
+      brief: {
+        tokens: [
+          { t: 'product', id: 'p-cup' },
+          { t: 'text', v: ' plain ' },
+        ],
+      },
+    });
+    const c = shot({ prompt: 'ONLINE: a 50% linen_blend' });
     const q = (s: string, tokenIds: string[] = []) =>
       allPages({ terms: searchTerms(s).map((t) => ({ ...t, tokenIds, engineIds: [] })) });
+    const ids = (s: string, tokenIds: string[] = []) =>
+      q(s, tokenIds)
+        .map((n) => n.id)
+        .sort();
     expect(q('serums').map((n) => n.id)).toEqual([a.id]);
-    // below the trigram index a term filters no text: the feed narrows on the third letter
-    expect(
-      q('on')
-        .map((n) => n.id)
-        .sort(),
-    ).toEqual([a.id, b.id].sort());
-    expect(
-      q('zz')
-        .map((n) => n.id)
-        .sort(),
-    ).toEqual([a.id, b.id].sort());
+    // under the trigram index a term is read off each shot's text, at the start
+    // of a word, whatever its case
+    expect(ids('on')).toEqual([a.id, c.id].sort());
+    expect(q('er')).toEqual([]);
+    expect(ids('ma')).toEqual([a.id]);
+    expect(ids('ON')).toEqual([a.id, c.id].sort());
+    expect(ids('p')).toEqual([b.id]);
+    expect(q('zz')).toEqual([]);
     expect(q('on marble').map((n) => n.id)).toEqual([a.id]);
-    // but it still finds what the caller matched by name
+    // the wildcards of the pattern are only characters
+    expect(q('%').map((n) => n.id)).toEqual([c.id]);
+    expect(q('_').map((n) => n.id)).toEqual([c.id]);
+    expect(q('a_')).toEqual([]);
+    // and it still finds what the caller matched by name
     expect(q('cu', ['p-cup']).map((n) => n.id)).toEqual([b.id]);
+  });
+
+  it('matches one or two letters at the start of a word in any script, never inside one', () => {
+    const he = shot({ prompt: 'QA עברית סרום, (בוקר) café-noir' });
+    const q = (s: string) =>
+      allPages({ terms: searchTerms(s).map((t) => ({ ...t, tokenIds: [], engineIds: [] })) }).map((n) => n.id);
+    expect(q('ע')).toEqual([he.id]);
+    expect(q('ס')).toEqual([he.id]);
+    // after a bracket, a hyphen: still the start of a word
+    expect(q('ב')).toEqual([he.id]);
+    expect(q('no')).toEqual([he.id]);
+    // inside a word, in either script: nothing
+    expect(q('ר')).toEqual([]);
+    expect(q('af')).toEqual([]);
+  });
+
+  it('finds what the person wrote, never what the compiler wrote around it', () => {
+    const cup = { t: 'product', id: 'p-cup' };
+    const typed = shot({
+      prompt: 'Jade Cup on the kitchen table in a walled courtyard of weathered limestone. Never render any text.',
+      brief: { tokens: [cup, { t: 'text', v: ' on the kitchen table ' }] },
+    });
+    const bare = shot({ prompt: 'Jade Cup in a walled courtyard of weathered limestone.', brief: { tokens: [cup] } });
+    // a shot from before briefs has only its prompt, and is still found by it
+    const legacy = shot({ prompt: 'a limestone courtyard at noon' });
+    const q = (s: string, tokenIds: string[] = []) =>
+      allPages({ terms: searchTerms(s).map((t) => ({ ...t, tokenIds, engineIds: [] })) })
+        .map((n) => n.id)
+        .sort();
+    expect(q('kitchen')).toEqual([typed.id]);
+    expect(q('k')).toEqual([typed.id]);
+    expect(q('limestone')).toEqual([legacy.id]);
+    expect(q('render')).toEqual([]);
+    expect(q('j')).toEqual([]);
+    // the product is still found by its name, which the caller resolved
+    expect(q('j', ['p-cup'])).toEqual([typed.id, bare.id].sort());
   });
 
   it('matches template field values and colour names the brief carries', () => {
@@ -461,5 +534,32 @@ describe('what boot and the root cost on a big brand', () => {
         .items.map((n) => n.id),
     ).toEqual(['late-row']);
     expect(a.id).toBeTruthy();
+  });
+
+  it('writes its triggers again when the rule changes, so new shots are indexed by the new rule', () => {
+    const raw = openDb(home);
+    // a library indexed under the old rule: its trigger read the whole prompt
+    raw.exec(`DROP TRIGGER nodes_search_ai;
+      DROP TRIGGER nodes_search_au;
+      CREATE TRIGGER nodes_search_ai AFTER INSERT ON nodes BEGIN
+        INSERT INTO nodes_fts(rowid, text) VALUES (new.rowid, new.prompt);
+      END;
+      CREATE TRIGGER nodes_search_au AFTER UPDATE OF prompt, brief ON nodes BEGIN
+        DELETE FROM nodes_fts WHERE rowid = old.rowid;
+        INSERT INTO nodes_fts(rowid, text) VALUES (new.rowid, new.prompt);
+      END;
+      UPDATE settings SET value = 'v1' WHERE key = 'search_index';`);
+    raw.close();
+    openDb(home).close();
+    const typed = shot({
+      prompt: 'compiled courtyard prose',
+      brief: { tokens: [{ t: 'text', v: ' by the window ' }] },
+    });
+    const q = (s: string) =>
+      core.store
+        .feedPage(projectId, { lens: 'all', terms: [{ ...searchTerms(s)[0], tokenIds: [], engineIds: [] }] })
+        .items.map((n) => n.id);
+    expect(q('window')).toEqual([typed.id]);
+    expect(q('courtyard')).toEqual([]);
   });
 });

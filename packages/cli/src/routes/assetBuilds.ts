@@ -27,6 +27,7 @@ import {
   type AssetBuildDeps,
   type CustomScene,
 } from '../customAssets.js';
+import type { SceneExample } from '../assetRecords.js';
 import { presenterCropMode } from '../presenterRepair.js';
 import { releasePresenter } from '../presenterDrafts.js';
 import { brandContext, COST_PROBE, pickBuildEngine } from './shared.js';
@@ -39,6 +40,10 @@ export interface BuildRouteDeps {
   presenters: Presenter[];
   /** So a picture let go of also leaves the thumbnail cache. */
   thumbs?: { evict: (hash: string) => void };
+  /** A scene's place picture changed: a run drawing the earlier one stops (sceneExamples.ts). */
+  onPlaceChanged?: (brandId: string, sceneId: string) => void;
+  /** A scene was deleted: its examples stop and their pictures go. */
+  onSceneGone?: (brandId: string, sceneId: string, examples: SceneExample[]) => void;
 }
 
 /**
@@ -63,6 +68,7 @@ export function makeBuildDeps(deps: BuildRouteDeps): {
     engine: await buildEngine(),
     analyzer: (await analyzer?.isAvailable())?.ok ? analyzer : null,
     brandContext: (brandId: string) => brandContext(core, brandId),
+    ...(deps.onPlaceChanged ? { onPlaceChanged: deps.onPlaceChanged } : {}),
     // The filters that already exist, so a new asset lands under a tab a
     // person can actually click rather than inventing a category of one.
     vocabulary: { ...facetsOf(scenes), categories: presenterFacetsOf(presenters).categories },
@@ -314,6 +320,7 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     } catch (err: any) {
       return reply.status(err.statusCode ?? 500).send({ error: err.message });
     }
+    if (built.scene.preview !== base.preview) deps.onPlaceChanged?.(brand.id, id);
     return {
       scene: built.scene,
       warnings: lintSceneProse(brand.json, built.scene),
@@ -324,7 +331,8 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     const brand = brandOr404(req, reply);
     if (!brand) return;
     const id = String((req.params as any).sceneId);
-    if (!brandScenes(brand.json).some((s) => s.id === id)) return reply.status(404).send({ error: 'scene not found' });
+    const gone = brandScenes(brand.json).find((s) => s.id === id);
+    if (!gone) return reply.status(404).send({ error: 'scene not found' });
     // A read still running over this scene would otherwise finish into a record
     // that is gone. Stopped first, so no analyzer call is spent on it.
     cancelSceneBuilds(brand.id, id);
@@ -336,6 +344,8 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     } catch (err: any) {
       return reply.status(err.statusCode ?? 500).send({ error: err.message });
     }
+    // Its examples stop drawing, and their pictures, the scene's alone, go.
+    deps.onSceneGone?.(brand.id, id, gone.examples ?? []);
     // The brand comes back, the way every scene and presenter mutation answers,
     // so the wall, the page, the caret menu and the chips all stop showing it in
     // the same commit. Answering `{ok:true}` alone left the card on the wall
@@ -391,17 +401,10 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     if (!scene) return reply.status(404).send({ error: 'scene not found' });
     const engine = await buildEngine();
     if (!engine) return reply.status(400).send({ error: 'no engine here can draw a preview' });
-    // Same evidence the build draws from: this frame has the whole reference
-    // budget to itself and produces a card, never a customer's shot.
-    const refs = ((scene as CustomScene).refs ?? [])
-      .map((r) => String(r?.file ?? '').replace(/^asset:/, ''))
-      .filter((h) => /^[a-f0-9]{32}$/.test(h) && core.images.has(h))
-      .slice(0, engine.capabilities().maxReferenceImages)
-      .map((h) => core.images.pathFor(h));
+    // Drawn from its words alone, like every scene preview (scenePreviewPrompt).
     const request = {
       prompt: scenePreviewPrompt(scene as CustomScene),
       brand: brandContext(core, brand.id),
-      ...(refs.length ? { referenceImages: refs, referenceRoles: refs.map(() => 'scene' as const) } : {}),
       width: scene.width,
       height: scene.height,
       count: 1,

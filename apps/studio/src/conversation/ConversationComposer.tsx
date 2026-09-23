@@ -73,6 +73,7 @@ export function ConversationComposer({
   error,
   focusKey,
   onStop,
+  stopping,
   onAttach,
   onAttachFiles,
   attachLabel,
@@ -101,8 +102,16 @@ export function ConversationComposer({
   error?: string | null;
   /** Changes when the field should take the keyboard: a new text question arrived. */
   focusKey?: string;
-  /** While it works: stop what is drawing. The pill says Stop and does that. */
+  /**
+   * Work is running that can be stopped. The pill says Stop and does that
+   * whenever the line is empty, even while a question can still be answered in
+   * it (a name typed while the picture draws): the moment something is typed
+   * the pill sends it instead. Stop used to hide for as long as the name
+   * question held the line, which on a first draw was the whole draw.
+   */
   onStop?: () => void;
+  /** A Stop was pressed and has not landed yet: the pill says so and cannot be pressed twice. */
+  stopping?: boolean;
   /** An attach button beside the pill: pressed, it is the flow's to answer. */
   onAttach?: () => void;
   /** Or the same button opens the file chooser and hands the pictures over. */
@@ -161,20 +170,26 @@ export function ConversationComposer({
     onSend(value);
   };
   const line = error ? { text: error, tone: 'alert' as const } : { text: scope?.hint ?? hint ?? '', tone: scope?.tone };
-  const reason = working ? null : disabled && why ? why : empty && !disabled ? 'Nothing typed yet.' : null;
+  // Stop while there is nothing to send; Send the moment there is.
+  const stopMode = !!onStop && (working || (!value.trim() && !ready));
+  const reason = working || stopMode ? null : disabled && why ? why : empty && !disabled ? 'Nothing typed yet.' : null;
   const pill = (
     <button
       type="button"
       className="sc-convo-send"
-      aria-disabled={(working ? !onStop : off || empty) || undefined}
-      aria-busy={working || undefined}
-      data-stop={(working && !!onStop) || undefined}
-      onClick={working ? onStop : send}
+      aria-disabled={(stopMode ? !!stopping : working || off || empty) || undefined}
+      aria-busy={working || stopMode || undefined}
+      data-stop={stopMode || undefined}
+      onClick={stopMode ? (stopping ? undefined : onStop) : working ? undefined : send}
     >
       <span className="sc-convo-send-ico">
-        {working ? <span className="sc-convo-spin" aria-hidden="true" /> : <ArrowUp size={17} weight="bold" />}
+        {working || stopMode ? (
+          <span className="sc-convo-spin" aria-hidden="true" />
+        ) : (
+          <ArrowUp size={17} weight="bold" />
+        )}
       </span>
-      {working ? (onStop ? 'Stop' : 'Working') : action}
+      {stopMode ? (stopping ? 'Stopping' : 'Stop') : working ? 'Working' : action}
     </button>
   );
   return (

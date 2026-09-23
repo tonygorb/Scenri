@@ -61,8 +61,8 @@ test('Learn counts only the lessons taken, whatever the library holds, and start
   await page.keyboard.press('Escape');
 
   // Opening a surface is not asking to be guided on an install that was not new.
-  await page.goto(`/${s}?new=scene`);
-  await expect(page.getByRole('dialog', { name: 'New scene' })).toBeVisible();
+  await page.goto(`/${s}/scenes/new`);
+  await expect(page.getByRole('dialog', { name: 'Create scene' })).toBeVisible();
   await expectNoGuide(page);
   expect(((await (await page.request.get('/api/guide')).json()) as { active: unknown }).active).toBeNull();
 });

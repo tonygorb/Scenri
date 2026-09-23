@@ -51,6 +51,35 @@ describe('buildBrandBundle', () => {
     expect(names(zip)).toContain('README.txt');
   });
 
+  it("leaves a scene's examples out, so no picture of a demo product travels as the brand's", async () => {
+    const place = core.images.save(Buffer.from('place'));
+    const hero = core.images.save(Buffer.from('hero'));
+    const brand = core.store.createBrand({
+      specVersion: '0.1',
+      meta: { name: 'Acme' },
+      scenes: [
+        {
+          id: 'us-hall',
+          name: 'Hall',
+          lighting: 'Side light',
+          description: 'A hall.',
+          subject: 'either',
+          prompt: 'A concrete hall.',
+          width: 1024,
+          height: 1280,
+          preview: `asset:${place}`,
+          examples: [{ role: 'hero', file: `asset:${hero}`, from: `asset:${place}`, product: 'aurelia-amber-serum' }],
+        },
+      ],
+    } as any);
+    const zip = await open((await buildBrandBundle(core, brand.id)).zip);
+    const json = await doc(zip);
+    expect(json.scenes[0].preview).toBe('assets/scenes/us-hall-preview.png');
+    expect(json.scenes[0].examples).toBeUndefined();
+    expect(names(zip).filter((n) => n.startsWith('assets/'))).toEqual(['assets/scenes/us-hall-preview.png']);
+    expect(validateBrand(json).valid).toBe(true);
+  });
+
   it('writes a shared image once and points both refs at it', async () => {
     const shared = core.images.save(Buffer.from('one-and-the-same'));
     const brand = core.store.createBrand({

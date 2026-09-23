@@ -1,33 +1,35 @@
-import { test, expect, type Page } from '@playwright/test';
-import { isolate } from './harness.js';
+import { expect, type Locator, type Page, test } from '@playwright/test';
+import { arrived, isolate } from './harness.js';
+import { finishSceneSet } from './realtime.js';
 
 /**
- * One scene creation attempt owns one draft.
+ * The scene studio, driven the way a person drives it.
  *
- * The draft lifecycle was rebuilt once already, for presenters, after somebody
- * cast a presenter from the previous presenter's face: it used to sit in
- * localStorage for thirty days and was never spent on success. It is
- * sessionStorage now, keyed by brand and kind, and a landed build clears it.
+ * A scene is made in the presenter's conversation, asking about a place: two
+ * doors (pictures, or a few questions), the world then light then staging,
+ * the place read back
+ * as the words every shot will be told, one Draw, then Use, Try again or a
+ * sentence that changes one thing. Every test here presses the controls; the
+ * API is only read, to check what was saved.
  *
- * `create-presenter.spec.ts` proves all of that for presenters and
- * `create-product.spec.ts` for products. Nothing proved it for scenes, which is
- * the kind where a leak costs most: a scene's Direction and its references are
- * read as art direction, so last scene's words quietly refilling this one does
- * not just look untidy, it changes what gets built.
- *
- * So this file walks the scene flow on the same terms, and states the contract
- * in both directions — what must survive a dismissal, and what must not survive
- * a creation.
- *
- * With no analyzer behind the harness a scene built from photographs alone
- * fails by design, so every attempt here that is meant to succeed carries a
- * line of Direction too.
+ * The demo engine draws (SCENRI_DEMO_BUILDS with five reference slots), the
+ * demo analyzer reads (SCENRI_DEMO_ANALYSIS), and both take time
+ * (SCENRI_DEMO_DELAY_MS, SCENRI_DEMO_READ_MS), because the states a person sits
+ * in while a draw runs are where the defects live.
  */
+isolate({
+  env: {
+    SCENRI_DEMO_BUILDS: '1',
+    SCENRI_DEMO_REFS: '5',
+    SCENRI_DEMO_DELAY_MS: '1500',
+    SCENRI_DEMO_ANALYSIS: 'usable',
+    SCENRI_DEMO_READ_MS: '300',
+  },
+  // the place in use needs something to stand in it: Scenri's library, downloaded
+  library: true,
+});
 
-// A Scenri of this file's own, on an empty home, seeded from scratch.
-isolate();
-
-/** Two 1x1 PNGs that differ, so the content-addressed store keeps them apart. */
+/** Two small PNGs that differ, so the content-addressed store keeps them apart. */
 const A = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64',
@@ -36,10 +38,21 @@ const B = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   'base64',
 );
+const C = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGM4oaEBAALUARkFUI+kAAAAAElFTkSuQmCC',
+  'base64',
+);
+const D = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGPQWGADAAH4AQV029onAAAAAElFTkSuQmCC',
+  'base64',
+);
+const E = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGOQszkBAAGeASMRId8XAAAAAElFTkSuQmCC',
+  'base64',
+);
 const file = (name: string, buffer: Buffer) => ({ name, mimeType: 'image/png', buffer });
 
-/** The brand the app resolves "/" to, whatever this machine happens to hold. */
-async function currentBrand(p: Page): Promise<string> {
+async function brandSlug(p: Page): Promise<string> {
   await p.goto('/');
   await p.waitForURL((u) => {
     const seg = u.pathname.split('/').filter(Boolean);
@@ -48,280 +61,653 @@ async function currentBrand(p: Page): Promise<string> {
   return decodeURIComponent(new URL(p.url()).pathname.split('/')[1]);
 }
 
-const dlg = (p: Page) => p.locator('.sc-newdlg');
-const refs = (p: Page) => p.locator('.sc-assetform-ref');
-const nameField = (p: Page) => p.getByLabel('Name', { exact: true });
-const direction = (p: Page) => p.getByLabel('Direction', { exact: true });
-const picker = (p: Page) => p.locator('.sc-newdlg input[type="file"]').first();
-/**
- * Whether the brand document holds a scene by that name yet.
- *
- * The brand is the truth about what exists, and asking it by name is exact:
- * these tests share one server, so counting cards would make each of them
- * depend on how far the others had got.
- */
-async function sceneLanded(p: Page, name: string): Promise<boolean> {
-  const brands = await (await p.request.get('/api/brands')).json();
-  return brands.some((b: { json?: { scenes?: { name?: string }[] } }) =>
-    (b.json?.scenes ?? []).some((sc) => sc?.name === name),
-  );
+const studio = (p: Page) => p.locator('.sc-pstudio[data-kind="scene"]');
+const turn = (p: Page, key: string) => studio(p).locator(`[data-turn="${key}"]`);
+/** The question the conversation is on: the last one asked. */
+const openQ = (p: Page) => studio(p).locator('[data-turn^="q:"]').last();
+const line = (p: Page) => studio(p).locator('.sc-pstudio-foot textarea');
+
+async function say(p: Page, text: string) {
+  await line(p).fill(text);
+  await line(p).press('Enter');
 }
 
-const open = async (p: Page, slug: string) => {
-  await p.goto(`/${slug}/scenes?new=scene`);
-  await expect(p.getByRole('heading', { name: 'New scene' })).toBeVisible();
-};
+async function tap(q: Locator, name: string) {
+  await q.getByRole('button', { name, exact: true }).click();
+}
 
-/** The hash a thumbnail is showing, which is the identity the draft stores. */
-/** The hash a reference thumb shows, from either shape of the store's URL: the original or a derivative. */
-const refHash = async (p: Page, i: number): Promise<string> => {
-  const src = await refs(p).nth(i).locator('img').getAttribute('src');
-  return /\/api\/images\/([a-f0-9]{32})/.exec(src ?? '')?.[1] ?? '';
-};
+/**
+ * A place said in a sentence, with whatever it left open passed over: the
+ * follow-ups ask only what the sentence did not decide, and these specs are
+ * about what comes after the place.
+ */
+async function place(p: Page, sentence: string) {
+  await say(p, sentence);
+  // the live question, never the ghost of the one just answered (it stays, inert, for a beat)
+  const live = () => studio(p).locator('[data-turn^="q:"]:not([data-picked])').last();
+  let passed = '';
+  // at most two of the essentials and the idea: three, and one more for the read-back
+  for (let i = 0; i < 4; i++) {
+    const q = live();
+    if (passed) await expect(q).not.toHaveAttribute('data-turn', passed);
+    await expect(q).toHaveAttribute('data-turn', /^q:(world|surface|light|signature|agree-)/);
+    const id = (await q.getAttribute('data-turn')) ?? '';
+    if (id.startsWith('q:agree-')) return;
+    await tap(q, 'Leave it to the reading');
+    passed = id;
+  }
+}
 
-test.describe('a scene creation draft lives exactly as long as the attempt', () => {
-  test('a dismissed attempt is gone when you come back', async ({ page }) => {
-    const slug = await currentBrand(page);
+async function scenes(p: Page): Promise<any[]> {
+  const brands = await (await p.request.get('/api/brands')).json();
+  return brands.flatMap((b: any) => b.json?.scenes ?? []);
+}
 
-    await open(page, slug);
-    await picker(page).setInputFiles([file('yard.png', A), file('wall.png', B)]);
-    await expect(refs(page)).toHaveCount(2);
-    await nameField(page).fill('Dismissed Terrace');
-    await direction(page).fill('A stone terrace in low evening sun.');
+async function start(p: Page) {
+  const slug = await brandSlug(p);
+  await p.goto(`/${slug}/scenes/new`);
+  await arrived(p, '.sc-pstudio[data-kind="scene"]');
+  await expect(turn(p, 'q:source')).toBeVisible();
+  return slug;
+}
 
-    // Categories come from the shipped catalog rather than the brand, so the
-    // fieldset is there on a cold home too; guarded anyway, because a catalog
-    // with no verticals is a legitimate shape and not this test's subject.
-    const chip = page.locator('.sc-assetform-facets .sc-chip').first();
-    const hasFacets = (await chip.count()) > 0;
-    if (hasFacets) await chip.click();
+/** The rows a person is asked, one tap each, in the order they are asked. */
+async function guide(p: Page, picks = ['Sunlit stone', 'Travertine', 'Low golden sun', 'Vines taking over']) {
+  await tap(turn(p, 'q:source'), 'Guide me');
+  for (const [i, id] of ['world', 'surface', 'light', 'signature'].entries()) {
+    await expect(turn(p, `q:${id}`)).toBeVisible();
+    await tap(turn(p, `q:${id}`), picks[i]);
+  }
+}
 
-    // Past the 400ms debounce, so anything that wanted to write has written.
-    await page.waitForTimeout(600);
-    await page.keyboard.press('Escape');
-    await expect(dlg(page)).toHaveCount(0);
-    // leaving is allowed to just work: no "discard your work?" in the way
-    await expect(page.locator('[role="alertdialog"]')).toHaveCount(0);
+/** The read-back, and the one press that draws. */
+async function draw(p: Page) {
+  const agree = openQ(p);
+  await expect(agree).toContainText('What your shots are told');
+  await tap(agree, 'Draw the scene');
+}
 
-    // A new scene has to feel new. Nothing of the attempt that was abandoned
-    // comes back, least of all the references and the Direction, which are read
-    // as art direction and would quietly change what the next scene is built from.
-    await open(page, slug);
-    await expect(refs(page)).toHaveCount(0);
-    await expect(nameField(page)).toHaveValue('');
-    await expect(direction(page)).toHaveValue('');
-    if (hasFacets) await expect(chip).not.toHaveAttribute('aria-pressed', 'true');
+test('guided: the rows, read back as the words shots are told, drawn on a press, named while it draws, used', async ({
+  page,
+}) => {
+  // the place, then its hero (two draws) and close-up, at the demo engine's pace
+  test.setTimeout(75_000);
+  const slug = await start(page);
+  await guide(page);
+  const agree = openQ(page);
+  await expect(agree).toContainText('Here is the place, in full. Ready to draw?');
+  await expect(agree).toContainText(
+    'A niche of warm limestone and rough plaster, honed cream travertine up close, its pores and soft veins readable, low golden sun raking almost flat across the stone',
+  );
+  // the rows after the world were the world's own: its idea is a vine on its stone
+  await expect(agree).toContainText('a vine growing down the stone');
+  // nothing was drawn before the press
+  await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(0);
+  await draw(page);
+  // the name is asked while it draws, with the reader's suggestion to tap
+  await expect(turn(page, 'q:name')).toBeVisible();
+  await say(page, 'Dusk Lobby');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await expect(openQ(page)).toContainText('Here is Dusk Lobby.');
+  await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(1);
+  await tap(openQ(page), 'Use this scene');
+  // saved at once, and nothing is drawn for it: the place in use is offered
+  await expect.poll(async () => (await scenes(page)).some((s) => s.name === 'Dusk Lobby')).toBe(true);
+  await expect(turn(page, 'you:use')).toContainText('Use this scene');
+  await expect(turn(page, 'scenri:saved')).toContainText('Saved. Nothing is drawn until you ask.');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-start');
+  await expect(openQ(page)).toContainText(
+    'Show it in use? Two pictures with a Scenri demo product in the place: hero and close-up.',
+  );
+  expect((await scenes(page)).find((s) => s.name === 'Dusk Lobby').examples).toBeUndefined();
+  await tap(openQ(page), 'Draw them');
+  await expect(turn(page, 'you:set-start')).toContainText('Draw them');
+  const hero = studio(page).locator('[data-turn^="scenri:ex-hero-"]');
+  const close = studio(page).locator('[data-turn^="scenri:ex-close-"]');
+  await expect(hero).toContainText('Here is the hero.', { timeout: 30_000 });
+  await expect(close).toContainText('Here is a close-up.', { timeout: 30_000 });
+  // the stage strip is the place and its examples
+  await expect(studio(page).locator('.sc-pstudio-strip')).toContainText('The place');
+  await expect(studio(page).locator('.sc-pstudio-strip')).toContainText('Close-up');
+  // three more are offered, not drawn
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-more');
+  await expect(openQ(page)).toContainText('Add three more? Hands, another angle and a bold one.');
+  await tap(openQ(page), 'Not now');
+  await expect(turn(page, 'you:more')).toContainText('Not now');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-done');
+  await expect(openQ(page)).toContainText('Dusk Lobby is ready.');
+  await tap(openQ(page), 'Open scene');
+  await page.waitForURL(new RegExp(`/${slug}/scenes/us-`));
+  await expect(page.getByRole('heading', { level: 1, name: 'Dusk Lobby' })).toBeVisible();
+  // the page shows them, and draws nothing
+  const rail = page.locator('.sc-refset');
+  await expect(rail).toContainText('The place');
+  await expect(rail).toContainText('Hero');
+  await expect(rail).toContainText('Close-up');
+  // every role shows this place, so the page offers nothing more and draws nothing
+  await expect(page.getByRole('button', { name: /Add|Try again|Draw it in use|Draw them/ })).toHaveCount(0);
+  const saved = (await scenes(page)).find((s) => s.name === 'Dusk Lobby');
+  expect(saved.instruction).toMatch(
+    /^A niche of warm limestone and rough plaster, honed cream travertine up close, .* a vine growing down the stone/,
+  );
+  expect(saved.preview).toMatch(/^asset:[a-f0-9]{32}$/);
+  expect(saved.examples.map((e: any) => [e.role, e.from])).toEqual([
+    ['hero', saved.preview],
+    ['close', saved.preview],
+  ]);
+});
+
+test('after Use, three more on asking, and any one drawn again from beside it', async ({ page }) => {
+  // the place, then six examples one after another, then one again
+  test.setTimeout(120_000);
+  await start(page);
+  await place(page, 'A pale travertine counter by a tall window');
+  await draw(page);
+  await say(page, 'Travertine Counter');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await tap(openQ(page), 'Use this scene');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-start', { timeout: 30_000 });
+  await tap(openQ(page), 'Draw them');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-more', { timeout: 60_000 });
+  await tap(openQ(page), 'Add them');
+  await expect(turn(page, 'you:more')).toContainText('Add them');
+  // drawing: nothing is asked, and Stop is there
+  await expect(studio(page).locator('[data-turn^="scenri:ex-bold-"]')).toContainText('Here is a bold one.', {
+    timeout: 30_000,
   });
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-done');
+  const saved = () => scenes(page).then((all) => all.find((s) => s.name === 'Travertine Counter'));
+  expect((await saved()).examples.map((e: any) => e.role)).toEqual(['hero', 'close', 'hands', 'angle', 'bold']);
 
-  /**
-   * Ending the attempt on close is what makes a new scene feel new, and the
-   * price of it is the accident: an Escape aimed at something else and four
-   * uploaded photographs are gone. That is bought back after the fact rather
-   * than with a confirm on every deliberate close.
-   */
-  test('an accidental dismissal can be undone, once', async ({ page }) => {
-    const slug = await currentBrand(page);
+  // Try again beside the close-up draws that one again, and only that one. The
+  // demo engine answers the same edit with the same bytes, so the run is what
+  // is read, not the picture.
+  const run = async () => {
+    const brands = await (await page.request.get('/api/brands')).json();
+    const b = brands.find((x: any) => (x.json?.scenes ?? []).some((sc: any) => sc.name === 'Travertine Counter'));
+    const sc = b.json.scenes.find((x: any) => x.name === 'Travertine Counter');
+    return (await (await page.request.get(`/api/brands/${b.id}/scenes/${sc.id}/examples`)).json()).job;
+  };
+  const before = (await run()).id;
+  const pic = studio(page).locator('[data-turn^="scenri:ex-close-"]');
+  await pic.hover();
+  await pic.getByRole('button', { name: 'Try again' }).click();
+  await expect
+    .poll(
+      async () => {
+        const j = await run();
+        return j.id !== before && j.status === 'done' ? j.done : null;
+      },
+      { timeout: 30_000 },
+    )
+    .toEqual(['close']);
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-done', { timeout: 30_000 });
+  expect((await saved()).examples).toHaveLength(5);
+});
 
-    await open(page, slug);
-    await picker(page).setInputFiles([file('yard.png', A), file('wall.png', B)]);
-    await expect(refs(page)).toHaveCount(2);
-    await nameField(page).fill('Undo Me');
-    await direction(page).fill('A stone terrace in low evening sun.');
-    await page.waitForTimeout(600);
-    await page.keyboard.press('Escape');
+test('a name typed while the picture draws is the name, even when the picture lands before Enter', async ({ page }) => {
+  await start(page);
+  await place(page, 'A bare plaster room with one high window');
+  await draw(page);
+  await expect(turn(page, 'q:name')).toBeVisible();
+  await line(page).fill('High Window');
+  // the draw lands under the typed words, and the question on the floor changes
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await line(page).press('Enter');
+  await expect(openQ(page)).toContainText('Here is High Window.');
+  // it named the scene; it did not change it, and nothing else was drawn
+  await expect(studio(page).locator('[data-turn^="you:ask-"]')).toHaveCount(0);
+  await expect(studio(page).locator('[data-turn^="scenri:pic-"]')).toHaveCount(1);
+});
 
-    const toast = page.locator('.sc-toast', { hasText: 'Scene discarded' });
-    await expect(toast).toBeVisible();
-    await toast.getByRole('button', { name: 'Undo' }).click();
+test('a sentence that names the scene names it, at the name question or after the picture, and draws nothing', async ({
+  page,
+}) => {
+  await start(page);
+  await place(page, 'A bare plaster room with one high window');
+  await draw(page);
+  await expect(turn(page, 'q:name')).toBeVisible();
+  // said the way people say it: the name is the name, not the sentence around it
+  await say(page, 'call it High Window');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await expect(openQ(page)).toContainText('Here is High Window.');
+  // and once the picture stands, in the line that changes things
+  await say(page, 'rename it to Plaster Light');
+  await expect(openQ(page)).toContainText('Here is Plaster Light.');
+  await expect(studio(page)).toContainText('Called it Plaster Light.');
+  await expect(studio(page).locator('[data-turn^="you:ask-"]')).toHaveCount(0);
+  await expect(studio(page).locator('[data-turn^="scenri:pic-"]')).toHaveCount(1);
+});
 
-    // everything, photographs included: re-uploading is the thing this avoids
-    await expect(page.getByRole('heading', { name: 'New scene' })).toBeVisible();
-    await expect(refs(page)).toHaveCount(2);
-    await expect(nameField(page)).toHaveValue('Undo Me');
-    await expect(direction(page)).toHaveValue('A stone terrace in low evening sun.');
+test('a sentence at the first question is the place itself, and a scene saved unnamed takes the reader’s name', async ({
+  page,
+}) => {
+  await start(page);
+  await place(page, 'White cyclorama with hard flash from the left');
+  await expect(openQ(page)).toContainText(
+    // the idea it was asked for and passed: the reading is asked to invent one
+    'White cyclorama with hard flash from the left, one signature idea that makes this place unforgettable',
+  );
+  await draw(page);
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await tap(openQ(page), 'Use this scene');
+  await finishSceneSet(page);
+  await page.waitForURL(/\/scenes\/us-/);
+  expect((await scenes(page)).some((s) => s.name === 'White cyclorama with')).toBe(true);
+});
 
-    // The offer was for that one closing. Leaving again and opening the flow
-    // by hand starts from nothing, or this is the old bug wearing a button.
-    await page.keyboard.press('Escape');
-    await open(page, slug);
-    await expect(refs(page)).toHaveCount(0);
-    await expect(nameField(page)).toHaveValue('');
-    await expect(direction(page)).toHaveValue('');
+test('the picture door: pictures read into words, the reader’s note said, the pictures kept on the scene', async ({
+  page,
+}) => {
+  await start(page);
+  await tap(turn(page, 'q:source'), 'Add pictures');
+  const q = turn(page, 'q:photos');
+  await expect(q).toContainText('Add pictures of the place');
+  await q.locator('input[type="file"]').setInputFiles([file('a.png', A), file('b.png', B)]);
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(2);
+  await tap(q, 'Read them');
+  await expect(openQ(page)).toContainText('Here is the place I read in your pictures.');
+  await expect(studio(page)).toContainText('These may be two different places.');
+  await expect(line(page)).toHaveAttribute('placeholder', 'Anything to keep or ignore in them?');
+  await draw(page);
+  await say(page, 'Two Shores');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await tap(openQ(page), 'Use this scene');
+  await finishSceneSet(page);
+  await page.waitForURL(/\/scenes\/us-/);
+  const saved = (await scenes(page)).find((s) => s.name === 'Two Shores');
+  expect(saved.refs).toHaveLength(2);
+});
+
+// The four a person adds are the four that are read, drawn from and kept, in
+// the order they were added: nothing favours the first, nothing drops the
+// fourth (traced on real Codex, 2026-09-23).
+test('four pictures are read in the order they were added, and the scene keeps all four in that order', async ({
+  page,
+}) => {
+  await start(page);
+  await tap(turn(page, 'q:source'), 'Add pictures');
+  const q = turn(page, 'q:photos');
+  // the studio uploads one picture at a time, so the answers arrive in the order chosen
+  const order: string[] = [];
+  page.on('response', async (res) => {
+    if (res.url().endsWith('/api/images') && res.request().method() === 'POST') order.push((await res.json()).hash);
   });
+  await q
+    .locator('input[type="file"]')
+    .setInputFiles([file('a.png', A), file('b.png', B), file('c.png', C), file('d.png', D)]);
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(4);
+  await expect.poll(() => order.length).toBe(4);
+  expect(new Set(order).size).toBe(4);
+  const read = page.waitForRequest((r) => r.url().includes('/scene-studio/jobs') && r.method() === 'POST');
+  await tap(q, 'Read them');
+  expect((await read).postDataJSON().imageHashes).toEqual(order);
+  await draw(page);
+  await say(page, 'Four Walls');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await tap(openQ(page), 'Use this scene');
+  await finishSceneSet(page);
+  await page.waitForURL(/\/scenes\/us-/);
+  const saved = (await scenes(page)).find((s) => s.name === 'Four Walls');
+  expect(saved.refs.map((r: { file: string }) => r.file)).toEqual(order.map((h) => `asset:${h}`));
+});
 
-  test('a scene that was actually created leaves nothing behind', async ({ page }) => {
-    test.setTimeout(90_000);
-    const slug = await currentBrand(page);
+test('one picture is enough: read, drawn and kept', async ({ page }) => {
+  await start(page);
+  await tap(turn(page, 'q:source'), 'Add pictures');
+  const q = turn(page, 'q:photos');
+  await q.locator('input[type="file"]').setInputFiles([file('a.png', A)]);
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(1);
+  await tap(q, 'Read them');
+  await draw(page);
+  await say(page, 'One Wall');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await tap(openQ(page), 'Use this scene');
+  await finishSceneSet(page);
+  await page.waitForURL(/\/scenes\/us-/);
+  expect((await scenes(page)).find((s) => s.name === 'One Wall').refs).toHaveLength(1);
+});
 
-    await open(page, slug);
-    await picker(page).setInputFiles([file('yard.png', A), file('wall.png', B)]);
-    await expect(refs(page)).toHaveCount(2);
-    await nameField(page).fill('Spent Scene');
-    await direction(page).fill('A stone terrace in low evening sun.');
-    await page.locator('.sc-dlg-go').click();
-    await expect(dlg(page)).toHaveCount(0);
+// What a person actually drops on the well: too many, the same one twice, a
+// file that is not a picture, a picture that is broken. Each is said once and
+// nothing else moves.
+test('five pictures keep the first four and say so, and the same picture twice is kept once', async ({ page }) => {
+  await start(page);
+  await tap(turn(page, 'q:source'), 'Add pictures');
+  const q = turn(page, 'q:photos');
+  await q.locator('input[type="file"]').setInputFiles([file('a.png', A), file('a-again.png', A)]);
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(1);
+  await q
+    .locator('input[type="file"]')
+    .setInputFiles([file('b.png', B), file('c.png', C), file('d.png', D), file('e.png', E)]);
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(4);
+  await expect(studio(page)).toContainText('Four pictures is the most a scene is read from.');
+});
 
-    // Success is the build landing, not the job queuing: the scene does not
-    // exist until it is written, and that is the moment the draft is spent.
-    await expect.poll(() => sceneLanded(page, 'Spent Scene'), { timeout: 45_000 }).toBe(true);
+test('a file that is not a picture, or a broken one, is said and nothing else changes', async ({ page }) => {
+  await start(page);
+  await tap(turn(page, 'q:source'), 'Add pictures');
+  const q = turn(page, 'q:photos');
+  await q
+    .locator('input[type="file"]')
+    .setInputFiles([{ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('a place') }]);
+  await expect(studio(page)).toContainText('Only pictures can show a place.');
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(0);
+  await q
+    .locator('input[type="file"]')
+    .setInputFiles([file('broken.png', Buffer.from('not a picture')), file('a.png', A)]);
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(1);
+  await expect(studio(page)).toContainText('broken.png could not be added');
+});
 
-    await open(page, slug);
-    await expect(refs(page)).toHaveCount(0);
-    await expect(nameField(page)).toHaveValue('');
-    await expect(direction(page)).toHaveValue('');
-  });
+test('pictures opened again and changed, then left, are as they were, and the picture drawn from them stays', async ({
+  page,
+}) => {
+  await start(page);
+  await tap(turn(page, 'q:source'), 'Add pictures');
+  const q = turn(page, 'q:photos');
+  await q.locator('input[type="file"]').setInputFiles([file('a.png', A), file('b.png', B)]);
+  await expect(q.locator('.sc-assetform-ref img')).toHaveCount(2);
+  await tap(q, 'Read them');
+  await draw(page);
+  await say(page, 'Two Shores');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await turn(page, 'you:photos').hover();
+  await turn(page, 'you:photos').getByRole('button', { name: 'Change this answer' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Change it' }).click();
+  const reopened = turn(page, 'q:photos');
+  await expect(reopened).toHaveAttribute('data-reopened', 'true');
+  await reopened.getByRole('button', { name: 'Remove reference 1' }).click();
+  // it stays where it was asked while it changes
+  await expect(reopened.locator('.sc-assetform-ref img')).toHaveCount(1);
+  await expect(reopened).toHaveAttribute('data-reopened', 'true');
+  await reopened.getByRole('button', { name: 'Cancel' }).click();
+  await expect(turn(page, 'you:photos').locator('img')).toHaveCount(2);
+  await expect(studio(page).locator('[data-turn^="scenri:pic-"]')).toHaveCount(1);
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+});
 
-  test('a submit that fails hands the work back', async ({ page }) => {
-    const slug = await currentBrand(page);
-    await page.route('**/asset-builds', (route) =>
-      route.request().method() === 'POST'
-        ? route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"engine fell over"}' })
-        : route.continue(),
-    );
+test('a change keeps the rest, and Put back restores a whole version, words and picture', async ({ page }) => {
+  // two draws at the demo engine's pace take 18 to 22 s, around the 20 s default
+  test.setTimeout(60_000);
+  await start(page);
+  await place(page, 'A quiet concrete gallery at dusk');
+  await draw(page);
+  await say(page, 'Gallery');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:decide-1');
+  const first = await studio(page).locator('[data-turn="scenri:pic-1"] img').getAttribute('src');
+  await say(page, 'make the walls darker');
+  await expect(studio(page).locator('[data-turn="you:ask-2"]')).toContainText('make the walls darker');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:decide-2');
+  // the words carry the change, and the rest of them stand
+  await expect(openQ(page)).toContainText('A quiet concrete gallery at dusk, one signature idea');
+  await expect(openQ(page)).toContainText('make the walls darker');
+  // the line is empty again once the sentence is taken
+  await expect(line(page)).toHaveValue('');
+  // the first picture goes back on, with its own words
+  await studio(page).locator('[data-turn="scenri:pic-1"]').hover();
+  await studio(page).locator('[data-turn="scenri:pic-1"]').getByRole('button', { name: 'Put back' }).click();
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:decide-1');
+  await expect(openQ(page)).not.toContainText('make the walls darker');
+  await tap(openQ(page), 'Use this scene');
+  await finishSceneSet(page);
+  await page.waitForURL(/\/scenes\/us-/);
+  const saved = (await scenes(page)).find((s) => s.name === 'Gallery');
+  expect(first).toContain(saved.preview.slice('asset:'.length));
+});
 
-    await open(page, slug);
-    await picker(page).setInputFiles([file('yard.png', A)]);
-    await expect(refs(page)).toHaveCount(1);
-    await nameField(page).fill('Retry This Place');
-    await direction(page).fill('A stone terrace in low evening sun.');
-    await page.locator('.sc-dlg-go').click();
+test('the pencil takes an answer back and asks again from there', async ({ page }) => {
+  await start(page);
+  await tap(turn(page, 'q:source'), 'Guide me');
+  await tap(turn(page, 'q:world'), 'Sunlit stone');
+  await tap(turn(page, 'q:surface'), 'Travertine');
+  await tap(turn(page, 'q:light'), 'Low golden sun');
+  // change the world: everything asked after it is asked again
+  await turn(page, 'you:world').hover();
+  await turn(page, 'you:world').getByRole('button', { name: 'Change this answer' }).click();
+  await expect(turn(page, 'q:world')).toHaveAttribute('data-reopened', 'true');
+  await tap(turn(page, 'q:world'), 'Volcanic haze');
+  await expect(turn(page, 'you:world')).toContainText('Volcanic haze');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:surface');
+  await expect(turn(page, 'you:surface')).toHaveCount(0);
+  await expect(turn(page, 'you:light')).toHaveCount(0);
+  // nothing asks how the subject sits or where the camera stands
+  await expect(turn(page, 'you:shot')).toHaveCount(0);
+  await expect(turn(page, 'q:stage')).toHaveCount(0);
+});
 
-    // The dialog stays, says what went wrong, and keeps everything. This is the
-    // case the draft was built for, and Direction is the expensive half to retype.
-    await expect(dlg(page)).toBeVisible();
-    await expect(page.locator('.sc-newdlg-err')).toBeVisible();
-    await expect(refs(page)).toHaveCount(1);
-    await expect(nameField(page)).toHaveValue('Retry This Place');
-    await expect(direction(page)).toHaveValue('A stone terrace in low evening sun.');
-  });
+test('an answer the picture was drawn from asks before it opens, and changing it asks again from there without the old picture', async ({
+  page,
+}) => {
+  // two draws at the demo engine's pace take 18 to 22 s, around the 20 s default
+  test.setTimeout(60_000);
+  await start(page);
+  await guide(page);
+  await draw(page);
+  await say(page, 'Stone Hall');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  const pics = studio(page).locator('[data-turn^="scenri:pic-"]');
+  const pencil = async () => {
+    await turn(page, 'you:world').hover();
+    await turn(page, 'you:world').getByRole('button', { name: 'Change this answer' }).click();
+  };
+  // asked first, and keeping it changes nothing
+  await pencil();
+  const confirm = page.getByRole('alertdialog');
+  await expect(confirm).toContainText('Change this answer?');
+  await confirm.getByRole('button', { name: 'Cancel' }).click();
+  // nothing moved: the answer stands and so does the picture drawn from it
+  await expect(turn(page, 'you:world')).toContainText('Sunlit stone');
+  await expect(turn(page, 'you:light')).toContainText('Low golden sun');
+  await expect(pics).toHaveCount(1);
+  // agreed: the row opens, and a new answer asks again from there
+  await pencil();
+  await confirm.getByRole('button', { name: 'Change it' }).click();
+  await tap(turn(page, 'q:world'), 'Dark mirror');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:surface');
+  // the picture drawn from the old answers is not left standing under the new one
+  await expect(pics).toHaveCount(0);
+  await expect(studio(page).locator('.sc-pstudio-well img')).toHaveCount(0);
+  await tap(openQ(page), 'Brushed steel');
+  await tap(openQ(page), 'Pool of light');
+  await tap(openQ(page), 'Wax cascading');
+  await expect(openQ(page)).toContainText('near-black polished surface');
+  // the name given stays with the place
+  await draw(page);
+  await expect(openQ(page)).toContainText('Here is Stone Hall.');
+  await expect(pics).toHaveCount(1);
+});
 
-  test('a dismissal leaves nothing behind in another tab or another brand', async ({ page, context }) => {
-    const slug = await currentBrand(page);
+test('the keyboard goes on with the conversation: each next answer is a Tab away, not back at the close button', async ({
+  page,
+}) => {
+  await start(page);
+  await turn(page, 'q:source').getByRole('button', { name: 'Guide me', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  const world = turn(page, 'q:world').locator('.sc-convo-q');
+  await expect(world).toBeFocused();
+  // a person typing keeps their place: the line is never taken from, and the
+  // words answer the question on the floor
+  await line(page).focus();
+  await line(page).fill('a sunlit loft with brick walls');
+  await line(page).press('Enter');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:surface');
+  await expect(line(page)).toBeFocused();
+  // and the answer after it is still a Tab away, not back at the close button
+  await turn(page, 'q:surface').locator('.sc-convo-q').focus();
+  await page.keyboard.press('Tab');
+  await expect(turn(page, 'q:surface').getByRole('button', { name: 'Travertine', exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:light');
+});
 
-    // A second brand of this file's own, so the isolation is actually exercised
-    // rather than skipped on a single-brand home.
-    const made = await page.request.post('/api/brands', {
-      data: { brand: { specVersion: '0.1', meta: { name: 'Second Brand' } } },
-    });
-    expect(made.ok(), await made.text()).toBe(true);
-    const list = await (await page.request.get('/api/brands')).json();
-    const otherSlug = list.find(
-      (b: { slug: string; json: { meta?: { name?: string } } }) => b.json?.meta?.name === 'Second Brand',
-    )?.slug;
-    expect(otherSlug, 'the second brand should have a slug of its own').toBeTruthy();
+test('a sentence that answers nothing gets a line, and a request to cast someone is sent to Create', async ({
+  page,
+}) => {
+  await start(page);
+  await say(page, 'hi');
+  await expect(studio(page)).toContainText('Hello. Describe the place, or choose above.');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:source');
+  await place(page, 'A sunlit loft with brick walls');
+  await draw(page);
+  await say(page, 'Loft');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await say(page, 'add a model in a red coat');
+  await expect(studio(page)).toContainText('Add presenters and products in Create.');
+  // refused words stay in the line, to be put another way; nothing was drawn
+  await expect(line(page)).toHaveValue('add a model in a red coat');
+  await expect(studio(page).locator('[data-turn^="scenri:pic-"]')).toHaveCount(1);
+});
 
-    await open(page, slug);
-    await picker(page).setInputFiles([file('yard.png', A)]);
-    await expect(refs(page)).toHaveCount(1);
-    await nameField(page).fill('Abandoned');
-    await direction(page).fill('A stone terrace in low evening sun.');
-    await page.waitForTimeout(600);
-    await page.keyboard.press('Escape');
-    await expect(dlg(page)).toHaveCount(0);
+test('a reload comes back to the same conversation, the same question on the floor', async ({ page }) => {
+  await start(page);
+  await tap(turn(page, 'q:source'), 'Guide me');
+  await tap(turn(page, 'q:world'), 'Colour field');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:surface');
+  await page.reload();
+  await arrived(page, '.sc-pstudio[data-kind="scene"]');
+  await expect(turn(page, 'you:world')).toContainText('Colour field');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:surface');
+});
 
-    // not in the brand it was staged for
-    await open(page, slug);
-    await expect(refs(page)).toHaveCount(0);
-    await page.keyboard.press('Escape');
+test('leaving before anything is read asks first, staying hands the keyboard back, and leaving saves nothing', async ({
+  page,
+}) => {
+  const slug = await start(page);
+  const before = (await scenes(page)).length;
+  // answers only: a world tapped, the surface still being asked, nothing read yet
+  await tap(turn(page, 'q:source'), 'Guide me');
+  await tap(turn(page, 'q:world'), 'Sunlit stone');
+  await expect(turn(page, 'q:surface')).toBeVisible();
+  await line(page).focus();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('alertdialog')).toContainText('Leave this scene?');
+  // staying puts the keyboard back where it was, not on the page behind
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
+  await expect(line(page)).toBeFocused();
+  await page.keyboard.press('Escape');
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Leave' }).click();
+  await page.waitForURL(new RegExp(`/${slug}/scenes$`));
+  expect((await scenes(page)).length).toBe(before);
+  await expect(page.locator('.sc-lookcard[data-build]')).toHaveCount(0);
+});
 
-    // not in another brand, which is keyed separately
-    await open(page, otherSlug as string);
-    await expect(refs(page)).toHaveCount(0);
-    await expect(direction(page)).toHaveValue('');
-    await page.keyboard.press('Escape');
+test('a scene with anything read in it closes without asking, and waits on the wall as a draft', async ({ page }) => {
+  const slug = await start(page);
+  await place(page, 'A misty pine forest at dawn');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/);
+  const at = new URL(page.url()).pathname;
+  await line(page).focus();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await page.waitForURL(new RegExp(`/${slug}/scenes$`));
+  const card = page.locator('.sc-lookcard[data-build]').first();
+  await expect(card).toContainText('Not drawn yet');
+  await card.getByRole('link').click();
+  await page.waitForURL((u) => u.pathname === at);
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/);
+});
 
-    // and not in another tab, which has a session of its own
-    const other = await context.newPage();
-    await open(other, slug);
-    await expect(other.locator('.sc-assetform-ref')).toHaveCount(0);
-    await expect(other.getByLabel('Name', { exact: true })).toHaveValue('');
-    await other.close();
-  });
+test('a saved scene opens in the studio at its record, spending nothing, and saves in place', async ({ page }) => {
+  test.setTimeout(60_000);
+  await start(page);
+  await place(page, 'A tiled bathroom counter in soft morning light');
+  await draw(page);
+  await say(page, 'Morning Counter');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await tap(openQ(page), 'Use this scene');
+  await finishSceneSet(page);
+  await page.waitForURL(/\/scenes\/us-/);
+  const id = new URL(page.url()).pathname.split('/').pop();
+  await page.getByRole('link', { name: 'Edit scene' }).click();
+  // the conversation's own address: the bare /edit is replaced by it in the same tick
+  await page.waitForURL(new RegExp(`/scenes/${id}/edit/[a-f0-9]+$`));
+  await arrived(page, '.sc-pstudio[data-kind="scene"]');
+  await expect(studio(page)).toContainText('Here is Morning Counter, as it is saved.');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:decide-0');
+  await tap(openQ(page), 'Try again');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:decide-1');
+  await tap(openQ(page), 'Save changes');
+  // a new picture of the place, and still nothing drawn for it: offered again
+  await finishSceneSet(page);
+  await page.waitForURL(new RegExp(`/scenes/${id}$`));
+  const all = (await scenes(page)).filter((s) => s.name === 'Morning Counter');
+  expect(all).toHaveLength(1);
+  expect(all[0].examples).toBeUndefined();
+});
 
-  test('a removed reference is gone from the form and from what gets sent', async ({ page }) => {
-    const slug = await currentBrand(page);
-    let sent: { imageHashes?: string[] } | null = null;
-    await page.route('**/asset-builds', (route) => {
-      if (route.request().method() === 'POST') sent = route.request().postDataJSON();
-      return route.continue();
-    });
+test('a place drawn again leaves its set showing the earlier picture until it is asked for again', async ({ page }) => {
+  // two drawn, the place drawn again, then the two drawn again: four draws
+  test.setTimeout(150_000);
+  await start(page);
+  await place(page, 'A dark walnut shelf under a warm downlight');
+  await draw(page);
+  await say(page, 'Walnut Shelf');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:decide-/);
+  await tap(openQ(page), 'Use this scene');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-start', { timeout: 30_000 });
+  await tap(openQ(page), 'Draw them');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-more', { timeout: 60_000 });
+  await tap(openQ(page), 'Not now');
+  await tap(openQ(page), 'Open scene');
+  await page.waitForURL(/\/scenes\/us-/);
+  const id = new URL(page.url()).pathname.split('/').pop();
+  const saved = async () => (await scenes(page)).find((s) => s.name === 'Walnut Shelf');
+  const first = await saved();
+  expect(first.examples.map((e: any) => e.from)).toEqual([first.preview, first.preview]);
 
-    await open(page, slug);
-    await picker(page).setInputFiles([file('yard.png', A), file('wall.png', B)]);
-    await expect(refs(page)).toHaveCount(2);
-    const dropped = await refHash(page, 0);
-    const kept = await refHash(page, 1);
+  // the place drawn again: the set it had stays, and is said to be of the
+  // place as it was. Nothing is redrawn for it.
+  await page.getByRole('link', { name: 'Edit scene' }).click();
+  await page.waitForURL(new RegExp(`/scenes/${id}/edit/[a-f0-9]+$`));
+  await arrived(page, '.sc-pstudio[data-kind="scene"]');
+  // a change, not Try again: the demo engine draws the same words as the same
+  // bytes, so the same words would land the same picture and move nothing
+  await say(page, 'make the walnut much darker');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:decide-1', { timeout: 45_000 });
+  await tap(openQ(page), 'Save changes');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-start', { timeout: 30_000 });
+  await expect(openQ(page)).toContainText('show the place as it was before');
+  const moved = await saved();
+  expect(moved.preview).not.toBe(first.preview);
+  expect(moved.examples.map((e: any) => e.from)).toEqual([first.preview, first.preview]);
 
-    await page.getByRole('button', { name: 'Remove reference 1' }).click();
-    await expect(refs(page)).toHaveCount(1);
+  // and only then are they drawn again, from the picture it wears now
+  await tap(openQ(page), 'Draw them again');
+  await expect(turn(page, 'you:set-start')).toContainText('Draw them again');
+  await expect
+    .poll(async () => (await saved()).examples.every((e: any) => e.from === moved.preview), { timeout: 60_000 })
+    .toBe(true);
+});
 
-    await nameField(page).fill('One Reference Only');
-    await direction(page).fill('A stone terrace in low evening sun.');
-    await page.locator('.sc-dlg-go').click();
-    await expect(dlg(page)).toHaveCount(0);
+test('the old address forwards to the studio', async ({ page }) => {
+  const slug = await brandSlug(page);
+  await page.goto(`/${slug}/scenes?new=scene`);
+  await page.waitForURL(new RegExp(`/${slug}/scenes/new/[a-f0-9]+$`));
+  await expect(turn(page, 'q:source')).toBeVisible();
+});
 
-    // What the eye sees and what the build reads have to be the same set.
-    expect(sent).not.toBeNull();
-    expect(sent?.imageHashes).toEqual([kept]);
-    expect(sent?.imageHashes).not.toContain(dropped);
-  });
+test('a sentence is asked only what it left open, and always what would make it unforgettable', async ({ page }) => {
+  const slug = await start(page);
+  // the place, the light and the camera said: only what would make it unforgettable
+  await say(page, 'White cyclorama, hard flash, top-down product photography');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:signature');
+  await expect(openQ(page)).toContainText('What makes it unforgettable?');
+  await tap(openQ(page), 'Leave it to the reading');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/);
+  await expect(studio(page).locator('[data-turn="q:world"], [data-turn="q:light"]')).toHaveCount(0);
 
-  test('removing a reference while another upload is still in flight sticks', async ({ page }) => {
-    const slug = await currentBrand(page);
-
-    await open(page, slug);
-    await picker(page).setInputFiles([file('yard.png', A)]);
-    await expect(refs(page)).toHaveCount(1);
-    const dropped = await refHash(page, 0);
-
-    // A slow upload, so the removal lands in the middle of one rather than
-    // between two. Nothing in the dialog is disabled while an upload runs, so
-    // this is a window a person can actually hit.
-    await page.route('**/api/images', async (route) => {
-      await new Promise((r) => setTimeout(r, 1500));
-      await route.continue();
-    });
-
-    await picker(page).setInputFiles([file('wall.png', B)]);
-    await page.getByRole('button', { name: 'Remove reference 1' }).click();
-    await expect(refs(page)).toHaveCount(0);
-
-    // The second upload arrives. It must add itself, not restore the set as it
-    // stood when it started.
-    await expect(refs(page)).toHaveCount(1, { timeout: 15_000 });
-    expect(await refHash(page, 0)).not.toBe(dropped);
-  });
-
-  test('a scene the server has forgotten still counts as created', async ({ page }) => {
-    test.setTimeout(90_000);
-    const slug = await currentBrand(page);
-
-    // The build registry is an in-memory Map, so a restart loses it while the
-    // scene it already wrote stays on disk. Stubbing the listing to empty is
-    // that same view from the client's side, with no restart and no race: the
-    // app can never watch this build finish.
-    await page.route('**/asset-builds', (route) =>
-      route.request().method() === 'GET'
-        ? route.fulfill({ status: 200, contentType: 'application/json', body: '{"builds":[]}' })
-        : route.continue(),
-    );
-
-    await open(page, slug);
-    await picker(page).setInputFiles([file('yard.png', A), file('wall.png', B)]);
-    await expect(refs(page)).toHaveCount(2);
-    await nameField(page).fill('Forgotten Build');
-    await direction(page).fill('A stone terrace in low evening sun.');
-    await page.locator('.sc-dlg-go').click();
-    await expect(dlg(page)).toHaveCount(0);
-
-    // The scene is written even though the app can never watch it happen.
-    await expect.poll(() => sceneLanded(page, 'Forgotten Build'), { timeout: 60_000 }).toBe(true);
-
-    // The scene exists. The attempt that made it is over, whatever the build
-    // listing can still remember about it.
-    await open(page, slug);
-    await expect(refs(page)).toHaveCount(0);
-    await expect(nameField(page)).toHaveValue('');
-    await expect(direction(page)).toHaveValue('');
-  });
+  // a material and a register: how it is lit, then its idea, and nothing else
+  await page.goto(`/${slug}/scenes/new`);
+  await expect(turn(page, 'q:source')).toBeVisible();
+  await say(page, 'luxury product photography in warm stone');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:light');
+  await expect(openQ(page)).toContainText('You have the place. What light is it in?');
+  await tap(openQ(page), 'Low golden sun');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:signature');
+  await tap(openQ(page), 'Caught mid-change');
+  await expect(openQ(page)).toHaveAttribute('data-turn', /^q:agree-/);
+  await expect(openQ(page)).toContainText('luxury product photography in warm stone, low golden sun raking');
+  // the camera is never one of them
+  await expect(studio(page).locator('[data-turn="q:shot"]')).toHaveCount(0);
 });

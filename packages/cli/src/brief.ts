@@ -1,5 +1,5 @@
 import type { EngineCapabilities, Core, ReferenceRole } from '@scenri/core';
-import type { CustomScene } from './assetRecords.js';
+import { brandScenes, DEFAULT_SCENE_LIGHTING, type CustomScene } from './assetRecords.js';
 import { composePrompt, type Scene } from './scenes.js';
 import { allocateAttachments } from './attachmentBudget.js';
 import { MARK_WARN_EDGE } from './routes/shared.js';
@@ -35,6 +35,10 @@ import {
   productFactDirectives,
   productFidelityDirective,
   productHandlingDirective,
+  productFramingDirective,
+  productScaleDirective,
+  editScreenDirective,
+  productSurfaceDirective,
   referenceIdentityGuard,
   sceneFigureDirectives,
   sceneGuardDirectives,
@@ -54,7 +58,8 @@ export type BriefToken =
   | { t: 'color'; hex: string; name?: string }
   | { t: 'ref'; imageHash: string; label?: string }
   | { t: 'mark'; imageHash: string }
-  | { t: 'template'; id: string }
+  /** A scene, and optionally which of its setups is being shot. */
+  | { t: 'template'; id: string; setup?: string }
   | { t: 'format'; id: FormatId; w: number; h: number };
 
 export type FormatId = 'square' | 'story' | 'landscape' | 'portrait';
@@ -152,6 +157,40 @@ export interface CompiledBrief {
   seated: Attachment[];
   warnings: string[];
   productId: string | null;
+  /**
+   * Present when this shot is one product alone in a place with its own
+   * picture, and so may be drawn in two steps at the product's real size
+   * (productScale.ts). Whether it is depends on the size, which the server
+   * knows and the compiler does not.
+   */
+  scale?: ScalePlan;
+  /** Present when the brief carries exactly one product whose photo rides. */
+  lead?: ProductLead;
+}
+
+/** The one product a brief carries, as its identity travels outside the prompt. */
+export interface ProductLead {
+  productId: string;
+  /** The product as the prompt names it. */
+  name: string;
+  /** The size the record carries, when it carries one (productSizes.ts fills it in). */
+  dimensions: string | null;
+  /** What the record says the object is, for reading its size when nothing says it. */
+  description: string | null;
+  /** The first product photo that rides. */
+  productHash: string;
+  /** The lines that hold the product's identity and facts in the full prompt. */
+  productLines: string[];
+}
+
+/** What the two-step draw needs from a compile: see productScale.ts. */
+export interface ScalePlan extends ProductLead {
+  /** The place's own drawn picture, with nobody in it. */
+  sceneHash: string;
+  /** The place's light, in the reader's words. */
+  light: string;
+  /** What the shot itself asks for: its setup's camera, then the person's own words. */
+  shot: string;
 }
 
 export const FORMATS: { id: FormatId; label: string; w: number; h: number }[] = [
@@ -308,6 +347,15 @@ type DeferredDirective =
   | { need: 'attachment'; role: Attachment['role']; hash: string; text: string };
 
 /** Deterministic: same brief + same context always yields the same request. */
+/**
+ * How many of a scene's own pictures may ride with a shot, for the battery.
+ *
+ * Zero, and the rule is the shipped one: a figure-led scene's single plate,
+ * beside a presenter. Any other number is an experiment arm and is never set
+ * in the product.
+ */
+const sceneRefSeam = (): number => Math.max(0, Math.min(4, Number(process.env.SCENRI_SCENE_REFS ?? 0) || 0));
+
 export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const warnings: string[] = [];
   const attachments: Attachment[] = [];
@@ -323,6 +371,8 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const products: any[] = ctx.brand?.products ?? [];
   const characters: any[] = ctx.brand?.characters ?? [];
   const inlineTemplates: CompilableScene[] = [];
+  /** The camera of the setup this chip names, when it names one. */
+  let setupCamera = '';
   let hasPerson = false;
   let people = 0;
   let sentence = '';
@@ -339,6 +389,21 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const append = (s: string) => {
     sentence += (sentence && !sentence.endsWith(' ') ? ' ' : '') + s;
   };
+
+  // A picture's chip keeps its place in the sentence when words stand beside
+  // it. "Show [img] on the phone's screen" compiled to "Show on the phone's
+  // screen", and the picture went out as a style reference beside a sentence
+  // with no object (2026-09-23: the UI never reached the screen, 2 of 2). A
+  // chip with no words beside it says nothing, exactly as before.
+  const refTokens = brief.tokens.filter((t) => t.t === 'ref');
+  const refWords = new Map<BriefToken, string>();
+  brief.tokens.forEach((t, i) => {
+    if (t.t !== 'ref') return;
+    const words = (n: BriefToken | undefined) => n?.t === 'text' && n.v.trim() !== '';
+    if (!words(brief.tokens[i - 1]) && !words(brief.tokens[i + 1])) return;
+    refWords.set(t, refTokens.length > 1 ? `attached image ${refTokens.indexOf(t) + 1}` : 'the attached image');
+  });
+  let refSaid = false;
 
   // A reference that is byte-identical to a mark that will attach would ship
   // the same artwork twice under two contradictory contracts: reproduce it
@@ -412,6 +477,14 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           if (p.description && !p.dimensions)
             productDirectives.push(
               `What this object physically is: ${String(p.description).replace(/\.\s*$/, '')}. Keep it at that real size relative to hands, faces, furniture and everything else in frame.`,
+            );
+          // A hand-made product carries neither a description nor dimensions,
+          // so it went out with no size anchor at all, and its packshot fills
+          // its own frame: nothing said it was a shoe and not a sofa. The model
+          // knows what the photo shows; it only has to be told it is real.
+          else if (!p.dimensions)
+            productDirectives.push(
+              'It is a real object: keep it at its true real-world size relative to everything else in frame.',
             );
         } else {
           warnings.push(`${p.name} has no usable photo, so it is named but not attached.`);
@@ -568,11 +641,18 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           break;
         }
         attachments.push({ role: 'reference', label: 'Reference shot', hash: tok.imageHash });
+        const said = refWords.get(tok);
+        if (said) {
+          append(said);
+          refSaid = true;
+        }
         otherDirectives.push({
           need: 'attachment',
           role: 'reference',
           hash: tok.imageHash,
-          text: 'Match the composition, lighting and treatment of the attached reference.',
+          text: said
+            ? `${said[0].toUpperCase()}${said.slice(1)} is used the way this shot's words use it; where they do not say what it is for, match its composition, lighting and treatment.`
+            : 'Match the composition, lighting and treatment of the attached reference.',
         });
         break;
       }
@@ -625,12 +705,20 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           break;
         }
         inlineTemplates.push(t);
+        // Which way this world is being shot, when the chip names one. A setup
+        // that is no longer on the record is simply not found: the scene still
+        // compiles, with its own framing, rather than the brief failing over a
+        // framing somebody deleted.
+        if (tok.setup) {
+          const chosen = ((t as any).setups ?? []).find((v: any) => v?.id === tok.setup);
+          if (chosen?.camera) setupCamera = String(chosen.camera);
+        }
         // the surrounding sentence is the art direction, so notes stay empty here
-        append(composePrompt(t, { fields: brief.templateFields ?? {}, notes: '' }));
+        append(withOwnLight(t, ctx.brand, composePrompt(t, { fields: brief.templateFields ?? {}, notes: '' })));
 
         /*
-         * A figure-led scene with a presenter attached sends its drawn plate,
-         * because its prose cannot carry it.
+         * A scene whose figure wears a treatment, with a presenter attached,
+         * sends its drawn plate, because its prose cannot carry it.
          *
          * Measured, not assumed. A scene whose whole art direction is a dense
          * graphic treatment - a face tiled with printed stickers - compiled to
@@ -641,8 +729,13 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
          * graphics. That is the same mechanism a hand-attached reference already
          * uses, and it is why one of those "just works".
          *
-         * Only when the scene names a figure: an environment compiles to prose
-         * perfectly well, and every catalog scene stays byte-identical. Never on
+         * Only when the scene names a treatment: an environment compiles to
+         * prose perfectly well, and every catalog scene stays byte-identical.
+         * A figure with nothing done to it is a role and a pose, and words carry
+         * both: sent as a picture, its one pose became every presenter shot's
+         * pose, a portrait asked for came back full length, and the words could
+         * not move it (battery 2026-09-23). A scene is the vibe of a shot, not
+         * its composition. Never on
          * an edit, where the source frame already holds the world and the budget
          * is one slot smaller. Not essential, so it degrades instead of refusing.
          *
@@ -664,10 +757,20 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
          * (a character token may follow the scene), so the plate is pushed here
          * and judged there.
          */
-        if (ctx.mode !== 'edit' && t.figure) {
-          const plate = assetHash(t.preview);
-          if (plate && ctx.images.has(plate)) {
-            attachments.push({ role: 'scene', id: t.id, label: t.name, hash: plate, essential: false });
+        const seam = sceneRefSeam();
+        if (ctx.mode !== 'edit' && ((t.figure && t.figureTreatment) || seam > 0)) {
+          // The battery's arm: `SCENRI_SCENE_REFS=n` sends up to n of a
+          // scene's own pictures (its drawn plate first, then its uploads)
+          // whatever the scene is and whoever is attached, so one scene can be
+          // measured at 0, 1, 2, 3 and 4 references against the same words.
+          // Unset, nothing changes: the plate rides only for a figure-led
+          // scene beside a presenter, exactly as it does today.
+          const plates = seam ? [t.preview, ...(t.refs ?? []).map((r) => r.file)].slice(0, seam) : [t.preview];
+          for (const source of plates) {
+            const plate = assetHash(source);
+            if (plate && ctx.images.has(plate)) {
+              attachments.push({ role: 'scene', id: t.id, label: t.name, hash: plate, essential: false });
+            }
           }
         }
         break;
@@ -735,10 +838,28 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // outrank it precisely because they're appended after it, last.
   // A scene's camera tendency is a default, not a lock: it is emitted only when
   // the shot direction has not already chosen a camera, so the two can never
-  // compete. See shotSpecifiesCamera.
-  const sceneCamera = inlineTemplates[0]?.camera?.trim() || ctx.template?.camera?.trim() || '';
-  const cameraDirectives =
-    sceneCamera && !shotSpecifiesCamera(sentence) ? [`Camera for this shot: ${sceneCamera}`] : [];
+  // compete. See shotSpecifiesCamera. Read over the person's own words only:
+  // `sentence` holds the scene's prose by now, and a scene that describes its
+  // own "framing" or a "lens" of light silenced its camera, and a setup chosen
+  // on top of it, in five of the thirty-three scenes in a real library.
+  const sceneCamera = setupCamera.trim() || inlineTemplates[0]?.camera?.trim() || ctx.template?.camera?.trim() || '';
+  // A product on its own under a place's camera tendency ("room-scale
+  // distance") could only be made legible by being made huge (measured
+  // 2026-09-22: a sneaker the size of the loft's armchair, a ring as tall as a
+  // step). Such a shot is framed at the product's scale instead of at the
+  // place's tendency. A camera the person chose (a setup, or their own words)
+  // still sets the angle, and the scale rule rides with it: "from a low angle"
+  // alone once dropped it and drew a sneaker three times the size of the
+  // steps behind it. A world read as a product's world wrote its camera for
+  // products and keeps it.
+  const productOnly = !!productId && !hasPerson && !!scene && scene.subject !== 'product';
+  const placeTendency = productOnly && !setupCamera.trim();
+  const cameraDirectives = [
+    ...(productOnly ? [productFramingDirective()] : []),
+    ...(sceneCamera && !shotSpecifiesCamera(userWords) && !placeTendency
+      ? [`Camera for this shot: ${sceneCamera.replace(/[.\s]+$/, '')}.`]
+      : []),
+  ];
 
   // Attachments are useless past what the engine will actually read.
   //
@@ -756,7 +877,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // anonymous person the model would keep: the scene degrades to prose,
   // quietly, the same way a budget-dropped scene ref does (its name never
   // appears in a left-out warning, brief.test pins it).
-  if (!hasPerson) {
+  if (!hasPerson && !sceneRefSeam()) {
     for (let i = attachments.length - 1; i >= 0; i--) if (attachments[i].role === 'scene') attachments.splice(i, 1);
   }
   // A reference that is byte-identical to an attached identity's own photo
@@ -842,6 +963,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         hasProduct: !!productId,
         hasPerson,
         hasScenePhoto: kept.some((a) => a.role === 'scene'),
+        figureLed: !!scene?.figure,
         emptyRole,
       })
     : [];
@@ -956,6 +1078,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     // and this line in one breath, before any spec repeats them.
     ...nameDirectives,
     ...productDirectives,
+    ...(productId ? [productScaleDirective(hasPerson)] : []),
     ...personDirectives,
     ...pairDirectives,
     ...figureDirectives,
@@ -963,6 +1086,10 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...otherDirectives,
     ...absentDirectives,
     ...cameraDirectives,
+    // After the camera line: a scene read from a wide picture names a wide
+    // camera, and said first this lost to it (a phone stood frontal, 2 of 2).
+    ...(productId && ctx.mode !== 'edit' ? [productSurfaceDirective(!hasPerson, refSaid)] : []),
+    ...(ctx.mode === 'edit' && refSaid ? [editScreenDirective()] : []),
     ...apparelUnworn,
     ...brandLines,
     ...guard,
@@ -995,6 +1122,51 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     }
   }
 
+  // One product alone in a place that has its own picture, and nothing else
+  // asked of the shot but words: the case a small product came out huge in
+  // (productScale.ts). A figure-led place is a person's world and its picture
+  // holds one; a place read as a product's world already frames products;
+  // anything else attached (a mark, a reference, a colour) has no seat in the
+  // two steps, so those shots are drawn the ordinary way.
+  const onlyWords = brief.tokens.every(
+    (t) => t.t === 'text' || t.t === 'product' || t.t === 'template' || t.t === 'format',
+  );
+  const productIds = new Set(brief.tokens.flatMap((t) => (t.t === 'product' ? [t.id] : [])));
+  const sceneHash = scene && !scene.figure && scene.subject !== 'product' ? assetHash(scene.preview) : null;
+  const firstProduct = kept.find((a) => a.role === 'product');
+  const scaleProduct = productId ? products.find((x) => x.id === productId) : undefined;
+  const lead: ProductLead | undefined =
+    productIds.size === 1 && productId && scaleProduct && firstProduct
+      ? {
+          productId,
+          name: String(scaleProduct.promptName ?? scaleProduct.name),
+          dimensions: scaleProduct.dimensions ? String(scaleProduct.dimensions) : null,
+          description: scaleProduct.description ? String(scaleProduct.description) : null,
+          productHash: firstProduct.hash,
+          productLines: dedupe(
+            [...nameDirectives, ...productDirectives].map(resolveDirective).filter((x): x is string => x !== null),
+          ),
+        }
+      : undefined;
+  const scale: ScalePlan | undefined =
+    lead &&
+    ctx.mode !== 'edit' &&
+    !hasPerson &&
+    !shotAsksForAPerson(userWords) &&
+    // a place staged in someone's hands puts hands in every shot of it
+    !shotAsksForAPerson(String(scene?.prompt ?? '')) &&
+    onlyWords &&
+    sceneHash &&
+    ctx.images.has(sceneHash) &&
+    kept.every((a) => a.role === 'product')
+      ? {
+          ...lead,
+          sceneHash,
+          light: String(scene?.lighting ?? ''),
+          shot: [setupCamera.trim(), userWords.replace(/\s+/g, ' ').trim()].filter(Boolean).join(', '),
+        }
+      : undefined;
+
   return {
     prompt: prompt.trim(),
     referenceImages: kept.map((a) => ctx.images.pathFor(a.hash)),
@@ -1007,7 +1179,33 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     seated,
     warnings,
     productId,
+    ...(scale ? { scale } : {}),
+    ...(lead ? { lead } : {}),
   };
 }
 
 const dedupe = (xs: string[]) => [...new Set(xs)];
+
+/**
+ * A brand's own scene, told with its light.
+ *
+ * The reader writes a scene's light apart from its place (`lighting`), and the
+ * scene studio shows both under "What your shots are told", so a shot is told
+ * both: the light follows the place it falls on. Until this the light reached
+ * only the scene's preview, while the page said it went with every shot.
+ *
+ * The catalog is left exactly as it was: its prose already carries its light,
+ * `lighting` there is a label scenes are related by, and 97 byte-exact
+ * showcase prompts answer to those words. The record's placeholder light is
+ * left out too, and so is a light the prose already says.
+ */
+export function withOwnLight(scene: Scene, brand: unknown, prose: string): string {
+  const own = brandScenes(brand ?? {}).some((s: any) => s?.id === scene.id);
+  const light = own
+    ? String(scene.lighting ?? '')
+        .trim()
+        .replace(/[.\s]+$/, '')
+    : '';
+  if (!light || light === DEFAULT_SCENE_LIGHTING || prose.toLowerCase().includes(light.toLowerCase())) return prose;
+  return `${prose.replace(/[.\s]+$/, '')}. ${light}.`;
+}

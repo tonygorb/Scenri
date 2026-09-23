@@ -189,7 +189,7 @@ export const COPY = {
   },
   sceneNew: {
     title: 'Start a new scene',
-    body: 'Name it, then add a photo of the place or a line of direction.',
+    body: 'Describe the place in a sentence, start from pictures of it, or let it guide you.',
   },
   presenterGo: {
     title: 'Your presenters live here',
@@ -215,9 +215,13 @@ export const COPY = {
     title: 'Save your presenter',
     body: 'Once saved they are in your ingredients, ready for every shot.',
   },
-  sceneMake: {
-    title: 'Build a scene',
-    body: 'A place and its light, saved to shoot in again. Name it, then add a photo or a line of direction.',
+  sceneStart: {
+    title: 'Describe the place, or start from pictures',
+    body: 'A scene is the place and its light around your shot. Pictures are read for you; guided, it asks one thing at a time.',
+  },
+  sceneWords: {
+    title: 'These words are the scene',
+    body: 'Every shot made in this scene is told exactly this. Draw it to see it, or say what to add.',
   },
   productMake: {
     title: 'Add your product',
@@ -523,10 +527,35 @@ function startOnPage(say: { title: string; body: string }): Moment {
   return { id: 'new', voice: 'ask', point: LIBRARY_NEW, side: 'bottom', ...say };
 }
 
-/** A scene: the way there, then start one, then the dialog it is made in. */
-export function sceneMoment(f: AssetWalkFacts): Moment | null {
+/**
+ * A scene: the way there, then start one, then the studio it is made in.
+ *
+ * The studio asks its own questions, so the tutor says only what they do not:
+ * what a scene is, at the start, and at the read-back that the words standing
+ * there are the scene, the one thing every shot is given. Everything else in
+ * it (the rows, Use, Try again) explains itself.
+ */
+export function sceneMoment(f: PresenterWalkFacts): Moment | null {
   if (f.heading) return wayTo('scenes', COPY.sceneGo);
-  if (f.dialogOpen) return dialogMoment('scene', COPY.sceneMake);
+  const studio = f.studio;
+  if (studio) {
+    const turn = `${STUDIO} [data-turn="q:${studio.open}"]`;
+    const at = (id: string, say: { title: string; body: string }): Moment => ({
+      id,
+      voice: 'ask',
+      shell: STUDIO,
+      point: `${turn} .sc-convo-ask`,
+      live: [turn],
+      also: [STUDIO_COMPOSER],
+      beside: true,
+      side: 'left',
+      ...say,
+    });
+    if (studio.open === 'source') return at('start', COPY.sceneStart);
+    if (studio.open?.startsWith('agree-')) return at('words', COPY.sceneWords);
+    if (studio.open?.startsWith('decide-')) return { id: 'use', voice: 'quiet' };
+    return { id: 'studio', voice: 'quiet' };
+  }
   return f.onPage ? startOnPage(COPY.sceneNew) : null;
 }
 

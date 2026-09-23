@@ -6,6 +6,8 @@ import {
   mintRevision,
   presenterChain,
   presenterRecordFrom,
+  SCENE_INSTRUCTION_MAX,
+  sceneRecordFrom,
   type CustomPresenter,
 } from '../src/assetRecords.js';
 
@@ -278,5 +280,61 @@ describe('duplicatePresenterRecord', () => {
   it('needs a name, the same rule as a first save', () => {
     expect(duplicatePresenterRecord(source(), '   ').ok).toBe(false);
     expect(duplicatePresenterRecord(source(), '').ok).toBe(false);
+  });
+});
+
+describe('sceneRecordFrom', () => {
+  it('keeps a whole guided direction, clauses and all, instead of cutting it at 400', () => {
+    // A guided direction runs to about 560 characters before any words of the
+    // person's own; the last clause is the one that keeps it from repeating.
+    const direction = `${'a niche of warm limestone, '.repeat(24)}invent a specific original arrangement.`;
+    expect(direction.length).toBeGreaterThan(600);
+    const r = sceneRecordFrom({ name: 'Long Direction', prompt: 'A room.', instruction: direction });
+    expect(r.ok && r.scene.instruction).toBe(direction);
+    expect(direction.length).toBeLessThanOrEqual(SCENE_INSTRUCTION_MAX);
+  });
+
+  /**
+   * A scene's words are printed on its page and sent to the generator, so a
+   * cut that lands mid-word is read by a person and by a model. This stored
+   * "gripping both sid" on a real record and showed it on the page.
+   */
+  it('cuts a long figure at a whole word, never mid-word', () => {
+    const long =
+      'one person at very close portrait range, centered at human scale, leaning upward through the frame and gripping both sides of it while the light rakes across their raised forearms';
+    const r = sceneRecordFrom({ name: 'Close Frame', prompt: 'A room.', figure: long });
+    if (!r.ok) throw new Error(r.error);
+    expect(r.scene.figure!.length).toBeLessThan(long.length);
+    expect(r.scene.figure!.length).toBeLessThanOrEqual(160);
+    expect(long.startsWith(r.scene.figure!)).toBe(true);
+    // the last word it kept is a word the sentence actually contains
+    const last = r.scene.figure!.split(' ').pop()!;
+    expect(long.split(' ')).toContain(last);
+  });
+
+  it('leaves a figure that fits exactly as it was written', () => {
+    const r = sceneRecordFrom({ name: 'Close Frame', prompt: 'A room.', figure: 'one person, seated' });
+    if (!r.ok) throw new Error(r.error);
+    expect(r.scene.figure).toBe('one person, seated');
+  });
+
+  // The page PATCHes a field at a time and the record is rebuilt from scratch,
+  // so anything not carried from the base is erased by an edit that never
+  // named it. Examples are never taken from a request: only the job writes them.
+  it('keeps the examples through any edit, and takes none from the request', () => {
+    const made = sceneRecordFrom({ name: 'Hall', prompt: 'A hall.', previewHash: 'a'.repeat(32) });
+    if (!made.ok) throw new Error(made.error);
+    const examples = [{ role: 'hero' as const, file: `asset:${'b'.repeat(32)}`, from: `asset:${'a'.repeat(32)}` }];
+    const base = { ...made.scene, examples };
+    const renamed = sceneRecordFrom({ name: 'Concrete Hall' }, base);
+    if (!renamed.ok) throw new Error(renamed.error);
+    expect(renamed.scene.examples).toEqual(examples);
+    // a new picture keeps the old examples; the page says they are from the earlier one
+    const redrawn = sceneRecordFrom({ previewHash: 'c'.repeat(32) }, base);
+    if (!redrawn.ok) throw new Error(redrawn.error);
+    expect(redrawn.scene.examples).toEqual(examples);
+    const smuggled = sceneRecordFrom({ name: 'X', prompt: 'A hall.', examples: examples } as any);
+    if (!smuggled.ok) throw new Error(smuggled.error);
+    expect(smuggled.scene.examples).toBeUndefined();
   });
 });
