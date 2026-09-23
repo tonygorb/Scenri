@@ -266,7 +266,9 @@ export async function finishSceneSet(page: Page, finish = 'Open scene'): Promise
 }
 
 export async function buildScene(page: Page, sentence: string, name: string): Promise<void> {
-  await page.getByRole('button', { name: 'Create scene' }).click();
+  // the top bar's New, named for the page: a wall with scenes of its own has no
+  // second create in its row, and a cold one's offer opens the same studio
+  await page.locator('.sc-new-go', { hasText: 'New' }).click();
   const studio = page.locator('.sc-pstudio[data-kind="scene"]');
   await expect(studio).toBeVisible();
   // the first question has to be on the floor before the line will take words

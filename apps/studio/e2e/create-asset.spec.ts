@@ -152,7 +152,8 @@ test.describe('adding to a brand', () => {
     await page.goto(`/${slug}/scenes`);
     await expect(page.locator('.sc-new-go')).toHaveAccessibleName('New scene');
     await page.locator('.sc-new-go').click();
-    await expect(page).toHaveURL(/\?new=scene$/);
+    // a scene is made in its studio, which has its own address from the first press
+    await expect(page).toHaveURL(new RegExp(`/${slug}/scenes/new/[a-f0-9]+$`));
     await page.goto(`/${slug}/products`);
     await expect(page.locator('.sc-new-go')).toHaveAccessibleName('New product');
     await page.locator('.sc-new-go').click();
