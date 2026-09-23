@@ -6,6 +6,7 @@ import {
   fromLearn,
   guideRecord,
   lessonRow,
+  lessonStep,
   noWelcomeWait,
   ownBrand,
   pickTheIngredients,
@@ -235,7 +236,7 @@ for (const size of [
     await page.request.post('/api/guide', { data: { dismiss: 'product' } });
     await page.goto(`/${own}?learn=lessons`);
     await lessonRow(page, 'Add your product').click();
-    await learn(page).locator('button.sc-learn-step').click();
+    await lessonStep(page, 'Add your product').click();
     await walkTheWay(page, 'products', 'Your products live here');
     await page.waitForURL('**/products');
     await expect(coachTitle(page)).toHaveText('Start a new product', { timeout: 20_000 });
