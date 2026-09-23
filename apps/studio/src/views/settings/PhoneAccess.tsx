@@ -46,14 +46,27 @@ export function PhoneAccess() {
   const rowRef = useRef<HTMLDivElement>(null);
   const { push } = useToasts();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (fresh = false) => {
     try {
-      setStatus(await api.phone());
+      setStatus(await api.phone(fresh));
       setFailed(false);
     } catch {
       setFailed(true);
     }
   }, []);
+  const [renewing, setRenewing] = useState(false);
+  // A new code signs every phone out; the QR, the link and the typed code all follow it.
+  const newCode = async () => {
+    setRenewing(true);
+    try {
+      setStatus(await api.phoneNewCode());
+      setShownAt(Date.now());
+    } catch {
+      push({ kind: 'warning', title: 'Could not make a new code' });
+    } finally {
+      setRenewing(false);
+    }
+  };
 
   useEffect(() => {
     void load();
@@ -132,7 +145,7 @@ export function PhoneAccess() {
           </button>
         )}
         {row.action === 'check' && (
-          <button type="button" className="sc-btn sc-btn-ghost" onClick={() => void load()}>
+          <button type="button" className="sc-btn sc-btn-ghost" onClick={() => void load(true)}>
             Check again
           </button>
         )}
@@ -186,6 +199,19 @@ export function PhoneAccess() {
               </details>
             )}
           </div>
+        </div>
+      )}
+      {/* The way to take back a code shown on a shared screen or a lost phone:
+          only the computer running Scenri can make a new one. */}
+      {status?.thisComputer && link && (
+        <div className="sc-set-row">
+          <span className="txt">
+            <b>New code</b>
+            <small data-prose="">Signs out every phone and tablet. They scan the new code to open Scenri again.</small>
+          </span>
+          <button type="button" className="sc-btn sc-btn-ghost" disabled={renewing} onClick={() => void newCode()}>
+            {renewing ? 'Making…' : 'New code'}
+          </button>
         </div>
       )}
     </Group>

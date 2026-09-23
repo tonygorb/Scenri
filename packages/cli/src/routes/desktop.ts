@@ -6,6 +6,7 @@
  */
 import type { FastifyInstance } from 'fastify';
 import type { Core } from '@scenri/core';
+import { fromThisComputer } from '../access.js';
 import type { InstallKind } from '../installKind.js';
 import type { DesktopStatus, InstallResult } from '../desktop/install.js';
 
@@ -63,7 +64,9 @@ export function registerDesktopRoutes(
     };
   });
 
-  app.post('/api/desktop/install', async (_req, reply) => {
+  app.post('/api/desktop/install', async (req, reply) => {
+    // the icon goes on the desktop of the computer running Scenri: never at a phone's request
+    if (!fromThisComputer(req)) return reply.status(403).send({ error: 'Only on the computer running Scenri.' });
     if (runtime.installKind === 'dev') {
       return reply.status(409).send({
         error: 'Running from a source checkout; there is no installed build to put on a desktop.',

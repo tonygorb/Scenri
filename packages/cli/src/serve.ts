@@ -12,7 +12,7 @@ import { detectInstallKind } from './installKind.js';
 import { repairPresenterCrops } from './presenterRepair.js';
 import { readMeta } from './meta.js';
 import { anotherScenriLines, portBusyLines, shouldAdoptRunning } from './bootError.js';
-import { isIPv4Literal } from './access.js';
+import { isIPv4Literal, isLoopbackName, isWildcardHost } from './network/hosts.js';
 import { localUrl as localUrlFor, startLines } from './banner.js';
 
 const PORT = Number(process.env.SCENRI_PORT || 4747);
@@ -77,7 +77,7 @@ async function run(): Promise<void> {
   const installKind = detectInstallKind(fileURLToPath(import.meta.url), core.home);
 
   // a SCENRI_HOST given as a name is a Host header we must accept; addresses always pass
-  const named = ['127.0.0.1', 'localhost', '::1', '0.0.0.0', '::'].includes(HOST) || isIPv4Literal(HOST) ? [] : [HOST];
+  const named = isLoopbackName(HOST) || isWildcardHost(HOST) || isIPv4Literal(HOST) ? [] : [HOST];
 
   const app = buildServer({
     core,

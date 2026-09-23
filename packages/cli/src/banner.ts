@@ -3,6 +3,7 @@
  * the same Wi-Fi finds it, and where the library lives. Pure, so its copy is
  * tested like every other line a person reads (bootError.test.ts's rules).
  */
+import { isLoopbackName, isWildcardHost } from './network/hosts.js';
 import { groupCode } from './network/phoneAccess.js';
 
 export interface StartInfo {
@@ -22,8 +23,8 @@ export interface StartInfo {
  * link carries the code.
  */
 export function localUrl(host: string, port: number, code: string): string {
-  if (['127.0.0.1', 'localhost', '0.0.0.0', '::'].includes(host)) return `http://127.0.0.1:${port}`;
   if (host === '::1') return `http://[::1]:${port}`;
+  if (isLoopbackName(host) || isWildcardHost(host)) return `http://127.0.0.1:${port}`;
   return `http://${host.includes(':') ? `[${host}]` : host}:${port}/?t=${code}`;
 }
 

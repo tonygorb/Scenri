@@ -135,7 +135,7 @@ Your Codex session is yours: Scenri runs the official `codex` commands on your m
 
 `OPENROUTER_API_KEY`, `REPLICATE_API_TOKEN` and `FAL_KEY` are read from the environment as an alternative to entering them in Settings.
 
-**Phones and tablets.** Scenri also answers on this computer's Wi-Fi or Ethernet address, so a phone on the same network can open it: Settings, Local access shows a QR code. Scenri has no accounts, so every device other than this computer has to bring a six-digit code, which rides inside the QR code and the link; typing the bare address asks for it, and ten wrong codes from one address in ten minutes make that address wait. The first time, macOS or Windows may ask whether Node may accept incoming connections: allow it, or phones cannot reach Scenri. Setting `SCENRI_HOST=127.0.0.1` keeps Scenri to this computer alone. Over plain http the code travels unencrypted, like everything else, so treat phone access as convenience on a network you trust.
+**Phones and tablets.** Scenri also answers on this computer's Wi-Fi or Ethernet address, so a phone on the same network can open it: Settings, Local access shows a QR code. Scenri has no accounts, so every device other than this computer has to bring a six-digit code, which rides inside the QR code and the link; typing the bare address asks for it, wrong guesses are slowed to a crawl, and **New code** signs every device out. The first time, macOS or Windows may ask whether Node may accept incoming connections: allow it, or phones cannot reach Scenri. Setting `SCENRI_HOST=127.0.0.1` keeps Scenri to this computer alone. Over plain http the code travels unencrypted, like everything else, so treat phone access as convenience on a network you trust.
 
 ## Layout
 

@@ -20,6 +20,7 @@
 import { randomInt } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { ownAddresses, phoneAddresses } from './addresses.js';
+import { isLoopbackName, isWildcardHost } from './hosts.js';
 import { type AllowResult, allowScenri, type FirewallVerdict, firewallVerdict } from './firewall.js';
 
 /** Digits only: a phone offers its number pad for them, as for a code by text message. */
@@ -106,13 +107,17 @@ export interface PhoneAccessDeps {
 }
 
 export interface PhoneAccess {
+  /** The code as it stands now; New code replaces it. */
   readonly code: string;
+  /** Mint a new code: every device that used the old one has to scan again. */
+  renew(): string;
   /** After the studio's own listen: the real port, and the phone listeners open. */
   start(port: number): Promise<void>;
   /** Follow the machine's addresses once. Serialized; never throws. */
   sync(): Promise<void>;
   close(): Promise<void>;
-  status(thisComputer: boolean): Promise<PhoneStatus>;
+  /** `fresh` reads the machine's addresses now; otherwise a read under five seconds old stands. */
+  status(thisComputer: boolean, fresh?: boolean): Promise<PhoneStatus>;
   /** A device other than this computer got in. */
   visit(remote: string | undefined, ua: string | undefined): void;
   firewall(): Promise<FirewallVerdict>;
@@ -120,7 +125,8 @@ export interface PhoneAccess {
   allow(): Promise<{ result: AllowResult; firewall: FirewallVerdict }>;
 }
 
-const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
+/** A status poll reads the addresses again only when the last read is older than this. */
+const FRESH_MS = 5000;
 
 function listenWith(handler: () => Handler): (address: string, port: number) => Promise<Closer> {
   return (address, port) =>
@@ -149,9 +155,9 @@ export function createPhoneAccess(deps: PhoneAccessDeps): PhoneAccess {
   const bind = (deps.bind ?? '').trim();
   const mode: 'listeners' | 'none' | 'wildcard' | 'fixed' = !bind
     ? 'listeners'
-    : LOOPBACK_HOSTS.has(bind)
+    : isLoopbackName(bind)
       ? 'none'
-      : bind === '0.0.0.0' || bind === '::'
+      : isWildcardHost(bind)
         ? 'wildcard'
         : 'fixed';
   const addresses = deps.addresses ?? phoneAddresses;
@@ -167,12 +173,13 @@ export function createPhoneAccess(deps: PhoneAccessDeps): PhoneAccess {
     code = newCode();
     store.setSetting(CODE_SETTING, code);
   }
-  const theCode = normalizeCode(code);
+  let theCode = normalizeCode(code);
 
   let port: number | null = null;
   const open = new Map<string, Closer>();
   /** The addresses a phone could use at the last sync, best first. */
   let candidates: string[] = [];
+  let syncedAt = -Infinity;
   let chain: Promise<void> = Promise.resolve();
   let timer: NodeJS.Timeout | null = null;
   let closed = false;
@@ -182,6 +189,7 @@ export function createPhoneAccess(deps: PhoneAccessDeps): PhoneAccess {
   const syncOnce = async (): Promise<void> => {
     if (closed) return;
     candidates = mode === 'none' ? [] : mode === 'fixed' ? [bind] : await addresses().catch(() => []);
+    syncedAt = now();
     if (mode !== 'listeners' || port === null) return;
     const want = new Set(candidates);
     for (const [address, closer] of open) {
@@ -217,7 +225,14 @@ export function createPhoneAccess(deps: PhoneAccessDeps): PhoneAccess {
   const reachable = (): string[] => (mode === 'listeners' ? candidates.filter((a) => open.has(a)) : candidates);
 
   return {
-    code: theCode,
+    get code() {
+      return theCode;
+    },
+    renew() {
+      theCode = newCode();
+      store.setSetting(CODE_SETTING, theCode);
+      return theCode;
+    },
     async start(p) {
       port = p;
       await sync();
@@ -235,8 +250,8 @@ export function createPhoneAccess(deps: PhoneAccessDeps): PhoneAccess {
       open.clear();
       await Promise.all(all.map((c) => c.close().catch(() => undefined)));
     },
-    async status(thisComputer) {
-      await sync();
+    async status(thisComputer, fresh = false) {
+      if (fresh || now() - syncedAt >= FRESH_MS) await sync();
       const origins = port === null ? [] : reachable().map((a) => `http://${a.includes(':') ? `[${a}]` : a}:${port}`);
       const address = origins[0] ?? null;
       return {

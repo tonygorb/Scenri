@@ -71,10 +71,12 @@ export function SettingsDialog({
     };
   }, [open]);
   // Whether this computer has the desktop icon, read as the dialog opens so
-  // Local access paints whole on its first frame instead of "Checking".
+  // Local access paints whole on its first frame instead of "Checking". Only
+  // on the computer running Scenri: a phone never shows the row.
   const [desktop, setDesktop] = useState<DesktopStatus | null>(null);
+  const thisComputer = version?.thisComputer === true;
   useEffect(() => {
-    if (!open) return;
+    if (!open || !thisComputer) return;
     let alive = true;
     api
       .desktop()
@@ -85,7 +87,7 @@ export function SettingsDialog({
     return () => {
       alive = false;
     };
-  }, [open]);
+  }, [open, thisComputer]);
   // Reported by the pane that owns the kit's document, shown in the page's head.
   const [kit, setKit] = useState<SaveState>('idle');
 

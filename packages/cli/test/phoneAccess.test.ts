@@ -142,7 +142,7 @@ describe('phone listeners', () => {
     const phone = createPhoneAccess({ store: core.store, ...net.deps });
     await phone.start(4747);
     net.move(['10.1.2.3']);
-    const s = await phone.status(true);
+    const s = await phone.status(true, true);
     expect([...net.open]).toEqual(['10.1.2.3']);
     expect(s.address).toBe('http://10.1.2.3:4747');
     await phone.close();
@@ -165,7 +165,7 @@ describe('phone listeners', () => {
     await phone.start(4747);
     expect((await phone.status(true)).problem).toBe('blocked');
     net.refuse.clear();
-    expect((await phone.status(true)).address).toBe('http://192.168.1.42:4747');
+    expect((await phone.status(true, true)).address).toBe('http://192.168.1.42:4747');
     await phone.close();
   });
 
@@ -192,6 +192,43 @@ describe('phone listeners', () => {
     const phone = createPhoneAccess({ store: core.store, bind: '192.168.7.7', ...fakeNet([]).deps });
     await phone.start(4747);
     expect((await phone.status(true)).address).toBe('http://192.168.7.7:4747');
+  });
+
+  // a poll every two seconds must not re-read the network every two seconds
+  it('a status read within five seconds of the last stands; a fresh one reads again', async () => {
+    let clock = 1_000_000;
+    let reads = 0;
+    const net = fakeNet(['192.168.1.42']);
+    const phone = createPhoneAccess({
+      store: core.store,
+      ...net.deps,
+      now: () => clock,
+      addresses: async () => {
+        reads++;
+        return ['192.168.1.42'];
+      },
+    });
+    await phone.start(4747);
+    const after = reads;
+    await phone.status(true);
+    expect(reads).toBe(after);
+    clock += 5000;
+    await phone.status(true);
+    expect(reads).toBe(after + 1);
+    await phone.status(true, true);
+    expect(reads).toBe(after + 2);
+    await phone.close();
+  });
+
+  it('a new code replaces the old one and is kept', () => {
+    const phone = createPhoneAccess({ store: core.store, ...fakeNet([]).deps });
+    const old = phone.code;
+    let next = phone.renew();
+    // a new code is new, even in the rare draw that repeats
+    while (next === old) next = phone.renew();
+    expect(phone.code).toBe(next);
+    expect(core.store.getSetting(CODE_SETTING)).toBe(next);
+    expect(next).toMatch(/^\d{6}$/);
   });
 
   it('does not count this computer opening its own link as a phone', () => {
@@ -272,6 +309,47 @@ describe('GET /api/phone', () => {
     });
     expect(res.statusCode).toBe(403);
     expect(allowed).toBe(0);
+  });
+
+  it('New code signs out a phone that used the old one; only this computer may ask', async () => {
+    const app = serve();
+    await app.phone.start(4747);
+    const old = app.phone.code;
+    const phone = { host: '192.168.1.42:4747' };
+    const refused = await app.inject({
+      method: 'POST',
+      url: `/api/phone/code?t=${old}`,
+      headers: { ...phone, 'sec-fetch-site': 'same-origin' },
+      remoteAddress: '192.168.1.50',
+    });
+    expect(refused.statusCode).toBe(403);
+    expect(app.phone.code).toBe(old);
+
+    let s = (await app.inject({ method: 'POST', url: '/api/phone/code' })).json();
+    while (s.code === old) s = (await app.inject({ method: 'POST', url: '/api/phone/code' })).json();
+    expect(s.url).toBe(`http://192.168.1.42:4747/?t=${s.code}`);
+    const stale = await app.inject({
+      method: 'GET',
+      url: '/api/brands',
+      headers: { ...phone, cookie: `sc_access=${old}` },
+      remoteAddress: '192.168.1.50',
+    });
+    expect(stale.statusCode).toBe(403);
+  });
+
+  // hidden on a phone in the studio, and refused on the server too
+  it('Reveal and Add to desktop act only for this computer', async () => {
+    const app = serve();
+    const code = app.phone.code;
+    for (const url of ['/api/system/reveal', '/api/desktop/install']) {
+      const res = await app.inject({
+        method: 'POST',
+        url: `${url}?t=${code}`,
+        headers: { host: '192.168.1.42:4747', 'sec-fetch-site': 'same-origin' },
+        remoteAddress: '192.168.1.50',
+      });
+      expect(res.statusCode, url).toBe(403);
+    }
   });
 
   it('closes the phone listeners when the server drains', async () => {

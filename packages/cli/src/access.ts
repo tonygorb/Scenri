@@ -1,16 +1,10 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { type CodeProblem, codePage } from './network/codePage.js';
+import { isIPv4Literal, isLoopbackAddress, isLoopbackName, LOOPBACK_NAMES } from './network/hosts.js';
 import { normalizeCode } from './network/phoneAccess.js';
 
-/**
- * Hostnames that unambiguously mean "the machine running this server".
- *
- * `0.0.0.0` is deliberately absent even though a server may bind to it:
- * browsers will happily load `http://0.0.0.0:4747`, which is a way to reach a
- * local server through an address the user never recognises as their own.
- */
-const LOOPBACK = ['localhost', '127.0.0.1', '::1'];
+export { isIPv4Literal } from './network/hosts.js';
 
 /**
  * The cookie a device carries after arriving with the code, named for the
@@ -33,13 +27,20 @@ const LEGACY_ACCESS_COOKIE = 'bt_access';
 const COOKIE_MAX_AGE_S = 400 * 24 * 60 * 60;
 
 /**
- * Six digits are safe only because guessing is slow: ten different wrong codes
- * from one address in ten minutes, then that address waits, which puts a
- * million codes about a year of guessing away per address. Distinct values,
- * so a phone replaying one stale cookie on every request counts once.
+ * Six digits are safe only because guessing is slow. Ten different wrong codes
+ * from one address in ten minutes and that address waits; a hundred from every
+ * address together and every device other than this computer waits, so many
+ * addresses (IPv6, aliases, a large network) cannot add up to fast guessing:
+ * at most a hundred guesses in ten minutes, months for a million codes.
+ * Distinct values, so a phone replaying one stale cookie counts once. Someone
+ * who keeps guessing can make phones wait; they cannot get in, and this
+ * computer is never affected.
  */
 const WRONG_LIMIT = 10;
+const WRONG_LIMIT_ALL = 100;
 const WRONG_WINDOW_MS = 10 * 60_000;
+/** Addresses remembered at once; the cap on every address together is what bounds guessing. */
+const ADDRESSES_KEPT = 5000;
 
 export interface AccessOptions {
   /** Hostnames accepted beyond loopback names and IPv4 addresses: a SCENRI_HOST given as a name. */
@@ -73,20 +74,6 @@ export function hostnameOf(hostHeader: string | undefined): string | null {
 }
 
 /**
- * An IPv4 address as a Host is never DNS rebinding: rebinding needs a name the
- * attacker controls, and a page whose origin is an IP address is already that
- * address. So every address this machine has, today's Wi-Fi or tomorrow's,
- * passes without a list that goes stale when the network changes.
- */
-export function isIPv4Literal(host: string): boolean {
-  const parts = host.split('.');
-  return host !== '0.0.0.0' && parts.length === 4 && parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) <= 255);
-}
-
-const isLoopbackAddress = (addr: string | undefined): boolean =>
-  !!addr && (addr === '::1' || addr.startsWith('127.') || addr.startsWith('::ffff:127.'));
-
-/**
  * The person sitting at this machine: a connection from the loopback, asking
  * for a loopback name. Both, because a local proxy (Vite with --host) turns a
  * phone's request into a loopback connection that still names the Wi-Fi
@@ -94,7 +81,7 @@ const isLoopbackAddress = (addr: string | undefined): boolean =>
  */
 export function fromThisComputer(req: FastifyRequest): boolean {
   const host = hostnameOf(req.headers.host);
-  return !!host && LOOPBACK.includes(host) && isLoopbackAddress(req.socket?.remoteAddress);
+  return !!host && isLoopbackName(host) && isLoopbackAddress(req.socket?.remoteAddress);
 }
 
 function codeMatches(expected: string, supplied: string): boolean {
@@ -119,24 +106,37 @@ function cookieValue(header: string | undefined, name: string): string | undefin
 }
 
 function createLimiter(now: () => number) {
-  const seen = new Map<string, { since: number; wrong: Set<string> }>();
+  type Tally = { since: number; wrong: Set<string> };
+  const seen = new Map<string, Tally>();
+  let everyone: Tally = { since: now(), wrong: new Set() };
+  const live = (t: Tally) => now() - t.since <= WRONG_WINDOW_MS;
+  const all = () => {
+    if (!live(everyone)) everyone = { since: now(), wrong: new Set() };
+    return everyone;
+  };
   const entry = (ip: string) => {
     const e = seen.get(ip);
-    if (e && now() - e.since <= WRONG_WINDOW_MS) return e;
+    if (e && live(e)) return e;
     seen.delete(ip);
     return null;
   };
   return {
-    locked: (ip: string) => (entry(ip)?.wrong.size ?? 0) >= WRONG_LIMIT,
+    locked: (ip: string) => all().wrong.size >= WRONG_LIMIT_ALL || (entry(ip)?.wrong.size ?? 0) >= WRONG_LIMIT,
     wrong(ip: string, value: string) {
+      const v = normalizeCode(value);
+      all().wrong.add(v);
       let e = entry(ip);
       if (!e) {
         e = { since: now(), wrong: new Set() };
         seen.set(ip, e);
-        // a bounded memory, whoever is knocking
-        if (seen.size > 1000) seen.delete(seen.keys().next().value as string);
       }
-      e.wrong.add(normalizeCode(value));
+      e.wrong.add(v);
+      if (seen.size > ADDRESSES_KEPT) {
+        // forget the expired first; past that, the oldest, since the cap on
+        // every address together still bounds what anyone can try
+        for (const [k, t] of seen) if (!live(t)) seen.delete(k);
+        while (seen.size > ADDRESSES_KEPT) seen.delete(seen.keys().next().value as string);
+      }
     },
   };
 }
@@ -178,7 +178,7 @@ function refuse(req: FastifyRequest, reply: FastifyReply, problem: CodeProblem) 
  * after it.
  */
 export function registerAccessGuard(app: FastifyInstance, opts: AccessOptions = {}): void {
-  const named = new Set([...LOOPBACK, ...(opts.allowedHosts ?? []).map((h) => h.trim().toLowerCase())]);
+  const named = new Set([...LOOPBACK_NAMES, ...(opts.allowedHosts ?? []).map((h) => h.trim().toLowerCase())]);
   const limiter = createLimiter(opts.now ?? Date.now);
 
   app.addHook('onRequest', async (req, reply) => {
@@ -206,17 +206,20 @@ export function registerAccessGuard(app: FastifyInstance, opts: AccessOptions = 
     const q = (req.query as Record<string, unknown> | undefined)?.t;
     const fromQuery = typeof q === 'string' && q ? q : undefined;
     const header = req.headers['x-access-token'];
+    const fromHeader = typeof header === 'string' && header ? header : undefined;
     const port = opts.port?.() ?? null;
-    const supplied =
-      fromQuery ??
-      (typeof header === 'string' ? header : undefined) ??
+    const fromCookie =
       cookieValue(req.headers.cookie, cookieName(port)) ??
       cookieValue(req.headers.cookie, ACCESS_COOKIE) ??
       cookieValue(req.headers.cookie, LEGACY_ACCESS_COOKIE);
 
+    // Waiting comes first, whatever is brought: otherwise a cookie header
+    // would be a way to keep guessing past the limit.
     if (limiter.locked(ip)) return refuse(req, reply, 'locked');
-    if (supplied && codeMatches(code, supplied)) {
-      if (fromQuery) {
+    // A device already signed in stays in, whatever an old or mistyped link says.
+    const supplied = [fromCookie, fromQuery, fromHeader].filter((v): v is string => !!v);
+    if (supplied.some((v) => codeMatches(code, v))) {
+      if (fromQuery && codeMatches(code, fromQuery) && !(fromCookie && codeMatches(code, fromCookie))) {
         // Hand the browser a cookie so the studio's later requests carry the
         // code without it having to stay in the address bar.
         reply.header(
@@ -227,10 +230,8 @@ export function registerAccessGuard(app: FastifyInstance, opts: AccessOptions = 
       opts.onVisit?.(ip, req.headers['user-agent']);
       return;
     }
-    if (supplied) {
-      limiter.wrong(ip, supplied);
-      if (limiter.locked(ip)) return refuse(req, reply, 'locked');
-    }
+    for (const v of supplied) limiter.wrong(ip, v);
+    if (supplied.length && limiter.locked(ip)) return refuse(req, reply, 'locked');
     // a stale cookie is not something the person just typed wrong
     return refuse(req, reply, fromQuery ? 'wrong' : null);
   });

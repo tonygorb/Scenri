@@ -360,6 +360,30 @@ describe('guessing the code', () => {
     expect((await tryCode(CODE)).statusCode).toBe(200);
   });
 
+  // many addresses (IPv6, aliases, a big network) must not add up to fast guessing
+  it('a hundred different wrong codes from every address together makes every device wait', async () => {
+    for (let i = 0; i < 100; i++) {
+      // ten addresses, ten tries each: none reaches its own limit
+      await tryCode(`9${String(i).padStart(5, '0')}`, `192.168.2.${Math.floor(i / 10) + 1}`);
+    }
+    const fresh = await tryCode(CODE, '192.168.3.99');
+    expect(fresh.statusCode).toBe(403);
+    expect(fresh.json().error).toBe('too many tries');
+    // this computer is never affected
+    const host = await app.inject({ method: 'GET', url: '/api/brands', remoteAddress: '127.0.0.1' });
+    expect(host.statusCode).toBe(200);
+    clock += 10 * 60_000 + 1;
+    expect((await tryCode(CODE, '192.168.3.99')).statusCode).toBe(200);
+  });
+
+  it('a device already signed in stays in, whatever an old or mistyped link says', async () => {
+    const res = await tryCode('000000', from, { cookie: `${ACCESS_COOKIE}=${CODE}` });
+    expect(res.statusCode).toBe(200);
+    // and the bad link did not count against it
+    for (let i = 0; i < 12; i++) await tryCode(`00000${i % 10}`, from, { cookie: `${ACCESS_COOKIE}=${CODE}` });
+    expect((await tryCode(CODE)).statusCode).toBe(200);
+  });
+
   // a phone polling with a cookie from before a reset repeats one value
   it('counts one stale value once, however often it arrives', async () => {
     for (let i = 0; i < 40; i++) {
