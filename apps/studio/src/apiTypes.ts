@@ -305,6 +305,26 @@ export type VersionInfo = {
   home: string;
 };
 
+/** Why a phone might not open Scenri, as this computer's firewall answers. */
+export type FirewallVerdict = 'blocked' | 'public-network' | 'ok' | 'unknown';
+
+/** Settings' "Open on your phone" row (GET /api/phone). */
+export type PhoneStatus = {
+  /** `this-computer`: started with SCENRI_HOST=127.0.0.1, so no phone can open it. */
+  reach: 'network' | 'this-computer';
+  /** Whether this tab is on the computer running Scenri. */
+  thisComputer: boolean;
+  platform: string;
+  /** `http://192.168.1.42:4747`, the address to type. */
+  address: string | null;
+  /** The address with the code in it: the QR code and the copied link. */
+  url: string | null;
+  code: string;
+  others: string[];
+  problem: 'no-network' | 'blocked' | null;
+  lastVisit: { at: number; device: string } | null;
+};
+
 /** The desktop launcher's state on this machine, from GET /api/desktop. */
 export type DesktopStatus = {
   supported: boolean;

@@ -47,6 +47,8 @@ import type {
   ShowcaseEntry,
   TreeNode,
   DesktopStatus,
+  FirewallVerdict,
+  PhoneStatus,
   UpdateStatus,
   UsageDay,
   VersionInfo,
@@ -193,6 +195,8 @@ export const api = {
   updateApply: () => req<{ ok: true; staging: string }>('POST', '/api/update/apply'),
   updateRestart: () => req<{ ok: true }>('POST', '/api/update/restart'),
   desktop: () => req<DesktopStatus>('GET', '/api/desktop'),
+  phone: () => req<PhoneStatus>('GET', '/api/phone'),
+  phoneHelp: () => req<{ firewall: FirewallVerdict }>('GET', '/api/phone/help'),
   desktopInstall: () => req<{ ok: true; path: string }>('POST', '/api/desktop/install'),
   /** Drain and stop the server; the overlay says how to come back. */
   quit: () => req<{ ok: true }>('POST', '/api/system/quit'),

@@ -26,6 +26,7 @@ import { Budget } from './settings/Budget.js';
 import { Danger } from './settings/Danger.js';
 import { EnginesPane } from './settings/EnginesPane.js';
 import { Library, type LibraryInfo } from './settings/Library.js';
+import { PhoneAccess } from './settings/PhoneAccess.js';
 import { Usage } from './settings/Usage.js';
 import { type SaveState, saveLabel } from './settings/useBrandDoc.js';
 
@@ -82,7 +83,7 @@ const PAGES: {
     label: 'General',
     Icon: SlidersHorizontal,
     scope: 'studio',
-    sub: () => 'How Scenri looks, and where your library lives.',
+    sub: () => 'How Scenri looks, opening it on your phone, and where your library lives.',
   },
   {
     id: 'about',
@@ -352,6 +353,7 @@ function PageBody({
       return (
         <>
           <Appearance />
+          <PhoneAccess />
           <Library info={home} />
         </>
       );
