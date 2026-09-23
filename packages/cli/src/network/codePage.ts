@@ -41,7 +41,7 @@ export const CODE_PAGE_COPY = {
   label: '6-digit code',
   open: 'Open Scenri',
   opening: 'Opening',
-  foot: 'Scenri runs on your computer. The code keeps it to your devices.',
+  foot: 'Scenri stays private to your devices.',
   wrong: 'That code did not work. Try again.',
   locked: 'Too many tries. Wait a few minutes.',
   short: 'Enter all 6 digits.',
@@ -145,11 +145,13 @@ h1 { margin: 0; font-size: 26px; line-height: 1.15; font-weight: 700; letter-spa
   width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+/* one short line, centred with the page, the lock beside it; if large text
+   wraps it anyway, it wraps balanced and still centred */
 .foot {
-  display: flex; align-items: flex-start; justify-content: center; gap: 8px; max-width: 34ch;
-  margin: 36px auto 0; color: var(--faint); font-size: 13px; line-height: 18px; text-align: left;
+  max-width: 34ch; margin: 36px auto 0; color: var(--faint); font-size: 13px; line-height: 18px;
+  text-align: center; text-wrap: balance;
 }
-.foot svg { flex: none; width: 14px; height: 14px; margin-top: 2px; }
+.foot svg { display: inline-block; width: 13px; height: 13px; margin-right: 6px; vertical-align: -2px; }
 @keyframes blink { 50% { opacity: 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes shake {
