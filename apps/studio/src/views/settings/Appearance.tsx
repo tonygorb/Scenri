@@ -12,7 +12,7 @@ const OPTIONS: { id: ThemeChoice; label: string }[] = [
 export function Appearance() {
   const { choice, setChoice } = useThemeMode();
   return (
-    <Group title="Appearance">
+    <Group>
       <div className="sc-set-row">
         <span className="txt">
           <b>Theme</b>

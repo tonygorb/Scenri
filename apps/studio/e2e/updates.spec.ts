@@ -184,7 +184,7 @@ class Fixture {
 
 const float = (p: Page) => p.locator('.sc-upd-float');
 const dot = (p: Page) => p.locator('.sc-help-btn .sc-upd-dot');
-const aboutRows = (p: Page) => p.locator('.sc-set .sc-set-row');
+const updateRows = (p: Page) => p.locator('.sc-set .sc-set-row');
 
 test.describe
   .serial('an update is available', () => {
@@ -215,9 +215,9 @@ test.describe
       await page.keyboard.press('Escape');
     });
 
-    test("Settings → About opens the canonical What's new dialog", async ({ page }) => {
+    test("Settings → Updates opens the canonical What's new dialog", async ({ page }) => {
       // straight to the brand path: the / redirect drops query params
-      await page.goto(`${fx.base()}/acme?settings=about`);
+      await page.goto(`${fx.base()}/acme?settings=updates`);
       await expect(page.locator('.sc-set .sc-tag-gold')).toHaveText('0.99.0 available');
       // the check has spoken: no button offering to look again beside its answer
       await expect(page.locator('.sc-set button', { hasText: 'Check for updates' })).toHaveCount(0);
@@ -225,12 +225,12 @@ test.describe
       // what is in the version you do NOT have is one link, not a second
       // renderer: the notes that ship inside a build describe that build
       await expect(
-        aboutRows(page).filter({ hasText: 'Updates' }).locator('a[href*="releases/tag/v0.99.0"]'),
+        updateRows(page).filter({ hasText: 'Updates' }).locator('a[href*="releases/tag/v0.99.0"]'),
       ).toHaveText("See what's in 0.99.0");
 
       // the row is permanent now — it is about the version you are running,
       // not the one on offer, so it does not come and go with the update check
-      const row = aboutRows(page).filter({ hasText: "What's new" });
+      const row = updateRows(page).filter({ hasText: "What's new" });
       await row.locator('button', { hasText: 'Show' }).click();
       await expect(page.locator('.sc-wn')).toBeVisible();
       // the surface is the title; the version is a quiet fact under it
@@ -239,7 +239,7 @@ test.describe
       await expect(page.locator('.sc-wn')).toHaveCount(0);
 
       // running from source in this spec, so the update row is git guidance
-      await expect(aboutRows(page).filter({ hasText: 'Update' }).first()).toBeVisible();
+      await expect(updateRows(page).filter({ hasText: 'Update' }).first()).toBeVisible();
     });
 
     test('first-run setup never shows the float: its fallback has nothing to open there', async ({ page }) => {
@@ -291,9 +291,9 @@ test.describe
       await fx.stop();
     });
 
-    test('About says checks are off, and the button still answers', async ({ page }) => {
-      await page.goto(`${fx.base()}/acme?settings=about`);
-      await expect(aboutRows(page).filter({ hasText: 'Automatic checks are off' }).first()).toBeVisible();
+    test('Updates says checks are off, and the button still answers', async ({ page }) => {
+      await page.goto(`${fx.base()}/acme?settings=updates`);
+      await expect(updateRows(page).filter({ hasText: 'Automatic checks are off' }).first()).toBeVisible();
       // never checked, nothing to report yet: no verdict tag at all
       await expect(page.locator('.sc-set .sc-tag')).toHaveCount(0);
 
@@ -315,13 +315,13 @@ test.describe
       await fx.stop();
     });
 
-    test('the app stays quiet and About says so only when asked', async ({ page }) => {
+    test('the app stays quiet and Updates says so only when asked', async ({ page }) => {
       await page.goto(`${fx.base()}/`);
       await expect(page.locator('.sc-greet')).toBeVisible();
       await expect(float(page)).toHaveCount(0);
 
       // straight to the brand path: the / redirect drops query params
-      await page.goto(`${fx.base()}/acme?settings=about`);
+      await page.goto(`${fx.base()}/acme?settings=updates`);
       await page.locator('.sc-set button', { hasText: 'Check for updates' }).first().click();
       await expect(page.locator('.sc-set .sc-tag', { hasText: "couldn't check for updates" })).toBeVisible();
     });

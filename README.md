@@ -35,7 +35,7 @@ Most AI image tools give you a prompt box and a slot machine. Scenri gives you t
 
 Every shot keeps its lineage. Branch an edit from any shot, put the two side by side, and the drift heatmap shows you exactly where the model changed your product when it should not have.
 
-It runs as a local server on `127.0.0.1`. Your brands, your images, and your keys stay on your disk.
+It runs as a local server on your own computer. Your brands, your images, and your keys stay on your disk. To use it from a phone or tablet on the same Wi-Fi, open Settings, Local access, and scan the QR code.
 
 ## What a brief produces
 
@@ -126,7 +126,7 @@ Your Codex session is yours: Scenri runs the official `codex` commands on your m
 |---|---|---|
 | `SCENRI_HOME` | `~/.scenri` | where brands, images, and keys live |
 | `SCENRI_PORT` | `4747` | port |
-| `SCENRI_HOST` | `127.0.0.1` | this machine only, see the note below |
+| `SCENRI_HOST` | `127.0.0.1` | the studio's own listener; `127.0.0.1` given explicitly also turns off phone access, see the note below |
 | `SCENRI_NO_OPEN` | unset | set to `1` to skip opening a browser |
 | `SCENRI_NO_UPDATE_CHECK` | unset | set to `1` to never ask npm for the latest version |
 | `SCENRI_REGISTRY` | npmjs | registry for the update check and downloads (mirrors, forks, airgaps) |
@@ -135,7 +135,7 @@ Your Codex session is yours: Scenri runs the official `codex` commands on your m
 
 `OPENROUTER_API_KEY`, `REPLICATE_API_TOKEN` and `FAL_KEY` are read from the environment as an alternative to entering them in Settings.
 
-**Before you change `SCENRI_HOST`:** Scenri has no accounts, so anyone who can reach the port can spend your API keys and delete your library. Setting `SCENRI_HOST=0.0.0.0` opens it to your local network so you can use it from a phone. That path prints a URL carrying a one-time access token, refuses every request without it, and rejects unfamiliar `Host` headers. Treat it as convenience on a network you trust, not as a security boundary.
+**Phones and tablets.** Scenri also answers on this computer's Wi-Fi or Ethernet address, so a phone on the same network can open it: Settings, Local access shows a QR code. Scenri has no accounts, so every device other than this computer has to bring a six-digit code, which rides inside the QR code and the link; typing the bare address asks for it, wrong guesses are slowed to a crawl, and **New code** signs every device out. The first time, macOS or Windows may ask whether Node may accept incoming connections: allow it, or phones cannot reach Scenri. Setting `SCENRI_HOST=127.0.0.1` keeps Scenri to this computer alone. Over plain http the code travels unencrypted, like everything else, so treat phone access as convenience on a network you trust.
 
 ## Layout
 

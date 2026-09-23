@@ -61,10 +61,10 @@ async function stubUnread(page: Page, over: Record<string, unknown> = {}): Promi
 }
 
 const dialog = (p: Page) => p.locator('.sc-wn');
-/** By hand, from Settings, About: its What's new row is permanent, whatever the chrome holds. */
+/** By hand, from Settings, Updates: its What's new row is permanent, whatever the chrome holds. */
 const openByHand = async (p: Page) => {
   const about = new URL(p.url());
-  about.search = '?settings=about';
+  about.search = '?settings=updates';
   await p.goto(about.href);
   await p.locator('.sc-set .sc-set-row', { hasText: "What's new" }).locator('button', { hasText: 'Show' }).click();
   await expect(dialog(p)).toBeVisible();
@@ -140,7 +140,7 @@ test('browser Back closes it, and that counts as read too', async ({ page }) => 
 
 test('it never stacks on a dialog that already owns the screen', async ({ page }) => {
   await stubUnread(page);
-  await page.goto('/e2e-fixture?settings=about');
+  await page.goto('/e2e-fixture?settings=updates');
   await expect(page.locator('.sc-set')).toBeVisible();
   await page.waitForTimeout(OUTWAIT_MS);
   await expect(dialog(page)).toHaveCount(0);

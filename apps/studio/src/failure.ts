@@ -213,8 +213,8 @@ const RULES: Rule[] = [
     re: /HTTP 404\b|model not found|no endpoints found|no allowed providers/i,
     kind: 'model',
     title: (e) => `${cap(e)} has no model for this shot.`,
-    fix: 'Pick another engine in Settings.',
-    remedy: { label: 'Choose engine', opens: 'engines' },
+    fix: 'Pick another engine in the composer, or connect one in Providers.',
+    remedy: { label: 'Providers', opens: 'engines' },
     retryable: false,
   },
 
