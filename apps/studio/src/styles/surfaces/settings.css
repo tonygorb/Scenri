@@ -90,8 +90,7 @@
   color: var(--sc-fg3);
 }
 /* the deletes belong to neither scope alone, so they stand apart from both */
-.sc-set-rail ul + .sc-set-group,
-.sc-set-rail .sc-set-apart {
+.sc-set-rail ul + .sc-set-group {
   margin-top: 20px;
 }
 .sc-set-item {
@@ -213,6 +212,14 @@
   color: var(--sc-fg2);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* A phone has no room for the sentence beside the page's name, so it opens
+   the page instead, in the same ink, wrapping as a sentence does. */
+.sc-set-lede {
+  margin: 0 0 16px;
+  font: 400 var(--sc-text-body) / 1.45 var(--sc-font);
+  color: var(--sc-fg2);
+  text-wrap: pretty;
 }
 /* The kit writes as it is edited: what the writing is doing, in place of a
    Save button. "Saved" shows for a moment and goes; a failure stays. */
@@ -349,6 +356,7 @@
   box-sizing: border-box;
 }
 .sc-set-row + .sc-set-row::before,
+.sc-phone + .sc-set-row::before,
 .sc-cap + .sc-cap::before {
   content: "";
   position: absolute;
@@ -447,6 +455,116 @@
   flex: 1 1 auto;
   min-width: 0;
   width: auto;
+}
+
+/* Local access (PhoneAccess.tsx): the phone card's one row carries Copy link,
+   and the QR code stands under it as the page opens. The code sits on a light
+   plate in both themes, because phone cameras read an inverted code poorly or
+   not at all; beside it, the typed way in, the firewall when it is in the way,
+   whether a device arrived, and the help. On a phone it stacks, code centred. */
+.sc-phone {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 16px;
+}
+.sc-phone::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--sc-line);
+}
+.sc-qr {
+  display: block;
+  flex: none;
+  border-radius: var(--sc-radius-sm);
+}
+.sc-qr-plate {
+  fill: #fff;
+}
+.sc-qr-ink {
+  fill: #000;
+}
+.sc-phone-how {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  max-width: 52ch;
+}
+.sc-phone-how p {
+  margin: 0;
+  color: var(--sc-fg2);
+  font: 400 12.5px / 1.45 var(--sc-font);
+  overflow-wrap: anywhere;
+}
+.sc-phone-how .sc-phone-key {
+  color: var(--sc-fg);
+  font: 600 13px / 1.3 var(--sc-font-mono);
+  white-space: nowrap;
+}
+.sc-phone-how .sc-phone-arrival[data-state="connected"] {
+  color: var(--sc-green);
+}
+/* The firewall, when it would stop a phone: said in the ink, not the quiet
+   secondary, with its one fix under it. */
+.sc-phone-fw {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+}
+.sc-phone-how .sc-phone-fw p {
+  color: var(--sc-fg);
+}
+.sc-phone-fw .sc-btn {
+  height: 32px;
+  padding: 0 13px;
+  font-size: var(--sc-text-body);
+}
+.sc-phone-how .sc-phone-allow[data-state="done"] {
+  color: var(--sc-green);
+}
+.sc-phone-help summary {
+  width: fit-content;
+  color: var(--sc-fg);
+  font: 500 12.5px / 1.45 var(--sc-font);
+  cursor: pointer;
+}
+.sc-phone-help ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--sc-fg2);
+  font: 400 12.5px / 1.45 var(--sc-font);
+}
+@media (max-width: 767px) {
+  .sc-phone {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: 14px 16px 16px;
+  }
+  .sc-phone .sc-qr {
+    align-self: center;
+    width: min(240px, 100%);
+    height: auto;
+  }
+  .sc-phone-fw .sc-btn {
+    width: 100%;
+    height: 34px;
+    justify-content: center;
+  }
+  .sc-phone-fw {
+    align-items: stretch;
+  }
 }
 
 /* A provider, on one line: mark, name over its one meta line, state, action.
@@ -777,8 +895,7 @@ select.sc-in {
     width: 44px;
     height: 44px;
   }
-  .sc-set-rail ul + .sc-set-group,
-  .sc-set-rail .sc-set-apart {
+  .sc-set-rail ul + .sc-set-group {
     margin-top: 24px;
   }
   /* a thumb's row: the pages' own 56, a 20px glyph beside a 15px name (16

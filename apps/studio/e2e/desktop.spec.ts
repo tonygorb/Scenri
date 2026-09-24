@@ -8,7 +8,7 @@ import { isolate } from './harness.js';
 /**
  * The desktop launcher's two browser surfaces: the starting page a cold
  * double-click shows, and the Desktop shortcut and Quit rows in Settings >
- * About. The shared server runs from source, so About shows the source
+ * Local access. The shared server runs from source, so the row shows the source
  * sentence and no Add button here; adding is covered by the CLI suites and the
  * real-machine QA. Shutting down really stops this spec's server, so it goes last.
  */
@@ -53,8 +53,10 @@ test.describe
       await expect(page.locator('#text')).toContainText('opened by Scenri itself');
     });
 
-    test('About explains the shortcut row from source and offers no button there', async ({ page, baseURL }) => {
-      await page.goto(`${baseURL}/acme?settings=about`);
+    test('Local access explains the shortcut row from source and offers no button there', async ({ page, baseURL }) => {
+      await page.goto(`${baseURL}/acme?settings=phone`);
+      // the other way to open Scenri, under this computer's own heading
+      await expect(page.getByRole('heading', { name: 'This computer' })).toBeVisible();
       const row = rows(page).filter({ hasText: 'Desktop shortcut' });
       await expect(row).toContainText('Running from source; nothing to put on a desktop.');
       await expect(row.locator('button')).toHaveCount(0);
@@ -64,7 +66,7 @@ test.describe
       page,
       baseURL,
     }) => {
-      await page.goto(`${baseURL}/acme?settings=about`);
+      await page.goto(`${baseURL}/acme?settings=phone`);
       // machine-level, so it is not a Settings row any more
       await expect(rows(page).filter({ hasText: /Quit|Shut down/ })).toHaveCount(0);
       // a fresh page rather than Escape: on the CI runner the closing dialog's

@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { SETTINGS_INDEX } from '../views/settingsPages.js';
 import { useDialogParam } from './AppShell.js';
 
 /**
@@ -13,16 +14,30 @@ import { useDialogParam } from './AppShell.js';
  */
 
 /**
- * Where Settings opens. `general` is the page that holds `appearance` and
- * `library`, and `budget` lands on the providers it caps: the older ids stay,
- * so every link and remedy that ever named one still lands.
+ * Where Settings opens. Every id names one page (views/settingsPages.ts),
+ * and the older ids stay, so every link and remedy that ever named one still
+ * lands: `general` on Appearance, `budget` on Providers.
  */
-export type Pane = 'brand' | 'engines' | 'budget' | 'usage' | 'general' | 'library' | 'appearance' | 'about' | 'danger';
+export type Pane =
+  | 'brand'
+  | 'engines'
+  | 'budget'
+  | 'usage'
+  | 'general'
+  | 'library'
+  | 'appearance'
+  | 'phone'
+  | 'updates'
+  | 'about'
+  | 'danger';
 
-/** Settings, at a pane. A URL, so it survives a refresh and answers to Back. */
+/**
+ * Settings, at a pane, or without one: then a phone starts on the index and a
+ * desktop on the first page. A URL, so it survives a refresh and answers to Back.
+ */
 export function useOpenSettings() {
   const { open } = useDialogParam('settings');
-  return useCallback((pane: Pane = 'brand') => open(pane), [open]);
+  return useCallback((pane?: Pane) => open(pane ?? SETTINGS_INDEX), [open]);
 }
 
 /** Codex, because the setup dialog opened without an engine is the Codex one. */

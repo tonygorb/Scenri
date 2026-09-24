@@ -313,7 +313,7 @@ test('filters live in the URL and survive a reload', async ({ page }) => {
 test('settings is a URL, and Back closes it', async ({ page }) => {
   const brand = await currentBrand(page);
 
-  // Budget is a section of Providers now; its old id still lands there.
+  // The caps sit under the providers they cap; the old budget id lands there.
   await page.goto(`/${brand.slug}?settings=budget`);
   await expect(page.locator('.sc-set')).toBeVisible();
   await expect(page.locator('.sc-set-head h2')).toHaveText('Providers');
@@ -771,4 +771,54 @@ test('Create from Products lands on All shots, not the last set', async ({ page 
   // `?compose=1` is spent on arrival, so the landing is the path, not the query
   await page.waitForURL((u) => u.pathname === `/${brand.slug}/create`);
   await expect(page.locator('.sc-toolbar-place-t')).toHaveText('All shots');
+});
+
+test('Settings keeps one idea per page, and switching pages keeps the dialog still', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}?settings=brand`);
+  const dialog = page.locator('.sc-set');
+  await expect(dialog).toBeVisible();
+  // measured once it has finished arriving, never mid-way through its entrance
+  const settled = () =>
+    dialog.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
+  await settled();
+  const first = await dialog.boundingBox();
+
+  // each page by its rail row, and one thing that belongs on it
+  const pages: [string, (p: Page) => Promise<void>][] = [
+    ['Brand kit', (p) => expect(p.locator('.sc-set-row', { hasText: 'Tagline' })).toBeVisible()],
+    ['Usage', (p) => expect(p.locator('.sc-set-head p')).toContainText('one square per day')],
+    ['Providers', (p) => expect(p.getByRole('heading', { name: 'Monthly caps' })).toBeVisible()],
+    ['Appearance', (p) => expect(p.locator('.sc-set-row', { hasText: 'Theme' })).toBeVisible()],
+    ['Library', (p) => expect(p.locator('.sc-set-row', { hasText: 'Export everything' })).toBeVisible()],
+    ['Local access', (p) => expect(p.getByRole('heading', { name: 'This computer' })).toBeVisible()],
+    ['Updates', (p) => expect(p.locator('.sc-set-row', { hasText: 'Automatic updates' })).toBeVisible()],
+    ['About', (p) => expect(p.locator('.sc-set-row', { hasText: 'License' })).toBeVisible()],
+    ['Danger zone', (p) => expect(p.getByRole('heading', { name: 'Every brand' })).toBeVisible()],
+  ];
+  for (const [name, check] of pages) {
+    await page.locator('.sc-set-rail').getByRole('button', { name, exact: true }).click();
+    await expect(page.locator('.sc-set-head h2')).toHaveText(name);
+    await check(page);
+    await settled();
+    // the box never moves: one height whatever the page
+    expect(await dialog.boundingBox(), name).toEqual(first);
+  }
+
+  // nothing left behind where it used to live
+  await page.locator('.sc-set-rail').getByRole('button', { name: 'About', exact: true }).click();
+  await expect(page.locator('.sc-set-row', { hasText: /Desktop shortcut|Automatic updates/ })).toHaveCount(0);
+  await expect(page.locator('.sc-set-rail').getByRole('button', { name: 'General', exact: true })).toHaveCount(0);
+});
+
+test('the theme chosen in Appearance survives a reload, on this device', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}?settings=appearance`);
+  await page.getByRole('radio', { name: 'Dark' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.getByRole('radio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
+  // leave the file's other tests the theme they started with
+  await page.getByRole('radio', { name: 'System' }).click();
 });

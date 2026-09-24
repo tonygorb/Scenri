@@ -303,6 +303,31 @@ export type VersionInfo = {
   installKind: 'npx' | 'global' | 'managed' | 'dev' | 'unknown';
   supervised: boolean;
   home: string;
+  /** Whether this tab is on the computer running Scenri, not a phone on the Wi-Fi. */
+  thisComputer?: boolean;
+};
+
+/** Why a phone might not open Scenri, as this computer's firewall answers. */
+export type FirewallVerdict = 'blocked' | 'blocks-all' | 'ok' | 'unknown';
+
+/** How a press of Allow Scenri ended: the OS prompt was approved, declined, or could not run. */
+export type AllowResult = 'done' | 'cancelled' | 'failed' | 'unsupported';
+
+/** Settings' "Open on your phone" row (GET /api/phone). */
+export type PhoneStatus = {
+  /** `this-computer`: started with SCENRI_HOST=127.0.0.1, so no phone can open it. */
+  reach: 'network' | 'this-computer';
+  /** Whether this tab is on the computer running Scenri. */
+  thisComputer: boolean;
+  platform: string;
+  /** `http://192.168.1.42:4747`, the address to type. */
+  address: string | null;
+  /** The address with the code in it: the QR code and the copied link. */
+  url: string | null;
+  code: string;
+  others: string[];
+  problem: 'no-network' | 'blocked' | null;
+  lastVisit: { at: number; device: string } | null;
 };
 
 /** The desktop launcher's state on this machine, from GET /api/desktop. */

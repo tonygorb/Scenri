@@ -124,6 +124,8 @@ import { registerUpdateRoutes } from './routes/updates.js';
 import { registerSystemRoutes } from './routes/system.js';
 import { registerGuideRoutes } from './routes/guide.js';
 import { registerDesktopRoutes } from './routes/desktop.js';
+import { registerPhoneRoutes } from './routes/phone.js';
+import { createPhoneAccess, type PhoneAccess, type PhoneAccessDeps } from './network/phoneAccess.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -133,6 +135,8 @@ declare module 'fastify' {
     updates: UpdateChecker;
     /** The one-time library download; serve.ts triggers it after listen. */
     content: ContentFetcher;
+    /** Opening Scenri on a phone; serve.ts starts its listeners after listen. */
+    phone: PhoneAccess;
   }
 }
 
@@ -145,7 +149,11 @@ export interface ServerOptions {
   studioDist?: string; // path to built SPA; optional in tests
   fetchImpl?: typeof fetch;
   templatesDir?: string; // override for tests
-  access?: AccessOptions; // host allowlist + LAN token; loopback-only by default
+  access?: Pick<AccessOptions, 'allowedHosts' | 'now'>; // extra host names beyond loopback and IPv4
+  /** SCENRI_HOST as given; unset is the default, 127.0.0.1 plus a listener per phone address. */
+  bind?: string;
+  /** The phone listeners' seams, injected in tests so no socket opens. */
+  phone?: Omit<PhoneAccessDeps, 'store' | 'bind'>;
   /** Posture serve.ts works out from its own entry path; tests leave it unset. */
   runtime?: { installKind: InstallKind; supervised: boolean; launcherProtocol?: number; entry?: string };
   /** The staging function, injected in tests so no npm runs. */
@@ -190,9 +198,25 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   const { core, engines } = opts;
   const meta = readMeta();
   const app = Fastify({ logger: false });
+  const phone = createPhoneAccess({ store: core.store, bind: opts.bind, handler: () => app.routing, ...opts.phone });
+  app.decorate('phone', phone);
+  // closes the phone listeners with the server, drain included
+  app.addHook('onClose', async () => phone.close());
+  let port: number | null = null;
   // First hook, before any route: Fastify only applies a hook to routes
   // registered after it was added.
-  registerAccessGuard(app, opts.access);
+  registerAccessGuard(app, {
+    ...opts.access,
+    code: () => phone.code,
+    port: () => {
+      if (port === null) {
+        const addr = app.server.address();
+        port = addr && typeof addr === 'object' ? addr.port : null;
+      }
+      return port;
+    },
+    onVisit: (remote, ua) => phone.visit(remote, ua),
+  });
   // In-flight cost reservations per engine: caps must count generations that
   // are still running, not just recorded cost_events, or N parallel requests
   // all pass the cap check against the same stale spend.
@@ -2755,6 +2779,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   });
 
   registerSystemRoutes(app, { core, thumbs });
+  registerPhoneRoutes(app, { phone });
   registerGuideRoutes(app, { core, version: meta.version });
   registerDesktopRoutes(app, {
     core,

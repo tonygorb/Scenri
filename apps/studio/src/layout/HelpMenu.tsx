@@ -63,7 +63,7 @@ export function HelpMenu() {
         </Tip>
         <DropdownMenu.Content align="end" side="top" sideOffset={8} className="sc-menu sc-help-menu">
           {updateAvailable && (
-            <DropdownMenu.Item className="sc-menu-item" data-update="" onSelect={() => openSettings('about')}>
+            <DropdownMenu.Item className="sc-menu-item" data-update="" onSelect={() => openSettings('updates')}>
               <ArrowCircleUp size={18} className="sc-menu-ic" />
               <span className="sc-menu-lb">Update available · {updates.status?.latest}</span>
             </DropdownMenu.Item>

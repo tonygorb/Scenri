@@ -12,10 +12,16 @@ server, and no copy of your work anywhere else. Deleting that folder deletes
 everything.
 
 The browser side keeps only interface state (theme, drafts, bookmarks, layout
-preferences) in localStorage. On a normal local run Scenri sets no cookies. The
-optional LAN mode sets one strictly functional session cookie so the access
-token can leave the address bar; it identifies the session to your own server
-and nothing else.
+preferences) in localStorage. Scenri sets no cookies in this computer's own
+browser. A phone or tablet that opens Scenri with its access code gets one
+strictly functional cookie, kept for 400 days so it stays signed in, which
+carries that code to your own server and nothing else.
+
+A phone talks straight to your computer over your own network. To show the
+right address, Scenri asks the operating system which network its default
+route uses, by opening a UDP socket toward `192.0.2.1`, a documentation
+address no host answers. No packet is sent: the question never leaves the
+machine.
 
 ## What Scenri sends on its own behalf
 
