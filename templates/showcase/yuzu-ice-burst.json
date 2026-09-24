@@ -1,0 +1,29 @@
+{
+  "id": "yuzu-ice-burst",
+  "title": "Yuzu tonic bursting through ice",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "brixa-yuzu-tonic"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The violet can hangs upright in mid-air, beaded with cold condensation, its print square to camera, while a halved yuzu, two thin wheels and a spray of clear ice shards burst outward around it, frozen at a flash-sharp instant. The backdrop is a smooth saturated lime-yellow sweep. One hard strobe from the upper left with a white card fill on the right, every droplet on the can catching a pinpoint highlight. 100mm from exactly can height, the can filling the middle third of the frame, deep focus across the fruit."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 7,
+  "family": "fluid"
+}

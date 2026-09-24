@@ -79,7 +79,7 @@ const CATEGORY_OF: Record<string, readonly string[]> = {
   furniture: ['furniture'],
   'food & drink': ['food', 'beverage'],
 };
-const SPORT = ['voss-rowe-trail-runner', 'slate-harbor-tech-shell', 'meridian-pulse-smartwatch'];
+const SPORT = ['voss-rowe-ridgeline-trail', 'slate-harbor-cropped-puffer', 'carrick-stead-chug-710'];
 const DEFAULT_CATEGORIES = ['fragrance', 'beauty', 'accessories'];
 
 /** A stable number from a string, so the same scene always picks the same subject. */

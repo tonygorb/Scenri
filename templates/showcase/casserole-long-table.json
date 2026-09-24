@@ -1,0 +1,33 @@
+{
+  "id": "casserole-long-table",
+  "title": "Oxblood casserole on the long table",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "lydford-forge-24-casserole"
+      },
+      {
+        "t": "template",
+        "id": "linen-morning-room"
+      },
+      {
+        "t": "text",
+        "v": " The oxblood casserole sits on the white-clothed table among the olives and jasmine, lid off and resting against it, a golden braise inside, the sheer curtains billowing behind. 50mm at table height."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 85,
+  "family": "place"
+}

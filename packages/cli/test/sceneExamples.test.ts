@@ -26,7 +26,7 @@ describe('who stands in a scene’s examples', () => {
     { id: 'chair', category: 'furniture' },
     { id: 'bread', category: 'food' },
     { id: 'soda', category: 'beverage' },
-    { id: 'voss-rowe-trail-runner', category: 'footwear' },
+    { id: 'voss-rowe-ridgeline-trail', category: 'footwear' },
     { id: 'camera', category: 'electronics' },
   ];
   const people = [
@@ -41,7 +41,7 @@ describe('who stands in a scene’s examples', () => {
     expect(pickSubject(scene({ verticals: ['Home'] }), products, people)).toEqual({ kind: 'product', id: 'chair' });
     expect(pickSubject(scene({ verticals: ['Sport'] }), products, people)).toEqual({
       kind: 'product',
-      id: 'voss-rowe-trail-runner',
+      id: 'voss-rowe-ridgeline-trail',
     });
     const food = pickSubject(scene({ verticals: ['Food & drink'] }), products, people);
     expect(['bread', 'soda']).toContain(food?.id);

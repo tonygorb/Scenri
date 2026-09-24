@@ -1,0 +1,29 @@
+{
+  "id": "hibiscus-pour",
+  "title": "Hibiscus soda poured over ice",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "pellow-hibiscus-soda"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The long-neck bottle stands upright on white marble, its label square to camera, beside a tall clear glass already filled with pink soda over ice, fizzing, bubbles racing up and a few drops running down the glass. A pink hibiscus flower lies between them. Hard side light, the soda glowing. 85mm at glass height, the bottle label to camera."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 1,
+  "family": "fluid"
+}

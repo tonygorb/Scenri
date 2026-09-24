@@ -1,0 +1,29 @@
+{
+  "id": "open-buds-vinyl",
+  "title": "Open buds on a spinning record",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "oswin-hale-open-buds"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The cobalt case sits open on the label of a spinning black vinyl record, the grooves blurred into rings of light, one bud resting in the case. Dim room, one cobalt gel light from the side. 50mm from platter height, the case crisp."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 94,
+  "family": "optical"
+}

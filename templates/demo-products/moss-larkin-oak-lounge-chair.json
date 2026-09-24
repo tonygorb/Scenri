@@ -1,0 +1,19 @@
+{
+  "id": "moss-larkin-oak-lounge-chair",
+  "name": "Oak Lounge Chair",
+  "promptName": "Low Oak Lounge Chair with Cream Boucle Cushions",
+  "brand": "Moss Larkin",
+  "format": "Lounge chair",
+  "legacyNames": ["Low Oak Lounge Chair with Cream Boucle Cushions"],
+  "keywords": ["chair", "lounge chair", "armchair", "oak", "boucle", "furniture", "living room"],
+  "category": "furniture",
+  "description": "A low lounge chair with a solid natural oak frame, wide rounded armrests, and thick loose seat and back cushions in cream boucle.",
+  "dimensions": "about 75 cm tall, 72 cm wide and 80 cm deep",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "low oak lounge chair",
+  "materials": "solid natural oak frame, cream boucle upholstery over foam cushions",
+  "primaryColors": "natural oak, cream",
+  "negativeConstraints": "Never add any text, logo, wordmark, engraving or mark anywhere on it.",
+  "preservationNotes": "Keep the solid natural oak frame with wide rounded armrests and the thick loose cream boucle seat and back cushions in every shot."
+}

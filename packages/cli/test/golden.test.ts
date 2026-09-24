@@ -14,6 +14,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   createCore,
   EDIT_REFERENCE_ROLE_DIRECTIVE,
@@ -135,7 +136,13 @@ afterEach(() => {
   rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
-const resolveScene = sceneResolver(loadScenes(defaultScenesDir()).scenes);
+/**
+ * These contracts were written against scenes that have since left the catalog (the
+ * 2026-09-24 refresh). They stay as fixtures, so each contract keeps the scene it was
+ * written for instead of being bent to whatever the catalog ships today.
+ */
+const RETIRED_SCENES = fileURLToPath(new URL('./fixtures/scenes/', import.meta.url));
+const resolveScene = sceneResolver([...loadScenes(defaultScenesDir()).scenes, ...loadScenes(RETIRED_SCENES).scenes]);
 const compile = (tokens: Brief['tokens'], max = 6) =>
   compileBrief({ tokens }, { brand: brand(), images: core.images, engineCaps: caps(max), templateById: resolveScene });
 const roles = (r: ReturnType<typeof compile>) => r.attachments.map((a) => a.role);

@@ -219,14 +219,19 @@ describe('shipped showcase entries resolve against the real catalog', () => {
    * is a worse catalog, not a better wall. A raw count was never what stopped a
    * repeat from *reading* as a repeat anyway — the two guards below are, and
    * they are what actually replaces the lost strictness.
+   *
+   * Raised from 3 to 4 when the 2026-09 refresh rebuilt the wall at 100 tiles on
+   * 30 products: 100 over 30 is already 3.3 a product, so a cap of 3 could not be
+   * met at all. Ten products carry a fourth tile, and the spacing and two-family
+   * guards below still hold for every one of them.
    */
-  it('no product appears in more than three tiles', () => {
+  it('no product appears in more than four tiles', () => {
     const count = new Map<string, number>();
     for (const e of entries) {
       const productId = (tokensOf(e, 'product')[0] as any)?.id as string | undefined;
       if (productId) count.set(productId, (count.get(productId) ?? 0) + 1);
     }
-    const over = [...count.entries()].filter(([, n]) => n > 3).map(([id, n]) => `${id}=${n}`);
+    const over = [...count.entries()].filter(([, n]) => n > 4).map(([id, n]) => `${id}=${n}`);
     expect(over).toEqual([]);
   });
 

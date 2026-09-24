@@ -1,0 +1,29 @@
+{
+  "id": "barrier-cream-oats",
+  "title": "Barrier cream nested in oats",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "fenwick-slade-barrier-cream"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The sage glass jar sits nested in a deep bed of pale oat stalks and rolled oats, lid off and set beside it, the cream's surface swirled. Soft warm daylight, a few oat husks in the foreground out of focus. 85mm from jar height, the label to camera."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 58,
+  "family": "botanical"
+}

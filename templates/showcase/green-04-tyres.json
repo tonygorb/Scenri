@@ -1,0 +1,33 @@
+{
+  "id": "green-04-tyres",
+  "title": "Green juice on green tyres",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "orchard-oat-green-04"
+      },
+      {
+        "t": "template",
+        "id": "green-tyre-stack"
+      },
+      {
+        "t": "text",
+        "v": " The square bottle of green juice stands on the top tyre, beaded with condensation, green on glossy green. Hard key light from the left. 50mm at bottle height, the bottle large."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 67,
+  "family": "studio"
+}

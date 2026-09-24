@@ -839,7 +839,7 @@ test('a scene on its own is not a draft to come back to', async ({ page }) => {
  */
 test('a seeded scene leaves the URL behind, and stays removed', async ({ page }) => {
   const base = new URL(page.url()).pathname;
-  await page.goto(`${base}?scene=action-motion-freeze&attach=products&compose=1`);
+  await page.goto(`${base}?scene=clay-court&attach=products&compose=1`);
   await line(page).waitFor();
   await expect(chips(page)).toHaveCount(1);
   await expect.poll(() => new URL(page.url()).searchParams.get('scene')).toBeNull();
@@ -1473,8 +1473,8 @@ test('a mouse gets the search field straight away', async ({ page }) => {
   // the counterpart of the touch rule: on a pointer nothing is covered by the
   // keyboard, so typing is the fastest way into a catalog of this size
   await expect(pickSearch(page)).toBeFocused();
-  await page.keyboard.type('sil');
-  await expect(cards(page).first().locator('b')).toContainText(/sil/i);
+  await page.keyboard.type('lantern');
+  await expect(cards(page).first().locator('b')).toContainText(/lantern/i);
 });
 
 test('the current row links out to the asset, and only from its own button', async ({ page }) => {

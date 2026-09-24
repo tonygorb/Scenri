@@ -1,0 +1,33 @@
+{
+  "id": "capsule-model-village",
+  "title": "Capsule speaker in the model village",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ossett-hume-capsule"
+      },
+      {
+        "t": "template",
+        "id": "model-village"
+      },
+      {
+        "t": "text",
+        "v": " The capsule speaker sits in the empty village square at true size, towering over the 1:12 cottages like a new landmark, the church spire behind. 35mm from ground level in the square, sunny, everything sharp."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 12,
+  "family": "place"
+}

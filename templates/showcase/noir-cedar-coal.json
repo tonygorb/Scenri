@@ -1,0 +1,33 @@
+{
+  "id": "noir-cedar-coal",
+  "title": "Noir Cedar on coal in blind light",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marrow-vale-noir-cedar"
+      },
+      {
+        "t": "template",
+        "id": "coal-blind-light"
+      },
+      {
+        "t": "text",
+        "v": " The black parfum stands on the glossy coal, the cold venetian-blind stripes crossing the bottle and the coal alike, the gunmetal cap catching one stripe. 85mm at bottle height, the bottle tall and centred."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 47,
+  "family": "optical"
+}

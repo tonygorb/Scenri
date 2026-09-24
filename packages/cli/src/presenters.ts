@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
@@ -110,6 +110,44 @@ export const PRESENTER_ANGLES: [string, string][] = [
   ['ref-04', 'back'],
 ];
 
+/**
+ * The Studio v2 view set a curated presenter may ship instead of the four
+ * ref-NN frames: the same views a presenter made in the studio has
+ * (presenterPrompts.ts VIEW_ROLES), each named by its view, with the avatar as
+ * the portrait. Order is the identity plan's order.
+ */
+const VIEW_FILES = ['front', 'three-quarter', 'back', 'left', 'right'] as const;
+
+/**
+ * A curated presenter's standing views, each with its angle. A presenter that
+ * ships any v2 view is read as v2, and its older ref-NN frames are ignored;
+ * one that ships none keeps the four-frame plan above.
+ */
+export function presenterViews(templatesRoot: string, id: string): { slot: string; angle: string; path: string }[] {
+  const at = (slot: string, angle: string) => ({ slot, angle, path: presenterRefPath(templatesRoot, id, slot) });
+  const v2 = VIEW_FILES.map((view) => at(view, view)).filter((f) => existsSync(f.path));
+  if (v2.length) return v2;
+  return PRESENTER_ANGLES.map(([slot, angle]) => at(slot, angle)).filter((f) => existsSync(f.path));
+}
+
+/**
+ * What a curated presenter's page shows: the portrait first, labelled Face,
+ * the way a presenter made in the studio leads its shots with its portrait,
+ * then the standing views. Page only: a brief already leads with the avatar,
+ * so the portrait is never attached twice.
+ */
+export function presenterPageFrames(
+  templatesRoot: string,
+  id: string,
+): { slot: string; angle: string; path: string }[] {
+  const views = presenterViews(templatesRoot, id);
+  const portrait = presenterRefPath(templatesRoot, id, 'portrait');
+  return existsSync(portrait) ? [{ slot: 'portrait', angle: 'portrait', path: portrait }, ...views] : views;
+}
+
+/** A frame file name the preview route serves: the portrait, a v2 view or a ref-NN slot. */
+export const PRESENTER_FRAME_FILE = /^(ref-[0-9]{2}|portrait|front|three-quarter|back|left|right)\.jpg$/;
+
 export function presenterRefPath(templatesRoot: string, id: string, slot: string): string {
   // Overlays the downloaded library cache: the npm install carries no identity
   // sets, so post-fetch these resolve into ~/.scenri/content transparently.
@@ -148,12 +186,16 @@ export function presenterAvatarPath(templatesRoot: string, id: string): string {
 const resolvedRefs = new Map<string, string>();
 
 async function refHash(core: Core, path: string): Promise<string> {
-  const hit = resolvedRefs.get(path);
+  // Keyed by the file's version as well as its path: a library update swaps
+  // the pictures under the same names while the server keeps running.
+  const { mtimeMs, size } = statSync(path);
+  const key = `${path}\0${mtimeMs}\0${size}`;
+  const hit = resolvedRefs.get(key);
   // Verified before it is trusted: a hash is only valid for the store that
   // holds it, and tests build a fresh core per case.
   if (hit && core.images.has(hit)) return hit;
   const hash = core.images.save(await sharp(readFileSync(path)).png().toBuffer());
-  resolvedRefs.set(path, hash);
+  resolvedRefs.set(key, hash);
   return hash;
 }
 
@@ -178,9 +220,7 @@ export async function resolvePresenterImages(
   // and the capture wardrobe the release clause names.
   const avatar = presenterAvatarPath(templatesRoot, presenter.id);
   if (existsSync(avatar)) shots.push({ file: `asset:${await refHash(core, avatar)}`, angle: 'portrait', locked: true });
-  for (const [slot, angle] of PRESENTER_ANGLES) {
-    const path = presenterRefPath(templatesRoot, presenter.id, slot);
-    if (!existsSync(path)) continue;
+  for (const { angle, path } of presenterViews(templatesRoot, presenter.id)) {
     shots.push({ file: `asset:${await refHash(core, path)}`, angle, locked: true });
   }
   if (!shots.length) return null;

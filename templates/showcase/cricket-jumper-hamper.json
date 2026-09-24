@@ -1,0 +1,29 @@
+{
+  "id": "cricket-jumper-hamper",
+  "title": "Cricket jumper folded on a hamper",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "dunmore-kerr-cricket-jumper"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Overhead flat lay: the cream cricket jumper folded square on the lid of a wicker picnic hamper, the navy and scarlet trim at the V-neck crisp, a red leather cricket ball and a folded linen napkin beside it on a cut-grass background. Soft summer shade, straight down at 50mm."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 23,
+  "family": "studio"
+}

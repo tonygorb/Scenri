@@ -4,7 +4,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { createCore, type Core, type EngineAdapter } from '@scenri/core';
-import { loadPresenters, presenterResolver, presenterFacetsOf, type Presenter } from '../src/presenters.js';
+import {
+  loadPresenters,
+  presenterFacetsOf,
+  presenterResolver,
+  presenterPageFrames,
+  presenterViews,
+  resolvePresenterImages,
+  type Presenter,
+} from '../src/presenters.js';
 import { buildServer } from '../src/server.js';
 import type { FastifyInstance } from 'fastify';
 
@@ -56,6 +64,54 @@ describe('presenter loader', () => {
     ]);
     expect(categories).toEqual(['Apparel', 'Beauty']);
     expect(styles).toEqual(['Editorial', 'Lifestyle']);
+  });
+});
+
+describe('presenterViews', () => {
+  let root: string;
+  const put = async (id: string, file: string) => {
+    mkdirSync(join(root, 'previews', 'presenters', id), { recursive: true });
+    const jpg = await sharp({ create: { width: 4, height: 4, channels: 3, background: '#808080' } })
+      .jpeg()
+      .toBuffer();
+    writeFileSync(join(root, 'previews', 'presenters', id, file), jpg);
+  };
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'sc-presenter-views-'));
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('reads the Studio v2 views in plan order, and a legacy set as its four frames', async () => {
+    for (const f of ['right.jpg', 'front.jpg', 'back.jpg', 'three-quarter.jpg', 'left.jpg']) await put('v2', f);
+    for (const f of ['ref-01.jpg', 'ref-04.jpg']) await put('old', f);
+    expect(presenterViews(root, 'v2').map((f) => f.angle)).toEqual(['front', 'three-quarter', 'back', 'left', 'right']);
+    expect(presenterViews(root, 'old').map((f) => f.angle)).toEqual(['front', 'back']);
+  });
+
+  it('leads the page with the portrait, as a studio presenter shows its face first, and leaves the views alone', async () => {
+    for (const f of ['portrait.jpg', 'front.jpg', 'back.jpg']) await put('pp', f);
+    expect(presenterPageFrames(root, 'pp').map((f) => f.angle)).toEqual(['portrait', 'front', 'back']);
+    expect(presenterViews(root, 'pp').map((f) => f.angle)).toEqual(['front', 'back']);
+    for (const f of ['ref-01.jpg', 'ref-04.jpg']) await put('legacy', f);
+    expect(presenterPageFrames(root, 'legacy').map((f) => f.angle)).toEqual(['front', 'back']);
+  });
+
+  it('prefers the v2 views when a presenter ships both', async () => {
+    for (const f of ['ref-01.jpg', 'ref-02.jpg', 'front.jpg']) await put('both', f);
+    expect(presenterViews(root, 'both').map((f) => f.slot)).toEqual(['front']);
+  });
+
+  it('resolves the portrait first, then the views', async () => {
+    for (const f of ['avatar.jpg', 'front.jpg', 'three-quarter.jpg']) await put('p', f);
+    const home = mkdtempSync(join(tmpdir(), 'sc-presenter-views-home-'));
+    const core = createCore(home);
+    try {
+      const resolved = await resolvePresenterImages(core, root, { id: 'p', name: 'P' } as Presenter);
+      expect(resolved?.shots.map((s) => s.angle)).toEqual(['portrait', 'front', 'three-quarter']);
+    } finally {
+      core.close();
+      rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    }
   });
 });
 
@@ -178,7 +234,7 @@ describe('presenter catalog + direct-attach API', () => {
     // asset, not part of the identity plan: it must never show up as a 3rd frame.
     const frames = (await app.inject({ method: 'GET', url: '/api/presenter-previews/sana' })).json().frames;
     expect(frames).toHaveLength(2);
-    expect(frames.join(' ')).not.toContain('avatar');
+    expect(JSON.stringify(frames)).not.toContain('avatar');
   });
 
   it('serves the thumbnail and 404s an unknown one', async () => {
@@ -192,8 +248,9 @@ describe('presenter catalog + direct-attach API', () => {
   it("lists a presenter's reference frames, and answers empty rather than 404 for one with no set", async () => {
     const withSet = (await app.inject({ method: 'GET', url: '/api/presenter-previews/sana' })).json();
     expect(withSet.frames).toHaveLength(2);
-    expect(withSet.frames[0]).toMatch(/^\/api\/presenter-previews\/sana\/ref-01\.jpg\?v=\d+$/);
-    expect(withSet.frames[1]).toMatch(/^\/api\/presenter-previews\/sana\/ref-02\.jpg\?v=\d+$/);
+    expect(withSet.frames[0].url).toMatch(/^\/api\/presenter-previews\/sana\/ref-01\.jpg\?v=\d+$/);
+    expect(withSet.frames[1].url).toMatch(/^\/api\/presenter-previews\/sana\/ref-02\.jpg\?v=\d+$/);
+    expect(withSet.frames.map((f: { angle: string }) => f.angle)).toEqual(['front', 'left-profile']);
     const frame = await app.inject({ method: 'GET', url: '/api/presenter-previews/sana/ref-01.jpg' });
     expect(frame.statusCode).toBe(200);
 

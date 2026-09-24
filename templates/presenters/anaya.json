@@ -1,0 +1,18 @@
+{
+  "id": "anaya",
+  "name": "Anaya",
+  "presentation": "woman",
+  "descriptor": "Beauty close-up · freckled brown skin · glossy black hair",
+  "ageRange": "early 30s",
+  "facial": "a soft oval face, thick dark brows, dark brown eyes, a light dusting of freckles across the nose and cheeks",
+  "skin": "warm medium brown with visible pores and freckles, never airbrushed",
+  "hair": "long glossy straight black hair with a centre part",
+  "build": "average, softly toned",
+  "wardrobeDefault": "a fitted ivory knit top, small gold studs",
+  "suitableCategories": ["Food & drink", "Home", "Furniture", "Beauty"],
+  "suitableStyles": ["Lifestyle", "Editorial"],
+  "identityNotes": "the freckles across the nose and cheeks, the thick dark brows and the centre-parted glossy black hair must survive every generation, with real skin texture in close-up",
+  "negativeConstraints": ["no airbrushed or poreless skin", "no freckles removed", "no side part"],
+  "width": 1024,
+  "height": 1280
+}

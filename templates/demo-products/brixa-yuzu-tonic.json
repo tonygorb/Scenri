@@ -1,0 +1,19 @@
+{
+  "id": "brixa-yuzu-tonic",
+  "name": "Yuzu Tonic",
+  "promptName": "Slim Violet Can of Sparkling Yuzu Tonic",
+  "brand": "Brixa",
+  "format": "355 ml slim can",
+  "legacyNames": ["Slim Violet Can of Sparkling Yuzu Tonic"],
+  "keywords": ["can", "soda", "sparkling", "tonic", "yuzu", "drink", "beverage", "citrus"],
+  "category": "beverage",
+  "description": "A slim 355 ml aluminium can with a matte electric-violet finish and a silver top and tab; YUZU printed huge in white condensed capitals running vertically up the can, the BRIXA wordmark in white near the top, a small yellow yuzu-slice graphic, and sparkling tonic and 355 ml in small white type near the base.",
+  "dimensions": "about 15.5 cm tall and 5.8 cm across",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "sparkling tonic in a slim aluminium can",
+  "materials": "matte-coated aluminium can, silver lid and tab, white and yellow print",
+  "primaryColors": "electric violet, white, yellow, silver",
+  "negativeConstraints": "Never invent any text, logo, wordmark or mark beyond the ones this record names, never misspell or rearrange those, and never add a second label.",
+  "preservationNotes": "Keep the print exactly: YUZU huge in white condensed capitals running vertically, BRIXA near the top, a small yellow yuzu slice, sparkling tonic and 355 ml near the base. Keep the matte electric-violet finish and the silver top in every shot."
+}

@@ -1,0 +1,33 @@
+{
+  "id": "field-watch-spotlight",
+  "title": "Field watch in a hot spotlight",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aldergate-field-38"
+      },
+      {
+        "t": "template",
+        "id": "sand-mound-spotlight"
+      },
+      {
+        "t": "text",
+        "v": " The watch lies on the crest of the sand mound, its suede strap curved into the sand, the dial tilted up into the hot circle of light and the incense smoke rising behind. 100mm from sand height, the dial large and crisp, the sand grains in sharp focus."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 25,
+  "family": "geological"
+}

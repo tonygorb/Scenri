@@ -1,0 +1,33 @@
+{
+  "id": "over-ear-arch",
+  "title": "Powder-blue headphones at the lime arch",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "nordhavn-over-ear"
+      },
+      {
+        "t": "template",
+        "id": "sky-color-block"
+      },
+      {
+        "t": "text",
+        "v": " The powder-blue headphones rest on the sky-blue floor right at the foot of the lime arch, earcups open toward camera, the band standing up. The camera is down on the floor, 35mm, the arch rising behind the headphones and filling the top of the frame. Hard sun from the left, one clean shadow."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 37,
+  "family": "studio"
+}

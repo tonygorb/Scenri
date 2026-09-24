@@ -7,10 +7,9 @@ import { loadScenes, sceneResolver, defaultScenesDir } from './scenes.js';
 import { brandJsonWithResolvedPresenters, loadPresenters, presenterAvatarPath } from './presenters.js';
 import {
   brandJsonWithResolvedDemoProducts,
-  demoProductRefPath,
+  demoProductAngleFiles,
   demoProductResolver,
   loadDemoProducts,
-  PRODUCT_ANGLES_BY_CATEGORY,
 } from './demoProducts.js';
 import { compileBrief, validateBrief, FORMATS, type Attachment, type Brief, type BriefToken } from './brief.js';
 import { mergeEditAttachments } from './attachmentBudget.js';
@@ -715,8 +714,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     ready: (subject) => {
       if (subject.kind === 'presenter') return existsSync(presenterAvatarPath(templatesRoot, subject.id));
       const product = demoProducts.find((p) => p.id === subject.id);
-      const angles = PRODUCT_ANGLES_BY_CATEGORY[product?.category ?? ''] ?? PRODUCT_ANGLES_BY_CATEGORY.other;
-      return angles.some((angle) => existsSync(demoProductRefPath(templatesRoot, subject.id, angle)));
+      return demoProductAngleFiles(templatesRoot, subject.id, product?.category ?? '').length > 0;
     },
     log: (obj, msg) => app.log.warn(obj, msg),
   });

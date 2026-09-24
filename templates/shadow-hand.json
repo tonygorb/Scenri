@@ -1,0 +1,14 @@
+{
+  "id": "shadow-hand",
+  "name": "Shadow Hand",
+  "promptName": "Shadow Hand",
+  "keywords": ["shadow", "hand", "ochre", "plaster", "raking light", "surreal", "minimal", "warm"],
+  "description": "The shadow of an unseen hand reaches across a warm ochre wall.",
+  "lighting": "One hard low raking light from the upper left, long soft-edged shadows",
+  "subject": "either",
+  "collections": ["Studio", "Detail"],
+  "verticals": ["Beauty", "Fragrance", "Jewelry", "Accessories", "Food & drink"],
+  "prompt": "A seamless wall and floor of warm ochre plaster are raked by one hard low light from the upper left. Across the wall reaches the giant soft-edged shadow of a hand coming in from above, five fingers poised as if about to pluck something from the floor below. The plaster is otherwise clean, its fine trowel texture catching the raking light. The palette is ochre, burnt sienna and deep umber shadow, warm, minimal and a little mysterious.",
+  "width": 1024,
+  "height": 1280
+}

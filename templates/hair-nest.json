@@ -1,0 +1,14 @@
+{
+  "id": "hair-nest",
+  "name": "Hair Nest",
+  "promptName": "Hair Nest",
+  "keywords": ["hair", "waves", "chestnut", "glossy", "shine", "haircare", "sensual", "texture"],
+  "description": "A landscape of glossy chestnut waves with a hollow at its heart.",
+  "lighting": "Large soft top light, one shine band along every wave",
+  "subject": "either",
+  "collections": ["Detail", "Studio"],
+  "verticals": ["Beauty", "Fragrance", "Jewelry", "Accessories"],
+  "prompt": "An endless sea of glossy chestnut hair fills the frame edge to edge, laid in loose, heavy S-waves that roll away in soft diagonals, every strand running unbroken from one wave into the next. One large soft light from above draws a single bright ribbon of shine along the crest of each wave, and the troughs fall into deep warm brown. Near the centre the waves part into a shallow hollow, as if something could rest there with strands passing over and under it. There is no face, no scalp and no parting, only hair as a landscape. The palette is chestnut, copper and warm umber, glossy and sensual.",
+  "width": 1024,
+  "height": 1280
+}

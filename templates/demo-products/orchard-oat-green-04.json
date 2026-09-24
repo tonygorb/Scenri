@@ -1,0 +1,19 @@
+{
+  "id": "orchard-oat-green-04",
+  "name": "Green 04",
+  "promptName": "Square Bottle of Green Cold-Pressed Juice",
+  "brand": "Orchard Oat",
+  "format": "330 ml juice",
+  "legacyNames": ["Square Bottle of Green Cold-Pressed Juice"],
+  "keywords": ["juice", "cold-pressed", "green juice", "bottle", "healthy", "drink", "beverage"],
+  "category": "beverage",
+  "description": "A 330 ml square clear plastic bottle of bright green cold-pressed juice with a green screw cap; a white label wrapping the front printed in black: ORCHARD OAT small, a big bold GREEN 04, kale, cucumber, apple, lime and cold-pressed 330 ml.",
+  "dimensions": "about 17 cm tall and 6 cm square",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "cold-pressed juice in a square bottle",
+  "materials": "clear square PET bottle, green screw cap, white label with black print, bright green juice",
+  "primaryColors": "bright green, white, black",
+  "negativeConstraints": "Never invent any text, logo, wordmark or mark beyond the ones this record names, never misspell or rearrange those, and never add a second label.",
+  "preservationNotes": "Keep the label exactly: ORCHARD OAT small, a big bold GREEN 04, kale, cucumber, apple, lime, and cold-pressed 330 ml, black on white. Keep the square clear bottle, the bright green juice and the green cap in every shot."
+}

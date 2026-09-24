@@ -1,0 +1,14 @@
+{
+  "id": "sunlit-color-field",
+  "name": "Sun Color Field",
+  "promptName": "Sun Color Field",
+  "keywords": ["color field", "yellow", "hard light", "long shadow", "graphic", "paper sweep", "monochrome", "poster"],
+  "description": "One sun-yellow paper sweep under a hard high sun, where the long black shadows do half the work.",
+  "lighting": "Hard high sun, long black graphic shadows on saturated paper",
+  "subject": "either",
+  "collections": ["Colored backgrounds", "Studio"],
+  "verticals": ["Food & drink", "Beauty", "Footwear", "Sport", "Electronics"],
+  "prompt": "A seamless paper sweep in one bright saturated sun yellow runs from the floor up into the back wall with no horizon, matte with a faint paper tooth. A hard, undiffused sun from high on the left, about thirty-five degrees up, rakes across it and throws long, razor-crisp, near-black shadows that stretch diagonally across the foreground, so the shadows become half the picture. The middle ground is one open plane of the same yellow with a single low step of yellow-painted wood, the only object in the set. Toward the top of the frame the yellow deepens where the light falls off. It is one colour, its black shadows and hard clean sun, graphic enough to read as a poster.",
+  "width": 1024,
+  "height": 1280
+}

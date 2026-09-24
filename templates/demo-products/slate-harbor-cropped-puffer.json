@@ -1,0 +1,19 @@
+{
+  "id": "slate-harbor-cropped-puffer",
+  "name": "Cropped Puffer",
+  "promptName": "Tangerine Glossy Nylon Cropped Puffer Jacket",
+  "brand": "Slate Harbor",
+  "format": "Cropped puffer jacket",
+  "legacyNames": ["Tangerine Glossy Nylon Cropped Puffer Jacket"],
+  "keywords": ["jacket", "puffer", "outerwear", "down", "nylon", "orange", "apparel", "winter"],
+  "category": "apparel",
+  "description": "A cropped boxy puffer jacket in glossy tangerine-orange nylon with wide horizontal baffles, a high stand collar, a black two-way zip, elasticated black cuffs, and a small black rubber SLATE HARBOR patch on the left chest.",
+  "dimensions": "a size M jacket, about 58 cm long from collar to hem",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "cropped down puffer jacket",
+  "materials": "glossy ripstop nylon shell, down fill, black two-way zip, black elastic cuffs, black rubber chest patch",
+  "primaryColors": "tangerine orange, black",
+  "negativeConstraints": "Never invent any text, logo, wordmark or mark beyond the ones this record names, never misspell or rearrange those, and never add a second label.",
+  "preservationNotes": "Keep the small black rubber SLATE HARBOR patch on the left chest. Keep the glossy tangerine nylon, the wide horizontal baffles, the high stand collar, the black zip and the black cuffs in every shot."
+}

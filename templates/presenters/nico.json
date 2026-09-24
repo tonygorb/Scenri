@@ -1,0 +1,18 @@
+{
+  "id": "nico",
+  "name": "Nico",
+  "presentation": "man",
+  "descriptor": "Colour pop · bleached curls · clean-shaven",
+  "ageRange": "early 20s",
+  "facial": "a sharp jaw, full lips, dark brown eyes, dark straight brows, clean-shaven",
+  "skin": "warm light brown with an olive undertone, clear with natural texture",
+  "hair": "short tight curls bleached platinum with dark roots, faded at the sides",
+  "build": "lean and athletic, medium height",
+  "wardrobeDefault": "a cobalt-blue zip track top, black track trousers, white leather sneakers",
+  "suitableCategories": ["Beauty", "Electronics", "Food & drink", "Footwear", "Accessories"],
+  "suitableStyles": ["Lifestyle"],
+  "identityNotes": "the bleached platinum curls with dark roots and faded sides, the sharp jaw and the clear skin must survive every generation",
+  "negativeConstraints": ["no dark hair on top", "no beard", "no bulky build"],
+  "width": 1024,
+  "height": 1280
+}

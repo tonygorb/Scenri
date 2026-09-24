@@ -1,0 +1,18 @@
+{
+  "id": "zuri",
+  "name": "Zuri",
+  "presentation": "woman",
+  "descriptor": "Street · natural afro · radiant smile",
+  "ageRange": "early 20s",
+  "facial": "high rounded cheekbones, a wide radiant smile, full lips, large dark eyes, strong natural brows",
+  "skin": "warm medium brown with a golden undertone, clear, natural texture",
+  "hair": "a big rounded natural coily afro, dark brown with a soft sheen",
+  "build": "tall and long-legged with a lean dancer's build",
+  "wardrobeDefault": "a cropped white tee and straight-leg light-wash jeans cuffed above the ankle, white socks",
+  "suitableCategories": ["Footwear", "Apparel", "Food & drink", "Electronics", "Accessories"],
+  "suitableStyles": ["Lifestyle"],
+  "identityNotes": "the big rounded natural afro, the wide radiant smile and the long legs must survive every generation",
+  "negativeConstraints": ["no straightened hair", "no braids", "no slicked-back hair"],
+  "width": 1024,
+  "height": 1280
+}

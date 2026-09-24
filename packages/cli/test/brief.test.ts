@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { createCore, type Core, type EngineCapabilities } from '@scenri/core';
 import { compileBrief, brandRuleDirectives, validateBrief, PRODUCT_REF_MAX, type Brief } from '../src/brief.js';
@@ -46,7 +47,13 @@ afterEach(async () => {
   rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
-const allScenes = loadScenes(defaultScenesDir()).scenes;
+/**
+ * These contracts were written against scenes that have since left the catalog (the
+ * 2026-09-24 refresh). They stay as fixtures, so each contract keeps the scene it was
+ * written for instead of being bent to whatever the catalog ships today.
+ */
+const RETIRED_SCENES = fileURLToPath(new URL('./fixtures/scenes/', import.meta.url));
+const allScenes = [...loadScenes(defaultScenesDir()).scenes, ...loadScenes(RETIRED_SCENES).scenes];
 const resolveScene = sceneResolver(allScenes);
 const byId = { get: resolveScene };
 /** Context with the real scene library wired for inline scene tokens. */
@@ -435,7 +442,7 @@ describe('compileBrief', () => {
   });
 
   it('a template writes the brief and free text becomes art direction', () => {
-    const { scenes: templates } = loadScenes(defaultScenesDir());
+    const templates = allScenes;
     const template = templates.find((t) => t.id === 'studio-polished-pedestal')!;
     const r = compileBrief(
       {
@@ -456,7 +463,7 @@ describe('compileBrief', () => {
   });
 
   it('warns when a product-hungry template has no product, and when assets vanish', () => {
-    const { scenes: templates } = loadScenes(defaultScenesDir());
+    const templates = allScenes;
     const template = templates.find((t) => t.id === 'studio-polished-pedestal')!;
     const noProduct = compileBrief({ tokens: [], templateId: template.id }, ctx({ template }));
     expect(noProduct.warnings.join(' ')).toContain('is built around a product');

@@ -1,0 +1,33 @@
+{
+  "id": "sun-coin-white-glove",
+  "title": "Sun Coin offered on a silver tray",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "maud-ferrers-sun-coin"
+      },
+      {
+        "t": "template",
+        "id": "white-glove-tray"
+      },
+      {
+        "t": "text",
+        "v": " The pendant lies on the silver tray with its chain pooled, the sunburst coin face up, offered toward camera by the white glove against the moss velvet. 85mm at tray height, the coin large and crisp."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 32,
+  "family": "studio"
+}

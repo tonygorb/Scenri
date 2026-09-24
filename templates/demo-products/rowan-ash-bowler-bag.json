@@ -1,0 +1,19 @@
+{
+  "id": "rowan-ash-bowler-bag",
+  "name": "Bowler Bag",
+  "promptName": "Cherry-Red Box Leather Top-Handle Bowler Bag",
+  "brand": "Rowan Ash",
+  "format": "Top-handle bag",
+  "legacyNames": ["Cherry-Red Box Leather Top-Handle Bowler Bag"],
+  "keywords": ["handbag", "bag", "leather", "top handle", "bowler", "accessories", "red"],
+  "category": "accessories",
+  "description": "A structured top-handle bowler bag in glossy cherry-red box leather with a rounded body, two rolled leather handles, a gold zip running over the top, four small gold feet, and ROWAN ASH stamped in gold foil capitals on the front panel.",
+  "dimensions": "about 28 cm wide, 20 cm tall and 13 cm deep",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "structured leather bowler bag",
+  "materials": "glossy cherry-red box calf leather, rolled leather handles, gold-tone zip and feet, gold foil stamp",
+  "primaryColors": "cherry red, gold",
+  "negativeConstraints": "Never invent any text, logo, wordmark or mark beyond the ones this record names, never misspell or rearrange those, and never add a second label.",
+  "preservationNotes": "Keep ROWAN ASH stamped in gold foil capitals on the front panel. Keep the glossy cherry-red box leather, the rounded bowler shape, the two rolled handles, the gold top zip and the gold feet in every shot."
+}

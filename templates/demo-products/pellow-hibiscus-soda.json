@@ -1,0 +1,19 @@
+{
+  "id": "pellow-hibiscus-soda",
+  "name": "Hibiscus Soda",
+  "promptName": "Long-Neck Glass Bottle of Pink Hibiscus Soda",
+  "brand": "Pellow",
+  "format": "250 ml glass bottle",
+  "legacyNames": ["Long-Neck Glass Bottle of Pink Hibiscus Soda"],
+  "keywords": ["soda", "hibiscus", "glass bottle", "drink", "botanical", "pink", "beverage"],
+  "category": "beverage",
+  "description": "A 250 ml clear glass long-neck bottle with a gold crown cap, filled with a pale hibiscus-pink soda; a cream paper label on the body with a deep magenta hibiscus flower illustration, PELLOW in rounded magenta capitals and Hibiscus Soda beneath, and 250 ml small.",
+  "dimensions": "about 20 cm tall and 6 cm across",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "botanical soda in a long-neck glass bottle",
+  "materials": "clear glass, gold crown cap, cream paper label with magenta print, pale pink soda",
+  "primaryColors": "pale hibiscus pink, magenta, cream, gold",
+  "negativeConstraints": "Never invent any text, logo, wordmark or mark beyond the ones this record names, never misspell or rearrange those, and never add a second label.",
+  "preservationNotes": "Keep the label exactly: a deep magenta hibiscus illustration, PELLOW in rounded magenta capitals, Hibiscus Soda beneath and 250 ml small, on cream paper. Keep the clear long-neck glass, the pale pink soda and the gold crown cap in every shot."
+}

@@ -58,21 +58,21 @@ console.log('prepack: copied the studio bundle');
 //    The starter wall: the top of each showcase category by curated order, so
 //    an offline Home is a real wall, not a placeholder grid.
 const STARTER_SHOWCASE = new Set([
-  'voss-rowe-runner-volcanic-ash',
-  'orla-priya-fjord-ferry',
-  'orchard-oat-orchard-burst',
-  'aurelia-serum-succulent-dew',
-  'birchwood-salt-flat',
-  'solstice-aviators-screen-print',
-  'verity-pearls-suspended-silk',
-  'ashwell-kin-lamp-elin-lamplight',
-  'marrow-vale-halite-ledge',
-  'basalt-snells-window',
-  'moss-larkin-chair-travertine-atrium',
-  'cairn-sun-stick-agave-noon',
-  'wen-meridian-trailhead',
-  'almanac-canvas-theo-billboard',
-  'calder-snow-loft',
+  'hibiscus-pour',
+  'hoops-painted-canvas',
+  'orris-waterline',
+  'ridgeline-tyre-top',
+  'scarlet-summer-laugh',
+  'acetates-giant-peg',
+  'yuzu-ice-burst',
+  'puffer-container-lean',
+  'c15-orange-pool',
+  'noir-cedar-char',
+  'bowler-car-exit',
+  'over-ear-pool-edge',
+  'fig-leaf-frost-window',
+  'puffer-ghost-snow',
+  'scarlet-red-blade',
 ]);
 
 const scenesSrc = join(repo, 'templates');
@@ -96,6 +96,8 @@ copyInto(
   readdirSync(scenesSrc).filter((f) => f.endsWith('.json')),
 );
 for (const sub of ['presenters', 'showcase', 'demo-products']) {
+  // An empty subcatalog is not tracked by git, so a fresh clone has no folder for it.
+  if (!existsSync(join(scenesSrc, sub))) continue;
   copyInto(
     join(scenesSrc, sub),
     join(scenesDest, sub),

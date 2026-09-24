@@ -1,0 +1,18 @@
+{
+  "id": "leila",
+  "name": "Leila",
+  "presentation": "woman",
+  "descriptor": "Editorial · ballet bun · swan neck",
+  "ageRange": "late 20s",
+  "facial": "heavy-lidded honey-hazel eyes, full dark brows, a strong straight nose, full lips, a softly sculpted jaw",
+  "skin": "warm olive-bronze with a golden undertone, natural texture, a soft sheen across the collarbones",
+  "hair": "dark espresso-brown hair drawn into a sleek high ballet bun, ears and neck fully clear",
+  "build": "slender, a long swan neck, pronounced collarbones, sloping shoulders",
+  "wardrobeDefault": "an ivory silk strapless top with a straight neckline",
+  "suitableCategories": ["Jewelry", "Fragrance", "Accessories", "Apparel", "Food & drink"],
+  "suitableStyles": ["Editorial"],
+  "identityNotes": "the high sleek ballet bun, the swan neck with pronounced collarbones and the honey-hazel eyes must survive every generation",
+  "negativeConstraints": ["no hair down", "no high neckline", "no heavy contour"],
+  "width": 1024,
+  "height": 1280
+}

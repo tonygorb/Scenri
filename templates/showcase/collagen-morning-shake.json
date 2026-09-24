@@ -1,0 +1,33 @@
+{
+  "id": "collagen-morning-shake",
+  "title": "Morning shake with berry collagen",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "tanner-fielding-collagen"
+      },
+      {
+        "t": "character",
+        "id": "tove"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Morning in a bright kitchen: she spoons berry collagen from the lilac pouch into a shaker, the pouch label to camera, platinum braids, a black sports bra, charcoal training leggings and black trainers. 50mm, from the hips up, soft window light."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 60,
+  "family": "human"
+}

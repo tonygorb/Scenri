@@ -1,0 +1,19 @@
+{
+  "id": "maud-ferrers-sun-coin",
+  "name": "Sun Coin Pendant",
+  "promptName": "Gold Sunburst Coin Pendant Necklace",
+  "brand": "Maud Ferrers",
+  "format": "coin pendant necklace on a 45 cm chain",
+  "legacyNames": ["Gold Sunburst Coin Pendant Necklace"],
+  "keywords": ["necklace", "pendant", "coin", "gold", "jewellery", "sunburst", "chain", "charm"],
+  "category": "jewelry",
+  "description": "A 20 mm round gold coin pendant with a raised sunburst relief of brushed rays around a mirror-polished raised centre and a beaded polished rim, hanging from its bail on a fine 2 mm gold curb chain about 45 cm long with a lobster clasp; no lettering anywhere.",
+  "dimensions": "a 20 mm coin pendant on a fine gold chain",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "gold coin pendant necklace",
+  "materials": "18k gold vermeil on sterling silver, brushed rays, mirror-polished centre and beaded rim, 2 mm curb chain",
+  "primaryColors": "polished and brushed yellow gold",
+  "negativeConstraints": "Never add any text, logo, engraving or mark anywhere on it. No stones, no second pendant, no thick chain.",
+  "preservationNotes": "Keep the 20 mm coin exactly: a raised sunburst of brushed rays, a mirror-polished raised centre and a beaded rim, on a fine gold curb chain, with no lettering and no stones."
+}

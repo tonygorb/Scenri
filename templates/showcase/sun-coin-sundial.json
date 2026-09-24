@@ -1,0 +1,29 @@
+{
+  "id": "sun-coin-sundial",
+  "title": "Sun Coin on a bronze sundial",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "maud-ferrers-sun-coin"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The pendant is draped over the face of a weathered bronze sundial in a garden, the chain following the hour lines, the gnomon's hard shadow falling just beside the coin. Hard midday sun, green patina, moss at the edges. Overhead at 70mm."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 64,
+  "family": "material"
+}

@@ -1,0 +1,33 @@
+{
+  "id": "lounge-chair-reading",
+  "title": "Reading in the oak lounge chair",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "moss-larkin-oak-lounge-chair"
+      },
+      {
+        "t": "character",
+        "id": "anaya"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Afternoon light in a white-walled room: she is curled in the oak lounge chair reading, bare feet tucked under her, a cream knit dress, a mug on the floor beside. 35mm, the whole chair and her in frame, soft window light from the left."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 36,
+  "family": "human"
+}

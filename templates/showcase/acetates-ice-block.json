@@ -1,0 +1,29 @@
+{
+  "id": "acetates-ice-block",
+  "title": "Acetates frozen in a melting ice block",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marden-cole-square-acetates"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The sunglasses are half set into a clear block of ice melting on hot pale sand, the upper frame and one lens free of the ice, meltwater pooling and trickling from the base. Hard midsummer sun from behind makes the ice glow and the amber tortoiseshell burn inside it. 100mm from sand level, the block filling the centre."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 70,
+  "family": "geological"
+}

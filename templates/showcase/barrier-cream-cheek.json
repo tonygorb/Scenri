@@ -1,0 +1,33 @@
+{
+  "id": "barrier-cream-cheek",
+  "title": "Barrier cream on freckled skin",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "fenwick-slade-barrier-cream"
+      },
+      {
+        "t": "character",
+        "id": "anaya"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. A beauty close-up: she dabs a small dot of cream on her freckled cheekbone with one fingertip, holding the open sage jar near her chin. Glossy black hair pulled back. Soft window light, 100mm, framed from brow to chin, skin with real texture and the cream catching the light."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 21,
+  "family": "human"
+}

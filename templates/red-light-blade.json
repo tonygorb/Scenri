@@ -1,0 +1,14 @@
+{
+  "id": "red-light-blade",
+  "name": "Red Blade",
+  "promptName": "Red Blade",
+  "keywords": ["red light", "black", "low key", "cinematic", "blade of light", "dramatic", "noir", "portrait"],
+  "description": "A black void cut by one narrow horizontal blade of saturated red light.",
+  "lighting": "One hard horizontal blade of red light, everything else black",
+  "subject": "either",
+  "collections": ["Portrait", "Studio"],
+  "verticals": ["Fragrance", "Accessories", "Jewelry", "Beauty", "Electronics"],
+  "prompt": "A seamless black sweep swallows the frame, absorbing every stray light. Across the middle of the frame one narrow horizontal blade of saturated red light cuts through the dark, a hard-edged band no taller than a hand's width, falling exactly where a face or an object would stand. Outside the blade everything drops to near black, with only a faint crimson spill on the floor. The air is clean and still. The palette is black and one pure scarlet red, severe and cinematic.",
+  "width": 1024,
+  "height": 1280
+}

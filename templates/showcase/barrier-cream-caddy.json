@@ -1,0 +1,33 @@
+{
+  "id": "barrier-cream-caddy",
+  "title": "Barrier cream on the bath caddy",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "fenwick-slade-barrier-cream"
+      },
+      {
+        "t": "template",
+        "id": "teak-bath-caddy"
+      },
+      {
+        "t": "text",
+        "v": " The sage jar sits on the teak caddy with its lid off, the aqua water below and the caustics from the hard sun rippling across the jar and the wood. Straight down, the jar in the centre of the frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 81,
+  "family": "optical"
+}

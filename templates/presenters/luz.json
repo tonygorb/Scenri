@@ -1,0 +1,18 @@
+{
+  "id": "luz",
+  "name": "Luz",
+  "presentation": "woman",
+  "descriptor": "Summer · spiral curls · full-figured",
+  "ageRange": "mid 20s",
+  "facial": "large dark eyes with thick lashes, full natural brows, rounded cheekbones, full lips, a wide bright smile",
+  "skin": "luminous golden brown with a warm undertone, visible natural texture, a healthy sheen on the shoulders",
+  "hair": "a big mane of long dark-brown spiral curls with sun-lightened caramel ends, worn loose",
+  "build": "full-figured, soft toned arms",
+  "wardrobeDefault": "a burnt-orange ribbed one-piece swimsuit and a white linen shirt worn open, flat tan leather sandals",
+  "suitableCategories": ["Beauty", "Food & drink", "Accessories", "Electronics", "Apparel"],
+  "suitableStyles": ["Lifestyle"],
+  "identityNotes": "the big spiral curls with caramel ends, the full-figured build and the golden-brown glow must survive every generation",
+  "negativeConstraints": ["no straightened hair", "no slimmed figure", "no skin smoothing"],
+  "width": 1024,
+  "height": 1280
+}

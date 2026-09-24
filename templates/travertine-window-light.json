@@ -1,0 +1,14 @@
+{
+  "id": "travertine-window-light",
+  "name": "Travertine Window",
+  "promptName": "Travertine Window",
+  "keywords": ["travertine", "plaster", "stone", "window light", "mullion shadow", "golden hour", "warm", "mineral"],
+  "description": "A raw travertine block against lime plaster, striped by low golden window light.",
+  "lighting": "Hard late-afternoon window sun, mullion shadows across plaster",
+  "subject": "either",
+  "collections": ["Interiors", "Studio"],
+  "verticals": ["Fragrance", "Beauty", "Jewelry", "Accessories", "Home"],
+  "prompt": "A rough-hewn block of honey travertine stands in the middle ground, its pitted face and sawn top catching warm light. Behind it rises a wall of hand-troweled lime plaster in pale warm sand, and across it hard late-afternoon sun from a tall window casts sharp bars of light and shadow from the window's mullions. The foreground is a honed travertine floor in the same warm bone tone, with a soft pool of reflected light. The air is still, with a faint warm haze in the sunbeams. The palette is sand, bone, honey and deep warm shadow.",
+  "width": 1024,
+  "height": 1280
+}

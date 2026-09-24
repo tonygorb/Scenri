@@ -1,0 +1,18 @@
+{
+  "id": "finn",
+  "name": "Finn",
+  "presentation": "man",
+  "descriptor": "Athlete · sun-bleached hair · swimmer's build",
+  "ageRange": "late 20s",
+  "facial": "clear light-blue eyes, a straight nose, a strong jaw with light sandy stubble",
+  "skin": "light with a deep sun tan, faint sun freckles across the shoulders, natural texture",
+  "hair": "short sun-bleached sandy-blond hair, tousled and salt-textured",
+  "build": "a swimmer's build, broad shoulders, long arms and a lean V-shaped torso",
+  "wardrobeDefault": "a white technical running singlet and black running shorts, white running shoes",
+  "suitableCategories": ["Sport", "Footwear", "Electronics", "Food & drink", "Beauty", "Accessories"],
+  "suitableStyles": ["Lifestyle"],
+  "identityNotes": "the tousled sun-bleached hair, the swimmer's shoulders and the deep tan must survive every generation",
+  "negativeConstraints": ["no dark hair", "no bodybuilder bulk", "no full beard"],
+  "width": 1024,
+  "height": 1280
+}

@@ -1,0 +1,37 @@
+{
+  "id": "over-ear-glass-blocks",
+  "title": "Headphones in the glass block room",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "nordhavn-over-ear"
+      },
+      {
+        "t": "character",
+        "id": "soren"
+      },
+      {
+        "t": "template",
+        "id": "glass-block-room"
+      },
+      {
+        "t": "text",
+        "v": " He stands alone in the double-height room, the powder-blue headphones around his neck, one hand in his pocket, looking up at the glowing green glass wall. He wears a charcoal overcoat over a black knit, black wide trousers and black leather Chelsea boots. 35mm from low, full length, the glass blocks filling the frame behind him."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 80,
+  "family": "place"
+}

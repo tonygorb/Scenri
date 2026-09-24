@@ -1,0 +1,33 @@
+{
+  "id": "chug-long-shadow",
+  "title": "Chug bottle and its long shadow",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "carrick-stead-chug-710"
+      },
+      {
+        "t": "template",
+        "id": "sunlit-color-field"
+      },
+      {
+        "t": "text",
+        "v": " The navy bottle stands on the sun-yellow sweep with its coral lid flipped open, the hard high sun throwing its long black shadow across the yellow. 35mm from low, the bottle in the lower left third and the shadow crossing the frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 34,
+  "family": "optical"
+}

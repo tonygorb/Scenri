@@ -1,0 +1,33 @@
+{
+  "id": "collagen-paper-garden",
+  "title": "Collagen pouch in the paper garden",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "tanner-fielding-collagen"
+      },
+      {
+        "t": "template",
+        "id": "paper-garden"
+      },
+      {
+        "t": "text",
+        "v": " The lilac pouch stands on the path among the cut-paper flowers, the lilac matching the paper blooms. 50mm from the path, the pouch centred."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 35,
+  "family": "studio"
+}

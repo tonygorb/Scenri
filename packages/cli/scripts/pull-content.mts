@@ -3,7 +3,7 @@
  * archive, without booting the app. Two uses:
  *
  *   pnpm exec tsx packages/cli/scripts/pull-content.mts
- *     downloads the archive from the repo's content-latest release (or
+ *     downloads the archive from the repo's CONTENT_TAG release (or
  *     SCENRI_CONTENT_URL) — what a contributor runs once so the full test
  *     suite has the imagery the repo deliberately does not carry.
  *
@@ -12,20 +12,18 @@
  *     repo's release assets need an authenticated download (gh release
  *     download) first.
  *
- * The unpack mirrors src/content/fetch.ts: staging dir, zip-slip guard,
- * atomic rename, meta.json as the completeness marker.
+ * Same rule and same install as src/content/fetch.ts: a cache older than
+ * CONTENT_VERSION is replaced, and the unpack is the shared
+ * installContentArchive (staging dir, zip-slip guard, meta.json marker, swap).
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
-import { dirname, join, normalize } from 'node:path';
-import JSZip from 'jszip';
-import { contentCacheReady, contentCacheRoot } from '../src/content/overlay.js';
-import { resolveContentUrl } from '../src/content/fetch.js';
+import { readFileSync } from 'node:fs';
+import { contentCacheRoot } from '../src/content/overlay.js';
+import { CONTENT_TAG, contentCacheStale, installContentArchive, resolveContentUrl } from '../src/content/fetch.js';
 
 const arg = process.argv[2];
 const root = contentCacheRoot();
 
-if (contentCacheReady()) {
+if (!contentCacheStale()) {
   console.log(`content cache already present at ${root}`);
   process.exit(0);
 }
@@ -40,30 +38,16 @@ if (arg) {
   const res = await fetch(url);
   if (!res.ok) {
     console.error(
-      `archive answered ${res.status}. On a private repo, download first: gh release download content-latest -p scenri-content.zip, then pass the file.`,
+      `archive answered ${res.status}. On a private repo, download first: gh release download ${CONTENT_TAG} -p scenri-content.zip, then pass the file.`,
     );
     process.exit(1);
   }
   zipBytes = Buffer.from(await res.arrayBuffer());
 }
 
-const staging = `${root}.staging`;
-rmSync(staging, { recursive: true, force: true });
-mkdirSync(staging, { recursive: true });
-const zip = await JSZip.loadAsync(zipBytes);
-for (const [name, entry] of Object.entries(zip.files)) {
-  if (entry.dir) continue;
-  const rel = normalize(name);
-  if (rel.startsWith('..') || rel.startsWith('/') || /^[a-zA-Z]:/.test(rel)) continue;
-  const dest = join(staging, rel);
-  mkdirSync(dirname(dest), { recursive: true });
-  await writeFile(dest, await entry.async('nodebuffer'));
-}
-if (!existsSync(join(staging, 'meta.json'))) {
-  rmSync(staging, { recursive: true, force: true });
-  console.error('archive carries no meta.json');
+const refused = await installContentArchive(zipBytes, root);
+if (refused) {
+  console.error(refused);
   process.exit(1);
 }
-rmSync(root, { recursive: true, force: true });
-renameSync(staging, root);
 console.log(`content cache ready at ${root}`);

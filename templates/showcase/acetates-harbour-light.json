@@ -1,0 +1,33 @@
+{
+  "id": "acetates-harbour-light",
+  "title": "Acetates in harbour light",
+  "category": "lifestyle",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marden-cole-square-acetates"
+      },
+      {
+        "t": "character",
+        "id": "elias"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Late afternoon on a harbour wall: he looks toward the water in the square tortoiseshell sunglasses, a white sail reflected small in the lenses, sea spray catching the light behind him. He wears an unbuttoned cream linen shirt. 85mm, head and shoulders, warm low sun on his face and a soft blue harbour behind."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 15,
+  "family": "human"
+}

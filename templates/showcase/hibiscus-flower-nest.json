@@ -1,0 +1,29 @@
+{
+  "id": "hibiscus-flower-nest",
+  "title": "Hibiscus soda nested in its flowers",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "pellow-hibiscus-soda"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The long-neck bottle lies nested in a deep bed of fresh deep-pink hibiscus flowers and dried crimson calyces, water droplets on the petals and on the cold glass. Soft warm top light, the label turned up to camera. Overhead at 70mm, the bottle crossing the frame on the diagonal."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 53,
+  "family": "botanical"
+}
