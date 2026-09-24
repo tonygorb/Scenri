@@ -350,8 +350,9 @@ test("a catalog scene's views: Use this view hands one to a shot, Set as cover i
   await more.hover();
   await expect(page.locator('.sc-tip')).toHaveText('More');
   await more.click();
-  // a catalog frame is not drawn again here: only the cover is offered
-  await expect(page.getByRole('menuitem')).toHaveText(['Set as cover']);
+  // a card's verbs, Open and the fast path first, never a menu of one; a
+  // catalog frame is not drawn again here
+  await expect(page.getByRole('menuitem')).toHaveText(['Open', 'Use this view', 'Set as cover']);
   await page.getByRole('menuitem', { name: 'Set as cover' }).click();
   await expect(labels.nth(4)).toHaveText('A bold one · Cover');
   const brands = await (await page.request.get('/api/brands')).json();

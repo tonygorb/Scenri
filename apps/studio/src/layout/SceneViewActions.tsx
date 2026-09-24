@@ -13,9 +13,11 @@ import { Tip } from './Tip.js';
  *
  * `tile` is shown on hover and when the keyboard is inside the frame. Use this
  * view is the centred glass pill Home's examples carry, the one thing the
- * picture is for; the rest sits behind a card's own More in the top-right, the
- * menu every catalog card opens. The cover is not marked on the picture: its
- * frame wears a card's selected ring and its caption says so
+ * picture is for. A card's own More in the top-right holds its verbs the way a
+ * catalog card's does (catalogMenu.ts): Open and the fast path first, then Set
+ * as cover and Draw again, so it is never a menu of one. The cover is not
+ * marked on the picture: its frame wears a card's selected ring and its caption
+ * says so
  * (`SceneViewCaption`). On touch More stays, as on a card, and the frame opens
  * `sheet`, which carries the same actions in the lightbox.
  */
@@ -23,6 +25,7 @@ export function SceneViewActions({
   variant,
   label,
   isCover,
+  onOpen,
   onUse,
   onCover,
   onRedraw,
@@ -32,6 +35,8 @@ export function SceneViewActions({
   /** The view's name, for the tile buttons' accessible names ("Use this view: Hero"). */
   label: string;
   isCover: boolean;
+  /** Open it at full size, as a click on the picture does. Tile only. */
+  onOpen?: () => void;
   /** Absent when this view cannot be handed to a shot (a picture still drawing). */
   onUse?: () => void;
   onCover?: () => void;
@@ -73,7 +78,7 @@ export function SceneViewActions({
           Use this view
         </button>
       )}
-      {(canCover || onRedraw) && (
+      {(onOpen || onUse || canCover || onRedraw) && (
         <div className="sc-corner">
           <DropdownMenu.Root>
             <Tip label="More">
@@ -85,6 +90,18 @@ export function SceneViewActions({
               </DropdownMenu.Trigger>
             </Tip>
             <DropdownMenu.Content side="bottom" align="end" sideOffset={4} collisionPadding={12}>
+              {onOpen && (
+                <DropdownMenu.Item onSelect={onOpen}>
+                  <MenuGlyph name="open" />
+                  Open
+                </DropdownMenu.Item>
+              )}
+              {onUse && (
+                <DropdownMenu.Item disabled={busy} onSelect={onUse}>
+                  <MenuGlyph name="use" />
+                  Use this view
+                </DropdownMenu.Item>
+              )}
               {canCover && (
                 <DropdownMenu.Item disabled={busy} onSelect={onCover}>
                   <MenuGlyph name="cover" />

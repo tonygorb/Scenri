@@ -187,7 +187,13 @@ export function SceneExamples({
           >
             <Shown src={thumbOf(place.src, 'tile')} />
           </button>
-          <SceneViewActions variant="tile" label={place.label} isCover onUse={shootLike(place.hash, 'place')} />
+          <SceneViewActions
+            variant="tile"
+            label={place.label}
+            isCover
+            onOpen={() => setOpen(place)}
+            onUse={shootLike(place.hash, 'place')}
+          />
         </div>
         {offer}
         {open && (
@@ -243,6 +249,7 @@ export function SceneExamples({
           variant="tile"
           label={place.label}
           isCover={coverView === 'place'}
+          onOpen={() => setOpen(place)}
           onUse={shootLike(place.hash, 'place')}
           onCover={() => void setCover('place')}
           busy={covering}
@@ -263,6 +270,8 @@ export function SceneExamples({
         {!heroFirst && placeTile}
         {tiles.map((t, i) => {
           const label = EXAMPLE_LABEL[t.role];
+          const openTile = () =>
+            setOpen({ src: t.url as string, label, view: t.role, tile: t, ...(t.hash ? { hash: t.hash } : {}) });
           return (
             <Fragment key={t.role}>
               <li>
@@ -288,15 +297,7 @@ export function SceneExamples({
                       type="button"
                       className="sc-refset-tile"
                       aria-label={`${label}${coverView === t.role ? ', the cover' : ''}, open`}
-                      onClick={() =>
-                        setOpen({
-                          src: t.url as string,
-                          label,
-                          view: t.role,
-                          tile: t,
-                          ...(t.hash ? { hash: t.hash } : {}),
-                        })
-                      }
+                      onClick={openTile}
                     >
                       <Shown src={thumbOf(t.url as string, 'small')} />
                     </button>
@@ -304,6 +305,7 @@ export function SceneExamples({
                       variant="tile"
                       label={label}
                       isCover={coverView === t.role}
+                      onOpen={openTile}
                       onUse={shootLike(t.hash, t.role)}
                       onCover={() => void setCover(t.role)}
                       onRedraw={running ? undefined : () => void redraw(t.role)}

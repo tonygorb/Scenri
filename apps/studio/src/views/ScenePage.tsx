@@ -474,6 +474,7 @@ export function ScenePage() {
                       variant="tile"
                       label={f.label}
                       isCover={f.view === catalogCover}
+                      onOpen={() => setOpen(f)}
                       onUse={() => void shootCatalogView(f.view as SceneView)}
                       onCover={() => void coverCatalogView(f.view as SceneView)}
                       busy={viewBusy}
