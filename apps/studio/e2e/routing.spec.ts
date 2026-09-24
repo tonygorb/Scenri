@@ -264,7 +264,8 @@ test('back closes a shot, and escape spends the same single entry', async ({ pag
 
   // opening pushes, so the browser's Back is the overlay's X
   await page.goto(`/${brand.slug}/create`);
-  await page.locator('.sc-cell').first().click();
+  // a real tile, not a stand-in the grid holds its shape with before the first page lands
+  await page.locator('.sc-cell[data-fb-node]').first().click();
   await page.waitForURL(/\/shots\//);
   await expect(page.locator('.sc-ovl')).toBeVisible();
 
@@ -293,8 +294,8 @@ test('filters live in the URL and survive a reload', async ({ page }) => {
   // rail is the same component either way, so the filter contract is the same
   // one; this just exercises it somewhere it is actually reachable.
   await page.goto(`/${brand.slug}/products`);
-  // 0 is "Every product"; a real vertical starts at 1
-  const vertical = page.locator('.sc-verticals button').nth(1);
+  // 0 is "All products" and 1 is "Keepers"; a real vertical starts at 2
+  const vertical = page.locator('.sc-verticals button').nth(2);
   const label = (await vertical.innerText()).split('\n')[0].trim();
   await vertical.click();
   // Each library names its own facet: Products filters on `category`,
@@ -744,6 +745,32 @@ test('a modified click opens the shot in its own tab, leaving this one in place'
   // and the original page went nowhere
   expect(new URL(page.url()).pathname).toBe(`/${brand.slug}/create`);
   await popup.close();
+});
+
+test('inside a set, the back control returns to All shots', async ({ page }) => {
+  const brand = await currentBrand(page);
+  const { nodeId } = await seedShot(page, brand.id);
+  const set = await seedSet(page, brand.id, `Back ${String(process.hrtime.bigint()).slice(-8)}`, [nodeId]);
+
+  await page.goto(`/${brand.slug}/sets/${set.slug}`);
+  await expect(page.locator('.sc-toolbar-place-t')).toHaveText(set.name);
+  await page.getByRole('button', { name: 'All shots' }).click();
+  await page.waitForURL((u) => u.pathname === `/${brand.slug}/create`);
+  await expect(page.locator('.sc-toolbar-place-t')).toHaveText('All shots');
+});
+
+test('Create from Products lands on All shots, not the last set', async ({ page }) => {
+  const brand = await currentBrand(page);
+  const { nodeId } = await seedShot(page, brand.id);
+  const set = await seedSet(page, brand.id, `Stay ${String(process.hrtime.bigint()).slice(-8)}`, [nodeId]);
+
+  await page.goto(`/${brand.slug}/sets/${set.slug}`);
+  await expect(page.locator('.sc-toolbar-place-t')).toHaveText(set.name);
+  await page.goto(`/${brand.slug}/products`);
+  await page.locator('.sc-nav a', { hasText: 'Create' }).click();
+  // `?compose=1` is spent on arrival, so the landing is the path, not the query
+  await page.waitForURL((u) => u.pathname === `/${brand.slug}/create`);
+  await expect(page.locator('.sc-toolbar-place-t')).toHaveText('All shots');
 });
 
 test('Settings keeps one idea per page, and switching pages keeps the dialog still', async ({ page }) => {

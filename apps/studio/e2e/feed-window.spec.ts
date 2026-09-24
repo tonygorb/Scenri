@@ -198,7 +198,7 @@ test('a tile deep in the feed opens, and every verb works on it', async ({ page 
   await deep.scrollIntoViewIfNeeded();
   await deep.hover();
   await deep.locator('.sc-cell-more').click();
-  await page.getByRole('menuitem', { name: 'Keep', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Add to Keepers', exact: true }).click();
   await expect(deep.locator('.sc-cell-star')).toBeVisible();
   await expect.poll(async () => ((await api(page, `/api/nodes/${oldest}`)) as any).kept).toBe(true);
   await expect(page.getByRole('tab', { name: /^Keepers/ })).toContainText('1');

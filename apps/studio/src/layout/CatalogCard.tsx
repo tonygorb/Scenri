@@ -1,21 +1,32 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState, type ReactElement } from 'react';
 import { thumbOf } from '../api.js';
 import { useHoverNone } from '../useMediaQuery.js';
 import { Link } from 'react-router';
 import { ContextMenu, DropdownMenu } from '@radix-ui/themes';
-import { BookmarkSimple, Check, DotsThree, ImageSquare } from '@phosphor-icons/react';
+import { Check, DotsThree, DotsThreeVertical, ImageSquare, Star, Trash } from '@phosphor-icons/react';
+import type { CatalogMenuItem } from './catalogMenu.js';
+import { MenuGlyph } from './menuGlyph.js';
+import { iconTip } from './Tip.js';
 
 export type CatalogCardVariant = 'navigate' | 'use' | 'select' | 'plain';
 export type CatalogCardSize = 'shelf' | 'grid' | 'slider' | 'wizard';
+export type { CatalogMenuItem };
 
-/** Extra verbs a card may offer, after Open / Use. Delete sits last and red. */
-export type CatalogMenuItem = {
-  key: string;
-  label: string;
-  onSelect: () => void;
-  danger?: boolean;
-  separated?: boolean;
-};
+type MenuItem = typeof ContextMenu.Item;
+type MenuSeparator = typeof ContextMenu.Separator;
+
+/** Both Radix families draw the same lines. A second copy of the words is how the two menus drift. */
+function drawMenu(items: CatalogMenuItem[], Item: MenuItem, Separator: MenuSeparator) {
+  return items.map((it) => (
+    <span key={it.key} style={{ display: 'contents' }}>
+      {it.separated && <Separator />}
+      <Item color={it.danger ? 'red' : undefined} onSelect={it.onSelect}>
+        <MenuGlyph name={it.icon} />
+        {it.label}
+      </Item>
+    </span>
+  ));
+}
 
 /**
  * Shared card shell for Scene / Presenter / Showcase / etc.
@@ -25,12 +36,14 @@ export type CatalogMenuItem = {
  *     .sc-lookcard-media   ← image plane; use-pill centers here
  *       .sc-lookcard-open  ← click/tap → detail (or arm on touch)
  *       .sc-lookcard-use   ← hover / first-tap → create
- *     .sc-lookcard-cap     ← overlay on desktop, footer on touch
+ *     .sc-lookcard-cap     ← overlay on desktop, footer on touch.
+                            A showcase tile keeps it on the picture.
  *
  * Desktop: hover reveals veil + caption + centered use. Touch: title
  * footer under the image; first tap arms (shows use like hover); pill →
- * create; second tap on image → detail. Context menu is desktop-only;
- * owned cards also get a corner overflow for keyboard and touch.
+ * create; second tap on image → detail. The menu is built by the caller
+ * and drawn here twice: a right-click on desktop, and a corner overflow
+ * when the list has a verb the card face does not already show.
  */
 function CatalogCardInner({
   id,
@@ -48,9 +61,12 @@ function CatalogCardInner({
   onToggle,
   bookmarked,
   onBookmark,
-  menuItems,
+  menu,
   fresh,
   size = 'grid',
+  chosen,
+  batching,
+  onPick,
 }: {
   id: string;
   previewUrl?: string | null;
@@ -80,30 +96,43 @@ function CatalogCardInner({
   href?: string;
   selected?: boolean;
   onToggle?: (id: string) => void;
-  /**
-   * Optional bookmark, shown on the media in every variant but `select`.
-   *
-   * Shortlisting used to happen once, in a setup wizard, which is the wrong
-   * moment for it — you decide while browsing, on the card in front of you.
-   *
-   * A bookmark, not a star: a filled gold star already means a kept shot, and
-   * one glyph cannot mean two things in one app.
-   */
+  /** Kept. The corner star toggles it. */
   bookmarked?: boolean;
   onBookmark?: (id: string) => void;
-  /** Management verbs after Open / Use. Absent on catalog and draft cards. */
-  menuItems?: CatalogMenuItem[];
+  /**
+   * The card's menu, built once by `catalogMenuItems`. Drawn by the
+   * right-click and, when it holds a verb the card face does not, the overflow.
+   */
+  menu?: CatalogMenuItem[];
   /** Just arrived (a duplicate). Reveals the caption and a short arrival. */
   fresh?: boolean;
   size?: CatalogCardSize;
+  /** This card is in the wall's pick. Draws the ring and the lit tick. */
+  chosen?: boolean;
+  /**
+   * A pick of this card's kind is being built. A tap toggles instead of
+   * opening. The corner actions stay: they are this card's, and the dock
+   * is the batch's.
+   */
+  batching?: boolean;
+  /** Present on a card that has a bulk verb. The tick, and the tap while a pick exists. */
+  onPick?: (id: string) => void;
 }) {
   const [broken, setBroken] = useState(false);
   const [armed, setArmed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const touchUi = useHoverNone();
+  const named = (label: string, control: ReactElement) => iconTip(label, control, touchUi);
 
-  const showUseButton = variant === 'use' && !!onOpen && !!onUse;
-  const extras = menuItems ?? [];
+  const showUseButton = variant === 'use' && !!onOpen && !!onUse && !batching;
+  const lines = menu ?? [];
+  const remove = lines.find((it) => it.key === 'delete');
+  const showMore = lines.length > 0;
+  const pick = (e: { preventDefault: () => void; stopPropagation: () => void }) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onPick?.(id);
+  };
 
   useEffect(() => {
     if (!armed) return;
@@ -129,10 +158,76 @@ function CatalogCardInner({
   // `title` was reaching the DOM only as an aria-label, so a sighted user had
   // no way to read a name the caption had ellipsised. The caption is what
   // clips, so the caption is what carries the full text.
+  const stop = (e: { preventDefault: () => void; stopPropagation: () => void }) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  const more = showMore ? (
+    <DropdownMenu.Root>
+      {named(
+        'More',
+        <DropdownMenu.Trigger>
+          <button
+            type="button"
+            className="sc-cell-ctl sc-lookcard-more"
+            aria-label={`More for ${primary}`}
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.stopPropagation()}
+          >
+            <DotsThreeVertical className="sc-lookcard-more-vert" size={16} weight="bold" />
+            <DotsThree className="sc-lookcard-more-horiz" size={16} weight="bold" />
+          </button>
+        </DropdownMenu.Trigger>,
+      )}
+      <DropdownMenu.Content side="top" align="end" sideOffset={4} collisionPadding={12}>
+        {drawMenu(lines, DropdownMenu.Item, DropdownMenu.Separator)}
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
+  ) : null;
+  const corner =
+    more || remove || onBookmark ? (
+      <div className="sc-corner">
+        {more}
+        {remove &&
+          named(
+            remove.label,
+            <button
+              type="button"
+              className="sc-cell-ctl sc-lookcard-remove"
+              aria-label={remove.label}
+              onClick={(e) => {
+                stop(e);
+                remove.onSelect();
+              }}
+            >
+              <Trash size={15} />
+            </button>,
+          )}
+        {onBookmark &&
+          named(
+            bookmarked ? 'Remove from Keepers' : 'Add to Keepers',
+            <button
+              type="button"
+              className="sc-cell-ctl sc-lookcard-keep"
+              data-on={bookmarked || undefined}
+              aria-pressed={!!bookmarked}
+              aria-label={bookmarked ? `Remove ${primary} from Keepers` : `Add ${primary} to Keepers`}
+              onClick={(e) => {
+                stop(e);
+                onBookmark(id);
+              }}
+            >
+              <Star size={15} weight={bookmarked ? 'fill' : 'regular'} />
+            </button>,
+          )}
+      </div>
+    ) : null;
   const caption = (
     <span className="sc-lookcard-cap" title={title}>
-      <b dir="auto">{primary}</b>
-      {secondary && <span>{secondary}</span>}
+      <span className="sc-lookcard-copy">
+        <b dir="auto">{primary}</b>
+        {secondary && <span>{secondary}</span>}
+      </span>
     </span>
   );
 
@@ -163,6 +258,10 @@ function CatalogCardInner({
   }
 
   const handleOpen = () => {
+    if (batching && onPick) {
+      onPick(id);
+      return;
+    }
     // Touch: first tap ≈ hover (reveal Use); second tap opens detail.
     if (showUseButton && touchUi) {
       if (!armed) {
@@ -190,14 +289,20 @@ function CatalogCardInner({
       data-size={size}
       data-armed={armed || undefined}
       data-just-added={fresh || undefined}
+      data-picked={chosen || undefined}
+      data-batching={batching || undefined}
     >
       <div className="sc-lookcard-media">
         {href ? (
           <Link
             className="sc-lookcard-open"
             to={href}
-            aria-label={title}
+            aria-label={batching ? `${chosen ? 'Deselect' : 'Select'} ${primary}` : title}
             onClick={(e) => {
+              if (batching && onPick) {
+                pick(e);
+                return;
+              }
               // Touch: first tap ≈ hover (reveal Use); second tap follows the
               // link. The arming tap must not navigate, so it is the one case
               // where the anchor's default is suppressed.
@@ -212,12 +317,17 @@ function CatalogCardInner({
             }}
           >
             {preview}
-            <span className="sc-lookcard-veil" aria-hidden />
+            {!batching && <span className="sc-lookcard-veil" aria-hidden />}
           </Link>
         ) : (
-          <button type="button" className="sc-lookcard-open" onClick={handleOpen} aria-label={title}>
+          <button
+            type="button"
+            className="sc-lookcard-open"
+            onClick={handleOpen}
+            aria-label={batching ? `${chosen ? 'Deselect' : 'Select'} ${primary}` : title}
+          >
             {preview}
-            <span className="sc-lookcard-veil" aria-hidden />
+            {!batching && <span className="sc-lookcard-veil" aria-hidden />}
           </button>
         )}
         {showUseButton && (
@@ -225,98 +335,58 @@ function CatalogCardInner({
             {useLabel}
           </button>
         )}
-        {onBookmark && (
-          <button
-            type="button"
-            className="sc-cardpuck sc-lookcard-bookmark"
-            data-on={bookmarked || undefined}
-            aria-pressed={!!bookmarked}
-            aria-label={bookmarked ? `Remove bookmark from ${primary}` : `Bookmark ${primary}`}
-            onClick={(e) => {
-              // The media is an open-button; a bookmark inside it must not open.
-              e.stopPropagation();
-              onBookmark(id);
-            }}
-          >
-            <BookmarkSimple size={13} weight={bookmarked ? 'fill' : 'regular'} />
-          </button>
-        )}
-        {extras.length > 0 && (
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
-              <button
-                type="button"
-                className="sc-cardpuck sc-lookcard-more"
-                aria-label={`More for ${primary}`}
-                onClick={(e) => e.stopPropagation()}
-                onContextMenu={(e) => e.stopPropagation()}
-              >
-                <DotsThree size={16} weight="bold" />
-              </button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="end" sideOffset={6}>
-              {onOpen && <DropdownMenu.Item onSelect={() => onOpen(id)}>Open</DropdownMenu.Item>}
-              {href && (
-                <DropdownMenu.Item onSelect={() => window.open(href, '_blank')}>Open in new tab</DropdownMenu.Item>
-              )}
-              {showUseButton && <DropdownMenu.Item onSelect={() => onUse?.(id)}>{useLabel}</DropdownMenu.Item>}
-              {onBookmark && (
-                <DropdownMenu.Item onSelect={() => onBookmark(id)}>
-                  {bookmarked ? 'Remove bookmark' : 'Bookmark'}
-                </DropdownMenu.Item>
-              )}
-              {extras.map((it) => (
-                <span key={it.key} style={{ display: 'contents' }}>
-                  {it.separated && <DropdownMenu.Separator />}
-                  <DropdownMenu.Item color={it.danger ? 'red' : undefined} onSelect={it.onSelect}>
-                    {it.label}
-                  </DropdownMenu.Item>
-                </span>
-              ))}
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
-        )}
+        {onPick &&
+          named(
+            chosen ? 'Deselect' : 'Select',
+            <button
+              type="button"
+              className="sc-cell-ctl sc-lookcard-pick"
+              data-on={chosen || undefined}
+              aria-pressed={!!chosen}
+              aria-label={chosen ? `Deselect ${primary}` : `Select ${primary}`}
+              onClick={pick}
+            >
+              <Check size={13} weight="bold" />
+            </button>,
+          )}
       </div>
+      {corner}
       {caption}
     </div>
   );
 
-  if (!onOpen && !onUse && !href && extras.length === 0) return card;
+  if (lines.length === 0) return card;
   if (touchUi) return card;
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger>{card}</ContextMenu.Trigger>
-      <ContextMenu.Content>
-        {onOpen && <ContextMenu.Item onSelect={() => onOpen(id)}>Open</ContextMenu.Item>}
-        {/* Radix swallows the native contextmenu, so the browser's own "Open
-            link in new tab" can never appear on a card; this item stands in
-            for it. Middle click and Cmd click reach the anchor natively. */}
-        {href && <ContextMenu.Item onSelect={() => window.open(href, '_blank')}>Open in new tab</ContextMenu.Item>}
-        {showUseButton && <ContextMenu.Item onSelect={() => onUse?.(id)}>{useLabel}</ContextMenu.Item>}
-        {onBookmark && (
-          <ContextMenu.Item onSelect={() => onBookmark(id)}>
-            {bookmarked ? 'Remove bookmark' : 'Bookmark'}
-          </ContextMenu.Item>
-        )}
-        {extras.map((it) => (
-          <span key={it.key} style={{ display: 'contents' }}>
-            {it.separated && <ContextMenu.Separator />}
-            <ContextMenu.Item color={it.danger ? 'red' : undefined} onSelect={it.onSelect}>
-              {it.label}
-            </ContextMenu.Item>
-          </span>
-        ))}
-      </ContextMenu.Content>
+      <ContextMenu.Content>{drawMenu(lines, ContextMenu.Item, ContextMenu.Separator)}</ContextMenu.Content>
     </ContextMenu.Root>
   );
 }
 
-export function CatalogCardSkeleton({ size = 'grid', count = 4 }: { size?: CatalogCardSize; count?: number }) {
+export function CatalogCardSkeleton({
+  size = 'grid',
+  count = 4,
+  caption = true,
+}: {
+  size?: CatalogCardSize;
+  count?: number;
+  /** Home's examples carry the name on the picture, so the placeholder is the photo alone. */
+  caption?: boolean;
+}) {
   return (
     <>
       {Array.from({ length: count }, (_, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: a fixed-count skeleton row has nothing else to key on
-        <div key={i} className="sc-lookcard" data-variant="skeleton" data-size={size} aria-hidden />
+        <div
+          // biome-ignore lint/suspicious/noArrayIndexKey: a fixed-count skeleton row has nothing else to key on
+          key={i}
+          className="sc-lookcard"
+          data-variant="skeleton"
+          data-size={size}
+          data-caption={caption ? undefined : 'photo'}
+          aria-hidden
+        />
       ))}
     </>
   );

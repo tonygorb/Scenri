@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertDialog, Button, Dialog, DropdownMenu, Flex } from '@radix-ui/themes';
-import { ArrowsDownUp, CaretDown, FolderSimple, SidebarSimple } from '@phosphor-icons/react';
+import {
+  ArrowsDownUp,
+  CaretDown,
+  CaretLeft,
+  FolderSimple,
+  SidebarSimple,
+  SlidersHorizontal,
+} from '@phosphor-icons/react';
 import type { ShotSet } from '../api.js';
 import { FEED_SORTS, LENSES, type FeedSort, type Lens } from '../feedRules.js';
+import { PHONE, useMediaQuery } from '../useMediaQuery.js';
 import { FeedSizeControl } from './DensityControl.js';
 import { LibrarySearch } from './library/LibrarySearch.js';
 import { VerticalsTabs, type VerticalsTabItem } from './VerticalsTabs.js';
@@ -73,7 +81,8 @@ export function FeedToolbar({
   /** The pick bar asked to name a set that does not exist yet. */
   askCreate?: boolean;
   lens: Lens;
-  lensCounts: Record<Lens, number>;
+  /** Null until there is a number to show, so no tab paints a 0 it will not keep. */
+  lensCounts: Record<Lens, number> | null;
   onLens: (l: Lens) => void;
   q: string;
   onQ: (q: string) => void;
@@ -91,6 +100,7 @@ export function FeedToolbar({
   const placeValue = active ? active.id : ungrouped ? '__ungrouped__' : '__all__';
   const placeLabel = active ? active.name : ungrouped ? 'Not in a set' : 'All shots';
   const somewhere = Boolean(active) || ungrouped;
+  const phone = useMediaQuery(PHONE);
   const [naming, setNaming] = useState(false);
   const [creating, setCreating] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -144,8 +154,61 @@ export function FeedToolbar({
   const lensItems: VerticalsTabItem[] = LENSES.map((l) => ({
     value: l.id === 'all' ? null : l.id,
     label: l.label,
-    count: lensCounts[l.id],
+    count: lensCounts?.[l.id],
   }));
+
+  const placeItems = (
+    <>
+      <DropdownMenu.RadioGroup value={placeValue}>
+        <DropdownMenu.RadioItem value="__all__" onSelect={onPlaceAll}>
+          All shots
+        </DropdownMenu.RadioItem>
+        {/* Was a fourth lens tab, which put a set-filing chore next to
+              the two lenses people look through every day. It answers
+              "which pile", so it belongs with the piles. */}
+        <DropdownMenu.RadioItem value="__ungrouped__" onSelect={onPlaceUngrouped}>
+          Not in a set{ungroupedCount > 0 ? ` · ${ungroupedCount}` : ''}
+        </DropdownMenu.RadioItem>
+        {sets.length > 0 && <DropdownMenu.Separator />}
+        {sets.map((s) => (
+          <DropdownMenu.RadioItem key={s.id} value={s.id} onSelect={() => onOpenSet(s)}>
+            {s.name}
+          </DropdownMenu.RadioItem>
+        ))}
+      </DropdownMenu.RadioGroup>
+      <DropdownMenu.Separator />
+      <DropdownMenu.Item
+        onSelect={() => {
+          onResetNewSet?.();
+          beginCreate();
+        }}
+      >
+        New set
+      </DropdownMenu.Item>
+      {active && onRenameSet && <DropdownMenu.Item onSelect={openRename}>Rename</DropdownMenu.Item>}
+      {active && onDeleteSet && (
+        <DropdownMenu.Item color="red" onSelect={() => setConfirmDelete(true)}>
+          Delete set
+        </DropdownMenu.Item>
+      )}
+    </>
+  );
+
+  const sortItems = (
+    <DropdownMenu.RadioGroup value={sort} onValueChange={(v) => onSort(v as FeedSort)}>
+      {FEED_SORTS.map((s) => (
+        <DropdownMenu.RadioItem key={s.id} value={s.id}>
+          {s.label}
+        </DropdownMenu.RadioItem>
+      ))}
+    </DropdownMenu.RadioGroup>
+  );
+
+  /* The phone row is the lenses, search and one button, as Photos does it:
+     where you are and in what order are two groups of that button's menu, so
+     the tabs keep their catalog size. A dot says the view is not every shot,
+     newest first. */
+  const viewChanged = somewhere || sort !== 'newest';
 
   return (
     <div className="sc-toolbar">
@@ -153,50 +216,33 @@ export function FeedToolbar({
         {/* The name of the place, not a boxed sibling of the lenses. Idle is
               All shots — the type-name "Sets" and a set-count next to All 11
               was the thing that made this look like a second nav. Rename
-              lives in a dialog so this trigger never swaps for an input. */}
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            <button type="button" className="sc-toolbar-place" data-on={somewhere || undefined} aria-label={placeLabel}>
-              <FolderSimple className="sc-toolbar-place-ic" size={16} />
-              <span className="sc-toolbar-place-t">{placeLabel}</span>
-              <CaretDown size={10} className="sc-caret" />
-            </button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="start">
-            <DropdownMenu.RadioGroup value={placeValue}>
-              <DropdownMenu.RadioItem value="__all__" onSelect={onPlaceAll}>
-                All shots
-              </DropdownMenu.RadioItem>
-              {/* Was a fourth lens tab, which put a set-filing chore next to
-                    the two lenses people look through every day. It answers
-                    "which pile", so it belongs with the piles. */}
-              <DropdownMenu.RadioItem value="__ungrouped__" onSelect={onPlaceUngrouped}>
-                Not in a set{ungroupedCount > 0 ? ` · ${ungroupedCount}` : ''}
-              </DropdownMenu.RadioItem>
-              {sets.length > 0 && <DropdownMenu.Separator />}
-              {sets.map((s) => (
-                <DropdownMenu.RadioItem key={s.id} value={s.id} onSelect={() => onOpenSet(s)}>
-                  {s.name}
-                </DropdownMenu.RadioItem>
-              ))}
-            </DropdownMenu.RadioGroup>
-            <DropdownMenu.Separator />
-            <DropdownMenu.Item
-              onSelect={() => {
-                onResetNewSet?.();
-                beginCreate();
-              }}
-            >
-              New set
-            </DropdownMenu.Item>
-            {active && onRenameSet && <DropdownMenu.Item onSelect={openRename}>Rename</DropdownMenu.Item>}
-            {active && onDeleteSet && (
-              <DropdownMenu.Item color="red" onSelect={() => setConfirmDelete(true)}>
-                Delete set
-              </DropdownMenu.Item>
+              lives in a dialog so this trigger never swaps for an input.
+              Inside a set (or ungrouped) a back control is the parent step;
+              the chip still names the place and still opens this menu. */}
+        {!phone && (
+          <div className="sc-toolbar-where">
+            {somewhere && (
+              <button type="button" className="sc-toolbar-back" aria-label="All shots" onClick={onPlaceAll}>
+                <CaretLeft size={16} />
+              </button>
             )}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger>
+                <button
+                  type="button"
+                  className="sc-toolbar-place"
+                  data-on={somewhere || undefined}
+                  aria-label={placeLabel}
+                >
+                  <FolderSimple className="sc-toolbar-place-ic" size={16} />
+                  <span className="sc-toolbar-place-t">{placeLabel}</span>
+                  <CaretDown size={10} className="sc-caret" />
+                </button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="start">{placeItems}</DropdownMenu.Content>
+            </DropdownMenu.Root>
+          </div>
+        )}
 
         <Dialog.Root open={naming} onOpenChange={onNameOpenChange}>
           <Dialog.Content
@@ -274,24 +320,39 @@ export function FeedToolbar({
         {/* Sort is the only order control this wall has, so it takes a menu
               rather than a permanent label: four orders, the current one
               ticked, and a trigger that cannot change width. */}
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            <button type="button" className="sc-toolbar-btn" aria-label="Sort shots">
-              <ArrowsDownUp size={14} />
-              <span className="sc-toolbar-btn-t">Sort</span>
-              <CaretDown size={10} />
-            </button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="end">
-            <DropdownMenu.RadioGroup value={sort} onValueChange={(v) => onSort(v as FeedSort)}>
-              {FEED_SORTS.map((s) => (
-                <DropdownMenu.RadioItem key={s.id} value={s.id}>
-                  {s.label}
-                </DropdownMenu.RadioItem>
-              ))}
-            </DropdownMenu.RadioGroup>
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
+        {phone ? (
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              <button
+                type="button"
+                className="sc-toolbar-btn sc-toolbar-view"
+                data-on={viewChanged || undefined}
+                aria-label={`Set and sort: ${placeLabel}`}
+              >
+                <SlidersHorizontal size={15} />
+                {viewChanged && <span className="sc-toolbar-view-dot" aria-hidden />}
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end">
+              <DropdownMenu.Label>Set</DropdownMenu.Label>
+              {placeItems}
+              <DropdownMenu.Separator />
+              <DropdownMenu.Label>Sort</DropdownMenu.Label>
+              {sortItems}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        ) : (
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              <button type="button" className="sc-toolbar-btn" aria-label="Sort shots">
+                <ArrowsDownUp size={14} />
+                <span className="sc-toolbar-btn-t">Sort</span>
+                <CaretDown size={10} />
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end">{sortItems}</DropdownMenu.Content>
+          </DropdownMenu.Root>
+        )}
 
         {/* The wall toggle, unchanged: the feed is a wall of pictures like
               Products and Scenes are, so it gets their control rather than a

@@ -80,25 +80,50 @@ test('on Create the ? steps left of the open rail and offers the shortcuts', asy
   await expect(page.getByRole('dialog', { name: 'Shortcuts' })).toBeVisible();
 });
 
-test('between 1024 and 1279 the ? steps left of the locked assets column, clear of Generate', async ({ page }) => {
+test('between 1024 and 1279 the assets rail leaves with its switch, and the ? stays in the corner', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1100, height: 800 });
   const s = await slug(page);
   await page.goto(`/${s}/create`);
-  await expect(page.locator('.sc-work[data-assets="true"]')).toBeVisible();
+  await expect(page.locator('.sc-work[data-assets="false"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Assets panel' })).toHaveCount(0);
   const box = await float(page).boundingBox();
-  expect(Math.round((box?.x ?? 0) + (box?.width ?? 0))).toBe(1100 - 320 - 16);
+  expect(Math.round((box?.x ?? 0) + (box?.width ?? 0))).toBe(1100 - 16);
   const send = await page.locator('.sc-canvas-dock .sc-send').boundingBox();
   const clear =
     (box?.x ?? 0) >= (send?.x ?? 0) + (send?.width ?? 0) || (box?.y ?? 0) >= (send?.y ?? 0) + (send?.height ?? 0);
   expect(clear).toBe(true);
 });
 
-test('below 1024px the ? moves into the top bar', async ({ page }) => {
+test('below 1024px the ? still floats in the corner, never in the top bar', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 800 });
   const s = await slug(page);
   await page.goto(`/${s}`);
-  await expect(page.locator('.sc-topbar [aria-label="Help"]')).toBeVisible();
-  await expect(page.locator('.sc-help-float')).toHaveCount(0);
+  await expect(page.locator('.sc-topbar [aria-label="Help"]')).toHaveCount(0);
+  await expect(float(page)).toBeVisible();
+  const help = await float(page).boundingBox();
+  expect(Math.round((help?.x ?? 0) + (help?.width ?? 0))).toBe(900 - 16);
+  expect(Math.round((help?.y ?? 0) + (help?.height ?? 0))).toBe(800 - 16);
+  const send = await page.locator('.sc-canvas-dock .sc-send').boundingBox();
+  if (send) {
+    const clear = (help?.x ?? 0) >= send.x + send.width || (help?.y ?? 0) >= send.y + send.height;
+    expect(clear).toBe(true);
+  }
+});
+
+test('on a phone the ? floats above the tab bar, not in the top bar', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const s = await slug(page);
+  await page.goto(`/${s}`);
+  await expect(page.locator('.sc-topbar [aria-label="Help"]')).toHaveCount(0);
+  await expect(float(page)).toBeVisible();
+  const help = await float(page).boundingBox();
+  const tab = await page.locator('.sc-tabbar').boundingBox();
+  expect(help).toBeTruthy();
+  expect(tab).toBeTruthy();
+  expect((help?.y ?? 0) + (help?.height ?? 0)).toBeLessThanOrEqual(tab?.y ?? 0);
+  expect(Math.round((help?.x ?? 0) + (help?.width ?? 0))).toBe(390 - 16);
 });
 
 test('an install that was not new is never taught uninvited, and Learn is one press away', async ({ page }) => {

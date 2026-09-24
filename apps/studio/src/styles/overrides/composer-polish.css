@@ -72,7 +72,7 @@
 }
 .sc-canvas {
   /* Named, because the first-run shelf cancels exactly this gutter to bleed. */
-  --sc-canvas-gutter: 20px;
+  --sc-canvas-gutter: var(--sc-gutter);
   --sc-dock-reserve: 200px;
   padding: 0 var(--sc-canvas-gutter) var(--sc-dock-reserve);
 }

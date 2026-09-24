@@ -18,7 +18,7 @@ import type { Created } from './flow.js';
  * showing lives in the URL (`?new=`), on exactly the terms SettingsDialog's
  * `?settings=` already set: opening pushes an entry so Back closes it, moving
  * between the chooser and a flow replaces, and closing consumes. So the top
- * bar's +, a library page's button, a Home card and a pasted link are all the
+ * bar's New, a cold-state offer, a Home card and a pasted link are all the
  * same code path, and none of them owns a dialog.
  *
  * A presenter and a scene are not short forms: each is judged on a picture
@@ -62,6 +62,23 @@ export function useCreateAsset(): CreateApi['open'] {
   return useCreateCtx().open;
 }
 
+/**
+ * Which ingredient this page is for, so New and the chooser agree.
+ *
+ * Products, Presenters and Scenes, including a record under them: the same
+ * `end: false` matches the nav uses, so the bar cannot light Presenters while
+ * New still makes a shot.
+ */
+export function usePageCreateKind(): CreateKind | null {
+  const onProducts = !!useMatch({ path: P.products, end: false });
+  const onPresenters = !!useMatch({ path: P.presenters, end: false });
+  const onScenes = !!useMatch({ path: P.scenes, end: false });
+  if (onProducts) return 'product';
+  if (onPresenters) return 'presenter';
+  if (onScenes) return 'scene';
+  return null;
+}
+
 /** What a flow mounted elsewhere (the presenter studio's route) shares with the dialogs here. */
 export function useCreateFlow(): Pick<CreateApi, 'announce' | 'caps'> {
   const { announce, caps } = useCreateCtx();
@@ -79,10 +96,7 @@ export function AssetCreateHost({ children }: { children: ReactNode }) {
   const value = param.value;
 
   // Where the launcher should put the keyboard, and what a bare + means here.
-  const onProducts = !!useMatch({ path: P.products, end: false });
-  const onPresenters = !!useMatch({ path: P.presenters, end: false });
-  const onScenes = !!useMatch({ path: P.scenes, end: false });
-  const here: CreateKind | null = onProducts ? 'product' : onPresenters ? 'presenter' : onScenes ? 'scene' : null;
+  const here = usePageCreateKind();
   // the studio is a route, not a param, and it needs the engine's answer too
   // the two route-mounted flows share the probe with the dialogs: creation and the editor
   const onStudio = !!useMatch({ path: P.presenterStudio });

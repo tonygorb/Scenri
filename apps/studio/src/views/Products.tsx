@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { productSearchText } from '../displayName.js';
 import { useNavigate } from 'react-router';
 import { Plus } from '@phosphor-icons/react';
+import { api, deleteProduct, type Product } from '../api.js';
 import { productsNewestFirst } from '../brandAssets.js';
+import { keptIds, setKept, toggleKept } from '../bookmarks.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { useAppData } from '../app/AppShell.js';
@@ -11,7 +13,14 @@ import { ImportBar } from '../layout/ImportBar.js';
 import { useApplyProduct } from '../app/useApplyProduct.js';
 import { productPath } from '../routes.js';
 import { ProductCard, ProductCardSkeleton } from '../layout/ProductCard.js';
+import { CatalogPickedBar } from '../layout/CatalogPickedBar.js';
+import { catalogPickVerb, keepersLine, settlePicked } from '../layout/catalogPick.js';
+import { useCatalogPick } from '../layout/useCatalogPick.js';
 import { DemoProductCard } from '../layout/DemoProductCard.js';
+import { Confirm } from '../Confirm.js';
+import { RenameDialog } from '../layout/RenameDialog.js';
+import { failureToast } from '../failure.js';
+import { useToasts } from '../toasts.js';
 import { PRODUCT_CATEGORIES, categoryLabel, effectiveCategory } from '../productCategories.js';
 import { DensityControl, WallDensityCtx, densitySize, densityWallStyle } from '../layout/DensityControl.js';
 import { DENSITY_DEFAULT, normalizeDensity, type DensityCols } from '../layout/masonry.js';
@@ -22,12 +31,15 @@ import { LibraryEmpty, LibraryZero } from '../layout/library/LibraryEmpty.js';
 import { StarterDivider } from '../layout/library/StarterDivider.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { useLibraryPage } from '../layout/library/useLibraryPage.js';
-import { matchesQuery, facetMode } from '../layout/library/libraryRules.js';
+import { matchesQuery } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { PREF, useLocalPref } from '../prefs.js';
 
 /** Below this, a search box has nothing worth narrowing — the whole set is one screenful. */
 const SEARCH_MIN = 8;
+
+/** The rail's value for Keepers. The URL keeps `?bookmarked=1`, the scenes param. */
+const KEEPERS = '__bookmarked';
 
 /**
  * The product library, browsable: a visual asset library rather than a
@@ -40,9 +52,10 @@ const SEARCH_MIN = 8;
  * catalog import with sparse category data still gets a real, usable filter.
  */
 export function ProductsView() {
-  const { brand, products, productsLoaded } = useBrand();
+  const { brand, products, productsLoaded, refreshProducts } = useBrand();
   const importing = useProductLibrary()?.importing ?? false;
-  const { demoProducts } = useAppData();
+  const { demoProducts, applyBrand, refreshBrands } = useAppData();
+  const { push } = useToasts();
   /**
    * Whether this brand has products of its own at all, before any filter.
    *
@@ -62,8 +75,12 @@ export function ProductsView() {
   const navigate = useNavigate();
   const applyProduct = useApplyProduct();
   const createAsset = useCreateAsset();
-  const { q, setQ, facets, setFacet, clearSearch, clear } = useLibraryQuery(['category']);
+  const { q, setQ, facets, setFacets, clearSearch, clear } = useLibraryQuery(['category', 'bookmarked']);
   const category = facets.category;
+  const onlyMarked = facets.bookmarked === '1';
+  const [marks, setMarks] = useState<string[]>(() => keptIds('product', brand.id));
+  const keepOne = (id: string) => setMarks(toggleKept('product', brand.id, id));
+  const pick = useCatalogPick(`${brand.id}|${q}|${category ?? ''}|${onlyMarked ? '1' : ''}`);
   const [tile, setTile] = useLocalPref(PREF.wallDensity, DENSITY_DEFAULT);
   const density = normalizeDensity(tile);
   const setDensity = useCallback((cols: DensityCols) => setTile(cols), [setTile]);
@@ -98,6 +115,14 @@ export function ProductsView() {
   // The filter row answers for the whole page, both halves, so a count on a
   // tab is never a number for only one of them.
   const withCategory = useMemo(() => [...mine, ...theirs], [mine, theirs]);
+  const markedTotal = useMemo(
+    () => withCategory.reduce((n, row) => n + (marks.includes(row.product.id) ? 1 : 0), 0),
+    [withCategory, marks],
+  );
+  const keepersZero = onlyMarked && markedTotal === 0;
+  /** Cold brands: an empty shortlist has nothing to hide, so the catalog stays up. */
+  const keepersBrowse = keepersZero && cold;
+  const keepersMessage = keepersZero && !cold;
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -109,20 +134,81 @@ export function ProductsView() {
     () => PRODUCT_CATEGORIES.filter((c) => categoryCounts.has(c.key)),
     [categoryCounts],
   );
-  const mode = facetMode(presentCategories.length);
+  const mode = withCategory.length > 0 ? 'tabs' : 'none';
 
   const openProduct = useCallback((id: string) => navigate(productPath(brand, id)), [navigate, brand]);
+  const [removing, setRemoving] = useState<Product | null>(null);
+  const [removingBusy, setRemovingBusy] = useState(false);
+  const [renaming, setRenaming] = useState<Product | null>(null);
+  const [renamingBusy, setRenamingBusy] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [deletingBatch, setDeletingBatch] = useState(false);
+  const askDelete = useCallback(
+    (id: string) => {
+      const product = products.find((p) => p.id === id);
+      if (product) setRemoving(product);
+    },
+    [products],
+  );
+  const storeOwned = (p: Product) => p.origin === 'catalog' || p.id.startsWith('cat-');
+  const askRename = useCallback(
+    (id: string) => {
+      const product = products.find((p) => p.id === id);
+      if (!product || storeOwned(product)) return;
+      setRenameError(null);
+      setRenaming(product);
+    },
+    [products],
+  );
+  const confirmRename = async (name: string) => {
+    if (!renaming || renamingBusy) return;
+    setRenamingBusy(true);
+    setRenameError(null);
+    try {
+      applyBrand(await api.updateProduct(brand.id, renaming.id, { name }));
+      setRenaming(null);
+    } catch (e: any) {
+      const f = failureToast(e, 'Could not rename this product');
+      setRenameError([f.title, f.detail].filter(Boolean).join(' '));
+    } finally {
+      setRenamingBusy(false);
+    }
+  };
+  const confirmDelete = async () => {
+    if (!removing || removingBusy) return;
+    setRemovingBusy(true);
+    const catalog = removing.origin === 'catalog' || removing.id.startsWith('cat-');
+    try {
+      if (catalog) {
+        await api.deleteCatalogProduct(brand.id, removing.id);
+        await refreshProducts();
+      } else {
+        applyBrand(await deleteProduct(brand.id, removing.id));
+      }
+      pick.forget(removing.id);
+      setRemoving(null);
+    } catch (e: any) {
+      if (e?.status === 404) {
+        await Promise.all([refreshBrands(), refreshProducts()]);
+        pick.forget(removing.id);
+        setRemoving(null);
+      } else push(failureToast(e, 'Could not delete this product'));
+    } finally {
+      setRemovingBusy(false);
+    }
+  };
 
   /** The facet and the search, applied to either half by the same rule. */
   const narrow = useCallback(
     (rows: { product: any; category: string | null | undefined }[]) =>
       rows
+        .filter(({ product: p }) => keepersBrowse || !onlyMarked || marks.includes(p.id))
         .filter(({ category: c }) => !category || c === category)
         .filter(({ product: p, category: c }) =>
           matchesQuery([productSearchText(p), categoryLabel(c)].filter(Boolean).join(' '), q),
         )
         .map(({ product }) => product),
-    [category, q],
+    [category, q, onlyMarked, marks, keepersBrowse],
   );
 
   const mineFiltered = useMemo(() => narrow(mine), [narrow, mine]);
@@ -133,7 +219,11 @@ export function ProductsView() {
    * import; Scenri's is a fixed forty-four, and hiding a third of a small,
    * unchanging library behind a button is chrome for nothing.
    */
-  const { visible: mineVisible, remaining, showMore } = useLibraryPage(mineFiltered, `${category ?? ''}|${q}`);
+  const {
+    visible: mineVisible,
+    remaining,
+    showMore,
+  } = useLibraryPage(mineFiltered, `${category ?? ''}|${onlyMarked ? 'keepers' : ''}|${q}`);
 
   /**
    * Grow the wall before the bottom arrives, the shape the feed already uses
@@ -164,15 +254,19 @@ export function ProductsView() {
   const facetGroup = {
     key: 'category',
     label: 'Category',
-    everyLabel: 'Every product',
+    everyLabel: 'All products',
     everyCount: withCategory.length,
-    selected: category,
-    onSelect: (v: string | null) => setFacet('category', v),
-    options: presentCategories.map((c) => ({
-      value: c.key,
-      label: c.label,
-      count: categoryCounts.get(c.key) ?? 0,
-    })),
+    selected: onlyMarked ? KEEPERS : category,
+    onSelect: (v: string | null) =>
+      v === KEEPERS ? setFacets({ bookmarked: '1', category: null }) : setFacets({ bookmarked: null, category: v }),
+    options: [
+      { value: KEEPERS, label: 'Keepers', count: markedTotal },
+      ...presentCategories.map((c) => ({
+        value: c.key,
+        label: c.label,
+        count: categoryCounts.get(c.key) ?? 0,
+      })),
+    ],
   };
 
   /* One button, one flow. The dropdown that used to sit here offered "Upload a
@@ -180,12 +274,7 @@ export function ProductsView() {
      same dialog with a different field focused — a menu describing flows that
      did not exist. Importing is still there, inside, where it belongs. */
   const addMenu = (
-    <button
-      type="button"
-      className="sc-btn sc-btn-primary"
-      data-guide="library.new"
-      onClick={() => createAsset('product')}
-    >
+    <button type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('product')}>
       <Plus size={12} /> Add product
     </button>
   );
@@ -214,15 +303,43 @@ export function ProductsView() {
           <LibrarySearch value={q} onChange={setQ} noun="products" total={withCategory.length} />
         )
       }
-      // One CTA on the page: the offer owns it while it is showing.
-      action={heroMode ? undefined : addMenu}
     />
   );
+
+  const deleteOneProduct = (id: string) => {
+    const product = products.find((p) => p.id === id);
+    const catalog = product ? product.origin === 'catalog' || id.startsWith('cat-') : id.startsWith('cat-');
+    return catalog ? api.deleteCatalogProduct(brand.id, id) : deleteProduct(brand.id, id);
+  };
+  const askProductBatch = () => {
+    const ids = [...pick.ids];
+    if (ids.length === 1) askDelete(ids[0]);
+    else setDeletingBatch(true);
+  };
+  const pickedProductIds = [...pick.ids];
+  const allProductsKept = pickedProductIds.length > 0 && pickedProductIds.every((id) => marks.includes(id));
+  const keepProducts = () => setMarks(setKept('product', brand.id, pickedProductIds, !allProductsKept));
+  const productKeep = keepersLine(pick.ids.size, allProductsKept, 'products');
+  const confirmProductBatch = async () => {
+    if (removingBusy) return;
+    const ids = [...pick.ids];
+    setRemovingBusy(true);
+    try {
+      const { failed, error } = await settlePicked(ids, deleteOneProduct);
+      await Promise.all([refreshBrands(), refreshProducts()]);
+      pick.retain(failed);
+      setDeletingBatch(false);
+      if (error) push(failureToast(error, 'Could not delete these products'));
+    } finally {
+      setRemovingBusy(false);
+    }
+  };
 
   return (
     <WallDensityCtx.Provider value={densityAttr}>
       <ScrollPane>
-        <main className="sc-looks sc-products" id="main" data-hero={heroMode || undefined}>
+        {/* biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard path is Escape, bound on the document, so a key handler here would be a second route to the same clear */}
+        <main className="sc-looks sc-products" id="main" data-hero={heroMode || undefined} onClick={pick.onBlank}>
           {!heroMode && toolbar}
 
           {!productsLoaded && (
@@ -246,6 +363,23 @@ export function ProductsView() {
                     onOpen={openProduct}
                     href={productPath(brand, p.id)}
                     onUse={applyProduct}
+                    bookmarked={marks.includes(p.id)}
+                    onBookmark={keepOne}
+                    onDelete={askDelete}
+                    onRename={storeOwned(p) ? undefined : askRename}
+                    chosen={pick.ids.has(p.id)}
+                    batching={pick.batching === 'product'}
+                    onPick={pick.picking('product') ? (id) => pick.toggle('product', id) : undefined}
+                    batch={
+                      pick.kind === 'product' && pick.ids.has(p.id)
+                        ? {
+                            count: pick.ids.size,
+                            onAct: askProductBatch,
+                            onKeep: keepProducts,
+                            allKept: allProductsKept,
+                          }
+                        : null
+                    }
                   />
                 ))}
               </div>
@@ -256,6 +390,45 @@ export function ProductsView() {
                     Show {Math.min(remaining, 60)} more
                   </button>
                 </div>
+              )}
+              {renaming && (
+                <RenameDialog
+                  title="Rename product"
+                  name={renaming.name}
+                  maxLength={500}
+                  busy={renamingBusy}
+                  error={renameError}
+                  onConfirm={(name) => void confirmRename(name)}
+                  onDismiss={() => {
+                    if (!renamingBusy) setRenaming(null);
+                  }}
+                />
+              )}
+              {removing && (
+                <Confirm
+                  label="Delete product"
+                  title={`Delete ${removing.name}?`}
+                  body="Shots already made with it keep their images and their recipe. Only future shots lose it."
+                  open
+                  busy={removingBusy}
+                  onOpenChange={(o) => {
+                    if (!o && !removingBusy) setRemoving(null);
+                  }}
+                  onConfirm={() => void confirmDelete()}
+                />
+              )}
+              {deletingBatch && (
+                <Confirm
+                  label={catalogPickVerb('product', pick.ids.size).menu}
+                  title={`${catalogPickVerb('product', pick.ids.size).menu}?`}
+                  body="Shots already made with it keep their images and their recipe. Only future shots lose it."
+                  open
+                  busy={removingBusy}
+                  onOpenChange={(o) => {
+                    if (!o && !removingBusy) setDeletingBatch(false);
+                  }}
+                  onConfirm={() => void confirmProductBatch()}
+                />
               )}
             </section>
           )}
@@ -305,16 +478,30 @@ export function ProductsView() {
                   onUse={applyProduct}
                   onOpen={openProduct}
                   href={productPath(brand, p.id)}
+                  bookmarked={marks.includes(p.id)}
+                  onBookmark={keepOne}
                 />
               ))}
             </div>
           )}
 
-          {productsLoaded && mineFiltered.length === 0 && theirsFiltered.length === 0 && (
+          {productsLoaded && keepersMessage && (
+            <LibraryEmpty
+              shape="zero"
+              body="Nothing in Keepers yet. Add a product to Keepers from its card and it stays here."
+              action={
+                <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setFacets({ bookmarked: null })}>
+                  Browse every product
+                </button>
+              }
+            />
+          )}
+
+          {productsLoaded && !keepersMessage && mineFiltered.length === 0 && theirsFiltered.length === 0 && (
             <LibraryZero
               noun="products"
               q={q}
-              facet={category ? categoryLabel(category) : null}
+              facet={onlyMarked ? 'Keepers' : category ? categoryLabel(category) : null}
               onClearSearch={clearSearch}
               onClearAll={clear}
             />
@@ -323,7 +510,25 @@ export function ProductsView() {
         {/* No composer on this page, so it floats where the dock would be. This
             is the page an import fills, so it is the page most likely to be open
             while one runs. */}
-        <div className="sc-impbar-float">
+        <div className="sc-wall-dock">
+          {pick.kind === 'product' && pick.ids.size > 0 && (
+            <CatalogPickedBar
+              count={pick.ids.size}
+              loaded={mineVisible.length}
+              tool={catalogPickVerb('product', pick.ids.size).tool}
+              icon={catalogPickVerb('product', pick.ids.size).icon}
+              danger
+              onAct={askProductBatch}
+              keep={{ label: productKeep.tool, filled: allProductsKept, onAct: keepProducts }}
+              onClear={pick.clear}
+              onSelectAll={() =>
+                pick.selectAll(
+                  'product',
+                  mineVisible.map((p) => p.id),
+                )
+              }
+            />
+          )}
           <ImportBar />
         </div>
       </ScrollPane>

@@ -10,7 +10,7 @@ export interface FacetOption {
 export interface FacetGroup {
   key: string;
   label: string;
-  /** The "clear this facet" option, e.g. "Every product". */
+  /** The "clear this facet" option, e.g. "All products". */
   everyLabel: string;
   everyCount: number;
   options: FacetOption[];

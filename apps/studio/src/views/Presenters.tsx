@@ -9,11 +9,15 @@ import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { customPresentersOf } from '../brandAssets.js';
 import { api, type Presenter, type PresenterDraftSummary } from '../api.js';
-import { P, presenterPath, presenterStudioPath } from '../routes.js';
+import { P, presenterEditPath, presenterPath, presenterStudioPath } from '../routes.js';
 import { PresenterCard, PresenterCardSkeleton } from '../layout/PresenterCard.js';
 import { PresenterDraftCard } from '../layout/PresenterDraftCard.js';
+import { CatalogPickedBar } from '../layout/CatalogPickedBar.js';
+import { catalogPickVerb, keepersLine, settlePicked } from '../layout/catalogPick.js';
+import { useCatalogPick } from '../layout/useCatalogPick.js';
 import { Confirm } from '../Confirm.js';
 import { DuplicatePresenterDialog } from './DuplicatePresenterDialog.js';
+import { RenameDialog } from '../layout/RenameDialog.js';
 import { suggestedPresenterCopyName } from '../presenterCopyName.js';
 import { failureToast } from '../failure.js';
 import { useToasts } from '../toasts.js';
@@ -26,12 +30,16 @@ import { LibraryEmpty, LibraryZero } from '../layout/library/LibraryEmpty.js';
 import { StarterDivider } from '../layout/library/StarterDivider.js';
 import { useLibraryQuery } from '../layout/library/useLibraryQuery.js';
 import { useLibraryPage } from '../layout/library/useLibraryPage.js';
-import { matchesQuery, facetMode } from '../layout/library/libraryRules.js';
+import { matchesQuery } from '../layout/library/libraryRules.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { PREF, useLocalPref } from '../prefs.js';
+import { keptIds, setKept, toggleKept } from '../bookmarks.js';
 
 /** Below this, a search box has nothing worth narrowing — the whole set is one screenful. */
 const SEARCH_MIN = 8;
+
+/** The rail's value for Keepers. The URL keeps `?bookmarked=1`, the scenes param. */
+const KEEPERS = '__bookmarked';
 
 /**
  * The presenter library, built on the shared Creative Library shell
@@ -60,8 +68,12 @@ export function PresentersView() {
   const navigate = useNavigate();
   const applyPresenter = useApplyPresenter();
   const { push } = useToasts();
-  const { q, setQ, facets, setFacet, clearSearch, clear } = useLibraryQuery(['category']);
+  const { q, setQ, facets, setFacets, clearSearch, clear } = useLibraryQuery(['category', 'bookmarked']);
   const category = facets.category;
+  const onlyMarked = facets.bookmarked === '1';
+  const [marks, setMarks] = useState<string[]>(() => keptIds('presenter', brand.id));
+  const keepOne = (id: string) => setMarks(toggleKept('presenter', brand.id, id));
+  const pick = useCatalogPick(`${brand.id}|${q}|${category ?? ''}|${onlyMarked ? '1' : ''}`);
   // One poll for the whole app, owned by TaskCenter: a build started from the
   // top bar on any screen has to stay visible after you leave the screen that
   // started it.
@@ -74,6 +86,7 @@ export function PresentersView() {
   const densityAttr = densitySize(density);
 
   const openPresenter = (id: string) => navigate(presenterPath(brand, id));
+  const editPresenter = (id: string) => navigate(presenterEditPath(brand, id));
 
   const byFacet = useMemo(
     () => (category ? presenters.filter((p) => p.suitableCategories.includes(category)) : presenters),
@@ -90,22 +103,12 @@ export function PresentersView() {
     [byFacet, q],
   );
 
-  const { visible, remaining, showMore } = useLibraryPage(filtered, `${category ?? ''}|${q}`);
-
-  const mode = facetMode(presenterCategories.length);
-
   /** The wall and the one way on, so a card thrown away can hand its place to a neighbour. */
   const wall = useRef<HTMLDivElement>(null);
   const cta = useRef<HTMLButtonElement>(null);
 
   const createCta = (
-    <button
-      ref={cta}
-      type="button"
-      className="sc-btn sc-btn-primary"
-      data-guide="library.new"
-      onClick={() => createAsset('presenter')}
-    >
+    <button ref={cta} type="button" className="sc-btn sc-btn-primary" onClick={() => createAsset('presenter')}>
       <Plus size={12} /> Create presenter
     </button>
   );
@@ -170,7 +173,7 @@ export function PresentersView() {
    * `body`: the next Tab starts again at Skip to content, which is the far end
    * of the page from where the person was working. Focus moves to the next
    * card's own discard, the way `ShotRail` and `LineageStrip` hand focus to the
-   * neighbouring tile, and to Create presenter when that was the last one,
+   * neighbouring tile, and to New presenter when that was the last one,
    * because that is the only thing left to do here.
    */
   const drop = useCallback(
@@ -180,10 +183,11 @@ export function PresentersView() {
         drafts.findIndex((d) => d.id === id),
       );
       handOn.current = at;
+      pick.forget(id);
       setDrafts((cur) => cur.filter((d) => d.id !== id));
       void api.deletePresenterDraft(brand.id, id).finally(() => loadDrafts());
     },
-    [brand.id, drafts, loadDrafts],
+    [brand.id, drafts, loadDrafts, pick.forget],
   );
   /**
    * Where focus goes next, taken in the render that took the card away.
@@ -199,7 +203,10 @@ export function PresentersView() {
     if (at === null) return;
     handOn.current = null;
     const pucks = wall.current?.querySelectorAll<HTMLButtonElement>('[data-build] .sc-cardpuck');
-    (pucks?.length ? pucks[Math.min(at, pucks.length - 1)] : cta.current)?.focus();
+    const next = pucks?.length
+      ? pucks[Math.min(at, pucks.length - 1)]
+      : (cta.current ?? document.querySelector<HTMLElement>('.sc-new-go'));
+    next?.focus();
   }, [drafts]);
   /**
    * Throwing away drawn work asks first.
@@ -210,6 +217,8 @@ export function PresentersView() {
    * still goes at once.
    */
   const [discarding, setDiscarding] = useState<PresenterDraftSummary | null>(null);
+  const [discardingBatch, setDiscardingBatch] = useState(false);
+  const [deletingBatch, setDeletingBatch] = useState(false);
   const discardDraft = useCallback(
     (id: string) => {
       const d = drafts.find((x) => x.id === id);
@@ -219,6 +228,7 @@ export function PresentersView() {
     [drafts, drop],
   );
   const [duplicating, setDuplicating] = useState<Presenter | null>(null);
+  const [renaming, setRenaming] = useState<Presenter | null>(null);
   const [removing, setRemoving] = useState<Presenter | null>(null);
   const [acting, setActing] = useState(false);
   const [actError, setActError] = useState<string | null>(null);
@@ -237,6 +247,29 @@ export function PresentersView() {
     },
     [mine],
   );
+  const askRename = useCallback(
+    (id: string) => {
+      const person = mine.find((p) => p.id === id);
+      if (!person) return;
+      setActError(null);
+      setRenaming(person);
+    },
+    [mine],
+  );
+  const confirmRename = async (name: string) => {
+    if (!renaming || acting) return;
+    setActing(true);
+    setActError(null);
+    try {
+      applyBrand((await api.updatePresenter(brand.id, renaming.id, { name })).brand);
+      setRenaming(null);
+    } catch (e: any) {
+      const f = failureToast(e, 'Could not rename this presenter');
+      setActError([f.title, f.detail].filter(Boolean).join(' '));
+    } finally {
+      setActing(false);
+    }
+  };
   const askDelete = useCallback(
     (id: string) => {
       const person = mine.find((p) => p.id === id);
@@ -258,7 +291,10 @@ export function PresentersView() {
     if (at === null) return;
     handOnCard.current = null;
     const pucks = wall.current?.querySelectorAll<HTMLButtonElement>('.sc-lookcard:not([data-build]) .sc-lookcard-more');
-    (pucks?.length ? pucks[Math.min(at, pucks.length - 1)] : cta.current)?.focus();
+    const next = pucks?.length
+      ? pucks[Math.min(at, pucks.length - 1)]
+      : (cta.current ?? document.querySelector<HTMLElement>('.sc-new-go'));
+    next?.focus();
   }, [presenters, brand]);
   const confirmDuplicate = async (name: string) => {
     if (!duplicating || acting) return;
@@ -291,11 +327,13 @@ export function PresentersView() {
     try {
       const r = await api.deletePresenter(brand.id, removing.id);
       applyBrand(r.brand);
+      pick.forget(removing.id);
       setRemoving(null);
     } catch (e: any) {
       // already gone (another tab): the outcome asked for is true
       if (e?.status === 404) {
         await refreshBrands();
+        pick.forget(removing.id);
         setRemoving(null);
       } else push(failureToast(e, 'Could not delete this presenter'));
     } finally {
@@ -316,8 +354,9 @@ export function PresentersView() {
         // Untagged is unfiltered: a person nobody categorised would otherwise
         // vanish from every tab, which reads as losing them.
         .filter((p) => (category ? !p.suitableCategories.length || p.suitableCategories.includes(category) : true))
-        .filter((p) => matchesQuery(presenterSearchText(p), q)),
-    [mine, category, q],
+        .filter((p) => matchesQuery(presenterSearchText(p), q))
+        .filter((p) => (onlyMarked ? marks.includes(p.id) : true)),
+    [mine, category, q, onlyMarked, marks],
   );
   /**
    * Whether this brand has people of its own at all, before any filter.
@@ -327,9 +366,66 @@ export function PresentersView() {
    * page, chrome and all, and snapping back to the first-run offer.
    */
   const owned = mine.length > 0 || drafts.length > 0;
-  // A draft is not categorised and carries no search text, so it rides above
-  // the filter rather than being hidden by one.
-  const showMine = minePlusBuilds.length > 0 || drafts.length > 0;
+  const heroMode = !owned;
+  const markedTotal = [...mine, ...presenters].reduce((n, p) => n + (marks.includes(p.id) ? 1 : 0), 0);
+  const keepersZero = onlyMarked && markedTotal === 0;
+  /** Cold brands: an empty shortlist has nothing to hide, so the catalog stays up. */
+  const keepersBrowse = keepersZero && heroMode;
+  const keepersMessage = keepersZero && !heroMode;
+  const showDrafts = !onlyMarked || keepersBrowse;
+  const mineShown = minePlusBuilds.filter((p) => !onlyMarked || keepersBrowse || marks.includes(p.id));
+  const showMine = (showDrafts && drafts.length > 0) || mineShown.length > 0;
+  const librarySource = useMemo(() => {
+    if (!onlyMarked || keepersBrowse) return filtered;
+    return filtered.filter((p) => marks.includes(p.id));
+  }, [filtered, onlyMarked, keepersBrowse, marks]);
+  const { visible, remaining, showMore } = useLibraryPage(
+    librarySource,
+    `${category ?? ''}|${onlyMarked ? 'keepers' : ''}|${keepersBrowse ? 'browse' : ''}|${q}`,
+  );
+  const mode = presenters.length + mine.length > 0 ? 'tabs' : 'none';
+
+  const discardIds = useCallback(
+    async (ids: string[]) => {
+      const { failed, error } = await settlePicked(ids, (id) => api.deletePresenterDraft(brand.id, id));
+      setDrafts((cur) => cur.filter((d) => failed.includes(d.id) || !ids.includes(d.id)));
+      pick.retain(failed);
+      void loadDrafts();
+      if (error) push(failureToast(error, 'Could not discard these drafts'));
+    },
+    [brand.id, loadDrafts, pick.retain, push],
+  );
+  const askDraftBatch = () => {
+    const rows = drafts.filter((d) => pick.ids.has(d.id));
+    if (rows.some((d) => d.drawn)) {
+      if (rows.length === 1) setDiscarding(rows[0]);
+      else setDiscardingBatch(true);
+    } else void discardIds(rows.map((d) => d.id));
+  };
+  const askPresenterBatch = () => {
+    const ids = [...pick.ids];
+    if (ids.length === 1) askDelete(ids[0]);
+    else setDeletingBatch(true);
+  };
+  const pickedPresenterIds = [...pick.ids];
+  const allPresentersKept =
+    pick.kind === 'presenter' && pickedPresenterIds.length > 0 && pickedPresenterIds.every((id) => marks.includes(id));
+  const keepPresenters = () => setMarks(setKept('presenter', brand.id, pickedPresenterIds, !allPresentersKept));
+  const presenterKeep = keepersLine(pick.ids.size, allPresentersKept, 'presenters');
+  const confirmPresenterBatch = async () => {
+    if (acting) return;
+    const ids = [...pick.ids];
+    setActing(true);
+    try {
+      const { failed, error } = await settlePicked(ids, (id) => api.deletePresenter(brand.id, id));
+      await refreshBrands();
+      pick.retain(failed);
+      setDeletingBatch(false);
+      if (error) push(failureToast(error, 'Could not delete these presenters'));
+    } finally {
+      setActing(false);
+    }
+  };
   /**
    * Nothing of your own yet: the page leads with its offer.
    *
@@ -339,25 +435,26 @@ export function PresentersView() {
    * there is nothing to click, and a deep link carrying a facet narrows the
    * wall underneath without disturbing the offer above it.
    */
-  const heroMode = !owned;
 
   // Counts cover both halves of the wall. A tab that said "6" while showing
   // seven, because one of them was yours, is a tab that cannot be trusted.
   const facetGroup = {
     key: 'category',
     label: 'Category',
-    everyLabel: 'Every presenter',
+    everyLabel: 'All presenters',
     everyCount: presenters.length + mine.length,
-    selected: category,
-    onSelect: (v: string | null) => setFacet('category', v),
-    options: presenterCategories.map((c) => ({
-      value: c,
-      label: c,
-      // Counted by the same rule the tab filters by, untagged included, so
-      // the number always equals what the tab actually shows.
-      count: [...mine, ...presenters].filter((p) => !p.suitableCategories.length || p.suitableCategories.includes(c))
-        .length,
-    })),
+    selected: onlyMarked ? KEEPERS : category,
+    onSelect: (v: string | null) =>
+      v === KEEPERS ? setFacets({ bookmarked: '1', category: null }) : setFacets({ bookmarked: null, category: v }),
+    options: [
+      { value: KEEPERS, label: 'Keepers', count: markedTotal },
+      ...presenterCategories.map((c) => ({
+        value: c,
+        label: c,
+        count: [...mine, ...presenters].filter((p) => !p.suitableCategories.length || p.suitableCategories.includes(c))
+          .length,
+      })),
+    ],
   };
 
   /**
@@ -381,16 +478,14 @@ export function PresentersView() {
           <LibrarySearch value={q} onChange={setQ} noun="presenters" total={presenters.length} />
         )
       }
-      // Products' rule: one CTA on the page. The offer owns it while it is
-      // showing; the row owns it the rest of the time.
-      action={heroMode ? undefined : createCta}
     />
   );
 
   return (
     <WallDensityCtx.Provider value={densityAttr}>
       <ScrollPane>
-        <main className="sc-looks sc-presenters" id="main" data-hero={heroMode || undefined}>
+        {/* biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard path is Escape, bound on the document, so a key handler here would be a second route to the same clear */}
+        <main className="sc-looks sc-presenters" id="main" data-hero={heroMode || undefined} onClick={pick.onBlank}>
           {!heroMode && toolbar}
 
           {showMine && (
@@ -406,14 +501,23 @@ export function PresentersView() {
                 data-density-size={densityAttr}
                 style={wallStyle}
               >
-                {drafts.map((d) => (
-                  <PresenterDraftCard
-                    key={d.id}
-                    draft={d}
-                    href={presenterStudioPath(brand, d.id)}
-                    onDiscard={discardDraft}
-                  />
-                ))}
+                {showDrafts &&
+                  drafts.map((d) => (
+                    <PresenterDraftCard
+                      key={d.id}
+                      draft={d}
+                      href={presenterStudioPath(brand, d.id)}
+                      onDiscard={discardDraft}
+                      chosen={pick.ids.has(d.id)}
+                      batching={pick.batching === 'draft'}
+                      onPick={pick.picking('draft') ? (id) => pick.toggle('draft', id) : undefined}
+                      batch={
+                        pick.kind === 'draft' && pick.ids.has(d.id)
+                          ? { count: pick.ids.size, onAct: askDraftBatch }
+                          : null
+                      }
+                    />
+                  ))}
                 {discarding && (
                   <Confirm
                     label="Discard"
@@ -430,7 +534,7 @@ export function PresentersView() {
                     }}
                   />
                 )}
-                {minePlusBuilds.map((p) => (
+                {mineShown.map((p) => (
                   <PresenterCard
                     key={p.id}
                     presenter={p}
@@ -440,10 +544,40 @@ export function PresentersView() {
                     href={presenterPath(brand, p.id)}
                     onUse={applyPresenter}
                     onDuplicate={askDuplicate}
+                    onEdit={editPresenter}
                     onDelete={askDelete}
+                    onRename={askRename}
+                    bookmarked={marks.includes(p.id)}
+                    onBookmark={keepOne}
                     fresh={p.id === justAdded}
+                    chosen={pick.ids.has(p.id)}
+                    batching={pick.batching === 'presenter'}
+                    onPick={pick.picking('presenter') ? (id) => pick.toggle('presenter', id) : undefined}
+                    batch={
+                      pick.kind === 'presenter' && pick.ids.has(p.id)
+                        ? {
+                            count: pick.ids.size,
+                            onAct: askPresenterBatch,
+                            onKeep: keepPresenters,
+                            allKept: allPresentersKept,
+                          }
+                        : null
+                    }
                   />
                 ))}
+                {renaming && (
+                  <RenameDialog
+                    title="Rename presenter"
+                    name={renaming.name}
+                    maxLength={60}
+                    busy={acting}
+                    error={actError}
+                    onConfirm={(name) => void confirmRename(name)}
+                    onDismiss={() => {
+                      if (!acting) setRenaming(null);
+                    }}
+                  />
+                )}
                 {duplicating && (
                   <DuplicatePresenterDialog
                     suggested={suggestedPresenterCopyName(
@@ -469,6 +603,36 @@ export function PresentersView() {
                       if (!o && !acting) setRemoving(null);
                     }}
                     onConfirm={() => void confirmDelete()}
+                  />
+                )}
+                {deletingBatch && (
+                  <Confirm
+                    label={catalogPickVerb('presenter', pick.ids.size).menu}
+                    title={`${catalogPickVerb('presenter', pick.ids.size).menu}?`}
+                    body="Shots already made with them keep their images and their recipe. Only future shots lose them."
+                    open
+                    busy={acting}
+                    onOpenChange={(o) => {
+                      if (!o && !acting) setDeletingBatch(false);
+                    }}
+                    onConfirm={() => void confirmPresenterBatch()}
+                  />
+                )}
+                {discardingBatch && (
+                  <Confirm
+                    label={catalogPickVerb('draft', pick.ids.size).menu}
+                    title={`${catalogPickVerb('draft', pick.ids.size).menu}?`}
+                    body="The views drawn so far are thrown away. Nothing was saved to the library."
+                    open
+                    busy={false}
+                    onOpenChange={(o) => {
+                      if (!o) setDiscardingBatch(false);
+                    }}
+                    onConfirm={() => {
+                      const ids = [...pick.ids];
+                      setDiscardingBatch(false);
+                      void discardIds(ids);
+                    }}
                   />
                 )}
               </div>
@@ -533,14 +697,38 @@ export function PresentersView() {
                   onOpen={openPresenter}
                   href={presenterPath(brand, p.id)}
                   onUse={applyPresenter}
+                  bookmarked={marks.includes(p.id)}
+                  onBookmark={keepOne}
                 />
               ))}
             </div>
           )}
 
-          {presentersLoaded && !presentersError && !filtered.length && presenters.length > 0 && (
-            <LibraryZero noun="presenters" q={q} facet={category} onClearSearch={clearSearch} onClearAll={clear} />
+          {presentersLoaded && !presentersError && keepersMessage && (
+            <LibraryEmpty
+              shape="zero"
+              body="Nothing in Keepers yet. Add a presenter to Keepers from its card and it stays here."
+              action={
+                <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setFacets({ bookmarked: null })}>
+                  Browse every presenter
+                </button>
+              }
+            />
           )}
+
+          {presentersLoaded &&
+            !presentersError &&
+            !keepersMessage &&
+            !librarySource.length &&
+            presenters.length > 0 && (
+              <LibraryZero
+                noun="presenters"
+                q={q}
+                facet={onlyMarked ? 'Keepers' : category}
+                onClearSearch={clearSearch}
+                onClearAll={clear}
+              />
+            )}
 
           {presentersLoaded && !presentersError && !presenters.length && (
             <LibraryEmpty shape="zero" body="The presenter library is still being cast. Check back soon." />
@@ -555,6 +743,30 @@ export function PresentersView() {
           )}
         </main>
       </ScrollPane>
+      {pick.ids.size > 0 && (pick.kind === 'draft' || pick.kind === 'presenter') && (
+        <div className="sc-wall-dock">
+          <CatalogPickedBar
+            count={pick.ids.size}
+            loaded={pick.kind === 'draft' ? drafts.length : mineShown.length}
+            tool={catalogPickVerb(pick.kind, pick.ids.size).tool}
+            icon={catalogPickVerb(pick.kind, pick.ids.size).icon}
+            danger={catalogPickVerb(pick.kind, pick.ids.size).danger}
+            onAct={pick.kind === 'draft' ? askDraftBatch : askPresenterBatch}
+            keep={
+              pick.kind === 'presenter'
+                ? { label: presenterKeep.tool, filled: allPresentersKept, onAct: keepPresenters }
+                : null
+            }
+            onClear={pick.clear}
+            onSelectAll={() =>
+              pick.selectAll(
+                pick.kind === 'draft' ? 'draft' : 'presenter',
+                (pick.kind === 'draft' ? drafts : mineShown).map((row) => row.id),
+              )
+            }
+          />
+        </div>
+      )}
       {/* the presenter studio, when its route is open: full-bleed over this
           library, which stays mounted and scrolled where it was */}
       <Outlet />

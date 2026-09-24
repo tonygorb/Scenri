@@ -18,7 +18,7 @@ import type { DemoProduct, Presenter, Product, Scene } from './api.js';
 export type LabelContext =
   /** Inside the composer sentence. Tightest budget; context comes from the sentence. */
   | 'chip'
-  /** A catalog tile's caption. One line, ellipsis-capped. */
+  /** A catalog tile's caption. Two lines on a phone, one over the photograph. Anything longer ellipsizes; the tooltip and the page carry the rest. */
   | 'card'
   /** A detail page's <h1>. Wraps, so it can afford the brand. */
   | 'heading'

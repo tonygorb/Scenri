@@ -38,7 +38,7 @@
   display: flex;
   align-items: center;
   justify-self: end;
-  /* Three groups, told apart by space alone: the quiet tools (Learn, Help below
+  /* Three groups, told apart by space alone: the quiet tools (Learn from
      1024px, the bell) sit together, then New, then the brand, 16px apart. */
   gap: 2px;
   min-width: 0;
@@ -52,7 +52,7 @@
 .sc-topbar-lead > .sc-wordmark:first-child {
   margin-left: -1px;
 }
-/* Below 400px the bar carries help, the bell, New and the brand in what a small
+/* Below 400px the bar carries the bell, New and the brand in what a small
    phone leaves it; the gaps give way before anything else does. */
 @media (max-width: 399px) {
   .sc-topbar-end {
@@ -264,6 +264,23 @@
 .sc-ring-arc {
   stroke: var(--sc-fg);
 }
+/* A generation has no fraction. The arc travels the ring; a still outline
+   would sit there for as long as the picture takes. */
+.sc-ring-spin {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: sc-ring-spin 0.9s linear infinite;
+}
+@keyframes sc-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-ring-spin {
+    animation: none;
+  }
+}
 .sc-act-bell {
   position: relative;
   display: grid;
@@ -311,6 +328,7 @@
   display: inline-flex;
   align-items: stretch;
   flex: none;
+  flex-wrap: nowrap;
   height: 32px;
   font-size: 13.5px;
   font-weight: 500;
@@ -332,6 +350,7 @@
 .sc-new-more {
   display: inline-flex;
   align-items: center;
+  appearance: none;
   border: none;
   background: none;
   color: inherit;
@@ -349,6 +368,10 @@
    third shape inside it and the loudest thing in the bar twice over. */
 .sc-new-go {
   gap: 6px;
+  height: 100%;
+  min-height: 0;
+  flex-wrap: nowrap;
+  white-space: nowrap;
   padding: 0 0 0 12px;
   border-radius: var(--sc-radius-full) 0 0 var(--sc-radius-full);
 }
@@ -357,8 +380,11 @@
 }
 .sc-new-lb {
   padding: 0 10px 0 0;
+  white-space: nowrap;
 }
 .sc-new-more {
+  height: 100%;
+  min-height: 0;
   padding: 0 9px;
   border-radius: 0 var(--sc-radius-full) var(--sc-radius-full) 0;
 }
@@ -465,9 +491,15 @@
 }
 
 /* ---- the row gives way from the outside in ----
-   The places in the centre never move first: the readout's word goes, then the
-   nav's padding, then New's label, and the centre column is the last thing to
-   feel a narrower window. */
+   The places in the centre never move first: the nav's padding goes, then the
+   air around New. The pill keeps a word: an unlabelled plus was the thing the
+   split control exists not to be.
+
+   The visible word is always a shortening of the same label, never a different
+   one (Apple possibleLabels, NN/G split buttons). Wide library pages say
+   "New presenter"; below 961px the object drops and every page says "New".
+   Switching to the noun on a phone was a second compact strategy, so the same
+   control read as New, Presenter or New presenter depending on width. */
 @media (max-width: 1060px) {
   .sc-nav :is(button, a) {
     padding: 0 8px;
@@ -482,11 +514,21 @@
   .sc-topbar {
     gap: 8px;
   }
-  .sc-new-lb {
-    display: none;
+  .sc-nav :is(button, a) {
+    padding: 0 6px;
   }
-  .sc-new-go {
-    padding: 0 10px 0 11px;
+  .sc-nav :is(button, a)::after {
+    left: 6px;
+    right: 6px;
+  }
+  .sc-new,
+  .sc-org-btn {
+    margin-left: 8px;
+  }
+}
+@media (max-width: 960px) {
+  .sc-new-kind {
+    display: none;
   }
 }
 
@@ -526,8 +568,9 @@
   .sc-topbar-end {
     grid-column: 2;
   }
-  /* The word stays on a phone. "New" is the one thing in this row that says what
-     it does, and the bar has the width for it once the places have gone. */
+  .sc-new {
+    margin-left: 8px;
+  }
   .sc-new-more {
     padding: 0 7px;
   }

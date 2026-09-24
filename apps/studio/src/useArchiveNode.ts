@@ -90,8 +90,12 @@ export function useArchiveNode(onNode: (node: FeedNode) => void) {
       Promise.all(ids.map((id) => api.archiveNode(id, false)))
         .then((results) => {
           for (const n of results) onNode(n);
+          return true;
         })
-        .catch((e: any) => push(failureToast(e, 'Could not restore these shots'))),
+        .catch((e: any) => {
+          push(failureToast(e, 'Could not restore these shots'));
+          return false;
+        }),
     [onNode, push],
   );
 

@@ -321,12 +321,12 @@ test.describe('brand kit', () => {
     expect(download.suggestedFilename()).toMatch(/\.brand$/);
   });
 
-  test('scenes are bookmarked from the card, not from a wizard', async ({ page }) => {
+  test('scenes are kept from the card, not from a wizard', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/scenes`);
-    const firstBookmark = page.locator('.sc-lookcard-bookmark').first();
-    await firstBookmark.click();
-    await expect(page.locator('.sc-lookcard-bookmark[data-on]')).toHaveCount(1);
+    await page.locator('.sc-coll .sc-lookcard').first().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Add to Keepers' }).click();
+    await expect(page.locator('.sc-lookcard-keep[data-on]')).toHaveCount(1);
 
     // The stored key keeps its historical spelling on purpose — renaming it
     // would need a fourth migration hop and risk a real user's list.
@@ -340,22 +340,23 @@ test.describe('brand kit', () => {
   // nothing leads with its offer and renders no chrome at all. `isolate({ scene:
   // true })` at the top of this file seeds that one owned scene, and nothing
   // outside this file sees it.
-  test('the Bookmarks tab is always on the rail and filters the wall to what you bookmarked', async ({ page }) => {
+  test('the Keepers tab is always on the rail and filters the wall to what you kept', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/scenes`);
 
-    // Present at zero: the rail must not change shape as you bookmark things.
-    const bmTab = page.getByRole('tab', { name: /Bookmarks/ });
+    // Present at zero: the rail must not change shape as you keep things.
+    const bmTab = page.getByRole('tab', { name: /Keepers/ });
     await expect(bmTab).toHaveCount(1);
     await expect(bmTab).toContainText('0');
 
     // Empty, it says what fills it — this is not a failed search.
     await bmTab.click();
-    await expect(page.locator('.sc-lib-zero')).toContainText('Nothing bookmarked yet');
+    await expect(page.locator('.sc-lib-zero')).toContainText('Nothing in Keepers yet');
     await page.getByRole('button', { name: 'Browse every scene' }).click();
     await expect(page).not.toHaveURL(/[?&]bookmarked=1/);
 
-    await page.locator('.sc-lookcard-bookmark').first().click();
+    await page.locator('.sc-coll .sc-lookcard').first().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Add to Keepers' }).click();
     await expect(bmTab).toContainText('1');
 
     // Picking it collapses the collection sections into one flat wall.
@@ -370,19 +371,21 @@ test.describe('brand kit', () => {
 
     // Removing the last one falls back to the empty state, not a blank page,
     // and the tab stays put at zero.
-    await page.locator('.sc-lookcard-bookmark[data-on]').first().click();
-    await expect(page.locator('.sc-lib-zero')).toContainText('Nothing bookmarked yet');
+    await page.locator('[data-wall] .sc-lookcard').first().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Remove from Keepers' }).click();
+    await expect(page.locator('.sc-lib-zero')).toContainText('Nothing in Keepers yet');
     await expect(bmTab).toContainText('0');
     await page.getByRole('button', { name: 'Browse every scene' }).click();
     await expect(page).not.toHaveURL(/[?&]bookmarked=1/);
     await expect(page.locator('.sc-coll').first()).toBeVisible();
   });
 
-  test('picking a vertical clears the Bookmarks tab rather than stacking with it', async ({ page }) => {
+  test('picking a vertical clears the Keepers tab rather than stacking with it', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/scenes`);
-    await page.locator('.sc-lookcard-bookmark').first().click();
-    await page.getByRole('tab', { name: /Bookmarks/ }).click();
+    await page.locator('.sc-coll .sc-lookcard').first().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Add to Keepers' }).click();
+    await page.getByRole('tab', { name: /Keepers/ }).click();
     await expect(page).toHaveURL(/[?&]bookmarked=1/);
 
     const vertical = page.getByRole('tab').nth(2);

@@ -350,9 +350,6 @@
 /* Tablet: 2-col refs (same as before), open gutters, dial type down.
    Do NOT touch .sc-masonry here — Presenters/Scenes/Products walls own that. */
 @media (max-width: 900px) {
-  .sc-verticals button {
-    font-size: 15px;
-  }
   .sc-lookpage {
     padding: 32px 28px 104px;
   }

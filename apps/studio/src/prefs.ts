@@ -40,6 +40,12 @@ export const PREF = {
   wallDensity: 'scenri:wall-density',
   /** Create feed ordering: newest | oldest | cost | keepers. */
   feedSort: 'scenri:feed-sort',
+  /**
+   * The lens counts Create last showed, and for which brand. The first page of
+   * the feed carries the counts, so without this the tabs painted 0 and then
+   * widened to the real number, pushing every lens beside them.
+   */
+  feedCounts: 'scenri:feed-counts',
 } as const;
 
 function read<T>(key: string, fallback: T): T {

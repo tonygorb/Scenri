@@ -125,3 +125,66 @@ test('an archived selection offers Restore and Delete, and archiving is not offe
   await bar(page).getByRole('button', { name: 'Restore' }).click();
   await expect(bar(page)).toHaveCount(0);
 });
+
+test('right-click on a picked tile archives the whole pick', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await seedShots(page, 3);
+  await page.goto(`/${brand.slug}/create`);
+  await expect(cells(page).first()).toBeVisible();
+  const before = await cells(page).count();
+
+  await pick(page, 0);
+  await pick(page, 1);
+  await expect(bar(page)).toContainText('2 selected');
+  await cells(page).nth(0).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Archive 2 shots' }).click();
+
+  await expect(cells(page)).toHaveCount(before - 2);
+  await expect(bar(page)).toHaveCount(0);
+});
+
+test('right-click on an unpicked tile during a pick still archives only that shot', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await seedShots(page, 3);
+  await page.goto(`/${brand.slug}/create`);
+  await expect(cells(page).first()).toBeVisible();
+  const before = await cells(page).count();
+
+  await pick(page, 0);
+  await pick(page, 1);
+  await expect(bar(page)).toContainText('2 selected');
+  await cells(page).nth(2).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Archive' }).click();
+
+  await expect(cells(page)).toHaveCount(before - 1);
+  await expect(bar(page)).toContainText('2 selected');
+});
+
+test('right-click Remove from set takes the whole pick out of the set', async ({ page }) => {
+  test.setTimeout(90_000);
+  const brand = await seedShots(page, 3);
+  const feed = (await (await page.request.get(`/api/brands/${brand.id}/feed?limit=50`)).json()) as {
+    items: { id: string; status: string }[];
+  };
+  const ids = feed.items.filter((n) => n.status === 'done').map((n) => n.id);
+  const stamp = String(Date.now());
+  const made = (await (
+    await page.request.post(`/api/brands/${brand.id}/sets`, { data: { name: `test123 ${stamp}` } })
+  ).json()) as { id: string; slug: string };
+  await page.request.post(`/api/sets/${made.id}/nodes`, { data: { nodeIds: ids } });
+
+  await page.goto(`/${brand.slug}/sets/${made.slug}`);
+  await expect(cells(page)).toHaveCount(ids.length);
+  await pick(page, 0);
+  await pick(page, 1);
+  await expect(bar(page)).toContainText('2 selected');
+  const removeName = `Remove 2 shots from test123 ${stamp}`;
+  await expect(bar(page).getByRole('button', { name: removeName })).toBeVisible();
+  await cells(page).nth(0).click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: removeName })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await bar(page).getByRole('button', { name: removeName }).click();
+
+  await expect(cells(page)).toHaveCount(ids.length - 2);
+  await expect(bar(page)).toHaveCount(0);
+});

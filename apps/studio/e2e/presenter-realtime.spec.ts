@@ -1,6 +1,6 @@
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
 import { isolate } from './harness.js';
-import { expectSameSession, mainNav, markSession } from './realtime.js';
+import { CARD_SPOT, expectSameSession, mainNav, markSession } from './realtime.js';
 
 /**
  * A mutation reaches every surface in the same commit, or it is not done.
@@ -222,7 +222,7 @@ test('the wall reads its drafts again when the studio closes over it', async ({ 
 
   // open the studio over the wall, then mint a draft behind it, which is what
   // answering through to a face does
-  await page.getByRole('button', { name: 'Create presenter' }).click();
+  await page.getByRole('button', { name: 'New presenter' }).click();
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
   // The URL moves before the studio mounts, and Escape is heard by a listener
   // the studio adds on mount: a press in between went nowhere and the page
@@ -260,7 +260,7 @@ test('a person saved from the studio is on their page, the wall, Home and the pi
     }).observe(document.body, { subtree: true, childList: true, characterData: true });
   });
 
-  await page.getByRole('button', { name: 'Create presenter' }).click();
+  await page.getByRole('button', { name: 'New presenter' }).click();
   const log = page.getByRole('log');
   const answer = (label: string) => log.getByRole('button', { name: label, exact: true });
   const composer = page.locator('.sc-convo-card textarea');
@@ -308,7 +308,7 @@ test('a double press on delete sends one delete, and Back does not land on their
     .locator('.sc-owned .sc-lookcard', { hasText: 'Twice' })
     .locator('a')
     .first()
-    .click({ position: { x: 12, y: 12 } });
+    .click({ position: CARD_SPOT });
   await expect(page).toHaveURL(new RegExp(`/presenters/${id}$`));
   await page.getByRole('button', { name: 'Delete presenter' }).click();
   await page
@@ -357,7 +357,10 @@ test('deleting a card hands focus to the next one, not to the top of the page', 
   await page.goto(`/${brand.slug}/presenters`);
   await markSession(page);
 
-  await page.getByRole('button', { name: 'More for FocusGo' }).first().click();
+  // the card's controls show on hover, so reach for the card first, as a person does
+  const more = page.getByRole('button', { name: 'More for FocusGo' }).first();
+  await page.locator('.sc-owned .sc-lookcard', { has: more }).hover();
+  await more.click();
   await page.getByRole('menuitem', { name: 'Delete presenter' }).click();
   await page
     .getByRole('alertdialog')

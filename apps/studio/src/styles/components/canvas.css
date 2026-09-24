@@ -83,13 +83,20 @@
    never just the picture. They are one section now. Nothing between slots 14
    and 16 touches `.sc-cell`, so the move changed no cascade.
 
-   Legibility over an unknown photograph is one scrim per card edge, never one
-   blurred pill per control: the old chrome paid for eight `backdrop-filter`
-   layers per tile in a feed of hundreds, to buy what `.sc-lookcard-veil`
-   already buys with one gradient. Controls carry `--sc-scrim`/`--sc-scrim-fg`,
-   which are theme-neutral — `--sc-glass` follows the theme and turned this
-   chrome white-over-photograph in light mode.
+   The edge gradient is still one scrim for the whole card. The controls are
+   glass, the same fill and blur as the version stepper that sits on a picture:
+   `--sc-glass` plus an 8px blur, so the photograph frosts instead of showing
+   through as a flat grey. The blur is on only while the control is showing.
+   A wall of hidden buttons does not pay for it.
    ========================================================================= */
+.sc-cell,
+.sc-lookcard {
+  /* One skin for a shot and a catalog card. Hover catches a little light,
+     press goes a step darker. */
+  --sc-cell-ctl-bg: var(--sc-glass);
+  --sc-cell-ctl-bg-hover: color-mix(in srgb, var(--sc-glass) 86%, #fff);
+  --sc-cell-ctl-bg-press: color-mix(in srgb, var(--sc-glass) 78%, #000);
+}
 .sc-cell {
   position: relative;
   /* break-inside is gone with multicol; the columns are real elements now */
@@ -107,11 +114,9 @@
   display: block;
   width: 100%;
   cursor: pointer;
-  /* The control skin, stated once as three local values so hover and press are
-     one decision rather than one per button. */
-  --sc-cell-ctl-bg: var(--sc-scrim);
-  --sc-cell-ctl-bg-hover: color-mix(in srgb, var(--sc-scrim) 86%, #000);
-  --sc-cell-ctl-bg-press: color-mix(in srgb, var(--sc-scrim) 72%, #000);
+  /* One box for the tick and for every action. The coarse rule below is the
+     only place it grows, so the circle and the rounded squares stay aligned. */
+  --sc-cell-ctl-size: 28px;
   /* What a mark wears instead of a scrim: a 1px hard halo so the glyph keeps a
      dark edge against a white product on a white seamless, then a soft lift.
      Stated once because three rules need exactly this and a mark that drifts
@@ -191,23 +196,37 @@
    line nobody can measure by eye.
 
    It takes the inverse fill, the one on-state this system has, so a ringed
-   tile matches its own tick and every other active control in the app. Drawn
-   inside the tile's own edge, because a photograph runs to the corner and an
-   outline outside it would be clipped. */
+   tile matches its own tick and every other active control in the app. An
+   outline is clipped by the tile (overflow and the radius), on a shot and on
+   a catalog card, so the line is painted over the picture. One rule for both. */
 /* While a batch is being built a hover is a ring, not a wash. There is no rail
    to make legible, so nothing needs darkening, and the ring is the smaller and
    more accurate claim: the pointer is on this one. --sc-sel-line is the rung
    tuned to stay readable against a photograph in either theme. Not on a tile
    that is already picked, whose own ring means something stronger and keeps
    it. */
-.sc-cell[data-batching]:not([data-picked]):hover {
-  outline: 2px solid var(--sc-sel-line);
-  outline-offset: -2px;
+.sc-cell[data-batching]:not([data-picked]):hover::after,
+.sc-lookcard[data-batching]:not([data-picked]):hover::after,
+.sc-cell[data-selected="true"]::after,
+.sc-cell[data-picked]::after,
+.sc-cell[data-armed]::after,
+.sc-lookcard[data-picked]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 5;
 }
-.sc-cell[data-selected="true"],
-.sc-cell[data-picked] {
-  outline: 2px solid var(--sc-inv-bg);
-  outline-offset: -2px;
+.sc-cell[data-batching]:not([data-picked]):hover::after,
+.sc-lookcard[data-batching]:not([data-picked]):hover::after {
+  box-shadow: inset 0 0 0 1.5px var(--sc-sel-line);
+}
+.sc-cell[data-selected="true"]::after,
+.sc-cell[data-picked]::after,
+.sc-cell[data-armed]::after,
+.sc-lookcard[data-picked]::after {
+  box-shadow: inset 0 0 0 1.5px var(--sc-inv-bg);
 }
 /* The image the composer is armed to refine wears the picked tile's own
    grammar, because it is the same idea: this tile, not the others. The
@@ -215,10 +234,6 @@
    so which picture the brief is pointed at is readable from across the
    feed. The tick is a mark here, not the batch control: clicks fall through
    to the tile itself. */
-.sc-cell[data-armed] {
-  outline: 2px solid var(--sc-inv-bg);
-  outline-offset: -2px;
-}
 .sc-cell[data-armed] .sc-cell-ctl,
 .sc-cell[data-armed] .sc-cell-veil {
   opacity: 1;
@@ -286,13 +301,17 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-width: 28px;
-  height: 28px;
+  min-width: var(--sc-cell-ctl-size);
+  height: var(--sc-cell-ctl-size);
   padding: 0;
   border: 0;
   border-radius: var(--sc-radius-full);
   background: var(--sc-cell-ctl-bg);
-  color: var(--sc-scrim-fg);
+  color: var(--sc-fg);
+  /* The checked tick is a light disc on a photograph. One lift, used by the
+     shot and by the catalog card. Short and downward: the disc sits 8px from
+     the corner, and a wider shadow gets sliced by the radius. */
+  --sc-pick-lift: 0 1px 1px rgb(0 0 0 / 0.08), 0 3px 8px rgb(0 0 0 / 0.14);
   font-size: var(--sc-text-micro);
   font-weight: 500;
   line-height: 1;
@@ -310,11 +329,27 @@
     background var(--sc-dur-fast) var(--sc-ease),
     color var(--sc-dur-fast) var(--sc-ease);
 }
-.sc-cell-ctl:hover {
+.sc-cell-ctl:hover:not(:active) {
   background: var(--sc-cell-ctl-bg-hover);
 }
 .sc-cell-ctl:active {
   background: var(--sc-cell-ctl-bg-press);
+}
+/* The menu is open: the trigger stays in the hover paint so you can see
+   which control it came from. Same skin on a shot and on a catalog card. */
+.sc-cell-ctl[data-state="open"] {
+  background: var(--sc-cell-ctl-bg-hover);
+}
+.sc-cell-ctl:disabled,
+.sc-cell-ctl[aria-disabled="true"] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+/* Keyboard only. A tap does not wear it: inputModality drops the ring when
+   the last hand was a pointer. The ring is the button, never the card. */
+:where(:root:not([data-input="pointer"])) .sc-cell-ctl:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: 2px;
 }
 .sc-cell-ctl svg {
   flex: none;
@@ -332,6 +367,14 @@
   opacity: 1;
   transition-delay: 0s;
 }
+.sc-cell:hover .sc-cell-ctl,
+.sc-cell:focus-within .sc-cell-ctl,
+.sc-lookcard:hover .sc-cell-ctl,
+.sc-lookcard:focus-within .sc-cell-ctl,
+:where(:root:not([data-input="pointer"])) .sc-cell-ctl:focus-visible {
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
 .sc-cell-pick[data-on],
 .sc-cell-branch[data-on] {
   opacity: 1;
@@ -344,6 +387,20 @@
   opacity: 1;
   transition-delay: 0s;
 }
+.sc-cell:has(.sc-cell-more[data-state="open"]) .sc-cell-ctl,
+.sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-cell-ctl {
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.sc-cell:hover .sc-cell-pick[data-on],
+.sc-cell:focus-within .sc-cell-pick[data-on],
+.sc-lookcard:hover .sc-lookcard-pick[data-on],
+.sc-lookcard:focus-within .sc-lookcard-pick[data-on],
+.sc-cell:hover .sc-cell-branch[data-on],
+.sc-cell:focus-within .sc-cell-branch[data-on] {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
 
 /* ---------- selection, top left --------------------------------------------
    A circle in the shared skin, not a hairline square with its own white border
@@ -353,6 +410,8 @@
 .sc-cell-pick {
   top: 8px;
   left: 8px;
+  width: var(--sc-cell-ctl-size);
+  border-radius: var(--sc-radius-full);
 }
 .sc-cell-pick:not([data-on]) svg {
   opacity: 0.6;
@@ -360,22 +419,22 @@
 .sc-cell-pick[data-on] {
   background: var(--sc-inv-bg);
   color: var(--sc-inv-fg);
+  box-shadow: var(--sc-pick-lift);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 .sc-cell-pick[data-on]:hover {
   background: var(--sc-inv-bg);
   opacity: 0.88;
 }
+.sc-cell-pick[data-on]:active {
+  opacity: 0.75;
+}
 
-/* ---------- the keeper mark, top right -------------------------------------
-   Gold means kept, and a shot that is not kept has no star at all. This is a
-   mark and never a control: it does not hover, it does not take a puck, it
-   does not take clicks. Keeping and unkeeping are lines in the shot's menu
-   like every other verb.
-
-   It used to be a button that appeared on hover in scrim ink and turned gold
-   when on, which made it the fourth thing blooming over a photograph and gave
-   the one accent in the system two jobs: "there is a star here" and "this is
-   kept". Now the accent only ever means the second. */
+/* ---------- Keep, top right ------------------------------------------------
+   The same disc as Select. It waits with the other controls, and a kept shot
+   stays lit: gold star, scrim disc, so a wall can be scanned. The star class
+   is only present while kept, which is what the feed's keeper timing watches. */
 .sc-cell-mark {
   position: absolute;
   display: grid;
@@ -388,6 +447,70 @@
   right: 10px;
   color: var(--sc-star);
   filter: var(--sc-cell-mark-shadow);
+}
+.sc-cell-keep {
+  top: 8px;
+  right: 8px;
+  filter: none;
+}
+.sc-cell-keep[data-on],
+.sc-cell-keep[data-on]:hover,
+.sc-lookcard-keep[data-on],
+.sc-lookcard-keep[data-on]:hover {
+  opacity: 1;
+  color: var(--sc-star);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* ---------- the action row -------------------------------------------------
+   Refine, then More, then the remove, then (on a shot) download, then Keep.
+   Rounded squares, the top bar's shape for an action, so a glance tells them
+   from the circular tick. Same box as the tick. Refine keeps the word on a
+   wide card. They wait, so a kept star stays lit and the ones beside it do
+   not take clicks until the pointer is on the tile. On a phone the face is
+   the tick and More. Refine is in that menu: a tap on the picture already
+   opens the shot. */
+.sc-shot-tools {
+  display: contents;
+}
+.sc-corner {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.sc-corner .sc-cell-ctl {
+  position: static;
+  top: auto;
+  right: auto;
+  width: var(--sc-cell-ctl-size);
+  border-radius: var(--sc-radius-sm);
+  pointer-events: none;
+}
+.sc-cell:hover .sc-corner .sc-cell-ctl,
+.sc-cell:focus-within .sc-corner .sc-cell-ctl,
+.sc-cell:has(.sc-cell-more[data-state="open"]) .sc-corner .sc-cell-ctl,
+.sc-lookcard:hover .sc-corner .sc-cell-ctl,
+.sc-lookcard:focus-within .sc-corner .sc-cell-ctl,
+.sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-corner .sc-cell-ctl,
+.sc-lookcard[data-just-added] .sc-corner .sc-cell-ctl,
+.sc-corner .sc-cell-keep[data-on],
+.sc-corner .sc-lookcard-keep[data-on],
+.sc-corner .sc-cell-branch[data-on] {
+  opacity: 1;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+@media (hover: none), (pointer: coarse) {
+  .sc-corner .sc-cell-ctl {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 /* ---------- the bottom rail ------------------------------------------------
@@ -418,25 +541,58 @@
 }
 
 /* ---------- archive and Refine ---------------------------------------------
-   Refine keeps its word at every width now. It used to give it up under a
-   finger because on a 175px tile the label and the fact chips could not both
-   fit, and "refined from" was truncating to "refined fro" to make room; the
-   chips are gone, so the constraint is gone. */
-.sc-cell-branch {
-  padding: 0 10px;
-  max-width: 60%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: var(--sc-scrim-fg);
-}
+   Refine is the same square as Archive and Download. The word used to live
+   on the button and got clipped to "Refin". The mark is enough; the title
+   still says Refine. */
 .sc-cell-branch[data-on] {
   background: var(--sc-inv-bg);
   color: var(--sc-inv-fg);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 .sc-cell-branch[data-on]:hover {
   background: var(--sc-inv-bg);
   opacity: 0.88;
+}
+.sc-cell-branch[data-on]:active {
+  opacity: 0.75;
+}
+/* A narrow column pulls the tick in so it stays on the picture. */
+@container shot (max-width: 250px) {
+  .sc-cell-pick {
+    top: 6px;
+    left: 6px;
+  }
+}
+
+/* A phone card is half a screen. The face is the tick and More. A tap on the
+   picture opens the shot, which is the refine, so the infinity mark is not
+   also sitting on the photo. Archive, Download, Delete, Keep and Refine are
+   in that menu. */
+@media (max-width: 767px) {
+  .sc-shot-tools {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    pointer-events: none;
+  }
+  /* Real boxes. display:contents on the corner made a tap's focus ring
+     paint around the whole shot instead of the button that was pressed. */
+  .sc-shot-tools .sc-corner {
+    display: flex;
+    position: static;
+    top: auto;
+    right: auto;
+  }
+  .sc-shot-tools .sc-corner .sc-cell-ctl:not(.sc-cell-more),
+  .sc-lookcard .sc-corner .sc-cell-ctl:not(.sc-lookcard-more) {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -448,35 +604,71 @@
 }
 
 /* ---------- without a pointer ----------------------------------------------
-   A phone has no hover to reveal with and none to hide with again, so the rail
-   stays. The tick is the exception and stays hidden until it means something:
-   an unticked box pinned to every tile is permanent chrome over the
-   photographs, and there is no hover to take it away again. Starting a
-   selection is the long-press menu's Select; after that a tap on the picture
-   toggles, so no small target has to be found at all.
+   A phone has no hover to reveal with and none to hide with again, so the
+   controls stay. The tick stays with them: a catalog card already shows it
+   before anything is selected, and a shot is the same card. Hiding it until
+   the first selection left Create with no select control at all.
 
-   The controls grow for real rather than wearing a 44px `::after`: centred on
-   a control 8px from the edge of a 176px tile, that box reaches across the 8px
+   On a phone the box is 24px. 28px is the wide card; 32px made the filled select
+   the loudest thing on a half-width photo. A 44px `::after` is worse: centred on
+   a control 8px from the edge of a 176px tile, that box reaches across the
    gutter and takes taps meant for the tile beside it. */
 @media (hover: none), (pointer: coarse) {
-  /* Starting a selection is a long press on the picture, and a long press on
-     anything selectable is also the platform's "select this text" gesture: it
-     left a blue band across the tile and the bar below it, and on iOS the
-     callout with it. The catalog card settled this the same way. */
+  /* A long press on anything selectable is also the platform's "select this
+     text" gesture: it left a blue band across the tile and the bar below it,
+     and on iOS the callout with it. The catalog card settled this the same way. */
   .sc-cell {
     user-select: none;
     -webkit-touch-callout: none;
+    /* The ring is the cell's overlay. overflow:hidden on that same box chops
+       the stroke at the radius, so the picture clips on its own face. */
+    overflow: visible;
+  }
+  .sc-cellimg,
+  .sc-cell-veil {
+    border-radius: calc(var(--sc-radius) - 1px);
+  }
+  .sc-cell[data-picked]::after,
+  .sc-cell[data-selected="true"]::after,
+  .sc-cell[data-armed]::after,
+  .sc-cell[data-batching]:not([data-picked]):hover::after {
+    border-radius: calc(var(--sc-radius) - 1px);
   }
   .sc-cell-veil,
   .sc-cell-ctl {
     opacity: 1;
   }
   .sc-cell-ctl {
-    height: 32px;
-    min-width: 32px;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
   }
-  .sc-cell-pick:not([data-on]) {
-    opacity: 0;
+  .sc-cell {
+    --sc-cell-ctl-size: 24px;
+  }
+  /* 6px corners on a 24px box read as a squashed circle beside the select.
+     The wide card is 6px on 28px; the phone keeps that same proportion.
+     The glyph scales with the box: 16px was drawn for the 28px control. */
+  .sc-corner .sc-cell-ctl,
+  .sc-shot-tools .sc-cell-branch {
+    border-radius: calc(var(--sc-cell-ctl-size) * 6 / 28);
+  }
+  .sc-cell-ctl svg {
+    width: 14px;
+    height: 14px;
+  }
+  /* A tap on the picture opens the shot. Refine stays in the menu. */
+  .sc-shot-tools .sc-cell-branch {
+    display: none;
+  }
+  /* The catalog tick draws its check at full strength. The shot's dim was a
+     hover hint, and on a phone there is no hover for it to hint at. */
+  .sc-cell-pick:not([data-on]) svg {
+    opacity: 1;
+  }
+  .sc-cell-open:focus,
+  .sc-cell .sc-corner .sc-cell-ctl:focus,
+  .sc-shot-tools .sc-cell-branch:focus {
+    outline: none;
   }
 }
 
@@ -562,11 +754,6 @@
 .sc-cell-cancel[data-urgent] {
   color: var(--sc-gold);
   background: color-mix(in srgb, var(--sc-gold) 18%, var(--sc-cell-ctl-bg));
-}
-@media (max-width: 479px) {
-  .sc-cell {
-    margin-bottom: 8px;
-  }
 }
 
 /* One scroll container, and only one. Every section below is a fixed two-row

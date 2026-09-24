@@ -54,7 +54,7 @@ const bar = (p: Page) => p.locator('.sc-picked');
  */
 async function startSelection(page: Page) {
   await cells(page).first().locator('.sc-cell-more').tap();
-  await page.getByRole('menuitem', { name: 'Select for set' }).click();
+  await page.getByRole('menuitem', { name: 'Select' }).click();
   await expect(bar(page)).toBeVisible();
 }
 

@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 
 /**
- * The one sticky row every catalog wall shares — tabs, search, density, and
- * primary action. Home is the same chrome with only tabs + density. No
- * visible page title: the nav bar already names the page. `title` is a
- * visually-hidden `<h1>` only.
+ * The one sticky row every catalog wall shares — tabs, search, density. The
+ * page create lives on the top bar's New, not here. Home is the same chrome
+ * with only tabs + density. No visible page title: the nav bar already names
+ * the page. `title` is a visually-hidden `<h1>` only.
  */
 export function LibraryToolbar({
   title,
@@ -46,9 +46,6 @@ export function LibraryToolbar({
         )}
         {search}
         {density}
-        {/* Wide only. Under 1280px this row already has a scrolling facet rail
-            and a search field to fit, and the top bar's + is the same action —
-            two buttons for one job, one of which overflowed a 360px bar. */}
         {action ? <span className="sc-filterbar-cta">{action}</span> : null}
       </div>
     </div>

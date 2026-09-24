@@ -1,26 +1,35 @@
-import { Check, DotsThree, Infinity as InfinityIcon, Star } from '@phosphor-icons/react';
+import type { ReactElement } from 'react';
+import {
+  Archive,
+  Check,
+  DotsThreeVertical,
+  DownloadSimple,
+  Infinity as InfinityIcon,
+  Star,
+  Trash,
+} from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
-import { nodeLabel, type FeedNode } from '../../api.js';
+import { imgUrl, nodeLabel, type FeedNode } from '../../api.js';
+import { iconTip } from '../Tip.js';
+import { useHoverNone } from '../../useMediaQuery.js';
+import { ShotMenuGlyph } from './ShotMenuGlyph.js';
 import type { ShotMenuItem } from './shotMenu.js';
 
 /**
  * Everything a shot tile wears over its picture.
  *
- * One rule holds it together: **at rest the card wears marks, on hover the
- * marks become controls.** A mark is state you have to read while scanning a
- * wall of shots — this one is kept. A control is a thing you do, and nothing
- * you do needs to be visible before you have chosen a card.
+ * One rule holds it together: at rest a tile is a picture, and on hover it
+ * grows the controls. A kept shot is the exception that stays lit, because
+ * that is the only way to scan a wall for one.
  *
- * The tile carries **two verbs and no more**: Refine, which is the whole loop
- * of this app, and one overflow that opens the shot's menu. Keep and Archive
- * used to bloom here as buttons of their own, which made four separate things
- * appear over a photograph on every hover and put a different number of them
- * on the tile under the cursor than on its neighbours. They are management,
- * they live in the menu, and the picture keeps its corners.
- *
- * The keeper star is now purely a mark: gold when kept, absent when not, never
- * a button. Marks are not interactive and controls are not decorative, and
- * keeping a shot is one line of the menu like every other verb.
+ * The action row is More, then Refine, then Archive (or Delete once the shot
+ * is archived), then Download, then Keep at the end. Refine is the same
+ * square as the others: the infinity mark, no word. On a phone it is not on
+ * the picture at all. A tap opens the shot, which is the refine, and the
+ * menu still has the line. Those are rounded squares; the tick stays a
+ * circle. The star is gold when the shot is kept, and a kept one stays
+ * visible so a wall can be scanned. A selection does not take the row away.
+ * The dock is the batch; the row is this shot.
  */
 export function ShotChrome({
   node,
@@ -31,23 +40,18 @@ export function ShotChrome({
   menu,
   onPick,
   onBranch,
+  onToggleKeep,
+  onArchive,
+  onDelete,
 }: {
   node: FeedNode;
   chosen: boolean;
   picking: boolean;
   /**
-   * A batch is being built, so the tile shows its tick and nothing else.
-   *
-   * Refine and the overflow both act on one picture, and choosing which twelve
-   * go in a set is the opposite of that. The scrim goes with them, because a
-   * scrim exists to make a rail legible and there is no longer a rail; what a
-   * hover has to say here is only "the pointer is on this one", which a ring
-   * says without touching the photograph.
-   *
-   * Absent rather than hidden with a stylesheet. Rendering a verb and then
-   * fighting its opacity is what produced three competing mode mechanisms
-   * here; leaving it out of the tree gives the hover rules nothing to argue
-   * with.
+   * A batch is being built. The tick and the ring say so. Refine leaves,
+   * because starting a new piece of work from one picture is the opposite
+   * of choosing a group, and the menu drops it at the same moment. The
+   * action row stays: More, Archive, Download and Keep are still this shot's.
    */
   batching: boolean;
   /** Whether the brief is currently pointed at this exact tile. */
@@ -56,7 +60,28 @@ export function ShotChrome({
   menu: ShotMenuItem[];
   onPick?: (id: string) => void;
   onBranch?: (id: string) => void;
+  onToggleKeep?: (node: FeedNode) => void;
+  /** Live shot: archive it. The corner uses this only while the shot is in the feed. */
+  onArchive?: (node: FeedNode) => void;
+  /** Permanent delete. Only offered once the shot is already archived. */
+  onDelete?: (node: FeedNode) => void;
 }) {
+  const name = nodeLabel(node);
+  const hoverNone = useHoverNone();
+  const named = (label: string, control: ReactElement) => iconTip(label, control, hoverNone);
+  const download = () => {
+    const hash = node.images[0];
+    if (!hash) return;
+    const base =
+      node.promptHead
+        .slice(0, 40)
+        .replace(/\s+/g, '-')
+        .replace(/[^a-zA-Z0-9-]/g, '') || 'shot';
+    const a = document.createElement('a');
+    a.href = imgUrl(hash);
+    a.download = `${base}.png`;
+    a.click();
+  };
   return (
     <>
       {/* One scrim per card edge, not one pill per control.
@@ -67,21 +92,23 @@ export function ShotChrome({
           a ring instead, which is a smaller claim and the right size of one. */}
       {!batching && <span className="sc-cell-veil" aria-hidden />}
 
-      {picking && (
-        <button
-          type="button"
-          className="sc-cell-ctl sc-cell-pick"
-          data-on={chosen || undefined}
-          aria-pressed={chosen}
-          aria-label={chosen ? 'Deselect shot' : 'Select shot'}
-          onClick={() => onPick?.(node.id)}
-        >
-          {/* The tick is always drawn, dimmed until it means something. An
-              empty disc over a photograph reads as a smudge rather than as a
-              control waiting to be used. */}
-          <Check size={13} weight="bold" />
-        </button>
-      )}
+      {picking &&
+        named(
+          chosen ? 'Deselect' : 'Select',
+          <button
+            type="button"
+            className="sc-cell-ctl sc-cell-pick"
+            data-on={chosen || undefined}
+            aria-pressed={chosen}
+            aria-label={chosen ? 'Deselect shot' : 'Select shot'}
+            onClick={() => onPick?.(node.id)}
+          >
+            {/* The tick is always drawn, dimmed until it means something. An
+                empty disc over a photograph reads as a smudge rather than as a
+                control waiting to be used. */}
+            <Check size={13} weight="bold" />
+          </button>,
+        )}
 
       {/* The composer is pointed here: the picked tile's lit tick, worn as a
           mark. During batching the real pick control renders instead, and the
@@ -94,59 +121,95 @@ export function ShotChrome({
         </span>
       )}
 
-      {/* A mark, not a control: gold says kept and nothing else, and there is
-          no unlit state to hover because an unkept shot simply has no star. */}
-      {node.kept && (
-        <span className="sc-cell-mark sc-cell-star" title="Kept">
-          <Star size={14} weight="fill" />
-          <span className="sc-vh">Kept</span>
-        </span>
-      )}
-
-      <div className="sc-cell-bar">
-        <span />
-
-        <div className="sc-cell-acts">
-          {onBranch && !batching && (
-            <button
-              type="button"
-              className="sc-cell-ctl sc-cell-branch"
-              data-on={armed || undefined}
-              aria-label={`Refine ${nodeLabel(node)}`}
-              title="Continue from this shot"
-              onClick={() => onBranch(node.id)}
-            >
-              {/* the refine mark: a version thread loops on itself, and the
-                  pencil this used to be said "edit text" more than it said that */}
-              <InfinityIcon size={13} weight="bold" />
-              <span className="sc-cell-ctl-lb">Refine</span>
-            </button>
-          )}
-          {!batching && menu.length > 0 && (
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger>
+      <div className="sc-shot-tools">
+        {onToggleKeep && (
+          <div className="sc-corner">
+            {menu.length > 0 && (
+              <DropdownMenu.Root>
+                {named(
+                  'More',
+                  <DropdownMenu.Trigger>
+                    <button type="button" className="sc-cell-ctl sc-cell-more" aria-label={`More for ${name}`}>
+                      <DotsThreeVertical size={16} weight="bold" />
+                    </button>
+                  </DropdownMenu.Trigger>,
+                )}
+                <DropdownMenu.Content align="end" sideOffset={4} collisionPadding={12}>
+                  {menu.map((it) => (
+                    <span key={it.key} style={{ display: 'contents' }}>
+                      {it.separated && <DropdownMenu.Separator />}
+                      <DropdownMenu.Item color={it.danger ? 'red' : undefined} onSelect={it.onSelect}>
+                        <ShotMenuGlyph name={it.icon} />
+                        {it.label}
+                      </DropdownMenu.Item>
+                    </span>
+                  ))}
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+            )}
+            {onBranch &&
+              !batching &&
+              named(
+                'Refine',
                 <button
                   type="button"
-                  className="sc-cell-ctl sc-cell-more"
-                  aria-label={`More for ${nodeLabel(node)}`}
-                  title="More"
+                  className="sc-cell-ctl sc-cell-branch"
+                  data-on={armed || undefined}
+                  aria-label={`Refine ${name}`}
+                  onClick={() => onBranch(node.id)}
                 >
-                  <DotsThree size={16} weight="bold" />
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content>
-                {menu.map((it) => (
-                  <span key={it.key} style={{ display: 'contents' }}>
-                    {it.separated && <DropdownMenu.Separator />}
-                    <DropdownMenu.Item color={it.danger ? 'red' : undefined} onSelect={it.onSelect}>
-                      {it.label}
-                    </DropdownMenu.Item>
-                  </span>
-                ))}
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
-          )}
-        </div>
+                  {/* the refine mark: a version thread loops on itself, and the
+                    pencil this used to be said "edit text" more than it said that */}
+                  <InfinityIcon size={15} weight="bold" />
+                </button>,
+              )}
+            {node.archived
+              ? onDelete &&
+                named(
+                  'Delete permanently',
+                  <button
+                    type="button"
+                    className="sc-cell-ctl"
+                    aria-label={`Delete ${name} permanently`}
+                    onClick={() => onDelete(node)}
+                  >
+                    <Trash size={15} />
+                  </button>,
+                )
+              : onArchive &&
+                named(
+                  'Archive',
+                  <button
+                    type="button"
+                    className="sc-cell-ctl"
+                    aria-label={`Archive ${name}`}
+                    onClick={() => onArchive(node)}
+                  >
+                    <Archive size={15} />
+                  </button>,
+                )}
+            {node.images[0] &&
+              named(
+                'Download',
+                <button type="button" className="sc-cell-ctl" aria-label={`Download ${name}`} onClick={download}>
+                  <DownloadSimple size={15} />
+                </button>,
+              )}
+            {named(
+              node.kept ? 'Remove from Keepers' : 'Add to Keepers',
+              <button
+                type="button"
+                className={`sc-cell-ctl sc-cell-keep${node.kept ? ' sc-cell-star' : ''}`}
+                data-on={node.kept || undefined}
+                aria-pressed={node.kept}
+                aria-label={node.kept ? `Remove ${name} from Keepers` : `Add ${name} to Keepers`}
+                onClick={() => onToggleKeep(node)}
+              >
+                <Star size={15} weight={node.kept ? 'fill' : 'regular'} />
+              </button>,
+            )}
+          </div>
+        )}
       </div>
     </>
   );

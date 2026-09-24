@@ -14,17 +14,17 @@
   display: flex;
   align-items: center;
   gap: var(--sc-space-6);
-  /* sticky so the lenses stay reachable down a long feed; the canvas is the
-     scroller, so this pins to its top edge. The breathing room above the row
-     lives in this padding-top, not .sc-canvas's: a sticky child stuck at
-     top:0 can't get closer to the scroller's edge than the scroller's own
-     padding, so if that space were canvas padding instead, the row would
-     visibly close a gap over the first ~18px of every scroll — flush from
-     frame one instead, so nothing shifts. */
+  /* The library filterbar's box, number for number, so Create, Products,
+     Presenters and Scenes put their words, ink and tools on the same lines:
+     16 above as margin (the library page's own top padding), a 48px tab bar
+     with the ink on its bottom edge, 24 to the wall. Sticky pins to the
+     canvas, which has no top padding, so stuck it sits flush as the
+     filterbar does. */
   position: sticky;
   top: 0;
   z-index: 5;
-  padding: var(--sc-space-6) 0;
+  margin: 16px 0 24px;
+  padding: 0;
   background: var(--sc-bg);
 }
 /* Place and lens share a type size so they read as one row. The place is
@@ -37,6 +37,42 @@
   flex: 0 1 auto;
   min-width: 0;
 }
+/* Back and the place chip are one unit: the parent step, then the name of
+   where you are. The 20px gap to the lenses stays on the scope. */
+.sc-toolbar-where {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  min-width: 0;
+}
+.sc-toolbar-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--sc-control-h);
+  height: var(--sc-control-h);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius-sm);
+  background: var(--sc-raised);
+  color: var(--sc-fg2);
+  cursor: pointer;
+}
+.sc-toolbar-back:hover:not(:active) {
+  color: var(--sc-fg);
+  background: var(--sc-hover);
+}
+.sc-toolbar-back:active {
+  color: var(--sc-fg);
+  background: var(--sc-press);
+}
+:where(:root:not([data-input="pointer"])) .sc-toolbar-back:focus-visible {
+  outline: var(--sc-ring-w) solid var(--sc-focus);
+  outline-offset: var(--sc-ring-off);
+}
 /* Nested the same way .sc-filterbar nests the rail: the shell's own sticky
    and 24px margin would fight this row. Shrink when the tabs overflow; do not
    grow past the labels, so the actions keep the far end. */
@@ -48,34 +84,14 @@
   flex: 1 1 auto;
   min-width: 0;
 }
-/* The library rail's 17px is sized for a page that gives it a line of its
-   own. Sharing this row with 34px controls, the lenses speak the controls'
-   size, one weight under the boxed place and one step over Sort, so the
-   row is one system rather than a title beside a toolbar. The underline
-   sits 4px under the word and is one pixel thick, and the word rides a
-   little above the row's centre so the ink can hang below it. Nothing here
-   is a boxed tab. */
+/* The lenses are the catalog rail, padding included: same 17px, same
+   weight, same 1.5px ink on the row's bottom edge. The place stays a menu at
+   the control size, a step under the tabs. Nothing here is a boxed tab. */
 .sc-toolbar .sc-verticals {
-  padding: 0 0 7px;
+  padding: 0;
 }
 .sc-toolbar .sc-verticals button {
-  padding: 6px 0 4px;
-  font-size: var(--sc-text-control);
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-/* The rail is a scroll container, and in one `bottom: 0` lands on the box's
-   outer edge rather than inside its padding; 6 lifts the ink to the buttons'
-   own bottom edge, 4px under the word. */
-.sc-toolbar .sc-verticals-ink {
-  height: 1px;
-  bottom: 6px;
-}
-/* Smaller with the label; the rail's own lift puts its top edge on the
-   word's, the way the Figma sets the count. */
-.sc-toolbar .sc-vcount {
-  margin-left: 4px;
-  font-size: 9.5px;
+  padding: 14px 0;
 }
 
 .sc-toolbar-actions {
@@ -96,6 +112,18 @@
   margin-left: var(--sc-space-5);
   border-radius: var(--sc-radius-md);
   background: var(--sc-raised);
+  color: var(--sc-fg2);
+}
+.sc-toolbar-assets:hover:not(:active) {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+.sc-toolbar-assets:active {
+  background: var(--sc-press);
+  color: var(--sc-fg);
+}
+.sc-toolbar-assets[data-on] {
+  color: var(--sc-fg);
 }
 /* The search toggle shares the row's raised fill. The primitive keeps the
    page colour on the library pages, where it has to stay opaque over the
@@ -263,12 +291,19 @@
   border: none;
   border-radius: var(--sc-radius-sm);
   background: transparent;
-  color: var(--sc-fg3);
-  cursor: pointer;
-  transition: color 140ms ease;
-}
-.sc-density-opt:hover {
   color: var(--sc-fg2);
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    background 140ms ease;
+}
+.sc-density-opt:hover:not(:active) {
+  background: var(--sc-hover);
+  color: var(--sc-fg);
+}
+.sc-density-opt:active {
+  background: var(--sc-press);
+  color: var(--sc-fg);
 }
 .sc-density-opt[data-on] {
   color: var(--sc-fg);
@@ -298,43 +333,43 @@
      actions leave and scrolls for the rest. */
   .sc-toolbar {
     flex-wrap: nowrap;
-    align-items: center;
-    gap: var(--sc-space-5);
-    padding: var(--sc-space-4) 0 var(--sc-space-4);
+    /* The filterbar's phone gap, so the tools sit where they do there. */
+    gap: 8px;
+  }
+  /* The catalogs' phone step for the tab (library.css), so the lenses match. */
+  .sc-toolbar .sc-verticals button {
+    font-size: 15px;
+    padding: 14.5px 0;
   }
   .sc-toolbar-scope {
-    gap: var(--sc-space-6);
     flex: 1 1 auto;
-  }
-  /* A tab must never end flush against the place title: at the clip the last
-     word is already cut, and with no gap the cut reads as broken text rather
-     than as a rail that keeps going. */
-  .sc-toolbar .sc-verticals {
-    padding-right: 4px;
+    min-width: 0;
   }
   .sc-toolbar-actions {
     margin-left: 0;
   }
-  /* The title's words and Sort's label were the reason the row needed two
-     lines. The folder and the sliders say what they did. */
-  .sc-toolbar-place-t,
-  .sc-toolbar-place .sc-caret,
-  .sc-toolbar-btn-t {
-    display: none;
-  }
-  .sc-toolbar-place-ic {
-    display: block;
-  }
-  .sc-toolbar-place {
-    width: var(--sc-control-h);
-    height: var(--sc-control-h);
-    max-width: none;
-    margin: 0;
-    padding: 0;
+  /* The place and the sort are one button here (FeedToolbar), so the row is
+     the lenses at the catalog size, search, and that button. */
+  .sc-toolbar-view {
+    position: relative;
     justify-content: center;
+    width: var(--sc-control-h);
+    padding: 0;
   }
-  .sc-toolbar-btn {
-    padding: 0 8px;
+  .sc-toolbar-view[data-on] {
+    color: var(--sc-fg);
+  }
+  /* A span, because the button's ::after is its touch reach. */
+  .sc-toolbar-view-dot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    border-radius: var(--sc-radius-full);
+    background: var(--sc-fg);
+    box-shadow: 0 0 0 2px var(--sc-raised);
+    pointer-events: none;
   }
   /* Opening search takes the row rather than floating a panel over the tabs —
      the same move the library filterbar makes when it runs out of width, so
@@ -555,10 +590,12 @@
   /* The feed row's menus lose their labels at this width, leaving a 34px
      control a thumb has to hit. The control keeps its size; the reach does not. */
   .sc-toolbar-place,
+  .sc-toolbar-back,
   .sc-toolbar-btn {
     position: relative;
   }
   .sc-toolbar-place::after,
+  .sc-toolbar-back::after,
   .sc-toolbar-btn::after {
     content: "";
     position: absolute;

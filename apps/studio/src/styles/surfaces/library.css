@@ -148,18 +148,21 @@
 /* One sticky row for tabs + search + density + primary action.
    Home is the same chrome with only tabs + density. Nested .sc-verticals-shell
    drops its own sticky so everything shares one background, one sticky plane.
-   No full-width hairline — the sliding ink is the only underline. */
+   A tab bar with no line of its own: the ink is the only underline and sits
+   on the row's bottom edge. The row is 48 tall, the 34px tools 7 from the
+   top and 7 from the bottom, the words centred with them; stuck flush under
+   the top bar, the space above and below is one number. */
 .sc-filterbar {
   position: sticky;
   top: 0;
   z-index: 20;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   /* The rail is already clipped on any narrow screen, so every pixel between
      it and the search sits at the exact spot where a label got cut. One
      spacing value for the row, same as between the tabs themselves. */
   gap: 16px;
-  padding: 8px 0 0;
+  padding: 0;
   margin-bottom: 24px;
   background: var(--sc-bg);
 }
@@ -169,8 +172,6 @@
   gap: 8px;
   flex-shrink: 0;
   margin-left: auto;
-  /* Sit with the tab labels, not the ink slot under them. */
-  padding-bottom: 8px;
 }
 .sc-filterbar-actions .sc-sec-more {
   margin-left: 0;
@@ -191,7 +192,23 @@
   min-width: 0;
 }
 .sc-filterbar .sc-verticals {
-  padding: 0 0 1px;
+  padding: 0;
+}
+/* 14 + the 20px line + 14 is the row's 48: the word centred on the tools,
+   the ink on the row's bottom edge. */
+.sc-filterbar .sc-verticals button {
+  padding: 14px 0;
+}
+/* A phone's scale, not a squeeze to fit: phone tab and filter labels sit a
+   step under 17, which is a sentence's size there. The same tab, one step
+   down, as the nav steps to 13.5 under 1060; 14.5 + the 19px line + 14.5
+   keeps the row at 48 and the tools 7 from each edge. The rail still
+   scrolls. */
+@media (max-width: 767px) {
+  .sc-filterbar .sc-verticals button {
+    font-size: 15px;
+    padding: 14.5px 0;
+  }
 }
 /* ≥1280: the field's "grow over the gap" trick has no gap here — the rail is
    flex-grown, so an open field floated straight across the tabs and sat there
@@ -209,8 +226,9 @@
 }
 
 /* ---------- Creative Library shell (Products, Presenters, Scenes) ----------
-   One row: filter, search, action — see LibraryToolbar.tsx. No visible
-   title/description; the nav bar already names the page. */
+   One row: filter, search, density — see LibraryToolbar.tsx. The page create
+   is the top bar's New. No visible title/description; the nav bar already
+   names the page. */
 .sc-lib-count {
   display: inline-flex;
   align-items: center;
@@ -302,7 +320,7 @@
   border-radius: var(--sc-radius-md);
   /* Opaque, not transparent: the rail's edge fade ends right beside this and
      read as lying across the button whenever it could show through. */
-  background: var(--sc-bg);
+  background: var(--sc-raised);
   color: var(--sc-fg2);
   cursor: pointer;
   transition:
@@ -310,8 +328,13 @@
     border-color 120ms ease,
     color 120ms ease;
 }
-.sc-libsearch-toggle:hover {
+.sc-libsearch-toggle:hover:not(:active) {
   background: var(--sc-hover);
+  border-color: var(--sc-line-strong);
+  color: var(--sc-fg);
+}
+.sc-libsearch-toggle:active {
+  background: var(--sc-press);
   border-color: var(--sc-line-strong);
   color: var(--sc-fg);
 }
@@ -444,8 +467,15 @@
   /* Open, the field takes the row rather than floating over the tabs — an
      overlay reads as a panel that landed on top of the page, and the tabs
      underneath still looked interactive. It replaces them instead. */
+  /* Hidden but still holding its height: taken out of the flow, the rail
+     took 3px of the row with it and the page jumped when search opened. */
+  .sc-filterbar:has(.sc-libsearch[data-open]) {
+    gap: 0;
+  }
   .sc-filterbar:has(.sc-libsearch[data-open]) .sc-verticals-shell {
-    display: none;
+    flex: 0 0 0;
+    overflow: hidden;
+    visibility: hidden;
   }
   .sc-filterbar:has(.sc-libsearch[data-open]) .sc-filterbar-actions {
     flex: 1;

@@ -1,9 +1,10 @@
-import { Archive, ArrowCounterClockwise, FolderSimple, Star, Trash, X } from '@phosphor-icons/react';
+import { Archive, ArrowCounterClockwise, FolderSimple, FolderSimpleMinus, Star, Trash, X } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
 import { type ReactNode, useState } from 'react';
 import type { ShotSet } from '../../api.js';
 import { Confirm } from '../../Confirm.js';
 import { Tip } from '../../layout/Tip.js';
+import { removeFromSetLabel } from '../../layout/canvas/shotMenu.js';
 
 /**
  * What you can do with a handful of shots. Only ever about membership.
@@ -27,7 +28,9 @@ import { Tip } from '../../layout/Tip.js';
 export function PickedBar({
   count,
   sets,
+  activeSet,
   onAdd,
+  onRemove,
   onNew,
   onClear,
   onKeep,
@@ -42,7 +45,10 @@ export function PickedBar({
 }: {
   count: number;
   sets: ShotSet[];
+  /** The set this feed is. Remove from it is its own tool, not a line of Add. */
+  activeSet?: ShotSet | null;
   onAdd: (s: ShotSet) => void;
+  onRemove?: () => void;
   onNew: () => void;
   onClear: () => void;
   onKeep: () => void;
@@ -101,15 +107,22 @@ export function PickedBar({
                 </DropdownMenu.Trigger>
               </Tip>
               <DropdownMenu.Content>
-                {sets.map((s) => (
-                  <DropdownMenu.Item key={s.id} onSelect={() => onAdd(s)}>
-                    {s.name}
-                  </DropdownMenu.Item>
-                ))}
-                {sets.length > 0 && <DropdownMenu.Separator />}
+                {sets
+                  .filter((s) => s.id !== activeSet?.id)
+                  .map((s) => (
+                    <DropdownMenu.Item key={s.id} onSelect={() => onAdd(s)}>
+                      {s.name}
+                    </DropdownMenu.Item>
+                  ))}
+                {sets.some((s) => s.id !== activeSet?.id) && <DropdownMenu.Separator />}
                 <DropdownMenu.Item onSelect={onNew}>New set…</DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Root>
+            {activeSet && onRemove && (
+              <Tool label={removeFromSetLabel(count, activeSet.name)} onClick={onRemove}>
+                <FolderSimpleMinus size={17} />
+              </Tool>
+            )}
             {/* the one verb that takes shots out of the feed, so it answers in
                 red under the hand rather than looking like its neighbours */}
             <Tool label="Archive" tone="danger" onClick={() => onArchiveBatch(pickedIds)}>

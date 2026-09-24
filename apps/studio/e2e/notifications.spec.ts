@@ -180,7 +180,7 @@ test('a dialog taking the screen closes the panel', async ({ page }) => {
   await bell(page).click();
   await expect(pop(page)).toBeVisible();
 
-  await page.locator('button', { hasText: 'Add product' }).first().click();
+  await page.getByRole('button', { name: 'New product' }).click();
   await expect(page.locator('[role="dialog"]').first()).toBeVisible();
   await expect(pop(page)).toHaveCount(0);
 });

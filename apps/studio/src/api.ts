@@ -122,7 +122,8 @@ export const api = {
   deleteSet: (id: string) => req<{ ok: true }>('DELETE', `/api/sets/${id}`),
   addToSet: (id: string, nodeIds: string[]) =>
     req<{ ok: true; added: number; nodeIds: string[] }>('POST', `/api/sets/${id}/nodes`, { nodeIds }),
-  removeFromSet: (id: string, nodeId: string) => req<{ ok: true }>('DELETE', `/api/sets/${id}/nodes/${nodeId}`),
+  removeFromSet: (id: string, nodeIds: string[]) =>
+    req<{ ok: true; nodeIds: string[] }>('POST', `/api/sets/${id}/nodes/remove`, { nodeIds }),
   engines: () => req<EngineInfo[]>('GET', '/api/engines'),
   /** `force` pays for a real `codex exec` rather than reading the last verdict. */
   codexStatus: (o: { force?: boolean } = {}) =>

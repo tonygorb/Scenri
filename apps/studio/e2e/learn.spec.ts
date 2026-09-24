@@ -216,7 +216,10 @@ test('refining also accepts Refine on the card, and both land on the same ask', 
   await walkTheWay(page, 'create', 'Your shots live in Create');
   await page.waitForURL('**/create**');
   await expect(coachTitle(page)).toHaveText('Choose a shot to change');
-  await page.locator('.sc-cell-ctl.sc-cell-branch').first().click();
+  // a tile's tools show on hover, so reach for the tile first, as a person does
+  const shot = page.locator('.sc-cell', { has: page.locator('.sc-cell-ctl.sc-cell-branch') }).first();
+  await shot.hover();
+  await shot.locator('.sc-cell-ctl.sc-cell-branch').click();
   await expect(page).not.toHaveURL(/\/shots\//);
   await expect(coachTitle(page)).toHaveText('Change one thing');
   await page.locator('[data-guide="compose"] .sc-brief-line').click();
@@ -299,10 +302,10 @@ test('a lesson part done stays part done when another is taken up', async ({ pag
 
 test('on a phone Learn is the sheet, and every lesson a row', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  // no room in a phone's bar for a word: Help, which sits there, carries Learn
+  // no room in a phone's bar for a word: Help, the corner float, carries Learn
   await page.goto(`/${slug}`);
   await expect(learnButton(page)).toHaveCount(0);
-  await page.locator('.sc-topbar .sc-help-btn').click();
+  await page.locator('.sc-help-float .sc-help-btn').click();
   await page.getByRole('menuitem', { name: 'Learn' }).click();
   await expect(page).toHaveURL(/learn=lessons/);
   await expect(learn(page).locator('.sc-learn-row')).toHaveCount(6);

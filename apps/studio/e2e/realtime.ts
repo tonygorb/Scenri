@@ -66,16 +66,20 @@ export const ownedSceneCard = (page: Page, name: string) =>
   page.locator('.sc-owned .sc-lookcard', { has: page.getByText(name, { exact: true }) });
 
 /**
+ * Where a person aims for an owned card itself: the picture's left edge, under
+ * the Select tick in the top-left corner and clear of the "Use in a shot"
+ * button in the middle.
+ */
+export const CARD_SPOT = { x: 12, y: 56 };
+
+/**
  * Open an owned scene's page from its card, inside the app.
  *
  * Found by the name the card shows (its link is labelled with the scene's
- * description), and clicked where a person aims for the card itself: its
- * corner, since the middle belongs to the "Use in a shot" button.
+ * description), and clicked at CARD_SPOT.
  */
 export async function openOwnedScene(page: Page, name: string): Promise<void> {
-  await ownedSceneCard(page, name)
-    .locator('a.sc-lookcard-open')
-    .click({ position: { x: 12, y: 12 } });
+  await ownedSceneCard(page, name).locator('a.sc-lookcard-open').click({ position: CARD_SPOT });
   await page.waitForURL(/\/scenes\/us-/);
 }
 
@@ -205,9 +209,7 @@ export const productCard = (page: Page, name: string) =>
 
 /** Open a product's page from its card, inside the app. */
 export async function openProduct(page: Page, name: string): Promise<void> {
-  await productCard(page, name)
-    .locator('a.sc-lookcard-open')
-    .click({ position: { x: 12, y: 12 } });
+  await productCard(page, name).locator('a.sc-lookcard-open').click({ position: CARD_SPOT });
   await page.waitForURL(/\/products\/[^/]+$/);
 }
 
@@ -264,7 +266,9 @@ export async function finishSceneSet(page: Page, finish = 'Open scene'): Promise
 }
 
 export async function buildScene(page: Page, sentence: string, name: string): Promise<void> {
-  await page.getByRole('button', { name: 'Create scene' }).click();
+  // the top bar's New, named for the page: a wall with scenes of its own has no
+  // second create in its row, and a cold one's offer opens the same studio
+  await page.locator('.sc-new-go', { hasText: 'New' }).click();
   const studio = page.locator('.sc-pstudio[data-kind="scene"]');
   await expect(studio).toBeVisible();
   // the first question has to be on the floor before the line will take words

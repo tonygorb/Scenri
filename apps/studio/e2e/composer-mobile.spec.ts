@@ -478,14 +478,15 @@ test('a short window does not shrink the shot into the middle of the stage', asy
  * so what is worth guarding changed: every control is inside its tile, no two
  * of them overlap, and each is big enough to hit.
  *
- * 32px rather than the 44px an enhanced target asks for, deliberately: a 44px
- * box centred on a control 8px from the edge of a 176px tile reaches across
- * the 8px gutter and takes taps meant for the tile beside it. 32 clears the
- * 24px minimum with room and stays inside its own tile.
+ * 24px, the WCAG 2.5.8 minimum, rather than the 44px an enhanced target asks
+ * for: a phone tile now carries only its Select tick and its More, each a 24px
+ * disc in its own corner (DESIGN.md), and a 44px box centred on a control 8px
+ * from the edge of a 176px tile reaches across the gutter and takes taps
+ * meant for the tile beside it.
  */
 test('a feed tile keeps its controls inside itself and thumb-sized', async ({ page }) => {
-  const bars = page.locator('.sc-cell-bar');
-  await expect(bars.first()).toBeAttached();
+  const controls = page.locator('.sc-cell .sc-cell-ctl');
+  await expect(controls.first()).toBeAttached();
 
   const report = await page.evaluate(() => {
     const out: { overlap: number; outside: boolean; small: string[] }[] = [];
@@ -508,7 +509,7 @@ test('a feed tile keeps its controls inside itself and thumb-sized', async ({ pa
         outside: boxes.some((b) => b.left < box.left - 1 || b.right > box.right + 1),
         small: items
           .map((el, i) => ({ el, box: boxes[i] }))
-          .filter(({ box }) => box.width < 32 || box.height < 32)
+          .filter(({ box }) => box.width < 24 || box.height < 24)
           .map(({ el }) => el.getAttribute('aria-label') ?? el.className),
       });
     }

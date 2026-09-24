@@ -1,5 +1,5 @@
 import { SitOutTooltip } from '../../composer/SitOutTooltip.js';
-import { BookmarkSimple, Check, ImageSquare } from '@phosphor-icons/react';
+import { Check, ImageSquare, Star } from '@phosphor-icons/react';
 import type { Candidate } from '../../composer/ingredientOptions.js';
 
 /** What a rail tile needs of a thing: a caption, a title, a picture. A shot is one too. */
@@ -53,8 +53,8 @@ export function AssetCard({
         <span className="sc-acard-label">
           {candidate.bookmarked && (
             <>
-              <BookmarkSimple className="sc-bm-mark" size={10} weight="fill" aria-hidden />
-              <span className="sc-vh">Bookmarked. </span>
+              <Star className="sc-bm-mark" size={10} weight="fill" aria-hidden />
+              <span className="sc-vh">Kept. </span>
             </>
           )}
           {candidate.label}

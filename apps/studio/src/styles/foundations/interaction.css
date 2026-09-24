@@ -144,3 +144,51 @@
   outline: 2px solid var(--sc-inv-bg);
   outline-offset: -2px;
 }
+/* A phone has no hover, and the browser's grey tap flash is off, so a hold
+   has to paint or it reads as nothing. Same rungs as a pointer: a fill or an
+   opacity step, and the control does not move. */
+@media (hover: none), (pointer: coarse) {
+  .sc-chip:active,
+  .sc-icon-btn:active,
+  .sc-btn-ghost:active,
+  .sc-btn-red:active,
+  .sc-topbar .sc-icon-btn:active,
+  .sc-tabbar :is(button, a):active,
+  .sc-menu-item:active,
+  .rt-BaseMenuItem:active,
+  [role="menuitem"]:active,
+  .sc-lookcard .sc-corner .sc-lookcard-more:active,
+  .sc-toolbar-back:active,
+  .sc-toolbar-assets:active,
+  .sc-libsearch-toggle:active,
+  .sc-density-opt:active {
+    background: var(--sc-press);
+  }
+  .sc-btn-primary:active {
+    opacity: 0.75;
+  }
+  .sc-cell .sc-cell-ctl:active,
+  .sc-lookcard .sc-lookcard-pick:active {
+    background: var(--sc-cell-ctl-bg-press);
+  }
+  .sc-lookcard-open:active img,
+  .sc-cell-open:active img {
+    opacity: 0.92;
+  }
+  .sc-chip:active,
+  .sc-icon-btn:active,
+  .sc-btn:active,
+  .sc-tabbar :is(button, a):active,
+  .sc-menu-item:active,
+  .rt-BaseMenuItem:active,
+  [role="menuitem"]:active,
+  .sc-cell-ctl:active,
+  .sc-lookcard-open:active,
+  .sc-cell-open:active,
+  .sc-toolbar-back:active,
+  .sc-toolbar-assets:active,
+  .sc-libsearch-toggle:active,
+  .sc-density-opt:active {
+    -webkit-tap-highlight-color: transparent;
+  }
+}

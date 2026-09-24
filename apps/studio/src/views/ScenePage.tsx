@@ -8,10 +8,10 @@ import { useTitleEntity } from '../useDocumentTitle.js';
 import { customSceneById, customScenesOf } from '../brandAssets.js';
 import { hubPath, sceneEditPath, scenePath, scenesPath, shotPath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
-import { bookmarkedScenes, toggleBookmarkScene } from '../bookmarks.js';
+import { bookmarkedScenes, toggleKept } from '../bookmarks.js';
 import { Confirm } from '../Confirm.js';
 import { SceneCard } from '../layout/SceneCard.js';
-import { BookmarkSimple, CaretDown, PencilSimple } from '@phosphor-icons/react';
+import { CaretDown, PencilSimple, Star } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
 import { COPY } from '../create/scene/sceneCopy.js';
 import { FRAMINGS, SETUPS_MAX } from '../create/scene/sceneSetups.js';
@@ -113,7 +113,7 @@ export function ScenePage() {
     }
   }, [scenes, scene, isOwned]);
 
-  /** Bookmarked first, the same ordering rule as Home's scene shelf. */
+  /** Keepers first, the same ordering rule as Home's scene shelf. */
   const recovery = useMemo(() => {
     if (scene || !loaded || error) return [];
     const marks = bookmarkedScenes(brandId);
@@ -374,10 +374,10 @@ export function ScenePage() {
               type="button"
               className="sc-btn sc-btn-ghost"
               aria-pressed={marked}
-              onClick={() => setMarks(toggleBookmarkScene(brandId, scene.id))}
+              onClick={() => setMarks(toggleKept('scene', brandId, scene.id))}
             >
-              <BookmarkSimple size={13} weight={marked ? 'fill' : 'regular'} />
-              <span>{marked ? 'Bookmarked' : 'Bookmark'}</span>
+              <Star size={13} weight={marked ? 'fill' : 'regular'} />
+              <span>{marked ? 'Remove from Keepers' : 'Add to Keepers'}</span>
             </button>
           )}
           {owned && (
