@@ -549,8 +549,10 @@ export interface ScenePatch {
   figure?: string;
   figureTreatment?: string;
   refHashes?: string[];
-  /** The picture on its card; for a figure-led scene, the plate a shot conditions on. */
+  /** The scene's picture: its card, and what a shot is given as the world's picture when it is an anchor. */
   previewHash?: string;
+  /** Said with `previewHash`: that picture is an anchor (drawn beside the references, then made nobody's). */
+  anchor?: boolean;
   promptName?: string;
   /** Ways to shoot this same world, four at most. */
   setups?: SceneSetup[];
@@ -575,6 +577,8 @@ export interface SceneReading {
   keywords?: string[];
   collections?: string[];
   verticals?: string[];
+  /** What the pictures it was read from show. Carried back to the server on Try again; never saved. */
+  holds?: ('person' | 'product' | 'lettering')[];
 }
 
 export type SceneStudioJobKind = 'make' | 'again' | 'change';
@@ -592,6 +596,8 @@ export interface SceneStudioJob {
   reading: SceneReading | null;
   coverage: string[];
   hash: string | null;
+  /** The picture is an anchor, which is what a saved scene may send with a shot. */
+  anchor?: boolean;
   error: string | null;
   warnings: string[];
   attachTo: string | null;

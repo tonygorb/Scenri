@@ -50,6 +50,7 @@ export function registerSceneStudioRoutes(app: FastifyInstance, deps: BuildRoute
       imageHashes: Array.isArray(body.imageHashes) ? body.imageHashes.map((h: unknown) => String(h)) : [],
       reading: body.reading ?? undefined,
       from: body.from == null ? undefined : String(body.from),
+      fromAnchor: body.fromAnchor === true,
       ask: body.ask == null ? undefined : String(body.ask),
       draw: body.draw === false ? false : undefined,
       reread: body.reread === true,

@@ -16,7 +16,7 @@ export interface SavedScene {
 }
 
 /** The record the scene routes take, from the words standing and what they were made from. */
-function patchOf(s: StudioState, words: SceneReading, hash: string | null): ScenePatch {
+function patchOf(s: StudioState, words: SceneReading, hash: string | null, anchor: boolean): ScenePatch {
   return {
     name: s.name.trim() || words.name,
     prompt: words.prompt,
@@ -32,8 +32,8 @@ function patchOf(s: StudioState, words: SceneReading, hash: string | null): Scen
     verticals: words.verticals ?? [],
     ...(words.promptName ? { promptName: words.promptName } : {}),
     instruction: s.place.trim(),
-    refHashes: s.pictures,
-    ...(hash ? { previewHash: hash } : {}),
+    refHashes: [...s.pictures, ...s.heldPictures],
+    ...(hash ? { previewHash: hash, anchor } : {}),
   };
 }
 
@@ -90,6 +90,8 @@ export function useSceneStudio(args: {
                   ask: opts.ask,
                   // before a picture exists the words change on their own; after, the picture changes with them
                   from: v?.hash ?? undefined,
+                  // an edit of an anchor is one too; of an older picture, it is not
+                  ...(v?.hash && v.anchor ? { fromAnchor: true } : {}),
                   imageHashes: st.pictures,
                   draw: opts.draw,
                 };
@@ -191,9 +193,9 @@ export function useSceneStudio(args: {
    * those words lands on the scene's card when it is done. Unnamed, it takes
    * the name the reader gave it.
    *
-   * Saved here, and the conversation goes on: the server starts drawing the
-   * place in use the moment it has a picture (sceneExamples.ts), and the
-   * studio shows them as they land. Leaving at any point loses nothing.
+   * Saved here, and the conversation goes on: saving draws nothing, the place
+   * in use is offered as its own press (sceneExamples.ts), and the studio shows
+   * the pictures as they land. Leaving at any point loses nothing.
    */
   const use = useCallback(
     async (opts: { asNew?: boolean } = {}) => {
@@ -207,7 +209,7 @@ export function useSceneStudio(args: {
       try {
         const drawing = st.job?.phase === 'drawing' ? st.job.id : null;
         const hash = drawing ? null : (current(st)?.hash ?? null);
-        const body = patchOf(named, offer.words, hash);
+        const body = patchOf(named, offer.words, hash, current(st)?.anchor === true);
         const res =
           sceneId && !opts.asNew ? await api.updateScene(brandId, sceneId, body) : await api.createScene(brandId, body);
         applyBrand(res.brand);

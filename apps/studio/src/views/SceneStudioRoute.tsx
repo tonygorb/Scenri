@@ -39,10 +39,12 @@ function seedFrom(brand: Brand, sceneId: string): StudioState | null {
   const pictures = (Array.isArray(r.refs) ? r.refs : []).map((x: any) => hashOf(x?.file)).filter(Boolean) as string[];
   return seeded({
     place: String(r.instruction ?? ''),
-    // a scene saved from elsewhere may hold up to eight; the studio reads from four
-    pictures: pictures.slice(0, 4),
+    // a scene saved from elsewhere may hold up to eight: the studio reads from
+    // four and keeps the rest (seeded splits them)
+    pictures,
     reading,
     hash: hashOf(r.preview) ?? null,
+    anchor: r.anchor === true,
     name: reading.name,
   });
 }

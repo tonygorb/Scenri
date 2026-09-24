@@ -257,7 +257,10 @@ export function createDemoAnalyzer(opts: { photos?: 'usable' | 'unusable'; readM
  * the person's words (or a fixed shore when there are only pictures), a change
  * is added to the words before it and leaves the rest alone, "portrait" or
  * "figure" in the words makes the world figure-led, and two pictures or more
- * earn the note a real read gives when they may show different places.
+ * earn the note a real read gives when they may show different places. What
+ * the pictures hold comes from the words too: a figure is a person, "holding"
+ * or "product" is a product, and quoted words are lettering; pictures with
+ * none of those words hold nothing.
  */
 function demoSceneRead(req: { imagePaths: string[]; instruction?: string; correction?: string; priorDraft?: unknown }) {
   const prior = (req.priorDraft ?? null) as Record<string, any> | null;
@@ -294,5 +297,12 @@ function demoSceneRead(req: { imagePaths: string[]; instruction?: string; correc
     collections: [] as string[],
     verticals: [] as string[],
     coverage: req.imagePaths.length > 1 ? ['These may be two different places. Say which one this is.'] : [],
+    holds: req.imagePaths.length
+      ? [
+          ...(figured ? ['person' as const] : []),
+          ...(/\b(holding|product)\b/i.test(words) ? ['product' as const] : []),
+          ...(/[“"]/.test(words) ? ['lettering' as const] : []),
+        ]
+      : [],
   };
 }

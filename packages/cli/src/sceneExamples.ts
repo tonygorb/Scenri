@@ -148,10 +148,25 @@ const joinLines = (lines: string[]) => lines.map(clean).filter(Boolean).join('. 
 
 /* ------------------------------------------------------------ the words */
 
-export function heroProductInstruction(name: string, size: ProductSize | null, lines: string[]): string {
+/**
+ * An anchor (`CustomScene.anchor`) is drawn beside the scene's own pictures and
+ * may keep what they staged, made nobody's: a plain object held or shown as the
+ * hero, a figure. Told "this place, empty" over one of those, an example came
+ * out with two people or two products, so the stand-in is named for what it is.
+ */
+const PLACE_OF = (anchor: boolean) => (anchor ? 'input.png is this place.' : 'input.png is this place, empty.');
+
+export function heroProductInstruction(
+  name: string,
+  size: ProductSize | null,
+  lines: string[],
+  anchor = false,
+): string {
   const sized = size ? `, ${clean(size.text)}` : '';
   return (
-    `input.png is this place, empty. Put ${name} into it where it belongs, at its true real-world size${sized}: ` +
+    `${PLACE_OF(anchor)} ` +
+    (anchor ? 'A plain object it shows as the hero only marks where the product goes, and gives way to it. ' : '') +
+    `Put ${name} into it where it belongs, at its true real-world size${sized}: ` +
     'resting on a real surface of the place with true contact and a true shadow in the same light. ' +
     'Keep the place exactly as it is: its camera, framing, light, materials and every object in it. ' +
     (lines.length ? `${joinLines(lines)}. ` : '') +
@@ -159,9 +174,13 @@ export function heroProductInstruction(name: string, size: ProductSize | null, l
   );
 }
 
-export function heroPresenterInstruction(identity: string): string {
+export function heroPresenterInstruction(identity: string, anchor = false): string {
   return (
-    'input.png is this place, empty. Put the person in the references into it as the hero portrait of this place: ' +
+    `${PLACE_OF(anchor)} ` +
+    (anchor
+      ? 'Any person in it is a stand-in: the person in the references takes their place, their pose and their scale, with their own face and body. '
+      : '') +
+    'Put the person in the references into it as the hero portrait of this place: ' +
     'standing or seated where the place invites, at true human scale against its furniture and architecture, ' +
     'in the same light, with true contact and shadow. Keep the place exactly as it is: its camera, framing, light, ' +
     'materials and every object in it. Dress them for this place to a commercial standard, never the plain base ' +
@@ -415,7 +434,7 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
               (await atScale()) ??
               (await edit(
                 placeHash,
-                heroProductInstruction(lead.name, size, lead.productLines),
+                heroProductInstruction(lead.name, size, lead.productLines, scene.anchor === true),
                 [lead.productHash],
                 'product',
                 scene,
@@ -469,7 +488,13 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
           }
           const heroHash = heroOf(sceneOf(job.brandId, job.sceneId) ?? scene);
           if (role === 'hero') {
-            hash = await edit(placeHash, heroPresenterInstruction(identity), presenterRefs, 'character', scene);
+            hash = await edit(
+              placeHash,
+              heroPresenterInstruction(identity, scene.anchor === true),
+              presenterRefs,
+              'character',
+              scene,
+            );
           } else {
             if (!heroHash) throw new Error('The hero is not drawn yet.');
             const words =

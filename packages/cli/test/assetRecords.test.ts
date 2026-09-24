@@ -338,3 +338,27 @@ describe('sceneRecordFrom', () => {
     expect(smuggled.scene.examples).toBeUndefined();
   });
 });
+
+describe('a scene picture that is an anchor', () => {
+  const base = { name: 'Shore', prompt: 'A wet basalt shelf at the waterline.' };
+  const built = (input: Record<string, unknown>, prior?: any) => {
+    const r = sceneRecordFrom(input, prior);
+    if (!r.ok) throw new Error(r.error);
+    return r.scene;
+  };
+
+  it('is one only when the request that brings the picture says so', () => {
+    expect(built({ ...base, previewHash: H('a'), anchor: true }).anchor).toBe(true);
+    expect(built({ ...base, previewHash: H('a') }).anchor).toBeUndefined();
+    expect(built({ ...base, previewHash: H('a'), anchor: 'yes' }).anchor).toBeUndefined();
+    // no picture, nothing to be an anchor
+    expect(built({ ...base, anchor: true }).anchor).toBeUndefined();
+  });
+
+  it('stays with its picture through an edit that does not touch it, and goes with it', () => {
+    const saved = built({ ...base, previewHash: H('a'), anchor: true });
+    expect(built({ prompt: 'A dry basalt shelf.' }, saved).anchor).toBe(true);
+    expect(built({ previewHash: H('b') }, saved).anchor).toBeUndefined();
+    expect(built({ previewHash: H('b'), anchor: true }, saved).anchor).toBe(true);
+  });
+});

@@ -17,10 +17,10 @@ import {
   listAssetBuilds,
   presenterCrops,
   presenterRecordFrom,
+  drawSceneAnchor,
   duplicatePresenter,
   sceneBuildRunning,
   sceneRecordFrom,
-  scenePreviewPrompt,
   startAssetBuild,
   trimEdgeBars,
   type Analyzer,
@@ -401,26 +401,28 @@ export function registerAssetBuildRoutes(app: FastifyInstance, deps: BuildRouteD
     if (!scene) return reply.status(404).send({ error: 'scene not found' });
     const engine = await buildEngine();
     if (!engine) return reply.status(400).send({ error: 'no engine here can draw a preview' });
-    // Drawn from its words alone, like every scene preview (scenePreviewPrompt).
-    const request = {
-      prompt: scenePreviewPrompt(scene as CustomScene),
-      brand: brandContext(core, brand.id),
-      width: scene.width,
-      height: scene.height,
-      count: 1,
-    };
-    const engineId = engine.capabilities().id;
-    core.ledger.assertUnderCap(engineId, await engine.costEstimate(request).catch(() => 0));
-    const result = await engine.generate(request);
-    core.ledger.recordCost(engineId, null, result.costUsd);
-    const hash = result.images[0];
-    if (!hash) return reply.status(500).send({ error: 'the engine returned no image' });
-    // Same trim the build path applies. The plate is a conditioning image
-    // now, and a redrawn card with baked-in letterbox bars would be
-    // faithfully reproduced into customer shots.
+    // The same anchor the studio draws: beside the scene's own pictures, then
+    // made nobody's (drawSceneAnchor), or from its words when it has none.
+    const own = scene as CustomScene;
+    const hashes = (own.refs ?? [])
+      .map((r) => /^asset:([a-f0-9]{32})$/.exec(String(r?.file ?? ''))?.[1])
+      .filter((h): h is string => !!h);
+    let hash: string;
+    try {
+      hash = await drawSceneAnchor(
+        { ...(await buildDeps()), engine },
+        { scene: own, hashes, brandId: brand.id, signal: new AbortController().signal },
+      );
+    } catch (err: any) {
+      return reply.status(err.statusCode ?? 500).send({ error: err.message ?? 'the engine returned no image' });
+    }
+    // Same trim the build path applies. The picture is sent with shots, and a
+    // redrawn card with baked-in letterbox bars would be reproduced into them.
     const trimmed = await trimEdgeBars(core, hash);
     commit(core, brand.id, (json) => {
-      json.scenes = brandScenes(json).map((s) => (s.id === id ? { ...s, preview: `asset:${trimmed}` } : s));
+      json.scenes = brandScenes(json).map((s) =>
+        s.id === id ? { ...s, preview: `asset:${trimmed}`, anchor: true as const } : s,
+      );
     });
     return { preview: `asset:${trimmed}`, brand: core.store.getBrand(brand.id) };
   });

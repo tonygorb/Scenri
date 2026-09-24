@@ -2,11 +2,11 @@
  * The scene studio's work: read a place into words, draw those words, change
  * one thing about them.
  *
- * A saved scene reaches a shot as words (`brief.ts`), so the studio's centre is
- * the reading: what the analyzer made of the person's own words and pictures,
- * which becomes the scene record when they press Use. The picture drawn here is
- * the proof of those words, not an ingredient, except for a figure-led scene,
- * whose preview is the plate a shot conditions on beside a presenter.
+ * A saved scene reaches a shot as its words and its picture (`brief.ts`). The
+ * words are the reading: what the analyzer made of the person's own words and
+ * pictures. The picture is the anchor: drawn beside those pictures and made
+ * nobody's (`drawSceneAnchor`), it carries what words cannot, and a shot is
+ * given it as the world's picture. Both become the record when they press Use.
  *
  * Nothing here writes the brand. A job answers with a reading and a picture,
  * and the studio holds them as a version until the person uses one; only then
@@ -21,11 +21,12 @@
  * twice), and so Activity can say what is running and lead back to it.
  */
 import { randomUUID } from 'node:crypto';
-import type { SceneDraft } from '@scenri/engine-codex';
+import type { SceneDraft, SceneHold } from '@scenri/engine-codex';
 import {
   brandScenes,
   commit,
   draw,
+  drawSceneAnchor,
   SCENE_INSTRUCTION_MAX,
   sceneRecordFrom,
   scenePreviewPrompt,
@@ -50,6 +51,12 @@ export interface SceneReading {
   keywords?: string[];
   collections?: string[];
   verticals?: string[];
+  /**
+   * What the pictures it was read from show (`SceneDraft.holds`), carried with
+   * the words so a later Try again knows whether its picture needs the scrub.
+   * Never saved on the record; absent means unknown, which is scrubbed.
+   */
+  holds?: SceneHold[];
 }
 
 /**
@@ -80,6 +87,8 @@ export interface SceneStudioJob {
   /** The analyzer's notes on what another picture would buy, or that these look like different places. */
   coverage: string[];
   hash: string | null;
+  /** The picture is an anchor (`CustomScene.anchor`): it may be sent with a shot. */
+  anchor: boolean;
   error: string | null;
   warnings: string[];
   /** A saved scene this picture belongs on once it lands. */
@@ -109,6 +118,8 @@ export interface StudioJobInput {
   reading?: SceneReading;
   /** `change`: the picture the sentence changes. Without one the new words are drawn fresh. */
   from?: string;
+  /** `change`: that picture is an anchor, so the edit of it is one too. */
+  fromAnchor?: boolean;
   /** `change`: the sentence. */
   ask?: string;
   /** `make` and `change`: draw once the words are read. False answers with the words alone. */
@@ -203,7 +214,16 @@ export function readingFrom(raw: unknown): { ok: true; reading: SceneReading } |
     verticals: r.verticals,
   });
   if (!built.ok) return built;
-  return { ok: true, reading: readingOfRecord(built.scene) };
+  const reading = readingOfRecord(built.scene);
+  const holds = holdsFrom(r.holds);
+  if (holds) reading.holds = holds;
+  return { ok: true, reading };
+}
+
+const HOLDS: readonly SceneHold[] = ['person', 'product', 'lettering'];
+/** What a reading says its pictures hold, or undefined when it does not say. */
+function holdsFrom(raw: unknown): SceneHold[] | undefined {
+  return Array.isArray(raw) ? HOLDS.filter((h) => raw.includes(h)) : undefined;
 }
 
 /** The words of a saved scene, which is how the editor opens on one. */
@@ -303,24 +323,26 @@ export function sceneChangePrompt(reading: SceneReading, ask: string): string {
 }
 
 /**
- * A fresh preview: the reading's words, and no picture.
+ * A fresh picture: the anchor, drawn beside the pictures the words were read
+ * from and then made nobody's (`drawSceneAnchor`), or from the words alone
+ * when there are no pictures.
  *
- * A scene is the vibe of its pictures, never a copy of one. Drawn beside its
- * references, a preview came back as their photograph: the same person, pose,
- * wardrobe and composition, and a product the words had already left out
- * (battery 2026-09-23, 11 of 11 rows). Drawn from the words alone, the same
- * readings kept the world, the light, the lettering and the graphic devices
- * in 11 of 11, with a new person, a new pose and nothing lifted. On
- * 2026-09-21 words alone drew "a different room each time"; the readings
- * were thinner then (no synthesis, lettering without its words).
+ * From v0.15 to v0.17 every scene was drawn from its words alone, because
+ * drawn beside its references a picture came back as their photograph, the
+ * same person and pose (battery 2026-09-23, 11 of 11). Words kept the world
+ * and lost what words cannot hold: the exact light, the palette's strength,
+ * the materials, how the space is composed. The anchor keeps both halves: it
+ * is drawn beside them, and the person and product in it are redrawn by an
+ * edit that never sees the references.
  */
 async function drawFresh(
   deps: AssetBuildDeps,
   brandId: string,
   reading: SceneReading,
+  hashes: string[],
   signal: AbortSignal,
 ): Promise<string> {
-  return draw(deps, { prompt: scenePreviewPrompt(asScene(reading)), brandId, signal });
+  return drawSceneAnchor(deps, { scene: asScene(reading), hashes, holds: reading.holds, brandId, signal });
 }
 
 /**
@@ -337,11 +359,12 @@ async function drawChange(
   reading: SceneReading,
   from: string,
   ask: string,
+  hashes: string[],
   signal: AbortSignal,
 ): Promise<string> {
   const engine = deps.engine!;
   const caps = engine.capabilities();
-  if (!deps.core.images.has(from)) return drawFresh(deps, brandId, reading, signal);
+  if (!deps.core.images.has(from)) return drawFresh(deps, brandId, reading, hashes, signal);
   const prompt = sceneChangePrompt(reading, ask);
   if (caps.supportsEdit) {
     const brand = deps.brandContext(brandId);
@@ -366,7 +389,7 @@ async function drawChange(
       signal,
     });
   }
-  return drawFresh(deps, brandId, reading, signal);
+  return drawFresh(deps, brandId, reading, hashes, signal);
 }
 
 /* ------------------------------------------------------------------ jobs */
@@ -406,12 +429,17 @@ function landOn(
   sceneId: string,
   hash: string,
   expect: string | null,
+  anchor: boolean,
 ): 'landed' | 'gone' | 'moved' {
   const now = previewOf(deps, brandId, sceneId);
   if (now === undefined) return 'gone';
   if (now !== expect && now !== `asset:${hash}`) return 'moved';
   commit(deps.core, brandId, (json) => {
-    json.scenes = brandScenes(json).map((s: any) => (s.id === sceneId ? { ...s, preview: `asset:${hash}` } : s));
+    json.scenes = brandScenes(json).map((s: any) => {
+      if (s.id !== sceneId) return s;
+      const { anchor: _was, ...rest } = s;
+      return { ...rest, preview: `asset:${hash}`, ...(anchor ? { anchor: true } : {}) };
+    });
   });
   deps.onPlaceChanged?.(brandId, sceneId);
   return 'landed';
@@ -474,6 +502,7 @@ export function startSceneStudioJob(deps: AssetBuildDeps, input: StudioJobInput)
     reading: kind === 'again' ? (reading ?? null) : null,
     coverage: [],
     hash: null,
+    anchor: false,
     error: null,
     warnings: [],
     attachTo: null,
@@ -530,7 +559,11 @@ async function read(
       signal,
     )) as SceneDraft;
     patch(job, { coverage: Array.isArray(draft.coverage) ? draft.coverage.slice(0, 2) : [] });
-    const reading = readingOfDraft(draft, fallback);
+    const read = readingOfDraft(draft, fallback);
+    // A change reads no pictures, so what they hold is what the words it
+    // revises already knew.
+    const holds = imagePaths.length ? holdsFrom(draft.holds) : prior?.holds;
+    const reading = holds ? { ...read, holds } : read;
     // a shot's cast is never the scene's figure, whatever the reader made of it
     return fromShot ? { ...reading, figure: undefined, figureTreatment: undefined } : reading;
   }
@@ -558,10 +591,11 @@ async function run(deps: AssetBuildDeps, job: SceneStudioJob, input: StudioJobIn
     const wantsPicture = input.kind === 'again' || input.draw !== false;
     if (wantsPicture && deps.engine && reading) {
       patch(job, { phase: 'drawing', phaseAt: now() });
-      const drawn =
-        input.kind === 'change' && input.from
-          ? await drawChange(deps, job.brandId, reading, input.from, input.ask ?? '', signal)
-          : await drawFresh(deps, job.brandId, reading, signal);
+      const hashes = input.imageHashes ?? [];
+      const edited = input.kind === 'change' && !!input.from && deps.core.images.has(input.from);
+      const drawn = edited
+        ? await drawChange(deps, job.brandId, reading, input.from as string, input.ask ?? '', hashes, signal)
+        : await drawFresh(deps, job.brandId, reading, hashes, signal);
       if (signal.aborted) throw fail('cancelled');
       // The same trim every scene preview gets: a figure-led preview is a
       // conditioning image, and baked-in bars would be reproduced into shots.
@@ -570,9 +604,11 @@ async function run(deps: AssetBuildDeps, job: SceneStudioJob, input: StudioJobIn
       // this line the job lands in one synchronous run, so a picture that came
       // back after Stop is never put on a scene or handed to the studio.
       if (signal.aborted) throw fail('cancelled');
-      patch(job, { hash });
+      // A fresh picture is an anchor. A change is an edit of the picture it
+      // was given, and is one only when that picture was.
+      patch(job, { hash, anchor: edited ? input.fromAnchor === true : true });
       if (job.attachTo) {
-        const landed = landOn(deps, job.brandId, job.attachTo, hash, job.attachFrom);
+        const landed = landOn(deps, job.brandId, job.attachTo, hash, job.attachFrom, job.anchor);
         if (landed === 'gone')
           patch(job, { warnings: [...job.warnings, 'The scene was gone before its picture landed.'] });
         if (landed === 'moved')
@@ -619,7 +655,7 @@ export function attachSceneStudioJob(deps: AssetBuildDeps, id: string, sceneId: 
     return 'pending';
   }
   if (job.status === 'done' && job.hash)
-    return landOn(deps, job.brandId, sceneId, job.hash, wore) === 'landed' ? 'landed' : 'none';
+    return landOn(deps, job.brandId, sceneId, job.hash, wore, job.anchor) === 'landed' ? 'landed' : 'none';
   return 'none';
 }
 

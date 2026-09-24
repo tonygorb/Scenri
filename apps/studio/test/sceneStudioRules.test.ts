@@ -416,6 +416,33 @@ describe('the words, by hand', () => {
   });
 });
 
+describe('the anchor', () => {
+  it('lands with the picture the server called an anchor, and stays with words written over it', () => {
+    const started = run(
+      EMPTY,
+      { type: 'inputs', place: 'a shore', pictures: [] },
+      { type: 'started', id: 'j1', kind: 'make', since: 't0' },
+    );
+    const landed = reduce(started, { type: 'finished', job: job({ anchor: true }) });
+    expect(current(landed)?.anchor).toBe(true);
+    const older = reduce(started, { type: 'finished', job: job({}) });
+    expect(current(older)?.anchor).toBeUndefined();
+    const written = reduce(landed, { type: 'edit-words', reading: R({ prompt: 'A dry basalt shelf.' }) });
+    expect(current(written)?.anchor).toBe(true);
+  });
+
+  it('opens a saved scene with its flag, and keeps the pictures past the four it reads', () => {
+    const six = ['a', 'b', 'c', 'd', 'e', 'f'].map(H);
+    const opened = seeded({ place: '', pictures: six, reading: R(), hash: H('9'), anchor: true, name: 'Shore' });
+    expect(opened.pictures).toEqual(six.slice(0, 4));
+    expect(opened.heldPictures).toEqual(six.slice(4));
+    expect(current(opened)?.anchor).toBe(true);
+    const back = deserialize(serialize(opened));
+    expect(back?.heldPictures).toEqual(six.slice(4));
+    expect(back?.versions[0].anchor).toBe(true);
+  });
+});
+
 describe('editing a saved scene', () => {
   const opened = seeded({ place: 'a shore', pictures: [H('a')], reading: R(), hash: H('b'), name: 'Shore' });
 

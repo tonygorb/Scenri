@@ -487,11 +487,16 @@
                 }
               }
             },
-            "description": "The user's inspiration images. Used to read this scene into words, to draw its preview card, and - only when the scene is built around a figure - one of them is attached to a shot as environment reference. That exception exists because a dense figure treatment cannot survive being described in words. Where it applies, the reference is marked as scene context: the environment and treatment are taken from it, the people, products and marks in it are not."
+            "description": "The pictures this scene was made from. Read into its words, and drawn beside when its picture is drawn, so the picture keeps their look. Kept as provenance. Never sent with a shot: they may show real people and other brands."
           },
           "preview": {
             "$ref": "#/$defs/assetRef",
-            "description": "A generated example of this scene, used as its card thumbnail."
+            "description": "The scene's picture: its card, its page and what its examples are drawn from. Sent with a shot as the world's picture when it is an anchor."
+          },
+          "anchor": {
+            "type": "boolean",
+            "const": true,
+            "description": "The preview is an anchor: drawn beside the scene's references and then made nobody's (or drawn from its words), so it may be sent with a shot as the world's picture. Absent on a picture drawn before anchors existed, which keeps the older rule until it is drawn again."
           },
           "setups": {
             "type": "array",

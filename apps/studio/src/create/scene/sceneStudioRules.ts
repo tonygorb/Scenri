@@ -44,6 +44,8 @@ export interface Version {
   reading: SceneReading;
   /** None when nothing could draw, or the draw was stopped or failed after the words landed. */
   hash: string | null;
+  /** The picture is an anchor: drawn beside the references and made nobody's, so it may go with a shot. */
+  anchor?: boolean;
   /** The sentence that made it, for a change. */
   ask?: string;
   coverage: string[];
@@ -71,6 +73,12 @@ export interface StudioState {
   /** The person's own words about the place. The deciding word, stored as `instruction`. */
   place: string;
   pictures: string[];
+  /**
+   * A saved scene's pictures past the four the studio reads (the record keeps
+   * eight). Not read and not drawn beside, only kept, so saving an edit does
+   * not drop them.
+   */
+  heldPictures: string[];
   /** Bumps whenever the place or the pictures change. */
   inputsRev: number;
   /** The inputs' revision the standing words were read from; null before any reading. */
@@ -109,6 +117,7 @@ export interface StudioState {
 export const EMPTY: StudioState = {
   place: '',
   pictures: [],
+  heldPictures: [],
   inputsRev: 0,
   readRev: null,
   readTried: null,
@@ -131,14 +140,24 @@ export function seeded(input: {
   pictures: string[];
   reading: SceneReading;
   hash: string | null;
+  anchor?: boolean;
   name: string;
 }): StudioState {
   return {
     ...EMPTY,
     place: input.place,
-    pictures: input.pictures,
+    pictures: input.pictures.slice(0, PICTURES_MAX),
+    heldPictures: input.pictures.slice(PICTURES_MAX),
     readRev: 0,
-    versions: [{ reading: input.reading, hash: input.hash, coverage: [], how: 'read' }],
+    versions: [
+      {
+        reading: input.reading,
+        hash: input.hash,
+        ...(input.anchor ? { anchor: true } : {}),
+        coverage: [],
+        how: 'read',
+      },
+    ],
     current: 0,
     name: input.name,
     named: true,
@@ -279,6 +298,7 @@ export function reduce(s: StudioState, a: Action): StudioState {
       const version: Version = {
         reading,
         hash: j.hash,
+        ...(j.hash && j.anchor ? { anchor: true } : {}),
         ask: ref.kind === 'change' ? ref.ask : undefined,
         coverage: j.coverage?.length ? j.coverage : ref.kind === 'again' ? (current(s)?.coverage ?? []) : [],
         how,
@@ -313,7 +333,13 @@ export function reduce(s: StudioState, a: Action): StudioState {
       if (JSON.stringify(a.reading) === JSON.stringify(v.reading)) return s;
       const versions = [
         ...s.versions,
-        { reading: a.reading, hash: v.hash, coverage: v.coverage, how: 'edit' as const },
+        {
+          reading: a.reading,
+          hash: v.hash,
+          ...(v.anchor ? { anchor: true } : {}),
+          coverage: v.coverage,
+          how: 'edit' as const,
+        },
       ];
       return { ...s, versions, current: versions.length - 1 };
     }
@@ -519,6 +545,7 @@ export function deserialize(raw: string | null): StudioState | null {
         .map((v: any) => ({
           reading: v.reading,
           hash: typeof v.hash === 'string' ? v.hash : null,
+          ...(v.anchor === true && typeof v.hash === 'string' ? { anchor: true } : {}),
           ask: typeof v.ask === 'string' ? v.ask : undefined,
           coverage: strs(v.coverage),
           how: ['read', 'draw', 'again', 'change', 'edit'].includes(v.how) ? v.how : v.hash ? 'draw' : 'read',
@@ -543,6 +570,7 @@ export function deserialize(raw: string | null): StudioState | null {
   return {
     place: typeof o.place === 'string' ? o.place.slice(0, PLACE_MAX) : '',
     pictures: strs(o.pictures).slice(0, PICTURES_MAX),
+    heldPictures: strs(o.heldPictures).slice(0, 4),
     inputsRev: Number(o.inputsRev) || 0,
     readRev: o.readRev === null || o.readRev === undefined ? null : Number(o.readRev),
     readTried: o.readTried === null || o.readTried === undefined ? null : Number(o.readTried),

@@ -107,8 +107,18 @@ export interface CustomScene extends Scene {
   setups?: SceneSetup[];
   /** Written by the examples job only; every edit keeps them as they are. */
   examples?: SceneExample[];
+  /** The pictures the scene was read from: provenance, and what a fresh picture is drawn beside. Never sent with a shot. */
   refs?: { file: string }[];
+  /** The scene's picture: its card, its page, what its examples are drawn from. */
   preview?: string;
+  /**
+   * The preview is an anchor: drawn since the scene studio drew beside its
+   * references and then made nobody's (`drawSceneAnchor`), or drawn from words.
+   * Only an anchor is sent with a shot as the world's picture. A preview drawn
+   * before it (2026-08-28 to 2026-09-23 some were drawn beside the references
+   * and kept their people) keeps the older rule until it is drawn again.
+   */
+  anchor?: true;
   instruction?: string;
   /**
    * The figure this concept depends on, when it depends on one.
@@ -287,6 +297,8 @@ export interface SceneInput {
   figureTreatment?: unknown;
   refHashes?: unknown;
   previewHash?: unknown;
+  /** Said with `previewHash`: that picture is an anchor. A new picture without it is not. */
+  anchor?: unknown;
   setups?: unknown;
 }
 
@@ -399,6 +411,10 @@ export function sceneRecordFrom(
   if (scene.figure && treatment && !/\{[^}]*\}/.test(treatment)) scene.figureTreatment = treatment;
   if (refs?.length) scene.refs = refs;
   if (previewRef) scene.preview = previewRef;
+  // The flag belongs to the picture: a new one is an anchor only when the
+  // request says so, and one kept is whatever it already was.
+  const anchor = has('previewHash') ? input.anchor === true : previewRef === base?.preview && base?.anchor === true;
+  if (previewRef && anchor) scene.anchor = true;
   // Never from the request: the examples job writes them, and an edit that
   // rebuilds the record keeps them, the earlier-picture ones included.
   if (base?.examples?.length) scene.examples = base.examples;

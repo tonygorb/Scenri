@@ -8,7 +8,14 @@ import { createDemoAnalyzer, createDemoEngine } from '@scenri/engine-demo';
 import { buildServer } from '../src/server.js';
 import { loadDemoProducts } from '../src/demoProducts.js';
 import { loadPresenters } from '../src/presenters.js';
-import { angleFor, handsStaged, pickSubject, rolesFor } from '../src/sceneExamples.js';
+import {
+  angleFor,
+  handsStaged,
+  heroPresenterInstruction,
+  heroProductInstruction,
+  pickSubject,
+  rolesFor,
+} from '../src/sceneExamples.js';
 import { drainTracked, track } from './servers.js';
 
 describe('who stands in a scene’s examples', () => {
@@ -458,5 +465,21 @@ describe("a scene's examples", { timeout: 30_000 }, () => {
     });
     gate.open();
     await settled(id);
+  });
+});
+
+// An anchor may keep what its references staged, made nobody's: a figure, a
+// plain object held as the hero. Told `this place, empty` over one, an
+// example came out with two people or two products.
+describe('the hero drawn into an anchor', () => {
+  it('names the stand-in the product or the presenter takes the place of', () => {
+    expect(heroProductInstruction('Tide Serum', null, [])).toContain('input.png is this place, empty.');
+    const product = heroProductInstruction('Tide Serum', null, [], true);
+    expect(product).not.toContain('empty');
+    expect(product).toContain('only marks where the product goes, and gives way to it');
+    expect(heroPresenterInstruction('')).toContain('input.png is this place, empty.');
+    const person = heroPresenterInstruction('', true);
+    expect(person).toContain('Any person in it is a stand-in');
+    expect(person).toContain('Add no other person');
   });
 });
