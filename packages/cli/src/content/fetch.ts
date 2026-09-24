@@ -20,8 +20,8 @@ import { contentCacheReady, contentCacheRoot, contentCacheVersion } from './over
  * runs against the pictures of an older library. CI and the publish job
  * download the same tag (contentVersion.test.ts keeps them in step).
  */
-export const CONTENT_VERSION = 2;
-export const CONTENT_TAG = 'content-v2';
+export const CONTENT_VERSION = 3;
+export const CONTENT_TAG = 'content-v3';
 
 const DEFAULT_CONTENT_URL = `https://github.com/tonygorb/scenri/releases/download/${CONTENT_TAG}/scenri-content.zip`;
 const TIMEOUT_MS = 10 * 60 * 1000; // a ~95 MB archive on a slow line is fine; hung sockets are not
