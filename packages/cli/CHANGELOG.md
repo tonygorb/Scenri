@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/tonygorb/Scenri/compare/v0.16.0...v0.17.0) (2026-09-24)
+
+
+### Features
+
+* **studio:** one filter row for every wall and catalog picking ([cfcbd81](https://github.com/tonygorb/Scenri/commit/cfcbd8143f1d20b98d2d796e29127aa545ba7871))
+
 ## [0.16.0](https://github.com/tonygorb/Scenri/compare/v0.15.1...v0.16.0) (2026-09-23)
 
 
