@@ -116,14 +116,24 @@ test('the pictures of the place are large enough to judge, and open at full size
   const s = await scene(page, b.id, 'Basalt Frames');
   await page.goto(`/${b.slug}/scenes/${s.id}`);
 
-  const tile = page.locator('.sc-scenepage-place > button');
+  const tile = page.locator('.sc-scenepage-place .sc-scenepage-open');
   await expect(tile).toBeVisible();
   // a scene has no avatar, so its one picture is its identity: it is drawn at
   // its own size, bounded only by the screen, never fitted into a card
   const box = await tile.boundingBox();
   expect(box!.height).toBeGreaterThanOrEqual(360);
+  // alone, it still wears its view's pill, centred on the picture and not the column
+  // (the centre is the pill, as on a card: the picture opens from anywhere else)
+  const aside = { position: { x: 24, y: 60 } };
+  await tile.hover(aside);
+  const use = page.getByRole('button', { name: 'Use this view: The place' });
+  await expect(use).toHaveCSS('opacity', '1');
+  const pill = (await use.boundingBox())!;
+  expect(pill.height).toBeLessThan(40);
+  expect(Math.abs(pill.x + pill.width / 2 - (box!.x + box!.width / 2))).toBeLessThan(2);
+  expect(Math.abs(pill.y + pill.height / 2 - (box!.y + box!.height / 2))).toBeLessThan(2);
 
-  await tile.click();
+  await tile.click(aside);
   const shown = page.getByRole('dialog');
   await expect(shown).toBeVisible();
   await page.keyboard.press('Escape');
@@ -197,7 +207,7 @@ test('an anchor goes with the shot as its world, and a picture picked is the fra
   expect(record.anchor).toBe(true);
   const preview = String(record.preview).slice('asset:'.length);
 
-  await page.locator('.sc-scenepage-place > button').click();
+  await page.locator('.sc-scenepage-place .sc-scenepage-open').click({ position: { x: 24, y: 60 } });
   await page.getByRole('dialog').getByRole('button', { name: 'Use this view' }).click();
 
   // one scene chip and one picture chip, the picture being the scene's own
@@ -255,8 +265,12 @@ test('Set as cover shows the hero on the card, everywhere, with no reload, and c
   const frames = page.locator('.sc-refset .sc-sceneview-frame');
   await expect(frames.first().locator('.sc-sceneview-cover')).toHaveText('Cover');
   // the keyboard reaches both actions: the place is not the cover, so both are offered
-  await frames.nth(1).getByRole('button', { name: 'Set as cover: The place' }).focus();
-  await frames.nth(1).getByRole('button', { name: 'Set as cover: The place' }).click();
+  await page.keyboard.press('Tab');
+  const coverPlace = frames.nth(1).getByRole('button', { name: 'Set as cover: The place' });
+  await coverPlace.focus();
+  await expect(coverPlace).toHaveCSS('opacity', '1');
+  await expect(frames.nth(1).getByRole('button', { name: 'Use this view: The place' })).toHaveCSS('opacity', '1');
+  await page.keyboard.press('Enter');
   await expect(frames.nth(1).locator('.sc-sceneview-cover')).toHaveText('Cover');
   await expect(frames.first().locator('.sc-sceneview-cover')).toHaveCount(0);
   expect((await record()).cover).toBe('place');
@@ -295,7 +309,22 @@ test("a catalog scene's views: Use this view hands one to a shot, Set as cover i
   // this brand shows its bold frame instead; the packaged scene does not move
   // on a hover device the frame shows its two actions under the pointer
   await frames.nth(4).hover();
-  await frames.nth(4).getByRole('button', { name: 'Set as cover: A bold one' }).click();
+  // the card's own controls: Use this view is the centred pill, Set as cover
+  // an icon named by the app's tip
+  const box = (await frames.nth(4).boundingBox())!;
+  const use = frames.nth(4).getByRole('button', { name: 'Use this view: A bold one' });
+  await expect(use).toHaveCSS('opacity', '1');
+  const pill = (await use.boundingBox())!;
+  expect(Math.abs(pill.x + pill.width / 2 - (box.x + box.width / 2))).toBeLessThan(2);
+  expect(Math.abs(pill.y + pill.height / 2 - (box.y + box.height / 2))).toBeLessThan(2);
+  const coverBold = frames.nth(4).getByRole('button', { name: 'Set as cover: A bold one' });
+  const icon = (await coverBold.boundingBox())!;
+  // top-left, the slot the cover's own mark stands in
+  expect(Math.abs(icon.x - box.x - 8)).toBeLessThan(1);
+  expect(Math.abs(icon.y - box.y - 8)).toBeLessThan(1);
+  await coverBold.hover();
+  await expect(page.locator('.sc-tip')).toHaveText('Set as cover');
+  await coverBold.click();
   await expect(frames.nth(4).locator('.sc-sceneview-cover')).toHaveText('Cover');
   const brands = await (await page.request.get('/api/brands')).json();
   expect(brands[0].json.extensions['scenri.scene-covers']).toEqual({ 'waterline-caustics': 'bold' });
@@ -319,7 +348,8 @@ test.describe('on a phone', () => {
     const b = await brand(page);
     await page.goto(`/${b.slug}/scenes/waterline-caustics`);
     // no hover on a phone: the frame's own actions are not drawn
-    await expect(page.locator('.sc-refset .sc-sceneview-acts').first()).toBeHidden();
+    await expect(page.locator('.sc-refset .sc-sceneview-frame .sc-lookcard-use').first()).toBeHidden();
+    await expect(page.locator('.sc-refset .sc-sceneview-frame .sc-corner').first()).toBeHidden();
     await page.locator('.sc-refset .sc-refset-tile').nth(2).tap();
     const sheet = page.getByRole('dialog');
     await expect(sheet.getByRole('button', { name: 'Use this view' })).toBeVisible();

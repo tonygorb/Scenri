@@ -154,7 +154,12 @@ export function SceneExamples({
     return (
       <>
         <div className="sc-scenepage-place sc-sceneview-frame">
-          <button type="button" aria-label={`${place.label}, open`} onClick={() => setOpen(place)}>
+          <button
+            type="button"
+            className="sc-scenepage-open"
+            aria-label={`${place.label}, open`}
+            onClick={() => setOpen(place)}
+          >
             <Shown src={thumbOf(place.src, 'tile')} />
           </button>
           <SceneViewActions variant="tile" label={place.label} isCover onUse={shootLike(place.hash)} />

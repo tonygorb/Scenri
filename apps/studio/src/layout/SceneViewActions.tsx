@@ -1,13 +1,19 @@
+import { ImageSquare } from '@phosphor-icons/react';
+import { Tip } from './Tip.js';
+
 /**
  * What can be done with one picture of a scene, the same for a scene made here
  * and a catalog one: Use this view (a shot follows it) and Set as cover (the
  * scene is shown by it). Two separate things: a cover is presentation and
  * changes nothing a shot is given, and a view is picked for one shot at a time.
  *
- * `tile` sits over the frame's foot on a hover device, shown on hover and when
- * the keyboard is inside the frame; on touch it is not drawn, because the frame
- * opens and `sheet` carries the same two in the lightbox. The cover itself is
- * marked on its tile, and Set as cover is not offered for it.
+ * `tile` wears the catalog card's own controls, shown on hover and when the
+ * keyboard is inside the frame: Use this view is the centred pill Home's
+ * examples carry, and Set as cover is an icon with the app's tip in the top-left
+ * corner, the slot where the cover's own mark stands, so the mark lands exactly
+ * where it was asked for (a card's star works the same way). On touch neither
+ * control is drawn, because the frame opens and `sheet` carries the same two in
+ * the lightbox.
  */
 export function SceneViewActions({
   variant,
@@ -46,34 +52,35 @@ export function SceneViewActions({
     <>
       {isCover && (
         <span className="sc-sceneview-cover" aria-hidden>
+          <ImageSquare size={14} weight="fill" />
           Cover
         </span>
       )}
-      {(onUse || canCover) && (
-        <span className="sc-sceneview-acts">
-          {onUse && (
+      {onUse && (
+        <button
+          type="button"
+          className="sc-lookcard-use"
+          aria-label={`Use this view: ${label}`}
+          disabled={busy}
+          onClick={onUse}
+        >
+          Use this view
+        </button>
+      )}
+      {canCover && (
+        <div className="sc-corner">
+          <Tip label="Set as cover">
             <button
               type="button"
-              className="sc-sceneview-act"
-              aria-label={`Use this view: ${label}`}
-              disabled={busy}
-              onClick={onUse}
-            >
-              Use this view
-            </button>
-          )}
-          {canCover && (
-            <button
-              type="button"
-              className="sc-sceneview-act"
+              className="sc-cell-ctl"
               aria-label={`Set as cover: ${label}`}
               disabled={busy}
               onClick={onCover}
             >
-              Set as cover
+              <ImageSquare size={15} />
             </button>
-          )}
-        </span>
+          </Tip>
+        </div>
       )}
     </>
   );

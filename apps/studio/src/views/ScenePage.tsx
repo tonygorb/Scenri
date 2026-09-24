@@ -332,12 +332,6 @@ export function ScenePage() {
     }
   };
 
-  /** A curated set is photographed with a demo product or presenter standing in for the art direction. */
-  const caption =
-    scene.subject !== 'person' && frames.length > 0
-      ? 'Shown with a demo product or presenter for reference. Yours replaces it.'
-      : '';
-
   const marked = !owned && marks.includes(scene.id);
   const ways = owned?.setups ?? [];
   /**
@@ -494,14 +488,18 @@ export function ScenePage() {
           </Rail>
         ) : frames.length === 1 ? (
           <div className="sc-scenepage-place">
-            <button type="button" aria-label={`${frames[0].label}, open`} onClick={() => setOpen(frames[0])}>
+            <button
+              type="button"
+              className="sc-scenepage-open"
+              aria-label={`${frames[0].label}, open`}
+              onClick={() => setOpen(frames[0])}
+            >
               <Shown src={thumbOf(frames[0].src, 'tile')} />
             </button>
           </div>
         ) : (
           <EmptyRefFrame />
         )}
-        {!owned && caption && <p className="sc-lookpage-note">{caption}</p>}
 
         {/* What a shot made here is told, in the three keys that are real. The
             set prose behind them is the studio's, and Edit scene is the way to

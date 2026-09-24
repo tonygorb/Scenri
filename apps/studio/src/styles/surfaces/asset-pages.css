@@ -929,8 +929,9 @@
 .sc-scenepage-place {
   margin-top: var(--sc-space-7);
 }
-.sc-scenepage-place > button {
+.sc-scenepage-place .sc-scenepage-open {
   display: inline-grid;
+  vertical-align: top;
   place-items: center;
   padding: 0;
   cursor: zoom-in;
@@ -941,6 +942,17 @@
   border: 1px solid var(--sc-line);
   border-radius: var(--sc-radius-lg);
   background: var(--sc-raised);
+}
+/* The place alone wears its view's controls: the frame hugs the picture, so
+   the Cover mark sits on the photograph's corner and not the column's. The
+   picture's width floor moves here, where 100% is the column: inside a frame
+   that hugs its content the button's own percentage has nothing to resolve
+   against, and a small picture shrank to its pixels. */
+.sc-scenepage-place.sc-sceneview-frame {
+  width: fit-content;
+  min-width: min(100%, 280px);
+  max-width: 100%;
+  margin-inline: auto;
 }
 .sc-scenepage-place img {
   display: block;
@@ -1150,52 +1162,60 @@
   position: relative;
   display: block;
   width: 100%;
+  --sc-cell-ctl-size: 28px;
 }
+/* The cover's mark and Set as cover share the top-left slot and the corner
+   puck's skin (canvas.css): the control is the icon alone, the mark is the
+   same puck lit, with its word. */
 .sc-sceneview-cover {
   position: absolute;
   top: 8px;
   left: 8px;
-  padding: 3px 8px;
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-scrim);
-  color: var(--sc-scrim-fg);
-  font: 500 11px / 14px var(--sc-font);
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--sc-cell-ctl-size);
+  padding: 0 10px 0 7px;
+  border-radius: var(--sc-radius-sm);
+  background: var(--sc-cell-ctl-bg);
+  color: var(--sc-fg);
+  font-size: var(--sc-text-micro);
+  font-weight: 500;
+  line-height: 1;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   pointer-events: none;
 }
-.sc-sceneview-acts {
-  position: absolute;
-  inset: auto 8px 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+.sc-sceneview-frame .sc-corner {
+  right: auto;
+  left: 8px;
 }
-.sc-sceneview-act {
-  height: 28px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--sc-radius-full);
-  background: var(--sc-scrim);
-  color: var(--sc-scrim-fg);
-  font: 500 12px / 1 var(--sc-font);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.sc-sceneview-act:hover:not(:active) {
-  background: var(--sc-scrim-fg);
-  color: var(--sc-scrim);
-}
+/* The frame wears the catalog card's controls (lookcard.css, canvas.css):
+   the centred pill and the corner icon, revealed here because a view is not a
+   card. A keyboard reveals them too; a click that leaves focus inside does not
+   hold them open. Touch opens the lightbox instead. */
 @media (hover: hover) {
-  .sc-sceneview-frame:hover .sc-sceneview-acts,
-  .sc-sceneview-frame:focus-within .sc-sceneview-acts {
+  .sc-sceneview-frame:hover .sc-lookcard-use,
+  :where(:root:not([data-input="pointer"])) .sc-sceneview-frame:focus-within .sc-lookcard-use {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  .sc-sceneview-frame:hover .sc-corner .sc-cell-ctl,
+  :where(:root:not([data-input="pointer"])) .sc-sceneview-frame:focus-within .sc-corner .sc-cell-ctl {
     opacity: 1;
     pointer-events: auto;
+    transition-delay: 0s;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
   }
 }
 @media (hover: none) {
-  .sc-sceneview-acts {
+  .sc-sceneview-frame .sc-lookcard-use,
+  .sc-sceneview-frame .sc-corner {
     display: none;
   }
 }
