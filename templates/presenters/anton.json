@@ -1,0 +1,18 @@
+{
+  "id": "anton",
+  "name": "Anton",
+  "presentation": "man",
+  "descriptor": "Mature · silver beard · swept-back hair",
+  "ageRange": "early 50s",
+  "facial": "deep-set grey-blue eyes with crow's feet, a strong straight nose, a close-trimmed full silver-grey beard, weathered laugh lines",
+  "skin": "fair and sun-weathered with a light tan, visible pores and natural lines",
+  "hair": "thick silver hair swept back, slightly longer on top",
+  "build": "tall and lean with broad shoulders",
+  "wardrobeDefault": "a navy fine-gauge merino crewneck",
+  "suitableCategories": ["Accessories", "Fragrance", "Apparel", "Home", "Furniture", "Food & drink"],
+  "suitableStyles": ["Lifestyle", "Editorial"],
+  "identityNotes": "the thick swept-back silver hair, the close-trimmed silver beard and the crow's feet must survive every generation",
+  "negativeConstraints": ["no dark or dyed hair", "no stubble in place of the beard", "no wrinkle removal"],
+  "width": 1024,
+  "height": 1280
+}

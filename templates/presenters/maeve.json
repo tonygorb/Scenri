@@ -1,0 +1,18 @@
+{
+  "id": "maeve",
+  "name": "Maeve",
+  "presentation": "woman",
+  "descriptor": "Lifestyle · copper waves · freckles",
+  "ageRange": "early 30s",
+  "facial": "a soft oval face, clear green eyes, pale copper brows and lashes, a small straight nose, a soft full mouth",
+  "skin": "very fair with a cool pink undertone and dense natural freckles across the face and shoulders, natural texture",
+  "hair": "long thick wavy copper-red hair worn loose with a deep side part",
+  "build": "slim, medium height",
+  "wardrobeDefault": "a chunky oatmeal cable cardigan over a white tee, straight cream trousers",
+  "suitableCategories": ["Apparel", "Home", "Furniture", "Food & drink", "Beauty"],
+  "suitableStyles": ["Lifestyle"],
+  "identityNotes": "the long copper-red waves with the deep side part, the dense freckles and the green eyes must survive every generation",
+  "negativeConstraints": ["no blonde or brown hair", "no freckle removal", "no straightened hair"],
+  "width": 1024,
+  "height": 1280
+}

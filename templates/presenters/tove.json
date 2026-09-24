@@ -1,0 +1,18 @@
+{
+  "id": "tove",
+  "name": "Tove",
+  "presentation": "woman",
+  "descriptor": "Athlete · platinum braids · strong build",
+  "ageRange": "late 20s",
+  "facial": "strong cheekbones, pale ice-blue eyes, straight fair brows, a square jaw",
+  "skin": "fair with a warm healthy flush, natural texture",
+  "hair": "platinum-blonde hair in two tight Dutch braids close to the scalp",
+  "build": "athletic and muscular, defined shoulders, strong arms, a powerful core",
+  "wardrobeDefault": "a black sports bra, charcoal training leggings and black training shoes",
+  "suitableCategories": ["Sport", "Footwear", "Food & drink", "Electronics", "Accessories", "Apparel"],
+  "suitableStyles": ["Lifestyle"],
+  "identityNotes": "the two tight platinum Dutch braids, the muscular shoulders and the ice-blue eyes must survive every generation",
+  "negativeConstraints": ["no loose hair", "no slim-model build", "no heavy makeup"],
+  "width": 1024,
+  "height": 1280
+}

@@ -1,0 +1,18 @@
+{
+  "id": "odette",
+  "name": "Odette",
+  "presentation": "woman",
+  "descriptor": "Beauty · blunt bob · defined lips",
+  "ageRange": "early 20s",
+  "facial": "full, sharply defined lips with a pronounced cupid's bow, strong arched dark brows, wide-set dark brown eyes, high cheekbones, a small straight nose",
+  "skin": "fair porcelain with a cool undertone, luminous, fine natural texture",
+  "hair": "jet-black glossy hair in a sharp chin-length blunt bob with a heavy straight fringe, tucked behind the ears",
+  "build": "slim with a long neck",
+  "wardrobeDefault": "a black strapless bandeau top",
+  "suitableCategories": ["Beauty", "Fragrance", "Jewelry"],
+  "suitableStyles": ["Editorial"],
+  "identityNotes": "the blunt chin-length bob with the heavy fringe, the defined cupid's bow and the porcelain skin must survive every generation",
+  "negativeConstraints": ["no side-swept fringe", "no overlined or filled-looking lips", "no skin smoothing"],
+  "width": 1024,
+  "height": 1280
+}

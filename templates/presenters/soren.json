@@ -1,0 +1,18 @@
+{
+  "id": "soren",
+  "name": "Soren",
+  "presentation": "man",
+  "descriptor": "Runway · jaw-length hair · angular",
+  "ageRange": "mid 20s",
+  "facial": "hollow cheeks, a sharp angular jaw, pale grey eyes under straight dark brows, a long straight nose, clean-shaven",
+  "skin": "fair with a neutral undertone, clear, natural texture",
+  "hair": "straight dark-brown hair to the jaw, tucked behind the ears",
+  "build": "very tall and slim, a runway frame with long limbs",
+  "wardrobeDefault": "a crisp white poplin shirt buttoned to the top, black wide-leg wool trousers, black leather loafers",
+  "suitableCategories": ["Apparel", "Fragrance", "Accessories", "Footwear", "Electronics"],
+  "suitableStyles": ["Editorial"],
+  "identityNotes": "the jaw-length dark hair tucked behind the ears, the hollow cheeks and the pale grey eyes must survive every generation",
+  "negativeConstraints": ["no beard or stubble", "no short hair", "no bulky build"],
+  "width": 1024,
+  "height": 1280
+}
