@@ -51,6 +51,24 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.17.0',
+    date: '2026-09-24',
+    sections: [
+      {
+        heading: 'Library',
+        body: 'Products, presenters and scenes of your own can be selected and then kept or deleted together from a bar at the bottom of the page, and renamed from their menu. Bookmarks are now Keepers, on every page and in every menu.',
+      },
+      {
+        heading: 'Create',
+        body: 'Home, Create and the libraries share one tab row, with search and size at its end. On a phone, Create keeps its tabs readable and puts the set and the sort in one button beside search. Choosing a tab while scrolled down starts the list from the top.',
+      },
+      {
+        heading: 'Fixes',
+        body: "Tab counts on Create no longer jump while the page loads. Closing and opening the assets panel keeps the shot you were looking at in place, and alerts no longer cover the composer's buttons.",
+      },
+    ],
+  },
+  {
     version: '0.16.0',
     date: '2026-09-24',
     title: 'Open Scenri on your phone or tablet, and Settings with one page for each thing.',
