@@ -366,6 +366,27 @@ test("a catalog scene's views: Scenri's cover is marked and fixed, and Use this 
   await expect(page).not.toHaveURL(/ref=|view=/);
 });
 
+test("a scene chip's picker offers its own pictures: follow one, then the whole scene again", async ({ page }) => {
+  const b = await brand(page);
+  await page.goto(`/${b.slug}/create?scene=waterline-caustics&compose=1`);
+  const chip = page.locator('.sc-token[data-kind=template]');
+  await expect(chip).toHaveAttribute('data-tok', 't:waterline-caustics');
+  await chip.click();
+  // two sections: this scene's pictures, Whole scene first, then the other scenes
+  await expect(page.locator('.sc-swap .sc-ap-sec')).toHaveText([/Waterline/, /Other scenes/]);
+  const tiles = page.locator('.sc-swap-this .sc-ap-card');
+  await expect(tiles).toHaveText(['+2Whole scene', 'Hero', 'Place', 'Close-up', 'Angle', 'Bold']);
+  await expect(tiles.first()).toHaveAttribute('aria-pressed', 'true');
+  // following a picture is the scene's own chip carrying it
+  await tiles.nth(3).click();
+  await expect(chip).toHaveAttribute('data-tok', /^t:waterline-caustics\|\|[a-f0-9]{32}\|Close-up$/);
+  await expect(chip).toContainText('· Close-up');
+  await chip.click();
+  await expect(tiles.nth(3)).toHaveAttribute('aria-pressed', 'true');
+  await tiles.first().click();
+  await expect(chip).toHaveAttribute('data-tok', 't:waterline-caustics');
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   test('a view opens, and the sheet carries what a catalog view offers', async ({ page }) => {

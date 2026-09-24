@@ -4,6 +4,7 @@ import {
   placeTip,
   PANEL_W,
   PANEL_MAX_H,
+  SCENE_PANEL_MAX_H,
   type AnchorRect,
   placeBeside,
   PREVIEW_H,
@@ -35,6 +36,17 @@ describe('placePanel', () => {
     // 760 - 8 gap - 460 tall
     expect(p?.top).toBe(292);
     expect(p?.maxHeight).toBe(PANEL_MAX_H);
+  });
+
+  it("a scene chip's picker takes the taller cap its two sections need, still bounded by the room", () => {
+    const p = placePanel(chip(), DESKTOP, { maxHeight: SCENE_PANEL_MAX_H });
+    expect(p?.maxHeight).toBe(SCENE_PANEL_MAX_H);
+    const tight = placePanel(
+      chip({ top: 300, bottom: 322 }),
+      { width: 1280, height: 400 },
+      { maxHeight: SCENE_PANEL_MAX_H },
+    );
+    expect(tight?.maxHeight).toBeLessThan(SCENE_PANEL_MAX_H);
   });
 
   it('flips below when the band above is too short to browse in', () => {

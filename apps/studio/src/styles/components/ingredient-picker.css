@@ -98,53 +98,127 @@
   color: var(--sc-fg);
   text-align: start;
 }
-/* The current scene's own pictures sit on its row, above the line that
-   separates what is on from what else there is: squares the row's own
-   picture's size and shape, the one followed ringed. */
-.sc-swap-cur:has(+ .sc-swap-views) {
-  border-bottom: none;
-  padding-bottom: var(--sc-space-4);
-}
-.sc-swap-views {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: var(--sc-space-4);
+/* A scene chip's own pictures, as two sections under the search: the attach
+   picker's section rows and tiles (attach-panel.css), this scene's pictures
+   three across with Whole scene first, then the other scenes. */
+.sc-swap-this {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--swap-inset);
   min-inline-size: 0;
-  margin: 0 var(--swap-inset);
-  padding: 4px 4px var(--swap-inset);
-  border: 0;
-  border-bottom: 1px solid var(--sc-line);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.sc-swap-view {
-  flex: none;
-  width: var(--swap-face);
-  height: var(--swap-face);
+  margin: 0;
   padding: 0;
   border: 0;
-  border-radius: var(--sc-radius);
-  overflow: hidden;
-  background: var(--sc-well);
-  box-shadow: inset 0 0 0 1px var(--sc-line);
-  cursor: pointer;
 }
-.sc-swap-view img {
+.sc-swap-sec-others {
+  margin-top: var(--sc-space-7);
+  padding-top: var(--sc-space-6);
+  border-top: 1px solid var(--sc-line);
+}
+.sc-swap-sec-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+}
+/* Whole scene: its own pictures as four equal cuts that touch, one outer
+   radius and no inner lines, the way a playlist's mosaic reads as one cover.
+   The fourth is frosted, not blacked out: the picture's colour comes through
+   the blur, and the count sits on it in bright type. Two or three pictures cut
+   the square in halves, or a tall half and two quarters. */
+.sc-ap-thumb.sc-swap-mosaic {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 0;
+}
+.sc-ap-thumb.sc-swap-mosaic[data-count="2"] {
+  grid-template-rows: minmax(0, 1fr);
+}
+.sc-ap-thumb.sc-swap-mosaic[data-count="3"] > :first-child {
+  grid-row: span 2;
+}
+.sc-swap-cut {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.sc-swap-cut img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.sc-swap-view:hover:not(:disabled) img {
-  opacity: 0.85;
+/* The fourth cut is frosted by blurring its own picture, never by a
+   backdrop filter: a live backdrop re-blurred under the hover and flickered.
+   A static blur on the image, scaled so its soft edge stays outside the cut,
+   and a light tint for the count to sit on. */
+.sc-ap-thumb .sc-swap-cut img {
+  transition: none;
 }
-.sc-swap-view[aria-pressed="true"] {
-  outline: 2px solid var(--sc-sel-line);
-  outline-offset: 2px;
+.sc-swap-cut[data-more] img {
+  filter: blur(6px) saturate(1.2);
+  transform: scale(1.15);
 }
-.sc-swap-view:disabled {
-  cursor: progress;
+/* Under the pointer the mosaic lights as one: a single veil over all four
+   cuts, the look of the other tiles' brightening. Four pictures brightening
+   one by one beside a frosted one that could not shimmered at the seams, and
+   none at all left the hovered tile unreadable. */
+.sc-ap-thumb.sc-swap-mosaic::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(255 255 255 / 0);
+  pointer-events: none;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+@media (hover: hover) {
+  .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb .sc-swap-cut img {
+    filter: none;
+  }
+  .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb .sc-swap-cut[data-more] img {
+    filter: blur(6px) saturate(1.2);
+  }
+  .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb.sc-swap-mosaic::after {
+    background: rgb(255 255 255 / 0.12);
+  }
+}
+/* Over a photograph, so theme-neutral, like the scrim tokens. */
+.sc-swap-cut-more {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 0.22);
+  color: #fff;
+  font: 600 15px / 1 var(--sc-font);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+/* With two sections the search is a header over a scrolling list: its own
+   breath and a hairline under it, as the attach panel's head has, so tiles
+   never slide up flush against the field. */
+.sc-swap-inner[data-sections] .sc-swap-head {
+  padding-bottom: var(--swap-inset);
+  border-bottom: 1px solid var(--sc-line);
+}
+/* The select box sits top-left, where every select tick in the app does
+   (a card's pick, a shot's). */
+.sc-swap-this .sc-ap-puck {
+  right: auto;
+  left: 6px;
+}
+/* Whole scene held has nothing to take away: it keeps its tick under the
+   pointer, where a held picture turns to the x that lets it go. */
+@media (hover: hover) {
+  .sc-ap-card[data-whole][data-on]:hover .sc-ap-puck-on {
+    display: block;
+  }
+  .sc-ap-card[data-whole][data-on]:hover .sc-ap-puck-off {
+    display: none;
+  }
 }
 /* The one thing on the row that is a control, and it says so: a real target,
    its own hover, and the only pointer cursor here. Revealed on hover on a
