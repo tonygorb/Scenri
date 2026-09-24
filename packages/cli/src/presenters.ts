@@ -240,11 +240,12 @@ export async function resolvePresenterImages(
   // jaws. All 21 curated presenters carry a facial descriptor and none of it
   // was reaching the model.
   //
-  // Still deliberately NOT forwarded: `hair` (a direction legitimately
-  // restyles it, and identityNotes already asserts what must survive),
-  // wardrobeDefault (the capture uniform is not a wardrobe instruction) and
-  // promptName (a curated presenter is named by `name`, which is why renaming
-  // one is a generation change).
+  // `hair` is forwarded since 2026-09-24: a direction may still restyle it,
+  // and the compiler decides that from the brief's own words (hairDirective).
+  //
+  // Still deliberately NOT forwarded: wardrobeDefault (the capture uniform is
+  // not a wardrobe instruction) and promptName (a curated presenter is named
+  // by `name`, which is why renaming one is a generation change).
   return {
     id: presenter.id,
     name: presenter.name,
@@ -252,6 +253,7 @@ export async function resolvePresenterImages(
     ...(presenter.negativeConstraints?.length ? { negativeConstraints: presenter.negativeConstraints } : {}),
     ...(presenter.skin ? { skin: presenter.skin } : {}),
     ...(presenter.facial ? { facial: presenter.facial } : {}),
+    ...(presenter.hair ? { hair: presenter.hair } : {}),
     ...(presenter.build ? { build: presenter.build } : {}),
     shots,
   };

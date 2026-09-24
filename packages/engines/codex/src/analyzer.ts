@@ -338,7 +338,10 @@ function presenterBody(req: AnalyzeRequest, refCount: number): string {
     ' "descriptor": a three-beat casting caption joined by " · ", such as "Warm editorial · dark waves · composed";' +
     ' "ageRange": an approximate range such as "early 30s";' +
     ' "hair": colour, length, texture and how it is worn;' +
-    ' "identityNotes": one paragraph naming the two or three features that must survive every generation, drawn from face shape, eyes, nose, mouth, jaw, skin, distinctive marks, and build where it is visible;' +
+    ' "identityNotes": one paragraph naming the two or three features that must survive every generation, drawn from face shape, eyes, nose, mouth, jaw, skin, distinctive marks, and build where it is visible.' +
+    // A mark with no side comes back on either arm: "a floral tattoo on one
+    // shoulder" drew it on the wrong arm in 2 of 4 shots (2026-09-24).
+    " Name every tattoo, scar, birthmark, piercing and anything they always wear, such as glasses, by what it is, exactly where it sits and which side, as the person's own left or right;" +
     ' "negativeConstraints": an array of short refusals for the drift these photographs invite, such as "no youth-smoothing that erases the natural lines";' +
     ` "suitableCategories": the industries this person would be cast for.${categories}` +
     ' "coverage": an array of at most two short sentences naming a view that is missing and would make this person more consistent, such as "A three-quarter photo would pin the cheekbones down." Use an empty array when the coverage is already good;' +
@@ -544,16 +547,18 @@ function parsePresenter(req: AnalyzeRequest, o: Record<string, unknown>): ParseR
       presentation: presentation as 'woman' | 'man',
       descriptor: cap(str(o.descriptor), 120),
       ageRange: cap(str(o.ageRange), 40),
-      hair: cap(str(o.hair), 120),
+      // Cut at a clause, never mid-word: every shot of a person is told these,
+      // and a hard slice sent "full-body proporti." with each one.
+      hair: oneLine(o.hair, 120),
       identityNotes: cap(identityNotes, 900),
       negativeConstraints: list(o.negativeConstraints, 6, 160),
       suitableCategories: pick(o.suitableCategories, req.vocabulary?.categories, 6),
       coverage: sentences(o.coverage, 2, 240),
       // Non-blocking, like scene's `camera`: a model that omits or fumbles
       // these must not burn the single retry that exists for a broken contract.
-      ...optional('facial', cap(str(o.facial), 300)),
-      ...optional('skin', cap(str(o.skin), 200)),
-      ...optional('build', cap(str(o.build), 200)),
+      ...optional('facial', oneLine(o.facial, 300)),
+      ...optional('skin', oneLine(o.skin, 200)),
+      ...optional('build', oneLine(o.build, 200)),
       ...(req.classifyPhotos ? optional('photos', photoFilings(o.photos, req.imagePaths.length)) : {}),
       ...(req.classifyPhotos ? optional('conflict', cap(str(o.conflict), 200)) : {}),
     },

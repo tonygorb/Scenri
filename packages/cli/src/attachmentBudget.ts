@@ -5,6 +5,14 @@ import type { Attachment } from './brief.js';
  * cap what survives is what the image would be *wrong* without: the product,
  * then the person. A style reference is the first thing worth losing.
  *
+ * A generation seats identity first (identityFloor below): every product's
+ * and presenter's own picture, then each presenter's full body, and only then
+ * a scene plate, a mark or a hand-attached reference, in the brief's order.
+ * Measured 2026-09-24: with a product, a scene and a picture of someone else
+ * in the brief, a presenter sent as one portrait wore the other person's
+ * glasses in 3 of 4 shots and lost which arm their tattoo is on in 2 of 4;
+ * with their full body beside the portrait, 0 of 4 and 11 of 11 right.
+ *
  * A hand-attached reference and a scene's picture sit in the same tier: the
  * chip placed first in the brief takes the seat (below), and a scene picture
  * that loses it degrades to the scene's words. Neither is ever essential, so
@@ -33,6 +41,14 @@ const SEAT_TIER: Record<Attachment['role'], number> = {
   composition: 1,
   style: 2,
 };
+
+/**
+ * How many of a presenter's views a generation seats before any context image:
+ * the face and the full body. The face alone carries no body, no height and no
+ * side for a mark, and one package serves every framing a multi-shot run asks
+ * for, from the tighter take to the wider one.
+ */
+export const PRESENTER_FLOOR = 2;
 
 export const ROLE_PRIORITY: Record<Attachment['role'], number> = {
   product: 0,
@@ -77,6 +93,7 @@ export const ROLE_PRIORITY: Record<Attachment['role'], number> = {
 export function allocateAttachments(
   attachments: Attachment[],
   cap: number,
+  opts: { identityFloor?: boolean } = {},
 ): { kept: Attachment[]; dropped: Attachment[]; seated: Attachment[] } {
   const max = Math.max(0, cap);
   const indexed = attachments.map((a, i) => ({ a, i }));
@@ -89,10 +106,10 @@ export function allocateAttachments(
 
   const groupOf = (a: Attachment) => `${a.role}:${a.id ?? a.hash}`;
   const kept = new Set<number>();
-  const keptGroups = new Set<string>();
+  const keptGroups = new Map<string, number>();
   const admit = (x: { a: Attachment; i: number }) => {
     kept.add(x.i);
-    keptGroups.add(groupOf(x.a));
+    keptGroups.set(groupOf(x.a), (keptGroups.get(groupOf(x.a)) ?? 0) + 1);
   };
 
   // No essentials-first pass any more. The compiler marks every product and
@@ -103,6 +120,21 @@ export function allocateAttachments(
   // still finds no seat lands in `dropped` exactly as before, so the caller's
   // refusal path fires unchanged.
   const seatOrder = [...indexed].sort((x, y) => SEAT_TIER[x.a.role] - SEAT_TIER[y.a.role] || x.i - y.i);
+  if (opts.identityFloor) {
+    // Identity first, in the brief's order: each product's and presenter's
+    // own picture, then each presenter's second view (the full body, or the
+    // side the words ask for). A scene plate, a mark or a reference takes
+    // what is left, so a picture of someone else never outnumbers the
+    // presenter it stands in for.
+    for (const x of seatOrder) {
+      if (kept.size >= max) break;
+      if ((x.a.role === 'product' || x.a.role === 'character') && !keptGroups.has(groupOf(x.a))) admit(x);
+    }
+    for (const x of seatOrder) {
+      if (kept.size >= max) break;
+      if (x.a.role === 'character' && !kept.has(x.i) && (keptGroups.get(groupOf(x.a)) ?? 0) < PRESENTER_FLOOR) admit(x);
+    }
+  }
   for (const x of seatOrder) {
     if (kept.size >= max) break;
     if (!kept.has(x.i) && !keptGroups.has(groupOf(x.a))) admit(x);

@@ -27,8 +27,10 @@ import {
   editPreservationDirective,
   extendPreservationDirective,
   garmentDisplayDirective,
+  hairDirective,
   inheritedIdentityDirective,
   markLabel,
+  mendedTrait,
   namesAreNotLetteringDirective,
   PERSON_SCENE_FIGURE,
   personSkinDirective,
@@ -582,14 +584,20 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           // instructions never reached the model while a product's did.
           // Shared with the refine path, like the product facts above.
           personDirectives.push(...characterFactDirectives(c));
+          // Records saved before 2026-09-24 hold traits hard-sliced mid-word;
+          // they are mended here to their last whole clause (mendedTrait).
+          const skin = mendedTrait(c.skin, 200);
+          const facial = mendedTrait(c.facial, 300);
+          const build = mendedTrait(c.build, 200);
+          const hair = mendedTrait(c.hair, 120);
           // The record's own skin truth, name-prefixed so the dedupe pass can
           // never collapse two presenters' skin into one claim. Every curated
           // presenter states one ("faint natural lines, minimal retouch");
           // it was dropped by the resolver until now, which is half of the
           // airbrushed-presenter report - the floor below is the other half.
-          if (c.skin)
+          if (skin)
             personDirectives.push(
-              `${c.promptName ?? c.name}'s skin, exactly as the reference photographs show it: ${c.skin}.`,
+              `${c.promptName ?? c.name}'s skin, exactly as the reference photographs show it: ${skin.replace(/[.\s]+$/, '')}.`,
             );
           // Bone structure, in words, because the pictures cannot carry it.
           // The reference frames are full-length, so the face arrives at
@@ -599,11 +607,12 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
           // returned four different faces of one casting type. Named the same
           // way skin is, so the dedupe pass can never merge two presenters'
           // faces into one claim.
-          if (c.facial)
+          if (facial)
             personDirectives.push(
-              `${c.promptName ?? c.name}'s face, which must survive every generation unchanged: ${c.facial}.`,
+              `${c.promptName ?? c.name}'s face, which must survive every generation unchanged: ${facial.replace(/[.\s]+$/, '')}.`,
             );
-          if (c.build) personDirectives.push(`${c.promptName ?? c.name}'s build: ${c.build}.`);
+          if (hair) personDirectives.push(hairDirective(c.promptName ?? c.name, hair, userWords));
+          if (build) personDirectives.push(`${c.promptName ?? c.name}'s build: ${build.replace(/[.\s]+$/, '')}.`);
         } else {
           warnings.push(`${c.name} has no usable photo, so they are named but not attached.`);
           // Same contract as the product above: a face that cannot be shown
@@ -929,7 +938,16 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     }
   }
   const max = ctx.engineCaps.maxReferenceImages;
-  const { kept, dropped: budgetDropped, seated } = allocateAttachments(attachments, max);
+  // A generation seats identity first (attachmentBudget.ts identityFloor). A
+  // refinement's compile runs uncapped here and is allocated by the edit
+  // route, where the source frame already holds the person.
+  const {
+    kept,
+    dropped: budgetDropped,
+    seated,
+  } = allocateAttachments(attachments, max, {
+    identityFloor: ctx.mode !== 'edit',
+  });
 
   // What actually rides, for the deferred directives: the edit route makes a
   // wider allocation this compile cannot see (own plus inherited, source
@@ -960,7 +978,10 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     if (presentKeys.has(key) || absentSeen.has(key)) continue;
     if (a.role === 'reference') {
       absentSeen.add(key);
-      const words = ctx.wordsFor?.(a.hash) ?? null;
+      // Not with a presenter attached: the head of another shot's prompt opens
+      // with its chips, and a studio-built person's name is a description
+      // ("a woman in her late thirties with shoulder-length auburn hair").
+      const words = hasPerson ? null : (ctx.wordsFor?.(a.hash) ?? null);
       absentDirectives.push(
         words
           ? `A reference shot was not attached this time; it showed ${words}. Match that composition, lighting and treatment.`

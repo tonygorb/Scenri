@@ -173,6 +173,31 @@ describe('analyze — presenter', () => {
     expect(prompt).toContain('"three-quarter" (turned about forty-five degrees, both eyes visible)');
   });
 
+  it('cuts a long trait at a clause, never mid-word, and asks for the side of every mark', async () => {
+    // A hard slice sent "full-body proporti." with every shot of a presenter.
+    const long =
+      'The visible upper body has broad shoulders relative to the neck, defined collarbones and a lean, muscular upper ' +
+      'chest. Height and overall leanness are supplied as tall and lean, but full-body proportions are not shown here';
+    const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
+      const body = { ...GOOD_PRESENTER, build: long, hair: `${'long platinum waves, '.repeat(8)}swept back` };
+      writeFileSync(join(dirFromArgs(args), 'analysis.json'), JSON.stringify(body));
+      child.emit('exit', 0, null);
+    });
+    const analyzer = createCodexAnalyzer({ platform: 'linux', spawnImpl });
+    const draft = (await analyzer.analyze({
+      kind: 'presenter',
+      name: 'Deps',
+      imagePaths: [photo()],
+    })) as PresenterDraft;
+    expect(draft.build?.length).toBeLessThanOrEqual(200);
+    expect(draft.build).toMatch(/lean and muscular|upper chest|tall and lean$/);
+    expect(draft.build).not.toMatch(/\bproporti$/);
+    expect(long.startsWith(draft.build ?? 'x')).toBe(true);
+    expect(draft.hair.length).toBeLessThanOrEqual(120);
+    expect(draft.hair).not.toMatch(/,\s*$/);
+    expect(promptFromArgs(calls[0])).toContain("which side, as the person's own left or right");
+  });
+
   it('never spends the one retry on the optional keys', async () => {
     const { spawnImpl, calls } = fakeSpawn(({ args, child }) => {
       const body = { ...GOOD_PRESENTER, facial: 42, skin: null, build: [], photos: 'none' };

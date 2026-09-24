@@ -2226,13 +2226,12 @@ describe('directives stay truthful to what actually rides', () => {
       {
         tokens: [
           { t: 'product', id: 'p1' },
-          { t: 'character', id: 'c1' },
           { t: 'ref', imageHash: refHash },
         ],
       },
       ctx({
-        brand: brandWith(productHash, core.images.save(Buffer.from('cast-bytes'))),
-        engineCaps: caps(2),
+        brand: brandWith(productHash),
+        engineCaps: caps(1),
         wordsFor: (h) => (h === refHash ? 'a vase on a marble ledge at dusk' : null),
       }),
     );
@@ -2240,6 +2239,28 @@ describe('directives stay truthful to what actually rides', () => {
       'A reference shot was not attached this time; it showed a vase on a marble ledge at dusk. Match that composition, lighting and treatment.',
     );
     expect(r.prompt).not.toContain('of the attached reference');
+  });
+
+  it('with a presenter attached, a dropped shot is never described in its own words', () => {
+    // The head of another shot's prompt opens with its chips, and a
+    // studio-built person's name is a description of them.
+    const r = compileBrief(
+      {
+        tokens: [
+          { t: 'product', id: 'p1' },
+          { t: 'character', id: 'c1' },
+          { t: 'ref', imageHash: refHash },
+        ],
+      },
+      ctx({
+        brand: brandWith(productHash, core.images.save(Buffer.from('cast-bytes'))),
+        engineCaps: caps(2),
+        wordsFor: (h) => (h === refHash ? 'a woman in her late thirties with shoulder-length auburn hair' : null),
+      }),
+    );
+    expect(r.dropped.map((d) => d.role)).toEqual(['reference']);
+    expect(r.prompt).not.toContain('auburn');
+    expect(r.prompt).toContain('A reference image was attached but not sent this time.');
   });
 
   it('the fidelity claim counts the angles that rode, not the angles asked for', () => {
