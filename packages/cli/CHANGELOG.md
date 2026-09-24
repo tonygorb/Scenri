@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.2](https://github.com/tonygorb/Scenri/compare/v0.17.1...v0.17.2) (2026-09-24)
+
+
+### Bug Fixes
+
+* **composer:** a parked brief sends a person as they are now ([6c6273d](https://github.com/tonygorb/Scenri/commit/6c6273dd15f7f2e15b666e5affdd0494a876a3ad))
+* **composer:** a parked brief sends a person as they are now ([b816b4b](https://github.com/tonygorb/Scenri/commit/b816b4b31179397212d0f79ddca3629cb00c14fd))
+
 ## [0.17.1](https://github.com/tonygorb/Scenri/compare/v0.17.0...v0.17.1) (2026-09-24)
 
 

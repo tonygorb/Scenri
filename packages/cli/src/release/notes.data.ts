@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.17.2',
+    date: '2026-09-24',
+    sections: [
+      {
+        heading: 'Presenters',
+        body: 'A brief left waiting in Create brings its presenters back as they are now, so a shot started after you edit someone uses their new pictures.',
+      },
+    ],
+  },
+  {
     version: '0.17.1',
     date: '2026-09-24',
     sections: [

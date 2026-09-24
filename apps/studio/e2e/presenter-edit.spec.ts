@@ -153,6 +153,48 @@ test('the editor opens on the record, repairs one view, and Save changes writes 
   await expect(page).toHaveURL(new RegExp(`/presenters/${headId}$`));
 });
 
+test('a brief parked with a person who is edited since comes back, and sends, as they are now', async ({ page }) => {
+  test.setTimeout(60_000);
+  const brand = await currentBrand(page);
+  const person = await seedPresenter(page.request, brand.id, 'Ines');
+  const chip = (id: string) => page.locator(`.sc-brief [data-tok^="h:${id}"]`);
+
+  // the person goes into a brief, which waits in the composer's saved draft
+  await page.goto(`/${brand.slug}/presenters/${person.id}`);
+  await page.getByRole('button', { name: 'Use in a shot' }).click();
+  await expect(page).toHaveURL(/\/create/);
+  await expect(chip(person.id)).toHaveCount(1);
+  await page.locator('.sc-brief-line').click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' by a window');
+  await expect
+    .poll(() => page.evaluate((key) => localStorage.getItem(key) ?? '', `scenri:draft-${brand.id}`))
+    .toContain('by a window');
+
+  // edited elsewhere: a redrawn view is a new record, and the old one steps aside
+  const base = `/api/brands/${brand.id}/presenter-drafts`;
+  const session = await (await page.request.post(`/api/brands/${brand.id}/presenters/${person.id}/edit`)).json();
+  await page.request.post(`${base}/${session.id}/views/three-quarter/generate`, {
+    data: { decide: 'auto', adjustment: 'softer light from the left' },
+  });
+  await settled(page.request, brand.id, session.id, 'three-quarter', 'approved');
+  await page.request.post(`${base}/${session.id}/save`);
+  const headId = (await recordOf(page.request, brand.id, person.id)).supersededBy as string;
+  expect(headId).toBeTruthy();
+
+  // back in Create, the parked brief names them as they are now, and sends that
+  await page.goto(`/${brand.slug}/create`);
+  await expect(chip(headId)).toHaveCount(1);
+  await expect(chip(person.id)).toHaveCount(0);
+  await expect(page.locator('.sc-brief')).not.toContainText('no longer in your roster');
+  const [sent] = await Promise.all([
+    page.waitForRequest((r) => r.method() === 'POST' && new URL(r.url()).pathname === '/api/nodes'),
+    page.locator('.sc-canvas-dock .sc-send').click(),
+  ]);
+  const people = (sent.postDataJSON().brief.tokens as { t: string; id?: string }[]).filter((t) => t.t === 'character');
+  expect(people.map((t) => t.id)).toEqual([headId]);
+});
+
 test('a change to the person is decided first, then the views built on the face follow', async ({ page }) => {
   test.setTimeout(60_000);
   const brand = await currentBrand(page);
