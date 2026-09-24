@@ -408,6 +408,9 @@ function PickerBody({
                 {c.label}
               </b>
               {showSub && c.sub && <span dir="auto">{c.sub}</span>}
+              {/* Under the scene's own tiles, another scene answers the pointer
+                  with the same plus they do. */}
+              {kind === 'scene' && <Puck />}
             </div>
           ))}
         </div>

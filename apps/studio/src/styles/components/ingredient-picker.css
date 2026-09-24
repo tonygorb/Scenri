@@ -161,11 +161,12 @@
   filter: blur(6px) saturate(1.2);
   transform: scale(1.15);
 }
-/* Under the pointer the mosaic lights as one: a single veil over all four
-   cuts, the look of the other tiles' brightening. Four pictures brightening
-   one by one beside a frosted one that could not shimmered at the seams, and
-   none at all left the hovered tile unreadable. */
-.sc-ap-thumb.sc-swap-mosaic::after {
+/* Under the pointer every tile here lights the same way: one veil over the
+   picture. It began on the mosaic, where four cuts brightening one by one
+   beside a frosted one that could not shimmered at the seams, and it reads
+   clearer than a one-step brighten, so the views wear it too and it replaces
+   theirs. */
+.sc-swap-this .sc-ap-thumb::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -174,13 +175,13 @@
   transition: background var(--sc-dur-fast) var(--sc-ease);
 }
 @media (hover: hover) {
-  .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb .sc-swap-cut img {
+  .sc-swap-this .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb img {
     filter: none;
   }
   .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb .sc-swap-cut[data-more] img {
     filter: blur(6px) saturate(1.2);
   }
-  .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb.sc-swap-mosaic::after {
+  .sc-swap-this .sc-ap-card:not([aria-disabled="true"]):hover .sc-ap-thumb::after {
     background: rgb(255 255 255 / 0.12);
   }
 }
@@ -206,9 +207,25 @@
 }
 /* The select box sits top-left, where every select tick in the app does
    (a card's pick, a shot's). */
-.sc-swap-this .sc-ap-puck {
+.sc-swap-this .sc-ap-puck,
+.sc-swap-card .sc-ap-puck {
   right: auto;
   left: 6px;
+}
+/* Another scene is one press away, so it shows the plus the tiles above show. */
+@media (hover: hover) {
+  .sc-swap-card:hover .sc-ap-puck {
+    display: grid;
+  }
+  .sc-swap-card:hover .sc-ap-puck-add {
+    display: block;
+  }
+}
+:where(:root:not([data-input="pointer"])) .sc-swap-card:focus-visible .sc-ap-puck {
+  display: grid;
+}
+:where(:root:not([data-input="pointer"])) .sc-swap-card:focus-visible .sc-ap-puck-add {
+  display: block;
 }
 /* Whole scene held has nothing to take away: it keeps its tick under the
    pointer, where a held picture turns to the x that lets it go. */
@@ -415,12 +432,34 @@ img.sc-swap-thumb {
   flex: none;
   margin-bottom: 0;
 }
-/* The attach tile's hover: the frame firms and the picture brightens one step. */
+/* The attach tile's hover: the frame firms. */
 .sc-swap-card:hover .sc-swap-thumb,
 .sc-swap-cur:hover .sc-swap-thumb {
   box-shadow: inset 0 0 0 1px var(--sc-line-hover);
   outline-color: var(--sc-line-hover);
+}
+.sc-swap-cur:hover .sc-swap-thumb {
   filter: brightness(1.06);
+}
+/* And the picture takes the scene tiles' veil, drawn from the card over the
+   thumbnail's square because an img takes no ::after. Before the puck in paint
+   order, so the plus sits on top of it. */
+.sc-swap-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--sc-radius);
+  background: rgb(255 255 255 / 0);
+  pointer-events: none;
+  transition: background var(--sc-dur-fast) var(--sc-ease);
+}
+@media (hover: hover) {
+  .sc-swap-card:hover::before {
+    background: rgb(255 255 255 / 0.12);
+  }
 }
 :where(:root:not([data-input="pointer"])) .sc-swap-card:focus-visible {
   outline: none;
