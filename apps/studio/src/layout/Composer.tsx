@@ -1054,9 +1054,13 @@ export const Composer = forwardRef<
    * kind: the compiler carries a seatless product, person or scene as its
    * written identity, a reference as what its shot showed, a mark by name
    * with the plain-surface rule (see brief.ts, the absent attachments).
+   * Products and presenters take their seats first (attachmentBudget.ts), so
+   * the order the note offers is the one among everything else.
    */
   const describedNote =
-    cap != null ? `Described in words: ${engineName} pictures ${cap} per shot. Drag it earlier to picture it.` : null;
+    cap != null
+      ? `Described in words: ${engineName} pictures ${cap} per shot, products and presenters first. Drag it earlier to picture it.`
+      : null;
   const templateFlag = !template
     ? null
     : blocking.length > 0

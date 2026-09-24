@@ -1776,7 +1776,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       // and an engine that reads no images at all. A budget loss on an engine
       // that does read images is not one of them: the compiler carries that
       // identity's written spec, the composer has already said so on the
-      // chip, and seats go out in the brief's order, so the user chose.
+      // chip, and every product and presenter is seated before any context
+      // image, so only a brief with more identities than seats loses one.
       const blind = engine.capabilities().maxReferenceImages === 0;
       const lostIdentity = engine.capabilities().placeholder
         ? []

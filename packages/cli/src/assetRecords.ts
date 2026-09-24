@@ -499,11 +499,13 @@ export function presenterRecordFrom(
   if (source && (PRESENTER_SOURCES as readonly string[]).includes(source)) presenter.source = source as PresenterSource;
   const likeness = has('likeness') ? likenessOf(input.likeness) : base?.likeness;
   if (likeness) presenter.likeness = likeness;
-  const facial = has('facial') ? str(input.facial, 300) : base?.facial;
+  // `phrase`, like hair above: these three are sent with every shot of the
+  // person, and a hard slice ended a build on "full-body proporti."
+  const facial = has('facial') ? phrase(input.facial, 300) : base?.facial;
   if (facial) presenter.facial = facial;
-  const skin = has('skin') ? str(input.skin, 200) : base?.skin;
+  const skin = has('skin') ? phrase(input.skin, 200) : base?.skin;
   if (skin) presenter.skin = skin;
-  const build = has('build') ? str(input.build, 200) : base?.build;
+  const build = has('build') ? phrase(input.build, 200) : base?.build;
   if (build) presenter.build = build;
   const edits = has('identityEdits') ? identityEditsOf(input.identityEdits) : base?.identityEdits;
   if (edits?.length) presenter.identityEdits = edits;

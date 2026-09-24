@@ -31,8 +31,8 @@ export function productFidelityDirective(attached: number): string {
     return (
       'The attached product image is the exact product: preserve its label, shape, colors and proportions faithfully, ' +
       'and do not redesign it. Where the image shows it more than once, side by side from the front and the back or ' +
-      'at several angles, those are views of one product: this shot contains exactly one of it. It is also the only ' +
-      'view of this product that exists. Any face, side or detail not ' +
+      'at several angles, those are views of one product: this shot contains exactly one of it. It is the only ' +
+      'view of this product in this shot. Any face, side or detail not ' +
       'visible in it is unknown — keep those plain and consistent with the visible materials and color, and do not ' +
       'invent hardware, text, seams, closures, ornament or branding on them. Prefer a composition that shows the ' +
       "product from the view the reference gives, unless this shot's own direction asks for another view."
@@ -199,10 +199,25 @@ export function productFactDirectives(p: any): string[] {
   return out;
 }
 
-/** Same lift for a presenter's own identity metadata. */
+/**
+ * Same lift for a presenter's own identity metadata.
+ *
+ * The notes are claimed as the person's own, in every shot. The lines around
+ * them release the reference photographs' clothing as capture context, and an
+ * accessory the notes name (glasses, a lip ring) went with the clothes: a
+ * presenter's aviators rode in 3 of 8 shots as a bare "sunglasses," and in 4
+ * of 4 once said to be part of who he is (2026-09-24).
+ */
 export function characterFactDirectives(c: any): string[] {
   const out: string[] = [];
-  if (c.identityNotes) out.push(String(c.identityNotes));
+  if (c.identityNotes) {
+    const notes = String(c.identityNotes)
+      .trim()
+      .replace(/[\s,;:]+$/, '');
+    out.push(
+      `${c.promptName ?? c.name}'s own, in every shot and never capture context, as part of who they are: ${notes}${/[.!?]$/.test(notes) ? '' : '.'}`,
+    );
+  }
   if (c.negativeConstraints?.length) out.push(`Avoid: ${[].concat(c.negativeConstraints).join(', ')}`);
   return out;
 }
@@ -252,9 +267,54 @@ export function referenceIdentityGuard(): string {
   return (
     'A reference shot lends its composition, lighting and treatment, never its cast: the attached presenter is ' +
     'the only source of person identity in this shot, and any person visible in a reference shot is a stand-in ' +
-    'whose place the presenter takes. This holds even where the direction asks to use someone from a reference — ' +
-    'the attached presenter is that someone.'
+    'whose place the presenter takes. ' +
+    // The stand-in's outfit is how their body got into the shot: "posed like"
+    // put the presenter in the reference's coat and cut, and the build went
+    // with it (0 of 12 builds visible). Said as clothes, not as a body, it
+    // held in 7 of 8; a sentence about the body alone did nothing (2026-09-24).
+    "The stand-in's clothes are not part of the pose: unless this shot's own words dress the presenter, dress them " +
+    "for this place in clothes of their own that show their own build, never in the stand-in's outfit. " +
+    'This holds even where the direction asks to use someone from a reference — the attached presenter is that someone.'
   );
+}
+
+/**
+ * A presenter's hair, in words, beside the pictures. Withheld until 2026-09-24
+ * because a direction legitimately restyles it; the compiler now decides that
+ * from the person's own words, so the model is never handed the choice.
+ */
+const HAIR_STYLED = /\b(hair|hairstyle|updo|bun|ponytail|braids?|braided|plaits?|fringe|bangs|slicked|cornrows)\b/i;
+export function hairDirective(who: string, hair: string, userWords: string): string {
+  const h = hair.trim().replace(/[\s.,;:]+$/, '');
+  return HAIR_STYLED.test(userWords)
+    ? `${who}'s hair keeps its own colour, length and texture (${h}), styled the way this shot's words ask.`
+    : `${who}'s hair, exactly as their references show it: ${h}.`;
+}
+
+/**
+ * A stored trait cut off mid-word by an old hard slice ("full-body proporti"),
+ * mended at compile time: back to its last whole clause. Text that ends
+ * cleanly, or was never at the cap, is untouched.
+ */
+export function mendedTrait(text: string | undefined, cap: number): string | undefined {
+  if (!text) return text;
+  const t = text.trim();
+  if (t.length < cap - 1 || /[.!?]$/.test(t)) return t;
+  return wholeClauses(t);
+}
+
+/**
+ * Text cut at an arbitrary length, taken back to what still reads whole: the
+ * last full sentence when that keeps most of it, else the last clause. A
+ * clause cut inside the final sentence can leave a fragment ("The nose has a
+ * straight."), which is why a late full stop wins.
+ */
+export function wholeClauses(t: string): string {
+  const sentence = t.lastIndexOf('. ');
+  if (sentence >= t.length * 0.6) return t.slice(0, sentence + 1);
+  const clause = Math.max(t.lastIndexOf(', '), t.lastIndexOf('; '));
+  if (clause > t.length / 3) return `${t.slice(0, clause).replace(/[\s,;:]+$/, '')}.`;
+  return sentence > 0 ? t.slice(0, sentence + 1) : t;
 }
 
 export function markEditDirective(): string {
