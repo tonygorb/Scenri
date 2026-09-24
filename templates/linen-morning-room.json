@@ -10,5 +10,6 @@
   "verticals": ["Home", "Furniture", "Apparel", "Beauty", "Fragrance"],
   "prompt": "A small table draped in crisp white linen fills the foreground, set close to a tall window where sheer white curtains billow inward on a breeze. On the cloth sit a small celadon ceramic vase holding a few sprigs of olive branch, a scatter of green olives and a loose spray of white jasmine. Bright diffuse morning light floods through the curtains from behind, turning the fabric luminous and wrapping every edge in a soft glow. The foreground leaves blur softly in a shallow depth of field, and the background dissolves into white light and moving gauze. The palette is white, pale sage, olive green and celadon, airy and calm.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

@@ -19,5 +19,6 @@
   "verticals": ["Electronics", "Fragrance", "Accessories", "Jewelry", "Footwear"],
   "prompt": "A heap of glossy black lump coal is banked into a low cradle in the middle ground, its fractured faces glinting like obsidian. Behind it a smooth wall in deep midnight teal fills the frame with no visible edge. Hard, cool light falls through unseen venetian blinds and lays crisp diagonal bars of pale blue light across the wall and over the coal, with deep shadow between them. The foreground is dark slate that barely catches the stripes. The palette is black, midnight teal and cold steel blue, precise and nocturnal.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

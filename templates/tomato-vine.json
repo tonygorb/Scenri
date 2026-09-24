@@ -10,5 +10,6 @@
   "verticals": ["Home", "Beauty", "Food & drink", "Beverage", "Fragrance"],
   "prompt": "A generous heap of glossy vine tomatoes on their green trusses spills across the frame against a seamless tomato-red sweep, each fruit hanging from jointed stalks with a small green calyx star, serrated tomato leaves tucked among them. Hard sun from the upper right throws sharp leaf shadows across the fruit and the paper and puts one bright pinpoint highlight on every tomato. The reds sit in clear steps of value, deep crimson fruit against a brighter scarlet ground, with fresh green threaded through. The palette is tomato red, scarlet and leaf green, ripe, sunny and Mediterranean.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

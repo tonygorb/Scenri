@@ -10,5 +10,6 @@
   "verticals": ["Beauty", "Fragrance", "Food & drink", "Apparel"],
   "prompt": "A garden courtyard wall of rough teal-painted plaster fills the background, sun-faded and slightly mottled. Hard tropical sun filters through overhead palm fronds and throws sharp, graphic frond shadows across the wall and the ground. In the middle ground a low cube of the same teal plaster stands at the foot of the wall, with glossy monstera and fern leaves crowding in from the edges of the frame. The foreground is pale sun-bleached stone, warm and dry. The palette is teal, deep leaf green, white stone and bright sun.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

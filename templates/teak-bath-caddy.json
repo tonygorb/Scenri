@@ -10,5 +10,6 @@
   "verticals": ["Beauty", "Food & drink", "Home", "Fragrance"],
   "prompt": "Seen from directly above, a slatted teak bath caddy tray spans a bath of shallow, clear aqua water, the oiled wood warm and finely grained. A few thin lemon slices float on the water beside it, and a natural sea sponge rests at one end of the tray. Hard window sun cuts across at an angle, throwing crisp slat shadows onto the water and bright rippling caustics across the white tile of the bath floor beneath. The water is still except for faint rings around the lemon slices. The palette is aqua, honey teak, lemon yellow and white, bright and fresh.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

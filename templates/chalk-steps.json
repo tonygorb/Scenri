@@ -19,5 +19,6 @@
   "verticals": ["Accessories", "Fragrance", "Jewelry", "Apparel", "Footwear"],
   "prompt": "Stepped blocks of chalk-white limestone rise in broad, clean-edged tiers, weathered and faintly pitted, with small periwinkle wildflowers growing from the cracks between them. Above them the sky is a deep saturated navy blue without a cloud. Bright, hard daylight bleaches the whites and cuts crisp shadow planes under every step. The camera is slightly low, so the top step meets the sky in one clean line. The palette is chalk white, navy and periwinkle, sculptural and bright.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

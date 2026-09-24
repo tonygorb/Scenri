@@ -10,5 +10,6 @@
   "verticals": ["Apparel", "Jewelry", "Fragrance", "Beauty", "Accessories"],
   "prompt": "A hand-painted canvas backdrop mottled in storm grey, deep teal and umber hangs from a black background stand, its brushwork soft and cloudy, gravity pulling a few soft folds into its lower edge where it spills onto the floor. The stand's leg, the rolled top edge of the canvas and a strip of bare concrete floor beyond it are all in frame, the studio showing itself. One large soft key from the left gives the canvas a gentle glow that falls into shadow toward the right. The palette is storm grey, teal and umber, painterly, timeless and moody.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "bold"
 }

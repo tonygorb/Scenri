@@ -10,5 +10,6 @@
   "verticals": ["Footwear", "Accessories", "Beverage", "Fragrance", "Electronics"],
   "prompt": "A sunny model village at one-twelfth scale spreads across a clipped lawn: tiny red-tiled cottages no taller than a knee, a church with a thin spire, trimmed box hedges, a toy railway line curving through and a small cobbled square in the middle. The camera sits right down at grass level at the edge of that square, looking along the little lanes toward the horizon, and life-size blades of lawn grass and a few real daisies in the foreground stand taller than the cottage doors, so the scale reads at once. Warm afternoon sun from one side gives every cottage and hedge a long crisp shadow falling the same way. Everything is in sharp focus, a real model village rather than a blurred miniature effect. The palette is brick red, box green, cream and summer blue, charming and quietly absurd.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

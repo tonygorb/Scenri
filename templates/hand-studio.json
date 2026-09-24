@@ -10,5 +10,6 @@
   "verticals": ["Beauty", "Jewelry", "Accessories", "Fragrance", "Food & drink"],
   "prompt": "A seamless paper sweep in soft dusty blush fills the frame, matte and even, curving up into the wall with no horizon. In the middle ground a pair of graceful, anonymous hands rises into frame from below, cropped at the wrists, posed slowly and precisely like a dancer's, the open palms forming a quiet plinth. The skin is natural and even, the nails short and bare. A large soft key from one side models the fingers and casts one clean soft shadow onto the paper behind. Nothing else is in the set: blush paper, skin and soft light.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "angle"
 }

@@ -10,5 +10,6 @@
   "verticals": ["Electronics", "Apparel", "Footwear", "Food & drink", "Sport"],
   "prompt": "A small three-walled room painted entirely in one bright saturated cobalt blue, walls and ceiling alike, with a floor of large blue-and-white checker tiles running toward the back wall. A single low cube in the same cobalt sits off-centre in the middle ground. The camera is low and wide, so the checker floor rushes toward the lens and the room's corners pull in with forced perspective. The light is bright, even and slightly hard, from a broad source above the camera, with crisp short shadows. The palette is cobalt, white and nothing else, graphic and playful.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

@@ -10,5 +10,6 @@
   "verticals": ["Apparel", "Footwear", "Accessories", "Sport", "Food & drink"],
   "prompt": "A shipping container painted chalky cobalt blue stands on bare concrete against a deep saturated cobalt sky with a few bright white cumulus clouds. The camera sits low, looking up, so the horizon drops away and the sky becomes the whole backdrop. The container's corrugated side and a steel ladder catch hard midday sun, with crisp short shadows and bright highlights on the painted ridges. There is nothing else in the frame, blue on blue with white cloud and sun. The palette is cobalt, cerulean, white and a touch of warm rust at the container's corners.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

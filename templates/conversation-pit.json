@@ -19,5 +19,6 @@
   "verticals": ["Furniture", "Home", "Apparel", "Beverage", "Electronics", "Fragrance"],
   "prompt": "A square lounge sunk two steps below the floor of a white mid-century living room, lined wall to wall with deep cushions in tomato red, mustard and soft pink, a white marble rim running around its edge. Daylight falls from a large skylight above and lays a soft square of light across the cushions. The walls are white and a low bookshelf runs along one side, and the pit is clearly recessed below floor level, with two broad steps down into it. The palette is tomato, mustard, pink and white, sociable, sunny and seventies.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

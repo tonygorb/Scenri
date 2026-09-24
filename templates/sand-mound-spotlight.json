@@ -10,5 +10,6 @@
   "verticals": ["Fragrance", "Beauty", "Accessories", "Jewelry", "Footwear"],
   "prompt": "A deep burnt-umber sweep glows with one hot circular spotlight on the back wall, the circle falling off to near black at its edges and across the black foreground floor. At the centre of the light rises a smooth, low mound of fine pale sand, lightly raked, with one dried thistle head standing in it and a thin stick of incense leaning beside it, a single thread of smoke curling up through the beam. Fine grains glitter where the light grazes the mound. Beyond the circle the dark swallows everything. The palette is burnt umber, pale sand, black and one ribbon of grey smoke, with a faint film grain.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "angle"
 }

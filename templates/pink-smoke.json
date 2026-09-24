@@ -10,5 +10,6 @@
   "verticals": ["Beauty", "Fragrance", "Food & drink", "Apparel"],
   "prompt": "A seamless paper sweep in saturated bubblegum pink fills the frame, and a dense, billowing cloud of pink smoke rolls across the floor and up through the middle ground in the same colour. Light from behind the smoke makes it glow from within, bright at its core and soft at its edges, while a soft front light keeps the foreground gentle. The smoke curls in slow, sculptural plumes against the paper. There is nothing else in the set, only pink paper, pink smoke and light. The palette is bubblegum, rose and pale blush, dreamy and bold.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

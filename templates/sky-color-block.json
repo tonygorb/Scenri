@@ -10,5 +10,6 @@
   "verticals": ["Beauty", "Apparel", "Accessories", "Electronics"],
   "prompt": "A seamless paper sweep in bright saturated sky blue fills the frame, floor and wall alike. In the middle ground stands a single oversized arch of smooth matte lime green, taller than a person and a little off-centre, like a sculptural doorway that leads nowhere. Its curved inner edge catches a soft highlight, and it casts one soft, clean shadow across the blue floor. The light is crisp, bright beauty light from a large source above the camera with a gentle fill beneath. The palette is sky blue and lime, two saturated colours clashing on purpose, fresh, graphic and loud.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

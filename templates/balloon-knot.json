@@ -10,5 +10,6 @@
   "verticals": ["Beauty", "Fragrance", "Beverage", "Food & drink", "Electronics", "Accessories"],
   "prompt": "A tight, glossy tangle of long twisted modelling balloons fills the frame, bubblegum pink, cobalt blue and tangerine looped over and under one another like a sculpture, each balloon one continuous tube pinched at its twist joints and finished with a small tied nub. Every curve carries one hard window-shaped highlight, and where the rubber stretches thin it turns faintly translucent with light glowing through. In the centre the loops open into a small cradle. Behind it all is a flat bubblegum-pink seamless. The palette is pink, cobalt and tangerine, playful, loud and slick.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "hero"
 }

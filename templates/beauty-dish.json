@@ -10,5 +10,6 @@
   "verticals": ["Beauty", "Fragrance", "Jewelry", "Accessories", "Apparel"],
   "prompt": "A seamless paper sweep in saturated tomato red fills the frame, floor and wall alike, lit flat and frontal. A large silver beauty dish hangs from a black boom at the top edge of the frame, just above where a face would be, its polished bowl and centre deflector catching the light, its black cable running out of frame. The paper holds one even red with no gradient, and the light has the round, crisp, slightly glossy look of a dish held close. The palette is tomato red, silver and black, bold, direct and glamorous.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "bold"
 }

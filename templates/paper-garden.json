@@ -20,5 +20,6 @@
   "verticals": ["Fragrance", "Beauty", "Accessories", "Jewelry", "Footwear", "Food & drink"],
   "prompt": "A knee-high garden of oversized cut-paper flowers, leaves and mushrooms fills the frame, built from flat sheets of coral, leaf green, butter yellow and violet paper with visible folds, scored ribs and crisp cut edges that show their thickness. The blooms stand taller than a hand, layered front to back so the nearest ones blur softly. A small clearing of pale paper ground opens in the middle. Warm window-display light falls from the upper left, each paper plane holding its own flat tone and casting a crisp paper-thin shadow. The palette is coral, leaf green, butter and violet, handmade, joyful and theatrical.",
   "width": 1024,
-  "height": 1280
+  "height": 1280,
+  "cover": "angle"
 }
