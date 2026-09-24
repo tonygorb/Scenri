@@ -1,13 +1,13 @@
 import { Fragment, useState } from 'react';
 import { WarningCircle } from '@phosphor-icons/react';
-import { api, type SceneView, thumbOf } from '../api.js';
+import { api, type SceneExampleRole, type SceneView, thumbOf } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { type CustomScene, coverViewOf } from '../brandAssets.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { FRAMINGS, SETUPS_MAX } from '../create/scene/sceneSetups.js';
 import { Rail } from '../layout/Rail.js';
-import { SceneViewActions } from '../layout/SceneViewActions.js';
+import { SceneViewActions, SceneViewCaption } from '../layout/SceneViewActions.js';
 import { EmptyRefFrame, Shown } from '../layout/ReferenceGallery.js';
 import { EXAMPLE_LABEL, type ExampleTile, earlierRoles, exampleTiles, examplesSubtitle } from '../sceneExampleRules.js';
 import { useSceneExamples } from '../useSceneExamples.js';
@@ -73,6 +73,22 @@ export function SceneExamples({
     }
   };
 
+  /** One example drawn again from the place, from its menu: the same road, one role. */
+  const redraw = async (role: SceneExampleRole) => {
+    if (drawing || running) return;
+    const here = stillHere();
+    setDrawing(true);
+    onError(null);
+    try {
+      await api.drawSceneExamples(brandId, scene.id, { roles: [role] });
+      again();
+    } catch (e: any) {
+      if (here()) onError(String(e?.message ?? e));
+    } finally {
+      if (here()) setDrawing(false);
+    }
+  };
+
   /** Asks for the place in use, saying what it costs. Hidden while a run draws. */
   const offer =
     first.length && job?.status !== 'running' ? (
@@ -125,7 +141,8 @@ export function SceneExamples({
    * treatment. The whole scene is a world a shot is new in; a picked view is
    * the frame it follows.
    */
-  const shootLike = (hash: string | undefined) => (hash ? () => applyScene(scene.id, undefined, hash) : undefined);
+  const shootLike = (hash: string | undefined, view: SceneView) =>
+    hash ? () => applyScene(scene.id, undefined, hash, view) : undefined;
 
   // The hash only when it is the scene's own picture: the place falls back to
   // an upload, and an upload is never handed to a shot.
@@ -142,9 +159,17 @@ export function SceneExamples({
       variant="sheet"
       label={o.label}
       isCover={o.view === coverView}
-      onUse={shootLike(o.hash)}
+      onUse={shootLike(o.hash, o.view)}
       onCover={() => void setCover(o.view)}
-      busy={covering}
+      onRedraw={
+        o.view !== 'place' && !running
+          ? () => {
+              setOpen(null);
+              void redraw(o.view as SceneExampleRole);
+            }
+          : undefined
+      }
+      busy={covering || drawing}
     />
   );
   // Saved before its picture was drawn: nothing to show yet.
@@ -162,7 +187,7 @@ export function SceneExamples({
           >
             <Shown src={thumbOf(place.src, 'tile')} />
           </button>
-          <SceneViewActions variant="tile" label={place.label} isCover onUse={shootLike(place.hash)} />
+          <SceneViewActions variant="tile" label={place.label} isCover onUse={shootLike(place.hash, 'place')} />
         </div>
         {offer}
         {open && (
@@ -205,22 +230,25 @@ export function SceneExamples({
   const heroFirst = tiles[0]?.role === 'hero';
   const placeTile = place ? (
     <li key="place">
-      <span className="sc-sceneview-frame">
-        <button type="button" className="sc-refset-tile" aria-label="The place, open" onClick={() => setOpen(place)}>
+      <span className="sc-sceneview-frame" data-cover={coverView === 'place' || undefined}>
+        <button
+          type="button"
+          className="sc-refset-tile"
+          aria-label={`The place${coverView === 'place' ? ', the cover' : ''}, open`}
+          onClick={() => setOpen(place)}
+        >
           <Shown src={thumbOf(place.src, 'small')} />
         </button>
         <SceneViewActions
           variant="tile"
           label={place.label}
           isCover={coverView === 'place'}
-          onUse={shootLike(place.hash)}
+          onUse={shootLike(place.hash, 'place')}
           onCover={() => void setCover('place')}
           busy={covering}
         />
       </span>
-      <span className="sc-refset-lb" aria-hidden>
-        The place
-      </span>
+      <SceneViewCaption label="The place" isCover={coverView === 'place'} />
     </li>
   ) : null;
 
@@ -255,11 +283,11 @@ export function SceneExamples({
                     <span>Did not draw</span>
                   </span>
                 ) : (
-                  <span className="sc-sceneview-frame">
+                  <span className="sc-sceneview-frame" data-cover={coverView === t.role || undefined}>
                     <button
                       type="button"
                       className="sc-refset-tile"
-                      aria-label={`${label}, open`}
+                      aria-label={`${label}${coverView === t.role ? ', the cover' : ''}, open`}
                       onClick={() =>
                         setOpen({
                           src: t.url as string,
@@ -276,15 +304,14 @@ export function SceneExamples({
                       variant="tile"
                       label={label}
                       isCover={coverView === t.role}
-                      onUse={shootLike(t.hash)}
+                      onUse={shootLike(t.hash, t.role)}
                       onCover={() => void setCover(t.role)}
-                      busy={covering}
+                      onRedraw={running ? undefined : () => void redraw(t.role)}
+                      busy={covering || drawing}
                     />
                   </span>
                 )}
-                <span className="sc-refset-lb" aria-hidden>
-                  {label}
-                </span>
+                <SceneViewCaption label={label} isCover={coverView === t.role} />
               </li>
               {heroFirst && i === 0 && placeTile}
             </Fragment>
@@ -311,7 +338,7 @@ export function SceneExamples({
                 {sheet(open)}
                 <button
                   type="button"
-                  className="sc-btn sc-btn-primary"
+                  className="sc-btn sc-btn-ghost"
                   disabled={asking}
                   onClick={() => void shootThisWay(way.id)}
                 >

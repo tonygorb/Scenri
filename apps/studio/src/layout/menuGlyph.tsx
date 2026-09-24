@@ -1,5 +1,6 @@
 import {
   Archive,
+  ArrowClockwise,
   ArrowCounterClockwise,
   ArrowRight,
   ArrowSquareOut,
@@ -7,6 +8,7 @@ import {
   Copy,
   FolderSimpleMinus,
   FrameCorners,
+  Image,
   Infinity as InfinityIcon,
   PencilSimple,
   PencilSimpleLine,
@@ -62,5 +64,9 @@ export function MenuGlyph({ name }: { name: MenuIcon }) {
       return <PencilSimpleLine {...props} />;
     case 'edit':
       return <PencilSimple {...props} />;
+    case 'cover':
+      return <Image {...props} />;
+    case 'redraw':
+      return <ArrowClockwise {...props} />;
   }
 }

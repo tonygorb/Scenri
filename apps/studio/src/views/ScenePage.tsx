@@ -25,7 +25,7 @@ import { bookmarkedFirst } from '../layout/library/libraryRules.js';
 import { useStillHere } from '../useStillHere.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { SceneExamples } from './SceneExamples.js';
-import { SceneViewActions } from '../layout/SceneViewActions.js';
+import { SceneViewActions, SceneViewCaption } from '../layout/SceneViewActions.js';
 import { EXAMPLE_LABEL } from '../sceneExampleRules.js';
 
 /** A scene's pictures in the order of what they are: the hero, the place, then the rest of the set. */
@@ -310,7 +310,7 @@ export function ScenePage() {
     setErr(null);
     try {
       const { hash } = await api.pickSceneView(scene.id, view);
-      applyScene(scene.id, undefined, hash);
+      applyScene(scene.id, undefined, hash, view);
     } catch (e: any) {
       setErr(String(e?.message ?? e));
     } finally {
@@ -460,11 +460,11 @@ export function ScenePage() {
           >
             {frames.map((f) => (
               <li key={f.src}>
-                <span className="sc-sceneview-frame">
+                <span className="sc-sceneview-frame" data-cover={f.view === catalogCover || undefined}>
                   <button
                     type="button"
                     className="sc-refset-tile"
-                    aria-label={`${f.label}, open`}
+                    aria-label={`${f.label}${f.view === catalogCover ? ', the cover' : ''}, open`}
                     onClick={() => setOpen(f)}
                   >
                     <Shown src={thumbOf(f.src, 'small')} />
@@ -480,9 +480,7 @@ export function ScenePage() {
                     />
                   )}
                 </span>
-                <span className="sc-refset-lb" aria-hidden>
-                  {f.label}
-                </span>
+                <SceneViewCaption label={f.label} isCover={f.view === catalogCover} />
               </li>
             ))}
           </Rail>

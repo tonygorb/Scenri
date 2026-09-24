@@ -682,29 +682,34 @@
   font-size: var(--sc-text-caption);
 }
 .sc-lightbox-cap {
-  margin: var(--sc-space-4) 0 0;
+  margin: var(--sc-space-6) 0 0;
   text-align: center;
 }
+/* The picture's own name is the heading, at a panel's title size; what it
+   belongs to sits quieter under it. */
 .sc-lightbox-cap b {
   display: block;
-  font-size: var(--sc-text-caption);
-  font-weight: 550;
-  line-height: 1.35;
+  font-size: var(--sc-text-title-s);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--sc-fg);
 }
 .sc-lightbox-cap span {
   display: block;
-  font-size: var(--sc-text-micro);
+  margin-top: var(--sc-space-1);
+  font-size: var(--sc-text-body);
   color: var(--sc-fg3);
-  line-height: 1.35;
+  line-height: 1.4;
 }
 /* What can be done with the picture, when anything can: centred under the
-   caption, wrapping to a second line on a phone rather than shrinking. */
+   caption, the main action first as on a record page's own header, wrapping
+   to a second line on a phone rather than shrinking. */
 .sc-lightbox-acts {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: var(--sc-space-2);
-  margin-top: var(--sc-space-4);
+  gap: var(--sc-space-4);
+  margin-top: var(--sc-space-6);
 }
 
 /* And the card hugs the plate, rather than every picture arriving in the same
