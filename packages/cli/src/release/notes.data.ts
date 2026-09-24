@@ -51,6 +51,16 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.17.1',
+    date: '2026-09-24',
+    sections: [
+      {
+        heading: 'Presenters',
+        body: "A presenter keeps their own face, hair, build, glasses and tattoos when a scene or a reference picture shows someone else, with every mark on its own side. A picture used for a pose no longer dresses them in that person's clothes, and their descriptions are no longer cut off mid-word.",
+      },
+    ],
+  },
+  {
     version: '0.17.0',
     date: '2026-09-24',
     sections: [

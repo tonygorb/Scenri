@@ -316,8 +316,21 @@ export function mendedTrait(text: string | undefined, cap: number): string | und
   if (!text) return text;
   const t = text.trim();
   if (t.length < cap - 1 || /[.!?]$/.test(t)) return t;
-  const cut = Math.max(t.lastIndexOf('. '), t.lastIndexOf(', '), t.lastIndexOf('; '));
-  return cut > t.length / 3 ? `${t.slice(0, cut).replace(/[\s,;:]+$/, '')}.` : t;
+  return wholeClauses(t);
+}
+
+/**
+ * Text cut at an arbitrary length, taken back to what still reads whole: the
+ * last full sentence when that keeps most of it, else the last clause. A
+ * clause cut inside the final sentence can leave a fragment ("The nose has a
+ * straight."), which is why a late full stop wins.
+ */
+export function wholeClauses(t: string): string {
+  const sentence = t.lastIndexOf('. ');
+  if (sentence >= t.length * 0.6) return t.slice(0, sentence + 1);
+  const clause = Math.max(t.lastIndexOf(', '), t.lastIndexOf('; '));
+  if (clause > t.length / 3) return `${t.slice(0, clause).replace(/[\s,;:]+$/, '')}.`;
+  return sentence > 0 ? t.slice(0, sentence + 1) : t;
 }
 
 export function markEditDirective(): string {
