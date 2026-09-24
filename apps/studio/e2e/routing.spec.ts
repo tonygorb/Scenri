@@ -719,32 +719,47 @@ test('the logo is the full lockup, goes home, and wears no box at rest or under 
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}$`));
 });
 
-// The popup cold-boots the whole app on its own, and the waits below allow 30s
-// for it. The default 20s test budget could never cover them, so this only ever
-// passed when the boot happened to be fast: it timed out at 20s in a loaded
-// suite and passed in 657ms alone. The test timeout has to exceed the waits it
-// contains.
-test('a modified click opens the shot in its own tab, leaving this one in place', { timeout: 90_000 }, async ({
-  page,
-}) => {
+// What the app owns here is that a modified click is left to the browser: the
+// tile is a real link to the shot, nothing claims the click, and this page
+// stays where it is. The tab the browser opens is not waited for. Headless
+// Chromium opens a ctrl-clicked link as a background tab and at times never
+// reports it to Playwright: in CI on 2026-09-24 the tab loaded the shot and
+// polled the API while context.waitForEvent('page') ran out, twice in a row.
+// (The { timeout } this test used to pass as its details object was never
+// read either; details take only tag and annotation.) So the browser's own
+// tab is cancelled once the app has had the click, and the address it would
+// have opened is loaded in a tab of our own.
+test('a modified click opens the shot in its own tab, leaving this one in place', async ({ page }) => {
   const brand = await currentBrand(page);
   const { nodeId } = await seedShot(page, brand.id);
+  const href = `/${brand.slug}/create/shots/${nodeId}`;
 
   await page.goto(`/${brand.slug}/create`);
   const tile = page.locator(`.sc-cell[data-fb-node="${nodeId}"] a.sc-cell-open`);
   await expect(tile).toBeVisible();
-  const [popup] = await Promise.all([
-    page.context().waitForEvent('page'),
-    tile.click({ modifiers: ['ControlOrMeta'] }),
-  ]);
-  // the new tab cold-loads the deep link on its own. A popup boot is a full
-  // app cold start, and under the suite's four parallel servers it can take
-  // well past the default expect window.
-  await popup.waitForURL(`**/${brand.slug}/create/shots/${nodeId}`, { timeout: 30_000 });
-  await expect(popup.locator('.sc-ovl')).toBeVisible({ timeout: 30_000 });
+  await expect(tile).toHaveAttribute('href', href);
+  // the last listener a click reaches, after the app's own at the root
+  await page.evaluate(() => {
+    window.addEventListener(
+      'click',
+      (e) => {
+        (window as any).__modifiedClick = { claimed: e.defaultPrevented, modified: e.ctrlKey || e.metaKey };
+        e.preventDefault();
+      },
+      { once: true },
+    );
+  });
+  await tile.click({ modifiers: ['ControlOrMeta'] });
+  expect(await page.evaluate(() => (window as any).__modifiedClick)).toEqual({ claimed: false, modified: true });
   // and the original page went nowhere
   expect(new URL(page.url()).pathname).toBe(`/${brand.slug}/create`);
-  await popup.close();
+  await expect(page.locator('.sc-ovl')).toHaveCount(0);
+
+  // the tab that click opens cold-loads the deep link on its own
+  const tab = await page.context().newPage();
+  await tab.goto(href);
+  await expect(tab.locator('.sc-ovl')).toBeVisible();
+  await tab.close();
 });
 
 test('inside a set, the back control returns to All shots', async ({ page }) => {
