@@ -2179,7 +2179,11 @@ test('the newest work is always the top-left tile', async ({ page }) => {
   });
 
   await page.goto(`/${slug}/create`);
-  await expect(page.locator('.sc-cell').first()).toBeVisible();
+  await expect(page.locator('.sc-cell[data-fb-node]').first()).toBeVisible();
+  // what the wall held before the send: anything else on it is this send's work
+  const before = await page.evaluate(() =>
+    [...document.querySelectorAll('.sc-cell[data-fb-node]')].map((c) => c.getAttribute('data-fb-node')),
+  );
 
   // One evaluate, one consistent layout: sampling each cell's box in its own
   // round trip let the demo run finish mid-walk, so the running attribute was
@@ -2197,18 +2201,18 @@ test('the newest work is always the top-left tile', async ({ page }) => {
   await dock(page).locator('.sc-send').click();
   // a default send is a two-shot batch now, so two running tiles are the norm
   await expect(page.locator('.sc-cell[data-running]').first()).toBeVisible();
-  // the demo engine can land between any two round trips, taking the running
-  // attribute with it — in that case the done-shot assertion below is the
-  // whole invariant, checked against the same top-left spot
-  const during = await page.evaluate(() => {
+  // While it lands, the top-left belongs to this send: its stand-in, a take
+  // still running, or a take that already landed. The two takes land one at a
+  // time and either can sort first, so a finished take can hold the spot while
+  // its sibling runs (every round with SCENRI_DEMO_STAGGER_MS; it failed CI on
+  // 2026-09-24 when this asked for a running tile). A shot from before the
+  // send is the one thing that must not be there.
+  const topLeft = await page.evaluate(() => {
     const boxes = [...document.querySelectorAll('.sc-cell')].map((c) => ({ c, b: c.getBoundingClientRect() }));
     boxes.sort((a, z) => a.b.y - z.b.y || a.b.x - z.b.x);
-    return {
-      running: document.querySelectorAll('.sc-cell[data-running]').length,
-      topLeftIsRunning: !!boxes[0]?.c.matches('[data-running]'),
-    };
+    return boxes[0]?.c.getAttribute('data-fb-node') ?? null;
   });
-  if (during.running > 0) expect(during.topLeftIsRunning).toBe(true);
+  expect(before).not.toContain(topLeft);
 
   // and when it lands, the finished shot holds that same top-left spot
   await expect(page.locator('.sc-cell[data-running]')).toHaveCount(0, { timeout: 30_000 });

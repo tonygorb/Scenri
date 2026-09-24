@@ -60,11 +60,20 @@ test.describe('the library pages, cold', () => {
     await expect(tab).toContainText('0');
 
     // Empty bookmarks in the cold state keeps the catalog up — nothing to hide.
+    // Each tab is waited on until it is the selected one: the address moves
+    // before the tabs render it, and a click on All scenes in that moment lands
+    // on the tab already selected and does nothing. The page then settles on
+    // Keepers, which looks the same while it is empty, until the bookmark
+    // below turns it into a one-card wall 37px higher (CI, 2026-09-24).
     await tab.click();
     await expect(page).toHaveURL(/[?&]bookmarked=1/);
+    await expect(tab).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('.sc-lib-zero')).toHaveCount(0);
     await expect(page.locator('.sc-coll').first()).toBeVisible();
-    await page.getByRole('tab', { name: /All scenes/ }).click();
+    const all = page.getByRole('tab', { name: /All scenes/ });
+    await all.click();
+    await expect(all).toHaveAttribute('aria-selected', 'true');
+    await expect(page).not.toHaveURL(/[?&]bookmarked=1/);
 
     // The claim. A bookmark may change the count and nothing else. The card is
     // brought on screen first, so the scroll that reaching it takes is not
