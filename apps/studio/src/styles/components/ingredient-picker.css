@@ -335,6 +335,13 @@
   background: var(--sc-well);
   box-shadow: inset 0 0 0 1px var(--sc-line);
 }
+/* An inset box-shadow paints beneath an image's own pixels, so on a picture the
+   hairline is an inset outline: the frame the attach tiles draw, over the photo. */
+img.sc-swap-thumb {
+  outline: 1px solid var(--sc-line);
+  outline-offset: -1px;
+  transition: filter var(--sc-dur-fast) var(--sc-ease);
+}
 .sc-swap-thumb-empty {
   display: grid;
   place-items: center;
@@ -408,9 +415,12 @@
   flex: none;
   margin-bottom: 0;
 }
+/* The attach tile's hover: the frame firms and the picture brightens one step. */
 .sc-swap-card:hover .sc-swap-thumb,
 .sc-swap-cur:hover .sc-swap-thumb {
-  box-shadow: inset 0 0 0 1px var(--sc-line-strong);
+  box-shadow: inset 0 0 0 1px var(--sc-line-hover);
+  outline-color: var(--sc-line-hover);
+  filter: brightness(1.06);
 }
 :where(:root:not([data-input="pointer"])) .sc-swap-card:focus-visible {
   outline: none;
