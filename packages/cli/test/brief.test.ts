@@ -1738,6 +1738,43 @@ describe('compileBrief: a world built around a figure', () => {
         expect(r.prompt).toContain('Match the composition, lighting and treatment of the attached reference');
       }
     });
+
+    it('never sends its hero, and a cover changes nothing a shot is given', () => {
+      const hero = core.images.save(Buffer.from('scene-hero'));
+      const tokens = [
+        { t: 'product' as const, id: 'p1' },
+        { t: 'template' as const, id: base.id },
+      ];
+      const plain = compileBrief({ tokens }, refd(place));
+      for (const cover of ['hero', 'close', 'place']) {
+        const covered = compileBrief(
+          { tokens },
+          refd({ ...place, cover, examples: [{ role: 'hero', file: `asset:${hero}`, from: 'asset:x' }] }),
+        );
+        expect(covered.prompt).toBe(plain.prompt);
+        expect(covered.attachments.map((a) => [a.role, a.hash])).toEqual(
+          plain.attachments.map((a) => [a.role, a.hash]),
+        );
+        expect(covered.attachments.map((a) => a.hash)).not.toContain(hero);
+      }
+    });
+
+    it('a frame picked to follow sets the camera for a product alone, and the product keeps its own size in it', () => {
+      const view = core.images.save(Buffer.from('picked-view'));
+      const tokens = (withRef: boolean) => [
+        { t: 'product' as const, id: 'p1' },
+        { t: 'template' as const, id: base.id },
+        ...(withRef ? [{ t: 'ref' as const, imageHash: view }] : []),
+      ];
+      const alone = compileBrief({ tokens: tokens(false) }, refd(place));
+      expect(alone.prompt).toContain("This shot is framed at the product's own scale");
+      const picked = compileBrief({ tokens: tokens(true) }, refd(place));
+      expect(picked.attachments.some((a) => a.role === 'reference' && a.hash === view)).toBe(true);
+      expect(picked.prompt).toContain("The attached reference sets this shot's camera");
+      expect(picked.prompt).toContain('never enlarged to fill it');
+      expect(picked.prompt).not.toContain("This shot is framed at the product's own scale");
+      expect(picked.prompt).not.toContain('the camera comes low and close');
+    });
   });
 
   // A reference's own product never becomes the shot's: the doctrine said it,

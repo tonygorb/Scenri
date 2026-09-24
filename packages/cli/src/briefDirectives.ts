@@ -487,6 +487,23 @@ export function editScreenDirective(): string {
  * focus follow distance, so this says that, for any size: the model knows how
  * big a ring or a chair is.
  */
+/**
+ * A product alone in a frame someone picked to follow (a scene's view, a
+ * reference with nothing said about it): the frame sets the camera, and the
+ * product keeps its own size in it. The product-scale framing moved the camera
+ * in to the product and threw the picked frame away (2026-09-24: three picked
+ * scene views came back as the same close-up the words alone drew); the size
+ * rule stays, so a small product in a wide frame reads small, never grown to
+ * fill it.
+ */
+export function productInFrameDirective(): string {
+  return (
+    "The attached reference sets this shot's camera: its distance, height, angle and crop. The product keeps its own " +
+    'real size in that frame, taking the place of whatever the reference features there, never enlarged to fill it; ' +
+    'light and focus make it read.'
+  );
+}
+
 export function productFramingDirective(): string {
   return (
     "This shot is framed at the product's own scale, not the room's: the camera comes as close as the product's " +

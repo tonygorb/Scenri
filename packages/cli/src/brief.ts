@@ -38,6 +38,7 @@ import {
   productFidelityDirective,
   productHandlingDirective,
   productFramingDirective,
+  productInFrameDirective,
   productScaleDirective,
   editScreenDirective,
   productSurfaceDirective,
@@ -408,6 +409,8 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     refWords.set(t, refTokens.length > 1 ? `attached image ${refTokens.indexOf(t) + 1}` : 'the attached image');
   });
   let refSaid = false;
+  /** References the shot is told to match in composition: a picked frame the camera follows. */
+  const frameRefs = new Set<string>();
 
   // A reference that is byte-identical to a mark that will attach would ship
   // the same artwork twice under two contradictory contracts: reproduce it
@@ -656,7 +659,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         if (said) {
           append(said);
           refSaid = true;
-        }
+        } else frameRefs.add(tok.imageHash);
         otherDirectives.push({
           need: 'attachment',
           role: 'reference',
@@ -891,7 +894,6 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const productOnly = !!productId && !hasPerson && !!scene && scene.subject !== 'product';
   const placeTendency = productOnly && !setupCamera.trim();
   const cameraDirectives = [
-    ...(productOnly ? [productFramingDirective()] : []),
     ...(sceneCamera && !shotSpecifiesCamera(userWords) && !placeTendency
       ? [`Camera for this shot: ${sceneCamera.replace(/[.\s]+$/, '')}.`]
       : []),
@@ -1123,6 +1125,8 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // generation: an edit's identity rides the source frame.
   const refGuard =
     ctx.mode !== 'edit' && hasPerson && kept.some((a) => a.role === 'reference') ? [referenceIdentityGuard()] : [];
+  // A frame picked to follow, as it rode: it sets the camera (productInFrameDirective).
+  const framed = ctx.mode !== 'edit' && kept.some((a) => a.role === 'reference' && frameRefs.has(a.hash));
   // The same for a product: a reference's own product never becomes this one.
   const refProductGuard =
     ctx.mode !== 'edit' && productId && kept.some((a) => a.role === 'reference') ? [referenceProductGuard()] : [];
@@ -1139,10 +1143,12 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...closeUpDirectives,
     ...otherDirectives,
     ...absentDirectives,
+    // A picked frame that rode sets the camera; otherwise the product's scale does.
+    ...(productOnly ? [framed ? productInFrameDirective() : productFramingDirective()] : []),
     ...cameraDirectives,
     // After the camera line: a scene read from a wide picture names a wide
     // camera, and said first this lost to it (a phone stood frontal, 2 of 2).
-    ...(productId && ctx.mode !== 'edit' ? [productSurfaceDirective(!hasPerson, refSaid)] : []),
+    ...(productId && ctx.mode !== 'edit' ? [productSurfaceDirective(!hasPerson && !framed, refSaid)] : []),
     ...(ctx.mode === 'edit' && refSaid ? [editScreenDirective()] : []),
     ...apparelUnworn,
     ...brandLines,
