@@ -72,15 +72,27 @@ export const ownedSceneCard = (page: Page, name: string) =>
  */
 export const CARD_SPOT = { x: 12, y: 56 };
 
+/*
+ * PAGE_IN. The router moves the address first and swaps the page in on a
+ * transition after it, so for a moment the new URL sits over the old wall,
+ * whose every card has its own "Delete scene", "Delete product" and "Use in a
+ * shot" button. A page-wide getByRole in that moment matches all of them and
+ * fails strict mode (49 "Use in a shot" buttons, seen in CI 2026-09-24). The
+ * open helpers wait for the page's own <main>, which exists only once the
+ * wall is gone.
+ */
+
 /**
  * Open an owned scene's page from its card, inside the app.
  *
  * Found by the name the card shows (its link is labelled with the scene's
- * description), and clicked at CARD_SPOT.
+ * description), and clicked at CARD_SPOT. Returns once the page itself is in:
+ * see PAGE_IN.
  */
 export async function openOwnedScene(page: Page, name: string): Promise<void> {
   await ownedSceneCard(page, name).locator('a.sc-lookcard-open').click({ position: CARD_SPOT });
   await page.waitForURL(/\/scenes\/us-/);
+  await expect(page.locator('main.sc-scenepage')).toBeVisible();
 }
 
 /** The bar's own navigation: page breadcrumbs carry links with the same names. */
@@ -207,10 +219,11 @@ export const productCard = (page: Page, name: string) =>
     has: page.locator('.sc-lookcard-cap', { hasText: new RegExp(`^${name}$`) }),
   });
 
-/** Open a product's page from its card, inside the app. */
+/** Open a product's page from its card, inside the app. Returns once the page itself is in: see PAGE_IN. */
 export async function openProduct(page: Page, name: string): Promise<void> {
   await productCard(page, name).locator('a.sc-lookcard-open').click({ position: CARD_SPOT });
   await page.waitForURL(/\/products\/[^/]+$/);
+  await expect(page.locator('main.sc-productpage')).toBeVisible();
 }
 
 /** Ask the brief's product menu for `query`, typed the way a brief is written. */
