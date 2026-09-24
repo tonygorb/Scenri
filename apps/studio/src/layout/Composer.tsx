@@ -11,6 +11,7 @@ import {
   type EngineInfo,
   type FeedNode,
 } from '../api.js';
+import { withHeadPresenters } from '../brandAssets.js';
 import { effectiveCategory } from '../productCategories.js';
 import {
   briefTokens,
@@ -438,7 +439,10 @@ export const Composer = forwardRef<
     if (!hasExplicitSeed && firstRunForBrand) {
       const draft = loadDraft(brand.id);
       if (draft && isNonTrivial(draft.tokens, draft.tplFields)) {
-        tokens = draft.tokens;
+        // A person edited since the brief was parked comes back as they are
+        // now, the rule a Remix follows: the record an edit replaced keeps
+        // its pictures for the shots made with it, never for a new one.
+        tokens = withHeadPresenters(brand, draft.tokens);
         tplFieldsToApply = draft.tplFields;
       }
     }
@@ -1201,7 +1205,10 @@ export const Composer = forwardRef<
         kind: mode,
         engineId,
         count,
-        brief,
+        // every person in the sentence as they are now, whichever way their
+        // chip arrived: a refine's own chips included, while the person the
+        // refined shot was made with stays that shot's, on the server
+        brief: { ...brief, tokens: withHeadPresenters(brand, brief.tokens) },
         // refine works from the picture you are looking at, not from whichever
         // one the run happens to have first
         ...(mode === 'edit' && sourceImage ? { sourceImage } : {}),
