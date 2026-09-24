@@ -215,7 +215,6 @@ export const api = {
   /** One of a catalog scene's views, copied into the image store so a shot can be handed it (Use this view). */
   pickSceneView: (sceneId: string, view: SceneView) =>
     req<{ hash: string }>('POST', `/api/scenes/${sceneId}/views/${view}/pick`),
-  /** Show this view as a catalog scene's cover for this brand. The brand comes back, as every brand edit does. */
   deleteData: (scope: 'shots' | 'all') => req<{ ok: true; scope: string }>('DELETE', `/api/data?scope=${scope}`),
   /** One product with all of its pictures; the library list carries only the first. */
   libraryProduct: (brandId: string, productId: string) =>

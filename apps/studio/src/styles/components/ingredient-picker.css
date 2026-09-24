@@ -98,6 +98,54 @@
   color: var(--sc-fg);
   text-align: start;
 }
+/* The current scene's own pictures sit on its row, above the line that
+   separates what is on from what else there is: squares the row's own
+   picture's size and shape, the one followed ringed. */
+.sc-swap-cur:has(+ .sc-swap-views) {
+  border-bottom: none;
+  padding-bottom: var(--sc-space-4);
+}
+.sc-swap-views {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sc-space-4);
+  min-inline-size: 0;
+  margin: 0 var(--swap-inset);
+  padding: 4px 4px var(--swap-inset);
+  border: 0;
+  border-bottom: 1px solid var(--sc-line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sc-swap-view {
+  flex: none;
+  width: var(--swap-face);
+  height: var(--swap-face);
+  padding: 0;
+  border: 0;
+  border-radius: var(--sc-radius);
+  overflow: hidden;
+  background: var(--sc-well);
+  box-shadow: inset 0 0 0 1px var(--sc-line);
+  cursor: pointer;
+}
+.sc-swap-view img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.sc-swap-view:hover:not(:disabled) img {
+  opacity: 0.85;
+}
+.sc-swap-view[aria-pressed="true"] {
+  outline: 2px solid var(--sc-sel-line);
+  outline-offset: 2px;
+}
+.sc-swap-view:disabled {
+  cursor: progress;
+}
 /* The one thing on the row that is a control, and it says so: a real target,
    its own hover, and the only pointer cursor here. Revealed on hover on a
    mouse, always there on a touch screen, which is the grammar the catalog

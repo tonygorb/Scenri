@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { productLabel, sceneLabel } from '../displayName.js';
 import {
+  api,
   imgUrl,
   type Brand,
   type Scene,
@@ -39,6 +40,7 @@ import {
 } from './ingredientOptions.js';
 import { useIngredientCatalog } from './useIngredientCatalog.js';
 import { applySceneTint } from './sceneTint.js';
+import { type SceneViewOption, useSceneViews } from './useSceneViews.js';
 import { keyboardFocus } from '../inputModality.js';
 import { CEILING_SENTENCE, IDENTITY_CAP, IDENTITY_KINDS } from './attachRoom.js';
 import {
@@ -1414,6 +1416,40 @@ export const BriefInput = forwardRef<
    */
   const anchorToken = picker ? decode(picker.anchor.dataset.tok ?? '') : null;
   const previewHash = previewHashOf(anchorToken);
+
+  // A scene chip's own pictures, to follow one of them from its picker.
+  const anchorScene =
+    picker?.kind === 'scene' && anchorToken?.t === 'template'
+      ? (templates.find((x) => x.id === anchorToken.id) ?? null)
+      : null;
+  const sceneViews = useSceneViews(anchorScene);
+  const pickedView =
+    anchorToken?.t === 'template' && anchorToken.view
+      ? ((
+          sceneViews.find((o) => o.hash === anchorToken.view) ?? sceneViews.find((o) => o.name === anchorToken.viewName)
+        )?.view ?? null)
+      : null;
+  /** The chip keeps its scene and takes the picture (a catalog frame is copied into the store first), or lets it go. */
+  const followView = async (o: SceneViewOption | null) => {
+    if (!picker || anchorToken?.t !== 'template') return;
+    const { uid } = picker;
+    const { id, setup } = anchorToken;
+    let hash = o?.hash ?? null;
+    if (o && !hash) {
+      try {
+        hash = (await api.pickSceneView(id, o.view)).hash;
+      } catch {
+        return;
+      }
+    }
+    replaceChip(uid, {
+      t: 'template',
+      id,
+      ...(setup ? { setup } : {}),
+      ...(o && hash ? { view: hash, viewName: o.name } : {}),
+    });
+    closePicker('pick');
+  };
   const anchorWarning = anchorToken ? (flag?.(anchorToken) ?? null) : null;
   const anchorNote = anchorToken && described?.(anchorToken) ? (describedNote ?? null) : null;
 
@@ -1633,6 +1669,7 @@ export const BriefInput = forwardRef<
           onRemove={removeFromPicker}
           onMove={(dir) => moveFromSheet(picker.uid, dir)}
           onClose={closePicker}
+          views={picker.kind === 'scene' ? { options: sceneViews, picked: pickedView, onPick: followView } : undefined}
         />
       ) : null}
     </div>

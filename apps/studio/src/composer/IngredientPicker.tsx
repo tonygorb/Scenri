@@ -18,6 +18,9 @@ import { useSheetDrag } from '../useSheetDrag.js';
 const COARSE = '(pointer: coarse)';
 import { bookmarkedScenes } from '../bookmarks.js';
 import { presenterPath, productPath, scenePath } from '../routes.js';
+import { thumbOf, type SceneView } from '../api.js';
+import { Tip } from '../layout/Tip.js';
+import type { SceneViewOption } from './useSceneViews.js';
 import { panelStyle, placePanel, type Placed } from './anchorPanel.js';
 import { NOUN, PAGE, pickList, type Candidate, type IngredientKind } from './ingredientOptions.js';
 
@@ -81,6 +84,16 @@ export interface PickerProps {
   onAttachRequest?: (tab: 'Products' | 'Presenters') => void;
   /** Step the chip through the sentence; the sheet's touch reorder path. */
   onMove?: (dir: -1 | 1) => void;
+  /**
+   * A scene chip only: the current scene's own pictures, to follow one of them
+   * (the shot takes its camera and light), or Any view for none. Picking one
+   * closes the picker as picking a scene does.
+   */
+  views?: {
+    options: SceneViewOption[];
+    picked: SceneView | null;
+    onPick: (o: SceneViewOption | null) => Promise<void>;
+  };
 }
 
 /** The label on the button that empties the slot. */
@@ -116,9 +129,20 @@ function PickerBody({
   onClose,
   onAttachRequest,
   onMove,
+  views,
   autoFocusSearch,
 }: PickerProps & { autoFocusSearch: boolean }) {
   const [query, setQuery] = useState('');
+  const [following, setFollowing] = useState(false);
+  const follow = async (o: SceneViewOption | null) => {
+    if (!views || following) return;
+    setFollowing(true);
+    try {
+      await views.onPick(o);
+    } finally {
+      setFollowing(false);
+    }
+  };
   const [shown, setShown] = useState(PAGE);
   const searchRef = useRef<HTMLInputElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -291,6 +315,32 @@ function PickerBody({
             <Check size={11} weight="bold" />
           </span>
         </div>
+      )}
+      {/* The current scene's own pictures, on its row and nowhere else: the
+          grid below stays one picture per scene, for switching. Nothing
+          ringed is the scene as a whole; a ringed square is the picture the
+          shot follows, and pressing it again lets it go. */}
+      {list.current && views && views.options.length > 1 && (
+        <fieldset className="sc-swap-views" aria-label="Picture to follow" aria-busy={following || undefined}>
+          {views.options.map((o) => {
+            const on = views.picked === o.view;
+            const say = on ? `Following: ${o.name}. Press to let go.` : `Follow: ${o.name}`;
+            return (
+              <Tip key={o.view} label={say}>
+                <button
+                  type="button"
+                  className="sc-swap-view"
+                  aria-pressed={on}
+                  aria-label={say}
+                  disabled={following}
+                  onClick={() => void follow(on ? null : o)}
+                >
+                  <img src={thumbOf(o.thumb, 'micro')} alt="" loading="lazy" />
+                </button>
+              </Tip>
+            );
+          })}
+        </fieldset>
       )}
 
       <div className="sc-swap-body">
