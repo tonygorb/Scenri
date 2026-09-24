@@ -300,19 +300,23 @@ export function ScenePage() {
    * the middle picture.
    */
   const shownWith = owned?.examples?.find((e) => !e.earlier)?.with ?? owned?.examples?.[0]?.with;
+  // What a shot is given, as brief.ts decides it: an anchor goes with every new
+  // shot (one with a person in it, only beside a presenter); an older picture
+  // only when its figure wears a treatment. Any picture can be picked to shoot
+  // like, from its lightbox.
+  const rides = !!owned && (owned.anchor === true || !!(owned.figure && owned.figureTreatment));
+  const pick = owned?.previewHash || owned?.examples?.length ? ' Open a picture to shoot like it.' : '';
   const about = !owned
     ? ''
-    : owned.figure
-      ? 'The person in it is a stand-in: with a presenter attached, the picture goes with the shot and they take the role.'
-      : shownWith
-        ? `Shown in use with a Scenri demo ${shownWith}. Shots are told the words, never handed these pictures.`
-        : owned.previewUrl
-          ? // Measured 2026-09-22: a shot handed this picture reproduces its
-            // framing (5 of 9 near copies), while a shot told the words is
-            // still clearly this place. So the words travel and the picture
-            // is the proof of them.
-            'Shots are told the words, never handed this picture.'
-          : '';
+    : owned.figure && rides
+      ? `The person in it is a stand-in: with a presenter attached, the picture goes with the shot and they take the role.${pick}`
+      : rides
+        ? `${shownWith ? `Shown in use with a Scenri demo ${shownWith}. ` : ''}Shots are given its picture as their world and find their own frame in it.${pick}`
+        : shownWith
+          ? `Shown in use with a Scenri demo ${shownWith}. Shots are told the words.${pick}`
+          : owned.previewUrl
+            ? `Shots are told the words.${pick}`
+            : '';
   const tail = owned ? sceneTailLine({ refs: sources, setups: owned.setups }, about) : '';
 
   return (

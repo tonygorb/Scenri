@@ -119,6 +119,12 @@ export const Composer = forwardRef<
     /** A product picked from its own page, seeded the same way as a scene. */
     startProduct?: string;
     /**
+     * One picture of a scene (its own picture, or one of its examples) picked on
+     * its page to shoot like: a picture chip after the scene's, which the shot
+     * follows for composition, light and treatment (brief.ts, the ref chip).
+     */
+    startRef?: string;
+    /**
      * One of the three seeds above has landed in the sentence, so whoever put
      * it in the URL should take it back out. A seed left in the address bar is
      * re-applied by the next mount, which is how removing a scene chip and
@@ -206,6 +212,7 @@ export const Composer = forwardRef<
     startSetup,
     startPresenter,
     startProduct,
+    startRef,
     onSeedsSpent,
     openAttachTab,
     onQueued,
@@ -345,6 +352,7 @@ export const Composer = forwardRef<
    * rather than swap, since a brief can carry more than one of either. */
   const lastAppliedStartPresenter = useRef<string | undefined>(undefined);
   const lastAppliedStartProduct = useRef<string | undefined>(undefined);
+  const lastAppliedStartRef = useRef<string | undefined>(undefined);
 
   const flushDraft = useCallback(
     (brandId: string) => {
@@ -501,6 +509,13 @@ export const Composer = forwardRef<
       const already = base.some((t) => t.t === 'product' && t.id === startProduct);
       if (!already) tokens = [...base, { t: 'product', id: startProduct }];
     }
+    if (startRef && /^[a-f0-9]{32}$/.test(startRef) && startRef !== lastAppliedStartRef.current) {
+      lastAppliedStartRef.current = startRef;
+      seedApplied = true;
+      const base = tokens ?? emptySentence();
+      const already = base.some((t) => t.t === 'ref' && t.imageHash === startRef);
+      if (!already) tokens = [...base, { t: 'ref', imageHash: startRef, label: 'Scene picture' }];
+    }
 
     if (tokens) {
       setSeedTokens(tokens);
@@ -510,7 +525,7 @@ export const Composer = forwardRef<
     draftBrandIdRef.current = brand.id;
     // deliberately keyed on brand.id + the three seed props: this must run
     // once per brand, and again whenever any of them takes on a new value
-  }, [brand.id, startScene, startPresenter, startProduct]);
+  }, [brand.id, startScene, startPresenter, startProduct, startRef]);
 
   useEffect(() => {
     if (!seedTokens) return;

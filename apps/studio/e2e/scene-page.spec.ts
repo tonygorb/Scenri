@@ -98,7 +98,10 @@ test('says what the place is and what a shot made here is told', async ({ page }
   await expect(page.locator('.sc-lookpage-crumb')).toHaveCount(0);
   await expect(page.locator('.sc-lookpage-facts')).toHaveCount(0);
   // what its picture is, in the footnote, never as a caption under it
-  await expect(page.locator('.sc-prec-note')).toContainText('Shots are told the words, never handed this picture.');
+  // a picture drawn before anchors: the shot is told the words, and any picture can be picked
+  await expect(page.locator('.sc-prec-note')).toContainText(
+    'Shots are told the words. Open a picture to shoot like it.',
+  );
   // one verb, and the way to change it
   await expect(page.locator('.sc-lookpage-acts .sc-btn-primary')).toHaveText('Use in a shot');
   await expect(page.getByRole('link', { name: 'Edit scene' })).toBeVisible();
@@ -180,6 +183,35 @@ test('a way that was wrong can be taken away, which only Details can do', async 
   await expect(page.getByRole('button', { name: 'Use it a way' })).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('button', { name: 'Use it a way' })).toHaveCount(0);
+});
+
+// The anchor: a scene's picture drawn beside its references and made nobody's
+// is given to every new shot as its world, and any picture of the place can
+// be picked to shoot like.
+test('an anchor goes with the shot as its world, and a picture picked is the frame it follows', async ({ page }) => {
+  const b = await brand(page);
+  const s = await scene(page, b.id, 'Basalt Anchor', { anchor: true });
+  await page.goto(`/${b.slug}/scenes/${s.id}`);
+  await expect(page.locator('.sc-prec-note')).toContainText(
+    'Shots are given its picture as their world and find their own frame in it. Open a picture to shoot like it.',
+  );
+  const record = (await (await page.request.get('/api/brands')).json())[0].json.scenes.find((x: any) => x.id === s.id);
+  expect(record.anchor).toBe(true);
+  const preview = String(record.preview).slice('asset:'.length);
+
+  await page.locator('.sc-scenepage-place > button').click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Use this picture' }).click();
+
+  // one scene chip and one picture chip, the picture being the scene's own
+  await page.waitForURL(/\/create/);
+  await expect(page.locator('.sc-token[data-kind=template]')).toHaveAttribute('data-tok', `t:${s.id}`);
+  const picked = page.locator('.sc-token[data-kind=ref]');
+  await expect(picked).toHaveCount(1);
+  await expect(picked).toHaveAttribute('data-tok', new RegExp(preview));
+  // spent, so Back or a reload never adds it twice
+  await expect(page).not.toHaveURL(/ref=/);
+  await page.reload();
+  await expect(page.locator('.sc-token[data-kind=ref]')).toHaveCount(1);
 });
 
 test('deleting it is gone from the library in the same commit, with no reload', async ({ page }) => {

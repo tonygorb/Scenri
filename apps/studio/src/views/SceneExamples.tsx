@@ -46,7 +46,7 @@ export function SceneExamples({
   const { job, first, again } = useSceneExamples(brandId, scene.id, scene.previewUrl ?? null);
   const [asking, setAsking] = useState(false);
   const [drawing, setDrawing] = useState(false);
-  const [open, setOpen] = useState<{ src: string; label: string; tile?: ExampleTile } | null>(null);
+  const [open, setOpen] = useState<{ src: string; label: string; tile?: ExampleTile; hash?: string } | null>(null);
 
   const tiles = exampleTiles(scene.examples, job);
   const running = job?.status === 'running';
@@ -103,7 +103,21 @@ export function SceneExamples({
     }
   };
 
-  const place = scene.previewUrl ? { src: scene.previewUrl, label: 'The place' } : null;
+  // The hash only when it is the scene's own picture: previewUrl falls back to
+  // an upload, and an upload is never handed to a shot.
+  const place = scene.previewUrl
+    ? { src: scene.previewUrl, label: 'The place', ...(scene.previewHash ? { hash: scene.previewHash } : {}) }
+    : null;
+  /**
+   * One picture of this place picked for a shot, to shoot like it: its frame,
+   * light and treatment. The whole scene is a world a shot is new in; a picked
+   * picture is the frame it follows.
+   */
+  const usePicture = open?.hash ? (
+    <button type="button" className="sc-btn sc-btn-ghost" onClick={() => applyScene(scene.id, undefined, open.hash)}>
+      Use this picture
+    </button>
+  ) : null;
   // Saved before its picture was drawn: nothing to show yet.
   if (!tiles.length && !place) return <EmptyRefFrame />;
   // An older scene, or one nothing in the library suits: the place, alone and large.
@@ -123,6 +137,7 @@ export function SceneExamples({
             label={open.label}
             noun={scene.name}
             onClose={() => setOpen(null)}
+            actions={usePicture ?? undefined}
           />
         )}
       </>
@@ -194,7 +209,7 @@ export function SceneExamples({
                   type="button"
                   className="sc-refset-tile"
                   aria-label={`${label}, open`}
-                  onClick={() => setOpen({ src: t.url as string, label, tile: t })}
+                  onClick={() => setOpen({ src: t.url as string, label, tile: t, ...(t.hash ? { hash: t.hash } : {}) })}
                 >
                   <Shown src={thumbOf(t.url as string, 'small')} />
                 </button>
@@ -222,15 +237,20 @@ export function SceneExamples({
           onClose={() => setOpen(null)}
           actions={
             way && canShoot ? (
-              <button
-                type="button"
-                className="sc-btn sc-btn-primary"
-                disabled={asking}
-                onClick={() => void shootThisWay(way.id)}
-              >
-                Shoot it this way
-              </button>
-            ) : undefined
+              <>
+                {usePicture}
+                <button
+                  type="button"
+                  className="sc-btn sc-btn-primary"
+                  disabled={asking}
+                  onClick={() => void shootThisWay(way.id)}
+                >
+                  Shoot it this way
+                </button>
+              </>
+            ) : (
+              (usePicture ?? undefined)
+            )
           }
         />
       )}
