@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.17.1](https://github.com/tonygorb/Scenri/compare/v0.17.0...v0.17.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* keep the presenter's own body, marks and accessories in every shot ([51ecbf0](https://github.com/tonygorb/Scenri/commit/51ecbf0744e81939e10e04559ffabeff583547e9))
+* keep the presenter's own body, marks and accessories in every shot ([6b6af6a](https://github.com/tonygorb/Scenri/commit/6b6af6a72338871de74d0b24bbf2c0af3dc0cc15))
+* mend a cut trait to its last full sentence, not a fragment ([3c31a67](https://github.com/tonygorb/Scenri/commit/3c31a6725c20818683772131ccfae2fd41168634))
+
 ## [0.17.0](https://github.com/tonygorb/Scenri/compare/v0.16.0...v0.17.0) (2026-09-24)
 
 
