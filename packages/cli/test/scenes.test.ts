@@ -22,9 +22,9 @@ const base = {
 };
 
 describe('scene loader + composer', () => {
-  it('loads the 92 shipped scenes, all valid, none naming a product', () => {
+  it('loads the 40 shipped scenes, all valid, none naming a product', () => {
     const { scenes, warnings } = loadScenes(defaultScenesDir());
-    expect(scenes).toHaveLength(92);
+    expect(scenes).toHaveLength(40);
     expect(warnings).toEqual([]);
     for (const s of scenes) {
       expect(s.prompt).not.toContain('{product_name}');
@@ -326,13 +326,13 @@ describe('product uploads + scene generation via API', () => {
   it('GET /api/scenes carries the facets; the deprecated alias still returns a bare list', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/scenes' });
     const body = res.json();
-    expect(body.scenes).toHaveLength(92);
+    expect(body.scenes).toHaveLength(40);
     expect(body.collections).toContain('Interiors');
     expect(body.verticals).toContain('Beauty');
 
     const legacy = (await app.inject({ method: 'GET', url: '/api/templates' })).json();
     expect(Array.isArray(legacy)).toBe(true);
-    expect(legacy).toHaveLength(92);
+    expect(legacy).toHaveLength(40);
   });
 
   it('a scene id resolves through the generate route', async () => {
@@ -350,7 +350,7 @@ describe('product uploads + scene generation via API', () => {
         projectId: proj.project.id,
         kind: 'generation',
         engineId: 'spy',
-        templateId: 'studio-polished-pedestal',
+        templateId: 'white-glove-tray',
         productId,
         prompt: 'keep it airy',
       },
@@ -363,7 +363,7 @@ describe('product uploads + scene generation via API', () => {
     expect(res.statusCode).toBe(202);
     await new Promise((r) => setTimeout(r, 50));
     expect(lastGen!.prompt).toContain('House Blend');
-    expect(lastGen!.prompt).toContain('monumental quarry scale dwarfing the subject');
+    expect(lastGen!.prompt).toContain('moss-green velvet');
     expect(lastGen!.prompt).toContain('keep it airy');
     expect(lastGen!.prompt).toMatch(/preserve its label, shape[^.]*colors/i);
     expect(lastGen!.width).toBe(1024);
@@ -383,7 +383,7 @@ describe('product uploads + scene generation via API', () => {
         projectId: proj.project.id,
         kind: 'generation',
         engineId: 'spy',
-        templateId: 'studio-polished-pedestal',
+        templateId: 'white-glove-tray',
       },
     });
     // Scene-only is a legitimate state: the user may want the environment on
@@ -404,9 +404,9 @@ describe('product uploads + scene generation via API', () => {
   });
 
   it("lists a scene's reference frames, and answers empty rather than 404 when there is no set", async () => {
-    const withSet = (await app.inject({ method: 'GET', url: '/api/scene-previews/morning-tabletop' })).json();
+    const withSet = (await app.inject({ method: 'GET', url: '/api/scene-previews/waterline-caustics' })).json();
     expect(withSet.frames.length).toBeGreaterThan(0);
-    expect(withSet.frames[0]).toMatch(/^\/api\/scene-previews\/morning-tabletop\/ref-\d\d\.jpg\?v=\d+$/);
+    expect(withSet.frames[0]).toMatch(/^\/api\/scene-previews\/waterline-caustics\/ref-\d\d\.jpg\?v=\d+$/);
 
     const without = await app.inject({ method: 'GET', url: '/api/scene-previews/no-such-scene' });
     expect(without.statusCode).toBe(200);
