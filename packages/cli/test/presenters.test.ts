@@ -256,9 +256,9 @@ describe('presenter catalog + direct-attach API', () => {
     // nothing. Four outputs of one brief came back with four different jaws.
     expect(body.prompt).toContain("Sana's face, which must survive every generation unchanged: f.");
     expect(body.prompt).toContain("Sana's build: b.");
-    // `hair` still does not ride: a direction legitimately restyles it, and
-    // identityNotes already asserts whatever must survive.
-    expect(body.prompt).not.toContain("Sana's hair");
+    // And the hair, since 2026-09-24: a direction may still restyle it, and
+    // the compiler reads that from the brief's own words (hairDirective).
+    expect(body.prompt).toContain("Sana's hair, exactly as their references show it: h.");
 
     // resolving the presenter is a read-through cache, not a roster write —
     // the brand's own characters[] stays exactly as it started

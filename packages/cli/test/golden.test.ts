@@ -351,7 +351,7 @@ describe('golden: identity is never lost or confused', () => {
    * change to CHARACTER_REF_MAX, to characterRefs or to the budget shows up
    * here as a changed list of angles rather than as a quieter picture.
    */
-  it('8e. the three-quarter view reaches the model only in a shot the presenter leads', () => {
+  it('8e. the face and the full body always ride; the three-quarter view takes a seat that is left', () => {
     // Five seats, which is what codex gives and what these numbers were
     // measured against; the default six is roomier than any engine we run.
     const led = compile(
@@ -366,31 +366,30 @@ describe('golden: identity is never lost or confused', () => {
       'front',
       'three-quarter',
     ]);
-    // The moment a product joins the line every chip takes a seat first, and
-    // the third view is the one that never boards.
+    // With a product in the line the presenter still keeps face and full body
+    // (the identity floor); the three-quarter view rides when a seat is left
+    // after the product's second angle, and never at four seats.
     for (const rest of [[], [{ t: 'template' as const, id: PRODUCT_SCENE }]]) {
-      const withProduct = compile(
-        [{ t: 'character', id: 'c2' }, { t: 'product', id: 'p1' }, ...rest, { t: 'text', v: 'at a window' }],
-        5,
-      );
-      const angles = withProduct.attachments.filter((a) => a.role === 'character').map((a) => a.angle);
-      expect(angles).not.toContain('three-quarter');
-      expect(angles[0]).toBe('portrait');
+      const line = [{ t: 'character', id: 'c2' }, { t: 'product', id: 'p1' }, ...rest, { t: 'text', v: 'at a window' }];
+      const angles = (seats: number) =>
+        compile(line as any, seats)
+          .attachments.filter((a) => a.role === 'character')
+          .map((a) => a.angle);
+      expect(angles(5)).toEqual(['portrait', 'front', 'three-quarter']);
+      expect(angles(4)).toEqual(['portrait', 'front']);
     }
   });
 
-  it('8f. a view the words ask for costs the full body, never the face', () => {
-    const r = compile(
-      [
-        { t: 'character', id: 'c2' },
-        { t: 'product', id: 'p1' },
-        { t: 'text', v: 'turned toward the window, holding it' },
-      ],
-      5,
-    );
-    const chars = r.attachments.filter((a) => a.role === 'character');
-    expect(chars.map((a) => a.angle)).toEqual(['portrait', 'three-quarter']);
-    expect(chars[0].essential).toBe(true);
+  it('8f. a view the words ask for rides with the face; the full body follows when a seat is left', () => {
+    const line = [
+      { t: 'character', id: 'c2' },
+      { t: 'product', id: 'p1' },
+      { t: 'text', v: 'turned toward the window, holding it' },
+    ];
+    const chars = (seats: number) => compile(line as any, seats).attachments.filter((a) => a.role === 'character');
+    expect(chars(5).map((a) => a.angle)).toEqual(['portrait', 'three-quarter', 'front']);
+    expect(chars(4).map((a) => a.angle)).toEqual(['portrait', 'three-quarter']);
+    expect(chars(5)[0].essential).toBe(true);
   });
 
   it('8g. the words that pick a view read the angle, never the framing', () => {
@@ -564,7 +563,9 @@ describe('golden: responsibility contract', () => {
   it('a one-reference product is told its unseen faces are unknown, and to favour the known view', () => {
     const r = compile([{ t: 'product', id: 'p2' }]);
     expect(r.attachments).toHaveLength(1);
-    expect(r.prompt).toContain('the only view of this product that exists');
+    // "in this shot", not "that exists": the identity floor can leave a
+    // product that has more angles with one of them seated.
+    expect(r.prompt).toContain('the only view of this product in this shot');
     expect(r.prompt).toMatch(/do not invent hardware, text, seams, closures, ornament or branding/i);
     expect(r.prompt).toMatch(/composition that shows the product from the view the reference gives/i);
     // the multi-angle wording would be a lie with one image

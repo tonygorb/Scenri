@@ -340,3 +340,107 @@ describe('how many presenter views reach the model', () => {
     expect([...before].sort()).toEqual([...after].sort());
   });
 });
+
+/**
+ * The identity floor a generation compiles with (brief.ts): every product and
+ * presenter is pictured before any context image, and each presenter keeps its
+ * face and its full body. Measured 2026-09-24 on the Product + Presenter +
+ * scene plate + picture-of-someone-else brief: sent as one portrait, the
+ * presenter wore the other person's glasses in 3 of 4 shots and lost the side
+ * of a tattoo in 2 of 4; with the full body beside the portrait, 0 of 4 and
+ * 11 of 11 right.
+ */
+describe('the identity floor a generation seats first', () => {
+  const P = [
+    att('product', 'p1', { id: 'prod', label: 'House Blend', essential: true }),
+    att('product', 'p2', { id: 'prod', label: 'House Blend' }),
+    att('product', 'p3', { id: 'prod', label: 'House Blend' }),
+  ];
+  const C = [
+    att('character', 'portrait', { id: 'pers', label: 'Ilse', essential: true }),
+    att('character', 'front', { id: 'pers', label: 'Ilse' }),
+    att('character', 'three-quarter', { id: 'pers', label: 'Ilse' }),
+  ];
+  const D = [
+    att('character', 'd-portrait', { id: 'dax', label: 'Dax', essential: true }),
+    att('character', 'd-front', { id: 'dax', label: 'Dax' }),
+    att('character', 'd-three-quarter', { id: 'dax', label: 'Dax' }),
+  ];
+  const S = att('scene', 's1', { id: 'scn', label: 'Cracked Clay' });
+  const M = att('brand', 'm1', { id: 'mark', label: 'Acme' });
+  const R = att('reference', 'r1', { label: 'Reference shot' });
+  const floor = { identityFloor: true };
+
+  const atFive: [string, Attachment[], string[]][] = [
+    ['a presenter alone', [...C], ['portrait', 'front', 'three-quarter']],
+    ['with a scene', [...C, S], ['portrait', 'front', 'three-quarter', 's1']],
+    ['with a reference', [...C, R], ['portrait', 'front', 'three-quarter', 'r1']],
+    ['with a product', [...P, ...C], ['p1', 'portrait', 'p2', 'front', 'three-quarter']],
+    ['with a product and a scene', [...P, ...C, S], ['p1', 'portrait', 'p2', 'front', 's1']],
+    ['with a product and a reference', [...P, ...C, R], ['p1', 'portrait', 'p2', 'front', 'r1']],
+    ['with a product, a scene and a reference', [...P, ...C, S, R], ['p1', 'portrait', 'front', 'r1', 's1']],
+    ['with everything', [...P, ...C, S, M, R], ['p1', 'portrait', 'front', 'm1', 's1']],
+    ['two presenters and a product', [...P, ...C, ...D], ['p1', 'portrait', 'd-portrait', 'front', 'd-front']],
+  ];
+  const atFour: [string, Attachment[], string[]][] = [
+    ['a presenter alone', [...C], ['portrait', 'front', 'three-quarter']],
+    ['with a scene and a reference', [...C, S, R], ['portrait', 'front', 'r1', 's1']],
+    ['with a product', [...P, ...C], ['p1', 'portrait', 'p2', 'front']],
+    ['with a product and a scene', [...P, ...C, S], ['p1', 'portrait', 'front', 's1']],
+    ['with a product, a scene and a reference', [...P, ...C, S, R], ['p1', 'portrait', 'front', 's1']],
+    ['with everything', [...P, ...C, S, M, R], ['p1', 'portrait', 'front', 's1']],
+  ];
+  const check = (cap: number) => (name: string, atts: Attachment[], want: string[]) => {
+    const { kept, dropped } = allocateAttachments(atts, cap, floor);
+    expect(
+      kept.map((a) => a.hash),
+      name,
+    ).toEqual(want);
+    expect(dropped.filter((a) => a.essential).map((a) => a.hash)).toEqual([]);
+  };
+  it.each(atFive)('at five seats, %s', check(5));
+  it.each(atFour)('at four seats, %s', check(4));
+
+  it('never leaves a presenter below face and full body while the identities fit', () => {
+    const contexts = [S, M, R, att('reference', 'r2'), att('reference', 'r3')];
+    for (const cap of [3, 4, 5]) {
+      for (let n = 0; n <= contexts.length; n++) {
+        for (const lead of [
+          [...P, ...C],
+          [...C, ...P],
+        ]) {
+          const line = [...contexts.slice(0, n), ...lead];
+          const { kept } = allocateAttachments(line, cap, floor);
+          const views = kept.filter((a) => a.role === 'character').map((a) => a.hash);
+          expect(views.slice(0, 2), `cap ${cap}, ${n} context first`).toEqual(['portrait', 'front']);
+          expect(kept.some((a) => a.hash === 'p1')).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('where a chip sits changes which context image rides, never which identity does', () => {
+    const a = allocateAttachments([...P, ...C, S, R], 4, floor).kept.map((x) => x.hash);
+    const b = allocateAttachments([...P, ...C, R, S], 4, floor).kept.map((x) => x.hash);
+    expect(a.filter((h) => h !== 's1' && h !== 'r1')).toEqual(b.filter((h) => h !== 's1' && h !== 'r1'));
+    expect(a).toContain('s1');
+    expect(b).toContain('r1');
+  });
+
+  it('a presenter with one picture keeps it, and nothing is invented to fill the floor', () => {
+    const one = [att('character', 'only', { id: 'solo', label: 'Solo', essential: true })];
+    expect(allocateAttachments([...P, ...one, S, R], 5, floor).kept.map((a) => a.hash)).toEqual([
+      'p1',
+      'only',
+      'p2',
+      'r1',
+      's1',
+    ]);
+  });
+
+  it('leaves the refinement merge on its own rule: own attachments first', () => {
+    const own = [att('reference', 'r1'), att('reference', 'r2'), att('reference', 'r3'), att('reference', 'r4')];
+    const inherited = [att('character', 'portrait', { id: 'pers', label: 'Ilse', essential: true })];
+    expect(mergeEditAttachments(own, inherited, 4).kept.map((a) => a.hash)).toEqual(['r1', 'r2', 'r3', 'r4']);
+  });
+});
