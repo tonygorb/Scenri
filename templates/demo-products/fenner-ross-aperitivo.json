@@ -1,0 +1,19 @@
+{
+  "id": "fenner-ross-aperitivo",
+  "name": "Aperitivo",
+  "promptName": "Ruby Aperitivo in a Square-Shouldered Glass Bottle",
+  "brand": "Fenner Ross",
+  "format": "700 ml bottle",
+  "legacyNames": ["Ruby Aperitivo in a Square-Shouldered Glass Bottle"],
+  "keywords": ["aperitivo", "bitter", "spritz", "liqueur", "bottle", "cocktail", "red", "aperitif"],
+  "category": "beverage",
+  "description": "A heavy clear flint-glass bottle with high squared shoulders, a short neck, a thick punted base and a glossy black bar-top stopper with a thin gold foil band, filled with a clear glowing ruby-red liquid that light passes through; a tall cream paper label with a deckled lower edge across the front third of the body, printed in black: FENNER ROSS in a large high-contrast serif across the top, a thin gold rule, Aperitivo below in italic, and 700 ml and 20% vol in small type at the base.",
+  "dimensions": "about 32 cm tall and 8 cm across",
+  "width": 1024,
+  "height": 1280,
+  "subcategory": "bitter aperitivo in a square-shouldered glass bottle",
+  "materials": "thick flint glass, glossy black bar-top stopper with a gold foil band, uncoated cream paper label",
+  "primaryColors": "ruby red, cream, black, gold",
+  "negativeConstraints": "Never invent any text, logo, wordmark or mark beyond the ones this record names, never misspell or rearrange those, and never add a second label. No opaque or orange liquid, no second label, no round shoulders.",
+  "preservationNotes": "Keep the label exactly: FENNER ROSS in a large black serif across the top of the cream label, a thin gold rule, Aperitivo in black italic below, and 700 ml and 20% vol small at the base. Keep the clear ruby-red liquid that light passes through, the squared shoulders and the black stopper with its gold band in every shot."
+}
