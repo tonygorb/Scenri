@@ -1,0 +1,14 @@
+{
+  "id": "giant-peg",
+  "name": "Giant Peg",
+  "promptName": "Giant Peg",
+  "keywords": ["clothes peg", "giant", "sculpture", "terracotta", "cobalt sky", "surreal", "scale", "witty"],
+  "description": "A three-metre wooden clothes peg standing on a terracotta plaza.",
+  "lighting": "Hard midday sun, one crisp short shadow",
+  "subject": "either",
+  "collections": ["Colored backgrounds", "Editorial"],
+  "verticals": ["Apparel", "Footwear", "Accessories", "Beverage", "Home"],
+  "prompt": "One monumental wooden clothes peg, about three metres tall, stands on its jaws on a flat terracotta-tiled plaza like a public sculpture, its two pale wooden legs smooth and matching, its coiled steel spring seated in their notches and flashing in the sun. The sky behind is a hard, cloudless cobalt. Hard midday sun gives the peg one crisp short shadow on the tiles, and the tile joints run in true perspective toward the horizon. The palette is pale wood, terracotta and cobalt, witty, warm and bold.",
+  "width": 1024,
+  "height": 1280
+}

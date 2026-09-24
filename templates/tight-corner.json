@@ -1,0 +1,14 @@
+{
+  "id": "tight-corner",
+  "name": "Tight Corner",
+  "promptName": "Tight Corner",
+  "keywords": ["corner", "grey", "studio flats", "carpet", "classic portrait", "editorial", "minimal", "window light"],
+  "description": "Two grey studio flats pushed into a sharp corner over worn carpet.",
+  "lighting": "Soft north-window light from the left, gentle falloff",
+  "subject": "either",
+  "collections": ["Portrait", "Editorial"],
+  "verticals": ["Apparel", "Footwear", "Accessories", "Furniture"],
+  "prompt": "Two tall studio flats painted a flat mid grey are pushed together into a sharp acute corner, much narrower than a right angle, meeting in a single clean vertical seam. On the floor a scrap of worn beige carpet lies flat, frayed along one edge. Soft north-window light comes from the left and falls off gently across the two planes, so one flat reads a shade lighter than the other. The flats stand about two metres tall, with bare studio floor around the carpet. The palette is grey, beige and soft shadow, austere, classic and intimate.",
+  "width": 1024,
+  "height": 1280
+}

@@ -1,0 +1,14 @@
+{
+  "id": "foil-tent",
+  "name": "Foil Tent",
+  "promptName": "Foil Tent",
+  "keywords": ["foil", "silver", "metallic", "crinkle", "pop", "sixties", "factory", "glamour"],
+  "description": "A booth lined floor to ceiling in crinkled silver foil, glowing cool.",
+  "lighting": "One bare strobe bounced off the foil, cool metallic glow",
+  "subject": "either",
+  "collections": ["Portrait", "Studio"],
+  "verticals": ["Beauty", "Fragrance", "Jewelry", "Accessories", "Apparel", "Electronics"],
+  "prompt": "A small booth lined floor to ceiling with sheets of aluminium foil, loosely stapled at the top and left to drop, softly crinkled at the scale of kitchen foil. One bare strobe bounced off the foil fills the booth with a cool metallic glow, so every crease throws a silver highlight and the walls show warped, fragmented reflections of that one light. The floor is the same foil, scuffed and creased where people have stood. The palette is silver, pewter and cool white, glamorous, raw and pop.",
+  "width": 1024,
+  "height": 1280
+}

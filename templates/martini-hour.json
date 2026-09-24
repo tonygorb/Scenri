@@ -1,0 +1,14 @@
+{
+  "id": "martini-hour",
+  "name": "Martini Hour",
+  "promptName": "Martini Hour",
+  "keywords": ["martini", "chrome", "bar", "lemon", "butter yellow", "cocktail", "lacquer", "flash"],
+  "description": "A chrome bar and a frosted martini against butter-yellow lacquer.",
+  "lighting": "Hard direct flash, crisp speculars and mirrored reflections",
+  "subject": "either",
+  "collections": ["Studio", "Social"],
+  "verticals": ["Beauty", "Fragrance", "Beverage", "Jewelry", "Food & drink"],
+  "prompt": "A mirror-polished chrome bar top runs across the foreground against a wall of glossy butter-yellow lacquer. Near one edge stands a single frosted martini glass, beaded with condensation below the liquid line, the clear drink flat and still, a long curl of lemon peel draped over the rim. A small scatter of ice chips melts on the chrome. One hard flash from the front makes every edge crisp and doubles the glass upside down in the chrome below it. The palette is butter yellow, chrome and pale lemon, bright, witty and cocktail-hour.",
+  "width": 1024,
+  "height": 1280
+}
