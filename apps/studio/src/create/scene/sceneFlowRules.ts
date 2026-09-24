@@ -64,8 +64,6 @@ export interface SetArgs {
   who: 'product' | 'presenter';
   /** Nothing in Scenri's library can stand in this place yet. */
   noSubject: boolean;
-  /** What Add more would still draw. */
-  missing: SceneExampleRole[];
   /** What the first press would draw: the place in use, or the roles the place moved under. */
   first: SceneExampleRole[];
   /** Those `first` roles are a set this scene already has, drawn from an earlier picture. */
@@ -495,17 +493,7 @@ function setTurns(T: Turn[], args: FlowArgs) {
       id: 'set-start',
       text: studio.setDrawn ? (set.stale ? COPY.drawThemAgain : COPY.drawThem) : COPY.notNow,
     });
-  // the answer to the three more stands where it was given: after the two
-  // drawn by themselves, before any of the three
-  const answer = studio.moreAsked ? COPY.addThem : studio.moreDeclined ? COPY.notNow : null;
-  let answered = false;
-  const sayAnswer = () => {
-    if (!answer || answered) return;
-    answered = true;
-    T.push({ kind: 'you', id: 'more', text: answer });
-  };
   for (const t of set.tiles) {
-    if (t.role !== 'hero' && t.role !== 'close') sayAnswer();
     if (t.state === 'shown' && t.hash)
       T.push({
         kind: 'scenri',
@@ -524,12 +512,18 @@ function setTurns(T: Turn[], args: FlowArgs) {
         tone: 'alert',
       });
   }
-  sayAnswer();
 }
 
 /**
- * The question the set ends on: the place in use, three more, or done. None
- * while anything draws. Every one of them spends only when it is pressed.
+ * The question the set ends on: the place in use, or done. None while anything
+ * draws. The place in use spends only when it is pressed.
+ *
+ * Two pictures, never five (2026-09-24). The set is shown and never handed to
+ * a shot, so what it is for is letting someone see the world in use before
+ * they spend a generation of their own, and a hero and a close-up already do
+ * that. Three more views of a demo product in the place taught nothing a shot
+ * does not, and every one was a paid picture. A scene that already holds them
+ * keeps and shows them.
  */
 function setQuestion(args: FlowArgs): Question | null {
   const { set, studio } = args;
@@ -548,17 +542,6 @@ function setQuestion(args: FlowArgs): Question | null {
           ),
       options: [
         { id: 'draw-set', label: set.stale ? COPY.drawThemAgain : COPY.drawThem },
-        { id: 'not-now', label: COPY.notNow },
-      ],
-    };
-  const hero = set.tiles.some((t) => t.role === 'hero' && t.state === 'shown');
-  if (args.canDraw && hero && set.missing.length && !studio.moreDeclined && !studio.moreAsked)
-    return {
-      id: 'set-more',
-      kind: 'confirm',
-      prompt: COPY.more(set.missing.map((r) => EXAMPLE_LABEL[r])),
-      options: [
-        { id: 'more', label: COPY.addThem },
         { id: 'not-now', label: COPY.notNow },
       ],
     };

@@ -78,15 +78,6 @@ export function exampleTiles(examples: readonly SceneExampleView[] = [], job: Sc
   return out;
 }
 
-/** The roles "Add more" would still draw: offered, not kept, not on their way. */
-export function missingMore(
-  more: readonly SceneExampleRole[],
-  examples: readonly SceneExampleView[] = [],
-  job: SceneExampleJob | null,
-): SceneExampleRole[] {
-  return more.filter((r) => !examples.some((e) => e.role === r) && !pending(job, r));
-}
-
 /** The examples drawn from a picture of the place that has since changed. */
 export function earlierRoles(examples: readonly SceneExampleView[] = []): SceneExampleRole[] {
   return examples.filter((e) => e.earlier).map((e) => e.role);

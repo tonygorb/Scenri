@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SceneExampleJob } from '../src/api.js';
 import type { SceneExampleView } from '../src/brandAssets.js';
-import { earlierRoles, exampleTiles, missingMore } from '../src/sceneExampleRules.js';
+import { earlierRoles, exampleTiles } from '../src/sceneExampleRules.js';
 
 const ex = (role: SceneExampleView['role'], over: Partial<SceneExampleView> = {}): SceneExampleView => ({
   role,
@@ -60,12 +60,6 @@ describe("a scene's example tiles", () => {
     ]);
     expect(tiles[1].setup).toBe('close');
     expect(tiles[2].error).toBe('no picture');
-  });
-
-  it('offers only the roles not kept and not on their way', () => {
-    const more = ['hands', 'angle', 'bold'] as const;
-    expect(missingMore(more, [ex('hero'), ex('close')], null)).toEqual(['hands', 'angle', 'bold']);
-    expect(missingMore(more, [ex('hero'), ex('hands')], job({ roles: ['angle'] }))).toEqual(['bold']);
   });
 
   it('names the examples drawn from an earlier picture of the place', () => {

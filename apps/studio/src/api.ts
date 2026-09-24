@@ -407,12 +407,9 @@ export const api = {
       'GET',
       `/api/brands/${brandId}/scenes/${sceneId}/examples`,
     ),
-  /** Draw the place in use, the rest of the set, or these roles again. Joins a run already drawing. */
-  drawSceneExamples: (
-    brandId: string,
-    sceneId: string,
-    ask: { first: true } | { more: true } | { roles: SceneExampleRole[] },
-  ) => req<{ job: SceneExampleJob }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/examples`, ask),
+  /** Draw the place in use, or these roles again. Joins a run already drawing. */
+  drawSceneExamples: (brandId: string, sceneId: string, ask: { first: true } | { roles: SceneExampleRole[] }) =>
+    req<{ job: SceneExampleJob }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/examples`, ask),
   /** Stop drawing; what already landed stays. */
   stopSceneExamples: (brandId: string, sceneId: string) =>
     req<{ ok: boolean }>('POST', `/api/brands/${brandId}/scenes/${sceneId}/examples/stop`),

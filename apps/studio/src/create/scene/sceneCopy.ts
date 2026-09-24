@@ -174,10 +174,6 @@ export const COPY = {
   },
   exampleFailed: (label: string, why: string) =>
     `The ${label.toLowerCase()} did not draw: ${why.replace(/[.\s]+$/, '')}.`,
-  /** The three more, or two for a place already staged in hands or built around a person. */
-  more: (labels: string[]) =>
-    `Add ${['no', 'one', 'two', 'three'][labels.length] ?? labels.length} more? ${joinAnd(labels)}.`,
-  addThem: 'Add them',
   notNow: 'Not now',
   ready: (name: string) => `${name} is ready.`,
   /** Nothing was drawn in use: where it can be, whenever they want it. */

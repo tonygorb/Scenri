@@ -191,9 +191,9 @@ export function useSceneStudio(args: {
    * those words lands on the scene's card when it is done. Unnamed, it takes
    * the name the reader gave it.
    *
-   * Saved here, and the conversation goes on: the server starts drawing the
-   * place in use the moment it has a picture (sceneExamples.ts), and the
-   * studio shows them as they land. Leaving at any point loses nothing.
+   * Saved here, and the conversation goes on: saving draws nothing, the place
+   * in use is offered as its own press (sceneExamples.ts), and the studio shows
+   * the pictures as they land. Leaving at any point loses nothing.
    */
   const use = useCallback(
     async (opts: { asNew?: boolean } = {}) => {

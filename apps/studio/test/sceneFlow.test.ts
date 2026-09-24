@@ -1017,7 +1017,6 @@ describe('after Use: nothing is drawn until it is asked for', () => {
     read: true,
     who: 'product',
     noSubject: false,
-    missing: ['hands', 'angle', 'bold'],
     first: [],
     stale: false,
     finish: 'Open scene',
@@ -1090,41 +1089,48 @@ describe('after Use: nothing is drawn until it is asked for', () => {
     expect(composerFor(flow({ studio: drew(), set: drawing }), null).target.kind).toBe('off');
   });
 
-  it('lands each picture with Try again, then offers three more or Not now', () => {
+  // Two, never five (2026-09-24): the set is shown and never handed to a shot,
+  // so once the hero and the close-up land there is nothing more to offer.
+  it('lands each picture with Try again, then ends on the last press with nothing more offered', () => {
     const landed = set({ tiles: [tile('hero', 'shown', 'b'), tile('close', 'shown', 'c')] as any });
     const T = turnsFor(flow({ studio: drew(), set: landed }));
-    expect(keys(T).slice(-3)).toEqual([`scenri:ex-hero-${H('b')}`, `scenri:ex-close-${H('c')}`, 'q:set-more']);
+    expect(keys(T).slice(-3)).toEqual([`scenri:ex-hero-${H('b')}`, `scenri:ex-close-${H('c')}`, 'q:set-done']);
     expect(T.find((t) => t.kind === 'scenri' && t.id === `ex-hero-${H('b')}`)).toMatchObject({
       text: 'Here is the hero.',
       thumb: H('b'),
       label: 'Hero',
       retry: 'hero',
     });
-    const q = lastQ(T);
-    expect(q?.prompt).toBe('Add three more? Hands, another angle and a bold one.');
-    expect(q?.kind === 'confirm' && q.options.map((o) => o.label)).toEqual(['Add them', 'Not now']);
-    // two, for a place built around a person
-    const two = lastQ(turnsFor(flow({ studio: drew(), set: { ...landed, missing: ['angle', 'bold'] } })));
-    expect(two?.prompt).toBe('Add two more? Another angle and a bold one.');
+    expect(T.some((t) => t.kind === 'question' && /more\?/i.test(t.question.prompt))).toBe(false);
+    expect(lastQ(T)).toMatchObject({ id: 'set-done', prompt: 'Tide Shelf is ready.' });
   });
 
-  it('ends on the last press once nothing more is wanted', () => {
+  it('ends on the last press, and a scene that already has five keeps showing them', () => {
     const landed = set({ tiles: [tile('hero', 'shown', 'b'), tile('close', 'shown', 'c')] as any });
-    const declined = reduce(drew(), { type: 'decline-more' });
-    const q = lastQ(turnsFor(flow({ studio: declined, set: landed })));
+    const q = lastQ(turnsFor(flow({ studio: drew(), set: landed })));
     expect(q).toMatchObject({ id: 'set-done', prompt: 'Tide Shelf is ready.' });
     expect(q?.kind === 'confirm' && q.options.map((o) => [o.id, o.label])).toEqual([['done', 'Open scene']]);
-    // all three drawn: nothing more to offer
-    const full = lastQ(turnsFor(flow({ studio: drew(), set: { ...landed, missing: [] } })));
-    expect(full?.id).toBe('set-done');
+    // a set drawn before 2026-09-24 keeps its five, each shown with Try again
+    const five = set({
+      tiles: [
+        tile('hero', 'shown', 'b'),
+        tile('close', 'shown', 'c'),
+        tile('hands', 'shown', 'd'),
+        tile('angle', 'shown', 'e'),
+        tile('bold', 'shown', 'f'),
+      ] as any,
+    });
+    const kept = turnsFor(flow({ studio: drew(), set: five }));
+    expect(keys(kept).filter((k) => k.startsWith('scenri:ex-'))).toHaveLength(5);
+    expect(lastQ(kept)?.id).toBe('set-done');
     // opened from Create, the last press goes back to the shot
-    expect(lastQ(turnsFor(flow({ studio: declined, set: { ...landed, finish: 'Use in a shot' } })))).toMatchObject({
+    expect(lastQ(turnsFor(flow({ studio: drew(), set: { ...landed, finish: 'Use in a shot' } })))).toMatchObject({
       options: [{ id: 'done', label: 'Use in a shot' }],
     });
   });
 
   it('says which did not draw, and offers them again before the last press', () => {
-    const broken = set({ tiles: [tile('hero', 'shown', 'b'), tile('close', 'failed')] as any, missing: [] });
+    const broken = set({ tiles: [tile('hero', 'shown', 'b'), tile('close', 'failed')] as any });
     const T = turnsFor(flow({ studio: drew(), set: broken }));
     expect(T.find((t) => t.kind === 'scenri' && t.id === 'ex-failed-close')).toMatchObject({
       text: 'The close-up did not draw: the engine returned no picture.',
@@ -1139,7 +1145,7 @@ describe('after Use: nothing is drawn until it is asked for', () => {
   });
 
   it("says so when Scenri's library cannot stand in the place yet, and still ends", () => {
-    const T = turnsFor(flow({ studio: drew(), set: set({ noSubject: true, missing: [] }) }));
+    const T = turnsFor(flow({ studio: drew(), set: set({ noSubject: true }) }));
     expect(T.find((t) => t.kind === 'scenri' && t.id === 'saved')).toMatchObject({
       text: "Saved. Scenri's library has not downloaded yet, so it cannot be shown in use for now.",
     });
@@ -1147,11 +1153,11 @@ describe('after Use: nothing is drawn until it is asked for', () => {
   });
 
   it('is no longer a draft, nor unsaved, and comes back after a reload still saved', () => {
-    const s = reduce(drew(), { type: 'decline-more' });
+    const s = drew();
     expect(keptAsDraft(s)).toBe(false);
     expect(unsaved(s, null)).toBe(false);
     const back = unpackSession(packSession(setupOf(guided), s));
-    expect(back?.studio).toMatchObject({ saved: 'us-1', moreDeclined: true, setDrawn: true, setDeclined: false });
+    expect(back?.studio).toMatchObject({ saved: 'us-1', setDrawn: true, setDeclined: false });
     // a conversation packed before the offer existed carries neither, so it is
     // offered rather than swallowed by a flag it never set
     const old = unpackSession(packSession(setupOf(guided), reduce(used(), { type: 'set-declined' })));

@@ -96,10 +96,6 @@ export interface StudioState {
    * exists before the last picture does and nothing is lost by leaving.
    */
   saved: string | null;
-  /** Not now, to the three more. */
-  moreDeclined: boolean;
-  /** Add them, to the three more: said in the conversation where it was said. */
-  moreAsked: boolean;
   /** The place in use was asked for here: the offer is made once per picture, not per render. */
   setDrawn: boolean;
   /** Not now, to the place in use. The offer comes back only when the place does. */
@@ -119,8 +115,6 @@ export const EMPTY: StudioState = {
   job: null,
   error: null,
   saved: null,
-  moreDeclined: false,
-  moreAsked: false,
   setDrawn: false,
   setDeclined: false,
 };
@@ -163,8 +157,6 @@ export type Action =
   | { type: 'error'; text: string | null }
   /** Use saved the scene: the conversation goes on to its examples. */
   | { type: 'saved'; id: string }
-  | { type: 'decline-more' }
-  | { type: 'ask-more' }
   | { type: 'set-drawn' }
   | { type: 'set-declined' };
 
@@ -321,10 +313,6 @@ export function reduce(s: StudioState, a: Action): StudioState {
       return { ...s, error: a.text };
     case 'saved':
       return { ...s, saved: a.id, error: null };
-    case 'decline-more':
-      return { ...s, moreDeclined: true };
-    case 'ask-more':
-      return { ...s, moreAsked: true };
     case 'set-drawn':
       return { ...s, setDrawn: true, setDeclined: false };
     case 'set-declined':
@@ -553,8 +541,6 @@ export function deserialize(raw: string | null): StudioState | null {
     job,
     error: typeof o.error === 'string' ? o.error : null,
     saved: typeof o.saved === 'string' && o.saved ? o.saved : null,
-    moreDeclined: o.moreDeclined === true,
-    moreAsked: o.moreAsked === true,
     setDrawn: o.setDrawn === true,
     setDeclined: o.setDeclined === true,
   };

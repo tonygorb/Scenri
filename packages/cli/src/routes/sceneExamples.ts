@@ -7,7 +7,7 @@ const ROLES = new Set<ExampleRole>(['hero', 'close', 'hands', 'angle', 'bold']);
 
 /**
  * A scene's examples, from its page or its conversation: what is drawing,
- * Draw two pictures, Add three more, Try again for one, Stop, and Remove.
+ * Draw two pictures, Try again for one, Stop, and Remove.
  * Every one of them is a press. Nothing on this road is ever drawn without
  * being asked for, so saving a scene spends nothing (sceneExamples.ts).
  */
@@ -39,6 +39,9 @@ export function registerSceneExampleRoutes(app: FastifyInstance, deps: { core: C
    * `{ first: true }` for the place in use and a close-up (or for the roles a
    * changed place left showing the earlier picture), `{ more: true }` for the
    * rest of the set, or `{ roles: [...] }` to draw (or redraw) exactly those.
+   * The studio no longer asks for the rest (2026-09-24, DESIGN.md "The place in
+   * use"); the route still draws it for a caller that does, and the GET keeps
+   * reporting it, which is how the studio knows a demo subject is ready.
    */
   app.post('/api/brands/:id/scenes/:sceneId/examples', async (req, reply) => {
     const found = sceneOr404(req, reply);

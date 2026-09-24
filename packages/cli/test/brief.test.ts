@@ -1596,6 +1596,45 @@ describe('compileBrief: a world built around a figure', () => {
     expect(r.attachments.map((a) => a.role)).not.toContain('scene');
   });
 
+  // A scene's examples are the place in use with a demo product or presenter,
+  // drawn to be looked at. Sent with a shot (measured 2026-09-24, four scenes,
+  // 0 to 5 of a scene's pictures), they leaked their demo subject and its pose
+  // into it. However many a scene holds, none rides: only the drawn plate can.
+  it("never sends the scene's examples, however many it holds", () => {
+    const examples = ['hero', 'close', 'hands', 'angle', 'bold'].map((role) => ({
+      role,
+      file: `asset:${core.images.save(Buffer.from(`example-${role}`))}`,
+    }));
+    const hashes = (r: { attachments: { hash: string }[] }) => r.attachments.map((a) => a.hash);
+    const withSet = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      refd({ examples }),
+    );
+    const without = compileBrief(
+      {
+        tokens: [
+          { t: 'character', id: 'c1' },
+          { t: 'template', id: base.id },
+        ],
+      },
+      refd(),
+    );
+    expect(withSet.attachments.filter((a) => a.role === 'scene')).toHaveLength(1);
+    expect(hashes(withSet)).toEqual(hashes(without));
+    for (const e of examples) expect(hashes(withSet)).not.toContain(e.file.slice('asset:'.length));
+    // an environment scene sends none of them either
+    const place = compileBrief(
+      { tokens: [{ t: 'template', id: base.id }] },
+      refd({ figure: undefined, figureTreatment: undefined, examples }),
+    );
+    expect(place.attachments.map((a) => a.role)).not.toContain('scene');
+  });
+
   /**
    * The battery's arm, and the proof it is only that.
    *

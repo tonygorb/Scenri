@@ -169,12 +169,9 @@ test('guided: the rows, read back as the words shots are told, drawn on a press,
   // the stage strip is the place and its examples
   await expect(studio(page).locator('.sc-pstudio-strip')).toContainText('The place');
   await expect(studio(page).locator('.sc-pstudio-strip')).toContainText('Close-up');
-  // three more are offered, not drawn
-  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-more');
-  await expect(openQ(page)).toContainText('Add three more? Hands, another angle and a bold one.');
-  await tap(openQ(page), 'Not now');
-  await expect(turn(page, 'you:more')).toContainText('Not now');
+  // two, and nothing more is offered: the set is shown, never handed to a shot
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-done');
+  await expect(studio(page).locator('[data-turn="q:set-more"]')).toHaveCount(0);
   await expect(openQ(page)).toContainText('Dusk Lobby is ready.');
   await tap(openQ(page), 'Open scene');
   await page.waitForURL(new RegExp(`/${slug}/scenes/us-`));
@@ -197,8 +194,8 @@ test('guided: the rows, read back as the words shots are told, drawn on a press,
   ]);
 });
 
-test('after Use, three more on asking, and any one drawn again from beside it', async ({ page }) => {
-  // the place, then six examples one after another, then one again
+test('after Use, the two on asking, and either drawn again from beside it', async ({ page }) => {
+  // the place, then the two examples one after another, then one again
   test.setTimeout(120_000);
   await start(page);
   await place(page, 'A pale travertine counter by a tall window');
@@ -208,16 +205,12 @@ test('after Use, three more on asking, and any one drawn again from beside it', 
   await tap(openQ(page), 'Use this scene');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-start', { timeout: 30_000 });
   await tap(openQ(page), 'Draw them');
-  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-more', { timeout: 60_000 });
-  await tap(openQ(page), 'Add them');
-  await expect(turn(page, 'you:more')).toContainText('Add them');
-  // drawing: nothing is asked, and Stop is there
-  await expect(studio(page).locator('[data-turn^="scenri:ex-bold-"]')).toContainText('Here is a bold one.', {
-    timeout: 30_000,
+  await expect(studio(page).locator('[data-turn^="scenri:ex-close-"]')).toContainText('Here is a close-up.', {
+    timeout: 60_000,
   });
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-done');
   const saved = () => scenes(page).then((all) => all.find((s) => s.name === 'Travertine Counter'));
-  expect((await saved()).examples.map((e: any) => e.role)).toEqual(['hero', 'close', 'hands', 'angle', 'bold']);
+  expect((await saved()).examples.map((e: any) => e.role)).toEqual(['hero', 'close']);
 
   // Try again beside the close-up draws that one again, and only that one. The
   // demo engine answers the same edit with the same bytes, so the run is what
@@ -242,7 +235,7 @@ test('after Use, three more on asking, and any one drawn again from beside it', 
     )
     .toEqual(['close']);
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-done', { timeout: 30_000 });
-  expect((await saved()).examples).toHaveLength(5);
+  expect((await saved()).examples).toHaveLength(2);
 });
 
 test('a name typed while the picture draws is the name, even when the picture lands before Enter', async ({ page }) => {
@@ -647,8 +640,7 @@ test('a place drawn again leaves its set showing the earlier picture until it is
   await tap(openQ(page), 'Use this scene');
   await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-start', { timeout: 30_000 });
   await tap(openQ(page), 'Draw them');
-  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-more', { timeout: 60_000 });
-  await tap(openQ(page), 'Not now');
+  await expect(openQ(page)).toHaveAttribute('data-turn', 'q:set-done', { timeout: 60_000 });
   await tap(openQ(page), 'Open scene');
   await page.waitForURL(/\/scenes\/us-/);
   const id = new URL(page.url()).pathname.split('/').pop();

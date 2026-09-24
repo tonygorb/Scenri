@@ -5,7 +5,7 @@ import { useAppData } from '../../app/AppShell.js';
 import { customSceneById } from '../../brandAssets.js';
 import { useBrand } from '../../app/BrandLayout.js';
 import { useShotPages } from '../../composer/attach/useShotPages.js';
-import { EXAMPLE_LABEL, examplesSubtitle, exampleTiles, missingMore } from '../../sceneExampleRules.js';
+import { EXAMPLE_LABEL, examplesSubtitle, exampleTiles } from '../../sceneExampleRules.js';
 import { useSceneExamples } from '../../useSceneExamples.js';
 import type { StageStripItem } from '../studio/StudioStage.js';
 import { type Answer, nowIso } from '../../conversation/question.js';
@@ -221,7 +221,6 @@ export function useSceneFlow(args: {
         ex.job?.subject.kind ??
         (savedScene?.subject === 'person' || savedScene?.figure ? 'presenter' : 'product'),
       noSubject: ex.read && !ex.job && !kept.length && ex.more.length === 0,
-      missing: missingMore(ex.more, kept, ex.job),
       first: ex.first,
       stale: ex.first.length > 0 && kept.length > 0,
       finish: args.finish,
@@ -229,7 +228,7 @@ export function useSceneFlow(args: {
   }, [savedId, savedScene, tiles, setRunning, ex.read, ex.job, ex.first, ex.more, args.finish]);
 
   const drawSet = useCallback(
-    (ask: { first: true } | { more: true } | { roles: SceneExampleRole[] }) => {
+    (ask: { first: true } | { roles: SceneExampleRole[] }) => {
       if (!savedId) return;
       setNote(null);
       void api
@@ -472,13 +471,6 @@ export function useSceneFlow(args: {
           dispatch({ type: 'set-drawn' });
           drawSet({ first: true });
         } else dispatch({ type: 'set-declined' });
-        return;
-      }
-      if (qid === 'set-more') {
-        if (ans.id === 'more') {
-          dispatch({ type: 'ask-more' });
-          drawSet({ more: true });
-        } else dispatch({ type: 'decline-more' });
         return;
       }
       if (qid === 'set-done') {

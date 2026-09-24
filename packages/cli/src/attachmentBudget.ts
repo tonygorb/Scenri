@@ -5,11 +5,9 @@ import type { Attachment } from './brief.js';
  * cap what survives is what the image would be *wrong* without: the product,
  * then the person. A style reference is the first thing worth losing.
  *
- * A hand-attached reference outranks the scene: the user chose that exact
- * picture for this shot, where a scene plate is conditioning the recipe
- * derived. On a four-slot engine carrying product + presenter + mark +
- * scene + reference, the scene is what degrades to prose — quietly, by
- * design — never the image someone attached on purpose.
+ * A hand-attached reference and a scene plate sit in the same tier: the
+ * chip placed first in the brief takes the seat (below), and a scene plate
+ * that loses it degrades to the scene's words.
  */
 /**
  * How a seat is handed out when attachments outnumber seats: in the brief's

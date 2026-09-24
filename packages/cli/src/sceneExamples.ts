@@ -25,8 +25,8 @@ import type { ProductSizes } from './productSizes.js';
  * hero), all seven read as one place, 7 of 7 at true size.
  *
  * The rhythm (DESIGN.md): nothing here is ever drawn without being asked for.
- * Saving a scene spends nothing; the hero and a close-up are one press, three
- * more another. Every picture here is spent quota, so no path in this file
+ * Saving a scene spends nothing; the hero and a close-up are one press, and
+ * the studio offers nothing past them (2026-09-24). Every picture here is spent quota, so no path in this file
  * reaches `begin` except `start`, and a place picture that changes stops the
  * run that was drawing the old one rather than starting a new one.
  */
@@ -34,7 +34,12 @@ import type { ProductSizes } from './productSizes.js';
 export type ExampleRole = SceneExampleRole;
 /** Drawn by themselves once a scene first has its picture. */
 export const AUTO_ROLES: readonly ExampleRole[] = ['hero', 'close'];
-/** Asked for from the page: "Add three more" (two for a world built around a person). */
+/**
+ * The rest of a set: hands, another angle, a bold one (two for a world built
+ * around a person). No studio screen offers them since 2026-09-24: the set is
+ * never handed to a shot, and two pictures already show the place in use. A
+ * scene that has them keeps them, and `{ more: true }` still draws them.
+ */
 export const MORE_ROLES: readonly ExampleRole[] = ['hands', 'angle', 'bold'];
 const PERSON_MORE: readonly ExampleRole[] = ['angle', 'bold'];
 /** The set's order: every role is drawn after the hero it is drawn from. */
