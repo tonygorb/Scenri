@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { BrandContext, Core, EngineAdapter, ReferenceRole } from '@scenri/core';
 import { brandScenes, commit, type CustomScene, type SceneExample, type SceneExampleRole } from './assetRecords.js';
 import type { BriefToken, CompiledBrief } from './brief.js';
+import { physicalPoseDirective, wardrobeRelease } from './briefDirectives.js';
 import { trimEdgeBars } from './customAssets.js';
 import type { DemoProduct } from './demoProducts.js';
 import type { Presenter } from './presenters.js';
@@ -273,8 +274,8 @@ export function heroPresenterInstruction(identity: string, anchor = false): stri
     'Put the person in the references into it as the hero portrait of this place: ' +
     'standing or seated where the place invites, at true human scale against its furniture and architecture, ' +
     'in the same light, with true contact and shadow. Keep the place exactly as it is: its camera, framing, light, ' +
-    'materials and every object in it. Dress them for this place to a commercial standard, never the plain base ' +
-    'layers they were photographed in, and give them the expression the moment calls for. ' +
+    'materials and every object in it. ' +
+    `${wardrobeRelease()} ${physicalPoseDirective()} Give them the expression the moment calls for. ` +
     (identity ? `${clean(identity)}. ` : '') +
     'Add no other person and no text'
   );
@@ -303,8 +304,8 @@ export function heroBothInstruction(
     `${name} at its true real-world size${sized}, in true proportion to their hands and body. ` +
     'They stand or sit where the place invites, at true human scale against its furniture and architecture, ' +
     'in the same light, with true contact and shadow. Keep the place exactly as it is: its camera, framing, light, ' +
-    'materials and every object in it. Dress them for this place to a commercial standard, never the plain base ' +
-    'layers they were photographed in, and give them the expression the moment calls for. ' +
+    'materials and every object in it. ' +
+    `${wardrobeRelease()} ${physicalPoseDirective()} Give them the expression the moment calls for. ` +
     (identity ? `${clean(identity)}. ` : '') +
     (lines.length ? `${joinLines(lines)}. ` : '') +
     'Add no other person, no other product and no text'
@@ -347,7 +348,7 @@ export function handsInstruction(name: string): string {
 /** A camera move made on the hero: for a person the moment moves on too, so the set is not one pose three times. */
 export function cameraInstruction(subject: ExampleSubject, name: string, camera: string): string {
   return subject.kind === 'presenter'
-    ? `the camera moves: ${clean(camera)}, and the moment moves on, a different pose and gesture than before. ${KEEP_PERSON}`
+    ? `the camera moves: ${clean(camera)}, and the moment moves on, a different pose and gesture than before. ${physicalPoseDirective()} ${KEEP_PERSON}`
     : `the camera moves: ${clean(camera)}. ${KEEP_PRODUCT(name)}`;
 }
 

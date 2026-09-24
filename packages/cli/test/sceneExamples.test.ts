@@ -598,6 +598,19 @@ describe('what a scene’s hero shows', () => {
     expect(heroWithFor('both', scene, products, [])).toBeNull();
   });
 
+  it('dresses a stand-in out of the capture uniform, by name, and holds every pose to real physics', () => {
+    for (const words of [
+      heroPresenterInstruction('', true),
+      heroBothInstruction('a glass perfume vial', null, [], '', true),
+    ]) {
+      expect(words).toContain(
+        'a fitted off-white ribbed tank top and matching fitted off-white leggings, barefoot) is never their clothes',
+      );
+      expect(words).toContain('they are never barefoot');
+      expect(words).toContain('Real physics holds for everyone and everything in the frame');
+    }
+  });
+
   it('with a person and a product, says both, and keeps the product at its own size', () => {
     const words = heroBothInstruction('a glass perfume vial', null, [], 'the buzz cut must survive', true);
     expect(words).toContain(

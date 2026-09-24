@@ -39,6 +39,8 @@ import {
   productHandlingDirective,
   productFramingDirective,
   productInFrameDirective,
+  wardrobeRelease,
+  physicalPoseDirective,
   productScaleDirective,
   editScreenDirective,
   productSurfaceDirective,
@@ -564,7 +566,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
             'The attached person reference is the same person every time: match their face, facial structure, skin, hair and build exactly. ' +
               'Their outfit, pose, background and lighting are neutral studio capture conditions, not styling direction: ' +
               'dress and style them for this shot, to a commercial standard, following any wardrobe the direction itself specifies. ' +
-              'Where the direction specifies none, dress them for the place and the occasion the frame shows, and never return them to the plain base layers they were photographed in.',
+              wardrobeRelease(),
           );
           // The face is released the way the outfit is. Every reference is drawn
           // with a relaxed neutral expression and eyes to the lens, because that
@@ -1138,6 +1140,8 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...productDirectives,
     ...(productId ? [productScaleDirective(hasPerson)] : []),
     ...personDirectives,
+    // once for everyone in the frame, on a generation: an edit keeps its poses
+    ...(hasPerson && ctx.mode !== 'edit' ? [physicalPoseDirective()] : []),
     ...pairDirectives,
     ...figureDirectives,
     ...closeUpDirectives,

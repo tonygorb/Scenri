@@ -3,6 +3,35 @@
  * brand-document readers with no compile state. `compileBrief` itself stays in
  * `brief.ts`, where the order-sensitive assembly lives.
  */
+import { CAPTURE_UNIFORM } from './presenterPrompts.js';
+
+/**
+ * What a presenter wears when the direction says nothing: never the capture
+ * uniform, named as what it is.
+ *
+ * "Never the plain base layers" described the failure without naming it, and
+ * the uniform came back anyway, promoted to an outfit: a white tank with cream
+ * wide trousers, a white tee with white jeans, barefoot on a studio floor, in
+ * four of the eighteen catalog heroes and in two of three presenter shots of
+ * the 2026-09-24 gate. Named, with the look it turns into and a stylist's brief
+ * in its place, the model has something to dress them in rather than something
+ * to avoid. A direction that asks for whites still gets them.
+ *
+ * Measured the same day, first wording, 7 frames: 4 dressed well, but "colours
+ * taken from this set's palette" put cream on a white limestone set, and one
+ * hero stayed barefoot. So the colours stand out against the set, and shoes
+ * are said as a rule rather than "where the feet show".
+ */
+export function wardrobeRelease(): string {
+  return (
+    `The capture uniform in their reference photographs (${CAPTURE_UNIFORM}) is never their clothes: nothing like ` +
+    'it appears in this picture. Unless the direction asks for it, they never wear white or cream from head to toe, ' +
+    'never plain basics (a tank top, a tee, leggings, loose trousers) as a whole outfit, and they are never barefoot. ' +
+    'Where the direction names no clothes, a stylist dresses them for this place: a complete, real outfit with true ' +
+    'cut, fabric and structure, and shoes, in colours that stand out against this set while belonging to its world, ' +
+    'right for what they are doing here.'
+  );
+}
 /**
  * What the model is told about the product, keyed on how much of the object it
  * can actually see.
@@ -246,7 +275,8 @@ export function characterEditIdentityDirective(name: string): string {
     `${name} is the person in this photograph: keep them present and clearly visible. Match their face, facial ` +
     "structure, skin, hair and build to the attached person reference exactly. The reference's plain outfit and " +
     'studio backdrop are capture conditions, not direction: keep the styling this photograph already has unless the ' +
-    'instruction itself changes it, and never return them to the plain base layers they were photographed in.'
+    'instruction itself changes it, and never return them to the capture uniform of their reference photographs ' +
+    `(${CAPTURE_UNIFORM}) or to all-white or all-cream plain basics like it.`
   );
 }
 
@@ -511,6 +541,26 @@ export function productFramingDirective(): string {
     'object the surface it rests on stays sharp at its own fine true scale while the architecture behind falls into ' +
     'large, soft, out-of-focus shapes of light and shade; a product the size of furniture keeps the room readable ' +
     'around it.'
+  );
+}
+
+/**
+ * Weight and balance, for a person in a set. Nothing said a pose had to be one
+ * a body could hold against the thing it touched, so a presenter hung her
+ * weight off the spring of a three-metre clothes peg, draped over it at
+ * shoulder height like a rail (2026-09-24, a catalog hero and the shots that
+ * followed it). Said once, as the physics a photographer never has to ask for.
+ * Standing upright, she still rested a hand on the steel coil and a leaning
+ * presenter put a shoulder to the wire, so where they touch is said too.
+ */
+export function physicalPoseDirective(): string {
+  return (
+    'Real physics holds for everyone and everything in the frame: each object stands, rests or hangs the way its ' +
+    'size and weight allow, on a base that could hold it; a person leans, sits or rests only on something solid and ' +
+    'steady enough to take their weight, with that weight carried believably through their feet, seat or hands and ' +
+    'their balance over what supports them, never draped over a thin or unstable object or held at an angle no body ' +
+    'could hold. Wherever they touch or lean on the set, it is where a real person would choose to: a broad, solid ' +
+    'surface at a comfortable height, clear of any spring, wire, hinge, mechanism, blade or sharp edge.'
   );
 }
 

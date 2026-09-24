@@ -949,8 +949,15 @@ describe('golden: presenter references are identity, not wardrobe', () => {
     // Releasing the uniform was not enough on its own: a 12 frame battery put
     // the capture layer back in four. The directive has to name that failure
     // and say what to wear when the direction says nothing.
-    expect(r.prompt).toMatch(/never return them to the plain base layers they were photographed in/i);
-    expect(r.prompt).toMatch(/dress them for the place and the occasion/i);
+    // Named since 2026-09-24: "the plain base layers" still came back as white
+    // basics, so the uniform is named and a stylist's brief takes its place.
+    expect(r.prompt).toContain(
+      'a fitted off-white ribbed tank top and matching fitted off-white leggings, barefoot) is never their clothes',
+    );
+    expect(r.prompt).toMatch(/they never wear white or cream from head to toe/i);
+    expect(r.prompt).toMatch(/and they are never barefoot/i);
+    expect(r.prompt).toMatch(/a stylist dresses them for this place/i);
+    expect(r.prompt).toMatch(/in colours that stand out against this set while belonging to its world/i);
   });
 
   it('the capture expression and gaze are released like the outfit, and the face is still held', () => {
@@ -962,10 +969,19 @@ describe('golden: presenter references are identity, not wardrobe', () => {
     expect(r.prompt).toMatch(/never a copy of the reference's straight-to-lens look/i);
     expect(r.prompt).toMatch(/their face stays unmistakably theirs/i);
     // It follows the wardrobe release, which is where it was measured.
-    const wardrobe = r.prompt.indexOf('never return them to the plain base layers');
+    const wardrobe = r.prompt.indexOf('is never their clothes');
     expect(wardrobe).toBeGreaterThan(-1);
     expect(r.prompt.indexOf('expression and gaze in the reference')).toBeGreaterThan(wardrobe);
     expect(compile([{ t: 'product', id: 'p1' }]).prompt).not.toMatch(/expression and gaze in the reference/i);
+  });
+
+  it('a person in the frame is held to real physics, once, and a product alone or an edit is not told it', () => {
+    const r = compile([{ t: 'character', id: 'c1' }]);
+    const phys = 'Real physics holds for everyone and everything in the frame';
+    expect(r.prompt.split(phys)).toHaveLength(2);
+    expect(r.prompt).toMatch(/never draped over a thin or unstable object/);
+    expect(r.prompt).toMatch(/clear of any spring, wire, hinge, mechanism, blade or sharp edge/);
+    expect(compile([{ t: 'product', id: 'p1' }]).prompt).not.toContain(phys);
   });
 
   it('the release clause rides with a person, never with a product alone', () => {
