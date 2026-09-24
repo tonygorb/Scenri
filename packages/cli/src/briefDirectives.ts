@@ -257,6 +257,22 @@ export function referenceIdentityGuard(): string {
   );
 }
 
+/**
+ * The product half of `referenceIdentityGuard`. A reference picked for a shot
+ * (a scene's picture, one of its examples, an old shot) often shows a product
+ * of its own, and the reference role says "match it". Nothing said the
+ * attached product outranked it, so the doctrine's "a reference never
+ * redefines which product" was written down and never spoken.
+ */
+export function referenceProductGuard(): string {
+  return (
+    'A reference shot lends its composition, lighting and treatment, never its product: the attached product photo is ' +
+    'the only source of product identity in this shot. Any product, package or object a reference shot features in ' +
+    'that place only marks where the attached product goes, and the attached product takes it at its own real size, ' +
+    'with its own shape, label and colours.'
+  );
+}
+
 export function markEditDirective(): string {
   return (
     "The attached brand mark is this brand's own mark: wherever the logo appears or the instruction asks for it, " +
@@ -733,6 +749,8 @@ export function sceneGuardDirectives(opts: {
   hasScenePhoto?: boolean;
   /** The scene is built around a figure, whose place in its photograph the attached presenter takes. */
   figureLed?: boolean;
+  /** The photograph is the scene's anchor, which may show a hero object where a product goes. */
+  anchor?: boolean;
   /** The figure role a scene is built around, when nobody is attached to take it and the brief asks for nobody. */
   emptyRole?: string;
 }): string[] {
@@ -769,16 +787,29 @@ export function sceneGuardDirectives(opts: {
   // sneaker took a loft's armchair's place at the armchair's size, and the
   // armchair went. Props are set, at their real size, and the product goes
   // where the shot puts it, at its own.
-  if (opts.hasScenePhoto && (opts.hasProduct || opts.hasPerson)) {
+  // An anchor rides whoever is attached, so it is disowned as the shot to copy
+  // even when nothing else is: a shot of the world alone chooses its own frame.
+  if (opts.hasScenePhoto && (opts.hasProduct || opts.hasPerson || opts.anchor)) {
     out.push(
-      "One attached reference is the scene's own photograph. It shows this world — the set, the light, the materials and any treatment this world applies — never a cast. The furniture, props and architecture in it are part of the set: they stay what they are, at their real size, and none of them stands in for anything attached to this shot." +
+      "One attached reference is the scene's own photograph. It shows this world — the set, the light, the materials and any treatment this world applies — never a cast. The furniture, props and architecture in it are part of the set: they stay what they are, at their real size" +
+        (opts.anchor && opts.hasProduct
+          ? ', and only its hero object stands in for anything attached to this shot.'
+          : ', and none of them stands in for anything attached to this shot.') +
         (opts.figureLed
           ? ''
           : ' It is not the shot to copy: this shot chooses its own camera, framing and composition inside this world, as its own direction asks.'),
     );
     if (opts.hasProduct) {
       out.push(
-        'The attached product photo is the only source of product identity. Nothing in the scene photograph is this product or measures its size: it goes where this shot puts it, at its own real-world size, keeping its own shape, label and colours.',
+        'The attached product photo is the only source of product identity. Nothing in the scene photograph is this product or measures its size: it goes where this shot puts it, at its own real-world size, keeping its own shape, label and colours.' +
+          // The anchor keeps the art direction of what was held or shown as the
+          // hero (as a plain object of its kind): its prominence and its place
+          // are the point, never its size. The 2026-09-22 failure was a line
+          // that handed over "the placement and scale", and a sneaker took an
+          // armchair's size; this hands over the place and keeps the size.
+          (opts.anchor
+            ? ' A plain object the scene photograph shows as its hero, held or showcased, only marks where the attached product goes: the attached product takes that place and prominence at its own size, and that object does not appear.'
+            : ''),
       );
     }
     if (opts.hasPerson) {

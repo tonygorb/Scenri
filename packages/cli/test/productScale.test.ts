@@ -188,6 +188,14 @@ describe('which shots are drawn in two steps', () => {
     expect(plan.productLines.join(' ')).toContain('exact product');
   });
 
+  // The anchor rides with a product shot, and it is the same picture the two
+  // steps draw from, so a small product keeps being drawn at its own scale.
+  it('keeps the plan when the place is an anchor riding with the shot', () => {
+    const r = compile(alone, place({ anchor: true }));
+    expect(r.scale?.sceneHash).toBe(plateHash);
+    expect(r.attachments.filter((a) => a.role === 'scene').map((a) => a.hash)).toEqual([plateHash]);
+  });
+
   it('anything else is drawn the ordinary way', () => {
     // a presenter, or words that ask for a person
     expect(compile([...alone, { t: 'character', id: 'c1' }]).scale).toBeUndefined();

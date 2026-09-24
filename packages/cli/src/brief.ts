@@ -40,6 +40,7 @@ import {
   editScreenDirective,
   productSurfaceDirective,
   referenceIdentityGuard,
+  referenceProductGuard,
   sceneFigureDirectives,
   sceneGuardDirectives,
   shotAsksForAPerson,
@@ -208,7 +209,8 @@ export const FORMATS: { id: FormatId; label: string; w: number; h: number }[] = 
  * a custom-only field to the catalog `Scene` interface, which 72 shipped files
  * and a loader validator answer to.
  */
-type CompilableScene = Scene & Pick<CustomScene, 'figure' | 'figureTreatment' | 'refs' | 'preview'>;
+type CompilableScene = Scene &
+  Pick<CustomScene, 'figure' | 'figureTreatment' | 'refs' | 'preview' | 'anchor' | 'examples'>;
 
 interface CompileContext {
   brand: any;
@@ -717,6 +719,25 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         append(withOwnLight(t, ctx.brand, composePrompt(t, { fields: brief.templateFields ?? {}, notes: '' })));
 
         /*
+         * A scene's anchor rides with the shot as the world's picture.
+         *
+         * The anchor is drawn beside the pictures the scene was made from and
+         * then made nobody's (drawSceneAnchor), so it carries what the words
+         * cannot: the exact light, the palette's strength, the materials, how
+         * the space is composed and staged. Words alone lost exactly that
+         * (v0.15 to v0.17), and the old dialog, which sent its picture, felt
+         * closer for it. A person in the anchor is the figure's stand-in and
+         * rides only with a presenter to take the place (the splice below); an
+         * object it shows as the hero only marks where an attached product
+         * goes (sceneGuardDirectives). Identity pictures seat first: the anchor
+         * is not essential, so it is the first thing to give way.
+         *
+         * A picture of this scene the person picked for the shot (a ref chip
+         * holding its anchor or one of its examples) is the scene's picture
+         * instead: one picture of a scene per shot, never two.
+         *
+         * A preview that is not an anchor keeps the older rule below.
+         *
          * A scene whose figure wears a treatment, with a presenter attached,
          * sends its drawn plate, because its prose cannot carry it.
          *
@@ -758,7 +779,13 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
          * and judged there.
          */
         const seam = sceneRefSeam();
-        if (ctx.mode !== 'edit' && ((t.figure && t.figureTreatment) || seam > 0)) {
+        const pickedHashes = new Set(brief.tokens.flatMap((x) => (x.t === 'ref' ? [x.imageHash] : [])));
+        const picked = [t.preview, ...(t.examples ?? []).map((e) => e.file)].some((f) => {
+          const h = assetHash(f);
+          return !!h && pickedHashes.has(h);
+        });
+        const rides = !picked && (!!t.anchor || !!(t.figure && t.figureTreatment));
+        if (ctx.mode !== 'edit' && (rides || seam > 0)) {
           // The battery's arm: `SCENRI_SCENE_REFS=n` sends up to n of a
           // scene's own pictures (its drawn plate first, then its uploads)
           // whatever the scene is and whoever is attached, so one scene can be
@@ -877,7 +904,9 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // anonymous person the model would keep: the scene degrades to prose,
   // quietly, the same way a budget-dropped scene ref does (its name never
   // appears in a left-out warning, brief.test pins it).
-  if (!hasPerson && !sceneRefSeam()) {
+  // A scene with no figure has nobody in its picture to hand over, so its
+  // anchor rides whoever is attached.
+  if (!hasPerson && !sceneRefSeam() && inlineTemplates[0]?.figure) {
     for (let i = attachments.length - 1; i >= 0; i--) if (attachments[i].role === 'scene') attachments.splice(i, 1);
   }
   // A reference that is byte-identical to an attached identity's own photo
@@ -964,6 +993,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
         hasPerson,
         hasScenePhoto: kept.some((a) => a.role === 'scene'),
         figureLed: !!scene?.figure,
+        anchor: !!scene?.anchor,
         emptyRole,
       })
     : [];
@@ -1072,6 +1102,9 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   // generation: an edit's identity rides the source frame.
   const refGuard =
     ctx.mode !== 'edit' && hasPerson && kept.some((a) => a.role === 'reference') ? [referenceIdentityGuard()] : [];
+  // The same for a product: a reference's own product never becomes this one.
+  const refProductGuard =
+    ctx.mode !== 'edit' && productId && kept.some((a) => a.role === 'reference') ? [referenceProductGuard()] : [];
 
   const allDirectives: DeferredDirective[] = [
     // First, beside the sentence that names things: the model reads the names
@@ -1094,6 +1127,7 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     ...brandLines,
     ...guard,
     ...refGuard,
+    ...refProductGuard,
     ...preservation,
   ];
   const spoken = dedupe(allDirectives.map(resolveDirective).filter((s): s is string => s !== null));
@@ -1158,7 +1192,8 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
     onlyWords &&
     sceneHash &&
     ctx.images.has(sceneHash) &&
-    kept.every((a) => a.role === 'product')
+    // the scene's anchor riding is that same picture, which the two steps draw from
+    kept.every((a) => a.role === 'product' || (a.role === 'scene' && a.hash === sceneHash))
       ? {
           ...lead,
           sceneHash,
