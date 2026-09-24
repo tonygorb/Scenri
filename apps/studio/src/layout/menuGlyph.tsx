@@ -1,6 +1,5 @@
 import {
   Archive,
-  ArrowClockwise,
   ArrowCounterClockwise,
   ArrowRight,
   ArrowSquareOut,
@@ -66,7 +65,5 @@ export function MenuGlyph({ name }: { name: MenuIcon }) {
       return <PencilSimple {...props} />;
     case 'cover':
       return <Image {...props} />;
-    case 'redraw':
-      return <ArrowClockwise {...props} />;
   }
 }

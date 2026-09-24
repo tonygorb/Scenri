@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import { WarningCircle } from '@phosphor-icons/react';
-import { api, type SceneExampleRole, type SceneView, thumbOf } from '../api.js';
+import { api, type SceneView, thumbOf } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { type CustomScene, coverViewOf } from '../brandAssets.js';
@@ -65,22 +65,6 @@ export function SceneExamples({
     onError(null);
     try {
       await api.drawSceneExamples(brandId, scene.id, { first: true });
-      again();
-    } catch (e: any) {
-      if (here()) onError(String(e?.message ?? e));
-    } finally {
-      if (here()) setDrawing(false);
-    }
-  };
-
-  /** One example drawn again from the place, from its menu: the same road, one role. */
-  const redraw = async (role: SceneExampleRole) => {
-    if (drawing || running) return;
-    const here = stillHere();
-    setDrawing(true);
-    onError(null);
-    try {
-      await api.drawSceneExamples(brandId, scene.id, { roles: [role] });
       again();
     } catch (e: any) {
       if (here()) onError(String(e?.message ?? e));
@@ -161,15 +145,7 @@ export function SceneExamples({
       isCover={o.view === coverView}
       onUse={shootLike(o.hash, o.view)}
       onCover={() => void setCover(o.view)}
-      onRedraw={
-        o.view !== 'place' && !running
-          ? () => {
-              setOpen(null);
-              void redraw(o.view as SceneExampleRole);
-            }
-          : undefined
-      }
-      busy={covering || drawing}
+      busy={covering}
     />
   );
   // Saved before its picture was drawn: nothing to show yet.
@@ -308,8 +284,7 @@ export function SceneExamples({
                       onOpen={openTile}
                       onUse={shootLike(t.hash, t.role)}
                       onCover={() => void setCover(t.role)}
-                      onRedraw={running ? undefined : () => void redraw(t.role)}
-                      busy={covering || drawing}
+                      busy={covering}
                     />
                   </span>
                 )}

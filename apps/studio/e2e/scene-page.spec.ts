@@ -293,12 +293,11 @@ test('Set as cover shows the hero on the card, everywhere, with no reload, and c
   await expect(labels.first()).toHaveText('Hero');
   await expect(frames.first()).not.toHaveAttribute('data-cover');
   expect((await record()).cover).toBe('place');
-  // a made scene's example can be drawn again from the same menu, and only that one
+  // nothing on a view draws again: the menu is a card's verbs and the cover
   await frames.first().hover();
   await frames.first().getByRole('button', { name: 'More for Hero' }).click();
-  const drawn = page.waitForRequest((r) => r.method() === 'POST' && r.url().endsWith(`/scenes/${s.id}/examples`));
-  await page.getByRole('menuitem', { name: 'Draw again, one picture' }).click();
-  expect((await drawn).postDataJSON()).toEqual({ roles: ['hero'] });
+  await expect(page.getByRole('menuitem')).toHaveText(['Open', 'Use this view', 'Set as cover']);
+  await page.keyboard.press('Escape');
   // the wall shows it in the same commit
   await page.getByRole('link', { name: 'Scenes', exact: true }).first().click();
   await page.waitForURL(new RegExp(`/${b.slug}/scenes$`));
@@ -317,19 +316,23 @@ test("a catalog scene's views: Scenri's cover is marked and fixed, and Use this 
   const b = await brand(page);
   await page.goto(`/${b.slug}/scenes/waterline-caustics`);
   const frames = page.locator('.sc-refset .sc-sceneview-frame');
-  // the catalog's own cover is marked, the one the packaged record names
-  const packaged = (await (await page.request.get('/api/scenes')).json()).scenes.find(
-    (x: any) => x.id === 'waterline-caustics',
-  );
-  expect(packaged.cover).toBe('angle');
+  // Scenri's cover is its own choice and is not marked here: a cover mark is
+  // state for someone who can change it, and nobody changes this one
   await expect(page.locator('.sc-refset .sc-refset-lb')).toHaveText([
     'Hero',
     'The place',
     'Close-up',
-    'Another angle · Cover',
+    'Another angle',
     'A bold one',
   ]);
-  await expect(frames.nth(3)).toHaveAttribute('data-cover', 'true');
+  await expect(page.locator('.sc-refset [data-cover]')).toHaveCount(0);
+
+  // Keepers is one star beside the header's buttons, as on every record page
+  const keep = page.getByRole('button', { name: 'Add to Keepers' });
+  await keep.click();
+  await expect(page.getByRole('button', { name: 'Remove from Keepers' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Remove from Keepers' }).click();
+  await expect(keep).toHaveAttribute('aria-pressed', 'false');
 
   // on a hover device: Use this view is the centred pill, More the card's
   // corner button in the top-right, named by the app's tip
@@ -370,8 +373,8 @@ test.describe('on a phone', () => {
     await page.goto(`/${b.slug}/scenes/waterline-caustics`);
     // no hover on a phone: the frame's own actions are not drawn
     await expect(page.locator('.sc-refset .sc-sceneview-frame .sc-lookcard-use').first()).toBeHidden();
-    // the cover still says so, under its picture
-    await expect(page.locator('.sc-refset .sc-sceneview-cover')).toBeVisible();
+    // Scenri's own cover is not marked
+    await expect(page.locator('.sc-refset .sc-sceneview-cover')).toHaveCount(0);
     await page.locator('.sc-refset .sc-refset-tile').nth(2).tap();
     const sheet = page.getByRole('dialog');
     await expect(sheet.getByRole('button', { name: 'Use this view' })).toBeVisible();

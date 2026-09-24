@@ -22,6 +22,11 @@
   color: var(--sc-fg);
   border-color: var(--sc-line-strong);
 }
+/* Kept: the gold star a kept card wears (lookcard.css), on a record's page. */
+.sc-keep-btn[data-on],
+.sc-keep-btn[data-on]:hover {
+  color: var(--sc-star);
+}
 /* A verb that does not apply right now is dim and still, and does not light
    under the pointer: the arrow at the end of a row, the last step of a zoom.
    Opacity rather than a colour swap, so the glyph stays the glyph. */

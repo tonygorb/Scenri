@@ -14,6 +14,7 @@ import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { Confirm } from '../Confirm.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { Rail } from '../layout/Rail.js';
+import { KeepButton } from '../layout/KeepButton.js';
 import { Tip } from '../layout/Tip.js';
 import { EmptyRefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
@@ -309,6 +310,7 @@ export function PresenterPage() {
               {editing ? 'Continue editing' : 'Edit presenter'}
             </Link>
           )}
+          <KeepButton kind="presenter" brandId={brand.id} id={presenter.id} />
           {owned && (
             <Tip label="Edit name and details">
               <button

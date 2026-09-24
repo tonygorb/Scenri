@@ -8,14 +8,12 @@ import { Tip } from './Tip.js';
  * and a catalog one: Use this view (a shot follows it) and Set as cover (the
  * scene is shown by it). Two separate things: a cover is presentation and
  * changes nothing a shot is given, and a view is picked for one shot at a time.
- * A made scene's example can also be drawn again, the one thing here that
- * spends, and it says so.
  *
  * `tile` is shown on hover and when the keyboard is inside the frame. Use this
  * view is the centred glass pill Home's examples carry, the one thing the
  * picture is for. A card's own More in the top-right holds its verbs the way a
  * catalog card's does (catalogMenu.ts): Open and the fast path first, then Set
- * as cover and Draw again, so it is never a menu of one. The cover is not
+ * as cover on a scene you made, so it is never a menu of one. The cover is not
  * marked on the picture: its frame wears a card's selected ring and its caption
  * says so
  * (`SceneViewCaption`). On touch More stays, as on a card, and the frame opens
@@ -28,7 +26,6 @@ export function SceneViewActions({
   onOpen,
   onUse,
   onCover,
-  onRedraw,
   busy = false,
 }: {
   variant: 'tile' | 'sheet';
@@ -40,8 +37,6 @@ export function SceneViewActions({
   /** Absent when this view cannot be handed to a shot (a picture still drawing). */
   onUse?: () => void;
   onCover?: () => void;
-  /** A made scene's example only: draw this one picture again. */
-  onRedraw?: () => void;
   busy?: boolean;
 }) {
   const canCover = !isCover && !!onCover;
@@ -56,11 +51,6 @@ export function SceneViewActions({
         {canCover && (
           <button type="button" className="sc-btn sc-btn-ghost" disabled={busy} onClick={onCover}>
             Set as cover
-          </button>
-        )}
-        {onRedraw && (
-          <button type="button" className="sc-btn sc-btn-ghost" disabled={busy} onClick={onRedraw}>
-            {REDRAW}
           </button>
         )}
       </>
@@ -78,7 +68,7 @@ export function SceneViewActions({
           Use this view
         </button>
       )}
-      {(onOpen || onUse || canCover || onRedraw) && (
+      {(onOpen || onUse || canCover) && (
         <div className="sc-corner">
           <DropdownMenu.Root>
             <Tip label="More">
@@ -108,12 +98,6 @@ export function SceneViewActions({
                   Set as cover
                 </DropdownMenu.Item>
               )}
-              {onRedraw && (
-                <DropdownMenu.Item disabled={busy} onSelect={onRedraw}>
-                  <MenuGlyph name="redraw" />
-                  {REDRAW}
-                </DropdownMenu.Item>
-              )}
             </DropdownMenu.Content>
           </DropdownMenu.Root>
         </div>
@@ -121,9 +105,6 @@ export function SceneViewActions({
     </>
   );
 }
-
-/** What it costs, said before it is pressed, as the page's own draw button says it. */
-const REDRAW = 'Draw again, one picture';
 
 /**
  * A view's name under its picture, and on the cover the word that says so, the

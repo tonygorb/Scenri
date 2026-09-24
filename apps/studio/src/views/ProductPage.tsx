@@ -27,6 +27,7 @@ import { ProductReferences, type ProductRef } from '../layout/ProductReferences.
 import { ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { LineField } from '../layout/LineField.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
+import { KeepButton } from '../layout/KeepButton.js';
 import { Tip } from '../layout/Tip.js';
 import { ProductDetailsDialog } from './ProductDetailsDialog.js';
 import { categoryLabel, effectiveCategory } from '../productCategories.js';
@@ -444,6 +445,7 @@ export function ProductPage() {
           <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyProduct(id)}>
             Use in a shot
           </button>
+          <KeepButton kind="product" brandId={brand.id} id={id} />
           {editable !== 'none' && (
             <Tip label="Edit details">
               <button

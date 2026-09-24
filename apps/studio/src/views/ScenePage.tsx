@@ -8,10 +8,10 @@ import { useTitleEntity } from '../useDocumentTitle.js';
 import { customSceneById, customScenesOf } from '../brandAssets.js';
 import { hubPath, sceneEditPath, scenePath, scenesPath, shotPath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
-import { bookmarkedScenes, toggleKept } from '../bookmarks.js';
+import { bookmarkedScenes } from '../bookmarks.js';
 import { Confirm } from '../Confirm.js';
 import { SceneCard } from '../layout/SceneCard.js';
-import { CaretDown, PencilSimple, Star } from '@phosphor-icons/react';
+import { CaretDown, PencilSimple } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
 import { COPY } from '../create/scene/sceneCopy.js';
 import { FRAMINGS, SETUPS_MAX } from '../create/scene/sceneSetups.js';
@@ -25,6 +25,7 @@ import { bookmarkedFirst } from '../layout/library/libraryRules.js';
 import { useStillHere } from '../useStillHere.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { SceneExamples } from './SceneExamples.js';
+import { KeepButton } from '../layout/KeepButton.js';
 import { SceneViewActions, SceneViewCaption } from '../layout/SceneViewActions.js';
 import { EXAMPLE_LABEL } from '../sceneExampleRules.js';
 
@@ -60,7 +61,6 @@ export function ScenePage() {
   /** A curated scene's frames by what they show, when its library names them. */
   const [views, setViews] = useState<{ view: SceneView; url: string }[]>([]);
   const [viewBusy, setViewBusy] = useState(false);
-  const [marks, setMarks] = useState<string[]>(() => bookmarkedScenes(brandId));
   /** The picture opened at full size, what to call it there, and which view it is. */
   const [open, setOpen] = useState<{ src: string; label: string; view?: SceneView } | null>(null);
 
@@ -301,8 +301,6 @@ export function ScenePage() {
             },
           ]
         : [];
-  /** Which catalog view stands for it: Scenri's curated cover, the same for every brand. */
-  const catalogCover: SceneView = scene.cover ?? 'place';
   /** A catalog view handed to one shot: copied into the store first, then the same road a made scene's takes. */
   const shootCatalogView = async (view: SceneView) => {
     if (viewBusy) return;
@@ -318,7 +316,6 @@ export function ScenePage() {
     }
   };
 
-  const marked = !owned && marks.includes(scene.id);
   const ways = owned?.setups ?? [];
   /**
    * The uploads it was read from, without the one already standing above as
@@ -401,21 +398,12 @@ export function ScenePage() {
               Use in a shot
             </button>
           )}
-          {owned ? (
+          {owned && (
             <Link className="sc-btn sc-btn-ghost" to={sceneEditPath(brand, owned.id)}>
               Edit scene
             </Link>
-          ) : (
-            <button
-              type="button"
-              className="sc-btn sc-btn-ghost"
-              aria-pressed={marked}
-              onClick={() => setMarks(toggleKept('scene', brandId, scene.id))}
-            >
-              <Star size={13} weight={marked ? 'fill' : 'regular'} />
-              <span>{marked ? 'Remove from Keepers' : 'Add to Keepers'}</span>
-            </button>
           )}
+          <KeepButton kind="scene" brandId={brandId} id={scene.id} />
           {owned && (
             <Tip label="Edit name, filing and ways">
               <button
@@ -446,11 +434,11 @@ export function ScenePage() {
           >
             {frames.map((f) => (
               <li key={f.src}>
-                <span className="sc-sceneview-frame" data-cover={f.view === catalogCover || undefined}>
+                <span className="sc-sceneview-frame">
                   <button
                     type="button"
                     className="sc-refset-tile"
-                    aria-label={`${f.label}${f.view === catalogCover ? ', the cover' : ''}, open`}
+                    aria-label={`${f.label}, open`}
                     onClick={() => setOpen(f)}
                   >
                     <Shown src={thumbOf(f.src, 'small')} />
@@ -459,14 +447,14 @@ export function ScenePage() {
                     <SceneViewActions
                       variant="tile"
                       label={f.label}
-                      isCover={f.view === catalogCover}
+                      isCover={false}
                       onOpen={() => setOpen(f)}
                       onUse={() => void shootCatalogView(f.view as SceneView)}
                       busy={viewBusy}
                     />
                   )}
                 </span>
-                <SceneViewCaption label={f.label} isCover={f.view === catalogCover} />
+                <SceneViewCaption label={f.label} isCover={false} />
               </li>
             ))}
           </Rail>
@@ -599,7 +587,7 @@ export function ScenePage() {
                 <SceneViewActions
                   variant="sheet"
                   label={open.label}
-                  isCover={open.view === catalogCover}
+                  isCover={false}
                   onUse={() => void shootCatalogView(open.view as SceneView)}
                   busy={viewBusy}
                 />
