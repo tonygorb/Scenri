@@ -532,16 +532,16 @@ function parsePresenter(req: AnalyzeRequest, o: Record<string, unknown>): ParseR
       ageRange: cap(str(o.ageRange), 40),
       // Cut at a clause, never mid-word: every shot of a person is told these,
       // and a hard slice sent "full-body proporti." with each one.
-      hair: oneLine(o.hair, 120),
+      hair: trait(o.hair, 120),
       identityNotes: cap(identityNotes, 900),
       negativeConstraints: list(o.negativeConstraints, 6, 160),
       suitableCategories: pick(o.suitableCategories, req.vocabulary?.categories, 6),
       coverage: sentences(o.coverage, 2, 240),
       // Non-blocking, like scene's `camera`: a model that omits or fumbles
       // these must not burn the single retry that exists for a broken contract.
-      ...optional('facial', oneLine(o.facial, 300)),
-      ...optional('skin', oneLine(o.skin, 200)),
-      ...optional('build', oneLine(o.build, 200)),
+      ...optional('facial', trait(o.facial, 300)),
+      ...optional('skin', trait(o.skin, 200)),
+      ...optional('build', trait(o.build, 200)),
       ...(req.classifyPhotos ? optional('photos', photoFilings(o.photos, req.imagePaths.length)) : {}),
       ...(req.classifyPhotos ? optional('conflict', cap(str(o.conflict), 200)) : {}),
     },
@@ -638,6 +638,23 @@ function oneLine(v: unknown, max: number): string {
   return (/\s/.test(one[max] ?? '') ? cut : cut.replace(/\s+\S*$/, '')).replace(/[\s,;:-]+$/, '');
 }
 const cap = (v: string, max: number): string => (v.length > max ? v.slice(0, max).trim() : v);
+/**
+ * A trait sentence a person reads and every shot of them is told, cut back to
+ * what still reads whole: the last full sentence when that keeps most of it,
+ * else the last clause, else the last word. A hard slice ended a build on
+ * "full-body proporti"; a clause cut inside the last sentence can leave "The
+ * nose has a straight", which is why a late full stop wins.
+ */
+function trait(v: unknown, max: number): string {
+  const one = str(v).replace(/\s+/g, ' ');
+  if (one.length <= max) return one;
+  const cut = one.slice(0, max);
+  const sentence = cut.lastIndexOf('. ');
+  if (sentence >= max * 0.6) return cut.slice(0, sentence + 1);
+  const clause = Math.max(cut.lastIndexOf(', '), cut.lastIndexOf('; '));
+  if (clause > max / 3) return cut.slice(0, clause).trim();
+  return cut.replace(/\s+\S*$/, '').replace(/[\s,;:-]+$/, '');
+}
 
 /**
  * Sentences a person reads in the conversation, cut the way `oneLine` cuts: a

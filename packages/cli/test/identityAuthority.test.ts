@@ -115,6 +115,12 @@ describe('presenter identity authority', () => {
     // clean text, or text that never reached the cap, is untouched
     expect(mendedTrait('broad and muscular, athletic', 200)).toBe('broad and muscular, athletic');
     expect(mendedTrait('Tall. Lean.', 11)).toBe('Tall. Lean.');
+    // Deps' real stored face line: a clause cut here would leave "The nose has a straight."
+    const face =
+      'Long rectangular-to-oval face with a broad forehead, prominent cheekbones, subtly hollow cheeks and an angular ' +
+      'jaw ending in a broad squared chin. Almond-shaped green eyes with slightly hooded upper lids sit beneath thick, ' +
+      'dark, gently arched brows. The nose has a straight, moderately broad bridge,';
+    expect(mendedTrait(face, face.length)).toBe(face.slice(0, face.indexOf(' The nose')));
     const r = compile([{ t: 'character', id: 'dax' }], 5);
     expect(r.prompt).not.toContain('full-body proporti');
     expect(r.prompt).toContain('supplied as tall and lean.');
