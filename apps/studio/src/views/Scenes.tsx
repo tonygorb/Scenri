@@ -7,7 +7,7 @@ import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useTaskCenter } from '../app/TaskCenter.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
-import { customScenesOf, type CustomScene, withBrandCovers } from '../brandAssets.js';
+import { customScenesOf, type CustomScene } from '../brandAssets.js';
 import { P, scenePath, sceneStudioPath } from '../routes.js';
 import { DraftCard } from '../layout/DraftCard.js';
 import {
@@ -73,7 +73,7 @@ export function ScenesView() {
   const { scenes: catalog, collections, verticals, loaded, error, refetch, applyBrand, refreshBrands } = useAppData();
   const { brand } = useBrand();
   // the catalog as this brand shows it: a cover it chose is on the card
-  const scenes = useMemo(() => withBrandCovers(catalog, brand), [catalog, brand]);
+  const scenes = catalog;
   const { push } = useToasts();
   const navigate = useNavigate();
   // The shortlist, per brand, in localStorage — deliberately not in the .brand

@@ -434,26 +434,6 @@ describe('product uploads + scene generation via API', () => {
     expect((await app.inject({ method: 'POST', url: '/api/scenes/nope/views/hero/pick' })).statusCode).toBe(404);
   });
 
-  it("keeps a brand's own cover for a catalog scene on the brand, and never on the scene", async () => {
-    const brand = await newBrand();
-    const url = `/api/brands/${brand.id}/scene-covers/waterline-caustics`;
-    const set = await app.inject({ method: 'PUT', url, payload: { view: 'bold' } });
-    expect(set.statusCode).toBe(200);
-    expect(set.json().brand.json.extensions['scenri.scene-covers']).toEqual({ 'waterline-caustics': 'bold' });
-    // the packaged record is untouched
-    const listed = (await app.inject({ method: 'GET', url: '/api/scenes' })).json().scenes;
-    const own = listed.find((s: any) => s.id === 'waterline-caustics');
-    expect(own.cover ?? 'place').not.toBe('bold');
-    // the catalog's own cover clears the choice, and an empty space is left empty
-    const back = await app.inject({ method: 'PUT', url, payload: { view: own.cover ?? 'place' } });
-    expect(back.json().brand.json.extensions).toBeUndefined();
-    expect((await app.inject({ method: 'PUT', url, payload: { view: 'example-4' } })).statusCode).toBe(400);
-    expect(
-      (await app.inject({ method: 'PUT', url: `/api/brands/${brand.id}/scene-covers/nope`, payload: { view: 'hero' } }))
-        .statusCode,
-    ).toBe(404);
-  });
-
   it('reports where the library lives and how big it is', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/home' });
     const body = res.json();

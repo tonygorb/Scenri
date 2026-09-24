@@ -4,10 +4,8 @@ import {
   customPresentersOf,
   customSceneById,
   customScenesOf,
-  catalogViewUrl,
   coverViewOf,
   headPresenterId,
-  withBrandCovers,
   newestFirst,
   productsNewestFirst,
   withCustomFirst,
@@ -322,21 +320,5 @@ describe('a scene’s cover', () => {
     const [lost] = customScenesOf(brandWith({ scenes: [{ ...SCENE, cover: 'bold' }] }));
     expect(lost.previewUrl).toBe(`/api/images/${HASH_A}`);
     expect(coverViewOf(lost)).toBe('place');
-  });
-
-  it('shows a catalog scene by the view this brand chose, and never touches the rest', () => {
-    const catalog = [
-      { id: 'balloon-knot', cover: 'hero', previewUrl: '/api/scene-thumbnails/balloon-knot.jpg' },
-      { id: 'beauty-dish', previewUrl: '/api/scene-thumbnails/beauty-dish.jpg' },
-    ] as any[];
-    // nothing chosen: the very same list, so a memo keyed on it holds
-    expect(withBrandCovers(catalog, brandWith({}))).toBe(catalog);
-    const chose = brandWith({ extensions: { 'scenri.scene-covers': { 'balloon-knot': 'bold', nope: 'banner' } } });
-    const [knot, dish] = withBrandCovers(catalog, chose);
-    expect(knot.previewUrl).toBe(catalogViewUrl('balloon-knot', 'bold'));
-    expect(knot.cover).toBe('bold');
-    expect(dish).toBe(catalog[1]);
-    // hands is a made scene's view only
-    expect(catalogViewUrl('balloon-knot', 'hands')).toBeNull();
   });
 });

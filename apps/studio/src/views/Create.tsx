@@ -1,4 +1,4 @@
-import { withBrandCovers, withHeadPresenters } from '../brandAssets.js';
+import { withHeadPresenters } from '../brandAssets.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useNavigate, useSearchParams } from 'react-router';
 import { api, nodeLabel, type FeedNode, type FeedQuery, type ShotSet } from '../api.js';
@@ -76,7 +76,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     products,
   } = useBrand();
   // the catalog as this brand shows it: a cover it chose is on every chip
-  const templates = useMemo(() => withBrandCovers(catalogScenes, brand), [catalogScenes, brand]);
+  const templates = catalogScenes;
   // The rail offers what a brief can resolve, so the brand's own assets lead
   // it exactly as they do in the composer's own attach panel.
   // One assembled catalog for this screen. The rail builds its own from the

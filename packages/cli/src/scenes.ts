@@ -107,8 +107,8 @@ export interface Scene {
   /**
    * Which of its pictures the card shows: the view the card image
    * (`previews/<id>.jpg`) was cut from. Presentation only, never read by the
-   * compiler; absent means the place. A brand may show another of its views
-   * (sceneCovers.ts), and that never touches this file.
+   * compiler; absent means the place. Scenri's own choice, the same for every
+   * brand: only a scene a brand made changes its cover.
    */
   cover?: SceneView;
 }

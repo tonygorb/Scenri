@@ -311,12 +311,17 @@ test('Set as cover shows the hero on the card, everywhere, with no reload, and c
   expect(after.attachments).toEqual(before.attachments);
 });
 
-test("a catalog scene's views: Use this view hands one to a shot, Set as cover is this brand's own", async ({
+test("a catalog scene's views: Scenri's cover is marked and fixed, and Use this view hands one to a shot", async ({
   page,
 }) => {
   const b = await brand(page);
   await page.goto(`/${b.slug}/scenes/waterline-caustics`);
   const frames = page.locator('.sc-refset .sc-sceneview-frame');
+  // the catalog's own cover is marked, the one the packaged record names
+  const packaged = (await (await page.request.get('/api/scenes')).json()).scenes.find(
+    (x: any) => x.id === 'waterline-caustics',
+  );
+  expect(packaged.cover).toBe('angle');
   await expect(page.locator('.sc-refset .sc-refset-lb')).toHaveText([
     'Hero',
     'The place',
@@ -324,19 +329,11 @@ test("a catalog scene's views: Use this view hands one to a shot, Set as cover i
     'Another angle · Cover',
     'A bold one',
   ]);
-  // the catalog's own cover is marked, and the packaged record is what says it
-  const packaged = (await (await page.request.get('/api/scenes')).json()).scenes.find(
-    (x: any) => x.id === 'waterline-caustics',
-  );
-  const labels = page.locator('.sc-refset .sc-refset-lb');
-  await expect(labels.nth(3)).toHaveText('Another angle · Cover');
-  expect(packaged.cover).toBe('angle');
+  await expect(frames.nth(3)).toHaveAttribute('data-cover', 'true');
 
-  // this brand shows its bold frame instead; the packaged scene does not move
-  // on a hover device the frame shows its two actions under the pointer
+  // on a hover device: Use this view is the centred pill, More the card's
+  // corner button in the top-right, named by the app's tip
   await frames.nth(4).hover();
-  // the card's own controls: Use this view is the centred pill, More the
-  // card's corner button in the top-right, named by the app's tip
   const box = (await frames.nth(4).boundingBox())!;
   const use = frames.nth(4).getByRole('button', { name: 'Use this view: A bold one' });
   await expect(use).toHaveCSS('opacity', '1');
@@ -350,17 +347,10 @@ test("a catalog scene's views: Use this view hands one to a shot, Set as cover i
   await more.hover();
   await expect(page.locator('.sc-tip')).toHaveText('More');
   await more.click();
-  // a card's verbs, Open and the fast path first, never a menu of one; a
-  // catalog frame is not drawn again here
-  await expect(page.getByRole('menuitem')).toHaveText(['Open', 'Use this view', 'Set as cover']);
-  await page.getByRole('menuitem', { name: 'Set as cover' }).click();
-  await expect(labels.nth(4)).toHaveText('A bold one · Cover');
-  const brands = await (await page.request.get('/api/brands')).json();
-  expect(brands[0].json.extensions['scenri.scene-covers']).toEqual({ 'waterline-caustics': 'bold' });
-  const still = (await (await page.request.get('/api/scenes')).json()).scenes.find(
-    (x: any) => x.id === 'waterline-caustics',
-  );
-  expect(still.cover).toBe('angle');
+  // a card's verbs, Open and the fast path; Scenri's cover is not changed
+  // here, and a catalog frame is not drawn again
+  await expect(page.getByRole('menuitem')).toHaveText(['Open', 'Use this view']);
+  await page.keyboard.press('Escape');
 
   // Use this view: one chip, the scene carrying that picture, in Create
   await frames.first().hover();
@@ -375,7 +365,7 @@ test("a catalog scene's views: Use this view hands one to a shot, Set as cover i
 
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
-  test('a view opens, and the sheet carries both actions', async ({ page }) => {
+  test('a view opens, and the sheet carries what a catalog view offers', async ({ page }) => {
     const b = await brand(page);
     await page.goto(`/${b.slug}/scenes/waterline-caustics`);
     // no hover on a phone: the frame's own actions are not drawn
@@ -385,6 +375,7 @@ test.describe('on a phone', () => {
     await page.locator('.sc-refset .sc-refset-tile').nth(2).tap();
     const sheet = page.getByRole('dialog');
     await expect(sheet.getByRole('button', { name: 'Use this view' })).toBeVisible();
-    await expect(sheet.getByRole('button', { name: 'Set as cover' })).toBeVisible();
+    // Scenri's own cover is fixed: only a scene you made changes its cover
+    await expect(sheet.getByRole('button', { name: 'Set as cover' })).toHaveCount(0);
   });
 });

@@ -102,7 +102,6 @@ import { registerPresenterRoutes } from './routes/presenters.js';
 import { registerAssetBuildRoutes } from './routes/assetBuilds.js';
 import { registerPresenterDraftRoutes } from './routes/presenterDrafts.js';
 import { registerSceneStudioRoutes } from './routes/sceneStudio.js';
-import { registerSceneCoverRoutes } from './routes/sceneCovers.js';
 import { runningSceneStudioCount, settleSceneStudio } from './sceneStudio.js';
 import { createSceneExamples, type SceneExamples } from './sceneExamples.js';
 import { registerSceneExampleRoutes } from './routes/sceneExamples.js';
@@ -577,7 +576,6 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
   // ---- scenes (+ their preview imagery when generated)
   const templatesRoot = opts.templatesDir ?? defaultScenesDir();
   registerSceneRoutes(app, { templatesRoot, scenes, thumbs, core });
-  registerSceneCoverRoutes(app, { core, scenes });
 
   // ---- presenters (curated identity catalog). A presenter attaches straight
   // into a brief like a Scene does — see brandJsonWithResolvedPresenters below.

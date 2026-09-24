@@ -256,46 +256,6 @@ function toScene(s: any): CustomScene {
   };
 }
 
-/**
- * Which file a catalog scene's view is (the server's `SCENE_VIEW_SLOTS`): the
- * place, then four pictures of it in use. Hands is a made scene's view only.
- */
-const CATALOG_SLOT: Partial<Record<SceneView, string>> = {
-  place: 'ref-01',
-  hero: 'ref-02',
-  close: 'ref-03',
-  angle: 'ref-04',
-  bold: 'ref-05',
-};
-export const catalogViewUrl = (sceneId: string, view: SceneView): string | null =>
-  CATALOG_SLOT[view] ? `/api/scene-previews/${sceneId}/${CATALOG_SLOT[view]}.jpg` : null;
-
-/** The covers this brand chose for catalog scenes, by scene id (the server's sceneCovers.ts). */
-export function catalogCoversOf(brand: Brand | null | undefined): Record<string, SceneView> {
-  const raw = (brand?.json as any)?.extensions?.['scenri.scene-covers'];
-  if (!raw || typeof raw !== 'object') return {};
-  return Object.fromEntries(Object.entries(raw).filter(([, v]) => SCENE_VIEWS.includes(v as SceneView))) as Record<
-    string,
-    SceneView
-  >;
-}
-
-/**
- * The catalog as this brand shows it: a scene whose cover the brand chose shows
- * that view on its card, in the pickers and on its chips. The packaged scene is
- * never changed, and nothing here reaches a shot. The same array when there is
- * nothing to change, so a memo keyed on it holds.
- */
-export function withBrandCovers<T extends Scene>(scenes: T[], brand: Brand | null | undefined): T[] {
-  const covers = catalogCoversOf(brand);
-  if (!Object.keys(covers).length) return scenes;
-  return scenes.map((s) => {
-    const view = covers[s.id];
-    const url = view && view !== (s.cover ?? 'place') ? catalogViewUrl(s.id, view) : null;
-    return url ? { ...s, cover: view, previewUrl: url } : s;
-  });
-}
-
 /** Which view stands for a scene now: the one it shows as its cover, else the place. */
 export function coverViewOf(scene: Scene & { examples?: SceneExampleView[] }): SceneView {
   const v = scene.cover;

@@ -5,7 +5,7 @@ import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useMadeWith } from './useMadeWith.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
-import { customSceneById, customScenesOf, withBrandCovers } from '../brandAssets.js';
+import { customSceneById, customScenesOf } from '../brandAssets.js';
 import { hubPath, sceneEditPath, scenePath, scenesPath, shotPath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
 import { bookmarkedScenes, toggleKept } from '../bookmarks.js';
@@ -52,7 +52,7 @@ export function ScenePage() {
   // one ask upstairs holds the whole brand now, so this page no longer walks
   // twenty project trees to answer "what did this scene actually produce"
   const { brand } = useBrand();
-  const scenes = useMemo(() => withBrandCovers(catalog, brand), [catalog, brand]);
+  const scenes = catalog;
   const navigate = useNavigate();
   const applyScene = useApplyScene();
   const brandId = brand.id;
@@ -301,7 +301,7 @@ export function ScenePage() {
             },
           ]
         : [];
-  /** Which catalog view stands for it: the brand's choice, else the catalog's own. */
+  /** Which catalog view stands for it: Scenri's curated cover, the same for every brand. */
   const catalogCover: SceneView = scene.cover ?? 'place';
   /** A catalog view handed to one shot: copied into the store first, then the same road a made scene's takes. */
   const shootCatalogView = async (view: SceneView) => {
@@ -311,20 +311,6 @@ export function ScenePage() {
     try {
       const { hash } = await api.pickSceneView(scene.id, view);
       applyScene(scene.id, undefined, hash, view);
-    } catch (e: any) {
-      setErr(String(e?.message ?? e));
-    } finally {
-      setViewBusy(false);
-    }
-  };
-  /** Show this view on the scene's card for this brand; the packaged scene never changes. */
-  const coverCatalogView = async (view: SceneView) => {
-    if (viewBusy) return;
-    setViewBusy(true);
-    setErr(null);
-    try {
-      const r = await api.setCatalogSceneCover(brandId, scene.id, view);
-      applyBrand(r.brand);
     } catch (e: any) {
       setErr(String(e?.message ?? e));
     } finally {
@@ -476,7 +462,6 @@ export function ScenePage() {
                       isCover={f.view === catalogCover}
                       onOpen={() => setOpen(f)}
                       onUse={() => void shootCatalogView(f.view as SceneView)}
-                      onCover={() => void coverCatalogView(f.view as SceneView)}
                       busy={viewBusy}
                     />
                   )}
@@ -616,7 +601,6 @@ export function ScenePage() {
                   label={open.label}
                   isCover={open.view === catalogCover}
                   onUse={() => void shootCatalogView(open.view as SceneView)}
-                  onCover={() => void coverCatalogView(open.view as SceneView)}
                   busy={viewBusy}
                 />
               ) : undefined
