@@ -64,8 +64,12 @@ export type BriefToken =
   | { t: 'color'; hex: string; name?: string }
   | { t: 'ref'; imageHash: string; label?: string }
   | { t: 'mark'; imageHash: string }
-  /** A scene, and optionally which of its setups is being shot. */
-  | { t: 'template'; id: string; setup?: string }
+  /**
+   * A scene, and optionally which of its setups is being shot, and which of its
+   * pictures the shot follows (Use this view): `view` is that picture's hash,
+   * `viewName` only what the chip calls it.
+   */
+  | { t: 'template'; id: string; setup?: string; view?: string; viewName?: string }
   | { t: 'format'; id: FormatId; w: number; h: number };
 
 export type FormatId = 'square' | 'story' | 'landscape' | 'portrait';
@@ -317,6 +321,10 @@ export function validateBrief(brief: unknown): string[] {
       case 'character':
       case 'template':
         if (!str(t.id)) errors.push(`${at}.id must be a non-empty string`);
+        if (t.t === 'template' && t.view !== undefined && !/^[a-f0-9]{32}$/.test(String(t.view)))
+          errors.push(`${at}.view must be an image hash when present`);
+        if (t.t === 'template' && t.viewName !== undefined && typeof t.viewName !== 'string')
+          errors.push(`${at}.viewName must be a string when present`);
         break;
       case 'color':
         if (!str(t.hex) || !/^#[0-9a-fA-F]{6}$/.test(String(t.hex))) errors.push(`${at}.hex must be a #RRGGBB color`);
@@ -363,7 +371,20 @@ type DeferredDirective =
  */
 const sceneRefSeam = (): number => Math.max(0, Math.min(4, Number(process.env.SCENRI_SCENE_REFS ?? 0) || 0));
 
-export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
+export function compileBrief(input: Brief, ctx: CompileContext): CompiledBrief {
+  // A scene chip carrying a picked view is the scene and that picture: one chip
+  // in the sentence, unfolded here into the reference a picked picture has
+  // always been, so it compiles exactly as the scene chip and a picture chip did.
+  const unfolded = new Set<BriefToken>();
+  const brief: Brief = {
+    ...input,
+    tokens: input.tokens.flatMap((t) => {
+      if (t.t !== 'template' || !t.view) return [t];
+      const ref: BriefToken = { t: 'ref', imageHash: t.view };
+      unfolded.add(ref);
+      return [t, ref];
+    }),
+  };
   const warnings: string[] = [];
   const attachments: Attachment[] = [];
   /** Identities that exist in the kit but have no usable photo - see below. */
@@ -405,7 +426,9 @@ export function compileBrief(brief: Brief, ctx: CompileContext): CompiledBrief {
   const refTokens = brief.tokens.filter((t) => t.t === 'ref');
   const refWords = new Map<BriefToken, string>();
   brief.tokens.forEach((t, i) => {
-    if (t.t !== 'ref') return;
+    // A scene's picked view is always the frame the shot follows: the words
+    // beside its chip are about the scene, never about the picture.
+    if (t.t !== 'ref' || unfolded.has(t)) return;
     const words = (n: BriefToken | undefined) => n?.t === 'text' && n.v.trim() !== '';
     if (!words(brief.tokens[i - 1]) && !words(brief.tokens[i + 1])) return;
     refWords.set(t, refTokens.length > 1 ? `attached image ${refTokens.indexOf(t) + 1}` : 'the attached image');

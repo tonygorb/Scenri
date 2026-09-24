@@ -1,4 +1,4 @@
-import type { SceneExampleJob, SceneExampleRole } from './api.js';
+import type { SceneExampleJob, SceneExampleRole, SceneView } from './api.js';
 import type { SceneExampleView } from './brandAssets.js';
 
 /**
@@ -17,6 +17,19 @@ export const EXAMPLE_LABEL: Record<SceneExampleRole, string> = {
   hands: 'Hands',
   angle: 'Another angle',
   bold: 'A bold one',
+};
+
+/**
+ * What a picked view is called on its scene's chip ("Block Tower · Close-up"):
+ * one short word each, since the chip already shows the picture.
+ */
+export const VIEW_CHIP_NAME: Record<SceneView, string> = {
+  place: 'Place',
+  hero: 'Hero',
+  close: 'Close-up',
+  hands: 'Hands',
+  angle: 'Angle',
+  bold: 'Bold',
 };
 
 /** What the role is called inside a sentence ("Drawing the close-up"). */

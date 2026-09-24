@@ -815,6 +815,13 @@ describe('validateBrief', () => {
   it('rejects a mark with no image', () => {
     expect(validateBrief({ tokens: [{ t: 'mark' }] })).toEqual(['tokens[0].imageHash must be a non-empty string']);
   });
+  it('accepts a scene carrying a picked view, and only a picture hash as that view', () => {
+    const view = 'a'.repeat(32);
+    expect(validateBrief({ tokens: [{ t: 'template', id: 's1', view, viewName: 'Hero' }] })).toEqual([]);
+    expect(validateBrief({ tokens: [{ t: 'template', id: 's1', view: '../x' }] })).toEqual([
+      'tokens[0].view must be an image hash when present',
+    ]);
+  });
 });
 
 describe('brief through the API', () => {
@@ -1774,6 +1781,56 @@ describe('compileBrief: a world built around a figure', () => {
       expect(picked.prompt).toContain('never enlarged to fill it');
       expect(picked.prompt).not.toContain("This shot is framed at the product's own scale");
       expect(picked.prompt).not.toContain('the camera comes low and close');
+    });
+
+    // Use this view: one chip, the scene carrying the picture it follows.
+    it('a scene chip carrying a picked view compiles exactly as the scene and that picture did', () => {
+      const preview = core.images.save(Buffer.from('anchor-view-chip'));
+      const hero = core.images.save(Buffer.from('anchor-view-chip-hero'));
+      const scene = {
+        ...place,
+        preview: `asset:${preview}`,
+        examples: [{ role: 'hero', file: `asset:${hero}`, from: `asset:${preview}` }],
+      };
+      const one = compileBrief(
+        {
+          tokens: [
+            { t: 'character', id: 'c1' },
+            { t: 'template', id: base.id, view: hero, viewName: 'Hero' },
+          ],
+        },
+        refd(scene),
+      );
+      const two = compileBrief(
+        {
+          tokens: [
+            { t: 'character', id: 'c1' },
+            { t: 'template', id: base.id },
+            { t: 'ref', imageHash: hero },
+          ],
+        },
+        refd(scene),
+      );
+      expect(one.prompt).toBe(two.prompt);
+      expect(one.attachments.map((a) => [a.role, a.hash])).toEqual(two.attachments.map((a) => [a.role, a.hash]));
+      // one picture of the scene, never two: its anchor stays home
+      expect(sceneOf(one)).toHaveLength(0);
+      expect(one.attachments.filter((a) => a.role === 'reference').map((a) => a.hash)).toEqual([hero]);
+    });
+
+    it('words beside a scene-view chip are about the scene, and the picture stays the frame', () => {
+      const view = core.images.save(Buffer.from('view-chip-with-words'));
+      const r = compileBrief(
+        {
+          tokens: [
+            { t: 'template', id: base.id, view, viewName: 'Close-up' },
+            { t: 'text', v: 'with a red umbrella' },
+          ],
+        },
+        refd(place),
+      );
+      expect(r.prompt).toContain('Match the composition, lighting and treatment of the attached reference');
+      expect(r.prompt).not.toContain('the attached image with a red umbrella');
     });
   });
 

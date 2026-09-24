@@ -10,8 +10,10 @@ import {
   type BriefPreview,
   type EngineInfo,
   type FeedNode,
+  type SceneView,
 } from '../api.js';
 import { effectiveCategory } from '../productCategories.js';
+import { VIEW_CHIP_NAME } from '../sceneExampleRules.js';
 import {
   briefTokens,
   BriefInput,
@@ -120,10 +122,12 @@ export const Composer = forwardRef<
     startProduct?: string;
     /**
      * One picture of a scene (its own picture, or one of its examples) picked on
-     * its page to shoot like: a picture chip after the scene's, which the shot
-     * follows for composition, light and treatment (brief.ts, the ref chip).
+     * its page to shoot like, and which view it is: the scene's own chip carries
+     * it, one chip for the scene and the picture, and the shot follows its
+     * composition, light and treatment (brief.ts unfolds it into the reference).
      */
     startRef?: string;
+    startView?: string;
     /**
      * One of the three seeds above has landed in the sentence, so whoever put
      * it in the URL should take it back out. A seed left in the address bar is
@@ -213,6 +217,7 @@ export const Composer = forwardRef<
     startPresenter,
     startProduct,
     startRef,
+    startView,
     onSeedsSpent,
     openAttachTab,
     onQueued,
@@ -466,9 +471,18 @@ export const Composer = forwardRef<
       // it, and this effect only runs on a fresh, target-less mount), so the
       // seed path resolves against no branch at all.
       const result = resolveSceneSwitch(existingSceneId, startScene, sceneName, null, null);
-      if (result.changed) {
+      // A picked view rides on the scene's own chip, so the same scene already
+      // in the sentence still takes it.
+      const view = startRef && /^[a-f0-9]{32}$/.test(startRef) ? startRef : null;
+      const viewName = startView && startView in VIEW_CHIP_NAME ? VIEW_CHIP_NAME[startView as SceneView] : undefined;
+      if (result.changed || view) {
         tokens = [
-          { t: 'template', id: startScene, ...(startSetup ? { setup: startSetup } : {}) },
+          {
+            t: 'template',
+            id: startScene,
+            ...(startSetup ? { setup: startSetup } : {}),
+            ...(view ? { view, ...(viewName ? { viewName } : {}) } : {}),
+          },
           ...base.filter((t) => t.t !== 'template'),
         ];
         if (result.toast) {
@@ -509,7 +523,8 @@ export const Composer = forwardRef<
       const already = base.some((t) => t.t === 'product' && t.id === startProduct);
       if (!already) tokens = [...base, { t: 'product', id: startProduct }];
     }
-    if (startRef && /^[a-f0-9]{32}$/.test(startRef) && startRef !== lastAppliedStartRef.current) {
+    // A picture with no scene beside it (none reaches here today) keeps its own chip.
+    if (startRef && !startScene && /^[a-f0-9]{32}$/.test(startRef) && startRef !== lastAppliedStartRef.current) {
       lastAppliedStartRef.current = startRef;
       seedApplied = true;
       const base = tokens ?? emptySentence();

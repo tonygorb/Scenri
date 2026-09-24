@@ -294,6 +294,11 @@ export const BriefInput = forwardRef<
         const t = found.scene;
         label = t ? sceneLabel(t, 'chip') : 'missing template';
         thumb = t?.previewUrl ?? null;
+        // A picked view: the scene's chip shows that picture and names it.
+        if (t && token.t === 'template' && token.view) {
+          thumb = thumbUrl(token.view, 'micro');
+          if (token.viewName) label = `${label} · ${token.viewName}`;
+        }
         const tint = normalizeTint(t?.previewColor);
         if (tint) {
           el.dataset.tinted = 'true';
@@ -1654,7 +1659,10 @@ function sameColor(a: string | null | undefined, b: string | null | undefined): 
 }
 
 function labelFallback(t: SentenceToken, templates: Scene[], products: any[]): string {
-  if (t.t === 'template') return templates.find((x) => x.id === t.id)?.name ?? 'template';
+  if (t.t === 'template') {
+    const name = templates.find((x) => x.id === t.id)?.name ?? 'template';
+    return t.view && t.viewName ? `${name} · ${t.viewName}` : name;
+  }
   if (t.t === 'product') return products.find((x) => x.id === t.id)?.name ?? 'product';
   if (t.t === 'character') return 'someone';
   if (t.t === 'color') return t.name ?? t.hex;

@@ -5,8 +5,12 @@ export type SentenceToken =
   | { t: 'color'; hex: string; name?: string }
   | { t: 'ref'; imageHash: string; label?: string }
   | { t: 'mark'; imageHash: string }
-  /** A scene, and which of its setups is being shot, when one is chosen. */
-  | { t: 'template'; id: string; setup?: string };
+  /**
+   * A scene, and which of its setups is being shot, when one is chosen, and
+   * which of its pictures the shot follows (Use this view): `view` is that
+   * picture's hash, `viewName` what the chip calls it.
+   */
+  | { t: 'template'; id: string; setup?: string; view?: string; viewName?: string };
 
 /** Size lives on the composer, not in the sentence: it renders as nothing. */
 export type FormatToken = { t: 'format'; id: string; w: number; h: number };
@@ -86,7 +90,7 @@ export const encode = (t: SentenceToken): string =>
   t.t === 'template'
     ? // the setup is presentation, the same way a product's angle is: it rides
       // in the chip so a stored brief can be reopened exactly as it was shot
-      `t:${t.id}${t.setup ? `|${t.setup}` : ''}`
+      `t:${t.id}${t.setup || t.view ? `|${t.setup ?? ''}` : ''}${t.view ? `|${t.view}|${t.viewName ?? ''}` : ''}`
     : t.t === 'product'
       ? // `angle` is the slot a recipe asked for (e.g. a macro example
         // pinning "material-closeup"). It used to be omitted here, so every
@@ -109,8 +113,15 @@ export const decode = (s: string): SentenceToken | null => {
   const kind = s.slice(0, 1);
   const rest = s.slice(2);
   if (kind === 't') {
-    const [id, setup] = rest.split('|');
-    return id ? { t: 'template', id, ...(setup ? { setup } : {}) } : null;
+    const [id, setup, view, viewName] = rest.split('|');
+    return id
+      ? {
+          t: 'template',
+          id,
+          ...(setup ? { setup } : {}),
+          ...(view ? { view, ...(viewName ? { viewName } : {}) } : {}),
+        }
+      : null;
   }
   if (kind === 'p') {
     const [id, angle] = rest.split('|');

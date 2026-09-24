@@ -446,7 +446,10 @@ export function CreateView({ set }: { set: ShotSet | null }) {
    */
   // `setup` rides with `scene`, so it leaves with it: a spent seed left in the
   // address is a seed that applies itself again on the next mount
-  const spendSeeds = useCallback(() => dropParams('scene', 'setup', 'presenter', 'product', 'ref'), [dropParams]);
+  const spendSeeds = useCallback(
+    () => dropParams('scene', 'setup', 'presenter', 'product', 'ref', 'view'),
+    [dropParams],
+  );
 
   // a target that has stopped being one is dropped, and said so: a chip that
   // silently stops meaning anything is worse than no chip. The server is asked
@@ -1312,6 +1315,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           startPresenter={params.get('presenter') ?? undefined}
           startProduct={params.get('product') ?? undefined}
           startRef={params.get('ref') ?? undefined}
+          startView={params.get('view') ?? undefined}
           onSeedsSpent={spendSeeds}
           openAttachTab={
             params.get('attach') === 'scenes' ? 'Scenes' : params.get('attach') === 'products' ? 'Products' : undefined
