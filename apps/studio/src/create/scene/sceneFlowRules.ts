@@ -23,7 +23,15 @@ import {
   serializeSetup,
   saidSomething,
 } from './sceneSetup.js';
-import { current, deserialize, pictureNumber, readingLines, serialize, type StudioState } from './sceneStudioRules.js';
+import {
+  current,
+  deserialize,
+  pictureNumber,
+  readingLines,
+  serialize,
+  shownOf,
+  type StudioState,
+} from './sceneStudioRules.js';
 
 /**
  * The scene studio's conversation, read off its state: the transcript and the
@@ -349,7 +357,8 @@ export function turnsFor(args: FlowArgs): Turn[] {
         kind: 'scenri',
         id: `pic-${i}`,
         text: v.how === 'change' ? COPY.changed : v.how === 'again' ? COPY.again : COPY.here,
-        thumb: v.hash,
+        // the hero is what the person judges; Put back still names the place it came with
+        thumb: shownOf(v) ?? v.hash,
         label: COPY.version(pictureNumber(studio, i)),
         view: 'scene',
         current: i === studio.current,
@@ -474,7 +483,11 @@ function setTurns(T: Turn[], args: FlowArgs) {
   const { studio, edit, set, canDraw } = args;
   T.push({ kind: 'you', id: 'use', text: edit ? COPY.saveChanges : canDraw ? COPY.use : COPY.saveWords });
   if (!set) return;
-  const any = set.tiles.length > 0 || set.running;
+  // The hero that came with the place was shown with it, as the version the
+  // person judged: it is not said again, and saving it spent nothing.
+  const cameWith = heroCameWith(args);
+  const drawnHere = set.tiles.filter((t) => !(t.role === 'hero' && t.hash === cameWith));
+  const any = drawnHere.length > 0 || set.running;
   T.push({
     kind: 'scenri',
     id: 'saved',
@@ -493,7 +506,7 @@ function setTurns(T: Turn[], args: FlowArgs) {
     T.push({
       kind: 'you',
       id: 'set-start',
-      text: studio.setDrawn ? (set.stale ? COPY.drawThemAgain : COPY.drawThem) : COPY.notNow,
+      text: studio.setDrawn ? (set.stale ? COPY.drawThemAgain : cameWith ? COPY.drawIt : COPY.drawThem) : COPY.notNow,
     });
   // the answer to the three more stands where it was given: after the two
   // drawn by themselves, before any of the three
@@ -504,7 +517,7 @@ function setTurns(T: Turn[], args: FlowArgs) {
     answered = true;
     T.push({ kind: 'you', id: 'more', text: answer });
   };
-  for (const t of set.tiles) {
+  for (const t of drawnHere) {
     if (t.role !== 'hero' && t.role !== 'close') sayAnswer();
     if (t.state === 'shown' && t.hash)
       T.push({
@@ -536,23 +549,29 @@ function setQuestion(args: FlowArgs): Question | null {
   const name = studio.name.trim() || current(studio)?.reading.name || 'The scene';
   if (!set) return null;
   if (set.running || !set.read) return null;
-  if (args.canDraw && set.first.length && !studio.setDrawn && !studio.setDeclined)
+  const cameWith = heroCameWith(args);
+  if (args.canDraw && set.first.length && !studio.setDrawn && !studio.setDeclined) {
+    const labels = set.first.map((r) => EXAMPLE_LABEL[r]);
     return {
       id: 'set-start',
       kind: 'confirm',
       prompt: set.stale
         ? COPY.staleSet(set.first.length)
-        : COPY.showInUse(
-            set.who,
-            set.first.map((r) => EXAMPLE_LABEL[r]),
-          ),
+        : cameWith
+          ? COPY.moreViews(labels)
+          : COPY.showInUse(set.who, labels),
       options: [
-        { id: 'draw-set', label: set.stale ? COPY.drawThemAgain : COPY.drawThem },
+        {
+          id: 'draw-set',
+          label: set.stale ? COPY.drawThemAgain : set.first.length === 1 ? COPY.drawIt : COPY.drawThem,
+        },
         { id: 'not-now', label: COPY.notNow },
       ],
     };
+  }
   const hero = set.tiles.some((t) => t.role === 'hero' && t.state === 'shown');
-  if (args.canDraw && hero && set.missing.length && !studio.moreDeclined && !studio.moreAsked)
+  // More is asked after a set was drawn, never after the first offer was declined
+  if (args.canDraw && hero && set.missing.length && !studio.setDeclined && !studio.moreDeclined && !studio.moreAsked)
     return {
       id: 'set-more',
       kind: 'confirm',
@@ -572,6 +591,12 @@ function setQuestion(args: FlowArgs): Question | null {
       { id: 'done', label: set.finish },
     ],
   };
+}
+
+/** The hero the studio drew with the place the scene was saved with, when it is the one on the scene now. */
+function heroCameWith(args: FlowArgs): string | null {
+  const hero = current(args.studio)?.hero ?? null;
+  return hero && args.set?.tiles.some((t) => t.role === 'hero' && t.state === 'shown' && t.hash === hero) ? hero : null;
 }
 
 /** The name, once given: asked while the first picture draws, kept as its own exchange. */

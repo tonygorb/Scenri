@@ -1,4 +1,4 @@
-import type { SceneReading, SceneStudioJob, SceneStudioJobKind } from '../../apiTypes.js';
+import type { HeroWith, SceneReading, SceneStudioJob, SceneStudioJobKind } from '../../apiTypes.js';
 import { COPY } from './sceneCopy.js';
 
 /**
@@ -46,6 +46,12 @@ export interface Version {
   hash: string | null;
   /** The picture is an anchor: drawn beside the references and made nobody's, so it may go with a shot. */
   anchor?: boolean;
+  /**
+   * The hero drawn from that picture: the place in use, and the picture shown
+   * first. The place (`hash`) stays what a shot is given.
+   */
+  hero?: string;
+  heroWith?: HeroWith;
   /** The sentence that made it, for a change. */
   ask?: string;
   coverage: string[];
@@ -141,6 +147,9 @@ export function seeded(input: {
   reading: SceneReading;
   hash: string | null;
   anchor?: boolean;
+  /** Its hero, when it has one drawn from this picture. */
+  hero?: string;
+  heroWith?: HeroWith;
   name: string;
 }): StudioState {
   return {
@@ -154,6 +163,9 @@ export function seeded(input: {
         reading: input.reading,
         hash: input.hash,
         ...(input.anchor ? { anchor: true } : {}),
+        ...(input.hash && input.hero
+          ? { hero: input.hero, ...(input.heroWith ? { heroWith: input.heroWith } : {}) }
+          : {}),
         coverage: [],
         how: 'read',
       },
@@ -299,6 +311,7 @@ export function reduce(s: StudioState, a: Action): StudioState {
         reading,
         hash: j.hash,
         ...(j.hash && j.anchor ? { anchor: true } : {}),
+        ...(j.hash && j.hero ? { hero: j.hero, ...(j.heroWith ? { heroWith: j.heroWith } : {}) } : {}),
         ask: ref.kind === 'change' ? ref.ask : undefined,
         coverage: j.coverage?.length ? j.coverage : ref.kind === 'again' ? (current(s)?.coverage ?? []) : [],
         how,
@@ -337,6 +350,7 @@ export function reduce(s: StudioState, a: Action): StudioState {
           reading: a.reading,
           hash: v.hash,
           ...(v.anchor ? { anchor: true } : {}),
+          ...(v.hero ? { hero: v.hero, ...(v.heroWith ? { heroWith: v.heroWith } : {}) } : {}),
           coverage: v.coverage,
           how: 'edit' as const,
         },
@@ -414,6 +428,10 @@ export function takesOf(s: StudioState): { n: number; hash: string; current: boo
   const at = current(s)?.hash ?? null;
   return [...last.entries()].sort((a, b) => a[1] - b[1]).map(([hash], k) => ({ n: k + 1, hash, current: hash === at }));
 }
+
+/** The picture a version is shown by: its hero, else its place. */
+export const shownOf = (v: Pick<Version, 'hash' | 'hero'> | null | undefined): string | null =>
+  v?.hero ?? v?.hash ?? null;
 
 /** A picture's number among the pictures, which is how a person counts them. */
 export const pictureNumber = (s: StudioState, index: number): number =>
@@ -546,6 +564,9 @@ export function deserialize(raw: string | null): StudioState | null {
           reading: v.reading,
           hash: typeof v.hash === 'string' ? v.hash : null,
           ...(v.anchor === true && typeof v.hash === 'string' ? { anchor: true } : {}),
+          ...(typeof v.hero === 'string' && typeof v.hash === 'string'
+            ? { hero: v.hero, ...(v.heroWith && typeof v.heroWith === 'object' ? { heroWith: v.heroWith } : {}) }
+            : {}),
           ask: typeof v.ask === 'string' ? v.ask : undefined,
           coverage: strs(v.coverage),
           how: ['read', 'draw', 'again', 'change', 'edit'].includes(v.how) ? v.how : v.hash ? 'draw' : 'read',

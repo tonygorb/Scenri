@@ -15,6 +15,8 @@ import type {
   AssetBuildCapabilities,
   Brand,
   BriefPreview,
+  HeroWith,
+  SceneView,
   CatalogImportJob,
   CatalogSource,
   CodexSetupResult,
@@ -208,7 +210,14 @@ export const api = {
   releaseNotes: () => req<ReleaseNotesResponse>('GET', '/api/release/notes'),
   releaseSeen: (version: string) => req<{ ok: true }>('POST', '/api/release/seen', { version }),
   /** The reference frames a scene has on disk, if any. */
-  sceneFrames: (id: string) => req<{ frames: string[] }>('GET', `/api/scene-previews/${id}`),
+  sceneFrames: (id: string) =>
+    req<{ frames: string[]; views: { view: SceneView; url: string }[] }>('GET', `/api/scene-previews/${id}`),
+  /** One of a catalog scene's views, copied into the image store so a shot can be handed it (Use this view). */
+  pickSceneView: (sceneId: string, view: SceneView) =>
+    req<{ hash: string }>('POST', `/api/scenes/${sceneId}/views/${view}/pick`),
+  /** Show this view as a catalog scene's cover for this brand. The brand comes back, as every brand edit does. */
+  setCatalogSceneCover: (brandId: string, sceneId: string, view: SceneView) =>
+    req<{ brand: Brand }>('PUT', `/api/brands/${brandId}/scene-covers/${sceneId}`, { view }),
   deleteData: (scope: 'shots' | 'all') => req<{ ok: true; scope: string }>('DELETE', `/api/data?scope=${scope}`),
   /** One product with all of its pictures; the library list carries only the first. */
   libraryProduct: (brandId: string, productId: string) =>
@@ -435,6 +444,11 @@ export const api = {
       imageHashes?: string[];
       reading?: SceneReading;
       from?: string;
+      /** The picture being changed is an anchor. */
+      fromAnchor?: boolean;
+      /** Its hero, changed by the same sentence, and who stands in it. */
+      fromHero?: string;
+      heroWith?: HeroWith;
       ask?: string;
       draw?: boolean;
       reread?: boolean;

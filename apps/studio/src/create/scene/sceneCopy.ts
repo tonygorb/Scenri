@@ -160,10 +160,18 @@ export const COPY = {
   /** The same offer for a set the place moved under. */
   staleSet: (n: number) =>
     `${count(n)} here show${n === 1 ? 's' : ''} the place as it was before. Draw ${n === 1 ? 'it' : 'them'} again?`,
+  /**
+   * The offer once the hero came with the place: the rest of the set, drawn
+   * from the hero, with what it draws named.
+   */
+  moreViews: (labels: string[]) =>
+    `Add ${count(labels.length)
+      .toLowerCase()
+      .replace(/ pictures?$/, '')} more? ${joinAnd(labels)}, drawn from the hero.`,
+  drawIt: 'Draw it',
   drawThem: 'Draw them',
   drawThemAgain: 'Draw them again',
-  inUse: (who: 'product' | 'presenter') =>
-    `Saved. Now it is shown in use, with a Scenri demo ${who}. Shots are told the words, never handed these pictures.`,
+  inUse: (who: 'product' | 'presenter') => `Saved. Now it is shown in use, with a Scenri demo ${who}.`,
   noLibrary: "Saved. Scenri's library has not downloaded yet, so it cannot be shown in use for now.",
   exampleHere: {
     hero: 'Here is the hero.',

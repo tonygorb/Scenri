@@ -12,7 +12,7 @@ import { showcaseBrief, useApplyShowcase } from '../app/useApplyShowcase.js';
 import { useBrand } from '../app/BrandLayout.js';
 import { useCreateAsset } from '../create/AssetCreateHost.js';
 import { hubPath, presenterPath, presentersPath, productPath, scenePath, scenesPath } from '../routes.js';
-import { customPresentersOf, customScenesOf, withCustomFirst } from '../brandAssets.js';
+import { customPresentersOf, customScenesOf, withBrandCovers, withCustomFirst } from '../brandAssets.js';
 import { bookmarkedScenes } from '../bookmarks.js';
 import { PREF, useLocalPref } from '../prefs.js';
 import { useToasts } from '../toasts.js';
@@ -57,7 +57,7 @@ const SEARCH_MIN = 8;
 export function HomeView() {
   const {
     engines,
-    scenes: templates,
+    scenes: catalogScenes,
     loaded: scenesLoaded,
     presenters,
     presentersLoaded,
@@ -69,6 +69,8 @@ export function HomeView() {
     refetchShowcase,
   } = useAppData();
   const { brand, workspace, root, products: library, applyNodes } = useBrand();
+  // the catalog as this brand shows it: a cover it chose is on the card
+  const templates = useMemo(() => withBrandCovers(catalogScenes, brand), [catalogScenes, brand]);
   const { poke } = useTaskCenter();
   const createAsset = useCreateAsset();
   const navigate = useNavigate();

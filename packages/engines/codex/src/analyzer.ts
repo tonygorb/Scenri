@@ -140,10 +140,21 @@ export interface SceneDraft {
    * when the reader did not say, which is treated as "may hold all three".
    */
   holds?: SceneHold[];
+  /**
+   * What the scene's first picture, its hero, shows in the place: a product
+   * staged in it, a person, a person with a product, or the place alone when
+   * anything added would make this world worse. Decided with the reading,
+   * before anything is drawn, from what the words and pictures say the world is
+   * for. Absent when the reader did not say; the studio then decides from the
+   * figure and `holds` (sceneExamples.ts `heroModeOf`).
+   */
+  hero?: SceneHeroMode;
 }
 
 export type SceneHold = 'person' | 'product' | 'lettering';
 const HOLDS: readonly SceneHold[] = ['person', 'product', 'lettering'];
+export type SceneHeroMode = 'product' | 'presenter' | 'both' | 'place';
+const HERO_MODES: readonly SceneHeroMode[] = ['product', 'presenter', 'both', 'place'];
 
 /** One product photograph, read for how large the real object is. */
 export interface MeasureRequest {
@@ -499,6 +510,11 @@ function sceneBody(req: AnalyzeRequest, refCount: number): string {
     ' "product" if any product, package, garment or object is staged or held as the thing being shown;' +
     ' "lettering" if any readable words, logo or brand mark appears anywhere.' +
     ' An empty array when none of these appear, and an empty array when no reference image is attached;' +
+    ' "hero": what the scene\'s hero picture shows in it, the one picture that sells this world as a finished campaign:' +
+    ' "product" when it is a world for staging an object (a surface, a set, a still life),' +
+    ' "presenter" when it is a world built around a person (a portrait, editorial or fashion place),' +
+    ' "both" when it is a person living with a product in it (a lifestyle moment),' +
+    ' or "place" only when anything added would make this world worse (a vast landscape, an architectural space that is the whole point);' +
     ` "collections": one or two themed groupings;${collections}` +
     ` "verticals": the industries this world flatters.${verticals}`
   );
@@ -615,6 +631,8 @@ function parseScene(req: AnalyzeRequest, o: Record<string, unknown>): ParseResul
   const holds = Array.isArray(o.holds)
     ? HOLDS.filter((h) => (o.holds as unknown[]).some((x) => str(x).toLowerCase() === h))
     : undefined;
+  // Non-blocking: an unreadable answer is no answer, and the studio decides.
+  const hero = HERO_MODES.find((m) => m === str(o.hero).toLowerCase());
   return {
     ok: true,
     draft: {
@@ -632,6 +650,7 @@ function parseScene(req: AnalyzeRequest, o: Record<string, unknown>): ParseResul
       figureTreatment: figureTreatment || undefined,
       coverage: sentences(o.coverage, 2, 240),
       ...(holds ? { holds } : {}),
+      ...(hero ? { hero } : {}),
     },
   };
 }

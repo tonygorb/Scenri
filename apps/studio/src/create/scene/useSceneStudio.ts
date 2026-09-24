@@ -2,7 +2,7 @@ import { type Dispatch, useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../api.js';
 import type { Brand, SceneReading, ScenePatch } from '../../apiTypes.js';
 import { COPY } from './sceneCopy.js';
-import { type Action, current, offerOf, type StudioState, versionOfHash } from './sceneStudioRules.js';
+import { type Action, current, offerOf, type StudioState, type Version, versionOfHash } from './sceneStudioRules.js';
 
 /** How often a running job is asked about. Once a second: a draw takes a minute. */
 const POLL_MS = 1000;
@@ -15,8 +15,13 @@ export interface SavedScene {
   verticals: string[];
 }
 
-/** The record the scene routes take, from the words standing and what they were made from. */
-function patchOf(s: StudioState, words: SceneReading, hash: string | null, anchor: boolean): ScenePatch {
+/**
+ * The record the scene routes take, from the words standing and what they were
+ * made from. The place goes as the scene's picture and its hero as the hero
+ * example; which one stands for the scene is the server's to keep (a new hero
+ * is the cover only of a scene that has not chosen one).
+ */
+function patchOf(s: StudioState, words: SceneReading, v: Version | null): ScenePatch {
   return {
     name: s.name.trim() || words.name,
     prompt: words.prompt,
@@ -33,7 +38,8 @@ function patchOf(s: StudioState, words: SceneReading, hash: string | null, ancho
     ...(words.promptName ? { promptName: words.promptName } : {}),
     instruction: s.place.trim(),
     refHashes: [...s.pictures, ...s.heldPictures],
-    ...(hash ? { previewHash: hash, anchor } : {}),
+    ...(v?.hash ? { previewHash: v.hash, anchor: v.anchor === true } : {}),
+    ...(v?.hash && v.hero ? { heroHash: v.hero, ...(v.heroWith ? { heroWith: v.heroWith } : {}) } : {}),
   };
 }
 
@@ -92,6 +98,8 @@ export function useSceneStudio(args: {
                   from: v?.hash ?? undefined,
                   // an edit of an anchor is one too; of an older picture, it is not
                   ...(v?.hash && v.anchor ? { fromAnchor: true } : {}),
+                  // the hero changes by the same sentence, keeping who stands in it
+                  ...(v?.hash && v.hero ? { fromHero: v.hero, ...(v.heroWith ? { heroWith: v.heroWith } : {}) } : {}),
                   imageHashes: st.pictures,
                   draw: opts.draw,
                 };
@@ -208,8 +216,8 @@ export function useSceneStudio(args: {
       setSaving(true);
       try {
         const drawing = st.job?.phase === 'drawing' ? st.job.id : null;
-        const hash = drawing ? null : (current(st)?.hash ?? null);
-        const body = patchOf(named, offer.words, hash, current(st)?.anchor === true);
+        // a picture still drawing lands on the scene by itself (attach below)
+        const body = patchOf(named, offer.words, drawing ? null : (current(st) ?? null));
         const res =
           sceneId && !opts.asNew ? await api.updateScene(brandId, sceneId, body) : await api.createScene(brandId, body);
         applyBrand(res.brand);

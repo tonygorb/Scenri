@@ -1,4 +1,12 @@
-import { assetUrl, type Brand, type Presenter, type Scene, type SceneExampleRole, type SceneSetup } from './api.js';
+import {
+  assetUrl,
+  type Brand,
+  type Presenter,
+  type Scene,
+  type SceneExampleRole,
+  type SceneSetup,
+  type SceneView,
+} from './api.js';
 
 /**
  * The presenters and scenes a brand built for itself, read out of its own
@@ -33,8 +41,13 @@ export interface CustomScene extends Scene {
   custom: true;
   /** The user's own inspiration images. Read into words, and drawn beside for the scene's picture. Never sent with a shot. */
   refs: string[];
-  /** The scene's own picture as its store hash; null when none was drawn (`previewUrl` may then fall back to an upload). */
+  /** The scene's own picture as its store hash; null when none was drawn (`placeUrl` may then fall back to an upload). */
   previewHash: string | null;
+  /**
+   * The place: the picture a shot is given, the one its examples are drawn
+   * from. Not necessarily the cover (`previewUrl`), which may be its hero.
+   */
+  placeUrl: string | null;
   /** That picture is an anchor, so a shot is given it as the world's picture. */
   anchor?: boolean;
   /** What they asked for in their own words when it was built. */
@@ -187,8 +200,28 @@ export function customSceneById(brand: Brand | null | undefined, id: string): Cu
   return customScenesOf(brand).find((s) => s.id === id);
 }
 
+const SCENE_VIEWS: readonly SceneView[] = ['place', ...EXAMPLE_ROLES];
+
 function toScene(s: any): CustomScene {
   const refs = urls(s.refs);
+  // No preview yet is normal: the scene works, it just has nothing to show
+  // but the references it was built from.
+  const place = assetUrl(s.preview) ?? refs[0] ?? null;
+  const examples: SceneExampleView[] | undefined = Array.isArray(s.examples)
+    ? s.examples
+        .filter((e: any) => EXAMPLE_ROLES.includes(e?.role) && assetUrl(e?.file))
+        .map((e: any) => ({
+          role: e.role as SceneExampleRole,
+          url: assetUrl(e.file) as string,
+          hash: String(e.file).slice('asset:'.length),
+          earlier: e.from !== s.preview,
+          with: e.presenter ? ('presenter' as const) : ('product' as const),
+          ...(e.setup ? { setup: String(e.setup) } : {}),
+        }))
+    : undefined;
+  // The cover names a view; a view the scene no longer has shows the place.
+  const cover: SceneView | undefined = SCENE_VIEWS.includes(s.cover) ? s.cover : undefined;
+  const covered = cover && cover !== 'place' ? examples?.find((e) => e.role === cover)?.url : undefined;
   return {
     id: String(s.id),
     name: String(s.name ?? ''),
@@ -202,9 +235,9 @@ function toScene(s: any): CustomScene {
     prompt: String(s.prompt ?? ''),
     width: Number(s.width) || 1024,
     height: Number(s.height) || 1280,
-    // No preview yet is normal: the scene works, it just has nothing to show
-    // but the references it was built from.
-    previewUrl: assetUrl(s.preview) ?? refs[0] ?? null,
+    previewUrl: covered ?? place,
+    placeUrl: place,
+    ...(cover ? { cover } : {}),
     previewColor: null,
     custom: true,
     refs,
@@ -219,19 +252,55 @@ function toScene(s: any): CustomScene {
           .filter((v: any) => v?.id && v?.label && v?.camera)
           .map((v: any) => ({ id: String(v.id), label: String(v.label), camera: String(v.camera) }))
       : undefined,
-    examples: Array.isArray(s.examples)
-      ? s.examples
-          .filter((e: any) => EXAMPLE_ROLES.includes(e?.role) && assetUrl(e?.file))
-          .map((e: any) => ({
-            role: e.role as SceneExampleRole,
-            url: assetUrl(e.file) as string,
-            hash: String(e.file).slice('asset:'.length),
-            earlier: e.from !== s.preview,
-            with: e.presenter ? ('presenter' as const) : ('product' as const),
-            ...(e.setup ? { setup: String(e.setup) } : {}),
-          }))
-      : undefined,
+    examples,
   };
+}
+
+/**
+ * Which file a catalog scene's view is (the server's `SCENE_VIEW_SLOTS`): the
+ * place, then four pictures of it in use. Hands is a made scene's view only.
+ */
+const CATALOG_SLOT: Partial<Record<SceneView, string>> = {
+  place: 'ref-01',
+  hero: 'ref-02',
+  close: 'ref-03',
+  angle: 'ref-04',
+  bold: 'ref-05',
+};
+export const catalogViewUrl = (sceneId: string, view: SceneView): string | null =>
+  CATALOG_SLOT[view] ? `/api/scene-previews/${sceneId}/${CATALOG_SLOT[view]}.jpg` : null;
+
+/** The covers this brand chose for catalog scenes, by scene id (the server's sceneCovers.ts). */
+export function catalogCoversOf(brand: Brand | null | undefined): Record<string, SceneView> {
+  const raw = (brand?.json as any)?.extensions?.['scenri.scene-covers'];
+  if (!raw || typeof raw !== 'object') return {};
+  return Object.fromEntries(Object.entries(raw).filter(([, v]) => SCENE_VIEWS.includes(v as SceneView))) as Record<
+    string,
+    SceneView
+  >;
+}
+
+/**
+ * The catalog as this brand shows it: a scene whose cover the brand chose shows
+ * that view on its card, in the pickers and on its chips. The packaged scene is
+ * never changed, and nothing here reaches a shot. The same array when there is
+ * nothing to change, so a memo keyed on it holds.
+ */
+export function withBrandCovers<T extends Scene>(scenes: T[], brand: Brand | null | undefined): T[] {
+  const covers = catalogCoversOf(brand);
+  if (!Object.keys(covers).length) return scenes;
+  return scenes.map((s) => {
+    const view = covers[s.id];
+    const url = view && view !== (s.cover ?? 'place') ? catalogViewUrl(s.id, view) : null;
+    return url ? { ...s, cover: view, previewUrl: url } : s;
+  });
+}
+
+/** Which view stands for a scene now: the one it shows as its cover, else the place. */
+export function coverViewOf(scene: Scene & { examples?: SceneExampleView[] }): SceneView {
+  const v = scene.cover;
+  if (!v || v === 'place') return 'place';
+  return !scene.examples || scene.examples.some((e) => e.role === v) ? v : 'place';
 }
 
 /**

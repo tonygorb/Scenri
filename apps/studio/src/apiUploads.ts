@@ -110,7 +110,7 @@ const STORE_IMAGE = /^\/api\/images\/([a-f0-9]{32})(?:\/thumb\?w=\d+)?$/;
  * was 200 KB in an 88px picker tile, and one tab of them 4 MB.
  */
 const CURATED_IMAGE =
-  /^(\/api\/(?:presenter-avatars|presenter-thumbnails|scene-thumbnails|demo-product-thumbnails|showcase-previews)\/[a-z0-9-]+\.jpg)(?:\?v=(\d+))?(?:[?&]w=\d+)?$/;
+  /^(\/api\/(?:(?:presenter-avatars|presenter-thumbnails|scene-thumbnails|demo-product-thumbnails|showcase-previews)\/[a-z0-9-]+|scene-previews\/[a-z0-9-]+\/ref-[0-9]{2})\.jpg)(?:\?v=(\d+))?(?:[?&]w=\d+)?$/;
 /**
  * The same picture at another size when the URL is one of the store's, in
  * either of its shapes, or one of the curated catalog's; `full` is the

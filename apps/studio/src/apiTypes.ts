@@ -553,6 +553,11 @@ export interface ScenePatch {
   previewHash?: string;
   /** Said with `previewHash`: that picture is an anchor (drawn beside the references, then made nobody's). */
   anchor?: boolean;
+  /** The hero the studio drew with that picture: saved as its `hero` example, and its cover unless one was chosen. */
+  heroHash?: string;
+  heroWith?: HeroWith;
+  /** Which picture stands for the scene on its card. Presentation only. */
+  cover?: SceneView;
   promptName?: string;
   /** Ways to shoot this same world, four at most. */
   setups?: SceneSetup[];
@@ -579,7 +584,22 @@ export interface SceneReading {
   verticals?: string[];
   /** What the pictures it was read from show. Carried back to the server on Try again; never saved. */
   holds?: ('person' | 'product' | 'lettering')[];
+  /** What the hero shows, read with the words. Carried back on Try again; never saved. */
+  hero?: 'product' | 'presenter' | 'both' | 'place';
 }
+
+/** Who stands in a scene's hero: a Scenri demo product, a demo presenter, or both. */
+export interface HeroWith {
+  product?: string;
+  presenter?: string;
+}
+
+/**
+ * One picture of a scene by what it shows: the place, or the place in use.
+ * A made scene's examples and a catalog scene's frames share these names, and
+ * a cover is one of them, never a position.
+ */
+export type SceneView = 'place' | SceneExampleRole;
 
 export type SceneStudioJobKind = 'make' | 'again' | 'change';
 
@@ -598,6 +618,9 @@ export interface SceneStudioJob {
   hash: string | null;
   /** The picture is an anchor, which is what a saved scene may send with a shot. */
   anchor?: boolean;
+  /** The hero: the place in use, drawn from that picture, and the first one shown. */
+  hero?: string | null;
+  heroWith?: HeroWith | null;
   error: string | null;
   warnings: string[];
   attachTo: string | null;
@@ -681,8 +704,12 @@ export interface Scene {
   subject: 'product' | 'person' | 'either';
   collections: string[];
   verticals: string[];
-  /** Vibrant colour pulled from the preview, for tinting the chip. */
+  /**
+   * The scene's cover: the picture its card, the pickers and its chips show.
+   * Presentation only; never what a shot is given.
+   */
   previewUrl?: string | null;
+  /** Vibrant colour pulled from the preview, for tinting the chip. */
   previewColor?: string | null;
   /** Display names this scene used to carry. Searchable; never rendered. */
   legacyNames?: string[];
@@ -692,6 +719,8 @@ export interface Scene {
   prompt: string;
   width: number;
   height: number;
+  /** Which view the cover shows; absent means the place. */
+  cover?: SceneView;
   textZones?: {
     fieldKey: string;
     x: number;

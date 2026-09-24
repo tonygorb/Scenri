@@ -4,7 +4,10 @@ import {
   customPresentersOf,
   customSceneById,
   customScenesOf,
+  catalogViewUrl,
+  coverViewOf,
   headPresenterId,
+  withBrandCovers,
   newestFirst,
   productsNewestFirst,
   withCustomFirst,
@@ -289,5 +292,51 @@ describe('a brief started from an old shot', () => {
       { t: 'text', v: 'by a window' },
     ]);
     expect(withHeadPresenters(brand, [{ t: 'character', id: 'unknown' }])).toEqual([{ t: 'character', id: 'unknown' }]);
+  });
+});
+
+describe('a scene’s cover', () => {
+  const place = `asset:${HASH_A}`;
+  const hero = `asset:${HASH_B}`;
+  const SCENE = {
+    id: 'us-cover01',
+    name: 'Hall',
+    prompt: 'A hall.',
+    lighting: 'Soft',
+    preview: place,
+    examples: [{ role: 'hero', file: hero, from: place, product: 'vial' }],
+  };
+
+  it('shows the view it names on every card, and keeps the place as the place', () => {
+    const [s] = customScenesOf(brandWith({ scenes: [{ ...SCENE, cover: 'hero' }] }));
+    expect(s.previewUrl).toBe(`/api/images/${HASH_B}`);
+    expect(s.placeUrl).toBe(`/api/images/${HASH_A}`);
+    expect(s.previewHash).toBe(HASH_A);
+    expect(coverViewOf(s)).toBe('hero');
+  });
+
+  it('leaves a scene made before covers looking as it did, and falls back to the place for a view it lost', () => {
+    const [legacy] = customScenesOf(brandWith({ scenes: [SCENE] }));
+    expect(legacy.previewUrl).toBe(`/api/images/${HASH_A}`);
+    expect(coverViewOf(legacy)).toBe('place');
+    const [lost] = customScenesOf(brandWith({ scenes: [{ ...SCENE, cover: 'bold' }] }));
+    expect(lost.previewUrl).toBe(`/api/images/${HASH_A}`);
+    expect(coverViewOf(lost)).toBe('place');
+  });
+
+  it('shows a catalog scene by the view this brand chose, and never touches the rest', () => {
+    const catalog = [
+      { id: 'balloon-knot', cover: 'hero', previewUrl: '/api/scene-thumbnails/balloon-knot.jpg' },
+      { id: 'beauty-dish', previewUrl: '/api/scene-thumbnails/beauty-dish.jpg' },
+    ] as any[];
+    // nothing chosen: the very same list, so a memo keyed on it holds
+    expect(withBrandCovers(catalog, brandWith({}))).toBe(catalog);
+    const chose = brandWith({ extensions: { 'scenri.scene-covers': { 'balloon-knot': 'bold', nope: 'banner' } } });
+    const [knot, dish] = withBrandCovers(catalog, chose);
+    expect(knot.previewUrl).toBe(catalogViewUrl('balloon-knot', 'bold'));
+    expect(knot.cover).toBe('bold');
+    expect(dish).toBe(catalog[1]);
+    // hands is a made scene's view only
+    expect(catalogViewUrl('balloon-knot', 'hands')).toBeNull();
   });
 });

@@ -514,7 +514,7 @@ export const Composer = forwardRef<
       seedApplied = true;
       const base = tokens ?? emptySentence();
       const already = base.some((t) => t.t === 'ref' && t.imageHash === startRef);
-      if (!already) tokens = [...base, { t: 'ref', imageHash: startRef, label: 'Scene picture' }];
+      if (!already) tokens = [...base, { t: 'ref', imageHash: startRef, label: 'Scene view' }];
     }
 
     if (tokens) {

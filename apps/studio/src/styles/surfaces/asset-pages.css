@@ -1140,6 +1140,66 @@
   text-overflow: ellipsis;
 }
 
+/* A scene's views (SceneViewActions): the frame holds its own two actions,
+   Use this view and Set as cover, over its foot, and a quiet Cover mark on the
+   one that stands for the scene. On a hover device they show on hover or when
+   the keyboard is inside the frame; on touch they are not drawn at all, because
+   the frame opens and the lightbox carries the same two. Chrome over a
+   photograph is on the scrim, which is theme-neutral for that reason. */
+.sc-sceneview-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+.sc-sceneview-cover {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 3px 8px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-scrim);
+  color: var(--sc-scrim-fg);
+  font: 500 11px / 14px var(--sc-font);
+  pointer-events: none;
+}
+.sc-sceneview-acts {
+  position: absolute;
+  inset: auto 8px 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--sc-dur-fast) var(--sc-ease);
+}
+.sc-sceneview-act {
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-scrim);
+  color: var(--sc-scrim-fg);
+  font: 500 12px / 1 var(--sc-font);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.sc-sceneview-act:hover:not(:active) {
+  background: var(--sc-scrim-fg);
+  color: var(--sc-scrim);
+}
+@media (hover: hover) {
+  .sc-sceneview-frame:hover .sc-sceneview-acts,
+  .sc-sceneview-frame:focus-within .sc-sceneview-acts {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+@media (hover: none) {
+  .sc-sceneview-acts {
+    display: none;
+  }
+}
+
 /* The photographs they were built from. Provenance, so they sit under the
    set rather than in it, and small enough to read as a footnote to it. */
 .sc-presenterpage-sources {

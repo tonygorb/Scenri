@@ -21,7 +21,7 @@
  * twice), and so Activity can say what is running and lead back to it.
  */
 import { randomUUID } from 'node:crypto';
-import type { SceneDraft, SceneHold } from '@scenri/engine-codex';
+import type { SceneDraft, SceneHeroMode, SceneHold } from '@scenri/engine-codex';
 import {
   brandScenes,
   commit,
@@ -34,6 +34,7 @@ import {
   type AssetBuildDeps,
   type CustomScene,
 } from './customAssets.js';
+import { heroModeOf, type HeroWith } from './sceneExamples.js';
 
 /** The words a scene is: what the analyzer read, or what the person wrote when nothing can read. */
 export interface SceneReading {
@@ -57,6 +58,12 @@ export interface SceneReading {
    * Never saved on the record; absent means unknown, which is scrubbed.
    */
   holds?: SceneHold[];
+  /**
+   * What the hero shows (`SceneDraft.hero`), read with the words and carried
+   * with them so Try again draws the same idea. Never saved on the record: the
+   * hero it chose is, with who stands in it.
+   */
+  hero?: SceneHeroMode;
 }
 
 /**
@@ -86,9 +93,18 @@ export interface SceneStudioJob {
   reading: SceneReading | null;
   /** The analyzer's notes on what another picture would buy, or that these look like different places. */
   coverage: string[];
+  /** The place: the picture a shot is given (`CustomScene.preview`). */
   hash: string | null;
   /** The picture is an anchor (`CustomScene.anchor`): it may be sent with a shot. */
   anchor: boolean;
+  /**
+   * The hero: the place in use, drawn from the place just drawn, and the first
+   * picture the person judges. Null for a world shown as the place alone, and
+   * when it could not be drawn (the place still stands).
+   */
+  hero: string | null;
+  /** Who stands in the hero. */
+  heroWith: HeroWith | null;
   error: string | null;
   warnings: string[];
   /** A saved scene this picture belongs on once it lands. */
@@ -120,6 +136,10 @@ export interface StudioJobInput {
   from?: string;
   /** `change`: that picture is an anchor, so the edit of it is one too. */
   fromAnchor?: boolean;
+  /** `change`: the hero drawn with that picture, changed by the same sentence when its idea still stands. */
+  fromHero?: string;
+  /** Who stands in that hero, kept by the change. */
+  heroWith?: HeroWith;
   /** `change`: the sentence. */
   ask?: string;
   /** `make` and `change`: draw once the words are read. False answers with the words alone. */
@@ -217,10 +237,12 @@ export function readingFrom(raw: unknown): { ok: true; reading: SceneReading } |
   const reading = readingOfRecord(built.scene);
   const holds = holdsFrom(r.holds);
   if (holds) reading.holds = holds;
+  if (HERO_MODES.includes(r.hero)) reading.hero = r.hero;
   return { ok: true, reading };
 }
 
 const HOLDS: readonly SceneHold[] = ['person', 'product', 'lettering'];
+const HERO_MODES: readonly SceneHeroMode[] = ['product', 'presenter', 'both', 'place'];
 /** What a reading says its pictures hold, or undefined when it does not say. */
 function holdsFrom(raw: unknown): SceneHold[] | undefined {
   return Array.isArray(raw) ? HOLDS.filter((h) => raw.includes(h)) : undefined;
@@ -430,6 +452,7 @@ function landOn(
   hash: string,
   expect: string | null,
   anchor: boolean,
+  hero: { hash: string; with: HeroWith | null } | null,
 ): 'landed' | 'gone' | 'moved' {
   const now = previewOf(deps, brandId, sceneId);
   if (now === undefined) return 'gone';
@@ -438,7 +461,21 @@ function landOn(
     json.scenes = brandScenes(json).map((s: any) => {
       if (s.id !== sceneId) return s;
       const { anchor: _was, ...rest } = s;
-      return { ...rest, preview: `asset:${hash}`, ...(anchor ? { anchor: true } : {}) };
+      const next: any = { ...rest, preview: `asset:${hash}`, ...(anchor ? { anchor: true } : {}) };
+      if (hero) {
+        // The hero the person saw with this place goes on with it, and stands for
+        // the scene unless a cover was already chosen.
+        const example = {
+          role: 'hero',
+          file: `asset:${hero.hash}`,
+          from: `asset:${hash}`,
+          ...(hero.with?.product ? { product: hero.with.product } : {}),
+          ...(hero.with?.presenter ? { presenter: hero.with.presenter } : {}),
+        };
+        next.examples = [example, ...((s.examples ?? []) as any[]).filter((e) => e.role !== 'hero')];
+        next.cover = s.cover ?? 'hero';
+      }
+      return next;
     });
   });
   deps.onPlaceChanged?.(brandId, sceneId);
@@ -503,6 +540,8 @@ export function startSceneStudioJob(deps: AssetBuildDeps, input: StudioJobInput)
     coverage: [],
     hash: null,
     anchor: false,
+    hero: null,
+    heroWith: null,
     error: null,
     warnings: [],
     attachTo: null,
@@ -563,7 +602,8 @@ async function read(
     // A change reads no pictures, so what they hold is what the words it
     // revises already knew.
     const holds = imagePaths.length ? holdsFrom(draft.holds) : prior?.holds;
-    const reading = holds ? { ...read, holds } : read;
+    const hero = read.hero ?? prior?.hero;
+    const reading = { ...read, ...(holds ? { holds } : {}), ...(hero ? { hero } : {}) };
     // a shot's cast is never the scene's figure, whatever the reader made of it
     return fromShot ? { ...reading, figure: undefined, figureTreatment: undefined } : reading;
   }
@@ -577,6 +617,60 @@ async function read(
   const checked = readingFrom({ name: fallback, prompt: instruction, description: instruction });
   if (!checked.ok) throw fail(checked.error);
   return checked.reading;
+}
+
+const heroOf = (job: SceneStudioJob) => (job.hero ? { hash: job.hero, with: job.heroWith } : null);
+
+/** What a hero's stand-ins make it: the mode it was drawn in. */
+const modeOfWith = (w: HeroWith): SceneHeroMode =>
+  w.product && w.presenter ? 'both' : w.presenter ? 'presenter' : 'product';
+
+/**
+ * The hero: the place just drawn, in use, and the first picture the person
+ * judges. What it shows was decided with the words (`heroModeOf`); a change
+ * keeps its stand-ins and edits it by the same sentence while that idea still
+ * stands, so the composition the person judged is kept. A hero that fails
+ * leaves the place standing, with a word about it, rather than failing the draw.
+ */
+async function drawHero(
+  deps: AssetBuildDeps,
+  job: SceneStudioJob,
+  input: StudioJobInput,
+  reading: SceneReading,
+  placeHash: string,
+  edited: boolean,
+  signal: AbortSignal,
+): Promise<void> {
+  const mode = heroModeOf(reading);
+  if (!deps.hero || mode === 'place') return;
+  const kept = input.heroWith && modeOfWith(input.heroWith) === mode ? input.heroWith : undefined;
+  const scene = {
+    ...asScene(reading),
+    // who stands in it is picked by this key, the same every Try again
+    id: input.sceneId || job.conversation || job.id,
+    preview: `asset:${placeHash}`,
+    ...(job.anchor ? { anchor: true as const } : {}),
+  };
+  const changing = edited && kept && input.fromHero && deps.core.images.has(input.fromHero) && input.ask;
+  try {
+    const drawn = await deps.hero({
+      brandId: job.brandId,
+      scene,
+      mode,
+      signal,
+      ...(kept ? { with: kept } : {}),
+      ...(changing ? { prior: input.fromHero, ask: input.ask } : {}),
+    });
+    if (drawn) {
+      const { hash, ...who } = drawn;
+      patch(job, { hero: hash, heroWith: who });
+    }
+  } catch (err: any) {
+    if (signal.aborted) throw err;
+    patch(job, {
+      warnings: [...job.warnings, 'The place is drawn, but showing it in use did not work. Try again to draw both.'],
+    });
+  }
 }
 
 async function run(deps: AssetBuildDeps, job: SceneStudioJob, input: StudioJobInput, signal: AbortSignal) {
@@ -607,8 +701,10 @@ async function run(deps: AssetBuildDeps, job: SceneStudioJob, input: StudioJobIn
       // A fresh picture is an anchor. A change is an edit of the picture it
       // was given, and is one only when that picture was.
       patch(job, { hash, anchor: edited ? input.fromAnchor === true : true });
+      await drawHero(deps, job, input, reading, hash, edited, signal);
+      if (signal.aborted) throw fail('cancelled');
       if (job.attachTo) {
-        const landed = landOn(deps, job.brandId, job.attachTo, hash, job.attachFrom, job.anchor);
+        const landed = landOn(deps, job.brandId, job.attachTo, hash, job.attachFrom, job.anchor, heroOf(job));
         if (landed === 'gone')
           patch(job, { warnings: [...job.warnings, 'The scene was gone before its picture landed.'] });
         if (landed === 'moved')
@@ -655,7 +751,7 @@ export function attachSceneStudioJob(deps: AssetBuildDeps, id: string, sceneId: 
     return 'pending';
   }
   if (job.status === 'done' && job.hash)
-    return landOn(deps, job.brandId, sceneId, job.hash, wore, job.anchor) === 'landed' ? 'landed' : 'none';
+    return landOn(deps, job.brandId, sceneId, job.hash, wore, job.anchor, heroOf(job)) === 'landed' ? 'landed' : 'none';
   return 'none';
 }
 

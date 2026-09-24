@@ -21,6 +21,7 @@ import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import type { BrandContext, Core, EngineAdapter, ReferenceRole } from '@scenri/core';
 import type { PresenterDraft, SceneDraft, SceneHold } from '@scenri/engine-codex';
+import type { HeroDrawn, HeroRequest } from './sceneExamples.js';
 
 /* --------------------------------------------------------------- records */
 
@@ -125,6 +126,8 @@ export interface AssetBuildDeps {
   vocabulary: { collections: string[]; verticals: string[]; categories: string[] };
   /** A saved scene has its place picture: its examples may start (sceneExamples.ts). */
   onPlaceChanged?: (brandId: string, sceneId: string) => void;
+  /** The scene studio's hero, the place in use, drawn with the place (sceneExamples.ts `drawHero`). */
+  hero?: (req: HeroRequest) => Promise<HeroDrawn | null>;
 }
 
 export interface StartBuildInput {

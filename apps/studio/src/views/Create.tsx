@@ -1,4 +1,4 @@
-import { withHeadPresenters } from '../brandAssets.js';
+import { withBrandCovers, withHeadPresenters } from '../brandAssets.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useNavigate, useSearchParams } from 'react-router';
 import { api, nodeLabel, type FeedNode, type FeedQuery, type ShotSet } from '../api.js';
@@ -57,7 +57,7 @@ import { useResolvedNode } from './create/useResolvedNode.js';
  * not an empty state but the ordinary one.
  */
 export function CreateView({ set }: { set: ShotSet | null }) {
-  const { engines, scenes: templates, presenters, demoProducts, showcase, showcaseLoaded } = useAppData();
+  const { engines, scenes: catalogScenes, presenters, demoProducts, showcase, showcaseLoaded } = useAppData();
   const {
     brand,
     workspace,
@@ -75,6 +75,8 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     subscribeActivity,
     products,
   } = useBrand();
+  // the catalog as this brand shows it: a cover it chose is on every chip
+  const templates = useMemo(() => withBrandCovers(catalogScenes, brand), [catalogScenes, brand]);
   // The rail offers what a brief can resolve, so the brand's own assets lead
   // it exactly as they do in the composer's own attach panel.
   // One assembled catalog for this screen. The rail builds its own from the

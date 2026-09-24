@@ -3,7 +3,7 @@ import { assetUrl, thumbOf } from '../api.js';
 import { presenterAvatar } from '../presenterVisual.js';
 import { useAppData } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import { customPresentersOf, customScenesOf } from '../brandAssets.js';
+import { customPresentersOf, customScenesOf, withBrandCovers } from '../brandAssets.js';
 import type { CreateKind } from '../createDraft.js';
 
 export interface KindPreview {
@@ -90,7 +90,11 @@ export function useKindPreview(): Record<CreateKind, KindPreview> {
       },
       scene: {
         // scene previews are already photographs of a place, so they lead
-        url: ownScene ?? firstUrl(scenes, (sc) => sc.previewUrl) ?? fromShowcase('template') ?? null,
+        url:
+          ownScene ??
+          firstUrl(withBrandCovers(scenes, brand), (sc) => sc.previewUrl) ??
+          fromShowcase('template') ??
+          null,
         count: mine.scenes.length,
         own: !!ownScene,
       },

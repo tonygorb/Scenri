@@ -6,6 +6,7 @@ import {
   customScenesOf,
   newestFirst,
   productsNewestFirst,
+  withBrandCovers,
   withCustomFirst,
 } from '../brandAssets.js';
 import type { IngredientCatalog } from './ingredientOptions.js';
@@ -29,7 +30,10 @@ export function useIngredientCatalog(productCategory?: string | null): Ingredien
   const { brand, products } = useBrand();
   const { scenes: catalogScenes, presenters: catalogPresenters, demoProducts } = useAppData();
 
-  const scenes = useMemo(() => withCustomFirst(customScenesOf(brand), catalogScenes), [brand, catalogScenes]);
+  const scenes = useMemo(
+    () => withCustomFirst(customScenesOf(brand), withBrandCovers(catalogScenes, brand)),
+    [brand, catalogScenes],
+  );
   const presenters = useMemo(
     () => withCustomFirst(customPresentersOf(brand), catalogPresenters),
     [brand, catalogPresenters],

@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { WarningCircle } from '@phosphor-icons/react';
-import { api, thumbOf } from '../api.js';
+import { api, type SceneView, thumbOf } from '../api.js';
 import { useAppData } from '../app/AppShell.js';
 import { useApplyScene } from '../app/useApplyScene.js';
-import type { CustomScene } from '../brandAssets.js';
+import { type CustomScene, coverViewOf } from '../brandAssets.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { FRAMINGS, SETUPS_MAX } from '../create/scene/sceneSetups.js';
 import { Rail } from '../layout/Rail.js';
+import { SceneViewActions } from '../layout/SceneViewActions.js';
 import { EmptyRefFrame, Shown } from '../layout/ReferenceGallery.js';
 import { EXAMPLE_LABEL, type ExampleTile, earlierRoles, exampleTiles, examplesSubtitle } from '../sceneExampleRules.js';
 import { useSceneExamples } from '../useSceneExamples.js';
@@ -18,10 +19,10 @@ const COUNT = ['no', 'one', 'two', 'three', 'four', 'five'];
 /**
  * Your own scene's pictures: the place, then the place in use.
  *
- * The place is the picture approved with Use this scene. The rest are drawn
- * with a Scenri demo product or presenter, and none of them reaches a shot: a
- * shot is told the scene's words. A picture here can only be shot this way,
- * which uses the scene rather than drawing anything.
+ * The place is the picture a shot is given; the hero came with it from the
+ * studio, and the rest are drawn with a Scenri demo product or presenter. Any
+ * of them can be the one a shot follows (Use this view) or the one that stands
+ * for the scene (Set as cover), and neither changes what the others are.
  *
  * Nothing on this page draws by itself. One button asks for the place in use,
  * counted before it is pressed, and it is the only thing here that spends: a
@@ -43,10 +44,11 @@ export function SceneExamples({
   const { applyBrand } = useAppData();
   const applyScene = useApplyScene();
   const stillHere = useStillHere();
-  const { job, first, again } = useSceneExamples(brandId, scene.id, scene.previewUrl ?? null);
+  const { job, first, again } = useSceneExamples(brandId, scene.id, scene.placeUrl ?? null);
   const [asking, setAsking] = useState(false);
   const [drawing, setDrawing] = useState(false);
-  const [open, setOpen] = useState<{ src: string; label: string; tile?: ExampleTile; hash?: string } | null>(null);
+  const [covering, setCovering] = useState(false);
+  const [open, setOpen] = useState<Open | null>(null);
 
   const tiles = exampleTiles(scene.examples, job);
   const running = job?.status === 'running';
@@ -103,31 +105,59 @@ export function SceneExamples({
     }
   };
 
-  // The hash only when it is the scene's own picture: previewUrl falls back to
-  // an upload, and an upload is never handed to a shot.
-  const place = scene.previewUrl
-    ? { src: scene.previewUrl, label: 'The place', ...(scene.previewHash ? { hash: scene.previewHash } : {}) }
-    : null;
+  /** Show this view on the scene's card, in the pickers and on its chips. Presentation only. */
+  const setCover = async (view: SceneView) => {
+    const here = stillHere();
+    setCovering(true);
+    onError(null);
+    try {
+      const r = await api.updateScene(brandId, scene.id, { cover: view });
+      applyBrand(r.brand);
+    } catch (e: any) {
+      if (here()) onError(String(e?.message ?? e));
+    } finally {
+      if (here()) setCovering(false);
+    }
+  };
+  const coverView = coverViewOf(scene);
   /**
-   * One picture of this place picked for a shot, to shoot like it: its frame,
-   * light and treatment. The whole scene is a world a shot is new in; a picked
-   * picture is the frame it follows.
+   * A view picked for one shot, to shoot like it: its frame, light and
+   * treatment. The whole scene is a world a shot is new in; a picked view is
+   * the frame it follows.
    */
-  const usePicture = open?.hash ? (
-    <button type="button" className="sc-btn sc-btn-ghost" onClick={() => applyScene(scene.id, undefined, open.hash)}>
-      Use this picture
-    </button>
-  ) : null;
+  const shootLike = (hash: string | undefined) => (hash ? () => applyScene(scene.id, undefined, hash) : undefined);
+
+  // The hash only when it is the scene's own picture: the place falls back to
+  // an upload, and an upload is never handed to a shot.
+  const place: Open | null = scene.placeUrl
+    ? {
+        src: scene.placeUrl,
+        label: 'The place',
+        view: 'place',
+        ...(scene.previewHash ? { hash: scene.previewHash } : {}),
+      }
+    : null;
+  const sheet = (o: Open) => (
+    <SceneViewActions
+      variant="sheet"
+      label={o.label}
+      isCover={o.view === coverView}
+      onUse={shootLike(o.hash)}
+      onCover={() => void setCover(o.view)}
+      busy={covering}
+    />
+  );
   // Saved before its picture was drawn: nothing to show yet.
   if (!tiles.length && !place) return <EmptyRefFrame />;
   // An older scene, or one nothing in the library suits: the place, alone and large.
   if (!tiles.length && place) {
     return (
       <>
-        <div className="sc-scenepage-place">
+        <div className="sc-scenepage-place sc-sceneview-frame">
           <button type="button" aria-label={`${place.label}, open`} onClick={() => setOpen(place)}>
             <Shown src={thumbOf(place.src, 'tile')} />
           </button>
+          <SceneViewActions variant="tile" label={place.label} isCover onUse={shootLike(place.hash)} />
         </div>
         {offer}
         {open && (
@@ -137,7 +167,7 @@ export function SceneExamples({
             label={open.label}
             noun={scene.name}
             onClose={() => setOpen(null)}
-            actions={usePicture ?? undefined}
+            actions={sheet(open)}
           />
         )}
       </>
@@ -161,6 +191,34 @@ export function SceneExamples({
         ? `${earlier.length === 1 ? `The ${EXAMPLE_LABEL[earlier[0]].toLowerCase()} shows` : 'These show'} an earlier picture of this place.`
         : null;
 
+  /**
+   * The order is the roles', never the cover's: the hero first when there is
+   * one (it is the scene at its best, and it came with the place), then the
+   * place, then the rest of the set. Choosing a cover moves its mark, not the
+   * pictures.
+   */
+  const heroFirst = tiles[0]?.role === 'hero';
+  const placeTile = place ? (
+    <li key="place">
+      <span className="sc-sceneview-frame">
+        <button type="button" className="sc-refset-tile" aria-label="The place, open" onClick={() => setOpen(place)}>
+          <Shown src={thumbOf(place.src, 'small')} />
+        </button>
+        <SceneViewActions
+          variant="tile"
+          label={place.label}
+          isCover={coverView === 'place'}
+          onUse={shootLike(place.hash)}
+          onCover={() => void setCover('place')}
+          busy={covering}
+        />
+      </span>
+      <span className="sc-refset-lb" aria-hidden>
+        The place
+      </span>
+    </li>
+  ) : null;
+
   return (
     <>
       <Rail
@@ -169,55 +227,62 @@ export function SceneExamples({
         className="sc-refset-rail"
         trackClassName="sc-refset"
       >
-        {place && (
-          <li>
-            <button
-              type="button"
-              className="sc-refset-tile"
-              aria-label="The place, open"
-              onClick={() => setOpen(place)}
-            >
-              <Shown src={thumbOf(place.src, 'small')} />
-            </button>
-            <span className="sc-refset-lb" aria-hidden>
-              The place
-            </span>
-          </li>
-        )}
-        {tiles.map((t) => {
+        {!heroFirst && placeTile}
+        {tiles.map((t, i) => {
           const label = EXAMPLE_LABEL[t.role];
           return (
-            <li key={t.role}>
-              {t.state === 'drawing' ? (
-                <span className="sc-refset-tile" data-state="drawing" role="img" aria-label={`${label}, drawing`}>
-                  {t.url && <Shown src={thumbOf(t.url, 'small')} />}
-                  <span className="sc-shimmer" aria-hidden />
+            <Fragment key={t.role}>
+              <li>
+                {t.state === 'drawing' ? (
+                  <span className="sc-refset-tile" data-state="drawing" role="img" aria-label={`${label}, drawing`}>
+                    {t.url && <Shown src={thumbOf(t.url, 'small')} />}
+                    <span className="sc-shimmer" aria-hidden />
+                  </span>
+                ) : t.state === 'failed' ? (
+                  <span
+                    className="sc-refset-tile"
+                    data-state="failed"
+                    role="img"
+                    aria-label={`${label} did not draw`}
+                    title={t.error}
+                  >
+                    <WarningCircle size={20} aria-hidden />
+                    <span>Did not draw</span>
+                  </span>
+                ) : (
+                  <span className="sc-sceneview-frame">
+                    <button
+                      type="button"
+                      className="sc-refset-tile"
+                      aria-label={`${label}, open`}
+                      onClick={() =>
+                        setOpen({
+                          src: t.url as string,
+                          label,
+                          view: t.role,
+                          tile: t,
+                          ...(t.hash ? { hash: t.hash } : {}),
+                        })
+                      }
+                    >
+                      <Shown src={thumbOf(t.url as string, 'small')} />
+                    </button>
+                    <SceneViewActions
+                      variant="tile"
+                      label={label}
+                      isCover={coverView === t.role}
+                      onUse={shootLike(t.hash)}
+                      onCover={() => void setCover(t.role)}
+                      busy={covering}
+                    />
+                  </span>
+                )}
+                <span className="sc-refset-lb" aria-hidden>
+                  {label}
                 </span>
-              ) : t.state === 'failed' ? (
-                <span
-                  className="sc-refset-tile"
-                  data-state="failed"
-                  role="img"
-                  aria-label={`${label} did not draw`}
-                  title={t.error}
-                >
-                  <WarningCircle size={20} aria-hidden />
-                  <span>Did not draw</span>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  className="sc-refset-tile"
-                  aria-label={`${label}, open`}
-                  onClick={() => setOpen({ src: t.url as string, label, tile: t, ...(t.hash ? { hash: t.hash } : {}) })}
-                >
-                  <Shown src={thumbOf(t.url as string, 'small')} />
-                </button>
-              )}
-              <span className="sc-refset-lb" aria-hidden>
-                {label}
-              </span>
-            </li>
+              </li>
+              {heroFirst && i === 0 && placeTile}
+            </Fragment>
           );
         })}
       </Rail>
@@ -238,7 +303,7 @@ export function SceneExamples({
           actions={
             way && canShoot ? (
               <>
-                {usePicture}
+                {sheet(open)}
                 <button
                   type="button"
                   className="sc-btn sc-btn-primary"
@@ -249,7 +314,7 @@ export function SceneExamples({
                 </button>
               </>
             ) : (
-              (usePicture ?? undefined)
+              sheet(open)
             )
           }
         />
@@ -257,3 +322,6 @@ export function SceneExamples({
     </>
   );
 }
+
+/** A picture of this place opened full size, and what it is. */
+type Open = { src: string; label: string; view: SceneView; tile?: ExampleTile; hash?: string };

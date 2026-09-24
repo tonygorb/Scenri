@@ -99,9 +99,7 @@ test('says what the place is and what a shot made here is told', async ({ page }
   await expect(page.locator('.sc-lookpage-facts')).toHaveCount(0);
   // what its picture is, in the footnote, never as a caption under it
   // a picture drawn before anchors: the shot is told the words, and any picture can be picked
-  await expect(page.locator('.sc-prec-note')).toContainText(
-    'Shots are told the words. Open a picture to shoot like it.',
-  );
+  await expect(page.locator('.sc-prec-note')).toContainText('Shots are told the words. Use a view to shoot like it.');
   // one verb, and the way to change it
   await expect(page.locator('.sc-lookpage-acts .sc-btn-primary')).toHaveText('Use in a shot');
   await expect(page.getByRole('link', { name: 'Edit scene' })).toBeVisible();
@@ -193,14 +191,14 @@ test('an anchor goes with the shot as its world, and a picture picked is the fra
   const s = await scene(page, b.id, 'Basalt Anchor', { anchor: true });
   await page.goto(`/${b.slug}/scenes/${s.id}`);
   await expect(page.locator('.sc-prec-note')).toContainText(
-    'Shots are given its picture as their world and find their own frame in it. Open a picture to shoot like it.',
+    'Shots are given its picture as their world and find their own frame in it. Use a view to shoot like it.',
   );
   const record = (await (await page.request.get('/api/brands')).json())[0].json.scenes.find((x: any) => x.id === s.id);
   expect(record.anchor).toBe(true);
   const preview = String(record.preview).slice('asset:'.length);
 
   await page.locator('.sc-scenepage-place > button').click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Use this picture' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Use this view' }).click();
 
   // one scene chip and one picture chip, the picture being the scene's own
   await page.waitForURL(/\/create/);
@@ -223,4 +221,108 @@ test('deleting it is gone from the library in the same commit, with no reload', 
   await page.getByRole('alertdialog').getByRole('button', { name: 'Delete scene' }).click();
   await page.waitForURL(new RegExp(`/${b.slug}/scenes$`));
   await expect(page.getByText('Basalt To Delete')).toHaveCount(0);
+});
+
+// Hero first (2026-09-24): a scene's cover is presentation, chosen from any of
+// its views; a view picked for a shot is the frame it follows; neither changes
+// the other, and neither changes what a shot is given.
+test('Set as cover shows the hero on the card, everywhere, with no reload, and changes nothing a shot is given', async ({
+  page,
+}) => {
+  const b = await brand(page);
+  const place = await upload(page, png(200, 170, 40));
+  const hero = await upload(page, png(30, 160, 90));
+  const s = await scene(page, b.id, 'Basalt Cover', {
+    previewHash: place,
+    anchor: true,
+    heroHash: hero,
+    heroWith: { product: 'vial' },
+  });
+  const record = async () =>
+    (await (await page.request.get('/api/brands')).json())[0].json.scenes.find((x: any) => x.id === s.id);
+  // a hero written with its place stands for a scene with no cover yet
+  expect((await record()).cover).toBe('hero');
+  const brief = { tokens: [{ t: 'template', id: s.id }] };
+  const before = await (
+    await page.request.post('/api/brief/preview', { data: { brief, brandId: b.id, engineId: 'demo' } })
+  ).json();
+
+  await page.goto(`/${b.slug}/scenes/${s.id}`);
+  // the hero first, then the place; the mark on the one that stands for it
+  const labels = page.locator('.sc-refset .sc-refset-lb');
+  await expect(labels.first()).toHaveText('Hero');
+  await expect(labels.nth(1)).toHaveText('The place');
+  const frames = page.locator('.sc-refset .sc-sceneview-frame');
+  await expect(frames.first().locator('.sc-sceneview-cover')).toHaveText('Cover');
+  // the keyboard reaches both actions: the place is not the cover, so both are offered
+  await frames.nth(1).getByRole('button', { name: 'Set as cover: The place' }).focus();
+  await frames.nth(1).getByRole('button', { name: 'Set as cover: The place' }).click();
+  await expect(frames.nth(1).locator('.sc-sceneview-cover')).toHaveText('Cover');
+  await expect(frames.first().locator('.sc-sceneview-cover')).toHaveCount(0);
+  expect((await record()).cover).toBe('place');
+  // the wall shows it in the same commit
+  await page.getByRole('link', { name: 'Scenes', exact: true }).first().click();
+  await page.waitForURL(new RegExp(`/${b.slug}/scenes$`));
+  await expect(page.locator(`img[src*="${place}"]`).first()).toBeVisible();
+  // and a shot is given exactly what it was given before
+  const after = await (
+    await page.request.post('/api/brief/preview', { data: { brief, brandId: b.id, engineId: 'demo' } })
+  ).json();
+  expect(after.prompt).toBe(before.prompt);
+  expect(after.attachments).toEqual(before.attachments);
+});
+
+test("a catalog scene's views: Use this view hands one to a shot, Set as cover is this brand's own", async ({
+  page,
+}) => {
+  const b = await brand(page);
+  await page.goto(`/${b.slug}/scenes/waterline-caustics`);
+  const frames = page.locator('.sc-refset .sc-sceneview-frame');
+  await expect(page.locator('.sc-refset .sc-refset-lb')).toHaveText([
+    'Hero',
+    'The place',
+    'Close-up',
+    'Another angle',
+    'A bold one',
+  ]);
+  // the catalog's own cover is marked, and the packaged record is what says it
+  const packaged = (await (await page.request.get('/api/scenes')).json()).scenes.find(
+    (x: any) => x.id === 'waterline-caustics',
+  );
+  await expect(frames.nth(3).locator('.sc-sceneview-cover')).toHaveText('Cover');
+  expect(packaged.cover).toBe('angle');
+
+  // this brand shows its bold frame instead; the packaged scene does not move
+  // on a hover device the frame shows its two actions under the pointer
+  await frames.nth(4).hover();
+  await frames.nth(4).getByRole('button', { name: 'Set as cover: A bold one' }).click();
+  await expect(frames.nth(4).locator('.sc-sceneview-cover')).toHaveText('Cover');
+  const brands = await (await page.request.get('/api/brands')).json();
+  expect(brands[0].json.extensions['scenri.scene-covers']).toEqual({ 'waterline-caustics': 'bold' });
+  const still = (await (await page.request.get('/api/scenes')).json()).scenes.find(
+    (x: any) => x.id === 'waterline-caustics',
+  );
+  expect(still.cover).toBe('angle');
+
+  // Use this view: the scene and that picture, in Create
+  await frames.first().hover();
+  await frames.first().getByRole('button', { name: 'Use this view: Hero' }).click();
+  await page.waitForURL(/\/create/);
+  await expect(page.locator('.sc-token[data-kind=template]')).toHaveAttribute('data-tok', 't:waterline-caustics');
+  await expect(page.locator('.sc-token[data-kind=ref]')).toHaveCount(1);
+  await expect(page).not.toHaveURL(/ref=/);
+});
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  test('a view opens, and the sheet carries both actions', async ({ page }) => {
+    const b = await brand(page);
+    await page.goto(`/${b.slug}/scenes/waterline-caustics`);
+    // no hover on a phone: the frame's own actions are not drawn
+    await expect(page.locator('.sc-refset .sc-sceneview-acts').first()).toBeHidden();
+    await page.locator('.sc-refset .sc-refset-tile').nth(2).tap();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet.getByRole('button', { name: 'Use this view' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Set as cover' })).toBeVisible();
+  });
 });

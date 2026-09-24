@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode, type Ref } fro
 import { type Brand, type FeedNode, thumbUrl, assetThumbUrl, thumbOf } from '../../api.js';
 import { useAppData } from '../../app/AppShell.js';
 import { attachableMarks, markLabel } from '../../brand/marks.js';
-import { customScenesOf } from '../../brandAssets.js';
+import { customScenesOf, withBrandCovers } from '../../brandAssets.js';
 import { findIngredient } from '../../composer/ingredientOptions.js';
 import { isPreviewKind } from '../../composer/ChipPreview.js';
 import { normalizeTint } from '../../composer/line.js';
@@ -92,7 +92,13 @@ export function BriefLine({
   // product is not in the brand's own products[] — it is resolved at
   // generation time — so without the fallback every Scenri Library product
   // credited itself as the bare word "product".
-  const sources = { products, demoProducts, cast, presenters, scenes: [...ownScenes, ...scenes] };
+  const sources = {
+    products,
+    demoProducts,
+    cast,
+    presenters,
+    scenes: [...ownScenes, ...withBrandCovers(scenes, brand)],
+  };
   const chipOf = (t: any): Chip | null => {
     const found = findIngredient(t, sources);
     if (found?.kind === 'product') {

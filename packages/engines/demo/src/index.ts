@@ -297,6 +297,16 @@ function demoSceneRead(req: { imagePaths: string[]; instruction?: string; correc
     collections: [] as string[],
     verticals: [] as string[],
     coverage: req.imagePaths.length > 1 ? ['These may be two different places. Say which one this is.'] : [],
+    // The hero follows the same words: "empty" or "nobody" is the place alone,
+    // a figure is a presenter (with a product when one is held), anything else
+    // is a product.
+    hero: /\b(empty|nobody|no one)\b/i.test(words)
+      ? ('place' as const)
+      : figured
+        ? /\b(holding|product)\b/i.test(words)
+          ? ('both' as const)
+          : ('presenter' as const)
+        : ('product' as const),
     holds: req.imagePaths.length
       ? [
           ...(figured ? ['person' as const] : []),

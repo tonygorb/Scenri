@@ -44,6 +44,8 @@ export interface BuildRouteDeps {
   onPlaceChanged?: (brandId: string, sceneId: string) => void;
   /** A scene was deleted: its examples stop and their pictures go. */
   onSceneGone?: (brandId: string, sceneId: string, examples: SceneExample[]) => void;
+  /** The studio's hero, drawn with its place (sceneExamples.ts `drawHero`). */
+  hero?: AssetBuildDeps['hero'];
 }
 
 /**
@@ -69,6 +71,7 @@ export function makeBuildDeps(deps: BuildRouteDeps): {
     analyzer: (await analyzer?.isAvailable())?.ok ? analyzer : null,
     brandContext: (brandId: string) => brandContext(core, brandId),
     ...(deps.onPlaceChanged ? { onPlaceChanged: deps.onPlaceChanged } : {}),
+    ...(deps.hero ? { hero: deps.hero } : {}),
     // The filters that already exist, so a new asset lands under a tab a
     // person can actually click rather than inventing a category of one.
     vocabulary: { ...facetsOf(scenes), categories: presenterFacetsOf(presenters).categories },

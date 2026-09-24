@@ -11,11 +11,15 @@ import { loadPresenters } from '../src/presenters.js';
 import {
   angleFor,
   handsStaged,
+  heroBothInstruction,
+  heroModeOf,
   heroPresenterInstruction,
   heroProductInstruction,
+  heroWithFor,
   pickSubject,
   rolesFor,
 } from '../src/sceneExamples.js';
+import { resetSceneStudio } from '../src/sceneStudio.js';
 import { drainTracked, track } from './servers.js';
 
 describe('who stands in a scene’s examples', () => {
@@ -141,6 +145,7 @@ beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'sc-examples-'));
   templatesDir = mkdtempSync(join(tmpdir(), 'sc-examples-templates-'));
   core = createCore(home);
+  resetSceneStudio();
   // the demo engine draws placeholders, which the studio refuses unless told
   process.env.SCENRI_DEMO_BUILDS = '1';
 });
@@ -166,17 +171,24 @@ const png = (shade: number) =>
 function spied(costUsd: number) {
   const demo = createDemoEngine((b: Buffer) => core.images.save(b), { maxReferenceImages: 4 });
   const calls = { generate: [] as any[], edit: [] as any[] };
-  const gate = { hold: null as null | ((n: number) => boolean), open: () => {} };
+  const gate = {
+    hold: null as null | ((n: number) => boolean),
+    open: () => {},
+    /** Fail this call: the nth generate or edit. */
+    fail: null as null | ((kind: 'generate' | 'edit', n: number) => boolean),
+  };
   const engine: EngineAdapter = {
     ...demo,
     capabilities: () => demo.capabilities(),
     costEstimate: async () => costUsd,
     generate: (req, signal, onImage) => {
       calls.generate.push(req);
+      if (gate.fail?.('generate', calls.generate.length)) return Promise.reject(new Error('the engine fell over'));
       return demo.generate(req, signal, onImage);
     },
     edit: async (req, signal) => {
       calls.edit.push(req);
+      if (gate.fail?.('edit', calls.edit.length)) throw new Error('the engine fell over');
       if (gate.hold?.(calls.edit.length)) {
         await new Promise<void>((resolve, reject) => {
           gate.open = resolve;
@@ -191,7 +203,7 @@ function spied(costUsd: number) {
   return { engine, calls, gate };
 }
 
-async function setup(costUsd = 0, library = true) {
+async function setup(costUsd = 0, library = true, opts: { presenter?: boolean } = {}) {
   mkdirSync(join(templatesDir, 'demo-products'), { recursive: true });
   writeFileSync(
     join(templatesDir, 'demo-products', 'vial.json'),
@@ -216,12 +228,52 @@ async function setup(costUsd = 0, library = true) {
     );
   }
 
+  if (opts.presenter) {
+    // one demo presenter, as the catalog files one: the record and two of their pictures
+    mkdirSync(join(templatesDir, 'presenters'), { recursive: true });
+    writeFileSync(
+      join(templatesDir, 'presenters', 'amara.json'),
+      JSON.stringify({
+        id: 'amara',
+        name: 'Amara',
+        presentation: 'woman',
+        descriptor: 'Editorial',
+        ageRange: 'mid 20s',
+        facial: 'sculpted high cheekbones',
+        skin: 'deep brown',
+        hair: 'a close-cropped buzz cut',
+        build: 'tall and lean',
+        wardrobeDefault: 'a black slip dress',
+        suitableCategories: ['Fragrance'],
+        suitableStyles: ['Editorial'],
+        identityNotes: 'the buzz cut must survive every generation',
+        negativeConstraints: [],
+        width: 1024,
+        height: 1280,
+      }),
+    );
+    const views = join(templatesDir, 'previews', 'presenters', 'amara');
+    mkdirSync(views, { recursive: true });
+    for (const [slot, shade] of [
+      ['avatar', 70],
+      ['front', 80],
+    ] as const)
+      writeFileSync(
+        join(views, `${slot}.jpg`),
+        await sharp(await png(shade))
+          .jpeg()
+          .toBuffer(),
+      );
+  }
+
   const { engine, calls, gate } = spied(costUsd);
   const app = track(
     buildServer({
       core,
       engines: { all: () => [engine], get: (id: string) => (id === 'demo' ? engine : null) },
       sizeReader: createDemoAnalyzer(),
+      // the studio reads its words with the demo reader: what the hero shows follows them
+      analyzer: createDemoAnalyzer(),
       templatesDir,
     }),
   );
@@ -262,6 +314,23 @@ async function setup(costUsd = 0, library = true) {
     ).json().scene.id as string;
   /** The press that asks for the place in use. Nothing here draws without it. */
   const press = async (id: string) => app.inject({ method: 'POST', url: url(id), payload: { first: true } });
+  const studioUrl = `/api/brands/${brand.id}/scene-studio/jobs`;
+  /** One piece of studio work, run to its end. */
+  const studio = async (payload: Record<string, unknown>) => {
+    const started = await app.inject({
+      method: 'POST',
+      url: studioUrl,
+      payload: { kind: 'make', conversation: 'convo-1', ...payload },
+    });
+    if (started.statusCode !== 200) throw new Error(started.body);
+    const { jobId } = started.json();
+    for (const until = Date.now() + 20_000; Date.now() < until; ) {
+      const job = (await app.inject({ method: 'GET', url: `${studioUrl}/${jobId}` })).json();
+      if (job.status !== 'running') return job;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    throw new Error('the studio never finished');
+  };
   /** Saved, asked for, and finished: what every test that needs a set starts from. */
   const drawn = async (id: string) => {
     await press(id);
@@ -280,6 +349,8 @@ async function setup(costUsd = 0, library = true) {
     makeScene,
     press,
     drawn,
+    studio,
+    studioUrl,
   };
 }
 
@@ -481,5 +552,196 @@ describe('the hero drawn into an anchor', () => {
     const person = heroPresenterInstruction('', true);
     expect(person).toContain('Any person in it is a stand-in');
     expect(person).toContain('Add no other person');
+  });
+});
+
+describe('what a scene’s hero shows', () => {
+  const products = [
+    { id: 'vial', category: 'fragrance' },
+    { id: 'chair', category: 'furniture' },
+  ];
+  const people = [{ id: 'amara', suitableCategories: ['Fragrance'] }];
+
+  it('is the reader’s answer, and otherwise follows the figure and what the pictures held', () => {
+    // the representative worlds, as the reader would read them
+    const worlds: [string, Parameters<typeof heroModeOf>[0], string][] = [
+      ['a product studio', { subject: 'product', hero: 'product' }, 'product'],
+      [
+        'a fashion editorial place',
+        { subject: 'person', figure: 'one person at full length', hero: 'presenter' },
+        'presenter',
+      ],
+      ['a lifestyle moment', { figure: 'one person at the table', holds: ['person', 'product'], hero: 'both' }, 'both'],
+      ['an architectural space that is the point', { subject: 'either', hero: 'place' }, 'place'],
+      ['a typographic poster world', { subject: 'either', holds: ['lettering'], hero: 'product' }, 'product'],
+      ['a surreal graphic set', { subject: 'either', hero: 'product' }, 'product'],
+      ['a minimal clean studio', { subject: 'product', hero: 'product' }, 'product'],
+      ['a vast landscape nothing should enter', { subject: 'either', hero: 'place' }, 'place'],
+    ];
+    for (const [, reading, mode] of worlds) expect(heroModeOf(reading)).toBe(mode);
+    // with no answer from the reader, the words already known decide
+    expect(heroModeOf({ subject: 'either' })).toBe('product');
+    expect(heroModeOf({ subject: 'person' })).toBe('presenter');
+    expect(heroModeOf({ figure: 'one person' })).toBe('presenter');
+    expect(heroModeOf({ figure: 'one person', holds: ['person', 'product'] })).toBe('both');
+    // an answer that is not one of the four is no answer
+    expect(heroModeOf({ hero: 'banner', figure: 'one person' })).toBe('presenter');
+  });
+
+  it('picks its stand-ins the way the set does, the same every time, and none for the place alone', () => {
+    const scene = { id: 'us-1', verticals: ['Fragrance'] };
+    expect(heroWithFor('product', scene, products, people)).toEqual({ product: 'vial' });
+    expect(heroWithFor('presenter', scene, products, people)).toEqual({ presenter: 'amara' });
+    expect(heroWithFor('both', scene, products, people)).toEqual({ product: 'vial', presenter: 'amara' });
+    expect(heroWithFor('place', scene, products, people)).toBeNull();
+    // nobody to stand in it is no hero, never half of one
+    expect(heroWithFor('both', scene, products, [])).toBeNull();
+  });
+
+  it('with a person and a product, says both, and keeps the product at its own size', () => {
+    const words = heroBothInstruction('a glass perfume vial', null, [], 'the buzz cut must survive', true);
+    expect(words).toContain(
+      'Put the person in the references into it as the hero of this place, with a glass perfume vial',
+    );
+    expect(words).toContain('at its true real-world size');
+    expect(words).toContain('Any person in it is a stand-in');
+    expect(words).toContain('only marks where the product goes');
+    expect(words).toContain('Add no other person, no other product and no text');
+  });
+});
+
+describe('the hero comes first', { timeout: 30_000 }, () => {
+  it('a Draw makes the place and then the place in use, and the hero is never the picture a shot is given', async () => {
+    const { calls, studio } = await setup();
+    const job = await studio({ instruction: 'A minimal brutalist hall of raw concrete with a low plinth' });
+    expect(job.status).toBe('done');
+    // the place, drawn from the words; then the hero, at the vial's own scale
+    // (the plate is drawn from the place's picture, then the vial placed on it)
+    expect(calls.generate).toHaveLength(2);
+    expect(calls.generate[1].referenceImages).toEqual([core.images.pathFor(job.hash)]);
+    expect(calls.edit).toHaveLength(1);
+    expect(job.hero).toMatch(/^[a-f0-9]{32}$/);
+    expect(job.hero).not.toBe(job.hash);
+    expect(job.heroWith).toEqual({ product: 'vial' });
+  });
+
+  it('Use this scene saves the place, the hero drawn from it and the hero as the cover, and spends nothing', async () => {
+    const { app, brandId, calls, studio, sceneOf, status } = await setup();
+    const job = await studio({ instruction: 'A minimal brutalist hall of raw concrete with a low plinth' });
+    const spent = calls.generate.length + calls.edit.length;
+    const saved = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brandId}/scenes`,
+      payload: {
+        name: 'Concrete Hall',
+        prompt: job.reading.prompt,
+        lighting: job.reading.lighting,
+        previewHash: job.hash,
+        anchor: job.anchor,
+        heroHash: job.hero,
+        heroWith: job.heroWith,
+        cover: 'hero',
+      },
+    });
+    expect(saved.statusCode).toBe(200);
+    const id = saved.json().scene.id;
+    const scene = sceneOf(id);
+    // the place is still the picture a shot is given
+    expect(scene.preview).toBe(`asset:${job.hash}`);
+    expect(scene.examples).toEqual([
+      { role: 'hero', file: `asset:${job.hero}`, from: `asset:${job.hash}`, product: 'vial' },
+    ]);
+    expect(scene.cover).toBe('hero');
+    expect(calls.generate.length + calls.edit.length).toBe(spent);
+    // nothing runs, and the rest of the set is the close-up, asked for
+    const s = await status(id);
+    expect(s.job).toBeNull();
+    expect(s.first).toEqual(['close']);
+  });
+
+  it('a world shown as the place alone draws no hero', async () => {
+    const { calls, studio } = await setup();
+    const job = await studio({ instruction: 'An empty salt flat to the horizon, nobody in it' });
+    expect(job.status).toBe('done');
+    expect(calls.generate).toHaveLength(1);
+    expect(calls.edit).toHaveLength(0);
+    expect(job.hero).toBeNull();
+    expect(job.heroWith).toBeNull();
+  });
+
+  it('a person with a product: their views and the product ride with the place, in one edit', async () => {
+    const { calls, studio } = await setup(0, true, { presenter: true });
+    const job = await studio({ instruction: 'A sunlit kitchen, a portrait of someone holding the product' });
+    expect(job.heroWith).toEqual({ product: 'vial', presenter: 'amara' });
+    const hero = calls.edit.at(-1);
+    expect(hero.sourceImage).toBe(core.images.pathFor(job.hash));
+    expect(hero.referenceRoles).toEqual(['character', 'character', 'product']);
+    expect(hero.instruction).toContain('as the hero of this place, with a glass perfume vial');
+  });
+
+  it('Change something edits the place and the hero by the same sentence, keeping who stands in it', async () => {
+    const { calls, studio } = await setup();
+    const made = await studio({ instruction: 'A minimal brutalist hall of raw concrete with a low plinth' });
+    const before = calls.edit.length;
+    const changed = await studio({
+      kind: 'change',
+      reading: made.reading,
+      from: made.hash,
+      fromAnchor: made.anchor,
+      fromHero: made.hero,
+      heroWith: made.heroWith,
+      ask: 'make the light warmer',
+    });
+    expect(changed.status).toBe('done');
+    expect(calls.edit.length - before).toBe(2);
+    const [place, hero] = calls.edit.slice(before);
+    expect(place.sourceImage).toBe(core.images.pathFor(made.hash));
+    expect(hero.sourceImage).toBe(core.images.pathFor(made.hero));
+    expect(hero.instruction).toContain('changed only in this: make the light warmer');
+    expect(changed.heroWith).toEqual(made.heroWith);
+  });
+
+  it('a hero that fails leaves the place standing and says so', async () => {
+    const { gate, studio } = await setup();
+    // the second generate is the hero's plate
+    gate.fail = (kind, n) => kind === 'generate' && n === 2;
+    const job = await studio({ instruction: 'A minimal brutalist hall of raw concrete with a low plinth' });
+    expect(job.status).toBe('done');
+    expect(job.hash).toMatch(/^[a-f0-9]{32}$/);
+    expect(job.hero).toBeNull();
+    expect(job.warnings.join(' ')).toContain('showing it in use did not work');
+  });
+
+  it('Use while it draws puts the hero on the scene with its place, as the cover', async () => {
+    const { app, brandId, calls, gate, studioUrl, sceneOf } = await setup();
+    // hold the hero's placement edit open
+    gate.hold = (n) => n === 1;
+    const started = await app.inject({
+      method: 'POST',
+      url: studioUrl,
+      payload: { kind: 'make', conversation: 'convo-2', instruction: 'A minimal hall of raw concrete, a low plinth' },
+    });
+    const { jobId } = started.json();
+    // the place has landed and the hero's placement is being drawn
+    for (const until = Date.now() + 20_000; Date.now() < until && calls.edit.length < 1; )
+      await new Promise((r) => setTimeout(r, 10));
+    const saved = await app.inject({
+      method: 'POST',
+      url: `/api/brands/${brandId}/scenes`,
+      payload: { name: 'Hall', prompt: 'A minimal hall of raw concrete, a low plinth.' },
+    });
+    const id = saved.json().scene.id;
+    const attach = await app.inject({ method: 'POST', url: `${studioUrl}/${jobId}/attach`, payload: { sceneId: id } });
+    expect(attach.json().state).toBe('pending');
+    gate.open();
+    for (const until = Date.now() + 20_000; Date.now() < until && !sceneOf(id).preview; )
+      await new Promise((r) => setTimeout(r, 10));
+    const job = (await app.inject({ method: 'GET', url: `${studioUrl}/${jobId}` })).json();
+    const scene = sceneOf(id);
+    expect(scene.preview).toBe(`asset:${job.hash}`);
+    expect(scene.examples.map((e: any) => [e.role, e.file, e.from])).toEqual([
+      ['hero', `asset:${job.hero}`, `asset:${job.hash}`],
+    ]);
+    expect(scene.cover).toBe('hero');
   });
 });

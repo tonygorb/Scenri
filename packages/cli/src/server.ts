@@ -102,6 +102,7 @@ import { registerPresenterRoutes } from './routes/presenters.js';
 import { registerAssetBuildRoutes } from './routes/assetBuilds.js';
 import { registerPresenterDraftRoutes } from './routes/presenterDrafts.js';
 import { registerSceneStudioRoutes } from './routes/sceneStudio.js';
+import { registerSceneCoverRoutes } from './routes/sceneCovers.js';
 import { runningSceneStudioCount, settleSceneStudio } from './sceneStudio.js';
 import { createSceneExamples, type SceneExamples } from './sceneExamples.js';
 import { registerSceneExampleRoutes } from './routes/sceneExamples.js';
@@ -575,7 +576,8 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
 
   // ---- scenes (+ their preview imagery when generated)
   const templatesRoot = opts.templatesDir ?? defaultScenesDir();
-  registerSceneRoutes(app, { templatesRoot, scenes, thumbs });
+  registerSceneRoutes(app, { templatesRoot, scenes, thumbs, core });
+  registerSceneCoverRoutes(app, { core, scenes });
 
   // ---- presenters (curated identity catalog). A presenter attaches straight
   // into a brief like a Scene does — see brandJsonWithResolvedPresenters below.
@@ -621,6 +623,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     presenters,
     thumbs,
     onPlaceChanged: exampleHooks.onPlaceChanged,
+    // Made further down, with the demo products and sizes it draws with; a
+    // studio draw asks for it only once a place is drawn, long after boot.
+    hero: (req) => sceneExamples?.drawHero(req) ?? Promise.resolve(null),
   });
 
   // ---- demo products (curated, fictional-but-premium product catalog). A
@@ -675,7 +680,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     brandContext: (brandId) => brandContext(core, brandId),
     demoProducts,
     presenters,
-    compile: async (brandId, tokens, engine) => {
+    compile: async (brandId, tokens, engine, draft) => {
       const brand = await brandJsonWithIdentityCrops(
         core,
         await brandJsonWithResolvedPresenters(
@@ -703,7 +708,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
           images: core.images,
           wordsFor: shotWordsFor(core, brandId),
           engineCaps: engine.capabilities(),
-          templateById: sceneFor(brand),
+          // The studio's hero is drawn before its scene is saved: the scene it
+          // names is the reading, not a record.
+          templateById: draft ? (id: string) => (id === draft.id ? draft : sceneFor(brand)(id)) : sceneFor(brand),
         },
       );
       return { compiled, brand };

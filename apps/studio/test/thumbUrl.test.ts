@@ -37,6 +37,11 @@ describe('derivative URLs', () => {
       '/api/demo-product-thumbnails/aurelia.jpg?v=2&w=640',
     );
     expect(thumbOf('/api/presenter-thumbnails/sana.jpg?v=3', 'full')).toBe('/api/presenter-thumbnails/sana.jpg?v=3');
+    // a catalog scene's frame is sized too: a brand may show one as its cover on every card
+    expect(thumbOf('/api/scene-previews/balloon-knot/ref-02.jpg?v=5', 'tile')).toBe(
+      '/api/scene-previews/balloon-knot/ref-02.jpg?v=5&w=640',
+    );
+    expect(thumbOf('/api/scene-previews/balloon-knot/ref-02.jpg', 'small')).toMatch(/\?w=\d+$/);
     // not one of ours: a reference frame has no derivative route
     expect(thumbOf('/api/presenter-previews/sana/ref-01.jpg?v=3', 'tile')).toBe(
       '/api/presenter-previews/sana/ref-01.jpg?v=3',

@@ -53,6 +53,7 @@ import {
   readDue,
   reduce,
   repeatsLastAsk,
+  shownOf,
   stale,
   type StudioState,
   takesOf,
@@ -200,7 +201,7 @@ export function useSceneFlow(args: {
 
   const savedId = studio.saved;
   const savedScene = savedId ? customSceneById(brand, savedId) : undefined;
-  const ex = useSceneExamples(brand.id, savedId, savedScene?.previewUrl ?? null);
+  const ex = useSceneExamples(brand.id, savedId, savedScene?.placeUrl ?? null);
   const setRunning = ex.job?.status === 'running';
   const [stoppingSet, setStoppingSet] = useState(false);
   useEffect(() => {
@@ -223,7 +224,9 @@ export function useSceneFlow(args: {
       noSubject: ex.read && !ex.job && !kept.length && ex.more.length === 0,
       missing: missingMore(ex.more, kept, ex.job),
       first: ex.first,
-      stale: ex.first.length > 0 && kept.length > 0,
+      // what the place moved under, said by the examples themselves: a hero that
+      // came with the place is not stale because the close-up is still to come
+      stale: ex.first.length > 0 && kept.some((e) => e.earlier),
       finish: args.finish,
     };
   }, [savedId, savedScene, tiles, setRunning, ex.read, ex.job, ex.first, ex.more, args.finish]);
@@ -251,6 +254,9 @@ export function useSceneFlow(args: {
 
   /** Which picture of the set is on the stage: the one pressed, else the newest. */
   const [picked, setPicked] = useState<string | null>(null);
+  // A new version is judged by its own hero first, not by whatever was pressed on the last one.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the version is what resets it
+  useEffect(() => setPicked(null), [studio.current]);
 
   // The place as the setup gives it, handed to the work once the setup is whole,
   // and not while an answer is open again: it is given when that answer is.
@@ -615,25 +621,28 @@ export function useSceneFlow(args: {
       : undefined;
   const working = studio.job ? doingLine(studio) : work.saving ? 'Saving' : setLine;
 
-  // The stage after Use: the place and its examples in the strip, the one
-  // pressed on the stage, else the one being drawn, else the newest.
+  // The stage after Use: the place and its examples in the strip, the hero
+  // first (it came with the place), the one pressed on the stage, else the one
+  // being drawn, else the newest.
   const strip: StageStripItem[] = [];
   let onStage: { hash?: string; drawing: boolean } | null = null;
+  const placeItem = (sel: string): StageStripItem => ({
+    view: 'place',
+    label: 'The place',
+    state: sel === 'place' ? 'current' : 'approved',
+    hash: v?.hash ?? undefined,
+    photo: false,
+    drawing: false,
+    approved: true,
+    error: false,
+  });
   if (savedId) {
     const drawingNow = setRunning ? ex.job?.current : null;
     const newest = [...tiles].reverse().find((t) => t.state === 'shown')?.role ?? null;
     const sel = picked ?? drawingNow ?? newest ?? 'place';
-    strip.push({
-      view: 'place',
-      label: 'The place',
-      state: sel === 'place' ? 'current' : 'approved',
-      hash: v?.hash ?? undefined,
-      photo: false,
-      drawing: false,
-      approved: true,
-      error: false,
-    });
-    for (const t of tiles)
+    const heroFirst = tiles[0]?.role === 'hero' && tiles[0].state === 'shown';
+    if (!heroFirst) strip.push(placeItem(sel));
+    for (const [i, t] of tiles.entries()) {
       strip.push({
         view: t.role,
         label: EXAMPLE_LABEL[t.role],
@@ -644,8 +653,27 @@ export function useSceneFlow(args: {
         approved: t.state === 'shown',
         error: t.state === 'failed',
       });
+      if (heroFirst && i === 0) strip.push(placeItem(sel));
+    }
     const chosen = strip.find((x) => x.view === sel) ?? strip[0];
     onStage = { hash: chosen.hash, drawing: chosen.drawing };
+  } else if (v?.hash && v.hero) {
+    // Before Use: the hero is what is judged, and the place it came with sits
+    // beside it, the picture a shot is given.
+    const sel = picked === 'place' ? 'place' : 'hero';
+    strip.push(
+      {
+        view: 'hero',
+        label: EXAMPLE_LABEL.hero,
+        state: sel === 'hero' ? 'current' : 'approved',
+        hash: v.hero,
+        photo: false,
+        drawing: false,
+        approved: true,
+        error: false,
+      },
+      placeItem(sel),
+    );
   }
   const begun = !edit && (!!setup.answers.source || studio.versions.length > 0);
 
@@ -666,14 +694,15 @@ export function useSceneFlow(args: {
           onPick: (view: string) => setPicked(view),
         }
       : {
-          hash: v?.hash ?? undefined,
+          hash: (picked === 'place' ? v?.hash : shownOf(v)) ?? undefined,
           alt: `Preview of ${studio.name.trim() || v?.reading.name || 'the scene'}`,
           drawing: !!studio.job && studio.job.phase === 'drawing',
           since: studio.job?.since ?? undefined,
           doing: doingLine(studio),
           takes: studio.job ? undefined : takesOf(studio),
           onTake: work.putBack,
-          items: [],
+          items: strip,
+          onPick: (view: string) => setPicked(view),
         },
     composer: {
       placeholder: composer.placeholder,

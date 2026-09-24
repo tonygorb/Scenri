@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { matchPath, Navigate, useLocation, useNavigate, useParams } from 'react-router';
-import type { Brand, SceneReading } from '../api.js';
+import type { Brand, HeroWith, SceneReading } from '../api.js';
 import { customSceneById } from '../brandAssets.js';
 import type { SavedScene } from '../create/scene/useSceneStudio.js';
 import { useAppData } from '../app/AppShell.js';
@@ -45,8 +45,22 @@ function seedFrom(brand: Brand, sceneId: string): StudioState | null {
     reading,
     hash: hashOf(r.preview) ?? null,
     anchor: r.anchor === true,
+    // its hero, when one is drawn from this very picture: shown first, as it was made
+    ...heroOf(r),
     name: reading.name,
   });
+}
+
+/** A saved scene's hero, when it was drawn from the picture the scene wears now. */
+function heroOf(r: any): { hero?: string; heroWith?: HeroWith } {
+  const e = (Array.isArray(r.examples) ? r.examples : []).find((x: any) => x?.role === 'hero' && x?.from === r.preview);
+  const hero = hashOf(e?.file);
+  if (!hero) return {};
+  const heroWith: HeroWith = {
+    ...(e.product ? { product: String(e.product) } : {}),
+    ...(e.presenter ? { presenter: String(e.presenter) } : {}),
+  };
+  return { hero, heroWith };
 }
 
 /** A conversation's name in the URL. Not `randomUUID`: a lane opened over the LAN is not a secure context. */
