@@ -1,0 +1,37 @@
+{
+  "id": "aperitivo-pit",
+  "title": "Aperitivo hour in the pit",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "fenner-ross-aperitivo"
+      },
+      {
+        "t": "character",
+        "id": "leila"
+      },
+      {
+        "t": "template",
+        "id": "conversation-pit"
+      },
+      {
+        "t": "text",
+        "v": " She sits on the edge of the conversation pit pouring the ruby aperitivo over ice, the bottle label to camera, a warm half smile. She wears a black halter-neck jumpsuit and gold flat sandals. 35mm, full length from above the pit edge, late sun through the room."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 38,
+  "family": "place"
+}

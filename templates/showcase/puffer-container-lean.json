@@ -1,0 +1,37 @@
+{
+  "id": "puffer-container-lean",
+  "title": "Tangerine puffer against cobalt",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "slate-harbor-cropped-puffer"
+      },
+      {
+        "t": "character",
+        "id": "kwame"
+      },
+      {
+        "t": "template",
+        "id": "cobalt-container"
+      },
+      {
+        "t": "text",
+        "v": " He leans back against the cobalt container doors, one boot sole flat on the steel, the tangerine cropped puffer zipped halfway over a white hoodie, with black cargo trousers and chunky black leather boots. Hard sun from the right, his shadow sharp on the doors. The camera is low, 28mm, full length with cobalt sky above, the orange against the blue the whole idea."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 8,
+  "family": "place"
+}

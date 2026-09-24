@@ -1,0 +1,33 @@
+{
+  "id": "capsule-stoop",
+  "title": "Capsule speaker on the stoop",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ossett-hume-capsule"
+      },
+      {
+        "t": "character",
+        "id": "ren"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Summer evening on a brownstone stoop: he sits on the steps with the chartreuse capsule speaker beside him, head nodding, low sun on the brick. He wears a black nylon track jacket, a white T-shirt, grey baggy jeans and black high-top sneakers. 35mm, full length from the pavement."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 98,
+  "family": "place"
+}

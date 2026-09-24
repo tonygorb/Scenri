@@ -1,0 +1,37 @@
+{
+  "id": "scarlet-beauty-dish",
+  "title": "Scarlet lip under a beauty dish",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ilse-varden-scarlet-11"
+      },
+      {
+        "t": "character",
+        "id": "odette"
+      },
+      {
+        "t": "template",
+        "id": "beauty-dish"
+      },
+      {
+        "t": "text",
+        "v": " A tight beauty close-up against the red seamless: she draws the scarlet lipstick across her lower lip, eyes to camera, the case held so its lacquer catches the dish. She wears a sleek black high-neck top. The silver beauty dish is out of frame above, its crisp shadow under her chin. 100mm, framed from brow to collarbone, skin with real texture."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 76,
+  "family": "human"
+}

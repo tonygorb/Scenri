@@ -1,0 +1,33 @@
+{
+  "id": "yuzu-container-sill",
+  "title": "Violet can on a cobalt container",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "brixa-yuzu-tonic"
+      },
+      {
+        "t": "template",
+        "id": "cobalt-container"
+      },
+      {
+        "t": "text",
+        "v": " The violet can stands on the steel sill at the container door, the camera almost on the sill itself so the can towers in the lower third against the cobalt doors and the cobalt sky above the roofline, its print facing the lens. Hard noon sun from the right throws one crisp shadow to the left along the steel. 35mm at f/8, everything sharp."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 45,
+  "family": "place"
+}

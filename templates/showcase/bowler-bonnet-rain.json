@@ -1,0 +1,29 @@
+{
+  "id": "bowler-bonnet-rain",
+  "title": "Bowler bag on a rain-beaded bonnet",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "rowan-ash-bowler-bag"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The cherry-red bowler bag sits on the polished cream bonnet of a parked 1960s saloon after rain, beads of water standing on the paint and on the leather, a chrome bonnet emblem left unlettered. Grey Parisian street softly out of focus behind, wet cobbles reflecting a pale sky. 85mm from bonnet height, the bag filling the middle of the frame, its handle crisp."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 31,
+  "family": "place"
+}

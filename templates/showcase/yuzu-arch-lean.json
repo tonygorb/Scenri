@@ -1,0 +1,37 @@
+{
+  "id": "yuzu-arch-lean",
+  "title": "Yuzu tonic at the lime arch",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "brixa-yuzu-tonic"
+      },
+      {
+        "t": "character",
+        "id": "zuri"
+      },
+      {
+        "t": "template",
+        "id": "sky-color-block"
+      },
+      {
+        "t": "text",
+        "v": " She leans into the inner curve of the arch with one foot tucked up against it, holding the violet can at shoulder height with its print turned to camera, mid-laugh, looking off to the right. Styled in a cropped white ribbed tank, high-waisted cobalt wide-leg trousers and white leather sneakers. 35mm from knee height, full length with room above the arch, hard midday sun throwing her shadow across the blue floor."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 29,
+  "family": "studio"
+}

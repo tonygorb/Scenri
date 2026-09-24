@@ -1,0 +1,33 @@
+{
+  "id": "hibiscus-pink-smoke",
+  "title": "Hibiscus soda in pink smoke",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "pellow-hibiscus-soda"
+      },
+      {
+        "t": "template",
+        "id": "pink-smoke"
+      },
+      {
+        "t": "text",
+        "v": " The long-neck bottle stands in the pink smoke, beaded with condensation, the smoke curling around its base, pink on pink with only the label and the glass highlights to separate it. 85mm at bottle height, the bottle tall and centred."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 96,
+  "family": "optical"
+}

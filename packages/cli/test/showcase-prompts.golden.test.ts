@@ -9,7 +9,7 @@
  * The whole point of splitting `promptName` (what the model reads) from
  * `name` (what humans read) is that renaming the second must not move the
  * first. This test is what proves it: shorten every display name in the
- * catalog and these 97 prompts must come out byte-identical.
+ * catalog and these 100 prompts must come out byte-identical.
  *
  * Regenerate deliberately, never casually:
  *   UPDATE_SHOWCASE_GOLDEN=1 pnpm --filter @scenri/cli test showcase-prompts
@@ -75,7 +75,7 @@ beforeAll(async () => {
   const templateById = sceneResolver(scenes);
 
   // Resolve the WHOLE catalog once. The per-entry read-through would redo the
-  // same sharp conversions 97 times over; compileBrief only ever looks up the
+  // same sharp conversions 100 times over; compileBrief only ever looks up the
   // ids its own tokens name, so a brand carrying every product and presenter
   // compiles each recipe identically to the server's narrow resolution.
   const allTokens = [
@@ -128,7 +128,7 @@ afterAll(() => {
 
 describe('showcase compiled prompts', () => {
   it('compiles every shipped showcase recipe', () => {
-    expect(rows.length).toBe(97);
+    expect(rows.length).toBe(100);
     for (const r of rows) expect(r.prompt.length).toBeGreaterThan(0);
   });
 
@@ -140,7 +140,7 @@ describe('showcase compiled prompts', () => {
     }
     const expected = JSON.parse(readFileSync(FIXTURE, 'utf8'));
     // Compare per-entry so a failure names the recipe that drifted rather
-    // than dumping a 97-element diff.
+    // than dumping a 100-element diff.
     expect(rows.map((r) => r.id)).toEqual(expected.map((r: Row) => r.id));
     const byId = new Map<string, Row>(expected.map((r: Row) => [r.id, r]));
     for (const row of rows) {

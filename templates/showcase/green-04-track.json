@@ -1,0 +1,33 @@
+{
+  "id": "green-04-track",
+  "title": "Green juice after the track session",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "orchard-oat-green-04"
+      },
+      {
+        "t": "character",
+        "id": "paloma"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. On the lane lines of a red running track after a session: she drinks from the square bottle of green juice, head tipped back, ponytail swinging. She wears a sage running crop top, black running shorts and white running shoes. 70mm, full length, low morning sun."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 30,
+  "family": "human"
+}

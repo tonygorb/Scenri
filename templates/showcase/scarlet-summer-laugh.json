@@ -1,0 +1,33 @@
+{
+  "id": "scarlet-summer-laugh",
+  "title": "Scarlet lip in summer sun",
+  "category": "social",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ilse-varden-scarlet-11"
+      },
+      {
+        "t": "character",
+        "id": "luz"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Hard summer sun and a cloudless cobalt sky: she laughs with her head tipped back, freshly painted scarlet lips, holding the lipstick up beside her cheek with the case turned to camera. She wears a crisp white cotton shirt buttoned to the collar and gold hoop earrings of her own. Framed from the waist up, shot from slightly below at 50mm, her curls blowing, crisp sun shadows on her skin."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 5,
+  "family": "human"
+}

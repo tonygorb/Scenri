@@ -1,0 +1,29 @@
+{
+  "id": "puffer-ghost-snow",
+  "title": "Tangerine puffer over fresh powder",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "slate-harbor-cropped-puffer"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The cropped puffer holds a worn shape with no one inside it, a ghost-mannequin form, floating just above a ridge of fresh powder snow at blue hour, sleeves slightly lifted as if caught mid-stride. The glossy tangerine nylon catches the last pink light on the peaks. The snow below is untouched, blue in shadow. 70mm from snow level, the jacket in the centre, the mountain ridge soft behind."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 20,
+  "family": "geological"
+}

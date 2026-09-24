@@ -1,0 +1,29 @@
+{
+  "id": "casserole-steam",
+  "title": "Casserole lid lifting in steam",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "lydford-forge-24-casserole"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Dark kitchen, one shaft of window light: the oxblood casserole on a black range, lid set ajar on the rim, a column of steam rising through the light. The brass badge catches one highlight. 70mm at hob height, the pot filling the lower half."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 50,
+  "family": "material"
+}

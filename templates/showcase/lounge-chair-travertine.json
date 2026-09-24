@@ -1,0 +1,33 @@
+{
+  "id": "lounge-chair-travertine",
+  "title": "Oak lounge chair by the travertine",
+  "category": "catalog",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "moss-larkin-oak-lounge-chair"
+      },
+      {
+        "t": "template",
+        "id": "travertine-window-light"
+      },
+      {
+        "t": "text",
+        "v": " The oak lounge chair sits beside the raw travertine block, the low golden window stripes crossing the boucle cushions and the stone. 35mm from seat height, the chair three-quarter on, the whole of it in frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 66,
+  "family": "place"
+}

@@ -268,36 +268,32 @@ export function HomeView() {
       // Was the product card hero — serum still reads as “make a shot”
       compose:
         claim(libraryShot ? assetUrl(libraryShot.shots?.[0]?.file) : null) ??
-        fromShowcaseIds([
-          'aurelia-serum-succulent-dew',
-          'verity-pearls-suspended-silk',
-          'solstice-aviators-screen-print',
-        ]) ??
-        claim(demoProducts.find((p) => p.id === 'aurelia-amber-serum')?.previewUrl) ??
+        fromShowcaseIds(['c15-orange-pool', 'orris-waterline', 'hoops-painted-canvas']) ??
+        claim(demoProducts.find((p) => p.id === 'calder-vane-c15-serum')?.previewUrl) ??
         claim(demoProducts.find((p) => p.previewUrl)?.previewUrl) ??
         anyShowcase('product'),
-      // Product in a moment — the volcanic runner we liked earlier
+      // Product in a moment — the trail runner on its tyre stack
       product:
-        fromShowcaseIds(['voss-rowe-runner-volcanic-ash', 'birchwood-salt-flat', 'voss-rowe-dune-slip-face']) ??
-        claim(demoProducts.find((p) => p.id === 'voss-rowe-trail-runner')?.previewUrl) ??
+        fromShowcaseIds(['ridgeline-tyre-top', 'ridgeline-embers', 'yuzu-ice-burst']) ??
+        claim(demoProducts.find((p) => p.id === 'voss-rowe-ridgeline-trail')?.previewUrl) ??
         anyShowcase('product'),
-      // Identity ref — Maren's square portrait, which fills the 1:1 glyph exactly
+      // Identity ref — Odette's square portrait, which fills the 1:1 glyph exactly
       presenter:
         claim(
           presenterAvatar(
-            presenters.find((p) => p.id === 'maren') ?? presenters.find((p) => p.avatarUrl) ?? presenters[0] ?? {},
+            presenters.find((p) => p.id === 'odette') ?? presenters.find((p) => p.avatarUrl) ?? presenters[0] ?? {},
           ).src,
         ) ?? anyShowcase('character'),
       // Place / light — scene catalog first, then environment-led showcase
       scene:
         fromSceneIds([
-          'furniture-travertine-atrium',
-          'wide-establishing-environment',
-          'studio-soft-horizon',
-          'studio-volcanic-ash-field',
-          'furniture-lamplight-hours',
+          'travertine-window-light',
+          'palm-shade-garden',
+          'lantern-room',
+          'cobalt-container',
+          'sunlit-color-field',
         ]) ??
-        fromShowcaseIds(['moss-larkin-chair-travertine-atrium', 'calder-snow-loft', 'basalt-snells-window']) ??
+        fromShowcaseIds(['lounge-chair-travertine', 'lounge-chair-snowfall', 'capsule-model-village']) ??
         anyShowcase('template'),
     };
   }, [templates, presenters, products, demoProducts, showcase]);

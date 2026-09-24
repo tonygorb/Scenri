@@ -1,0 +1,29 @@
+{
+  "id": "hoops-honey-drip",
+  "title": "Gold hoops under dripping honey",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verity-stone-dome-hoops"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The two dome hoops lie on a slab of wild honeycomb, and one slow thread of golden honey falls from above onto the comb beside them, pooling in the cells. Backlight from behind turns the honey and the gold into the same glow. 100mm macro from comb height, the hoops sharp, the falling honey crisp."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 16,
+  "family": "fluid"
+}

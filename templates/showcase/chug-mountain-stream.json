@@ -1,0 +1,29 @@
+{
+  "id": "chug-mountain-stream",
+  "title": "Chug bottle in a mountain stream",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "carrick-stead-chug-710"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The navy bottle stands on a mossy boulder in a fast mountain stream, white water rushing around the rock, spray beading on the steel. Morning light through pines. 50mm from water level, the bottle upright and large, the stream blurred by a slow shutter."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 42,
+  "family": "geological"
+}

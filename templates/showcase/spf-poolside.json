@@ -1,0 +1,33 @@
+{
+  "id": "spf-poolside",
+  "title": "SPF 50 at the pool edge",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "halden-bay-spf-50"
+      },
+      {
+        "t": "character",
+        "id": "luz"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. She sits on the edge of a turquoise pool, feet in the water, squeezing the butter-yellow tube onto the back of her hand, curls piled up, laughing. She wears a mustard linen camp shirt and white linen shorts. Hard midday sun, the water bright behind her. 50mm, framed from the thighs up."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 51,
+  "family": "human"
+}

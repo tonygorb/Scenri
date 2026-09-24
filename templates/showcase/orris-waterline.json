@@ -1,0 +1,33 @@
+{
+  "id": "orris-waterline",
+  "title": "Salt Orris split at the waterline",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verlaine-salt-orris"
+      },
+      {
+        "t": "template",
+        "id": "waterline-caustics"
+      },
+      {
+        "t": "text",
+        "v": " The flacon stands on a pale stone at the waterline, the surface cutting across the bottle at the shoulder so the label sits in the calm air above while olive caustics ripple over the glass below. The lens sits exactly at the water surface, 90mm, the meniscus a thin bright line across the frame, a few fine bubbles clinging to the submerged glass."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 3,
+  "family": "optical"
+}

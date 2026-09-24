@@ -1,0 +1,33 @@
+{
+  "id": "c15-morning-drop",
+  "title": "A drop of vitamin C at the window",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "calder-vane-c15-serum"
+      },
+      {
+        "t": "character",
+        "id": "helene"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Morning window light: she holds the dropper to her cheekbone, one drop about to fall, the frosted apricot bottle in her other hand with the label to camera. Her silver bob catches the light. She wears a white cotton robe. 85mm, framed from crown to collarbone, soft and luminous, skin with real texture."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 41,
+  "family": "human"
+}

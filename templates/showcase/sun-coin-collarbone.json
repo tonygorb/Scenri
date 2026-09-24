@@ -1,0 +1,33 @@
+{
+  "id": "sun-coin-collarbone",
+  "title": "Sun Coin in hard sun",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "maud-ferrers-sun-coin"
+      },
+      {
+        "t": "character",
+        "id": "yuna"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. A close crop from her chin to her chest: the sunburst coin hangs on its fine chain over a white ribbed high-neck knit, resting just below the base of her throat, hard sun casting the chain's thin shadow across the knit. 100mm, the coin sharp, her jaw and lips just in frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 86,
+  "family": "human"
+}

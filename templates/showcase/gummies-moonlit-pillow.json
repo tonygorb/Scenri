@@ -1,0 +1,29 @@
+{
+  "id": "gummies-moonlit-pillow",
+  "title": "Sleep gummies on a moonlit pillow",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "hollow-reed-sleep-gummies"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. Night: the cherry-red bottle lies on a crumpled white linen pillow, cold blue moonlight through a window throwing the soft shadow of the window frame across the bed. Everything blue except the red bottle. 50mm at pillow height."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 78,
+  "family": "optical"
+}

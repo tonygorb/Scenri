@@ -1,0 +1,29 @@
+{
+  "id": "wash-fig-leaves",
+  "title": "Fig and vetiver wash among fig leaves",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "harlow-made-fig-vetiver-wash"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The olive pump bottle stands among broad fig leaves and halved purple figs on weathered stone, dappled Mediterranean sun through the leaves. 70mm from stone height, the bottle centred, the leaves framing it in the foreground."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 77,
+  "family": "botanical"
+}

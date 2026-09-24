@@ -1,0 +1,29 @@
+{
+  "id": "orris-salt-pan",
+  "title": "Salt Orris on a salt pan at dawn",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "verlaine-salt-orris"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The flacon rests on the crust of a white salt pan, hexagonal salt plates cracked around its base and a shallow pink-tinged brine pool behind it mirroring the pale dawn sky. Low sun from behind and to the left rims the glass and throws the liquid into a soft glow, a long blue shadow falling toward camera. 60mm macro from salt level, the horizon in the upper quarter, the salt crystals in the foreground crisp."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 82,
+  "family": "geological"
+}

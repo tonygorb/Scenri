@@ -1,0 +1,29 @@
+{
+  "id": "scarlet-swatch",
+  "title": "Scarlet lipstick on its own swatch",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "ilse-varden-scarlet-11"
+      },
+      {
+        "t": "text",
+        "v": " Full-bleed photograph, edge to edge, no border. The lipstick lies uncapped on white Carrara marble, the scarlet bullet resting at the end of one thick glossy swipe of its own colour smeared across the stone, the texture of the swipe sharp and creamy, the cap standing beside it. Soft top light with one hard specular along the lacquered case. Straight-down macro at 100mm, the swipe running corner to corner."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 56,
+  "family": "material"
+}

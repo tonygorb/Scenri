@@ -1,0 +1,33 @@
+{
+  "id": "casserole-tomatoes",
+  "title": "Casserole in a heap of vine tomatoes",
+  "category": "seasonal",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "lydford-forge-24-casserole"
+      },
+      {
+        "t": "template",
+        "id": "tomato-vine"
+      },
+      {
+        "t": "text",
+        "v": " The oxblood casserole sits among the heaped vine tomatoes on the red sweep, lid off, a few tomatoes inside it, hard sun throwing crisp leaf shadows. 50mm, the pot centred."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 28,
+  "family": "botanical"
+}
