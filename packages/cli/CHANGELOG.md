@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.17.0](https://github.com/tonygorb/Scenri/compare/v0.16.0...v0.17.0) (2026-09-24)
+
+
+### Features
+
+* **studio:** one filter row for every wall and catalog picking ([cfcbd81](https://github.com/tonygorb/Scenri/commit/cfcbd8143f1d20b98d2d796e29127aa545ba7871))
+
+## [0.16.0](https://github.com/tonygorb/Scenri/compare/v0.15.1...v0.16.0) (2026-09-23)
+
+
+### Features
+
+* a real code screen for phones, and a six-digit code ([01f2fed](https://github.com/tonygorb/Scenri/commit/01f2fedc14f7cfb4cba205d1ae1ea51e8c213f78))
+* allow Scenri through the firewall with one press ([8ca9b5f](https://github.com/tonygorb/Scenri/commit/8ca9b5f64ce49894c00490439f7d00b26a903e0f))
+* **cli:** open Scenri on a phone on the same Wi-Fi ([5d25779](https://github.com/tonygorb/Scenri/commit/5d25779d60b14751f85df8d88cf1ea993c6b79bd))
+* open Scenri on your phone, and Settings one idea per page ([4a6601d](https://github.com/tonygorb/Scenri/commit/4a6601d0608d97137e34f2973d6c1eb2b6e5e409))
+* **studio:** open on your phone, in Settings, General ([9701956](https://github.com/tonygorb/Scenri/commit/9701956625023141d2d9b7257ddd978b018f0f8e))
+* **studio:** Phone and tablet gets its own page in Settings ([6f0ff64](https://github.com/tonygorb/Scenri/commit/6f0ff64353109e6dc9adf76b6638564cc3e5f459))
+* **studio:** Settings, one idea per page ([34e6937](https://github.com/tonygorb/Scenri/commit/34e69374ef3f7db82cf4466299de471f3bf84c77))
+
+
+### Bug Fixes
+
+* **cli:** the code page's privacy note is one centred line ([0f33bbe](https://github.com/tonygorb/Scenri/commit/0f33bbe79d31be5cc8e3978ade9de3eb5bbd3eb7))
+* harden the phone code, and settle the review's findings ([ee6dd1d](https://github.com/tonygorb/Scenri/commit/ee6dd1d3226f890abc1d776de092d9d22952893d))
+* plain English on the code page and the phone settings ([f7355d5](https://github.com/tonygorb/Scenri/commit/f7355d5f37b1e239d64d9ccc6cc71b0eb43a68a3))
+
 ## [0.15.1](https://github.com/tonygorb/Scenri/compare/v0.15.0...v0.15.1) (2026-09-23)
 
 

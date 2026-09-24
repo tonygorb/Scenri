@@ -110,7 +110,7 @@ for (const [w, h, label] of [
 
     // It is on the products page too, which is the page an import fills.
     await page.goto(`/${brand.slug}/products`);
-    await expect(page.locator('.sc-impbar-float .sc-impbar')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('.sc-wall-dock .sc-impbar')).toBeVisible({ timeout: 20_000 });
     await page.goto(label === 'phone' ? `/${brand.slug}/create` : `/${brand.slug}`);
     await expect(bar).toBeVisible({ timeout: 20_000 });
 

@@ -10,20 +10,28 @@ export const GAP = 14;
 export const PHONE = 768;
 
 /**
- * Create feed tile widths (px) — compact and large, the same two views every
- * catalog wall in the app offers, so one control means one thing everywhere.
+ * Create feed sizes — compact and large, the same two views every catalog wall
+ * offers, so one control means one thing everywhere.
  *
- * This was a 160→420 slider in 20px steps, but the layout below only changes
- * when the column count flips, so most of its fourteen stops did nothing: you
- * dragged and the feed sat still. These two land on a different column count
- * at every width the feed is ever laid out at — from ~700px, the narrowest
- * canvas that is not phone mode, upwards. `test/masonry.test.ts` holds them
- * to that.
+ * The px values are the stored pref (a 160→420 slider used to write them).
+ * Large stops at five columns and will not go under 280px. Compact is the
+ * next step on the same canvas, one more column, and will not go under
+ * 200px, so the toggle never skips a count. `test/masonry.test.ts` holds
+ * them to that. Catalog walls keep their own seven and five.
  */
 export const TILE_STOPS = [
-  { px: 190, label: 'Compact', cells: 3 },
-  { px: 320, label: 'Large', cells: 2 },
+  { px: 190, label: 'Compact', cells: 3, cols: 6, min: 200 },
+  { px: 320, label: 'Large', cells: 2, cols: 5, min: 280 },
 ] as const;
+
+/** The stop a stored size means. */
+export function tileStop(tile: number): (typeof TILE_STOPS)[number] {
+  let best: (typeof TILE_STOPS)[number] = TILE_STOPS[0];
+  for (const s of TILE_STOPS) {
+    if (Math.abs(s.px - tile) < Math.abs(best.px - tile)) best = s;
+  }
+  return best;
+}
 
 /** Large, matching DENSITY_DEFAULT — the walls open large too. */
 export const TILE_DEFAULT = 320;
@@ -104,15 +112,37 @@ export function useViewportWidth(): number {
   return w;
 }
 
+function cardShare(width: number, cols: number): number {
+  return Math.max(1, Math.floor((width - GAP * (cols - 1)) / cols));
+}
+
 /**
- * Create feed layout from a preferred tile width in px.
+ * Create feed layout.
  *
- * Fits as many columns as will hold that width, then shares leftover so the
- * row fills the canvas. Phone forces two columns so a desktop stop never
- * overflows a small screen.
+ * Large drops a column before its card goes under 280px, and stops at five.
+ * Compact is that count plus one, and stops at six, so the two sizes are
+ * always neighbours: three and four, four and five, five and six. The
+ * columns share the canvas, so the row meets the edge. Phone forces two
+ * columns that share the width.
  */
 export function masonryLayout(width: number, tile: number, phoneMode: boolean): { tile: number; cols: number } {
   if (width <= 0) return { tile, cols: 1 };
-  const cols = phoneMode ? 2 : Math.max(1, Math.floor((width + GAP) / (tile + GAP)));
-  return { tile: Math.floor((width - GAP * (cols - 1)) / cols), cols };
+  if (phoneMode) return { tile: Math.floor((width - GAP) / 2), cols: 2 };
+  const large = TILE_STOPS[1];
+  const compact = TILE_STOPS[0];
+  const largeCols = Math.min(large.cols, Math.max(1, Math.floor((width + GAP) / (large.min + GAP))));
+  if (tileStop(tile).px === large.px) return { tile: cardShare(width, largeCols), cols: largeCols };
+  let cols = Math.min(compact.cols, largeCols + 1);
+  if (cols > 1 && cardShare(width, cols) < compact.min) cols = largeCols;
+  return { tile: cardShare(width, cols), cols };
+}
+
+/**
+ * How many columns the feed draws.
+ *
+ * The wall's count, including when the row is short. An empty column holds
+ * the share, so four shots stay the size they would be on a full wall.
+ */
+export function feedColumnCount(fitting: number): number {
+  return Math.max(1, fitting);
 }

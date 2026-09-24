@@ -35,6 +35,13 @@ let scroller: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
+  // jsdom has no matchMedia; the tile chrome asks whether the pointer can hover
+  window.matchMedia ??= ((q: string) => ({
+    matches: false,
+    media: q,
+    addEventListener() {},
+    removeEventListener() {},
+  })) as unknown as typeof window.matchMedia;
   // jsdom lays nothing out: the scroller is 900px tall and the feed 1200px wide
   Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
     configurable: true,
@@ -110,7 +117,17 @@ describe('the windowed feed', () => {
     await mount(40);
     expect(scroller.querySelectorAll('.sc-cell[data-fb-node]')).toHaveLength(40);
     expect(scroller.querySelectorAll('.sc-feed-pad')).toHaveLength(0);
-    expect(scroller.querySelectorAll('.sc-feed-col')).toHaveLength(3);
+    // Large at 1200px: four columns, since a large card holds to 280px
+    expect(scroller.querySelectorAll('.sc-feed-col')).toHaveLength(4);
+  });
+
+  it('keeps a short feed at the column count that fits, not the tile count', async () => {
+    await mount(1);
+    expect(scroller.querySelectorAll('.sc-cell[data-fb-node]')).toHaveLength(1);
+    expect(scroller.querySelectorAll('.sc-feed-col')).toHaveLength(4);
+    await mount(2);
+    expect(scroller.querySelectorAll('.sc-cell[data-fb-node]')).toHaveLength(2);
+    expect(scroller.querySelectorAll('.sc-feed-col')).toHaveLength(4);
   });
 
   it('mounts a band of a large feed, the newest first, and holds the rest as spacers', async () => {
@@ -119,15 +136,15 @@ describe('the windowed feed', () => {
     expect(cells.length).toBeGreaterThan(0);
     expect(cells.length).toBeLessThan(60);
     expect(cells[0].getAttribute('data-fb-node')).toBe('shot-300');
-    // three columns, each starting with a tile and ending with a spacer
+    // four columns, each starting with a tile and ending with a spacer
     const cols = [...scroller.querySelectorAll('.sc-feed-col')];
-    expect(cols).toHaveLength(3);
+    expect(cols).toHaveLength(4);
     for (const col of cols) {
       expect(col.firstElementChild?.classList.contains('sc-cell')).toBe(true);
       expect(col.lastElementChild?.classList.contains('sc-feed-pad')).toBe(true);
     }
     // the top-left, the one to its right, the one below: the deal
     expect(cols[1].firstElementChild?.getAttribute('data-fb-node')).toBe('shot-299');
-    expect(cols[0].children[1]?.getAttribute('data-fb-node')).toBe('shot-297');
+    expect(cols[0].children[1]?.getAttribute('data-fb-node')).toBe('shot-296');
   });
 });

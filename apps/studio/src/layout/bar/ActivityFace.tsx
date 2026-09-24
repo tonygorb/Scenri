@@ -10,11 +10,13 @@ export type ActivityMode = 'busy' | 'new' | 'quiet';
  * What the bar says about work in flight, in one control that changes shape
  * three times.
  *
- * Busy: the picture being rendered, inside a ring that fills, with a count when
- * more than one is running. Something new and nothing running: a bell carrying
- * the number. Neither: a bell. The clock is deliberately absent, because a
- * readout whose width changes every second is a readout that never settles; the
- * elapsed time is in the panel and in the tooltip.
+ * Busy: the picture being rendered. A job with a real fraction sits in a ring
+ * that fills. A generation has none, so the arc travels and does not pretend
+ * to know how far along it is. A count joins it when more than one is running.
+ * Something new and nothing running: a bell carrying the number. Neither: a
+ * bell. The clock is deliberately absent, because a readout whose width
+ * changes every second is a readout that never settles; the elapsed time is
+ * in the panel and in the tooltip.
  *
  * The swap animates, and the first paint does not. A face that fades in on
  * arrival while the rest of the bar simply is there reads as a glitch, and the
@@ -37,11 +39,11 @@ export function ActivityFace({
 }) {
   const swap = useFrozen(animate);
   if (mode === 'busy' && lead) {
-    const percent = lead.percent === null ? 0 : lead.percent / 100;
+    const known = lead.percent !== null;
     return (
       <span className="sc-act-face" data-swap={swap || undefined} aria-hidden="true">
         <span className="sc-act-ring" data-bare={lead.thumb ? undefined : ''}>
-          <ProgressRing value={percent} size={32} />
+          <ProgressRing value={known ? (lead.percent ?? 0) / 100 : 0} indeterminate={!known} size={32} />
           {lead.thumb ? (
             <img src={thumbUrl(lead.thumb, 'micro')} alt="" loading="lazy" decoding="async" />
           ) : (

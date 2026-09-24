@@ -159,6 +159,11 @@
   body:has(.sc-upd-float) .sc-toasts {
     bottom: calc(18px + 56px + 10px + var(--sc-bottom-inset));
   }
+  /* The corner is the composer's too at this width (toasts.tsx measures it):
+     stand above the composer rather than over its buttons. */
+  .sc-toasts[data-over-dock] {
+    bottom: var(--sc-toasts-over-dock);
+  }
 }
 
 @media (max-width: 767px) {
@@ -176,13 +181,15 @@
   }
 }
 
-/* A docked composer owns the bottom band, so the stack stands above it rather
-   than over its buttons (a lasting error covered Send on a phone and the attach
-   button on a laptop). The dock's own `bottom` is repeated here and its height
-   is the one it publishes (useDockHeight), so a brief that grows, a panel opened
-   over it, the tab bar and the keyboard all lift the stack with it. */
-body:has(.sc-canvas-dock) .sc-toasts {
-  bottom: calc(var(--sc-bottom-inset) + var(--sc-tabbar-h) + 18px + var(--sc-dock-h, 0px) + 10px);
+/* On a wide screen the composer is a centered island and the corner beside it
+   is free, so the stack stays at the window's bottom-left (the base rule).
+   A phone dock runs edge to edge, and that is the only width where the stack
+   stands above it. The dock's own `bottom` is repeated here and its height is
+   the one it publishes (useDockHeight). */
+@media (max-width: 767px) {
+  body:has(.sc-canvas-dock) .sc-toasts {
+    bottom: calc(var(--sc-bottom-inset) + var(--sc-tabbar-h) + 18px + var(--sc-dock-h, 0px) + 10px);
+  }
 }
 /* The open shot's composer is a column beside the picture until a phone, where
    it is fixed along the bottom edge (its height already holds the inset). Later

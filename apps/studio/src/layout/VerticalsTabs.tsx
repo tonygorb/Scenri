@@ -13,6 +13,27 @@ function isSelected(activeKey: string | null, value: string | null): boolean {
 }
 
 /**
+ * Choosing a tab from a row that is pinned over the wall starts the new wall
+ * at its top: the page glides back to where the row first sticks, so the row
+ * stays put and the first pictures land right under it, rather than leaving
+ * the reader deep inside a list they did not ask for. A row still at rest is
+ * left alone. Only for the page rows; the attach panel's rail is not one.
+ */
+function settleUnderRow(shell: HTMLElement): void {
+  const row = shell.closest<HTMLElement>('.sc-filterbar, .sc-toolbar');
+  const scroller = row?.closest<HTMLElement>('[data-page-scroll]');
+  if (!row || !scroller) return;
+  let wall = row.nextElementSibling as HTMLElement | null;
+  while (wall && wall.getBoundingClientRect().height === 0) wall = wall.nextElementSibling as HTMLElement | null;
+  if (!wall) return;
+  const wallTop = wall.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+  const target = wallTop - Number.parseFloat(getComputedStyle(row).marginBottom) - row.offsetHeight;
+  if (scroller.scrollTop <= target + 1) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  scroller.scrollTo({ top: target, behavior: reduce ? 'auto' : 'smooth' });
+}
+
+/**
  * Category / facet rail — one scrollport, pinned edge fades, sliding ink.
  * Kept lean for touch: no scroll-snap, no per-frame ink work.
  * Grid updates instantly (no view-transition) so filtered images don't blink.
@@ -132,6 +153,10 @@ export function VerticalsTabs({
       placeFades();
     });
     ro.observe(rail);
+    // The tabs as well: when the webfont lands, every label narrows while the
+    // rail keeps its width, and the ink stayed measured on the fallback font,
+    // a few pixels longer than its word.
+    for (const b of rail.querySelectorAll(':scope > button')) ro.observe(b);
 
     rail.addEventListener('scroll', onScroll, { passive: true });
     rail.addEventListener('wheel', onWheel, { passive: false });
@@ -145,6 +170,7 @@ export function VerticalsTabs({
 
   const select = (value: string | null) => {
     if (isSelected(activeKey, value)) return;
+    if (shellRef.current) settleUnderRow(shellRef.current);
     onSelect(value);
   };
 

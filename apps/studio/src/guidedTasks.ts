@@ -70,7 +70,7 @@ export interface Moment {
   soft?: boolean;
 }
 
-/** A library page's own button for a new one: Products, Presenters, Scenes. */
+/** The top bar's New, on a library page: Products, Presenters, Scenes. */
 export const LIBRARY_NEW = '[data-guide="library.new"]';
 
 /** The way to a place, on the page they are on: they walk it, nothing jumps. */

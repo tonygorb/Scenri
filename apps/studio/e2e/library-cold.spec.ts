@@ -56,7 +56,7 @@ test.describe('the library pages, cold', () => {
     // The row is already here, under the seam, on the catalog it filters.
     const bar = page.locator('.sc-filterbar');
     await expect(bar).toBeVisible();
-    const tab = page.getByRole('tab', { name: /Bookmarks/ });
+    const tab = page.getByRole('tab', { name: /Keepers/ });
     await expect(tab).toContainText('0');
 
     // Empty bookmarks in the cold state keeps the catalog up — nothing to hide.
@@ -64,12 +64,17 @@ test.describe('the library pages, cold', () => {
     await expect(page).toHaveURL(/[?&]bookmarked=1/);
     await expect(page.locator('.sc-lib-zero')).toHaveCount(0);
     await expect(page.locator('.sc-coll').first()).toBeVisible();
-    await page.getByRole('tab', { name: /Every scene/ }).click();
+    await page.getByRole('tab', { name: /All scenes/ }).click();
 
-    // The claim. A bookmark may change the count and nothing else.
+    // The claim. A bookmark may change the count and nothing else. The card is
+    // brought on screen first, so the scroll that reaching it takes is not
+    // counted as the wall moving.
+    const first = page.locator('.sc-coll .sc-lookcard').first();
+    await first.scrollIntoViewIfNeeded();
     const before = await wallTop(page);
     const height = (await bar.boundingBox())?.height;
-    await page.locator('.sc-lookcard-bookmark').first().click();
+    await first.click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Add to Keepers' }).click();
     await expect(tab).toContainText('1');
     expect(await wallTop(page)).toBe(before);
     expect((await bar.boundingBox())?.height).toBe(height);
@@ -108,7 +113,7 @@ test.describe('the library pages, cold', () => {
     await expect(zero).toBeVisible();
     await expect(zero).toContainText('zzzzz');
     // ...and it names no facet: the wall it searched was the whole catalog.
-    await expect(zero).not.toContainText('Bookmarks');
+    await expect(zero).not.toContainText('Keepers');
   });
 
   test('scenes: a deep-linked vertical shows which tab it landed on', async ({ page }) => {
@@ -124,7 +129,7 @@ test.describe('the library pages, cold', () => {
     await expect(page.locator('.sc-canvas-empty')).toBeVisible();
     await expect(page.locator('.sc-filterbar')).toBeVisible();
     await expect(page.locator('.sc-filterbar-cta')).toHaveCount(0);
-    await expect(page.getByRole('tab', { name: /Every presenter/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /All presenters/ })).toBeVisible();
   });
 
   test('products: same row, same place', async ({ page }) => {

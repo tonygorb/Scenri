@@ -242,6 +242,41 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     prevTops.current = next;
   }, [items]);
 
+  /*
+   * Wide, the stack keeps the window's bottom-left corner beside a centred
+   * composer. Where the composer reaches into that corner (a narrower window,
+   * or Create with the assets column open) the stack stands 10px above it
+   * instead, so a card never lands on its buttons. Measured, because how far
+   * left the composer sits depends on the page, the columns and the window.
+   * A phone's dock runs edge to edge and has its own rule in toasts.css.
+   */
+  useLayoutEffect(() => {
+    const stack = stackRef.current;
+    if (!stack) return;
+    const place = () => {
+      const dock = document.querySelector<HTMLElement>('.sc-canvas-dock');
+      if (!dock || !items.length) {
+        delete stack.dataset.overDock;
+        return;
+      }
+      const s = stack.getBoundingClientRect();
+      const d = dock.getBoundingClientRect();
+      if (s.left < d.right && d.left < s.right) {
+        stack.style.setProperty('--sc-toasts-over-dock', `${Math.round(window.innerHeight - d.top + 10)}px`);
+        stack.dataset.overDock = '';
+      } else delete stack.dataset.overDock;
+    };
+    place();
+    window.addEventListener('resize', place);
+    const dock = document.querySelector<HTMLElement>('.sc-canvas-dock');
+    const ro = typeof ResizeObserver === 'undefined' || !dock ? null : new ResizeObserver(place);
+    ro?.observe(dock as HTMLElement);
+    return () => {
+      window.removeEventListener('resize', place);
+      ro?.disconnect();
+    };
+  }, [items]);
+
   const push = useCallback(
     (t: ToastInput) => {
       const live = itemsRef.current.filter((x) => !x.leaving);

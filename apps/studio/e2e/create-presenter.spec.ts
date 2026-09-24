@@ -1165,7 +1165,7 @@ test.describe('the doors', () => {
         if (document.querySelector('.sc-pstudio-foot .sc-dlg-foot')) w.__footSeen = true;
       }).observe(document.body, { childList: true, subtree: true });
     });
-    await page.getByRole('button', { name: 'Create presenter', exact: true }).first().click();
+    await page.getByRole('button', { name: 'New presenter' }).click();
     await expect(studio(page)).toBeVisible();
 
     // it travels rather than appearing: the house motion every other surface
@@ -1204,7 +1204,7 @@ test.describe('the doors', () => {
   test('the library page and the create rail both open the same studio', async ({ page }) => {
     const brand = await currentBrand(page);
     await page.goto(`/${brand.slug}/presenters`);
-    await page.getByRole('button', { name: 'Create presenter' }).first().click();
+    await page.getByRole('button', { name: 'New presenter' }).click();
     await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
     await expect(log(page)).toContainText('Who are we making?');
   });

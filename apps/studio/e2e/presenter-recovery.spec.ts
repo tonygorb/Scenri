@@ -140,7 +140,7 @@ test('back and forward walk the library, a presenter and the studio without stra
   await settle(page.request, brand.id, id);
 
   await page.goto(`/${brand.slug}/presenters`);
-  await page.getByRole('button', { name: 'Create presenter' }).click();
+  await page.getByRole('button', { name: 'New presenter' }).click();
   await expect(page).toHaveURL(new RegExp(`/${brand.slug}/presenters/new$`));
 
   await page.goBack();

@@ -47,6 +47,9 @@ import type {
   ShowcaseEntry,
   TreeNode,
   DesktopStatus,
+  AllowResult,
+  FirewallVerdict,
+  PhoneStatus,
   UpdateStatus,
   UsageDay,
   VersionInfo,
@@ -119,7 +122,8 @@ export const api = {
   deleteSet: (id: string) => req<{ ok: true }>('DELETE', `/api/sets/${id}`),
   addToSet: (id: string, nodeIds: string[]) =>
     req<{ ok: true; added: number; nodeIds: string[] }>('POST', `/api/sets/${id}/nodes`, { nodeIds }),
-  removeFromSet: (id: string, nodeId: string) => req<{ ok: true }>('DELETE', `/api/sets/${id}/nodes/${nodeId}`),
+  removeFromSet: (id: string, nodeIds: string[]) =>
+    req<{ ok: true; nodeIds: string[] }>('POST', `/api/sets/${id}/nodes/remove`, { nodeIds }),
   engines: () => req<EngineInfo[]>('GET', '/api/engines'),
   /** `force` pays for a real `codex exec` rather than reading the last verdict. */
   codexStatus: (o: { force?: boolean } = {}) =>
@@ -194,6 +198,10 @@ export const api = {
   updateApply: () => req<{ ok: true; staging: string }>('POST', '/api/update/apply'),
   updateRestart: () => req<{ ok: true }>('POST', '/api/update/restart'),
   desktop: () => req<DesktopStatus>('GET', '/api/desktop'),
+  phone: (fresh = false) => req<PhoneStatus>('GET', fresh ? '/api/phone?fresh=1' : '/api/phone'),
+  phoneNewCode: () => req<PhoneStatus>('POST', '/api/phone/code'),
+  phoneHelp: () => req<{ firewall: FirewallVerdict }>('GET', '/api/phone/help'),
+  phoneAllow: () => req<{ result: AllowResult; firewall: FirewallVerdict }>('POST', '/api/phone/allow'),
   desktopInstall: () => req<{ ok: true; path: string }>('POST', '/api/desktop/install'),
   /** Drain and stop the server; the overlay says how to come back. */
   quit: () => req<{ ok: true }>('POST', '/api/system/quit'),

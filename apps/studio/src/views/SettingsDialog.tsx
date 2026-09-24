@@ -1,21 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import {
-  CaretLeft,
-  CaretRight,
-  ChartBar,
-  Check,
-  Info,
-  Lightning,
-  Palette,
-  SlidersHorizontal,
-  TrashSimple,
-  X,
-  type Icon,
-} from '@phosphor-icons/react';
-import { api, type EngineInfo, type VersionInfo } from '../api.js';
+import { CaretLeft, CaretRight, Check, X } from '@phosphor-icons/react';
+import { api, type DesktopStatus, type EngineInfo, type VersionInfo } from '../api.js';
 import { useDialogParam } from '../app/AppShell.js';
 import { useBrand } from '../app/BrandLayout.js';
-import type { Pane } from '../app/dialogs.js';
 import { DialogSheet, SheetClose, SheetTitle } from '../layout/DialogSheet.js';
 import { brandName } from '../layout/nav.js';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
@@ -24,84 +11,14 @@ import { Appearance } from './settings/Appearance.js';
 import { BrandPane } from './settings/BrandPane.js';
 import { Budget } from './settings/Budget.js';
 import { Danger } from './settings/Danger.js';
+import { DesktopShortcut } from './settings/DesktopShortcut.js';
 import { EnginesPane } from './settings/EnginesPane.js';
 import { Library, type LibraryInfo } from './settings/Library.js';
+import { PhoneAccess } from './settings/PhoneAccess.js';
+import { Updates } from './settings/Updates.js';
 import { Usage } from './settings/Usage.js';
 import { type SaveState, saveLabel } from './settings/useBrandDoc.js';
-
-type Page = 'brand' | 'usage' | 'engines' | 'general' | 'about' | 'danger';
-
-/**
- * Every pane id a caller has ever opened, and the page it lands on. Eight
- * panes became six pages: the caps sit under the providers they cap, and the
- * theme beside the library in General. The old ids still land, so no link,
- * remedy or deep URL has to know.
- */
-const PAGE_OF: Record<Pane, Page> = {
-  brand: 'brand',
-  usage: 'usage',
-  engines: 'engines',
-  budget: 'engines',
-  general: 'general',
-  appearance: 'general',
-  library: 'general',
-  about: 'about',
-  danger: 'danger',
-};
-
-const PAGES: {
-  id: Page;
-  label: string;
-  Icon: Icon;
-  scope: 'brand' | 'studio' | 'apart';
-  sub: (brand: string) => string;
-}[] = [
-  {
-    id: 'brand',
-    label: 'Brand kit',
-    Icon: Palette,
-    scope: 'brand',
-    sub: (b) => `What every shot for ${b} can draw on.`,
-  },
-  {
-    id: 'usage',
-    label: 'Usage',
-    Icon: ChartBar,
-    scope: 'brand',
-    sub: (b) => `What ${b} has made, one square per day.`,
-  },
-  {
-    id: 'engines',
-    label: 'Providers',
-    Icon: Lightning,
-    scope: 'studio',
-    sub: () => 'Where your images are made, and what each may spend. Pick one in the composer.',
-  },
-  {
-    id: 'general',
-    label: 'General',
-    Icon: SlidersHorizontal,
-    scope: 'studio',
-    sub: () => 'How Scenri looks, and where your library lives.',
-  },
-  {
-    id: 'about',
-    label: 'About',
-    Icon: Info,
-    scope: 'studio',
-    sub: () => 'This copy of Scenri and how it stays current.',
-  },
-  // Every delete, this brand's included, together and apart from both scopes.
-  {
-    id: 'danger',
-    label: 'Danger zone',
-    Icon: TrashSimple,
-    scope: 'apart',
-    sub: () => 'These do not come back. Export from Library first if you are not certain.',
-  },
-];
-
-const pageOf = (value: string | null): Page => PAGE_OF[value as Pane] ?? 'brand';
+import { PAGES, type Page, pageOf, startsOnIndex } from './settingsPages.js';
 
 /**
  * Settings is a detour, not a destination: it opens over the work and gives it
@@ -153,6 +70,24 @@ export function SettingsDialog({
       alive = false;
     };
   }, [open]);
+  // Whether this computer has the desktop icon, read as the dialog opens so
+  // Local access paints whole on its first frame instead of "Checking". Only
+  // on the computer running Scenri: a phone never shows the row.
+  const [desktop, setDesktop] = useState<DesktopStatus | null>(null);
+  const thisComputer = version?.thisComputer === true;
+  useEffect(() => {
+    if (!open || !thisComputer) return;
+    let alive = true;
+    api
+      .desktop()
+      .then((d) => alive && setDesktop(d))
+      .catch(() => {
+        /* the row says it is checking until it can say more */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [open, thisComputer]);
   // Reported by the pane that owns the kit's document, shown in the page's head.
   const [kit, setKit] = useState<SaveState>('idle');
 
@@ -171,6 +106,8 @@ export function SettingsDialog({
             onKitState={setKit}
             version={version}
             home={home}
+            desktop={desktop}
+            onDesktop={setDesktop}
           />
         )}
       />
@@ -181,7 +118,8 @@ export function SettingsDialog({
 /**
  * The index and the page, or on a phone one of them at a time. Mounted with
  * the dialog, so where a phone opens is decided once: on the index when it was
- * opened at the landing page, on the page when something sent it to one.
+ * opened without a page in mind, on the page when something sent it to one,
+ * Brand kit included.
  */
 function Levels({
   value,
@@ -198,7 +136,7 @@ function Levels({
   const phone = useMediaQuery(PHONE);
   const { brand } = useBrand();
   const page = pageOf(value);
-  const [listing, setListing] = useState(() => page === 'brand');
+  const [listing, setListing] = useState(() => startsOnIndex(value));
   const rows = useRef(new Map<Page, HTMLButtonElement>());
 
   // Back to the index puts the keyboard on the row that was open.
@@ -235,7 +173,11 @@ function Levels({
           <CloseButton />
         </div>
         <div className="sc-newdlg-body sc-set-body">
-          <div className="sc-set-scroll">{render(page)}</div>
+          <div className="sc-set-scroll">
+            {/* the sentence a desktop shows beside the title, so a phone knows what the page is for */}
+            <p className="sc-set-lede">{def.sub(brandName(brand))}</p>
+            {render(page)}
+          </div>
         </div>
       </div>
     );
@@ -273,6 +215,7 @@ function Levels({
           <ul>{PAGES.filter((p) => p.scope === 'brand').map(row)}</ul>
           <p className="sc-set-group">Studio</p>
           <ul>{PAGES.filter((p) => p.scope === 'studio').map(row)}</ul>
+          <p className="sc-set-group">Delete</p>
           <ul className="sc-set-apart">{PAGES.filter((p) => p.scope === 'apart').map(row)}</ul>
         </nav>
         {!phone && (
@@ -327,6 +270,8 @@ function PageBody({
   onKitState,
   version,
   home,
+  desktop,
+  onDesktop,
 }: {
   page: Page;
   engines: EngineInfo[];
@@ -335,7 +280,12 @@ function PageBody({
   onKitState: (s: SaveState) => void;
   version: VersionInfo | null;
   home: LibraryInfo | null;
+  desktop: DesktopStatus | null;
+  onDesktop: (d: DesktopStatus) => void;
 }) {
+  // What acts on the computer running Scenri (its file manager, its desktop)
+  // shows only there, never on a phone that opened Scenri over the Wi-Fi.
+  const thisComputer = version?.thisComputer === true;
   switch (page) {
     case 'brand':
       return <BrandPane onSaveState={onKitState} />;
@@ -348,13 +298,19 @@ function PageBody({
           <Budget engines={engines} onSaved={onSaved} />
         </>
       );
-    case 'general':
+    case 'appearance':
+      return <Appearance />;
+    case 'library':
+      return <Library info={home} thisComputer={thisComputer} />;
+    case 'phone':
       return (
         <>
-          <Appearance />
-          <Library info={home} />
+          <PhoneAccess />
+          {thisComputer && <DesktopShortcut status={desktop} onStatus={onDesktop} />}
         </>
       );
+    case 'updates':
+      return <Updates version={version} />;
     case 'about':
       return <About version={version} />;
     case 'danger':

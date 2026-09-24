@@ -1,7 +1,8 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import type { DemoProduct } from '../api.js';
 import { productLabel } from '../displayName.js';
 import { categoryLabel } from '../productCategories.js';
+import { catalogMenuItems } from './catalogMenu.js';
 import { CatalogCard, type CatalogCardSize, type CatalogCardVariant } from './CatalogCard.js';
 
 export type DemoProductCardVariant = CatalogCardVariant;
@@ -23,6 +24,8 @@ function DemoProductCardInner({
   href,
   selected,
   onToggle,
+  bookmarked,
+  onBookmark,
   size = 'grid',
 }: {
   product: DemoProduct;
@@ -32,17 +35,29 @@ function DemoProductCardInner({
   href?: string;
   selected?: boolean;
   onToggle?: (id: string) => void;
+  bookmarked?: boolean;
+  onBookmark?: (id: string) => void;
   variant: DemoProductCardVariant;
   size?: DemoProductCardSize;
 }) {
   const category = categoryLabel(product.category) ?? product.category;
+  const menu = useMemo(
+    () =>
+      catalogMenuItems({
+        onOpen: onOpen ? () => onOpen(product.id) : undefined,
+        href,
+        use: onUse ? { label: 'Use in a shot', run: () => onUse(product.id) } : undefined,
+        keep: onBookmark ? { on: !!bookmarked, run: () => onBookmark(product.id) } : undefined,
+      }),
+    [onOpen, onUse, onBookmark, bookmarked, href, product.id],
+  );
   return (
     <CatalogCard
       id={product.id}
       previewUrl={product.previewUrl}
       title={`${productLabel(product, 'tooltip')} · ${category}`}
       primary={productLabel(product, 'card')}
-      secondary={category}
+      secondary=""
       useLabel="Use in a shot"
       variant={variant}
       onOpen={onOpen}
@@ -50,6 +65,9 @@ function DemoProductCardInner({
       href={href}
       selected={selected}
       onToggle={onToggle}
+      menu={menu}
+      bookmarked={bookmarked}
+      onBookmark={onBookmark}
       size={size}
     />
   );

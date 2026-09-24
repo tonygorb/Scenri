@@ -226,20 +226,22 @@
 }
 /* Real columns, not CSS multicol.
    Multicol balances column *height*, so a few tall tiles packed two columns and
-   left the third empty. Canvas.tsx counts the columns that fit and deals tiles
-   into them, which fills the width at every size and at every grid size. */
+   left the third empty. Canvas deals tiles into the count from masonry.ts:
+   at most five large, and compact one column denser. The tracks are sized
+   from the canvas, the same way a catalog wall's 1fr tracks are: a picture
+   cannot widen its column. */
 .sc-feed {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: repeat(var(--sc-cols, 5), minmax(0, 1fr));
+  align-items: start;
   gap: 14px;
   padding-top: 16px;
 }
-/* Density chooses how many columns fit; leftover width is shared so the row
-   fills the canvas. flex-grow also absorbs the 0–(cols-1)px floor remainder
-   and fills when Canvas caps columns to the number of tiles. */
 .sc-feed-col {
-  flex: 1 1 0;
   min-width: 0;
+  /* The failure note and the hover row key off the card, not the window. */
+  container-type: inline-size;
+  container-name: shot;
 }
 /* What you can do with a handful of shots. Only ever about membership.
 
@@ -492,15 +494,28 @@
 }
 
 /* On a page with no composer to sit above, it floats where the dock would be. */
-.sc-impbar-float {
+/* The selection bar, and a catalogue import, where the composer dock would be.
+   These pages have no composer. The bar clears the phone tab bar. Clicks fall
+   through the empty space around it, so the last row of cards stays usable. */
+.sc-wall-dock {
   position: fixed;
   left: 50%;
-  bottom: 22px;
+  bottom: calc(var(--sc-bottom-inset) + var(--sc-tabbar-h) + 18px);
   transform: translateX(-50%);
   z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: calc(100% - 28px);
+  pointer-events: none;
+}
+.sc-wall-dock > * {
   pointer-events: auto;
 }
-.sc-impbar-float .sc-impbar {
+.sc-wall-dock .sc-picked,
+.sc-wall-dock .sc-impbar {
   margin: 0;
 }
 

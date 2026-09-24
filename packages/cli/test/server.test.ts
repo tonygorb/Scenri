@@ -1584,6 +1584,44 @@ describe('diff + export + settings', () => {
     expect((await app.inject({ method: 'DELETE', url: '/api/sets/nope' })).statusCode).toBe(404);
   });
 
+  it('sets: remove several shots in one write', async () => {
+    const brand = await mkBrand();
+    const ws = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });
+    const projectId = ws.json().project.id;
+    const shoot = async (prompt: string) => {
+      const shot = await app.inject({
+        method: 'POST',
+        url: '/api/nodes',
+        payload: { projectId, kind: 'generation', prompt, engineId: 'demo', width: 64, height: 64 },
+      });
+      return shot.json().id as string;
+    };
+    const a = await shoot('a');
+    const b = await shoot('b');
+    const c = await shoot('c');
+    const made = await app.inject({ method: 'POST', url: `/api/brands/${brand.id}/sets`, payload: { name: 'Spring' } });
+    const setId = made.json().id as string;
+    await app.inject({ method: 'POST', url: `/api/sets/${setId}/nodes`, payload: { nodeIds: [a, b, c] } });
+
+    const empty = await app.inject({
+      method: 'POST',
+      url: `/api/sets/${setId}/nodes/remove`,
+      payload: { nodeIds: [] },
+    });
+    expect(empty.statusCode).toBe(400);
+
+    const removed = await app.inject({
+      method: 'POST',
+      url: `/api/sets/${setId}/nodes/remove`,
+      payload: { nodeIds: [a, c] },
+    });
+    expect(removed.statusCode).toBe(200);
+    expect(removed.json()).toEqual({ ok: true, nodeIds: [b] });
+    const still = await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/feed` });
+    const ids = still.json().items.map((n: any) => n.id);
+    expect(ids).toEqual(expect.arrayContaining([a, b, c]));
+  });
+
   it('wiping shots takes the sets with them, so no name is left pointing at nothing', async () => {
     const brand = await mkBrand();
     await app.inject({ method: 'GET', url: `/api/brands/${brand.id}/workspace` });

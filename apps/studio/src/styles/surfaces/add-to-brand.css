@@ -326,16 +326,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The library pages keep their own button only where there is room for it.
-   Under 1280px this row holds a scrolling facet rail and a search field, and
-   the top bar's + is the same action — see TopBar.tsx. A Learn step that asks
-   for this button brings it back while it asks (GuideHost, data-guide-new). */
-@media (max-width: 1279px) {
-  :root:not([data-guide-new]) .sc-filterbar-cta {
-    display: none;
-  }
-}
-
 @media (max-width: 767px) {
   .sc-newdlg-title {
     font-size: 17px;

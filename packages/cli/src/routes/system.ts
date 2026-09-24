@@ -6,6 +6,7 @@ import JSZip from 'jszip';
 import type { FastifyInstance } from 'fastify';
 import type { Core } from '@scenri/core';
 import type { ThumbStore } from '../thumbs.js';
+import { fromThisComputer } from '../access.js';
 
 export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core; thumbs: ThumbStore }): void {
   const { core, thumbs } = deps;
@@ -30,7 +31,9 @@ export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core; t
   });
 
   /** Open the library in the OS file manager. Local app only, by nature. */
-  app.post('/api/system/reveal', async (_req, reply) => {
+  app.post('/api/system/reveal', async (req, reply) => {
+    // it opens a window on the computer running Scenri: never at a phone's request
+    if (!fromThisComputer(req)) return reply.status(403).send({ error: 'Only on the computer running Scenri.' });
     const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'explorer' : 'xdg-open';
     try {
       spawn(cmd, [core.home], { detached: true, stdio: 'ignore' }).unref();

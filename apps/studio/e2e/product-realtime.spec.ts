@@ -222,10 +222,7 @@ test('a product made from the dialog is on the wall, the Home count and the pick
   const before = Number((await count.textContent())?.replace(/\D/g, '') || '0');
 
   await goNav(page, 'Products');
-  await page
-    .getByRole('button', { name: /Add product/ })
-    .first()
-    .click();
+  await page.getByRole('button', { name: 'New product' }).click();
   const png = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
     'base64',
@@ -257,10 +254,7 @@ test('a product the server refuses to make leaves no card and keeps the work', a
   );
   await page.goto(`/${brand.slug}/products`);
   await markSession(page);
-  await page
-    .getByRole('button', { name: /Add product/ })
-    .first()
-    .click();
+  await page.getByRole('button', { name: 'New product' }).click();
   const png = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
     'base64',

@@ -50,6 +50,8 @@ describe('the feed window', () => {
     ]);
     expect(dealColumns(0, 2)).toEqual([[], []]);
     expect(dealColumns(3, 0)).toEqual([[0, 1, 2]]);
+    expect(dealColumns(1, 6)).toEqual([[0], [], [], [], [], []]);
+    expect(dealColumns(3, 6)).toEqual([[0], [1], [2], [], [], []]);
   });
 
   it('keeps a viewport of overscan on either side and reads scroll to a grain', () => {

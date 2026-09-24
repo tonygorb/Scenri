@@ -154,7 +154,7 @@ describe('sets', () => {
     expect(core.store.membershipFor(brand.id)[campaign.id]).toEqual([shot]);
     expect(core.store.membershipFor(brand.id)[press.id]).toEqual([shot]);
 
-    core.store.removeFromSet(campaign.id, shot);
+    core.store.removeFromSet(campaign.id, [shot]);
     expect(core.store.membershipFor(brand.id)[campaign.id]).toBeUndefined();
     expect(core.store.getNode(shot)).not.toBeNull();
 
@@ -171,6 +171,20 @@ describe('sets', () => {
     core.store.addToSet(set.id, [shot]);
     core.store.addToSet(set.id, [shot, shot]);
     expect(core.store.membershipFor(brand.id)[set.id]).toEqual([shot]);
+  });
+
+  it('removes several shots in one write and leaves the rest', () => {
+    const brand = core.store.createBrand(brandJson as any);
+    const workspace = core.store.workspaceFor(brand.id);
+    const a = shoot(workspace.id, 'a');
+    const b = shoot(workspace.id, 'b');
+    const c = shoot(workspace.id, 'c');
+    const set = core.store.createSet(brand.id, 'Campaign');
+    core.store.addToSet(set.id, [a, b, c]);
+    core.store.removeFromSet(set.id, [a, c]);
+    expect(core.store.membersOf(set.id)).toEqual([b]);
+    expect(core.store.getNode(a)).not.toBeNull();
+    expect(core.store.getNode(c)).not.toBeNull();
   });
 
   it('reports the sets a shot is in on the activity feed, and none is a valid answer', () => {

@@ -81,7 +81,21 @@ describe('GET /api/version', () => {
       installKind: 'unknown',
       supervised: false,
       home,
+      thisComputer: true,
     });
+  });
+
+  // Settings hides Reveal and the desktop shortcut from a phone on the Wi-Fi
+  it('says whether the asker is the computer running Scenri', async () => {
+    const code = app.phone.code;
+    const phone = await app.inject({
+      method: 'GET',
+      url: `/api/version?t=${code}`,
+      headers: { host: '192.168.1.42:4747' },
+      remoteAddress: '192.168.1.50',
+    });
+    expect(phone.statusCode).toBe(200);
+    expect(phone.json().thisComputer).toBe(false);
   });
 
   it('carries the runtime posture serve passes in', async () => {

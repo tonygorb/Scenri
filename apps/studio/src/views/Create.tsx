@@ -94,21 +94,14 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     return () => window.removeEventListener('scenri:shortcuts', open);
   }, []);
   const { open: rawAssetsOpen, toggle: toggleAssets, setOpen: setAssetsOpen } = useAssetsPanel();
-  /** Below 1024 the rail is gone, same as a phone. */
-  const compact = useMediaQuery('(max-width: 1023px)');
-  /** 1024–1279: a column with no close. Closing it is a drawer, and a drawer
-   *  here covers the empty state. */
-  const columnLocked = useMediaQuery('(min-width: 1024px) and (max-width: 1279px)');
   /**
-   * The assets panel does not exist below 1024.
-   *
-   * There is no column for it there, so it could only cover the work as a
-   * drawer, and every asset in it is already reachable from the composer's own
-   * attach control. A stored preference from a desktop session must not be
-   * able to open it on a compact screen either, which is why this gates the
-   * value rather than the button. From 1024 it is a column and it stays open.
+   * The rail's switch is in the toolbar from 1280. Below that the switch is
+   * gone, so the rail is gone with it: a column you cannot close is just a
+   * narrower feed. A stored preference must not be able to open it there,
+   * which is why this gates the value rather than the button.
    */
-  const assetsOpen = compact ? false : columnLocked ? true : rawAssetsOpen;
+  const railRoom = useMediaQuery('(min-width: 1280px)');
+  const assetsOpen = railRoom && rawAssetsOpen;
   const [err, setErr] = useState<string | null>(null);
   /** What the docked composer's brief holds, so the rail can tick it. */
   const [attached, setAttached] = useState<AttachedIds>(NO_ATTACHMENTS);
@@ -676,6 +669,29 @@ export function CreateView({ set }: { set: ShotSet | null }) {
     }
   };
 
+  /**
+   * The tiles move on this frame. The requests confirm it, and a refusal
+   * puts the records back. Waiting for every archive to return left the
+   * selection sitting on shots that were already meant to be gone.
+   */
+  const archivePicked = (ids: string[]) => {
+    const changing = ids.map((id) => byId.get(id)).filter((n): n is FeedNode => !!n && !n.archived);
+    if (changing.length) applyNodes(changing.map((n) => ({ ...n, archived: true })));
+    setPicked(new Set());
+    void archiveBatch(ids).then((ok) => {
+      if (!ok) applyNodes(changing);
+    });
+  };
+
+  const restorePicked = (ids: string[]) => {
+    const changing = ids.map((id) => byId.get(id)).filter((n): n is FeedNode => !!n && n.archived);
+    if (changing.length) applyNodes(changing.map((n) => ({ ...n, archived: false })));
+    setPicked(new Set());
+    void unarchiveBatch(ids).then((ok) => {
+      if (!ok) applyNodes(changing);
+    });
+  };
+
   /** A set's membership as the server just answered it: the frame and the place both learn of it. */
   const fileInto = useCallback(
     (setId: string, ids: string[]) => {
@@ -696,6 +712,34 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       push(failureToast(e, 'Could not add to the set'));
     }
   };
+
+  const removeIdsFrom = async (target: ShotSet, ids: string[]) => {
+    const prev = membershipRef.current[target.id] ?? [];
+    const next = prev.filter((id) => !ids.includes(id));
+    // The tiles leave the set on this frame. The request confirms it; a
+    // refusal puts the membership back and re-reads the place.
+    fileInto(target.id, next);
+    setPicked((cur) => {
+      if (!ids.some((id) => cur.has(id))) return cur;
+      const left = new Set(cur);
+      for (const id of ids) left.delete(id);
+      return left;
+    });
+    if (set?.id === target.id) feedRef.current.drop(ids);
+    try {
+      const r = await api.removeFromSet(target.id, ids);
+      fileInto(target.id, r.nodeIds);
+      if (ungrouped) void feedRef.current.refresh();
+    } catch (e: any) {
+      fileInto(target.id, prev);
+      if (set?.id === target.id || ungrouped) void feedRef.current.refresh();
+      push(failureToast(e, 'Could not remove from the set'));
+    }
+  };
+
+  const removePickedFrom = (target: ShotSet) => removeIdsFrom(target, [...picked]);
+
+  const removeOneFrom = (node: FeedNode, target: ShotSet) => removeIdsFrom(target, [node.id]);
 
   const pendingMembers = useRef<string[]>([]);
   const [askCreate, setAskCreate] = useState(false);
@@ -884,11 +928,11 @@ export function CreateView({ set }: { set: ShotSet | null }) {
         void walk('down');
         e.preventDefault();
       } else if (e.key === 'Enter' && !nodeId && selected.kind !== 'root' && !pressable) openShot(selected.id);
-      else if (e.key === '.' && !nodeId) toggleAssets();
+      else if (e.key === '.' && !nodeId && railRoom) toggleAssets();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, nodeId, shortcutsOpen, picked.size, branchId, branchFrom, setBranchId, root]);
+  }, [selected, nodeId, shortcutsOpen, picked.size, branchId, branchFrom, setBranchId, root, railRoom]);
 
   const togglePick = (id: string) =>
     setPicked((cur) => {
@@ -908,13 +952,13 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   /** Never made anything here. Drives both the empty state and the bare chrome. */
   const firstRun = loaded && counts !== null && counts.total === 0;
   /**
-   * First run has no feed toolbar — there is no feed to describe — so it also
-   * has no rail switch. On a desktop the rail stays open there: it is the
-   * surface that teaches what a shot is made of, and a first-time screen
-   * should not be able to land with it shut because of a preference set while
-   * looking at another brand. Below 1024 there is no rail, same as a phone.
+   * First run has no feed toolbar, so it also has no rail switch. Where the
+   * switch would be, from 1280, the rail stays open: it is the surface that
+   * teaches what a shot is made of, and a first-time screen should not land
+   * with it shut because of a preference set on another brand. Below that
+   * there is no rail, same as when the switch itself is hidden.
    */
-  const railOpen = assetsOpen || (firstRun && !compact);
+  const railOpen = assetsOpen || (firstRun && railRoom);
 
   const emptyState = firstRun ? (
     <FirstRun
@@ -946,10 +990,35 @@ export function CreateView({ set }: { set: ShotSet | null }) {
   /** What the search field says it searches: the lens before the search narrowed it. */
   const unsearched = useRef(0);
   if (!q.trim() && counts) unsearched.current = counts[lens];
-  const lensCounts = useMemo(
-    () => ({ all: counts?.all ?? 0, keepers: counts?.keepers ?? 0, archived: counts?.archived ?? 0 }),
-    [counts],
-  );
+  /* Until the first page lands, the tabs wear the counts this brand last
+     showed, and with none remembered they wear none: painting 0 and then the
+     real number made each tab grow on load and shove the ones after it. */
+  const [lastCounts, setLastCounts] = useLocalPref<LastCounts | null>(PREF.feedCounts, null);
+  useEffect(() => {
+    if (!counts) return;
+    const next: LastCounts = {
+      brandId: brand.id,
+      all: counts.all,
+      keepers: counts.keepers,
+      archived: counts.archived,
+    };
+    setLastCounts((prev) =>
+      prev &&
+      prev.brandId === next.brandId &&
+      prev.all === next.all &&
+      prev.keepers === next.keepers &&
+      prev.archived === next.archived
+        ? prev
+        : next,
+    );
+  }, [brand.id, counts, setLastCounts]);
+  const lensCounts = useMemo((): Record<Lens, number> | null => {
+    if (counts) return { all: counts.all, keepers: counts.keepers, archived: counts.archived };
+    if (lastCounts?.brandId === brand.id) {
+      return { all: lastCounts.all, keepers: lastCounts.keepers, archived: lastCounts.archived };
+    }
+    return null;
+  }, [counts, lastCounts, brand.id]);
 
   const shotContext: ShotContext = {
     byId,
@@ -1113,7 +1182,7 @@ export function CreateView({ set }: { set: ShotSet | null }) {
             onTile={setTile}
             assets={assetsOpen}
             onAssets={toggleAssets}
-            showAssets={!compact && !columnLocked}
+            showAssets={railRoom}
           />
         )}
 
@@ -1162,19 +1231,28 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           empty={loaded ? emptyState : null}
           pending={!loaded}
           onNearEnd={feed.complete ? undefined : feed.loadMore}
+          inSet={set}
+          setsFor={(id) => setsByNode.get(id) ?? []}
+          onRemoveFromSet={(n, s) => void removeOneFrom(n, s)}
+          onKeepPicked={() => void keepPicked()}
+          onArchivePicked={() => archivePicked([...picked])}
+          onRestorePicked={() => restorePicked([...picked])}
+          onDeletePicked={() => void removeBatch([...picked]).then(() => setPicked(new Set()))}
+          onRemovePickedFromSet={(s) => void removePickedFrom(s)}
         />
       </main>
 
       {railOpen && <div className="sc-assets-backdrop" onClick={() => setAssetsOpen(false)} aria-hidden />}
       <Shortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
-      {/* Not mounted below 1024: an off-screen drawer that can never be
-          opened is still a tab stop and still fetches its thumbnails. */}
-      {!compact && (
+      {/* Not mounted below 1280: the switch is gone there, and an off-screen
+          drawer that can never be opened is still a tab stop and still
+          fetches its thumbnails. */}
+      {railRoom && (
         <AssetsPanel
           brand={brand}
           shots={recent}
-          shotsTotal={lensCounts.all}
+          shotsTotal={lensCounts?.all ?? 0}
           attached={attached}
           full={ceiling}
           onToken={(t) => composerRef.current?.insertToken(t)}
@@ -1195,21 +1273,23 @@ export function CreateView({ set }: { set: ShotSet | null }) {
           <PickedBar
             count={picked.size}
             sets={sets}
+            activeSet={set}
             onAdd={(s) => void addPickedTo(s)}
+            onRemove={set ? () => void removePickedFrom(set) : undefined}
             onNew={() => {
               pendingMembers.current = [...picked];
               setAskCreate(true);
             }}
             onClear={() => setPicked(new Set())}
             onKeep={() => void keepPicked()}
-            onArchiveBatch={(ids) => void archiveBatch(ids).then(() => setPicked(new Set()))}
+            onArchiveBatch={(ids) => archivePicked(ids)}
             allKept={pickedNodes.length > 0 && pickedNodes.every((n) => n.kept)}
             // Keep/Add-to-set are curation actions for active work —
             // an archived selection only makes sense as "bring it back" or
             // "get rid of it for good," so the whole bar swaps to that pair.
             archivedLens={lens === 'archived'}
             pickedIds={[...picked]}
-            onRestoreBatch={(ids) => void unarchiveBatch(ids).then(() => setPicked(new Set()))}
+            onRestoreBatch={(ids) => restorePicked(ids)}
             onDeleteBatch={(ids) => void removeBatch(ids).then(() => setPicked(new Set()))}
             // what Select all can reach is what the feed is holding: the pages
             // scrolled so far, in the lens on screen, not the whole brand
@@ -1317,4 +1397,12 @@ export function CreateView({ set }: { set: ShotSet | null }) {
       <Outlet context={shotContext} />
     </div>
   );
+}
+
+/** What PREF.feedCounts holds: the last lens counts, and whose they were. */
+interface LastCounts {
+  brandId: string;
+  all: number;
+  keepers: number;
+  archived: number;
 }

@@ -351,7 +351,7 @@ function UpdateFloat() {
           type="button"
           className="sc-btn sc-btn-primary"
           disabled={busy !== 'idle'}
-          onClick={() => (oneClick ? void apply() : openSettings('about'))}
+          onClick={() => (oneClick ? void apply() : openSettings('updates'))}
         >
           {action}
         </button>

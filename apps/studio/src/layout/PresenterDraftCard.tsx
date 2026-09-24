@@ -7,10 +7,19 @@ export function PresenterDraftCard({
   draft,
   href,
   onDiscard,
+  chosen,
+  batching,
+  onPick,
+  batch,
 }: {
   draft: PresenterDraftSummary;
   href: string;
   onDiscard?: (id: string) => void;
+  chosen?: boolean;
+  batching?: boolean;
+  onPick?: (id: string) => void;
+  /** Set when this draft is in the pick: the right-click becomes the pick's menu. */
+  batch?: { count: number; onAct: () => void } | null;
 }) {
   return (
     <DraftCard
@@ -22,6 +31,10 @@ export function PresenterDraftCard({
       href={href}
       blank={<UserCircle size={44} weight="thin" />}
       onDiscard={onDiscard}
+      chosen={chosen}
+      batching={batching}
+      onPick={onPick}
+      batch={batch}
     />
   );
 }

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { GAP, TILE_DEFAULT, TILE_STOPS, masonryLayout, nearestTileStop } from '../src/layout/masonry.js';
+import {
+  GAP,
+  TILE_DEFAULT,
+  TILE_STOPS,
+  feedColumnCount,
+  masonryLayout,
+  nearestTileStop,
+} from '../src/layout/masonry.js';
 
 describe('nearestTileStop', () => {
   it('leaves a stop alone', () => {
@@ -29,13 +36,15 @@ describe('the tile stops earn their place', () => {
   // The slider they replace had fourteen stops feeding a layout that only
   // changes when the column count flips, so most of them moved nothing. Two
   // views, like every catalog wall, and each one visibly different.
-  it('each stop lands on a different column count at every usable width', () => {
-    // from the narrowest canvas that is not phone mode (a 768px viewport less
-    // its gutters) up through a wide desktop with the assets column open
-    for (const width of [700, 728, 760, 920, 1000, 1400, 1800]) {
-      const cols = TILE_STOPS.map((s) => masonryLayout(width, s.px, false).cols);
-      expect(new Set(cols).size).toBe(TILE_STOPS.length);
+  it('steps by one column, so three large columns are four compact', () => {
+    const [compact, large] = TILE_STOPS;
+    for (let width = 700; width <= 1800; width += 10) {
+      const c = masonryLayout(width, compact.px, false);
+      const l = masonryLayout(width, large.px, false);
+      expect(c.cols).toBe(l.cols + 1);
     }
+    expect(masonryLayout(1070, large.px, false).cols).toBe(3);
+    expect(masonryLayout(1070, compact.px, false).cols).toBe(4);
   });
 
   it('orders wider tiles into fewer columns', () => {
@@ -51,14 +60,29 @@ describe('the tile stops earn their place', () => {
     }
   });
 
-  it('shares leftover width so columns fill the canvas', () => {
-    for (const width of [700, 920, 1400, 1600, 1800]) {
-      for (const s of TILE_STOPS) {
-        const out = masonryLayout(width, s.px, false);
+  it('drops a column on a smaller canvas and keeps each card wide enough', () => {
+    for (const stop of TILE_STOPS) {
+      let prevCols = Infinity;
+      const wide = masonryLayout(1800, stop.px, false);
+      expect(wide.cols).toBe(stop.cols);
+      for (let width = 1800; width >= 700; width -= 10) {
+        const out = masonryLayout(width, stop.px, false);
+        expect(out.cols).toBeLessThanOrEqual(stop.cols);
+        expect(out.cols).toBeLessThanOrEqual(prevCols);
         const used = out.tile * out.cols + GAP * (out.cols - 1);
         expect(used).toBeLessThanOrEqual(width);
         expect(width - used).toBeLessThan(out.cols);
+        if (out.cols > 1) expect(out.tile).toBeGreaterThanOrEqual(stop.min);
+        prevCols = out.cols;
       }
+      expect(masonryLayout(800, stop.px, false).cols).toBeLessThan(wide.cols);
     }
+  });
+
+  it('keeps the wall columns when the row is short', () => {
+    expect(feedColumnCount(5)).toBe(5);
+    expect(feedColumnCount(7)).toBe(7);
+    expect(feedColumnCount(2)).toBe(2);
+    expect(feedColumnCount(0)).toBe(1);
   });
 });

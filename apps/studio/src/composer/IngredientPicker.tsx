@@ -5,10 +5,10 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowSquareOut,
-  BookmarkSimple,
   Check,
   ImageSquare,
   MagnifyingGlass,
+  Star,
   Trash,
 } from '@phosphor-icons/react';
 import { PHONE, useMediaQuery } from '../useMediaQuery.js';
@@ -323,8 +323,8 @@ function PickerBody({
               <b dir="auto">
                 {c.bookmarked && (
                   <>
-                    <BookmarkSimple className="sc-bm-mark" size={10} weight="fill" aria-hidden />
-                    <span className="sc-vh">Bookmarked. </span>
+                    <Star className="sc-bm-mark" size={10} weight="fill" aria-hidden />
+                    <span className="sc-vh">Kept. </span>
                   </>
                 )}
                 {c.label}

@@ -586,9 +586,12 @@ export function createStore(db: DB) {
         db.prepare("UPDATE sets SET updated_at=datetime('now') WHERE id=?").run(setId);
       })();
     },
-    removeFromSet(setId: string, nodeId: string): void {
+    removeFromSet(setId: string, nodeIds: string[]): void {
+      const ids = nodeIds.filter(Boolean);
+      if (ids.length === 0) return;
       db.transaction(() => {
-        db.prepare('DELETE FROM set_nodes WHERE set_id=? AND node_id=?').run(setId, nodeId);
+        const del = db.prepare('DELETE FROM set_nodes WHERE set_id=? AND node_id=?');
+        for (const nodeId of ids) del.run(setId, nodeId);
         db.prepare("UPDATE sets SET updated_at=datetime('now') WHERE id=?").run(setId);
       })();
     },
