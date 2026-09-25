@@ -46,6 +46,7 @@ import {
   type QualityId,
 } from '../composer/ShotSettings.js';
 import { useOpenSettings, useOpenSetup } from '../app/dialogs.js';
+import { namesAView, withPickedViews } from '../app/showcaseViews.js';
 import { effectiveEngineId, engineTitle, FALLBACK_ENGINE_ID } from '../engines/active.js';
 import { sizingOf } from '../engines/capabilities.js';
 import { OpenAIMark } from './OpenAIMark.js';
@@ -416,8 +417,20 @@ export const Composer = forwardRef<
     if (carriedFormat) borrowFormat(carriedFormat.id);
     if (initialBrief.variants) borrowCount(initialBrief.variants);
     if (initialBrief.quality) borrowQuality(initialBrief.quality);
-    setSeedTokens(briefTokens(initialBrief));
     setTplFields(initialBrief.templateFields ?? {});
+    const tokens = briefTokens(initialBrief);
+    if (!tokens.some(namesAView)) {
+      setSeedTokens(tokens);
+      return;
+    }
+    // a Home example that follows one of its scene's views lands once that frame is in the store
+    let live = true;
+    void withPickedViews(tokens).then((picked) => {
+      if (live) setSeedTokens(picked);
+    });
+    return () => {
+      live = false;
+    };
   }, [initialBrief]);
 
   /**
