@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, thumbUrl } from '../../api.js';
-import { useAppData } from '../../app/AppShell.js';
+import { useAppData, useDialogParam } from '../../app/AppShell.js';
 import { useBrand } from '../../app/BrandLayout.js';
-import { useOpenSetup } from '../../app/dialogs.js';
+import { type Pane, useOpenSettings, useOpenSetup } from '../../app/dialogs.js';
 import { type Answer, answersNothing, nowIso } from '../../conversation/question.js';
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
@@ -17,6 +17,7 @@ import {
   editComposerState,
   editIntent,
   isDirty,
+  isUntouched,
   turnsForEdit,
 } from './presenterEditRules.js';
 import {
@@ -52,6 +53,13 @@ export function useEditingFlow({ presenterId, onLeave, caps }: EditingFlowArgs) 
   const { brand } = useBrand();
   const { applyBrand, refreshBrands } = useAppData();
   const openSetup = useOpenSetup();
+  const openSettings = useOpenSettings();
+  // A dialog over the editor holds the conversation, and letting go of it
+  // hands a question its controls back: a remedy pressed at a failure
+  // (Sign in, Add key) must leave Retry pressable when the person returns.
+  const setupOpen = useDialogParam('setup').value;
+  const settingsOpen = useDialogParam('settings').value;
+  const away = !!setupOpen || !!settingsOpen;
   const canDraw = !!caps?.canGenerate;
 
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -155,6 +163,7 @@ export function useEditingFlow({ presenterId, onLeave, caps }: EditingFlowArgs) 
   );
   const question = activeQuestion(turns);
   const dirty = !!d && !!base && isDirty(d, base);
+  const untouched = !!d && !!base && isUntouched(d, base);
 
   const leave = useCallback(
     (to: string) => {
@@ -191,6 +200,22 @@ export function useEditingFlow({ presenterId, onLeave, caps }: EditingFlowArgs) 
     }
     leave(presenterId);
   }, [d, brand.id, presenterId, leave]);
+
+  /**
+   * Closing a session nothing happened in takes it away, so the page says
+   * Edit presenter again rather than Continue editing. Read again first:
+   * another tab can have the same session open and be using it.
+   */
+  const closeUntouched = useCallback(async () => {
+    if (!d || !base) return;
+    setLeaving(true);
+    try {
+      if (isUntouched(await api.presenterDraft(brand.id, d.id), base)) await api.deletePresenterDraft(brand.id, d.id);
+    } catch {
+      /* closing never waits on the tidy-up */
+    }
+    leave(presenterId);
+  }, [d, base, brand.id, presenterId, leave]);
 
   const revert = useCallback(async () => {
     setLeaving(true);
@@ -237,6 +262,13 @@ export function useEditingFlow({ presenterId, onLeave, caps }: EditingFlowArgs) 
           return;
         }
         case 'retry': {
+          // the control that fixes a failure opens where it is fixed; the question stays for Retry
+          if (a.kind === 'confirm' && a.id.startsWith('remedy:')) {
+            const pane = a.id.slice('remedy:'.length);
+            if (pane === 'setup') openSetup();
+            else openSettings(pane as Pane);
+            return;
+          }
           if (s.err) {
             s.clearErr();
             started.current = new Set();
@@ -257,18 +289,22 @@ export function useEditingFlow({ presenterId, onLeave, caps }: EditingFlowArgs) 
            * state: it threw away the conversation, the scroll and anything
            * else open, to get what one refetch gives. Read the brand again and
            * leave to their page, which is where the record as it now stands
-           * is, and where the editor is opened on it.
+           * is, and where the editor is opened on it. The session goes too:
+           * it was built on a record that is no longer the head, so nothing
+           * can save it, and left standing the page would offer it back.
            */
           setUi((u) => ({ ...u, conflict: null }));
           setLeaving(true);
-          void refreshBrands().finally(() => leave(presenterId));
+          void Promise.all([refreshBrands(), api.deletePresenterDraft(brand.id, d.id).catch(() => undefined)]).finally(
+            () => leave(presenterId),
+          );
           return;
         case 'save':
           void save();
           return;
       }
     },
-    [d, ui.scopeAsk, s, view, save, refreshBrands, leave, presenterId],
+    [d, ui.scopeAsk, s, view, save, refreshBrands, leave, presenterId, brand.id, openSetup, openSettings],
   );
 
   const onSend = useCallback(
@@ -388,6 +424,8 @@ export function useEditingFlow({ presenterId, onLeave, caps }: EditingFlowArgs) 
     canRevert: !!record?.revisionOf,
     discard,
     revert,
+    // null while something happened in the session: then the close is a plain one
+    closeUntouched: untouched ? () => void closeUntouched() : null,
     keepPrevious:
       slot && slot.status === 'approved' && slot.prior && !drawingNow && !d?.activeView && d?.stage === 'idle'
         ? () => void s.revert(view)
@@ -398,7 +436,7 @@ export function useEditingFlow({ presenterId, onLeave, caps }: EditingFlowArgs) 
       // an edit session is resumed whenever a draft for this person was already open
       resumed,
       turns,
-      busy: s.busy || saving || leaving,
+      busy: s.busy || saving || leaving || away,
       stage: d
         ? {
             hash: stageHash,
@@ -408,7 +446,12 @@ export function useEditingFlow({ presenterId, onLeave, caps }: EditingFlowArgs) 
             doing: doingLine(d),
             // withdrawn once something was drawn from this view: see builtOn
             takes: builtOn(d, view) ? [] : takesOf(d, view),
-            onTake: idleNow ? (hash: string) => void s.restore(view, hash) : undefined,
+            // one action at a time: a second press while the first is in flight is not a second restore
+            onTake: idleNow
+              ? (hash: string) => {
+                  if (!s.busy) void s.restore(view, hash);
+                }
+              : undefined,
             items: stripItems(d, view),
             onPick: (v: StudioView) => {
               setFocus(v);
@@ -444,6 +487,7 @@ export function useEditingFlow({ presenterId, onLeave, caps }: EditingFlowArgs) 
       // Putting a picture back from the log brings its view to the stage: the
       // press is on one view while the stage may be showing another.
       onRestore: (view: string, hash: string) => {
+        if (s.busy) return;
         setFocus(view as StudioView);
         void s.restore(view as StudioView, hash);
       },
