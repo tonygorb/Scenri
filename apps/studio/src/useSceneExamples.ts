@@ -12,10 +12,16 @@ const RUNNING_MS = 1500;
  * every one of them is a press somewhere a person can see it.
  *
  * Read on arrival, again whenever the place picture changes, and every second
- * and a half while a run draws. Each example lands in the brand document, so
- * the brand is read before a newer run state is handed back: a tile or a turn
- * never loses its shimmer before the picture it waits for is there. The scene
- * studio's conversation and the scene's page both read it.
+ * and a half while a run draws. A read that fails is asked again, a little
+ * later: one dropped request used to end the watch for good, and the run
+ * stayed "drawing" long after it had finished.
+ *
+ * Each example lands in the brand document. While the run draws, the bell
+ * reads the brand once per example that lands (TaskCenter), and a tile shows
+ * its shimmer until the brand it holds has the picture (`exampleTiles`). When
+ * the run ends, the brand is read here before the ended run is handed back,
+ * so the last tile never loses its shimmer before its picture is there. The
+ * scene studio's conversation and the scene's page both read it.
  */
 export function useSceneExamples(brandId: string, sceneId: string | null, place: string | null) {
   const { refreshBrands } = useAppData();
@@ -25,6 +31,8 @@ export function useSceneExamples(brandId: string, sceneId: string | null, place:
   /** The first answer is in: before it, "nothing is drawing" is not known yet. */
   const [read, setRead] = useState(false);
   const [asked, setAsked] = useState(0);
+  /** Work was just asked for and the run it started is not read back yet. */
+  const [waiting, setWaiting] = useState(false);
   /** The run as last handed back; undefined until the first read, which the brand already covers. */
   const landed = useRef<string | null | undefined>(undefined);
   const refreshRef = useRef(refreshBrands);
@@ -39,17 +47,21 @@ export function useSceneExamples(brandId: string, sceneId: string | null, place:
       try {
         const r = await api.sceneExamples(brandId, sceneId);
         if (!alive) return;
-        const mark = r.job ? `${r.job.id}:${r.job.done.length}:${r.job.status}` : null;
-        if (mark && landed.current !== undefined && mark !== landed.current) await refreshRef.current();
+        const mark = r.job ? `${r.job.id}:${r.job.status}` : null;
+        const ended = r.job && r.job.status !== 'running';
+        if (ended && landed.current !== undefined && mark !== landed.current) await refreshRef.current();
         if (!alive) return;
         landed.current = mark;
         setJob(r.job);
         setFirst(r.first);
         setMore(r.more);
         setRead(true);
+        setWaiting(false);
         if (r.job?.status === 'running') timer = setTimeout(tick, RUNNING_MS);
-      } catch {
-        // what the brand holds still shows; the next ask tells the truth
+      } catch (e: any) {
+        // What the brand holds still shows, and the next ask tells the truth.
+        // A scene that is gone has nothing more to tell.
+        if (alive && e?.status !== 404) timer = setTimeout(tick, RUNNING_MS * 2);
       }
     };
     void tick();
@@ -60,6 +72,9 @@ export function useSceneExamples(brandId: string, sceneId: string | null, place:
   }, [brandId, sceneId, place, asked]);
 
   /** Read the run again now: something here just asked for work. */
-  const again = useCallback(() => setAsked((n) => n + 1), []);
-  return { job, first, more, read, again };
+  const again = useCallback(() => {
+    setWaiting(true);
+    setAsked((n) => n + 1);
+  }, []);
+  return { job, first, more, read, waiting, again };
 }

@@ -9,7 +9,14 @@ import { FRAMINGS, SETUPS_MAX } from '../create/scene/sceneSetups.js';
 import { Rail } from '../layout/Rail.js';
 import { SceneViewActions, SceneViewCaption } from '../layout/SceneViewActions.js';
 import { EmptyRefFrame, Shown } from '../layout/ReferenceGallery.js';
-import { EXAMPLE_LABEL, type ExampleTile, earlierRoles, exampleTiles, examplesSubtitle } from '../sceneExampleRules.js';
+import {
+  EXAMPLE_LABEL,
+  type ExampleTile,
+  earlierRoles,
+  exampleTiles,
+  examplesSubtitle,
+  failureWords,
+} from '../sceneExampleRules.js';
 import { useSceneExamples } from '../useSceneExamples.js';
 import { useStillHere } from '../useStillHere.js';
 
@@ -97,6 +104,8 @@ export function SceneExamples({
         const r = await api.updateScene(brandId, scene.id, { setups: [...ways, way] });
         applyBrand(r.brand);
       }
+      // gone elsewhere while the way was being kept: a late answer never pulls them back
+      if (!here()) return;
       applyScene(scene.id, way.id);
     } catch (e: any) {
       if (here()) onError(String(e?.message ?? e));
@@ -262,7 +271,7 @@ export function SceneExamples({
                     data-state="failed"
                     role="img"
                     aria-label={`${label} did not draw`}
-                    title={t.error}
+                    title={t.error ? (failureWords(t.error) ?? t.error) : undefined}
                   >
                     <WarningCircle size={20} aria-hidden />
                     <span>Did not draw</span>

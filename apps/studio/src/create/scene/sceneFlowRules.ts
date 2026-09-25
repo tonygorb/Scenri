@@ -2,13 +2,15 @@ import {
   type Aside,
   answersNothing,
   asideTurns,
+  type ChoiceOption,
   type NothingKind,
   type PickItem,
   type Question,
   type Turn,
 } from '../../conversation/question.js';
 import type { SceneExampleRole, SceneReading } from '../../apiTypes.js';
-import { EXAMPLE_LABEL, type ExampleTile } from '../../sceneExampleRules.js';
+import { describeFailure, type FailureRemedy } from '../../failure.js';
+import { EXAMPLE_LABEL, type ExampleTile, failureWords } from '../../sceneExampleRules.js';
 import { COPY } from './sceneCopy.js';
 import { optionOf, rowNoun, ROWS, type SceneRow, swatchRow } from './sceneRows.js';
 import {
@@ -131,10 +133,51 @@ export function readingQuote(r: SceneReading): string {
     .join(' ');
 }
 
-/** A stop or a lost job says its own sentence; a failure is quoted inside one. */
-const SAYS_ITSELF = new Set([COPY.stopped, COPY.stoppedRead, COPY.stoppedDraw, COPY.stoppedChange, COPY.lost]);
-const retryPrompt = (error: string) =>
-  SAYS_ITSELF.has(error) ? error : COPY.failedFirst(error.replace(/[.\s]+$/, ''));
+/** A stop, a lost job or a line of the studio's own says its own sentence; a provider's failure is read first. */
+const SAYS_ITSELF = new Set([
+  COPY.stopped,
+  COPY.stoppedRead,
+  COPY.stoppedDraw,
+  COPY.stoppedChange,
+  COPY.lost,
+  COPY.failed,
+  COPY.busyElsewhere,
+]);
+/** A failure as the conversation says it: in words when Scenri knows it, else the engine's own. */
+const sayFailure = (error: string) => (SAYS_ITSELF.has(error) ? error : (failureWords(error) ?? error));
+const retryPrompt = (error: string) => {
+  if (SAYS_ITSELF.has(error)) return error;
+  const words = failureWords(error);
+  return words ? COPY.failedSaid(words) : COPY.failedFirst(error.replace(/[.\s]+$/, ''));
+};
+
+/**
+ * The one control that fixes a failure, when there is one: a key to add, a
+ * cap to raise, Codex to sign in. Offered beside the way on, never instead of
+ * it, since a fix made elsewhere is not something the studio can see. Its id
+ * says where it opens (`remedy:engines`), as the presenter's does.
+ */
+const remedyOf = (error: string | null): FailureRemedy | undefined =>
+  error && !SAYS_ITSELF.has(error) ? describeFailure(error).remedy : undefined;
+
+const remedyOption = (error: string | null): ChoiceOption[] => {
+  const remedy = remedyOf(error);
+  return remedy ? [{ id: `remedy:${remedy.opens}`, label: remedy.label }] : [];
+};
+
+/**
+ * The ways on from a failure before anything stands: its remedy first; the
+ * line, for a failure that cannot succeed twice and has no control of its own
+ * (a brief declined); and Try again, always.
+ */
+function retryOptions(error: string): ChoiceOption[] {
+  const stuck = !remedyOf(error) && !SAYS_ITSELF.has(error) && !describeFailure(error).retryable;
+  return [
+    ...remedyOption(error),
+    ...(stuck ? [{ id: 'reword', label: COPY.sayDifferently }] : []),
+    { id: 'retry', label: COPY.retry },
+  ];
+}
 
 /* ------------------------------------------------------------- questions */
 
@@ -409,7 +452,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
           kind: 'confirm',
           tone: 'alert',
           prompt: retryPrompt(studio.error),
-          options: [{ id: 'retry', label: COPY.retry }],
+          options: retryOptions(studio.error),
         };
     } else if (!v && studio.error)
       open = {
@@ -417,11 +460,16 @@ export function turnsFor(args: FlowArgs): Turn[] {
         kind: 'confirm',
         tone: 'alert',
         prompt: retryPrompt(studio.error),
-        options: [{ id: 'retry', label: COPY.retry }],
+        options: retryOptions(studio.error),
       };
     else if (v) {
       if (studio.error)
-        T.push({ kind: 'scenri', id: `error-${studio.versions.length}`, text: studio.error, tone: 'alert' });
+        T.push({
+          kind: 'scenri',
+          id: `error-${studio.versions.length}`,
+          text: sayFailure(studio.error),
+          tone: 'alert',
+        });
       const quote = readingQuote(v.reading);
       if (!v.hash) {
         const photos = !edit && a.source?.door === 'photos';
@@ -443,6 +491,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
           quote,
           quoteLabel: COPY.readingHead,
           options: [
+            ...remedyOption(studio.error),
             ...(args.canDraw
               ? [{ id: 'draw', label: COPY.draw }]
               : [{ id: 'use', label: edit ? COPY.saveChanges : COPY.saveWords }]),
@@ -457,6 +506,7 @@ export function turnsFor(args: FlowArgs): Turn[] {
           quote,
           quoteLabel: COPY.readingHead,
           options: [
+            ...remedyOption(studio.error),
             { id: 'use', label: edit ? COPY.saveChanges : COPY.use },
             ...(args.canDraw ? [{ id: 'again', label: COPY.tryAgain }] : []),
           ],
@@ -529,13 +579,17 @@ function setTurns(T: Turn[], args: FlowArgs) {
         view: t.role,
         ...(set.running || studio.job ? {} : { retry: t.role }),
       });
-    else if (t.state === 'failed')
+    else if (t.state === 'failed') {
+      const words = t.error ? failureWords(t.error) : null;
       T.push({
         kind: 'scenri',
         id: `ex-failed-${t.role}`,
-        text: COPY.exampleFailed(EXAMPLE_LABEL[t.role], t.error ?? COPY.failed),
+        text: words
+          ? COPY.exampleFailedSaid(EXAMPLE_LABEL[t.role], words)
+          : COPY.exampleFailed(EXAMPLE_LABEL[t.role], t.error ?? COPY.failed),
         tone: 'alert',
       });
+    }
   }
   sayAnswer();
 }

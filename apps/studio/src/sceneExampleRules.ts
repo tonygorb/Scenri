@@ -1,5 +1,6 @@
 import type { SceneExampleJob, SceneExampleRole, SceneView } from './api.js';
 import type { SceneExampleView } from './brandAssets.js';
+import { describeFailure } from './failure.js';
 
 /**
  * A scene's examples, as its page and Activity say them.
@@ -121,4 +122,14 @@ export function examplesSubtitle(w: {
     return `${role ? `Drawing the ${role}` : 'Drawing examples'}${of}`;
   }
   return w.done === 1 ? 'One example drawn' : `${w.done ?? 0} examples drawn`;
+}
+
+/**
+ * A provider's failure as a person reads it, the way the rest of the app reads
+ * one (failure.ts): what happened and what to do. Null when it is not one
+ * Scenri recognises, and then the engine's own words are all there is to say.
+ */
+export function failureWords(raw: string): string | null {
+  const f = describeFailure(raw);
+  return f.kind === 'unknown' ? null : [f.title, f.fix].filter(Boolean).join(' ');
 }

@@ -219,9 +219,10 @@ function toScene(s: any): CustomScene {
           ...(e.setup ? { setup: String(e.setup) } : {}),
         }))
     : undefined;
-  // The cover names a view; a view the scene no longer has shows the place.
+  // The cover names a view; a view the scene no longer has shows the place, and
+  // so does one drawn from an earlier picture of it (the place moved on).
   const cover: SceneView | undefined = SCENE_VIEWS.includes(s.cover) ? s.cover : undefined;
-  const covered = cover && cover !== 'place' ? examples?.find((e) => e.role === cover)?.url : undefined;
+  const covered = cover && cover !== 'place' ? examples?.find((e) => e.role === cover && !e.earlier)?.url : undefined;
   return {
     id: String(s.id),
     name: String(s.name ?? ''),
@@ -256,11 +257,14 @@ function toScene(s: any): CustomScene {
   };
 }
 
-/** Which view stands for a scene now: the one it shows as its cover, else the place. */
+/**
+ * Which view stands for a scene now: the one it shows as its cover, else the
+ * place, which is also what a cover drawn from an earlier picture of it gives.
+ */
 export function coverViewOf(scene: Scene & { examples?: SceneExampleView[] }): SceneView {
   const v = scene.cover;
   if (!v || v === 'place') return 'place';
-  return !scene.examples || scene.examples.some((e) => e.role === v) ? v : 'place';
+  return !scene.examples || scene.examples.some((e) => e.role === v && !e.earlier) ? v : 'place';
 }
 
 /**

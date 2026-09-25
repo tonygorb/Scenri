@@ -1,4 +1,4 @@
-import type { HeroWith, SceneReading, SceneStudioJob, SceneStudioJobKind } from '../../apiTypes.js';
+import type { HeroWith, ScenePatch, SceneReading, SceneStudioJob, SceneStudioJobKind } from '../../apiTypes.js';
 import { COPY } from './sceneCopy.js';
 
 /**
@@ -183,6 +183,8 @@ export type Action =
   | { type: 'started'; id: string; kind: SceneStudioJobKind; ask?: string; since: string }
   /** Stop was pressed for this job; its answer is on the way. */
   | { type: 'stopping'; id: string }
+  /** That Stop never reached the server: the pill is Stop again, so it can be pressed again. */
+  | { type: 'stop-failed'; id: string }
   | { type: 'progress'; job: SceneStudioJob }
   | { type: 'finished'; job: SceneStudioJob }
   | { type: 'lost'; id: string; error: string }
@@ -197,7 +199,9 @@ export type Action =
   | { type: 'decline-more' }
   | { type: 'ask-more' }
   | { type: 'set-drawn' }
-  | { type: 'set-declined' };
+  | { type: 'set-declined' }
+  /** The press for the place in use (or the three more) never started a run: its offer is made again. */
+  | { type: 'set-failed'; more: boolean };
 
 export const current = (s: StudioState): Version | null => s.versions[s.current] ?? null;
 
@@ -263,6 +267,11 @@ export function reduce(s: StudioState, a: Action): StudioState {
     case 'stopping':
       if (!s.job || s.job.id !== a.id || s.job.stopping) return s;
       return { ...s, job: { ...s.job, stopping: true } };
+    case 'stop-failed': {
+      if (!s.job || s.job.id !== a.id || !s.job.stopping) return s;
+      const { stopping: _, ...job } = s.job;
+      return { ...s, job };
+    }
     case 'progress': {
       if (!s.job || s.job.id !== a.job.id) return s;
       const job = {
@@ -272,6 +281,15 @@ export function reduce(s: StudioState, a: Action): StudioState {
         phase: a.job.phase,
         since: a.job.phaseAt ?? s.job.since,
       };
+      // A tick that says nothing new leaves the state as it was: a new object
+      // re-ran the transcript and wrote the whole session again, once a second.
+      if (
+        job.phase === s.job.phase &&
+        job.since === s.job.since &&
+        job.coverage.join('\n') === s.job.coverage.join('\n') &&
+        JSON.stringify(job.pending) === JSON.stringify(s.job.pending)
+      )
+        return s;
       return suggestName({ ...s, job }, job.pending);
     }
     case 'finished': {
@@ -369,6 +387,8 @@ export function reduce(s: StudioState, a: Action): StudioState {
       return { ...s, setDrawn: true, setDeclined: false };
     case 'set-declined':
       return { ...s, setDeclined: true };
+    case 'set-failed':
+      return a.more ? { ...s, moreAsked: false } : { ...s, setDrawn: false };
   }
 }
 
@@ -532,6 +552,21 @@ export const unsaved = (s: StudioState, seededFrom: StudioState | null): boolean
     );
   return !!(s.place.trim() || s.pictures.length || s.versions.length || s.job);
 };
+
+/**
+ * What an edit changed, against the record it was opened on. Only that is
+ * sent, so a rename or a refiling made elsewhere while the editor was open is
+ * not written back over by the editor's opening snapshot. A picture goes with
+ * what it is: whether it is an anchor, and who stands in its hero.
+ */
+export function changedFrom(next: ScenePatch, was: ScenePatch): ScenePatch {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(next))
+    if (JSON.stringify(v) !== JSON.stringify(was[k as keyof ScenePatch])) out[k] = v;
+  if ('previewHash' in out) out.anchor = next.anchor;
+  if ('heroHash' in out && next.heroWith) out.heroWith = next.heroWith;
+  return out as ScenePatch;
+}
 
 /* ------------------------------------------------------------ the session */
 

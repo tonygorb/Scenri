@@ -304,10 +304,12 @@ export function ScenePage() {
   /** A catalog view handed to one shot: copied into the store first, then the same road a made scene's takes. */
   const shootCatalogView = async (view: SceneView) => {
     if (viewBusy) return;
+    const here = stillHere();
     setViewBusy(true);
     setErr(null);
     try {
       const { hash } = await api.pickSceneView(scene.id, view);
+      if (!here()) return;
       applyScene(scene.id, undefined, hash, view);
     } catch (e: any) {
       setErr(String(e?.message ?? e));

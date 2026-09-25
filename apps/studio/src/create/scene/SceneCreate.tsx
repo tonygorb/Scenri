@@ -65,6 +65,8 @@ export function SceneCreate({
     finish,
   });
   const [leaving, setLeaving] = useState(false);
+  /** Close was pressed while Use was saving: it happens once the save has answered. */
+  const [closeAfterSave, setCloseAfterSave] = useState(false);
   // The question on the floor, for the first-use guide (DESIGN.md, "First use").
   const last = f.turns[f.turns.length - 1];
   const open = last?.kind === 'question' ? last.question.id : null;
@@ -73,6 +75,13 @@ export function SceneCreate({
   const editing = !!sceneId;
 
   const close = () => {
+    // A save on its way decides where closing goes. Closing under it left the
+    // conversation on the wall as a draft of the scene it had just saved, and
+    // its Use there saved a second one: so the close waits for the answer.
+    if (f.busy) {
+      setCloseAfterSave(true);
+      return;
+    }
     // Used: the scene is saved and its pictures keep drawing on the server, so
     // closing is the last press said early, and goes where it would.
     if (f.saved) {
@@ -97,6 +106,13 @@ export function SceneCreate({
     f.leave();
     onClose();
   };
+
+  // the save ending is the trigger; close reads this render's state
+  useEffect(() => {
+    if (!closeAfterSave || f.busy) return;
+    setCloseAfterSave(false);
+    close();
+  }, [closeAfterSave, f.busy]);
 
   const headAction =
     !editing && f.begun && !f.saved ? (

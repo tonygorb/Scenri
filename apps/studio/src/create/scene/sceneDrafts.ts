@@ -69,9 +69,11 @@ export function sceneDraftOf(convo: string, raw: string | null): SceneDraft | nu
  * knows about the work each one started. A job the server has finished lands
  * here as its picture before the studio is opened again; one the server no
  * longer knows (a restart) is simply not drawing any more. Work running for a
- * conversation this browser does not hold (another tab's) is a draft too.
+ * conversation this browser does not hold (another tab's) is a draft too; a
+ * conversation it holds as used or finished is not, whatever still runs for it
+ * (a second tab on the same address, typing after the scene was used).
  */
-export function sceneDrafts(kept: SceneDraft[], work: StudioWork[]): SceneDraft[] {
+export function sceneDrafts(kept: SceneDraft[], work: StudioWork[], used: Iterable<string> = keptUsed()): SceneDraft[] {
   const byJob = new Map(work.filter((w) => w.kind === 'scene').map((w) => [w.id.slice('scene:'.length), w]));
   const out = kept.map((d) => {
     const w = d.jobId ? byJob.get(d.jobId) : undefined;
@@ -86,7 +88,7 @@ export function sceneDrafts(kept: SceneDraft[], work: StudioWork[]): SceneDraft[
       failed: w.status === 'failed',
     };
   });
-  const known = new Set(kept.map((d) => d.convo));
+  const known = new Set([...kept.map((d) => d.convo), ...used]);
   for (const w of work) {
     if (w.kind !== 'scene' || w.status !== 'running' || !w.conversation || w.sceneId || known.has(w.conversation))
       continue;
@@ -105,6 +107,19 @@ export function sceneDrafts(kept: SceneDraft[], work: StudioWork[]): SceneDraft[
   return out.filter((d) => d.drawing || d.hash || d.failed || d.read).sort((a, b) => b.at - a.at);
 }
 
+/** The conversations this browser keeps under a saved scene: used, finished, or an edit. */
+function keptUsed(): string[] {
+  const out: string[] = [];
+  for (const k of local.keys('scenri:scene-studio:')) {
+    try {
+      if (JSON.parse(local.get(k) ?? 'null')?.sceneId) out.push(k.slice(k.lastIndexOf(':') + 1));
+    } catch {
+      // unreadable is no conversation at all
+    }
+  }
+  return out;
+}
+
 /** Where a scene draft stands, in words. */
 export function sceneDraftState(d: SceneDraft): string {
   if (d.drawing) return 'Drawing';
@@ -119,6 +134,26 @@ export function keptSceneDrafts(brandId: string): SceneDraft[] {
     .keys(prefix)
     .map((k) => sceneDraftOf(k.slice(prefix.length), local.get(k)))
     .filter((d): d is SceneDraft => !!d);
+}
+
+/**
+ * A conversation that finished leaves a mark under its address naming the
+ * scene it made, in place of the conversation. A bell row, a toast or any
+ * link to it later leads to that scene rather than to an empty conversation
+ * under the same address. Kept a week, like every conversation.
+ */
+export function markSceneFinished(key: string, sceneId: string): void {
+  local.set(key, JSON.stringify({ at: Date.now(), sceneId, done: true }));
+}
+
+/** The scene a finished conversation made; null while it is open, or never was here. */
+export function sceneFinishedIn(brandId: string, convo: string): string | null {
+  try {
+    const o = JSON.parse(local.get(`${keptPrefix(brandId)}${convo}`) ?? 'null');
+    return o?.done === true && typeof o.sceneId === 'string' ? o.sceneId : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Let a draft go: the conversation and what was said in it. */

@@ -143,8 +143,16 @@ export const COPY = {
   editOpen: (name: string) => `Here is ${name}, as it is saved. Change something, or draw it again.`,
   failed: 'That did not work. Nothing standing was touched.',
   failedFirst: (why: string) => `That did not go through: ${why}. Nothing was drawn.`,
+  /** A failure Scenri can say in words (failure.ts): what happened, what to do. */
+  failedSaid: (words: string) => `${words} Nothing was drawn.`,
+  /** The way on from a brief a provider declined, where trying the same again only fails again. */
+  sayDifferently: 'Say it differently',
   lost: 'That work is gone: the server restarted while it ran. Try it again.',
   offline: 'Lost touch with Scenri. Still trying.',
+  /** A Stop that never reached the server: the pill is Stop again. */
+  stopLost: 'Stop did not reach Scenri. Press it again.',
+  /** The conversation is open in another window, where different work is already running. */
+  busyElsewhere: 'This scene is already being worked on in another window. Try again once that is done.',
   retry: 'Try again',
   version: (n: number) => `Version ${n}`,
 
@@ -182,6 +190,7 @@ export const COPY = {
   },
   exampleFailed: (label: string, why: string) =>
     `The ${label.toLowerCase()} did not draw: ${why.replace(/[.\s]+$/, '')}.`,
+  exampleFailedSaid: (label: string, words: string) => `The ${label.toLowerCase()} did not draw. ${words}`,
   /** The three more, or two for a place already staged in hands or built around a person. */
   more: (labels: string[]) =>
     `Add ${['no', 'one', 'two', 'three'][labels.length] ?? labels.length} more? ${joinAnd(labels)}.`,
@@ -211,6 +220,7 @@ export const COPY = {
     'The picture was drawn from the answers as they are. Changing one asks again from there, and the pictures so far go. To keep the picture and change one thing, say it in the line instead.',
   onlyPictures: 'Only pictures can show a place.',
   fourPictures: 'Four pictures is the most a scene is read from.',
+  heicNotYet: 'HEIC pictures cannot be read yet. Export them as JPEG, then add them.',
 
   // leaving
   leaveTitle: 'Leave this scene?',
