@@ -24,9 +24,11 @@ import { randomUUID } from 'node:crypto';
 import type { SceneDraft, SceneHeroMode, SceneHold } from '@scenri/engine-codex';
 import {
   brandScenes,
+  checkedPicture,
   commit,
   draw,
   drawSceneAnchor,
+  personError,
   SCENE_INSTRUCTION_MAX,
   sceneRecordFrom,
   scenePreviewPrompt,
@@ -182,6 +184,14 @@ const KEEP_MS = 24 * 60 * 60 * 1000;
 const jobs = new Map<string, SceneStudioJob>();
 const running = new Map<string, AbortController>();
 const tasks = new Map<string, Promise<void>>();
+/**
+ * What this server read each picture as holding (`SceneDraft.holds`). A
+ * reading the studio hands back carries its holds, and "holds nothing" turns
+ * the scrub off (`drawSceneAnchor`), so that is believed only of pictures read
+ * here. After a restart the cost is one clear edit, never a kept person.
+ */
+const readHolds = new Map<string, SceneHold[]>();
+const READ_HOLDS_KEPT = 500;
 
 const fail = (message: string, statusCode = 400) => Object.assign(new Error(message), { statusCode });
 
@@ -400,7 +410,7 @@ async function drawChange(
     deps.core.ledger.recordCost(caps.id, null, result.costUsd);
     const hash = result.images[0];
     if (!hash) throw fail('the engine returned no image', 502);
-    return hash;
+    return checkedPicture(deps.core, hash);
   }
   if (caps.maxReferenceImages > 0) {
     return draw(deps, {
@@ -426,8 +436,11 @@ function prune(brandId: string) {
   const cutoff = Date.now() - KEEP_MS;
   const mine = [...jobs.values()].filter((j) => j.brandId === brandId);
   for (const j of mine) if (j.finishedAt && Date.parse(j.finishedAt) < cutoff) jobs.delete(j.id);
+  // A job that drew a picture is kept for the day whatever came after it: a
+  // conversation reopened later still points at it, and a 404 there reads as
+  // the picture being lost. Only work with nothing to show is dropped by count.
   const left = [...jobs.values()]
-    .filter((j) => j.brandId === brandId && j.status !== 'running')
+    .filter((j) => j.brandId === brandId && j.status !== 'running' && !j.hash)
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
   while (left.length > KEEP_PER_BRAND) jobs.delete(left.shift()!.id);
 }
@@ -510,6 +523,8 @@ export function startSceneStudioJob(deps: AssetBuildDeps, input: StudioJobInput)
     const checked = readingFrom(input.reading);
     if (!checked.ok) throw fail(checked.error);
     reading = checked.reading;
+    // Unknown is scrubbed: "holds nothing" stands only for pictures this server read as holding nothing.
+    if (reading.holds?.length === 0 && !hashes.every((h) => readHolds.get(h)?.length === 0)) delete reading.holds;
   }
   const ask = oneLine(input.ask, ASK_MAX);
   if (kind === 'make') {
@@ -602,6 +617,10 @@ async function read(
     // A change reads no pictures, so what they hold is what the words it
     // revises already knew.
     const holds = imagePaths.length ? holdsFrom(draft.holds) : prior?.holds;
+    if (imagePaths.length && holds) {
+      for (const h of hashes) readHolds.set(h, holds);
+      while (readHolds.size > READ_HOLDS_KEPT) readHolds.delete(readHolds.keys().next().value as string);
+    }
     const hero = read.hero ?? prior?.hero;
     const reading = { ...read, ...(holds ? { holds } : {}), ...(hero ? { hero } : {}) };
     // a shot's cast is never the scene's figure, whatever the reader made of it
@@ -674,6 +693,8 @@ async function drawHero(
 }
 
 async function run(deps: AssetBuildDeps, job: SceneStudioJob, input: StudioJobInput, signal: AbortSignal) {
+  // What this run drew, let go of if a Stop ends it: a stopped job keeps no picture.
+  const drew: string[] = [];
   try {
     let reading = input.reading ?? null;
     if (input.kind !== 'again') {
@@ -690,10 +711,12 @@ async function run(deps: AssetBuildDeps, job: SceneStudioJob, input: StudioJobIn
       const drawn = edited
         ? await drawChange(deps, job.brandId, reading, input.from as string, input.ask ?? '', hashes, signal)
         : await drawFresh(deps, job.brandId, reading, hashes, signal);
+      drew.push(drawn);
       if (signal.aborted) throw fail('cancelled');
       // The same trim every scene preview gets: a figure-led preview is a
       // conditioning image, and baked-in bars would be reproduced into shots.
-      const hash = await trimEdgeBars(deps.core, drawn);
+      const hash = await trimEdgeBars(deps.core, drawn, deps.release);
+      drew.push(hash);
       // The last moment a Stop can arrive before anything is written. After
       // this line the job lands in one synchronous run, so a picture that came
       // back after Stop is never put on a scene or handed to the studio.
@@ -713,13 +736,27 @@ async function run(deps: AssetBuildDeps, job: SceneStudioJob, input: StudioJobIn
     }
     patch(job, { status: 'done', phase: null, finishedAt: now() });
   } catch (err: any) {
-    if (signal.aborted) patch(job, { status: 'cancelled', phase: null, finishedAt: now() });
-    else
+    if (signal.aborted) {
+      // The place may have landed before the Stop reached the hero: the job
+      // answers with neither, and both are let go of, so the studio shows no
+      // picture after Stop and none is left on disk.
+      const hero = job.hero;
+      patch(job, {
+        status: 'cancelled',
+        phase: null,
+        finishedAt: now(),
+        hash: null,
+        anchor: false,
+        hero: null,
+        heroWith: null,
+      });
+      deps.release?.(hero ? [...drew, hero] : drew);
+    } else
       patch(job, {
         status: 'failed',
         phase: null,
         finishedAt: now(),
-        error: String(err?.message ?? err ?? 'the studio could not finish'),
+        error: personError(err, 'the studio could not finish'),
       });
   }
 }
@@ -733,6 +770,24 @@ export function cancelSceneStudioJob(id: string): boolean {
   if (!ctrl) return false;
   ctrl.abort();
   return true;
+}
+
+/**
+ * Stop the studio work for a scene being deleted: the edit studio redrawing it,
+ * and a draw that was going to land on it. Without a scene, every job of the
+ * brand, which is being deleted. Nothing is spent on a record that is gone.
+ */
+export function cancelSceneStudioFor(brandId: string, sceneId?: string): void {
+  for (const j of jobs.values()) {
+    if (j.brandId !== brandId || j.status !== 'running') continue;
+    if (!sceneId || j.sceneId === sceneId || j.attachTo === sceneId) running.get(j.id)?.abort();
+  }
+}
+
+/** A picture a studio job still answers with, its place or its hero: the conversation may yet Use it. */
+export function heldBySceneStudio(hash: string): boolean {
+  for (const j of jobs.values()) if (j.hash === hash || j.hero === hash) return true;
+  return false;
 }
 
 /**
@@ -792,4 +847,5 @@ export function resetSceneStudio(): void {
   jobs.clear();
   running.clear();
   tasks.clear();
+  readHolds.clear();
 }

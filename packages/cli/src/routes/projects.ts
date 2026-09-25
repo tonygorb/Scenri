@@ -3,6 +3,13 @@ import { nameMatches, searchTerms, type BrandRow, type Core, type FeedFilter, ty
 import type { ExampleJob } from '../sceneExamples.js';
 import { listStudioWork } from '../studioWork.js';
 
+/**
+ * Which run of the server gave an activity answer. The studios and the builds
+ * live in its memory, so a new boot id says their running rows went with the
+ * old process: the bell can tell work a restart took from work that ended.
+ */
+const BOOT = `${process.pid}-${Date.now()}`;
+
 /** Something a brief token can name, with the name it answers to right now. */
 interface TokenName {
   id: string;
@@ -74,6 +81,7 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectRouteDe
       nodes: core.store.recentActivity(brand.id, limit),
       jobs: core.catalog.listRecentJobs(brand.id),
       studio: listStudioWork(core, brand.id, deps.sceneExampleJobs?.(brand.id) ?? []),
+      boot: BOOT,
     };
   });
 

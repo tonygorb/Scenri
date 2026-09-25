@@ -21,6 +21,7 @@ import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import type { BrandContext, Core, EngineAdapter, ReferenceRole } from '@scenri/core';
 import type { PresenterDraft, SceneDraft, SceneHold } from '@scenri/engine-codex';
+import { capReferenceEdge } from './routes/shared.js';
 import type { HeroDrawn, HeroRequest } from './sceneExamples.js';
 
 /* --------------------------------------------------------------- records */
@@ -58,6 +59,7 @@ import {
   commit,
   lintSceneProse,
   presenterRecordFrom,
+  SCENE_INSTRUCTION_MAX,
   sceneRecordFrom,
   type CustomScene,
 } from './assetRecords.js';
@@ -128,6 +130,12 @@ export interface AssetBuildDeps {
   onPlaceChanged?: (brandId: string, sceneId: string) => void;
   /** The scene studio's hero, the place in use, drawn with the place (sceneExamples.ts `drawHero`). */
   hero?: (req: HeroRequest) => Promise<HeroDrawn | null>;
+  /**
+   * Let go of pictures a draw made on its way and nothing holds: a step of the
+   * anchor once the next exists, an untrimmed original, a picture a Stop left
+   * behind. Optional, so a caller that keeps everything simply keeps it.
+   */
+  release?: (hashes: string[]) => void;
 }
 
 export interface StartBuildInput {
@@ -155,6 +163,8 @@ export interface StartBuildInput {
 
 const builds = new Map<string, AssetBuild>();
 const running = new Map<string, AbortController>();
+/** Each running build's work, so a server going away can wait for it (`settleAssetBuilds`). */
+const tasks = new Map<string, Promise<void>>();
 /** Enough history for the library page to show what just happened, not a log. */
 const KEEP_PER_BRAND = 12;
 
@@ -188,7 +198,18 @@ export function forgetAssetBuild(id: string): boolean {
 export function resetAssetBuilds(): void {
   for (const ctrl of running.values()) ctrl.abort();
   running.clear();
+  tasks.clear();
   builds.clear();
+}
+
+/**
+ * Stop every build and wait for it to settle: a server going away, which then
+ * closes the library a build would otherwise write into. A codex child runs in
+ * its own process group, so only an abort reaches it before the process exits.
+ */
+export async function settleAssetBuilds(): Promise<void> {
+  for (const ctrl of running.values()) ctrl.abort();
+  await Promise.allSettled([...tasks.values()]);
 }
 
 export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): { jobId: string } {
@@ -202,7 +223,8 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
   const supplied = input.imageHashes.length
     ? input.imageHashes
     : ((prior as CustomScene | undefined)?.refs ?? []).map((r) => String(r?.file ?? '').replace(/^asset:/, ''));
-  const hashes = supplied.filter((h) => /^[a-f0-9]{32}$/.test(h) && core.images.has(h));
+  // No more than a scene keeps (`sceneRecordFrom`): every one is a picture the reader is handed.
+  const hashes = [...new Set(supplied)].filter((h) => /^[a-f0-9]{32}$/.test(h) && core.images.has(h)).slice(0, 8);
   if (!hashes.length && !input.instruction?.trim()) {
     throw Object.assign(new Error('add a reference image, or describe the place in a sentence'), { statusCode: 400 });
   }
@@ -231,7 +253,12 @@ export function startAssetBuild(deps: AssetBuildDeps, input: StartBuildInput): {
 
   const ctrl = new AbortController();
   running.set(job.id, ctrl);
-  void runBuild(deps, job, hashes, str(input.instruction, 400), ctrl.signal).finally(() => running.delete(job.id));
+  // The direction as long as the studio lets a person write it and the record keeps it.
+  const task = runBuild(deps, job, hashes, str(input.instruction, SCENE_INSTRUCTION_MAX), ctrl.signal).finally(() => {
+    running.delete(job.id);
+    tasks.delete(job.id);
+  });
+  tasks.set(job.id, task);
   return { jobId: job.id };
 }
 
@@ -258,7 +285,7 @@ async function runBuild(
       patch(job, { stage: 'cancelled', message: null, finished: true });
       return;
     }
-    patch(job, { stage: 'failed', error: err?.message ?? 'build failed', message: null, finished: true });
+    patch(job, { stage: 'failed', error: personError(err, 'build failed'), message: null, finished: true });
   }
 }
 
@@ -334,7 +361,13 @@ async function edgeBarGeometry(buf: Buffer) {
  * asks to throw away half the picture, is kept exactly as it arrived. A worse
  * crop is a bigger failure than a visible band.
  */
-export async function trimEdgeBars(core: Core, hash: string): Promise<string> {
+export async function trimEdgeBars(
+  core: Core,
+  hash: string,
+  /** Given, the untrimmed original is let go of once the trimmed copy is saved: nothing holds it. */
+  release?: (hashes: string[]) => void,
+): Promise<string> {
+  let trimmed: string;
   try {
     const buf = core.images.read(hash);
     const g = await edgeBarGeometry(buf);
@@ -343,10 +376,12 @@ export async function trimEdgeBars(core: Core, hash: string): Promise<string> {
     const height = g.bottom - g.top + 1;
     if (width < g.W * 0.6 || height < g.H * 0.6) return hash;
     const png = await sharp(buf).extract({ left: g.left, top: g.top, width, height }).png().toBuffer();
-    return core.images.save(png);
+    trimmed = core.images.save(png);
   } catch {
     return hash;
   }
+  if (trimmed !== hash) release?.([hash]);
+  return trimmed;
 }
 
 /**
@@ -817,6 +852,7 @@ async function runSceneBuild(
       previewHash = await trimEdgeBars(
         core,
         await drawSceneAnchor(deps, { scene, hashes, holds: draft?.holds, brandId: job.brandId, signal }),
+        deps.release,
       );
       scene.preview = `asset:${previewHash}`;
       scene.anchor = true;
@@ -1032,10 +1068,15 @@ export async function drawSceneAnchor(
   if (!engine) throw new Error('no engine available');
   const caps = engine.capabilities();
   const method = sceneAnchorMethod();
-  const refs = [...new Set(req.hashes)]
-    .filter((h) => deps.core.images.has(h))
-    .slice(0, Math.min(4, caps.maxReferenceImages))
-    .map((h) => deps.core.images.pathFor(h));
+  // Never bigger than the engine reads (`maxReferenceEdge`), as a presenter's
+  // references are: a phone photo at full size only slows the upload.
+  const refs = await Promise.all(
+    [...new Set(req.hashes)]
+      .filter((h) => deps.core.images.has(h))
+      .slice(0, Math.min(4, caps.maxReferenceImages))
+      .map((h) => deps.core.images.pathFor(h))
+      .map((p) => (caps.maxReferenceEdge ? capReferenceEdge(deps.core, p, caps.maxReferenceEdge) : p)),
+  );
   const clean = Array.isArray(req.holds) && req.holds.length === 0;
   if (!refs.length || method === 'words' || (method === 'clear' && !clean && !caps.supportsEdit)) {
     return draw(deps, { prompt: scenePreviewPrompt(req.scene), brandId: req.brandId, signal: req.signal });
@@ -1048,19 +1089,21 @@ export async function drawSceneAnchor(
     signal: req.signal,
   });
   if (method === 'attach' || clean) return drawn;
-  const cleared = await editOnce(deps, {
-    instruction: sceneClearInstruction(req.scene),
-    source: drawn,
-    brandId: req.brandId,
-    signal: req.signal,
-  });
+  // Each step's picture is nobody's once the next one exists, or once a Stop or
+  // a refusal ends the chain, so it is let go of: a Try again leaves one
+  // picture on disk, not three.
+  const step = async (source: string, instruction: string): Promise<string> => {
+    let out: string | null = null;
+    try {
+      out = await editOnce(deps, { instruction, source, brandId: req.brandId, signal: req.signal });
+      return out;
+    } finally {
+      if (out !== source) deps.release?.([source]);
+    }
+  };
+  const cleared = await step(drawn, sceneClearInstruction(req.scene));
   if (!req.scene.figure) return cleared;
-  return editOnce(deps, {
-    instruction: sceneCastInstruction(req.scene),
-    source: cleared,
-    brandId: req.brandId,
-    signal: req.signal,
-  });
+  return step(cleared, sceneCastInstruction(req.scene));
 }
 
 /* ----------------------------------------------------------- shared parts */
@@ -1101,7 +1144,7 @@ export async function editOnce(
   deps.core.ledger.recordCost(engineId, null, result.costUsd);
   const hash = result.images[0];
   if (!hash) throw new Error('the engine returned no image');
-  return hash;
+  return checkedPicture(deps.core, hash);
 }
 
 /**
@@ -1143,7 +1186,50 @@ export async function draw(
   deps.core.ledger.recordCost(engineId, null, result.costUsd);
   const hash = result.images[0];
   if (!hash) throw new Error('the engine returned no image');
-  return hash;
+  return checkedPicture(deps.core, hash);
+}
+
+/**
+ * What an engine handed back, decoded once before anything is built on it.
+ *
+ * An engine saves whatever file it was left with, and one that obeyed words
+ * inside a picture can leave a link to a local file, or text, where the picture
+ * should be. Bytes that are not a picture are taken back out of the store and
+ * never become a candidate, a reference or a card. `trimEdgeBars` cannot catch
+ * this: it keeps whatever it cannot measure, by design.
+ */
+export async function checkedPicture(core: Core, hash: string): Promise<string> {
+  try {
+    const meta = await sharp(core.images.read(hash)).metadata();
+    if (meta.width && meta.height) return hash;
+  } catch {
+    // not a picture: falls through
+  }
+  core.images.remove(hash);
+  throw new Error('the engine returned something that is not a picture');
+}
+
+const FS_CODES = /^(ENOENT|EACCES|EPERM|EISDIR|ENOTDIR)$/;
+/**
+ * An error as a sentence a person may be shown.
+ *
+ * A file-system error names absolute paths on this machine ("ENOENT: no such
+ * file or directory, copyfile '/Users/...'"). The HTTP error handler already
+ * keeps those in the terminal (server.ts); this is the same rule for a message
+ * kept on a job, which a tile's tooltip or a conversation shows as it is.
+ */
+export function personError(err: unknown, fallback: string): string {
+  const e = err as { message?: unknown; code?: unknown } | null | undefined;
+  const message = String(e?.message ?? err ?? '').trim();
+  const fsError = typeof e?.code === 'string' && FS_CODES.test(e.code);
+  const leaksPath =
+    FS_CODES.test(message.split(':')[0]) || /(?:^|[\s'"(=])(?:\/[^\s'"/]+){2,}|\b[A-Za-z]:\\[^\s\\'"]+\\/.test(message);
+  if (!message) return fallback;
+  if (fsError || leaksPath) {
+    console.error('unexpected error:', message);
+    return fallback;
+  }
+  return message;
 }
 
 /**

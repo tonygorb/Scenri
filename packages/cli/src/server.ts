@@ -44,8 +44,12 @@ import {
   brandJsonWithIdentityCrops,
   brandSceneById,
   brandScenes,
+  cancelAssetBuild,
+  listAssetBuilds,
   runningAssetBuildCount,
+  settleAssetBuilds,
   type Analyzer,
+  type AssetBuildDeps,
 } from './customAssets.js';
 import type { CodexSetup } from '@scenri/engine-codex';
 import { registerAccessGuard, type AccessOptions } from './access.js';
@@ -102,11 +106,13 @@ import { registerPresenterRoutes } from './routes/presenters.js';
 import { registerAssetBuildRoutes } from './routes/assetBuilds.js';
 import { registerPresenterDraftRoutes } from './routes/presenterDrafts.js';
 import { registerSceneStudioRoutes } from './routes/sceneStudio.js';
-import { runningSceneStudioCount, settleSceneStudio } from './sceneStudio.js';
+import { cancelSceneStudioFor, runningSceneStudioCount, settleSceneStudio } from './sceneStudio.js';
 import { createSceneExamples, type SceneExamples } from './sceneExamples.js';
 import { registerSceneExampleRoutes } from './routes/sceneExamples.js';
 import type { SceneExample } from './assetRecords.js';
 import {
+  discardPresenterDraft,
+  listPresenterDrafts,
   removeUnreferenced,
   runningDraftJobCount,
   settlePresenterDrafts,
@@ -323,7 +329,33 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     return row ?? reply.status(404).send({ error: 'brand not found' });
   });
   app.delete('/api/brands/:id', async (req) => {
-    core.store.deleteBrand((req.params as any).id);
+    const id = String((req.params as any).id);
+    const brand = core.store.getBrand(id);
+    const hooks = { evict: (hash: string) => thumbs.evict(hash) };
+    if (brand) {
+      // Its work stops first, so nothing is drawn or read for a brand that is
+      // gone: studio draws, example runs, scene reads and presenter drafts. A
+      // draft goes the way a discard takes it, with the pictures only it held.
+      cancelSceneStudioFor(id);
+      for (const s of brandScenes(brand.json)) sceneExamples?.sceneGone(id, s.id, []);
+      for (const b of listAssetBuilds(id)) cancelAssetBuild(b.id);
+      // Nothing is drawn while a brand goes: a discard only reads the library.
+      const quiet: AssetBuildDeps = {
+        core,
+        engine: null,
+        analyzer: null,
+        brandContext: (brandId) => brandContext(core, brandId),
+        vocabulary: { collections: [], verticals: [], categories: [] },
+      };
+      for (const d of listPresenterDrafts(core, id)) await discardPresenterDraft(quiet, d.id, hooks);
+    }
+    core.store.deleteBrand(id);
+    // Then the pictures its document held (scenes, presenters, products, logos),
+    // unless another brand or a shot still holds them.
+    if (brand) {
+      const held = [...JSON.stringify(brand.json).matchAll(/asset:([a-f0-9]{32})/g)].map((m) => m[1]);
+      removeUnreferenced(core, held, hooks);
+    }
     return { ok: true };
   });
 
@@ -2773,6 +2805,7 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       await settleCatalogImports();
       // a studio draw writes an image when it lands: never into a home being torn down
       await settleSceneStudio();
+      await settleAssetBuilds();
       await sceneExamples?.settle();
       await settlePresenterDrafts();
       await thumbs.settle();

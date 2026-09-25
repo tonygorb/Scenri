@@ -44,16 +44,22 @@ export function registerSceneExampleRoutes(app: FastifyInstance, deps: { core: C
     const found = sceneOr404(req, reply);
     if (!found) return;
     const body = (req.body ?? {}) as { roles?: unknown; more?: unknown; first?: unknown };
+    const named = !body.first && !body.more;
     const asked = body.first
       ? examples.offerFirst(found.scene)
       : body.more
         ? examples.offer(found.scene)
-        : (Array.isArray(body.roles) ? body.roles : [])
-            .map(String)
-            .filter((r): r is ExampleRole => ROLES.has(r as ExampleRole));
+        : [
+            ...new Set(
+              (Array.isArray(body.roles) ? body.roles : [])
+                .map(String)
+                .filter((r): r is ExampleRole => ROLES.has(r as ExampleRole)),
+            ),
+          ];
     if (!asked.length) return reply.status(400).send({ error: 'which examples?' });
     try {
-      return { job: examples.start(found.brandId, found.scene.id, asked) };
+      // Roles named by the press (Try again) are drawn as named; an offer may add the hero they need.
+      return { job: examples.start(found.brandId, found.scene.id, asked, named) };
     } catch (err: any) {
       return reply.status(err.statusCode ?? 500).send({ error: err.message });
     }

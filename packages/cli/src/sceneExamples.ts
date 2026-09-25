@@ -3,7 +3,7 @@ import type { BrandContext, Core, EngineAdapter, ReferenceRole } from '@scenri/c
 import { brandScenes, commit, type CustomScene, type SceneExample, type SceneExampleRole } from './assetRecords.js';
 import type { BriefToken, CompiledBrief } from './brief.js';
 import { physicalPoseDirective, wardrobeRelease } from './briefDirectives.js';
-import { trimEdgeBars } from './customAssets.js';
+import { checkedPicture, personError, trimEdgeBars } from './customAssets.js';
 import type { DemoProduct } from './demoProducts.js';
 import type { Presenter } from './presenters.js';
 import { drawAtScale, needsOwnScale, type ProductSize } from './productScale.js';
@@ -454,6 +454,15 @@ const hashOf = (ref: unknown): string | null => {
   return HASH.test(h) ? h : null;
 };
 
+/**
+ * A refusal that can only repeat: signed out, out of plan, over the spend cap.
+ * The rest of a set is not asked for one role at a time against it; the offer
+ * draws them on the next press. Codex's own list (`isFatalSetupError`), with
+ * the limits added.
+ */
+const REPEATS =
+  /failed to spawn|not logged in|login required|\b401\b|unauthorized|is too old|environment is overriding|usage limit|spend cap/i;
+
 export interface SceneExamples {
   /**
    * The scene's place picture changed. A run still drawing the earlier one is
@@ -462,8 +471,11 @@ export interface SceneExamples {
    * presses it.
    */
   placeChanged(brandId: string, sceneId: string): void;
-  /** Draw these roles now (Draw two pictures, Add three more, Try again, Redraw). Joins a run under way. */
-  start(brandId: string, sceneId: string, roles: ExampleRole[]): ExampleJob;
+  /**
+   * Draw these roles now (Draw two pictures, Add three more, Try again, Redraw). Joins a run under way.
+   * `named`: the roles were asked for by name (Try again on one picture), so nothing is added to them.
+   */
+  start(brandId: string, sceneId: string, roles: ExampleRole[], named?: boolean): ExampleJob;
   stop(brandId: string, sceneId: string): boolean;
   /** Take one example off the scene. */
   remove(brandId: string, sceneId: string, role: ExampleRole): boolean;
@@ -497,6 +509,16 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
 
   const sceneOf = (brandId: string, sceneId: string): CustomScene | undefined =>
     brandScenes(deps.core.store.getBrand(brandId)?.json).find((s) => s.id === sceneId);
+  /**
+   * The example's picture is in the library. A record can point at one that was
+   * let go of (a studio version's hero Used again after a Try again replaced
+   * it): that example counts as missing, so it is offered and drawn again, and
+   * nothing is drawn from a file that is not there.
+   */
+  const stored = (e: SceneExample): boolean => {
+    const h = hashOf(e.file);
+    return !!h && deps.core.images.has(h);
+  };
 
   /** Put one example on the scene, if it still shows the place it was drawn from. */
   const write = (job: ExampleJob, example: SceneExample): boolean => {
@@ -547,7 +569,7 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
       const r = await engine.edit(req, signal);
       deps.core.ledger.recordCost(engineId, null, r.costUsd);
       if (!r.images[0]) throw new Error('the engine returned no picture');
-      return r.images[0];
+      return checkedPicture(deps.core, r.images[0]);
     };
   }
 
@@ -699,7 +721,7 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
     let presenter: Awaited<ReturnType<typeof presenterIn>> | null = null;
 
     const heroOf = (scene: CustomScene) =>
-      hashOf((scene.examples ?? []).find((e) => e.role === 'hero' && e.from === job.from)?.file);
+      hashOf((scene.examples ?? []).find((e) => e.role === 'hero' && e.from === job.from && stored(e))?.file);
 
     for (let i = 0; i < job.roles.length; i++) {
       const role = job.roles[i];
@@ -784,8 +806,18 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
             'character',
           );
         }
-        if (signal.aborted) return;
-        hash = await trimEdgeBars(deps.core, hash);
+        if (signal.aborted) {
+          deps.release([hash]);
+          return;
+        }
+        hash = await trimEdgeBars(deps.core, hash, deps.release);
+        // The last moment a Stop can arrive before the write: from here the
+        // example lands in one synchronous commit, so a picture finished after
+        // Stop never goes on the scene.
+        if (signal.aborted) {
+          deps.release([hash]);
+          return;
+        }
         // The hero keeps everyone who stands in it, and so does a close-up that may show the product on them;
         // every other view names the one it follows.
         const who: HeroWith =
@@ -810,29 +842,58 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
         job.done.push(role);
       } catch (err: any) {
         if (signal.aborted) return;
-        job.failed.push({ role, error: String(err?.message ?? err) });
+        job.failed.push({ role, error: personError(err, 'This picture did not draw. Try it again.') });
         deps.log?.({ scene: job.sceneId, role, err: String(err?.message ?? err) }, 'scene example failed');
-        // Without its hero the rest of a set has nothing to be drawn from.
-        if (role === 'hero') return;
+        // Without its hero the rest of a set has nothing to be drawn from, and
+        // a refusal that can only repeat is not asked again for every role.
+        if (role === 'hero' || REPEATS.test(String(err?.message ?? err))) return;
       }
     }
   }
 
-  function begin(brandId: string, sceneId: string, roles: ExampleRole[], scene: CustomScene): ExampleJob | null {
+  function begin(
+    brandId: string,
+    sceneId: string,
+    roles: ExampleRole[],
+    scene: CustomScene,
+    named: boolean,
+  ): ExampleJob | null {
     const k = key(brandId, sceneId);
     const live = jobs.get(k);
+    const ctrl = controllers.get(k);
     if (live?.status === 'running') {
-      // Joins the run: roles not already waiting go on the end of its queue.
-      const pending = live.roles.slice(live.current ? live.roles.indexOf(live.current) + 1 : 0);
-      for (const r of roles) if (!pending.includes(r)) live.roles.push(r);
-      return live;
+      // A run that was stopped is still unwinding, and one on an earlier place
+      // throws what it draws away: neither takes the ask, which gets a run of
+      // its own. The one on an earlier place is stopped, it spends for nothing.
+      if (!ctrl?.signal.aborted && live.from === scene.preview) {
+        // Joins the run: roles waiting or drawing now are not asked twice.
+        const pending = live.roles.slice(live.current ? live.roles.indexOf(live.current) : 0);
+        for (const r of roles) {
+          if (pending.includes(r)) continue;
+          live.roles.push(r);
+          pending.push(r);
+        }
+        return live;
+      }
+      ctrl?.abort();
     }
     const standIns = standInsOf(scene, deps.demoProducts, deps.presenters);
     if (!standIns || !scene.preview || !readyAll(standIns.with)) return null;
     const { subject } = standIns;
     // Every other role is drawn from the hero, so a missing hero comes first.
-    const hasHero = (scene.examples ?? []).some((e) => e.role === 'hero' && e.from === scene.preview);
-    const queue: ExampleRole[] = !hasHero && !roles.includes('hero') ? ['hero', ...roles] : [...roles];
+    const hasHero = (scene.examples ?? []).some((e) => e.role === 'hero' && e.from === scene.preview && stored(e));
+    // Try again on one picture promised that picture: it does not spend a hero
+    // on the way. The offer that draws both is the honest door.
+    if (!hasHero && named && !roles.includes('hero'))
+      throw Object.assign(
+        new Error(
+          'The examples are drawn from the hero, and this picture of the place has none yet. Draw them again first.',
+        ),
+        { statusCode: 409 },
+      );
+    const queue: ExampleRole[] = [
+      ...new Set<ExampleRole>(!hasHero && !roles.includes('hero') ? ['hero', ...roles] : roles),
+    ];
     const job: ExampleJob = {
       id: randomUUID(),
       brandId,
@@ -851,22 +912,22 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
       error: null,
     };
     jobs.set(k, job);
-    const ctrl = new AbortController();
-    controllers.set(k, ctrl);
-    const task = run(job, ctrl.signal)
+    const own = new AbortController();
+    controllers.set(k, own);
+    const task = run(job, own.signal)
       .then(() => {
-        job.status = ctrl.signal.aborted ? 'cancelled' : job.failed.length && !job.done.length ? 'failed' : 'done';
+        job.status = own.signal.aborted ? 'cancelled' : job.failed.length && !job.done.length ? 'failed' : 'done';
         if (job.status === 'failed') job.error = job.failed[0].error;
       })
       .catch((err) => {
-        job.status = ctrl.signal.aborted ? 'cancelled' : 'failed';
-        job.error = String(err?.message ?? err);
+        job.status = own.signal.aborted ? 'cancelled' : 'failed';
+        job.error = personError(err, 'These pictures did not draw. Try them again.');
       })
       .finally(() => {
         job.current = null;
         job.finishedAt = new Date().toISOString();
         // only this run's own entries: a run begun after it keeps its own
-        if (controllers.get(k) === ctrl) controllers.delete(k);
+        if (controllers.get(k) === own) controllers.delete(k);
         if (tasks.get(k) === task) tasks.delete(k);
       });
     tasks.set(k, task);
@@ -896,12 +957,12 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
 
   return {
     placeChanged,
-    start(brandId, sceneId, roles) {
+    start(brandId, sceneId, roles, named = false) {
       const scene = sceneOf(brandId, sceneId);
       if (!scene) throw Object.assign(new Error('scene not found'), { statusCode: 404 });
       if (!scene.preview)
         throw Object.assign(new Error('this scene has no picture to draw from yet'), { statusCode: 409 });
-      const job = begin(brandId, sceneId, roles, scene);
+      const job = begin(brandId, sceneId, [...new Set(roles)], scene, named);
       if (!job) {
         const why = standInsOf(scene, deps.demoProducts, deps.presenters)
           ? "Scenri's library has not downloaded yet, so it cannot be shown in use for now."
@@ -942,7 +1003,7 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
       if (!scene.preview) return [];
       const standIns = standInsOf(scene, deps.demoProducts, deps.presenters);
       if (!standIns || !readyAll(standIns.with)) return [];
-      const examples = scene.examples ?? [];
+      const examples = (scene.examples ?? []).filter(stored);
       // Only what the place moved under, when it moved: a role already showing
       // this picture is not drawn again for the price of one that is not, and a
       // role taken off is not brought back with them. Otherwise the first two
@@ -981,8 +1042,11 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
               inline: true,
               edit,
             });
-      if (req.signal.aborted) return null;
-      return { hash: await trimEdgeBars(deps.core, drawn), ...withs };
+      if (req.signal.aborted) {
+        deps.release([drawn]);
+        return null;
+      }
+      return { hash: await trimEdgeBars(deps.core, drawn, deps.release), ...withs };
     },
     async settle() {
       for (const c of controllers.values()) c.abort();
