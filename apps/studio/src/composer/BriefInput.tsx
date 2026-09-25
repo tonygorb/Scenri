@@ -295,7 +295,7 @@ export const BriefInput = forwardRef<
       if (found?.kind === 'scene') {
         const t = found.scene;
         label = t ? sceneLabel(t, 'chip') : 'missing template';
-        thumb = t?.previewUrl ?? null;
+        thumb = thumbOf(t?.previewUrl ?? null, 'micro');
         // A picked view: the scene's chip shows that picture and names it.
         if (t && token.t === 'template' && token.view) {
           thumb = thumbUrl(token.view, 'micro');
@@ -316,7 +316,7 @@ export const BriefInput = forwardRef<
         label = attached ? productLabel(attached, 'chip') : 'missing product';
         thumb = found.product
           ? assetThumbUrl(found.product.shots?.[0]?.file, 'micro')
-          : (found.demo?.previewUrl ?? null);
+          : thumbOf(found.demo?.previewUrl ?? null, 'micro');
       } else if (found?.kind === 'presenter') {
         const { character: c, presenter: p } = found;
         label = c?.name ?? p?.name ?? 'missing person';
