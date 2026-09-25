@@ -1,0 +1,33 @@
+{
+  "id": "noir-cedar-silk-drape",
+  "title": "Noir Cedar on emerald silk",
+  "category": "launch",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marrow-vale-noir-cedar"
+      },
+      {
+        "t": "template",
+        "id": "chrome-bubble-warp"
+      },
+      {
+        "t": "text",
+        "v": " The black flacon lies on its side along a high fold of the emerald silk, its label turned up to the light, the dark glass mirroring the green sheen and the raking light drawing one bright line along its shoulder. 85mm at fold height, the bottle large across the frame, the silk falling soft behind."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 105,
+  "family": "material"
+}

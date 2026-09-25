@@ -11,7 +11,7 @@
   "wardrobeDefault": "a heather-grey hoodie, black track pants",
   "suitableCategories": ["Footwear", "Sport", "Apparel", "Electronics", "Accessories"],
   "suitableStyles": ["Lifestyle"],
-  "identityNotes": "the low fade with twists, the boxed beard and the wave tattoo on the inside of the right forearm must survive every generation",
+  "identityNotes": "the low fade with twists and the boxed beard must survive every generation, and the wave tattoo on the inside of the right forearm shows whenever his clothes leave that forearm bare",
   "negativeConstraints": ["no tattoo on the left arm", "no long beard", "no slim build"],
   "width": 1024,
   "height": 1280
