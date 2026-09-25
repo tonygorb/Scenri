@@ -298,6 +298,8 @@ describe('presenter draft routes', () => {
     await j('POST', `${base}/${body.id}/views/portrait/generate`, {});
     expect(runningDraftJobCount()).toBe(1);
     expect((await j('DELETE', `${base}/${body.id}`)).status).toBe(200);
+    // counted until the step has let go of the engine, which this one does not hear
+    for (let i = 0; i < 200 && runningDraftJobCount() > 0; i++) await new Promise((r) => setTimeout(r, 5));
     expect(runningDraftJobCount()).toBe(0);
     expect((await j('GET', `${base}/${body.id}`)).status).toBe(404);
     expect(existsSync(core.images.pathFor(first))).toBe(false);

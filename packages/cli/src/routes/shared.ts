@@ -108,7 +108,9 @@ const cappedRefs = new Map<string, string>();
 export async function capReferenceEdge(core: Core, path: string, maxEdge: number): Promise<string> {
   const key = `${path}#${maxEdge}`;
   const hit = cappedRefs.get(key);
-  if (hit) return hit;
+  // A copy is let go of once the draw that needed it is done (presenter
+  // drafts), so a remembered one is made again rather than handed over missing.
+  if (hit && existsSync(hit)) return hit;
   let out = path;
   try {
     const meta = await sharp(path).metadata();
