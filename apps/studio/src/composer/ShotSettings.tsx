@@ -4,7 +4,14 @@
  * this path stays the single import point (see Composer).
  */
 export type { QualityId, ShotSettingsProps } from './shotSettings/settings.js';
-export { RESOLUTIONS, VARIANTS, openOnGroup } from './shotSettings/settings.js';
+export {
+  DEFAULT_FORMAT_ID,
+  DEFAULT_QUALITY,
+  DEFAULT_VARIANT_COUNT,
+  RESOLUTIONS,
+  VARIANTS,
+  openOnGroup,
+} from './shotSettings/settings.js';
 export { ShotSettingsPills } from './shotSettings/ShotSettingsPills.js';
 export { ShotSettings } from './shotSettings/ShotSettingsSheet.js';
 export { ShotSettingsFields } from './shotSettings/ShotSettingsFields.js';

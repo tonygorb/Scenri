@@ -55,7 +55,10 @@
 }
 
 .sc-notif-pop {
+  display: flex;
+  flex-direction: column;
   width: min(440px, calc(100vw - 24px));
+  max-height: var(--radix-popover-content-available-height, 80vh);
   padding: 0 8px;
   border-radius: var(--sc-radius-float);
   box-shadow:
@@ -63,14 +66,12 @@
     var(--sc-shadow-3);
   background: var(--sc-panel);
 }
-/* The panel uses the room it has. */
-.sc-notif-pop {
-  max-height: var(--radix-popover-content-available-height, 80vh);
-}
-.sc-notif-pop .sc-notif-scroll {
-  max-height: none;
-  overflow: visible;
-  scrollbar-gutter: auto;
+/* Quiet, the card is the sentence. 440 is what a row with a picture asks for;
+   an empty panel has no row, and a short sentence in that width is a field of
+   nothing beside the words. */
+.sc-notif-pop:not(:has(section)) {
+  width: max-content;
+  max-width: min(440px, calc(100vw - 24px));
 }
 /* Two labelled sections rather than two tabs. They answer different questions
    ("is anything happening", "what happened while I was away") and the panel used
@@ -92,7 +93,7 @@
 }
 /* The two sections are told apart by a hairline rather than a gap alone: they
    answer different questions and one runs straight into the other otherwise. */
-.sc-notif-scroll section + section {
+:is(.sc-notif-pop, .sc-notif-sheet) section + section {
   margin-top: 6px;
   padding-top: 6px;
   border-top: 1px solid var(--sc-line);
@@ -131,13 +132,38 @@
   color: var(--sc-red);
 }
 
+/* The notifications section is the one that yields. In progress stays whole
+   above it. A short window shrinks this section; it does not grow to fill
+   the room under the bar. */
+:is(.sc-notif-pop, .sc-notif-sheet) > section:has(.sc-notif-scroll) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.sc-notif-pop > section:has(.sc-notif-scroll) {
+  flex: 0 1 auto;
+}
+.sc-notif-sheet > section:has(.sc-notif-scroll) {
+  flex: 1 1 auto;
+}
+/* Past seven the list is a scroller of its own, so the card is one height at
+   eight notifications or eighty. No scrollbar: a bar inside the card narrowed
+   the rows and read as a box within the box. The six 1px gaps between seven
+   rows are part of the cap, so the last row is not clipped. */
 .sc-notif-scroll {
-  max-height: min(62vh, var(--radix-popover-content-available-height, 62vh));
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: calc(64px * 7 + 1px * 6);
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: none;
+  scrollbar-gutter: auto;
   display: flex;
   flex-direction: column;
   gap: 1px;
+}
+.sc-notif-scroll::-webkit-scrollbar {
+  display: none;
 }
 .sc-notif-row {
   display: flex;
@@ -259,8 +285,9 @@
 }
 .sc-notif-empty {
   margin: 0;
-  padding: 2px 8px 10px;
+  padding: 2px 8px 16px;
   font-size: 12.5px;
+  line-height: 1.45;
   color: var(--sc-fg3);
 }
 /* It takes focus after a clear so the keyboard stays in the panel; it is a

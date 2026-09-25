@@ -14,7 +14,8 @@ import { useApplyPresenter } from '../app/useApplyPresenter.js';
 import { Confirm } from '../Confirm.js';
 import { ImageLightbox } from '../composer/ImageLightbox.js';
 import { Rail } from '../layout/Rail.js';
-import { KeepButton } from '../layout/KeepButton.js';
+import { RecordCrumb } from '../layout/RecordCrumb.js';
+import { RecordKeep } from '../layout/RecordKeep.js';
 import { Tip } from '../layout/Tip.js';
 import { EmptyRefFrame, ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
@@ -38,7 +39,7 @@ const ROLE_LABEL: Record<string, string> = {
  * One presenter: who they are right now.
  *
  * A calm asset profile. The avatar, the name and a caption, the few facts
- * worth reading, two things to do (use them in a shot, or edit them), and
+ * worth reading, use them in a shot, keep them, or edit them, and
  * the reference set: the pictures Scenri uses to understand this person,
  * each labelled by its role and opening at full size. A presenter built from
  * photographs keeps the originals in a small row of their own. Anything that
@@ -275,6 +276,7 @@ export function PresenterPage() {
   return (
     <ScrollPane>
       <main className="sc-lookpage sc-presenterpage" id="main">
+        <RecordCrumb to={presentersPath(brand)} wall="Presenters" where={owned ? 'Yours' : 'Scenri library'} />
         {face.src && (
           <div className="sc-presenterpage-avatar">
             <Shown src={thumbOf(face.src, 'small')} crop={face.crop} />
@@ -310,7 +312,7 @@ export function PresenterPage() {
               {editing ? 'Continue editing' : 'Edit presenter'}
             </Link>
           )}
-          <KeepButton kind="presenter" brandId={brand.id} id={presenter.id} />
+          <RecordKeep kind="presenter" brandId={brand.id} id={presenterId} />
           {owned && (
             <Tip label="Edit name and details">
               <button

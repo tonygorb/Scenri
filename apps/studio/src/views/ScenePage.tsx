@@ -16,6 +16,8 @@ import { DropdownMenu } from '@radix-ui/themes';
 import { COPY } from '../create/scene/sceneCopy.js';
 import { FRAMINGS, SETUPS_MAX } from '../create/scene/sceneSetups.js';
 import { sceneTailLine } from './sceneFacts.js';
+import { RecordCrumb } from '../layout/RecordCrumb.js';
+import { RecordKeep } from '../layout/RecordKeep.js';
 import { Tip } from '../layout/Tip.js';
 import { AssetDetailsDialog } from './AssetDetailsDialog.js';
 import { EmptyRefFrame, ShotThumb, Shown, Slider } from '../layout/ReferenceGallery.js';
@@ -25,7 +27,6 @@ import { bookmarkedFirst } from '../layout/library/libraryRules.js';
 import { useStillHere } from '../useStillHere.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
 import { SceneExamples } from './SceneExamples.js';
-import { KeepButton } from '../layout/KeepButton.js';
 import { SceneViewActions, SceneViewCaption } from '../layout/SceneViewActions.js';
 import { EXAMPLE_LABEL } from '../sceneExampleRules.js';
 
@@ -36,7 +37,7 @@ const VIEW_ORDER: readonly SceneView[] = ['hero', 'place', 'close', 'hands', 'an
  * One scene, as a record: the same page a presenter and a product have.
  *
  * Identity first and tight (the name, what it is in one sentence, what it is
- * made of in a few words, and the one verb that uses it), then the pictures of
+ * made of in a few words, the verb that uses it, and the keeper star), then the pictures of
  * the place, which is the only zone allowed to leave the column, then what a
  * shot made here is told, then the shots already made here, then the quiet
  * facts and Delete.
@@ -351,6 +352,7 @@ export function ScenePage() {
   return (
     <ScrollPane>
       <main className="sc-lookpage sc-scenepage" id="main">
+        <RecordCrumb to={scenesPath(brand)} wall="Scenes" where={owned ? 'Yours' : 'Scenri library'} />
         <h1>{scene.name}</h1>
         {/* Where it is filed, as the app's own chips, above the caption: the
             presenter page's order, and the thing a place is scanned for. */}
@@ -403,7 +405,7 @@ export function ScenePage() {
               Edit scene
             </Link>
           )}
-          <KeepButton kind="scene" brandId={brandId} id={scene.id} />
+          <RecordKeep kind="scene" brandId={brandId} id={scene.id} />
           {owned && (
             <Tip label="Edit name, filing and ways">
               <button

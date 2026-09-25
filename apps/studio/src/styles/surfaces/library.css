@@ -251,37 +251,73 @@
   text-underline-offset: 3px;
 }
 /* A wall with nothing on it: a search that found nothing, or a tab you went to
-   before you had filled it. It owns the whole page when it happens — the grid
-   underneath is empty by definition — so it is centred over that space rather
-   than set flush left against the rail, where one short sentence read as a
-   caption that had lost its picture.
+   before you had filled it. When that wall is the page, the block fills what
+   is left under the rail and the words sit in that space. A 42vh island left
+   the rest of the screen black, which read as a page that had stopped.
 
-   Not every empty wall wants this. A cold brand's empty Bookmarks tab keeps
-   the catalog up instead (`Scenes.tsx`, `bookmarksBrowse`): "bookmark a scene
-   from its card" is only an instruction if there are cards on screen.
-
-   The type and the way out are the Create feed's (`.sc-feed-empty`), which has
-   answered this question for its own empty lenses since before these pages
-   existed. */
+   A cold brand's empty Keepers tab keeps the catalog up instead
+   (`bookmarksBrowse`): the instruction only works if cards are on screen.
+   A wall that still has cards, or a cold offer above a catalog, keeps this
+   block compact. A Keepers tab that is empty on purpose carries the star a
+   card already uses, in the quiet well a non-alarm state already uses.
+   Nothing is kept, so the star stays an outline: gold is the one that is on.
+   A search that found nothing carries no mark. */
 .sc-lib-zero {
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Centred *in the wall's own area*, not stacked at the top of it. A short
-     block pinned under the rail with a screen of nothing beneath reads as
-     content that failed to load; the same words in the middle of that space
-     read as a wall that is empty, which is what happened. No ornament is
-     needed to say it — an icon here would be filling space rather than
-     meaning anything, and this page's whole argument is that the pictures are
-     the content. */
   justify-content: center;
-  min-height: max(280px, 42vh);
-  gap: 14px;
-  padding: 30px 0;
+  /* Title to sentence. The mark and the action add their own step on top,
+     the same 12 / 24 the cold offer on this page already uses. */
+  gap: 12px;
+  padding: 32px 0;
   color: var(--sc-fg2);
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.45;
   text-align: center;
-  text-wrap: pretty;
+}
+/* The stage's quiet mark: 40px, raised, not the red well a failure uses.
+   12px of gap plus 4px puts 16px under it, a step clear of the title. */
+.sc-lib-zero-mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 4px;
+  border-radius: var(--sc-radius-full);
+  background: var(--sc-raised);
+  color: var(--sc-fg2);
+}
+.sc-lib-zero h3 {
+  margin: 0;
+  max-width: var(--sc-measure-title);
+  font-family: var(--sc-font-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  color: var(--sc-fg);
+  text-wrap: balance;
+}
+.sc-lib-zero p {
+  margin: 0;
+  max-width: var(--sc-measure-lede);
+  text-wrap: balance;
+}
+/* 12px of gap plus 12px is the cold offer's 24px before the action. */
+.sc-lib-zero > .sc-btn,
+.sc-lib-zero > .sc-lib-zero-acts {
+  margin-top: 12px;
+}
+/* The empty wall is the page: fill the pane under the rail. */
+.sc-looks:not(:has(.sc-masonry, .sc-canvas-empty, .sc-owned)):has(.sc-lib-zero) {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.sc-looks:not(:has(.sc-masonry, .sc-canvas-empty, .sc-owned)) > .sc-lib-zero {
+  flex: 1;
+  min-height: 280px;
 }
 /* Two ways out can apply at once — a search inside a facet — and they are
    siblings, not a sentence. */
@@ -518,12 +554,17 @@
   grid-template-columns: repeat(auto-fill, minmax(var(--sc-tile), 1fr));
   gap: 14px;
 }
-/* Prefer ≤N columns from --sc-wall-cols (DensityControl). Mobile rules below 761px. */
+/* At most N columns. The floor is Create's own minimum: a column drops before
+   a card goes under it, and one column when that floor is wider than the wall.
+   Phone rules below 761px. */
 @media (min-width: 761px) {
   .sc-masonry[data-density] {
     grid-template-columns: repeat(
         auto-fill,
-        minmax(min(100%, calc((100% - (var(--sc-wall-cols) - 1) * 14px) / var(--sc-wall-cols))), 1fr)
+        minmax(
+          min(100%, max(var(--sc-tile-min), calc((100% - (var(--sc-wall-cols) - 1) * 14px) / var(--sc-wall-cols)))),
+          1fr
+        )
       );
   }
 }
