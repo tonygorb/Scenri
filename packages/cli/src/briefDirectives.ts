@@ -246,6 +246,12 @@ export function characterFactDirectives(c: any): string[] {
     out.push(
       `${c.promptName ?? c.name}'s own, in every shot and never capture context, as part of who they are: ${notes}${/[.!?]$/.test(notes) ? '' : '.'}`,
     );
+    // "Must survive every generation" made a forearm tattoo cut its own sleeve: the outfit came
+    // back with one arm bare (2026-09-25). A body mark obeys the clothes, never the other way.
+    if (/\b(tattoo|scar|birthmark)s?\b/i.test(notes))
+      out.push(
+        'A tattoo, scar or birthmark among these is still theirs when the clothes of this shot cover it: it shows, exactly where it is, only on skin the outfit already leaves bare. Never push up, roll, cut or shorten one sleeve or one side of a garment to reveal it; both sleeves and both sides of the outfit stay as the garment is made.',
+      );
   }
   if (c.negativeConstraints?.length) out.push(`Avoid: ${[].concat(c.negativeConstraints).join(', ')}`);
   return out;

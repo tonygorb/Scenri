@@ -87,6 +87,16 @@ describe('presenter identity authority', () => {
     );
   });
 
+  it('a tattoo shows where the clothes leave skin bare, and never cuts a sleeve to show itself', () => {
+    const lines = characterFactDirectives(dax);
+    expect(lines[1]).toContain('only on skin the outfit already leaves bare');
+    expect(lines[1]).toContain('Never push up, roll, cut or shorten one sleeve or one side of a garment to reveal it');
+    // a presenter with no body mark gets no such line
+    expect(
+      characterFactDirectives({ name: 'Ada', identityNotes: 'the silver bob and the gap-toothed smile' }),
+    ).toHaveLength(1);
+  });
+
   it('hair rides as words; the brief can restyle it, never recolour it', () => {
     expect(hairDirective('Dax', 'long platinum waves', 'at a window')).toBe(
       "Dax's hair, exactly as their references show it: long platinum waves.",
