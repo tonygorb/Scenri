@@ -1,0 +1,33 @@
+{
+  "id": "ridgeline-boulder-gap",
+  "title": "Trail shoe on lichened granite",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "voss-rowe-ridgeline-trail"
+      },
+      {
+        "t": "template",
+        "id": "studio-boulder-gap"
+      },
+      {
+        "t": "text",
+        "v": " The trail shoe stands on the lichened granite at the lip of the saddle, its lugged outsole gripping the rough stone, the toe turned slightly toward camera and a tuft of moss beside the heel, the far mountains soft behind. Cool overcast light with one soft rim from behind picking out the mesh. 85mm from shoe height, the shoe filling the frame from side to side."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 61,
+  "family": "material"
+}

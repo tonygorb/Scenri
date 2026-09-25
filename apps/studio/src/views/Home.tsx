@@ -276,7 +276,7 @@ export function HomeView() {
         anyShowcase('product'),
       // Product in a moment — the trail runner on its tyre stack
       product:
-        fromShowcaseIds(['ridgeline-tyre-top', 'ridgeline-embers', 'yuzu-ice-burst']) ??
+        fromShowcaseIds(['ridgeline-tyre-top', 'ridgeline-boulder-gap', 'yuzu-ice-burst']) ??
         claim(demoProducts.find((p) => p.id === 'voss-rowe-ridgeline-trail')?.previewUrl) ??
         anyShowcase('product'),
       // Identity ref — Odette's square portrait, which fills the 1:1 glyph exactly

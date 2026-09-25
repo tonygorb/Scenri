@@ -1,0 +1,37 @@
+{
+  "id": "acetates-salt-flat",
+  "title": "Acetates on the mirror salt flat",
+  "category": "editorial",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marden-cole-square-acetates"
+      },
+      {
+        "t": "character",
+        "id": "leila"
+      },
+      {
+        "t": "template",
+        "id": "studio-soft-horizon"
+      },
+      {
+        "t": "text",
+        "v": " She walks across the mirror flat toward camera at an easy stride, the tortoiseshell sunglasses on, her reflection walking beneath her in the thin water and a small ripple spreading from each step. She wears a white linen halter dress and flat tan leather sandals. 50mm at waist height, full length, the doubled sky wide around her."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 6,
+  "family": "place"
+}

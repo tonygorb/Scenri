@@ -1,0 +1,33 @@
+{
+  "id": "acetates-silk-drape",
+  "title": "Tortoiseshell acetates on emerald silk",
+  "category": "campaign",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "marden-cole-square-acetates"
+      },
+      {
+        "t": "template",
+        "id": "chrome-bubble-warp"
+      },
+      {
+        "t": "text",
+        "v": " The sunglasses sit folded on a high fold of the emerald silk, the tortoiseshell glowing amber where the raking light passes through the acetate, the lenses throwing a warm tinted shadow into the silk valley below. 85mm at fold height, the glasses large in the lower middle of the frame."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 90,
+  "family": "optical"
+}

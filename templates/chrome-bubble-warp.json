@@ -1,0 +1,16 @@
+{
+  "id": "chrome-bubble-warp",
+  "name": "Silk Drape",
+  "promptName": "Suspended Silk Drape",
+  "legacyNames": ["Suspended Silk Drape"],
+  "keywords": ["silk", "fabric", "drape", "folds", "satin", "textile", "luxury", "saturated", "sheen"],
+  "description": "A length of richly saturated emerald silk gathered into deep sculptural folds, lit by one soft raking key that reveals real fold shadows and a woven sheen. Genuine physical set design, the flowing-fabric backdrop real jewelry and fragrance campaigns actually shoot.",
+  "lighting": "Soft raking key, real fabric sheen and fold shadow",
+  "subject": "product",
+  "collections": ["Colored backgrounds"],
+  "verticals": ["Jewelry", "Accessories", "Fragrance"],
+  "prompt": "A length of richly saturated deep-emerald silk fills the frame, draped and gathered into genuine three-dimensional folds rather than lying flat, with high soft ridges and deep shadowed valleys between them. One soft raking key light crosses the silk from one side, revealing real fold shadows and a true woven-silk sheen along the high points of each fold. Shallow depth of field keeps the nearest folds crisp while the wider drape softens toward the edges of the frame. One dominant saturated emerald throughout, no props beyond the fabric, photographed on set in a studio with the real grain and weight of the silk visible.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "hero"
+}

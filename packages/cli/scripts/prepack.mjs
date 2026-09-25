@@ -63,7 +63,7 @@ const STARTER_SHOWCASE = new Set([
   'orris-waterline',
   'ridgeline-tyre-top',
   'scarlet-summer-laugh',
-  'acetates-giant-peg',
+  'acetates-salt-flat',
   'yuzu-ice-burst',
   'puffer-container-lean',
   'c15-orange-pool',

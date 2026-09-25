@@ -1,0 +1,15 @@
+{
+  "id": "studio-boulder-gap",
+  "name": "Boulder Gap",
+  "promptName": "Boulder Gap",
+  "keywords": ["granite", "boulder", "rock", "lichen", "overcast", "geological", "stone", "natural", "outdoor"],
+  "description": "A miniature world of weathered granite at the scale of a hand: two boulders lean together around a saddle packed with cushion moss, lichen crusts on every face under cool overcast light. Raw inland geology, intimate and tactile.",
+  "lighting": "Cool overcast directional, lichen bounce",
+  "subject": "either",
+  "collections": ["Studio"],
+  "verticals": ["Fragrance", "Beauty", "Footwear", "Accessories", "Jewelry"],
+  "prompt": "A miniature world of weathered granite at the scale of a hand: two deliberately unmatched boulders lean together, their faces rising like small cliffs around a natural saddle packed with deep green cushion moss. Real mineral banding and quartz veins run through the stone, with ochre and pale-sage lichen crusts and dark water stains where runoff tracks down the faces. Cool overcast daylight with a soft bias from one side separates the stone faces by tone rather than hard shadow, and a faint warm bounce comes off the lichen. Raw inland geology, intimate and tactile, photographed on location.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "hero"
+}

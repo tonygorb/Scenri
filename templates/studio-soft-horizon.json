@@ -1,0 +1,15 @@
+{
+  "id": "studio-soft-horizon",
+  "name": "Mirror Salt Flat",
+  "promptName": "Mirror Salt Flat",
+  "keywords": ["salt flat", "mirror", "reflection", "horizon", "minimal", "sky", "surreal", "endless", "water"],
+  "description": "An endless salt flat after rain, flooded so thin and still that the whole ground mirrors the sky and the horizon dissolves. The world floats between two skies in soft, luminous morning light.",
+  "lighting": "Even open-sky glow, soft mirror reflection",
+  "subject": "either",
+  "collections": ["Studio"],
+  "verticals": ["Home", "Sport", "Accessories", "Footwear"],
+  "prompt": "An endless salt flat after rain, flooded with a thin, perfectly still sheet of water that turns the whole ground into a mirror: the sky’s tall soft clouds and pale gradient are doubled below the horizon so crisply that the horizon almost dissolves and the world seems to float between two skies. Near the camera the water is so shallow that the hexagonal ridges of the salt crust show through it as fine white lines. Soft pastel morning light, luminous and even, with no hard shadow anywhere. Deep depth of field, vast open space on every side, nothing on the horizon but light, photographed on location.",
+  "width": 1024,
+  "height": 1280,
+  "cover": "hero"
+}
