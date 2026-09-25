@@ -302,7 +302,8 @@ export type VersionInfo = {
   /** How this build was installed; decides which update path the UI offers. */
   installKind: 'npx' | 'global' | 'managed' | 'dev' | 'unknown';
   supervised: boolean;
-  home: string;
+  /** The library folder; answered only to the computer running Scenri, never to a phone. */
+  home?: string;
   /** Whether this tab is on the computer running Scenri, not a phone on the Wi-Fi. */
   thisComputer?: boolean;
 };

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync, existsSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync, renameSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 export interface ImageStore {
@@ -49,7 +49,19 @@ export function createImageStore(homeDir: string): ImageStore {
       const clean = /^[a-z0-9]{2,5}$/i.test(ext) ? ext.toLowerCase() : 'png';
       const hash = createHash('sha256').update(buf).digest('hex').slice(0, 32);
       const file = fileFor(hash, clean);
-      if (!existsSync(file)) writeFileSync(file, buf);
+      // Whole or not at all. An in-place write cut short (a full disk) left a
+      // short file under the right name, and taking existence as completeness
+      // meant every later save of the same bytes trusted it for good. A file
+      // of the wrong size is a torn write, so it is written again.
+      if (!existsSync(file) || statSync(file).size !== buf.length) {
+        const tmp = `${file}.${process.pid}.tmp`;
+        try {
+          writeFileSync(tmp, buf);
+          renameSync(tmp, file);
+        } finally {
+          rmSync(tmp, { force: true });
+        }
+      }
       return hash;
     },
     pathFor(hash) {

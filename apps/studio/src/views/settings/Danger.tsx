@@ -7,7 +7,7 @@ import { brandName } from '../../layout/nav.js';
 import { Confirm } from '../../Confirm.js';
 import { Group } from './Group.js';
 
-export function Danger({ onDone }: { onDone: () => void }) {
+export function Danger({ onDone, thisComputer }: { onDone: () => void; thisComputer: boolean }) {
   const { brand, resetShots } = useBrand();
   const { refresh } = useAppData();
   const navigate = useNavigate();
@@ -62,36 +62,40 @@ export function Danger({ onDone }: { onDone: () => void }) {
           />
         </div>
       </Group>
-      <Group title="Every brand">
-        <div className="sc-set-row">
-          <span className="txt">
-            <b>Delete generated shots</b>
-            <small data-prose="">
-              Removes every set and every generated shot, in every brand. Brands, cast and scenes stay.
-            </small>
-          </span>
-          <Confirm
-            label="Delete shots"
-            title="Delete every generated shot?"
-            body="Brands, cast and scenes stay. Every set and every generated shot goes."
-            busy={busy}
-            onConfirm={() => void run('shots')}
-          />
-        </div>
-        <div className="sc-set-row">
-          <span className="txt">
-            <b>Delete all local data</b>
-            <small data-prose="">Brands, cast, sets, shots and saved keys, in one go.</small>
-          </span>
-          <Confirm
-            label="Delete everything"
-            title="Delete everything on this machine?"
-            body="The whole library folder is removed: brands, cast, sets, shots and your saved keys. There is no undo."
-            busy={busy}
-            onConfirm={() => void run('all')}
-          />
-        </div>
-      </Group>
+      {/* These empty the library folder on the computer running Scenri, which a
+          phone holding the code is refused, so they are offered only there. */}
+      {thisComputer && (
+        <Group title="Every brand">
+          <div className="sc-set-row">
+            <span className="txt">
+              <b>Delete generated shots</b>
+              <small data-prose="">
+                Removes every set and every generated shot, in every brand. Brands, cast and scenes stay.
+              </small>
+            </span>
+            <Confirm
+              label="Delete shots"
+              title="Delete every generated shot?"
+              body="Brands, cast and scenes stay. Every set and every generated shot goes."
+              busy={busy}
+              onConfirm={() => void run('shots')}
+            />
+          </div>
+          <div className="sc-set-row">
+            <span className="txt">
+              <b>Delete all local data</b>
+              <small data-prose="">Brands, cast, sets, shots and saved keys, in one go.</small>
+            </span>
+            <Confirm
+              label="Delete everything"
+              title="Delete everything on this machine?"
+              body="The whole library folder is removed: brands, cast, sets, shots and your saved keys. There is no undo."
+              busy={busy}
+              onConfirm={() => void run('all')}
+            />
+          </div>
+        </Group>
+      )}
     </>
   );
 }

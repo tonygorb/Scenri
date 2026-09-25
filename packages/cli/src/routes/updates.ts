@@ -31,7 +31,8 @@ export function registerUpdateRoutes(
     schema: SCHEMA_VERSION,
     installKind: runtime.installKind,
     supervised: runtime.supervised,
-    home: core.home,
+    // the library's path on disk, for this computer only (the e2e harness reads it over loopback)
+    ...(fromThisComputer(req) ? { home: core.home } : {}),
     // Settings hides what acts on this computer (its file manager, its
     // desktop) from a phone that opened Scenri over the Wi-Fi
     thisComputer: fromThisComputer(req),

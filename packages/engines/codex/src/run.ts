@@ -7,12 +7,12 @@
  * on stdout is never the answer; the file is.
  */
 import { spawn as nodeSpawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { copyFile, lstat, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { EngineAvailability } from '@scenri/core';
 import { MIN_CODEX_VERSION, parseCodexVersion, resolveCodex, versionAtLeast, type ResolvedCodex } from './locate.js';
-import { buildChildEnv } from './childEnv.js';
+import { buildChildEnv, SIBLING_PROVIDER_KEYS } from './childEnv.js';
 import { type CodexFailure, classifyCodexFailure, conflictReason, presentConflictKeys } from './classify.js';
 import {
   CONNECT_PROMPT,
@@ -99,6 +99,31 @@ export interface CodexRunner {
   invalidateConnection(): void;
   /** Record what a real generation already proved, so nothing is tested twice. */
   noteConnection(outcome: 'proven' | 'refused' | 'unproven', failure?: CodexFailure): void;
+}
+
+/**
+ * Copy one of the person's pictures into the workdir. Node's own failure names
+ * both absolute paths (the library's and the temp dir's), and this message is
+ * what the studio shows, so the raw one goes to the log and the person reads a
+ * sentence.
+ */
+export async function copyReference(src: string, dest: string): Promise<void> {
+  try {
+    await copyFile(src, dest);
+  } catch (err) {
+    console.error(`codex: ${String((err as Error)?.message ?? err)}`);
+    throw new Error('A reference picture could not be read.');
+  }
+}
+
+/**
+ * Read a file codex left behind, only when it is a plain file. The agent runs
+ * in a sandbox and Scenri does not: a link it left as out-1.png would have
+ * Scenri copy whatever the link points at into the library.
+ */
+export async function readLeftFile(path: string, name: string): Promise<Buffer> {
+  if (!(await lstat(path)).isFile()) throw new Error(`codex: ${name} is not a plain file`);
+  return readFile(path);
 }
 
 /**
@@ -348,7 +373,7 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
     // One environment for every codex child, the check included: the whole
     // point of the connection check is that codex cannot tell it apart from a
     // real shot. Built per spawn so a repair lands on the next run.
-    const env = buildChildEnv(parentEnv, ignoreEnvKeys());
+    const env = buildChildEnv(parentEnv, [...ignoreEnvKeys(), ...SIBLING_PROVIDER_KEYS]);
     return exe.direct
       ? spawnImpl(exe.command, args, { stdio, env, ...(platform !== 'win32' ? { detached: true } : {}) })
       : spawnImpl([exe.command, ...args.map(winArg)].join(' '), [], { stdio, env, shell: true });

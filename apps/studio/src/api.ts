@@ -104,7 +104,7 @@ export const api = {
   tree: (projectId: string) => req<{ project: Project; nodes: TreeNode[] }>('GET', `/api/projects/${projectId}/tree`),
   /** Everything running or lately finished in a brand, generations and imports together. */
   activity: (brandId: string) =>
-    req<{ nodes: ActivityNode[]; jobs: CatalogImportJob[]; studio?: StudioWork[] }>(
+    req<{ nodes: ActivityNode[]; jobs: CatalogImportJob[]; studio?: StudioWork[]; boot?: string }>(
       'GET',
       `/api/brands/${brandId}/activity`,
     ),
@@ -194,7 +194,8 @@ export const api = {
   saveSettings: (s: Record<string, string | boolean>) => req<{ ok: true }>('PUT', '/api/settings', s),
   costs: () => req<{ byEngine: Record<string, number>; caps: Record<string, number> }>('GET', '/api/costs/summary'),
   /** Where the library lives on this machine, and how big it has grown. */
-  home: () => req<{ dir: string; dbPath: string; images: number; bytes: number }>('GET', '/api/home'),
+  /** `dir` and `dbPath` are answered only to the computer running Scenri, never to a phone. */
+  home: () => req<{ dir?: string; dbPath?: string; images: number; bytes: number }>('GET', '/api/home'),
   reveal: () => req<{ ok: true }>('POST', '/api/system/reveal'),
   version: () => req<VersionInfo>('GET', '/api/version'),
   updateStatus: () => req<UpdateStatus>('GET', '/api/update/status'),
@@ -395,7 +396,11 @@ export const api = {
       'POST',
       `/api/brands/${brandId}/presenters/${presenterId}/revert`,
     ),
-  createScene: (brandId: string, p: ScenePatch) =>
+  /**
+   * `conversation` is the studio conversation saving it: the server answers a
+   * second create from the same conversation with the scene it already made.
+   */
+  createScene: (brandId: string, p: ScenePatch & { conversation?: string }) =>
     req<{ scene: unknown; warnings: string[]; brand: Brand }>('POST', `/api/brands/${brandId}/scenes`, p),
   updateScene: (brandId: string, sceneId: string, patch: ScenePatch) =>
     req<{ scene: unknown; warnings: string[]; brand: Brand }>(

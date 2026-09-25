@@ -29,3 +29,12 @@ export function buildChildEnv(parent: NodeJS.ProcessEnv, drop: readonly string[]
   }
   return child;
 }
+
+/**
+ * Scenri's other providers' keys (engines.ts reads them from the environment).
+ * Codex never reads them, and a codex child runs an agent over pictures and
+ * words anyone could have made, under a prompt that lets it run commands: a
+ * key it cannot see is one no injected instruction can read. Always dropped,
+ * whatever the user chose to keep.
+ */
+export const SIBLING_PROVIDER_KEYS = ['OPENROUTER_API_KEY', 'FAL_KEY', 'REPLICATE_API_TOKEN'] as const;
