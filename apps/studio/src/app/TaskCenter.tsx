@@ -9,10 +9,14 @@ import {
   batchTask,
   isStudioTask,
   loadFeed,
+  loadRunning,
   loadSeen,
+  lostWork,
   mergeFeed,
   orderTasks,
+  resumeFrom,
   saveFeed,
+  saveRunning,
   saveSeen,
   settled,
   showingTask,
@@ -125,8 +129,15 @@ export function TaskCenterProvider({
 
   // the previous poll's tasks, by id: the only thing that can tell us something
   // has just finished. A ref, because a poll must not depend on its own output.
-  // null until the first answer lands — that one is a baseline, never a backlog.
+  // null until the first answer lands — that one is a baseline, never a backlog,
+  // apart from what this tab last saw running in the brand (resumeFrom).
   const prevRef = useRef<Map<string, Task> | null>(null);
+  // A poll that could not reach the server: the next answer may be missing
+  // work a restart took with it (lostWork). About the server, not the brand.
+  const unreachableRef = useRef(false);
+  // Which server run answered last. A restart can land between two polls
+  // without either of them failing, so a new boot id says the same thing.
+  const bootRef = useRef<string | null>(null);
   const announcedRef = useRef<Set<string>>(new Set());
   const runningRef = useRef(0);
   // Which finished builds we have already refetched the brand for. A finished
@@ -176,12 +187,19 @@ export function TaskCenterProvider({
     try {
       // One tick, both sources. Asked together so a build and a generation can
       // never disagree about what moment it is.
-      const [{ nodes, jobs, studio = [] }, { builds: bs }] = await Promise.all([
+      const [{ nodes, jobs, studio = [], boot }, { builds: bs }] = await Promise.all([
         api.activity(brandId),
         api.assetBuilds(brandId),
       ]);
+      // The brand can change while this is out. Past this line the answer
+      // would be read against the other brand's history: its finishes toasted
+      // and filed there, and that brand's next tick reading every one of its
+      // own finishes as new.
+      if (brandRef.current.id !== brandId) return;
       liveBuilds = bs;
       liveStudio = studio;
+      if (boot && bootRef.current && boot !== bootRef.current) unreachableRef.current = true;
+      if (boot) bootRef.current = boot;
       onActivityRef.current?.(brandId, nodes);
       // One row per REQUEST, not per sibling: a four-shot batch is one piece
       // of work in the bell, read across all of its siblings (batchTask) now
@@ -202,6 +220,7 @@ export function TaskCenterProvider({
       ];
     } catch {
       // the bell is not worth an error state; the next tick will tell the truth
+      unreachableRef.current = true;
       return;
     }
     // A build writes straight into the brand document, so the moment one lands
@@ -239,6 +258,7 @@ export function TaskCenterProvider({
         spendAssetDraft(brandId, b.kind, b.id);
       }
       await refreshBrandsRef.current();
+      if (brandRef.current.id !== brandId) return;
     }
     // After the pull, never before: setBuilds is what removes the in-progress
     // card, and doing it first left a frame where the card was gone and the
@@ -246,8 +266,12 @@ export function TaskCenterProvider({
     setBuilds((prev) => (sameByValue(prev, liveBuilds) ? prev : liveBuilds));
     setStudioWork((prev) => (sameByValue(prev, liveStudio) ? prev : liveStudio));
 
-    const arrivals = settled(prevRef.current, next);
+    const prev = prevRef.current ?? resumeFrom(loadRunning(brandId), next);
+    const lost = unreachableRef.current ? lostWork(prev, next) : [];
+    unreachableRef.current = false;
+    const arrivals = settled(prev, [...next, ...lost]);
     prevRef.current = new Map(next.map((t) => [t.id, t]));
+    saveRunning(brandId, next);
     runningRef.current = next.filter((t) => t.state === 'running').length;
     const ordered = orderTasks(next);
     setTasks((prev) => (sameByValue(prev, ordered) ? prev : ordered));
@@ -295,9 +319,26 @@ export function TaskCenterProvider({
           pushRef.current({ kind: 'error', title: `${n.title} did not finish`, detail: n.subtitle, actions });
           continue;
         }
+        // Some of it drew and some did not: said quietly, as a partial import is.
+        if (n.state === 'partial') {
+          pushRef.current({
+            kind: 'warning',
+            title: n.id.startsWith('examples:')
+              ? `Some ${n.title} examples did not draw`
+              : `${n.title} did not fully finish`,
+            detail: n.subtitle,
+            actions,
+          });
+          continue;
+        }
         pushRef.current({
           kind: 'success',
-          title: n.id.startsWith('examples:') ? `${n.title} examples are ready` : `${n.title} is drawn`,
+          title: n.id.startsWith('examples:')
+            ? `${n.title} examples are ready`
+            : // a words-only change drew nothing, so it says what it did
+              n.kind === 'scene' && !n.thumb
+              ? `${n.title} is changed`
+              : `${n.title} is drawn`,
           detail: n.kind === 'presenter' ? n.subtitle : undefined,
           actions,
         });
@@ -327,6 +368,8 @@ export function TaskCenterProvider({
         const assetId = n.id.startsWith('build:')
           ? (liveBuilds.find((b) => `build:${b.id}` === n.id)?.assetId ?? null)
           : null;
+        // The toast outlives a brand switch, so its brand is the one it was made in.
+        const hub = hubPath(brandRef.current);
         pushRef.current({
           kind: 'success',
           title: `${n.title} is ready`,
@@ -340,9 +383,7 @@ export function TaskCenterProvider({
                 {
                   label: 'Use in a shot',
                   onClick: () =>
-                    navRef.current(
-                      `${hubPath(brandRef.current)}?${n.kind === 'presenter' ? 'presenter' : 'scene'}=${assetId}&compose=1`,
-                    ),
+                    navRef.current(`${hub}?${n.kind === 'presenter' ? 'presenter' : 'scene'}=${assetId}&compose=1`),
                 },
               ]
             : undefined,

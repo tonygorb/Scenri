@@ -13,6 +13,9 @@ import { UpdateCenterProvider } from './UpdateCenter.js';
 import { applyBrandRow, mergeBrandList } from './brandRows.js';
 import { WhatsNewProvider } from './WhatsNew.js';
 
+/** The least time between two re-reads of the brands on coming back to the tab. */
+const BACK_MS = 5000;
+
 // usePresenters and useScenes both expose `loaded`/`error`/`refetch` — spreading
 // both into one context would let whichever lands second silently win for
 // existing Scenes consumers. Namespaced instead, so both stay independently
@@ -130,6 +133,27 @@ export function AppShell() {
     // on its own, never in refresh's Promise.all: see guide.ts
     void loadGuide();
   }, [refresh]);
+
+  /**
+   * Another tab can change the library under this one: a presenter deleted
+   * there stayed a card, a picker entry and a sendable chip here for as long
+   * as this tab stayed open. Coming back to the tab re-reads the brands. Focus
+   * and visibility both fire on the way back, so one read covers a few seconds.
+   */
+  useEffect(() => {
+    let last = 0;
+    const back = () => {
+      if (document.hidden || Date.now() - last < BACK_MS) return;
+      last = Date.now();
+      void refreshBrands();
+    };
+    document.addEventListener('visibilitychange', back);
+    window.addEventListener('focus', back);
+    return () => {
+      document.removeEventListener('visibilitychange', back);
+      window.removeEventListener('focus', back);
+    };
+  }, [refreshBrands]);
 
   /**
    * One value for as long as nothing in it changed. The four catalog hooks

@@ -10,8 +10,9 @@ import {
   sceneStudioPath,
   shotPath,
 } from './routes.js';
-import { local } from './storage.js';
+import { local, session } from './storage.js';
 import { examplesSubtitle } from './sceneExampleRules.js';
+import { describeFailure } from './failure.js';
 
 /**
  * The model behind the notifications bell.
@@ -151,6 +152,16 @@ export function catalogPercent(j: CatalogImportJob | null): number {
 // one; saying "Workspace" on all of them would be furniture, not information.
 const whereOf = (n: ActivityNode) => (n.setNames.length > 0 ? `${n.setNames.join(', ')} · ` : '');
 
+/**
+ * A shot's error as the bell says it. The restart sweep writes a log line
+ * ("interrupted: server restarted mid-generation") that used to reach the
+ * toast word for word; it is the one error with plain words of its own.
+ */
+function nodeError(error: string | null): string {
+  const said = describeFailure(error);
+  return said.kind === 'restarted' ? said.title : (error ?? 'failed');
+}
+
 export function taskFromNode(n: ActivityNode, brand: { slug: string }, now = Date.now(), batchSize = 1): Task {
   const where = whereOf(n);
   // One row per request: a batch says how many shots it is making, a single
@@ -160,7 +171,7 @@ export function taskFromNode(n: ActivityNode, brand: { slug: string }, now = Dat
     n.status === 'running'
       ? `${where}${runningPhrase(runSince(n), now)}`
       : n.status === 'error'
-        ? `${where}${n.error ?? 'failed'}`
+        ? `${where}${nodeError(n.error)}`
         : n.status === 'cancelled'
           ? `${where}cancelled`
           : `${where}${made}`;
@@ -353,7 +364,13 @@ export function taskFromAssetBuild(b: AssetBuild, brand: { slug: string }): Task
 
 /** What a studio's work is doing, or what came of it, in the row's second line. */
 export function studioSubtitle(w: StudioWork): string {
-  if (w.kind === 'examples') return examplesSubtitle(w);
+  if (w.kind === 'examples') {
+    const said = examplesSubtitle(w);
+    // Some drew and some did not: the run is done, and carries why.
+    return w.status === 'done' && w.error
+      ? `${said} · ${Math.max(1, (w.total ?? 0) - (w.done ?? 0))} did not draw`
+      : said;
+  }
   if (w.status === 'failed') return w.error ?? 'It did not finish';
   if (w.status === 'cancelled') return 'Stopped';
   if (w.kind === 'scene') {
@@ -363,6 +380,8 @@ export function studioSubtitle(w: StudioWork): string {
         : w.step === 'changing'
           ? 'Changing the words'
           : 'Drawing the picture';
+    // Words added before anything was drawn change the words and draw nothing.
+    if (w.job === 'change' && !w.thumb) return 'The words are changed';
     return w.attachTo ? 'On its scene now' : 'The picture is drawn';
   }
   const view = w.step && w.step in VIEW_NAME ? VIEW_NAME[w.step as StudioView] : null;
@@ -379,7 +398,9 @@ export function studioSubtitle(w: StudioWork): string {
  * person who left while it drew comes back through.
  */
 export function taskFromStudioWork(w: StudioWork, brand: { slug: string }): Task {
-  const state: TaskState = w.status === 'failed' ? 'error' : w.status;
+  // A run that finished with an error drew some of what it was asked for and
+  // not the rest: partial, the same outcome a half-done import is.
+  const state: TaskState = w.status === 'failed' ? 'error' : w.status === 'done' && w.error ? 'partial' : w.status;
   const href =
     w.kind === 'examples'
       ? w.sceneId
@@ -474,6 +495,38 @@ export function settled(prev: Map<string, Task> | null, next: Task[], now = new 
   return out;
 }
 
+/**
+ * Work a server restart took with it, as the failure it is.
+ *
+ * The studios and the builds are held in the server's memory, so after a
+ * restart their running rows are simply gone, and `settled` only reads the
+ * rows that are there: a scene draw or a presenter's view vanished from the
+ * bell with no word at all. The caller asks only after a poll found the server
+ * unreachable, since a row can also go on purpose (a draft discarded, a read
+ * that worked) and that is not news. Shots are not here: the server sweeps
+ * those to an error of their own.
+ */
+export function lostWork(prev: Map<string, Task> | null, next: Task[]): Task[] {
+  if (!prev) return [];
+  const live = new Set(next.map((t) => t.id));
+  return [...prev.values()]
+    .filter((t) => t.state === 'running' && !live.has(t.id) && (isStudioTask(t.id) || t.id.startsWith('build:')))
+    .map((t) => ({ ...t, state: 'error' as const, subtitle: 'Lost when Scenri restarted. Start it again.' }));
+}
+
+/**
+ * The first answer's `prev` for a brand, read against what this tab last saw
+ * running there. The first answer is a baseline, so work that finished while
+ * the person was in another brand, or across a reload, finished inside the
+ * baseline and was never said anywhere. Everything else in the answer is
+ * still a baseline; only what was running keeps that state, so `settled` says
+ * how it ended.
+ */
+export function resumeFrom(running: Task[], next: Task[]): Map<string, Task> | null {
+  if (running.length === 0) return null;
+  return new Map([...next.map((t) => [t.id, t] as const), ...running.map((t) => [t.id, t] as const)]);
+}
+
 /** Newest first, one entry per id, capped. */
 export function mergeFeed(feed: NotificationItem[], arrivals: NotificationItem[], cap = FEED_CAP): NotificationItem[] {
   if (arrivals.length === 0) return feed;
@@ -514,6 +567,24 @@ export const saveFeed = (brandId: string, feed: NotificationItem[]) =>
   write(feedKey(brandId), JSON.stringify(feed.slice(0, FEED_CAP)));
 export const loadSeen = (brandId: string) => read(seenKey(brandId));
 export const saveSeen = (brandId: string, at: string) => write(seenKey(brandId), at);
+
+/* The session lane: what was running is about this tab's own last look, and
+ * a snapshot from last week read on a fresh open would announce a backlog. */
+const runningKey = (brandId: string) => `scenri:activity-running-${brandId}`;
+
+/** What this tab last saw running in a brand (see `resumeFrom`). */
+export function loadRunning(brandId: string): Task[] {
+  const raw = session.get(runningKey(brandId));
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as Task[]).filter((t) => t?.state === 'running') : [];
+  } catch {
+    return [];
+  }
+}
+export const saveRunning = (brandId: string, tasks: Task[]) =>
+  session.set(runningKey(brandId), JSON.stringify(tasks.filter((t) => t.state === 'running')));
 
 /**
  * Whether two poll answers say the same thing, so an unchanged answer keeps

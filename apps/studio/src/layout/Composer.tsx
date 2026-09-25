@@ -883,8 +883,19 @@ export const Composer = forwardRef<
   // words would silently ignore them, so it is blocked out loud instead.
   const aspectOnly = reshapeChoiceOpen && !hasContent;
   const cropWithWords = cropping && hasContent;
+  // A presenter deleted while their chip waited here: sent anyway, the shot
+  // came back without them and only a toast said so afterwards. The chip says
+  // why (flagToken); this holds the button, on the same roster guard.
+  const goneCharacter =
+    presenters.length > 0 && sentence.some((t) => t.t === 'character' && !presenters.some((p) => p.id === t.id));
   const canGo =
-    !busy && (hasContent || aspectOnly) && !cropWithWords && !!projectId && !targetPending && (cropping || !noEngine);
+    !busy &&
+    (hasContent || aspectOnly) &&
+    !cropWithWords &&
+    !goneCharacter &&
+    !!projectId &&
+    !targetPending &&
+    (cropping || !noEngine);
   /** Why the button will not go, in the words of the thing that is blocking. */
   const blockedReason =
     noEngine && !cropping
@@ -897,9 +908,11 @@ export const Composer = forwardRef<
             ? 'Wait for this version to finish, or press X to start a new shot'
             : cropWithWords
               ? 'This shape is reached by cropping, and a crop uses no words. Clear the prompt, or keep the current shape.'
-              : !hasContent && !aspectOnly
-                ? 'Write a prompt first'
-                : null;
+              : goneCharacter
+                ? 'Remove the presenter who is no longer in your roster'
+                : !hasContent && !aspectOnly
+                  ? 'Write a prompt first'
+                  : null;
 
   /**
    * The compiler's own reading of the brief, refreshed as it changes. For a
