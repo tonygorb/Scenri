@@ -51,6 +51,28 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.18.0',
+    date: '2026-09-25',
+    sections: [
+      {
+        heading: 'Create',
+        body: 'A new shot opens at portrait, one picture, standard quality. A choice already saved still wins.',
+      },
+      {
+        heading: 'Library',
+        body: 'A presenter, a product and a scene are kept from their own page. Filing and size show as chips, an empty Keepers tab offers the whole wall, and catalog cards stay a readable size as the window narrows.',
+      },
+      {
+        heading: 'Shots',
+        body: 'Download comes before archive or delete, and Keep stays last. The remove stays the same glass as the rest of the row until the pointer is on it.',
+      },
+      {
+        heading: 'Activity',
+        body: 'An empty Activity panel is the heading and one sentence.',
+      },
+    ],
+  },
+  {
     version: '0.17.2',
     date: '2026-09-24',
     sections: [
