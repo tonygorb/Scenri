@@ -186,9 +186,10 @@ test.describe('a product and its references', () => {
     await sheet.getByRole('button', { name: 'Save' }).click();
     await expect(sheet).toBeHidden();
 
-    await expect(page.locator('.sc-lookpage-cats')).toContainText('Fragrance');
+    const filed = page.getByRole('list', { name: 'Filed under' });
+    await expect(filed).toContainText('Fragrance');
     await page.reload();
-    await expect(page.locator('.sc-lookpage-cats')).toContainText('Fragrance');
+    await expect(filed).toContainText('Fragrance');
   });
 
   test('its size is read without anyone asking, and put right from Details', async ({ page }) => {
