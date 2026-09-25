@@ -102,20 +102,20 @@
 .sc-chip,
 .sc-btn,
 .sc-thumb {
-  /* Colour eases; the press does not move. Geometry is deliberately absent
-     from this list because it is absent from the press itself. */
+  /* Border and text ease. The fill does not: a press is paint for as long as
+     the control is held, and the hover fill is back the moment it is released.
+     Easing the background is what made a click flash. Geometry stays off this
+     list because a press does not move. */
   transition:
-    background var(--sc-dur-fast) var(--sc-ease),
     border-color var(--sc-dur-fast) var(--sc-ease),
-    color var(--sc-dur-fast) var(--sc-ease),
-    opacity var(--sc-dur-fast) var(--sc-ease);
+    color var(--sc-dur-fast) var(--sc-ease);
 }
 /* Pressed controls never change geometry. The press is a paint step on the
    surface, never a move: nothing shifts under the finger, a click that lands
    on an edge stays landed, and a row of centred buttons does not re-centre the
    moment one of them is held. This used to be translateY(1px), which is what
    made every button in the app read as a mechanical key. */
-.sc-chip:active,
+.sc-chip:not([data-static]):active,
 .sc-icon-btn:active,
 .sc-btn-ghost:active,
 .sc-btn-red:active {
@@ -148,7 +148,7 @@
    has to paint or it reads as nothing. Same rungs as a pointer: a fill or an
    opacity step, and the control does not move. */
 @media (hover: none), (pointer: coarse) {
-  .sc-chip:active,
+  .sc-chip:not([data-static]):active,
   .sc-icon-btn:active,
   .sc-btn-ghost:active,
   .sc-btn-red:active,

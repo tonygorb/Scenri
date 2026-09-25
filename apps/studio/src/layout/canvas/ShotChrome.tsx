@@ -22,10 +22,12 @@ import type { ShotMenuItem } from './shotMenu.js';
  * grows the controls. A kept shot is the exception that stays lit, because
  * that is the only way to scan a wall for one.
  *
- * The action row is More, then Refine, then Archive (or Delete once the shot
- * is archived), then Download, then Keep at the end. Refine is the same
- * square as the others: the infinity mark, no word. On a phone it is not on
- * the picture at all. A tap opens the shot, which is the refine, and the
+ * The action row is More, then Refine, then Download, then Archive (or Delete
+ * once the shot is archived), then Keep at the end. The remove sits just
+ * before the star: the menu already files it last, and the corner belongs to
+ * Keep. Refine is the same square as the others: the infinity mark, no word.
+ * On a phone it is not on the picture at all. A tap opens the shot, which is
+ * the refine, and the
  * menu still has the line. Those are rounded squares; the tick stays a
  * circle. The star is gold when the shot is kept, and a kept one stays
  * visible so a wall can be scanned. A selection does not take the row away.
@@ -163,13 +165,20 @@ export function ShotChrome({
                   <InfinityIcon size={15} weight="bold" />
                 </button>,
               )}
+            {node.images[0] &&
+              named(
+                'Download',
+                <button type="button" className="sc-cell-ctl" aria-label={`Download ${name}`} onClick={download}>
+                  <DownloadSimple size={15} />
+                </button>,
+              )}
             {node.archived
               ? onDelete &&
                 named(
                   'Delete permanently',
                   <button
                     type="button"
-                    className="sc-cell-ctl"
+                    className="sc-cell-ctl sc-cell-danger"
                     aria-label={`Delete ${name} permanently`}
                     onClick={() => onDelete(node)}
                   >
@@ -181,20 +190,13 @@ export function ShotChrome({
                   'Archive',
                   <button
                     type="button"
-                    className="sc-cell-ctl"
+                    className="sc-cell-ctl sc-cell-danger"
                     aria-label={`Archive ${name}`}
                     onClick={() => onArchive(node)}
                   >
                     <Archive size={15} />
                   </button>,
                 )}
-            {node.images[0] &&
-              named(
-                'Download',
-                <button type="button" className="sc-cell-ctl" aria-label={`Download ${name}`} onClick={download}>
-                  <DownloadSimple size={15} />
-                </button>,
-              )}
             {named(
               node.kept ? 'Remove from Keepers' : 'Add to Keepers',
               <button

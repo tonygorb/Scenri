@@ -12,7 +12,7 @@
   color: var(--sc-fg2);
   cursor: pointer;
 }
-.sc-icon-btn:hover {
+.sc-icon-btn:hover:not(:active) {
   background: var(--sc-hover);
   color: var(--sc-fg);
 }
@@ -101,7 +101,7 @@
   color: var(--sc-fg);
   border-color: var(--sc-line);
 }
-.sc-btn-ghost:hover {
+.sc-btn-ghost:hover:not(:active) {
   background: var(--sc-hover);
   border-color: var(--sc-line-strong);
 }
@@ -129,7 +129,7 @@
   padding: 5px 12px;
   cursor: pointer;
 }
-.sc-chip:hover {
+.sc-chip:not([data-static]):hover:not(:active) {
   background: var(--sc-hover);
   color: var(--sc-fg);
 }
