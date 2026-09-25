@@ -198,6 +198,13 @@ export function registerAccessGuard(app: FastifyInstance, opts: AccessOptions = 
         req.headers['sec-fetch-mode'] === 'navigate' && (req.method === 'GET' || req.method === 'HEAD');
       if (!isNavigation) return reply.status(403).send({ error: 'cross-site request blocked' });
     }
+    // Another app on this computer is same-site, not cross-site: a page on
+    // 127.0.0.1 at any other port. Its loopback Host and socket would then
+    // skip the code below, so it may read but never change anything. The
+    // studio, a phone and Vite's proxy all send same-origin.
+    if (req.headers['sec-fetch-site'] === 'same-site' && req.method !== 'GET' && req.method !== 'HEAD') {
+      return reply.status(403).send({ error: 'cross-site request blocked' });
+    }
 
     const code = opts.code?.();
     if (!code || fromThisComputer(req)) return;

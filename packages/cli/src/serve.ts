@@ -188,7 +188,9 @@ async function run(): Promise<void> {
   const phone = await app.phone.status(true).catch(() => null);
   const localUrl = localUrlFor(HOST, port, app.phone.code);
   console.log('');
-  for (const line of startLines({ host: HOST, port, home: core.home, studioBuilt: !!studioDist, phone })) {
+  // Headless is the desktop icon, whose stdout is scenri.log: no code in a file.
+  const shown = phone && process.env.SCENRI_HEADLESS === '1' ? { ...phone, code: '' } : phone;
+  for (const line of startLines({ host: HOST, port, home: core.home, studioBuilt: !!studioDist, phone: shown })) {
     console.log(line ? `  ${line}` : '');
   }
   console.log('');

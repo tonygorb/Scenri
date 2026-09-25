@@ -14,7 +14,7 @@ export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core; t
    * What the library weighs. Off the event loop: a hundred thousand images
    * used to be a hundred thousand synchronous stats on the request thread.
    */
-  app.get('/api/home', async () => {
+  app.get('/api/home', async (req) => {
     const imagesDir = join(core.home, 'images');
     let files = 0;
     let bytes = 0;
@@ -27,7 +27,9 @@ export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core; t
     }
     const dbPath = join(core.home, 'scenri.db');
     const dbBytes = (await stat(dbPath).catch(() => null))?.size ?? 0;
-    return { dir: core.home, dbPath, images: files, bytes: bytes + dbBytes };
+    // where the library lives on disk is this computer's business, not a phone's
+    const where = fromThisComputer(req) ? { dir: core.home, dbPath } : {};
+    return { ...where, images: files, bytes: bytes + dbBytes };
   });
 
   /** Open the library in the OS file manager. Local app only, by nature. */
@@ -75,6 +77,8 @@ export function registerSystemRoutes(app: FastifyInstance, deps: { core: Core; t
    * never a path from the request.
    */
   app.delete('/api/data', async (req, reply) => {
+    // a code travels over plain http, so holding one is not enough to empty the library
+    if (!fromThisComputer(req)) return reply.status(403).send({ error: 'Only on the computer running Scenri.' });
     const scope = String((req.query as any)?.scope ?? '');
     if (scope !== 'shots' && scope !== 'all') return reply.status(400).send({ error: 'scope must be shots or all' });
     if (scope === 'shots') {

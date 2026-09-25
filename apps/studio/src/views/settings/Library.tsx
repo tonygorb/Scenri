@@ -15,7 +15,9 @@ export function Library({ info, thisComputer }: { info: LibraryInfo | null; this
       <div className="sc-set-row">
         <span className="txt">
           <b>Library folder</b>
-          <small>{info ? `${info.dir} · ${bytes(info.bytes)} across ${info.images} images` : '…'}</small>
+          <small>
+            {info ? [info.dir, `${bytes(info.bytes)} across ${info.images} images`].filter(Boolean).join(' · ') : '…'}
+          </small>
         </span>
         {/* it opens the folder on the computer running Scenri, so only there */}
         {thisComputer && (

@@ -314,7 +314,7 @@ function PageBody({
     case 'about':
       return <About version={version} />;
     case 'danger':
-      return <Danger onDone={onSaved} />;
+      return <Danger onDone={onSaved} thisComputer={thisComputer} />;
   }
 }
 

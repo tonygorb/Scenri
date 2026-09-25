@@ -12,7 +12,7 @@ export interface StartInfo {
   port: number;
   home: string;
   studioBuilt: boolean;
-  /** The phone address and its code, when a phone could open it. */
+  /** The phone address and its code, when a phone could open it. An empty code is left out: see startLines. */
   phone: { address: string | null; code: string } | null;
 }
 
@@ -25,12 +25,15 @@ export interface StartInfo {
 export function localUrl(host: string, port: number, code: string): string {
   if (host === '::1') return `http://[::1]:${port}`;
   if (isLoopbackName(host) || isWildcardHost(host)) return `http://127.0.0.1:${port}`;
-  return `http://${host.includes(':') ? `[${host}]` : host}:${port}/?t=${code}`;
+  return `http://${host.includes(':') ? `[${host}]` : host}:${port}/${code ? `?t=${code}` : ''}`;
 }
 
 export function startLines(info: StartInfo): string[] {
   const lines = [`Scenri Studio → ${localUrl(info.host, info.port, info.phone?.code ?? '')}`];
-  if (info.phone?.address) lines.push(`on your phone → ${info.phone.address}  code ${groupCode(info.phone.code)}`);
+  // A start with no terminal (the desktop icon) writes these lines to a log
+  // file, and a code in a log outlives the start; Settings shows it instead.
+  const code = info.phone?.code ? groupCode(info.phone.code) : 'in Settings';
+  if (info.phone?.address) lines.push(`on your phone → ${info.phone.address}  code ${code}`);
   lines.push(`data dir      → ${info.home}`, 'Keep this window open while Scenri is running.');
   if (!info.studioBuilt) lines.push('', '(studio UI not built, API only. Run: pnpm build)');
   return lines;
