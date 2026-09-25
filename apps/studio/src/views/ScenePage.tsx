@@ -8,14 +8,16 @@ import { useTitleEntity } from '../useDocumentTitle.js';
 import { customSceneById, customScenesOf } from '../brandAssets.js';
 import { hubPath, sceneEditPath, scenePath, scenesPath, shotPath } from '../routes.js';
 import { useApplyScene } from '../app/useApplyScene.js';
-import { bookmarkedScenes, toggleKept } from '../bookmarks.js';
+import { bookmarkedScenes } from '../bookmarks.js';
 import { Confirm } from '../Confirm.js';
 import { SceneCard } from '../layout/SceneCard.js';
-import { CaretDown, PencilSimple, Star } from '@phosphor-icons/react';
+import { CaretDown, PencilSimple } from '@phosphor-icons/react';
 import { DropdownMenu } from '@radix-ui/themes';
 import { COPY } from '../create/scene/sceneCopy.js';
 import { FRAMINGS, SETUPS_MAX } from '../create/scene/sceneSetups.js';
 import { sceneTailLine } from './sceneFacts.js';
+import { RecordCrumb } from '../layout/RecordCrumb.js';
+import { RecordKeep } from '../layout/RecordKeep.js';
 import { Tip } from '../layout/Tip.js';
 import { AssetDetailsDialog } from './AssetDetailsDialog.js';
 import { EmptyRefFrame, ShotThumb, Shown, Slider } from '../layout/ReferenceGallery.js';
@@ -30,7 +32,7 @@ import { SceneExamples } from './SceneExamples.js';
  * One scene, as a record: the same page a presenter and a product have.
  *
  * Identity first and tight (the name, what it is in one sentence, what it is
- * made of in a few words, and the one verb that uses it), then the pictures of
+ * made of in a few words, the verb that uses it, and the keeper star), then the pictures of
  * the place, which is the only zone allowed to leave the column, then what a
  * shot made here is told, then the shots already made here, then the quiet
  * facts and Delete.
@@ -51,7 +53,6 @@ export function ScenePage() {
   const applyScene = useApplyScene();
   const brandId = brand.id;
   const [refs, setRefs] = useState<string[]>([]);
-  const [marks, setMarks] = useState<string[]>(() => bookmarkedScenes(brandId));
   /** The picture opened at full size, and what to call it there. */
   const [open, setOpen] = useState<{ src: string; label: string } | null>(null);
 
@@ -286,7 +287,6 @@ export function ScenePage() {
       ? 'Shown with a demo product for reference. Yours replaces it.'
       : '';
 
-  const marked = !owned && marks.includes(scene.id);
   const ways = owned?.setups ?? [];
   /**
    * The uploads it was read from, without the one already standing above as
@@ -318,6 +318,7 @@ export function ScenePage() {
   return (
     <ScrollPane>
       <main className="sc-lookpage sc-scenepage" id="main">
+        <RecordCrumb to={scenesPath(brand)} wall="Scenes" where={owned ? 'Yours' : 'Scenri library'} />
         <h1>{scene.name}</h1>
         {/* Where it is filed, as the app's own chips, above the caption: the
             presenter page's order, and the thing a place is scanned for. */}
@@ -365,21 +366,12 @@ export function ScenePage() {
               Use in a shot
             </button>
           )}
-          {owned ? (
+          {owned && (
             <Link className="sc-btn sc-btn-ghost" to={sceneEditPath(brand, owned.id)}>
               Edit scene
             </Link>
-          ) : (
-            <button
-              type="button"
-              className="sc-btn sc-btn-ghost"
-              aria-pressed={marked}
-              onClick={() => setMarks(toggleKept('scene', brandId, scene.id))}
-            >
-              <Star size={13} weight={marked ? 'fill' : 'regular'} />
-              <span>{marked ? 'Remove from Keepers' : 'Add to Keepers'}</span>
-            </button>
           )}
+          <RecordKeep kind="scene" brandId={brandId} id={scene.id} />
           {owned && (
             <Tip label="Edit name, filing and ways">
               <button

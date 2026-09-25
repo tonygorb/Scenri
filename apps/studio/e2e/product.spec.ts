@@ -174,17 +174,21 @@ test.describe('a product and its references', () => {
     await expect(page.locator('.sc-lookcard-cap').filter({ hasText: 'After' })).toHaveCount(1);
   });
 
-  test('the category picker writes, and the choice survives a reload', async ({ page }) => {
+  test('the category is a chip, and it is changed from Details', async ({ page }) => {
     const brand = await currentBrand(page);
     const id = await seedProduct(page, brand.id, 'Uncategorised', 1);
     await page.goto(`/${brand.slug}/products/${id}`);
 
-    await page.locator('.sc-catpick').click();
+    await page.getByRole('button', { name: 'Edit details' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Details' });
+    await sheet.locator('.sc-catpick').click();
     await page.getByRole('menuitemradio', { name: 'Fragrance' }).click();
+    await sheet.getByRole('button', { name: 'Save' }).click();
+    await expect(sheet).toBeHidden();
 
-    await expect(page.locator('.sc-catpick')).toContainText('Fragrance');
+    await expect(page.locator('.sc-lookpage-cats')).toContainText('Fragrance');
     await page.reload();
-    await expect(page.locator('.sc-catpick')).toContainText('Fragrance');
+    await expect(page.locator('.sc-lookpage-cats')).toContainText('Fragrance');
   });
 
   test('its size is read without anyone asking, and put right from Details', async ({ page }) => {
@@ -192,36 +196,29 @@ test.describe('a product and its references', () => {
     // the demo reader takes a size written in the name, as a real read takes it from the photo
     const id = await seedProduct(page, brand.id, 'Signet 2 cm', 1);
     await page.goto(`/${brand.slug}/products/${id}`);
-    const facts = page.locator('.sc-lookpage-facts');
-    await expect(facts).toContainText('About 2 cm');
+    const sizeLine = page.getByRole('list', { name: 'Size' });
+    await expect(sizeLine).toContainText('2 cm');
 
     await page.getByRole('button', { name: 'Edit details' }).click();
     const sheet = page.getByRole('dialog', { name: 'Details' });
-    const field = sheet.getByRole('textbox', { name: 'Size' });
-    await expect(field).toHaveValue('');
-    await expect(field).toHaveAttribute('placeholder', 'about 2 cm');
+    const field = sheet.getByRole('textbox', { name: 'Height' });
+    await expect(field).toHaveValue('2');
 
-    // words with no unit say what is wanted and change nothing
-    await field.fill('large');
-    await sheet.getByRole('button', { name: 'Save' }).click();
-    await expect(sheet).toContainText('Give the size with a unit');
-    await expect(facts).toContainText('About 2 cm');
-
-    await field.fill('2.5 cm across');
+    await field.fill('2.5');
     await sheet.getByRole('button', { name: 'Save' }).click();
     await expect(sheet).toBeHidden();
-    await expect(facts).toContainText('2.5 cm across');
+    await expect(sizeLine).toContainText('2.5 cm');
     await page.reload();
-    await expect(facts).toContainText('2.5 cm across');
+    await expect(sizeLine).toContainText('2.5 cm');
 
     // empty takes the correction back, and the reading stands again
     await page.getByRole('button', { name: 'Edit details' }).click();
-    await expect(field).toHaveValue('2.5 cm across');
+    await expect(field).toHaveValue('2.5');
     await field.fill('');
     await sheet.getByRole('button', { name: 'Save' }).click();
     await expect(sheet).toBeHidden();
-    await expect(facts).toContainText('About 2 cm');
-    await expect(facts).not.toContainText('2.5 cm across');
+    await expect(sizeLine).toContainText('2 cm');
+    await expect(sizeLine).not.toContainText('2.5');
   });
 
   test('a failed upload says what went wrong and leaves the product alone', async ({ page }) => {

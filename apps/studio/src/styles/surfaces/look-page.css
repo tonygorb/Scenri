@@ -100,7 +100,9 @@
   font: 600 var(--sc-text-h1) / 1.14 var(--sc-font);
   color: var(--sc-fg);
   letter-spacing: -0.035em;
-  margin: 0 auto 16px;
+  /* Tight to whatever follows (chips, the sentence). The verb row owns the
+     beat out of the identity, so a scene, a presenter and a product share it. */
+  margin: 0 auto var(--sc-space-5);
   max-width: var(--sc-measure-title);
   text-wrap: balance;
 }
@@ -109,33 +111,36 @@
   font-size: 15px;
   line-height: 1.55;
   max-width: var(--sc-measure-lede);
-  margin: 0 auto 10px;
+  margin: 0 auto;
   text-wrap: pretty;
 }
 .sc-lookpage-facts {
   font: 12.5px / 1.5 var(--sc-font);
   color: var(--sc-fg3);
-  margin: 0 auto 24px;
+  margin: 0 auto;
   max-width: var(--sc-measure-lede);
   text-wrap: pretty;
 }
+/* The quiet line belongs to the sentence above it, not to the buttons. */
+.sc-lookpage-lede + .sc-lookpage-facts {
+  margin-top: var(--sc-space-3);
+}
 .sc-lookpage-acts {
   display: flex;
+  align-items: center;
   justify-content: center;
   flex-wrap: wrap;
   gap: var(--sc-space-4);
+  /* One beat between the identity and the verb, on every record. */
+  margin-top: var(--sc-space-8);
   margin-bottom: calc(var(--sc-space-6) * 2);
 }
-/* Same box open as closed, in a centred wrapping row where any width change
-   re-centers every sibling. The `:active { transform: none }` that used to sit
-   here went with the press translate it was written to cancel. */
-.sc-catpick {
-  flex: none;
-  box-shadow: none;
-}
-.sc-catpick[data-state="open"] {
-  background: var(--sc-hover);
-  border-color: var(--sc-line-strong);
+/* Kept is the star, gold, at rest. The button stays the quiet circle: a
+   raised fill would read as selected, and gold on the whole control would
+   spend the accent on chrome. */
+.sc-lookpage-keep[data-kept],
+.sc-lookpage-keep[data-kept]:hover {
+  color: var(--sc-star);
 }
 
 .sc-lookpage-refs {
@@ -362,13 +367,6 @@
   .sc-lookpage h1 {
     line-height: 1.16;
     max-width: none;
-    margin-bottom: var(--sc-space-6);
-  }
-  .sc-lookpage-lede {
-    margin-bottom: 10px;
-  }
-  .sc-lookpage-facts {
-    margin-bottom: var(--sc-space-8);
   }
   .sc-lookpage-acts {
     margin-bottom: 32px;
@@ -414,16 +412,13 @@
   .sc-lookpage h1 {
     letter-spacing: -0.03em;
     line-height: 1.18;
-    margin-bottom: 12px;
   }
   .sc-lookpage-lede {
     font-size: 14px;
     line-height: 1.5;
-    margin-bottom: 8px;
   }
   .sc-lookpage-facts {
     font-size: 12px;
-    margin-bottom: 20px;
   }
   .sc-lookpage-acts {
     margin-bottom: 28px;
