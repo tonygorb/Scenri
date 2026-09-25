@@ -1,5 +1,6 @@
-import { type Aside, type Question, type Turn, asideTurns } from '../../conversation/question.js';
-import { PROMPT, readingWhat, reason } from './presenterCopy.js';
+import { type Aside, type ChoiceOption, type Question, type Turn, asideTurns } from '../../conversation/question.js';
+import type { FailureRemedy } from '../../failure.js';
+import { PROMPT, failureWords, readingWhat } from './presenterCopy.js';
 import { sideCheck } from './presenterTraits.js';
 import {
   builtOn,
@@ -13,6 +14,7 @@ import {
   VIEW_NAME,
   allApproved,
   coverageLine,
+  currentView,
   identityLocked,
   viewsOf,
   wouldStaleDependents,
@@ -47,6 +49,34 @@ export interface RecordArgs {
   placed: Set<Aside>;
 }
 
+/**
+ * A way on without the extra views, beside Retry, whenever one of them is what
+ * could not be drawn. Once asked for, the extras were a debt the save waited
+ * on, and an engine that will not draw a back view made a finished set
+ * unsaveable: Retry was the only answer, and it failed the same way each time.
+ */
+const withoutExtras = (view: StudioView | null): ChoiceOption[] =>
+  view && EXTRA_VIEWS.includes(view) ? [{ id: 'skip-extras', label: 'Not now' }] : [];
+
+/**
+ * A failure, asked about: the control that fixes it first when there is one,
+ * then Retry, which is how the draw is asked for again once it is fixed. The
+ * remedy's id says where it opens.
+ */
+function failedAsk(said: { text: string; remedy?: FailureRemedy }, more: ChoiceOption[] = []): Question {
+  return {
+    id: 'retry',
+    kind: 'confirm',
+    tone: 'alert',
+    prompt: said.text,
+    options: [
+      ...(said.remedy ? [{ id: `remedy:${said.remedy.opens}`, label: said.remedy.label }] : []),
+      { id: 'retry', label: 'Retry' },
+      ...more,
+    ],
+  };
+}
+
 /** A draw that was stopped is said quietly and offered again; one that failed says why, with a Retry. */
 export function stoppedOrFailed(view: StudioView, error: string): Question {
   const name = view === 'portrait' ? 'face' : VIEW_NAME[view];
@@ -56,15 +86,9 @@ export function stoppedOrFailed(view: StudioView, error: string): Question {
         kind: 'confirm',
         quiet: true,
         prompt: `Stopped drawing the ${name}. Nothing finished was touched.`,
-        options: [{ id: 'retry', label: 'Draw it again' }],
+        options: [{ id: 'retry', label: 'Draw it again' }, ...withoutExtras(view)],
       }
-    : {
-        id: 'retry',
-        kind: 'confirm',
-        tone: 'alert',
-        prompt: `The ${name} could not be drawn: ${reason(error)}. Nothing finished was touched.`,
-        options: [{ id: 'retry', label: 'Retry' }],
-      };
+    : failedAsk(failureWords(`The ${name} could not be drawn`, error), withoutExtras(view));
 }
 
 /** Where the analyzer filed them, said once at the save; the presenter page is where it changes. */
@@ -295,13 +319,7 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
       return T;
     }
     if (ui.failed) {
-      ask({
-        id: 'retry',
-        kind: 'confirm',
-        tone: 'alert',
-        prompt: `That did not go through: ${reason(ui.failed ?? '')}. Nothing finished was touched.`,
-        options: [{ id: 'retry', label: 'Retry' }],
-      });
+      ask(failedAsk(failureWords('That did not go through', ui.failed)));
       return T;
     }
     if (p.error) {
@@ -337,16 +355,13 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
   const lastGate = [...inPlay].reverse().find((v) => HAND_APPROVED.has(v));
   const firstFree = inPlay.find((v) => !HAND_APPROVED.has(v));
   const candidate = views.find((v) => d.views[v].status === 'candidate');
-  const failed = views.find((v) => !!d.views[v].error);
+  // Only a view still in play: an extra declined after it failed keeps its
+  // error on the server, and asking about it again would undo the decline.
+  const failed = inPlay.find((v) => !!d.views[v].error);
 
   if (ui.failed && !active) {
-    ask({
-      id: 'retry',
-      kind: 'confirm',
-      tone: 'alert',
-      prompt: `That did not go through: ${reason(ui.failed ?? '')}. Nothing finished was touched.`,
-      options: [{ id: 'retry', label: 'Retry' }],
-    });
+    // what it was on its way to draw, when that is an extra, can be let go
+    ask(failedAsk(failureWords('That did not go through', ui.failed), withoutExtras(currentView(d))));
     return T;
   }
 
@@ -384,6 +399,17 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
      */
     const landed = (h: string | undefined) => (h ? (numbers.get(`${candidate}:${h}`) ?? 0) : 0);
     const putBack = !!slot.hash && !!slot.prior && landed(slot.hash) < landed(slot.prior);
+    /**
+     * A candidate can carry a failure: a Try again that failed leaves the one
+     * it was trying to replace, and a restart mid-redraw leaves the picture it
+     * was drawn over. Asked about as a fresh landing, the failure was never
+     * said and "Redrew" claimed a redraw that did not happen. It is said
+     * first, and the picture that stands is still offered.
+     */
+    if (slot.error) {
+      const said = stoppedOrFailed(candidate, slot.error);
+      say(`failed-${candidate}`, said.prompt, slot.error === 'cancelled' ? undefined : 'alert');
+    }
     // The picture first, then the question about it.
     //
     // Every other picture in this conversation arrives as a line of its own
@@ -400,11 +426,13 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
         id: `candidate-${candidate}-${slot.hash}`,
         text: putBack
           ? `Here is ${VIEW_NAME[candidate]} ${landed(slot.hash)} again.`
-          : !revising
-            ? `Here is the ${VIEW_NAME[candidate]}.`
-            : candidate === 'portrait'
-              ? `Here is ${who} with the change.`
-              : `Redrew the ${VIEW_NAME[candidate]}.`,
+          : slot.error
+            ? `Here is the ${VIEW_NAME[candidate]} as it is.`
+            : !revising
+              ? `Here is the ${VIEW_NAME[candidate]}.`
+              : candidate === 'portrait'
+                ? `Here is ${who} with the change.`
+                : `Redrew the ${VIEW_NAME[candidate]}.`,
         thumb: slot.hash,
         label: VIEW_LABEL[candidate],
         view: candidate,
@@ -456,6 +484,8 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
       id: 'extras',
       kind: 'confirm',
       prompt: PROMPT.extras,
+      // three draws nobody can take back: never on a stray Enter
+      noEnter: true,
       options: [
         { id: 'add', label: 'Add them' },
         { id: 'save', label: 'Not now' },

@@ -142,7 +142,7 @@ export type Action =
   /** Everything goes, except words to start the next person from. */
   | { type: 'start-over'; text?: string }
   /** What the session remembered, at a reload. */
-  | { type: 'restore'; answers: Answers; revision: number; asides?: Aside[] };
+  | { type: 'restore'; answers: Answers; revision: number; asides?: Aside[]; extrasDeclined?: boolean };
 
 const same = (x: unknown, y: unknown) => JSON.stringify(x) === JSON.stringify(y);
 
@@ -462,7 +462,13 @@ export function reduce(s: CreationState, action: Action): CreationState {
     case 'start-over':
       return { ...EMPTY_STATE, revision: s.revision + 1, text: action.text ?? '' };
     case 'restore':
-      return { ...EMPTY_STATE, answers: action.answers, revision: action.revision, asides: action.asides ?? [] };
+      return {
+        ...EMPTY_STATE,
+        answers: action.answers,
+        revision: action.revision,
+        asides: action.asides ?? [],
+        extrasDeclined: !!action.extrasDeclined,
+      };
   }
 }
 
@@ -497,6 +503,10 @@ export function serialize(s: CreationState): string {
     answers: s.answers,
     revision: s.revision,
     asides: s.asides.slice(-ASIDES_MAX),
+    // A decision, not the moment: "Not now" to the extra views was asked
+    // again after every reload, one Enter or click from three draws. Optional,
+    // so a copy written before it reads back unchanged.
+    ...(s.extrasDeclined ? { extrasDeclined: true } : {}),
   });
 }
 
@@ -561,7 +571,9 @@ function upgrade(id: Qid, v: unknown): unknown {
   return v;
 }
 
-export function deserialize(raw: string | null): { answers: Answers; revision: number; asides: Aside[] } | null {
+export function deserialize(
+  raw: string | null,
+): { answers: Answers; revision: number; asides: Aside[]; extrasDeclined?: true } | null {
   if (!raw) return null;
   try {
     const p = JSON.parse(raw) as {
@@ -569,6 +581,7 @@ export function deserialize(raw: string | null): { answers: Answers; revision: n
       answers?: Record<string, unknown>;
       revision?: number;
       asides?: unknown;
+      extrasDeclined?: unknown;
     };
     // v2 wrote the last-moment detail as bare words; it carries a picture now.
     // v3 kept no asides, and reads back with none rather than being thrown away.
@@ -587,7 +600,12 @@ export function deserialize(raw: string | null): { answers: Answers; revision: n
       .map(asideFrom)
       .filter((a): a is Aside => a !== null)
       .slice(-ASIDES_MAX);
-    return { answers, revision: typeof p.revision === 'number' ? p.revision : 0, asides };
+    return {
+      answers,
+      revision: typeof p.revision === 'number' ? p.revision : 0,
+      asides,
+      ...(p.extrasDeclined === true ? { extrasDeclined: true as const } : {}),
+    };
   } catch {
     return null;
   }

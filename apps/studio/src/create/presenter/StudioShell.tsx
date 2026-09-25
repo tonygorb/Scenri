@@ -6,7 +6,7 @@ import {
   ConversationComposer,
   type ComposerScope,
 } from '../../conversation/ConversationComposer.js';
-import type { Answer, Turn } from '../../conversation/question.js';
+import { type Answer, type Turn, enterDecides } from '../../conversation/question.js';
 import { Transcript } from '../../conversation/Transcript.js';
 import { PHONE, useMediaQuery } from '../../useMediaQuery.js';
 import { StageEmpty } from '../studio/StageEmpty.js';
@@ -135,9 +135,9 @@ export interface StudioSurface {
 export function StudioShell({ surface, onClose }: { surface: StudioSurface; onClose: () => void }) {
   const phone = useMediaQuery(PHONE);
 
-  // Enter decides the open question's first answer when no field has the
-  // keyboard: Use this person, Save presenter, Retry, without reaching for
-  // the mouse. A sentence in the composer keeps Enter for itself.
+  // Enter decides the open question's first answer when the keyboard is on
+  // that question: Use this person, Save presenter, Retry, without reaching
+  // for the mouse. A sentence in the composer keeps Enter for itself.
   const s = surface;
   // A picture in the conversation belongs to a view, and pressing it puts that
   // view on the stage. The stage's picker is the one that already does this
@@ -145,9 +145,7 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
   // are joined here rather than in either of them.
   const pick = s.stage?.onPick;
   const show = pick ? (view: string) => pick(view) : undefined;
-  const open = s.turns[s.turns.length - 1];
-  const decide =
-    open?.kind === 'question' && open.question.kind === 'confirm' && !open.question.quiet ? open.question : null;
+  const decide = enterDecides(s.turns);
   useEffect(() => {
     if (!decide || s.busy) return;
     /**
@@ -162,8 +160,18 @@ export function StudioShell({ surface, onClose }: { surface: StudioSurface; onCl
     let answered = false;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Enter' || e.shiftKey || e.defaultPrevented || answered) return;
+      /**
+       * Only where the keyboard is on the question itself: its group, which
+       * the transcript focuses when a question arrives after the pressed
+       * control went away. It used to be anywhere that was not a field or a
+       * button, and a click on the conversation's words leaves the keyboard
+       * on the studio's own root, so a stray Enter drew a scene or approved a
+       * face. A dialog over the studio (Start over, Change this answer) is
+       * outside the group too, so its Enter stays its own. A control in the
+       * group answers Enter itself.
+       */
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.isContentEditable))
+      if (!t?.matches?.('.sc-convo-q') || t.closest('.sc-convo-turn')?.getAttribute('data-turn') !== `q:${decide.id}`)
         return;
       e.preventDefault();
       answered = true;

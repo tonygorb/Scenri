@@ -13,7 +13,7 @@ import {
 import { type CreationState, UNSURE_LINE, asideEditAt, deserialize, isAsideEdit } from './creationState.js';
 import type { AsidePhase as Phase } from './presenterCopy.js';
 import {
-  ATTEST_TEXT,
+  attestText,
   DOOR_WORDS,
   changeCost,
   PROMPT,
@@ -154,8 +154,21 @@ export const sourceFromText = (text: string): Source | null =>
 
 /* ------------------------------------------------------------- compiling */
 
+/**
+ * What the draft stores of a piece of text, to the character: the server's
+ * `str()` trims and then caps, so a cut that lands on a space is trimmed
+ * again over there. Sent any other way, the draft never holds what was asked
+ * and the flow asks it to, once, then again with a redraw when a face lands.
+ */
+const asStored = (text: string, max: number): string => text.trim().slice(0, max).trimEnd();
+const DIRECTION_CHARS = 400;
+
 /** The sentence the engine is given: the rows as a person, or the description with the follow-up folded in. */
 export function compileDirection(a: Answers): string {
+  return asStored(directionOf(a), DIRECTION_CHARS);
+}
+
+function directionOf(a: Answers): string {
   if (a.source?.via === 'taps') {
     const look = lookOf(a);
     // The row names a kind of person, and now carries any words typed into it.
@@ -188,8 +201,7 @@ export function keepItems(a: Answers): string[] {
  * Mirrors the server (`keepItemsOf` in `presenterDrafts.ts`), and has to: the
  * flow asks the draft to hold what the answers say and stops asking once it
  * does, so a cap only one side applies is a question that can never be
- * answered. `presenterKeepParity.test.ts` reads both files and fails if they
- * drift.
+ * answered. `presenterKeepParity.test.ts` holds both caps to the server's.
  */
 const KEEP_ITEM_CHARS = 200;
 const KEEP_ITEMS_MAX = 12;
@@ -214,7 +226,7 @@ export function compileItems(a: Answers): KeptItem[] {
   const details = traitDetails(a);
   const item = (id: string, words: string, refs?: string[]): KeptItem => ({
     id,
-    words: words.slice(0, KEEP_ITEM_CHARS),
+    words: asStored(words, KEEP_ITEM_CHARS),
     ...(refs?.length ? { refs: refs.slice(0, 4) } : {}),
   });
   const items: KeptItem[] = [];
@@ -308,9 +320,14 @@ export function compileRefs(a: Answers): Record<string, string[]> {
  * they exist nowhere else, so a resume that dropped them lost the half of the
  * conversation that was theirs.
  */
-export function seedStateFromDraft(d: DraftLike): { answers: Answers; asides: Aside[] } {
+export function seedStateFromDraft(d: DraftLike): { answers: Answers; asides: Aside[]; extrasDeclined?: true } {
   const held = deserialize(d.setup ?? null);
-  if (held && Object.keys(held.answers).length) return { answers: held.answers, asides: held.asides };
+  if (held && Object.keys(held.answers).length)
+    return {
+      answers: held.answers,
+      asides: held.asides,
+      ...(held.extrasDeclined ? { extrasDeclined: held.extrasDeclined } : {}),
+    };
   return { answers: seedFromDraft(d), asides: [] };
 }
 
@@ -376,7 +393,7 @@ function keptBack(d: DraftLike): Partial<Answers> {
 }
 
 /** What the setup questions can see of the draft. */
-export const flowContext = (draft: DraftLike | null, canGenerate: boolean): FlowContext => ({
+export const flowContext = (draft: DraftLike | null, canGenerate: boolean, engine?: string | null): FlowContext => ({
   draft: draft
     ? {
         source: draft.source,
@@ -387,6 +404,7 @@ export const flowContext = (draft: DraftLike | null, canGenerate: boolean): Flow
       }
     : null,
   canGenerate,
+  ...(engine ? { engine } : {}),
 });
 
 /* -------------------------------------------------------------- answers */
@@ -685,6 +703,8 @@ function questionFor(id: Qid, state: CreationState, ctx: FlowContext, reopened: 
         id,
         kind: 'confirm',
         prompt: PROMPT.weakPhotos,
+        // the first way on deletes the draft and its photographs: never on a stray Enter
+        noEnter: true,
         options: [
           { id: 'again', label: 'Use different photos' },
           { id: 'anyway', label: 'Draw from these anyway' },
@@ -700,7 +720,7 @@ function questionFor(id: Qid, state: CreationState, ctx: FlowContext, reopened: 
         hashes: p.hashes,
         max: MAX_PHOTOS,
         busy: state.uploading > 0,
-        attest: { text: ATTEST_TEXT, checked: p.attested },
+        attest: { text: attestText(ctx.engine), checked: p.attested },
         submit: 'Continue',
         back: 'Describe someone instead',
       };
@@ -868,6 +888,8 @@ export interface FlowArgs {
   state: CreationState;
   draft: DraftLike | null;
   canGenerate: boolean;
+  /** The engine that draws, by its display name: the photographs' confirmation says they go to it. */
+  engine?: string | null;
   /** A request that never reached the engine, said once with a Retry. */
   failed?: string | null;
   /**
@@ -952,12 +974,12 @@ function shape(args: FlowArgs, asides: Aside[], openId: string | null): Turn[] {
 }
 
 function build(
-  { state, draft, canGenerate, failed, awaiting }: FlowArgs,
+  { state, draft, canGenerate, engine, failed, awaiting }: FlowArgs,
   asides: Aside[],
   openId: string | null,
   placed: Set<Aside>,
 ) {
-  const ctx = flowContext(draft, canGenerate);
+  const ctx = flowContext(draft, canGenerate, engine);
   const a = state.answers;
   const lead: Turn[] = [{ kind: 'you', id: 'intent', text: 'Create a presenter' }];
   // the details the photographs were asked about belong after the read of them

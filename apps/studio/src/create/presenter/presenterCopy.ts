@@ -1,4 +1,5 @@
 import type { NothingKind } from '../../conversation/question.js';
+import { type FailureRemedy, describeFailure } from '../../failure.js';
 
 /**
  * Every line Scenri says in the creation conversation, once, so the record
@@ -89,7 +90,26 @@ export const STARTERS = [
   },
 ];
 
-export const ATTEST_TEXT = "I have permission to use this person's likeness.";
+/**
+ * The likeness confirmation, and where the photographs go.
+ *
+ * It used to speak of permission only, while the photographs left the machine
+ * for whichever engine draws: OpenRouter when Codex is absent and a key is
+ * set, and OpenAI through Codex, whose image model does not run locally. The
+ * one line a person ticks before a real face leaves says where it goes.
+ */
+export function attestText(engine?: string | null): string {
+  // the display name without the billing suffix, which is noise mid-sentence
+  const name = (engine ?? '').replace(/\s*\(BYOK\)\s*$/i, '').trim();
+  const where = !name
+    ? 'to the engine that draws them'
+    : /^codex/i.test(name)
+      ? 'to OpenAI, through Codex, to draw them'
+      : `to ${name} to draw them`;
+  return `I have permission to use this person's likeness, and to send these photos ${where}.`;
+}
+
+export const ATTEST_TEXT = attestText(null);
 
 /**
  * What happened to the photographs that did not arrive.
@@ -118,8 +138,15 @@ export function photoTrouble(r: { over: number; same: number; failed: string[]; 
 export const photoTooBig = (name: string, max: number): string =>
   `${name} is larger than ${Math.round(max / 1024 / 1024)}MB. Choose a smaller copy of it.`;
 
+/**
+ * A file the store could not read. HEIC is named on its own because it is
+ * what an iPhone takes, and the store cannot decode it: this line used to
+ * promise that HEIC works, directly under a HEIC file it had just refused.
+ */
 export const photoUnreadable = (name: string): string =>
-  `${name} could not be read as a photograph. JPEG, PNG, WebP and HEIC all work.`;
+  /\.hei[cf]$/i.test(name)
+    ? `${name} is a HEIC photo, which Scenri cannot read yet. Export it as JPEG and add that.`
+    : `${name} could not be read as a photograph. JPEG, PNG and WebP all work.`;
 
 /**
  * What the stage says while it is waiting for the first portrait.
@@ -351,3 +378,22 @@ export function asideReply(
  * finished was touched."
  */
 export const reason = (text: string): string => text.trim().replace(/[.\s]+$/, '');
+
+/**
+ * A failure in words, read the way the composer reads one: what happened,
+ * what to do, and the one control that fixes it.
+ *
+ * The conversation used to quote the engine inside its own sentence ("The face
+ * could not be drawn: codex exited with code 1: ERROR: unexpected status 401
+ * Unauthorized") and offer only Retry, which fails the same way forever on a
+ * signed-out Codex or a missing key. An error nothing recognises keeps its own
+ * words, which are then the most honest thing to say. One that cannot succeed
+ * twice and names no control of its own is offered Providers, where whatever
+ * draws is set up: Retry alone would be the one way on, and a certain failure.
+ */
+export function failureWords(lead: string, error: string): { text: string; remedy?: FailureRemedy } {
+  const f = describeFailure(error);
+  if (f.kind === 'unknown') return { text: `${lead}: ${reason(error)}. Nothing finished was touched.` };
+  const remedy = f.remedy ?? (f.retryable ? undefined : { label: 'Providers', opens: 'engines' as const });
+  return { text: `${lead}. ${f.fix ? `${f.title} ${f.fix}` : f.title}`, remedy };
+}

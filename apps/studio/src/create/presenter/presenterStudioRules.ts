@@ -1,4 +1,5 @@
 import type { PresenterDraft, PresenterDraftSlot, PresenterDraftView } from '../../api.js';
+import { describeFailure } from '../../failure.js';
 
 /**
  * The presenter studio's rules, pure: which views a draft is building,
@@ -537,8 +538,13 @@ export function coverageLine(d: DraftLike, canGenerate: boolean): { text: string
   if (d.source !== 'photos' || d.stage === 'analyzing') return null;
   const readError = d.readError?.trim();
   if (readError) {
-    const reason = /[.!?]$/.test(readError) ? readError : `${readError}.`;
-    return { text: `The photos could not be read: ${reason} Their face is drawn from them anyway.`, tone: 'warn' };
+    // Read the way the composer reads a failure: an engine's words for an
+    // engineer ("codex exited with code 1: ERROR: ...") become what happened,
+    // and only an error nothing recognises is quoted as it came.
+    const f = describeFailure(readError);
+    const reason =
+      f.kind !== 'unknown' ? `. ${f.title}` : `: ${/[.!?]$/.test(readError) ? readError : `${readError}.`}`;
+    return { text: `The photos could not be read${reason} Their face is drawn from them anyway.`, tone: 'warn' };
   }
   const conflict = d.analysis?.conflict?.trim();
   if (conflict) return { text: `These photos may show more than one person: ${conflict}`, tone: 'warn' };

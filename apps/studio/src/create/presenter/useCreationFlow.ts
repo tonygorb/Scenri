@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { api, type PresenterDraft, thumbUrl, uploadImage } from '../../api.js';
-import { useAppData } from '../../app/AppShell.js';
+import { useAppData, useDialogParam } from '../../app/AppShell.js';
 import { normalizeHex, type Swatch as PaletteSwatch } from '../../brand/palette.js';
 import { useBrand } from '../../app/BrandLayout.js';
-import { useOpenSetup } from '../../app/dialogs.js';
+import { type Pane, useOpenSettings, useOpenSetup } from '../../app/dialogs.js';
 import {
   type Answer,
   type NothingKind,
@@ -187,11 +187,26 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
   const { brand } = useBrand();
   const { presenterCategories, applyBrand } = useAppData();
   const openSetup = useOpenSetup();
+  const openSettings = useOpenSettings();
+  // A dialog over the studio holds the conversation, and letting go of it hands
+  // a question its controls back: a remedy pressed at a failure (Sign in, Add
+  // key) must leave Retry pressable when the person returns.
+  const setupOpen = useDialogParam('setup').value;
+  const settingsOpen = useDialogParam('settings').value;
+  const away = !!setupOpen || !!settingsOpen;
   const canDraw = !!caps?.canGenerate;
 
   const [state, dispatch] = useReducer(reduce, { brandId: brand.id, convoKey }, (at) => {
     const back = deserialize(session.read(setupKey(at.brandId, at.convoKey)));
-    return back ? { ...EMPTY_STATE, answers: back.answers, revision: back.revision, asides: back.asides } : EMPTY_STATE;
+    return back
+      ? {
+          ...EMPTY_STATE,
+          answers: back.answers,
+          revision: back.revision,
+          asides: back.asides,
+          extrasDeclined: !!back.extrasDeclined,
+        }
+      : EMPTY_STATE;
   });
   // the latest state, for work that finishes after the render it started in
   const stateRef = useRef(state);
@@ -290,10 +305,25 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
   // which draft's answers were read into the conversation, once each
   const seededFor = useRef<string | null>(null);
   const leaving = useRef(false);
+  // Whether this conversation is still on screen. A draft made for one that was
+  // left meanwhile (Back, or another draft opened over it) is nobody's.
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  // Detail pictures taken off the line while still on their way: they never land.
+  const dropped = useRef(new Set<string>());
+  // Photographs a batch has room for and has not finished sending, so two
+  // quick batches cannot both count the same free places.
+  const claimed = useRef(0);
 
   const s = usePresenterDraft(brand.id, draftId);
   const d = s.draft;
-  const ctx = useMemo(() => flowContext(d, canDraw), [d, canDraw]);
+  const engine = caps?.engineName ?? null;
+  const ctx = useMemo(() => flowContext(d, canDraw, engine), [d, canDraw, engine]);
 
   // A new draft starts its own count of what was drawn without a click.
   useEffect(() => {
@@ -351,7 +381,10 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
         direction: compileDirection(st.answers),
         ...(items.length ? { keepItems: items } : {}),
       });
-      if (stateRef.current.revision !== rev) {
+      // Answers that moved, or a page that was left: a draft of nobody, let go
+      // rather than opened. Opened, it pulled the studio back over the page the
+      // person had gone Back to, and drew a face for nobody.
+      if (stateRef.current.revision !== rev || !alive.current) {
         void api.deletePresenterDraft(brand.id, draft.id).catch(() => undefined);
         return;
       }
@@ -376,7 +409,7 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
         imageHashes: photos.hashes,
         attestation: true,
       });
-      if (stateRef.current.revision !== rev) {
+      if (stateRef.current.revision !== rev || !alive.current) {
         void api.deletePresenterDraft(brand.id, draft.id).catch(() => undefined);
         return;
       }
@@ -403,8 +436,11 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
   const addFiles = useCallback(async (files: File[]) => {
     setAskErr(null);
     const held = () => stateRef.current.answers.photos?.hashes ?? [];
-    // Never spend a round trip on a photograph that cannot land.
-    const taking = files.slice(0, Math.max(0, MAX_PHOTOS - held().length));
+    // Never spend a round trip on a photograph that cannot land. The places a
+    // batch still sending holds count as taken: two quick pastes each counted
+    // four free places, sent six, and the reducer dropped two without a word.
+    const taking = files.slice(0, Math.max(0, MAX_PHOTOS - held().length - claimed.current));
+    claimed.current += taking.length;
     const failed: string[] = [];
     let same = 0;
     dispatch({ type: 'upload-begin' });
@@ -424,9 +460,13 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
         }
       }
     } finally {
+      claimed.current -= taking.length;
       dispatch({ type: 'upload-end' });
     }
-    setAskErr(photoTrouble({ over: files.length - taking.length, same, failed, max: MAX_PHOTOS }));
+    // Said when there is something to say: a batch that went cleanly must not
+    // take back what another one said.
+    const trouble = photoTrouble({ over: files.length - taking.length, same, failed, max: MAX_PHOTOS });
+    if (trouble) setAskErr(trouble);
   }, []);
 
   /**
@@ -520,7 +560,11 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
   const startOver = useCallback(async () => {
     const st = stateRef.current;
     const text = st.answers.describe || d?.direction || '';
-    leaving.current = true;
+    // Held while there is a draft to leave, until the address has let go of it.
+    // With none there is no address to wait for, and the latch that waited for
+    // one held every step off for good: the next draft was never made, or was
+    // made and never drawn.
+    leaving.current = !!draftId;
     clearSetup();
     dispatch({ type: 'start-over', text });
     setAskErr(null);
@@ -529,7 +573,7 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
     fired.current = new Set();
     if (d && !worthKeeping(d)) await api.deletePresenterDraft(brand.id, d.id).catch(() => {});
     onLeaveDraft();
-  }, [d, brand.id, clearSetup, onLeaveDraft]);
+  }, [d, draftId, brand.id, clearSetup, onLeaveDraft]);
 
   // What is being waited for that never reached the engine, said once with a Retry.
   const failed = d ? (s.err && !isDrawing(d) ? s.err : null) : askErr;
@@ -539,10 +583,11 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
         state,
         draft: d,
         canGenerate: canDraw,
+        engine,
         failed,
         awaiting: awaitingAnswers({ state, draft: d, ctx, draftId, seededFor: seededFor.current }),
       }),
-    [state, d, canDraw, failed, draftId, ctx],
+    [state, d, canDraw, engine, failed, draftId, ctx],
   );
   const question = activeQuestion(turns);
   // the question on the floor, for work that runs after the render it started in
@@ -574,7 +619,11 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
     // patch, and have its redo refused. Nothing autonomous runs while a
     // picture is being made; it all waits for the step to end.
     busy: s.busy || busySetup || inflight.current || leaving.current || (d ? isDrawing(d) : false),
-    err: !!s.err || !!askErr,
+    // A picture or a sentence refused once a draft exists is said in the
+    // composer's own line, and never stands in front of the draft: it held the
+    // face off with nothing on screen to answer. Before a draft it is the
+    // failure the conversation asks Retry about.
+    err: !!s.err || (!d && !!askErr),
     draftId,
     seededFor: seededFor.current,
     done: fired.current,
@@ -611,6 +660,7 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
           answers: todo.answers,
           revision: stateRef.current.revision + 1,
           asides: todo.asides,
+          extrasDeclined: todo.extrasDeclined,
         });
         return;
       case 'start':
@@ -619,7 +669,19 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
       case 'sync':
         inflight.current = true;
         void (async () => {
-          await s.update(todo.patch);
+          /**
+           * The redo only after the words landed: redone over words the draft
+           * does not hold, the face would be drawn again from the old ones. A
+           * patch that did not land is sent once more (the one seen failing was
+           * the database busy for a moment), and if it still fails it is
+           * forgotten, so the Retry that failure asks for sends it again rather
+           * than stepping over it as a sync the draft could not take.
+           */
+          const landed = (await s.update(todo.patch)) || (await s.update(todo.patch));
+          if (!landed) {
+            fired.current.delete(key);
+            return;
+          }
           if (todo.redo) await s.redo(todo.redo);
         })().finally(() => {
           inflight.current = false;
@@ -737,6 +799,21 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
           return;
         }
         case 'retry': {
+          // the control that fixes the failure, which the option's id names
+          if (a.kind === 'confirm' && a.id.startsWith('remedy:')) {
+            const pane = a.id.slice('remedy:'.length);
+            if (pane === 'setup') openSetup();
+            else openSettings(pane as Pane);
+            return;
+          }
+          // An extra view that will not draw is let go, and the set is whole
+          // without it: the server forgets the ask, and the question with it.
+          if (a.kind === 'confirm' && a.id === 'skip-extras') {
+            s.clearErr();
+            void s.update({ extras: false });
+            dispatch({ type: 'extras-declined' });
+            return;
+          }
           if (!d) {
             // the draft that never started is started again, from a clean slate
             fired.current = new Set();
@@ -744,9 +821,13 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
             return;
           }
           if (s.err) {
-            // the request that failed is drawn again by the auto-draw, from a clean count
+            // The request that failed is drawn again by the auto-draw, from a
+            // clean count. Not the syncs: one that landed and still left the
+            // draft out of step was stepped over on purpose, and sent again it
+            // took the approved face back and drew it again. One that failed
+            // was forgotten when it failed, so it is sent again from here.
             s.clearErr();
-            fired.current = new Set();
+            fired.current = new Set([...fired.current].filter((k) => k.startsWith('sync:')));
             return;
           }
           const failedView = (Object.keys(d.views) as StudioView[]).find((x) => !!d.views[x].error);
@@ -771,7 +852,7 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
           return;
       }
     },
-    [commitAnswer, addFiles, startPhotos, startScratch, openSetup, d, s, view, save],
+    [commitAnswer, addFiles, startPhotos, startScratch, openSetup, openSettings, d, s, view, save],
   );
 
   const onSend = useCallback(
@@ -1221,14 +1302,23 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
         setCarrying((c) => [...c, { key, id, url }]);
         void uploadImage(f)
           .then((hash) => {
+            // Taken off the line while it was on its way: taken off means taken
+            // off. It used to come back as the chip and ride with the answer.
+            if (dropped.current.delete(key)) {
+              URL.revokeObjectURL(url);
+              return;
+            }
             // the same picture keeps its place: the chip never waits on a
-            // thumbnail being made when the browser is holding the bytes
-            refShots.current.set(hash, url);
+            // thumbnail being made when the browser is holding the bytes. The
+            // same picture chosen twice keeps the first file, and the second
+            // is let go rather than written over and never revoked.
+            if (refShots.current.has(hash)) URL.revokeObjectURL(url);
+            else refShots.current.set(hash, url);
             dispatch({ type: 'ref', id, hash });
             setCarrying((c) => c.filter((x) => x.key !== key));
           })
           .catch((e: any) => {
-            setAskErr(String(e?.message ?? e));
+            if (!dropped.current.delete(key)) setAskErr(String(e?.message ?? e));
             setCarrying((c) => c.filter((x) => x.key !== key));
             URL.revokeObjectURL(url);
           });
@@ -1285,7 +1375,10 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
         src: c.url,
         label: label(),
         busy: true,
-        onRemove: () => setCarrying((x) => x.filter((y) => y.key !== c.key)),
+        onRemove: () => {
+          dropped.current.add(c.key);
+          setCarrying((x) => x.filter((y) => y.key !== c.key));
+        },
       })),
     ];
   })();
@@ -1375,7 +1468,7 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
       memoryKey: `presenter-create:${brand.id}:${convoKey}`,
       resumed,
       turns,
-      busy: s.busy || busySetup,
+      busy: s.busy || busySetup || away,
       // Truthful: only where something is actually being waited for. A question
       // the flow already has arrives without anyone pretending to think.
       working:
@@ -1478,7 +1571,9 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
         if (question?.id === 'agree') dispatch({ type: 'say', id: 'keep' });
         dispatch({ type: 'text', text });
       },
-      onPaste: !d ? (files: File[]) => void addFiles(files) : undefined,
+      // Only where photographs are the question: pasted at any other one, a
+      // likeness photo was sent to the store and then dropped without a word.
+      onPaste: !d && state.answers.source?.door === 'photos' ? (files: File[]) => void addFiles(files) : undefined,
     },
   };
 }
