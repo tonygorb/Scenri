@@ -36,6 +36,9 @@ import {
   groupKey,
 } from '../composer/attachRoom.js';
 import {
+  DEFAULT_FORMAT_ID,
+  DEFAULT_QUALITY,
+  DEFAULT_VARIANT_COUNT,
   openOnGroup,
   RESOLUTIONS,
   ShotSettings,
@@ -284,7 +287,7 @@ export const Composer = forwardRef<
 
   const [sentence, setSentence] = useState<SentenceToken[]>(emptySentence());
   const [seedTokens, setSeedTokens] = useState<SentenceToken[] | undefined>(undefined);
-  const [prefFormat, setPrefFormat, borrowFormat] = useRecipeSetting(PREF.format, 'square');
+  const [prefFormat, setPrefFormat, borrowFormat] = useRecipeSetting(PREF.format, DEFAULT_FORMAT_ID);
   /**
    * A refinement's shape belongs to the picture being refined, never to the
    * machine.
@@ -313,7 +316,7 @@ export const Composer = forwardRef<
     else setPrefFormat(id);
   };
   const [tplFields, setTplFields] = useState<Record<string, string>>({});
-  const [count, setCount, borrowCount] = useRecipeSetting(PREF.count, 2);
+  const [count, setCount, borrowCount] = useRecipeSetting(PREF.count, DEFAULT_VARIANT_COUNT);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [preview, setPreview] = useState<(BriefPreview & { forBrief: unknown }) | null>(null);
@@ -322,7 +325,7 @@ export const Composer = forwardRef<
   const [attachTabNonce, setAttachTabNonce] = useState(0);
   /** First use: the one kind the tutor is asking for, so the picker offers nothing else. */
   const [attachOnly, setAttachOnly] = useState<AttachGroup | null>(null);
-  const [quality, setQuality, borrowQuality] = useRecipeSetting<QualityId>(PREF.quality, 'standard');
+  const [quality, setQuality, borrowQuality] = useRecipeSetting<QualityId>(PREF.quality, DEFAULT_QUALITY);
   const [uploading, setUploading] = useState(false);
   const [moreOpen, setMoreOpenState] = useState(false);
   const setMoreOpen = (next: boolean) => setMoreOpenState(next);

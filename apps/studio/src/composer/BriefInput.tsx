@@ -359,7 +359,9 @@ export const BriefInput = forwardRef<
       const warning = flag?.(token) ?? null;
       if (warning) {
         el.title = warning;
-        el.dataset.warn = '1';
+        // A scene that wants a presenter or a product says so in the card.
+        // The pip is for a chip that cannot do what it says.
+        if (token.t !== 'template') el.dataset.warn = '1';
       }
       if (described?.(token)) el.dataset.described = '1';
 
@@ -494,7 +496,7 @@ export const BriefInput = forwardRef<
       const token = decode(chip.dataset.tok ?? '');
       if (!token) continue;
       const warning = flag?.(token) ?? null;
-      if (warning) chip.dataset.warn = '1';
+      if (warning && token.t !== 'template') chip.dataset.warn = '1';
       else delete chip.dataset.warn;
       if (described?.(token)) chip.dataset.described = '1';
       else delete chip.dataset.described;
