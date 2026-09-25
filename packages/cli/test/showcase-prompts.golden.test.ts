@@ -71,7 +71,20 @@ beforeAll(async () => {
   const { scenes } = loadScenes(templatesRoot);
   const { demoProducts } = loadDemoProducts();
   const { presenters } = loadPresenters();
-  const { showcase } = loadShowcase();
+  // A tile that follows one of its scene's views names the view on the scene's
+  // chip, and opening it copies that frame into the store (useApplyShowcase).
+  // The frames ship in the downloaded library, not in templates/, so each view
+  // is a stand-in picture of its own here: what is locked is the prompt and the
+  // frame's role.
+  const showcase = loadShowcase().showcase.map((entry) => ({
+    ...entry,
+    brief: {
+      ...entry.brief,
+      tokens: entry.brief.tokens.map((t) =>
+        t.t === 'template' && t.view ? { ...t, view: core.images.save(Buffer.from(`${t.id}/${t.view}`)) } : t,
+      ),
+    },
+  }));
   const templateById = sceneResolver(scenes);
 
   // Resolve the WHOLE catalog once. The per-entry read-through would redo the
@@ -128,7 +141,7 @@ afterAll(() => {
 
 describe('showcase compiled prompts', () => {
   it('compiles every shipped showcase recipe', () => {
-    expect(rows.length).toBe(105);
+    expect(rows.length).toBe(110);
     for (const r of rows) expect(r.prompt.length).toBeGreaterThan(0);
   });
 

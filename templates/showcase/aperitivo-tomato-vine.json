@@ -1,0 +1,35 @@
+{
+  "id": "aperitivo-tomato-vine",
+  "title": "Aperitivo among the vine tomatoes",
+  "category": "food-drink",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "fenner-ross-aperitivo"
+      },
+      {
+        "t": "template",
+        "id": "tomato-vine",
+        "view": "angle",
+        "viewName": "Angle"
+      },
+      {
+        "t": "text",
+        "v": " The bottle stands among the vine tomatoes on the red ground, its label to camera, the ruby aperitivo glowing where the hard sun passes through the glass and the leaf shadows falling across it."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 106,
+  "family": "botanical"
+}

@@ -1,0 +1,35 @@
+{
+  "id": "barrier-cream-ice-core",
+  "title": "Barrier Cream in the glacier ice",
+  "category": "beauty",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "fenwick-slade-barrier-cream"
+      },
+      {
+        "t": "template",
+        "id": "studio-glacier-ice-core",
+        "view": "angle",
+        "viewName": "Angle"
+      },
+      {
+        "t": "text",
+        "v": " The jar sits in a niche of the blue glacier ice, lid on and its label to camera, a rim of frost on the ice around it and the cold light glowing through the walls of the niche."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 88,
+  "family": "geological"
+}

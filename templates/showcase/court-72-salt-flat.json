@@ -1,0 +1,35 @@
+{
+  "id": "court-72-salt-flat",
+  "title": "Court 72 on the mirror flat",
+  "category": "cinematic",
+  "brief": {
+    "tokens": [
+      {
+        "t": "product",
+        "id": "aubrey-lisle-court-72"
+      },
+      {
+        "t": "template",
+        "id": "studio-soft-horizon",
+        "view": "angle",
+        "viewName": "Angle"
+      },
+      {
+        "t": "text",
+        "v": " A pair of the sneakers rests on the mirror of wet salt, their reflections doubled beneath them in the thin water, the white leather and the forest-green suede crisp in the soft morning light."
+      },
+      {
+        "t": "format",
+        "id": "portrait",
+        "w": 1024,
+        "h": 1280
+      }
+    ]
+  },
+  "variants": 2,
+  "quality": "high",
+  "width": 1024,
+  "height": 1280,
+  "order": 38,
+  "family": "place"
+}
