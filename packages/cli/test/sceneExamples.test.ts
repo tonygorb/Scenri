@@ -692,6 +692,39 @@ describe('the hero comes first', { timeout: 30_000 }, () => {
     expect(hero.instruction).toContain('as the hero of this place, with a glass perfume vial');
   });
 
+  it('a person with a product: the close-up is the product’s, with them in it only where it is worn', async () => {
+    const { app, brandId, calls, studio, sceneOf, drawn } = await setup(0, true, { presenter: true });
+    const job = await studio({ instruction: 'A sunlit kitchen, a portrait of someone holding the product' });
+    const id = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/brands/${brandId}/scenes`,
+        payload: {
+          name: 'Kitchen',
+          prompt: job.reading.prompt,
+          lighting: job.reading.lighting,
+          previewHash: job.hash,
+          anchor: job.anchor,
+          heroHash: job.hero,
+          heroWith: job.heroWith,
+          cover: 'hero',
+        },
+      })
+    ).json().scene.id;
+    expect((await drawn(id)).done).toEqual(['close']);
+    const close = calls.edit.at(-1);
+    expect(close.sourceImage).toBe(core.images.pathFor(job.hero));
+    expect(close.instruction).toContain('move the camera in close on a glass perfume vial');
+    expect(close.instruction).toContain('If a glass perfume vial is something a person wears');
+    expect(close.instruction).not.toContain('head and shoulders');
+    expect(close.referenceRoles).toEqual(['product', 'character']);
+    expect(sceneOf(id).examples.find((e: any) => e.role === 'close')).toMatchObject({
+      product: 'vial',
+      presenter: 'amara',
+      setup: 'close',
+    });
+  });
+
   it('Change something edits the place and the hero by the same sentence, keeping who stands in it', async () => {
     const { calls, studio } = await setup();
     const made = await studio({ instruction: 'A minimal brutalist hall of raw concrete with a low plinth' });

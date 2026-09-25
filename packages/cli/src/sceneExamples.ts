@@ -337,6 +337,23 @@ export function closeInstruction(subject: ExampleSubject, name: string): string 
     : `move the camera in close on ${name}: its surface, edge and material fill most of the frame, with a shallow depth of field and the place behind it only as soft light and colour. ${KEEP_PRODUCT(name)}`;
 }
 
+/**
+ * The close-up of a set whose hero is a person with a product: the product's, never a
+ * portrait, since a close-up is product-led wherever there is a product (Tony, 2026-09-25).
+ * The person stays in it only where the product is worn. Said as a condition, like the
+ * wearability line: no category list decides what is worn.
+ */
+export function closeWithPersonInstruction(name: string): string {
+  return (
+    `move the camera in close on ${name}: its surface, edge and material fill most of the frame, with a shallow ` +
+    'depth of field and the place behind it only as soft light and colour. ' +
+    `If ${name} is something a person wears, it stays on them where they wear it and the close-up shows it there, ` +
+    'with only as much of them as frames it, their face in the frame only when it is worn on the face or head; ' +
+    `otherwise it is ${name} in their hands or where it rests, and their face stays out of the frame. ` +
+    `${KEEP_PRODUCT(name)}, and wherever they show, their skin, hands and clothing stay exactly as they are`
+  );
+}
+
 export function handsInstruction(name: string): string {
   return (
     `a pair of anonymous hands, no face in the frame, picks up ${name} and holds it toward the camera, which comes close; ` +
@@ -734,6 +751,19 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
               'product',
             );
           }
+        } else if (role === 'close' && job.with.product) {
+          // A person with a product: the rest of the set follows the person, the close-up follows the product.
+          const p = await productIn(job.brandId, job.with.product, scene, engine, signal, false);
+          presenter ??= await presenterIn(job.brandId, job.subject.id, scene, engine, false);
+          const heroHash = heroOf(sceneOf(job.brandId, job.sceneId) ?? scene);
+          if (!heroHash) throw new Error('The hero is not drawn yet.');
+          setup = 'close';
+          hash = await edit(
+            heroHash,
+            closeWithPersonInstruction(p.lead.name),
+            [p.lead.productHash, ...presenter.refs.slice(0, 1)],
+            ['product', 'character'],
+          );
         } else {
           presenter ??= await presenterIn(job.brandId, job.subject.id, scene, engine, false);
           const heroHash = heroOf(sceneOf(job.brandId, job.sceneId) ?? scene);
@@ -756,9 +786,10 @@ export function createSceneExamples(deps: SceneExamplesDeps): SceneExamples {
         }
         if (signal.aborted) return;
         hash = await trimEdgeBars(deps.core, hash);
-        // The hero keeps everyone who stands in it; every other view names the one it follows.
+        // The hero keeps everyone who stands in it, and so does a close-up that may show the product on them;
+        // every other view names the one it follows.
         const who: HeroWith =
-          role === 'hero'
+          role === 'hero' || (role === 'close' && job.with.product)
             ? job.with
             : job.subject.kind === 'product'
               ? { product: job.subject.id }
