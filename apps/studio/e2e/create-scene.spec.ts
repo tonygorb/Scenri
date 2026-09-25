@@ -185,7 +185,9 @@ test('guided: the rows, read back as the words shots are told, drawn on a press,
   await expect(rail).toContainText('Hero');
   await expect(rail).toContainText('Close-up');
   // every role shows this place, so the page offers nothing more and draws nothing
-  await expect(page.getByRole('button', { name: /Add|Try again|Draw it in use|Draw them/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Try again|Draw it in use|Draw them|Add (?!to Keepers)/ })).toHaveCount(
+    0,
+  );
   const saved = (await scenes(page)).find((s) => s.name === 'Dusk Lobby');
   expect(saved.instruction).toMatch(
     /^A niche of warm limestone and rough plaster, honed cream travertine up close, .* a vine growing down the stone/,

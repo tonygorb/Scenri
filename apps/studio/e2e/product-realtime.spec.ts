@@ -125,8 +125,11 @@ test('a name and a category edited inside one pause are both saved', async ({ pa
   await openProduct(page, 'Quick Mug');
 
   await page.locator('.sc-lookpage-titleedit').fill('Quicker Mug');
-  await page.locator('.sc-catpick').click();
+  await page.getByRole('button', { name: 'Edit details' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Details' });
+  await sheet.locator('.sc-catpick').click();
   await page.getByRole('menuitemradio', { name: 'Fragrance' }).click();
+  await sheet.getByRole('button', { name: 'Save' }).click();
   await expect
     .poll(async () => ((await brandJson(page.request, brand.id)).products as any[]).find((p) => p.id === id))
     .toMatchObject({ name: 'Quicker Mug', category: 'fragrance' });

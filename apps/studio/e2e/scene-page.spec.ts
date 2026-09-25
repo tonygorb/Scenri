@@ -95,7 +95,9 @@ test('says what the place is and what a shot made here is told', async ({ page }
   // the presenter page's head: the name, where it is filed as chips, what it is in one sentence
   await expect(page.getByRole('list', { name: 'Filed under' })).toHaveText(['Beauty', 'Fragrance'].join(''));
   await expect(page.getByText('A cold shore of black rock.')).toBeVisible();
-  await expect(page.locator('.sc-lookpage-crumb')).toHaveCount(0);
+  await expect(page.locator('.sc-lookpage-crumb a')).toHaveText('Scenes');
+  await expect(page.locator('.sc-lookpage-crumb a')).toHaveAttribute('href', `/${b.slug}/scenes`);
+  await expect(page.locator('.sc-lookpage-crumb')).toContainText('Yours');
   await expect(page.locator('.sc-lookpage-facts')).toHaveCount(0);
   // what its picture is, in the footnote, never as a caption under it
   await expect(page.locator('.sc-prec-note')).toContainText('Shots are told the words, never handed this picture.');

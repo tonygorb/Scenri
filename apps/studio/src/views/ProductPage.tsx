@@ -20,16 +20,18 @@ import { useToasts } from '../toasts.js';
 import { useTitleEntity } from '../useDocumentTitle.js';
 import { useStillHere } from '../useStillHere.js';
 import { productPath, productsPath, shotPath } from '../routes.js';
-import { CategoryPicker } from '../layout/CategoryPicker.js';
 import { DemoProductCard } from '../layout/DemoProductCard.js';
 import { ProductCard } from '../layout/ProductCard.js';
 import { ProductReferences, type ProductRef } from '../layout/ProductReferences.js';
 import { ShotThumb, Slider } from '../layout/ReferenceGallery.js';
 import { LineField } from '../layout/LineField.js';
 import { ScrollPane } from '../layout/ScrollPane.js';
+import { RecordCrumb } from '../layout/RecordCrumb.js';
+import { RecordKeep } from '../layout/RecordKeep.js';
 import { Tip } from '../layout/Tip.js';
 import { ProductDetailsDialog } from './ProductDetailsDialog.js';
 import { categoryLabel, effectiveCategory } from '../productCategories.js';
+import { sizeChips } from '../sizeChips.js';
 
 /** Mirrors PRODUCT_REF_MAX in packages/cli/src/brief.ts — the number of product images a brief actually attaches. */
 const PRODUCT_REF_MAX = 3;
@@ -185,7 +187,7 @@ export function ProductPage() {
     };
   }, [brand.id, productId, known]);
   const saveSize = async (words: string) => {
-    if (!productId) return;
+    if (!productId) return false;
     const here = stillHere();
     setSavingSize(true);
     setSizeErr(null);
@@ -195,8 +197,10 @@ export function ProductPage() {
         setSize(r.size);
         setDetails(false);
       }
+      return true;
     } catch (e: any) {
       setSizeErr(String(e.message ?? e));
+      return false;
     } finally {
       setSavingSize(false);
     }
@@ -238,6 +242,18 @@ export function ProductPage() {
       const write = manual ? api.updateProduct(forBrand, id, body) : api.updateCatalogProduct(forBrand, id, body);
       void write.then((answer) => landed(answer, manual)).catch((e: any) => setErr(String(e.message ?? e)));
     }, 500);
+  };
+
+  /** Filing and size leave together. A size the server refuses keeps the sheet open and leaves the category alone. */
+  const saveDetails = async (next: { size: string; category: string }) => {
+    const shown = size?.text ?? '';
+    const sizeChanged = next.size.trim().toLowerCase() !== shown.trim().toLowerCase();
+    if (sizeChanged) {
+      const ok = await saveSize(next.size);
+      if (!ok) return;
+    }
+    if (next.category !== (categoryKey ?? 'other')) patch({ category: next.category });
+    if (!sizeChanged) setDetails(false);
   };
 
   const run = async (job: Promise<unknown>) => {
@@ -398,13 +414,14 @@ export function ProductPage() {
   const catalogCopy = product?.descriptionHtml ? firstSentence(stripHtml(product.descriptionHtml), 200) : '';
   const lede = demoProduct?.description || catalogCopy || null;
 
-  // The size that holds (the person's, the store's, or the reading) says it;
-  // the record's own field is what it was read from, never shown twice.
-  const sized = size ? size.text.charAt(0).toUpperCase() + size.text.slice(1) : null;
+  // The size is said as chips, one dimension each. The record's own field is
+  // what it was read from, and only stands in when there is no size to say.
+  const sizes = sizeChips(size?.text ?? '');
   const rest = demoProduct
-    ? [demoProduct.subcategory, sized]
-    : [product?.variant, product?.material, sized ?? product?.dimensions];
-  const facts = [editable === 'none' ? categoryLabel(categoryKey) : null, ...rest].filter(Boolean);
+    ? [demoProduct.subcategory]
+    : [product?.variant, product?.material, sizes.length ? null : product?.dimensions];
+  const filed = categoryLabel(categoryKey);
+  const facts = rest.filter(Boolean);
 
   const others = demoProduct
     ? demoProducts.filter((d) => d.id !== id).slice(0, 8)
@@ -413,11 +430,11 @@ export function ProductPage() {
   return (
     <ScrollPane>
       <main className="sc-lookpage sc-productpage" id="main">
-        <div className="sc-lookpage-crumb">
-          <Link to={productsPath(brand)}>Products</Link>
-          <span>/</span>
-          <span>{demoProduct ? 'Scenri library' : isManual ? 'Yours' : 'From your store'}</span>
-        </div>
+        <RecordCrumb
+          to={productsPath(brand)}
+          wall="Products"
+          where={demoProduct ? 'Scenri library' : isManual ? 'Yours' : 'From your store'}
+        />
 
         {house && (
           <p className="sc-lookpage-house">
@@ -436,14 +453,34 @@ export function ProductPage() {
         ) : (
           <h1 dir="auto">{subject.name}</h1>
         )}
+        {(filed || sizes.length > 0) && (
+          <div className="sc-lookpage-marks">
+            {filed && (
+              <ul className="sc-lookpage-cats" aria-label="Filed under">
+                <li className="sc-chip" data-static>
+                  {filed}
+                </li>
+              </ul>
+            )}
+            {sizes.length > 0 && (
+              <ul className="sc-lookpage-cats" aria-label="Size">
+                {sizes.map((label) => (
+                  <li key={label} className="sc-chip" data-static>
+                    {label}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
         {lede && <p className="sc-lookpage-lede">{lede}</p>}
         {facts.length > 0 && <p className="sc-lookpage-facts">{facts.join(' · ')}</p>}
 
         <div className="sc-lookpage-acts">
-          {editable !== 'none' && <CategoryPicker value={categoryKey} onChange={(k) => patch({ category: k })} />}
           <button type="button" className="sc-btn sc-btn-primary" onClick={() => applyProduct(id)}>
             Use in a shot
           </button>
+          <RecordKeep kind="product" brandId={brand.id} id={id} />
           {editable !== 'none' && (
             <Tip label="Edit details">
               <button
@@ -519,9 +556,10 @@ export function ProductPage() {
         {details && (
           <ProductDetailsDialog
             size={size}
+            category={categoryKey}
             busy={savingSize}
             error={sizeErr}
-            onSave={(words) => void saveSize(words)}
+            onSave={(next) => void saveDetails(next)}
             onDismiss={() => setDetails(false)}
           />
         )}

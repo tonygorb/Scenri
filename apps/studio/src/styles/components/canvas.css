@@ -206,7 +206,10 @@
    that is already picked, whose own ring means something stronger and keeps
    it. */
 .sc-cell[data-batching]:not([data-picked]):hover::after,
+.sc-cell[data-batching]:not([data-picked])[data-state="open"]::after,
 .sc-lookcard[data-batching]:not([data-picked]):hover::after,
+.sc-lookcard[data-batching]:not([data-picked])[data-state="open"]::after,
+.sc-lookcard[data-batching]:not([data-picked]):has(.sc-lookcard-more[data-state="open"])::after,
 .sc-cell[data-selected="true"]::after,
 .sc-cell[data-picked]::after,
 .sc-cell[data-armed]::after,
@@ -219,7 +222,10 @@
   z-index: 5;
 }
 .sc-cell[data-batching]:not([data-picked]):hover::after,
-.sc-lookcard[data-batching]:not([data-picked]):hover::after {
+.sc-cell[data-batching]:not([data-picked])[data-state="open"]::after,
+.sc-lookcard[data-batching]:not([data-picked]):hover::after,
+.sc-lookcard[data-batching]:not([data-picked])[data-state="open"]::after,
+.sc-lookcard[data-batching]:not([data-picked]):has(.sc-lookcard-more[data-state="open"])::after {
   box-shadow: inset 0 0 0 1.5px var(--sc-sel-line);
 }
 .sc-cell[data-selected="true"]::after,
@@ -335,6 +341,17 @@
 .sc-cell-ctl:active {
   background: var(--sc-cell-ctl-bg-press);
 }
+/* The remove stays the row's glass until the hand is on it. Then it takes the
+   selection bar's red, 14% over this button's own glass so the frost stays.
+   The press is still the row's press paint; only the ink stays red. */
+.sc-cell-ctl.sc-cell-danger:is(:hover, :active),
+:where(:root:not([data-input="pointer"])) .sc-cell-ctl.sc-cell-danger:focus-visible {
+  color: var(--sc-red);
+}
+.sc-cell-ctl.sc-cell-danger:hover:not(:active),
+:where(:root:not([data-input="pointer"])) .sc-cell-ctl.sc-cell-danger:focus-visible:not(:active) {
+  background: color-mix(in srgb, var(--sc-red) 14%, var(--sc-cell-ctl-bg));
+}
 /* The menu is open: the trigger stays in the hover paint so you can see
    which control it came from. Same skin on a shot and on a catalog card. */
 .sc-cell-ctl[data-state="open"] {
@@ -358,19 +375,21 @@
 /* ---------- what is a mark, and what is a control --------------------------
    Everything is a control by default and waits. The three rules below are the
    exceptions: state you can only learn from the tile itself, so the tile keeps
-   saying it with no pointer anywhere near. */
+   saying it with no pointer anywhere near.
+   A click leaves focus on the button it pressed. That focus raises the row
+   for the keyboard only. With a pointer, the row goes when the pointer goes. */
 .sc-cell:hover .sc-cell-ctl,
-.sc-cell:focus-within .sc-cell-ctl,
+:where(:root:not([data-input="pointer"])) .sc-cell:focus-within .sc-cell-ctl,
 .sc-cell:hover .sc-cell-veil,
-.sc-cell:focus-within .sc-cell-veil,
+:where(:root:not([data-input="pointer"])) .sc-cell:focus-within .sc-cell-veil,
 :where(:root:not([data-input="pointer"])) .sc-cell-ctl:focus-visible {
   opacity: 1;
   transition-delay: 0s;
 }
 .sc-cell:hover .sc-cell-ctl,
-.sc-cell:focus-within .sc-cell-ctl,
+:where(:root:not([data-input="pointer"])) .sc-cell:focus-within .sc-cell-ctl,
 .sc-lookcard:hover .sc-cell-ctl,
-.sc-lookcard:focus-within .sc-cell-ctl,
+:where(:root:not([data-input="pointer"])) .sc-lookcard:focus-within .sc-cell-ctl,
 :where(:root:not([data-input="pointer"])) .sc-cell-ctl:focus-visible {
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
@@ -381,23 +400,28 @@
 }
 /* An open menu holds its tile's chrome up: the pointer has to leave the tile
    to reach the menu, and a rail that vanished on the way there would take its
-   own trigger with it. */
+   own trigger with it. The dots set data-state on the button. A right-click
+   sets it on the card, because that trigger is the card. */
 .sc-cell:has(.sc-cell-more[data-state="open"]) .sc-cell-ctl,
-.sc-cell:has(.sc-cell-more[data-state="open"]) .sc-cell-veil {
+.sc-cell:has(.sc-cell-more[data-state="open"]) .sc-cell-veil,
+.sc-cell[data-state="open"] .sc-cell-ctl,
+.sc-cell[data-state="open"] .sc-cell-veil {
   opacity: 1;
   transition-delay: 0s;
 }
 .sc-cell:has(.sc-cell-more[data-state="open"]) .sc-cell-ctl,
-.sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-cell-ctl {
+.sc-cell[data-state="open"] .sc-cell-ctl,
+.sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-cell-ctl,
+.sc-lookcard[data-state="open"] .sc-cell-ctl {
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 .sc-cell:hover .sc-cell-pick[data-on],
-.sc-cell:focus-within .sc-cell-pick[data-on],
+:where(:root:not([data-input="pointer"])) .sc-cell:focus-within .sc-cell-pick[data-on],
 .sc-lookcard:hover .sc-lookcard-pick[data-on],
-.sc-lookcard:focus-within .sc-lookcard-pick[data-on],
+:where(:root:not([data-input="pointer"])) .sc-lookcard:focus-within .sc-lookcard-pick[data-on],
 .sc-cell:hover .sc-cell-branch[data-on],
-.sc-cell:focus-within .sc-cell-branch[data-on] {
+:where(:root:not([data-input="pointer"])) .sc-cell:focus-within .sc-cell-branch[data-on] {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
@@ -464,7 +488,7 @@
 }
 
 /* ---------- the action row -------------------------------------------------
-   Refine, then More, then the remove, then (on a shot) download, then Keep.
+   More, then Refine, then Download, then the remove, then Keep.
    Rounded squares, the top bar's shape for an action, so a glance tells them
    from the circular tick. Same box as the tick. Refine keeps the word on a
    wide card. They wait, so a kept star stays lit and the ones beside it do
@@ -493,11 +517,13 @@
   pointer-events: none;
 }
 .sc-cell:hover .sc-corner .sc-cell-ctl,
-.sc-cell:focus-within .sc-corner .sc-cell-ctl,
+:where(:root:not([data-input="pointer"])) .sc-cell:focus-within .sc-corner .sc-cell-ctl,
 .sc-cell:has(.sc-cell-more[data-state="open"]) .sc-corner .sc-cell-ctl,
+.sc-cell[data-state="open"] .sc-corner .sc-cell-ctl,
 .sc-lookcard:hover .sc-corner .sc-cell-ctl,
-.sc-lookcard:focus-within .sc-corner .sc-cell-ctl,
+:where(:root:not([data-input="pointer"])) .sc-lookcard:focus-within .sc-corner .sc-cell-ctl,
 .sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-corner .sc-cell-ctl,
+.sc-lookcard[data-state="open"] .sc-corner .sc-cell-ctl,
 .sc-lookcard[data-just-added] .sc-corner .sc-cell-ctl,
 .sc-corner .sc-cell-keep[data-on],
 .sc-corner .sc-lookcard-keep[data-on],

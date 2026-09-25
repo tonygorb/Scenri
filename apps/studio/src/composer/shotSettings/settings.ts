@@ -10,6 +10,17 @@ import { supportsFormat } from '../../engines/capabilities.js';
  */
 export type QualityId = 'draft' | 'standard' | 'high';
 
+/**
+ * What a new brief opens at, before this machine has a choice of its own.
+ *
+ * A saved choice wins. A recipe borrows its own shape and count for the brief
+ * on screen. A refinement opens on the shot it is refining. These three are
+ * only the first state: 4:5, one frame, standard.
+ */
+export const DEFAULT_FORMAT_ID = 'portrait';
+export const DEFAULT_VARIANT_COUNT = 1;
+export const DEFAULT_QUALITY: QualityId = 'standard';
+
 export const RESOLUTIONS: { id: QualityId; label: string; edge: number; note: string }[] = [
   { id: 'draft', label: 'Draft', edge: 768, note: 'quick checks' },
   { id: 'standard', label: 'Standard', edge: 1024, note: 'everyday shots' },
