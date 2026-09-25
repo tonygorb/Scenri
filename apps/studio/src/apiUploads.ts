@@ -66,12 +66,25 @@ export async function uploadImage(file: File): Promise<string> {
  * from the rail wrote the old name back. The answer comes back as the row, or
  * null when there is nobody to tell or nothing to say.
  */
+/**
+ * What a brand-kit save sends: the kit, without the products, scenes and
+ * presenters. The server keeps those as stored for such a save (keepAssets),
+ * so sending them only cost bytes, and bytes are what broke it: a library of
+ * about a thousand passed the server's 1 MiB body limit, and a leaving save
+ * rides a keepalive request, which a browser caps at 64 KB.
+ */
+export function brandKit(brand: unknown): unknown {
+  if (!brand || typeof brand !== 'object') return brand;
+  const { products: _p, scenes: _s, characters: _c, ...kit } = brand as Record<string, unknown>;
+  return kit;
+}
+
 export function saveBrandOnUnload(brandId: string, brand: unknown): Promise<Brand | null> {
   try {
     return fetch(`/api/brands/${brandId}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ brand, keepAssets: true }),
+      body: JSON.stringify({ brand: brandKit(brand), keepAssets: true }),
       keepalive: true,
     })
       .then((res) => (res.ok ? (res.json() as Promise<Brand>) : null))

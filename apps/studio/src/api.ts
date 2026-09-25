@@ -8,6 +8,7 @@ export type * from './apiTypes.js';
 export * from './apiUploads.js';
 export * from './apiLabels.js';
 import { req } from './apiReq.js';
+import { brandKit } from './apiUploads.js';
 import { feedSearchParams } from './feedRules.js';
 import type {
   ActivityNode,
@@ -75,7 +76,8 @@ export const api = {
    * built from the brand the studio holds, so it asks the server to keep the
    * products, scenes and presenters as stored rather than as that copy saw them.
    */
-  updateBrand: (id: string, brand: any) => req<Brand>('PUT', `/api/brands/${id}`, { brand, keepAssets: true }),
+  updateBrand: (id: string, brand: any) =>
+    req<Brand>('PUT', `/api/brands/${id}`, { brand: brandKit(brand), keepAssets: true }),
   deleteBrand: (id: string) => req<{ ok: true }>('DELETE', `/api/brands/${id}`),
   /** The install's first-use record: who is new, what is done, and the task in hand with what it has made. */
   guide: () => req<GuideView>('GET', '/api/guide'),
