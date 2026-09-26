@@ -122,15 +122,15 @@ Two different sentences, deliberately kept apart:
 It has two surfaces, one for each reason to look:
 
 - **The dialog** introduces one update after an update, as an excerpt: the
-  newest headline update's picture, its date and version tag and its headline,
-  which together are one link to that release on the page, then "See N more
-  updates" and "Got it". Its areas and release notes are on the page. When the
-  update has no picture of its own, the dialog shows Scenri's mark on its dark
-  ground with the version tag on it instead; that artwork is the dialog's
-  alone, never the page's, and never stored as the release's picture. When
-  it introduces an earlier update than the one you run (the newest headline,
-  with a smaller update after it), its head carries the version you run as the
-  lit tag, as the page does.
+  newest update's picture, its version tag and date and its headline, which
+  together are one link to that release on the page, then "See N more updates"
+  and "Got it". It is the same update the page leads with, so the two never
+  name different versions. It opens by itself only while an unread headline
+  update is waiting; what it shows is still the newest update, headline or
+  small. Its areas and release notes are on the page. When the update has no
+  picture of its own, the dialog shows Scenri's mark on its dark ground with
+  the version tag on it instead; that artwork is the dialog's alone, never the
+  page's, and never stored as the release's picture.
 - **The What's new page** (`/<brand>/whats-new`) is the history: every public
   release with something to say, newest first, every update set in the same
   sizes (a headline stands out by its picture, never by bigger type), ten at a
@@ -141,8 +141,9 @@ It has two surfaces, one for each reason to look:
   a record left out. Help → What's new and Settings → Updates open it. It is not
   a place in the top bar. An update has at most one picture, and on the page it
   opens larger, with nothing else around it; an update without one is words
-  alone. Every version is a pill tag with the number only, and the version this
-  computer runs is the same tag lit.
+  alone. Every version is a pill tag with the number only, over a short date
+  (26 Sep 2026), and the version this computer runs is the same tag lit. Each
+  release's notes on GitHub come last, after its words.
 
 Every record is one of three kinds, and the kind is written into the record:
 
