@@ -39,6 +39,22 @@ export function ProviderSetup({ engines, onSaved }: { engines: EngineInfo[]; onS
   // describe what it is setting up.
   const open = Boolean(provider) || isCodex;
   const engine = engines.find((e) => e.id === engineId);
+  // A key is typed only on the computer running Scenri: the server refuses one
+  // from a phone. Asked once, as the studio loads, so a phone never opens onto
+  // a field it cannot use; until the answer comes the field is there.
+  const [thisComputer, setThisComputer] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    api
+      .version()
+      .then((v) => alive && setThisComputer(v.thisComputer !== false))
+      .catch(() => {
+        /* the server still refuses a key from a phone */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Settings' own shell, since this opens from it and over it: the same head,
   // and on a phone the same sheet.
@@ -53,7 +69,7 @@ export function ProviderSetup({ engines, onSaved }: { engines: EngineInfo[]; onS
       // pane's own mount, Settings' trap underneath was still live and pulled
       // focus back to its Connect button, outside this sheet.
       onOpenAutoFocus={
-        provider
+        provider && thisComputer
           ? (e) => {
               e.preventDefault();
               (e.target as HTMLElement).querySelector<HTMLInputElement>('.sc-setup-key input')?.focus();
@@ -66,6 +82,7 @@ export function ProviderSetup({ engines, onSaved }: { engines: EngineInfo[]; onS
           provider={provider}
           name={engine ? engineTitle(engine.displayName) : provider.engineId}
           connected={Boolean(engine?.available)}
+          thisComputer={thisComputer}
           onSaved={onSaved}
           onDone={close}
         />
@@ -106,12 +123,14 @@ function KeyPane({
   provider,
   name,
   connected,
+  thisComputer,
   onSaved,
   onDone,
 }: {
   provider: KeyProvider;
   name: string;
   connected: boolean;
+  thisComputer: boolean;
   onSaved: () => void;
   onDone: () => void;
 }) {
@@ -175,41 +194,45 @@ function KeyPane({
             ready={connected}
           />
           <p className="sc-setup-lead">
-            {connected
-              ? `A key is saved for ${name}. Paste a new one to replace it, or disconnect to remove it from this computer.`
-              : `Paste a key from ${name}. It is stored in your library folder on this computer, sent only to ${name}, and never shown again.`}
+            {!thisComputer
+              ? 'Keys are added on the computer running Scenri.'
+              : connected
+                ? `A key is saved for ${name}. Paste a new one to replace it, or disconnect to remove it from this computer.`
+                : `Paste a key from ${name}. It is stored in your library folder on this computer, sent only to ${name}, and never shown again.`}
           </p>
         </div>
 
-        <form
-          className="sc-setup-key"
-          onSubmit={(ev) => {
-            ev.preventDefault();
-            void save();
-          }}
-        >
-          <input
-            className="sc-in"
-            type="password"
-            placeholder={provider.hint}
-            value={value}
-            onChange={(ev) => setValue(ev.target.value)}
-            autoComplete="off"
-            name={provider.settingKey}
-            aria-label={`${name} key`}
-          />
-          <div className="sc-setup-acts">
-            <button type="submit" className="sc-btn sc-btn-primary" disabled={busy || !value.trim()}>
-              {busy ? <Spinner size="1" /> : <Key size={15} />}
-              {connected ? 'Replace key' : 'Connect'}
-            </button>
-            <a className="sc-setup-alt" href={provider.keysUrl} target="_blank" rel="noreferrer">
-              Get a key <ArrowSquareOut size={13} />
-            </a>
-          </div>
-        </form>
+        {thisComputer && (
+          <form
+            className="sc-setup-key"
+            onSubmit={(ev) => {
+              ev.preventDefault();
+              void save();
+            }}
+          >
+            <input
+              className="sc-in"
+              type="password"
+              placeholder={provider.hint}
+              value={value}
+              onChange={(ev) => setValue(ev.target.value)}
+              autoComplete="off"
+              name={provider.settingKey}
+              aria-label={`${name} key`}
+            />
+            <div className="sc-setup-acts">
+              <button type="submit" className="sc-btn sc-btn-primary" disabled={busy || !value.trim()}>
+                {busy ? <Spinner size="1" /> : <Key size={15} />}
+                {connected ? 'Replace key' : 'Connect'}
+              </button>
+              <a className="sc-setup-alt" href={provider.keysUrl} target="_blank" rel="noreferrer">
+                Get a key <ArrowSquareOut size={13} />
+              </a>
+            </div>
+          </form>
+        )}
 
-        {connected && (
+        {thisComputer && connected && (
           <div className="sc-setup-cut">
             <Confirm
               label="Disconnect"
@@ -254,9 +277,9 @@ function CodexPane({ engines, onSaved, onDone }: { engines: EngineInfo[]; onSave
   const [copied, setCopied] = useState(false);
   const [platform, setPlatform] = useState<SetupPlatform>('mac');
   // The probe's own sentence for a state that has more than one cause. An
-  // update is needed below Scenri's floor, and also when the Codex app has
-  // moved config.toml to a model this CLI predates; the wizard used to claim
-  // the first for both.
+  // update is needed below Scenri's floor, and also when this CLI predates the
+  // model Scenri runs it on (gpt-6-sol); the wizard used to claim the first
+  // for both.
   const [reason, setReason] = useState<string | null>(null);
   // Which variables are in the way, and which Scenri is already keeping out of
   // codex's environment. Names only; a value never crosses this boundary.

@@ -7,12 +7,13 @@
  * on stdout is never the answer; the file is.
  */
 import { spawn as nodeSpawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
+import { copyFile, lstat, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { EngineAvailability } from '@scenri/core';
 import { MIN_CODEX_VERSION, parseCodexVersion, resolveCodex, versionAtLeast, type ResolvedCodex } from './locate.js';
-import { buildChildEnv } from './childEnv.js';
+import { buildChildEnv, SIBLING_PROVIDER_KEYS } from './childEnv.js';
 import { type CodexFailure, classifyCodexFailure, conflictReason, presentConflictKeys } from './classify.js';
 import {
   CONNECT_PROMPT,
@@ -102,6 +103,41 @@ export interface CodexRunner {
 }
 
 /**
+ * Copy one of the person's pictures into the workdir. Node's own failure names
+ * both absolute paths (the library's and the temp dir's), and this message is
+ * what the studio shows, so the raw one goes to the log and the person reads a
+ * sentence.
+ */
+export async function copyReference(src: string, dest: string): Promise<void> {
+  try {
+    await copyFile(src, dest);
+  } catch (err) {
+    console.error(`codex: ${String((err as Error)?.message ?? err)}`);
+    throw new Error('A reference picture could not be read.');
+  }
+}
+
+/**
+ * Read a file codex left behind, only when it is a plain file. The agent runs
+ * in a sandbox and Scenri does not: a link it left as out-1.png would have
+ * Scenri copy whatever the link points at into the library.
+ */
+export async function readLeftFile(path: string, name: string): Promise<Buffer> {
+  if (!(await lstat(path)).isFile()) throw new Error(`codex: ${name} is not a plain file`);
+  return readFile(path);
+}
+
+/**
+ * The model every exec runs on. Scenri used to pass none, so each run took the
+ * machine's codex default (gpt-6-astra since the Codex app moved config.toml),
+ * and on 2026-09-26 eight images cost 56% of a Team plan's 5-hour window, about
+ * four fifths of it the text model's own tokens. gpt-6-sol is the cheaper
+ * frontier model on the same plan. A codex too old to know it refuses before
+ * drawing, and the runner already turns that refusal into "update Codex".
+ */
+export const CODEX_MODEL = 'gpt-6-sol';
+
+/**
  * Shared exec args. The positional tail is `-`, codex's own marker for "read
  * the prompt from stdin": as an argv tail the prompt hit cmd.exe's 8191-char
  * line limit and the win32 quoting substitutions; stdin carries exact bytes on
@@ -115,12 +151,43 @@ export function execArgs(dir: string, effort: ReasoningEffort = 'low'): string[]
     'workspace-write',
     '--color',
     'never',
+    '-m',
+    CODEX_MODEL,
     '-c',
     `model_reasoning_effort="${effort}"`,
     '-C',
     dir,
     '-',
   ];
+}
+
+/**
+ * `-c mcp_servers.<name>.enabled=false` for each MCP server the machine's own
+ * config.toml names. Every exec used to load them all: their tool schemas rode
+ * along as tokens on each shot, and tools like computer-use sat within reach of
+ * an agent that reads writing inside the attached pictures. Codex skips a
+ * server whose `enabled` is false, and a -c override merges by dotted path, so
+ * each server is named; a name with a dot in it cannot be addressed that way
+ * and is left alone. Names only are read, never values.
+ */
+export function mcpOffArgs(env: NodeJS.ProcessEnv): string[] {
+  // The same place the child will look: its own CODEX_HOME, else ~/.codex of
+  // the HOME it inherits. An env with neither has no config to read.
+  const user = env.HOME || env.USERPROFILE;
+  const home = env.CODEX_HOME || (user ? join(user, '.codex') : '');
+  if (!home) return [];
+  let text: string;
+  try {
+    text = readFileSync(join(home, 'config.toml'), 'utf8');
+  } catch {
+    return [];
+  }
+  const names = new Set<string>();
+  for (const line of text.split(/\r?\n/)) {
+    const m = /^\s*\[\s*mcp_servers\.(?:"([A-Za-z0-9_-]+)"|([A-Za-z0-9_-]+))\s*\]\s*(?:#.*)?$/.exec(line);
+    if (m) names.add(m[1] ?? m[2]);
+  }
+  return [...names].flatMap((name) => ['-c', `mcp_servers.${name}.enabled=false`]);
 }
 
 /**
@@ -348,7 +415,8 @@ export function createRunner(opts: RunnerOptions = {}): CodexRunner {
     // One environment for every codex child, the check included: the whole
     // point of the connection check is that codex cannot tell it apart from a
     // real shot. Built per spawn so a repair lands on the next run.
-    const env = buildChildEnv(parentEnv, ignoreEnvKeys());
+    const env = buildChildEnv(parentEnv, [...ignoreEnvKeys(), ...SIBLING_PROVIDER_KEYS]);
+    if (args[0] === 'exec') args = ['exec', ...mcpOffArgs(parentEnv), ...args.slice(1)];
     return exe.direct
       ? spawnImpl(exe.command, args, { stdio, env, ...(platform !== 'win32' ? { detached: true } : {}) })
       : spawnImpl([exe.command, ...args.map(winArg)].join(' '), [], { stdio, env, shell: true });

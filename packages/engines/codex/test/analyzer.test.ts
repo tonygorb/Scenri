@@ -115,6 +115,7 @@ describe('analyze — presenter', () => {
     expect(promptFromArgs(calls[0])).not.toContain('--image'); // prompt stays the positional tail
     // Reading a face is the anchor everything downstream is conditioned on.
     expect(args).toContain('model_reasoning_effort="high"');
+    expect(args[args.indexOf('-m') + 1]).toBe('gpt-6-sol');
 
     const prompt = promptFromArgs(calls[0]);
     expect(prompt).toContain('2 reference images are attached');

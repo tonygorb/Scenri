@@ -182,6 +182,13 @@ export function registerAccessGuard(app: FastifyInstance, opts: AccessOptions = 
   const limiter = createLimiter(opts.now ?? Date.now);
 
   app.addHook('onRequest', async (req, reply) => {
+    // First, so every answer carries them, a refusal and the code page
+    // included: no page may frame the studio (a click on Shut down laid under
+    // someone else's page), and nothing is read as a type other than the one
+    // it names. Frame rules only, not a full content policy.
+    reply.header('x-content-type-options', 'nosniff');
+    reply.header('x-frame-options', 'DENY');
+    reply.header('content-security-policy', "frame-ancestors 'none'");
     const host = hostnameOf(req.headers.host);
     if (!host || !(named.has(host) || isIPv4Literal(host))) {
       return reply.status(403).send({ error: 'forbidden host' });
@@ -197,6 +204,13 @@ export function registerAccessGuard(app: FastifyInstance, opts: AccessOptions = 
       const isNavigation =
         req.headers['sec-fetch-mode'] === 'navigate' && (req.method === 'GET' || req.method === 'HEAD');
       if (!isNavigation) return reply.status(403).send({ error: 'cross-site request blocked' });
+    }
+    // Another app on this computer is same-site, not cross-site: a page on
+    // 127.0.0.1 at any other port. Its loopback Host and socket would then
+    // skip the code below, so it may read but never change anything. The
+    // studio, a phone and Vite's proxy all send same-origin.
+    if (req.headers['sec-fetch-site'] === 'same-site' && req.method !== 'GET' && req.method !== 'HEAD') {
+      return reply.status(403).send({ error: 'cross-site request blocked' });
     }
 
     const code = opts.code?.();

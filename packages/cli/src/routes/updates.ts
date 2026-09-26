@@ -31,7 +31,8 @@ export function registerUpdateRoutes(
     schema: SCHEMA_VERSION,
     installKind: runtime.installKind,
     supervised: runtime.supervised,
-    home: core.home,
+    // the library's path on disk, for this computer only (the e2e harness reads it over loopback)
+    ...(fromThisComputer(req) ? { home: core.home } : {}),
     // Settings hides what acts on this computer (its file manager, its
     // desktop) from a phone that opened Scenri over the Wi-Fi
     thisComputer: fromThisComputer(req),
@@ -185,7 +186,10 @@ export function registerUpdateRoutes(
   app.get('/api/update/status', async () => updateStatus());
   app.post('/api/update/check', async () => updateStatus(true));
 
-  app.post('/api/update/apply', async (_req, reply) => {
+  // Installing and restarting act on the computer running Scenri, so only it
+  // may ask. Checking stays open to a phone: it only asks npm.
+  app.post('/api/update/apply', async (req, reply) => {
+    if (!fromThisComputer(req)) return reply.status(403).send({ error: 'Only on the computer running Scenri.' });
     // Never over live work: a restart mid-generation is the one way this
     // system could cost someone an image.
     const busy = deps.busyCount();
@@ -215,7 +219,8 @@ export function registerUpdateRoutes(
     return { ok: true, staging: target };
   });
 
-  app.post('/api/update/restart', async (_req, reply) => {
+  app.post('/api/update/restart', async (req, reply) => {
+    if (!fromThisComputer(req)) return reply.status(403).send({ error: 'Only on the computer running Scenri.' });
     const apply = effectiveApply();
     if (apply.phase !== 'ready') return reply.status(409).send({ error: 'no staged update to restart into' });
     // Same doctrine as apply: never over live work. A restart mid-generation

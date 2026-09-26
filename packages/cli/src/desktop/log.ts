@@ -4,7 +4,7 @@
  * <home>/logs: `launcher.log` for the bootstrap and `scenri open`, `scenri.log`
  * for the stdout and stderr of a server that has no terminal to print to.
  */
-import { appendFileSync, mkdirSync, openSync, renameSync, statSync } from 'node:fs';
+import { appendFileSync, chmodSync, mkdirSync, openSync, renameSync, statSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 const DEFAULT_MAX = 1024 * 1024;
@@ -20,9 +20,11 @@ function rotate(path: string, maxBytes: number): void {
 
 export function appendLog(path: string, line: string, opts: { maxBytes?: number } = {}): void {
   try {
-    mkdirSync(dirname(path), { recursive: true });
+    mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+    ownerOnly(dirname(path), 0o700);
     rotate(path, opts.maxBytes ?? DEFAULT_MAX);
-    appendFileSync(path, `${new Date().toISOString()} ${line}\n`);
+    appendFileSync(path, `${new Date().toISOString()} ${line}\n`, { mode: 0o600 });
+    ownerOnly(path, 0o600);
   } catch {
     /* lost line */
   }
@@ -30,7 +32,24 @@ export function appendLog(path: string, line: string, opts: { maxBytes?: number 
 
 /** An append descriptor a child process can inherit for stdout and stderr. */
 export function openLogFd(path: string, opts: { maxBytes?: number } = {}): number {
-  mkdirSync(dirname(path), { recursive: true });
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  ownerOnly(dirname(path), 0o700);
   rotate(path, opts.maxBytes ?? 5 * DEFAULT_MAX);
-  return openSync(path, 'a');
+  const fd = openSync(path, 'a', 0o600);
+  ownerOnly(path, 0o600);
+  return fd;
+}
+
+/**
+ * The logs carry what the server printed and what the launcher tried, so they
+ * are the owner's alone, like the database: the mode on creation, and this
+ * for a folder or file an older build left readable. POSIX only: on Windows
+ * chmod merely toggles read-only, and the profile ACLs carry the protection.
+ */
+function ownerOnly(path: string, mode: number): void {
+  try {
+    chmodSync(path, mode);
+  } catch {
+    /* a looser file, never a lost line */
+  }
 }

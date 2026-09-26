@@ -91,17 +91,48 @@ function isPrivateV4(ip: string): boolean {
 }
 
 function isPrivateV6(ip: string): boolean {
-  const bare = ip.replace(/^\[|\]$/g, '');
-  if (bare === '::' || bare === '::1') return true;
-  // An embedded v4 address is still that v4 address.
-  const mapped = /^(?:::ffff:|64:ff9b::)(\d{1,3}(?:\.\d{1,3}){3})$/.exec(bare);
-  if (mapped) return isPrivateV4(mapped[1]);
-  const head = bare.split(':')[0];
-  if (/^f[cd]/.test(head)) return true; // fc00::/7 unique-local
-  if (/^fe[89ab]/.test(head)) return true; // fe80::/10 link-local
-  if (/^ff/.test(head)) return true; // multicast
-  if (head === '2002') return true; // 6to4 wraps a v4 address we cannot see
+  const g = groupsOf(ip.replace(/^\[|\]$/g, ''));
+  if (!g) return true; // not an address we can read: refuse rather than guess
+  // An embedded v4 address is still that v4 address, however it is written:
+  // `new URL` turns [::ffff:127.0.0.1] into ::ffff:7f00:1, so the dotted form
+  // alone is not enough. IPv4-mapped (::ffff:0:0/96), IPv4-compatible (::/96,
+  // where :: and ::1 also live) and NAT64 (64:ff9b::/96). NAT64 is judged by
+  // the address it carries, never refused outright: DNS64 networks put
+  // public sites there.
+  const zeros = (from: number, to: number) => g.slice(from, to).every((n) => n === 0);
+  const v4 = () => `${g[6] >> 8}.${g[6] & 255}.${g[7] >> 8}.${g[7] & 255}`;
+  if (zeros(0, 5) && (g[5] === 0xffff || g[5] === 0)) return isPrivateV4(v4());
+  if (g[0] === 0x64 && g[1] === 0xff9b && zeros(2, 6)) return isPrivateV4(v4());
+  if ((g[0] & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
+  if ((g[0] & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+  if ((g[0] & 0xff00) === 0xff00) return true; // multicast
+  // These wrap a v4 address we cannot see: 6to4, Teredo, local-use NAT64.
+  if (g[0] === 0x2002) return true;
+  if (g[0] === 0x2001 && g[1] === 0) return true;
+  if (g[0] === 0x64 && g[1] === 0xff9b && g[2] === 1) return true;
   return false;
+}
+
+/** Eight 16-bit groups, a dotted v4 tail counting as the last two; null when it does not add up. */
+function groupsOf(ip: string): number[] | null {
+  let s = ip;
+  const tail: number[] = [];
+  const dotted = /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s);
+  if (dotted) {
+    const [a, b, c, d] = dotted.slice(1).map(Number);
+    tail.push((a << 8) | b, (c << 8) | d);
+    s = s.slice(0, dotted.index);
+  }
+  const parse = (part: string) =>
+    part
+      .split(':')
+      .filter(Boolean)
+      .map((h) => Number.parseInt(h, 16));
+  const [left, right] = s.includes('::') ? s.split('::').map(parse) : [parse(s), null];
+  const gap = 8 - left.length - (right?.length ?? 0) - tail.length;
+  if (gap < 0 || (right === null && gap !== 0)) return null;
+  const g = [...left, ...Array<number>(gap).fill(0), ...(right ?? []), ...tail];
+  return g.every((n) => Number.isInteger(n) && n >= 0 && n <= 0xffff) ? g : null;
 }
 
 /** Hostnames that never belong to a public website, whatever they resolve to. */

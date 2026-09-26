@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { CONFLICT_ENV_KEYS, createCodexSetup, type CodexRunner, type CodexSetup } from '@scenri/engine-codex';
+import { fromThisComputer } from '../access.js';
 
 /**
  * Which variables Scenri keeps out of codex's environment, and nothing more.
@@ -20,7 +21,8 @@ export function registerCodexSetupRoutes(
   // These run two official commands on the user's own machine: a global npm
   // install, and `codex login`, which opens their browser. No credential is
   // read, copied or stored here — the session lands in codex's own config and
-  // stays there. Both are gated by the same access guard as everything else.
+  // stays there. Every one of them acts on this computer, so only this computer
+  // may ask: a phone's code travels over plain http and can be overheard.
   const codexSetup: CodexSetup = deps.codexSetup ?? createCodexSetup({ runner: deps.codexRunner });
   /** One install/login/repair at a time: two concurrent npm installs fight over the same prefix. */
   let codexSetupBusy: 'install' | 'login' | 'repair' | null = null;
@@ -30,13 +32,22 @@ export function registerCodexSetupRoutes(
    * user's ChatGPT plan: it throws away the stored verdict and runs a real
    * `codex exec` to find out whether generation would work right now. Bare
    * status reads what the last check or the last shot already proved.
+   *
+   * A GET passes the access guard's cross-site checks, so an <img> on a page
+   * at another localhost port, or any site's link opened at the top level,
+   * could spend that turn. Only the studio's own Check again (same-origin),
+   * the address typed in (none) or a non-browser client (no header) may force.
    */
   app.get('/api/engines/codex/status', async (req) => {
-    const force = (req.query as { force?: string } | undefined)?.force === '1';
+    const site = req.headers['sec-fetch-site'];
+    const force =
+      (req.query as { force?: string } | undefined)?.force === '1' &&
+      (site === undefined || site === 'same-origin' || site === 'none');
     return codexSetup.status({ force });
   });
 
-  app.post('/api/engines/codex/install', async (_req, reply) => {
+  app.post('/api/engines/codex/install', async (req, reply) => {
+    if (!fromThisComputer(req)) return reply.status(403).send({ error: 'Only on the computer running Scenri.' });
     if (codexSetupBusy) return reply.status(409).send({ error: `already running: ${codexSetupBusy}` });
     codexSetupBusy = 'install';
     try {
@@ -48,7 +59,8 @@ export function registerCodexSetupRoutes(
     }
   });
 
-  app.post('/api/engines/codex/login', async (_req, reply) => {
+  app.post('/api/engines/codex/login', async (req, reply) => {
+    if (!fromThisComputer(req)) return reply.status(403).send({ error: 'Only on the computer running Scenri.' });
     if (codexSetupBusy) return reply.status(409).send({ error: `already running: ${codexSetupBusy}` });
     codexSetupBusy = 'login';
     try {
@@ -69,6 +81,7 @@ export function registerCodexSetupRoutes(
    * strip a child's environment.
    */
   app.post('/api/engines/codex/repair-env', async (req, reply) => {
+    if (!fromThisComputer(req)) return reply.status(403).send({ error: 'Only on the computer running Scenri.' });
     const repair = deps.envRepair;
     if (!repair) return reply.status(501).send({ error: 'not available on this server' });
     const asked = (req.body as { keys?: unknown } | undefined)?.keys;
@@ -88,7 +101,8 @@ export function registerCodexSetupRoutes(
   });
 
   /** The undo, in the same place as the do. */
-  app.post('/api/engines/codex/restore-env', async (_req, reply) => {
+  app.post('/api/engines/codex/restore-env', async (req, reply) => {
+    if (!fromThisComputer(req)) return reply.status(403).send({ error: 'Only on the computer running Scenri.' });
     const repair = deps.envRepair;
     if (!repair) return reply.status(501).send({ error: 'not available on this server' });
     if (codexSetupBusy) return reply.status(409).send({ error: `already running: ${codexSetupBusy}` });

@@ -52,13 +52,14 @@ export function registerDesktopRoutes(
       return addToDesktop(runtime.entry);
     });
 
-  app.get('/api/desktop', async () => {
+  app.get('/api/desktop', async (req) => {
     const s = await status();
     return {
       supported: s.supported,
       platform: s.platform,
       installed: s.installed,
-      path: s.path,
+      // where the icon lives on this computer, for this computer only
+      path: fromThisComputer(req) ? s.path : null,
       declined: core.store.getSetting('desktop.prompt') === 'declined',
       installKind: runtime.installKind,
     };
@@ -78,7 +79,9 @@ export function registerDesktopRoutes(
     return { ok: true, path: res.path };
   });
 
-  app.post('/api/system/quit', async (_req, reply) => {
+  app.post('/api/system/quit', async (req, reply) => {
+    // it stops Scenri on the computer running it: never at a phone's request
+    if (!fromThisComputer(req)) return reply.status(403).send({ error: 'Only on the computer running Scenri.' });
     const busy = deps.busyCount();
     if (busy > 0) {
       return reply.status(409).send({ error: `work is still running (${busy} task${busy === 1 ? '' : 's'})` });

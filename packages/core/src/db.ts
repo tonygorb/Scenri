@@ -705,14 +705,28 @@ export class SchemaTooNewError extends Error {
 
 function backupBeforeMigration(db: DB, homeDir: string, fromVersion: number): void {
   const dir = join(homeDir, 'backups');
-  mkdirSync(dir, { recursive: true });
+  // A backup is the whole database, keys included, so it is owner-only like
+  // the database (openDb): the folder on creation and again for one an older
+  // build made, each snapshot once written. POSIX only, as there.
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  try {
+    chmodSync(dir, 0o700);
+  } catch {
+    /* a read-only or exotic filesystem must not stop the migration */
+  }
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, '0');
   const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
   // Checkpoint first so the snapshot carries everything still sitting in the
   // WAL; VACUUM INTO is a single consistent, compacted copy.
   db.pragma('wal_checkpoint(TRUNCATE)');
-  db.prepare('VACUUM INTO ?').run(join(dir, `scenri-v${fromVersion}-${stamp}.db`));
+  const snapshot = join(dir, `scenri-v${fromVersion}-${stamp}.db`);
+  db.prepare('VACUUM INTO ?').run(snapshot);
+  try {
+    chmodSync(snapshot, 0o600);
+  } catch {
+    /* as above */
+  }
   const old = readdirSync(dir)
     .filter((f) => /^scenri-v\d+-\d{8}-\d{6}\.db$/.test(f))
     .sort((a, b) => a.slice(-18).localeCompare(b.slice(-18)));
