@@ -14,6 +14,10 @@ export interface Chapter {
   cols: number;
   radius: string | null;
   cards: number;
+  /** The shelf's one way on, under its grid. */
+  door: { text: string; href: string } | null;
+  /** Links in the heading row: a shelf keeps its way on at its end, not up here. */
+  headLinks: number;
 }
 
 export const chapters = (p: Page) => p.locator('main.sc-main > section');
@@ -31,6 +35,7 @@ export function readChapters(p: Page): Promise<Chapter[]> {
       const grid = section.querySelector('.sc-masonry');
       const card = grid?.querySelector('.sc-lookcard');
       const box = section.getBoundingClientRect();
+      const door = section.querySelector('.sc-lib-more a');
       return {
         title: head?.querySelector('h2')?.textContent ?? null,
         top: box.top,
@@ -39,6 +44,8 @@ export function readChapters(p: Page): Promise<Chapter[]> {
         cols: grid ? getComputedStyle(grid).gridTemplateColumns.split(' ').length : 0,
         radius: card ? getComputedStyle(card).borderRadius : null,
         cards: grid?.children.length ?? 0,
+        door: door ? { text: door.textContent?.trim() ?? '', href: door.getAttribute('href') ?? '' } : null,
+        headLinks: head ? head.querySelectorAll('a').length : 0,
       };
     }),
   );

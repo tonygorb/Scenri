@@ -45,6 +45,19 @@ test('the shelves share the wall grid and one section beat, in both densities', 
   expect(large[1].cards).toBe(Math.min(8, presenters));
   expect(large[2].cards).toBe(Math.min(8, scenes));
 
+  // one way on per shelf, where it ends: the library's Show all, with the whole count
+  const shelves = [
+    { shelf: large[1], total: presenters, noun: 'presenters' },
+    { shelf: large[2], total: scenes, noun: 'scenes' },
+  ];
+  for (const { shelf, total, noun } of shelves) {
+    expect(shelf.headLinks).toBe(0);
+    if (total > shelf.cards) {
+      expect(shelf.door?.text).toBe(`Show all ${total} ${noun}`);
+      expect(shelf.door?.href).toMatch(new RegExp(`/${noun}$`));
+    } else expect(shelf.door).toBeNull();
+  }
+
   // one Grid size for the whole page: compact reflows the shelves with the wall
   await page.locator('.sc-density-opt[aria-label="Compact"]').click();
   await expect.poll(async () => (await readChapters(page))[1].cards).toBe(Math.min(14, presenters));
@@ -102,13 +115,24 @@ test('a shelf keeps its heading and the wall grid while its cards load', async (
   const shelf = chapters(page).nth(1);
   await expect(shelf.locator('h2')).toHaveText('Presenters');
   await expect(shelf.locator('.sc-masonry[aria-hidden]')).toBeVisible();
+  // the way on is already there, before the count is known
+  await expect(shelf.locator('.sc-lib-more a')).toHaveText('Show all presenters');
   const loading = await readChapters(page);
   expect(loading[1].cols).toBe(loading[0].cols);
-  const headTop = await shelf.locator('h2').evaluate((h) => Math.round(h.getBoundingClientRect().top));
+  const top = (i: number) =>
+    chapters(page)
+      .nth(i)
+      .locator('h2')
+      .evaluate((h) => Math.round(h.getBoundingClientRect().top));
+  const headTop = await top(1);
+  const nextTop = await top(2);
 
   release();
   await expect(shelf.locator('.sc-masonry[aria-hidden]')).toHaveCount(0);
   await expect(shelf.locator('.sc-lookcard').first()).toBeVisible();
   // the heading was there all along, so nothing above the grid moved
-  expect(await shelf.locator('h2').evaluate((h) => Math.round(h.getBoundingClientRect().top))).toBe(headTop);
+  expect(await top(1)).toBe(headTop);
+  // and the shelf kept its height, so the chapter under it stayed put
+  const { presenters } = await catalogCounts(page);
+  if (presenters > 8) expect(await top(2)).toBe(nextTop);
 });

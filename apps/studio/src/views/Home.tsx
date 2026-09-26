@@ -207,20 +207,19 @@ export function HomeView() {
     toCreate(sceneId ? { scene: sceneId, attach: 'products', compose: '1' } : { attach: 'products', compose: '1' });
   };
 
+  /** The Presenters shelf: the brand's own people lead, the way they do on the
+   * wall and in the picker. It read the catalog alone, so somebody cast a
+   * moment ago was structurally absent from the one page that opens the app.
+   * The shelf shows the first of them; its Show all counts every one. */
+  const allPresenters = useMemo(() => withCustomFirst(customPresentersOf(brand), presenters), [brand, presenters]);
+  const shelfPresenters = allPresenters.slice(0, shelfLength);
+
   /** The Scenes shelf: bookmarked first, catalog order under that. A shelf is
    * a glance, and the ones you shortlisted are the ones worth glancing at.
    * Read per render rather than held in state — the shelf is rebuilt on every
    * visit to Home, which is exactly when a bookmark set on /scenes should show
    * up. */
-  /** The Presenters shelf: the brand's own people lead, the way they do on the
-   * wall and in the picker. It read the catalog alone, so somebody cast a
-   * moment ago was structurally absent from the one page that opens the app. */
-  const shelfPresenters = useMemo(
-    () => withCustomFirst(customPresentersOf(brand), presenters).slice(0, shelfLength),
-    [brand, presenters, shelfLength],
-  );
-
-  const shelfScenes = useMemo(() => {
+  const allScenes = useMemo(() => {
     const marks = bookmarkedScenes(brand.id);
     // A brand's own scenes lead here, exactly as they do in the picker and in
     // the library. This shelf used to read the catalog alone, so a scene someone
@@ -229,8 +228,9 @@ export function HomeView() {
     return withCustomFirst(
       customScenesOf(brand),
       bookmarkedFirst(templates, (s) => marks.includes(s.id)),
-    ).slice(0, shelfLength);
-  }, [templates, brand, shelfLength]);
+    );
+  }, [templates, brand]);
+  const shelfScenes = allScenes.slice(0, shelfLength);
 
   /** Curated create-strip heroes — preferred showcase/scene ids in quality
    * order. Claimed uniquely so the row never repeats a still. */
@@ -417,14 +417,13 @@ export function HomeView() {
 
           {/* A shelf keeps its heading while its cards load, so nothing arrives
             above its grid, and the grid reads the wall's density the way every
-            library grid does, so the columns agree down the page. */}
+            library grid does, so the columns agree down the page. It ends on
+            the library's own Show all: the one way on, where the shelf ends,
+            held in place while the cards load so nothing under it moves. */}
           {(!presentersLoaded || shelfPresenters.length > 0) && (
             <section>
               <div className="sc-sec-head">
                 <h2 className="sc-sec-title">Presenters</h2>
-                <Link className="sc-sec-more" to={presentersPath(brand)}>
-                  Browse presenters
-                </Link>
               </div>
               {presentersLoaded ? (
                 <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle}>
@@ -437,6 +436,13 @@ export function HomeView() {
                   <PresenterCardSkeleton size="grid" count={shelfLength} />
                 </div>
               )}
+              {(!presentersLoaded || allPresenters.length > shelfPresenters.length) && (
+                <div className="sc-lib-more">
+                  <Link className="sc-btn sc-btn-ghost" to={presentersPath(brand)}>
+                    {presentersLoaded ? `Show all ${allPresenters.length} presenters` : 'Show all presenters'}
+                  </Link>
+                </div>
+              )}
             </section>
           )}
 
@@ -444,9 +450,6 @@ export function HomeView() {
             <section>
               <div className="sc-sec-head">
                 <h2 className="sc-sec-title">Scenes</h2>
-                <Link className="sc-sec-more" to={scenesPath(brand)}>
-                  Browse scenes
-                </Link>
               </div>
               {scenesLoaded ? (
                 <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle}>
@@ -457,6 +460,13 @@ export function HomeView() {
               ) : (
                 <div className="sc-masonry" data-density data-density-size={densityAttr} style={wallStyle} aria-hidden>
                   <SceneCardSkeleton size="grid" count={shelfLength} />
+                </div>
+              )}
+              {(!scenesLoaded || allScenes.length > shelfScenes.length) && (
+                <div className="sc-lib-more">
+                  <Link className="sc-btn sc-btn-ghost" to={scenesPath(brand)}>
+                    {scenesLoaded ? `Show all ${allScenes.length} scenes` : 'Show all scenes'}
+                  </Link>
                 </div>
               )}
             </section>
