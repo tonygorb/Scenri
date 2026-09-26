@@ -21,9 +21,9 @@ const release = (over: Partial<ReleaseEntry> = {}): ReleaseEntry => ({
 });
 
 describe('the version chip', () => {
-  it('is a small label, never a control, the version with its name for a screen reader', () => {
+  it("is the app's status mark as a version tag, never a control, the version with its name for a screen reader", () => {
     const out = html(createElement(VersionChip, { version: '0.19.0' }));
-    expect(out).toContain('class="sc-wn-chip"');
+    expect(out).toContain('class="sc-tag sc-tag-version"');
     expect(out).not.toContain('<button');
     expect(out).not.toContain('data-on');
     expect(out).toContain('<span class="sc-vh">Version </span>0.19.0');
@@ -37,10 +37,12 @@ describe('the version chip', () => {
     expect(out).toContain('<span class="sc-vh">, the version you are on</span>');
   });
 
-  it('sits after the date, unless the picture already carries it', () => {
+  it('comes before the date, unless the picture already carries it', () => {
     const entry = { version: '0.18.1', date: '2026-09-26' };
-    expect(html(createElement(ReleaseMeta, { entry }))).toContain('sc-wn-chip');
-    expect(html(createElement(ReleaseMeta, { entry, hideVersion: true }))).not.toContain('sc-wn-chip');
+    const out = html(createElement(ReleaseMeta, { entry }));
+    expect(out).toContain('sc-tag-version');
+    expect(out.indexOf('sc-tag-version')).toBeLessThan(out.indexOf('<time'));
+    expect(html(createElement(ReleaseMeta, { entry, hideVersion: true }))).not.toContain('sc-tag-version');
   });
 });
 
@@ -54,7 +56,7 @@ describe('the dialog fallback', () => {
     expect(out).toContain('0.18.1');
     // not a control: nothing to press, nothing that opens larger
     expect(out).not.toContain('<button');
-    expect(out).not.toContain('sc-wn-open');
+    expect(out).not.toContain('sc-cell-ctl');
   });
 
   it('never becomes the release picture: a release without an image owns none', () => {

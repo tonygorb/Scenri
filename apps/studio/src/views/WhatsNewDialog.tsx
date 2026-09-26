@@ -8,31 +8,23 @@ import { moreLabel } from '../app/whatsNewRules.js';
 import { DialogSheet, SheetClose, SheetDescription, SheetTitle } from '../layout/DialogSheet.js';
 import { whatsNewPath } from '../routes.js';
 import fallbackArt from '../assets/whatsnew-fallback.svg';
-import {
-  FAILED,
-  NOTHING_YET,
-  ON_THE_PAGE,
-  ReleaseMeta,
-  VersionChip,
-  WhatsNewFallback,
-  WhatsNewPicture,
-  pictureOf,
-} from './WhatsNewParts.js';
+import { FAILED, NOTHING_YET, ReleaseMeta, WhatsNewFallback, WhatsNewPicture, pictureOf } from './WhatsNewParts.js';
 
 /**
  * One update, introduced once.
  *
- * It opens by itself only for a headline update this computer has not read,
- * and it always shows the newest one as an excerpt: its picture on the media
- * stage, when, and the headline. The excerpt is one link to that release on the
- * What's New page, where its areas, its release notes and everything else
- * (the small updates, the earlier headlines) are. `?whatsnew` opens the same
- * update by hand. It stands behind the app's darker scrim (`tone="dim"`, no
- * blur), so a bright card under it never reads as the dialog's own edge.
+ * It opens by itself only while a headline update this computer has not read
+ * is waiting, and it shows the newest update, headline or small: the one the
+ * page leads with, so the dialog and the page never name two versions. An
+ * excerpt: its picture on the media stage, its version and date, its title.
+ * The excerpt is one link to that release on the What's New page, where its
+ * areas, its release notes and every other update are. `?whatsnew` opens the
+ * same update by hand. It stands behind the app's darker scrim (`tone="dim"`,
+ * no blur), so a bright card under it never reads as the dialog's own edge.
  *
  * `?whatsnew=preview` shows it the way it would introduce itself and reads
  * nothing: closing a preview leaves this computer's read state as it was.
- * `preview:<version>` shows an earlier headline in the history instead. Help
+ * `preview:<version>` shows an earlier update in the history instead. Help
  * offers the preview in a development build.
  *
  * Nothing here asks the user to do anything. Every way out of a real showing
@@ -49,7 +41,7 @@ export function WhatsNewDialog() {
   const preview = param.value?.startsWith('preview') ?? false;
   const asked = preview ? param.value?.split(':')[1] : undefined;
   // A preview may name any recent update, to see how one without a picture
-  // would introduce itself; a real showing is always the newest headline.
+  // would introduce itself; a real showing is always the newest update.
   const shown = (asked && recent.find((r) => r.version === asked)) || featured;
 
   // Counted as it opens: how many other updates wait, and whether this is a
@@ -108,11 +100,6 @@ export function WhatsNewDialog() {
     >
       <div className="sc-newdlg-head">
         <SheetTitle className="sc-newdlg-title">What's new</SheetTitle>
-        {/* The version this computer runs, lit, once in the dialog: here when the
-            update introduced is an earlier one (the newest headline, with a
-            smaller update after it), on the update itself when it is this one.
-            So the dialog and the page never disagree about where you are. */}
-        {running && shown && shown.version !== running && <VersionChip version={running} current />}
         <SheetClose>
           <button type="button" className="sc-set-close sc-newdlg-close" aria-label="Close">
             <X size={16} />
@@ -140,9 +127,7 @@ export function WhatsNewDialog() {
             </SheetDescription>
           </article>
         ) : (
-          <SheetDescription className="sc-wn-txt">
-            {status === 'failed' ? FAILED : recent.length > 0 ? ON_THE_PAGE : NOTHING_YET}
-          </SheetDescription>
+          <SheetDescription className="sc-wn-txt">{status === 'failed' ? FAILED : NOTHING_YET}</SheetDescription>
         )}
       </div>
 

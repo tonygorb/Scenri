@@ -4,7 +4,7 @@ import { ArrowSquareOut, ArrowsOutSimple, X } from '@phosphor-icons/react';
 import type { ReleaseEntry } from '../api.js';
 import { focusSelfOnOpen } from '../app/dialogs.js';
 import fallbackArt from '../assets/whatsnew-fallback.svg';
-import { readableDate } from '../release.js';
+import { readableDate, shortDate } from '../release.js';
 import { pictureUrl } from '../whatsNewPictures.js';
 
 /**
@@ -17,8 +17,6 @@ import { pictureUrl } from '../whatsNewPictures.js';
 export const FAILED =
   'Scenri could not read its release notes. If you are running a development server, it may predate this page; restart it and try again.';
 export const NOTHING_YET = 'There is nothing new to show here yet.';
-/** No headline to introduce, but small updates to read: the dialog points at them. */
-export const ON_THE_PAGE = "The recent updates are small ones, and they are on the What's New page.";
 
 /** A release's picture, resolved to the file this build ships. */
 export interface WhatsNewPic {
@@ -91,8 +89,10 @@ export function WhatsNewPicture({
       {img}
       <span className="sc-vh">, view larger</span>
       {/* the scene page's corner control, as a mark: the whole stage is the button */}
-      <span className="sc-wn-open" aria-hidden="true">
-        <ArrowsOutSimple size={14} />
+      <span className="sc-corner" aria-hidden="true">
+        <span className="sc-cell-ctl">
+          <ArrowsOutSimple size={14} />
+        </span>
       </span>
     </button>
   ) : (
@@ -137,7 +137,7 @@ export function WhatsNewLightbox({ src, alt, onClose }: { src: string; alt: stri
           <div className="sc-wn-media sc-wn-lb-stage" data-ready>
             <img src={src} alt={alt} />
           </div>
-          <Dialog.Close className="sc-wn-lb-close" aria-label="Close">
+          <Dialog.Close className="sc-icon-btn sc-wn-lb-close" aria-label="Close">
             <X size={16} />
           </Dialog.Close>
         </Dialog.Content>
@@ -147,15 +147,16 @@ export function WhatsNewLightbox({ src, alt, onClose }: { src: string; alt: stri
 }
 
 /**
- * The version a release went out as, as a traditional version tag: a pill with
- * the number and nothing else, a label and never a control. The version this
- * computer runs is the same tag lit (the chips' on-state fill), the way a
- * release list marks the one that matters to you (GitHub's "Latest"); the
- * colour says it, and a screen reader hears it in Settings' own words.
+ * The version a release went out as: the app's status mark (`.sc-tag`) as a
+ * version tag, the number and nothing else, a label and never a control. The
+ * version this computer runs is the same tag lit (the chips' on-state fill),
+ * the way a release list marks the one that matters to you (GitHub's
+ * "Latest"); the colour says it, and a screen reader hears it in Settings' own
+ * words.
  */
 export function VersionChip({ version, current = false }: { version: string; current?: boolean }) {
   return (
-    <span className="sc-wn-chip" data-on={current || undefined}>
+    <span className="sc-tag sc-tag-version" data-on={current || undefined}>
       <span className="sc-vh">Version </span>
       {version}
       {current && <span className="sc-vh">, the version you are on</span>}
@@ -181,7 +182,11 @@ export function ReleaseAreas({ sections }: { sections: { heading: string; body: 
   );
 }
 
-/** When and which version. `hideVersion` where the version is already on the picture (the fallback). */
+/**
+ * Which version and when, the version first: over the date in the page's
+ * column, before it on the dialog's one line. `hideVersion` where the version
+ * is already on the picture (the fallback).
+ */
 export function ReleaseMeta({
   entry,
   current = false,
@@ -193,8 +198,12 @@ export function ReleaseMeta({
 }) {
   return (
     <p className="sc-wn-when">
-      <time dateTime={entry.date}>{readableDate(entry.date)}</time>
       {!hideVersion && <VersionChip version={entry.version} current={current} />}
+      {/* seen short, heard whole: a cut month is not always read as one */}
+      <time dateTime={entry.date}>
+        <span aria-hidden="true">{shortDate(entry.date)}</span>
+        <span className="sc-vh">{readableDate(entry.date)}</span>
+      </time>
     </p>
   );
 }

@@ -48,7 +48,10 @@ interface WhatsNewValue {
   recent: ReleaseEntry[];
   /** Every public release with something to say, newest first: the page's history. */
   history: ReleaseEntry[];
-  /** The newest headline update in that history: what the dialog shows. */
+  /**
+   * The newest update in that history, headline or small: what the dialog shows
+   * and what the page leads with, so the two never name different versions.
+   */
   featured: ReleaseEntry | null;
   /** The version this computer runs; null on an unreleased (0.0.0) build. */
   running: string | null;
@@ -132,7 +135,7 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const recent = notes?.recent ?? EMPTY;
-  const featured = useMemo(() => recent.find((r) => r.announce) ?? null, [recent]);
+  const featured = recent[0] ?? null;
   const lead = useMemo(() => recent.find((r) => r.version === notes?.lead) ?? null, [recent, notes?.lead]);
 
   const openDialog = dialog.open;

@@ -458,7 +458,7 @@ const tagLook = (tag: Locator) =>
 const stageLook = (stage: Locator) =>
   stage.evaluate((el) => {
     const img = el.querySelector('img') as HTMLImageElement;
-    const mark = el.querySelector('.sc-wn-open') as HTMLElement;
+    const mark = el.querySelector('.sc-corner .sc-cell-ctl') as HTMLElement;
     const box = (node: Element) => {
       const r = node.getBoundingClientRect();
       return [r.x, r.y, r.width, r.height].map((n) => Math.round(n * 2) / 2);
@@ -554,8 +554,8 @@ test('on a fresh home nothing is unread: nothing opens, no dot, and the page sho
   expect(await kinds(page)).toEqual(notes.recent.map((r) => (r.announce ? 'headline' : 'small')));
   expect(await documentOverflow(page), 'the document scrolls beside the page pane').toBe(0);
 
-  // the lead is the newest headline update: it only loads its picture first
-  const featured = notes.recent.find((r) => r.announce) as Rec;
+  // the lead is the newest update, the one the dialog shows: it only loads its picture first
+  const featured = notes.recent[0] as Rec;
   const lead = page.locator('.sc-wn-row[data-lead]');
   await expect(lead).toHaveCount(1);
   await expect(lead).toHaveAttribute('id', `v${featured.version}`);
@@ -566,13 +566,16 @@ test('on a fresh home nothing is unread: nothing opens, no dot, and the page sho
   for (const [i, r] of notes.recent.entries()) {
     const row = rows(page).nth(i);
     const pic = pictureOf(r);
-    await expectTag(row.locator('.sc-wn-side .sc-wn-chip'), r.version, r.version === notes.version);
+    await expectTag(row.locator(':scope > .sc-wn-when .sc-tag-version'), r.version, r.version === notes.version);
     await expect(row.locator('.sc-wn-media')).toHaveCount(pic ? 1 : 0);
-    await expect(row.locator('.sc-wn-what > :last-child')).toHaveClass(/\bsc-wn-areas\b/);
+    // its release notes last, after its words, or its words last where nothing was published
+    await expect(row.locator('.sc-wn-what > :last-child')).toHaveClass(
+      notes.releasesUrl ? /\bsc-wn-notes\b/ : /\bsc-wn-areas\b/,
+    );
     await expect(row.locator('.sc-wn-area h3')).toHaveText(r.sections.map((s) => s.heading));
     await expect(row.locator('.sc-wn-area p')).toHaveText(r.sections.map((s) => s.body));
     if (notes.releasesUrl) {
-      const link = row.locator('.sc-wn-side a.sc-wn-notes');
+      const link = row.locator('.sc-wn-what > .sc-wn-areas + a.sc-wn-notes');
       await expect(link).toHaveAttribute('href', `${notes.releasesUrl}/tag/v${r.version}`);
       await expect(link).toHaveAttribute('target', '_blank');
     }
@@ -588,7 +591,7 @@ test('on a fresh home nothing is unread: nothing opens, no dot, and the page sho
     await expect(img).toHaveAttribute('alt', pic.alt);
     await expect(img).toHaveAttribute('loading', r.version === featured.version ? 'eager' : 'lazy');
   }
-  await expect(page.locator('.sc-wn-chip[data-on]')).toHaveCount(1);
+  await expect(page.locator('.sc-tag-version[data-on]')).toHaveCount(1);
   await expect(page.locator('.sc-wn-fallback')).toHaveCount(0);
   await expectDecoded(page.locator('.sc-wn-list .sc-wn-media img'));
   const sources = await page.locator('.sc-wn-page img').evaluateAll((els) => els.map((el) => el.getAttribute('src')));
@@ -702,7 +705,7 @@ test('offline, the page and the dialog show their pictures from the build and re
 
   await page.goto(`${HOME}?whatsnew=1`);
   await expect(dialog(page)).toBeVisible();
-  const featured = notes.recent.find((r) => r.announce) as Rec;
+  const featured = notes.recent[0] as Rec;
   const pic = pictureOf(featured);
   if (pic) {
     const hero = dialog(page).locator('.sc-wn-ex .sc-wn-media > img');
@@ -745,35 +748,36 @@ test('Help leads to the page: its name takes the keyboard, nothing in the bar cl
   await expect(more(page)).toHaveCount(0);
   // each release's date and its version chip; the version this computer runs is the lit one
   for (const r of HISTORY) {
-    await expect(byVersion(page, r.version).locator('.sc-wn-side .sc-wn-when time')).toHaveAttribute(
+    await expect(byVersion(page, r.version).locator(':scope > .sc-wn-when time')).toHaveAttribute(
       'datetime',
       r.date,
     );
-    await expectTag(byVersion(page, r.version).locator('.sc-wn-side .sc-wn-chip'), r.version, r.version === '9.9.9');
+    await expectTag(byVersion(page, r.version).locator(':scope > .sc-wn-when .sc-tag-version'), r.version, r.version === '9.9.9');
   }
   // plain or lit, a tag is a traditional version pill: outlined, or filled when it is yours, and nothing to press
-  expect(await tagLook(byVersion(page, '9.9.8').locator('.sc-wn-side .sc-wn-chip'))).toMatchObject({
+  expect(await tagLook(byVersion(page, '9.9.8').locator(':scope > .sc-wn-when .sc-tag-version'))).toMatchObject({
     font: '12.5px',
     pill: true,
     outline: 'var(--sc-line-strong)',
     fill: 'rgba(0, 0, 0, 0)',
   });
-  expect(await tagLook(byVersion(page, '9.9.9').locator('.sc-wn-side .sc-wn-chip'))).toMatchObject({
+  expect(await tagLook(byVersion(page, '9.9.9').locator(':scope > .sc-wn-when .sc-tag-version'))).toMatchObject({
     font: '12.5px',
     pill: true,
     fill: 'var(--sc-inv-bg)',
   });
   for (const v of ['9.9.9', '9.9.8']) {
-    const look = await tagLook(byVersion(page, v).locator('.sc-wn-side .sc-wn-chip'));
+    const look = await tagLook(byVersion(page, v).locator(':scope > .sc-wn-when .sc-tag-version'));
     expect(look.height, `${v}: the tag is ${look.height}px tall`).toBeGreaterThanOrEqual(20);
     expect(look.height, `${v}: the tag is ${look.height}px tall`).toBeLessThanOrEqual(26);
     expect(look.cursor).not.toBe('pointer');
   }
   // "you are on" is spoken, never shown
   expect((await visibleWords(page.locator('.sc-wn-page'))).join(' ')).not.toMatch(/you are on/i);
+  // the lead is the newest update, the one the dialog shows, small or headline
   const lead = page.locator('.sc-wn-row[data-lead]');
   await expect(lead).toHaveCount(1);
-  await expect(lead).toHaveAttribute('id', 'v9.9.8');
+  await expect(lead).toHaveAttribute('id', 'v9.9.9');
 
   // One type scale: the page's name, then every update's title at one size, small ones and the lead
   // alike, then each area's name over its sentence. Rows sit 48px apart across a hairline.
@@ -828,8 +832,8 @@ test('Help leads to the page: its name takes the keyboard, nothing in the bar cl
 
   // a picture sits straight under its update's title, headline or small, and is a button that opens it larger
   for (const [version, pic, loading] of [
-    ['9.9.9', PIC_B, 'lazy'],
-    ['9.9.8', PIC_A, 'eager'],
+    ['9.9.9', PIC_B, 'eager'],
+    ['9.9.8', PIC_A, 'lazy'],
   ] as const) {
     const row = byVersion(page, version);
     const btn = pictureIn(row);
@@ -865,7 +869,7 @@ test("Full release notes goes to the archive, and each release's own notes to it
   // the words a person sees are the short ones; the rest is spoken
   await expect(link.locator('.sc-vh')).toHaveText(' on GitHub, opens in a new tab');
 
-  const notes = rows(page).locator('.sc-wn-side a.sc-wn-notes');
+  const notes = rows(page).locator('.sc-wn-what > a.sc-wn-notes');
   await expect(notes).toHaveCount(4);
   for (const [i, r] of HISTORY.entries()) {
     await expect(notes.nth(i)).toHaveAttribute('href', `${RELEASES_URL}/tag/v${r.version}`);
@@ -931,10 +935,13 @@ test('under the pointer a picture lifts and shows its open-larger mark: never da
   await expectDecoded(btn.locator('img'));
   await expect(btn).toHaveAttribute('data-ready');
   // the mark is for the eye alone, and never in the way of a press
-  const mark = btn.locator('span.sc-wn-open');
+  // the scene page's corner control, as a mark
+  const mark = btn.locator('span.sc-corner');
   await expect(mark).toHaveCount(1);
   await expect(mark).toHaveAttribute('aria-hidden', 'true');
+  await expect(mark.locator('.sc-cell-ctl')).toHaveCount(1);
   expect(await mark.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none');
+  expect(await mark.locator('.sc-cell-ctl').evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none');
   await expect(btn).toHaveAccessibleName(viewLarger(PIC_A.alt));
 
   await page.mouse.move(2, 2);
@@ -1015,7 +1022,7 @@ test('a picture opens larger and nothing else: named by its words, the stage its
 
   // and nothing else: no caption, no stepping, no words to read, one button, which a pointer never sees
   expect(await visibleWords(box)).toEqual([]);
-  await expect(box.locator('.sc-wn-open, figcaption')).toHaveCount(0);
+  await expect(box.locator('.sc-corner, figcaption')).toHaveCount(0);
   await expect(box.locator('button')).toHaveCount(1);
   const close = box.locator('button.sc-wn-lb-close');
   await expect(close).toHaveAttribute('aria-label', 'Close');
@@ -1043,12 +1050,10 @@ test('the keyboard reaches a picture, sees it lifted and ringed, opens it with E
   await serve(page, HISTORY, '9.9.9', '9.9.9');
   await page.goto(PAGE);
   // the page takes the keyboard to its name as it opens; from there the first
-  // release's notes, then its picture
+  // release's picture, which comes before its words and its notes
   await expect(heading(page)).toBeFocused();
   const btn = pictureIn(byVersion(page, '9.9.9'));
   await expectDecoded(btn.locator('img'));
-  await page.keyboard.press('Tab');
-  await expect(byVersion(page, '9.9.9').locator('.sc-wn-side a.sc-wn-notes')).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(btn).toBeFocused();
   // the keyboard gets what the pointer gets, the lift and the mark, and the ring
@@ -1093,7 +1098,7 @@ test('with reduced motion nothing on the page animates: the lift and the mark ar
   const btn = pictureIn(byVersion(page, '9.9.8'));
   await expectDecoded(btn.locator('img'));
   const moving = await btn.evaluate((el) =>
-    [el, el.querySelector('img'), el.querySelector('.sc-wn-open')].map((node) =>
+    [el, el.querySelector('img'), el.querySelector('.sc-corner .sc-cell-ctl')].map((node) =>
       node ? getComputedStyle(node).transitionDuration : 'missing',
     ),
   );
@@ -1160,7 +1165,7 @@ test('the releases before the recent ones carry on the same timeline, folded: th
 
   // the same date column and the same title, in the same place and at the same size as the open rows
   const settings = byVersion(page, '2.0.17');
-  await expect(settings.locator('summary .sc-wn-when time')).toHaveText('18 July 2026');
+  await expect(settings.locator('summary .sc-wn-when time > [aria-hidden="true"]')).toHaveText('18 Jul 2026');
   await expect(settings.locator('summary .sc-wn-when')).toContainText('2.0.17');
   await expect(settings.locator('summary span.sc-wn-old-hed')).toHaveText('Settings open where you left them');
   await expect(byVersion(page, '2.0.16').locator('summary span.sc-wn-old-hed')).toHaveText(
@@ -1357,11 +1362,11 @@ test('a development build still shows the history, and opens nothing by itself',
 
   await page.goto(PAGE);
   await expect(rows(page)).toHaveCount(HISTORY.length);
-  await expect(page.locator('.sc-wn-row[data-lead]')).toHaveAttribute('id', 'v9.9.8');
+  await expect(page.locator('.sc-wn-row[data-lead]')).toHaveAttribute('id', 'v9.9.9');
   await expect(footLink(page)).toHaveAttribute('href', RELEASES_URL);
   // no version runs here, so every tag is plain and none says where you are
-  await expect(page.locator('.sc-wn-side .sc-wn-chip')).toHaveCount(HISTORY.length);
-  await expect(page.locator('.sc-wn-chip[data-on]')).toHaveCount(0);
+  await expect(page.locator('.sc-wn-row > .sc-wn-when .sc-tag-version')).toHaveCount(HISTORY.length);
+  await expect(page.locator('.sc-tag-version[data-on]')).toHaveCount(0);
   await expect(page.locator('.sc-wn-page')).not.toContainText('the version you are on');
   expect(acked).toEqual([]);
 });

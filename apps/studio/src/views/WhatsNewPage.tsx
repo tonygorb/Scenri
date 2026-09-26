@@ -20,8 +20,9 @@ import {
  *
  * Help, not a place: it lights nothing in the bar, and the places, the mark and
  * Back are the ways out, so it carries no X. It names itself because nothing in
- * the bar does. Newest first, one timeline: each release its date, version and
- * release notes in a column, then the update, every one in the same sizes.
+ * the bar does. Newest first, one timeline: each release its version over its
+ * date in a column, then the update, every one in the same sizes, and its
+ * release notes last, after its words, open or folded alike.
  * The releases before the recent ones are one line each that opens
  * to its words. The whole history is in the build; it shows ten releases at a
  * time and the next ten as the end comes into view, through a real button that
@@ -144,10 +145,10 @@ export function WhatsNewPage() {
 }
 
 /**
- * One release in the timeline: its title, a line per area, and its one
- * picture when it has one, which opens larger. Headline or small, every
- * update is set the same way. `lead` (the newest headline) only loads its
- * picture first.
+ * One release in the timeline: its title, its one picture when it has one
+ * (which opens larger), a line per area, and its release notes last. Headline
+ * or small, every update is set the same way. `lead` (the newest update) only
+ * loads its picture first.
  */
 function UpdateRow({
   entry,
@@ -170,14 +171,12 @@ function UpdateRow({
       data-kind={headline ? 'headline' : 'small'}
       data-lead={lead || undefined}
     >
-      <div className="sc-wn-side">
-        <ReleaseMeta entry={entry} current={current} />
-        {notes && <ReleaseNotesLink href={notes} version={entry.version} />}
-      </div>
+      <ReleaseMeta entry={entry} current={current} />
       <div className="sc-wn-what">
         {entry.title && <h2 className="sc-wn-row-hed">{entry.title}</h2>}
         {picture && <WhatsNewPicture picture={picture} eager={lead} onOpen={() => setLarge(true)} />}
         <ReleaseAreas sections={entry.sections} />
+        {notes && <ReleaseNotesLink href={notes} version={entry.version} />}
       </div>
       {large && picture && <WhatsNewLightbox src={picture.src} alt={picture.alt} onClose={() => setLarge(false)} />}
     </li>

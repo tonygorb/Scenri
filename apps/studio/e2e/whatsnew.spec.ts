@@ -118,9 +118,10 @@ const HEADLINE = headline(
 );
 
 /**
- * A history whose dialog leads somewhere worth scrolling to: the headline it
- * introduces (9.9.8) is the second row on the page, under a small update with
- * a picture of its own, with enough below it to scroll it to the top.
+ * A history where the dialog opens for one update and shows another: the
+ * headline waiting (9.9.8) is what lets it open by itself, and what it shows
+ * is the newest update, the small one above it with a picture of its own
+ * (9.9.9), the one the page leads with. Enough below it to scroll it to the top.
  */
 const LINKED: Rec[] = [
   small('9.9.9', 'A small update with a picture of its own', [
@@ -256,7 +257,7 @@ const stage = (p: Page) => excerpt(p).locator('.sc-wn-media');
 /** The date line; it carries the version tag, unless the artwork already does. */
 const meta = (p: Page) => excerpt(p).locator('p.sc-wn-when');
 /** The dialog's head, where the version this computer runs is said when the update is an earlier one. */
-const headTag = (p: Page) => dialog(p).locator('.sc-newdlg-head .sc-wn-chip');
+const headTag = (p: Page) => dialog(p).locator('.sc-newdlg-head .sc-tag-version');
 const footLink = (p: Page) => dialog(p).locator('.sc-wn-foot a.sc-wn-link');
 const gotIt = (p: Page) => dialog(p).getByRole('button', { name: 'Got it' });
 const dot = (p: Page) => p.locator('.sc-help-btn .sc-upd-dot');
@@ -296,14 +297,13 @@ async function expectTag(tag: Locator, version: string, running: boolean): Promi
 }
 
 /**
- * The version this computer runs, lit, exactly once in the dialog: on the
- * update itself when it is that version, in the head when the update is an
- * earlier one, and nowhere on a build that has no version (0.0.0).
+ * The dialog names one version, the update's own: lit when it is the version
+ * this computer runs, plain when it is an earlier one (a preview), and never a
+ * second version in the head.
  */
 async function expectRunning(p: Page, shown: string, running: string | null): Promise<void> {
-  if (running && shown !== running) await expectTag(headTag(p), running, true);
-  else await expect(headTag(p)).toHaveCount(0);
-  await expect(dialog(p).locator('.sc-wn-chip[data-on]')).toHaveCount(running ? 1 : 0);
+  await expect(headTag(p)).toHaveCount(0);
+  await expect(dialog(p).locator('.sc-tag-version[data-on]')).toHaveCount(running && shown === running ? 1 : 0);
 }
 
 /** The update's own picture on the stage, with its version tag on the date line. */
@@ -319,7 +319,7 @@ async function expectPicture(p: Page, pic: Picture, version: string, running: st
   await expect.poll(() => decoded(img)).toBe(true);
   await expect(stage(p)).toHaveAttribute('data-ready');
   await expect(excerpt(p).getByRole('img', { name: pic.alt })).toHaveCount(1);
-  await expectTag(meta(p).locator('.sc-wn-chip'), version, version === running);
+  await expectTag(meta(p).locator('.sc-tag-version'), version, version === running);
   await expectRunning(p, version, running);
 }
 
@@ -341,12 +341,12 @@ async function expectFallback(p: Page, version: string, running: string | null):
   await expect.poll(() => decoded(img)).toBe(true);
   await expect(excerpt(p).getByRole('img')).toHaveCount(0);
   await expectTag(
-    art.locator('span.sc-wn-fallback-chip[data-theme="dark"] > .sc-wn-chip'),
+    art.locator('span.sc-wn-fallback-chip[data-theme="dark"] > .sc-tag-version'),
     version,
     version === running,
   );
-  await expect(excerpt(p).locator('.sc-wn-chip')).toHaveCount(1);
-  await expect(meta(p).locator('.sc-wn-chip')).toHaveCount(0);
+  await expect(excerpt(p).locator('.sc-tag-version')).toHaveCount(1);
+  await expect(meta(p).locator('.sc-tag-version')).toHaveCount(0);
   await expectRunning(p, version, running);
 }
 
@@ -503,14 +503,16 @@ test('a headline update introduces itself once the screen is quiet, as an excerp
   // then when, and the version this computer runs, lit; then the headline, the link to that release
   await expectPicture(page, PIC_A, '9.9.9', '9.9.9');
   await expect(meta(page).locator('time')).toHaveAttribute('datetime', '2026-08-16');
-  await expect(meta(page).locator('time')).toHaveText('16 August 2026');
+  // seen short, heard whole
+  await expect(meta(page).locator('time > [aria-hidden="true"]')).toHaveText('16 Aug 2026');
+  await expect(meta(page).locator('time > .sc-vh')).toHaveText('16 August 2026');
   await expect(excerptLink(page)).toHaveText(HEADLINE.title as string);
   await expect(excerptLink(page)).toHaveAttribute('href', `${PAGE}#v9.9.9`);
 
   // and nothing else: no areas, no lines, no release notes, nothing else to press
   await expect(excerpt(page).locator('a, button, [tabindex]:not([tabindex="-1"])')).toHaveCount(1);
   await expect(
-    dialog(page).locator('ul, ol, li, .sc-wn-areas, .sc-wn-area, .sc-wn-notes, .sc-wn-open, .sc-wn-lb'),
+    dialog(page).locator('ul, ol, li, .sc-wn-areas, .sc-wn-area, .sc-wn-notes, .sc-corner, .sc-wn-lb'),
   ).toHaveCount(0);
   await expect(dialog(page).getByRole('link', { name: /Release notes/ })).toHaveCount(0);
   for (const s of HEADLINE.sections) await expect(dialog(page)).not.toContainText(s.body);
@@ -652,7 +654,7 @@ test('under the pointer the excerpt lifts its picture and underlines its headlin
   // nothing grows, nothing moves, nothing fades
   expect(hover).toMatchObject({ transform: 'none', opacity: '1', stage: rest.stage, picture: rest.picture });
   // and no open-larger mark: the excerpt opens the page, not a lightbox
-  await expect(dialog(page).locator('.sc-wn-open')).toHaveCount(0);
+  await expect(dialog(page).locator('.sc-corner')).toHaveCount(0);
 
   // leaving, it settles back without passing below where it started
   const leaving = brightnessOver(stage(page), 700);
@@ -683,23 +685,24 @@ for (const [what, press] of INTO_THE_PAGE) {
     await page.goto(HOME);
     await expect(dialog(page)).toBeVisible({ timeout: 8000 });
     await settled(page);
-    // the newest headline, which is not the version running, with three more updates waiting
-    await expect(excerptLink(page)).toHaveText('The headline the dialog introduces');
-    await expect(excerptLink(page)).toHaveAttribute('href', `${PAGE}#v9.9.8`);
-    await expectPicture(page, PIC_A, '9.9.8', '9.9.9');
+    // a headline is waiting (9.9.8), and the dialog shows the newest update, the
+    // version running, with its own picture and three more updates behind it
+    await expect(excerptLink(page)).toHaveText('A small update with a picture of its own');
+    await expect(excerptLink(page)).toHaveAttribute('href', `${PAGE}#v9.9.9`);
+    await expectPicture(page, PIC_B, '9.9.9', '9.9.9');
     await expect(footLink(page)).toHaveText('See 3 more updates');
 
     await press(page);
-    await expect(page).toHaveURL((u) => onPage(u) && u.hash === '#v9.9.8');
+    await expect(page).toHaveURL((u) => onPage(u) && u.hash === '#v9.9.9');
     await expect(dialog(page)).toHaveCount(0);
     // the keyboard goes to the page's name, not back to whatever the dialog opened over
     await expect(heading(page)).toBeFocused();
-    // and the release it named is at the top of the pane, not merely somewhere on the page
-    await expect.poll(() => atTopOfPane(page, '9.9.8')).toBe(true);
-    await expect(page.locator('[id="v9.9.8"] h2.sc-wn-row-hed')).toHaveText('The headline the dialog introduces');
-    // and the page agrees with the dialog's head about where this computer is
-    await expect(page.locator('.sc-wn-chip[data-on]')).toHaveCount(1);
-    await expectTag(page.locator('[id="v9.9.9"] .sc-wn-side .sc-wn-chip'), '9.9.9', true);
+    // and the release it named is at the top of the pane, past the page's own head
+    await expect.poll(() => atTopOfPane(page, '9.9.9')).toBe(true);
+    await expect(page.locator('[id="v9.9.9"] h2.sc-wn-row-hed')).toHaveText('A small update with a picture of its own');
+    // and the page lights the one version the dialog named
+    await expect(page.locator('.sc-tag-version[data-on]')).toHaveCount(1);
+    await expectTag(page.locator('[id="v9.9.9"] > .sc-wn-when .sc-tag-version'), '9.9.9', true);
 
     // Leaving by the link closes the dialog and opens the page in one step, and
     // both read everything: that is one acknowledgement, not one each.
@@ -760,12 +763,12 @@ test('an update with no picture introduces itself on the artwork, wearing its ve
 
   // the artwork, not a picture of the release: the version this computer runs, lit, on it
   await expectFallback(page, '9.9.9', '9.9.9');
-  await expect(meta(page).locator('time')).toHaveText('10 August 2026');
+  await expect(meta(page).locator('time > [aria-hidden="true"]')).toHaveText('10 Aug 2026');
   await expect(excerptLink(page)).toHaveText('A headline without a picture');
   // it is part of the one link, and opens nothing of its own
   expect(await pressLandsOn(page, stage(page))).toBe('a.sc-wn-ex-link');
   await expect(excerpt(page).locator('a, button, [tabindex]:not([tabindex="-1"])')).toHaveCount(1);
-  await expect(dialog(page).locator('.sc-wn-open, .sc-wn-lb')).toHaveCount(0);
+  await expect(dialog(page).locator('.sc-corner, .sc-wn-lb')).toHaveCount(0);
 
   // pressing it lands on the release, which the page shows as words, with no stage and no artwork
   await pressAt(page, stage(page));
@@ -781,7 +784,7 @@ test('an update with no picture introduces itself on the artwork, wearing its ve
   await expect(row.locator('.sc-wn-media, img')).toHaveCount(0);
   // the title, then straight to what each area changed
   await expect(row.locator('.sc-wn-what > .sc-wn-row-hed + .sc-wn-areas')).toHaveCount(1);
-  await expectTag(row.locator('.sc-wn-side .sc-wn-chip'), '9.9.9', true);
+  await expectTag(row.locator(':scope > .sc-wn-when .sc-tag-version'), '9.9.9', true);
   await expect(page.locator('.sc-wn-fallback')).toHaveCount(0);
   await expect.poll(() => acked).toEqual(['9.9.9']);
 });
@@ -835,7 +838,7 @@ test('a small update never opens anything, even with a title and a picture: Help
   expect(acked).toEqual(['9.9.9']);
 });
 
-test('after several updates it leads with the newest headline, and See N more updates counts the rest and leads to them', async ({
+test('after several updates it leads with the newest update, and See N more updates counts the rest and leads to them', async ({
   page,
 }) => {
   const records = [HEADLINE, small('9.9.8', 'A small update between'), headline('9.9.7', 'An earlier headline')];
@@ -916,14 +919,14 @@ test('it waits while Settings is open, and Updates, Show leaves Settings for the
 
 // ---- the preview: the dialog as it introduces itself, reading nothing ----------
 
-test('a preview on a fresh home opens the newest headline, and neither closing it nor following it writes anything', async ({
+test('a preview on a fresh home opens the newest update, and neither closing it nor following it writes anything', async ({
   page,
 }) => {
   // the real server: this file's home is fresh, so everything is read already
   const posted = watchSeen(page);
   const notes = await realNotes(page);
-  const featured = notes.recent.find((r) => r.announce) as Rec;
-  expect(featured, 'the real history has no headline update to preview').toBeTruthy();
+  const featured = notes.recent[0] as Rec;
+  expect(featured, 'the real history has no update to preview').toBeTruthy();
 
   await page.goto(`${HOME}?whatsnew=preview`);
   await expect(dialog(page)).toBeVisible();
@@ -964,7 +967,8 @@ test('a preview reads nothing even with something unread: the dot stays, and it 
   page,
 }) => {
   // A small update unread and the headline before it read: nothing opens by
-  // itself, but anything that acknowledged would have something to write.
+  // itself, but anything that acknowledged would have something to write. The
+  // preview shows the newest update, the small one, on the artwork.
   const records = [
     small('9.9.9', 'A small update since'),
     headline('9.9.8', 'The headline to preview', [HEADLINE.sections[0]]),
@@ -981,8 +985,8 @@ test('a preview reads nothing even with something unread: the dot stays, and it 
   for (const [way, close] of WAYS) {
     await openByAddress(page, 'preview');
     await expect(dialog(page), `the preview did not open before ${way}`).toBeVisible();
-    await expect(excerptLink(page)).toHaveText('The headline to preview');
-    await expect(stage(page).locator('img')).toHaveAttribute('alt', PIC_A.alt);
+    await expect(excerptLink(page)).toHaveText('A small update since');
+    await expect(stage(page)).toHaveClass(/\bsc-wn-fallback\b/);
     await close(page);
     await expect(dialog(page), `${way} did not close the preview`).toHaveCount(0);
     await expect(page).toHaveURL(onHome);
@@ -997,7 +1001,7 @@ test('a preview reads nothing even with something unread: the dot stays, and it 
 /**
  * What `?whatsnew=preview:<version>` shows for WORDS running 9.9.9: any
  * recent update it names, headline or small, with its picture or on the
- * artwork; and the newest headline when it names nothing it can show.
+ * artwork; and the newest update when it names nothing it can show.
  */
 const PREVIEWS: ReadonlyArray<readonly [asked: string, shows: string]> = [
   ['9.9.8', '9.9.8'],
@@ -1043,7 +1047,7 @@ test('a preview of an earlier headline in the real history shows it, and this bu
   if (pic) {
     await expect(stage(page).locator('img')).toHaveAttribute('alt', pic.alt);
     await expect.poll(() => decoded(stage(page).locator('img'))).toBe(true);
-    await expectTag(meta(page).locator('.sc-wn-chip'), earlier.version, earlier.version === notes.version);
+    await expectTag(meta(page).locator('.sc-tag-version'), earlier.version, earlier.version === notes.version);
     await expectRunning(page, earlier.version, notes.version);
   } else {
     await expectFallback(page, earlier.version, notes.version);
@@ -1079,7 +1083,7 @@ test('0.19.1 has no picture: its page row is words alone, and a preview of it sh
   await expect(row.locator('.sc-wn-media, img')).toHaveCount(0);
   await expect(row.locator('.sc-wn-what > .sc-wn-row-hed + .sc-wn-areas')).toHaveCount(1);
   await expect(row.locator('.sc-wn-area h3')).toHaveText((rec?.sections ?? []).map((s) => s.heading));
-  await expectTag(row.locator('.sc-wn-side .sc-wn-chip'), '0.19.1', notes.version === '0.19.1');
+  await expectTag(row.locator(':scope > .sc-wn-when .sc-tag-version'), '0.19.1', notes.version === '0.19.1');
   await expect(page.locator('.sc-wn-fallback')).toHaveCount(0);
 
   // while this computer runs 0.19.1 the artwork's tag is the lit one, and the head says nothing
@@ -1177,7 +1181,7 @@ test('a maintenance release with nothing new since says nothing of its own', asy
   await expect(dialog(page)).toHaveCount(0);
   await expect(dot(page)).toHaveCount(0);
 
-  // by address it still shows the newest headline in the history
+  // by address it still shows the newest update in the history
   await page.goto(`${HOME}?whatsnew=1`);
   await expect(dialog(page)).toBeVisible();
   await expect(excerptLink(page)).toHaveText('The last headline');
@@ -1196,7 +1200,7 @@ test('a development build opens nothing by itself, and has no version to light',
   await expect(dialog(page)).toHaveCount(0);
   await expect(dot(page)).toHaveCount(0);
 
-  // by address it shows the newest headline, its tag plain, and nothing says which version you are on
+  // by address it shows the newest update, its tag plain, and nothing says which version you are on
   await page.goto(`${HOME}?whatsnew=1`);
   await expect(dialog(page)).toBeVisible();
   await expect(excerptLink(page)).toHaveText(HEADLINE.title as string);
@@ -1208,18 +1212,20 @@ test('a development build opens nothing by itself, and has no version to light',
 });
 
 test('the dialog and the page agree on the version this computer runs', async ({ page }) => {
-  // the real server: the newest headline and the version running, as they ship
+  // the real server: the newest update and the version running, as they ship
   const posted = watchSeen(page);
   const notes = await realNotes(page);
-  const featured = notes.recent.find((r) => r.announce) as Rec;
+  const featured = notes.recent[0] as Rec;
+  expect(featured.version, 'the newest update is not the version running').toBe(notes.version);
 
   await page.goto(`${HOME}?whatsnew=1`);
   await expect(dialog(page)).toBeVisible();
   await expect(excerptLink(page)).toHaveText(featured.title as string);
-  // said once, lit: in the head when the headline is an earlier release, on the update when it is this one
-  const lit = dialog(page).locator('.sc-wn-chip[data-on]');
+  // one version in the dialog, the update's own, lit because it is the one running; nothing in the head
+  const lit = dialog(page).locator('.sc-tag-version[data-on]');
   await expectTag(lit, notes.version, true);
-  await expect(headTag(page)).toHaveCount(featured.version === notes.version ? 0 : 1);
+  await expect(dialog(page).locator('.sc-tag-version')).toHaveCount(1);
+  await expect(headTag(page)).toHaveCount(0);
   // "you are on" is spoken, never shown
   expect(await visibleText(dialog(page))).not.toMatch(/you are on/i);
   await page.keyboard.press('Escape');
@@ -1227,12 +1233,12 @@ test('the dialog and the page agree on the version this computer runs', async ({
 
   // the page lights the same version, on its own row, and no other
   await page.goto(PAGE);
-  await expect(page.locator('.sc-wn-chip[data-on]')).toHaveCount(1);
-  await expect(page.locator('li.sc-wn-row:has(.sc-wn-side .sc-wn-chip[data-on])')).toHaveAttribute(
+  await expect(page.locator('.sc-tag-version[data-on]')).toHaveCount(1);
+  await expect(page.locator('li.sc-wn-row:has(> .sc-wn-when .sc-tag-version[data-on])')).toHaveAttribute(
     'id',
     `v${notes.version}`,
   );
-  await expectTag(page.locator('.sc-wn-chip[data-on]'), notes.version, true);
+  await expectTag(page.locator('.sc-tag-version[data-on]'), notes.version, true);
   expect(await visibleText(page.locator('.sc-wn-page'))).not.toMatch(/you are on/i);
   await page.waitForTimeout(OUTWAIT_MS);
   expect(posted).toEqual([]);

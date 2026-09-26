@@ -226,10 +226,10 @@ test("What's New is a bottom sheet on a phone and a card on a tablet: the excerp
   expect(when.y + when.height).toBeLessThanOrEqual(hed.y + 0.5);
   await expect(excerptLink(page)).toHaveText(RECORDS[0].title as string);
   // the update is the version this computer runs: its own tag is the lit one, and the head says nothing
-  await expect(excerpt(page).locator('.sc-wn-when .sc-wn-chip[data-on]')).toHaveText(
+  await expect(excerpt(page).locator('.sc-wn-when .sc-tag-version[data-on]')).toHaveText(
     'Version 9.9.9, the version you are on',
   );
-  await expect(sheet(page).locator('.sc-newdlg-head .sc-wn-chip')).toHaveCount(0);
+  await expect(sheet(page).locator('.sc-newdlg-head .sc-tag-version')).toHaveCount(0);
   await expect(footLink(page)).toHaveText('See 1 more update');
   // the picture runs the excerpt's width, not a thumbnail in it
   const ex = await boxOf(excerpt(page));
@@ -271,15 +271,14 @@ test('an update without a picture shows the artwork in the sheet, its version ch
   await expect(art).toHaveClass(/\bsc-wn-fallback\b/);
   await expect(art.locator('img')).toHaveAttribute('alt', '');
   await expect.poll(() => decoded(art.locator('img'))).toBe(true);
-  const chip = art.locator('.sc-wn-fallback-chip[data-theme="dark"] > .sc-wn-chip');
+  const chip = art.locator('.sc-wn-fallback-chip[data-theme="dark"] > .sc-tag-version');
   await expect(chip).toHaveText('Version 9.9.6');
   await expect(chip).not.toHaveAttribute('data-on');
-  // an earlier release: the head says which version this computer runs, whole, beside the title
-  const running = sheet(page).locator('.sc-newdlg-head .sc-wn-chip[data-on]');
-  await expect(running).toHaveText('Version 9.9.9, the version you are on');
-  await expect(running).toBeInViewport({ ratio: 1 });
-  await expect(sheet(page).locator('.sc-wn-chip[data-on]')).toHaveCount(1);
-  await expect(excerpt(page).locator('.sc-wn-when .sc-wn-chip')).toHaveCount(0);
+  // an earlier release: its own version is the only one in the sheet, plain, and the head names none
+  await expect(sheet(page).locator('.sc-newdlg-head .sc-tag-version')).toHaveCount(0);
+  await expect(sheet(page).locator('.sc-tag-version')).toHaveCount(1);
+  await expect(sheet(page).locator('.sc-tag-version[data-on]')).toHaveCount(0);
+  await expect(excerpt(page).locator('.sc-wn-when .sc-tag-version')).toHaveCount(0);
   // the artwork runs the excerpt's width, and the chip sits on it, whole
   const a = await boxOf(art);
   const c = await boxOf(chip);
@@ -360,10 +359,15 @@ test("the What's New page is one column on a phone, its pictures the column's wi
   });
   expect(apart).toEqual(['40px', '40px', '1px']);
 
-  // each release's date, version and notes sit above what it says, on the same left edge, its title first
+  // each release's version over its date sits above what it says, on the same left edge, its title
+  // first and its notes last
   for (let i = 0; i < 6; i++) {
     const row = rows.nth(i);
-    const side = await boxOf(row.locator('.sc-wn-side'));
+    const tag = await boxOf(row.locator(':scope > .sc-wn-when .sc-tag-version'));
+    const date = await boxOf(row.locator(':scope > .sc-wn-when time'));
+    expect(tag.y + tag.height, `row ${i + 1}: its version is not above its date`).toBeLessThanOrEqual(date.y + 0.5);
+    await expect(row.locator('.sc-wn-what > :last-child')).toHaveClass(/\bsc-wn-notes\b/);
+    const side = await boxOf(row.locator(':scope > .sc-wn-when'));
     const what = await boxOf(row.locator('.sc-wn-what'));
     expect(side.y + side.height, `row ${i + 1}: its date is not above what it says`).toBeLessThanOrEqual(what.y + 0.5);
     expect(
