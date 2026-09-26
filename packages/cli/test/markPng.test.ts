@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -75,11 +75,15 @@ describe('toMarkPng', () => {
   });
 });
 
-// Real encodes (AVIF, a 3000px JPEG, three formats in a row) run past vitest's
-// 5 s default on a Windows runner: 5.8 s measured on CI, 2026-09-27.
-describe('capReferenceEdge', { timeout: 30_000 }, () => {
+describe('capReferenceEdge', () => {
   let home: string;
   let core: Core;
+  // The server runs with sharp's cache off (server.ts). Left on, Windows keeps
+  // every file sharp read open, and the temp store could not be removed after
+  // the first test that read a WebP: EBUSY on CI, 2026-09-27.
+  beforeAll(() => {
+    sharp.cache(false);
+  });
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), 'sc-capref-'));
     core = createCore(home);
