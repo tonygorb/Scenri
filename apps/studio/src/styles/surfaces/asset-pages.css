@@ -114,7 +114,7 @@
   background: var(--sc-well);
 }
 /* Failed only: the name and why it died sit under the tile. A running card
-   has no caption — the shimmer and the clock are the whole of it. */
+   has no caption — the moving band and the clock are the whole of it. */
 .sc-lookcard[data-build] {
   overflow: visible;
   background: none;
@@ -656,7 +656,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--sc-fg) 3%, transparent);
+  background: color-mix(in srgb, var(--sc-fg) 5%, transparent);
   opacity: 0;
   animation: sc-wait-breathe 2.8s ease-in-out 800ms infinite;
 }
@@ -1136,7 +1136,7 @@
 .sc-scenepage .sc-refset-tile img {
   object-fit: cover;
 }
-/* A scene's example on its way (the old picture, if any, under the shimmer),
+/* A scene's example on its way (the old picture, if any, under the band),
    or one that did not draw. Neither opens: there is nothing to look at yet. */
 .sc-refset-tile[data-state] {
   position: relative;

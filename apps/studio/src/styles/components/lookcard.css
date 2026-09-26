@@ -393,7 +393,7 @@ a.sc-lookcard {
   content: "";
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--sc-fg) 3%, transparent);
+  background: color-mix(in srgb, var(--sc-fg) 5%, transparent);
   opacity: 0;
   animation: sc-wait-breathe 2.8s ease-in-out 800ms infinite;
 }

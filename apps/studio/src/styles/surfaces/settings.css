@@ -804,7 +804,7 @@ select.sc-in {
   border-radius: var(--sc-radius-xs);
   background: var(--sc-raised);
 }
-/* ink, not gold: gold stays reserved for credits, keepers and the shimmer */
+/* ink, not gold: gold stays reserved for credits, keepers and an update */
 .sc-heat-grid i[data-l="1"] {
   background: color-mix(in srgb, var(--sc-fg) 20%, var(--sc-raised));
 }
