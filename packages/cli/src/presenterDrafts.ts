@@ -208,6 +208,13 @@ export interface PresenterDraftRecord {
   stage: 'idle' | 'analyzing' | 'drawing';
   /** The presenter this session edits, the head when it was opened. Absent on a creation. */
   presenterId?: string;
+  /**
+   * The conversation that asked for this draft, as the studio names it. A
+   * create asked again under the same key is answered with this draft while
+   * nothing is drawn on it: a reload with the first create still on its way
+   * otherwise made a second, and left this one on the wall empty.
+   */
+  clientKey?: string;
   /** The head's id when the session was seeded; a save refuses when the head has moved since. */
   baseId?: string;
   /** Identity-wide instructions accepted in this session, on top of the record's own. Newest last. */
@@ -282,6 +289,7 @@ function fromRow(row: { id: string; brandId: string; json: unknown; createdAt: s
   if (j.readError) rec.readError = String(j.readError);
   if (j.presenterId) rec.presenterId = String(j.presenterId);
   if (j.baseId) rec.baseId = String(j.baseId);
+  if (j.clientKey) rec.clientKey = String(j.clientKey);
   if (Array.isArray(j.keptShots) && j.keptShots.length) rec.keptShots = j.keptShots.map(shotOf);
   backfillRecord(rec);
   return rec;
@@ -670,6 +678,8 @@ export interface CreateDraftInput {
   facets?: string[];
   /** Ask for the extra views from the start. */
   extras?: boolean;
+  /** The conversation asking: see `PresenterDraftRecord.clientKey`. */
+  clientKey?: string;
 }
 
 export async function createPresenterDraft(
@@ -697,6 +707,14 @@ export async function createPresenterDraft(
   }
   // Photographs start a read, and a read started now is past the drain's abort.
   if (source === 'photos' && closing) throw restarting();
+  // The same conversation asking again is answered with the draft it already made.
+  const clientKey = str(input.clientKey, 80);
+  const made = clientKey
+    ? listPresenterDrafts(core, brand.id).find(
+        (d) => d.clientKey === clientKey && !d.presenterId && PRESENTER_VIEWS.every((v) => !d.views[v].hash),
+      )
+    : undefined;
+  if (made) return made;
   const views = {} as Record<PresenterView, ViewSlot>;
   for (const v of PRESENTER_VIEWS) views[v] = emptySlot();
   const rec: PresenterDraftRecord = {
@@ -721,6 +739,7 @@ export async function createPresenterDraft(
     createdAt: '',
     updatedAt: '',
   };
+  if (clientKey) rec.clientKey = clientKey;
   if (keepItems) writeItems(rec, keepItems);
   else {
     if (keep) rec.keep = keep;

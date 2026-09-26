@@ -93,7 +93,7 @@ describe('a failed draw in the editor', () => {
     // a request that never reached the engine, in its own words
     const refused = lastQuestion(draft(), 'there is no previous three-quarter view to keep');
     expect(refused.prompt).toBe(
-      'That did not go through: there is no previous three-quarter view to keep. Nothing finished was touched.',
+      'That did not go through: there is no previous three-quarter view to keep. Everything you had is kept.',
     );
   });
 

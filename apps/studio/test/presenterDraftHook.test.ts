@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
   revertDraftView: vi.fn(),
   restoreDraftView: vi.fn(),
   updatePresenterDraft: vi.fn(),
+  generateDraftView: vi.fn(),
 }));
 vi.mock('../src/api.js', () => ({ api }));
 
@@ -113,5 +114,40 @@ describe('putting a picture back', () => {
     expect(await second).toBe(false);
     expect(api.revertDraftView).toHaveBeenCalledTimes(1);
     expect(held.err).toBeNull();
+  });
+});
+
+/**
+ * A draw that never reached the engine is said about the view it was for
+ * (UXP-11), so the failure keeps which view that was beside its words; any
+ * other action's failure names no view.
+ */
+describe('a request that failed', () => {
+  it('remembers the view when it was a draw', async () => {
+    api.presenterDraft.mockResolvedValue(draft());
+    api.generateDraftView.mockRejectedValueOnce(Object.assign(new Error('the engine fell over'), { status: 500 }));
+    act(() => root.render(createElement(Probe)));
+    await settle();
+    await act(async () => {
+      await held.generate('front');
+    });
+    expect(held.err).toBe('the engine fell over');
+    expect(held.errView).toBe('front');
+  });
+
+  it('names no view when it was not a draw', async () => {
+    api.presenterDraft.mockResolvedValue(draft());
+    api.generateDraftView.mockRejectedValueOnce(Object.assign(new Error('the engine fell over'), { status: 500 }));
+    api.updatePresenterDraft.mockRejectedValueOnce(Object.assign(new Error('database is locked'), { status: 500 }));
+    act(() => root.render(createElement(Probe)));
+    await settle();
+    await act(async () => {
+      await held.generate('front');
+    });
+    await act(async () => {
+      await held.update({ name: 'Maren' });
+    });
+    expect(held.err).toBe('database is locked');
+    expect(held.errView).toBeNull();
   });
 });

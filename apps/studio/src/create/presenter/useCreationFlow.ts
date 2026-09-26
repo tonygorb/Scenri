@@ -15,15 +15,7 @@ import {
 import { forgetSaid } from '../../conversation/Transcript.js';
 import type { FlowProps } from '../flow.js';
 import { type CreationState, EMPTY_STATE, deserialize, isAsideEdit, reduce, serialize } from './creationState.js';
-import {
-  asideReply,
-  photoTooBig,
-  photoTrouble,
-  photoUnreadable,
-  readingWhat,
-  stageHint,
-  stageLead,
-} from './presenterCopy.js';
+import { asideReply, photoTooBig, photoTrouble, photoUnreadable, stageHint, stageLead } from './presenterCopy.js';
 import {
   answeredInWords,
   asidePhaseFor,
@@ -40,9 +32,11 @@ import {
   composerFor,
   editCost,
   flowContext,
+  namesThem,
   sentenceTarget,
   sourceFromText,
   turnsFor,
+  workingFor,
 } from './presenterFlowRules.js';
 import { colourName, colourRow } from './presenterLook.js';
 import { traitOf } from './presenterTraits.js';
@@ -145,6 +139,24 @@ const session = {
     }
   },
 };
+
+/**
+ * What a create is asked under, so asking twice makes one draft (PC1-X1): a
+ * reload with the create still on its way used to leave an empty one on the
+ * wall. The history key is only this tab's (a page opened straight on
+ * `/presenters/new` is "default" in every tab), so the tab's own name comes
+ * with it, kept across its reloads; the revision makes it these answers, so
+ * answers that moved never get back the draft made from the old ones. Not
+ * `randomUUID`: a lane opened over the LAN is not a secure context.
+ */
+export function createKey(convoKey: string, revision: number): string {
+  let tab = session.read('scenri:tab');
+  if (!tab) {
+    tab = [...crypto.getRandomValues(new Uint8Array(6))].map((b) => b.toString(16).padStart(2, '0')).join('');
+    session.write('scenri:tab', tab);
+  }
+  return `${tab}:${convoKey}:${revision}`;
+}
 
 export interface CreationFlowArgs extends Pick<FlowProps, 'onStarted' | 'caps'> {
   draftId: string | null;
@@ -380,6 +392,7 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
         source: 'synthetic',
         direction: compileDirection(st.answers),
         ...(items.length ? { keepItems: items } : {}),
+        clientKey: createKey(convoKey, rev),
       });
       // Answers that moved, or a page that was left: a draft of nobody, let go
       // rather than opened. Opened, it pulled the studio back over the page the
@@ -394,7 +407,7 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
     } finally {
       setBusySetup(false);
     }
-  }, [brand.id, canDraw, busySetup, openDraft]);
+  }, [brand.id, canDraw, busySetup, openDraft, convoKey]);
 
   const startPhotos = useCallback(async () => {
     const st = stateRef.current;
@@ -408,6 +421,7 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
         source: 'photos',
         imageHashes: photos.hashes,
         attestation: true,
+        clientKey: createKey(convoKey, rev),
       });
       if (stateRef.current.revision !== rev || !alive.current) {
         void api.deletePresenterDraft(brand.id, draft.id).catch(() => undefined);
@@ -419,7 +433,7 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
     } finally {
       setBusySetup(false);
     }
-  }, [brand.id, busySetup, openDraft]);
+  }, [brand.id, busySetup, openDraft, convoKey]);
 
   /**
    * The photographs a person just chose, taken one at a time.
@@ -585,9 +599,10 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
         canGenerate: canDraw,
         engine,
         failed,
+        failedView: s.errView,
         awaiting: awaitingAnswers({ state, draft: d, ctx, draftId, seededFor: seededFor.current }),
       }),
-    [state, d, canDraw, engine, failed, draftId, ctx],
+    [state, d, canDraw, engine, failed, s.errView, draftId, ctx],
   );
   const question = activeQuestion(turns);
   // the question on the floor, for work that runs after the render it started in
@@ -1078,13 +1093,7 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
       }
       // A bare name, typed before any name was asked (a fast engine lands the face
       // first), names them rather than redrawing the face from it.
-      if (
-        d &&
-        !d.name?.trim() &&
-        qid !== 'name' &&
-        /^[A-Z][a-z]+(?:\s[A-Z][a-z]+)?$/.test(sentence) &&
-        !readsAsPerson(sentence)
-      ) {
+      if (namesThem(sentence, d, qid)) {
         void s.update({ name: sentence.slice(0, 60) });
         dispatch({ type: 'text', text: '' });
         return true;
@@ -1470,11 +1479,11 @@ export function useCreationFlow({ draftId, convoKey, onOpenDraft, onLeaveDraft, 
       resumed,
       turns,
       busy: s.busy || busySetup || away,
-      // Truthful: only where something is actually being waited for. A question
-      // the flow already has arrives without anyone pretending to think.
-      working:
-        d?.stage === 'analyzing' ? `Reading ${readingWhat(d.source)}` : d?.activeView ? 'Drawing' : busySetup || s.busy,
-      stageEmpty: { lead: stageLead(d ? view : undefined, VIEW_NAME[view]), hint: stageHint(question?.id ?? null) },
+      working: workingFor(turns, d, busySetup || s.busy),
+      stageEmpty: {
+        lead: stageLead(d ? view : undefined, VIEW_NAME[view]),
+        hint: stageHint(question?.id ?? null, state.answers.photos?.hashes.length ?? 0),
+      },
       stage: d
         ? {
             hash: shownHash,

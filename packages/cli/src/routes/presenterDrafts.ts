@@ -81,6 +81,7 @@ export function registerPresenterDraftRoutes(
         name: body.name == null ? undefined : String(body.name),
         facets: Array.isArray(body.facets) ? body.facets.map((f: unknown) => String(f)) : [],
         extras: body.extras === true,
+        clientKey: body.clientKey == null ? undefined : String(body.clientKey),
       }),
     );
   });

@@ -7,7 +7,7 @@ import {
   openQuestionId,
 } from '../../conversation/question.js';
 import type { FailureRemedy } from '../../failure.js';
-import { failureWords, reason } from './presenterCopy.js';
+import { failureWords, keptAfter, reason } from './presenterCopy.js';
 import {
   CORE_VIEWS,
   type DraftLike,
@@ -172,7 +172,7 @@ export function isUntouched(d: DraftLike, base: EditBase): boolean {
 const drawFailed = (view: StudioView, error: string): { text: string; remedy?: FailureRemedy; stopped: boolean } =>
   error === 'cancelled'
     ? { text: `Stopped drawing the ${VIEW_NAME[view]}. Nothing finished was touched.`, stopped: true }
-    : { ...failureWords(`The ${VIEW_NAME[view]} could not be drawn`, error), stopped: false };
+    : { ...failureWords(`The ${VIEW_NAME[view]} could not be drawn`, error, keptAfter(view)), stopped: false };
 
 /** The core views the record never had; a legacy presenter is offered them once. */
 export const missingCore = (d: DraftLike): StudioView[] =>

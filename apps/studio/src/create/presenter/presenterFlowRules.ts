@@ -23,6 +23,7 @@ import {
   gapsPrompt,
   photosHint,
   photosLine,
+  readingWhat,
 } from './presenterCopy.js';
 import {
   AGE_OPTIONS,
@@ -892,6 +893,8 @@ export interface FlowArgs {
   engine?: string | null;
   /** A request that never reached the engine, said once with a Retry. */
   failed?: string | null;
+  /** The view that request was a draw of, when it was one. */
+  failedView?: StudioView | null;
   /**
    * The address names a draft whose answers are not read yet: it has not
    * arrived, or it has and the seed has not run (`awaitingAnswers`).
@@ -974,7 +977,7 @@ function shape(args: FlowArgs, asides: Aside[], openId: string | null): Turn[] {
 }
 
 function build(
-  { state, draft, canGenerate, engine, failed, awaiting }: FlowArgs,
+  { state, draft, canGenerate, engine, failed, failedView, awaiting }: FlowArgs,
   asides: Aside[],
   openId: string | null,
   placed: Set<Aside>,
@@ -1124,16 +1127,16 @@ function build(
   const record = recordTurns({
     draft,
     canGenerate,
-    ui: { extrasDeclined: state.extrasDeclined, failed, editingName: state.editing === 'name' },
+    ui: { extrasDeclined: state.extrasDeclined, failed, failedView, editingName: state.editing === 'name' },
     afterCoverage: after,
     asides,
     openId,
     placed,
   });
-  const T = [...lead, ...record];
-  // A setup question is the one thing being asked: the record's own question
-  // waits, and the setup's stands last, after everything that already happened.
-  if (open && T[T.length - 1]?.kind === 'question') T.pop();
+  // A setup question is the one thing being asked: the record's own questions
+  // wait (the name standing above a decision with it), and the setup's stands
+  // last, after everything that already happened.
+  const T = [...lead, ...(open ? record.filter((t) => t.kind !== 'question') : record)];
   if (open) T.push({ kind: 'question', question: open });
   return T;
 }
@@ -1146,6 +1149,18 @@ export function activeQuestion(turns: Turn[]): Question | null {
     if (!isAsideTurn(t)) return null;
   }
   return null;
+}
+
+/**
+ * What the conversation is waiting on, when a Working turn should say so:
+ * only where something is actually being waited for. A question the flow
+ * already has arrives without anyone pretending to think. A line that says
+ * what is being drawn or read is that wait said once: a Working turn under it
+ * was the same news again, and a third time with the stage's badge.
+ */
+export function workingFor(turns: Turn[], d: DraftLike | null, busy: boolean): boolean | string {
+  if (turns.some((t) => t.kind === 'scenri' && (t.id === 'reading' || t.id.startsWith('drawing-')))) return false;
+  return d?.stage === 'analyzing' ? `Reading ${readingWhat(d.source)}` : d?.activeView ? 'Drawing' : busy;
 }
 
 /* ------------------------------------------------------------- composer */
@@ -1198,7 +1213,32 @@ function traitComposer(qid: string, handed: boolean): ComposerFor {
   return { placeholder: handed ? said : beside, label: t?.saying ?? 'Describe it', action: 'Send' };
 }
 
+/**
+ * A bare name typed where a change would go: a fast engine lands the face
+ * while it is being typed. It names them rather than redrawing the face from
+ * it. One reading for what Enter does and for what the button says it does.
+ */
+export function namesThem(text: string, d: DraftLike | null, open: string | null): boolean {
+  const said = text.trim();
+  return (
+    !!d && !d.name?.trim() && open !== 'name' && /^[A-Z][a-z]+(?:\s[A-Z][a-z]+)?$/.test(said) && !readsAsPerson(said)
+  );
+}
+
 export function composerFor(
+  q: Question | null,
+  state: CreationState,
+  d: DraftLike | null,
+  selected: StudioView,
+): ComposerFor {
+  const c = composerBase(q, state, d, selected);
+  // the button says what Enter will do: a name typed at a change names them
+  return c.action === 'Refine' && !c.off && namesThem(state.text, d, q?.id ?? null)
+    ? { ...c, label: 'Their name', action: 'Send' }
+    : c;
+}
+
+function composerBase(
   q: Question | null,
   state: CreationState,
   d: DraftLike | null,

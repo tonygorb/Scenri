@@ -1,6 +1,6 @@
 import { type Aside, type ChoiceOption, type Question, type Turn, asideTurns } from '../../conversation/question.js';
 import type { FailureRemedy } from '../../failure.js';
-import { PROMPT, failureWords, readingWhat } from './presenterCopy.js';
+import { PROMPT, failureWords, keptAfter, readingWhat } from './presenterCopy.js';
 import { sideCheck } from './presenterTraits.js';
 import {
   builtOn,
@@ -34,6 +34,8 @@ export interface RecordUi {
   extrasDeclined: boolean;
   /** A draw request that never reached the engine, said once with a Retry. */
   failed?: string | null;
+  /** The view that request was a draw of, when it was one. */
+  failedView?: StudioView | null;
   /** The name is being rewritten in place. */
   editingName: boolean;
 }
@@ -88,7 +90,7 @@ export function stoppedOrFailed(view: StudioView, error: string): Question {
         prompt: `Stopped drawing the ${name}. Nothing finished was touched.`,
         options: [{ id: 'retry', label: 'Draw it again' }, ...withoutExtras(view)],
       }
-    : failedAsk(failureWords(`The ${name} could not be drawn`, error), withoutExtras(view));
+    : failedAsk(failureWords(`The ${name} could not be drawn`, error, keptAfter(view)), withoutExtras(view));
 }
 
 /** Where the analyzer filed them, said once at the save; the presenter page is where it changes. */
@@ -119,12 +121,24 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
     T.push({ kind: 'scenri', id: 'asked-name', text: PROMPT.name, quiet: true });
     T.push({ kind: 'you', id: 'name', text: name, editable: true, editing: ui.editingName || undefined });
   };
-  const askName = (prompt: string) => ask({ id: 'name', kind: 'text', prompt });
+  const askName = () => ask({ id: 'name', kind: 'text', prompt: PROMPT.name });
+  // A draw that never reached the engine is said about the view it was for,
+  // the way one that failed there is; any other request says what is kept.
+  const requestFailed = (error: string, more: ChoiceOption[] = []) =>
+    ui.failedView
+      ? stoppedOrFailed(ui.failedView, error)
+      : failedAsk(failureWords('That did not go through', error), more);
+  // Once asked, the name stands until it is answered. A decision about a
+  // picture comes first and keeps the line, so the name waits just above the
+  // exchange being decided rather than leaving and being asked again later.
+  const nameStands = () => {
+    if (!name) askName();
+  };
 
   if (d.stage === 'analyzing') {
     say('reading', `Reading ${readingWhat(d.source)}.`);
     if (name) named();
-    else askName(PROMPT.nameWhileReading);
+    else askName();
     return T;
   }
 
@@ -136,7 +150,7 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
   if (!canGenerate && d.source === 'photos') {
     if (name) named();
     if (!name) {
-      askName(PROMPT.name);
+      askName();
       return T;
     }
     ask({
@@ -307,7 +321,7 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
       // drawing, and the answer stays there.
       say('drawing-face', 'Drawing their face.');
       if (name) named();
-      else askName(PROMPT.nameWhileDrawing);
+      else askName();
       return T;
     }
     named();
@@ -315,19 +329,22 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
     if (drawingFace) {
       openAsk();
       say('drawing-face', lastOpen ? 'Adjusting the face. Everything else stays.' : 'Drawing their face.');
-      if (!name) askName(PROMPT.nameWhileDrawing);
+      if (!name) askName();
       return T;
     }
     if (ui.failed) {
-      ask(failedAsk(failureWords('That did not go through', ui.failed)));
+      nameStands();
+      ask(requestFailed(ui.failed));
       return T;
     }
     if (p.error) {
+      nameStands();
       openAsk();
       ask(stoppedOrFailed('portrait', p.error));
       return T;
     }
     if (p.status === 'candidate') {
+      nameStands();
       openAsk();
       ask({
         id: 'identity',
@@ -360,8 +377,9 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
   const failed = inPlay.find((v) => !!d.views[v].error);
 
   if (ui.failed && !active) {
+    nameStands();
     // what it was on its way to draw, when that is an extra, can be let go
-    ask(failedAsk(failureWords('That did not go through', ui.failed), withoutExtras(currentView(d))));
+    ask(requestFailed(ui.failed, withoutExtras(currentView(d))));
     return T;
   }
 
@@ -378,11 +396,12 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
             : `Drawing the ${VIEW_NAME[active]}.`,
     );
     // a person whose face came from a photograph has had no draw to be named during
-    if (!name) askName(PROMPT.nameWhileDrawing);
+    if (!name) askName();
     return T;
   }
 
   if (candidate) {
+    nameStands();
     openAsk();
     // A gated view standing for the first time has no earlier picture behind
     // it, so offering to keep the previous one would be offering nothing.
@@ -467,6 +486,7 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
   }
 
   if (failed) {
+    nameStands();
     openAsk();
     ask(stoppedOrFailed(failed, d.views[failed].error ?? ''));
     return T;
@@ -474,11 +494,12 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
 
   if (!allApproved(d)) {
     // between two draws of the set there is still no name and still nothing else to ask
-    if (!name) askName(PROMPT.nameWhileDrawing);
+    if (!name) askName();
     return T;
   }
 
   if (!d.extras && !ui.extrasDeclined) {
+    nameStands();
     say('set-ready', 'The set is ready. Select a view and say what is wrong to redraw it.');
     ask({
       id: 'extras',
@@ -495,7 +516,7 @@ export function recordTurns({ draft: d, canGenerate, ui, afterCoverage, asides, 
   }
 
   if (!name) {
-    askName(PROMPT.name);
+    askName();
     return T;
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attestText, failureWords, photoUnreadable } from '../src/create/presenter/presenterCopy.js';
+import { attestText, photoUnreadable } from '../src/create/presenter/presenterCopy.js';
 import { stoppedOrFailed } from '../src/create/presenter/presenterRecordTurns.js';
 
 /**
@@ -35,9 +35,9 @@ describe('a view that could not be drawn', () => {
     expect(options(q).map((o) => o.id)).toEqual(['remedy:engines', 'retry']);
   });
 
-  it('keeps the words of an error nothing recognises', () => {
-    expect(failureWords('The face could not be drawn', 'quota exceeded').text).toBe(
-      'The face could not be drawn: quota exceeded. Nothing finished was touched.',
+  it('keeps the words of an error nothing recognises, and says what is kept', () => {
+    expect(stoppedOrFailed('portrait', 'quota exceeded').prompt).toBe(
+      'The face could not be drawn: quota exceeded. Everything else you had is kept.',
     );
   });
 });

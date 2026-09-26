@@ -11,6 +11,9 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
   const [draft, setDraft] = useState<PresenterDraft | null>(null);
   const [gone, setGone] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // The view a failed draw was for, beside its words: a failure is said about
+  // what did not draw. Null for anything else, and only read while `err` stands.
+  const [errView, setErrView] = useState<PresenterDraftView | null>(null);
   const [busy, setBusy] = useState(false);
   const alive = useRef(true);
 
@@ -72,6 +75,7 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
       if (/HTTP 404|not found/i.test(String(e?.message ?? e))) setGone(true);
       else {
         readErr.current = true;
+        setErrView(null);
         setErr(String(e?.message ?? e));
       }
     }
@@ -90,7 +94,7 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
 
   /** One action at a time, its answer taken as the new truth, its failure said once. */
   const act = useCallback(
-    async (work: () => Promise<PresenterDraft>) => {
+    async (work: () => Promise<PresenterDraft>, view: PresenterDraftView | null = null) => {
       const asked = want.current;
       setBusy(true);
       setErr(null);
@@ -112,6 +116,7 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
           return false;
         }
         readErr.current = false;
+        setErrView(view);
         setErr(String(e?.message ?? e));
         return false;
       } finally {
@@ -141,6 +146,7 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
               ...(decide ? { decide } : {}),
             })
           ).draft,
+        view,
       ),
     [act, brandId, draftId],
   );
@@ -214,6 +220,7 @@ export function usePresenterDraft(brandId: string, draftId: string | null) {
     draft,
     gone,
     err,
+    errView,
     busy,
     drawing,
     reload: load,

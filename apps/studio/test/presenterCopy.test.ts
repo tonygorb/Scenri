@@ -26,8 +26,30 @@ describe('what the empty stage says under its sign', () => {
     expect(stageHint('agree')).toBe('Ready when you are');
   });
 
+  // UXP-10: each of these said "keep describing" or "add their photos" in a
+  // state where that was not what was wanted.
+  it('names the two ways in before anything has been said', () => {
+    expect(stageHint('source')).toBe('Describe them, or add photos');
+  });
+
+  it('stops asking for photographs once some are in', () => {
+    expect(stageHint('photos', 0)).toBe('Add their photos');
+    expect(stageHint('photos', 3)).toBe('Continue when the photos are in');
+  });
+
+  it('points at the way on while a failure stands', () => {
+    expect(stageHint('retry')).toBe('Try again from the conversation');
+  });
+
+  it('points at the setup when nothing here can draw a description', () => {
+    expect(stageHint('noengine')).toBe('Set up image generation, or add photos');
+  });
+
   it('says one line whatever is being asked, so the sign never changes height', () => {
-    const said = ['look-hair', 'photos', 'agree', null].map((q) => stageHint(q));
+    const said = [
+      ...['look-hair', 'source', 'photos', 'agree', 'retry', 'noengine', null].map((q) => stageHint(q)),
+      stageHint('photos', 2),
+    ];
     expect(said.every((s) => !s.includes('\n') && s.length < 40)).toBe(true);
   });
 });

@@ -316,6 +316,8 @@ export const api = {
       name?: string;
       facets?: string[];
       extras?: boolean;
+      /** The conversation asking: a create asked again under it answers with the draft it made. */
+      clientKey?: string;
     },
   ) => req<PresenterDraft>('POST', `/api/brands/${brandId}/presenter-drafts`, p),
   presenterDrafts: (brandId: string) =>

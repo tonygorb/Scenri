@@ -22,9 +22,10 @@ export const PROMPT = {
   // that out after the wait is worse than being asked before it.
   weakPhotos:
     'I cannot read a face in any of those photos, so anything I draw now would be a stranger rather than them.',
+  // One question in one set of words, from the first wait until it is
+  // answered: "While it draws" stopped being true the moment the face landed,
+  // and the question it began stayed on screen after that.
   name: 'What should we call them?',
-  nameWhileDrawing: 'While it draws: what should we call them?',
-  nameWhileReading: 'While I read them: what should we call them?',
   // The one question that opens more: what is always true of this person, over
   // and above the rows. It says "always" so nothing under it has to.
   traits: 'Anything else that is always true of them?',
@@ -160,10 +161,11 @@ export const photoUnreadable = (name: string): string =>
  * of it.
  *
  * The second line follows what is actually being asked, because "keep
- * describing" is a small lie at the two moments when describing is not what is
- * wanted: when photographs are, and when there is nothing left to say and the
- * offer to draw is standing. It stays one line either way, so the sign does
- * not change height under the reader.
+ * describing" is a small lie whenever describing is not what is wanted: before
+ * anything has been said, when photographs are (and once they are in), while a
+ * failure stands, and when there is nothing left to say and the offer to draw
+ * is standing. It stays one line either way, so the sign does not change
+ * height under the reader.
  */
 export const STAGE_LEAD = 'First portrait appears here';
 
@@ -178,9 +180,13 @@ export const STAGE_LEAD = 'First portrait appears here';
 export const stageLead = (view: string | undefined, name: string | undefined): string =>
   !view || view === 'portrait' || !name ? STAGE_LEAD : `The ${name} appears here`;
 
-export function stageHint(asking: string | null): string {
+export function stageHint(asking: string | null, photos = 0): string {
   if (asking === 'agree') return 'Ready when you are';
-  if (asking === 'photos') return 'Add their photos';
+  // nothing has been said yet, so there is nothing to keep describing
+  if (asking === 'source') return 'Describe them, or add photos';
+  if (asking === 'photos') return photos ? 'Continue when the photos are in' : 'Add their photos';
+  if (asking === 'retry') return 'Try again from the conversation';
+  if (asking === 'noengine') return 'Set up image generation, or add photos';
   return 'Keep describing your presenter';
 }
 
@@ -382,6 +388,19 @@ export function asideReply(
 export const reason = (text: string): string => text.trim().replace(/[.\s]+$/, '');
 
 /**
+ * What a failure leaves standing, said after an error nothing recognises.
+ * "Nothing finished was touched" was true and hard to read; this names it: a
+ * view that did not draw leaves everything else, the face included when it
+ * was not the face.
+ */
+export const keptAfter = (view: string | null): string =>
+  !view
+    ? 'Everything you had is kept.'
+    : view === 'portrait'
+      ? 'Everything else you had is kept.'
+      : 'The face and everything else you had are kept.';
+
+/**
  * A failure in words, read the way the composer reads one: what happened,
  * what to do, and the one control that fixes it.
  *
@@ -393,9 +412,13 @@ export const reason = (text: string): string => text.trim().replace(/[.\s]+$/, '
  * twice and names no control of its own is offered Providers, where whatever
  * draws is set up: Retry alone would be the one way on, and a certain failure.
  */
-export function failureWords(lead: string, error: string): { text: string; remedy?: FailureRemedy } {
+export function failureWords(
+  lead: string,
+  error: string,
+  kept = keptAfter(null),
+): { text: string; remedy?: FailureRemedy } {
   const f = describeFailure(error);
-  if (f.kind === 'unknown') return { text: `${lead}: ${reason(error)}. Nothing finished was touched.` };
+  if (f.kind === 'unknown') return { text: `${lead}: ${reason(error)}. ${kept}` };
   const remedy = f.remedy ?? (f.retryable ? undefined : { label: 'Providers', opens: 'engines' as const });
   return { text: `${lead}. ${f.fix ? `${f.title} ${f.fix}` : f.title}`, remedy };
 }
