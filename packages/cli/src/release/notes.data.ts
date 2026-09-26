@@ -51,6 +51,29 @@ export interface ReleaseEntry {
 // release is 0.2.0.
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '0.19.0',
+    date: '2026-09-26',
+    title: 'A new Scenri library.',
+    sections: [
+      {
+        heading: 'Library',
+        body: "Scenri's library is new: 30 products, 19 presenters and 42 scenes, with 110 examples on Home. Every view and example is 1536 by 1920, and cards read sharp at every size they are shown.",
+      },
+      {
+        heading: 'Scenes',
+        body: "A scene leads with its hero. Any of its pictures can be the frame a shot follows, from the scene's page or from its chip, whose picker now opens on the scene's own pictures. Five of the Home examples follow one this way.",
+      },
+      {
+        heading: 'Create',
+        body: 'A presenter is dressed for the place and holds a pose real physics allows, a product carries its written size into the brief, and a close-up follows the product wherever a set has one.',
+      },
+      {
+        heading: 'Fixes',
+        body: "Presenter and scene conversations recover from a failed press, a retry or a restart without losing their place. A brand kit rename made in a second window stays, Tab leaves a brief that holds a chip, a shot sent right after switching brands is filed in the brand on screen, and a deleted presenter's revisions stay out of a brand export.",
+      },
+    ],
+  },
+  {
     version: '0.18.2',
     date: '2026-09-26',
     sections: [
