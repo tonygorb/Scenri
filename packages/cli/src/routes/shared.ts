@@ -192,6 +192,17 @@ export const serveJpeg = (req: FastifyRequest, reply: FastifyReply, path: string
 export const fileKey = (prefix: string, id: string, path: string) =>
   `${prefix}-${id}-${Math.round(statSync(path).mtimeMs)}`;
 
+/** A file's pixel width, read once per version of it: the card a derivative may be cut from. */
+const widths = new Map<string, number>();
+const widthOf = async (path: string): Promise<number> => {
+  const at = `${path}:${statSync(path).mtimeMs}`;
+  const known = widths.get(at);
+  if (known !== undefined) return known;
+  const width = (await sharp(path).metadata()).width ?? 0;
+  widths.set(at, width);
+  return width;
+};
+
 /**
  * A curated JPEG at the size a surface asked for. Without `w` it is the JPEG
  * exactly as before; with a valid `w` it is a WebP derivative made through the
@@ -207,9 +218,11 @@ export const serveJpegSized = async (
   thumbs: ThumbStore,
   key: string,
   /**
-   * A larger file of the same picture to cut the derivatives from, when the
-   * JPEG at `path` is a small copy of it: a bundled card beside the library's
-   * full-size picture. The JPEG itself still answers without `w`.
+   * A larger file of the same picture, for a derivative wider than the JPEG at
+   * `path`: a bundled card beside the library's full-size picture. Narrower
+   * derivatives still come from the card, which is cheaper to cut and already
+   * wide enough; the full-size one is decoded only when a width needs it. The
+   * JPEG itself still answers without `w`.
    */
   sized?: { path: string; key: string },
 ) => {
@@ -218,7 +231,7 @@ export const serveJpegSized = async (
   const w = Number(raw);
   if (!isThumbWidth(w)) return reply.status(400).send({ error: `w must be one of ${THUMB_WIDTH_LIST}` });
   const immutable = 'public, max-age=31536000, immutable';
-  const from = sized ?? { path, key };
+  const from = sized && w > (await widthOf(path)) ? sized : { path, key };
   const etag = `"${from.key}-w${w}"`;
   if (req.headers['if-none-match'] === etag) return reply.status(304).header('cache-control', immutable).send();
   const made = await thumbs.ensureFile(from.key, from.path, w);

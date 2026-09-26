@@ -157,10 +157,17 @@ export function tileSrcSet(url: string | null | undefined): string | undefined {
 }
 
 /**
- * The layout width a card's srcset is chosen for. `auto` is the card's own
- * box, for a lazy image in a browser that knows the keyword; one that does not
- * falls through to the Compact card's width, which picks the 640 as before.
+ * The width a card is laid out at, for its srcset to choose by: two columns on
+ * a phone, and on a wider screen the column a wall's density makes (Large runs
+ * about 300 to 420 CSS px, Compact about 200 to 260). Stated rather than `auto`:
+ * `auto` reads 100vw for a card not laid out yet, so a Home on a 1x screen
+ * asked for the 960 and then the 640 of most pictures, measured on the
+ * first-open run 2026-09-26. A picture shown as a larger card, a scene's own
+ * frames, uses `large`.
  */
-export const TILE_SIZES = 'auto, (max-width: 720px) 50vw, 240px';
+export const CARD_SIZES = {
+  large: '(max-width: 720px) 50vw, 360px',
+  compact: '(max-width: 720px) 50vw, 240px',
+} as const;
 
 /** True when a brand has made nothing at all yet — any status, not just done-and-imaged. Every caller pairs this with `loaded`: check `loaded` first so a cold fetch isn't mistaken for a genuinely empty brand. */

@@ -60,14 +60,15 @@ export interface ThumbStore {
 
 /**
  * Every derivative is sharpened lightly after the resize: a downscale and the
- * WebP encode together kept 82 to 88 percent of the edge detail of the same
+ * WebP encode together kept 82 to 85 percent of the edge detail of the same
  * picture resized once to the size a card shows it at, and the cards read soft
- * beside the picture opened. A 0.5 sigma brings them to 95 to 105 percent, and
- * the quality a few points lower holds the bytes where they were (measured on
- * a tile, a presenter, a scene and a product, 2026-09-26).
+ * beside the picture opened. sharp's fast mild sharpen (no sigma: one small
+ * convolution) brings them to 92 to 100 percent at a seventh more time than
+ * none; the sigma form works in LAB and cost a third more, which a first Home
+ * paid on every derivative it made. The quality a few points lower holds the
+ * bytes where they were (a tile, a presenter, a scene and a product, 2026-09-26).
  */
 const QUALITY: Record<ThumbWidth, number> = { 960: 78, 640: 78, 320: 76, 160: 72 };
-const SHARPEN = { sigma: 0.5 } as const;
 /** A file key: letters, digits and dashes. A store hash is 32 hex and is namespaced apart below. */
 const FILE_KEY = /^[a-z0-9-]{1,120}$/;
 
@@ -120,7 +121,7 @@ export function createThumbStore(core: Core, opts: { concurrency?: number } = {}
       // a small original stays itself.
       await sharp(source)
         .resize({ width: w, withoutEnlargement: true })
-        .sharpen(SHARPEN)
+        .sharpen()
         .webp({ quality: QUALITY[w], effort: 4 })
         .toFile(tmp);
       await rename(tmp, final);

@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { CaretLeft, CaretRight, ImageSquare } from '@phosphor-icons/react';
-import { nodeLabel, type FeedNode, TILE_SIZES, thumbUrl } from '../api.js';
+import { CARD_SIZES, nodeLabel, type FeedNode, thumbUrl } from '../api.js';
 
 /**
  * Shared between `ScenePage` and `PresenterPage`: the reference-frame grid,
@@ -46,7 +46,7 @@ export function Shown({ src, srcSet, crop }: { src: string; srcSet?: string; cro
   return (
     <img
       src={src}
-      {...(srcSet ? { srcSet, sizes: TILE_SIZES } : {})}
+      {...(srcSet ? { srcSet, sizes: CARD_SIZES.large } : {})}
       alt=""
       loading="lazy"
       decoding="async"
