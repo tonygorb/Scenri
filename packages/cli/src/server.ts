@@ -200,6 +200,15 @@ function seedFor(sourceHash: string, width: number, height: number): number {
 const SECRET_KEYS = ['openrouter_api_key', 'replicate_api_token', 'fal_key'];
 
 export function buildServer(opts: ServerOptions): FastifyInstance {
+  // libvips keeps an operation cache and a thread pool per operation, and on a
+  // long session both held memory the process never gave back: a 45 minute
+  // soak grew the server's footprint by about 176 MB every ten minutes with a
+  // flat JS heap. Off and one: 60 scene draws went from 132 to 376 MB with the
+  // defaults and from 128 to 153 MB with these, and a 48 MP photo's decode
+  // costs 7% more (2.7 s to 2.9 s). Requests still run side by side on the
+  // libuv pool.
+  sharp.cache(false);
+  sharp.concurrency(1);
   const { core, engines } = opts;
   const meta = readMeta();
   const app = Fastify({ logger: false });

@@ -4031,3 +4031,11 @@ describe('progressive delivery', () => {
     }
   });
 });
+
+describe('image memory on a long session', () => {
+  // the server under every test here is built in the top-level beforeEach
+  it('keeps no libvips operation cache and one libvips thread per operation', () => {
+    expect(sharp.cache().memory.max).toBe(0);
+    expect(sharp.concurrency()).toBe(1);
+  });
+});
