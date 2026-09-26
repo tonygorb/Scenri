@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { isolate } from './harness.js';
-import { currentBrand, expectSameSession, goCreate, markSession, switchBrand } from './realtime.js';
+import { currentBrand, expectSameSession, goCreate, holdNext, markSession, switchBrand } from './realtime.js';
 
 /**
  * Brand-level mutations and the shot surfaces, on the same terms as the asset
@@ -182,5 +182,47 @@ test('a kit save does not make the bell poll again', async ({ page }) => {
 
   // no tick chasing the write: the poll keeps its own cadence
   expect(polls.filter((t) => t >= savedAt - 50 && t <= savedAt + 600)).toEqual([]);
+  await expectSameSession(page);
+});
+
+// The frame kept the brand it had left's workspace until the new brand's
+// answer landed, and Create sent that project: a shot typed in that moment
+// was filed in the other brand, with its rules, while its tile spun here (S8-03).
+test('a shot sent right after a brand switch is filed in the brand on screen', async ({ page }) => {
+  const home = await currentBrand(page);
+  const made = await page.request.post('/api/brands', {
+    data: { brand: { specVersion: '0.1', meta: { name: 'Second Studio' } } },
+  });
+  const other = (await made.json()) as { id: string };
+  const projectOf = async (id: string) =>
+    ((await (await page.request.get(`/api/brands/${id}/workspace`)).json()) as { project: { id: string } }).project.id;
+  const otherProject = await projectOf(other.id);
+  const homeProject = await projectOf(home.id);
+
+  await page.goto(`/${home.slug}/create`);
+  await markSession(page);
+  await expect(page.locator('.sc-brief-line').first()).toBeVisible();
+  const sent: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && r.url().endsWith('/api/nodes')) sent.push(JSON.parse(r.postData() ?? '{}').projectId);
+  });
+
+  // the new brand's workspace answer is late, the way a loaded server's is
+  const held = await holdNext(page, `**/api/brands/${other.id}/workspace`);
+  await switchBrand(page, 'Second Studio');
+  await goCreate(page);
+  await held.caught;
+  const line = page.locator('.sc-brief-line').first();
+  await line.click();
+  await page.keyboard.type('a shelf in the second studio');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(500);
+  expect(sent, `sent before the brand on screen was known; ${homeProject} is the brand just left`).toEqual([]);
+
+  held.release();
+  await expect(page.locator('.sc-canvas-dock .sc-send').first()).toBeEnabled();
+  await line.click();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => sent).toEqual([otherProject]);
   await expectSameSession(page);
 });

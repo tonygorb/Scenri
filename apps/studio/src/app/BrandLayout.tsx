@@ -253,7 +253,12 @@ export function BrandLayout() {
       brand
         ? {
             brand,
-            workspace,
+            // Only this brand's own. The one read before a switch stays in
+            // state until the new brand's answer lands, and a composer that
+            // was handed it filed a shot typed in that moment in the brand
+            // just left, with that brand's rules. Null holds Generate the way
+            // a cold load does.
+            workspace: workspace?.brandId === brand.id ? workspace : null,
             root,
             recent,
             sets,
