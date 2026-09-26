@@ -58,6 +58,10 @@ export function useBrandDoc(): BrandDoc {
   const brandRef = useRef(brand);
   brandRef.current = brand;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // What each key held when this page began changing it. Every save names it,
+  // so the server writes only what changed here, and a name another window
+  // gave the brand since is not put back by this one.
+  const baseRef = useRef<Partial<Record<BrandDocKey, unknown>>>({});
   const inflight = useRef(false);
   const queued = useRef(false);
 
@@ -74,8 +78,14 @@ export function useBrandDoc(): BrandDoc {
     setState('saving');
     const sent = overlayRef.current;
     try {
-      const row = await api.updateBrand(brandRef.current.id, compose());
+      const row = await api.updateBrand(brandRef.current.id, compose(), { ...baseRef.current });
       applyBrand(row);
+      // The server now holds what was sent for those keys. One edited again
+      // while this was in the air is still a change, from what was sent.
+      for (const k of Object.keys(sent) as BrandDocKey[]) {
+        if (overlayRef.current[k] === sent[k]) delete baseRef.current[k];
+        else baseRef.current[k] = sent[k];
+      }
       // Only clear what this write actually carried: an edit made while the
       // request was in the air is still pending and still has to be sent.
       setOverlay((cur) => {
@@ -105,6 +115,8 @@ export function useBrandDoc(): BrandDoc {
         clearTimeout(timer.current);
         timer.current = null;
       }
+      for (const k of Object.keys(fields) as BrandDocKey[])
+        if (!(k in baseRef.current)) baseRef.current[k] = brandRef.current.json?.[k] ?? null;
       const next = { ...overlayRef.current, ...fields };
       overlayRef.current = next;
       setOverlay(next);
@@ -130,6 +142,7 @@ export function useBrandDoc(): BrandDoc {
       // still holding for those keys is now behind it.
       setOverlay({});
       overlayRef.current = {};
+      baseRef.current = {};
       applyBrand(row);
       setState('idle');
     },
@@ -142,13 +155,14 @@ export function useBrandDoc(): BrandDoc {
   useEffect(() => {
     setOverlay({});
     overlayRef.current = {};
+    baseRef.current = {};
     setState('idle');
   }, [brandId]);
 
   useEffect(() => {
     const onLeave = () => {
       if (!Object.keys(overlayRef.current).length) return;
-      void saveBrandOnUnload(brandRef.current.id, compose()).then((row) => {
+      void saveBrandOnUnload(brandRef.current.id, compose(), { ...baseRef.current }).then((row) => {
         if (row) applyBrand(row);
       });
     };

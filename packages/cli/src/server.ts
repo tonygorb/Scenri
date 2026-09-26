@@ -16,6 +16,7 @@ import { mergeEditAttachments } from './attachmentBudget.js';
 import { shotWordsFor } from './shotWords.js';
 import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import type {
   Core,
   EngineAdapter,
@@ -331,6 +332,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (body.keepAssets === true && json && typeof json === 'object') {
       const stored = core.store.getBrand((req.params as any).id);
       if (stored) json = withStoredAssets(json, stored.json);
+      // It may also say what it read (`base`), and then it is a change to
+      // that copy rather than the whole kit: see withOwnChanges.
+      if (stored && body.base && typeof body.base === 'object') json = withOwnChanges(json, body.base, stored.json);
     }
     const v = validateBrand(json);
     if (!v.valid) return reply.status(400).send({ error: 'invalid .brand', details: v.errors });
@@ -2921,3 +2925,46 @@ function withStoredAssets(sent: Record<string, unknown>, stored: unknown): Recor
   }
   return out;
 }
+
+/**
+ * A kit save, read as the change it makes to the copy it started from.
+ *
+ * Two windows on one brand each hold a copy of the kit, and a save sent its
+ * whole copy: a tagline typed on a phone put back the name the desktop had
+ * just changed, and nothing said so. `base` is what the saving window read,
+ * for each key it edited. A key it does not name, or left as it read it, stays
+ * as stored. `meta` is compared field by field, because its fields are
+ * separate rows in the kit, each edited on its own.
+ */
+function withOwnChanges(sent: Record<string, unknown>, base: object, stored: unknown): Record<string, unknown> {
+  const out = { ...fieldsOf(stored) };
+  const read = base as Record<string, unknown>;
+  for (const key of Object.keys(read)) {
+    if ((ASSET_COLLECTIONS as readonly string[]).includes(key)) continue;
+    const next =
+      key === 'meta'
+        ? changedFields(sent.meta, read.meta, out.meta)
+        : isDeepStrictEqual(sent[key], read[key])
+          ? out[key]
+          : sent[key];
+    if (next === undefined) delete out[key];
+    else out[key] = next;
+  }
+  return out;
+}
+
+/** The stored fields, with the ones this save changed from what it read laid over them. */
+function changedFields(sent: unknown, read: unknown, stored: unknown): Record<string, unknown> {
+  const now = fieldsOf(sent);
+  const was = fieldsOf(read);
+  const out = { ...fieldsOf(stored) };
+  for (const field of new Set([...Object.keys(now), ...Object.keys(was)])) {
+    if (isDeepStrictEqual(now[field], was[field])) continue;
+    if (field in now) out[field] = now[field];
+    else delete out[field];
+  }
+  return out;
+}
+
+const fieldsOf = (v: unknown): Record<string, unknown> =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};

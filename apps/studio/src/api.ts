@@ -76,8 +76,13 @@ export const api = {
    * built from the brand the studio holds, so it asks the server to keep the
    * products, scenes and presenters as stored rather than as that copy saw them.
    */
-  updateBrand: (id: string, brand: any) =>
-    req<Brand>('PUT', `/api/brands/${id}`, { brand: brandKit(brand), keepAssets: true }),
+  /**
+   * A kit save. `base` is the kit as it was read, for the keys being changed:
+   * the server then writes only what differs from it, so a rename made in
+   * another window since is not put back by this one.
+   */
+  updateBrand: (id: string, brand: any, base?: unknown) =>
+    req<Brand>('PUT', `/api/brands/${id}`, { brand: brandKit(brand), keepAssets: true, base: brandKit(base) }),
   deleteBrand: (id: string) => req<{ ok: true }>('DELETE', `/api/brands/${id}`),
   /** The install's first-use record: who is new, what is done, and the task in hand with what it has made. */
   guide: () => req<GuideView>('GET', '/api/guide'),

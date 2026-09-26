@@ -221,6 +221,41 @@ test('a kit edit still being typed is kept through Back and through a change of 
   await expectSameSession(page);
 });
 
+// A kit save sent the window's whole copy of the kit, so a tagline typed in a
+// window that had not seen a rename put the old name back, and the two
+// windows and the server then disagreed (S4-01). The rename here is made
+// through the API: another window, or a phone beside the desktop.
+test('a kit save from a window that has not seen a rename keeps the rename', async ({ page }) => {
+  const brand = await currentBrand(page);
+  await page.goto(`/${brand.slug}/create`);
+  await markSession(page);
+  await openSettings(page);
+  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  const name = dialog.getByLabel('Name', { exact: true });
+  const before = await name.inputValue();
+  expect(before).not.toBe('');
+
+  const json = await brandJson(page.request, brand.id);
+  const renamed = await page.request.put(`/api/brands/${brand.id}`, {
+    data: { brand: { ...json, meta: { ...json.meta, name: 'Renamed Elsewhere' } }, keepAssets: true },
+  });
+  expect(renamed.ok()).toBe(true);
+  await expect(name).toHaveValue(before);
+
+  const tagline = dialog.getByLabel('Tagline');
+  const put = page.waitForResponse((r) => r.request().method() === 'PUT' && /\/api\/brands\/[^/]+$/.test(r.url()));
+  await tagline.fill('Typed beside the rename');
+  await tagline.press('Enter');
+  await put;
+
+  const saved = await brandJson(page.request, brand.id);
+  expect(saved.meta.name).toBe('Renamed Elsewhere');
+  expect(saved.meta.tagline).toBe('Typed beside the rename');
+  // and this window now shows what the server holds
+  await expect(name).toHaveValue('Renamed Elsewhere');
+  await expectSameSession(page);
+});
+
 // The frame kept the brand it had left's workspace until the new brand's
 // answer landed, and Create sent that project: a shot typed in that moment
 // was filed in the other brand, with its rules, while its tile spun here (S8-03).

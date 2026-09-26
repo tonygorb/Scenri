@@ -79,12 +79,12 @@ export function brandKit(brand: unknown): unknown {
   return kit;
 }
 
-export function saveBrandOnUnload(brandId: string, brand: unknown): Promise<Brand | null> {
+export function saveBrandOnUnload(brandId: string, brand: unknown, base?: unknown): Promise<Brand | null> {
   try {
     return fetch(`/api/brands/${brandId}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ brand: brandKit(brand), keepAssets: true }),
+      body: JSON.stringify({ brand: brandKit(brand), keepAssets: true, base: brandKit(base) }),
       keepalive: true,
     })
       .then((res) => (res.ok ? (res.json() as Promise<Brand>) : null))
