@@ -281,3 +281,61 @@ test('a project that has never released offers no link to an empty page', async 
   await expect(page.locator('.sc-wn-link')).toHaveCount(0);
   await expect(page.locator('.sc-wn .sc-btn-primary')).toBeVisible();
 });
+
+/**
+ * New (DESIGN.md, "New"): the same read names the few features saying New on
+ * this install. Local access is the first, marked on its Settings row until
+ * the page is opened. Stubbed like the notes above; the write is caught so
+ * nothing reaches the shared home.
+ */
+const USED_URL = '**/api/release/used';
+const localAccess = (p: Page) => p.locator('.sc-set-item', { hasText: 'Local access' });
+
+async function stubNew(page: Page): Promise<string[]> {
+  const used: string[] = [];
+  await stub(page, { newFeatures: ['local-access'] });
+  await page.route(USED_URL, async (route) => {
+    used.push(String(route.request().postDataJSON()?.feature));
+    await route.fulfill({ json: { ok: true } });
+  });
+  return used;
+}
+
+test('a new feature says New on its way in, and nowhere else', async ({ page }) => {
+  const used = await stubNew(page);
+  await page.goto('/e2e-fixture?settings=updates');
+  await expect(page.locator('.sc-set')).toBeVisible();
+  await expect(localAccess(page).locator('.sc-tag-new')).toHaveText('New');
+  await expect(page.locator('.sc-set .sc-tag-new')).toHaveCount(1);
+  expect(used).toEqual([]);
+});
+
+test('New stays while it is only on screen, and goes once its page is opened', async ({ page }) => {
+  const used = await stubNew(page);
+  await page.goto('/e2e-fixture?settings=updates');
+  await expect(localAccess(page).locator('.sc-tag-new')).toBeVisible();
+
+  // Another page, then Settings closed and opened again from Help: still New.
+  await page.locator('.sc-set-item', { hasText: 'Appearance' }).click();
+  await expect(page.locator('.sc-set-head h2')).toHaveText('Appearance');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.sc-set')).toHaveCount(0);
+  await menuTrigger(page).click();
+  await page.locator('.sc-menu-item', { hasText: 'About Scenri' }).click();
+  await expect(page.locator('.sc-set-head h2')).toHaveText('About');
+  await expect(localAccess(page).locator('.sc-tag-new')).toBeVisible();
+  expect(used).toEqual([]);
+
+  // Opening the page is using it: the label goes at once, without a reload.
+  await localAccess(page).click();
+  await expect(page.locator('.sc-set-head h2')).toHaveText('Local access');
+  await expect(page.locator('.sc-set .sc-tag-new')).toHaveCount(0);
+  await expect.poll(() => used).toEqual(['local-access']);
+});
+
+test('a new install says New nowhere', async ({ page }) => {
+  // Unstubbed: this spec's home was made fresh, so the real read names nothing.
+  await page.goto('/e2e-fixture?settings=updates');
+  await expect(localAccess(page)).toBeVisible();
+  await expect(page.locator('.sc-tag-new')).toHaveCount(0);
+});

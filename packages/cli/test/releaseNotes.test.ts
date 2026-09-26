@@ -1,12 +1,19 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { globSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createCore, type Core } from '@scenri/core';
 import { buildServer } from '../src/server.js';
 import { drainTracked, track } from './servers.js';
-import { RELEASES, isNewsworthy, releaseFor, validateReleases } from '../src/release/notes.data.js';
+import {
+  RELEASES,
+  isNewsworthy,
+  newFeaturesFor,
+  newUntil,
+  releaseFor,
+  validateReleases,
+} from '../src/release/notes.data.js';
 import type { ReleaseEntry } from '../src/release/notes.data.js';
 import type { FastifyInstance } from 'fastify';
 
@@ -224,5 +231,164 @@ describe('validateReleases', () => {
   it('refuses a malformed version or date', () => {
     expect(validateReleases([ok({ version: 'v0.2' })], '0.2.0').join(' ')).toContain('not a plain semver');
     expect(validateReleases([ok({ date: '16/08/2026' })], '0.2.0').join(' ')).toContain('yyyy-mm-dd');
+  });
+
+  it('holds New to kebab-case ids, each marked once in the whole record', () => {
+    expect(validateReleases([ok({ newFeatures: ['Local Access'] })], '0.2.0')).toContain(
+      'release 0.2.0: "Local Access" is not a kebab-case id',
+    );
+    const twice = [
+      ok({ version: '0.3.0', date: '2026-09-01', newFeatures: ['local-access'] }),
+      ok({ newFeatures: ['local-access'] }),
+    ];
+    expect(validateReleases(twice, '0.3.0')).toContain('release 0.2.0: "local-access" is marked New twice');
+  });
+
+  it('never lets more than three features say New at once, for anyone', () => {
+    // 0.2.0's window runs 2026-08-16 to 2026-09-15, so on 2026-08-20 all four would show.
+    const four = [
+      ok({ version: '0.3.0', date: '2026-08-20', newFeatures: ['c', 'd'] }),
+      ok({ newFeatures: ['a', 'b'] }),
+    ];
+    expect(validateReleases(four, '0.3.0')).toContain(
+      'release 0.3.0: 4 features would say New at once; 3 is the ceiling',
+    );
+    const three = [ok({ version: '0.3.0', date: '2026-08-20', newFeatures: ['c'] }), ok({ newFeatures: ['a', 'b'] })];
+    expect(validateReleases(three, '0.3.0')).toEqual([]);
+    // A window that closed before the next one opened is not counted with it.
+    const apart = [
+      ok({ version: '0.3.0', date: '2026-10-01', newFeatures: ['c', 'd'] }),
+      ok({ newFeatures: ['a', 'b'] }),
+    ];
+    expect(validateReleases(apart, '0.3.0')).toEqual([]);
+  });
+
+  it('marks New only on a release that says what it brought', () => {
+    expect(validateReleases([ok({ sections: [], newFeatures: ['local-access'] })], '0.2.0')).toContain(
+      "release 0.2.0: marks something New but says nothing in What's New",
+    );
+  });
+});
+
+/**
+ * New (DESIGN.md, "New"): the few features a release marks, for installs that
+ * began before it, until used or until thirty days after the release.
+ */
+describe('what says New on an install', () => {
+  const rel = (version: string, date: string, newFeatures: string[]): ReleaseEntry => ({
+    version,
+    date,
+    sections: [{ heading: 'Create', body: 'x' }],
+    newFeatures,
+  });
+  const at = (day: string) => Date.parse(`${day}T12:00:00Z`);
+  const releases = [
+    rel('0.4.0', '2026-03-01', ['framing']),
+    rel('0.3.0', '2026-02-10', ['local-access']),
+    rel('0.2.0', '2026-01-01', ['old-thing']),
+  ];
+
+  it('says nothing to an install that began on the release that brought it, or after', () => {
+    expect(newFeaturesFor(releases, { firstVersion: '0.4.0', used: [], now: at('2026-03-02') })).toEqual([]);
+  });
+
+  it('marks what arrived after the install began, while its window is open', () => {
+    expect(newFeaturesFor(releases, { firstVersion: '0.2.0', used: [], now: at('2026-03-02') })).toEqual([
+      'framing',
+      'local-access',
+    ]);
+  });
+
+  it('lets a used feature go, and only that one', () => {
+    expect(newFeaturesFor(releases, { firstVersion: '0.2.0', used: ['framing'], now: at('2026-03-02') })).toEqual([
+      'local-access',
+    ]);
+  });
+
+  it('lets a feature go by itself thirty days after its release', () => {
+    // 0.3.0 is 2026-02-10: New through 2026-03-11, gone from 2026-03-12.
+    expect(newUntil(releases[1])).toBe(Date.parse('2026-03-12T00:00:00Z'));
+    expect(newFeaturesFor(releases, { firstVersion: '0.2.0', used: [], now: at('2026-03-11') })).toContain(
+      'local-access',
+    );
+    expect(newFeaturesFor(releases, { firstVersion: '0.2.0', used: [], now: at('2026-03-12') })).not.toContain(
+      'local-access',
+    );
+  });
+
+  it('shows someone who skipped many releases only what is still new, never the whole year', () => {
+    expect(newFeaturesFor(releases, { firstVersion: '0.1.0', used: [], now: at('2026-03-20') })).toEqual(['framing']);
+  });
+
+  it('says nothing without an install marker', () => {
+    expect(newFeaturesFor(releases, { firstVersion: null, used: [], now: at('2026-03-02') })).toEqual([]);
+  });
+});
+
+describe('New over the notes read', () => {
+  // Whichever release marks something, so the positive case never hangs on
+  // one feature: once none is left to say New, it is skipped rather than kept.
+  const declared = RELEASES.find((r) => r.newFeatures?.length);
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('says nothing New to a fresh install', async () => {
+    app = build();
+    const res = await app.inject({ method: 'GET', url: '/api/release/notes' });
+    expect(res.json().newFeatures).toEqual([]);
+  });
+
+  it('refuses to record an id no release marked, and stores nothing', async () => {
+    app = build();
+    const res = await app.inject({ method: 'POST', url: '/api/release/used', payload: { feature: 'not-a-feature' } });
+    expect(res.statusCode).toBe(400);
+    expect(core.store.getSetting('features.used')).toBeNull();
+  });
+
+  it.skipIf(!declared)('marks a feature for an install that predates it, until it is used', async () => {
+    const release = declared as ReleaseEntry;
+    const feature = (release.newFeatures as string[])[0];
+    vi.setSystemTime(Date.parse(`${release.date}T12:00:00Z`));
+    // Seeded before the first read: without it the read stamps the running version.
+    core.store.setSetting('install.firstVersion', '0.2.0');
+    app = build();
+    const read = async () =>
+      (await (app as FastifyInstance).inject({ method: 'GET', url: '/api/release/notes' })).json();
+
+    expect((await read()).newFeatures).toContain(feature);
+    const res = await app.inject({ method: 'POST', url: '/api/release/used', payload: { feature } });
+    expect(res.statusCode).toBe(200);
+    expect((await read()).newFeatures).not.toContain(feature);
+    expect(JSON.parse(core.store.getSetting('features.used') ?? '[]')).toEqual([feature]);
+  });
+});
+
+describe('New, wired where it lives', () => {
+  it('gives every feature that can still say New a way in and a use in the studio', () => {
+    // The record names a feature; the studio has to carry it. A typo on either
+    // side would otherwise be a label that never shows or never goes. Only
+    // features whose window is still open at the newest release are held to
+    // it: any build from this tree ships on or after that date, so a closed
+    // one can never show again, and its lines are inert until someone removes them.
+    const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+    const studio = globSync('apps/studio/src/**/*.{ts,tsx}', { cwd: root })
+      .map((f) => readFileSync(join(root, f), 'utf8'))
+      .join('\n');
+    const newest = Date.parse(`${RELEASES[0].date}T00:00:00Z`);
+    const problems: string[] = [];
+    for (const r of RELEASES) {
+      if (newest >= newUntil(r)) continue;
+      for (const f of r.newFeatures ?? []) {
+        if (!new RegExp(`feature(=|:\\s*)['"]${f}['"]`).test(studio))
+          problems.push(`${f}: nothing in apps/studio/src carries feature="${f}" (its way in)`);
+        // The raw write is api.releaseUsed, named apart so it can never pass for
+        // a use: on its own it would leave the label on screen.
+        if (!new RegExp(`\\bmarkUsed\\(['"]${f}['"]\\)`).test(studio))
+          problems.push(`${f}: nothing in apps/studio/src calls markUsed('${f}') (its use)`);
+      }
+    }
+    expect(problems).toEqual([]);
   });
 });

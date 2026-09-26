@@ -306,6 +306,11 @@
   color: var(--sc-star);
   border-color: color-mix(in srgb, var(--sc-gold) 45%, transparent);
 }
+/* New (DESIGN.md, "New"): the same mark, kept whole at the end of a row whose
+   label grows. */
+.sc-tag-new {
+  flex: none;
+}
 /* One state, so one dot. There used to be three colours for what is a single
    boolean on the server: green ready, grey unavailable, gold unavailable-and-
    fixable. Nothing that is not connected carries a status now — its own action
