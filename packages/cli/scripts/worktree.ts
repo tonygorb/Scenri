@@ -254,7 +254,7 @@ function link(target: string, at: string): void {
   }
 }
 
-/** ~/.scenri/content is a 95 MB read-only cache; share it instead of downloading it per worktree. */
+/** ~/.scenri/content is a 155 MB read-only cache; share it instead of downloading it per worktree. */
 function shareContent(home: string): void {
   const content = join(homedir(), '.scenri', 'content');
   if (existsSync(join(content, 'meta.json'))) link(content, join(home, 'content'));

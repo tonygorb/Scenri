@@ -193,7 +193,7 @@ function CatalogCardInner({
             remove.label,
             <button
               type="button"
-              className="sc-cell-ctl sc-lookcard-remove"
+              className="sc-cell-ctl sc-lookcard-remove sc-cell-danger"
               aria-label={remove.label}
               onClick={(e) => {
                 stop(e);

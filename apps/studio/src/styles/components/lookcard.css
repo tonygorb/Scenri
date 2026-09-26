@@ -82,7 +82,9 @@
 .sc-lookcard-media:has(> .sc-shimmer) {
   aspect-ratio: 4 / 5;
 }
-.sc-lookcard:hover img {
+.sc-lookcard:hover img,
+.sc-lookcard[data-state="open"] img,
+.sc-lookcard:has(.sc-lookcard-more[data-state="open"]) img {
   transform: scale(1.03);
 }
 .sc-lookcard-open,
@@ -154,7 +156,9 @@ a.sc-lookcard {
 /* More lives in the top-right row, the same disc as Select, so the pointer
    can land on it. The wall caption is the name. */
 .sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-cap,
-.sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-veil {
+.sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-veil,
+.sc-lookcard[data-state="open"] .sc-lookcard-cap,
+.sc-lookcard[data-state="open"] .sc-lookcard-veil {
   opacity: 1;
   transform: none;
 }
@@ -269,7 +273,9 @@ a.sc-lookcard {
   border-radius: var(--sc-radius-full);
 }
 .sc-lookcard:hover .sc-lookcard-pick,
-.sc-lookcard:focus-within .sc-lookcard-pick,
+:where(:root:not([data-input="pointer"])) .sc-lookcard:focus-within .sc-lookcard-pick,
+.sc-lookcard[data-state="open"] .sc-lookcard-pick,
+.sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-pick,
 :where(:root:not([data-input="pointer"])) .sc-lookcard-pick:focus-visible {
   opacity: 1;
   transition-delay: 0s;
@@ -288,7 +294,9 @@ a.sc-lookcard {
   z-index: 4;
 }
 .sc-lookcard:hover .sc-lookcard-keep,
-.sc-lookcard:focus-within .sc-lookcard-keep,
+:where(:root:not([data-input="pointer"])) .sc-lookcard:focus-within .sc-lookcard-keep,
+.sc-lookcard[data-state="open"] .sc-lookcard-keep,
+.sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-keep,
 :where(:root:not([data-input="pointer"])) .sc-lookcard-keep:focus-visible,
 .sc-lookcard-keep[data-on] {
   opacity: 1;
@@ -318,17 +326,23 @@ a.sc-lookcard {
 @media (hover: hover) {
   .sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-veil,
   .sc-lookcard:has(.sc-lookcard-use:hover) .sc-lookcard-veil,
-  .sc-lookcard[data-variant="select"]:hover .sc-lookcard-veil {
+  .sc-lookcard[data-variant="select"]:hover .sc-lookcard-veil,
+  .sc-lookcard[data-state="open"] .sc-lookcard-veil,
+  .sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-veil {
     opacity: 1;
   }
   .sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-cap,
   .sc-lookcard:has(.sc-lookcard-use:hover) .sc-lookcard-cap,
-  .sc-lookcard[data-variant="select"]:hover .sc-lookcard-cap {
+  .sc-lookcard[data-variant="select"]:hover .sc-lookcard-cap,
+  .sc-lookcard[data-state="open"] .sc-lookcard-cap,
+  .sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-cap {
     opacity: 1;
     transform: none;
   }
   .sc-lookcard:has(.sc-lookcard-open:hover) .sc-lookcard-use,
   .sc-lookcard:has(.sc-lookcard-use:hover) .sc-lookcard-use,
+  .sc-lookcard[data-state="open"] .sc-lookcard-use,
+  .sc-lookcard:has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-use,
   .sc-lookcard-use:hover {
     opacity: 1;
     transform: translate(-50%, -50%);
@@ -415,11 +429,15 @@ a.sc-lookcard {
      on the photograph: a shadow on the picture's own box sits under the image
      and the radius chops what is left of it. */
   .sc-lookcard[data-picked]::after,
-  .sc-lookcard[data-batching]:not([data-picked]):hover::after {
+  .sc-lookcard[data-batching]:not([data-picked]):hover::after,
+  .sc-lookcard[data-batching]:not([data-picked])[data-state="open"]::after,
+  .sc-lookcard[data-batching]:not([data-picked]):has(.sc-lookcard-more[data-state="open"])::after {
     content: none;
   }
   .sc-lookcard[data-picked] .sc-lookcard-media::after,
-  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media::after {
+  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media::after,
+  .sc-lookcard[data-batching]:not([data-picked])[data-state="open"] .sc-lookcard-media::after,
+  .sc-lookcard[data-batching]:not([data-picked]):has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-media::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -430,7 +448,9 @@ a.sc-lookcard {
   .sc-lookcard[data-picked] .sc-lookcard-media::after {
     box-shadow: inset 0 0 0 1.5px var(--sc-inv-bg);
   }
-  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media::after {
+  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media::after,
+  .sc-lookcard[data-batching]:not([data-picked])[data-state="open"] .sc-lookcard-media::after,
+  .sc-lookcard[data-batching]:not([data-picked]):has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-media::after {
     box-shadow: inset 0 0 0 1.5px var(--sc-sel-line);
   }
   /* The name and the menu share a row. A long name takes a second line: a
@@ -560,7 +580,9 @@ a.sc-lookcard {
     outline: 2px solid var(--sc-sel-line);
     outline-offset: -2px;
   }
-  .sc-lookcard:hover img {
+  .sc-lookcard:hover img,
+  .sc-lookcard[data-state="open"] img,
+  .sc-lookcard:has(.sc-lookcard-more[data-state="open"]) img {
     transform: none;
   }
   .sc-lookcard-cap {
@@ -693,16 +715,22 @@ a.sc-lookcard {
    on the box that clips it. */
 @media (pointer: coarse) {
   .sc-lookcard[data-picked]::after,
-  .sc-lookcard[data-batching]:not([data-picked]):hover::after {
+  .sc-lookcard[data-batching]:not([data-picked]):hover::after,
+  .sc-lookcard[data-batching]:not([data-picked])[data-state="open"]::after,
+  .sc-lookcard[data-batching]:not([data-picked]):has(.sc-lookcard-more[data-state="open"])::after {
     content: none;
   }
   .sc-lookcard[data-picked] .sc-lookcard-media,
-  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media {
+  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media,
+  .sc-lookcard[data-batching]:not([data-picked])[data-state="open"] .sc-lookcard-media,
+  .sc-lookcard[data-batching]:not([data-picked]):has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-media {
     overflow: visible;
     border-radius: var(--sc-radius-lg);
   }
   .sc-lookcard[data-picked] .sc-lookcard-media::after,
-  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media::after {
+  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media::after,
+  .sc-lookcard[data-batching]:not([data-picked])[data-state="open"] .sc-lookcard-media::after,
+  .sc-lookcard[data-batching]:not([data-picked]):has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-media::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -713,7 +741,9 @@ a.sc-lookcard {
   .sc-lookcard[data-picked] .sc-lookcard-media::after {
     box-shadow: inset 0 0 0 1.5px var(--sc-inv-bg);
   }
-  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media::after {
+  .sc-lookcard[data-batching]:not([data-picked]):hover .sc-lookcard-media::after,
+  .sc-lookcard[data-batching]:not([data-picked])[data-state="open"] .sc-lookcard-media::after,
+  .sc-lookcard[data-batching]:not([data-picked]):has(.sc-lookcard-more[data-state="open"]) .sc-lookcard-media::after {
     box-shadow: inset 0 0 0 1.5px var(--sc-sel-line);
   }
 }

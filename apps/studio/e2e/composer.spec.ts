@@ -157,7 +157,7 @@ test('the settings ride along with the brief, so a shot can be run again as itse
   await page.keyboard.type('a shot whose recipe must survive');
   // On a desktop the three settings are pills in the row; a narrow composer
   // collapses the same three behind More, and a phone opens them as a sheet.
-  await dock(page).locator('.sc-prompt-pills [aria-label="2 shots"]').click();
+  await dock(page).locator('.sc-prompt-pills [aria-label="1 shot"]').click();
   await page.locator('.sc-setpop').getByRole('radio', { name: '3 shots' }).click();
   await dock(page).locator('.sc-send').click();
   await expect(page.locator('.sc-toast', { hasText: 'That did not send' })).toBeVisible();
@@ -664,9 +664,10 @@ test('a settings surface opens without painting a focus ring', async ({ page }) 
   );
 
   // an arrow moves the choice and the focus together, the way a radio group does
+  // The group opens on 4:5, so the first arrow steps to the next shape, 9:16.
   await page.keyboard.press('ArrowDown');
   await expect(pop.locator('[role="radio"][aria-checked="true"]')).toBeFocused();
-  expect(await page.evaluate(() => localStorage.getItem('scenri:format'))).toBe('"portrait"');
+  expect(await page.evaluate(() => localStorage.getItem('scenri:format'))).toBe('"story"');
 });
 
 test('one open picker gives way to the next on a single click', async ({ page }) => {

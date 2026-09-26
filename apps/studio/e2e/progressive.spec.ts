@@ -32,7 +32,13 @@ async function brandSlug(p: Page): Promise<string> {
 /** Stand on the feed with the count set to four. */
 async function openFeed(p: Page, slug: string, count = 4) {
   await p.goto(`/${slug}/create`);
-  await p.evaluate((c) => localStorage.setItem('scenri:count', String(c)), count);
+  await p.evaluate((c) => {
+    localStorage.setItem('scenri:count', String(c));
+    // This file proves a landing picture stays in the space held for it.
+    // Square matches the demo pixels. The product default is portrait, and a
+    // guessed portrait hands the real pixels back, which is a different question.
+    localStorage.setItem('scenri:format', JSON.stringify('square'));
+  }, count);
   await p.goto(`/${slug}/create`);
   await expect(line(p)).toBeVisible();
 }
