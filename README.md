@@ -21,7 +21,7 @@ npx scenri
 
 <sub>Needs [Node.js](https://nodejs.org) 22 or newer. New to any of this? The [install guide](https://github.com/tonygorb/scenri/blob/main/docs/INSTALL.md) walks through every step.</sub>
 
-<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/demo.gif" alt="The Scenri composer: a dollar sign opens a product picker and Selvedge Trucker is chosen, an at sign picks the presenter Maren, a slash picks the Editorial Walk scene, a line of written direction is typed after the three chips, the shot renders as a card in the wall, and it opens to show the picture beside the brief that made it" width="820">
+<img src="https://raw.githubusercontent.com/tonygorb/scenri/main/docs/media/demo.gif" alt="The Scenri composer: a dollar sign opens a product picker and Ridgeline Trail is chosen, an at sign picks the presenter Paloma, a slash picks the Chalk Steps scene, a line of written direction is typed after the three chips, the shot renders as a card in the wall, and it opens to show the picture beside the brief that made it" width="820">
 
 <sub>Pick a product, pick a presenter, pick a scene, then write the direction. That is the brief.</sub>
 
@@ -39,7 +39,7 @@ It runs as a local server on your own computer. Your brands, your images, and yo
 
 ## What a brief produces
 
-The film above ends on the shot its brief made: the Selvedge Trucker product, the presenter Maren, the Editorial Walk scene, and a paragraph of written direction. The chips carry the identity; the prose does the art direction. Here are eight more shots from the home wall, each built exactly that way:
+The film above ends on the shot its brief made: the Ridgeline Trail product, the presenter Paloma, the Chalk Steps scene, and a paragraph of written direction. The chips carry the identity; the prose does the art direction. Here are eight more shots from the home wall, each built exactly that way:
 
 <!-- One paragraph, no whitespace between the tags: a newline here renders as
 a fixed word-space, and 4 x 24.5% plus three spaces overflows a phone screen
