@@ -29,11 +29,31 @@ describe('isPrivateAddress', () => {
     '::ffff:10.0.0.1',
     '2002::1',
     'not-an-address',
+    // an embedded v4 address as `new URL` writes it, in hex: still that address
+    '::ffff:7f00:1',
+    '::ffff:a9fe:a9fe',
+    '::7f00:1',
+    '64:ff9b::7f00:1',
+    // Teredo and local-use NAT64 wrap addresses we cannot see
+    '2001::1',
+    '2001:0:4136:e378::1',
+    '64:ff9b:1::1',
   ])('refuses %s', (ip) => {
     expect(isPrivateAddress(ip)).toBe(true);
   });
 
-  it.each(['1.1.1.1', '172.66.44.130', '8.8.8.8', '2606:4700::1111', '::ffff:8.8.8.8'])('allows %s', (ip) => {
+  it.each([
+    '1.1.1.1',
+    '172.66.44.130',
+    '8.8.8.8',
+    '2606:4700::1111',
+    '::ffff:8.8.8.8',
+    '::ffff:808:808',
+    // DNS64 puts public sites here on an IPv6-only network
+    '64:ff9b::808:808',
+    '64:ff9b::8.8.8.8',
+    '2001:4860:4860::8888',
+  ])('allows %s', (ip) => {
     expect(isPrivateAddress(ip)).toBe(false);
   });
 });
