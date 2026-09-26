@@ -464,7 +464,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     }
 
     const id = `${spec.prefix}-${randomUUID().slice(0, 8)}`;
-    const json = { ...(brand.json as any) };
+    // The document as it is now: a multipart upload is an await, and the copy
+    // read before it wrote back over anything saved while the file arrived.
+    const current = core.store.getBrand(brand.id);
+    if (!current) return reply.status(404).send({ error: 'brand not found' });
+    const json = { ...(current.json as any) };
     json[spec.key] = [
       ...(json[spec.key] ?? []),
       {
@@ -511,7 +515,11 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       inspectMark: (buf) => inspectMark(buf, toMarkPng),
       createdWith: `${meta.name}/${meta.version}`,
     });
-    const { brand: merged, suggestions } = mergeScrape(brand.json, scraped);
+    // Merged into the document as it is now: a scrape takes seconds, and the
+    // copy read before it began wrote back over the kit being edited meanwhile.
+    const current = core.store.getBrand(brand.id);
+    if (!current) return reply.status(404).send({ error: 'brand not found' });
+    const { brand: merged, suggestions } = mergeScrape(current.json, scraped);
     const v = validateBrand(merged);
     if (!v.valid) return reply.status(400).send({ error: 'brand became invalid', details: v.errors });
     const row = core.store.updateBrand(brand.id, merged as any);
@@ -550,11 +558,9 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
     if (!brand) return reply.status(404).send({ error: 'brand not found' });
     const productId = String((req.params as any).productId);
     const catalogId = productId.startsWith('cat-') ? productId.slice(4) : null;
-    const json = { ...(brand.json as any) };
-    const products: any[] = json.products ?? [];
-    const idx = catalogId ? -1 : products.findIndex((p) => p.id === productId);
+    const owned = (json: any) => (json.products ?? []).findIndex((p: any) => p.id === productId);
     const catalogRow = catalogId ? core.catalog.getProduct(catalogId) : null;
-    if (idx === -1 && (!catalogRow || catalogRow.brandId !== brand.id)) {
+    if ((catalogId ? -1 : owned(brand.json)) === -1 && (!catalogRow || catalogRow.brandId !== brand.id)) {
       return reply.status(404).send({ error: 'product not found' });
     }
     const part = await readImagePart(core, req, toPng);
@@ -565,6 +571,13 @@ export function buildServer(opts: ServerOptions): FastifyInstance {
       core.catalog.addLocalImage(catalogId, `asset:${hash}`, angle ?? null);
       return core.store.getBrand(brand.id);
     }
+    // The document as it is now, not as it was before the upload: the copy
+    // read ahead of the await wrote back over anything saved meanwhile.
+    const current = core.store.getBrand(brand.id);
+    const json = { ...(current?.json as any) };
+    const products: any[] = json.products ?? [];
+    const idx = current ? owned(json) : -1;
+    if (idx === -1) return reply.status(404).send({ error: 'product not found' });
     const shot: any = { file: `asset:${hash}`, locked: true };
     if (angle) shot.angle = angle;
     json.products = products.map((p, i) => (i === idx ? { ...p, shots: [...(p.shots ?? []), shot] } : p));

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import sharp from 'sharp';
 import { mkdtempSync, rmSync } from 'node:fs';
+import { PassThrough } from 'node:stream';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -230,6 +231,83 @@ describe('brand marks', () => {
     expect(body.suggestions.palette).toEqual([{ hex: '#2a6f4e' }]);
     expect(body.json.logos).toHaveLength(1);
     await srv.close();
+  });
+
+  // A route that reads the brand, awaits (an upload, a website) and then
+  // writes the copy it read wrote back over whatever was saved meanwhile.
+  it('keeps a kit edit saved while the website is being read', async () => {
+    const html = `<html><head><title>Zen Tea Company</title></head></html>`;
+    let reading = () => {};
+    const readingStarted = new Promise<void>((r) => {
+      reading = r;
+    });
+    let answer = () => {};
+    const answered = new Promise<void>((r) => {
+      answer = r;
+    });
+    const fetchImpl = (async (input: any) => {
+      if (String(input).endsWith('/i.gif')) return new Response(GIF_1PX);
+      reading();
+      await answered;
+      return new Response(html);
+    }) as unknown as typeof fetch;
+    const srv = track(buildServer({ core, engines: registryWith(), fetchImpl }));
+    const brand = (
+      await srv.inject({
+        method: 'POST',
+        url: '/api/brands',
+        payload: { brand: { specVersion: '0.1', meta: { name: 'Zen', tagline: 'Slow mornings' } } },
+      })
+    ).json();
+    const refresh = srv
+      .inject({
+        method: 'POST',
+        url: `/api/brands/${brand.id}/refresh-from-url`,
+        payload: { url: 'https://zen.example' },
+      })
+      .then((r) => r);
+    await readingStarted;
+    const edit = await srv.inject({
+      method: 'PUT',
+      url: `/api/brands/${brand.id}`,
+      payload: { brand: { ...brand.json, meta: { ...brand.json.meta, tagline: 'Fast evenings' } } },
+    });
+    expect(edit.statusCode).toBe(200);
+    answer();
+    const res = await refresh;
+    expect(res.statusCode).toBe(200);
+    expect(res.json().json.meta.tagline).toBe('Fast evenings');
+    expect((core.store.getBrand(brand.id)!.json as any).meta.tagline).toBe('Fast evenings');
+    await srv.close();
+  });
+
+  it('keeps a kit edit saved while a mark is still uploading', async () => {
+    const brand = await mkBrand();
+    const boundary = '----sctest';
+    const body = new PassThrough();
+    const upload = app
+      .inject({
+        method: 'POST',
+        url: `/api/brands/${brand.id}/logos`,
+        headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+        payload: body,
+      })
+      .then((r) => r);
+    body.write(
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="logo.gif"\r\nContent-Type: image/gif\r\n\r\n`,
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    const edit = await app.inject({
+      method: 'PUT',
+      url: `/api/brands/${brand.id}`,
+      payload: { brand: { ...brand.json, meta: { ...brand.json.meta, tagline: 'Fast evenings' } } },
+    });
+    expect(edit.statusCode).toBe(200);
+    body.end(Buffer.concat([GIF_1PX, Buffer.from(`\r\n--${boundary}--\r\n`)]));
+    const res = await upload;
+    expect(res.statusCode).toBe(200);
+    expect(res.json().json.logos).toHaveLength(1);
+    expect(res.json().json.meta.tagline).toBe('Fast evenings');
   });
 
   it('serves the brand as a .brand zip named after its slug', async () => {
