@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync, closeSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync, closeSync, statSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { appendLog, openLogFd } from '../src/desktop/log.js';
@@ -49,5 +49,35 @@ describe('openLogFd', () => {
     closeSync(fd);
     expect(readFileSync(path, 'utf8')).toBe('fresh\n');
     expect(existsSync(`${path}.1`)).toBe(true);
+  });
+});
+
+// The server's log carries what it prints, and the launcher's what it tried:
+// neither is another local user's to read. Windows ignores these modes.
+describe.skipIf(process.platform === 'win32')('who can read the logs', () => {
+  const mode = (p: string) => statSync(p).mode & 0o777;
+
+  it('makes the folder and each log private to their owner', () => {
+    const logs = join(root, 'logs');
+    appendLog(join(logs, 'launcher.log'), 'launcher invoked');
+    closeSync(openLogFd(join(logs, 'scenri.log')));
+    expect(mode(logs)).toBe(0o700);
+    expect(mode(join(logs, 'launcher.log'))).toBe(0o600);
+    expect(mode(join(logs, 'scenri.log'))).toBe(0o600);
+  });
+
+  it('tightens logs an older build left readable', () => {
+    const logs = join(root, 'logs');
+    for (const name of ['launcher.log', 'scenri.log']) {
+      appendLog(join(logs, name), 'before');
+    }
+    chmodSync(logs, 0o755);
+    chmodSync(join(logs, 'launcher.log'), 0o644);
+    chmodSync(join(logs, 'scenri.log'), 0o644);
+    appendLog(join(logs, 'launcher.log'), 'after');
+    closeSync(openLogFd(join(logs, 'scenri.log')));
+    expect(mode(logs)).toBe(0o700);
+    expect(mode(join(logs, 'launcher.log'))).toBe(0o600);
+    expect(mode(join(logs, 'scenri.log'))).toBe(0o600);
   });
 });
