@@ -319,7 +319,7 @@ export const RELEASES: ReleaseEntry[] = [
     sections: [
       {
         heading: 'Settings',
-        body: 'Settings is redesigned with six pages instead of eight: Brand kit and Usage sit under the brand, Providers now includes the monthly caps, and General holds the theme and the library. On a phone it opens as a sheet, with the list of pages first and Back from each one.',
+        body: 'Six pages instead of eight: Brand kit and Usage sit under the brand, Providers now includes the monthly caps, and General holds the theme and the library. On a phone it opens as a sheet, with the list of pages first and Back from each one.',
       },
       {
         heading: 'Providers',
@@ -338,7 +338,7 @@ export const RELEASES: ReleaseEntry[] = [
     sections: [
       {
         heading: 'Presenters',
-        body: 'Presenters in shots now show an expression that fits the moment and look where the shot directs, instead of a blank stare into the camera. When a presenter has a detail on one side, such as a tattoo or a prosthetic, approving their face and full body now says which side to check.',
+        body: 'In a shot, a presenter now shows an expression that fits the moment and looks where the shot directs, instead of a blank stare into the camera. When a presenter has a detail on one side, such as a tattoo or a prosthetic, approving their face and full body now says which side to check.',
       },
     ],
   },
@@ -369,11 +369,11 @@ export const RELEASES: ReleaseEntry[] = [
     sections: [
       {
         heading: 'Learn',
-        body: 'Learn sits in the top bar, or under Help on a smaller screen, and teaches Scenri in six short lessons: your first shot, adding a product, a presenter, a scene, using a product again, and refining a shot. Each lesson keeps its own place, so you can set one down, take up another and come back to it. A new install is offered a guided first shot, and the guide can step back when you change your mind.',
+        body: 'Six short lessons, in the top bar or under Help on a smaller screen, teach Scenri: your first shot, adding a product, a presenter, a scene, using a product again, and refining a shot. Each lesson keeps its own place, so you can set one down, take up another and come back to it. A new install is offered a guided first shot, and the guide can step back when you change your mind.',
       },
       {
         heading: 'Alerts',
-        body: 'Alerts are smaller and stack at the bottom of the screen, above the composer rather than over it. The same event twice shares one card, an error stays until you close it, and an alert holds still while you point at it or tab into it.',
+        body: 'Each alert is smaller, and they stack at the bottom of the screen, above the composer rather than over it. The same event twice shares one card, an error stays until you close it, and an alert holds still while you point at it or tab into it.',
       },
       {
         heading: 'Create',
@@ -1402,6 +1402,26 @@ const HYPE = /\b(revolutionary|game.?chang|supercharg|unlock the power|thrilled|
 const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
 /** A feature's id: what the studio's `feature="..."` and `markUsed('...')` name. */
 const FEATURE_ID = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+const ARTICLES = new Set(['a', 'an', 'the']);
+/** A line's words, in lower case, letters and figures only. */
+const wordsOf = (text: string) =>
+  text
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => w.replace(/[^\p{L}\p{N}]/gu, ''))
+    .filter(Boolean);
+/**
+ * A sentence that opens with its heading's own word: "Codex" over "Codex
+ * keeps". An article both open with is read past ("The studio" over "The
+ * studio opens"), and one only the sentence opens with is not a repeat
+ * ("Library" over "The library download").
+ */
+const repeatsHeading = (heading: string, body: string) => {
+  const [h, hNext] = wordsOf(heading);
+  const [b, bNext] = wordsOf(body);
+  if (!h || h !== b) return false;
+  return ARTICLES.has(h) ? !!hNext && hNext === bNext : true;
+};
 
 /**
  * Everything obviously broken about a set of release records, as plain
@@ -1508,6 +1528,14 @@ export function validateReleases(releases: ReleaseEntry[], currentVersion: strin
         problems.push(`${where}: on screen it is the prompt, never the brief`);
       const words = [r.title ?? '', ...r.sections.map((s) => s.body)].join(' ');
       if (/(?<!npx )\bscenri\b(?!@)/.test(words)) problems.push(`${where}: "scenri" in a sentence is Scenri`);
+      // The page sets every area's heading on its own line over its sentence, and
+      // every release open, so a sentence that opens with the heading's word
+      // reads it twice ("Codex / Codex keeps").
+      for (const s of r.sections) {
+        if (repeatsHeading(s.heading, s.body)) {
+          problems.push(`${where}: section "${s.heading}" opens by repeating its heading; the heading already says it`);
+        }
+      }
     }
 
     if (inApp.has(r.version)) {
@@ -1518,15 +1546,6 @@ export function validateReleases(releases: ReleaseEntry[], currentVersion: strin
         problems.push(`${where}: title is ${r.title.length} characters; a title fits in 64`);
       }
       for (const s of r.sections) {
-        // The heading stands on its own line over the sentence; a sentence that
-        // opens with the heading's word reads it twice ("Codex / Codex keeps").
-        const opens = s.body
-          .split(/\s+/)[0]
-          ?.replace(/[^\p{L}\p{N}]/gu, '')
-          .toLowerCase();
-        if (opens && opens === s.heading.split(/\s+/)[0]?.toLowerCase()) {
-          problems.push(`${where}: section "${s.heading}" opens by repeating its heading; the heading already says it`);
-        }
         if (s.body.length > 220) {
           problems.push(
             `${where}: section "${s.heading}" is ${s.body.length} characters; two short sentences fit in 220`,

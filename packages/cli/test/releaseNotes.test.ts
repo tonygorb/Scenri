@@ -491,11 +491,6 @@ describe('validateReleases', () => {
           'release 0.2.0: title is 65 characters; a title fits in 64',
         ],
         [
-          'a section that opens by repeating its heading',
-          ok({ sections: [{ heading: 'Codex', body: 'Codex keeps no copy of a picture.' }] }),
-          'release 0.2.0: section "Codex" opens by repeating its heading; the heading already says it',
-        ],
-        [
           'a body past 220 characters',
           ok({ sections: [{ heading: 'Create', body: 'x'.repeat(221) }] }),
           'release 0.2.0: section "Create" is 221 characters; two short sentences fit in 220',
@@ -551,6 +546,11 @@ describe('validateReleases', () => {
         ],
         ['the word brief in a headline', { title: 'A steadier brief on phones' }, brief],
         ['the word briefs in a headline', { title: 'Briefs keep their chips' }, brief],
+        [
+          'a section that opens by repeating its heading',
+          { sections: [{ heading: 'Codex', body: 'Codex keeps no copy of a picture.' }] },
+          'release 0.2.0: section "Codex" opens by repeating its heading; the heading already says it',
+        ],
         ['the name in lowercase in a headline', { title: `A calmer ${name} on phones` }, lowercase],
         [
           'the name in lowercase in a body',
@@ -588,6 +588,17 @@ describe('validateReleases', () => {
           sections: [{ heading: 'Updates', body: `Run npx ${name}@latest once, then open ${name} as usual.` }],
         });
         expect(validateReleases(outside(both), '0.7.0')).toEqual([lowercase]);
+      });
+
+      it('reads past an article both open with, and never counts one only the sentence opens with', () => {
+        const studio = ok({ sections: [{ heading: 'The studio', body: 'The Scenri mark sits in the top bar.' }] });
+        expect(validateReleases([studio], '0.2.0')).toEqual([]);
+        const library = ok({ sections: [{ heading: 'Library', body: 'The library download is checked first.' }] });
+        expect(validateReleases([library], '0.2.0')).toEqual([]);
+        const twice = ok({ sections: [{ heading: 'The studio', body: 'The studio opens faster.' }] });
+        expect(validateReleases([twice], '0.2.0')).toEqual([
+          'release 0.2.0: section "The studio" opens by repeating its heading; the heading already says it',
+        ]);
       });
 
       it('leaves a full stop inside a headline alone', () => {
