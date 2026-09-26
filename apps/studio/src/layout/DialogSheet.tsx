@@ -34,8 +34,12 @@ export function DialogSheet({
 }: {
   open?: boolean;
   className?: string;
-  /** `guide`: a first-use surface, held behind the guide's darker, softened curtain. */
-  tone?: 'guide';
+  /**
+   * `guide`: a first-use surface, held behind the guide's darker, softened curtain.
+   * `dim`: an announcement that opens by itself (What's New): the app's darker
+   * scrim and no blur, so nothing behind it reads as part of it.
+   */
+  tone?: 'guide' | 'dim';
   maxWidth?: string;
   /** Set when a SheetDescription is inside, so Radix can point at it. */
   described?: boolean;
@@ -110,6 +114,23 @@ export const SheetClose = forwardRef<HTMLButtonElement, ComponentPropsWithoutRef
   },
 );
 
-export function SheetDescription({ className, children }: { className?: string; children: ReactNode }) {
-  return <Primitive.Description className={className}>{children}</Primitive.Description>;
+/**
+ * The sentence a dialog is described by. `asChild` lends that role to an
+ * element of the caller's, so a heading can describe the dialog it heads
+ * (What's New: the update's own headline) without a second copy of it.
+ */
+export function SheetDescription({
+  className,
+  asChild,
+  children,
+}: {
+  className?: string;
+  asChild?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Primitive.Description className={className} asChild={asChild}>
+      {children}
+    </Primitive.Description>
+  );
 }

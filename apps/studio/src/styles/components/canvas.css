@@ -91,9 +91,10 @@
    ========================================================================= */
 .sc-cell,
 .sc-lookcard,
-.sc-sceneview-frame {
-  /* One skin for a shot, a catalog card and a scene page's view. Hover
-     catches a little light, press goes a step darker. */
+.sc-sceneview-frame,
+.sc-wn-media {
+  /* One skin for a shot, a catalog card, a scene page's view and a What's
+     New picture. Hover catches a little light, press goes a step darker. */
   --sc-cell-ctl-bg: var(--sc-glass);
   --sc-cell-ctl-bg-hover: color-mix(in srgb, var(--sc-glass) 86%, #fff);
   --sc-cell-ctl-bg-press: color-mix(in srgb, var(--sc-glass) 78%, #000);

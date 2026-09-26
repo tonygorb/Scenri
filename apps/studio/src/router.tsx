@@ -27,6 +27,7 @@ import { ProductsView } from './views/Products.js';
 import { ProductPage } from './views/ProductPage.js';
 import { CreateView } from './views/Create.js';
 import { ShotDetailRoute } from './views/ShotDetailRoute.js';
+import { WhatsNewPage } from './views/WhatsNewPage.js';
 import { FailureRow } from './layout/Failure.js';
 import { useTitleEntity } from './useDocumentTitle.js';
 
@@ -213,6 +214,7 @@ export const router = createBrowserRouter([
           // at it — the catalog-import notification, the legacy /b/<brand>/brand
           // rewrite, anyone's bookmark — land in the pane instead of nowhere.
           { path: P.kit, element: <KitRedirect /> },
+          { path: P.whatsNew, element: <WhatsNewPage /> },
           { path: P.products, element: <ProductsView /> },
           { path: P.product, element: <ProductRoute /> },
           // the scene studio is a child of the library, and its editor a child of
