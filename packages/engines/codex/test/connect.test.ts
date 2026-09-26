@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { spawn } from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createRunner } from '../src/run.js';
+import { createRunner, execArgs } from '../src/run.js';
 import { CONNECT_PROMPT } from '../src/connect.js';
 
 // The runner reads the MCP server names in $CODEX_HOME/config.toml; a
@@ -225,6 +225,70 @@ describe('what the verdict costs, and when it expires', () => {
     expect(execCalls(calls)).toHaveLength(1);
     ignored = ['CODEX_API_KEY'];
     await runner.connect();
+    expect(execCalls(calls)).toHaveLength(2);
+  });
+
+  // A shot that exits 0 has already asked the check's question, through the
+  // same spawn, the same environment and the same model. Opening the setup
+  // dialog a minute later must not pay a second turn to hear it again.
+  it('takes a finished shot as the proof, and spends no check after it', async () => {
+    const { spawnImpl, calls } = machine(healthyExec);
+    const runner = createRunner({ ...base, spawnImpl });
+    await runner.probe();
+    await runner.withWorkDir((dir) => runner.run(execArgs(dir), undefined, { stdin: 'a shot' }));
+    await expect(runner.connect()).resolves.toMatchObject({ outcome: 'proven' });
+    expect(execCalls(calls)).toHaveLength(1);
+  });
+
+  it('takes nothing from a shot that failed, and still runs the check', async () => {
+    let execs = 0;
+    const { spawnImpl, calls } = machine((call) => {
+      execs += 1;
+      if (execs === 1) {
+        call.child.stderr.emit('data', "ERROR: You've hit your usage limit. Upgrade to Pro\n");
+        return void call.child.emit('exit', 1, null);
+      }
+      healthyExec(call);
+    });
+    const runner = createRunner({ ...base, spawnImpl });
+    await runner.probe();
+    await expect(
+      runner.withWorkDir((dir) => runner.run(execArgs(dir), undefined, { stdin: 'a shot' })),
+    ).rejects.toThrow(/usage limit/);
+    await expect(runner.connect()).resolves.toMatchObject({ outcome: 'proven' });
+    expect(execCalls(calls)).toHaveLength(2);
+  });
+
+  // Restoring or repairing the environment forces a check. A shot started
+  // before that change and finishing after it proves the old environment,
+  // not the new one, and must not wipe the check's refusal off the banner.
+  it('takes no proof from a shot launched before the variables changed', async () => {
+    let ignored = ['CODEX_API_KEY'];
+    let execs = 0;
+    let held: Call | null = null;
+    const { spawnImpl, calls } = machine((call) => {
+      execs += 1;
+      if (execs === 1) {
+        held = call;
+        return;
+      }
+      refusedExec(call);
+    });
+    const runner = createRunner({
+      ...base,
+      spawnImpl,
+      env: { CODEX_API_KEY: 'sk-proj-stale' },
+      ignoreEnvKeys: () => ignored,
+    });
+    await runner.probe();
+    const shot = runner.withWorkDir((dir) => runner.run(execArgs(dir), undefined, { stdin: 'a shot' }));
+    await vi.waitFor(() => expect(held).not.toBeNull());
+    ignored = [];
+    runner.invalidateConnection();
+    await expect(runner.connect()).resolves.toMatchObject({ outcome: 'refused' });
+    (held as unknown as Call).child.emit('exit', 0, null);
+    await shot;
+    await expect(runner.connect()).resolves.toMatchObject({ outcome: 'refused' });
     expect(execCalls(calls)).toHaveLength(2);
   });
 

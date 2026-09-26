@@ -18,6 +18,9 @@ function genReq(overrides: Partial<GenerateRequest> = {}): GenerateRequest {
   };
 }
 
+const POLL = 'https://api.replicate.com/v1/predictions/p-poll';
+const CANCEL = 'https://api.replicate.com/v1/predictions/p-poll/cancel';
+
 interface MockResponseInit {
   ok?: boolean;
   status?: number;
@@ -155,8 +158,47 @@ describe('generate', () => {
     expect(headers.Prefer).toBe('wait');
     expect(headers['Content-Type']).toBe('application/json');
     expect(JSON.parse(String(create.init?.body))).toEqual({
-      input: { prompt: 'a red bicycle', num_outputs: 3, aspect_ratio: '16:9' },
+      input: { prompt: 'a red bicycle', num_outputs: 3, aspect_ratio: '16:9', output_format: 'png' },
     });
+  });
+
+  it('asks flux-schnell for a lossless png rather than its default webp', async () => {
+    // Left alone, flux-schnell answers in webp at quality 80, a lossy frame the
+    // server then re-encodes to png. A png arrives as delivered.
+    const { impl, calls } = recordingFetch((url) =>
+      url.endsWith('/predictions')
+        ? mockRes({ json: { status: 'succeeded', output: 'https://cdn.example/one.png' } })
+        : mockRes({ bytes: new Uint8Array([1]) }),
+    );
+    const { engine } = makeEngine({ fetchImpl: impl });
+    await engine.generate(genReq());
+    expect(JSON.parse(String(calls[0].init?.body)).input.output_format).toBe('png');
+  });
+
+  it('tells Replicate to stop the prediction itself at the adapter ceiling', async () => {
+    // Cancel-After is measured from creation, so a prediction this process can
+    // no longer cancel (it quit, or a Stop landed mid-create) still ends.
+    const { impl, calls } = recordingFetch((url) =>
+      url.endsWith('/predictions')
+        ? mockRes({ json: { status: 'succeeded', output: 'https://cdn.example/one.png' } })
+        : mockRes({ bytes: new Uint8Array([1]) }),
+    );
+    const engine = createReplicateEngine({ getKey: () => 'k', saveImage: () => 'h', fetchImpl: impl });
+    await engine.generate(genReq({ count: 1 }));
+    const headers = calls[0].init?.headers as Record<string, string>;
+    expect(headers['Cancel-After']).toBe('600s');
+  });
+
+  it('never sends a Cancel-After below the documented five second minimum', async () => {
+    const { impl, calls } = recordingFetch((url) =>
+      url.endsWith('/predictions')
+        ? mockRes({ json: { status: 'succeeded', output: 'https://cdn.example/one.png' } })
+        : mockRes({ bytes: new Uint8Array([1]) }),
+    );
+    const { engine } = makeEngine({ fetchImpl: impl, timeoutMs: 500 });
+    await engine.generate(genReq({ count: 1 }));
+    const headers = calls[0].init?.headers as Record<string, string>;
+    expect(headers['Cancel-After']).toBe('5s');
   });
 
   it('honors a custom model slug', async () => {
@@ -171,11 +213,21 @@ describe('generate', () => {
   });
 
   it.each([
+    // the eleven ratios black-forest-labs/flux-schnell documents
     [1024, 1024, '1:1'],
     [1920, 1080, '16:9'],
+    [2016, 864, '21:9'],
+    [1536, 1024, '3:2'],
+    [1024, 1536, '2:3'],
+    [1024, 1280, '4:5'],
+    [1280, 1024, '5:4'],
+    [1024, 1365, '3:4'],
+    [1365, 1024, '4:3'],
     [1080, 1920, '9:16'],
-    [1600, 1000, '16:9'], // 1.6 is nearer 16:9 than 1:1
-    [900, 1000, '1:1'],
+    [864, 2016, '9:21'],
+    // and near misses snap to the closest of them
+    [1600, 1000, '3:2'], // 1.6 is nearer 3:2 than 16:9
+    [950, 1000, '1:1'],
   ])('maps %dx%d to aspect_ratio %s', async (width, height, expected) => {
     const { impl, calls } = recordingFetch((url) =>
       url.endsWith('/predictions')
@@ -187,15 +239,18 @@ describe('generate', () => {
     expect(JSON.parse(String(calls[0].init?.body)).input.aspect_ratio).toBe(expected);
   });
 
-  it('refuses a 4:5 portrait rather than silently returning a square', async () => {
-    // The provider's ratio menu has no portrait entry, so 1024x1280 (0.8) lands
-    // nearer 1:1 than 9:16 and used to come back squared with no warning. That
-    // is the exact shape the Look catalog is built on, so it fails loudly.
-    const { impl } = recordingFetch(() => mockRes({ json: { status: 'succeeded', output: 'x' } }));
+  it.each([
+    [3072, 1024, '21:9'],
+    [1024, 3072, '9:21'],
+  ])('refuses %dx%d rather than silently returning %s', async (width, height, nearest) => {
+    // A shape past every entry on the menu (3:1 is 22% off 21:9) would come back
+    // as a different frame than the one asked for, so it fails before sending.
+    const { impl, calls } = recordingFetch(() => mockRes({ json: { status: 'succeeded', output: 'x' } }));
     const { engine } = makeEngine({ fetchImpl: impl });
-    await expect(engine.generate(genReq({ width: 1024, height: 1280 }))).rejects.toThrow(
-      /supports only .* silently returned as 1:1/s,
+    await expect(engine.generate(genReq({ width, height }))).rejects.toThrow(
+      new RegExp(`supports only .* silently returned as ${nearest}`, 's'),
     );
+    expect(calls).toHaveLength(0);
   });
 
   it('saves each output image and returns hashes and cost', async () => {
@@ -294,6 +349,144 @@ describe('generate', () => {
     await expect(engine.generate(genReq())).rejects.toThrow(/timed out after 20ms/);
   });
 
+  it('keeps polling past two minutes, up to its own ten minute ceiling', async () => {
+    // It used to give up at 120s while the server's node budget runs ten
+    // minutes, so a slow prediction that then succeeded was billed and thrown
+    // away. Now the caller's signal ends the wait, with 600s as the backstop.
+    vi.useFakeTimers();
+    try {
+      const start = Date.now();
+      const { impl } = recordingFetch((url) => {
+        if (url.endsWith('/predictions')) {
+          return mockRes({ json: { id: 'p5', status: 'processing', urls: { get: POLL } } });
+        }
+        if (url === POLL) {
+          return Date.now() - start < 300_000
+            ? mockRes({ json: { status: 'processing' } })
+            : mockRes({ json: { status: 'succeeded', output: ['https://cdn.example/slow.png'] } });
+        }
+        return mockRes({ bytes: new Uint8Array([5]) });
+      });
+      const engine = createReplicateEngine({
+        getKey: () => 'k',
+        saveImage: () => 'hash-slow',
+        fetchImpl: impl,
+        pollIntervalMs: 5_000,
+      });
+      const outcome = engine.generate(genReq({ count: 1 })).then(
+        (r) => r,
+        (e: Error) => e,
+      );
+      await vi.advanceTimersByTimeAsync(310_000);
+      expect(await outcome).toMatchObject({ images: ['hash-slow'] });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('gives up at the ten minute ceiling and cancels the prediction', async () => {
+    vi.useFakeTimers();
+    try {
+      const { impl, calls } = recordingFetch((url) =>
+        url.endsWith('/predictions')
+          ? mockRes({ json: { id: 'p6', status: 'processing', urls: { get: POLL, cancel: CANCEL } } })
+          : mockRes({ json: { status: 'processing' } }),
+      );
+      const engine = createReplicateEngine({
+        getKey: () => 'k',
+        saveImage: () => 'h',
+        fetchImpl: impl,
+        pollIntervalMs: 5_000,
+      });
+      const outcome = engine.generate(genReq({ count: 1 })).then(
+        (r) => r,
+        (e: Error) => e,
+      );
+      await vi.advanceTimersByTimeAsync(610_000);
+      const err = await outcome;
+      expect(err).toBeInstanceOf(Error);
+      expect((err as Error).message).toMatch(/timed out after 600000ms/);
+      expect(calls.filter((c) => c.url === CANCEL)).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancels the prediction on Replicate when the caller aborts', async () => {
+    // A Stop used to throw here and leave the prediction running, and billed.
+    const ctrl = new AbortController();
+    let polls = 0;
+    const { impl, calls } = recordingFetch((url) => {
+      if (url.endsWith('/predictions')) {
+        return mockRes({ json: { id: 'p4', status: 'processing', urls: { get: POLL, cancel: CANCEL } } });
+      }
+      if (url === POLL) {
+        polls += 1;
+        if (polls === 2) ctrl.abort();
+        return mockRes({ json: { status: 'processing' } });
+      }
+      return mockRes({ json: { status: 'canceled' } });
+    });
+    const { engine } = makeEngine({ fetchImpl: impl, key: 'r8_stop' });
+
+    await expect(engine.generate(genReq(), ctrl.signal)).rejects.toThrow(/aborted/);
+
+    const cancel = calls.find((c) => c.url === CANCEL);
+    expect(cancel?.init?.method).toBe('POST');
+    const headers = cancel?.init?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer r8_stop');
+    // not the caller's signal, which is already aborted and would kill the cancel itself
+    expect(cancel?.init?.signal?.aborted).toBe(false);
+  });
+
+  it('cancels on the adapter deadline too', async () => {
+    const { impl, calls } = recordingFetch((url) =>
+      url.endsWith('/predictions')
+        ? mockRes({ json: { id: 'p7', status: 'processing', urls: { get: POLL, cancel: CANCEL } } })
+        : mockRes({ json: { status: 'processing' } }),
+    );
+    const { engine } = makeEngine({ fetchImpl: impl, pollIntervalMs: 1, timeoutMs: 20 });
+    await expect(engine.generate(genReq())).rejects.toThrow(/timed out after 20ms/);
+    expect(calls.filter((c) => c.url === CANCEL && c.init?.method === 'POST')).toHaveLength(1);
+  });
+
+  it('builds the documented cancel path from the id when urls.cancel is absent', async () => {
+    const { impl, calls } = recordingFetch((url) =>
+      url.endsWith('/predictions')
+        ? mockRes({ json: { id: 'p9', status: 'processing', urls: { get: POLL } } })
+        : mockRes({ json: { status: 'processing' } }),
+    );
+    const { engine } = makeEngine({ fetchImpl: impl, pollIntervalMs: 1, timeoutMs: 20 });
+    await expect(engine.generate(genReq())).rejects.toThrow(/timed out/);
+    expect(calls.some((c) => c.url === 'https://api.replicate.com/v1/predictions/p9/cancel')).toBe(true);
+  });
+
+  it('never lets a failing cancel mask the error that ended the wait', async () => {
+    const ctrl = new AbortController();
+    const { impl, calls } = recordingFetch((url) => {
+      if (url.endsWith('/predictions')) {
+        return mockRes({ json: { id: 'p8', status: 'processing', urls: { get: POLL, cancel: CANCEL } } });
+      }
+      if (url === CANCEL) throw new Error('network down');
+      ctrl.abort();
+      return mockRes({ json: { status: 'processing' } });
+    });
+    const { engine } = makeEngine({ fetchImpl: impl });
+    await expect(engine.generate(genReq(), ctrl.signal)).rejects.toThrow(/aborted/);
+    expect(calls.some((c) => c.url === CANCEL)).toBe(true);
+  });
+
+  it('does not cancel a prediction that already failed on its own', async () => {
+    const { impl, calls } = recordingFetch((url) =>
+      url.endsWith('/predictions')
+        ? mockRes({ json: { id: 'p10', status: 'processing', urls: { get: POLL, cancel: CANCEL } } })
+        : mockRes({ json: { status: 'failed', error: 'CUDA out of memory' } }),
+    );
+    const { engine } = makeEngine({ fetchImpl: impl });
+    await expect(engine.generate(genReq())).rejects.toThrow(/failed.*CUDA/);
+    expect(calls.some((c) => c.url === CANCEL)).toBe(false);
+  });
+
   it('throws with status and body snippet on HTTP failure', async () => {
     const body = JSON.stringify({ detail: 'Invalid token.' }) + 'x'.repeat(500);
     const { impl } = recordingFetch(() => mockRes({ ok: false, status: 401, text: body }));
@@ -371,6 +564,8 @@ describe('edit', () => {
     expect(input.original_image_location).toEqual([400, 0]);
     // the same extend of the same shot comes back the same picture
     expect(input.seed).toBe(4242);
+    // bria has no output format field; png stays a generate-only input
+    expect(input.output_format).toBeUndefined();
   });
 
   it('still uses the instruction editor for an ordinary refinement', async () => {
@@ -402,6 +597,9 @@ describe('edit', () => {
     const body = JSON.parse(String(create.init?.body));
     expect(body.input.prompt).toBe('remove the background');
     expect(body.input.input_image).toBe(`data:image/png;base64,${sourceBytes.toString('base64')}`);
+    // kontext-pro already answers in png
+    expect(body.input.output_format).toBeUndefined();
+    expect(headers['Cancel-After']).toBe('5s');
     expect(result.images).toEqual(['hash-1']);
     expect(result.costUsd).toBe(0.04);
   });
